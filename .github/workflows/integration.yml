@@ -1,0 +1,136 @@
+name: integration
+
+# Qui écrit dans `master`, et à quelle condition. Personne ne fusionne sur
+# un avis : ni un agent, ni le propriétaire, ni ce travail. Il lit la liste
+# des contrôles requis déclarée dans `atelier.toml`, la vérifie sur la
+# révision courante de la PR, et fusionne — ou retient, en disant quoi.
+#
+# Deux propriétés qui ne se lisent pas dans le code Python :
+#
+# - **séquentielle** : `concurrency` sérialise les tours, et un tour ne
+#   fusionne qu'une PR. Deux PR vertes séparément ne sont pas une PR verte
+#   ensemble.
+# - **rejouée** : une PR en retard sur `master` est d'abord rejouée dessus.
+#   Ses contrôles n'ont pas vu ce qui a été fusionné depuis.
+#
+# Le second travail est le palier : quand la fusion finit une couche, il
+# dépose la fiche du lot de stabilisation et QA. Rien ne se décide ici —
+# `outils/palier.py` le dérive du registre, ce travail ouvre la PR.
+#
+# Les deux gestes vivent dans `.github/scripts/`, pas ici : un fichier se
+# joue sur un banc (`outils/tests/test_scripts.py`), un bloc de YAML ne se
+# joue nulle part. C'est ce qui a manqué la première fois.
+
+on:
+  schedule:
+    # Le filet, pas le chemin ordinaire : les événements ci-dessous
+    # réveillent l'intégration en quelques secondes. Celui-ci rattrape ce
+    # qu'un événement perdu aurait laissé dormir.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      palier:
+        # Le palier se dépose à la fusion qui finit une couche, et c'est
+        # le seul moment où la question se pose. Si ce tour-là est mort en
+        # route, la couche reste finie et son palier n'arrive jamais : il
+        # faut pouvoir reposer la question sans attendre une fusion qui
+        # n'aura pas lieu. Le dépôt reste idempotent — une proposition de
+        # palier déjà ouverte sur la couche fait sortir le geste en le
+        # disant.
+        description: "forcer le dépôt du palier, même sans fusion ce tour-ci"
+        required: false
+        default: "non"
+        type: choice
+        options:
+          - non
+          - oui
+  workflow_run:
+    workflows: [tests, security, relecture]
+    types: [completed]
+  pull_request_review:
+    types: [submitted]
+
+# Un seul tour à la fois : c'est ce qui rend l'intégration séquentielle.
+# Sans cette clause, deux réveils simultanés fusionneraient deux PR qui
+# n'ont jamais été testées l'une sur l'autre.
+concurrency:
+  group: registre
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  integrer:
+    runs-on: ubuntu-latest
+    outputs:
+      fusionnee: ${{ steps.geste.outputs.fusionnee }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Quelle PR entre dans master
+        id: decision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          decision=$(SORTIE_DECISION="$GITHUB_OUTPUT" python3 -m outils integration --depot "$GITHUB_REPOSITORY" --projet .)
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          echo "$decision"
+
+      - name: Le geste
+        id: geste
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          DECISION: ${{ steps.decision.outputs.decision }}
+          EXIGER_REVISION: "true"
+          REVISION_ATTENDUE: ${{ steps.decision.outputs.revision }}
+          BASE: master
+        # `$GITHUB_OUTPUT` est un chemin que le runner pose dans
+        # l'environnement : il se passe au script, il ne se recompose pas.
+        run: SORTIE="$GITHUB_OUTPUT" bash .github/scripts/integrer.sh
+
+  palier:
+    # Une couche ne se finit qu'à une fusion : c'est le moment ordinaire
+    # où la question se pose. L'entrée « palier » de l'appel manuel est
+    # le rattrapage — quand la fusion a eu lieu et que le dépôt, lui, n'a
+    # pas eu lieu.
+    needs: integrer
+    if: needs.integrer.outputs.fusionnee != '' || inputs.palier == 'oui'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Une couche finie attend-elle son palier ?
+        id: palier
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ligne=$(python3 -m outils palier --projet . --depot "$GITHUB_REPOSITORY" --ecrire 2> palier.log)
+          cat palier.log
+          echo "ligne=$ligne" >> "$GITHUB_OUTPUT"
+          echo "$ligne"
+
+      - name: Déposer la fiche du lot de stabilisation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          LIGNE: ${{ steps.palier.outputs.ligne }}
+          BASE: master
+          COMPTE_RENDU: palier.log
+        run: bash .github/scripts/palier.sh

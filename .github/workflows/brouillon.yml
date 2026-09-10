@@ -1,0 +1,45 @@
+name: brouillon
+
+# Sortir une proposition du brouillon.
+#
+# La chaîne ne regarde pas les brouillons : `integration.examiner` le dit
+# et s'arrête là. Les propositions de couverture de tests arrivent en
+# brouillon et y restent — quatre d'entre elles ont dormi trois jours
+# début septembre 2026 sans que rien ne le signale.
+#
+# Sortir du brouillon ne déclenche aucun travail : `pull_request` n'écoute
+# ni `ready_for_review` par défaut, ni ce qu'un jeton d'Actions produit.
+# Le geste redemande donc les contrôles dans la foulée, sinon la
+# proposition passerait de « brouillon » à « contrôle absent ».
+#
+# Le geste vit dans `.github/scripts/brouillon.sh`, pas ici.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "le numéro de la proposition"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: write
+
+jobs:
+  sortir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - name: Est-ce encore un brouillon ?
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          PR: ${{ inputs.pr }}
+          BASE: master
+        run: bash .github/scripts/brouillon.sh

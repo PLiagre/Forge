@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "assets_root": "Assets",
+  "adapted_output_root": "Assets/CityLabHost/Adapted/Factory",
+  "inventory_output": "AssetFactory/Reports/source_inventory.json",
+  "discover_unregistered_asset_roots": true,
+  "ignored_asset_roots": [
+    "CityLabHost",
+    "Resources",
+    "Vendor"
+  ],
+  "blender": {
+    "executable": "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe",
+    "windows_globs": [
+      "C:/Program Files/Blender Foundation/Blender */blender.exe"
+    ]
+  },
+  "sources": [
+    {
+      "id": "doublel",
+      "path": "Assets/DoubleL",
+      "provenance": {
+        "kind": "unity_asset_store",
+        "store_url": "https://assetstore.unity.com/packages/3d/animations/rpg-animations-pack-free-288783",
+        "version": "1.9",
+        "acquired": "2026-07-26",
+        "license": "Standard Unity Asset Store EULA, registre Assets/Vendor/THIRD_PARTY_ASSETS.md",
+        "license_status": "verified"
+      }
+    },
+    {
+      "id": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt",
+      "provenance": {
+        "kind": "unity_asset_store",
+        "store_url": "https://assetstore.unity.com/packages/3d/environments/fantasy/slavic-medieval-environment-town-interior-and-exterior-167010",
+        "version": "1.7",
+        "acquired": "2026-07-26",
+        "license": "Standard Unity Asset Store EULA, registre Assets/Vendor/THIRD_PARTY_ASSETS.md",
+        "license_status": "verified"
+      }
+    },
+    {
+      "id": "kevin_iglesias",
+      "path": "Assets/Kevin Iglesias",
+      "provenance": {
+        "kind": "unity_asset_store",
+        "store_url": "https://assetstore.unity.com/packages/3d/animations/human-basic-motions-free-154271",
+        "version": "2.4.2",
+        "acquired": "2026-07-26",
+        "license": "Standard Unity Asset Store EULA, registre Assets/Vendor/THIRD_PARTY_ASSETS.md",
+        "license_status": "verified"
+      }
+    },
+    {
+      "id": "polytope_studio",
+      "path": "Assets/Polytope Studio",
+      "provenance": {
+        "kind": "unity_asset_store",
+        "store_url": "https://assetstore.unity.com/packages/3d/environments/landscapes/low-poly-nature-free-vegetation-rocks-and-water-162124",
+        "version": "1.1.2",
+        "acquired": "2026-07-26",
+        "license": "Standard Unity Asset Store EULA, registre Assets/Vendor/THIRD_PARTY_ASSETS.md",
+        "license_status": "verified"
+      }
+    },
+    {
+      "id": "ganzse_free_modular_character",
+      "path": "Assets/URP GanzSe Free Modular Character Pack",
+      "provenance": {
+        "kind": "unity_asset_store",
+        "store_url": "https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/free-modular-character-pack-urp-medieval-fantasy-307385",
+        "version": "1.12",
+        "acquired": "2026-07-26",
+        "license": "Standard Unity Asset Store EULA, registre Assets/Vendor/THIRD_PARTY_ASSETS.md",
+        "license_status": "verified"
+      }
+    }
+  ]
+}

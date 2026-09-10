@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "id": "texture_citylab_trim_v2",
+  "status": "generated_validated_pending_publication",
+  "seed": 2026082705,
+  "resolution": 2048,
+  "maps": [
+    "BaseColor",
+    "Normal",
+    "AO",
+    "Roughness",
+    "Metallic",
+    "VariationMask"
+  ],
+  "total_bytes": 6750525,
+  "budget_bytes": 25165824,
+  "contrast_by_resolution": {
+    "512": {
+      "structural_wood": 9.8824,
+      "sawn_planks": 17.7607,
+      "lime_plaster": 54.1638,
+      "dressed_stone": 11.488,
+      "fired_brick": 9.9424,
+      "roof_tiles": 14.0561
+    },
+    "256": {
+      "structural_wood": 9.6458,
+      "sawn_planks": 14.6458,
+      "lime_plaster": 53.5948,
+      "dressed_stone": 10.5271,
+      "fired_brick": 9.6953,
+      "roof_tiles": 12.3411
+    },
+    "128": {
+      "structural_wood": 8.3527,
+      "sawn_planks": 11.1737,
+      "lime_plaster": 52.2349,
+      "dressed_stone": 9.0076,
+      "fired_brick": 9.4716,
+      "roof_tiles": 10.3843
+    }
+  },
+  "regions": [
+    "structural_wood",
+    "sawn_planks",
+    "lime_plaster",
+    "dressed_stone",
+    "fired_brick",
+    "roof_tiles"
+  ],
+  "review": "AssetFactory/Workbench/Textures/CityLabTrimV2/CityLabTrimV2_ResolutionReview.png",
+  "unity_launched": false
+}

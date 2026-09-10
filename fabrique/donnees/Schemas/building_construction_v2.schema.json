@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victoria-citylab.local/schemas/building_construction_v2.schema.json",
+  "title": "Victoria CityLab procedural building construction contract, version 2",
+  "description": "Version 2 du contrat de construction. La version 1 fixait quatre phases dans le schema lui-meme -- minItems 4, maxItems 4, quatre prefixItems nommes -- et le nombre quatre se recopiait ensuite dans le generateur Blender, le validateur FBX et l'integration Unity. Un mur entier apparaissait alors en un seul coup : 1 284 triangles sur 3 024 arrivaient a la deuxieme image. La version 2 fait du decoupage une donnee. Le vocabulaire des etapes est ferme et ordonne ; un batiment declare celles qu'il emploie. La version 1 reste valide et la scierie publiee continue de s'y conformer.",
+  "type": "object",
+  "required": ["construction", "variants"],
+  "properties": {
+    "construction": {
+      "type": "object",
+      "required": ["mode", "contract", "stages"],
+      "properties": {
+        "mode": { "const": "cumulative_layers" },
+        "contract": { "const": 2 },
+        "lod_per_stage": {
+          "description": "Nombre de LOD produits pour une etape presente. Une etape peut manquer a un LOD lointain sans manquer a la fin : il n'y a pas de menuiserie lisible a 96 px. Ce qui est garanti est l'invariant I3 ci-dessous, pas la densite de la grille etape x LOD.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "stages": {
+          "description": "Les etapes employees par ce batiment, dans l'ordre. Elles sont tirees du vocabulaire ferme `stage_id` et leur `order` suit l'ordre du vocabulaire. Une etape absente est absente : elle n'est ni declaree ni exportee.",
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/stage" }
+        }
+      }
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "seed_offset", "palette", "brace_style", "chimney"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+$" },
+          "seed_offset": { "type": "integer" },
+          "palette": {
+            "type": "object",
+            "required": ["wood", "wood_highlight", "roof", "roof_accent"]
+          },
+          "brace_style": { "enum": ["classic", "crossed", "dense"] },
+          "chimney": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stage_id": {
+      "description": "Le vocabulaire ferme des etapes de chantier, dans l'ordre ou elles se posent. `groundworks` terrasse et coule l'assise ; `basecourse` monte les assises de pierre ; `framing` dresse l'ossature et les murs du rez ; `floors` pose les planchers et les encorbellements ; `carpentry` leve pignons et charpente ; `roofing` couvre ; `joinery` pose menuiseries et vitrages ; `finishes` ajoute volumes rapportes, souche et accessoires.",
+      "enum": [
+        "groundworks",
+        "basecourse",
+        "framing",
+        "floors",
+        "carpentry",
+        "roofing",
+        "joinery",
+        "finishes"
+      ]
+    },
+    "stage": {
+      "type": "object",
+      "required": ["id", "order", "label", "progress", "required_categories"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/stage_id" },
+        "order": {
+          "description": "Le rang dans le vocabulaire, de 1 a 8. Il ne se renumerote pas quand une etape manque : c'est le rang qui donne son nom au nœud du FBX, et l'hote lit ce nom.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "progress": {
+          "description": "Intervalle de progres du chantier couvert par l'etape. Les intervalles se suivent sans trou et le dernier finit a 1,0.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+        },
+        "required_categories": {
+          "description": "Les categories de LOD que cette etape porte. Elles ne se recoupent pas d'une etape a l'autre : une categorie appartient a une etape et a une seule, sinon la meme geometrie apparaitrait deux fois et l'invariant I3 tomberait.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$comment": "Trois invariants portent le contrat, et ce sont eux que le test EditMode de l'hote verifie sur la scene de demonstration. I1 : chaque etape declaree porte au moins un maillage au LOD0. I2 : a chaque LOD, le cumul des etapes 1..k croit avec k -- une etape ajoute de la geometrie, elle n'en retire jamais. I3 : a chaque LOD, l'union de toutes les etapes egale le batiment complet a ce LOD."
+}

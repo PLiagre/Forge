@@ -1,0 +1,61 @@
+name: etat-lot
+
+# Changer l'état d'un lot — `abandonne`, ou retour à `idee`.
+#
+# L'état d'un lot ne s'écrit qu'à un endroit : sa fiche au registre. Et il
+# n'entre dans `master` que par une proposition relue, comme tout le
+# reste : ce travail écrit la fiche sur une branche `feuille/` et ouvre la
+# proposition. Il n'écrit jamais dans la base.
+#
+# La transition n'est pas jugée ici. `outils etat` la confie au même code
+# que `atelier feuille valider` — un second juge finirait par dire autre
+# chose que le premier. Une transition interdite (`livre → abandonne`,
+# par exemple) fait rougir ce travail, avec le message qui la nomme.
+#
+# Le geste vit dans `.github/scripts/etat-lot.sh`, pas ici.
+
+on:
+  workflow_dispatch:
+    inputs:
+      lot:
+        description: "le numéro du lot, 049"
+        required: true
+      etat:
+        description: "l'état visé"
+        required: true
+        type: choice
+        options:
+          - abandonne
+          - idee
+
+# Le même verrou que l'intégration et que les demandes : ces trois-là
+# écrivent le registre, et deux numéros attribués en même temps sont deux
+# fiches qui se marchent dessus.
+concurrency:
+  group: registre
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  marquer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - name: La fiche passe à l'état demandé, en proposition
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          LOT: ${{ inputs.lot }}
+          ETAT: ${{ inputs.etat }}
+          BASE: master
+        run: bash .github/scripts/etat-lot.sh

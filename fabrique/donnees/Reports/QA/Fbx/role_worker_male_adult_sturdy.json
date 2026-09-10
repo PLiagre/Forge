@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "role_worker_male_adult_sturdy",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_worker_male_adult_sturdy.fbx",
+  "fbx_sha256": "15c0539bbc0cd825fdf4fe2a8a6a2d32d57b0a0b49beaa967fb5ab0e22cd775c",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 45,
+  "uv_mesh_count": 45,
+  "lod_mesh_counts": [
+    15,
+    15,
+    15
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

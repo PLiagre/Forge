@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "generator": "Tools/AssetFactory/citylab_factory.py admission-check",
+  "unity_launched": false,
+  "profiles": [
+    {
+      "profile": "AssetFactory/AdmissionProfiles/ganzse_free_modular_character.json",
+      "id": "admission_ganzse_free_modular_character",
+      "source": "ganzse_free_modular_character",
+      "inputs": 1,
+      "status": "passed",
+      "errors": []
+    }
+  ]
+}

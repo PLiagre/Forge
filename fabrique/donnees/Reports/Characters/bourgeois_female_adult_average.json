@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "id": "bourgeois_female_adult_average",
+  "status": "visual_proposal_not_rig_validated",
+  "selection": {
+    "id": "bourgeois_female_adult_average",
+    "role": "bourgeois",
+    "gender": "female",
+    "age": "adult",
+    "morphology": "average",
+    "armor_type": 4,
+    "color": 2,
+    "hair_type": 5,
+    "hair_color": 1,
+    "head_armor": 0,
+    "facial_hair": 0
+  },
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "selected_parts": [
+    "Arm Armor Type 4 Color 2",
+    "Base Character Mesh",
+    "Belt Armor Type 4 Color 2",
+    "Chest Armor Type 4 Color 2",
+    "Ears Type 1",
+    "Eyebrow Type 3 Color 2",
+    "Eyes Type 2 Color 2",
+    "Feet Armor Type 4 Color 2",
+    "Hair Type 5 Color 1",
+    "Legs Armor Type 4 Color 2",
+    "Nose Type 3"
+  ],
+  "preview": "AssetFactory/Workbench/Previews/Characters/bourgeois_female_adult_average.png",
+  "blend": "AssetFactory/Workbench/Characters/bourgeois_female_adult_average_proposal.blend",
+  "unity_launched": false
+}

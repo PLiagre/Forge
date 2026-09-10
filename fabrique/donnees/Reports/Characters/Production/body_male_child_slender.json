@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "body_male_child_slender",
+  "kind": "body",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_child",
+    "gender": "male",
+    "age": "child",
+    "height": 0.72,
+    "shoulders": 0.86,
+    "hips": 0.94,
+    "head": 1.13,
+    "posture": 0,
+    "hair_type": 1,
+    "hair_color": 2
+  },
+  "morphology": {
+    "id": "slender",
+    "width": 0.86,
+    "depth": 0.88,
+    "height": 1.0
+  },
+  "role": null,
+  "bone_count": 52,
+  "lod_triangles": [
+    2272,
+    1178,
+    540
+  ],
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "canonical_sha256": "c9b170f3a368bcdbcde5edfbcb40555c6a950a3900fe9101a9b9e8cf034e3d21",
+  "fbx_sha256": "39ed3740ca624f68ab82b9a9208e1ae65e131b1a69b5751e238d2e533c774f35",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_child_slender.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_child_slender.png",
+  "unity_launched": false
+}

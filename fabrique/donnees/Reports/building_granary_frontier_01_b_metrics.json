@@ -1,0 +1,215 @@
+{
+  "schema": 1,
+  "id": "building_granary_frontier_01_b",
+  "family": "building_granary_frontier_01",
+  "function": "granary",
+  "wall_system": "timber_plank",
+  "roof_system": "wood_shingle",
+  "identity_markers": [
+    "raised_floor",
+    "grain_sacks",
+    "ventilation_slits",
+    "hoist",
+    "grain_emblem"
+  ],
+  "variant": "b",
+  "seed": 2026081301,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Village_Ladder_02a.fbx",
+    "sha256": "cad61c0e50822b07fa18dbb8bafa96e0bc54583544d8aef23504d624e20e84f1"
+  },
+  "grammar": {
+    "footprint_form": "rectangle_lean_to",
+    "level_form": "one_and_half",
+    "roof_form": "gable",
+    "ridge_axis": "long",
+    "width_m": 7.7148,
+    "depth_m": 8.6402,
+    "wall_height_m": 3.6467,
+    "pitch_deg": 44.9587,
+    "rise_m": 4.4036,
+    "ridge_z_m": 8.7001
+  },
+  "budget": {
+    "class": "standard",
+    "lod": [
+      4000,
+      1800,
+      600
+    ]
+  },
+  "triangles": {
+    "lod0": 1652,
+    "lod1": 760,
+    "lod2": 186
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_granary_frontier_01_b__S01_GROUNDWORKS",
+        "lod0": 88,
+        "lod1": 88,
+        "lod2": 88
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_granary_frontier_01_b__S03_FRAMING",
+        "lod0": 352,
+        "lod1": 304,
+        "lod2": 24
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_granary_frontier_01_b__S05_CARPENTRY",
+        "lod0": 220,
+        "lod1": 16,
+        "lod2": 0
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_granary_frontier_01_b__S06_ROOFING",
+        "lod0": 246,
+        "lod1": 102,
+        "lod2": 40
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_granary_frontier_01_b__S07_JOINERY",
+        "lod0": 246,
+        "lod1": 34,
+        "lod2": 34
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_granary_frontier_01_b__S08_FINISHES",
+        "lod0": 500,
+        "lod1": 216,
+        "lod2": 0
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 88,
+      "lod1": 88,
+      "lod2": 88
+    },
+    "framing": {
+      "lod0": 352,
+      "lod1": 304,
+      "lod2": 24
+    },
+    "carpentry": {
+      "lod0": 220,
+      "lod1": 16,
+      "lod2": 0
+    },
+    "roofing": {
+      "lod0": 246,
+      "lod1": 102,
+      "lod2": 40
+    },
+    "joinery": {
+      "lod0": 246,
+      "lod1": 34,
+      "lod2": 34
+    },
+    "finishes": {
+      "lod0": 500,
+      "lod1": 216,
+      "lod2": 0
+    }
+  },
+  "canonical_mesh_sha256": "dd6e4ede090dea4f4254144edbe2a6422bf88cb7e0ddf314ad4622c762f454bb",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_b",
+      "frontier_base_pale_b",
+      "frontier_body_b",
+      "frontier_body_dark_b",
+      "frontier_body_pale_b",
+      "frontier_eave_b",
+      "frontier_ember_b",
+      "frontier_iron_b",
+      "frontier_roof_b"
+    ],
+    "front_wall_edge_loops": 3,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 12,
+    "identity_markers_declared": [
+      "raised_floor",
+      "grain_sacks",
+      "ventilation_slits",
+      "hoist",
+      "grain_emblem"
+    ],
+    "identity_markers_built": [
+      "raised_floor",
+      "grain_sacks",
+      "ventilation_slits",
+      "hoist",
+      "grain_emblem"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 3
+  },
+  "category_triangles": {
+    "shell": 328,
+    "roof_frame": 204,
+    "appendage": 192,
+    "opening_reveal": 156,
+    "edge_trim": 144,
+    "hardware": 132,
+    "micro_prop": 108,
+    "foundation": 88,
+    "lantern_glass": 56,
+    "frame_detail": 48,
+    "opening_detail": 44,
+    "eave": 42,
+    "roof_plane": 40,
+    "opening_plane": 34,
+    "shell_proxy": 24,
+    "gable": 24,
+    "dormer": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_granary_frontier_01_b.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_granary_frontier_01_b.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_stage_02_framing.png",
+      "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_stage_03_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_stage_04_roofing.png",
+      "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_stage_05_joinery.png",
+      "AssetFactory/Workbench/Previews/building_granary_frontier_01_b_stage_06_finishes.png"
+    ]
+  }
+}

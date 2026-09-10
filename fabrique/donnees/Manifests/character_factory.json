@@ -1,0 +1,602 @@
+{
+  "schema": 1,
+  "id": "citylab_character_factory_v1",
+  "status": "published_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "contract": {
+    "body_bases": 6,
+    "morphologies": 4,
+    "body_assets": 24,
+    "role_capsules": 8,
+    "lod_levels": 3,
+    "bones": 52
+  },
+  "gates": {
+    "blender_fbx_validation": true,
+    "unity_launched": false,
+    "unity_humanoid_import": false,
+    "animation_smoke_test": false,
+    "city_visual_library_assignment": false
+  },
+  "assets": [
+    {
+      "id": "body_female_adult_average",
+      "kind": "body",
+      "base": "female_adult",
+      "morphology": "average",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2576,
+        1336,
+        612
+      ],
+      "canonical_sha256": "a6f56059c8be6a9730326a90cbd916d40a26b88919c865b5c7a66a822d5cfa3e",
+      "fbx_sha256": "2d72add4c9d64d8363adfa7ea957b946897795c58603d2d16225ec7e019719fb",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_adult_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_adult_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_adult_average.png"
+    },
+    {
+      "id": "body_female_adult_slender",
+      "kind": "body",
+      "base": "female_adult",
+      "morphology": "slender",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2576,
+        1336,
+        612
+      ],
+      "canonical_sha256": "001c95f30c535b8e8e633e0c161bc7e6d18185fa1e97df339240402bd6df720e",
+      "fbx_sha256": "02274eb4f0d6fb28fd03e2a11cb6c6b0ac46e9322689bd173ab98707e823ee4f",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_adult_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_adult_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_adult_slender.png"
+    },
+    {
+      "id": "body_female_adult_sturdy",
+      "kind": "body",
+      "base": "female_adult",
+      "morphology": "sturdy",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2576,
+        1336,
+        612
+      ],
+      "canonical_sha256": "055a1d07b050364e9f3516d516926ab881db69b7384852d13cf401ed46252247",
+      "fbx_sha256": "8c162d02b3137b6c80813aa2f51bcfc01abb7fdef2990e319830f52d6d513ef3",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_adult_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_adult_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_adult_sturdy.png"
+    },
+    {
+      "id": "body_female_adult_tall",
+      "kind": "body",
+      "base": "female_adult",
+      "morphology": "tall",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2576,
+        1336,
+        612
+      ],
+      "canonical_sha256": "346936147b3a0e4699ef62ab06b076c8129b72bd0b942aef0f9adf6d401930d5",
+      "fbx_sha256": "04e9f71dd5437baea93ce38175eae7511f527624bf3e367b29657a84870bac40",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_adult_tall.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_adult_tall.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_adult_tall.png"
+    },
+    {
+      "id": "body_female_child_average",
+      "kind": "body",
+      "base": "female_child",
+      "morphology": "average",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "eae5334835f19bf72f25f30467172400223630c40fdd8554d889ccf45b1bb553",
+      "fbx_sha256": "f459bff4398512080c6896f566671ac8e8e37391c9628fcb75d23e7aa53bd806",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_child_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_child_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_child_average.png"
+    },
+    {
+      "id": "body_female_child_slender",
+      "kind": "body",
+      "base": "female_child",
+      "morphology": "slender",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "8fe69927b8280c36f9230cf91e353c7c0bd73105b2d32433514f142511eca76e",
+      "fbx_sha256": "c0681ebb32ec1fc46f384e13b2c8129832fad9e912cf779a3023d5b835241f91",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_child_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_child_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_child_slender.png"
+    },
+    {
+      "id": "body_female_child_sturdy",
+      "kind": "body",
+      "base": "female_child",
+      "morphology": "sturdy",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "2f774a0a54d0fec0da72a6a4b4172ddbfc862927bfd5f939fd3aa36dbe1980b9",
+      "fbx_sha256": "7e72bd0e6b2a0439ee89644c0c61f918bcb3bb885414aeb2bc475de96bf0ebcb",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_child_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_child_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_child_sturdy.png"
+    },
+    {
+      "id": "body_female_child_tall",
+      "kind": "body",
+      "base": "female_child",
+      "morphology": "tall",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "fa3f4bced4d80e925c3dc03498660b741a54063111a38d506f1061a4b8956457",
+      "fbx_sha256": "14def92eb574021da6026ef3a995921dd66e1b03eab1b06f1bc974b097b84836",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_child_tall.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_child_tall.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_child_tall.png"
+    },
+    {
+      "id": "body_female_elder_average",
+      "kind": "body",
+      "base": "female_elder",
+      "morphology": "average",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "051ebbdb71f5f7e8f19b49599a08e1b7121bab03bf769d00be11feb812f19a2b",
+      "fbx_sha256": "b26740f83e3b4c20cf823ff5a2aaf6bf74aa4533fd4e76593da60d5c173133b8",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_elder_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_elder_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_elder_average.png"
+    },
+    {
+      "id": "body_female_elder_slender",
+      "kind": "body",
+      "base": "female_elder",
+      "morphology": "slender",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "52f38629279d4aed6ed79d1faf4805c5db3235c32baa0bd86e07a35fd7cd81e6",
+      "fbx_sha256": "8353eeb2c8a539acb100ca98d030c5d7bb146764970faec3e50a5664ea8214c6",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_elder_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_elder_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_elder_slender.png"
+    },
+    {
+      "id": "body_female_elder_sturdy",
+      "kind": "body",
+      "base": "female_elder",
+      "morphology": "sturdy",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "5e4b6a35aba4e314543b9be1ef467a50522db991f34acb7e0c269078b431d0c8",
+      "fbx_sha256": "4cc73c786131d494b5cf969a818e478a3cb13f772025138040ece95b778deac7",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_elder_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_elder_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_elder_sturdy.png"
+    },
+    {
+      "id": "body_female_elder_tall",
+      "kind": "body",
+      "base": "female_elder",
+      "morphology": "tall",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2363,
+        1225,
+        561
+      ],
+      "canonical_sha256": "a13ace97de7f48f0c4650b867dc416b3e2f14c24642945ca18edb299f8d5af5f",
+      "fbx_sha256": "27f740bde8116a7c0f6d35a7fe6268ebf06bd7c7837cfbd71a0f28f1c4a6373f",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_elder_tall.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_elder_tall.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_elder_tall.png"
+    },
+    {
+      "id": "body_male_adult_average",
+      "kind": "body",
+      "base": "male_adult",
+      "morphology": "average",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2546,
+        1320,
+        606
+      ],
+      "canonical_sha256": "02d022567e71c60cbbdadd1222943b94242ad9753c11805dc24efafd14caf01c",
+      "fbx_sha256": "d953f9240f55157e17418597f64ef4f3fef2fb5c1c647cd1307b3f7651e308a3",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_adult_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_adult_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_adult_average.png"
+    },
+    {
+      "id": "body_male_adult_slender",
+      "kind": "body",
+      "base": "male_adult",
+      "morphology": "slender",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2546,
+        1320,
+        606
+      ],
+      "canonical_sha256": "f2d3d5811ea4a7806764d546677bfe5dfc2430dec5b6803a71fabe03bd18f6e7",
+      "fbx_sha256": "2b52a4a004d055d9d5b42578ebe4342502f01d03b53904418c12fc27d21ed90f",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_adult_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_adult_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_adult_slender.png"
+    },
+    {
+      "id": "body_male_adult_sturdy",
+      "kind": "body",
+      "base": "male_adult",
+      "morphology": "sturdy",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2546,
+        1320,
+        606
+      ],
+      "canonical_sha256": "763aea6d0445ac655e3ada36530366269e8dcf5f85dcfb9ff14318b3e889de87",
+      "fbx_sha256": "9d3227de8af499f7a1b8db4f23484582007dee39fc71e309dacb6ce1194db3fd",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_adult_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_adult_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_adult_sturdy.png"
+    },
+    {
+      "id": "body_male_adult_tall",
+      "kind": "body",
+      "base": "male_adult",
+      "morphology": "tall",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2546,
+        1320,
+        606
+      ],
+      "canonical_sha256": "3fa5cc4c45742356ff9b635bcbc9b8a7f7c4f977abf8fec2ee6c3b9b024a01f2",
+      "fbx_sha256": "6b1cc04b863a06900115ab1aebfda0ea8197eb8f08de7b397c96b92a2fa7e892",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_adult_tall.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_adult_tall.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_adult_tall.png"
+    },
+    {
+      "id": "body_male_child_average",
+      "kind": "body",
+      "base": "male_child",
+      "morphology": "average",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "3891c28a5e8ab3454188c0cc94f116510a76bb7e302c7abdc6324f82d2d015b5",
+      "fbx_sha256": "a501638e8acbf10f95986196edc767d00addefb4f4f79b2115e83bf9315f7eaa",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_child_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_child_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_child_average.png"
+    },
+    {
+      "id": "body_male_child_slender",
+      "kind": "body",
+      "base": "male_child",
+      "morphology": "slender",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "c9b170f3a368bcdbcde5edfbcb40555c6a950a3900fe9101a9b9e8cf034e3d21",
+      "fbx_sha256": "39ed3740ca624f68ab82b9a9208e1ae65e131b1a69b5751e238d2e533c774f35",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_child_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_child_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_child_slender.png"
+    },
+    {
+      "id": "body_male_child_sturdy",
+      "kind": "body",
+      "base": "male_child",
+      "morphology": "sturdy",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "d2ecfc356cdbe3f53f7cbeab953ca5a884bfad4f2636e97928feccad0b30b3e9",
+      "fbx_sha256": "fa3cef617d8d33a8138b43a62d421ea87d7e8da193b246a15ac7eedc9ce0f64d",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_child_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_child_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_child_sturdy.png"
+    },
+    {
+      "id": "body_male_child_tall",
+      "kind": "body",
+      "base": "male_child",
+      "morphology": "tall",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "014fc8c13bb0ac38cacd091ddc922f532894cd77f721770942504508ddaf35ab",
+      "fbx_sha256": "e33caf6a4c0d3b60a3845963b72ca1048e9261616855d1a1a10a10d80277fb17",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_child_tall.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_child_tall.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_child_tall.png"
+    },
+    {
+      "id": "body_male_elder_average",
+      "kind": "body",
+      "base": "male_elder",
+      "morphology": "average",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "ce84e8ad12d96c0e46e34858d05b2558f5fd004576c7a3d78763d4bafab0d2b5",
+      "fbx_sha256": "9a33669f36de6aef6065186aac1a8ac147898ce8ade9a02d1b38c548a2fbc112",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_elder_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_elder_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_elder_average.png"
+    },
+    {
+      "id": "body_male_elder_slender",
+      "kind": "body",
+      "base": "male_elder",
+      "morphology": "slender",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "ecfccbbd808273248a3d8952f16a99a8f391cd20f003e877a4d9eb72127e3abb",
+      "fbx_sha256": "b414cda2477c0272ae9409063f0d5cd3dcc8af376be22ee05b4a6b803609ad49",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_elder_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_elder_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_elder_slender.png"
+    },
+    {
+      "id": "body_male_elder_sturdy",
+      "kind": "body",
+      "base": "male_elder",
+      "morphology": "sturdy",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "791264d6601b9ec7dfa577e868c171947a1f16769699fa1a0e14ef6c875048ad",
+      "fbx_sha256": "a84f6bf2b0607e667e934454af0a7f4332d2b03147c0686a32b5385c9420f373",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_elder_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_elder_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_elder_sturdy.png"
+    },
+    {
+      "id": "body_male_elder_tall",
+      "kind": "body",
+      "base": "male_elder",
+      "morphology": "tall",
+      "role": null,
+      "bone_count": 52,
+      "lod_triangles": [
+        2272,
+        1178,
+        540
+      ],
+      "canonical_sha256": "f28917688eae24be5acc63df69b7d925afa453e97e8a475a836bf9614c1d448b",
+      "fbx_sha256": "3baeb7b54a4a492d29a8a9dd7248968c3cf09e19678f9bbaff717fcaa6507d38",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_elder_tall.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_elder_tall.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_elder_tall.png"
+    },
+    {
+      "id": "role_beggar_female_elder_slender",
+      "kind": "role",
+      "base": "female_elder",
+      "morphology": "slender",
+      "role": "beggar",
+      "bone_count": 52,
+      "lod_triangles": [
+        7249,
+        3761,
+        1743
+      ],
+      "canonical_sha256": "683fde9abce38967eb4142d1b49980affc443a882b052b6e4993f252afdf503e",
+      "fbx_sha256": "a69adafe7291a8885dc52e0ed11a055fcb12c687ea58d06d7d8ad36dc5d2fd4e",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_beggar_female_elder_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_beggar_female_elder_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_beggar_female_elder_slender.png"
+    },
+    {
+      "id": "role_bourgeois_female_adult_average",
+      "kind": "role",
+      "base": "female_adult",
+      "morphology": "average",
+      "role": "bourgeois",
+      "bone_count": 52,
+      "lod_triangles": [
+        6553,
+        3400,
+        1588
+      ],
+      "canonical_sha256": "4f2fe4cdd42de5add15b39caef2ed649611ee9f7e72533ec0a6b532f29b01934",
+      "fbx_sha256": "4c169d545fa228a2493e87dcc2cb43af17a956859b519151233a7d7d8bf94312",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_bourgeois_female_adult_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_bourgeois_female_adult_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_bourgeois_female_adult_average.png"
+    },
+    {
+      "id": "role_noble_male_adult_tall",
+      "kind": "role",
+      "base": "male_adult",
+      "morphology": "tall",
+      "role": "noble",
+      "bone_count": 52,
+      "lod_triangles": [
+        9343,
+        4849,
+        2232
+      ],
+      "canonical_sha256": "00b959b9d764160cfa87314bb78a0916de946d108df41ef46c86054172b2125e",
+      "fbx_sha256": "9add9c06e52d3f7bb57e354579f8d54c07e2e6f25595a269ee3ed2fcdffe5583",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_noble_male_adult_tall.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_noble_male_adult_tall.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_noble_male_adult_tall.png"
+    },
+    {
+      "id": "role_peasant_female_child_slender",
+      "kind": "role",
+      "base": "female_child",
+      "morphology": "slender",
+      "role": "peasant",
+      "bone_count": 52,
+      "lod_triangles": [
+        6951,
+        3607,
+        1680
+      ],
+      "canonical_sha256": "f0dfb77a8fb69b0884b291b9565636c7ce71f3d6accb71efc846f0815eafba3e",
+      "fbx_sha256": "e63c4d74a67cb5dab5029021382861c214a9d1fba0f46d2f4cbdf94f8f561c87",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_peasant_female_child_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_peasant_female_child_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_peasant_female_child_slender.png"
+    },
+    {
+      "id": "role_religious_male_elder_slender",
+      "kind": "role",
+      "base": "male_elder",
+      "morphology": "slender",
+      "role": "religious",
+      "bone_count": 52,
+      "lod_triangles": [
+        7007,
+        3635,
+        1681
+      ],
+      "canonical_sha256": "62cd27b4a9ee730615d356d50544be4ba41e3382aa7f4a95e1ce4245471417ed",
+      "fbx_sha256": "ec54f4cc5b2f7490815ef7148d074fa400602b9e7e1bb9d4d8ffb3195528d014",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_religious_male_elder_slender.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_religious_male_elder_slender.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_religious_male_elder_slender.png"
+    },
+    {
+      "id": "role_soldier_male_adult_sturdy",
+      "kind": "role",
+      "base": "male_adult",
+      "morphology": "sturdy",
+      "role": "soldier",
+      "bone_count": 52,
+      "lod_triangles": [
+        7380,
+        3825,
+        1759
+      ],
+      "canonical_sha256": "588468433c51bc6718526448cb7ef6c35b2e1fdc9d741fa9245b1bd76ed986a4",
+      "fbx_sha256": "e5b6f4e0eeb2e0ab66fb501369885c53602c4a5c2c2e991e9a9ba701db94d468",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_soldier_male_adult_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_soldier_male_adult_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_soldier_male_adult_sturdy.png"
+    },
+    {
+      "id": "role_wealthy_female_adult_average",
+      "kind": "role",
+      "base": "female_adult",
+      "morphology": "average",
+      "role": "wealthy",
+      "bone_count": 52,
+      "lod_triangles": [
+        8796,
+        4566,
+        2101
+      ],
+      "canonical_sha256": "94894c313ee20cb480f9b0e227486eb0ecb73cec9bb7938f8d5bbaf575ae9563",
+      "fbx_sha256": "e414ba9fb122f4419bf29fa0f6ec9c8c8464887839b8b45c0d3c45853ae720f4",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_wealthy_female_adult_average.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_wealthy_female_adult_average.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_wealthy_female_adult_average.png"
+    },
+    {
+      "id": "role_worker_male_adult_sturdy",
+      "kind": "role",
+      "base": "male_adult",
+      "morphology": "sturdy",
+      "role": "worker",
+      "bone_count": 52,
+      "lod_triangles": [
+        6567,
+        3408,
+        1584
+      ],
+      "canonical_sha256": "45d0cc63e89d64a22505faef9fed7bbb4a618621d3d872c316fe1cbffc392765",
+      "fbx_sha256": "15c0539bbc0cd825fdf4fe2a8a6a2d32d57b0a0b49beaa967fb5ab0e22cd775c",
+      "generated_path": "AssetFactory/Workbench/Characters/Production/Roles/role_worker_male_adult_sturdy.fbx",
+      "path": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_worker_male_adult_sturdy.fbx",
+      "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_worker_male_adult_sturdy.png"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "building_barn_frontier_01_a",
+  "kind": "building",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Models/building_barn_frontier_01_a.fbx",
+  "fbx_sha256": "d1efffb28f91f8106e1e63b1aaf8164b2a53a01142463eb14374a04628f7a66c",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 16,
+  "uv_mesh_count": 16,
+  "lod_mesh_counts": [
+    6,
+    6,
+    4
+  ],
+  "armature_count": 0,
+  "bone_count": 0,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

@@ -1,0 +1,55 @@
+name: lot
+
+on:
+  issues:
+    types: [opened]
+
+# Le formulaire public n'accorde aucun droit. La première tâche ne peut
+# que lire ; seul son verdict ouvre la tâche qui possède un jeton d'écriture.
+permissions:
+  contents: read
+
+jobs:
+  autoriser:
+    runs-on: ubuntu-latest
+    outputs:
+      autorise: ${{ steps.garde.outputs.autorise }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - id: garde
+        run: bash .github/scripts/autoriser-lot.sh
+
+  deposer:
+    needs: autoriser
+    if: needs.autoriser.outputs.autorise == 'true'
+    # Même verrou que l'intégration, donc que son dépôt de palier.
+    concurrency:
+      group: registre
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - name: Lire, réserver et déposer la demande
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          EVENEMENT_LOT: ${{ github.event_path }}
+          BASE: master
+        run: bash .github/scripts/lot.sh

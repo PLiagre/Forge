@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "role_wealthy_female_adult_average",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_wealthy_female_adult_average.fbx",
+  "fbx_sha256": "e414ba9fb122f4419bf29fa0f6ec9c8c8464887839b8b45c0d3c45853ae720f4",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 36,
+  "uv_mesh_count": 36,
+  "lod_mesh_counts": [
+    12,
+    12,
+    12
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

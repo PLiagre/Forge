@@ -1,0 +1,59 @@
+{
+  "protocolVersion": 1,
+  "launchContext": {
+    "protocolVersion": 1,
+    "sessionId": "session:campaign-01:city-1001:0001",
+    "cityId": "city:1001",
+    "mapCellId": "cell:10:12",
+    "worldSeed": 140001,
+    "worldTick": 4800,
+    "stateRevision": 42,
+    "timePolicy": 1,
+    "worldTimeScalePermille": 0,
+    "returnViewId": "main-map",
+    "returnViewStateJson": "{\"selectedCityId\":\"city:1001\",\"zoom\":3.25}"
+  },
+  "snapshot": {
+    "protocolVersion": 1,
+    "payloadSchemaVersion": 1,
+    "cityId": "city:1001",
+    "worldTick": 4800,
+    "stateRevision": 42,
+    "isFullSnapshot": true,
+    "payloadJson": "{\"population\":30,\"households\":20}",
+    "payloadSha256": "5a37a9a893d769f6e6006435c20c1cd0be434036f6b9cd9aeb811e7603f3034f"
+  },
+  "intent": {
+    "protocolVersion": 1,
+    "payloadSchemaVersion": 1,
+    "sessionId": "session:campaign-01:city-1001:0001",
+    "intentId": "intent:0001",
+    "cityId": "city:1001",
+    "issuedAtWorldTick": 4800,
+    "expectedStateRevision": 42,
+    "intentKind": "construction.place",
+    "payloadJson": "{\"buildingType\":\"granary\",\"xMm\":12000,\"zMm\":8000}"
+  },
+  "acceptedReceipt": {
+    "protocolVersion": 1,
+    "sessionId": "session:campaign-01:city-1001:0001",
+    "intentId": "intent:0001",
+    "cityId": "city:1001",
+    "status": 1,
+    "errorCode": 0,
+    "resultingWorldTick": 4801,
+    "resultingStateRevision": 43,
+    "message": ""
+  },
+  "conflictReceipt": {
+    "protocolVersion": 1,
+    "sessionId": "session:campaign-01:city-1001:0001",
+    "intentId": "intent:0001",
+    "cityId": "city:1001",
+    "status": 4,
+    "errorCode": 10,
+    "resultingWorldTick": 4802,
+    "resultingStateRevision": 44,
+    "message": "Refresh snapshot before retry."
+  }
+}

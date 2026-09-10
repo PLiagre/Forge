@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victoria-citylab.local/schemas/vendor_admission.schema.json",
+  "title": "Victoria CityLab Vendor admission profile",
+  "type": "object",
+  "required": [
+    "schema", "id", "status", "admission_schema", "source", "inputs",
+    "adaptation_profile"
+  ],
+  "properties": {
+    "schema": {"const": 1},
+    "id": {"type": "string", "pattern": "^admission_[a-z0-9]+(?:_[a-z0-9]+)*$"},
+    "status": {"const": "approved"},
+    "admission_schema": {"const": "AssetFactory/Schemas/vendor_admission.schema.json"},
+    "source": {
+      "type": "object",
+      "required": ["id", "path", "provenance"],
+      "properties": {
+        "id": {"type": "string"},
+        "path": {"type": "string", "pattern": "^Assets/"},
+        "provenance": {
+          "type": "object",
+          "required": ["kind", "store_url", "version", "acquired", "license", "license_status"],
+          "properties": {
+            "kind": {"const": "unity_asset_store"},
+            "store_url": {"type": "string", "pattern": "^https://assetstore\\.unity\\.com/"},
+            "version": {"type": "string", "minLength": 1},
+            "acquired": {"type": "string", "format": "date"},
+            "license": {"type": "string", "minLength": 1},
+            "license_status": {"const": "verified"}
+          }
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "path", "sha256"],
+        "properties": {
+          "role": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "pattern": "^Assets/"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "adaptation_profile": {
+      "type": "object",
+      "required": [
+        "source_policy", "category", "metric_scale", "up_axis", "forward_axis",
+        "operations", "material_strategy", "lod_strategy", "planned_output_root"
+      ],
+      "properties": {
+        "source_policy": {"const": "immutable"},
+        "category": {"enum": ["building", "character", "prop", "animation", "texture"]},
+        "metric_scale": {"type": "number", "exclusiveMinimum": 0},
+        "up_axis": {"enum": ["Y", "Z"]},
+        "forward_axis": {"enum": ["X", "-X", "Y", "-Y", "Z", "-Z"]},
+        "operations": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "material_strategy": {"type": "string", "minLength": 1},
+        "lod_strategy": {"type": "string", "minLength": 1},
+        "planned_output_root": {
+          "type": "string",
+          "pattern": "^Assets/CityLabHost/Adapted/Factory(?:/|$)"
+        }
+      }
+    }
+  }
+}

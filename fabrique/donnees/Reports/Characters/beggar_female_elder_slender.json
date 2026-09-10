@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "id": "beggar_female_elder_slender",
+  "status": "visual_proposal_not_rig_validated",
+  "selection": {
+    "id": "beggar_female_elder_slender",
+    "role": "beggar",
+    "gender": "female",
+    "age": "elder",
+    "morphology": "slender",
+    "armor_type": 2,
+    "color": 1,
+    "hair_type": 2,
+    "hair_color": 5,
+    "head_armor": 0,
+    "facial_hair": 0
+  },
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "selected_parts": [
+    "Arm Armor Type 2 Color 1",
+    "Base Character Mesh",
+    "Belt Armor Type 2 Color 1",
+    "Chest Armor Type 2 Color 1",
+    "Ears Type 1",
+    "Eyebrow Type 3 Color 2",
+    "Eyes Type 2 Color 2",
+    "Feet Armor Type 2 Color 1",
+    "Hair Type 2 Color 5",
+    "Legs Armor Type 2 Color 1",
+    "Nose Type 3"
+  ],
+  "preview": "AssetFactory/Workbench/Previews/Characters/beggar_female_elder_slender.png",
+  "blend": "AssetFactory/Workbench/Characters/beggar_female_elder_slender_proposal.blend",
+  "unity_launched": false
+}

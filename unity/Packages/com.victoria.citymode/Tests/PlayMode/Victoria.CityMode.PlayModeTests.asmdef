@@ -1,0 +1,8 @@
+{
+  "name": "Victoria.CityMode.PlayModeTests",
+  "rootNamespace": "Victoria.CityMode.Tests",
+  "references": ["Victoria.CityMode"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}
+

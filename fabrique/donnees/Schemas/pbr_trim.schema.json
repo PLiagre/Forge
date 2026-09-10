@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victoria-citylab.local/schemas/pbr_trim.schema.json",
+  "title": "Victoria CityLab deterministic PBR trim sheet",
+  "type": "object",
+  "required": ["schema", "id", "seed", "resolution", "regions", "maps", "budgets"],
+  "properties": {
+    "schema": {"const": 1},
+    "id": {"type": "string", "pattern": "^texture_[a-z0-9_]+$"},
+    "seed": {"type": "integer"},
+    "resolution": {"type": "integer", "minimum": 512, "maximum": 4096},
+    "regions": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "v_min", "v_max", "material"],
+        "properties": {
+          "id": {"type": "string"},
+          "v_min": {"type": "number", "minimum": 0, "maximum": 1},
+          "v_max": {"type": "number", "minimum": 0, "maximum": 1},
+          "material": {"enum": ["wood", "stone", "roof", "brick", "plank"]}
+        }
+      }
+    },
+    "maps": {
+      "type": "array",
+      "minItems": 6,
+      "items": {"enum": ["BaseColor", "Normal", "AO", "Roughness", "Metallic", "VariationMask"]}
+    },
+    "budgets": {
+      "type": "object",
+      "required": ["total_bytes_max", "contrast_min"],
+      "properties": {
+        "total_bytes_max": {"type": "integer", "minimum": 1},
+        "contrast_min": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

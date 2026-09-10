@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "building_granary_frontier_01_b",
+  "kind": "building",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Models/building_granary_frontier_01_b.fbx",
+  "fbx_sha256": "d4bc7a08d39ea8a0c02977995bd3398f76a3b8a9824a90219714d0aafd96d4f8",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 16,
+  "uv_mesh_count": 16,
+  "lod_mesh_counts": [
+    6,
+    6,
+    4
+  ],
+  "armature_count": 0,
+  "bone_count": 0,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "citylab_trim_pbr_graph",
+  "seed_source": "AssetFactory/Recipes/texture_citylab_trim_v1.json",
+  "nodes": [
+    {"id": "periodic_noise", "operation": "seeded_multiscale_noise", "outputs": ["micro", "macro"]},
+    {"id": "wood_pattern", "operation": "plank_seams_grain_knots", "inputs": ["micro", "macro"], "region": "structural_wood"},
+    {"id": "stone_pattern", "operation": "offset_masonry_mortar", "inputs": ["micro", "macro"], "region": "dressed_stone"},
+    {"id": "roof_pattern", "operation": "overlapping_tiles_grooves", "inputs": ["micro", "macro"], "region": "roof_tiles"},
+    {"id": "height_composite", "operation": "region_height_merge", "inputs": ["wood_pattern", "stone_pattern", "roof_pattern"]},
+    {"id": "normal_bake", "operation": "height_gradient_to_tangent_normal", "inputs": ["height_composite"]},
+    {"id": "ao_bake", "operation": "local_concavity", "inputs": ["height_composite"]},
+    {"id": "roughness_bake", "operation": "material_roughness_plus_microvariation", "inputs": ["periodic_noise"]},
+    {"id": "metallic_bake", "operation": "iron_fastener_mask", "inputs": ["wood_pattern", "roof_pattern"]},
+    {"id": "variation_mask", "operation": "pack_variation_edges_material_id", "inputs": ["periodic_noise", "height_composite"]}
+  ],
+  "outputs": ["BaseColor", "Normal", "AO", "Roughness", "Metallic", "VariationMask"]
+}

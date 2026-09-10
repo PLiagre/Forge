@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "noble_male_adult_tall",
+  "status": "visual_proposal_not_rig_validated",
+  "selection": {
+    "id": "noble_male_adult_tall",
+    "role": "noble",
+    "gender": "male",
+    "age": "adult",
+    "morphology": "tall",
+    "armor_type": 5,
+    "color": 2,
+    "hair_type": 3,
+    "hair_color": 2,
+    "head_armor": 0,
+    "facial_hair": 1
+  },
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "selected_parts": [
+    "Arm Armor Type 5 Color 2",
+    "Base Character Mesh",
+    "Belt Armor Type 5 Color 2",
+    "Chest Armor Type 5 Color 2",
+    "Ears Type 1",
+    "Eyebrow Type 3 Color 2",
+    "Eyes Type 2 Color 2",
+    "Face Hair Type 1 Color 2",
+    "Feet Armor Type 5 Color 2",
+    "Hair Type 3 Color 2",
+    "Legs Armor Type 5 Color 2",
+    "Nose Type 3"
+  ],
+  "preview": "AssetFactory/Workbench/Previews/Characters/noble_male_adult_tall.png",
+  "blend": "AssetFactory/Workbench/Characters/noble_male_adult_tall_proposal.blend",
+  "unity_launched": false
+}

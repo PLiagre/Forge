@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "id": "citylab_character_proposal_review",
+  "status": "direction_proposals_generated_runtime_generation_pending",
+  "generated_proposals": 8,
+  "review": [
+    {"role":"worker","result":"usable_style_base","next":"add apron mesh, tool sockets and occupation palette"},
+    {"role":"wealthy","result":"usable_outfit_base_body_not_gender_specific","next":"female body deformation, long hair and cloth mantle"},
+    {"role":"peasant","result":"scale_proposal_only","next":"child body proportions, larger head/hands and child-safe garments"},
+    {"role":"religious","result":"source_outfit_rejected_for_final","next":"bespoke robe, hood or tonsure, cord and religious symbol"},
+    {"role":"soldier","result":"usable_style_base","next":"weapon socket, heraldic colors and three armor weights"},
+    {"role":"noble","result":"usable_outfit_base","next":"mantle mesh, house badge, richer cloth and headwear"},
+    {"role":"bourgeois","result":"usable_style_base_body_not_gender_specific","next":"civilian sleeves, dress/tunic alternatives and ledger pouch"},
+    {"role":"beggar","result":"source_outfit_rejected_for_final","next":"patched asymmetric garment, bare-foot option, bundle and bent posture"}
+  ],
+  "production_proposals": [
+    {
+      "id":"shared_rig_body_set",
+      "recommended":true,
+      "scope":"6 validated base bodies: male/female x child/adult/elder; morphology modifiers layered non-destructively",
+      "benefit":"animation reuse, controlled proportions and predictable clothing fit"
+    },
+    {
+      "id":"role_clothing_capsules",
+      "recommended":true,
+      "scope":"8 role kits with 3 wealth/condition palettes and 2-4 signature accessories each",
+      "benefit":"role remains readable from RTS distance without unique bodies per citizen"
+    },
+    {
+      "id":"vendor_only_combinatorics",
+      "recommended":false,
+      "scope":"combine only existing GanzSe armor parts",
+      "risk":"insufficient civilian, female, child, elder, religious and beggar silhouettes"
+    }
+  ],
+  "unity_launched": false
+}

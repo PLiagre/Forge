@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "id": "building_market_frontier_01_a",
+  "family": "building_market_frontier_01",
+  "function": "market",
+  "wall_system": "stone_timber",
+  "roof_system": "clay_tile",
+  "identity_markers": [
+    "arcade",
+    "stalls",
+    "awnings",
+    "goods",
+    "hanging_sign"
+  ],
+  "variant": "a",
+  "seed": 2026081400,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Town_Bench_01a.fbx",
+    "sha256": "465fbf3ed8d7ec3d7c688e4ed43f910e8223c33eda920694d183760da4b5e66e"
+  },
+  "grammar": {
+    "footprint_form": "rectangle_lean_to",
+    "level_form": "two",
+    "roof_form": "gable",
+    "ridge_axis": "long",
+    "width_m": 9.2077,
+    "depth_m": 6.0282,
+    "wall_height_m": 5.1804,
+    "pitch_deg": 39.727,
+    "rise_m": 4.2291,
+    "ridge_z_m": 10.0473
+  },
+  "budget": {
+    "class": "standard",
+    "lod": [
+      4000,
+      1800,
+      600
+    ]
+  },
+  "triangles": {
+    "lod0": 3182,
+    "lod1": 1546,
+    "lod2": 260
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_market_frontier_01_a__S01_GROUNDWORKS",
+        "lod0": 88,
+        "lod1": 88,
+        "lod2": 88
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_market_frontier_01_a__S03_FRAMING",
+        "lod0": 422,
+        "lod1": 422,
+        "lod2": 24
+      },
+      {
+        "id": "floors",
+        "order": 4,
+        "node_prefix": "building_market_frontier_01_a__S04_FLOORS",
+        "lod0": 540,
+        "lod1": 420,
+        "lod2": 12
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_market_frontier_01_a__S05_CARPENTRY",
+        "lod0": 284,
+        "lod1": 44,
+        "lod2": 12
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_market_frontier_01_a__S06_ROOFING",
+        "lod0": 308,
+        "lod1": 116,
+        "lod2": 60
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_market_frontier_01_a__S07_JOINERY",
+        "lod0": 620,
+        "lod1": 64,
+        "lod2": 64
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_market_frontier_01_a__S08_FINISHES",
+        "lod0": 920,
+        "lod1": 392,
+        "lod2": 0
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 88,
+      "lod1": 88,
+      "lod2": 88
+    },
+    "framing": {
+      "lod0": 422,
+      "lod1": 422,
+      "lod2": 24
+    },
+    "floors": {
+      "lod0": 540,
+      "lod1": 420,
+      "lod2": 12
+    },
+    "carpentry": {
+      "lod0": 284,
+      "lod1": 44,
+      "lod2": 12
+    },
+    "roofing": {
+      "lod0": 308,
+      "lod1": 116,
+      "lod2": 60
+    },
+    "joinery": {
+      "lod0": 620,
+      "lod1": 64,
+      "lod2": 64
+    },
+    "finishes": {
+      "lod0": 920,
+      "lod1": 392,
+      "lod2": 0
+    }
+  },
+  "canonical_mesh_sha256": "24de23718f7f9da43ee9140405c535471f78696efa62c3e77785eef9eb31a11b",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_a",
+      "frontier_base_pale_a",
+      "frontier_body_a",
+      "frontier_body_pale_a",
+      "frontier_eave_a",
+      "frontier_ember_a",
+      "frontier_iron_a",
+      "frontier_roof_a",
+      "frontier_roof_accent_a"
+    ],
+    "front_wall_edge_loops": 3,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 27,
+    "identity_markers_declared": [
+      "arcade",
+      "stalls",
+      "awnings",
+      "goods",
+      "hanging_sign"
+    ],
+    "identity_markers_built": [
+      "arcade",
+      "stalls",
+      "awnings",
+      "goods",
+      "hanging_sign"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 3
+  },
+  "category_triangles": {
+    "shell": 422,
+    "shell_upper": 420,
+    "appendage": 392,
+    "opening_reveal": 336,
+    "appendage_detail": 264,
+    "roof_frame": 240,
+    "edge_trim": 192,
+    "hardware": 164,
+    "produce": 112,
+    "opening_detail": 104,
+    "foundation": 88,
+    "opening_plane": 64,
+    "jetty_bracket": 60,
+    "roof_plane": 60,
+    "lantern_glass": 56,
+    "gable": 52,
+    "frame_detail": 48,
+    "micro_prop": 48,
+    "eave": 36,
+    "shell_proxy": 24,
+    "shell_upper_proxy": 12,
+    "floor": 12,
+    "gable_proxy": 12,
+    "dormer": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_market_frontier_01_a.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_market_frontier_01_a.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_market_frontier_01_a_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_market_frontier_01_a_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_market_frontier_01_a_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_market_frontier_01_a_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_market_frontier_01_a_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_market_frontier_01_a_stage_02_framing.png",
+      "AssetFactory/Workbench/Previews/building_market_frontier_01_a_stage_03_floors.png",
+      "AssetFactory/Workbench/Previews/building_market_frontier_01_a_stage_04_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_market_frontier_01_a_stage_05_roofing.png",
+      "AssetFactory/Workbench/Previews/building_market_frontier_01_a_stage_06_joinery.png",
+      "AssetFactory/Workbench/Previews/building_market_frontier_01_a_stage_07_finishes.png"
+    ]
+  }
+}

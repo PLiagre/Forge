@@ -1,0 +1,36 @@
+name: security
+
+# Un seul travail : refuser un secret committé. Le dépôt n'a plus de jeton
+# ni de configuration d'agent depuis le dégraissage V1, mais un secret entré
+# par accident dans un dépôt public ne se rattrape pas — ce contrôle coûte
+# vingt lignes et il reste.
+#
+# `actionlint` est parti avec le dégraissage : il gardait douze workflows,
+# il en reste quatre — celui-ci, `tests`, `relecture` et `integration`.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # Une PR ouverte par le jeton d'Actions ne déclenche rien : l'intégration
+  # demande alors ce contrôle nommément (voir `integration.yml`).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+      - name: Scan the working tree for secrets
+        run: ./gitleaks dir . --redact -v

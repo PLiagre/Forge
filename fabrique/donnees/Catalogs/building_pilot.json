@@ -1,0 +1,271 @@
+{
+  "schema": 1,
+  "id": "citylab_building_pilot",
+  "style": "frontier",
+  "construction_schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+  "construction_stages": [
+    "groundworks",
+    "basecourse",
+    "framing",
+    "floors",
+    "carpentry",
+    "roofing",
+    "joinery",
+    "finishes"
+  ],
+  "families": [
+    {
+      "id": "building_residence_frontier_01",
+      "function": "residence",
+      "wall_system": "stone_timber",
+      "roof_system": "clay_tile",
+      "identity_markers": [
+        "shutters",
+        "hearth",
+        "bench",
+        "woodpile",
+        "flower_boxes"
+      ],
+      "seed": 2026081100,
+      "dimensions": [
+        8.2,
+        6.4,
+        5.2
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_HouseModule_Porch_01d.fbx",
+        "sha256": "c919808521496ba6ac5db3840a9e1b246e3877856ff4e6d4be3c0a24518ca47e"
+      },
+      "scheme_ranks": [
+        "courant",
+        "riche"
+      ]
+    },
+    {
+      "id": "building_granary_frontier_01",
+      "function": "granary",
+      "wall_system": "timber_plank",
+      "roof_system": "wood_shingle",
+      "identity_markers": [
+        "raised_floor",
+        "grain_sacks",
+        "ventilation_slits",
+        "hoist",
+        "grain_emblem"
+      ],
+      "seed": 2026081200,
+      "dimensions": [
+        7.0,
+        7.0,
+        6.2
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Village_Ladder_02a.fbx",
+        "sha256": "cad61c0e50822b07fa18dbb8bafa96e0bc54583544d8aef23504d624e20e84f1"
+      },
+      "scheme_ranks": [
+        "modeste",
+        "courant"
+      ]
+    },
+    {
+      "id": "building_warehouse_frontier_01",
+      "function": "warehouse",
+      "wall_system": "stone_timber",
+      "roof_system": "wood_shingle",
+      "identity_markers": [
+        "loading_dock",
+        "double_door",
+        "crates",
+        "barrels",
+        "pulley"
+      ],
+      "seed": 2026081300,
+      "dimensions": [
+        10.0,
+        7.2,
+        5.5
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Crate_01a.fbx",
+        "sha256": "f2ad1f5c3d1030cc0fd80e0660758062ab0eb9ece2e13e43b29c9ce1e58a637d"
+      },
+      "scheme_ranks": [
+        "modeste",
+        "courant"
+      ]
+    },
+    {
+      "id": "building_market_frontier_01",
+      "function": "market",
+      "wall_system": "stone_timber",
+      "roof_system": "clay_tile",
+      "identity_markers": [
+        "arcade",
+        "stalls",
+        "awnings",
+        "goods",
+        "hanging_sign"
+      ],
+      "seed": 2026081400,
+      "dimensions": [
+        9.5,
+        8.0,
+        4.5
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Town_Bench_01a.fbx",
+        "sha256": "465fbf3ed8d7ec3d7c688e4ed43f910e8223c33eda920694d183760da4b5e66e"
+      },
+      "scheme_ranks": [
+        "courant",
+        "riche"
+      ]
+    },
+    {
+      "id": "building_blacksmith_frontier_01",
+      "function": "blacksmith",
+      "wall_system": "brick_stone",
+      "roof_system": "slate",
+      "identity_markers": [
+        "brick_chimney",
+        "forge",
+        "anvil",
+        "coal",
+        "horseshoe_sign",
+        "tool_rack"
+      ],
+      "seed": 2026081500,
+      "dimensions": [
+        8.5,
+        7.0,
+        5.0
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Stove_01b.fbx",
+        "sha256": "6c42f9909d6dac5247c23457bcf98a719c9ec955b7f839c759780a9e7450eed2"
+      },
+      "scheme_ranks": [
+        "modeste",
+        "courant"
+      ]
+    },
+    {
+      "id": "building_barn_frontier_01",
+      "function": "barn",
+      "wall_system": "timber_plank",
+      "roof_system": "wood_shingle",
+      "identity_markers": [
+        "cross_braced_doors",
+        "hay",
+        "loft",
+        "animal_trough",
+        "pitchfork",
+        "pen"
+      ],
+      "seed": 2026081600,
+      "dimensions": [
+        11.0,
+        7.5,
+        5.8
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_AnimalBreeding_Hovel_01a.fbx",
+        "sha256": "5b87adda32aa6dc7c2abfcbe9599b4982f6d3eeedd19e64b20f0e7361d6339f3"
+      },
+      "scheme_ranks": [
+        "modeste",
+        "courant"
+      ]
+    },
+    {
+      "id": "building_chapel_frontier_01",
+      "function": "chapel",
+      "wall_system": "dressed_stone",
+      "roof_system": "slate",
+      "identity_markers": [
+        "buttresses",
+        "lancet_windows",
+        "apse",
+        "bell_tower",
+        "cross",
+        "grave_markers"
+      ],
+      "seed": 2026081700,
+      "dimensions": [
+        7.5,
+        10.0,
+        7.0
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Sign_Chapel_01.fbx",
+        "sha256": "f2898c41475b18daff55a7f515f329e74fa6bc658f99aed2d31aa9435608ed04"
+      },
+      "scheme_ranks": [
+        "courant",
+        "riche"
+      ]
+    },
+    {
+      "id": "building_sawmill_frontier_01",
+      "function": "sawmill",
+      "wall_system": "stone_timber",
+      "roof_system": "wood_shingle",
+      "identity_markers": [
+        "saw_frame",
+        "carriage",
+        "drive_wheel",
+        "log_stack",
+        "sawdust_pile",
+        "crossed_axes_sign"
+      ],
+      "seed": 2026080102,
+      "dimensions": [
+        9.4,
+        6.8,
+        5.6
+      ],
+      "input": {
+        "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_WoodRoof_01b.fbx",
+        "sha256": "92ea3725db55942ed5cca60a298451b8893270e648288d63e2bf4ae27e54144e"
+      },
+      "scheme_ranks": [
+        "courant",
+        "riche"
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "id": "a",
+      "seed_offset": 0,
+      "brace_style": "classic",
+      "annex_side": -1,
+      "chimney": false,
+      "palette_id": "a"
+    },
+    {
+      "id": "b",
+      "seed_offset": 101,
+      "brace_style": "crossed",
+      "annex_side": 1,
+      "chimney": true,
+      "palette_id": "b"
+    },
+    {
+      "id": "c",
+      "seed_offset": 203,
+      "brace_style": "dense",
+      "annex_side": -1,
+      "chimney": true,
+      "palette_id": "c"
+    }
+  ],
+  "notes": [
+    "dimensions = [largeur, profondeur, hauteur de mur] : le centre d'une plage, pas la valeur finale.",
+    "La hauteur de faitage est derivee de la pente du style ; elle n'est plus une entree du catalogue.",
+    "Le regard (palettes, pente, emprise, ouvertures, budgets) vit dans AssetFactory/Styles/frontier.json.",
+    "scheme_ranks dit quels rangs de schema de construction une famille peut tirer ; le vocabulaire des schemas vit dans le style. Trois variantes recoivent trois schemas distincts : c'est la porte C-5."
+  ],
+  "construction_contract": 2
+}

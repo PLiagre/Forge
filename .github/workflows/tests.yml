@@ -1,0 +1,143 @@
+name: tests
+
+# Six travaux : le moteur, les trois vues, la commande de bout en bout, les
+# outils du dépôt, et le registre des lots.
+#
+# Cette chaîne ne juge pas un lot, ne lit aucun compte rendu et ne fusionne
+# rien. Elle dit une seule chose : les contrôles passent, ou ils ne passent
+# pas. Ce qu'on en fait est écrit ailleurs — `relecture.yml` dit qui a relu,
+# `integration.yml` fusionne ce qui est vert.
+#
+# Ce qui a changé à la fusion : l'atelier vivait sur une branche détachée et
+# se récupérait par un second `checkout`. Il vit maintenant dans l'arbre, à
+# `atelier/`, et le `PYTHONPATH` est la racine. Un dépôt unique n'a plus
+# besoin d'aller chercher son propre outil ailleurs.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # Une PR ouverte par le jeton d'Actions — celle d'un palier — ne
+  # déclenche aucun contrôle : GitHub refuse la récursion. L'intégration
+  # les demande alors nommément, et lui passe la base et la branche pour
+  # que « feuille » vérifie les transitions comme sur une vraie PR.
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "la branche d'arrivée, pour vérifier les transitions"
+        required: false
+        default: ""
+      branche:
+        description: "la branche de la PR"
+        required: false
+        default: ""
+      pr:
+        description: "le numéro de la PR, pour la fiche d'un lot"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  sim:
+    # Le moteur. Bibliothèque standard seule : s'il lui fallait une roue,
+    # ce ne serait plus un moteur qui tourne sur une machine nue.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip pytest
+      - name: Les tests du moteur
+        run: python -m pytest sim/tests/ -q
+
+  vues:
+    # Les trois vues sur la même photographie : le tableau de bord, la
+    # chronique et la carte. Aucune n'a besoin de GPU — la rasterisation et
+    # le coloriage sont du calcul. Le rendu forge3d lui-même n'est pas
+    # installé ici : un contrôle qui exigerait une carte graphique ne
+    # tournerait pas, et un contrôle qui ne tourne pas ne protège rien.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip pytest numpy pillow
+      - name: Le tableau de bord
+        run: python -m pytest vues/tableau/tests/ -q
+      - name: La chronique
+        run: python -m pytest vues/chronique/tests/ -q
+      - name: La carte de statistique
+        run: python -m pytest vues/relief/tests/ -q
+
+  forge:
+    # La porte de la V1, jouée pour de vrai : une commande simule,
+    # photographie et rend les trois vues. Elle ne vérifie pas des unités —
+    # elle vérifie que le tout marche ensemble, ce qu'aucun test unitaire ne
+    # peut dire. Les artefacts sont conservés : une carte qu'on ne peut pas
+    # regarder ne prouve pas grand-chose.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip pytest numpy pillow
+      - name: Les contrôles de la commande
+        run: python -m pytest forge/tests/ -q
+      - name: Lancer une simulation et l'afficher
+        run: python -m forge --ticks 60 --seed 0 --pas 20 --sortie sortie
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: v1-sortie
+          path: sortie/
+          retention-days: 7
+
+  outils:
+    # Ce que la chaîne décide (`outils/`) et ce qu'elle fait
+    # (`.github/scripts/`, joués sur un banc avec de faux `gh`, `git` et
+    # `python`). Ces contrôles gouvernent ce qui entre dans `master` : ils
+    # se jouent au même titre que ceux du moteur.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip pytest
+      - name: Les outils du dépôt
+        run: python -m pytest outils/tests/ -q
+
+  feuille:
+    # Le registre des lots de ROADMAP.md, lu par l'atelier : fiches bien
+    # formées, briefs attendus présents, aucun orphelin, dépendances
+    # réelles ; et sur une PR, transitions permises depuis la base.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - name: Le registre est cohérent
+        env:
+          BASE: ${{ github.base_ref || inputs.base }}
+          BRANCHE: ${{ github.head_ref || inputs.branche }}
+          NUMERO_PR: ${{ github.event.pull_request.number || inputs.pr }}
+        run: |
+          set -euo pipefail
+          args=(feuille valider --projet .)
+          if [ -n "$BASE" ]; then
+            git fetch --quiet origin "$BASE"
+            args+=(--base "origin/$BASE" --branche "$BRANCHE")
+            if [ -n "$NUMERO_PR" ]; then args+=(--pr "$NUMERO_PR"); fi
+          fi
+          python -m atelier "${args[@]}"

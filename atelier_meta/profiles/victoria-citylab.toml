@@ -1,0 +1,15 @@
+# Gabarit Victoria CityLab — identique au branchement racine atelier.toml.
+
+[projet]
+nom = "VictoriaCityLab"
+briefs = "briefs"
+tests = "python3 -m unittest discover -s harness/tests -v && python3 -m unittest Tools.tests.test_unity_windows_worker -v && PYTHONPATH=Tools/ForgeAtelier python3 -m atelier feuille valider --projet ."
+fumee = "PYTHONPATH=Tools/ForgeAtelier python3 -m atelier feuille valider --projet . && python3 -m unittest harness.tests.test_forgeatelier_alignment -v"
+branche_base = "main"
+prefixe_branche = "agent/"
+feuille = "Docs/ROADMAP.md"
+
+[roles]
+ecriture = "claude"
+execution = "cursor"
+controle = "claude"

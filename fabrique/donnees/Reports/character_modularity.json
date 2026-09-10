@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "id": "citylab_character_population",
+  "status": "source_components_ready_morphology_generation_required",
+  "source_fbx_count": 217,
+  "full_body_sources": [
+    "Assets/URP GanzSe Free Modular Character Pack/Models/Model Original/Free Low Poly Modular Character.fbx",
+    "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx"
+  ],
+  "base_body_count": 2,
+  "component_counts": {
+    "arms": 18,
+    "belt": 18,
+    "chest": 18,
+    "ears": 2,
+    "eyebrows": 25,
+    "eyes": 25,
+    "facial_hair": 25,
+    "feet": 18,
+    "hair": 25,
+    "head_armor": 18,
+    "legs": 18,
+    "noses": 5
+  },
+  "curated_axes": {
+    "genders": 2,
+    "ages": 3,
+    "morphologies": 4,
+    "hair_styles": 5,
+    "hair_colors": 5,
+    "social_roles": 8
+  },
+  "theoretical_combinations_before_face_variation": 4800,
+  "direct_component_gates": {
+    "hair": true,
+    "facial_hair": true,
+    "faces": true,
+    "outfit_sets": true
+  },
+  "gaps": [
+    "Le pack fournit un rig/corps de base, pas des corps féminin, enfant et âgé validés séparément.",
+    "Les morphologies doivent être générées par déformation du rig et contrôlées en animation.",
+    "Les tenues sociales sont des compositions CityLab à créer à partir des pièces d'armure, pas des classes prêtes à l'emploi.",
+    "Les armes, outils de métier, robes religieuses et vêtements usés demandent des accessoires ou adaptations supplémentaires."
+  ],
+  "unity_validation": "pending_no_unity_launch"
+}

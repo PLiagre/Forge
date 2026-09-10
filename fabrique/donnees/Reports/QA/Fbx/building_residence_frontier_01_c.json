@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "building_residence_frontier_01_c",
+  "kind": "building",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Models/building_residence_frontier_01_c.fbx",
+  "fbx_sha256": "1d86f0a80748a5b263ef700e04501e6ac60c8efa8c670a123c5cb186d0cd47c0",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 22,
+  "uv_mesh_count": 22,
+  "lod_mesh_counts": [
+    8,
+    7,
+    7
+  ],
+  "armature_count": 0,
+  "bone_count": 0,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

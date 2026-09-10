@@ -1,0 +1,253 @@
+{
+  "schema": 1,
+  "id": "building_barn_frontier_01_b",
+  "family": "building_barn_frontier_01",
+  "function": "barn",
+  "wall_system": "timber_plank",
+  "roof_system": "wood_shingle",
+  "identity_markers": [
+    "cross_braced_doors",
+    "hay",
+    "loft",
+    "animal_trough",
+    "pitchfork",
+    "pen"
+  ],
+  "variant": "b",
+  "seed": 2026081701,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_AnimalBreeding_Hovel_01a.fbx",
+    "sha256": "5b87adda32aa6dc7c2abfcbe9599b4982f6d3eeedd19e64b20f0e7361d6339f3"
+  },
+  "grammar": {
+    "footprint_form": "l_shape",
+    "level_form": "two",
+    "roof_form": "gable",
+    "ridge_axis": "long",
+    "width_m": 8.3936,
+    "depth_m": 8.5785,
+    "wall_height_m": 3.4104,
+    "pitch_deg": 42.6985,
+    "rise_m": 4.4866,
+    "ridge_z_m": 11.2109
+  },
+  "budget": {
+    "class": "standard",
+    "lod": [
+      4000,
+      1800,
+      600
+    ]
+  },
+  "triangles": {
+    "lod0": 3364,
+    "lod1": 1388,
+    "lod2": 328
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_barn_frontier_01_b__S01_GROUNDWORKS",
+        "lod0": 88,
+        "lod1": 88,
+        "lod2": 88
+      },
+      {
+        "id": "basecourse",
+        "order": 2,
+        "node_prefix": "building_barn_frontier_01_b__S02_BASECOURSE",
+        "lod0": 256,
+        "lod1": 256,
+        "lod2": 12
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_barn_frontier_01_b__S03_FRAMING",
+        "lod0": 792,
+        "lod1": 516,
+        "lod2": 36
+      },
+      {
+        "id": "floors",
+        "order": 4,
+        "node_prefix": "building_barn_frontier_01_b__S04_FLOORS",
+        "lod0": 12,
+        "lod1": 0,
+        "lod2": 0
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_barn_frontier_01_b__S05_CARPENTRY",
+        "lod0": 480,
+        "lod1": 60,
+        "lod2": 12
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_barn_frontier_01_b__S06_ROOFING",
+        "lod0": 408,
+        "lod1": 216,
+        "lod2": 100
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_barn_frontier_01_b__S07_JOINERY",
+        "lod0": 608,
+        "lod1": 80,
+        "lod2": 80
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_barn_frontier_01_b__S08_FINISHES",
+        "lod0": 720,
+        "lod1": 172,
+        "lod2": 0
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 88,
+      "lod1": 88,
+      "lod2": 88
+    },
+    "basecourse": {
+      "lod0": 256,
+      "lod1": 256,
+      "lod2": 12
+    },
+    "framing": {
+      "lod0": 792,
+      "lod1": 516,
+      "lod2": 36
+    },
+    "floors": {
+      "lod0": 12,
+      "lod1": 0,
+      "lod2": 0
+    },
+    "carpentry": {
+      "lod0": 480,
+      "lod1": 60,
+      "lod2": 12
+    },
+    "roofing": {
+      "lod0": 408,
+      "lod1": 216,
+      "lod2": 100
+    },
+    "joinery": {
+      "lod0": 608,
+      "lod1": 80,
+      "lod2": 80
+    },
+    "finishes": {
+      "lod0": 720,
+      "lod1": 172,
+      "lod2": 0
+    }
+  },
+  "canonical_mesh_sha256": "ff5e090aba8324f6a21ffdd1db8a9f1a701280338168abeec8d2da1aa8c81473",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_b",
+      "frontier_body_b",
+      "frontier_body_pale_b",
+      "frontier_eave_b",
+      "frontier_ember_b",
+      "frontier_iron_b",
+      "frontier_roof_accent_b",
+      "frontier_roof_b"
+    ],
+    "front_wall_edge_loops": 2,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 24,
+    "identity_markers_declared": [
+      "cross_braced_doors",
+      "hay",
+      "loft",
+      "animal_trough",
+      "pitchfork",
+      "pen"
+    ],
+    "identity_markers_built": [
+      "cross_braced_doors",
+      "hay",
+      "loft",
+      "animal_trough",
+      "pitchfork",
+      "pen"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 2
+  },
+  "category_triangles": {
+    "shell": 504,
+    "roof_frame": 420,
+    "opening_reveal": 300,
+    "basecourse": 256,
+    "edge_trim": 192,
+    "shell_annex": 192,
+    "hardware": 188,
+    "opening_detail": 184,
+    "appendage": 172,
+    "micro_prop": 156,
+    "appendage_detail": 144,
+    "roof_plane": 100,
+    "frame_detail": 96,
+    "foundation": 88,
+    "gable": 84,
+    "eave": 80,
+    "opening_plane": 80,
+    "lantern_glass": 56,
+    "tool": 48,
+    "shell_proxy": 24,
+    "basecourse_proxy": 12,
+    "floor": 12,
+    "gable_proxy": 12,
+    "dormer": 12,
+    "shell_annex_proxy": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_barn_frontier_01_b.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_barn_frontier_01_b.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_02_basecourse.png",
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_03_framing.png",
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_04_floors.png",
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_05_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_06_roofing.png",
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_07_joinery.png",
+      "AssetFactory/Workbench/Previews/building_barn_frontier_01_b_stage_08_finishes.png"
+    ]
+  }
+}

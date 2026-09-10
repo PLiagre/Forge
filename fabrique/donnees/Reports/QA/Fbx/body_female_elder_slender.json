@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_female_elder_slender",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_elder_slender.fbx",
+  "fbx_sha256": "8353eeb2c8a539acb100ca98d030c5d7bb146764970faec3e50a5664ea8214c6",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

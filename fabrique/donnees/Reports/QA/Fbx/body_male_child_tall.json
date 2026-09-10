@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_male_child_tall",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_child_tall.fbx",
+  "fbx_sha256": "e33caf6a4c0d3b60a3845963b72ca1048e9261616855d1a1a10a10d80277fb17",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

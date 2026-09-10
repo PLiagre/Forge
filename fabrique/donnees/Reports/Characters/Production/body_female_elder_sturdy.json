@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "body_female_elder_sturdy",
+  "kind": "body",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "female_elder",
+    "gender": "female",
+    "age": "elder",
+    "height": 0.92,
+    "shoulders": 0.84,
+    "hips": 1.08,
+    "head": 1.04,
+    "posture": 8,
+    "hair_type": 4,
+    "hair_color": 5
+  },
+  "morphology": {
+    "id": "sturdy",
+    "width": 1.15,
+    "depth": 1.12,
+    "height": 0.99
+  },
+  "role": null,
+  "bone_count": 52,
+  "lod_triangles": [
+    2363,
+    1225,
+    561
+  ],
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "canonical_sha256": "5e4b6a35aba4e314543b9be1ef467a50522db991f34acb7e0c269078b431d0c8",
+  "fbx_sha256": "4cc73c786131d494b5cf969a818e478a3cb13f772025138040ece95b778deac7",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_elder_sturdy.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_elder_sturdy.png",
+  "unity_launched": false
+}

@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "id": "building_sawmill_frontier_01_a",
+  "family": "building_sawmill_frontier_01",
+  "function": "sawmill",
+  "wall_system": "stone_timber",
+  "roof_system": "wood_shingle",
+  "identity_markers": [
+    "saw_frame",
+    "carriage",
+    "drive_wheel",
+    "log_stack",
+    "sawdust_pile",
+    "crossed_axes_sign"
+  ],
+  "variant": "a",
+  "seed": 2026080102,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_WoodRoof_01b.fbx",
+    "sha256": "92ea3725db55942ed5cca60a298451b8893270e648288d63e2bf4ae27e54144e"
+  },
+  "grammar": {
+    "footprint_form": "rectangle",
+    "level_form": "one",
+    "roof_form": "gable",
+    "ridge_axis": "long",
+    "width_m": 7.5906,
+    "depth_m": 10.2069,
+    "wall_height_m": 3.2294,
+    "pitch_deg": 46.7937,
+    "rise_m": 4.7005,
+    "ridge_z_m": 8.5268
+  },
+  "budget": {
+    "class": "standard",
+    "lod": [
+      4000,
+      1800,
+      600
+    ]
+  },
+  "triangles": {
+    "lod0": 2030,
+    "lod1": 806,
+    "lod2": 120
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_sawmill_frontier_01_a__S01_GROUNDWORKS",
+        "lod0": 44,
+        "lod1": 44,
+        "lod2": 44
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_sawmill_frontier_01_a__S03_FRAMING",
+        "lod0": 556,
+        "lod1": 508,
+        "lod2": 12
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_sawmill_frontier_01_a__S05_CARPENTRY",
+        "lod0": 244,
+        "lod1": 16,
+        "lod2": 0
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_sawmill_frontier_01_a__S06_ROOFING",
+        "lod0": 118,
+        "lod1": 70,
+        "lod2": 20
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_sawmill_frontier_01_a__S07_JOINERY",
+        "lod0": 400,
+        "lod1": 44,
+        "lod2": 44
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_sawmill_frontier_01_a__S08_FINISHES",
+        "lod0": 668,
+        "lod1": 124,
+        "lod2": 0
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 44,
+      "lod1": 44,
+      "lod2": 44
+    },
+    "framing": {
+      "lod0": 556,
+      "lod1": 508,
+      "lod2": 12
+    },
+    "carpentry": {
+      "lod0": 244,
+      "lod1": 16,
+      "lod2": 0
+    },
+    "roofing": {
+      "lod0": 118,
+      "lod1": 70,
+      "lod2": 20
+    },
+    "joinery": {
+      "lod0": 400,
+      "lod1": 44,
+      "lod2": 44
+    },
+    "finishes": {
+      "lod0": 668,
+      "lod1": 124,
+      "lod2": 0
+    }
+  },
+  "canonical_mesh_sha256": "438fa7f01f50f11c33ad28199ab9d487837143a579ed3c2b50bfa3bffa1bfe72",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_a",
+      "frontier_body_a",
+      "frontier_body_dark_a",
+      "frontier_body_pale_a",
+      "frontier_bronze_a",
+      "frontier_eave_a",
+      "frontier_ember_a",
+      "frontier_iron_a",
+      "frontier_roof_a",
+      "frontier_steel_a"
+    ],
+    "front_wall_edge_loops": 4,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 17,
+    "identity_markers_declared": [
+      "saw_frame",
+      "carriage",
+      "drive_wheel",
+      "log_stack",
+      "sawdust_pile",
+      "crossed_axes_sign"
+    ],
+    "identity_markers_built": [
+      "saw_frame",
+      "carriage",
+      "drive_wheel",
+      "log_stack",
+      "sawdust_pile",
+      "crossed_axes_sign"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 3
+  },
+  "category_triangles": {
+    "shell": 508,
+    "appendage_detail": 384,
+    "roof_frame": 228,
+    "opening_reveal": 216,
+    "hardware": 124,
+    "appendage": 124,
+    "opening_detail": 64,
+    "micro_prop": 56,
+    "lantern_glass": 56,
+    "eave": 50,
+    "frame_detail": 48,
+    "edge_trim": 48,
+    "foundation": 44,
+    "opening_plane": 44,
+    "roof_plane": 20,
+    "gable": 16,
+    "shell_proxy": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_sawmill_frontier_01_a.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_sawmill_frontier_01_a.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_stage_02_framing.png",
+      "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_stage_03_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_stage_04_roofing.png",
+      "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_stage_05_joinery.png",
+      "AssetFactory/Workbench/Previews/building_sawmill_frontier_01_a_stage_06_finishes.png"
+    ]
+  }
+}

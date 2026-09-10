@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "building_chapel_frontier_01_b",
+  "kind": "building",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Models/building_chapel_frontier_01_b.fbx",
+  "fbx_sha256": "1b87e9b8e5e98c338c3abe1c6af6d790b80a327d11007fbd1ea691c64c01c213",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 22,
+  "uv_mesh_count": 22,
+  "lod_mesh_counts": [
+    8,
+    7,
+    7
+  ],
+  "armature_count": 0,
+  "bone_count": 0,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

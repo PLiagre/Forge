@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "id": "role_soldier_male_adult_sturdy",
+  "kind": "role",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_adult",
+    "gender": "male",
+    "age": "adult",
+    "height": 1.0,
+    "shoulders": 1.0,
+    "hips": 1.0,
+    "head": 1.0,
+    "posture": 0,
+    "hair_type": 2,
+    "hair_color": 2
+  },
+  "morphology": {
+    "id": "sturdy",
+    "width": 1.15,
+    "depth": 1.12,
+    "height": 0.99
+  },
+  "role": {
+    "id": "soldier",
+    "label": "Soldat",
+    "base": "male_adult",
+    "morphology": "sturdy",
+    "armor_type": 6,
+    "color": 2,
+    "hair_type": 1,
+    "hair_color": 2,
+    "head_armor": 6,
+    "facial_hair": 3,
+    "special_garment": "tabard",
+    "markers": [
+      "helmet",
+      "armor",
+      "tabard",
+      "sword"
+    ]
+  },
+  "bone_count": 52,
+  "lod_triangles": [
+    7380,
+    3825,
+    1759
+  ],
+  "lod_mesh_counts": [
+    14,
+    14,
+    14
+  ],
+  "canonical_sha256": "588468433c51bc6718526448cb7ef6c35b2e1fdc9d741fa9245b1bd76ed986a4",
+  "fbx_sha256": "e5b6f4e0eeb2e0ab66fb501369885c53602c4a5c2c2e991e9a9ba701db94d468",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Roles/role_soldier_male_adult_sturdy.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_soldier_male_adult_sturdy.png",
+  "unity_launched": false
+}

@@ -1,0 +1,857 @@
+{
+  "schema": 1,
+  "id": "unity_matter_gate_v1",
+  "unity_launched": false,
+  "rules": {
+    "M-1": "a published factory material references at least one texture",
+    "M-2": "a published trim map is imported in the colour space its role requires"
+  },
+  "materials": {
+    "published": 64,
+    "textured": 36,
+    "textureless": [
+      "aged_bronze",
+      "black_iron",
+      "blue_black_slate",
+      "cold_stone",
+      "dark_bark",
+      "dressed_limestone",
+      "dry_hay",
+      "ember_glass",
+      "forge_coal",
+      "fresh_cut_wood",
+      "hemp_rope",
+      "kiln_fired_brick",
+      "market_green_produce",
+      "market_red_produce",
+      "roof_a",
+      "roof_accent_a",
+      "roof_accent_b",
+      "roof_accent_c",
+      "roof_b",
+      "roof_c",
+      "saw_steel",
+      "sawn_timber_boards",
+      "soot_plaster",
+      "timber_a",
+      "timber_b",
+      "timber_c",
+      "weathered_slate",
+      "woven_cloth"
+    ],
+    "detail": [
+      {
+        "name": "aged_bronze",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/aged_bronze.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "black_iron",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/black_iron.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "blue_black_slate",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/blue_black_slate.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "cold_stone",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/cold_stone.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "dark_bark",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/dark_bark.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "dressed_limestone",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/dressed_limestone.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "dry_hay",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/dry_hay.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "ember_glass",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/ember_glass.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "forge_coal",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/forge_coal.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "fresh_cut_wood",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/fresh_cut_wood.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "frontier_base_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_base_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_base_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_base_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_base_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_base_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_base_pale_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_base_pale_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_base_pale_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_base_pale_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_base_pale_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_base_pale_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_dark_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_dark_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_dark_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_dark_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_dark_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_dark_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_pale_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_pale_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_pale_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_pale_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_body_pale_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_body_pale_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_bronze_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_bronze_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_bronze_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_bronze_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_bronze_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_bronze_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_eave_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_eave_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_eave_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_eave_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_eave_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_eave_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_ember_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_ember_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_ember_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_ember_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_ember_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_ember_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_iron_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_iron_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_iron_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_iron_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_iron_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_iron_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_roof_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_roof_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_roof_accent_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_roof_accent_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_roof_accent_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_roof_accent_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_roof_accent_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_roof_accent_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_roof_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_roof_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_roof_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_roof_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_steel_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_steel_a.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_steel_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_steel_b.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "frontier_steel_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/frontier_steel_c.mat",
+        "maps": [
+          "_BaseMap",
+          "_BumpMap",
+          "_MainTex"
+        ],
+        "atlas_roles": [
+          "BaseColor",
+          "Normal"
+        ]
+      },
+      {
+        "name": "hemp_rope",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/hemp_rope.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "kiln_fired_brick",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/kiln_fired_brick.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "market_green_produce",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/market_green_produce.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "market_red_produce",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/market_red_produce.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "roof_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/roof_a.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "roof_accent_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/roof_accent_a.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "roof_accent_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/roof_accent_b.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "roof_accent_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/roof_accent_c.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "roof_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/roof_b.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "roof_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/roof_c.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "saw_steel",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/saw_steel.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "sawn_timber_boards",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/sawn_timber_boards.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "soot_plaster",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/soot_plaster.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "timber_a",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/timber_a.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "timber_b",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/timber_b.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "timber_c",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/timber_c.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "weathered_slate",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/weathered_slate.mat",
+        "maps": [],
+        "atlas_roles": []
+      },
+      {
+        "name": "woven_cloth",
+        "path": "Assets/CityLabHost/Adapted/Factory/Materials/woven_cloth.mat",
+        "maps": [],
+        "atlas_roles": []
+      }
+    ]
+  },
+  "trim_imports": {
+    "checked": 18,
+    "passed": 18,
+    "failed": [],
+    "detail": [
+      {
+        "role": "AO",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_AO.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "BaseColor",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_BaseColor.png.meta",
+        "sRGB": 1,
+        "texture_type": 0,
+        "expected_sRGB": 1,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "Metallic",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Metallic.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "Normal",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Normal.png.meta",
+        "sRGB": 0,
+        "texture_type": 1,
+        "expected_sRGB": 0,
+        "expected_texture_type": 1,
+        "passed": true
+      },
+      {
+        "role": "Roughness",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Roughness.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "VariationMask",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_VariationMask.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "AO",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2/CityLabTrimV2_AO.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "BaseColor",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2/CityLabTrimV2_BaseColor.png.meta",
+        "sRGB": 1,
+        "texture_type": 0,
+        "expected_sRGB": 1,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "Metallic",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2/CityLabTrimV2_Metallic.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "Normal",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2/CityLabTrimV2_Normal.png.meta",
+        "sRGB": 0,
+        "texture_type": 1,
+        "expected_sRGB": 0,
+        "expected_texture_type": 1,
+        "passed": true
+      },
+      {
+        "role": "Roughness",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2/CityLabTrimV2_Roughness.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "VariationMask",
+        "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2/CityLabTrimV2_VariationMask.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "AO",
+        "path": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_AO.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "BaseColor",
+        "path": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_BaseColor.png.meta",
+        "sRGB": 1,
+        "texture_type": 0,
+        "expected_sRGB": 1,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "Metallic",
+        "path": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_Metallic.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "Normal",
+        "path": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_Normal.png.meta",
+        "sRGB": 0,
+        "texture_type": 1,
+        "expected_sRGB": 0,
+        "expected_texture_type": 1,
+        "passed": true
+      },
+      {
+        "role": "Roughness",
+        "path": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_Roughness.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      },
+      {
+        "role": "VariationMask",
+        "path": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_VariationMask.png.meta",
+        "sRGB": 0,
+        "texture_type": 0,
+        "expected_sRGB": 0,
+        "expected_texture_type": 0,
+        "passed": true
+      }
+    ]
+  },
+  "debt": {
+    "declared_materials": 28,
+    "declared_trim_maps": 0,
+    "still_owed": 28,
+    "cleared_since_declaration": []
+  },
+  "violations": []
+}

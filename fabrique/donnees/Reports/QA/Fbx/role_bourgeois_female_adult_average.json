@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "role_bourgeois_female_adult_average",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_bourgeois_female_adult_average.fbx",
+  "fbx_sha256": "4c169d545fa228a2493e87dcc2cb43af17a956859b519151233a7d7d8bf94312",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 39,
+  "uv_mesh_count": 39,
+  "lod_mesh_counts": [
+    13,
+    13,
+    13
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

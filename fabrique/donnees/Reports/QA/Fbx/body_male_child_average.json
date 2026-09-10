@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_male_child_average",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_child_average.fbx",
+  "fbx_sha256": "a501638e8acbf10f95986196edc767d00addefb4f4f79b2115e83bf9315f7eaa",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

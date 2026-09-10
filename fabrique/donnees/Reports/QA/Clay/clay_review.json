@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "id": "citylab_clay_review",
+  "assets": [
+    {
+      "id": "building_sawmill_frontier_01_a",
+      "status": "passed",
+      "images": [
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_a_clay_rts.png",
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_a_clay_profil.png",
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_a_clay_dessus.png"
+      ],
+      "meshes": 174,
+      "ortho_m": 28.32
+    },
+    {
+      "id": "building_sawmill_frontier_01_b",
+      "status": "passed",
+      "images": [
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_b_clay_rts.png",
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_b_clay_profil.png",
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_b_clay_dessus.png"
+      ],
+      "meshes": 263,
+      "ortho_m": 28.32
+    },
+    {
+      "id": "building_sawmill_frontier_01_c",
+      "status": "passed",
+      "images": [
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_c_clay_rts.png",
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_c_clay_profil.png",
+        "AssetFactory/Reports/QA/Clay/building_sawmill_frontier_01_c_clay_dessus.png"
+      ],
+      "meshes": 244,
+      "ortho_m": 28.32
+    }
+  ],
+  "unity_launched": false
+}

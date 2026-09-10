@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_female_adult_tall",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_adult_tall.fbx",
+  "fbx_sha256": "04e9f71dd5437baea93ce38175eae7511f527624bf3e367b29657a84870bac40",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

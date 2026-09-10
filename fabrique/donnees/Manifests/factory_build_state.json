@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "id": "citylab_factory_build_state",
+  "assets": {
+    "building_barn_frontier_01_a": {
+      "fingerprint": "0684d556597886bf9fb39a4a72280e845ebdd77bbb2ee70eb28fc7e20e7a1f9c",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "b6938db65f87b7f50e474555c025ea7694ad0019cd4a95b98c882c79aa576e92",
+      "triangles": {
+        "lod0": 1582,
+        "lod1": 578,
+        "lod2": 106
+      }
+    },
+    "building_barn_frontier_01_b": {
+      "fingerprint": "4da1e0e9f1587a48c60d81b521e171716c0e6923eebe862f87bd223b53939b9b",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "ff5e090aba8324f6a21ffdd1db8a9f1a701280338168abeec8d2da1aa8c81473",
+      "triangles": {
+        "lod0": 3364,
+        "lod1": 1388,
+        "lod2": 328
+      }
+    },
+    "building_barn_frontier_01_c": {
+      "fingerprint": "7f2b1d4754ffeb8cfd5881e89f22f78269c70fb0632fbab407626472d096ae66",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "df7ebd9ae675df7bc2dbbf35f95fedc13882cffc6d98c0e7f5058518d4b2e798",
+      "triangles": {
+        "lod0": 1714,
+        "lod1": 646,
+        "lod2": 110
+      }
+    },
+    "building_blacksmith_frontier_01_a": {
+      "fingerprint": "4b45abc84656c1cc13f8888063dcb74bbd106230eeadfc18e3f1d7d0caa560e6",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "860f5eac1b64adafca1aa5079de9290f92a96615b17ef6dcbbacbfe819484db9",
+      "triangles": {
+        "lod0": 1492,
+        "lod1": 676,
+        "lod2": 110
+      }
+    },
+    "building_blacksmith_frontier_01_b": {
+      "fingerprint": "76971b01d3dd527eeabf233270a2089e8c9677f1025d8e86a949df06f2d9b17c",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "fc76226ca5cad788a6ba8a40f949988094c7f395f663176c123abf9bf2afed31",
+      "triangles": {
+        "lod0": 1678,
+        "lod1": 746,
+        "lod2": 188
+      }
+    },
+    "building_blacksmith_frontier_01_c": {
+      "fingerprint": "a199977d087c5417afe7f9fa1d2709f6cb0eaad491dee574c772c5086872bffb",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "0d2f3722df6aaa78ac457fb699e4932214882a9be128bfb0bd680037a426bc54",
+      "triangles": {
+        "lod0": 2650,
+        "lod1": 1118,
+        "lod2": 310
+      }
+    },
+    "building_chapel_frontier_01_a": {
+      "fingerprint": "406bb588d98721ac536e9303ae87a4622ea0d6eb9b3675c22566853df914df65",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "d6cea8619ef55e4c3c31a5449b1219ee4c44caa9b465b802ecd508b2151dc12f",
+      "triangles": {
+        "lod0": 1992,
+        "lod1": 1120,
+        "lod2": 364
+      }
+    },
+    "building_chapel_frontier_01_b": {
+      "fingerprint": "399bcb404f99e3aab4087e1d5fb0caf9bfd0bd73ffa49bb7a28565cedf3c5bab",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "d40f04f146e3045bfd2e0d34c550e2006bff661763572798e9658772dda66aad",
+      "triangles": {
+        "lod0": 2332,
+        "lod1": 1168,
+        "lod2": 452
+      }
+    },
+    "building_chapel_frontier_01_c": {
+      "fingerprint": "4b4b80d842974adf6c0f8b8d590cfa4affa0f3032c5598d02406dea6d27a5d36",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "e7efc0fdcdce8c64b6aa6da46877709d4cce238ba3bb31f53a37309771184043",
+      "triangles": {
+        "lod0": 2796,
+        "lod1": 1488,
+        "lod2": 564
+      }
+    },
+    "building_granary_frontier_01_a": {
+      "fingerprint": "80c9d6bf27e3118e29c0676a8bdde5a10bb4ab8329fad1302f54a7b67729c8a9",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "a1b3604da5ba7354276f207b1a74b4c901d0dc16fc501bea71674a2c683fed27",
+      "triangles": {
+        "lod0": 2872,
+        "lod1": 1368,
+        "lod2": 316
+      }
+    },
+    "building_granary_frontier_01_b": {
+      "fingerprint": "dc3bc74743cd891b106b0f4998319004bea52ce529b3919c80c435066d15439b",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "dd6e4ede090dea4f4254144edbe2a6422bf88cb7e0ddf314ad4622c762f454bb",
+      "triangles": {
+        "lod0": 1652,
+        "lod1": 760,
+        "lod2": 186
+      }
+    },
+    "building_granary_frontier_01_c": {
+      "fingerprint": "b7f5d6655eef210e4de89f93d7db2cdae136157633ca1c2b4e78ddf2e0377698",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "88e5bbeb772f70c116e03b2c4986773659a446a386fdaf3044102973b738d638",
+      "triangles": {
+        "lod0": 1650,
+        "lod1": 766,
+        "lod2": 118
+      }
+    },
+    "building_market_frontier_01_a": {
+      "fingerprint": "49130333e092b46b50f663771a898826ae6e30f17032142706f1eaf406da4a4f",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "24de23718f7f9da43ee9140405c535471f78696efa62c3e77785eef9eb31a11b",
+      "triangles": {
+        "lod0": 3182,
+        "lod1": 1546,
+        "lod2": 260
+      }
+    },
+    "building_market_frontier_01_b": {
+      "fingerprint": "e6aa8eaa793e99e131ae005e17d44d00f1f17cfe351e59d223b91b67ef70e145",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "19c118f961e308f3e544f623c954c45e720030cea0a6f841aed1ff512ee02d13",
+      "triangles": {
+        "lod0": 3406,
+        "lod1": 1470,
+        "lod2": 324
+      }
+    },
+    "building_market_frontier_01_c": {
+      "fingerprint": "ae9e66a0cf4d1c41e4661cd25ce576645d70a4057a8b0cb48daf490b3b46ecd5",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "f93232e24f78efd1b236ca35cda1deef6fd754d469cfc7b0ae6861224e5eaedf",
+      "triangles": {
+        "lod0": 3798,
+        "lod1": 1642,
+        "lod2": 362
+      }
+    },
+    "building_residence_frontier_01_a": {
+      "fingerprint": "d5d19b98c9403ea1a1ad784d5686461e3d4e62e1ce8f588584902cb7ca6c3dc0",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "53748a4323e19b811709bd979ba36e6c6d559cc57fb800ebe42941f52a659c78",
+      "triangles": {
+        "lod0": 2912,
+        "lod1": 1244,
+        "lod2": 318
+      }
+    },
+    "building_residence_frontier_01_b": {
+      "fingerprint": "d705f32718dec839f48f108766b45d85cdf260f61e5806705f9c78a07b531fa8",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "8fad36111a8be7463b26b2e6d01aef74f1263181c787ac2860d192caaf795c29",
+      "triangles": {
+        "lod0": 3974,
+        "lod1": 1794,
+        "lod2": 402
+      }
+    },
+    "building_residence_frontier_01_c": {
+      "fingerprint": "1e9fd824705f84f3191a0be6805b48a0043f325c5b11f487e23f85092212caa6",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "8fb440506156c29a8ae2ed9fa99e1f68e2bf27ed2b15a13af25d66bdd08e5997",
+      "triangles": {
+        "lod0": 2932,
+        "lod1": 1170,
+        "lod2": 344
+      }
+    },
+    "building_sawmill_frontier_01_a": {
+      "fingerprint": "857ee2531e8bcf98cc2db45e5d896e8edfbabe79436f778e1989bcc761c09d27",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "438fa7f01f50f11c33ad28199ab9d487837143a579ed3c2b50bfa3bffa1bfe72",
+      "triangles": {
+        "lod0": 2030,
+        "lod1": 806,
+        "lod2": 120
+      }
+    },
+    "building_sawmill_frontier_01_b": {
+      "fingerprint": "1eedb8c81f6ac4e53c79605efbbbb3f8b34eb38333e5432fe31e109294e3f801",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "e49ff638b0f435ac15d87a91b32eb54651284766ebf030840e203df599097da7",
+      "triangles": {
+        "lod0": 3070,
+        "lod1": 1196,
+        "lod2": 314
+      }
+    },
+    "building_sawmill_frontier_01_c": {
+      "fingerprint": "f14142806272b73fe3c81f56c5dcb69640cb59d4564800864c778ca878721966",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "f9bf9056fdd45afac69d1cc4427bf970135018fcc67ae9d70302c3dadce6ed7a",
+      "triangles": {
+        "lod0": 3138,
+        "lod1": 1310,
+        "lod2": 300
+      }
+    },
+    "building_warehouse_frontier_01_a": {
+      "fingerprint": "218e49bcbf7a175eb5111d6c3e5c2c4e12fae5b0ccbfdfd8d81bb6b1e1c74860",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "2168a5bb1fe689c058d357719cdd9080cbb23be7a18bea15b4664c35096bfbc8",
+      "triangles": {
+        "lod0": 1320,
+        "lod1": 560,
+        "lod2": 114
+      }
+    },
+    "building_warehouse_frontier_01_b": {
+      "fingerprint": "94d204d95c2c4a9d2045dee8ebe5095f52b7ec78aec30a9be4d7df391582d251",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "4f1e160f83a4e335eb121c6bccd3b0e03605086b6606b16e459523123351dbbf",
+      "triangles": {
+        "lod0": 1558,
+        "lod1": 730,
+        "lod2": 196
+      }
+    },
+    "building_warehouse_frontier_01_c": {
+      "fingerprint": "8c2f5d052af9efc4ea45b5fc16dcc3698979b2e6004190569a80beb1a25c9389",
+      "blender": "Blender 5.2.0 LTS",
+      "canonical_mesh_sha256": "731399b100067a78e622b5cdac517c3345ad8f44cbdc420d19a32d0c9a92b24b",
+      "triangles": {
+        "lod0": 1420,
+        "lod1": 620,
+        "lod2": 118
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "building_blacksmith_frontier_01_b",
+  "kind": "building",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Models/building_blacksmith_frontier_01_b.fbx",
+  "fbx_sha256": "78469e8c5d8e1a4f62d528fd5edca8fe01358b1073718a96752fe51cd9a8a31e",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 16,
+  "uv_mesh_count": 16,
+  "lod_mesh_counts": [
+    6,
+    6,
+    4
+  ],
+  "armature_count": 0,
+  "bone_count": 0,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

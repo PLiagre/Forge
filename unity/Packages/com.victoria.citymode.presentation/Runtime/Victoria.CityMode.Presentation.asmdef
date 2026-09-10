@@ -1,0 +1,8 @@
+{
+  "name": "Victoria.CityMode.Presentation",
+  "rootNamespace": "Victoria.CityMode.Presentation",
+  "references": [
+    "Victoria.CityMode.Contracts"
+  ],
+  "autoReferenced": true
+}

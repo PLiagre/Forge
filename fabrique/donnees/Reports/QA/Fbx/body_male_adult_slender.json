@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_male_adult_slender",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_adult_slender.fbx",
+  "fbx_sha256": "2b52a4a004d055d9d5b42578ebe4342502f01d03b53904418c12fc27d21ed90f",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "id": "texture_citylab_trim_v2",
+  "status": "draft",
+  "texture_schema": "AssetFactory/Schemas/pbr_trim.schema.json",
+  "file_prefix": "CityLabTrimV2_",
+  "seed": 2026082705,
+  "resolution": 2048,
+  "supersedes": "texture_citylab_trim_v1",
+  "notes": "Six bandes. lime_plaster est la reponse mesuree au refus de la porte A-8 : citylab_trim_v1 n'a aucune valeur claire (p90 a 78 sur 255), alors que les references de style tiennent leur lecture du contraste panneau clair / bois sombre (p90 a 155 et 162). Le contraste vit dans la bande, pas entre les bandes : le meme rectangle porte le panneau et son pan de bois.",
+  "regions": [
+    {
+      "id": "structural_wood",
+      "material": "wood",
+      "v_min": 0.0,
+      "v_max": 0.166667
+    },
+    {
+      "id": "sawn_planks",
+      "material": "plank",
+      "v_min": 0.166667,
+      "v_max": 0.333333
+    },
+    {
+      "id": "lime_plaster",
+      "material": "plaster",
+      "v_min": 0.333333,
+      "v_max": 0.5
+    },
+    {
+      "id": "dressed_stone",
+      "material": "stone",
+      "v_min": 0.5,
+      "v_max": 0.666667
+    },
+    {
+      "id": "fired_brick",
+      "material": "brick",
+      "v_min": 0.666667,
+      "v_max": 0.833333
+    },
+    {
+      "id": "roof_tiles",
+      "material": "roof",
+      "v_min": 0.833333,
+      "v_max": 1.0
+    }
+  ],
+  "maps": [
+    "BaseColor",
+    "Normal",
+    "AO",
+    "Roughness",
+    "Metallic",
+    "VariationMask"
+  ],
+  "palette": {
+    "wood": [
+      71,
+      32,
+      13
+    ],
+    "wood_highlight": [
+      132,
+      72,
+      30
+    ],
+    "plank": [
+      96,
+      62,
+      34
+    ],
+    "plank_highlight": [
+      163,
+      118,
+      69
+    ],
+    "stone": [
+      92,
+      96,
+      91
+    ],
+    "mortar": [
+      43,
+      42,
+      38
+    ],
+    "brick": [
+      124,
+      48,
+      30
+    ],
+    "brick_mortar": [
+      78,
+      72,
+      63
+    ],
+    "roof": [
+      107,
+      42,
+      24
+    ],
+    "roof_highlight": [
+      157,
+      75,
+      38
+    ],
+    "iron": [
+      38,
+      43,
+      45
+    ],
+    "plaster": [
+      201,
+      193,
+      174
+    ],
+    "plaster_shade": [
+      163,
+      154,
+      136
+    ]
+  },
+  "review_resolutions": [
+    512,
+    256,
+    128
+  ],
+  "outputs": {
+    "workbench": "AssetFactory/Workbench/Textures/CityLabTrimV2",
+    "published": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2",
+    "report": "AssetFactory/Reports/Textures/citylab_trim_v2.json",
+    "manifest": "AssetFactory/Manifests/citylab_trim_v2.json"
+  },
+  "budgets": {
+    "total_bytes_max": 25165824,
+    "contrast_min": 8.0
+  }
+}

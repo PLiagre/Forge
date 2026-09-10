@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "role_beggar_female_elder_slender",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_beggar_female_elder_slender.fbx",
+  "fbx_sha256": "a69adafe7291a8885dc52e0ed11a055fcb12c687ea58d06d7d8ad36dc5d2fd4e",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 39,
+  "uv_mesh_count": 39,
+  "lod_mesh_counts": [
+    13,
+    13,
+    13
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "building_sawmill_frontier_01_b",
+  "kind": "building",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Models/building_sawmill_frontier_01_b.fbx",
+  "fbx_sha256": "69b17397e3c524797330a20e3228fb8fd85781250fd8b5ce48ae73ca9bced413",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 21,
+  "uv_mesh_count": 21,
+  "lod_mesh_counts": [
+    8,
+    7,
+    6
+  ],
+  "armature_count": 0,
+  "bone_count": 0,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

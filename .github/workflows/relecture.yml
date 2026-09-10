@@ -1,0 +1,67 @@
+name: relecture
+
+# La règle de rôle du dépôt — celui qui a écrit le code ne dit pas s'il est
+# recevable — cessait d'être tenue dès qu'on retirait l'œil du propriétaire
+# du chemin de la fusion. Ce travail la tient : il demande une approbation
+# posée sur la révision COURANTE de la PR, par une connexion qui n'a écrit
+# aucun de ses commits.
+#
+# Le geste vit dans `.github/scripts/relecture.sh`, pas ici : un fichier se
+# joue sur un banc, un bloc de YAML ne se joue nulle part. Le banc est
+# `outils/tests/test_scripts.py`.
+#
+# Cet état **rend la PR lisible ; il ne l'ouvre pas**. Ce qui gouverne la
+# fusion est le même verdict, recalculé par l'intégration depuis le code
+# de `master` (`atelier.toml` § [integration] dit pourquoi `relecture`
+# n'est pas dans la liste des contrôles requis).
+#
+# Le verdict est un état de commit (`relecture`) posé sur cette révision,
+# pas la couleur de ce travail. C'est délibéré : une revue déposée après
+# coup arrive par `pull_request_review`, un événement dont le travail ne
+# tourne PAS sur la révision de la PR — sa propre couleur se poserait au
+# mauvais endroit. Un état, lui, nomme la révision qu'il juge. « Périmé
+# bloque » cesse alors d'être une garde qu'on écrit : c'est une propriété
+# du support.
+
+on:
+  pull_request:
+  pull_request_review:
+    types: [submitted, dismissed]
+  # Un rejeu sur `master` change la révision sans déclencher aucun
+  # événement — GitHub refuse la récursion sur ce qu'un jeton d'Actions a
+  # poussé. L'intégration redemande alors ce verdict nommément, sinon la
+  # PR resterait sans état : bloquée, et muette sur la raison.
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "le numéro de la PR à juger"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  verdict:
+    runs-on: ubuntu-latest
+    steps:
+      # La révision de `master`, jamais celle de la PR. Une PR qui
+      # apporterait son propre `outils/relecture.py` se jugerait
+      # elle-même — et rien n'est plus facile à écrire qu'un juge
+      # complaisant. Le verdict ne lit que l'API : il n'a aucun besoin du
+      # code de la PR.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - name: Qui a relu, et sur quelle révision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          REVISION: ${{ github.event.pull_request.head.sha }}
+          LIEN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/relecture.sh

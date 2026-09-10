@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "id": "unity_matter_debt_v1",
+  "status": "declared",
+  "why": "Dette matiere mesuree, consignee en donnee et non en prose, sur le modele de requires_atlas dans AssetFactory/Styles/frontier.json. Tools/AssetFactory/matter_gate.py refuse toute violation absente de cette liste : la dette ne peut que retrecir.",
+  "rules": {
+    "M-1": "a published factory material references at least one texture",
+    "M-2": "a published trim map is imported in the colour space its role requires"
+  },
+  "m1_materials_without_any_texture": [
+    "aged_bronze",
+    "black_iron",
+    "blue_black_slate",
+    "cold_stone",
+    "dark_bark",
+    "dressed_limestone",
+    "dry_hay",
+    "ember_glass",
+    "forge_coal",
+    "fresh_cut_wood",
+    "hemp_rope",
+    "kiln_fired_brick",
+    "market_green_produce",
+    "market_red_produce",
+    "roof_a",
+    "roof_accent_a",
+    "roof_accent_b",
+    "roof_accent_c",
+    "roof_b",
+    "roof_c",
+    "saw_steel",
+    "sawn_timber_boards",
+    "soot_plaster",
+    "timber_a",
+    "timber_b",
+    "timber_c",
+    "weathered_slate",
+    "woven_cloth"
+  ],
+  "m2_trim_maps_in_the_wrong_colour_space": []
+}

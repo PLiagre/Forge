@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "id": "citylab_character_population",
+  "status": "proposals_generated_body_and_rig_validation_pending",
+  "source_pack": "ganzse_free_modular_character",
+  "source_root": "Assets/URP GanzSe Free Modular Character Pack/Models",
+  "schema_ref": "AssetFactory/Schemas/character_modular.schema.json",
+  "proposal_catalog": "AssetFactory/Catalogs/character_proposals.json",
+  "genders": ["male", "female"],
+  "ages": [
+    {"id": "child", "height_scale": 0.72, "head_scale": 1.12, "shoulder_scale": 0.86, "posture_degrees": 0},
+    {"id": "adult", "height_scale": 1.0, "head_scale": 1.0, "shoulder_scale": 1.0, "posture_degrees": 0},
+    {"id": "elder", "height_scale": 0.96, "head_scale": 1.03, "shoulder_scale": 0.94, "posture_degrees": 7}
+  ],
+  "morphologies": [
+    {"id": "slender", "torso_width": 0.86, "torso_depth": 0.88, "limb_width": 0.88},
+    {"id": "average", "torso_width": 1.0, "torso_depth": 1.0, "limb_width": 1.0},
+    {"id": "sturdy", "torso_width": 1.16, "torso_depth": 1.12, "limb_width": 1.10},
+    {"id": "tall", "torso_width": 0.96, "torso_depth": 0.96, "limb_width": 0.98, "height_multiplier": 1.08}
+  ],
+  "hair": {
+    "styles": [1, 2, 3, 4, 5],
+    "colors": [1, 2, 3, 4, 5],
+    "facial_hair_styles": [0, 1, 2, 3, 4, 5],
+    "rules": ["no_facial_hair_for_children", "facial_hair_optional_for_adult_and_elder_male"]
+  },
+  "face": {"eyes": 5, "eyebrows": 5, "noses": 5, "ears": 2},
+  "social_roles": [
+    {"id": "wealthy", "label": "Riche", "armor_type": 5, "palette": 3, "markers": ["fine_cloth", "jewelled_belt"]},
+    {"id": "bourgeois", "label": "Bourgeois", "armor_type": 4, "palette": 2, "markers": ["clean_tunic", "leather_belt"]},
+    {"id": "peasant", "label": "Paysan", "armor_type": 2, "palette": 1, "markers": ["coarse_cloth", "hood_optional"]},
+    {"id": "soldier", "label": "Soldat", "armor_type": 6, "palette": 2, "markers": ["helmet", "chest_armor", "weapon"]},
+    {"id": "noble", "label": "Noble", "armor_type": 5, "palette": 2, "markers": ["mantle", "metal_trim", "house_color"]},
+    {"id": "religious", "label": "Religieux", "armor_type": 1, "palette": 1, "markers": ["dark_robe", "tonsure_or_hood", "symbol"]},
+    {"id": "beggar", "label": "Mendiant", "armor_type": 2, "palette": 1, "markers": ["patched_cloth", "bare_head", "bundle"]},
+    {"id": "worker", "label": "Ouvrier", "armor_type": 3, "palette": 1, "markers": ["apron", "gloves", "tool"]}
+  ],
+  "selection": {
+    "mode": "deterministic_weighted",
+    "seed_fields": ["city_seed", "person_id"],
+    "constraints": [
+      "children_use_child_compatible_clothing",
+      "soldier_excludes_child",
+      "wealth_and_role_control_material_palette",
+      "all_parts_share_one_humanoid_rig",
+      "morphology_is_applied_before_lod_generation"
+    ]
+  },
+  "lod_triangles_max": [18000, 9000, 3500]
+}

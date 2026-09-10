@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "id": "citylab_village_pilot",
+  "decided_by": "proprietaire",
+  "decided_on": "2026-08-30",
+  "why": "Trois questions ouvertes avant de coder la scene : combien de batiments, quelle emprise, quel plafond de triangles. Le proprietaire a tranche : un bourg de 40 batiments sur 140 x 140 m, plafond 300 000 triangles, terrain accidente. Les habitants n'ont pas ete retenus pour cette premiere scene.",
+  "seed": 2026083001,
+  "extent_m": 140.0,
+  "building_count": 40,
+  "inhabitants": false,
+  "terrain": {
+    "kind": "uneven",
+    "cells": 28,
+    "amplitude_m": 3.4,
+    "why": "Un relief leger, echantillonne en Python et porte par le plan : Unity ne recalcule aucune hauteur, il lit celles du plan. Deux implementations de la meme fonction de terrain divergeraient, et un batiment flotterait."
+  },
+  "budget": {
+    "scene_triangles_max": 300000,
+    "why": "Plafond de la scene entiere, decide par le proprietaire. Les 40 batiments en prennent environ 97 000 ; le reste est pour le decor et le terrain."
+  },
+  "streets": {
+    "half_width_m": 4.5,
+    "plot_depth_m": 13.0,
+    "margin_m": 1.6,
+    "why": "Trois rues nord-sud et trois est-ouest, une bande de parcelles de chaque cote, et une marge entre voisins : c'est elle qui empeche deux corps accoles de se traverser. Une simple croix n'ouvrait que 36 parcelles pour 40 batiments et la porte a refuse le plan. Une place de 16 m de rayon reste vide de batiments au croisement central : c'est elle qui fait la difference entre un bourg et une grille de boites.",
+    "axes_m": [
+      -36.0,
+      0.0,
+      36.0
+    ],
+    "square_radius_m": 16.0
+  },
+  "decor": {
+    "why": "Chaque entree est une source Vendor mesuree par le recensement, choisie sur son cout LOD0 reel et non sur le total de ses trois LOD. `count` est un maximum : la pose s'arrete des que la place ou le budget manque. `placement` est lu : `hors_parcelle` pose dans la campagne hors des chaussees, `bord_de_parcelle` contre un batiment du cote oppose a la rue, `place` sur la place. Il etait declare et jamais lu, et le decor traversait les rues. Chaque source doit avoir son prefab de pack (`<nom>_PRE.prefab`) : c'est lui qui porte la matiere. Instancier le FBX brut rend une geometrie BLANCHE -- vu au rendu, invisible sur tous les compteurs. Le plan resout et epingle le prefab, et refuse une source qui n'en a pas.",
+    "kinds": [
+      {
+        "id": "arbre",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_02c.fbx",
+        "count": 46,
+        "radius_m": 3.2,
+        "placement": "hors_parcelle"
+      },
+      {
+        "id": "arbre_second",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_06b.fbx",
+        "count": 18,
+        "radius_m": 2.6,
+        "placement": "hors_parcelle"
+      },
+      {
+        "id": "buisson",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_01a.fbx",
+        "count": 40,
+        "radius_m": 1.4,
+        "placement": "hors_parcelle"
+      },
+      {
+        "id": "rocher",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Rock_CatHead_01b.fbx",
+        "count": 22,
+        "radius_m": 1.6,
+        "placement": "hors_parcelle"
+      },
+      {
+        "id": "herbe",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Plant_Grass_02a.fbx",
+        "count": 60,
+        "radius_m": 0.9,
+        "placement": "hors_parcelle"
+      },
+      {
+        "id": "cloture",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Plank_02a.fbx",
+        "count": 48,
+        "radius_m": 1.1,
+        "placement": "bord_de_parcelle"
+      },
+      {
+        "id": "puits",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Village_Whell_01d.fbx",
+        "count": 2,
+        "radius_m": 2.0,
+        "placement": "place"
+      },
+      {
+        "id": "etal",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Prop_Stand_Sheet_01a.fbx",
+        "count": 5,
+        "radius_m": 2.2,
+        "placement": "place",
+        "prefab": "Assets/EmaceArt/Slavic World Free/Prefabs/Prop/Village/EA03_Prop_Stand_Sheet_01a_PRE.prefab"
+      },
+      {
+        "id": "tonneau",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Barrel_01d.fbx",
+        "count": 16,
+        "radius_m": 0.8,
+        "placement": "bord_de_parcelle"
+      },
+      {
+        "id": "caisse",
+        "source": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Crate_01a.fbx",
+        "count": 14,
+        "radius_m": 0.8,
+        "placement": "bord_de_parcelle"
+      }
+    ]
+  },
+  "notes": [
+    "Aucune source Vendor n'est modifiee, deplacee ni ecrasee : le plan les cite par chemin et SHA-256, Unity les instancie.",
+    "Le plan est calcule et controle hors Unity. Le plafond de triangles est une porte Python : une scene qui le depasse ne s'ecrit pas.",
+    "Les habitants ne sont pas poses. La population modulaire existe, le proprietaire ne l'a pas retenue pour cette scene.",
+    "L'arbre principal passe de 16,8 m a 9,4 m : a cote de maisons de 8 m, le grand arbre ecrasait le bourg. Le grand reste, en dix-huit exemplaires reperes."
+  ]
+}

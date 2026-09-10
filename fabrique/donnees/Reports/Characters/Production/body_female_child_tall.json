@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "body_female_child_tall",
+  "kind": "body",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "female_child",
+    "gender": "female",
+    "age": "child",
+    "height": 0.7,
+    "shoulders": 0.8,
+    "hips": 0.98,
+    "head": 1.14,
+    "posture": 0,
+    "hair_type": 4,
+    "hair_color": 3
+  },
+  "morphology": {
+    "id": "tall",
+    "width": 0.96,
+    "depth": 0.96,
+    "height": 1.08
+  },
+  "role": null,
+  "bone_count": 52,
+  "lod_triangles": [
+    2363,
+    1225,
+    561
+  ],
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "canonical_sha256": "fa3f4bced4d80e925c3dc03498660b741a54063111a38d506f1061a4b8956457",
+  "fbx_sha256": "14def92eb574021da6026ef3a995921dd66e1b03eab1b06f1bc974b097b84836",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Bodies/body_female_child_tall.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_female_child_tall.png",
+  "unity_launched": false
+}

@@ -1,0 +1,54 @@
+# Le branchement du dépôt sur l'atelier.
+#
+# L'atelier ne connaît pas le jeu : il lit ce fichier. Il vivait sur une
+# branche détachée avant la fusion, et une copie vendorisée en tenait lieu
+# dans le second dépôt ; il vit maintenant dans l'arbre, à `atelier/`.
+
+[projet]
+nom = "Forge"
+briefs = "briefs"
+tests = "python3 -m pytest sim/tests/ vues/tableau/tests/ vues/chronique/tests/ vues/relief/tests/ forge/tests/ outils/tests/ -q"
+fumee = "python3 -m forge --ticks 3 --seed 0 --sans-chronique --largeur 64 --sortie /tmp/forge-fumee"
+branche_base = "master"
+prefixe_branche = "agent/"
+# Le registre des lots : la seule représentation qui fait autorité sur l'état
+# d'un lot. Le pilote la lit, la CI la valide.
+feuille = "ROADMAP.md"
+
+[roles]
+ecriture = "claude"
+execution = "cursor"
+controle = "claude"
+
+# L'intégration : qui entre dans master, et à quelle condition. Elle est
+# déclarée ici, en clair, parce qu'un réglage qui ne vit que dans les options
+# GitHub ne se lit dans aucun diff — et une porte qu'on ne voit pas s'ouvrir
+# est une porte qu'on ne se souvient pas d'avoir ouverte.
+[integration]
+# Les contrôles obligatoires. Une PR entre quand ils sont tous verts sur sa
+# révision courante. Un contrôle absent n'est pas un contrôle vert.
+#
+# `relecture` n'est pas dans la liste, et ce n'est pas un oubli : l'état de ce
+# nom est posé par un travail qui tourne sur le code de la PR, donc par du
+# code que la PR peut changer. L'intégration calcule ce verdict-là elle-même,
+# avec le module de `master`.
+#
+# `forge` est le contrôle neuf de la fusion : il joue la commande de bout en
+# bout. Les autres vérifient des pièces ; celui-là vérifie qu'elles marchent
+# ensemble, ce qu'aucun test unitaire ne dit.
+controles = ["sim", "vues", "forge", "outils", "feuille", "gitleaks"]
+# Les branches que l'intégration fusionne. Le reste attend le propriétaire :
+# une expérience qui passe au vert n'est pas un lot.
+branches = ["agent/", "brief/", "feuille/"]
+
+# La page de pilotage : ses seuils et ses fenêtres. Ils sont ici, et pas dans
+# le code, parce qu'un seuil qu'on ne peut changer qu'en committant `outils/`
+# est un seuil que personne ne change — et un seuil que personne ne change
+# finit par ne plus rien vouloir dire.
+[tableau]
+tours_sans_fusion = 10
+brouillon_jours = 2
+journal = 30
+historique = 200
+semaines = 8
+executions = 100

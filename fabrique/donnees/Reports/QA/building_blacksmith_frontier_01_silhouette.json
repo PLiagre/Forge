@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "id": "silhouette_gate_building_blacksmith_frontier_01",
+  "style": "frontier",
+  "render_px": 256,
+  "camera": "rts",
+  "max_iou_same_family": 0.8,
+  "pairs": [
+    {
+      "pair": "a-b",
+      "iou": 0.5231,
+      "threshold": 0.8,
+      "passed": true
+    },
+    {
+      "pair": "a-c",
+      "iou": 0.5712,
+      "threshold": 0.8,
+      "passed": true
+    },
+    {
+      "pair": "b-c",
+      "iou": 0.6495,
+      "threshold": 0.8,
+      "passed": true
+    }
+  ],
+  "function": "blacksmith",
+  "articulation": {
+    "render_px": 256,
+    "min_articulation": 5.5,
+    "min_articulation_domestic": 6.0,
+    "min_articulation_non_domestic": 5.5,
+    "variants": [
+      {
+        "variant": "a",
+        "articulation": 5.835,
+        "threshold": 5.5,
+        "passed": true
+      },
+      {
+        "variant": "b",
+        "articulation": 5.862,
+        "threshold": 5.5,
+        "passed": true
+      },
+      {
+        "variant": "c",
+        "articulation": 6.293,
+        "threshold": 5.5,
+        "passed": true
+      }
+    ],
+    "observed_spread": 0.458
+  },
+  "passed": true,
+  "contact_sheet": "AssetFactory/Reports/QA/building_blacksmith_frontier_01_contact_96px.png",
+  "contact_sheet_px": 96
+}

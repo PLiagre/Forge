@@ -1,0 +1,16 @@
+{
+  "name": "com.victoria.citymode",
+  "version": "0.1.0",
+  "displayName": "Victoria CityLab Laboratory",
+  "description": "Standalone CityLab laboratory adapter, fixtures, local simulation, save service, and legacy presentation. Never import this package in ForgeHistory production.",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.victoria.citymode.contracts": "0.1.0",
+    "com.victoria.citymode.presentation": "0.1.0",
+    "com.unity.inputsystem": "1.13.1",
+    "com.unity.ai.navigation": "2.0.6",
+    "com.unity.render-pipelines.universal": "17.0.4"
+  }
+}
+
+

@@ -1,0 +1,7 @@
+{
+  "format": "victoria-citylab-save",
+  "formatVersion": 1,
+  "snapshotSchemaVersion": 0,
+  "payloadSha256": "62b9c9a9de0808737bff8b79a80489916c63d552324faf0f8ed45d77899a4f71",
+  "payload": "{\"schemaVersion\":0,\"cityId\":1001,\"seed\":140001,\"elapsedSeconds\":12.5,\"stockWood\":64,\"reservedWood\":2,\"households\":[{\"id\":1,\"memberCount\":3,\"homeBuildingId\":1,\"claimedParcelId\":1}],\"roads\":[{\"id\":1,\"start\":{\"x\":-12,\"z\":0},\"end\":{\"x\":12,\"z\":0},\"blocked\":false}],\"parcels\":[],\"buildings\":[],\"villagers\":[],\"productionSites\":[]}"
+}

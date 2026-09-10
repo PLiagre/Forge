@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_female_child_sturdy",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_female_child_sturdy.fbx",
+  "fbx_sha256": "7e72bd0e6b2a0439ee89644c0c61f918bcb3bb885414aeb2bc475de96bf0ebcb",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "id": "building_blacksmith_frontier_01_b",
+  "family": "building_blacksmith_frontier_01",
+  "function": "blacksmith",
+  "wall_system": "brick_stone",
+  "roof_system": "slate",
+  "identity_markers": [
+    "brick_chimney",
+    "forge",
+    "anvil",
+    "coal",
+    "horseshoe_sign",
+    "tool_rack"
+  ],
+  "variant": "b",
+  "seed": 2026081601,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Stove_01b.fbx",
+    "sha256": "6c42f9909d6dac5247c23457bcf98a719c9ec955b7f839c759780a9e7450eed2"
+  },
+  "grammar": {
+    "footprint_form": "rectangle_lean_to",
+    "level_form": "one_and_half",
+    "roof_form": "gable",
+    "ridge_axis": "long",
+    "width_m": 10.5037,
+    "depth_m": 7.8491,
+    "wall_height_m": 2.9471,
+    "pitch_deg": 43.1642,
+    "rise_m": 5.4325,
+    "ridge_z_m": 8.8548
+  },
+  "budget": {
+    "class": "standard",
+    "lod": [
+      4000,
+      1800,
+      600
+    ]
+  },
+  "triangles": {
+    "lod0": 1678,
+    "lod1": 746,
+    "lod2": 188
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_blacksmith_frontier_01_b__S01_GROUNDWORKS",
+        "lod0": 88,
+        "lod1": 88,
+        "lod2": 88
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_blacksmith_frontier_01_b__S03_FRAMING",
+        "lod0": 470,
+        "lod1": 422,
+        "lod2": 24
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_blacksmith_frontier_01_b__S05_CARPENTRY",
+        "lod0": 196,
+        "lod1": 16,
+        "lod2": 0
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_blacksmith_frontier_01_b__S06_ROOFING",
+        "lod0": 244,
+        "lod1": 100,
+        "lod2": 40
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_blacksmith_frontier_01_b__S07_JOINERY",
+        "lod0": 312,
+        "lod1": 36,
+        "lod2": 36
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_blacksmith_frontier_01_b__S08_FINISHES",
+        "lod0": 368,
+        "lod1": 84,
+        "lod2": 0
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 88,
+      "lod1": 88,
+      "lod2": 88
+    },
+    "framing": {
+      "lod0": 470,
+      "lod1": 422,
+      "lod2": 24
+    },
+    "carpentry": {
+      "lod0": 196,
+      "lod1": 16,
+      "lod2": 0
+    },
+    "roofing": {
+      "lod0": 244,
+      "lod1": 100,
+      "lod2": 40
+    },
+    "joinery": {
+      "lod0": 312,
+      "lod1": 36,
+      "lod2": 36
+    },
+    "finishes": {
+      "lod0": 368,
+      "lod1": 84,
+      "lod2": 0
+    }
+  },
+  "canonical_mesh_sha256": "fc76226ca5cad788a6ba8a40f949988094c7f395f663176c123abf9bf2afed31",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_b",
+      "frontier_body_b",
+      "frontier_body_dark_b",
+      "frontier_eave_b",
+      "frontier_ember_b",
+      "frontier_iron_b",
+      "frontier_roof_b"
+    ],
+    "front_wall_edge_loops": 3,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 13,
+    "identity_markers_declared": [
+      "brick_chimney",
+      "forge",
+      "anvil",
+      "coal",
+      "horseshoe_sign",
+      "tool_rack"
+    ],
+    "identity_markers_built": [
+      "brick_chimney",
+      "forge",
+      "anvil",
+      "coal",
+      "horseshoe_sign",
+      "tool_rack"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 3
+  },
+  "category_triangles": {
+    "shell": 446,
+    "roof_frame": 180,
+    "opening_reveal": 168,
+    "edge_trim": 144,
+    "hardware": 108,
+    "foundation": 88,
+    "appendage": 60,
+    "lantern_glass": 56,
+    "frame_detail": 48,
+    "opening_detail": 48,
+    "micro_prop": 48,
+    "appendage_detail": 48,
+    "tool": 48,
+    "roof_plane": 40,
+    "eave": 40,
+    "opening_plane": 36,
+    "produce": 36,
+    "shell_proxy": 24,
+    "gable": 24,
+    "dormer": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_blacksmith_frontier_01_b.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_blacksmith_frontier_01_b.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_stage_02_framing.png",
+      "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_stage_03_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_stage_04_roofing.png",
+      "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_stage_05_joinery.png",
+      "AssetFactory/Workbench/Previews/building_blacksmith_frontier_01_b_stage_06_finishes.png"
+    ]
+  }
+}

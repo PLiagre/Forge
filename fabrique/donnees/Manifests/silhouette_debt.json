@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "id": "silhouette_debt_v1",
+  "status": "closed",
+  "why": "Porte C-1 du brief 003 : articulation de silhouette >= 6,0 habitat / 5,5 hors habitat, seuils poses sous la plus sobre des deux references de maison (6,17 ; l'autre vaut 7,41). La liste ne peut que retrecir : un schema absent qui tombe sous le seuil est bloquant, et le seuil ne se deplace pas.",
+  "measured_on": "2026-09-02",
+  "threshold": {
+    "domestic": 6.0,
+    "non_domestic": 5.5
+  },
+  "references": {
+    "maison_de_ville": 6.17,
+    "chaumiere": 7.41
+  },
+  "phase_a_refusee": {
+    "a": 5.02,
+    "b": 5.29,
+    "c": 5.44
+  },
+  "schemes_below_threshold": [],
+  "next_lever": "Porte C-10 : juger la planche de contact 96 px. La dette matiere (28 materiaux sans carte) reste hors de C-1.",
+  "note": "C-1 se ferme le 2026-09-02 par la methode de la scierie : un volume deja paye, pose devant la facade, sans triangle de plus. Le seuil n'a pas bouge une seconde fois.",
+  "measured": {
+    "stone_base_house": 6.052,
+    "town_house": 6.55,
+    "gabled_hall": 6.658
+  },
+  "c2_removed": {
+    "decided_on": "2026-08-29",
+    "by": "proprietaire",
+    "was": "etendue d'articulation entre les trois variantes >= 0,80",
+    "why": "C-2 recompensait la difference entre variantes et C-1 exige que chacune soit assez articulee : ameliorer les plus faibles les rapproche des fortes. Le conflit a ete mesure cinq fois. L'etendue reste consignee comme observation dans le rapport de porte, elle ne decide plus."
+  },
+  "threshold_split": {
+    "decided_on": "2026-08-30",
+    "by": "proprietaire",
+    "was": 6.0,
+    "now_non_domestic": 5.5,
+    "why": "Le 6,0 est pose sous la plus sobre de deux references de MAISON (maison de ville 6,17 ; chaumiere 7,41) et n'avait jamais ete mesure ailleurs que sur l'habitat. Mesure sur les huit familles, il refusait douze batiments sur vingt-quatre. Une grange ou un entrepot modeste est une masse simple par nature.",
+    "domestic_functions": [
+      "residence",
+      "market"
+    ],
+    "measured_after": {
+      "vert": 20,
+      "sur": 24,
+      "familles_vertes": [
+        "barn",
+        "blacksmith",
+        "chapel",
+        "sawmill"
+      ],
+      "were_red": {
+        "granary_a": 5.493,
+        "warehouse_a": 5.46,
+        "residence_a": 5.662,
+        "market_c": 5.857
+      },
+      "restent_rouges": {}
+    },
+    "note": "Le seuil bas n'a pas rendu la porte verte : grenier a rate de 0,007 et entrepot a de 0,040. Ces deux-la, puis residence a/b et marche c, se corrigent par la methode, pas par un second deplacement. La scierie l'a montre -- passee de 5,909 a 6,612 en sortant son mecanisme de sous la couverture, a zero triangle.",
+    "closed_by_method": {
+      "closed_on": "2026-09-02",
+      "vert": 24,
+      "sur": 24,
+      "method": "volume de facade deja paye, agrandi ou recentre, zero triangle de plus",
+      "measured": {
+        "granary": [6.26, 5.713, 5.796],
+        "warehouse": [5.628, 5.597, 5.596],
+        "residence": [6.052, 6.55, 6.658],
+        "market": [6.702, 7.146, 6.188]
+      },
+      "levers": {
+        "granary": "lucarne de chargement (hoist) devant le nu",
+        "warehouse": "quai, auvent et potence devant le nu",
+        "residence": "porche plus profond, galerie plus profonde, cheminee plus haute",
+        "market": "arcade plus haute, meme nombre de boites"
+      }
+    }
+  }
+}

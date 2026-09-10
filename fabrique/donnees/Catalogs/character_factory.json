@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "id": "citylab_character_factory_v1",
+  "status": "production_generation_authorized_unity_validation_pending",
+  "contract_schema": "AssetFactory/Schemas/character_modular.schema.json",
+  "genders": ["male", "female"],
+  "ages": ["child", "adult", "elder"],
+  "hair": {
+    "styles": [1, 2, 3, 4, 5],
+    "colors": [1, 2, 3, 4, 5]
+  },
+  "social_roles": ["worker", "wealthy", "peasant", "religious", "soldier", "noble", "bourgeois", "beggar"],
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "rig": {
+    "name": "Base Character Root",
+    "expected_deform_bones": 52,
+    "shared_bone_names": true,
+    "unity_humanoid_validation": "pending_no_unity_launch"
+  },
+  "face_parts": [
+    "Base Character Mesh",
+    "Eyes Type 2 Color 2",
+    "Eyebrow Type 3 Color 2",
+    "Nose Type 3",
+    "Ears Type 1"
+  ],
+  "body_default_hair": "Hair Type 1 Color 2",
+  "body_bases": [
+    {"id":"male_child","gender":"male","age":"child","height":0.72,"shoulders":0.86,"hips":0.94,"head":1.13,"posture":0,"hair_type":1,"hair_color":2},
+    {"id":"female_child","gender":"female","age":"child","height":0.70,"shoulders":0.80,"hips":0.98,"head":1.14,"posture":0,"hair_type":4,"hair_color":3},
+    {"id":"male_adult","gender":"male","age":"adult","height":1.00,"shoulders":1.00,"hips":1.00,"head":1.00,"posture":0,"hair_type":2,"hair_color":2},
+    {"id":"female_adult","gender":"female","age":"adult","height":0.96,"shoulders":0.88,"hips":1.08,"head":1.01,"posture":0,"hair_type":5,"hair_color":1},
+    {"id":"male_elder","gender":"male","age":"elder","height":0.96,"shoulders":0.93,"hips":1.01,"head":1.03,"posture":7,"hair_type":1,"hair_color":5},
+    {"id":"female_elder","gender":"female","age":"elder","height":0.92,"shoulders":0.84,"hips":1.08,"head":1.04,"posture":8,"hair_type":4,"hair_color":5}
+  ],
+  "morphologies": [
+    {"id":"slender","width":0.86,"depth":0.88,"height":1.00},
+    {"id":"average","width":1.00,"depth":1.00,"height":1.00},
+    {"id":"sturdy","width":1.15,"depth":1.12,"height":0.99},
+    {"id":"tall","width":0.96,"depth":0.96,"height":1.08}
+  ],
+  "role_capsules": [
+    {"id":"worker","label":"Ouvrier","base":"male_adult","morphology":"sturdy","armor_type":4,"color":1,"hair_type":2,"hair_color":2,"head_armor":0,"facial_hair":2,"special_garment":"apron","markers":["apron","hammer","gloves"]},
+    {"id":"wealthy","label":"Riche","base":"female_adult","morphology":"average","armor_type":5,"color":3,"hair_type":4,"hair_color":4,"head_armor":0,"facial_hair":0,"special_garment":"mantle","markers":["fine_cloth","brooch","jewelled_belt"]},
+    {"id":"peasant","label":"Paysan","base":"female_child","morphology":"slender","armor_type":2,"color":1,"hair_type":1,"hair_color":3,"head_armor":0,"facial_hair":0,"special_garment":"coarse_tunic","markers":["coarse_cloth","basket","hood_optional"]},
+    {"id":"religious","label":"Religieux","base":"male_elder","morphology":"slender","armor_type":2,"color":3,"hair_type":1,"hair_color":5,"head_armor":0,"facial_hair":5,"special_garment":"long_robe","markers":["robe","cord","staff","symbol"]},
+    {"id":"soldier","label":"Soldat","base":"male_adult","morphology":"sturdy","armor_type":6,"color":2,"hair_type":1,"hair_color":2,"head_armor":6,"facial_hair":3,"special_garment":"tabard","markers":["helmet","armor","tabard","sword"]},
+    {"id":"noble","label":"Noble","base":"male_adult","morphology":"tall","armor_type":5,"color":2,"hair_type":3,"hair_color":2,"head_armor":0,"facial_hair":1,"special_garment":"mantle","markers":["mantle","house_badge","metal_trim"]},
+    {"id":"bourgeois","label":"Bourgeois","base":"female_adult","morphology":"average","armor_type":4,"color":2,"hair_type":5,"hair_color":1,"head_armor":0,"facial_hair":0,"special_garment":"civilian_overdress","markers":["clean_tunic","ledger","leather_belt"]},
+    {"id":"beggar","label":"Mendiant","base":"female_elder","morphology":"slender","armor_type":2,"color":1,"hair_type":2,"hair_color":5,"head_armor":0,"facial_hair":0,"special_garment":"ragged_robe","markers":["patched_cloth","bundle","walking_stick","bare_head"]}
+  ],
+  "lod": {
+    "ratios": [1.0, 0.52, 0.24],
+    "body_triangles_max": [12000, 6500, 3000],
+    "role_triangles_max": [18000, 9500, 4200]
+  },
+  "outputs": {
+    "workbench":"AssetFactory/Workbench/Characters/Production",
+    "reports":"AssetFactory/Reports/Characters/Production",
+    "published":"Assets/CityLabHost/Adapted/Factory/Characters"
+  }
+}

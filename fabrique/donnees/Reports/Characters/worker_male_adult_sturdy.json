@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "worker_male_adult_sturdy",
+  "status": "visual_proposal_not_rig_validated",
+  "selection": {
+    "id": "worker_male_adult_sturdy",
+    "role": "worker",
+    "gender": "male",
+    "age": "adult",
+    "morphology": "sturdy",
+    "armor_type": 3,
+    "color": 1,
+    "hair_type": 2,
+    "hair_color": 2,
+    "head_armor": 0,
+    "facial_hair": 2
+  },
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "selected_parts": [
+    "Arm Armor Type 3 Color 1",
+    "Base Character Mesh",
+    "Belt Armor Type 3 Color 1",
+    "Chest Armor Type 3 Color 1",
+    "Ears Type 1",
+    "Eyebrow Type 3 Color 2",
+    "Eyes Type 2 Color 2",
+    "Face Hair Type 2 Color 2",
+    "Feet Armor Type 3 Color 1",
+    "Hair Type 2 Color 2",
+    "Legs Armor Type 3 Color 1",
+    "Nose Type 3"
+  ],
+  "preview": "AssetFactory/Workbench/Previews/Characters/worker_male_adult_sturdy.png",
+  "blend": "AssetFactory/Workbench/Characters/worker_male_adult_sturdy_proposal.blend",
+  "unity_launched": false
+}

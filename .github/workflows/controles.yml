@@ -1,0 +1,51 @@
+name: controles
+
+# Redemander les contrôles d'une proposition qui n'en a pas.
+#
+# GitHub refuse de déclencher un travail sur un événement qu'un jeton
+# d'Actions a produit : une proposition ouverte par la machine — celle
+# d'un palier, celle d'une demande de lot — naît sans aucun contrôle.
+# L'intégration les redemande dans le geste qui l'a ouverte, mais un
+# geste peut mourir en route. C'est le rattrapage, à la main, depuis la
+# page du travail.
+#
+# Il ne décide rien : `outils controles` lit la proposition et dit s'il
+# manque quelque chose. Quand les contrôles requis sont déjà posés sur
+# la révision courante, ce travail sort en le disant — un geste
+# déclenché deux fois ne se fait pas deux fois.
+#
+# Le geste vit dans `.github/scripts/controles.sh`, pas ici : un fichier
+# se joue sur un banc, un bloc de YAML ne se joue nulle part (règle 13).
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "le numéro de la proposition"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: write
+
+jobs:
+  redemander:
+    runs-on: ubuntu-latest
+    steps:
+      # La révision de `master`, jamais celle de la proposition : la
+      # décision ne doit pas être prise par du code que la proposition
+      # peut changer.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - name: Les contrôles requis manquent-ils ?
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+          PR: ${{ inputs.pr }}
+          BASE: master
+        run: bash .github/scripts/controles.sh

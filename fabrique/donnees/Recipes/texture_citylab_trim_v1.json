@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "id": "texture_citylab_trim_v1",
+  "status": "approved",
+  "texture_schema": "AssetFactory/Schemas/pbr_trim.schema.json",
+  "seed": 2026080142,
+  "resolution": 2048,
+  "regions": [
+    {"id": "structural_wood", "material": "wood", "v_min": 0.0, "v_max": 0.333333},
+    {"id": "dressed_stone", "material": "stone", "v_min": 0.333333, "v_max": 0.666667},
+    {"id": "roof_tiles", "material": "roof", "v_min": 0.666667, "v_max": 1.0}
+  ],
+  "maps": ["BaseColor", "Normal", "AO", "Roughness", "Metallic", "VariationMask"],
+  "palette": {
+    "wood": [71, 32, 13],
+    "wood_highlight": [132, 72, 30],
+    "stone": [92, 96, 91],
+    "mortar": [43, 42, 38],
+    "roof": [107, 42, 24],
+    "roof_highlight": [157, 75, 38],
+    "iron": [38, 43, 45]
+  },
+  "review_resolutions": [512, 256, 128],
+  "outputs": {
+    "workbench": "AssetFactory/Workbench/Textures/CityLabTrimV1",
+    "published": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1",
+    "report": "AssetFactory/Reports/Textures/citylab_trim_v1.json",
+    "manifest": "AssetFactory/Manifests/citylab_trim_v1.json"
+  },
+  "budgets": {
+    "total_bytes_max": 25165824,
+    "contrast_min": 8.0
+  }
+}

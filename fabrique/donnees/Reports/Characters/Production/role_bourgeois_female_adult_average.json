@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "id": "role_bourgeois_female_adult_average",
+  "kind": "role",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "female_adult",
+    "gender": "female",
+    "age": "adult",
+    "height": 0.96,
+    "shoulders": 0.88,
+    "hips": 1.08,
+    "head": 1.01,
+    "posture": 0,
+    "hair_type": 5,
+    "hair_color": 1
+  },
+  "morphology": {
+    "id": "average",
+    "width": 1.0,
+    "depth": 1.0,
+    "height": 1.0
+  },
+  "role": {
+    "id": "bourgeois",
+    "label": "Bourgeois",
+    "base": "female_adult",
+    "morphology": "average",
+    "armor_type": 4,
+    "color": 2,
+    "hair_type": 5,
+    "hair_color": 1,
+    "head_armor": 0,
+    "facial_hair": 0,
+    "special_garment": "civilian_overdress",
+    "markers": [
+      "clean_tunic",
+      "ledger",
+      "leather_belt"
+    ]
+  },
+  "bone_count": 52,
+  "lod_triangles": [
+    6553,
+    3400,
+    1588
+  ],
+  "lod_mesh_counts": [
+    13,
+    13,
+    13
+  ],
+  "canonical_sha256": "4f2fe4cdd42de5add15b39caef2ed649611ee9f7e72533ec0a6b532f29b01934",
+  "fbx_sha256": "4c169d545fa228a2493e87dcc2cb43af17a956859b519151233a7d7d8bf94312",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Roles/role_bourgeois_female_adult_average.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_bourgeois_female_adult_average.png",
+  "unity_launched": false
+}

@@ -1,0 +1,27 @@
+# Sorties de la commande
+sortie/
+*.pyc
+__pycache__/
+.pytest_cache/
+
+# Photographies et rendus jetables
+/tmp/
+*.snapshot.json
+
+# Environnements
+.venv/
+venv/
+
+# Unity — jamais versionné
+unity/Library/
+unity/Temp/
+unity/Obj/
+unity/Build/
+unity/Builds/
+unity/Logs/
+unity/UserSettings/
+unity/*.csproj
+unity/*.sln
+
+# Fabrique : sorties de publication
+fabrique_donnees/Reports/*.tmp

@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "revision": "city-mode-asset-port-v1",
+  "authority": {
+    "productBoundary": "Docs/Integration/FORGEHISTORY_CITY_MODE_CONTRACT.md",
+    "forgeHistoryMergeCommit": "36f0c2eda52a9ade6286682c2a353cd13d01f101",
+    "contentOnly": true,
+    "containsSimulationClockOrSave": false
+  },
+  "package": "Packages/com.victoria.citymode.assets",
+  "loadOrder": [
+    "common",
+    "biome",
+    "city"
+  ],
+  "unloadOrder": [
+    "city",
+    "biome",
+    "common"
+  ],
+  "partitions": {
+    "common": {
+      "sceneAddress": "AssetCommon",
+      "residentBudgetBytes": 134217728
+    },
+    "biome": {
+      "sceneAddress": "AssetBiome",
+      "residentBudgetBytes": 67108864
+    },
+    "city": {
+      "sceneAddress": "AssetCity",
+      "residentBudgetBytes": 100663296
+    }
+  },
+  "assets": [
+    {
+      "id": "common.trim.ao",
+      "partition": "common",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_AO.png",
+      "sourceGuid": "5e9208df8b887694482af9d4d394e2e5",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_AO.png",
+      "targetGuid": "53587af0a13639b4dbccb290adb58ac1",
+      "sha256": "b1d51c27b613e1db6a829f02ccac3a94538948b0bef718a7f04ed0c8d8aaa43e",
+      "bytes": 418014,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "AssetFactory/Manifests/citylab_trim_v1.json",
+      "lfs": true
+    },
+    {
+      "id": "common.trim.base_color",
+      "partition": "common",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_BaseColor.png",
+      "sourceGuid": "fc07c51960e05b34bbef962e6458ff76",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_BaseColor.png",
+      "targetGuid": "a9af7ab108edd084da2facb7b3ebbf0e",
+      "sha256": "6b1c0332a98b0e9cfe459b035fdc4df61c8a931667df78569f2e34a099880b5d",
+      "bytes": 1457628,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "AssetFactory/Manifests/citylab_trim_v1.json",
+      "lfs": true
+    },
+    {
+      "id": "common.trim.metallic",
+      "partition": "common",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Metallic.png",
+      "sourceGuid": "827231acbe1cca742b7d294bc7f1c75d",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_Metallic.png",
+      "targetGuid": "5c687737435014c45a34492d4f424647",
+      "sha256": "624844f65b2f6bd03a1d3fb3c488033df522cbcd2f031cfedefe1365fb6953f8",
+      "bytes": 4376,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "AssetFactory/Manifests/citylab_trim_v1.json",
+      "lfs": true
+    },
+    {
+      "id": "common.trim.normal",
+      "partition": "common",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Normal.png",
+      "sourceGuid": "509299f96c5562649ba65f006b9c72af",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_Normal.png",
+      "targetGuid": "940385989a6e07f4390bf872accec941",
+      "sha256": "8653eeb325a2dc53da6d35433e6d3f9092e8565d69383b4bf1665f60d45a810e",
+      "bytes": 1331498,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "AssetFactory/Manifests/citylab_trim_v1.json",
+      "lfs": true
+    },
+    {
+      "id": "common.trim.roughness",
+      "partition": "common",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Roughness.png",
+      "sourceGuid": "10935ad3d3d642c4098f0afb6e3975dd",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_Roughness.png",
+      "targetGuid": "bf055c6bbf61c1243a9dda22f6275b7c",
+      "sha256": "8bc9b193cf4db7a9ced5c5d07d0345249249baa34c10dc7b5b471e300ccafb5c",
+      "bytes": 1111770,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "AssetFactory/Manifests/citylab_trim_v1.json",
+      "lfs": true
+    },
+    {
+      "id": "common.trim.variation",
+      "partition": "common",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_VariationMask.png",
+      "sourceGuid": "a66e018024220664894696f4bb086324",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Common/CityLabTrim_VariationMask.png",
+      "targetGuid": "d12b15346e3067942ad3f760854782de",
+      "sha256": "617778ee409e511c3038fc9b8366fa1c93da93221121096677c0ad44fda3f750",
+      "bytes": 2214490,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "AssetFactory/Manifests/citylab_trim_v1.json",
+      "lfs": true
+    },
+    {
+      "id": "biome.meadow",
+      "partition": "biome",
+      "sourcePath": "Assets/CityLabHost/Resources/Textures/StylizedMeadow_Albedo.png",
+      "sourceGuid": "215d73a54a146f34db596b8c2bbca271",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Biome/StylizedMeadow_Albedo.png",
+      "targetGuid": "4c437c6bc23134a49961cf70321e1e9c",
+      "sha256": "56edf02919baa308e11974f6568fd5d1bb04f0e0905cad2945346e9101ee0471",
+      "bytes": 2809178,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "README.md#direction-artistique",
+      "lfs": true
+    },
+    {
+      "id": "biome.road",
+      "partition": "biome",
+      "sourcePath": "Assets/CityLabHost/Resources/Textures/StylizedRoad_Albedo.png",
+      "sourceGuid": "3c0e9cf0fdb28cf408b1a3a2c0b5edec",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/Biome/StylizedRoad_Albedo.png",
+      "targetGuid": "9875b2cb01990c643a122bf6c9e14ddf",
+      "sha256": "631f8ad2d8240036e24626c110b167b5f004de0b0da0328f32fa99f1abc798ad",
+      "bytes": 2824965,
+      "license": "LicenseRef-Victoria-Original",
+      "provenance": "README.md#direction-artistique",
+      "lfs": true
+    },
+    {
+      "id": "city.sawmill.a",
+      "partition": "city",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Models/building_sawmill_frontier_01_a.fbx",
+      "sourceGuid": "2132bda3d2008ec4988fc130583b2c99",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/City/building_sawmill_frontier_01_a.fbx",
+      "targetGuid": "13e511dcb239b9946bfb6213e5e43132",
+      "sha256": "5c7506799a6462259047269ee8e4ced5cbbc1ed26174e086e270fcf2999391c1",
+      "bytes": 1902332,
+      "license": "LicenseRef-Unity-Asset-Store-EULA",
+      "provenance": "AssetFactory/Manifests/building_sawmill_frontier_01.json",
+      "lfs": true
+    },
+    {
+      "id": "city.sawmill.b",
+      "partition": "city",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Models/building_sawmill_frontier_01_b.fbx",
+      "sourceGuid": "ba0a883d8aa82df41add95157a897fbf",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/City/building_sawmill_frontier_01_b.fbx",
+      "targetGuid": "d69f204d05f32c044989cb7fa8f1d331",
+      "sha256": "0912a3b1a17e9b777e291285767c68a99b5ef74d16f86caafea8a9ef7ba5d231",
+      "bytes": 1984892,
+      "license": "LicenseRef-Unity-Asset-Store-EULA",
+      "provenance": "AssetFactory/Manifests/building_sawmill_frontier_01.json",
+      "lfs": true
+    },
+    {
+      "id": "city.sawmill.c",
+      "partition": "city",
+      "sourcePath": "Assets/CityLabHost/Adapted/Factory/Models/building_sawmill_frontier_01_c.fbx",
+      "sourceGuid": "5f1901a5ccdd616458bd7fe496dcc991",
+      "targetPath": "Packages/com.victoria.citymode.assets/Runtime/Content/City/building_sawmill_frontier_01_c.fbx",
+      "targetGuid": "9c38f535a096c174db07e7798472fcb9",
+      "sha256": "184f7e4dafdad49f3a4eea9ba67e2635b40b59189f30134374db5e01ba68ec66",
+      "bytes": 1988540,
+      "license": "LicenseRef-Unity-Asset-Store-EULA",
+      "provenance": "AssetFactory/Manifests/building_sawmill_frontier_01.json",
+      "lfs": true
+    }
+  ],
+  "proofHost": "Tools/UnityHosts/CityModeAssetHost",
+  "proof": {
+    "buildLog": "Logs/build-m3-fh06-asset-host.log",
+    "playModeResults": "Logs/playmode-m3-fh06-asset-host.xml",
+    "playerLog": "Logs/player-m3-fh06-asset-host-gpu.log",
+    "captures": [
+      "Logs/Captures/M3-FH-06/01_strategic.png",
+      "Logs/Captures/M3-FH-06/02_district.png",
+      "Logs/Captures/M3-FH-06/03_detail.png"
+    ]
+  }
+}

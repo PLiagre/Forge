@@ -1,0 +1,101 @@
+{
+  "nom": "Planche",
+  "note": "La direction artistique, en donnees. Ni chronique/atlas.py ni Unity ne decident une couleur : ils lisent ce fichier. Une planche d'atlas statistique du XIXe siecle : fond de papier gris-vert, traits graves, lavis lithographiques a paliers francs, une seule couleur forte reservee a la mortalite.",
+  "papier": {
+    "fond": "#E4E2D6",
+    "planche": "#EDEBE0",
+    "mer": "#DCDCD2",
+    "trait": "#23241F",
+    "trait_pale": "#6E7166",
+    "filet": "#B6B6A6",
+    "absent": "#C6C4B6"
+  },
+  "reliefs": {
+    "plaine": {
+      "hachure": "aucune",
+      "teinte": "#EDEBE0"
+    },
+    "colline": {
+      "hachure": "points",
+      "teinte": "#E3E0D0"
+    },
+    "montagne": {
+      "hachure": "chevrons",
+      "teinte": "#D9D5C4"
+    },
+    "haute_montagne": {
+      "hachure": "chevrons_serres",
+      "teinte": "#CDC8B5"
+    },
+    "marais": {
+      "hachure": "tirets",
+      "teinte": "#DEE0D2"
+    }
+  },
+  "couches": {
+    "population": {
+      "titre": "Population",
+      "unite": "habitants",
+      "echelle": "racine",
+      "lavis": [
+        "#EDEBE0",
+        "#D8D2BC",
+        "#BEB394",
+        "#9C8C67",
+        "#73633F",
+        "#453922"
+      ]
+    },
+    "nourriture": {
+      "titre": "Subsistances",
+      "unite": "kg en reserve",
+      "echelle": "racine",
+      "lavis": [
+        "#EDEBE0",
+        "#D2D6BA",
+        "#AFBA92",
+        "#87996B",
+        "#5D7347",
+        "#374A2B"
+      ]
+    },
+    "faim": {
+      "titre": "Disette",
+      "unite": "ticks de faim",
+      "echelle": "lineaire",
+      "lavis": [
+        "#EDEBE0",
+        "#E2CBB8",
+        "#D2A38C",
+        "#BE7460",
+        "#A8321E",
+        "#6E1B10"
+      ]
+    },
+    "dette": {
+      "titre": "Dette alimentaire",
+      "unite": "kg manquants",
+      "echelle": "racine",
+      "lavis": [
+        "#EDEBE0",
+        "#E2CBB8",
+        "#D2A38C",
+        "#BE7460",
+        "#A8321E",
+        "#6E1B10"
+      ]
+    }
+  },
+  "foyers": {
+    "note": "Les disques de peuplement : un par cellule, aire proportionnelle a la population, rayon maximal en unites d'une planche large de mille.",
+    "trait": "#23241F",
+    "remplissage": "#23241F",
+    "opacite": 0.5,
+    "rayon_max_pour_mille_unites": 8.0
+  },
+  "typographie": {
+    "titre": "Bodoni Moda",
+    "texte": "Spectral",
+    "annotation": "IBM Plex Sans Condensed"
+  }
+}

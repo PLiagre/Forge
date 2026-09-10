@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "texture_citylab_trim_v1",
+  "status": "generated_validated_pending_publication",
+  "seed": 2026080142,
+  "resolution": 2048,
+  "maps": [
+    "BaseColor",
+    "Normal",
+    "AO",
+    "Roughness",
+    "Metallic",
+    "VariationMask"
+  ],
+  "total_bytes": 6537776,
+  "budget_bytes": 25165824,
+  "contrast_by_resolution": {
+    "512": {
+      "wood": 9.916,
+      "stone": 10.6577,
+      "roof": 12.5278
+    },
+    "256": {
+      "wood": 9.7579,
+      "stone": 10.0318,
+      "roof": 11.3281
+    },
+    "128": {
+      "wood": 8.3637,
+      "stone": 8.9485,
+      "roof": 8.8781
+    }
+  },
+  "review": "AssetFactory/Workbench/Textures/CityLabTrimV1/CityLabTrim_ResolutionReview.png",
+  "unity_launched": false
+}

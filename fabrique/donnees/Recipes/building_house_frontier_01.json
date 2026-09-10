@@ -1,0 +1,226 @@
+{
+  "schema": 1,
+  "id": "building_house_frontier_01",
+  "category": "building",
+  "function": "residence",
+  "style": "frontier",
+  "seed": 2026080101,
+  "status": "draft",
+  "construction_schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+  "construction": {
+    "mode": "cumulative_layers",
+    "contract": 2,
+    "lod_per_stage": 3,
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "label": "Terrassement et assise",
+        "progress": [
+          0.0,
+          0.08
+        ],
+        "required_categories": [
+          "foundation"
+        ]
+      },
+      {
+        "id": "basecourse",
+        "order": 2,
+        "label": "Soubassement",
+        "progress": [
+          0.08,
+          0.2
+        ],
+        "required_categories": [
+          "basecourse",
+          "basecourse_proxy"
+        ]
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "label": "Ossature",
+        "progress": [
+          0.2,
+          0.36
+        ],
+        "required_categories": [
+          "shell",
+          "shell_proxy",
+          "frame_detail"
+        ]
+      },
+      {
+        "id": "floors",
+        "order": 4,
+        "label": "Planchers et encorbellement",
+        "progress": [
+          0.36,
+          0.48
+        ],
+        "required_categories": [
+          "floor",
+          "jetty_bracket"
+        ]
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "label": "Charpente",
+        "progress": [
+          0.48,
+          0.62
+        ],
+        "required_categories": [
+          "gable",
+          "roof_frame"
+        ]
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "label": "Couverture",
+        "progress": [
+          0.62,
+          0.78
+        ],
+        "required_categories": [
+          "roof_plane",
+          "roof_annex",
+          "dormer",
+          "eave",
+          "edge_trim",
+          "shell_annex",
+          "shell_annex_proxy"
+        ]
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "label": "Menuiseries",
+        "progress": [
+          0.78,
+          0.9
+        ],
+        "required_categories": [
+          "opening_reveal",
+          "opening_plane",
+          "opening_detail",
+          "hardware"
+        ]
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "label": "Finitions",
+        "progress": [
+          0.9,
+          1.0
+        ],
+        "required_categories": [
+          "appendage",
+          "appendage_detail",
+          "chimney",
+          "micro_prop",
+          "lantern_glass",
+          "produce",
+          "tool",
+          "vendor"
+        ]
+      }
+    ]
+  },
+  "variants": [
+    {
+      "id": "a",
+      "seed_offset": 0,
+      "chimney": true,
+      "brace_style": "classic",
+      "palette": {
+        "wood": "#160a04",
+        "wood_highlight": "#4d2911",
+        "roof": "#2f1309",
+        "roof_accent": "#6a2e16"
+      }
+    },
+    {
+      "id": "b",
+      "seed_offset": 101,
+      "chimney": false,
+      "brace_style": "crossed",
+      "palette": {
+        "wood": "#251207",
+        "wood_highlight": "#70401e",
+        "roof": "#1c2327",
+        "roof_accent": "#46535a"
+      }
+    },
+    {
+      "id": "c",
+      "seed_offset": 203,
+      "chimney": true,
+      "brace_style": "dense",
+      "palette": {
+        "wood": "#301706",
+        "wood_highlight": "#815025",
+        "roof": "#28301a",
+        "roof_accent": "#596540"
+      }
+    }
+  ],
+  "source_pack": "emaceart_slavic_world_free",
+  "source_prefab_reference": "Assets/CityLabHost/Adapted/Prefabs/CityLab_House_1.prefab",
+  "inputs": [
+    {
+      "role": "foundation",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Foundation_02b.fbx",
+      "sha256": "e33488c3686daf6f0c64f8ddaf83634f0e54f4f23a76b31bd2746b0d6d4c1342"
+    },
+    {
+      "role": "front_wall_primary",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_04h.fbx",
+      "sha256": "a7e39e11d7ae7308f90f5c534aee6f21c5ccc6be3b1bd9d92a8e1b9f1b295efb"
+    },
+    {
+      "role": "front_wall_secondary",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_04e.fbx",
+      "sha256": "77cc7211088f088b02dc50c1a90956d223cf386726bce9d9641e0da5d5e246df"
+    },
+    {
+      "role": "ceiling",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Ceiling_01e.fbx",
+      "sha256": "0f277ca9562903638f008c3e9da1d30c78e094b2c2bcf5fb26b041c1605a8f6c"
+    },
+    {
+      "role": "roof",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Town_Ill_Roof_01a.fbx",
+      "sha256": "d174fe8d3bac04ece6380e00bbaa4db7261d75a0e4cb22fe88320ab9833cfd85"
+    },
+    {
+      "role": "porch",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_HouseModule_Porch_01d.fbx",
+      "sha256": "c919808521496ba6ac5db3840a9e1b246e3877856ff4e6d4be3c0a24518ca47e"
+    }
+  ],
+  "adaptation": {
+    "source_policy": "immutable",
+    "operations": [
+      "assemble_from_versioned_recipe",
+      "normalize_metric_scale",
+      "ground_pivot",
+      "generate_lods",
+      "bake_shared_pbr_materials",
+      "render_review_previews"
+    ]
+  },
+  "budgets": {
+    "lod_triangles_max": [
+      12000,
+      6000,
+      3000
+    ],
+    "shared_texture_max_px": 2048
+  },
+  "planned_output": "Assets/CityLabHost/Adapted/Factory/building_house_frontier_01/building_house_frontier_01.fbx"
+}

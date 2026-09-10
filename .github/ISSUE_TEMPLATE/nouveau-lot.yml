@@ -1,0 +1,56 @@
+name: Demander un lot
+description: Une chose que le monde saura faire après. Une seule.
+title: "Lot : "
+labels: ["lot"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ce formulaire écrit une fiche au registre des lots et ouvre une
+        proposition. Vous n'éditez pas `ROADMAP.md` à la main.
+
+        **Un lot = un changement.** Si deux parties pourraient être livrées et
+        jugées séparément, ce sont deux lots — donc deux demandes.
+        Le bon de travail, lui, sera écrit ensuite par le poste d'écriture :
+        ce formulaire ne le remplace pas.
+  - type: input
+    id: titre
+    attributes:
+      label: Titre du lot
+      description: Ce que le monde saura faire après, en quelques mots.
+      placeholder: Les routes relient les villes
+    validations:
+      required: true
+  - type: dropdown
+    id: couche
+    attributes:
+      label: Couche
+      description: >
+        Le morceau du jeu auquel ce lot appartient. C'est lui qui décide quand
+        un palier de stabilisation se déclenchera. « aucune » pour ce qui ne
+        touche pas au monde — un outil, une vue, un inventaire.
+      options:
+        - "1 — Monde vivant"
+        - "2 — Villes"
+        - "3 — États"
+        - "4 — Armées"
+        - "5 — Batailles tactiques"
+        - aucune
+    validations:
+      required: true
+  - type: input
+    id: depend
+    attributes:
+      label: Dépend de
+      description: >
+        Les numéros des lots qui doivent être livrés avant celui-ci, séparés
+        par des virgules. Laisser vide s'il n'attend personne. Un numéro qui
+        n'existe pas au registre fait refuser la demande.
+      placeholder: "047, 051"
+  - type: textarea
+    id: pourquoi
+    attributes:
+      label: Ce que ça ouvre, et pourquoi maintenant
+      description: >
+        Facultatif, et lu par personne d'autre que vous et le rédacteur du bon
+        de travail. Ce champ n'entre pas dans la fiche.

@@ -1,0 +1,254 @@
+{
+  "schema": 1,
+  "id": "building_residence_frontier_01_b",
+  "family": "building_residence_frontier_01",
+  "function": "residence",
+  "wall_system": "stone_timber",
+  "roof_system": "clay_tile",
+  "identity_markers": [
+    "shutters",
+    "hearth",
+    "bench",
+    "woodpile",
+    "flower_boxes"
+  ],
+  "variant": "b",
+  "seed": 2026081201,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_HouseModule_Porch_01d.fbx",
+    "sha256": "c919808521496ba6ac5db3840a9e1b246e3877856ff4e6d4be3c0a24518ca47e"
+  },
+  "grammar": {
+    "footprint_form": "l_shape",
+    "level_form": "three",
+    "roof_form": "gable",
+    "ridge_axis": "long",
+    "width_m": 6.5329,
+    "depth_m": 7.704,
+    "wall_height_m": 6.1008,
+    "pitch_deg": 29.1635,
+    "rise_m": 2.675,
+    "ridge_z_m": 11.9683
+  },
+  "budget": {
+    "class": "standard",
+    "lod": [
+      4000,
+      1800,
+      600
+    ]
+  },
+  "triangles": {
+    "lod0": 3974,
+    "lod1": 1794,
+    "lod2": 402
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_residence_frontier_01_b__S01_GROUNDWORKS",
+        "lod0": 88,
+        "lod1": 88,
+        "lod2": 88
+      },
+      {
+        "id": "basecourse",
+        "order": 2,
+        "node_prefix": "building_residence_frontier_01_b__S02_BASECOURSE",
+        "lod0": 284,
+        "lod1": 284,
+        "lod2": 12
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_residence_frontier_01_b__S03_FRAMING",
+        "lod0": 576,
+        "lod1": 396,
+        "lod2": 36
+      },
+      {
+        "id": "floors",
+        "order": 4,
+        "node_prefix": "building_residence_frontier_01_b__S04_FLOORS",
+        "lod0": 660,
+        "lod1": 480,
+        "lod2": 12
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_residence_frontier_01_b__S05_CARPENTRY",
+        "lod0": 456,
+        "lod1": 60,
+        "lod2": 12
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_residence_frontier_01_b__S06_ROOFING",
+        "lod0": 480,
+        "lod1": 288,
+        "lod2": 140
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_residence_frontier_01_b__S07_JOINERY",
+        "lod0": 894,
+        "lod1": 102,
+        "lod2": 102
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_residence_frontier_01_b__S08_FINISHES",
+        "lod0": 536,
+        "lod1": 96,
+        "lod2": 0
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 88,
+      "lod1": 88,
+      "lod2": 88
+    },
+    "basecourse": {
+      "lod0": 284,
+      "lod1": 284,
+      "lod2": 12
+    },
+    "framing": {
+      "lod0": 576,
+      "lod1": 396,
+      "lod2": 36
+    },
+    "floors": {
+      "lod0": 660,
+      "lod1": 480,
+      "lod2": 12
+    },
+    "carpentry": {
+      "lod0": 456,
+      "lod1": 60,
+      "lod2": 12
+    },
+    "roofing": {
+      "lod0": 480,
+      "lod1": 288,
+      "lod2": 140
+    },
+    "joinery": {
+      "lod0": 894,
+      "lod1": 102,
+      "lod2": 102
+    },
+    "finishes": {
+      "lod0": 536,
+      "lod1": 96,
+      "lod2": 0
+    }
+  },
+  "canonical_mesh_sha256": "8fad36111a8be7463b26b2e6d01aef74f1263181c787ac2860d192caaf795c29",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_b",
+      "frontier_body_b",
+      "frontier_body_dark_b",
+      "frontier_body_pale_b",
+      "frontier_eave_b",
+      "frontier_ember_b",
+      "frontier_iron_b",
+      "frontier_roof_accent_b",
+      "frontier_roof_b"
+    ],
+    "front_wall_edge_loops": 3,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 37,
+    "identity_markers_declared": [
+      "shutters",
+      "hearth",
+      "bench",
+      "woodpile",
+      "flower_boxes"
+    ],
+    "identity_markers_built": [
+      "shutters",
+      "hearth",
+      "bench",
+      "woodpile",
+      "flower_boxes"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 3
+  },
+  "category_triangles": {
+    "shell_upper": 480,
+    "opening_reveal": 456,
+    "shell": 408,
+    "roof_frame": 396,
+    "basecourse": 284,
+    "hardware": 228,
+    "edge_trim": 192,
+    "opening_detail": 156,
+    "shell_annex": 144,
+    "micro_prop": 144,
+    "roof_plane": 140,
+    "appendage_detail": 120,
+    "jetty_bracket": 108,
+    "opening_plane": 102,
+    "gable": 100,
+    "frame_detail": 96,
+    "foundation": 88,
+    "eave": 72,
+    "appendage": 72,
+    "produce": 72,
+    "lantern_glass": 56,
+    "dormer": 36,
+    "shell_proxy": 24,
+    "floor": 24,
+    "basecourse_proxy": 12,
+    "shell_upper_proxy": 12,
+    "gable_proxy": 12,
+    "shell_annex_proxy": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_residence_frontier_01_b.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_residence_frontier_01_b.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_02_basecourse.png",
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_03_framing.png",
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_04_floors.png",
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_05_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_06_roofing.png",
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_07_joinery.png",
+      "AssetFactory/Workbench/Previews/building_residence_frontier_01_b_stage_08_finishes.png"
+    ]
+  }
+}

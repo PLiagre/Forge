@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_male_elder_sturdy",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_elder_sturdy.fbx",
+  "fbx_sha256": "a84f6bf2b0607e667e934454af0a7f4332d2b03147c0686a32b5385c9420f373",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

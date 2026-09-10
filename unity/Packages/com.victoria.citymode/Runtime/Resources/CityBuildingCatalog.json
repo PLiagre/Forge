@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "definitions": [
+    {
+      "id": "residence", "label": "Résidence", "archetype": 1,
+      "woodCost": 6, "footprintWidth": 10.0, "footprintDepth": 14.0,
+      "maxWorkers": 1, "constructionWork": 12.0, "productionWork": 0.0,
+      "initialResource": 0, "serviceCapacity": 4, "placementSpacing": 10.0,
+      "inputResource": "", "outputResource": "housing",
+      "visualFamily": "residence", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    },
+    {
+      "id": "lumber_camp", "label": "Scierie forestière", "archetype": 2,
+      "woodCost": 8, "footprintWidth": 12.0, "footprintDepth": 14.0,
+      "maxWorkers": 2, "constructionWork": 12.0, "productionWork": 5.0,
+      "initialResource": 24, "serviceCapacity": 2, "placementMinDistance": 35.0,
+      "placementMaxDistance": 190.0, "placementSpacing": 28.0,
+      "inputResource": "timber_standing", "outputResource": "wood",
+      "visualFamily": "lumber_camp", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    },
+    {
+      "id": "granary", "label": "Grenier", "archetype": 3,
+      "woodCost": 12, "footprintWidth": 11.0, "footprintDepth": 13.0,
+      "maxWorkers": 2, "constructionWork": 18.0, "productionWork": 0.0,
+      "initialResource": 0, "serviceCapacity": 120, "placementSpacing": 13.0,
+      "inputResource": "food", "outputResource": "food_storage",
+      "visualFamily": "granary", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    },
+    {
+      "id": "warehouse", "label": "Entrepôt", "archetype": 4,
+      "woodCost": 14, "footprintWidth": 12.0, "footprintDepth": 16.0,
+      "maxWorkers": 3, "constructionWork": 20.0, "productionWork": 0.0,
+      "initialResource": 0, "serviceCapacity": 160, "placementSpacing": 16.0,
+      "inputResource": "goods", "outputResource": "goods_storage",
+      "visualFamily": "warehouse", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    },
+    {
+      "id": "market", "label": "Marché", "archetype": 5,
+      "woodCost": 10, "footprintWidth": 14.0, "footprintDepth": 14.0,
+      "maxWorkers": 4, "constructionWork": 16.0, "productionWork": 6.0,
+      "initialResource": 0, "serviceCapacity": 24, "placementSpacing": 14.0,
+      "inputResource": "goods", "outputResource": "market_service",
+      "visualFamily": "market", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    },
+    {
+      "id": "blacksmith", "label": "Forge", "archetype": 6,
+      "woodCost": 18, "footprintWidth": 10.0, "footprintDepth": 12.0,
+      "maxWorkers": 2, "constructionWork": 22.0, "productionWork": 8.0,
+      "initialResource": 0, "serviceCapacity": 2, "placementSpacing": 12.0,
+      "inputResource": "iron", "outputResource": "tools",
+      "visualFamily": "blacksmith", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    },
+    {
+      "id": "barn", "label": "Grange", "archetype": 7,
+      "woodCost": 12, "footprintWidth": 14.0, "footprintDepth": 18.0,
+      "maxWorkers": 2, "constructionWork": 18.0, "productionWork": 0.0,
+      "initialResource": 0, "serviceCapacity": 12, "placementSpacing": 18.0,
+      "inputResource": "fodder", "outputResource": "livestock_storage",
+      "visualFamily": "barn", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    },
+    {
+      "id": "chapel", "label": "Chapelle", "archetype": 8,
+      "woodCost": 20, "footprintWidth": 12.0, "footprintDepth": 18.0,
+      "maxWorkers": 1, "constructionWork": 28.0, "productionWork": 0.0,
+      "initialResource": 0, "serviceCapacity": 32, "placementSpacing": 18.0,
+      "inputResource": "", "outputResource": "faith_service",
+      "visualFamily": "chapel", "phaseThresholds": [0.25, 0.55, 0.80, 1.0]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "role_religious_male_elder_slender",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_religious_male_elder_slender.fbx",
+  "fbx_sha256": "ec54f4cc5b2f7490815ef7148d074fa400602b9e7e1bb9d4d8ffb3195528d014",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 42,
+  "uv_mesh_count": 42,
+  "lod_mesh_counts": [
+    14,
+    14,
+    14
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

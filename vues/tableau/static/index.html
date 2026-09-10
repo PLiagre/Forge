@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Tableau de bord — ForgeHistory</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="titre">
+      <h1>Tableau de bord</h1>
+      <p>Lecture d'une photographie <code>sim/</code>. Aucune simulation ici.</p>
+    </div>
+    <label class="couche">Couche
+      <select id="layer"></select>
+    </label>
+    <p id="unavailable"></p>
+  </header>
+
+  <section id="kpis" aria-label="Indicateurs du monde photographié">
+    <article class="kpi" id="kpi-tick">
+      <p class="label">Tick</p>
+      <p class="value" data-role="value">—</p>
+    </article>
+    <article class="kpi" id="kpi-jour">
+      <p class="label">Jour de l'année</p>
+      <p class="value" data-role="value">—</p>
+    </article>
+    <article class="kpi" id="kpi-population">
+      <p class="label">Population</p>
+      <p class="value" data-role="value">—</p>
+    </article>
+    <article class="kpi" id="kpi-cellules">
+      <p class="label">Cellules</p>
+      <p class="value" data-role="value">—</p>
+    </article>
+    <article class="kpi" id="kpi-affamees">
+      <p class="label">Cellules affamées</p>
+      <p class="value" data-role="value">—</p>
+    </article>
+    <article class="kpi" id="kpi-stock">
+      <p class="label">Stock nourriture</p>
+      <p class="value" data-role="value">—</p>
+    </article>
+    <article class="kpi" id="kpi-transport">
+      <p class="label">kg transportés</p>
+      <p class="value" data-role="value">—</p>
+    </article>
+  </section>
+
+  <main>
+    <div id="map-wrap">
+      <canvas id="map" width="960" height="640"></canvas>
+    </div>
+    <aside id="side">
+      <section class="bloc" id="couche-stats">
+        <h2>Couche active</h2>
+        <p class="legende-echelle">
+          <span id="layer-min">min : —</span>
+          <span class="ramp" aria-hidden="true"></span>
+          <span id="layer-max">max : —</span>
+        </p>
+        <div id="histogram" class="histo" aria-label="Distribution de la couche"></div>
+        <p class="etats-couche" id="layer-counts"></p>
+        <footer id="legend">
+          <span class="swatch zero"></span> zéro mesuré
+          <span class="swatch absent"></span> absent
+          <span class="swatch unknown"></span> non calculé
+          <span class="swatch incomparable"></span> incomparable
+        </footer>
+      </section>
+      <section class="bloc">
+        <h2>Totaux par province</h2>
+        <div id="provinces"></div>
+      </section>
+      <section class="bloc" id="panel">
+        <h2>Cellule</h2>
+        <p id="hint">Cliquer une cellule.</p>
+        <dl id="details"></dl>
+      </section>
+    </aside>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

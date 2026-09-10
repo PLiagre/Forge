@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "body_male_adult_sturdy",
+  "kind": "body",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_adult",
+    "gender": "male",
+    "age": "adult",
+    "height": 1.0,
+    "shoulders": 1.0,
+    "hips": 1.0,
+    "head": 1.0,
+    "posture": 0,
+    "hair_type": 2,
+    "hair_color": 2
+  },
+  "morphology": {
+    "id": "sturdy",
+    "width": 1.15,
+    "depth": 1.12,
+    "height": 0.99
+  },
+  "role": null,
+  "bone_count": 52,
+  "lod_triangles": [
+    2546,
+    1320,
+    606
+  ],
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "canonical_sha256": "763aea6d0445ac655e3ada36530366269e8dcf5f85dcfb9ff14318b3e889de87",
+  "fbx_sha256": "9d3227de8af499f7a1b8db4f23484582007dee39fc71e309dacb6ce1194db3fd",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_adult_sturdy.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_adult_sturdy.png",
+  "unity_launched": false
+}

@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "id": "admission_ganzse_free_modular_character",
+  "status": "approved",
+  "admission_schema": "AssetFactory/Schemas/vendor_admission.schema.json",
+  "source": {
+    "id": "ganzse_free_modular_character",
+    "path": "Assets/URP GanzSe Free Modular Character Pack",
+    "provenance": {
+      "kind": "unity_asset_store",
+      "store_url": "https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/free-modular-character-pack-urp-medieval-fantasy-307385",
+      "version": "1.12",
+      "acquired": "2026-07-26",
+      "license": "Standard Unity Asset Store EULA, registre Assets/Vendor/THIRD_PARTY_ASSETS.md",
+      "license_status": "verified"
+    }
+  },
+  "inputs": [
+    {
+      "role": "modular_character_source",
+      "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+      "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+    }
+  ],
+  "adaptation_profile": {
+    "source_policy": "immutable",
+    "category": "character",
+    "metric_scale": 1.0,
+    "up_axis": "Y",
+    "forward_axis": "-Z",
+    "operations": [
+      "select_modular_parts",
+      "preserve_shared_rig",
+      "warp_silhouette_in_world_space",
+      "generate_three_lods",
+      "render_review_previews",
+      "validate_skin_weights"
+    ],
+    "material_strategy": "replace_with_role_scoped_urp_lit_materials",
+    "lod_strategy": "three_levels_preserve_armature_and_vertex_groups",
+    "planned_output_root": "Assets/CityLabHost/Adapted/Factory/Characters"
+  }
+}

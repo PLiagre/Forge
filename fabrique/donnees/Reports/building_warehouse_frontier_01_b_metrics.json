@@ -1,0 +1,213 @@
+{
+  "schema": 1,
+  "id": "building_warehouse_frontier_01_b",
+  "family": "building_warehouse_frontier_01",
+  "function": "warehouse",
+  "wall_system": "stone_timber",
+  "roof_system": "wood_shingle",
+  "identity_markers": [
+    "loading_dock",
+    "double_door",
+    "crates",
+    "barrels",
+    "pulley"
+  ],
+  "variant": "b",
+  "seed": 2026081401,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Crate_01a.fbx",
+    "sha256": "f2ad1f5c3d1030cc0fd80e0660758062ab0eb9ece2e13e43b29c9ce1e58a637d"
+  },
+  "grammar": {
+    "footprint_form": "rectangle_lean_to",
+    "level_form": "one_and_half",
+    "roof_form": "gable",
+    "ridge_axis": "long",
+    "width_m": 10.8238,
+    "depth_m": 5.4117,
+    "wall_height_m": 3.165,
+    "pitch_deg": 47.1429,
+    "rise_m": 6.4545,
+    "ridge_z_m": 10.2339
+  },
+  "budget": {
+    "class": "standard",
+    "lod": [
+      4000,
+      1800,
+      600
+    ]
+  },
+  "triangles": {
+    "lod0": 1558,
+    "lod1": 730,
+    "lod2": 196
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_warehouse_frontier_01_b__S01_GROUNDWORKS",
+        "lod0": 88,
+        "lod1": 88,
+        "lod2": 88
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_warehouse_frontier_01_b__S03_FRAMING",
+        "lod0": 410,
+        "lod1": 362,
+        "lod2": 24
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_warehouse_frontier_01_b__S05_CARPENTRY",
+        "lod0": 172,
+        "lod1": 16,
+        "lod2": 0
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_warehouse_frontier_01_b__S06_ROOFING",
+        "lod0": 232,
+        "lod1": 88,
+        "lod2": 40
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_warehouse_frontier_01_b__S07_JOINERY",
+        "lod0": 228,
+        "lod1": 32,
+        "lod2": 32
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_warehouse_frontier_01_b__S08_FINISHES",
+        "lod0": 428,
+        "lod1": 144,
+        "lod2": 12
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 88,
+      "lod1": 88,
+      "lod2": 88
+    },
+    "framing": {
+      "lod0": 410,
+      "lod1": 362,
+      "lod2": 24
+    },
+    "carpentry": {
+      "lod0": 172,
+      "lod1": 16,
+      "lod2": 0
+    },
+    "roofing": {
+      "lod0": 232,
+      "lod1": 88,
+      "lod2": 40
+    },
+    "joinery": {
+      "lod0": 228,
+      "lod1": 32,
+      "lod2": 32
+    },
+    "finishes": {
+      "lod0": 428,
+      "lod1": 144,
+      "lod2": 12
+    }
+  },
+  "canonical_mesh_sha256": "4f1e160f83a4e335eb121c6bccd3b0e03605086b6606b16e459523123351dbbf",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_b",
+      "frontier_body_b",
+      "frontier_eave_b",
+      "frontier_ember_b",
+      "frontier_iron_b",
+      "frontier_roof_b"
+    ],
+    "front_wall_edge_loops": 3,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 11,
+    "identity_markers_declared": [
+      "loading_dock",
+      "double_door",
+      "crates",
+      "barrels",
+      "pulley"
+    ],
+    "identity_markers_built": [
+      "loading_dock",
+      "double_door",
+      "crates",
+      "barrels",
+      "pulley"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 3
+  },
+  "category_triangles": {
+    "shell": 386,
+    "roof_frame": 156,
+    "opening_reveal": 144,
+    "edge_trim": 144,
+    "appendage": 108,
+    "micro_prop": 108,
+    "foundation": 100,
+    "hardware": 84,
+    "lantern_glass": 56,
+    "opening_detail": 52,
+    "frame_detail": 48,
+    "roof_plane": 40,
+    "appendage_detail": 36,
+    "opening_plane": 32,
+    "eave": 28,
+    "shell_proxy": 24,
+    "gable": 24,
+    "dormer": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_warehouse_frontier_01_b.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_warehouse_frontier_01_b.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_stage_02_framing.png",
+      "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_stage_03_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_stage_04_roofing.png",
+      "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_stage_05_joinery.png",
+      "AssetFactory/Workbench/Previews/building_warehouse_frontier_01_b_stage_06_finishes.png"
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "id": "role_noble_male_adult_tall",
+  "kind": "role",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_adult",
+    "gender": "male",
+    "age": "adult",
+    "height": 1.0,
+    "shoulders": 1.0,
+    "hips": 1.0,
+    "head": 1.0,
+    "posture": 0,
+    "hair_type": 2,
+    "hair_color": 2
+  },
+  "morphology": {
+    "id": "tall",
+    "width": 0.96,
+    "depth": 0.96,
+    "height": 1.08
+  },
+  "role": {
+    "id": "noble",
+    "label": "Noble",
+    "base": "male_adult",
+    "morphology": "tall",
+    "armor_type": 5,
+    "color": 2,
+    "hair_type": 3,
+    "hair_color": 2,
+    "head_armor": 0,
+    "facial_hair": 1,
+    "special_garment": "mantle",
+    "markers": [
+      "mantle",
+      "house_badge",
+      "metal_trim"
+    ]
+  },
+  "bone_count": 52,
+  "lod_triangles": [
+    9343,
+    4849,
+    2232
+  ],
+  "lod_mesh_counts": [
+    13,
+    13,
+    13
+  ],
+  "canonical_sha256": "00b959b9d764160cfa87314bb78a0916de946d108df41ef46c86054172b2125e",
+  "fbx_sha256": "9add9c06e52d3f7bb57e354579f8d54c07e2e6f25595a269ee3ed2fcdffe5583",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Roles/role_noble_male_adult_tall.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_noble_male_adult_tall.png",
+  "unity_launched": false
+}

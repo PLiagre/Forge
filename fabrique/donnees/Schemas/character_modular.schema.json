@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victoria-citylab.local/schemas/character_modular.schema.json",
+  "title": "Victoria CityLab modular character contract",
+  "type": "object",
+  "required": ["genders", "ages", "morphologies", "hair", "social_roles"],
+  "properties": {
+    "genders": {"type": "array", "minItems": 2, "contains": {"const": "female"}},
+    "ages": {"type": "array", "minItems": 3, "items": {"enum": ["child", "adult", "elder"]}},
+    "morphologies": {"type": "array", "minItems": 3},
+    "hair": {"type": "object", "required": ["styles", "colors"]},
+    "social_roles": {"type": "array", "minItems": 8}
+  }
+}

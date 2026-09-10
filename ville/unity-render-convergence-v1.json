@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "forgeHistoryCommit": "268e8aab151452b0c740a44a7cc97ca3fd37e311",
+  "unityVersion": "6000.0.43f1",
+  "selectedPipeline": {
+    "package": "com.unity.render-pipelines.universal",
+    "version": "17.0.4",
+    "decision": "urp"
+  },
+  "integratedHostPackages": {
+    "com.unity.entities": "1.3.15",
+    "com.unity.burst": "1.8.19",
+    "com.unity.collections": "2.5.7",
+    "com.unity.mathematics": "1.3.2",
+    "com.unity.render-pipelines.universal": "17.0.4"
+  },
+  "laboratoryAdapters": {
+    "com.unity.inputsystem": "1.13.1",
+    "com.unity.ai.navigation": "2.0.6"
+  },
+  "productionCoreExclusions": [
+    "com.unity.entities",
+    "com.unity.inputsystem",
+    "com.unity.ai.navigation",
+    "com.unity.render-pipelines.universal"
+  ],
+  "probe": {
+    "mode": "disposable-git-archive",
+    "upstreamWrites": 0,
+    "builtPlayerBytes": 178175782,
+    "mapGoldens": [
+      {
+        "name": "01_gpu_monde.png",
+        "builtInSha256": "CEB78A31C4CE0DDAEF6422A53627F1FBD8AD87A43A7B84134560C24FE5D99BA8",
+        "urpSha256": "CEB78A31C4CE0DDAEF6422A53627F1FBD8AD87A43A7B84134560C24FE5D99BA8"
+      },
+      {
+        "name": "02_gpu_apres_conquete.png",
+        "builtInSha256": "86ED4E416BAD93D0EAD6F276160FE48A3250753888A8D8D7D0ACE8457F37717B",
+        "urpSha256": "86ED4E416BAD93D0EAD6F276160FE48A3250753888A8D8D7D0ACE8457F37717B"
+      },
+      {
+        "name": "03_cpu_meme_fenetre.png",
+        "builtInSha256": "E2D953191EEDA133AC05B72CFAEA3B4E44DAE6D2CDD7899B2F0662C49B39B19B",
+        "urpSha256": "E2D953191EEDA133AC05B72CFAEA3B4E44DAE6D2CDD7899B2F0662C49B39B19B"
+      }
+    ],
+    "fullMapPlayerCapture": {
+      "path": "Logs/Captures/M3-FH-03/ForgeHistory-URP/01_world_neutral.png",
+      "sha256": "21F05F3EA011D6D49ED610C2598883BE389297555BD09979DD480C31FD47EE0D",
+      "width": 1920,
+      "height": 1080,
+      "magentaPixels": 0
+    },
+    "cityCapture": {
+      "path": "Logs/Captures/Buildings/m3-scaffolding-four-phases-20260811.png",
+      "sha256": "A370D0FA26A8676F76CF397EBC635A3098C226FD5F79377C3B164E5A3841B3B6",
+      "width": 1920,
+      "height": 1080,
+      "magentaPixels": 0
+    },
+    "profileMillisecondsPerFrame": {
+      "builtIn": {
+        "gpuMap": 0.042,
+        "cpuRaster": 126.247,
+        "wiredGpuPath": 1.475
+      },
+      "urp": {
+        "gpuMap": 0.031,
+        "cpuRaster": 101.512,
+        "wiredGpuPath": 0.266
+      },
+      "frameBudget": 16.7
+    }
+  }
+}

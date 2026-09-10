@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "body_male_child_sturdy",
+  "kind": "body",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_child",
+    "gender": "male",
+    "age": "child",
+    "height": 0.72,
+    "shoulders": 0.86,
+    "hips": 0.94,
+    "head": 1.13,
+    "posture": 0,
+    "hair_type": 1,
+    "hair_color": 2
+  },
+  "morphology": {
+    "id": "sturdy",
+    "width": 1.15,
+    "depth": 1.12,
+    "height": 0.99
+  },
+  "role": null,
+  "bone_count": 52,
+  "lod_triangles": [
+    2272,
+    1178,
+    540
+  ],
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "canonical_sha256": "d2ecfc356cdbe3f53f7cbeab953ca5a884bfad4f2636e97928feccad0b30b3e9",
+  "fbx_sha256": "fa3cef617d8d33a8138b43a62d421ea87d7e8da193b246a15ac7eedc9ce0f64d",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_child_sturdy.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_child_sturdy.png",
+  "unity_launched": false
+}

@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "role_noble_male_adult_tall",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_noble_male_adult_tall.fbx",
+  "fbx_sha256": "9add9c06e52d3f7bb57e354579f8d54c07e2e6f25595a269ee3ed2fcdffe5583",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 39,
+  "uv_mesh_count": 39,
+  "lod_mesh_counts": [
+    13,
+    13,
+    13
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

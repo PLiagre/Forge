@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_male_child_slender",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_child_slender.fbx",
+  "fbx_sha256": "39ed3740ca624f68ab82b9a9208e1ae65e131b1a69b5751e238d2e533c774f35",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

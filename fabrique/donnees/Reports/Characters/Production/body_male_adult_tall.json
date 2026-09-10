@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "body_male_adult_tall",
+  "kind": "body",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_adult",
+    "gender": "male",
+    "age": "adult",
+    "height": 1.0,
+    "shoulders": 1.0,
+    "hips": 1.0,
+    "head": 1.0,
+    "posture": 0,
+    "hair_type": 2,
+    "hair_color": 2
+  },
+  "morphology": {
+    "id": "tall",
+    "width": 0.96,
+    "depth": 0.96,
+    "height": 1.08
+  },
+  "role": null,
+  "bone_count": 52,
+  "lod_triangles": [
+    2546,
+    1320,
+    606
+  ],
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "canonical_sha256": "3fa5cc4c45742356ff9b635bcbc9b8a7f7c4f977abf8fec2ee6c3b9b024a01f2",
+  "fbx_sha256": "6b1cc04b863a06900115ab1aebfda0ea8197eb8f08de7b397c96b92a2fa7e892",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Bodies/body_male_adult_tall.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/body_male_adult_tall.png",
+  "unity_launched": false
+}

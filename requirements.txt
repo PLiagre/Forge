@@ -1,0 +1,10 @@
+# Le moteur ne figure pas ici, et c'est le point : `sim/` n'importe que la
+# bibliothèque standard. Un moteur qui exigerait une roue ne tournerait pas
+# sur une machine nue, et c'est une propriété qu'on tient.
+
+# La carte de statistique : rasterisation et coloriage.
+numpy>=1.26
+pillow>=10.0
+
+# Les tests.
+pytest>=8.0

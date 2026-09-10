@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "id": "role_religious_male_elder_slender",
+  "kind": "role",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_elder",
+    "gender": "male",
+    "age": "elder",
+    "height": 0.96,
+    "shoulders": 0.93,
+    "hips": 1.01,
+    "head": 1.03,
+    "posture": 7,
+    "hair_type": 1,
+    "hair_color": 5
+  },
+  "morphology": {
+    "id": "slender",
+    "width": 0.86,
+    "depth": 0.88,
+    "height": 1.0
+  },
+  "role": {
+    "id": "religious",
+    "label": "Religieux",
+    "base": "male_elder",
+    "morphology": "slender",
+    "armor_type": 2,
+    "color": 3,
+    "hair_type": 1,
+    "hair_color": 5,
+    "head_armor": 0,
+    "facial_hair": 5,
+    "special_garment": "long_robe",
+    "markers": [
+      "robe",
+      "cord",
+      "staff",
+      "symbol"
+    ]
+  },
+  "bone_count": 52,
+  "lod_triangles": [
+    7007,
+    3635,
+    1681
+  ],
+  "lod_mesh_counts": [
+    14,
+    14,
+    14
+  ],
+  "canonical_sha256": "62cd27b4a9ee730615d356d50544be4ba41e3382aa7f4a95e1ce4245471417ed",
+  "fbx_sha256": "ec54f4cc5b2f7490815ef7148d074fa400602b9e7e1bb9d4d8ffb3195528d014",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Roles/role_religious_male_elder_slender.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_religious_male_elder_slender.png",
+  "unity_launched": false
+}

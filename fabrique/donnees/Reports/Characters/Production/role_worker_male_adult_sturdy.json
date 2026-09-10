@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "id": "role_worker_male_adult_sturdy",
+  "kind": "role",
+  "status": "generated_rigged_pending_unity_humanoid_validation",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "base": {
+    "id": "male_adult",
+    "gender": "male",
+    "age": "adult",
+    "height": 1.0,
+    "shoulders": 1.0,
+    "hips": 1.0,
+    "head": 1.0,
+    "posture": 0,
+    "hair_type": 2,
+    "hair_color": 2
+  },
+  "morphology": {
+    "id": "sturdy",
+    "width": 1.15,
+    "depth": 1.12,
+    "height": 0.99
+  },
+  "role": {
+    "id": "worker",
+    "label": "Ouvrier",
+    "base": "male_adult",
+    "morphology": "sturdy",
+    "armor_type": 4,
+    "color": 1,
+    "hair_type": 2,
+    "hair_color": 2,
+    "head_armor": 0,
+    "facial_hair": 2,
+    "special_garment": "apron",
+    "markers": [
+      "apron",
+      "hammer",
+      "gloves"
+    ]
+  },
+  "bone_count": 52,
+  "lod_triangles": [
+    6567,
+    3408,
+    1584
+  ],
+  "lod_mesh_counts": [
+    15,
+    15,
+    15
+  ],
+  "canonical_sha256": "45d0cc63e89d64a22505faef9fed7bbb4a618621d3d872c316fe1cbffc392765",
+  "fbx_sha256": "15c0539bbc0cd825fdf4fe2a8a6a2d32d57b0a0b49beaa967fb5ab0e22cd775c",
+  "fbx": "AssetFactory/Workbench/Characters/Production/Roles/role_worker_male_adult_sturdy.fbx",
+  "preview": "AssetFactory/Workbench/Characters/Production/Previews/role_worker_male_adult_sturdy.png",
+  "unity_launched": false
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victoria-citylab.local/schemas/building_construction.schema.json",
+  "title": "Victoria CityLab procedural building construction contract",
+  "type": "object",
+  "required": ["construction", "variants"],
+  "properties": {
+    "construction": {
+      "type": "object",
+      "required": ["mode", "stages"],
+      "properties": {
+        "mode": { "const": "cumulative_layers" },
+        "stages": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            { "$ref": "#/$defs/foundation" },
+            { "$ref": "#/$defs/frame" },
+            { "$ref": "#/$defs/roof" },
+            { "$ref": "#/$defs/details" }
+          ]
+        }
+      }
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "seed_offset", "palette", "brace_style", "chimney"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+$" },
+          "seed_offset": { "type": "integer" },
+          "palette": {
+            "type": "object",
+            "required": ["wood", "wood_highlight", "roof", "roof_accent"]
+          },
+          "brace_style": { "enum": ["classic", "crossed", "dense"] },
+          "chimney": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stage": {
+      "type": "object",
+      "required": ["id", "order", "label", "progress", "required_categories"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "label": { "type": "string", "minLength": 1 },
+        "progress": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+        },
+        "required_categories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "foundation": {
+      "allOf": [{ "$ref": "#/$defs/stage" }, { "properties": { "id": { "const": "foundation" }, "order": { "const": 1 } } }]
+    },
+    "frame": {
+      "allOf": [{ "$ref": "#/$defs/stage" }, { "properties": { "id": { "const": "frame" }, "order": { "const": 2 } } }]
+    },
+    "roof": {
+      "allOf": [{ "$ref": "#/$defs/stage" }, { "properties": { "id": { "const": "roof" }, "order": { "const": 3 } } }]
+    },
+    "details": {
+      "allOf": [{ "$ref": "#/$defs/stage" }, { "properties": { "id": { "const": "details" }, "order": { "const": 4 } } }]
+    }
+  }
+}

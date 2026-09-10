@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "role_peasant_female_child_slender",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Roles/role_peasant_female_child_slender.fbx",
+  "fbx_sha256": "e63c4d74a67cb5dab5029021382861c214a9d1fba0f46d2f4cbdf94f8f561c87",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 36,
+  "uv_mesh_count": 36,
+  "lod_mesh_counts": [
+    12,
+    12,
+    12
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

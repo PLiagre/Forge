@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_male_elder_tall",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_elder_tall.fbx",
+  "fbx_sha256": "3baeb7b54a4a492d29a8a9dd7248968c3cf09e19678f9bbaff717fcaa6507d38",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

@@ -1,0 +1,7 @@
+{
+  "name": "com.victoria.citymode.assets",
+  "version": "0.1.0",
+  "displayName": "Victoria City Mode Assets",
+  "description": "Versioned City Mode asset partitions and host-owned loading contract for ForgeHistory.",
+  "unity": "6000.0"
+}

@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "id": "citylab_factory_build",
+  "blender": "Blender 5.2.0 LTS",
+  "selection": [
+    "building_residence_frontier_01_a",
+    "building_residence_frontier_01_b",
+    "building_residence_frontier_01_c",
+    "building_granary_frontier_01_a",
+    "building_granary_frontier_01_b",
+    "building_granary_frontier_01_c",
+    "building_warehouse_frontier_01_a",
+    "building_warehouse_frontier_01_b",
+    "building_warehouse_frontier_01_c",
+    "building_blacksmith_frontier_01_a",
+    "building_blacksmith_frontier_01_b",
+    "building_blacksmith_frontier_01_c",
+    "building_barn_frontier_01_a",
+    "building_barn_frontier_01_b",
+    "building_barn_frontier_01_c",
+    "building_chapel_frontier_01_a",
+    "building_chapel_frontier_01_b",
+    "building_chapel_frontier_01_c"
+  ],
+  "rebuilt": [
+    "building_residence_frontier_01_a",
+    "building_residence_frontier_01_b",
+    "building_residence_frontier_01_c",
+    "building_granary_frontier_01_a",
+    "building_granary_frontier_01_b",
+    "building_granary_frontier_01_c",
+    "building_warehouse_frontier_01_a",
+    "building_warehouse_frontier_01_b",
+    "building_warehouse_frontier_01_c",
+    "building_blacksmith_frontier_01_a",
+    "building_blacksmith_frontier_01_b",
+    "building_blacksmith_frontier_01_c",
+    "building_barn_frontier_01_a",
+    "building_barn_frontier_01_b",
+    "building_barn_frontier_01_c",
+    "building_chapel_frontier_01_a",
+    "building_chapel_frontier_01_b",
+    "building_chapel_frontier_01_c"
+  ],
+  "up_to_date": [],
+  "steps": [
+    {
+      "step": "silhouette:building_barn_frontier_01",
+      "returncode": 0,
+      "seconds": 0.2,
+      "line": "CITYLAB_SILHOUETTE_GATE_OK iou[a-b=0.5293 a-c=0.7033 b-c=0.5989] max=0.8 articulation[a=6.558 b=6.031 c=6.641] min=5.5 fonction=barn etendue_observee=0.61",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "planche:building_barn_frontier_01",
+      "returncode": 0,
+      "seconds": 0.3,
+      "line": "CITYLAB_CONSTRUCTION_BOARD_OK id=building_barn_frontier_01_c stages=6 lod0=1714 path=AssetFactory/Reports/QA/building_barn_frontier_01_c_construction_board.png unity_launched=false",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "silhouette:building_blacksmith_frontier_01",
+      "returncode": 0,
+      "seconds": 0.2,
+      "line": "CITYLAB_SILHOUETTE_GATE_OK iou[a-b=0.5231 a-c=0.5712 b-c=0.6495] max=0.8 articulation[a=5.835 b=5.862 c=6.293] min=5.5 fonction=blacksmith etendue_observee=0.458",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "planche:building_blacksmith_frontier_01",
+      "returncode": 0,
+      "seconds": 0.3,
+      "line": "CITYLAB_CONSTRUCTION_BOARD_OK id=building_blacksmith_frontier_01_c stages=8 lod0=2650 path=AssetFactory/Reports/QA/building_blacksmith_frontier_01_c_construction_board.png unity_launched=false",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "silhouette:building_chapel_frontier_01",
+      "returncode": 0,
+      "seconds": 0.2,
+      "line": "CITYLAB_SILHOUETTE_GATE_OK iou[a-b=0.5738 a-c=0.533 b-c=0.5056] max=0.8 articulation[a=6.109 b=6.223 c=5.921] min=5.5 fonction=chapel etendue_observee=0.302",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "planche:building_chapel_frontier_01",
+      "returncode": 0,
+      "seconds": 0.3,
+      "line": "CITYLAB_CONSTRUCTION_BOARD_OK id=building_chapel_frontier_01_c stages=8 lod0=2796 path=AssetFactory/Reports/QA/building_chapel_frontier_01_c_construction_board.png unity_launched=false",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "silhouette:building_granary_frontier_01",
+      "returncode": 0,
+      "seconds": 0.2,
+      "line": "CITYLAB_SILHOUETTE_GATE_OK iou[a-b=0.6751 a-c=0.5492 b-c=0.7057] max=0.8 articulation[a=6.26 b=5.713 c=5.796] min=5.5 fonction=granary etendue_observee=0.547",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "planche:building_granary_frontier_01",
+      "returncode": 0,
+      "seconds": 0.3,
+      "line": "CITYLAB_CONSTRUCTION_BOARD_OK id=building_granary_frontier_01_c stages=6 lod0=1650 path=AssetFactory/Reports/QA/building_granary_frontier_01_c_construction_board.png unity_launched=false",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "silhouette:building_residence_frontier_01",
+      "returncode": 0,
+      "seconds": 0.2,
+      "line": "CITYLAB_SILHOUETTE_GATE_OK iou[a-b=0.7371 a-c=0.7092 b-c=0.6973] max=0.8 articulation[a=6.052 b=6.55 c=6.658] min=6.0 fonction=residence etendue_observee=0.606",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "planche:building_residence_frontier_01",
+      "returncode": 0,
+      "seconds": 0.3,
+      "line": "CITYLAB_CONSTRUCTION_BOARD_OK id=building_residence_frontier_01_c stages=8 lod0=2932 path=AssetFactory/Reports/QA/building_residence_frontier_01_c_construction_board.png unity_launched=false",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "silhouette:building_warehouse_frontier_01",
+      "returncode": 0,
+      "seconds": 0.3,
+      "line": "CITYLAB_SILHOUETTE_GATE_OK iou[a-b=0.6383 a-c=0.6524 b-c=0.7007] max=0.8 articulation[a=5.628 b=5.597 c=5.596] min=5.5 fonction=warehouse etendue_observee=0.032",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "planche:building_warehouse_frontier_01",
+      "returncode": 0,
+      "seconds": 0.3,
+      "line": "CITYLAB_CONSTRUCTION_BOARD_OK id=building_warehouse_frontier_01_c stages=6 lod0=1420 path=AssetFactory/Reports/QA/building_warehouse_frontier_01_c_construction_board.png unity_launched=false",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "matiere",
+      "returncode": 0,
+      "seconds": 0.1,
+      "line": "CITYLAB_MATTER_GATE materials=36/64_textured trim_imports=18/18_correct declared_debt=28 violations=0 unity_launched=false",
+      "blocking": false,
+      "status": "passed"
+    },
+    {
+      "step": "qa_release",
+      "returncode": 1,
+      "seconds": 0.2,
+      "line": "",
+      "blocking": false,
+      "status": "failed"
+    }
+  ],
+  "failures": [],
+  "unity_launched": false,
+  "downstream_reason": "regeneration",
+  "seconds": 2407.9,
+  "failed_steps": [
+    "qa_release"
+  ],
+  "status": "failed"
+}

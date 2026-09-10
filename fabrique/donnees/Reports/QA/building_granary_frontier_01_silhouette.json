@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "id": "silhouette_gate_building_granary_frontier_01",
+  "style": "frontier",
+  "render_px": 256,
+  "camera": "rts",
+  "max_iou_same_family": 0.8,
+  "pairs": [
+    {
+      "pair": "a-b",
+      "iou": 0.6751,
+      "threshold": 0.8,
+      "passed": true
+    },
+    {
+      "pair": "a-c",
+      "iou": 0.5492,
+      "threshold": 0.8,
+      "passed": true
+    },
+    {
+      "pair": "b-c",
+      "iou": 0.7057,
+      "threshold": 0.8,
+      "passed": true
+    }
+  ],
+  "function": "granary",
+  "articulation": {
+    "render_px": 256,
+    "min_articulation": 5.5,
+    "min_articulation_domestic": 6.0,
+    "min_articulation_non_domestic": 5.5,
+    "variants": [
+      {
+        "variant": "a",
+        "articulation": 6.26,
+        "threshold": 5.5,
+        "passed": true
+      },
+      {
+        "variant": "b",
+        "articulation": 5.713,
+        "threshold": 5.5,
+        "passed": true
+      },
+      {
+        "variant": "c",
+        "articulation": 5.796,
+        "threshold": 5.5,
+        "passed": true
+      }
+    ],
+    "observed_spread": 0.547
+  },
+  "passed": true,
+  "contact_sheet": "AssetFactory/Reports/QA/building_granary_frontier_01_contact_96px.png",
+  "contact_sheet_px": 96
+}

@@ -1,0 +1,4808 @@
+{
+  "schema": 1,
+  "id": "citylab_vendor_prop_census",
+  "blender": "5.2.0 LTS",
+  "sources": [
+    {
+      "status": "passed",
+      "triangles": 2887,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 2887,
+      "mesh_count": 1,
+      "size_m": [
+        224.815,
+        224.762,
+        30.17
+      ],
+      "id": "EA03",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1189,
+      "triangles_lod0": 548,
+      "triangles_by_lod": {
+        "lod0": 548,
+        "lod1": 396,
+        "lod2": 245
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.556,
+        3.68,
+        0.617
+      ],
+      "id": "EA03_EnvRock_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_EnvRock_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1036,
+      "triangles_lod0": 477,
+      "triangles_by_lod": {
+        "lod0": 477,
+        "lod1": 345,
+        "lod2": 214
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.499,
+        5.684,
+        0.373
+      ],
+      "id": "EA03_Env_Mud_Flat_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_Mud_Flat_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1039,
+      "triangles_lod0": 478,
+      "triangles_by_lod": {
+        "lod0": 478,
+        "lod1": 346,
+        "lod2": 215
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        8.261,
+        5.645,
+        0.371
+      ],
+      "id": "EA03_Env_Mud_Flat_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_Mud_Flat_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 580,
+      "triangles_lod0": 267,
+      "triangles_by_lod": {
+        "lod0": 267,
+        "lod1": 193,
+        "lod2": 120
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        8.093,
+        3.109,
+        0.356
+      ],
+      "id": "EA03_Env_Mud_Flat_01c_Half",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_Mud_Flat_01c_Half.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 116,
+      "triangles_lod0": 55,
+      "triangles_by_lod": {
+        "lod0": 55,
+        "lod1": 38,
+        "lod2": 23
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.878,
+        1.818,
+        0.381
+      ],
+      "id": "EA03_Env_RoadIslandMud_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_RoadIslandMud_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 117,
+      "triangles_lod0": 55,
+      "triangles_by_lod": {
+        "lod0": 55,
+        "lod1": 39,
+        "lod2": 23
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.896,
+        2.006,
+        0.349
+      ],
+      "id": "EA03_Env_RoadIslandMud_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_RoadIslandMud_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 394,
+      "triangles_lod0": 184,
+      "triangles_by_lod": {
+        "lod0": 184,
+        "lod1": 132,
+        "lod2": 78
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.147,
+        1.299,
+        0.098
+      ],
+      "id": "EA03_Env_Road_Wooden_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_Road_Wooden_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 842,
+      "triangles_lod0": 388,
+      "triangles_by_lod": {
+        "lod0": 388,
+        "lod1": 280,
+        "lod2": 174
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.672,
+        3.732,
+        6.057
+      ],
+      "id": "EA03_Env_Rock_Slice_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_Rock_Slice_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1035,
+      "triangles_lod0": 477,
+      "triangles_by_lod": {
+        "lod0": 477,
+        "lod1": 345,
+        "lod2": 213
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.634,
+        4.837,
+        0.446
+      ],
+      "id": "EA03_Env_Sand_Flat_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_Sand_Flat_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 975,
+      "triangles_lod0": 449,
+      "triangles_by_lod": {
+        "lod0": 449,
+        "lod1": 324,
+        "lod2": 202
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        12.805,
+        10.891,
+        1.734
+      ],
+      "id": "EA03_Env_Sand_Flat_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Env_Sand_Flat_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 254,
+      "triangles_lod0": 118,
+      "triangles_by_lod": {
+        "lod0": 118,
+        "lod1": 84,
+        "lod2": 52
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.877,
+        3.257,
+        0.32
+      ],
+      "id": "EA03_Environment_Moss_01",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Moss_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 323,
+      "triangles_lod0": 149,
+      "triangles_by_lod": {
+        "lod0": 149,
+        "lod1": 107,
+        "lod2": 67
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.486,
+        4.422,
+        0.451
+      ],
+      "id": "EA03_Environment_Mud_04b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Mud_04b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 5259,
+      "triangles_lod0": 2419,
+      "triangles_by_lod": {
+        "lod0": 2419,
+        "lod1": 1753,
+        "lod2": 1087
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        20.149,
+        20.523,
+        8.484
+      ],
+      "id": "EA03_Environment_RiverStraight_01f_R",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RiverStraight_01f_R.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 6498,
+      "triangles_lod0": 2988,
+      "triangles_by_lod": {
+        "lod0": 2988,
+        "lod1": 2166,
+        "lod2": 1344
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        35.056,
+        16.148,
+        9.669
+      ],
+      "id": "EA03_Environment_RiverStraight_01g",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RiverStraight_01g.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4282,
+      "triangles_lod0": 1970,
+      "triangles_by_lod": {
+        "lod0": 1970,
+        "lod1": 1427,
+        "lod2": 885
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        49.602,
+        10.54,
+        10.125
+      ],
+      "id": "EA03_Environment_RiverStraight_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RiverStraight_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 974,
+      "triangles_lod0": 449,
+      "triangles_by_lod": {
+        "lod0": 449,
+        "lod1": 325,
+        "lod2": 200
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        58.683,
+        25.398,
+        8.884
+      ],
+      "id": "EA03_Environment_RiverStraight_02b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RiverStraight_02b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 837,
+      "triangles_lod0": 386,
+      "triangles_by_lod": {
+        "lod0": 386,
+        "lod1": 278,
+        "lod2": 173
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        8.566,
+        3.278,
+        0.58
+      ],
+      "id": "EA03_Environment_RoadIsland_08",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RoadIsland_08.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 241,
+      "triangles_lod0": 112,
+      "triangles_by_lod": {
+        "lod0": 112,
+        "lod1": 80,
+        "lod2": 49
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.945,
+        1.846,
+        0.431
+      ],
+      "id": "EA03_Environment_RoadIsland_08a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RoadIsland_08a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1891,
+      "triangles_lod0": 871,
+      "triangles_by_lod": {
+        "lod0": 871,
+        "lod1": 630,
+        "lod2": 390
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        18.74,
+        3.947,
+        0.648
+      ],
+      "id": "EA03_Environment_RoadIsland_09",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RoadIsland_09.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4190,
+      "triangles_lod0": 1927,
+      "triangles_by_lod": {
+        "lod0": 1927,
+        "lod1": 1396,
+        "lod2": 867
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        18.039,
+        3.973,
+        0.633
+      ],
+      "id": "EA03_Environment_RoadIsland_09a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RoadIsland_09a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1956,
+      "triangles_lod0": 881,
+      "triangles_by_lod": {
+        "lod0": 881,
+        "lod1": 638,
+        "lod2": 437
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.219,
+        1.321,
+        0.484
+      ],
+      "id": "EA03_Environment_RoadSide",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_RoadSide.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 477,
+      "triangles_lod0": 220,
+      "triangles_by_lod": {
+        "lod0": 220,
+        "lod1": 158,
+        "lod2": 99
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.236,
+        1.758,
+        0.554
+      ],
+      "id": "EA03_Environment_Road_Cobble_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Road_Cobble_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 132,
+      "triangles_lod0": 62,
+      "triangles_by_lod": {
+        "lod0": 62,
+        "lod1": 44,
+        "lod2": 26
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.856,
+        1.666,
+        0.54
+      ],
+      "id": "EA03_Environment_Road_Cobble_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Road_Cobble_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 354,
+      "triangles_lod0": 163,
+      "triangles_by_lod": {
+        "lod0": 163,
+        "lod1": 118,
+        "lod2": 73
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.713,
+        3.526,
+        0.589
+      ],
+      "id": "EA03_Environment_Road_Cobble_Corner_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Road_Cobble_Corner_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 918,
+      "triangles_lod0": 426,
+      "triangles_by_lod": {
+        "lod0": 426,
+        "lod1": 308,
+        "lod2": 184
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.079,
+        1.87,
+        3.123
+      ],
+      "id": "EA03_Environment_Road_Cobble_Staris_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Road_Cobble_Staris_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 381,
+      "triangles_lod0": 176,
+      "triangles_by_lod": {
+        "lod0": 176,
+        "lod1": 126,
+        "lod2": 79
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.547,
+        4.737,
+        0.719
+      ],
+      "id": "EA03_Environment_Rock_CatHead_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Rock_CatHead_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 283,
+      "triangles_lod0": 131,
+      "triangles_by_lod": {
+        "lod0": 131,
+        "lod1": 94,
+        "lod2": 58
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.088,
+        7.085,
+        1.657
+      ],
+      "id": "EA03_Environment_Rock_CatHead_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Rock_CatHead_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1356,
+      "triangles_lod0": 624,
+      "triangles_by_lod": {
+        "lod0": 624,
+        "lod1": 452,
+        "lod2": 280
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        19.631,
+        11.513,
+        6.306
+      ],
+      "id": "EA03_Environment_Rock_Flat_04c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Rock_Flat_04c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 60,
+      "triangles_lod0": 28,
+      "triangles_by_lod": {
+        "lod0": 28,
+        "lod1": 20,
+        "lod2": 12
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.606,
+        0.545,
+        0.497
+      ],
+      "id": "EA03_Environment_Rock_Head_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Rock_Head_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 362,
+      "triangles_lod0": 168,
+      "triangles_by_lod": {
+        "lod0": 168,
+        "lod1": 120,
+        "lod2": 74
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.957,
+        0.772,
+        0.549
+      ],
+      "id": "EA03_Environment_Rock_Head_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Rock_Head_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 546,
+      "triangles_lod0": 252,
+      "triangles_by_lod": {
+        "lod0": 252,
+        "lod1": 182,
+        "lod2": 112
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.492,
+        0.769,
+        0.544
+      ],
+      "id": "EA03_Environment_Rock_Head_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Rock_Head_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 322,
+      "triangles_lod0": 149,
+      "triangles_by_lod": {
+        "lod0": 149,
+        "lod1": 107,
+        "lod2": 66
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        8.857,
+        7.128,
+        0.804
+      ],
+      "id": "EA03_Environment_Sand_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Environment_Sand_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1163,
+      "triangles_lod0": 536,
+      "triangles_by_lod": {
+        "lod0": 536,
+        "lod1": 387,
+        "lod2": 240
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.796,
+        0.779,
+        1.644
+      ],
+      "id": "EA03_Fence_Cobble_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Cobble_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1886,
+      "triangles_lod0": 868,
+      "triangles_by_lod": {
+        "lod0": 868,
+        "lod1": 628,
+        "lod2": 390
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.261,
+        0.787,
+        1.635
+      ],
+      "id": "EA03_Fence_Cobble_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Cobble_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 635,
+      "triangles_lod0": 293,
+      "triangles_by_lod": {
+        "lod0": 293,
+        "lod1": 212,
+        "lod2": 130
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.417,
+        1.562,
+        2.299
+      ],
+      "id": "EA03_Fence_Cobble_End_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Cobble_End_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 331,
+      "triangles_lod0": 154,
+      "triangles_by_lod": {
+        "lod0": 154,
+        "lod1": 110,
+        "lod2": 67
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.0,
+        0.284,
+        3.042
+      ],
+      "id": "EA03_Fence_Plank_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Plank_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 287,
+      "triangles_lod0": 134,
+      "triangles_by_lod": {
+        "lod0": 134,
+        "lod1": 96,
+        "lod2": 57
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.0,
+        0.362,
+        3.05
+      ],
+      "id": "EA03_Fence_Plank_02b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Plank_02b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 223,
+      "triangles_lod0": 104,
+      "triangles_by_lod": {
+        "lod0": 104,
+        "lod1": 75,
+        "lod2": 44
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.0,
+        0.466,
+        3.05
+      ],
+      "id": "EA03_Fence_Plank_02c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Plank_02c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 177,
+      "triangles_lod0": 84,
+      "triangles_by_lod": {
+        "lod0": 84,
+        "lod1": 59,
+        "lod2": 34
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.921,
+        0.284,
+        3.042
+      ],
+      "id": "EA03_Fence_Plank_02d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Plank_02d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4801,
+      "triangles_lod0": 2250,
+      "triangles_by_lod": {
+        "lod0": 2250,
+        "lod1": 1631,
+        "lod2": 920
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.336,
+        1.54,
+        3.653
+      ],
+      "id": "EA03_Fence_RockGate_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_RockGate_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 721,
+      "triangles_lod0": 332,
+      "triangles_by_lod": {
+        "lod0": 332,
+        "lod1": 240,
+        "lod2": 149
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.218,
+        3.374,
+        3.009
+      ],
+      "id": "EA03_Fence_SolidBeam_End_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_SolidBeam_End_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1130,
+      "triangles_lod0": 520,
+      "triangles_by_lod": {
+        "lod0": 520,
+        "lod1": 376,
+        "lod2": 234
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.615,
+        0.36,
+        0.979
+      ],
+      "id": "EA03_Fence_VegetablePatch_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_VegetablePatch_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1272,
+      "triangles_lod0": 587,
+      "triangles_by_lod": {
+        "lod0": 587,
+        "lod1": 425,
+        "lod2": 260
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.974,
+        1.762,
+        4.887
+      ],
+      "id": "EA03_Fence_WallGate_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_WallGate_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2629,
+      "triangles_lod0": 1209,
+      "triangles_by_lod": {
+        "lod0": 1209,
+        "lod1": 876,
+        "lod2": 544
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.013,
+        1.762,
+        3.556
+      ],
+      "id": "EA03_Fence_Wall_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Wall_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1324,
+      "triangles_lod0": 612,
+      "triangles_by_lod": {
+        "lod0": 612,
+        "lod1": 443,
+        "lod2": 269
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.5,
+        1.633,
+        3.543
+      ],
+      "id": "EA03_Fence_Wall_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Wall_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1142,
+      "triangles_lod0": 526,
+      "triangles_by_lod": {
+        "lod0": 526,
+        "lod1": 380,
+        "lod2": 236
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.342,
+        0.599,
+        1.678
+      ],
+      "id": "EA03_Fence_Withy_Seam_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_Withy_Seam_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 539,
+      "triangles_lod0": 249,
+      "triangles_by_lod": {
+        "lod0": 249,
+        "lod1": 180,
+        "lod2": 110
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.095,
+        0.686,
+        1.808
+      ],
+      "id": "EA03_Fence_rockDesk_01g",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_rockDesk_01g.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 245,
+      "triangles_lod0": 114,
+      "triangles_by_lod": {
+        "lod0": 114,
+        "lod1": 81,
+        "lod2": 50
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.731,
+        0.501,
+        1.233
+      ],
+      "id": "EA03_Fence_rockDesk_End_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Fence_rockDesk_End_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 126,
+      "triangles_lod0": 58,
+      "triangles_by_lod": {
+        "lod0": 58,
+        "lod1": 42,
+        "lod2": 26
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.196,
+        0.19,
+        0.186
+      ],
+      "id": "EA03_Items_House_Apple_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Apple_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 126,
+      "triangles_lod0": 58,
+      "triangles_by_lod": {
+        "lod0": 58,
+        "lod1": 42,
+        "lod2": 26
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.174,
+        0.173,
+        0.176
+      ],
+      "id": "EA03_Items_House_Apple_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Apple_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 126,
+      "triangles_lod0": 58,
+      "triangles_by_lod": {
+        "lod0": 58,
+        "lod1": 42,
+        "lod2": 26
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.152,
+        0.185,
+        0.172
+      ],
+      "id": "EA03_Items_House_Apple_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Apple_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 103,
+      "triangles_lod0": 48,
+      "triangles_by_lod": {
+        "lod0": 48,
+        "lod1": 34,
+        "lod2": 21
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.262,
+        0.263,
+        1.573
+      ],
+      "id": "EA03_Items_House_Besom_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Besom_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 434,
+      "triangles_lod0": 200,
+      "triangles_by_lod": {
+        "lod0": 200,
+        "lod1": 144,
+        "lod2": 90
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.291,
+        0.286,
+        0.48
+      ],
+      "id": "EA03_Items_House_Bottle_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Bottle_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 77,
+      "triangles_lod0": 37,
+      "triangles_by_lod": {
+        "lod0": 37,
+        "lod1": 25,
+        "lod2": 15
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.318,
+        0.565,
+        0.03
+      ],
+      "id": "EA03_Items_House_BredBoard_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_BredBoard_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 174,
+      "triangles_lod0": 80,
+      "triangles_by_lod": {
+        "lod0": 80,
+        "lod1": 58,
+        "lod2": 36
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.319,
+        0.203,
+        0.079
+      ],
+      "id": "EA03_Items_House_Carrot_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Carrot_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 327,
+      "triangles_lod0": 151,
+      "triangles_by_lod": {
+        "lod0": 151,
+        "lod1": 109,
+        "lod2": 67
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.11,
+        0.317,
+        0.107
+      ],
+      "id": "EA03_Items_House_Corn_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Corn_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 86,
+      "triangles_lod0": 40,
+      "triangles_by_lod": {
+        "lod0": 40,
+        "lod1": 29,
+        "lod2": 17
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.134,
+        0.136,
+        0.228
+      ],
+      "id": "EA03_Items_House_Cup_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Cup_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2878,
+      "triangles_lod0": 1324,
+      "triangles_by_lod": {
+        "lod0": 1324,
+        "lod1": 959,
+        "lod2": 595
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.497,
+        1.247,
+        2.365
+      ],
+      "id": "EA03_Items_House_Firewood_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Firewood_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 206,
+      "triangles_lod0": 96,
+      "triangles_by_lod": {
+        "lod0": 96,
+        "lod1": 68,
+        "lod2": 42
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.074,
+        0.388,
+        0.017
+      ],
+      "id": "EA03_Items_House_Spoon_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Items_House_Spoon_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1086,
+      "triangles_lod0": 500,
+      "triangles_by_lod": {
+        "lod0": 500,
+        "lod1": 361,
+        "lod2": 225
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.322,
+        1.446,
+        3.571
+      ],
+      "id": "EA03_Nature_Bush_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1683,
+      "triangles_lod0": 775,
+      "triangles_by_lod": {
+        "lod0": 775,
+        "lod1": 560,
+        "lod2": 348
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.002,
+        2.769,
+        3.956
+      ],
+      "id": "EA03_Nature_Bush_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2801,
+      "triangles_lod0": 1289,
+      "triangles_by_lod": {
+        "lod0": 1289,
+        "lod1": 933,
+        "lod2": 579
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.622,
+        2.454,
+        3.984
+      ],
+      "id": "EA03_Nature_Bush_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1234,
+      "triangles_lod0": 568,
+      "triangles_by_lod": {
+        "lod0": 568,
+        "lod1": 411,
+        "lod2": 255
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.322,
+        1.446,
+        3.614
+      ],
+      "id": "EA03_Nature_Bush_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1025,
+      "triangles_lod0": 472,
+      "triangles_by_lod": {
+        "lod0": 472,
+        "lod1": 341,
+        "lod2": 212
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.26,
+        2.596,
+        3.665
+      ],
+      "id": "EA03_Nature_Bush_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1043,
+      "triangles_lod0": 480,
+      "triangles_by_lod": {
+        "lod0": 480,
+        "lod1": 348,
+        "lod2": 215
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.142,
+        2.288,
+        3.67
+      ],
+      "id": "EA03_Nature_Bush_02b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_02b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1546,
+      "triangles_lod0": 712,
+      "triangles_by_lod": {
+        "lod0": 712,
+        "lod1": 515,
+        "lod2": 319
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.721,
+        2.752,
+        1.746
+      ],
+      "id": "EA03_Nature_Bush_03a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_03a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2900,
+      "triangles_lod0": 1334,
+      "triangles_by_lod": {
+        "lod0": 1334,
+        "lod1": 966,
+        "lod2": 600
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.559,
+        3.423,
+        1.587
+      ],
+      "id": "EA03_Nature_Bush_03b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_03b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 786,
+      "triangles_lod0": 362,
+      "triangles_by_lod": {
+        "lod0": 362,
+        "lod1": 262,
+        "lod2": 162
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.911,
+        1.832,
+        1.431
+      ],
+      "id": "EA03_Nature_Bush_03c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_03c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1295,
+      "triangles_lod0": 596,
+      "triangles_by_lod": {
+        "lod0": 596,
+        "lod1": 432,
+        "lod2": 267
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.473,
+        3.379,
+        0.56
+      ],
+      "id": "EA03_Nature_Bush_03d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_03d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 972,
+      "triangles_lod0": 448,
+      "triangles_by_lod": {
+        "lod0": 448,
+        "lod1": 324,
+        "lod2": 200
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.484,
+        2.183,
+        1.545
+      ],
+      "id": "EA03_Nature_Bush_04a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_04a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 253,
+      "triangles_lod0": 117,
+      "triangles_by_lod": {
+        "lod0": 117,
+        "lod1": 84,
+        "lod2": 52
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.159,
+        1.13,
+        5.932
+      ],
+      "id": "EA03_Nature_Bush_05a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_05a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 411,
+      "triangles_lod0": 190,
+      "triangles_by_lod": {
+        "lod0": 190,
+        "lod1": 137,
+        "lod2": 84
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.133,
+        2.081,
+        5.93
+      ],
+      "id": "EA03_Nature_Bush_05b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_05b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1036,
+      "triangles_lod0": 477,
+      "triangles_by_lod": {
+        "lod0": 477,
+        "lod1": 345,
+        "lod2": 214
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.111,
+        4.713,
+        0.4
+      ],
+      "id": "EA03_Nature_Bush_Flat_03d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_Flat_03d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1239,
+      "triangles_lod0": 571,
+      "triangles_by_lod": {
+        "lod0": 571,
+        "lod1": 413,
+        "lod2": 255
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        19.58,
+        13.673,
+        1.145
+      ],
+      "id": "EA03_Nature_Bush_Flat_03e",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Bush_Flat_03e.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1239,
+      "triangles_lod0": 571,
+      "triangles_by_lod": {
+        "lod0": 571,
+        "lod1": 413,
+        "lod2": 255
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        19.58,
+        13.673,
+        1.145
+      ],
+      "id": "EA03_Nature_Solid_Flat_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Solid_Flat_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1039,
+      "triangles_lod0": 478,
+      "triangles_by_lod": {
+        "lod0": 478,
+        "lod1": 346,
+        "lod2": 215
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        16.404,
+        11.21,
+        1.054
+      ],
+      "id": "EA03_Nature_Solid_Flat_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Solid_Flat_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 473,
+      "triangles_lod0": 218,
+      "triangles_by_lod": {
+        "lod0": 218,
+        "lod1": 158,
+        "lod2": 97
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        16.447,
+        7.381,
+        2.31
+      ],
+      "id": "EA03_Nature_Solid_Flat_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Solid_Flat_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 72,
+      "triangles_lod0": 34,
+      "triangles_by_lod": {
+        "lod0": 34,
+        "lod1": 23,
+        "lod2": 15
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.172,
+        0.17,
+        2.967
+      ],
+      "id": "EA03_Nature_SweetFlag_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 504,
+      "triangles_lod0": 232,
+      "triangles_by_lod": {
+        "lod0": 232,
+        "lod1": 168,
+        "lod2": 104
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.765,
+        0.941,
+        3.366
+      ],
+      "id": "EA03_Nature_SweetFlag_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 441,
+      "triangles_lod0": 204,
+      "triangles_by_lod": {
+        "lod0": 204,
+        "lod1": 146,
+        "lod2": 91
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.861,
+        0.599,
+        2.952
+      ],
+      "id": "EA03_Nature_SweetFlag_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 198,
+      "triangles_lod0": 92,
+      "triangles_by_lod": {
+        "lod0": 92,
+        "lod1": 66,
+        "lod2": 40
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.334,
+        0.213,
+        2.967
+      ],
+      "id": "EA03_Nature_SweetFlag_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 608,
+      "triangles_lod0": 280,
+      "triangles_by_lod": {
+        "lod0": 280,
+        "lod1": 202,
+        "lod2": 126
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.784,
+        0.636,
+        2.818
+      ],
+      "id": "EA03_Nature_SweetFlag_01e",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_01e.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 72,
+      "triangles_lod0": 34,
+      "triangles_by_lod": {
+        "lod0": 34,
+        "lod1": 23,
+        "lod2": 15
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.172,
+        0.17,
+        2.967
+      ],
+      "id": "EA03_Nature_SweetFlag_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 219,
+      "triangles_lod0": 102,
+      "triangles_by_lod": {
+        "lod0": 102,
+        "lod1": 72,
+        "lod2": 45
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.468,
+        0.319,
+        2.952
+      ],
+      "id": "EA03_Nature_SweetFlag_02c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_02c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 252,
+      "triangles_lod0": 116,
+      "triangles_by_lod": {
+        "lod0": 116,
+        "lod1": 84,
+        "lod2": 52
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.151,
+        0.213,
+        2.316
+      ],
+      "id": "EA03_Nature_SweetFlag_02d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_SweetFlag_02d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1293,
+      "triangles_lod0": 595,
+      "triangles_by_lod": {
+        "lod0": 595,
+        "lod1": 431,
+        "lod2": 267
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.269,
+        3.251,
+        10.294
+      ],
+      "id": "EA03_Nature_Tree_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1721,
+      "triangles_lod0": 792,
+      "triangles_by_lod": {
+        "lod0": 792,
+        "lod1": 573,
+        "lod2": 356
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.664,
+        2.928,
+        11.542
+      ],
+      "id": "EA03_Nature_Tree_02b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_02b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 891,
+      "triangles_lod0": 411,
+      "triangles_by_lod": {
+        "lod0": 411,
+        "lod1": 296,
+        "lod2": 184
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.424,
+        2.412,
+        9.374
+      ],
+      "id": "EA03_Nature_Tree_02c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_02c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 12556,
+      "triangles_lod0": 5774,
+      "triangles_by_lod": {
+        "lod0": 5774,
+        "lod1": 4185,
+        "lod2": 2597
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.873,
+        4.8,
+        9.295
+      ],
+      "id": "EA03_Nature_Tree_03b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_03b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 21857,
+      "triangles_lod0": 10050,
+      "triangles_by_lod": {
+        "lod0": 10050,
+        "lod1": 7285,
+        "lod2": 4522
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        7.491,
+        5.034,
+        11.803
+      ],
+      "id": "EA03_Nature_Tree_03c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_03c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4388,
+      "triangles_lod0": 2018,
+      "triangles_by_lod": {
+        "lod0": 2018,
+        "lod1": 1462,
+        "lod2": 908
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.705,
+        4.464,
+        11.765
+      ],
+      "id": "EA03_Nature_Tree_05a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_05a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 886,
+      "triangles_lod0": 408,
+      "triangles_by_lod": {
+        "lod0": 408,
+        "lod1": 295,
+        "lod2": 183
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.377,
+        5.755,
+        16.827
+      ],
+      "id": "EA03_Nature_Tree_06b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_Tree_06b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 5023,
+      "triangles_lod0": 2310,
+      "triangles_by_lod": {
+        "lod0": 2310,
+        "lod1": 1674,
+        "lod2": 1039
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.42,
+        3.67,
+        0.902
+      ],
+      "id": "EA03_Nature_TrunkPlant_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Nature_TrunkPlant_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2469,
+      "triangles_lod0": 1136,
+      "triangles_by_lod": {
+        "lod0": 1136,
+        "lod1": 823,
+        "lod2": 510
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.875,
+        0.63,
+        0.741
+      ],
+      "id": "EA03_Plant_Grass_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Plant_Grass_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2344,
+      "triangles_lod0": 1078,
+      "triangles_by_lod": {
+        "lod0": 1078,
+        "lod1": 781,
+        "lod2": 485
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.6,
+        0.435,
+        0.838
+      ],
+      "id": "EA03_Plant_Grass_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Plant_Grass_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2470,
+      "triangles_lod0": 1136,
+      "triangles_by_lod": {
+        "lod0": 1136,
+        "lod1": 823,
+        "lod2": 511
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.699,
+        1.254,
+        0.685
+      ],
+      "id": "EA03_Plant_Grass_01e",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Plant_Grass_01e.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 16,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 16,
+      "mesh_count": 1,
+      "size_m": [
+        0.376,
+        0.339,
+        0.518
+      ],
+      "id": "EA03_Plant_Grass_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Plant_Grass_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 16,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 16,
+      "mesh_count": 1,
+      "size_m": [
+        0.376,
+        0.339,
+        0.518
+      ],
+      "id": "EA03_Plant_Grass_02b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Plant_Grass_02b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 6584,
+      "triangles_lod0": 3028,
+      "triangles_by_lod": {
+        "lod0": 3028,
+        "lod1": 2194,
+        "lod2": 1362
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.72,
+        0.597,
+        0.575
+      ],
+      "id": "EA03_Prop_Brushwood_03a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Brushwood_03a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 566,
+      "triangles_lod0": 262,
+      "triangles_by_lod": {
+        "lod0": 262,
+        "lod1": 188,
+        "lod2": 116
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.823,
+        0.624,
+        0.715
+      ],
+      "id": "EA03_Prop_Container_Bag_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Bag_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1794,
+      "triangles_lod0": 826,
+      "triangles_by_lod": {
+        "lod0": 826,
+        "lod1": 598,
+        "lod2": 370
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.36,
+        0.602,
+        0.371
+      ],
+      "id": "EA03_Prop_Container_Bale_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Bale_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1087,
+      "triangles_lod0": 501,
+      "triangles_by_lod": {
+        "lod0": 501,
+        "lod1": 362,
+        "lod2": 224
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.661,
+        0.59,
+        0.819
+      ],
+      "id": "EA03_Prop_Container_Barrel_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Barrel_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 668,
+      "triangles_lod0": 308,
+      "triangles_by_lod": {
+        "lod0": 308,
+        "lod1": 222,
+        "lod2": 138
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.466,
+        0.465,
+        0.458
+      ],
+      "id": "EA03_Prop_Container_Basket_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Basket_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 877,
+      "triangles_lod0": 404,
+      "triangles_by_lod": {
+        "lod0": 404,
+        "lod1": 292,
+        "lod2": 181
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.601,
+        0.607,
+        0.522
+      ],
+      "id": "EA03_Prop_Container_Basket_02",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Basket_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2166,
+      "triangles_lod0": 996,
+      "triangles_by_lod": {
+        "lod0": 996,
+        "lod1": 722,
+        "lod2": 448
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.317,
+        0.335,
+        0.257
+      ],
+      "id": "EA03_Prop_Container_Basket_03a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Basket_03a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 3078,
+      "triangles_lod0": 1416,
+      "triangles_by_lod": {
+        "lod0": 1416,
+        "lod1": 1026,
+        "lod2": 636
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.321,
+        0.321,
+        0.426
+      ],
+      "id": "EA03_Prop_Container_Basket_04a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Basket_04a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 506,
+      "triangles_lod0": 234,
+      "triangles_by_lod": {
+        "lod0": 234,
+        "lod1": 168,
+        "lod2": 104
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.533,
+        0.682,
+        0.336
+      ],
+      "id": "EA03_Prop_Container_Bowl_01",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Bowl_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 973,
+      "triangles_lod0": 449,
+      "triangles_by_lod": {
+        "lod0": 449,
+        "lod1": 324,
+        "lod2": 200
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.69,
+        0.954,
+        0.71
+      ],
+      "id": "EA03_Prop_Container_Chest_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Chest_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 918,
+      "triangles_lod0": 426,
+      "triangles_by_lod": {
+        "lod0": 426,
+        "lod1": 304,
+        "lod2": 188
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.876,
+        0.814,
+        0.638
+      ],
+      "id": "EA03_Prop_Container_Crate_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Crate_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1064,
+      "triangles_lod0": 490,
+      "triangles_by_lod": {
+        "lod0": 490,
+        "lod1": 355,
+        "lod2": 219
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.041,
+        0.977,
+        0.853
+      ],
+      "id": "EA03_Prop_Container_Crate_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Crate_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1064,
+      "triangles_lod0": 490,
+      "triangles_by_lod": {
+        "lod0": 490,
+        "lod1": 355,
+        "lod2": 219
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.868,
+        0.818,
+        0.747
+      ],
+      "id": "EA03_Prop_Container_Crate_03a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Container_Crate_03a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 23232,
+      "triangles_lod0": 10682,
+      "triangles_by_lod": {
+        "lod0": 10682,
+        "lod1": 7744,
+        "lod2": 4806
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.066,
+        2.929,
+        1.217
+      ],
+      "id": "EA03_Prop_Crate_Under_Ceiling_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Crate_Under_Ceiling_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 3187,
+      "triangles_lod0": 1466,
+      "triangles_by_lod": {
+        "lod0": 1466,
+        "lod1": 1062,
+        "lod2": 659
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.066,
+        17.273,
+        4.684
+      ],
+      "id": "EA03_Prop_Forester_CutOutTrees_03",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Forester_CutOutTrees_03.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1094,
+      "triangles_lod0": 504,
+      "triangles_by_lod": {
+        "lod0": 504,
+        "lod1": 364,
+        "lod2": 226
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.174,
+        1.575,
+        0.653
+      ],
+      "id": "EA03_Prop_Forester_wooden_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Forester_wooden_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 287,
+      "triangles_lod0": 134,
+      "triangles_by_lod": {
+        "lod0": 134,
+        "lod1": 95,
+        "lod2": 58
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.21,
+        0.73,
+        0.331
+      ],
+      "id": "EA03_Prop_House_Bolt_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Bolt_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1122,
+      "triangles_lod0": 516,
+      "triangles_by_lod": {
+        "lod0": 516,
+        "lod1": 374,
+        "lod2": 232
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.179,
+        1.387,
+        2.531
+      ],
+      "id": "EA03_Prop_House_Door_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Door_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 420,
+      "triangles_lod0": 196,
+      "triangles_by_lod": {
+        "lod0": 196,
+        "lod1": 139,
+        "lod2": 85
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.184,
+        0.249,
+        1.231
+      ],
+      "id": "EA03_Prop_House_Hanger_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Hanger_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 393,
+      "triangles_lod0": 182,
+      "triangles_by_lod": {
+        "lod0": 182,
+        "lod1": 131,
+        "lod2": 80
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.295,
+        0.741,
+        2.391
+      ],
+      "id": "EA03_Prop_House_Shelf_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shelf_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 392,
+      "triangles_lod0": 182,
+      "triangles_by_lod": {
+        "lod0": 182,
+        "lod1": 130,
+        "lod2": 80
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.401,
+        0.741,
+        2.391
+      ],
+      "id": "EA03_Prop_House_Shelf_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shelf_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1224,
+      "triangles_lod0": 564,
+      "triangles_by_lod": {
+        "lod0": 564,
+        "lod1": 408,
+        "lod2": 252
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.569,
+        0.228,
+        1.11
+      ],
+      "id": "EA03_Prop_House_Shelf_01g",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shelf_01g.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 278,
+      "triangles_lod0": 129,
+      "triangles_by_lod": {
+        "lod0": 129,
+        "lod1": 92,
+        "lod2": 57
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.465,
+        0.502,
+        3.732
+      ],
+      "id": "EA03_Prop_House_Shelf_02c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shelf_02c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 414,
+      "triangles_lod0": 192,
+      "triangles_by_lod": {
+        "lod0": 192,
+        "lod1": 138,
+        "lod2": 84
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.942,
+        2.962,
+        1.606
+      ],
+      "id": "EA03_Prop_House_Shutter_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shutter_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 264,
+      "triangles_lod0": 124,
+      "triangles_by_lod": {
+        "lod0": 124,
+        "lod1": 88,
+        "lod2": 52
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.502,
+        2.721,
+        1.606
+      ],
+      "id": "EA03_Prop_House_Shutter_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shutter_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 381,
+      "triangles_lod0": 176,
+      "triangles_by_lod": {
+        "lod0": 176,
+        "lod1": 127,
+        "lod2": 78
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.105,
+        2.175,
+        1.324
+      ],
+      "id": "EA03_Prop_House_Shutter_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shutter_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 477,
+      "triangles_lod0": 220,
+      "triangles_by_lod": {
+        "lod0": 220,
+        "lod1": 158,
+        "lod2": 99
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.383,
+        1.864,
+        1.226
+      ],
+      "id": "EA03_Prop_House_Shutter_01e",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Shutter_01e.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4235,
+      "triangles_lod0": 1948,
+      "triangles_by_lod": {
+        "lod0": 1948,
+        "lod1": 1411,
+        "lod2": 876
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.761,
+        2.743,
+        3.332
+      ],
+      "id": "EA03_Prop_House_Stove_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_House_Stove_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 524,
+      "triangles_lod0": 242,
+      "triangles_by_lod": {
+        "lod0": 242,
+        "lod1": 174,
+        "lod2": 108
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.597,
+        2.561,
+        2.575
+      ],
+      "id": "EA03_Prop_Pier_03d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Pier_03d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 824,
+      "triangles_lod0": 380,
+      "triangles_by_lod": {
+        "lod0": 380,
+        "lod1": 274,
+        "lod2": 170
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.627,
+        3.526,
+        2.456
+      ],
+      "id": "EA03_Prop_Pier_04c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Pier_04c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 218,
+      "triangles_lod0": 102,
+      "triangles_by_lod": {
+        "lod0": 102,
+        "lod1": 72,
+        "lod2": 44
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.615,
+        0.838,
+        0.125
+      ],
+      "id": "EA03_Prop_Pillow_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Pillow_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 156,
+      "triangles_lod0": 72,
+      "triangles_by_lod": {
+        "lod0": 72,
+        "lod1": 52,
+        "lod2": 32
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.519,
+        2.151,
+        0.232
+      ],
+      "id": "EA03_Prop_Shelf_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Shelf_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 156,
+      "triangles_lod0": 72,
+      "triangles_by_lod": {
+        "lod0": 72,
+        "lod1": 52,
+        "lod2": 32
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.18,
+        1.079,
+        0.232
+      ],
+      "id": "EA03_Prop_Shelf_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Shelf_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1635,
+      "triangles_lod0": 753,
+      "triangles_by_lod": {
+        "lod0": 753,
+        "lod1": 544,
+        "lod2": 338
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.951,
+        1.782,
+        4.006
+      ],
+      "id": "EA03_Prop_Sign_Chapel_01",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Sign_Chapel_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 194,
+      "triangles_lod0": 90,
+      "triangles_by_lod": {
+        "lod0": 90,
+        "lod1": 64,
+        "lod2": 40
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.53,
+        0.501,
+        0.509
+      ],
+      "id": "EA03_Prop_Stool_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Stool_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 442,
+      "triangles_lod0": 204,
+      "triangles_by_lod": {
+        "lod0": 204,
+        "lod1": 147,
+        "lod2": 91
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.603,
+        0.688,
+        1.083
+      ],
+      "id": "EA03_Prop_Stool_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Stool_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 625,
+      "triangles_lod0": 288,
+      "triangles_by_lod": {
+        "lod0": 288,
+        "lod1": 208,
+        "lod2": 129
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.981,
+        2.681,
+        0.832
+      ],
+      "id": "EA03_Prop_Tabble_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Tabble_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 282,
+      "triangles_lod0": 130,
+      "triangles_by_lod": {
+        "lod0": 130,
+        "lod1": 94,
+        "lod2": 58
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.784,
+        0.918,
+        0.645
+      ],
+      "id": "EA03_Prop_Tabble_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Tabble_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1160,
+      "triangles_lod0": 536,
+      "triangles_by_lod": {
+        "lod0": 536,
+        "lod1": 388,
+        "lod2": 236
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.615,
+        0.673,
+        0.669
+      ],
+      "id": "EA03_Prop_Tool_Basket_01",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Tool_Basket_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 332,
+      "triangles_lod0": 154,
+      "triangles_by_lod": {
+        "lod0": 154,
+        "lod1": 110,
+        "lod2": 68
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.553,
+        0.919,
+        0.065
+      ],
+      "id": "EA03_Prop_Tool_Pick_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Tool_Pick_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 391,
+      "triangles_lod0": 181,
+      "triangles_by_lod": {
+        "lod0": 181,
+        "lod1": 131,
+        "lod2": 79
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.914,
+        0.606,
+        1.227
+      ],
+      "id": "EA03_Prop_Tool_Stump_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Tool_Stump_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 600,
+      "triangles_lod0": 276,
+      "triangles_by_lod": {
+        "lod0": 276,
+        "lod1": 200,
+        "lod2": 124
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.513,
+        1.042,
+        0.087
+      ],
+      "id": "EA03_Prop_Town_AnimalSkin_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Town_AnimalSkin_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 600,
+      "triangles_lod0": 276,
+      "triangles_by_lod": {
+        "lod0": 276,
+        "lod1": 200,
+        "lod2": 124
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.514,
+        1.042,
+        0.083
+      ],
+      "id": "EA03_Prop_Town_AnimalSkin_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Town_AnimalSkin_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1587,
+      "triangles_lod0": 730,
+      "triangles_by_lod": {
+        "lod0": 730,
+        "lod1": 529,
+        "lod2": 328
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.78,
+        1.184,
+        1.06
+      ],
+      "id": "EA03_Prop_Town_Bed_01a.004",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Town_Bed_01a.004.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 486,
+      "triangles_lod0": 224,
+      "triangles_by_lod": {
+        "lod0": 224,
+        "lod1": 162,
+        "lod2": 100
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.496,
+        1.36,
+        0.419
+      ],
+      "id": "EA03_Prop_Town_Bench_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Town_Bench_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 912,
+      "triangles_lod0": 420,
+      "triangles_by_lod": {
+        "lod0": 420,
+        "lod1": 304,
+        "lod2": 188
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.496,
+        1.36,
+        0.419
+      ],
+      "id": "EA03_Prop_Town_Bench_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Town_Bench_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 368,
+      "triangles_lod0": 170,
+      "triangles_by_lod": {
+        "lod0": 170,
+        "lod1": 122,
+        "lod2": 76
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.039,
+        0.595,
+        0.432
+      ],
+      "id": "EA03_Prop_Vegetable_Basket_02",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Vegetable_Basket_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 234,
+      "triangles_lod0": 108,
+      "triangles_by_lod": {
+        "lod0": 108,
+        "lod1": 78,
+        "lod2": 48
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.859,
+        0.176,
+        2.035
+      ],
+      "id": "EA03_Prop_Village_Ladder_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Village_Ladder_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 24,
+      "triangles_lod0": 12,
+      "triangles_by_lod": {
+        "lod0": 12,
+        "lod1": 8,
+        "lod2": 4
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.268,
+        0.068,
+        1.287
+      ],
+      "id": "EA03_Prop_Village_Plank_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Village_Plank_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2112,
+      "triangles_lod0": 972,
+      "triangles_by_lod": {
+        "lod0": 972,
+        "lod1": 704,
+        "lod2": 436
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.582,
+        4.702,
+        4.936
+      ],
+      "id": "EA03_Prop_Village_Whell_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Village_Whell_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 132,
+      "triangles_lod0": 61,
+      "triangles_by_lod": {
+        "lod0": 61,
+        "lod1": 44,
+        "lod2": 27
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.461,
+        0.926,
+        0.72
+      ],
+      "id": "EA03_Step_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Step_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1399,
+      "triangles_lod0": 644,
+      "triangles_by_lod": {
+        "lod0": 644,
+        "lod1": 466,
+        "lod2": 289
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        20.008,
+        20.0,
+        0.605
+      ],
+      "id": "EA03_Terrain_Field_2x2_Seam_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Terrain_Field_2x2_Seam_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 36858,
+      "triangles_lod0": 16969,
+      "triangles_by_lod": {
+        "lod0": 16969,
+        "lod1": 12301,
+        "lod2": 7588
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        20.652,
+        11.913,
+        11.284
+      ],
+      "id": "EA03_Town_Building_Administrative _01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Town_Building_Administrative _01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 7037,
+      "triangles_lod0": 3236,
+      "triangles_by_lod": {
+        "lod0": 3236,
+        "lod1": 2345,
+        "lod2": 1456
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        9.299,
+        9.882,
+        4.793
+      ],
+      "id": "EA03_Town_Ill_Roof_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Town_Ill_Roof_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 7631,
+      "triangles_lod0": 3510,
+      "triangles_by_lod": {
+        "lod0": 3510,
+        "lod1": 2543,
+        "lod2": 1578
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        12.439,
+        9.9,
+        4.882
+      ],
+      "id": "EA03_Town_Ill_Roof_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Town_Ill_Roof_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1742,
+      "triangles_lod0": 807,
+      "triangles_by_lod": {
+        "lod0": 807,
+        "lod1": 585,
+        "lod2": 350
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.22,
+        2.351,
+        2.207
+      ],
+      "id": "EA03_Village_AnimalBreeding_Hovel_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_AnimalBreeding_Hovel_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2031,
+      "triangles_lod0": 934,
+      "triangles_by_lod": {
+        "lod0": 934,
+        "lod1": 677,
+        "lod2": 420
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.685,
+        2.715,
+        3.37
+      ],
+      "id": "EA03_Village_Balcony_R_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Balcony_R_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 203,
+      "triangles_lod0": 94,
+      "triangles_by_lod": {
+        "lod0": 94,
+        "lod1": 68,
+        "lod2": 41
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.266,
+        5.194,
+        1.757
+      ],
+      "id": "EA03_Village_Fence_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Fence_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1657,
+      "triangles_lod0": 763,
+      "triangles_by_lod": {
+        "lod0": 763,
+        "lod1": 552,
+        "lod2": 342
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.641,
+        2.894,
+        1.457
+      ],
+      "id": "EA03_Village_HouseModule_Porch_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_HouseModule_Porch_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4555,
+      "triangles_lod0": 2095,
+      "triangles_by_lod": {
+        "lod0": 2095,
+        "lod1": 1518,
+        "lod2": 942
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.367,
+        1.798,
+        1.024
+      ],
+      "id": "EA03_Village_HouseModule_Porch_R_03b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_HouseModule_Porch_R_03b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 402,
+      "triangles_lod0": 185,
+      "triangles_by_lod": {
+        "lod0": 185,
+        "lod1": 134,
+        "lod2": 83
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        19.278,
+        7.654,
+        0.202
+      ],
+      "id": "EA03_Village_Hut_Ceiling_01e",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Ceiling_01e.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4040,
+      "triangles_lod0": 1858,
+      "triangles_by_lod": {
+        "lod0": 1858,
+        "lod1": 1346,
+        "lod2": 836
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        20.108,
+        9.378,
+        1.746
+      ],
+      "id": "EA03_Village_Hut_Foundation_02b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Foundation_02b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2228,
+      "triangles_lod0": 1025,
+      "triangles_by_lod": {
+        "lod0": 1025,
+        "lod1": 742,
+        "lod2": 461
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        20.019,
+        11.297,
+        5.053
+      ],
+      "id": "EA03_Village_Hut_Roof_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Roof_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1934,
+      "triangles_lod0": 890,
+      "triangles_by_lod": {
+        "lod0": 890,
+        "lod1": 645,
+        "lod2": 399
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        10.545,
+        11.367,
+        5.221
+      ],
+      "id": "EA03_Village_Hut_Roof_Cut_01C",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Roof_Cut_01C.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1964,
+      "triangles_lod0": 904,
+      "triangles_by_lod": {
+        "lod0": 904,
+        "lod1": 655,
+        "lod2": 405
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        16.547,
+        11.297,
+        5.053
+      ],
+      "id": "EA03_Village_Hut_Roof_Cut_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Roof_Cut_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1846,
+      "triangles_lod0": 850,
+      "triangles_by_lod": {
+        "lod0": 850,
+        "lod1": 615,
+        "lod2": 381
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        10.557,
+        11.367,
+        5.221
+      ],
+      "id": "EA03_Village_Hut_Roof_Cut_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Roof_Cut_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1625,
+      "triangles_lod0": 748,
+      "triangles_by_lod": {
+        "lod0": 748,
+        "lod1": 541,
+        "lod2": 336
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        6.954,
+        9.128,
+        5.221
+      ],
+      "id": "EA03_Village_Hut_Roof_Cut_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Roof_Cut_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1722,
+      "triangles_lod0": 793,
+      "triangles_by_lod": {
+        "lod0": 793,
+        "lod1": 573,
+        "lod2": 356
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        8.503,
+        6.288,
+        5.467
+      ],
+      "id": "EA03_Village_Hut_Roof_Cut_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Roof_Cut_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2562,
+      "triangles_lod0": 1181,
+      "triangles_by_lod": {
+        "lod0": 1181,
+        "lod1": 853,
+        "lod2": 528
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        9.173,
+        10.149,
+        5.534
+      ],
+      "id": "EA03_Village_Hut_Roof_Half_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Roof_Half_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 86,
+      "triangles_lod0": 40,
+      "triangles_by_lod": {
+        "lod0": 40,
+        "lod1": 28,
+        "lod2": 18
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.495,
+        8.519,
+        0.442
+      ],
+      "id": "EA03_Village_Hut_Wall_Desk_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Desk_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 614,
+      "triangles_lod0": 284,
+      "triangles_by_lod": {
+        "lod0": 284,
+        "lod1": 204,
+        "lod2": 126
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.312,
+        5.424,
+        2.896
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_01i",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_01i.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1383,
+      "triangles_lod0": 637,
+      "triangles_by_lod": {
+        "lod0": 637,
+        "lod1": 460,
+        "lod2": 286
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.759,
+        8.659,
+        3.13
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_02d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_02d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 499,
+      "triangles_lod0": 231,
+      "triangles_by_lod": {
+        "lod0": 231,
+        "lod1": 166,
+        "lod2": 102
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.547,
+        5.346,
+        3.1
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_02i",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_02i.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 905,
+      "triangles_lod0": 417,
+      "triangles_by_lod": {
+        "lod0": 417,
+        "lod1": 301,
+        "lod2": 187
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.767,
+        8.859,
+        3.13
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_03f",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_03f.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 411,
+      "triangles_lod0": 190,
+      "triangles_by_lod": {
+        "lod0": 190,
+        "lod1": 136,
+        "lod2": 85
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.358,
+        7.954,
+        2.981
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_04b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_04b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 458,
+      "triangles_lod0": 212,
+      "triangles_by_lod": {
+        "lod0": 212,
+        "lod1": 152,
+        "lod2": 94
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.398,
+        7.933,
+        2.985
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_04e",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_04e.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 342,
+      "triangles_lod0": 158,
+      "triangles_by_lod": {
+        "lod0": 158,
+        "lod1": 114,
+        "lod2": 70
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.398,
+        7.933,
+        2.985
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_04f",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_04f.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 247,
+      "triangles_lod0": 115,
+      "triangles_by_lod": {
+        "lod0": 115,
+        "lod1": 82,
+        "lod2": 50
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.329,
+        7.933,
+        2.985
+      ],
+      "id": "EA03_Village_Hut_Wall_Front_04h",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Front_04h.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 86,
+      "triangles_lod0": 40,
+      "triangles_by_lod": {
+        "lod0": 40,
+        "lod1": 28,
+        "lod2": 18
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.495,
+        8.519,
+        0.442
+      ],
+      "id": "EA03_Village_Hut_Wall_Painted_Desk_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Painted_Desk_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 846,
+      "triangles_lod0": 390,
+      "triangles_by_lod": {
+        "lod0": 390,
+        "lod1": 282,
+        "lod2": 174
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.593,
+        8.563,
+        3.097
+      ],
+      "id": "EA03_Village_Hut_Wall_Painted_Front_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Painted_Front_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 667,
+      "triangles_lod0": 307,
+      "triangles_by_lod": {
+        "lod0": 307,
+        "lod1": 222,
+        "lod2": 138
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        20.039,
+        0.548,
+        3.102
+      ],
+      "id": "EA03_Village_Hut_Wall_Painted_Side_02c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Painted_Side_02c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1701,
+      "triangles_lod0": 783,
+      "triangles_by_lod": {
+        "lod0": 783,
+        "lod1": 567,
+        "lod2": 351
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        19.995,
+        0.875,
+        3.13
+      ],
+      "id": "EA03_Village_Hut_Wall_Painted_Side_02e",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Hut_Wall_Painted_Side_02e.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1150,
+      "triangles_lod0": 532,
+      "triangles_by_lod": {
+        "lod0": 532,
+        "lod1": 385,
+        "lod2": 233
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.649,
+        2.918,
+        4.762
+      ],
+      "id": "EA03_Village_OutBuilding_Convenience_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_Convenience_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4164,
+      "triangles_lod0": 1918,
+      "triangles_by_lod": {
+        "lod0": 1918,
+        "lod1": 1389,
+        "lod2": 857
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        8.982,
+        7.348,
+        8.104
+      ],
+      "id": "EA03_Village_OutBuilding_Cubby_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_Cubby_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1316,
+      "triangles_lod0": 609,
+      "triangles_by_lod": {
+        "lod0": 609,
+        "lod1": 440,
+        "lod2": 267
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        9.267,
+        10.524,
+        8.815
+      ],
+      "id": "EA03_Village_OutBuilding_PentHouse_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_PentHouse_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 3161,
+      "triangles_lod0": 1459,
+      "triangles_by_lod": {
+        "lod0": 1459,
+        "lod1": 1057,
+        "lod2": 645
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        11.139,
+        8.061,
+        7.381
+      ],
+      "id": "EA03_Village_OutBuilding_Shed_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_Shed_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 6719,
+      "triangles_lod0": 3091,
+      "triangles_by_lod": {
+        "lod0": 3091,
+        "lod1": 2239,
+        "lod2": 1389
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        15.446,
+        24.475,
+        9.59
+      ],
+      "id": "EA03_Village_OutBuilding_Shed_03b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_Shed_03b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1700,
+      "triangles_lod0": 784,
+      "triangles_by_lod": {
+        "lod0": 784,
+        "lod1": 568,
+        "lod2": 348
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        5.182,
+        3.214,
+        4.157
+      ],
+      "id": "EA03_Village_OutBuilding_WoodRoof_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_OutBuilding_WoodRoof_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 11602,
+      "triangles_lod0": 5338,
+      "triangles_by_lod": {
+        "lod0": 5338,
+        "lod1": 3866,
+        "lod2": 2398
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        8.124,
+        8.796,
+        10.856
+      ],
+      "id": "EA03_Village_Tover_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_Tover_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 504,
+      "triangles_lod0": 232,
+      "triangles_by_lod": {
+        "lod0": 232,
+        "lod1": 168,
+        "lod2": 104
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.912,
+        5.425,
+        0.357
+      ],
+      "id": "EA03_Village_platform_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_platform_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 716,
+      "triangles_lod0": 330,
+      "triangles_by_lod": {
+        "lod0": 330,
+        "lod1": 239,
+        "lod2": 147
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        4.611,
+        2.135,
+        5.158
+      ],
+      "id": "EA03_Village_step_platform_Stair_R_03a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Village_step_platform_Stair_R_03a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 284,
+      "triangles_lod0": 132,
+      "triangles_by_lod": {
+        "lod0": 132,
+        "lod1": 94,
+        "lod2": 58
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.309,
+        0.268,
+        0.806
+      ],
+      "id": "EA03_Wooden_Pin_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Wooden_Pin_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 81,
+      "triangles_lod0": 38,
+      "triangles_by_lod": {
+        "lod0": 38,
+        "lod1": 26,
+        "lod2": 17
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.23,
+        0.284,
+        1.488
+      ],
+      "id": "EA03_Wooden_Pin_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Wooden_Pin_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 186,
+      "triangles_lod0": 86,
+      "triangles_by_lod": {
+        "lod0": 86,
+        "lod1": 62,
+        "lod2": 38
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.342,
+        0.398,
+        1.757
+      ],
+      "id": "EA03_Wooden_Pin_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Wooden_Pin_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 212,
+      "triangles_lod0": 98,
+      "triangles_by_lod": {
+        "lod0": 98,
+        "lod1": 70,
+        "lod2": 44
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.328,
+        0.345,
+        0.053
+      ],
+      "id": "EA_Items_House_bowl_metal_01c",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_bowl_metal_01c.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 266,
+      "triangles_lod0": 124,
+      "triangles_by_lod": {
+        "lod0": 124,
+        "lod1": 88,
+        "lod2": 54
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.386,
+        0.402,
+        0.079
+      ],
+      "id": "EA_Items_House_bowl_wod",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_bowl_wod.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 360,
+      "triangles_lod0": 166,
+      "triangles_by_lod": {
+        "lod0": 166,
+        "lod1": 120,
+        "lod2": 74
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.23,
+        0.243,
+        0.101
+      ],
+      "id": "EA_Items_House_bowl_wod_2",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_bowl_wod_2.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 314,
+      "triangles_lod0": 146,
+      "triangles_by_lod": {
+        "lod0": 146,
+        "lod1": 104,
+        "lod2": 64
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.23,
+        0.243,
+        0.101
+      ],
+      "id": "EA_Items_House_bowl_wod_powder_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_bowl_wod_powder_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 474,
+      "triangles_lod0": 218,
+      "triangles_by_lod": {
+        "lod0": 218,
+        "lod1": 158,
+        "lod2": 98
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.394,
+        0.282,
+        0.483
+      ],
+      "id": "EA_Items_House_cauldron_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_cauldron_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1028,
+      "triangles_lod0": 474,
+      "triangles_by_lod": {
+        "lod0": 474,
+        "lod1": 342,
+        "lod2": 212
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.32,
+        0.346,
+        0.452
+      ],
+      "id": "EA_Items_House_cauldron_01d",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_cauldron_01d.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1560,
+      "triangles_lod0": 718,
+      "triangles_by_lod": {
+        "lod0": 718,
+        "lod1": 520,
+        "lod2": 322
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.531,
+        0.469,
+        0.426
+      ],
+      "id": "EA_Items_House_cauldron_soup_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_cauldron_soup_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 632,
+      "triangles_lod0": 292,
+      "triangles_by_lod": {
+        "lod0": 292,
+        "lod1": 210,
+        "lod2": 130
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.285,
+        0.33,
+        0.301
+      ],
+      "id": "EA_Items_House_kettle_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_kettle_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 848,
+      "triangles_lod0": 392,
+      "triangles_by_lod": {
+        "lod0": 392,
+        "lod1": 282,
+        "lod2": 174
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.246,
+        0.354,
+        0.446
+      ],
+      "id": "EA_Items_House_kettle_empty_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_kettle_empty_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 420,
+      "triangles_lod0": 194,
+      "triangles_by_lod": {
+        "lod0": 194,
+        "lod1": 140,
+        "lod2": 86
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.139,
+        0.204,
+        0.218
+      ],
+      "id": "EA_Items_House_mug_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_mug_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 488,
+      "triangles_lod0": 226,
+      "triangles_by_lod": {
+        "lod0": 226,
+        "lod1": 162,
+        "lod2": 100
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.169,
+        0.251,
+        0.307
+      ],
+      "id": "EA_Items_House_mug_01b",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_mug_01b.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 828,
+      "triangles_lod0": 382,
+      "triangles_by_lod": {
+        "lod0": 382,
+        "lod1": 276,
+        "lod2": 170
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.158,
+        0.158,
+        0.298
+      ],
+      "id": "EA_Items_House_mug_02a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_mug_02a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 638,
+      "triangles_lod0": 294,
+      "triangles_by_lod": {
+        "lod0": 294,
+        "lod1": 212,
+        "lod2": 132
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.238,
+        0.475,
+        0.061
+      ],
+      "id": "EA_Items_House_pan_empty_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_pan_empty_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 320,
+      "triangles_lod0": 148,
+      "triangles_by_lod": {
+        "lod0": 148,
+        "lod1": 106,
+        "lod2": 66
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.069,
+        0.314,
+        0.029
+      ],
+      "id": "EA_Items_House_soon_wooden",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_soon_wooden.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 416,
+      "triangles_lod0": 192,
+      "triangles_by_lod": {
+        "lod0": 192,
+        "lod1": 138,
+        "lod2": 86
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.116,
+        0.403,
+        0.063
+      ],
+      "id": "EA_Items_House_spoon_wooden_02",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_spoon_wooden_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 320,
+      "triangles_lod0": 148,
+      "triangles_by_lod": {
+        "lod0": 148,
+        "lod1": 106,
+        "lod2": 66
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.069,
+        0.335,
+        0.03
+      ],
+      "id": "EA_Items_House_spoon_wooden_03",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_spoon_wooden_03.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 314,
+      "triangles_lod0": 146,
+      "triangles_by_lod": {
+        "lod0": 146,
+        "lod1": 104,
+        "lod2": 64
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.097,
+        0.434,
+        0.027
+      ],
+      "id": "EA_Items_House_spoon_wooden_04",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_spoon_wooden_04.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 206,
+      "triangles_lod0": 96,
+      "triangles_by_lod": {
+        "lod0": 96,
+        "lod1": 68,
+        "lod2": 42
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.098,
+        0.287,
+        0.026
+      ],
+      "id": "EA_Items_House_spoon_wooden_05",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Items_House_spoon_wooden_05.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1618,
+      "triangles_lod0": 745,
+      "triangles_by_lod": {
+        "lod0": 745,
+        "lod1": 539,
+        "lod2": 334
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.26,
+        0.869,
+        1.232
+      ],
+      "id": "EA_Prop_Hunter_Animal_Trophy_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Prop_Hunter_Animal_Trophy_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2600,
+      "triangles_lod0": 1196,
+      "triangles_by_lod": {
+        "lod0": 1196,
+        "lod1": 866,
+        "lod2": 538
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.652,
+        1.964,
+        3.332
+      ],
+      "id": "EA_Prop_Stand_Sheet_01a",
+      "pack": "emaceart_slavic_world_free",
+      "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA_Prop_Stand_Sheet_01a.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 64,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 64,
+      "mesh_count": 1,
+      "size_m": [
+        0.334,
+        0.354,
+        0.286
+      ],
+      "id": "PT_Caesars_Mushroom_01",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Mushrooms/PT_Caesars_Mushroom_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 5568,
+      "triangles_lod0": 2870,
+      "triangles_by_lod": {
+        "lod0": 2870,
+        "lod1": 1781,
+        "lod2": 917
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        7.119,
+        7.822,
+        6.875
+      ],
+      "id": "PT_Fruit_Tree_01_apples",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_apples.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2470,
+      "triangles_lod0": 1160,
+      "triangles_by_lod": {
+        "lod0": 1160,
+        "lod1": 799,
+        "lod2": 511
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.556,
+        5.066,
+        5.53
+      ],
+      "id": "PT_Fruit_Tree_01_dead",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_dead.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1123,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 1123,
+      "mesh_count": 1,
+      "size_m": [
+        3.556,
+        5.047,
+        4.619
+      ],
+      "id": "PT_Fruit_Tree_01_dead_cut",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_dead_cut.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 4494,
+      "triangles_lod0": 2126,
+      "triangles_by_lod": {
+        "lod0": 2126,
+        "lod1": 1451,
+        "lod2": 917
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        7.119,
+        7.822,
+        6.875
+      ],
+      "id": "PT_Fruit_Tree_01_green",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_green.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2089,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 2089,
+      "mesh_count": 1,
+      "size_m": [
+        6.502,
+        7.255,
+        5.663
+      ],
+      "id": "PT_Fruit_Tree_01_green_cut",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_green_cut.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 959,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 959,
+      "mesh_count": 1,
+      "size_m": [
+        2.707,
+        2.173,
+        0.673
+      ],
+      "id": "PT_Fruit_Tree_01_logs",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_logs.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 5568,
+      "triangles_lod0": 2870,
+      "triangles_by_lod": {
+        "lod0": 2870,
+        "lod1": 1781,
+        "lod2": 917
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        7.119,
+        7.822,
+        6.875
+      ],
+      "id": "PT_Fruit_Tree_01_pears",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_pears.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 5188,
+      "triangles_lod0": 2678,
+      "triangles_by_lod": {
+        "lod0": 2678,
+        "lod1": 1593,
+        "lod2": 917
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        7.119,
+        7.822,
+        6.875
+      ],
+      "id": "PT_Fruit_Tree_01_plums",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_plums.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 115,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 115,
+      "mesh_count": 1,
+      "size_m": [
+        1.238,
+        0.964,
+        0.916
+      ],
+      "id": "PT_Fruit_Tree_01_stump",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Fruit_Tree_01_stump.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 412,
+      "triangles_lod0": 212,
+      "triangles_by_lod": {
+        "lod0": 212,
+        "lod1": 126,
+        "lod2": 74
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.252,
+        0.218,
+        0.232
+      ],
+      "id": "PT_Generic_Rock_01",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Rocks/PT_Generic_Rock_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 457,
+      "triangles_lod0": 245,
+      "triangles_by_lod": {
+        "lod0": 245,
+        "lod1": 144,
+        "lod2": 68
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.107,
+        1.366,
+        1.669
+      ],
+      "id": "PT_Generic_Shrub_01_dead",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Shrubs/PT_Generic_Shrub_01_dead.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 712,
+      "triangles_lod0": 429,
+      "triangles_by_lod": {
+        "lod0": 429,
+        "lod1": 192,
+        "lod2": 91
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.771,
+        1.861,
+        1.733
+      ],
+      "id": "PT_Generic_Shrub_01_green",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Shrubs/PT_Generic_Shrub_01_green.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 118,
+      "triangles_lod0": 62,
+      "triangles_by_lod": {
+        "lod0": 62,
+        "lod1": 38,
+        "lod2": 18
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.241,
+        1.047,
+        0.733
+      ],
+      "id": "PT_Grass_02",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Plants/PT_Grass_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 638,
+      "triangles_lod0": 340,
+      "triangles_by_lod": {
+        "lod0": 340,
+        "lod1": 200,
+        "lod2": 98
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.361,
+        1.26,
+        2.801
+      ],
+      "id": "PT_Menhir_Rock_02",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Rocks/PT_Menhir_Rock_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 392,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 392,
+      "mesh_count": 1,
+      "size_m": [
+        2.2,
+        0.245,
+        1.738
+      ],
+      "id": "PT_Modular_Fence_Wood_01",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Village/Sources/Meshes/Modular/Fence/PT_Modular_Fence_Wood_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 348,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 348,
+      "mesh_count": 1,
+      "size_m": [
+        2.2,
+        0.245,
+        1.738
+      ],
+      "id": "PT_Modular_Fence_Wood_02",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Village/Sources/Meshes/Modular/Fence/PT_Modular_Fence_Wood_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 396,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 396,
+      "mesh_count": 1,
+      "size_m": [
+        2.2,
+        0.438,
+        1.778
+      ],
+      "id": "PT_Modular_Fence_Wood_03",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Village/Sources/Meshes/Modular/Fence/PT_Modular_Fence_Wood_03.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1596,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 1596,
+      "mesh_count": 3,
+      "size_m": [
+        5.098,
+        0.348,
+        2.304
+      ],
+      "id": "PT_Modular_Gate_Wood_01",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Village/Sources/Meshes/Modular/Fence/PT_Modular_Gate_Wood_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1698,
+      "triangles_lod0": 870,
+      "triangles_by_lod": {
+        "lod0": 870,
+        "lod1": 518,
+        "lod2": 310
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.633,
+        0.523,
+        0.47
+      ],
+      "id": "PT_Ore_Rock_01",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Rocks/PT_Ore_Rock_01.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 3280,
+      "triangles_lod0": 1708,
+      "triangles_by_lod": {
+        "lod0": 1708,
+        "lod1": 1000,
+        "lod2": 572
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        1.536,
+        1.727,
+        0.282
+      ],
+      "id": "PT_Ore_Rock_01_split",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Rocks/PT_Ore_Rock_01_split.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 3413,
+      "triangles_lod0": 1760,
+      "triangles_by_lod": {
+        "lod0": 1760,
+        "lod1": 987,
+        "lod2": 666
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        2.489,
+        2.354,
+        9.035
+      ],
+      "id": "PT_Pine_Tree_03_dead",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Pine_Tree_03_dead.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1648,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 1648,
+      "mesh_count": 1,
+      "size_m": [
+        2.489,
+        2.354,
+        7.881
+      ],
+      "id": "PT_Pine_Tree_03_dead_cut",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Pine_Tree_03_dead_cut.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 2160,
+      "triangles_lod0": 1026,
+      "triangles_by_lod": {
+        "lod0": 1026,
+        "lod1": 669,
+        "lod2": 465
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        3.205,
+        3.033,
+        9.165
+      ],
+      "id": "PT_Pine_Tree_03_green",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Pine_Tree_03_green.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 914,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 914,
+      "mesh_count": 1,
+      "size_m": [
+        3.205,
+        3.033,
+        8.016
+      ],
+      "id": "PT_Pine_Tree_03_green_cut",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Pine_Tree_03_green_cut.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 946,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 946,
+      "mesh_count": 1,
+      "size_m": [
+        3.68,
+        2.842,
+        0.435
+      ],
+      "id": "PT_Pine_Tree_03_logs",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Pine_Tree_03_logs.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 136,
+      "triangles_lod0": 0,
+      "triangles_by_lod": {},
+      "triangles_unnamed": 136,
+      "mesh_count": 1,
+      "size_m": [
+        0.396,
+        0.727,
+        1.15
+      ],
+      "id": "PT_Pine_Tree_03_stump",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/PT_Pine_Tree_03_stump.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 136,
+      "triangles_lod0": 71,
+      "triangles_by_lod": {
+        "lod0": 71,
+        "lod1": 40,
+        "lod2": 25
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.632,
+        0.552,
+        0.851
+      ],
+      "id": "PT_Poppy_02",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Flowers/PT_Poppy_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 548,
+      "triangles_lod0": 302,
+      "triangles_by_lod": {
+        "lod0": 302,
+        "lod1": 163,
+        "lod2": 83
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 3,
+      "size_m": [
+        0.821,
+        1.048,
+        0.195
+      ],
+      "id": "PT_River_Rock_Pile_02",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Rocks/PT_River_Rock_Pile_02.fbx"
+    },
+    {
+      "status": "passed",
+      "triangles": 1260,
+      "triangles_lod0": 716,
+      "triangles_by_lod": {
+        "lod0": 716,
+        "lod1": 544
+      },
+      "triangles_unnamed": 0,
+      "mesh_count": 2,
+      "size_m": [
+        4.47,
+        1.794,
+        2.079
+      ],
+      "id": "PT_Wooden_Bridge_02",
+      "pack": "polytope_studio",
+      "path": "Assets/Polytope Studio/Lowpoly_Village/Sources/Meshes/Modular/Bridge/PT_Wooden_Bridge_02.fbx"
+    }
+  ],
+  "summary": {
+    "measured": 243,
+    "failed": 0,
+    "without_lod0_mesh": 16
+  },
+  "unity_launched": false
+}

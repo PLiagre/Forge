@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "body_male_elder_average",
+  "kind": "character",
+  "fbx": "Assets/CityLabHost/Adapted/Factory/Characters/Bodies/body_male_elder_average.fbx",
+  "fbx_sha256": "9a33669f36de6aef6065186aac1a8ac147898ce8ade9a02d1b38c548a2fbc112",
+  "status": "passed",
+  "failures": [],
+  "mesh_count": 18,
+  "uv_mesh_count": 18,
+  "lod_mesh_counts": [
+    6,
+    6,
+    6
+  ],
+  "armature_count": 1,
+  "bone_count": 52,
+  "embedded_colliders": 0,
+  "unity_launched": false
+}

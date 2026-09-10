@@ -1,0 +1,17 @@
+# Branchement ForgeHistory — copier à la racine du dépôt produit.
+
+[projet]
+nom = "ForgeHistory"
+briefs = "briefs"
+tests = "python3 -m pytest sim/tests/ viewer/tests/ -q"
+fumee = "python3 -m sim --ticks 0 --json"
+branche_base = "master"
+prefixe_branche = "agent/"
+# Le registre des lots : la seule représentation qui fait autorité sur
+# l'état d'un lot. Le pilote la lit, la CI la valide.
+feuille = "ROADMAP.md"
+
+[roles]
+ecriture = "claude"
+execution = "cursor"
+controle = "claude"

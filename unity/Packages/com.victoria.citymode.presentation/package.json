@@ -1,0 +1,10 @@
+{
+  "name": "com.victoria.citymode.presentation",
+  "version": "0.1.0",
+  "displayName": "Victoria City Mode Presentation",
+  "description": "Host-owned Unity presentation lifecycle for ForgeHistory City Mode snapshots and intentions.",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.victoria.citymode.contracts": "0.1.0"
+  }
+}

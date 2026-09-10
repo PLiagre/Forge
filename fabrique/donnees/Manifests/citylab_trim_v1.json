@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "id": "texture_citylab_trim_v1",
+  "status": "published_pending_unity_material_validation",
+  "status_after_publication": "published_pending_unity_material_validation",
+  "recipe": "AssetFactory/Recipes/texture_citylab_trim_v1.json",
+  "graph": "AssetFactory/Graphs/citylab_trim_pbr_graph.json",
+  "unity_launched": false,
+  "gates": {
+    "maps_generated": true,
+    "resolution_review": true,
+    "determinism": true,
+    "unity_material_import": false,
+    "building_application_review": false
+  },
+  "assets": [
+    {
+      "id": "BaseColor",
+      "generated_path": "AssetFactory/Workbench/Textures/CityLabTrimV1/CityLabTrim_BaseColor.png",
+      "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_BaseColor.png",
+      "sha256": "6b1c0332a98b0e9cfe459b035fdc4df61c8a931667df78569f2e34a099880b5d",
+      "bytes": 1457628,
+      "resolution": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "id": "Normal",
+      "generated_path": "AssetFactory/Workbench/Textures/CityLabTrimV1/CityLabTrim_Normal.png",
+      "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Normal.png",
+      "sha256": "8653eeb325a2dc53da6d35433e6d3f9092e8565d69383b4bf1665f60d45a810e",
+      "bytes": 1331498,
+      "resolution": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "id": "AO",
+      "generated_path": "AssetFactory/Workbench/Textures/CityLabTrimV1/CityLabTrim_AO.png",
+      "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_AO.png",
+      "sha256": "b1d51c27b613e1db6a829f02ccac3a94538948b0bef718a7f04ed0c8d8aaa43e",
+      "bytes": 418014,
+      "resolution": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "id": "Roughness",
+      "generated_path": "AssetFactory/Workbench/Textures/CityLabTrimV1/CityLabTrim_Roughness.png",
+      "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Roughness.png",
+      "sha256": "8bc9b193cf4db7a9ced5c5d07d0345249249baa34c10dc7b5b471e300ccafb5c",
+      "bytes": 1111770,
+      "resolution": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "id": "Metallic",
+      "generated_path": "AssetFactory/Workbench/Textures/CityLabTrimV1/CityLabTrim_Metallic.png",
+      "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_Metallic.png",
+      "sha256": "624844f65b2f6bd03a1d3fb3c488033df522cbcd2f031cfedefe1365fb6953f8",
+      "bytes": 4376,
+      "resolution": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "id": "VariationMask",
+      "generated_path": "AssetFactory/Workbench/Textures/CityLabTrimV1/CityLabTrim_VariationMask.png",
+      "path": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV1/CityLabTrim_VariationMask.png",
+      "sha256": "617778ee409e511c3038fc9b8366fa1c93da93221121096677c0ad44fda3f750",
+      "bytes": 2214490,
+      "resolution": [
+        2048,
+        2048
+      ]
+    }
+  ],
+  "publication": {
+    "mode": "explicit_atomic_copy",
+    "assets": 6,
+    "bytes": 6537776,
+    "unity_launched": false
+  }
+}

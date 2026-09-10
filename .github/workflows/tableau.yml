@@ -1,0 +1,91 @@
+name: tableau
+
+# La page « où en est le travail », réécrite à chaque tour.
+#
+# Elle ne décide rien et ne garde rien : elle montre le registre des lots et
+# ce que l'intégration dit de chaque proposition ouverte — la même décision,
+# la même fonction. Une page qui recalculerait pour son affichage finirait
+# par montrer autre chose que ce que la machine fait.
+#
+# Elle sort sur GitHub Pages. Le réglage à poser une fois :
+# Settings → Pages → Source : GitHub Actions. Tant qu'il ne l'est pas, ce
+# travail écrit la page et la dépose comme pièce jointe du run — elle
+# existe, elle n'est simplement pas publiée.
+#
+# Elle est **statique** : aucun jeton n'y entre, aucun appel réseau n'en
+# part, aucune bibliothèque n'y est chargée. Tout ce qu'elle montre est
+# lu ici, par du Python qui a le jeton d'Actions ; tout ce qu'elle
+# actionne est un lien vers la page GitHub du geste. Un jeton publié est
+# un jeton perdu, et un dépôt public n'a pas de dos.
+#
+# Ce que ce travail ne peut pas lire, il le dit : une protection de
+# branche refusée à un jeton non administrateur s'affiche « inconnu », et
+# chaque renoncement est écrit sur l'erreur standard puis dans la page.
+
+on:
+  workflow_run:
+    workflows: [integration]
+    types: [completed]
+  push:
+    branches: [master]
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: tableau
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  pages: read
+  # La page lit l'historique des exécutions : c'est de lui que se dérive
+  # le nombre de tours d'intégration sans fusion, et la dernière exécution
+  # rouge de chaque travail. Sans ce droit, l'API répond 403 et le bloc de
+  # santé se rend « non lu » — ce qui est honnête, mais inutile.
+  actions: read
+  checks: read
+  statuses: read
+
+jobs:
+  ecrire:
+    runs-on: ubuntu-latest
+    outputs:
+      publier: ${{ steps.pages.outputs.publier }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Écrire la page
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 -m outils tableau --depot "$GITHUB_REPOSITORY" --projet . --sortie site/index.html
+
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: site
+      - name: Vérifier si Pages est activé
+        id: pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPOT: ${{ github.repository }}
+        run: bash .github/scripts/pages.sh
+
+  publier:
+    needs: ecrire
+    if: needs.ecrire.outputs.publier == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

@@ -1,0 +1,8 @@
+# Le rendu 3D seulement. Épinglé, pas borné : un rendu qui change de version
+# change d'image, et une preuve visuelle qui bouge toute seule ne prouve rien.
+#
+# forge3d est un fork intact de milos-agathon/forge3d (MIT / Apache-2.0). Il
+# n'est pas recopié dans ce dépôt : c'est une dépendance, et la garder telle
+# est ce qui permet de continuer à tirer les correctifs amont.
+-r requirements.txt
+forge3d==1.36.0

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://victoria.local/schemas/forgehistory-city-mode-v1.schema.json",
+  "title": "ForgeHistory City Mode protocol v1",
+  "type": "object",
+  "$defs": {
+    "CityLaunchContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion", "sessionId", "cityId", "mapCellId", "worldSeed",
+        "worldTick", "stateRevision", "timePolicy", "worldTimeScalePermille",
+        "returnViewId", "returnViewStateJson"
+      ],
+      "properties": {
+        "protocolVersion": { "const": 1 },
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "mapCellId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "worldSeed": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "worldTick": { "type": "integer", "minimum": 0 },
+        "stateRevision": { "type": "integer", "minimum": 0 },
+        "timePolicy": {
+          "type": "integer",
+          "enum": [1, 2, 3],
+          "description": "1 PauseWorld, 2 ContinueWorld, 3 ScaledWorld"
+        },
+        "worldTimeScalePermille": { "type": "integer", "minimum": 0, "maximum": 4000 },
+        "returnViewId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "returnViewStateJson": { "type": "string", "minLength": 2 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "timePolicy": { "const": 1 } } },
+          "then": { "properties": { "worldTimeScalePermille": { "const": 0 } } }
+        },
+        {
+          "if": { "properties": { "timePolicy": { "const": 2 } } },
+          "then": { "properties": { "worldTimeScalePermille": { "const": 1000 } } }
+        },
+        {
+          "if": { "properties": { "timePolicy": { "const": 3 } } },
+          "then": { "properties": { "worldTimeScalePermille": { "minimum": 1, "maximum": 4000 } } }
+        }
+      ]
+    },
+    "CitySnapshotEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion", "payloadSchemaVersion", "cityId", "worldTick",
+        "stateRevision", "isFullSnapshot", "payloadJson", "payloadSha256"
+      ],
+      "properties": {
+        "protocolVersion": { "const": 1 },
+        "payloadSchemaVersion": { "const": 1 },
+        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "worldTick": { "type": "integer", "minimum": 0 },
+        "stateRevision": { "type": "integer", "minimum": 0 },
+        "isFullSnapshot": { "const": true },
+        "payloadJson": { "type": "string", "minLength": 2 },
+        "payloadSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "CityIntentEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion", "payloadSchemaVersion", "sessionId", "intentId",
+        "cityId", "issuedAtWorldTick", "expectedStateRevision", "intentKind",
+        "payloadJson"
+      ],
+      "properties": {
+        "protocolVersion": { "const": 1 },
+        "payloadSchemaVersion": { "const": 1 },
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "intentId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "issuedAtWorldTick": { "type": "integer", "minimum": 0 },
+        "expectedStateRevision": { "type": "integer", "minimum": 0 },
+        "intentKind": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{2,127}$" },
+        "payloadJson": { "type": "string", "minLength": 2 }
+      }
+    },
+    "CityIntentReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion", "sessionId", "intentId", "cityId", "status",
+        "errorCode", "resultingWorldTick", "resultingStateRevision", "message"
+      ],
+      "properties": {
+        "protocolVersion": { "const": 1 },
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "intentId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "status": {
+          "type": "integer",
+          "enum": [1, 2, 3, 4],
+          "description": "1 Accepted, 2 Rejected, 3 Duplicate, 4 RevisionConflict"
+        },
+        "errorCode": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "resultingWorldTick": { "type": "integer", "minimum": 0 },
+        "resultingStateRevision": { "type": "integer", "minimum": 0 },
+        "message": { "type": "string", "maxLength": 512 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": 1 } } },
+          "then": { "properties": { "errorCode": { "const": 0 } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": 2 } } },
+          "then": { "properties": { "errorCode": { "minimum": 1 } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": 3 } } },
+          "then": { "properties": { "errorCode": { "enum": [0, 11] } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": 4 } } },
+          "then": { "properties": { "errorCode": { "const": 10 } } }
+        }
+      ]
+    }
+  }
+}

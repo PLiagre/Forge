@@ -1,0 +1,250 @@
+{
+  "schema": 1,
+  "id": "building_chapel_frontier_01_c",
+  "family": "building_chapel_frontier_01",
+  "function": "chapel",
+  "wall_system": "dressed_stone",
+  "roof_system": "slate",
+  "identity_markers": [
+    "buttresses",
+    "lancet_windows",
+    "apse",
+    "bell_tower",
+    "cross",
+    "grave_markers"
+  ],
+  "variant": "c",
+  "seed": 2026081903,
+  "blender": "5.2.0 LTS",
+  "style": "frontier",
+  "vendor_input": {
+    "path": "Assets/EmaceArt/Slavic World Free/Meshes/EA03_Prop_Sign_Chapel_01.fbx",
+    "sha256": "f2898c41475b18daff55a7f515f329e74fa6bc658f99aed2d31aa9435608ed04"
+  },
+  "grammar": {
+    "footprint_form": "rectangle_lean_to",
+    "level_form": "one",
+    "roof_form": "gable",
+    "ridge_axis": "short",
+    "width_m": 5.5785,
+    "depth_m": 18.605,
+    "wall_height_m": 4.0935,
+    "pitch_deg": 53.2448,
+    "rise_m": 4.2572,
+    "ridge_z_m": 11.6747
+  },
+  "budget": {
+    "class": "hero",
+    "lod": [
+      7000,
+      3000,
+      1000
+    ]
+  },
+  "triangles": {
+    "lod0": 2796,
+    "lod1": 1488,
+    "lod2": 564
+  },
+  "construction": {
+    "contract": 2,
+    "schema": "AssetFactory/Schemas/building_construction_v2.schema.json",
+    "declared_stages": [
+      "groundworks",
+      "basecourse",
+      "framing",
+      "floors",
+      "carpentry",
+      "roofing",
+      "joinery",
+      "finishes"
+    ],
+    "stages": [
+      {
+        "id": "groundworks",
+        "order": 1,
+        "node_prefix": "building_chapel_frontier_01_c__S01_GROUNDWORKS",
+        "lod0": 88,
+        "lod1": 88,
+        "lod2": 88
+      },
+      {
+        "id": "basecourse",
+        "order": 2,
+        "node_prefix": "building_chapel_frontier_01_c__S02_BASECOURSE",
+        "lod0": 60,
+        "lod1": 60,
+        "lod2": 12
+      },
+      {
+        "id": "framing",
+        "order": 3,
+        "node_prefix": "building_chapel_frontier_01_c__S03_FRAMING",
+        "lod0": 212,
+        "lod1": 76,
+        "lod2": 36
+      },
+      {
+        "id": "floors",
+        "order": 4,
+        "node_prefix": "building_chapel_frontier_01_c__S04_FLOORS",
+        "lod0": 12,
+        "lod1": 0,
+        "lod2": 0
+      },
+      {
+        "id": "carpentry",
+        "order": 5,
+        "node_prefix": "building_chapel_frontier_01_c__S05_CARPENTRY",
+        "lod0": 512,
+        "lod1": 32,
+        "lod2": 0
+      },
+      {
+        "id": "roofing",
+        "order": 6,
+        "node_prefix": "building_chapel_frontier_01_c__S06_ROOFING",
+        "lod0": 328,
+        "lod1": 184,
+        "lod2": 60
+      },
+      {
+        "id": "joinery",
+        "order": 7,
+        "node_prefix": "building_chapel_frontier_01_c__S07_JOINERY",
+        "lod0": 72,
+        "lod1": 24,
+        "lod2": 24
+      },
+      {
+        "id": "finishes",
+        "order": 8,
+        "node_prefix": "building_chapel_frontier_01_c__S08_FINISHES",
+        "lod0": 1512,
+        "lod1": 1024,
+        "lod2": 344
+      }
+    ]
+  },
+  "construction_stage_triangles": {
+    "groundworks": {
+      "lod0": 88,
+      "lod1": 88,
+      "lod2": 88
+    },
+    "basecourse": {
+      "lod0": 60,
+      "lod1": 60,
+      "lod2": 12
+    },
+    "framing": {
+      "lod0": 212,
+      "lod1": 76,
+      "lod2": 36
+    },
+    "floors": {
+      "lod0": 12,
+      "lod1": 0,
+      "lod2": 0
+    },
+    "carpentry": {
+      "lod0": 512,
+      "lod1": 32,
+      "lod2": 0
+    },
+    "roofing": {
+      "lod0": 328,
+      "lod1": 184,
+      "lod2": 60
+    },
+    "joinery": {
+      "lod0": 72,
+      "lod1": 24,
+      "lod2": 24
+    },
+    "finishes": {
+      "lod0": 1512,
+      "lod1": 1024,
+      "lod2": 344
+    }
+  },
+  "canonical_mesh_sha256": "e7efc0fdcdce8c64b6aa6da46877709d4cce238ba3bb31f53a37309771184043",
+  "gates": {
+    "procedural_material_nodes": [],
+    "uv_loops_outside_unit": 0,
+    "export_materials": [
+      "frontier_base_c",
+      "frontier_body_c",
+      "frontier_bronze_c",
+      "frontier_eave_c",
+      "frontier_ember_c",
+      "frontier_iron_c",
+      "frontier_roof_c"
+    ],
+    "front_wall_edge_loops": 1,
+    "front_wall_edge_loops_before_cut": 1,
+    "declared_openings": 1,
+    "identity_markers_declared": [
+      "buttresses",
+      "lancet_windows",
+      "apse",
+      "bell_tower",
+      "cross",
+      "grave_markers"
+    ],
+    "identity_markers_built": [
+      "buttresses",
+      "lancet_windows",
+      "apse",
+      "bell_tower",
+      "cross",
+      "grave_markers"
+    ],
+    "measured_storey": 0,
+    "measured_face": "front",
+    "declared_openings_in_measured_face": 1
+  },
+  "category_triangles": {
+    "appendage": 680,
+    "roof_frame": 480,
+    "opening_plane": 324,
+    "appendage_detail": 180,
+    "edge_trim": 144,
+    "opening_detail": 144,
+    "eave": 104,
+    "foundation": 100,
+    "frame_detail": 96,
+    "roof_plane": 92,
+    "hardware": 72,
+    "shell": 64,
+    "basecourse": 60,
+    "micro_prop": 60,
+    "lantern_glass": 56,
+    "shell_annex": 52,
+    "gable": 40,
+    "shell_proxy": 24,
+    "opening_reveal": 24,
+    "basecourse_proxy": 12,
+    "floor": 12,
+    "dormer": 12,
+    "shell_annex_proxy": 12
+  },
+  "outputs": {
+    "glb": "AssetFactory/Raw/building_chapel_frontier_01_c.glb",
+    "fbx": "AssetFactory/Workbench/Models/building_chapel_frontier_01_c.fbx",
+    "hero": "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_hero.png",
+    "rts": "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_rts.png",
+    "contact": "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_contact.png",
+    "silhouette": "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_silhouette.png",
+    "construction_stages": [
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_01_groundworks.png",
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_02_basecourse.png",
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_03_framing.png",
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_04_floors.png",
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_05_carpentry.png",
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_06_roofing.png",
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_07_joinery.png",
+      "AssetFactory/Workbench/Previews/building_chapel_frontier_01_c_stage_08_finishes.png"
+    ]
+  }
+}

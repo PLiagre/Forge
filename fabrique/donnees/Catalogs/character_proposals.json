@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "id": "citylab_character_role_proposals",
+  "status": "visual_proposals_not_rig_validated",
+  "source": {
+    "path": "Assets/URP GanzSe Free Modular Character Pack/Models/Models Update 1.1/GanzSe Free Modular Character 1_1.fbx",
+    "sha256": "0ecbc9e4cced3a2897d8afa1cd5ce1ab0dba5a92734664a48810187df8c1a02b"
+  },
+  "proposals": [
+    {"id":"worker_male_adult_sturdy","role":"worker","gender":"male","age":"adult","morphology":"sturdy","armor_type":3,"color":1,"hair_type":2,"hair_color":2,"head_armor":0,"facial_hair":2},
+    {"id":"wealthy_female_adult_average","role":"wealthy","gender":"female","age":"adult","morphology":"average","armor_type":5,"color":3,"hair_type":4,"hair_color":4,"head_armor":0,"facial_hair":0},
+    {"id":"peasant_female_child_slender","role":"peasant","gender":"female","age":"child","morphology":"slender","armor_type":2,"color":1,"hair_type":1,"hair_color":3,"head_armor":0,"facial_hair":0},
+    {"id":"religious_male_elder_slender","role":"religious","gender":"male","age":"elder","morphology":"slender","armor_type":1,"color":3,"hair_type":1,"hair_color":5,"head_armor":0,"facial_hair":5},
+    {"id":"soldier_male_adult_sturdy","role":"soldier","gender":"male","age":"adult","morphology":"sturdy","armor_type":6,"color":2,"hair_type":1,"hair_color":2,"head_armor":6,"facial_hair":3},
+    {"id":"noble_male_adult_tall","role":"noble","gender":"male","age":"adult","morphology":"tall","armor_type":5,"color":2,"hair_type":3,"hair_color":2,"head_armor":0,"facial_hair":1},
+    {"id":"bourgeois_female_adult_average","role":"bourgeois","gender":"female","age":"adult","morphology":"average","armor_type":4,"color":2,"hair_type":5,"hair_color":1,"head_armor":0,"facial_hair":0},
+    {"id":"beggar_female_elder_slender","role":"beggar","gender":"female","age":"elder","morphology":"slender","armor_type":2,"color":1,"hair_type":2,"hair_color":5,"head_armor":0,"facial_hair":0}
+  ]
+}

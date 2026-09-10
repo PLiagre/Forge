@@ -1,0 +1,936 @@
+{
+  "schema": 1,
+  "id": "frontier",
+  "label": "Frontière",
+  "notes": [
+    "Le catalogue decrit le programme : fonction, systeme de mur, marqueurs, graine, emprise de base. Ce fichier decrit le regard.",
+    "L'emprise du catalogue est le centre d'une plage, pas la valeur finale : footprint.dimension_jitter s'applique autour d'elle.",
+    "La pente de toit est autoritaire. La hauteur de faitage devient derivee : rise = tan(pitch) * (demi-largeur + debord).",
+    "Deux niveaux de variation, separes : un schema de construction fixe la masse (niveaux, base, encorbellement, composition de toiture, volumes rapportes, trim de bord) ; une finition fixe la matiere et la couleur sans jamais toucher la masse. La variation d'un batiment a l'autre est le produit des deux.",
+    "Les palettes sont des teintes qui multiplient l'albedo de l'atlas, pas des couleurs de remplacement. Elles restent donc claires : une teinte sombre multipliant une carte rendrait du noir.",
+    "citylab_trim_v2 porte six bandes, dont lime_plaster. Cette bande claire est la reponse mesuree au refus de la porte A-8 : v1 n'avait aucune valeur claire et les references de style tiennent leur lecture du contraste panneau clair / bois sombre.",
+    "La toiture est un chemin de charge, pas un plan pose en l'air : le niveau du haut porte la sabliere, la sabliere porte les chevrons, les chevrons portent la couverture, et le pignon remplit exactement le triangle entre les deux. Toutes ces pieces derivent d'une seule enveloppe de toiture, jamais de l'emprise nominale du catalogue."
+  ],
+  "footprint": {
+    "forms": [
+      {
+        "id": "rectangle",
+        "weight": 3
+      },
+      {
+        "id": "l_shape",
+        "weight": 2
+      },
+      {
+        "id": "rectangle_lean_to",
+        "weight": 2
+      }
+    ],
+    "dimension_jitter": [
+      -0.25,
+      0.25
+    ],
+    "min_side_m": 4.5,
+    "l_shape": {
+      "wing_width_ratio": [
+        0.35,
+        0.55
+      ],
+      "wing_depth_ratio": [
+        0.45,
+        0.7
+      ],
+      "wing_projection_ratio": [
+        0.22,
+        0.4
+      ],
+      "wing_ridge_ratio": [
+        0.7,
+        0.86
+      ]
+    },
+    "lean_to": {
+      "depth_ratio": [
+        0.28,
+        0.42
+      ],
+      "height_ratio": [
+        0.45,
+        0.62
+      ],
+      "pitch_deg": [
+        22,
+        30
+      ]
+    }
+  },
+  "levels": {
+    "forms": [
+      {
+        "id": "one",
+        "weight": 2
+      },
+      {
+        "id": "one_and_half",
+        "weight": 3
+      },
+      {
+        "id": "two",
+        "weight": 3
+      },
+      {
+        "id": "three",
+        "weight": 1
+      }
+    ]
+  },
+  "foundation": {
+    "height_m": [
+      0.45,
+      0.7
+    ],
+    "projection_m": 0.12,
+    "bevel_m": 0.09
+  },
+  "wall": {
+    "thickness_m": 0.32,
+    "height_jitter": [
+      -0.08,
+      0.12
+    ],
+    "corner_post_m": 0.34,
+    "bevel_m": 0.035
+  },
+  "roof": {
+    "forms": [
+      {
+        "id": "gable",
+        "weight": 1
+      }
+    ],
+    "pitch_deg": [
+      36,
+      52
+    ],
+    "overhang_m": [
+      0.35,
+      0.65
+    ],
+    "ridge_axis": [
+      {
+        "id": "long",
+        "weight": 4
+      },
+      {
+        "id": "short",
+        "weight": 1
+      }
+    ],
+    "thickness_m": 0.18,
+    "eave_strip": {
+      "depth_m": 0.16,
+      "mode": "alpha_clip",
+      "teeth_per_m": 2.2
+    },
+    "frame": {
+      "plate_m": 0.2,
+      "ridge_m": 0.24,
+      "rafter_m": 0.13,
+      "rafter_spacing_m": 1.45,
+      "rafter_depth_m": 0.16
+    }
+  },
+  "opening": {
+    "reveal_depth_m": [
+      0.18,
+      0.26
+    ],
+    "min_pier_m": 0.55,
+    "door": {
+      "width_m": [
+        1.25,
+        1.45
+      ],
+      "wide_width_m": [
+        2.45,
+        2.85
+      ],
+      "height_m": [
+        2.4,
+        2.8
+      ],
+      "lintel_height_m": 0.28,
+      "min_height_m": 2.0
+    },
+    "window": {
+      "width_m": [
+        0.95,
+        1.25
+      ],
+      "height_m": [
+        1.1,
+        1.4
+      ],
+      "sill_height_m": [
+        1.85,
+        2.2
+      ],
+      "shutters_probability": 0.6,
+      "mullion_gap_m": 0.055,
+      "frame_inset_m": 0.07,
+      "mullion_m": 0.055
+    },
+    "bay_width_m": [
+      2.1,
+      2.8
+    ],
+    "faces": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "stone_storey_bay_share": 0.5
+  },
+  "trim": {
+    "atlas": "citylab_trim_v2",
+    "published_root": "Assets/CityLabHost/Adapted/Factory/Textures/CityLabTrimV2",
+    "maps": [
+      "BaseColor",
+      "Normal",
+      "AO",
+      "Roughness",
+      "Metallic",
+      "VariationMask"
+    ],
+    "rects": {
+      "structural_wood": {
+        "u": [
+          0.0,
+          1.0
+        ],
+        "v": [
+          0.0,
+          0.166667
+        ]
+      },
+      "sawn_planks": {
+        "u": [
+          0.0,
+          1.0
+        ],
+        "v": [
+          0.166667,
+          0.333333
+        ]
+      },
+      "lime_plaster": {
+        "u": [
+          0.0,
+          1.0
+        ],
+        "v": [
+          0.333333,
+          0.5
+        ]
+      },
+      "dressed_stone": {
+        "u": [
+          0.0,
+          1.0
+        ],
+        "v": [
+          0.5,
+          0.666667
+        ]
+      },
+      "fired_brick": {
+        "u": [
+          0.0,
+          1.0
+        ],
+        "v": [
+          0.666667,
+          0.833333
+        ]
+      },
+      "roof_tiles": {
+        "u": [
+          0.0,
+          1.0
+        ],
+        "v": [
+          0.833333,
+          1.0
+        ]
+      }
+    },
+    "wall_system_map": {
+      "stone_timber": {
+        "base": "dressed_stone",
+        "body": "structural_wood",
+        "base_height_m": 1.35,
+        "finishes": [
+          "lime_panels",
+          "dark_frame",
+          "plank_clad"
+        ]
+      },
+      "dressed_stone": {
+        "base": "dressed_stone",
+        "body": "dressed_stone",
+        "finishes": [
+          "all_stone",
+          "lime_panels"
+        ]
+      },
+      "timber_plank": {
+        "base": "dressed_stone",
+        "body": "sawn_planks",
+        "base_height_m": 0.62,
+        "finishes": [
+          "plank_clad",
+          "dark_frame"
+        ]
+      },
+      "brick_stone": {
+        "base": "dressed_stone",
+        "body": "fired_brick",
+        "base_height_m": 1.0,
+        "finishes": [
+          "brick_upper",
+          "lime_panels"
+        ]
+      }
+    },
+    "roof_system_map": {
+      "clay_tile": "roof_tiles",
+      "wood_shingle": "roof_tiles",
+      "slate": "roof_tiles"
+    },
+    "world_uv_scale_m": 2.0,
+    "file_prefix": "CityLabTrimV2_",
+    "band_value": {
+      "structural_wood": 0.238,
+      "sawn_planks": 0.36,
+      "lime_plaster": 0.577,
+      "dressed_stone": 0.215,
+      "fired_brick": 0.164,
+      "roof_tiles": 0.273
+    },
+    "min_finish_contrast": 0.18
+  },
+  "budget": {
+    "classes": {
+      "standard": {
+        "lod": [
+          4000,
+          1800,
+          600
+        ]
+      },
+      "hero": {
+        "lod": [
+          7000,
+          3000,
+          1000
+        ]
+      }
+    },
+    "function_class": {
+      "residence": "standard",
+      "granary": "standard",
+      "warehouse": "standard",
+      "market": "standard",
+      "blacksmith": "standard",
+      "barn": "standard",
+      "sawmill": "standard",
+      "chapel": "hero"
+    },
+    "max_bevel_segments": 2,
+    "max_cylinder_vertices": 12
+  },
+  "lod": {
+    "policy": "element_removal",
+    "lod1": {
+      "drop_categories": [
+        "appendage_detail",
+        "edge_trim",
+        "floor",
+        "frame_detail",
+        "hardware",
+        "jetty_bracket",
+        "lantern_glass",
+        "micro_prop",
+        "opening_detail",
+        "opening_reveal",
+        "produce",
+        "roof_frame",
+        "shell_annex",
+        "tool",
+        "vendor"
+      ],
+      "decimate_curved_min_ratio": 0.7,
+      "keep_categories": [
+        "shell_annex_proxy"
+      ]
+    },
+    "lod2": {
+      "keep_categories": [
+        "basecourse_proxy",
+        "foundation",
+        "gable_proxy",
+        "opening_plane",
+        "roof_plane",
+        "shell_annex_proxy",
+        "shell_proxy",
+        "shell_upper_proxy"
+      ]
+    },
+    "lod0": {
+      "drop_categories": [
+        "basecourse_proxy",
+        "gable_proxy",
+        "shell_annex_proxy",
+        "shell_proxy",
+        "shell_upper_proxy"
+      ]
+    }
+  },
+  "silhouette_gate": {
+    "render_px": 256,
+    "camera": "rts",
+    "max_iou_same_family": 0.8,
+    "max_iou_cross_function": 0.85,
+    "iou_px": 64,
+    "articulation_px": 64,
+    "min_articulation": 6.0,
+    "min_articulation_non_domestic": 5.5,
+    "min_articulation_why": "Le seuil de 6,0 est pose sous la plus sobre de deux references de MAISON (maison de ville 6,17 ; chaumiere 7,41). Le proprietaire l'abaisse a 5,5 pour les fonctions non domestiques le 2026-08-30 : une grange ou un entrepot modeste est une masse simple par nature, et le seuil n'avait jamais ete mesure ailleurs que sur l'habitat. `scheme.domestic_functions` dit qui reste a 6,0."
+  },
+  "review": {
+    "contact_sheet_px": 96,
+    "hero_px": 640,
+    "camera_facing_side_x": 1
+  },
+  "palettes": [
+    {
+      "id": "a",
+      "label": "Chaux et suie",
+      "wood": "#C6A17A",
+      "wood_highlight": "#E9D6BA",
+      "roof": "#BE7550",
+      "roof_accent": "#DFA478",
+      "plaster": "#F6F1E5"
+    },
+    {
+      "id": "b",
+      "label": "Ardoise",
+      "wood": "#B6A794",
+      "wood_highlight": "#D8CBB8",
+      "roof": "#8FA3B2",
+      "roof_accent": "#B9C7D2",
+      "plaster": "#ECECE6"
+    },
+    {
+      "id": "c",
+      "label": "Mousse",
+      "wood": "#C0B183",
+      "wood_highlight": "#E2D7AF",
+      "roof": "#8CA070",
+      "roof_accent": "#B4C293",
+      "plaster": "#F1EEDA"
+    }
+  ],
+  "scheme": {
+    "ranks": [
+      "modeste",
+      "courant",
+      "riche"
+    ],
+    "base": {
+      "plinth": {
+        "height_m": [
+          0.45,
+          0.7
+        ],
+        "batter_m": 0.0
+      },
+      "stone_storey": {
+        "height_m": [
+          2.4,
+          3.0
+        ],
+        "batter_m": 0.0
+      },
+      "battered_stone": {
+        "height_m": [
+          2.6,
+          3.3
+        ],
+        "batter_m": [
+          0.22,
+          0.42
+        ]
+      }
+    },
+    "jetty": {
+      "overhang_m": [
+        0.45,
+        0.78
+      ],
+      "bracket_m": 0.22,
+      "faces": {
+        "none": [],
+        "first_floor": [
+          "front"
+        ],
+        "each_floor": [
+          "front",
+          "left",
+          "right"
+        ]
+      }
+    },
+    "roof_composition": {
+      "simple": {
+        "cross_gable": false,
+        "dormers": 0
+      },
+      "dormer": {
+        "cross_gable": false,
+        "dormers": 1
+      },
+      "cross_gable": {
+        "cross_gable": true,
+        "dormers": 0
+      },
+      "cross_gable_dormer": {
+        "cross_gable": true,
+        "dormers": 2
+      }
+    },
+    "appendage": {
+      "porch": {
+        "depth_m": [
+          1.3,
+          1.9
+        ],
+        "width_ratio": [
+          0.3,
+          0.46
+        ],
+        "post_m": 0.2,
+        "pitch_deg": [
+          16,
+          26
+        ]
+      },
+      "lean_to": {
+        "depth_ratio": [
+          0.26,
+          0.4
+        ],
+        "height_ratio": [
+          0.42,
+          0.6
+        ],
+        "pitch_deg": [
+          20,
+          30
+        ]
+      },
+      "stair": {
+        "width_m": [
+          1.05,
+          1.35
+        ],
+        "tread_m": 0.3,
+        "rail_m": 0.09,
+        "max_rise_m": 1.2
+      },
+      "gallery": {
+        "depth_m": [
+          1.15,
+          1.6
+        ],
+        "rail_m": 0.1,
+        "post_m": 0.14
+      },
+      "chimney_stack": {
+        "width_m": [
+          0.85,
+          1.15
+        ],
+        "depth_m": [
+          0.6,
+          0.85
+        ],
+        "above_ridge_m": [
+          0.55,
+          1.05
+        ],
+        "taper": 0.72
+      },
+      "roof_lantern": {
+        "width_ratio": [
+          0.16,
+          0.24
+        ],
+        "height_m": [
+          0.75,
+          1.15
+        ]
+      },
+      "hanging_sign": {
+        "bracket_m": [
+          0.85,
+          1.2
+        ],
+        "board_m": [
+          0.55,
+          0.8
+        ]
+      }
+    },
+    "edge_trim": {
+      "none": {
+        "board_m": 0.0,
+        "finial_m": 0.0,
+        "purlin_ends": 0
+      },
+      "barge_boards": {
+        "board_m": 0.14,
+        "finial_m": 0.0,
+        "purlin_ends": 0
+      },
+      "barge_finials": {
+        "board_m": 0.15,
+        "finial_m": 0.38,
+        "purlin_ends": 0
+      },
+      "purlin_ends": {
+        "board_m": 0.12,
+        "finial_m": 0.0,
+        "purlin_ends": 4
+      }
+    },
+    "forms": [
+      {
+        "id": "cottage",
+        "rank": "modeste",
+        "weight": 3,
+        "levels": "one_and_half",
+        "base": "plinth",
+        "jetty": "none",
+        "roof_composition": "simple",
+        "edge_trim": "barge_boards",
+        "appendages": [
+          "porch"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          44,
+          52
+        ],
+        "footprint": "rectangle",
+        "ridge_break": false,
+        "street_face": "eave",
+        "audience": "any"
+      },
+      {
+        "id": "cottage_stack",
+        "rank": "modeste",
+        "weight": 2,
+        "levels": "one_and_half",
+        "base": "plinth",
+        "jetty": "none",
+        "roof_composition": "dormer",
+        "edge_trim": "purlin_ends",
+        "appendages": [
+          "chimney_stack",
+          "lean_to"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          42,
+          50
+        ],
+        "footprint": "rectangle_lean_to",
+        "ridge_break": false,
+        "street_face": "gable",
+        "audience": "any"
+      },
+      {
+        "id": "stone_base_house",
+        "rank": "courant",
+        "weight": 3,
+        "levels": "two",
+        "base": "stone_storey",
+        "jetty": "none",
+        "roof_composition": "cross_gable",
+        "edge_trim": "barge_finials",
+        "appendages": [
+          "stair",
+          "porch",
+          "chimney_stack"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          38,
+          46
+        ],
+        "footprint": "l_shape",
+        "ridge_break": true,
+        "street_face": "eave",
+        "annex": {
+          "levels": "one_and_half",
+          "base": "plinth",
+          "street_face": "gable",
+          "jetty": "none"
+        },
+        "porch_depth_m": [4.4, 5.2],
+        "chimney_above_ridge_m": [3.4, 4.2],
+        "audience": "any"
+      },
+      {
+        "id": "jettied_house",
+        "rank": "courant",
+        "weight": 3,
+        "levels": "two",
+        "base": "plinth",
+        "jetty": "first_floor",
+        "roof_composition": "dormer",
+        "edge_trim": "barge_finials",
+        "appendages": [
+          "chimney_stack",
+          "porch"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          38,
+          46
+        ],
+        "footprint": "rectangle_lean_to",
+        "ridge_break": true,
+        "street_face": "gable",
+        "audience": "domestic"
+      },
+      {
+        "id": "town_house",
+        "rank": "riche",
+        "weight": 2,
+        "levels": "three",
+        "base": "stone_storey",
+        "jetty": "each_floor",
+        "roof_composition": "cross_gable_dormer",
+        "edge_trim": "barge_finials",
+        "appendages": [
+          "gallery",
+          "hanging_sign",
+          "lean_to",
+          "chimney_stack"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          28,
+          36
+        ],
+        "footprint": "l_shape",
+        "ridge_break": true,
+        "street_face": "gable",
+        "annex": {
+          "levels": "one",
+          "base": "plinth",
+          "street_face": "eave",
+          "jetty": "none"
+        },
+        "chimney_above_ridge_m": [3.4, 4.2],
+        "gallery_depth_m": [2.6, 3.4],
+        "audience": "domestic"
+      },
+      {
+        "id": "gabled_hall",
+        "rank": "riche",
+        "weight": 2,
+        "levels": "two",
+        "base": "battered_stone",
+        "jetty": "first_floor",
+        "roof_composition": "cross_gable",
+        "edge_trim": "purlin_ends",
+        "appendages": [
+          "stair",
+          "chimney_stack",
+          "roof_lantern"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          34,
+          42
+        ],
+        "footprint": "l_shape",
+        "ridge_break": true,
+        "street_face": "eave",
+        "annex": {
+          "levels": "one",
+          "base": "plinth",
+          "street_face": "gable",
+          "jetty": "none"
+        },
+        "lantern_height_m": [3.4, 4.2],
+        "chimney_above_ridge_m": [3.4, 4.2],
+        "audience": "domestic"
+      },
+      {
+        "id": "open_hall",
+        "rank": "courant",
+        "weight": 3,
+        "levels": "one",
+        "base": "plinth",
+        "jetty": "none",
+        "roof_composition": "simple",
+        "edge_trim": "barge_boards",
+        "appendages": [
+          "porch"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          44,
+          52
+        ],
+        "footprint": "rectangle",
+        "ridge_break": false,
+        "street_face": "gable",
+        "audience": "utility",
+        "plan_stretch": [
+          0.82,
+          1.45
+        ]
+      },
+      {
+        "id": "buttressed_hall",
+        "rank": "riche",
+        "weight": 2,
+        "levels": "one",
+        "base": "stone_storey",
+        "jetty": "none",
+        "roof_composition": "cross_gable",
+        "edge_trim": "purlin_ends",
+        "appendages": [
+          "chimney_stack",
+          "roof_lantern"
+        ],
+        "roof_form": "gable",
+        "pitch_deg": [
+          46,
+          54
+        ],
+        "footprint": "rectangle_lean_to",
+        "ridge_break": false,
+        "street_face": "gable",
+        "annex": {
+          "levels": "one",
+          "base": "plinth",
+          "street_face": "eave",
+          "jetty": "none"
+        },
+        "audience": "utility",
+        "plan_stretch": [
+          0.88,
+          1.55
+        ]
+      }
+    ],
+    "cross_gable": {
+      "width_ratio": [
+        0.38,
+        0.52
+      ],
+      "run_ratio": [
+        0.55,
+        0.72
+      ],
+      "ridge_drop_ratio": [
+        0.08,
+        0.18
+      ]
+    },
+    "dormer": {
+      "width_ratio": [
+        0.2,
+        0.3
+      ],
+      "height_ratio": [
+        0.34,
+        0.46
+      ],
+      "seat_ratio": [
+        0.22,
+        0.34
+      ]
+    },
+    "ridge_break": {
+      "run_ratio": [
+        0.36,
+        0.48
+      ],
+      "step_m": [
+        1.1,
+        1.85
+      ]
+    },
+    "annex": {
+      "width_ratio": [
+        0.52,
+        0.7
+      ],
+      "depth_ratio": [
+        0.6,
+        0.82
+      ],
+      "gap_m": 0.0,
+      "bay_scale": 1.45,
+      "edge_trim": false,
+      "street_projection_m": 0.0
+    },
+    "domestic_functions": [
+      "residence",
+      "market"
+    ]
+  },
+  "finish": {
+    "forms": [
+      {
+        "id": "lime_panels",
+        "weight": 3,
+        "upper": "lime_plaster",
+        "lower": "dressed_stone"
+      },
+      {
+        "id": "dark_frame",
+        "weight": 2,
+        "upper": "structural_wood",
+        "lower": "lime_plaster"
+      },
+      {
+        "id": "plank_clad",
+        "weight": 2,
+        "upper": "sawn_planks",
+        "lower": "fired_brick"
+      },
+      {
+        "id": "brick_upper",
+        "weight": 1,
+        "upper": "fired_brick",
+        "lower": "lime_plaster"
+      },
+      {
+        "id": "all_stone",
+        "weight": 1,
+        "upper": "dressed_stone",
+        "lower": "dressed_stone",
+        "monolithic": true
+      }
+    ]
+  }
+}
