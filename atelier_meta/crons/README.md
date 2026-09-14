@@ -34,7 +34,7 @@ Ensuite, quatre commandes, et tu n'en tapes jamais d'autre :
 
 | commande | effet |
 |---|---|
-| `atelier-boucle etat` | où ça en est : profil, prochain réveil, ce qui tourne |
+| `atelier-boucle etat` | où ça en est : profil, prochain réveil, ce qui tourne, et ce que la veille de ce matin a vu |
 | `atelier-boucle arret` | tout arrêter. Attend le tour en cours au lieu de le couper |
 | `atelier-boucle jour` | repartir : treize réveils, de 07:00 à 21:30 |
 | `atelier-boucle atelier` | la boucle de banc : quatre rôles en quatre minutes, zéro quota |
@@ -68,10 +68,26 @@ clés (`ANTHROPIC_API_KEY`, `CURSOR_API_KEY`, `OPENAI_API_KEY`) avant
 chaque invocation, et un test le mesure — mais une clé posée ailleurs
 dans ton shell te coûterait de l'argent sans que rien ne rougisse.
 
-`veille.sh` dit qui est connecté, sans rien lancer :
+`veille.sh` dit qui est connecté, sans invoquer personne :
 
 ```bash
 ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/veille.sh
+```
+
+Elle tourne toute seule à **06:45**, avant le pilote, et son rapport
+reste dans `~/.atelier/veille.txt` : c'est lui que la ligne « veille »
+d'`atelier-boucle etat` relit, avec son âge.
+
+Elle démarre chaque binaire pour lire sa version, parce que **la
+présence n'est pas la fonction**. Le 14 septembre 2026, le `claude` du
+PATH était un talon qui refusait de démarrer — « native binary not
+installed », l'installation npm avait sauté son postinstall. `command
+-v` le voyait, `atelier pret` le disait PASS, et les postes de brief et
+de relecture seraient tombés à chaque réveil sans que rien ne rougisse.
+La réparation tient en une ligne, et la veille la donne :
+
+```bash
+node ~/.local/lib/node_modules/@anthropic-ai/claude-code/install.cjs
 ```
 
 ### Le jeton du relecteur
@@ -177,7 +193,7 @@ atelier-boucle jour         # revenir au vrai
 | `profils/atelier.sh` | la boucle de banc, isolée du produit. |
 | `tour.sh` | **un** tour d'un rôle : une carte, un agent, la carte rangée. |
 | `pilote.sh` | le tour du pilote : la feuille de route décide, la console rend compte. |
-| `veille.sh` | ce qu'on regarde avant d'armer. N'invoque personne. |
+| `veille.sh` | ce qu'on regarde avant d'armer, et chaque matin à 06:45. Démarre les binaires, n'invoque aucun agent. |
 | `reveil.sh` | la garde d'heure, pour la forme directe du crontab. |
 | `banc.sh` | monte le banc. |
 | `installer-profils.sh` | les profils de la console, un par rôle. `--dry-run` par défaut. |
@@ -215,7 +231,9 @@ et c'est le profil qui compare l'heure.
 
 | symptôme | le geste |
 |---|---|
-| `atelier-boucle etat` dit ATTENTION | `/etc/cron.d/forgeatelier` est absent : le profil est posé mais aucun réveil ne part. |
+| `atelier-boucle etat` dit ATTENTION | aucun cron n'appelle le répartiteur — ni `/etc/cron.d/forgeatelier`, ni le crontab de ton compte : le profil est posé mais aucun réveil ne part. |
+| la ligne `veille` porte un FAIL | un agent ne démarre plus ou n'est plus connecté. Le rapport entier est dans `~/.atelier/veille.txt`, et il nomme le geste. |
+| la ligne `veille` dit « jamais passée » | la veille de 06:45 n'a pas encore tourné, ou le profil n'est pas armé. |
 | une carte dans `echec/` | `journalctl` non, `~/.atelier/logs/<rôle>.log` oui. La cause est un mot sur la carte ; certaines se reprennent seules au réveil suivant. |
 | un tour ne démarre jamais | un verrou est tenu : `atelier-boucle etat` dit lequel. Un verrou par rôle, jamais un verrou global. |
 | le coder refuse de préparer sa branche | son worktree porte du travail non enregistré. L'atelier ne l'efface pas : `atelier ranger`, ou range à la main. |

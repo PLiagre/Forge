@@ -87,6 +87,22 @@ agents_vus() {
   printf '%s' "${morceaux[*]}"
 }
 
+# Ce que la veille de ce matin a vu. Elle seule démarre les binaires et
+# lit les connexions ; cette ligne ne fait que rapporter son constat,
+# avec son âge — un rapport de la semaine dernière ne dit rien
+# d'aujourd'hui, et le taire serait pire que de ne rien afficher.
+veille_vue() {
+  local rapport="${ATELIER_VEILLE:-$HOME/.atelier/veille.txt}" refus quand
+  [[ -f "$rapport" ]] || { printf 'jamais passée'; return 0; }
+  quand="$(date -r "$rapport" '+%d/%m %H:%M' 2>/dev/null || echo '?')"
+  refus="$(grep -c '^FAIL' "$rapport" 2>/dev/null || true)"
+  if [[ "${refus:-0}" == "0" ]]; then
+    printf 'rien à signaler (%s)' "$quand"
+  else
+    printf '%s FAIL (%s) — %s' "$refus" "$quand" "$(grep -m1 '^FAIL' "$rapport" | cut -c7-)"
+  fi
+}
+
 commande="${1:-}"
 if [[ -z "$commande" ]]; then
   usage
@@ -117,6 +133,7 @@ if [[ "$commande" == "etat" ]]; then
   file="$(file_du_projet)"
   printf '%-8s %s\n' "file" "${file:-(vide)}"
   printf '%-8s %s\n' "agents" "$(agents_vus)"
+  printf '%-8s %s\n' "veille" "$(veille_vue)"
   # Une carte dans echec/ ne repart pas toute seule au-delà de ses
   # reprises. C'est la seule ligne de cet état qui demande une personne.
   if [[ "$file" == *"echec:"* ]]; then

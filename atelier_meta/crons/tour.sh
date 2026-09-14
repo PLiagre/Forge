@@ -31,6 +31,14 @@ if [[ "$role" == "pilote" ]]; then
   exec bash "$ATELIER_ROOT/crons/pilote.sh"
 fi
 
+# La veille n'a pas de boîte non plus : elle regarde, elle n'invoque
+# personne. Elle est dans la cadence parce qu'un binaire présent n'est
+# pas un binaire qui marche — et qu'un rôle qui échoue au réveil ne
+# rougit nulle part.
+if [[ "$role" == "veille" ]]; then
+  exec bash "$ATELIER_ROOT/crons/veille.sh"
+fi
+
 if [[ -z "${ATELIER_PROJET:-}" ]]; then
   dire "tour $role : ATELIER_PROJET n'est pas posé — l'atelier ne devine pas le dépôt produit"
   exit 2

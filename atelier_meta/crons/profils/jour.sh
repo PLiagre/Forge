@@ -32,6 +32,11 @@ export ATELIER_CONSOLE="${ATELIER_CONSOLE:-0}"
 export ATELIER_INVOQUER="${ATELIER_INVOQUER:-1}"
 
 _REVEILS=(
+  # La veille ouvre la journée, avant le pilote : elle n'invoque
+  # personne et ne coûte rien, et c'est elle qui voit un agent qui ne
+  # démarre plus. Sans elle, la panne se découvre une semaine plus tard,
+  # sur une file qui a l'air vide.
+  "06:45 veille"
   "07:00 pilote"
   "07:30 coder"
   "09:00 relire"

@@ -222,3 +222,45 @@ def test_pret_ne_lance_aucun_agent(tmp_path: Path, capsys, monkeypatch):
     monkeypatch.setenv("ATELIER_VERROUS", str(tmp_path / "verrous"))
     main(["pret", "--projet", str(projet)])
     assert not temoin.exists(), temoin.read_text()
+
+
+# --------------------------------------------- l'état rapporte la veille
+
+
+def _boucle(tmp_path: Path, rapport: str | None, cas: str = "cas") -> str:
+    """`atelier-boucle etat`, avec un rapport de veille donné ou aucun.
+
+    Chaque cas a son propre dossier : deux appels dans le même
+    répertoire se relisaient l'un l'autre, et « aucun rapport » n'était
+    alors jamais éprouvé.
+    """
+    racine = tmp_path / cas
+    etat = racine / "etat"
+    etat.mkdir(parents=True, exist_ok=True)
+    (etat / "profil").write_text("jour\n", encoding="utf-8")
+    veille = racine / "veille.txt"
+    if rapport is not None:
+        veille.write_text(rapport, encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("ATELIER_")}
+    env["ATELIER_ETAT"] = str(etat)
+    env["ATELIER_VERROUS"] = str(racine / "verrous")
+    env["ATELIER_VEILLE"] = str(veille)
+    r = subprocess.run(["bash", str(RACINE / "crons" / "atelier-boucle"), "etat"],
+                       env=env, text=True, capture_output=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    return r.stdout
+
+
+@besoin_bash
+def test_l_etat_montre_ce_que_la_veille_a_refuse(tmp_path: Path):
+    """La veille voit qu'un agent ne démarre plus ; encore faut-il que son
+    constat atteigne la seule commande que le propriétaire tape."""
+    sortie = _boucle(tmp_path, "PASS  flock — présent\nFAIL  claude — pas connecté\n")
+    ligne = [l for l in sortie.splitlines() if l.startswith("veille")]
+    assert ligne and "1 FAIL" in ligne[0] and "claude" in ligne[0], sortie
+
+
+@besoin_bash
+def test_l_etat_ne_confond_pas_une_veille_muette_et_une_veille_absente(tmp_path: Path):
+    assert "rien à signaler" in _boucle(tmp_path, "PASS  flock — présent\n", "muette")
+    assert "jamais passée" in _boucle(tmp_path, None, "absente")
