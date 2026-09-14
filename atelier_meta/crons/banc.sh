@@ -14,6 +14,37 @@ CRONS="$(cd -P "$(dirname "$_self")" && pwd)"
 
 banc="${ATELIER_BANC:-$HOME/.atelier/banc}"
 
+neuf=0
+case "${1:-}" in
+  --neuf) neuf=1 ;;
+  "") ;;
+  *) dire "usage : banc.sh [--neuf]"; exit 2 ;;
+esac
+
+# Le banc est un bac à sable : tout ce qu'il contient est fabriqué ici, et
+# rien de ce qu'il porte n'existe ailleurs. Le refaire à neuf est donc
+# sans conséquence — c'est ce qui le distingue du dépôt produit, où
+# l'atelier ne jette jamais rien.
+#
+# La garde n'est pas une politesse : `rm -rf` sur une variable vide ou
+# sur un home efface autre chose que ce qu'on croyait.
+if (( neuf )) && [[ -e "$banc" ]]; then
+  # `$banc` ne peut pas être vide ici : le défaut s'applique avant. On ne
+  # teste donc que ce qui peut vraiment arriver — un contrôle qui ne peut
+  # pas rougir ne prouve rien.
+  if [[ "$banc" == "/" || "$banc" == "$HOME" ]]; then
+    dire "refus : ATELIER_BANC vaut « $banc » — ce n'est pas un banc"
+    exit 2
+  fi
+  if [[ ! -d "$banc/produit" && ! -d "$banc/bin" ]]; then
+    dire "refus : $banc ne ressemble pas à un banc (ni produit/ ni bin/)"
+    dire "  efface-le toi-même si c'est bien ce que tu veux"
+    exit 2
+  fi
+  rm -rf "$banc"
+  echo "banc effacé : $banc"
+fi
+
 mkdir -p "$banc"/{bin,verrous,logs,etat}
 
 # Les faux agents. Ils ouvrent une PR imaginaire — un numéro dans le
@@ -101,7 +132,15 @@ fi
 # Les worktrees des rôles qui écrivent. Jamais le clone du produit :
 # l'atelier refuse de basculer la branche du produit lui-même.
 for role in coder briefer; do
-  ajouter_worktree "$produit" "atelier/$role" "$banc/$role" master
+  if ! ajouter_worktree "$produit" "atelier/$role" "$banc/$role" master; then
+    dire ""
+    dire "Le banc est incohérent — un arbre d'un essai précédent tient encore"
+    dire "la branche. Rien n'y est du vrai travail : refais-le à neuf."
+    dire ""
+    dire "    $0 --neuf"
+    dire ""
+    exit 1
+  fi
 done
 
 echo "banc prêt : $banc"
