@@ -17,6 +17,8 @@ CRONS="$(cd -P "$(dirname "$_self")" && pwd)"
 RACINE_ATELIER="$(dirname "$CRONS")"
 DEPOT="$(dirname "$RACINE_ATELIER")"
 
+ARGS_ORIGINE=("$@")
+
 projet="$DEPOT"
 demarrer="jour"
 a_sec=0
@@ -45,6 +47,34 @@ echo "═══ atelier : installation ═══"
 echo "    dépôt   $projet"
 echo "    atelier $RACINE_ATELIER"
 (( a_sec )) && echo "    MODE À SEC : rien ne sera écrit"
+
+# --------------------------------------------------------- 0. le dépôt
+# Le dossier est peut-être déjà là, d'une version d'avant : c'est le cas
+# le plus courant, pas une anomalie. On se met à jour d'abord — poser
+# aujourd'hui la configuration d'hier est la panne la plus discrète,
+# parce que tout a l'air d'avoir marché.
+dit "le dépôt"
+if [[ ! -d "$projet/.git" ]]; then
+  note "$projet n'est pas un dépôt git — on continue avec ce qui est là"
+elif (( a_sec )); then
+  note "mettrait à jour $projet"
+elif [[ -n "${ATELIER_DEJA_REJOUE:-}" ]]; then
+  ok "déjà à jour (rejeu)"
+else
+  empreinte_avant="$(sha256sum "$_self" | cut -d" " -f1)"
+  if git -C "$projet" pull --ff-only >/dev/null 2>&1; then
+    ok "à jour — $(git -C "$projet" log --oneline -1)"
+  else
+    note "mise à jour impossible (travail local, ou pas de remote) — on continue"
+  fi
+  # Bash lit un script au fil de l'eau : celui qui tourne est l'ancien.
+  # S'il vient de changer sous nos pieds, on rejoue le nouveau plutôt que
+  # de finir l'installation avec deux moitiés de versions différentes.
+  if [[ "$(sha256sum "$_self" | cut -d" " -f1)" != "$empreinte_avant" ]]; then
+    echo "    →    l'installateur a changé : on rejoue la nouvelle version"
+    ATELIER_DEJA_REJOUE=1 exec bash "$_self" "${ARGS_ORIGINE[@]+"${ARGS_ORIGINE[@]}"}"
+  fi
+fi
 
 # ------------------------------------------------------------- 1. l'outillage
 dit "l'outillage"

@@ -11,11 +11,13 @@ pilote` — il ne s'écrit pas à la main.
 ```text
 Installe l'atelier Forge sur ce serveur. Tâche unique, tu ne codes rien.
 
-1) git clone https://github.com/PLiagre/Forge.git ~/Forge
-Si ~/Forge existe déjà : ne remplace rien, dis-le-moi, arrête-toi.
+1) [ -d ~/Forge/.git ] || git clone https://github.com/PLiagre/Forge.git ~/Forge
+git -C ~/Forge pull --ff-only
+Un dossier déjà là est normal. Ces deux lignes marchent dans les deux cas.
 
 2) ~/Forge/atelier_meta/crons/installer.sh
 Il pose tout (dossiers, config, cron, commande). Aucun sudo. Rejouable sans risque.
+S'il n'existe pas à ce chemin : dis-moi ce que contient ~/Forge et arrête-toi.
 
 3) Lis sa sortie. S'il manque des agents, installe-les et connecte-les :
 - claude : puis `claude setup-token`. JAMAIS ANTHROPIC_API_KEY, ça facture à l'unité.
