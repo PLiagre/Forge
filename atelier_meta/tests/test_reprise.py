@@ -44,7 +44,7 @@ def test_ce_qui_se_retente_et_ce_qui_ne_se_retente_pas():
 @pytest.mark.parametrize(
     "cause",
     [reprise.BRIEF_ABSENT, reprise.PERIMETRE, reprise.BRANCHE,
-     reprise.PR, reprise.VERROU, reprise.AVANCER],
+     reprise.PR, reprise.VERROU, reprise.AVANCER, reprise.RELECTURE],
 )
 def test_ce_qui_demande_une_personne_ne_revient_jamais_seul(cause):
     assert not reprise.retentable(cause, essais=1)

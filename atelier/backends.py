@@ -35,6 +35,12 @@ class Backend:
     # ce mode, `-p` s'arrête à la première, et le réveil de 07:00 ne
     # rend rien sans dire pourquoi. `None` = ce binaire n'en a pas.
     permission: str | None = None
+    # Le drapeau qui nomme les outils qu'une session sans terminal a le
+    # droit d'employer. Le mode de permission ne suffit pas : sans cette
+    # liste, `-p` refuse chaque commande en silence — le briefer sort sans
+    # avoir ouvert de PR, le relecteur sans avoir lu un diff. Mesuré sur
+    # le VPS après la fusion, où la liste avait disparu de l'argv.
+    outils_permis: str | None = None
 
 
 POSTES = {
@@ -45,6 +51,7 @@ POSTES = {
         abo="claude-pro",
         refus_outils="--disallowedTools",
         permission="acceptEdits",
+        outils_permis="--allowedTools",
     ),
     "cursor": Backend(
         nom="cursor",
@@ -102,8 +109,27 @@ ROLE_QUI_RELIT = "relire"
 # à sec de `tour.sh` est là pour ça.
 OUTILS_REFUSES_AU_RELECTEUR = (
     "Edit,Write,MultiEdit,NotebookEdit,"
-    "Bash(git push:*),Bash(git commit:*),Bash(git merge:*),Bash(gh pr merge:*)"
+    "Bash(git push:*),Bash(git commit:*),Bash(git merge:*),"
+    "Bash(gh pr merge:*),Bash(gh pr close:*),Bash(gh pr edit:*)"
 )
+
+# Ce que chaque rôle de Claude a le droit de faire sans qu'un terminal
+# réponde « oui ». Le briefer écrit un fichier et ouvre une PR ; le
+# relecteur lit un diff et pose une revue. Rien de plus : ce qui n'est
+# pas ici est refusé, et le refus du relecteur vient en plus, après.
+OUTILS_PERMIS_PAR_ROLE = {
+    "briefer": (
+        "Read,Glob,Grep,Write,Edit,"
+        "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),"
+        "Bash(python3:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*)"
+    ),
+    "relire": (
+        "Read,Glob,Grep,"
+        "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git fetch:*),"
+        "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr review:*),"
+        "Bash(python3:*),Bash(ls:*),Bash(cat:*),Bash(grep:*)"
+    ),
+}
 
 
 def invocation(backend: Backend, prompt: str) -> str:
@@ -289,11 +315,26 @@ def prompt_du_role(
         if feuille
         else ""
     )
+    # L'avis n'existe que sur la PR. Avant, il finissait dans un journal
+    # que personne ne lisait, et l'intégration — qui n'ouvre la porte que
+    # sur une approbation posée par un tiers — attendait pour toujours.
+    if pr:
+        revue = (
+            f" Termine par UNE revue GitHub sur la PR {pr}, et rien d'autre : "
+            f"`gh pr review {pr} --approve --body '<ton avis>'` si le diff reste "
+            "dans le périmètre, si chaque condition de succès est mesurée par un "
+            "contrôle qui peut rougir et si aucun test existant n'a été modifié ; "
+            f"sinon `gh pr review {pr} --request-changes --body '<tes constats, "
+            "du plus grave au plus léger, avec fichier et ligne>'`. Un avis qui "
+            "ne finit pas sur la PR n'existe pas."
+        )
+    else:
+        revue = " Sans numéro de proposition connu, ne pose aucune revue : écris ton avis et arrête-toi."
     return (
         f"Relis le diff du lot {lot} de {projet} : {cible}. Tu n'as pas écrit "
         "ce code : tu ne le corriges pas, tu n'écris aucun fichier, tu ne "
         f"pousses rien, tu ne fusionnes pas. {_source_unique(brief)} Rends un "
-        f"avis qui cite le périmètre et les conditions de succès.{fiche}"
+        f"avis qui cite le périmètre et les conditions de succès.{fiche}{revue}"
     )
 
 
@@ -326,6 +367,9 @@ def argv_du_role(
         argv += ["--model", modele]
     if backend.permission:
         argv += ["--permission-mode", backend.permission]
+    permis = OUTILS_PERMIS_PAR_ROLE.get(role)
+    if backend.outils_permis and permis:
+        argv += [backend.outils_permis, permis]
     # Le mode de permission n'ouvre pas la main qui écrit : il dit
     # seulement qu'aucun terminal ne répondra. La garde du relecteur
     # vient après, et c'est elle qui retire les outils.

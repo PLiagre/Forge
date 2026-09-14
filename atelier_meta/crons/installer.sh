@@ -132,13 +132,30 @@ corps="# Écrit par crons/installer.sh. Rejoue-le pour le refaire.
 : \"\${ATELIER_ROOT:=$RACINE_ATELIER}\"
 : \"\${ATELIER_WORKDIR_coder:=$projet-coder}\"
 : \"\${ATELIER_WORKDIR_briefer:=$projet-briefer}\"
+# Le jeton du relecteur : un second compte GitHub, collaborateur du dépôt.
+# GitHub refuse qu'un compte approuve sa propre PR.
+: \"\${ATELIER_RELIRE_TOKEN:=\$HOME/.atelier/relire.token}\"
+# L'adresse dont le coder et le briefer signent leurs commits : celle d'un
+# compte GitHub, sinon la relecture refuse « aucun auteur connu ».
+# ATELIER_GIT_EMAIL=
+# ATELIER_GIT_NOM=
 export ATELIER_PROJET ATELIER_ROOT ATELIER_WORKDIR_coder ATELIER_WORKDIR_briefer
+export ATELIER_RELIRE_TOKEN
 "
 if (( a_sec )); then
   note "écrirait $config"
+elif [[ -f "$config" ]] && grep -q "ATELIER_GIT_EMAIL=." "$config"; then
+  # Une identité posée à la main ne se réécrit pas.
+  ok "$config — déjà là, avec une identité git ; laissé en place"
 else
   printf '%s' "$corps" > "$config"
   ok "$config"
+fi
+jeton="$HOME/.atelier/relire.token"
+if [[ -s "$jeton" ]]; then
+  ok "jeton du relecteur — $jeton"
+else
+  note "jeton du relecteur absent : $jeton (un jeton « repo » d'un second compte, collaborateur du dépôt)"
 fi
 
 # --------------------------------------------------- 4. la commande à taper

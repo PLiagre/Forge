@@ -68,7 +68,7 @@ relecture et une intégration font le reste, et **chaque étape peut rougir**.
 | **le briefer** (Claude) | écrit le brief et ses critères ; relit en lecture seule | exécuter le lot, fusionner |
 | **le coder** (Cursor) | planifie et exécute un lot dans `agent/*` | prononcer un verdict, fusionner |
 | **la CI** | joue les contrôles déclarés | décider d'entrer |
-| **le relecteur** | approuve ou refuse sur la révision courante | relire son propre code |
+| **le relecteur** | approuve ou refuse sur la révision courante, par une revue GitHub signée d'un second compte | relire son propre code |
 | **l'intégration** | fusionne quand les conditions sont réunies | lire le brief, le diff ou un compte rendu |
 | **le worker Unity** | joue l'EditMode sur le SHA exact, quand un lot touche `unity/` | fusionner, juger le PlayMode graphique |
 
@@ -137,7 +137,7 @@ courante**, et qu'un tiers l'a approuvée **sur cette même révision**. À ces
 conditions, et à elles seules.
 
 ```
-contrôles déclarés :  sim · vues · forge · outils · feuille · gitleaks
+contrôles déclarés :  sim · vues · forge · outils · atelier · feuille · gitleaks
 branches intégrées :  agent/   brief/   feuille/
 ```
 
@@ -185,6 +185,7 @@ ce nom seul que la machine le reconnaît.
 | carte dans `echec/` | un agent est tombé (code de retour, délai, brief introuvable) | lire la raison, corriger, `atelier reprendre` |
 | lot immobile | dépendance non livrée, ou fichier tenu par un verrou | `feuille etat` dit par qui ; `atelier lever` après la fusion |
 | PR fermée sans fusion | le lot est à décider | ranger la carte, rendre le verrou, choisir `pret` ou `abandonne` |
+| carte dans `echec/`, cause `relecture` | le relecteur a demandé des changements sur la PR, ou n'a posé aucune revue | lire la revue sur la PR ; fermer la PR et `atelier reprendre`, ou repasser la fiche à `a-briefer` par le travail `etat-lot` |
 | CI de feuille rouge | brief orphelin, fiche sans brief, dépendance fantôme | `atelier feuille valider` le nomme ; rien ne part tant que ce n'est pas réparé |
 | tours à vide répétés | la chaîne est arrêtée et le dit dans son journal | la page de pilotage alerte au-delà de 10 tours |
 

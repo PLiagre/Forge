@@ -61,6 +61,19 @@ AGENT
   chmod +x "$banc/bin/$nom"
 done
 
+# Le faux GitHub : toute PR y est approuvée par un tiers imaginaire.
+# C'est ce que le tour de relecture lit pour faire passer la carte.
+cat > "$banc/bin/gh" <<'GH'
+#!/usr/bin/env bash
+# Faux gh de banc. Il n'atteint aucun dépôt.
+printf 'banc: gh %s\n' "$*" >&2
+case "$*" in
+  *"--json reviews"*) echo "APPROVED" ;;
+esac
+exit 0
+GH
+chmod +x "$banc/bin/gh"
+
 # Un produit minimal : l'atelier lit son branchement, pas son code.
 produit="$banc/produit"
 if [[ ! -d "$produit/.git" ]]; then

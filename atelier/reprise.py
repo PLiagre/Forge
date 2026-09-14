@@ -37,11 +37,15 @@ PR = "pr"
 VERROU = "verrou"
 WORKTREE = "worktree"
 AVANCER = "avancer"
+# Le relecteur a demandé des changements sur la PR, ou n'a posé aucune
+# revue. Le brief étant la seule source d'instruction, le coder ne peut
+# pas lire la revue : rejouer à l'identique repaierait le même résultat.
+RELECTURE = "relecture"
 INCONNUE = "inconnue"
 
 CAUSES = (
     TIMEOUT, AGENT, BRIEF_ABSENT, PERIMETRE, BRANCHE,
-    PR, VERROU, WORKTREE, AVANCER, INCONNUE,
+    PR, VERROU, WORKTREE, AVANCER, RELECTURE, INCONNUE,
 )
 
 # Combien de fois l'atelier remet une carte en circulation tout seul.
@@ -63,6 +67,9 @@ PLAFONDS: dict[str, int] = {
     VERROU: 0,
     WORKTREE: 0,
     AVANCER: 0,
+    # Une revue défavorable se lit sur la PR ; c'est une personne qui
+    # ferme la PR et reprend, ou repasse la fiche à « a-briefer ».
+    RELECTURE: 0,
     # Une cause qu'on n'a pas nommée n'est pas une cause qu'on connaît :
     # on ne parie pas un quota dessus.
     INCONNUE: 0,

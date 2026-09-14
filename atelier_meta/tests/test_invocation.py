@@ -67,6 +67,7 @@ def _projet(tmp_path: Path) -> Path:
     """Un dépôt produit minimal : un atelier.toml et un brief."""
     racine = tmp_path / "produit"
     (racine / "briefs").mkdir(parents=True)
+    (racine / "sim").mkdir()
     (racine / "atelier.toml").write_text(
         "[projet]\n"
         'nom = "Produit"\n'
@@ -504,7 +505,7 @@ def test_le_pilote_sous_drapeau_appelle_hermes_sans_cle(tmp_path: Path):
     faux, verrous = tmp_path / "bin", tmp_path / "verrous"
     temoin = tmp_path / "hermes.txt"
     _mouchard(faux, "hermes", temoin)
-    env = _env(projet, faux, verrous, ATELIER_INVOQUER="1", OPENAI_API_KEY="sk-oai-secret")
+    env = _env(projet, faux, verrous, ATELIER_INVOQUER="1", ATELIER_CONSOLE="1", OPENAI_API_KEY="sk-oai-secret")
     r = _tour("", env, script=PILOTE)
     assert r.returncode == 0, r.stderr
     trace = temoin.read_text(encoding="utf-8")
@@ -679,3 +680,144 @@ def test_une_carte_qui_ne_peut_pas_avancer_tombe_en_echec(tmp_path: Path):
     assert r.returncode != 0
     assert _boite_de(projet, "a-planifier") == []
     assert _boite_de(projet, "echec") == ["044-mineur"]
+
+
+# ------------------------------------------------ la revue est sur la PR
+
+
+def _faux_gh(dossier: Path, temoin: Path, verdict: str) -> Path:
+    """Un GitHub de banc : il journalise l'appel et rend le verdict demandé."""
+    return _faux(
+        dossier, "gh",
+        f'printf "gh %s\\n" "$*" >> "{temoin}"\n'
+        f'printf "jeton=%s\\n" "${{GH_TOKEN:-}}" >> "{temoin}"\n'
+        f'case "$*" in *"--json reviews"*) printf "%s\\n" "{verdict}" ;; esac\n'
+        "exit 0\n",
+    )
+
+
+def _relire_env(projet: Path, faux: Path, verrous: Path, tmp_path: Path, verdict: str,
+                temoin: Path, jeton: bool = True) -> dict[str, str]:
+    _carte(projet, "a-relire", pr=44)
+    _mouchard(faux, "claude", temoin)
+    _faux_gh(faux, temoin, verdict)
+    extra = {"ATELIER_INVOQUER": "1", "ATELIER_SANS_PULL": "1"}
+    if jeton:
+        fichier = tmp_path / "relire.token"
+        fichier.write_text("ghp_relecteur\n", encoding="utf-8")
+        extra["ATELIER_RELIRE_TOKEN"] = str(fichier)
+    else:
+        extra["ATELIER_RELIRE_TOKEN"] = str(tmp_path / "absent.token")
+    return _env(projet, faux, verrous, **extra)
+
+
+def test_le_relecteur_recoit_l_ordre_de_poser_sa_revue_et_les_outils_pour_le_faire():
+    argv = backends.argv_du_role(
+        "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+        projet="/produit", pr=44,
+    )
+    prompt = argv[argv.index("-p") + 1]
+    assert "gh pr review 44 --approve" in prompt
+    assert "gh pr review 44 --request-changes" in prompt
+    permis = argv[argv.index("--allowedTools") + 1]
+    assert "Bash(gh pr review:*)" in permis and "Bash(gh pr diff:*)" in permis
+    assert "Write" not in permis and "Edit" not in permis
+    # La permission vient avant le refus : c'est le refus qui a le dernier mot.
+    assert argv.index("--allowedTools") < argv.index("--disallowedTools")
+    assert "Bash(gh pr merge:*)" in argv[argv.index("--disallowedTools") + 1]
+
+
+def test_sans_numero_de_pr_le_relecteur_ne_pose_aucune_revue():
+    argv = backends.argv_du_role(
+        "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md", projet="/produit",
+    )
+    assert "gh pr review" not in argv[argv.index("-p") + 1]
+
+
+def test_le_briefer_a_les_outils_pour_ecrire_et_ouvrir_sa_pr():
+    """Sans liste, `-p` refuse chaque commande en silence : mesuré sur le
+    VPS, où le briefer sortait sans PR."""
+    argv = backends.argv_du_role(
+        "briefer", roles=ROLES, lot="048-route", brief="briefs/048-route.md", projet="/produit",
+    )
+    permis = argv[argv.index("--allowedTools") + 1]
+    assert "Write" in permis and "Bash(git:*)" in permis and "Bash(gh pr create:*)" in permis
+
+
+@besoin_bash
+def test_une_revue_approuvee_fait_passer_la_carte(tmp_path: Path):
+    projet = _projet(tmp_path)
+    faux, verrous, temoin = tmp_path / "bin", tmp_path / "verrous", tmp_path / "temoin.txt"
+    env = _relire_env(projet, faux, verrous, tmp_path, "APPROVED", temoin)
+    r = _tour("relire", env)
+    assert r.returncode == 0, r.stderr
+    assert _boite_de(projet, "a-relire") == []
+    assert _boite_de(projet, "faite") == ["044-mineur"]
+    trace = temoin.read_text(encoding="utf-8")
+    # Le relecteur signe avec son jeton, pas avec la session du coder.
+    assert "jeton=ghp_relecteur" in trace
+    assert "gh pr view 44 --json reviews" in trace
+
+
+@besoin_bash
+@pytest.mark.parametrize("verdict", ["CHANGES_REQUESTED", ""])
+def test_sans_approbation_la_carte_tombe_et_ne_revient_pas_seule(tmp_path: Path, verdict: str):
+    """Un avis qui n'est pas sur la PR n'existe pas ; des changements demandés
+    attendent une personne, parce que le coder ne lit pas les revues."""
+    projet = _projet(tmp_path)
+    faux, verrous, temoin = tmp_path / "bin", tmp_path / "verrous", tmp_path / "temoin.txt"
+    env = _relire_env(projet, faux, verrous, tmp_path, verdict, temoin)
+    r = _tour("relire", env)
+    assert r.returncode == 1
+    assert _boite_de(projet, "faite") == []
+    (carte,) = boite.lister(projet, "echec")
+    assert carte.lot == "044-mineur" and carte.cause == "relecture"
+    assert "PR 44" in carte.note
+    # Le tour suivant ne la rappelle pas : ce n'est pas une panne passagère.
+    assert boite.rappeler(projet, "relire") == []
+
+
+@besoin_bash
+def test_sans_jeton_le_tour_de_relecture_previent(tmp_path: Path):
+    projet = _projet(tmp_path)
+    faux, verrous, temoin = tmp_path / "bin", tmp_path / "verrous", tmp_path / "temoin.txt"
+    env = _relire_env(projet, faux, verrous, tmp_path, "APPROVED", temoin, jeton=False)
+    r = _tour("relire", env)
+    assert r.returncode == 0, r.stderr
+    assert "aucun jeton" in r.stderr
+    assert "jeton=\n" in temoin.read_text(encoding="utf-8")
+
+
+@besoin_bash
+def test_le_coder_signe_avec_l_adresse_de_la_config(tmp_path: Path):
+    """Une adresse que GitHub ne relie à personne rend la liste des auteurs
+    vide, et la relecture refuse avant de regarder quoi que ce soit."""
+    projet = _projet(tmp_path)
+    _carte(projet)
+    faux, verrous = tmp_path / "bin", tmp_path / "verrous"
+    _mouchard(faux, "agent", tmp_path / "temoin.txt", pr=44)
+    env = _coder_env(projet, faux, verrous, tmp_path, ATELIER_INVOQUER="1",
+                     ATELIER_GIT_EMAIL="coder@exemple.test", ATELIER_GIT_NOM="Le coder")
+    r = _tour("coder", env)
+    assert r.returncode == 0, r.stderr
+    lu = subprocess.run(["git", "-C", str(tmp_path / "coder"), "config", "--get", "user.email"],
+                        capture_output=True, text=True)
+    assert lu.stdout.strip() == "coder@exemple.test"
+
+
+# --------------------------------------------- la console ne se paie plus
+
+
+@besoin_bash
+def test_sans_console_le_pilote_depose_et_n_appelle_personne(tmp_path: Path):
+    """Cinq réponses vides sur cinq, sur un quota payant : la console est
+    devenue optionnelle. La décision, elle, est dans le journal."""
+    projet = _projet(tmp_path)
+    faux, verrous = tmp_path / "bin", tmp_path / "verrous"
+    temoin = tmp_path / "hermes.txt"
+    _mouchard(faux, "hermes", temoin)
+    r = _tour("", _env(projet, faux, verrous, ATELIER_INVOQUER="1"), script=PILOTE)
+    assert r.returncode == 0, r.stderr
+    assert "déposé" in r.stdout and "044-mineur" in r.stdout
+    assert _boite_de(projet, "a-coder") == ["044-mineur"]
+    assert not temoin.exists()

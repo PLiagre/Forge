@@ -154,6 +154,35 @@ nom_workdir="ATELIER_WORKDIR_$role"
 workdir="${!nom_workdir:-$projet}"
 [[ -d "$workdir" ]] || echouer worktree "worktree introuvable : $workdir"
 
+# ------------------------------------------------------------ l'identité
+# Un commit signé d'une adresse que GitHub ne relie à personne rend la
+# liste des auteurs vide, et la relecture refuse avant de regarder quoi
+# que ce soit : « aucun auteur connu ». L'adresse vient de la config de
+# la machine ; sans elle, l'agent signe comme il sait, et on le dit.
+if [[ "$role" == "coder" || "$role" == "briefer" ]]; then
+  if [[ -n "${ATELIER_GIT_EMAIL:-}" ]]; then
+    git -C "$workdir" config user.email "$ATELIER_GIT_EMAIL"
+    git -C "$workdir" config user.name "${ATELIER_GIT_NOM:-atelier}"
+  elif [[ -z "$(git -C "$workdir" config --get user.email 2>/dev/null)" ]]; then
+    dire "tour $role : aucune identité git dans $workdir — pose ATELIER_GIT_EMAIL dans ~/.atelier/config, l'adresse d'un compte GitHub"
+  fi
+fi
+
+# ------------------------------------------------------------- le jeton
+# GitHub refuse qu'un compte approuve sa propre PR. Le relecteur signe
+# donc avec un jeton à lui — un second compte, collaborateur du dépôt —
+# et jamais avec la session qui a ouvert la PR. Sans jeton, la revue
+# sera refusée par GitHub et la carte tombera en echec : on prévient.
+if [[ "$role" == "relire" ]]; then
+  jeton="${ATELIER_RELIRE_TOKEN:-$HOME/.atelier/relire.token}"
+  if [[ -s "$jeton" ]]; then
+    GH_TOKEN="$(tr -d '[:space:]' < "$jeton")"
+    export GH_TOKEN
+  else
+    dire "tour relire : aucun jeton dans $jeton — GitHub refusera l'approbation d'un compte sur sa propre PR"
+  fi
+fi
+
 # La base d'abord : un lot se code sur ce qui a été fusionné depuis.
 if [[ "${ATELIER_SANS_PULL:-0}" != "1" ]]; then
   git -C "$projet" pull --ff-only >&2 2>&1 || dire "tour $role : base non rafraîchie — on continue"
@@ -222,6 +251,31 @@ elif [[ "$role" == "briefer" ]]; then
   pr="$(atelier pr --fichier "$canal/pr.txt" 2>/dev/null)" || pr=""
 fi
 rm -f "$canal/pr.txt"
+
+# ------------------------------------------------------------- la revue
+# Le relecteur ne rend pas compte au cron : il pose une revue sur la PR,
+# et c'est elle qu'on lit. Approuvée, la carte passe et l'intégration
+# fusionnera. Changements demandés, ou aucune revue : la carte tombe, et
+# la cause ne se retente pas — le coder ne lit pas les revues, le brief
+# est sa seule source, et rejouer paierait le même résultat.
+if [[ "$role" == "relire" ]]; then
+  if [[ -z "$pr_carte" || "$pr_carte" == "RIEN" ]]; then
+    # Une carte sans numéro n'a nulle part où porter une revue : l'avis
+    # est au journal, et on le dit plutôt que de faire semblant de lire.
+    dire "tour relire : la carte $lot ne nomme aucune PR — avis au journal, aucune revue lue"
+  else
+    verdict="$(cd "$workdir" && gh pr view "$pr_carte" --json reviews \
+      --jq '[.reviews[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED")] | last | .state // ""' \
+      2>/dev/null)" || verdict=""
+    case "$verdict" in
+      APPROVED) ;;
+      CHANGES_REQUESTED)
+        echouer relecture "changements demandés sur la PR $pr_carte — lire la revue, puis fermer la PR et \`atelier reprendre\`, ou repasser la fiche à a-briefer" ;;
+      *)
+        echouer relecture "aucune revue posée sur la PR $pr_carte — un avis qui n'est pas sur la PR n'existe pas" ;;
+    esac
+  fi
+fi
 
 # ---------------------------------------------------------- la carte passe
 suite=()
