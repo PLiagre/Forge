@@ -501,6 +501,17 @@ def _empechement(fiche: Fiche, feuille: Feuille, racine: Path) -> str | None:
     fichiers = _fichiers_du_perimetre(chemin)
     if not fichiers:
         return "périmètre sans fichier nommé"
+    # Un brief venu d'un autre dépôt nomme des dossiers qui n'existent pas
+    # ici (`Assets/`, `Tools/` après la fusion). Le coder dépenserait son
+    # quota à les inventer, deux fois, avant que la carte tombe : on
+    # retient avant de payer, et `feuille etat` dit pourquoi.
+    hors_arbre = sorted(
+        f for f in fichiers
+        if not (Path(racine) / Path(f).parts[0]).is_dir()
+    )
+    if hors_arbre:
+        reste = f" … (+{len(hors_arbre) - 3})" if len(hors_arbre) > 3 else ""
+        return "périmètre hors de l'arbre : " + ", ".join(hors_arbre[:3]) + reste
     tenus = _fichiers_tenus(racine)
     pris = sorted(f"{f} tenu par {tenus[f]}" for f in fichiers if tenus.get(f, fiche.lot) != fiche.lot)
     if pris:
@@ -563,7 +574,7 @@ def etat_effectif(fiche: Fiche, feuille: Feuille, racine: Path) -> str:
         if nom_boite == "a-relire":
             return f"en relecture{numero_pr}"
         if nom_boite == "faite":
-            return f"relu{numero_pr} — à fusionner par le propriétaire"
+            return f"relu et approuvé{numero_pr} — l'intégration fusionne"
     if fiche.etat == "a-briefer":
         return "à briefer — le pilote déposera la carte"
     empechement = _empechement(fiche, feuille, racine)
