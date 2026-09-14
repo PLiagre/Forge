@@ -69,3 +69,41 @@ sans_cles() { env -u ANTHROPIC_API_KEY -u CURSOR_API_KEY -u OPENAI_API_KEY "$@";
 # Un mot pour le journal, sur stderr : stdout appartient à ce que le
 # script rend, et un cron qui bavarde sur stdout envoie un courriel.
 dire() { printf '%s\n' "$*" >&2; }
+
+# Monter l'arbre de travail d'un rôle, quoi qu'on trouve déjà sur place.
+#
+# Mesuré sur le VPS : `worktree add -b atelier/coder` échoue avec « a
+# branch named 'atelier/coder' already exists » dès qu'on rejoue après
+# avoir effacé le dossier à la main. Regarder si le DOSSIER est là ne
+# dit rien de la BRANCHE — et c'est la branche qui bloque. Un script
+# qu'on ne peut pas rejouer n'est pas un script qu'on ose lancer.
+#
+# Rend 0 quand l'arbre est en place à la fin, quelle que soit la
+# situation de départ ; 1 seulement quand on refuse d'y toucher.
+ajouter_worktree() {
+  local depot="$1" branche="$2" cible="$3" base="$4"
+
+  # Un enregistrement périmé — le dossier effacé sans git — bloque tout
+  # le reste en silence. On le nettoie avant de regarder quoi que ce soit.
+  git -C "$depot" worktree prune 2>/dev/null || true
+
+  if [[ -d "$cible" ]]; then
+    if git -C "$cible" rev-parse --git-dir >/dev/null 2>&1; then
+      return 0
+    fi
+    dire "$cible existe et n'est pas un arbre git : l'atelier n'y touche pas"
+    return 1
+  fi
+
+  # La branche est peut-être restée d'un tour précédent. On la reprend,
+  # on ne la réécrit pas : l'atelier ne jette pas du travail qu'il n'a
+  # pas écrit.
+  if git -C "$depot" show-ref --verify --quiet "refs/heads/$branche"; then
+    git -C "$depot" worktree add -q "$cible" "$branche" 2>/dev/null && return 0
+    dire "la branche $branche existe mais ne peut pas être montée dans $cible"
+    dire "  (elle est sans doute déjà extraite ailleurs : git -C $depot worktree list)"
+    return 1
+  fi
+
+  git -C "$depot" worktree add -q -b "$branche" "$cible" "$base"
+}

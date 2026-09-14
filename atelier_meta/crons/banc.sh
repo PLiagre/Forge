@@ -6,6 +6,12 @@
 # `$ATELIER_BANC`, et il ne sait rien du vrai produit.
 set -euo pipefail
 
+_self="${BASH_SOURCE[0]}"
+[ -L "$_self" ] && _self="$(readlink -f "$_self")"
+CRONS="$(cd -P "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+. "$CRONS/lib.sh"
+
 banc="${ATELIER_BANC:-$HOME/.atelier/banc}"
 
 mkdir -p "$banc"/{bin,verrous,logs,etat}
@@ -95,10 +101,7 @@ fi
 # Les worktrees des rôles qui écrivent. Jamais le clone du produit :
 # l'atelier refuse de basculer la branche du produit lui-même.
 for role in coder briefer; do
-  cible="$banc/$role"
-  if [[ ! -d "$cible" ]]; then
-    git -C "$produit" worktree add -q -b "atelier/$role" "$cible" master
-  fi
+  ajouter_worktree "$produit" "atelier/$role" "$banc/$role" master
 done
 
 echo "banc prêt : $banc"
