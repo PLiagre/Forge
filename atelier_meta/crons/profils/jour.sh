@@ -9,9 +9,13 @@
 # Deux heures séparent deux tours du même rôle — c'est ce délai qui
 # tient lieu d'horloge de reprise quand une carte retombe.
 
-export ATELIER_PROJET="${ATELIER_PROJET:-/srv/ForgeHistory}"
-export ATELIER_WORKDIR_coder="${ATELIER_WORKDIR_coder:-/srv/ForgeHistory-coder}"
-export ATELIER_WORKDIR_briefer="${ATELIER_WORKDIR_briefer:-/srv/ForgeHistory-briefer}"
+# Le défaut est dans le home, jamais sous /srv : un chemin qui exige
+# root pour être créé n'est pas un défaut, c'est une panne qui attend.
+# `installer.sh` écrit les vrais chemins dans ~/.atelier/config, et la
+# config passe avant ces lignes.
+export ATELIER_PROJET="${ATELIER_PROJET:-$HOME/Forge}"
+export ATELIER_WORKDIR_coder="${ATELIER_WORKDIR_coder:-$HOME/Forge-coder}"
+export ATELIER_WORKDIR_briefer="${ATELIER_WORKDIR_briefer:-$HOME/Forge-briefer}"
 export ATELIER_VERROUS="${ATELIER_VERROUS:-$HOME/.atelier/verrous}"
 export ATELIER_LOGS="${ATELIER_LOGS:-$HOME/.atelier/logs}"
 export ATELIER_TIMEOUT="${ATELIER_TIMEOUT:-2400}"

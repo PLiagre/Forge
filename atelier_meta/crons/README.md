@@ -18,8 +18,8 @@ donc elle qu'on installe sur le VPS — et c'est tout ce qu'on y installe.
 Sur le serveur :
 
 ```bash
-git clone https://github.com/PLiagre/Forge.git /srv/Forge
-/srv/Forge/atelier_meta/crons/installer.sh
+git clone https://github.com/PLiagre/Forge.git ~/Forge
+~/Forge/atelier_meta/crons/installer.sh
 ```
 
 C'est tout. L'installateur pose les arbres des rôles, la configuration,
@@ -71,7 +71,7 @@ dans ton shell te coûterait de l'argent sans que rien ne rougisse.
 `veille.sh` dit qui est connecté, sans rien lancer :
 
 ```bash
-ATELIER_PROJET=/srv/Forge /opt/ForgeAtelier/crons/veille.sh
+ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/veille.sh
 ```
 
 ### Pourquoi `-p` ne suffit pas
@@ -88,7 +88,7 @@ c'est lui qui retire Edit, Write et les commandes git qui poussent.
 Pour voir la commande exacte, sans rien dépenser :
 
 ```bash
-ATELIER_PROJET=/srv/Forge /opt/ForgeAtelier/crons/tour.sh relire
+ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/tour.sh relire
 ```
 
 ### Cursor
@@ -107,7 +107,7 @@ branche du lot, et s'arrête : aucune carte ne bouge, aucun quota n'est
 dépensé.
 
 ```bash
-ATELIER_PROJET=/srv/Forge /opt/ForgeAtelier/crons/tour.sh coder   # à sec
+ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/tour.sh coder   # à sec
 ```
 
 Le drapeau vit dans le profil, pas dans le crontab — pour la même raison
@@ -120,7 +120,7 @@ chaîne y tourne en entier, et elle ne peut pas atteindre un agent
 payant : le `PATH` du banc commence par ses propres binaires.
 
 ```bash
-/opt/ForgeAtelier/crons/banc.sh
+~/Forge/atelier_meta/crons/banc.sh
 atelier-boucle atelier      # regarder une carte traverser les quatre rôles
 atelier-boucle jour         # revenir au vrai
 ```

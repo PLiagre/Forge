@@ -11,10 +11,10 @@ pilote` — il ne s'écrit pas à la main.
 ```text
 Installe l'atelier Forge sur ce serveur. Tâche unique, tu ne codes rien.
 
-1) git clone https://github.com/PLiagre/Forge.git /srv/Forge
-Si /srv/Forge existe déjà : ne remplace rien, dis-le-moi, arrête-toi.
+1) git clone https://github.com/PLiagre/Forge.git ~/Forge
+Si ~/Forge existe déjà : ne remplace rien, dis-le-moi, arrête-toi.
 
-2) /srv/Forge/atelier_meta/crons/installer.sh
+2) ~/Forge/atelier_meta/crons/installer.sh
 Il pose tout (dossiers, config, cron, commande). Aucun sudo. Rejouable sans risque.
 
 3) Lis sa sortie. S'il manque des agents, installe-les et connecte-les :
@@ -23,7 +23,7 @@ Il pose tout (dossiers, config, cron, commande). Aucun sudo. Rejouable sans risq
 Si une page web s'ouvre : donne-moi l'URL, je te rends le code.
 
 4) Preuve, sans rien dépenser :
-/srv/Forge/atelier_meta/crons/banc.sh
+~/Forge/atelier_meta/crons/banc.sh
 atelier-boucle atelier
 Attends 5 min, puis : atelier-boucle etat
 Dans ~/.atelier/logs/ : une carte est-elle passée de a-coder à a-relire ?
