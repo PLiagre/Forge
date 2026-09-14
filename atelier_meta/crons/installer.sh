@@ -24,6 +24,10 @@ ARGS_ORIGINE=("$@")
 projet="$DEPOT"
 demarrer="jour"
 a_sec=0
+# Ne jamais lancer le binaire `claude`, pas même pour lire son état. Une
+# console qui installe peut porter cette règle ; elle a de bonnes raisons,
+# et aucune étape d'installation ne vaut qu'on la lui fasse enfreindre.
+sans_claude=0
 
 while (( $# )); do
   case "$1" in
@@ -31,8 +35,9 @@ while (( $# )); do
     --demarrer) demarrer="$2"; shift 2 ;;
     --sans-demarrer) demarrer=""; shift ;;
     --dry-run) a_sec=1; shift ;;
+    --sans-claude) sans_claude=1; shift ;;
     -h|--help)
-      echo "usage : installer.sh [--projet DIR] [--demarrer jour|atelier] [--sans-demarrer] [--dry-run]"
+      echo "usage : installer.sh [--projet DIR] [--demarrer jour|atelier] [--sans-demarrer] [--sans-claude] [--dry-run]"
       exit 0 ;;
     *) echo "argument inconnu : $1" >&2; exit 2 ;;
   esac
@@ -174,7 +179,8 @@ fi
 dit "la veille (personne n'est invoqué, rien n'est dépensé)"
 veille=0
 rapport="$HOME/.atelier/veille.txt"
-ATELIER_PROJET="$projet" bash "$CRONS/veille.sh" > "$rapport" 2>&1 || veille=$?
+ATELIER_PROJET="$projet" ATELIER_SANS_CLAUDE="$sans_claude" \
+  bash "$CRONS/veille.sh" > "$rapport" 2>&1 || veille=$?
 if (( veille == 0 )); then
   ok "le branchement est lisible"
   note "rapport complet : $rapport"
@@ -189,6 +195,9 @@ fi
 # main. On regarde le PATH, on ne lance rien.
 dit "les agents"
 absents=()
+# Présents, mais dont on n'a pas pu vérifier la connexion. On ne les
+# compte pas comme manquants — on ne prétend pas non plus les avoir vus.
+a_connecter=()
 for binaire in claude agent hermes; do
   if ! command -v "$binaire" >/dev/null 2>&1; then
     absents+=("$binaire")
@@ -198,7 +207,10 @@ for binaire in claude agent hermes; do
   # Présent n'est pas connecté, et c'est la panne qui ressemble le plus à
   # une file vide : le réveil part, l'agent refuse, le tour rend zéro.
   # Claude sait le dire ; on le lui demande, et on le montre.
-  if [[ "$binaire" == "claude" ]]; then
+  if [[ "$binaire" == "claude" ]] && (( sans_claude )); then
+    ok "claude — présent ; connexion non regardée (--sans-claude)"
+    a_connecter+=("claude")
+  elif [[ "$binaire" == "claude" ]]; then
     if etat="$(claude auth status --text 2>&1)"; then
       ok "claude — $(printf '%s' "$etat" | head -1)"
     else
@@ -250,6 +262,23 @@ elif (( cron_manquant )); then
 Tout est posé, sauf l'horloge : cette machine n'a pas de cron.
 
     (crontab -l 2>/dev/null; echo '$ligne') | crontab -
+
+MESSAGE
+elif (( ${#a_connecter[@]} )); then
+  # Tout est posé. Il reste une vérification qu'on s'est interdit de
+  # faire — on ne la présente donc pas comme faite.
+  cat <<MESSAGE
+Tout est posé et la cadence est armée.
+
+Une chose n'a pas été regardée : la connexion de ${a_connecter[*]}.
+Vérifie-la toi-même, depuis ton terminal :
+
+    claude auth status --text     (rien à payer, ça lit un état local)
+    claude setup-token            (s'il n'est pas connecté)
+
+Si elle manque, le premier tour partira et ne rendra rien.
+
+  atelier-boucle etat     ← où ça en est
 
 MESSAGE
 else
