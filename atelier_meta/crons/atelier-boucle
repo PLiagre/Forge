@@ -58,6 +58,35 @@ en_vol() {
   printf '%s' "${restants[*]-}"
 }
 
+# Ce que porte la boîte, lu sur le disque. Aucune liste d'états n'est
+# écrite ici : les dossiers qui existent sont la réponse, et une liste
+# tenue à la main finirait par ne plus correspondre à celle de Python.
+file_du_projet() {
+  local boite="${ATELIER_PROJET:-}/.atelier/boite" dossier nom combien morceaux=()
+  [[ -n "${ATELIER_PROJET:-}" && -d "$boite" ]] || return 0
+  for dossier in "$boite"/*/; do
+    [[ -d "$dossier" ]] || continue
+    nom="${dossier%/}"; nom="${nom##*/}"
+    combien="$(find "$dossier" -maxdepth 1 -name '*.json' 2>/dev/null | wc -l)"
+    (( combien )) && morceaux+=("$nom:$combien")
+  done
+  printf '%s' "${morceaux[*]-}"
+}
+
+# Les agents, vus dans le PATH. On ne lance rien : regarder n'est pas
+# invoquer, et surtout ça ne dépense pas un quota pour afficher un état.
+agents_vus() {
+  local binaire morceaux=()
+  for binaire in claude agent hermes; do
+    if command -v "$binaire" >/dev/null 2>&1; then
+      morceaux+=("$binaire")
+    else
+      morceaux+=("$binaire(absent)")
+    fi
+  done
+  printf '%s' "${morceaux[*]}"
+}
+
 commande="${1:-}"
 if [[ -z "$commande" ]]; then
   usage
@@ -85,6 +114,14 @@ if [[ "$commande" == "etat" ]]; then
   printf '%-8s %s\n' "depuis" "$depuis"
   printf '%-8s %s\n' "prochain" "${prochain:-—}"
   printf '%-8s %s\n' "en cours" "${occupes:-(rien)}"
+  file="$(file_du_projet)"
+  printf '%-8s %s\n' "file" "${file:-(vide)}"
+  printf '%-8s %s\n' "agents" "$(agents_vus)"
+  # Une carte dans echec/ ne repart pas toute seule au-delà de ses
+  # reprises. C'est la seule ligne de cet état qui demande une personne.
+  if [[ "$file" == *"echec:"* ]]; then
+    printf '%-8s %s\n' "" "une carte au moins attend une personne : python3 -m atelier feuille etat --projet \"\$ATELIER_PROJET\""
+  fi
   # Un profil posé sans cron ne réveille personne. Le dire vaut mieux que
   # de laisser croire que ça tourne : quarante réveils à vide ont déjà
   # coûté deux jours, et c'était l'inverse — un cron sans travail.
