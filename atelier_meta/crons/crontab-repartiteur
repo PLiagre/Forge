@@ -1,0 +1,16 @@
+# /etc/cron.d/forgeatelier — la ligne que root installe, et plus jamais.
+#
+# Une seule ligne, appelée chaque minute. Elle n'arme rien et ne nomme
+# aucune heure : c'est le répartiteur qui lit le profil actif et décide
+# qui se réveille. Changer de cadence, ou tout arrêter, devient
+# `atelier-boucle <profil|arret>` — une écriture de fichier, sans root.
+#
+# L'armement (`ATELIER_INVOQUER`) a déménagé dans le profil, pour la
+# même raison : ce qu'on ne peut pas désarmer seul, on ne l'arme pas.
+
+SHELL=/bin/bash
+TZ=Europe/Paris
+PATH=/srv/ForgeHistory/.venv/bin:/home/hermes/.local/bin:/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+* * * * * hermes /opt/ForgeAtelier/crons/repartiteur.sh

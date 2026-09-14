@@ -1,7 +1,7 @@
 name: tests
 
-# Six travaux : le moteur, les trois vues, la commande de bout en bout, les
-# outils du dépôt, et le registre des lots.
+# Sept travaux : le moteur, les trois vues, la commande de bout en bout, les
+# outils du dépôt, le registre des lots, et l'atelier.
 #
 # Cette chaîne ne juge pas un lot, ne lit aucun compte rendu et ne fusionne
 # rien. Elle dit une seule chose : les contrôles passent, ou ils ne passent
@@ -114,6 +114,35 @@ jobs:
       - run: python -m pip install --upgrade pip pytest
       - name: Les outils du dépôt
         run: python -m pytest outils/tests/ -q
+
+  atelier:
+    # L'atelier : son runtime (`atelier/`) et le harnais qui le fait
+    # tourner sur une machine (`atelier_meta/crons/`). Ces tests jouent
+    # les scripts du cron sur un banc, avec de faux `claude`, `agent` et
+    # `hermes` en tête du PATH : aucun quota n'est dépensé ici.
+    #
+    # Ils n'étaient joués nulle part. Le harnais avait disparu de l'arbre
+    # au dégraissage V1 en laissant ses tests derrière lui, et soixante-six
+    # d'entre eux étaient rouges sans que rien ne le dise. Un contrôle
+    # qu'on ne joue pas n'est pas un contrôle vert : c'est un contrôle
+    # qui n'existe pas.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip pytest
+      - name: Le harnais est lisible par shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          cd atelier_meta/crons
+          shellcheck -x -s bash ./*.sh atelier-boucle profils/*.sh
+      - name: Les tests de l'atelier
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest tests/ -q
+        working-directory: atelier_meta
 
   feuille:
     # Le registre des lots de ROADMAP.md, lu par l'atelier : fiches bien

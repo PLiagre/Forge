@@ -1,0 +1,35 @@
+# /etc/cron.d/forgeatelier — la cadence directe, six réveils.
+#
+# C'est la forme historique : root porte les heures. Elle marche, et elle
+# a un défaut connu — changer de cadence redemande root. Pour une machine
+# qu'on règle, préférer `crontab-repartiteur` : une ligne, posée une
+# fois, et la cadence devient un fichier que l'utilisateur écrit.
+#
+# Les heures du registre sont celles de Paris ; les champs ci-dessous
+# sont lus en UTC. Chaque ligne est donc armée aux deux heures UTC
+# possibles — Paris est à UTC+1 l'hiver, UTC+2 l'été — et c'est la garde
+# de `reveil.sh` qui tranche : elle compare l'heure de Paris à celle
+# qu'on lui donne, et ne laisse passer qu'une des deux. Une ligne
+# écrite à une seule heure UTC tombe à côté la moitié de l'année.
+#
+# `ATELIER_INVOQUER` n'est pas ici : il vit dans le profil. Ce que root
+# installe une fois ne doit plus jamais changer, et surtout pas pour
+# désarmer.
+
+SHELL=/bin/bash
+TZ=Europe/Paris
+PATH=/srv/ForgeHistory/.venv/bin:/home/hermes/.local/bin:/usr/local/bin:/usr/bin:/bin
+ATELIER_PROJET=/srv/ForgeHistory
+ATELIER_WORKDIR_coder=/srv/ForgeHistory-coder
+ATELIER_WORKDIR_briefer=/srv/ForgeHistory-briefer
+ATELIER_VERROUS=/home/hermes/.atelier/verrous
+ATELIER_LOGS=/home/hermes/.atelier/logs
+MAILTO=""
+
+# m   h(UTC)  dom mon dow  compte   commande
+15    4,5     *   *   *    hermes   /opt/ForgeAtelier/crons/reveil.sh 06:15 pilote
+0     5,6     *   *   *    hermes   /opt/ForgeAtelier/crons/reveil.sh 07:00 briefer
+30    6,7     *   *   *    hermes   /opt/ForgeAtelier/crons/reveil.sh 08:30 coder
+0     8,9     *   *   *    hermes   /opt/ForgeAtelier/crons/reveil.sh 10:00 relire
+0     12,13   *   *   *    hermes   /opt/ForgeAtelier/crons/reveil.sh 14:00 coder
+0     17,18   *   *   *    hermes   /opt/ForgeAtelier/crons/reveil.sh 19:00 relire

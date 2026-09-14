@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# La bascule : `atelier-boucle <profil|arret|etat>`.
+#
+# Le point de toute la conception : aucun `sudo` sur ce chemin. Changer
+# de cadence est l'écriture d'un fichier, et rien d'autre. Ce qui est
+# facile à désarmer est ce qu'on ose armer.
+set -euo pipefail
+
+_self="${BASH_SOURCE[0]}"
+[ -L "$_self" ] && _self="$(readlink -f "$_self")"
+CRONS="$(cd -P "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+. "$CRONS/lib.sh"
+atelier_defauts
+
+CRONTAB_SYSTEME="/etc/cron.d/forgeatelier"
+
+# Les profils connus se lisent sur le disque : une liste écrite ici
+# serait une seconde liste à tenir, et elle finirait par mentir.
+usage() {
+  local fichier nom connus=()
+  for fichier in "$CRONS"/profils/*.sh; do
+    [[ -e "$fichier" ]] || continue
+    nom="${fichier##*/}"
+    connus+=("${nom%.sh}")
+  done
+  connus+=(arret etat)
+  local liste="${connus[*]}"
+  dire "usage : atelier-boucle <${liste// /|}>"
+}
+
+# Les tours en vol, lus sur les verrous eux-mêmes. Pas de table de rôles
+# ici : un verrou qui existe est un rôle qui tourne, et c'est la seule
+# source qui ne peut pas mentir.
+en_vol() {
+  local fichier nom restants=()
+  [[ -d "$ATELIER_VERROUS" ]] || return 0
+  for fichier in "$ATELIER_VERROUS"/atelier-*.lock; do
+    [[ -e "$fichier" ]] || continue
+    nom="${fichier##*/atelier-}"
+    nom="${nom%.lock}"
+    if ! flock -n "$fichier" true 2>/dev/null; then
+      restants+=("$nom")
+    fi
+  done
+  printf '%s' "${restants[*]-}"
+}
+
+commande="${1:-}"
+if [[ -z "$commande" ]]; then
+  usage
+  exit 2
+fi
+
+# ------------------------------------------------------------------ etat
+if [[ "$commande" == "etat" ]]; then
+  fichier="$ATELIER_ETAT/profil"
+  if [[ -f "$fichier" ]]; then
+    profil="$(tr -d '[:space:]' < "$fichier")"
+    depuis="$(date -r "$fichier" '+%F %T' 2>/dev/null || echo '?')"
+  else
+    profil="(aucun)"
+    depuis="—"
+  fi
+  prochain="—"
+  if [[ -n "$profil" && -f "$CRONS/profils/$profil.sh" ]]; then
+    # shellcheck source=/dev/null
+    . "$CRONS/profils/$profil.sh"
+    prochain="$(prochain_reveil "$(date +%H:%M)")"
+  fi
+  occupes="$(en_vol)"
+  printf '%-8s %s\n' "profil" "${profil:-(vide)}"
+  printf '%-8s %s\n' "depuis" "$depuis"
+  printf '%-8s %s\n' "prochain" "${prochain:-—}"
+  printf '%-8s %s\n' "en cours" "${occupes:-(rien)}"
+  # Un profil posé sans cron ne réveille personne. Le dire vaut mieux que
+  # de laisser croire que ça tourne : quarante réveils à vide ont déjà
+  # coûté deux jours, et c'était l'inverse — un cron sans travail.
+  if [[ ! -f "$CRONTAB_SYSTEME" ]]; then
+    printf '%-8s %s\n' "" "ATTENTION : $CRONTAB_SYSTEME est absent — aucun réveil ne part"
+  fi
+  exit 0
+fi
+
+# --------------------------------------------------------------- bascule
+if [[ "$commande" != "arret" && ! -f "$CRONS/profils/$commande.sh" ]]; then
+  dire "profil inconnu : $commande"
+  usage
+  exit 2
+fi
+
+mkdir -p "$ATELIER_ETAT"
+printf '%s\n' "$commande" > "$ATELIER_ETAT/profil"
+
+if [[ "$commande" != "arret" ]]; then
+  echo "profil $commande"
+  exit 0
+fi
+
+# ----------------------------------------------------------------- arret
+# Tuer un tour serait la façon la plus sûre de laisser une carte prise :
+# `tour.sh` range sa carte sur tous ses chemins de sortie, encore
+# faut-il qu'il les atteigne. On empêche les réveils suivants — c'est
+# déjà fait, le profil est écrit — puis on attend.
+attente="${ATELIER_ARRET_ATTENTE:-300}"
+debut="$SECONDS"
+while :; do
+  occupes="$(en_vol)"
+  [[ -z "$occupes" ]] && break
+  if (( SECONDS - debut >= attente )); then
+    echo "arrêt demandé, mais un tour est encore en vol : $occupes"
+    dire "aucun réveil ne s'ajoutera ; ce tour-là finira de lui-même"
+    exit 1
+  fi
+  sleep 2
+done
+echo "arrêt : plus aucun tour en vol"
+exit 0

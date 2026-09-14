@@ -25,3 +25,10 @@ unity/*.sln
 
 # Fabrique : sorties de publication
 fabrique_donnees/Reports/*.tmp
+
+# L'atelier : état local de la machine qui fait tourner la chaîne — les
+# cartes de la boîte, les verrous de fichiers, le canal d'échange. Rien
+# de tout ça n'est du produit, et un agent qui fait `git add -A` — ils le
+# font tous — les enregistrerait sans le vouloir.
+.atelier/
+atelier-echange/
