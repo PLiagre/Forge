@@ -387,11 +387,29 @@ def test_232_un_nouveau_controle_absent_ne_bloque_pas_le_rejeu():
     assert integration.examiner(pr(retard=0), nouveaux, PREFIXES).action == integration.RIEN
 
 
-def test_chacun_des_six_controles_reste_obligatoire_apres_le_rejeu():
+def _travaux_de_la_ci(racine) -> set[str]:
+    """Les noms de travaux que les workflows de contrôle posent réellement."""
+    import re
+    noms: set[str] = set()
+    for fichier in ("tests.yml", "security.yml"):
+        texte = (racine / ".github" / "workflows" / fichier).read_text(encoding="utf-8")
+        bloc = texte.split("\njobs:\n", 1)[1]
+        noms.update(re.findall(r"^  ([a-z][a-z0-9_-]*):\s*$", bloc, re.MULTILINE))
+    return noms
+
+
+def test_chacun_des_controles_declares_reste_obligatoire_apres_le_rejeu():
+    """La liste vient du branchement, jamais d'ici : le 14 septembre 2026,
+    `atelier` est entré dans `atelier.toml` et ce contrôle — qui nommait
+    six contrôles en dur — a rougi sur `master`, fermant la porte à toute
+    PR. Un contrôle déclaré doit avoir un travail qui le pose, sinon il
+    est absent, donc bloquant, pour toujours."""
     from pathlib import Path
     from outils import registre
-    requis = registre.integration(Path(__file__).resolve().parents[2])["controles"]
-    assert set(requis) == {"sim", "vues", "forge", "outils", "feuille", "gitleaks"}
+    racine = Path(__file__).resolve().parents[2]
+    requis = registre.integration(racine)["controles"]
+    assert requis, "aucun contrôle déclaré : rien n'entrerait"
+    assert set(requis) <= _travaux_de_la_ci(racine), set(requis) - _travaux_de_la_ci(racine)
     for nom in requis:
         autres = verts(*[n for n in requis if n != nom])
         for controles in (autres, autres + (Controle(nom, integration.ROUGE),),
