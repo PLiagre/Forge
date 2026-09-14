@@ -14,6 +14,8 @@ set -euo pipefail
 _self="${BASH_SOURCE[0]}"
 [ -L "$_self" ] && _self="$(readlink -f "$_self")"
 CRONS="$(cd -P "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+. "$CRONS/lib.sh"
 RACINE_ATELIER="$(dirname "$CRONS")"
 DEPOT="$(dirname "$RACINE_ATELIER")"
 
@@ -105,9 +107,11 @@ for role in coder briefer; do
     ok "$role — déjà là ($cible)"
   elif (( a_sec )); then
     note "$role — serait créé ($cible)"
+  elif ajouter_worktree "$projet" "atelier/$role" "$cible" "$base"; then
+    ok "$role — en place ($cible)"
   else
-    git -C "$projet" worktree add -q -b "atelier/$role" "$cible" "$base"
-    ok "$role — créé ($cible)"
+    echo "    Répare-le à la main, puis rejoue-moi." >&2
+    exit 1
   fi
 done
 
@@ -169,12 +173,14 @@ fi
 # -------------------------------------------------------------- 6. la veille
 dit "la veille (personne n'est invoqué, rien n'est dépensé)"
 veille=0
-ATELIER_PROJET="$projet" bash "$CRONS/veille.sh" > /tmp/atelier-veille.txt 2>&1 || veille=$?
+rapport="$HOME/.atelier/veille.txt"
+ATELIER_PROJET="$projet" bash "$CRONS/veille.sh" > "$rapport" 2>&1 || veille=$?
 if (( veille == 0 )); then
   ok "le branchement est lisible"
+  note "rapport complet : $rapport"
 else
   echo "    Le branchement ne se lit pas :" >&2
-  sed 's/^/    /' /tmp/atelier-veille.txt >&2
+  sed 's/^/    /' "$rapport" >&2
   exit 1
 fi
 
@@ -184,11 +190,23 @@ fi
 dit "les agents"
 absents=()
 for binaire in claude agent hermes; do
-  if command -v "$binaire" >/dev/null 2>&1; then
-    ok "$binaire — $(command -v "$binaire")"
-  else
+  if ! command -v "$binaire" >/dev/null 2>&1; then
     absents+=("$binaire")
     note "$binaire — absent du PATH"
+    continue
+  fi
+  # Présent n'est pas connecté, et c'est la panne qui ressemble le plus à
+  # une file vide : le réveil part, l'agent refuse, le tour rend zéro.
+  # Claude sait le dire ; on le lui demande, et on le montre.
+  if [[ "$binaire" == "claude" ]]; then
+    if etat="$(claude auth status --text 2>&1)"; then
+      ok "claude — $(printf '%s' "$etat" | head -1)"
+    else
+      absents+=("claude")
+      note "claude — installé mais PAS connecté"
+    fi
+  else
+    ok "$binaire — $(command -v "$binaire")"
   fi
 done
 
@@ -215,7 +233,7 @@ connecter ${#absents[@]} agent(s). Une session s'ouvre à la main, une fois.
 MESSAGE
   for binaire in "${absents[@]}"; do
     case "$binaire" in
-      claude) echo "  claude  →  installe, puis :  claude   (il demande de se connecter)" ;;
+      claude) echo "  claude  →  claude setup-token   (jeton longue durée, machine sans écran)" ;;
       agent)  echo "  agent   →  Cursor CLI, puis :  agent login" ;;
       hermes) echo "  hermes  →  la console ; sans elle, tout marche sauf le compte rendu du matin" ;;
     esac
