@@ -1,95 +1,58 @@
-# Le prompt d'installation, à donner à Hermes sur le serveur
+# Le prompt d'installation, à donner à Hermes
 
-Copie tout ce qui est entre les deux lignes et colle-le à Hermes.
+Tient en moins de 2000 caractères : il se colle dans Discord d'un bloc.
 
-Ce n'est pas le rôle de pilote — c'est une tâche d'installation, une
-fois. Le pilote, lui, ne touche à rien : son prompt est construit par
-`atelier invocation --role pilote`, et il ne fait que rendre compte.
+Ce n'est pas le rôle de pilote. C'est une tâche d'installation, une fois.
+Le prompt du pilote, lui, est construit par `atelier invocation --role
+pilote` — il ne s'écrit pas à la main.
 
 ---
 
 ```text
-Tu installes l'atelier de Forge sur ce serveur. C'est une tâche unique.
-Tu travailles dans un terminal, tu ne codes rien, tu n'ouvres aucune PR.
+Installe l'atelier Forge sur ce serveur. Tâche unique, tu ne codes rien.
 
-CE QUE TU FAIS, DANS CET ORDRE :
+1) git clone -b claude/remote-project-vps-control-ffe0f1 https://github.com/PLiagre/Forge.git /srv/Forge
+Si /srv/Forge existe déjà : ne remplace rien, dis-le-moi, arrête-toi.
 
-1. Vérifie que git, python3 (≥ 3.11), flock et timeout sont là.
-   Installe ce qui manque avec apt, et rien d'autre.
+2) /srv/Forge/atelier_meta/crons/installer.sh
+Il pose tout (dossiers, config, cron, commande). Aucun sudo. Rejouable sans risque.
 
-2. Clone le dépôt, si /srv/Forge n'existe pas déjà :
-   git clone -b claude/remote-project-vps-control-ffe0f1 \
-       https://github.com/PLiagre/Forge.git /srv/Forge
-   Si /srv/Forge existe : ne le remplace pas. Fais `git -C /srv/Forge status`
-   et dis-moi ce que tu vois, puis arrête-toi.
+3) Lis sa sortie. S'il manque des agents, installe-les et connecte-les :
+- claude : puis `claude setup-token`. JAMAIS ANTHROPIC_API_KEY, ça facture à l'unité.
+- agent (Cursor) : vérifie sa commande avec `agent --help`.
+Si une page web s'ouvre : donne-moi l'URL, je te rends le code.
 
-3. Lance l'installateur, une fois, sans argument :
-   /srv/Forge/atelier_meta/crons/installer.sh
-   Il pose tout : les arbres de travail, la configuration, le cron, la
-   commande `atelier-boucle`. Il est sans risque à rejouer. Il n'a besoin
-   d'aucun sudo.
+4) Preuve, sans rien dépenser :
+/srv/Forge/atelier_meta/crons/banc.sh
+atelier-boucle atelier
+Attends 5 min, puis : atelier-boucle etat
+Dans ~/.atelier/logs/ : une carte est-elle passée de a-coder à a-relire ?
 
-4. Lis ce qu'il affiche à la fin. Il te dira soit « c'est en marche »,
-   soit quels agents manquent.
+5) atelier-boucle jour
 
-5. Si des agents manquent, installe ceux-ci et connecte-les :
-   - claude  : installe Claude Code, puis `claude setup-token`
-               (jeton longue durée, pour un serveur sans écran).
-               N'utilise JAMAIS ANTHROPIC_API_KEY : ça bascule la
-               facture de l'abonnement vers la facturation à l'unité.
-   - agent   : Cursor CLI, puis sa commande de connexion.
-               Vérifie son nom exact avec `agent --help`.
-   Pour chaque connexion qui demande d'ouvrir une page web : donne-moi
-   l'URL, je l'ouvre sur mon navigateur et je te rends le code.
+JAMAIS : fusionner, pousser, toucher master. Écrire une clé API où que ce soit.
+Inventer un chemin ou une option (lis --help). Modifier un script (décris-moi le
+problème, ne le répare pas). sudo hors paquets standards.
 
-6. Vérifie que tout est vu, sans rien dépenser :
-   ATELIER_PROJET=/srv/Forge /srv/Forge/atelier_meta/crons/veille.sh
-   Il ne lance aucun agent. Il dit ce qui est là et ce qui est connecté.
+RENDS-MOI 6 LIGNES : installé / cron / agents connectés / banc passé ou bloqué où /
+profil actif / ce qui bloque.
 
-7. Fais tourner le banc, qui ne coûte rien et prouve la chaîne :
-   /srv/Forge/atelier_meta/crons/banc.sh
-   atelier-boucle atelier
-   Attends cinq minutes, puis : atelier-boucle etat
-   Puis regarde ~/.atelier/logs/*.log et dis-moi si une carte est passée
-   de a-coder à a-relire.
-
-8. Reviens au vrai : atelier-boucle jour
-
-CE QUE TU NE FAIS JAMAIS :
-
-- Tu ne fusionnes rien, tu ne pousses sur aucune branche, tu ne touches
-  pas à master. L'intégration vit sur GitHub, pas ici.
-- Tu ne mets aucune clé d'API dans un fichier, une variable ou un
-  message. Si une commande t'en demande une, arrête-toi et dis-le-moi.
-- Tu n'inventes pas un chemin, un nom de commande ou une option. Si une
-  commande n'existe pas, lis son --help et dis-moi ce que tu as trouvé.
-- Tu ne modifies aucun script de /srv/Forge. Si quelque chose ne marche
-  pas, tu me le décris ; tu ne le répares pas toi-même.
-- Tu n'utilises sudo que pour installer des paquets standards.
-
-CE QUE TU ME RENDS, EN DIX LIGNES MAXIMUM :
-
-- installé : oui / non
-- cron : posé / absent
-- agents connectés : la liste
-- banc : la carte est passée / bloquée à telle étape
-- profil actif : jour / atelier / arret
-- ce qui te bloque, s'il y a quelque chose, en une phrase
-
-Si tu ne peux pas finir, dis où tu t'es arrêté et pourquoi. Ne fais pas
-semblant d'avoir réussi : une installation à moitié faite qui se dit
-finie coûte plus cher qu'un échec annoncé.
+Pas fini ? Dis où tu t'es arrêté. Ne fais pas semblant d'avoir réussi.
 ```
 
 ---
 
-## Après l'installation
+## Pourquoi il est si court
+
+Tout ce qui pouvait être écrit une fois l'a été : `installer.sh` pose les
+dossiers, la configuration, le cron et la commande, puis dit lui-même ce
+qui manque. Un prompt qui répète ce que le script sait faire est un
+second endroit où la vérité peut se périmer.
+
+## Après
 
 Hermes n'a plus rien à faire : le cron réveille les rôles tout seul.
-Son seul rôle quotidien est celui de **pilote**, à 07:00, et son prompt
-est construit par l'atelier — pas par toi.
-
-Les quatre commandes que tu tapes toi-même :
+Quatre commandes, et jamais d'autre :
 
 ```bash
 atelier-boucle etat      # où ça en est
