@@ -30,6 +30,11 @@ class Backend:
     # Le drapeau qui retire les outils qui écrivent. `None` = ce binaire
     # n'en a pas, et un relecteur garde la main qui écrit. On le déclare.
     refus_outils: str | None = None
+    # Le mode de permission d'une session sans terminal. Un cron n'a
+    # personne pour répondre « oui » à une demande d'autorisation : sans
+    # ce mode, `-p` s'arrête à la première, et le réveil de 07:00 ne
+    # rend rien sans dire pourquoi. `None` = ce binaire n'en a pas.
+    permission: str | None = None
 
 
 POSTES = {
@@ -39,6 +44,7 @@ POSTES = {
         role="ecriture",
         abo="claude-pro",
         refus_outils="--disallowedTools",
+        permission="acceptEdits",
     ),
     "cursor": Backend(
         nom="cursor",
@@ -318,6 +324,11 @@ def argv_du_role(
     modele = backend.modeles.get(role)
     if modele:
         argv += ["--model", modele]
+    if backend.permission:
+        argv += ["--permission-mode", backend.permission]
+    # Le mode de permission n'ouvre pas la main qui écrit : il dit
+    # seulement qu'aucun terminal ne répondra. La garde du relecteur
+    # vient après, et c'est elle qui retire les outils.
     if role == ROLE_QUI_RELIT and backend.refus_outils:
         argv += [backend.refus_outils, OUTILS_REFUSES_AU_RELECTEUR]
     return argv

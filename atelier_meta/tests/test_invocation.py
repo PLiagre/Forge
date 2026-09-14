@@ -217,6 +217,32 @@ def test_aucune_invocation_ne_fusionne(tmp_path: Path):
                 assert argv[rang - 1] == "--disallowedTools", morceau
 
 
+def test_une_invocation_sans_terminal_declare_son_mode_de_permission():
+    """Un cron n'a personne pour répondre « oui » à une autorisation.
+
+    Sans mode déclaré, `claude -p` s'arrête à la première demande et le
+    réveil rend zéro sans rien livrer — la panne la plus coûteuse, parce
+    qu'elle ressemble à une file vide.
+    """
+    for role in ("briefer", "relire"):
+        argv = backends.argv_du_role(
+            role, roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+            projet="/produit",
+        )
+        assert "--permission-mode" in argv, role
+
+
+def test_le_mode_de_permission_n_ouvre_pas_la_main_qui_ecrit():
+    """Le mode dit qu'on ne demandera pas ; la garde dit ce qu'on refuse."""
+    argv = backends.argv_du_role(
+        "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+        projet="/produit",
+    )
+    assert argv.index("--permission-mode") < argv.index("--disallowedTools")
+    outils = argv[argv.index("--disallowedTools") + 1]
+    assert "Write" in outils and "Edit" in outils
+
+
 def test_le_relecteur_n_ecrit_pas(tmp_path: Path):
     argv = backends.argv_du_role(
         "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
