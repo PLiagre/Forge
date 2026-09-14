@@ -74,6 +74,17 @@ dans ton shell te coûterait de l'argent sans que rien ne rougisse.
 ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/veille.sh
 ```
 
+### Installer sans toucher au binaire Claude
+
+`installer.sh --sans-claude` ne lance aucune commande `claude`, pas même
+`claude auth status`. C'est pour les machines où l'installation est faite
+par une console qui porte la règle « je ne lance pas le binaire d'un
+autre agent » : cette règle protège un quota et une séparation des rôles,
+et elle vaut mieux qu'un contrôle d'installation.
+
+L'installateur dit alors franchement ce qu'il n'a pas regardé, au lieu de
+laisser croire que c'est vérifié. La connexion se fait à la main, ensuite.
+
 ### Pourquoi `-p` ne suffit pas
 
 Un cron n'a personne pour répondre « oui » à une demande

@@ -40,7 +40,13 @@ atelier pret --projet "$ATELIER_PROJET" || true
 # ressemble le plus à une file vide : le réveil part, l'agent refuse, le
 # tour rend zéro, et rien ne dit pourquoi. On regarde, on ne connecte pas.
 echo "---"
-if command -v claude >/dev/null 2>&1; then
+# Lire un état local n'est pas invoquer un agent — ça ne coûte rien et
+# n'appelle personne. Mais une console peut porter une règle absolue
+# « je ne lance pas le binaire d'un autre », et cette règle vaut mieux
+# que ce contrôle : on la respecte, et on dit ce qu'on n'a pas regardé.
+if [[ "${ATELIER_SANS_CLAUDE:-0}" == "1" ]]; then
+  printf '?     claude — non regardé (ATELIER_SANS_CLAUDE=1)\n'
+elif command -v claude >/dev/null 2>&1; then
   if etat_claude="$(claude auth status --text 2>&1)"; then
     printf 'PASS  claude — %s\n' "$(printf '%s' "$etat_claude" | head -1)"
   else
