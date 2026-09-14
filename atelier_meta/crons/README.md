@@ -18,8 +18,8 @@ donc elle qu'on installe sur le VPS — et c'est tout ce qu'on y installe.
 Sur le serveur :
 
 ```bash
-git clone https://github.com/PLiagre/Forge.git /srv/Forge
-/srv/Forge/atelier_meta/crons/installer.sh
+git clone https://github.com/PLiagre/Forge.git ~/Forge
+~/Forge/atelier_meta/crons/installer.sh
 ```
 
 C'est tout. L'installateur pose les arbres des rôles, la configuration,
@@ -48,6 +48,57 @@ qu'une ligne : « appelle le répartiteur, chaque minute ». Tout le reste —
 la cadence, l'arrêt, le redémarrage — est un fichier que tu écris.
 **Ce qu'on ne peut pas désarmer seul, on ne l'arme pas.**
 
+## Connecter Claude sur un serveur sans écran
+
+C'est la seule étape qui ne s'automatise pas, et elle se fait une fois.
+
+```bash
+claude setup-token        # jeton longue durée, pour une machine sans écran
+claude auth status --text # vérifier
+```
+
+`setup-token` affiche une adresse. Ouvre-la dans le navigateur de ton
+PC — même en SSH, c'est un simple copier-coller — autorise, et rends le
+code au terminal. Le jeton reste ; le cron n'a plus jamais à se
+reconnecter.
+
+**Ne pose jamais `ANTHROPIC_API_KEY`.** Une clé d'API bascule la facture
+de l'abonnement vers la facturation à l'unité. `tour.sh` retire les trois
+clés (`ANTHROPIC_API_KEY`, `CURSOR_API_KEY`, `OPENAI_API_KEY`) avant
+chaque invocation, et un test le mesure — mais une clé posée ailleurs
+dans ton shell te coûterait de l'argent sans que rien ne rougisse.
+
+`veille.sh` dit qui est connecté, sans rien lancer :
+
+```bash
+ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/veille.sh
+```
+
+### Pourquoi `-p` ne suffit pas
+
+Un cron n'a personne pour répondre « oui » à une demande
+d'autorisation. Sans mode de permission déclaré, `claude -p` s'arrête à
+la première, et le réveil de 07:00 rend zéro sans rien livrer — la panne
+la plus coûteuse, parce qu'elle ressemble à une file vide.
+
+L'atelier déclare donc `--permission-mode` pour Claude. Ça ne rend pas
+la main qui écrit au relecteur : `--disallowedTools` vient après, et
+c'est lui qui retire Edit, Write et les commandes git qui poussent.
+
+Pour voir la commande exacte, sans rien dépenser :
+
+```bash
+ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/tour.sh relire
+```
+
+### Cursor
+
+L'atelier appelle `agent -p <prompt> --model <modèle>`. Les noms de
+commande et d'option bougent d'une version à l'autre : vérifie contre
+`agent --help` sur ta machine, et compare au mode à sec ci-dessus. Si la
+syntaxe diffère, c'est `atelier/backends.py` qui la porte — un seul
+endroit.
+
 ## Le drapeau
 
 Rien n'invoque un agent sans `ATELIER_INVOQUER=1`. Sans lui, chaque
@@ -56,7 +107,7 @@ branche du lot, et s'arrête : aucune carte ne bouge, aucun quota n'est
 dépensé.
 
 ```bash
-ATELIER_PROJET=/srv/Forge /opt/ForgeAtelier/crons/tour.sh coder   # à sec
+ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/tour.sh coder   # à sec
 ```
 
 Le drapeau vit dans le profil, pas dans le crontab — pour la même raison
@@ -69,7 +120,7 @@ chaîne y tourne en entier, et elle ne peut pas atteindre un agent
 payant : le `PATH` du banc commence par ses propres binaires.
 
 ```bash
-/opt/ForgeAtelier/crons/banc.sh
+~/Forge/atelier_meta/crons/banc.sh
 atelier-boucle atelier      # regarder une carte traverser les quatre rôles
 atelier-boucle jour         # revenir au vrai
 ```

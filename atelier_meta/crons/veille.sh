@@ -36,4 +36,25 @@ atelier doctor --projet "$ATELIER_PROJET" || code=$?
 echo "---"
 atelier pret --projet "$ATELIER_PROJET" || true
 
+# Un binaire présent n'est pas un binaire connecté. C'est la panne qui
+# ressemble le plus à une file vide : le réveil part, l'agent refuse, le
+# tour rend zéro, et rien ne dit pourquoi. On regarde, on ne connecte pas.
+echo "---"
+if command -v claude >/dev/null 2>&1; then
+  if etat_claude="$(claude auth status --text 2>&1)"; then
+    printf 'PASS  claude — %s\n' "$(printf '%s' "$etat_claude" | head -1)"
+  else
+    printf 'FAIL  claude — pas connecté. Lance : claude setup-token\n'
+  fi
+else
+  printf '?     claude — absent du PATH\n'
+fi
+for binaire in agent hermes; do
+  if command -v "$binaire" >/dev/null 2>&1; then
+    printf 'PASS  %s — %s\n' "$binaire" "$(command -v "$binaire")"
+  else
+    printf '?     %s — absent du PATH\n' "$binaire"
+  fi
+done
+
 exit "$code"
