@@ -19,6 +19,12 @@ export ATELIER_WORKDIR_briefer="${ATELIER_WORKDIR_briefer:-$HOME/Forge-briefer}"
 export ATELIER_VERROUS="${ATELIER_VERROUS:-$HOME/.atelier/verrous}"
 export ATELIER_LOGS="${ATELIER_LOGS:-$HOME/.atelier/logs}"
 export ATELIER_TIMEOUT="${ATELIER_TIMEOUT:-2400}"
+# Le jeton du relecteur : un second compte GitHub, collaborateur du
+# dépôt. GitHub refuse qu'un compte approuve sa propre PR.
+export ATELIER_RELIRE_TOKEN="${ATELIER_RELIRE_TOKEN:-$HOME/.atelier/relire.token}"
+# La console du pilote (Hermes) ne s'appelle que sur demande : la
+# décision est calculée en Python et déjà dans le journal.
+export ATELIER_CONSOLE="${ATELIER_CONSOLE:-0}"
 
 # L'armement vit ici, et non dans le crontab de root : sinon désarmer
 # redemanderait root, et ce qu'on ne peut pas désarmer seul, on ne

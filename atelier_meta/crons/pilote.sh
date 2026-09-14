@@ -53,6 +53,14 @@ if [[ "$(printf '%s' "$decision" | tr -d '[:space:]')" == "RIEN" ]]; then
   exit 0
 fi
 
+# La console rend compte ; elle ne décide rien, et la décision est déjà
+# dans le journal. Sur le VPS, du 3 au 12 septembre 2026, elle a rendu
+# cinq réponses vides sur cinq invocations, sur un quota payant. Elle ne
+# s'appelle donc que si on le demande : ATELIER_CONSOLE=1 dans le profil.
+if [[ "${ATELIER_CONSOLE:-0}" != "1" ]]; then
+  exit "$code"
+fi
+
 argv=()
 mapfile -t -d '' argv < <(atelier invocation --role pilote --projet "$projet" --decision "$decision" --nul)
 if (( ! ${#argv[@]} )); then

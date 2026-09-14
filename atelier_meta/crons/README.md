@@ -74,6 +74,37 @@ dans ton shell te coûterait de l'argent sans que rien ne rougisse.
 ATELIER_PROJET=~/Forge ~/Forge/atelier_meta/crons/veille.sh
 ```
 
+### Le jeton du relecteur
+
+GitHub refuse qu'un compte approuve sa propre PR, et c'est la session
+`gh` de cette machine qui ouvre les PR du coder. Le relecteur signe donc
+sa revue avec un **second compte**, collaborateur du dépôt : un jeton
+« repo » de ce compte, dans `~/.atelier/relire.token`, et rien d'autre.
+
+```bash
+umask 077; printf '%s\n' 'ghp_…' > ~/.atelier/relire.token
+```
+
+Sans lui, `atelier pret` rougit dès qu'on arme, et chaque tour de
+relecture range sa carte en `echec/` : la revue est refusée, donc
+absente, donc la porte reste fermée. Le coder et le briefer, eux,
+signent leurs commits de l'adresse posée dans `~/.atelier/config`
+(`ATELIER_GIT_EMAIL`) — celle d'un compte GitHub, sinon la relecture
+refuse « aucun auteur connu ».
+
+Le tour de relecture lit ensuite la revue sur la PR : approuvée, la
+carte passe et l'intégration fusionne ; changements demandés ou aucune
+revue, la carte tombe en `echec/` avec la cause `relecture`, et elle
+attend une personne — le coder ne lit pas les revues, le brief est sa
+seule source.
+
+### La console du pilote
+
+Hermes ne décide rien : la décision est calculée par `atelier piloter`
+et écrite dans `~/.atelier/logs/pilote.log`. Il ne s'invoque que si le
+profil pose `ATELIER_CONSOLE=1` ; par défaut, le pilote dépose et se
+tait, et rien n'est dépensé.
+
 ### Installer sans toucher au binaire Claude
 
 `installer.sh --sans-claude` ne lance aucune commande `claude`, pas même

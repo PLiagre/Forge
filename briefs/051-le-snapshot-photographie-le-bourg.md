@@ -112,7 +112,7 @@ Tout autre chemin est interdit, nommément : `sim/MODELE.md`,
 `sim/engine.py`, `sim/model.py`, `sim/aggregation.py`, `sim/world.py`,
 `sim/__main__.py`, les autres fichiers de `sim/tests/` — dont
 `test_province.py`, `test_write_coverage.py` et `test_no_hardcoded.py` —,
-la carte figée, `viewer/` en entier, les briefs 044, 046 et 047, et ce
+la carte figée, `vues/tableau/` en entier, les briefs 044, 046 et 047, et ce
 brief.
 
 ## Conditions de succès
@@ -189,7 +189,7 @@ signalerait une régression sans rapport avec ce lot.
 ### SC7 — Les invariants existants restent intacts, et la suite reste verte
 
 ```bash
-py -m pytest sim/tests/ viewer/tests/ -q
+py -m pytest sim/tests/ vues/tableau/tests/ -q
 ```
 
 - vert, et la liste des tests en échec est **vide**, comparée à celle de

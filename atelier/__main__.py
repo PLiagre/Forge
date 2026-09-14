@@ -701,6 +701,21 @@ def _cmd_pret(args: argparse.Namespace) -> int:
     else:
         dire("?", "quota — non lisible ; un inconnu ne se compte pas pour zéro")
 
+    # GitHub refuse qu'un compte approuve sa propre PR : le relecteur signe
+    # avec un jeton à lui. Armer sans lui, c'est payer une relecture dont
+    # la revue sera refusée — la carte tombe à chaque tour.
+    jeton = Path(os.environ.get("ATELIER_RELIRE_TOKEN") or Path.home() / ".atelier" / "relire.token")
+    if jeton.is_file() and jeton.stat().st_size > 0:
+        dire("PASS", f"jeton du relecteur — {jeton}")
+    elif os.environ.get("ATELIER_INVOQUER") == "1":
+        dire("FAIL", f"jeton du relecteur — {jeton} absent : GitHub refuse qu'un compte approuve sa propre PR")
+    else:
+        dire("?", f"jeton du relecteur — {jeton} absent ; à poser avant d'armer")
+    if os.environ.get("ATELIER_GIT_EMAIL"):
+        dire("PASS", f"identité git des rôles qui écrivent — {os.environ['ATELIER_GIT_EMAIL']}")
+    else:
+        dire("?", "identité git des rôles qui écrivent — ATELIER_GIT_EMAIL non posé ; l'agent signera comme il sait")
+
     for role in boite.ROLES:
         nom = f"ATELIER_WORKDIR_{role}"
         chemin = os.environ.get(nom)

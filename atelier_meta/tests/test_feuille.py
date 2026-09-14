@@ -55,6 +55,9 @@ def _brief(numero: str) -> str:
 def _produit(tmp_path: Path, texte_feuille: str | None = None, briefs: dict[str, str] | None = None) -> Path:
     racine = tmp_path / "produit"
     (racine / "briefs").mkdir(parents=True, exist_ok=True)
+    # Le périmètre des briefs d'essai nomme `src/foo.py` : le dossier existe,
+    # comme dans un vrai produit. Un périmètre hors de l'arbre retient la carte.
+    (racine / "src").mkdir(exist_ok=True)
     (racine / "atelier.toml").write_text(
         "[projet]\n"
         'nom = "Produit"\n'
@@ -634,7 +637,7 @@ def test_le_pilote_sous_drapeau_depose_puis_dit_a_hermes_ce_qu_il_a_fait(tmp_pat
     faux, verrous = tmp_path / "bin", tmp_path / "verrous"
     temoin = tmp_path / "hermes.txt"
     _faux(faux, "hermes", f'printf "%s\\n" "$*" >> "{temoin}"\n')
-    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1"))
+    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1", ATELIER_CONSOLE="1"))
     assert r.returncode == 0, r.stderr
     assert _boite_de(racine, "a-coder") == ["046-mer"]
     assert _boite_de(racine, "a-briefer") == ["048-route"]
@@ -662,7 +665,7 @@ def test_le_pilote_sur_une_feuille_incoherente_ne_depose_rien_et_le_dit(tmp_path
     faux, verrous = tmp_path / "bin", tmp_path / "verrous"
     temoin = tmp_path / "hermes.txt"
     _faux(faux, "hermes", f'printf "%s\\n" "$*" >> "{temoin}"\n')
-    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1"))
+    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1", ATELIER_CONSOLE="1"))
     assert r.returncode == 1
     assert not (racine / ".atelier").exists()
     trace = temoin.read_text(encoding="utf-8")
@@ -682,3 +685,31 @@ def test_le_briefer_range_sa_carte_avec_le_numero_de_sa_pr(tmp_path: Path):
     (carte,) = boite.lister(racine, boite.SUIVANT["briefer"])
     assert carte.lot == "048-route" and carte.pr == 7
     assert not (racine / "atelier-echange" / "pr.txt").exists()
+
+
+# ------------------------------------------- un périmètre hors de l'arbre
+
+
+def test_un_perimetre_hors_de_l_arbre_retient_la_carte_avant_de_payer(tmp_path: Path):
+    """Sept briefs venus d'un autre dépôt nommaient `Assets/…` et `Tools/…`,
+    dossiers qui n'existent pas ici : le coder aurait dépensé deux tours
+    à les inventer avant que la carte tombe. On retient avant, et on dit."""
+    unity = BRIEF_SAIN.replace("# Brief 001", "# Brief 204").replace(
+        "`src/foo.py`", "`Assets/Materials/aged_bronze.mat`"
+    )
+    texte = _feuille(_fiche("204", "dette", "pret"), _fiche("046", "mer", "pret"))
+    racine = _produit(tmp_path, texte_feuille=texte, briefs={"204-dette": unity, "046-mer": _brief("046")})
+    f = feuille.lire(racine / "ROADMAP.md")
+    assert [d.lot for d in feuille.decider(f, racine)] == ["046-mer"]
+    assert feuille.etat_effectif(f.fiche("204"), f, racine) == (
+        "prêt, périmètre hors de l'arbre : Assets/Materials/aged_bronze.mat"
+    )
+    # Un fichier neuf dans un dossier qui existe n'est pas hors de l'arbre.
+    assert "hors de l'arbre" not in feuille.etat_effectif(f.fiche("046"), f, racine)
+
+
+def test_une_carte_relue_et_approuvee_attend_l_integration(tmp_path: Path):
+    racine = _produit(tmp_path)
+    _carte(racine, "faite", "046-mer", pr=12)
+    f = feuille.lire(racine / "ROADMAP.md")
+    assert feuille.etat_effectif(f.fiche("046"), f, racine) == "relu et approuvé (PR 12) — l'intégration fusionne"

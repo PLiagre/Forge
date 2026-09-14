@@ -27,6 +27,10 @@ on:
         options:
           - abandonne
           - idee
+          # Donner une direction : « on veut le brief maintenant ». C'est
+          # le seul geste du propriétaire qui alimente la chaîne, et il se
+          # fait d'ici, sans éditer le registre à la main.
+          - a-briefer
 
 # Le même verrou que l'intégration et que les demandes : ces trois-là
 # écrivent le registre, et deux numéros attribués en même temps sont deux

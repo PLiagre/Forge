@@ -128,8 +128,8 @@ En écriture : `docs/COHERENCE.md`, pour la matrice, les observations, les
 commandes exécutables et leurs résultats rattachés à la révision mesurée.
 
 Tout autre chemin est interdit, nommément : `VISION.md`, `AGENTS.md`,
-`sim/MODELE.md`, `docs/WORKFLOW.md`, `atelier.toml`, tout `sim/`, `viewer/`,
-`visualisateur/`, `outils/`, `.github/`, `data/`, et les autres briefs.
+`sim/MODELE.md`, `docs/WORKFLOW.md`, `atelier.toml`, tout `sim/`, `vues/tableau/`,
+`vues/relief/`, `outils/`, `.github/`, `data/`, et les autres briefs.
 La fiche 054 est tenue par la commande du registre, dans le périmètre
 implicite de la PR de lot ; aucun autre état ni aucune prose de la feuille
 de route ne change. Aucun test existant n'est modifié et aucun nouveau
@@ -167,7 +167,7 @@ document de référence n'est modifié pour faire passer ce contrôle.
 ```bash
 git rev-parse HEAD
 python3 --version
-python3 -m pytest sim/tests/ viewer/tests/ -q
+python3 -m pytest sim/tests/ vues/tableau/tests/ -q
 python3 -m sim --ticks 0 --seed 0 --json
 python3 -m sim --ticks 365 --seed 0 --json
 ```
@@ -182,12 +182,12 @@ Si la base avance, rejouer les preuves sur la nouvelle base avant livraison.
 ### SC3 — Les vues sont comparées à ce qu'elles lisent
 
 ```bash
-python3 -m pytest sim/tests/test_province.py viewer/tests/test_viewer_v0b.py -q
+python3 -m pytest sim/tests/test_province.py vues/tableau/tests/test_viewer_v0b.py -q
 python3 -m sim --ticks 20 --seed 0 --snapshot-json /tmp/fh-coherence.json
 ```
 
 Une sonde publiée dans le rapport compare sur ce snapshot les totaux
-effectivement lus par `viewer.snapshot_loader.agregats_monde` aux sommes
+effectivement lus par `vues.tableau.snapshot_loader.agregats_monde` aux sommes
 dérivées des cellules exportées, en nommant les champs comparés. Elle
 vérifie que le document contient des cellules et que chaque champ annoncé
 mesuré a des contributeurs. Un champ absent est rapporté absent, jamais
@@ -212,7 +212,7 @@ empreintes sont désignées par leur nom, jamais élevées au rang de constante.
 
 ```bash
 rg -n '^## |source :|mesure|partiel|absent|non_verifie' docs/COHERENCE.md
-rg -n 'class |def |stocks_mer|numero_tick' sim/ viewer/ visualisateur/
+rg -n 'class |def |stocks_mer|numero_tick' sim/ vues/tableau/ vues/relief/
 ```
 
 La relecture rejoue les recherches négatives exactes indiquées pour les
@@ -227,7 +227,7 @@ régénérée ni remplacée pour satisfaire une promesse historique.
 
 ```bash
 git diff --name-only origin/master
-git diff --exit-code origin/master -- sim/ viewer/ visualisateur/ outils/ data/ VISION.md AGENTS.md sim/MODELE.md atelier.toml .github/
+git diff --exit-code origin/master -- sim/ vues/tableau/ vues/relief/ outils/ data/ VISION.md AGENTS.md sim/MODELE.md atelier.toml .github/
 python3 -m atelier feuille valider --projet . --base origin/master
 ```
 
