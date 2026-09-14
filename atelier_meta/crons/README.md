@@ -13,45 +13,40 @@ donc elle qu'on installe sur le VPS — et c'est tout ce qu'on y installe.
 
 ---
 
-## Piloter le projet depuis le VPS, en cinq commandes
+## Tout installer, en une commande
+
+Sur le serveur :
 
 ```bash
-# 1. le dépôt et les arbres des rôles qui écrivent
-git clone git@github.com:PLiagre/Forge.git /srv/Forge
-git -C /srv/Forge worktree add -b atelier/coder   /srv/Forge-coder   master
-git -C /srv/Forge worktree add -b atelier/briefer /srv/Forge-briefer master
-
-# 2. l'atelier, là où le cron ira le chercher
-ln -s /srv/Forge/atelier_meta /opt/ForgeAtelier
-ln -s /opt/ForgeAtelier/crons/atelier-boucle ~/bin/atelier-boucle
-
-# 3. ce qu'on regarde avant d'armer — rien n'est lancé, rien n'est dépensé
-ATELIER_PROJET=/srv/Forge /opt/ForgeAtelier/crons/veille.sh
-
-# 4. la ligne que root pose une fois, et plus jamais
-sudo install -m 644 /opt/ForgeAtelier/crons/crontab-repartiteur \
-                    /etc/cron.d/forgeatelier
-
-# 5. la cadence, qui n'est qu'un fichier
-atelier-boucle jour
+git clone https://github.com/PLiagre/Forge.git /srv/Forge
+/srv/Forge/atelier_meta/crons/installer.sh
 ```
 
-À partir de là, tout se pilote sans `sudo` et sans toucher au cron :
+C'est tout. L'installateur pose les arbres des rôles, la configuration,
+le cron et la commande à taper, puis il démarre. Il se rejoue sans
+risque : ce qui est déjà là est laissé en place.
+
+La seule chose qu'il ne peut pas faire à ta place, c'est **connecter les
+agents** — une session s'ouvre à la main, une fois. Il te le dit à la
+fin, et seulement si ça manque.
+
+Ensuite, quatre commandes, et tu n'en tapes jamais d'autre :
 
 | commande | effet |
 |---|---|
-| `atelier-boucle jour` | la cadence réelle : treize réveils, de 07:00 à 21:30 |
-| `atelier-boucle atelier` | la boucle courte de banc : quatre rôles en quatre minutes, zéro quota |
-| `atelier-boucle arret` | plus aucun réveil ; attend le tour en vol au lieu de le couper |
-| `atelier-boucle etat` | le profil, depuis quand, le prochain réveil, ce qui tourne |
+| `atelier-boucle etat` | où ça en est : profil, prochain réveil, ce qui tourne |
+| `atelier-boucle arret` | tout arrêter. Attend le tour en cours au lieu de le couper |
+| `atelier-boucle jour` | repartir : treize réveils, de 07:00 à 21:30 |
+| `atelier-boucle atelier` | la boucle de banc : quatre rôles en quatre minutes, zéro quota |
 
-C'est le point de toute la conception. `/etc/cron.d/forgeatelier`
-appartient à root : tant qu'il portait les heures, changer de cadence
-demandait le propriétaire. Il n'appelle plus qu'un répartiteur, chaque
-minute ; le profil actif est un fichier que l'utilisateur écrit. **Ce
-qu'on ne peut pas désarmer seul, on ne l'arme pas.**
+Les journaux sont dans `~/.atelier/logs/`, un fichier par rôle.
 
----
+### Pourquoi ça ne demande jamais `sudo`
+
+Le cron est celui de ton compte, pas celui de root, et il ne porte
+qu'une ligne : « appelle le répartiteur, chaque minute ». Tout le reste —
+la cadence, l'arrêt, le redémarrage — est un fichier que tu écris.
+**Ce qu'on ne peut pas désarmer seul, on ne l'arme pas.**
 
 ## Le drapeau
 

@@ -15,6 +15,18 @@ atelier_defauts
 
 CRONTAB_SYSTEME="/etc/cron.d/forgeatelier"
 
+# Qui appelle le répartiteur ? Deux endroits possibles, et il faut
+# regarder les deux : root peut poser `/etc/cron.d/forgeatelier`, mais
+# l'installation ordinaire passe par le crontab de l'utilisateur —
+# justement pour n'avoir besoin de personne. N'en regarder qu'un seul
+# faisait crier une machine correctement installée, et une alerte qui
+# crie à tort est une alerte qu'on apprend à ignorer.
+un_cron_appelle_le_repartiteur() {
+  [[ -f "$CRONTAB_SYSTEME" ]] && return 0
+  command -v crontab >/dev/null 2>&1 || return 1
+  crontab -l 2>/dev/null | grep -q "repartiteur.sh"
+}
+
 # Les profils connus se lisent sur le disque : une liste écrite ici
 # serait une seconde liste à tenir, et elle finirait par mentir.
 usage() {
@@ -76,8 +88,9 @@ if [[ "$commande" == "etat" ]]; then
   # Un profil posé sans cron ne réveille personne. Le dire vaut mieux que
   # de laisser croire que ça tourne : quarante réveils à vide ont déjà
   # coûté deux jours, et c'était l'inverse — un cron sans travail.
-  if [[ ! -f "$CRONTAB_SYSTEME" ]]; then
-    printf '%-8s %s\n' "" "ATTENTION : $CRONTAB_SYSTEME est absent — aucun réveil ne part"
+  if ! un_cron_appelle_le_repartiteur; then
+    printf '%-8s %s\n' "" "ATTENTION : aucun cron n'appelle le répartiteur — aucun réveil ne part"
+    printf '%-8s %s\n' "" "          (crontab -l 2>/dev/null; echo \"* * * * * $CRONS/repartiteur.sh\") | crontab -"
   fi
   exit 0
 fi

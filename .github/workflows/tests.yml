@@ -134,10 +134,10 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install --upgrade pip pytest
       - name: Le harnais est lisible par shellcheck
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          cd atelier_meta/crons
-          shellcheck -x -s bash ./*.sh atelier-boucle profils/*.sh
+        # shellcheck est déjà sur l'image du runner : l'installer serait
+        # un appel réseau de plus, donc une panne de plus, pour rien.
+        run: shellcheck -x -s bash ./*.sh atelier-boucle profils/*.sh
+        working-directory: atelier_meta/crons
       - name: Les tests de l'atelier
         env:
           PYTHONPATH: ${{ github.workspace }}

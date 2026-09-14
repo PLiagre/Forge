@@ -22,9 +22,24 @@ crons_de() {
   cd -P "$(dirname "$source")" && pwd
 }
 
+# Ce que l'installateur a écrit sur cette machine : où est le dépôt, où
+# sont les arbres des rôles. Un seul fichier, lu par le cron comme par la
+# main qui tape une commande — sinon les deux divergent, et on débogue
+# une cadence qui marche dans un terminal et pas dans l'autre.
+#
+# Il n'écrase jamais ce que l'environnement pose déjà (`:=`) : c'est ce
+# qui laisse un banc ou un test rester maître de ses propres chemins.
+atelier_config() {
+  local fichier="${ATELIER_CONFIG:-$HOME/.atelier/config}"
+  # shellcheck source=/dev/null
+  [[ -f "$fichier" ]] && . "$fichier"
+  return 0
+}
+
 # Les quatre chemins que tout le monde lit. Aucun n'est créé ici :
 # regarder ne crée rien.
 atelier_defauts() {
+  atelier_config
   : "${ATELIER_ROOT:="$(dirname "$CRONS")"}"
   : "${ATELIER_ETAT:="$HOME/.atelier/etat"}"
   : "${ATELIER_VERROUS:="$HOME/.atelier/verrous"}"
