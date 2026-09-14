@@ -23,7 +23,7 @@ quoi la regarder. Les quatre conditions sont vertes.
 
 | # | condition | ce qui la prouve |
 |---|---|---|
-| **V1-1** | un dépôt, une chaîne | `atelier.toml` déclare six contrôles ; l'atelier vit dans l'arbre, plus sur une branche détachée ; un seul registre |
+| **V1-1** | un dépôt, une chaîne | `atelier.toml` déclare sept contrôles ; l'atelier vit dans l'arbre, plus sur une branche détachée ; un seul registre |
 | **V1-2** | une simulation qui ne s'effondre pas | plafond de survie **1,250** ; sur une année simulée la population passe de 36 969 739 à 38 330 077, soit **+3,7 %** |
 | **V1-3** | la carte de statistique | `python3 -m vues.relief --lecture population --carte carte.png` ; six lectures, quinze contrôles, aucun GPU requis |
 | **V1-4** | les trois vues sur un snapshot | `python3 -m forge` écrit `monde.json`, `carte.png`, `tableau.svg` et `planche.html` depuis **une** simulation |
@@ -132,19 +132,19 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 état : archive · couche : 1 · dépend de : — · PR : —
 note : livré par le commit de fondation, avant qu'aucune PR n'existe ici. Plafond de survie porté de 0,691 à 1,250 — c'est la condition V1-2. Son brief vit dans le dépôt d'origine, où il était resté orphelin.
 
-### [049 — Fabriquer : le minerai devient un objet](briefs/049-fabriquer-le-minerai-devient-un-objet.md)
-état : pret · couche : 2 · dépend de : — · PR : —
-note : le code de ce lot existe dans une PR de l'ancien dépôt ; il n'a pas été repris ici et reste à écrire.
-
-### [053 — Le monde porte sa date](briefs/053-le-monde-porte-sa-date.md)
-état : pret · couche : 1 · dépend de : — · PR : —
-
 ### [051 — Le snapshot photographie le bourg](briefs/051-le-snapshot-photographie-le-bourg.md)
 état : pret · couche : 2 · dépend de : — · PR : —
 note : la lecture « bourg » de la carte de statistique l'attend et refuse proprement en attendant.
 
 ### [052 — Le regard mince montre le bourg](briefs/052-le-regard-mince-montre-le-bourg.md)
 état : pret · couche : 2 · dépend de : 051 · PR : —
+
+### [049 — Fabriquer : le minerai devient un objet](briefs/049-fabriquer-le-minerai-devient-un-objet.md)
+état : pret · couche : 2 · dépend de : — · PR : —
+note : le code de ce lot existe dans une PR de l'ancien dépôt ; il n'a pas été repris ici et reste à écrire.
+
+### [053 — Le monde porte sa date](briefs/053-le-monde-porte-sa-date.md)
+état : pret · couche : 1 · dépend de : — · PR : —
 
 ### [054 — Cohérence globale : inventaire du produit face à la vision](briefs/054-coherence-globale-inventaire-produit-vision.md)
 état : pret · couche : — · dépend de : — · PR : —

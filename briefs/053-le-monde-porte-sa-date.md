@@ -132,7 +132,7 @@ Tout autre chemin est interdit, nommément : `sim/model.py`,
 `sim/aggregation.py`, `sim/snapshot_export.py`, `sim/MODELE.md`,
 `sim/tests/test_write_coverage.py`, `sim/tests/test_survie.py`,
 `sim/tests/test_commerce.py`, `sim/tests/test_province.py`,
-`sim/tests/test_no_hardcoded.py`, `data/`, `viewer/`, `visualisateur/`,
+`sim/tests/test_no_hardcoded.py`, `data/`, `vues/tableau/`, `vues/relief/`,
 `outils/`, `.github/`, `VISION.md`, `AGENTS.md`, `atelier.toml` et les
 autres briefs. La fiche 053 relève de l'outillage du registre ; aucune
 autre fiche ni prose de la feuille ne change. Aucun test existant n'est
@@ -210,9 +210,9 @@ Les nombres de ticks comparés sont non nuls et dérivés de la course.
 ### SC7 — La date ne change pas la physique ni le snapshot
 
 ```bash
-python3 -m pytest sim/tests/ viewer/tests/ -q
+python3 -m pytest sim/tests/ vues/tableau/tests/ -q
 python3 -m sim --ticks 20 --seed 0 --json
-git diff --exit-code origin/master -- sim/snapshot_export.py sim/model.py viewer/ data/
+git diff --exit-code origin/master -- sim/snapshot_export.py sim/model.py vues/tableau/ data/
 ```
 
 Comparer sur la base et après le lot une même course dans chacun des
