@@ -11,7 +11,7 @@ pilote` — il ne s'écrit pas à la main.
 ```text
 Installe l'atelier Forge sur ce serveur. Tâche unique, tu ne codes rien.
 
-1) git clone -b claude/remote-project-vps-control-ffe0f1 https://github.com/PLiagre/Forge.git /srv/Forge
+1) git clone https://github.com/PLiagre/Forge.git /srv/Forge
 Si /srv/Forge existe déjà : ne remplace rien, dis-le-moi, arrête-toi.
 
 2) /srv/Forge/atelier_meta/crons/installer.sh
