@@ -136,9 +136,13 @@ corps="# Écrit par crons/installer.sh. Rejoue-le pour le refaire.
 # GitHub refuse qu'un compte approuve sa propre PR.
 : \"\${ATELIER_RELIRE_TOKEN:=\$HOME/.atelier/relire.token}\"
 # L'adresse dont le coder et le briefer signent leurs commits : celle d'un
-# compte GitHub, sinon la relecture refuse « aucun auteur connu ».
-# ATELIER_GIT_EMAIL=
-# ATELIER_GIT_NOM=
+# compte GitHub, sinon la relecture refuse « aucun auteur connu ». Décommente
+# et renseigne. La forme « := » n'est pas un ornement : elle cède à
+# l'environnement, et c'est ce qui laisse un banc et un test rester maîtres
+# de leur propre identité.
+# : \"\${ATELIER_GIT_EMAIL:=toi@exemple.fr}\"
+# : \"\${ATELIER_GIT_NOM:=Ton Nom}\"
+# export ATELIER_GIT_EMAIL ATELIER_GIT_NOM
 export ATELIER_PROJET ATELIER_ROOT ATELIER_WORKDIR_coder ATELIER_WORKDIR_briefer
 export ATELIER_RELIRE_TOKEN
 "
