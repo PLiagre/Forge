@@ -446,6 +446,6 @@ DEFAULT_CLI_SEED = 0
 # --- Snapshot cellulaire ---
 # Photographie cellulaire déterministe ; le suffixe numéroté permet une
 # révision du contrat sans réutiliser le même nom.
-SNAPSHOT_SCHEMA_VERSION = "v0a-3"
+SNAPSHOT_SCHEMA_VERSION = "v0a-4"
 # Plus fin serait du bruit, plus gros écraserait des centroïdes voisins.
 SNAPSHOT_FLOAT_DECIMALS = 6

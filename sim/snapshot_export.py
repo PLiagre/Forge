@@ -1,8 +1,8 @@
-"""Photographie déterministe du monde déjà simulé (schéma v0a-3).
+"""Photographie déterministe du monde déjà simulé (schéma v0a-4).
 
 Ce module ne recalcule aucune mécanique. Il joint ce que porte la carte
-figée (géométrie, relief, climat, gisements) à la province dérivée et à
-l'état que le moteur fait évoluer.
+figée (géométrie, relief, climat, gisements) à la province dérivée, à la
+répartition bourg / campagne dérivée, et à l'état que le moteur fait évoluer.
 
 Une seule entrée géographique, `data/world-1400.json`, déjà
 chargée par le monde. Ce module ne lit plus aucun artefact de pipeline.
@@ -23,6 +23,7 @@ from typing import Any, Optional
 from sim.aggregation import (
     PositionCelluleInconnue,
     agregat_depuis_monde,
+    bourg_depuis_monde,
     identifiant_de_province_de_cellule,
     nom_de_province_de_cellule,
 )
@@ -169,6 +170,15 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
     except PositionCelluleInconnue as exc:
         raise SnapshotExportError(str(exc)) from exc
 
+    repartitions_bourg = bourg_depuis_monde(world)
+    bourg_par_cellule = {
+        repartition.cell_id: {
+            "habitants_du_bourg": repartition.habitants_du_bourg,
+            "habitants_des_champs": repartition.habitants_des_champs,
+        }
+        for repartition in repartitions_bourg
+    }
+
     cells_out = []
     for cell_id, cell in sorted(world.cells.items(), key=lambda item: int(item[0])):
         cid = int(cell_id)
@@ -194,6 +204,7 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
         cells_out.append(
             {
                 "area_km2": cell.area_km2,
+                "bourg": bourg_par_cellule[cid],
                 "cell_id": cid,
                 "centroid": centroid,
                 "climat": raw.get("climat"),

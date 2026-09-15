@@ -28,9 +28,12 @@ from sim.__main__ import run
 from sim.constants import DEFAULT_CLI_SEED
 _REPO = Path(__file__).resolve().parents[2]
 import hashlib
+import copy
 from sim.aggregation import (
     agregat_depuis_monde,
+    bourg_depuis_monde,
     identifiant_de_province_de_cellule,
+    repartitions_avec_bourg,
 )
 from sim.constants import SNAPSHOT_SCHEMA_VERSION
 from sim.snapshot_export import build_snapshot_document, serialize_snapshot
@@ -48,6 +51,7 @@ _ROOT_KEYS = {
 _CELL_KEYS = {
     "cell_id",
     "area_km2",
+    "bourg",
     "geometry",
     "centroid",
     "population",
@@ -232,6 +236,182 @@ def test_province_recalculee_pas_stockee():
     for cell in doc["cells"]:
         attendu = identifiant_de_province_de_cellule(cell["cell_id"], regroupements)
         assert cell["province"]["id"] == attendu
+
+
+def _schema_version_master() -> str:
+    """Numéro de schéma lu sur master, jamais recopié depuis le brief."""
+    texte = _texte_master("sim/constants.py")
+    for ligne in texte.splitlines():
+        if ligne.startswith("SNAPSHOT_SCHEMA_VERSION"):
+            _, _, valeur = ligne.partition("=")
+            return valeur.strip().strip('"').strip("'")
+    pytest.fail("SNAPSHOT_SCHEMA_VERSION introuvable sur master")
+
+
+def _normaliser_nom_fonction(nom: str) -> str:
+    return nom.lower().replace("_", "")
+
+
+def _snapshot_export_viole_sc5(source: str) -> bool:
+    """True si le module du snapshot duplique la part non agricole (SC5)."""
+    noms_interdits = {"part_miniere_de", "facteurs_richesse_extraction"}
+    arbre = ast.parse(source, filename="sim/snapshot_export.py")
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.FunctionDef):
+            if "bourg" in _normaliser_nom_fonction(noeud.name):
+                return True
+        if isinstance(noeud, ast.Attribute) and noeud.attr in noms_interdits:
+            return True
+        if isinstance(noeud, ast.Name) and noeud.id in noms_interdits:
+            return True
+    return False
+
+
+def _build_snapshot_document_comme_master(world, seed: int, tick: int) -> dict:
+    """Rejoue build_snapshot_document tel que master l'exportait."""
+    from sim import constants as _c
+
+    version_courante = _c.SNAPSHOT_SCHEMA_VERSION
+    _c.SNAPSHOT_SCHEMA_VERSION = _schema_version_master()
+    try:
+        ns: dict = {}
+        exec(
+            compile(_texte_master("sim/snapshot_export.py"), "snapshot_master", "exec"),
+            ns,
+        )
+        return ns["build_snapshot_document"](world, seed, tick)
+    finally:
+        _c.SNAPSHOT_SCHEMA_VERSION = version_courante
+
+
+def _monde_apres_ticks(seed: int, ticks: int):
+    import random
+
+    from sim.engine import tick as moteur_tick
+
+    world = World.charger(seed)
+    rng = random.Random(seed)
+    for _ in range(ticks):
+        moteur_tick(world, rng)
+    return world
+
+
+def test_snapshot_bourg_recalcule_depuis_aggregation():
+    """SC1 — cell['bourg'] recopié depuis bourg_depuis_monde, jamais stocké."""
+    world = World.charger(0)
+    doc = build_snapshot_document(world, 0, 0)
+    repartitions = bourg_depuis_monde(world)
+    par_cellule = {repartition.cell_id: repartition for repartition in repartitions}
+    cellules_comparees = len(doc["cells"])
+    assert cellules_comparees > 0, "échantillon vide : aucune cellule comparée"
+    assert cellules_comparees == len(repartitions)
+
+    for cell in doc["cells"]:
+        attendu = par_cellule[cell["cell_id"]]
+        assert cell["bourg"]["habitants_du_bourg"] == attendu.habitants_du_bourg
+        assert cell["bourg"]["habitants_des_champs"] == attendu.habitants_des_champs
+
+
+def test_snapshot_schema_version_bourg():
+    """SC2 — le schéma a bougé sur master, et le document porte la version courante."""
+    version_master = _schema_version_master()
+    assert SNAPSHOT_SCHEMA_VERSION != version_master, (
+        "master porte déjà la même version : le contrôle ne distingue rien"
+    )
+    world = World.charger(0)
+    doc = build_snapshot_document(world, 0, 0)
+    assert doc["schema_version"] == SNAPSHOT_SCHEMA_VERSION
+
+
+def test_snapshot_bourg_somme_egale_population():
+    """SC3 — habitants_du_bourg + habitants_des_champs == population dans le document."""
+    world = World.charger(0)
+    doc = build_snapshot_document(world, 0, 0)
+    cellules = doc["cells"]
+    assert cellules, "échantillon vide : aucune cellule dans le document"
+    ecarts = sum(
+        1
+        for cell in cellules
+        if cell["bourg"]["habitants_du_bourg"] + cell["bourg"]["habitants_des_champs"]
+        != cell["population"]
+    )
+    print(f"ecarts_somme_bourg = {ecarts} / {len(cellules)}")
+    assert ecarts == 0
+
+
+def test_snapshot_bourg_echantillon_non_vide():
+    """SC4 — au moins une cellule compte un bourg non nul, comme la vue 047."""
+    world = World.charger(0)
+    doc = build_snapshot_document(world, 0, 0)
+    repartitions = bourg_depuis_monde(world)
+    dans_doc = sum(
+        1 for cell in doc["cells"] if cell["bourg"]["habitants_du_bourg"] > 0
+    )
+    attendu = len(repartitions_avec_bourg(repartitions))
+    print(
+        f"cellules_avec_bourg_doc = {dans_doc} / attendu_vue = {attendu} "
+        f"/ {len(doc['cells'])} cellules"
+    )
+    assert attendu > 0, "échantillon vide : la vue 047 ne compte aucun bourg"
+    assert dans_doc == attendu
+
+
+def test_snapshot_bourg_une_seule_voie_lecture():
+    """SC5 — snapshot_export ne recalcule pas la part non agricole."""
+    chemin = pathlib.Path(__file__).parent.parent / "snapshot_export.py"
+    source = chemin.read_text(encoding="utf-8")
+    assert not _snapshot_export_viole_sc5(source), (
+        "sim/snapshot_export.py duplique la part non agricole ou définit un bourg local"
+    )
+    source_epreuve = source + "\n_ = part_miniere_de\n"
+    assert _snapshot_export_viole_sc5(source_epreuve), (
+        "le contrôle ne rougit pas sur une référence d'épreuve à part_miniere_de"
+    )
+
+
+def test_snapshot_jointure_bourg_seule_difference():
+    """SC6 — hors bourg et version, le snapshot est celui de master."""
+    from sim import constants as _c
+
+    ticks = _c.CALENDAR_DAYS_PER_YEAR // _c.TICK_DURATION_DAYS
+    assert ticks > 0
+    world = _monde_apres_ticks(DEFAULT_CLI_SEED, ticks)
+    doc_apres = build_snapshot_document(world, DEFAULT_CLI_SEED, ticks)
+    doc_avant = _build_snapshot_document_comme_master(
+        world, DEFAULT_CLI_SEED, ticks
+    )
+    doc_restaure = copy.deepcopy(doc_apres)
+    doc_restaure["schema_version"] = _schema_version_master()
+    for cell in doc_restaure["cells"]:
+        del cell["bourg"]
+    empreinte_restauree = _sha(serialize_snapshot(doc_restaure))
+    empreinte_avant = _sha(serialize_snapshot(doc_avant))
+    print(f"empreinte_restauree={empreinte_restauree}")
+    print(f"empreinte_avant={empreinte_avant}")
+    assert empreinte_restauree == empreinte_avant
+
+
+def test_sim_json_inchange_hors_snapshot():
+    """SC6 — le résumé --json ne passe pas par snapshot_export ; il reste celui de master."""
+    fichiers_inchanges = (
+        "sim/__main__.py",
+        "sim/engine.py",
+        "sim/model.py",
+        "sim/world.py",
+        "sim/aggregation.py",
+    )
+    for relatif in fichiers_inchanges:
+        assert (_REPO_ROOT / relatif).read_text(encoding="utf-8") == _texte_master(
+            relatif
+        ), f"{relatif} diffère de master : le résumé --json aurait pu bouger"
+    proc = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "365", "--seed", "0", "--json"],
+        cwd=_REPO,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.stdout
 
 
 # --- test_snapshot_v0a.py ---
