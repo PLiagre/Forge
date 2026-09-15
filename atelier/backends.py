@@ -330,9 +330,12 @@ def prompt_du_role(
     # sur une approbation posée par un tiers — attendait pour toujours.
     if pr:
         revue = (
+            f" Lis d'abord `gh pr checks {pr}`. Si un contrôle y est en échec, "
+            "la PR ne peut pas entrer, quel que soit le diff : demande des "
+            "changements en nommant ce contrôle et l'erreur qui le fait rougir."
             f" Termine par UNE revue GitHub sur la PR {pr}, et rien d'autre : "
-            f"`gh pr review {pr} --approve --body '<ton avis>'` si le diff reste "
-            "dans le périmètre, si chaque condition de succès est mesurée par un "
+            f"`gh pr review {pr} --approve --body '<ton avis>'` si aucun contrôle "
+            "n'est en échec, si le diff reste dans le périmètre, si chaque condition de succès est mesurée par un "
             "contrôle qui peut rougir et si aucun test existant n'a été modifié ; "
             f"sinon `gh pr review {pr} --request-changes --body '<tes constats, "
             "du plus grave au plus léger, avec fichier et ligne>'`. Un avis qui "
