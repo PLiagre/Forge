@@ -35,6 +35,11 @@ class Backend:
     # ce mode, `-p` s'arrête à la première, et le réveil de 07:00 ne
     # rend rien sans dire pourquoi. `None` = ce binaire n'en a pas.
     permission: str | None = None
+    # Le drapeau qui déclare l'arbre de travail digne de confiance. Même
+    # raison que le mode de permission, autre question : celle-ci porte
+    # sur le répertoire, pas sur les outils. `None` = ce binaire ne
+    # demande rien.
+    confiance: str | None = None
     # Le drapeau qui nomme les outils qu'une session sans terminal a le
     # droit d'employer. Le mode de permission ne suffit pas : sans cette
     # liste, `-p` refuse chaque commande en silence — le briefer sort sans
@@ -59,6 +64,11 @@ POSTES = {
         role="execution",
         abo="cursor-pro",
         modeles={"planifier": "cursor-grok-4.6", "coder": "composer-2.5"},
+        # `--trust` déclare le répertoire, et rien de plus. `--force` et
+        # son alias `--yolo` autorisent en bloc toutes les commandes :
+        # ce qui borne ce lot est son périmètre et son verrou, pas une
+        # permission ouverte qu'on ne se souviendrait pas d'avoir donnée.
+        confiance="--trust",
     ),
     # Codex et Hermes tirent le même quota hebdomadaire ChatGPT : un
     # relecteur Codex n'est pas un quatrième abonnement.
@@ -367,6 +377,8 @@ def argv_du_role(
         argv += ["--model", modele]
     if backend.permission:
         argv += ["--permission-mode", backend.permission]
+    if backend.confiance:
+        argv.append(backend.confiance)
     permis = OUTILS_PERMIS_PAR_ROLE.get(role)
     if backend.outils_permis and permis:
         argv += [backend.outils_permis, permis]
