@@ -348,3 +348,48 @@ def test_un_binaire_qui_ne_demarre_pas_n_est_pas_un_binaire_present(tmp_path: Pa
     assert "FAIL  claude — présent mais il ne démarre pas" in sortie, sortie
     # Un binaire sain, lui, ne rougit pas : le contrôle distingue les deux.
     assert "FAIL  agent" not in sortie
+
+
+# --------------------------------------- le profil pose le chemin et l'heure
+
+
+@besoin_bash
+def test_le_profil_du_jour_met_les_agents_sur_le_chemin(tmp_path: Path):
+    """Le PATH de cron vaut `/usr/bin:/bin`, et aucun agent n'y vit. Le
+    15 septembre 2026, le crontab de root — seul porteur du PATH — a été
+    retiré : le coder a rendu 127 sur un lot sain. Un profil pose son
+    environnement ; il ne l'emprunte pas à une ligne que personne ne relit."""
+    faux_home = tmp_path / "home"
+    (faux_home / ".local" / "bin").mkdir(parents=True)
+    corps = f'source "{PROFILS}/jour.sh"; printf "%s" "$PATH"'
+    r = subprocess.run(
+        ["env", "-i", f"HOME={faux_home}", "PATH=/usr/bin:/bin", "bash", "-c", corps],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.split(":")[0] == f"{faux_home}/.local/bin", r.stdout
+    # Rejoué, il ne se recopie pas : un PATH qui enfle à chaque tour finit
+    # par coûter plus cher à lire qu'à poser.
+    deux = subprocess.run(
+        ["env", "-i", f"HOME={faux_home}", "PATH=/usr/bin:/bin", "bash", "-c",
+         f'source "{PROFILS}/jour.sh"; source "{PROFILS}/jour.sh"; printf "%s" "$PATH"'],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert deux.stdout.count(f"{faux_home}/.local/bin") == 1, deux.stdout
+
+
+@besoin_bash
+def test_le_profil_du_jour_dit_lui_meme_son_fuseau():
+    """Les heures du registre sont celles de Paris. Un terminal en UTC
+    annonçait le prochain réveil avec deux heures d'écart — sur la seule
+    ligne d'état que le propriétaire regarde."""
+    corps = f'source "{PROFILS}/jour.sh"; printf "%s" "$TZ"'
+    r = subprocess.run(["env", "-i", f"HOME={Path.home()}", "PATH=/usr/bin:/bin",
+                        "TZ=UTC", "bash", "-c", corps],
+                       capture_output=True, text=True, timeout=60)
+    # Un fuseau posé par l'appelant gagne : un banc reste maître chez lui.
+    assert r.stdout == "UTC", r.stdout
+    sans = subprocess.run(["env", "-i", f"HOME={Path.home()}", "PATH=/usr/bin:/bin",
+                           "bash", "-c", corps],
+                          capture_output=True, text=True, timeout=60)
+    assert sans.stdout == "Europe/Paris", sans.stdout

@@ -215,7 +215,19 @@ atelier-boucle jour         # revenir au vrai
    session. `ANTHROPIC_API_KEY`, `CURSOR_API_KEY` et `OPENAI_API_KEY`
    sont retirés avant chaque invocation, et un test le mesure.
 
-## Le fuseau
+## Le chemin et le fuseau
+
+Le profil pose les deux, et c'est le seul endroit qui les pose.
+
+`PATH` d'abord : celui de cron vaut `/usr/bin:/bin`, et les agents
+vivent dans `~/.local/bin`. Le 15 septembre 2026, le crontab de root a
+été retiré parce qu'il faisait double emploi ; il portait seul le
+`PATH`. Le coder de 07:30 a rendu 127 sur un lot parfaitement sain, et
+la veille de 06:45 l'avait annoncé une heure plus tôt. Un profil pose
+son environnement ; il ne l'emprunte pas à une ligne que personne ne
+relit.
+
+`TZ` ensuite, et les deux cèdent à ce que l'appelant a déjà posé.
 
 Les heures du registre sont celles de Paris ; les champs d'un crontab
 sont lus en UTC. La forme directe arme donc chaque ligne aux **deux**
