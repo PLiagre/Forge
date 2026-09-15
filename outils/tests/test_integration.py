@@ -417,3 +417,36 @@ def test_chacun_des_controles_declares_reste_obligatoire_apres_le_rejeu():
             decision = integration.examiner(pr(controles=controles), requis, PREFIXES)
             assert decision.action == integration.RIEN, nom
     assert integration.examiner(pr(controles=verts(*requis)), requis, PREFIXES).action == integration.FUSIONNER
+
+
+def test_un_travail_qui_lit_les_controles_a_le_droit_de_les_lire():
+    """Le 15 septembre 2026, `integration.yml` ne déclarait ni `checks: read`
+    ni `statuses: read`. Le premier lot arrivé à la porte a fait lire ses
+    contrôles : 403, `outils integration` est mort, et plus rien ne pouvait
+    entrer dans master. Tant qu'aucun lot n'y arrivait, chaque tour
+    répondait RIEN avant d'avoir à lire : la panne existait sans se voir.
+
+    La référence se dérive des travaux eux-mêmes : tout travail qui appelle,
+    directement ou par un script, une commande d'`outils` qui lit les
+    contrôles d'une révision déclare les deux droits.
+    """
+    import re
+    from pathlib import Path
+
+    racine = Path(__file__).resolve().parents[2]
+    lecteurs = ("outils integration", "outils controles", "outils tableau")
+    examines = []
+    for fichier in sorted((racine / ".github" / "workflows").glob("*.yml")):
+        texte = fichier.read_text(encoding="utf-8")
+        joue = texte + "".join(
+            (racine / ".github" / "scripts" / script).read_text(encoding="utf-8")
+            for script in re.findall(r"\.github/scripts/([\w-]+\.sh)", texte)
+        )
+        if not any(lecteur in joue for lecteur in lecteurs):
+            continue
+        examines.append(fichier.name)
+        for droit in ("checks: read", "statuses: read"):
+            assert droit in texte, f"{fichier.name} lit les contrôles sans « {droit} »"
+    # Un échantillon vide ne prouve rien : si plus aucun travail ne lit les
+    # contrôles, c'est la liste des lecteurs qu'il faut regarder.
+    assert {"integration.yml", "controles.yml"} <= set(examines), examines
