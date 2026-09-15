@@ -9,6 +9,30 @@
 # Deux heures séparent deux tours du même rôle — c'est ce délai qui
 # tient lieu d'horloge de reprise quand une carte retombe.
 
+# Le chemin des agents, et l'heure de la cadence. Les deux vivent ici
+# parce qu'un profil pose l'environnement, et qu'ils ne peuvent pas
+# dépendre d'une ligne de crontab que personne ne relit.
+#
+# Mesuré le 15 septembre 2026 : le crontab de root, retiré parce qu'il
+# faisait double emploi, portait seul le PATH. Celui de cron vaut
+# /usr/bin:/bin, où aucun agent ne vit. Le réveil de 07:30 a lancé le
+# coder, le shell n'a pas trouvé `agent`, et le tour a rendu 127 sur un
+# lot parfaitement sain. La veille de 06:45 l'avait dit une heure plus
+# tôt : « binaire agent — introuvable dans le PATH ».
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) : ;;
+  *) PATH="$HOME/.local/bin:$PATH" ;;
+esac
+export PATH
+
+# Les heures du registre sont celles de Paris. Le répartiteur et
+# `atelier-boucle etat` sourcent ce fichier avant de lire l'heure : la
+# cadence dit donc elle-même son fuseau, au lieu de l'emprunter au
+# crontab. Sans cette ligne, un terminal en UTC annonce le prochain
+# réveil avec deux heures d'écart — et c'est la seule ligne d'état que
+# le propriétaire regarde.
+export TZ="${TZ:-Europe/Paris}"
+
 # Le défaut est dans le home, jamais sous /srv : un chemin qui exige
 # root pour être créé n'est pas un défaut, c'est une panne qui attend.
 # `installer.sh` écrit les vrais chemins dans ~/.atelier/config, et la
