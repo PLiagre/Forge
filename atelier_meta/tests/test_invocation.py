@@ -118,6 +118,13 @@ def _env(projet: Path, faux: Path, verrous: Path, **extra: str) -> dict[str, str
     env["ATELIER_PROJET"] = str(projet)
     env["ATELIER_ROOT"] = str(RACINE)
     env["ATELIER_VERROUS"] = str(verrous)
+    # Le rapport de veille va dans le bac à sable du test. Sans cette
+    # ligne il atterrit dans `~/.atelier/veille.txt`, celui de la vraie
+    # machine : le 15 septembre 2026, une suite de tests a écrasé le
+    # rapport du matin, et la ligne d'état a annoncé « rien à signaler »
+    # sur un produit qui n'existait que dans /tmp. Un test qui écrit dans
+    # l'état de production ne prouve rien et efface une mesure.
+    env["ATELIER_VEILLE"] = str(verrous.parent / "veille-du-test.txt")
     env["ATELIER_INVOQUER"] = "0"
     env.pop("ANTHROPIC_API_KEY", None)
     env.pop("CURSOR_API_KEY", None)
@@ -821,3 +828,44 @@ def test_sans_console_le_pilote_depose_et_n_appelle_personne(tmp_path: Path):
     assert "déposé" in r.stdout and "044-mineur" in r.stdout
     assert _boite_de(projet, "a-coder") == ["044-mineur"]
     assert not temoin.exists()
+
+
+# ------------------------------------------- l'arbre de travail est déclaré
+
+
+def test_cursor_declare_son_arbre_sans_tout_autoriser():
+    """Le 15 septembre 2026, Cursor a demandé « Do you trust the contents of
+    this directory? » à un cron qui n'a personne pour répondre. Le tour a
+    rendu 1, deux fois, et la carte a été parquée. `--trust` répond à cette
+    question-là ; `--force` et `--yolo` répondent à une autre, bien plus
+    large, qu'on ne nous a pas posée."""
+    for role in ("coder", "planifier"):
+        argv = backends.argv_du_role(
+            role, roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+            projet="/produit",
+        )
+        assert "--trust" in argv, argv
+        assert "--force" not in argv and "--yolo" not in argv, argv
+
+
+def test_claude_ne_recoit_pas_le_drapeau_de_cursor():
+    """Un drapeau se déclare par binaire, jamais par habitude : Claude
+    n'a pas d'arbre à déclarer, et un drapeau inconnu le ferait sortir."""
+    for role in ("briefer", "relire"):
+        argv = backends.argv_du_role(
+            role, roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+            projet="/produit",
+        )
+        assert "--trust" not in argv, argv
+
+
+@besoin_bash
+def test_le_tour_du_coder_passe_le_drapeau_a_l_agent(tmp_path: Path):
+    projet = _projet(tmp_path)
+    _carte(projet)
+    faux, verrous = tmp_path / "bin", tmp_path / "verrous"
+    temoin = tmp_path / "temoin.txt"
+    _mouchard(faux, "agent", temoin, pr=44)
+    r = _tour("coder", _coder_env(projet, faux, verrous, tmp_path, ATELIER_INVOQUER="1"))
+    assert r.returncode == 0, r.stderr
+    assert "--trust" in temoin.read_text(encoding="utf-8")
