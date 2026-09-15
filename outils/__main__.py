@@ -68,11 +68,17 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integr
     minimale = integration.depuis_github(brut)
     if minimale.brouillon or not integration.integree(minimale.branche, prefixes):
         return minimale
+    # Un préfixe ne prouve pas une origine. La tête doit vivre dans ce dépôt,
+    # et `demandes.interne` le dit pour les demandes de lot comme ici : un
+    # seul prédicat, deux appelants. Une origine illisible vaut une fourche,
+    # et une fourche ne coûte aucun appel de plus.
+    if not demandes.interne(gh, brut):
+        return integration.depuis_github(brut, interne=False)
     detail = gh.get(f"pulls/{brut['number']}")
     sha = detail["head"]["sha"]
     return integration.depuis_github(
         brut, detail, github.controles(gh, sha), github.retard(gh, base, sha),
-        _verdict(gh, brut["number"], sha),
+        _verdict(gh, brut["number"], sha), interne=True,
     )
 
 

@@ -69,6 +69,8 @@ def test_une_pr_integrable_demande_le_detail():
     from outils.__main__ import _pr_integrable
 
     class Faux:
+        depot = "O/R"
+
         def __init__(self):
             self.appels = []
 
@@ -98,7 +100,8 @@ def test_une_pr_integrable_demande_le_detail():
     faux = Faux()
     obtenu = _pr_integrable(
         faux,
-        {"number": 200, "head": {"ref": "agent/049-x"}, "draft": False},
+        {"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}},
+         "draft": False},
         "master",
         ("agent/",),
     )
@@ -111,6 +114,8 @@ def test_une_pr_integrable_demande_le_detail():
 
 class _GithubDecision:
     """GitHub de banc pour la ligne que le workflow découpe."""
+
+    depot = "O/R"
 
     def __init__(self, bruts, detail, behind_by, check_runs):
         self.bruts = bruts
@@ -125,7 +130,8 @@ class _GithubDecision:
             return [{"author": {"login": "auteur"}, "committer": None}]
         if chemin.endswith("/reviews"):
             return [{"user": {"login": "tiers"}, "state": "APPROVED",
-                     "commit_id": self.detail["head"]["sha"]}]
+                     "commit_id": self.detail["head"]["sha"],
+                     "author_association": "COLLABORATOR"}]
         raise AssertionError(chemin)
 
     def get(self, chemin, **_k):
@@ -171,7 +177,8 @@ def test_cli_integration_imprime_fusionner_puis_le_numero(tmp_path, monkeypatch,
     code, io = _cli_integration(
         tmp_path, monkeypatch, capsys,
         _GithubDecision(
-            [{"number": 200, "head": {"ref": "agent/049-x"}, "draft": False}],
+            [{"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}},
+              "draft": False}],
             {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True},
             0,
             verts,
@@ -194,7 +201,8 @@ def test_cli_integration_imprime_rebaser_avant_la_relecture(tmp_path, monkeypatc
     code, io = _cli_integration(
         tmp_path, monkeypatch, capsys,
         _GithubDecision(
-            [{"number": 200, "head": {"ref": "agent/049-x"}, "draft": False}],
+            [{"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}},
+              "draft": False}],
             {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True},
             3,
             sans_relecture,
@@ -450,3 +458,68 @@ def test_un_travail_qui_lit_les_controles_a_le_droit_de_les_lire():
     # Un échantillon vide ne prouve rien : si plus aucun travail ne lit les
     # contrôles, c'est la liste des lecteurs qu'il faut regarder.
     assert {"integration.yml", "controles.yml"} <= set(examines), examines
+
+
+# ------------------------------------------------ une fourche n'entre pas
+
+
+def test_une_pr_venue_d_une_fourche_ne_se_fusionne_pas():
+    """Sur un dépôt public, n'importe qui ouvre une PR depuis sa copie, et
+    choisit le nom de sa branche. Un préfixe `agent/` ne dit rien de l'origine :
+    tout vert et approuvée, une fourche attend quand même le propriétaire."""
+    decision = integration.examiner(pr(interne=False), REQUIS, PREFIXES)
+    assert decision.action == integration.RIEN
+    assert "fourche" in decision.raison
+    assert integration.examiner(pr(interne=True), REQUIS, PREFIXES).action == integration.FUSIONNER
+
+
+class _GithubOrigine:
+    """Un GitHub de banc qui compte ses appels : une fourche ne coûte rien."""
+
+    depot = "O/R"
+
+    def __init__(self):
+        self.appels = []
+
+    def get(self, chemin, **_):
+        self.appels.append(chemin)
+        if chemin.startswith("pulls/"):
+            return {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True}
+        if "check-runs" in chemin:
+            return {"check_runs": []}
+        if "status" in chemin:
+            return {"statuses": []}
+        if chemin.startswith("compare/"):
+            return {"behind_by": 0}
+        raise AssertionError(chemin)
+
+    def liste(self, chemin, **_):
+        self.appels.append(chemin)
+        if chemin.endswith("/commits"):
+            return [{"author": {"login": "auteur"}, "committer": None}]
+        if chemin.endswith("/reviews"):
+            return []
+        raise AssertionError(chemin)
+
+
+@pytest.mark.parametrize("repo, attendu", [
+    ({"full_name": "O/R"}, True),
+    ({"full_name": "o/r"}, True),
+    ({"full_name": "intrus/R"}, False),
+    (None, False),
+    ("absent", False),
+])
+def test_la_couture_github_pose_toujours_l_origine(repo, attendu):
+    """`repo: null` est une fourche supprimée ; une clé absente ne se devine
+    pas. Dans les deux cas, l'origine vaut une fourche, et rien n'est lu."""
+    from outils.__main__ import _pr_integrable
+
+    tete = {"ref": "agent/049-x"}
+    if repo != "absent":
+        tete["repo"] = repo
+    faux = _GithubOrigine()
+    obtenu = _pr_integrable(faux, {"number": 200, "head": tete, "draft": False},
+                            "master", ("agent/",))
+    assert obtenu.interne is attendu
+    if not attendu:
+        assert faux.appels == [], "une fourche a coûté des appels"
