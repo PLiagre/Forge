@@ -292,7 +292,7 @@ with open(sys.argv[1], "rb") as f:
         else
           # `gh pr checks` rend 1 quand un contrôle échoue : sous `pipefail`,
           # sans ce `|| true`, c'est le constat lui-même qui tuerait le tour.
-          rouges="$( { cd "$workdir" && gh pr checks "$pr_carte" 2>/dev/null || true; } \
+          rouges="$( ( cd "$workdir" || exit 0; gh pr checks "$pr_carte" 2>/dev/null || true ) \
             | awk -F'\t' -v requis=" $requis " '$2 == "fail" && index(requis, " " $1 " ") { print $1 }' \
             | sort -u | tr '\n' ' ')"
           rouges="${rouges% }"
