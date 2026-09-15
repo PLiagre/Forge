@@ -869,3 +869,76 @@ def test_le_tour_du_coder_passe_le_drapeau_a_l_agent(tmp_path: Path):
     r = _tour("coder", _coder_env(projet, faux, verrous, tmp_path, ATELIER_INVOQUER="1"))
     assert r.returncode == 0, r.stderr
     assert "--trust" in temoin.read_text(encoding="utf-8")
+
+
+# ----------------------------------------- une approbation sur une PR rouge
+
+
+def _faux_gh_avec_controles(dossier: Path, temoin: Path, verdict: str, controles: str) -> Path:
+    """Un GitHub de banc : une revue, et une table de contrôles au format de
+    `gh pr checks`. Comme le vrai, il rend 1 quand un contrôle échoue."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    table = dossier / "controles.txt"
+    table.write_text(controles, encoding="utf-8")
+    return _faux(
+        dossier, "gh",
+        f'printf "gh %s\\n" "$*" >> "{temoin}"\n'
+        'case "$*" in\n'
+        f'  *"--json reviews"*) printf "%s\\n" "{verdict}" ;;\n'
+        f'  *"pr checks"*) cat "{table}"; exit 1 ;;\n'
+        "esac\n"
+        "exit 0\n",
+    )
+
+
+def _relire_avec_ci(projet: Path, tmp_path: Path, controles: str):
+    toml = projet / "atelier.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8")
+        + '\n[integration]\ncontroles = ["sim", "vues", "feuille"]\nbranches = ["agent/"]\n',
+        encoding="utf-8",
+    )
+    faux, verrous, temoin = tmp_path / "bin", tmp_path / "verrous", tmp_path / "temoin.txt"
+    _carte(projet, "a-relire", pr=44)
+    _mouchard(faux, "claude", temoin)
+    _faux_gh_avec_controles(faux, temoin, "APPROVED", controles)
+    jeton = tmp_path / "relire.token"
+    jeton.write_text("ghp_relecteur\n", encoding="utf-8")
+    env = _env(projet, faux, verrous, ATELIER_INVOQUER="1", ATELIER_SANS_PULL="1",
+               ATELIER_RELIRE_TOKEN=str(jeton))
+    return _tour("relire", env)
+
+
+@besoin_bash
+def test_une_approbation_sur_une_pr_rouge_fait_tomber_la_carte(tmp_path: Path):
+    """Le 15 septembre 2026, le relecteur a approuvé la PR 12 alors que
+    `vues` était rouge. L'intégration a tenu bon, mais la carte dormait dans
+    `faite` en annonçant une fusion qui n'arriverait jamais."""
+    projet = _projet(tmp_path)
+    r = _relire_avec_ci(projet, tmp_path,
+                        "sim\tpass\t1m\thttps://x\nvues\tfail\t2m\thttps://x\n")
+    assert r.returncode == 1
+    assert _boite_de(projet, "faite") == []
+    (carte,) = boite.lister(projet, "echec")
+    assert carte.cause == "relecture"
+    assert "vues" in carte.note and "PR 44" in carte.note
+
+
+@besoin_bash
+def test_un_controle_rouge_que_le_produit_n_exige_pas_ne_retient_rien(tmp_path: Path):
+    """La liste vient du branchement. Un travail rouge qui n'est pas requis —
+    l'intégration elle-même, l'état de relecture — n'arrête pas la carte."""
+    projet = _projet(tmp_path)
+    r = _relire_avec_ci(projet, tmp_path,
+                        "sim\tpass\t1m\thttps://x\nvues\tpass\t2m\thttps://x\n"
+                        "integrer\tfail\t7s\thttps://x\nrelecture\tfail\t1s\thttps://x\n")
+    assert r.returncode == 0, r.stderr
+    assert _boite_de(projet, "faite") == ["044-mineur"]
+
+
+def test_le_relecteur_lit_la_ci_avant_d_approuver():
+    argv = backends.argv_du_role(
+        "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+        projet="/produit", pr=44,
+    )
+    assert "gh pr checks 44" in argv[argv.index("-p") + 1]

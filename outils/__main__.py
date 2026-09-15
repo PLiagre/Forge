@@ -448,6 +448,19 @@ def _etat(args: argparse.Namespace) -> int:
         return 0
     feuille.chemin.write_text(nouveau, encoding="utf-8")
     print(f"fiche {fiche.numero} réécrite dans {feuille.chemin}", file=sys.stderr)
+    # `pret → a-briefer` : le brief est à réécrire. Le registre refuse une
+    # fiche « a-briefer » dont le brief existe encore, et il a raison : le
+    # briefer écrirait par-dessus un texte qui fait déjà foi. Le geste
+    # retire donc l'ancien brief dans la même proposition ; il reste dans
+    # l'historique git. Sans ce retrait, la transition que le workflow
+    # documente rendait le registre incohérent, et le pilote ne déposait
+    # plus aucune carte — mesuré le 15 septembre 2026, sur une copie.
+    if fiche.etat == "pret" and args.etat == "a-briefer":
+        ancien = racine / fiche.chemin
+        if ancien.is_file():
+            ancien.unlink()
+            print(f"brief retiré : {fiche.chemin} (il reste dans l'historique git)",
+                  file=sys.stderr)
     return 0
 
 

@@ -118,7 +118,8 @@ L'état d'un lot ne s'écrit **qu'à un seul endroit** : sa fiche au registre.
   idee       → pret          le propriétaire, s'il écrit le brief lui-même
   a-briefer  → pret          la PR du brief
   pret       → livre         la PR du lot
-  pret       → a-briefer     le propriétaire, si le brief est à réécrire
+  pret       → a-briefer     le propriétaire, si le brief est à réécrire ;
+                             l'ancien brief part dans la même PR
   *          → abandonne     le propriétaire (sauf livre et archive)
   abandonne  → idee          le propriétaire
 ```

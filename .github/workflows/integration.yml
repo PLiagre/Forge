@@ -62,6 +62,13 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  # Lire les contrôles d'une révision. Sans ces deux droits, l'API répond
+  # 403 sur `check-runs` et sur `status`, `outils integration` meurt, et
+  # plus rien n'entre dans master. Mesuré le 15 septembre 2026 sur la PR 12 :
+  # le premier lot qui a atteint la porte l'a trouvée murée. Tant qu'aucun
+  # lot n'y arrivait, chaque tour répondait RIEN avant d'avoir à lire.
+  checks: read
+  statuses: read
 
 jobs:
   integrer:

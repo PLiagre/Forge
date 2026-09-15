@@ -276,7 +276,31 @@ if [[ "$role" == "relire" ]]; then
       --jq '[.reviews[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED")] | last | .state // ""' \
       2>/dev/null)" || verdict=""
     case "$verdict" in
-      APPROVED) ;;
+      APPROVED)
+        # Une approbation ne vaut rien sur une PR rouge : l'intégration ne la
+        # fusionnera pas, et la carte dormirait dans `faite` en annonçant une
+        # fusion qui n'arrivera jamais. Mesuré le 15 septembre 2026 : la PR 12
+        # approuvée avec `vues` rouge. Les contrôles qui comptent sont ceux que
+        # le branchement du produit déclare requis — la référence se dérive,
+        # elle ne se recopie pas ici — et un seul en échec fait tomber la carte.
+        requis="$(python3 -c 'import sys, tomllib
+with open(sys.argv[1], "rb") as f:
+    print(" ".join(tomllib.load(f).get("integration", {}).get("controles", [])))' \
+          "$projet/atelier.toml" 2>/dev/null)" || requis=""
+        if [[ -z "$requis" ]]; then
+          dire "tour relire : aucun contrôle requis lisible dans $projet/atelier.toml — la CI n'est pas vérifiée avant de passer la carte"
+        else
+          # `gh pr checks` rend 1 quand un contrôle échoue : sous `pipefail`,
+          # sans ce `|| true`, c'est le constat lui-même qui tuerait le tour.
+          rouges="$( ( cd "$workdir" || exit 0; gh pr checks "$pr_carte" 2>/dev/null || true ) \
+            | awk -F'\t' -v requis=" $requis " '$2 == "fail" && index(requis, " " $1 " ") { print $1 }' \
+            | sort -u | tr '\n' ' ')"
+          rouges="${rouges% }"
+          if [[ -n "$rouges" ]]; then
+            echouer relecture "approuvée, mais contrôle rouge sur la PR $pr_carte : $rouges — l'intégration ne fusionnera pas"
+          fi
+        fi
+        ;;
       CHANGES_REQUESTED)
         echouer relecture "changements demandés sur la PR $pr_carte — lire la revue, puis fermer la PR et \`atelier reprendre\`, ou repasser la fiche à a-briefer" ;;
       *)
