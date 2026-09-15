@@ -691,3 +691,42 @@ def test_avec_ecrire_la_fiche_change_et_rien_d_autre():
     assert "état : abandonne" in apres
     assert avant.count("###") == apres.count("###")
     assert "état : livre · couche : 1" in apres
+
+
+def test_renvoyer_un_lot_pret_au_briefer_retire_son_brief_et_garde_le_registre_coherent():
+    """Le workflow documente `pret → a-briefer` quand le brief est à réécrire.
+    Le registre refuse une fiche « a-briefer » dont le brief existe : sans
+    retrait, le geste rendait le registre incohérent, et le pilote ne
+    déposait plus aucune carte. Mesuré le 15 septembre 2026, sur une copie."""
+    import tempfile
+    from pathlib import Path
+
+    from outils import registre
+
+    with tempfile.TemporaryDirectory() as dossier:
+        projet = _projet_avec_registre(Path(dossier))
+        brief = projet / "briefs" / "049-fabriquer.md"
+        assert brief.is_file()
+        proc = _etat_cli(projet, "049", "a-briefer", "--ecrire")
+        assert proc.returncode == 0, proc.stderr
+        assert not brief.exists(), "le brief à réécrire est resté en place"
+        assert "brief retiré" in proc.stderr
+        module = registre.atelier()
+        feuille = module.lire(projet / "ROADMAP.md")
+        assert feuille.fiche("049").etat == "a-briefer"
+        erreurs = module.verifier(feuille, projet, projet / "briefs")
+        assert not [e for e in erreurs if "049" in e], erreurs
+
+
+def test_abandonner_un_lot_pret_garde_son_brief():
+    """Le retrait ne vaut que pour un brief à réécrire. Un lot abandonné
+    garde sa fiche et son brief : c'est la trace de ce qu'on n'a pas fait."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as dossier:
+        projet = _projet_avec_registre(Path(dossier))
+        proc = _etat_cli(projet, "049", "abandonne", "--ecrire")
+        assert proc.returncode == 0, proc.stderr
+        assert (projet / "briefs" / "049-fabriquer.md").is_file()
+        assert "brief retiré" not in proc.stderr
