@@ -16,12 +16,21 @@ Quatre refus, et aucun feu vert par défaut :
 - **refus** — une demande de changements est posée sur la révision
   courante.
 
+Et une revue ne compte, ni pour ni contre, que si son auteur a le droit
+d'écrire sur le dépôt. Sur un dépôt public, n'importe quel compte peut en
+poser une : son approbation ne fait pas entrer, son refus ne retient pas.
+
 Ce module ne parle pas à GitHub : il reçoit les revues déjà lues.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+# Les associations qui donnent le droit d'écrire, telles que GitHub les
+# accorde. La liste vit avec les demandes de lot, qui la lisent déjà : un
+# seul endroit dit qui a le droit, pour un formulaire comme pour une revue.
+from .demandes import CONFIANCE
 
 APPROUVE = "APPROVED"
 REFUSE = "CHANGES_REQUESTED"
@@ -34,6 +43,10 @@ class Revue:
     # La révision relue. GitHub peut la rendre vide ; une revue sans
     # révision ne porte sur rien, et elle est écartée comme périmée.
     revision: str
+    # Le droit de l'auteur sur le dépôt, tel que GitHub le dit : OWNER,
+    # MEMBER, COLLABORATOR, ou autre chose. La couture GitHub le pose
+    # toujours, vide s'il manque. `None` = non dit, construction directe.
+    association: str | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +80,8 @@ def juger(revision: str, auteurs_du_code, revues) -> Verdict:
             # approbation que personne ne signe ne prouve pas qu'un
             # tiers a relu : elle ne compte pas.
             continue
+        if revue.association is not None and revue.association not in CONFIANCE:
+            continue  # un compte sans droit d'écrire ne juge pas
         if revue.revision != revision:
             continue  # périmée : elle parle d'un autre code
         if revue.etat not in (APPROUVE, REFUSE):
@@ -101,6 +116,8 @@ def revues_depuis_github(bruts) -> list[Revue]:
             auteur=(brut.get("user") or {}).get("login", ""),
             etat=brut.get("state", ""),
             revision=brut.get("commit_id") or "",
+            # Une association absente ne se devine pas : elle vaut un inconnu.
+            association=brut.get("author_association") or "",
         )
         for brut in bruts
     ]
