@@ -145,6 +145,22 @@ briefs 044, 046 et 047, et ce brief.
 Les comparaisons « avant / après » se font contre `master` rejoué au
 démarrage du lot, jamais contre un nombre recopié d'ici.
 
+**Rejouer `master` se fait en lisant ses objets git, jamais en ajoutant
+un worktree.** Le texte d'un fichier se lit par `git show <ref>:<chemin>`,
+comme `_texte_master` le fait déjà dans `sim/tests/test_monde.py`. Quand
+il faut exécuter le code de `master` (SC6), on l'extrait dans un dossier
+temporaire par `git archive <ref>`, puis on le décompresse. `git worktree
+add` est exclu. Sur la PR 15, les deux tests SC6 qui l'appelaient sont
+sortis en code 128 sur GitHub Actions (contrôle `sim`, run 35060735773).
+Dans le même test, `git show` passait. Sur la machine de l'atelier, la
+même commande passait aussi : la suite y était verte, et la PR ne pouvait
+pas entrer.
+
+Un appel à `git`, ou à tout autre sous-processus dont un test dépend,
+met sa sortie d'erreur dans le message de l'assertion quand il échoue.
+Sur la PR 15, le message de git était capturé puis perdu : personne n'a pu
+lire pourquoi la commande échouait.
+
 ### SC1 — Chaque cellule porte le bourg, recalculé, jamais stocké
 
 Pour **toute** cellule du monde réel chargé, `cell["bourg"]` du document
