@@ -28,9 +28,17 @@ from sim.__main__ import run
 from sim.constants import DEFAULT_CLI_SEED
 _REPO = Path(__file__).resolve().parents[2]
 import hashlib
+import copy
+import os
+import re
+import tempfile
+import zipfile
 from sim.aggregation import (
     agregat_depuis_monde,
+    bourg_depuis_monde,
     identifiant_de_province_de_cellule,
+    repartition_bourg_de_cellule_consultation,
+    repartitions_avec_bourg,
 )
 from sim.constants import SNAPSHOT_SCHEMA_VERSION
 from sim.snapshot_export import build_snapshot_document, serialize_snapshot
@@ -56,6 +64,7 @@ _CELL_KEYS = {
     "hunger_ticks",
     "mortality_remainder",
     "province",
+    "bourg",
     "climat",
     "gisements",
     "relief",
@@ -1793,3 +1802,206 @@ def test_cli_snapshot_refuse_si_export_impossible(tmp_path: Path, monkeypatch, c
     assert "refus" in sortie.err
     assert "geometrie absente" in sortie.err
     assert sortie.out == ""
+
+
+# --- Brief 051 : le snapshot photographie le bourg ---
+
+
+def _version_schema_master() -> str:
+    texte = _texte_master("sim/constants.py")
+    match = re.search(r'SNAPSHOT_SCHEMA_VERSION = "([^"]+)"', texte)
+    assert match, "SNAPSHOT_SCHEMA_VERSION introuvable sur master"
+    return match.group(1)
+
+
+def _archive_master_dans(repertoire: Path) -> Path:
+    """Arbre du dépôt sur master, extrait par git archive (jamais worktree)."""
+    ref = _ref_master()
+    archive = repertoire / "master.zip"
+    proc = subprocess.run(
+        ["git", "archive", "--format=zip", "-o", str(archive), ref],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, (
+        f"git archive a échoué ({proc.stderr.strip()})"
+    )
+    racine = repertoire / "master_tree"
+    racine.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as zf:
+        zf.extractall(racine)
+    return racine
+
+
+def _snapshot_document_depuis_arbre(arbre: Path, seed: int, tick: int) -> dict:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(arbre)
+    script = (
+        "import json\n"
+        "from sim.world import World\n"
+        "from sim.snapshot_export import build_snapshot_document\n"
+        f"monde = World.charger(rng_seed={seed})\n"
+        f"doc = build_snapshot_document(monde, {seed}, {tick})\n"
+        "print(json.dumps(doc, sort_keys=True))\n"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=arbre,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, (
+        f"snapshot master a échoué ({proc.stderr.strip()})"
+    )
+    return json.loads(proc.stdout)
+
+
+def _retirer_bourg_pour_comparaison(document: dict, version: str) -> dict:
+    restaure = copy.deepcopy(document)
+    restaure["schema_version"] = version
+    for cellule in restaure["cells"]:
+        del cellule["bourg"]
+    return restaure
+
+
+def _controle_snapshot_export_pas_seconde_formule_bourg(source: str) -> None:
+    assert "part_miniere_de" not in source, (
+        "sim/snapshot_export.py ne doit pas recalculer la part minière"
+    )
+    assert "facteurs_richesse_extraction" not in source, (
+        "sim/snapshot_export.py ne doit pas lire les facteurs de richesse"
+    )
+    arbre = ast.parse(source, filename="sim/snapshot_export.py")
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.FunctionDef):
+            nom = noeud.name.lower().replace("_", "")
+            assert "bourg" not in nom, (
+                f"fonction locale interdite : {noeud.name}"
+            )
+
+
+def test_snapshot_bourg_recalcule_pas_stocke():
+    """SC1 — cell['bourg'] recalcule bourg_depuis_monde ; master lève KeyError."""
+    monde = World.charger(0)
+    doc = build_snapshot_document(monde, 0, 0)
+    repartitions = bourg_depuis_monde(monde)
+    comparees = 0
+    for cellule in doc["cells"]:
+        attendu = repartition_bourg_de_cellule_consultation(
+            cellule["cell_id"], repartitions
+        )
+        assert attendu is not None
+        assert cellule["bourg"]["habitants_du_bourg"] == attendu.habitants_du_bourg
+        assert (
+            cellule["bourg"]["habitants_des_champs"]
+            == attendu.habitants_des_champs
+        )
+        comparees += 1
+    assert comparees == len(monde.cells), (
+        f"cellules comparées={comparees} monde={len(monde.cells)}"
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        arbre = _archive_master_dans(Path(tmp))
+        doc_master = _snapshot_document_depuis_arbre(arbre, 0, 0)
+    with pytest.raises(KeyError):
+        _ = doc_master["cells"][0]["bourg"]
+
+
+def test_snapshot_bourg_somme_exacte_par_cellule():
+    """SC3 — habitants_du_bourg + habitants_des_champs == population."""
+    monde = World.charger(0)
+    doc = build_snapshot_document(monde, 0, 0)
+    ecarts = 0
+    for cellule in doc["cells"]:
+        bourg = cellule["bourg"]
+        somme = bourg["habitants_du_bourg"] + bourg["habitants_des_champs"]
+        if somme != cellule["population"]:
+            ecarts += 1
+    print(f"ecarts_somme_bourg={ecarts} / {len(doc['cells'])}")
+    assert ecarts == 0
+
+
+def test_snapshot_bourg_echantillon_non_vide():
+    """SC4 — cellules avec bourg > 0 alignées sur repartitions_avec_bourg."""
+    monde = World.charger(0)
+    doc = build_snapshot_document(monde, 0, 0)
+    repartitions = bourg_depuis_monde(monde)
+    attendu = len(repartitions_avec_bourg(repartitions))
+    mesure = sum(
+        1
+        for cellule in doc["cells"]
+        if cellule["bourg"]["habitants_du_bourg"] > 0
+    )
+    print(f"cellules_avec_bourg_document={mesure} vue={attendu}")
+    assert mesure > 0
+    assert mesure == attendu
+
+
+def test_snapshot_bourg_une_seule_voie_lecture():
+    """SC5 — snapshot_export n'implémente pas une seconde part non agricole."""
+    chemin = pathlib.Path(__file__).resolve().parents[1] / "snapshot_export.py"
+    source = chemin.read_text(encoding="utf-8")
+    _controle_snapshot_export_pas_seconde_formule_bourg(source)
+    eprouvee = source + "\n# sonde\npart_miniere_de(gisements, facteurs)\n"
+    with pytest.raises(AssertionError):
+        _controle_snapshot_export_pas_seconde_formule_bourg(eprouvee)
+
+
+def test_snapshot_bourg_seule_difference_avec_master():
+    """SC6 — Retirer bourg et la version : empreinte identique à master."""
+    version_master = _version_schema_master()
+    assert version_master != SNAPSHOT_SCHEMA_VERSION, (
+        "le schéma n'a pas changé par rapport à master"
+    )
+    seed = 0
+    tick = 0
+    monde = World.charger(seed)
+    doc_apres = build_snapshot_document(monde, seed, tick)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        arbre = _archive_master_dans(Path(tmp))
+        doc_avant = _snapshot_document_depuis_arbre(arbre, seed, tick)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(arbre)
+        proc_json = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "sim",
+                "--ticks",
+                "365",
+                "--seed",
+                "0",
+                "--json",
+            ],
+            cwd=arbre,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert proc_json.returncode == 0, proc_json.stderr
+        sortie_master = proc_json.stdout
+
+    restaure = _retirer_bourg_pour_comparaison(doc_apres, version_master)
+    empreinte_avant = _sha(serialize_snapshot(doc_avant))
+    empreinte_restauree = _sha(serialize_snapshot(restaure))
+    print(f"schema_master={version_master} schema_lot={SNAPSHOT_SCHEMA_VERSION}")
+    assert empreinte_restauree == empreinte_avant
+
+    proc_local = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "365", "--seed", "0", "--json"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert proc_local.returncode == 0, proc_local.stderr
+    assert proc_local.stdout == sortie_master
+
+
+def test_snapshot_schema_version_a_change():
+    """SC2 — SNAPSHOT_SCHEMA_VERSION lu sur master, pas recopié d'ici."""
+    assert SNAPSHOT_SCHEMA_VERSION == "v0a-4"
+    assert _version_schema_master() == "v0a-3"

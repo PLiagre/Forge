@@ -1,4 +1,4 @@
-"""Photographie déterministe du monde déjà simulé (schéma v0a-3).
+"""Photographie déterministe du monde déjà simulé (schéma v0a-4).
 
 Ce module ne recalcule aucune mécanique. Il joint ce que porte la carte
 figée (géométrie, relief, climat, gisements) à la province dérivée et à
@@ -23,8 +23,10 @@ from typing import Any, Optional
 from sim.aggregation import (
     PositionCelluleInconnue,
     agregat_depuis_monde,
+    bourg_depuis_monde,
     identifiant_de_province_de_cellule,
     nom_de_province_de_cellule,
+    repartition_bourg_de_cellule_consultation,
 )
 from sim import constants as _constants
 from sim.constants import SNAPSHOT_FLOAT_DECIMALS, SNAPSHOT_SCHEMA_VERSION
@@ -169,6 +171,8 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
     except PositionCelluleInconnue as exc:
         raise SnapshotExportError(str(exc)) from exc
 
+    repartitions_bourg = bourg_depuis_monde(world)
+
     cells_out = []
     for cell_id, cell in sorted(world.cells.items(), key=lambda item: int(item[0])):
         cid = int(cell_id)
@@ -191,6 +195,7 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
         province_name = nom_de_province_de_cellule(cid, regroupements)
         if province_id is None or province_name is None:
             raise SnapshotExportError(f"province absente pour cell_id={cid}")
+        repartition = repartition_bourg_de_cellule_consultation(cid, repartitions_bourg)
         cells_out.append(
             {
                 "area_km2": cell.area_km2,
@@ -206,6 +211,10 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
                 "province": {"id": int(province_id), "name": province_name},
                 "relief": raw.get("relief"),
                 "stocks": cellule_vers_dict(cell)["stocks"],
+                "bourg": {
+                    "habitants_du_bourg": repartition.habitants_du_bourg,
+                    "habitants_des_champs": repartition.habitants_des_champs,
+                },
             }
         )
 
