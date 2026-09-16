@@ -13,7 +13,7 @@ from pathlib import Path
 import subprocess
 
 from . import (backends, boite, couches, cycle, echange, etat, feuille, porte,
-               projet, quota, reprise, verrou, worktree)
+               projet, quota, reprise, traces, verrou, worktree)
 from .etat import FusionInterdite
 
 
@@ -229,6 +229,14 @@ def _parser() -> argparse.ArgumentParser:
         "--worktree",
         help="dépôt depuis lequel sonder gh (remote origin) ; ignoré sans --branche",
     )
+
+    traces_p = sous.add_parser(
+        "traces",
+        help="ce qui fait rougir chaque contrôle d'une PR — une lecture, jamais une écriture",
+    )
+    traces_p.add_argument("--pr", type=int, required=True)
+    # Assez pour un résumé pytest et sa trace ; la fin du journal, pas le journal.
+    traces_p.add_argument("--lignes", type=int, default=60)
     return parser
 
 
@@ -800,6 +808,12 @@ def _cmd_branche(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_traces(args: argparse.Namespace) -> int:
+    code, texte = traces.rapport(args.pr, args.lignes)
+    print(texte, file=sys.stderr if code else sys.stdout)
+    return code
+
+
 def _cmd_pr(args: argparse.Namespace) -> int:
     try:
         numero = echange.lire_numero_pr(Path(args.fichier))
@@ -1040,6 +1054,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_branche(args)
     if args.commande == "pr":
         return _cmd_pr(args)
+    if args.commande == "traces":
+        return _cmd_traces(args)
     if args.commande == "feuille":
         if args.action == "valider":
             return _cmd_feuille_valider(args)

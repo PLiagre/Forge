@@ -332,7 +332,9 @@ def prompt_du_role(
         revue = (
             f" Lis d'abord `gh pr checks {pr}`. Si un contrôle y est en échec, "
             "la PR ne peut pas entrer, quel que soit le diff : demande des "
-            "changements en nommant ce contrôle et l'erreur qui le fait rougir."
+            "changements en nommant ce contrôle et l'erreur qui le fait rougir, "
+            f"lue par `python3 -m atelier traces --pr {pr}` et citée telle "
+            "qu'elle est écrite."
             f" Termine par UNE revue GitHub sur la PR {pr}, et rien d'autre : "
             f"`gh pr review {pr} --approve --body '<ton avis>'` si aucun contrôle "
             "n'est en échec, si le diff reste dans le périmètre, si chaque condition de succès est mesurée par un "
