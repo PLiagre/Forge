@@ -1815,11 +1815,11 @@ def _version_schema_master() -> str:
 
 
 def _archive_master_dans(repertoire: Path) -> Path:
-    """Arbre du dépôt sur master, extrait par git archive (jamais worktree)."""
+    """sim/ et data/ de master, extraits par git archive (jamais l'arbre entier)."""
     ref = _ref_master()
     archive = repertoire / "master.zip"
     proc = subprocess.run(
-        ["git", "archive", "--format=zip", "-o", str(archive), ref],
+        ["git", "archive", "--format=zip", "-o", str(archive), ref, "sim", "data"],
         cwd=_REPO_ROOT,
         capture_output=True,
         text=True,
