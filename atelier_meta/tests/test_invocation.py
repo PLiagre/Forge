@@ -15,7 +15,7 @@ import subprocess
 
 import pytest
 
-from atelier import backends, boite
+from atelier import backends, boite, traces
 from atelier.__main__ import main
 from tests.depot import installer, worktree_role
 from tests.test_porte import BRIEF_SAIN
@@ -942,3 +942,138 @@ def test_le_relecteur_lit_la_ci_avant_d_approuver():
         projet="/produit", pr=44,
     )
     assert "gh pr checks 44" in argv[argv.index("-p") + 1]
+
+
+# ------------------------------------------- la trace d'un contrôle rouge
+
+
+_ADRESSE_SIM = "https://github.com/PLiagre/Forge/actions/runs/35060735773/job/7"
+_TABLE_ROUGE = (
+    f"sim\tfail\t8m30s\t{_ADRESSE_SIM}\t\n"
+    "vues\tpass\t1m16s\thttps://github.com/PLiagre/Forge/actions/runs/35060735773/job/8\t\n"
+    "palier\tskipping\t0\thttps://github.com/PLiagre/Forge/actions/runs/35066918967/job/9\t\n"
+    "relecture\tfail\t0\thttps://github.com/PLiagre/Forge/actions/runs/35066918964"
+    "\tFAIL  PR 44 — changements demandés\n"
+)
+# La forme d'un vrai journal de travail : un horodatage par ligne, la cause,
+# l'erreur de l'étape, puis le rangement du runner, qui peut crier aussi.
+_JOURNAL_SIM = (
+    "2026-09-16T05:44:52.1234567Z ##[group]Run python -m pytest sim/tests/ -q\n"
+    "2026-09-16T05:53:06.6546Z FAILED sim/tests/test_monde.py::test_resume"
+    " - CalledProcessError: returned non-zero exit status 128.\n"
+    "2026-09-16T05:53:06.6553Z 2 failed, 184 passed in 497.97s\n"
+    "2026-09-16T05:53:06.6876Z ##[error]Process completed with exit code 1.\n"
+    "2026-09-16T05:53:07.0001Z Post job cleanup.\n"
+    "2026-09-16T05:53:07.0002Z ##[error]une erreur de rangement, sans rapport\n"
+)
+
+
+def _faux_gh_journaux(dossier: Path, temoin: Path, table: str, api: str) -> Path:
+    """Un GitHub de banc : la table de `gh pr checks` (qui rend 1 sur un
+    rouge, comme le vrai), et un seul journal, à une seule adresse. Tout
+    autre appel est une erreur : la trace ne lit rien d'autre."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    fichier_table = dossier / "controles.txt"
+    fichier_table.write_text(table, encoding="utf-8")
+    return _faux(
+        dossier, "gh",
+        f'printf "gh %s\\n" "$*" >> "{temoin}"\n'
+        'case "$*" in\n'
+        f'  "pr checks 44") cat "{fichier_table}"; [ -s "{fichier_table}" ] || '
+        'echo "no checks reported on the \'agent/044\' branch" >&2; exit 1 ;;\n'
+        f'  "api repos/PLiagre/Forge/actions/jobs/7/logs") {api} ;;\n'
+        "esac\n"
+        'echo "appel inattendu : $*" >&2\n'
+        "exit 2\n",
+    )
+
+
+def test_la_trace_s_arrete_a_la_premiere_erreur_et_perd_ses_horodatages():
+    assert traces.extrait(_JOURNAL_SIM, lignes=3) == [
+        "FAILED sim/tests/test_monde.py::test_resume"
+        " - CalledProcessError: returned non-zero exit status 128.",
+        "2 failed, 184 passed in 497.97s",
+        "##[error]Process completed with exit code 1.",
+    ]
+    # Sans ligne d'erreur, la fin du journal : on ne devine pas où est la cause.
+    assert traces.extrait("un\ndeux\ntrois\n", lignes=2) == ["deux", "trois"]
+
+
+def test_seuls_les_controles_rouges_ont_une_trace_et_le_depot_vient_de_l_adresse():
+    assert traces.rouges(_TABLE_ROUGE) == [
+        traces.Rouge("sim", "PLiagre/Forge", "7", _ADRESSE_SIM),
+        traces.Rouge("relecture", "", "", "FAIL  PR 44 — changements demandés"),
+    ]
+
+
+@besoin_bash
+def test_le_relecteur_lit_la_trace_d_un_controle_rouge_par_une_seule_lecture(
+    tmp_path: Path, monkeypatch, capsys,
+):
+    """Le 16 septembre 2026, le relecteur de la PR 15 a demandé au
+    propriétaire la trace du contrôle `sim` : `gh api` lui est refusé, et
+    `gh run view --log` rend zéro ligne avec le code 0 sur le gh du VPS."""
+    temoin = tmp_path / "temoin.txt"
+    journal = tmp_path / "journal.txt"
+    journal.write_text(_JOURNAL_SIM, encoding="utf-8")
+    _faux_gh_journaux(tmp_path / "bin", temoin, _TABLE_ROUGE, f'cat "{journal}"; exit 0')
+    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    assert main(["traces", "--pr", "44"]) == 0
+    sortie = capsys.readouterr().out
+    assert "== sim (travail 7)" in sortie
+    assert "exit status 128" in sortie
+    assert "Post job cleanup" not in sortie
+    assert "== relecture : pas de journal de travail — FAIL  PR 44" in sortie
+    assert temoin.read_text(encoding="utf-8").splitlines() == [
+        "gh pr checks 44",
+        "gh api repos/PLiagre/Forge/actions/jobs/7/logs",
+    ]
+
+
+@besoin_bash
+def test_un_journal_illisible_se_dit_et_ne_passe_pas_pour_vide(
+    tmp_path: Path, monkeypatch, capsys,
+):
+    temoin = tmp_path / "temoin.txt"
+    refus = 'echo "gh: Resource not accessible by integration (HTTP 403)" >&2; exit 1'
+    _faux_gh_journaux(tmp_path / "bin", temoin, _TABLE_ROUGE, refus)
+    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    assert main(["traces", "--pr", "44"]) == 1
+    erreur = capsys.readouterr().err
+    assert "== sim (travail 7) : journal illisible" in erreur and "HTTP 403" in erreur
+
+
+@besoin_bash
+def test_sans_table_de_controles_la_trace_ne_dit_pas_que_tout_est_vert(
+    tmp_path: Path, monkeypatch, capsys,
+):
+    temoin = tmp_path / "temoin.txt"
+    _faux_gh_journaux(tmp_path / "bin", temoin, "", "exit 2")
+    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    assert main(["traces", "--pr", "44"]) == 1
+    captures = capsys.readouterr()
+    assert "aucun contrôle en échec" not in captures.out
+    assert "aucun contrôle lu sur la PR 44" in captures.err
+    assert "no checks reported" in captures.err
+
+
+def test_le_relecteur_a_le_droit_de_lire_la_trace_qu_on_lui_demande_de_citer():
+    """Un prompt qui demande une commande que les outils refusent fait
+    tomber la carte sans cause : c'est ce qui est arrivé à la PR 15."""
+    argv = backends.argv_du_role(
+        "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+        projet="/produit", pr=44,
+    )
+    commande = "python3 -m atelier traces --pr 44"
+    assert f"`{commande}`" in argv[argv.index("-p") + 1]
+
+    def prefixes(liste: str) -> list[str]:
+        return [o[len("Bash("):-len(":*)")] for o in liste.split(",")
+                if o.startswith("Bash(") and o.endswith(":*)")]
+
+    permis = prefixes(argv[argv.index("--allowedTools") + 1])
+    refuses = prefixes(argv[argv.index("--disallowedTools") + 1])
+    assert any(commande.startswith(p) for p in permis)
+    assert not any(commande.startswith(r) for r in refuses)
+    # La lecture passe par l'atelier : `gh api` sait aussi écrire.
+    assert not any(p.startswith("gh api") for p in permis)
