@@ -30,7 +30,10 @@ _REPO = Path(__file__).resolve().parents[2]
 import hashlib
 from sim.aggregation import (
     agregat_depuis_monde,
+    bourg_depuis_monde,
     identifiant_de_province_de_cellule,
+    repartition_bourg_de_cellule_consultation,
+    repartitions_avec_bourg,
 )
 from sim.constants import SNAPSHOT_SCHEMA_VERSION
 from sim.snapshot_export import build_snapshot_document, serialize_snapshot
@@ -56,6 +59,7 @@ _CELL_KEYS = {
     "hunger_ticks",
     "mortality_remainder",
     "province",
+    "bourg",
     "climat",
     "gisements",
     "relief",
@@ -232,6 +236,172 @@ def test_province_recalculee_pas_stockee():
     for cell in doc["cells"]:
         attendu = identifiant_de_province_de_cellule(cell["cell_id"], regroupements)
         assert cell["province"]["id"] == attendu
+
+
+def test_bourg_recalcule_pas_stocke():
+    """SC1 — bourg joint depuis bourg_depuis_monde, jamais une seconde formule."""
+    world = World.charger(0)
+    doc = build_snapshot_document(world, 0, 0)
+    repartitions = bourg_depuis_monde(world)
+    assert doc["cells"], "échantillon vide : aucune cellule comparée"
+    for cell in doc["cells"]:
+        attendu = repartition_bourg_de_cellule_consultation(
+            cell["cell_id"], repartitions
+        )
+        assert attendu is not None
+        assert cell["bourg"]["habitants_du_bourg"] == attendu.habitants_du_bourg
+        assert cell["bourg"]["habitants_des_champs"] == attendu.habitants_des_champs
+
+
+def test_bourg_somme_exacte_population():
+    """SC3 — habitants_du_bourg + habitants_des_champs == population, sans tolérance."""
+    world = World.charger(0)
+    doc = build_snapshot_document(world, 0, 0)
+    ecarts = 0
+    denominateur = len(doc["cells"])
+    assert denominateur > 0, "échantillon vide"
+    for cell in doc["cells"]:
+        bourg = cell["bourg"]
+        if (
+            bourg["habitants_du_bourg"] + bourg["habitants_des_champs"]
+            != cell["population"]
+        ):
+            ecarts += 1
+    print(f"cellules_avec_ecart_somme_bourg={ecarts} / {denominateur}")
+    assert ecarts == 0
+
+
+def test_bourg_echantillon_exporte_non_vide():
+    """SC4 — au moins une cellule avec bourg > 0, aligné sur repartitions_avec_bourg."""
+    world = World.charger(0)
+    doc = build_snapshot_document(world, 0, 0)
+    repartitions = bourg_depuis_monde(world)
+    avec_bourg_doc = sum(
+        1 for cell in doc["cells"] if cell["bourg"]["habitants_du_bourg"] > 0
+    )
+    attendu = len(repartitions_avec_bourg(repartitions))
+    print(f"cellules_avec_bourg_doc={avec_bourg_doc} attendu={attendu}")
+    assert avec_bourg_doc > 0
+    assert avec_bourg_doc == attendu
+
+
+def test_snapshot_une_seule_voie_pour_le_bourg():
+    """SC5 — snapshot_export ne recalcule pas la part non agricole."""
+    import ast
+    import re
+
+    source = (_REPO_ROOT / "sim" / "snapshot_export.py").read_text(encoding="utf-8")
+    assert "part_miniere_de" not in source
+    assert "facteurs_richesse_extraction" not in source
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef):
+            nom = re.sub(r"[^a-z0-9]+", "", node.name.lower())
+            assert "bourg" not in nom, (
+                f"fonction locale {node.name!r} : la part non agricole "
+                "doit venir de sim.aggregation"
+            )
+
+
+def _snapshot_document_comme_master(world: World, seed: int, tick: int) -> dict:
+    """Photographie telle que master la produit, sans toucher l'arbre courant."""
+    import json
+    import tempfile
+
+    script = f"""
+import json
+from sim.world import World
+from sim.snapshot_export import build_snapshot_document
+monde = World.charger({seed})
+doc = build_snapshot_document(monde, {seed}, {tick})
+print(json.dumps(doc, sort_keys=True))
+"""
+    with tempfile.TemporaryDirectory(prefix="fh_master_") as tmp:
+        subprocess.run(
+            ["git", "worktree", "add", "--detach", tmp, _ref_master()],
+            cwd=_REPO_ROOT,
+            check=True,
+            capture_output=True,
+        )
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", script],
+                cwd=tmp,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            subprocess.run(
+                ["git", "worktree", "remove", tmp, "--force"],
+                cwd=_REPO_ROOT,
+                check=True,
+                capture_output=True,
+            )
+    return json.loads(proc.stdout)
+
+
+def test_snapshot_seule_difference_est_bourg_et_version():
+    """SC6 — retirer bourg et la version courante rend le document de master."""
+    import copy
+    import re
+
+    master_constants = _texte_master("sim/constants.py")
+    version_master = re.search(
+        r'SNAPSHOT_SCHEMA_VERSION = "([^"]+)"', master_constants
+    )
+    assert version_master, "version de schéma introuvable sur master"
+    version_master = version_master.group(1)
+    assert version_master != SNAPSHOT_SCHEMA_VERSION
+
+    world = World.charger(0)
+    doc_avant = _snapshot_document_comme_master(world, 0, 0)
+    doc_apres = build_snapshot_document(world, 0, 0)
+    doc_restauré = copy.deepcopy(doc_apres)
+    for cell in doc_restauré["cells"]:
+        del cell["bourg"]
+    doc_restauré["schema_version"] = version_master
+
+    assert _sha(serialize_snapshot(doc_restauré)) == _sha(
+        serialize_snapshot(doc_avant)
+    )
+
+
+def test_resume_json_identique_a_master():
+    """SC6 — le résumé JSON ne passe pas par snapshot_export ; il ne bouge pas."""
+    import tempfile
+
+    commande = [
+        sys.executable,
+        "-m",
+        "sim",
+        "--ticks",
+        "365",
+        "--seed",
+        "0",
+        "--json",
+    ]
+    proc_ici = subprocess.run(
+        commande, cwd=_REPO, check=True, capture_output=True, text=True
+    )
+    with tempfile.TemporaryDirectory(prefix="fh_master_") as tmp:
+        subprocess.run(
+            ["git", "worktree", "add", "--detach", tmp, _ref_master()],
+            cwd=_REPO_ROOT,
+            check=True,
+            capture_output=True,
+        )
+        try:
+            proc_master = subprocess.run(
+                commande, cwd=tmp, check=True, capture_output=True, text=True
+            )
+        finally:
+            subprocess.run(
+                ["git", "worktree", "remove", tmp, "--force"],
+                cwd=_REPO_ROOT,
+                check=True,
+                capture_output=True,
+            )
+    assert proc_ici.stdout == proc_master.stdout
 
 
 # --- test_snapshot_v0a.py ---

@@ -45,6 +45,7 @@ from sim.world import World
 # n'est pas la fonction). Un champ qui se mettrait à bouger sans être ici
 # fait rougir ; un champ inerte listé ici aussi.
 CHAMPS_MOBILES: tuple[str, ...] = (
+    "bourg",
     "food_deficit_kg",
     "hunger_ticks",
     "mortality_remainder",
@@ -143,15 +144,37 @@ def _image_du_monde(world: World, numero_tick: int) -> dict:
     C'est la seule chose que ce module sait de la photographie, et le
     test de recomposition est ce qui l'empêche de dériver.
     """
+    from sim.aggregation import (
+        bourg_depuis_monde,
+        repartition_bourg_de_cellule_consultation,
+    )
     from sim.model import cellule_vers_dict
 
+    repartitions_bourg = bourg_depuis_monde(world)
     colonnes: dict[str, list] = {champ: [] for champ in CHAMPS_MOBILES}
     for _identifiant, cellule in sorted(
         world.cells.items(), key=lambda item: int(item[0])
     ):
         canonique = cellule_vers_dict(cellule)
         for champ in CHAMPS_MOBILES:
-            valeur = canonique[champ] if champ in canonique else getattr(cellule, champ)
+            if champ == "bourg":
+                repartition = repartition_bourg_de_cellule_consultation(
+                    cellule.cell_id, repartitions_bourg
+                )
+                if repartition is None:
+                    raise CaptureError(
+                        f"bourg absent pour cell_id={cellule.cell_id}"
+                    )
+                valeur = {
+                    "habitants_du_bourg": repartition.habitants_du_bourg,
+                    "habitants_des_champs": repartition.habitants_des_champs,
+                }
+            else:
+                valeur = (
+                    canonique[champ]
+                    if champ in canonique
+                    else getattr(cellule, champ)
+                )
             colonnes[champ].append(_round_tree(valeur))
     image = {"tick": numero_tick, "jour": None, "colonnes": colonnes}
     if hasattr(_constantes, "jour_de_tick"):
