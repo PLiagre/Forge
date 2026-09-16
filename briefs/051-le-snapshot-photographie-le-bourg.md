@@ -148,13 +148,18 @@ démarrage du lot, jamais contre un nombre recopié d'ici.
 **Rejouer `master` se fait en lisant ses objets git, jamais en ajoutant
 un worktree.** Le texte d'un fichier se lit par `git show <ref>:<chemin>`,
 comme `_texte_master` le fait déjà dans `sim/tests/test_monde.py`. Quand
-il faut exécuter le code de `master` (SC6), on l'extrait dans un dossier
-temporaire par `git archive <ref>`, puis on le décompresse. `git worktree
-add` est exclu. Sur la PR 15, les deux tests SC6 qui l'appelaient sont
-sortis en code 128 sur GitHub Actions (contrôle `sim`, run 35060735773).
-Dans le même test, `git show` passait. Sur la machine de l'atelier, la
-même commande passait aussi : la suite y était verte, et la PR ne pouvait
-pas entrer.
+il faut exécuter le code de `master` (SC1, SC6), on l'extrait dans un
+dossier temporaire par `git archive <ref> sim data`, puis on le
+décompresse. L'archive est bornée à `sim/` et `data/` : c'est tout ce
+que le moteur lit pour charger le monde et construire un snapshot. Une
+archive de l'arbre entier tire les objets LFS de `fabrique/`, hors lot ;
+sur la PR 22, le smudge a 404 sur un PNG Unity (contrôle `sim`, run
+35094855141). `GIT_LFS_SKIP_SMUDGE=1` n'est pas la prescription : il
+contourne le 404 sans borner. `git worktree add` est exclu. Sur la PR
+15, les deux tests SC6 qui l'appelaient sont sortis en code 128 sur
+GitHub Actions (contrôle `sim`, run 35060735773). Dans le même test,
+`git show` passait. Sur la machine de l'atelier, la même commande
+passait aussi : la suite y était verte, et la PR ne pouvait pas entrer.
 
 Un appel à `git`, ou à tout autre sous-processus dont un test dépend,
 met sa sortie d'erreur dans le message de l'assertion quand il échoue.
@@ -172,7 +177,8 @@ tolérance.
 Le dénominateur est le nombre de cellules réellement comparées ; un
 échantillon vide échoue.
 
-**Rouge prouvé d'abord** : sur `master`, `cell["bourg"]` lève `KeyError`.
+**Rouge prouvé d'abord** : sur `master` extrait par
+`git archive <ref> sim data`, `cell["bourg"]` lève `KeyError`.
 
 ### SC2 — Le schéma reste fermé, et sa version a changé
 
@@ -215,12 +221,12 @@ il ne protège rien.
 ### SC6 — Rien d'autre ne change : la seule différence est le bourg et la version
 
 Produire le snapshot du même monde, même graine, même tick, sur `master`
-rejoué puis après ce lot. Sur le document « après », retirer la clé
-`bourg` de chaque cellule et remettre `schema_version` à la valeur lue sur
-`master` ; l'empreinte SHA-256 du document ainsi restauré est **identique**
-à celle du document « avant ». C'est le critère qui distingue une jointure
-d'un mécanisme : s'il rougit, ce lot a changé autre chose que ce qu'il
-déclare.
+rejoué par `git archive <ref> sim data`, puis après ce lot. Sur le
+document « après », retirer la clé `bourg` de chaque cellule et remettre
+`schema_version` à la valeur lue sur `master` ; l'empreinte SHA-256 du
+document ainsi restauré est **identique** à celle du document « avant ».
+C'est le critère qui distingue une jointure d'un mécanisme : s'il
+rougit, ce lot a changé autre chose que ce qu'il déclare.
 
 `py -m sim --ticks 365 --seed 0 --json` (le résumé, pas le snapshot) rend
 par ailleurs une sortie identique octet pour octet à celle de `master` :
