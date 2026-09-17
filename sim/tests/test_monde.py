@@ -1331,6 +1331,64 @@ def _texte_master(relatif: str) -> str:
     return proc.stdout
 
 
+# La révision de `master` juste avant l'arrivée du lot 051 : le premier
+# parent du commit de fusion de la PR 22.
+#
+# Les trois contrôles de 051 mesurent l'écart que ce lot a introduit dans
+# le snapshot. Tant qu'ils lisaient `master` à chaud, sa fusion a mis cet
+# écart dans leur propre référence, et ils se sont mis à rougir parce que
+# le lot avait réussi. Un contrôle qui ne survit pas au geste qu'il mesure
+# ne mesure rien : la référence est donc épinglée ici, et ils redeviennent
+# des contrôles qui peuvent rougir pour la bonne raison.
+#
+# `_ref_master` reste à chaud, pour l'invariant qui doit suivre la branche :
+# le second jeu de facteurs de richesse.
+REVISION_AVANT_051 = "d7ef7aea96cc470f21c910f3e80c644509e5ef0d"
+
+_REF_AVANT_051: list[str] = []
+
+
+def _ref_avant_051() -> str:
+    """La révision d'avant 051, fetchée si le clone ne la porte pas."""
+    if _REF_AVANT_051:
+        return _REF_AVANT_051[0]
+    probe = subprocess.run(
+        ["git", "rev-parse", "--verify", REVISION_AVANT_051 + "^{commit}"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        fetched = subprocess.run(
+            ["git", "fetch", "--depth=1", "origin", REVISION_AVANT_051],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        assert fetched.returncode == 0, (
+            "impossible de rejouer la révision d'avant 051 : "
+            f"git fetch origin {REVISION_AVANT_051[:7]} a échoué "
+            f"({fetched.stderr.strip()})"
+        )
+    _REF_AVANT_051.append(REVISION_AVANT_051)
+    return _REF_AVANT_051[0]
+
+
+def _texte_avant_051(relatif: str) -> str:
+    """Source d'un fichier avant 051, rejouée, jamais recopiée."""
+    ref = _ref_avant_051()
+    proc = subprocess.run(
+        ["git", "show", f"{ref}:{relatif}"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, (
+        f"la révision d'avant 051 ne porte pas {relatif!r} ({proc.stderr.strip()})"
+    )
+    return proc.stdout
+
+
 def _noms_lus_dans(node: ast.AST) -> set[str]:
     lus: set[str] = set()
     for child in ast.walk(node):
@@ -1807,16 +1865,19 @@ def test_cli_snapshot_refuse_si_export_impossible(tmp_path: Path, monkeypatch, c
 # --- Brief 051 : le snapshot photographie le bourg ---
 
 
-def _version_schema_master() -> str:
-    texte = _texte_master("sim/constants.py")
+def _version_schema_avant_051() -> str:
+    texte = _texte_avant_051("sim/constants.py")
     match = re.search(r'SNAPSHOT_SCHEMA_VERSION = "([^"]+)"', texte)
-    assert match, "SNAPSHOT_SCHEMA_VERSION introuvable sur master"
+    assert match, (
+        "SNAPSHOT_SCHEMA_VERSION introuvable sur "
+        f"{REVISION_AVANT_051[:7]}"
+    )
     return match.group(1)
 
 
-def _archive_master_dans(repertoire: Path) -> Path:
-    """sim/ et data/ de master, extraits par git archive (jamais l'arbre entier)."""
-    ref = _ref_master()
+def _archive_avant_051_dans(repertoire: Path) -> Path:
+    """sim/ et data/ d'avant 051, par git archive (jamais l'arbre entier)."""
+    ref = _ref_avant_051()
     archive = repertoire / "master.zip"
     proc = subprocess.run(
         ["git", "archive", "--format=zip", "-o", str(archive), ref, "sim", "data"],
@@ -1883,7 +1944,7 @@ def _controle_snapshot_export_pas_seconde_formule_bourg(source: str) -> None:
 
 
 def test_snapshot_bourg_recalcule_pas_stocke():
-    """SC1 — cell['bourg'] recalcule bourg_depuis_monde ; master lève KeyError."""
+    """SC1 — cell['bourg'] recalcule bourg_depuis_monde ; avant 051, KeyError."""
     monde = World.charger(0)
     doc = build_snapshot_document(monde, 0, 0)
     repartitions = bourg_depuis_monde(monde)
@@ -1904,10 +1965,10 @@ def test_snapshot_bourg_recalcule_pas_stocke():
     )
 
     with tempfile.TemporaryDirectory() as tmp:
-        arbre = _archive_master_dans(Path(tmp))
-        doc_master = _snapshot_document_depuis_arbre(arbre, 0, 0)
+        arbre = _archive_avant_051_dans(Path(tmp))
+        doc_avant_051 = _snapshot_document_depuis_arbre(arbre, 0, 0)
     with pytest.raises(KeyError):
-        _ = doc_master["cells"][0]["bourg"]
+        _ = doc_avant_051["cells"][0]["bourg"]
 
 
 def test_snapshot_bourg_somme_exacte_par_cellule():
@@ -1951,10 +2012,10 @@ def test_snapshot_bourg_une_seule_voie_lecture():
 
 
 def test_snapshot_bourg_seule_difference_avec_master():
-    """SC6 — Retirer bourg et la version : empreinte identique à master."""
-    version_master = _version_schema_master()
-    assert version_master != SNAPSHOT_SCHEMA_VERSION, (
-        "le schéma n'a pas changé par rapport à master"
+    """SC6 — Retirer bourg et la version : empreinte identique à avant 051."""
+    version_avant = _version_schema_avant_051()
+    assert version_avant != SNAPSHOT_SCHEMA_VERSION, (
+        "le schéma n'a pas changé par rapport à la révision d'avant 051"
     )
     seed = 0
     tick = 0
@@ -1962,7 +2023,7 @@ def test_snapshot_bourg_seule_difference_avec_master():
     doc_apres = build_snapshot_document(monde, seed, tick)
 
     with tempfile.TemporaryDirectory() as tmp:
-        arbre = _archive_master_dans(Path(tmp))
+        arbre = _archive_avant_051_dans(Path(tmp))
         doc_avant = _snapshot_document_depuis_arbre(arbre, seed, tick)
         env = os.environ.copy()
         env["PYTHONPATH"] = str(arbre)
@@ -1983,12 +2044,12 @@ def test_snapshot_bourg_seule_difference_avec_master():
             text=True,
         )
         assert proc_json.returncode == 0, proc_json.stderr
-        sortie_master = proc_json.stdout
+        sortie_avant = proc_json.stdout
 
-    restaure = _retirer_bourg_pour_comparaison(doc_apres, version_master)
+    restaure = _retirer_bourg_pour_comparaison(doc_apres, version_avant)
     empreinte_avant = _sha(serialize_snapshot(doc_avant))
     empreinte_restauree = _sha(serialize_snapshot(restaure))
-    print(f"schema_master={version_master} schema_lot={SNAPSHOT_SCHEMA_VERSION}")
+    print(f"schema_avant={version_avant} schema_lot={SNAPSHOT_SCHEMA_VERSION}")
     assert empreinte_restauree == empreinte_avant
 
     proc_local = subprocess.run(
@@ -1998,10 +2059,10 @@ def test_snapshot_bourg_seule_difference_avec_master():
         text=True,
     )
     assert proc_local.returncode == 0, proc_local.stderr
-    assert proc_local.stdout == sortie_master
+    assert proc_local.stdout == sortie_avant
 
 
 def test_snapshot_schema_version_a_change():
-    """SC2 — SNAPSHOT_SCHEMA_VERSION lu sur master, pas recopié d'ici."""
+    """SC2 — SNAPSHOT_SCHEMA_VERSION lu avant 051, pas recopié d'ici."""
     assert SNAPSHOT_SCHEMA_VERSION == "v0a-4"
-    assert _version_schema_master() == "v0a-3"
+    assert _version_schema_avant_051() == "v0a-3"
