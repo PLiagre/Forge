@@ -142,7 +142,7 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 note : livré par le commit de fondation, avant qu'aucune PR n'existe ici. Plafond de survie porté de 0,691 à 1,250 — c'est la condition V1-2. Son brief vit dans le dépôt d'origine, où il était resté orphelin.
 
 ### [051 — Le snapshot photographie le bourg](briefs/051-le-snapshot-photographie-le-bourg.md)
-état : livre · couche : 2 · dépend de : — · PR : 22
+état : livre · couche : 2 · dépend de : — · PR : 22, 28
 note : la lecture « bourg » de la carte de statistique l'attend et refuse proprement en attendant.
 
 ### [052 — Le regard mince montre le bourg](briefs/052-le-regard-mince-montre-le-bourg.md)
