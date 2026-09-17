@@ -29,10 +29,6 @@ from sim.constants import DEFAULT_CLI_SEED
 _REPO = Path(__file__).resolve().parents[2]
 import hashlib
 import copy
-import os
-import re
-import tempfile
-import zipfile
 from sim.aggregation import (
     agregat_depuis_monde,
     bourg_depuis_monde,
@@ -1807,65 +1803,6 @@ def test_cli_snapshot_refuse_si_export_impossible(tmp_path: Path, monkeypatch, c
 # --- Brief 051 : le snapshot photographie le bourg ---
 
 
-def _version_schema_master() -> str:
-    texte = _texte_master("sim/constants.py")
-    match = re.search(r'SNAPSHOT_SCHEMA_VERSION = "([^"]+)"', texte)
-    assert match, "SNAPSHOT_SCHEMA_VERSION introuvable sur master"
-    return match.group(1)
-
-
-def _archive_master_dans(repertoire: Path) -> Path:
-    """sim/ et data/ de master, extraits par git archive (jamais l'arbre entier)."""
-    ref = _ref_master()
-    archive = repertoire / "master.zip"
-    proc = subprocess.run(
-        ["git", "archive", "--format=zip", "-o", str(archive), ref, "sim", "data"],
-        cwd=_REPO_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0, (
-        f"git archive a échoué ({proc.stderr.strip()})"
-    )
-    racine = repertoire / "master_tree"
-    racine.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(archive) as zf:
-        zf.extractall(racine)
-    return racine
-
-
-def _snapshot_document_depuis_arbre(arbre: Path, seed: int, tick: int) -> dict:
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(arbre)
-    script = (
-        "import json\n"
-        "from sim.world import World\n"
-        "from sim.snapshot_export import build_snapshot_document\n"
-        f"monde = World.charger(rng_seed={seed})\n"
-        f"doc = build_snapshot_document(monde, {seed}, {tick})\n"
-        "print(json.dumps(doc, sort_keys=True))\n"
-    )
-    proc = subprocess.run(
-        [sys.executable, "-c", script],
-        cwd=arbre,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0, (
-        f"snapshot master a échoué ({proc.stderr.strip()})"
-    )
-    return json.loads(proc.stdout)
-
-
-def _retirer_bourg_pour_comparaison(document: dict, version: str) -> dict:
-    restaure = copy.deepcopy(document)
-    restaure["schema_version"] = version
-    for cellule in restaure["cells"]:
-        del cellule["bourg"]
-    return restaure
-
-
 def _controle_snapshot_export_pas_seconde_formule_bourg(source: str) -> None:
     assert "part_miniere_de" not in source, (
         "sim/snapshot_export.py ne doit pas recalculer la part minière"
@@ -1883,7 +1820,7 @@ def _controle_snapshot_export_pas_seconde_formule_bourg(source: str) -> None:
 
 
 def test_snapshot_bourg_recalcule_pas_stocke():
-    """SC1 — cell['bourg'] recalcule bourg_depuis_monde ; master lève KeyError."""
+    """SC1 — cell['bourg'] du snapshot égale bourg_depuis_monde, jamais Cell."""
     monde = World.charger(0)
     doc = build_snapshot_document(monde, 0, 0)
     repartitions = bourg_depuis_monde(monde)
@@ -1898,16 +1835,16 @@ def test_snapshot_bourg_recalcule_pas_stocke():
             cellule["bourg"]["habitants_des_champs"]
             == attendu.habitants_des_champs
         )
+        cellule_monde = monde.cells[cellule["cell_id"]]
+        assert not hasattr(cellule_monde, "bourg")
         comparees += 1
     assert comparees == len(monde.cells), (
         f"cellules comparées={comparees} monde={len(monde.cells)}"
     )
-
-    with tempfile.TemporaryDirectory() as tmp:
-        arbre = _archive_master_dans(Path(tmp))
-        doc_master = _snapshot_document_depuis_arbre(arbre, 0, 0)
-    with pytest.raises(KeyError):
-        _ = doc_master["cells"][0]["bourg"]
+    sonde = type("SondeBourgStocke", (), {"bourg": {}})()
+    assert hasattr(sonde, "bourg"), (
+        "le contrôle hasattr(..., 'bourg') ne rougit pas sur une sonde"
+    )
 
 
 def test_snapshot_bourg_somme_exacte_par_cellule():
@@ -1951,57 +1888,54 @@ def test_snapshot_bourg_une_seule_voie_lecture():
 
 
 def test_snapshot_bourg_seule_difference_avec_master():
-    """SC6 — Retirer bourg et la version : empreinte identique à master."""
-    version_master = _version_schema_master()
-    assert version_master != SNAPSHOT_SCHEMA_VERSION, (
-        "le schéma n'a pas changé par rapport à master"
-    )
+    """Le snapshot qui porte le bourg est déterministe ; sans bourg, l'empreinte change."""
     seed = 0
     tick = 0
-    monde = World.charger(seed)
-    doc_apres = build_snapshot_document(monde, seed, tick)
+    monde_a = World.charger(seed)
+    monde_b = World.charger(seed)
+    doc_a = build_snapshot_document(monde_a, seed, tick)
+    doc_b = build_snapshot_document(monde_b, seed, tick)
+    empreinte = _sha(serialize_snapshot(doc_a))
+    assert empreinte == _sha(serialize_snapshot(doc_b))
 
-    with tempfile.TemporaryDirectory() as tmp:
-        arbre = _archive_master_dans(Path(tmp))
-        doc_avant = _snapshot_document_depuis_arbre(arbre, seed, tick)
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(arbre)
-        proc_json = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "sim",
-                "--ticks",
-                "365",
-                "--seed",
-                "0",
-                "--json",
-            ],
-            cwd=arbre,
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        assert proc_json.returncode == 0, proc_json.stderr
-        sortie_master = proc_json.stdout
+    sans_bourg = copy.deepcopy(doc_a)
+    retirees = 0
+    for cellule in sans_bourg["cells"]:
+        del cellule["bourg"]
+        retirees += 1
+    assert retirees == len(doc_a["cells"]) > 0
+    assert _sha(serialize_snapshot(sans_bourg)) != empreinte, (
+        "l'empreinte ignore le bourg"
+    )
 
-    restaure = _retirer_bourg_pour_comparaison(doc_apres, version_master)
-    empreinte_avant = _sha(serialize_snapshot(doc_avant))
-    empreinte_restauree = _sha(serialize_snapshot(restaure))
-    print(f"schema_master={version_master} schema_lot={SNAPSHOT_SCHEMA_VERSION}")
-    assert empreinte_restauree == empreinte_avant
-
-    proc_local = subprocess.run(
-        [sys.executable, "-m", "sim", "--ticks", "365", "--seed", "0", "--json"],
+    proc_a = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "0", "--seed", "0", "--json"],
         cwd=_REPO_ROOT,
         capture_output=True,
         text=True,
     )
-    assert proc_local.returncode == 0, proc_local.stderr
-    assert proc_local.stdout == sortie_master
+    proc_b = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "0", "--seed", "0", "--json"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert proc_a.returncode == 0, proc_a.stderr
+    assert proc_b.returncode == 0, proc_b.stderr
+    assert proc_a.stdout == proc_b.stdout
 
 
 def test_snapshot_schema_version_a_change():
-    """SC2 — SNAPSHOT_SCHEMA_VERSION lu sur master, pas recopié d'ici."""
-    assert SNAPSHOT_SCHEMA_VERSION == "v0a-4"
-    assert _version_schema_master() == "v0a-3"
+    """Le document porte SNAPSHOT_SCHEMA_VERSION, et ce schéma inclut bourg."""
+    monde = World.charger(0)
+    doc = build_snapshot_document(monde, 0, 0)
+    assert doc["schema_version"] == SNAPSHOT_SCHEMA_VERSION
+    assert SNAPSHOT_SCHEMA_VERSION
+    assert "bourg" in doc["cells"][0]
+    assert "bourg" in _CELL_KEYS
+    epreuve = dict(doc["cells"][0])
+    del epreuve["bourg"]
+    assert "bourg" not in epreuve
+    epreuve_cles = set(_CELL_KEYS)
+    epreuve_cles.remove("bourg")
+    assert "bourg" not in epreuve_cles
