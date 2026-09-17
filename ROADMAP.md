@@ -156,7 +156,7 @@ note : le code de ce lot existe dans une PR de l'ancien dépôt ; il n'a pas ét
 état : pret · couche : 1 · dépend de : — · PR : —
 
 ### [054 — Cohérence globale : inventaire du produit face à la vision](briefs/054-coherence-globale-inventaire-produit-vision.md)
-état : pret · couche : — · dépend de : — · PR : —
+état : livre · couche : — · dépend de : — · PR : 26
 
 ## La fusion — ce qui reste à finir
 
