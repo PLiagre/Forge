@@ -133,7 +133,7 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 état : a-briefer · couche : — · dépend de : 242 · PR : —
 
 ### [242 — La page de pilotage devient un kanban par état](briefs/242-la-page-de-pilotage-devient-un-kanban-par-etat.md)
-état : a-briefer · couche : — · dépend de : — · PR : —
+état : pret · couche : — · dépend de : — · PR : —
 
 ### [241 — L'atelier relit les PR brief et feuille](briefs/241-l-atelier-relit-les-pr-brief-et-feuille.md)
 état : pret · couche : — · dépend de : — · PR : —
@@ -149,7 +149,7 @@ note : livré par le commit de fondation, avant qu'aucune PR n'existe ici. Plafo
 note : la lecture « bourg » de la carte de statistique l'attend et refuse proprement en attendant.
 
 ### [052 — Le regard mince montre le bourg](briefs/052-le-regard-mince-montre-le-bourg.md)
-état : pret · couche : 2 · dépend de : 051 · PR : —
+état : livre · couche : 2 · dépend de : 051 · PR : 37
 
 ### [049 — Fabriquer : le minerai devient un objet](briefs/049-fabriquer-le-minerai-devient-un-objet.md)
 état : pret · couche : 2 · dépend de : — · PR : —
