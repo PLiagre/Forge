@@ -68,6 +68,51 @@ def _mesures(valeurs: list[Any]) -> list[float]:
     return nombres
 
 
+def _erreur_bourg(cell: dict[str, Any], sous_champ: str, detail: str) -> ValueError:
+    cell_id = cell.get("cell_id", "?")
+    return ValueError(f"cellule {cell_id} : bourg.{sous_champ} {detail}")
+
+
+def _agreger_sous_champ_bourg(
+    cellules: list[dict[str, Any]], sous_champ: str
+) -> dict[str, Any]:
+    somme = 0
+    n_lues = 0
+    n_sentinelles = 0
+    for cell in cellules:
+        if "bourg" not in cell:
+            continue
+        bourg = cell["bourg"]
+        if bourg is None:
+            continue
+        if not isinstance(bourg, dict):
+            raise _erreur_bourg(cell, sous_champ, "n'est pas un objet")
+        if sous_champ not in bourg:
+            continue
+        valeur = bourg[sous_champ]
+        if valeur is None:
+            continue
+        if isinstance(valeur, bool):
+            raise _erreur_bourg(cell, sous_champ, "n'est pas un entier")
+        etat = classify(valeur)
+        if etat == NON_CALCULE:
+            n_sentinelles += 1
+            continue
+        if etat == ABSENT:
+            continue
+        if not isinstance(valeur, int):
+            raise _erreur_bourg(cell, sous_champ, "n'est pas un entier")
+        if valeur < 0:
+            raise _erreur_bourg(cell, sous_champ, "est négatif")
+        somme += valeur
+        n_lues += 1
+    if n_lues > 0:
+        return {"etat": "mesure", "valeur": somme, "cellules_lues": n_lues}
+    if n_sentinelles > 0:
+        return {"etat": "non_calcule"}
+    return {"etat": "absent"}
+
+
 def agregats_monde(document: dict[str, Any]) -> dict[str, Any]:
     """Totaux du bandeau : sommes des cellules déjà photographiées."""
     cellules = _cellules(document)
@@ -125,6 +170,12 @@ def agregats_monde(document: dict[str, Any]) -> dict[str, Any]:
     return {
         "cellules": {"etat": "mesure", "valeur": len(cellules)},
         "cellules_affamees": affamees,
+        "habitants_des_champs": _agreger_sous_champ_bourg(
+            cellules, "habitants_des_champs"
+        ),
+        "habitants_du_bourg": _agreger_sous_champ_bourg(
+            cellules, "habitants_du_bourg"
+        ),
         "jour_de_tick": _champ_document(document, "jour_de_tick"),
         "kg_transportes": _champ_document(document, "kg_transportes"),
         "population": population,
