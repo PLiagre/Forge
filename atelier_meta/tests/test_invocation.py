@@ -15,7 +15,7 @@ import subprocess
 
 import pytest
 
-from atelier import backends, boite, traces
+from atelier import backends, boite, projet, traces
 from atelier.__main__ import main
 from tests.depot import installer, worktree_role
 from tests.test_porte import BRIEF_SAIN
@@ -942,6 +942,71 @@ def test_le_relecteur_lit_la_ci_avant_d_approuver():
         projet="/produit", pr=44,
     )
     assert "gh pr checks 44" in argv[argv.index("-p") + 1]
+
+
+# ----------------------------- le relecteur n'attend pas sa propre approbation
+
+
+def _prompt_relire(controles) -> str:
+    argv = backends.argv_du_role(
+        "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+        projet="/produit", pr=44, controles=controles,
+    )
+    return argv[argv.index("-p") + 1]
+
+
+def test_le_prompt_du_relecteur_nomme_les_controles_declares():
+    """La liste vient du branchement, elle n'est pas recopiée dans le prompt."""
+    declares = ("sim", "vues", "gitleaks")
+    prompt = _prompt_relire(declares)
+    assert declares, "échantillon vide : il n'y aurait aucun contrôle à nommer"
+    nommes = [nom for nom in declares if nom in prompt]
+    assert len(nommes) == len(declares), f"contrôles absents du prompt : {set(declares) - set(nommes)}"
+    # Une liste inventée ne doit pas apparaître : le prompt ne connaît que
+    # ce qu'on lui passe.
+    assert "outils" not in _prompt_relire(("sim",))
+
+
+def test_le_relecteur_ne_refuse_pas_sur_son_propre_verdict():
+    """« relecture » porte l'avis du relecteur : rouge tant qu'il n'a pas approuvé.
+
+    Le prompt le comptait parmi les contrôles qui font refuser. Le relecteur
+    de la PR 37 a donc demandé des changements au motif qu'aucune approbation
+    n'existait — la sienne. Un poste qui refuse parce qu'il n'a pas approuvé
+    n'approuve jamais.
+    """
+    prompt = _prompt_relire(("sim", "vues", "gitleaks"))
+    assert "relecture" in prompt, "le prompt doit nommer le cas, pas le passer sous silence"
+    debut = prompt.index("Lis d'abord `gh pr checks 44`")
+    fin = prompt.index("Termine par UNE revue GitHub")
+    lecture = prompt[debut:fin]
+    assert "relecture" in lecture and "ne retient rien" in lecture
+    assert "ton propre verdict" in lecture
+
+
+def test_sans_controles_declares_le_relecteur_ignore_toujours_le_sien():
+    """Un produit qui ne déclare rien ne ramène pas la boucle par la bande."""
+    prompt = _prompt_relire(())
+    assert "aucun contrôle requis" in prompt
+    assert "relecture" in prompt and "ton propre verdict" in prompt
+
+
+def test_la_liste_des_controles_vient_du_branchement_du_produit(tmp_path: Path):
+    """Bout en bout : `atelier invocation` lit atelier.toml, pas une constante."""
+    racine = _projet(tmp_path)
+    toml = racine / "atelier.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8")
+        + '\n[integration]\ncontroles = ["sim", "feuille"]\n',
+        encoding="utf-8",
+    )
+    produit = projet.charger(racine)
+    assert produit.controles == ("sim", "feuille")
+    code = main([
+        "invocation", "--projet", str(racine), "--role", "relire",
+        "--lot", "044-mineur", "--brief", "briefs/044-mineur.md", "--pr", "44",
+    ])
+    assert code == 0
 
 
 # ------------------------------------------- la trace d'un contrôle rouge

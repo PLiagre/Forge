@@ -182,6 +182,8 @@
     remplirKpi("kpi-tick", monde.tick);
     remplirKpi("kpi-jour", monde.jour_de_tick);
     remplirKpi("kpi-population", monde.population);
+    remplirKpi("kpi-bourg", monde.habitants_du_bourg);
+    remplirKpi("kpi-champs", monde.habitants_des_champs);
     remplirKpi("kpi-cellules", monde.cellules);
     remplirKpi("kpi-affamees", monde.cellules_affamees);
     remplirKpi("kpi-stock", monde.stock_nourriture_kg);
