@@ -577,6 +577,7 @@ def _cmd_invocation(args: argparse.Namespace) -> int:
             branche=branche,
             feuille=_feuille_relative(produit),
             decision=args.decision,
+            controles=produit.controles,
         )
     except (backends.BackendErreur, projet.ProjetIncomplet, KeyError) as exc:
         print(f"FAIL  {exc}", file=sys.stderr)
