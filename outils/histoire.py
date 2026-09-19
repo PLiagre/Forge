@@ -358,13 +358,16 @@ class Deduction:
     sur_quoi: str
 
 
-def travaux_commences(branches, branches_ouvertes) -> tuple[Deduction, ...]:
+def travaux_commences(branches, branches_ouvertes, finis=()) -> tuple[Deduction, ...]:
     """Les branches de code poussées sans proposition ouverte sur elles.
 
     `branches` : les noms des branches distantes. `branches_ouvertes` :
     celles qui portent déjà une proposition ouverte — celles-là sont
     visibles dans le registre, et les compter ici donnerait deux agents
-    là où il n'y en a qu'un.
+    là où il n'y en a qu'un. `finis` : les numéros des lots qui n'attendent
+    plus rien. La branche restée d'un lot livré — une fusion faite à la
+    main ne la supprime pas — n'est pas un travail commencé : l'annoncer,
+    c'est noyer celle qui en est un.
 
     La comparaison porte sur la **branche**, pas sur le lot : un lot dont
     le brief est en proposition et dont la branche de code existe déjà,
@@ -372,12 +375,13 @@ def travaux_commences(branches, branches_ouvertes) -> tuple[Deduction, ...]:
     coder pendant que le brief attendait.
     """
     ouvertes = set(branches_ouvertes)
+    finis = set(finis)
     vus: list[Deduction] = []
     for branche in sorted(set(branches)):
         if not branche.startswith(CODE) or branche in ouvertes:
             continue
         lot = lot_de_la_branche(branche)
-        if lot is None:
+        if lot is None or lot in finis:
             continue
         vus.append(
             Deduction(
