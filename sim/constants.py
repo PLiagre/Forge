@@ -16,6 +16,26 @@ import math
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.
 MARCHANDISE_NOURRITURE = "nourriture"
 
+# Marchandise générique issue de la façonnage des matières premières ; niveau 2.
+MARCHANDISE_OBJET = "objet"
+
+# Part du stock de matière première façonnée par tick ; niveau 2.
+TAUX_FABRICATION_PAR_TICK = 0.05
+
+# Kilogrammes d'objet produits par kilogramme de matière consommée ; niveau 2.
+RENDEMENT_FABRICATION = 0.6
+
+
+def fabrication_kg(stock_brut_kg: float) -> tuple[float, float]:
+    """
+    Consommation et production d'un tick de façonnage pour un stock brut.
+
+    Relit TAUX_FABRICATION_PAR_TICK et RENDEMENT_FABRICATION à chaque appel.
+    """
+    consomme = stock_brut_kg * TAUX_FABRICATION_PAR_TICK
+    produit = consomme * RENDEMENT_FABRICATION
+    return consomme, produit
+
 # --- Base de temps unique ---
 
 # Durée d'un tick en jours (proxy paramétrique, voir MODELE.md).
