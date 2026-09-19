@@ -139,14 +139,16 @@ retient), `atelier/feuille.py` (`decider`, `verifier_cartes`,
 fonction `_cmd_piloter`, et seulement pour lui passer les propositions
 ouvertes — et **un** nouveau module `atelier/propositions.py` pour l'appel
 à `gh`. Côté harnais : `atelier_meta/crons/tour.sh` si le rôle `relire` a
-besoin d'un argument de plus, et les tests de `atelier_meta/tests/`.
+besoin d'un argument de plus, `atelier_meta/tests/test_boite.py` et
+`atelier_meta/tests/test_feuille.py`, qui portent déjà les invariants
+concernés.
 
 Tout autre chemin est interdit, nommément : `outils/` en entier — dont
 `outils/relecture.py`, `outils/integration.py` et `outils/tableau.py` —,
 `.github/` en entier, `atelier.toml`, `AGENTS.md`, `docs/WORKFLOW.md`,
 `VISION.md`, `sim/`, `vues/`, `forge/`, `data/`, et les autres briefs. La
-fiche 241 de `ROADMAP.md` est dans le périmètre implicite de la PR de lot,
-et rien d'autre de la feuille de route : aucune autre fiche, aucune prose.
+fiche 241 relève du périmètre implicite de la PR de lot ; aucune autre
+fiche ni prose de la feuille de route ne change.
 
 **Trois tests existants énoncent la règle que ce lot remplace.** Les
 modifier est autorisé, pour eux seuls, et nommément :
