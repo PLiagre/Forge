@@ -38,8 +38,8 @@ relecture et une intégration font le reste, et **chaque étape peut rougir**.
                             │  PR                                      │
                             ▼                                          │
                     ┌───────────────┐                                  │
-                    │ LES CONTRÔLES │  sim · vues · forge · outils     │
-                    │     (CI)      │  feuille · gitleaks              │
+                    │ LES CONTRÔLES │  ceux que déclare atelier.toml   │
+                    │     (CI)      │  § [integration]                 │
                     └───────┬───────┘                                  │
                             ▼                                          │
                     ┌───────────────┐  jamais l'auteur                 │
@@ -142,6 +142,15 @@ contrôles déclarés :  sim · vues · forge · outils · atelier · feuille ·
 branches intégrées :  agent/   brief/   feuille/
 ```
 
+Les deux listes font foi dans [`atelier.toml`](../atelier.toml) § `[integration]` ;
+celles-ci en sont une copie pour l'œil, datée du 19 septembre 2026.
+
+**Qui approuve, aujourd'hui.** Le relecteur de l'atelier ne relit que les PR
+`agent/` : il ne prend que les cartes de `a-relire`, et seul le coder y en
+dépose. Les PR `brief/` et `feuille/` attendent donc l'approbation d'un tiers
+posée à la main, par le second compte du propriétaire. C'est le lot 241 qui
+leur donne un relecteur.
+
 Trois pièges, chacun payé par un vrai défaut :
 
 - **un contrôle absent n'est pas un contrôle vert** ; un état de fusion inconnu
@@ -183,26 +192,32 @@ ce nom seul que la machine le reconnaît.
 
 | symptôme | ce que ça veut dire | le geste |
 |---|---|---|
-| carte dans `echec/` | un agent est tombé (code de retour, délai, brief introuvable) | lire la raison, corriger, `atelier reprendre` |
+| carte dans `echec/` | un agent est tombé (code de retour, délai, brief introuvable) | un délai dépassé revient seul deux fois, un agent tombé une fois, au tour suivant du rôle ; au-delà, et pour toute autre cause, lire la raison, corriger, `atelier reprendre --lot <lot>` |
 | lot immobile | dépendance non livrée, ou fichier tenu par un verrou | `feuille etat` dit par qui ; `atelier lever` après la fusion |
 | PR fermée sans fusion | le lot est à décider | ranger la carte, rendre le verrou, choisir `pret` ou `abandonne` |
 | carte dans `echec/`, cause `relecture` | le relecteur a demandé des changements sur la PR, ou n'a posé aucune revue | lire la revue sur la PR ; fermer la PR et `atelier reprendre`, ou repasser la fiche à `a-briefer` par le travail `etat-lot` |
 | CI de feuille rouge | brief orphelin, fiche sans brief, dépendance fantôme | `atelier feuille valider` le nomme ; rien ne part tant que ce n'est pas réparé |
 | tours à vide répétés | la chaîne est arrêtée et le dit dans son journal | la page de pilotage alerte au-delà de 10 tours |
 
-**Rien ne se relance tout seul.** Un agent tombé reste tombé jusqu'à ce que
-quelqu'un lise pourquoi.
+**Ne revient seul que ce qu'un second essai peut changer.** Chaque tour
+commence par `atelier rappeler` : une carte tombée pour un délai dépassé
+(deux reprises) ou un agent qui a planté (une reprise) retourne dans la file
+de son rôle. Les autres causes — brief absent, périmètre vide, branche, PR
+illisible, relecture refusée — rendraient la même réponse : elles restent dans
+`echec/` jusqu'à ce que quelqu'un lise pourquoi. Le partage vit dans
+`atelier/reprise.py`, et c'est lui qui fait foi.
 
 ## Les deux gestes qui ne sont pas du code
 
 Ils se posent une fois, dans les options du dépôt, et la chaîne n'est pas
-complète sans eux :
+complète sans eux. **Les deux sont posés** (constaté le 19 septembre 2026) :
 
 1. **la protection de `master`** — les contrôles déclarés obligatoires, et
    `enforce_admins`. Sans elle l'intégration reste correcte, mais rien
    n'empêche une main de fusionner du rouge. C'est déjà arrivé.
+   `gh api repos/PLiagre/Forge/branches/master/protection` le montre.
 2. **Pages → Source : GitHub Actions** — pour que la page de pilotage soit
-   publiée. Sans lui elle est réécrite à chaque tour et reste en pièce jointe.
+   publiée. `gh api repos/PLiagre/Forge/pages` le montre.
 
 ## Le journal de ce qui a vraiment tourné
 
@@ -220,7 +235,12 @@ suit a été mesuré en ligne :
   ne relie à personne, un verdict calculé depuis le code de la PR jugée, des
   contrôles épinglés sur l'ancienne révision, une branche de palier restée
   d'une PR fermée qui bloquait sa couche pour toujours ;
-- **jamais joué en ligne** : la fusion elle-même, le rejeu d'une PR en retard,
-  le dépôt d'un palier. Le premier lot qui passera le cycle entier est ce qui
-  les mesurera. C'est le lot 103, et c'est la dernière chose que la V1 doit
-  encore à sa promesse « une chaîne verte de bout en bout ».
+- **le cycle entier a tourné sans main** — le 17 septembre 2026, lot 054 :
+  pilote à 07:00, coder à 07:30 (PR 26), relecteur à 09:00 (heure de Paris), fusion par
+  l'intégration à 09:03. Le lot 049 l'a refait le 19 (PR 40). C'est la
+  preuve que le lot 103 attendait ;
+- **le rejeu d'une PR en retard a tourné** — le 19 septembre 2026, la PR 41
+  avait trois commits de retard : l'intégration l'a rejouée sur `master`
+  (commit `db85f17`), et ses contrôles sont repartis ;
+- **jamais joué en ligne** : le dépôt d'un palier. Aucune couche n'est encore
+  finie ; la première qui le sera le mesurera.
