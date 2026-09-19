@@ -131,6 +131,7 @@ OUTILS_PERMIS_PAR_ROLE = {
     "briefer": (
         "Read,Glob,Grep,Write,Edit,"
         "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),"
+        "Bash(gh pr list:*),Bash(gh issue view:*),"
         "Bash(python3:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*)"
     ),
     "relire": (
@@ -274,8 +275,21 @@ def prompt_du_role(
             "l'atelier ne devine pas ce qu'on lui demande"
         )
     if role == "briefer":
+        # La fiche ne garde d'une demande que son titre. La direction du
+        # propriétaire — ce qu'il attend, le périmètre qu'il imagine — vit
+        # dans l'issue, et la PR qui a fait entrer la fiche la cite : la
+        # branche porte le lot, `outils/demandes.py` la nomme ainsi.
         return (
             f"Écris le brief du lot {lot} de {projet}, dans le fichier {brief}. "
+            "Lis d'abord la demande qui a fait entrer ce lot au registre : c'est "
+            "la direction du propriétaire, et la fiche n'en garde que le titre. "
+            f"`gh pr list --state all --search \"head:feuille/{lot}\" --json number,body` "
+            "nomme la PR de sa fiche, dont le corps cite la demande (« demande #N ») ; "
+            "`gh issue view N --json body,comments` la montre, avec ce que ses "
+            "commentaires corrigent — sans `--json`, le `gh` du VPS échoue. Le "
+            "brief suit cette demande, périmètre et "
+            "conditions de succès attendus compris ; s'il s'en écarte, ta PR dit où "
+            "et pourquoi. Sans demande trouvée, ta PR le dit. "
             "Suis le format de brief du dépôt produit. Travaille sur une branche "
             f"brief/{lot}, ouvre une PR à la fin ; tu ne fusionnes pas. Puis écris "
             "son numéro, seul, dans atelier-echange/pr.txt (crée le dossier s'il "
