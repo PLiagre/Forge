@@ -126,6 +126,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [249 — Une carte tombée prévient le propriétaire](briefs/249-une-carte-tombee-previent-le-proprietaire.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
 ### [243 — Chaque carte du kanban nomme son geste suivant](briefs/243-chaque-carte-du-kanban-nomme-son-geste-suivant.md)
 état : a-briefer · couche : — · dépend de : 242 · PR : —
 
