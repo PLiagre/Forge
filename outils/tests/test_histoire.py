@@ -251,6 +251,19 @@ def test_une_branche_sans_lot_ne_deduit_rien():
     assert histoire.travaux_commences(["cursor/engineering-docs-7979"], []) == ()
 
 
+def test_la_branche_restee_d_un_lot_fini_n_annonce_pas_un_codeur():
+    """Mesuré le 19 septembre 2026 : la page annonçait « un codeur a
+    commencé le lot 052 » sur un lot livré depuis la veille — sa branche
+    avait survécu à une fusion faite à la main. Un lot fini n'a plus de
+    codeur ; une branche qui traîne n'est pas un travail commencé."""
+    from outils import palier
+    branches = [f"agent/0{n}-lot" for n in range(50, 50 + len(palier.FINIS) + 1)]
+    finis = {b.split("/")[1][:3] for b in branches[:len(palier.FINIS)]}
+    assert finis, "échantillon vide : aucun lot fini"
+    deduites = histoire.travaux_commences(branches, [], finis=finis)
+    assert [d.sur_quoi for d in deduites] == branches[len(finis):]
+
+
 def test_le_journal_rapporte_le_mot_de_github_pas_la_lecture_de_l_integration():
     """Deux lectures justes, chacune à sa place. Pour l'intégration, un
     `neutral` sur un contrôle requis n'est pas un vert — il n'a rien
