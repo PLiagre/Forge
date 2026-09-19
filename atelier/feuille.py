@@ -469,7 +469,13 @@ def rapprochements(feuille: Feuille, racine: Path) -> list[Rapprochement]:
 
 def appliquer(racine: Path, rapprochement: Rapprochement) -> Path:
     carte = boite.lire(racine, rapprochement.source, rapprochement.lot)
-    destination = boite.deposer(racine, rapprochement.destination, carte)
+    # Un lot briefé par la chaîne passe deux fois par `fusionnee` : son
+    # brief, puis son code. L'archive garde la dernière ; refuser la
+    # seconde faisait tomber `piloter` chaque matin, et avec lui tout dépôt.
+    destination = boite.deposer(
+        racine, rapprochement.destination, carte,
+        ecraser=rapprochement.destination == BOITE_FUSIONNEE,
+    )
     (boite.racine_boite(racine) / rapprochement.source / f"{rapprochement.lot}.json").unlink()
     if rapprochement.lever_verrou:
         verrou.lever(racine, rapprochement.lot)
@@ -526,7 +532,11 @@ def decider(feuille: Feuille, racine: Path) -> list[Decision]:
     decisions: list[Decision] = []
     briefer_pris = coder_pris = False
     for fiche in feuille.fiches:
-        if fiche.lot in cartes:
+        # Une carte de `fusionnee` est une archive : sa PR est entrée, elle
+        # ne tient plus le lot. Celle du brief y arrive quand la fiche
+        # passe à `pret` — la compter ici, c'était cacher au coder chaque
+        # lot que le briefer avait écrit.
+        if any(nom != BOITE_FUSIONNEE for nom, _carte in cartes.get(fiche.lot, ())):
             continue
         if fiche.etat == "a-briefer" and not briefer_pris:
             decisions.append(Decision("briefer", "a-briefer", fiche.lot, fiche.chemin, ()))
