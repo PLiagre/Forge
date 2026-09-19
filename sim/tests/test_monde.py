@@ -1710,6 +1710,246 @@ def test_extraction_accumule_dans_le_panier():
         assert lire_stock_marchandise(cell, ressource) == pytest.approx(2.0 * quantite)
 
 
+# --- Fabrication : le minerai devient un objet ---
+
+
+def _cellule_epreuve_fabrication() -> Cell:
+    return Cell(cell_id=1, area_km2=1.0, population=10)
+
+
+def test_fabrication_transforme_dans_les_proportions_declarees():
+    """SC1 — _apply_fabrication consomme et produit selon les constantes nommées."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    matiere = "fer"
+    stock_avant = 200.0
+    consomme = stock_avant * _k.TAUX_FABRICATION_PAR_TICK
+    produit = consomme * _k.RENDEMENT_FABRICATION
+
+    cell = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell, matiere, stock_avant)
+    _apply_fabrication(cell)
+    assert lire_stock_marchandise(cell, matiere) == stock_avant - consomme
+    assert lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET) == produit
+
+    cell_objet = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell_objet, matiere, stock_avant)
+    ecrire_stock_marchandise(cell_objet, _k.MARCHANDISE_OBJET, 7.0)
+    _apply_fabrication(cell_objet)
+    assert lire_stock_marchandise(cell_objet, _k.MARCHANDISE_OBJET) == 7.0 + produit
+
+    cell_nulle = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell_nulle, matiere, 0.0)
+    _apply_fabrication(cell_nulle)
+    assert lire_stock_marchandise(cell_nulle, matiere) == 0.0
+    assert lire_stock_marchandise(cell_nulle, _k.MARCHANDISE_OBJET) == -1.0
+
+    cell_absente = _cellule_epreuve_fabrication()
+    assert lire_stock_marchandise(cell_absente, matiere) == -1.0
+    _apply_fabrication(cell_absente)
+    assert lire_stock_marchandise(cell_absente, _k.MARCHANDISE_OBJET) == -1.0
+
+
+def test_fabrication_rendement_strictement_inferieur_a_un():
+    """SC2 — La transformation perd de la masse : produit < consommé."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    assert _k.RENDEMENT_FABRICATION < 1.0
+    stock_avant = 80.0
+    consomme = stock_avant * _k.TAUX_FABRICATION_PAR_TICK
+    cell = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell, "cuivre", stock_avant)
+    _apply_fabrication(cell)
+    produit = lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET)
+    assert produit < consomme
+    assert produit == consomme * _k.RENDEMENT_FABRICATION
+
+
+def test_fabrication_deux_matieres_premieres_meme_objet():
+    """SC3 — Deux ressources distinctes alimentent le même stock d'objet."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    _, ressources, _ = _agreger_gisements_carte(World.lire_carte())
+    assert len(ressources) >= 2, "échantillon vide : moins de deux ressources sur la carte"
+    m1, m2 = sorted(ressources)[:2]
+    stock = 100.0
+    consomme = stock * _k.TAUX_FABRICATION_PAR_TICK
+    produit_un = consomme * _k.RENDEMENT_FABRICATION
+
+    seule = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(seule, m1, stock)
+    _apply_fabrication(seule)
+    objet_seul = lire_stock_marchandise(seule, _k.MARCHANDISE_OBJET)
+
+    les_deux = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(les_deux, m1, stock)
+    ecrire_stock_marchandise(les_deux, m2, stock)
+    _apply_fabrication(les_deux)
+    objet_double = lire_stock_marchandise(les_deux, _k.MARCHANDISE_OBJET)
+
+    assert objet_seul == produit_un
+    assert objet_double > objet_seul
+    assert objet_double == 2.0 * produit_un
+
+
+def test_fabrication_premier_tick_ne_faconne_pas():
+    """SC4 — Au tick 0, aucune cellule ne porte encore d'objet façonné ce jour."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+    from sim.model import lire_stock_marchandise
+
+    carte_doc = World.lire_carte()
+    porteuses = _porteuses_de_la_carte(carte_doc)
+    assert porteuses, "échantillon vide : aucune cellule porteuse sur la carte"
+
+    monde = World.charger(0)
+    tick(monde, random.Random(0), numero_tick=0)
+
+    avec_objet = [
+        cid
+        for cid, cell in monde.cells.items()
+        if lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET) > 0.0
+    ]
+    print(f"porteuses={len(porteuses)} cellules_avec_objet={len(avec_objet)}")
+    assert avec_objet == []
+
+
+def test_fabrication_deuxieme_tick_faconne_extrait():
+    """SC5 — Au second tick, l'objet apparaît sur une cellule minière."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+    from sim.model import lire_stock_marchandise
+
+    carte_doc = World.lire_carte()
+    porteuses = sorted(_porteuses_de_la_carte(carte_doc))
+    assert porteuses, "échantillon vide : aucune cellule porteuse sur la carte"
+
+    monde = World.charger(0)
+    rng = random.Random(0)
+    tick(monde, rng, numero_tick=0)
+    tick(monde, rng, numero_tick=1)
+
+    trouvees = 0
+    for cid in porteuses:
+        stock = lire_stock_marchandise(monde.cells[cid], _k.MARCHANDISE_OBJET)
+        if stock > 0.0:
+            trouvees += 1
+    print(f"porteuses={len(porteuses)} avec_objet={trouvees}")
+    assert trouvees > 0
+
+
+def test_fabrication_objet_ne_circule_pas():
+    """SC6 — L'objet n'a pas de consommation par habitant."""
+    from sim import constants as _k
+
+    assert _k.consommation_kg_par_habitant_par_tick(_k.MARCHANDISE_OBJET) == 0.0
+
+
+def test_fabrication_constantes_lues_par_fonction_seulement():
+    """SC7 — engine.py ne nomme pas les constantes de façonnage directement."""
+    import ast
+
+    engine_path = pathlib.Path(__file__).resolve().parents[1] / "engine.py"
+    source = engine_path.read_text(encoding="utf-8")
+    arbre = ast.parse(source, filename=str(engine_path))
+    interdits = {"TAUX_FABRICATION_PAR_TICK", "RENDEMENT_FABRICATION"}
+    cites = {
+        node.attr
+        for node in ast.walk(arbre)
+        if isinstance(node, ast.Attribute)
+        and node.attr in interdits
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "_constantes"
+    }
+    assert cites == set(), (
+        f"constantes_fabrication_citees_directement={sorted(cites)}"
+    )
+
+    fautif = source.replace(
+        "consomme, produit = _constantes.fabrication_kg(stock)",
+        "consomme, produit = _constantes.fabrication_kg(stock)\n"
+        "        _ = _constantes.TAUX_FABRICATION_PAR_TICK",
+    )
+    arbre_fautif = ast.parse(fautif, filename="engine_fautif.py")
+    cites_fautif = {
+        node.attr
+        for node in ast.walk(arbre_fautif)
+        if isinstance(node, ast.Attribute)
+        and node.attr in interdits
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "_constantes"
+    }
+    assert "TAUX_FABRICATION_PAR_TICK" in cites_fautif
+
+
+def test_fabrication_determinisme_meme_graine():
+    """SC9 — Même graine et mêmes ticks : to_dict et stocks_mer identiques."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+    from sim.model import lire_stock_marchandise
+
+    def _jouer(monde: World, ticks: int) -> None:
+        rng = random.Random(0)
+        for t in range(ticks):
+            tick(monde, rng, numero_tick=t)
+
+    ticks = 3
+    a = World.charger(0)
+    b = World.charger(0)
+    _jouer(a, ticks)
+    _jouer(b, ticks)
+    assert a.to_dict() == b.to_dict()
+    assert a.stocks_mer == b.stocks_mer
+
+    avec_objet = sum(
+        1
+        for cell in a.cells.values()
+        if lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET) > 0.0
+    )
+    assert avec_objet > 0, (
+        "échantillon vide : aucune cellule avec objet après les ticks d'épreuve"
+    )
+
+
+def test_fabrication_ordre_insertion_panier_invariant():
+    """SC9 — L'ordre d'insertion des matières premières ne change pas l'objet."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    _, ressources, _ = _agreger_gisements_carte(World.lire_carte())
+    assert len(ressources) >= 2, "échantillon vide : moins de deux ressources sur la carte"
+    m1, m2 = sorted(ressources)[:2]
+    stock = 50.0
+
+    def _cellule(ordre: list[str]) -> Cell:
+        cell = _cellule_epreuve_fabrication()
+        for cle in ordre:
+            ecrire_stock_marchandise(cell, cle, stock)
+        return cell
+
+    c1 = _cellule([m1, m2])
+    c2 = _cellule([m2, m1])
+    _apply_fabrication(c1)
+    _apply_fabrication(c2)
+    o1 = lire_stock_marchandise(c1, _k.MARCHANDISE_OBJET)
+    o2 = lire_stock_marchandise(c2, _k.MARCHANDISE_OBJET)
+    assert o1 == o2
+    assert o1 > 0.0
+
+
 def test_cli_refuse_ticks_negatif():
     proc = subprocess.run(
         [sys.executable, "-m", "sim", "--ticks", "-1", "--json"],

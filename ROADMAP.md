@@ -152,7 +152,7 @@ note : la lecture « bourg » de la carte de statistique l'attend et refuse prop
 état : livre · couche : 2 · dépend de : 051 · PR : 37
 
 ### [049 — Fabriquer : le minerai devient un objet](briefs/049-fabriquer-le-minerai-devient-un-objet.md)
-état : pret · couche : 2 · dépend de : — · PR : —
+état : livre · couche : 2 · dépend de : — · PR : 40
 note : le code de ce lot existe dans une PR de l'ancien dépôt ; il n'a pas été repris ici et reste à écrire.
 
 ### [053 — Le monde porte sa date](briefs/053-le-monde-porte-sa-date.md)
