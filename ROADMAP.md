@@ -126,6 +126,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [244 — Une carte qui ne se retente pas repart d'un cran, pas chez le propriétaire](briefs/244-une-carte-qui-ne-se-retente-pas-repart-d-un-cran.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
 ### [243 — Chaque carte du kanban nomme son geste suivant](briefs/243-chaque-carte-du-kanban-nomme-son-geste-suivant.md)
 état : a-briefer · couche : — · dépend de : 242 · PR : —
 
