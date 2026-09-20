@@ -360,6 +360,59 @@ def test_le_brief_en_pr_attend_le_proprietaire(tmp_path: Path):
     assert all(d.lot != "048-route" for d in feuille.decider(f, racine))
 
 
+def test_le_lot_dont_le_brief_est_fusionne_part_au_coder(tmp_path: Path):
+    """Une carte rangée dans `fusionnee` n'occupe plus son lot.
+
+    Mesuré le 19 septembre 2026 : le brief 242 fusionné, sa carte est
+    passée de `brief-a-fusionner` à `fusionnee`, et le pilote a déposé 049,
+    plus bas dans le registre. `decider` sautait tout lot qui portait une
+    carte, fût-ce une carte d'archive : un lot briefé par la chaîne
+    n'arrivait jamais au coder, et `feuille etat` annonçait le contraire.
+    """
+    racine = _produit(tmp_path)
+    _carte(racine, boite.SUIVANT["briefer"], "046-mer", pr=7)
+    f = feuille.lire(racine / "ROADMAP.md")
+    for r in feuille.rapprochements(f, racine):
+        feuille.appliquer(racine, r)
+    assert _boite_de(racine, "fusionnee") == ["046-mer"]
+    pret = [fiche.lot for fiche in f.fiches if fiche.etat == "pret"]
+    assert pret, "échantillon vide : aucune fiche prête"
+    coder = [d.lot for d in feuille.decider(f, racine) if d.role == "coder"]
+    # Le premier lot prêt du registre, et non le suivant.
+    assert coder == [pret[0]] == ["046-mer"]
+    assert feuille.etat_effectif(f.fiche("046"), f, racine) == "prêt — le pilote déposera la carte"
+
+
+def test_cli_piloter_un_lot_brief_par_la_chaine_va_jusqu_a_sa_fusion(tmp_path: Path, capsys):
+    """Le trajet entier d'un lot dont le brief vient du briefer, au pilote.
+
+    Une carte d'archive déjà dans `fusionnee` ne doit pas faire tomber le
+    rapprochement de la carte du coder : `appliquer` levait « carte déjà
+    là », `piloter` rendait FAIL, et plus aucune carte ne partait — pour
+    aucun lot, chaque matin, puisque le rapprochement se rejoue.
+    """
+    racine = _produit(tmp_path)
+    _carte(racine, boite.SUIVANT["briefer"], "046-mer", pr=7)
+    assert main(["piloter", "--projet", str(racine), "--run"]) == 0
+    sortie = capsys.readouterr().out
+    assert "rapproché  046-mer : brief-a-fusionner → fusionnee" in sortie
+    assert "déposé    a-coder    046-mer" in sortie
+    # Le coder puis le relecteur passent ; l'intégration fusionne la PR 9.
+    carte = boite.retirer(racine, "a-coder", "046-mer")
+    verrou.poser(racine, carte.lot, carte.fichiers)
+    boite.deposer(racine, "faite", boite.Carte(lot=carte.lot, brief=carte.brief,
+                                               fichiers=carte.fichiers, pr=9))
+    chemin = racine / "ROADMAP.md"
+    chemin.write_text(feuille.marquer(chemin.read_text(encoding="utf-8"), "046", "livre", (9,)),
+                      encoding="utf-8")
+    assert main(["piloter", "--projet", str(racine), "--run"]) == 0, capsys.readouterr().err
+    sortie = capsys.readouterr().out
+    assert "rapproché  046-mer : faite → fusionnee" in sortie
+    assert _boite_de(racine, "faite") == []
+    assert boite.lire(racine, "fusionnee", "046-mer").pr == 9
+    assert verrou.charger(racine).poses == []
+
+
 # ---------------------------------------------------------- transitions
 
 

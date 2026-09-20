@@ -146,7 +146,8 @@ def actions(depot: str) -> tuple[Action, ...]:
             "Reprendre une carte tombée",
             "Se fait sur le serveur du propriétaire, où vivent les cartes. "
             "Cette page ne peut que dire quoi taper : la commande ci-contre dit "
-            "par quoi chaque lot est retenu, et « atelier prise » reprend la carte.",
+            "par quoi chaque lot est retenu, et « atelier reprendre --lot <lot> » "
+            "sort la carte de sa boîte et rend son verrou.",
             "",
             REPRISE,
         ),
