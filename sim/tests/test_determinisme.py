@@ -309,3 +309,55 @@ def test_bassin_maritime_deterministe_a_graine_fixe():
         "échantillon vide : le bassin n'a jamais rien porté en 20 ticks"
     )
     assert premiere == seconde
+
+
+def test_date_determinisme_meme_course_meme_temps():
+    """SC6 — deux courses identiques : compteur, date, empreinte et bassin égaux."""
+    from sim import constants as _k
+
+    def course():
+        monde = World.charger(rng_seed=11)
+        rng = random.Random(11)
+        n = min(25, _k.CALENDAR_DAYS_PER_YEAR)
+        assert n > 0
+        for i in range(n):
+            engine.tick(monde, rng, i)
+        return monde, n
+
+    a, n = course()
+    b, _ = course()
+    assert a.ticks_ecoules == b.ticks_ecoules == n
+    assert a.date_simulation == b.date_simulation
+    assert a.to_dict() == b.to_dict()
+    assert a.stocks_mer == b.stocks_mer
+    empreinte_a = hashlib.sha256(
+        json.dumps(a.to_dict(), sort_keys=True).encode()
+    ).hexdigest()
+    empreinte_b = hashlib.sha256(
+        json.dumps(b.to_dict(), sort_keys=True).encode()
+    ).hexdigest()
+    assert empreinte_a == empreinte_b
+
+
+def test_date_empreinte_distincte_si_compteur_differe():
+    """SC6 — seul le compteur change : cellules identiques, empreinte différente."""
+    from sim import constants as _k
+
+    monde = World.charger(0)
+    rng = random.Random(0)
+    n = min(12, _k.CALENDAR_DAYS_PER_YEAR)
+    for i in range(n):
+        engine.tick(monde, rng, i)
+    assert monde.ticks_ecoules > 0
+    autre = copy.deepcopy(monde)
+    autre.ticks_ecoules += 3
+    assert autre.ticks_ecoules != monde.ticks_ecoules
+    assert monde.to_dict()["cells"] == autre.to_dict()["cells"]
+    assert monde.to_dict() != autre.to_dict()
+    empreinte_a = hashlib.sha256(
+        json.dumps(monde.to_dict(), sort_keys=True).encode()
+    ).hexdigest()
+    empreinte_b = hashlib.sha256(
+        json.dumps(autre.to_dict(), sort_keys=True).encode()
+    ).hexdigest()
+    assert empreinte_a != empreinte_b
