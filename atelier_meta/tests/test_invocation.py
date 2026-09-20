@@ -130,6 +130,12 @@ def _env(projet: Path, faux: Path, verrous: Path, **extra: str) -> dict[str, str
     env.pop("ANTHROPIC_API_KEY", None)
     env.pop("CURSOR_API_KEY", None)
     env.pop("OPENAI_API_KEY", None)
+    # L'identité GitHub de la session non plus : une machine qui exporte
+    # GH_TOKEN la prêtait au tour, et `tour.sh` sans jeton de relecteur
+    # semblait en avoir un. Le test d'absence rougissait partout où une
+    # session était ouverte, et passait en CI — l'inverse d'un contrôle.
+    env.pop("GH_TOKEN", None)
+    env.pop("GITHUB_TOKEN", None)
     env.update(extra)
     return env
 
