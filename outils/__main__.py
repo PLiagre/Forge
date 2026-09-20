@@ -329,7 +329,10 @@ def _etat_de_la_page(gh, feuille, examens, base, reglage, page, maintenant, depo
         velocite=velocite,
         traversee=histoire.traversee(chemins),
         ages={f.numero: histoire.age(propositions, f, maintenant) for f in feuille.fiches},
-        deductions=histoire.travaux_commences(branches, ouvertes),
+        deductions=histoire.travaux_commences(
+            branches, ouvertes,
+            finis={f.numero for f in feuille.fiches if f.etat in palier.FINIS},
+        ),
         actions=actions.actions(depot),
         refus=tuple(refus),
     )
