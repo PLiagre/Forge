@@ -230,7 +230,7 @@ tout brief attendu qui manque, toute dépendance qui n'existe pas.
 
 ```bash
 python3 -m atelier feuille valider --projet .
-# -> PASS  ROADMAP.md — 61 lot(s), feuille cohérente
+# -> PASS  ROADMAP.md — <n> lot(s), feuille cohérente
 
 python3 -m atelier feuille etat --projet .
 python3 -m atelier feuille marquer --projet . --lot 049 --etat livre --pr 12
@@ -299,13 +299,42 @@ La publication est en **dry-run par défaut** : rien n'est copié tant que
 
 ---
 
-## 9. Les pièges qu'on rencontre vraiment
+## 9. La chaîne qui tourne toute seule
+
+Les commandes du § 6 sont celles qu'on joue à la main. En temps normal,
+personne ne les tape : une machine allumée réveille les rôles à heure fixe, et
+c'est la seule pièce du projet qui demande une machine.
+
+```bash
+atelier-boucle etat        # quel profil, quel rôle vient, ce qu'il y a en file
+atelier-boucle arret       # désarmer : plus aucun réveil
+atelier-boucle jour        # réarmer la cadence du jour
+```
+
+La cadence est un fichier, pas une ligne de crontab :
+`atelier_meta/crons/profils/jour.sh` porte les quatorze réveils — veille 06:45,
+pilote 07:00, coder 07:30, relecteur 09:00, puis coder et relecteur en
+alternance jusqu'à 21:30, briefer à 12:30 et 18:00 (heure de Paris). Le
+répartiteur lit le profil actif chaque minute ; un profil vide n'arme rien.
+
+Ce que chaque tour a fait s'écrit dans `~/.atelier/logs/<rôle>.log`, et l'état
+des cartes se lit par `python3 -m atelier feuille etat --projet .`. Ce que
+GitHub en voit — l'état de chaque lot, et ce qui retient chaque proposition —
+est sur la page de pilotage, réécrite à chaque tour.
+
+L'installation sur une machine est décrite dans
+[`atelier_meta/crons/README.md`](../atelier_meta/crons/README.md) ; la chaîne
+elle-même, dans [WORKFLOW.md](WORKFLOW.md).
+
+---
+
+## 10. Les pièges qu'on rencontre vraiment
 
 | symptôme | cause | remède |
 |---|---|---|
 | `feuille valider` refuse | brief orphelin, fiche sans brief, dépendance fantôme | le message nomme le fichier fautif |
 | `vues.relief` sort en code 2 | pas de GPU, ou `forge3d` absent | c'est un refus propre, pas un bug |
-| la lecture `bourg` refuse | le snapshot ne porte pas encore le champ | attendu : c'est le lot 051 |
+| la lecture `bourg` refuse | le snapshot lu est antérieur au lot 051 | rephotographier le monde : `sim/snapshot_export.py` porte le champ depuis |
 | la carte est d'une seule couleur | échelle mal choisie pour la distribution | `quantile` pour les grandeurs étalées |
 | `--bobine` échoue | Chromium ou ffmpeg manquant | `--chrome` et `--ffmpeg` pointent un binaire |
 | `--ticks` négatif | refusé | code 2, volontairement |
