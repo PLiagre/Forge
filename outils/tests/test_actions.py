@@ -63,6 +63,23 @@ def test_reprendre_une_carte_ne_pretend_pas_se_faire_d_ici():
     assert reprise[0].entree
 
 
+def test_chaque_commande_d_atelier_nommee_par_la_page_existe():
+    """La page disait de taper « atelier prise » pour reprendre une carte :
+    la commande n'existe pas. C'est la seule chose qu'elle ne peut pas
+    faire elle-même ; la phrase qui le remplace doit au moins marcher. La
+    référence est l'analyseur de l'atelier, pas une liste recopiée."""
+    import argparse
+    import re
+    import pytest
+    atelier = pytest.importorskip("atelier.__main__")
+    sous = next(a for a in atelier._parser()._actions
+                if isinstance(a, argparse._SubParsersAction))
+    textes = " ".join(f"{a.quoi} {a.entree}" for a in actions.actions("o/r"))
+    nommees = re.findall(r"(?:« |-m )atelier ([a-z]+)", textes)
+    assert nommees, "échantillon vide : la page ne nomme aucune commande d'atelier"
+    assert [n for n in nommees if n not in sous.choices] == []
+
+
 def test_les_actions_couvrent_les_sept_gestes_du_tableau():
     assert len(actions.actions("PLiagre/ForgeHistory")) == 7
 
