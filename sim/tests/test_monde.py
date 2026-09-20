@@ -2179,3 +2179,246 @@ def test_snapshot_schema_version_a_change():
     epreuve_cles = set(_CELL_KEYS)
     epreuve_cles.remove("bourg")
     assert "bourg" not in epreuve_cles
+
+
+# --- lot 053 : temps du monde ---
+
+
+def test_date_initiale_monde_neuf_porte_debut_annee():
+    """SC1 — compteur nul, date dérivée, pas de date stockée sur le monde ni les cellules."""
+    import sim.constants as _k
+
+    monde = World.charger(0)
+    assert len(monde.cells) > 0
+    assert monde.ticks_ecoules == 0
+    attendu = {
+        "annee": _k.ANNEE_INITIALE,
+        "jour_de_l_annee": 1,
+    }
+    assert monde.date_simulation == attendu
+    assert _k.date_de_tick(0) == attendu
+    assert not hasattr(monde, "annee")
+    assert not hasattr(monde, "jour_de_l_annee")
+    premiere_cellule = next(iter(monde.cells.values()))
+    assert not hasattr(premiere_cellule, "annee")
+    copie = dict(monde.date_simulation)
+    copie["jour_de_l_annee"] = 99
+    assert monde.date_simulation == attendu
+
+
+def test_date_ticks_compteur_trois_regimes():
+    """SC2 — le compteur suit les ticks réussis dans chaque régime saisonnier."""
+    import random
+
+    from sim import constants as _constants
+    from sim.engine import _apply_production, tick
+
+    class MondeEpreuve:
+        """Monde d'épreuve qui n'est pas un World."""
+
+        def __init__(self):
+            self.cells = {
+                1: Cell(
+                    cell_id=1, area_km2=1.0, population=10,
+                    stocks={}, hunger_ticks=0, food_deficit_kg=0.0,
+                )
+            }
+            self.adjacency = []
+            self.carte = {}
+            self.stocks_mer = {}
+
+    epreuve = MondeEpreuve()
+    tick(epreuve, random.Random(0))
+    assert not hasattr(epreuve, "ticks_ecoules")
+
+    cellule = Cell(
+        cell_id=1, area_km2=1.0, population=10,
+        stocks={}, hunger_ticks=0, food_deficit_kg=0.0,
+    )
+    sans_carte = World(cells={1: cellule}, adjacency=[])
+
+    avec_carte = World.charger(0)
+    rng = random.Random(0)
+    for n in range(3):
+        tick(sans_carte, rng)
+        assert sans_carte.ticks_ecoules == n + 1
+        assert sans_carte.date_simulation == _constants.date_de_tick(sans_carte.ticks_ecoules)
+    rng = random.Random(1)
+    for n in range(3):
+        tick(avec_carte, rng)
+        assert avec_carte.ticks_ecoules == n + 1
+    rng = random.Random(2)
+    for n in range(3):
+        tick(avec_carte, rng, numero_tick=avec_carte.ticks_ecoules)
+        assert avec_carte.ticks_ecoules == n + 4
+        assert avec_carte.date_simulation == _constants.date_de_tick(avec_carte.ticks_ecoules)
+
+    monde = World.charger(0)
+    avant = monde.ticks_ecoules
+    _apply_production(next(iter(monde.cells.values())), random.Random(0), monde.carte)
+    assert monde.ticks_ecoules == avant
+
+
+def test_date_calendrier_derive_limites_et_consultation():
+    """SC3 — date_de_tick aux limites d'année et constantes substituées."""
+    import sim.constants as _k
+
+    annee = _k.CALENDAR_DAYS_PER_YEAR
+    assert _k.date_de_tick(0)["jour_de_l_annee"] == 1
+    assert _k.date_de_tick(annee - 1)["jour_de_l_annee"] == annee
+    assert _k.date_de_tick(annee)["annee"] == _k.ANNEE_INITIALE + 1
+    assert _k.date_de_tick(annee)["jour_de_l_annee"] == 1
+    assert _k.date_de_tick(2 * annee + 10)["annee"] == _k.ANNEE_INITIALE + 2
+
+    tick_duree = _k.TICK_DURATION_DAYS
+    annee_init = _k.ANNEE_INITIALE
+    try:
+        _k.TICK_DURATION_DAYS = 2
+        _k.CALENDAR_DAYS_PER_YEAR = 10
+        _k.ANNEE_INITIALE = 1500
+        ticks = 7
+        jours = ticks * _k.TICK_DURATION_DAYS
+        annees, rang = divmod(jours, _k.CALENDAR_DAYS_PER_YEAR)
+        attendu = {"annee": _k.ANNEE_INITIALE + annees, "jour_de_l_annee": rang + 1}
+        assert _k.date_de_tick(ticks) == attendu
+    finally:
+        _k.TICK_DURATION_DAYS = tick_duree
+        _k.CALENDAR_DAYS_PER_YEAR = annee
+        _k.ANNEE_INITIALE = annee_init
+
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _k.date_de_tick(-1)
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _k.date_de_tick(True)
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _k.date_de_tick(1.5)
+
+
+def _monde_avec_gisement():
+    import random
+
+    from sim.engine import tick
+
+    monde = World.charger(0)
+    tick(monde, random.Random(0), numero_tick=0)
+    return monde
+
+
+def test_date_refus_numero_incoherent_avant_effets():
+    """SC4 — ValueError, état inchangé, rng inchangé."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+
+    def _etat(monde, rng):
+        return (
+            monde.ticks_ecoules,
+            copy.deepcopy(monde.to_dict()["cells"]),
+            dict(monde.stocks_mer),
+            copy.deepcopy(monde.carte),
+            rng.getstate(),
+        )
+
+    monde = _monde_avec_gisement()
+    rng = random.Random(99)
+    tick(monde, rng, numero_tick=monde.ticks_ecoules)
+    avant = _etat(monde, rng)
+
+    for recu in (monde.ticks_ecoules - 1, monde.ticks_ecoules + 5, True, 1.5):
+        rng_b = random.Random(99)
+        rng_b.setstate(avant[4])
+        with pytest.raises(ValueError, match="reçu.*attendu"):
+            tick(monde, rng_b, numero_tick=recu)
+        assert _etat(monde, rng_b)[:4] == avant[:4]
+        assert rng_b.getstate() == avant[4]
+
+    monde_corrompu = World.charger(0)
+    monde_corrompu.ticks_ecoules = True
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        tick(monde_corrompu, random.Random(0), numero_tick=0)
+
+
+def test_date_refus_sensibilite_garde_avant_extraction():
+    """SC4 — une garde après l'extraction laisserait des traces sur un monde à gisements."""
+    import random
+
+    from sim.engine import _apply_extraction, _valider_numero_tick, tick
+
+    monde = World.charger(0)
+    rng = random.Random(0)
+    stocks_avant = copy.deepcopy(
+        {cid: dict(c.stocks) for cid, c in monde.cells.items()}
+    )
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        tick(monde, rng, numero_tick=9)
+    stocks_apres = {cid: dict(c.stocks) for cid, c in monde.cells.items()}
+    assert stocks_avant == stocks_apres
+
+    monde = World.charger(0)
+    carte = monde.carte
+    for cell in monde.cells.values():
+        _apply_extraction(cell, carte)
+    avec_extraction = {cid: dict(c.stocks) for cid, c in monde.cells.items()}
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _valider_numero_tick(monde, 9)
+    assert avec_extraction != stocks_avant, (
+        "échantillon vide : l'extraction n'a rien changé avant la garde"
+    )
+
+
+def test_date_refus_exception_maillon_ne_progresse_pas(monkeypatch):
+    """SC4 — exception dans un maillon : le compteur ne progresse pas."""
+    import random
+
+    from sim.engine import tick
+
+    def _boom(_cell):
+        raise RuntimeError("maillon coupé")
+
+    monkeypatch.setattr("sim.engine._apply_fabrication", _boom)
+    monde = World.charger(0)
+    rng = random.Random(0)
+    with pytest.raises(RuntimeError):
+        tick(monde, rng, numero_tick=0)
+    assert monde.ticks_ecoules == 0
+
+
+def test_date_cli_resume_json_et_texte():
+    """SC5 — résumé JSON et texte portent la date du monde joué."""
+    import sim.constants as _k
+    from sim.__main__ import _simulate
+
+    resume, monde = _simulate(0, _k.DEFAULT_CLI_SEED)
+    assert resume["date_simulation"] == monde.date_simulation
+    sans_date = {k: v for k, v in resume.items() if k != "date_simulation"}
+    autre, _ = _simulate(0, _k.DEFAULT_CLI_SEED)
+    sans_date_b = {k: v for k, v in autre.items() if k != "date_simulation"}
+    assert sans_date == sans_date_b
+
+    ticks = _k.CALENDAR_DAYS_PER_YEAR
+    resume, monde = _simulate(ticks, 0)
+    assert resume["date_simulation"] == monde.date_simulation
+    assert resume["date_simulation"]["annee"] == _k.ANNEE_INITIALE + 1
+    assert resume["date_simulation"]["jour_de_l_annee"] == 1
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "0", "--seed", "0"],
+        cwd=_REPO,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "année" in proc.stdout
+    assert "jour dans l'année" in proc.stdout
+
+
+def test_date_cli_refus_ticks_negatifs_inchange():
+    proc = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "-1", "--json"],
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 2
+    assert "refus" in proc.stderr.lower()
