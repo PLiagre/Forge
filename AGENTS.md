@@ -349,9 +349,9 @@ py -m pytest forge/tests/ -q             # la commande de bout en bout
 
 # ce que la CI décide, joué à la main (lecture seule, rien n'est écrit)
 py -m outils palier --projet .           # une couche finie attend-elle son palier ?
-py -m outils integration --depot PLiagre/ForgeHistory --projet .
-py -m outils relecture --depot PLiagre/ForgeHistory --pr N
-py -m outils tableau --depot PLiagre/ForgeHistory --projet . --sortie /tmp/etat.html
+py -m outils integration --depot PLiagre/Forge --projet .
+py -m outils relecture --depot PLiagre/Forge --pr N
+py -m outils tableau --depot PLiagre/Forge --projet . --sortie /tmp/etat.html
 py -m outils saisie --projet . --corps demande.md
 
 # la feuille de route : cohérente ? où en est chaque lot ?
