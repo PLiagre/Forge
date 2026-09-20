@@ -1171,6 +1171,40 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         cell.population = pop_snapshot + delta
 
 
+def _valider_numero_tick(world, numero_tick: int | None) -> None:
+    """Refuse un numéro incohérent ou un compteur invalide avant toute mutation."""
+    from sim.world import World
+
+    if not isinstance(world, World):
+        return
+    attendu = world.ticks_ecoules
+    if isinstance(attendu, bool) or not isinstance(attendu, int) or attendu < 0:
+        raise ValueError(
+            f"ticks_ecoules invalide : reçu {attendu!r}, attendu un entier non négatif"
+        )
+    if numero_tick is None:
+        return
+    if isinstance(numero_tick, bool) or not isinstance(numero_tick, int):
+        raise ValueError(
+            f"numero_tick incohérent : reçu {numero_tick!r}, attendu {attendu}"
+        )
+    if numero_tick < 0:
+        raise ValueError(
+            f"numero_tick incohérent : reçu {numero_tick}, attendu {attendu}"
+        )
+    if numero_tick != attendu:
+        raise ValueError(
+            f"numero_tick incohérent : reçu {numero_tick}, attendu {attendu}"
+        )
+
+
+def _avancer_compteur_ticks(world) -> None:
+    from sim.world import World
+
+    if isinstance(world, World):
+        world.ticks_ecoules += 1
+
+
 def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     """
     Avance le monde d'un pas de temps.
@@ -1192,6 +1226,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     Retourne la quantité totale de nourriture transportée par le commerce
     pendant ce tick (kg).
     """
+    _valider_numero_tick(world, numero_tick)
     total_transported = [0.0]
     for cell in world.cells.values():
         _apply_fabrication(cell)
@@ -1222,4 +1257,5 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
 
     _apply_migration(world, penuries)
 
+    _avancer_compteur_ticks(world)
     return total_transported[0]

@@ -10,6 +10,7 @@ from pathlib import Path
 import fcntl
 import json
 import os
+import re
 import shutil
 import subprocess
 
@@ -129,6 +130,12 @@ def _env(projet: Path, faux: Path, verrous: Path, **extra: str) -> dict[str, str
     env.pop("ANTHROPIC_API_KEY", None)
     env.pop("CURSOR_API_KEY", None)
     env.pop("OPENAI_API_KEY", None)
+    # L'identité GitHub de la session non plus : une machine qui exporte
+    # GH_TOKEN la prêtait au tour, et `tour.sh` sans jeton de relecteur
+    # semblait en avoir un. Le test d'absence rougissait partout où une
+    # session était ouverte, et passait en CI — l'inverse d'un contrôle.
+    env.pop("GH_TOKEN", None)
+    env.pop("GITHUB_TOKEN", None)
     env.update(extra)
     return env
 
@@ -749,6 +756,45 @@ def test_le_briefer_a_les_outils_pour_ecrire_et_ouvrir_sa_pr():
     )
     permis = argv[argv.index("--allowedTools") + 1]
     assert "Write" in permis and "Bash(git:*)" in permis and "Bash(gh pr create:*)" in permis
+
+
+def test_le_briefer_lit_la_demande_qui_a_fait_entrer_son_lot():
+    """La fiche ne garde d'une demande que son titre ; le reste — le
+    périmètre attendu, les conditions de succès — n'était lu par personne.
+    Mesuré le 19 septembre 2026 : la demande #20 voulait des colonnes
+    dérivées des PR et un module `outils/kanban.py` ; le brief 242, écrit
+    sans elle, fait un kanban des six états écrits et pas de module."""
+    argv = backends.argv_du_role(
+        "briefer", roles=ROLES, lot="048-route", brief="briefs/048-route.md", projet="/produit",
+    )
+    prompt = argv[argv.index("-p") + 1]
+    assert "head:feuille/048-route" in prompt
+    # Une demande se corrige en commentaire : la #35 le montre, son corps
+    # est faux et c'est le commentaire qui dit juste. Et sans `--json`, le
+    # gh 2.45 du VPS sort en erreur (« Projects (classic) is being
+    # deprecated ») avant d'avoir rien lu.
+    assert "gh issue view N --json body,comments" in prompt
+
+
+def test_chaque_commande_gh_nommee_dans_un_prompt_est_permise_au_role():
+    """Un prompt qui demande une commande que la liste du rôle refuse
+    échoue en silence sous `-p` : l'agent ne peut pas la lancer, et
+    personne ne répond à sa demande d'autorisation. La référence se
+    dérive du prompt lui-même, jamais d'une liste recopiée ici."""
+    verifies = 0
+    for role, permis_du_role in backends.OUTILS_PERMIS_PAR_ROLE.items():
+        argv = backends.argv_du_role(
+            role, roles=ROLES, lot="048-route", brief="briefs/048-route.md",
+            projet="/produit", pr=44, feuille="ROADMAP.md",
+        )
+        prompt = argv[argv.index("-p") + 1]
+        permis = argv[argv.index("--allowedTools") + 1].split(",")
+        assert permis == permis_du_role.split(",")
+        nommees = set(re.findall(r"\bgh ([a-z]+) ([a-z]+)\b", prompt))
+        manquantes = sorted(f"gh {a} {b}" for a, b in nommees if f"Bash(gh {a} {b}:*)" not in permis)
+        assert not manquantes, f"le prompt de {role} demande {manquantes}, que sa liste refuse"
+        verifies += len(nommees)
+    assert verifies, "échantillon vide : aucun prompt ne nomme de commande gh"
 
 
 @besoin_bash
