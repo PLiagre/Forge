@@ -17,6 +17,7 @@ from sim.constants import (
     PART_SOUTENABLE_AMORCEE,
     SEED_POPULATION_VARIATION_HIGH,
     SEED_POPULATION_VARIATION_LOW,
+    date_de_tick,
 )
 from sim.model import Cell, cellule_vers_dict
 
@@ -92,6 +93,12 @@ class World:
         self.carte = carte or {}
         self.carte_meta = carte_meta or {}
         self.stocks_mer: dict[str, float] = {}
+        self.ticks_ecoules = 0
+
+    @property
+    def date_simulation(self) -> dict[str, int]:
+        """Date dérivée du compteur ; une nouvelle valeur à chaque lecture."""
+        return date_de_tick(self.ticks_ecoules)
 
     @classmethod
     def lire_carte(cls) -> dict:
@@ -175,5 +182,6 @@ class World:
             "cells": {
                 str(cid): cellule_vers_dict(c)
                 for cid, c in sorted(self.cells.items())
-            }
+            },
+            "ticks_ecoules": self.ticks_ecoules,
         }

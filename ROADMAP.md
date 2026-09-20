@@ -153,7 +153,7 @@ note : la lecture « bourg » de la carte de statistique l'attend et refuse prop
 note : le code de ce lot existe dans une PR de l'ancien dépôt ; il n'a pas été repris ici et reste à écrire.
 
 ### [053 — Le monde porte sa date](briefs/053-le-monde-porte-sa-date.md)
-état : pret · couche : 1 · dépend de : — · PR : —
+état : livre · couche : 1 · dépend de : — · PR : 58
 
 ### [054 — Cohérence globale : inventaire du produit face à la vision](briefs/054-coherence-globale-inventaire-produit-vision.md)
 état : livre · couche : — · dépend de : — · PR : 26
