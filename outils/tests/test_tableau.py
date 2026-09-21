@@ -521,3 +521,95 @@ def test_l_ordre_des_blocs_met_ce_qui_appelle_avant_ce_qui_va_bien():
         page.index("Le registre complet"),
     ]
     assert rangs == sorted(rangs)
+
+
+# --------------------------------------------------------- kanban (lot 242)
+
+
+def _section_couche(page: str, couche: str) -> str:
+    motif = rf"<h3>Couche {re.escape(couche)} —.*?</section>"
+    trouve = re.search(motif, page, re.DOTALL)
+    assert trouve, f"bloc couche {couche} absent"
+    return trouve.group(0)
+
+
+def _section_hors_couche(page: str) -> str:
+    trouve = re.search(r"<h3>Hors couche</h3>.*?</section>", page, re.DOTALL)
+    assert trouve, "bloc Hors couche absent"
+    return trouve.group(0)
+
+
+def _marqueurs_colonnes(bloc: str) -> list[str]:
+    return re.findall(r'data-colonne-etat="([^"]+)"', bloc)
+
+
+def _entre_colonnes(bloc: str, etat: str, etat_suivant: str | None) -> str:
+    cle = f'data-colonne-etat="{etat}"'
+    debut = bloc.index(cle)
+    if etat_suivant is None:
+        return bloc[debut:]
+    fin = bloc.index(f'data-colonne-etat="{etat_suivant}"', debut + len(cle))
+    return bloc[debut:fin]
+
+
+def test_kanban_ordre_colonnes_couche():
+    fiches = [
+        FicheFactice("100", "livre", "1"),
+        FicheFactice("101", "idee", "1"),
+        FicheFactice("102", "pret", "1"),
+    ]
+    page = tableau.rendre(fiches, [], MOMENT)
+    bloc = _section_couche(page, "1")
+    assert _marqueurs_colonnes(bloc) == ["idee", "pret", "livre"]
+    for absent in ("a-briefer", "abandonne", "archive"):
+        assert f'data-colonne-etat="{absent}"' not in bloc
+
+
+def test_kanban_ordre_colonnes_aligne_tons():
+    assert set(tableau.ORDRE_KANBAN) == set(tableau.TONS)
+
+
+def test_kanban_carte_porte_les_champs_dans_sa_colonne():
+    etat_page = _etat(ages={"101": 5 * JOUR.total_seconds()})
+    fiches = [
+        FicheFactice("101", "pret", "1", depend_de=("040",), prs=(226,)),
+        FicheFactice("102", "livre", "1"),
+    ]
+    page = tableau.rendre(fiches, [], MOMENT, etat=etat_page)
+    bloc = _section_couche(page, "1")
+    portion_pret = _entre_colonnes(bloc, "pret", "livre")
+    portion_livre = _entre_colonnes(bloc, "livre", None)
+    avant_pret = bloc[: bloc.index('data-colonne-etat="pret"')]
+    for needle in ("101", "040", "226", "5 j"):
+        assert needle in portion_pret
+        assert needle not in portion_livre
+        assert needle not in avant_pret
+
+
+def test_kanban_hors_couche_meme_colonnes():
+    fiches = [
+        FicheFactice("046", "livre", "1"),
+        FicheFactice("048", "idee", None, titre="Le bandeau"),
+        FicheFactice("049", "livre", None, titre="Autre hors couche"),
+    ]
+    page = tableau.rendre(fiches, [], MOMENT)
+    bloc = _section_hors_couche(page)
+    assert _marqueurs_colonnes(bloc) == ["idee", "livre"]
+    portion_idee = _entre_colonnes(bloc, "idee", "livre")
+    portion_livre = _entre_colonnes(bloc, "livre", None)
+    assert "Le bandeau" in portion_idee
+    assert "Le bandeau" not in portion_livre
+    assert "Autre hors couche" in portion_livre
+
+
+def test_kanban_stable_ordre_d_entree_dans_une_colonne():
+    fiches = [
+        FicheFactice("010", "pret", "1"),
+        FicheFactice("005", "pret", "1"),
+        FicheFactice("020", "pret", "1"),
+    ]
+    page = tableau.rendre(fiches, [], MOMENT)
+    bloc = _section_couche(page, "1")
+    portion = _entre_colonnes(bloc, "pret", None)
+    numeros = re.findall(r'<div class="num">(\d+)</div>', portion)
+    assert numeros == ["010", "005", "020"]
