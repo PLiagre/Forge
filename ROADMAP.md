@@ -58,7 +58,7 @@ est exactement ce qu'on attend d'un monde vivant.
 | # | couche | où on en est |
 |---|---|---|
 | 1 | **Monde vivant** — carte, terrain, climat, ressources, population, économie locale, commerce | **faite, et elle tourne** |
-| 2 | **Villes** — subdivision en lieux, urbanisation, métiers, routes | **ouverte** — le premier métier existe, le bourg se compte ; subdiviser reste |
+| 2 | **Villes** — subdivision en lieux, urbanisation, métiers, routes | **ouverte** — le métier, le bourg et la fabrication existent ; subdiviser reste |
 | 3 | **États** — fiscalité, lois, diplomatie, technologies, culture, religion | non commencée |
 | 4 | **Armées** — recrutement, logistique, ravitaillement, stratégie | non commencée |
 | 5 | **Batailles tactiques** — sur les mêmes données que tout le reste | non commencée |
@@ -74,8 +74,9 @@ fait par une commande, jamais en recopiant un nombre ici :
 python3 -m sim --ticks 0 --json
 ```
 
-Le tick joue, dans cet ordre : extraction minière, production agricole,
-commerce, consommation, faim, mortalité, natalité, migration. Le relief module
+Le tick joue, dans cet ordre : fabrication, extraction minière, production
+agricole, commerce, consommation, faim, mortalité, natalité, migration. Le
+monde compte les ticks qu'il a terminés et en dérive sa date depuis 1400. Le relief module
 le rendement d'une cellule et le débit d'une arête ; le climat joue par la
 durée du jour, donc par la saison ; les gisements font qu'une part des
 habitants cesse de cultiver pour extraire — c'est le premier métier ; le
@@ -84,23 +85,19 @@ population naît, meurt de faim et migre.
 
 ### Ce que le monde ne sait pas encore faire
 
-- **Fabriquer.** Le minerai extrait reste du minerai : rien ne le transforme.
-  C'est le lot 049.
+Fabriquer, se dater et montrer le bourg ont été livrés — les fiches 049, 053,
+051 et 052 le disent. Il reste une seule chose, et c'est la plus lourde :
+
 - **Se subdivider.** Une cellule couvre 11 186 km² en moyenne — une région,
-  pas un lieu. C'est le lot pivot, 122.
-- **Se dater.** Le rang du jour se dérive du numéro du tick, mais le monde
-  lui-même ne porte aucune date. C'est le lot 053.
-- **Montrer le bourg.** La part non agricole existe et se compte, mais rien ne
-  la photographie ni ne l'affiche : 051 l'emporte dans le snapshot, 052 la met
-  sous l'œil. La carte de statistique la déclare déjà comme lecture, et
-  **refuse** proprement tant que le champ manque.
+  pas un lieu. Tant qu'un lieu n'a pas d'identité stable, la ville ne peut
+  pas se jouer. C'est le lot pivot, 122.
 
 ## Couche 2 — les villes, et le mur qui reste
 
 Une ville est un endroit qui **ne produit pas ce qu'il mange**. Le métier
-existe, la mer porte les marchandises, le bourg se compte. Ce qui manque n'est
-plus une condition d'existence : c'est de quoi fabriquer (049) et de quoi voir
-(051, 052).
+existe, la mer porte les marchandises, le bourg se compte, la matière se
+façonne en objet, et les trois vues le montrent. Plus aucune condition
+d'existence ne manque.
 
 Puis vient le mur véritable, et il est d'échelle. `sim/MODELE.md` a tranché que
 le bourg serait une **vue dérivée** — sans identité, sans `city_id` — et c'était
@@ -146,14 +143,12 @@ note : livré par le commit de fondation, avant qu'aucune PR n'existe ici. Plafo
 
 ### [051 — Le snapshot photographie le bourg](briefs/051-le-snapshot-photographie-le-bourg.md)
 état : livre · couche : 2 · dépend de : — · PR : 22, 28
-note : la lecture « bourg » de la carte de statistique l'attend et refuse proprement en attendant.
 
 ### [052 — Le regard mince montre le bourg](briefs/052-le-regard-mince-montre-le-bourg.md)
 état : livre · couche : 2 · dépend de : 051 · PR : 37
 
 ### [049 — Fabriquer : le minerai devient un objet](briefs/049-fabriquer-le-minerai-devient-un-objet.md)
 état : livre · couche : 2 · dépend de : — · PR : 40
-note : le code de ce lot existe dans une PR de l'ancien dépôt ; il n'a pas été repris ici et reste à écrire.
 
 ### [053 — Le monde porte sa date](briefs/053-le-monde-porte-sa-date.md)
 état : livre · couche : 1 · dépend de : — · PR : 58
