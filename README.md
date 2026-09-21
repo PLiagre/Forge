@@ -53,9 +53,9 @@ proprement quand il n'y en a pas.
                                 ▼
                          ┌─────────────┐
                          │    sim/     │  le moteur — un tick = un jour
-                         │  (Python)   │  extraction, production, commerce,
-                         └──────┬──────┘  consommation, faim, mortalité,
-                                │         natalité, migration
+                         │  (Python)   │  fabrication, extraction, production,
+                         └──────┬──────┘  commerce, consommation, faim,
+                                │         mortalité, natalité, migration
                                 ▼
                           snapshot JSON        ← la photographie du monde
                                 │
@@ -126,16 +126,14 @@ Rien de tout cela n'est un script. Il n'existe nulle part de règle disant « si
 famine alors +20 % de criminalité » : les gens ont faim, ils cherchent à
 manger, et ce qui suit **émerge**.
 
+Depuis, la matière première se **façonne** en objet, le monde porte sa **date**
+depuis 1400, et le **bourg** est photographié puis affiché.
+
 ### Ce qu'il ne sait pas encore faire
 
-- **Fabriquer** — le minerai extrait reste du minerai.
 - **Se subdiviser** — une cellule fait 11 186 km², c'est une région, pas un
-  lieu. C'est le lot pivot du projet.
-- **Se dater** — le rang du jour se dérive du numéro du tick, mais le monde ne
-  porte aucune date.
-- **Montrer le bourg** — la part non agricole se compte, mais rien ne la
-  photographie encore. La carte de statistique la déclare comme lecture et
-  **refuse** proprement tant que le champ manque.
+  lieu. Tant qu'un lieu n'a pas d'identité stable, la ville ne se joue pas.
+  C'est le lot pivot du projet.
 
 ---
 
@@ -170,6 +168,11 @@ fois, rejouée sur le dernier `master`.
 Trois choses seulement restent au propriétaire : donner des directions,
 reprendre ce qui est tombé, et fusionner ce qui n'est pas un lot. Le schéma
 complet est dans [docs/WORKFLOW.md](docs/WORKFLOW.md).
+
+Ce n'est plus une intention : trois lots ont traversé la chaîne entière sans
+qu'une main intervienne — 054 le 17 septembre 2026, 049 le 19, 053 le 20. Dans
+chaque cas le pilote a posé la carte à 07:00, le coder a ouvert sa PR à 07:30,
+le relecteur a approuvé à 09:00 et l'intégration a fusionné dans la foulée.
 
 ---
 
