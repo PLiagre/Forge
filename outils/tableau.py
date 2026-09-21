@@ -58,6 +58,9 @@ TONS = {
     "abandonne": "du",
 }
 
+# Ordre des colonnes du kanban — le pipeline des fiches, pas l'ordre de TONS.
+ORDRE_KANBAN = ("idee", "a-briefer", "pret", "livre", "abandonne", "archive")
+
 TONS_ACTION = {"fusionner": "ok", "rebaser": "attente"}
 
 VIDE = "—"
@@ -122,6 +125,18 @@ code { font-size:.85em }
 ul.liste { margin:.2rem 0 0; padding-left:1.1rem }
 ul.liste li { margin:.25rem 0 }
 footer { color:var(--gris); font-size:.82rem; margin-top:2rem }
+.kanban { display:flex; flex-wrap:nowrap; gap:.85rem; overflow-x:auto;
+  align-items:flex-start; margin-top:.4rem }
+.kanban-colonne { flex:0 0 auto; min-width:11.5rem; max-width:16rem;
+  background:var(--fond); border:1px solid var(--trait); border-radius:8px;
+  padding:.55rem .6rem .7rem }
+.kanban-colonne-etat { margin-bottom:.45rem }
+.kanban-cartes { display:flex; flex-direction:column; gap:.45rem }
+.kanban-carte { background:var(--carte); border:1px solid var(--trait);
+  border-radius:6px; padding:.45rem .55rem; font-size:.88rem }
+.kanban-carte .titre { margin:.15rem 0 .25rem; word-break:break-word }
+.kanban-carte .meta { color:var(--gris); font-size:.82rem;
+  display:flex; flex-wrap:wrap; gap:.35rem .65rem; justify-content:flex-end }
 """
 
 
@@ -337,6 +352,39 @@ def _fiche(fiche, etat: Etat) -> str:
     )
 
 
+def _carte_kanban(fiche, etat: Etat) -> str:
+    deps = ", ".join(fiche.depend_de) or VIDE
+    prs = ", ".join(str(p) for p in fiche.prs) or VIDE
+    age = etat.ages.get(fiche.numero, NON_CALCULE)
+    return (
+        f'<article class="kanban-carte">'
+        f'<div class="num">{_e(fiche.numero)}</div>'
+        f'<div class="titre">{_e(fiche.titre)}</div>'
+        f'<div class="meta">'
+        f'<span class="duree">{_e(duree(age))}</span>'
+        f"<span>{_e(deps)}</span>"
+        f"<span>{_e(prs)}</span>"
+        f"</div></article>"
+    )
+
+
+def _kanban(fiches, etat: Etat) -> str:
+    if not fiches:
+        return '<p class="sous">Aucune fiche.</p>'
+    etats_presents = [e for e in ORDRE_KANBAN if any(f.etat == e for f in fiches)]
+    colonnes = []
+    for etat_col in etats_presents:
+        cartes = "".join(
+            _carte_kanban(f, etat) for f in fiches if f.etat == etat_col
+        )
+        colonnes.append(
+            f'<div class="kanban-colonne" data-colonne-etat="{_e(etat_col)}">'
+            f'<div class="kanban-colonne-etat">{_puce(etat_col)}</div>'
+            f'<div class="kanban-cartes">{cartes}</div></div>'
+        )
+    return f'<div class="kanban">{"".join(colonnes)}</div>'
+
+
 def _couche(etape, fiches, etat: Etat, depot: str) -> str:
     nom = NOMS.get(etape.couche, "")
     de_la_couche = [f for f in fiches if f.couche == etape.couche]
@@ -353,12 +401,11 @@ def _couche(etape, fiches, etat: Etat, depot: str) -> str:
               "demander un lot ici")
         if depot else ""
     )
-    lignes = "".join(_fiche(f, etat) for f in de_la_couche)
     return f"""<section class="carte">
   <h3>Couche {_e(etape.couche)} — {_e(nom)} {_badge(mot, ton)} {demande}</h3>
   <div class="jauge"><i style="width:{part}%"></i></div>
   <p class="sous">{len(finis)} lot(s) sur {len(de_la_couche)} ne demandent plus rien.</p>
-  {_table(("lot", "titre", "état", "dans cet état", "dépend de", "PR"), lignes, "Aucune fiche.")}
+  {_kanban(de_la_couche, etat)}
 </section>"""
 
 
@@ -429,8 +476,7 @@ def _avancement(fiches, etat: Etat, depot: str) -> str:
     if hors_couche:
         corps += (
             '<section class="carte"><h3>Hors couche</h3>'
-            + _table(("lot", "titre", "état", "dans cet état", "dépend de", "PR"),
-                     "".join(_fiche(f, etat) for f in hors_couche), "Aucune fiche.")
+            + _kanban(hors_couche, etat)
             + "</section>"
         )
     return f"""<h2>L'avancement</h2>
