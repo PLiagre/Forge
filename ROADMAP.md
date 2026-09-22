@@ -123,6 +123,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [253 — Le pilote passe avant chaque tour](briefs/253-le-pilote-passe-avant-chaque-tour.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
 ### [243 — Chaque carte du kanban nomme son geste suivant](briefs/243-chaque-carte-du-kanban-nomme-son-geste-suivant.md)
 état : pret · couche : — · dépend de : 242 · PR : —
 
