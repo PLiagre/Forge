@@ -123,6 +123,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [257 — Les signaux d'hygiène se calculent](briefs/257-les-signaux-d-hygiene-se-calculent.md)
+état : a-briefer · couche : — · dépend de : 256 · PR : —
+
 ### [256 — Une PR qui touche la zone protégée attend le propriétaire](briefs/256-une-pr-qui-touche-la-zone-protegee-attend-le.md)
 état : a-briefer · couche : — · dépend de : — · PR : —
 
