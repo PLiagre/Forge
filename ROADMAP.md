@@ -130,7 +130,7 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 état : livre · couche : — · dépend de : — · PR : 64
 
 ### [241 — L'atelier relit les PR brief et feuille](briefs/241-l-atelier-relit-les-pr-brief-et-feuille.md)
-état : pret · couche : — · dépend de : — · PR : —
+état : livre · couche : — · dépend de : — · PR : 66
 
 ## Couche 1 — ce qui reste au monde
 
