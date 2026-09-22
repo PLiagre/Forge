@@ -123,6 +123,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [255 — Le relecteur rend un verdict, la machine pose la revue](briefs/255-le-relecteur-rend-un-verdict-la-machine-pose-la.md)
+état : a-briefer · couche : — · dépend de : 241 · PR : —
+
 ### [243 — Chaque carte du kanban nomme son geste suivant](briefs/243-chaque-carte-du-kanban-nomme-son-geste-suivant.md)
 état : pret · couche : — · dépend de : 242 · PR : —
 
