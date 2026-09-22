@@ -103,10 +103,15 @@ echouer() {
 # parquerait tous les lots à briefer. Les trois autres le lisent — sans
 # lui, l'agent dépenserait un quota sur une instruction qui n'existe pas.
 if [[ "$role" != "briefer" ]]; then
-  chemin_brief="$brief"
-  [[ "$chemin_brief" != /* ]] && chemin_brief="$projet/$brief"
-  if [[ ! -f "$chemin_brief" ]]; then
-    echouer brief-absent "brief introuvable : $brief"
+  proposition="$(atelier prochain --projet "$projet" --role "$role" --champ proposition)" || proposition=""
+  if [[ "$role" == "relire" && "$proposition" == "feuille" ]]; then
+    : # la PR de fiche ne lit pas encore le brief du lot
+  else
+    chemin_brief="$brief"
+    [[ "$chemin_brief" != /* ]] && chemin_brief="$projet/$brief"
+    if [[ ! -f "$chemin_brief" ]]; then
+      echouer brief-absent "brief introuvable : $brief"
+    fi
   fi
 fi
 
@@ -221,6 +226,10 @@ rm -f "$canal/pr.txt"
 arguments=(--role "$role" --projet "$projet" --lot "$lot" --brief "$brief")
 pr_carte="$(atelier prochain --projet "$projet" --role "$role" --champ pr)" || pr_carte=""
 [[ -n "$pr_carte" && "$pr_carte" != "RIEN" ]] && arguments+=(--pr "$pr_carte")
+proposition="$(atelier prochain --projet "$projet" --role "$role" --champ proposition)" || proposition=""
+[[ -n "$proposition" && "$proposition" != "RIEN" ]] && arguments+=(--proposition "$proposition")
+branche_carte="$(atelier prochain --projet "$projet" --role "$role" --champ branche)" || branche_carte=""
+[[ -n "$branche_carte" && "$branche_carte" != "RIEN" ]] && arguments+=(--branche-relire "$branche_carte")
 
 argv=()
 mapfile -t -d '' argv < <(atelier invocation "${arguments[@]}" --nul)

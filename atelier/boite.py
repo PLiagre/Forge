@@ -26,13 +26,12 @@ BOITE_DU_ROLE = {
     "relire": "a-relire",
 }
 
-# Le briefer écrit dans son propre worktree et ouvre une PR : le brief
-# n'est sur master qu'une fois fusionné par le propriétaire. Sa carte
-# ne va donc ni à a-planifier ni à a-coder — le coder ne trouverait pas
-# le brief. Elle attend la fusion ; le pilote dépose ensuite la carte
-# du coder d'après la feuille de route (`atelier piloter`).
+# Le briefer ouvre une PR de brief : le second compte la relit comme
+# tout code, puis l'intégration fusionne. Le coder ne lit pas un brief
+# qui n'est pas sur la base — le pilote dépose sa carte quand la fiche
+# passe à « pret ».
 SUIVANT = {
-    "briefer": "brief-a-fusionner",
+    "briefer": "a-relire",
     "planifier": "a-coder",     # s'il passe, il enrichit la même file
     "coder": "a-relire",
     "relire": "faite",
@@ -77,6 +76,12 @@ class Carte:
     cause: str = ""
     essais: int = 0
     role: str = ""
+    # Ce que la carte attend en relecture : code (`agent`), brief (`brief`),
+    # ou fiche de feuille (`feuille`). Vide sur les cartes qui ne passent
+    # pas par `a-relire`.
+    proposition: str = ""
+    # Branche distante de la PR, quand elle ne dérive pas de `prefixe_branche`.
+    branche: str = ""
 
     def __post_init__(self) -> None:
         if not self.lot.strip():
@@ -99,6 +104,8 @@ class Carte:
             "cause": self.cause,
             "essais": self.essais,
             "role": self.role,
+            "proposition": self.proposition,
+            "branche": self.branche,
         }
 
 
@@ -143,6 +150,8 @@ def _depuis_brut(brut: dict, fichier: Path) -> Carte:
             cause=brut.get("cause") or "",
             essais=int(brut.get("essais") or 0),
             role=brut.get("role") or "",
+            proposition=str(brut.get("proposition") or ""),
+            branche=str(brut.get("branche") or ""),
         )
     except KeyError as exc:
         raise BoiteErreur(f"carte incomplète {fichier} : {exc.args[0]}") from exc
@@ -244,12 +253,23 @@ def avancer(projet: Path, role: str, lot: str, **champs: object) -> Path:
             f"le périmètre de la carte {lot} est déjà posé : il ne se réécrit pas"
         )
     brut.update({k: v for k, v in champs.items() if v is not None})
+    ancienne = _depuis_brut(brut, source)
+    proposition = ancienne.proposition
+    if role == "briefer":
+        proposition = "brief"
+    elif role == "coder":
+        proposition = "agent"
     carte = Carte(
-        lot=brut["lot"],
-        brief=brut["brief"],
-        fichiers=list(brut.get("fichiers") or []),
-        pr=brut.get("pr"),
-        note=brut.get("note") or "",
+        lot=ancienne.lot,
+        brief=ancienne.brief,
+        fichiers=list(ancienne.fichiers),
+        pr=ancienne.pr,
+        note=ancienne.note,
+        cause=ancienne.cause,
+        essais=ancienne.essais,
+        role=ancienne.role,
+        proposition=proposition,
+        branche=ancienne.branche,
     )
     destination = deposer(projet, SUIVANT[role], carte)
     source.unlink()

@@ -1188,3 +1188,44 @@ def test_le_relecteur_a_le_droit_de_lire_la_trace_qu_on_lui_demande_de_citer():
     assert not any(commande.startswith(r) for r in refuses)
     # La lecture passe par l'atelier : `gh api` sait aussi écrire.
     assert not any(p.startswith("gh api") for p in permis)
+
+
+def test_le_prompt_du_relecteur_depend_du_prefixe_de_branche(tmp_path: Path):
+    import tomllib
+
+    racine = _projet(tmp_path)
+    toml = racine / "atelier.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8")
+        + '\n[integration]\nbranches = ["agent/", "brief/", "feuille/"]\n',
+        encoding="utf-8",
+    )
+    with open(toml, "rb") as fichier:
+        prefixes = tomllib.load(fichier).get("integration", {}).get("branches", ())
+    assert prefixes, "échantillon vide : aucun préfixe déclaré dans atelier.toml"
+    textes = {}
+    for prop in ("agent", "brief", "feuille"):
+        textes[prop] = backends.prompt_du_role(
+            "relire",
+            lot="044-mineur",
+            brief="briefs/044-mineur.md",
+            projet=str(racine),
+            pr=12,
+            proposition=prop,
+            controles=("sim",),
+        )
+    assert textes["agent"] != textes["brief"] != textes["feuille"]
+    assert "gh pr checks" in textes["agent"]
+    assert "cinq sections" in textes["brief"]
+    assert "feuille valider" in textes["feuille"]
+    for corps in textes.values():
+        assert "Tu n'écris aucun fichier" in corps or "tu n'écris aucun fichier" in corps
+        assert "revue GitHub" in corps
+    with pytest.raises(backends.BackendErreur):
+        backends.prompt_du_role(
+            "relire",
+            lot="044-mineur",
+            brief="briefs/044-mineur.md",
+            projet=str(racine),
+            proposition="inconnu",
+        )

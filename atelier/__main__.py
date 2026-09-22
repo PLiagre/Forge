@@ -122,6 +122,15 @@ def _parser() -> argparse.ArgumentParser:
     invocation.add_argument("--brief")
     invocation.add_argument("--pr", type=int, help="la PR à relire, si on la connaît")
     invocation.add_argument(
+        "--proposition",
+        choices=("agent", "brief", "feuille"),
+        help="pour relire : quel diff juger (défaut : agent)",
+    )
+    invocation.add_argument(
+        "--branche-relire",
+        help="branche exacte de la PR, si elle ne dérive pas de prefixe_branche",
+    )
+    invocation.add_argument(
         "--decision",
         help="pour le pilote : la sortie de `atelier piloter`, transmise telle quelle",
     )
@@ -566,7 +575,18 @@ def _feuille_relative(produit: projet.Projet) -> str | None:
 def _cmd_invocation(args: argparse.Namespace) -> int:
     try:
         produit = projet.charger(args.projet)
-        branche = produit.branche_du_lot(args.lot) if args.lot else None
+        branche = args.branche_relire
+        if args.role == "relire":
+            prop = args.proposition or "agent"
+            if not branche and args.lot:
+                if prop == "brief":
+                    branche = f"brief/{args.lot}"
+                elif prop == "feuille":
+                    branche = f"feuille/{args.lot}"
+                else:
+                    branche = produit.branche_du_lot(args.lot)
+        elif args.lot:
+            branche = produit.branche_du_lot(args.lot)
         argv = backends.argv_du_role(
             args.role,
             roles=produit.roles.vers_dict(),
@@ -578,6 +598,7 @@ def _cmd_invocation(args: argparse.Namespace) -> int:
             feuille=_feuille_relative(produit),
             decision=args.decision,
             controles=produit.controles,
+            proposition=args.proposition,
         )
     except (backends.BackendErreur, projet.ProjetIncomplet, KeyError) as exc:
         print(f"FAIL  {exc}", file=sys.stderr)
@@ -924,8 +945,11 @@ def _cmd_feuille_marquer(args: argparse.Namespace) -> int:
 def _cmd_piloter(args: argparse.Namespace) -> int:
     """La décision du matin, calculée. Sans --run, rien n'est déposé."""
     try:
+        from . import propositions as propositions_gh
+
         produit, f = _charger_feuille(args.projet)
         racine = produit.racine
+        ouvertes = propositions_gh.ouvertes(racine)
         lignes: list[str] = []
         for r in feuille.rapprochements(f, racine):
             if args.run:
@@ -947,7 +971,7 @@ def _cmd_piloter(args: argparse.Namespace) -> int:
         if not f.fiches:
             print(f"FAIL  {f.chemin} — le registre ne porte aucune fiche", file=sys.stderr)
             return 1
-        for d in feuille.decider(f, racine):
+        for d in feuille.decider(f, racine, ouvertes):
             if args.run:
                 feuille.deposer(racine, d)
             verbe = "déposé   " if args.run else "déposer  "

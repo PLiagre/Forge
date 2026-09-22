@@ -215,3 +215,18 @@ def test_aucun_test_n_ecrit_le_rapport_de_la_vraie_machine(tmp_path: Path):
     assert ailleurs.is_file(), "le rapport doit suivre le chemin déclaré"
     apres = defaut.stat().st_mtime if defaut.exists() else None
     assert apres == avant, f"{defaut} a été touché par un test"
+
+
+def test_le_relecteur_de_code_garde_le_prompt_agent(tmp_path: Path):
+    racine = _produit(tmp_path)
+    prompt = backends.prompt_du_role(
+        "relire",
+        lot="044-mineur",
+        brief="briefs/044-mineur.md",
+        projet=str(racine),
+        pr=9,
+        proposition="agent",
+        controles=(),
+    )
+    assert "gh pr checks" in prompt
+    assert "cinq sections" not in prompt

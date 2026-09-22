@@ -40,12 +40,12 @@ def test_echec_ne_bloque_pas_l_autre_role(tmp_path: Path):
 
 
 def test_avancer_briefer_attend_la_fusion_du_brief(tmp_path: Path):
-    # Le brief est en PR : ni le planificateur ni le coder ne le trouveraient
-    # sur master. La carte attend la fusion ; le pilote redéposera d'après
-    # la feuille de route.
+    # Le brief est en PR : le second compte le relit avant fusion.
     boite.deposer(tmp_path, "a-briefer", _carte())
-    cible = boite.avancer(tmp_path, "briefer", "044-mineur")
-    assert cible.parent.name == "brief-a-fusionner"
+    cible = boite.avancer(tmp_path, "briefer", "044-mineur", pr=12)
+    assert cible.parent.name == "a-relire"
+    (carte,) = boite.lister(tmp_path, "a-relire")
+    assert carte.proposition == "brief" and carte.pr == 12
     assert boite.prochain(tmp_path, "planifier") is None
     assert boite.prochain(tmp_path, "coder") is None
 

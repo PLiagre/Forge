@@ -13,7 +13,7 @@ import subprocess
 
 import pytest
 
-from atelier import boite, feuille, verrou
+from atelier import boite, feuille, propositions, verrou
 from atelier.__main__ import main
 from tests.test_porte import BRIEF_SAIN
 
@@ -345,7 +345,7 @@ def test_une_carte_d_un_lot_livre_se_rapproche_et_rend_le_verrou(tmp_path: Path)
 
 def test_le_brief_fusionne_libere_la_carte_du_briefer(tmp_path: Path):
     racine = _produit(tmp_path)
-    _carte(racine, boite.SUIVANT["briefer"], "046-mer", pr=7)
+    _carte(racine, "faite", "046-mer", pr=7, proposition="brief")
     f = feuille.lire(racine / "ROADMAP.md")
     (r,) = feuille.rapprochements(f, racine)
     assert r.lot == "046-mer" and r.destination == "fusionnee" and not r.lever_verrou
@@ -353,10 +353,10 @@ def test_le_brief_fusionne_libere_la_carte_du_briefer(tmp_path: Path):
 
 def test_le_brief_en_pr_attend_le_proprietaire(tmp_path: Path):
     racine = _produit(tmp_path)
-    _carte(racine, boite.SUIVANT["briefer"], "048-route", pr=7)
+    _carte(racine, "a-relire", "048-route", pr=7, proposition="brief")
     f = feuille.lire(racine / "ROADMAP.md")
     assert feuille.rapprochements(f, racine) == []
-    assert feuille.etat_effectif(f.fiche("048"), f, racine) == "brief écrit (PR 7) — à fusionner par le propriétaire"
+    assert feuille.etat_effectif(f.fiche("048"), f, racine) == "brief en relecture (PR 7)"
     assert all(d.lot != "048-route" for d in feuille.decider(f, racine))
 
 
@@ -370,7 +370,7 @@ def test_le_lot_dont_le_brief_est_fusionne_part_au_coder(tmp_path: Path):
     n'arrivait jamais au coder, et `feuille etat` annonçait le contraire.
     """
     racine = _produit(tmp_path)
-    _carte(racine, boite.SUIVANT["briefer"], "046-mer", pr=7)
+    _carte(racine, "faite", "046-mer", pr=7, proposition="brief")
     f = feuille.lire(racine / "ROADMAP.md")
     for r in feuille.rapprochements(f, racine):
         feuille.appliquer(racine, r)
@@ -392,10 +392,10 @@ def test_cli_piloter_un_lot_brief_par_la_chaine_va_jusqu_a_sa_fusion(tmp_path: P
     aucun lot, chaque matin, puisque le rapprochement se rejoue.
     """
     racine = _produit(tmp_path)
-    _carte(racine, boite.SUIVANT["briefer"], "046-mer", pr=7)
+    _carte(racine, "faite", "046-mer", pr=7, proposition="brief")
     assert main(["piloter", "--projet", str(racine), "--run"]) == 0
     sortie = capsys.readouterr().out
-    assert "rapproché  046-mer : brief-a-fusionner → fusionnee" in sortie
+    assert "rapproché  046-mer : faite → fusionnee" in sortie
     assert "déposé    a-coder    046-mer" in sortie
     # Le coder puis le relecteur passent ; l'intégration fusionne la PR 9.
     carte = boite.retirer(racine, "a-coder", "046-mer")
@@ -735,8 +735,8 @@ def test_le_briefer_range_sa_carte_avec_le_numero_de_sa_pr(tmp_path: Path):
     assert r.returncode == 0, r.stderr
     assert _boite_de(racine, "a-briefer") == []
     assert _boite_de(racine, "a-coder") == [], "le coder ne trouverait pas un brief encore en PR"
-    (carte,) = boite.lister(racine, boite.SUIVANT["briefer"])
-    assert carte.lot == "048-route" and carte.pr == 7
+    (carte,) = boite.lister(racine, "a-relire")
+    assert carte.lot == "048-route" and carte.pr == 7 and carte.proposition == "brief"
     assert not (racine / "atelier-echange" / "pr.txt").exists()
 
 
@@ -766,3 +766,67 @@ def test_une_carte_relue_et_approuvee_attend_l_integration(tmp_path: Path):
     _carte(racine, "faite", "046-mer", pr=12)
     f = feuille.lire(racine / "ROADMAP.md")
     assert feuille.etat_effectif(f.fiche("046"), f, racine) == "relu et approuvé (PR 12) — l'intégration fusionne"
+
+
+def test_piloter_vert_avec_brief_en_relecture_et_fiche_a_briefer(tmp_path: Path, capsys):
+    racine = _produit(tmp_path)
+    _carte(racine, "a-relire", "048-route", pr=7, proposition="brief")
+    assert main(["piloter", "--projet", str(racine)]) == 0
+    erreur = capsys.readouterr().err
+    assert "FAIL" not in erreur
+
+
+def test_pr_feuille_ouverte_sans_approbation_recoit_une_carte(tmp_path: Path):
+    racine = _produit(tmp_path)
+    f = feuille.lire(racine / "ROADMAP.md")
+    ouvertes = [
+        propositions.PropositionOuverte(51, "feuille/048-route-demande", False),
+    ]
+    relire = [d for d in feuille.decider(f, racine, ouvertes) if d.role == "relire"]
+    assert len(relire) == 1
+    assert relire[0].boite == "a-relire" and relire[0].pr == 51 and relire[0].proposition == "feuille"
+
+
+def test_pr_feuille_approuvee_ne_recoit_pas_de_carte(tmp_path: Path):
+    racine = _produit(tmp_path)
+    f = feuille.lire(racine / "ROADMAP.md")
+    ouvertes = [
+        propositions.PropositionOuverte(51, "feuille/048-route-demande", True),
+    ]
+    assert [d for d in feuille.decider(f, racine, ouvertes) if d.role == "relire"] == []
+
+
+def test_sans_liste_de_propositions_aucune_carte_feuille(tmp_path: Path):
+    racine = _produit(tmp_path)
+    f = feuille.lire(racine / "ROADMAP.md")
+    assert [d for d in feuille.decider(f, racine, ()) if d.role == "relire"] == []
+
+
+def test_le_brief_relu_puis_pret_libere_le_coder(tmp_path: Path):
+    racine = _produit(tmp_path)
+    _carte(racine, "a-relire", "046-mer", pr=3, proposition="brief")
+    f = feuille.lire(racine / "ROADMAP.md")
+    assert _erreurs(racine) == []
+    carte = boite.retirer(racine, "a-relire", "046-mer")
+    boite.deposer(racine, "faite", carte)
+    chemin = racine / "ROADMAP.md"
+    chemin.write_text(
+        feuille.marquer(chemin.read_text(encoding="utf-8"), "046", "pret", (3,)),
+        encoding="utf-8",
+    )
+    f = feuille.lire(chemin)
+    for r in feuille.rapprochements(f, racine):
+        feuille.appliquer(racine, r)
+    coder = [d for d in feuille.decider(f, racine) if d.role == "coder"]
+    assert coder and coder[0].lot == "046-mer"
+
+
+def test_propositions_ouvertes_se_tait_sans_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    racine = _produit(tmp_path)
+    (racine / "atelier.toml").write_text(
+        (racine / "atelier.toml").read_text(encoding="utf-8")
+        + '\n[integration]\nbranches = ["agent/", "brief/", "feuille/"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(propositions.shutil, "which", lambda _: None)
+    assert propositions.ouvertes(racine) == []
