@@ -124,7 +124,7 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 <!-- lots:debut -->
 
 ### [243 — Chaque carte du kanban nomme son geste suivant](briefs/243-chaque-carte-du-kanban-nomme-son-geste-suivant.md)
-état : a-briefer · couche : — · dépend de : 242 · PR : —
+état : pret · couche : — · dépend de : 242 · PR : —
 
 ### [242 — La page de pilotage devient un kanban par état](briefs/242-la-page-de-pilotage-devient-un-kanban-par-etat.md)
 état : livre · couche : — · dépend de : — · PR : 64
