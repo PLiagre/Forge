@@ -141,7 +141,9 @@ ouvertes — et **un** nouveau module `atelier/propositions.py` pour l'appel
 à `gh`. Côté harnais : `atelier_meta/crons/tour.sh` si le rôle `relire` a
 besoin d'un argument de plus, `atelier_meta/tests/test_boite.py` et
 `atelier_meta/tests/test_feuille.py`, qui portent déjà les invariants
-concernés.
+concernés, et `atelier_meta/tests/test_invocation.py` et
+`atelier_meta/tests/test_roles.py`, où SC3 ajoute ses cas — en ajout
+seulement.
 
 Tout autre chemin est interdit, nommément : `outils/` en entier — dont
 `outils/relecture.py`, `outils/integration.py` et `outils/tableau.py` —,
@@ -150,17 +152,23 @@ Tout autre chemin est interdit, nommément : `outils/` en entier — dont
 fiche 241 relève du périmètre implicite de la PR de lot ; aucune autre
 fiche ni prose de la feuille de route ne change.
 
-**Trois tests existants énoncent la règle que ce lot remplace.** Les
-modifier est autorisé, pour eux seuls, et nommément :
+**Six tests existants énoncent la règle que ce lot remplace** : ce sont
+tous ceux de `master` qui nomment la boîte `brief-a-fusionner` ou y posent
+une carte. Les modifier est autorisé, pour eux seuls, et nommément :
 
 | test | ce qu'il affirme aujourd'hui |
 |---|---|
 | `atelier_meta/tests/test_boite.py::test_avancer_briefer_attend_la_fusion_du_brief` | la carte du briefer atterrit dans `brief-a-fusionner` |
 | `atelier_meta/tests/test_feuille.py::test_le_brief_en_pr_attend_le_proprietaire` | `etat_effectif` répond « à fusionner par le propriétaire » |
 | `atelier_meta/tests/test_feuille.py::test_le_brief_fusionne_libere_la_carte_du_briefer` | le rapprochement du brief part de `brief-a-fusionner` |
+| `atelier_meta/tests/test_feuille.py::test_le_lot_dont_le_brief_est_fusionne_part_au_coder` | la carte du brief fusionné part de `brief-a-fusionner` avant que le pilote dépose celle du coder |
+| `atelier_meta/tests/test_feuille.py::test_cli_piloter_un_lot_brief_par_la_chaine_va_jusqu_a_sa_fusion` | `piloter` imprime « rapproché  046-mer : brief-a-fusionner → fusionnee » |
+| `atelier_meta/tests/test_feuille.py::test_le_briefer_range_sa_carte_avec_le_numero_de_sa_pr` | la carte rangée par le briefer se lit dans `brief-a-fusionner` |
 
 Leur nom comme leur corps portent l'ancienne règle : ils doivent dire la
-nouvelle, et rester des contrôles qui peuvent rougir. **Aucun autre test
+nouvelle, et rester des contrôles qui peuvent rougir. Chacun garde ce
+qu'il vérifie ; seule change la boîte d'où part la carte, et la ligne
+imprimée qui la nomme. **Aucun autre test
 existant n'est modifié** — ni son corps, ni ses valeurs attendues. Ce lot
 ajoute ses cas aux fichiers qui portent déjà l'invariant concerné.
 
@@ -250,7 +258,7 @@ git diff --name-only origin/master -- atelier_meta/tests/ briefs/
 
 La deuxième commande sort avec 0 : aucun chemin interdit n'a bougé. La
 troisième ne nomme que des fichiers de test, et la relecture vérifie que
-les seules modifications de tests existants portent sur les trois cas
+les seules modifications de tests existants portent sur les six cas
 nommés au périmètre ; tout le reste y est ajouté. Aucun brief n'est
 modifié, celui-ci compris.
 
