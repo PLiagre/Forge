@@ -123,6 +123,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [258 — Les lots en vol sont bornés](briefs/258-les-lots-en-vol-sont-bornes.md)
+état : a-briefer · couche : — · dépend de : 256 · PR : —
+
 ### [256 — Une PR qui touche la zone protégée attend le propriétaire](briefs/256-une-pr-qui-touche-la-zone-protegee-attend-le.md)
 état : a-briefer · couche : — · dépend de : — · PR : —
 
