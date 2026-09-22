@@ -12,7 +12,7 @@ shell ne compose donc plus de ligne de commande : il exécute celle-là.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 
@@ -131,6 +131,7 @@ OUTILS_PERMIS_PAR_ROLE = {
     "briefer": (
         "Read,Glob,Grep,Write,Edit,"
         "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),"
+        "Bash(gh pr list:*),Bash(gh issue view:*),"
         "Bash(python3:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*)"
     ),
     "relire": (
@@ -241,6 +242,7 @@ def prompt_du_role(
     branche: str | None = None,
     feuille: str | None = None,
     decision: str | None = None,
+    controles: Sequence[str] = (),
 ) -> str:
     if role not in ROLES_INVOCABLES:
         raise BackendErreur(f"rôle inconnu : {role} (connus : {', '.join(ROLES_INVOCABLES)})")
@@ -273,8 +275,21 @@ def prompt_du_role(
             "l'atelier ne devine pas ce qu'on lui demande"
         )
     if role == "briefer":
+        # La fiche ne garde d'une demande que son titre. La direction du
+        # propriétaire — ce qu'il attend, le périmètre qu'il imagine — vit
+        # dans l'issue, et la PR qui a fait entrer la fiche la cite : la
+        # branche porte le lot, `outils/demandes.py` la nomme ainsi.
         return (
             f"Écris le brief du lot {lot} de {projet}, dans le fichier {brief}. "
+            "Lis d'abord la demande qui a fait entrer ce lot au registre : c'est "
+            "la direction du propriétaire, et la fiche n'en garde que le titre. "
+            f"`gh pr list --state all --search \"head:feuille/{lot}\" --json number,body` "
+            "nomme la PR de sa fiche, dont le corps cite la demande (« demande #N ») ; "
+            "`gh issue view N --json body,comments` la montre, avec ce que ses "
+            "commentaires corrigent — sans `--json`, le `gh` du VPS échoue. Le "
+            "brief suit cette demande, périmètre et "
+            "conditions de succès attendus compris ; s'il s'en écarte, ta PR dit où "
+            "et pourquoi. Sans demande trouvée, ta PR le dit. "
             "Suis le format de brief du dépôt produit. Travaille sur une branche "
             f"brief/{lot}, ouvre une PR à la fin ; tu ne fusionnes pas. Puis écris "
             "son numéro, seul, dans atelier-echange/pr.txt (crée le dossier s'il "
@@ -329,16 +344,43 @@ def prompt_du_role(
     # que personne ne lisait, et l'intégration — qui n'ouvre la porte que
     # sur une approbation posée par un tiers — attendait pour toujours.
     if pr:
+        # Toutes les lignes de `gh pr checks` ne le regardent pas.
+        # « relecture » porte SON verdict : l'état est rouge tant
+        # qu'aucune approbation n'existe. Le prompt disait « un contrôle
+        # en échec » sans exception, et le relecteur de la PR 37 a refusé
+        # le 18 septembre 2026 au motif qu'il n'avait pas encore
+        # approuvé — en écrivant lui-même que, sans ce point, sa revue
+        # « resterait une approbation ». Un poste qui refuse parce qu'il
+        # n'a pas approuvé n'approuvera jamais.
+        #
+        # Les contrôles qui comptent sont ceux que le branchement déclare
+        # requis, comme pour `crons/tour.sh` : la liste se dérive, elle
+        # ne se recopie pas ici.
+        if controles:
+            quels = (
+                "Les contrôles qui comptent sont ceux que le produit déclare "
+                f"requis, et ce sont ceux-là : {', '.join(controles)}. Une ligne "
+                "rouge absente de cette liste ne retient rien"
+            )
+        else:
+            quels = (
+                "Le produit ne déclare aucun contrôle requis : aucune ligne de "
+                "cette table ne retient à elle seule"
+            )
         revue = (
-            f" Lis d'abord `gh pr checks {pr}`. Si un contrôle y est en échec, "
-            "la PR ne peut pas entrer, quel que soit le diff : demande des "
-            "changements en nommant ce contrôle et l'erreur qui le fait rougir, "
-            f"lue par `python3 -m atelier traces --pr {pr}` et citée telle "
-            "qu'elle est écrite."
+            f" Lis d'abord `gh pr checks {pr}`. {quels} — c'est le cas de "
+            "« relecture », qui porte ton propre verdict et reste rouge tant que "
+            "tu n'as pas approuvé : la prendre pour un refus te ferait refuser au "
+            "motif que tu n'as pas encore approuvé."
+            " Si un contrôle requis est en échec, la PR ne peut pas entrer, quel "
+            "que soit le diff : demande des changements en nommant ce contrôle et "
+            f"l'erreur qui le fait rougir, lue par `python3 -m atelier traces --pr {pr}` "
+            "et citée telle qu'elle est écrite."
             f" Termine par UNE revue GitHub sur la PR {pr}, et rien d'autre : "
             f"`gh pr review {pr} --approve --body '<ton avis>'` si aucun contrôle "
-            "n'est en échec, si le diff reste dans le périmètre, si chaque condition de succès est mesurée par un "
-            "contrôle qui peut rougir et si aucun test existant n'a été modifié ; "
+            "requis n'est en échec, si le diff reste dans le périmètre, si chaque "
+            "condition de succès est mesurée par un contrôle qui peut rougir et si "
+            "aucun test existant n'a été modifié ; "
             f"sinon `gh pr review {pr} --request-changes --body '<tes constats, "
             "du plus grave au plus léger, avec fichier et ligne>'`. Un avis qui "
             "ne finit pas sur la PR n'existe pas."
@@ -364,12 +406,13 @@ def argv_du_role(
     branche: str | None = None,
     feuille: str | None = None,
     decision: str | None = None,
+    controles: Sequence[str] = (),
 ) -> list[str]:
     """L'argv exact du rôle. Construit ici, exécuté par le cron, jamais ici."""
     backend = backend_du_role(role, roles)
     prompt = prompt_du_role(
         role, lot=lot, brief=brief, projet=projet, pr=pr, branche=branche,
-        feuille=feuille, decision=decision,
+        feuille=feuille, decision=decision, controles=controles,
     )
     if role == "pilote":
         # Depuis Hermes 0.20, -p/--profile choisit un profil. Le mode

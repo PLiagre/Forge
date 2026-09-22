@@ -10,12 +10,13 @@ from pathlib import Path
 import fcntl
 import json
 import os
+import re
 import shutil
 import subprocess
 
 import pytest
 
-from atelier import backends, boite, traces
+from atelier import backends, boite, projet, traces
 from atelier.__main__ import main
 from tests.depot import installer, worktree_role
 from tests.test_porte import BRIEF_SAIN
@@ -129,6 +130,12 @@ def _env(projet: Path, faux: Path, verrous: Path, **extra: str) -> dict[str, str
     env.pop("ANTHROPIC_API_KEY", None)
     env.pop("CURSOR_API_KEY", None)
     env.pop("OPENAI_API_KEY", None)
+    # L'identité GitHub de la session non plus : une machine qui exporte
+    # GH_TOKEN la prêtait au tour, et `tour.sh` sans jeton de relecteur
+    # semblait en avoir un. Le test d'absence rougissait partout où une
+    # session était ouverte, et passait en CI — l'inverse d'un contrôle.
+    env.pop("GH_TOKEN", None)
+    env.pop("GITHUB_TOKEN", None)
     env.update(extra)
     return env
 
@@ -751,6 +758,45 @@ def test_le_briefer_a_les_outils_pour_ecrire_et_ouvrir_sa_pr():
     assert "Write" in permis and "Bash(git:*)" in permis and "Bash(gh pr create:*)" in permis
 
 
+def test_le_briefer_lit_la_demande_qui_a_fait_entrer_son_lot():
+    """La fiche ne garde d'une demande que son titre ; le reste — le
+    périmètre attendu, les conditions de succès — n'était lu par personne.
+    Mesuré le 19 septembre 2026 : la demande #20 voulait des colonnes
+    dérivées des PR et un module `outils/kanban.py` ; le brief 242, écrit
+    sans elle, fait un kanban des six états écrits et pas de module."""
+    argv = backends.argv_du_role(
+        "briefer", roles=ROLES, lot="048-route", brief="briefs/048-route.md", projet="/produit",
+    )
+    prompt = argv[argv.index("-p") + 1]
+    assert "head:feuille/048-route" in prompt
+    # Une demande se corrige en commentaire : la #35 le montre, son corps
+    # est faux et c'est le commentaire qui dit juste. Et sans `--json`, le
+    # gh 2.45 du VPS sort en erreur (« Projects (classic) is being
+    # deprecated ») avant d'avoir rien lu.
+    assert "gh issue view N --json body,comments" in prompt
+
+
+def test_chaque_commande_gh_nommee_dans_un_prompt_est_permise_au_role():
+    """Un prompt qui demande une commande que la liste du rôle refuse
+    échoue en silence sous `-p` : l'agent ne peut pas la lancer, et
+    personne ne répond à sa demande d'autorisation. La référence se
+    dérive du prompt lui-même, jamais d'une liste recopiée ici."""
+    verifies = 0
+    for role, permis_du_role in backends.OUTILS_PERMIS_PAR_ROLE.items():
+        argv = backends.argv_du_role(
+            role, roles=ROLES, lot="048-route", brief="briefs/048-route.md",
+            projet="/produit", pr=44, feuille="ROADMAP.md",
+        )
+        prompt = argv[argv.index("-p") + 1]
+        permis = argv[argv.index("--allowedTools") + 1].split(",")
+        assert permis == permis_du_role.split(",")
+        nommees = set(re.findall(r"\bgh ([a-z]+) ([a-z]+)\b", prompt))
+        manquantes = sorted(f"gh {a} {b}" for a, b in nommees if f"Bash(gh {a} {b}:*)" not in permis)
+        assert not manquantes, f"le prompt de {role} demande {manquantes}, que sa liste refuse"
+        verifies += len(nommees)
+    assert verifies, "échantillon vide : aucun prompt ne nomme de commande gh"
+
+
 @besoin_bash
 def test_une_revue_approuvee_fait_passer_la_carte(tmp_path: Path):
     projet = _projet(tmp_path)
@@ -942,6 +988,71 @@ def test_le_relecteur_lit_la_ci_avant_d_approuver():
         projet="/produit", pr=44,
     )
     assert "gh pr checks 44" in argv[argv.index("-p") + 1]
+
+
+# ----------------------------- le relecteur n'attend pas sa propre approbation
+
+
+def _prompt_relire(controles) -> str:
+    argv = backends.argv_du_role(
+        "relire", roles=ROLES, lot="044-mineur", brief="briefs/044-mineur.md",
+        projet="/produit", pr=44, controles=controles,
+    )
+    return argv[argv.index("-p") + 1]
+
+
+def test_le_prompt_du_relecteur_nomme_les_controles_declares():
+    """La liste vient du branchement, elle n'est pas recopiée dans le prompt."""
+    declares = ("sim", "vues", "gitleaks")
+    prompt = _prompt_relire(declares)
+    assert declares, "échantillon vide : il n'y aurait aucun contrôle à nommer"
+    nommes = [nom for nom in declares if nom in prompt]
+    assert len(nommes) == len(declares), f"contrôles absents du prompt : {set(declares) - set(nommes)}"
+    # Une liste inventée ne doit pas apparaître : le prompt ne connaît que
+    # ce qu'on lui passe.
+    assert "outils" not in _prompt_relire(("sim",))
+
+
+def test_le_relecteur_ne_refuse_pas_sur_son_propre_verdict():
+    """« relecture » porte l'avis du relecteur : rouge tant qu'il n'a pas approuvé.
+
+    Le prompt le comptait parmi les contrôles qui font refuser. Le relecteur
+    de la PR 37 a donc demandé des changements au motif qu'aucune approbation
+    n'existait — la sienne. Un poste qui refuse parce qu'il n'a pas approuvé
+    n'approuve jamais.
+    """
+    prompt = _prompt_relire(("sim", "vues", "gitleaks"))
+    assert "relecture" in prompt, "le prompt doit nommer le cas, pas le passer sous silence"
+    debut = prompt.index("Lis d'abord `gh pr checks 44`")
+    fin = prompt.index("Termine par UNE revue GitHub")
+    lecture = prompt[debut:fin]
+    assert "relecture" in lecture and "ne retient rien" in lecture
+    assert "ton propre verdict" in lecture
+
+
+def test_sans_controles_declares_le_relecteur_ignore_toujours_le_sien():
+    """Un produit qui ne déclare rien ne ramène pas la boucle par la bande."""
+    prompt = _prompt_relire(())
+    assert "aucun contrôle requis" in prompt
+    assert "relecture" in prompt and "ton propre verdict" in prompt
+
+
+def test_la_liste_des_controles_vient_du_branchement_du_produit(tmp_path: Path):
+    """Bout en bout : `atelier invocation` lit atelier.toml, pas une constante."""
+    racine = _projet(tmp_path)
+    toml = racine / "atelier.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8")
+        + '\n[integration]\ncontroles = ["sim", "feuille"]\n',
+        encoding="utf-8",
+    )
+    produit = projet.charger(racine)
+    assert produit.controles == ("sim", "feuille")
+    code = main([
+        "invocation", "--projet", str(racine), "--role", "relire",
+        "--lot", "044-mineur", "--brief", "briefs/044-mineur.md", "--pr", "44",
+    ])
+    assert code == 0
 
 
 # ------------------------------------------- la trace d'un contrôle rouge

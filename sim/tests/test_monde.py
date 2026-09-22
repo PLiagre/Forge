@@ -1710,6 +1710,246 @@ def test_extraction_accumule_dans_le_panier():
         assert lire_stock_marchandise(cell, ressource) == pytest.approx(2.0 * quantite)
 
 
+# --- Fabrication : le minerai devient un objet ---
+
+
+def _cellule_epreuve_fabrication() -> Cell:
+    return Cell(cell_id=1, area_km2=1.0, population=10)
+
+
+def test_fabrication_transforme_dans_les_proportions_declarees():
+    """SC1 — _apply_fabrication consomme et produit selon les constantes nommées."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    matiere = "fer"
+    stock_avant = 200.0
+    consomme = stock_avant * _k.TAUX_FABRICATION_PAR_TICK
+    produit = consomme * _k.RENDEMENT_FABRICATION
+
+    cell = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell, matiere, stock_avant)
+    _apply_fabrication(cell)
+    assert lire_stock_marchandise(cell, matiere) == stock_avant - consomme
+    assert lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET) == produit
+
+    cell_objet = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell_objet, matiere, stock_avant)
+    ecrire_stock_marchandise(cell_objet, _k.MARCHANDISE_OBJET, 7.0)
+    _apply_fabrication(cell_objet)
+    assert lire_stock_marchandise(cell_objet, _k.MARCHANDISE_OBJET) == 7.0 + produit
+
+    cell_nulle = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell_nulle, matiere, 0.0)
+    _apply_fabrication(cell_nulle)
+    assert lire_stock_marchandise(cell_nulle, matiere) == 0.0
+    assert lire_stock_marchandise(cell_nulle, _k.MARCHANDISE_OBJET) == -1.0
+
+    cell_absente = _cellule_epreuve_fabrication()
+    assert lire_stock_marchandise(cell_absente, matiere) == -1.0
+    _apply_fabrication(cell_absente)
+    assert lire_stock_marchandise(cell_absente, _k.MARCHANDISE_OBJET) == -1.0
+
+
+def test_fabrication_rendement_strictement_inferieur_a_un():
+    """SC2 — La transformation perd de la masse : produit < consommé."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    assert _k.RENDEMENT_FABRICATION < 1.0
+    stock_avant = 80.0
+    consomme = stock_avant * _k.TAUX_FABRICATION_PAR_TICK
+    cell = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(cell, "cuivre", stock_avant)
+    _apply_fabrication(cell)
+    produit = lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET)
+    assert produit < consomme
+    assert produit == consomme * _k.RENDEMENT_FABRICATION
+
+
+def test_fabrication_deux_matieres_premieres_meme_objet():
+    """SC3 — Deux ressources distinctes alimentent le même stock d'objet."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    _, ressources, _ = _agreger_gisements_carte(World.lire_carte())
+    assert len(ressources) >= 2, "échantillon vide : moins de deux ressources sur la carte"
+    m1, m2 = sorted(ressources)[:2]
+    stock = 100.0
+    consomme = stock * _k.TAUX_FABRICATION_PAR_TICK
+    produit_un = consomme * _k.RENDEMENT_FABRICATION
+
+    seule = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(seule, m1, stock)
+    _apply_fabrication(seule)
+    objet_seul = lire_stock_marchandise(seule, _k.MARCHANDISE_OBJET)
+
+    les_deux = _cellule_epreuve_fabrication()
+    ecrire_stock_marchandise(les_deux, m1, stock)
+    ecrire_stock_marchandise(les_deux, m2, stock)
+    _apply_fabrication(les_deux)
+    objet_double = lire_stock_marchandise(les_deux, _k.MARCHANDISE_OBJET)
+
+    assert objet_seul == produit_un
+    assert objet_double > objet_seul
+    assert objet_double == 2.0 * produit_un
+
+
+def test_fabrication_premier_tick_ne_faconne_pas():
+    """SC4 — Au tick 0, aucune cellule ne porte encore d'objet façonné ce jour."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+    from sim.model import lire_stock_marchandise
+
+    carte_doc = World.lire_carte()
+    porteuses = _porteuses_de_la_carte(carte_doc)
+    assert porteuses, "échantillon vide : aucune cellule porteuse sur la carte"
+
+    monde = World.charger(0)
+    tick(monde, random.Random(0), numero_tick=0)
+
+    avec_objet = [
+        cid
+        for cid, cell in monde.cells.items()
+        if lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET) > 0.0
+    ]
+    print(f"porteuses={len(porteuses)} cellules_avec_objet={len(avec_objet)}")
+    assert avec_objet == []
+
+
+def test_fabrication_deuxieme_tick_faconne_extrait():
+    """SC5 — Au second tick, l'objet apparaît sur une cellule minière."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+    from sim.model import lire_stock_marchandise
+
+    carte_doc = World.lire_carte()
+    porteuses = sorted(_porteuses_de_la_carte(carte_doc))
+    assert porteuses, "échantillon vide : aucune cellule porteuse sur la carte"
+
+    monde = World.charger(0)
+    rng = random.Random(0)
+    tick(monde, rng, numero_tick=0)
+    tick(monde, rng, numero_tick=1)
+
+    trouvees = 0
+    for cid in porteuses:
+        stock = lire_stock_marchandise(monde.cells[cid], _k.MARCHANDISE_OBJET)
+        if stock > 0.0:
+            trouvees += 1
+    print(f"porteuses={len(porteuses)} avec_objet={trouvees}")
+    assert trouvees > 0
+
+
+def test_fabrication_objet_ne_circule_pas():
+    """SC6 — L'objet n'a pas de consommation par habitant."""
+    from sim import constants as _k
+
+    assert _k.consommation_kg_par_habitant_par_tick(_k.MARCHANDISE_OBJET) == 0.0
+
+
+def test_fabrication_constantes_lues_par_fonction_seulement():
+    """SC7 — engine.py ne nomme pas les constantes de façonnage directement."""
+    import ast
+
+    engine_path = pathlib.Path(__file__).resolve().parents[1] / "engine.py"
+    source = engine_path.read_text(encoding="utf-8")
+    arbre = ast.parse(source, filename=str(engine_path))
+    interdits = {"TAUX_FABRICATION_PAR_TICK", "RENDEMENT_FABRICATION"}
+    cites = {
+        node.attr
+        for node in ast.walk(arbre)
+        if isinstance(node, ast.Attribute)
+        and node.attr in interdits
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "_constantes"
+    }
+    assert cites == set(), (
+        f"constantes_fabrication_citees_directement={sorted(cites)}"
+    )
+
+    fautif = source.replace(
+        "consomme, produit = _constantes.fabrication_kg(stock)",
+        "consomme, produit = _constantes.fabrication_kg(stock)\n"
+        "        _ = _constantes.TAUX_FABRICATION_PAR_TICK",
+    )
+    arbre_fautif = ast.parse(fautif, filename="engine_fautif.py")
+    cites_fautif = {
+        node.attr
+        for node in ast.walk(arbre_fautif)
+        if isinstance(node, ast.Attribute)
+        and node.attr in interdits
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "_constantes"
+    }
+    assert "TAUX_FABRICATION_PAR_TICK" in cites_fautif
+
+
+def test_fabrication_determinisme_meme_graine():
+    """SC9 — Même graine et mêmes ticks : to_dict et stocks_mer identiques."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+    from sim.model import lire_stock_marchandise
+
+    def _jouer(monde: World, ticks: int) -> None:
+        rng = random.Random(0)
+        for t in range(ticks):
+            tick(monde, rng, numero_tick=t)
+
+    ticks = 3
+    a = World.charger(0)
+    b = World.charger(0)
+    _jouer(a, ticks)
+    _jouer(b, ticks)
+    assert a.to_dict() == b.to_dict()
+    assert a.stocks_mer == b.stocks_mer
+
+    avec_objet = sum(
+        1
+        for cell in a.cells.values()
+        if lire_stock_marchandise(cell, _k.MARCHANDISE_OBJET) > 0.0
+    )
+    assert avec_objet > 0, (
+        "échantillon vide : aucune cellule avec objet après les ticks d'épreuve"
+    )
+
+
+def test_fabrication_ordre_insertion_panier_invariant():
+    """SC9 — L'ordre d'insertion des matières premières ne change pas l'objet."""
+    from sim import constants as _k
+    from sim.engine import _apply_fabrication
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    _, ressources, _ = _agreger_gisements_carte(World.lire_carte())
+    assert len(ressources) >= 2, "échantillon vide : moins de deux ressources sur la carte"
+    m1, m2 = sorted(ressources)[:2]
+    stock = 50.0
+
+    def _cellule(ordre: list[str]) -> Cell:
+        cell = _cellule_epreuve_fabrication()
+        for cle in ordre:
+            ecrire_stock_marchandise(cell, cle, stock)
+        return cell
+
+    c1 = _cellule([m1, m2])
+    c2 = _cellule([m2, m1])
+    _apply_fabrication(c1)
+    _apply_fabrication(c2)
+    o1 = lire_stock_marchandise(c1, _k.MARCHANDISE_OBJET)
+    o2 = lire_stock_marchandise(c2, _k.MARCHANDISE_OBJET)
+    assert o1 == o2
+    assert o1 > 0.0
+
+
 def test_cli_refuse_ticks_negatif():
     proc = subprocess.run(
         [sys.executable, "-m", "sim", "--ticks", "-1", "--json"],
@@ -1939,3 +2179,246 @@ def test_snapshot_schema_version_a_change():
     epreuve_cles = set(_CELL_KEYS)
     epreuve_cles.remove("bourg")
     assert "bourg" not in epreuve_cles
+
+
+# --- lot 053 : temps du monde ---
+
+
+def test_date_initiale_monde_neuf_porte_debut_annee():
+    """SC1 — compteur nul, date dérivée, pas de date stockée sur le monde ni les cellules."""
+    import sim.constants as _k
+
+    monde = World.charger(0)
+    assert len(monde.cells) > 0
+    assert monde.ticks_ecoules == 0
+    attendu = {
+        "annee": _k.ANNEE_INITIALE,
+        "jour_de_l_annee": 1,
+    }
+    assert monde.date_simulation == attendu
+    assert _k.date_de_tick(0) == attendu
+    assert not hasattr(monde, "annee")
+    assert not hasattr(monde, "jour_de_l_annee")
+    premiere_cellule = next(iter(monde.cells.values()))
+    assert not hasattr(premiere_cellule, "annee")
+    copie = dict(monde.date_simulation)
+    copie["jour_de_l_annee"] = 99
+    assert monde.date_simulation == attendu
+
+
+def test_date_ticks_compteur_trois_regimes():
+    """SC2 — le compteur suit les ticks réussis dans chaque régime saisonnier."""
+    import random
+
+    from sim import constants as _constants
+    from sim.engine import _apply_production, tick
+
+    class MondeEpreuve:
+        """Monde d'épreuve qui n'est pas un World."""
+
+        def __init__(self):
+            self.cells = {
+                1: Cell(
+                    cell_id=1, area_km2=1.0, population=10,
+                    stocks={}, hunger_ticks=0, food_deficit_kg=0.0,
+                )
+            }
+            self.adjacency = []
+            self.carte = {}
+            self.stocks_mer = {}
+
+    epreuve = MondeEpreuve()
+    tick(epreuve, random.Random(0))
+    assert not hasattr(epreuve, "ticks_ecoules")
+
+    cellule = Cell(
+        cell_id=1, area_km2=1.0, population=10,
+        stocks={}, hunger_ticks=0, food_deficit_kg=0.0,
+    )
+    sans_carte = World(cells={1: cellule}, adjacency=[])
+
+    avec_carte = World.charger(0)
+    rng = random.Random(0)
+    for n in range(3):
+        tick(sans_carte, rng)
+        assert sans_carte.ticks_ecoules == n + 1
+        assert sans_carte.date_simulation == _constants.date_de_tick(sans_carte.ticks_ecoules)
+    rng = random.Random(1)
+    for n in range(3):
+        tick(avec_carte, rng)
+        assert avec_carte.ticks_ecoules == n + 1
+    rng = random.Random(2)
+    for n in range(3):
+        tick(avec_carte, rng, numero_tick=avec_carte.ticks_ecoules)
+        assert avec_carte.ticks_ecoules == n + 4
+        assert avec_carte.date_simulation == _constants.date_de_tick(avec_carte.ticks_ecoules)
+
+    monde = World.charger(0)
+    avant = monde.ticks_ecoules
+    _apply_production(next(iter(monde.cells.values())), random.Random(0), monde.carte)
+    assert monde.ticks_ecoules == avant
+
+
+def test_date_calendrier_derive_limites_et_consultation():
+    """SC3 — date_de_tick aux limites d'année et constantes substituées."""
+    import sim.constants as _k
+
+    annee = _k.CALENDAR_DAYS_PER_YEAR
+    assert _k.date_de_tick(0)["jour_de_l_annee"] == 1
+    assert _k.date_de_tick(annee - 1)["jour_de_l_annee"] == annee
+    assert _k.date_de_tick(annee)["annee"] == _k.ANNEE_INITIALE + 1
+    assert _k.date_de_tick(annee)["jour_de_l_annee"] == 1
+    assert _k.date_de_tick(2 * annee + 10)["annee"] == _k.ANNEE_INITIALE + 2
+
+    tick_duree = _k.TICK_DURATION_DAYS
+    annee_init = _k.ANNEE_INITIALE
+    try:
+        _k.TICK_DURATION_DAYS = 2
+        _k.CALENDAR_DAYS_PER_YEAR = 10
+        _k.ANNEE_INITIALE = 1500
+        ticks = 7
+        jours = ticks * _k.TICK_DURATION_DAYS
+        annees, rang = divmod(jours, _k.CALENDAR_DAYS_PER_YEAR)
+        attendu = {"annee": _k.ANNEE_INITIALE + annees, "jour_de_l_annee": rang + 1}
+        assert _k.date_de_tick(ticks) == attendu
+    finally:
+        _k.TICK_DURATION_DAYS = tick_duree
+        _k.CALENDAR_DAYS_PER_YEAR = annee
+        _k.ANNEE_INITIALE = annee_init
+
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _k.date_de_tick(-1)
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _k.date_de_tick(True)
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _k.date_de_tick(1.5)
+
+
+def _monde_avec_gisement():
+    import random
+
+    from sim.engine import tick
+
+    monde = World.charger(0)
+    tick(monde, random.Random(0), numero_tick=0)
+    return monde
+
+
+def test_date_refus_numero_incoherent_avant_effets():
+    """SC4 — ValueError, état inchangé, rng inchangé."""
+    import random
+
+    from sim import constants as _k
+    from sim.engine import tick
+
+    def _etat(monde, rng):
+        return (
+            monde.ticks_ecoules,
+            copy.deepcopy(monde.to_dict()["cells"]),
+            dict(monde.stocks_mer),
+            copy.deepcopy(monde.carte),
+            rng.getstate(),
+        )
+
+    monde = _monde_avec_gisement()
+    rng = random.Random(99)
+    tick(monde, rng, numero_tick=monde.ticks_ecoules)
+    avant = _etat(monde, rng)
+
+    for recu in (monde.ticks_ecoules - 1, monde.ticks_ecoules + 5, True, 1.5):
+        rng_b = random.Random(99)
+        rng_b.setstate(avant[4])
+        with pytest.raises(ValueError, match="reçu.*attendu"):
+            tick(monde, rng_b, numero_tick=recu)
+        assert _etat(monde, rng_b)[:4] == avant[:4]
+        assert rng_b.getstate() == avant[4]
+
+    monde_corrompu = World.charger(0)
+    monde_corrompu.ticks_ecoules = True
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        tick(monde_corrompu, random.Random(0), numero_tick=0)
+
+
+def test_date_refus_sensibilite_garde_avant_extraction():
+    """SC4 — une garde après l'extraction laisserait des traces sur un monde à gisements."""
+    import random
+
+    from sim.engine import _apply_extraction, _valider_numero_tick, tick
+
+    monde = World.charger(0)
+    rng = random.Random(0)
+    stocks_avant = copy.deepcopy(
+        {cid: dict(c.stocks) for cid, c in monde.cells.items()}
+    )
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        tick(monde, rng, numero_tick=9)
+    stocks_apres = {cid: dict(c.stocks) for cid, c in monde.cells.items()}
+    assert stocks_avant == stocks_apres
+
+    monde = World.charger(0)
+    carte = monde.carte
+    for cell in monde.cells.values():
+        _apply_extraction(cell, carte)
+    avec_extraction = {cid: dict(c.stocks) for cid, c in monde.cells.items()}
+    with pytest.raises(ValueError, match="reçu.*attendu"):
+        _valider_numero_tick(monde, 9)
+    assert avec_extraction != stocks_avant, (
+        "échantillon vide : l'extraction n'a rien changé avant la garde"
+    )
+
+
+def test_date_refus_exception_maillon_ne_progresse_pas(monkeypatch):
+    """SC4 — exception dans un maillon : le compteur ne progresse pas."""
+    import random
+
+    from sim.engine import tick
+
+    def _boom(_cell):
+        raise RuntimeError("maillon coupé")
+
+    monkeypatch.setattr("sim.engine._apply_fabrication", _boom)
+    monde = World.charger(0)
+    rng = random.Random(0)
+    with pytest.raises(RuntimeError):
+        tick(monde, rng, numero_tick=0)
+    assert monde.ticks_ecoules == 0
+
+
+def test_date_cli_resume_json_et_texte():
+    """SC5 — résumé JSON et texte portent la date du monde joué."""
+    import sim.constants as _k
+    from sim.__main__ import _simulate
+
+    resume, monde = _simulate(0, _k.DEFAULT_CLI_SEED)
+    assert resume["date_simulation"] == monde.date_simulation
+    sans_date = {k: v for k, v in resume.items() if k != "date_simulation"}
+    autre, _ = _simulate(0, _k.DEFAULT_CLI_SEED)
+    sans_date_b = {k: v for k, v in autre.items() if k != "date_simulation"}
+    assert sans_date == sans_date_b
+
+    ticks = _k.CALENDAR_DAYS_PER_YEAR
+    resume, monde = _simulate(ticks, 0)
+    assert resume["date_simulation"] == monde.date_simulation
+    assert resume["date_simulation"]["annee"] == _k.ANNEE_INITIALE + 1
+    assert resume["date_simulation"]["jour_de_l_annee"] == 1
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "0", "--seed", "0"],
+        cwd=_REPO,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "année" in proc.stdout
+    assert "jour dans l'année" in proc.stdout
+
+
+def test_date_cli_refus_ticks_negatifs_inchange():
+    proc = subprocess.run(
+        [sys.executable, "-m", "sim", "--ticks", "-1", "--json"],
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 2
+    assert "refus" in proc.stderr.lower()

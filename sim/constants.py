@@ -16,6 +16,26 @@ import math
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.
 MARCHANDISE_NOURRITURE = "nourriture"
 
+# Marchandise générique issue de la façonnage des matières premières ; niveau 2.
+MARCHANDISE_OBJET = "objet"
+
+# Part du stock de matière première façonnée par tick ; niveau 2.
+TAUX_FABRICATION_PAR_TICK = 0.05
+
+# Kilogrammes d'objet produits par kilogramme de matière consommée ; niveau 2.
+RENDEMENT_FABRICATION = 0.6
+
+
+def fabrication_kg(stock_brut_kg: float) -> tuple[float, float]:
+    """
+    Consommation et production d'un tick de façonnage pour un stock brut.
+
+    Relit TAUX_FABRICATION_PAR_TICK et RENDEMENT_FABRICATION à chaque appel.
+    """
+    consomme = stock_brut_kg * TAUX_FABRICATION_PAR_TICK
+    produit = consomme * RENDEMENT_FABRICATION
+    return consomme, produit
+
 # --- Base de temps unique ---
 
 # Durée d'un tick en jours (proxy paramétrique, voir MODELE.md).
@@ -440,6 +460,33 @@ FRACTION_MIGRANTE_PAR_TICK = 0.01
 # Un an calendaire de ticks, dérivé de la base de temps unique : jamais un
 # second littéral de durée. TICK_DURATION_DAYS vaut 1 aujourd'hui.
 CALENDAR_DAYS_PER_YEAR = 365
+
+# Année de départ du calendrier simplifié (niveau 2) ; cadre produit 1400-1900.
+ANNEE_INITIALE = 1400
+
+
+def date_de_tick(ticks_ecoules: int) -> dict[str, int]:
+    """
+    Date calendaire dérivée du nombre de ticks terminés depuis l'amorçage.
+
+    Relit TICK_DURATION_DAYS, CALENDAR_DAYS_PER_YEAR et ANNEE_INITIALE à chaque appel.
+    """
+    if isinstance(ticks_ecoules, bool) or not isinstance(ticks_ecoules, int):
+        raise ValueError(
+            f"ticks_ecoules invalide : reçu {ticks_ecoules!r}, attendu un entier non négatif"
+        )
+    if ticks_ecoules < 0:
+        raise ValueError(
+            f"ticks_ecoules invalide : reçu {ticks_ecoules}, attendu un entier non négatif"
+        )
+    jours_ecoules = ticks_ecoules * TICK_DURATION_DAYS
+    annees_ecoulees, rang_jour = divmod(jours_ecoules, CALENDAR_DAYS_PER_YEAR)
+    return {
+        "annee": ANNEE_INITIALE + annees_ecoulees,
+        "jour_de_l_annee": rang_jour + 1,
+    }
+
+
 DEFAULT_CLI_TICKS = CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 DEFAULT_CLI_SEED = 0
 
