@@ -16,8 +16,8 @@ from local3d.atelier_citadelle import prepare_terrain_sample
 CODE=ROOT/'local3d/desert';OUT=CODE/'sorties'
 RECIPE=json.loads((CODE/'recette.json').read_text(encoding='utf-8'))
 UNITY_ROOT=ROOT/'unity/Assets/ForgeLocal3D/Desert'
-ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain'}
-LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log'}
+ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes'}
+LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log'}
 
 
 def blender(args,log):
@@ -123,6 +123,40 @@ def terrain(ds,force=False):
     if failure:raise failure
 
 
+def routes(ds):
+    """Lot 263 : Python écrit les gestes, Unity les pose et mesure, Python rejoue et juge."""
+    from local3d.desert import routes as r, terrain as t
+    for d in ds:
+        donnees=r.ecrire_gestes(d['id'],d['seed'])
+        familles={}
+        for g in donnees['routes']:familles[g['famille']]=familles.get(g['famille'],0)+1
+        print(d['id']+' : '+str(len(donnees['routes']))+' gestes — '+', '.join('{} {}'.format(n,f) for f,n in familles.items()),flush=True)
+        (r.dossier(d['id'])/'unity-routes.json').unlink(missing_ok=True)
+    (t.SORTIES/'selection.json').write_text(json.dumps({'implantations':[d['id'] for d in ds]}),encoding='utf-8')
+    # La boîte aux lettres de l'éditeur ouvert (CitadelEditorBridge) ne connaît pas encore ce contrôle.
+    if (ROOT/'unity/Temp/UnityLockfile').exists():
+        raise RuntimeError('Unity est ouvert : enregistrer et fermer l’éditeur, puis relancer (le contrôle des routes tourne en mode batch).')
+    failure=None
+    try:run_unity('ForgeLocal3D.DesertCityRoads.Start')
+    except RuntimeError as e:failure=e
+    faults=0
+    for d in ds:
+        if not (r.dossier(d['id'])/'unity-routes.json').exists():
+            raise RuntimeError(d['id']+' : Unity n’a pas écrit de rapport ('+str(failure or 'voir sorties/logs/routes.log')+')')
+        j=r.juger(d['id'])
+        posees=[x for x in j['routes'] if x['decision']=='acceptee']
+        print('{} : {} — {} routes posées sur {}, grille à {:.4f} m de la référence, talus max {:.1%}, {} coupes'.format(
+            d['id'],j['status'],len(posees),len(j['routes']),j['grille']['ecart_reference_max'],j['grille']['talus_max'],j['grille']['coupes']),flush=True)
+        for x in j['routes']:
+            axe=x.get('axe',{})
+            print('  {:<30} {:<13} {:<9} {}'.format(x['id'],x['famille'],x['decision'],
+                  'écart au profil max {:.4f} m, marche à {:.2f} m du bout'.format(axe['max'],x['marche']['distance_fin']) if axe else ''),flush=True)
+        for fault in j['defauts']:print('  défaut : '+fault,flush=True)
+        faults+=len(j['defauts'])
+    if failure:raise failure
+    if faults:raise RuntimeError(str(faults)+' défauts : voir sorties/ville/<implantation>/routes/jugement.json')
+
+
 def verify(ds):
     for d in ds:blender(['verifier.py','--nom',d['id']],'verification_'+d['id']+'.log')
     reports=[json.loads((OUT/'villages'/d['id']/(d['id']+'.json')).read_text(encoding='utf-8')) for d in ds]
@@ -138,7 +172,7 @@ def verify(ds):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');a=p.parse_args()
     ds=[d for d in RECIPE['dispositions'] if not a.disposition or d['id']==a.disposition]
     if not ds:p.error('Disposition inconnue')
     if a.action=='fabriquer':build(ds,a.force,a.sans_rendus);verify(ds)
@@ -157,3 +191,4 @@ if __name__=='__main__':
         if r.returncode:raise RuntimeError(r.stderr.decode(errors='replace')[-2000:])
     if a.action=='parcours':run_unity('ForgeLocal3D.DesertTraversalCheck.Start')
     if a.action=='terrain':terrain(ds,a.force)
+    if a.action=='routes':routes(ds)
