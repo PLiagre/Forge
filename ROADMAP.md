@@ -150,6 +150,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 ### [241 — L'atelier relit les PR brief et feuille](briefs/241-l-atelier-relit-les-pr-brief-et-feuille.md)
 état : pret · couche : — · dépend de : — · PR : —
 
+### [254 — La machine publie son battement](briefs/254-la-machine-publie-son-battement.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
 ## Couche 1 — ce qui reste au monde
 
 ### [055 — Le monde nourrit ceux qu'il amorce](https://github.com/PLiagre/ForgeHistory/blob/master/briefs/055-le-monde-nourrit-ceux-qu-il-amorce.md)
@@ -182,12 +185,12 @@ note : l'atelier est vendorisé sous `atelier/` pour que la V1 tienne debout seu
 note : le code Unity et les paquets sont là ; les 199 Mo de binaires LFS ne l'étaient pas dans le clone de fusion et restent à migrer depuis une machine qui les porte.
 
 ### [102 — La protection de master et la page de pilotage](briefs/102-protection-et-pages.md)
-état : idee · couche : — · dépend de : — · PR : —
-note : deux gestes qui ne sont pas du code, à poser une fois dans les options du dépôt.
+état : abandonne · couche : — · dépend de : — · PR : —
+note : fait hors du cycle, et constaté le 19 septembre 2026 : `master` est protégée (sept contrôles requis, `enforce_admins`) et la page de pilotage est publiée par Pages. Ce n'étaient pas du code ; il n'y a plus rien à y faire.
 
 ### [103 — Un lot traverse le cycle entier](briefs/103-preuve-du-cycle.md)
-état : idee · couche : — · dépend de : 102 · PR : —
-note : la fusion, le rejeu d'une PR en retard et le dépôt d'un palier n'ont jamais été joués en ligne.
+état : abandonne · couche : — · dépend de : 102 · PR : —
+note : fait par la chaîne elle-même. Le cycle entier a tourné sans main pour le lot 054 (PR 26, 17 septembre 2026) puis le lot 049 (PR 40) ; l'intégration a rejoué la PR 41 en retard le 19. Le dépôt d'un palier reste à voir, et le premier palier le montrera : ce n'est pas un lot à écrire.
 
 ## La carte, et ce qu'elle ne montre pas encore
 
