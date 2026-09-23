@@ -126,6 +126,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 ### [262 — Une PR de fiche en conflit est réécrite sur master](briefs/262-une-pr-de-fiche-en-conflit-est-reecrite-sur.md)
 état : a-briefer · couche : — · dépend de : 256 · PR : —
 
+### [261 — Les règles disent qui tient chaque geste](briefs/261-les-regles-disent-qui-tient-chaque-geste.md)
+état : a-briefer · couche : — · dépend de : 256 · PR : —
+
 ### [256 — Une PR qui touche la zone protégée attend le propriétaire](briefs/256-une-pr-qui-touche-la-zone-protegee-attend-le.md)
 état : a-briefer · couche : — · dépend de : — · PR : —
 
