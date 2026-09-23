@@ -36,7 +36,13 @@ controle = "claude"
 # `forge` est le contrôle neuf de la fusion : il joue la commande de bout en
 # bout. Les autres vérifient des pièces ; celui-là vérifie qu'elles marchent
 # ensemble, ce qu'aucun test unitaire ne dit.
-controles = ["sim", "vues", "forge", "outils", "feuille", "gitleaks"]
+#
+# `atelier` garde la machine qui fait tourner la chaîne. Il entre dans la
+# liste pour une raison mesurée : ses tests existaient, ils étaient
+# soixante-six à être rouges, et personne ne le voyait parce qu'aucun
+# travail ne les jouait. Un contrôle qu'on ne joue pas n'est pas un
+# contrôle vert — c'est un contrôle qui n'existe pas.
+controles = ["sim", "vues", "forge", "outils", "atelier", "feuille", "gitleaks"]
 # Les branches que l'intégration fusionne. Le reste attend le propriétaire :
 # une expérience qui passe au vert n'est pas un lot.
 branches = ["agent/", "brief/", "feuille/"]

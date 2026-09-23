@@ -171,10 +171,26 @@ def test_etat_dit_le_profil_depuis_quand_et_le_prochain_reveil(tmp_path: Path):
 
 @besoin_bash
 def test_etat_dement_ca_tourne_quand_le_cron_n_appelle_pas_le_repartiteur(tmp_path: Path):
-    """Un profil posé sans cron ne réveille personne, et il faut le dire."""
+    """Un profil posé sans cron ne réveille personne, et il faut le dire.
+
+    La référence se **dérive** des deux endroits où un cron peut vivre,
+    comme le code le fait (règle 2). Elle ne regardait que le fichier de
+    root ; le jour où celui-ci a été retiré d'une machine dont le crontab
+    utilisateur appelle bien le répartiteur, le contrôle a rougi sur une
+    machine parfaitement saine — et une alerte qui crie à tort est une
+    alerte qu'on apprend à ignorer.
+    """
+    systeme = Path("/etc/cron.d/forgeatelier").is_file()
+    utilisateur = (
+        shutil.which("crontab") is not None
+        and "repartiteur.sh" in subprocess.run(
+            ["crontab", "-l"], capture_output=True, text=True).stdout
+    )
     _sh(BOUCLE, "jour", ATELIER_ETAT=str(tmp_path), ATELIER_ROOT=str(RACINE))
     r = _sh(BOUCLE, "etat", ATELIER_ETAT=str(tmp_path), ATELIER_ROOT=str(RACINE))
-    if not Path("/etc/cron.d/forgeatelier").is_file():
+    if systeme or utilisateur:
+        assert "ATTENTION" not in r.stdout, "un cron appelle le répartiteur : rien à signaler"
+    else:
         assert "ATTENTION" in r.stdout
 
 
@@ -255,3 +271,125 @@ def test_le_crontab_livre_n_a_qu_une_ligne_et_n_arme_rien():
     # de dire où ATELIER_INVOQUER a déménagé.
     actives = [l for l in texte.splitlines() if l.strip() and not l.startswith("#")]
     assert not any("ATELIER_INVOQUER" in l for l in actives), actives
+
+
+# ------------------------------------------------- la veille est dans la cadence
+
+
+@besoin_bash
+def test_la_veille_ouvre_la_journee_avant_le_pilote():
+    """Rien ne la jouait après l'installation : le profil du jour l'avait
+    perdue en passant au répartiteur, et plus personne ne regardait si les
+    agents démarraient encore."""
+    assert _demander("jour", "roles_du_moment", "06:45") == "veille"
+    assert "07:00 pilote" in _demander("jour", "prochain_reveil", "06:45")
+
+
+@besoin_bash
+def test_le_tour_confie_la_veille_a_son_script(tmp_path: Path):
+    """`tour.sh veille` ne cherche aucune carte : il passe la main."""
+    faux = tmp_path / "bin"
+    faux.mkdir(parents=True, exist_ok=True)
+    for nom in ("claude", "agent", "hermes"):
+        (faux / nom).write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        (faux / nom).chmod(0o755)
+    projet = tmp_path / "produit"
+    (projet / "briefs").mkdir(parents=True)
+    (projet / "atelier.toml").write_text(
+        '[projet]\nnom = "P"\nbriefs = "briefs"\ntests = "true"\nfumee = "true"\n'
+        'branche_base = "master"\nprefixe_branche = "agent/"\n\n'
+        '[roles]\necriture = "claude"\nexecution = "cursor"\ncontrole = "claude"\n',
+        encoding="utf-8",
+    )
+    env = {k: v for k, v in os.environ.items() if not k.startswith("ATELIER_")}
+    env["PATH"] = f"{faux}:{env.get('PATH', '')}"
+    env["ATELIER_PROJET"] = str(projet)
+    env["ATELIER_ROOT"] = str(RACINE)
+    env["ATELIER_VEILLE"] = str(tmp_path / "veille.txt")
+    r = subprocess.run(["bash", str(RACINE / "crons" / "tour.sh"), "veille"],
+                       env=env, text=True, capture_output=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    # Le rapport survit à son tour : c'est lui que l'état relit.
+    rapport = (tmp_path / "veille.txt").read_text(encoding="utf-8")
+    assert "branchement" in rapport
+
+
+@besoin_bash
+def test_un_binaire_qui_ne_demarre_pas_n_est_pas_un_binaire_present(tmp_path: Path):
+    """Le 14 septembre 2026, `claude` du PATH était un talon qui refusait de
+    démarrer. `command -v` le voyait, la chaîne serait tombée à chaque
+    réveil, et rien n'aurait rougi : la présence n'est pas la fonction."""
+    faux = tmp_path / "bin"
+    faux.mkdir(parents=True, exist_ok=True)
+    (faux / "claude").write_text(
+        '#!/usr/bin/env bash\necho "Error: claude native binary not installed." >&2\nexit 1\n',
+        encoding="utf-8",
+    )
+    (faux / "claude").chmod(0o755)
+    for nom in ("agent", "hermes"):
+        (faux / nom).write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        (faux / nom).chmod(0o755)
+    projet = tmp_path / "produit"
+    (projet / "briefs").mkdir(parents=True)
+    (projet / "atelier.toml").write_text(
+        '[projet]\nnom = "P"\nbriefs = "briefs"\ntests = "true"\nfumee = "true"\n'
+        'branche_base = "master"\nprefixe_branche = "agent/"\n\n'
+        '[roles]\necriture = "claude"\nexecution = "cursor"\ncontrole = "claude"\n',
+        encoding="utf-8",
+    )
+    env = {k: v for k, v in os.environ.items() if not k.startswith("ATELIER_")}
+    env["PATH"] = f"{faux}:{env.get('PATH', '')}"
+    env["ATELIER_PROJET"] = str(projet)
+    env["ATELIER_ROOT"] = str(RACINE)
+    env["ATELIER_VEILLE"] = str(tmp_path / "veille.txt")
+    r = subprocess.run(["bash", str(RACINE / "crons" / "veille.sh")],
+                       env=env, text=True, capture_output=True, timeout=60)
+    sortie = r.stdout + r.stderr
+    assert "FAIL  claude — présent mais il ne démarre pas" in sortie, sortie
+    # Un binaire sain, lui, ne rougit pas : le contrôle distingue les deux.
+    assert "FAIL  agent" not in sortie
+
+
+# --------------------------------------- le profil pose le chemin et l'heure
+
+
+@besoin_bash
+def test_le_profil_du_jour_met_les_agents_sur_le_chemin(tmp_path: Path):
+    """Le PATH de cron vaut `/usr/bin:/bin`, et aucun agent n'y vit. Le
+    15 septembre 2026, le crontab de root — seul porteur du PATH — a été
+    retiré : le coder a rendu 127 sur un lot sain. Un profil pose son
+    environnement ; il ne l'emprunte pas à une ligne que personne ne relit."""
+    faux_home = tmp_path / "home"
+    (faux_home / ".local" / "bin").mkdir(parents=True)
+    corps = f'source "{PROFILS}/jour.sh"; printf "%s" "$PATH"'
+    r = subprocess.run(
+        ["env", "-i", f"HOME={faux_home}", "PATH=/usr/bin:/bin", "bash", "-c", corps],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.split(":")[0] == f"{faux_home}/.local/bin", r.stdout
+    # Rejoué, il ne se recopie pas : un PATH qui enfle à chaque tour finit
+    # par coûter plus cher à lire qu'à poser.
+    deux = subprocess.run(
+        ["env", "-i", f"HOME={faux_home}", "PATH=/usr/bin:/bin", "bash", "-c",
+         f'source "{PROFILS}/jour.sh"; source "{PROFILS}/jour.sh"; printf "%s" "$PATH"'],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert deux.stdout.count(f"{faux_home}/.local/bin") == 1, deux.stdout
+
+
+@besoin_bash
+def test_le_profil_du_jour_dit_lui_meme_son_fuseau():
+    """Les heures du registre sont celles de Paris. Un terminal en UTC
+    annonçait le prochain réveil avec deux heures d'écart — sur la seule
+    ligne d'état que le propriétaire regarde."""
+    corps = f'source "{PROFILS}/jour.sh"; printf "%s" "$TZ"'
+    r = subprocess.run(["env", "-i", f"HOME={Path.home()}", "PATH=/usr/bin:/bin",
+                        "TZ=UTC", "bash", "-c", corps],
+                       capture_output=True, text=True, timeout=60)
+    # Un fuseau posé par l'appelant gagne : un banc reste maître chez lui.
+    assert r.stdout == "UTC", r.stdout
+    sans = subprocess.run(["env", "-i", f"HOME={Path.home()}", "PATH=/usr/bin:/bin",
+                           "bash", "-c", corps],
+                          capture_output=True, text=True, timeout=60)
+    assert sans.stdout == "Europe/Paris", sans.stdout

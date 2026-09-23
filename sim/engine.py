@@ -1,9 +1,10 @@
 """
 Moteur de simulation : boucle de tick.
 
-`tick(world, rng)` avance le monde d'un pas de temps. Sept maillons, dans
+`tick(world, rng)` avance le monde d'un pas de temps. Huit maillons, dans
 cet ordre — l'ordre est la mécanique, pas une convention :
 
+    _apply_fabrication → les matières premières deviennent de l'objet
     _apply_extraction  → les gisements rendent des kg dans le panier
     _apply_production  → la nourriture pousse, avec variabilité rng
     _apply_commerce    → les marchandises circulent entre cellules voisines
@@ -286,6 +287,31 @@ def _extraction_du_tick_kg(cell: Cell, carte: dict) -> dict[str, float]:
         par_ressource[ressource] = par_ressource.get(ressource, 0.0) + extraction
 
     return par_ressource
+
+
+def _matieres_premieres_du_panier(cell: Cell) -> list[str]:
+    """Noms des matières premières présentes dans le panier, ordre stable."""
+    panier = cellule_vers_dict(cell).get("stocks") or {}
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    objet = _constantes.MARCHANDISE_OBJET
+    return sorted(m for m in panier if m not in (nourriture, objet))
+
+
+def _apply_fabrication(cell: Cell) -> None:
+    """
+    Maillon 0 — Façonnage des matières premières en objet, sur le panier
+    d'ouverture de tick (avant extraction du jour).
+    """
+    objet = _constantes.MARCHANDISE_OBJET
+    for marchandise in _matieres_premieres_du_panier(cell):
+        stock = lire_stock_marchandise(cell, marchandise)
+        if stock <= 0:
+            continue
+        consomme, produit = _constantes.fabrication_kg(stock)
+        ecrire_stock_marchandise(cell, marchandise, stock - consomme)
+        objet_actuel = lire_stock_marchandise(cell, objet)
+        base_objet = objet_actuel if objet_actuel >= 0 else 0.0
+        ecrire_stock_marchandise(cell, objet, base_objet + produit)
 
 
 def _apply_extraction(cell: Cell, carte: dict) -> None:
@@ -1145,18 +1171,54 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         cell.population = pop_snapshot + delta
 
 
+def _valider_numero_tick(world, numero_tick: int | None) -> None:
+    """Refuse un numéro incohérent ou un compteur invalide avant toute mutation."""
+    from sim.world import World
+
+    if not isinstance(world, World):
+        return
+    attendu = world.ticks_ecoules
+    if isinstance(attendu, bool) or not isinstance(attendu, int) or attendu < 0:
+        raise ValueError(
+            f"ticks_ecoules invalide : reçu {attendu!r}, attendu un entier non négatif"
+        )
+    if numero_tick is None:
+        return
+    if isinstance(numero_tick, bool) or not isinstance(numero_tick, int):
+        raise ValueError(
+            f"numero_tick incohérent : reçu {numero_tick!r}, attendu {attendu}"
+        )
+    if numero_tick < 0:
+        raise ValueError(
+            f"numero_tick incohérent : reçu {numero_tick}, attendu {attendu}"
+        )
+    if numero_tick != attendu:
+        raise ValueError(
+            f"numero_tick incohérent : reçu {numero_tick}, attendu {attendu}"
+        )
+
+
+def _avancer_compteur_ticks(world) -> None:
+    from sim.world import World
+
+    if isinstance(world, World):
+        world.ticks_ecoules += 1
+
+
 def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     """
     Avance le monde d'un pas de temps.
 
     Ordre du tick :
-        1. Production  (_apply_production)   — pour chaque cellule
-        2. Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
-        3. Consommation (_apply_consumption) — pour chaque cellule
-        4. Faim        (_update_hunger)      — pour chaque cellule
-        5. Mortalité   (_apply_mortality)    — pour chaque cellule
-        6. Natalité    (_apply_natalite)     — pour chaque cellule
-        7. Migration   (_apply_migration)    — sur le monde entier (snapshot)
+        1. Fabrication (_apply_fabrication)  — pour chaque cellule
+        2. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
+        3. Production  (_apply_production)   — pour chaque cellule
+        4. Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
+        5. Consommation (_apply_consumption) — pour chaque cellule
+        6. Faim        (_update_hunger)      — pour chaque cellule
+        7. Mortalité   (_apply_mortality)    — pour chaque cellule
+        8. Natalité    (_apply_natalite)     — pour chaque cellule
+        9. Migration   (_apply_migration)    — sur le monde entier (snapshot)
 
     rng : instance de random.Random initialisée par l'appelant —
           jamais d'aléa global non contrôlé.
@@ -1164,7 +1226,10 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     Retourne la quantité totale de nourriture transportée par le commerce
     pendant ce tick (kg).
     """
+    _valider_numero_tick(world, numero_tick)
     total_transported = [0.0]
+    for cell in world.cells.values():
+        _apply_fabrication(cell)
     carte = world.carte if getattr(world, "carte", None) else None
     if carte is not None:
         for cell in world.cells.values():
@@ -1192,4 +1257,5 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
 
     _apply_migration(world, penuries)
 
+    _avancer_compteur_ticks(world)
     return total_transported[0]

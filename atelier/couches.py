@@ -31,6 +31,7 @@ MODULES: dict[str, Couche] = {
     "atelier.boite": Couche.COORDINATION,
     "atelier.reprise": Couche.COORDINATION,
     "atelier.porte": Couche.VERIFICATION,
+    "atelier.traces": Couche.VERIFICATION,
 }
 
 

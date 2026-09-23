@@ -71,3 +71,10 @@ local3d/v2/villages/*/*.blend
 # Images de diagnostic avant/après de la citadelle (≈ 665 Mo) : archive
 # « diagnostic-citadelle.zip » de la Release v0, à décompresser à la racine.
 local3d/citadelle/sorties/diagnostic/**/*.png
+
+# L'atelier : état local de la machine qui fait tourner la chaîne — les
+# cartes de la boîte, les verrous de fichiers, le canal d'échange. Rien
+# de tout ça n'est du produit, et un agent qui fait `git add -A` — ils le
+# font tous — les enregistrerait sans le vouloir.
+.atelier/
+atelier-echange/

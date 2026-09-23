@@ -1,5 +1,7 @@
 """Celui qui a écrit le code ne dit pas s'il est recevable."""
 
+import pytest
+
 from outils import github
 
 from outils import relecture
@@ -126,7 +128,8 @@ def test_cli_relecture_pass_est_un_succes(monkeypatch, capsys):
     faux = _GithubRelecture(
         TETE,
         ["cursor[bot]"],
-        [{"user": {"login": "claude[bot]"}, "state": "APPROVED", "commit_id": TETE}],
+        [{"user": {"login": "claude[bot]"}, "state": "APPROVED", "commit_id": TETE,
+          "author_association": "COLLABORATOR"}],
     )
     code, io = _cli_relecture(monkeypatch, capsys, faux, revision=TETE)
     assert code == 0
@@ -149,7 +152,8 @@ def test_cli_relecture_l_auteur_ne_s_approuve_pas_en_passant(monkeypatch, capsys
     faux = _GithubRelecture(
         TETE,
         ["cursor[bot]"],
-        [{"user": {"login": "cursor[bot]"}, "state": "APPROVED", "commit_id": TETE}],
+        [{"user": {"login": "cursor[bot]"}, "state": "APPROVED", "commit_id": TETE,
+          "author_association": "COLLABORATOR"}],
     )
     code, io = _cli_relecture(monkeypatch, capsys, faux, revision=TETE)
     assert code == 1
@@ -162,8 +166,40 @@ def test_cli_relecture_sans_revision_prend_la_tete(monkeypatch, capsys):
     faux = _GithubRelecture(
         TETE,
         ["cursor[bot]"],
-        [{"user": {"login": "claude[bot]"}, "state": "APPROVED", "commit_id": TETE}],
+        [{"user": {"login": "claude[bot]"}, "state": "APPROVED", "commit_id": TETE,
+          "author_association": "COLLABORATOR"}],
     )
     code, io = _cli_relecture(monkeypatch, capsys, faux)
     assert code == 0
     assert io.out.startswith("PASS  PR 200")
+
+
+# ---------------------------------------- seul un compte qui écrit juge
+
+
+@pytest.mark.parametrize("association", ["CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "NONE", ""])
+def test_un_compte_sans_droit_d_ecrire_ne_juge_pas(association):
+    """Sur un dépôt public, n'importe quel compte peut poser une revue. Son
+    approbation ne fait pas entrer, et son refus ne retient pas."""
+    seule = relecture.juger(TETE, ["cursor[bot]"], [Revue("inconnu", "APPROVED", TETE, association)])
+    assert not seule.passe
+    retenue = relecture.juger(
+        TETE, ["cursor[bot]"],
+        [Revue("pliagre-relecteur", "APPROVED", TETE, "COLLABORATOR"),
+         Revue("inconnu", "CHANGES_REQUESTED", TETE, association)],
+    )
+    assert retenue.passe, retenue.raison
+
+
+def test_la_couture_prend_une_association_absente_pour_un_inconnu():
+    """GitHub rend toujours `author_association`. S'il manque, on ne devine pas."""
+    sans = relecture.revues_depuis_github(
+        [{"user": {"login": "claude[bot]"}, "state": "APPROVED", "commit_id": TETE}]
+    )
+    assert sans[0].association == ""
+    assert not relecture.juger(TETE, ["cursor[bot]"], sans).passe
+    avec = relecture.revues_depuis_github(
+        [{"user": {"login": "claude[bot]"}, "state": "APPROVED", "commit_id": TETE,
+          "author_association": "COLLABORATOR"}]
+    )
+    assert relecture.juger(TETE, ["cursor[bot]"], avec).passe

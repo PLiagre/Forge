@@ -18,6 +18,7 @@ from vues.tableau.classify import (
     ABSENT,
     INCOMPARABLE,
     NON_CALCULE,
+    VALEUR,
     ZERO,
     classify,
     diff_status,
@@ -761,3 +762,297 @@ def test_le_serveur_sert_le_regard_et_le_snapshot_a(tmp_path: Path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+# --- Brief 052 : le bandeau porte le bourg ---
+
+
+def _contribue_bourg(cell: dict, sous_champ: str) -> bool:
+    bourg = cell.get("bourg")
+    if not isinstance(bourg, dict) or sous_champ not in bourg:
+        return False
+    valeur = bourg[sous_champ]
+    if isinstance(valeur, bool) or not isinstance(valeur, int):
+        return False
+    return classify(valeur) in (ZERO, VALEUR) and valeur >= 0
+
+
+def test_agregats_monde_bourg_derivent_du_snapshot():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    world = World.charger(0)
+    document = build_snapshot_document(world, 0, 0)
+    cellules = document["cells"]
+    assert cellules, "échantillon vide"
+
+    avec_bourg = [c for c in cellules if "bourg" in c]
+    assert avec_bourg, "échantillon vide : aucune cellule ne porte bourg"
+
+    somme_bourg = sum(
+        int(c["bourg"]["habitants_du_bourg"])
+        for c in cellules
+        if _contribue_bourg(c, "habitants_du_bourg")
+    )
+    somme_champs = sum(
+        int(c["bourg"]["habitants_des_champs"])
+        for c in cellules
+        if _contribue_bourg(c, "habitants_des_champs")
+    )
+    n_bourg = sum(1 for c in cellules if _contribue_bourg(c, "habitants_du_bourg"))
+    n_champs = sum(1 for c in cellules if _contribue_bourg(c, "habitants_des_champs"))
+
+    kpis = agregats_monde(document)
+    assert kpis["habitants_du_bourg"]["etat"] == "mesure"
+    assert kpis["habitants_du_bourg"]["valeur"] == somme_bourg
+    assert kpis["habitants_du_bourg"]["cellules_lues"] == n_bourg
+    assert kpis["habitants_des_champs"]["etat"] == "mesure"
+    assert kpis["habitants_des_champs"]["valeur"] == somme_champs
+    assert kpis["habitants_des_champs"]["cellules_lues"] == n_champs
+    assert n_bourg == len(avec_bourg)
+    assert n_champs == len(avec_bourg)
+
+
+def test_agregats_monde_bourg_conservation_population():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    world = World.charger(0)
+    document = build_snapshot_document(world, 0, 0)
+    assert document["cells"], "échantillon vide"
+
+    kpis = agregats_monde(document)
+    assert kpis["population"]["etat"] == "mesure"
+    assert kpis["habitants_du_bourg"]["etat"] == "mesure"
+    assert kpis["habitants_des_champs"]["etat"] == "mesure"
+    assert (
+        kpis["habitants_du_bourg"]["valeur"] + kpis["habitants_des_champs"]["valeur"]
+        == kpis["population"]["valeur"]
+    )
+    assert (
+        kpis["habitants_du_bourg"]["cellules_lues"]
+        == kpis["habitants_des_champs"]["cellules_lues"]
+        == kpis["population"]["cellules_lues"]
+    )
+
+
+def test_agregats_monde_bourg_absence_declaree_pas_inventee():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    document = {
+        "cells": [
+            {"cell_id": 1, "population": 10, "stocks": {}, "hunger_ticks": 0},
+            {"cell_id": 2, "population": 4, "stocks": {}, "hunger_ticks": 0},
+        ],
+    }
+    kpis = agregats_monde(document)
+    assert kpis["habitants_du_bourg"] == {"etat": "absent"}
+    assert kpis["habitants_des_champs"] == {"etat": "absent"}
+
+
+def test_agregats_monde_bourg_zero_mesure_n_est_pas_absent():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    document = {
+        "cells": [
+            {
+                "cell_id": 1,
+                "population": 5,
+                "bourg": {"habitants_du_bourg": 0, "habitants_des_champs": 5},
+            },
+            {
+                "cell_id": 2,
+                "population": 3,
+                "bourg": {"habitants_du_bourg": 0, "habitants_des_champs": 3},
+            },
+        ],
+    }
+    kpis = agregats_monde(document)
+    assert kpis["habitants_du_bourg"]["etat"] == "mesure"
+    assert kpis["habitants_du_bourg"]["valeur"] == 0
+    assert kpis["habitants_du_bourg"]["cellules_lues"] == 2
+    assert kpis["habitants_des_champs"]["valeur"] == 8
+    assert kpis["habitants_des_champs"]["cellules_lues"] == 2
+
+
+def test_agregats_monde_bourg_sentinelles_seules_non_calcule():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    document = {
+        "cells": [
+            {
+                "cell_id": 1,
+                "population": 1,
+                "bourg": {"habitants_du_bourg": -1, "habitants_des_champs": -1},
+            },
+        ],
+    }
+    kpis = agregats_monde(document)
+    assert kpis["habitants_du_bourg"]["etat"] == "non_calcule"
+    assert "valeur" not in kpis["habitants_du_bourg"]
+    assert kpis["habitants_des_champs"]["etat"] == "non_calcule"
+
+
+def test_agregats_monde_bourg_sous_champ_absent_et_bourg_nul():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    document = {
+        "cells": [
+            {"cell_id": 1, "population": 2, "bourg": None},
+            {"cell_id": 2, "population": 3, "bourg": {"habitants_du_bourg": 1}},
+            {
+                "cell_id": 3,
+                "population": 4,
+                "bourg": {"habitants_du_bourg": None, "habitants_des_champs": 4},
+            },
+        ],
+    }
+    kpis = agregats_monde(document)
+    assert kpis["habitants_du_bourg"]["etat"] == "mesure"
+    assert kpis["habitants_du_bourg"]["valeur"] == 1
+    assert kpis["habitants_du_bourg"]["cellules_lues"] == 1
+    assert kpis["habitants_des_champs"]["etat"] == "mesure"
+    assert kpis["habitants_des_champs"]["valeur"] == 4
+    assert kpis["habitants_des_champs"]["cellules_lues"] == 1
+
+
+def test_agregats_monde_bourg_melange_mesure_sentinelle_et_absence():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    document = {
+        "cells": [
+            {
+                "cell_id": 1,
+                "population": 10,
+                "bourg": {"habitants_du_bourg": 2, "habitants_des_champs": 8},
+            },
+            {
+                "cell_id": 2,
+                "population": 5,
+                "bourg": {"habitants_du_bourg": -1, "habitants_des_champs": 5},
+            },
+            {"cell_id": 3, "population": 1},
+        ],
+    }
+    kpis = agregats_monde(document)
+    assert kpis["habitants_du_bourg"]["etat"] == "mesure"
+    assert kpis["habitants_du_bourg"]["valeur"] == 2
+    assert kpis["habitants_du_bourg"]["cellules_lues"] == 1
+    assert kpis["habitants_des_champs"]["etat"] == "mesure"
+    assert kpis["habitants_des_champs"]["valeur"] == 13
+    assert kpis["habitants_des_champs"]["cellules_lues"] == 2
+
+
+def test_agregats_monde_bourg_valeurs_invalides():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    base = {"cells": [{"cell_id": 7, "population": 1, "bourg": {}}]}
+
+    avec_bool = dict(base)
+    avec_bool["cells"][0]["bourg"] = {
+        "habitants_du_bourg": True,
+        "habitants_des_champs": 1,
+    }
+    with pytest.raises(ValueError, match="cellule 7"):
+        agregats_monde(avec_bool)
+
+    avec_float = dict(base)
+    avec_float["cells"][0]["bourg"] = {
+        "habitants_du_bourg": 1.0,
+        "habitants_des_champs": 0,
+    }
+    with pytest.raises(ValueError, match="habitants_du_bourg"):
+        agregats_monde(avec_float)
+
+    avec_negatif = dict(base)
+    avec_negatif["cells"][0]["bourg"] = {
+        "habitants_du_bourg": -2,
+        "habitants_des_champs": 2,
+    }
+    with pytest.raises(ValueError, match="négatif"):
+        agregats_monde(avec_negatif)
+
+    pas_dict = dict(base)
+    pas_dict["cells"][0]["bourg"] = "ville"
+    with pytest.raises(ValueError, match="n'est pas un objet"):
+        agregats_monde(pas_dict)
+
+
+def test_agregats_monde_bourg_cles_existantes_inchangees():
+    from vues.tableau.snapshot_loader import agregats_monde
+
+    world = World.charger(0)
+    document = build_snapshot_document(world, 0, 0)
+    assert document["cells"], "échantillon vide"
+
+    kpis = agregats_monde(document)
+    cles_attendues = {
+        "tick",
+        "jour_de_tick",
+        "population",
+        "cellules",
+        "cellules_affamees",
+        "stock_nourriture_kg",
+        "kg_transportes",
+        "seed",
+        "habitants_du_bourg",
+        "habitants_des_champs",
+    }
+    assert set(kpis) == cles_attendues
+
+    sans_bourg = {
+        **document,
+        "cells": [
+            {k: v for k, v in cell.items() if k != "bourg"}
+            for cell in document["cells"]
+        ],
+    }
+    kpis_sans = agregats_monde(sans_bourg)
+    for cle in (
+        "tick",
+        "jour_de_tick",
+        "population",
+        "cellules",
+        "cellules_affamees",
+        "stock_nourriture_kg",
+        "kg_transportes",
+        "seed",
+    ):
+        assert kpis_sans[cle] == kpis[cle]
+
+
+def test_dashboard_html_porte_les_kpis_bourg():
+    html = (_VIEWER / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'id="kpi-bourg"' in html
+    assert 'id="kpi-champs"' in html
+    js = (_VIEWER / "static" / "app.js").read_text(encoding="utf-8")
+    assert "monde.habitants_du_bourg" in js
+    assert "monde.habitants_des_champs" in js
+    debut = js.index("function showKpis")
+    fin = js.index("function showCouche")
+    corps = js[debut:fin]
+    assert "monde.habitants_du_bourg" in corps
+    assert "monde.habitants_des_champs" in corps
+
+
+_INTERDITS_BOURG_TABLEAU = (
+    "bourg_depuis_monde",
+    "RepartitionBourg",
+    "part_miniere_de",
+    "sim.aggregation",
+)
+
+
+def _controle_tableau_pas_seconde_formule_bourg(source: str) -> None:
+    for symbole in _INTERDITS_BOURG_TABLEAU:
+        assert symbole not in source, (
+            f"lecture interdite du bourg hors document : {symbole}"
+        )
+
+
+def test_bourg_une_seule_voie_lecture_tableau():
+    loader = (_VIEWER / "snapshot_loader.py").read_text(encoding="utf-8")
+    app = (_VIEWER / "static" / "app.js").read_text(encoding="utf-8")
+    _controle_tableau_pas_seconde_formule_bourg(loader)
+    _controle_tableau_pas_seconde_formule_bourg(app)
+    eprouvee = loader + "\n# sonde\nbourg_depuis_monde(world)\n"
+    with pytest.raises(AssertionError):
+        _controle_tableau_pas_seconde_formule_bourg(eprouvee)

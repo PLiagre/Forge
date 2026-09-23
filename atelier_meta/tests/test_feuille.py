@@ -55,6 +55,9 @@ def _brief(numero: str) -> str:
 def _produit(tmp_path: Path, texte_feuille: str | None = None, briefs: dict[str, str] | None = None) -> Path:
     racine = tmp_path / "produit"
     (racine / "briefs").mkdir(parents=True, exist_ok=True)
+    # Le périmètre des briefs d'essai nomme `src/foo.py` : le dossier existe,
+    # comme dans un vrai produit. Un périmètre hors de l'arbre retient la carte.
+    (racine / "src").mkdir(exist_ok=True)
     (racine / "atelier.toml").write_text(
         "[projet]\n"
         'nom = "Produit"\n'
@@ -357,6 +360,59 @@ def test_le_brief_en_pr_attend_le_proprietaire(tmp_path: Path):
     assert all(d.lot != "048-route" for d in feuille.decider(f, racine))
 
 
+def test_le_lot_dont_le_brief_est_fusionne_part_au_coder(tmp_path: Path):
+    """Une carte rangée dans `fusionnee` n'occupe plus son lot.
+
+    Mesuré le 19 septembre 2026 : le brief 242 fusionné, sa carte est
+    passée de `brief-a-fusionner` à `fusionnee`, et le pilote a déposé 049,
+    plus bas dans le registre. `decider` sautait tout lot qui portait une
+    carte, fût-ce une carte d'archive : un lot briefé par la chaîne
+    n'arrivait jamais au coder, et `feuille etat` annonçait le contraire.
+    """
+    racine = _produit(tmp_path)
+    _carte(racine, boite.SUIVANT["briefer"], "046-mer", pr=7)
+    f = feuille.lire(racine / "ROADMAP.md")
+    for r in feuille.rapprochements(f, racine):
+        feuille.appliquer(racine, r)
+    assert _boite_de(racine, "fusionnee") == ["046-mer"]
+    pret = [fiche.lot for fiche in f.fiches if fiche.etat == "pret"]
+    assert pret, "échantillon vide : aucune fiche prête"
+    coder = [d.lot for d in feuille.decider(f, racine) if d.role == "coder"]
+    # Le premier lot prêt du registre, et non le suivant.
+    assert coder == [pret[0]] == ["046-mer"]
+    assert feuille.etat_effectif(f.fiche("046"), f, racine) == "prêt — le pilote déposera la carte"
+
+
+def test_cli_piloter_un_lot_brief_par_la_chaine_va_jusqu_a_sa_fusion(tmp_path: Path, capsys):
+    """Le trajet entier d'un lot dont le brief vient du briefer, au pilote.
+
+    Une carte d'archive déjà dans `fusionnee` ne doit pas faire tomber le
+    rapprochement de la carte du coder : `appliquer` levait « carte déjà
+    là », `piloter` rendait FAIL, et plus aucune carte ne partait — pour
+    aucun lot, chaque matin, puisque le rapprochement se rejoue.
+    """
+    racine = _produit(tmp_path)
+    _carte(racine, boite.SUIVANT["briefer"], "046-mer", pr=7)
+    assert main(["piloter", "--projet", str(racine), "--run"]) == 0
+    sortie = capsys.readouterr().out
+    assert "rapproché  046-mer : brief-a-fusionner → fusionnee" in sortie
+    assert "déposé    a-coder    046-mer" in sortie
+    # Le coder puis le relecteur passent ; l'intégration fusionne la PR 9.
+    carte = boite.retirer(racine, "a-coder", "046-mer")
+    verrou.poser(racine, carte.lot, carte.fichiers)
+    boite.deposer(racine, "faite", boite.Carte(lot=carte.lot, brief=carte.brief,
+                                               fichiers=carte.fichiers, pr=9))
+    chemin = racine / "ROADMAP.md"
+    chemin.write_text(feuille.marquer(chemin.read_text(encoding="utf-8"), "046", "livre", (9,)),
+                      encoding="utf-8")
+    assert main(["piloter", "--projet", str(racine), "--run"]) == 0, capsys.readouterr().err
+    sortie = capsys.readouterr().out
+    assert "rapproché  046-mer : faite → fusionnee" in sortie
+    assert _boite_de(racine, "faite") == []
+    assert boite.lire(racine, "fusionnee", "046-mer").pr == 9
+    assert verrou.charger(racine).poses == []
+
+
 # ---------------------------------------------------------- transitions
 
 
@@ -634,7 +690,7 @@ def test_le_pilote_sous_drapeau_depose_puis_dit_a_hermes_ce_qu_il_a_fait(tmp_pat
     faux, verrous = tmp_path / "bin", tmp_path / "verrous"
     temoin = tmp_path / "hermes.txt"
     _faux(faux, "hermes", f'printf "%s\\n" "$*" >> "{temoin}"\n')
-    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1"))
+    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1", ATELIER_CONSOLE="1"))
     assert r.returncode == 0, r.stderr
     assert _boite_de(racine, "a-coder") == ["046-mer"]
     assert _boite_de(racine, "a-briefer") == ["048-route"]
@@ -662,7 +718,7 @@ def test_le_pilote_sur_une_feuille_incoherente_ne_depose_rien_et_le_dit(tmp_path
     faux, verrous = tmp_path / "bin", tmp_path / "verrous"
     temoin = tmp_path / "hermes.txt"
     _faux(faux, "hermes", f'printf "%s\\n" "$*" >> "{temoin}"\n')
-    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1"))
+    r = _lancer(PILOTE, _env(racine, faux, verrous, ATELIER_INVOQUER="1", ATELIER_CONSOLE="1"))
     assert r.returncode == 1
     assert not (racine / ".atelier").exists()
     trace = temoin.read_text(encoding="utf-8")
@@ -682,3 +738,31 @@ def test_le_briefer_range_sa_carte_avec_le_numero_de_sa_pr(tmp_path: Path):
     (carte,) = boite.lister(racine, boite.SUIVANT["briefer"])
     assert carte.lot == "048-route" and carte.pr == 7
     assert not (racine / "atelier-echange" / "pr.txt").exists()
+
+
+# ------------------------------------------- un périmètre hors de l'arbre
+
+
+def test_un_perimetre_hors_de_l_arbre_retient_la_carte_avant_de_payer(tmp_path: Path):
+    """Sept briefs venus d'un autre dépôt nommaient `Assets/…` et `Tools/…`,
+    dossiers qui n'existent pas ici : le coder aurait dépensé deux tours
+    à les inventer avant que la carte tombe. On retient avant, et on dit."""
+    unity = BRIEF_SAIN.replace("# Brief 001", "# Brief 204").replace(
+        "`src/foo.py`", "`Assets/Materials/aged_bronze.mat`"
+    )
+    texte = _feuille(_fiche("204", "dette", "pret"), _fiche("046", "mer", "pret"))
+    racine = _produit(tmp_path, texte_feuille=texte, briefs={"204-dette": unity, "046-mer": _brief("046")})
+    f = feuille.lire(racine / "ROADMAP.md")
+    assert [d.lot for d in feuille.decider(f, racine)] == ["046-mer"]
+    assert feuille.etat_effectif(f.fiche("204"), f, racine) == (
+        "prêt, périmètre hors de l'arbre : Assets/Materials/aged_bronze.mat"
+    )
+    # Un fichier neuf dans un dossier qui existe n'est pas hors de l'arbre.
+    assert "hors de l'arbre" not in feuille.etat_effectif(f.fiche("046"), f, racine)
+
+
+def test_une_carte_relue_et_approuvee_attend_l_integration(tmp_path: Path):
+    racine = _produit(tmp_path)
+    _carte(racine, "faite", "046-mer", pr=12)
+    f = feuille.lire(racine / "ROADMAP.md")
+    assert feuille.etat_effectif(f.fiche("046"), f, racine) == "relu et approuvé (PR 12) — l'intégration fusionne"

@@ -91,10 +91,15 @@ class PR:
     # lecture est une seconde occasion de ne pas lire la même chose.
     ouverte: str = ""
     titre: str = ""
+    # La tête vit-elle dans le dépôt intégré ? `False` pour une fourche. La
+    # couture GitHub (`_pr_integrable`) la pose pour toute PR au bon préfixe,
+    # et une origine illisible y vaut une fourche. `None` ne sort que d'une
+    # construction directe, ou d'une PR que la décision écarte avant.
+    interne: bool | None = None
 
 
 def depuis_github(brut: dict, detail: dict | None = None, controles_bruts=(),
-                  retard: int = 0, verdict=None) -> PR:
+                  retard: int = 0, verdict=None, interne: bool | None = None) -> PR:
     """Une PR, telle que l'API la rend. Les noms de champs vivent ici.
 
     C'est la couture où les défauts se logent — une clé mal orthographiée
@@ -111,6 +116,7 @@ def depuis_github(brut: dict, detail: dict | None = None, controles_bruts=(),
             retard=0,
             ouverte=brut.get("created_at", ""),
             titre=brut.get("title", ""),
+            interne=interne,
         )
     return PR(
         numero=brut["number"],
@@ -127,6 +133,7 @@ def depuis_github(brut: dict, detail: dict | None = None, controles_bruts=(),
         ),
         relue=None if verdict is None else verdict.passe,
         motif_relecture="" if verdict is None else verdict.raison,
+        interne=interne,
     )
 
 
@@ -174,6 +181,15 @@ def examiner(pr: PR, requis, prefixes) -> Decision:
     """Ce que cette PR appelle, et pourquoi. Jamais deux choses à la fois."""
     if pr.brouillon:
         return Decision(RIEN, pr.numero, "brouillon")
+    if pr.interne is False:
+        # Sur un dépôt public, n'importe qui ouvre une PR depuis sa copie, et
+        # choisit librement le nom de sa branche : `agent/…` n'y dit rien de
+        # l'origine. Ce qui n'est pas né ici attend le propriétaire.
+        return Decision(
+            RIEN, pr.numero,
+            "PR venue d'une fourche : l'intégration ne fusionne que les branches "
+            "de ce dépôt, c'est le propriétaire qui décide de celle-là",
+        )
     if not integree(pr.branche, prefixes):
         return Decision(
             RIEN, pr.numero,

@@ -174,6 +174,7 @@ def test_la_veille_declare_un_branchement_absent(tmp_path: Path):
     env = {k: v for k, v in os.environ.items() if not k.startswith("ATELIER_")}
     env["ATELIER_PROJET"] = str(vide)
     env["ATELIER_ROOT"] = str(RACINE)
+    env["ATELIER_VEILLE"] = str(tmp_path / "veille-du-test.txt")
     r = subprocess.run(
         ["bash", str(VEILLE)], env=env, text=True, capture_output=True, timeout=60
     )
@@ -187,7 +188,30 @@ def test_la_veille_passe_quand_le_branchement_est_la(tmp_path: Path):
     env = {k: v for k, v in os.environ.items() if not k.startswith("ATELIER_")}
     env["ATELIER_PROJET"] = str(racine)
     env["ATELIER_ROOT"] = str(RACINE)
+    env["ATELIER_VEILLE"] = str(tmp_path / "veille-du-test.txt")
     r = subprocess.run(
         ["bash", str(VEILLE)], env=env, text=True, capture_output=True, timeout=60
     )
     assert r.returncode == 0, r.stderr
+
+
+@besoin_bash
+def test_aucun_test_n_ecrit_le_rapport_de_la_vraie_machine(tmp_path: Path):
+    """Le rapport par défaut est celui de la machine. Une suite de tests qui
+    l'écrase remplace une mesure du matin par une sortie de /tmp, et la ligne
+    d'état la présente comme vraie. Le chemin se déclare, et le déclarer est
+    ce qui rend la fuite visible si elle revient."""
+    racine = _produit(tmp_path)
+    ailleurs = tmp_path / "ailleurs" / "veille.txt"
+    env = {k: v for k, v in os.environ.items() if not k.startswith("ATELIER_")}
+    env["ATELIER_PROJET"] = str(racine)
+    env["ATELIER_ROOT"] = str(RACINE)
+    env["ATELIER_VEILLE"] = str(ailleurs)
+    defaut = Path.home() / ".atelier" / "veille.txt"
+    avant = defaut.stat().st_mtime if defaut.exists() else None
+    r = subprocess.run(["bash", str(VEILLE)], env=env, text=True,
+                       capture_output=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    assert ailleurs.is_file(), "le rapport doit suivre le chemin déclaré"
+    apres = defaut.stat().st_mtime if defaut.exists() else None
+    assert apres == avant, f"{defaut} a été touché par un test"

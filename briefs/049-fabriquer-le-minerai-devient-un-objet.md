@@ -326,7 +326,7 @@ des flottants. Aucun aléa n'entre dans la fabrication.
 ### SC10 — Les invariants existants restent intacts
 
 ```bash
-py -m pytest sim/tests/ viewer/tests/ -q
+py -m pytest sim/tests/ vues/tableau/tests/ -q
 ```
 
 - vert, et la liste des tests en échec est **vide**, comparée à celle de

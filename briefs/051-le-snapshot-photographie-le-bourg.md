@@ -86,6 +86,25 @@ contenu en silence.
   introduite au-delà du numéro de schéma (qui est une chaîne, pas un nombre
   magique).
 
+### La chronique suit le bourg d'un instant à l'autre
+
+La chronique découpe chaque photographie en un décor, écrit une fois, et
+des champs mobiles, relus à chaque instant. Le bourg se dérive de la
+population, qui bouge : il est donc mobile. Laissé dans le décor, il
+figerait la répartition de t0 sur toute la chronique — une vue qui
+montrerait autre chose que ce que le moteur joue (mode de défaillance 4).
+
+`vues/chronique/tests/test_chronique.py` le mesure déjà, sans qu'on le
+lui déclare : il fait tourner le moteur, regarde quels champs bougent, et
+rougit si la chronique en découpe un autre ensemble. C'est ce contrôle qui
+a arrêté la première livraison de ce lot, et c'est pour lui que le
+périmètre s'étend à un fichier de la chronique, et à ce seul fichier.
+
+La chronique lit ses champs mobiles sur les cellules du monde. Le bourg
+n'y est pas : il se calcule. `_image_du_monde` le lit donc par la même
+fonction que la jointure du snapshot, `bourg_depuis_monde`, et par
+aucune autre — deux calculs du même nombre finissent par diverger.
+
 ### Où ça se raccorde, et où ça s'arrête
 
 `sim/snapshot_export.py` appelle déjà `agregat_depuis_monde` pour joindre la
@@ -108,17 +127,44 @@ des cas — c'est le fichier qui porte déjà le schéma fermé du snapshot
 modifié ; `_CELL_KEYS` s'étend avec `"bourg"`, exactement comme il porte
 déjà `"province"`.
 
+En écriture aussi : `vues/chronique/capture.py`, pour deux changements et
+rien d'autre. `"bourg"` entre dans `CHAMPS_MOBILES`, et `_image_du_monde`
+lit ce champ par `bourg_depuis_monde`, la fonction que la jointure du
+snapshot appelle déjà, jamais par une seconde formule.
+
 Tout autre chemin est interdit, nommément : `sim/MODELE.md`,
 `sim/engine.py`, `sim/model.py`, `sim/aggregation.py`, `sim/world.py`,
 `sim/__main__.py`, les autres fichiers de `sim/tests/` — dont
 `test_province.py`, `test_write_coverage.py` et `test_no_hardcoded.py` —,
-la carte figée, `viewer/` en entier, les briefs 044, 046 et 047, et ce
-brief.
+la carte figée, `vues/tableau/` en entier, le reste de `vues/chronique/` —
+dont `vues/chronique/tests/test_chronique.py`, qui ne se modifie pas —, les
+briefs 044, 046 et 047, et ce brief.
 
 ## Conditions de succès
 
 Les comparaisons « avant / après » se font contre `master` rejoué au
 démarrage du lot, jamais contre un nombre recopié d'ici.
+
+**Rejouer `master` se fait en lisant ses objets git, jamais en ajoutant
+un worktree.** Le texte d'un fichier se lit par `git show <ref>:<chemin>`,
+comme `_texte_master` le fait déjà dans `sim/tests/test_monde.py`. Quand
+il faut exécuter le code de `master` (SC1, SC6), on l'extrait dans un
+dossier temporaire par `git archive <ref> sim data`, puis on le
+décompresse. L'archive est bornée à `sim/` et `data/` : c'est tout ce
+que le moteur lit pour charger le monde et construire un snapshot. Une
+archive de l'arbre entier tire les objets LFS de `fabrique/`, hors lot ;
+sur la PR 22, le smudge a 404 sur un PNG Unity (contrôle `sim`, run
+35094855141). `GIT_LFS_SKIP_SMUDGE=1` n'est pas la prescription : il
+contourne le 404 sans borner. `git worktree add` est exclu. Sur la PR
+15, les deux tests SC6 qui l'appelaient sont sortis en code 128 sur
+GitHub Actions (contrôle `sim`, run 35060735773). Dans le même test,
+`git show` passait. Sur la machine de l'atelier, la même commande
+passait aussi : la suite y était verte, et la PR ne pouvait pas entrer.
+
+Un appel à `git`, ou à tout autre sous-processus dont un test dépend,
+met sa sortie d'erreur dans le message de l'assertion quand il échoue.
+Sur la PR 15, le message de git était capturé puis perdu : personne n'a pu
+lire pourquoi la commande échouait.
 
 ### SC1 — Chaque cellule porte le bourg, recalculé, jamais stocké
 
@@ -131,7 +177,8 @@ tolérance.
 Le dénominateur est le nombre de cellules réellement comparées ; un
 échantillon vide échoue.
 
-**Rouge prouvé d'abord** : sur `master`, `cell["bourg"]` lève `KeyError`.
+**Rouge prouvé d'abord** : sur `master` extrait par
+`git archive <ref> sim data`, `cell["bourg"]` lève `KeyError`.
 
 ### SC2 — Le schéma reste fermé, et sa version a changé
 
@@ -174,12 +221,12 @@ il ne protège rien.
 ### SC6 — Rien d'autre ne change : la seule différence est le bourg et la version
 
 Produire le snapshot du même monde, même graine, même tick, sur `master`
-rejoué puis après ce lot. Sur le document « après », retirer la clé
-`bourg` de chaque cellule et remettre `schema_version` à la valeur lue sur
-`master` ; l'empreinte SHA-256 du document ainsi restauré est **identique**
-à celle du document « avant ». C'est le critère qui distingue une jointure
-d'un mécanisme : s'il rougit, ce lot a changé autre chose que ce qu'il
-déclare.
+rejoué par `git archive <ref> sim data`, puis après ce lot. Sur le
+document « après », retirer la clé `bourg` de chaque cellule et remettre
+`schema_version` à la valeur lue sur `master` ; l'empreinte SHA-256 du
+document ainsi restauré est **identique** à celle du document « avant ».
+C'est le critère qui distingue une jointure d'un mécanisme : s'il
+rougit, ce lot a changé autre chose que ce qu'il déclare.
 
 `py -m sim --ticks 365 --seed 0 --json` (le résumé, pas le snapshot) rend
 par ailleurs une sortie identique octet pour octet à celle de `master` :
@@ -189,8 +236,11 @@ signalerait une régression sans rapport avec ce lot.
 ### SC7 — Les invariants existants restent intacts, et la suite reste verte
 
 ```bash
-py -m pytest sim/tests/ viewer/tests/ -q
+python3 -m pytest sim/tests/ vues/ -q
 ```
+
+Le contrôle `vues` de la CI joue les trois vues ; celle-ci aussi, pour
+qu'une vue que ce lot casse se voie avant la PR, pas après.
 
 - vert, et la liste des tests en échec est **vide**, comparée à celle de
   `master` plutôt que supposée ;
@@ -208,8 +258,33 @@ py -m pytest sim/tests/ viewer/tests/ -q
   produisent des fichiers strictement identiques ;
 - le nombre de tests collectés est au moins celui de `master`.
 
+### SC8 — La chronique suit le bourg, par la fonction de la jointure
+
+```bash
+python3 -m pytest vues/chronique/tests/test_chronique.py -q
+grep -nE "part_miniere_de|facteurs_richesse_extraction" vues/chronique/capture.py
+```
+
+- la première commande est verte, **sans modification** de ce fichier de
+  test ;
+- `test_les_champs_mobiles_sont_mesures_et_pas_declares` passe : l'ensemble
+  des champs que le moteur fait bouger est égal à `CHAMPS_MOBILES`, et
+  `"bourg"` en fait partie ;
+- `test_la_decoupe_rend_la_photographie_au_bit_pres` passe : le décor et
+  l'image d'un instant recomposent la photographie de cet instant, bourg
+  compris ;
+- la seconde commande ne sort **rien** : la part non agricole n'est pas
+  recalculée dans la chronique.
+
+**Rouge prouvé d'abord** : sur la première livraison de ce lot, sans
+retouche de la chronique, les deux contrôles nommés rougissent — mesuré
+le 15 septembre 2026 sur la PR 12, par le contrôle `vues` de la CI.
+
 ## Hors périmètre
 
+- toute autre retouche de la chronique — sa planche, sa bobine, son atlas,
+  son format : seule la liste `CHAMPS_MOBILES` gagne une entrée, et
+  `_image_du_monde` une lecture ;
 - le visualiseur, son schéma attendu, son affichage du bourg — c'est le lot
   052, qui dépend de celui-ci ;
 - tout mécanisme, tout nouveau nombre de monde : SC1 et SC6 le mesurent ;

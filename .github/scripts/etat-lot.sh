@@ -77,6 +77,9 @@ git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git checkout -b "$branche"
 git add ROADMAP.md
+# `pret → a-briefer` retire l'ancien brief : sa suppression part dans le
+# même commit que la fiche, sinon le registre serait incohérent.
+git add -A -- briefs/
 git commit --file message.txt
 git push -u origin "$branche"
 lien=$(gh pr create --repo "$DEPOT" --base "$BASE" --head "$branche" \

@@ -12,7 +12,7 @@ shell ne compose donc plus de ligne de commande : il exécute celle-là.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 
@@ -30,6 +30,22 @@ class Backend:
     # Le drapeau qui retire les outils qui écrivent. `None` = ce binaire
     # n'en a pas, et un relecteur garde la main qui écrit. On le déclare.
     refus_outils: str | None = None
+    # Le mode de permission d'une session sans terminal. Un cron n'a
+    # personne pour répondre « oui » à une demande d'autorisation : sans
+    # ce mode, `-p` s'arrête à la première, et le réveil de 07:00 ne
+    # rend rien sans dire pourquoi. `None` = ce binaire n'en a pas.
+    permission: str | None = None
+    # Le drapeau qui déclare l'arbre de travail digne de confiance. Même
+    # raison que le mode de permission, autre question : celle-ci porte
+    # sur le répertoire, pas sur les outils. `None` = ce binaire ne
+    # demande rien.
+    confiance: str | None = None
+    # Le drapeau qui nomme les outils qu'une session sans terminal a le
+    # droit d'employer. Le mode de permission ne suffit pas : sans cette
+    # liste, `-p` refuse chaque commande en silence — le briefer sort sans
+    # avoir ouvert de PR, le relecteur sans avoir lu un diff. Mesuré sur
+    # le VPS après la fusion, où la liste avait disparu de l'argv.
+    outils_permis: str | None = None
 
 
 POSTES = {
@@ -39,6 +55,8 @@ POSTES = {
         role="ecriture",
         abo="claude-pro",
         refus_outils="--disallowedTools",
+        permission="acceptEdits",
+        outils_permis="--allowedTools",
     ),
     "cursor": Backend(
         nom="cursor",
@@ -46,6 +64,11 @@ POSTES = {
         role="execution",
         abo="cursor-pro",
         modeles={"planifier": "cursor-grok-4.6", "coder": "composer-2.5"},
+        # `--trust` déclare le répertoire, et rien de plus. `--force` et
+        # son alias `--yolo` autorisent en bloc toutes les commandes :
+        # ce qui borne ce lot est son périmètre et son verrou, pas une
+        # permission ouverte qu'on ne se souviendrait pas d'avoir donnée.
+        confiance="--trust",
     ),
     # Codex et Hermes tirent le même quota hebdomadaire ChatGPT : un
     # relecteur Codex n'est pas un quatrième abonnement.
@@ -96,8 +119,28 @@ ROLE_QUI_RELIT = "relire"
 # à sec de `tour.sh` est là pour ça.
 OUTILS_REFUSES_AU_RELECTEUR = (
     "Edit,Write,MultiEdit,NotebookEdit,"
-    "Bash(git push:*),Bash(git commit:*),Bash(git merge:*),Bash(gh pr merge:*)"
+    "Bash(git push:*),Bash(git commit:*),Bash(git merge:*),"
+    "Bash(gh pr merge:*),Bash(gh pr close:*),Bash(gh pr edit:*)"
 )
+
+# Ce que chaque rôle de Claude a le droit de faire sans qu'un terminal
+# réponde « oui ». Le briefer écrit un fichier et ouvre une PR ; le
+# relecteur lit un diff et pose une revue. Rien de plus : ce qui n'est
+# pas ici est refusé, et le refus du relecteur vient en plus, après.
+OUTILS_PERMIS_PAR_ROLE = {
+    "briefer": (
+        "Read,Glob,Grep,Write,Edit,"
+        "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),"
+        "Bash(gh pr list:*),Bash(gh issue view:*),"
+        "Bash(python3:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*)"
+    ),
+    "relire": (
+        "Read,Glob,Grep,"
+        "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git fetch:*),"
+        "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr review:*),"
+        "Bash(python3:*),Bash(ls:*),Bash(cat:*),Bash(grep:*)"
+    ),
+}
 
 
 def invocation(backend: Backend, prompt: str) -> str:
@@ -199,6 +242,7 @@ def prompt_du_role(
     branche: str | None = None,
     feuille: str | None = None,
     decision: str | None = None,
+    controles: Sequence[str] = (),
 ) -> str:
     if role not in ROLES_INVOCABLES:
         raise BackendErreur(f"rôle inconnu : {role} (connus : {', '.join(ROLES_INVOCABLES)})")
@@ -231,8 +275,21 @@ def prompt_du_role(
             "l'atelier ne devine pas ce qu'on lui demande"
         )
     if role == "briefer":
+        # La fiche ne garde d'une demande que son titre. La direction du
+        # propriétaire — ce qu'il attend, le périmètre qu'il imagine — vit
+        # dans l'issue, et la PR qui a fait entrer la fiche la cite : la
+        # branche porte le lot, `outils/demandes.py` la nomme ainsi.
         return (
             f"Écris le brief du lot {lot} de {projet}, dans le fichier {brief}. "
+            "Lis d'abord la demande qui a fait entrer ce lot au registre : c'est "
+            "la direction du propriétaire, et la fiche n'en garde que le titre. "
+            f"`gh pr list --state all --search \"head:feuille/{lot}\" --json number,body` "
+            "nomme la PR de sa fiche, dont le corps cite la demande (« demande #N ») ; "
+            "`gh issue view N --json body,comments` la montre, avec ce que ses "
+            "commentaires corrigent — sans `--json`, le `gh` du VPS échoue. Le "
+            "brief suit cette demande, périmètre et "
+            "conditions de succès attendus compris ; s'il s'en écarte, ta PR dit où "
+            "et pourquoi. Sans demande trouvée, ta PR le dit. "
             "Suis le format de brief du dépôt produit. Travaille sur une branche "
             f"brief/{lot}, ouvre une PR à la fin ; tu ne fusionnes pas. Puis écris "
             "son numéro, seul, dans atelier-echange/pr.txt (crée le dossier s'il "
@@ -283,11 +340,58 @@ def prompt_du_role(
         if feuille
         else ""
     )
+    # L'avis n'existe que sur la PR. Avant, il finissait dans un journal
+    # que personne ne lisait, et l'intégration — qui n'ouvre la porte que
+    # sur une approbation posée par un tiers — attendait pour toujours.
+    if pr:
+        # Toutes les lignes de `gh pr checks` ne le regardent pas.
+        # « relecture » porte SON verdict : l'état est rouge tant
+        # qu'aucune approbation n'existe. Le prompt disait « un contrôle
+        # en échec » sans exception, et le relecteur de la PR 37 a refusé
+        # le 18 septembre 2026 au motif qu'il n'avait pas encore
+        # approuvé — en écrivant lui-même que, sans ce point, sa revue
+        # « resterait une approbation ». Un poste qui refuse parce qu'il
+        # n'a pas approuvé n'approuvera jamais.
+        #
+        # Les contrôles qui comptent sont ceux que le branchement déclare
+        # requis, comme pour `crons/tour.sh` : la liste se dérive, elle
+        # ne se recopie pas ici.
+        if controles:
+            quels = (
+                "Les contrôles qui comptent sont ceux que le produit déclare "
+                f"requis, et ce sont ceux-là : {', '.join(controles)}. Une ligne "
+                "rouge absente de cette liste ne retient rien"
+            )
+        else:
+            quels = (
+                "Le produit ne déclare aucun contrôle requis : aucune ligne de "
+                "cette table ne retient à elle seule"
+            )
+        revue = (
+            f" Lis d'abord `gh pr checks {pr}`. {quels} — c'est le cas de "
+            "« relecture », qui porte ton propre verdict et reste rouge tant que "
+            "tu n'as pas approuvé : la prendre pour un refus te ferait refuser au "
+            "motif que tu n'as pas encore approuvé."
+            " Si un contrôle requis est en échec, la PR ne peut pas entrer, quel "
+            "que soit le diff : demande des changements en nommant ce contrôle et "
+            f"l'erreur qui le fait rougir, lue par `python3 -m atelier traces --pr {pr}` "
+            "et citée telle qu'elle est écrite."
+            f" Termine par UNE revue GitHub sur la PR {pr}, et rien d'autre : "
+            f"`gh pr review {pr} --approve --body '<ton avis>'` si aucun contrôle "
+            "requis n'est en échec, si le diff reste dans le périmètre, si chaque "
+            "condition de succès est mesurée par un contrôle qui peut rougir et si "
+            "aucun test existant n'a été modifié ; "
+            f"sinon `gh pr review {pr} --request-changes --body '<tes constats, "
+            "du plus grave au plus léger, avec fichier et ligne>'`. Un avis qui "
+            "ne finit pas sur la PR n'existe pas."
+        )
+    else:
+        revue = " Sans numéro de proposition connu, ne pose aucune revue : écris ton avis et arrête-toi."
     return (
         f"Relis le diff du lot {lot} de {projet} : {cible}. Tu n'as pas écrit "
         "ce code : tu ne le corriges pas, tu n'écris aucun fichier, tu ne "
         f"pousses rien, tu ne fusionnes pas. {_source_unique(brief)} Rends un "
-        f"avis qui cite le périmètre et les conditions de succès.{fiche}"
+        f"avis qui cite le périmètre et les conditions de succès.{fiche}{revue}"
     )
 
 
@@ -302,12 +406,13 @@ def argv_du_role(
     branche: str | None = None,
     feuille: str | None = None,
     decision: str | None = None,
+    controles: Sequence[str] = (),
 ) -> list[str]:
     """L'argv exact du rôle. Construit ici, exécuté par le cron, jamais ici."""
     backend = backend_du_role(role, roles)
     prompt = prompt_du_role(
         role, lot=lot, brief=brief, projet=projet, pr=pr, branche=branche,
-        feuille=feuille, decision=decision,
+        feuille=feuille, decision=decision, controles=controles,
     )
     if role == "pilote":
         # Depuis Hermes 0.20, -p/--profile choisit un profil. Le mode
@@ -318,6 +423,16 @@ def argv_du_role(
     modele = backend.modeles.get(role)
     if modele:
         argv += ["--model", modele]
+    if backend.permission:
+        argv += ["--permission-mode", backend.permission]
+    if backend.confiance:
+        argv.append(backend.confiance)
+    permis = OUTILS_PERMIS_PAR_ROLE.get(role)
+    if backend.outils_permis and permis:
+        argv += [backend.outils_permis, permis]
+    # Le mode de permission n'ouvre pas la main qui écrit : il dit
+    # seulement qu'aucun terminal ne répondra. La garde du relecteur
+    # vient après, et c'est elle qui retire les outils.
     if role == ROLE_QUI_RELIT and backend.refus_outils:
         argv += [backend.refus_outils, OUTILS_REFUSES_AU_RELECTEUR]
     return argv

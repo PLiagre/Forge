@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# La bascule : `atelier-boucle <profil|arret|etat>`.
+#
+# Le point de toute la conception : aucun `sudo` sur ce chemin. Changer
+# de cadence est l'écriture d'un fichier, et rien d'autre. Ce qui est
+# facile à désarmer est ce qu'on ose armer.
+set -euo pipefail
+
+_self="${BASH_SOURCE[0]}"
+[ -L "$_self" ] && _self="$(readlink -f "$_self")"
+CRONS="$(cd -P "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+. "$CRONS/lib.sh"
+atelier_defauts
+
+CRONTAB_SYSTEME="/etc/cron.d/forgeatelier"
+
+# Qui appelle le répartiteur ? Deux endroits possibles, et il faut
+# regarder les deux : root peut poser `/etc/cron.d/forgeatelier`, mais
+# l'installation ordinaire passe par le crontab de l'utilisateur —
+# justement pour n'avoir besoin de personne. N'en regarder qu'un seul
+# faisait crier une machine correctement installée, et une alerte qui
+# crie à tort est une alerte qu'on apprend à ignorer.
+un_cron_appelle_le_repartiteur() {
+  [[ -f "$CRONTAB_SYSTEME" ]] && return 0
+  command -v crontab >/dev/null 2>&1 || return 1
+  crontab -l 2>/dev/null | grep -q "repartiteur.sh"
+}
+
+# Les profils connus se lisent sur le disque : une liste écrite ici
+# serait une seconde liste à tenir, et elle finirait par mentir.
+usage() {
+  local fichier nom connus=()
+  for fichier in "$CRONS"/profils/*.sh; do
+    [[ -e "$fichier" ]] || continue
+    nom="${fichier##*/}"
+    connus+=("${nom%.sh}")
+  done
+  connus+=(arret etat)
+  local liste="${connus[*]}"
+  dire "usage : atelier-boucle <${liste// /|}>"
+}
+
+# Les tours en vol, lus sur les verrous eux-mêmes. Pas de table de rôles
+# ici : un verrou qui existe est un rôle qui tourne, et c'est la seule
+# source qui ne peut pas mentir.
+en_vol() {
+  local fichier nom restants=()
+  [[ -d "$ATELIER_VERROUS" ]] || return 0
+  for fichier in "$ATELIER_VERROUS"/atelier-*.lock; do
+    [[ -e "$fichier" ]] || continue
+    nom="${fichier##*/atelier-}"
+    nom="${nom%.lock}"
+    if ! flock -n "$fichier" true 2>/dev/null; then
+      restants+=("$nom")
+    fi
+  done
+  printf '%s' "${restants[*]-}"
+}
+
+# Ce que porte la boîte, lu sur le disque. Aucune liste d'états n'est
+# écrite ici : les dossiers qui existent sont la réponse, et une liste
+# tenue à la main finirait par ne plus correspondre à celle de Python.
+file_du_projet() {
+  local boite="${ATELIER_PROJET:-}/.atelier/boite" dossier nom combien morceaux=()
+  [[ -n "${ATELIER_PROJET:-}" && -d "$boite" ]] || return 0
+  for dossier in "$boite"/*/; do
+    [[ -d "$dossier" ]] || continue
+    nom="${dossier%/}"; nom="${nom##*/}"
+    combien="$(find "$dossier" -maxdepth 1 -name '*.json' 2>/dev/null | wc -l)"
+    (( combien )) && morceaux+=("$nom:$combien")
+  done
+  printf '%s' "${morceaux[*]-}"
+}
+
+# Les agents, vus dans le PATH. On ne lance rien : regarder n'est pas
+# invoquer, et surtout ça ne dépense pas un quota pour afficher un état.
+agents_vus() {
+  local binaire morceaux=()
+  for binaire in claude agent hermes; do
+    if command -v "$binaire" >/dev/null 2>&1; then
+      morceaux+=("$binaire")
+    else
+      morceaux+=("$binaire(absent)")
+    fi
+  done
+  printf '%s' "${morceaux[*]}"
+}
+
+# Ce que la veille de ce matin a vu. Elle seule démarre les binaires et
+# lit les connexions ; cette ligne ne fait que rapporter son constat,
+# avec son âge — un rapport de la semaine dernière ne dit rien
+# d'aujourd'hui, et le taire serait pire que de ne rien afficher.
+veille_vue() {
+  local rapport="${ATELIER_VEILLE:-$HOME/.atelier/veille.txt}" refus quand
+  [[ -f "$rapport" ]] || { printf 'jamais passée'; return 0; }
+  quand="$(date -r "$rapport" '+%d/%m %H:%M' 2>/dev/null || echo '?')"
+  refus="$(grep -c '^FAIL' "$rapport" 2>/dev/null || true)"
+  if [[ "${refus:-0}" == "0" ]]; then
+    printf 'rien à signaler (%s)' "$quand"
+  else
+    printf '%s FAIL (%s) — %s' "$refus" "$quand" "$(grep -m1 '^FAIL' "$rapport" | cut -c7-)"
+  fi
+}
+
+commande="${1:-}"
+if [[ -z "$commande" ]]; then
+  usage
+  exit 2
+fi
+
+# ------------------------------------------------------------------ etat
+if [[ "$commande" == "etat" ]]; then
+  fichier="$ATELIER_ETAT/profil"
+  if [[ -f "$fichier" ]]; then
+    profil="$(tr -d '[:space:]' < "$fichier")"
+    depuis="$(date -r "$fichier" '+%F %T' 2>/dev/null || echo '?')"
+  else
+    profil="(aucun)"
+    depuis="—"
+  fi
+  prochain="—"
+  if [[ -n "$profil" && -f "$CRONS/profils/$profil.sh" ]]; then
+    # shellcheck source=/dev/null
+    . "$CRONS/profils/$profil.sh"
+    prochain="$(prochain_reveil "$(date +%H:%M)")"
+  fi
+  occupes="$(en_vol)"
+  printf '%-8s %s\n' "profil" "${profil:-(vide)}"
+  printf '%-8s %s\n' "depuis" "$depuis"
+  printf '%-8s %s\n' "prochain" "${prochain:-—}"
+  printf '%-8s %s\n' "en cours" "${occupes:-(rien)}"
+  file="$(file_du_projet)"
+  printf '%-8s %s\n' "file" "${file:-(vide)}"
+  printf '%-8s %s\n' "agents" "$(agents_vus)"
+  printf '%-8s %s\n' "veille" "$(veille_vue)"
+  # Une carte dans echec/ ne repart pas toute seule au-delà de ses
+  # reprises. C'est la seule ligne de cet état qui demande une personne.
+  if [[ "$file" == *"echec:"* ]]; then
+    printf '%-8s %s\n' "" "une carte au moins attend une personne : python3 -m atelier feuille etat --projet \"\$ATELIER_PROJET\""
+  fi
+  # Un profil posé sans cron ne réveille personne. Le dire vaut mieux que
+  # de laisser croire que ça tourne : quarante réveils à vide ont déjà
+  # coûté deux jours, et c'était l'inverse — un cron sans travail.
+  if ! un_cron_appelle_le_repartiteur; then
+    printf '%-8s %s\n' "" "ATTENTION : aucun cron n'appelle le répartiteur — aucun réveil ne part"
+    printf '%-8s %s\n' "" "          (crontab -l 2>/dev/null; echo \"* * * * * $CRONS/repartiteur.sh\") | crontab -"
+  fi
+  exit 0
+fi
+
+# --------------------------------------------------------------- bascule
+if [[ "$commande" != "arret" && ! -f "$CRONS/profils/$commande.sh" ]]; then
+  dire "profil inconnu : $commande"
+  usage
+  exit 2
+fi
+
+mkdir -p "$ATELIER_ETAT"
+printf '%s\n' "$commande" > "$ATELIER_ETAT/profil"
+
+if [[ "$commande" != "arret" ]]; then
+  echo "profil $commande"
+  exit 0
+fi
+
+# ----------------------------------------------------------------- arret
+# Tuer un tour serait la façon la plus sûre de laisser une carte prise :
+# `tour.sh` range sa carte sur tous ses chemins de sortie, encore
+# faut-il qu'il les atteigne. On empêche les réveils suivants — c'est
+# déjà fait, le profil est écrit — puis on attend.
+attente="${ATELIER_ARRET_ATTENTE:-300}"
+debut="$SECONDS"
+while :; do
+  occupes="$(en_vol)"
+  [[ -z "$occupes" ]] && break
+  if (( SECONDS - debut >= attente )); then
+    echo "arrêt demandé, mais un tour est encore en vol : $occupes"
+    dire "aucun réveil ne s'ajoutera ; ce tour-là finira de lui-même"
+    exit 1
+  fi
+  sleep 2
+done
+echo "arrêt : plus aucun tour en vol"
+exit 0

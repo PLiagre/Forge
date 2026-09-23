@@ -469,7 +469,13 @@ def rapprochements(feuille: Feuille, racine: Path) -> list[Rapprochement]:
 
 def appliquer(racine: Path, rapprochement: Rapprochement) -> Path:
     carte = boite.lire(racine, rapprochement.source, rapprochement.lot)
-    destination = boite.deposer(racine, rapprochement.destination, carte)
+    # Un lot briefé par la chaîne passe deux fois par `fusionnee` : son
+    # brief, puis son code. L'archive garde la dernière ; refuser la
+    # seconde faisait tomber `piloter` chaque matin, et avec lui tout dépôt.
+    destination = boite.deposer(
+        racine, rapprochement.destination, carte,
+        ecraser=rapprochement.destination == BOITE_FUSIONNEE,
+    )
     (boite.racine_boite(racine) / rapprochement.source / f"{rapprochement.lot}.json").unlink()
     if rapprochement.lever_verrou:
         verrou.lever(racine, rapprochement.lot)
@@ -501,6 +507,17 @@ def _empechement(fiche: Fiche, feuille: Feuille, racine: Path) -> str | None:
     fichiers = _fichiers_du_perimetre(chemin)
     if not fichiers:
         return "périmètre sans fichier nommé"
+    # Un brief venu d'un autre dépôt nomme des dossiers qui n'existent pas
+    # ici (`Assets/`, `Tools/` après la fusion). Le coder dépenserait son
+    # quota à les inventer, deux fois, avant que la carte tombe : on
+    # retient avant de payer, et `feuille etat` dit pourquoi.
+    hors_arbre = sorted(
+        f for f in fichiers
+        if not (Path(racine) / Path(f).parts[0]).is_dir()
+    )
+    if hors_arbre:
+        reste = f" … (+{len(hors_arbre) - 3})" if len(hors_arbre) > 3 else ""
+        return "périmètre hors de l'arbre : " + ", ".join(hors_arbre[:3]) + reste
     tenus = _fichiers_tenus(racine)
     pris = sorted(f"{f} tenu par {tenus[f]}" for f in fichiers if tenus.get(f, fiche.lot) != fiche.lot)
     if pris:
@@ -515,7 +532,11 @@ def decider(feuille: Feuille, racine: Path) -> list[Decision]:
     decisions: list[Decision] = []
     briefer_pris = coder_pris = False
     for fiche in feuille.fiches:
-        if fiche.lot in cartes:
+        # Une carte de `fusionnee` est une archive : sa PR est entrée, elle
+        # ne tient plus le lot. Celle du brief y arrive quand la fiche
+        # passe à `pret` — la compter ici, c'était cacher au coder chaque
+        # lot que le briefer avait écrit.
+        if any(nom != BOITE_FUSIONNEE for nom, _carte in cartes.get(fiche.lot, ())):
             continue
         if fiche.etat == "a-briefer" and not briefer_pris:
             decisions.append(Decision("briefer", "a-briefer", fiche.lot, fiche.chemin, ()))
@@ -563,7 +584,7 @@ def etat_effectif(fiche: Fiche, feuille: Feuille, racine: Path) -> str:
         if nom_boite == "a-relire":
             return f"en relecture{numero_pr}"
         if nom_boite == "faite":
-            return f"relu{numero_pr} — à fusionner par le propriétaire"
+            return f"relu et approuvé{numero_pr} — l'intégration fusionne"
     if fiche.etat == "a-briefer":
         return "à briefer — le pilote déposera la carte"
     empechement = _empechement(fiche, feuille, racine)

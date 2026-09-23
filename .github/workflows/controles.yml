@@ -28,6 +28,11 @@ permissions:
   contents: read
   pull-requests: read
   actions: write
+  # `outils controles` lit les contrôles déjà posés sur la révision : sans
+  # ces deux droits, il meurt sur un 403, comme l'intégration le 15
+  # septembre 2026.
+  checks: read
+  statuses: read
 
 jobs:
   redemander:

@@ -68,11 +68,17 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integr
     minimale = integration.depuis_github(brut)
     if minimale.brouillon or not integration.integree(minimale.branche, prefixes):
         return minimale
+    # Un préfixe ne prouve pas une origine. La tête doit vivre dans ce dépôt,
+    # et `demandes.interne` le dit pour les demandes de lot comme ici : un
+    # seul prédicat, deux appelants. Une origine illisible vaut une fourche,
+    # et une fourche ne coûte aucun appel de plus.
+    if not demandes.interne(gh, brut):
+        return integration.depuis_github(brut, interne=False)
     detail = gh.get(f"pulls/{brut['number']}")
     sha = detail["head"]["sha"]
     return integration.depuis_github(
         brut, detail, github.controles(gh, sha), github.retard(gh, base, sha),
-        _verdict(gh, brut["number"], sha),
+        _verdict(gh, brut["number"], sha), interne=True,
     )
 
 
@@ -323,7 +329,10 @@ def _etat_de_la_page(gh, feuille, examens, base, reglage, page, maintenant, depo
         velocite=velocite,
         traversee=histoire.traversee(chemins),
         ages={f.numero: histoire.age(propositions, f, maintenant) for f in feuille.fiches},
-        deductions=histoire.travaux_commences(branches, ouvertes),
+        deductions=histoire.travaux_commences(
+            branches, ouvertes,
+            finis={f.numero for f in feuille.fiches if f.etat in palier.FINIS},
+        ),
         actions=actions.actions(depot),
         refus=tuple(refus),
     )
@@ -448,6 +457,19 @@ def _etat(args: argparse.Namespace) -> int:
         return 0
     feuille.chemin.write_text(nouveau, encoding="utf-8")
     print(f"fiche {fiche.numero} réécrite dans {feuille.chemin}", file=sys.stderr)
+    # `pret → a-briefer` : le brief est à réécrire. Le registre refuse une
+    # fiche « a-briefer » dont le brief existe encore, et il a raison : le
+    # briefer écrirait par-dessus un texte qui fait déjà foi. Le geste
+    # retire donc l'ancien brief dans la même proposition ; il reste dans
+    # l'historique git. Sans ce retrait, la transition que le workflow
+    # documente rendait le registre incohérent, et le pilote ne déposait
+    # plus aucune carte — mesuré le 15 septembre 2026, sur une copie.
+    if fiche.etat == "pret" and args.etat == "a-briefer":
+        ancien = racine / fiche.chemin
+        if ancien.is_file():
+            ancien.unlink()
+            print(f"brief retiré : {fiche.chemin} (il reste dans l'historique git)",
+                  file=sys.stderr)
     return 0
 
 

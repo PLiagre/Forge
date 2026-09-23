@@ -69,6 +69,8 @@ def test_une_pr_integrable_demande_le_detail():
     from outils.__main__ import _pr_integrable
 
     class Faux:
+        depot = "O/R"
+
         def __init__(self):
             self.appels = []
 
@@ -98,7 +100,8 @@ def test_une_pr_integrable_demande_le_detail():
     faux = Faux()
     obtenu = _pr_integrable(
         faux,
-        {"number": 200, "head": {"ref": "agent/049-x"}, "draft": False},
+        {"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}},
+         "draft": False},
         "master",
         ("agent/",),
     )
@@ -111,6 +114,8 @@ def test_une_pr_integrable_demande_le_detail():
 
 class _GithubDecision:
     """GitHub de banc pour la ligne que le workflow découpe."""
+
+    depot = "O/R"
 
     def __init__(self, bruts, detail, behind_by, check_runs):
         self.bruts = bruts
@@ -125,7 +130,8 @@ class _GithubDecision:
             return [{"author": {"login": "auteur"}, "committer": None}]
         if chemin.endswith("/reviews"):
             return [{"user": {"login": "tiers"}, "state": "APPROVED",
-                     "commit_id": self.detail["head"]["sha"]}]
+                     "commit_id": self.detail["head"]["sha"],
+                     "author_association": "COLLABORATOR"}]
         raise AssertionError(chemin)
 
     def get(self, chemin, **_k):
@@ -171,7 +177,8 @@ def test_cli_integration_imprime_fusionner_puis_le_numero(tmp_path, monkeypatch,
     code, io = _cli_integration(
         tmp_path, monkeypatch, capsys,
         _GithubDecision(
-            [{"number": 200, "head": {"ref": "agent/049-x"}, "draft": False}],
+            [{"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}},
+              "draft": False}],
             {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True},
             0,
             verts,
@@ -194,7 +201,8 @@ def test_cli_integration_imprime_rebaser_avant_la_relecture(tmp_path, monkeypatc
     code, io = _cli_integration(
         tmp_path, monkeypatch, capsys,
         _GithubDecision(
-            [{"number": 200, "head": {"ref": "agent/049-x"}, "draft": False}],
+            [{"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}},
+              "draft": False}],
             {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True},
             3,
             sans_relecture,
@@ -387,11 +395,29 @@ def test_232_un_nouveau_controle_absent_ne_bloque_pas_le_rejeu():
     assert integration.examiner(pr(retard=0), nouveaux, PREFIXES).action == integration.RIEN
 
 
-def test_chacun_des_six_controles_reste_obligatoire_apres_le_rejeu():
+def _travaux_de_la_ci(racine) -> set[str]:
+    """Les noms de travaux que les workflows de contrôle posent réellement."""
+    import re
+    noms: set[str] = set()
+    for fichier in ("tests.yml", "security.yml"):
+        texte = (racine / ".github" / "workflows" / fichier).read_text(encoding="utf-8")
+        bloc = texte.split("\njobs:\n", 1)[1]
+        noms.update(re.findall(r"^  ([a-z][a-z0-9_-]*):\s*$", bloc, re.MULTILINE))
+    return noms
+
+
+def test_chacun_des_controles_declares_reste_obligatoire_apres_le_rejeu():
+    """La liste vient du branchement, jamais d'ici : le 14 septembre 2026,
+    `atelier` est entré dans `atelier.toml` et ce contrôle — qui nommait
+    six contrôles en dur — a rougi sur `master`, fermant la porte à toute
+    PR. Un contrôle déclaré doit avoir un travail qui le pose, sinon il
+    est absent, donc bloquant, pour toujours."""
     from pathlib import Path
     from outils import registre
-    requis = registre.integration(Path(__file__).resolve().parents[2])["controles"]
-    assert set(requis) == {"sim", "vues", "forge", "outils", "feuille", "gitleaks"}
+    racine = Path(__file__).resolve().parents[2]
+    requis = registre.integration(racine)["controles"]
+    assert requis, "aucun contrôle déclaré : rien n'entrerait"
+    assert set(requis) <= _travaux_de_la_ci(racine), set(requis) - _travaux_de_la_ci(racine)
     for nom in requis:
         autres = verts(*[n for n in requis if n != nom])
         for controles in (autres, autres + (Controle(nom, integration.ROUGE),),
@@ -399,3 +425,101 @@ def test_chacun_des_six_controles_reste_obligatoire_apres_le_rejeu():
             decision = integration.examiner(pr(controles=controles), requis, PREFIXES)
             assert decision.action == integration.RIEN, nom
     assert integration.examiner(pr(controles=verts(*requis)), requis, PREFIXES).action == integration.FUSIONNER
+
+
+def test_un_travail_qui_lit_les_controles_a_le_droit_de_les_lire():
+    """Le 15 septembre 2026, `integration.yml` ne déclarait ni `checks: read`
+    ni `statuses: read`. Le premier lot arrivé à la porte a fait lire ses
+    contrôles : 403, `outils integration` est mort, et plus rien ne pouvait
+    entrer dans master. Tant qu'aucun lot n'y arrivait, chaque tour
+    répondait RIEN avant d'avoir à lire : la panne existait sans se voir.
+
+    La référence se dérive des travaux eux-mêmes : tout travail qui appelle,
+    directement ou par un script, une commande d'`outils` qui lit les
+    contrôles d'une révision déclare les deux droits.
+    """
+    import re
+    from pathlib import Path
+
+    racine = Path(__file__).resolve().parents[2]
+    lecteurs = ("outils integration", "outils controles", "outils tableau")
+    examines = []
+    for fichier in sorted((racine / ".github" / "workflows").glob("*.yml")):
+        texte = fichier.read_text(encoding="utf-8")
+        joue = texte + "".join(
+            (racine / ".github" / "scripts" / script).read_text(encoding="utf-8")
+            for script in re.findall(r"\.github/scripts/([\w-]+\.sh)", texte)
+        )
+        if not any(lecteur in joue for lecteur in lecteurs):
+            continue
+        examines.append(fichier.name)
+        for droit in ("checks: read", "statuses: read"):
+            assert droit in texte, f"{fichier.name} lit les contrôles sans « {droit} »"
+    # Un échantillon vide ne prouve rien : si plus aucun travail ne lit les
+    # contrôles, c'est la liste des lecteurs qu'il faut regarder.
+    assert {"integration.yml", "controles.yml"} <= set(examines), examines
+
+
+# ------------------------------------------------ une fourche n'entre pas
+
+
+def test_une_pr_venue_d_une_fourche_ne_se_fusionne_pas():
+    """Sur un dépôt public, n'importe qui ouvre une PR depuis sa copie, et
+    choisit le nom de sa branche. Un préfixe `agent/` ne dit rien de l'origine :
+    tout vert et approuvée, une fourche attend quand même le propriétaire."""
+    decision = integration.examiner(pr(interne=False), REQUIS, PREFIXES)
+    assert decision.action == integration.RIEN
+    assert "fourche" in decision.raison
+    assert integration.examiner(pr(interne=True), REQUIS, PREFIXES).action == integration.FUSIONNER
+
+
+class _GithubOrigine:
+    """Un GitHub de banc qui compte ses appels : une fourche ne coûte rien."""
+
+    depot = "O/R"
+
+    def __init__(self):
+        self.appels = []
+
+    def get(self, chemin, **_):
+        self.appels.append(chemin)
+        if chemin.startswith("pulls/"):
+            return {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True}
+        if "check-runs" in chemin:
+            return {"check_runs": []}
+        if "status" in chemin:
+            return {"statuses": []}
+        if chemin.startswith("compare/"):
+            return {"behind_by": 0}
+        raise AssertionError(chemin)
+
+    def liste(self, chemin, **_):
+        self.appels.append(chemin)
+        if chemin.endswith("/commits"):
+            return [{"author": {"login": "auteur"}, "committer": None}]
+        if chemin.endswith("/reviews"):
+            return []
+        raise AssertionError(chemin)
+
+
+@pytest.mark.parametrize("repo, attendu", [
+    ({"full_name": "O/R"}, True),
+    ({"full_name": "o/r"}, True),
+    ({"full_name": "intrus/R"}, False),
+    (None, False),
+    ("absent", False),
+])
+def test_la_couture_github_pose_toujours_l_origine(repo, attendu):
+    """`repo: null` est une fourche supprimée ; une clé absente ne se devine
+    pas. Dans les deux cas, l'origine vaut une fourche, et rien n'est lu."""
+    from outils.__main__ import _pr_integrable
+
+    tete = {"ref": "agent/049-x"}
+    if repo != "absent":
+        tete["repo"] = repo
+    faux = _GithubOrigine()
+    obtenu = _pr_integrable(faux, {"number": 200, "head": tete, "draft": False},
+                            "master", ("agent/",))
+    assert obtenu.interne is attendu
+    if not attendu:
+        assert faux.appels == [], "une fourche a coûté des appels"

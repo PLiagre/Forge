@@ -783,3 +783,19 @@ def test_le_tableau_a_le_droit_de_lire_l_historique_des_executions():
     for droit in ("actions: read", "pull-requests: read", "pages: read"):
         assert droit in permissions, droit
     assert "write" not in permissions, "la page ne fait qu'écrire un fichier : elle ne pousse rien"
+
+
+def test_etat_emporte_le_retrait_du_brief_dans_le_meme_commit(banc):
+    """`pret → a-briefer` retire l'ancien brief. La suppression part avec la
+    fiche : une fiche « a-briefer » dont le brief existe encore rend le
+    registre incohérent, et le pilote refuse alors de déposer quoi que ce soit."""
+    _etat_pose(banc, "etat 049 a-briefer etat-049-a-briefer")
+    banc.poser("git", selon=[(["ls-remote"], "", 1)])
+    banc.poser("gh", selon=[(["pr list"], ""), (["pr create"], "https://x/pull/241")])
+    resultat = banc.jouer("etat-lot.sh", DEPOT="o/r", LOT="049", ETAT="a-briefer",
+                          BASE="master")
+
+    assert resultat.returncode == 0, resultat.stderr
+    ajouts = [i for i, a in enumerate(banc.appels) if a.startswith("git add") and "briefs/" in a]
+    commits = [i for i, a in enumerate(banc.appels) if a.startswith("git commit")]
+    assert ajouts and commits and ajouts[0] < commits[0], banc.appels

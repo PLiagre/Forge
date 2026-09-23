@@ -23,7 +23,7 @@ quoi la regarder. Les quatre conditions sont vertes.
 
 | # | condition | ce qui la prouve |
 |---|---|---|
-| **V1-1** | un dépôt, une chaîne | `atelier.toml` déclare six contrôles ; l'atelier vit dans l'arbre, plus sur une branche détachée ; un seul registre |
+| **V1-1** | un dépôt, une chaîne | `atelier.toml` déclare sept contrôles ; l'atelier vit dans l'arbre, plus sur une branche détachée ; un seul registre |
 | **V1-2** | une simulation qui ne s'effondre pas | plafond de survie **1,250** ; sur une année simulée la population passe de 36 969 739 à 38 330 077, soit **+3,7 %** |
 | **V1-3** | la carte de statistique | `python3 -m vues.relief --lecture population --carte carte.png` ; six lectures, quinze contrôles, aucun GPU requis |
 | **V1-4** | les trois vues sur un snapshot | `python3 -m forge` écrit `monde.json`, `carte.png`, `tableau.svg` et `planche.html` depuis **une** simulation |
@@ -58,7 +58,7 @@ est exactement ce qu'on attend d'un monde vivant.
 | # | couche | où on en est |
 |---|---|---|
 | 1 | **Monde vivant** — carte, terrain, climat, ressources, population, économie locale, commerce | **faite, et elle tourne** |
-| 2 | **Villes** — subdivision en lieux, urbanisation, métiers, routes | **ouverte** — le premier métier existe, le bourg se compte ; subdiviser reste |
+| 2 | **Villes** — subdivision en lieux, urbanisation, métiers, routes | **ouverte** — le métier, le bourg et la fabrication existent ; subdiviser reste |
 | 3 | **États** — fiscalité, lois, diplomatie, technologies, culture, religion | non commencée |
 | 4 | **Armées** — recrutement, logistique, ravitaillement, stratégie | non commencée |
 | 5 | **Batailles tactiques** — sur les mêmes données que tout le reste | non commencée |
@@ -74,8 +74,9 @@ fait par une commande, jamais en recopiant un nombre ici :
 python3 -m sim --ticks 0 --json
 ```
 
-Le tick joue, dans cet ordre : extraction minière, production agricole,
-commerce, consommation, faim, mortalité, natalité, migration. Le relief module
+Le tick joue, dans cet ordre : fabrication, extraction minière, production
+agricole, commerce, consommation, faim, mortalité, natalité, migration. Le
+monde compte les ticks qu'il a terminés et en dérive sa date depuis 1400. Le relief module
 le rendement d'une cellule et le débit d'une arête ; le climat joue par la
 durée du jour, donc par la saison ; les gisements font qu'une part des
 habitants cesse de cultiver pour extraire — c'est le premier métier ; le
@@ -84,23 +85,19 @@ population naît, meurt de faim et migre.
 
 ### Ce que le monde ne sait pas encore faire
 
-- **Fabriquer.** Le minerai extrait reste du minerai : rien ne le transforme.
-  C'est le lot 049.
+Fabriquer, se dater et montrer le bourg ont été livrés — les fiches 049, 053,
+051 et 052 le disent. Il reste une seule chose, et c'est la plus lourde :
+
 - **Se subdivider.** Une cellule couvre 11 186 km² en moyenne — une région,
-  pas un lieu. C'est le lot pivot, 122.
-- **Se dater.** Le rang du jour se dérive du numéro du tick, mais le monde
-  lui-même ne porte aucune date. C'est le lot 053.
-- **Montrer le bourg.** La part non agricole existe et se compte, mais rien ne
-  la photographie ni ne l'affiche : 051 l'emporte dans le snapshot, 052 la met
-  sous l'œil. La carte de statistique la déclare déjà comme lecture, et
-  **refuse** proprement tant que le champ manque.
+  pas un lieu. Tant qu'un lieu n'a pas d'identité stable, la ville ne peut
+  pas se jouer. C'est le lot pivot, 122.
 
 ## Couche 2 — les villes, et le mur qui reste
 
 Une ville est un endroit qui **ne produit pas ce qu'il mange**. Le métier
-existe, la mer porte les marchandises, le bourg se compte. Ce qui manque n'est
-plus une condition d'existence : c'est de quoi fabriquer (049) et de quoi voir
-(051, 052).
+existe, la mer porte les marchandises, le bourg se compte, la matière se
+façonne en objet, et les trois vues le montrent. Plus aucune condition
+d'existence ne manque.
 
 Puis vient le mur véritable, et il est d'échelle. `sim/MODELE.md` a tranché que
 le bourg serait une **vue dérivée** — sans identité, sans `city_id` — et c'était
@@ -126,28 +123,53 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [262 — Une PR de fiche en conflit est réécrite sur master](briefs/262-une-pr-de-fiche-en-conflit-est-reecrite-sur.md)
+état : a-briefer · couche : — · dépend de : 256 · PR : —
+
+### [256 — Une PR qui touche la zone protégée attend le propriétaire](briefs/256-une-pr-qui-touche-la-zone-protegee-attend-le.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
+### [255 — Le relecteur rend un verdict, la machine pose la revue](briefs/255-le-relecteur-rend-un-verdict-la-machine-pose-la.md)
+état : a-briefer · couche : — · dépend de : 241 · PR : —
+
+### [243 — Chaque carte du kanban nomme son geste suivant](briefs/243-chaque-carte-du-kanban-nomme-son-geste-suivant.md)
+état : pret · couche : — · dépend de : 242 · PR : —
+
+### [244 — Une carte qui ne se retente pas repart d'un cran, pas chez le propriétaire](briefs/244-une-carte-qui-ne-se-retente-pas-repart-d-un-cran.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
+### [242 — La page de pilotage devient un kanban par état](briefs/242-la-page-de-pilotage-devient-un-kanban-par-etat.md)
+état : livre · couche : — · dépend de : — · PR : 64
+
+### [245 — Une PR fermée sans fusion décide elle-même du sort de son lot](briefs/245-une-pr-fermee-sans-fusion-decide-elle-meme-du.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
+### [241 — L'atelier relit les PR brief et feuille](briefs/241-l-atelier-relit-les-pr-brief-et-feuille.md)
+état : pret · couche : — · dépend de : — · PR : —
+
+### [254 — La machine publie son battement](briefs/254-la-machine-publie-son-battement.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
 ## Couche 1 — ce qui reste au monde
 
 ### [055 — Le monde nourrit ceux qu'il amorce](https://github.com/PLiagre/ForgeHistory/blob/master/briefs/055-le-monde-nourrit-ceux-qu-il-amorce.md)
 état : archive · couche : 1 · dépend de : — · PR : —
 note : livré par le commit de fondation, avant qu'aucune PR n'existe ici. Plafond de survie porté de 0,691 à 1,250 — c'est la condition V1-2. Son brief vit dans le dépôt d'origine, où il était resté orphelin.
 
-### [049 — Fabriquer : le minerai devient un objet](briefs/049-fabriquer-le-minerai-devient-un-objet.md)
-état : pret · couche : 2 · dépend de : — · PR : —
-note : le code de ce lot existe dans une PR de l'ancien dépôt ; il n'a pas été repris ici et reste à écrire.
-
-### [053 — Le monde porte sa date](briefs/053-le-monde-porte-sa-date.md)
-état : pret · couche : 1 · dépend de : — · PR : —
-
 ### [051 — Le snapshot photographie le bourg](briefs/051-le-snapshot-photographie-le-bourg.md)
-état : pret · couche : 2 · dépend de : — · PR : —
-note : la lecture « bourg » de la carte de statistique l'attend et refuse proprement en attendant.
+état : livre · couche : 2 · dépend de : — · PR : 22, 28
 
 ### [052 — Le regard mince montre le bourg](briefs/052-le-regard-mince-montre-le-bourg.md)
-état : pret · couche : 2 · dépend de : 051 · PR : —
+état : livre · couche : 2 · dépend de : 051 · PR : 37
+
+### [049 — Fabriquer : le minerai devient un objet](briefs/049-fabriquer-le-minerai-devient-un-objet.md)
+état : livre · couche : 2 · dépend de : — · PR : 40
+
+### [053 — Le monde porte sa date](briefs/053-le-monde-porte-sa-date.md)
+état : livre · couche : 1 · dépend de : — · PR : 58
 
 ### [054 — Cohérence globale : inventaire du produit face à la vision](briefs/054-coherence-globale-inventaire-produit-vision.md)
-état : pret · couche : — · dépend de : — · PR : —
+état : livre · couche : — · dépend de : — · PR : 26
 
 ## La fusion — ce qui reste à finir
 
@@ -160,12 +182,12 @@ note : l'atelier est vendorisé sous `atelier/` pour que la V1 tienne debout seu
 note : le code Unity et les paquets sont là ; les 199 Mo de binaires LFS ne l'étaient pas dans le clone de fusion et restent à migrer depuis une machine qui les porte.
 
 ### [102 — La protection de master et la page de pilotage](briefs/102-protection-et-pages.md)
-état : idee · couche : — · dépend de : — · PR : —
-note : deux gestes qui ne sont pas du code, à poser une fois dans les options du dépôt.
+état : abandonne · couche : — · dépend de : — · PR : —
+note : fait hors du cycle, et constaté le 19 septembre 2026 : `master` est protégée (sept contrôles requis, `enforce_admins`) et la page de pilotage est publiée par Pages. Ce n'étaient pas du code ; il n'y a plus rien à y faire.
 
 ### [103 — Un lot traverse le cycle entier](briefs/103-preuve-du-cycle.md)
-état : idee · couche : — · dépend de : 102 · PR : —
-note : la fusion, le rejeu d'une PR en retard et le dépôt d'un palier n'ont jamais été joués en ligne.
+état : abandonne · couche : — · dépend de : 102 · PR : —
+note : fait par la chaîne elle-même. Le cycle entier a tourné sans main pour le lot 054 (PR 26, 17 septembre 2026) puis le lot 049 (PR 40) ; l'intégration a rejoué la PR 41 en retard le 19. Le dépôt d'un palier reste à voir, et le premier palier le montrera : ce n'est pas un lot à écrire.
 
 ## La carte, et ce qu'elle ne montre pas encore
 
