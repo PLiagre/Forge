@@ -22,6 +22,38 @@ l'arrivée. **L'ascension est le jeu.**
 
 ---
 
+## Voir le village dans Blender ou Unity
+
+La direction actuelle est une **citadelle gothique alpine enneigée**, inspirée de
+la référence visuelle fournie : 31 modules réutilisables, deux implantations,
+bannières, feux, neige et brume. `Ouvrir_Unity_Citadelle.cmd` lance la visite ;
+`Ouvrir_Blender_Citadelle.cmd` ouvre la source. Voir le
+[guide de la citadelle](local3d/citadelle/README.md) et sa [galerie](local3d/citadelle/sorties/index.html).
+
+Son pendant chaud est le **ksar du désert** : une ville de terre crue sur une table
+de grès, sa mosquée à minaret, un souk, une palmeraie autour d'une guelta et des
+dunes, en deux implantations. `Ouvrir_Unity_Desert.cmd` lance la visite ;
+`Ouvrir_Blender_Desert.cmd` ouvre la source. Voir le
+[guide du désert](local3d/desert/README.md) et sa [galerie](local3d/desert/sorties/index.html).
+
+L'étude précédente conserve **un biome alpin** : un kit commun de modèles,
+trois dispositions à culture et année identiques, et une visite animée avec heure
+et météo réglables. `Ouvrir_Unity_Alpin.cmd` lance la visite ;
+`Ouvrir_Blender_Alpin.cmd` ouvre sa source. Voir le
+[guide alpin](local3d/alpin/README.md) et la [galerie](local3d/alpin/sorties/index.html).
+
+La **V2 graphique** propose quatre villages : vallée à colombages, chalets alpins,
+bourg de pierre au bord d'un fleuve et oasis en terre crue. Ouvrir
+`Ouvrir_Blender_V2.cmd`, `Ouvrir_Unity_V2.cmd` ou la
+[galerie locale](local3d/v2/index.html). Le [guide V2](local3d/GUIDE_V2.md)
+décrit les recettes, les retouches Blender conservées et la reconstruction.
+
+La V1 graphique locale matérialise le village pilote : 40 bâtiments, 24 variantes
+et 250 décors. `Ouvrir_Blender_V1.cmd` ouvre la scène Blender avec ses textures ;
+`Ouvrir_Unity_V1.cmd` ouvre sa scène de visite Unity. Les assets, les rendus et
+les commandes de reconstruction sont décrits dans [l'atelier 3D local](local3d/README.md).
+Cette scène de visite ne branche pas encore le bourg au moteur de simulation.
+
 ## Essayer en une minute
 
 ```bash

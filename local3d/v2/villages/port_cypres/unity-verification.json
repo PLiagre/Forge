@@ -1,0 +1,11 @@
+{
+    "scene": "Assets/ForgeLocal3D/V2/Scenes/Forge_V2_port_cypres.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 1658,
+    "prefab_count": 136,
+    "lod_groups": 1658,
+    "missing_materials": 0,
+    "static_triangles": 68364,
+    "max_position_error_m": 0.0
+}
