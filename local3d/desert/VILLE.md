@@ -84,27 +84,29 @@ mesure) ; six contre-épreuves qui échouent puis repassent.
 
 Neuf étapes, seize lots : une étape qui mêle des choses jugeables séparément
 devient plusieurs lots (AGENTS.md, « un lot = un changement »). Chaque lot tient
-en une session de travail. Numéros : ceux que le registre attribue (colonne
-« lot » ci-dessous, remplie au dépôt des demandes).
+en une session de travail. Les fiches 263 à 278 sont entrées au registre par une
+PR de feuille du propriétaire (le formulaire ne sait pas déclarer une dépendance
+vers un lot pas encore fusionné, et seize dépôts simultanés se seraient
+bloqués en conflit).
 
-| # | étape | lot | dépend de | lot n° |
+| # | étape | lot | dépend de | n° |
 |---|---|---|---|---|
-| V1 | 2 | Le joueur trace une route qui épouse le relief | V0 | |
-| V2 | 2 | Les routes se croisent en carrefours et forment un graphe | V1 | |
-| V3 | 8 | La caméra de city builder survole la ville et descend dans la rue | V0 | |
-| V4 | 3 | Le kit de pisé s'emboîte sur la trame de 0,75 m | V0 | |
-| V5 | mat. | Les matériaux photographiés remplacent les procéduraux | V0 | |
-| V6 | 3 | Une parcelle se découpe en lots, chaque lot reçoit sa maison | V1, V4 | |
-| V7 | 3 | L'arrière-cour se remplit de vie | V6 | |
-| V8 | 4 | L'enceinte suit le tracé du joueur, ses portes naissent des routes | V1, V4 | |
-| V9 | 5 | Les bâtiments singuliers se posent à la main, le ksar redevient le noyau | V1 | |
-| V10 | 6 | Le chantier se voit pousser | V6 | |
-| V11 | 7 | Un habitant animé par textures se dessine mille fois | V0 | |
-| V12 | 7 | Les habitants et les bêtes circulent sur le graphe des routes | V2, V6, V11 | |
-| V13 | 7 | La ville fume, sèche son linge, garnit ses étals et s'éclaire la nuit | V6 | |
-| V14 | 8 | La ville dense tient 60 images/s (GPU Resident Drawer, occlusion, imposteurs) | V6 | |
-| V15 | 8 | La lumière du désert : APV, SSAO, brume de chaleur, heure du jour | V5 | |
-| V16 | 9 | La démo rejoue la partie et mesure la ville de fin de partie | tous | |
+| V1 | 2 | Le joueur trace une route qui épouse le relief | V0 | 263 |
+| V2 | 2 | Les routes se croisent en carrefours et forment un graphe | V1 | 264 |
+| V3 | 8 | La caméra de city builder survole la ville et descend dans la rue | V0 | 265 |
+| V4 | 3 | Le kit de pisé s'emboîte sur la trame de 0,75 m | V0 | 266 |
+| V5 | mat. | Les matériaux photographiés remplacent les procéduraux | V0 | 267 |
+| V6 | 3 | Une parcelle se découpe en lots, chaque lot reçoit sa maison | V1, V4 | 268 |
+| V7 | 3 | L'arrière-cour se remplit de vie | V6 | 269 |
+| V8 | 4 | L'enceinte suit le tracé du joueur, ses portes naissent des routes | V1, V4 | 270 |
+| V9 | 5 | Les bâtiments singuliers se posent à la main, le ksar redevient le noyau | V1 | 271 |
+| V10 | 6 | Le chantier se voit pousser | V6 | 272 |
+| V11 | 7 | Un habitant animé par textures se dessine mille fois | V0 | 273 |
+| V12 | 7 | Les habitants et les bêtes circulent sur le graphe des routes | V2, V6, V11 | 274 |
+| V13 | 7 | La ville fume, sèche son linge, garnit ses étals et s'éclaire la nuit | V6 | 275 |
+| V14 | 8 | La ville dense tient 60 images/s (GPU Resident Drawer, occlusion, imposteurs) | V6 | 276 |
+| V15 | 8 | La lumière du désert : APV, SSAO, brume de chaleur, heure du jour | V5 | 277 |
+| V16 | 9 | La démo rejoue la partie et mesure la ville de fin de partie | tous | 278 |
 
 Budget visé par image (1920×1080, 3070 Ti) : terrain 1 ms, bâtiments 4 ms, foule
 2 ms, ombres 3 ms, post-traitement 2 ms, marge 4,7 ms.
