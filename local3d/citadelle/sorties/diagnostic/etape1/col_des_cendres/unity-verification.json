@@ -1,0 +1,11 @@
+{
+    "scene": "Assets/ForgeLocal3D/Citadelle/Scenes/Forge_Citadelle_col_des_cendres.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 1881,
+    "prefab_count": 33,
+    "lod_groups": 1881,
+    "missing_materials": 0,
+    "static_triangles": 56698,
+    "max_position_error_m": 0.0
+}

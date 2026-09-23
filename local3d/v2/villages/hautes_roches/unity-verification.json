@@ -1,0 +1,11 @@
+{
+    "scene": "Assets/ForgeLocal3D/V2/Scenes/Forge_V2_hautes_roches.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 1882,
+    "prefab_count": 136,
+    "lod_groups": 1882,
+    "missing_materials": 0,
+    "static_triangles": 67234,
+    "max_position_error_m": 0.0
+}

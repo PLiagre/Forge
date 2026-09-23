@@ -1,0 +1,11 @@
+{
+    "scene": "Assets/ForgeLocal3D/Alpin/Scenes/Forge_Alpin_rive_des_melezes.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 2230,
+    "prefab_count": 67,
+    "lod_groups": 2230,
+    "missing_materials": 0,
+    "static_triangles": 74342,
+    "max_position_error_m": 0.0
+}
