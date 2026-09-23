@@ -19,7 +19,10 @@ autant que le nouveau ; une suppression reste un changement. La lecture
 GitHub parcourt toutes les pages et vérifie leur complétude avec le nombre
 de fichiers annoncé par la PR. Une réponse tronquée, vide, mal formée ou
 illisible ne vaut jamais absence de changement protégé. Un changement de
-révision pendant la lecture retient la PR.
+révision pendant la lecture retient la PR. La vérification de révision vient
+après toutes les lectures. Le geste de rejeu compare la tête courante à la
+révision jugée, puis transmet cette même révision à GitHub : une poussée
+entre la décision et le geste ne doit pas contourner la garde.
 
 Le refus précède le rejeu comme la fusion. La raison commence par « zone
 protégée : le propriétaire fusionne ». Une zone absente, vide ou mal formée
@@ -34,11 +37,12 @@ En écriture : `outils/integration.py` (examen des chemins),
 `outils/github.py` (lecture complète des fichiers), `outils/__main__.py`
 (transmission des fichiers et de la zone à l'intégration et au tableau),
 `outils/registre.py` (lecture et validation de la zone), `atelier.toml`
-(déclaration de la zone), `outils/tests/test_integration.py` et
-`outils/tests/test_lecture.py` (ajout de cas). La fiche 256 relève du
+(déclaration de la zone), `.github/scripts/integrer.sh` (lier le rejeu à la
+révision jugée), `outils/tests/test_integration.py`,
+`outils/tests/test_lecture.py` et `outils/tests/test_scripts.py` (ajout de cas). La fiche 256 relève du
 périmètre implicite du lot.
 
-Tout autre chemin est interdit, dont `sim/`, `atelier/`, `.github/`,
+Tout autre chemin est interdit, dont `sim/`, `atelier/`, les autres fichiers de `.github/`,
 `AGENTS.md`, `outils/relecture.py`, `outils/demandes.py`, les autres briefs
 et les autres fiches. Aucun test existant n'est affaibli.
 
@@ -57,7 +61,12 @@ fichier protégé ne le transforme pas en fichier protégé.
 
 La même commande refuse zone absente, vide ou mal formée, ainsi que fichiers
 illisibles, manquants et changement de révision. La ligne de commande ne
-rend jamais un geste de fusion dans ces cas. Une PR venue d'un fork reste
+rend jamais un geste de fusion dans ces cas. Un cas fait changer la tête
+pendant la lecture des revues, après celle des fichiers : il doit aussi
+retenir la PR. `python3 -m pytest outils/tests/test_scripts.py -k zone -q`
+vérifie sur le banc que le rejeu refuse une révision jugée absente ou
+différente de la tête courante, sans appeler `update-branch`, et transmet
+le SHA jugé quand les deux révisions concordent. Une PR venue d'un fork reste
 retenue sans aller lire son code.
 
 ### SC3 — Renommage et pagination ne cachent aucun fichier
