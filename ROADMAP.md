@@ -130,7 +130,7 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 état : a-briefer · couche : — · dépend de : 256 · PR : —
 
 ### [256 — Une PR qui touche la zone protégée attend le propriétaire](briefs/256-une-pr-qui-touche-la-zone-protegee-attend-le.md)
-état : a-briefer · couche : — · dépend de : — · PR : —
+état : pret · couche : — · dépend de : — · PR : —
 
 ### [260 — La garde de périmètre se calcule](briefs/260-la-garde-de-perimetre-se-calcule.md)
 état : a-briefer · couche : — · dépend de : 256 · PR : —
