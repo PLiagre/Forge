@@ -141,6 +141,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 ### [242 — La page de pilotage devient un kanban par état](briefs/242-la-page-de-pilotage-devient-un-kanban-par-etat.md)
 état : livre · couche : — · dépend de : — · PR : 64
 
+### [245 — Une PR fermée sans fusion décide elle-même du sort de son lot](briefs/245-une-pr-fermee-sans-fusion-decide-elle-meme-du.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
 ### [241 — L'atelier relit les PR brief et feuille](briefs/241-l-atelier-relit-les-pr-brief-et-feuille.md)
 état : pret · couche : — · dépend de : — · PR : —
 
