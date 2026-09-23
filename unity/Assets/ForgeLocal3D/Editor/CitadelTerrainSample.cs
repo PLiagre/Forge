@@ -62,9 +62,9 @@ namespace ForgeLocal3D
                     // La neige géométrique des corniches et des falaises reste blanche.
                     bool valley=r.name.StartsWith("Terrain_vallee");
                     if(source.name.StartsWith("neige")&&!valley)return source;
-                    string key=(valley?"Sol_":"Relief_")+source.name;
-                    if(adapted.TryGetValue(key,out var known))return known;
-                    var m=Material(key,"Forge/CitadelTerrain");m.SetTexture("_BaseMap",source.GetTexture("_BaseMap"));
+                    string nom=(valley?"Sol_":"Relief_")+source.name;
+                    if(adapted.TryGetValue(nom,out var known))return known;
+                    var m=Material(nom,"Forge/CitadelTerrain");m.SetTexture("_BaseMap",source.GetTexture("_BaseMap"));
                     for(int i=0;i<layers.Length;i++)
                     {
                         if(!layers[i].diffuseTexture||!layers[i].normalMapTexture||!layers[i].maskMapTexture)
@@ -76,7 +76,7 @@ namespace ForgeLocal3D
                     m.SetFloat("_Valley",valley?1:0);
                     m.SetFloat("_SnowCover",.76f);m.SetFloat("_RockScale",5.5f);m.SetFloat("_SoilScale",5);m.SetFloat("_GravelScale",3);
                     m.SetColor("_RockTint",new Color(.60f,.64f,.67f));
-                    EditorUtility.SetDirty(m);return adapted[key]=m;
+                    EditorUtility.SetDirty(m);return adapted[nom]=m;
                 }).ToArray();
             }
             foreach(string name in new[]{"GrassDry_A","GrassDry_B","GrassDry_C","Bush_Twig","BushDry_B"})
@@ -156,9 +156,9 @@ namespace ForgeLocal3D
         }
         static Material Convert(Material source,bool rock)
         {
-            string key="Objet_"+source.name;
-            if(adapted.TryGetValue(key,out var known))return known;
-            var m=Material(key,"Forge/CitadelLit");
+            string nom="Objet_"+source.name;
+            if(adapted.TryGetValue(nom,out var known))return known;
+            var m=Material(nom,"Forge/CitadelLit");
             m.SetTexture("_BaseMap",SavedTexture(source,"_BaseColorMap","Texture2D_E1B0D043"));
             m.SetTexture("_BumpMap",SavedTexture(source,"_NormalMap","Texture2D_9DCAAA49"));
             m.SetTexture("_MaskMap",SavedTexture(source,"_MaskMap","Texture2D_A5E0646"));
@@ -171,7 +171,7 @@ namespace ForgeLocal3D
             m.renderQueue=(int)(rock?RenderQueue.Geometry:RenderQueue.AlphaTest);
             m.SetOverrideTag("RenderType",rock?"Opaque":"TransparentCutout");
             m.SetColor("_RockTint",new Color(.60f,.64f,.67f));
-                    EditorUtility.SetDirty(m);return adapted[key]=m;
+                    EditorUtility.SetDirty(m);return adapted[nom]=m;
         }
         static Kind Prepare(string name,bool rock)
         {
