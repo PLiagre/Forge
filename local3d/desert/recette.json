@@ -1,0 +1,12 @@
+{
+  "biome": "désert de sable et de grès",
+  "typologie": "ksar fortifié et oasis",
+  "culture": "saharienne imaginaire",
+  "annee": 1400,
+  "fidelite": 2,
+  "description": "Étude artistique d'un ksar de terre crue sur une table de grès, au-dessus d'une palmeraie ; aucune prétention de reconstitution historique.",
+  "dispositions": [
+    {"id": "ksar_des_sept_puits", "label": "Ksar des Sept Puits", "seed": 1433},
+    {"id": "oued_des_vents", "label": "Oued des Vents", "seed": 2851}
+  ]
+}

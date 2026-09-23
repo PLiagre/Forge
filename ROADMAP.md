@@ -132,6 +132,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 ### [255 — Le relecteur rend un verdict, la machine pose la revue](briefs/255-le-relecteur-rend-un-verdict-la-machine-pose-la.md)
 état : a-briefer · couche : — · dépend de : 241 · PR : —
 
+### [258 — Les lots en vol sont bornés](briefs/258-les-lots-en-vol-sont-bornes.md)
+état : a-briefer · couche : — · dépend de : 256 · PR : —
+
 ### [243 — Chaque carte du kanban nomme son geste suivant](briefs/243-chaque-carte-du-kanban-nomme-son-geste-suivant.md)
 état : livre · couche : — · dépend de : 242 · PR : 90
 
@@ -149,6 +152,61 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 ### [254 — La machine publie son battement](briefs/254-la-machine-publie-son-battement.md)
 état : a-briefer · couche : — · dépend de : — · PR : —
+
+## La ville du désert — vertical slice de city builder
+
+### [263 — Le joueur trace une route qui épouse le relief](briefs/263-le-joueur-trace-une-route-qui-epouse-le-relief.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+note : attend la fusion de la V0 (branche v0/atelier-3d), qui apporte le terrain Unity. Plan : local3d/desert/VILLE.md, V1.
+
+### [264 — Les routes se croisent en carrefours et forment un graphe](briefs/264-les-routes-se-croisent-en-carrefours-et-forment.md)
+état : a-briefer · couche : — · dépend de : 263 · PR : —
+
+### [265 — La caméra de city builder survole la ville et descend dans la rue](briefs/265-la-camera-de-city-builder-survole-la-ville-et.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
+### [266 — Le kit de pisé s'emboîte sur la trame de 0,75 m](briefs/266-le-kit-de-pise-s-emboite-sur-la-trame-de-0-75-m.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+
+### [267 — Les matériaux photographiés remplacent les procéduraux](briefs/267-les-materiaux-photographies-remplacent-les.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+note : téléchargements CC0 (Poly Haven, ambientCG) à confirmer par le propriétaire.
+
+### [268 — Une parcelle se découpe en lots et chaque lot reçoit sa maison](briefs/268-une-parcelle-se-decoupe-en-lots-et-chaque-lot.md)
+état : a-briefer · couche : — · dépend de : 263, 266 · PR : —
+
+### [269 — L'arrière-cour se remplit de vie](briefs/269-l-arriere-cour-se-remplit-de-vie.md)
+état : a-briefer · couche : — · dépend de : 268 · PR : —
+note : accessoires par IA payante seulement sur accord ; sinon liste de prompts et dossier d'import vérifié.
+
+### [270 — L'enceinte suit le tracé du joueur et ses portes naissent des routes](briefs/270-l-enceinte-suit-le-trace-du-joueur-et-ses-portes.md)
+état : a-briefer · couche : — · dépend de : 263, 266 · PR : —
+
+### [271 — Les bâtiments singuliers se posent à la main et le ksar redevient le noyau](briefs/271-les-batiments-singuliers-se-posent-a-la-main-et.md)
+état : a-briefer · couche : — · dépend de : 263 · PR : —
+
+### [272 — Le chantier se voit pousser](briefs/272-le-chantier-se-voit-pousser.md)
+état : a-briefer · couche : — · dépend de : 268 · PR : —
+
+### [273 — Un habitant animé par textures se dessine mille fois](briefs/273-un-habitant-anime-par-textures-se-dessine-mille.md)
+état : a-briefer · couche : — · dépend de : — · PR : —
+note : Mixamo demande un compte Adobe ; sinon silhouette et marche fabriquées dans Blender.
+
+### [274 — Les habitants et les bêtes circulent sur le graphe des routes](briefs/274-les-habitants-et-les-betes-circulent-sur-le.md)
+état : a-briefer · couche : — · dépend de : 264, 268, 273 · PR : —
+
+### [275 — La ville fume, sèche son linge, garnit ses étals et s'éclaire la nuit](briefs/275-la-ville-fume-seche-son-linge-garnit-ses-etals.md)
+état : a-briefer · couche : — · dépend de : 268 · PR : —
+
+### [276 — La ville dense tient 60 images par seconde](briefs/276-la-ville-dense-tient-60-images-par-seconde.md)
+état : a-briefer · couche : — · dépend de : 268 · PR : —
+
+### [277 — La lumière du désert : sondes, occlusion, brume et heure du jour](briefs/277-la-lumiere-du-desert-sondes-occlusion-brume-et.md)
+état : a-briefer · couche : — · dépend de : 267 · PR : —
+
+### [278 — La démo rejoue la partie et mesure la ville de fin de partie](briefs/278-la-demo-rejoue-la-partie-et-mesure-la-ville-de.md)
+état : a-briefer · couche : — · dépend de : 264, 265, 269, 270, 271, 272, 274, 275, 276, 277 · PR : —
+note : critère final : 400 à 600 maisons, 800 habitants, 95e centile sous 16,7 ms en 1920×1080 sur RTX 3070 Ti.
 
 ## Couche 1 — ce qui reste au monde
 

@@ -1,0 +1,17 @@
+{
+  "status": "valide",
+  "instances": 1782,
+  "triangles": 2316624,
+  "textures_embarquees": 96,
+  "bannieres_animees": 8,
+  "porte_traversante": true,
+  "contre_epreuve_placement": true,
+  "cameras_verifiees": 10,
+  "contre_epreuve_focale": true,
+  "raccord_escalier_m": 0.22000076293945625,
+  "contre_epreuve_escalier": true,
+  "points_chemins_sur_maillage": 654,
+  "pente_max_degres": 23.216439916491595,
+  "contre_epreuve_chemin": true,
+  "terrains_constructibles": 4
+}

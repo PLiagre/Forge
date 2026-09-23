@@ -1,0 +1,31 @@
+{
+    "status": "valide",
+    "dispositions": [
+        {
+            "scene": "Forge_Desert_ksar_des_sept_puits",
+            "status": "valide",
+            "chemins": 34,
+            "points": 741,
+            "jardins": 4,
+            "palmiers_lisiere": 52,
+            "pas_physiques": 21221,
+            "distance_marchee_m": 2385.7275390625,
+            "graphe_connexe": true,
+            "contre_epreuve_obstacle": true,
+            "lisiere_atteinte": true
+        },
+        {
+            "scene": "Forge_Desert_oued_des_vents",
+            "status": "valide",
+            "chemins": 34,
+            "points": 747,
+            "jardins": 4,
+            "palmiers_lisiere": 51,
+            "pas_physiques": 21448,
+            "distance_marchee_m": 2411.0771484375,
+            "graphe_connexe": true,
+            "contre_epreuve_obstacle": true,
+            "lisiere_atteinte": true
+        }
+    ]
+}

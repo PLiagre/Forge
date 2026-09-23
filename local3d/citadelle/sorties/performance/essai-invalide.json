@@ -1,0 +1,114 @@
+{
+  "gpu": "NVIDIA GeForce RTX 3070 Ti",
+  "cpu": "13th Gen Intel(R) Core(TM) i7-13700K",
+  "date_utc": "2026-09-19T08:03:06.7542972Z",
+  "largeur": 1920,
+  "hauteur": 1080,
+  "echelle_rendu": 0.8999999761581421,
+  "protocole": "Joueur Windows, cadence libre, 3 s de chauffe puis 6 s par vue, cam\u00c3\u00a9ra mobile. Neige sur les vues Foret et Passage.",
+  "mesures": [
+    {
+      "scene": "Forge_Citadelle_col_des_cendres",
+      "vue": "Citadelle",
+      "frames": 25095,
+      "mediane_ms": 0.23559999999989145,
+      "p95_ms": 0.27599999999949887,
+      "p99_ms": 0.3191000000004607,
+      "fps_moyen": 4182.339398167077,
+      "memoire_unity_mo": 157
+    },
+    {
+      "scene": "Forge_Citadelle_col_des_cendres",
+      "vue": "Vallee",
+      "frames": 24980,
+      "mediane_ms": 0.23559999999633874,
+      "p95_ms": 0.2842999999970175,
+      "p99_ms": 0.32640000000583314,
+      "fps_moyen": 4163.178116175911,
+      "memoire_unity_mo": 157
+    },
+    {
+      "scene": "Forge_Citadelle_col_des_cendres",
+      "vue": "Foret",
+      "frames": 19979,
+      "mediane_ms": 0.29860000000070386,
+      "p95_ms": 0.34250000000213277,
+      "p99_ms": 0.3759000000016499,
+      "fps_moyen": 3329.716793245575,
+      "memoire_unity_mo": 158
+    },
+    {
+      "scene": "Forge_Citadelle_col_des_cendres",
+      "vue": "Passage",
+      "frames": 17998,
+      "mediane_ms": 0.33080000000040855,
+      "p95_ms": 0.38649999999762485,
+      "p99_ms": 0.4369000000039591,
+      "fps_moyen": 2999.4571045969747,
+      "memoire_unity_mo": 158
+    },
+    {
+      "scene": "Forge_Citadelle_col_des_cendres",
+      "vue": "Ilots",
+      "frames": 18062,
+      "mediane_ms": 0.32720000000097116,
+      "p95_ms": 0.38360000000636774,
+      "p99_ms": 0.4290000000040095,
+      "fps_moyen": 3010.0878606683254,
+      "memoire_unity_mo": 158
+    },
+    {
+      "scene": "Forge_Citadelle_eperon_des_veilleurs",
+      "vue": "Citadelle",
+      "frames": 25189,
+      "mediane_ms": 0.23510000000470654,
+      "p95_ms": 0.2739000000033798,
+      "p99_ms": 0.3126999999949476,
+      "fps_moyen": 4197.976778183761,
+      "memoire_unity_mo": 159
+    },
+    {
+      "scene": "Forge_Citadelle_eperon_des_veilleurs",
+      "vue": "Vallee",
+      "frames": 25050,
+      "mediane_ms": 0.23540000000110695,
+      "p95_ms": 0.27900000000613545,
+      "p99_ms": 0.3221999999993841,
+      "fps_moyen": 4174.892148619486,
+      "memoire_unity_mo": 159
+    },
+    {
+      "scene": "Forge_Citadelle_eperon_des_veilleurs",
+      "vue": "Foret",
+      "frames": 21332,
+      "mediane_ms": 0.2781000000027234,
+      "p95_ms": 0.32530000000008386,
+      "p99_ms": 0.35560000000600667,
+      "fps_moyen": 3555.164937020798,
+      "memoire_unity_mo": 159
+    },
+    {
+      "scene": "Forge_Citadelle_eperon_des_veilleurs",
+      "vue": "Passage",
+      "frames": 19621,
+      "mediane_ms": 0.2999999999957481,
+      "p95_ms": 0.35160000000189484,
+      "p99_ms": 0.39010000000416767,
+      "fps_moyen": 3269.8723781526564,
+      "memoire_unity_mo": 160
+    },
+    {
+      "scene": "Forge_Citadelle_eperon_des_veilleurs",
+      "vue": "Ilots",
+      "frames": 19369,
+      "mediane_ms": 0.3049999999973352,
+      "p95_ms": 0.3514999999936208,
+      "p99_ms": 0.39010000000416767,
+      "fps_moyen": 3227.9641657146863,
+      "memoire_unity_mo": 160
+    }
+  ],
+  "objectif_60": false,
+  "valide": false,
+  "motif": "Essai rejet\u00e9 : fen\u00eatre masqu\u00e9e, captures noires, aucune preuve de rendu."
+}
