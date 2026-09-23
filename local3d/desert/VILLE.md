@@ -67,6 +67,27 @@ mesure) ; six contre-épreuves qui échouent puis repassent.
 5. Les textures procédurales à motif (sillons de `terre_jardin`) font du moiré
    sur un terrain vu de loin : prendre une texture sans motif régulier.
 
+### Ce que V1 (les routes) a appris
+
+1. **Une moyenne glissante bornée en mètres saute.** Sur un axe à pas égaux, les
+   bornes `s ± 5 m` tombent pile sur des échantillons. Selon l'arrondi, la
+   fenêtre en prend 20 ou 21, et la moyenne saute : 38 % de pente mesurés sur la
+   descente de l'oasis, dont le terrain n'en a que 22. Compter la fenêtre en
+   échantillons, et la rétrécir des deux côtés aux bouts.
+2. **Un talus se définit par ce qu'il touche.** Raboter tout ce qui dépasse le
+   cône 1:2 autour de l'axe taille aussi les buttes voisines, et fait refuser des
+   routes que rien n'empêche. Le talus est la composante connexe des sommets
+   rabotés qui touche la chaussée.
+3. **`chemin_sable` et `chemin_dalle` sont des bandes de route**, avec une
+   chaussée au centre et du sable sur les côtés. Répétées comme couches de
+   terrain, elles rayent la route tous les 2,5 m. Seules les captures l'ont
+   montré : le terrain était juste au millimètre. Prendre une texture qui se
+   répète sans bord (`souk_dalles`, `sable_ombre`).
+4. **Deux calculs de distance qui doivent choisir le même point de l'axe** (C# et
+   numpy) : mêmes opérations dans le même ordre, `sqrt(x*x+y*y)` et non `hypot`,
+   segments parcourus dans l'ordre, et seul un écart strictement plus petit
+   remplace le précédent. La grille d'Unity vaut alors la référence à 2 mm près.
+
 ### Ce qui reste visible après l'étape 1
 
 - `paysage.field` porte la **rampe d'accès du ksar et les terrasses de l'ancien
