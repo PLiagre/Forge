@@ -30,7 +30,7 @@ from datetime import datetime
 from html import escape
 
 from . import actions as actions_module
-from . import attention, histoire, palier, sante as sante_module
+from . import attention, histoire, integration, palier, sante as sante_module
 from .mesure import INCONNU, NON_CALCULE, Lecture, Mesure, depuis, duree, instant
 
 # Ce qu'une couche est, pour l'œil. Les noms vivent dans VISION.md ; ils
@@ -154,6 +154,8 @@ class LignePR:
     titre: str = ""
     ouverte: str = ""
     brouillon: bool = False
+    auteurs: tuple[str, ...] = ()
+    controles: tuple[integration.Controle, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -352,30 +354,86 @@ def _fiche(fiche, etat: Etat) -> str:
     )
 
 
-def _carte_kanban(fiche, etat: Etat) -> str:
-    deps = ", ".join(fiche.depend_de) or VIDE
-    prs = ", ".join(str(p) for p in fiche.prs) or VIDE
-    age = etat.ages.get(fiche.numero, NON_CALCULE)
-    return (
-        f'<article class="kanban-carte">'
-        f'<div class="num">{_e(fiche.numero)}</div>'
-        f'<div class="titre">{_e(fiche.titre)}</div>'
-        f'<div class="meta">'
-        f'<span class="duree">{_e(duree(age))}</span>'
-        f"<span>{_e(deps)}</span>"
-        f"<span>{_e(prs)}</span>"
-        f"</div></article>"
+def _compte_controles(controles: tuple[integration.Controle, ...], requis: tuple[str, ...]) -> str:
+    par_nom = {c.nom: c for c in controles}
+    verts = sum(
+        1 for nom in requis
+        if nom in par_nom and par_nom[nom].etat == integration.VERT
+    )
+    return f"{verts}/{len(requis)}"
+
+
+def _deps_cartes(depend_de: tuple[str, ...]) -> str:
+    if not depend_de:
+        return _e(VIDE)
+    return ", ".join(_lien(f"#lot-{d}", d) for d in depend_de)
+
+
+def _prs_cartes(depot: str, prs: tuple[int, ...]) -> str:
+    if not prs:
+        return _e(VIDE)
+    if not depot:
+        return _e(", ".join(str(p) for p in prs))
+    return ", ".join(
+        _lien(actions_module.lien_proposition(depot, p), str(p)) for p in prs
     )
 
 
-def _kanban(fiches, etat: Etat) -> str:
+def _carte_kanban(
+    fiche,
+    etat: Etat,
+    depot: str,
+    par_pr: dict[int, LignePR],
+) -> str:
+    age = etat.ages.get(fiche.numero, NON_CALCULE)
+    ligne = next((par_pr[p] for p in fiche.prs if p in par_pr), None)
+    titre = (
+        _lien(actions_module.lien_brief(depot, fiche.chemin), fiche.titre)
+        if depot and fiche.chemin else _e(fiche.titre)
+    )
+    geste = actions_module.geste_carte(
+        depot, fiche.etat, fiche.numero, ligne,
+        ligne.auteurs if ligne else (),
+    )
+    geste_html = ""
+    if geste:
+        geste_html = (
+            f'<p class="geste">{_lien(geste.lien, geste.libelle)}'
+            f' <span class="sous">({_e(geste.precision)})</span></p>'
+        )
+    raison_html = f'<p class="sous">{_e(ligne.raison)}</p>' if ligne else ""
+    controles_html = ""
+    if ligne and etat.sante and ligne.controles and etat.sante.requis:
+        controles_html = (
+            f'<p class="sous">contrôles : '
+            f'{_e(_compte_controles(ligne.controles, etat.sante.requis))}</p>'
+        )
+    demande = ""
+    if depot:
+        url = actions_module.lien_demande(depot, depend=fiche.numero)
+        demande = f'<p class="sous">{_lien(url, "demander un lot qui dépend de celui-ci")}</p>'
+    return (
+        f'<article class="kanban-carte" id="lot-{_e(fiche.numero)}">'
+        f'<div class="num">{_e(fiche.numero)}</div>'
+        f'<div class="titre">{titre}</div>'
+        f'<div class="meta">'
+        f'<span class="duree">{_e(duree(age))}</span>'
+        f"<span>{_deps_cartes(fiche.depend_de)}</span>"
+        f"<span>{_prs_cartes(depot, fiche.prs)}</span>"
+        f"</div>"
+        f"{controles_html}{raison_html}{geste_html}{demande}</article>"
+    )
+
+
+def _kanban(fiches, etat: Etat, depot: str, lignes_pr: list[LignePR]) -> str:
     if not fiches:
         return '<p class="sous">Aucune fiche.</p>'
+    par_pr = {l.numero: l for l in lignes_pr}
     etats_presents = [e for e in ORDRE_KANBAN if any(f.etat == e for f in fiches)]
     colonnes = []
     for etat_col in etats_presents:
         cartes = "".join(
-            _carte_kanban(f, etat) for f in fiches if f.etat == etat_col
+            _carte_kanban(f, etat, depot, par_pr) for f in fiches if f.etat == etat_col
         )
         colonnes.append(
             f'<div class="kanban-colonne" data-colonne-etat="{_e(etat_col)}">'
@@ -385,7 +443,7 @@ def _kanban(fiches, etat: Etat) -> str:
     return f'<div class="kanban">{"".join(colonnes)}</div>'
 
 
-def _couche(etape, fiches, etat: Etat, depot: str) -> str:
+def _couche(etape, fiches, etat: Etat, depot: str, lignes_pr: list[LignePR]) -> str:
     nom = NOMS.get(etape.couche, "")
     de_la_couche = [f for f in fiches if f.couche == etape.couche]
     finis = [f for f in de_la_couche if f.etat in palier.FINIS]
@@ -405,7 +463,7 @@ def _couche(etape, fiches, etat: Etat, depot: str) -> str:
   <h3>Couche {_e(etape.couche)} — {_e(nom)} {_badge(mot, ton)} {demande}</h3>
   <div class="jauge"><i style="width:{part}%"></i></div>
   <p class="sous">{len(finis)} lot(s) sur {len(de_la_couche)} ne demandent plus rien.</p>
-  {_kanban(de_la_couche, etat)}
+  {_kanban(de_la_couche, etat, depot, lignes_pr)}
 </section>"""
 
 
@@ -469,14 +527,14 @@ def _traversee(traversee) -> str:
 </table>{ou}"""
 
 
-def _avancement(fiches, etat: Etat, depot: str) -> str:
+def _avancement(fiches, etat: Etat, depot: str, lignes_pr: list[LignePR]) -> str:
     etapes = palier.etapes(fiches)
-    corps = "".join(_couche(e, fiches, etat, depot) for e in etapes)
+    corps = "".join(_couche(e, fiches, etat, depot, lignes_pr) for e in etapes)
     hors_couche = [f for f in fiches if f.couche is None]
     if hors_couche:
         corps += (
             '<section class="carte"><h3>Hors couche</h3>'
-            + _kanban(hors_couche, etat)
+            + _kanban(hors_couche, etat, depot, lignes_pr)
             + "</section>"
         )
     return f"""<h2>L'avancement</h2>
@@ -658,7 +716,7 @@ n'appelle rien : tout ce qui s'affiche a été calculé à la génération, et t
 s'actionne est un lien vers GitHub. {lien}</p>
 {_decisions(etat)}
 {_sante(etat)}
-{_avancement(fiches, etat, depot)}
+{_avancement(fiches, etat, depot, lignes_pr)}
 {_journal(etat)}
 {_registre(fiches, lignes_pr, etat, depot)}
 {_actions(etat)}

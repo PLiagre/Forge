@@ -613,3 +613,176 @@ def test_kanban_stable_ordre_d_entree_dans_une_colonne():
     portion = _entre_colonnes(bloc, "pret", None)
     numeros = re.findall(r'<div class="num">(\d+)</div>', portion)
     assert numeros == ["010", "005", "020"]
+
+
+# --------------------------------------------------------- kanban gestes (lot 243)
+
+
+def _carte_lot(page: str, numero: str) -> str:
+    motif = rf'<article class="kanban-carte" id="lot-{re.escape(numero)}">.*?</article>'
+    trouve = re.search(motif, page, re.DOTALL)
+    assert trouve, f"carte du lot {numero} absente"
+    return trouve.group(0)
+
+
+def test_kanban_geste_idee():
+    depot = "PLiagre/ForgeHistory"
+    fiches = [FicheFactice("099", "idee", None, titre="Une idée")]
+    page = tableau.rendre(fiches, [], MOMENT, depot)
+    carte = _carte_lot(page, "099")
+    assert "demander le brief" in carte
+    assert "actions/workflows/etat-lot.yml" in carte
+    assert "099" in carte and "a-briefer" in carte
+
+
+def test_kanban_geste_pr():
+    depot = "o/r"
+    requis_controle = ("outils",)
+    sante_page = _sante(requis=requis_controle)
+    etat_page = _etat(sante=sante_page)
+
+    pr_controle = integration.PR(
+        numero=301, branche="agent/301-un", brouillon=False, fusionnable=True, retard=0,
+        controles=(), interne=True,
+    )
+    decision_controle = integration.examiner(pr_controle, requis_controle, PREFIXES)
+    fiche_controle = FicheFactice("301", "pret", None, prs=(301,))
+    ligne_controle = tableau.LignePR(
+        301, pr_controle.branche, decision_controle.action, decision_controle.raison,
+        controles=pr_controle.controles,
+    )
+
+    pr_brouillon = integration.PR(
+        numero=302, branche="agent/302-deux", brouillon=True, fusionnable=True, retard=0,
+        interne=True,
+    )
+    decision_brouillon = integration.examiner(pr_brouillon, requis_controle, PREFIXES)
+    fiche_brouillon = FicheFactice("302", "pret", None, prs=(302,))
+    ligne_brouillon = tableau.LignePR(
+        302, pr_brouillon.branche, decision_brouillon.action, decision_brouillon.raison,
+        brouillon=True,
+    )
+
+    pr_conflit = integration.PR(
+        numero=303, branche="agent/303-trois", brouillon=False, fusionnable=False, retard=0,
+        interne=True,
+    )
+    decision_conflit = integration.examiner(pr_conflit, requis_controle, PREFIXES)
+    fiche_conflit = FicheFactice("303", "pret", None, prs=(303,))
+    ligne_conflit = tableau.LignePR(
+        303, pr_conflit.branche, decision_conflit.action, decision_conflit.raison,
+    )
+
+    fiches = [fiche_controle, fiche_brouillon, fiche_conflit]
+    lignes = [ligne_controle, ligne_brouillon, ligne_conflit]
+    page = tableau.rendre(fiches, lignes, MOMENT, depot, etat_page)
+
+    c1 = _carte_lot(page, "301")
+    assert "rejouer les contrôles" in c1
+    assert "actions/workflows/controles.yml" in c1
+    assert "301" in c1
+    assert decision_controle.raison in c1
+
+    c2 = _carte_lot(page, "302")
+    assert "sortir du brouillon" in c2
+    assert "actions/workflows/brouillon.yml" in c2
+
+    c3 = _carte_lot(page, "303")
+    assert "pull/303" in c3
+    assert decision_conflit.raison in c3
+
+
+def test_kanban_geste_compte():
+    depot = "o/r"
+    requis = REQUIS
+    etat_page = _etat(sante=_sante(requis=requis))
+    motif = "aucune approbation sur abcdef0 : relecture absente ou périmée"
+
+    pr_bot = integration.PR(
+        numero=401, branche="agent/401-bot", brouillon=False, fusionnable=True, retard=0,
+        controles=(
+            integration.Controle("outils", integration.VERT),
+            integration.Controle("feuille", integration.VERT),
+        ),
+        relue=False, motif_relecture=motif, interne=True,
+    )
+    decision_bot = integration.examiner(pr_bot, requis, PREFIXES)
+    fiche_bot = FicheFactice("401", "pret", None, prs=(401,))
+    ligne_bot = tableau.LignePR(
+        401, pr_bot.branche, decision_bot.action, decision_bot.raison,
+        auteurs=("github-actions[bot]",), controles=pr_bot.controles,
+    )
+
+    pr_humain = integration.PR(
+        numero=402, branche="agent/402-humain", brouillon=False, fusionnable=True, retard=0,
+        controles=(
+            integration.Controle("outils", integration.VERT),
+            integration.Controle("feuille", integration.VERT),
+        ),
+        relue=False, motif_relecture=motif, interne=True,
+    )
+    decision_humain = integration.examiner(pr_humain, requis, PREFIXES)
+    fiche_humain = FicheFactice("402", "pret", None, prs=(402,))
+    ligne_humain = tableau.LignePR(
+        402, pr_humain.branche, decision_humain.action, decision_humain.raison,
+        auteurs=("pliagre",), controles=pr_humain.controles,
+    )
+
+    page = tableau.rendre(
+        [fiche_bot, fiche_humain],
+        [ligne_bot, ligne_humain],
+        MOMENT, depot, etat_page,
+    )
+    assert "compte principal" in _carte_lot(page, "401")
+    assert "pull/401/files" in _carte_lot(page, "401")
+    assert "second compte" in _carte_lot(page, "402")
+    assert "pull/402/files" in _carte_lot(page, "402")
+
+
+def test_kanban_carte_enrichie():
+    depot = "o/r"
+    requis = ("a", "b", "c", "d")
+    etat_page = _etat(sante=_sante(requis=requis))
+    pr = integration.PR(
+        numero=226, branche="agent/241-un", brouillon=False, fusionnable=True, retard=0,
+        controles=(
+            integration.Controle("a", integration.VERT),
+            integration.Controle("b", integration.VERT),
+            integration.Controle("c", integration.VERT),
+        ),
+        interne=True,
+    )
+    decision = integration.examiner(pr, requis, PREFIXES)
+    ligne = tableau.LignePR(
+        226, pr.branche, decision.action, decision.raison,
+        controles=pr.controles,
+    )
+    fiches = [
+        FicheFactice("240", "pret", None, chemin="briefs/240-un.md"),
+        FicheFactice(
+            "241", "pret", None,
+            chemin="briefs/241-deux.md",
+            depend_de=("240",),
+            prs=(226,),
+        ),
+    ]
+    page = tableau.rendre(fiches, [ligne], MOMENT, depot, etat_page)
+    carte = _carte_lot(page, "241")
+    assert f"briefs/241-deux.md" in carte
+    assert "pull/226" in carte
+    assert "3/4" in carte
+    assert "3/7" not in carte
+    assert decision.raison in carte
+    assert 'href="#lot-240"' in carte
+
+
+def test_kanban_demande_depend():
+    depot = "PLiagre/ForgeHistory"
+    url = actions.lien_demande(depot, depend="241")
+    assert "depend=241" in url
+    page = tableau.rendre(
+        [FicheFactice("241", "pret", None)],
+        [], MOMENT, depot,
+    )
+    carte = _carte_lot(page, "241")
+    assert "depend=241" in carte

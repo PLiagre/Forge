@@ -78,15 +78,18 @@ def _base(depot: str) -> str:
     return f"https://github.com/{depot}"
 
 
-def lien_demande(depot: str, couche: str = "") -> str:
+def lien_demande(depot: str, couche: str = "", depend: str = "") -> str:
     """Le formulaire « Demander un lot », sa couche déjà choisie s'il y en a une.
 
     `couche` est l'intitulé de l'option, pas le numéro : GitHub remplit
-    une liste déroulante par ce qui s'y affiche.
+    une liste déroulante par ce qui s'y affiche. `depend` pré-remplit le
+    champ « Dépend de » avec le numéro d'un lot déjà au registre.
     """
     parametres = {"template": GABARIT_DEMANDE}
     if couche:
         parametres["couche"] = couche
+    if depend:
+        parametres["depend"] = depend
     return f"{_base(depot)}/issues/new?" + urllib.parse.urlencode(parametres)
 
 
@@ -97,6 +100,15 @@ def lien_travail(depot: str, fichier: str) -> str:
 
 def lien_proposition(depot: str, numero: int) -> str:
     return f"{_base(depot)}/pull/{numero}"
+
+
+def lien_fichiers(depot: str, numero: int) -> str:
+    """L'onglet Files d'une proposition — où poser une revue."""
+    return f"{_base(depot)}/pull/{numero}/files"
+
+
+def lien_brief(depot: str, chemin: str) -> str:
+    return f"{_base(depot)}/blob/master/{chemin}"
 
 
 def lien_branche(depot: str, branche: str) -> str:
@@ -181,6 +193,79 @@ def redemander_controles(ouverte: bool, brouillon: bool, pr: integration.PR, req
         return Geste(RIEN, "les contrôles requis sont déjà posés sur cette révision : déjà fait")
     defaut = integration.manque(pr, requis)
     return Geste(FAIRE, defaut or "contrôles à rejouer")
+
+
+@dataclass(frozen=True)
+class GesteCarte:
+    """Ce qu'une carte du kanban propose de faire ensuite."""
+
+    libelle: str
+    lien: str
+    precision: str = ""
+
+
+def _attend_approbation_tiers(raison: str) -> bool:
+    """La décision d'intégration dit qu'il manque une relecture d'un tiers."""
+    if raison == "pas de relecture d'un tiers":
+        return True
+    if raison.startswith("aucune approbation sur"):
+        return True
+    if raison.startswith("seuls les auteurs du code ont approuvé"):
+        return True
+    return False
+
+
+def geste_carte(
+    depot: str,
+    etat_fiche: str,
+    numero_fiche: str,
+    ligne,
+    auteurs: tuple[str, ...],
+) -> GesteCarte | None:
+    """Le couple libellé/lien affiché sur une carte, sans recalculer l'intégration.
+
+    `ligne` est la proposition ouverte de la fiche, telle que `examiner` l'a
+    déjà jugée — raison mot pour mot, brouillon inclus.
+    """
+    if not depot:
+        return None
+    if etat_fiche == "idee":
+        return GesteCarte(
+            "demander le brief",
+            lien_travail(depot, TRAVAIL_ETAT),
+            f"{numero_fiche} a-briefer",
+        )
+    if etat_fiche not in ("a-briefer", "pret") or ligne is None:
+        return None
+    raison = ligne.raison
+    if ligne.brouillon or raison == "brouillon":
+        return GesteCarte(
+            "sortir du brouillon",
+            lien_travail(depot, TRAVAIL_BROUILLON),
+            str(ligne.numero),
+        )
+    if raison.startswith(("contrôle absent", "contrôle rouge", "contrôle en cours")):
+        return GesteCarte(
+            "rejouer les contrôles",
+            lien_travail(depot, TRAVAIL_CONTROLES),
+            str(ligne.numero),
+        )
+    if _attend_approbation_tiers(raison):
+        compte = (
+            "compte principal"
+            if auteurs == ("github-actions[bot]",)
+            else "second compte"
+        )
+        return GesteCarte(
+            f"Approuver avec le {compte}",
+            lien_fichiers(depot, ligne.numero),
+            str(ligne.numero),
+        )
+    return GesteCarte(
+        "voir la proposition",
+        lien_proposition(depot, ligne.numero),
+        str(ligne.numero),
+    )
 
 
 def sortir_du_brouillon(ouverte: bool, brouillon: bool) -> Geste:

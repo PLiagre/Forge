@@ -348,11 +348,19 @@ def _tableau(args: argparse.Namespace) -> int:
     maintenant = datetime.now(timezone.utc)
 
     examens = _examens(gh, base, reglage)
-    lignes = [
-        tableau.LignePR(pr.numero, pr.branche, decision.action, decision.raison,
-                        pr.titre, pr.ouverte, pr.brouillon)
-        for pr, decision in examens
-    ]
+    lignes = []
+    for pr, decision in examens:
+        auteurs: tuple[str, ...] = ()
+        if pr.interne:
+            auteurs = tuple(github.auteurs_du_code(gh, pr.numero))
+        lignes.append(
+            tableau.LignePR(
+                pr.numero, pr.branche, decision.action, decision.raison,
+                pr.titre, pr.ouverte, pr.brouillon,
+                auteurs=auteurs,
+                controles=pr.controles,
+            )
+        )
     etat = _etat_de_la_page(gh, feuille, examens, base, reglage, page, maintenant, args.depot)
     rendu = tableau.rendre(
         feuille.fiches, lignes,
