@@ -1,0 +1,11 @@
+{
+    "scene": "Assets/ForgeLocal3D/V2/Scenes/Forge_V2_oasis_ocres.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 1649,
+    "prefab_count": 136,
+    "lod_groups": 1649,
+    "missing_materials": 0,
+    "static_triangles": 65742,
+    "max_position_error_m": 0.0
+}

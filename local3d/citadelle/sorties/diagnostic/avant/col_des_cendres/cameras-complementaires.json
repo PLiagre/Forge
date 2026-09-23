@@ -1,0 +1,100 @@
+[
+  {
+    "name": "Passage",
+    "position": [
+      0.8,
+      -59,
+      43.75
+    ],
+    "target": [
+      0,
+      -38,
+      47.5
+    ],
+    "lens": 24
+  },
+  {
+    "name": "Parvis",
+    "position": [
+      -7,
+      -11,
+      43.85
+    ],
+    "target": [
+      -1,
+      8,
+      60
+    ],
+    "lens": 24
+  },
+  {
+    "name": "Vallee",
+    "position": [
+      -234,
+      -232,
+      127
+    ],
+    "target": [
+      -49,
+      -39,
+      38
+    ],
+    "lens": 38
+  },
+  {
+    "name": "Contrechamp",
+    "position": [
+      -155,
+      137,
+      105
+    ],
+    "target": [
+      0,
+      7,
+      49
+    ],
+    "lens": 39
+  },
+  {
+    "name": "Village",
+    "position": [
+      -96,
+      -65,
+      17.4
+    ],
+    "target": [
+      -96,
+      -38,
+      17
+    ],
+    "lens": 24
+  },
+  {
+    "name": "Foret",
+    "position": [
+      -164,
+      -47,
+      9.7
+    ],
+    "target": [
+      -168,
+      -22,
+      9
+    ],
+    "lens": 24
+  },
+  {
+    "name": "Ilots",
+    "position": [
+      -98,
+      -102,
+      35
+    ],
+    "target": [
+      -111,
+      -49,
+      19
+    ],
+    "lens": 30
+  }
+]
