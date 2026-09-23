@@ -162,8 +162,8 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 ## La ville du désert — vertical slice de city builder
 
 ### [263 — Le joueur trace une route qui épouse le relief](briefs/263-le-joueur-trace-une-route-qui-epouse-le-relief.md)
-état : a-briefer · couche : — · dépend de : — · PR : —
-note : attend la fusion de la V0 (branche v0/atelier-3d), qui apporte le terrain Unity. Plan : local3d/desert/VILLE.md, V1.
+état : pret · couche : — · dépend de : — · PR : —
+note : paquet com.unity.splines (registre Unity, gratuit) à télécharger, sur accord du propriétaire. Plan : local3d/desert/VILLE.md, V1.
 
 ### [264 — Les routes se croisent en carrefours et forment un graphe](briefs/264-les-routes-se-croisent-en-carrefours-et-forment.md)
 état : idee · couche : — · dépend de : 263 · PR : —
