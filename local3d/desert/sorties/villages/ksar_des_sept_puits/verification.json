@@ -1,0 +1,20 @@
+{
+  "status": "valide",
+  "instances": 1477,
+  "triangles": 1793985,
+  "textures_embarquees": 148,
+  "etendards_animes": 8,
+  "porte_traversante": true,
+  "contre_epreuve_placement": true,
+  "cameras_verifiees": 13,
+  "contre_epreuve_focale": true,
+  "raccord_escalier_m": 0.22000076293945625,
+  "contre_epreuve_escalier": true,
+  "points_chemins_sur_maillage": 683,
+  "pente_max_degres": 19.85467658944594,
+  "contre_epreuve_chemin": true,
+  "jardins": 4,
+  "palmiers_et_acacias": 1270,
+  "guelta_en_eau": true,
+  "contre_epreuve_guelta": true
+}

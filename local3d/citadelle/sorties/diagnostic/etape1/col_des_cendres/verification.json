@@ -1,0 +1,13 @@
+{
+  "status": "valide",
+  "instances": 1881,
+  "triangles": 2747350,
+  "textures_embarquees": 60,
+  "bannieres_animees": 9,
+  "porte_traversante": true,
+  "contre_epreuve_placement": true,
+  "cameras_verifiees": 5,
+  "contre_epreuve_focale": true,
+  "raccord_escalier_m": 0.22000076293945625,
+  "contre_epreuve_escalier": true
+}
