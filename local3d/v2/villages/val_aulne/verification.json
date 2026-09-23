@@ -1,0 +1,10 @@
+{
+  "scene": "val_aulne",
+  "plan_deterministe": true,
+  "contre_epreuve_deplacement": "refusée comme attendu",
+  "instances": 2127,
+  "triangles": 638551,
+  "textures_embarquees": 40,
+  "paysage_fbx_triangles": 67542,
+  "status": "valide"
+}

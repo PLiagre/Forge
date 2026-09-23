@@ -1,0 +1,18 @@
+{
+  "status": "valide",
+  "dispositions": [
+    "combe_du_moulin",
+    "rive_des_melezes",
+    "val_des_roches"
+  ],
+  "contexte_commun": {
+    "biome": "alpin",
+    "typologie": "village de vallée",
+    "annee": 1400,
+    "culture": "alpine centrale"
+  },
+  "assets_utilises_en_commun": 42,
+  "implantations_distinctes": 3,
+  "reliefs_distincts": 3,
+  "catalogues": 1
+}

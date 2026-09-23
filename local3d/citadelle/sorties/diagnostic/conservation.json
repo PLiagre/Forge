@@ -1,0 +1,32 @@
+{
+  "status": "valide",
+  "identifiants_conserves": 31,
+  "modules_ajoutes": [
+    "lucarne_gothique",
+    "reserve_bois_tonneaux"
+  ],
+  "sources_intactes": 1,
+  "prefabs_identites_conservees": 31,
+  "dispositions": [
+    {
+      "id": "eperon_des_veilleurs",
+      "instances_conservees": 1808,
+      "instances_ajoutees": 42,
+      "triangles_avant": 2701880,
+      "triangles_apres": 2570703,
+      "transformations_migrees": 1669,
+      "cadrages_compares": 10,
+      "autres_angles": 0
+    },
+    {
+      "id": "col_des_cendres",
+      "instances_conservees": 1842,
+      "instances_ajoutees": 43,
+      "triangles_avant": 2751509,
+      "triangles_apres": 2602094,
+      "transformations_migrees": 1703,
+      "cadrages_compares": 10,
+      "autres_angles": 0
+    }
+  ]
+}

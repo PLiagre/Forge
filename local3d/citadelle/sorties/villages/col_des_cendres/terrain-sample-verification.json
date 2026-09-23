@@ -1,0 +1,15 @@
+{
+    "status": "valide",
+    "scene": "col_des_cendres",
+    "pack": "Assets/Vendor/TerrainDemoScene_HDRP/",
+    "surfaces": 149,
+    "vegetation": 568,
+    "rochers": 68,
+    "triangles_decor": 595601,
+    "collisions_rochers": 68,
+    "arbres_remplaces": 1600,
+    "rochers_parois": 80,
+    "contre_epreuve_foret": true,
+    "contre_epreuve_materiau": true,
+    "contre_epreuve_acces": true
+}
