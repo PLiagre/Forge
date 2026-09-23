@@ -216,3 +216,65 @@ et les terrasses de l'ancien bourg, sans ksar dessus ; des pointillés d'ombre
 sur les crêtes lointaines (cascades d'ombre, étape rendu) ; le reg qui se lit
 comme une tache à mi-distance.
 
+## La ville du désert — étape 2 : les routes du joueur (lot 263)
+
+Dans la scène `Forge_Desert_Ville_<implantation>`, en Play : **clic gauche** pose
+un point sur le terrain, **Entrée** trace la route, **Échap** annule, **T** passe
+de la terre battue aux pavés. Une route trop raide est refusée, et le panneau en
+bas à gauche dit pourquoi.
+
+```powershell
+py local3d/atelier_desert.py terrain   # une fois : les scènes portent le composant des routes
+py local3d/atelier_desert.py routes    # jeu de gestes, pose dans Unity, jugement
+```
+
+Le contrôle tourne en mode batch : fermer l'éditeur Unity avant de le lancer.
+
+Ce que fait une route (`unity/Assets/ForgeLocal3D/Desert/DesertRoads.cs`) :
+
+- la spline (`com.unity.splines`) passe par les points du joueur, arrondis au
+  centimètre ; elle est rééchantillonnée à pas égaux, au plus près de 0,5 m ;
+- le **profil en long** est la moyenne du terrain sous l'axe, sur 10 m centrés ;
+  au-delà de **12 %**, la route est refusée ;
+- sous la largeur, le terrain prend la hauteur du profil ; au-delà, un **talus
+  1:2** rejoint le sol d'origine. Le talus est ce qui touche la chaussée : une
+  butte voisine que la route n'atteint pas n'est pas rabotée. Si le talus n'a
+  pas rejoint le terrain à **15 m** du bord, la route est refusée ;
+- la chaussée se peint (couches 5 et 6 du terrain : terre battue, pavés), le bord
+  ondule d'après la graine, et les touffes disparaissent de la chaussée ;
+- tout se fait sur une **copie** du TerrainData : l'asset ne change pas.
+
+Les paramètres vivent dans `routes.py` et passent à Unity par `gestes.json` ;
+Unity ne les recopie pas.
+
+**Unity ne se juge pas.** `routes.py` écrit le jeu de gestes, Unity pose les
+routes, mesure et exporte ses grilles. Python rejoue ensuite chaque route, dans
+l'ordre, depuis `hauteurs.f32` et sur l'axe qu'Unity a échantillonné, puis
+compare. Sous `sorties/ville/<implantation>/routes/` :
+
+| fichier | contenu |
+|---|---|
+| `gestes.json` | paramètres, et cinq familles de gestes vérifiées sur la grille : anciennes rues du plan, plaine neuve (à plus de 20 m de toute rue), flanc de dune (20 à 40 % en travers), trop raide en long (plus de 30 % sur 10 m), trop raide en travers (plus de 60 % sur 10 m) |
+| `unity-routes.json` | décisions, axes, hauteurs rendue et physique sous l'axe, marche, empreintes, clic, captures |
+| `jugement.json` | le verdict, ses mesures et ses contre-épreuves |
+| `captures/` | plaine, bord de près, flanc de dune, refus à l'écran |
+
+Les grilles exportées (`routes_*.f32`, `routes_*.u8`) sont ignorées par git.
+
+Le jugement vérifie que : les décisions d'Unity sont celles de la référence ; le
+terrain sous l'axe (rendu et collision) est à ±3 cm du profil ; la grille vaut la
+référence sur toute l'emprise, et aucun sommet ne bouge au-delà ; le talus ne
+dépasse pas 1:2 sur des coupes en travers ; le revêtement domine sous l'axe ;
+aucune touffe ne reste sur la chaussée ; les deux familles trop raides sont
+refusées pour leur motif, sans rien changer ; le personnage parcourt chaque
+route ; les mêmes gestes avec la même graine donnent la même empreinte, et une
+autre graine un autre bord ; l'asset est intact ; le clic à l'écran donne la
+même route que le jeu de gestes. Huit contre-épreuves doivent chacune faire
+rougir le jugement : gestes vides, famille retirée, profil relevé de 20 cm,
+sommet relevé hors de l'emprise, pente maximale portée à 40 %, couches
+échangées, touffe posée sur une route, mur en travers.
+
+Sur les dix anciennes rues du plan, quatre passent. Les six autres sont
+refusées à juste titre : 13 à 28 % de pente, alors que le plan les avait
+dessinées pour la marche. Les retracer demandera des lacets ou des escaliers ;
+ce lot ne le fait pas.

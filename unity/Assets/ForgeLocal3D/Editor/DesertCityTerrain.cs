@@ -400,6 +400,14 @@ namespace ForgeLocal3D
             env.village="Ville du désert — "+id;env.seed=d.graine;env.scenes=new string[0];env.labels=new string[0];
             env.viewpoints=new DesertEnvironment.Viewpoint[0];env.fires=new Light[0];env.smoke=new ParticleSystem[0];env.flames=new ParticleSystem[0];
             env.view=camera;env.sun=sun;env.sky=Need<Material>(DesertBuilder.Root+"/Settings/Ciel.mat");env.showPanel=false;env.hour=16.5f;env.Apply();
+            // Lot 263 : les routes du joueur, posées à l'exécution sur une copie de ce terrain.
+            var routes=new GameObject("Routes du joueur");
+            var roads=routes.AddComponent<DesertRoads>();roads.terrain=terrain;roads.implantation=id;roads.graine=d.graine;
+            // Textures qui se répètent sans bord : chemin_sable et chemin_dalle sont des bandes de route
+            // (chaussée au centre, sable sur les côtés) ; répétées sur le terrain, elles le rayaient.
+            roads.terreBattue=Layer("Ville_terre_battue",Tex("sable_ombre_BaseColor"),Tex("sable_ombre_Normal"),null,4,new Color(.78f,.64f,.5f),.04f);
+            roads.paves=Layer("Ville_paves",Tex("souk_dalles_BaseColor"),Tex("souk_dalles_Normal"),null,4,Color.white,.12f);
+            var tool=routes.AddComponent<DesertRoadTool>();tool.roads=roads;tool.view=camera;
             EditorSceneManager.SaveScene(scene,ScenePath(id));
             AssetDatabase.SaveAssets();
         }
