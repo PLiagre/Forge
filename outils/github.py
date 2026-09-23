@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 
 from .mesure import Lecture
+from .integration import chemin_valide
 
 API = "https://api.github.com"
 
@@ -155,6 +156,37 @@ def auteurs_du_code(gh: Github, numero: int) -> list[str]:
             if login and login not in logins:
                 logins.append(login)
     return logins
+
+
+def fichiers_pr(gh: Github, numero: int, total: int | None) -> tuple[str, ...]:
+    """Les deux noms des renommages, sans confondre réponse partielle et diff sûr.
+
+    GitHub borne cette API ; le nombre annoncé dans le détail de la PR
+    prouve la complétude même quand la dernière page est tronquée.
+    """
+    if type(total) is not int or total <= 0:
+        raise GithubErreur("fichiers de la PR : nombre attendu inconnu ou vide")
+    bruts = gh.liste(f"pulls/{numero}/files")
+    if not isinstance(bruts, list) or len(bruts) != total:
+        raise GithubErreur("fichiers de la PR : liste incomplète")
+    chemins, actuels = set(), set()
+    for brut in bruts:
+        if not isinstance(brut, dict):
+            raise GithubErreur("fichiers de la PR : entrée illisible")
+        nom = brut.get("filename")
+        statut = brut.get("status")
+        if not chemin_valide(nom) or nom in actuels or statut not in (
+            "added", "removed", "modified", "renamed", "copied", "changed", "unchanged"
+        ):
+            raise GithubErreur("fichiers de la PR : nom, statut ou doublon illisible")
+        actuels.add(nom)
+        chemins.add(nom)
+        ancien = brut.get("previous_filename")
+        if statut == "renamed" or ancien is not None:
+            if not chemin_valide(ancien):
+                raise GithubErreur("fichiers de la PR : ancien nom du renommage absent ou illisible")
+            chemins.add(ancien)
+    return tuple(sorted(chemins))
 
 
 def revues(gh: Github, numero: int) -> list[dict]:

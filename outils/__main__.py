@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -76,10 +77,18 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integr
         return integration.depuis_github(brut, interne=False)
     detail = gh.get(f"pulls/{brut['number']}")
     sha = detail["head"]["sha"]
-    return integration.depuis_github(
+    try:
+        fichiers = github.fichiers_pr(gh, brut["number"], detail.get("changed_files"))
+        apres = gh.get(f"pulls/{brut['number']}")
+        if apres.get("head", {}).get("sha") != sha:
+            raise github.GithubErreur("fichiers de la PR : révision changée pendant la lecture")
+    except github.GithubErreur as exc:
+        return replace(integration.depuis_github(brut, detail, interne=True),
+                       motif_fichiers=f"fichiers de la PR illisibles : {exc}")
+    return replace(integration.depuis_github(
         brut, detail, github.controles(gh, sha), github.retard(gh, base, sha),
         _verdict(gh, brut["number"], sha), interne=True,
-    )
+    ), fichiers=fichiers)
 
 
 def _integration(args: argparse.Namespace) -> int:
@@ -91,7 +100,7 @@ def _integration(args: argparse.Namespace) -> int:
         _pr_integrable(gh, brut, base, reglage["branches"])
         for brut in gh.liste("pulls", state="open", base=base)
     ]
-    rapport = integration.decider(prs, reglage["controles"], reglage["branches"])
+    rapport = integration.decider(prs, reglage["controles"], reglage["branches"], reglage["zone"])
     for ligne in rapport.lignes:
         print(ligne, file=sys.stderr)
     decision = rapport.decision
@@ -159,7 +168,7 @@ def _examens(gh, base, reglage):
     examens = []
     for brut in gh.liste("pulls", state="open", base=base):
         pr = _pr_integrable(gh, brut, base, reglage["branches"])
-        examens.append((pr, integration.examiner(pr, reglage["controles"], reglage["branches"])))
+        examens.append((pr, integration.examiner(pr, reglage["controles"], reglage["branches"], reglage["zone"])))
     return examens
 
 

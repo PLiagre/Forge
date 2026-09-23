@@ -117,7 +117,7 @@ def test_une_liste_de_controles_vide_est_un_branchement_incomplet(tmp_path):
 def test_le_branchement_d_integration_rend_ce_qu_il_declare(tmp_path):
     from outils import registre
 
-    _brancher(tmp_path, '\n[integration]\ncontroles = ["sim"]\nbranches = ["agent/"]\n')
+    _brancher(tmp_path, '\n[integration]\ncontroles = ["sim"]\nbranches = ["agent/"]\nzone = ["AGENTS.md"]\n')
     reglage = registre.integration(tmp_path)
     assert reglage["controles"] == ("sim",)
     assert reglage["branches"] == ("agent/",)
@@ -598,7 +598,7 @@ def test_le_controle_des_imports_rougirait_sur_une_dependance():
 
 def _projet_avec_registre(tmp_path):
     """Un projet minimal : un branchement, un registre, un brief."""
-    _brancher(tmp_path, '\n[integration]\ncontroles = ["outils"]\nbranches = ["agent/"]\n'
+    _brancher(tmp_path, '\n[integration]\ncontroles = ["outils"]\nbranches = ["agent/"]\nzone = ["AGENTS.md"]\n'
                         "\n[tableau]\ntours_sans_fusion = 10\nbrouillon_jours = 2\n"
                         "journal = 30\nsemaines = 8\nexecutions = 100\nhistorique = 200\n")
     (tmp_path / "briefs").mkdir(exist_ok=True)
@@ -730,3 +730,47 @@ def test_abandonner_un_lot_pret_garde_son_brief():
         assert proc.returncode == 0, proc.stderr
         assert (projet / "briefs" / "049-fabriquer.md").is_file()
         assert "brief retiré" not in proc.stderr
+
+
+def test_zone_les_fichiers_sont_lus_sur_toutes_les_pages_et_les_anciens_noms():
+    from outils import github
+
+    prefixe = "repos/O/R/pulls/12/files"
+    premiere = [{"filename": f"ordinaire/{i}.txt", "status": "modified"} for i in range(100)]
+    derniere = {"filename": "ailleurs/regles.md", "previous_filename": "AGENTS.md", "status": "renamed"}
+    routes = {
+        (prefixe, "1"): (200, premiere, {"Link": '</repos/O/R/pulls/12/files?page=2>; rel="next"'}),
+        (prefixe, "2"): (200, [derniere], {}),
+    }
+    with _api(routes) as api:
+        chemins = github.fichiers_pr(github.Github("O/R", jeton="x", api=api), 12, len(premiere) + 1)
+    assert "AGENTS.md" in chemins
+    assert "ailleurs/regles.md" in chemins
+    assert len(chemins) == len(premiere) + 2
+
+
+@pytest.mark.parametrize("reponse,total", [
+    ([], 1), ([{"filename": "x", "status": "modified"}], 2),
+    ([{"filename": "x", "status": "renamed"}], 1),
+    ([{"filename": "x", "status": "removed"}], None),
+    ([{"filename": "x", "status": "modified"}] * 2, 2),
+    ([{"filename": "../AGENTS.md", "status": "modified"}], 1),
+    ([{"filename": "x"}], 1),
+])
+def test_zone_une_reponse_incomplete_ou_mal_formee_est_refusee(reponse, total):
+    from outils import github
+
+    class Faux:
+        def liste(self, chemin, **kwargs):
+            return reponse
+    with pytest.raises(github.GithubErreur):
+        github.fichiers_pr(Faux(), 12, total)
+
+
+def test_zone_une_suppression_garde_le_chemin_supprime():
+    from outils import github
+
+    class Faux:
+        def liste(self, chemin, **kwargs):
+            return [{"filename": "AGENTS.md", "status": "removed"}]
+    assert github.fichiers_pr(Faux(), 12, 1) == ("AGENTS.md",)

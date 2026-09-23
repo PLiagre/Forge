@@ -22,6 +22,7 @@ def _atelier_integration(dossier, controles, branches):
         "[integration]",
         "controles = [" + ", ".join(f'"{c}"' for c in controles) + "]",
         "branches = [" + ", ".join(f'"{b}"' for b in branches) + "]",
+        'zone = ["AGENTS.md"]',
     ]
     (dossier / "atelier.toml").write_text("\n".join(lignes) + "\n", encoding="utf-8")
     return dossier
@@ -80,6 +81,7 @@ def test_une_pr_integrable_demande_le_detail():
                 return {
                     "head": {"sha": "a" * 40, "ref": "agent/049-x"},
                     "mergeable": True,
+                    "changed_files": 1,
                 }
             if "check-runs" in chemin:
                 return {"check_runs": []}
@@ -91,6 +93,8 @@ def test_une_pr_integrable_demande_le_detail():
 
         def liste(self, chemin, **_):
             self.appels.append(chemin)
+            if chemin.endswith("/files"):
+                return [{"filename": "ordinaire.txt", "status": "modified"}]
             if chemin.endswith("/commits"):
                 return [{"author": {"login": "auteur"}, "committer": None}]
             if chemin.endswith("/reviews"):
@@ -120,10 +124,13 @@ class _GithubDecision:
     def __init__(self, bruts, detail, behind_by, check_runs):
         self.bruts = bruts
         self.detail = detail
+        self.detail.setdefault("changed_files", 1)
         self.behind_by = behind_by
         self.check_runs = check_runs
 
     def liste(self, chemin, **_k):
+        if chemin.endswith("/files"):
+            return [{"filename": "ordinaire.txt", "status": "modified"}]
         if chemin == "pulls":
             return self.bruts
         if chemin.endswith("/commits"):
@@ -484,7 +491,7 @@ class _GithubOrigine:
     def get(self, chemin, **_):
         self.appels.append(chemin)
         if chemin.startswith("pulls/"):
-            return {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True}
+            return {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True, "changed_files": 1}
         if "check-runs" in chemin:
             return {"check_runs": []}
         if "status" in chemin:
@@ -495,6 +502,8 @@ class _GithubOrigine:
 
     def liste(self, chemin, **_):
         self.appels.append(chemin)
+        if chemin.endswith("/files"):
+            return [{"filename": "ordinaire.txt", "status": "modified"}]
         if chemin.endswith("/commits"):
             return [{"author": {"login": "auteur"}, "committer": None}]
         if chemin.endswith("/reviews"):
@@ -523,3 +532,138 @@ def test_la_couture_github_pose_toujours_l_origine(repo, attendu):
     assert obtenu.interne is attendu
     if not attendu:
         assert faux.appels == [], "une fourche a coûté des appels"
+
+
+# ------------------------------------------------ la zone du propriétaire
+
+
+def _zone_du_depot():
+    from pathlib import Path
+    import tomllib
+
+    chemin = Path(__file__).resolve().parents[2] / "atelier.toml"
+    zone = tuple(tomllib.loads(chemin.read_text(encoding="utf-8"))["integration"]["zone"])
+    assert zone, "une zone sans cas ne prouve rien"
+    return zone
+
+
+@pytest.mark.parametrize("retard", [0, 3])
+def test_zone_chaque_entree_retient_avant_fusion_et_rejeu(retard):
+    zone = _zone_du_depot()
+    for entree in zone:
+        chemin = entree + "workflows/essai.yml" if entree.endswith("/") else entree
+        decision = integration.examiner(pr(retard=retard, fichiers=(chemin,)), REQUIS, PREFIXES, zone)
+        assert decision.action == integration.RIEN, entree
+        assert decision.raison.startswith("zone protégée : le propriétaire fusionne"), entree
+        assert chemin in decision.raison
+    temoin = integration.examiner(pr(retard=retard, fichiers=("outils/tableau.py",)), REQUIS, PREFIXES, zone)
+    assert temoin.action == (integration.REBASER if retard else integration.FUSIONNER)
+
+
+def test_zone_un_fichier_exact_ne_protege_pas_un_suffixe():
+    zone = _zone_du_depot()
+    fichiers = tuple(entree + ".autre" for entree in zone if not entree.endswith("/"))
+    assert fichiers
+    assert integration.examiner(pr(fichiers=fichiers), REQUIS, PREFIXES, zone).action == integration.FUSIONNER
+
+
+def test_zone_remplacer_un_dossier_protege_par_un_fichier_ne_libere_pas():
+    zone = _zone_du_depot()
+    dossiers = [entree for entree in zone if entree.endswith("/")]
+    assert dossiers
+    for dossier in dossiers:
+        decision = integration.examiner(pr(fichiers=(dossier[:-1],)), REQUIS, PREFIXES, zone)
+        assert decision.action == integration.RIEN
+        assert "zone protégée" in decision.raison
+
+
+def test_zone_une_erreur_github_retient_la_pr_sans_cacher_les_suivantes():
+    from outils import github
+    from outils.__main__ import _pr_integrable
+
+    class Illisible(_GithubOrigine):
+        def liste(self, chemin, **kwargs):
+            if chemin.endswith("/files"):
+                raise github.GithubErreur("accès refusé", 403)
+            return super().liste(chemin, **kwargs)
+    obtenu = _pr_integrable(Illisible(), {"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}}}, "master", PREFIXES)
+    rapport = integration.decider([obtenu, pr(numero=201, fichiers=("ordinaire.txt",))], REQUIS, PREFIXES, _zone_du_depot())
+    assert rapport.decision.action == integration.FUSIONNER
+    assert rapport.decision.pr == 201
+    assert "accès refusé" in rapport.lignes[0]
+
+
+@pytest.mark.parametrize("fichiers", [None, (), ("",), ("../AGENTS.md",), ("/AGENTS.md",)])
+def test_zone_une_liste_de_fichiers_inconnue_ne_libere_pas(fichiers):
+    decision = integration.examiner(pr(fichiers=fichiers), REQUIS, PREFIXES, _zone_du_depot())
+    assert decision.action == integration.RIEN
+    assert "fichiers" in decision.raison
+
+
+@pytest.mark.parametrize("valeur", [None, [], "AGENTS.md", [""], [12], ["../"], ["/"], [".github//"], ["AGENTS.md", "AGENTS.md"]])
+def test_zone_absente_vide_ou_mal_formee_fait_echouer_la_commande(tmp_path, monkeypatch, capsys, valeur):
+    import json
+    from outils import github
+    from outils.__main__ import main
+
+    _atelier_integration(tmp_path, REQUIS, PREFIXES)
+    config = tmp_path / "atelier.toml"
+    texte = "\n".join(l for l in config.read_text(encoding="utf-8").splitlines() if not l.startswith("zone ="))
+    if valeur is not None:
+        texte += "\nzone = " + json.dumps(valeur)
+    config.write_text(texte + "\n", encoding="utf-8")
+    def interdit(*a, **k):
+        raise AssertionError("une configuration invalide ne consulte pas GitHub")
+    monkeypatch.setattr(github, "Github", interdit)
+    assert main(["integration", "--depot", "O/R", "--projet", str(tmp_path)]) == 1
+    io = capsys.readouterr()
+    assert io.out == ""
+    assert "zone" in io.err
+
+
+def test_zone_la_commande_et_le_tableau_retiennent_le_meme_chemin(tmp_path, monkeypatch, capsys):
+    from outils import registre
+    from outils.__main__ import _examens
+
+    _atelier_integration(tmp_path, REQUIS, PREFIXES)
+    class Protegee(_GithubDecision):
+        def liste(self, chemin, **kwargs):
+            if chemin.endswith("/files"):
+                return [{"filename": "AGENTS.md", "status": "modified"}]
+            return super().liste(chemin, **kwargs)
+    faux = Protegee(
+        [{"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}}, "draft": False}],
+        {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True, "changed_files": 1},
+        0, [{"name": nom, "status": "completed", "conclusion": "success"} for nom in REQUIS],
+    )
+    code, io = _cli_integration(tmp_path, monkeypatch, capsys, faux)
+    assert code == 0
+    assert io.out == "RIEN\n"
+    examen = _examens(faux, "master", registre.integration(tmp_path))[0][1]
+    assert examen.action == integration.RIEN
+    assert examen.raison in io.err
+    assert "zone protégée" in examen.raison
+
+
+def test_zone_une_revision_changee_pendant_la_lecture_retient():
+    from outils.__main__ import _pr_integrable
+
+    class Mobile(_GithubOrigine):
+        def __init__(self):
+            super().__init__()
+            self.details = 0
+        def get(self, chemin, **kwargs):
+            resultat = super().get(chemin, **kwargs)
+            if chemin == "pulls/200":
+                self.details += 1
+                resultat["changed_files"] = 1
+                resultat["head"]["sha"] = ("a" if self.details == 1 else "b") * 40
+            return resultat
+        def liste(self, chemin, **kwargs):
+            if chemin.endswith("/files"):
+                return [{"filename": "outils/tableau.py", "status": "modified"}]
+            return super().liste(chemin, **kwargs)
+    obtenu = _pr_integrable(Mobile(), {"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}}}, "master", PREFIXES)
+    decision = integration.examiner(obtenu, REQUIS, PREFIXES, _zone_du_depot())
+    assert decision.action == integration.RIEN
+    assert "révision" in decision.raison
