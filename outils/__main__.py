@@ -79,6 +79,11 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integr
     sha = detail["head"]["sha"]
     try:
         fichiers = github.fichiers_pr(gh, brut["number"], detail.get("changed_files"))
+        controles = github.controles(gh, sha)
+        retard = github.retard(gh, base, sha)
+        verdict = _verdict(gh, brut["number"], sha)
+        # La tête peut bouger pendant n'importe laquelle de ces lectures.
+        # Le geste vérifiera encore ce SHA juste avant d'écrire sur GitHub.
         apres = gh.get(f"pulls/{brut['number']}")
         if apres.get("head", {}).get("sha") != sha:
             raise github.GithubErreur("fichiers de la PR : révision changée pendant la lecture")
@@ -86,8 +91,7 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integr
         return replace(integration.depuis_github(brut, detail, interne=True),
                        motif_fichiers=f"fichiers de la PR illisibles : {exc}")
     return replace(integration.depuis_github(
-        brut, detail, github.controles(gh, sha), github.retard(gh, base, sha),
-        _verdict(gh, brut["number"], sha), interne=True,
+        brut, detail, controles, retard, verdict, interne=True,
     ), fichiers=fichiers)
 
 

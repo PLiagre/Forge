@@ -667,3 +667,33 @@ def test_zone_une_revision_changee_pendant_la_lecture_retient():
     decision = integration.examiner(obtenu, REQUIS, PREFIXES, _zone_du_depot())
     assert decision.action == integration.RIEN
     assert "révision" in decision.raison
+
+
+@pytest.mark.parametrize("retard", [0, 1])
+def test_zone_une_revision_changee_pendant_les_revues_retient(retard):
+    from copy import deepcopy
+    from outils.__main__ import _pr_integrable
+
+    class Mobile(_GithubDecision):
+        courant = "a" * 40
+
+        def get(self, chemin, **kwargs):
+            resultat = deepcopy(super().get(chemin, **kwargs))
+            if chemin == "pulls/200":
+                resultat["head"]["sha"] = self.courant
+            return resultat
+
+        def liste(self, chemin, **kwargs):
+            resultat = super().liste(chemin, **kwargs)
+            if chemin.endswith("/reviews"):
+                self.courant = "b" * 40
+            return resultat
+
+    brut = {"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}}}
+    faux = Mobile([brut], {"head": {"sha": "a" * 40, "ref": "agent/049-x"},
+                          "mergeable": True}, retard,
+                  [{"name": nom, "status": "completed", "conclusion": "success"} for nom in REQUIS])
+    obtenu = _pr_integrable(faux, brut, "master", PREFIXES)
+    decision = integration.examiner(obtenu, REQUIS, PREFIXES, _zone_du_depot())
+    assert decision.action == integration.RIEN
+    assert "révision" in decision.raison
