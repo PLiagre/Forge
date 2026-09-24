@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Rendering;
 using Unity.Transforms;
 using UnityEngine;
@@ -29,6 +30,7 @@ namespace Guerre
             public int[] triangles_par_soldat;
             public int soldats_au_contact, morts;
             public float secondes_avant_la_melee;
+            public int carreaux_en_vol_pendant_la_melee;   // au plus fort, pendant les vues mesurées
             public bool objectif_60, soldats_conformes, armee_en_mouvement, soldats_visibles, soldats_animes, melee_engagee;
             public string[] motifs;
         }
@@ -71,6 +73,31 @@ namespace Guerre
             var motifs = new List<string>();
             yield return null;
 
+            // La bataille mesurée est mise en scène, pour ne pas dépendre de l'issue de la démonstration :
+            // les premières lignes face à face à 40 m, qui se chargent ; les arbalétriers 150 m derrière,
+            // qui tirent sur la ligne adverse. On mesure ainsi la mêlée et le tir ensemble.
+            {
+                var t0 = b.terrain.transform.position + b.terrain.terrainData.size * 0.5f;
+                float2 c0 = new float2(t0.x, t0.z);
+                var lignes = new[] { b.Regiments(0), b.Regiments(1) };
+                for (int camp = 0; camp < 2; camp++)
+                {
+                    float sens = camp == 0 ? 1f : -1f;
+                    var front = lignes[camp].Where(x => x.r.Arme != 2).OrderBy(x => x.r.Index).ToArray();
+                    var tir = lignes[camp].Where(x => x.r.Arme == 2).OrderBy(x => x.r.Index).ToArray();
+                    for (int k = 0; k < front.Length; k++)
+                        b.Deplacer(front[k].e, c0 + new float2(-sens * 20f, (k - (front.Length - 1) / 2f) * 36f), new float2(sens, 0), 25);
+                    for (int k = 0; k < tir.Length; k++)
+                        b.Deplacer(tir[k].e, c0 + new float2(-sens * (170f + (k / 10) * 20f), (k % 10 - 4.5f) * 36f), new float2(sens, 0), 25);
+                }
+                for (int k = 0; k < 10; k++) yield return null;
+                var fb = lignes[0].Where(x => x.r.Arme != 2).OrderBy(x => x.r.Index).Select(x => x.e).ToArray();
+                var fr = lignes[1].Where(x => x.r.Arme != 2).OrderBy(x => x.r.Index).Select(x => x.e).ToArray();
+                for (int k = 0; k < Math.Min(fb.Length, fr.Length); k++) { b.Attaquer(new[] { fb[k] }, fr[k]); b.Attaquer(new[] { fr[k] }, fb[k]); }
+                foreach (var x in lignes[0].Where(x => x.r.Arme == 2)) b.Attaquer(new[] { x.e }, fr[Math.Abs(x.r.Index) % fr.Length]);
+                foreach (var x in lignes[1].Where(x => x.r.Arme == 2)) b.Attaquer(new[] { x.e }, fb[Math.Abs(x.r.Index) % fb.Length]);
+            }
+
             // Un échantillon fixe de soldats, pour mesurer que l'armée marche vraiment ; les morts gardent leur place.
             Entity[] suivis;
             using (var tous = soldats.ToEntityArray(Allocator.Temp))
@@ -82,10 +109,8 @@ namespace Guerre
             }
             var avant = Echantillon();
 
-            // La mesure porte sur une vraie bataille : on accélère le temps jusqu'à ce que
-            // les deux armées soient aux prises, avec au moins trois cents hommes corps à corps.
-            // (Avant la peur, on en attendait mille ; désormais, des fronts rompent avant que
-            // toute la ligne soit engagée : on en compte trois à quatre cents au plus fort.)
+            // On attend que les premières lignes soient aux prises, avec au moins trois cents hommes
+            // corps à corps, sans accélérer le temps : la mêlée commence en quelques secondes.
             int AuContact()
             {
                 em.CompleteAllTrackedJobs();
@@ -102,11 +127,9 @@ namespace Guerre
                 for (int k = 0; k < ss.Length; k++) if (ss[k].Contact != 0) { somme += (Vector3)tt[k].Position; n++; }
                 return n == 0 ? Vector3.zero : somme / n;
             }
-            Time.timeScale = 6;
-            float debutAttente = Time.time, limite = Time.realtimeSinceStartup + 150f;
+            float debutAttente = Time.time, limite = Time.realtimeSinceStartup + 60f;
             while (AuContact() < AuContactMin && Time.realtimeSinceStartup < limite) { for (int k = 0; k < 10; k++) yield return null; }
             r.secondes_avant_la_melee = Time.time - debutAttente;
-            Time.timeScale = 1;
             r.melee_engagee = AuContact() >= AuContactMin;
             if (!r.melee_engagee) motifs.Add("les armées ne se sont pas engagées : pas de mêlée à mesurer");
 
@@ -116,18 +139,20 @@ namespace Guerre
             {
                 using var regs = em.CreateEntityQuery(typeof(Regiment)).ToComponentDataArray<Regiment>(Allocator.Temp);
                 Vector2 s = Vector2.zero; int n = 0;
-                foreach (var g in regs) if (g.Camp == 0) { s += new Vector2(g.Position.x, g.Position.y); n++; }
+                foreach (var g in regs) if (g.Camp == 0 && g.Arme != 2 && g.Effectif > 0) { s += new Vector2(g.Position.x, g.Position.y); n++; }
                 return n == 0 ? centre : new Vector3(s.x / n, 0, s.y / n);
             }
             var vues = new (string nom, bool armee, Vector3 decalage, float plongee, float distance)[]
             {
+                // La mêlée d'abord, à son plus fort, juste après l'engagement.
+                ("Mêlée", false, Vector3.zero, 28, 60),
                 ("Vue générale", false, Vector3.zero, 48, 900),
                 ("Front", true, new Vector3(20, 0, 0), 24, 160),
                 ("Au milieu des rangs", true, new Vector3(0, 0, 12), 9, 45),
                 ("Plongée", true, new Vector3(0, 0, -60), 72, 260),
-                ("Mêlée", false, Vector3.zero, 28, 60),
             };
             var resultats = new List<Vue>();
+            var carreauxQ = em.CreateEntityQuery(typeof(Projectile));
             foreach (var v in vues)
             {
                 cmd.foyer = (v.nom == "Mêlée" && r.melee_engagee ? Melee() : v.armee ? Armee() : centre) + v.decalage; cmd.plongee = v.plongee; cmd.distance = v.distance;
@@ -136,11 +161,20 @@ namespace Guerre
                 while (Time.realtimeSinceStartup - t0 < 3f) { cmd.cap += 4f * Time.unscaledDeltaTime; yield return null; }
                 var dts = new List<double>();
                 t0 = Time.realtimeSinceStartup;
+                int n = 0;
                 while (Time.realtimeSinceStartup - t0 < 6f)
                 {
                     cmd.cap += 4f * Time.unscaledDeltaTime;
                     yield return null;
                     dts.Add(Time.unscaledDeltaTime * 1000.0);
+                    // Les carreaux en vol, relevés au plus fort, une image sur trente (un coût léger, sous le 95e centile).
+                    if (n++ % 30 == 0)
+                    {
+                        em.CompleteAllTrackedJobs();
+                        using var ps = carreauxQ.ToComponentDataArray<Projectile>(Allocator.Temp);
+                        int enVol = 0; foreach (var p in ps) if (p.Etat == 1) enVol++;
+                        r.carreaux_en_vol_pendant_la_melee = Math.Max(r.carreaux_en_vol_pendant_la_melee, enVol);
+                    }
                 }
                 dts.Sort();
                 double P(double q) => dts[Mathf.Clamp((int)Math.Ceiling(q * dts.Count) - 1, 0, dts.Count - 1)];
@@ -157,7 +191,8 @@ namespace Guerre
             r.deplacement_moyen_m = avant.Length == 0 ? 0 : avant.Zip(apres, (a, c) => Vector3.Distance(a, c)).Average();
 
             // Contre-épreuve de visibilité : la même image, soldats masqués, doit changer.
-            cmd.foyer = Armee() + vues[1].decalage; cmd.plongee = vues[1].plongee; cmd.distance = vues[1].distance;
+            var vFront = vues.First(x => x.nom == "Front");
+            cmd.foyer = Armee() + vFront.decalage; cmd.plongee = vFront.plongee; cmd.distance = vFront.distance;
             Time.timeScale = 0;
             for (int k = 0; k < 5; k++) yield return null;
             yield return new WaitForEndOfFrame();
@@ -174,7 +209,8 @@ namespace Guerre
 
             // Preuve de l'animation : la simulation figée, mêmes positions, deux phases de
             // marche différentes. Si le shader ne rejoue pas l'animation cuite, l'image ne change pas.
-            cmd.foyer = Armee() + vues[2].decalage; cmd.plongee = vues[2].plongee; cmd.distance = vues[2].distance;
+            var vRangs = vues.First(x => x.nom == "Au milieu des rangs");
+            cmd.foyer = Armee() + vRangs.decalage; cmd.plongee = vRangs.plongee; cmd.distance = vRangs.distance;
             Pilotage(false);
             var animes = em.CreateEntityQuery(typeof(AnimEtat), typeof(AnimCombat), typeof(Soldat));
             void Phase(float phase)

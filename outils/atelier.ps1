@@ -2,7 +2,7 @@
 #   powershell -File outils/atelier.ps1 soldats      # fabriquer les soldats dans Blender (fabrique/sorties)
 #   powershell -File outils/atelier.ps1 construire   # soldats, pipeline, vallée, scène
 #   powershell -File outils/atelier.ps1 joueur       # construire + joueur Windows
-#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 5, avec leurs contre-épreuves
+#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 6, avec leurs contre-épreuves
 #   powershell -File outils/atelier.ps1 ouvrir       # ouvrir l'éditeur
 param([Parameter(Mandatory)][ValidateSet('soldats','construire','joueur','mesurer','ouvrir')][string]$action,
       [int]$soldats = 10000)
@@ -103,6 +103,18 @@ switch ($action) {
         $pc = Lancer (Join-Path $racine 'sorties\essai-moral-sans-peur') @('-guerre-essai-moral','-guerre-soldats','20000','-guerre-sans-peur') 'essai-moral.json'
         if ($null -eq $pc -or $pc.statut -ne 'echec') { Write-Host 'Sans la peur, l''essai de moral n''a pas échoué : il ne prouve rien.'; $echecs++ }
         else { "contre-épreuve 5 (sans peur) : échec attendu obtenu ($($pc.motifs -join ' | '))" }
+
+        # Jalon 6 : les tireurs. Plus de 2 000 carreaux en vol dans le budget ; les pavois arrêtent les carreaux.
+        $t = Lancer (Join-Path $racine 'sorties\essai-tir') @('-guerre-essai-tir','-guerre-soldats','20000') 'essai-tir.json'
+        if ($null -eq $t) { exit 1 }
+        "carreaux : {0} tirés, {1} en vol au plus, 95e centile {2:N2} ms sur {3} images à plus de 2 000 en vol" -f $t.carreaux_tires, $t.carreaux_en_vol_max, $t.p95_ms_a_plus_de_2000, $t.images_a_plus_de_2000
+        "tir tendu à 100 m : {0} touches avec pavois, {1} sans ({2:P0}) ; morts {3} / {4}" -f $t.touches_avec_pavois, $t.touches_sans_pavois, $t.rapport_des_touches, $t.morts_avec_pavois, $t.morts_sans_pavois
+        "tir plongeant à 220 m (pour information) : {0} touches avec pavois, {1} sans ({2:P0}) ; {3} carreaux arrêtés par un pavois en tout ; tir ami {4}" -f $t.plongeant_touches_avec_pavois, $t.plongeant_touches_sans_pavois, $t.plongeant_rapport_des_touches, $t.arretes_par_pavois, $t.touches_tireurs
+        "jalon 6 : $($t.statut) $($t.motifs -join ' | ')"
+        if ($t.statut -ne 'valide') { $echecs++ }
+        $tc = Lancer (Join-Path $racine 'sorties\essai-tir-sans-pavois') @('-guerre-essai-tir','-guerre-soldats','20000','-guerre-sans-pavois') 'essai-tir.json'
+        if ($null -eq $tc -or $tc.statut -ne 'echec') { Write-Host 'Sans pavois, l''essai de tir n''a pas échoué : il ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 6 (sans pavois) : échec attendu obtenu ($($tc.motifs -join ' | '))" }
 
         if ($echecs -gt 0) { exit 1 }
     }

@@ -5,6 +5,7 @@
 //   _AnimEtat.z : décalage du repos (0..1), pour que les hommes ne respirent pas ensemble
 //   _AnimEtat.w : -1 pour un homme tombé, qui garde la pose de repos, immobile
 //   _AnimCombat.x : phase du coup (0..1)   .y : poids de la garde (0 : hors combat, 1 : en garde)
+//   _AnimCombat.z : poids de la posture à l'abri, à genou derrière son pavois
 // Texture _VAT : ligne = image ; colonne i = position du coin i, colonne i + Coins = sa normale.
 Shader "Guerre/Soldat"
 {
@@ -19,6 +20,8 @@ Shader "Guerre/Soldat"
         _ImagesRepos ("Images de repos", Float) = 24
         _DureeRepos ("Durée du repos (s)", Float) = 4
         _ImagesCombat ("Images de combat", Float) = 24
+        _ImagesAbri ("Images à l'abri", Float) = 12
+        _DureeAbri ("Durée à l'abri (s)", Float) = 3
         _VATActif ("Animation active", Float) = 1
     }
 
@@ -29,7 +32,7 @@ Shader "Guerre/Soldat"
         float4 _BaseColor;
         float4 _AnimEtat;
         float4 _AnimCombat;
-        float _Coins, _ImagesMarche, _ImagesRepos, _DureeRepos, _ImagesCombat, _VATActif;
+        float _Coins, _ImagesMarche, _ImagesRepos, _DureeRepos, _ImagesCombat, _ImagesAbri, _DureeAbri, _VATActif;
     CBUFFER_END
 
     #ifdef UNITY_DOTS_INSTANCING_ENABLED
@@ -81,6 +84,13 @@ Shader "Guerre/Soldat"
             Echantillon(v.vertexID, _ImagesMarche + _ImagesRepos, _ImagesCombat, combat.x, pc, nc);
             positionOS = lerp(positionOS, pc, combat.y);
             normalOS = lerp(normalOS, nc, combat.y);
+        }
+        if (combat.z > 0.001)
+        {
+            float3 pa, na;
+            Echantillon(v.vertexID, _ImagesMarche + _ImagesRepos + _ImagesCombat, _ImagesAbri, etat.z + _Time.y / _DureeAbri, pa, na);
+            positionOS = lerp(positionOS, pa, combat.z);
+            normalOS = lerp(normalOS, na, combat.z);
         }
         normalOS = normalize(normalOS);
     }

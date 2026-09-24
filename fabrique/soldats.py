@@ -317,6 +317,18 @@ def poser(arm, clip, phase, signes, arme='piquier'):
         P['tete'].rotation_euler.z = d(9) * math.sin(w + 0.6)
         P['bras.G'].rotation_euler.x = signes['bras'] * d(4) * math.sin(w * 2 + 1)
         P['avantbras.G'].rotation_euler.x = signes['bras'] * d(10)
+    elif clip == 'abri':  # à genou derrière son pavois, genou droit à terre, l'arme serrée contre soi.
+        P['hanches'].location = (0, -0.45, 0)
+        P['cuisse.D'].rotation_euler.x = signes['cuisse'] * d(-5)
+        P['jambe.D'].rotation_euler.x = signes['jambe'] * d(88)
+        P['cuisse.G'].rotation_euler.x = signes['cuisse'] * d(82)
+        P['jambe.G'].rotation_euler.x = signes['jambe'] * d(84)
+        P['torse'].rotation_euler.x = signes['torse'] * d(14 + 1.5 * math.sin(w * 2))
+        P['tete'].rotation_euler.x = signes['torse'] * d(10)
+        P['bras.D'].rotation_euler.x = signes['bras'] * d(25)
+        P['avantbras.D'].rotation_euler.x = signes['bras'] * d(35)
+        P['bras.G'].rotation_euler.x = signes['bras'] * d(20)
+        P['avantbras.G'].rotation_euler.x = signes['bras'] * d(40)
     else:  # combat : en garde, pied gauche devant ; le coup part dans la première moitié du cycle.
         coup = math.sin(math.pi * min(1.0, max(0.0, (phase - 0.05) / 0.45)))
         P['cuisse.G'].rotation_euler.x = signes['cuisse'] * d(20)
@@ -344,7 +356,7 @@ def poser(arm, clip, phase, signes, arme='piquier'):
     bpy.context.view_layer.update()
 
 
-CLIPS = [('marche', 24, 1.15), ('repos', 24, 4.0), ('combat', 24, 1.0)]
+CLIPS = [('marche', 24, 1.15), ('repos', 24, 4.0), ('combat', 24, 1.0), ('abri', 12, 3.0)]
 half = lambda vals: struct.pack('<%de' % len(vals), *vals)
 
 
@@ -436,6 +448,10 @@ if __name__ == '__main__':
     cam = bpy.context.scene.camera
     cam.location, cam.rotation_euler = (9.0, 1.2, 1.5), (math.radians(88), 0, math.radians(90))
     bpy.context.scene.render.filepath = os.path.join(SORTIE, 'apercu_combat.png')
+    bpy.ops.render.render(write_still=True)
+    for (obj, arm), nom in zip(objets, VARIANTES):
+        poser(arm, 'abri', 0.0, signes, nom)
+    bpy.context.scene.render.filepath = os.path.join(SORTIE, 'apercu_abri.png')
     bpy.ops.render.render(write_still=True)
     for obj, arm in objets:
         for pb in arm.pose.bones:

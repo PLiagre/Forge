@@ -30,6 +30,45 @@ namespace Guerre
         public float Courage;    // seuil propre à chacun
         public byte Fuite;       // 1 : il fuit
         public int Ralliements;  // nombre de fois qu'il est revenu après avoir fui
+        // Le tir et le pavois.
+        public byte Poste;       // 1 : arbalétrier arrêté, son pavois planté devant lui
+        public float2 Regard;    // vers où il fait face (et son pavois avec lui)
+        public float3 Lieu;      // sa position, lue par son pavois
+        public int Touches;      // coups et carreaux reçus
+        public float Abri;           // 0 debout ; 1 à genou derrière son pavois
+    }
+
+    // Un carreau d'arbalète : un réservoir fixe de carreaux est levé une fois, puis réutilisé.
+    public struct Projectile : IComponentData
+    {
+        public float3 P, V;      // position et vitesse, en mètres et m/s
+        public float Vie;        // secondes restantes, planté au sol ou dans un pavois
+        public float Degats;
+        public byte Camp;        // camp du tireur
+        public byte Etat;        // 0 libre, 1 en vol, 2 planté au sol, 3 planté dans un pavois
+    }
+
+    // Un tir décidé par un arbalétrier, en attente d'un carreau libre.
+    public struct Tir
+    {
+        public float3 P, V;
+        public float Degats;
+        public byte Camp;
+    }
+
+    // Le pavois d'un arbalétrier : planté devant lui à l'arrêt, porté dans son dos en marche.
+    public struct Pavois : IComponentData
+    {
+        public Entity Porteur;
+        public byte Plante, Tombe;   // planté dans le sol ; tombé à plat avec son porteur mort
+        public float3 Base;          // où il est planté
+        public float2 Normale;       // vers où il fait face
+    }
+
+    // Les comptes du tir, pour les essais et l'affichage.
+    public struct CompteTir : IComponentData
+    {
+        public int Tires, Pavois, AuSol;
     }
 
     // Un homme tombé : il ne marche plus, ne pousse plus, reste sur le terrain.
@@ -58,6 +97,11 @@ namespace Guerre
     // aucune n'est une règle de victoire, seulement une portée, un rythme, un poids.
     public static class Armes
     {
+        // L'arbalète de guerre, armée au cranequin : un carreau lancé à 55 m/s, deux à trois par minute.
+        // On tire sur une troupe en masse jusqu'à 230 m : la trajectoire en cloche passe par-dessus ses rangs.
+        public const float VitesseCarreau = 55f, DegatsCarreau = 0.6f, RechargeArbalete = 20f, PorteeTir = 230f;
+        // Le pavois : un panneau de bois planté à 55 cm devant soi.
+        public const float PavoisLargeur = 0.9f, PavoisHauteur = 1.25f, PavoisDistance = 0.55f;
         public static float Portee(int a) => a == 0 ? 3.2f : a == 1 ? 1.9f : 1.1f;   // pique, hallebarde, dague
         public static float Cadence(int a) => a == 0 ? 3.2f : a == 1 ? 3.8f : 2.4f;  // secondes entre deux coups
         public static float Degats(int a) => a == 0 ? 0.22f : a == 1 ? 0.4f : 0.18f;
@@ -98,6 +142,9 @@ namespace Guerre
         public float2 CentreHommes;  // où se tiennent réellement ses hommes
         public float Fuyards;        // part de ses hommes qui fuient
         public byte Deroute;         // 1 : la moitié de ses hommes fuient ; il ne combat plus
+        public byte Tir;             // 1 : arbalétriers à portée de leur cible, arrêtés, qui tirent
+        public byte SansPavois;      // pour les essais : ce régiment n'a pas de pavois
+        public int Touches;          // coups et carreaux reçus par ses hommes
 
         public int Rangs => (Effectif + Files - 1) / Files;
         // Les dimensions suivent l'espacement réel : serré dans la mêlée, ouvert sinon.
@@ -113,6 +160,7 @@ namespace Guerre
         public byte Corps;
         public byte Poussee;
         public byte Peur;        // 0 : personne n'a peur (contre-épreuve du jalon 5, isolement du jalon 4)
+        public byte Pavois;      // 0 : aucun pavois n'arrête rien (contre-épreuve du jalon 6)
     }
 
     public static class Formation
@@ -129,7 +177,9 @@ namespace Guerre
             int dansLeRang = rg == rangs - 1 ? r.Effectif - rg * files : files;
             // Dans la mêlée, les rangs se serrent : épaule contre épaule, sans vide où l'ennemi se glisse.
             float ex = r.Melee > 0 ? EspacementSerre : r.Espacement, ey = r.Melee > 0 ? ProfondeurSerree : r.Espacement;
-            return new float2((f - (dansLeRang - 1) / 2f) * ex, -(rg - (rangs - 1) / 2f) * ey);
+            // Les arbalétriers se forment en quinconce : chaque rang tire dans l'intervalle de celui de devant.
+            float quinconce = r.Arme == 2 && r.Melee <= 0 ? ((rg & 1) - 0.5f) * 0.5f * ex : 0f;
+            return new float2((f - (dansLeRang - 1) / 2f) * ex + quinconce, -(rg - (rangs - 1) / 2f) * ey);
         }
 
         public static float2 VersMonde(float2 local, float2 ancre, float2 front)

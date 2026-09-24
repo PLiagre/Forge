@@ -1,0 +1,23 @@
+{
+    "statut": "valide",
+    "date_utc": "2026-09-24T19:02:15.6281046Z",
+    "gpu": "NVIDIA GeForce RTX 3070 Ti",
+    "sans_pavois": false,
+    "carreaux_en_vol_max": 2909,
+    "images_a_plus_de_2000": 1505,
+    "p95_ms_a_plus_de_2000": 2.6831987779587509,
+    "mediane_ms_a_plus_de_2000": 2.271598670631647,
+    "plongeant_touches_avec_pavois": 181,
+    "plongeant_touches_sans_pavois": 862,
+    "plongeant_rapport_des_touches": 0.20997679233551026,
+    "touches_avec_pavois": 42,
+    "touches_sans_pavois": 581,
+    "morts_avec_pavois": 0,
+    "morts_sans_pavois": 101,
+    "rapport_des_touches": 0.07228915393352509,
+    "carreaux_tires": 6570,
+    "arretes_par_pavois": 1304,
+    "plantes_au_sol": 2855,
+    "touches_tireurs": 3,
+    "motifs": []
+}

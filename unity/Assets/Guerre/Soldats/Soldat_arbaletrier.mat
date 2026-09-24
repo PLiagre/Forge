@@ -30,7 +30,9 @@ Material:
     m_Ints: []
     m_Floats:
     - _Coins: 1416
+    - _DureeAbri: 3
     - _DureeRepos: 4
+    - _ImagesAbri: 12
     - _ImagesCombat: 24
     - _ImagesMarche: 24
     - _ImagesRepos: 24

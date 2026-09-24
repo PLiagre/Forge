@@ -16,6 +16,8 @@ namespace Guerre
         // Une variante par arme : piquier, hallebardier, arbalétrier (fabrique/soldats.py).
         public Material[] materiaux;
         public Mesh[] maillages;
+        public Material materiauCarreau, materiauPavois;
+        public const int Carreaux = 8192;   // le réservoir : carreaux en vol et plantés, réutilisés
         public Terrain terrain;
         public int soldats = 10000;
         public int parRegiment = 250;
@@ -26,7 +28,7 @@ namespace Guerre
         public bool Pret { get; private set; }
         public int Leves { get; private set; }
         public EntityManager Em => World.DefaultGameObjectInjectionWorld.EntityManager;
-        bool sansCorps, sansPoussee, sansPeur;
+        bool sansCorps, sansPoussee, sansPeur, sansPavois;
 
         // Bleu roi contre rouge sang : on distingue les camps de loin, par temps de neige.
         static readonly float3[] Camps = { new float3(0.16f, 0.27f, 0.62f), new float3(0.62f, 0.14f, 0.12f) };
@@ -46,6 +48,7 @@ namespace Guerre
             sansCorps = Array.IndexOf(args, "-guerre-sans-corps") >= 0;
             sansPoussee = Array.IndexOf(args, "-guerre-sans-poussee") >= 0;
             sansPeur = Array.IndexOf(args, "-guerre-sans-peur") >= 0;
+            sansPavois = Array.IndexOf(args, "-guerre-sans-pavois") >= 0;
             // Contre-épreuve de la mesure : le shader ignore l'animation cuite.
             if (Array.IndexOf(args, "-guerre-sans-animation") >= 0)
                 foreach (var m in materiaux) m.SetFloat("_VATActif", 0);
@@ -56,7 +59,7 @@ namespace Guerre
             var em = Em;
             PoserRelief(em);
             var reglages = em.CreateEntity(typeof(ReglagesSimulation));
-            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1), Poussee = (byte)(sansPoussee ? 0 : 1), Peur = (byte)(sansPeur ? 0 : 1) });
+            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1), Poussee = (byte)(sansPoussee ? 0 : 1), Peur = (byte)(sansPeur ? 0 : 1), Pavois = (byte)(sansPavois ? 0 : 1) });
 
             var desc = new RenderMeshDescription(ShadowCastingMode.On, receiveShadows: true);
             var rma = new RenderMeshArray(materiaux, maillages);
@@ -68,6 +71,16 @@ namespace Guerre
             em.AddComponentData(proto, new URPMaterialPropertyBaseColor { Value = new float4(1) });
             em.AddComponentData(proto, new AnimEtat());
             em.AddComponentData(proto, new AnimCombat());
+            em.CreateEntity(typeof(CompteTir));
+
+            // Le pavois : un panneau de bois peint aux couleurs du camp.
+            var protoPavois = em.CreateEntity();
+            RenderMeshUtility.AddComponents(protoPavois, em, desc, new RenderMeshArray(new[] { materiauPavois }, new[] { Boite(Armes.PavoisLargeur, Armes.PavoisHauteur, 0.05f, 0f) }),
+                MaterialMeshInfo.FromRenderMeshArrayIndices(0, 0));
+            em.AddComponentData(protoPavois, LocalTransform.Identity);
+            em.AddComponentData(protoPavois, new LocalToWorld { Value = float4x4.identity });
+            em.AddComponentData(protoPavois, new Pavois());
+            em.AddComponentData(protoPavois, new URPMaterialPropertyBaseColor { Value = new float4(1) });
 
             var t = terrain.transform.position;
             var taille = terrain.terrainData.size;
@@ -126,12 +139,57 @@ namespace Guerre
                         em.SetComponentData(hommes[h], LocalTransform.FromPositionRotation(
                             new float3(p.x, y, p.y), quaternion.LookRotationSafe(new float3(front.x, 0, front.y), math.up())));
                     }
+                    if (arme == 2)
+                    {
+                        var pavois = em.Instantiate(protoPavois, nb, Allocator.Temp);
+                        for (int h = 0; h < nb; h++)
+                        {
+                            em.SetComponentData(pavois[h], new Pavois { Porteur = hommes[h] });
+                            em.SetComponentData(pavois[h], new URPMaterialPropertyBaseColor { Value = new float4(math.lerp(Camps[camp], new float3(0.85f, 0.8f, 0.7f), 0.35f), 1) });
+                        }
+                        pavois.Dispose();
+                    }
                     hommes.Dispose();
                 }
             }
             em.DestroyEntity(proto);
+            em.DestroyEntity(protoPavois);
+
+            // Le réservoir de carreaux, rangés sous le terrain jusqu'à leur tir.
+            var protoCarreau = em.CreateEntity();
+            var descCarreau = new RenderMeshDescription(ShadowCastingMode.Off, receiveShadows: false);
+            RenderMeshUtility.AddComponents(protoCarreau, em, descCarreau, new RenderMeshArray(new[] { materiauCarreau }, new[] { Boite(0.025f, 0.025f, 0.42f, -0.0125f) }),
+                MaterialMeshInfo.FromRenderMeshArrayIndices(0, 0));
+            em.AddComponentData(protoCarreau, LocalTransform.FromPositionRotationScale(new float3(0, -100, 0), quaternion.identity, 0));
+            em.AddComponentData(protoCarreau, new LocalToWorld { Value = float4x4.identity });
+            em.AddComponentData(protoCarreau, new Projectile());
+            em.Instantiate(protoCarreau, Carreaux, Allocator.Temp).Dispose();
+            em.DestroyEntity(protoCarreau);
             Leves = soldats - restants;
             Pret = true;
+        }
+
+        // Une boîte centrée en x et z, posée sur y = bas.
+        static Mesh Boite(float lx, float ly, float lz, float bas)
+        {
+            var m = new Mesh { name = "Boite" };
+            float x = lx / 2, z = lz / 2, y0 = bas, y1 = bas + ly;
+            var v = new System.Collections.Generic.List<Vector3>();
+            var tri = new System.Collections.Generic.List<int>();
+            void Face(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+            {
+                int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d);
+                tri.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+            }
+            Face(new Vector3(-x, y0, -z), new Vector3(-x, y1, -z), new Vector3(x, y1, -z), new Vector3(x, y0, -z));
+            Face(new Vector3(x, y0, z), new Vector3(x, y1, z), new Vector3(-x, y1, z), new Vector3(-x, y0, z));
+            Face(new Vector3(-x, y0, z), new Vector3(-x, y1, z), new Vector3(-x, y1, -z), new Vector3(-x, y0, -z));
+            Face(new Vector3(x, y0, -z), new Vector3(x, y1, -z), new Vector3(x, y1, z), new Vector3(x, y0, z));
+            Face(new Vector3(-x, y1, -z), new Vector3(-x, y1, z), new Vector3(x, y1, z), new Vector3(x, y1, -z));
+            Face(new Vector3(-x, y0, z), new Vector3(-x, y0, -z), new Vector3(x, y0, -z), new Vector3(x, y0, z));
+            m.SetVertices(v); m.SetTriangles(tri, 0);
+            m.RecalculateNormals(); m.RecalculateBounds();
+            return m;
         }
 
         Entity reliefEntite;
@@ -260,6 +318,11 @@ namespace Guerre
             var aRetirer = new System.Collections.Generic.List<Entity>();
             for (int i = 0; i < ents.Length && aRetirer.Count < retires; i++)
                 if (sold[i].Regiment == e) aRetirer.Add(ents[i]);
+            var partis = new System.Collections.Generic.HashSet<Entity>(aRetirer);
+            var qp = em.CreateEntityQuery(typeof(Pavois));
+            using (var pe = qp.ToEntityArray(Allocator.Temp))
+            using (var pd = qp.ToComponentDataArray<Pavois>(Allocator.Temp))
+                for (int i = 0; i < pe.Length; i++) if (partis.Contains(pd[i].Porteur)) em.DestroyEntity(pe[i]);
             foreach (var x in aRetirer) em.DestroyEntity(x);
             Leves -= aRetirer.Count;
             Rangs.Reclasser(em, new System.Collections.Generic.List<Entity> { e });

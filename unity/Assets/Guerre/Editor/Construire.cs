@@ -226,6 +226,14 @@ namespace Guerre.EditeurOutils
             camGo.AddComponent<Commandement>().trait = trait;
 
             var bataille = new GameObject("Bataille").AddComponent<Bataille>();
+            var carreau = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            carreau.SetColor("_BaseColor", new Color(0.3f, 0.22f, 0.14f));
+            AssetDatabase.CreateAsset(carreau, Dossier + "/Settings/Carreau.mat");
+            var pavoisMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            pavoisMat.SetFloat("_Smoothness", 0.2f);
+            AssetDatabase.CreateAsset(pavoisMat, Dossier + "/Settings/Pavois.mat");
+            bataille.materiauCarreau = carreau;
+            bataille.materiauPavois = pavoisMat;
             bataille.materiaux = materiaux;
             bataille.maillages = maillages;
             bataille.terrain = terrain;

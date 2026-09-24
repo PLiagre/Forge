@@ -46,6 +46,7 @@ namespace Guerre
             {
                 var r = regs[i];
                 r.Melee = r.Contacts > 0 ? 2f : math.max(0, r.Melee - dt);
+                r.Tir = 0;
                 if (r.Effectif <= 0) { r.Ennemi = Entity.Null; regs[i] = r; continue; }
                 // La déroute n'est pas un ordre : c'est la moitié des hommes qui fuient. Le régiment
                 // cesse alors d'attaquer et se regroupe là où restent ceux qui tiennent ; il se
@@ -76,6 +77,20 @@ namespace Guerre
                 {
                     int j = ents.IndexOf(r.Ennemi);
                     if (j < 0 || regs[j].Effectif <= 0) { r.Ennemi = Entity.Null; r.Cible = r.Position; }
+                    else if (r.Arme == 2 && r.Contacts == 0 && math.length(regs[j].Position - r.Position) > (r.Profondeur + regs[j].Profondeur) * 0.5f + Abord)
+                    {
+                        // Des arbalétriers ne chargent pas : ils s'approchent à portée, s'arrêtent et tirent.
+                        // Si l'ennemi vient au contact, ils se défendent à la dague comme les autres.
+                        float2 vers = regs[j].Position - r.Position;
+                        float d = math.length(vers);
+                        r.FrontCible = math.normalizesafe(vers, r.Front);
+                        if (d > Armes.PorteeTir) r.Cible = regs[j].Position - r.FrontCible * (Armes.PorteeTir - 15f);
+                        else
+                        {
+                            if (math.distance(r.Cible, r.Position) > 1f && math.dot(r.Cible - r.Position, r.FrontCible) > 0) r.Cible = r.Position;
+                            r.Tir = 1;
+                        }
+                    }
                     else
                     {
                         float2 vers = regs[j].Position - r.Position;
@@ -170,7 +185,10 @@ namespace Guerre
         NativeParallelMultiHashMap<int, Voisin> grille;
         NativeQueue<Coup> coups;
         NativeParallelHashMap<int, float2> effroi;   // morts de l'image précédente, par case de 4 m et par camp
-        ComponentLookup<Regiment> regiments;
+        NativeQueue<Tir> tirs;
+        NativeParallelMultiHashMap<int, PavoisPlante> pavois;   // les pavois plantés, par case
+        NativeQueue<byte> evenements;                // 1 carreau arrêté par un pavois, 2 carreau au sol, 3 carreau tiré
+        ComponentLookup<Regiment> regiments, regimentsRW;
         ComponentLookup<Soldat> soldatsRW;
         EntityQuery soldats;
         uint image;
@@ -180,6 +198,10 @@ namespace Guerre
             grille = new NativeParallelMultiHashMap<int, Voisin>(16384, Allocator.Persistent);
             coups = new NativeQueue<Coup>(Allocator.Persistent);
             effroi = new NativeParallelHashMap<int, float2>(1024, Allocator.Persistent);
+            tirs = new NativeQueue<Tir>(Allocator.Persistent);
+            pavois = new NativeParallelMultiHashMap<int, PavoisPlante>(16384, Allocator.Persistent);
+            evenements = new NativeQueue<byte>(Allocator.Persistent);
+            regimentsRW = state.GetComponentLookup<Regiment>(false);
             regiments = state.GetComponentLookup<Regiment>(true);
             soldatsRW = state.GetComponentLookup<Soldat>(false);
             soldats = SystemAPI.QueryBuilder().WithAll<Soldat, LocalTransform>().Build();
@@ -192,6 +214,9 @@ namespace Guerre
             if (grille.IsCreated) grille.Dispose();
             if (coups.IsCreated) coups.Dispose();
             if (effroi.IsCreated) effroi.Dispose();
+            if (tirs.IsCreated) tirs.Dispose();
+            if (pavois.IsCreated) pavois.Dispose();
+            if (evenements.IsCreated) evenements.Dispose();
         }
 
         [BurstCompile]
@@ -204,23 +229,35 @@ namespace Guerre
                 grille.Capacity = n * 2;
             }
             regiments.Update(ref state);
+            regimentsRW.Update(ref state);
             soldatsRW.Update(ref state);
             var relief = SystemAPI.GetSingleton<Relief>().Blob;
             // Le pas est fixe (Bataille.PasSimulation) ; la borne ne sert qu'en cas d'appel hors du pas fixe.
             float dt = math.min(SystemAPI.Time.DeltaTime, 1f / 30f);
             if (dt <= 0) return;
-            var reglages = SystemAPI.TryGetSingleton<ReglagesSimulation>(out var rg) ? rg : new ReglagesSimulation { Corps = 1, Poussee = 1, Peur = 1 };
+            var reglages = SystemAPI.TryGetSingleton<ReglagesSimulation>(out var rg) ? rg : new ReglagesSimulation { Corps = 1, Poussee = 1, Peur = 1, Pavois = 1 };
+            var compte = SystemAPI.HasSingleton<CompteTir>() ? SystemAPI.GetSingletonEntity<CompteTir>() : Entity.Null;
             image++;
 
             var dep = new ViderGrille { Grille = grille }.Schedule(state.Dependency);
+            dep = new ViderPavois { Pavois = pavois }.Schedule(dep);
+            dep = new RemplirPavois { Plantes = pavois.AsParallelWriter() }.ScheduleParallel(dep);
             dep = new RemplirGrille { Grille = grille.AsParallelWriter(), Regiments = regiments }.ScheduleParallel(dep);
             dep = new Piloter
             {
                 Grille = grille, Regiments = regiments, Relief = relief, Dt = dt, Corps = reglages.Corps,
-                Poussee = reglages.Poussee, Peur = reglages.Peur, Effroi = effroi, Coups = coups.AsParallelWriter(), Graine = image * 2654435761u,
+                Poussee = reglages.Poussee, Peur = reglages.Peur, Pavois = reglages.Pavois, Effroi = effroi, Coups = coups.AsParallelWriter(),
+                Tirs = tirs.AsParallelWriter(), Graine = image * 2654435761u,
             }.ScheduleParallel(dep);
+            // Les carreaux en vol, puis ceux qu'on vient de tirer, puis les pavois qui suivent leurs porteurs.
+            dep = new Voler { Grille = grille, Plantes = pavois, Relief = relief, Dt = dt, Coups = coups.AsParallelWriter(), Evenements = evenements.AsParallelWriter(), Graine = image * 40503u }.ScheduleParallel(dep);
+            dep = new Lancer { Tirs = tirs, Evenements = evenements.AsParallelWriter() }.Schedule(dep);
+            dep = new ViderTirs { Tirs = tirs }.Schedule(dep);
             // Les morts de cette image seront vus par leurs voisins à l'image suivante.
-            dep = new Appliquer { Coups = coups, Soldats = soldatsRW, Effroi = effroi, Peur = reglages.Peur }.Schedule(dep);
+            dep = new Appliquer { Coups = coups, Soldats = soldatsRW, Regiments = regimentsRW, Effroi = effroi, Peur = reglages.Peur }.Schedule(dep);
+            if (compte != Entity.Null)
+                dep = new Compter { Evenements = evenements, Compte = SystemAPI.GetComponentLookup<CompteTir>(false), Entite = compte }.Schedule(dep);
+            else dep = new ViderEvenements { Evenements = evenements }.Schedule(dep);
             state.Dependency = dep;
         }
 
@@ -243,6 +280,29 @@ namespace Guerre
             public byte Camp, Arme, Fuite;
             public float Appui, Fatigue, Presse, Peur;
             public float2 Front;      // vers où il fait face : il ne pare que de ce côté
+            public float2 Regard;     // vers où il regarde : son pavois, planté, est devant lui
+            public byte Poste;        // 1 : son pavois est planté
+            public float Taille;      // hauteur de son corps : moindre à genou
+        }
+
+        public struct PavoisPlante { public float3 Base; public float2 Normale; }
+
+        [BurstCompile]
+        struct ViderPavois : IJob
+        {
+            public NativeParallelMultiHashMap<int, PavoisPlante> Pavois;
+            public void Execute() => Pavois.Clear();
+        }
+
+        [BurstCompile]
+        partial struct RemplirPavois : IJobEntity
+        {
+            public NativeParallelMultiHashMap<int, PavoisPlante>.ParallelWriter Plantes;
+            void Execute(in Pavois p)
+            {
+                if (p.Plante == 0) return;
+                Plantes.Add(Cle((int2)math.floor(p.Base.xz / Cellule)), new PavoisPlante { Base = p.Base, Normale = p.Normale });
+            }
         }
 
         public const float CaseEffroi = 4f;
@@ -267,6 +327,7 @@ namespace Guerre
                 {
                     P = p, V = s.Vitesse, E = e, Regiment = s.Regiment.Index, Camp = s.Camp, Arme = s.Arme, Fuite = s.Fuite,
                     Appui = Appui(s), Fatigue = s.Fatigue, Presse = s.Presse, Peur = s.Peur, Front = Regiments[s.Regiment].Front,
+                    Regard = s.Regard, Poste = s.Poste, Taille = math.lerp(1.75f, 1.2f, s.Abri),
                 });
             }
         }
@@ -279,8 +340,9 @@ namespace Guerre
             [ReadOnly] public BlobAssetReference<ReliefBlob> Relief;
             [ReadOnly] public NativeParallelHashMap<int, float2> Effroi;
             public NativeQueue<Coup>.ParallelWriter Coups;
+            public NativeQueue<Tir>.ParallelWriter Tirs;
             public float Dt;
-            public byte Corps, Poussee, Peur;
+            public byte Corps, Poussee, Peur, Pavois;
             public uint Graine;
 
             const float Masse = 80f;          // kg, homme et équipement
@@ -329,6 +391,7 @@ namespace Guerre
                 bool trouve = false; Voisin cible = default;
                 float2 menace = float2.zero; int ennemisProches = 0, camaradesProches = 0, ennemisHorsDeVue = 0;
                 float peurVoisins = 0; int nPeur = 0;
+                float devantX = 1e9f, devantSol = 0f;   // le camarade le plus proche sur sa ligne de tir
                 if (melee || r.Ennemi != Entity.Null || s.Fuite != 0 || s.Peur > 0.02f)
                 {
                     float portee = Armes.Portee(s.Arme), meilleur = portee * portee;
@@ -345,6 +408,8 @@ namespace Guerre
                             float l2 = math.lengthsq(d);
                             if (q.Camp == s.Camp)
                             {
+                                float x = math.dot(d, front), cote = math.dot(d, new float2(front.y, -front.x));
+                                if (x > 0.2f && x < devantX && math.abs(cote) < 0.35f) { devantX = x; devantSol = Sol.Hauteur(ref Relief.Value, q.P); }
                                 if (l2 < 1.5f * 1.5f && q.Fuite == 0) camaradesProches++;
                                 if (l2 < 2.4f * 2.4f) { peurVoisins += q.Peur; nPeur++; }
                                 continue;
@@ -525,7 +590,50 @@ namespace Guerre
                 // Les coups : l'ennemi le plus proche, devant soi, à portée de son arme (vu plus haut).
                 s.APortee = (byte)(trouve ? 1 : 0);
                 s.Recharge -= Dt * vigueur;
-                if (trouve)
+                // Le tir : un arbalétrier arrêté, que l'ennemi n'a pas encore atteint, vise un homme du
+                // régiment ennemi et lâche son carreau quand il a rechargé. La trajectoire est calculée
+                // pour atteindre le point visé ; la main tremble d'autant plus qu'on est fatigué.
+                bool tire = false;
+                if (s.Arme == 2 && r.Tir != 0 && !trouve && s.Fuite == 0 && v < 0.4f && Regiments.HasComponent(r.Ennemi))
+                {
+                    tire = true;
+                    if (s.Recharge <= 0)
+                    {
+                        var alea = Random.CreateFromIndex((uint)e.Index * 9973u + Graine);
+                        var en = Regiments[r.Ennemi];
+                        float2 droiteE = new float2(en.Front.y, -en.Front.x);
+                        float2 vise2 = en.Position + droiteE * alea.NextFloat(-0.5f, 0.5f) * en.Largeur + en.Front * alea.NextFloat(-0.5f, 0.5f) * en.Profondeur;
+                        float3 depart = new float3(pos.x, t.Position.y + 1.45f, pos.y) + new float3(front.x, 0, front.y) * 0.4f;
+                        float3 vise = new float3(vise2.x, Sol.Hauteur(ref Relief.Value, vise2) + 1.1f, vise2.y);
+                        float3 v0;
+                        // On ne tire pas dans le dos d'un camarade : si la trajectoire passe à hauteur de
+                        // sa tête, on attend (sans perdre son chargement) qu'elle se dégage.
+                        bool degage = true;
+                        if (devantX < 1e8f && Balistique(depart, vise, Armes.VitesseCarreau, out v0))
+                        {
+                            // La distance se compte depuis le départ du carreau, 40 cm devant le tireur.
+                            float vh = math.length(v0.xz), tempsV = math.max(devantX - 0.4f, 0f) / math.max(vh, 1f);
+                            float hauteur = depart.y + v0.y * tempsV - 0.5f * 9.81f * tempsV * tempsV;
+                            degage = hauteur > devantSol + 1.85f;
+                        }
+                        if (!degage) { }
+                        else if (Balistique(depart, vise, Armes.VitesseCarreau, out v0))
+                        {
+                            // Dispersion : un écart d'angle en hauteur et en direction, qui croît avec la fatigue.
+                            float sigma = math.radians(0.9f) * (1f + s.Fatigue);
+                            float2 g = Gauss(ref alea) * sigma;
+                            v0 = Tourner(v0, g.x, g.y);
+                            Tirs.Enqueue(new Tir { P = depart, V = v0, Degats = Armes.DegatsCarreau, Camp = s.Camp });
+                        }
+                        if (degage)
+                        {
+                            s.Recharge = Armes.RechargeArbalete * alea.NextFloat(0.8f, 1.2f);
+                            s.CoupT = 0;
+                            s.Fatigue += 0.005f;
+                        }
+                    }
+                }
+                if (trouve && !tire)
                 {
                     if (s.Recharge <= 0)
                     {
@@ -540,7 +648,7 @@ namespace Guerre
                         s.Fatigue += 0.01f;
                     }
                 }
-                else s.Recharge = math.max(s.Recharge, 0.4f);
+                else if (!tire) s.Recharge = math.max(s.Recharge, 0.4f);
                 s.CoupT += Dt;
 
                 // La fatigue monte avec l'effort et redescend au repos, plus lentement dans la presse.
@@ -550,8 +658,13 @@ namespace Guerre
                 // Le pas suit le chemin réellement parcouru : un homme bousculé ne marche pas sur place.
                 s.Phase = math.frac(s.Phase + v * Dt / Foulee);
                 anim.Value = new float4(s.Phase, math.smoothstep(0.12f, 0.6f, v), math.frac(s.Allure * 37.13f), 0);
-                float garde = combat.Value.y + math.clamp((trouve ? 1f : 0f) - combat.Value.y, -Dt * 3f, Dt * 3f);
-                combat.Value = new float4(math.min(s.CoupT, 0.999f), garde, 0, 0);
+                float garde = combat.Value.y + math.clamp((trouve || tire ? 1f : 0f) - combat.Value.y, -Dt * 3f, Dt * 3f);
+                // Derrière son pavois, on s'abrite à genou ; on ne se lève que pour viser, la dernière
+                // seconde et demie avant de lâcher son carreau.
+                bool enJoue = tire && s.Recharge < 1.5f;
+                float abri = s.Poste != 0 && !enJoue && !trouve ? 1f : 0f;
+                s.Abri += math.clamp(abri - s.Abri, -Dt * 2.5f, Dt * 2.5f);
+                combat.Value = new float4(math.min(s.CoupT, 0.999f), garde, s.Abri, 0);
                 float y = Sol.Hauteur(ref Relief.Value, pos);
 
                 // On regarde l'ennemi qu'on frappe ; sinon où l'on va, sauf à reculer : on garde alors le front.
@@ -560,6 +673,177 @@ namespace Guerre
                 var rot = quaternion.LookRotationSafe(new float3(regard.x, 0, regard.y), math.up());
                 t.Rotation = math.slerp(t.Rotation, rot, math.saturate(Dt * 5f));
                 t.Position = new float3(pos.x, y, pos.y);
+                // Le pavois : un arbalétrier arrêté, hors de la presse et qui ne fuit pas, le plante devant lui.
+                s.Regard = math.normalizesafe(math.forward(t.Rotation).xz, front);
+                s.Poste = (byte)(s.Arme == 2 && Pavois != 0 && r.SansPavois == 0 && v < 0.4f && !melee && s.Fuite == 0 ? 1 : 0);
+                s.Lieu = t.Position;
+            }
+
+            // Vitesse de départ pour atteindre un point avec une vitesse donnée, sur l'arc tendu.
+            static bool Balistique(float3 a, float3 b, float vitesse, out float3 v0)
+            {
+                const float g = 9.81f;
+                float2 h = b.xz - a.xz;
+                float dx = math.length(h), dy = b.y - a.y, v2 = vitesse * vitesse;
+                float disc = v2 * v2 - g * (g * dx * dx + 2f * dy * v2);
+                v0 = default;
+                if (disc < 0 || dx < 1f) return false;
+                float angle = math.atan((v2 - math.sqrt(disc)) / (g * dx));
+                float2 dir = h / dx;
+                v0 = new float3(dir.x * math.cos(angle), math.sin(angle), dir.y * math.cos(angle)) * vitesse;
+                return true;
+            }
+
+            static float2 Gauss(ref Random alea)
+            {
+                float u1 = math.max(alea.NextFloat(), 1e-6f), u2 = alea.NextFloat();
+                float rayon = math.sqrt(-2f * math.log(u1));
+                return new float2(rayon * math.cos(2 * math.PI * u2), rayon * math.sin(2 * math.PI * u2));
+            }
+
+            // Tourne une vitesse d'un angle en hauteur puis en direction.
+            static float3 Tourner(float3 v, float hauteur, float direction)
+            {
+                float3 axe = math.normalizesafe(math.cross(v, math.up()), new float3(1, 0, 0));
+                v = math.mul(quaternion.AxisAngle(axe, -hauteur), v);
+                return math.mul(quaternion.RotateY(direction), v);
+            }
+        }
+
+        // Les carreaux en vol : la gravité les courbe ; ils s'arrêtent sur le premier corps, le premier
+        // pavois ou le sol qu'ils rencontrent. Un carreau peut toucher un ami qui se trouve sur sa route.
+        [BurstCompile]
+        partial struct Voler : IJobEntity
+        {
+            [ReadOnly] public NativeParallelMultiHashMap<int, Voisin> Grille;
+            [ReadOnly] public NativeParallelMultiHashMap<int, PavoisPlante> Plantes;
+            [ReadOnly] public BlobAssetReference<ReliefBlob> Relief;
+            public NativeQueue<Coup>.ParallelWriter Coups;
+            public NativeQueue<byte>.ParallelWriter Evenements;
+            public float Dt;
+            public uint Graine;
+
+            const float Rayon = 0.22f;
+
+            void Execute(Entity e, ref Projectile p, ref LocalTransform t)
+            {
+                if (p.Etat == 0) return;
+                if (p.Etat >= 2)
+                {
+                    p.Vie -= Dt;
+                    if (p.Vie <= 0) { p.Etat = 0; t = LocalTransform.FromPositionRotationScale(new float3(0, -100, 0), quaternion.identity, 0); }
+                    return;
+                }
+                float3 a = p.P;
+                p.V.y -= 9.81f * Dt;
+                float3 b = a + p.V * Dt;
+                float3 d = b - a;
+                float meilleur = 1f; int quoi = 0; Voisin cible = default;
+                int2 c = (int2)math.floor(b.xz / Cellule);
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (!Grille.TryGetFirstValue(Cle(c + new int2(dx, dz)), out var q, out var it)) continue;
+                    do
+                    {
+                        float sol = Sol.Hauteur(ref Relief.Value, q.P);
+                        // Le corps : un cylindre debout, dont on cherche le point le plus proche du trajet.
+                        float2 d2 = d.xz;
+                        float l2 = math.lengthsq(d2);
+                        float u2 = l2 > 1e-8f ? math.saturate(math.dot(q.P - a.xz, d2) / l2) : 0f;
+                        float2 proche = a.xz + d2 * u2;
+                        float hauteur = a.y + d.y * u2;
+                        if (u2 < meilleur && math.lengthsq(proche - q.P) < Rayon * Rayon && hauteur > sol && hauteur < sol + q.Taille)
+                        { meilleur = u2; quoi = 2; cible = q; }
+                    } while (Grille.TryGetNextValue(out q, ref it));
+                }
+
+                // Les pavois plantés : des panneaux verticaux posés dans le monde, qu'on traverse ou non.
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (!Plantes.TryGetFirstValue(Cle(c + new int2(dx, dz)), out var pv, out var it)) continue;
+                    do
+                    {
+                        float2 centre = pv.Base.xz;
+                        float da = math.dot(a.xz - centre, pv.Normale), db = math.dot(b.xz - centre, pv.Normale);
+                        if (da * db >= 0) continue;
+                        float u = da / (da - db);
+                        float3 i = a + d * u;
+                        float cote = math.dot(i.xz - centre, new float2(-pv.Normale.y, pv.Normale.x));
+                        if (u < meilleur && math.abs(cote) < Armes.PavoisLargeur * 0.5f && i.y > pv.Base.y && i.y < pv.Base.y + Armes.PavoisHauteur)
+                        { meilleur = u; quoi = 1; }
+                    } while (Plantes.TryGetNextValue(out pv, ref it));
+                }
+
+                if (quoi == 1)
+                {
+                    p.Etat = 3; p.Vie = 8f; p.P = a + d * meilleur;
+                    Evenements.Enqueue(1);
+                }
+                else if (quoi == 2)
+                {
+                    var alea = Random.CreateFromIndex((uint)e.Index * 7919u + Graine);
+                    Coups.Enqueue(new Coup { Cible = cible.E, Degats = p.Degats * (1f - Armes.Armure(cible.Arme)) * alea.NextFloat(0.6f, 1.4f), Lieu = cible.P, Camp = cible.Camp });
+                    p.Etat = 0;
+                    t = LocalTransform.FromPositionRotationScale(new float3(0, -100, 0), quaternion.identity, 0);
+                    return;
+                }
+                else
+                {
+                    float sol = Sol.Hauteur(ref Relief.Value, b.xz);
+                    if (b.y <= sol) { p.Etat = 2; p.Vie = 8f; p.P = new float3(b.x, sol + 0.05f, b.z); Evenements.Enqueue(2); }
+                    else p.P = b;
+                }
+                t = LocalTransform.FromPositionRotation(p.P, quaternion.LookRotationSafe(p.V, math.up()));
+            }
+        }
+
+        // Les tirs de l'image prennent chacun un carreau libre du réservoir.
+        [BurstCompile]
+        partial struct Lancer : IJobEntity
+        {
+            public NativeQueue<Tir> Tirs;
+            public NativeQueue<byte>.ParallelWriter Evenements;
+            void Execute(ref Projectile p, ref LocalTransform t)
+            {
+                if (p.Etat != 0 || !Tirs.TryDequeue(out var tir)) return;
+                p = new Projectile { P = tir.P, V = tir.V, Degats = tir.Degats, Camp = tir.Camp, Etat = 1 };
+                t = LocalTransform.FromPositionRotation(tir.P, quaternion.LookRotationSafe(tir.V, math.up()));
+                Evenements.Enqueue(3);
+            }
+        }
+
+        [BurstCompile]
+        struct ViderTirs : IJob
+        {
+            public NativeQueue<Tir> Tirs;
+            public void Execute() => Tirs.Clear();
+        }
+
+        [BurstCompile]
+        struct ViderEvenements : IJob
+        {
+            public NativeQueue<byte> Evenements;
+            public void Execute() => Evenements.Clear();
+        }
+
+        [BurstCompile]
+        struct Compter : IJob
+        {
+            public NativeQueue<byte> Evenements;
+            public ComponentLookup<CompteTir> Compte;
+            public Entity Entite;
+            public void Execute()
+            {
+                var c = Compte[Entite];
+                while (Evenements.TryDequeue(out var ev))
+                {
+                    if (ev == 1) c.Pavois++;
+                    else if (ev == 2) c.AuSol++;
+                    else if (ev == 3) c.Tires++;
+                }
+                Compte[Entite] = c;
             }
         }
 
@@ -568,6 +852,7 @@ namespace Guerre
         {
             public NativeQueue<Coup> Coups;
             public ComponentLookup<Soldat> Soldats;
+            public ComponentLookup<Regiment> Regiments;
             public NativeParallelHashMap<int, float2> Effroi;
             public byte Peur;
             public void Execute()
@@ -579,6 +864,8 @@ namespace Guerre
                     var s = Soldats[c.Cible];
                     bool vivant = s.Sante > 0;
                     s.Sante -= c.Degats;
+                    s.Touches++;
+                    if (Regiments.HasComponent(s.Regiment)) { var rg = Regiments[s.Regiment]; rg.Touches++; Regiments[s.Regiment] = rg; }
                     // Être blessé fait peur.
                     if (Peur != 0) s.Peur = math.saturate(s.Peur + c.Degats * 0.6f);
                     Soldats[c.Cible] = s;

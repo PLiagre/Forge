@@ -1,6 +1,6 @@
 {
     "statut": "valide",
-    "date_utc": "2026-09-24T13:22:51.4999611Z",
+    "date_utc": "2026-09-24T18:58:17.6495911Z",
     "sans_corps": false,
     "formations": [
         {
@@ -9,7 +9,7 @@
             "largeur_mesuree": 16.73480224609375,
             "a_sa_place": 1.0,
             "alignement_front": 1.0,
-            "secondes": 74.43912506103516,
+            "secondes": 74.43881225585938,
             "arrive": true,
             "trainards": []
         },
@@ -19,7 +19,7 @@
             "largeur_mesuree": 43.218505859375,
             "a_sa_place": 0.9919999837875366,
             "alignement_front": 1.0,
-            "secondes": 6.734619140625,
+            "secondes": 6.736015319824219,
             "arrive": true,
             "trainards": [
                 "n°80 à 1,5 m, place float2(-21,45f, 1,1f), se tient en (-20,1, 1,4)",
@@ -29,9 +29,9 @@
     ],
     "obstacle": {
         "traversee_max": 0.0,
-        "distance_min_m": 0.79490727186203,
-        "secondes": 70.00386047363281,
-        "ecart_moyen_tenant_m": 0.010759634897112847
+        "distance_min_m": 0.7945399880409241,
+        "secondes": 70.00180053710938,
+        "ecart_moyen_tenant_m": 0.010792305693030358
     },
     "motifs": []
 }
