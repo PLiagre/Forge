@@ -10,11 +10,16 @@ approuvée, et nomme les chemins qui demandent le propriétaire.
 Ce lot porte sur l'atelier, sans changement du monde simulé. Il réalise la
 demande #75. La liste `zone` de `[integration]` dans `atelier.toml`, lue
 depuis master par le workflow, fait autorité. Elle contient `atelier.toml`,
-`AGENTS.md`, `.github/` et `outils/`. Les modules des outils sont chargés
-ensemble par la commande : un module laissé hors zone pourrait neutraliser
-la garde après une fusion automatique. Cette extension par rapport aux sept
-chemins de la demande #75 réserve aussi les changements du tableau et des
-autres outils au propriétaire ; elle exige sa validation explicite.
+`AGENTS.md`, `.github/`, `outils/relecture.py`, `outils/integration.py`,
+`outils/demandes.py`, `outils/perimetre.py`, ainsi que les dépendances directes
+de la porte : `outils/__init__.py`, `outils/porte.py`, `outils/github.py` et
+`outils/registre.py`. L'intégration possède une entrée dédiée qui ne charge
+pas les modules ordinaires des outils. Le tableau reste hors zone.
+Python est lancé avec `-I -S` : ni la racine du dépôt, ni `PYTHONPATH`, ni les
+modules de personnalisation ne peuvent remplacer une bibliothèque chargée
+par la porte. Le paquet protégé est chargé par son chemin exact, sans ajouter
+la racine aux chemins de recherche. La liste affinée exige la validation du
+propriétaire ; l'extension à tout `outils/` a été refusée.
 
 Une entrée terminée par `/` couvre un dossier et ses descendants ; les autres
 entrées désignent un fichier exact. Un renommage examine l'ancien chemin
@@ -41,15 +46,19 @@ révision. Aucune protection GitHub ne change.
 
 En écriture : `outils/integration.py` (examen des chemins),
 `outils/github.py` (lecture complète des fichiers), `outils/__main__.py`
-(transmission des fichiers et de la zone à l'intégration et au tableau),
+(réutilisation de la porte par la commande ordinaire et le tableau),
+`outils/porte.py` (entrée et examen isolés), `outils/demandes.py` (charger
+la saisie et le palier seulement quand ces fonctions sont appelées),
 `outils/registre.py` (lecture et validation de la zone), `atelier.toml`
 (déclaration de la zone), `.github/scripts/integrer.sh` (lier le rejeu à la
-révision jugée), `outils/tests/test_integration.py`,
+révision jugée), `.github/scripts/decider-integration.py` (chargement isolé),
+`.github/workflows/integration.yml` (appel de cette entrée avec `-I -S`),
+`outils/tests/test_integration.py`,
 `outils/tests/test_lecture.py` et `outils/tests/test_scripts.py` (ajout de cas). La fiche 256 relève du
 périmètre implicite du lot.
 
 Tout autre chemin est interdit, dont `sim/`, `atelier/`, les autres fichiers de `.github/`,
-`AGENTS.md`, `outils/relecture.py`, `outils/demandes.py`, les autres briefs
+`AGENTS.md`, `outils/relecture.py`, les autres briefs
 et les autres fiches. Aucun test existant n'est affaibli.
 
 ## Conditions de succès
@@ -62,6 +71,9 @@ valide : aucune ne rend fusionner ni rebaser. La même PR qui ne touche
 que des fichiers ordinaires suit la décision habituelle. Le nombre de cas
 vient de la zone ; une zone sans cas échoue. Ajouter un suffixe à un nom de
 fichier protégé ne le transforme pas en fichier protégé.
+La même suite vérifie que le tableau reste ordinaire, que chaque module
+effectivement chargé par l'entrée dédiée est protégé et que des modules
+ordinaires hostiles ne sont jamais exécutés par cette entrée.
 
 ### SC2 — L'absence de configuration ou de preuve retient
 
