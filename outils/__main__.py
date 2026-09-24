@@ -59,7 +59,7 @@ def _verdict(gh: github.Github, numero: int, revision: str) -> relecture.Verdict
     )
 
 
-def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integration.PR:
+def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes, zone=()) -> integration.PR:
     """Une PR, avec ce qu'il faut pour décider — et pas un appel de plus.
 
     Un brouillon ou une branche hors périmètre est écarté avant d'aller
@@ -79,6 +79,13 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integr
     sha = detail["head"]["sha"]
     try:
         fichiers = github.fichiers_pr(gh, brut["number"], detail.get("changed_files"))
+        if zone:
+            cible = detail.get("base")
+            if not isinstance(cible, dict) or cible.get("ref") != base:
+                raise github.GithubErreur("base de la PR changée ou illisible")
+            base_sha = cible.get("sha")
+            proteges = github.fichiers_proteges(gh, base_sha, sha, zone)
+            fichiers = tuple(sorted(set(fichiers) | set(proteges)))
         controles = github.controles(gh, sha)
         retard = github.retard(gh, base, sha)
         verdict = _verdict(gh, brut["number"], sha)
@@ -87,6 +94,11 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integr
         apres = gh.get(f"pulls/{brut['number']}")
         if apres.get("head", {}).get("sha") != sha:
             raise github.GithubErreur("fichiers de la PR : révision changée pendant la lecture")
+        if zone:
+            cible_apres = apres.get("base")
+            if (not isinstance(cible_apres, dict) or cible_apres.get("ref") != base
+                    or cible_apres.get("sha") != base_sha):
+                raise github.GithubErreur("base de la PR changée pendant la lecture")
     except github.GithubErreur as exc:
         return replace(integration.depuis_github(brut, detail, interne=True),
                        motif_fichiers=f"fichiers de la PR illisibles : {exc}")
@@ -101,7 +113,7 @@ def _integration(args: argparse.Namespace) -> int:
     base = args.base or registre.branchement(racine)["base"]
     gh = github.Github(args.depot, args.jeton)
     prs = [
-        _pr_integrable(gh, brut, base, reglage["branches"])
+        _pr_integrable(gh, brut, base, reglage["branches"], reglage["zone"])
         for brut in gh.liste("pulls", state="open", base=base)
     ]
     rapport = integration.decider(prs, reglage["controles"], reglage["branches"], reglage["zone"])
@@ -171,7 +183,7 @@ def _examens(gh, base, reglage):
     """
     examens = []
     for brut in gh.liste("pulls", state="open", base=base):
-        pr = _pr_integrable(gh, brut, base, reglage["branches"])
+        pr = _pr_integrable(gh, brut, base, reglage["branches"], reglage["zone"])
         examens.append((pr, integration.examiner(pr, reglage["controles"], reglage["branches"], reglage["zone"])))
     return examens
 

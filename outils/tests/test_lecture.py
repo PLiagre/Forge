@@ -774,3 +774,86 @@ def test_zone_une_suppression_garde_le_chemin_supprime():
         def liste(self, chemin, **kwargs):
             return [{"filename": "AGENTS.md", "status": "removed"}]
     assert github.fichiers_pr(Faux(), 12, 1) == ("AGENTS.md",)
+
+
+class _GitImmuable:
+    """La base de PR, son ancêtre commun et sa tête sont trois commits distincts."""
+    def __init__(self, avant, apres):
+        self.appels = []
+        self.objets = {
+            "compare/" + "f" * 40 + "..." + "a" * 40: {"merge_base_commit": {"sha": "e" * 40}},
+            "git/commits/" + "e" * 40: {"sha": "e" * 40, "tree": {"sha": "c" * 40}},
+            "git/commits/" + "a" * 40: {"sha": "a" * 40, "tree": {"sha": "d" * 40}},
+            "git/trees/" + "c" * 40: {"sha": "c" * 40, "truncated": False, "tree": avant},
+            "git/trees/" + "d" * 40: {"sha": "d" * 40, "truncated": False, "tree": apres},
+        }
+
+    def get(self, chemin, **params):
+        from copy import deepcopy
+        self.appels.append((chemin, params))
+        return deepcopy(self.objets[chemin])
+
+
+def _objet_zone(nom="AGENTS.md", sha="1", mode="100644", genre="blob"):
+    return {"path": nom, "sha": sha * 40, "mode": mode, "type": genre}
+
+
+@pytest.mark.parametrize("avant,apres,zone,attendu", [
+    ([_objet_zone()], [_objet_zone(sha="2")], ("AGENTS.md",), ("AGENTS.md",)),
+    ([_objet_zone()], [_objet_zone(mode="100755")], ("AGENTS.md",), ("AGENTS.md",)),
+    ([_objet_zone()], [], ("AGENTS.md",), ("AGENTS.md",)),
+    ([], [_objet_zone()], ("AGENTS.md",), ("AGENTS.md",)),
+    ([_objet_zone(".github", mode="040000", genre="tree")],
+     [_objet_zone(".github", sha="2", mode="040000", genre="tree")], (".github/",), (".github",)),
+    ([_objet_zone("AGENTS.md.autre")], [_objet_zone("AGENTS.md.autre", sha="2")], ("AGENTS.md",), ()),
+    ([_objet_zone()], [_objet_zone(), _objet_zone("ordinaire.txt")], ("AGENTS.md",), ()),
+])
+def test_zone_les_objets_immuables_protegent_les_chemins_et_leurs_modes(avant, apres, zone, attendu):
+    from outils import github
+    faux = _GitImmuable(avant, apres)
+    assert github.fichiers_proteges(faux, "f" * 40, "a" * 40, zone) == attendu
+    assert faux.appels
+    assert all("recursive" not in params for _, params in faux.appels)
+    # L'ancêtre commun est lu, pas l'état plus récent de master.
+    assert any(chemin == "git/commits/" + "e" * 40 for chemin, _ in faux.appels)
+
+
+@pytest.mark.parametrize("change", [False, True])
+def test_zone_un_fichier_dans_un_dossier_reste_un_chemin_exact(change):
+    from outils import github
+    faux = _GitImmuable([_objet_zone("outils", "3", "040000", "tree")],
+                        [_objet_zone("outils", "4", "040000", "tree")])
+    for arbre, contenu in (("3", "1"), ("4", "2" if change else "1")):
+        faux.objets["git/trees/" + arbre * 40] = {
+            "sha": arbre * 40, "truncated": False,
+            "tree": [_objet_zone("integration.py", contenu), _objet_zone("autre.py", arbre)],
+        }
+    attendu = ("outils/integration.py",) if change else ()
+    assert github.fichiers_proteges(faux, "f" * 40, "a" * 40, ("outils/integration.py",)) == attendu
+
+
+@pytest.mark.parametrize("alteration", [
+    {"truncated": True}, {"truncated": None}, {"sha": "0" * 40}, {"tree": None},
+    {"tree": [None]}, {"tree": [_objet_zone(), _objet_zone()]},
+    {"tree": [_objet_zone("../AGENTS.md")]}, {"tree": [_objet_zone(mode="inconnu")]},
+    {"tree": [_objet_zone(sha="?")]}, {"tree": [_objet_zone(genre="tree")]},
+])
+def test_zone_un_arbre_illisible_ne_prouve_pas_l_absence_de_changement(alteration):
+    from outils import github
+    faux = _GitImmuable([_objet_zone()], [_objet_zone()])
+    faux.objets["git/trees/" + "c" * 40].update(alteration)
+    with pytest.raises(github.GithubErreur):
+        github.fichiers_proteges(faux, "f" * 40, "a" * 40, ("AGENTS.md",))
+
+
+@pytest.mark.parametrize("chemin,objet", [
+    ("compare/" + "f" * 40 + "..." + "a" * 40, {}),
+    ("git/commits/" + "a" * 40, {"sha": "b" * 40, "tree": {"sha": "d" * 40}}),
+    ("git/commits/" + "a" * 40, {"sha": "a" * 40, "tree": {}}),
+])
+def test_zone_un_commit_ou_ancetre_inconnu_retient(chemin, objet):
+    from outils import github
+    faux = _GitImmuable([_objet_zone()], [_objet_zone()])
+    faux.objets[chemin] = objet
+    with pytest.raises(github.GithubErreur):
+        github.fichiers_proteges(faux, "f" * 40, "a" * 40, ("AGENTS.md",))

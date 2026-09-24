@@ -125,6 +125,7 @@ class _GithubDecision:
         self.bruts = bruts
         self.detail = detail
         self.detail.setdefault("changed_files", 1)
+        self.detail.setdefault("base", {"sha": "f" * 40, "ref": "master"})
         self.behind_by = behind_by
         self.check_runs = check_runs
 
@@ -142,6 +143,10 @@ class _GithubDecision:
         raise AssertionError(chemin)
 
     def get(self, chemin, **_k):
+        if chemin.startswith("git/commits/"):
+            return {"sha": chemin.rsplit("/", 1)[1], "tree": {"sha": "c" * 40}}
+        if chemin.startswith("git/trees/"):
+            return {"sha": "c" * 40, "truncated": False, "tree": []}
         if chemin.startswith("pulls/"):
             return self.detail
         if "check-runs" in chemin:
@@ -149,7 +154,7 @@ class _GithubDecision:
         if "status" in chemin:
             return {"statuses": []}
         if chemin.startswith("compare/"):
-            return {"behind_by": self.behind_by}
+            return {"behind_by": self.behind_by, "merge_base_commit": {"sha": "f" * 40}}
         raise AssertionError(chemin)
 
 
@@ -697,3 +702,65 @@ def test_zone_une_revision_changee_pendant_les_revues_retient(retard):
     decision = integration.examiner(obtenu, REQUIS, PREFIXES, _zone_du_depot())
     assert decision.action == integration.RIEN
     assert "révision" in decision.raison
+
+
+@pytest.mark.parametrize("retard", [0, 1])
+def test_zone_un_aller_retour_de_branche_ne_cache_pas_le_commit_protege(tmp_path, monkeypatch, capsys, retard):
+    from copy import deepcopy
+
+    class AllerRetour(_GithubDecision):
+        def get(self, chemin, **kwargs):
+            if chemin.startswith("git/commits/"):
+                sha = chemin.rsplit("/", 1)[1]
+                return {"sha": sha, "tree": {"sha": ("c" if sha == "f" * 40 else "d") * 40}}
+            if chemin.startswith("git/trees/"):
+                sha = chemin.rsplit("/", 1)[1]
+                return {"sha": sha, "truncated": False, "tree": [
+                    {"path": "AGENTS.md", "type": "blob", "mode": "100644",
+                     "sha": ("e" if sha == "c" * 40 else "b") * 40}]}
+            resultat = deepcopy(super().get(chemin, **kwargs))
+            if chemin.startswith("compare/"):
+                resultat["merge_base_commit"] = {"sha": "f" * 40}
+            return resultat
+
+        def liste(self, chemin, **kwargs):
+            # L'API mutable donne le diff de B, mais le détail initial et
+            # final donne A. Les arbres de A touchent réellement AGENTS.md.
+            if chemin.endswith("/files"):
+                return [{"filename": "ordinaire.txt", "status": "modified"}]
+            return super().liste(chemin, **kwargs)
+
+    _atelier_integration(tmp_path, REQUIS, PREFIXES)
+    brut = {"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}}}
+    faux = AllerRetour([brut], {"head": {"sha": "a" * 40, "ref": "agent/049-x"},
+                               "base": {"sha": "f" * 40, "ref": "master"}, "mergeable": True}, retard,
+                      [{"name": nom, "status": "completed", "conclusion": "success"} for nom in REQUIS])
+    code, io = _cli_integration(tmp_path, monkeypatch, capsys, faux)
+    assert code == 0
+    assert io.out == "RIEN\n"
+    assert "zone protégée" in io.err
+
+
+@pytest.mark.parametrize("moment", [1, 2])
+def test_zone_une_pr_retargetee_pendant_l_examen_retient(tmp_path, monkeypatch, capsys, moment):
+    from copy import deepcopy
+
+    class Retargetee(_GithubDecision):
+        lectures = 0
+
+        def get(self, chemin, **kwargs):
+            resultat = deepcopy(super().get(chemin, **kwargs))
+            if chemin == "pulls/200":
+                self.lectures += 1
+                if self.lectures == moment:
+                    resultat["base"]["ref"] = "autre"
+            return resultat
+
+    _atelier_integration(tmp_path, REQUIS, PREFIXES)
+    brut = {"number": 200, "head": {"ref": "agent/049-x", "repo": {"full_name": "O/R"}}}
+    faux = Retargetee([brut], {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True}, 0,
+                     [{"name": nom, "status": "completed", "conclusion": "success"} for nom in REQUIS])
+    code, io = _cli_integration(tmp_path, monkeypatch, capsys, faux)
+    assert code == 0
+    assert io.out == "RIEN\n"
+    assert "base" in io.err
