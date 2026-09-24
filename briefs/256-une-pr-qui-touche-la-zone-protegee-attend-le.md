@@ -22,7 +22,10 @@ illisible ne vaut jamais absence de changement protégé. Un changement de
 révision pendant la lecture retient la PR. La vérification de révision vient
 après toutes les lectures. Le geste de rejeu compare la tête courante à la
 révision jugée, puis transmet cette même révision à GitHub : une poussée
-entre la décision et le geste ne doit pas contourner la garde.
+entre la décision et le geste ne doit pas contourner la garde. La zone est
+aussi comparée dans les objets Git immuables entre l'ancêtre commun et la
+révision jugée : un aller-retour de la branche pendant la lecture des fichiers
+ne peut pas masquer un changement protégé. Un objet illisible ou tronqué retient.
 
 Le refus précède le rejeu comme la fusion. La raison commence par « zone
 protégée : le propriétaire fusionne ». Une zone absente, vide ou mal formée
@@ -63,7 +66,11 @@ La même commande refuse zone absente, vide ou mal formée, ainsi que fichiers
 illisibles, manquants et changement de révision. La ligne de commande ne
 rend jamais un geste de fusion dans ces cas. Un cas fait changer la tête
 pendant la lecture des revues, après celle des fichiers : il doit aussi
-retenir la PR. `python3 -m pytest outils/tests/test_scripts.py -k zone -q`
+retenir la PR. Un autre fait lire les fichiers ordinaires d'une révision
+intermédiaire puis revenir à la révision protégée : la preuve par les objets
+Git retient fusion et rejeu. Les cas de `test_lecture.py -k zone` vérifient
+aussi fichiers exacts, dossiers, modes, suppressions et objets incomplets.
+`python3 -m pytest outils/tests/test_scripts.py -k zone -q`
 vérifie sur le banc que le rejeu refuse une révision jugée absente ou
 différente de la tête courante, sans appeler `update-branch`, et transmet
 le SHA jugé quand les deux révisions concordent. Une PR venue d'un fork reste
