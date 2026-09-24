@@ -552,6 +552,17 @@ def _zone_du_depot():
     return zone
 
 
+def test_zone_les_modules_des_outils_ne_peuvent_pas_neutraliser_la_garde():
+    from pathlib import Path
+    racine = Path(__file__).resolve().parents[2]
+    chemins = sorted(p.relative_to(racine).as_posix() for p in (racine / "outils").rglob("*.py"))
+    assert chemins, "une zone sans module ne prouve rien"
+    for chemin in chemins:
+        decision = integration.examiner(pr(fichiers=(chemin,)), REQUIS, PREFIXES, _zone_du_depot())
+        assert decision.action == integration.RIEN, chemin
+        assert "zone protégée" in decision.raison, chemin
+
+
 @pytest.mark.parametrize("retard", [0, 3])
 def test_zone_chaque_entree_retient_avant_fusion_et_rejeu(retard):
     zone = _zone_du_depot()
@@ -561,7 +572,7 @@ def test_zone_chaque_entree_retient_avant_fusion_et_rejeu(retard):
         assert decision.action == integration.RIEN, entree
         assert decision.raison.startswith("zone protégée : le propriétaire fusionne"), entree
         assert chemin in decision.raison
-    temoin = integration.examiner(pr(retard=retard, fichiers=("outils/tableau.py",)), REQUIS, PREFIXES, zone)
+    temoin = integration.examiner(pr(retard=retard, fichiers=("ordinaire.txt",)), REQUIS, PREFIXES, zone)
     assert temoin.action == (integration.REBASER if retard else integration.FUSIONNER)
 
 
