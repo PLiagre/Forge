@@ -13,7 +13,7 @@ namespace Guerre.EditeurOutils
     //   Unity.exe -batchmode -projectPath unity -executeMethod Guerre.EditeurOutils.Construire.Tout -quit
     // Le joueur se compile dans un second Unity : un réglage changé (Input System)
     // dans la même session rend le build incompatible avec l'éditeur.
-    public static class Construire
+    public static partial class Construire
     {
         const string Dossier = "Assets/Guerre";
         const string Scene = Dossier + "/Scenes/Bataille_Vallee.unity";
@@ -26,7 +26,8 @@ namespace Guerre.EditeurOutils
             Reglages();
             var pipeline = Pipeline();
             Carte(out var terrain);
-            ConstruireScene(terrain, pipeline);
+            var (materiaux, maillages) = Soldats();
+            ConstruireScene(terrain, pipeline, materiaux, maillages);
             Debug.Log("[Construire] scène prête : " + Scene);
         }
 
@@ -181,7 +182,7 @@ namespace Guerre.EditeurOutils
             return s;
         }
 
-        static void ConstruireScene(TerrainData td, UniversalRenderPipelineAsset pipeline)
+        static void ConstruireScene(TerrainData td, UniversalRenderPipelineAsset pipeline, Material[] materiaux, Mesh[] maillages)
         {
             Directory.CreateDirectory(Dossier + "/Scenes");
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -213,10 +214,6 @@ namespace Guerre.EditeurOutils
             terrain.basemapDistance = 1500;
             terrain.drawInstanced = true;
 
-            var matSoldat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            matSoldat.SetFloat("_Smoothness", 0.25f);
-            matSoldat.enableInstancing = true;
-            AssetDatabase.CreateAsset(matSoldat, Dossier + "/Settings/Soldat.mat");
 
             var camGo = new GameObject("Caméra");
             camGo.tag = "MainCamera";
@@ -229,7 +226,8 @@ namespace Guerre.EditeurOutils
             camGo.AddComponent<Commandement>().trait = trait;
 
             var bataille = new GameObject("Bataille").AddComponent<Bataille>();
-            bataille.materiauSoldat = matSoldat;
+            bataille.materiaux = materiaux;
+            bataille.maillages = maillages;
             bataille.terrain = terrain;
 
             new GameObject("Performance").AddComponent<Cadence>();

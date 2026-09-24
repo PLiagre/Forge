@@ -17,3 +17,7 @@ sorties/logs/
 sorties/**/joueur.log
 sorties/mesure-sabotage/
 sorties/essai-ordres-sans-corps/
+sorties/mesure-sans-animation/
+fabrique/sorties/*.vat
+fabrique/sorties/*.blend
+fabrique/sorties/*.blend1

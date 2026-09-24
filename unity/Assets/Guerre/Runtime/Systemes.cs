@@ -169,7 +169,9 @@ namespace Guerre
             const float Acceleration = 3.5f;  // m/s² : un homme en armure ne vire pas net
             const float VitesseMax = 2.6f;    // m/s : le pas de course pour rattraper sa place
 
-            void Execute(Entity e, ref Soldat s, ref LocalTransform t)
+            const float Foulee = 1.5f;        // m parcourus par cycle de marche cuit (deux pas)
+
+            void Execute(Entity e, ref Soldat s, ref LocalTransform t, ref AnimEtat anim)
             {
                 var r = Regiments[s.Regiment];
                 float2 front = r.Front;
@@ -250,10 +252,10 @@ namespace Guerre
                 }
                 s.Ecart = math.distance(pos, place);
 
-                // Le pas : une légère élévation à chaque foulée, proportionnelle à l'allure.
-                s.Phase += v * Dt * 3.4f;
-                float marche = math.saturate(v / 1.2f);
-                float y = Sol.Hauteur(ref Relief.Value, pos) + math.abs(math.sin(s.Phase)) * 0.06f * marche;
+                // Le pas suit le chemin réellement parcouru : un homme bousculé ne marche pas sur place.
+                s.Phase = math.frac(s.Phase + v * Dt / Foulee);
+                anim.Value = new float4(s.Phase, math.smoothstep(0.12f, 0.6f, v), math.frac(s.Allure * 37.13f), 0);
+                float y = Sol.Hauteur(ref Relief.Value, pos);
 
                 // On regarde où l'on va, sauf quand on recule : on garde alors l'ennemi en face.
                 float2 dirV = v > 0.35f ? s.Vitesse / v : front;

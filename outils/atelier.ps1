@@ -1,15 +1,17 @@
 ﻿# Atelier de Citadelle-Guerre.
-#   powershell -File outils/atelier.ps1 construire   # pipeline, vallée, scène
+#   powershell -File outils/atelier.ps1 soldats      # fabriquer les soldats dans Blender (fabrique/sorties)
+#   powershell -File outils/atelier.ps1 construire   # soldats, pipeline, vallée, scène
 #   powershell -File outils/atelier.ps1 joueur       # construire + joueur Windows
-#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 et 2, avec leurs contre-épreuves
+#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 3, avec leurs contre-épreuves
 #   powershell -File outils/atelier.ps1 ouvrir       # ouvrir l'éditeur
-param([Parameter(Mandatory)][ValidateSet('construire','joueur','mesurer','ouvrir')][string]$action,
+param([Parameter(Mandatory)][ValidateSet('soldats','construire','joueur','mesurer','ouvrir')][string]$action,
       [int]$soldats = 10000)
 
 $ErrorActionPreference = 'Stop'
 $racine = Split-Path $PSScriptRoot -Parent
 $projet = Join-Path $racine 'unity'
 $unity = 'C:\Program Files\Unity\Hub\Editor\6000.0.43f1\Editor\Unity.exe'
+$blender = 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
 $logs = Join-Path $racine 'sorties\logs'
 New-Item -ItemType Directory -Force $logs | Out-Null
 
@@ -20,6 +22,15 @@ function Unity-Batch([string]$methode, [string]$nom) {
     $p = Start-Process $unity -ArgumentList @('-batchmode','-quit','-projectPath',"`"$projet`"",'-executeMethod',$methode,'-logFile',"`"$log`"") -Wait -PassThru -NoNewWindow
     if ($p.ExitCode -ne 0) { Write-Host "Échec de Unity ($($p.ExitCode)). Journal : $log"; Select-String -Path $log -Pattern 'error CS|Exception|\[Construire\]' | Select-Object -First 30 | ForEach-Object { $_.Line }; exit 1 }
     Select-String -Path $log -Pattern '\[Construire\]' | ForEach-Object { $_.Line }
+}
+
+# Les soldats : modelés, posés et cuits par Blender, sans interface.
+function Soldats {
+    $sortie = Join-Path $racine 'fabrique\sorties'
+    $log = Join-Path $logs 'soldats.log'
+    $p = Start-Process $blender -ArgumentList @('-b','--python-exit-code','1','--python',"`"$racine\fabrique\soldats.py`"",'--',"`"$sortie`"") -Wait -PassThru -NoNewWindow -RedirectStandardOutput $log
+    if ($p.ExitCode -ne 0) { Write-Host "Échec de Blender. Journal : $log"; exit 1 }
+    Select-String -Path $log -Pattern '\[Soldats\]' | ForEach-Object { $_.Line }
 }
 
 # Le joueur compilé, lancé avec un mode d'essai ; renvoie son rapport JSON.
@@ -36,23 +47,28 @@ function Lancer([string]$dossier, [string[]]$extra, [string]$fichier) {
 
 switch ($action) {
     'ouvrir'     { Start-Process $unity -ArgumentList @('-projectPath',"`"$projet`"") }
-    'construire' { Unity-Batch 'Guerre.EditeurOutils.Construire.Tout' 'construire' }
-    'joueur'     { Unity-Batch 'Guerre.EditeurOutils.Construire.Tout' 'construire'; Unity-Batch 'Guerre.EditeurOutils.Construire.Joueur' 'joueur' }
+    'soldats'    { Soldats }
+    'construire' { Soldats; Unity-Batch 'Guerre.EditeurOutils.Construire.Tout' 'construire' }
+    'joueur'     { Soldats; Unity-Batch 'Guerre.EditeurOutils.Construire.Tout' 'construire'; Unity-Batch 'Guerre.EditeurOutils.Construire.Joueur' 'joueur' }
     'mesurer' {
-        Unity-Batch 'Guerre.EditeurOutils.Construire.Tout' 'construire'; Unity-Batch 'Guerre.EditeurOutils.Construire.Joueur' 'joueur'
+        Soldats; Unity-Batch 'Guerre.EditeurOutils.Construire.Tout' 'construire'; Unity-Batch 'Guerre.EditeurOutils.Construire.Joueur' 'joueur'
         $echecs = 0
 
-        # Jalon 1 : la foule, à 60 images/s.
+        # Jalons 1 et 3 : la foule animée, à 60 images/s.
         $r = Lancer (Join-Path $racine 'sorties\mesure') @('-guerre-mesure') 'mesure.json'
         if ($null -eq $r) { exit 1 }
         $r.vues | ForEach-Object { '{0,-22} p95 {1,6:N2} ms  médiane {2,6:N2} ms  {3,6:N0} i/s' -f $_.nom, $_.p95_ms, $_.mediane_ms, $_.fps_moyen }
-        "soldats {0}/{1}, déplacement moyen {2:N1} m, pixels changés par les soldats {3:P1}" -f $r.soldats_presents, $r.soldats_demandes, $r.deplacement_moyen_m, $r.pixels_changes_par_les_soldats
-        "jalon 1 : $($r.statut) $($r.motifs -join ' | ')"
+        "soldats {0}/{1}, déplacement moyen {2:N1} m, pixels changés par les soldats {3:P1}, par l'animation {4:P2}, triangles par soldat {5}" -f $r.soldats_presents, $r.soldats_demandes, $r.deplacement_moyen_m, $r.pixels_changes_par_les_soldats, $r.pixels_changes_par_l_animation, ($r.triangles_par_soldat -join '/')
+        "jalons 1 et 3 : $($r.statut) $($r.motifs -join ' | ')"
         if ($r.statut -ne 'valide') { $echecs++ }
         # Une preuve qui ne peut pas échouer ne prouve rien : un soldat retiré doit la faire rougir.
         $s = Lancer (Join-Path $racine 'sorties\mesure-sabotage') @('-guerre-mesure','-guerre-sabotage') 'mesure.json'
         if ($null -eq $s -or $s.statut -ne 'echec') { Write-Host 'La contre-épreuve du jalon 1 n''a pas échoué : la mesure ne prouve rien.'; $echecs++ }
         else { "contre-épreuve 1 : échec attendu obtenu ($($s.motifs -join ' | '))" }
+        # Le shader privé de son animation cuite : la preuve de l'animation doit rougir.
+        $a = Lancer (Join-Path $racine 'sorties\mesure-sans-animation') @('-guerre-mesure','-guerre-sans-animation') 'mesure.json'
+        if ($null -eq $a -or $a.soldats_animes) { Write-Host 'Sans animation, la preuve de l''animation n''a pas échoué : elle ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 3 (sans animation) : échec attendu obtenu ($($a.motifs -join ' | '))" }
 
         # Jalon 2 : les ordres et les corps.
         $o = Lancer (Join-Path $racine 'sorties\essai-ordres') @('-guerre-essai-ordres') 'essai-ordres.json'

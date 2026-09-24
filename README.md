@@ -13,7 +13,7 @@ modifié ni importé.
 |---|---|
 | `Jouer.cmd` | lance le joueur compilé |
 | `Ouvrir_Unity.cmd` | ouvre le projet dans Unity 6000.0.43f1 |
-| `Mesurer.cmd` | reconstruit, compile et passe les preuves des jalons 1 et 2, avec leurs contre-épreuves |
+| `Mesurer.cmd` | fabrique les soldats, reconstruit, compile et passe les preuves des jalons 1 à 3, avec leurs contre-épreuves |
 
 En jeu :
 - **clic gauche** choisit un régiment bleu ; **glisser** trace une boîte ; **Maj + clic** ajoute ou retire ; **Ctrl + A** choisit toute l'armée ;
@@ -26,9 +26,10 @@ En jeu :
 ## Commandes
 
 ```powershell
-powershell -File outils/atelier.ps1 construire          # pipeline, vallée, scène
+powershell -File outils/atelier.ps1 soldats             # soldats modelés et animés dans Blender 5.2
+powershell -File outils/atelier.ps1 construire          # + pipeline, vallée, scène
 powershell -File outils/atelier.ps1 joueur              # + joueur Windows dans sorties/joueur
-powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 et 2, et contre-épreuves
+powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 à 3, et contre-épreuves
 powershell -File outils/atelier.ps1 mesurer -soldats 20000
 ```
 
@@ -39,13 +40,16 @@ régénéré par `Construire.cs`. Pour une modification durable, changer le code
 
 | fichier | rôle |
 |---|---|
-| `Runtime/Composants.cs` | `Soldat`, `Regiment` et le relief lu par les jobs |
+| `fabrique/soldats.py` | soldats modulaires, squelette, marche et repos cuits en `.vat` (Blender) |
+| `Shaders/Soldat.shader` | rejoue l'animation cuite sur le GPU, instance par instance |
+| `Runtime/Composants.cs` | `Soldat`, `Regiment`, `AnimEtat` et le relief lu par les jobs |
 | `Runtime/Systemes.cs` | marche des régiments ; pilotage des soldats (place, élan, corps et appuis par grille spatiale) ; cohésion du régiment ; couleurs |
 | `Runtime/Bataille.cs` | lève les armées dans le monde ECS ; transmet les ordres et reclasse les hommes |
 | `Runtime/Commandement.cs` | caméra, sélection, ordres, tracés au sol, aide à l'écran |
 | `Runtime/Mesure.cs` | mesure du jalon 1 dans le joueur, écrite dans `sorties/mesure/mesure.json` |
 | `Runtime/Essais.cs` | essai du jalon 2 (formations, obstacle), écrit dans `sorties/essai-ordres/` |
 | `Editor/Construire.cs` | URP Forward+, vallée, scène, build |
+| `Editor/ImportSoldats.cs` | `.vat` → maillage, texture d'animation, matériau |
 
 ## Machine de référence
 

@@ -13,7 +13,9 @@ namespace Guerre
     // Le nombre d'hommes se change en ligne de commande : -guerre-soldats N.
     public sealed class Bataille : MonoBehaviour
     {
-        public Material materiauSoldat;
+        // Une variante par arme : piquier, hallebardier, arbalétrier (fabrique/soldats.py).
+        public Material[] materiaux;
+        public Mesh[] maillages;
         public Terrain terrain;
         public int soldats = 10000;
         public int parRegiment = 250;
@@ -36,6 +38,9 @@ namespace Guerre
             int i = Array.IndexOf(args, "-guerre-soldats");
             if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out int n) && n > 0) soldats = n;
             sansCorps = Array.IndexOf(args, "-guerre-sans-corps") >= 0;
+            // Contre-épreuve de la mesure : le shader ignore l'animation cuite.
+            if (Array.IndexOf(args, "-guerre-sans-animation") >= 0)
+                foreach (var m in materiaux) m.SetFloat("_VATActif", 0);
         }
 
         void Start()
@@ -46,13 +51,14 @@ namespace Guerre
             em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1) });
 
             var desc = new RenderMeshDescription(ShadowCastingMode.On, receiveShadows: true);
-            var rma = new RenderMeshArray(new[] { materiauSoldat }, new[] { Silhouette.Creer() });
+            var rma = new RenderMeshArray(materiaux, maillages);
             var proto = em.CreateEntity();
             RenderMeshUtility.AddComponents(proto, em, desc, rma, MaterialMeshInfo.FromRenderMeshArrayIndices(0, 0));
             em.AddComponentData(proto, LocalTransform.Identity);
             em.AddComponentData(proto, new LocalToWorld { Value = float4x4.identity });
             em.AddComponentData(proto, new Soldat());
             em.AddComponentData(proto, new URPMaterialPropertyBaseColor { Value = new float4(1) });
+            em.AddComponentData(proto, new AnimEtat());
 
             var t = terrain.transform.position;
             var taille = terrain.terrainData.size;
@@ -82,11 +88,13 @@ namespace Guerre
                     int nb = Mathf.Min(parRegiment, restants);
                     restants -= nb;
                     var reg = em.CreateEntity(typeof(Regiment));
+                    // Au premier rang, piques et hallebardes alternent ; les arbalétriers tiennent la seconde ligne.
+                    int arme = ligne == 0 ? rangee % 2 : 2;
                     var donnees = new Regiment
                     {
                         Position = baseP, Cible = avantP, Front = front, FrontCible = front,
                         Base = baseP, Avant = avantP, VitesseMarche = 1.25f, Camp = camp, Etape = 1,
-                        Files = files, Effectif = nb, Espacement = espacement, Index = index++
+                        Files = files, Effectif = nb, Espacement = espacement, Index = index++, Arme = arme
                     };
                     em.SetComponentData(reg, donnees);
                     float3 teinteRegiment = Camps[camp] * (0.85f + 0.3f * alea.NextFloat());
@@ -102,6 +110,7 @@ namespace Guerre
                             Phase = alea.NextFloat(0, 6.28f),
                             Teinte = teinteRegiment * alea.NextFloat(0.85f, 1.15f)
                         });
+                        em.SetComponentData(hommes[h], MaterialMeshInfo.FromRenderMeshArrayIndices(arme, arme));
                         em.SetComponentData(hommes[h], LocalTransform.FromPositionRotation(
                             new float3(p.x, y, p.y), quaternion.LookRotationSafe(new float3(front.x, 0, front.y), math.up())));
                     }

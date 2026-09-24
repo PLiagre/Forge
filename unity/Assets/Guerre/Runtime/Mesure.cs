@@ -25,8 +25,9 @@ namespace Guerre
             public int largeur, hauteur, soldats_demandes, soldats_presents;
             public string protocole = "Joueur Windows, cadence libre, vSync coupée. Quatre vues, 3 s de chauffe puis 6 s de mesure chacune, caméra en rotation lente. Les armées marchent pendant la mesure.";
             public Vue[] vues;
-            public float deplacement_moyen_m, pixels_changes_par_les_soldats;
-            public bool objectif_60, soldats_conformes, armee_en_mouvement, soldats_visibles;
+            public float deplacement_moyen_m, pixels_changes_par_les_soldats, pixels_changes_par_l_animation;
+            public int[] triangles_par_soldat;
+            public bool objectif_60, soldats_conformes, armee_en_mouvement, soldats_visibles, soldats_animes;
             public string[] motifs;
         }
 
@@ -137,12 +138,42 @@ namespace Guerre
             File.WriteAllBytes(Path.Combine(sortie, "controle_sans_soldats.jpg"), sans.EncodeToJPG(85));
             Destroy(avec); Destroy(sans);
 
+            // Preuve de l'animation : la simulation figée, mêmes positions, deux phases de
+            // marche différentes. Si le shader ne rejoue pas l'animation cuite, l'image ne change pas.
+            cmd.foyer = Armee() + vues[2].decalage; cmd.plongee = vues[2].plongee; cmd.distance = vues[2].distance;
+            Pilotage(false);
+            var animes = em.CreateEntityQuery(typeof(AnimEtat));
+            void Phase(float phase)
+            {
+                em.CompleteAllTrackedJobs();
+                var etats = animes.ToComponentDataArray<AnimEtat>(Allocator.Temp);
+                for (int k = 0; k < etats.Length; k++) etats[k] = new AnimEtat { Value = new Unity.Mathematics.float4(phase, 1, 0, 0) };
+                animes.CopyFromComponentDataArray(etats);
+                etats.Dispose();
+            }
+            Phase(0f);
+            for (int k = 0; k < 5; k++) yield return null;
+            yield return new WaitForEndOfFrame();
+            var pas1 = ScreenCapture.CaptureScreenshotAsTexture();
+            Phase(0.25f);
+            for (int k = 0; k < 5; k++) yield return null;
+            yield return new WaitForEndOfFrame();
+            var pas2 = ScreenCapture.CaptureScreenshotAsTexture();
+            Pilotage(true);
+            r.pixels_changes_par_l_animation = Difference(pas1, pas2);
+            File.WriteAllBytes(Path.Combine(sortie, "animation_phase_0.jpg"), pas1.EncodeToJPG(85));
+            File.WriteAllBytes(Path.Combine(sortie, "animation_phase_25.jpg"), pas2.EncodeToJPG(85));
+            Destroy(pas1); Destroy(pas2);
+            r.triangles_par_soldat = b.maillages.Select(m => (int)(m.GetIndexCount(0) / 3)).ToArray();
+
             r.soldats_presents = soldats.CalculateEntityCount();
             r.soldats_conformes = r.soldats_presents == r.soldats_demandes;
             if (!r.soldats_conformes) motifs.Add($"{r.soldats_presents} soldats présents pour {r.soldats_demandes} demandés");
             r.armee_en_mouvement = r.deplacement_moyen_m > 5f;
             if (!r.armee_en_mouvement) motifs.Add($"déplacement moyen de {r.deplacement_moyen_m:0.0} m seulement");
             r.soldats_visibles = r.pixels_changes_par_les_soldats > 0.02f;
+            r.soldats_animes = r.pixels_changes_par_l_animation > 0.004f;
+            if (!r.soldats_animes) motifs.Add($"l'animation ne change que {r.pixels_changes_par_l_animation:P2} de l'image : les soldats ne sont pas animés");
             if (!r.soldats_visibles) motifs.Add("les soldats ne changent pas l'image");
             if (r.vues.Any(v => v.ecart_type_image < 0.02f)) motifs.Add("une capture est uniforme");
             r.objectif_60 = r.vues.All(v => v.p95_ms < 1000.0 / 60.0);
@@ -152,6 +183,13 @@ namespace Guerre
             File.WriteAllText(Path.Combine(sortie, "mesure.json"), JsonUtility.ToJson(r, true));
             Debug.Log("[Mesure] " + r.statut + " " + string.Join(" | ", motifs));
             Application.Quit(motifs.Count == 0 ? 0 : 1);
+        }
+
+        static void Pilotage(bool actif)
+        {
+            var monde = World.DefaultGameObjectInjectionWorld;
+            ref var etat = ref monde.Unmanaged.ResolveSystemStateRef(monde.GetExistingSystem<SystemePilotage>());
+            etat.Enabled = actif;
         }
 
         static string Fichier(string nom) => new string(nom.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());

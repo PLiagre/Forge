@@ -1,0 +1,32 @@
+{
+  "piquier": {
+    "triangles": 488,
+    "coins": 1464,
+    "signes": {
+      "cuisse": 1,
+      "jambe": -1,
+      "bras": 1,
+      "torse": -1
+    }
+  },
+  "hallebardier": {
+    "triangles": 498,
+    "coins": 1494,
+    "signes": {
+      "cuisse": 1,
+      "jambe": -1,
+      "bras": 1,
+      "torse": -1
+    }
+  },
+  "arbaletrier": {
+    "triangles": 472,
+    "coins": 1416,
+    "signes": {
+      "cuisse": 1,
+      "jambe": -1,
+      "bras": 1,
+      "torse": -1
+    }
+  }
+}

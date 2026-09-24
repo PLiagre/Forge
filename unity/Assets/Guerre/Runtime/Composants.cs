@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Rendering;
 
 namespace Guerre
 {
@@ -11,10 +12,18 @@ namespace Guerre
         public int Numero;       // rang d'appel dans le régiment : sa place se déduit de la formation
         public float2 Decalage;  // quelques centimètres : personne ne se tient au cordeau
         public float2 Vitesse;   // m/s, dans le plan
-        public float Phase;      // cycle du pas
+        public float Phase;      // cycles de marche accomplis : un cycle vaut deux pas
         public float Allure;     // 0,9 à 1,1 : tous les hommes ne marchent pas au même train
         public float Ecart;      // distance à sa place, en mètres, à la dernière image
         public float3 Teinte;
+    }
+
+    // L'état d'animation lu par le shader du soldat, instance par instance :
+    // x phase de marche (0..1), y poids de la marche, z décalage du repos.
+    [MaterialProperty("_AnimEtat")]
+    public struct AnimEtat : IComponentData
+    {
+        public float4 Value;
     }
 
     // L'ordre donné à des hommes : un point, une direction, une largeur de front.
@@ -32,6 +41,7 @@ namespace Guerre
         public int Files;            // largeur du front, en hommes
         public int Effectif;
         public int Index;
+        public int Arme;             // 0 piquiers, 1 hallebardiers, 2 arbalétriers
         public int Camp;
         public int Etape;
         public byte Ordonne;         // 1 : le joueur a pris la main, le scénario s'arrête
