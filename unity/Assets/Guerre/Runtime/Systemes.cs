@@ -16,8 +16,9 @@ namespace Guerre
     [UpdateBefore(typeof(TransformSystemGroup))]
     public partial struct SystemeRegiments : ISystem
     {
-        const float PivotMax = 0.35f;       // rad/s : un bloc de 250 hommes ne pivote pas sur place
         const float Halte = 8f;             // secondes d'arrêt sur chaque ligne
+        const float VitesseAile = 1.6f;     // m/s : l'allure que les hommes de l'aile tiennent en pivot
+        const float MarcheLongue = 30f;     // au-delà, le régiment se tourne vers sa marche ; en deçà, il garde son front
 
         public void OnCreate(ref SystemState state) => state.RequireForUpdate<Regiment>();
 
@@ -30,18 +31,24 @@ namespace Guerre
                 ref var r = ref reg.ValueRW;
                 float2 vers = r.Cible - r.Position;
                 float dist = math.length(vers);
+                // Le régiment attend ses hommes : si ceux-ci sont loin de leur place
+                // (gênés, bousculés, essoufflés), l'ordre ralentit avec eux.
+                float cohesion = 1f - math.smoothstep(1.5f, 5f, r.Ecart);
+                // Un front large pivote lentement : ses ailes doivent courir.
+                float pivot = math.min(0.5f, VitesseAile / math.max(r.Largeur * 0.5f, 1f)) * math.max(cohesion, 0.15f) * dt;
                 if (dist > 0.3f)
                 {
                     float2 dir = vers / dist;
-                    // Loin de la cible, on marche face à elle ; près, on se remet face au front voulu.
-                    r.Front = Tourner(r.Front, dist > 6f ? dir : r.FrontCible, PivotMax * dt);
-                    // On n'avance vraiment qu'une fois tourné vers la marche : le pivot passe d'abord.
-                    float aligne = math.saturate(math.dot(r.Front, dir));
-                    r.Position += dir * math.min(dist, r.VitesseMarche * dt * math.max(aligne, 0.25f));
+                    bool longue = dist > MarcheLongue;
+                    r.Front = Tourner(r.Front, longue ? dir : r.FrontCible, pivot);
+                    // En marche longue, on n'avance vraiment qu'une fois tourné vers elle.
+                    // En marche courte, les hommes se décalent ou reculent sans tourner le dos.
+                    float allure = longue ? math.max(math.saturate(math.dot(r.Front, dir)), 0.25f) : 0.7f;
+                    r.Position += dir * math.min(dist, r.VitesseMarche * dt * allure * cohesion);
                 }
                 else
                 {
-                    r.Front = Tourner(r.Front, r.FrontCible, PivotMax * dt);
+                    r.Front = Tourner(r.Front, r.FrontCible, pivot);
                     if (r.Ordonne == 0)
                     {
                         r.Attente += dt;
@@ -76,13 +83,13 @@ namespace Guerre
     public partial struct SystemePilotage : ISystem
     {
         public const float Cellule = 1.2f;
-        NativeParallelMultiHashMap<int, float2> grille;
+        NativeParallelMultiHashMap<int, Voisin> grille;
         ComponentLookup<Regiment> regiments;
         EntityQuery soldats;
 
         public void OnCreate(ref SystemState state)
         {
-            grille = new NativeParallelMultiHashMap<int, float2>(16384, Allocator.Persistent);
+            grille = new NativeParallelMultiHashMap<int, Voisin>(16384, Allocator.Persistent);
             regiments = state.GetComponentLookup<Regiment>(true);
             soldats = SystemAPI.QueryBuilder().WithAll<Soldat, LocalTransform>().Build();
             state.RequireForUpdate<Relief>();
@@ -108,76 +115,100 @@ namespace Guerre
             // Un pas de temps trop long (chargement, fenêtre déplacée) ferait traverser les voisins.
             float dt = math.min(SystemAPI.Time.DeltaTime, 1f / 20f);
 
+            byte corps = SystemAPI.TryGetSingleton<ReglagesSimulation>(out var reglages) ? reglages.Corps : (byte)1;
+
             var dep = new ViderGrille { Grille = grille }.Schedule(state.Dependency);
             dep = new RemplirGrille { Grille = grille.AsParallelWriter() }.ScheduleParallel(dep);
-            dep = new Piloter { Grille = grille, Regiments = regiments, Relief = relief, Dt = dt }.ScheduleParallel(dep);
+            dep = new Piloter { Grille = grille, Regiments = regiments, Relief = relief, Dt = dt, Corps = corps }.ScheduleParallel(dep);
             state.Dependency = dep;
+        }
+
+        // Un homme campé (arrêté, à sa place) a ses appuis au sol : il cède moins
+        // qu'un homme en marche quand un autre régiment le bouscule, et s'efface
+        // devant un camarade qui rejoint sa place.
+        public static float Appui(in Soldat s)
+        {
+            float campe = math.saturate(1f - math.length(s.Vitesse) / 0.8f) * (1f - math.smoothstep(0.5f, 1.5f, s.Ecart));
+            return 1f + 3f * campe;
         }
 
         public static int Cle(int2 c) => (c.x * 73856093) ^ (c.y * 19349663);
 
+        public struct Voisin { public float2 P; public int Id, Regiment; public float Appui; }
+
         [BurstCompile]
         struct ViderGrille : IJob
         {
-            public NativeParallelMultiHashMap<int, float2> Grille;
+            public NativeParallelMultiHashMap<int, Voisin> Grille;
             public void Execute() => Grille.Clear();
         }
 
         [BurstCompile]
         partial struct RemplirGrille : IJobEntity
         {
-            public NativeParallelMultiHashMap<int, float2>.ParallelWriter Grille;
-            void Execute(in Soldat s, in LocalTransform t)
+            public NativeParallelMultiHashMap<int, Voisin>.ParallelWriter Grille;
+            void Execute(Entity e, in Soldat s, in LocalTransform t)
             {
                 float2 p = t.Position.xz;
-                Grille.Add(Cle((int2)math.floor(p / Cellule)), p);
+                Grille.Add(Cle((int2)math.floor(p / Cellule)), new Voisin { P = p, Id = e.Index, Regiment = s.Regiment.Index, Appui = Appui(s) });
             }
         }
 
         [BurstCompile]
         partial struct Piloter : IJobEntity
         {
-            [ReadOnly] public NativeParallelMultiHashMap<int, float2> Grille;
+            [ReadOnly] public NativeParallelMultiHashMap<int, Voisin> Grille;
             [ReadOnly] public ComponentLookup<Regiment> Regiments;
             [ReadOnly] public BlobAssetReference<ReliefBlob> Relief;
             public float Dt;
+            public byte Corps;
 
             const float Rayon = 0.85f;        // distance à laquelle deux hommes se gênent
             const float Repousse = 2.2f;      // m/s d'écart quand ils se touchent
+            const float Diametre = 0.8f;      // épaules, bouclier, coudes : deux hommes ne se recouvrent pas
             const float Acceleration = 3.5f;  // m/s² : un homme en armure ne vire pas net
             const float VitesseMax = 2.6f;    // m/s : le pas de course pour rattraper sa place
 
-            void Execute(ref Soldat s, ref LocalTransform t)
+            void Execute(Entity e, ref Soldat s, ref LocalTransform t)
             {
                 var r = Regiments[s.Regiment];
-                float2 front = r.Front, droite = new float2(front.y, -front.x);
-                float2 place = r.Position + droite * s.Place.x + front * s.Place.y;
+                float2 front = r.Front;
+                float2 place = Formation.VersMonde(Formation.Place(r, s.Numero) + s.Decalage, r.Position, front);
                 float2 pos = t.Position.xz;
 
                 float2 vers = place - pos;
                 float dist = math.length(vers);
                 float vMax = VitesseMax * s.Allure;
-                // Arrivée douce : on ralentit en approchant de sa place.
-                float2 voulu = dist > 0.02f ? vers / dist * math.min(vMax, dist * 1.4f) : float2.zero;
+                // Arrivée douce : on ralentit en approchant de sa place. Bousculé de
+                // quelques dizaines de centimètres, on la reprend franchement.
+                float gain = math.lerp(3f, 1.4f, math.saturate(dist - 0.5f));
+                float2 voulu = dist > 0.02f ? vers / dist * math.min(vMax, dist * gain) : float2.zero;
+                float appui = Appui(s);
 
-                float2 ecart = float2.zero;
                 int2 c = (int2)math.floor(pos / Cellule);
-                for (int dz = -1; dz <= 1; dz++)
-                for (int dx = -1; dx <= 1; dx++)
+                if (Corps != 0)
                 {
-                    if (!Grille.TryGetFirstValue(Cle(c + new int2(dx, dz)), out float2 q, out var it)) continue;
-                    do
+                    // L'espace personnel face aux autres régiments : on s'écarte avant de se toucher.
+                    // Entre camarades, c'est la place dans les rangs qui fixe l'intervalle.
+                    float2 ecart = float2.zero;
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
                     {
-                        float2 d = pos - q;
-                        float l2 = math.lengthsq(d);
-                        if (l2 > 1e-8f && l2 < Rayon * Rayon)
+                        if (!Grille.TryGetFirstValue(Cle(c + new int2(dx, dz)), out var q, out var it)) continue;
+                        do
                         {
-                            float l = math.sqrt(l2);
-                            ecart += d / l * (1f - l / Rayon);
-                        }
-                    } while (Grille.TryGetNextValue(out q, ref it));
+                            if (q.Id == e.Index || q.Regiment == s.Regiment.Index) continue;
+                            float2 d = pos - q.P;
+                            float l2 = math.lengthsq(d);
+                            if (l2 > 1e-8f && l2 < Rayon * Rayon)
+                            {
+                                float l = math.sqrt(l2);
+                                ecart += d / l * (1f - l / Rayon);
+                            }
+                        } while (Grille.TryGetNextValue(out q, ref it));
+                    }
+                    voulu += ecart * Repousse;
                 }
-                voulu += ecart * Repousse;
 
                 float2 dv = voulu - s.Vitesse;
                 float ldv = math.length(dv), maxDv = Acceleration * Dt;
@@ -185,17 +216,115 @@ namespace Guerre
                 s.Vitesse += dv;
                 float v = math.length(s.Vitesse);
                 if (v > vMax * 1.2f) { s.Vitesse *= vMax * 1.2f / v; v = vMax * 1.2f; }
+                float2 avant = pos;
                 pos += s.Vitesse * Dt;
+
+                if (Corps != 0)
+                {
+                    // Les corps : si un voisin est à moins d'un diamètre, chacun cède une part
+                    // du recouvrement selon ses appuis. Aucun homme ne traverse un autre, il le pousse.
+                    c = (int2)math.floor(pos / Cellule);
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (!Grille.TryGetFirstValue(Cle(c + new int2(dx, dz)), out var q, out var it)) continue;
+                        do
+                        {
+                            if (q.Id == e.Index) continue;
+                            float2 d = pos - q.P;
+                            float l2 = math.lengthsq(d);
+                            if (l2 < Diametre * Diametre)
+                            {
+                                float l = math.sqrt(l2);
+                                float2 n = l > 1e-4f ? d / l : math.normalizesafe(avant - q.P, new float2(1, 0));
+                                // Face à un autre régiment, l'homme campé tient. Entre camarades, c'est
+                                // l'inverse : celui qui est à sa place s'efface devant celui qui rejoint la sienne.
+                                float part = q.Regiment == s.Regiment.Index ? appui / (appui + q.Appui) : q.Appui / (appui + q.Appui);
+                                pos += n * (Diametre - l) * part;
+                            }
+                        } while (Grille.TryGetNextValue(out q, ref it));
+                    }
+                    // Ce qu'on a été empêché de faire, on ne l'a pas fait : l'élan suit le mouvement réel.
+                    s.Vitesse = math.lerp(s.Vitesse, (pos - avant) / math.max(Dt, 1e-4f), 0.5f);
+                    v = math.length(s.Vitesse);
+                }
+                s.Ecart = math.distance(pos, place);
 
                 // Le pas : une légère élévation à chaque foulée, proportionnelle à l'allure.
                 s.Phase += v * Dt * 3.4f;
                 float marche = math.saturate(v / 1.2f);
                 float y = Sol.Hauteur(ref Relief.Value, pos) + math.abs(math.sin(s.Phase)) * 0.06f * marche;
 
-                float2 regard = v > 0.35f ? math.normalize(s.Vitesse) : front;
+                // On regarde où l'on va, sauf quand on recule : on garde alors l'ennemi en face.
+                float2 dirV = v > 0.35f ? s.Vitesse / v : front;
+                float2 regard = math.dot(dirV, front) > -0.2f ? dirV : front;
                 var cible = quaternion.LookRotationSafe(new float3(regard.x, 0, regard.y), math.up());
                 t.Rotation = math.slerp(t.Rotation, cible, math.saturate(Dt * 5f));
                 t.Position = new float3(pos.x, y, pos.y);
+            }
+        }
+    }
+
+    // L'écart moyen des hommes à leur place remonte au régiment : c'est ainsi
+    // qu'un ordre attend ceux qu'il commande.
+    [BurstCompile]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(SystemePilotage))]
+    [UpdateBefore(typeof(TransformSystemGroup))]
+    public partial struct SystemeCohesion : ISystem
+    {
+        NativeArray<float2> sommes;
+        ComponentLookup<Regiment> regiments;
+        EntityQuery regimentsQuery;
+
+        public void OnCreate(ref SystemState state)
+        {
+            regiments = state.GetComponentLookup<Regiment>(true);
+            regimentsQuery = SystemAPI.QueryBuilder().WithAll<Regiment>().Build();
+            state.RequireForUpdate<Soldat>();
+        }
+
+        public void OnDestroy(ref SystemState state)
+        {
+            if (sommes.IsCreated) sommes.Dispose();
+        }
+
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
+        {
+            int n = regimentsQuery.CalculateEntityCount();
+            if (!sommes.IsCreated || sommes.Length < n)
+            {
+                state.Dependency.Complete();
+                if (sommes.IsCreated) sommes.Dispose();
+                sommes = new NativeArray<float2>(math.max(n, 64), Allocator.Persistent);
+            }
+            regiments.Update(ref state);
+            var dep = new Additionner { Sommes = sommes, Regiments = regiments }.Schedule(state.Dependency);
+            state.Dependency = new Reporter { Sommes = sommes }.Schedule(dep);
+        }
+
+        [BurstCompile]
+        partial struct Additionner : IJobEntity
+        {
+            public NativeArray<float2> Sommes;
+            [ReadOnly] public ComponentLookup<Regiment> Regiments;
+            void Execute(in Soldat s)
+            {
+                int i = Regiments[s.Regiment].Index;
+                Sommes[i] += new float2(s.Ecart, 1);
+            }
+        }
+
+        [BurstCompile]
+        partial struct Reporter : IJobEntity
+        {
+            public NativeArray<float2> Sommes;
+            void Execute(ref Regiment r)
+            {
+                var s = Sommes[r.Index];
+                r.Ecart = s.y > 0 ? s.x / s.y : 0;
+                Sommes[r.Index] = float2.zero;
             }
         }
     }

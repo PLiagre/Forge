@@ -223,7 +223,10 @@ namespace Guerre.EditeurOutils
             var cam = camGo.AddComponent<Camera>();
             cam.nearClipPlane = 0.5f; cam.farClipPlane = 5000f; cam.fieldOfView = 45;
             camGo.AddComponent<UniversalAdditionalCameraData>();
-            camGo.AddComponent<Commandement>();
+            var trait = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            trait.SetColor("_BaseColor", new Color(1f, 0.86f, 0.35f));
+            AssetDatabase.CreateAsset(trait, Dossier + "/Settings/Trait.mat");
+            camGo.AddComponent<Commandement>().trait = trait;
 
             var bataille = new GameObject("Bataille").AddComponent<Bataille>();
             bataille.materiauSoldat = matSoldat;

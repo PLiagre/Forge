@@ -24,6 +24,7 @@ namespace Guerre
         public bool Pret { get; private set; }
         public int Leves { get; private set; }
         public EntityManager Em => World.DefaultGameObjectInjectionWorld.EntityManager;
+        bool sansCorps;
 
         // Bleu roi contre rouge sang : on distingue les camps de loin, par temps de neige.
         static readonly float3[] Camps = { new float3(0.16f, 0.27f, 0.62f), new float3(0.62f, 0.14f, 0.12f) };
@@ -34,12 +35,15 @@ namespace Guerre
             var args = Environment.GetCommandLineArgs();
             int i = Array.IndexOf(args, "-guerre-soldats");
             if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out int n) && n > 0) soldats = n;
+            sansCorps = Array.IndexOf(args, "-guerre-sans-corps") >= 0;
         }
 
         void Start()
         {
             var em = Em;
             PoserRelief(em);
+            var reglages = em.CreateEntity(typeof(ReglagesSimulation));
+            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1) });
 
             var desc = new RenderMeshDescription(ShadowCastingMode.On, receiveShadows: true);
             var rma = new RenderMeshArray(new[] { materiauSoldat }, new[] { Silhouette.Creer() });
@@ -58,6 +62,7 @@ namespace Guerre
             int restants = soldats;
             var alea = new Unity.Mathematics.Random(1407);
             int rangs = Mathf.CeilToInt(parRegiment / (float)files);
+            int index = 0;
             float largeur = files * espacement, profondeur = rangs * espacement;
             // Deux lignes par armée, dix régiments de front, huit mètres entre eux.
             int deFront = Mathf.Min(10, regimentsParCamp);
@@ -74,27 +79,26 @@ namespace Guerre
                     float2 baseP = centre + new float2(-sens * (340f + recul), lateral);
                     float2 avantP = centre + new float2(-sens * (60f + recul), lateral);
 
-                    var reg = em.CreateEntity(typeof(Regiment));
-                    em.SetComponentData(reg, new Regiment
-                    {
-                        Position = baseP, Cible = avantP, Front = front, FrontCible = front,
-                        Base = baseP, Avant = avantP, VitesseMarche = 1.25f, Camp = camp, Etape = 1
-                    });
-
                     int nb = Mathf.Min(parRegiment, restants);
                     restants -= nb;
+                    var reg = em.CreateEntity(typeof(Regiment));
+                    var donnees = new Regiment
+                    {
+                        Position = baseP, Cible = avantP, Front = front, FrontCible = front,
+                        Base = baseP, Avant = avantP, VitesseMarche = 1.25f, Camp = camp, Etape = 1,
+                        Files = files, Effectif = nb, Espacement = espacement, Index = index++
+                    };
+                    em.SetComponentData(reg, donnees);
                     float3 teinteRegiment = Camps[camp] * (0.85f + 0.3f * alea.NextFloat());
                     var hommes = em.Instantiate(proto, nb, Allocator.Temp);
                     for (int h = 0; h < nb; h++)
                     {
-                        int f = h % files, rg = h / files;
-                        float2 place = new float2((f - (files - 1) / 2f) * espacement, -(rg - (rangs - 1) / 2f) * espacement);
-                        place += alea.NextFloat2(-0.12f, 0.12f);
-                        float2 p = baseP + new float2(front.y, -front.x) * place.x + front * place.y;
+                        float2 decalage = alea.NextFloat2(-0.12f, 0.12f);
+                        float2 p = Formation.VersMonde(Formation.Place(donnees, h) + decalage, baseP, front);
                         float y = Sol.Hauteur(ref relief.Value, p);
                         em.SetComponentData(hommes[h], new Soldat
                         {
-                            Regiment = reg, Place = place, Allure = alea.NextFloat(0.9f, 1.1f),
+                            Regiment = reg, Numero = h, Decalage = decalage, Allure = alea.NextFloat(0.9f, 1.1f),
                             Phase = alea.NextFloat(0, 6.28f),
                             Teinte = teinteRegiment * alea.NextFloat(0.85f, 1.15f)
                         });
@@ -139,20 +143,97 @@ namespace Guerre
             if (relief.IsCreated) relief.Dispose();
         }
 
-        // Régiment d'un camp le plus proche d'un point, pour la sélection.
-        public Entity RegimentProche(float2 p, int camp, float rayonMax)
+        // Les régiments d'un camp (tous si camp < 0), avec leurs données du moment.
+        public (Entity e, Regiment r)[] Regiments(int camp = -1)
         {
             var q = Em.CreateEntityQuery(typeof(Regiment));
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var regs = q.ToComponentDataArray<Regiment>(Allocator.Temp);
-            Entity best = Entity.Null; float bd = rayonMax;
+            var l = new System.Collections.Generic.List<(Entity, Regiment)>();
             for (int i = 0; i < ents.Length; i++)
+                if (camp < 0 || regs[i].Camp == camp) l.Add((ents[i], regs[i]));
+            return l.ToArray();
+        }
+
+        // Le régiment sous un point du sol : dans son emprise (à trois mètres près),
+        // sinon le plus proche dans le rayon donné.
+        public Entity RegimentSous(float2 p, int camp, float rayonMax)
+        {
+            Entity best = Entity.Null; float bd = rayonMax;
+            foreach (var (e, r) in Regiments(camp))
             {
-                if (regs[i].Camp != camp) continue;
-                float d = math.distance(regs[i].Position, p);
-                if (d < bd) { bd = d; best = ents[i]; }
+                float2 d = p - r.Position, droite = new float2(r.Front.y, -r.Front.x);
+                if (math.abs(math.dot(d, droite)) <= r.Largeur / 2 + 3 && math.abs(math.dot(d, r.Front)) <= r.Profondeur / 2 + 3) return e;
+                float l = math.length(d);
+                if (l < bd) { bd = l; best = e; }
             }
             return best;
+        }
+
+        // Un ordre : aller à un point, y faire face à une direction, sur tant de files.
+        // Le scénario de démonstration cesse pour ce régiment.
+        public void Ordonner(Entity e, float2 cible, float2 front, int files) =>
+            Ordonner(new[] { (e, cible, front, files) });
+
+        public void Ordonner(System.Collections.Generic.IEnumerable<(Entity e, float2 cible, float2 front, int files)> ordres)
+        {
+            var liste = new System.Collections.Generic.List<(Entity e, Regiment r)>();
+            foreach (var (e, cible, front, files) in ordres)
+            {
+                var r = Em.GetComponentData<Regiment>(e);
+                r.Cible = cible;
+                if (math.lengthsq(front) > 1e-4f) r.FrontCible = math.normalize(front);
+                r.Files = math.clamp(files, 1, r.Effectif);
+                r.Ordonne = 1;
+                Em.SetComponentData(e, r);
+                liste.Add((e, r));
+            }
+            Reclasser(liste);
+        }
+
+        // À chaque ordre, les hommes reprennent un numéro dans l'ordre où ils se tiennent :
+        // les plus avancés forment le premier rang, de gauche à droite. Personne n'a à
+        // traverser le régiment pour rejoindre sa place quand le front s'élargit ou se resserre.
+        void Reclasser(System.Collections.Generic.List<(Entity e, Regiment r)> regiments)
+        {
+            var em = Em;
+            em.CompleteAllTrackedJobs();
+            var q = em.CreateEntityQuery(typeof(Soldat), typeof(LocalTransform));
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var sold = q.ToComponentDataArray<Soldat>(Allocator.Temp);
+            using var pos = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var parRegiment = new System.Collections.Generic.Dictionary<Entity, System.Collections.Generic.List<int>>();
+            foreach (var (e, _) in regiments) parRegiment[e] = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < ents.Length; i++)
+                if (parRegiment.TryGetValue(sold[i].Regiment, out var l)) l.Add(i);
+
+            foreach (var (e, r) in regiments)
+            {
+                var hommes = parRegiment[e];
+                float2 droite = new float2(r.Front.y, -r.Front.x);
+                // Du premier rang au dernier, puis de gauche à droite dans chaque rang.
+                hommes.Sort((a, b) => math.dot(pos[b].Position.xz - r.Position, r.Front).CompareTo(math.dot(pos[a].Position.xz - r.Position, r.Front)));
+                int files = math.max(1, math.min(r.Files, hommes.Count));
+                for (int debut = 0; debut < hommes.Count; debut += files)
+                {
+                    int n = math.min(files, hommes.Count - debut);
+                    var rang = hommes.GetRange(debut, n);
+                    rang.Sort((a, b) => math.dot(pos[a].Position.xz - r.Position, droite).CompareTo(math.dot(pos[b].Position.xz - r.Position, droite)));
+                    for (int k = 0; k < n; k++)
+                    {
+                        var s = sold[rang[k]];
+                        s.Numero = debut + k;
+                        em.SetComponentData(ents[rang[k]], s);
+                    }
+                }
+            }
+        }
+
+        public void Choisir(Entity e, bool choisi)
+        {
+            var r = Em.GetComponentData<Regiment>(e);
+            r.Selection = (byte)(choisi ? 1 : 0);
+            Em.SetComponentData(e, r);
         }
     }
 }

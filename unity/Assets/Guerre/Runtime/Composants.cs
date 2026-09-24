@@ -3,19 +3,21 @@ using Unity.Mathematics;
 
 namespace Guerre
 {
-    // Un soldat est une personne : sa place dans le rang, son élan, son pas.
+    // Un soldat est une personne : son numéro dans le régiment, son élan, son pas.
     // Le régiment ne marche pas à sa place, il lui dit seulement où se tenir.
     public struct Soldat : IComponentData
     {
         public Entity Regiment;
-        public float2 Place;     // décalage dans le rang : x vers la droite, y vers l'avant
+        public int Numero;       // rang d'appel dans le régiment : sa place se déduit de la formation
+        public float2 Decalage;  // quelques centimètres : personne ne se tient au cordeau
         public float2 Vitesse;   // m/s, dans le plan
         public float Phase;      // cycle du pas
         public float Allure;     // 0,9 à 1,1 : tous les hommes ne marchent pas au même train
+        public float Ecart;      // distance à sa place, en mètres, à la dernière image
         public float3 Teinte;
     }
 
-    // L'ordre donné à des hommes : un point, une direction, une allure.
+    // L'ordre donné à des hommes : un point, une direction, une largeur de front.
     public struct Regiment : IComponentData
     {
         public float2 Position;      // l'ancre de la formation, qui avance vers la cible
@@ -24,11 +26,47 @@ namespace Guerre
         public float2 FrontCible;
         public float2 Base, Avant;   // les deux lignes du scénario de démonstration
         public float VitesseMarche;
+        public float Espacement;
         public float Attente;
+        public float Ecart;          // écart moyen de ses hommes à leur place
+        public int Files;            // largeur du front, en hommes
+        public int Effectif;
+        public int Index;
         public int Camp;
         public int Etape;
         public byte Ordonne;         // 1 : le joueur a pris la main, le scénario s'arrête
         public byte Selection;
+
+        public int Rangs => (Effectif + Files - 1) / Files;
+        public float Largeur => (math.min(Files, Effectif) - 1) * Espacement;
+        public float Profondeur => (Rangs - 1) * Espacement;
+    }
+
+    // Réglages de la simulation. Corps = 0 retire la gêne entre les hommes :
+    // c'est la contre-épreuve des essais, jamais un réglage de jeu.
+    public struct ReglagesSimulation : IComponentData
+    {
+        public byte Corps;
+    }
+
+    public static class Formation
+    {
+        // Place d'un homme dans le repère du régiment : x vers la droite, y vers l'avant.
+        // Le dernier rang, incomplet, se centre derrière les autres.
+        public static float2 Place(in Regiment r, int numero)
+        {
+            int files = math.max(1, math.min(r.Files, r.Effectif));
+            int rangs = (r.Effectif + files - 1) / files;
+            int rg = numero / files, f = numero % files;
+            int dansLeRang = rg == rangs - 1 ? r.Effectif - rg * files : files;
+            return new float2((f - (dansLeRang - 1) / 2f) * r.Espacement, -(rg - (rangs - 1) / 2f) * r.Espacement);
+        }
+
+        public static float2 VersMonde(float2 local, float2 ancre, float2 front)
+        {
+            float2 droite = new float2(front.y, -front.x);
+            return ancre + droite * local.x + front * local.y;
+        }
     }
 
     // Le relief lu une fois depuis le Terrain, pour poser les pieds dans les jobs Burst.
