@@ -1,0 +1,56 @@
+{
+    "statut": "valide",
+    "gpu": "NVIDIA GeForce RTX 3070 Ti",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13700K",
+    "date_utc": "2026-09-24T08:57:00.2205975Z",
+    "largeur": 1920,
+    "hauteur": 1080,
+    "soldats_demandes": 10000,
+    "soldats_presents": 10000,
+    "protocole": "Joueur Windows, cadence libre, vSync coupée. Quatre vues, 3 s de chauffe puis 6 s de mesure chacune, caméra en rotation lente. Les armées marchent pendant la mesure.",
+    "vues": [
+        {
+            "nom": "Vue générale",
+            "images": 4980,
+            "mediane_ms": 1.1988024925813079,
+            "p95_ms": 1.276594353839755,
+            "p99_ms": 1.3492985162883998,
+            "fps_moyen": 829.955956885917,
+            "ecart_type_image": 0.05601195991039276
+        },
+        {
+            "nom": "Front",
+            "images": 4058,
+            "mediane_ms": 1.470500254072249,
+            "p95_ms": 1.5687004197388888,
+            "p99_ms": 1.6405966598540545,
+            "fps_moyen": 676.2290697728081,
+            "ecart_type_image": 0.05125366151332855
+        },
+        {
+            "nom": "Au milieu des rangs",
+            "images": 4167,
+            "mediane_ms": 1.432100310921669,
+            "p95_ms": 1.5324050327762962,
+            "p99_ms": 1.6054988373070956,
+            "fps_moyen": 694.4438185620178,
+            "ecart_type_image": 0.1222938522696495
+        },
+        {
+            "nom": "Plongée",
+            "images": 5200,
+            "mediane_ms": 1.1461025569587947,
+            "p95_ms": 1.231299596838653,
+            "p99_ms": 1.333900261670351,
+            "fps_moyen": 866.5552857560962,
+            "ecart_type_image": 0.0307605043053627
+        }
+    ],
+    "deplacement_moyen_m": 44.30183410644531,
+    "pixels_changes_par_les_soldats": 0.0532054603099823,
+    "objectif_60": true,
+    "soldats_conformes": true,
+    "armee_en_mouvement": true,
+    "soldats_visibles": true,
+    "motifs": []
+}

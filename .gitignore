@@ -1,0 +1,18 @@
+# Unity
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Ll]ogs/
+unity/[Uu]ser[Ss]ettings/
+unity/*.csproj
+unity/*.sln
+unity/.vs/
+unity/.vscode/
+# Packs sous licence : jamais dans git
+unity/Assets/Vendor/
+unity/Assets/Vendor.meta
+# Sorties lourdes
+sorties/joueur/
+sorties/logs/
+sorties/**/joueur.log
+sorties/mesure-sabotage/
