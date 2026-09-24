@@ -16,6 +16,45 @@ namespace Guerre
         public float Allure;     // 0,9 à 1,1 : tous les hommes ne marchent pas au même train
         public float Ecart;      // distance à sa place, en mètres, à la dernière image
         public float3 Teinte;
+        public byte Camp, Arme;
+        // Le combat.
+        public float Sante;      // 1 : indemne ; 0 : mort
+        public float Fatigue;    // 0 : frais ; 1 : épuisé
+        public float Recharge;   // secondes avant de pouvoir porter un nouveau coup
+        public float CoupT;      // secondes depuis le dernier coup porté (pour l'animation)
+        public float Presse;     // force de contact reçue des corps voisins, en newtons
+        public byte Contact;     // 1 : touche un ennemi, corps contre corps
+        public byte APortee;     // 1 : un ennemi est à portée de son arme
+    }
+
+    // Un homme tombé : il ne marche plus, ne pousse plus, reste sur le terrain.
+    public struct Mort : IComponentData
+    {
+        public byte Camp;
+    }
+
+    // L'état de combat lu par le shader : x phase du coup (0..1), y poids de la garde.
+    [MaterialProperty("_AnimCombat")]
+    public struct AnimCombat : IComponentData
+    {
+        public float4 Value;
+    }
+
+    // Un coup qui porte, en attente d'être appliqué à sa cible.
+    public struct Coup
+    {
+        public Entity Cible;
+        public float Degats;
+    }
+
+    // Les armes, par indice d'arme. Des ordres de grandeur, à régler en jouant :
+    // aucune n'est une règle de victoire, seulement une portée, un rythme, un poids.
+    public static class Armes
+    {
+        public static float Portee(int a) => a == 0 ? 3.2f : a == 1 ? 1.9f : 1.1f;   // pique, hallebarde, dague
+        public static float Cadence(int a) => a == 0 ? 3.2f : a == 1 ? 3.8f : 2.4f;  // secondes entre deux coups
+        public static float Degats(int a) => a == 0 ? 0.22f : a == 1 ? 0.4f : 0.18f;
+        public static float Armure(int a) => a == 0 ? 0.15f : a == 1 ? 0.45f : 0.05f; // part du coup arrêtée
     }
 
     // L'état d'animation lu par le shader du soldat, instance par instance :
@@ -46,30 +85,41 @@ namespace Guerre
         public int Etape;
         public byte Ordonne;         // 1 : le joueur a pris la main, le scénario s'arrête
         public byte Selection;
+        public Entity Ennemi;        // le régiment qu'on a ordre d'attaquer
+        public int Contacts;         // hommes au contact de l'ennemi, à la dernière image
+        public float Melee;          // secondes restantes dans l'état de mêlée (les rangs s'appuient)
+        public float2 CentreHommes;  // où se tiennent réellement ses hommes
 
         public int Rangs => (Effectif + Files - 1) / Files;
-        public float Largeur => (math.min(Files, Effectif) - 1) * Espacement;
-        public float Profondeur => (Rangs - 1) * Espacement;
+        // Les dimensions suivent l'espacement réel : serré dans la mêlée, ouvert sinon.
+        public float Largeur => (math.min(Files, Effectif) - 1) * (Melee > 0 ? Formation.EspacementSerre : Espacement);
+        public float Profondeur => (Rangs - 1) * (Melee > 0 ? Formation.ProfondeurSerree : Espacement);
     }
 
-    // Réglages de la simulation. Corps = 0 retire la gêne entre les hommes :
-    // c'est la contre-épreuve des essais, jamais un réglage de jeu.
+    // Réglages de la simulation, pour les contre-épreuves des essais, jamais des réglages de jeu.
+    // Corps = 0 retire la gêne entre les hommes ; Poussee = 0 retire la poussée de charge des
+    // rangs arrière (seuls les hommes au contact de l'ennemi appuient ; les autres tiennent leur place).
     public struct ReglagesSimulation : IComponentData
     {
         public byte Corps;
+        public byte Poussee;
     }
 
     public static class Formation
     {
         // Place d'un homme dans le repère du régiment : x vers la droite, y vers l'avant.
         // Le dernier rang, incomplet, se centre derrière les autres.
+        public const float EspacementSerre = 0.8f, ProfondeurSerree = 0.9f;   // épaule contre épaule
+
         public static float2 Place(in Regiment r, int numero)
         {
             int files = math.max(1, math.min(r.Files, r.Effectif));
             int rangs = (r.Effectif + files - 1) / files;
             int rg = numero / files, f = numero % files;
             int dansLeRang = rg == rangs - 1 ? r.Effectif - rg * files : files;
-            return new float2((f - (dansLeRang - 1) / 2f) * r.Espacement, -(rg - (rangs - 1) / 2f) * r.Espacement);
+            // Dans la mêlée, les rangs se serrent : épaule contre épaule, sans vide où l'ennemi se glisse.
+            float ex = r.Melee > 0 ? EspacementSerre : r.Espacement, ey = r.Melee > 0 ? ProfondeurSerree : r.Espacement;
+            return new float2((f - (dansLeRang - 1) / 2f) * ex, -(rg - (rangs - 1) / 2f) * ey);
         }
 
         public static float2 VersMonde(float2 local, float2 ancre, float2 front)

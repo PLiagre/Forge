@@ -6,7 +6,8 @@
       "cuisse": 1,
       "jambe": -1,
       "bras": 1,
-      "torse": -1
+      "torse": -1,
+      "fente": -1
     }
   },
   "hallebardier": {
@@ -16,7 +17,8 @@
       "cuisse": 1,
       "jambe": -1,
       "bras": 1,
-      "torse": -1
+      "torse": -1,
+      "fente": -1
     }
   },
   "arbaletrier": {
@@ -26,7 +28,8 @@
       "cuisse": 1,
       "jambe": -1,
       "bras": 1,
-      "torse": -1
+      "torse": -1,
+      "fente": -1
     }
   }
 }

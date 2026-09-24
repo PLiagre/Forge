@@ -77,6 +77,7 @@ namespace Guerre.EditeurOutils
                 mat.SetFloat("_ImagesMarche", images[0]);
                 mat.SetFloat("_ImagesRepos", images[1]);
                 mat.SetFloat("_DureeRepos", durees[1]);
+                mat.SetFloat("_ImagesCombat", images[2]);
                 mat.SetFloat("_VATActif", 1);
                 Remplacer(mat, dossier + "/Soldat_" + Armes[k] + ".mat");
 

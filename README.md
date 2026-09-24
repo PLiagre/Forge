@@ -13,11 +13,11 @@ modifié ni importé.
 |---|---|
 | `Jouer.cmd` | lance le joueur compilé |
 | `Ouvrir_Unity.cmd` | ouvre le projet dans Unity 6000.0.43f1 |
-| `Mesurer.cmd` | fabrique les soldats, reconstruit, compile et passe les preuves des jalons 1 à 3, avec leurs contre-épreuves |
+| `Mesurer.cmd` | fabrique les soldats, reconstruit, compile et passe les preuves des jalons 1 à 4, avec leurs contre-épreuves (environ 15 min) |
 
 En jeu :
 - **clic gauche** choisit un régiment bleu ; **glisser** trace une boîte ; **Maj + clic** ajoute ou retire ; **Ctrl + A** choisit toute l'armée ;
-- **clic droit** y envoie le groupe, qui garde sa disposition ;
+- **clic droit** y envoie le groupe, qui garde sa disposition ; **sur un régiment rouge**, il l'attaque ;
 - **clic droit glissé** trace la ligne de bataille : sa longueur fixe le front, et les régiments font face au loin ;
 - **Retour arrière** commande la halte ;
 - **ZQSD** déplace la caméra ; **molette** zoome ; **A / E** ou **clic molette** tourne la caméra ;
@@ -29,7 +29,7 @@ En jeu :
 powershell -File outils/atelier.ps1 soldats             # soldats modelés et animés dans Blender 5.2
 powershell -File outils/atelier.ps1 construire          # + pipeline, vallée, scène
 powershell -File outils/atelier.ps1 joueur              # + joueur Windows dans sorties/joueur
-powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 à 3, et contre-épreuves
+powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 à 4, et contre-épreuves
 powershell -File outils/atelier.ps1 mesurer -soldats 20000
 ```
 
@@ -48,6 +48,8 @@ régénéré par `Construire.cs`. Pour une modification durable, changer le code
 | `Runtime/Commandement.cs` | caméra, sélection, ordres, tracés au sol, aide à l'écran |
 | `Runtime/Mesure.cs` | mesure du jalon 1 dans le joueur, écrite dans `sorties/mesure/mesure.json` |
 | `Runtime/Essais.cs` | essai du jalon 2 (formations, obstacle), écrit dans `sorties/essai-ordres/` |
+| `Runtime/EssaisMelee.cs` | essai du jalon 4 (trois duels de profondeur), écrit dans `sorties/essai-melee/` |
+| `Runtime/Rangs.cs` | reclassement des hommes après un ordre ou des pertes |
 | `Editor/Construire.cs` | URP Forward+, vallée, scène, build |
 | `Editor/ImportSoldats.cs` | `.vat` → maillage, texture d'animation, matériau |
 

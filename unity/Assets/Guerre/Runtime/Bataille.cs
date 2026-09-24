@@ -26,7 +26,7 @@ namespace Guerre
         public bool Pret { get; private set; }
         public int Leves { get; private set; }
         public EntityManager Em => World.DefaultGameObjectInjectionWorld.EntityManager;
-        bool sansCorps;
+        bool sansCorps, sansPoussee;
 
         // Bleu roi contre rouge sang : on distingue les camps de loin, par temps de neige.
         static readonly float3[] Camps = { new float3(0.16f, 0.27f, 0.62f), new float3(0.62f, 0.14f, 0.12f) };
@@ -38,6 +38,7 @@ namespace Guerre
             int i = Array.IndexOf(args, "-guerre-soldats");
             if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out int n) && n > 0) soldats = n;
             sansCorps = Array.IndexOf(args, "-guerre-sans-corps") >= 0;
+            sansPoussee = Array.IndexOf(args, "-guerre-sans-poussee") >= 0;
             // Contre-épreuve de la mesure : le shader ignore l'animation cuite.
             if (Array.IndexOf(args, "-guerre-sans-animation") >= 0)
                 foreach (var m in materiaux) m.SetFloat("_VATActif", 0);
@@ -48,7 +49,7 @@ namespace Guerre
             var em = Em;
             PoserRelief(em);
             var reglages = em.CreateEntity(typeof(ReglagesSimulation));
-            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1) });
+            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1), Poussee = (byte)(sansPoussee ? 0 : 1) });
 
             var desc = new RenderMeshDescription(ShadowCastingMode.On, receiveShadows: true);
             var rma = new RenderMeshArray(materiaux, maillages);
@@ -59,6 +60,7 @@ namespace Guerre
             em.AddComponentData(proto, new Soldat());
             em.AddComponentData(proto, new URPMaterialPropertyBaseColor { Value = new float4(1) });
             em.AddComponentData(proto, new AnimEtat());
+            em.AddComponentData(proto, new AnimCombat());
 
             var t = terrain.transform.position;
             var taille = terrain.terrainData.size;
@@ -108,7 +110,8 @@ namespace Guerre
                         {
                             Regiment = reg, Numero = h, Decalage = decalage, Allure = alea.NextFloat(0.9f, 1.1f),
                             Phase = alea.NextFloat(0, 6.28f),
-                            Teinte = teinteRegiment * alea.NextFloat(0.85f, 1.15f)
+                            Teinte = teinteRegiment * alea.NextFloat(0.85f, 1.15f),
+                            Camp = (byte)camp, Arme = (byte)arme, Sante = 1, Recharge = alea.NextFloat(0.5f, 2.5f)
                         });
                         em.SetComponentData(hommes[h], MaterialMeshInfo.FromRenderMeshArrayIndices(arme, arme));
                         em.SetComponentData(hommes[h], LocalTransform.FromPositionRotation(
@@ -186,7 +189,7 @@ namespace Guerre
 
         public void Ordonner(System.Collections.Generic.IEnumerable<(Entity e, float2 cible, float2 front, int files)> ordres)
         {
-            var liste = new System.Collections.Generic.List<(Entity e, Regiment r)>();
+            var liste = new System.Collections.Generic.List<Entity>();
             foreach (var (e, cible, front, files) in ordres)
             {
                 var r = Em.GetComponentData<Regiment>(e);
@@ -194,48 +197,63 @@ namespace Guerre
                 if (math.lengthsq(front) > 1e-4f) r.FrontCible = math.normalize(front);
                 r.Files = math.clamp(files, 1, r.Effectif);
                 r.Ordonne = 1;
+                r.Ennemi = Entity.Null;   // un ordre de marche rompt l'attaque
                 Em.SetComponentData(e, r);
-                liste.Add((e, r));
+                liste.Add(e);
             }
-            Reclasser(liste);
+            Rangs.Reclasser(Em, liste);
         }
 
-        // À chaque ordre, les hommes reprennent un numéro dans l'ordre où ils se tiennent :
-        // les plus avancés forment le premier rang, de gauche à droite. Personne n'a à
-        // traverser le régiment pour rejoindre sa place quand le front s'élargit ou se resserre.
-        void Reclasser(System.Collections.Generic.List<(Entity e, Regiment r)> regiments)
+        // Attaquer : chaque régiment prend l'ancre de l'ennemi pour cible et y pousse ses hommes.
+        public void Attaquer(System.Collections.Generic.IEnumerable<Entity> regiments, Entity ennemi)
+        {
+            foreach (var e in regiments)
+            {
+                var r = Em.GetComponentData<Regiment>(e);
+                r.Ennemi = ennemi;
+                r.Ordonne = 1;
+                Em.SetComponentData(e, r);
+            }
+        }
+
+        // Pour les essais : pose un régiment formé à un endroit, sans marche d'approche.
+        public void Deplacer(Entity e, float2 ancre, float2 front, int files)
         {
             var em = Em;
             em.CompleteAllTrackedJobs();
+            var r = em.GetComponentData<Regiment>(e);
+            r.Position = r.Cible = ancre; r.Front = r.FrontCible = math.normalize(front);
+            r.Files = math.clamp(files, 1, math.max(1, r.Effectif)); r.Ordonne = 1; r.Ennemi = Entity.Null;
+            em.SetComponentData(e, r);
             var q = em.CreateEntityQuery(typeof(Soldat), typeof(LocalTransform));
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var sold = q.ToComponentDataArray<Soldat>(Allocator.Temp);
-            using var pos = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var parRegiment = new System.Collections.Generic.Dictionary<Entity, System.Collections.Generic.List<int>>();
-            foreach (var (e, _) in regiments) parRegiment[e] = new System.Collections.Generic.List<int>();
             for (int i = 0; i < ents.Length; i++)
-                if (parRegiment.TryGetValue(sold[i].Regiment, out var l)) l.Add(i);
-
-            foreach (var (e, r) in regiments)
             {
-                var hommes = parRegiment[e];
-                float2 droite = new float2(r.Front.y, -r.Front.x);
-                // Du premier rang au dernier, puis de gauche à droite dans chaque rang.
-                hommes.Sort((a, b) => math.dot(pos[b].Position.xz - r.Position, r.Front).CompareTo(math.dot(pos[a].Position.xz - r.Position, r.Front)));
-                int files = math.max(1, math.min(r.Files, hommes.Count));
-                for (int debut = 0; debut < hommes.Count; debut += files)
-                {
-                    int n = math.min(files, hommes.Count - debut);
-                    var rang = hommes.GetRange(debut, n);
-                    rang.Sort((a, b) => math.dot(pos[a].Position.xz - r.Position, droite).CompareTo(math.dot(pos[b].Position.xz - r.Position, droite)));
-                    for (int k = 0; k < n; k++)
-                    {
-                        var s = sold[rang[k]];
-                        s.Numero = debut + k;
-                        em.SetComponentData(ents[rang[k]], s);
-                    }
-                }
+                if (sold[i].Regiment != e) continue;
+                var s = sold[i];
+                s.Vitesse = 0; s.Numero = math.min(s.Numero, r.Effectif - 1);
+                em.SetComponentData(ents[i], s);
+                float2 p = Formation.VersMonde(Formation.Place(r, s.Numero) + s.Decalage, ancre, r.Front);
+                em.SetComponentData(ents[i], LocalTransform.FromPositionRotation(new float3(p.x, Sol.Hauteur(ref relief.Value, p), p.y),
+                    quaternion.LookRotationSafe(new float3(r.Front.x, 0, r.Front.y), math.up())));
             }
+        }
+
+        // Pour les essais : retire des hommes d'un régiment (ils n'ont jamais été levés).
+        public void Reduire(Entity e, int retires)
+        {
+            var em = Em;
+            em.CompleteAllTrackedJobs();
+            var q = em.CreateEntityQuery(typeof(Soldat));
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var sold = q.ToComponentDataArray<Soldat>(Allocator.Temp);
+            var aRetirer = new System.Collections.Generic.List<Entity>();
+            for (int i = 0; i < ents.Length && aRetirer.Count < retires; i++)
+                if (sold[i].Regiment == e) aRetirer.Add(ents[i]);
+            foreach (var x in aRetirer) em.DestroyEntity(x);
+            Leves -= aRetirer.Count;
+            Rangs.Reclasser(em, new System.Collections.Generic.List<Entity> { e });
         }
 
         public void Choisir(Entity e, bool choisi)

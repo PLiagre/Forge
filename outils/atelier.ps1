@@ -2,7 +2,7 @@
 #   powershell -File outils/atelier.ps1 soldats      # fabriquer les soldats dans Blender (fabrique/sorties)
 #   powershell -File outils/atelier.ps1 construire   # soldats, pipeline, vallée, scène
 #   powershell -File outils/atelier.ps1 joueur       # construire + joueur Windows
-#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 3, avec leurs contre-épreuves
+#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 4, avec leurs contre-épreuves
 #   powershell -File outils/atelier.ps1 ouvrir       # ouvrir l'éditeur
 param([Parameter(Mandatory)][ValidateSet('soldats','construire','joueur','mesurer','ouvrir')][string]$action,
       [int]$soldats = 10000)
@@ -80,6 +80,17 @@ switch ($action) {
         $oc = Lancer (Join-Path $racine 'sorties\essai-ordres-sans-corps') @('-guerre-essai-ordres','-guerre-sans-corps') 'essai-ordres.json'
         if ($null -eq $oc -or $oc.statut -ne 'echec') { Write-Host 'Sans les corps, l''essai des ordres n''a pas échoué : il ne prouve rien.'; $echecs++ }
         else { "contre-épreuve 2 (sans les corps) : échec attendu obtenu ($($oc.motifs -join ' | '))" }
+
+        # Jalon 4 : la mêlée. Le plus profond doit repousser l'autre, dans les deux sens.
+        $m = Lancer (Join-Path $racine 'sorties\essai-melee') @('-guerre-essai-melee') 'essai-melee.json'
+        if ($null -eq $m) { exit 1 }
+        $m.duels | ForEach-Object { '{0,-16} {1} contre {2} rangs : ligne {3,6:N1} m, morts {4}/{5}, contact max {6}, ennemis à {7:N2} m au plus près, fatigue {8:P0}' -f $_.nom, $_.rangs_bleus, $_.rangs_rouges, $_.recul_de_la_ligne_m, $_.morts_bleus, $_.morts_rouges, $_.contacts_max, $_.distance_min_ennemis_m, $_.fatigue_moyenne }
+        "jalon 4 : $($m.statut) $($m.motifs -join ' | ')"
+        if ($m.statut -ne 'valide') { $echecs++ }
+        # Si les rangs arrière ne poussent plus, la profondeur ne doit plus rien donner.
+        $mc = Lancer (Join-Path $racine 'sorties\essai-melee-sans-poussee') @('-guerre-essai-melee','-guerre-sans-poussee') 'essai-melee.json'
+        if ($null -eq $mc -or $mc.statut -ne 'echec') { Write-Host 'Sans la poussée des rangs arrière, l''essai de mêlée n''a pas échoué : il ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 4 (sans poussée) : échec attendu obtenu ($($mc.motifs -join ' | '))" }
 
         if ($echecs -gt 0) { exit 1 }
     }

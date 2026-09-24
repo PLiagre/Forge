@@ -1,38 +1,37 @@
 {
     "statut": "valide",
-    "date_utc": "2026-09-24T10:15:52.6933640Z",
+    "date_utc": "2026-09-24T12:17:37.6708474Z",
     "sans_corps": false,
     "formations": [
         {
             "files": 16,
             "largeur_attendue": 16.5,
-            "largeur_mesuree": 16.67877197265625,
+            "largeur_mesuree": 16.70098876953125,
             "a_sa_place": 1.0,
             "alignement_front": 1.0,
-            "secondes": 74.31098175048828,
+            "secondes": 74.32522583007813,
             "arrive": true,
             "trainards": []
         },
         {
             "files": 40,
             "largeur_attendue": 42.900001525878909,
-            "largeur_mesuree": 43.0198974609375,
-            "a_sa_place": 0.9879999756813049,
+            "largeur_mesuree": 43.06988525390625,
+            "a_sa_place": 0.9919999837875366,
             "alignement_front": 1.0,
-            "secondes": 13.505325317382813,
+            "secondes": 9.488693237304688,
             "arrive": true,
             "trainards": [
-                "n°79 à 1,7 m, place float2(21,45f, 2,2f), se tient en (19,9, 1,7)",
-                "n°115 à 2,4 m, place float2(17,05f, 1,1f), se tient en (14,7, 1,6)",
-                "n°159 à 1,5 m, place float2(21,45f, 0f), se tient en (20,0, -0,3)"
+                "n°76 à 2,6 m, place float2(18,15f, 2,2f), se tient en (15,7, 2,7)",
+                "n°79 à 1,5 m, place float2(21,45f, 2,2f), se tient en (20,0, 2,4)"
             ]
         }
     ],
     "obstacle": {
         "traversee_max": 0.0,
-        "distance_min_m": 0.7983754277229309,
-        "secondes": 70.00126647949219,
-        "ecart_moyen_tenant_m": 0.0229894258081913
+        "distance_min_m": 0.7993999719619751,
+        "secondes": 70.00250244140625,
+        "ecart_moyen_tenant_m": 0.009784787893295288
     },
     "motifs": []
 }

@@ -3,6 +3,8 @@
 // et la couleur de son camp (_BaseColor), propres à chaque instance d'Entities Graphics.
 //   _AnimEtat.x : phase de marche (0..1)   .y : poids de la marche (0 : repos, 1 : marche)
 //   _AnimEtat.z : décalage du repos (0..1), pour que les hommes ne respirent pas ensemble
+//   _AnimEtat.w : -1 pour un homme tombé, qui garde la pose de repos, immobile
+//   _AnimCombat.x : phase du coup (0..1)   .y : poids de la garde (0 : hors combat, 1 : en garde)
 // Texture _VAT : ligne = image ; colonne i = position du coin i, colonne i + Coins = sa normale.
 Shader "Guerre/Soldat"
 {
@@ -10,11 +12,13 @@ Shader "Guerre/Soldat"
     {
         _BaseColor ("Couleur du camp", Color) = (1, 1, 1, 1)
         _AnimEtat ("État d'animation", Vector) = (0, 0, 0, 0)
+        _AnimCombat ("État de combat", Vector) = (0, 0, 0, 0)
         [NoScaleOffset] _VAT ("Animation cuite", 2D) = "black" {}
         _Coins ("Coins", Float) = 0
         _ImagesMarche ("Images de marche", Float) = 24
         _ImagesRepos ("Images de repos", Float) = 24
         _DureeRepos ("Durée du repos (s)", Float) = 4
+        _ImagesCombat ("Images de combat", Float) = 24
         _VATActif ("Animation active", Float) = 1
     }
 
@@ -24,16 +28,19 @@ Shader "Guerre/Soldat"
     CBUFFER_START(UnityPerMaterial)
         float4 _BaseColor;
         float4 _AnimEtat;
-        float _Coins, _ImagesMarche, _ImagesRepos, _DureeRepos, _VATActif;
+        float4 _AnimCombat;
+        float _Coins, _ImagesMarche, _ImagesRepos, _DureeRepos, _ImagesCombat, _VATActif;
     CBUFFER_END
 
     #ifdef UNITY_DOTS_INSTANCING_ENABLED
         UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
             UNITY_DOTS_INSTANCED_PROP(float4, _BaseColor)
             UNITY_DOTS_INSTANCED_PROP(float4, _AnimEtat)
+            UNITY_DOTS_INSTANCED_PROP(float4, _AnimCombat)
         UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
         #define _BaseColor UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _BaseColor)
         #define _AnimEtat  UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _AnimEtat)
+        #define _AnimCombat UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _AnimCombat)
     #endif
 
     TEXTURE2D(_VAT);
@@ -61,13 +68,21 @@ Shader "Guerre/Soldat"
     void Animer(Attributes v, out float3 positionOS, out float3 normalOS)
     {
         positionOS = v.positionOS; normalOS = v.normalOS;
-        if (_VATActif < 0.5) return;
         float4 etat = _AnimEtat;
-        float3 pm, nm, pr, nr;
+        if (_VATActif < 0.5 || etat.w < -0.5) return;
+        float4 combat = _AnimCombat;
+        float3 pm, nm, pr, nr, pc, nc;
         Echantillon(v.vertexID, 0, _ImagesMarche, etat.x, pm, nm);
         Echantillon(v.vertexID, _ImagesMarche, _ImagesRepos, etat.z + _Time.y / _DureeRepos, pr, nr);
         positionOS = lerp(pr, pm, etat.y);
-        normalOS = normalize(lerp(nr, nm, etat.y));
+        normalOS = lerp(nr, nm, etat.y);
+        if (combat.y > 0.001)
+        {
+            Echantillon(v.vertexID, _ImagesMarche + _ImagesRepos, _ImagesCombat, combat.x, pc, nc);
+            positionOS = lerp(positionOS, pc, combat.y);
+            normalOS = lerp(normalOS, nc, combat.y);
+        }
+        normalOS = normalize(normalOS);
     }
     ENDHLSL
 

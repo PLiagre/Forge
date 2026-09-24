@@ -38,6 +38,8 @@ OS = {
     'tete':       ((0, 0, 1.48), (0, 0, 1.76), 'torse'),
     'bras.D':     ((0.22, 0, 1.40), (0.25, 0, 1.13), 'torse'),
     'avantbras.D':((0.25, 0, 1.13), (0.27, 0.03, 0.90), 'bras.D'),
+    # L'arme a son propre os, tenu par la main droite : on peut l'orienter pour le combat.
+    'arme':       ((0.27, 0.03, 0.88), (0.27, 0.03, 1.20), 'avantbras.D'),
     'bras.G':     ((-0.22, 0, 1.40), (-0.25, 0, 1.13), 'torse'),
     'avantbras.G':((-0.25, 0, 1.13), (-0.27, 0.03, 0.90), 'bras.G'),
     'cuisse.D':   ((0.10, 0, 0.93), (0.10, 0, 0.51), 'hanches'),
@@ -155,8 +157,8 @@ def piquier():
     corps_commun(c)
     chapel_de_fer(c)
     # La pique, portée droite à côté du corps : 4,6 m de frêne, un fer étroit.
-    c.tronc((0.30, 0.04, 0.12), (0.30, 0.04, 4.55), 0.018, 0.016, 'bois', 'avantbras.D', n=4)
-    c.tronc((0.30, 0.04, 4.55), (0.30, 0.04, 4.78), 0.024, 0.002, 'acier', 'avantbras.D', n=4)
+    c.tronc((0.30, 0.04, 0.12), (0.30, 0.04, 4.55), 0.018, 0.016, 'bois', 'arme', n=4)
+    c.tronc((0.30, 0.04, 4.55), (0.30, 0.04, 4.78), 0.024, 0.002, 'acier', 'arme', n=4)
     return c
 
 
@@ -165,10 +167,10 @@ def hallebardier():
     corps_commun(c, torse='acier')  # plastron d'acier sur le buste
     bassinet(c)
     # Hallebarde de 2,1 m : hampe, fer de hache, pointe et croc.
-    c.tronc((0.30, 0.04, 0.12), (0.30, 0.04, 2.10), 0.02, 0.018, 'bois', 'avantbras.D', n=4)
-    c.boite((0.30, 0.14, 1.92), (0.015, 0.19, 0.25), 'acier', 'avantbras.D')
-    c.boite((0.30, -0.05, 1.95), (0.012, 0.07, 0.04), 'acier', 'avantbras.D')
-    c.tronc((0.30, 0.04, 2.10), (0.30, 0.04, 2.34), 0.02, 0.002, 'acier', 'avantbras.D', n=4)
+    c.tronc((0.30, 0.04, 0.12), (0.30, 0.04, 2.10), 0.02, 0.018, 'bois', 'arme', n=4)
+    c.boite((0.30, 0.14, 1.92), (0.015, 0.19, 0.25), 'acier', 'arme')
+    c.boite((0.30, -0.05, 1.95), (0.012, 0.07, 0.04), 'acier', 'arme')
+    c.tronc((0.30, 0.04, 2.10), (0.30, 0.04, 2.34), 0.02, 0.002, 'acier', 'arme', n=4)
     return c
 
 
@@ -177,8 +179,8 @@ def arbaletrier():
     corps_commun(c)
     calotte_de_cuir(c)
     # Arbalète tenue à la main droite, arc en haut ; carquois de carreaux à la hanche gauche.
-    c.boite((0.30, 0.05, 1.05), (0.05, 0.06, 0.62), 'bois', 'avantbras.D')
-    c.boite((0.30, 0.05, 1.33), (0.04, 0.60, 0.04), 'acier', 'avantbras.D')
+    c.boite((0.30, 0.05, 1.05), (0.05, 0.06, 0.62), 'bois', 'arme')
+    c.boite((0.30, 0.05, 1.33), (0.04, 0.60, 0.04), 'acier', 'arme')
     c.boite((-0.21, -0.06, 0.92), (0.07, 0.10, 0.30), 'cuir', 'hanches', rot=Matrix.Rotation(0.25, 3, 'Y'))
     return c
 
@@ -238,7 +240,9 @@ def lire(obj):
     pos, nor, zones = [], [], []
     for t in me.loop_triangles:
         n = t.normal
-        for vi in t.vertices:
+        # Le passage de Blender (droitier) à Unity (gaucher) inverse le sens des triangles : on
+        # écrit leurs coins à rebours pour que Unity voie la face extérieure.
+        for vi in reversed(t.vertices):
             p = me.vertices[vi].co
             pos.append((p.x, p.z, p.y))
             nor.append((n.x, n.z, n.y))
@@ -259,7 +263,32 @@ def sens(arm, os_, extremite, axe_monde):
     return 1 if (p - q).dot(Vector(axe_monde)) > 0 else -1
 
 
-def poser(arm, clip, phase, signes):
+def orienter_arme(arm, direction):
+    """Tourne l'os de l'arme pour que la hampe (son axe Y) pointe vers direction, poignée dans la main."""
+    bpy.context.view_layer.update()
+    main = arm.pose.bones['avantbras.D'].tail.copy()
+    y = Vector(direction).normalized()
+    x = Vector((1, 0, 0)) - y * y.x
+    x.normalize()
+    z = x.cross(y)
+    rot = Matrix((x, y, z)).transposed().to_4x4()  # colonnes : axes X, Y, Z de l'os
+    arm.pose.bones['arme'].matrix = Matrix.Translation(main) @ rot
+    bpy.context.view_layer.update()
+
+
+def sens_translation(arm, os_, axe_monde):
+    """Signe d'un déplacement positif selon Z local de l'os, mesuré dans le monde."""
+    pb = arm.pose.bones[os_]
+    pb.location = (0, 0, 0.1)
+    bpy.context.view_layer.update()
+    p = arm.matrix_world @ pb.head
+    pb.location = (0, 0, 0)
+    bpy.context.view_layer.update()
+    q = arm.matrix_world @ pb.head
+    return 1 if (p - q).dot(Vector(axe_monde)) > 0 else -1
+
+
+def poser(arm, clip, phase, signes, arme='piquier'):
     """Pose du squelette à une phase (0..1) d'un cycle. La marche est un cycle de deux pas."""
     w = 2 * math.pi * phase
     P = arm.pose.bones
@@ -282,16 +311,40 @@ def poser(arm, clip, phase, signes):
         P['hanches'].location = (0, -0.025 * math.cos(2 * w), 0)
         P['torse'].rotation_euler.y = d(5) * balance
         P['tete'].rotation_euler.y = -d(4) * balance
-    else:  # repos : on respire, on porte le poids d'une jambe sur l'autre, on regarde autour.
+    elif clip == 'repos':  # on respire, on porte le poids d'une jambe sur l'autre, on regarde autour.
         P['torse'].rotation_euler.x = signes['torse'] * d(2.5) * math.sin(w * 2)
         P['hanches'].location = (0.012 * math.sin(w), 0, 0)
         P['tete'].rotation_euler.z = d(9) * math.sin(w + 0.6)
         P['bras.G'].rotation_euler.x = signes['bras'] * d(4) * math.sin(w * 2 + 1)
         P['avantbras.G'].rotation_euler.x = signes['bras'] * d(10)
+    else:  # combat : en garde, pied gauche devant ; le coup part dans la première moitié du cycle.
+        coup = math.sin(math.pi * min(1.0, max(0.0, (phase - 0.05) / 0.45)))
+        P['cuisse.G'].rotation_euler.x = signes['cuisse'] * d(20)
+        P['cuisse.D'].rotation_euler.x = -signes['cuisse'] * d(14)
+        P['jambe.G'].rotation_euler.x = signes['jambe'] * d(22)
+        P['jambe.D'].rotation_euler.x = signes['jambe'] * d(14)
+        # Le corps s'abaisse et se porte en avant avec le coup.
+        P['hanches'].location = (0, -0.05, signes['fente'] * 0.12 * coup)
+        P['torse'].rotation_euler.x = signes['torse'] * d(10 + 8 * coup)
+        P['bras.D'].rotation_euler.x = signes['bras'] * d(45 + 25 * coup)
+        P['avantbras.D'].rotation_euler.x = signes['bras'] * d(35 - 20 * coup)
+        P['bras.G'].rotation_euler.x = signes['bras'] * d(50 + 25 * coup)
+        P['avantbras.G'].rotation_euler.x = signes['bras'] * d(45 - 20 * coup)
+        bpy.context.view_layer.update()
+        if arme == 'piquier':
+            # La pique abaissée à hauteur d'épaule, la pointe légèrement vers le bas.
+            orienter_arme(arm, (0, 1, -0.06 - 0.05 * coup))
+        elif arme == 'hallebardier':
+            # La hallebarde levée à 60°, puis abattue jusque sous l'horizontale.
+            e = d(60 - 72 * coup)
+            orienter_arme(arm, (0, math.cos(e), math.sin(e)))
+        else:
+            # L'arbalète tenue devant soi, pour parer et frapper de la crosse.
+            orienter_arme(arm, (0, 1, 0.35 - 0.3 * coup))
     bpy.context.view_layer.update()
 
 
-CLIPS = [('marche', 24, 1.15), ('repos', 24, 4.0)]
+CLIPS = [('marche', 24, 1.15), ('repos', 24, 4.0), ('combat', 24, 1.0)]
 half = lambda vals: struct.pack('<%de' % len(vals), *vals)
 
 
@@ -303,6 +356,7 @@ def fabriquer(nom, construire):
         'jambe': sens(arm, 'jambe.D', 'queue', (0, -1, 0)),      # le genou plie : le pied part en arrière
         'bras': sens(arm, 'bras.G', 'queue', (0, 1, 0)),
         'torse': sens(arm, 'torse', 'queue', (0, 1, 0)),
+        'fente': sens_translation(arm, 'hanches', (0, 1, 0)),    # le bassin se porte en avant
     }
     poser(arm, 'repos', 0, signes)
     for pb in arm.pose.bones:
@@ -314,7 +368,7 @@ def fabriquer(nom, construire):
     for clip, images, duree in CLIPS:
         cadres = []
         for i in range(images):
-            poser(arm, clip, i / images, signes)
+            poser(arm, clip, i / images, signes, nom)
             p, nn, _ = lire(obj)
             assert len(p) == n, 'la topologie a changé pendant l\'animation'
             cadres.append((p, nn))
@@ -375,6 +429,13 @@ if __name__ == '__main__':
     for obj, arm in objets:
         poser(arm, 'marche', 0.25, signes)
     bpy.context.scene.render.filepath = os.path.join(SORTIE, 'apercu_marche.png')
+    bpy.ops.render.render(write_still=True)
+    # Le coup, vu de profil : la pique abaissée, la hallebarde qui s'abat.
+    for (obj, arm), nom in zip(objets, VARIANTES):
+        poser(arm, 'combat', 0.3, signes, nom)
+    cam = bpy.context.scene.camera
+    cam.location, cam.rotation_euler = (9.0, 1.2, 1.5), (math.radians(88), 0, math.radians(90))
+    bpy.context.scene.render.filepath = os.path.join(SORTIE, 'apercu_combat.png')
     bpy.ops.render.render(write_still=True)
     for obj, arm in objets:
         for pb in arm.pose.bones:

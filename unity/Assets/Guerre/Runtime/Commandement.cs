@@ -124,7 +124,13 @@ namespace Guerre
                 b.Ordonner(choisis.Select(e => { var r = b.Em.GetComponentData<Regiment>(e); return (e, r.Position, r.Front, r.Files); }).ToList());
 
             // Ordres : clic droit pour aller, clic droit glissé pour tracer la ligne de bataille.
-            if (choisis.Count > 0 && m.rightButton.wasPressedThisFrame && Sol(m, out var a)) { debutLigne = a; ligneCommencee = true; ligneTracee = false; }
+            if (choisis.Count > 0 && m.rightButton.wasPressedThisFrame && Sol(m, out var a))
+            {
+                // Clic droit sur un régiment ennemi : l'attaquer. Ailleurs : y aller.
+                var ennemi = b.RegimentSous(new float2(a.x, a.z), 1 - CampJoueur, 0);
+                if (ennemi != Entity.Null) b.Attaquer(choisis, ennemi);
+                else { debutLigne = a; ligneCommencee = true; ligneTracee = false; }
+            }
             if (ligneCommencee && Sol(m, out var courant))
             {
                 var A = new float2(debutLigne.x, debutLigne.z); var B = new float2(courant.x, courant.z);
@@ -271,16 +277,18 @@ namespace Guerre
             var b = Bataille.Instance;
             var style = new GUIStyle(GUI.skin.label) { fontSize = 15, richText = true };
             GUI.color = new Color(0, 0, 0, 0.55f);
-            GUI.DrawTexture(new Rect(10, 10, 470, montrerAide ? 232 : 52), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(10, 10, 700, montrerAide ? 254 : 52), Texture2D.whiteTexture);
             GUI.color = Color.white;
             string etat = b == null || !b.Pret ? "levée des armées…" : $"{b.Leves:N0} hommes";
+            string pertes = $"   pertes : {SystemePertes.Pertes[0]} bleus, {SystemePertes.Pertes[1]} rouges";
             string choix = choisis.Count > 0 ? $"   {choisis.Count} régiment{(choisis.Count > 1 ? "s" : "")} choisi{(choisis.Count > 1 ? "s" : "")}" : "";
-            GUI.Label(new Rect(20, 16, 460, 24), $"<b>Citadelle — Guerre</b>   {etat}   {fpsLisse:0} i/s{choix}{(Time.timeScale == 0 ? "   <b>PAUSE</b>" : "")}", style);
+            GUI.Label(new Rect(20, 16, 690, 24), $"<b>Citadelle — Guerre</b>   {etat}   {fpsLisse:0} i/s{pertes}{choix}{(Time.timeScale == 0 ? "   <b>PAUSE</b>" : "")}", style);
             if (montrerAide)
-                GUI.Label(new Rect(20, 44, 460, 190),
+                GUI.Label(new Rect(20, 44, 690, 210),
                     "Clic gauche : choisir un régiment bleu · glisser : boîte\n" +
                     "Maj + clic : ajouter ou retirer · Ctrl + A : toute l'armée\n" +
                     "Clic droit : y aller (le groupe garde sa disposition)\n" +
+                    "Clic droit sur un régiment rouge : l'attaquer\n" +
                     "Clic droit glissé : tracer la ligne — sa longueur fixe le front\n" +
                     "Retour arrière : halte\n" +
                     "ZQSD : déplacer · Maj : plus vite · molette : zoom\n" +

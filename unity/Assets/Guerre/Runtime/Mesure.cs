@@ -27,7 +27,9 @@ namespace Guerre
             public Vue[] vues;
             public float deplacement_moyen_m, pixels_changes_par_les_soldats, pixels_changes_par_l_animation;
             public int[] triangles_par_soldat;
-            public bool objectif_60, soldats_conformes, armee_en_mouvement, soldats_visibles, soldats_animes;
+            public int soldats_au_contact, morts;
+            public float secondes_avant_la_melee;
+            public bool objectif_60, soldats_conformes, armee_en_mouvement, soldats_visibles, soldats_animes, melee_engagee;
             public string[] motifs;
         }
 
@@ -68,15 +70,42 @@ namespace Guerre
             var motifs = new List<string>();
             yield return null;
 
-            // Un échantillon fixe de soldats, pour mesurer que l'armée marche vraiment.
+            // Un échantillon fixe de soldats, pour mesurer que l'armée marche vraiment ; les morts gardent leur place.
+            Entity[] suivis;
+            using (var tous = soldats.ToEntityArray(Allocator.Temp))
+                suivis = Enumerable.Range(0, Mathf.Min(400, tous.Length)).Select(k => tous[k * (tous.Length / Mathf.Max(1, Mathf.Min(400, tous.Length)))]).ToArray();
             Vector3[] Echantillon()
             {
-                using var t = soldats.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                var e = new Vector3[Mathf.Min(400, t.Length)];
-                for (int k = 0; k < e.Length; k++) e[k] = t[k * (t.Length / Mathf.Max(1, e.Length))].Position;
-                return e;
+                em.CompleteAllTrackedJobs();
+                return suivis.Select(e => (Vector3)em.GetComponentData<LocalTransform>(e).Position).ToArray();
             }
             var avant = Echantillon();
+
+            // La mesure porte sur une vraie bataille : on accélère le temps jusqu'à ce que
+            // les deux armées soient aux prises, avec plus de mille hommes au contact.
+            int AuContact()
+            {
+                em.CompleteAllTrackedJobs();
+                using var ss = soldats.ToComponentDataArray<Soldat>(Allocator.Temp);
+                int n = 0; foreach (var x in ss) n += x.Contact;
+                return n;
+            }
+            Vector3 Melee()
+            {
+                em.CompleteAllTrackedJobs();
+                using var ss = soldats.ToComponentDataArray<Soldat>(Allocator.Temp);
+                using var tt = soldats.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                Vector3 somme = Vector3.zero; int n = 0;
+                for (int k = 0; k < ss.Length; k++) if (ss[k].Contact != 0) { somme += (Vector3)tt[k].Position; n++; }
+                return n == 0 ? Vector3.zero : somme / n;
+            }
+            Time.timeScale = 6;
+            float debutAttente = Time.time, limite = Time.realtimeSinceStartup + 150f;
+            while (AuContact() < 1000 && Time.realtimeSinceStartup < limite) { for (int k = 0; k < 10; k++) yield return null; }
+            r.secondes_avant_la_melee = Time.time - debutAttente;
+            Time.timeScale = 1;
+            r.melee_engagee = AuContact() >= 1000;
+            if (!r.melee_engagee) motifs.Add("les armées ne se sont pas engagées : pas de mêlée à mesurer");
 
             var centre = b.terrain.transform.position + b.terrain.terrainData.size * 0.5f;
             // Les vues suivent l'armée bleue là où elle se trouve, pas un point fixe de la carte.
@@ -93,11 +122,13 @@ namespace Guerre
                 ("Front", true, new Vector3(20, 0, 0), 24, 160),
                 ("Au milieu des rangs", true, new Vector3(0, 0, 12), 9, 45),
                 ("Plongée", true, new Vector3(0, 0, -60), 72, 260),
+                ("Mêlée", false, Vector3.zero, 28, 60),
             };
             var resultats = new List<Vue>();
             foreach (var v in vues)
             {
-                cmd.foyer = (v.armee ? Armee() : centre) + v.decalage; cmd.plongee = v.plongee; cmd.distance = v.distance;
+                cmd.foyer = (v.nom == "Mêlée" && r.melee_engagee ? Melee() : v.armee ? Armee() : centre) + v.decalage; cmd.plongee = v.plongee; cmd.distance = v.distance;
+                if (v.nom == "Mêlée") r.soldats_au_contact = AuContact();
                 float t0 = Time.realtimeSinceStartup;
                 while (Time.realtimeSinceStartup - t0 < 3f) { cmd.cap += 4f * Time.unscaledDeltaTime; yield return null; }
                 var dts = new List<double>();
@@ -142,7 +173,7 @@ namespace Guerre
             // marche différentes. Si le shader ne rejoue pas l'animation cuite, l'image ne change pas.
             cmd.foyer = Armee() + vues[2].decalage; cmd.plongee = vues[2].plongee; cmd.distance = vues[2].distance;
             Pilotage(false);
-            var animes = em.CreateEntityQuery(typeof(AnimEtat));
+            var animes = em.CreateEntityQuery(typeof(AnimEtat), typeof(AnimCombat), typeof(Soldat));
             void Phase(float phase)
             {
                 em.CompleteAllTrackedJobs();
@@ -150,6 +181,11 @@ namespace Guerre
                 for (int k = 0; k < etats.Length; k++) etats[k] = new AnimEtat { Value = new Unity.Mathematics.float4(phase, 1, 0, 0) };
                 animes.CopyFromComponentDataArray(etats);
                 etats.Dispose();
+                // La garde de combat recouvrirait la marche : on la retire pour la durée de la preuve.
+                var gardes = animes.ToComponentDataArray<AnimCombat>(Allocator.Temp);
+                for (int k = 0; k < gardes.Length; k++) gardes[k] = new AnimCombat();
+                animes.CopyFromComponentDataArray(gardes);
+                gardes.Dispose();
             }
             Phase(0f);
             for (int k = 0; k < 5; k++) yield return null;
@@ -166,7 +202,9 @@ namespace Guerre
             Destroy(pas1); Destroy(pas2);
             r.triangles_par_soldat = b.maillages.Select(m => (int)(m.GetIndexCount(0) / 3)).ToArray();
 
-            r.soldats_presents = soldats.CalculateEntityCount();
+            // Vivants et morts : un homme tombé reste un homme levé.
+            r.morts = em.CreateEntityQuery(typeof(Mort)).CalculateEntityCount();
+            r.soldats_presents = soldats.CalculateEntityCount() + r.morts;
             r.soldats_conformes = r.soldats_presents == r.soldats_demandes;
             if (!r.soldats_conformes) motifs.Add($"{r.soldats_presents} soldats présents pour {r.soldats_demandes} demandés");
             r.armee_en_mouvement = r.deplacement_moyen_m > 5f;
