@@ -17,7 +17,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .mesure import Lecture
 from .integration import chemin_valide
 
 API = "https://api.github.com"
@@ -118,6 +117,8 @@ class Github:
         en « absent ». Un 404 est un « ça n'existe pas » et devient une
         valeur connue à `None` ; tout le reste reste inconnu.
         """
+        from .mesure import Lecture
+
         try:
             return Lecture.sue(self.get(chemin, **params))
         except GithubErreur as exc:

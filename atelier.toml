@@ -48,7 +48,7 @@ controles = ["sim", "vues", "forge", "outils", "atelier", "feuille", "gitleaks"]
 branches = ["agent/", "brief/", "feuille/"]
 # La porte de master se change sous le regard du propriétaire. Un slash
 # final désigne un dossier ; les autres entrées sont des fichiers exacts.
-zone = ["atelier.toml", "AGENTS.md", ".github/", "outils/"]
+zone = ["atelier.toml", "AGENTS.md", ".github/", "outils/__init__.py", "outils/porte.py", "outils/github.py", "outils/registre.py", "outils/relecture.py", "outils/integration.py", "outils/demandes.py", "outils/perimetre.py"]
 
 # La page de pilotage : ses seuils et ses fenêtres. Ils sont ici, et pas dans
 # le code, parce qu'un seuil qu'on ne peut changer qu'en committant `outils/`

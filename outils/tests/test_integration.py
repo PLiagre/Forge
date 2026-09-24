@@ -552,15 +552,51 @@ def _zone_du_depot():
     return zone
 
 
-def test_zone_les_modules_des_outils_ne_peuvent_pas_neutraliser_la_garde():
+def test_zone_le_tableau_reste_un_changement_ordinaire():
+    decision = integration.examiner(pr(fichiers=("outils/tableau.py",)), REQUIS, PREFIXES, _zone_du_depot())
+    assert decision.action == integration.FUSIONNER
+
+
+def test_zone_la_porte_ne_charge_que_des_modules_proteges(tmp_path):
+    import json
     from pathlib import Path
+    import subprocess
+    import sys
+
     racine = Path(__file__).resolve().parents[2]
-    chemins = sorted(p.relative_to(racine).as_posix() for p in (racine / "outils").rglob("*.py"))
-    assert chemins, "une zone sans module ne prouve rien"
+    script = racine / ".github/scripts/decider-integration.py"
+    sonde = '''import runpy, sys, json
+from pathlib import Path
+racine = Path(sys.argv[1]).resolve()
+runpy.run_path(str(racine / '.github/scripts/decider-integration.py'))
+print(json.dumps(sorted({str(Path(m.__file__).resolve().relative_to(racine)).replace(chr(92), '/') for m in list(sys.modules.values()) if getattr(m, '__file__', None) and Path(m.__file__).resolve().is_relative_to(racine)})))
+'''
+    resultat = subprocess.run([sys.executable, "-I", "-S", "-c", sonde, str(racine)], capture_output=True, text=True)
+    assert resultat.returncode == 0, resultat.stderr
+    chemins = json.loads(resultat.stdout)
+    assert chemins
     for chemin in chemins:
         decision = integration.examiner(pr(fichiers=(chemin,)), REQUIS, PREFIXES, _zone_du_depot())
         assert decision.action == integration.RIEN, chemin
-        assert "zone protégée" in decision.raison, chemin
+
+
+def test_zone_des_modules_ordinaires_hostiles_ne_changent_pas_la_porte(tmp_path):
+    from pathlib import Path
+    import shutil
+    import subprocess
+    import sys
+
+    racine = Path(__file__).resolve().parents[2]
+    shutil.copytree(racine / "outils", tmp_path / "outils", ignore=shutil.ignore_patterns("__pycache__"))
+    script = tmp_path / ".github/scripts/decider-integration.py"
+    script.parent.mkdir(parents=True)
+    shutil.copyfile(racine / ".github/scripts/decider-integration.py", script)
+    for chemin in ("sitecustomize.py", "json.py", "outils/__main__.py", "outils/tableau.py", "outils/mesure.py", "outils/palier.py", "outils/saisie.py"):
+        (tmp_path / chemin).write_text("raise RuntimeError('MODULE ORDINAIRE EXECUTE')\n", encoding="utf-8")
+    resultat = subprocess.run([sys.executable, "-I", "-S", str(script), "--depot", "O/R", "--projet", str(tmp_path)], cwd=tmp_path, capture_output=True, text=True)
+    assert resultat.returncode == 1
+    assert "atelier.toml introuvable" in resultat.stderr
+    assert "MODULE ORDINAIRE EXECUTE" not in resultat.stderr
 
 
 @pytest.mark.parametrize("retard", [0, 3])
