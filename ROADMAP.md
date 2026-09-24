@@ -9,7 +9,7 @@ mesure est verte dans le joueur Windows compilé, sur la machine de référence.
 | 2 | **Les ordres** — sélectionner, déplacer, faire pivoter, élargir ou resserrer un régiment | `atelier.ps1 mesurer` : un régiment atteint sa place sur 16 puis 40 files (front à 10 % près, 95 % des hommes à leur place) ; un régiment envoyé à travers un autre ne passe pas (< 5 %) et aucun corps n'en recouvre un autre (> 0,6 m) ; sans les corps, l'essai doit échouer | **fait** — 16,7 m pour 16,5 ; 43,0 m pour 42,9 en 14 s ; 0 % passés ; 0,80 m |
 | 3 | **Le corps** — soldat modulaire Blender (armure, arme, couleurs) et animation cuite en textures | `atelier.ps1 mesurer` : 10 000 soldats animés tiennent le budget ; deux phases de marche, positions figées, changent l'image ; sans l'animation, cette preuve doit échouer | **fait** — 95e centile au plus 2,39 ms ; l'animation change 6,6 % de l'image, 0,00 % sans elle ; 30 000 hommes : 5,28 ms |
 | 4 | **La mêlée** — poussée, coups, blessures, fatigue, deux régiments qui se battent | `atelier.ps1 mesurer` : trois duels de même front, 10 contre 5 rangs, 5 contre 10 et 10 contre 10. Le plus profond fait reculer la ligne d'au moins 3 m, dans les deux sens ; les régiments ne se traversent pas. Sans la poussée des rangs arrière, l'essai doit échouer. La mesure de performance porte sur une mêlée engagée sur tout le front | **fait** — +9,9 m et −9,4 m (témoin +0,5 m) ; sans poussée : +1,3 m et −0,2 m ; mêlée de 954 hommes au contact en 2,23 ms |
-| 5 | **La peur** — le moral naît des blessés autour de soi, des flancs, de la fatigue ; fuite et ralliement | un régiment pris de flanc cède plus souvent, sans modificateur écrit | |
+| 5 | **La peur** — le moral naît des blessés autour de soi, des flancs, de la fatigue ; fuite et ralliement | `atelier.ps1 mesurer` : vingt épreuves à armes égales, avec 20 000 hommes. Dans chacune, un régiment est attaqué de front, et un second régiment ennemi l'attaque de flanc (10 fois) ou reste en réserve derrière le premier (10 fois). De flanc, la part d'hommes en fuite au plus fort doit dépasser de 10 points celle de la réserve, les ruptures doivent être plus nombreuses, et des fuyards doivent revenir. Sans la peur, l'essai doit échouer | **fait** — 6 ruptures sur 10 contre 1 ; 51 % de fuyards au plus fort contre 19 % ; 1 564 ralliements |
 | 6 | **Les tireurs** — flèches et carreaux simulés en masse, trajectoires, boucliers, pavois | 2 000 projectiles en vol tiennent le budget | |
 | 7 | **La cavalerie** — masse, élan, charge, chevaux modélisés | une charge brise un rang non préparé et se brise sur des piques | |
 | 8 | **La carte** — vallée dédiée et citadelle recomposée avec le kit de Forge | les parcours de la vallée, du pont et des rues sont franchissables | |
@@ -52,3 +52,25 @@ mesure est verte dans le joueur Windows compilé, sur la machine de référence.
 
     Chaque cause a été mesurée (retard par rang, centres, mélange au fil du temps) avant d'être corrigée. Au passage, les normales des soldats étaient inversées depuis le jalon 3 : les coins sont désormais écrits à rebours pour Unity.
   - **Limites :** au-delà de 45 s de presse, deux régiments témoins usés (15 % de morts, 40 % de fatigue) commencent à s'entremêler. Le critère de mélange ne porte donc que sur les 45 premières secondes, et la série complète reste dans le rapport : c'est au moral (jalon 5) de les faire rompre avant. Le combat est un corps à corps ; les arbalétriers n'y tirent pas encore (jalon 6). Personne ne fuit (jalon 5).
+- **24 septembre 2026** — jalon 5 fait. La peur est propre à chaque homme ; aucun modificateur de moral n'est écrit au niveau du régiment.
+  - **Ce qui la nourrit, et seulement ce qu'il perçoit :**
+    - un camarade qui tombe à quelques mètres (un ennemi qui tombe rassure un peu) ;
+    - ses propres blessures ;
+    - être seul ou presque avec l'ennemi tout près ;
+    - un ennemi à côté de soi ou dans le dos, qu'on ne peut ni parer ni frapper ;
+    - la peur de ses voisins : la panique se propage vite, le calme lentement ;
+    - la fatigue, qui amplifie le tout.
+  - **Retour au calme :** la peur retombe d'elle-même, plus vite loin de l'ennemi et entouré des siens.
+  - **La fuite :** au-delà de son courage, propre à chacun (0,55 à 0,9), un homme fuit loin de la menace. Il ne pousse plus, ne frappe plus et ne pare plus. Il revient quand sa peur est tombée sous 30 % de son courage.
+  - **Le régiment :** il est en déroute quand la moitié de ses hommes fuient. Il cesse alors d'attaquer et se regroupe autour de ceux qui tiennent, puis se rallie quand ils reviennent.
+  - **La direction compte par la physique :** on ne pare et ne frappe que devant soi. Le flanc tue donc davantage de lui-même, et la peur fait le reste.
+  - **Ce que les essais ont appris :**
+    - une réserve qui attaquait aussi contournait ses amis et frappait de flanc : le témoin était faux, il reste désormais en réserve ;
+    - les épreuves n'avaient pas les mêmes armes ; tout le monde a désormais la pique ;
+    - trois ou cinq épreuves par condition jugées « rompu ou non », c'était le hasard : on juge maintenant sur vingt épreuves et sur une grandeur continue, la part de fuyards au plus fort ;
+    - **la simulation dépendait de la cadence d'affichage :** elle avance désormais à pas fixe (60 pas par seconde simulée), ce qui touche tous les jalons ; tous ont été revérifiés ;
+    - la perception « ennemi hors de vue » a été resserrée au-delà de 90°, sinon elle s'allumait aussi dans une mêlée de front qui se déforme.
+  - **Calibrage :** les taux de peur sont des nombres réglés, pas des règles de jeu (un mort voisin : +0,10 ; un ennemi hors de vue : +0,07 par seconde).
+  - **Isolement des essais :** l'essai du jalon 4 isole la poussée et coupe donc la peur.
+  - **Mesure de performance :** elle attend désormais 300 hommes au contact au lieu de 1 000, parce que des fronts rompent avant que toute la ligne soit engagée.
+  - **Limites :** pas de drapeau ni de chef, dont la présence rassurerait ; un fuyard rallié retourne à sa place, même au milieu de l'ennemi ; les régiments en déroute ne quittent pas le champ de bataille.

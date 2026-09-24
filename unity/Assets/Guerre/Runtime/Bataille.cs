@@ -26,19 +26,26 @@ namespace Guerre
         public bool Pret { get; private set; }
         public int Leves { get; private set; }
         public EntityManager Em => World.DefaultGameObjectInjectionWorld.EntityManager;
-        bool sansCorps, sansPoussee;
+        bool sansCorps, sansPoussee, sansPeur;
 
         // Bleu roi contre rouge sang : on distingue les camps de loin, par temps de neige.
         static readonly float3[] Camps = { new float3(0.16f, 0.27f, 0.62f), new float3(0.62f, 0.14f, 0.12f) };
 
+        public const float PasSimulation = 1f / 60f;
+
         void Awake()
         {
             Instance = this;
+            // La simulation avance à pas fixe, quelle que soit la cadence d'affichage : sans cela,
+            // la poussée et la peur donneraient d'autres issues sur une machine plus lente.
+            World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<SimulationSystemGroup>().RateManager =
+                new RateUtils.FixedRateCatchUpManager(PasSimulation);
             var args = Environment.GetCommandLineArgs();
-            int i = Array.IndexOf(args, "-guerre-soldats");
+            int i = Array.LastIndexOf(args, "-guerre-soldats");   // la dernière valeur l'emporte
             if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out int n) && n > 0) soldats = n;
             sansCorps = Array.IndexOf(args, "-guerre-sans-corps") >= 0;
             sansPoussee = Array.IndexOf(args, "-guerre-sans-poussee") >= 0;
+            sansPeur = Array.IndexOf(args, "-guerre-sans-peur") >= 0;
             // Contre-épreuve de la mesure : le shader ignore l'animation cuite.
             if (Array.IndexOf(args, "-guerre-sans-animation") >= 0)
                 foreach (var m in materiaux) m.SetFloat("_VATActif", 0);
@@ -49,7 +56,7 @@ namespace Guerre
             var em = Em;
             PoserRelief(em);
             var reglages = em.CreateEntity(typeof(ReglagesSimulation));
-            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1), Poussee = (byte)(sansPoussee ? 0 : 1) });
+            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1), Poussee = (byte)(sansPoussee ? 0 : 1), Peur = (byte)(sansPeur ? 0 : 1) });
 
             var desc = new RenderMeshDescription(ShadowCastingMode.On, receiveShadows: true);
             var rma = new RenderMeshArray(materiaux, maillages);
@@ -111,7 +118,9 @@ namespace Guerre
                             Regiment = reg, Numero = h, Decalage = decalage, Allure = alea.NextFloat(0.9f, 1.1f),
                             Phase = alea.NextFloat(0, 6.28f),
                             Teinte = teinteRegiment * alea.NextFloat(0.85f, 1.15f),
-                            Camp = (byte)camp, Arme = (byte)arme, Sante = 1, Recharge = alea.NextFloat(0.5f, 2.5f)
+                            Camp = (byte)camp, Arme = (byte)arme, Sante = 1, Recharge = alea.NextFloat(0.5f, 2.5f),
+                            // Le courage varie d'un homme à l'autre : les premiers à fuir entraînent les autres.
+                            Courage = alea.NextFloat(0.55f, 0.9f)
                         });
                         em.SetComponentData(hommes[h], MaterialMeshInfo.FromRenderMeshArrayIndices(arme, arme));
                         em.SetComponentData(hommes[h], LocalTransform.FromPositionRotation(
@@ -254,6 +263,26 @@ namespace Guerre
             foreach (var x in aRetirer) em.DestroyEntity(x);
             Leves -= aRetirer.Count;
             Rangs.Reclasser(em, new System.Collections.Generic.List<Entity> { e });
+        }
+
+        // Pour les essais : même arme pour tous les hommes d'un régiment, pour comparer à armes égales.
+        public void Armer(Entity e, int arme)
+        {
+            var em = Em;
+            em.CompleteAllTrackedJobs();
+            var r = em.GetComponentData<Regiment>(e);
+            r.Arme = arme;
+            em.SetComponentData(e, r);
+            var q = em.CreateEntityQuery(typeof(Soldat));
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var sold = q.ToComponentDataArray<Soldat>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (sold[i].Regiment != e) continue;
+                var s = sold[i]; s.Arme = (byte)arme;
+                em.SetComponentData(ents[i], s);
+                em.SetComponentData(ents[i], MaterialMeshInfo.FromRenderMeshArrayIndices(arme, arme));
+            }
         }
 
         public void Choisir(Entity e, bool choisi)

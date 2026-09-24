@@ -47,6 +47,18 @@ namespace Guerre
                 var r = regs[i];
                 r.Melee = r.Contacts > 0 ? 2f : math.max(0, r.Melee - dt);
                 if (r.Effectif <= 0) { r.Ennemi = Entity.Null; regs[i] = r; continue; }
+                // La déroute n'est pas un ordre : c'est la moitié des hommes qui fuient. Le régiment
+                // cesse alors d'attaquer et se regroupe là où restent ceux qui tiennent ; il se
+                // rallie quand ses fuyards reviennent.
+                if (r.Deroute == 0 && r.Fuyards >= 0.5f) { r.Deroute = 1; r.Ennemi = Entity.Null; }
+                else if (r.Deroute != 0 && r.Fuyards < 0.2f) r.Deroute = 0;
+                if (r.Deroute != 0)
+                {
+                    r.Position += (r.CentreHommes - r.Position) * math.saturate(dt * 2f);
+                    r.Cible = r.Position;
+                    regs[i] = r;
+                    continue;
+                }
 
                 // Le scénario de démonstration charge l'ennemi le plus proche.
                 if (r.Ordonne == 0 && r.Ennemi == Entity.Null)
@@ -157,6 +169,7 @@ namespace Guerre
         public const float Cellule = 1.2f;
         NativeParallelMultiHashMap<int, Voisin> grille;
         NativeQueue<Coup> coups;
+        NativeParallelHashMap<int, float2> effroi;   // morts de l'image précédente, par case de 4 m et par camp
         ComponentLookup<Regiment> regiments;
         ComponentLookup<Soldat> soldatsRW;
         EntityQuery soldats;
@@ -166,6 +179,7 @@ namespace Guerre
         {
             grille = new NativeParallelMultiHashMap<int, Voisin>(16384, Allocator.Persistent);
             coups = new NativeQueue<Coup>(Allocator.Persistent);
+            effroi = new NativeParallelHashMap<int, float2>(1024, Allocator.Persistent);
             regiments = state.GetComponentLookup<Regiment>(true);
             soldatsRW = state.GetComponentLookup<Soldat>(false);
             soldats = SystemAPI.QueryBuilder().WithAll<Soldat, LocalTransform>().Build();
@@ -177,6 +191,7 @@ namespace Guerre
         {
             if (grille.IsCreated) grille.Dispose();
             if (coups.IsCreated) coups.Dispose();
+            if (effroi.IsCreated) effroi.Dispose();
         }
 
         [BurstCompile]
@@ -191,20 +206,21 @@ namespace Guerre
             regiments.Update(ref state);
             soldatsRW.Update(ref state);
             var relief = SystemAPI.GetSingleton<Relief>().Blob;
-            // Les ressorts des corps demandent un pas court : au-delà, le temps simulé ralentit.
+            // Le pas est fixe (Bataille.PasSimulation) ; la borne ne sert qu'en cas d'appel hors du pas fixe.
             float dt = math.min(SystemAPI.Time.DeltaTime, 1f / 30f);
             if (dt <= 0) return;
-            var reglages = SystemAPI.TryGetSingleton<ReglagesSimulation>(out var rg) ? rg : new ReglagesSimulation { Corps = 1, Poussee = 1 };
+            var reglages = SystemAPI.TryGetSingleton<ReglagesSimulation>(out var rg) ? rg : new ReglagesSimulation { Corps = 1, Poussee = 1, Peur = 1 };
             image++;
 
             var dep = new ViderGrille { Grille = grille }.Schedule(state.Dependency);
-            dep = new RemplirGrille { Grille = grille.AsParallelWriter() }.ScheduleParallel(dep);
+            dep = new RemplirGrille { Grille = grille.AsParallelWriter(), Regiments = regiments }.ScheduleParallel(dep);
             dep = new Piloter
             {
                 Grille = grille, Regiments = regiments, Relief = relief, Dt = dt, Corps = reglages.Corps,
-                Poussee = reglages.Poussee, Coups = coups.AsParallelWriter(), Graine = image * 2654435761u,
+                Poussee = reglages.Poussee, Peur = reglages.Peur, Effroi = effroi, Coups = coups.AsParallelWriter(), Graine = image * 2654435761u,
             }.ScheduleParallel(dep);
-            dep = new Appliquer { Coups = coups, Soldats = soldatsRW }.Schedule(dep);
+            // Les morts de cette image seront vus par leurs voisins à l'image suivante.
+            dep = new Appliquer { Coups = coups, Soldats = soldatsRW, Effroi = effroi, Peur = reglages.Peur }.Schedule(dep);
             state.Dependency = dep;
         }
 
@@ -224,9 +240,13 @@ namespace Guerre
             public float2 P, V;
             public Entity E;
             public int Regiment;
-            public byte Camp, Arme;
-            public float Appui, Fatigue, Presse;
+            public byte Camp, Arme, Fuite;
+            public float Appui, Fatigue, Presse, Peur;
+            public float2 Front;      // vers où il fait face : il ne pare que de ce côté
         }
+
+        public const float CaseEffroi = 4f;
+        public static int CleEffroi(float2 p) => Cle((int2)math.floor(p / CaseEffroi));
 
         [BurstCompile]
         struct ViderGrille : IJob
@@ -239,13 +259,14 @@ namespace Guerre
         partial struct RemplirGrille : IJobEntity
         {
             public NativeParallelMultiHashMap<int, Voisin>.ParallelWriter Grille;
+            [ReadOnly] public ComponentLookup<Regiment> Regiments;
             void Execute(Entity e, in Soldat s, in LocalTransform t)
             {
                 float2 p = t.Position.xz;
                 Grille.Add(Cle((int2)math.floor(p / Cellule)), new Voisin
                 {
-                    P = p, V = s.Vitesse, E = e, Regiment = s.Regiment.Index, Camp = s.Camp, Arme = s.Arme,
-                    Appui = Appui(s), Fatigue = s.Fatigue, Presse = s.Presse,
+                    P = p, V = s.Vitesse, E = e, Regiment = s.Regiment.Index, Camp = s.Camp, Arme = s.Arme, Fuite = s.Fuite,
+                    Appui = Appui(s), Fatigue = s.Fatigue, Presse = s.Presse, Peur = s.Peur, Front = Regiments[s.Regiment].Front,
                 });
             }
         }
@@ -256,9 +277,10 @@ namespace Guerre
             [ReadOnly] public NativeParallelMultiHashMap<int, Voisin> Grille;
             [ReadOnly] public ComponentLookup<Regiment> Regiments;
             [ReadOnly] public BlobAssetReference<ReliefBlob> Relief;
+            [ReadOnly] public NativeParallelHashMap<int, float2> Effroi;
             public NativeQueue<Coup>.ParallelWriter Coups;
             public float Dt;
-            public byte Corps, Poussee;
+            public byte Corps, Poussee, Peur;
             public uint Graine;
 
             const float Masse = 80f;          // kg, homme et équipement
@@ -273,6 +295,8 @@ namespace Guerre
             const float VitesseMax = 2.6f;    // m/s : le pas de course pour rattraper sa place
             const float VitessePresse = 0.5f; // m/s : dans la presse, on avance pas à pas
             const float Foulee = 1.5f;        // m parcourus par cycle de marche cuit (deux pas)
+            const float VitesseFuite = 3.2f;  // m/s : on court, l'arme jetée ou non
+            const float Vue = 3.6f;           // m : ce qu'un homme perçoit autour de lui dans la mêlée
 
             // Un corps touche devant soi (à un cône de 50° près) : c'est sur lui qu'on appuie.
             bool QuelquUnDevant(Entity e, float2 pos, float2 front)
@@ -298,6 +322,75 @@ namespace Guerre
                 var r = Regiments[s.Regiment];
                 bool melee = r.Melee > 0;
                 float2 front = r.Front;
+                float2 pos0 = t.Position.xz;
+
+                // Ce qu'il voit autour de lui : l'ennemi à portée devant lui, la menace, ses camarades
+                // et leur peur. Rien de cela n'est un modificateur : ce sont des perceptions.
+                bool trouve = false; Voisin cible = default;
+                float2 menace = float2.zero; int ennemisProches = 0, camaradesProches = 0, ennemisHorsDeVue = 0;
+                float peurVoisins = 0; int nPeur = 0;
+                if (melee || r.Ennemi != Entity.Null || s.Fuite != 0 || s.Peur > 0.02f)
+                {
+                    float portee = Armes.Portee(s.Arme), meilleur = portee * portee;
+                    int rc = (int)math.ceil(math.max(portee, Vue) / Cellule);
+                    int2 cc = (int2)math.floor(pos0 / Cellule);
+                    for (int dz = -rc; dz <= rc; dz++)
+                    for (int dx = -rc; dx <= rc; dx++)
+                    {
+                        if (!Grille.TryGetFirstValue(Cle(cc + new int2(dx, dz)), out var q, out var it)) continue;
+                        do
+                        {
+                            if (q.E == e) continue;
+                            float2 d = q.P - pos0;
+                            float l2 = math.lengthsq(d);
+                            if (q.Camp == s.Camp)
+                            {
+                                if (l2 < 1.5f * 1.5f && q.Fuite == 0) camaradesProches++;
+                                if (l2 < 2.4f * 2.4f) { peurVoisins += q.Peur; nPeur++; }
+                                continue;
+                            }
+                            if (l2 < Vue * Vue && q.Fuite == 0)
+                            {
+                                ennemisProches++; menace -= d / math.max(l2, 0.25f);
+                                // Un ennemi à côté de soi ou dans le dos : on ne peut ni le parer ni le frapper.
+                                if (math.dot(d, front) < 0f) ennemisHorsDeVue++;
+                            }
+                            // On ne frappe que devant soi : l'ennemi qui vient de côté, on ne peut pas lui répondre.
+                            if (s.Fuite == 0 && l2 < meilleur && math.dot(d, front) > 0.25f * math.sqrt(l2)) { meilleur = l2; cible = q; trouve = true; }
+                        } while (Grille.TryGetNextValue(out q, ref it));
+                    }
+                }
+
+                // La peur.
+                if (Peur != 0)
+                {
+                    float2 morts = float2.zero;
+                    int2 ce = (int2)math.floor(pos0 / CaseEffroi);
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (Effroi.TryGetValue(Cle(ce + new int2(dx, dz)), out var m)) morts += m;
+                    float amis = s.Camp == 0 ? morts.x : morts.y, ennemis = s.Camp == 0 ? morts.y : morts.x;
+                    float amplification = 1f + s.Fatigue;
+                    // Un camarade qui tombe à côté de soi ; un ennemi qui tombe rassure un peu.
+                    float effroiGain = (0.10f * amis - 0.02f * ennemis) * amplification;
+                    // Seul, ou presque, avec l'ennemi tout près.
+                    if (ennemisProches > 0 && camaradesProches < 2) effroiGain += 0.06f * Dt * amplification;
+                    // L'ennemi qu'on ne peut pas affronter, sur le côté ou derrière soi.
+                    effroiGain += 0.07f * math.min(ennemisHorsDeVue, 3) * Dt * amplification;
+                    s.Peur += effroiGain;
+                    // La panique gagne vite ses voisins ; le calme, lentement.
+                    if (nPeur > 0)
+                    {
+                        float moyenne = peurVoisins / nPeur;
+                        s.Peur += (moyenne - s.Peur) * (moyenne > s.Peur ? 0.8f * amplification : 0.15f) * Dt;
+                    }
+                    // Elle retombe d'elle-même, plus vite loin de l'ennemi et entouré des siens.
+                    s.Peur -= Dt * (0.015f + (ennemisProches == 0 ? 0.04f : 0f) + 0.01f * math.min(camaradesProches, 4));
+                    s.Peur = math.saturate(s.Peur);
+                    if (s.Fuite == 0 && s.Peur > s.Courage) s.Fuite = 1;
+                    else if (s.Fuite != 0 && s.Peur < 0.3f * s.Courage) { s.Fuite = 0; s.Ralliements++; }
+                }
+                bool fuit = s.Fuite != 0;
                 float2 place = Formation.VersMonde(Formation.Place(r, s.Numero) + s.Decalage, r.Position, front);
                 float2 pos = t.Position.xz;
                 // Les forces d'un homme : la fatigue et les blessures les rongent.
@@ -341,6 +434,15 @@ namespace Guerre
                 }
                 float lLat = math.length(fLat), lLatMax = melee ? 2f * fMax : fMax;
                 if (lLat > lLatMax) fLat *= lLatMax / lLat;
+                if (fuit)
+                {
+                    // Il fuit : loin de ce qui le menace, ou à défaut à l'opposé de l'ennemi de son régiment.
+                    float2 loin = math.lengthsq(menace) > 1e-4f ? math.normalize(menace) : -front;
+                    float2 fF = (loin * VitesseFuite - s.Vitesse) * Masse / 0.3f;
+                    float lF = math.length(fF);
+                    fMarche = lF > ForceMax ? fF * ForceMax / lF : fF;
+                    fLat = float2.zero;
+                }
                 float2 force = fMarche + fLat;
 
                 float presse = 0; byte contact = 0;
@@ -364,7 +466,7 @@ namespace Guerre
                                 // L'espace personnel face aux autres régiments amis : on s'écarte avant de se toucher.
                                 if (l < Rayon) force += d / l * (1f - l / Rayon) * ForceMax * 1.2f;
                             }
-                            else if ((ennemi || melee) && l < Diametre)
+                            else if ((ennemi || melee || fuit) && l < Diametre)
                             {
                                 // Corps contre corps : face à l'ennemi toujours, entre camarades dans la presse.
                                 float2 nrm = d / l, tang = new float2(-nrm.y, nrm.x);
@@ -408,7 +510,7 @@ namespace Guerre
                             float2 nrm = l > 1e-4f ? d / l : math.normalizesafe(avant - q.P, new float2(1, 0));
                             bool ennemi = q.Camp != s.Camp, camarade = q.Regiment == s.Regiment.Index;
                             if (!ennemi && !camarade) { pos += nrm * (Diametre - l) * (q.Appui / (appui + q.Appui)); corrige = true; }
-                            else if (camarade && !melee) { pos += nrm * (Diametre - l) * (appui / (appui + q.Appui)); corrige = true; }
+                            else if (camarade && !melee && !fuit) { pos += nrm * (Diametre - l) * (appui / (appui + q.Appui)); corrige = true; }
                             else if (l < DiametreMin) { pos += nrm * (DiametreMin - l) * 0.5f; corrige = true; }
                         } while (Grille.TryGetNextValue(out q, ref it));
                     }
@@ -420,26 +522,7 @@ namespace Guerre
                 s.Presse = presse;
                 s.Contact = contact;
 
-                // Les coups : l'ennemi le plus proche, devant soi, à portée de son arme.
-                bool trouve = false; Voisin cible = default;
-                if (melee || r.Ennemi != Entity.Null)
-                {
-                    float portee = Armes.Portee(s.Arme), meilleur = portee * portee;
-                    int rc = (int)math.ceil(portee / Cellule);
-                    int2 cc = (int2)math.floor(pos / Cellule);
-                    for (int dz = -rc; dz <= rc; dz++)
-                    for (int dx = -rc; dx <= rc; dx++)
-                    {
-                        if (!Grille.TryGetFirstValue(Cle(cc + new int2(dx, dz)), out var q, out var it)) continue;
-                        do
-                        {
-                            if (q.Camp == s.Camp) continue;
-                            float2 d = q.P - pos;
-                            float l2 = math.lengthsq(d);
-                            if (l2 < meilleur && math.dot(d, front) > 0.25f * math.sqrt(l2)) { meilleur = l2; cible = q; trouve = true; }
-                        } while (Grille.TryGetNextValue(out q, ref it));
-                    }
-                }
+                // Les coups : l'ennemi le plus proche, devant soi, à portée de son arme (vu plus haut).
                 s.APortee = (byte)(trouve ? 1 : 0);
                 s.Recharge -= Dt * vigueur;
                 if (trouve)
@@ -447,9 +530,11 @@ namespace Guerre
                     if (s.Recharge <= 0)
                     {
                         var alea = Random.CreateFromIndex((uint)e.Index * 7919u + Graine);
-                        float defense = 0.6f * (1f - cible.Fatigue) * (1f - math.saturate(cible.Presse / 2500f));
+                        // On ne pare que ce qui vient de devant soi ; qui fuit ne pare plus rien.
+                        bool deFace = math.dot(pos0 - cible.P, cible.Front) > 0;
+                        float defense = cible.Fuite != 0 || !deFace ? 0f : 0.6f * (1f - cible.Fatigue) * (1f - math.saturate(cible.Presse / 2500f));
                         if (alea.NextFloat() < 0.2f * (1f - defense))
-                            Coups.Enqueue(new Coup { Cible = cible.E, Degats = Armes.Degats(s.Arme) * (1f - Armes.Armure(cible.Arme)) * alea.NextFloat(0.6f, 1.4f) });
+                            Coups.Enqueue(new Coup { Cible = cible.E, Degats = Armes.Degats(s.Arme) * (1f - Armes.Armure(cible.Arme)) * alea.NextFloat(0.6f, 1.4f), Lieu = cible.P, Camp = cible.Camp });
                         s.Recharge = Armes.Cadence(s.Arme) * alea.NextFloat(0.8f, 1.2f);
                         s.CoupT = 0;
                         s.Fatigue += 0.01f;
@@ -471,7 +556,7 @@ namespace Guerre
 
                 // On regarde l'ennemi qu'on frappe ; sinon où l'on va, sauf à reculer : on garde alors le front.
                 float2 dirV = v > 0.35f ? s.Vitesse / v : front;
-                float2 regard = trouve ? math.normalizesafe(cible.P - pos, front) : math.dot(dirV, front) > -0.2f ? dirV : front;
+                float2 regard = trouve ? math.normalizesafe(cible.P - pos, front) : fuit || math.dot(dirV, front) > -0.2f ? dirV : front;
                 var rot = quaternion.LookRotationSafe(new float3(regard.x, 0, regard.y), math.up());
                 t.Rotation = math.slerp(t.Rotation, rot, math.saturate(Dt * 5f));
                 t.Position = new float3(pos.x, y, pos.y);
@@ -483,14 +568,26 @@ namespace Guerre
         {
             public NativeQueue<Coup> Coups;
             public ComponentLookup<Soldat> Soldats;
+            public NativeParallelHashMap<int, float2> Effroi;
+            public byte Peur;
             public void Execute()
             {
+                Effroi.Clear();
                 while (Coups.TryDequeue(out var c))
                 {
                     if (!Soldats.HasComponent(c.Cible)) continue;
                     var s = Soldats[c.Cible];
+                    bool vivant = s.Sante > 0;
                     s.Sante -= c.Degats;
+                    // Être blessé fait peur.
+                    if (Peur != 0) s.Peur = math.saturate(s.Peur + c.Degats * 0.6f);
                     Soldats[c.Cible] = s;
+                    if (vivant && s.Sante <= 0)
+                    {
+                        int k = CleEffroi(c.Lieu);
+                        Effroi.TryGetValue(k, out var m);
+                        Effroi[k] = m + (c.Camp == 0 ? new float2(1, 0) : new float2(0, 1));
+                    }
                 }
             }
         }
@@ -547,6 +644,7 @@ namespace Guerre
             void Execute(in Soldat s, in LocalTransform t)
             {
                 int i = Regiments[s.Regiment].Index;
+                if (s.Fuite != 0) { Sommes[i] += new float4(0, 0, 0, 1); return; }
                 Sommes[i] += new float4(s.Ecart, 1, s.Contact, 0);
                 Centres[i] += new float4(t.Position.x, t.Position.z, 0, 0);
             }
@@ -562,6 +660,7 @@ namespace Guerre
                 r.Ecart = s.y > 0 ? s.x / s.y : 0;
                 r.Contacts = (int)s.z;
                 r.CentreHommes = s.y > 0 ? Centres[r.Index].xy / s.y : r.Position;
+                r.Fuyards = s.y + s.w > 0 ? s.w / (s.y + s.w) : 0;
                 Sommes[r.Index] = float4.zero;
                 Centres[r.Index] = float4.zero;
             }

@@ -2,7 +2,7 @@
 #   powershell -File outils/atelier.ps1 soldats      # fabriquer les soldats dans Blender (fabrique/sorties)
 #   powershell -File outils/atelier.ps1 construire   # soldats, pipeline, vallée, scène
 #   powershell -File outils/atelier.ps1 joueur       # construire + joueur Windows
-#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 4, avec leurs contre-épreuves
+#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 5, avec leurs contre-épreuves
 #   powershell -File outils/atelier.ps1 ouvrir       # ouvrir l'éditeur
 param([Parameter(Mandatory)][ValidateSet('soldats','construire','joueur','mesurer','ouvrir')][string]$action,
       [int]$soldats = 10000)
@@ -82,15 +82,27 @@ switch ($action) {
         else { "contre-épreuve 2 (sans les corps) : échec attendu obtenu ($($oc.motifs -join ' | '))" }
 
         # Jalon 4 : la mêlée. Le plus profond doit repousser l'autre, dans les deux sens.
-        $m = Lancer (Join-Path $racine 'sorties\essai-melee') @('-guerre-essai-melee') 'essai-melee.json'
+        # L'essai isole la poussée : la peur y est coupée, sinon le plus faible fuirait avant d'être repoussé.
+        $m = Lancer (Join-Path $racine 'sorties\essai-melee') @('-guerre-essai-melee','-guerre-sans-peur') 'essai-melee.json'
         if ($null -eq $m) { exit 1 }
         $m.duels | ForEach-Object { '{0,-16} {1} contre {2} rangs : ligne {3,6:N1} m, morts {4}/{5}, contact max {6}, ennemis à {7:N2} m au plus près, fatigue {8:P0}' -f $_.nom, $_.rangs_bleus, $_.rangs_rouges, $_.recul_de_la_ligne_m, $_.morts_bleus, $_.morts_rouges, $_.contacts_max, $_.distance_min_ennemis_m, $_.fatigue_moyenne }
         "jalon 4 : $($m.statut) $($m.motifs -join ' | ')"
         if ($m.statut -ne 'valide') { $echecs++ }
         # Si les rangs arrière ne poussent plus, la profondeur ne doit plus rien donner.
-        $mc = Lancer (Join-Path $racine 'sorties\essai-melee-sans-poussee') @('-guerre-essai-melee','-guerre-sans-poussee') 'essai-melee.json'
+        $mc = Lancer (Join-Path $racine 'sorties\essai-melee-sans-poussee') @('-guerre-essai-melee','-guerre-sans-peur','-guerre-sans-poussee') 'essai-melee.json'
         if ($null -eq $mc -or $mc.statut -ne 'echec') { Write-Host 'Sans la poussée des rangs arrière, l''essai de mêlée n''a pas échoué : il ne prouve rien.'; $echecs++ }
         else { "contre-épreuve 4 (sans poussée) : échec attendu obtenu ($($mc.motifs -join ' | '))" }
+
+        # Jalon 5 : la peur. Pris de flanc, un régiment doit rompre plus souvent ; des fuyards doivent revenir.
+        $p = Lancer (Join-Path $racine 'sorties\essai-moral') @('-guerre-essai-moral','-guerre-soldats','20000') 'essai-moral.json'
+        if ($null -eq $p) { exit 1 }
+        $p.epreuves | ForEach-Object { '{0,-8} rompu {1,-5} après {2,5:N0} s, fuyards max {3:P0}, morts {4}/{5}, ralliements {6}' -f $_.condition, $_.rompu, $_.rompu_apres_s, $_.fuyards_max, $_.morts_bleus, $_.morts_rouges, $_.ralliements }
+        "ruptures : flanc {0}/10, réserve {1}/10 ; fuite au plus fort : flanc {2:P0}, réserve {3:P0} ; ralliements {4}" -f $p.ruptures_flanc, $p.ruptures_reserve, $p.fuite_moyenne_flanc, $p.fuite_moyenne_reserve, $p.ralliements
+        "jalon 5 : $($p.statut) $($p.motifs -join ' | ')"
+        if ($p.statut -ne 'valide') { $echecs++ }
+        $pc = Lancer (Join-Path $racine 'sorties\essai-moral-sans-peur') @('-guerre-essai-moral','-guerre-soldats','20000','-guerre-sans-peur') 'essai-moral.json'
+        if ($null -eq $pc -or $pc.statut -ne 'echec') { Write-Host 'Sans la peur, l''essai de moral n''a pas échoué : il ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 5 (sans peur) : échec attendu obtenu ($($pc.motifs -join ' | '))" }
 
         if ($echecs -gt 0) { exit 1 }
     }

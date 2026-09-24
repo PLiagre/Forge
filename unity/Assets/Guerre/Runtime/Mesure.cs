@@ -35,6 +35,7 @@ namespace Guerre
 
         static string sortie;
         static bool sabotage;
+        const int AuContactMin = 300;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Demarrer()
@@ -82,7 +83,9 @@ namespace Guerre
             var avant = Echantillon();
 
             // La mesure porte sur une vraie bataille : on accélère le temps jusqu'à ce que
-            // les deux armées soient aux prises, avec plus de mille hommes au contact.
+            // les deux armées soient aux prises, avec au moins trois cents hommes corps à corps.
+            // (Avant la peur, on en attendait mille ; désormais, des fronts rompent avant que
+            // toute la ligne soit engagée : on en compte trois à quatre cents au plus fort.)
             int AuContact()
             {
                 em.CompleteAllTrackedJobs();
@@ -101,10 +104,10 @@ namespace Guerre
             }
             Time.timeScale = 6;
             float debutAttente = Time.time, limite = Time.realtimeSinceStartup + 150f;
-            while (AuContact() < 1000 && Time.realtimeSinceStartup < limite) { for (int k = 0; k < 10; k++) yield return null; }
+            while (AuContact() < AuContactMin && Time.realtimeSinceStartup < limite) { for (int k = 0; k < 10; k++) yield return null; }
             r.secondes_avant_la_melee = Time.time - debutAttente;
             Time.timeScale = 1;
-            r.melee_engagee = AuContact() >= 1000;
+            r.melee_engagee = AuContact() >= AuContactMin;
             if (!r.melee_engagee) motifs.Add("les armées ne se sont pas engagées : pas de mêlée à mesurer");
 
             var centre = b.terrain.transform.position + b.terrain.terrainData.size * 0.5f;

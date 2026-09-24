@@ -13,7 +13,7 @@ modifié ni importé.
 |---|---|
 | `Jouer.cmd` | lance le joueur compilé |
 | `Ouvrir_Unity.cmd` | ouvre le projet dans Unity 6000.0.43f1 |
-| `Mesurer.cmd` | fabrique les soldats, reconstruit, compile et passe les preuves des jalons 1 à 4, avec leurs contre-épreuves (environ 15 min) |
+| `Mesurer.cmd` | fabrique les soldats, reconstruit, compile et passe les preuves des jalons 1 à 5, avec leurs contre-épreuves (environ 25 min) |
 
 En jeu :
 - **clic gauche** choisit un régiment bleu ; **glisser** trace une boîte ; **Maj + clic** ajoute ou retire ; **Ctrl + A** choisit toute l'armée ;
@@ -29,7 +29,7 @@ En jeu :
 powershell -File outils/atelier.ps1 soldats             # soldats modelés et animés dans Blender 5.2
 powershell -File outils/atelier.ps1 construire          # + pipeline, vallée, scène
 powershell -File outils/atelier.ps1 joueur              # + joueur Windows dans sorties/joueur
-powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 à 4, et contre-épreuves
+powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 à 5, et contre-épreuves
 powershell -File outils/atelier.ps1 mesurer -soldats 20000
 ```
 
@@ -50,6 +50,10 @@ régénéré par `Construire.cs`. Pour une modification durable, changer le code
 | `Runtime/Essais.cs` | essai du jalon 2 (formations, obstacle), écrit dans `sorties/essai-ordres/` |
 | `Runtime/EssaisMelee.cs` | essai du jalon 4 (trois duels de profondeur), écrit dans `sorties/essai-melee/` |
 | `Runtime/Rangs.cs` | reclassement des hommes après un ordre ou des pertes |
+| `Runtime/EssaisMoral.cs` | essai du jalon 5 (vingt épreuves de flanc et de réserve), écrit dans `sorties/essai-moral/` |
+
+La simulation avance à pas fixe (60 pas par seconde simulée) : ses issues ne dépendent pas
+de la cadence d'affichage.
 | `Editor/Construire.cs` | URP Forward+, vallée, scène, build |
 | `Editor/ImportSoldats.cs` | `.vat` → maillage, texture d'animation, matériau |
 

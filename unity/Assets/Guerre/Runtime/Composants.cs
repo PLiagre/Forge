@@ -25,6 +25,11 @@ namespace Guerre
         public float Presse;     // force de contact reçue des corps voisins, en newtons
         public byte Contact;     // 1 : touche un ennemi, corps contre corps
         public byte APortee;     // 1 : un ennemi est à portée de son arme
+        // La peur : ce qu'il a vu et subi, et ce que ressentent ses voisins.
+        public float Peur;       // 0 : calme ; au-delà de son courage, il fuit
+        public float Courage;    // seuil propre à chacun
+        public byte Fuite;       // 1 : il fuit
+        public int Ralliements;  // nombre de fois qu'il est revenu après avoir fui
     }
 
     // Un homme tombé : il ne marche plus, ne pousse plus, reste sur le terrain.
@@ -45,6 +50,8 @@ namespace Guerre
     {
         public Entity Cible;
         public float Degats;
+        public float2 Lieu;      // où se tient la cible : si le coup la tue, ses voisins le voient
+        public byte Camp;        // camp de la cible
     }
 
     // Les armes, par indice d'arme. Des ordres de grandeur, à régler en jouant :
@@ -89,6 +96,8 @@ namespace Guerre
         public int Contacts;         // hommes au contact de l'ennemi, à la dernière image
         public float Melee;          // secondes restantes dans l'état de mêlée (les rangs s'appuient)
         public float2 CentreHommes;  // où se tiennent réellement ses hommes
+        public float Fuyards;        // part de ses hommes qui fuient
+        public byte Deroute;         // 1 : la moitié de ses hommes fuient ; il ne combat plus
 
         public int Rangs => (Effectif + Files - 1) / Files;
         // Les dimensions suivent l'espacement réel : serré dans la mêlée, ouvert sinon.
@@ -103,6 +112,7 @@ namespace Guerre
     {
         public byte Corps;
         public byte Poussee;
+        public byte Peur;        // 0 : personne n'a peur (contre-épreuve du jalon 5, isolement du jalon 4)
     }
 
     public static class Formation

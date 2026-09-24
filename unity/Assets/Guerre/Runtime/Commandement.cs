@@ -24,7 +24,8 @@ namespace Guerre
 
         Camera cam;
         readonly List<Entity> choisis = new List<Entity>();
-        float fpsLisse;
+        float fpsLisse, prochainCompte;
+        readonly int[] fuyards = new int[2];
         Vector2 debutBoite; bool boite;
         Vector3 debutLigne; bool ligneCommencee, ligneTracee;
         readonly List<LineRenderer> traces = new List<LineRenderer>();
@@ -46,10 +47,20 @@ namespace Guerre
         {
             float dt = Time.unscaledDeltaTime;
             fpsLisse = Mathf.Lerp(fpsLisse, 1f / Mathf.Max(dt, 1e-4f), 0.05f);
+            if (Time.unscaledTime > prochainCompte && Bataille.Instance && Bataille.Instance.Pret) { prochainCompte = Time.unscaledTime + 0.5f; CompterFuyards(); }
             var dessins = new List<(float2 c, float2 f, float w, float d)>();
             if (!automatique) { Camera_(dt); Ordres(dessins); }
             Placer();
             Dessiner(dessins);
+        }
+
+        void CompterFuyards()
+        {
+            var em = Bataille.Instance.Em;
+            using var q = em.CreateEntityQuery(typeof(Soldat));
+            using var ss = q.ToComponentDataArray<Soldat>(Unity.Collections.Allocator.Temp);
+            fuyards[0] = fuyards[1] = 0;
+            foreach (var s in ss) if (s.Fuite != 0) fuyards[s.Camp]++;
         }
 
         void Camera_(float dt)
@@ -280,7 +291,7 @@ namespace Guerre
             GUI.DrawTexture(new Rect(10, 10, 700, montrerAide ? 254 : 52), Texture2D.whiteTexture);
             GUI.color = Color.white;
             string etat = b == null || !b.Pret ? "levée des armées…" : $"{b.Leves:N0} hommes";
-            string pertes = $"   pertes : {SystemePertes.Pertes[0]} bleus, {SystemePertes.Pertes[1]} rouges";
+            string pertes = $"   pertes : {SystemePertes.Pertes[0]} bleus, {SystemePertes.Pertes[1]} rouges   en fuite : {fuyards[0]} / {fuyards[1]}";
             string choix = choisis.Count > 0 ? $"   {choisis.Count} régiment{(choisis.Count > 1 ? "s" : "")} choisi{(choisis.Count > 1 ? "s" : "")}" : "";
             GUI.Label(new Rect(20, 16, 690, 24), $"<b>Citadelle — Guerre</b>   {etat}   {fpsLisse:0} i/s{pertes}{choix}{(Time.timeScale == 0 ? "   <b>PAUSE</b>" : "")}", style);
             if (montrerAide)
