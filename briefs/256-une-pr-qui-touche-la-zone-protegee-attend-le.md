@@ -10,8 +10,11 @@ approuvée, et nomme les chemins qui demandent le propriétaire.
 Ce lot porte sur l'atelier, sans changement du monde simulé. Il réalise la
 demande #75. La liste `zone` de `[integration]` dans `atelier.toml`, lue
 depuis master par le workflow, fait autorité. Elle contient `atelier.toml`,
-`AGENTS.md`, `.github/`, `outils/relecture.py`, `outils/integration.py`,
-`outils/demandes.py` et `outils/perimetre.py`.
+`AGENTS.md`, `.github/` et `outils/`. Les modules des outils sont chargés
+ensemble par la commande : un module laissé hors zone pourrait neutraliser
+la garde après une fusion automatique. Cette extension par rapport aux sept
+chemins de la demande #75 réserve aussi les changements du tableau et des
+autres outils au propriétaire ; elle exige sa validation explicite.
 
 Une entrée terminée par `/` couvre un dossier et ses descendants ; les autres
 entrées désignent un fichier exact. Un renommage examine l'ancien chemin
