@@ -857,4 +857,3 @@ def test_zone_une_pr_retargetee_pendant_l_examen_retient(tmp_path, monkeypatch, 
     assert code == 0
     assert io.out == "RIEN\n"
     assert "base" in io.err
-
