@@ -2,7 +2,7 @@
     "statut": "valide",
     "gpu": "NVIDIA GeForce RTX 3070 Ti",
     "cpu": "13th Gen Intel(R) Core(TM) i7-13700K",
-    "date_utc": "2026-09-24T18:55:00.6315871Z",
+    "date_utc": "2026-09-25T07:39:58.9898057Z",
     "largeur": 1920,
     "hauteur": 1080,
     "soldats_demandes": 10000,
@@ -11,62 +11,63 @@
     "vues": [
         {
             "nom": "Mêlée",
-            "images": 3403,
-            "mediane_ms": 1.707801828160882,
-            "p95_ms": 2.1937002893537285,
-            "p99_ms": 2.5147958658635618,
-            "fps_moyen": 567.0696029539763,
-            "ecart_type_image": 0.09139144420623779
+            "images": 3467,
+            "mediane_ms": 1.6578019130975009,
+            "p95_ms": 2.275602426379919,
+            "p99_ms": 2.5898029562085869,
+            "fps_moyen": 577.8161044053226,
+            "ecart_type_image": 0.08714816719293595
         },
         {
             "nom": "Vue générale",
-            "images": 2160,
-            "mediane_ms": 2.706703497096896,
-            "p95_ms": 3.1866992358118297,
-            "p99_ms": 3.425999078899622,
-            "fps_moyen": 359.9476518291461,
-            "ecart_type_image": 0.0567270889878273
+            "images": 2145,
+            "mediane_ms": 2.74600344710052,
+            "p95_ms": 3.091794205829501,
+            "p99_ms": 3.4455994609743358,
+            "fps_moyen": 357.4821612407535,
+            "ecart_type_image": 0.05671544745564461
         },
         {
             "nom": "Front",
-            "images": 2766,
-            "mediane_ms": 2.114902250468731,
-            "p95_ms": 2.531894948333502,
-            "p99_ms": 2.8870960231870415,
-            "fps_moyen": 460.8246332631879,
-            "ecart_type_image": 0.08714157342910767
+            "images": 2591,
+            "mediane_ms": 2.270195633172989,
+            "p95_ms": 2.5405045598745348,
+            "p99_ms": 2.9860970098525287,
+            "fps_moyen": 431.73232252998289,
+            "ecart_type_image": 0.08748070895671845
         },
         {
             "nom": "Au milieu des rangs",
-            "images": 3185,
-            "mediane_ms": 1.841602846980095,
-            "p95_ms": 2.238796791061759,
-            "p99_ms": 2.4286990519613029,
-            "fps_moyen": 530.8180723932325,
-            "ecart_type_image": 0.11847484111785889
+            "images": 2935,
+            "mediane_ms": 2.015802077949047,
+            "p95_ms": 2.2462017368525268,
+            "p99_ms": 2.6291951071470978,
+            "fps_moyen": 489.1277239548725,
+            "ecart_type_image": 0.12155125290155411
         },
         {
             "nom": "Plongée",
-            "images": 3392,
-            "mediane_ms": 1.7213009996339679,
-            "p95_ms": 2.096804091706872,
-            "p99_ms": 2.3075963836163284,
-            "fps_moyen": 565.3215835272417,
-            "ecart_type_image": 0.04377354308962822
+            "images": 2915,
+            "mediane_ms": 2.033000346273184,
+            "p95_ms": 2.3111961781978609,
+            "p99_ms": 2.6910004671663048,
+            "fps_moyen": 485.67076320238336,
+            "ecart_type_image": 0.04695342108607292
         }
     ],
-    "deplacement_moyen_m": 12.902402877807618,
-    "pixels_changes_par_les_soldats": 0.04744977876543999,
-    "pixels_changes_par_l_animation": 0.10407151281833649,
+    "deplacement_moyen_m": 25.864233016967775,
+    "pixels_changes_par_les_soldats": 0.05197330564260483,
+    "pixels_changes_par_l_animation": 0.07232242822647095,
     "triangles_par_soldat": [
         488,
         498,
-        472
+        472,
+        866
     ],
-    "soldats_au_contact": 308,
-    "morts": 1063,
-    "secondes_avant_la_melee": 15.95185375213623,
-    "carreaux_en_vol_pendant_la_melee": 1857,
+    "soldats_au_contact": 302,
+    "morts": 1105,
+    "secondes_avant_la_melee": 18.831016540527345,
+    "carreaux_en_vol_pendant_la_melee": 1505,
     "objectif_60": true,
     "soldats_conformes": true,
     "armee_en_mouvement": true,

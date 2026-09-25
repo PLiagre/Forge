@@ -13,7 +13,7 @@ namespace Guerre
     // Le nombre d'hommes se change en ligne de commande : -guerre-soldats N.
     public sealed class Bataille : MonoBehaviour
     {
-        // Une variante par arme : piquier, hallebardier, arbalétrier (fabrique/soldats.py).
+        // Une variante par arme : piquier, hallebardier, arbalétrier, cavalier (fabrique/soldats.py).
         public Material[] materiaux;
         public Mesh[] maillages;
         public Material materiauCarreau, materiauPavois;
@@ -28,7 +28,8 @@ namespace Guerre
         public bool Pret { get; private set; }
         public int Leves { get; private set; }
         public EntityManager Em => World.DefaultGameObjectInjectionWorld.EntityManager;
-        bool sansCorps, sansPoussee, sansPeur, sansPavois;
+        bool sansCorps, sansPoussee, sansPeur, sansPavois, sansMasse, sansPiques;
+        public const int FilesCavalerie = 35;
 
         // Bleu roi contre rouge sang : on distingue les camps de loin, par temps de neige.
         static readonly float3[] Camps = { new float3(0.16f, 0.27f, 0.62f), new float3(0.62f, 0.14f, 0.12f) };
@@ -49,6 +50,8 @@ namespace Guerre
             sansPoussee = Array.IndexOf(args, "-guerre-sans-poussee") >= 0;
             sansPeur = Array.IndexOf(args, "-guerre-sans-peur") >= 0;
             sansPavois = Array.IndexOf(args, "-guerre-sans-pavois") >= 0;
+            sansMasse = Array.IndexOf(args, "-guerre-sans-masse") >= 0;
+            sansPiques = Array.IndexOf(args, "-guerre-sans-piques") >= 0;
             // Contre-épreuve de la mesure : le shader ignore l'animation cuite.
             if (Array.IndexOf(args, "-guerre-sans-animation") >= 0)
                 foreach (var m in materiaux) m.SetFloat("_VATActif", 0);
@@ -59,7 +62,8 @@ namespace Guerre
             var em = Em;
             PoserRelief(em);
             var reglages = em.CreateEntity(typeof(ReglagesSimulation));
-            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1), Poussee = (byte)(sansPoussee ? 0 : 1), Peur = (byte)(sansPeur ? 0 : 1), Pavois = (byte)(sansPavois ? 0 : 1) });
+            em.SetComponentData(reglages, new ReglagesSimulation { Corps = (byte)(sansCorps ? 0 : 1), Poussee = (byte)(sansPoussee ? 0 : 1), Peur = (byte)(sansPeur ? 0 : 1), Pavois = (byte)(sansPavois ? 0 : 1),
+                Masse = (byte)(sansMasse ? 0 : 1), Piques = (byte)(sansPiques ? 0 : 1) });
 
             var desc = new RenderMeshDescription(ShadowCastingMode.On, receiveShadows: true);
             var rma = new RenderMeshArray(materiaux, maillages);
@@ -102,7 +106,11 @@ namespace Guerre
                 for (int k = 0; k < regimentsParCamp && restants > 0; k++)
                 {
                     int ligne = k / deFront, rangee = k % deFront;
-                    float lateral = (rangee - (deFront - 1) / 2f) * (largeur + 8f);
+                    // Au premier rang, piques et hallebardes alternent ; les arbalétriers tiennent la seconde
+                    // ligne, et la cavalerie en couvre les ailes.
+                    bool aile = ligne == 1 && deFront >= 4 && (rangee == 0 || rangee == deFront - 1);
+                    int arme = ligne == 0 ? rangee % 2 : aile ? Corps.Cavalier : 2;
+                    float lateral = (rangee - (deFront - 1) / 2f) * (largeur + 8f) + (aile ? math.sign(rangee - (deFront - 1) / 2f) * 10f : 0f);
                     float recul = ligne * (profondeur + 30f);
                     float2 baseP = centre + new float2(-sens * (340f + recul), lateral);
                     float2 avantP = centre + new float2(-sens * (60f + recul), lateral);
@@ -110,13 +118,11 @@ namespace Guerre
                     int nb = Mathf.Min(parRegiment, restants);
                     restants -= nb;
                     var reg = em.CreateEntity(typeof(Regiment));
-                    // Au premier rang, piques et hallebardes alternent ; les arbalétriers tiennent la seconde ligne.
-                    int arme = ligne == 0 ? rangee % 2 : 2;
                     var donnees = new Regiment
                     {
                         Position = baseP, Cible = avantP, Front = front, FrontCible = front,
                         Base = baseP, Avant = avantP, VitesseMarche = 1.25f, Camp = camp, Etape = 1,
-                        Files = files, Effectif = nb, Espacement = espacement, Index = index++, Arme = arme
+                        Files = aile ? FilesCavalerie : files, Effectif = nb, Espacement = espacement, Index = index++, Arme = arme
                     };
                     em.SetComponentData(reg, donnees);
                     float3 teinteRegiment = Camps[camp] * (0.85f + 0.3f * alea.NextFloat());
@@ -339,13 +345,21 @@ namespace Guerre
             var q = em.CreateEntityQuery(typeof(Soldat));
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var sold = q.ToComponentDataArray<Soldat>(Allocator.Temp);
+            var hommes = new System.Collections.Generic.HashSet<Entity>();
             for (int i = 0; i < ents.Length; i++)
             {
                 if (sold[i].Regiment != e) continue;
                 var s = sold[i]; s.Arme = (byte)arme;
                 em.SetComponentData(ents[i], s);
                 em.SetComponentData(ents[i], MaterialMeshInfo.FromRenderMeshArrayIndices(arme, arme));
+                hommes.Add(ents[i]);
             }
+            // Seul l'arbalétrier porte un pavois.
+            if (arme == 2) return;
+            var qp = em.CreateEntityQuery(typeof(Pavois));
+            using var pe = qp.ToEntityArray(Allocator.Temp);
+            using var pd = qp.ToComponentDataArray<Pavois>(Allocator.Temp);
+            for (int i = 0; i < pe.Length; i++) if (hommes.Contains(pd[i].Porteur)) em.DestroyEntity(pe[i]);
         }
 
         public void Choisir(Entity e, bool choisi)

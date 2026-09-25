@@ -27,6 +27,11 @@ namespace Guerre
         const float Abord = 7f;             // m entre les fronts où l'on serre les rangs avant le choc
         const float Enfoncement = 2f;       // m : l'attaque vise à enfoncer le front ennemi d'autant
         const float CorpsEpaisseur = 0.8f;  // m entre les centres de deux hommes qui se touchent
+        const float Trot = 3.5f, Galop = 7.5f;   // m/s : l'approche de la cavalerie, puis sa charge
+        const float DistanceGalop = 110f;   // m : on prend le galop pour la dernière centaine de mètres
+        const float Traverser = 8f;         // m : la charge vise au-delà du dernier rang ennemi
+        const float Alerte = 70f;           // m : un ennemi de front à cette distance, les piques s'abaissent
+        const float ChargeEpuisee = 1.5f;   // m/s : au contact et plus lente que cela, la charge est finie
 
         EntityQuery tous;
 
@@ -42,11 +47,25 @@ namespace Guerre
             float dt = SystemAPI.Time.DeltaTime;
             var ents = tous.ToEntityArray(Allocator.Temp);
             var regs = tous.ToComponentDataArray<Regiment>(Allocator.Temp);
+            var avant = new NativeArray<float2>(regs.Length, Allocator.Temp);
+            for (int i = 0; i < regs.Length; i++) avant[i] = regs[i].Position;
             for (int i = 0; i < regs.Length; i++)
             {
                 var r = regs[i];
                 r.Melee = r.Contacts > 0 ? 2f : math.max(0, r.Melee - dt);
                 r.Tir = 0;
+                // Un ennemi approche de front : l'officier fait baisser les piques. Ce n'est pas une
+                // protection : c'est un ordre, et seuls les hommes arrêtés, piques basses, arrêtent un cheval.
+                r.Herisse = 0;
+                if (r.Arme == 0 && r.Deroute == 0)
+                    for (int j = 0; j < regs.Length; j++)
+                    {
+                        if (regs[j].Camp == r.Camp || regs[j].Effectif <= 0) continue;
+                        // On voit venir des hommes, pas une ancre : c'est là où ils sont qui compte.
+                        float2 vers = regs[j].CentreHommes - r.Position;
+                        float d = math.length(vers);
+                        if (d < Alerte + (r.Profondeur + regs[j].Profondeur) * 0.5f && math.dot(vers, r.Front) > 0.5f * d) { r.Herisse = 1; break; }
+                    }
                 if (r.Effectif <= 0) { r.Ennemi = Entity.Null; regs[i] = r; continue; }
                 // La déroute n'est pas un ordre : c'est la moitié des hommes qui fuient. Le régiment
                 // cesse alors d'attaquer et se regroupe là où restent ceux qui tiennent ; il se
@@ -91,6 +110,21 @@ namespace Guerre
                             r.Tir = 1;
                         }
                     }
+                    else if (Corps.Monte(r.Arme))
+                    {
+                        // La cavalerie ne serre pas les rangs pour pousser : elle prend le trot, puis le galop
+                        // pour la dernière centaine de mètres, et vise au-delà de l'ennemi. Ce qui l'arrête, ce
+                        // sont les corps et les fers qu'elle rencontre ; au contact, l'ancre suit ses hommes.
+                        float2 vers = regs[j].Position - r.Position;
+                        float d = math.length(vers);
+                        float2 dirE = r.Contacts > 0 ? r.FrontCible : math.normalizesafe(vers, r.Front);
+                        r.FrontCible = dirE;
+                        r.Cible = r.Position + dirE * (math.dot(vers, dirE) + regs[j].Profondeur * 0.5f + Traverser);
+                        vitesse = d - regs[j].Profondeur * 0.5f > DistanceGalop ? Trot : Galop;
+                        // Une charge arrêtée a perdu son élan : les cavaliers se battent là où ils sont, sans
+                        // se jeter de nouveau, au pas, sur ce qui les a arrêtés. Ils rechargeront une fois dégagés.
+                        if (r.Contacts > 0 && math.length(r.Vitesse) < ChargeEpuisee) r.Cible = r.Position;
+                    }
                     else
                     {
                         float2 vers = regs[j].Position - r.Position;
@@ -117,7 +151,9 @@ namespace Guerre
                 // Au contact, le régiment est là où se battent ses hommes : l'ancre les suit le long
                 // de l'axe du combat, et n'avance plus d'elle-même : c'est la poussée des hommes qui la
                 // déplace. Sur le côté, elle reste : les hommes reviennent à leurs files au lieu de glisser.
-                if (r.Contacts > 0 && r.Ennemi != Entity.Null)
+                // La cavalerie, elle, ne s'arrête pas d'elle-même au contact : ce sont les corps et les
+                // fers qui l'arrêtent, et son ancre attend alors ses cavaliers (cohésion, plus bas).
+                if (r.Contacts > 0 && r.Ennemi != Entity.Null && !Corps.Monte(r.Arme))
                 {
                     r.Position += r.Front * math.dot(r.CentreHommes - r.Position, r.Front) * math.saturate(dt * 2f);
                     r.Cible = r.Position;
@@ -155,6 +191,8 @@ namespace Guerre
                 }
                 regs[i] = r;
             }
+            // L'allure de chaque ligne : les cavaliers la tiennent, puis corrigent leur retard.
+            for (int i = 0; i < regs.Length; i++) { var r = regs[i]; r.Vitesse = dt > 0 ? math.clamp((r.Position - avant[i]) / dt, -10f, 10f) : float2.zero; regs[i] = r; }
             tous.CopyFromComponentDataArray(regs);
         }
 
@@ -168,13 +206,15 @@ namespace Guerre
         }
     }
 
-    // Chaque soldat est un corps de 80 kg. Il pousse vers sa place avec une force
-    // qui faiblit à mesure qu'il prend de la vitesse, comme un muscle ; les corps en
-    // contact se repoussent comme des ressorts. Une file qui pousse transmet donc
+    // Chaque soldat est un corps : 80 kg à pied, 620 kg pour un cheval et son cavalier. Il pousse
+    // vers sa place avec une force qui faiblit à mesure qu'il prend de la vitesse, comme un muscle ;
+    // les corps en contact se repoussent comme des ressorts. Une file qui pousse transmet donc
     // l'effort de chacun de ses hommes jusqu'au premier rang : dix rangs poussent plus
     // fort que cinq, sans qu'aucune règle ne le dise.
     // À portée d'un ennemi, il frappe à son rythme ; le coup porte d'autant plus
     // souvent que la cible est fatiguée ou écrasée par la presse, qui l'empêche de parer.
+    // Un choc plus lourd que soi, trop brusque pour qu'on le suive d'un pas, renverse ; une
+    // pique baissée est un ressort pointé devant le piquier, qui plie, blesse et se rompt.
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(SystemeRegiments))]
@@ -182,12 +222,15 @@ namespace Guerre
     public partial struct SystemePilotage : ISystem
     {
         public const float Cellule = 1.2f;
+        public const float CaseLongue = 4f;   // les grilles des piques et des chevaux : une pique porte à 3,2 m
         NativeParallelMultiHashMap<int, Voisin> grille;
         NativeQueue<Coup> coups;
         NativeParallelHashMap<int, float2> effroi;   // morts de l'image précédente, par case de 4 m et par camp
         NativeQueue<Tir> tirs;
         NativeParallelMultiHashMap<int, PavoisPlante> pavois;   // les pavois plantés, par case
-        NativeQueue<byte> evenements;                // 1 carreau arrêté par un pavois, 2 carreau au sol, 3 carreau tiré
+        NativeParallelMultiHashMap<int, Pointe> piques;         // les piques baissées, par case de 4 m
+        NativeParallelMultiHashMap<int, Cheval> chevaux;        // les chevaux, par case de 4 m
+        NativeQueue<byte> evenements;                // 1 carreau arrêté par un pavois, 2 carreau au sol, 3 carreau tiré, 4 homme renversé, 5 pique rompue
         ComponentLookup<Regiment> regiments, regimentsRW;
         ComponentLookup<Soldat> soldatsRW;
         EntityQuery soldats;
@@ -200,6 +243,8 @@ namespace Guerre
             effroi = new NativeParallelHashMap<int, float2>(1024, Allocator.Persistent);
             tirs = new NativeQueue<Tir>(Allocator.Persistent);
             pavois = new NativeParallelMultiHashMap<int, PavoisPlante>(16384, Allocator.Persistent);
+            piques = new NativeParallelMultiHashMap<int, Pointe>(16384, Allocator.Persistent);
+            chevaux = new NativeParallelMultiHashMap<int, Cheval>(4096, Allocator.Persistent);
             evenements = new NativeQueue<byte>(Allocator.Persistent);
             regimentsRW = state.GetComponentLookup<Regiment>(false);
             regiments = state.GetComponentLookup<Regiment>(true);
@@ -216,6 +261,8 @@ namespace Guerre
             if (effroi.IsCreated) effroi.Dispose();
             if (tirs.IsCreated) tirs.Dispose();
             if (pavois.IsCreated) pavois.Dispose();
+            if (piques.IsCreated) piques.Dispose();
+            if (chevaux.IsCreated) chevaux.Dispose();
             if (evenements.IsCreated) evenements.Dispose();
         }
 
@@ -223,10 +270,12 @@ namespace Guerre
         public void OnUpdate(ref SystemState state)
         {
             int n = soldats.CalculateEntityCount();
-            if (grille.Capacity < n)
+            if (grille.Capacity < n || piques.Capacity < n || chevaux.Capacity < n)
             {
                 state.Dependency.Complete();
-                grille.Capacity = n * 2;
+                if (grille.Capacity < n) grille.Capacity = n * 2;
+                if (piques.Capacity < n) piques.Capacity = n * 2;
+                if (chevaux.Capacity < n) chevaux.Capacity = n * 2;
             }
             regiments.Update(ref state);
             regimentsRW.Update(ref state);
@@ -235,19 +284,24 @@ namespace Guerre
             // Le pas est fixe (Bataille.PasSimulation) ; la borne ne sert qu'en cas d'appel hors du pas fixe.
             float dt = math.min(SystemAPI.Time.DeltaTime, 1f / 30f);
             if (dt <= 0) return;
-            var reglages = SystemAPI.TryGetSingleton<ReglagesSimulation>(out var rg) ? rg : new ReglagesSimulation { Corps = 1, Poussee = 1, Peur = 1, Pavois = 1 };
+            var reglages = SystemAPI.TryGetSingleton<ReglagesSimulation>(out var rg) ? rg : new ReglagesSimulation { Corps = 1, Poussee = 1, Peur = 1, Pavois = 1, Masse = 1, Piques = 1 };
             var compte = SystemAPI.HasSingleton<CompteTir>() ? SystemAPI.GetSingletonEntity<CompteTir>() : Entity.Null;
             image++;
 
-            var dep = new ViderGrille { Grille = grille }.Schedule(state.Dependency);
+            var dep = new ViderGrille { Grille = grille, Piques = piques, Chevaux = chevaux }.Schedule(state.Dependency);
             dep = new ViderPavois { Pavois = pavois }.Schedule(dep);
             dep = new RemplirPavois { Plantes = pavois.AsParallelWriter() }.ScheduleParallel(dep);
-            dep = new RemplirGrille { Grille = grille.AsParallelWriter(), Regiments = regiments }.ScheduleParallel(dep);
+            dep = new RemplirGrille
+            {
+                Grille = grille.AsParallelWriter(), Piques = piques.AsParallelWriter(), Chevaux = chevaux.AsParallelWriter(),
+                Regiments = regiments, MasseChevaux = reglages.Masse, PiquesActives = reglages.Piques,
+            }.ScheduleParallel(dep);
             dep = new Piloter
             {
-                Grille = grille, Regiments = regiments, Relief = relief, Dt = dt, Corps = reglages.Corps,
-                Poussee = reglages.Poussee, Peur = reglages.Peur, Pavois = reglages.Pavois, Effroi = effroi, Coups = coups.AsParallelWriter(),
-                Tirs = tirs.AsParallelWriter(), Graine = image * 2654435761u,
+                Grille = grille, Piques = piques, Chevaux = chevaux, Regiments = regiments, Relief = relief, Dt = dt, Corps = reglages.Corps,
+                Poussee = reglages.Poussee, Peur = reglages.Peur, Pavois = reglages.Pavois, MasseChevaux = reglages.Masse, PiquesActives = reglages.Piques,
+                Effroi = effroi, Coups = coups.AsParallelWriter(), Tirs = tirs.AsParallelWriter(), Evenements = evenements.AsParallelWriter(),
+                Graine = image * 2654435761u,
             }.ScheduleParallel(dep);
             // Les carreaux en vol, puis ceux qu'on vient de tirer, puis les pavois qui suivent leurs porteurs.
             dep = new Voler { Grille = grille, Plantes = pavois, Relief = relief, Dt = dt, Coups = coups.AsParallelWriter(), Evenements = evenements.AsParallelWriter(), Graine = image * 40503u }.ScheduleParallel(dep);
@@ -282,10 +336,35 @@ namespace Guerre
             public float2 Front;      // vers où il fait face : il ne pare que de ce côté
             public float2 Regard;     // vers où il regarde : son pavois, planté, est devant lui
             public byte Poste;        // 1 : son pavois est planté
-            public float Taille;      // hauteur de son corps : moindre à genou
+            public float Taille;      // hauteur de son corps : moindre à genou, et à terre
+            public float Masse, Rayon;
+            public byte AuSol;        // 1 : renversé ; on l'enjambe, on le piétine
         }
 
         public struct PavoisPlante { public float3 Base; public float2 Normale; }
+
+        // Une pique baissée : le piquier, l'axe de sa pique, et combien il est campé pour la tenir.
+        public struct Pointe { public float2 Base, Axe, V; public float Appui; public byte Camp; }
+
+        // Un cheval, pour les piquiers qui le reçoivent et les hommes à terre qu'il piétine.
+        public struct Cheval { public float2 P, V; public float Rayon; public byte Camp; }
+
+        // Où la pointe d'une pique entre dans un cheval : la pique est un segment qui part du piquier
+        // et porte à Portee(0) ; le cheval, un disque. Renvoie l'enfoncement de la pointe, en mètres.
+        public static float Enfoncement(float2 piquier, float2 axe, float2 cheval, float rayon)
+        {
+            float2 d = cheval - piquier;
+            float long_ = math.dot(d, axe), lat = math.abs(math.dot(d, new float2(axe.y, -axe.x)));
+            if (long_ < 0.3f || lat >= rayon) return 0f;
+            float surface = long_ - math.sqrt(rayon * rayon - lat * lat);
+            return math.max(0f, Armes.Portee(0) - surface);
+        }
+
+        // La force d'une pique enfoncée : un ressort amorti qui plie au-delà de ForcePique, et qui
+        // ne porte plus rien une fois rompu.
+        public static float ForcePique(float enfoncement, float rapprochement) =>
+            enfoncement <= 0f || enfoncement > Armes.PiqueRompue ? 0f
+            : math.min(Armes.RaideurPique * enfoncement + 4000f * math.max(0f, rapprochement), Armes.ForcePique);
 
         [BurstCompile]
         struct ViderPavois : IJob
@@ -312,23 +391,40 @@ namespace Guerre
         struct ViderGrille : IJob
         {
             public NativeParallelMultiHashMap<int, Voisin> Grille;
-            public void Execute() => Grille.Clear();
+            public NativeParallelMultiHashMap<int, Pointe> Piques;
+            public NativeParallelMultiHashMap<int, Cheval> Chevaux;
+            public void Execute() { Grille.Clear(); Piques.Clear(); Chevaux.Clear(); }
         }
 
         [BurstCompile]
         partial struct RemplirGrille : IJobEntity
         {
             public NativeParallelMultiHashMap<int, Voisin>.ParallelWriter Grille;
+            public NativeParallelMultiHashMap<int, Pointe>.ParallelWriter Piques;
+            public NativeParallelMultiHashMap<int, Cheval>.ParallelWriter Chevaux;
             [ReadOnly] public ComponentLookup<Regiment> Regiments;
+            public byte MasseChevaux, PiquesActives;
             void Execute(Entity e, in Soldat s, in LocalTransform t)
             {
                 float2 p = t.Position.xz;
+                bool monte = Corps.Monte(s.Arme);
                 Grille.Add(Cle((int2)math.floor(p / Cellule)), new Voisin
                 {
                     P = p, V = s.Vitesse, E = e, Regiment = s.Regiment.Index, Camp = s.Camp, Arme = s.Arme, Fuite = s.Fuite,
                     Appui = Appui(s), Fatigue = s.Fatigue, Presse = s.Presse, Peur = s.Peur, Front = Regiments[s.Regiment].Front,
-                    Regard = s.Regard, Poste = s.Poste, Taille = math.lerp(1.75f, 1.2f, s.Abri),
+                    Regard = s.Regard, Poste = s.Poste, Taille = s.AuSol > 0 ? 0.4f : monte ? Corps.Taille(s.Arme) : math.lerp(1.75f, 1.2f, s.Abri),
+                    Masse = Corps.Masse(s.Arme, MasseChevaux), Rayon = Corps.Rayon(s.Arme), AuSol = (byte)(s.AuSol > 0 ? 1 : 0),
                 });
+                int2 cl = (int2)math.floor(p / CaseLongue);
+                if (monte) Chevaux.Add(Cle(cl), new Cheval { P = p, V = s.Vitesse, Rayon = Corps.Rayon(s.Arme), Camp = s.Camp });
+                // Une pique ne compte que baissée, tenue par un homme debout qui ne fuit pas.
+                else if (PiquesActives != 0 && s.Arme == 0 && s.Garde > 0.7f && s.Fuite == 0 && s.AuSol <= 0 && s.Brisee == 0)
+                    Piques.Add(Cle(cl), new Pointe
+                    {
+                        Base = p, Axe = s.Regard, V = s.Vitesse, Camp = s.Camp,
+                        // Arrêté, on plante le talon de la pique en terre et l'on s'arc-boute : en marche, on ne le peut pas.
+                        Appui = math.saturate(1f - math.length(s.Vitesse) / 0.6f),
+                    });
             }
         }
 
@@ -336,32 +432,33 @@ namespace Guerre
         partial struct Piloter : IJobEntity
         {
             [ReadOnly] public NativeParallelMultiHashMap<int, Voisin> Grille;
+            [ReadOnly] public NativeParallelMultiHashMap<int, Pointe> Piques;
+            [ReadOnly] public NativeParallelMultiHashMap<int, Cheval> Chevaux;
             [ReadOnly] public ComponentLookup<Regiment> Regiments;
             [ReadOnly] public BlobAssetReference<ReliefBlob> Relief;
             [ReadOnly] public NativeParallelHashMap<int, float2> Effroi;
             public NativeQueue<Coup>.ParallelWriter Coups;
             public NativeQueue<Tir>.ParallelWriter Tirs;
+            public NativeQueue<byte>.ParallelWriter Evenements;
             public float Dt;
-            public byte Corps, Poussee, Peur, Pavois;
+            public byte Corps, Poussee, Peur, Pavois, MasseChevaux, PiquesActives;
             public uint Graine;
 
-            const float Masse = 80f;          // kg, homme et équipement
-            const float ForceMax = 400f;      // N : ce qu'un homme frais pousse, arc-bouté
             const float Raideur = 80000f;     // N/m : un corps, une armure, un bouclier écrasés
             const float Amorti = 2400f;       // N·s/m : les corps ne rebondissent pas
             const float Frottement = 0.8f;    // coefficient entre deux corps : armures, boucliers, mains qui agrippent
             const float Glissement = 3000f;   // N·s/m : régularise le frottement à faible vitesse
-            const float Rayon = 0.85f;        // distance à laquelle deux hommes de régiments amis se gênent
-            const float Diametre = 0.8f;      // épaules, bouclier, coudes
-            const float DiametreMin = 0.45f;  // en deçà, même la presse ne peut plus écraser deux hommes
-            const float VitesseMax = 2.6f;    // m/s : le pas de course pour rattraper sa place
+            const float Marge = 0.05f;        // m : l'espace personnel face aux autres régiments amis
+            const float Ecrasement = 0.5625f; // part du contact en deçà de laquelle même la presse ne peut plus écraser deux corps
             const float VitessePresse = 0.5f; // m/s : dans la presse, on avance pas à pas
             const float Foulee = 1.5f;        // m parcourus par cycle de marche cuit (deux pas)
-            const float VitesseFuite = 3.2f;  // m/s : on court, l'arme jetée ou non
             const float Vue = 3.6f;           // m : ce qu'un homme perçoit autour de lui dans la mêlée
+            // On suit d'un pas une poussée jusqu'à 45 m/s² : au-delà, un choc plus lourd que soi renverse.
+            const float Renversement = 45f;
+            const float Trebucher = 700f;     // N : ce que coûte à un cheval chaque corps à terre sous ses sabots
 
             // Un corps touche devant soi (à un cône de 50° près) : c'est sur lui qu'on appuie.
-            bool QuelquUnDevant(Entity e, float2 pos, float2 front)
+            bool QuelquUnDevant(Entity e, float2 pos, float2 front, float rayon)
             {
                 int2 c = (int2)math.floor(pos / Cellule);
                 for (int dz = -1; dz <= 1; dz++)
@@ -370,10 +467,10 @@ namespace Guerre
                     if (!Grille.TryGetFirstValue(Cle(c + new int2(dx, dz)), out var q, out var it)) continue;
                     do
                     {
-                        if (q.E == e) continue;
+                        if (q.E == e || q.AuSol != 0) continue;
                         float2 d = q.P - pos;
                         float l = math.length(d);
-                        if (l < Diametre + 0.1f && math.dot(d, front) > 0.64f * l) return true;
+                        if (l < rayon + q.Rayon + 0.1f && math.dot(d, front) > 0.64f * l) return true;
                     } while (Grille.TryGetNextValue(out q, ref it));
                 }
                 return false;
@@ -382,9 +479,47 @@ namespace Guerre
             void Execute(Entity e, ref Soldat s, ref LocalTransform t, ref AnimEtat anim, ref AnimCombat combat)
             {
                 var r = Regiments[s.Regiment];
-                bool melee = r.Melee > 0;
+                bool monte = global::Guerre.Corps.Monte(s.Arme);
+                // Des chevaux ne se serrent pas en presse : ils chargent, et ce qui les arrête, ce sont les corps.
+                bool melee = r.Melee > 0 && !monte;
                 float2 front = r.Front;
                 float2 pos0 = t.Position.xz;
+                float masse = global::Guerre.Corps.Masse(s.Arme, MasseChevaux), rayon = global::Guerre.Corps.Rayon(s.Arme);
+                var alea0 = Random.CreateFromIndex((uint)e.Index * 104729u + Graine);
+
+                // Renversé : il reste à terre, glisse sur son élan, et se relève quand il le peut.
+                if (s.AuSol > 0)
+                {
+                    s.AuSol -= Dt;
+                    // Un cheval lancé qui passe sur un homme à terre le piétine.
+                    float pietine = 0f;
+                    int2 ch = (int2)math.floor(pos0 / CaseLongue);
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (!Chevaux.TryGetFirstValue(Cle(ch + new int2(dx, dz)), out var h, out var ith)) continue;
+                        do
+                        {
+                            float vh = math.length(h.V);
+                            if (vh > 1.5f && math.distance(h.P, pos0) < h.Rayon + 0.3f) pietine += 0.08f * vh * Dt;
+                        } while (Chevaux.TryGetNextValue(out h, ref ith));
+                    }
+                    if (pietine > 0) Coups.Enqueue(new Coup { Cible = e, Degats = pietine, Lieu = pos0, Camp = s.Camp });
+                    s.Vitesse *= math.saturate(1f - 4f * Dt);
+                    float2 p = pos0 + s.Vitesse * Dt;
+                    s.Contact = 0; s.APortee = 0; s.Presse = 0; s.Poste = 0; s.Garde = 0; s.Abri = 0;
+                    s.Recharge = math.max(s.Recharge, 0.8f);
+                    if (s.AuSol <= 0) s.AuSol = 0;
+                    anim.Value = new float4(s.Phase, 0, 0, -1);
+                    combat.Value = float4.zero;
+                    // Il tombe à la renverse ; en se relevant, il reprend la verticale (plus bas).
+                    var couche = math.mul(quaternion.LookRotationSafe(new float3(s.Regard.x, 0, s.Regard.y), math.up()), quaternion.RotateX(-math.PI / 2));
+                    t.Rotation = math.slerp(t.Rotation, couche, math.saturate(Dt * 12f));
+                    t.Position = new float3(p.x, Sol.Hauteur(ref Relief.Value, p) + 0.12f, p.y);
+                    s.Lieu = t.Position;
+                    s.Ecart = math.distance(p, Formation.VersMonde(Formation.Place(r, s.Numero) + s.Decalage, r.Position, front));
+                    return;
+                }
 
                 // Ce qu'il voit autour de lui : l'ennemi à portée devant lui, la menace, ses camarades
                 // et leur peur. Rien de cela n'est un modificateur : ce sont des perceptions.
@@ -410,11 +545,11 @@ namespace Guerre
                             {
                                 float x = math.dot(d, front), cote = math.dot(d, new float2(front.y, -front.x));
                                 if (x > 0.2f && x < devantX && math.abs(cote) < 0.35f) { devantX = x; devantSol = Sol.Hauteur(ref Relief.Value, q.P); }
-                                if (l2 < 1.5f * 1.5f && q.Fuite == 0) camaradesProches++;
+                                if (l2 < 1.5f * 1.5f && q.Fuite == 0 && q.AuSol == 0) camaradesProches++;
                                 if (l2 < 2.4f * 2.4f) { peurVoisins += q.Peur; nPeur++; }
                                 continue;
                             }
-                            if (l2 < Vue * Vue && q.Fuite == 0)
+                            if (l2 < Vue * Vue && q.Fuite == 0 && q.AuSol == 0)
                             {
                                 ennemisProches++; menace -= d / math.max(l2, 0.25f);
                                 // Un ennemi à côté de soi ou dans le dos : on ne peut ni le parer ni le frapper.
@@ -423,6 +558,57 @@ namespace Guerre
                             // On ne frappe que devant soi : l'ennemi qui vient de côté, on ne peut pas lui répondre.
                             if (s.Fuite == 0 && l2 < meilleur && math.dot(d, front) > 0.25f * math.sqrt(l2)) { meilleur = l2; cible = q; trouve = true; }
                         } while (Grille.TryGetNextValue(out q, ref it));
+                    }
+                }
+
+                // Les piques. Un cheval sent les fers pointés devant lui, et ceux qui entrent dans son
+                // poitrail le freinent et le blessent ; un piquier reçoit dans sa pique le cheval qui s'y jette.
+                float2 forcePiques = float2.zero, choc = float2.zero, elan = float2.zero;
+                float renverse = 0f;
+                int pointesDevant = 0;
+                float energie = 0f;
+                if (monte)
+                {
+                    int2 cp = (int2)math.floor(pos0 / CaseLongue);
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (!Piques.TryGetFirstValue(Cle(cp + new int2(dx, dz)), out var pk, out var itp)) continue;
+                        do
+                        {
+                            if (pk.Camp == s.Camp) continue;
+                            float2 d = pos0 - pk.Base;
+                            float long_ = math.dot(d, pk.Axe), lat = math.abs(math.dot(d, new float2(pk.Axe.y, -pk.Axe.x)));
+                            // Des fers pointés vers soi, à quelques pas : le cheval les voit.
+                            if (long_ > 0f && long_ < Armes.Portee(0) + 4f && lat < 1.2f && math.dot(s.Vitesse, pk.Axe) < 0.5f) pointesDevant++;
+                            float enf = Enfoncement(pk.Base, pk.Axe, pos0, rayon);
+                            float rapproche = -math.dot(s.Vitesse - pk.V, pk.Axe);
+                            float f = ForcePique(enf, rapproche);
+                            if (f <= 0f) continue;
+                            forcePiques += pk.Axe * f;
+                            energie += f * math.max(0f, rapproche) * Dt;
+                        } while (Piques.TryGetNextValue(out pk, ref itp));
+                    }
+                    if (energie > 0f)
+                        Coups.Enqueue(new Coup { Cible = e, Degats = energie / Armes.EnergieMortelle, Lieu = pos0, Camp = s.Camp });
+                }
+                else if (PiquesActives != 0 && s.Arme == 0 && s.Garde > 0.7f && s.Fuite == 0 && s.Brisee == 0)
+                {
+                    float appui = math.saturate(1f - math.length(s.Vitesse) / 0.6f);
+                    int2 cp = (int2)math.floor(pos0 / CaseLongue);
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (!Chevaux.TryGetFirstValue(Cle(cp + new int2(dx, dz)), out var h, out var ith)) continue;
+                        do
+                        {
+                            if (h.Camp == s.Camp) continue;
+                            float enf = Enfoncement(pos0, s.Regard, h.P, h.Rayon);
+                            if (enf > Armes.PiqueRompue) { s.Brisee = 1; Evenements.Enqueue(5); break; }
+                            float f = ForcePique(enf, -math.dot(h.V - s.Vitesse, s.Regard));
+                            // Le talon planté en terre porte l'essentiel du choc ; en marche, c'est l'homme qui le reçoit.
+                            if (f > 0f) { float2 recu = -s.Regard * f * (1f - 0.85f * appui); forcePiques += recu; choc += recu; }
+                        } while (Chevaux.TryGetNextValue(out h, ref ith));
                     }
                 }
 
@@ -442,6 +628,8 @@ namespace Guerre
                     if (ennemisProches > 0 && camaradesProches < 2) effroiGain += 0.06f * Dt * amplification;
                     // L'ennemi qu'on ne peut pas affronter, sur le côté ou derrière soi.
                     effroiGain += 0.07f * math.min(ennemisHorsDeVue, 3) * Dt * amplification;
+                    // Un cheval ne se jette pas de lui-même sur des fers qu'il voit : il renâcle.
+                    effroiGain += 0.05f * math.min(pointesDevant, 6) * Dt * amplification;
                     s.Peur += effroiGain;
                     // La panique gagne vite ses voisins ; le calme, lentement.
                     if (nPeur > 0)
@@ -460,22 +648,36 @@ namespace Guerre
                 float2 pos = t.Position.xz;
                 // Les forces d'un homme : la fatigue et les blessures les rongent.
                 float vigueur = (1f - 0.5f * s.Fatigue) * (0.4f + 0.6f * math.saturate(s.Sante));
-                float fMax = ForceMax * vigueur;
+                float forceMax = global::Guerre.Corps.ForceMax(s.Arme, MasseChevaux);
+                float fMax = forceMax * vigueur;
 
                 // L'effort vers sa place : fort à l'arrêt, nul quand on y court déjà assez vite.
                 float2 vers = place - pos;
                 float dist = math.length(vers);
                 float2 dir = dist > 0.01f ? vers / dist : float2.zero;
                 float gain = math.lerp(3f, 1.4f, math.saturate(dist - 0.5f));
-                float vVoulue = math.min(VitesseMax * s.Allure * vigueur, dist * gain);
+                float vVoulue = math.min(global::Guerre.Corps.VitesseMax(s.Arme) * s.Allure * vigueur, dist * gain);
                 if (melee) vVoulue = math.min(vVoulue, VitessePresse);
                 float2 fMarche, fLat;
-                if (!melee)
+                if (monte)
+                {
+                    // Un cavalier tient l'allure de sa ligne, et corrige en plus son retard sur sa place :
+                    // un cheval met des secondes à prendre le galop, il ne peut pas attendre d'être distancé.
+                    float vMax = global::Guerre.Corps.VitesseMax(s.Arme) * s.Allure * vigueur;
+                    float2 voulue = r.Vitesse + dir * math.min(vMax, dist * gain);
+                    float lv = math.length(voulue);
+                    if (lv > vMax) voulue *= vMax / lv;
+                    float2 dv = voulue - s.Vitesse;
+                    float ldv = math.length(dv);
+                    fMarche = ldv > 1e-4f ? dv / ldv * fMax * math.min(1f, ldv / 0.4f) : float2.zero;
+                    fLat = float2.zero;
+                }
+                else if (!melee)
                 {
                     float vLong = math.dot(s.Vitesse, dir);
                     fMarche = dir * fMax * math.clamp((vVoulue - vLong) / 0.4f, -1f, 1f);
                     float2 vLat = s.Vitesse - dir * vLong;
-                    fLat = -vLat * Masse / 0.35f;
+                    fLat = -vLat * masse / 0.35f;
                 }
                 else
                 {
@@ -491,7 +693,7 @@ namespace Guerre
                     // Contre-épreuve : sans poussée, seuls les hommes au contact de l'ennemi appuient
                     // de toutes leurs forces ; les rangs arrière se contentent de tenir leur place.
                     bool pousse = Poussee != 0 || s.Contact != 0;
-                    if (pousse && r.Ennemi != Entity.Null && axial > -1.5f && QuelquUnDevant(e, pos, front)) vAxVoulue = VitessePresse;
+                    if (pousse && r.Ennemi != Entity.Null && axial > -1.5f && QuelquUnDevant(e, pos, front, rayon)) vAxVoulue = VitessePresse;
                     fMarche = front * fMax * math.clamp((vAxVoulue - vAx) / 0.4f, -1f, 1f);
                     // Coude à coude : on tient sa file fermement, en s'arc-boutant contre ses voisins.
                     float vLaVoulue = math.clamp(lateral * 6f, -1f, 1f);
@@ -503,53 +705,85 @@ namespace Guerre
                 {
                     // Il fuit : loin de ce qui le menace, ou à défaut à l'opposé de l'ennemi de son régiment.
                     float2 loin = math.lengthsq(menace) > 1e-4f ? math.normalize(menace) : -front;
-                    float2 fF = (loin * VitesseFuite - s.Vitesse) * Masse / 0.3f;
+                    float2 fF = (loin * global::Guerre.Corps.VitesseFuite(s.Arme) - s.Vitesse) * masse / 0.3f;
                     float lF = math.length(fF);
-                    fMarche = lF > ForceMax ? fF * ForceMax / lF : fF;
+                    fMarche = lF > forceMax ? fF * forceMax / lF : fF;
                     fLat = float2.zero;
                 }
-                float2 force = fMarche + fLat;
+                float2 force = fMarche + fLat + forcePiques;
 
                 float presse = 0; byte contact = 0;
+                int portee2 = monte ? 2 : 1;   // un cheval touche plus loin qu'une cellule
                 int2 c = (int2)math.floor(pos / Cellule);
                 if (Corps != 0)
                 {
-                    for (int dz = -1; dz <= 1; dz++)
-                    for (int dx = -1; dx <= 1; dx++)
+                    for (int dz = -portee2; dz <= portee2; dz++)
+                    for (int dx = -portee2; dx <= portee2; dx++)
                     {
                         if (!Grille.TryGetFirstValue(Cle(c + new int2(dx, dz)), out var q, out var it)) continue;
                         do
                         {
                             if (q.E == e) continue;
+                            // Un homme à terre, on l'enjambe ou on le piétine : il ne pousse personne. Mais un cheval
+                            // qui passe sur des corps à terre trébuche, et y laisse de son élan.
+                            if (q.AuSol != 0)
+                            {
+                                float vc = math.length(s.Vitesse);
+                                if (monte && vc > 0.3f && math.distancesq(pos, q.P) < math.square(rayon + 0.3f)) force -= s.Vitesse / vc * Trebucher;
+                                continue;
+                            }
                             float2 d = pos - q.P;
                             float l2 = math.lengthsq(d);
                             if (l2 < 1e-8f) continue;
-                            float l = math.sqrt(l2);
+                            float l = math.sqrt(l2), diametre = rayon + q.Rayon;
                             bool ennemi = q.Camp != s.Camp, camarade = q.Regiment == s.Regiment.Index;
                             if (!ennemi && !camarade)
                             {
                                 // L'espace personnel face aux autres régiments amis : on s'écarte avant de se toucher.
-                                if (l < Rayon) force += d / l * (1f - l / Rayon) * ForceMax * 1.2f;
+                                float espace = diametre + Marge;
+                                if (l < espace) force += d / l * (1f - l / espace) * forceMax * 1.2f;
                             }
-                            else if ((ennemi || melee || fuit) && l < Diametre)
+                            else if ((ennemi || melee || fuit) && l < diametre)
                             {
                                 // Corps contre corps : face à l'ennemi toujours, entre camarades dans la presse.
                                 float2 nrm = d / l, tang = new float2(-nrm.y, nrm.x);
                                 float2 vRel = s.Vitesse - q.V;
-                                float fn = math.max(0f, Raideur * (Diametre - l) - Amorti * math.dot(vRel, nrm));
+                                float fn = math.max(0f, Raideur * (diametre - l) - Amorti * math.dot(vRel, nrm));
                                 // Le frottement : deux corps pressés l'un contre l'autre ne glissent pas l'un sur l'autre.
                                 float ft = math.clamp(-Glissement * math.dot(vRel, tang), -Frottement * fn, Frottement * fn);
                                 force += nrm * fn + tang * ft;
                                 presse += fn;
                                 if (ennemi) contact = 1;
+                                // Un choc trop brusque pour que le plus léger le suive d'un pas le renverse. Le choc est
+                                // alors inélastique : le plus léger part avec le plus lourd, qui y perd d'autant son élan.
+                                // Les deux corps font le même calcul, sur les mêmes positions : la quantité de mouvement se conserve.
+                                float leger = math.min(masse, q.Masse);
+                                if (math.max(masse, q.Masse) > 1.5f * leger && fn > leger * Renversement)
+                                {
+                                    float rapproche = -math.dot(vRel, nrm);
+                                    if (rapproche > 0f) elan += nrm * rapproche * (q.Masse / (masse + q.Masse));
+                                    if (masse < q.Masse) renverse = math.max(renverse, fn / (masse * Renversement));
+                                }
                             }
                         } while (Grille.TryGetNextValue(out q, ref it));
                     }
                 }
 
-                s.Vitesse += force / Masse * Dt;
+                // Renversé : par le choc d'un corps bien plus lourd, ou par sa propre pique qu'un cheval enfonce.
+                float seuil = masse * Renversement;
+                renverse = math.max(renverse, math.length(choc) / seuil);
+                s.Vitesse += elan;
+                if (renverse > 1f)
+                {
+                    s.AuSol = alea0.NextFloat(2.5f, 4.5f);
+                    Coups.Enqueue(new Coup { Cible = e, Degats = math.min(0.35f, 0.05f * (renverse - 1f)), Lieu = pos0, Camp = s.Camp });
+                    Evenements.Enqueue(4);
+                }
+
+                s.Vitesse += force / masse * Dt;
                 float v = math.length(s.Vitesse);
-                if (v > 3.5f) { s.Vitesse *= 3.5f / v; }
+                float vPlafond = global::Guerre.Corps.VitesseMax(s.Arme) + 0.9f;
+                if (v > vPlafond) { s.Vitesse *= vPlafond / v; }
                 float2 avant = pos;
                 pos += s.Vitesse * Dt;
 
@@ -557,26 +791,26 @@ namespace Guerre
                 {
                     // Hors de la presse, les corps se règlent par placement : le campé tient face
                     // à un régiment ami, et s'efface devant un camarade qui rejoint sa place.
-                    // Personne, jamais, n'est écrasé à moins de DiametreMin d'un autre.
+                    // Personne, jamais, n'est écrasé en deçà d'une part du contact ; le plus léger cède.
                     float appui = Appui(s);
                     bool corrige = false;
                     c = (int2)math.floor(pos / Cellule);
-                    for (int dz = -1; dz <= 1; dz++)
-                    for (int dx = -1; dx <= 1; dx++)
+                    for (int dz = -portee2; dz <= portee2; dz++)
+                    for (int dx = -portee2; dx <= portee2; dx++)
                     {
                         if (!Grille.TryGetFirstValue(Cle(c + new int2(dx, dz)), out var q, out var it)) continue;
                         do
                         {
-                            if (q.E == e) continue;
+                            if (q.E == e || q.AuSol != 0) continue;
                             float2 d = pos - q.P;
-                            float l2 = math.lengthsq(d);
-                            if (l2 >= Diametre * Diametre) continue;
+                            float l2 = math.lengthsq(d), diametre = rayon + q.Rayon;
+                            if (l2 >= diametre * diametre) continue;
                             float l = math.sqrt(l2);
                             float2 nrm = l > 1e-4f ? d / l : math.normalizesafe(avant - q.P, new float2(1, 0));
                             bool ennemi = q.Camp != s.Camp, camarade = q.Regiment == s.Regiment.Index;
-                            if (!ennemi && !camarade) { pos += nrm * (Diametre - l) * (q.Appui / (appui + q.Appui)); corrige = true; }
-                            else if (camarade && !melee && !fuit) { pos += nrm * (Diametre - l) * (appui / (appui + q.Appui)); corrige = true; }
-                            else if (l < DiametreMin) { pos += nrm * (DiametreMin - l) * 0.5f; corrige = true; }
+                            if (!ennemi && !camarade) { pos += nrm * (diametre - l) * (q.Appui / (appui + q.Appui)); corrige = true; }
+                            else if (camarade && !melee && !fuit) { pos += nrm * (diametre - l) * (appui / (appui + q.Appui)); corrige = true; }
+                            else if (l < Ecrasement * diametre) { pos += nrm * (Ecrasement * diametre - l) * (q.Masse / (masse + q.Masse)); corrige = true; }
                         } while (Grille.TryGetNextValue(out q, ref it));
                     }
                     // Ce qu'on a été empêché de faire, on ne l'a pas fait : l'élan suit le mouvement réel.
@@ -585,6 +819,8 @@ namespace Guerre
                 }
                 s.Ecart = math.distance(pos, place);
                 s.Presse = presse;
+                // Une pique dans le poitrail, c'est être au contact de l'ennemi, même sans toucher un corps.
+                if (monte && math.lengthsq(forcePiques) > 0f) contact = 1;
                 s.Contact = contact;
 
                 // Les coups : l'ennemi le plus proche, devant soi, à portée de son arme (vu plus haut).
@@ -638,11 +874,13 @@ namespace Guerre
                     if (s.Recharge <= 0)
                     {
                         var alea = Random.CreateFromIndex((uint)e.Index * 7919u + Graine);
-                        // On ne pare que ce qui vient de devant soi ; qui fuit ne pare plus rien.
+                        // On ne pare que ce qui vient de devant soi ; qui fuit ou gît à terre ne pare plus rien.
                         bool deFace = math.dot(pos0 - cible.P, cible.Front) > 0;
-                        float defense = cible.Fuite != 0 || !deFace ? 0f : 0.6f * (1f - cible.Fatigue) * (1f - math.saturate(cible.Presse / 2500f));
+                        float defense = cible.Fuite != 0 || cible.AuSol != 0 || !deFace ? 0f : 0.6f * (1f - cible.Fatigue) * (1f - math.saturate(cible.Presse / 2500f));
+                        // La lance d'un cavalier lancé frappe de tout le poids de son élan.
+                        float lancee = monte ? math.max(0f, math.dot(s.Vitesse - cible.V, math.normalizesafe(cible.P - pos0))) / 3f : 0f;
                         if (alea.NextFloat() < 0.2f * (1f - defense))
-                            Coups.Enqueue(new Coup { Cible = cible.E, Degats = Armes.Degats(s.Arme) * (1f - Armes.Armure(cible.Arme)) * alea.NextFloat(0.6f, 1.4f), Lieu = cible.P, Camp = cible.Camp });
+                            Coups.Enqueue(new Coup { Cible = cible.E, Degats = Armes.Degats(s.Arme) * (1f + lancee * lancee) * (1f - Armes.Armure(cible.Arme)) * alea.NextFloat(0.6f, 1.4f), Lieu = cible.P, Camp = cible.Camp });
                         s.Recharge = Armes.Cadence(s.Arme) * alea.NextFloat(0.8f, 1.2f);
                         s.CoupT = 0;
                         s.Fatigue += 0.01f;
@@ -652,26 +890,37 @@ namespace Guerre
                 s.CoupT += Dt;
 
                 // La fatigue monte avec l'effort et redescend au repos, plus lentement dans la presse.
-                float effort = math.saturate(math.length(fMarche) / ForceMax);
+                float effort = math.saturate(math.length(fMarche) / forceMax);
                 s.Fatigue = math.saturate(s.Fatigue + Dt * (0.011f * effort - 0.005f * (1f - effort) * (melee ? 0.3f : 1f)));
 
                 // Le pas suit le chemin réellement parcouru : un homme bousculé ne marche pas sur place.
-                s.Phase = math.frac(s.Phase + v * Dt / Foulee);
+                // Le cheval allonge sa foulée au galop.
+                float galop = monte ? math.smoothstep(4f, 6f, v) : 0f;
+                float foulee = monte ? math.lerp(2.6f, 3.8f, galop) : Foulee;
+                s.Phase = math.frac(s.Phase + v * Dt / foulee);
                 anim.Value = new float4(s.Phase, math.smoothstep(0.12f, 0.6f, v), math.frac(s.Allure * 37.13f), 0);
-                float garde = combat.Value.y + math.clamp((trouve || tire ? 1f : 0f) - combat.Value.y, -Dt * 3f, Dt * 3f);
+                // En garde : face à l'ennemi qu'on frappe ou qu'on vise ; piques basses quand l'ennemi approche de front.
+                bool enGarde = trouve || tire || (s.Arme == 0 && r.Herisse != 0 && !fuit);
+                if (monte) enGarde = trouve && v < 3f;
+                float garde = combat.Value.y + math.clamp((enGarde ? 1f : 0f) - combat.Value.y, -Dt * 3f, Dt * 3f);
+                s.Garde = garde;
                 // Derrière son pavois, on s'abrite à genou ; on ne se lève que pour viser, la dernière
-                // seconde et demie avant de lâcher son carreau.
+                // seconde et demie avant de lâcher son carreau. Le cavalier, lui, couche sa lance au galop.
                 bool enJoue = tire && s.Recharge < 1.5f;
                 float abri = s.Poste != 0 && !enJoue && !trouve ? 1f : 0f;
                 s.Abri += math.clamp(abri - s.Abri, -Dt * 2.5f, Dt * 2.5f);
-                combat.Value = new float4(math.min(s.CoupT, 0.999f), garde, s.Abri, 0);
+                combat.Value = new float4(math.min(s.CoupT, 0.999f), garde, monte ? galop : s.Abri, 0);
                 float y = Sol.Hauteur(ref Relief.Value, pos);
 
                 // On regarde l'ennemi qu'on frappe ; sinon où l'on va, sauf à reculer : on garde alors le front.
+                // Un cheval ne recule pas en regardant ailleurs que devant lui : il regarde où il va.
                 float2 dirV = v > 0.35f ? s.Vitesse / v : front;
-                float2 regard = trouve ? math.normalizesafe(cible.P - pos, front) : fuit || math.dot(dirV, front) > -0.2f ? dirV : front;
+                // Le piquier en hérisson tient sa pique droit devant : une hampe de cinq mètres ne se braque pas.
+                bool herisson = s.Arme == 0 && r.Herisse != 0 && !fuit;
+                bool faceACible = trouve && !(monte && v > 2f) && !herisson;
+                float2 regard = herisson ? front : faceACible ? math.normalizesafe(cible.P - pos, front) : fuit || math.dot(dirV, front) > -0.2f ? dirV : front;
                 var rot = quaternion.LookRotationSafe(new float3(regard.x, 0, regard.y), math.up());
-                t.Rotation = math.slerp(t.Rotation, rot, math.saturate(Dt * 5f));
+                t.Rotation = math.slerp(t.Rotation, rot, math.saturate(Dt * (monte ? 3f : 5f)));
                 t.Position = new float3(pos.x, y, pos.y);
                 // Le pavois : un arbalétrier arrêté, hors de la presse et qui ne fuit pas, le plante devant lui.
                 s.Regard = math.normalizesafe(math.forward(t.Rotation).xz, front);
@@ -723,7 +972,7 @@ namespace Guerre
             public float Dt;
             public uint Graine;
 
-            const float Rayon = 0.22f;
+            const float Rayon = 0.22f, RayonCheval = 0.5f;   // un homme, un cheval vu de face ou de flanc
 
             void Execute(Entity e, ref Projectile p, ref LocalTransform t)
             {
@@ -753,7 +1002,7 @@ namespace Guerre
                         float u2 = l2 > 1e-8f ? math.saturate(math.dot(q.P - a.xz, d2) / l2) : 0f;
                         float2 proche = a.xz + d2 * u2;
                         float hauteur = a.y + d.y * u2;
-                        if (u2 < meilleur && math.lengthsq(proche - q.P) < Rayon * Rayon && hauteur > sol && hauteur < sol + q.Taille)
+                        if (u2 < meilleur && math.lengthsq(proche - q.P) < math.square(Corps.Monte(q.Arme) ? RayonCheval : Rayon) && hauteur > sol && hauteur < sol + q.Taille)
                         { meilleur = u2; quoi = 2; cible = q; }
                     } while (Grille.TryGetNextValue(out q, ref it));
                 }
@@ -842,6 +1091,8 @@ namespace Guerre
                     if (ev == 1) c.Pavois++;
                     else if (ev == 2) c.AuSol++;
                     else if (ev == 3) c.Tires++;
+                    else if (ev == 4) c.Renverses++;
+                    else if (ev == 5) c.PiquesRompues++;
                 }
                 Compte[Entite] = c;
             }
@@ -978,9 +1229,10 @@ namespace Guerre
             {
                 var s = em.GetComponentData<Soldat>(e);
                 var t = em.GetComponentData<LocalTransform>(e);
-                // Il tombe à la renverse, les pieds où il se tenait.
-                t.Rotation = math.mul(t.Rotation, quaternion.RotateX(-math.PI / 2));
-                t.Position.y += 0.12f;
+                // Il tombe à la renverse, les pieds où il se tenait (s'il n'est pas déjà à terre) ;
+                // un cheval s'abat sur le flanc, son cavalier avec lui.
+                if (Corps.Monte(s.Arme)) { t.Rotation = math.mul(t.Rotation, quaternion.RotateZ(math.PI / 2)); t.Position.y += 0.35f; }
+                else if (s.AuSol <= 0) { t.Rotation = math.mul(t.Rotation, quaternion.RotateX(-math.PI / 2)); t.Position.y += 0.12f; }
                 em.SetComponentData(e, t);
                 em.SetComponentData(e, new AnimEtat { Value = new float4(0, 0, 0, -1) });
                 em.SetComponentData(e, new AnimCombat());

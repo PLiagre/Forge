@@ -2,7 +2,7 @@
 #   powershell -File outils/atelier.ps1 soldats      # fabriquer les soldats dans Blender (fabrique/sorties)
 #   powershell -File outils/atelier.ps1 construire   # soldats, pipeline, vallée, scène
 #   powershell -File outils/atelier.ps1 joueur       # construire + joueur Windows
-#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 6, avec leurs contre-épreuves
+#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 7, avec leurs contre-épreuves
 #   powershell -File outils/atelier.ps1 ouvrir       # ouvrir l'éditeur
 param([Parameter(Mandatory)][ValidateSet('soldats','construire','joueur','mesurer','ouvrir')][string]$action,
       [int]$soldats = 10000)
@@ -115,6 +115,22 @@ switch ($action) {
         $tc = Lancer (Join-Path $racine 'sorties\essai-tir-sans-pavois') @('-guerre-essai-tir','-guerre-soldats','20000','-guerre-sans-pavois') 'essai-tir.json'
         if ($null -eq $tc -or $tc.statut -ne 'echec') { Write-Host 'Sans pavois, l''essai de tir n''a pas échoué : il ne prouve rien.'; $echecs++ }
         else { "contre-épreuve 6 (sans pavois) : échec attendu obtenu ($($tc.motifs -join ' | '))" }
+
+        # Jalon 7 : la cavalerie. Une charge brise un rang non préparé et se brise sur des piques.
+        $c = Lancer (Join-Path $racine 'sorties\essai-cavalerie') @('-guerre-essai-cavalerie','-guerre-soldats','20000') 'essai-cavalerie.json'
+        if ($null -eq $c) { exit 1 }
+        $c.epreuves | ForEach-Object { '{0,-12} cavaliers entrés de {1,6:N1} m, infanterie rompue {2,-5} cavalerie rompue {3,-5} morts {4}/{5}' -f $_.condition, $_.penetration_max_m, $_.infanterie_rompue, $_.cavalerie_rompue, $_.morts_cavaliers, $_.morts_fantassins }
+        "rang non préparé : cavaliers entrés de {0:N1} m, {1}/10 ruptures, morts {2} cavaliers / {3} fantassins" -f $c.penetration_non_prepare_m, $c.ruptures_non_prepare, $c.morts_cavaliers_non_prepare, $c.morts_fantassins_non_prepare
+        "piques : cavaliers entrés de {0:N1} m, cavalerie rompue {1}/10, piquiers rompus {2}/10, morts {3} cavaliers / {4} piquiers ; {5} hommes renversés, {6} piques rompues" -f $c.penetration_piques_m, $c.ruptures_cavalerie_piques, $c.ruptures_piquiers, $c.morts_cavaliers_piques, $c.morts_piquiers, $c.hommes_renverses, $c.piques_rompues
+        "jalon 7 : $($c.statut) $($c.motifs -join ' | ')"
+        if ($c.statut -ne 'valide') { $echecs++ }
+        # Un cheval qui pèse un homme ne brise plus rien ; des piques qui n'arrêtent rien ne brisent plus la charge.
+        $cm = Lancer (Join-Path $racine 'sorties\essai-cavalerie-sans-masse') @('-guerre-essai-cavalerie','-guerre-soldats','20000','-guerre-sans-masse') 'essai-cavalerie.json'
+        if ($null -eq $cm -or $cm.brise_le_rang_non_prepare) { Write-Host 'Sans la masse des chevaux, la charge brise encore le rang non préparé : la preuve ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 7 (sans la masse des chevaux) : échec attendu obtenu ($($cm.motifs -join ' | '))" }
+        $cp = Lancer (Join-Path $racine 'sorties\essai-cavalerie-sans-piques') @('-guerre-essai-cavalerie','-guerre-soldats','20000','-guerre-sans-piques') 'essai-cavalerie.json'
+        if ($null -eq $cp -or $cp.se_brise_sur_les_piques) { Write-Host 'Sans les piques, la charge se brise encore : la preuve ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 7 (sans les piques) : échec attendu obtenu ($($cp.motifs -join ' | '))" }
 
         if ($echecs -gt 0) { exit 1 }
     }

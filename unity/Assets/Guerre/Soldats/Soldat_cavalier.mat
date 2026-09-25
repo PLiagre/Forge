@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Soldat_piquier
+  m_Name: Soldat_cavalier
   m_Shader: {fileID: 4800000, guid: de216d6fffa310e4d9631dc4d21f5dc2, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -24,16 +24,16 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _VAT:
-        m_Texture: {fileID: 2800000, guid: d550453731ddfdc46908594af70ac6d8, type: 2}
+        m_Texture: {fileID: 2800000, guid: d712e062ac2aec7478ed75db8432deae, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AbriSuitLaMarche: 0
-    - _Coins: 1464
-    - _DureeAbri: 3
-    - _DureeRepos: 4
-    - _ImagesAbri: 12
+    - _AbriSuitLaMarche: 1
+    - _Coins: 2598
+    - _DureeAbri: 1
+    - _DureeRepos: 5
+    - _ImagesAbri: 24
     - _ImagesCombat: 24
     - _ImagesMarche: 24
     - _ImagesRepos: 24

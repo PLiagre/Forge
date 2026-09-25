@@ -11,7 +11,7 @@ namespace Guerre.EditeurOutils
     // d'animation (RGBA demi-précision) et matériau, un triplet par arme.
     public static partial class Construire
     {
-        static readonly string[] Armes = { "piquier", "hallebardier", "arbaletrier" };
+        static readonly string[] Armes = { "piquier", "hallebardier", "arbaletrier", "cavalier" };
 
         static (Material[], Mesh[]) Soldats()
         {
@@ -80,6 +80,8 @@ namespace Guerre.EditeurOutils
                 mat.SetFloat("_ImagesCombat", images[2]);
                 mat.SetFloat("_ImagesAbri", images[3]);
                 mat.SetFloat("_DureeAbri", durees[3]);
+                // Le cavalier range son galop de charge à la place de la posture à l'abri : il se joue au pas de la marche.
+                mat.SetFloat("_AbriSuitLaMarche", Armes[k] == "cavalier" ? 1 : 0);
                 mat.SetFloat("_VATActif", 1);
                 Remplacer(mat, dossier + "/Soldat_" + Armes[k] + ".mat");
 

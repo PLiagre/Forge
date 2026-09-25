@@ -13,7 +13,7 @@ modifié ni importé.
 |---|---|
 | `Jouer.cmd` | lance le joueur compilé |
 | `Ouvrir_Unity.cmd` | ouvre le projet dans Unity 6000.0.43f1 |
-| `Mesurer.cmd` | fabrique les soldats, reconstruit, compile et passe les preuves des jalons 1 à 6, avec leurs contre-épreuves (environ 30 min) |
+| `Mesurer.cmd` | fabrique les soldats, reconstruit, compile et passe les preuves des jalons 1 à 7, avec leurs contre-épreuves (environ 35 min) |
 
 En jeu :
 - **clic gauche** choisit un régiment bleu ; **glisser** trace une boîte ; **Maj + clic** ajoute ou retire ; **Ctrl + A** choisit toute l'armée ;
@@ -29,7 +29,7 @@ En jeu :
 powershell -File outils/atelier.ps1 soldats             # soldats modelés et animés dans Blender 5.2
 powershell -File outils/atelier.ps1 construire          # + pipeline, vallée, scène
 powershell -File outils/atelier.ps1 joueur              # + joueur Windows dans sorties/joueur
-powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 à 6, et contre-épreuves
+powershell -File outils/atelier.ps1 mesurer             # + preuves des jalons 1 à 7, et contre-épreuves
 powershell -File outils/atelier.ps1 mesurer -soldats 20000
 ```
 
@@ -40,7 +40,7 @@ régénéré par `Construire.cs`. Pour une modification durable, changer le code
 
 | fichier | rôle |
 |---|---|
-| `fabrique/soldats.py` | soldats modulaires, squelette, marche et repos cuits en `.vat` (Blender) |
+| `fabrique/soldats.py` | soldats et cavalier modulaires, squelettes, allures cuites en `.vat` (Blender) |
 | `Shaders/Soldat.shader` | rejoue l'animation cuite sur le GPU, instance par instance |
 | `Runtime/Composants.cs` | `Soldat`, `Regiment`, `AnimEtat` et le relief lu par les jobs |
 | `Runtime/Systemes.cs` | marche des régiments ; pilotage des soldats (place, élan, corps et appuis par grille spatiale) ; cohésion du régiment ; couleurs |
@@ -53,6 +53,7 @@ régénéré par `Construire.cs`. Pour une modification durable, changer le code
 | `Runtime/EssaisMoral.cs` | essai du jalon 5 (vingt épreuves de flanc et de réserve), écrit dans `sorties/essai-moral/` |
 | `Runtime/SystemePavois.cs` | les pavois : plantés, laissés, repris, tombés |
 | `Runtime/EssaisTir.cs` | essai du jalon 6 (salve de masse, tir tendu contre pavois), écrit dans `sorties/essai-tir/` |
+| `Runtime/EssaisCavalerie.cs` | essai du jalon 7 (vingt charges, sur un rang non préparé ou sur des piques), écrit dans `sorties/essai-cavalerie/` |
 
 La simulation avance à pas fixe (60 pas par seconde simulée) : ses issues ne dépendent pas
 de la cadence d'affichage.

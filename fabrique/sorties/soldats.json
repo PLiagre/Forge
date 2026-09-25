@@ -31,5 +31,21 @@
       "torse": -1,
       "fente": -1
     }
+  },
+  "cavalier": {
+    "triangles": 866,
+    "coins": 2598,
+    "signes": {
+      "avant": 1,
+      "genou": -1,
+      "arriere": 1,
+      "jarret": 1,
+      "encolure": -1,
+      "tangage": 1,
+      "queue": -1,
+      "bras": 1,
+      "torse": -1,
+      "haut": 1
+    }
   }
 }

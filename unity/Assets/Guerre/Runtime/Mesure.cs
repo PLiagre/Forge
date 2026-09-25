@@ -83,19 +83,31 @@ namespace Guerre
                 for (int camp = 0; camp < 2; camp++)
                 {
                     float sens = camp == 0 ? 1f : -1f;
-                    var front = lignes[camp].Where(x => x.r.Arme != 2).OrderBy(x => x.r.Index).ToArray();
+                    var front = lignes[camp].Where(x => x.r.Arme < 2).OrderBy(x => x.r.Index).ToArray();
                     var tir = lignes[camp].Where(x => x.r.Arme == 2).OrderBy(x => x.r.Index).ToArray();
                     for (int k = 0; k < front.Length; k++)
                         b.Deplacer(front[k].e, c0 + new float2(-sens * 20f, (k - (front.Length - 1) / 2f) * 36f), new float2(sens, 0), 25);
                     for (int k = 0; k < tir.Length; k++)
                         b.Deplacer(tir[k].e, c0 + new float2(-sens * (170f + (k / 10) * 20f), (k % 10 - 4.5f) * 36f), new float2(sens, 0), 25);
+                    // La cavalerie sur les ailes, 120 m en arrière : elle charge le bout de la ligne adverse.
+                    var cavalerie = lignes[camp].Where(x => Corps.Monte(x.r.Arme)).OrderBy(x => x.r.Index).ToArray();
+                    for (int k = 0; k < cavalerie.Length; k++)
+                        b.Deplacer(cavalerie[k].e, c0 + new float2(-sens * 120f, (k % 2 == 0 ? -1f : 1f) * (front.Length * 18f + 40f + (k / 2) * 60f)), new float2(sens, 0), Bataille.FilesCavalerie);
                 }
                 for (int k = 0; k < 10; k++) yield return null;
-                var fb = lignes[0].Where(x => x.r.Arme != 2).OrderBy(x => x.r.Index).Select(x => x.e).ToArray();
-                var fr = lignes[1].Where(x => x.r.Arme != 2).OrderBy(x => x.r.Index).Select(x => x.e).ToArray();
+                var fb = lignes[0].Where(x => x.r.Arme < 2).OrderBy(x => x.r.Index).Select(x => x.e).ToArray();
+                var fr = lignes[1].Where(x => x.r.Arme < 2).OrderBy(x => x.r.Index).Select(x => x.e).ToArray();
                 for (int k = 0; k < Math.Min(fb.Length, fr.Length); k++) { b.Attaquer(new[] { fb[k] }, fr[k]); b.Attaquer(new[] { fr[k] }, fb[k]); }
                 foreach (var x in lignes[0].Where(x => x.r.Arme == 2)) b.Attaquer(new[] { x.e }, fr[Math.Abs(x.r.Index) % fr.Length]);
                 foreach (var x in lignes[1].Where(x => x.r.Arme == 2)) b.Attaquer(new[] { x.e }, fb[Math.Abs(x.r.Index) % fb.Length]);
+                // Chaque aile charge le régiment ennemi le plus proche d'elle, au bout de la ligne.
+                for (int camp = 0; camp < 2; camp++)
+                    foreach (var x in lignes[camp].Where(x => Corps.Monte(x.r.Arme)))
+                    {
+                        var p = em.GetComponentData<Regiment>(x.e).Position;
+                        var cibles = camp == 0 ? fr : fb;
+                        b.Attaquer(new[] { x.e }, cibles.OrderBy(e => math.distance(em.GetComponentData<Regiment>(e).Position, p)).First());
+                    }
             }
 
             // Un échantillon fixe de soldats, pour mesurer que l'armée marche vraiment ; les morts gardent leur place.
@@ -139,7 +151,7 @@ namespace Guerre
             {
                 using var regs = em.CreateEntityQuery(typeof(Regiment)).ToComponentDataArray<Regiment>(Allocator.Temp);
                 Vector2 s = Vector2.zero; int n = 0;
-                foreach (var g in regs) if (g.Camp == 0 && g.Arme != 2 && g.Effectif > 0) { s += new Vector2(g.Position.x, g.Position.y); n++; }
+                foreach (var g in regs) if (g.Camp == 0 && g.Arme < 2 && g.Effectif > 0) { s += new Vector2(g.Position.x, g.Position.y); n++; }
                 return n == 0 ? centre : new Vector3(s.x / n, 0, s.y / n);
             }
             var vues = new (string nom, bool armee, Vector3 decalage, float plongee, float distance)[]

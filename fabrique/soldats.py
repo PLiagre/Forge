@@ -28,6 +28,8 @@ PALETTE = {
     'cuir':     (0.34, 0.23, 0.14, 0),
     'bois':     (0.46, 0.34, 0.21, 0),
     'gambison': (0.64, 0.59, 0.49, 0),
+    'robe':     (0.38, 0.25, 0.16, 0),   # un cheval bai
+    'crins':    (0.10, 0.08, 0.07, 0),
 }
 ZONES = list(PALETTE)
 
@@ -49,14 +51,39 @@ OS = {
 }
 
 
+# Le cheval et son cavalier, face à +Y : un destrier de 1,55 m au garrot, 2,3 m de long.
+# Le cavalier est assis en selle à 1,6 m ; ses jambes suivent le corps du cheval.
+OS_CAVALIER = {
+    'corps':       ((0, -0.2, 1.2), (0, 0.2, 1.2), None),
+    'encolure':    ((0, 0.72, 1.36), (0, 1.02, 1.78), 'corps'),
+    'tetecheval':  ((0, 1.02, 1.80), (0, 1.38, 1.42), 'encolure'),
+    'queue':       ((0, -1.0, 1.32), (0, -1.2, 0.84), 'corps'),
+    'epaule.D':    ((0.19, 0.60, 1.08), (0.19, 0.62, 0.58), 'corps'),
+    'canon.AD':    ((0.19, 0.62, 0.58), (0.19, 0.62, 0.06), 'epaule.D'),
+    'epaule.G':    ((-0.19, 0.60, 1.08), (-0.19, 0.62, 0.58), 'corps'),
+    'canon.AG':    ((-0.19, 0.62, 0.58), (-0.19, 0.62, 0.06), 'epaule.G'),
+    'cuisse.PD':   ((0.2, -0.72, 1.12), (0.2, -0.84, 0.58), 'corps'),
+    'canon.PD':    ((0.2, -0.84, 0.58), (0.2, -0.80, 0.06), 'cuisse.PD'),
+    'cuisse.PG':   ((-0.2, -0.72, 1.12), (-0.2, -0.84, 0.58), 'corps'),
+    'canon.PG':    ((-0.2, -0.84, 0.58), (-0.2, -0.80, 0.06), 'cuisse.PG'),
+    'torse':       ((0, -0.12, 1.62), (0, -0.12, 2.02), 'corps'),
+    'tete':        ((0, -0.12, 2.06), (0, -0.12, 2.34), 'torse'),
+    'bras.D':      ((0.22, -0.12, 1.98), (0.25, -0.12, 1.71), 'torse'),
+    'avantbras.D': ((0.25, -0.12, 1.71), (0.27, -0.09, 1.48), 'bras.D'),
+    'arme':        ((0.27, -0.09, 1.46), (0.27, -0.09, 1.78), 'avantbras.D'),
+    'bras.G':      ((-0.22, -0.12, 1.98), (-0.25, -0.12, 1.71), 'torse'),
+    'avantbras.G': ((-0.25, -0.12, 1.71), (-0.27, -0.09, 1.48), 'bras.G'),
+}
+
+
 class Corps:
     """Accumule les pièces d'un soldat dans un bmesh, avec zone et os par pièce."""
 
-    def __init__(self):
+    def __init__(self, os_=None):
         self.bm = bmesh.new()
         self.zone = self.bm.faces.layers.int.new('zone')
         self.deform = self.bm.verts.layers.deform.verify()
-        self.os = list(OS)
+        self.os = list(os_ or OS)
 
     def _finir(self, verts, faces, zone, os_):
         g = self.os.index(os_)
@@ -185,6 +212,52 @@ def arbaletrier():
     return c
 
 
+def cavalier():
+    """Un homme d'armes monté : destrier sous une housse aux couleurs du camp, harnois, bassinet, lance."""
+    c = Corps(OS_CAVALIER)
+    # Le cheval : tronc, poitrail et croupe, encolure, tête, quatre jambes, queue.
+    c.tronc((0, -0.95, 1.20), (0, 0.72, 1.24), 0.31, 0.34, 'robe', 'corps', n=8, aplati=0.82)
+    c.tronc((0, 0.72, 1.24), (0, 0.90, 1.32), 0.34, 0.17, 'robe', 'corps', n=8, aplati=0.82)
+    c.tronc((0, -0.95, 1.20), (0, -1.08, 1.26), 0.31, 0.13, 'robe', 'corps', n=8, aplati=0.82)
+    c.tronc((0, 0.72, 1.30), (0, 1.04, 1.80), 0.19, 0.12, 'robe', 'encolure', n=6)
+    c.boite((0, 0.84, 1.62), (0.05, 0.10, 0.52), 'crins', 'encolure', rot=Matrix.Rotation(-0.58, 3, 'X'))
+    c.tronc((0, 1.02, 1.82), (0, 1.40, 1.42), 0.11, 0.065, 'robe', 'tetecheval', n=6)
+    for s in (1, -1):
+        c.boite((0.05 * s, 1.03, 1.93), (0.03, 0.04, 0.10), 'robe', 'tetecheval')
+    for s, cote in ((1, 'D'), (-1, 'G')):
+        x = 0.19 * s
+        c.tronc((x, 0.60, 1.10), (x, 0.62, 0.58), 0.09, 0.055, 'robe', 'epaule.' + cote)
+        c.tronc((x, 0.62, 0.58), (x, 0.62, 0.10), 0.045, 0.04, 'robe', 'canon.A' + cote)
+        c.tronc((x, 0.62, 0.10), (x, 0.63, 0.0), 0.05, 0.062, 'crins', 'canon.A' + cote, n=5)
+        x = 0.2 * s
+        c.tronc((x, -0.70, 1.14), (x, -0.84, 0.58), 0.13, 0.06, 'robe', 'cuisse.P' + cote)
+        c.tronc((x, -0.84, 0.58), (x, -0.80, 0.10), 0.045, 0.04, 'robe', 'canon.P' + cote)
+        c.tronc((x, -0.80, 0.10), (x, -0.79, 0.0), 0.05, 0.062, 'crins', 'canon.P' + cote, n=5)
+    c.tronc((0, -1.02, 1.30), (0, -1.22, 0.80), 0.07, 0.035, 'crins', 'queue', n=5)
+    # La housse aux couleurs du camp, qui tombe sous le ventre : on reconnaît son camp de loin.
+    c.tronc((0, -1.04, 1.10), (0, 0.84, 1.14), 0.40, 0.42, 'tunique', 'corps', n=8, aplati=0.9)
+    c.boite((0, -0.12, 1.50), (0.40, 0.55, 0.10), 'cuir', 'corps')   # la selle
+    # Le cavalier : harnois sous la cotte d'armes, bassinet, jambes d'acier le long des flancs.
+    c.tronc((0, -0.12, 1.56), (0, -0.12, 1.84), 0.19, 0.20, 'tunique', 'torse', n=8, aplati=0.7)
+    c.tronc((0, -0.12, 1.80), (0, -0.12, 2.02), 0.20, 0.21, 'acier', 'torse', n=8, aplati=0.62)
+    c.tronc((0, -0.12, 2.01), (0, -0.12, 2.07), 0.21, 0.07, 'acier', 'torse', n=8, aplati=0.65)
+    c.tronc((0, -0.12, 2.05), (0, -0.12, 2.13), 0.05, 0.05, 'peau', 'tete', n=5)
+    c.dome((0, -0.11, 2.21), 0.095, 0.11, 0.12, 'peau', 'tete', n=6, anneaux=3, bas=-0.9)
+    c.dome((0, -0.13, 2.24), 0.115, 0.13, 0.19, 'acier', 'tete', n=7, anneaux=3, bas=-0.35)
+    for s, cote in ((1, 'D'), (-1, 'G')):
+        c.tronc((0.22 * s, -0.12, 1.99), (0.25 * s, -0.12, 1.71), 0.068, 0.058, 'acier', 'bras.' + cote)
+        c.tronc((0.25 * s, -0.12, 1.71), (0.27 * s, -0.09, 1.51), 0.055, 0.047, 'acier', 'avantbras.' + cote)
+        c.boite((0.27 * s, -0.085, 1.46), (0.07, 0.09, 0.10), 'acier', 'avantbras.' + cote)
+        c.tronc((0.17 * s, -0.12, 1.60), (0.40 * s, 0.20, 1.32), 0.085, 0.07, 'acier', 'corps')
+        c.tronc((0.40 * s, 0.20, 1.32), (0.42 * s, 0.08, 0.92), 0.062, 0.05, 'acier', 'corps')
+        c.boite((0.42 * s, 0.14, 0.89), (0.09, 0.24, 0.07), 'acier', 'corps')
+    # La lance de guerre : 4,2 m de frêne, tenue au quart, un fer étroit.
+    c.tronc((0.30, -0.08, 0.70), (0.30, -0.08, 4.72), 0.026, 0.018, 'bois', 'arme', n=5)
+    c.tronc((0.30, -0.08, 1.55), (0.30, -0.08, 1.65), 0.05, 0.03, 'acier', 'arme', n=5)   # la rondelle qui garde la main
+    c.tronc((0.30, -0.08, 4.72), (0.30, -0.08, 4.92), 0.028, 0.002, 'acier', 'arme', n=4)
+    return c
+
+
 VARIANTES = {'piquier': piquier, 'hallebardier': hallebardier, 'arbaletrier': arbaletrier}
 
 
@@ -196,14 +269,14 @@ def vider_scene():
             coll.remove(d)
 
 
-def squelette(nom):
+def squelette(nom, os_=OS):
     arm = bpy.data.armatures.new(nom + '_squelette')
     obj = bpy.data.objects.new(nom + '_squelette', arm)
     bpy.context.scene.collection.objects.link(obj)
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     bpy.ops.object.mode_set(mode='EDIT')
-    for n, (tete, queue, parent) in OS.items():
+    for n, (tete, queue, parent) in os_.items():
         b = arm.edit_bones.new(n)
         b.head, b.tail = tete, queue
         b.roll = 0
@@ -216,11 +289,11 @@ def squelette(nom):
     return obj
 
 
-def maillage(nom, c, arm):
+def maillage(nom, c, arm, os_=OS):
     me = bpy.data.meshes.new(nom)
     obj = bpy.data.objects.new(nom, me)
     bpy.context.scene.collection.objects.link(obj)
-    for n in OS:
+    for n in os_:
         obj.vertex_groups.new(name=n)
     c.bm.to_mesh(me)
     c.bm.free()
@@ -356,31 +429,125 @@ def poser(arm, clip, phase, signes, arme='piquier'):
     bpy.context.view_layer.update()
 
 
-CLIPS = [('marche', 24, 1.15), ('repos', 24, 4.0), ('combat', 24, 1.0), ('abri', 12, 3.0)]
-half = lambda vals: struct.pack('<%de' % len(vals), *vals)
-
-
-def fabriquer(nom, construire):
-    arm = squelette(nom)
-    obj = maillage(nom, construire(), arm)
-    signes = {
+def signes_soldat(arm):
+    return {
         'cuisse': sens(arm, 'cuisse.D', 'queue', (0, 1, 0)),     # la cuisse part vers l'avant
         'jambe': sens(arm, 'jambe.D', 'queue', (0, -1, 0)),      # le genou plie : le pied part en arrière
         'bras': sens(arm, 'bras.G', 'queue', (0, 1, 0)),
         'torse': sens(arm, 'torse', 'queue', (0, 1, 0)),
         'fente': sens_translation(arm, 'hanches', (0, 1, 0)),    # le bassin se porte en avant
     }
-    poser(arm, 'repos', 0, signes)
+
+
+def signes_cavalier(arm):
+    return {
+        'avant': sens(arm, 'epaule.D', 'queue', (0, 1, 0)),      # l'antérieur part vers l'avant
+        'genou': sens(arm, 'canon.AD', 'queue', (0, -1, 0)),     # le genou plie : le sabot part en arrière
+        'arriere': sens(arm, 'cuisse.PD', 'queue', (0, 1, 0)),   # le postérieur part vers l'avant
+        'jarret': sens(arm, 'canon.PD', 'queue', (0, 1, 0)),     # le jarret plie : le sabot passe sous le ventre
+        'encolure': sens(arm, 'encolure', 'queue', (0, 0, -1)),  # l'encolure s'abaisse
+        'tangage': sens(arm, 'corps', 'queue', (0, 0, 1)),       # l'avant-main se lève
+        'queue': sens(arm, 'queue', 'queue', (0, -1, 0)),        # la queue se relève
+        'bras': sens(arm, 'bras.G', 'queue', (0, 1, 0)),
+        'torse': sens(arm, 'torse', 'queue', (0, 1, 0)),
+        'haut': sens_translation(arm, 'corps', (0, 0, 1)),
+    }
+
+
+def membre(q, appui, amplitude, flexion):
+    """Angle et flexion d'une jambe à la phase q de son propre pas : balayée d'avant en arrière
+    pendant l'appui, repliée et ramenée vers l'avant pendant le soutien."""
+    if q < appui:
+        return amplitude * (1 - 2 * q / appui), flexion * 0.08
+    s = (q - appui) / (1 - appui)
+    return -amplitude + 2 * amplitude * (0.5 - 0.5 * math.cos(math.pi * s)), flexion * math.sin(math.pi * s)
+
+
+def poser_cavalier(arm, clip, phase, signes, arme='cavalier'):
+    """Le cheval au trot (marche), au repos, au combat arrêté, et au galop de charge, lance couchée."""
+    w = 2 * math.pi * phase
+    P = arm.pose.bones
+    for pb in P:
+        pb.rotation_euler = (0, 0, 0)
+        pb.location = (0, 0, 0)
+    d = math.radians
+    S = signes
+
+    def jambes(decalages, appui, a_av, a_ar, f_av, f_ar):
+        for os_, flex, dec, avant in (('epaule.D', 'canon.AD', decalages[0], True), ('epaule.G', 'canon.AG', decalages[1], True),
+                                      ('cuisse.PD', 'canon.PD', decalages[2], False), ('cuisse.PG', 'canon.PG', decalages[3], False)):
+            a, f = membre((phase - dec) % 1.0, appui, d(a_av if avant else a_ar), d(f_av if avant else f_ar))
+            P[os_].rotation_euler.x = (S['avant'] if avant else S['arriere']) * a
+            P[flex].rotation_euler.x = (S['genou'] if avant else S['jarret']) * f
+
+    if clip == 'marche':      # le trot : les diagonales battent ensemble
+        jambes((0.0, 0.5, 0.5, 0.0), 0.45, 20, 18, 65, 40)
+        P['corps'].location = (0, 0, S['haut'] * 0.03 * math.cos(4 * math.pi * phase))
+        P['encolure'].rotation_euler.x = S['encolure'] * d(3) * math.sin(4 * math.pi * phase)
+        P['queue'].rotation_euler.x = S['queue'] * d(12)
+    elif clip == 'repos':     # il respire, baisse et relève la tête, chasse les mouches de la queue
+        P['encolure'].rotation_euler.x = S['encolure'] * d(8 + 6 * math.sin(w))
+        P['queue'].rotation_euler.z = d(12) * math.sin(w * 2)
+        P['corps'].location = (0, 0, S['haut'] * 0.008 * math.sin(w * 2))
+        P['epaule.G'].rotation_euler.x = S['avant'] * d(4)
+        P['cuisse.PD'].rotation_euler.x = S['arriere'] * d(-4)
+    elif clip == 'combat':    # arrêté dans la presse, le cheval piaffe ; le cavalier frappe de haut
+        coup = math.sin(math.pi * min(1.0, max(0.0, (phase - 0.05) / 0.45)))
+        P['epaule.D'].rotation_euler.x = S['avant'] * d(10 * math.sin(w))
+        P['canon.AD'].rotation_euler.x = S['genou'] * d(25 * max(0.0, math.sin(w)))
+        P['encolure'].rotation_euler.x = S['encolure'] * d(-6 + 4 * math.sin(w))
+        P['queue'].rotation_euler.x = S['queue'] * d(18)
+        P['torse'].rotation_euler.x = S['torse'] * d(8 + 12 * coup)
+    else:                     # le galop de charge : quatre temps désunis, suspension ; lance couchée
+        jambes((0.54, 0.42, 0.12, 0.0), 0.32, 34, 30, 80, 55)
+        P['corps'].rotation_euler.x = S['tangage'] * d(5) * math.sin(w - 1.2)
+        P['corps'].location = (0, 0, S['haut'] * 0.07 * math.sin(w + 0.6))
+        P['encolure'].rotation_euler.x = S['encolure'] * d(-4 + 9 * math.sin(w + 0.4))
+        P['queue'].rotation_euler.x = S['queue'] * d(35)
+        P['torse'].rotation_euler.x = S['torse'] * d(14)
+    # Le cavalier : la main gauche aux rênes, la droite à la lance.
+    P['bras.G'].rotation_euler.x = S['bras'] * d(18)
+    P['avantbras.G'].rotation_euler.x = S['bras'] * d(62)
+    bpy.context.view_layer.update()
+    if clip in ('marche', 'repos'):
+        P['bras.D'].rotation_euler.x = S['bras'] * d(12)
+        P['avantbras.D'].rotation_euler.x = S['bras'] * d(55)
+        bpy.context.view_layer.update()
+        orienter_arme(arm, (0, 0.22, 1))                    # la lance droite, appuyée sur l'étrier
+    elif clip == 'combat':
+        coup = math.sin(math.pi * min(1.0, max(0.0, (phase - 0.05) / 0.45)))
+        P['bras.D'].rotation_euler.x = S['bras'] * d(20 + 40 * coup)
+        P['avantbras.D'].rotation_euler.x = S['bras'] * d(60 - 30 * coup)
+        bpy.context.view_layer.update()
+        orienter_arme(arm, (0.05, 1, -0.10 - 0.12 * coup))  # la lance portée en avant, à la volée
+    else:
+        P['bras.D'].rotation_euler.x = S['bras'] * d(-8)
+        P['avantbras.D'].rotation_euler.x = S['bras'] * d(78)
+        bpy.context.view_layer.update()
+        orienter_arme(arm, (-0.06, 1, -0.04))               # couchée sous le bras, par-dessus l'encolure
+    bpy.context.view_layer.update()
+
+
+CLIPS = [('marche', 24, 1.15), ('repos', 24, 4.0), ('combat', 24, 1.0), ('abri', 12, 3.0)]
+# Pour le cavalier, la quatrième place est le galop de charge : le shader le joue au pas de la marche.
+CLIPS_CAVALIER = [('trot', 24, 1.0), ('repos', 24, 5.0), ('combat', 24, 1.0), ('galop', 24, 1.0)]
+half = lambda vals: struct.pack('<%de' % len(vals), *vals)
+
+
+def fabriquer(nom, construire, os_=OS, poseur=poser, mesurer=signes_soldat, clips_=CLIPS):
+    arm = squelette(nom, os_)
+    obj = maillage(nom, construire(), arm, os_)
+    signes = mesurer(arm)
     for pb in arm.pose.bones:
         pb.rotation_euler = (0, 0, 0); pb.location = (0, 0, 0)
     bpy.context.view_layer.update()
     pos0, nor0, zones = lire(obj)
     n = len(pos0)
     clips = []
-    for clip, images, duree in CLIPS:
+    for clip, images, duree in clips_:
         cadres = []
         for i in range(images):
-            poser(arm, clip, i / images, signes, nom)
+            poseur(arm, clip, i / images, signes, nom)
             p, nn, _ = lire(obj)
             assert len(p) == n, 'la topologie a changé pendant l\'animation'
             cadres.append((p, nn))
@@ -423,8 +590,11 @@ if __name__ == '__main__':
         arm.location.x = (k - 1) * 1.6
         rapport[nom] = {'triangles': tris, 'coins': tris * 3, 'signes': signes}
         objets.append((obj, arm))
+    cav, cav_arm, tris, signes_cav = fabriquer('cavalier', cavalier, OS_CAVALIER, poser_cavalier, signes_cavalier, CLIPS_CAVALIER)
+    rapport['cavalier'] = {'triangles': tris, 'coins': tris * 3, 'signes': signes_cav}
+    cav_arm.location.x = 40
     # Couleurs visibles dans Blender : un attribut de coin tiré des zones.
-    for obj, _ in objets:
+    for obj, _ in objets + [(cav, cav_arm)]:
         me = obj.data
         col = me.color_attributes.new('Couleur', 'FLOAT_COLOR', 'CORNER')
         zone = me.attributes['zone'].data
@@ -456,6 +626,15 @@ if __name__ == '__main__':
     for obj, arm in objets:
         for pb in arm.pose.bones:
             pb.rotation_euler = (0, 0, 0); pb.location = (0, 0, 0)
+    # Le cavalier, de profil puis de trois quarts, dans chacune de ses allures.
+    for clip, phase, nom_image in (('marche', 0.2, 'trot'), ('combat', 0.3, 'combat'), ('galop', 0.1, 'galop')):
+        poser_cavalier(cav_arm, clip, phase, signes_cav)
+        for vue, (loc, rot) in (('profil', ((49.0, 0.2, 1.6), (88, 0, 90))), ('face', ((45.5, 6.5, 2.4), (80, 0, 140)))):
+            cam.location, cam.rotation_euler = loc, tuple(math.radians(a) for a in rot)
+            bpy.context.scene.render.filepath = os.path.join(SORTIE, 'apercu_cavalier_%s_%s.png' % (nom_image, vue))
+            bpy.ops.render.render(write_still=True)
+    for pb in cav_arm.pose.bones:
+        pb.rotation_euler = (0, 0, 0); pb.location = (0, 0, 0)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(SORTIE, 'soldats.blend'))
     with open(os.path.join(SORTIE, 'soldats.json'), 'w', encoding='utf-8') as f:
         json.dump(rapport, f, indent=2, ensure_ascii=False)

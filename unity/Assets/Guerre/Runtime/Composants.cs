@@ -36,6 +36,10 @@ namespace Guerre
         public float3 Lieu;      // sa position, lue par son pavois
         public int Touches;      // coups et carreaux reçus
         public float Abri;           // 0 debout ; 1 à genou derrière son pavois
+        // La cavalerie et les piques.
+        public float AuSol;          // secondes avant de se relever, renversé par un cheval ; 0 : debout
+        public float Garde;          // 0..1 : l'arme en garde ; une pique n'arrête un cheval que baissée
+        public byte Brisee;          // 1 : sa pique s'est rompue dans le poitrail d'un cheval
     }
 
     // Un carreau d'arbalète : un réservoir fixe de carreaux est levé une fois, puis réutilisé.
@@ -69,6 +73,7 @@ namespace Guerre
     public struct CompteTir : IComponentData
     {
         public int Tires, Pavois, AuSol;
+        public int Renverses, PiquesRompues;   // hommes renversés par un cheval ; piques rompues dans un poitrail
     }
 
     // Un homme tombé : il ne marche plus, ne pousse plus, reste sur le terrain.
@@ -102,10 +107,33 @@ namespace Guerre
         public const float VitesseCarreau = 55f, DegatsCarreau = 0.6f, RechargeArbalete = 20f, PorteeTir = 230f;
         // Le pavois : un panneau de bois planté à 55 cm devant soi.
         public const float PavoisLargeur = 0.9f, PavoisHauteur = 1.25f, PavoisDistance = 0.55f;
-        public static float Portee(int a) => a == 0 ? 3.2f : a == 1 ? 1.9f : 1.1f;   // pique, hallebarde, dague
-        public static float Cadence(int a) => a == 0 ? 3.2f : a == 1 ? 3.8f : 2.4f;  // secondes entre deux coups
-        public static float Degats(int a) => a == 0 ? 0.22f : a == 1 ? 0.4f : 0.18f;
-        public static float Armure(int a) => a == 0 ? 0.15f : a == 1 ? 0.45f : 0.05f; // part du coup arrêtée
+        // Pique, hallebarde, dague, et la lance du cavalier, comptée depuis le centre du cheval.
+        public static float Portee(int a) => a == 0 ? 3.2f : a == 1 ? 1.9f : a == 2 ? 1.1f : 3.3f;
+        public static float Cadence(int a) => a == 0 ? 3.2f : a == 1 ? 3.8f : a == 2 ? 2.4f : 3.0f;  // secondes entre deux coups
+        public static float Degats(int a) => a == 0 ? 0.22f : a == 1 ? 0.4f : a == 2 ? 0.18f : 0.25f;
+        // Part du coup arrêtée : l'homme d'armes porte le harnois, son cheval une housse sur du cuir.
+        public static float Armure(int a) => a == 0 ? 0.15f : a == 1 ? 0.45f : a == 2 ? 0.05f : 0.5f;
+        // La pique contre le cheval : plantée en terre, elle plie jusqu'à ForcePique ; son fer entre dans le
+        // poitrail, et la hampe se rompt quand il y est enfoncé de PiqueRompue.
+        // Un cheval meurt d'avoir absorbé EnergieMortelle joules sur des fers : un fer enfoncé d'un demi-mètre
+        // dans le poitrail. La housse ne l'arrête pas, le harnois du cavalier non plus.
+        public const float RaideurPique = 60000f, ForcePique = 5000f, PiqueRompue = 1.2f, EnergieMortelle = 2500f;
+    }
+
+    // Les corps : un homme à pied, ou un cheval et son cavalier. Rien ici ne dit qui gagne :
+    // seulement une masse, une taille, une force et une allure.
+    public static class Corps
+    {
+        public const int Cavalier = 3;
+        public static bool Monte(int a) => a == Cavalier;
+        // Un destrier de 520 kg et un homme d'armes de 100 kg ; sans masse (contre-épreuve), un cheval pèse un homme.
+        public static float Masse(int a, byte masse) => Monte(a) && masse != 0 ? 620f : 80f;
+        public static float ForceMax(int a, byte masse) => Monte(a) && masse != 0 ? 3000f : 400f;
+        // Un cheval est un corps long : on l'approche par un disque de 1,3 m, un homme par un disque de 0,8 m.
+        public static float Rayon(int a) => Monte(a) ? 0.65f : 0.4f;
+        public static float Taille(int a) => Monte(a) ? 2.3f : 1.75f;
+        public static float VitesseMax(int a) => Monte(a) ? 8.5f : 2.6f;     // le galop de charge ; le pas de course
+        public static float VitesseFuite(int a) => Monte(a) ? 7f : 3.2f;
     }
 
     // L'état d'animation lu par le shader du soldat, instance par instance :
@@ -131,7 +159,7 @@ namespace Guerre
         public int Files;            // largeur du front, en hommes
         public int Effectif;
         public int Index;
-        public int Arme;             // 0 piquiers, 1 hallebardiers, 2 arbalétriers
+        public int Arme;             // 0 piquiers, 1 hallebardiers, 2 arbalétriers, 3 cavaliers
         public int Camp;
         public int Etape;
         public byte Ordonne;         // 1 : le joueur a pris la main, le scénario s'arrête
@@ -145,11 +173,13 @@ namespace Guerre
         public byte Tir;             // 1 : arbalétriers à portée de leur cible, arrêtés, qui tirent
         public byte SansPavois;      // pour les essais : ce régiment n'a pas de pavois
         public int Touches;          // coups et carreaux reçus par ses hommes
+        public byte Herisse;         // 1 : un ennemi approche de front ; les piquiers baissent leurs piques
+        public float2 Vitesse;       // m/s : l'allure de l'ancre, à la dernière image
 
         public int Rangs => (Effectif + Files - 1) / Files;
         // Les dimensions suivent l'espacement réel : serré dans la mêlée, ouvert sinon.
-        public float Largeur => (math.min(Files, Effectif) - 1) * (Melee > 0 ? Formation.EspacementSerre : Espacement);
-        public float Profondeur => (Rangs - 1) * (Melee > 0 ? Formation.ProfondeurSerree : Espacement);
+        public float Largeur => (math.min(Files, Effectif) - 1) * Formation.Pas(this).x;
+        public float Profondeur => (Rangs - 1) * Formation.Pas(this).y;
     }
 
     // Réglages de la simulation, pour les contre-épreuves des essais, jamais des réglages de jeu.
@@ -161,6 +191,8 @@ namespace Guerre
         public byte Poussee;
         public byte Peur;        // 0 : personne n'a peur (contre-épreuve du jalon 5, isolement du jalon 4)
         public byte Pavois;      // 0 : aucun pavois n'arrête rien (contre-épreuve du jalon 6)
+        public byte Masse;       // 0 : un cheval pèse et pousse comme un homme (contre-épreuve du jalon 7)
+        public byte Piques;      // 0 : les piques baissées n'arrêtent pas les chevaux (contre-épreuve du jalon 7)
     }
 
     public static class Formation
@@ -168,6 +200,14 @@ namespace Guerre
         // Place d'un homme dans le repère du régiment : x vers la droite, y vers l'avant.
         // Le dernier rang, incomplet, se centre derrière les autres.
         public const float EspacementSerre = 0.8f, ProfondeurSerree = 0.9f;   // épaule contre épaule
+        // Les cavaliers chargent botte à botte, un cheval et demi entre deux rangs.
+        public const float EspacementCavalier = 1.5f, ProfondeurCavalier = 3.4f;
+
+        // L'écart entre deux files et entre deux rangs. Dans la mêlée, les rangs à pied se serrent :
+        // épaule contre épaule, sans vide où l'ennemi se glisse. Des chevaux ne se serrent pas.
+        public static float2 Pas(in Regiment r) =>
+            Corps.Monte(r.Arme) ? new float2(EspacementCavalier, ProfondeurCavalier)
+            : r.Melee > 0 ? new float2(EspacementSerre, ProfondeurSerree) : new float2(r.Espacement, r.Espacement);
 
         public static float2 Place(in Regiment r, int numero)
         {
@@ -175,8 +215,8 @@ namespace Guerre
             int rangs = (r.Effectif + files - 1) / files;
             int rg = numero / files, f = numero % files;
             int dansLeRang = rg == rangs - 1 ? r.Effectif - rg * files : files;
-            // Dans la mêlée, les rangs se serrent : épaule contre épaule, sans vide où l'ennemi se glisse.
-            float ex = r.Melee > 0 ? EspacementSerre : r.Espacement, ey = r.Melee > 0 ? ProfondeurSerree : r.Espacement;
+            float2 pas = Pas(r);
+            float ex = pas.x, ey = pas.y;
             // Les arbalétriers se forment en quinconce : chaque rang tire dans l'intervalle de celui de devant.
             float quinconce = r.Arme == 2 && r.Melee <= 0 ? ((rg & 1) - 0.5f) * 0.5f * ex : 0f;
             return new float2((f - (dansLeRang - 1) / 2f) * ex + quinconce, -(rg - (rangs - 1) / 2f) * ey);
