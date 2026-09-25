@@ -11,7 +11,8 @@ import sys
 from . import demandes, github, integration, registre, relecture
 
 
-def _verdict(gh: github.Github, numero: int, revision: str) -> relecture.Verdict:
+def _verdict(gh: github.Github, numero: int, revision: str,
+             base: str | None = None) -> relecture.Verdict:
     """La relecture de cette révision, calculée ici — pas lue sur la PR.
 
     Le contrôle `relecture` est posé par un travail qui tourne sur le code
@@ -20,7 +21,7 @@ def _verdict(gh: github.Github, numero: int, revision: str) -> relecture.Verdict
     """
     return relecture.juger(
         revision,
-        github.auteurs_du_code(gh, numero),
+        github.auteurs_du_code(gh, numero, revision, base),
         relecture.revues_depuis_github(github.revues(gh, numero)),
     )
 
@@ -54,7 +55,7 @@ def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes, zone=()) 
             fichiers = tuple(sorted(set(fichiers) | set(proteges)))
         controles = github.controles(gh, sha)
         retard = github.retard(gh, base, sha)
-        verdict = _verdict(gh, brut["number"], sha)
+        verdict = _verdict(gh, brut["number"], sha, detail.get("base", {}).get("sha"))
         # La tête peut bouger pendant n'importe laquelle de ces lectures.
         # Le geste vérifiera encore ce SHA juste avant d'écrire sur GitHub.
         apres = gh.get(f"pulls/{brut['number']}")
