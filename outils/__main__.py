@@ -28,6 +28,8 @@ import sys
 from . import (actions, attention, demandes, github, histoire, integration, mesure,
                palier, registre, relecture, saisie, sante, tableau)
 
+from .porte import _integration, _pr_integrable, _verdict
+
 
 def _relecture(args: argparse.Namespace) -> int:
     gh = github.Github(args.depot, args.jeton)
@@ -42,71 +44,6 @@ def _relecture(args: argparse.Namespace) -> int:
     # description de l'état de commit, et le workflow n'a rien à couper.
     print(github.borner(f"{'PASS' if verdict.passe else 'FAIL'}  PR {args.pr} — {verdict.raison}"))
     return 0 if verdict.passe else 1
-
-
-def _verdict(gh: github.Github, numero: int, revision: str) -> relecture.Verdict:
-    """La relecture de cette révision, calculée ici — pas lue sur la PR.
-
-    Le contrôle `relecture` est posé par un travail qui tourne sur le code
-    de la PR ; s'y fier pour fusionner laisserait une PR changer le code
-    qui la juge. Même module, même règle, mais appelé depuis `master`.
-    """
-    return relecture.juger(
-        revision,
-        github.auteurs_du_code(gh, numero),
-        relecture.revues_depuis_github(github.revues(gh, numero)),
-    )
-
-
-def _pr_integrable(gh: github.Github, brut: dict, base: str, prefixes) -> integration.PR:
-    """Une PR, avec ce qu'il faut pour décider — et pas un appel de plus.
-
-    Un brouillon ou une branche hors périmètre est écarté avant d'aller
-    chercher ses contrôles : c'est le cas ordinaire du dépôt, et il ne
-    coûte rien.
-    """
-    minimale = integration.depuis_github(brut)
-    if minimale.brouillon or not integration.integree(minimale.branche, prefixes):
-        return minimale
-    # Un préfixe ne prouve pas une origine. La tête doit vivre dans ce dépôt,
-    # et `demandes.interne` le dit pour les demandes de lot comme ici : un
-    # seul prédicat, deux appelants. Une origine illisible vaut une fourche,
-    # et une fourche ne coûte aucun appel de plus.
-    if not demandes.interne(gh, brut):
-        return integration.depuis_github(brut, interne=False)
-    detail = gh.get(f"pulls/{brut['number']}")
-    sha = detail["head"]["sha"]
-    return integration.depuis_github(
-        brut, detail, github.controles(gh, sha), github.retard(gh, base, sha),
-        _verdict(gh, brut["number"], sha), interne=True,
-    )
-
-
-def _integration(args: argparse.Namespace) -> int:
-    racine = Path(args.projet)
-    reglage = registre.integration(racine)
-    base = args.base or registre.branchement(racine)["base"]
-    gh = github.Github(args.depot, args.jeton)
-    prs = [
-        _pr_integrable(gh, brut, base, reglage["branches"])
-        for brut in gh.liste("pulls", state="open", base=base)
-    ]
-    rapport = integration.decider(prs, reglage["controles"], reglage["branches"])
-    for ligne in rapport.lignes:
-        print(ligne, file=sys.stderr)
-    decision = rapport.decision
-    if decision.action == integration.RIEN or decision.pr is None:
-        print("RIEN")
-        print(decision.raison, file=sys.stderr)
-        return 0
-    fichier_sortie = args.sortie or os.environ.get("SORTIE_DECISION")
-    if fichier_sortie:
-        selection = next(pr for pr in prs if pr.numero == decision.pr)
-        with Path(fichier_sortie).open("a", encoding="utf-8") as sortie:
-            sortie.write(f"revision={selection.revision}\n")
-    print(f"{decision.action} {decision.pr}")
-    print(f"→ {decision.action} PR {decision.pr} : {decision.raison}", file=sys.stderr)
-    return 0
 
 
 def _palier(args: argparse.Namespace) -> int:
@@ -158,8 +95,8 @@ def _examens(gh, base, reglage):
     """
     examens = []
     for brut in gh.liste("pulls", state="open", base=base):
-        pr = _pr_integrable(gh, brut, base, reglage["branches"])
-        examens.append((pr, integration.examiner(pr, reglage["controles"], reglage["branches"])))
+        pr = _pr_integrable(gh, brut, base, reglage["branches"], reglage["zone"])
+        examens.append((pr, integration.examiner(pr, reglage["controles"], reglage["branches"], reglage["zone"])))
     return examens
 
 

@@ -117,7 +117,7 @@ def test_une_liste_de_controles_vide_est_un_branchement_incomplet(tmp_path):
 def test_le_branchement_d_integration_rend_ce_qu_il_declare(tmp_path):
     from outils import registre
 
-    _brancher(tmp_path, '\n[integration]\ncontroles = ["sim"]\nbranches = ["agent/"]\n')
+    _brancher(tmp_path, '\n[integration]\ncontroles = ["sim"]\nbranches = ["agent/"]\nzone = ["AGENTS.md"]\n')
     reglage = registre.integration(tmp_path)
     assert reglage["controles"] == ("sim",)
     assert reglage["branches"] == ("agent/",)
@@ -598,7 +598,7 @@ def test_le_controle_des_imports_rougirait_sur_une_dependance():
 
 def _projet_avec_registre(tmp_path):
     """Un projet minimal : un branchement, un registre, un brief."""
-    _brancher(tmp_path, '\n[integration]\ncontroles = ["outils"]\nbranches = ["agent/"]\n'
+    _brancher(tmp_path, '\n[integration]\ncontroles = ["outils"]\nbranches = ["agent/"]\nzone = ["AGENTS.md"]\n'
                         "\n[tableau]\ntours_sans_fusion = 10\nbrouillon_jours = 2\n"
                         "journal = 30\nsemaines = 8\nexecutions = 100\nhistorique = 200\n")
     (tmp_path / "briefs").mkdir(exist_ok=True)
@@ -730,3 +730,130 @@ def test_abandonner_un_lot_pret_garde_son_brief():
         assert proc.returncode == 0, proc.stderr
         assert (projet / "briefs" / "049-fabriquer.md").is_file()
         assert "brief retiré" not in proc.stderr
+
+
+def test_zone_les_fichiers_sont_lus_sur_toutes_les_pages_et_les_anciens_noms():
+    from outils import github
+
+    prefixe = "repos/O/R/pulls/12/files"
+    premiere = [{"filename": f"ordinaire/{i}.txt", "status": "modified"} for i in range(100)]
+    derniere = {"filename": "ailleurs/regles.md", "previous_filename": "AGENTS.md", "status": "renamed"}
+    routes = {
+        (prefixe, "1"): (200, premiere, {"Link": '</repos/O/R/pulls/12/files?page=2>; rel="next"'}),
+        (prefixe, "2"): (200, [derniere], {}),
+    }
+    with _api(routes) as api:
+        chemins = github.fichiers_pr(github.Github("O/R", jeton="x", api=api), 12, len(premiere) + 1)
+    assert "AGENTS.md" in chemins
+    assert "ailleurs/regles.md" in chemins
+    assert len(chemins) == len(premiere) + 2
+
+
+@pytest.mark.parametrize("reponse,total", [
+    ([], 1), ([{"filename": "x", "status": "modified"}], 2),
+    ([{"filename": "x", "status": "renamed"}], 1),
+    ([{"filename": "x", "status": "removed"}], None),
+    ([{"filename": "x", "status": "modified"}] * 2, 2),
+    ([{"filename": "../AGENTS.md", "status": "modified"}], 1),
+    ([{"filename": "x"}], 1),
+])
+def test_zone_une_reponse_incomplete_ou_mal_formee_est_refusee(reponse, total):
+    from outils import github
+
+    class Faux:
+        def liste(self, chemin, **kwargs):
+            return reponse
+    with pytest.raises(github.GithubErreur):
+        github.fichiers_pr(Faux(), 12, total)
+
+
+def test_zone_une_suppression_garde_le_chemin_supprime():
+    from outils import github
+
+    class Faux:
+        def liste(self, chemin, **kwargs):
+            return [{"filename": "AGENTS.md", "status": "removed"}]
+    assert github.fichiers_pr(Faux(), 12, 1) == ("AGENTS.md",)
+
+
+class _GitImmuable:
+    """La base de PR, son ancêtre commun et sa tête sont trois commits distincts."""
+    def __init__(self, avant, apres):
+        self.appels = []
+        self.objets = {
+            "compare/" + "f" * 40 + "..." + "a" * 40: {"merge_base_commit": {"sha": "e" * 40}},
+            "git/commits/" + "e" * 40: {"sha": "e" * 40, "tree": {"sha": "c" * 40}},
+            "git/commits/" + "a" * 40: {"sha": "a" * 40, "tree": {"sha": "d" * 40}},
+            "git/trees/" + "c" * 40: {"sha": "c" * 40, "truncated": False, "tree": avant},
+            "git/trees/" + "d" * 40: {"sha": "d" * 40, "truncated": False, "tree": apres},
+        }
+
+    def get(self, chemin, **params):
+        from copy import deepcopy
+        self.appels.append((chemin, params))
+        return deepcopy(self.objets[chemin])
+
+
+def _objet_zone(nom="AGENTS.md", sha="1", mode="100644", genre="blob"):
+    return {"path": nom, "sha": sha * 40, "mode": mode, "type": genre}
+
+
+@pytest.mark.parametrize("avant,apres,zone,attendu", [
+    ([_objet_zone()], [_objet_zone(sha="2")], ("AGENTS.md",), ("AGENTS.md",)),
+    ([_objet_zone()], [_objet_zone(mode="100755")], ("AGENTS.md",), ("AGENTS.md",)),
+    ([_objet_zone()], [], ("AGENTS.md",), ("AGENTS.md",)),
+    ([], [_objet_zone()], ("AGENTS.md",), ("AGENTS.md",)),
+    ([_objet_zone(".github", mode="040000", genre="tree")],
+     [_objet_zone(".github", sha="2", mode="040000", genre="tree")], (".github/",), (".github",)),
+    ([_objet_zone("AGENTS.md.autre")], [_objet_zone("AGENTS.md.autre", sha="2")], ("AGENTS.md",), ()),
+    ([_objet_zone()], [_objet_zone(), _objet_zone("ordinaire.txt")], ("AGENTS.md",), ()),
+])
+def test_zone_les_objets_immuables_protegent_les_chemins_et_leurs_modes(avant, apres, zone, attendu):
+    from outils import github
+    faux = _GitImmuable(avant, apres)
+    assert github.fichiers_proteges(faux, "f" * 40, "a" * 40, zone) == attendu
+    assert faux.appels
+    assert all("recursive" not in params for _, params in faux.appels)
+    # L'ancêtre commun est lu, pas l'état plus récent de master.
+    assert any(chemin == "git/commits/" + "e" * 40 for chemin, _ in faux.appels)
+
+
+@pytest.mark.parametrize("change", [False, True])
+def test_zone_un_fichier_dans_un_dossier_reste_un_chemin_exact(change):
+    from outils import github
+    faux = _GitImmuable([_objet_zone("outils", "3", "040000", "tree")],
+                        [_objet_zone("outils", "4", "040000", "tree")])
+    for arbre, contenu in (("3", "1"), ("4", "2" if change else "1")):
+        faux.objets["git/trees/" + arbre * 40] = {
+            "sha": arbre * 40, "truncated": False,
+            "tree": [_objet_zone("integration.py", contenu), _objet_zone("autre.py", arbre)],
+        }
+    attendu = ("outils/integration.py",) if change else ()
+    assert github.fichiers_proteges(faux, "f" * 40, "a" * 40, ("outils/integration.py",)) == attendu
+
+
+@pytest.mark.parametrize("alteration", [
+    {"truncated": True}, {"truncated": None}, {"sha": "0" * 40}, {"tree": None},
+    {"tree": [None]}, {"tree": [_objet_zone(), _objet_zone()]},
+    {"tree": [_objet_zone("../AGENTS.md")]}, {"tree": [_objet_zone(mode="inconnu")]},
+    {"tree": [_objet_zone(sha="?")]}, {"tree": [_objet_zone(genre="tree")]},
+])
+def test_zone_un_arbre_illisible_ne_prouve_pas_l_absence_de_changement(alteration):
+    from outils import github
+    faux = _GitImmuable([_objet_zone()], [_objet_zone()])
+    faux.objets["git/trees/" + "c" * 40].update(alteration)
+    with pytest.raises(github.GithubErreur):
+        github.fichiers_proteges(faux, "f" * 40, "a" * 40, ("AGENTS.md",))
+
+
+@pytest.mark.parametrize("chemin,objet", [
+    ("compare/" + "f" * 40 + "..." + "a" * 40, {}),
+    ("git/commits/" + "a" * 40, {"sha": "b" * 40, "tree": {"sha": "d" * 40}}),
+    ("git/commits/" + "a" * 40, {"sha": "a" * 40, "tree": {}}),
+])
+def test_zone_un_commit_ou_ancetre_inconnu_retient(chemin, objet):
+    from outils import github
+    faux = _GitImmuable([_objet_zone()], [_objet_zone()])
+    faux.objets[chemin] = objet
+    with pytest.raises(github.GithubErreur):
+        github.fichiers_proteges(faux, "f" * 40, "a" * 40, ("AGENTS.md",))
