@@ -148,16 +148,61 @@ def controles(gh: Github, sha: str) -> list[tuple[str, str, str | None]]:
     return trouves
 
 
-def auteurs_du_code(gh: Github, numero: int) -> list[str]:
-    """Qui a écrit les commits d'une PR — connexions GitHub, pas noms déclarés."""
+def auteurs_du_code(gh: Github, numero: int, revision: str | None = None,
+                    base: str | None = None) -> list[str]:
+    """Les auteurs des commits entre deux objets Git, jamais d'une branche mobile.
+
+    L'appelant fournit les deux SHA du même examen. Sans eux, on capture
+    une seule photographie de la PR. Une preuve partielle ne permet pas
+    d'affirmer qu'un relecteur est un tiers : elle doit donc refuser.
+    """
+    if revision is None or base is None:
+        detail = gh.get(f"pulls/{numero}")
+        tete = detail.get("head", {}).get("sha")
+        if revision is not None and revision != tete:
+            raise GithubErreur("auteurs : la révision demandée diffère de la tête")
+        revision = tete
+        base = detail.get("base", {}).get("sha")
+    for sha in (base, revision):
+        if not isinstance(sha, str) or re.fullmatch(r"[0-9a-f]{40}", sha) is None:
+            raise GithubErreur("auteurs : identifiant Git absent ou illisible")
+
     logins: list[str] = []
-    for commit in gh.liste(f"pulls/{numero}/commits"):
-        for cle in ("author", "committer"):
-            qui = commit.get(cle) or {}
-            login = qui.get("login")
-            if login and login not in logins:
-                logins.append(login)
-    return logins
+    vus: set[str] = set()
+    total = None
+    page = 1
+    while True:
+        brut = gh.get(f"compare/{base}...{revision}", per_page=100, page=page)
+        if not isinstance(brut, dict):
+            raise GithubErreur("auteurs : comparaison illisible")
+        origine = brut.get("base_commit")
+        annonce = brut.get("total_commits")
+        if (not isinstance(origine, dict) or origine.get("sha") != base
+                or type(annonce) is not int or annonce <= 0
+                or (total is not None and annonce != total)):
+            raise GithubErreur("auteurs : base ou total de commits incohérent")
+        total = annonce
+        commits = brut.get("commits")
+        if not isinstance(commits, list) or not commits or len(vus) + len(commits) > total:
+            raise GithubErreur("auteurs : liste de commits vide ou incomplète")
+        for commit in commits:
+            sha = commit.get("sha") if isinstance(commit, dict) else None
+            if (not isinstance(sha, str) or re.fullmatch(r"[0-9a-f]{40}", sha) is None
+                    or sha in vus):
+                raise GithubErreur("auteurs : commit illisible ou dupliqué")
+            vus.add(sha)
+            for cle in ("author", "committer"):
+                qui = commit.get(cle)
+                login = qui.get("login") if isinstance(qui, dict) else None
+                if not isinstance(login, str) or not login.strip():
+                    raise GithubErreur(f"auteurs : identité {cle} inconnue pour un commit")
+                if login not in logins:
+                    logins.append(login)
+        if len(vus) == total:
+            if revision not in vus:
+                raise GithubErreur("auteurs : la liste ne contient pas la tête examinée")
+            return logins
+        page += 1
 
 
 def fichiers_pr(gh: Github, numero: int, total: int | None) -> tuple[str, ...]:

@@ -11,6 +11,47 @@ TETE = "a" * 40
 AVANT = "b" * 40
 
 
+def test_auteurs_la_relecture_visible_refuse_la_course(monkeypatch, capsys):
+    from outils.__main__ import main
+    from outils.tests.test_lecture import _GithubAuteurs280
+    faux = _GithubAuteurs280()
+    monkeypatch.setattr(github, "Github", lambda *a, **k: faux)
+    assert main(["relecture", "--depot", "O/R", "--pr", "280", "--revision", faux.tete]) == 1
+    assert "auteur" in capsys.readouterr().out
+
+
+def test_auteurs_une_revision_demandee_differente_refuse(monkeypatch):
+    from outils.__main__ import main
+    from outils.tests.test_lecture import _GithubAuteurs280
+    class AutreRevision(_GithubAuteurs280):
+        def liste(self, chemin, **params):
+            brut = super().liste(chemin, **params)
+            if chemin.endswith("/reviews"):
+                brut[0]["commit_id"] = "b" * 40
+            return brut
+    faux = AutreRevision()
+    faux.relecteur = "tiers"
+    monkeypatch.setattr(github, "Github", lambda *a, **k: faux)
+    assert main(["relecture", "--depot", "O/R", "--pr", "280", "--revision", "b" * 40]) == 1
+
+
+@pytest.mark.parametrize("champ", ["head", "base"])
+def test_auteurs_une_revision_changee_apres_les_revues_refuse(monkeypatch, champ):
+    from outils.__main__ import main
+    from outils.tests.test_lecture import _GithubAuteurs280
+    class Mobile(_GithubAuteurs280):
+        def liste(self, chemin, **params):
+            brut = super().liste(chemin, **params)
+            if chemin.endswith("/reviews"):
+                if champ == "head": self.tete = "b" * 40
+                else: self.base = "b" * 40
+            return brut
+    faux = Mobile()
+    faux.relecteur = "tiers"
+    monkeypatch.setattr(github, "Github", lambda *a, **k: faux)
+    assert main(["relecture", "--depot", "O/R", "--pr", "280"]) == 1
+
+
 def test_une_approbation_d_un_tiers_sur_la_tete_passe():
     verdict = relecture.juger(TETE, ["cursor[bot]"], [Revue("claude[bot]", "APPROVED", TETE)])
     assert verdict.passe

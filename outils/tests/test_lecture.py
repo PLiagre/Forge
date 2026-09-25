@@ -16,6 +16,108 @@ import pytest
 from outils import integration, relecture
 
 
+class _GithubAuteurs280:
+    """A est jugée ; l'ancienne API mutable montre les auteurs de B."""
+    depot = "O/R"
+
+    def __init__(self, commits=None):
+        self.base = "f" * 40
+        self.commits = commits if commits is not None else [
+            {"sha": "a" * 40, "author": {"login": "auteur-a"}, "committer": {"login": "auteur-a"}}]
+        self.tete = self.commits[-1]["sha"] if self.commits else "a" * 40
+        self.appels = []
+        self.relecteur = "auteur-a"
+
+    def get(self, chemin, **params):
+        from copy import deepcopy
+        self.appels.append((chemin, params))
+        if chemin == "pulls/280":
+            return {"head": {"sha": self.tete, "ref": "agent/280-test"},
+                    "base": {"sha": self.base, "ref": "master"}, "changed_files": 1, "mergeable": True}
+        if chemin == f"compare/{self.base}...{self.tete}":
+            taille, page = params.get("per_page", 100), params.get("page", 1)
+            return {"base_commit": {"sha": self.base}, "merge_base_commit": {"sha": self.base},
+                    "total_commits": len(self.commits), "behind_by": 0,
+                    "commits": deepcopy(self.commits[(page-1)*taille:page*taille])}
+        if chemin.startswith("compare/master..."): return {"behind_by": 0}
+        if chemin.endswith("/check-runs"):
+            return {"check_runs": [{"name": "sim", "status": "completed", "conclusion": "success"}]}
+        if chemin.endswith("/status"): return {"statuses": []}
+        if chemin.startswith("git/commits/"):
+            return {"sha": chemin.rsplit("/", 1)[1], "tree": {"sha": "e" * 40}}
+        if chemin.startswith("git/trees/"):
+            return {"sha": "e" * 40, "truncated": False, "tree": []}
+        raise AssertionError(chemin)
+
+    def liste(self, chemin, **params):
+        self.appels.append((chemin, params))
+        if chemin.endswith("/commits"):
+            return [{"author": {"login": "auteur-b"}, "committer": {"login": "auteur-b"}}]
+        if chemin.endswith("/reviews"):
+            return [{"user": {"login": self.relecteur}, "state": "APPROVED",
+                     "commit_id": self.tete, "author_association": "COLLABORATOR"}]
+        if chemin.endswith("/files"): return [{"filename": "ordinaire.txt", "status": "modified"}]
+        if chemin == "pulls":
+            return [{"number": 280, "head": {"ref": "agent/280-test", "repo": {"full_name": "O/R"}}}]
+        raise AssertionError(chemin)
+
+
+def test_auteurs_la_course_ne_remplace_pas_les_auteurs_de_a():
+    from outils import github
+    faux = _GithubAuteurs280()
+    assert github.auteurs_du_code(faux, 280) == ["auteur-a"]
+    assert not any(chemin == "pulls/280/commits" for chemin, _ in faux.appels)
+
+
+def test_auteurs_les_pages_restent_liees_aux_memes_objets():
+    from outils import github
+    commits = [{"sha": f"{i:040x}", "author": {"login": f"auteur-{i}"},
+                "committer": {"login": "committer"}} for i in range(1, 104)]
+    faux = _GithubAuteurs280(commits)
+    auteurs = github.auteurs_du_code(faux, 280)
+    assert set(auteurs) == {c[cle]["login"] for c in commits for cle in ("author", "committer")}
+    assert [p["page"] for c, p in faux.appels if c.startswith("compare/")] == [1, 2]
+
+
+@pytest.mark.parametrize("defaut", ["total", "base", "doublon"])
+def test_auteurs_la_seconde_page_ne_change_pas_la_preuve(defaut):
+    from outils import github
+    commits = [{"sha": f"{i:040x}", "author": {"login": "auteur"},
+                "committer": {"login": "auteur"}} for i in range(1, 102)]
+    class PageChangee(_GithubAuteurs280):
+        def get(self, chemin, **params):
+            brut = super().get(chemin, **params)
+            if params.get("page") == 2:
+                if defaut == "total": brut["total_commits"] += 1
+                if defaut == "base": brut["base_commit"]["sha"] = "b" * 40
+                if defaut == "doublon": brut["commits"][0]["sha"] = commits[0]["sha"]
+            return brut
+    with pytest.raises(github.GithubErreur):
+        github.auteurs_du_code(PageChangee(commits), 280)
+
+
+@pytest.mark.parametrize("defaut", ["vide", "page_absente", "doublon", "total", "base", "tete", "sha", "auteur", "committer", "liste"])
+def test_auteurs_une_preuve_incomplete_refuse(defaut):
+    from outils import github
+    class Incomplet(_GithubAuteurs280):
+        def get(self, chemin, **params):
+            brut = super().get(chemin, **params)
+            if chemin.startswith("compare/"):
+                if defaut == "vide": brut.update(total_commits=0, commits=[])
+                if defaut == "page_absente": brut.update(total_commits=2, commits=[] if params["page"] > 1 else brut["commits"])
+                if defaut == "doublon": brut.update(total_commits=2, commits=brut["commits"] * 2)
+                if defaut == "total": brut["total_commits"] = True
+                if defaut == "base": brut["base_commit"]["sha"] = "b" * 40
+                if defaut == "tete": brut["commits"][0]["sha"] = "b" * 40
+                if defaut == "sha": brut["commits"][0]["sha"] = "inconnu"
+                if defaut == "auteur": brut["commits"][0]["author"] = None
+                if defaut == "committer": brut["commits"][0]["committer"] = None
+                if defaut == "liste": brut["commits"] = None
+            return brut
+    with pytest.raises(github.GithubErreur):
+        github.auteurs_du_code(Incomplet(), 280)
+
+
 def test_une_pr_ecartee_n_est_lue_qu_a_moitie():
     """Sans détail, la fusionnabilité est inconnue — pas vraie."""
     pr = integration.depuis_github(
@@ -337,12 +439,14 @@ def test_les_auteurs_dedoublonnent_author_et_committer():
     from outils import github
 
     class Faux:
-        def liste(self, _chemin):
-            return [
-                {"author": {"login": "alice"}, "committer": {"login": "alice"}},
-                {"author": {"login": "bob"}, "committer": {"login": "web-flow"}},
-                {"author": None, "committer": {"login": "bob"}},
-            ]
+        def get(self, chemin, **_):
+            if chemin == "pulls/1":
+                return {"head": {"sha": "c" * 40}, "base": {"sha": "f" * 40}}
+            return {"base_commit": {"sha": "f" * 40}, "total_commits": 3, "commits": [
+                {"sha": "a" * 40, "author": {"login": "alice"}, "committer": {"login": "alice"}},
+                {"sha": "b" * 40, "author": {"login": "bob"}, "committer": {"login": "web-flow"}},
+                {"sha": "c" * 40, "author": {"login": "bob"}, "committer": {"login": "bob"}},
+            ]}
 
     assert github.auteurs_du_code(Faux(), 1) == ["alice", "bob", "web-flow"]
 

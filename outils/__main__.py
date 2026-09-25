@@ -35,11 +35,12 @@ def _relecture(args: argparse.Namespace) -> int:
     gh = github.Github(args.depot, args.jeton)
     pr = gh.get(f"pulls/{args.pr}")
     revision = args.revision or pr["head"]["sha"]
-    verdict = relecture.juger(
-        revision,
-        github.auteurs_du_code(gh, args.pr),
-        relecture.revues_depuis_github(github.revues(gh, args.pr)),
-    )
+    if revision != pr["head"]["sha"]:
+        raise github.GithubErreur("auteurs : la révision demandée diffère de la tête")
+    verdict = _verdict(gh, args.pr, revision, pr.get("base", {}).get("sha"))
+    apres = gh.get(f"pulls/{args.pr}")
+    if apres.get("head", {}).get("sha") != revision or apres.get("base") != pr.get("base"):
+        raise github.GithubErreur("auteurs : tête ou base changée pendant la relecture")
     # Bornée ici, une fois : cette ligne est reprise telle quelle dans la
     # description de l'état de commit, et le workflow n'a rien à couper.
     print(github.borner(f"{'PASS' if verdict.passe else 'FAIL'}  PR {args.pr} — {verdict.raison}"))

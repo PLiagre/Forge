@@ -10,6 +10,21 @@ REQUIS = ("sim", "vues", "feuille", "gitleaks")
 PREFIXES = ("agent/", "brief/", "feuille/")
 
 
+@pytest.mark.parametrize("relecteur, action", [("auteur-a", integration.RIEN), ("tiers", integration.FUSIONNER)])
+def test_auteurs_la_porte_et_le_tableau_refusent_la_course(relecteur, action):
+    from outils.__main__ import _examens
+    from outils.porte import _pr_integrable
+    from outils.tests.test_lecture import _GithubAuteurs280
+    faux = _GithubAuteurs280()
+    faux.relecteur = relecteur
+    reglage = {"branches": ("agent/",), "controles": ("sim",), "zone": ("AGENTS.md",)}
+    brut = faux.liste("pulls")[0]
+    pr_lue = _pr_integrable(faux, brut, "master", reglage["branches"], reglage["zone"])
+    decision = integration.examiner(pr_lue, reglage["controles"], reglage["branches"], reglage["zone"])
+    assert decision.action == action
+    assert _examens(faux, "master", reglage)[0][1].action == action
+
+
 
 def _atelier_integration(dossier, controles, branches):
     """Un branchement de banc : les listes sont celles du test, pas du dépôt."""
@@ -80,6 +95,7 @@ def test_une_pr_integrable_demande_le_detail():
             if chemin.startswith("pulls/"):
                 return {
                     "head": {"sha": "a" * 40, "ref": "agent/049-x"},
+                    "base": {"sha": "f" * 40, "ref": "master"},
                     "mergeable": True,
                     "changed_files": 1,
                 }
@@ -88,7 +104,9 @@ def test_une_pr_integrable_demande_le_detail():
             if "status" in chemin:
                 return {"statuses": []}
             if chemin.startswith("compare/"):
-                return {"behind_by": 0}
+                return {"behind_by": 0, "base_commit": {"sha": "f" * 40}, "total_commits": 1,
+                        "commits": [{"sha": "a" * 40, "author": {"login": "auteur"},
+                                     "committer": {"login": "auteur"}}]}
             raise AssertionError(chemin)
 
         def liste(self, chemin, **_):
@@ -154,7 +172,10 @@ class _GithubDecision:
         if "status" in chemin:
             return {"statuses": []}
         if chemin.startswith("compare/"):
-            return {"behind_by": self.behind_by, "merge_base_commit": {"sha": "f" * 40}}
+            return {"behind_by": self.behind_by, "merge_base_commit": {"sha": "f" * 40},
+                    "base_commit": {"sha": "f" * 40}, "total_commits": 1,
+                    "commits": [{"sha": self.detail["head"]["sha"],
+                                 "author": {"login": "auteur"}, "committer": {"login": "auteur"}}]}
         raise AssertionError(chemin)
 
 
@@ -496,13 +517,15 @@ class _GithubOrigine:
     def get(self, chemin, **_):
         self.appels.append(chemin)
         if chemin.startswith("pulls/"):
-            return {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "mergeable": True, "changed_files": 1}
+            return {"head": {"sha": "a" * 40, "ref": "agent/049-x"}, "base": {"sha": "f" * 40, "ref": "master"}, "mergeable": True, "changed_files": 1}
         if "check-runs" in chemin:
             return {"check_runs": []}
         if "status" in chemin:
             return {"statuses": []}
         if chemin.startswith("compare/"):
-            return {"behind_by": 0}
+            return {"behind_by": 0, "base_commit": {"sha": "f" * 40}, "total_commits": 1,
+                        "commits": [{"sha": "a" * 40, "author": {"login": "auteur"},
+                                     "committer": {"login": "auteur"}}]}
         raise AssertionError(chemin)
 
     def liste(self, chemin, **_):
