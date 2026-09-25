@@ -593,10 +593,56 @@ def test_zone_des_modules_ordinaires_hostiles_ne_changent_pas_la_porte(tmp_path)
     shutil.copyfile(racine / ".github/scripts/decider-integration.py", script)
     for chemin in ("sitecustomize.py", "json.py", "outils/__main__.py", "outils/tableau.py", "outils/mesure.py", "outils/palier.py", "outils/saisie.py"):
         (tmp_path / chemin).write_text("raise RuntimeError('MODULE ORDINAIRE EXECUTE')\n", encoding="utf-8")
-    resultat = subprocess.run([sys.executable, "-I", "-S", str(script), "--depot", "O/R", "--projet", str(tmp_path)], cwd=tmp_path, capture_output=True, text=True)
+    resultat = subprocess.run([sys.executable, "-I", "-S", str(script), "--depot", "O/R", "--projet", str(tmp_path)], cwd=tmp_path, capture_output=True, text=True, encoding="utf-8", errors="replace")
     assert resultat.returncode == 1
     assert "atelier.toml introuvable" in resultat.stderr
     assert "MODULE ORDINAIRE EXECUTE" not in resultat.stderr
+
+
+def test_zone_un_paquet_homonyme_ne_remplace_pas_un_module_protege(tmp_path):
+    from pathlib import Path
+    import shutil
+    import subprocess
+    import sys
+
+    racine = Path(__file__).resolve().parents[2]
+    shutil.copytree(racine / "outils", tmp_path / "outils", ignore=shutil.ignore_patterns("__pycache__"))
+    script = tmp_path / ".github/scripts/decider-integration.py"
+    script.parent.mkdir(parents=True)
+    shutil.copyfile(racine / ".github/scripts/decider-integration.py", script)
+    modules = [p for p in _zone_du_depot() if p.startswith("outils/") and p.endswith(".py") and not p.endswith("/__init__.py")]
+    assert modules
+    for chemin in modules:
+        paquet = (tmp_path / chemin).with_suffix("")
+        paquet.mkdir()
+        (paquet / "__init__.py").write_text("raise RuntimeError('PAQUET HOMONYME EXECUTE')\n", encoding="utf-8")
+    resultat = subprocess.run([sys.executable, "-I", "-S", str(script), "--depot", "O/R", "--projet", str(tmp_path)], cwd=tmp_path, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert resultat.returncode == 1
+    assert "atelier.toml introuvable" in resultat.stderr
+    assert "PAQUET HOMONYME EXECUTE" not in resultat.stderr
+
+
+def test_zone_un_cache_compile_ne_remplace_pas_la_source_protegee(tmp_path):
+    from pathlib import Path
+    import py_compile
+    import shutil
+    import subprocess
+    import sys
+
+    racine = Path(__file__).resolve().parents[2]
+    shutil.copytree(racine / "outils", tmp_path / "outils", ignore=shutil.ignore_patterns("__pycache__"))
+    script = tmp_path / ".github/scripts/decider-integration.py"
+    script.parent.mkdir(parents=True)
+    shutil.copyfile(racine / ".github/scripts/decider-integration.py", script)
+    source = tmp_path / "outils/porte.py"
+    original = source.read_bytes()
+    source.write_text("raise RuntimeError('CACHE EXECUTE')\n", encoding="utf-8")
+    py_compile.compile(str(source), doraise=True, invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+    source.write_bytes(original)
+    resultat = subprocess.run([sys.executable, "-I", "-S", str(script), "--depot", "O/R", "--projet", str(tmp_path)], cwd=tmp_path, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert resultat.returncode == 1
+    assert "atelier.toml introuvable" in resultat.stderr
+    assert "CACHE EXECUTE" not in resultat.stderr
 
 
 @pytest.mark.parametrize("retard", [0, 3])
@@ -811,3 +857,4 @@ def test_zone_une_pr_retargetee_pendant_l_examen_retient(tmp_path, monkeypatch, 
     assert code == 0
     assert io.out == "RIEN\n"
     assert "base" in io.err
+
