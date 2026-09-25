@@ -175,6 +175,11 @@ namespace Guerre
         public int Touches;          // coups et carreaux reçus par ses hommes
         public byte Herisse;         // 1 : un ennemi approche de front ; les piquiers baissent leurs piques
         public float2 Vitesse;       // m/s : l'allure de l'ancre, à la dernière image
+        // La route : quand la ligne droite est barrée, le régiment suit un chemin en colonne ; l'ancre est
+        // le milieu de la colonne, à l'abscisse Abscisse de la route. FrontCible garde le front d'arrivée.
+        public byte Chemin;          // 1 : il marche sur sa route ; 2 : la tête est arrivée, il se reforme
+        public float Abscisse, LongueurChemin;
+        public int FilesOrdonnees;   // le front qu'on lui a demandé, qu'il reprendra à l'arrivée
 
         public int Rangs => (Effectif + Files - 1) / Files;
         // Les dimensions suivent l'espacement réel : serré dans la mêlée, ouvert sinon.

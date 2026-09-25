@@ -25,9 +25,10 @@ namespace Guerre.EditeurOutils
         {
             Reglages();
             var pipeline = Pipeline();
+            var kit = ImporterKit();
             Carte(out var terrain);
             var (materiaux, maillages) = Soldats();
-            ConstruireScene(terrain, pipeline, materiaux, maillages);
+            ConstruireScene(terrain, pipeline, materiaux, maillages, kit);
             Debug.Log("[Construire] scène prête : " + Scene);
         }
 
@@ -123,7 +124,7 @@ namespace Guerre.EditeurOutils
                     float auge = math.pow(math.smoothstep(340f, 1150f, d), 1.5f) * 290f;
                     float rugosite = Fbm(wx, wz) * (5f + 45f * math.smoothstep(250f, 900f, d));
                     float pente = wx / Cote * 18f;
-                    h[z, x] = math.saturate((12f + auge + rugosite + pente) / Hauteur);
+                    h[z, x] = math.saturate(Relief(wx, wz, 12f + auge + rugosite + pente) / Hauteur);
                 }
             td.SetHeights(0, 0, h);
             // L'asset avant les couches : sinon elles disparaissent au changement de scène.
@@ -132,9 +133,11 @@ namespace Guerre.EditeurOutils
             var herbe = Couche("Herbe", new Color(0.36f, 0.42f, 0.27f), new Color(0.46f, 0.47f, 0.33f), 6f);
             var roche = Couche("Roche", new Color(0.36f, 0.35f, 0.34f), new Color(0.52f, 0.5f, 0.48f), 10f);
             var neige = Couche("Neige", new Color(0.86f, 0.89f, 0.94f), new Color(0.97f, 0.98f, 1f), 12f);
-            td.terrainLayers = new[] { herbe, roche, neige };
+            // Les pavés du plateau, avec la texture du kit de Forge.
+            var pave = Couche("Pave", Kit + "/Textures/sol_pave_BaseColor.png", 4f);
+            td.terrainLayers = new[] { herbe, roche, neige, pave };
             int n = td.alphamapResolution;
-            var a = new float[n, n, 3];
+            var a = new float[n, n, 4];
             for (int z = 0; z < n; z++)
                 for (int x = 0; x < n; x++)
                 {
@@ -145,11 +148,23 @@ namespace Guerre.EditeurOutils
                     float wR = math.smoothstep(22f, 34f, pente);
                     float wH = math.max(0, 1 - wN - wR);
                     float s = wN + wR + wH;
-                    a[z, x, 0] = wH / s; a[z, x, 1] = wR / s; a[z, x, 2] = wN / s;
+                    // Le plateau de la citadelle est pavé, sauf là où il tombe en paroi.
+                    if (math.distance(new float2(u, v) * Cote, Eperon) < RavinDedans - 1f) { a[z, x, 0] = 0; a[z, x, 1] = wR; a[z, x, 2] = 0; a[z, x, 3] = 1 - wR; }
+                    else { a[z, x, 0] = wH / s; a[z, x, 1] = wR / s; a[z, x, 2] = wN / s; a[z, x, 3] = 0; }
                 }
             td.SetAlphamaps(0, 0, a);
             EditorUtility.SetDirty(td);
             AssetDatabase.SaveAssets();
+        }
+
+        // Une couche de terrain tirée d'une texture existante (celles du kit de Forge).
+        static TerrainLayer Couche(string nom, string texture, float tuile)
+        {
+            string pLayer = Dossier + "/Carte/" + nom + ".terrainlayer";
+            AssetDatabase.DeleteAsset(pLayer);
+            var layer = new TerrainLayer { diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(texture), tileSize = new Vector2(tuile, tuile) };
+            AssetDatabase.CreateAsset(layer, pLayer);
+            return layer;
         }
 
         static TerrainLayer Couche(string nom, Color sombre, Color clair, float tuile)
@@ -182,7 +197,7 @@ namespace Guerre.EditeurOutils
             return s;
         }
 
-        static void ConstruireScene(TerrainData td, UniversalRenderPipelineAsset pipeline, Material[] materiaux, Mesh[] maillages)
+        static void ConstruireScene(TerrainData td, UniversalRenderPipelineAsset pipeline, Material[] materiaux, Mesh[] maillages, System.Collections.Generic.Dictionary<string, GameObject> kit)
         {
             Directory.CreateDirectory(Dossier + "/Scenes");
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -237,6 +252,8 @@ namespace Guerre.EditeurOutils
             bataille.materiaux = materiaux;
             bataille.maillages = maillages;
             bataille.terrain = terrain;
+            var citadelle = new GameObject("Citadelle");
+            bataille.carte = BatirCitadelle(citadelle.transform, td, kit);
 
             new GameObject("Performance").AddComponent<Cadence>();
 

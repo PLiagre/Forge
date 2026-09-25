@@ -1,6 +1,7 @@
 using System;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Rendering;
 using Unity.Transforms;
@@ -19,6 +20,7 @@ namespace Guerre
         public Material materiauCarreau, materiauPavois;
         public const int Carreaux = 8192;   // le réservoir : carreaux en vol et plantés, réutilisés
         public Terrain terrain;
+        public CarteDonnees carte;          // les murs, les maisons, les ponts et les lieux nommés (Construire.cs)
         public int soldats = 10000;
         public int parRegiment = 250;
         public int files = 25;
@@ -28,7 +30,8 @@ namespace Guerre
         public bool Pret { get; private set; }
         public int Leves { get; private set; }
         public EntityManager Em => World.DefaultGameObjectInjectionWorld.EntityManager;
-        bool sansCorps, sansPoussee, sansPeur, sansPavois, sansMasse, sansPiques;
+        bool sansCorps, sansPoussee, sansPeur, sansPavois, sansMasse, sansPiques, sansPont, sansMurs;
+        public Planificateur Planificateur { get; private set; }
         public const int FilesCavalerie = 35;
 
         // Bleu roi contre rouge sang : on distingue les camps de loin, par temps de neige.
@@ -52,6 +55,8 @@ namespace Guerre
             sansPavois = Array.IndexOf(args, "-guerre-sans-pavois") >= 0;
             sansMasse = Array.IndexOf(args, "-guerre-sans-masse") >= 0;
             sansPiques = Array.IndexOf(args, "-guerre-sans-piques") >= 0;
+            sansPont = Array.IndexOf(args, "-guerre-sans-pont") >= 0;
+            sansMurs = Array.IndexOf(args, "-guerre-sans-murs") >= 0;
             // Contre-épreuve de la mesure : le shader ignore l'animation cuite.
             if (Array.IndexOf(args, "-guerre-sans-animation") >= 0)
                 foreach (var m in materiaux) m.SetFloat("_VATActif", 0);
@@ -117,7 +122,7 @@ namespace Guerre
 
                     int nb = Mathf.Min(parRegiment, restants);
                     restants -= nb;
-                    var reg = em.CreateEntity(typeof(Regiment));
+                    var reg = em.CreateEntity(typeof(Regiment), typeof(PointChemin));
                     var donnees = new Regiment
                     {
                         Position = baseP, Cible = avantP, Front = front, FrontCible = front,
@@ -216,9 +221,61 @@ namespace Guerre
             // Le Terrain de Unity est carré ici ; la vallée est construite ainsi.
             root.Taille = td.size.x;
             root.Origine = terrain.transform.position;
+            // Les tabliers des ponts : le sol sur lequel on marche passe au-dessus du ravin.
+            if (carte != null && !sansPont)
+                foreach (var tb in carte.tabliers)
+                {
+                    float pas = td.size.x / (n - 1);
+                    for (int z = 0; z < n; z++)
+                        for (int x = 0; x < n; x++)
+                        {
+                            var p = new Vector2(root.Origine.x + x * pas, root.Origine.z + z * pas);
+                            if (CarteDonnees.Dans(new CarteDonnees.Bloc { centre = tb.centre, demi = tb.demi, angle = tb.angle }, p))
+                                arr[z * n + x] = tb.hauteur - root.Origine.y;
+                        }
+                }
             relief = b.CreateBlobAssetReference<ReliefBlob>(Allocator.Persistent);
             reliefEntite = em.CreateEntity(typeof(Relief));
             em.SetComponentData(reliefEntite, new Relief { Blob = relief });
+            PoserObstacles(em, td.size.x);
+        }
+
+        BlobAssetReference<ObstaclesBlob> obstacles;
+        public const float PenteMax = 0.84f;   // 40° : au-delà, on ne tient pas debout, on ne monte pas
+
+        // La grille des obstacles, au mètre : les pentes trop raides, puis les emprises des murs, des tours et
+        // des maisons. Le planificateur des chemins lit la même grille.
+        void PoserObstacles(EntityManager em, float cote)
+        {
+            int l = Mathf.CeilToInt(cote), total = l * l;
+            float2 origine = new float2(terrain.transform.position.x, terrain.transform.position.z);
+            var bloque = new NativeArray<byte>(total, Allocator.TempJob);
+            new CalculerPentes { Relief = relief, Bloque = bloque, Largeur = l, Origine = origine, Pas = 1f, PenteMax = PenteMax }
+                .Schedule(total, 4096).Complete();
+            var cases = bloque.ToArray();
+            bloque.Dispose();
+            if (carte != null && !sansMurs)
+                foreach (var bl in carte.blocs) Tracer(cases, l, origine, bl);
+            using var b = new BlobBuilder(Allocator.Temp);
+            ref var root = ref b.ConstructRoot<ObstaclesBlob>();
+            var arr = b.Allocate(ref root.Bloque, total);
+            for (int i = 0; i < total; i++) arr[i] = cases[i];
+            root.Largeur = root.Hauteur = l; root.Origine = origine; root.Pas = 1f;
+            obstacles = b.CreateBlobAssetReference<ObstaclesBlob>(Allocator.Persistent);
+            var e = em.CreateEntity(typeof(Obstacles));
+            em.SetComponentData(e, new Obstacles { Blob = obstacles });
+            Planificateur = new Planificateur(cases, l, l, new Vector2(origine.x, origine.y));
+        }
+
+        // Les cases dont le centre tombe dans l'emprise d'un bloc.
+        public static void Tracer(byte[] cases, int l, float2 origine, CarteDonnees.Bloc bl)
+        {
+            float r = bl.demi.magnitude;
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(bl.centre.x - r - origine.x)), x1 = Mathf.Min(l - 1, Mathf.CeilToInt(bl.centre.x + r - origine.x));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(bl.centre.y - r - origine.y)), y1 = Mathf.Min(l - 1, Mathf.CeilToInt(bl.centre.y + r - origine.y));
+            for (int y = y0; y <= y1; y++)
+                for (int x = x0; x <= x1; x++)
+                    if (CarteDonnees.Dans(bl, new Vector2(origine.x + x + 0.5f, origine.y + y + 0.5f))) cases[y * l + x] = 1;
         }
 
         void OnDestroy()
@@ -226,6 +283,7 @@ namespace Guerre
             if (World.DefaultGameObjectInjectionWorld == null || !World.DefaultGameObjectInjectionWorld.IsCreated) return;
             Em.CompleteAllTrackedJobs();
             if (relief.IsCreated) relief.Dispose();
+            if (obstacles.IsCreated) obstacles.Dispose();
         }
 
         // Les régiments d'un camp (tous si camp < 0), avec leurs données du moment.
@@ -271,10 +329,44 @@ namespace Guerre
                 r.Files = math.clamp(files, 1, r.Effectif);
                 r.Ordonne = 1;
                 r.Ennemi = Entity.Null;   // un ordre de marche rompt l'attaque
+                r.Chemin = 0;
+                Tracer(e, ref r);
                 Em.SetComponentData(e, r);
                 liste.Add(e);
             }
             Rangs.Reclasser(Em, liste);
+        }
+
+        // Si la ligne droite est barrée (un mur, une maison, un ravin, un passage trop étroit pour le front),
+        // le régiment prend la route que trouve le planificateur, en colonne aussi large que le plus étroit
+        // de ses passages ; il reprendra son front à l'arrivée. S'il n'y a pas de route, il va tout droit.
+        void Tracer(Entity e, ref Regiment r)
+        {
+            var route = Em.GetBuffer<PointChemin>(e);
+            route.Clear();
+            if (Planificateur == null) return;
+            Vector2 depart = new Vector2(r.Position.x, r.Position.y), arrivee = new Vector2(r.Cible.x, r.Cible.y);
+            if (Vector2.Distance(depart, arrivee) < 5f) return;
+            float corps = 0.4f, marge = 0.5f;   // un demi-corps, et la demi-case de la grille
+            if (Planificateur.Voit(depart, arrivee, r.Largeur * 0.5f + corps + marge)) return;
+            // Un régiment ne s'engage que là où passe une colonne de trois files.
+            var brut = Planificateur.Chercher(depart, arrivee, corps + marge + r.Espacement, out float etroit);
+            if (brut == null) return;
+            int files = math.clamp((int)math.floor(2f * (etroit - corps - marge) / r.Espacement) + 1, 1, r.Files);
+            var points = Planificateur.Tendre(brut, (files - 1) * r.Espacement * 0.5f + corps + marge);
+            route = Em.GetBuffer<PointChemin>(e);
+            float s = 0;
+            for (int k = 0; k < points.Count; k++)
+            {
+                if (k > 0) s += Vector2.Distance(points[k - 1], points[k]);
+                route.Add(new PointChemin { P = points[k], S = s });
+            }
+            r.FilesOrdonnees = r.Files;
+            r.Files = files;
+            r.Chemin = 1;
+            r.Abscisse = -r.Profondeur * 0.5f;   // la tête de la colonne au départ
+            r.LongueurChemin = s;
+            r.Front = math.normalizesafe((float2)(points[1] - points[0]), r.Front);
         }
 
         // Attaquer : chaque régiment prend l'ancre de l'ennemi pour cible et y pousse ses hommes.
@@ -284,6 +376,7 @@ namespace Guerre
             {
                 var r = Em.GetComponentData<Regiment>(e);
                 r.Ennemi = ennemi;
+                r.Chemin = 0;   // l'attaque va droit à l'ennemi
                 r.Ordonne = 1;
                 Em.SetComponentData(e, r);
             }
@@ -296,7 +389,7 @@ namespace Guerre
             em.CompleteAllTrackedJobs();
             var r = em.GetComponentData<Regiment>(e);
             r.Position = r.Cible = ancre; r.Front = r.FrontCible = math.normalize(front);
-            r.Files = math.clamp(files, 1, math.max(1, r.Effectif)); r.Ordonne = 1; r.Ennemi = Entity.Null;
+            r.Files = math.clamp(files, 1, math.max(1, r.Effectif)); r.Ordonne = 1; r.Ennemi = Entity.Null; r.Chemin = 0;
             em.SetComponentData(e, r);
             var q = em.CreateEntityQuery(typeof(Soldat), typeof(LocalTransform));
             using var ents = q.ToEntityArray(Allocator.Temp);

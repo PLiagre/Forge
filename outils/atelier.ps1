@@ -2,7 +2,7 @@
 #   powershell -File outils/atelier.ps1 soldats      # fabriquer les soldats dans Blender (fabrique/sorties)
 #   powershell -File outils/atelier.ps1 construire   # soldats, pipeline, vallée, scène
 #   powershell -File outils/atelier.ps1 joueur       # construire + joueur Windows
-#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 7, avec leurs contre-épreuves
+#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 8, avec leurs contre-épreuves
 #   powershell -File outils/atelier.ps1 ouvrir       # ouvrir l'éditeur
 param([Parameter(Mandatory)][ValidateSet('soldats','construire','joueur','mesurer','ouvrir')][string]$action,
       [int]$soldats = 10000)
@@ -131,6 +131,20 @@ switch ($action) {
         $cp = Lancer (Join-Path $racine 'sorties\essai-cavalerie-sans-piques') @('-guerre-essai-cavalerie','-guerre-soldats','20000','-guerre-sans-piques') 'essai-cavalerie.json'
         if ($null -eq $cp -or $cp.se_brise_sur_les_piques) { Write-Host 'Sans les piques, la charge se brise encore : la preuve ne prouve rien.'; $echecs++ }
         else { "contre-épreuve 7 (sans les piques) : échec attendu obtenu ($($cp.motifs -join ' | '))" }
+
+        # Jalon 8 : la carte. Les parcours de la vallée, du pont et des rues sont franchissables.
+        $k = Lancer (Join-Path $racine 'sorties\essai-carte') @('-guerre-essai-carte') 'essai-carte.json'
+        if ($null -eq $k) { exit 1 }
+        $k.parcours | ForEach-Object { '{0,-7} route {1,-5} ({2} files, {3:N0} m), arrivé {4,-5} en {5,5:N0} s, {6:P0} à leur place, {7} au plus dans un mur, {8} tombés' -f $_.nom, $_.route, $_.files_en_colonne, $_.longueur_route_m, $_.arrive, $_.secondes, $_.a_sa_place, $_.dans_un_mur_max, $_.tombes_dans_le_ravin }
+        "jalon 8 : $($k.statut) $($k.motifs -join ' | ')"
+        if ($k.statut -ne 'valide') { $echecs++ }
+        # Sans le pont, on ne passe plus le ravin ; sans les murs, on passe au travers des maisons.
+        $ks = Lancer (Join-Path $racine 'sorties\essai-carte-sans-pont') @('-guerre-essai-carte','-guerre-sans-pont') 'essai-carte.json'
+        if ($null -eq $ks -or ($ks.parcours | Where-Object { $_.nom -eq 'pont' }).franchissable) { Write-Host 'Sans le pont, le ravin reste franchissable : la preuve ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 8 (sans le pont) : échec attendu obtenu ($($ks.motifs -join ' | '))" }
+        $km = Lancer (Join-Path $racine 'sorties\essai-carte-sans-murs') @('-guerre-essai-carte','-guerre-sans-murs') 'essai-carte.json'
+        if ($null -eq $km -or ($km.parcours | Where-Object { $_.nom -eq 'rues' }).franchissable) { Write-Host 'Sans les murs, personne ne passe dans une maison : la preuve ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 8 (sans les murs) : échec attendu obtenu ($($km.motifs -join ' | '))" }
 
         if ($echecs -gt 0) { exit 1 }
     }

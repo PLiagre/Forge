@@ -162,12 +162,15 @@ namespace Guerre
                 ("Front", true, new Vector3(20, 0, 0), 24, 160),
                 ("Au milieu des rangs", true, new Vector3(0, 0, 12), 9, 45),
                 ("Plongée", true, new Vector3(0, 0, -60), 72, 260),
+                // La citadelle et sa ville, avec le kit de Forge, pendant que la bataille continue dans la vallée.
+                ("Citadelle", false, Vector3.zero, 30, 330),
             };
             var resultats = new List<Vue>();
             var carreauxQ = em.CreateEntityQuery(typeof(Projectile));
             foreach (var v in vues)
             {
-                cmd.foyer = (v.nom == "Mêlée" && r.melee_engagee ? Melee() : v.armee ? Armee() : centre) + v.decalage; cmd.plongee = v.plongee; cmd.distance = v.distance;
+                var surCitadelle = v.nom == "Citadelle" && b.carte != null ? b.carte.Trouver("citadelle").p : Vector2.zero;
+                cmd.foyer = (v.nom == "Citadelle" && b.carte != null ? new Vector3(surCitadelle.x, 0, surCitadelle.y - 40) : v.nom == "Mêlée" && r.melee_engagee ? Melee() : v.armee ? Armee() : centre) + v.decalage; cmd.plongee = v.plongee; cmd.distance = v.distance;
                 if (v.nom == "Mêlée") r.soldats_au_contact = AuContact();
                 float t0 = Time.realtimeSinceStartup;
                 while (Time.realtimeSinceStartup - t0 < 3f) { cmd.cap += 4f * Time.unscaledDeltaTime; yield return null; }

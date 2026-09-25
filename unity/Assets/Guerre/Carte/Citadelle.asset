@@ -1,0 +1,2339 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ae03f052c39d9f498c557fbacf76072, type: 3}
+  m_Name: Citadelle
+  m_EditorClassIdentifier: 
+  blocs:
+  - nature: rempart
+    centre: {x: 1910.169, y: 1543.2489}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.10471971
+  - nature: rempart
+    centre: {x: 1920.2266, y: 1544.8419}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.20943947
+  - nature: rempart
+    centre: {x: 1930.0625, y: 1547.4774}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.31415924
+  - nature: rempart
+    centre: {x: 1939.569, y: 1551.1266}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.41887897
+  - nature: rempart
+    centre: {x: 1948.6421, y: 1555.7495}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.52359873
+  - nature: rempart
+    centre: {x: 1957.1821, y: 1561.2955}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.62831855
+  - nature: rempart
+    centre: {x: 1965.0957, y: 1567.7039}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.7330383
+  - nature: rempart
+    centre: {x: 1972.2961, y: 1574.9043}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.83775806
+  - nature: rempart
+    centre: {x: 1978.7045, y: 1582.8179}
+    demi: {x: 5.05, y: 0.775}
+    angle: 0.9424779
+  - nature: rempart
+    centre: {x: 1984.2505, y: 1591.3579}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.0471976
+  - nature: rempart
+    centre: {x: 1988.8734, y: 1600.431}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.1519173
+  - nature: rempart
+    centre: {x: 1992.5226, y: 1609.9375}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.2566371
+  - nature: rempart
+    centre: {x: 1995.1581, y: 1619.7734}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.3613569
+  - nature: rempart
+    centre: {x: 1996.7511, y: 1629.8309}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.4660766
+  - nature: rempart
+    centre: {x: 1997.284, y: 1640}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.5707964
+  - nature: rempart
+    centre: {x: 1996.7511, y: 1650.1691}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.6755161
+  - nature: rempart
+    centre: {x: 1995.1581, y: 1660.2266}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.780236
+  - nature: rempart
+    centre: {x: 1992.5226, y: 1670.0625}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.8849558
+  - nature: rempart
+    centre: {x: 1988.8734, y: 1679.569}
+    demi: {x: 5.05, y: 0.775}
+    angle: 1.9896755
+  - nature: rempart
+    centre: {x: 1984.2505, y: 1688.6421}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.0943952
+  - nature: rempart
+    centre: {x: 1978.7045, y: 1697.1821}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.1991148
+  - nature: rempart
+    centre: {x: 1972.2961, y: 1705.0957}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.3038347
+  - nature: rempart
+    centre: {x: 1965.0957, y: 1712.2961}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.4085543
+  - nature: rempart
+    centre: {x: 1957.1821, y: 1718.7045}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.5132742
+  - nature: rempart
+    centre: {x: 1948.6421, y: 1724.2505}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.6179938
+  - nature: rempart
+    centre: {x: 1939.569, y: 1728.8734}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.7227137
+  - nature: rempart
+    centre: {x: 1930.0625, y: 1732.5226}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.8274333
+  - nature: rempart
+    centre: {x: 1920.2266, y: 1735.1581}
+    demi: {x: 5.05, y: 0.775}
+    angle: 2.9321532
+  - nature: rempart
+    centre: {x: 1910.169, y: 1736.7511}
+    demi: {x: 5.05, y: 0.775}
+    angle: 3.0368729
+  - nature: rempart
+    centre: {x: 1900, y: 1737.284}
+    demi: {x: 5.05, y: 0.775}
+    angle: -3.1415927
+  - nature: rempart
+    centre: {x: 1889.8309, y: 1736.7511}
+    demi: {x: 5.05, y: 0.775}
+    angle: -3.0368729
+  - nature: rempart
+    centre: {x: 1879.7734, y: 1735.1581}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.9321532
+  - nature: rempart
+    centre: {x: 1869.9375, y: 1732.5226}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.8274333
+  - nature: rempart
+    centre: {x: 1860.431, y: 1728.8734}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.7227137
+  - nature: rempart
+    centre: {x: 1851.3579, y: 1724.2505}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.6179938
+  - nature: rempart
+    centre: {x: 1842.8179, y: 1718.7045}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.5132742
+  - nature: rempart
+    centre: {x: 1834.9042, y: 1712.2961}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.4085543
+  - nature: rempart
+    centre: {x: 1827.7039, y: 1705.0957}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.3038347
+  - nature: rempart
+    centre: {x: 1821.2955, y: 1697.1821}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.1991148
+  - nature: rempart
+    centre: {x: 1815.7495, y: 1688.6421}
+    demi: {x: 5.05, y: 0.775}
+    angle: -2.0943952
+  - nature: rempart
+    centre: {x: 1811.1266, y: 1679.569}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.9896753
+  - nature: rempart
+    centre: {x: 1807.4774, y: 1670.0625}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.8849558
+  - nature: rempart
+    centre: {x: 1804.8419, y: 1660.2266}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.7802358
+  - nature: rempart
+    centre: {x: 1803.2489, y: 1650.1691}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.6755161
+  - nature: rempart
+    centre: {x: 1802.716, y: 1640}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.5707964
+  - nature: rempart
+    centre: {x: 1803.2489, y: 1629.831}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.4660766
+  - nature: rempart
+    centre: {x: 1804.8419, y: 1619.7734}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.3613569
+  - nature: rempart
+    centre: {x: 1807.4774, y: 1609.9375}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.2566371
+  - nature: rempart
+    centre: {x: 1811.1266, y: 1600.431}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.1519175
+  - nature: rempart
+    centre: {x: 1815.7495, y: 1591.3579}
+    demi: {x: 5.05, y: 0.775}
+    angle: -1.0471976
+  - nature: rempart
+    centre: {x: 1821.2955, y: 1582.8179}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.94247794
+  - nature: rempart
+    centre: {x: 1827.7039, y: 1574.9043}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.83775806
+  - nature: rempart
+    centre: {x: 1834.9042, y: 1567.7039}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.73303837
+  - nature: rempart
+    centre: {x: 1842.8179, y: 1561.2957}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.6283188
+  - nature: rempart
+    centre: {x: 1851.358, y: 1555.7495}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.5235987
+  - nature: rempart
+    centre: {x: 1860.431, y: 1551.1266}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.41887903
+  - nature: rempart
+    centre: {x: 1869.9375, y: 1547.4774}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.31415936
+  - nature: rempart
+    centre: {x: 1879.7734, y: 1544.8419}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.20943974
+  - nature: rempart
+    centre: {x: 1889.831, y: 1543.2489}
+    demi: {x: 5.05, y: 0.775}
+    angle: -0.10471963
+  - nature: porte
+    centre: {x: 1895.95, y: 1544.4309}
+    demi: {x: 1.8, y: 2.5600002}
+    angle: -0
+  - nature: porte
+    centre: {x: 1904.05, y: 1544.4309}
+    demi: {x: 1.8, y: 2.5600002}
+    angle: -0
+  - nature: tour
+    centre: {x: 1885.0542, y: 1545.6362}
+    demi: {x: 4.135, y: 4.135}
+    angle: 1.727876
+  - nature: tour
+    centre: {x: 1914.9458, y: 1545.6362}
+    demi: {x: 4.135, y: 4.135}
+    angle: 1.4137167
+  - nature: tour
+    centre: {x: 1960.1252, y: 1565.7515}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: 0.8901179
+  - nature: tour
+    centre: {x: 1992.2845, y: 1615.2725}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: 0.2617994
+  - nature: tour
+    centre: {x: 1989.1943, y: 1674.2385}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: -0.36651915
+  - nature: tour
+    centre: {x: 1952.0348, y: 1720.1266}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: -0.99483764
+  - nature: tour
+    centre: {x: 1894.9999, y: 1735.409}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: -1.6231562
+  - nature: tour
+    centre: {x: 1839.8748, y: 1714.2485}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: -2.2514746
+  - nature: tour
+    centre: {x: 1807.7155, y: 1664.7275}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: -2.8797932
+  - nature: tour
+    centre: {x: 1810.8057, y: 1605.7615}
+    demi: {x: 4.9519815, y: 4.951981}
+    angle: -3.5081117
+  - nature: parapet
+    centre: {x: 1896.875, y: 1524}
+    demi: {x: 0.4, y: 7.05}
+    angle: -0
+  - nature: parapet
+    centre: {x: 1903.125, y: 1524}
+    demi: {x: 0.4, y: 7.05}
+    angle: -0
+  - nature: cathedrale
+    centre: {x: 1900, y: 1658.4573}
+    demi: {x: 8.469866, y: 1.8786571}
+    angle: -3.1415927
+  - nature: cathedrale
+    centre: {x: 1900, y: 1665.9673}
+    demi: {x: 10.98, y: 6.209999}
+    angle: -3.1415927
+  - nature: cathedrale
+    centre: {x: 1900, y: 1678.3873}
+    demi: {x: 10.98, y: 6.209999}
+    angle: -3.1415927
+  - nature: cathedrale
+    centre: {x: 1884.7577, y: 1661.8787}
+    demi: {x: 3.2623334, y: 3.2623334}
+    angle: -0
+  - nature: maison
+    centre: {x: 1890.98, y: 1560.2}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1909.02, y: 1560.2}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1891, y: 1568.4}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1909.515, y: 1568.4}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1881.48, y: 1568.4}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1890.98, y: 1576.6}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1880.985, y: 1576.6}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1918.5, y: 1576.6}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1890.485, y: 1593}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1880.985, y: 1593}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1919.015, y: 1593}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1890.485, y: 1601.2}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1881.48, y: 1601.2}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1919.015, y: 1601.2}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1909.515, y: 1609.4}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1918.5, y: 1609.4}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1828.2, y: 1603.515}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1836.4, y: 1593.5}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1844.6, y: 1594.015}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1852.8, y: 1593.52}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1852.8, y: 1603}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1861, y: 1594.015}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1861, y: 1576.48}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1869.2, y: 1593.52}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1869.2, y: 1575.985}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1918.4, y: 1566.98}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1967.6, y: 1603.515}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1869.485, y: 1618}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1869.485, y: 1626.2}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1930.515, y: 1626.2}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1869.98, y: 1634.4}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1930.515, y: 1634.4}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1930.515, y: 1642.6}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1869.485, y: 1650.8}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1930.515, y: 1650.8}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: 1.5707964
+  - nature: maison
+    centre: {x: 1933.0109, y: 1600.1832}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1842.3032, y: 1608.9677}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1870.2029, y: 1609.581}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1879.9966, y: 1610.2761}
+    demi: {x: 4.019837, y: 6.0202737}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1932.0072, y: 1610.0934}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1941.6697, y: 1610.6074}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1950.3403, y: 1608.4689}
+    demi: {x: 4.739486, y: 6.8020425}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1824.9169, y: 1619.1887}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1833.9254, y: 1618.5903}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1842.8799, y: 1618.1617}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1852.4069, y: 1618.8406}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1950.5322, y: 1619.9143}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1969.3563, y: 1618.0447}
+    demi: {x: 4.739486, y: 6.8020425}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1978.1306, y: 1619.5443}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1826.4646, y: 1627.0308}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1841.6028, y: 1627.669}
+    demi: {x: 4.202068, y: 6.489257}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1853.012, y: 1627.0078}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1860.4176, y: 1627.529}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1941.9366, y: 1628.9335}
+    demi: {x: 4.739486, y: 6.8020425}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1959.7827, y: 1627.3765}
+    demi: {x: 4.3817916, y: 5.229132}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1824.7803, y: 1637.6354}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1833.7622, y: 1636.8602}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1843.2407, y: 1637.1337}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1851.8479, y: 1635.7048}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1861.139, y: 1637.4849}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1959.5651, y: 1636.8134}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1968.6477, y: 1636.7164}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1978.5323, y: 1637.0316}
+    demi: {x: 4.019837, y: 6.0202737}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1825.8691, y: 1645.2102}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1835.4204, y: 1645.783}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1843.1462, y: 1646.4033}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1853.2682, y: 1646.0122}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1940.687, y: 1645.4205}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1951.1725, y: 1645.3779}
+    demi: {x: 4.202068, y: 6.489257}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1978.972, y: 1645.8423}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1825.1682, y: 1654.7319}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1843.5024, y: 1655.6517}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1851.6873, y: 1654.2194}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1941.575, y: 1654.8544}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1959.3434, y: 1655.7548}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1969.6388, y: 1654.6272}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1834.0702, y: 1665.2501}
+    demi: {x: 4.019837, y: 6.0202737}
+    angle: -0
+  - nature: maison
+    centre: {x: 1843.9381, y: 1664.6647}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1859.668, y: 1663.6978}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1869.2384, y: 1664.4734}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1915.6342, y: 1664.1495}
+    demi: {x: 4.019837, y: 6.0202737}
+    angle: -0
+  - nature: maison
+    centre: {x: 1924.0104, y: 1664.7542}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1942.122, y: 1663.6399}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1951.5922, y: 1663.9186}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1959.4529, y: 1663.7559}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1852.2122, y: 1672.8943}
+    demi: {x: 4.3817916, y: 5.229132}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1923.3014, y: 1673.0602}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1932.7821, y: 1672.7025}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1941.746, y: 1673.5065}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1951.2329, y: 1672.4491}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1960.9407, y: 1672.8552}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1969.1272, y: 1672.4274}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1834.6111, y: 1682.5846}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1851.3701, y: 1682.8187}
+    demi: {x: 4.559278, y: 5.7517}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1870.4382, y: 1681.7504}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1878.6683, y: 1681.5901}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1916.1527, y: 1681.0001}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1932.4634, y: 1681.5126}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1941.9071, y: 1682.7548}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1950.6234, y: 1683.1799}
+    demi: {x: 4.3817916, y: 5.229132}
+    angle: -0
+  - nature: maison
+    centre: {x: 1869.8154, y: 1690.6719}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1878.9188, y: 1691.7844}
+    demi: {x: 4.3817916, y: 5.229132}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1897.9369, y: 1691.8256}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1915.7856, y: 1691.9569}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1933.5173, y: 1691.4397}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1941.6752, y: 1691.1082}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1851.8547, y: 1700.3274}
+    demi: {x: 4.739486, y: 6.8020425}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1888.3384, y: 1699.4988}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1906.3193, y: 1699.1854}
+    demi: {x: 4.202068, y: 6.489257}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1924.7325, y: 1699.2427}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1933.281, y: 1700.3147}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1951.4938, y: 1698.7737}
+    demi: {x: 4.202068, y: 6.489257}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1870.2097, y: 1708.1387}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -4.712389
+  - nature: maison
+    centre: {x: 1878.7498, y: 1708.2296}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1887.7491, y: 1708.1476}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -0
+  - nature: maison
+    centre: {x: 1915.893, y: 1708.5674}
+    demi: {x: 4.3817916, y: 5.229132}
+    angle: -1.5707964
+  - nature: maison
+    centre: {x: 1932.11, y: 1708.8455}
+    demi: {x: 3.5419097, y: 3.62}
+    angle: -0
+  - nature: maison
+    centre: {x: 1888.153, y: 1718.3174}
+    demi: {x: 3.5419097, y: 4.115}
+    angle: -3.1415927
+  - nature: maison
+    centre: {x: 1905.3779, y: 1718.8026}
+    demi: {x: 4.3817916, y: 5.229132}
+    angle: -0
+  - nature: maison
+    centre: {x: 1914.9921, y: 1718.5005}
+    demi: {x: 3.8374875, y: 4.35}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2038.5294, y: 1695.2198}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1811.0251, y: 1491.3848}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1735.131, y: 1510.2495}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2066.3176, y: 1434.9291}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2071.5215, y: 1765.7455}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1982.4287, y: 1767.2048}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2142.665, y: 1667.0404}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2055.4165, y: 1462.339}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1811.7085, y: 1525.2052}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1792.6852, y: 1487.5919}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1829.7418, y: 1801.9495}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1719.0376, y: 1768.3353}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1981.9509, y: 1457.6544}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2047.9526, y: 1555.4276}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2159.5754, y: 1538.7334}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1769.0916, y: 1752.994}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2048.2104, y: 1729.146}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1737.1847, y: 1698.57}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2089.049, y: 1700.7373}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1920.947, y: 1871.6423}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2111.323, y: 1756.7415}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1736.2783, y: 1711.8724}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1848.2378, y: 1848.5166}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1806.5829, y: 1888.2301}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2094.3228, y: 1740.6558}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1984.3264, y: 1760.4056}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2082.4229, y: 1479.6012}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2009.9352, y: 1396.7158}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2049.8433, y: 1590.7891}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2023.75, y: 1743.4612}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2146.4897, y: 1704.0576}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1718.1656, y: 1814.6233}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1678.6448, y: 1700.1978}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1993.276, y: 1414.426}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1771.3899, y: 1863.932}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1657.2892, y: 1541.0623}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1991.755, y: 1479.5707}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1825.496, y: 1467.9609}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1800.0967, y: 1549.6334}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2002.973, y: 1771.8771}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1918.6042, y: 1916.4998}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1725.4198, y: 1830.8687}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1720.274, y: 1511.3481}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1931.1617, y: 1856.9835}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1763.282, y: 1571.4683}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1950.5748, y: 1421.1305}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2132.1938, y: 1688.2894}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1900.3668, y: 1819.7487}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1753.3177, y: 1873.0786}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1864.9319, y: 1497.9084}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1952.6716, y: 1836.9375}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1698.6936, y: 1812.4432}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1708.505, y: 1787.1058}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1951.6367, y: 1445.574}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1858.9983, y: 1786.705}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2110.904, y: 1489.1348}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1974.7471, y: 1786.215}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1778.5052, y: 1762.2146}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1767.5358, y: 1708.2625}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1998.4596, y: 1491.5311}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2096.6616, y: 1703.9707}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1644.2544, y: 1675.6123}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1815.6155, y: 1439.5647}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2003.5842, y: 1433.1328}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2009.4525, y: 1721.7977}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1883.596, y: 1847.6958}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2057.0178, y: 1632.8005}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2027.9465, y: 1683.3779}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1960.9662, y: 1504.2468}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2058.4182, y: 1517.1803}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1841.0442, y: 1783.6818}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2037.0205, y: 1423.4998}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2081.3237, y: 1691.562}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1893.2468, y: 1836.4313}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1642.7137, y: 1645.2827}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2057.6963, y: 1726.3472}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1794.6588, y: 1894.11}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2077.9883, y: 1465.577}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1697.4188, y: 1611.7777}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1629.4368, y: 1700.5033}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1677.4346, y: 1786.1031}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1736.2062, y: 1471.0773}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1731.0084, y: 1720.1859}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1839.6873, y: 1376.8275}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1861.428, y: 1507.2474}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1862.3693, y: 1842.8176}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2003.6122, y: 1526.954}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1802.409, y: 1847.911}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1760.3752, y: 1742.2952}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1800.6298, y: 1823.1389}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2063.721, y: 1831.6833}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2064.587, y: 1682.7896}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1642.3441, y: 1605.5795}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2075.9324, y: 1596.5027}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1738.597, y: 1633.4734}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1971.03, y: 1803.4343}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1741.3895, y: 1665.829}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2122.1968, y: 1606.1193}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2166.7666, y: 1650.9548}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1915.417, y: 1815.5427}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2142.0195, y: 1565.1113}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2041.8782, y: 1513.7787}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1978.1285, y: 1820.6366}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1763.3291, y: 1644.507}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2001.3699, y: 1777.1681}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2012.3699, y: 1798.1155}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1658.8909, y: 1715.2573}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1724.0594, y: 1733.548}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1763.6035, y: 1874.1102}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2098.09, y: 1756.312}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1987.8707, y: 1771.3823}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1721.811, y: 1713.3906}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1784.1069, y: 1892.5211}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1860.4982, y: 1793.7423}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1976.274, y: 1813.3237}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1808.6399, y: 1757.474}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2075.6848, y: 1565.9894}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1991.6112, y: 1739.592}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2166.5117, y: 1669.0758}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1751.63, y: 1843.4993}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1936.6396, y: 1787.0281}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1744.075, y: 1844.8855}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2063.9539, y: 1787.3627}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2044.8423, y: 1715.2279}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2076.5935, y: 1824.6803}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1664.0166, y: 1661.1382}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2075.1226, y: 1812.7478}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2128.1116, y: 1710.146}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1997.4191, y: 1435.9631}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2009.9774, y: 1748.9604}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1855.4379, y: 1496.728}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1749.3568, y: 1714.4285}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2134.724, y: 1616.4531}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2109.115, y: 1619.4089}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2040.6626, y: 1475.981}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1820.5479, y: 1518.9918}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1833.0576, y: 1813.0387}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1845.1759, y: 1499.0729}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1764.6521, y: 1861.526}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2119.867, y: 1468.3748}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1740.3319, y: 1744.8397}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2128.967, y: 1589.3895}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1908.9734, y: 1887.2695}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1804.3029, y: 1470.3341}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1710.4827, y: 1520.9675}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1996.9108, y: 1887.8148}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1730.3007, y: 1661.7136}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1703.6383, y: 1444.0999}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1766.357, y: 1598.2219}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2091.855, y: 1820.563}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1768.9861, y: 1842.7633}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1722.6917, y: 1446.9962}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1926.3047, y: 1837.7826}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2066.743, y: 1674.4169}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1742.8488, y: 1624.7097}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2039.1781, y: 1735.1724}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2037.6486, y: 1667.5676}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1915.5729, y: 1775.4604}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1862.7501, y: 1392.9359}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1759.5996, y: 1711.6813}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2174.0696, y: 1619.3295}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1869.4829, y: 1851.017}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1792.2104, y: 1526.72}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1731.8674, y: 1769.3827}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1709.82, y: 1707.6722}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2034.7732, y: 1867.8691}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1784.6062, y: 1530.7502}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1792.1393, y: 1551.9252}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2088.0874, y: 1495.7936}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1870.2286, y: 1773.7355}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2009.4713, y: 1868.2167}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2081.2363, y: 1847.4885}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1930.5892, y: 1469.3523}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1976.6381, y: 1427.0476}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1839.1241, y: 1514.1918}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1879.846, y: 1838.6516}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2051.4294, y: 1777.8724}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1681.6339, y: 1806.5023}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2126.4846, y: 1724.5496}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1771.048, y: 1804.8435}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1980.545, y: 1496.0172}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1683.5483, y: 1809.2998}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1746.8698, y: 1449.0712}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2003.0391, y: 1833.38}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1776.8829, y: 1539.5769}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1792.2587, y: 1533.0844}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1647.2181, y: 1638.1001}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1809.2003, y: 1786.8153}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1707.8818, y: 1827.2781}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1822.5275, y: 1776.8776}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1960.2404, y: 1827.1765}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1789.9099, y: 1766.212}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2053.4172, y: 1730.4055}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1779.0061, y: 1888.8103}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1734.8899, y: 1640.2139}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2032.3035, y: 1793.284}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1940.66, y: 1422.7012}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1796.8267, y: 1873.8864}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1657.8787, y: 1573.3633}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1719.2491, y: 1435.0452}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1910.1521, y: 1910.3519}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1763.586, y: 1547.8142}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1746.143, y: 1731.8224}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1887.8767, y: 1776.8646}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1716.7039, y: 1596.4882}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2014.5824, y: 1443.3135}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1941.6145, y: 1477.6445}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1634.8542, y: 1727.388}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1734.0966, y: 1559.9781}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2154.5571, y: 1593.4905}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2161.234, y: 1586.5583}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1862.1901, y: 1820.8319}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1944.2013, y: 1491.3207}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1766.9197, y: 1507.7783}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1797.9944, y: 1823.4448}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1758.3074, y: 1625.9347}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1851.0195, y: 1487.3989}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2077.3965, y: 1577.7657}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1948.8745, y: 1447.0709}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1822.0502, y: 1426.7612}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1931.2439, y: 1372.3403}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1730.7202, y: 1629.0435}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1783.0397, y: 1853.4943}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2078.1926, y: 1552.4559}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2125.115, y: 1637.9534}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1697.0002, y: 1567.7712}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1829.2095, y: 1427.0365}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1722.1394, y: 1618.2001}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2007.5876, y: 1765.9589}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2071.2861, y: 1476.1428}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1746.0015, y: 1709.463}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2037.7932, y: 1514.3922}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1942.0594, y: 1402.5109}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2018.8851, y: 1453.7456}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1993.609, y: 1869.0887}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1721.8594, y: 1848.6653}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1969.9513, y: 1408.3903}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2100.5938, y: 1605.0995}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1689.8899, y: 1495.858}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1662.4618, y: 1734.0171}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1653.2461, y: 1560.633}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1903.7305, y: 1797.0175}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1805.6198, y: 1882.964}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1956.741, y: 1418.5037}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1946.1549, y: 1470.4324}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1672.0852, y: 1717.3911}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2063.095, y: 1835.9823}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1848.7765, y: 1795.7852}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2142.2937, y: 1575.8215}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1740.8604, y: 1478.8153}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2049.8755, y: 1870.9846}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2070.0386, y: 1607.3721}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1977.9778, y: 1891.8583}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2147.9067, y: 1719.5856}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1893.074, y: 1806.9022}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2127.8928, y: 1529.4105}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2084.0476, y: 1579.488}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1765.601, y: 1621.8112}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1664.8274, y: 1652.959}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2091.5652, y: 1593.2185}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1709.7189, y: 1533.3397}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1629.7992, y: 1712.6208}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1881.1836, y: 1781.2782}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1941.6342, y: 1780.1483}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2114.229, y: 1639.4569}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1693.958, y: 1771.3303}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1968.6273, y: 1850.9434}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1841.1995, y: 1847.9796}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1826.3981, y: 1443.6298}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1663.0972, y: 1647.792}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2070.5176, y: 1845.2609}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2116.8052, y: 1537.0016}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1755.5657, y: 1700.3059}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1832.1348, y: 1469.6437}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1831.6595, y: 1874.3983}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1721.2959, y: 1514.261}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2063.7861, y: 1612.7472}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1698.8583, y: 1557.4944}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1712.1915, y: 1704.3828}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1754.8726, y: 1586.1338}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2083.324, y: 1474.4148}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1942.8795, y: 1897.6971}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1848.1882, y: 1767.1763}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2136.279, y: 1673.759}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2083.2412, y: 1821.2313}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1933.6548, y: 1364.9854}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1633.1698, y: 1660.2865}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2051.7434, y: 1853.1108}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1812.0867, y: 1469.6117}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1741.5813, y: 1661.8634}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2051.637, y: 1830.3801}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1790.0839, y: 1761.035}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1669.8619, y: 1757.2949}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1972.3698, y: 1420.6084}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2035.2644, y: 1479.0927}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2142.0698, y: 1660.2498}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1637.3284, y: 1560.1794}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1692.4052, y: 1588.3602}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2083.5298, y: 1564.9274}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1774.6465, y: 1809.2505}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1853.4331, y: 1881.2347}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2037.1711, y: 1849.4711}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2051.082, y: 1493.7655}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2159.271, y: 1691.4194}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2024.7235, y: 1586.6267}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1816.4691, y: 1464.4404}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1671.186, y: 1692.4774}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2064.1846, y: 1827.4338}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2164.842, y: 1691.0062}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2080.4773, y: 1776.9385}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2067.3892, y: 1590.3478}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1932.465, y: 1891.8528}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1707.4592, y: 1792.0016}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1815.1437, y: 1830.4758}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1816.446, y: 1748.7631}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1655.8257, y: 1526.3807}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1948.1488, y: 1876.3008}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1680.8303, y: 1597.9437}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1817.2168, y: 1504.0416}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1753.175, y: 1500.369}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2136.6882, y: 1711.3555}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1964.8314, y: 1458.8073}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1649.9072, y: 1672.919}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1813.2094, y: 1868.1716}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2130.3662, y: 1629.2915}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1927.904, y: 1795.4225}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1978.8644, y: 1800.909}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1798.8793, y: 1730.3461}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2034.4569, y: 1594.0435}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1787.5201, y: 1780.2216}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1857.7368, y: 1832.4333}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1940.1583, y: 1867.4093}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1787.3923, y: 1418.9163}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1991.4241, y: 1459.4269}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1734.5879, y: 1569.1897}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1953.9357, y: 1873.3365}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1821.6545, y: 1398.8654}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1991.0425, y: 1392.0067}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1792.6827, y: 1553.72}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2142.0227, y: 1661.3804}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2038.1508, y: 1760.4355}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2046.2592, y: 1514.1141}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1628.8087, y: 1677.9039}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1689.9376, y: 1793.4554}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2160.748, y: 1581.2997}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2038.2051, y: 1857.7347}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1701.5409, y: 1760.2976}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1796.8966, y: 1853.6378}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2133.0479, y: 1743.1418}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2048.9092, y: 1444.1965}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1715.0177, y: 1663.3853}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1671.5509, y: 1703.0342}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2107.202, y: 1673.9536}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2046.0983, y: 1714.2034}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2027.1526, y: 1459.2842}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1677.42, y: 1485.7482}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1784.7096, y: 1464.2655}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1725.6608, y: 1580.6097}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1794.8662, y: 1517.0271}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1934.9585, y: 1773.9448}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1776.0045, y: 1539.8503}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1995.282, y: 1458.4764}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1781.1874, y: 1731.9952}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2104.4436, y: 1828.1833}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1961.6912, y: 1483.3004}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2055.9324, y: 1752.0997}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1967.7249, y: 1483.5085}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1857.7063, y: 1802.4517}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1987.9442, y: 1765.6942}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1911.9276, y: 1799.783}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2097.1763, y: 1645.9011}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1675.0227, y: 1794.2874}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1725.9236, y: 1728.626}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1785.5115, y: 1824.0443}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 2073.0742, y: 1551.8108}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1649.5204, y: 1685.0638}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  - nature: arbre
+    centre: {x: 1736.8673, y: 1544.1771}
+    demi: {x: 0.5, y: 0.5}
+    angle: -0
+  tabliers:
+  - nom: pont
+    centre: {x: 1900, y: 1524}
+    demi: {x: 4, y: 7.05}
+    angle: 0
+    hauteur: 62
+  lieux:
+  - nom: citadelle
+    p: {x: 1900, y: 1640}
+    front: {x: 0, y: 1}
+  - nom: pied
+    p: {x: 1900, y: 1340}
+    front: {x: 0, y: 1}
+  - nom: place
+    p: {x: 1900, y: 1635}
+    front: {x: 0, y: 1}
+  - nom: place_est
+    p: {x: 1948, y: 1585}
+    front: {x: 1, y: 0}
+  - nom: porte
+    p: {x: 1900, y: 1544.591}
+    front: {x: 0, y: 1}
+  - nom: vallee_depart
+    p: {x: 600, y: 1282.2896}
+    front: {x: 1, y: 0}
+  - nom: vallee_arrivee
+    p: {x: 1350, y: 1246.6914}
+    front: {x: 1, y: 0}

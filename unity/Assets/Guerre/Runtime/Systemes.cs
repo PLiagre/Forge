@@ -34,10 +34,12 @@ namespace Guerre
         const float ChargeEpuisee = 1.5f;   // m/s : au contact et plus lente que cela, la charge est finie
 
         EntityQuery tous;
+        BufferLookup<PointChemin> routes;
 
         public void OnCreate(ref SystemState state)
         {
             tous = SystemAPI.QueryBuilder().WithAllRW<Regiment>().Build();
+            routes = state.GetBufferLookup<PointChemin>(true);
             state.RequireForUpdate<Regiment>();
         }
 
@@ -45,6 +47,7 @@ namespace Guerre
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
+            routes.Update(ref state);
             var ents = tous.ToEntityArray(Allocator.Temp);
             var regs = tous.ToComponentDataArray<Regiment>(Allocator.Temp);
             var avant = new NativeArray<float2>(regs.Length, Allocator.Temp);
@@ -79,6 +82,23 @@ namespace Guerre
                     regs[i] = r;
                     continue;
                 }
+
+                // En route : l'ancre, milieu de la colonne, avance sur le chemin au pas, en attendant ses hommes
+                // comme en ligne. Quand elle arrive au bout, le régiment reprend son front (SystemeRoutes).
+                if (r.Chemin == 1 && routes.HasBuffer(ents[i]) && routes[ents[i]].Length >= 2)
+                {
+                    var route = routes[ents[i]];
+                    float suit = math.max(1f - math.smoothstep(1.5f, 5f, r.Ecart), 0.1f);
+                    r.Abscisse = math.min(r.Abscisse + r.VitesseMarche * suit * dt, r.LongueurChemin);
+                    r.Position = Route.Point(route, r.Abscisse, out var sens);
+                    r.Front = sens;
+                    r.Cible = r.Position;
+                    // La tête est au but : le régiment s'y reforme (SystemeRoutes), et la queue le rejoint.
+                    if (r.Abscisse + r.Profondeur * 0.5f >= r.LongueurChemin) { r.Chemin = 2; r.Position = r.Cible = route[route.Length - 1].P; }
+                    regs[i] = r;
+                    continue;
+                }
+                if (r.Chemin == 2) { regs[i] = r; continue; }
 
                 // Le scénario de démonstration charge l'ennemi le plus proche.
                 if (r.Ordonne == 0 && r.Ennemi == Entity.Null)
@@ -147,7 +167,9 @@ namespace Guerre
 
                 // Un régiment est là où sont ses hommes : s'ils sont repoussés loin de leur place,
                 // l'ancre les suit. Celui qui cède du terrain recule avec ses hommes.
-                r.Position += (r.CentreHommes - r.Position) * math.saturate(dt * 0.8f * math.smoothstep(2f, 5f, r.Ecart));
+                // Sauf s'il se reforme au bout d'une route : l'ancre y attend ses hommes, qui arrivent en colonne.
+                if (r.Chemin == 3) { if (r.Ecart < 1.5f) r.Chemin = 0; }
+                else r.Position += (r.CentreHommes - r.Position) * math.saturate(dt * 0.8f * math.smoothstep(2f, 5f, r.Ecart));
                 // Au contact, le régiment est là où se battent ses hommes : l'ancre les suit le long
                 // de l'axe du combat, et n'avance plus d'elle-même : c'est la poussée des hommes qui la
                 // déplace. Sur le côté, elle reste : les hommes reviennent à leurs files au lieu de glisser.
@@ -233,6 +255,7 @@ namespace Guerre
         NativeQueue<byte> evenements;                // 1 carreau arrêté par un pavois, 2 carreau au sol, 3 carreau tiré, 4 homme renversé, 5 pique rompue
         ComponentLookup<Regiment> regiments, regimentsRW;
         ComponentLookup<Soldat> soldatsRW;
+        BufferLookup<PointChemin> routes;
         EntityQuery soldats;
         uint image;
 
@@ -249,6 +272,7 @@ namespace Guerre
             regimentsRW = state.GetComponentLookup<Regiment>(false);
             regiments = state.GetComponentLookup<Regiment>(true);
             soldatsRW = state.GetComponentLookup<Soldat>(false);
+            routes = state.GetBufferLookup<PointChemin>(true);
             soldats = SystemAPI.QueryBuilder().WithAll<Soldat, LocalTransform>().Build();
             state.RequireForUpdate<Relief>();
             state.RequireForUpdate(soldats);
@@ -280,6 +304,8 @@ namespace Guerre
             regiments.Update(ref state);
             regimentsRW.Update(ref state);
             soldatsRW.Update(ref state);
+            routes.Update(ref state);
+            bool avecObstacles = SystemAPI.TryGetSingleton<Obstacles>(out var obst);
             var relief = SystemAPI.GetSingleton<Relief>().Blob;
             // Le pas est fixe (Bataille.PasSimulation) ; la borne ne sert qu'en cas d'appel hors du pas fixe.
             float dt = math.min(SystemAPI.Time.DeltaTime, 1f / 30f);
@@ -299,6 +325,7 @@ namespace Guerre
             dep = new Piloter
             {
                 Grille = grille, Piques = piques, Chevaux = chevaux, Regiments = regiments, Relief = relief, Dt = dt, Corps = reglages.Corps,
+                Routes = routes, Obst = avecObstacles ? obst.Blob : default, AvecObstacles = (byte)(avecObstacles ? 1 : 0),
                 Poussee = reglages.Poussee, Peur = reglages.Peur, Pavois = reglages.Pavois, MasseChevaux = reglages.Masse, PiquesActives = reglages.Piques,
                 Effroi = effroi, Coups = coups.AsParallelWriter(), Tirs = tirs.AsParallelWriter(), Evenements = evenements.AsParallelWriter(),
                 Graine = image * 2654435761u,
@@ -436,6 +463,9 @@ namespace Guerre
             [ReadOnly] public NativeParallelMultiHashMap<int, Cheval> Chevaux;
             [ReadOnly] public ComponentLookup<Regiment> Regiments;
             [ReadOnly] public BlobAssetReference<ReliefBlob> Relief;
+            [ReadOnly] public BufferLookup<PointChemin> Routes;
+            [ReadOnly] public BlobAssetReference<ObstaclesBlob> Obst;
+            public byte AvecObstacles;
             [ReadOnly] public NativeParallelHashMap<int, float2> Effroi;
             public NativeQueue<Coup>.ParallelWriter Coups;
             public NativeQueue<Tir>.ParallelWriter Tirs;
@@ -456,6 +486,24 @@ namespace Guerre
             // On suit d'un pas une poussée jusqu'à 45 m/s² : au-delà, un choc plus lourd que soi renverse.
             const float Renversement = 45f;
             const float Trebucher = 700f;     // N : ce que coûte à un cheval chaque corps à terre sous ses sabots
+
+            // Aucune case bloquée sur la ligne droite entre deux points ?
+            bool Voit(float2 a, float2 b)
+            {
+                ref var o = ref Obst.Value;
+                float d = math.distance(a, b);
+                int n = (int)math.ceil(d / 0.5f);
+                for (int k = 1; k <= n; k++) if (Terrain2D.Bloque(ref o, math.lerp(a, b, k / (float)n))) return false;
+                return true;
+            }
+
+            // Le corps, un disque, touche-t-il une case bloquée ? On regarde son centre et ses quatre bords.
+            bool Heurte(float2 p, float rayon)
+            {
+                ref var o = ref Obst.Value;
+                return Terrain2D.Bloque(ref o, p) || Terrain2D.Bloque(ref o, p + new float2(rayon, 0)) || Terrain2D.Bloque(ref o, p - new float2(rayon, 0))
+                    || Terrain2D.Bloque(ref o, p + new float2(0, rayon)) || Terrain2D.Bloque(ref o, p - new float2(0, rayon));
+            }
 
             // Un corps touche devant soi (à un cône de 50° près) : c'est sur lui qu'on appuie.
             bool QuelquUnDevant(Entity e, float2 pos, float2 front, float rayon)
@@ -483,6 +531,23 @@ namespace Guerre
                 // Des chevaux ne se serrent pas en presse : ils chargent, et ce qui les arrête, ce sont les corps.
                 bool melee = r.Melee > 0 && !monte;
                 float2 front = r.Front;
+                // En route, chaque rang suit la route à sa propre abscisse, et fait face à son bout de chemin.
+                float2 placeRoute = float2.zero;
+                bool enRoute = false;
+                if (r.Chemin == 1 && Routes.HasBuffer(s.Regiment))
+                {
+                    var route = Routes[s.Regiment];
+                    if (route.Length >= 2)
+                    {
+                        float2 local = Formation.Place(r, s.Numero) + s.Decalage;
+                        // Les rangs qui ne sont pas encore entrés sur la route attendent au départ ; ceux qui sont
+                        // arrivés se serrent au but.
+                        placeRoute = Route.Point(route, math.clamp(r.Abscisse + local.y, -3f, r.LongueurChemin + 3f), out var sens);
+                        placeRoute += new float2(sens.y, -sens.x) * local.x;
+                        front = sens;
+                        enRoute = true;
+                    }
+                }
                 float2 pos0 = t.Position.xz;
                 float masse = global::Guerre.Corps.Masse(s.Arme, MasseChevaux), rayon = global::Guerre.Corps.Rayon(s.Arme);
                 var alea0 = Random.CreateFromIndex((uint)e.Index * 104729u + Graine);
@@ -644,7 +709,16 @@ namespace Guerre
                     else if (s.Fuite != 0 && s.Peur < 0.3f * s.Courage) { s.Fuite = 0; s.Ralliements++; }
                 }
                 bool fuit = s.Fuite != 0;
-                float2 place = Formation.VersMonde(Formation.Place(r, s.Numero) + s.Decalage, r.Position, front);
+                float2 place = enRoute ? placeRoute : Formation.VersMonde(Formation.Place(r, s.Numero) + s.Decalage, r.Position, front);
+                // Au bout d'une route, le régiment se reforme ; qui ne voit pas sa place (une maison entre elle
+                // et lui) suit d'abord la route vers son débouché, au lieu de buter contre le mur.
+                float2 but = place;
+                if (r.Chemin == 3 && AvecObstacles != 0 && Routes.HasBuffer(s.Regiment) && !Voit(pos0, place))
+                {
+                    var route = Routes[s.Regiment];
+                    // On rejoint la route au plus près, et l'on vise quelques mètres plus loin sur elle.
+                    if (route.Length >= 2) but = Route.Point(route, math.min(RouteProche.Abscisse(route, pos0) + 4f, route[route.Length - 1].S), out _);
+                }
                 float2 pos = t.Position.xz;
                 // Les forces d'un homme : la fatigue et les blessures les rongent.
                 float vigueur = (1f - 0.5f * s.Fatigue) * (0.4f + 0.6f * math.saturate(s.Sante));
@@ -652,7 +726,7 @@ namespace Guerre
                 float fMax = forceMax * vigueur;
 
                 // L'effort vers sa place : fort à l'arrêt, nul quand on y court déjà assez vite.
-                float2 vers = place - pos;
+                float2 vers = but - pos;
                 float dist = math.length(vers);
                 float2 dir = dist > 0.01f ? vers / dist : float2.zero;
                 float gain = math.lerp(3f, 1.4f, math.saturate(dist - 0.5f));
@@ -815,6 +889,15 @@ namespace Guerre
                     }
                     // Ce qu'on a été empêché de faire, on ne l'a pas fait : l'élan suit le mouvement réel.
                     if (corrige) s.Vitesse = math.lerp(s.Vitesse, (pos - avant) / Dt, 0.5f);
+                    v = math.length(s.Vitesse);
+                }
+                // Les murs, les maisons, les parois : on ne passe pas au travers. Qui les heurte glisse le long,
+                // ou s'arrête. (Qui s'y trouve déjà, poussé par la presse, peut en sortir.)
+                if (AvecObstacles != 0 && Heurte(pos, rayon) && !Heurte(avant, rayon))
+                {
+                    float2 longX = new float2(pos.x, avant.y), longZ = new float2(avant.x, pos.y);
+                    pos = !Heurte(longX, rayon) ? longX : !Heurte(longZ, rayon) ? longZ : avant;
+                    s.Vitesse = math.lerp(s.Vitesse, (pos - avant) / Dt, 0.8f);
                     v = math.length(s.Vitesse);
                 }
                 s.Ecart = math.distance(pos, place);
@@ -1253,6 +1336,29 @@ namespace Guerre
                 Rangs.Reclasser(em, new List<Entity>(aReclasser));
                 aReclasser.Clear();
             }
+        }
+    }
+
+    // La tête de la colonne est arrivée : le régiment reprend le front qu'on lui avait demandé, là où
+    // finit sa route. Les hommes reprennent un numéro dans l'ordre où ils arrivent.
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(SystemeRegiments))]
+    [UpdateBefore(typeof(SystemePilotage))]
+    public partial class SystemeRoutes : SystemBase
+    {
+        protected override void OnUpdate()
+        {
+            List<Entity> arrives = null;
+            foreach (var (r, e) in SystemAPI.Query<RefRW<Regiment>>().WithEntityAccess())
+            {
+                if (r.ValueRO.Chemin != 2) continue;
+                var x = r.ValueRO;
+                x.Chemin = 3;   // il se reforme : l'ancre attend ses hommes
+                x.Files = math.clamp(x.FilesOrdonnees, 1, math.max(1, x.Effectif));
+                r.ValueRW = x;
+                (arrives ??= new List<Entity>()).Add(e);
+            }
+            if (arrives != null) Rangs.Reclasser(EntityManager, arrives);
         }
     }
 

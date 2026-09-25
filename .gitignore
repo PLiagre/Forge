@@ -27,3 +27,8 @@ sorties/essai-tir-sans-pavois/
 sorties/logs/
 sorties/essai-cavalerie-sans-masse/
 sorties/essai-cavalerie-sans-piques/
+# Le kit de la Citadelle appartient à Forge : il est recopié depuis ../ForgeLocal3D à chaque construction
+unity/Assets/Guerre/Kit/
+unity/Assets/Guerre/Kit.meta
+sorties/essai-carte-sans-pont/
+sorties/essai-carte-sans-murs/
