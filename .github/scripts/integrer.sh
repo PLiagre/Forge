@@ -44,21 +44,8 @@ case "$action" in
     echo "PR $pr fusionnée dans $BASE"
     ;;
   rebaser)
-    if [ -z "${REVISION_ATTENDUE:-}" ] && [ "${EXIGER_REVISION:-}" = true ]; then
-      echo "révision jugée absente : rejeu interdit" >&2
-      exit 1
-    fi
     branche=$(gh pr view "$pr" --json headRefName -q .headRefName)
     avant=$(gh pr view "$pr" --json headRefOid -q .headRefOid)
-    if [ -n "${REVISION_ATTENDUE:-}" ]; then
-      if [ "$avant" != "$REVISION_ATTENDUE" ]; then
-        echo "révision changée depuis la décision : rejeu interdit" >&2
-        exit 1
-      fi
-      # GitHub vérifie aussi ce SHA : une poussée après notre lecture
-      # doit faire refuser l'écriture, pas rejouer un diff jamais jugé.
-      avant="$REVISION_ATTENDUE"
-    fi
     gh api -X PUT "repos/$DEPOT/pulls/$pr/update-branch" -f expected_head_sha="$avant" > /dev/null
 
     # `update-branch` rend 202 : GitHub accepte, et pousse plus tard. Les

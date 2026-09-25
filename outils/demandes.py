@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import re
 
-from . import registre
+from . import palier, registre, saisie
 
 # Associations accordées par GitHub, jamais par le texte du formulaire.
 # CONTRIBUTOR et FIRST_TIME_CONTRIBUTOR ne donnent aucun droit.
@@ -55,8 +55,6 @@ def reservations(gh, fiches, branches=None, prs=None):
 
 def preparer(gh, evenement, fiches, briefs="briefs"):
     """Un plan rejouable, lié au numéro d'issue et à une branche durable."""
-    from . import palier, saisie
-
     if not autorisee(evenement):
         return {"action": "RIEN", "raison": "demande non autorisée ou événement déjà couvert"}
     issue = gh.get(f"issues/{int(evenement['issue']['number'])}")

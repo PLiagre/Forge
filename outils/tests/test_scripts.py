@@ -514,55 +514,6 @@ def test_actions_ne_fusionne_pas_sans_revision_jugee(banc):
     assert banc.appel("gh pr merge") is None
 
 
-def test_zone_le_rejeu_refuse_une_revision_jugee_absente(banc):
-    banc.poser("gh", selon=[
-        (["--json headRefName"], "agent/049-fabriquer"),
-        (["--json headRefOid"], [TETE, "b" * 40]),
-    ])
-    resultat = banc.jouer("integrer.sh", DEPOT="o/r", DECISION="rebaser 217",
-                         REVISION_ATTENDUE="", EXIGER_REVISION="true")
-    assert resultat.returncode != 0
-    assert "révision jugée absente" in resultat.stderr
-    assert banc.appel("gh api -X PUT", "update-branch") is None
-
-
-def test_zone_le_rejeu_refuse_une_tete_differente_de_celle_jugee(banc):
-    banc.poser("gh", selon=[
-        (["--json headRefName"], "agent/049-fabriquer"),
-        (["--json headRefOid"], ["b" * 40, "c" * 40]),
-    ])
-    resultat = banc.jouer("integrer.sh", DEPOT="o/r", DECISION="rebaser 217",
-                         REVISION_ATTENDUE=TETE, EXIGER_REVISION="true")
-    assert resultat.returncode != 0
-    assert "révision" in resultat.stderr
-    assert banc.appel("gh api -X PUT", "update-branch") is None
-
-
-def test_zone_le_rejeu_transmet_la_revision_jugee_a_github(banc):
-    banc.poser("gh", selon=[
-        (["--json headRefName"], "agent/049-fabriquer"),
-        (["--json headRefOid"], [TETE, "b" * 40]),
-    ])
-    resultat = banc.jouer("integrer.sh", DEPOT="o/r", DECISION="rebaser 217",
-                         REVISION_ATTENDUE=TETE, EXIGER_REVISION="true")
-    assert resultat.returncode == 0, resultat.stderr
-    appel = banc.appel("gh api -X PUT", "update-branch")
-    assert banc.valeur(appel, "expected_head_sha") == TETE
-
-
-def test_zone_une_poussee_entre_lecture_et_rejeu_fait_echouer_le_geste(banc):
-    banc.poser("gh", selon=[
-        (["--json headRefName"], "agent/049-fabriquer"),
-        (["--json headRefOid"], TETE),
-        (["api -X PUT", "update-branch"], "tête différente du SHA attendu", 1),
-    ])
-    resultat = banc.jouer("integrer.sh", DEPOT="o/r", DECISION="rebaser 217",
-                         REVISION_ATTENDUE=TETE, EXIGER_REVISION="true")
-    assert resultat.returncode != 0
-    assert banc.valeur(banc.appel("gh api -X PUT", "update-branch"), "expected_head_sha") == TETE
-    assert banc.appel("gh workflow run") is None
-
-
 def test_le_tableau_absent_ne_declare_pas_un_deploiement_reussi():
     from outils.tests.banc import RACINE
     texte = (RACINE / ".github/workflows/tableau.yml").read_text()

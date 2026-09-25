@@ -89,7 +89,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          decision=$(SORTIE_DECISION="$GITHUB_OUTPUT" python3 -I -S .github/scripts/decider-integration.py --depot "$GITHUB_REPOSITORY" --projet .)
+          decision=$(SORTIE_DECISION="$GITHUB_OUTPUT" python3 -m outils integration --depot "$GITHUB_REPOSITORY" --projet .)
           echo "decision=$decision" >> "$GITHUB_OUTPUT"
           echo "$decision"
 
