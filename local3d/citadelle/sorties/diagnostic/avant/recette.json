@@ -1,0 +1,12 @@
+{
+  "biome": "montagne enneigée",
+  "typologie": "bourg fortifié",
+  "culture": "gothique alpin imaginaire",
+  "annee": 1400,
+  "fidelite": 2,
+  "description": "Étude artistique inspirée de la référence du propriétaire ; aucune prétention de reconstitution historique.",
+  "dispositions": [
+    {"id": "eperon_des_veilleurs", "label": "Éperon des Veilleurs", "seed": 1407},
+    {"id": "col_des_cendres", "label": "Col des Cendres", "seed": 2419}
+  ]
+}

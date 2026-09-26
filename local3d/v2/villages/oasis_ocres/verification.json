@@ -1,0 +1,10 @@
+{
+  "scene": "oasis_ocres",
+  "plan_deterministe": true,
+  "contre_epreuve_deplacement": "refusée comme attendu",
+  "instances": 1649,
+  "triangles": 809436,
+  "textures_embarquees": 40,
+  "paysage_fbx_triangles": 65742,
+  "status": "valide"
+}

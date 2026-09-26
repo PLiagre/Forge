@@ -1,0 +1,18 @@
+{
+  "biome": "alpin",
+  "typologie": "village de vallée",
+  "annee": 1400,
+  "culture": "alpine centrale",
+  "fidelite": 2,
+  "extent_m": 300,
+  "terrain_cells": 220,
+  "buildings": 23,
+  "trees": 310,
+  "groundcover": 1100,
+  "budget_triangles": 1800000,
+  "dispositions": [
+    {"id":"combe_du_moulin","label":"Combe du Moulin","seed":7141},
+    {"id":"rive_des_melezes","label":"Rive des Mélèzes","seed":8249},
+    {"id":"val_des_roches","label":"Val des Roches","seed":9359}
+  ]
+}
