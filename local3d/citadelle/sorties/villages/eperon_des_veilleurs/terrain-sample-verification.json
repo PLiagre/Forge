@@ -1,0 +1,15 @@
+{
+    "status": "valide",
+    "scene": "eperon_des_veilleurs",
+    "pack": "Assets/Vendor/TerrainDemoScene_HDRP/",
+    "surfaces": 149,
+    "vegetation": 536,
+    "rochers": 70,
+    "triangles_decor": 558013,
+    "collisions_rochers": 70,
+    "arbres_remplaces": 1600,
+    "rochers_parois": 80,
+    "contre_epreuve_foret": true,
+    "contre_epreuve_materiau": true,
+    "contre_epreuve_acces": true
+}

@@ -1,0 +1,91 @@
+{
+  "objets": 1845,
+  "maillages": 1827,
+  "cameras": [
+    {
+      "nom": "Citadelle",
+      "position": [
+        148.0,
+        -228.0,
+        120.0
+      ],
+      "rotation": [
+        1.3822247982025146,
+        -4.098895090010046e-08,
+        0.5620344281196594
+      ],
+      "focale": 43.0
+    },
+    {
+      "nom": "Porte",
+      "position": [
+        44.0,
+        -109.0,
+        69.0
+      ],
+      "rotation": [
+        1.4997682571411133,
+        1.6838946237385244e-08,
+        0.4636475741863251
+      ],
+      "focale": 39.0
+    },
+    {
+      "nom": "Cathedrale",
+      "position": [
+        63.0,
+        -81.0,
+        84.0
+      ],
+      "rotation": [
+        1.4293104410171509,
+        2.888004502210606e-09,
+        0.5954098701477051
+      ],
+      "focale": 43.0
+    }
+  ],
+  "textures": [
+    "aiguilles_sombres_BaseColor.png",
+    "aiguilles_sombres_Normal.png",
+    "ardoise_BaseColor.png",
+    "ardoise_Normal.png",
+    "basalte_BaseColor.png",
+    "basalte_Normal.png",
+    "bois_noir_BaseColor.png",
+    "bois_noir_Normal.png",
+    "bois_vieux_BaseColor.png",
+    "bois_vieux_Normal.png",
+    "calcaire_BaseColor.png",
+    "calcaire_Normal.png",
+    "cuivre_BaseColor.png",
+    "cuivre_Normal.png",
+    "enduit_BaseColor.png",
+    "enduit_Normal.png",
+    "fer_noir_BaseColor.png",
+    "fer_noir_Normal.png",
+    "lumiere_BaseColor.png",
+    "lumiere_Normal.png",
+    "montagne_0_BaseColor.png",
+    "montagne_1_BaseColor.png",
+    "montagne_2_BaseColor.png",
+    "neige_givre_BaseColor.png",
+    "neige_givre_Normal.png",
+    "neige_ombre_BaseColor.png",
+    "neige_ombre_Normal.png",
+    "pierre_taille_BaseColor.png",
+    "pierre_taille_Normal.png",
+    "roche_claire_BaseColor.png",
+    "roche_claire_Normal.png",
+    "roche_noire_BaseColor.png",
+    "roche_noire_Normal.png",
+    "sol_pave_BaseColor.png",
+    "sol_pave_Normal.png",
+    "tissu_bordeaux_BaseColor.png",
+    "tissu_bordeaux_Normal.png",
+    "vitrail_ambre_BaseColor.png",
+    "vitrail_ambre_Normal.png",
+    "vitrail_bleu_BaseColor.png",
+    "vitrail_bleu_Normal.png"
+  ]
+}

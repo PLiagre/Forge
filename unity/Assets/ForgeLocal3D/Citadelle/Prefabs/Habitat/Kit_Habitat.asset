@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7e0519a587490b47b4aab3c3c1cf0cb, type: 3}
+  m_Name: Kit_Habitat
+  m_EditorClassIdentifier: 
+  modules:
+  - id: habitat_socle_pierre
+    label: "Rez-de-chauss\xE9e \xB7 pierre"
+    kind: base
+    prefab: {fileID: 3767443626806512179, guid: d95a8a6fac411b544b56f52e457bdf5d, type: 3}
+    size: {x: 6, y: 3, z: 6}
+  - id: habitat_etage_enduit
+    label: "\xC9tage \xB7 colombages cr\xE8me"
+    kind: etage
+    prefab: {fileID: 5517839360381197532, guid: de962cecd798f634bb2ca78287273081, type: 3}
+    size: {x: 6, y: 3, z: 6}
+  - id: habitat_etage_brique
+    label: "\xC9tage \xB7 colombages brique"
+    kind: etage
+    prefab: {fileID: 7703242268733887427, guid: ec5e0075a92c231439adb77dfc76cd09, type: 3}
+    size: {x: 6, y: 3, z: 6}
+  - id: habitat_etage_galerie
+    label: "\xC9tage avec acc\xE8s galerie \xB7 cr\xE8me"
+    kind: etage
+    prefab: {fileID: 1575138646908024733, guid: 656a9e0aecac82c4187f3840e6b31ccb, type: 3}
+    size: {x: 6, y: 3, z: 6}
+  - id: habitat_etage_galerie_brique
+    label: "\xC9tage avec acc\xE8s galerie \xB7 brique"
+    kind: etage
+    prefab: {fileID: 4488400970403508397, guid: 9410c1c9699870d4c9303dc4b75e6b5e, type: 3}
+    size: {x: 6, y: 3, z: 6}
+  - id: habitat_toit_ardoise
+    label: "Toit \xB7 ardoise bleue"
+    kind: toit
+    prefab: {fileID: 5174549337522759480, guid: 657571113049d4a428daf9d988538d9c, type: 3}
+    size: {x: 6, y: 4.2, z: 6}
+  - id: habitat_toit_tuile
+    label: "Toit \xB7 tuile rouge"
+    kind: toit
+    prefab: {fileID: 9062842179328540052, guid: e700423b34019ed41bc4c538b6cb469f, type: 3}
+    size: {x: 6, y: 4.2, z: 6}
+  - id: habitat_galerie
+    label: Galerie sur poteaux
+    kind: base
+    prefab: {fileID: 6684129863260595495, guid: 85086cb2fc9673b4880a7b7673fb8ee5, type: 3}
+    size: {x: 3, y: 3, z: 1.5}
+  - id: habitat_escalier
+    label: "Escalier ext\xE9rieur"
+    kind: base
+    prefab: {fileID: 8742041690039041092, guid: 082ced08ec7770844b1fe04357112b2c, type: 3}
+    size: {x: 1.5, y: 3, z: 3}
+  - id: habitat_passerelle
+    label: Passerelle avec garde-corps
+    kind: pont
+    prefab: {fileID: 8303074855005642216, guid: 5a9f6d7eb06f8f34faeb9d3af2c135d4, type: 3}
+    size: {x: 3, y: 0.18, z: 1.5}
+  - id: habitat_cheminee
+    label: "Chemin\xE9e de brique"
+    kind: ornement
+    prefab: {fileID: 681345059980208267, guid: ae2464cc92376054999d7a731ab7c6d3, type: 3}
+    size: {x: 1.5, y: 3, z: 1.5}
+  - id: habitat_lucarne
+    label: "Lucarne \xE0 pignon"
+    kind: ornement
+    prefab: {fileID: 2348298005253375404, guid: 5f335cf2091ea3a44bf9e34b495db10b, type: 3}
+    size: {x: 1.5, y: 1.8, z: 1.5}
+  houses:
+  - {fileID: 2636970240973533668, guid: c12256f1c5a1d4c428db641aa6a9756b, type: 3}
+  - {fileID: 3891473365890001447, guid: eca3a2552b84edc468fbdda3dbfbc0f8, type: 3}
+  - {fileID: 1623711914973854665, guid: 61af33d250aef5f418404e87affc0115, type: 3}
+  - {fileID: 8414261451148925458, guid: 38dd9fb17954a804f9deb83192fb89e7, type: 3}
+  - {fileID: 9152016359720331360, guid: 31403600378aee841b1c44f4840bb9db, type: 3}
+  - {fileID: 3424922395298873885, guid: 5e4e85ab586d19b4bb5b80024d05bb6f, type: 3}
+  gridMaterial: {fileID: 2100000, guid: 1ab8d4cd45864644ab5bbe289bb8972d, type: 2}
+  grid: 0.75
+  storey: 3
