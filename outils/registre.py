@@ -16,7 +16,7 @@ import tomllib
 # Ce que `[integration]` doit nommer. Rien n'a de valeur par défaut :
 # une liste de contrôles devinée serait une porte qu'on ne se souvient
 # pas d'avoir ouverte.
-CLES = ("controles", "branches")
+CLES = ("controles", "branches", "zone")
 
 # Ce que `[tableau]` doit nommer. Mêmes règles : rien n'a de valeur par
 # défaut. Un seuil écrit dans le code est un réglage que personne ne
@@ -100,9 +100,18 @@ def integration(racine: Path) -> dict:
         raise BranchementIncomplet(
             f"[integration] incomplet, champs vides : {', '.join(manquants)}"
         )
+    zone = bloc["zone"]
+    if (not isinstance(zone, list)
+            or any(not isinstance(p, str) or not p or p != p.strip()
+                   or "\\" in p or ":" in p or "*" in p or "?" in p
+                   or any(s in ("", ".", "..") for s in p.removesuffix("/").split("/"))
+                   for p in zone)
+            or len(set(zone)) != len(zone)):
+        raise BranchementIncomplet("[integration].zone : liste de chemins relatifs distincts attendue")
     return {
         "controles": tuple(str(c) for c in bloc["controles"]),
         "branches": tuple(str(b) for b in bloc["branches"]),
+        "zone": tuple(zone),
     }
 
 

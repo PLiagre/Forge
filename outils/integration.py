@@ -96,6 +96,8 @@ class PR:
     # et une origine illisible y vaut une fourche. `None` ne sort que d'une
     # construction directe, ou d'une PR que la décision écarte avant.
     interne: bool | None = None
+    fichiers: tuple[str, ...] | None = None
+    motif_fichiers: str = ""
 
 
 def depuis_github(brut: dict, detail: dict | None = None, controles_bruts=(),
@@ -177,7 +179,14 @@ def manque(pr: PR, noms) -> str:
     return ""
 
 
-def examiner(pr: PR, requis, prefixes) -> Decision:
+def chemin_valide(chemin) -> bool:
+    """Un chemin de diff est relatif au dépôt, sans normalisation devinée."""
+    return (isinstance(chemin, str) and bool(chemin)
+            and "\\" not in chemin and ":" not in chemin
+            and all(p not in ("", ".", "..") for p in chemin.split("/")))
+
+
+def examiner(pr: PR, requis, prefixes, zone=()) -> Decision:
     """Ce que cette PR appelle, et pourquoi. Jamais deux choses à la fois."""
     if pr.brouillon:
         return Decision(RIEN, pr.numero, "brouillon")
@@ -196,6 +205,15 @@ def examiner(pr: PR, requis, prefixes) -> Decision:
             f"branche « {pr.branche} » hors des préfixes intégrés "
             f"({', '.join(prefixes)}) : c'est le propriétaire qui fusionne celle-là",
         )
+    # La CLI exige une zone non vide depuis master. Les appels purs sans
+    # zone gardent leur usage de contrôle des règles antérieures.
+    if zone:
+        if pr.motif_fichiers or not pr.fichiers or not all(map(chemin_valide, pr.fichiers)):
+            return Decision(RIEN, pr.numero, pr.motif_fichiers or "fichiers de la PR inconnus ou incomplets : on retient")
+        touches = sorted({p for p in pr.fichiers for entree in zone
+                          if p == entree.removesuffix("/") or (entree.endswith("/") and p.startswith(entree))})
+        if touches:
+            return Decision(RIEN, pr.numero, "zone protégée : le propriétaire fusionne — " + ", ".join(touches))
     if pr.fusionnable is None:
         return Decision(RIEN, pr.numero, "fusionnabilité inconnue : on retient")
     if not pr.fusionnable:
@@ -226,7 +244,7 @@ def examiner(pr: PR, requis, prefixes) -> Decision:
     )
 
 
-def decider(prs, requis, prefixes) -> Rapport:
+def decider(prs, requis, prefixes, zone=()) -> Rapport:
     """La PR qui avance ce tour-ci, et le compte rendu de toutes les autres.
 
     L'ordre est celui des numéros : la plus ancienne d'abord. Une PR qui
@@ -241,7 +259,7 @@ def decider(prs, requis, prefixes) -> Rapport:
     rapport = Rapport(Decision(RIEN, None, "aucune PR à intégrer"))
     retenue: Decision | None = None
     for pr in sorted(prs, key=lambda p: p.numero):
-        decision = examiner(pr, requis, prefixes)
+        decision = examiner(pr, requis, prefixes, zone)
         rapport.lignes.append(f"PR {pr.numero} ({pr.branche}) : {decision.action} — {decision.raison}")
         if decision.action != RIEN and retenue is None:
             retenue = decision
