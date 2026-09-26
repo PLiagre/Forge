@@ -1,0 +1,3116 @@
+{
+  "schema": 1,
+  "description": "Forge — village pilote V1. Étude graphique locale, sans simulation.",
+  "blender": "5.2.0 LTS",
+  "source_plan": "fabrique/donnees/Manifests/village_pilot.json",
+  "seed": 2026083001,
+  "extent_m": 140.0,
+  "buildings": 40,
+  "decor": 250,
+  "triangles": 201288,
+  "budget": 300000,
+  "assets": [
+    {
+      "id": "building_residence_frontier_01_a",
+      "fonction": "residence",
+      "triangles_lod": [
+        2912,
+        1244,
+        318
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "shutters",
+        "hearth",
+        "bench",
+        "woodpile",
+        "flower_boxes"
+      ],
+      "geometrie_sha256": "497bdd70c7f2c510ac803769da48f71536b7a635492d84f1598c5723e518228a"
+    },
+    {
+      "id": "building_residence_frontier_01_b",
+      "fonction": "residence",
+      "triangles_lod": [
+        3974,
+        1794,
+        402
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "shutters",
+        "hearth",
+        "bench",
+        "woodpile",
+        "flower_boxes"
+      ],
+      "geometrie_sha256": "8e1fa0bbfbcc119320800c6b0d1c15c3687322bccfd98dddc4bfa1b702ca1510"
+    },
+    {
+      "id": "building_residence_frontier_01_c",
+      "fonction": "residence",
+      "triangles_lod": [
+        2932,
+        1170,
+        344
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "shutters",
+        "hearth",
+        "bench",
+        "woodpile",
+        "flower_boxes"
+      ],
+      "geometrie_sha256": "212ac10df0cf8c6e071d287ecdcb19476671bdcaf6c3216174bbba794029c769"
+    },
+    {
+      "id": "building_granary_frontier_01_a",
+      "fonction": "granary",
+      "triangles_lod": [
+        2872,
+        1368,
+        316
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "raised_floor",
+        "grain_sacks",
+        "ventilation_slits",
+        "hoist",
+        "grain_emblem"
+      ],
+      "geometrie_sha256": "cf64f546847b7785b52b46ba879208a1aba3dec03e935ed2ed7740f0b4b8992b"
+    },
+    {
+      "id": "building_granary_frontier_01_b",
+      "fonction": "granary",
+      "triangles_lod": [
+        1652,
+        760,
+        186
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "raised_floor",
+        "grain_sacks",
+        "ventilation_slits",
+        "hoist",
+        "grain_emblem"
+      ],
+      "geometrie_sha256": "dd23d3cb87c46a680825583c42dc6d910a75ce147557284cfb036f41f3ceba9c"
+    },
+    {
+      "id": "building_granary_frontier_01_c",
+      "fonction": "granary",
+      "triangles_lod": [
+        1650,
+        766,
+        118
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "raised_floor",
+        "grain_sacks",
+        "ventilation_slits",
+        "hoist",
+        "grain_emblem"
+      ],
+      "geometrie_sha256": "055e4b7811290f4438d622808b70f574b9c24da4d9e1b67cb12f07a17cdde204"
+    },
+    {
+      "id": "building_warehouse_frontier_01_a",
+      "fonction": "warehouse",
+      "triangles_lod": [
+        1320,
+        560,
+        114
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "loading_dock",
+        "double_door",
+        "crates",
+        "barrels",
+        "pulley"
+      ],
+      "geometrie_sha256": "24ff70ee6c8c4bd3cc831cb2a128a99443f64d01d5e8fd8156985f976219ed2a"
+    },
+    {
+      "id": "building_warehouse_frontier_01_b",
+      "fonction": "warehouse",
+      "triangles_lod": [
+        1558,
+        730,
+        196
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "loading_dock",
+        "double_door",
+        "crates",
+        "barrels",
+        "pulley"
+      ],
+      "geometrie_sha256": "dbf696193eb7ec9809f77b99b789b39b595cb16fc23a65ccf4ec4f2ff87d524c"
+    },
+    {
+      "id": "building_warehouse_frontier_01_c",
+      "fonction": "warehouse",
+      "triangles_lod": [
+        1420,
+        620,
+        118
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "loading_dock",
+        "double_door",
+        "crates",
+        "barrels",
+        "pulley"
+      ],
+      "geometrie_sha256": "5d6fa8482c4f89e1bfe1996464e51875e6f77c209d6af0d3536ed41ef001af6f"
+    },
+    {
+      "id": "building_market_frontier_01_a",
+      "fonction": "market",
+      "triangles_lod": [
+        3182,
+        1546,
+        260
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "arcade",
+        "stalls",
+        "awnings",
+        "goods",
+        "hanging_sign"
+      ],
+      "geometrie_sha256": "45eb902638f368f6d8ef0fda4879d9e611a10b5d7e4bc909ea0b798b0471de5f"
+    },
+    {
+      "id": "building_market_frontier_01_b",
+      "fonction": "market",
+      "triangles_lod": [
+        3406,
+        1470,
+        324
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "arcade",
+        "stalls",
+        "awnings",
+        "goods",
+        "hanging_sign"
+      ],
+      "geometrie_sha256": "76fc40153232804748d98f708787cf9897289c97685ada6bdcf8594262377fd1"
+    },
+    {
+      "id": "building_market_frontier_01_c",
+      "fonction": "market",
+      "triangles_lod": [
+        3798,
+        1642,
+        362
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "arcade",
+        "stalls",
+        "awnings",
+        "goods",
+        "hanging_sign"
+      ],
+      "geometrie_sha256": "09cd29390e34fbbc5ca5dcf935a3ef82cd5b42ab322e53f6f35c7d21999b01e2"
+    },
+    {
+      "id": "building_blacksmith_frontier_01_a",
+      "fonction": "blacksmith",
+      "triangles_lod": [
+        1492,
+        676,
+        110
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "brick_chimney",
+        "forge",
+        "anvil",
+        "coal",
+        "horseshoe_sign",
+        "tool_rack"
+      ],
+      "geometrie_sha256": "5e7d7964fbb71e91c0ff80ac16a26ebe75e0835a2cb9337718b5c7ce039a9842"
+    },
+    {
+      "id": "building_blacksmith_frontier_01_b",
+      "fonction": "blacksmith",
+      "triangles_lod": [
+        1678,
+        746,
+        188
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "brick_chimney",
+        "forge",
+        "anvil",
+        "coal",
+        "horseshoe_sign",
+        "tool_rack"
+      ],
+      "geometrie_sha256": "24a04fc1897c9f355ff447da0fa3400f03be8c3d5b3f05895f0f67ffe3ded657"
+    },
+    {
+      "id": "building_blacksmith_frontier_01_c",
+      "fonction": "blacksmith",
+      "triangles_lod": [
+        2650,
+        1118,
+        310
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "brick_chimney",
+        "forge",
+        "anvil",
+        "coal",
+        "horseshoe_sign",
+        "tool_rack"
+      ],
+      "geometrie_sha256": "a80f1617e4bdc1d182be74aa3e5404cb86dd0982ed08822f13842c7ae9d43cd1"
+    },
+    {
+      "id": "building_barn_frontier_01_a",
+      "fonction": "barn",
+      "triangles_lod": [
+        1582,
+        578,
+        106
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "cross_braced_doors",
+        "hay",
+        "loft",
+        "animal_trough",
+        "pitchfork",
+        "pen"
+      ],
+      "geometrie_sha256": "64ef84afb2191036c0f5a8c879218dc07ede89a346ed95c68bca871c2cb4540f"
+    },
+    {
+      "id": "building_barn_frontier_01_b",
+      "fonction": "barn",
+      "triangles_lod": [
+        3364,
+        1388,
+        328
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "cross_braced_doors",
+        "hay",
+        "loft",
+        "animal_trough",
+        "pitchfork",
+        "pen"
+      ],
+      "geometrie_sha256": "0b9e82055d1152005b4863f22dd1ed620671d67ad821c2956f6f4ac36bd36e92"
+    },
+    {
+      "id": "building_barn_frontier_01_c",
+      "fonction": "barn",
+      "triangles_lod": [
+        1714,
+        646,
+        110
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "cross_braced_doors",
+        "hay",
+        "loft",
+        "animal_trough",
+        "pitchfork",
+        "pen"
+      ],
+      "geometrie_sha256": "d09422cdfe11c27fa44f848717d9ec4ffe49a35de9c037bb7bfb25ac373d0f5b"
+    },
+    {
+      "id": "building_chapel_frontier_01_a",
+      "fonction": "chapel",
+      "triangles_lod": [
+        1992,
+        1120,
+        364
+      ],
+      "budget_lod": [
+        7000,
+        3000,
+        1000
+      ],
+      "marqueurs": [
+        "buttresses",
+        "lancet_windows",
+        "apse",
+        "bell_tower",
+        "cross",
+        "grave_markers"
+      ],
+      "geometrie_sha256": "04900bd6d0e535139cb75187b6664c9158a49511afa348228452fccb42823595"
+    },
+    {
+      "id": "building_chapel_frontier_01_b",
+      "fonction": "chapel",
+      "triangles_lod": [
+        2332,
+        1168,
+        452
+      ],
+      "budget_lod": [
+        7000,
+        3000,
+        1000
+      ],
+      "marqueurs": [
+        "buttresses",
+        "lancet_windows",
+        "apse",
+        "bell_tower",
+        "cross",
+        "grave_markers"
+      ],
+      "geometrie_sha256": "d63a6c73e2e9e3b865996420113c5bf53da3015acb97ca590541db9740827d33"
+    },
+    {
+      "id": "building_chapel_frontier_01_c",
+      "fonction": "chapel",
+      "triangles_lod": [
+        2796,
+        1488,
+        564
+      ],
+      "budget_lod": [
+        7000,
+        3000,
+        1000
+      ],
+      "marqueurs": [
+        "buttresses",
+        "lancet_windows",
+        "apse",
+        "bell_tower",
+        "cross",
+        "grave_markers"
+      ],
+      "geometrie_sha256": "24edad02fa627b6e89937430a77ad501166b2cc3e91b503ffc957bbe1e0eeb49"
+    },
+    {
+      "id": "building_sawmill_frontier_01_a",
+      "fonction": "sawmill",
+      "triangles_lod": [
+        2030,
+        806,
+        120
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "saw_frame",
+        "carriage",
+        "drive_wheel",
+        "log_stack",
+        "sawdust_pile",
+        "crossed_axes_sign"
+      ],
+      "geometrie_sha256": "b6e878db67b11cb7d06bfabbd13ec2a481ccb18bb80fd512d556021dd8e5bf88"
+    },
+    {
+      "id": "building_sawmill_frontier_01_b",
+      "fonction": "sawmill",
+      "triangles_lod": [
+        3070,
+        1196,
+        314
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "saw_frame",
+        "carriage",
+        "drive_wheel",
+        "log_stack",
+        "sawdust_pile",
+        "crossed_axes_sign"
+      ],
+      "geometrie_sha256": "52eab6916144c43c8f2e40efb007c60edd27828241d99bd1e25411f839840aa2"
+    },
+    {
+      "id": "building_sawmill_frontier_01_c",
+      "fonction": "sawmill",
+      "triangles_lod": [
+        3138,
+        1310,
+        300
+      ],
+      "budget_lod": [
+        4000,
+        1800,
+        600
+      ],
+      "marqueurs": [
+        "saw_frame",
+        "carriage",
+        "drive_wheel",
+        "log_stack",
+        "sawdust_pile",
+        "crossed_axes_sign"
+      ],
+      "geometrie_sha256": "ecc12776c457b12b2f17c08817f21c8e9b82f50eae87b13a149579959011574d"
+    }
+  ],
+  "materials": [
+    {
+      "name": "Décor • bois de coupe",
+      "color": [
+        0.46000000834465027,
+        0.28999999165534973,
+        0.12999999523162842,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Décor • calcaire",
+      "color": [
+        0.3199999928474426,
+        0.3400000035762787,
+        0.2800000011920929,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Décor • chêne",
+      "color": [
+        0.1899999976158142,
+        0.0949999988079071,
+        0.03700000047683716,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Décor • fer",
+      "color": [
+        0.06499999761581421,
+        0.07999999821186066,
+        0.08299999684095383,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.75,
+      "roughness": 0.4300000071525574
+    },
+    {
+      "name": "Feuillage • 0",
+      "color": [
+        0.1599999964237213,
+        0.25999999046325684,
+        0.06499999761581421,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Feuillage • 1",
+      "color": [
+        0.23000000417232513,
+        0.33000001311302185,
+        0.07999999821186066,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Feuillage • 2",
+      "color": [
+        0.3100000023841858,
+        0.3799999952316284,
+        0.10999999940395355,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Feuillage • 3",
+      "color": [
+        0.10499999672174454,
+        0.1899999976158142,
+        0.05999999865889549,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Feuillage • 4",
+      "color": [
+        0.3400000035762787,
+        0.3100000023841858,
+        0.07500000298023224,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Sol • place en gravier",
+      "color": [
+        0.3799999952316284,
+        0.33500000834465027,
+        0.24500000476837158,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Sol • prairie 0",
+      "color": [
+        0.20499999821186066,
+        0.2549999952316284,
+        0.11500000208616257,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Sol • prairie 1",
+      "color": [
+        0.21799999475479126,
+        0.2669999897480011,
+        0.11999999731779099,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Sol • prairie 2",
+      "color": [
+        0.19499999284744263,
+        0.2460000067949295,
+        0.10000000149011612,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Sol • prairie 3",
+      "color": [
+        0.2280000001192093,
+        0.27399998903274536,
+        0.125,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Sol • terre battue",
+      "color": [
+        0.3400000035762787,
+        0.27000001072883606,
+        0.16500000655651093,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Toile • 0",
+      "color": [
+        0.6100000143051147,
+        0.25999999046325684,
+        0.10999999940395355,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Toile • 1",
+      "color": [
+        0.7699999809265137,
+        0.6499999761581421,
+        0.38999998569488525,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "Toile • 2",
+      "color": [
+        0.20000000298023224,
+        0.3400000035762787,
+        0.3199999928474426,
+        1.0
+      ],
+      "textured": false,
+      "metallic": 0.0,
+      "roughness": 0.800000011920929
+    },
+    {
+      "name": "frontier_base_building_barn_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_barn_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_barn_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_blacksmith_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_blacksmith_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_blacksmith_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_chapel_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_chapel_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_chapel_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_granary_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_granary_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_market_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_market_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_market_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_residence_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_residence_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_sawmill_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_sawmill_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_sawmill_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_warehouse_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_warehouse_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_building_warehouse_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_pale_building_granary_frontier_01_a",
+      "color": [
+        0.7200000286102295,
+        0.699999988079071,
+        0.6399999856948853,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_pale_building_granary_frontier_01_b",
+      "color": [
+        0.7200000286102295,
+        0.699999988079071,
+        0.6399999856948853,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_pale_building_granary_frontier_01_c",
+      "color": [
+        0.7200000286102295,
+        0.699999988079071,
+        0.6399999856948853,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_pale_building_market_frontier_01_a",
+      "color": [
+        0.7200000286102295,
+        0.699999988079071,
+        0.6399999856948853,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_pale_building_market_frontier_01_b",
+      "color": [
+        0.7200000286102295,
+        0.699999988079071,
+        0.6399999856948853,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_base_pale_building_market_frontier_01_c",
+      "color": [
+        0.7200000286102295,
+        0.699999988079071,
+        0.6399999856948853,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_barn_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_barn_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_barn_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_blacksmith_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_blacksmith_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_blacksmith_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_chapel_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_chapel_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_chapel_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_granary_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_granary_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_market_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_market_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_market_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_residence_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_residence_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_sawmill_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_sawmill_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_sawmill_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_warehouse_frontier_01_a",
+      "color": [
+        1.0,
+        0.9184549450874329,
+        0.7982832789421082,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_warehouse_frontier_01_b",
+      "color": [
+        1.0,
+        0.9398148059844971,
+        0.8518518805503845,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_building_warehouse_frontier_01_c",
+      "color": [
+        1.0,
+        0.9513274431228638,
+        0.7743362784385681,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_blacksmith_frontier_01_a",
+      "color": [
+        1.0,
+        0.8131313323974609,
+        0.6161616444587708,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_blacksmith_frontier_01_b",
+      "color": [
+        1.0,
+        0.9175823926925659,
+        0.8131868243217468,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_blacksmith_frontier_01_c",
+      "color": [
+        1.0,
+        0.921875,
+        0.6822916865348816,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        0.8131313323974609,
+        0.6161616444587708,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_granary_frontier_01_b",
+      "color": [
+        1.0,
+        0.9175823926925659,
+        0.8131868243217468,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_granary_frontier_01_c",
+      "color": [
+        1.0,
+        0.921875,
+        0.6822916865348816,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        0.8131313323974609,
+        0.6161616444587708,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_residence_frontier_01_b",
+      "color": [
+        1.0,
+        0.9175823926925659,
+        0.8131868243217468,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_residence_frontier_01_c",
+      "color": [
+        1.0,
+        0.921875,
+        0.6822916865348816,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_sawmill_frontier_01_a",
+      "color": [
+        1.0,
+        0.8131313323974609,
+        0.6161616444587708,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_sawmill_frontier_01_b",
+      "color": [
+        1.0,
+        0.9175823926925659,
+        0.8131868243217468,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_dark_building_sawmill_frontier_01_c",
+      "color": [
+        1.0,
+        0.921875,
+        0.6822916865348816,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_barn_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_barn_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_barn_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_granary_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_granary_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_market_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_market_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_market_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_residence_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_residence_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_sawmill_frontier_01_a",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_sawmill_frontier_01_b",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_body_pale_building_sawmill_frontier_01_c",
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_bronze_building_chapel_frontier_01_a",
+      "color": [
+        0.7200000286102295,
+        0.3400000035762787,
+        0.10000000149011612,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.7799999713897705,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_bronze_building_chapel_frontier_01_b",
+      "color": [
+        0.7200000286102295,
+        0.3400000035762787,
+        0.10000000149011612,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.7799999713897705,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_bronze_building_chapel_frontier_01_c",
+      "color": [
+        0.7200000286102295,
+        0.3400000035762787,
+        0.10000000149011612,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.7799999713897705,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_bronze_building_sawmill_frontier_01_a",
+      "color": [
+        0.7200000286102295,
+        0.3400000035762787,
+        0.10000000149011612,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.7799999713897705,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_bronze_building_sawmill_frontier_01_b",
+      "color": [
+        0.7200000286102295,
+        0.3400000035762787,
+        0.10000000149011612,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.7799999713897705,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_bronze_building_sawmill_frontier_01_c",
+      "color": [
+        0.7200000286102295,
+        0.3400000035762787,
+        0.10000000149011612,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.7799999713897705,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_barn_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_barn_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_barn_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_blacksmith_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_blacksmith_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_blacksmith_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_chapel_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_chapel_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_chapel_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_granary_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_granary_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_market_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_market_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_market_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_residence_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_residence_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_sawmill_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_sawmill_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_sawmill_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_warehouse_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_warehouse_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_eave_building_warehouse_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_barn_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_barn_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_barn_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_blacksmith_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_blacksmith_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_blacksmith_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_chapel_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_chapel_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_chapel_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_granary_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_granary_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_market_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_market_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_market_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_residence_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_residence_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_sawmill_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_sawmill_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_sawmill_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_warehouse_frontier_01_a",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_warehouse_frontier_01_b",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_ember_building_warehouse_frontier_01_c",
+      "color": [
+        1.0,
+        0.2199999988079071,
+        0.03999999910593033,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_barn_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_barn_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_barn_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_blacksmith_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_blacksmith_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_blacksmith_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_chapel_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_chapel_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_chapel_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_granary_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_granary_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_granary_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_market_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_market_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_market_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_residence_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_residence_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_residence_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_sawmill_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_sawmill_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_sawmill_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_warehouse_frontier_01_a",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_warehouse_frontier_01_b",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_iron_building_warehouse_frontier_01_c",
+      "color": [
+        0.2199999988079071,
+        0.23999999463558197,
+        0.25999999046325684,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.8500000238418579,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_barn_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_blacksmith_frontier_01_c",
+      "color": [
+        0.9278350472450256,
+        1.0,
+        0.7577319741249084,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_chapel_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_market_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_market_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        0.7354260087013245,
+        0.5381165742874146,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_residence_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_accent_building_sawmill_frontier_01_b",
+      "color": [
+        0.8809523582458496,
+        0.9476190209388733,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_barn_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_barn_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_barn_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_blacksmith_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_blacksmith_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_blacksmith_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_chapel_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_chapel_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_chapel_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_granary_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_granary_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_granary_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_market_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_market_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_market_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_residence_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_residence_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_residence_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_sawmill_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_sawmill_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_sawmill_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_warehouse_frontier_01_a",
+      "color": [
+        1.0,
+        0.6157894730567932,
+        0.42105263471603394,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_warehouse_frontier_01_b",
+      "color": [
+        0.8033707737922668,
+        0.915730357170105,
+        1.0,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_roof_building_warehouse_frontier_01_c",
+      "color": [
+        0.875,
+        1.0,
+        0.699999988079071,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_steel_building_sawmill_frontier_01_a",
+      "color": [
+        0.6200000047683716,
+        0.6600000262260437,
+        0.6800000071525574,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.9200000166893005,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_steel_building_sawmill_frontier_01_b",
+      "color": [
+        0.6200000047683716,
+        0.6600000262260437,
+        0.6800000071525574,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.9200000166893005,
+      "roughness": 0.5
+    },
+    {
+      "name": "frontier_steel_building_sawmill_frontier_01_c",
+      "color": [
+        0.6200000047683716,
+        0.6600000262260437,
+        0.6800000071525574,
+        1.0
+      ],
+      "textured": true,
+      "metallic": 0.9200000166893005,
+      "roughness": 0.5
+    }
+  ],
+  "vendor_imported": false,
+  "artistic_approval": "à examiner",
+  "render_engine": "Cycles",
+  "simulation_connected": false
+}

@@ -1,0 +1,10 @@
+{
+  "scene": "hautes_roches",
+  "plan_deterministe": true,
+  "contre_epreuve_deplacement": "refusée comme attendu",
+  "instances": 1882,
+  "triangles": 717499,
+  "textures_embarquees": 37,
+  "paysage_fbx_triangles": 67234,
+  "status": "valide"
+}

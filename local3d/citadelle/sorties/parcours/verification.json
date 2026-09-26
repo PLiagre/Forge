@@ -1,0 +1,31 @@
+{
+    "status": "valide",
+    "dispositions": [
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "status": "valide",
+            "chemins": 32,
+            "points": 712,
+            "terrains": 4,
+            "troncs_lisiere": 28,
+            "pas_physiques": 19830,
+            "distance_marchee_m": 2234.118896484375,
+            "graphe_connexe": true,
+            "contre_epreuve_obstacle": true,
+            "abattage": true
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "status": "valide",
+            "chemins": 32,
+            "points": 709,
+            "terrains": 4,
+            "troncs_lisiere": 37,
+            "pas_physiques": 20043,
+            "distance_marchee_m": 2258.006103515625,
+            "graphe_connexe": true,
+            "contre_epreuve_obstacle": true,
+            "abattage": true
+        }
+    ]
+}

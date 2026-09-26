@@ -1,0 +1,10 @@
+{
+    "status": "valide",
+    "mode_play": true,
+    "changement_disposition": true,
+    "flocons": 26280,
+    "particules_flammes": 208,
+    "images_animation": 192,
+    "pixels_changes_camera_fixe": 76295,
+    "variation_lumiere_torche": 0.35683250427246096
+}

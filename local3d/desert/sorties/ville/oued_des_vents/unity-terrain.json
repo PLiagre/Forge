@@ -1,0 +1,64 @@
+{
+    "status": "valide",
+    "implantation": "oued_des_vents",
+    "scene": "Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_Ville_oued_des_vents.unity",
+    "graine": 2851,
+    "points": 4960,
+    "points_marchables": 878,
+    "points_hors_tolerance": 0,
+    "ecart_rendu": {
+        "mediane": 0.0007168353120872162,
+        "p95": 0.012281466639627917,
+        "max": 0.10612256890125593
+    },
+    "ecart_physique": {
+        "mediane": 0.0007164366167438097,
+        "p95": 0.01227879635154198,
+        "max": 0.10612256890125593
+    },
+    "ecart_grille": {
+        "mediane": 0.0005983504390476568,
+        "p95": 0.01227828127023694,
+        "max": 0.10558018187532704
+    },
+    "ecart_marchable_max": 0.03197250366210902,
+    "tolerance_marchable": 0.05,
+    "quantification": 0.0016175303608179093,
+    "transport_hauteurs": 0.0008102655410766602,
+    "transport_couches": 0.00001895427703857422,
+    "transport_horizon": 0.0,
+    "raccord_echantillons": 8196,
+    "raccord_trous": 0,
+    "couverture": [
+        0.7031908316193993,
+        0.2821030097524102,
+        0.010913520196134563,
+        0.0037926506269712059
+    ],
+    "touffes": [
+        4346,
+        4427,
+        4428,
+        457,
+        321
+    ],
+    "touffes_sur_rue": 0,
+    "prototypes": 5,
+    "pack_terrain_sample": true,
+    "contre_epreuve_echantillon_vide": true,
+    "contre_epreuve_decalage_vertical": true,
+    "contre_epreuve_axes_permutes": true,
+    "contre_epreuve_couches_permutees": true,
+    "contre_epreuve_touffe_sur_rue": true,
+    "contre_epreuve_horizon_decale": true,
+    "captures": [
+        "ensemble.png",
+        "ensemble_soir.png",
+        "reg_et_touffes.png",
+        "oued.png",
+        "guelta.png",
+        "dunes.png",
+        "bourg.png"
+    ],
+    "defauts": []
+}
