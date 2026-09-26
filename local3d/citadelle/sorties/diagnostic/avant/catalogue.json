@@ -1,0 +1,860 @@
+{
+  "schema": 3,
+  "assets": [
+    {
+      "id": "maison_gothique_0",
+      "kind": "batiment",
+      "triangles": [
+        4585,
+        4393,
+        3805
+      ],
+      "bounds_min": [
+        -3.737487554550171,
+        -4.25,
+        0.0
+      ],
+      "bounds_max": [
+        3.737487554550171,
+        4.25,
+        11.359999656677246
+      ]
+    },
+    {
+      "id": "maison_gothique_1",
+      "kind": "batiment",
+      "triangles": [
+        4635,
+        4443,
+        3855
+      ],
+      "bounds_min": [
+        -3.9170572757720947,
+        -4.75,
+        0.0
+      ],
+      "bounds_max": [
+        3.9170572757720947,
+        4.75,
+        12.739999771118164
+      ]
+    },
+    {
+      "id": "maison_gothique_2",
+      "kind": "batiment",
+      "triangles": [
+        4783,
+        4579,
+        3991
+      ],
+      "bounds_min": [
+        -4.096653461456299,
+        -5.25,
+        0.0
+      ],
+      "bounds_max": [
+        4.096653461456299,
+        5.25,
+        14.119999885559082
+      ]
+    },
+    {
+      "id": "maison_gothique_3",
+      "kind": "batiment",
+      "triangles": [
+        4633,
+        4429,
+        3841
+      ],
+      "bounds_min": [
+        -4.276273727416992,
+        -4.25,
+        0.0
+      ],
+      "bounds_max": [
+        4.276273727416992,
+        4.25,
+        11.899999618530273
+      ]
+    },
+    {
+      "id": "maison_gothique_4",
+      "kind": "batiment",
+      "triangles": [
+        4733,
+        4517,
+        3929
+      ],
+      "bounds_min": [
+        -4.455915451049805,
+        -4.75,
+        0.0
+      ],
+      "bounds_max": [
+        4.455915451049805,
+        4.75,
+        13.279999732971191
+      ]
+    },
+    {
+      "id": "maison_gothique_5",
+      "kind": "batiment",
+      "triangles": [
+        4849,
+        4621,
+        4033
+      ],
+      "bounds_min": [
+        -4.635577201843262,
+        -5.25,
+        0.0
+      ],
+      "bounds_max": [
+        4.635577201843262,
+        5.25,
+        14.65999984741211
+      ]
+    },
+    {
+      "id": "tour_0",
+      "kind": "repere",
+      "triangles": [
+        3645,
+        3645,
+        3213
+      ],
+      "bounds_min": [
+        -4.97999906539917,
+        -4.97999906539917,
+        0.0
+      ],
+      "bounds_max": [
+        4.97999906539917,
+        4.97999906539917,
+        29.5
+      ]
+    },
+    {
+      "id": "tour_1",
+      "kind": "repere",
+      "triangles": [
+        3645,
+        3645,
+        3213
+      ],
+      "bounds_min": [
+        -4.97999906539917,
+        -4.97999906539917,
+        0.0
+      ],
+      "bounds_max": [
+        4.97999906539917,
+        4.97999906539917,
+        31.5
+      ]
+    },
+    {
+      "id": "tour_2",
+      "kind": "repere",
+      "triangles": [
+        3256,
+        3256,
+        2824
+      ],
+      "bounds_min": [
+        -4.135000228881836,
+        -4.135000228881836,
+        0.0
+      ],
+      "bounds_max": [
+        4.135000228881836,
+        4.135000228881836,
+        21.295000076293945
+      ]
+    },
+    {
+      "id": "rempart_10m",
+      "kind": "module",
+      "triangles": [
+        1816,
+        184,
+        184
+      ],
+      "bounds_min": [
+        -5.0,
+        -2.5250000953674316,
+        0.0
+      ],
+      "bounds_max": [
+        5.0,
+        1.5499999523162842,
+        13.5649995803833
+      ]
+    },
+    {
+      "id": "porte_ogive",
+      "kind": "module",
+      "triangles": [
+        2058,
+        786,
+        786
+      ],
+      "bounds_min": [
+        -5.849999904632568,
+        -2.7200002670288086,
+        0.0
+      ],
+      "bounds_max": [
+        5.849999904632568,
+        2.4000000953674316,
+        16.424999237060547
+      ]
+    },
+    {
+      "id": "pont_arche_14m",
+      "kind": "module",
+      "triangles": [
+        972,
+        972,
+        396
+      ],
+      "bounds_min": [
+        -4.0,
+        -7.050000190734863,
+        -20.0
+      ],
+      "bounds_max": [
+        4.0,
+        7.050000190734863,
+        2.234999895095825
+      ]
+    },
+    {
+      "id": "cathedrale_nef_12m",
+      "kind": "module",
+      "triangles": [
+        4036,
+        4036,
+        3844
+      ],
+      "bounds_min": [
+        -10.930000305175781,
+        -6.224999904632568,
+        0.0
+      ],
+      "bounds_max": [
+        10.930000305175781,
+        6.224999904632568,
+        38.2599983215332
+      ]
+    },
+    {
+      "id": "cathedrale_facade",
+      "kind": "module",
+      "triangles": [
+        19807,
+        10235,
+        8867
+      ],
+      "bounds_min": [
+        -10.630000114440918,
+        -2.379999876022339,
+        0.0
+      ],
+      "bounds_max": [
+        10.630000114440918,
+        1.2999999523162842,
+        45.0
+      ]
+    },
+    {
+      "id": "cathedrale_clocher",
+      "kind": "module",
+      "triangles": [
+        4581,
+        4581,
+        4149
+      ],
+      "bounds_min": [
+        -3.309999942779541,
+        -3.309999942779541,
+        0.0
+      ],
+      "bounds_max": [
+        3.309999942779541,
+        3.309999942779541,
+        60.0
+      ]
+    },
+    {
+      "id": "arc_boutant",
+      "kind": "module",
+      "triangles": [
+        383,
+        383,
+        383
+      ],
+      "bounds_min": [
+        -0.9299998879432678,
+        -0.9299998879432678,
+        0.0
+      ],
+      "bounds_max": [
+        5.7580037117004395,
+        0.9299998879432678,
+        29.0
+      ]
+    },
+    {
+      "id": "sapin_neige_0",
+      "kind": "arbre",
+      "triangles": [
+        1372,
+        364,
+        364
+      ],
+      "bounds_min": [
+        -2.9498448371887207,
+        -2.822418212890625,
+        0.0
+      ],
+      "bounds_max": [
+        3.05092191696167,
+        2.6629998683929443,
+        11.0
+      ]
+    },
+    {
+      "id": "sapin_neige_1",
+      "kind": "arbre",
+      "triangles": [
+        1372,
+        364,
+        364
+      ],
+      "bounds_min": [
+        -2.7081100940704346,
+        -3.1182150840759277,
+        0.0
+      ],
+      "bounds_max": [
+        3.071953773498535,
+        2.955512523651123,
+        13.0
+      ]
+    },
+    {
+      "id": "sapin_neige_2",
+      "kind": "arbre",
+      "triangles": [
+        1372,
+        364,
+        364
+      ],
+      "bounds_min": [
+        -3.2139601707458496,
+        -2.7584829330444336,
+        0.0
+      ],
+      "bounds_max": [
+        3.535527229309082,
+        3.0801894664764404,
+        15.0
+      ]
+    },
+    {
+      "id": "falaise_0",
+      "kind": "roche",
+      "triangles": [
+        162,
+        162,
+        162
+      ],
+      "bounds_min": [
+        -4.50868034362793,
+        -4.774178981781006,
+        -1.2561486959457397
+      ],
+      "bounds_max": [
+        6.452065467834473,
+        4.971134185791016,
+        20.935590744018555
+      ]
+    },
+    {
+      "id": "falaise_1",
+      "kind": "roche",
+      "triangles": [
+        162,
+        162,
+        162
+      ],
+      "bounds_min": [
+        -5.429956436157227,
+        -4.53848934173584,
+        -1.171269416809082
+      ],
+      "bounds_max": [
+        7.42426872253418,
+        4.7089009284973145,
+        20.57557487487793
+      ]
+    },
+    {
+      "id": "falaise_2",
+      "kind": "roche",
+      "triangles": [
+        162,
+        162,
+        162
+      ],
+      "bounds_min": [
+        -6.261240005493164,
+        -4.801346302032471,
+        -1.0362414121627808
+      ],
+      "bounds_max": [
+        6.507318019866943,
+        4.788311004638672,
+        21.28366470336914
+      ]
+    },
+    {
+      "id": "falaise_3",
+      "kind": "roche",
+      "triangles": [
+        162,
+        162,
+        162
+      ],
+      "bounds_min": [
+        -6.816880226135254,
+        -5.486985683441162,
+        -0.6122809648513794
+      ],
+      "bounds_max": [
+        4.748246669769287,
+        4.786277770996094,
+        21.11659049987793
+      ]
+    },
+    {
+      "id": "montagne_0",
+      "kind": "relief",
+      "triangles": [
+        16928,
+        16928,
+        16928
+      ],
+      "bounds_min": [
+        -110.0,
+        -100.0,
+        0.0
+      ],
+      "bounds_max": [
+        110.0,
+        100.0,
+        205.0
+      ]
+    },
+    {
+      "id": "montagne_1",
+      "kind": "relief",
+      "triangles": [
+        16928,
+        16928,
+        16928
+      ],
+      "bounds_min": [
+        -110.0,
+        -100.0,
+        0.0
+      ],
+      "bounds_max": [
+        110.0,
+        100.0,
+        206.20750427246094
+      ]
+    },
+    {
+      "id": "montagne_2",
+      "kind": "relief",
+      "triangles": [
+        16928,
+        16928,
+        16928
+      ],
+      "bounds_min": [
+        -110.0,
+        -100.0,
+        0.0
+      ],
+      "bounds_max": [
+        110.0,
+        100.0,
+        206.30484008789062
+      ]
+    },
+    {
+      "id": "torche",
+      "kind": "accessoire",
+      "triangles": [
+        136,
+        136,
+        136
+      ],
+      "bounds_min": [
+        -0.25,
+        -0.25,
+        0.0
+      ],
+      "bounds_max": [
+        0.25,
+        0.25,
+        3.5799999237060547
+      ]
+    },
+    {
+      "id": "banniere",
+      "kind": "accessoire",
+      "triangles": [
+        320,
+        320,
+        320
+      ],
+      "bounds_min": [
+        -0.09999966621398926,
+        -0.28999999165534973,
+        0.0
+      ],
+      "bounds_max": [
+        2.3999998569488525,
+        0.19616997241973877,
+        7.5
+      ]
+    },
+    {
+      "id": "garde",
+      "kind": "accessoire",
+      "triangles": [
+        306,
+        306,
+        306
+      ],
+      "bounds_min": [
+        -0.5999999642372131,
+        -0.5005893111228943,
+        0.0
+      ],
+      "bounds_max": [
+        0.8299999833106995,
+        0.6405892968177795,
+        3.700000047683716
+      ]
+    },
+    {
+      "id": "escalier",
+      "kind": "accessoire",
+      "triangles": [
+        264,
+        264,
+        264
+      ],
+      "bounds_min": [
+        -7.175000190734863,
+        -0.23999999463558197,
+        0.0
+      ],
+      "bounds_max": [
+        7.175000190734863,
+        9.295597076416016,
+        11.699999809265137
+      ]
+    },
+    {
+      "id": "paves",
+      "kind": "accessoire",
+      "triangles": [
+        864,
+        864,
+        864
+      ],
+      "bounds_min": [
+        -2.375,
+        -3.934999942779541,
+        -0.07000000029802322
+      ],
+      "bounds_max": [
+        2.625,
+        3.934999942779541,
+        0.07000000029802322
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "aiguilles_sombres",
+      "texture": "aiguilles_sombres",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "ardoise",
+      "texture": "ardoise",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "basalte",
+      "texture": "basalte",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "bois_noir",
+      "texture": "bois_noir",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "bois_vieux",
+      "texture": "bois_vieux",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "calcaire",
+      "texture": "calcaire",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "cuivre",
+      "texture": "cuivre",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "enduit",
+      "texture": "enduit",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "fer_noir",
+      "texture": "fer_noir",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "lumiere",
+      "texture": "lumiere",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "montagne_0",
+      "texture": "montagne_0",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "montagne_1",
+      "texture": "montagne_1",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "montagne_2",
+      "texture": "montagne_2",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "neige_givre",
+      "texture": "neige_givre",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "neige_ombre",
+      "texture": "neige_ombre",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "pierre_taille",
+      "texture": "pierre_taille",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "roche_claire",
+      "texture": "roche_claire",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "roche_noire",
+      "texture": "roche_noire",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "sol_pave",
+      "texture": "sol_pave",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "tissu_bordeaux",
+      "texture": "tissu_bordeaux",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "vitrail_ambre",
+      "texture": "vitrail_ambre",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    },
+    {
+      "name": "vitrail_bleu",
+      "texture": "vitrail_bleu",
+      "alpha": false,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.8500000238418579
+    }
+  ]
+}
