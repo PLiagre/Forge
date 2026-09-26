@@ -1,0 +1,571 @@
+{
+  "schema": 1,
+  "grille": 0.75,
+  "etage": 3,
+  "modules": [
+    {
+      "id": "habitat_socle_pierre",
+      "label": "Rez-de-chaussée · pierre",
+      "size": [
+        6,
+        6,
+        3
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_etage_enduit",
+      "label": "Étage · colombages crème",
+      "size": [
+        6,
+        6,
+        3
+      ],
+      "kind": "etage"
+    },
+    {
+      "id": "habitat_etage_brique",
+      "label": "Étage · colombages brique",
+      "size": [
+        6,
+        6,
+        3
+      ],
+      "kind": "etage"
+    },
+    {
+      "id": "habitat_etage_galerie",
+      "label": "Étage avec accès galerie · crème",
+      "size": [
+        6,
+        6,
+        3
+      ],
+      "kind": "etage"
+    },
+    {
+      "id": "habitat_etage_galerie_brique",
+      "label": "Étage avec accès galerie · brique",
+      "size": [
+        6,
+        6,
+        3
+      ],
+      "kind": "etage"
+    },
+    {
+      "id": "habitat_toit_ardoise",
+      "label": "Toit · ardoise bleue",
+      "size": [
+        6,
+        6,
+        4.2
+      ],
+      "kind": "toit"
+    },
+    {
+      "id": "habitat_toit_tuile",
+      "label": "Toit · tuile rouge",
+      "size": [
+        6,
+        6,
+        4.2
+      ],
+      "kind": "toit"
+    },
+    {
+      "id": "habitat_galerie",
+      "label": "Galerie sur poteaux",
+      "size": [
+        3,
+        1.5,
+        3
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_escalier",
+      "label": "Escalier extérieur",
+      "size": [
+        1.5,
+        3,
+        3
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_passerelle",
+      "label": "Passerelle avec garde-corps",
+      "size": [
+        3,
+        1.5,
+        0.18
+      ],
+      "kind": "pont"
+    },
+    {
+      "id": "habitat_cheminee",
+      "label": "Cheminée de brique",
+      "size": [
+        1.5,
+        1.5,
+        3
+      ],
+      "kind": "ornement"
+    },
+    {
+      "id": "habitat_lucarne",
+      "label": "Lucarne à pignon",
+      "size": [
+        1.5,
+        1.5,
+        1.8
+      ],
+      "kind": "ornement"
+    },
+    {
+      "id": "habitat_marche_fruits",
+      "label": "Marché · fruits, toile rouge",
+      "size": [
+        4.5,
+        3,
+        3.5
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_marche_legumes",
+      "label": "Marché · légumes, toile verte",
+      "size": [
+        4.5,
+        3,
+        3.5
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_marche_pain",
+      "label": "Marché · pains, toile bleue",
+      "size": [
+        4.5,
+        3,
+        3.5
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_marche_poterie",
+      "label": "Marché · poteries, toile safran",
+      "size": [
+        4.5,
+        3,
+        3.5
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_marche_paniers",
+      "label": "Marché · paniers de récolte",
+      "size": [
+        1.5,
+        1.5,
+        0.9
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_marche_tonneaux",
+      "label": "Marché · tonneaux et réserve",
+      "size": [
+        1.5,
+        1.5,
+        1.35
+      ],
+      "kind": "base"
+    },
+    {
+      "id": "habitat_marche_fanions",
+      "label": "Marché · guirlande sur poteaux",
+      "size": [
+        6,
+        1.5,
+        4.5
+      ],
+      "kind": "base"
+    }
+  ],
+  "maisons": [
+    {
+      "id": "maison_modulaire_0",
+      "pieces": [
+        {
+          "asset": "habitat_socle_pierre",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_enduit",
+          "position": [
+            0,
+            0,
+            3
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_toit_ardoise",
+          "position": [
+            0,
+            0,
+            6
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_cheminee",
+          "position": [
+            -1.5,
+            1.5,
+            7.5
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_lucarne",
+          "position": [
+            1.5,
+            0,
+            7.5
+          ],
+          "rotation": 90
+        }
+      ]
+    },
+    {
+      "id": "maison_modulaire_1",
+      "pieces": [
+        {
+          "asset": "habitat_socle_pierre",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_galerie",
+          "position": [
+            0,
+            0,
+            3
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_enduit",
+          "position": [
+            0,
+            0,
+            6
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_toit_ardoise",
+          "position": [
+            0,
+            0,
+            9
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_cheminee",
+          "position": [
+            -1.5,
+            1.5,
+            10.5
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_galerie",
+          "position": [
+            1.5,
+            -3.75,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_escalier",
+          "position": [
+            -1.5,
+            -3.75,
+            0
+          ],
+          "rotation": -90
+        }
+      ]
+    },
+    {
+      "id": "maison_modulaire_2",
+      "pieces": [
+        {
+          "asset": "habitat_socle_pierre",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_galerie_brique",
+          "position": [
+            0,
+            0,
+            3
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_toit_tuile",
+          "position": [
+            0,
+            0,
+            6
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_cheminee",
+          "position": [
+            -1.5,
+            1.5,
+            7.5
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_lucarne",
+          "position": [
+            1.5,
+            0,
+            7.5
+          ],
+          "rotation": 90
+        },
+        {
+          "asset": "habitat_galerie",
+          "position": [
+            1.5,
+            -3.75,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_escalier",
+          "position": [
+            -1.5,
+            -3.75,
+            0
+          ],
+          "rotation": -90
+        }
+      ]
+    },
+    {
+      "id": "maison_modulaire_3",
+      "pieces": [
+        {
+          "asset": "habitat_socle_pierre",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_brique",
+          "position": [
+            0,
+            0,
+            3
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_enduit",
+          "position": [
+            0,
+            0,
+            6
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_toit_ardoise",
+          "position": [
+            0,
+            0,
+            9
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_cheminee",
+          "position": [
+            -1.5,
+            1.5,
+            10.5
+          ],
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "maison_modulaire_4",
+      "pieces": [
+        {
+          "asset": "habitat_socle_pierre",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_galerie",
+          "position": [
+            0,
+            0,
+            3
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_toit_tuile",
+          "position": [
+            0,
+            0,
+            6
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_cheminee",
+          "position": [
+            -1.5,
+            1.5,
+            7.5
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_lucarne",
+          "position": [
+            1.5,
+            0,
+            7.5
+          ],
+          "rotation": 90
+        },
+        {
+          "asset": "habitat_galerie",
+          "position": [
+            1.5,
+            -3.75,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_escalier",
+          "position": [
+            -1.5,
+            -3.75,
+            0
+          ],
+          "rotation": -90
+        }
+      ]
+    },
+    {
+      "id": "maison_modulaire_5",
+      "pieces": [
+        {
+          "asset": "habitat_socle_pierre",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_galerie",
+          "position": [
+            0,
+            0,
+            3
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_etage_enduit",
+          "position": [
+            0,
+            0,
+            6
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_toit_ardoise",
+          "position": [
+            0,
+            0,
+            9
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_cheminee",
+          "position": [
+            -1.5,
+            1.5,
+            10.5
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_galerie",
+          "position": [
+            1.5,
+            -3.75,
+            0
+          ],
+          "rotation": 0
+        },
+        {
+          "asset": "habitat_escalier",
+          "position": [
+            -1.5,
+            -3.75,
+            0
+          ],
+          "rotation": -90
+        }
+      ]
+    }
+  ]
+}
