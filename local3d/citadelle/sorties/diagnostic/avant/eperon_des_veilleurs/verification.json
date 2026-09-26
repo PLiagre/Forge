@@ -1,0 +1,9 @@
+{
+  "status": "valide",
+  "instances": 1808,
+  "triangles": 2701880,
+  "textures_embarquees": 41,
+  "bannieres_animees": 9,
+  "porte_traversante": true,
+  "contre_epreuve_placement": true
+}

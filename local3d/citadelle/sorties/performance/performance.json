@@ -1,0 +1,189 @@
+{
+    "gpu": "NVIDIA GeForce RTX 3070 Ti",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13700K",
+    "date_utc": "2026-09-20T14:11:27.8113384Z",
+    "largeur": 1920,
+    "hauteur": 1080,
+    "echelle_rendu": 0.8999999761581421,
+    "protocole": "Joueur Windows, cadence libre, 3 s de chauffe puis 6 s par vue, caméra mobile. Huit vues par scène, avec huit maisons construites par le joueur. Neige sur les vues Foret et Passage.",
+    "mesures": [
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Citadelle",
+            "frames": 2129,
+            "mediane_ms": 2.8154000000011338,
+            "p95_ms": 2.923299999999962,
+            "p99_ms": 3.0773000000001717,
+            "fps_moyen": 354.6180329049548,
+            "memoire_unity_mo": 177,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Vallee",
+            "frames": 1855,
+            "mediane_ms": 3.2348000000013146,
+            "p95_ms": 3.3039999999999738,
+            "p99_ms": 3.4130999999995028,
+            "fps_moyen": 308.9733986562502,
+            "memoire_unity_mo": 178,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Foret",
+            "frames": 1733,
+            "mediane_ms": 3.456899999999763,
+            "p95_ms": 3.520300000001697,
+            "p99_ms": 3.7306999999984216,
+            "fps_moyen": 288.7151958870968,
+            "memoire_unity_mo": 179,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Passage",
+            "frames": 2432,
+            "mediane_ms": 2.447499999995273,
+            "p95_ms": 2.661799999998493,
+            "p99_ms": 2.831700000001547,
+            "fps_moyen": 405.09166914657649,
+            "memoire_unity_mo": 179,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Ilots",
+            "frames": 1976,
+            "mediane_ms": 3.0342999999959376,
+            "p95_ms": 3.0878000000029717,
+            "p99_ms": 3.1536999999985939,
+            "fps_moyen": 329.1354516142322,
+            "memoire_unity_mo": 179,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Forge",
+            "frames": 2349,
+            "mediane_ms": 2.5444999999990616,
+            "p95_ms": 2.65139999999775,
+            "p99_ms": 2.731400000001827,
+            "fps_moyen": 391.375849057748,
+            "memoire_unity_mo": 179,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Habitat",
+            "frames": 2170,
+            "mediane_ms": 2.7595000000033567,
+            "p95_ms": 2.839100000002759,
+            "p99_ms": 3.0479999999997178,
+            "fps_moyen": 361.5370737025975,
+            "memoire_unity_mo": 180,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_col_des_cendres",
+            "vue": "Chantier",
+            "frames": 4608,
+            "mediane_ms": 1.2370999999973265,
+            "p95_ms": 1.756099999994376,
+            "p99_ms": 2.0319000000057487,
+            "fps_moyen": 767.8650733088707,
+            "memoire_unity_mo": 180,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Citadelle",
+            "frames": 2171,
+            "mediane_ms": 2.7641000000073747,
+            "p95_ms": 2.8223999999994477,
+            "p99_ms": 3.0335999999948628,
+            "fps_moyen": 361.6763898918793,
+            "memoire_unity_mo": 184,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Vallee",
+            "frames": 1908,
+            "mediane_ms": 3.144000000006031,
+            "p95_ms": 3.2127000000059526,
+            "p99_ms": 3.4869999999926906,
+            "fps_moyen": 317.77969393085388,
+            "memoire_unity_mo": 184,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Foret",
+            "frames": 1749,
+            "mediane_ms": 3.226900000001365,
+            "p95_ms": 3.762699999995789,
+            "p99_ms": 3.9553999999952795,
+            "fps_moyen": 291.46440248097738,
+            "memoire_unity_mo": 184,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Passage",
+            "frames": 2380,
+            "mediane_ms": 2.4450999999885427,
+            "p95_ms": 2.9849999999953527,
+            "p99_ms": 3.456399999990367,
+            "fps_moyen": 396.4562937419984,
+            "memoire_unity_mo": 185,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Ilots",
+            "frames": 2030,
+            "mediane_ms": 2.9430999999959797,
+            "p95_ms": 3.0319000000105236,
+            "p99_ms": 3.332500000013283,
+            "fps_moyen": 338.1297454136196,
+            "memoire_unity_mo": 184,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Forge",
+            "frames": 2358,
+            "mediane_ms": 2.5299000000131857,
+            "p95_ms": 2.650299999999106,
+            "p99_ms": 2.927900000003092,
+            "fps_moyen": 392.79674732309845,
+            "memoire_unity_mo": 184,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Habitat",
+            "frames": 2089,
+            "mediane_ms": 2.8579000000092948,
+            "p95_ms": 2.9775999999799298,
+            "p99_ms": 3.2683999999960635,
+            "fps_moyen": 348.00777211804935,
+            "memoire_unity_mo": 184,
+            "pieces_construites": 48
+        },
+        {
+            "scene": "Forge_Citadelle_eperon_des_veilleurs",
+            "vue": "Chantier",
+            "frames": 5009,
+            "mediane_ms": 1.1639999999886186,
+            "p95_ms": 1.393000000007305,
+            "p99_ms": 1.7497000000048502,
+            "fps_moyen": 834.5982826370034,
+            "memoire_unity_mo": 185,
+            "pieces_construites": 48
+        }
+    ],
+    "objectif_60": true,
+    "images_non_vides": true
+}

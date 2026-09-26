@@ -6,7 +6,40 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/CityLabHost/Scenes/CityLab.unity
-    guid: 452a0ccd895b6e244a4a1999b7b138bd
+    path: Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_ksar_des_sept_puits.unity
+    guid: 00000000000000000000000000000000
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_oued_des_vents.unity
+    guid: 00000000000000000000000000000000
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Citadelle/Scenes/Forge_Citadelle_eperon_des_veilleurs.unity
+    guid: e1a163617e9a8484086e2840f98a3970
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Citadelle/Scenes/Forge_Citadelle_col_des_cendres.unity
+    guid: 76f5449ab5c77bf4d87f8df35b1bad3d
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Alpin/Scenes/Forge_Alpin_combe_du_moulin.unity
+    guid: 868e89c1de74ba942a9aaf440e6cf0a6
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Alpin/Scenes/Forge_Alpin_rive_des_melezes.unity
+    guid: 880ff444c4b16914a98de92bf101aa8f
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Alpin/Scenes/Forge_Alpin_val_des_roches.unity
+    guid: 103ccd398d754224a99ef1b89819ddb0
+  - enabled: 1
+    path: Assets/ForgeLocal3D/V2/Scenes/Forge_V2_val_aulne.unity
+    guid: c2c54e7e780767f4ebe92d72d90a0425
+  - enabled: 1
+    path: Assets/ForgeLocal3D/V2/Scenes/Forge_V2_hautes_roches.unity
+    guid: d1ec0f82c14bf074eb1fa88320dcc078
+  - enabled: 1
+    path: Assets/ForgeLocal3D/V2/Scenes/Forge_V2_port_cypres.unity
+    guid: 47948eefdf85cb74f9dd704b80cd3d71
+  - enabled: 1
+    path: Assets/ForgeLocal3D/V2/Scenes/Forge_V2_oasis_ocres.unity
+    guid: 763341c36129fa74abef543fae476e33
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Scenes/Forge_Village_V1.unity
+    guid: 1ee157232545467449aebd2e0561267e
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

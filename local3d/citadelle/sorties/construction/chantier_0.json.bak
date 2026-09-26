@@ -1,0 +1,76 @@
+{
+    "schema": 1,
+    "scene": "Forge_Citadelle_col_des_cendres",
+    "pieces": [
+        {
+            "module": "habitat_socle_pierre",
+            "plot": 0,
+            "turn": 0,
+            "anchor": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "module": "habitat_etage_galerie",
+            "plot": 0,
+            "turn": 0,
+            "anchor": {
+                "x": 0.0,
+                "y": 3.0,
+                "z": 0.0
+            }
+        },
+        {
+            "module": "habitat_etage_enduit",
+            "plot": 0,
+            "turn": 0,
+            "anchor": {
+                "x": 0.0,
+                "y": 6.0,
+                "z": 0.0
+            }
+        },
+        {
+            "module": "habitat_toit_ardoise",
+            "plot": 0,
+            "turn": 0,
+            "anchor": {
+                "x": 0.0,
+                "y": 9.0,
+                "z": 0.0
+            }
+        },
+        {
+            "module": "habitat_cheminee",
+            "plot": 0,
+            "turn": 0,
+            "anchor": {
+                "x": 1.5,
+                "y": 10.5,
+                "z": -1.5
+            }
+        },
+        {
+            "module": "habitat_galerie",
+            "plot": 0,
+            "turn": 0,
+            "anchor": {
+                "x": -1.5,
+                "y": 0.0,
+                "z": 3.75
+            }
+        },
+        {
+            "module": "habitat_escalier",
+            "plot": 0,
+            "turn": 1,
+            "anchor": {
+                "x": 1.5,
+                "y": 0.0,
+                "z": 3.75
+            }
+        }
+    ]
+}

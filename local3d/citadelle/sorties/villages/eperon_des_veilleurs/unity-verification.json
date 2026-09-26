@@ -1,0 +1,16 @@
+{
+    "scene": "Assets/ForgeLocal3D/Citadelle/Scenes/Forge_Citadelle_eperon_des_veilleurs.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 1782,
+    "prefab_count": 51,
+    "lod_groups": 1782,
+    "missing_materials": 0,
+    "static_triangles": 217514,
+    "maisons_independantes": 39,
+    "batiments_tiers": 2,
+    "accessoires_tiers": 36,
+    "arbres_morts": 36,
+    "rochers": 422,
+    "max_position_error_m": 0.0
+}
