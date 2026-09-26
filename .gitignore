@@ -23,8 +23,54 @@ unity/UserSettings/
 unity/*.csproj
 unity/*.sln
 
+# Packs de l'Asset Store : leur licence interdit de les republier, et ce dépôt
+# est public. Chaque pack importé se range sous Assets/Vendor/.
+unity/Assets/Vendor/
+unity/Assets/Vendor.meta
+# Emplacement d'import initial du Terrain Sample Project, avant rangement dans Vendor.
+unity/Assets/TerrainDemoScene_HDRP/
+unity/Assets/TerrainDemoScene_HDRP.meta
+
 # Fabrique : sorties de publication
 fabrique_donnees/Reports/*.tmp
+
+# Atelier 3D local : journaux et sauvegardes automatiques
+local3d/*.log
+local3d/v2/logs/
+local3d/v2/cache/
+local3d/alpin/sorties/cache/
+local3d/alpin/sorties/logs/
+local3d/alpin/sorties/visite/frames/
+local3d/citadelle/*.log
+local3d/citadelle/sorties/cache/
+local3d/citadelle/sorties/logs/
+local3d/citadelle/sorties/visite/frames/
+*.blend1
+*.blend2
+# Ville du désert : grilles binaires (≈ 27 Mo par implantation), refaites par
+# py local3d/atelier_desert.py terrain à partir de paysage.py.
+local3d/desert/sorties/ville/*/*.f32
+local3d/desert/sorties/ville/*/*.u8
+
+# Atelier 3D : ce qui ne se publie pas.
+# Un joueur autonome embarque les packs de l'Asset Store : leur licence interdit
+# de le republier, et ce dépôt est public.
+local3d/*/sorties/joueur/
+# Caches, journaux et images de vidéo : refaits à chaque commande.
+local3d/*/sorties/cache/
+local3d/*/sorties/logs/
+local3d/*/sorties/visite/frames/
+local3d/*/logs/
+local3d/*/cache/
+# Scènes .blend et textures procédurales en sortie : refaites par `fabriquer`
+# (plusieurs centaines de Mo). Les retouches manuelles vivent dans sources/,
+# qui reste versionné, comme les états de référence de sorties/diagnostic/.
+local3d/*/sorties/villages/*/*.blend
+local3d/*/sorties/textures/
+local3d/v2/villages/*/*.blend
+# Images de diagnostic avant/après de la citadelle (≈ 665 Mo) : archive
+# « diagnostic-citadelle.zip » de la Release v0, à décompresser à la racine.
+local3d/citadelle/sorties/diagnostic/**/*.png
 
 # L'atelier : état local de la machine qui fait tourner la chaîne — les
 # cartes de la boîte, les verrous de fichiers, le canal d'échange. Rien

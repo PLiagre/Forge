@@ -1,0 +1,10 @@
+{
+  "scene": "port_cypres",
+  "plan_deterministe": true,
+  "contre_epreuve_deplacement": "refusée comme attendu",
+  "instances": 1658,
+  "triangles": 483118,
+  "textures_embarquees": 39,
+  "paysage_fbx_triangles": 68364,
+  "status": "valide"
+}

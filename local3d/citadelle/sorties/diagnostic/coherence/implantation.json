@@ -1,0 +1,14 @@
+{
+  "col_des_cendres": {
+    "arbres": 1600,
+    "distance_voisin_mediane_m": 4.058811525110126,
+    "distance_voisin_p95_m": 6.812968677314483,
+    "piton_secondaire_instances": 0
+  },
+  "eperon_des_veilleurs": {
+    "arbres": 1600,
+    "distance_voisin_mediane_m": 4.1252690770773075,
+    "distance_voisin_p95_m": 6.725637235358022,
+    "piton_secondaire_instances": 0
+  }
+}

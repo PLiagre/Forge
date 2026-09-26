@@ -1,0 +1,10 @@
+{
+    "status": "valide",
+    "mode_play": true,
+    "changement_disposition": true,
+    "grains_de_sable": 20024,
+    "particules_flammes": 153,
+    "images_animation": 192,
+    "pixels_changes_camera_fixe": 2654,
+    "variation_lumiere_lanterne": 0.7972251772880554
+}
