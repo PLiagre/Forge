@@ -1,0 +1,251 @@
+{
+ "implantation": "oued_des_vents",
+ "graine": 2851,
+ "routes": [
+  {
+   "id": "ancienne_descente_oasis",
+   "famille": "ancienne",
+   "decision": "pente",
+   "reference": "pente",
+   "ambigu": false,
+   "ecart_points": 0.003223220199866593
+  },
+  {
+   "id": "ancienne_rue_basse",
+   "famille": "ancienne",
+   "decision": "pente",
+   "reference": "pente",
+   "ambigu": false,
+   "ecart_points": 0.0016038578952524457
+  },
+  {
+   "id": "ancienne_traverse_bourg",
+   "famille": "ancienne",
+   "decision": "acceptee",
+   "reference": "acceptee",
+   "ambigu": false,
+   "ecart_points": 0.0,
+   "axe": {
+    "echantillons": 57,
+    "juges": 46,
+    "mediane": 0.00043052718752933927,
+    "p95": 0.0007044190452212273,
+    "max": 0.0008307411557151312,
+    "pente_max": 0.02264404296875
+   },
+   "marche": {
+    "faite": true,
+    "distance_fin": 0.11199951171875,
+    "pas_max": 0.11200714111328125,
+    "pas_permis": 0.1119999960064888,
+    "pas": 249
+   }
+  },
+  {
+   "id": "ancienne_place_souk",
+   "famille": "ancienne",
+   "decision": "pente",
+   "reference": "pente",
+   "ambigu": false,
+   "ecart_points": 0.0
+  },
+  {
+   "id": "ancienne_entree_souk",
+   "famille": "ancienne",
+   "decision": "acceptee",
+   "reference": "acceptee",
+   "ambigu": false,
+   "ecart_points": 0.0,
+   "axe": {
+    "echantillons": 22,
+    "juges": 17,
+    "mediane": 0.0004580495070340973,
+    "p95": 0.000827108889210315,
+    "max": 0.0009691813635450686,
+    "pente_max": 0.00970458984375
+   },
+   "marche": {
+    "faite": true,
+    "distance_fin": 0.0839996337890625,
+    "pas_max": 0.11200332641601562,
+    "pas_permis": 0.1119999960064888,
+    "pas": 93
+   }
+  },
+  {
+   "id": "ancienne_lisiere_palmeraie",
+   "famille": "ancienne",
+   "decision": "acceptee",
+   "reference": "acceptee",
+   "ambigu": false,
+   "ecart_points": 0.001611293932523042,
+   "axe": {
+    "echantillons": 309,
+    "juges": 291,
+    "mediane": 0.0002456723440271702,
+    "p95": 0.000629600120727325,
+    "max": 0.0009107454436074747,
+    "pente_max": 0.11214850391163726
+   },
+   "marche": {
+    "faite": true,
+    "distance_fin": 0.1107548177242279,
+    "pas_max": 0.11201159656047821,
+    "pas_permis": 0.1119999960064888,
+    "pas": 1375
+   }
+  },
+  {
+   "id": "ancienne_acces_jardin_1",
+   "famille": "ancienne",
+   "decision": "pente",
+   "reference": "pente",
+   "ambigu": false,
+   "ecart_points": 0.0007177544380137154
+  },
+  {
+   "id": "ancienne_acces_jardin_2",
+   "famille": "ancienne",
+   "decision": "pente",
+   "reference": "pente",
+   "ambigu": false,
+   "ecart_points": 0.0005551648823818638
+  },
+  {
+   "id": "ancienne_acces_jardin_3",
+   "famille": "ancienne",
+   "decision": "pente",
+   "reference": "pente",
+   "ambigu": false,
+   "ecart_points": 0.0004376925655644862
+  },
+  {
+   "id": "ancienne_acces_jardin_4",
+   "famille": "ancienne",
+   "decision": "acceptee",
+   "reference": "acceptee",
+   "ambigu": false,
+   "ecart_points": 0.0039133273195114445,
+   "axe": {
+    "echantillons": 56,
+    "juges": 51,
+    "mediane": 0.00029686990011601466,
+    "p95": 0.0006606223333438521,
+    "max": 0.003694235010224034,
+    "pente_max": 0.02552131706969615
+   },
+   "marche": {
+    "faite": true,
+    "distance_fin": 0.09327077865600586,
+    "pas_max": 0.11200942099094391,
+    "pas_permis": 0.1119999960064888,
+    "pas": 243
+   }
+  },
+  {
+   "id": "plaine_neuve",
+   "famille": "plaine",
+   "decision": "acceptee",
+   "reference": "acceptee",
+   "ambigu": false,
+   "ecart_points": 5.0199774104861224e-05,
+   "axe": {
+    "echantillons": 201,
+    "juges": 199,
+    "mediane": 0.00027922351700571113,
+    "p95": 0.0007263528651279438,
+    "max": 0.003838930130029894,
+    "pente_max": 0.07141169658636666
+   },
+   "marche": {
+    "faite": true,
+    "distance_fin": 0.10320508480072021,
+    "pas_max": 0.1120062917470932,
+    "pas_permis": 0.1119999960064888,
+    "pas": 892
+   }
+  },
+  {
+   "id": "flanc_de_dune",
+   "famille": "flanc",
+   "decision": "acceptee",
+   "reference": "acceptee",
+   "ambigu": false,
+   "ecart_points": 0.00026389146643792733,
+   "axe": {
+    "echantillons": 121,
+    "juges": 119,
+    "mediane": 0.0002560218947280646,
+    "p95": 0.0006225819406894928,
+    "max": 0.0010674869643318985,
+    "pente_max": 0.012356479337568073
+   },
+   "marche": {
+    "faite": true,
+    "distance_fin": 0.13171324133872986,
+    "pas_max": 0.11202408373355865,
+    "pas_permis": 0.1119999960064888,
+    "pas": 533
+   }
+  },
+  {
+   "id": "trop_raide_en_long",
+   "famille": "raide_long",
+   "decision": "pente",
+   "reference": "pente",
+   "ambigu": false,
+   "ecart_points": 0.010870189194775955
+  },
+  {
+   "id": "trop_raide_en_travers",
+   "famille": "raide_travers",
+   "decision": "talus",
+   "reference": "talus",
+   "ambigu": false,
+   "ecart_points": 1.790063260832309e-05
+  }
+ ],
+ "grille": {
+  "coupes": 26,
+  "talus_max": 0.5014862444569665,
+  "sommets_hors_emprise": 0,
+  "ecart_reference_max": 0.0014676568182014904,
+  "sommets_emprise": 64448
+ },
+ "sol": {
+  "pixels_axe": 746,
+  "pixels_domines": 746,
+  "touffes_sur_route": 0
+ },
+ "clic_ecart_max": 0.0,
+ "contre_epreuves": {
+  "gestes_vides": true,
+  "famille_retiree": true,
+  "profil_releve": true,
+  "sommet_hors_emprise": true,
+  "pente_40": true,
+  "couches_echangees": true,
+  "touffe_sur_route": true,
+  "mur": true
+ },
+ "captures": [
+  {
+   "nom": "plaine",
+   "ecart": 96.91916666666667
+  },
+  {
+   "nom": "bord",
+   "ecart": 143.1013888888889
+  },
+  {
+   "nom": "flanc_de_dune",
+   "ecart": 167.07236666666665
+  },
+  {
+   "nom": "refus",
+   "ecart": 168.57072222222223
+  }
+ ],
+ "defauts": [],
+ "status": "valide"
+}

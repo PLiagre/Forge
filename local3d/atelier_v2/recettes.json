@@ -1,0 +1,19 @@
+{
+  "schema": 2,
+  "fidelite": "2 — paysages et architectures plausibles, générés pour la revue graphique",
+  "extent_m": 260,
+  "terrain_cells": 208,
+  "budget_triangles": 2200000,
+  "variants": [
+    {"id":"val_aulne","label":"Val d’Aulne","biome":"tempere","style":"colombage","seed":140031,"buildings":34,"trees":190,"groundcover":1000,"rocks":100,"mountain_height":22,"water":"riviere","water_width":7.5,"foliage":["chene","bouleau","sapin"],"ground":[0.24,0.32,0.115],"rock":[0.40,0.43,0.34],"sun":[1.0,0.88,0.70],"subtitle":"Colombages, vergers et rivière"},
+    {"id":"hautes_roches","label":"Hautes-Roches","biome":"alpin","style":"chalet","seed":140087,"buildings":30,"trees":175,"groundcover":800,"rocks":190,"mountain_height":62,"water":"torrent","water_width":4.5,"foliage":["sapin","meleze"],"ground":[0.23,0.29,0.15],"rock":[0.44,0.45,0.44],"sun":[1.0,0.93,0.82],"subtitle":"Chalets, mélèzes et relief alpin"},
+    {"id":"port_cypres","label":"Port-des-Cyprès","biome":"mediterraneen","style":"pierre","seed":140053,"buildings":34,"trees":140,"groundcover":650,"rocks":120,"mountain_height":25,"water":"fleuve","water_width":18.0,"foliage":["olivier","cypres"],"ground":[0.39,0.39,0.20],"rock":[0.57,0.53,0.39],"sun":[1.0,0.91,0.75],"subtitle":"Pierre claire, tuiles et grand fleuve"},
+    {"id":"oasis_ocres","label":"Oasis des Ocres","biome":"aride","style":"terre","seed":140109,"buildings":30,"trees":110,"groundcover":650,"rocks":180,"mountain_height":38,"water":"oasis","water_width":15.0,"foliage":["palmier"],"ground":[0.66,0.47,0.25],"rock":[0.55,0.31,0.16],"sun":[1.0,0.84,0.61],"subtitle":"Terre crue, palmeraie et falaises d’ocre"}
+  ],
+  "styles": {
+    "colombage":{"wall":[0.77,0.70,0.52],"roof":[0.27,0.32,0.33],"timber":[0.24,0.13,0.065],"stone":[0.47,0.45,0.37],"pitch":46,"floor_height":2.7,"overhang":0.55},
+    "chalet":{"wall":[0.42,0.24,0.10],"roof":[0.28,0.31,0.34],"timber":[0.31,0.17,0.07],"stone":[0.47,0.46,0.40],"pitch":34,"floor_height":2.7,"overhang":1.15},
+    "pierre":{"wall":[0.77,0.69,0.48],"roof":[0.65,0.28,0.12],"timber":[0.30,0.20,0.09],"stone":[0.71,0.64,0.47],"pitch":27,"floor_height":2.8,"overhang":0.4},
+    "terre":{"wall":[0.72,0.45,0.23],"roof":[0.69,0.43,0.24],"timber":[0.28,0.16,0.06],"stone":[0.59,0.38,0.22],"pitch":0,"floor_height":2.6,"overhang":0.18}
+  }
+}

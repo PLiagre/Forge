@@ -1,0 +1,16 @@
+{
+    "scene": "Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_ksar_des_sept_puits.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 1477,
+    "prefab_count": 49,
+    "lod_groups": 1477,
+    "missing_materials": 0,
+    "static_triangles": 220182,
+    "maisons_independantes": 39,
+    "batiments_tiers": -1,
+    "accessoires_tiers": 30,
+    "arbres_morts": 40,
+    "rochers": -1,
+    "max_position_error_m": 0.0
+}
