@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Objet_Grass_Dry
+  m_Shader: {fileID: 4800000, guid: 87fca48547267b14eb293efc47cfb3bd, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 2450
+  stringTagMap:
+    RenderType: TransparentCutout
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 2219c27af867fbf4f9dfdf66ee6ffd8e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: 17cc5677d5a413843b9003e53261c859, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MaskMap:
+        m_Texture: {fileID: 2800000, guid: d3cf4500414007c4c895584cfcf1fbc3, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetallicGlossMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AlphaClip: 1
+    - _Banner: 0
+    - _BumpScale: 0.55
+    - _Cull: 0
+    - _Cutoff: 0.38
+    - _Foliage: 0
+    - _HasGlossMap: 0
+    - _HasMaskMap: 1
+    - _Metallic: 0
+    - _Smoothness: 0.32
+    - _SnowBase: 0.65
+    - _SnowFactor: 0.22
+    - _SpeedTreeMask: 0
+    - _UseAtlas: 0
+    - _Weathering: 0.06
+    - _Wind: 0.18
+    - _WindHeight: 1
+    m_Colors:
+    - _AtlasRect: {r: 0, g: 0, b: 1, a: 1}
+    - _BaseColor: {r: 0.7, g: 0.68, b: 0.61, a: 1}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

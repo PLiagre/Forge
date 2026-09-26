@@ -1,0 +1,9 @@
+{
+  "status": "valide",
+  "instances": 2230,
+  "triangles": 1401068,
+  "textures_embarquees": 50,
+  "animation_roue": "mesurée à deux instants",
+  "graine_deterministe": true,
+  "contre_epreuve": "déplacement refusé"
+}

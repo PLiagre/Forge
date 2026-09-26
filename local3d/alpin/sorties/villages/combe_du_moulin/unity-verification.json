@@ -1,0 +1,11 @@
+{
+    "scene": "Assets/ForgeLocal3D/Alpin/Scenes/Forge_Alpin_combe_du_moulin.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 2237,
+    "prefab_count": 67,
+    "lod_groups": 2237,
+    "missing_materials": 0,
+    "static_triangles": 74338,
+    "max_position_error_m": 0.0
+}

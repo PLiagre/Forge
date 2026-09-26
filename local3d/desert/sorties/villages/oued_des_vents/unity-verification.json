@@ -1,0 +1,16 @@
+{
+    "scene": "Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_oued_des_vents.unity",
+    "unity": "6000.0.43f1",
+    "status": "valide",
+    "instances": 1478,
+    "prefab_count": 49,
+    "lod_groups": 1478,
+    "missing_materials": 0,
+    "static_triangles": 220254,
+    "maisons_independantes": 40,
+    "batiments_tiers": -1,
+    "accessoires_tiers": 30,
+    "arbres_morts": 40,
+    "rochers": -1,
+    "max_position_error_m": 0.0
+}
