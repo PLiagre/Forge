@@ -123,6 +123,9 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 
 <!-- lots:debut -->
 
+### [257 — Les signaux d'hygiène se calculent](briefs/257-les-signaux-d-hygiene-se-calculent.md)
+état : a-briefer · couche : — · dépend de : 256 · PR : —
+
 ### [262 — Une PR de fiche en conflit est réécrite sur master](briefs/262-une-pr-de-fiche-en-conflit-est-reecrite-sur.md)
 état : a-briefer · couche : — · dépend de : 256 · PR : —
 
