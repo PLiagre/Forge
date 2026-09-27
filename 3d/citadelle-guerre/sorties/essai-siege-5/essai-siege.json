@@ -1,0 +1,42 @@
+{
+    "statut": "echec",
+    "date_utc": "2026-09-25T17:29:11.3536993Z",
+    "sans_chocs": false,
+    "fermee_avant": true,
+    "breche_ouverte": true,
+    "route_par_la_breche": true,
+    "arrive": false,
+    "breche_apres_s": 2679.273681640625,
+    "marche_s": 1500.025146484375,
+    "a_sa_place": 0.9559999704360962,
+    "distance_route_breche_m": 1.98240327835083,
+    "tirs": 204,
+    "pierres": 1742,
+    "pierres_delogees_ou_tombees": 496,
+    "pierres_a_terre": 496,
+    "pierres_au_mur": 1246,
+    "files_en_colonne": 3,
+    "dans_un_mur_max": 2,
+    "longueur_route_m": 198.11602783203126,
+    "motifs": [
+        "le régiment n'est pas arrivé sur la place en 1500 s",
+        "jusqu'à 2 hommes dans une pierre en place ou l'emprise d'un mur"
+    ],
+    "dans_un_mur_cas": [
+        "t 608 s, homme 2 à (x 1,17 ; s 0,60), pieds 65,14, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,55 ; 0,10), case du centre 0)",
+        "t 609 s, homme 2 à (x 1,13 ; s 0,69), pieds 65,10, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,50 ; 0,01), case du centre 0)",
+        "t 609 s, homme 2 à (x 1,09 ; s 0,78), pieds 65,06, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,46 ; -0,08), case du centre 0)",
+        "t 610 s, homme 2 à (x 1,05 ; s 0,87), pieds 65,02, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,42 ; -0,17), case du centre 0)",
+        "t 610 s, homme 2 à (x 1,00 ; s 0,96), pieds 64,98, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,38 ; -0,26), case du centre 0)",
+        "t 613 s, homme 5 à (x 1,16 ; s 0,54), pieds 65,17, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,54 ; 0,16), case du centre 0)",
+        "t 613 s, homme 5 à (x 1,12 ; s 0,62), pieds 65,14, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,50 ; 0,08), case du centre 0)",
+        "t 614 s, homme 5 à (x 1,08 ; s 0,71), pieds 65,10, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,46 ; -0,01), case du centre 0)",
+        "t 614 s, homme 5 à (x 1,04 ; s 0,79), pieds 65,07, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,42 ; -0,09), case du centre 0)",
+        "t 615 s, homme 5 à (x 1,00 ; s 0,87), pieds 65,03, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,38 ; -0,17), case du centre 0)",
+        "t 616 s, homme 5 à (x 0,97 ; s 0,96), pieds 64,99, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,34 ; -0,26), case du centre 0)",
+        "t 617 s, homme 8 à (x 1,12 ; s 0,36), pieds 65,29, case 0 : dans la pierre 1029 (pan 1, épaisseur 2, assise 5, 1,12 × 0,68 m, bas -0,18 et haut 0,41 au-dessus du sol sous son centre (65,25), local (0,49 ; 0,34), case du centre 0)"
+    ],
+    "bouchon_max": 12,
+    "bouchon_t": 845.02099609375,
+    "bouchon_s": 0.0
+}
