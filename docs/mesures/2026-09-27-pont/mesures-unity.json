@@ -1,0 +1,15 @@
+{
+  "httpclient_lieu_ms_mediane": 0.279,
+  "httpclient_lieu_ms_p95": 0.538,
+  "httpclient_intention_ms_mediane": 0.271,
+  "httpclient_intention_ms_p95": 0.474,
+  "httpclient_tick_aller_retour_ms_mediane": 41.94,
+  "httpclient_tick_aller_retour_ms_p95": 43.499,
+  "httpclient_monde_ms_mediane": 2.312,
+  "httpclient_monde_ms_p95": 3.64,
+  "monde_octets": 168024,
+  "unitywebrequest_lieu_ms_mediane": 0.965,
+  "unitywebrequest_lieu_ms_p95": 1.512,
+  "csharp_mono_sous_ensemble_ms_mediane": 0.018,
+  "csharp_mono_sous_ensemble_ms_p95": 0.02
+}

@@ -1,0 +1,24 @@
+{
+    "statut": "echec",
+    "date_utc": "2026-09-25T17:12:39.3676602Z",
+    "sans_chocs": false,
+    "fermee_avant": true,
+    "breche_ouverte": true,
+    "route_par_la_breche": true,
+    "arrive": true,
+    "breche_apres_s": 2670.757080078125,
+    "marche_s": 1262.540283203125,
+    "a_sa_place": 0.9959999918937683,
+    "distance_route_breche_m": 1.98240327835083,
+    "tirs": 204,
+    "pierres": 1742,
+    "pierres_delogees_ou_tombees": 496,
+    "pierres_a_terre": 496,
+    "pierres_au_mur": 1246,
+    "files_en_colonne": 3,
+    "dans_un_mur_max": 1,
+    "longueur_route_m": 363.0349426269531,
+    "motifs": [
+        "jusqu'à 1 hommes dans une pierre en place ou l'emprise d'un mur"
+    ]
+}

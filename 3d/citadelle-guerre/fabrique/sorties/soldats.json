@@ -1,0 +1,51 @@
+{
+  "piquier": {
+    "triangles": 488,
+    "coins": 1464,
+    "signes": {
+      "cuisse": 1,
+      "jambe": -1,
+      "bras": 1,
+      "torse": -1,
+      "fente": -1
+    }
+  },
+  "hallebardier": {
+    "triangles": 498,
+    "coins": 1494,
+    "signes": {
+      "cuisse": 1,
+      "jambe": -1,
+      "bras": 1,
+      "torse": -1,
+      "fente": -1
+    }
+  },
+  "arbaletrier": {
+    "triangles": 472,
+    "coins": 1416,
+    "signes": {
+      "cuisse": 1,
+      "jambe": -1,
+      "bras": 1,
+      "torse": -1,
+      "fente": -1
+    }
+  },
+  "cavalier": {
+    "triangles": 866,
+    "coins": 2598,
+    "signes": {
+      "avant": 1,
+      "genou": -1,
+      "arriere": 1,
+      "jarret": 1,
+      "encolure": -1,
+      "tangage": 1,
+      "queue": -1,
+      "bras": 1,
+      "torse": -1,
+      "haut": 1
+    }
+  }
+}
