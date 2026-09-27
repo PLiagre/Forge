@@ -269,37 +269,28 @@ touchent un fichier — et seulement celui du registre.
 
 ## 7. La ville, sous Unity
 
-Unity n'est pas sur une VM Linux. Tout ce qui touche au jeu passe par une
-machine Windows.
+Unity n'est pas sur une VM Linux. Tout ce qui touche au jeu en 3D passe par le
+PC Windows (runner `pc-forge`).
 
 ```
 Unity     : 6000.0.43f1
 Pipeline  : URP 17.0.4
-Paquets   : unity/Packages/com.victoria.citymode*
+Projet    : 3d/unity (kit retenu : le désert)
+Paquets   : 3d/unity/Packages/com.victoria.citymode.contracts, .presentation
 Contrat   : jeu/ville/FORGEHISTORY_CITY_MODE_CONTRACT.md
+Lanceurs  : pc\Ouvrir_Unity.cmd, pc\Ouvrir_Blender_Desert.cmd, pc\Ouvrir_Galerie_Desert.cmd
 ```
 
-> **Ce qui manque encore ici.** Le code Unity et les quatre paquets sont dans
-> l'arbre ; les 199 Mo de binaires (FBX, textures, sons) vivaient en Git LFS et
-> le clone de fusion n'en portait que les pointeurs. Ils restent à migrer depuis
-> une machine qui les a réellement — c'est le lot 101. En attendant, le projet
-> Unity ne s'ouvre pas complet.
+Les packs de l'Asset Store que le désert utilise vivent dans
+`3d/unity/Assets/Vendor/`, ignoré par git : voir [3d/README.md](../3d/README.md).
 
 ---
 
-## 8. La fabrique d'assets (Blender, hors Unity)
+## 8. La fabrique d'assets (archivée)
 
-Aucune de ces commandes ne lance Unity.
-
-```bash
-python3 fabrique/citylab_factory.py doctor       # Blender est-il là ?
-python3 fabrique/citylab_factory.py scan         # inventaire par SHA-256
-python3 fabrique/citylab_factory.py recipe-check
-python3 fabrique/qa_factory_release.py           # la QA transversale
-```
-
-La publication est en **dry-run par défaut** : rien n'est copié tant que
-`publication-check` n'est pas appelé avec `--publish`.
+La fabrique de VictoriaCityLab dort dans `3d/archives/fabrique/` : ses chemins
+sont ceux de l'ancien dépôt. Les kits vivants se préparent avec
+`py 3d/local3d/atelier_desert.py` (voir `3d/local3d/desert/README.md`).
 
 ---
 

@@ -22,7 +22,7 @@ name: unity
 on:
   push:
     paths:
-      - "unity/**"
+      - "3d/unity/**"
       - ".github/workflows/unity.yml"
   workflow_dispatch:
 
@@ -45,27 +45,27 @@ jobs:
           # `clean: true` passe `git clean -ffdx`, qui efface `Library/`
           # (ignoré par git) : chaque travail réimporterait tout le projet.
           clean: false
-          # Seul `unity/` sert ici. Le reste de l'arbre porte des chemins
+          # Seul `3d/unity/` sert ici. Le reste de l'arbre porte des chemins
           # que Windows supporte mal, et des centaines de fichiers LFS.
-          sparse-checkout: unity
+          sparse-checkout: 3d/unity
           lfs: false
 
       - name: Les fichiers LFS du projet Unity, et eux seuls
-        run: git lfs pull --include "unity/**"
+        run: git lfs pull --include "3d/unity/**"
 
       - name: Le projet s'ouvre et compile
         shell: powershell
         run: |
           # La version vient du projet : une montée de version d'Unity se
           # lit dans le diff, pas dans ce fichier.
-          $version = (Select-String -Path unity/ProjectSettings/ProjectVersion.txt -Pattern '^m_EditorVersion: (.+)$').Matches[0].Groups[1].Value.Trim()
+          $version = (Select-String -Path 3d/unity/ProjectSettings/ProjectVersion.txt -Pattern '^m_EditorVersion: (.+)$').Matches[0].Groups[1].Value.Trim()
           $unity = "C:\Program Files\Unity\Hub\Editor\$version\Editor\Unity.exe"
           if (-not (Test-Path $unity)) {
             Write-Output "::error::Unity $version absent du PC : $unity"
             exit 1
           }
           $journal = Join-Path $env:RUNNER_TEMP 'unity.log'
-          $projet = Join-Path $env:GITHUB_WORKSPACE 'unity'
+          $projet = Join-Path $env:GITHUB_WORKSPACE '3d/unity'
           $arguments = @('-batchmode', '-nographics', '-quit', '-projectPath', "`"$projet`"", '-logFile', "`"$journal`"")
           # `Start-Process -Wait` attend aussi les enfants, et le client de
           # licence d'Unity peut survivre à l'éditeur : on attend l'éditeur

@@ -23,37 +23,15 @@ l'arrivée. **L'ascension est le jeu.**
 
 ---
 
-## Voir le village dans Blender ou Unity
+## Voir le monde en 3D
 
-La direction actuelle est une **citadelle gothique alpine enneigée**, inspirée de
-la référence visuelle fournie : 31 modules réutilisables, deux implantations,
-bannières, feux, neige et brume. `Ouvrir_Unity_Citadelle.cmd` lance la visite ;
-`Ouvrir_Blender_Citadelle.cmd` ouvre la source. Voir le
-[guide de la citadelle](local3d/citadelle/README.md) et sa [galerie](local3d/citadelle/sorties/index.html).
-
-Son pendant chaud est le **ksar du désert** : une ville de terre crue sur une table
-de grès, sa mosquée à minaret, un souk, une palmeraie autour d'une guelta et des
-dunes, en deux implantations. `Ouvrir_Unity_Desert.cmd` lance la visite ;
-`Ouvrir_Blender_Desert.cmd` ouvre la source. Voir le
-[guide du désert](local3d/desert/README.md) et sa [galerie](local3d/desert/sorties/index.html).
-
-L'étude précédente conserve **un biome alpin** : un kit commun de modèles,
-trois dispositions à culture et année identiques, et une visite animée avec heure
-et météo réglables. `Ouvrir_Unity_Alpin.cmd` lance la visite ;
-`Ouvrir_Blender_Alpin.cmd` ouvre sa source. Voir le
-[guide alpin](local3d/alpin/README.md) et la [galerie](local3d/alpin/sorties/index.html).
-
-La **V2 graphique** propose quatre villages : vallée à colombages, chalets alpins,
-bourg de pierre au bord d'un fleuve et oasis en terre crue. Ouvrir
-`Ouvrir_Blender_V2.cmd`, `Ouvrir_Unity_V2.cmd` ou la
-[galerie locale](local3d/v2/index.html). Le [guide V2](local3d/GUIDE_V2.md)
-décrit les recettes, les retouches Blender conservées et la reconstruction.
-
-La V1 graphique locale matérialise le village pilote : 40 bâtiments, 24 variantes
-et 250 décors. `Ouvrir_Blender_V1.cmd` ouvre la scène Blender avec ses textures ;
-`Ouvrir_Unity_V1.cmd` ouvre sa scène de visite Unity. Les assets, les rendus et
-les commandes de reconstruction sont décrits dans [l'atelier 3D local](local3d/README.md).
-Cette scène de visite ne branche pas encore le bourg au moteur de simulation.
+Le kit retenu pour le jalon 1 est le **ksar du désert** : une ville de terre crue
+sur une table de grès, son souk, sa palmeraie, et l'outil qui trace une route en
+épousant le relief. `pc\Ouvrir_Unity.cmd` ouvre le projet sur cette scène,
+`pc\Ouvrir_Blender_Desert.cmd` sa source, `pc\Ouvrir_Galerie_Desert.cmd` ses
+captures. Tout ce qui touche Unity et Blender vit dans [3d/](3d/README.md) ; les
+autres prototypes (citadelle, alpin, V1, V2, Citadelle-Guerre) dorment, intacts,
+dans [3d/archives/](3d/archives/README.md).
 
 ## Essayer en une minute
 
@@ -95,7 +73,7 @@ proprement quand il n'y en a pas.
                                 │
               ┌─────────────────┼─────────────────┬──────────────┐
               ▼                 ▼                 ▼              ▼
-        vues/tableau/    vues/chronique/    vues/relief/      unity/
+        vues/tableau/    vues/chronique/    vues/relief/    3d/unity/
         tableau de bord  planche + bobine   carte de          la ville
         2D web           (suite d'instants) statistique       jouable
                                             (forge3d)
@@ -118,8 +96,10 @@ vue ne parle au moteur.
 | `atelier/` | l'invocation des agents : cartes, verrous, worktrees |
 | `briefs/` | les briefs, seule source d'instruction d'un lot |
 | `jeu/ville/` | le contrat de la vue ville : schéma JSON, exemples, autorité |
-| `unity/` | les paquets Unity de la vue ville (URP 6000.0.43f1) |
-| `fabrique/` | l'Asset Factory : Blender **hors** Unity, recettes déterministes |
+| `3d/unity/` | le projet Unity du jeu (6000.0.43f1, URP) |
+| `3d/local3d/` | le paquet Python qui pilote Blender et prépare les kits |
+| `3d/archives/` | les prototypes qui dorment, intacts |
+| `pc/` | les lanceurs Windows, vérifiés par `py pc/verifier_lanceurs.py` |
 
 ---
 
