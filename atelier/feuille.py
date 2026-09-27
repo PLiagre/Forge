@@ -69,10 +69,13 @@ COUCHES = ("1", "2", "3", "4", "5")
 
 # Là où le pilote range une carte dont la PR a été fusionnée.
 BOITE_FUSIONNEE = "fusionnee"
-# Là où le briefer laisse sa carte : le brief est en PR, le propriétaire
-# fusionne, et le pilote déposera ensuite la carte du coder. Le nom vient
-# de la boîte, il n'est pas recopié ici.
-BOITE_BRIEF_A_FUSIONNER = boite.SUIVANT["briefer"]
+PREFIXE_AGENT = "agent/"
+PREFIXE_BRIEF = "brief/"
+PREFIXE_FEUILLE = "feuille/"
+
+
+def _prefixe_relecture(carte: boite.Carte) -> str:
+    return carte.prefixe or PREFIXE_AGENT
 
 _NUMERO = r"\d{3}(?:-(?:bis|ter))?"
 _TITRE = re.compile(
@@ -142,6 +145,8 @@ class Decision:
     lot: str
     brief: str
     fichiers: tuple[str, ...]
+    pr: int | None = None
+    prefixe: str = ""
 
 
 @dataclass(frozen=True)
@@ -420,10 +425,13 @@ def verifier_cartes(feuille: Feuille, racine: Path) -> list[str]:
         fiche = feuille.fiche(lot)
         for nom_boite, carte in cartes:
             ou = f"carte {lot} dans {nom_boite}"
+            prefixe = _prefixe_relecture(carte)
             if fiche is None:
+                if nom_boite == "a-relire" and prefixe == PREFIXE_FEUILLE:
+                    continue
                 erreurs.append(f"{ou} — aucune fiche ne porte ce lot")
                 continue
-            if carte.brief != fiche.chemin:
+            if prefixe != PREFIXE_FEUILLE and carte.brief != fiche.chemin:
                 erreurs.append(f"{ou} — nomme le brief {carte.brief}, la fiche dit {fiche.chemin}")
             if nom_boite in (BOITE_FUSIONNEE, "echec"):
                 continue
@@ -434,12 +442,21 @@ def verifier_cartes(feuille: Feuille, racine: Path) -> list[str]:
                 continue
             elif nom_boite == "a-briefer" and fiche.etat != "a-briefer":
                 erreurs.append(f"{ou} — le lot est « {fiche.etat} », pas « a-briefer »")
-            elif nom_boite in ("a-planifier", "a-coder", "a-relire", "faite") and fiche.etat != "pret":
+            elif nom_boite in ("a-planifier", "a-coder") and fiche.etat != "pret":
                 erreurs.append(
                     f"{ou} — le lot est « {fiche.etat} » : on ne code pas un lot dont le brief "
                     "n'est pas fusionné"
                 )
-            elif nom_boite == BOITE_BRIEF_A_FUSIONNER and fiche.etat not in ("a-briefer", "pret"):
+            elif nom_boite in ("a-relire", "faite") and prefixe == PREFIXE_AGENT and fiche.etat != "pret":
+                erreurs.append(
+                    f"{ou} — le lot est « {fiche.etat} » : on ne code pas un lot dont le brief "
+                    "n'est pas fusionné"
+                )
+            elif (
+                nom_boite in ("a-relire", "faite")
+                and prefixe == PREFIXE_BRIEF
+                and fiche.etat not in ("a-briefer", "pret")
+            ):
                 erreurs.append(f"{ou} — le lot est « {fiche.etat} », son brief n'est pas en PR")
     return erreurs
 
@@ -451,7 +468,7 @@ def rapprochements(feuille: Feuille, racine: Path) -> list[Rapprochement]:
         fiche = feuille.fiche(lot)
         if fiche is None:
             continue
-        for nom_boite, _carte in cartes:
+        for nom_boite, carte in cartes:
             if nom_boite == BOITE_FUSIONNEE:
                 continue
             if fiche.etat == "livre":
@@ -459,7 +476,11 @@ def rapprochements(feuille: Feuille, racine: Path) -> list[Rapprochement]:
                     lot, nom_boite, BOITE_FUSIONNEE, lever_verrou=True,
                     raison=f"la fiche dit « livre », PR {', '.join(map(str, fiche.prs))}",
                 ))
-            elif nom_boite == BOITE_BRIEF_A_FUSIONNER and fiche.etat == "pret":
+            elif (
+                fiche.etat == "pret"
+                and nom_boite in ("a-relire", "faite")
+                and _prefixe_relecture(carte) == PREFIXE_BRIEF
+            ):
                 resultat.append(Rapprochement(
                     lot, nom_boite, BOITE_FUSIONNEE, lever_verrou=False,
                     raison="la fiche dit « pret » : le brief est fusionné",
@@ -525,11 +546,54 @@ def _empechement(fiche: Fiche, feuille: Feuille, racine: Path) -> str | None:
     return None
 
 
-def decider(feuille: Feuille, racine: Path) -> list[Decision]:
+def _lot_porte_carte_active(cartes: dict[str, list[tuple[str, boite.Carte]]], lot: str) -> bool:
+    return any(nom != BOITE_FUSIONNEE for nom, _carte in cartes.get(lot, ()))
+
+
+def _decisions_relecture_feuille(
+    feuille: Feuille,
+    racine: Path,
+    cartes: dict[str, list[tuple[str, boite.Carte]]],
+    propositions: list,
+) -> list[Decision]:
+    decisions: list[Decision] = []
+    chemin_feuille = feuille.chemin.relative_to(racine).as_posix()
+    for proposition in propositions:
+        if not proposition.branche.startswith(PREFIXE_FEUILLE):
+            continue
+        lot = proposition.branche[len(PREFIXE_FEUILLE):]
+        if not lot.strip():
+            continue
+        if proposition.tiers_approuvee:
+            continue
+        if _lot_porte_carte_active(cartes, lot):
+            continue
+        fiche = feuille.fiche(lot)
+        brief = fiche.chemin if fiche else chemin_feuille
+        decisions.append(Decision(
+            "relire",
+            "a-relire",
+            lot,
+            brief,
+            (),
+            pr=proposition.numero,
+            prefixe=PREFIXE_FEUILLE,
+        ))
+    return decisions
+
+
+def decider(
+    feuille: Feuille,
+    racine: Path,
+    *,
+    propositions: list | None = None,
+) -> list[Decision]:
     """Ce que le pilote dépose : au plus une carte par rôle, la première admissible."""
     racine = Path(racine)
     cartes = cartes_par_lot(racine)
     decisions: list[Decision] = []
+    if propositions is not None:
+        decisions.extend(_decisions_relecture_feuille(feuille, racine, cartes, propositions))
     briefer_pris = coder_pris = False
     for fiche in feuille.fiches:
         # Une carte de `fusionnee` est une archive : sa PR est entrée, elle
@@ -550,7 +614,13 @@ def decider(feuille: Feuille, racine: Path) -> list[Decision]:
 
 
 def deposer(racine: Path, decision: Decision) -> Path:
-    carte = boite.Carte(lot=decision.lot, brief=decision.brief, fichiers=list(decision.fichiers))
+    carte = boite.Carte(
+        lot=decision.lot,
+        brief=decision.brief,
+        fichiers=list(decision.fichiers),
+        pr=decision.pr,
+        prefixe=decision.prefixe,
+    )
     return boite.deposer(racine, decision.boite, carte)
 
 
@@ -575,8 +645,10 @@ def etat_effectif(fiche: Fiche, feuille: Feuille, racine: Path) -> str:
             return f"en échec : {carte.note} — `atelier reprendre --lot {fiche.lot}`"
         if nom_boite == "a-briefer":
             return "brief en file (a-briefer)"
-        if nom_boite == BOITE_BRIEF_A_FUSIONNER:
-            return f"brief écrit{numero_pr} — à fusionner par le propriétaire"
+        if nom_boite in ("a-relire", "faite") and _prefixe_relecture(carte) == PREFIXE_BRIEF:
+            return f"brief écrit{numero_pr} — en relecture"
+        if nom_boite == "a-relire" and _prefixe_relecture(carte) == PREFIXE_FEUILLE:
+            return f"fiche en PR{numero_pr} — en relecture"
         if nom_boite == "a-planifier":
             return "en planification (a-planifier)"
         if nom_boite == "a-coder":

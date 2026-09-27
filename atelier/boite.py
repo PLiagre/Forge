@@ -27,12 +27,12 @@ BOITE_DU_ROLE = {
 }
 
 # Le briefer écrit dans son propre worktree et ouvre une PR : le brief
-# n'est sur master qu'une fois fusionné par le propriétaire. Sa carte
-# ne va donc ni à a-planifier ni à a-coder — le coder ne trouverait pas
-# le brief. Elle attend la fusion ; le pilote dépose ensuite la carte
-# du coder d'après la feuille de route (`atelier piloter`).
+# n'est sur master qu'une fois relu et fusionné. Sa carte passe par la
+# même boîte que le code du coder ; `prefixe` dit que c'est un brief à
+# relire, pas un lot à coder. Le pilote déposera ensuite la carte du
+# coder d'après la feuille de route (`atelier piloter`).
 SUIVANT = {
-    "briefer": "brief-a-fusionner",
+    "briefer": "a-relire",
     "planifier": "a-coder",     # s'il passe, il enrichit la même file
     "coder": "a-relire",
     "relire": "faite",
@@ -77,6 +77,9 @@ class Carte:
     cause: str = ""
     essais: int = 0
     role: str = ""
+    # Quelle proposition GitHub cette carte fait relire : `agent/`, `brief/`
+    # ou `feuille/`. Vide sur les cartes anciennes : on lit `agent/`.
+    prefixe: str = ""
 
     def __post_init__(self) -> None:
         if not self.lot.strip():
@@ -99,6 +102,7 @@ class Carte:
             "cause": self.cause,
             "essais": self.essais,
             "role": self.role,
+            "prefixe": self.prefixe,
         }
 
 
@@ -143,6 +147,7 @@ def _depuis_brut(brut: dict, fichier: Path) -> Carte:
             cause=brut.get("cause") or "",
             essais=int(brut.get("essais") or 0),
             role=brut.get("role") or "",
+            prefixe=brut.get("prefixe") or "",
         )
     except KeyError as exc:
         raise BoiteErreur(f"carte incomplète {fichier} : {exc.args[0]}") from exc
@@ -244,13 +249,11 @@ def avancer(projet: Path, role: str, lot: str, **champs: object) -> Path:
             f"le périmètre de la carte {lot} est déjà posé : il ne se réécrit pas"
         )
     brut.update({k: v for k, v in champs.items() if v is not None})
-    carte = Carte(
-        lot=brut["lot"],
-        brief=brut["brief"],
-        fichiers=list(brut.get("fichiers") or []),
-        pr=brut.get("pr"),
-        note=brut.get("note") or "",
-    )
+    if role == "briefer":
+        brut["prefixe"] = "brief/"
+    elif role == "coder":
+        brut["prefixe"] = "agent/"
+    carte = _depuis_brut(brut, source)
     destination = deposer(projet, SUIVANT[role], carte)
     source.unlink()
     return destination

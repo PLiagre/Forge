@@ -563,10 +563,39 @@ def _feuille_relative(produit: projet.Projet) -> str | None:
         return produit.feuille.as_posix()
 
 
+def _prefixes_integration(produit: projet.Projet) -> tuple[str, ...]:
+    prefixes = tuple(produit.branches_fusionnees)
+    if produit.prefixe_branche and produit.prefixe_branche not in prefixes:
+        return (*prefixes, produit.prefixe_branche)
+    return prefixes
+
+
+def _branche_et_prefixe_relecture(
+    produit: projet.Projet,
+    racine: Path,
+    lot: str,
+) -> tuple[str | None, str | None]:
+    try:
+        carte = boite.lire(racine, "a-relire", lot)
+    except boite.BoiteErreur:
+        return produit.branche_du_lot(lot), produit.prefixe_branche
+    prefixe = carte.prefixe or feuille.PREFIXE_AGENT
+    if prefixe in (feuille.PREFIXE_BRIEF, feuille.PREFIXE_FEUILLE):
+        return f"{prefixe}{lot}", prefixe
+    return produit.branche_du_lot(lot), prefixe
+
+
 def _cmd_invocation(args: argparse.Namespace) -> int:
     try:
         produit = projet.charger(args.projet)
-        branche = produit.branche_du_lot(args.lot) if args.lot else None
+        racine = produit.racine
+        prefixe_fusion = None
+        if args.role == "relire" and args.lot:
+            branche, prefixe_fusion = _branche_et_prefixe_relecture(produit, racine, args.lot)
+        elif args.lot:
+            branche = produit.branche_du_lot(args.lot)
+        else:
+            branche = None
         argv = backends.argv_du_role(
             args.role,
             roles=produit.roles.vers_dict(),
@@ -578,6 +607,8 @@ def _cmd_invocation(args: argparse.Namespace) -> int:
             feuille=_feuille_relative(produit),
             decision=args.decision,
             controles=produit.controles,
+            prefixe_fusion=prefixe_fusion,
+            branches_fusionnees=_prefixes_integration(produit),
         )
     except (backends.BackendErreur, projet.ProjetIncomplet, KeyError) as exc:
         print(f"FAIL  {exc}", file=sys.stderr)
@@ -947,7 +978,10 @@ def _cmd_piloter(args: argparse.Namespace) -> int:
         if not f.fiches:
             print(f"FAIL  {f.chemin} — le registre ne porte aucune fiche", file=sys.stderr)
             return 1
-        for d in feuille.decider(f, racine):
+        from atelier import propositions
+
+        ouvertes = propositions.lister_ouvertes(racine)
+        for d in feuille.decider(f, racine, propositions=ouvertes):
             if args.run:
                 feuille.deposer(racine, d)
             verbe = "déposé   " if args.run else "déposer  "

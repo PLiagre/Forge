@@ -232,6 +232,138 @@ def _fiche_du_lot(lot: str, feuille: str | None, etat: str) -> str:
     )
 
 
+def _prefixe_de_branche(branche: str, prefixes: Sequence[str]) -> str:
+    for prefixe in sorted(prefixes, key=len, reverse=True):
+        if branche.startswith(prefixe):
+            return prefixe
+    raise BackendErreur(f"préfixe de branche inconnu : {branche}")
+
+
+def _revue_github(pr: int, controles: Sequence[str]) -> str:
+    if controles:
+        quels = (
+            "Les contrôles qui comptent sont ceux que le produit déclare "
+            f"requis, et ce sont ceux-là : {', '.join(controles)}. Une ligne "
+            "rouge absente de cette liste ne retient rien"
+        )
+    else:
+        quels = (
+            "Le produit ne déclare aucun contrôle requis : aucune ligne de "
+            "cette table ne retient à elle seule"
+        )
+    return (
+        f" Lis d'abord `gh pr checks {pr}`. {quels} — c'est le cas de "
+        "« relecture », qui porte ton propre verdict et reste rouge tant que "
+        "tu n'as pas approuvé : la prendre pour un refus te ferait refuser au "
+        "motif que tu n'as pas encore approuvé."
+        " Si un contrôle requis est en échec, la PR ne peut pas entrer, quel "
+        "que soit le diff : demande des changements en nommant ce contrôle et "
+        f"l'erreur qui le fait rougir, lue par `python3 -m atelier traces --pr {pr}` "
+        "et citée telle qu'elle est écrite."
+        f" Termine par UNE revue GitHub sur la PR {pr}, et rien d'autre : "
+        f"`gh pr review {pr} --approve --body '<ton avis>'` si aucun contrôle "
+        "requis n'est en échec, si le diff reste dans le périmètre, si chaque "
+        "condition de succès est mesurée par un contrôle qui peut rougir et si "
+        "aucun test existant n'a été modifié ; "
+        f"sinon `gh pr review {pr} --request-changes --body '<tes constats, "
+        "du plus grave au plus léger, avec fichier et ligne>'`. Un avis qui "
+        "ne finit pas sur la PR n'existe pas."
+    )
+
+
+def _cible_relecture(
+    lot: str,
+    pr: int | None,
+    branche: str | None,
+) -> str:
+    if pr and branche:
+        return f"la PR {pr}, sur la branche {branche}"
+    if pr:
+        return f"la PR {pr}"
+    if branche:
+        return f"la branche {branche}"
+    return f"le lot {lot}"
+
+
+def _prompt_relire_agent(
+    *,
+    lot: str,
+    brief: str,
+    projet: str,
+    pr: int | None,
+    branche: str | None,
+    feuille: str | None,
+    controles: Sequence[str],
+) -> str:
+    cible = _cible_relecture(lot, pr, branche)
+    fiche = (
+        f" Vérifie aussi que la fiche du lot dans {feuille} passe à « livre » avec "
+        "ce numéro de PR, et qu'aucune autre fiche ne bouge."
+        if feuille
+        else ""
+    )
+    revue = _revue_github(pr, controles) if pr else (
+        " Sans numéro de proposition connu, ne pose aucune revue : écris ton avis et arrête-toi."
+    )
+    return (
+        f"Relis le diff du lot {lot} de {projet} : {cible}. Tu n'as pas écrit "
+        "ce code : tu ne le corriges pas, tu n'écris aucun fichier, tu ne "
+        f"pousses rien, tu ne fusionnes pas. {_source_unique(brief)} Rends un "
+        f"avis qui cite le périmètre et les conditions de succès.{fiche}{revue}"
+    )
+
+
+def _prompt_relire_brief(
+    *,
+    lot: str,
+    brief: str,
+    projet: str,
+    pr: int | None,
+    branche: str | None,
+    feuille: str | None,
+    controles: Sequence[str],
+) -> str:
+    cible = _cible_relecture(lot, pr, branche)
+    fiche = _fiche_du_lot(lot, feuille, "pret")
+    revue = _revue_github(pr, controles) if pr else (
+        " Sans numéro de proposition connu, ne pose aucune revue : écris ton avis et arrête-toi."
+    )
+    return (
+        f"Relis le brief du lot {lot} de {projet} : {cible}. Tu n'as pas écrit "
+        f"ce brief : tu ne le réécris pas, tu n'écris aucun fichier, tu ne "
+        f"pousses rien, tu ne fusionnes pas. {_source_unique(brief)} "
+        "Vérifie les cinq sections attendues d'un brief, les six façons de rater "
+        "un brief (`AGENTS.md` § « Le brief »), un périmètre nommé fichier par "
+        "fichier, et chaque condition de succès qui nomme une commande pouvant "
+        f"échouer.{fiche}{revue}"
+    )
+
+
+def _prompt_relire_feuille(
+    *,
+    lot: str,
+    projet: str,
+    pr: int | None,
+    branche: str | None,
+    feuille: str | None,
+    controles: Sequence[str],
+) -> str:
+    cible = _cible_relecture(lot, pr, branche)
+    registre = feuille or "la feuille de route"
+    revue = _revue_github(pr, controles) if pr else (
+        " Sans numéro de proposition connu, ne pose aucune revue : écris ton avis et arrête-toi."
+    )
+    return (
+        f"Relis la PR de fiche du lot {lot} de {projet} : {cible}. Tu n'as pas "
+        "écrit cette fiche : tu ne la modifies pas, tu n'écris aucun fichier, "
+        "tu ne pousses rien, tu ne fusionnes pas. "
+        f"Vérifie que le diff ne touche que la fiche nommée {lot} dans {registre} "
+        "et rien d'autre de ce fichier, que la transition d'état est permise, "
+        "et que `python3 -m atelier feuille valider --projet .` est vert."
+        f"{revue}"
+    )
+
+
 def prompt_du_role(
     role: str,
     *,
@@ -243,6 +375,8 @@ def prompt_du_role(
     feuille: str | None = None,
     decision: str | None = None,
     controles: Sequence[str] = (),
+    prefixe_fusion: str | None = None,
+    branches_fusionnees: Sequence[str] | None = None,
 ) -> str:
     if role not in ROLES_INVOCABLES:
         raise BackendErreur(f"rôle inconnu : {role} (connus : {', '.join(ROLES_INVOCABLES)})")
@@ -323,76 +457,37 @@ def prompt_du_role(
             "« PR #44 ». C'est par là que le relecteur saura quoi relire."
             f"{_fiche_du_lot(lot, feuille, 'livre')}"
         )
-    # Le numéro de PR n'est pas une consigne : c'est une coordonnée. Il dit
-    # où regarder, pas quoi faire. Sans lui, on nomme la branche — on
-    # n'invente jamais un numéro.
-    if pr and branche:
-        cible = f"la PR {pr}, sur la branche {branche}"
-    elif pr:
-        cible = f"la PR {pr}"
-    elif branche:
-        cible = f"la branche {branche}"
-    else:
-        cible = f"le lot {lot}"
-    fiche = (
-        f" Vérifie aussi que la fiche du lot dans {feuille} passe à « livre » avec "
-        "ce numéro de PR, et qu'aucune autre fiche ne bouge."
-        if feuille
-        else ""
-    )
-    # L'avis n'existe que sur la PR. Avant, il finissait dans un journal
-    # que personne ne lisait, et l'intégration — qui n'ouvre la porte que
-    # sur une approbation posée par un tiers — attendait pour toujours.
-    if pr:
-        # Toutes les lignes de `gh pr checks` ne le regardent pas.
-        # « relecture » porte SON verdict : l'état est rouge tant
-        # qu'aucune approbation n'existe. Le prompt disait « un contrôle
-        # en échec » sans exception, et le relecteur de la PR 37 a refusé
-        # le 18 septembre 2026 au motif qu'il n'avait pas encore
-        # approuvé — en écrivant lui-même que, sans ce point, sa revue
-        # « resterait une approbation ». Un poste qui refuse parce qu'il
-        # n'a pas approuvé n'approuvera jamais.
-        #
-        # Les contrôles qui comptent sont ceux que le branchement déclare
-        # requis, comme pour `crons/tour.sh` : la liste se dérive, elle
-        # ne se recopie pas ici.
-        if controles:
-            quels = (
-                "Les contrôles qui comptent sont ceux que le produit déclare "
-                f"requis, et ce sont ceux-là : {', '.join(controles)}. Une ligne "
-                "rouge absente de cette liste ne retient rien"
-            )
+    if role == "relire":
+        if branches_fusionnees is None:
+            prefixes = ("agent/", "brief/", "feuille/")
         else:
-            quels = (
-                "Le produit ne déclare aucun contrôle requis : aucune ligne de "
-                "cette table ne retient à elle seule"
+            prefixes = tuple(branches_fusionnees)
+            if not prefixes:
+                raise BackendErreur(
+                    "le branchement ne déclare aucun préfixe [integration].branches"
+                )
+        prefixe = prefixe_fusion
+        if not prefixe and branche:
+            prefixe = _prefixe_de_branche(branche, prefixes)
+        if not prefixe:
+            prefixe = "agent/"
+        if prefixe not in prefixes:
+            raise BackendErreur(f"préfixe de relecture inconnu : {prefixe}")
+        if prefixe == "brief/":
+            return _prompt_relire_brief(
+                lot=lot, brief=brief, projet=projet, pr=pr, branche=branche,
+                feuille=feuille, controles=controles,
             )
-        revue = (
-            f" Lis d'abord `gh pr checks {pr}`. {quels} — c'est le cas de "
-            "« relecture », qui porte ton propre verdict et reste rouge tant que "
-            "tu n'as pas approuvé : la prendre pour un refus te ferait refuser au "
-            "motif que tu n'as pas encore approuvé."
-            " Si un contrôle requis est en échec, la PR ne peut pas entrer, quel "
-            "que soit le diff : demande des changements en nommant ce contrôle et "
-            f"l'erreur qui le fait rougir, lue par `python3 -m atelier traces --pr {pr}` "
-            "et citée telle qu'elle est écrite."
-            f" Termine par UNE revue GitHub sur la PR {pr}, et rien d'autre : "
-            f"`gh pr review {pr} --approve --body '<ton avis>'` si aucun contrôle "
-            "requis n'est en échec, si le diff reste dans le périmètre, si chaque "
-            "condition de succès est mesurée par un contrôle qui peut rougir et si "
-            "aucun test existant n'a été modifié ; "
-            f"sinon `gh pr review {pr} --request-changes --body '<tes constats, "
-            "du plus grave au plus léger, avec fichier et ligne>'`. Un avis qui "
-            "ne finit pas sur la PR n'existe pas."
+        if prefixe == "feuille/":
+            return _prompt_relire_feuille(
+                lot=lot, projet=projet, pr=pr, branche=branche,
+                feuille=feuille, controles=controles,
+            )
+        return _prompt_relire_agent(
+            lot=lot, brief=brief, projet=projet, pr=pr, branche=branche,
+            feuille=feuille, controles=controles,
         )
-    else:
-        revue = " Sans numéro de proposition connu, ne pose aucune revue : écris ton avis et arrête-toi."
-    return (
-        f"Relis le diff du lot {lot} de {projet} : {cible}. Tu n'as pas écrit "
-        "ce code : tu ne le corriges pas, tu n'écris aucun fichier, tu ne "
-        f"pousses rien, tu ne fusionnes pas. {_source_unique(brief)} Rends un "
-        f"avis qui cite le périmètre et les conditions de succès.{fiche}{revue}"
-    )
+    raise BackendErreur(f"rôle sans prompt : {role}")
 
 
 def argv_du_role(
@@ -407,12 +502,15 @@ def argv_du_role(
     feuille: str | None = None,
     decision: str | None = None,
     controles: Sequence[str] = (),
+    prefixe_fusion: str | None = None,
+    branches_fusionnees: Sequence[str] | None = None,
 ) -> list[str]:
     """L'argv exact du rôle. Construit ici, exécuté par le cron, jamais ici."""
     backend = backend_du_role(role, roles)
     prompt = prompt_du_role(
         role, lot=lot, brief=brief, projet=projet, pr=pr, branche=branche,
         feuille=feuille, decision=decision, controles=controles,
+        prefixe_fusion=prefixe_fusion, branches_fusionnees=branches_fusionnees,
     )
     if role == "pilote":
         # Depuis Hermes 0.20, -p/--profile choisit un profil. Le mode

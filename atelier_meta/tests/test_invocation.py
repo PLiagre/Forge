@@ -1168,6 +1168,60 @@ def test_sans_table_de_controles_la_trace_ne_dit_pas_que_tout_est_vert(
     assert "no checks reported" in captures.err
 
 
+def test_le_prompt_du_relecteur_differe_selon_le_prefixe_de_branche(tmp_path: Path):
+    racine = _projet(tmp_path)
+    toml = racine / "atelier.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8")
+        + '\n[integration]\nbranches = ["agent/", "brief/", "feuille/"]\n',
+        encoding="utf-8",
+    )
+    produit = projet.charger(racine)
+    prefixes = produit.branches_fusionnees
+    assert prefixes, "échantillon vide : aucun préfixe déclaré"
+    textes = {}
+    for prefixe in prefixes:
+        lot = "044-mineur"
+        branche = f"{prefixe}{lot}"
+        textes[prefixe] = backends.prompt_du_role(
+            "relire",
+            lot=lot,
+            brief="briefs/044-mineur.md",
+            projet=str(racine),
+            pr=12,
+            branche=branche,
+            feuille="ROADMAP.md",
+            controles=produit.controles,
+            prefixe_fusion=prefixe,
+            branches_fusionnees=prefixes,
+        )
+    assert len({t for t in textes.values()}) == len(prefixes)
+    assert "cinq sections" in textes["brief/"]
+    assert "feuille valider" in textes["feuille/"]
+    assert "gh pr checks" in textes["agent/"]
+    for texte in textes.values():
+        assert "tu ne fusionnes pas" in texte.lower() or "ne fusionnes pas" in texte
+        assert "revue GitHub" in texte
+    with pytest.raises(backends.BackendErreur):
+        backends.prompt_du_role(
+            "relire",
+            lot="044-mineur",
+            brief="briefs/044-mineur.md",
+            projet=str(racine),
+            branche="experience/foo",
+            prefixe_fusion="experience/",
+            branches_fusionnees=prefixes,
+        )
+    with pytest.raises(backends.BackendErreur):
+        backends.prompt_du_role(
+            "relire",
+            lot="044-mineur",
+            brief="briefs/044-mineur.md",
+            projet=str(racine),
+            branches_fusionnees=(),
+        )
+
+
 def test_le_relecteur_a_le_droit_de_lire_la_trace_qu_on_lui_demande_de_citer():
     """Un prompt qui demande une commande que les outils refusent fait
     tomber la carte sans cause : c'est ce qui est arrivé à la PR 15."""

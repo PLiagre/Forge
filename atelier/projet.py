@@ -58,6 +58,7 @@ class Projet:
     # maintenant pour savoir quel rouge le fait refuser. Vide si le
     # branchement n'en déclare aucun : on ne devine pas une liste.
     controles: tuple[str, ...] = ()
+    branches_fusionnees: tuple[str, ...] = ()
 
     @property
     def etat_dir(self) -> Path:
@@ -122,5 +123,8 @@ def charger(racine: Path) -> Projet:
         feuille=racine / str(bloc["feuille"]) if bloc.get("feuille") else None,
         controles=tuple(
             str(nom) for nom in brut.get("integration", {}).get("controles", []) if str(nom)
+        ),
+        branches_fusionnees=tuple(
+            str(nom) for nom in brut.get("integration", {}).get("branches", []) if str(nom)
         ),
     )
