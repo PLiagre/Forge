@@ -1,0 +1,34 @@
+# Unity
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Ll]ogs/
+unity/[Uu]ser[Ss]ettings/
+unity/*.csproj
+unity/*.sln
+unity/.vs/
+unity/.vscode/
+# Packs sous licence : jamais dans git
+unity/Assets/Vendor/
+unity/Assets/Vendor.meta
+# Sorties lourdes
+sorties/joueur/
+sorties/logs/
+sorties/**/joueur.log
+sorties/mesure-sabotage/
+sorties/essai-ordres-sans-corps/
+sorties/mesure-sans-animation/
+fabrique/sorties/*.vat
+fabrique/sorties/*.blend
+fabrique/sorties/*.blend1
+sorties/essai-melee-sans-poussee/
+sorties/essai-moral-sans-peur/
+sorties/essai-tir-sans-pavois/
+sorties/logs/
+sorties/essai-cavalerie-sans-masse/
+sorties/essai-cavalerie-sans-piques/
+# Le kit de la Citadelle appartient à Forge : il est recopié depuis ../ForgeLocal3D à chaque construction
+unity/Assets/Guerre/Kit/
+unity/Assets/Guerre/Kit.meta
+sorties/essai-carte-sans-pont/
+sorties/essai-carte-sans-murs/

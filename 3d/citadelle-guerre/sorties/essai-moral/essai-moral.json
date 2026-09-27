@@ -1,0 +1,194 @@
+{
+    "statut": "valide",
+    "date_utc": "2026-09-25T12:41:55.1118980Z",
+    "sans_peur": false,
+    "secondes": 90.0079574584961,
+    "ruptures_flanc": 2,
+    "ruptures_reserve": 0,
+    "ralliements": 1776,
+    "fuite_moyenne_flanc": 0.4427575469017029,
+    "fuite_moyenne_reserve": 0.1744200885295868,
+    "epreuves": [
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.40092167258262637,
+            "morts_bleus": 34,
+            "morts_rouges": 30,
+            "ralliements": 122
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.04854368790984154,
+            "morts_bleus": 44,
+            "morts_rouges": 53,
+            "ralliements": 17
+        },
+        {
+            "condition": "flanc",
+            "rompu": true,
+            "rompu_apres_s": 55.96092987060547,
+            "fuyards_max": 0.5136363506317139,
+            "morts_bleus": 30,
+            "morts_rouges": 19,
+            "ralliements": 130
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.37681159377098086,
+            "morts_bleus": 44,
+            "morts_rouges": 30,
+            "ralliements": 99
+        },
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.4028435945510864,
+            "morts_bleus": 41,
+            "morts_rouges": 31,
+            "ralliements": 145
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.02358490601181984,
+            "morts_bleus": 38,
+            "morts_rouges": 42,
+            "ralliements": 75
+        },
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.37264150381088259,
+            "morts_bleus": 42,
+            "morts_rouges": 28,
+            "ralliements": 106
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.056872036308050159,
+            "morts_bleus": 42,
+            "morts_rouges": 48,
+            "ralliements": 36
+        },
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.4663461446762085,
+            "morts_bleus": 44,
+            "morts_rouges": 21,
+            "ralliements": 113
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.256038635969162,
+            "morts_bleus": 43,
+            "morts_rouges": 42,
+            "ralliements": 17
+        },
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.40366971492767336,
+            "morts_bleus": 33,
+            "morts_rouges": 27,
+            "ralliements": 107
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.302325576543808,
+            "morts_bleus": 42,
+            "morts_rouges": 35,
+            "ralliements": 82
+        },
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.4558139443397522,
+            "morts_bleus": 38,
+            "morts_rouges": 26,
+            "ralliements": 147
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.027149321511387826,
+            "morts_bleus": 30,
+            "morts_rouges": 47,
+            "ralliements": 70
+        },
+        {
+            "condition": "flanc",
+            "rompu": true,
+            "rompu_apres_s": 48.40985870361328,
+            "fuyards_max": 0.5833333134651184,
+            "morts_bleus": 36,
+            "morts_rouges": 21,
+            "ralliements": 147
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.018518518656492235,
+            "morts_bleus": 40,
+            "morts_rouges": 44,
+            "ralliements": 54
+        },
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.4128440320491791,
+            "morts_bleus": 35,
+            "morts_rouges": 23,
+            "ralliements": 113
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.4874371886253357,
+            "morts_bleus": 51,
+            "morts_rouges": 39,
+            "ralliements": 20
+        },
+        {
+            "condition": "flanc",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.4155251085758209,
+            "morts_bleus": 34,
+            "morts_rouges": 27,
+            "ralliements": 113
+        },
+        {
+            "condition": "réserve",
+            "rompu": false,
+            "rompu_apres_s": -1.0,
+            "fuyards_max": 0.14691942930221559,
+            "morts_bleus": 40,
+            "morts_rouges": 46,
+            "ralliements": 63
+        }
+    ],
+    "motifs": []
+}
