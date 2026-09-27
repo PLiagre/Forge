@@ -1,0 +1,67 @@
+name: lot-pc
+
+# Un lot « machine : pc » (Unity, Blender), travaillé sur le PC du propriétaire.
+#
+# Le pilote du VPS le lance par `workflow_dispatch`, jamais par `pull_request` :
+# le dépôt est public, et une fourche ne doit rien lancer sur le PC. Le runner
+# `pc-forge` tourne sous la session Windows du propriétaire : c'est là que
+# vivent Claude Code, la licence Unity et les packs de l'Asset Store.
+#
+# Tout se passe dans des worktrees de D:\Forge, ignorés par git :
+#   .atelier\pilote-pc       le code de la chaîne, sur master
+#   .atelier\chantiers\pc    le lot, sur sa branche ; sa Library Unity reste
+#                            chaude d'un lot à l'autre
+#   .atelier\journal         la branche des captures
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "l'issue du lot"
+        required: true
+      branche:
+        description: "la branche du lot"
+        required: true
+      pr:
+        description: "la PR du lot"
+        required: true
+      essai:
+        description: "le passage du codeur (0 = premier)"
+        required: false
+        default: "0"
+      action:
+        description: "coder, corriger_ci ou corriger_relecture"
+        required: false
+        default: "coder"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-forge
+  cancel-in-progress: false
+
+jobs:
+  lot:
+    runs-on: [self-hosted, Windows, unity]
+    timeout-minutes: 180
+    steps:
+      - name: Le lot, dans le worktree de D:\Forge
+        shell: powershell
+        env:
+          ISSUE: ${{ inputs.issue }}
+          BRANCHE: ${{ inputs.branche }}
+          PR: ${{ inputs.pr }}
+          ESSAI: ${{ inputs.essai }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Le service ne voit pas le PATH de la session : on y remet les agents.
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
+          git -C D:\Forge fetch --quiet --prune origin
+          $atelier = 'D:\Forge\.atelier\pilote-pc'
+          if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }
+          git -C $atelier checkout --quiet --force --detach origin/master
+          $env:PYTHONPATH = $atelier
+          py -m atelier --projet $atelier pc --depot-local D:\Forge --issue $env:ISSUE --branche $env:BRANCHE `
+            --pr $env:PR --essai $env:ESSAI --action $env:ACTION --vendor D:\Forge\3d\unity\Assets\Vendor

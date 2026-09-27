@@ -15,7 +15,7 @@ name: unity
 # ses agents — exécutent déjà du code ailleurs ; le PC n'élargit pas ce
 # cercle.
 #
-# `unity` n'est pas dans `[integration].controles` : le PC s'éteint, et
+# `unity` n'est pas un contrôle exigé par la protection de master : le PC s'éteint, et
 # un contrôle exigé qu'aucune machine ne peut jouer bloquerait toutes les
 # fusions. Il dit vert ou rouge sur la révision ; il ne ferme aucune porte.
 

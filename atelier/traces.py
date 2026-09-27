@@ -85,13 +85,13 @@ def _gh(*args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(["gh", *args], 127, "", str(exc))
 
 
-def rapport(numero: int, lignes: int) -> tuple[int, str]:
+def rapport(numero: int, lignes: int, depot: str | None = None) -> tuple[int, str]:
     """Ce qui fait rougir chaque contrôle de la PR, et le code à rendre.
 
     Code 1 dès qu'une lecture échoue : un journal illisible se dit, il ne
     passe pas pour un journal vide.
     """
-    table = _gh("pr", "checks", str(numero))
+    table = _gh("pr", "checks", str(numero), *(["-R", depot] if depot else []))
     # `gh pr checks` rend 1 quand un contrôle échoue : c'est la table vide
     # qui dit qu'il n'a rien lu, pas son code.
     if not table.stdout.strip():
@@ -115,3 +115,20 @@ def rapport(numero: int, lignes: int) -> tuple[int, str]:
         corps = "\n".join(extrait(journal.stdout, lignes))
         blocs.append(f"== {rouge.nom} (travail {rouge.travail})\n{corps}")
     return code, "\n\n".join(blocs)
+
+
+def lire_run(depot: str, run: int, lignes: int = 80) -> str:
+    """Ce qui fait rougir un run (la CI de master) : l'extrait du journal de
+    chacun de ses travaux en échec. Un journal illisible se dit."""
+    travaux = _gh("run", "view", str(run), "-R", depot, "--json", "jobs")
+    if travaux.returncode != 0:
+        return f"run {run} illisible : {travaux.stderr.strip()}"
+    import json
+    blocs = []
+    for job in json.loads(travaux.stdout or "{}").get("jobs", []):
+        if job.get("conclusion") != "failure":
+            continue
+        journal = _gh("api", f"repos/{depot}/actions/jobs/{job.get('databaseId')}/logs")
+        corps = "\n".join(extrait(journal.stdout, lignes)) if journal.returncode == 0 else "journal illisible"
+        blocs.append(f"== {job.get('name')}\n{corps}")
+    return "\n\n".join(blocs) or f"aucun travail en échec lisible dans le run {run}"

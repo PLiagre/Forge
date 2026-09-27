@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# atelier-boucle <jour|arret|etat> : armer, désarmer, regarder.
+#
+#   jour    la cadence réelle : le pilote toutes les dix minutes, le journal
+#           à 07:15, la boussole le lundi
+#   arret   plus aucun réveil ; un tour en cours finit le sien
+#   etat    le profil, la ligne de cron, les tours en vol, les dernières
+#           lignes du pilote et de la veille
+set -euo pipefail
+_self="${BASH_SOURCE[0]}"
+[ -L "$_self" ] && _self="$(readlink -f "$_self")"
+CRONS="$(cd -P "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+. "$CRONS/lib.sh"
+atelier_defauts
+
+fichier="$ATELIER_ETAT/profil"
+
+en_vol() {
+  local verrou nom restants=()
+  [[ -d "$ATELIER_VERROUS" ]] || return 0
+  for verrou in "$ATELIER_VERROUS"/atelier-*.lock; do
+    [[ -e "$verrou" ]] || continue
+    nom="${verrou##*/atelier-}"
+    if ! flock -n "$verrou" true 2>/dev/null; then
+      restants+=("${nom%.lock}")
+    fi
+  done
+  printf '%s' "${restants[*]-}"
+}
+
+case "${1:-etat}" in
+  jour|arret)
+    mkdir -p "$ATELIER_ETAT"
+    printf '%s\n' "$1" > "$fichier"
+    echo "profil : $1"
+    [[ "$1" == "arret" && -n "$(en_vol)" ]] && echo "tours en vol, qui finissent le leur : $(en_vol)"
+    exit 0 ;;
+  etat)
+    profil="$(tr -d '[:space:]' < "$fichier" 2>/dev/null || echo 'absent (= arrêt)')"
+    echo "profil      : ${profil:-arret}"
+    if crontab -l 2>/dev/null | grep -q "atelier/crons/repartiteur.sh"; then
+      echo "cron        : posé ($(crontab -l | grep "atelier/crons/repartiteur.sh" | head -1))"
+    else
+      echo "cron        : ABSENT — relancer atelier/crons/installer.sh"
+    fi
+    if [[ "${profil:-arret}" != "arret" && -f "$CRONS/profils/$profil.sh" ]]; then
+      # shellcheck source=/dev/null
+      . "$CRONS/profils/$profil.sh"
+      echo "prochain    : $(prochain_reveil "$(date +%H:%M)")"
+    fi
+    echo "en vol      : $(en_vol || true)"
+    echo "--- pilote (dernières lignes)"
+    tail -n 12 "$ATELIER_LOGS/pilote.log" 2>/dev/null || echo "(aucun tour encore)"
+    echo "--- veille"
+    grep -E '^(FAIL|\?)' "${ATELIER_VEILLE:-$HOME/.atelier/veille.txt}" 2>/dev/null || echo "rien à signaler (ou jamais passée)"
+    exit 0 ;;
+  *)
+    dire "usage : atelier-boucle <jour|arret|etat>"
+    exit 2 ;;
+esac

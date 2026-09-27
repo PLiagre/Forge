@@ -23,7 +23,7 @@ Un instant précis se demande par l'adresse :
 `planche.html?image=12&lecture=disette`. C'est ce qui permet de filmer la
 planche sans la piloter — et de pointer un lien sur un instant.
 
-Bibliothèque standard seule, comme `sim/`, `viewer/` et `outils/`.
+Bibliothèque standard seule, comme `sim/` et `vues/tableau/`.
 
 ## L'idée : décor + image
 
