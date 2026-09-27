@@ -1,63 +1,56 @@
-# Le branchement du dépôt sur l'atelier.
+# Le branchement du dépôt sur la chaîne d'agents. La chaîne ne connaît pas
+# le jeu : elle lit ce fichier. Afficher la table des rôles :
 #
-# L'atelier ne connaît pas le jeu : il lit ce fichier. Il vivait sur une
-# branche détachée avant la fusion, et une copie vendorisée en tenait lieu
-# dans le second dépôt ; il vit maintenant dans l'arbre, à `atelier/`.
+#     python3 -m atelier agents
+#
+# Ce fichier ne se change qu'en mode direct (AGENTS.md) : un lot n'y touche
+# jamais.
 
 [projet]
 nom = "Forge"
-briefs = "briefs"
-tests = "python3 -m pytest jeu/sim/tests/ jeu/vues/tableau/tests/ jeu/vues/chronique/tests/ jeu/vues/relief/tests/ jeu/forge/tests/ outils/tests/ -q"
-fumee = "PYTHONPATH=jeu python3 -m forge --ticks 3 --seed 0 --sans-chronique --largeur 64 --sortie /tmp/forge-fumee"
+depot = "PLiagre/Forge"
 branche_base = "master"
-prefixe_branche = "agent/"
-# Le registre des lots : la seule représentation qui fait autorité sur l'état
-# d'un lot. Le pilote la lit, la CI la valide.
-feuille = "ROADMAP.md"
+# Les tests du jeu, depuis la racine du dépôt. Ce que le codeur joue avant de
+# rendre la main ; la CI joue les mêmes, plus l'atelier et gitleaks.
+tests = "python3 -m pytest jeu -q"
+# Ce qu'un lot ne touche jamais. Un changement d'un lot sur ces chemins est
+# retiré avant l'enregistrement, et le commentaire de la PR le dit.
+interdits = ["atelier/", ".github/", "atelier.toml", "AGENTS.md", "CLAUDE.md", "CAP.md"]
+# Un brief prévoit moins que ce nombre de lignes de diff ; sinon le chef
+# découpe le lot.
+lignes_max = 300
+# Passages du codeur après le premier (CI rouge ou relecture « CORRIGER »)
+# avant que le lot soit « bloque », avec sa raison.
+corrections_max = 2
+dossier_briefs = "docs/briefs"
+prefixe_branche = "lot/"
 
-[roles]
-ecriture = "claude"
-execution = "cursor"
-controle = "claude"
+# Une ligne par rôle : outil/modèle, puis des secours séparés par « | ».
+# Outils : claude (Claude Code), codex (Codex CLI), cursor (cursor-agent).
+# Un secours ne sert que si le précédent a épuisé son quota ou perdu sa
+# session ; si aucun ne répond, le lot attend, il n'échoue pas.
+# Changer de modèle, c'est changer une ligne.
+[agents]
+chef        = "claude/claude-opus-5-5"
+codeur      = "codex/gpt-5.6-sol | cursor/grok-4.7-high"
+# Les lots « machine : pc » (Unity, Blender), sur le PC Windows.
+codeur_3d   = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high"
+# Le modèle qui écrit ne relit jamais : un outil qui a écrit le lot est
+# écarté, et le suivant de la ligne relit (codex quand l'auteur est claude).
+relecteur   = "claude/claude-opus-5-5 | codex/gpt-5.6-sol"
+# CI rouge sur master, conflits d'une branche de lot, dépendances.
+mecanicien  = "cursor/composer-2.5"
+# Journal du matin, en lecture seule (cursor --mode ask).
+chroniqueur = "cursor/grok-4.7-high"
+# Comparaison hebdomadaire avec CAP.md, en lecture seule.
+boussole    = "claude/claude-opus-5-5"
 
-# L'intégration : qui entre dans master, et à quelle condition. Elle est
-# déclarée ici, en clair, parce qu'un réglage qui ne vit que dans les options
-# GitHub ne se lit dans aucun diff — et une porte qu'on ne voit pas s'ouvrir
-# est une porte qu'on ne se souvient pas d'avoir ouverte.
-[integration]
-# Les contrôles obligatoires. Une PR entre quand ils sont tous verts sur sa
-# révision courante. Un contrôle absent n'est pas un contrôle vert.
-#
-# `relecture` n'est pas dans la liste, et ce n'est pas un oubli : l'état de ce
-# nom est posé par un travail qui tourne sur le code de la PR, donc par du
-# code que la PR peut changer. L'intégration calcule ce verdict-là elle-même,
-# avec le module de `master`.
-#
-# `forge` est le contrôle neuf de la fusion : il joue la commande de bout en
-# bout. Les autres vérifient des pièces ; celui-là vérifie qu'elles marchent
-# ensemble, ce qu'aucun test unitaire ne dit.
-#
-# `atelier` garde la machine qui fait tourner la chaîne. Il entre dans la
-# liste pour une raison mesurée : ses tests existaient, ils étaient
-# soixante-six à être rouges, et personne ne le voyait parce qu'aucun
-# travail ne les jouait. Un contrôle qu'on ne joue pas n'est pas un
-# contrôle vert — c'est un contrôle qui n'existe pas.
-controles = ["sim", "vues", "forge", "outils", "atelier", "feuille", "gitleaks"]
-# Les branches que l'intégration fusionne. Le reste attend le propriétaire :
-# une expérience qui passe au vert n'est pas un lot.
-branches = ["agent/", "brief/", "feuille/"]
-# La porte de master se change sous le regard du propriétaire. Un slash
-# final désigne un dossier ; les autres entrées sont des fichiers exacts.
-zone = ["atelier.toml", "AGENTS.md", ".github/", "outils/__init__.py", "outils/porte.py", "outils/github.py", "outils/registre.py", "outils/relecture.py", "outils/integration.py", "outils/demandes.py", "outils/perimetre.py"]
-
-# La page de pilotage : ses seuils et ses fenêtres. Ils sont ici, et pas dans
-# le code, parce qu'un seuil qu'on ne peut changer qu'en committant `outils/`
-# est un seuil que personne ne change — et un seuil que personne ne change
-# finit par ne plus rien vouloir dire.
-[tableau]
-tours_sans_fusion = 10
-brouillon_jours = 2
-journal = 30
-historique = 200
-semaines = 8
-executions = 100
+# Le temps qu'un agent a pour rendre la main, en secondes.
+[delais]
+chef = 1800
+codeur = 3600
+codeur_3d = 3600
+relecteur = 1800
+mecanicien = 1800
+chroniqueur = 600
+boussole = 1200

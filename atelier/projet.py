@@ -1,126 +1,159 @@
-"""Branchement d'un dépôt produit. L'atelier ne devine rien."""
+"""Branchement du dépôt sur l'atelier : `atelier.toml`. L'atelier ne devine rien.
+
+Le fichier dit trois choses : le projet (dépôt, base, tests, ce qu'un lot ne
+touche jamais), les rôles (une ligne par rôle : outil/modèle, puis les
+secours) et les délais. Un champ qui manque se refuse, il ne s'invente pas.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import tomllib
 
 
 class ProjetIncomplet(ValueError):
-    """Un champ obligatoire manque : on refuse, on n'invente pas."""
+    """Un champ obligatoire manque ou se lit mal : on refuse, on n'invente pas."""
+
+
+# Les outils que l'atelier sait appeler, et le binaire de chacun.
+OUTILS = {"claude": "claude", "codex": "codex", "cursor": "cursor-agent"}
+
+# Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents].
+ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "chroniqueur", "boussole")
+
+# Les rôles qui n'écrivent rien : leur outil est appelé en lecture seule.
+ROLES_LECTURE_SEULE = ("relecteur", "chroniqueur", "boussole")
 
 
 @dataclass(frozen=True)
-class Roles:
-    ecriture: str
-    execution: str
-    controle: str
+class Agent:
+    """Un outil et un modèle : `codex/gpt-5.6-sol`."""
 
-    def __post_init__(self) -> None:
-        # La règle est : « celui qui a écrit le CODE ne dit pas s'il est
-        # recevable ». Écrire un brief n'est pas écrire du code — un
-        # même agent peut donc briefer le matin et relire le diff le
-        # soir. Interdire `ecriture == controle` serait plus strict que
-        # la règle, et forcerait le branchement à nommer un quatrième
-        # abonnement que le propriétaire n'a pas.
-        if self.execution == self.controle:
-            raise ProjetIncomplet(
-                "l'exécution et le contrôle ne peuvent pas être le même agent : "
-                "celui qui a écrit le code ne dit pas s'il est recevable"
-            )
+    outil: str
+    modele: str
 
-    def vers_dict(self) -> dict[str, str]:
-        return {
-            "ecriture": self.ecriture,
-            "execution": self.execution,
-            "controle": self.controle,
-        }
+    def __str__(self) -> str:
+        return f"{self.outil}/{self.modele}"
+
+    @property
+    def binaire(self) -> str:
+        return OUTILS[self.outil]
+
+
+@dataclass(frozen=True)
+class Poste:
+    """Un rôle, son agent, puis ses secours dans l'ordre."""
+
+    role: str
+    agents: tuple[Agent, ...]
+
+    @property
+    def principal(self) -> Agent:
+        return self.agents[0]
+
+    @property
+    def secours(self) -> tuple[Agent, ...]:
+        return self.agents[1:]
+
+    @property
+    def lecture_seule(self) -> bool:
+        return self.role in ROLES_LECTURE_SEULE
 
 
 @dataclass(frozen=True)
 class Projet:
     racine: Path
     nom: str
-    briefs: Path
-    tests: str
-    fumee: str
+    depot: str
     branche_base: str
+    tests: str
+    interdits: tuple[str, ...]
+    lignes_max: int
+    corrections_max: int
+    dossier_briefs: str
     prefixe_branche: str
-    roles: Roles
-    # La feuille de route du produit, où vit le registre des lots. `None`
-    # si le branchement ne la nomme pas : le pilote refuse alors de
-    # décider, il ne cherche pas un ROADMAP.md au hasard.
-    feuille: Path | None = None
-    # Les contrôles que le produit déclare obligatoires, dans l'ordre de
-    # `[integration].controles`. `crons/tour.sh` les lit déjà pour savoir
-    # quel rouge fait tomber une carte ; le prompt du relecteur les lit
-    # maintenant pour savoir quel rouge le fait refuser. Vide si le
-    # branchement n'en déclare aucun : on ne devine pas une liste.
-    controles: tuple[str, ...] = ()
+    postes: dict[str, Poste] = field(default_factory=dict)
+    delais: dict[str, int] = field(default_factory=dict)
 
-    @property
-    def etat_dir(self) -> Path:
-        return self.racine / ".atelier"
+    def poste(self, role: str) -> Poste:
+        if role not in self.postes:
+            raise ProjetIncomplet(f"[agents] ne nomme pas le rôle {role!r}")
+        return self.postes[role]
 
-    def feuille_ou_refus(self) -> Path:
-        if self.feuille is None:
-            raise ProjetIncomplet(
-                "le branchement ne nomme pas [projet].feuille : l'atelier ne devine "
-                "pas où vit le registre des lots (chez ForgeHistory : ROADMAP.md)"
-            )
-        return self.feuille
+    def delai(self, role: str) -> int:
+        return self.delais.get(role, 1800)
 
-    def branche_du_lot(self, lot: str) -> str:
-        """La branche du lot, dérivée de `[projet].prefixe_branche`. Jamais recopiée."""
-        if not lot.strip():
-            raise ProjetIncomplet("un lot vide n'a pas de branche : l'atelier ne la devine pas")
-        return f"{self.prefixe_branche}{lot}"
-
-
-def charger(racine: Path) -> Projet:
-    racine = Path(racine).resolve()
-    fichier = racine / "atelier.toml"
-    if not fichier.is_file():
-        raise ProjetIncomplet(f"atelier.toml introuvable : {fichier}")
-
-    with fichier.open("rb") as fh:
-        brut = tomllib.load(fh)
-
-    try:
-        bloc = brut["projet"]
-        roles_brut = brut["roles"]
-    except KeyError as exc:
-        raise ProjetIncomplet(f"section manquante dans atelier.toml : {exc.args[0]}") from exc
-
-    obligatoires = ("nom", "briefs", "tests", "fumee", "branche_base", "prefixe_branche")
-    manquants = [cle for cle in obligatoires if not bloc.get(cle)]
-    if manquants:
-        raise ProjetIncomplet(f"projet incomplet, champs vides : {', '.join(manquants)}")
-
-    roles_cles = ("ecriture", "execution", "controle")
-    manquants_roles = [cle for cle in roles_cles if not roles_brut.get(cle)]
-    if manquants_roles:
-        raise ProjetIncomplet(
-            f"rôles incomplets, champs vides : {', '.join(manquants_roles)}"
+    def interdit(self, chemin: str) -> bool:
+        """Un lot ne touche jamais ce chemin : seul le mode direct y écrit."""
+        chemin = chemin.replace("\\", "/")
+        return any(
+            chemin == regle or (regle.endswith("/") and chemin.startswith(regle))
+            for regle in self.interdits
         )
 
-    briefs = racine / str(bloc["briefs"])
+
+def lire_agent(texte: str) -> Agent:
+    """`outil/modèle`, sans espace superflu. Un outil inconnu se refuse."""
+    morceau = texte.strip()
+    outil, barre, modele = morceau.partition("/")
+    if not barre or not outil or not modele:
+        raise ProjetIncomplet(f"agent illisible : {texte!r} (attendu : outil/modèle)")
+    if outil not in OUTILS:
+        connus = ", ".join(sorted(OUTILS))
+        raise ProjetIncomplet(f"outil inconnu : {outil!r} (connus : {connus})")
+    return Agent(outil=outil, modele=modele)
+
+
+def lire_poste(role: str, ligne: str) -> Poste:
+    """`outil/modèle | secours | …` : l'ordre est celui des essais."""
+    if not isinstance(ligne, str) or not ligne.strip():
+        raise ProjetIncomplet(f"[agents].{role} est vide")
+    agents = tuple(lire_agent(morceau) for morceau in ligne.split("|"))
+    return Poste(role=role, agents=agents)
+
+
+def charger(racine: Path | str) -> Projet:
+    racine = Path(racine)
+    chemin = racine / "atelier.toml"
+    if not chemin.is_file():
+        raise ProjetIncomplet(f"{chemin} introuvable : l'atelier ne devine pas le branchement")
+    with chemin.open("rb") as f:
+        doc = tomllib.load(f)
+    bloc = doc.get("projet") or {}
+    obligatoires = ("nom", "depot", "branche_base", "tests", "interdits",
+                    "lignes_max", "corrections_max", "dossier_briefs", "prefixe_branche")
+    manquants = [cle for cle in obligatoires if cle not in bloc]
+    if manquants:
+        raise ProjetIncomplet(f"[projet] ne dit pas : {', '.join(manquants)}")
+    agents = doc.get("agents") or {}
+    manquants = [role for role in ROLES if role not in agents]
+    if manquants:
+        raise ProjetIncomplet(f"[agents] ne nomme pas : {', '.join(manquants)}")
+    postes = {role: lire_poste(role, agents[role]) for role in ROLES}
+    delais = {cle: int(valeur) for cle, valeur in (doc.get("delais") or {}).items()}
     return Projet(
         racine=racine,
         nom=str(bloc["nom"]),
-        briefs=briefs,
-        tests=str(bloc["tests"]),
-        fumee=str(bloc["fumee"]),
+        depot=str(bloc["depot"]),
         branche_base=str(bloc["branche_base"]),
+        tests=str(bloc["tests"]),
+        interdits=tuple(str(x) for x in bloc["interdits"]),
+        lignes_max=int(bloc["lignes_max"]),
+        corrections_max=int(bloc["corrections_max"]),
+        dossier_briefs=str(bloc["dossier_briefs"]).rstrip("/"),
         prefixe_branche=str(bloc["prefixe_branche"]),
-        roles=Roles(
-            ecriture=str(roles_brut["ecriture"]),
-            execution=str(roles_brut["execution"]),
-            controle=str(roles_brut["controle"]),
-        ),
-        feuille=racine / str(bloc["feuille"]) if bloc.get("feuille") else None,
-        controles=tuple(
-            str(nom) for nom in brut.get("integration", {}).get("controles", []) if str(nom)
-        ),
+        postes=postes,
+        delais=delais,
     )
+
+
+def table_des_roles(projet: Projet) -> str:
+    """Ce que `python3 -m atelier agents` imprime : une ligne par rôle."""
+    lignes = [f"{'rôle':12} {'agent':40} secours"]
+    for role in ROLES:
+        poste = projet.postes[role]
+        secours = ", ".join(str(a) for a in poste.secours) or "—"
+        lecture = " (lecture seule)" if poste.lecture_seule else ""
+        lignes.append(f"{role:12} {str(poste.principal) + lecture:40} {secours}")
+    return "\n".join(lignes)

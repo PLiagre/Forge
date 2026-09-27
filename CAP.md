@@ -4,10 +4,12 @@
 > le reste en découle. Chaque lot porte le jalon qu'il sert (le jalon de son
 > issue) ; un lot qui ne sert pas le jalon courant est refusé par le chef.
 >
-> Le **jalon courant** est le premier de la table qui n'est pas « atteint ».
-> Un jalon est atteint quand sa preuve est verte **et** que sa capture est au
-> journal. Le pourcentage d'un jalon se dérive de ses issues (fermées / toutes),
-> jamais d'une estimation écrite à la main.
+> Chaque jalon est un milestone GitHub (`J1 — Le pont`, …). Le **jalon
+> courant** est le premier milestone ouvert. Un jalon est atteint quand ses lots
+> sont livrés — sa preuve comprise, avec sa capture au journal — et le pilote
+> ferme alors son milestone. Le pourcentage d'un jalon se dérive de ses issues
+> (fermées / toutes), jamais d'une estimation écrite à la main ; ce fichier ne
+> tient pas d'état.
 
 ## Le constat qui commande (27 septembre 2026)
 
@@ -32,15 +34,15 @@ monde répondre. Il a :
 
 ## L'échelle
 
-| # | jalon | le joueur | l'écran | état |
-|---|---|---|---|---|
-| 1 | **Le pont** | ouvre un lieu du monde dans Unity et laisse le temps passer | le lieu en 3D, et ses vrais chiffres (habitants, stocks, faim, date) qui bougent avec `sim/` | en cours |
-| 2 | **Le geste revient** | trace une route dans le lieu | le chantier accepté au tick suivant, puis plus de kilos qui passent la frontière | à venir |
-| 3 | **La nourriture traverse le lieu** | relie ses champs à son bourg | deux stocks (champs, bourg), le flux sur la route ; sans route, le bourg s'endette | à venir |
-| 4 | **Des foyers** | pose un atelier, subit une disette | les foyers par métier, les départs ; une vallée qui se vide, une voisine qui grossit | à venir |
-| 5 | **Le siège prélève** | fixe la part qu'il prend sur plusieurs lieux | les flux vers le siège sur la carte, son grenier ; trop prendre fait partir les gens | à venir |
-| 6 | **La colonne** | lève des hommes et les fait marcher | la colonne sur la carte et sur le terrain, ce qu'elle mange, le creux qu'elle laisse | à venir |
-| 7 | **1400 → 1900** | joue le siècle suivant sans changer de jeu | la ville au zoom (Unity), la carte en relief au dézoom (forge3d), la même horloge | à venir |
+| # | jalon | le joueur | l'écran |
+|---|---|---|---|
+| 1 | **Le pont** | ouvre un lieu du monde dans Unity et laisse le temps passer | le lieu en 3D, et ses vrais chiffres (habitants, stocks, faim, date) qui bougent avec `sim/` |
+| 2 | **Le geste revient** | trace une route dans le lieu | le chantier accepté au tick suivant, puis plus de kilos qui passent la frontière |
+| 3 | **La nourriture traverse le lieu** | relie ses champs à son bourg | deux stocks (champs, bourg), le flux sur la route ; sans route, le bourg s'endette |
+| 4 | **Des foyers** | pose un atelier, subit une disette | les foyers par métier, les départs ; une vallée qui se vide, une voisine qui grossit |
+| 5 | **Le siège prélève** | fixe la part qu'il prend sur plusieurs lieux | les flux vers le siège sur la carte, son grenier ; trop prendre fait partir les gens |
+| 6 | **La colonne** | lève des hommes et les fait marcher | la colonne sur la carte et sur le terrain, ce qu'elle mange, le creux qu'elle laisse |
+| 7 | **1400 → 1900** | joue le siècle suivant sans changer de jeu | la ville au zoom (Unity), la carte en relief au dézoom (forge3d), la même horloge |
 
 ---
 

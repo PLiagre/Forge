@@ -1,5 +1,9 @@
 # Inventaire de cohérence — produit face à `VISION.md`
 
+> Inventaire daté, antérieur au rangement du 27 septembre 2026 : les chemins
+> `sim/`, `vues/`, `data/` y désignent aujourd'hui `jeu/sim/`, `jeu/vues/`,
+> `jeu/data/`, et `VISION.md` vit dans `docs/`.
+
 Document de **constat** pour la révision mesurée ci-dessous. Une suite verte
 ne transforme pas une promesse absente en promesse tenue ; l'état des lots
 reste dans `ROADMAP.md` seul.

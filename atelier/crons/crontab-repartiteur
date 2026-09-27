@@ -1,0 +1,7 @@
+# La ligne que l'installateur pose dans la crontab de l'utilisateur, et plus
+# jamais : elle n'arme rien et ne nomme aucune heure. Le répartiteur lit le
+# profil actif (~/.atelier/etat/profil) et décide qui se réveille. Changer
+# de cadence, ou tout arrêter, devient `atelier-boucle <jour|arret>`.
+#
+# REPARTITEUR est remplacé par le chemin réel à l'installation.
+* * * * * REPARTITEUR

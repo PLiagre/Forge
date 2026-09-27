@@ -1,0 +1,62 @@
+name: build-nuit
+
+# Le build Windows du jeu, chaque nuit, sur le PC du propriétaire.
+#
+# Il part de master, dans le worktree de D:\Forge que partagent les lots PC
+# (sa Library Unity est chaude), et dépose le joueur dans D:\Forge\builds :
+# un dossier par nuit, et `dernier`, que lance pc\Jouer.cmd. Le build embarque
+# les packs de l'Asset Store : il ne quitte jamais le PC.
+#
+# Un PC éteint à l'heure dite garde le travail en file : il part au réveil.
+
+on:
+  schedule:
+    - cron: "30 0 * * *"   # 02:30 à Paris l'été, 01:30 l'hiver
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-forge
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: [self-hosted, Windows, unity]
+    timeout-minutes: 120
+    steps:
+      - name: Construire le joueur depuis master
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git -C D:\Forge fetch --quiet --prune origin
+          $w = 'D:\Forge\.atelier\chantiers\pc'
+          if (-not (Test-Path "$w\.git")) { git -C D:\Forge worktree add --force --detach $w origin/master }
+          git -C $w checkout --quiet --force --detach origin/master
+          $vendor = "$w\3d\unity\Assets\Vendor"
+          if (-not (Test-Path $vendor)) { cmd /c mklink /J $vendor D:\Forge\3d\unity\Assets\Vendor | Out-Null }
+          if (-not (Test-Path "$w\3d\unity\Assets\Vendor.meta")) { Copy-Item D:\Forge\3d\unity\Assets\Vendor.meta "$w\3d\unity\Assets\" }
+          $version = (Select-String -Path "$w\3d\unity\ProjectSettings\ProjectVersion.txt" -Pattern '^m_EditorVersion: (.+)$').Matches[0].Groups[1].Value.Trim()
+          $unity = "C:\Program Files\Unity\Hub\Editor\$version\Editor\Unity.exe"
+          $nuit = Get-Date -Format 'yyyy-MM-dd'
+          $sortie = "D:\Forge\builds\$nuit"
+          $journal = "D:\Forge\builds\$nuit.log"
+          New-Item -ItemType Directory -Force $sortie | Out-Null
+          $arguments = @('-batchmode', '-quit', '-projectPath', "`"$w\3d\unity`"", '-executeMethod', 'ForgeLocal3D.Build.Nuit', '-forgeSortie', "`"$sortie`"", '-logFile', "`"$journal`"")
+          $p = Start-Process -FilePath $unity -ArgumentList $arguments -PassThru -NoNewWindow
+          $null = $p.Handle
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0 -or -not (Test-Path "$sortie\Forge.exe")) {
+            Get-Content $journal -Tail 60
+            Write-Output "::error::le build de la nuit a échoué (code $($p.ExitCode))"
+            exit 1
+          }
+          # `dernier` est une copie, pas un lien : un build qui échoue demain
+          # ne casse pas celui qu'on joue aujourd'hui.
+          if (Test-Path D:\Forge\builds\dernier) { Remove-Item -Recurse -Force D:\Forge\builds\dernier }
+          Copy-Item -Recurse $sortie D:\Forge\builds\dernier
+          # On garde sept nuits.
+          Get-ChildItem D:\Forge\builds -Directory | Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}$' } |
+            Sort-Object Name -Descending | Select-Object -Skip 7 | Remove-Item -Recurse -Force
+          Write-Output "build de la nuit : $sortie"

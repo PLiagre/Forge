@@ -1,0 +1,55 @@
+name: Demander un lot
+description: Une chose que le joueur ou le monde saura faire après. Une seule.
+title: ""
+labels: ["lot", "idee"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Un lot est une issue. La chaîne la prend quand elle appartient au
+        **jalon courant** de [CAP.md](../blob/master/CAP.md) : le chef écrit
+        son brief dans la branche du lot, le codeur code, le relecteur rend
+        son verdict, et ACCEPTE fusionne tout seul.
+
+        **Un lot = un changement**, sous 300 lignes. Si deux parties pourraient
+        être livrées et jugées séparément, ce sont deux demandes (le chef
+        découpe de toute façon ce qui est trop gros).
+
+        Étiquettes : `idee` (recensé) → `pret` (à prendre en premier) →
+        `en-cours` → `livre`. `bloque` dit qu'une décision vous attend ; la
+        raison est en commentaire.
+  - type: dropdown
+    id: jalon
+    attributes:
+      label: Jalon
+      description: Le jalon de CAP.md que ce lot sert. Obligatoire.
+      options:
+        - "J1 — Le pont"
+        - "J2 — Le geste revient"
+        - "J3 — La nourriture traverse le lieu"
+        - "J4 — Des foyers"
+        - "J5 — Le siège prélève"
+        - "J6 — La colonne"
+        - "J7 — 1400 → 1900"
+    validations:
+      required: true
+  - type: dropdown
+    id: machine
+    attributes:
+      label: Machine
+      description: « vps » pour Python seul (jeu/) ; « pc » si le lot demande Unity ou Blender (3d/).
+      options:
+        - vps
+        - pc
+    validations:
+      required: true
+  - type: textarea
+    id: quoi
+    attributes:
+      label: Ce que ça doit faire
+      description: >
+        Ce que le joueur fait, ce qu'on voit, ou ce que le monde sait faire
+        après. Le périmètre et les conditions de succès que vous imaginez
+        sont les bienvenus : le chef les reprend dans le brief.
+    validations:
+      required: true

@@ -5,15 +5,14 @@ name: security
 # par accident dans un dépôt public ne se rattrape pas — ce contrôle coûte
 # vingt lignes et il reste.
 #
-# `actionlint` est parti avec le dégraissage : il gardait douze workflows,
-# il en reste quatre — celui-ci, `tests`, `relecture` et `integration`.
+# C'est l'un des deux contrôles que la protection de master exige, avec
+# `tests`.
 
 on:
   push:
     branches: [master]
   pull_request:
-  # Une PR ouverte par le jeton d'Actions ne déclenche rien : l'intégration
-  # demande alors ce contrôle nommément (voir `integration.yml`).
+  # Pour le rejouer à la main.
   workflow_dispatch:
 
 permissions:

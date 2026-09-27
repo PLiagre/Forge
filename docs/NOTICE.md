@@ -226,44 +226,33 @@ Il rougit si le monde recommence à amorcer plus de bouches qu'il n'en nourrit.
 
 ---
 
-## 5. Le registre des lots
+## 5. Les lots
 
-Le registre est la **seule** représentation qui fait autorité sur l'état d'un
-lot. Une machine le lit et refuse toute fiche mal formée, tout numéro dupliqué,
-tout brief attendu qui manque, toute dépendance qui n'existe pas.
+Un lot est une **issue** GitHub : un jalon (milestone `J1`…`J7`), un état
+(`idee`, `pret`, `en-cours`, `bloque`, `livre`), l'étiquette `pc` s'il demande
+Unity ou Blender. Le formulaire « Demander un lot » les pose. Il n'y a plus de
+registre dans un fichier : `ROADMAP.md` a été migré en issues le 27 septembre
+2026 (correspondance dans [registre-migre.md](registre-migre.md)).
 
 ```bash
-python3 -m atelier feuille valider --projet .
-# -> PASS  ROADMAP.md — <n> lot(s), feuille cohérente
-
-python3 -m atelier feuille etat --projet .
-python3 -m atelier feuille marquer --projet . --lot 049 --etat livre --pr 12
+gh issue list --label pret                 # ce que la chaîne prendra d'abord
+gh issue list --label bloque               # ce qui attend une décision
+gh issue list --milestone "J1 — Le pont"   # le jalon courant
 ```
-
-L'atelier vit dans l'arbre, à `atelier/` : rien à installer, rien à aller
-chercher sur une autre branche.
 
 ---
 
-## 6. La chaîne d'intégration, jouée à la main
-
-Ces commandes **décident** et n'écrivent jamais sur GitHub. Chacune imprime une
-ligne sur la sortie standard — celle que le workflow lit — et son compte rendu
-sur l'erreur standard.
+## 6. La chaîne, jouée à la main
 
 ```bash
-export GITHUB_TOKEN=...
-
-python3 -m outils relecture   --depot PLiagre/Forge --pr 12
-python3 -m outils integration --depot PLiagre/Forge --projet .
-python3 -m outils palier      --projet .
-python3 -m outils tableau     --depot PLiagre/Forge --projet . --sortie site/index.html
-python3 -m outils controles   --depot PLiagre/Forge --pr 12
-python3 -m outils brouillon   --depot PLiagre/Forge --pr 12
+python3 -m atelier agents          # la table des rôles : outil/modèle et secours
+python3 -m atelier veille          # binaires, jetons, accès GitHub
+python3 -m atelier sonde           # chaque agent répond-il, avec son modèle, en non interactif ?
+python3 -m atelier tour --a-sec    # ce que le pilote ferait maintenant, sans rien faire
+python3 -m atelier tour            # un vrai tour
+python3 -m atelier journal --sans-publier
+python3 -m atelier traces --pr 12  # ce qui fait rougir les contrôles d'une PR
 ```
-
-`palier --ecrire`, `saisie --ecrire` et `etat --ecrire` sont les seules qui
-touchent un fichier — et seulement celui du registre.
 
 ---
 
@@ -296,30 +285,18 @@ sont ceux de l'ancien dépôt. Les kits vivants se préparent avec
 
 ## 9. La chaîne qui tourne toute seule
 
-Les commandes du § 6 sont celles qu'on joue à la main. En temps normal,
-personne ne les tape : une machine allumée réveille les rôles à heure fixe, et
-c'est la seule pièce du projet qui demande une machine.
+Sur le VPS, une ligne de crontab appelle `atelier/crons/repartiteur.sh`
+chaque minute ; le profil actif (`~/.atelier/etat/profil`) dit qui se réveille.
 
 ```bash
-atelier-boucle etat        # quel profil, quel rôle vient, ce qu'il y a en file
-atelier-boucle arret       # désarmer : plus aucun réveil
-atelier-boucle jour        # réarmer la cadence du jour
+atelier/crons/installer.sh         # installer ou réinstaller, sans sudo
+atelier/crons/atelier-boucle jour  # armer
+atelier/crons/atelier-boucle arret # arrêter
+atelier/crons/atelier-boucle etat  # regarder
 ```
 
-La cadence est un fichier, pas une ligne de crontab :
-`atelier_meta/crons/profils/jour.sh` porte les quatorze réveils — veille 06:45,
-pilote 07:00, coder 07:30, relecteur 09:00, puis coder et relecteur en
-alternance jusqu'à 21:30, briefer à 12:30 et 18:00 (heure de Paris). Le
-répartiteur lit le profil actif chaque minute ; un profil vide n'arme rien.
-
-Ce que chaque tour a fait s'écrit dans `~/.atelier/logs/<rôle>.log`, et l'état
-des cartes se lit par `python3 -m atelier feuille etat --projet .`. Ce que
-GitHub en voit — l'état de chaque lot, et ce qui retient chaque proposition —
-est sur la page de pilotage, réécrite à chaque tour.
-
-L'installation sur une machine est décrite dans
-[`atelier_meta/crons/README.md`](../atelier_meta/crons/README.md) ; la chaîne
-elle-même, dans [WORKFLOW.md](WORKFLOW.md).
+Le détail — cadence, rôles, états, pannes — est dans
+[WORKFLOW.md](WORKFLOW.md) et [atelier/crons/README.md](../atelier/crons/README.md).
 
 ---
 
@@ -327,10 +304,9 @@ elle-même, dans [WORKFLOW.md](WORKFLOW.md).
 
 | symptôme | cause | remède |
 |---|---|---|
-| `feuille valider` refuse | brief orphelin, fiche sans brief, dépendance fantôme | le message nomme le fichier fautif |
 | `vues.relief` sort en code 2 | pas de GPU, ou `forge3d` absent | c'est un refus propre, pas un bug |
 | la lecture `bourg` refuse | le snapshot lu est antérieur au lot 051 | rephotographier le monde : `jeu/sim/snapshot_export.py` porte le champ depuis |
 | la carte est d'une seule couleur | échelle mal choisie pour la distribution | `quantile` pour les grandeurs étalées |
 | `--bobine` échoue | Chromium ou ffmpeg manquant | `--chrome` et `--ffmpeg` pointent un binaire |
 | `--ticks` négatif | refusé | code 2, volontairement |
-| une PR verte n'entre pas | contrôle absent, ou approbation périmée par un nouveau commit | un contrôle absent n'est pas un contrôle vert |
+| une PR de lot verte n'entre pas | pas de verdict `ACCEPTE` sur sa révision courante | le relecteur relit au tour suivant ; `gh pr view <n> --comments` montre les marques du pilote |

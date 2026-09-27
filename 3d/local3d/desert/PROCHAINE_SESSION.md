@@ -5,6 +5,11 @@ sur `master` à jour.
 
 ---
 
+> Ce fichier date d'avant la refonte du 27 septembre 2026. Les lots de la ville
+> du désert sont maintenant des issues (voir `CAP.md` et `docs/registre-migre.md`),
+> la chaîne les prend quand leur jalon est le jalon courant, et les chemins sont
+> sous `3d/local3d/` et `3d/unity/`.
+
 Lis d'abord `AGENTS.md`, puis `local3d/desert/VILLE.md` (le plan et l'analyse
 de la ville du désert) et `local3d/desert/README.md`. Tout ce que tu écris est
 en français clair.
