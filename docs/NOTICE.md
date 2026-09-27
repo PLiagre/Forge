@@ -16,8 +16,12 @@
 | les tests | `pytest` |
 | la ville | **Unity 6000.0.43f1** + URP 17.0.4, sur Windows |
 
-Le moteur ne dépend de rien. C'est voulu, et c'est vérifié : `sim/` n'importe
+Le moteur ne dépend de rien. C'est voulu, et c'est vérifié : `jeu/sim/` n'importe
 que la bibliothèque standard, pour qu'il tourne sur une machine nue.
+
+**Toutes les commandes du jeu se lancent depuis le dossier `jeu/`** (`cd jeu`),
+où vivent `sim/`, `vues/`, `forge/`, `ville/` et `data/`. Les tests se lancent
+aussi depuis la racine du dépôt, en préfixant leurs chemins par `jeu/`.
 
 ```bash
 python3 -m pip install pytest numpy pillow       # tests, carte
@@ -203,7 +207,7 @@ C'est voulu : la CI ne prétend pas rendre ce qu'elle ne peut pas rendre.
 
 ```bash
 # tout, sauf ce qui demande un GPU
-python3 -m pytest sim/tests/ vues/ forge/tests/ outils/tests/ -q
+python3 -m pytest sim/tests/ vues/ forge/tests/ -q   # depuis jeu/
 
 # par domaine
 python3 -m pytest sim/tests/ -q          # le moteur
@@ -272,7 +276,7 @@ machine Windows.
 Unity     : 6000.0.43f1
 Pipeline  : URP 17.0.4
 Paquets   : unity/Packages/com.victoria.citymode*
-Contrat   : ville/FORGEHISTORY_CITY_MODE_CONTRACT.md
+Contrat   : jeu/ville/FORGEHISTORY_CITY_MODE_CONTRACT.md
 ```
 
 > **Ce qui manque encore ici.** Le code Unity et les quatre paquets sont dans
@@ -334,7 +338,7 @@ elle-même, dans [WORKFLOW.md](WORKFLOW.md).
 |---|---|---|
 | `feuille valider` refuse | brief orphelin, fiche sans brief, dépendance fantôme | le message nomme le fichier fautif |
 | `vues.relief` sort en code 2 | pas de GPU, ou `forge3d` absent | c'est un refus propre, pas un bug |
-| la lecture `bourg` refuse | le snapshot lu est antérieur au lot 051 | rephotographier le monde : `sim/snapshot_export.py` porte le champ depuis |
+| la lecture `bourg` refuse | le snapshot lu est antérieur au lot 051 | rephotographier le monde : `jeu/sim/snapshot_export.py` porte le champ depuis |
 | la carte est d'une seule couleur | échelle mal choisie pour la distribution | `quantile` pour les grandeurs étalées |
 | `--bobine` échoue | Chromium ou ffmpeg manquant | `--chrome` et `--ffmpeg` pointent un binaire |
 | `--ticks` négatif | refusé | code 2, volontairement |

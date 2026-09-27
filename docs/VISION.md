@@ -1,9 +1,11 @@
 # Vision — Moteur de simulation historique vivant
 
-> **Où vit le produit aujourd'hui.** Le moteur tourne dans `sim/`
-> (`py -m sim`). `viewer/` est un regard mince sur une photographie.
-> Il n'y a pas de moteur de rendu : cette note de statut ne change pas les
-> piliers ci-dessous.
+> **Où vit le produit aujourd'hui.** Le moteur tourne dans `jeu/sim/`
+> (`py -m sim`, depuis `jeu/`). Les regards vivent dans `jeu/vues/` — le
+> tableau de bord, la chronique, la carte en relief (forge3d) — et la ville
+> dans Unity ; aucun ne décide un nombre. Cette note de statut ne change pas
+> les piliers ci-dessous ; l'ordre dans lequel on les construit est
+> [CAP.md](../CAP.md).
 
 > Ce document est la source de vérité de la vision produit. Il prime sur
 > tout autre document en cas de conflit.

@@ -7,8 +7,8 @@
 [projet]
 nom = "Forge"
 briefs = "briefs"
-tests = "python3 -m pytest sim/tests/ vues/tableau/tests/ vues/chronique/tests/ vues/relief/tests/ forge/tests/ outils/tests/ -q"
-fumee = "python3 -m forge --ticks 3 --seed 0 --sans-chronique --largeur 64 --sortie /tmp/forge-fumee"
+tests = "python3 -m pytest jeu/sim/tests/ jeu/vues/tableau/tests/ jeu/vues/chronique/tests/ jeu/vues/relief/tests/ jeu/forge/tests/ outils/tests/ -q"
+fumee = "PYTHONPATH=jeu python3 -m forge --ticks 3 --seed 0 --sans-chronique --largeur 64 --sortie /tmp/forge-fumee"
 branche_base = "master"
 prefixe_branche = "agent/"
 # Le registre des lots : la seule représentation qui fait autorité sur l'état

@@ -1,8 +1,8 @@
 # L'objectif final — ce que ce jeu est censé devenir
 
 > Ce fichier est **fait pour être corrigé**. Il énonce la destination en termes
-> qu'on peut contester ligne à ligne. Tout le reste du dossier `fusion/` en
-> découle : si vous changez une phrase ici, la roadmap bouge.
+> qu'on peut contester ligne à ligne. [CAP.md](../CAP.md) en découle : si vous
+> changez une phrase ici, les jalons bougent.
 >
 > Il ne remplace pas [`VISION.md`](VISION.md), qui reste la source de vérité
 > du moteur. Il dit ce que `VISION.md` ne disait pas : **qui joue, et à quoi**.
@@ -107,7 +107,7 @@ avant d'être acceptée.
 C'est une région. Aucune ville médiévale ne fait cette taille. Pourtant le
 jeu doit pouvoir ouvrir *un* lieu et y poser une scierie.
 
-**Ce que le moteur dit aujourd'hui.** `sim/MODELE.md` a tranché autrement : le
+**Ce que le moteur dit aujourd'hui.** `jeu/sim/MODELE.md` a tranché autrement : le
 « bourg » est la part des habitants d'une cellule qui ne tire pas sa nourriture
 de ses champs — une **vue dérivée**, sans identité, et le document interdit
 explicitement tout `city_id`, `ville_id` ou `bourg_id`. C'était le bon choix

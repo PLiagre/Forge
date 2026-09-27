@@ -10,7 +10,7 @@ Pour comprendre le projet avant d'y toucher :
 
 | lire | pour |
 |---|---|
-| [OBJECTIF.md](OBJECTIF.md) | ce que le jeu doit devenir, et qui joue |
+| [docs/OBJECTIF.md](docs/OBJECTIF.md) | ce que le jeu doit devenir, et qui joue |
 | [ROADMAP.md](ROADMAP.md) | où on en est, et le registre des lots |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | comment un lot avance, avec le schéma |
 | [docs/NOTICE.md](docs/NOTICE.md) | toutes les commandes |
