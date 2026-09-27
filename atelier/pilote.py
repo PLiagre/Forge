@@ -338,9 +338,15 @@ class Pilote:
             self._bloquer(lot.numero, "le relecteur a échoué deux fois sur la même révision", numero_pr)
             return False
         chemin = self.depot.preparer(lot.numero, branche)
+        # Le relecteur n'a pas `gh` : ce que le codeur a dit sur la PR lui est
+        # donné ici, comme une affirmation à vérifier.
+        rapports = "\n\n".join(
+            lots._MARQUE.sub("", c.get("body") or "").strip()
+            for c in pr.get("comments") or []
+            if any(m.get("role") in lots.ROLES_CODEURS and m.get("etat") == "fait" for m in lots.marques([c])))
         prompt = prompts.relecteur(self.projet, numero=lot.numero, titre=lot.titre,
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
-                                   url=pr.get("url", ""), sha=tete)
+                                   url=pr.get("url", ""), sha=tete, rapports=rapports)
         res = self._invoquer("relecteur", prompt, chemin, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque outil du poste a écrit ce lot", numero_pr)
