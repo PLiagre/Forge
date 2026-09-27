@@ -58,6 +58,20 @@ if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)';
   exit 1
 fi
 
+echo "[2 bis] l'environnement Python de la chaîne (~/.atelier/venv)"
+if [[ -x "$HOME/.atelier/venv/bin/python3" ]]; then
+  echo "    déjà là"
+elif (( a_sec )); then
+  echo "    (à sec) python3 -m venv ~/.atelier/venv + pytest numpy pillow"
+else
+  python3 -m venv "$HOME/.atelier/venv"
+  echo "    créé"
+fi
+if (( ! a_sec )); then
+  "$HOME/.atelier/venv/bin/python3" -m pip install --quiet --upgrade pip pytest numpy pillow
+  echo "    pytest, numpy, pillow à jour"
+fi
+
 echo "[3] ~/.atelier/config"
 config="$HOME/.atelier/config"
 email="$(grep -oP 'ATELIER_GIT_EMAIL:=\K[^}"]+' "$config" 2>/dev/null || git -C "$DEPOT" config user.email || true)"

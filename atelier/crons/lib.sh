@@ -30,6 +30,11 @@ atelier_defauts() {
     *":$HOME/.local/bin:"*) : ;;
     *) PATH="$HOME/.local/bin:$PATH" ;;
   esac
+  # L'environnement Python de la chaîne (pytest, numpy, pillow), posé par
+  # l'installateur : le Python du système ne les a pas, et apt demande root.
+  if [[ -x "$HOME/.atelier/venv/bin/python3" ]]; then
+    PATH="$HOME/.atelier/venv/bin:$PATH"
+  fi
   export PATH
   export TZ="${TZ:-Europe/Paris}"
 }
