@@ -7,8 +7,15 @@ seul, sans moteur de rendu :
 py -m sim
 py -m sim --ticks 0 --json
 py -m sim --ticks 0 --seed 0 --snapshot-json /tmp/world.json
-py -m sim.service --seed 0 --port 8000
+py -m sim.service --seed 0 --port 8000 --jours-par-seconde 1
 ```
+
+Le service avance par défaut d'un jour par seconde. L'option
+`--jours-par-seconde` choisit cette cadence (`0` le met en pause). À chaud,
+`POST /vitesse?jours_par_seconde=X` change la vitesse et `GET /horloge` rend
+le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
+`GET /monde` et `GET /lieu?cell=...` restent lisibles pendant qu'un tick est
+calculé.
 
 `--snapshot-json` écrit une photographie cellulaire déterministe (schéma
 `SNAPSHOT_SCHEMA_VERSION`) : géométrie, état simulé, province dérivée,

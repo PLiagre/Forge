@@ -12,7 +12,9 @@ Ce que ce fichier protège :
 
 import hashlib
 import json
+import pytest
 import random
+import time
 from sim import engine
 from sim.world import World
 N_TICKS_DETERMINISME = 200
@@ -382,3 +384,59 @@ def test_service_deterministe_octet_pour_octet_et_sensible_a_la_graine():
     autre_graine = course(1)
     assert premiere == seconde
     assert premiere[0] != autre_graine[0]
+
+
+def _comparer_etats_service(
+    observe: tuple[bytes, bytes],
+    rejoue: tuple[bytes, bytes],
+) -> None:
+    """Compare les deux vues canoniques d'un même tick."""
+    assert observe[0] == rejoue[0]
+    assert observe[1] == rejoue[1]
+
+
+DUREE_LECTURES_HORLOGE_S = 1.5
+VITESSE_DETERMINISME_HORLOGE = 20
+TICKS_DISTINCTS_MINIMUM = 3
+
+
+def test_horloge_publie_des_etats_coherents_et_deterministes():
+    """SC2 — chaque photographie concurrente égale le même tick rejoué."""
+    from sim.tests.test_monde import lancer_service, requete_service
+
+    observes: dict[int, tuple[bytes, bytes]] = {}
+    with lancer_service(0, VITESSE_DETERMINISME_HORLOGE) as port:
+        monde_initial = requete_service(port, "/monde")[1]
+        cellules = monde_initial["cells"]
+        assert cellules, "échantillon vide : le service ne rend aucune cellule"
+        cell_id = min(cellule["cell_id"] for cellule in cellules)
+        limite = time.monotonic() + DUREE_LECTURES_HORLOGE_S
+        while time.monotonic() < limite:
+            _, monde, octets_monde = requete_service(port, "/monde")
+            _, lieu, octets_lieu = requete_service(port, f"/lieu?cell={cell_id}")
+            if monde["tick"] == lieu["tick"]:
+                observes[monde["tick"]] = (octets_monde, octets_lieu)
+        requete_service(port, "/vitesse?jours_par_seconde=0", "POST")
+
+    assert len(observes) >= TICKS_DISTINCTS_MINIMUM, (
+        f"horloge vide ou figée : seulement {len(observes)} ticks distincts"
+    )
+    dernier_tick = max(observes)
+    rejoues: dict[int, tuple[bytes, bytes]] = {}
+    with lancer_service(0) as port:
+        rejoues[0] = (
+            requete_service(port, "/monde")[2],
+            requete_service(port, f"/lieu?cell={cell_id}")[2],
+        )
+        for numero_tick in range(1, dernier_tick + 2):
+            requete_service(port, "/tick?n=1", "POST")
+            monde = requete_service(port, "/monde")[2]
+            lieu = requete_service(port, f"/lieu?cell={cell_id}")[2]
+            rejoues[numero_tick] = (monde, lieu)
+
+    for numero_tick, etat in observes.items():
+        _comparer_etats_service(etat, rejoues[numero_tick])
+
+    tick_temoin = min(observes)
+    with pytest.raises(AssertionError):
+        _comparer_etats_service(observes[tick_temoin], rejoues[tick_temoin + 1])
