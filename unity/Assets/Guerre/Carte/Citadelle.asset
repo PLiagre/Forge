@@ -230,18 +230,6 @@ MonoBehaviour:
     demi: {x: 5.05, y: 0.775}
     angle: -0.6283188
   - nature: rempart
-    centre: {x: 1851.358, y: 1555.7495}
-    demi: {x: 5.05, y: 0.775}
-    angle: -0.5235987
-  - nature: rempart
-    centre: {x: 1860.431, y: 1551.1266}
-    demi: {x: 5.05, y: 0.775}
-    angle: -0.41887903
-  - nature: rempart
-    centre: {x: 1869.9375, y: 1547.4774}
-    demi: {x: 5.05, y: 0.775}
-    angle: -0.31415936
-  - nature: rempart
     centre: {x: 1879.7734, y: 1544.8419}
     demi: {x: 5.05, y: 0.775}
     angle: -0.20943974
@@ -2316,6 +2304,9 @@ MonoBehaviour:
     angle: 0
     hauteur: 62
   lieux:
+  - nom: breche
+    p: {x: 1860.431, y: 1551.1266}
+    front: {x: 0.40673664, y: 0.9135454}
   - nom: citadelle
     p: {x: 1900, y: 1640}
     front: {x: 0, y: 1}
@@ -2337,3 +2328,50 @@ MonoBehaviour:
   - nom: vallee_arrivee
     p: {x: 1350, y: 1246.6914}
     front: {x: 1, y: 0}
+  pans:
+  - pied: {x: 1851.358, y: 62, z: 1555.7495}
+    exterieur: 240.00002
+    longueur: 10.306938
+    hauteur: 11
+    epaisseur: 2.1
+  - pied: {x: 1860.431, y: 62, z: 1551.1266}
+    exterieur: 246
+    longueur: 10.306939
+    hauteur: 11
+    epaisseur: 2.1
+  - pied: {x: 1869.9375, y: 62, z: 1547.4774}
+    exterieur: 252
+    longueur: 10.306936
+    hauteur: 11
+    epaisseur: 2.1
+  batterie:
+  - trebuchet: 0
+    place: {x: 1837.6, y: 61.586678, z: 1531.92}
+    cible: {x: 1858.3756, y: 63.6, z: 1552.0417}
+    etendue: {x: 2.7406363, y: 0, z: -1.22021}
+  - trebuchet: 0
+    place: {x: 1845.2913, y: 61.587124, z: 1527.8304}
+    cible: {x: 1859.7458, y: 64.2, z: 1551.4316}
+    etendue: {x: 2.7406363, y: 0, z: -1.22021}
+  - trebuchet: 0
+    place: {x: 1853.249, y: 61.584476, z: 1524.2875}
+    cible: {x: 1861.1162, y: 63.6, z: 1550.8215}
+    etendue: {x: 2.7406363, y: 0, z: -1.22021}
+  - trebuchet: 0
+    place: {x: 1861.4347, y: 61.18312, z: 1521.3081}
+    cible: {x: 1862.4865, y: 64.2, z: 1550.2114}
+    etendue: {x: 2.7406363, y: 0, z: -1.22021}
+  - trebuchet: 1
+    place: {x: 1813.7418, y: 49.850533, z: 1470.7087}
+    cible: {x: 1859.0607, y: 69, z: 1551.7367}
+    etendue: {x: 2.7406363, y: 0, z: -1.22021}
+  - trebuchet: 1
+    place: {x: 1831.9102, y: 49.85096, z: 1462.6198}
+    cible: {x: 1861.8014, y: 69, z: 1550.5165}
+    etendue: {x: 2.7406363, y: 0, z: -1.22021}
+  porte:
+    nom: porte
+    centre: {x: 1900, y: 1544.591}
+    demi: {x: 2.4, y: 0.8}
+    angle: 0
+    hauteur: 62

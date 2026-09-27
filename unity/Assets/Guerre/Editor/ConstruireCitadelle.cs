@@ -127,6 +127,35 @@ namespace Guerre.EditeurOutils
             return modeles;
         }
 
+        // Les engins de siège, modelés par fabrique/engins.py ; leurs matériaux sont ceux du kit, du même nom.
+        static (GameObject bombarde, GameObject trebuchet) ImporterEngins()
+        {
+            string sources = Path.GetFullPath(Path.Combine(Application.dataPath, "../../fabrique/sorties/engins"));
+            Directory.CreateDirectory(Dossier + "/Engins");
+            var modeles = new GameObject[2];
+            string[] noms = { "bombarde", "trebuchet" };
+            for (int k = 0; k < 2; k++)
+            {
+                string source = Path.Combine(sources, noms[k] + ".fbx"), p = Dossier + "/Engins/" + noms[k] + ".fbx";
+                if (!File.Exists(source)) throw new Exception("engin non fabriqué : " + source + " (lancer outils/atelier.ps1 soldats)");
+                File.Copy(source, p, true);
+                AssetDatabase.ImportAsset(p);
+                var mi = (ModelImporter)AssetImporter.GetAtPath(p);
+                mi.bakeAxisConversion = true; mi.importCameras = false; mi.importLights = false; mi.addCollider = false;
+                mi.animationType = ModelImporterAnimationType.None;
+                mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+                mi.SaveAndReimport();
+                foreach (var em in AssetDatabase.LoadAllAssetsAtPath(p).OfType<Material>().ToArray())
+                {
+                    var mat = AssetDatabase.LoadAssetAtPath<Material>(Kit + "/Materiaux/" + em.name + ".mat");
+                    if (mat) mi.AddRemap(new AssetImporter.SourceAssetIdentifier(typeof(Material), em.name), mat);
+                }
+                mi.SaveAndReimport();
+                modeles[k] = AssetDatabase.LoadAssetAtPath<GameObject>(p);
+            }
+            return (modeles[0], modeles[1]);
+        }
+
         static void Copier(string source, string cible)
         {
             if (!File.Exists(source)) throw new Exception("module absent du kit de Forge : " + source);
@@ -222,6 +251,20 @@ namespace Guerre.EditeurOutils
                 float2 p = P + apotheme * new float2(math.cos(phi), math.sin(phi));
                 // L'intérieur du rempart (repère local +y Blender) regarde le centre de la ville.
                 float theta = math.degrees(math.atan2(-signe * math.cos(phi), -signe * math.sin(phi)));
+                // Au sud-ouest, trois pans sont appareillés pierre à pierre (Bataille les lève) : c'est là
+                // qu'une batterie, postée au bord du ravin, voit le pied du mur et peut ouvrir une brèche.
+                // Ils sont posés dans l'axe du corps du rempart voisin, pas sur l'axe du module (le corps en est
+                // décalé de 1,9 m) : sinon leurs bouts ne rejoignent le rempart que par un coin, et l'on passe.
+                // Leur longueur est la corde du parement extérieur : les joints se ferment sur toute l'épaisseur.
+                if (k >= 55 && k <= 57)
+                {
+                    const float Epaisseur = 2.1f;
+                    float t = math.radians(theta), zc = (zCorps0 + zCorps1) / 2;
+                    float2 axe = p + zc * new float2(math.sin(t), math.cos(t));
+                    float longueur = 2f * (math.distance(axe, P) + Epaisseur / 2) * math.tan(math.radians(3f));
+                    donnees.pans.Add(new CarteDonnees.Pan { pied = new Vector3(axe.x, Plateau, axe.y), exterieur = math.degrees(phi), longueur = longueur, hauteur = 11f, epaisseur = Epaisseur });
+                    continue;
+                }
                 ch.Poser("rempart_10m", p, theta, Plateau);
                 ch.Bloquer("rempart", p, theta, new Vector2(0, (zCorps0 + zCorps1) / 2), new Vector2(5.05f, (zCorps1 - zCorps0) / 2 + 0.15f));
             }
@@ -310,6 +353,38 @@ namespace Guerre.EditeurOutils
                 ch.Poser("sapin_neige_" + alea.NextInt(3), p, alea.NextFloat(0, 360));
                 ch.Bloquer("arbre", p, 0, Vector2.zero, new Vector2(0.5f, 0.5f));
             }
+
+            // La batterie de siège devant la brèche : quatre bombardes au bord du ravin, qui visent le pied du
+            // pan du milieu, et deux trébuchets plus en arrière, qui lancent en cloche sur le haut du mur.
+            {
+                var milieu = donnees.pans[1];
+                float phiB = math.radians(milieu.exterieur);
+                var tangente = new Vector3(-math.sin(phiB), 0, math.cos(phiB));
+                float[] decalages = { -2.25f, -0.75f, 0.75f, 2.25f }, hauteurs = { 1.6f, 2.2f, 1.6f, 2.2f };
+                for (int k = 0; k < 4; k++)
+                {
+                    float a = phiB + math.radians(-6f + 4f * k);
+                    float2 q = P + 124.8f * new float2(math.cos(a), math.sin(a));
+                    donnees.batterie.Add(new CarteDonnees.Poste
+                    {
+                        trebuchet = false, place = new Vector3(q.x, td.GetInterpolatedHeight(q.x / td.size.x, q.y / td.size.z), q.y),
+                        cible = milieu.pied + tangente * decalages[k] + Vector3.up * hauteurs[k], etendue = tangente * 3f,
+                    });
+                }
+                for (int k = 0; k < 2; k++)
+                {
+                    float a = phiB + math.radians(-3f + 6f * k);
+                    float2 q = P + 190f * new float2(math.cos(a), math.sin(a));
+                    donnees.batterie.Add(new CarteDonnees.Poste
+                    {
+                        trebuchet = true, place = new Vector3(q.x, td.GetInterpolatedHeight(q.x / td.size.x, q.y / td.size.z), q.y),
+                        cible = milieu.pied + tangente * (k == 0 ? -1.5f : 1.5f) + Vector3.up * 7f, etendue = tangente * 3f,
+                    });
+                }
+                donnees.lieux.Add(new CarteDonnees.Lieu { nom = "breche", p = new Vector2(milieu.pied.x, milieu.pied.z), front = new Vector2(-math.cos(phiB), -math.sin(phiB)) });
+            }
+            // Le passage de la porte, pour les essais qui la ferment.
+            donnees.porte = new CarteDonnees.Tablier { nom = "porte", centre = new Vector2(porte.x, porte.y), demi = new Vector2(2.4f, 0.8f), angle = 0, hauteur = Plateau };
 
             // Les lieux que visent les essais.
             float Axe(float x) => 1200f + 90f * math.sin(x / 520f);

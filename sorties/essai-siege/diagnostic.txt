@@ -1,0 +1,355 @@
+# À travers la brèche (s < 0 : dehors), sur l'axe de la brèche et à 3 m de part et d'autre
+s  -16,0 | sol   49,55 grav  0,00 P.. dég  0,0 | -3 : sol   45,15 grav  0,00 P.. dég  0,0 | +3 : sol   45,09 grav  0,00 P.. dég  0,0
+s  -15,5 | sol   52,11 grav  0,00 P.. dég  0,0 | -3 : sol   45,35 grav  0,00 P.. dég  0,0 | +3 : sol   45,94 grav  0,00 P.. dég  0,0
+s  -15,0 | sol   54,39 grav  0,00 P.. dég  0,0 | -3 : sol   48,34 grav  0,00 P.. dég  0,0 | +3 : sol   48,73 grav  0,00 P.. dég  0,0
+s  -14,5 | sol   56,68 grav  0,00 P.. dég  0,0 | -3 : sol   51,59 grav  0,00 P.. dég  0,0 | +3 : sol   51,51 grav  0,00 P.. dég  0,0
+s  -14,0 | sol   58,38 grav  0,00 P.. dég  0,0 | -3 : sol   54,86 grav  0,00 P.. dég  0,0 | +3 : sol   54,95 grav  0,00 P.. dég  0,0
+s  -13,5 | sol   59,36 grav  0,00 P.. dég  0,0 | -3 : sol   58,12 grav  0,00 P.. dég  0,0 | +3 : sol   58,46 grav  0,00 P.. dég  0,0
+s  -13,0 | sol   60,34 grav  0,00 P.. dég  0,0 | -3 : sol   61,33 grav  0,00 P.. dég  0,0 | +3 : sol   61,97 grav  0,00 P.. dég  0,0
+s  -12,5 | sol   61,32 grav  0,00 P.. dég  0,0 | -3 : sol   62,00 grav  0,00 ... dég  1,0 | +3 : sol   62,00 grav  0,00 P.. dég  0,0
+s  -12,0 | sol   62,00 grav  0,00 P.. dég  0,0 | -3 : sol   62,00 grav  0,00 ... dég  1,0 | +3 : sol   62,00 grav  0,00 ... dég  1,0
+s  -11,5 | sol   62,00 grav  0,00 ... dég  1,0 | -3 : sol   62,00 grav  0,00 ... dég  2,0 | +3 : sol   62,00 grav  0,00 ... dég  1,0
+s  -11,0 | sol   62,00 grav  0,00 ... dég  1,0 | -3 : sol   62,00 grav  0,00 ... dég  2,0 | +3 : sol   62,00 grav  0,00 ... dég  2,0
+s  -10,5 | sol   62,00 grav  0,00 ... dég  1,3 | -3 : sol   62,00 grav  0,00 ... dég  3,0 | +3 : sol   62,00 grav  0,00 ... dég  2,0
+s  -10,0 | sol   62,00 grav  0,00 ... dég  2,3 | -3 : sol   62,00 grav  0,00 ... dég  3,0 | +3 : sol   62,00 grav  0,00 ... dég  2,0
+s   -9,5 | sol   62,00 grav  0,00 ... dég  2,7 | -3 : sol   62,00 grav  0,00 ... dég  3,0 | +3 : sol   62,00 grav  0,00 ... dég  3,0
+s   -9,0 | sol   62,00 grav  0,00 ... dég  2,7 | -3 : sol   62,00 grav  0,00 ... dég  4,0 | +3 : sol   62,00 grav  0,00 ... dég  3,0
+s   -8,5 | sol   62,00 grav  0,00 ... dég  3,7 | -3 : sol   62,00 grav  0,00 ... dég  4,0 | +3 : sol   62,00 grav  0,00 ... dég  4,0
+s   -8,0 | sol   62,00 grav  0,00 ... dég  3,7 | -3 : sol   62,00 grav  0,00 ... dég  5,0 | +3 : sol   62,00 grav  0,00 ... dég  4,0
+s   -7,5 | sol   62,00 grav  0,00 ... dég  4,0 | -3 : sol   62,00 grav  0,00 ... dég  5,0 | +3 : sol   62,00 grav  0,00 ... dég  5,0
+s   -7,0 | sol   62,00 grav  0,00 ... dég  5,0 | -3 : sol   62,00 grav  0,00 ... dég  6,0 | +3 : sol   62,00 grav  0,00 ... dég  5,0
+s   -6,5 | sol   62,01 grav  0,00 ... dég  5,0 | -3 : sol   62,00 grav  0,00 ... dég  6,0 | +3 : sol   62,00 grav  0,00 ... dég  4,3
+s   -6,0 | sol   62,14 grav  0,00 ... dég  5,3 | -3 : sol   62,00 grav  0,00 ... dég  5,7 | +3 : sol   62,00 grav  0,00 ... dég  4,0
+s   -5,5 | sol   62,28 grav  0,00 ... dég  5,3 | -3 : sol   62,00 grav  0,00 ... dég  5,7 | +3 : sol   62,00 grav  0,00 ... dég  3,0
+s   -5,0 | sol   62,43 grav  0,47 ... dég  4,7 | -3 : sol   62,12 grav  0,00 ... dég  4,7 | +3 : sol   62,18 grav  0,00 ... dég  3,0
+s   -4,5 | sol   62,57 grav  0,47 ... dég  4,7 | -3 : sol   62,43 grav  0,00 ... dég  4,3 | +3 : sol   62,42 grav  0,00 ... dég  3,0
+s   -4,0 | sol   62,72 grav  0,47 ... dég  3,7 | -3 : sol   62,73 grav  0,00 ... dég  4,3 | +3 : sol   62,66 grav  0,54 ... dég  2,0
+s   -3,5 | sol   63,07 grav  1,08 ... dég  3,7 | -3 : sol   63,04 grav  1,57 ... dég  3,3 | +3 : sol   62,90 grav  0,54 ... dég  2,0
+s   -3,0 | sol   63,44 grav  1,08 ... dég  2,7 | -3 : sol   63,30 grav  1,57 ... dég  3,3 | +3 : sol   63,14 grav  0,54 ... dég  1,0
+s   -2,5 | sol   63,82 grav  2,72 ... dég  3,0 | -3 : sol   63,58 grav  1,57 ... dég  2,3 | +3 : sol   63,48 grav  2,11 ... dég  1,0
+s   -2,0 | sol   64,19 grav  2,72 ... dég  2,0 | -3 : sol   63,94 grav  1,57 ... dég  2,0 | +3 : sol   63,94 grav  2,11 P.. dég  0,0
+s   -1,5 | sol   64,56 grav  2,72 ... dég  2,0 | -3 : sol   64,28 grav  1,57 ... dég  1,0 | +3 : sol   64,40 grav  2,11 P.. dég  0,0
+s   -1,0 | sol   64,83 grav  2,72 ... dég  2,0 | -3 : sol   64,51 grav  3,21 ... dég  1,0 | +3 : sol   64,85 grav  3,75 ... dég  1,0
+s   -0,5 | sol   65,02 grav  2,72 ... dég  1,0 | -3 : sol   64,75 grav  3,21 ..M dég  0,0 | +3 : sol   65,31 grav  3,75 ... dég  1,0
+s    0,0 | sol   65,08 grav  3,70 ... dég  1,0 | -3 : sol   64,91 grav  3,21 ..M dég  0,0 | +3 : sol   65,55 grav  3,75 ..M dég  0,0
+s    0,5 | sol   65,14 grav  3,70 ..M dég  0,0 | -3 : sol   64,50 grav  3,21 ..M dég  0,0 | +3 : sol   65,33 grav  3,75 ..M dég  0,0
+s    1,0 | sol   65,19 grav  3,70 ..M dég  0,0 | -3 : sol   64,10 grav  3,21 ..M dég  0,0 | +3 : sol   65,01 grav  3,75 ..M dég  0,0
+s    1,5 | sol   64,91 grav  3,70 P.. dég  0,0 | -3 : sol   63,74 grav  0,62 ..M dég  0,0 | +3 : sol   64,69 grav  2,15 ... dég  1,3
+s    2,0 | sol   64,46 grav  3,70 P.. dég  0,0 | -3 : sol   63,40 grav  0,62 ... dég  1,0 | +3 : sol   64,37 grav  2,15 ... dég  1,3
+s    2,5 | sol   64,00 grav  0,51 P.. dég  0,0 | -3 : sol   63,06 grav  0,62 ... dég  1,0 | +3 : sol   64,05 grav  2,15 ... dég  2,0
+s    3,0 | sol   63,55 grav  0,51 P.. dég  0,0 | -3 : sol   62,88 grav  0,62 ... dég  2,3 | +3 : sol   63,72 grav  2,15 ... dég  2,0
+s    3,5 | sol   63,10 grav  0,51 ... dég  1,0 | -3 : sol   62,70 grav  0,62 ... dég  2,3 | +3 : sol   63,39 grav  2,05 ... dég  2,3
+s    4,0 | sol   62,78 grav  0,51 ... dég  1,0 | -3 : sol   62,53 grav  0,39 ... dég  3,0 | +3 : sol   63,07 grav  0,41 ... dég  2,3
+s    4,5 | sol   62,58 grav  0,51 ... dég  1,3 | -3 : sol   62,42 grav  0,39 ... dég  3,0 | +3 : sol   62,74 grav  0,41 ... dég  3,3
+s    5,0 | sol   62,38 grav  0,51 ... dég  2,3 | -3 : sol   62,36 grav  0,39 ... dég  3,3 | +3 : sol   62,43 grav  0,41 ... dég  3,3
+s    5,5 | sol   62,29 grav  0,18 ... dég  2,3 | -3 : sol   62,33 grav  0,39 ... dég  4,3 | +3 : sol   62,34 grav  0,41 ... dég  4,0
+s    6,0 | sol   62,24 grav  0,18 ... dég  3,3 | -3 : sol   62,31 grav  0,39 ... dég  4,7 | +3 : sol   62,26 grav  0,41 ... dég  4,0
+s    6,5 | sol   62,19 grav  0,18 ... dég  3,3 | -3 : sol   62,28 grav  0,33 ... dég  4,7 | +3 : sol   62,18 grav  0,03 ... dég  4,0
+s    7,0 | sol   62,14 grav  0,18 ... dég  4,7 | -3 : sol   62,25 grav  0,33 ... dég  5,0 | +3 : sol   62,10 grav  0,03 ... dég  5,0
+s    7,5 | sol   62,10 grav  0,18 ... dég  4,7 | -3 : sol   62,22 grav  0,14 ... dég  5,0 | +3 : sol   62,03 grav  0,03 ... dég  5,0
+s    8,0 | sol   62,06 grav  0,00 ... dég  5,7 | -3 : sol   62,19 grav  0,14 ... dég  6,0 | +3 : sol   62,02 grav  0,03 ... dég  6,0
+s    8,5 | sol   62,03 grav  0,00 ... dég  5,7 | -3 : sol   62,15 grav  0,14 ... dég  6,3 | +3 : sol   62,02 grav  0,03 ... dég  6,0
+s    9,0 | sol   62,00 grav  0,00 ... dég  6,7 | -3 : sol   62,10 grav  0,01 ... dég  6,3 | +3 : sol   62,01 grav  0,00 ... dég  7,0
+s    9,5 | sol   62,00 grav  0,00 ... dég  7,0 | -3 : sol   62,06 grav  0,01 ... dég  6,7 | +3 : sol   62,01 grav  0,00 ... dég  7,0
+s   10,0 | sol   62,00 grav  0,00 ... dég  7,0 | -3 : sol   62,02 grav  0,01 ... dég  7,7 | +3 : sol   62,00 grav  0,00 ... dég  8,0
+s   10,5 | sol   62,00 grav  0,00 ... dég  8,0 | -3 : sol   62,01 grav  0,01 ... dég  8,0 | +3 : sol   62,00 grav  0,00 ... dég  8,0
+s   11,0 | sol   62,00 grav  0,00 ... dég  8,0 | -3 : sol   62,01 grav  0,01 ... dég  8,0 | +3 : sol   62,00 grav  0,00 ... dég  9,0
+s   11,5 | sol   62,00 grav  0,00 ... dég  9,0 | -3 : sol   62,01 grav  0,00 ... dég  9,0 | +3 : sol   62,00 grav  0,00 ... dég  9,0
+s   12,0 | sol   62,00 grav  0,00 ... dég  9,0 | -3 : sol   62,00 grav  0,00 ... dég  9,0 | +3 : sol   62,00 grav  0,00 ... dég  8,0
+s   12,5 | sol   62,00 grav  0,00 ... dég  8,0 | -3 : sol   62,00 grav  0,00 ... dég  9,0 | +3 : sol   62,00 grav  0,00 ... dég  8,0
+s   13,0 | sol   62,00 grav  0,00 ... dég  8,0 | -3 : sol   62,00 grav  0,00 ... dég  9,0 | +3 : sol   62,00 grav  0,00 ... dég  8,0
+s   13,5 | sol   62,00 grav  0,00 ... dég  7,0 | -3 : sol   62,00 grav  0,00 ... dég  9,0 | +3 : sol   62,00 grav  0,00 ... dég  7,0
+s   14,0 | sol   62,00 grav  0,00 ... dég  7,0 | -3 : sol   62,00 grav  0,00 ... dég  8,0 | +3 : sol   62,00 grav  0,00 ... dég  6,7
+s   14,5 | sol   62,00 grav  0,00 ... dég  6,0 | -3 : sol   62,00 grav  0,00 ... dég  8,0 | +3 : sol   62,00 grav  0,00 ... dég  5,7
+s   15,0 | sol   62,00 grav  0,00 ... dég  6,0 | -3 : sol   62,00 grav  0,00 ... dég  7,0 | +3 : sol   62,00 grav  0,00 ... dég  5,7
+s   15,5 | sol   62,00 grav  0,00 ... dég  6,0 | -3 : sol   62,00 grav  0,00 ... dég  7,0 | +3 : sol   62,00 grav  0,00 ... dég  4,7
+s   16,0 | sol   62,00 grav  0,00 ... dég  5,0 | -3 : sol   62,00 grav  0,00 ... dég  6,0 | +3 : sol   62,00 grav  0,00 ... dég  4,7
+# Le long du mur (x le long du pan du milieu) : sur sa ligne, à 2,5 m dehors et à 2,5 m dedans
+x  -18,0 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  2,0
+x  -17,5 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  2,0
+x  -17,0 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  2,0
+x  -16,5 | sol   62,00 grav  0,00 ... dég  1,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  2,0
+x  -16,0 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  1,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -15,5 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  1,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -15,0 | sol   62,00 grav  0,00 ... dég  1,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -14,5 | sol   62,00 grav  0,00 ... dég  1,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -14,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  3,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -13,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -13,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -12,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x  -12,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x  -11,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,7 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -11,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -10,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x  -10,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  2,0
+x   -9,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x   -9,0 | sol   62,02 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x   -8,5 | sol   62,02 grav  0,04 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,09 grav  0,00 ... dég  1,0
+x   -8,0 | sol   62,03 grav  0,04 ..M dég  0,0 | dehors : sol   62,01 grav  0,00 ... dég  2,0 | dedans : sol   62,22 grav  0,00 ... dég  1,0
+x   -7,5 | sol   62,17 grav  0,04 ..M dég  0,0 | dehors : sol   62,01 grav  0,00 ... dég  2,0 | dedans : sol   62,34 grav  0,64 ... dég  2,0
+x   -7,0 | sol   62,38 grav  0,04 ..M dég  0,0 | dehors : sol   62,02 grav  0,00 ... dég  2,0 | dedans : sol   62,45 grav  0,64 ... dég  2,0
+x   -6,5 | sol   62,60 grav  0,04 ..M dég  0,0 | dehors : sol   62,22 grav  0,00 ... dég  2,0 | dedans : sol   62,40 grav  0,64 ... dég  2,0
+x   -6,0 | sol   62,86 grav  2,26 P.M dég  0,0 | dehors : sol   62,46 grav  0,89 ... dég  1,3 | dedans : sol   62,54 grav  0,64 ... dég  1,3
+x   -5,5 | sol   63,29 grav  2,26 P.M dég  0,0 | dehors : sol   62,55 grav  0,89 ... dég  1,3 | dedans : sol   62,80 grav  0,02 ... dég  1,3
+x   -5,0 | sol   63,72 grav  2,26 ... dég  1,0 | dehors : sol   62,68 grav  0,89 ... dég  2,3 | dedans : sol   62,89 grav  0,62 ... dég  2,0
+x   -4,5 | sol   64,03 grav  2,26 ..M dég  0,0 | dehors : sol   62,95 grav  1,57 ... dég  2,3 | dedans : sol   62,87 grav  0,62 ... dég  2,0
+x   -4,0 | sol   64,33 grav  2,26 ..M dég  0,0 | dehors : sol   63,22 grav  1,57 ... dég  3,0 | dedans : sol   62,84 grav  0,62 ... dég  1,3
+x   -3,5 | sol   64,66 grav  3,21 ..M dég  0,0 | dehors : sol   63,49 grav  1,57 ... dég  2,0 | dedans : sol   62,85 grav  0,62 ... dég  1,3
+x   -3,0 | sol   64,91 grav  3,21 ..M dég  0,0 | dehors : sol   63,58 grav  1,57 ... dég  2,3 | dedans : sol   63,06 grav  0,62 ... dég  1,0
+x   -2,5 | sol   64,97 grav  3,21 ..M dég  0,0 | dehors : sol   63,62 grav  1,57 ... dég  2,3 | dedans : sol   63,34 grav  0,62 ... dég  2,0
+x   -2,0 | sol   64,95 grav  3,21 ..M dég  0,0 | dehors : sol   63,67 grav  1,08 ... dég  2,3 | dedans : sol   63,62 grav  2,15 ... dég  2,0
+x   -1,5 | sol   64,76 grav  3,21 ... dég  1,0 | dehors : sol   63,71 grav  1,08 ... dég  2,7 | dedans : sol   63,71 grav  2,15 ... dég  1,0
+x   -1,0 | sol   64,57 grav  2,72 ... dég  1,0 | dehors : sol   63,76 grav  1,08 ... dég  2,3 | dedans : sol   63,69 grav  2,15 ... dég  1,0
+x   -0,5 | sol   64,69 grav  2,72 ... dég  1,0 | dehors : sol   63,79 grav  1,08 ... dég  3,0 | dedans : sol   63,85 grav  2,15 P.. dég  0,0
+x    0,0 | sol   65,08 grav  3,70 ... dég  1,0 | dehors : sol   63,82 grav  2,72 ... dég  3,0 | dedans : sol   64,00 grav  0,51 P.. dég  0,0
+x    0,5 | sol   65,28 grav  3,70 ..M dég  0,0 | dehors : sol   63,84 grav  2,11 ... dég  2,7 | dedans : sol   64,16 grav  2,05 P.. dég  0,0
+x    1,0 | sol   65,25 grav  3,70 ..M dég  0,0 | dehors : sol   63,86 grav  2,11 ... dég  2,7 | dedans : sol   64,32 grav  2,05 P.. dég  0,0
+x    1,5 | sol   65,40 grav  3,70 ... dég  1,0 | dehors : sol   63,89 grav  2,11 ... dég  1,3 | dedans : sol   64,42 grav  2,05 ... dég  1,0
+x    2,0 | sol   65,56 grav  3,75 ... dég  1,0 | dehors : sol   63,90 grav  2,11 ... dég  1,3 | dedans : sol   64,29 grav  2,05 ... dég  1,0
+x    2,5 | sol   65,71 grav  3,75 ... dég  1,0 | dehors : sol   63,65 grav  2,11 ... dég  1,0 | dedans : sol   64,17 grav  2,05 ... dég  2,0
+x    3,0 | sol   65,55 grav  3,75 ..M dég  0,0 | dehors : sol   63,48 grav  2,11 ... dég  1,0 | dedans : sol   64,05 grav  2,15 ... dég  2,0
+x    3,5 | sol   65,11 grav  3,75 P.. dég  0,0 | dehors : sol   63,32 grav  0,54 ... dég  1,0 | dedans : sol   63,93 grav  2,15 ... dég  2,0
+x    4,0 | sol   64,66 grav  3,75 P.. dég  0,0 | dehors : sol   63,16 grav  0,54 P.. dég  0,0 | dedans : sol   63,78 grav  2,15 ... dég  1,0
+x    4,5 | sol   64,22 grav  2,18 P.. dég  0,0 | dehors : sol   63,07 grav  0,54 P.. dég  0,0 | dedans : sol   63,34 grav  2,15 ... dég  1,0
+x    5,0 | sol   63,78 grav  2,18 P.. dég  0,0 | dehors : sol   63,11 grav  0,54 ... dég  1,0 | dedans : sol   62,90 grav  2,15 ... dég  1,0
+x    5,5 | sol   63,35 grav  2,18 P.M dég  0,0 | dehors : sol   63,15 grav  2,18 ... dég  1,0 | dedans : sol   62,53 grav  0,63 ... dég  1,0
+x    6,0 | sol   62,90 grav  0,63 ..M dég  0,0 | dehors : sol   62,89 grav  0,55 ... dég  2,0 | dedans : sol   62,38 grav  0,00 ... dég  1,3
+x    6,5 | sol   62,54 grav  0,63 ..M dég  0,0 | dehors : sol   62,62 grav  0,55 ... dég  1,3 | dedans : sol   62,23 grav  0,00 ... dég  1,3
+x    7,0 | sol   62,37 grav  0,01 ..M dég  0,0 | dehors : sol   62,43 grav  0,55 ... dég  2,0 | dedans : sol   62,05 grav  0,00 ... dég  1,0
+x    7,5 | sol   62,21 grav  0,01 ..M dég  0,0 | dehors : sol   62,41 grav  0,55 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  2,0
+x    8,0 | sol   62,04 grav  0,01 ..M dég  0,0 | dehors : sol   62,31 grav  0,55 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x    8,5 | sol   62,00 grav  0,01 ..M dég  0,0 | dehors : sol   62,18 grav  0,00 ... dég  1,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x    9,0 | sol   62,00 grav  0,01 ..M dég  0,0 | dehors : sol   62,02 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x    9,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   10,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x   10,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,7 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   11,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   11,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   12,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x   12,5 | sol   62,00 grav  0,00 ... dég  1,0 | dehors : sol   62,00 grav  0,00 ... dég  2,7 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   13,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,7 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   13,5 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   14,0 | sol   62,00 grav  0,00 ..M dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   14,5 | sol   62,00 grav  0,00 ... dég  1,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   15,0 | sol   62,00 grav  0,00 ... dég  1,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   15,5 | sol   62,00 grav  0,00 ... dég  1,0 | dehors : sol   62,00 grav  0,00 ... dég  2,0 | dedans : sol   62,00 grav  0,00 ... dég  1,0
+x   16,0 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  1,0 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x   16,5 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  1,0 | dedans : sol   62,00 grav  0,00 ... dég  1,3
+x   17,0 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  1,3 | dedans : sol   62,00 grav  0,00 ... dég  2,7
+x   17,5 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  1,3 | dedans : sol   62,00 grav  0,00 ... dég  2,7
+x   18,0 | sol   62,00 grav  0,00 .E. dég  0,0 | dehors : sol   62,00 grav  0,00 ... dég  2,3 | dedans : sol   62,00 grav  0,00 ... dég  2,3
+# La lice, de la brèche (angle -114,0°) à la porte (-90,0°) ; coupe de r = 93 à 113 m, un signe par 0,5 m
+-117,0° PPMMPPP.....+++++++++++++....PPPPPPPPP... dég max 5,0 à r 102,4
+-116,4° ...PPPP.PP..++++++++++++++....PPPPPPPPP.. dég max 5,0 à r 102,9
+-115,8° ...MM..PP..++++++++++++++++..PPPPPPPPPP.. dég max 5,0 à r 102,4
+-115,2° ..........++++++++++++++++..PPPPPPPPPPP.. dég max 5,0 à r 101,9
+-114,6° P..MM..++++++++++++++++++..PPPPPPPPPPPPP. dég max 5,0 à r 101,4
+-114,0° PPMM..+++++++++++++++++++...PPPPPPPPPPP.. dég max 5,3 à r 100,9
+-113,4° P....++++++++++++++++++++.....PPPPPPPP..+ dég max 5,3 à r 100,9
+-112,8° ..MMM....+++++++++++++++++++...PPPPPP..++ dég max 6,0 à r 100,9
+-112,2° ..MMMM..++++++++++++++++++++..PPPPPP..... dég max 6,0 à r 101,9
+-111,6° ...MM..++++++++++++++++++++..PPPPPPPPPPP. dég max 5,3 à r 101,4
+-111,0° ..MM.....+++++++++++++++++..PPPPPPPPPPP.. dég max 5,3 à r 101,9
+-110,4° ...MMMMM..+++++++++++++++..PPPPPPPPPPP..+ dég max 5,7 à r 101,4
+-109,8° +..MMMM..+++++++++++++++++....PPPPPPP..++ dég max 5,3 à r 101,4
+-109,2° ..MMMM...+++++++++++++++++++..PPPPPPPPP.. dég max 5,3 à r 101,9
+-108,6° ..MMMMMM..+++++++++++++++++..PPPPPPPPPP.. dég max 5,7 à r 101,4
+-108,0° +..MMMM..+++++++++++++++++..PPPPPPPPPPP.. dég max 5,3 à r 101,4
+-107,4° ..MMMM...++++++++++++++++...PPPPPPPPPPPP. dég max 5,7 à r 101,9
+-106,8° ..MMMMMM..++++++++++++++++++...PPPPPPPP.. dég max 5,7 à r 101,4
+-106,2° ...MMMM..+++++++++++++++++++..PPPPPPPPP.. dég max 5,3 à r 102,4
+-105,6° +..MMMM..+++++++++++++++++++..PPPPPPPP..+ dég max 5,0 à r 101,9
+-105,0° ..MM..#.....+++++++++++++++..PPPPPPPP..++ dég max 5,0 à r 102,9
+-104,4° .......###..++++++++++++++..PPPPPPPPPPP.. dég max 5,0 à r 102,4
+-103,8° +++++..##..+++++++++++++++..PPPPPPPPPPPP. dég max 5,0 à r 102,4
+-103,2° +++++..##....++++++++++++....PPPPPPPPPPP. dég max 4,7 à r 101,9
+-102,6° ......####..+++++++++++++++..PPPPPPPPPP.. dég max 5,0 à r 102,9
+-102,0° ##....####..++++++++++++++..PPPPPPPPPPP.. dég max 4,3 à r 103,4
+-101,4° ######.###......++++++++++......PPPPPP..+ dég max 4,0 à r 103,4
+-100,8° #############....++++++++++++...PPPPPP..+ dég max 4,0 à r 103,9
+-100,2° ###############..++++++++++++..PPPPPP..++ dég max 4,3 à r 103,9
+ -99,6° ##############...++++++++++++..PPPPPP..++ dég max 4,0 à r 103,9
+ -99,0° ##############..++++++++++++..PPPPPP..+++ dég max 4,0 à r 103,4
+ -98,4° ############....++++++++++++..PPPPPP..... dég max 4,0 à r 103,4
+ -97,8° ############..++++++++++++++..PPPPPPPPPP. dég max 4,3 à r 103,4
+ -97,2° ###########..++++++++++++++..PPPPPPPPPP.. dég max 5,0 à r 102,9
+ -96,6° ......#####..++++++++++++++..PPPPPPPPPP.. dég max 5,0 à r 102,9
+ -96,0° +++++..####..++++++++++++++..PPPPPPPPPP.. dég max 5,0 à r 102,9
+ -95,4° +++++..####..++++++++++++++..PPPPPPPPPP.. dég max 5,0 à r 102,9
+ -94,8° ++++..####..++++++++++++++..PPPPPPPPPP..+ dég max 5,0 à r 102,4
+ -94,2° ......####..++++++++++++++..PPPPPPPPPP..+ dég max 5,0 à r 102,4
+ -93,6° ##########..++++++++++++++..PPPPPPPPPP... dég max 5,0 à r 102,4
+ -93,0° ##########..++++++++++++++..PPPPPPPPPPPPP dég max 5,0 à r 102,4
+ -92,4° ##########..++++++++++++++..PPPPPPPPPPPPP dég max 5,0 à r 102,4
+ -91,8° ##########..++++++++++++++......######### dég max 5,0 à r 102,4
+ -91,2° ....##..##..++++++++++++++++++........... dég max 5,0 à r 102,4
+ -90,6° ++..##..+++++++++++++++++++++++++++++++++ dég max 5,3 à r 102,4
+route pied → lice devant la brèche, marge 2,00 : 236 cases, le plus étroit 3,0 m
+route pied → lice devant la brèche, marge 1,45 : 236 cases, le plus étroit 3,0 m
+route pied → lice devant la brèche, marge 0,90 : 236 cases, le plus étroit 3,0 m
+route lice → derrière la brèche, marge 2,00 : aucune
+route lice → derrière la brèche, marge 1,45 : aucune
+route lice → derrière la brèche, marge 0,90 : 13 cases, le plus étroit 1,0 m
+route derrière la brèche → place, marge 2,00 : 116 cases, le plus étroit 3,3 m
+route derrière la brèche → place, marge 1,45 : 116 cases, le plus étroit 3,3 m
+route derrière la brèche → place, marge 0,90 : 116 cases, le plus étroit 3,3 m
+route pied → place, marge 2,00 : aucune
+route pied → place, marge 1,45 : aucune
+route pied → place, marge 0,90 : 329 cases, le plus étroit 1,0 m
+# Pan du milieu : par assise, les pierres en place (ext/blocage/int) et les vides où les trois épaisseurs sont tombées
+assise 18 :  0/ 0/ 0  vides [-5,0 ; 5,0]
+assise 17 :  0/ 0/ 2  vides [-5,0 ; 2,4] [3,5 ; 4,4]
+assise 16 :  0/ 0/ 7  vides [-1,5 ; 2,7]
+assise 15 :  0/ 2/ 8  vides [1,0 ; 3,2]
+assise 14 :  0/ 3/ 7  vides [0,2 ; 3,4]
+assise 13 :  0/ 3/ 6  vides [-0,4 ; 3,3]
+assise 12 :  0/ 3/ 6  vides [-0,1 ; 3,3]
+assise 11 :  0/ 4/ 6  vides [0,2 ; 3,2]
+assise 10 :  0/ 2/ 6  vides [0,3 ; 3,3]
+assise  9 :  0/ 3/ 8  vides [1,3 ; 3,0]
+assise  8 :  0/ 2/ 7  vides [1,1 ; 3,2]
+assise  7 :  0/ 2/ 7  vides [-5,0 ; -4,5] [1,0 ; 3,0]
+assise  6 :  0/ 1/ 7  vides [-5,0 ; -4,4] [1,1 ; 3,2]
+assise  5 :  0/ 1/ 5  vides [-5,0 ; -4,0] [-1,8 ; -0,6] [0,3 ; 3,8]
+assise  4 :  0/ 1/ 7  vides [-5,0 ; -3,5] [0,4 ; 2,6]
+assise  3 :  0/ 1/ 6  vides [-5,0 ; -3,5] [-0,1 ; 2,3]
+assise  2 :  0/ 2/ 7  vides [-5,0 ; -3,8] [0,4 ; 0,7] [1,4 ; 2,3]
+assise  1 :  3/ 7/10  vides 
+assise  0 : 10/11/10  vides 
+# Pierres en place qui barrent un passage (tranche [sol + 0,3 ; sol + 2,0]) à moins de 10 m de la brèche
+pan couche assise  x_axe   bas/sol  haut/sol  sol     gravats
+  0      0      0    7,68    -0,18     0,41    62,19   0,01
+  0      0      0    8,60     0,01     0,60    62,00   0,01
+  0      0      0    9,51     0,01     0,60    62,00   0,00
+  0      0      1    7,07     0,22     0,81    62,40   0,01
+  0      0      1    8,03     0,55     1,14    62,07   0,01
+  0      0      1    8,96     0,62     1,21    62,00   0,01
+  0      0      1    9,97     0,62     1,21    62,00   0,00
+  0      0      2    6,40     0,52     1,11    62,71   2,18
+  0      0      2    7,39     0,94     1,53    62,29   0,01
+  0      0      2    8,45     1,23     1,82    62,00   0,01
+  0      0      2    9,58     1,23     1,82    62,00   0,00
+  0      0      3    6,77     1,34     1,93    62,50   0,01
+  0      0      3    7,87     1,72     2,31    62,12   0,01
+  0      0      3    8,91     1,84     2,43    62,00   0,01
+  0      0      3    9,97     1,84     2,43    62,00   0,00
+  0      0      4    6,12     1,48     2,07    62,97   2,18
+  0      1      0    7,56    -0,15     0,44    62,16   0,01
+  0      1      0    8,62     0,01     0,60    62,00   0,01
+  0      1      0    9,61     0,01     0,60    62,00   0,00
+  0      1      1    6,81     0,21     0,80    62,42   0,01
+  0      1      1    7,84     0,57     1,16    62,06   0,01
+  0      1      1    8,97     0,62     1,21    62,00   0,01
+  0      1      1    9,94     0,62     1,21    62,00   0,00
+  0      1      2    5,49    -0,10     0,49    63,34   0,63
+  0      1      2    6,41     0,68     1,27    62,56   0,63
+  0      1      2    7,31     0,99     1,58    62,24   0,01
+  0      1      2    8,29     1,23     1,82    62,01   0,01
+  0      1      2    9,39     1,23     1,82    62,00   0,01
+  0      1      3    5,44     0,45     1,04    63,39   0,63
+  0      1      3    6,36     1,27     1,86    62,57   0,63
+  0      1      3    7,50     1,67     2,26    62,18   0,01
+  0      1      3    8,68     1,84     2,43    62,00   0,01
+  0      1      3    9,73     1,84     2,43    62,00   0,00
+  0      1      4    5,44     1,07     1,66    63,38   0,63
+  0      1      4    6,33     1,87     2,46    62,58   0,63
+  0      1      5    5,29     1,54     2,13    63,52   2,18
+  0      2      0    7,33    -0,14     0,45    62,15   0,01
+  0      2      0    8,37     0,01     0,60    62,00   0,01
+  0      2      0    9,49     0,01     0,60    62,00   0,00
+  0      2      1    6,57     0,20     0,79    62,43   0,63
+  0      2      1    7,45     0,52     1,11    62,11   0,01
+  0      2      1    8,39     0,62     1,21    62,00   0,01
+  0      2      1    9,35     0,62     1,21    62,00   0,00
+  0      2      2    5,34     0,00     0,59    63,24   0,63
+  0      2      2    6,16     0,66     1,25    62,57   0,63
+  0      2      2    7,04     0,98     1,57    62,25   0,63
+  0      2      2    8,04     1,23     1,82    62,00   0,01
+  0      2      2    9,00     1,23     1,82    62,00   0,00
+  0      2      2    9,91     1,23     1,82    62,00   0,00
+  0      2      3    5,50     0,75     1,35    63,09   0,63
+  0      2      3    6,72     1,47     2,06    62,37   0,63
+  0      2      3    7,77     1,84     2,43    62,00   0,01
+  0      2      3    8,71     1,84     2,43    62,00   0,01
+  0      2      3    9,77     1,84     2,43    62,00   0,00
+  0      2      4    5,30     1,18     1,78    63,27   0,63
+  0      2      4    6,15     1,88     2,47    62,57   0,63
+  0      2      5    5,30     1,80     2,39    63,27   0,63
+  1      1      5   -3,05     0,16     0,75    64,90   3,21
+  1      1      6   -3,54     1,04     1,63    64,63   3,21
+  1      1      7   -3,99     1,95     2,54    64,34   2,26
+  1      1      7   -2,99     1,38     1,97    64,91   3,21
+  1      2      3    4,72     0,06     0,65    63,79   0,63
+  1      2      4   -3,08     0,12     0,71    64,34   3,21
+  1      2      4   -2,15    -0,18     0,41    64,63   3,21
+  1      2      4   -1,18     0,04     0,64    64,41   2,15
+  1      2      4    4,29     0,30     0,89    64,16   2,15
+  1      2      4    4,88     0,81     1,40    63,65   0,63
+  1      2      5   -3,35     0,75     1,34    64,31   2,26
+  1      2      5   -2,26     0,47     1,07    64,59   3,21
+  1      2      5   -0,16     0,03     0,62    65,04   3,70
+  1      2      5    4,32     0,93     1,53    64,13   2,15
+  1      2      5    4,93     1,46     2,05    63,61   0,63
+  1      2      6   -3,98     1,42     2,01    64,26   2,26
+  1      2      6   -2,94     1,33     1,92    64,35   3,21
+  1      2      6   -1,73     1,06     1,65    64,62   2,15
+  1      2      6   -0,65     1,02     1,61    64,66   3,70
+  1      2      6    0,45     0,17     0,76    65,51   3,70
+  1      2      6    3,79     1,07     1,66    64,60   3,75
+  1      2      6    4,67     1,85     2,44    63,83   0,63
+  1      2      7   -2,92     1,94     2,53    64,35   3,21
+  1      2      7   -1,76     1,66     2,25    64,63   2,15
+  1      2      7   -0,53     1,54     2,13    64,75   3,70
+  1      2      7    0,51     0,73     1,32    65,56   3,70
+  1      2      7    3,44     1,38     1,97    64,91   3,75
+  1      2      8    0,51     1,34     1,94    65,55   3,70
+  1      2      9    0,83     1,87     2,46    65,64   3,70
+  2      0      0   -9,53     0,01     0,60    62,00   0,00
+  2      0      0   -8,40    -0,02     0,57    62,03   0,04
+  2      0      0   -7,25    -0,22     0,37    62,23   0,04
+  2      0      1   -8,92     0,61     1,20    62,02   0,00
+  2      0      1   -7,86     0,58     1,17    62,04   0,04
+  2      0      1   -6,95     0,26     0,86    62,36   0,04
+  2      0      1   -5,93    -0,17     0,42    62,79   0,89
+  2      0      2   -9,55     1,23     1,82    62,00   0,00
+  2      0      2   -8,54     1,21     1,80    62,02   0,04
+  2      0      2   -7,48     1,10     1,69    62,13   0,04
+  2      0      2   -6,34     0,62     1,21    62,62   0,89
+  2      0      3   -9,27     1,84     2,43    62,01   0,00
+  2      0      3   -8,36     1,82     2,41    62,03   0,04
+  2      0      3   -7,36     1,66     2,25    62,18   0,04
+  2      1      0   -9,17     0,00     0,59    62,01   0,00
+  2      1      0   -8,20    -0,02     0,57    62,03   0,04
+  2      1      0   -7,24    -0,28     0,31    62,29   0,04
+  2      1      1   -9,60     0,62     1,21    62,00   0,00
+  2      1      1   -8,72     0,60     1,19    62,02   0,00
+  2      1      1   -7,79     0,52     1,11    62,10   0,04
+  2      1      1   -6,79     0,13     0,73    62,49   0,04
+  2      1      2   -9,56     1,23     1,82    62,00   0,00
+  2      1      2   -8,42     1,21     1,80    62,02   0,04
+  2      1      2   -7,35     0,98     1,57    62,25   0,04
+  2      1      2   -6,24     0,51     1,10    62,72   0,64
+  2      1      3   -9,13     1,83     2,42    62,01   0,00
+  2      1      3   -8,09     1,81     2,41    62,03   0,04
+  2      1      3   -7,10     1,49     2,08    62,36   0,04
+  2      1      3   -6,13     1,07     1,66    62,77   0,64
+  2      1      4   -6,11     1,66     2,25    62,79   0,64
+  2      1      5   -5,70     1,93     2,52    63,14   2,26
+  2      2      0   -9,23     0,01     0,60    62,00   0,00
+  2      2      0   -8,17    -0,05     0,55    62,06   0,64
+  2      2      1   -9,47     0,62     1,21    62,00   0,00
+  2      2      1   -8,57     0,61     1,20    62,02   0,00
+  2      2      1   -7,62     0,38     0,97    62,24   0,64
+  2      2      1   -6,54    -0,03     0,56    62,65   0,64
+  2      2      2   -9,40     1,23     1,82    62,00   0,00
+  2      2      2   -8,22     1,19     1,78    62,04   0,64
+  2      2      2   -7,19     0,84     1,43    62,39   0,64
+  2      2      2   -6,23     0,36     0,95    62,87   0,64
+  2      2      3   -9,74     1,84     2,43    62,00   0,00
+  2      2      3   -8,69     1,83     2,42    62,01   0,00
+  2      2      3   -7,55     1,57     2,16    62,27   0,64
+  2      2      3   -6,40     1,12     1,71    62,72   0,64
+  2      2      4   -6,93     1,97     2,56    62,49   0,64
+  2      2      4   -5,99     1,39     1,98    63,07   0,64
+  2      2      5   -5,72     1,77     2,36    63,29   2,26
+134 pierres barrent encore

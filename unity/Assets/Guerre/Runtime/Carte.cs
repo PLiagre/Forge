@@ -14,10 +14,19 @@ namespace Guerre
         [Serializable] public struct Bloc { public string nature; public Vector2 centre, demi; public float angle; }
         [Serializable] public struct Tablier { public string nom; public Vector2 centre, demi; public float angle, hauteur; }
         [Serializable] public struct Lieu { public string nom; public Vector2 p, front; }
+        // Un pan de rempart appareillé pierre à pierre, qu'on peut abattre : centre au pied du mur, axe
+        // du mur (angle en degrés vers l'extérieur), longueur, hauteur, épaisseur.
+        [Serializable] public struct Pan { public Vector3 pied; public float exterieur, longueur, hauteur, epaisseur; }
+        // Un engin de siège en batterie : sa place, le point qu'il vise, et la demi-longueur de mur qu'il bat
+        // de part et d'autre de ce point (on promène le tir le long du mur pour ouvrir une brèche large).
+        [Serializable] public struct Poste { public bool trebuchet; public Vector3 place, cible, etendue; }
 
         public List<Bloc> blocs = new List<Bloc>();
         public List<Tablier> tabliers = new List<Tablier>();
         public List<Lieu> lieux = new List<Lieu>();
+        public List<Pan> pans = new List<Pan>();
+        public List<Poste> batterie = new List<Poste>();
+        public Tablier porte;   // l'emprise du passage de la porte, pour la fermer
 
         public Lieu Trouver(string nom)
         {
@@ -182,8 +191,26 @@ namespace Guerre
                     d[i] = v;
                 }
             var r = new float[l * h];
-            for (int i = 0; i < r.Length; i++) r[i] = Math.Min(d[i], 3000) / 3f * Pas;
+            for (int i = 0; i < r.Length; i++) r[i] = Math.Min(d[i], Plafond) / 3f * Pas;
             return r;
+        }
+
+        // Le dégagement est plafonné à 40 m : au-delà, il ne change rien à aucun chemin. Une fenêtre peut
+        // donc se recalculer seule, avec 40 m de marge autour de ce qui a changé.
+        const int Plafond = 120;
+        const int Marge = 41;
+
+        // Des cases ont changé dans la fenêtre [x0, x1[ × [y0, y1[ (un mur tombé, des gravats, une porte fermée).
+        public void Actualiser(byte[] cases, int x0, int y0, int x1, int y1)
+        {
+            int a0 = Math.Max(0, x0 - Marge), b0 = Math.Max(0, y0 - Marge), a1 = Math.Min(L, x1 + Marge), b1 = Math.Min(H, y1 + Marge);
+            int l = a1 - a0, h = b1 - b0;
+            var local = new byte[l * h];
+            for (int y = 0; y < h; y++) for (int x = 0; x < l; x++) local[y * l + x] = cases[(b0 + y) * L + a0 + x];
+            var d = Degagement(local, l, h);
+            for (int y = Math.Max(y0, 0); y < Math.Min(y1, H); y++)
+                for (int x = Math.Max(x0, 0); x < Math.Min(x1, L); x++)
+                    degagement[y * L + x] = d[(y - b0) * l + x - a0];
         }
 
         int Case(Vector2 p)

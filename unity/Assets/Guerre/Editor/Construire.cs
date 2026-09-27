@@ -254,6 +254,9 @@ namespace Guerre.EditeurOutils
             bataille.terrain = terrain;
             var citadelle = new GameObject("Citadelle");
             bataille.carte = BatirCitadelle(citadelle.transform, td, kit);
+            var (bombarde, trebuchet) = ImporterEngins();
+            bataille.bombarde = bombarde; bataille.trebuchet = trebuchet;
+            bataille.materiauPierre = AssetDatabase.LoadAssetAtPath<Material>(Kit + "/Materiaux/pierre_taille.mat");
 
             new GameObject("Performance").AddComponent<Cadence>();
 

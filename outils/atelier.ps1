@@ -2,7 +2,7 @@
 #   powershell -File outils/atelier.ps1 soldats      # fabriquer les soldats dans Blender (fabrique/sorties)
 #   powershell -File outils/atelier.ps1 construire   # soldats, pipeline, vallée, scène
 #   powershell -File outils/atelier.ps1 joueur       # construire + joueur Windows
-#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 8, avec leurs contre-épreuves
+#   powershell -File outils/atelier.ps1 mesurer      # joueur + preuves des jalons 1 à 9, avec leurs contre-épreuves
 #   powershell -File outils/atelier.ps1 ouvrir       # ouvrir l'éditeur
 param([Parameter(Mandatory)][ValidateSet('soldats','construire','joueur','mesurer','ouvrir')][string]$action,
       [int]$soldats = 10000)
@@ -31,6 +31,11 @@ function Soldats {
     $p = Start-Process $blender -ArgumentList @('-b','--python-exit-code','1','--python',"`"$racine\fabrique\soldats.py`"",'--',"`"$sortie`"") -Wait -PassThru -NoNewWindow -RedirectStandardOutput $log
     if ($p.ExitCode -ne 0) { Write-Host "Échec de Blender. Journal : $log"; exit 1 }
     Select-String -Path $log -Pattern '\[Soldats\]' | ForEach-Object { $_.Line }
+    # Les engins de siège, dans le même Blender.
+    $log2 = Join-Path $logs 'engins.log'
+    $p = Start-Process $blender -ArgumentList @('-b','--python-exit-code','1','--python',"`"$racine\fabrique\engins.py`"",'--',"`"$sortie\engins`"") -Wait -PassThru -NoNewWindow -RedirectStandardOutput $log2
+    if ($p.ExitCode -ne 0) { Write-Host "Échec de Blender (engins). Journal : $log2"; exit 1 }
+    Select-String -Path $log2 -Pattern '\[Engins\]' | ForEach-Object { $_.Line }
 }
 
 # Le joueur compilé, lancé avec un mode d'essai ; renvoie son rapport JSON.
@@ -145,6 +150,18 @@ switch ($action) {
         $km = Lancer (Join-Path $racine 'sorties\essai-carte-sans-murs') @('-guerre-essai-carte','-guerre-sans-murs') 'essai-carte.json'
         if ($null -eq $km -or ($km.parcours | Where-Object { $_.nom -eq 'rues' }).franchissable) { Write-Host 'Sans les murs, personne ne passe dans une maison : la preuve ne prouve rien.'; $echecs++ }
         else { "contre-épreuve 8 (sans les murs) : échec attendu obtenu ($($km.motifs -join ' | '))" }
+
+        # Jalon 9 : le siège. La porte fermée, l'artillerie ouvre une brèche que l'infanterie franchit.
+        $g = Lancer (Join-Path $racine 'sorties\essai-siege') @('-guerre-essai-siege','-guerre-soldats','2000') 'essai-siege.json'
+        if ($null -eq $g) { exit 1 }
+        "brèche : ouverte {0} après {1:N0} s de feu, {2} tirs, {3} pierres délogées ou tombées sur {4}" -f $g.breche_ouverte, $g.breche_apres_s, $g.tirs, $g.pierres_delogees_ou_tombees, $g.pierres
+        "assaut : route par la brèche {0} (à {1:N1} m, {2} files, {3:N0} m), arrivé {4} en {5:N0} s, {6:P0} à leur place, {7} au plus dans une pierre ou un mur" -f $g.route_par_la_breche, $g.distance_route_breche_m, $g.files_en_colonne, $g.longueur_route_m, $g.arrive, $g.marche_s, $g.a_sa_place, $g.dans_un_mur_max
+        "jalon 9 : $($g.statut) $($g.motifs -join ' | ')"
+        if ($g.statut -ne 'valide') { $echecs++ }
+        # Des boulets qui ne délogent aucune pierre n'ouvrent aucune brèche.
+        $gc = Lancer (Join-Path $racine 'sorties\essai-siege-sans-chocs') @('-guerre-essai-siege','-guerre-soldats','2000','-guerre-sans-chocs') 'essai-siege.json'
+        if ($null -eq $gc -or $gc.breche_ouverte) { Write-Host 'Sans les chocs, une brèche s''est ouverte : la preuve ne prouve rien.'; $echecs++ }
+        else { "contre-épreuve 9 (sans les chocs) : échec attendu obtenu ($($gc.motifs -join ' | '))" }
 
         if ($echecs -gt 0) { exit 1 }
     }
