@@ -19,30 +19,41 @@ Le monde est une grille de cellules lues dans la carte figée
 `data/world-1400.json` — leur nombre est celui du fichier, il n'est écrit nulle
 part. À chaque tick, dans cet ordre :
 
-1. **Extraction** — chaque gisement de la cellule sort des kilogrammes de sa
-   ressource et les dépose dans le panier de la cellule.
-2. **Production** — la cellule produit de la nourriture proportionnellement à
-   sa surface, multipliée par un aléa de rendement du tick, par le facteur de
-   sa classe de relief — une montagne ne produit pas comme une plaine — et par
-   le facteur de saison du jour, tiré de la durée du jour de la cellule : on ne
-   récolte pas en janvier comme en juin.
-3. **Commerce** — les cellules en surplus livrent leurs voisines en manque, sur
-   les arêtes d'adjacence. Un kilogramme ne traverse qu'une arête par tick et
-   ne nourrit qu'une fois. Toute marchandise du panier circule, pas seulement
-   la nourriture.
-4. **Consommation** — chaque habitant mange sa ration. Ce qui manque devient
-   une **dette** (`food_deficit_kg`), pas un oubli. Un surplus rembourse la
-   dette, jamais plus vite que le surplus lui-même.
-5. **Faim** — une cellule qui a *manqué* ce tick voit `hunger_ticks` monter ;
-   une cellule ravitaillée exactement à son besoin, non.
-6. **Mortalité** — la dette tue, avec report de la fraction d'habitant non
-   encore morte pour qu'une petite cellule ne devienne pas immortelle par
-   arrondi.
-7. **Natalité** — une cellule rassasiée et sans dette gagne des habitants, avec
-   le même report de fraction.
-8. **Migration** — une part des habitants d'une cellule qui a manqué ce tick
-   part vers les voisines dont il reste de la nourriture après consommation.
-   Personne n'emporte de kilogrammes.
+1. **Validation du numéro de tick** (`_valider_numero_tick`) — lorsqu'un
+   `numero_tick` est fourni, il doit être égal à `world.ticks_ecoules` ; le
+   tick refuse tout écart avant la première mutation.
+2. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
+   dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
+   de l'`objet`, sur place et sans occuper de bras.
+3. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
+   des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
+4. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
+   la cellule produit de la nourriture proportionnellement à sa surface,
+   multipliée par un aléa de rendement du tick, par le facteur de sa classe de
+   relief — une montagne ne produit pas comme une plaine — et par le facteur
+   de saison du jour, tiré de la durée du jour de la cellule : on ne récolte
+   pas en janvier comme en juin.
+5. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
+   voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
+   qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
+   circule, pas seulement la nourriture.
+6. **Consommation** (`_apply_consumption`) — chaque habitant mange sa ration.
+   Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Un
+   surplus rembourse la dette, jamais plus vite que le surplus lui-même.
+7. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+   `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
+   non.
+8. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
+   fraction d'habitant non encore morte pour qu'une petite cellule ne devienne
+   pas immortelle par arrondi.
+9. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
+   des habitants, avec le même report de fraction.
+10. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
+    qui a manqué ce tick part vers les voisines dont il reste de la nourriture
+    après consommation. Personne n'emporte de kilogrammes.
+11. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+    maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
+    date dérivée au jour suivant.
 
 La **province** ne se stocke pas : elle se recalcule à chaque consultation
 comme « le centre administratif le plus proche ». Le tick ne la
@@ -77,8 +88,9 @@ moteur ne lit rien ».
 
 Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 
-- **fabriquer.** Le minerai extrait reste du minerai. Il n'y a ni atelier, ni
-  fonte, ni artisanat, ni transformation d'une marchandise en une autre.
+- **organiser la fabrication.** Les matières premières sont transformées sur
+  place, sans atelier, sans métier et sans bras affectés ; les objets produits
+  ne sont pas consommés.
 - **répartir le travail.** Tout le monde fait tout : la mine tourne *en plus*
   de l'agriculture, sans occuper de bras. Le lot 044, écrit et non exécuté,
   est le premier à défaire cela.
@@ -89,8 +101,8 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
 - **descendre sous la cellule.** La population est un entier agrégé : pas de
   familles, pas de personnes, pas de bâtiments, pas de quartiers.
-- **dater le monde.** Le rang du jour se dérive du numéro de tick ; le monde ne
-  porte aucune date, et aucune année ne s'écoule pour lui.
+- **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
+  rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
 ## Le mur qui sépare la couche 1 de la couche 2
 
@@ -344,9 +356,12 @@ CALENDAR_DAYS_PER_YEAR = 365
 jour = (numero_tick × TICK_DURATION_DAYS) modulo CALENDAR_DAYS_PER_YEAR
 ```
 
-Le rang du jour dans l'année se **dérive** du numéro de tick (`jour_de_tick`) ;
-il n'est stocké nulle part et le monde ne porte pas de date. C'est de lui que
-dépend le facteur de saison.
+Le monde porte `ticks_ecoules`, nul à l'amorçage, sérialisé et augmenté de un
+à la fin de chaque tick réussi. Le rang du jour dans l'année et l'année se
+**dérivent** de ce compteur par `date_de_tick`, depuis `ANNEE_INITIALE = 1400` ;
+la date elle-même n'est pas stockée. Lorsqu'un `numero_tick` est fourni, le
+tick refuse de jouer s'il diffère de `ticks_ecoules`. Le rang du jour détermine
+le facteur de saison.
 
 Conséquence à connaître avant d'écrire un lot : **un appelant qui ne compte pas
 ses ticks n'a pas de date à donner au moteur.** Ce que le tick fait alors n'est
@@ -540,10 +555,33 @@ vit », plus bas, et `py -m sim --ticks 20 --json` pour l'état du jour.
 
 ---
 
+## La fabrication
+
+Au début du tick, sur le panier d'ouverture, chaque marchandise présente autre
+que la `nourriture` et l'`objet` est une matière première à façonner.
+
+```
+matiere_consommee = stock_ouverture × TAUX_FABRICATION_PAR_TICK
+objet_produit = matiere_consommee × RENDEMENT_FABRICATION
+```
+
+| Constante | Valeur | Unité | Ordre de grandeur |
+|---|---|---|---|
+| `TAUX_FABRICATION_PAR_TICK` | 0.05 | part du stock/tick | niveau 2, jamais sourcé |
+| `RENDEMENT_FABRICATION` | 0.6 | kg d'objet/kg consommé | niveau 2, jamais sourcé |
+
+La fabrication est de **niveau 2**. Elle transforme la matière sur place et
+tourne en plus de la mine, de l'agriculture et du reste : aucun atelier,
+aucun métier et aucun bras affecté ne la limitent. L'`objet` produit n'est pas
+consommé et n'est jamais repris comme matière première.
+
+---
+
 ## L'extraction minière
 
-Premier maillon du tick, et la seule façon dont une marchandise autre que la
-nourriture entre dans le monde.
+L'extraction suit la fabrication. Elle est la seule source de **matière
+première** dans le monde ; la fabrication, jouée avant elle, fait aussi naître
+une marchandise en produisant de l'`objet`.
 
 La carte porte, cellule par cellule, une liste de **gisements nommés** de 1400.
 Leur emplacement et leur ressource sont de **niveau 1** — ils ont une source.
@@ -867,10 +905,11 @@ donc jamais de demandeur, donc elle ne traverse aucune arête. Le fer extrait
 s'accumule dans la cellule qui l'a sorti. Le commerce sait le porter — c'est ce
 que le lot 039 a acheté — mais rien ne le réclame.
 
-Ce n'est pas un défaut, c'est une absence déclarée : **il n'y a pas de demande
-non alimentaire dans ce monde**, parce qu'il n'y a ni fabrication, ni métier,
-ni prix. Le jour où quelque chose consommera du fer, le transport suivra sans
-qu'on y touche.
+Ce n'est pas un défaut, c'est une absence déclarée : la fabrication transforme
+la matière **sur place** et ne crée donc aucune demande entre cellules ; la
+consommation par habitant reste nulle hors nourriture. Il n'y a toujours ni
+métier ni prix. Le jour où quelque chose réclamera du fer dans une autre
+cellule, le transport suivra sans qu'on y touche.
 
 ---
 

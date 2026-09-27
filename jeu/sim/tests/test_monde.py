@@ -2500,3 +2500,100 @@ def test_date_cli_refus_ticks_negatifs_inchange():
     )
     assert proc.returncode == 2
     assert "refus" in proc.stderr.lower()
+
+
+# --- lot 115 : ordre documenté du tick ---
+
+
+def _etapes_tick_dans_code(source: str) -> list[str]:
+    """Appels de tick vers les fonctions du module, dans l'ordre du source."""
+    arbre = ast.parse(source)
+    fonctions_module = {
+        node.name for node in arbre.body if isinstance(node, ast.FunctionDef)
+    }
+    ticks = [
+        node
+        for node in arbre.body
+        if isinstance(node, ast.FunctionDef) and node.name == "tick"
+    ]
+    assert len(ticks) == 1, (
+        f"tick() doit avoir une seule définition, trouvé : {len(ticks)}"
+    )
+    appels = sorted(
+        (
+            node
+            for node in ast.walk(ticks[0])
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in fonctions_module
+        ),
+        key=lambda node: (node.lineno, node.col_offset),
+    )
+    ordre: list[str] = []
+    for appel in appels:
+        if appel.func.id not in ordre:
+            ordre.append(appel.func.id)
+    return ordre
+
+
+def _etapes_tick_dans_modele(document: str) -> list[str]:
+    """Fonctions citées par la liste numérotée de la section « En une page »."""
+    import re
+
+    section = re.search(
+        r"^## En une page\s*$\n(.*?)(?=^## )", document, flags=re.MULTILINE | re.DOTALL
+    )
+    assert section is not None, "section « En une page » absente du modèle"
+    items = re.findall(
+        r"^\d+\. .*?(?=^\d+\. |\Z)", section.group(1), flags=re.MULTILINE | re.DOTALL
+    )
+    ordre: list[str] = []
+    for item in items:
+        for nom in re.findall(r"`(_[A-Za-z][A-Za-z0-9_]*)`", item):
+            if nom not in ordre:
+                ordre.append(nom)
+    return ordre
+
+
+def _verifier_meme_ordre_tick(code: list[str], document: list[str]) -> None:
+    assert code, "ordre du code vide"
+    assert document, "ordre du document vide"
+    longueur = max(len(code), len(document))
+    for indice in range(longueur):
+        cote_code = code[indice] if indice < len(code) else "<fin>"
+        cote_document = document[indice] if indice < len(document) else "<fin>"
+        assert cote_code == cote_document, (
+            f"première étape différente au rang {indice + 1} : "
+            f"code={cote_code}, document={cote_document}"
+        )
+
+
+def _ordres_reels_du_tick() -> tuple[list[str], list[str]]:
+    moteur = (_REPO_ROOT / "sim" / "engine.py").read_text(encoding="utf-8")
+    modele = (_REPO_ROOT / "sim" / "MODELE.md").read_text(encoding="utf-8")
+    return _etapes_tick_dans_code(moteur), _etapes_tick_dans_modele(modele)
+
+
+def test_ordre_du_tick_documente_est_celui_du_code():
+    code, document = _ordres_reels_du_tick()
+    _verifier_meme_ordre_tick(code, document)
+
+
+@pytest.mark.parametrize(
+    "alteration",
+    ["code_vide", "document_vide", "fabrication_absente", "deux_etapes_echangees"],
+)
+def test_ordre_du_tick_contre_epreuves_echouent(alteration: str):
+    code, document = _ordres_reels_du_tick()
+    if alteration == "code_vide":
+        code = []
+    elif alteration == "document_vide":
+        document = []
+    elif alteration == "fabrication_absente":
+        assert "_apply_fabrication" in document
+        document.remove("_apply_fabrication")
+    else:
+        assert len(document) >= 2, "moins de deux étapes documentées à échanger"
+        document[0], document[1] = document[1], document[0]
+    with pytest.raises(AssertionError):
+        _verifier_meme_ordre_tick(code, document)
