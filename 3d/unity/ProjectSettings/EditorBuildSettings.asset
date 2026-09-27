@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_Ville_ksar_des_sept_puits.unity
+    guid: 0c4237bd3357e204c95c581cee15c39e
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_Ville_oued_des_vents.unity
+    guid: 50ea27823cad3f941af4521d52387bcd
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_ksar_des_sept_puits.unity
+    guid: cbb2ac5091dc14c4da0beccea6cd57af
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_oued_des_vents.unity
+    guid: 9c2336b2435a47d43af377185ba5a0e6
+  m_configObjects: {}
+  m_UseUCBPForAssetBundles: 0

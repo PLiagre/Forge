@@ -12,65 +12,73 @@ __pycache__/
 .venv/
 venv/
 
-# Unity — jamais versionné
-unity/Library/
-unity/Temp/
-unity/Obj/
-unity/Build/
-unity/Builds/
-unity/Logs/
-unity/UserSettings/
-unity/*.csproj
-unity/*.sln
+# Unity — jamais versionné, dans tout projet Unity du dépôt (3d/unity et les
+# projets archivés).
+3d/**/Library/
+3d/**/Temp/
+3d/**/Obj/
+3d/**/Build/
+3d/**/Builds/
+3d/**/Logs/
+3d/**/UserSettings/
+3d/**/*.csproj
+3d/**/*.sln
 
 # Packs de l'Asset Store : leur licence interdit de les republier, et ce dépôt
-# est public. Chaque pack importé se range sous Assets/Vendor/.
-unity/Assets/Vendor/
-unity/Assets/Vendor.meta
+# est public. Chaque pack importé se range sous Assets/Vendor/, dans n'importe
+# quel projet. La règle ne nomme aucun chemin de projet : le rangement du
+# 27 septembre 2026 l'a appris, une règle attachée à un chemin cesse de
+# protéger le jour où le dossier bouge.
+**/Assets/Vendor/
+**/Assets/Vendor.meta
 # Emplacement d'import initial du Terrain Sample Project, avant rangement dans Vendor.
-unity/Assets/TerrainDemoScene_HDRP/
-unity/Assets/TerrainDemoScene_HDRP.meta
+**/Assets/TerrainDemoScene_HDRP/
+**/Assets/TerrainDemoScene_HDRP.meta
 
-# Fabrique : sorties de publication
-fabrique_donnees/Reports/*.tmp
+# Les builds Windows du jeu, faits sur le PC : jamais publiés (ils embarquent
+# les packs de l'Asset Store).
+/builds/
+
+# Fabrique (archivée) : sorties de publication
+3d/archives/fabrique/donnees/Reports/*.tmp
 
 # Atelier 3D local : journaux et sauvegardes automatiques
-local3d/*.log
-local3d/v2/logs/
-local3d/v2/cache/
-local3d/alpin/sorties/cache/
-local3d/alpin/sorties/logs/
-local3d/alpin/sorties/visite/frames/
-local3d/citadelle/*.log
-local3d/citadelle/sorties/cache/
-local3d/citadelle/sorties/logs/
-local3d/citadelle/sorties/visite/frames/
+3d/local3d/*.log
+3d/local3d/v2/logs/
+3d/local3d/v2/cache/
+3d/local3d/alpin/sorties/cache/
+3d/local3d/alpin/sorties/logs/
+3d/local3d/alpin/sorties/visite/frames/
+3d/local3d/citadelle/*.log
+3d/local3d/citadelle/sorties/cache/
+3d/local3d/citadelle/sorties/logs/
+3d/local3d/citadelle/sorties/visite/frames/
 *.blend1
 *.blend2
 # Ville du désert : grilles binaires (≈ 27 Mo par implantation), refaites par
-# py local3d/atelier_desert.py terrain à partir de paysage.py.
-local3d/desert/sorties/ville/*/*.f32
-local3d/desert/sorties/ville/*/*.u8
+# py 3d/local3d/atelier_desert.py terrain à partir de paysage.py.
+3d/local3d/desert/sorties/ville/*/*.f32
+3d/local3d/desert/sorties/ville/*/*.u8
 
 # Atelier 3D : ce qui ne se publie pas.
 # Un joueur autonome embarque les packs de l'Asset Store : leur licence interdit
 # de le republier, et ce dépôt est public.
-local3d/*/sorties/joueur/
+3d/local3d/*/sorties/joueur/
 # Caches, journaux et images de vidéo : refaits à chaque commande.
-local3d/*/sorties/cache/
-local3d/*/sorties/logs/
-local3d/*/sorties/visite/frames/
-local3d/*/logs/
-local3d/*/cache/
+3d/local3d/*/sorties/cache/
+3d/local3d/*/sorties/logs/
+3d/local3d/*/sorties/visite/frames/
+3d/local3d/*/logs/
+3d/local3d/*/cache/
 # Scènes .blend et textures procédurales en sortie : refaites par `fabriquer`
 # (plusieurs centaines de Mo). Les retouches manuelles vivent dans sources/,
 # qui reste versionné, comme les états de référence de sorties/diagnostic/.
-local3d/*/sorties/villages/*/*.blend
-local3d/*/sorties/textures/
-local3d/v2/villages/*/*.blend
+3d/local3d/*/sorties/villages/*/*.blend
+3d/local3d/*/sorties/textures/
+3d/local3d/v2/villages/*/*.blend
 # Images de diagnostic avant/après de la citadelle (≈ 665 Mo) : archive
 # « diagnostic-citadelle.zip » de la Release v0, à décompresser à la racine.
-local3d/citadelle/sorties/diagnostic/**/*.png
+3d/local3d/citadelle/sorties/diagnostic/**/*.png
 
 # L'atelier : état local de la machine qui fait tourner la chaîne — les
 # cartes de la boîte, les verrous de fichiers, le canal d'échange. Rien

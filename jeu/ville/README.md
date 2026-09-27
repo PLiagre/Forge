@@ -1,7 +1,7 @@
 # ville/ — le contrat entre le monde et sa vue ville
 
-La frontière de données entre `sim/`, qui possède le monde, et `unity/`, qui le
-montre. Elle est du texte : schémas, exemples, matrice d'autorité — donc elle
+La frontière de données entre `jeu/sim/`, qui possède le monde, et `3d/unity/`,
+qui le montre. Elle est du texte : schémas, exemples, matrice d'autorité — donc elle
 se lit, se versionne et se teste sans ouvrir Unity.
 
 | fichier | ce qu'il dit |
