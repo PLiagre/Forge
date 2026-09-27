@@ -91,8 +91,11 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
             commande += [
                 "--permission-mode", "default",
                 "--allowedTools",
+                # Rejouer un test n'écrit que des caches : le relecteur vérifie
+                # une affirmation du codeur au lieu de la croire (lot #115).
                 "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),"
-                "Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(head:*),Bash(wc:*)",
+                "Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(head:*),Bash(wc:*),"
+                "Bash(python3 -m pytest:*),Bash(py -m pytest:*)",
                 "--disallowedTools", "Edit,Write,NotebookEdit," + ",".join(GESTES_DU_PILOTE),
             ]
         else:

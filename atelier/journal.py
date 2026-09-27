@@ -13,9 +13,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
+import tempfile
 
 from . import agents as agents_mod
-from . import lots, prompts
+from . import captures, lots, prompts
+from .depot import Depot
 from .github import GitHub
 from .projet import Projet
 
@@ -88,18 +90,39 @@ def _publier(gh: GitHub, texte: str) -> int:
     return numero
 
 
+def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime) -> list[str]:
+    """La carte du monde tel que master le simule ce matin : chaque journal
+    porte au moins une image, même un jour sans lot livré."""
+    with tempfile.TemporaryDirectory(prefix="journal-") as tmp:
+        carte = captures.carte_du_monde(projet.racine, Path(tmp))
+        if carte is None:
+            return []
+        nommee = Path(tmp) / f"monde-{maintenant:%Y-%m-%d}.png"
+        carte.rename(nommee)
+        try:
+            return captures.publier(Depot(projet.racine, projet.branche_base), gh.depot, [nommee],
+                                    f"{maintenant:%Y-%m-%d}")
+        except Exception:  # noqa: BLE001 — une photo manquée ne retient pas le journal
+            return []
+
+
 def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, publier: bool = True,
-           executeur=agents_mod.executer, dossier: Path | None = None) -> str:
+           executeur=agents_mod.executer, dossier: Path | None = None, photographe=photo_du_monde) -> str:
     maintenant = maintenant or datetime.now(timezone.utc)
     releve = faits(gh, projet, maintenant)
+    images = photographe(gh, projet, maintenant) if publier else []
+    if images:
+        photos = "".join(f"![le monde]({url})\n" for url in images)
+        releve = f"LE MONDE CE MATIN (master, 30 jours simulés) :\n{photos}\n{releve}"
     res = agents_mod.invoquer(projet.poste("chroniqueur"), prompts.chroniqueur(faits=releve),
                               dossier or projet.racine, projet.delai("chroniqueur"), executeur=executeur)
     if res.reussi and res.texte.strip():
         corps = f"## Journal du {maintenant:%d/%m/%Y}\n\n{res.texte.strip()}\n\n<sub>Écrit par {res.agent}.</sub>"
     else:
         raison = "; ".join(res.essais) or f"code {res.code}"
+        # Les faits bruts restent du markdown : leurs images s'affichent.
         corps = (f"## Journal du {maintenant:%d/%m/%Y} (faits bruts)\n\nLe chroniqueur n'a pas répondu ({raison}).\n\n"
-                 f"```\n{releve}\n```")
+                 f"{releve}")
     if publier:
         _publier(gh, corps)
     return corps

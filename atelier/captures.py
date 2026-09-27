@@ -68,11 +68,16 @@ def touche_ce_qu_on_voit(fichiers: list[str]) -> bool:
 def carte_du_monde(chemin_depot: Path, sortie: Path, *, ticks: int = 30) -> Path | None:
     """La carte que rend `python3 -m forge` sur la révision du lot."""
     sortie.mkdir(parents=True, exist_ok=True)
-    fini = subprocess.run(
-        [sys.executable, "-m", "forge", "--ticks", str(ticks), "--seed", "0", "--sortie", str(sortie),
-         "--sans-chronique", "--largeur", "900"],
-        cwd=Path(chemin_depot) / "jeu", capture_output=True, text=True, encoding="utf-8",
-        errors="replace", timeout=600)
+    if not (Path(chemin_depot) / "jeu").is_dir():
+        return None
+    try:
+        fini = subprocess.run(
+            [sys.executable, "-m", "forge", "--ticks", str(ticks), "--seed", "0", "--sortie", str(sortie),
+             "--sans-chronique", "--largeur", "900"],
+            cwd=Path(chemin_depot) / "jeu", capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=600)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     carte = sortie / "carte.png"
     return carte if fini.returncode == 0 and carte.is_file() else None
 

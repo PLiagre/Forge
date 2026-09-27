@@ -97,12 +97,15 @@ def correction_relecture(revue: str) -> str:
 
 
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
-              url: str, sha: str) -> str:
+              url: str, sha: str, rapports: str = "") -> str:
+    comptes_rendus = (f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
+                      f"ce sont des affirmations à vérifier, pas des preuves) :\n-----\n{rapports.strip()[:8000]}\n-----\n"
+                      if rapports.strip() else "")
     return f"""Tu es le relecteur de Forge. Tu n'as pas écrit ce code et tu ne le modifies pas.
 
 Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce dossier est cette révision.
-Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte.
-
+Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte ; tu peux rejouer un test (`{_tests(projet)} -k …`) pour vérifier une affirmation.
+{comptes_rendus}
 Vérifie, du plus grave au plus léger :
 1. Le diff reste dans le Périmètre du brief, et rien ne touche {_interdits(projet)}.
 2. Chaque condition de succès est mesurée par un test ou une commande qui peut échouer.

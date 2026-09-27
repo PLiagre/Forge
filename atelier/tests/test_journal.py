@@ -38,14 +38,25 @@ def test_les_faits_du_matin(projet, gh):
 
 def test_le_journal_se_publie_meme_si_le_chroniqueur_se_tait(projet, gh):
     _preparer(gh)
-    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429 Too Many Requests")))
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429 Too Many Requests")),
+                           photographe=lambda *a: [])
     assert "faits bruts" in corps and "conflit non résolu" in corps
+    # Les faits bruts restent du markdown : une image s'y affiche.
+    assert "```" not in corps and "![capture](https://raw.githubusercontent.com" in corps
     assert gh.issues_[99]["comments"][-1]["body"] == corps
 
 
 def test_le_chroniqueur_met_les_faits_en_phrases(projet, gh):
     _preparer(gh)
     agents = Agents((0, "### Livré hier\nLe contrat.\n"))
-    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=agents)
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=agents, photographe=lambda *a: [])
     assert corps.startswith("## Journal du 28/09/2026") and "Écrit par cursor/grok" in corps
     assert "--mode" in agents.appels[0] and "ask" in agents.appels[0]
+
+
+def test_chaque_journal_porte_la_photo_du_monde(projet, gh):
+    _preparer(gh)
+    url = "https://raw.githubusercontent.com/moi/essai/journal/captures/2026-09-28/monde-2026-09-28.png"
+    agents = Agents((1, "429 Too Many Requests"))
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=agents, photographe=lambda *a: [url])
+    assert f"![le monde]({url})" in corps
