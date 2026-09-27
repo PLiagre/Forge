@@ -1312,19 +1312,97 @@ def _ref_master() -> str:
     return _REF_MASTER[0]
 
 
-def _texte_master(relatif: str) -> str:
-    """Source d'un fichier sur master, rejouée, jamais recopiée."""
-    ref = _ref_master()
+def _arbre_master(ref: str) -> set[str]:
+    """Les chemins que master suit, lus dans son arbre."""
     proc = subprocess.run(
-        ["git", "show", f"{ref}:{relatif}"],
+        ["git", "ls-tree", "-r", "-z", "--name-only", ref],
         cwd=_REPO_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert proc.returncode == 0, (
-        f"master ne porte pas {relatif!r} ({proc.stderr.strip()})"
+        f"arbre de {ref!r} illisible ({proc.stderr.strip()})"
+    )
+    return {p for p in proc.stdout.split("\0") if p}
+
+
+def _texte_master(relatif: str, ref: str | None = None) -> str:
+    """
+    Source d'un fichier sur master, rejouée, jamais recopiée.
+
+    `relatif` part du paquet (« sim/engine.py »). L'endroit où master range
+    ce paquet se lit dans son arbre — « sim/ », puis « jeu/sim/ » depuis le
+    rangement du 27 septembre 2026 — et n'est jamais écrit en dur.
+
+    Un module absent de master (le premier module neuf d'un lot) rend une
+    source vide : il n'y porte aucun jeu de facteurs, et c'est une mesure
+    juste (lot 248, demande #49). Toute autre erreur reste une erreur.
+    """
+    ref = ref or _ref_master()
+    arbre = _arbre_master(ref)
+    paquet, _, reste = relatif.partition("/")
+    ancre = f"{paquet}/__init__.py"
+    racines = sorted(
+        p[: -len("__init__.py")]
+        for p in arbre
+        if p == ancre or p.endswith("/" + ancre)
+    )
+    assert len(racines) == 1, (
+        f"master ne porte pas un et un seul paquet {paquet!r} : {racines}"
+    )
+    chemin = racines[0] + reste
+    if chemin not in arbre:
+        return ""
+    proc = subprocess.run(
+        ["git", "show", f"{ref}:{chemin}"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert proc.returncode == 0, (
+        f"master ne porte pas {chemin!r} ({proc.stderr.strip()})"
     )
     return proc.stdout
+
+
+def test_texte_master_rend_vide_un_module_absent_de_master():
+    """
+    Lot 248 (demande #49) — un module absent de master, comme le premier
+    module neuf d'un lot, compte pour une source sans aucun jeu de facteurs :
+    c'est une mesure juste, pas un défaut. Le nom absent se dérive de
+    l'arbre de master (un module qui y est, suffixé jusqu'à ne plus y être),
+    jamais écrit en dur.
+    """
+    ref = _ref_master()
+    chemins = _arbre_master(ref)
+    modules = sorted(p for p in chemins if p.endswith("/engine.py") or p == "sim/engine.py")
+    assert modules, "échantillon vide : master ne porte aucun engine.py"
+    dossier, _, nom = modules[0].rpartition("/")
+    absent = nom
+    while f"{dossier}/{absent}" in chemins:
+        absent = absent.removesuffix(".py") + "_neuf.py"
+    assert _texte_master("sim/" + absent) == ""
+    # Le module présent, lui, se lit toujours : l'absence ne s'étend pas.
+    assert "def tick" in _texte_master("sim/" + nom)
+
+
+def test_texte_master_echoue_sur_une_reference_illisible():
+    """
+    Lot 248 (demande #49) — sans ce cas, le précédent ne prouve rien : une
+    référence que git ne sait pas lire échoue toujours, elle ne rend jamais
+    une source vide. La référence illisible se dérive de celle de master,
+    suffixée jusqu'à ce que `git rev-parse` ne la connaisse plus.
+    """
+    illisible = _ref_master() + "-illisible"
+    while subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", illisible],
+        cwd=_REPO_ROOT, capture_output=True, text=True,
+    ).returncode == 0:
+        illisible += "-illisible"
+    with pytest.raises(AssertionError):
+        _texte_master("sim/engine.py", ref=illisible)
 
 
 def _noms_lus_dans(node: ast.AST) -> set[str]:
