@@ -113,3 +113,16 @@ def test_l_etat_des_controles_exiges():
     rejeu = [_check("tests", conclusion="FAILURE", quand="2026-09-27T09:00:00Z"), _check("tests"),
              _check("gitleaks"), _check("unity", conclusion="FAILURE")]
     assert etat_des_controles({"statusCheckRollup": rejeu})[0] == "vert"
+
+
+def test_un_lot_attend_ses_dependances_ouvertes():
+    service = Lot.de(dict(_issue(12, "Le service"), body=""))
+    panneau = Lot.de(dict(_issue(13, "Le panneau", ("lot", "pret", "pc")), body="Ce qu'il fait.\n\nDépend de : #12, #9"))
+    assert panneau.dependances == frozenset({12, 9})
+    assert lots.a_prendre([panneau], 1, {"vps": True, "pc": True}, frozenset({12})) is None
+    assert lots.a_prendre([panneau], 1, {"vps": True, "pc": True}, frozenset({14})).numero == 13
+    # Le formulaire écrit « ### Dépend de », puis la valeur au paragraphe suivant.
+    formulaire = "### Jalon\n\nJ1 — Le pont\n\n### Dépend de\n\n#3, #4\n\n### Ce que ça doit faire\n\nVoir #99."
+    assert Lot.de(dict(_issue(14), body=formulaire)).dependances == frozenset({3, 4})
+    # Une référence plus loin dans le texte n'est pas une dépendance.
+    assert Lot.de(dict(_issue(15), body="Dépend de : #12\n\nDécoupé du lot #10.")).dependances == frozenset({12})

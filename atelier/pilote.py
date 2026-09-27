@@ -99,7 +99,7 @@ class Pilote:
         if not agent_parti and courant is not None:
             libres = {m: not o for m, o in occupe.items()}
             candidats = [l for l in ouvertes if "lot" in l.etiquettes]
-            suivant = lots.a_prendre(candidats, courant.numero, libres)
+            suivant = lots.a_prendre(candidats, courant.numero, libres, frozenset(l.numero for l in ouvertes))
             if suivant is not None:
                 try:
                     self._chef(suivant, courant.titre)

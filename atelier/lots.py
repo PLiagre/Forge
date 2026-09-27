@@ -22,6 +22,7 @@ import unicodedata
 ETATS = ("idee", "pret", "en-cours", "bloque", "livre")
 ETIQUETTE_PC = "pc"
 _MARQUE = re.compile(r"<!-- atelier (\{.*?\}) -->", re.S)
+_DEPEND = re.compile(r"^[ \t]*(?:#+[ \t]*)?D[ée]pend de[ \t]*:?[ \t]*(.*)$", re.I | re.M)
 _JALON = re.compile(r"^J(\d+)\b")
 ROLES_CODEURS = ("codeur", "codeur_3d", "mecanicien_master")
 
@@ -118,15 +119,37 @@ class Lot:
     def brief(self, dossier: str) -> str:
         return f"{dossier}/{self.numero}-{self.slug}.md"
 
+    @property
+    def dependances(self) -> frozenset[int]:
+        """Les issues que ce lot attend : « Dépend de : #12, #13 » dans son texte,
+        ou le champ « Dépend de » du formulaire (la valeur sur les lignes qui
+        suivent, jusqu'au titre suivant)."""
+        trouvees: set[int] = set()
+        for m in _DEPEND.finditer(self.corps):
+            lignes = self.corps[m.start():].splitlines()
+            bloc = [lignes[0]]
+            # « Dépend de : #12 » tient sur sa ligne ; le champ du formulaire
+            # porte sa valeur au paragraphe suivant, jusqu'au titre suivant.
+            if not re.search(r"#\d+", lignes[0]):
+                for ligne in lignes[1:]:
+                    if ligne.startswith("##") or (not ligne.strip() and any(b.strip() for b in bloc[1:])):
+                        break
+                    bloc.append(ligne)
+            trouvees |= {int(n) for n in re.findall(r"#(\d+)", " ".join(bloc))}
+        return frozenset(trouvees)
 
-def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool]) -> Lot | None:
+
+def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool],
+              ouvertes: frozenset[int] = frozenset()) -> Lot | None:
     """Le lot suivant du jalon courant : `pret` d'abord, puis `idee`, dans
-    l'ordre des numéros d'issue. Une machine occupée ne prend rien."""
+    l'ordre des numéros d'issue. Une machine occupée ne prend rien ; un lot
+    dont une dépendance est encore ouverte attend."""
     if jalon is None:
         return None
     for etat in ("pret", "idee"):
         for lot in sorted(lots, key=lambda l: l.numero):
-            if lot.jalon == jalon and lot.etat == etat and machine_libre.get(lot.machine, False):
+            if (lot.jalon == jalon and lot.etat == etat and machine_libre.get(lot.machine, False)
+                    and not (lot.dependances & ouvertes)):
                 return lot
     return None
 

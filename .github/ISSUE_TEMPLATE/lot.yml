@@ -43,6 +43,12 @@ body:
         - pc
     validations:
       required: true
+  - type: input
+    id: depend
+    attributes:
+      label: Dépend de
+      description: Les issues qui doivent être livrées avant celle-ci (« #12, #13 »). Vide si elle n'attend personne.
+      placeholder: "#12, #13"
   - type: textarea
     id: quoi
     attributes:
