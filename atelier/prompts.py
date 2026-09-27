@@ -7,12 +7,22 @@ des fichiers ou rend un texte, le pilote fait tous les gestes git et GitHub.
 
 from __future__ import annotations
 
+import sys
+
 from .projet import Projet
 
 _FRONTIERE = (
     "Tu ne fais ni `git commit`, ni `git push`, ni aucune commande `gh` : "
     "le pilote de la chaîne enregistre, pousse et parle à GitHub."
 )
+
+
+def _tests(projet: Projet) -> str:
+    """La commande des tests, telle qu'on la tape sur cette machine : sous
+    Windows, `python3` est le faux alias du Microsoft Store (règle 1)."""
+    if sys.platform.startswith("win") and projet.tests.startswith("python3 "):
+        return "py " + projet.tests[len("python3 "):]
+    return projet.tests
 
 
 def _interdits(projet: Projet) -> str:
@@ -64,7 +74,7 @@ def codeur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
 Le brief `{chemin_brief}` est ta SEULE source d'instruction : lis-le en entier, puis `AGENTS.md`.
 - N'écris que dans les fichiers que sa section « Périmètre » autorise. Jamais dans : {_interdits(projet)}.
 - Ne modifie aucun test existant pour le faire passer ; ajoute tes cas.
-- Lance les tests (`{projet.tests}`) : ils sont verts avant que tu rendes la main.
+- Lance les tests (`{_tests(projet)}`) : ils sont verts avant que tu rendes la main.
 - {_FRONTIERE}
 - Écris en français : commentaires, messages, compte rendu.
 
@@ -111,7 +121,7 @@ Une fusion de `origin/{projet.branche_base}` est en cours dans ce dossier. Les f
 {liste}
 
 Résous chaque conflit en gardant l'intention des deux côtés, le lot et la base. Retire tous les marqueurs `<<<<<<<`, `=======`, `>>>>>>>`.
-Lance `{projet.tests}`. Jamais dans : {_interdits(projet)}. {_FRONTIERE}
+Lance `{_tests(projet)}`. Jamais dans : {_interdits(projet)}. {_FRONTIERE}
 Termine par un compte rendu court."""
 
 
@@ -123,7 +133,7 @@ Voici ce que dit la CI :
 {erreur.strip()[:6000] or "(journal illisible : lance les tests toi-même)"}
 -----
 
-Répare la cause. Ne modifie pas un test pour le faire passer. Lance `{projet.tests}`.
+Répare la cause. Ne modifie pas un test pour le faire passer. Lance `{_tests(projet)}`.
 Jamais dans : {_interdits(projet)}. Si la réparation l'exige, n'écris rien et termine par la ligne « DECISION: MODE-DIRECT :: <raison> ».
 {_FRONTIERE}
 Termine par un compte rendu court."""
