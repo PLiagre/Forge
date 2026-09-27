@@ -22,7 +22,7 @@ from sim.world import World
 
 DEFAULT_SERVICE_SEED = DEFAULT_CLI_SEED
 DEFAULT_SERVICE_PORT = 8000
-DEFAULT_JOURS_PAR_SECONDE = 1
+DEFAULT_JOURS_PAR_SECONDE = 1.0
 BUDGET_TICK_MS = 100
 MILLISECONDES_PAR_SECONDE = 1000
 SERVICE_HOST = "127.0.0.1"
@@ -200,7 +200,7 @@ class ServeurMonde(ThreadingHTTPServer):
                 jours_par_seconde=jours_par_seconde,
             )
             self._generation_vitesse += 1
-            self.condition_vitesse.notify()
+            self.condition_vitesse.notify_all()
             while self._tick_en_cours:
                 self.condition_vitesse.wait()
             return self.etat_publie
@@ -243,7 +243,7 @@ class ServeurMonde(ThreadingHTTPServer):
         """Réveille le fil démon afin qu'il puisse finir proprement."""
         with self.condition_vitesse:
             self._arret_horloge = True
-            self.condition_vitesse.notify()
+            self.condition_vitesse.notify_all()
         super().server_close()
 
 

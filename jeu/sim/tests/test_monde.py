@@ -2819,6 +2819,18 @@ DUREE_OBSERVATION_HORLOGE_S = 2.5
 DUREE_APRES_PAUSE_TEST_S = 1
 VITESSE_HORLOGE_TEST = 4
 BUDGET_TICK_ATTENDU_MS = 100
+DELAI_DEMARRAGE_SERVICE_S = 5
+NOMBRE_TICKS_LECTURE_CONCURRENTE = 10
+
+
+def _verifier_lecture_non_bloquante(
+    fin_lecture: float,
+    fin_post: float,
+    tick_lecture: int,
+) -> None:
+    """Vérifie qu'une lecture observe un tick intermédiaire avant le POST."""
+    assert fin_lecture < fin_post
+    assert 1 <= tick_lecture < NOMBRE_TICKS_LECTURE_CONCURRENTE
 
 
 @pytest.mark.parametrize(
@@ -2891,21 +2903,13 @@ def test_horloge_controle_lecture_non_bloquante(
     accepte: bool,
 ):
     """La preuve refuse une lecture tardive ou prise seulement au dernier tick."""
-    def verifier() -> None:
-        assert fin_lecture < fin_post
-        assert 1 <= tick_lecture < 10
-
     try:
-        verifier()
+        _verifier_lecture_non_bloquante(fin_lecture, fin_post, tick_lecture)
     except AssertionError:
         resultat = False
     else:
         resultat = True
     assert resultat is accepte
-
-
-DELAI_DEMARRAGE_SERVICE_S = 5
-NOMBRE_TICKS_LECTURE_CONCURRENTE = 10
 
 
 def test_horloge_lectures_ne_bloquent_pas_sur_un_lot_de_ticks():
@@ -2938,13 +2942,21 @@ def test_horloge_lectures_ne_bloquent_pas_sur_un_lot_de_ticks():
             / MILLISECONDES_PAR_SECONDE_TEST
         )
         lieu = requete_service(port, f"/lieu?cell={cell_id}")[1]
+        fin_lecture_lieu = time.monotonic()
         monde = requete_service(port, "/monde")[1]
-        fin_lecture = time.monotonic()
+        fin_lecture_monde = time.monotonic()
         fil.join(timeout=max(0, limite - time.monotonic()))
         assert not fil.is_alive(), "le POST /tick n'a pas fini dans le délai dérivé"
-        assert fin_lecture < resultat_post["fin"]
-        assert 1 <= lieu["tick"] < NOMBRE_TICKS_LECTURE_CONCURRENTE
-        assert 1 <= monde["tick"] < NOMBRE_TICKS_LECTURE_CONCURRENTE
+        _verifier_lecture_non_bloquante(
+            fin_lecture_lieu,
+            resultat_post["fin"],
+            lieu["tick"],
+        )
+        _verifier_lecture_non_bloquante(
+            fin_lecture_monde,
+            resultat_post["fin"],
+            monde["tick"],
+        )
         assert resultat_post["document"]["tick"] == NOMBRE_TICKS_LECTURE_CONCURRENTE
 
 
@@ -2980,6 +2992,8 @@ def test_horloge_cli_refuse_vitesse_negative_et_accepte_decimale():
     )
     assert processus.returncode != 0
     assert "service prêt" not in processus.stdout
+    assert "jours_par_seconde" in processus.stderr
+    assert "-1" in processus.stderr
     with lancer_service(0) as port:
         statut, document, _ = requete_service(
             port, "/vitesse?jours_par_seconde=2.5", "POST"
