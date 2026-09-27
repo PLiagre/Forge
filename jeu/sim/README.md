@@ -7,6 +7,7 @@ seul, sans moteur de rendu :
 py -m sim
 py -m sim --ticks 0 --json
 py -m sim --ticks 0 --seed 0 --snapshot-json /tmp/world.json
+py -m sim.service --seed 0 --port 8000
 ```
 
 `--snapshot-json` écrit une photographie cellulaire déterministe (schéma
@@ -35,6 +36,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/aggregation.py` | Agrégation dérivée : regroupe les cellules par centre administratif le plus proche. Ne modifie rien, n'écrit rien |
 | `sim/__main__.py` | `py -m sim` — lance le monde |
 | `sim/snapshot_export.py` | Photographie cellulaire déterministe (`--snapshot-json`) |
+| `sim/service.py` | Service JSON local du monde courant (`127.0.0.1` uniquement) |
 | `sim/MODELE.md` | Comment le monde fonctionne : formules, constantes, limites |
 
 ---

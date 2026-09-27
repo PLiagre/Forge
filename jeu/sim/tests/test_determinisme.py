@@ -361,3 +361,24 @@ def test_date_empreinte_distincte_si_compteur_differe():
         json.dumps(autre.to_dict(), sort_keys=True).encode()
     ).hexdigest()
     assert empreinte_a != empreinte_b
+
+
+def test_service_deterministe_octet_pour_octet_et_sensible_a_la_graine():
+    """La même course HTTP est identique ; une autre graine change le monde."""
+    from sim.tests.test_monde import lancer_service, requete_service
+
+    def course(seed: int) -> tuple[bytes, bytes]:
+        with lancer_service(seed) as port:
+            requete_service(port, "/tick?n=3", "POST")
+            monde = requete_service(port, "/monde")[2]
+            cellules = json.loads(monde.decode("utf-8"))["cells"]
+            assert cellules, "échantillon vide : le service ne rend aucune cellule"
+            cell_id = min(cellule["cell_id"] for cellule in cellules)
+            lieu = requete_service(port, f"/lieu?cell={cell_id}")[2]
+            return monde, lieu
+
+    premiere = course(0)
+    seconde = course(0)
+    autre_graine = course(1)
+    assert premiere == seconde
+    assert premiere[0] != autre_graine[0]
