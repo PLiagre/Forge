@@ -3,7 +3,7 @@
 Le seul fichier de règles du dépôt. Il ne paraphrase aucun autre document :
 ce qui est ici n'est écrit qu'ici.
 
-Les trois documents vivants : **[VISION.md](VISION.md) et [OBJECTIF.md](OBJECTIF.md)** (ce qu'on construit,
+Les trois documents vivants : **[docs/VISION.md](docs/VISION.md) et [docs/OBJECTIF.md](docs/OBJECTIF.md)** (ce qu'on construit,
 gelé) · **[ROADMAP.md](ROADMAP.md)** (où on en est) · **AGENTS.md** (ce
 fichier). Le quatrième document, [`sim/MODELE.md`](sim/MODELE.md), dit
 comment le monde fonctionne — c'est de lui que les lots sont découpés.

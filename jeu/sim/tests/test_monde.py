@@ -1315,7 +1315,7 @@ def _ref_master() -> str:
 def _arbre_master(ref: str) -> set[str]:
     """Les chemins que master suit, lus dans son arbre."""
     proc = subprocess.run(
-        ["git", "ls-tree", "-r", "-z", "--name-only", ref],
+        ["git", "ls-tree", "-r", "-z", "--full-tree", "--name-only", ref],
         cwd=_REPO_ROOT,
         capture_output=True,
         text=True,

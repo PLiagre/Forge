@@ -14,9 +14,9 @@
 Le jeu était deux mondes qui ne se parlaient pas : `sim/` (Python, 596
 cellules, vivant) et quatorze scènes Unity qui sont des visites — aucune ne lit
 `sim/`. Le labo Unity portait une seconde économie (`LocalCitySimulation`), et
-le contrat ville exigeait un `cityId` que [`sim/MODELE.md`](sim/MODELE.md)
+le contrat ville exigeait un `cityId` que [`jeu/sim/MODELE.md`](jeu/sim/MODELE.md)
 interdit. Les sept jalons ci-dessous referment cette fracture d'abord, puis
-montent vers la vision d'[OBJECTIF.md](OBJECTIF.md) : seigneur en 1400, État
+montent vers la vision d'[docs/OBJECTIF.md](docs/OBJECTIF.md) : seigneur en 1400, État
 industriel en 1900, **une seule simulation**.
 
 ## La règle d'un jalon

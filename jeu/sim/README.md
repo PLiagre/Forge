@@ -17,7 +17,7 @@ couche par couche, ce que le moteur consomme et ce qu'il ne consomme pas.
 Le nom du schéma n'est pas recopié ici : il est dans `sim/constants.py`.
 Un document qui porte une version morte piège le lot suivant (règle 12).
 
-La vision du moteur est dans [`VISION.md`](../VISION.md), les règles dans
+La vision du moteur est dans [`VISION.md`](../../docs/VISION.md), les règles dans
 [`AGENTS.md`](../AGENTS.md), et le fonctionnement du monde — formules,
 constantes, limites — dans [`MODELE.md`](MODELE.md).
 

@@ -30,4 +30,4 @@
 *.asset -whitespace
 
 # La carte figée : un seul fichier, jamais fusionné à la main.
-data/world-1400.json -merge
+jeu/data/world-1400.json -merge

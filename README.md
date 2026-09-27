@@ -12,9 +12,10 @@ l'arrivée. **L'ascension est le jeu.**
 
 | pour savoir | lire |
 |---|---|
-| ce que le jeu doit devenir | [OBJECTIF.md](OBJECTIF.md) |
-| ce que le moteur promet | [VISION.md](VISION.md) |
-| comment le monde fonctionne | [sim/MODELE.md](sim/MODELE.md) |
+| ce que le jeu doit devenir | [docs/OBJECTIF.md](docs/OBJECTIF.md) |
+| ce que le moteur promet | [docs/VISION.md](docs/VISION.md) |
+| comment le monde fonctionne | [jeu/sim/MODELE.md](jeu/sim/MODELE.md) |
+| dans quel ordre on construit le jeu | [CAP.md](CAP.md) |
 | où on en est, et dans quel ordre on avance | [ROADMAP.md](ROADMAP.md) |
 | comment s'en servir | [docs/NOTICE.md](docs/NOTICE.md) |
 | comment le travail avance tout seul | [docs/WORKFLOW.md](docs/WORKFLOW.md) |
@@ -57,6 +58,7 @@ Cette scène de visite ne branche pas encore le bourg au moteur de simulation.
 ## Essayer en une minute
 
 ```bash
+cd jeu
 python3 -m forge --ticks 365 --seed 0 --sortie sortie
 ```
 
@@ -79,12 +81,12 @@ proprement quand il n'y en a pas.
 ## Comment c'est fait
 
 ```
-                       data/world-1400.json
+                     jeu/data/world-1400.json
                        (la carte, figée)
                                 │
                                 ▼
                          ┌─────────────┐
-                         │    sim/     │  le moteur — un tick = un jour
+                         │  jeu/sim/   │  le moteur — un tick = un jour
                          │  (Python)   │  fabrication, extraction, production,
                          └──────┬──────┘  commerce, consommation, faim,
                                 │         mortalité, natalité, migration
@@ -105,17 +107,17 @@ vue ne parle au moteur.
 
 | dossier | ce qu'il fait |
 |---|---|
-| `sim/` | le moteur. Un tick = un jour. Ne dépend de rien. |
-| `data/` | la carte figée et les centres de provinces |
-| `vues/tableau/` | tableau de bord 2D web, sur `GET /dashboard.json` |
-| `vues/chronique/` | la suite des instants : planche HTML et bobine `.webm` |
-| `vues/relief/` | la carte de statistique, et le rendu 3D par forge3d |
-| `forge/` | la commande qui relie tout : simuler, photographier, afficher |
+| `jeu/sim/` | le moteur. Un tick = un jour. Ne dépend de rien. |
+| `jeu/data/` | la carte figée et les centres de provinces |
+| `jeu/vues/tableau/` | tableau de bord 2D web, sur `GET /dashboard.json` |
+| `jeu/vues/chronique/` | la suite des instants : planche HTML et bobine `.webm` |
+| `jeu/vues/relief/` | la carte de statistique, et le rendu 3D par forge3d |
+| `jeu/forge/` | la commande qui relie tout : simuler, photographier, afficher |
 | `outils/` | l'intégration qui **décide** — et n'écrit jamais sur GitHub |
 | `.github/scripts/` | l'intégration qui **fait** le geste |
 | `atelier/` | l'invocation des agents : cartes, verrous, worktrees |
 | `briefs/` | les briefs, seule source d'instruction d'un lot |
-| `ville/` | le contrat de la vue ville : schéma JSON, exemples, autorité |
+| `jeu/ville/` | le contrat de la vue ville : schéma JSON, exemples, autorité |
 | `unity/` | les paquets Unity de la vue ville (URP 6000.0.43f1) |
 | `fabrique/` | l'Asset Factory : Blender **hors** Unity, recettes déterministes |
 
