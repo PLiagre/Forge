@@ -1,0 +1,83 @@
+name: unity
+
+# Le projet Unity s'ouvre et compile, sur le PC du propriétaire.
+#
+# Aucune machine hébergée par GitHub n'a Unity ni sa licence : ce travail
+# tourne sur le runner `pc-forge`, installé comme service sous le compte
+# de la session Windows — c'est là que vit la licence Personal. Un service
+# sous un autre compte ne la voit pas.
+#
+# Le dépôt est public. Un runner auto-hébergé exécute le code qu'on lui
+# donne, et une PR venue d'une fourche est du code d'inconnu. D'où les
+# déclencheurs : une poussée sur une branche de CE dépôt, ou un lancement
+# à la main — jamais `pull_request`. Une fourche ne pousse pas ici, donc
+# elle ne lance rien sur le PC. Ceux qui poussent — le propriétaire et
+# ses agents — exécutent déjà du code ailleurs ; le PC n'élargit pas ce
+# cercle.
+#
+# `unity` n'est pas dans `[integration].controles` : le PC s'éteint, et
+# un contrôle exigé qu'aucune machine ne peut jouer bloquerait toutes les
+# fusions. Il dit vert ou rouge sur la révision ; il ne ferme aucune porte.
+
+on:
+  push:
+    paths:
+      - "unity/**"
+      - ".github/workflows/unity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unity:
+    runs-on: [self-hosted, Windows, unity]
+    # Le premier import d'un espace de travail neuf est long ; les
+    # suivants repartent du `Library/` conservé.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # `clean: true` passe `git clean -ffdx`, qui efface `Library/`
+          # (ignoré par git) : chaque travail réimporterait tout le projet.
+          clean: false
+          # Seul `unity/` sert ici. Le reste de l'arbre porte des chemins
+          # que Windows supporte mal, et des centaines de fichiers LFS.
+          sparse-checkout: unity
+          lfs: false
+
+      - name: Les fichiers LFS du projet Unity, et eux seuls
+        run: git lfs pull --include "unity/**"
+
+      - name: Le projet s'ouvre et compile
+        shell: powershell
+        run: |
+          # La version vient du projet : une montée de version d'Unity se
+          # lit dans le diff, pas dans ce fichier.
+          $version = (Select-String -Path unity/ProjectSettings/ProjectVersion.txt -Pattern '^m_EditorVersion: (.+)$').Matches[0].Groups[1].Value.Trim()
+          $unity = "C:\Program Files\Unity\Hub\Editor\$version\Editor\Unity.exe"
+          if (-not (Test-Path $unity)) {
+            Write-Output "::error::Unity $version absent du PC : $unity"
+            exit 1
+          }
+          $journal = Join-Path $env:RUNNER_TEMP 'unity.log'
+          $projet = Join-Path $env:GITHUB_WORKSPACE 'unity'
+          $arguments = @('-batchmode', '-nographics', '-quit', '-projectPath', "`"$projet`"", '-logFile', "`"$journal`"")
+          # `Start-Process -Wait` attend aussi les enfants, et le client de
+          # licence d'Unity peut survivre à l'éditeur : on attend l'éditeur
+          # seul. Lire `Handle` tout de suite garde le code de sortie.
+          $p = Start-Process -FilePath $unity -ArgumentList $arguments -PassThru -NoNewWindow
+          $null = $p.Handle
+          $p.WaitForExit()
+          $erreurs = @(Select-String -Path $journal -Pattern 'error CS\d+')
+          foreach ($e in ($erreurs | Select-Object -First 50)) { Write-Output "::error::$($e.Line)" }
+          if ($p.ExitCode -ne 0 -or $erreurs.Count -gt 0) {
+            Write-Output "Unity $version a rendu le code $($p.ExitCode), $($erreurs.Count) erreur(s) de compilation."
+            Get-Content $journal -Tail 80
+            exit 1
+          }
+          Write-Output "Unity $version : le projet s'ouvre et compile."
