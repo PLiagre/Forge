@@ -2605,13 +2605,15 @@ from http import HTTPStatus
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 import ast
+import threading
+import time
 
 
 @contextmanager
-def lancer_service(seed: int):
+def lancer_service(seed: int, jours_par_seconde: float = 0):
     """Lance le vrai module HTTP, livre son port, puis l'arrête dans tous les cas."""
     processus = subprocess.Popen(
-        [sys.executable, "-m", "sim.service", "--seed", str(seed), "--port", "0"],
+        [sys.executable, "-m", "sim.service", "--seed", str(seed), "--port", "0", "--jours-par-seconde", str(jours_par_seconde)],
         cwd=_REPO,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -2790,3 +2792,211 @@ def test_service_depend_uniquement_de_la_bibliotheque_standard_et_de_sim():
     source = (_REPO / "sim" / "service.py").read_text(encoding="utf-8")
     assert _imports_hors_bibliotheque_standard(source) == set()
     assert _imports_hors_bibliotheque_standard("import requests") == {"requests"}
+
+
+def _verifier_cadence_horloge(
+    ticks: int,
+    duree_s: float,
+    vitesse: float,
+    duree_tick_s: float,
+    duree_requete_s: float,
+) -> None:
+    """Compare une cadence à sa tolérance entièrement dérivée des mesures."""
+    ecart = abs(ticks - vitesse * duree_s)
+    tolerance = 1 + vitesse * (duree_tick_s + duree_requete_s)
+    assert duree_tick_s * vitesse < 1, (
+        f"le tick dépasse son budget à {vitesse} jours/s : "
+        f"{duree_tick_s * MILLISECONDES_PAR_SECONDE_TEST:.1f} ms"
+    )
+    assert ecart <= tolerance, (
+        f"cadence observée hors tolérance : écart={ecart}, tolérance={tolerance}"
+    )
+
+
+MILLISECONDES_PAR_SECONDE_TEST = 1000
+DUREE_PAUSE_TEST_S = 1.5
+DUREE_OBSERVATION_HORLOGE_S = 2.5
+DUREE_APRES_PAUSE_TEST_S = 1
+VITESSE_HORLOGE_TEST = 4
+BUDGET_TICK_ATTENDU_MS = 100
+DELAI_DEMARRAGE_SERVICE_S = 5
+NOMBRE_TICKS_LECTURE_CONCURRENTE = 10
+
+
+def _verifier_lecture_non_bloquante(
+    fin_lecture: float,
+    fin_post: float,
+    tick_lecture: int,
+) -> None:
+    """Vérifie qu'une lecture observe un tick intermédiaire avant le POST."""
+    assert fin_lecture < fin_post
+    assert 1 <= tick_lecture < NOMBRE_TICKS_LECTURE_CONCURRENTE
+
+
+@pytest.mark.parametrize(
+    "ticks,accepte",
+    [(5, False), (20, False), (10, True)],
+)
+def test_horloge_controle_cadence_contre_epreuves(ticks: int, accepte: bool):
+    """Le contrôle refuse une demi/double vitesse et accepte la cadence exacte."""
+    try:
+        _verifier_cadence_horloge(ticks, 2.5, 4, 0.05, 0.01)
+    except AssertionError:
+        resultat = False
+    else:
+        resultat = True
+    assert resultat is accepte
+
+
+def test_horloge_pause_vitesse_et_budget():
+    """SC1 — pause exacte, cadence choisie, puis nouvelle pause exacte."""
+    with lancer_service(0) as port:
+        initiale = requete_service(port, "/horloge")[1]
+        assert initiale["tick"] == 0
+        assert initiale["duree_dernier_tick_ms"] == -1
+        assert initiale["budget_tick_ms"] == BUDGET_TICK_ATTENDU_MS
+        time.sleep(DUREE_PAUSE_TEST_S)
+        assert requete_service(port, "/horloge")[1]["tick"] == 0
+
+        changee = requete_service(
+            port,
+            f"/vitesse?jours_par_seconde={VITESSE_HORLOGE_TEST}",
+            "POST",
+        )[1]
+        assert changee["jours_par_seconde"] == VITESSE_HORLOGE_TEST
+
+        debut_requete = time.monotonic()
+        debut = requete_service(port, "/horloge")[1]
+        instant_debut = time.monotonic()
+        requete_debut = instant_debut - debut_requete
+        time.sleep(DUREE_OBSERVATION_HORLOGE_S)
+        fin_requete = time.monotonic()
+        fin = requete_service(port, "/horloge")[1]
+        instant_fin = time.monotonic()
+        requete_fin = instant_fin - fin_requete
+        duree = instant_fin - instant_debut
+        duree_tick_s = max(
+            debut["duree_dernier_tick_ms"], fin["duree_dernier_tick_ms"]
+        ) / MILLISECONDES_PAR_SECONDE_TEST
+        _verifier_cadence_horloge(
+            fin["tick"] - debut["tick"],
+            duree,
+            VITESSE_HORLOGE_TEST,
+            duree_tick_s,
+            max(requete_debut, requete_fin),
+        )
+
+        requete_service(port, "/vitesse?jours_par_seconde=0", "POST")
+        pausee = requete_service(port, "/horloge")[1]["tick"]
+        time.sleep(DUREE_APRES_PAUSE_TEST_S)
+        assert requete_service(port, "/horloge")[1]["tick"] == pausee
+
+
+@pytest.mark.parametrize(
+    "fin_lecture,fin_post,tick_lecture,accepte",
+    [(1.0, 2.0, 5, True), (3.0, 2.0, 5, False), (1.0, 2.0, 10, False)],
+)
+def test_horloge_controle_lecture_non_bloquante(
+    fin_lecture: float,
+    fin_post: float,
+    tick_lecture: int,
+    accepte: bool,
+):
+    """La preuve refuse une lecture tardive ou prise seulement au dernier tick."""
+    try:
+        _verifier_lecture_non_bloquante(fin_lecture, fin_post, tick_lecture)
+    except AssertionError:
+        resultat = False
+    else:
+        resultat = True
+    assert resultat is accepte
+
+
+def test_horloge_lectures_ne_bloquent_pas_sur_un_lot_de_ticks():
+    """SC3 — monde et lieu restent lisibles avant la fin d'un POST long."""
+    with lancer_service(0) as port:
+        cell_id = min(c["cell_id"] for c in requete_service(port, "/monde")[1]["cells"])
+        resultat_post: dict = {}
+
+        def pousser_ticks() -> None:
+            resultat_post["document"] = requete_service(
+                port,
+                f"/tick?n={NOMBRE_TICKS_LECTURE_CONCURRENTE}",
+                "POST",
+            )[1]
+            resultat_post["fin"] = time.monotonic()
+
+        fil = threading.Thread(target=pousser_ticks)
+        fil.start()
+        limite = time.monotonic() + DELAI_DEMARRAGE_SERVICE_S
+        observation = None
+        while time.monotonic() < limite:
+            horloge = requete_service(port, "/horloge")[1]
+            if horloge["tick"] >= 1:
+                observation = horloge
+                break
+        assert observation is not None, "aucun premier tick publié dans le délai"
+        limite += (
+            NOMBRE_TICKS_LECTURE_CONCURRENTE
+            * observation["duree_dernier_tick_ms"]
+            / MILLISECONDES_PAR_SECONDE_TEST
+        )
+        lieu = requete_service(port, f"/lieu?cell={cell_id}")[1]
+        fin_lecture_lieu = time.monotonic()
+        monde = requete_service(port, "/monde")[1]
+        fin_lecture_monde = time.monotonic()
+        fil.join(timeout=max(0, limite - time.monotonic()))
+        assert not fil.is_alive(), "le POST /tick n'a pas fini dans le délai dérivé"
+        _verifier_lecture_non_bloquante(
+            fin_lecture_lieu,
+            resultat_post["fin"],
+            lieu["tick"],
+        )
+        _verifier_lecture_non_bloquante(
+            fin_lecture_monde,
+            resultat_post["fin"],
+            monde["tick"],
+        )
+        assert resultat_post["document"]["tick"] == NOMBRE_TICKS_LECTURE_CONCURRENTE
+
+
+@pytest.mark.parametrize("valeur", [None, "abc", "-1", "nan", "inf"])
+def test_horloge_refuse_vitesse_invalide_sans_muter(valeur: str | None):
+    """SC4 — une vitesse invalide nomme le champ et sa valeur sans effet."""
+    with lancer_service(0) as port:
+        suffixe = "" if valeur is None else f"?jours_par_seconde={valeur}"
+        statut, document, _ = requete_service(port, f"/vitesse{suffixe}", "POST")
+        assert statut is HTTPStatus.BAD_REQUEST
+        assert "jours_par_seconde" in document["erreur"]
+        assert repr(valeur) in document["erreur"]
+        horloge = requete_service(port, "/horloge")[1]
+        assert horloge["jours_par_seconde"] == 0
+        assert horloge["tick"] == 0
+
+
+def test_horloge_cli_refuse_vitesse_negative_et_accepte_decimale():
+    """SC4 — la CLI refuse avant disponibilité ; l'API accepte un fini positif."""
+    processus = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sim.service",
+            "--jours-par-seconde",
+            "-1",
+            "--port",
+            "0",
+        ],
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert processus.returncode != 0
+    assert "service prêt" not in processus.stdout
+    assert "jours_par_seconde" in processus.stderr
+    assert "-1" in processus.stderr
+    with lancer_service(0) as port:
+        statut, document, _ = requete_service(
+            port, "/vitesse?jours_par_seconde=2.5", "POST"
+        )
+        assert statut is HTTPStatus.OK
+        assert document["jours_par_seconde"] == 2.5

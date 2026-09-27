@@ -25,7 +25,7 @@ ajoute ses cas dans le fichier qui porte déjà l'invariant concerné.
 | `test_commerce.py` | conservation de la masse, un kg ne nourrit qu'une fois, pas de sur-livraison |
 | `test_province.py` | la province est dérivée, jamais stockée |
 | `test_determinisme.py` | même graine, même monde ; départage stable des égalités |
-| `test_monde.py` | chargement de la carte, ligne de commande, schéma du snapshot ; le service local rend la photographie |
+| `test_monde.py` | chargement de la carte, ligne de commande, schéma du snapshot ; le service local rend la photographie ; l'horloge avance à la vitesse choisie, une lecture n'attend pas un tick |
 | `test_no_hardcoded.py` | aucun nombre magique dans le moteur |
 | `test_write_coverage.py` | tout champ du modèle est écrit quelque part et lu quelque part |
 
