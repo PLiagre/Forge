@@ -2597,3 +2597,196 @@ def test_ordre_du_tick_contre_epreuves_echouent(alteration: str):
         document[0], document[1] = document[1], document[0]
     with pytest.raises(AssertionError):
         _verifier_meme_ordre_tick(code, document)
+
+
+# --- service local ---
+from contextlib import contextmanager
+from http import HTTPStatus
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+import ast
+
+
+@contextmanager
+def lancer_service(seed: int):
+    """Lance le vrai module HTTP, livre son port, puis l'arrête dans tous les cas."""
+    processus = subprocess.Popen(
+        [sys.executable, "-m", "sim.service", "--seed", str(seed), "--port", "0"],
+        cwd=_REPO,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert processus.stdout is not None
+        premiere_ligne = processus.stdout.readline().strip()
+        prefixe = "service prêt sur 127.0.0.1:"
+        assert premiere_ligne.startswith(prefixe), (
+            f"première ligne inattendue : {premiere_ligne!r}"
+        )
+        port = int(premiere_ligne.removeprefix(prefixe))
+        assert port > 0
+        yield port
+    finally:
+        processus.terminate()
+        try:
+            processus.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            processus.kill()
+            processus.wait(timeout=5)
+
+
+def requete_service(
+    port: int,
+    chemin: str,
+    methode: str = "GET",
+    corps: bytes | None = None,
+) -> tuple[HTTPStatus, dict, bytes]:
+    """Parle HTTP au service et conserve aussi les octets canoniques reçus."""
+    requete = Request(
+        f"http://127.0.0.1:{port}{chemin}",
+        data=corps,
+        method=methode,
+    )
+    try:
+        with urlopen(requete) as reponse:
+            octets = reponse.read()
+            statut = HTTPStatus(reponse.status)
+            assert reponse.headers["Content-Length"] == str(len(octets))
+    except HTTPError as erreur:
+        octets = erreur.read()
+        statut = HTTPStatus(erreur.code)
+        assert erreur.headers["Content-Length"] == str(len(octets))
+    return statut, json.loads(octets.decode("utf-8")), octets
+
+
+def _photographie_cli(tmp_path: Path, seed: int, ticks: int) -> dict:
+    destination = tmp_path / f"photographie-{seed}-{ticks}.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sim",
+            "--ticks",
+            str(ticks),
+            "--seed",
+            str(seed),
+            "--snapshot-json",
+            str(destination),
+        ],
+        cwd=_REPO,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(destination.read_text(encoding="utf-8"))
+
+
+def _verifier_lieu_contre_photo(port: int, cellule: dict, ticks: int) -> None:
+    from sim.constants import date_de_tick
+
+    statut, lieu, _ = requete_service(port, f"/lieu?cell={cellule['cell_id']}")
+    assert statut is HTTPStatus.OK
+    assert lieu["cell_id"] == cellule["cell_id"]
+    for champ in ("population", "stocks", "hunger_ticks", "food_deficit_kg"):
+        assert lieu[champ] == cellule[champ]
+    assert lieu["tick"] == ticks
+    assert lieu["date"] == date_de_tick(ticks)
+
+
+def test_service_lieu_rend_exactement_la_photographie_du_meme_tick(tmp_path: Path):
+    seed = 0
+    ticks = 3
+    photo = _photographie_cli(tmp_path, seed, ticks)
+    photo_suivante = _photographie_cli(tmp_path, seed, ticks + 1)
+    suivantes = {cellule["cell_id"]: cellule for cellule in photo_suivante["cells"]}
+    champs = ("population", "stocks", "hunger_ticks", "food_deficit_kg")
+    temoin = next(
+        (
+            cellule
+            for cellule in photo["cells"]
+            if any(
+                cellule[champ] != suivantes[cellule["cell_id"]][champ]
+                for champ in champs
+            )
+        ),
+        None,
+    )
+    assert temoin is not None, "échantillon vide : aucune cellule ne change au tick suivant"
+
+    with lancer_service(seed) as port:
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 1
+        assert requete_service(port, "/tick?n=2", "POST")[1]["tick"] == ticks
+        for cellule in photo["cells"]:
+            _verifier_lieu_contre_photo(port, cellule, ticks)
+
+        requete_service(port, "/tick?n=1", "POST")
+        with pytest.raises(AssertionError):
+            _verifier_lieu_contre_photo(port, temoin, ticks)
+        _verifier_lieu_contre_photo(
+            port,
+            suivantes[temoin["cell_id"]],
+            ticks + 1,
+        )
+
+
+def test_service_refuse_de_deviner_sans_avancer_le_monde():
+    cell_id_absent = 999999
+    ids_carte = {cellule["cell_id"] for cellule in World.lire_carte()["cellules"]}
+    assert cell_id_absent not in ids_carte
+    refus = (
+        ("GET", f"/lieu?cell={cell_id_absent}", None, HTTPStatus.NOT_FOUND, str(cell_id_absent)),
+        ("GET", "/lieu", None, HTTPStatus.BAD_REQUEST, "cell"),
+        ("GET", "/lieu?cell=abc", None, HTTPStatus.BAD_REQUEST, "cell"),
+        ("POST", "/tick", None, HTTPStatus.BAD_REQUEST, "n"),
+        ("POST", "/tick?n=0", None, HTTPStatus.BAD_REQUEST, "n"),
+        ("POST", "/tick?n=abc", None, HTTPStatus.BAD_REQUEST, "n"),
+        ("POST", "/intention", b"[1]", HTTPStatus.BAD_REQUEST, "intention"),
+        ("POST", "/intention", b"pas du json", HTTPStatus.BAD_REQUEST, "intention"),
+    )
+    with lancer_service(0) as port:
+        for methode, chemin, corps, statut_attendu, texte in refus:
+            statut, document, _ = requete_service(port, chemin, methode, corps)
+            assert statut is statut_attendu
+            assert texte in document["erreur"]
+        assert requete_service(port, "/monde")[1]["tick"] == 0
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 1
+
+
+def test_service_monde_est_leger_et_intention_ne_mute_rien():
+    nombre_carte = len(World.lire_carte()["cellules"])
+    with lancer_service(0) as port:
+        requete_service(port, "/tick?n=2", "POST")
+        statut, monde, octets_avant = requete_service(port, "/monde")
+        assert statut is HTTPStatus.OK
+        assert monde["cell_count"] == nombre_carte == len(monde["cells"])
+        assert [c["cell_id"] for c in monde["cells"]] == sorted(
+            c["cell_id"] for c in monde["cells"]
+        )
+        for cellule in monde["cells"]:
+            assert "geometry" not in cellule
+            assert "centroid" not in cellule
+            lieu = requete_service(port, f"/lieu?cell={cellule['cell_id']}")[1]
+            assert lieu["population"] == cellule["population"]
+
+        intention = json.dumps({"route": "essai"}).encode("utf-8")
+        reponse = requete_service(port, "/intention", "POST", intention)[1]
+        assert reponse == {"acceptee": True, "appliquee_au_tick": 2}
+        assert requete_service(port, "/monde")[2] == octets_avant
+
+
+def _imports_hors_bibliotheque_standard(source: str) -> set[str]:
+    arbre = ast.parse(source)
+    modules = set()
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Import):
+            modules.update(alias.name.split(".")[0] for alias in noeud.names)
+        elif isinstance(noeud, ast.ImportFrom) and noeud.module:
+            modules.add(noeud.module.split(".")[0])
+    return modules - sys.stdlib_module_names - {"sim", "__future__"}
+
+
+def test_service_depend_uniquement_de_la_bibliotheque_standard_et_de_sim():
+    source = (_REPO / "sim" / "service.py").read_text(encoding="utf-8")
+    assert _imports_hors_bibliotheque_standard(source) == set()
+    assert _imports_hors_bibliotheque_standard("import requests") == {"requests"}
