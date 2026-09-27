@@ -10,13 +10,15 @@ using Object = UnityEngine.Object;
 namespace Guerre.EditeurOutils
 {
     // La citadelle, recomposée avec le kit de la Citadelle de Forge. Le kit est relu à chaque construction
-    // dans ../ForgeLocal3D (jamais modifié) et copié dans Assets/Guerre/Kit, qui n'entre pas dans git :
-    // il appartient à Forge. La citadelle se dresse sur un éperon du versant nord, cerné d'un ravin que
-    // franchit un seul pont ; l'enceinte, la porte, les rues, les places et la cathédrale sont posées ici.
+    // dans le dépôt Forge qui contient ce projet (local3d/citadelle/sorties, jamais modifié) et copié dans
+    // Assets/Guerre/Kit, qui n'entre pas dans git : il appartient à Forge. La citadelle se dresse sur un
+    // éperon du versant nord, cerné d'un ravin que franchit un seul pont ; l'enceinte, la porte, les rues,
+    // les places et la cathédrale sont posées ici.
     public static partial class Construire
     {
         const string Kit = Dossier + "/Kit";
-        static string Forge => Path.GetFullPath(Path.Combine(Application.dataPath, "../../../ForgeLocal3D/local3d/citadelle/sorties"));
+        // Assets → unity → citadelle-guerre → 3d → racine du dépôt Forge.
+        static string Forge => Path.GetFullPath(Path.Combine(Application.dataPath, "../../../../local3d/citadelle/sorties"));
 
         // L'éperon : son centre, la hauteur du plateau, le ravin qui le cerne.
         static readonly float2 Eperon = new float2(1900f, 1640f);

@@ -1,8 +1,9 @@
 # Citadelle — Guerre
 
 Batailles tactiques de 5 000 à 10 000 hommes autour d'une citadelle alpine
-vers 1400. C'est un projet séparé de Forge (`../ForgeLocal3D`), qui n'est ni
-modifié ni importé.
+vers 1400. C'est un projet Unity à part, rangé dans le dépôt Forge sous
+`3d/citadelle-guerre/` depuis le 27 septembre 2026 : il ne lit pas `sim/`, et
+Forge ne le lit pas.
 
 - **Pourquoi et quoi :** [VISION.md](VISION.md)
 - **Où on en est :** [ROADMAP.md](ROADMAP.md)
@@ -70,13 +71,16 @@ RTX 3070 Ti, i7-13700K, 1920 × 1080. Le budget d'image est de 16,67 ms au
 
 ## Dépôt
 
-Il est local et privé. Aucun pack de l'Asset Store n'y entre (`unity/Assets/Vendor/`
-est ignoré).
+C'est le dépôt Forge, qui est public. Aucun pack de l'Asset Store n'y entre
+(`unity/Assets/Vendor/` est ignoré). Les images, les FBX et les gros assets
+Unity sont en LFS.
 
 ## Le kit de la Citadelle
 
 Les murs, les tours, la porte, le pont, les maisons, la cathédrale et les sapins
 viennent du kit de la Citadelle de Forge. `Construire.cs` les relit à chaque
-construction dans `../ForgeLocal3D/local3d/citadelle/sorties` (sans jamais y
-écrire) et les copie dans `unity/Assets/Guerre/Kit/`, qui n'entre pas dans git :
-le kit appartient à Forge. Sans Forge à côté, la construction s'arrête.
+construction dans `local3d/citadelle/sorties` à la racine du dépôt (sans jamais
+y écrire) et les copie dans `unity/Assets/Guerre/Kit/`, qui n'entre pas dans git :
+le kit appartient à Forge. Les textures du kit (`sorties/textures/`) ne sont pas
+versionnées : elles sont refaites par la fabrique Blender de la Citadelle. Sans
+elles, la construction s'arrête.

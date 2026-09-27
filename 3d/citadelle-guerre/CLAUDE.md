@@ -1,7 +1,9 @@
 # Règles du projet
 
 - Lire [VISION.md](VISION.md) et [ROADMAP.md](ROADMAP.md) avant de toucher au code.
-- Ce projet ne modifie jamais `../ForgeLocal3D`. Il peut le lire.
+- Ce projet vit dans le dépôt Forge, sous `3d/citadelle-guerre/`. Il lit le kit
+  de la Citadelle dans `local3d/citadelle/sorties` du même dépôt ; il ne le
+  modifie jamais.
 - Un jalon est fait seulement si `outils/atelier.ps1 mesurer` est vert dans le
   joueur compilé et que sa contre-épreuve échoue.
 - L'émergence plutôt que la règle : pas de modificateur de moral ou de dégâts
