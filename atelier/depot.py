@@ -30,7 +30,7 @@ def executer(argv: list[str], cwd: Path) -> tuple[int, str, str]:
 class Depot:
     def __init__(self, racine: Path, base: str, *, executeur: Executeur = executer,
                  nom: str | None = None, email: str | None = None):
-        self.racine = Path(racine)
+        self.racine = Path(racine).resolve()
         self.base = base
         self._executer = executeur
         self.nom = nom or os.environ.get("ATELIER_GIT_NOM", "atelier")

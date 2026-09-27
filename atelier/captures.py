@@ -40,9 +40,10 @@ def publier(depot: Depot, depot_github: str, fichiers: list[Path], dossier: str)
         if depot.branche_distante(BRANCHE):
             depot.git("worktree", "add", "--force", "-B", BRANCHE, str(chemin), f"origin/{BRANCHE}")
         else:
-            depot.git("worktree", "add", "--force", "--detach", str(chemin))
-            depot.git("checkout", "--orphan", BRANCHE, cwd=chemin)
-            depot.git("rm", "-rf", "--quiet", ".", cwd=chemin)
+            # La branche naît vide (git ≥ 2.42) : extraire master pour tout
+            # effacer ensuite coûterait le dépôt entier, LFS compris.
+            depot.git_code("branch", "-D", BRANCHE)
+            depot.git("worktree", "add", "--orphan", "-b", BRANCHE, str(chemin))
             (chemin / "README.md").write_text(
                 "# journal\n\nLes captures de la chaîne de Forge, une par lot. Branche orpheline : "
                 "aucun code, aucune CI.\n", encoding="utf-8")
