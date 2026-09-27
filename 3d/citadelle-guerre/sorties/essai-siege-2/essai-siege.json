@@ -1,0 +1,22 @@
+{
+    "statut": "valide",
+    "date_utc": "2026-09-25T17:04:10.0660244Z",
+    "sans_chocs": false,
+    "fermee_avant": true,
+    "breche_ouverte": true,
+    "route_par_la_breche": true,
+    "arrive": true,
+    "breche_apres_s": 1740.5416259765625,
+    "marche_s": 889.8721923828125,
+    "a_sa_place": 0.9879999756813049,
+    "distance_route_breche_m": 2.9393625259399416,
+    "tirs": 132,
+    "pierres": 1687,
+    "pierres_delogees_ou_tombees": 481,
+    "pierres_a_terre": 481,
+    "pierres_au_mur": 1206,
+    "files_en_colonne": 3,
+    "dans_un_mur_max": 0,
+    "longueur_route_m": 353.54241943359377,
+    "motifs": []
+}

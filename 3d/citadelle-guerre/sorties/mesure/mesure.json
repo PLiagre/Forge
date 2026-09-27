@@ -1,0 +1,87 @@
+{
+    "statut": "valide",
+    "gpu": "NVIDIA GeForce RTX 3070 Ti",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13700K",
+    "date_utc": "2026-09-25T12:34:36.6883837Z",
+    "largeur": 1920,
+    "hauteur": 1080,
+    "soldats_demandes": 10000,
+    "soldats_presents": 10000,
+    "protocole": "Joueur Windows, cadence libre, vSync coupée. Quatre vues, 3 s de chauffe puis 6 s de mesure chacune, caméra en rotation lente. Les armées marchent pendant la mesure.",
+    "vues": [
+        {
+            "nom": "Mêlée",
+            "images": 3377,
+            "mediane_ms": 1.6933956649154425,
+            "p95_ms": 2.3290037643164398,
+            "p99_ms": 2.6134990621358158,
+            "fps_moyen": 562.688468990085,
+            "ecart_type_image": 0.09406662732362747
+        },
+        {
+            "nom": "Vue générale",
+            "images": 1954,
+            "mediane_ms": 3.0075041577219965,
+            "p95_ms": 3.5185019951313736,
+            "p99_ms": 3.753500524908304,
+            "fps_moyen": 325.6548509164251,
+            "ecart_type_image": 0.056886497884988788
+        },
+        {
+            "nom": "Front",
+            "images": 2528,
+            "mediane_ms": 2.316801343113184,
+            "p95_ms": 2.7090986259281637,
+            "p99_ms": 3.0302011873573067,
+            "fps_moyen": 421.306439954846,
+            "ecart_type_image": 0.08711171895265579
+        },
+        {
+            "nom": "Au milieu des rangs",
+            "images": 2835,
+            "mediane_ms": 2.0683957263827326,
+            "p95_ms": 2.471499377861619,
+            "p99_ms": 2.7098001446574928,
+            "fps_moyen": 472.47873881739317,
+            "ecart_type_image": 0.10929793864488602
+        },
+        {
+            "nom": "Plongée",
+            "images": 2857,
+            "mediane_ms": 2.0744968205690386,
+            "p95_ms": 2.477699890732765,
+            "p99_ms": 2.694494090974331,
+            "fps_moyen": 476.0366528071054,
+            "ecart_type_image": 0.04691355302929878
+        },
+        {
+            "nom": "Citadelle",
+            "images": 1678,
+            "mediane_ms": 3.4871031530201437,
+            "p95_ms": 3.937301691621542,
+            "p99_ms": 4.096400458365679,
+            "fps_moyen": 279.58269364187756,
+            "ecart_type_image": 0.1045864000916481
+        }
+    ],
+    "deplacement_moyen_m": 22.73552894592285,
+    "pixels_changes_par_les_soldats": 0.05881936103105545,
+    "pixels_changes_par_l_animation": 0.03180309757590294,
+    "triangles_par_soldat": [
+        488,
+        498,
+        472,
+        866
+    ],
+    "soldats_au_contact": 302,
+    "morts": 1403,
+    "secondes_avant_la_melee": 18.60747718811035,
+    "carreaux_en_vol_pendant_la_melee": 1522,
+    "objectif_60": true,
+    "soldats_conformes": true,
+    "armee_en_mouvement": true,
+    "soldats_visibles": true,
+    "soldats_animes": true,
+    "melee_engagee": true,
+    "motifs": []
+}
