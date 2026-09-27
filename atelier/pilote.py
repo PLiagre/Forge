@@ -304,8 +304,11 @@ class Pilote:
         images = captures.photographier_lot(self.depot, self.gh.depot, chemin, lot.numero, sha,
                                             f"{self.maintenant():%Y-%m-%d}")
         photos = "".join(f"\n\n📷 ![capture du lot #{lot.numero}]({url})" for url in images)
+        # Un agent cite ses fichiers par leur chemin sur la machine du lot :
+        # dans la PR, ce sont des liens vers la branche.
+        texte = res.texte.replace(f"{chemin}/", f"https://github.com/{self.gh.depot}/blob/{branche}/")
         self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) — {quoi}, révision `{sha[:7]}`.\n\n"
-                                        f"{_extrait(res.texte)}{retires}{photos}\n\n"
+                                        f"{_extrait(texte)}{retires}{photos}\n\n"
                                         f"{marque(role=role, etat='fait', essai=passage, agent=str(res.agent), sha=sha)}")
         self.noter(lot.numero, f"{role} : {quoi}", f"PR #{numero_pr}", str(res.agent))
         return True

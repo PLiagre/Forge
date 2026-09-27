@@ -51,7 +51,9 @@ def test_argv_de_chaque_outil_en_ecriture_et_en_lecture():
     codex = A.argv(Agent("codex", "gpt-5.6-sol"), "fais", lecture_seule=False, sortie=Path("r.txt"))
     assert codex[:4] == ["codex", "exec", "--model", "gpt-5.6-sol"] and "workspace-write" in codex
     assert codex[-1] == "fais" and "--output-last-message" in codex
-    assert "read-only" in A.argv(Agent("codex", "gpt-5.6-sol"), "x", lecture_seule=True)
+    assert "sandbox_workspace_write.network_access=true" in codex
+    relit_codex = A.argv(Agent("codex", "gpt-5.6-sol"), "x", lecture_seule=True)
+    assert "read-only" in relit_codex and not any("network_access" in a for a in relit_codex)
     cursor = A.argv(Agent("cursor", "grok-4.7-high"), "x", lecture_seule=True)
     assert cursor[0] == "cursor-agent" and cursor[cursor.index("--mode") + 1] == "ask"
     assert "--force" in A.argv(Agent("cursor", "composer-2.5"), "x", lecture_seule=False)

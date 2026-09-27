@@ -107,6 +107,11 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
         commande = [agent.binaire, "exec", "--model", agent.modele,
                     "--sandbox", "read-only" if lecture_seule else "workspace-write",
                     "--skip-git-repo-check", "--color", "never"]
+        if not lecture_seule:
+            # Le bac à sable coupe le réseau, jusqu'aux sockets locales : les
+            # tests du tableau et du service (127.0.0.1) y échouaient
+            # (PermissionError, mesuré le 27 septembre 2026 sur le lot #115).
+            commande += ["-c", "sandbox_workspace_write.network_access=true"]
         if sortie is not None:
             commande += ["--output-last-message", str(sortie)]
         return commande + [prompt]
