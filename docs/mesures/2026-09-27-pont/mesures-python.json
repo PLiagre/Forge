@@ -1,0 +1,15 @@
+{
+ "chargement_monde_ms": 77.1,
+ "tick_complet_ms": 42.167,
+ "annee_s": 15.4,
+ "partie_1400_1900_h": 2.14,
+ "commerce_ms": 37.898,
+ "sous_ensemble_par_cellule_ms": 1.187,
+ "cellules": 596,
+ "octets_un_lieu": 281,
+ "etat_leger_serialisation_ms": 1.62,
+ "etat_leger_octets": 180210,
+ "photographie_complete_ms": 1186.1,
+ "photographie_complete_octets": 2021004,
+ "fichier_ecrire_relire_etat_leger_ms": 6.924
+}
