@@ -154,7 +154,7 @@ dépôt Unity, augmentés de 200 — 004 est devenu 204, 040 deviendra 240).
 état : a-briefer · couche : — · dépend de : — · PR : —
 
 ### [241 — L'atelier relit les PR brief et feuille](briefs/241-l-atelier-relit-les-pr-brief-et-feuille.md)
-état : pret · couche : — · dépend de : — · PR : —
+état : livre · couche : — · dépend de : — · PR : 108
 
 ### [254 — La machine publie son battement](briefs/254-la-machine-publie-son-battement.md)
 état : a-briefer · couche : — · dépend de : — · PR : —
