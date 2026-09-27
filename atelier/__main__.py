@@ -105,8 +105,10 @@ def _pilote(args: argparse.Namespace):
     depot = Depot(projet.racine, projet.branche_base)
     if getattr(args, "a_sec", False):
         from .asec import GitHubASec, DepotASec, executeur_a_sec
+        # À sec, rien ne s'écrit : pas même le journal local, que le
+        # chroniqueur et la veille lisent comme ce qui a vraiment eu lieu.
         return Pilote(projet, GitHubASec(projet.depot), DepotASec(projet.racine, projet.branche_base),
-                      executeur_agents=executeur_a_sec)
+                      executeur_agents=executeur_a_sec, journal=Path(os.devnull))
     return Pilote(projet, gh, depot)
 
 
