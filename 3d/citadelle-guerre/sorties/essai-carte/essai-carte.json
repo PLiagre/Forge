@@ -1,0 +1,49 @@
+{
+    "statut": "valide",
+    "date_utc": "2026-09-25T12:46:19.4800528Z",
+    "sans_pont": false,
+    "sans_murs": false,
+    "emprises_bloquees": 574,
+    "parcours": [
+        {
+            "nom": "vallée",
+            "route": false,
+            "arrive": true,
+            "files_en_colonne": 0,
+            "longueur_route_m": 0.0,
+            "secondes": 610.7863159179688,
+            "a_sa_place": 1.0,
+            "ecart_a_l_arrivee_m": 0.2879052758216858,
+            "dans_un_mur_max": 0,
+            "tombes_dans_le_ravin": 0,
+            "franchissable": true
+        },
+        {
+            "nom": "pont",
+            "route": true,
+            "arrive": true,
+            "files_en_colonne": 3,
+            "longueur_route_m": 295.0,
+            "secondes": 825.175537109375,
+            "a_sa_place": 1.0,
+            "ecart_a_l_arrivee_m": 0.0,
+            "dans_un_mur_max": 0,
+            "tombes_dans_le_ravin": 0,
+            "franchissable": true
+        },
+        {
+            "nom": "rues",
+            "route": true,
+            "arrive": true,
+            "files_en_colonne": 6,
+            "longueur_route_m": 87.5126953125,
+            "secondes": 231.791259765625,
+            "a_sa_place": 0.9959999918937683,
+            "ecart_a_l_arrivee_m": 0.0,
+            "dans_un_mur_max": 0,
+            "tombes_dans_le_ravin": 0,
+            "franchissable": true
+        }
+    ],
+    "motifs": []
+}

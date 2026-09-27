@@ -1,0 +1,6 @@
+porte : dégagement 2,0 m
+pont : dégagement 3,0 m
+grand-rue : dégagement 5,0 m
+rue traversière : dégagement 5,0 m
+place : dégagement 22,0 m
+place de l'est : dégagement 16,0 m
