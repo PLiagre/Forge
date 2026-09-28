@@ -3000,3 +3000,30 @@ def test_horloge_cli_refuse_vitesse_negative_et_accepte_decimale():
         )
         assert statut is HTTPStatus.OK
         assert document["jours_par_seconde"] == 2.5
+
+
+def test_service_reponse_figee_du_pont_est_celle_du_service():
+    """Lot #185 SC1 — le fichier figé que relit Unity est la réponse `/lieu` du service."""
+    fige = (
+        _REPO.parent
+        / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
+        / "lieu-graine0-tick3.json"
+    ).read_bytes()
+    assert len(json.loads(fige.decode("utf-8"))["stocks"]) >= 2
+    with lancer_service(0) as port:
+        assert requete_service(port, "/tick?n=3", "POST")[1]["tick"] == 3
+        monde = requete_service(port, "/monde")[1]
+        candidates = sorted(
+            cellule["cell_id"]
+            for cellule in monde["cells"]
+            if len(cellule["stocks"]) >= 2
+        )
+        assert candidates, "échantillon vide : aucune cellule à deux marchandises au tick 3"
+        chemin = f"/lieu?cell={candidates[0]}"
+        statut, _, octets = requete_service(port, chemin)
+        assert statut is HTTPStatus.OK
+        assert octets == fige
+
+        # Contre-épreuve : un tick de plus, et les octets ne sont plus ceux du fichier.
+        requete_service(port, "/tick?n=1", "POST")
+        assert requete_service(port, chemin)[2] != fige

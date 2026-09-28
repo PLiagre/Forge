@@ -1,0 +1,14 @@
+{
+  "name": "Forge.Pont.Tests",
+  "rootNamespace": "Forge.Pont.Tests",
+  "references": [
+    "Forge.Pont"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false
+}
