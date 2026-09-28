@@ -60,6 +60,7 @@ class FauxGitHub(GitHub):
     jalons_: list[dict] = field(default_factory=list)
     prs_: dict[int, dict] = field(default_factory=dict)
     gestes: list[tuple] = field(default_factory=list)
+    tetes_fusionnees: list = field(default_factory=list)
     suivant: int = 100
 
     def __post_init__(self):
@@ -151,9 +152,10 @@ class FauxGitHub(GitHub):
         self.prs_[numero]["comments"].append({"body": texte})
         self.gestes.append(("commenter_pr", numero, texte))
 
-    def fusion_auto(self, numero):
+    def fusion_auto(self, numero, tete=None):
         self.prs_[numero]["autoMergeRequest"] = {"mergeMethod": "SQUASH"}
         self.gestes.append(("fusion_auto", numero))
+        self.tetes_fusionnees.append(tete)
 
     def fermer_pr(self, numero, commentaire):
         self.prs_[numero]["state"] = "CLOSED"

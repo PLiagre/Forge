@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 
+import pytest
+
 from atelier.lots import marque, marques
 from atelier.pilote import Pilote
 
@@ -125,6 +127,33 @@ def test_le_relecteur_accepte_et_la_fusion_part(projet, gh, depot, tmp_path):
     revue = gh.prs_[50]["comments"][-1]["body"]
     assert revue.startswith("## Relecture — ACCEPTE") and "VERDICT" not in revue
     assert ("fusion_auto", 50) in gh.gestes
+    # La fusion ne vaut que pour la révision relue.
+    assert gh.tetes_fusionnees == ["a" * 40]
+
+
+def test_une_pr_deja_fusionnable_est_fusionnee_tout_de_suite_a_la_revision_relue():
+    # Mesuré le 28 septembre 2026 sur la PR #174 (lot #118) : relue ACCEPTE,
+    # tous ses contrôles verts, GitHub refuse d'armer l'auto-fusion (« clean
+    # status ») et le pilote échouait à chaque tour sans jamais fusionner.
+    from atelier.github import GitHub
+    appels = []
+
+    def faux_gh(argv, entree):
+        appels.append(argv[1:])
+        if "--auto" in argv:
+            return 1, "", "GraphQL: Pull request Pull request is in clean status (enablePullRequestAutoMerge)"
+        return 0, "", ""
+
+    GitHub("moi/essai", executeur=faux_gh).fusion_auto(174, "f" * 40)
+    assert appels[-1] == ["pr", "merge", "174", "-R", "moi/essai", "--squash", "--match-head-commit", "f" * 40]
+    assert "--match-head-commit" in appels[0]
+
+
+def test_une_autre_erreur_de_fusion_n_est_pas_masquee():
+    from atelier.github import GitHub, GitHubErreur
+    refus = lambda argv, entree: (1, "", "GraphQL: Base branch was modified")  # noqa: E731
+    with pytest.raises(GitHubErreur):
+        GitHub("moi/essai", executeur=refus).fusion_auto(174, "f" * 40)
 
 
 def test_l_auteur_claude_est_relu_par_codex(projet, gh, depot, tmp_path):

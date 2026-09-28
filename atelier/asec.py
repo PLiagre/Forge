@@ -78,8 +78,8 @@ class GitHubASec(GitHub):
         _dire(f"commenter la PR #{numero} : {texte.splitlines()[0][:100]}")
         self._commentaires_pr.setdefault(numero, []).append(texte)
 
-    def fusion_auto(self, numero):
-        _dire(f"fusion automatique de la PR #{numero}")
+    def fusion_auto(self, numero, tete=None):
+        _dire(f"fusion automatique de la PR #{numero}" + (f" (révision {tete[:7]})" if tete else ""))
 
     def fermer_pr(self, numero, commentaire):
         _dire(f"fermer la PR #{numero}")
