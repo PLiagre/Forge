@@ -47,7 +47,7 @@ namespace Victoria.CityMode.Presentation
                 return Fail(CityModeErrorCode.SessionAlreadyActive, out error);
 
             var root = new GameObject("City Mode Presentation [" +
-                hostSession.Context.cityId + "]");
+                hostSession.Context.cell_id + "]");
             var candidate = root.AddComponent<CityModePresentationHost>();
             candidate.session = hostSession;
             active = candidate;

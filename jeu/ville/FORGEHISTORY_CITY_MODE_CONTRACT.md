@@ -34,7 +34,7 @@ demandes amont pour Hermes.
 |---|---|---|---|
 | Autorité | simulation unique hors Unity exigée par `VISION.md` | `LocalCitySimulation` tourne dans Unity | ForgeHistory seul en production |
 | Démarrage | carte principale `Main.unity` | bootstrap global `AfterSceneLoad` | création/destruction explicite par l'hôte |
-| Identité | cellule/marqueur de carte | `cityId = 1001` et fixture locale | identifiants opaques fournis dans le contexte |
+| Identité | cellule/marqueur de carte | un identifiant de ville fixe, 1001, et fixture locale | `cell_id` du monde, seule clé spatiale, dans chaque message |
 | Temps | horloge du monde | horloge/pause/vitesses locales | politique du monde explicite, jamais deux ticks |
 | Sauvegarde | sauvegarde monde à construire/étendre | `CitySaveService` et autosave local | une seule sauvegarde ForgeHistory |
 | Données | `StreamingAssets`, backend et providers | `Resources.Load` et snapshots CityLab | snapshot versionné fourni par l'hôte |
@@ -46,7 +46,7 @@ demandes amont pour Hermes.
 | Donnée ou action | Autorité de production | Copie City Mode | Persistance | Mutation |
 |---|---|---|---|---|
 | campagne, monde, graine | ForgeHistory | lecture dans le contexte | sauvegarde monde | jamais depuis la vue |
-| `cityId`, cellule et appartenance | ForgeHistory | opaque, durée de session | sauvegarde monde | backend seulement |
+| `cell_id` et appartenance | ForgeHistory | entier du monde, durée de session | sauvegarde monde | backend seulement |
 | tick, date, saison, vitesse | ForgeHistory | snapshot | sauvegarde monde | intention si exposée |
 | politique de temps pendant la vue | ForgeHistory | contexte immuable | contexte de vue | hôte seulement |
 | population, foyers, emplois | backend ForgeHistory | snapshot révisionné | sauvegarde monde | intention |
@@ -91,7 +91,7 @@ le chargement et la vue sans divergence.
 
 ### Lecture
 
-`CitySnapshotEnvelope` est un snapshot complet, identifié par `cityId`,
+`CitySnapshotEnvelope` est un snapshot complet, identifié par `cell_id`,
 `worldTick` et `stateRevision`. Le SHA-256 porte sur les octets UTF-8 exacts de
 `payloadJson`. Une révision ne peut jamais décroître au sein d'une session. Une
 diff partielle est exclue de v1 pour privilégier la resynchronisation simple.

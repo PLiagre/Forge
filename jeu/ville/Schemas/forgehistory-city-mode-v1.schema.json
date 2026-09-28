@@ -8,15 +8,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "protocolVersion", "sessionId", "cityId", "mapCellId", "worldSeed",
+        "protocolVersion", "sessionId", "cell_id", "worldSeed",
         "worldTick", "stateRevision", "timePolicy", "worldTimeScalePermille",
         "returnViewId", "returnViewStateJson"
       ],
       "properties": {
         "protocolVersion": { "const": 1 },
         "sessionId": { "type": "string", "minLength": 1, "maxLength": 160 },
-        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
-        "mapCellId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "cell_id": { "type": "integer", "minimum": 0 },
         "worldSeed": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
         "worldTick": { "type": "integer", "minimum": 0 },
         "stateRevision": { "type": "integer", "minimum": 0 },
@@ -48,13 +47,13 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "protocolVersion", "payloadSchemaVersion", "cityId", "worldTick",
+        "protocolVersion", "payloadSchemaVersion", "cell_id", "worldTick",
         "stateRevision", "isFullSnapshot", "payloadJson", "payloadSha256"
       ],
       "properties": {
         "protocolVersion": { "const": 1 },
         "payloadSchemaVersion": { "const": 1 },
-        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "cell_id": { "type": "integer", "minimum": 0 },
         "worldTick": { "type": "integer", "minimum": 0 },
         "stateRevision": { "type": "integer", "minimum": 0 },
         "isFullSnapshot": { "const": true },
@@ -67,7 +66,7 @@
       "additionalProperties": false,
       "required": [
         "protocolVersion", "payloadSchemaVersion", "sessionId", "intentId",
-        "cityId", "issuedAtWorldTick", "expectedStateRevision", "intentKind",
+        "cell_id", "issuedAtWorldTick", "expectedStateRevision", "intentKind",
         "payloadJson"
       ],
       "properties": {
@@ -75,7 +74,7 @@
         "payloadSchemaVersion": { "const": 1 },
         "sessionId": { "type": "string", "minLength": 1, "maxLength": 160 },
         "intentId": { "type": "string", "minLength": 1, "maxLength": 160 },
-        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "cell_id": { "type": "integer", "minimum": 0 },
         "issuedAtWorldTick": { "type": "integer", "minimum": 0 },
         "expectedStateRevision": { "type": "integer", "minimum": 0 },
         "intentKind": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{2,127}$" },
@@ -86,14 +85,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "protocolVersion", "sessionId", "intentId", "cityId", "status",
+        "protocolVersion", "sessionId", "intentId", "cell_id", "status",
         "errorCode", "resultingWorldTick", "resultingStateRevision", "message"
       ],
       "properties": {
         "protocolVersion": { "const": 1 },
         "sessionId": { "type": "string", "minLength": 1, "maxLength": 160 },
         "intentId": { "type": "string", "minLength": 1, "maxLength": 160 },
-        "cityId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "cell_id": { "type": "integer", "minimum": 0 },
         "status": {
           "type": "integer",
           "enum": [1, 2, 3, 4],
