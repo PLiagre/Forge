@@ -149,6 +149,18 @@ def test_a_faire_lit_les_secours_du_vps_et_un_lot_du_pc_mis_de_cote(projet, gh, 
     assert "#12 : secours" in texte.split("CE QUE LA CHAÎNE A VÉCU")[1]
 
 
+def test_les_prochains_lots_suivent_l_ordre_du_pilote(projet, gh, tmp_path):
+    # Le 28 septembre 2026, le journal annonçait « ensuite #120, #121, #184 » :
+    # l'ordre des numéros, alors que les trois attendaient des dépendances.
+    local, veille = _journee(gh, tmp_path)
+    gh.ajouter_issue(20, "Le lanceur", ("lot", "pret", "pc"), corps="Dépend de : #10")
+    gh.ajouter_issue(30, "Le client", ("lot", "pret", "pc"))
+    texte = journal.faits(gh, projet, MAINTENANT, journal_local=local, veille=veille)
+    prochains = next(l for l in texte.splitlines() if l.startswith("PROCHAINS LOTS"))
+    assert "#30" in prochains and "#20" not in prochains
+    assert "#20 « Le lanceur » (attend #10)" in texte
+
+
 def test_le_chroniqueur_doit_raconter_et_non_recopier(projet, gh, tmp_path):
     texte = prompts.chroniqueur(faits="LOTS LIVRÉS …")
     for titre in ("### Ce qui a changé dans le jeu", "### Ce que la chaîne a vécu", "### À faire par toi"):

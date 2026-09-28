@@ -212,11 +212,20 @@ def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
     if courant is None:
         lignes.append("\nJALON : aucun jalon ouvert.")
     else:
-        suivants = [l for l in sorted(ouvertes, key=lambda l: l.numero)
-                    if l.jalon == courant.numero and l.etat in ("pret", "idee") and "lot" in l.etiquettes][:3]
+        # L'ordre du pilote : `pret` avant `idee`, par numéro, et un lot dont
+        # une dépendance est encore ouverte attend (lots.a_prendre).
+        bloq = lots.bloquantes(ouvertes, [lots.Lot.de(i) for i in gh.issues("closed")])
+        candidats = [l for l in sorted(ouvertes, key=lambda l: (l.etat != "pret", l.numero))
+                     if l.jalon == courant.numero and l.etat in ("pret", "idee") and "lot" in l.etiquettes]
+        suivants = [l for l in candidats if not l.dependances & bloq][:3]
+        attendent = [l for l in candidats if l.dependances & bloq]
         lignes.append(f"\nJALON EN COURS : {courant.titre} — {courant.pourcentage} % "
                       f"({courant.fermees} lot(s) fermé(s) sur {courant.ouvertes + courant.fermees}).")
         lignes.append("PROCHAINS LOTS : " + (", ".join(f"#{l.numero} « {l.titre} »" for l in suivants) or "aucun"))
+        if attendent:
+            lignes.append("EN ATTENTE DE LEURS DÉPENDANCES : " + ", ".join(
+                f"#{l.numero} « {l.titre} » (attend {', '.join(f'#{n}' for n in sorted(l.dependances & bloq))})"
+                for l in attendent))
     lignes.append("\nÀ FAIRE PAR LE PROPRIÉTAIRE :")
     lignes += _a_faire(raisons_vps, raisons_pc, veille or VEILLE, bloques)
     return "\n".join(lignes)
