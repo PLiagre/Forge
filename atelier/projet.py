@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 import tomllib
 
 
@@ -18,6 +19,28 @@ class ProjetIncomplet(ValueError):
 
 # Les outils que l'atelier sait appeler, et le binaire de chacun.
 OUTILS = {"claude": "claude", "codex": "codex", "cursor": "cursor-agent"}
+
+# La famille d'un modèle : qui l'a entraîné. Le relecteur n'est jamais de la
+# famille qui a écrit : du code écrit par cursor/claude-opus ne se relit pas
+# par claude/claude-opus, qui partage ses angles morts. Claude Code ne porte
+# que des modèles Claude, Codex que des modèles d'OpenAI ; Cursor porte tout,
+# sa famille se lit dans le nom du modèle. Un nom inconnu est sa propre
+# famille (son premier mot).
+FAMILLE_DE_L_OUTIL = {"claude": "claude", "codex": "gpt"}
+_FAMILLES = (
+    ("claude", re.compile(r"^(claude|opus|sonnet|haiku|fable)\b", re.I)),
+    ("gpt", re.compile(r"^(gpt|o\d|codex)\b", re.I)),
+    ("grok", re.compile(r"^grok\b", re.I)),
+    ("gemini", re.compile(r"^gemini\b", re.I)),
+    ("composer", re.compile(r"^composer\b", re.I)),
+)
+
+
+def famille_du_modele(modele: str) -> str:
+    for nom, motif in _FAMILLES:
+        if motif.match(modele):
+            return nom
+    return re.split(r"[-_.\s]", modele.strip().lower(), maxsplit=1)[0]
 
 # Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents].
 ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "chroniqueur", "boussole")
@@ -39,6 +62,10 @@ class Agent:
     @property
     def binaire(self) -> str:
         return OUTILS[self.outil]
+
+    @property
+    def famille(self) -> str:
+        return FAMILLE_DE_L_OUTIL.get(self.outil) or famille_du_modele(self.modele)
 
 
 @dataclass(frozen=True)

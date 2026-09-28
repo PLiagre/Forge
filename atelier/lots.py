@@ -19,7 +19,9 @@ import json
 import re
 import unicodedata
 
-ETATS = ("idee", "pret", "en-cours", "bloque", "livre")
+from .projet import FAMILLE_DE_L_OUTIL, famille_du_modele
+
+ETATS =("idee", "pret", "en-cours", "bloque", "livre")
 ETIQUETTE_PC = "pc"
 _MARQUE = re.compile(r"<!-- atelier (\{.*?\}) -->", re.S)
 _DEPEND = re.compile(r"^[ \t]*(?:#+[ \t]*)?D[ée]pend de[ \t]*:?[ \t]*(.*)$", re.I | re.M)
@@ -251,7 +253,14 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
     return Action("corriger_relecture", "relecture « CORRIGER »", essai=essais)
 
 
+def famille_de(agent: str) -> str:
+    """La famille de modèle d'un agent écrit `outil/modèle` dans une marque."""
+    outil, _, modele = agent.partition("/")
+    return FAMILLE_DE_L_OUTIL.get(outil) or (famille_du_modele(modele) if modele else outil)
+
+
 def auteurs(liste: list[dict]) -> frozenset[str]:
-    """Les outils qui ont écrit du code sur ce lot : ils ne le relisent pas."""
-    return frozenset((m.get("agent") or "").split("/")[0] for m in liste
+    """Les familles de modèles qui ont écrit du code sur ce lot : aucun de
+    leurs modèles ne le relit, quel que soit l'outil qui le porte."""
+    return frozenset(famille_de(m["agent"]) for m in liste
                      if m.get("role") in ROLES_CODEURS and m.get("etat") == "fait" and m.get("agent"))

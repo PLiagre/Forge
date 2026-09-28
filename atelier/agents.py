@@ -269,17 +269,18 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
              executeur: Executeur = executer) -> Resultat:
     """Essaie l'agent du poste, puis ses secours, dans l'ordre.
 
-    `exclure` retire des outils : le modèle qui a écrit un lot ne le relit
-    jamais. On ne passe au secours que pour un quota, une session ou un
-    outil qui ne démarre pas ; un agent qui échoue pour une autre raison a
-    répondu, et c'est son échec. Chaque essai garde la ligne qui dit
-    pourquoi : « écarté » sans raison ne se répare pas.
+    `exclure` retire des familles de modèles (`Agent.famille`) : le modèle
+    qui a écrit un lot ne le relit jamais, par quelque outil que ce soit.
+    On ne passe au secours que pour un quota, une session ou un outil qui ne
+    démarre pas ; un agent qui échoue pour une autre raison a répondu, et
+    c'est son échec. Chaque essai garde la ligne qui dit pourquoi :
+    « écarté » sans raison ne se répare pas.
     """
     essais: list[str] = []
     ecartes = 0
     for agent in poste.agents:
-        if agent.outil in exclure:
-            essais.append(f"{agent} : écarté (il a écrit ce lot)")
+        if agent.famille in exclure:
+            essais.append(f"{agent} : écarté (sa famille, {agent.famille}, a écrit ce lot)")
             ecartes += 1
             continue
         # La réponse finale de Codex s'écrit hors du dossier du lot : un
