@@ -112,6 +112,7 @@ Vérifie, du plus grave au plus léger :
 3. Aucun test existant n'a été modifié pour passer ; aucune tolérance n'a été élargie.
 4. Le code suit `AGENTS.md` : le monde raisonne en monde, pas de nombre magique, déterminisme tenu.
 5. Ce que le lot prétend est vrai : lis le code, pas seulement le compte rendu.
+6. Lot « pc » : tu n'as pas Unity ; le compte rendu du PC dit si Unity compile la révision. S'il dit que non, c'est CORRIGER.
 
 Écris ta revue en français. Si tu demandes des changements, liste chaque constat avec son fichier et sa ligne.
 La DERNIÈRE ligne de ta réponse est exactement « VERDICT: ACCEPTE » ou « VERDICT: CORRIGER »."""

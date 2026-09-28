@@ -52,7 +52,24 @@ compare chaque lundi les lots livrés à CAP.md.
 | `livre` | fusionné | le pilote |
 | `pc` | demande Unity ou Blender : le travail part sur le PC | le formulaire |
 
-Reprendre un lot bloqué : retirer `bloque`, remettre `pret`.
+### Reprendre un lot bloqué
+
+Corriger la cause (en mode direct si elle est dans la chaîne), puis retirer
+`bloque` et remettre `pret`. Le pilote décide selon ce qui existe :
+
+- **la PR du lot est ouverte** : le lot est **repris** où il en est. Le pilote
+  écrit une marque `reprise` sur la PR et le remet `en-cours`, sans relancer
+  le chef ; le travail déjà poussé reste, et les essais du codeur, du chef et
+  du relecteur repartent de zéro (ils se comptent depuis la dernière
+  reprise) ;
+- **pas de PR** (le chef avait échoué ou refusé) : le chef reprend le lot, ses
+  essais comptés depuis le dernier blocage.
+
+Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
+branche, puis remettre `pret`.
+
+Remettre `en-cours` à la main ne suffit pas : sans marque de reprise, le
+pilote recompte les échecs et rebloque.
 
 ## Ce que le pilote retient, et où
 
@@ -68,12 +85,14 @@ Un tour interrompu ne perd rien : le suivant relit GitHub. Le journal local
 
 ## Quotas et sessions
 
-Un agent qui répond « quota épuisé » ou « session expirée » passe la main à
-son secours (la suite de sa ligne dans `atelier.toml`). Si personne ne répond,
-le lot **attend** : ce n'est pas un échec, le tour suivant réessaie, et une
-ligne le dit dans le journal. Les clés d'API sont retirées de l'environnement
-de chaque agent ; le jeton longue durée de Claude Code se lit dans
-`~/.atelier/claude.token` (mode 600).
+Un agent qui répond « quota épuisé » ou « session expirée », ou dont l'outil
+ne démarre pas (binaire introuvable : une panne d'installation, pas un échec
+du codeur), passe la main à son secours (la suite de sa ligne dans
+`atelier.toml`). Si personne ne répond, le lot **attend** : ce n'est pas un
+échec, aucun essai n'est compté, le tour suivant réessaie, et une ligne le dit
+dans le journal avec la raison de chaque agent. Les clés d'API sont retirées
+de l'environnement de chaque agent ; le jeton longue durée de Claude Code se
+lit dans `~/.atelier/claude.token` (mode 600).
 
 ## Les lots « pc »
 
@@ -81,8 +100,19 @@ Le pilote lance `.github/workflows/lot-pc.yml` par `workflow_dispatch` (jamais
 `pull_request` : une fourche ne lance rien sur le PC). Le runner `pc-forge`
 travaille dans des worktrees de `D:\Forge` : `.atelier\pilote-pc` (le code de
 la chaîne), `.atelier\chantiers\pc` (le lot, avec sa `Library` Unity et une
-jonction vers les packs de l'Asset Store). Unity compile, photographie la
-scène en Play, et les images partent en commentaire de la PR.
+jonction vers les packs de l'Asset Store). Unity compile la révision poussée
+et photographie la scène en Play ; ce qu'il a vu entre dans le compte rendu du
+codeur, que lit le relecteur (qui n'a pas Unity), et les images s'y affichent.
+
+**La partie PC n'avance que quand le PC est allumé.** Un PC éteint ou en
+veille garde le travail en file chez GitHub ; il part au réveil. Le PC répond
+toujours sur la PR : un compte rendu, ou une **attente** (aucun de ses agents
+n'a pu répondre, ou le passage a cassé avant) qui ne compte pas comme un essai
+et que le pilote renvoie au bout d'une heure. Sans réponse du tout en 24 h, il
+renvoie le même travail. Sous Windows, les agents livrés en `.cmd`
+(cursor-agent, codex par npm) sont lancés par leur `node.exe`, jamais par
+`cmd.exe` : le prompt y serait coupé et interprété. Prouver les agents du PC
+là où ils tournent : `gh workflow run sonde-pc.yml -R PLiagre/Forge`.
 
 ## Les captures et le journal
 
@@ -102,7 +132,7 @@ lots du jalon).
 | 06:45 | la veille : outils, jetons, accès GitHub |
 | 07:15 | le journal |
 | lundi 07:45 | la boussole |
-| 02:30 (PC) | le build Windows de la nuit, dans `D:\Forge\builds\dernier` |
+| 02:30 (PC) | le build Windows de la nuit, dans `D:\Forge\builds\dernier` ; PC en veille, il part au réveil |
 
 Armer : `atelier/crons/atelier-boucle jour`. Arrêter : `atelier-boucle arret`.
 Regarder : `atelier-boucle etat`. Installer : [atelier/crons/README.md](../atelier/crons/README.md).
@@ -111,7 +141,8 @@ Regarder : `atelier-boucle etat`. Installer : [atelier/crons/README.md](../ateli
 
 | symptôme | ce que ça veut dire | le geste |
 |---|---|---|
-| issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, ou le chef a refusé | lire la raison en commentaire ; corriger en mode direct, ou reformuler l'issue et remettre `pret` |
-| « attente » répétée au journal | quotas épuisés ou session expirée | `python3 -m atelier veille`, puis `claude setup-token` si c'est la session Claude |
+| issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, ou le chef a refusé | lire la raison en commentaire ; corriger en mode direct, ou reformuler l'issue ; puis remettre `pret` (reprise, ci-dessus) |
+| « attente » répétée au journal | quotas épuisés, session expirée, ou outil qui ne démarre pas (la raison de chaque agent est écrite) | `python3 -m atelier veille`, puis `claude setup-token` si c'est la session Claude |
+| un lot `pc` n'avance pas | le PC est éteint ou en veille, ou ses agents attendent (marque d'attente sur la PR) | allumer le PC ; `gh workflow run sonde-pc.yml` |
 | rien ne bouge | profil `arret`, copie principale hors de master, ou aucun lot dans le jalon courant | `atelier-boucle etat` |
 | master rouge | le mécanicien ouvre une PR `meca/…` ; s'il ne peut pas, le journal le dit | mode direct |

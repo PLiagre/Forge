@@ -1,0 +1,51 @@
+name: sonde-pc
+
+# Les agents du PC répondent-ils, dans le contexte du service ?
+#
+# Le runner `pc-forge` tourne en service sous le compte du propriétaire : il
+# ne voit ni le PATH ni l'environnement de sa session. Une sonde lancée à la
+# main dans un terminal ne prouve donc rien pour la chaîne ; celle-ci tourne
+# là où tourne un lot « pc », avec le même PATH et le même code (master,
+# dans le worktree .atelier\pilote-pc). Elle appelle chaque agent du rôle
+# comme la chaîne l'appelle, avec son modèle exact.
+#
+# Lancer : gh workflow run sonde-pc.yml -R PLiagre/Forge
+
+on:
+  workflow_dispatch:
+    inputs:
+      role:
+        description: "le rôle dont on sonde les agents"
+        required: false
+        default: "codeur_3d"
+
+permissions:
+  contents: read
+
+jobs:
+  sonde:
+    runs-on: [self-hosted, Windows, unity]
+    timeout-minutes: 30
+    steps:
+      - name: Les agents du PC, depuis le service
+        shell: powershell
+        env:
+          ROLE: ${{ inputs.role }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Le même PATH que lot-pc.yml : c'est lui qu'on éprouve.
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:LOCALAPPDATA\cursor-agent;$env:PATH"
+          git -C D:\Forge fetch --quiet --prune origin
+          $atelier = 'D:\Forge\.atelier\pilote-pc'
+          if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }
+          git -C $atelier checkout --quiet --force --detach origin/master
+          $env:PYTHONPATH = $atelier
+          Write-Output "compte : $env:USERNAME · profil : $env:USERPROFILE"
+          py -m atelier --projet $atelier veille
+          $veille = $LASTEXITCODE
+          py -m atelier --projet $atelier sonde --role $env:ROLE
+          $sonde = $LASTEXITCODE
+          # La veille échoue aussi sur ce que le PC n'utilise pas (codex) :
+          # c'est la sonde du rôle qui fait foi.
+          Write-Output "veille : code $veille · sonde : code $sonde"
+          exit $sonde

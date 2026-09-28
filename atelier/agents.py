@@ -11,9 +11,9 @@ appartiennent au pilote. C'est ce qui rend un avis impossible à falsifier
 par celui qui le donne, et ce qui évite les refus de shell propres à chaque
 outil (`cd … &&` chez Cursor, mesuré le 23 septembre 2026).
 
-Quota épuisé ou session expirée : on passe au secours. Si aucun agent du
-poste ne répond pour ces raisons, le lot **attend** — ce n'est pas un
-échec, et le tour suivant réessaie.
+Quota épuisé, session expirée, ou outil qui ne démarre pas (installation) :
+on passe au secours. Si aucun agent du poste ne répond pour ces raisons, le
+lot **attend** — ce n'est pas un échec, et le tour suivant réessaie.
 """
 
 from __future__ import annotations
@@ -22,12 +22,15 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from typing import Callable
 
 from .projet import Agent, Poste
+
+WINDOWS = sys.platform.startswith("win")
 
 # Les clés qu'on retire avant de lancer un agent.
 CLES_API = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CURSOR_API_KEY")
@@ -57,18 +60,110 @@ _AUTH = re.compile(
     r"authentication (failed|required|error)", re.I)
 
 
+# Les codes d'un outil qui n'a pas démarré : introuvable (127) ou refusé par
+# le système (126). C'est une panne de la machine, pas un échec du codeur :
+# trois 127 ont bloqué le lot #118 le 27 septembre 2026.
+CODES_INSTALLATION = (126, 127)
+LIBELLES = {"quota": "quota épuisé", "auth": "session expirée ou absente", "installation": "ne démarre pas"}
+_SECRET = re.compile(r"\b(sk-[A-Za-z0-9_-]{8,}|[A-Za-z0-9_-]{40,})")
+
+
 def cause_de_refus(code: int, texte: str) -> str | None:
-    """`quota`, `auth` ou None. Seule la fin de la sortie compte : c'est là
-    que les outils écrivent leur erreur, et le travail d'un agent peut citer
-    ces mots sans que ce soit un refus."""
+    """`quota`, `auth`, `installation` ou None. Seule la fin de la sortie
+    compte : c'est là que les outils écrivent leur erreur, et le travail d'un
+    agent peut citer ces mots sans que ce soit un refus."""
     if code == 0:
         return None
+    if code in CODES_INSTALLATION:
+        return "installation"
     fin = "\n".join(texte.strip().splitlines()[-25:])
     if _AUTH.search(fin):
         return "auth"
     if _QUOTA.search(fin):
         return "quota"
     return None
+
+
+def derniere_ligne(texte: str, longueur: int = 160) -> str:
+    """La dernière ligne non vide d'une sortie, sans rien qui ressemble à un
+    jeton : c'est elle qui dit pourquoi un outil a refusé."""
+    lignes = [l.strip() for l in texte.strip().splitlines() if l.strip()]
+    return _SECRET.sub("…", lignes[-1])[:longueur] if lignes else ""
+
+
+class Introuvable(RuntimeError):
+    """L'outil n'a pas de lancement sûr sur cette machine."""
+
+
+# Les versions de cursor-agent, comme les trie son `cursor-agent.ps1` :
+# AAAA.M.J-commit, ou AAAA.M.J-HH-MM-SS-commit.
+_VERSION_CURSOR = re.compile(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-(\d{2})-(\d{2})-(\d{2}))?-[a-f0-9]+$")
+# Le .js qu'un shim npm (`codex.cmd`) fait lancer par node.
+_SHIM_NPM = re.compile(r'"%dp0%\\([^"%]+\.js)"')
+
+
+def _cursor(dossier: Path) -> tuple[Path, Path] | None:
+    """node.exe et index.js de la version la plus récente, comme le fait
+    `cursor-agent.ps1` : dans son propre dossier s'il y a un node.exe, sinon
+    dans `versions\\<la plus récente>`."""
+    if (dossier / "node.exe").is_file() and (dossier / "index.js").is_file():
+        return dossier / "node.exe", dossier / "index.js"
+    versions = []
+    if (dossier / "versions").is_dir():
+        for d in (dossier / "versions").iterdir():
+            m = _VERSION_CURSOR.match(d.name)
+            if d.is_dir() and m:
+                versions.append((tuple(int(x or 0) for x in m.groups()), d.name, d))
+    for _, _, d in sorted(versions, reverse=True):
+        if (d / "node.exe").is_file() and (d / "index.js").is_file():
+            return d / "node.exe", d / "index.js"
+    return None
+
+
+def lancement(commande: list[str], env: dict[str, str], *, windows: bool | None = None,
+              chercher: Callable[[str], str | None] | None = None) -> tuple[list[str], dict[str, str]]:
+    """L'argv et l'environnement qu'on donne à CreateProcess, sans cmd.exe.
+
+    Sous Windows, CreateProcess n'ajoute que `.exe` : `cursor-agent.cmd` et
+    `codex.cmd` (npm) sont introuvables. Et les appeler quand même ferait
+    passer le prompt par cmd.exe, qui le coupe aux retours à la ligne et
+    interprète `& | % ^` : une injection. On refait donc ici ce que font leurs
+    scripts — lancer node.exe sur leur .js —, résolu à chaque appel : une
+    mise à jour de cursor-agent ajoute une version sans rien casser.
+    """
+    windows = WINDOWS if windows is None else windows
+    if not windows or not commande:
+        return commande, env
+    # Le PATH de l'enfant, pas celui du pilote : c'est lui qui lancera.
+    chercher = chercher or (lambda nom: shutil.which(nom, path=env["PATH"]) if env.get("PATH") else None)
+    binaire, reste = commande[0], commande[1:]
+    trouve = chercher(binaire)
+    chemin = Path(trouve) if trouve else None
+    if chemin is not None and chemin.suffix.lower() in (".exe", ".com"):
+        return [str(chemin), *reste], env
+    local = Path(env.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    if binaire == "cursor-agent":
+        # Hors du PATH (le service ne voit pas celui de la session), il est
+        # dans son dossier d'installation par défaut.
+        dossier = chemin.parent if chemin else local / "cursor-agent"
+        paire = _cursor(dossier)
+        if paire is None:
+            raise Introuvable(f"binaire introuvable : cursor-agent (aucune version lançable dans {dossier})")
+        nom = f"{chemin.stem}.cmd" if chemin and chemin.suffix.lower() == ".cmd" else "cursor-agent.cmd"
+        env = dict(env, CURSOR_INVOKED_AS=nom)
+        env.setdefault("NODE_COMPILE_CACHE", str(local / "cursor-compile-cache"))
+        return [str(paire[0]), str(paire[1]), *reste], env
+    if chemin is None:
+        raise Introuvable(f"binaire introuvable : {binaire}")
+    if chemin.suffix.lower() == ".cmd":
+        m = _SHIM_NPM.search(chemin.read_text(encoding="utf-8", errors="replace"))
+        if m:
+            script = chemin.parent / m.group(1)
+            node = chemin.parent / "node.exe"
+            node = str(node) if node.is_file() else chercher("node")
+            if node and script.is_file():
+                return [node, str(script), *reste], env
+    raise Introuvable(f"{chemin} n'a pas de lancement sûr : un script passerait le prompt par cmd.exe")
 
 
 def environnement(outil: str) -> dict[str, str]:
@@ -129,7 +224,8 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
 @dataclass
 class Resultat:
     """Ce qu'un appel a rendu. `attente` : personne n'a pu répondre (quota,
-    session), le lot attend ; ce n'est pas un échec."""
+    session, outil qui ne démarre pas), le lot attend ; ce n'est pas un
+    échec. `essais` dit, agent par agent, ce qui s'est passé."""
 
     agent: Agent | None
     code: int
@@ -150,6 +246,10 @@ Executeur = Callable[[list[str], Path, dict[str, str], int], tuple[int, str, str
 
 def executer(commande: list[str], cwd: Path, env: dict[str, str], delai: int) -> tuple[int, str, str]:
     try:
+        commande, env = lancement(commande, env)
+    except Introuvable as e:
+        return 127, "", str(e)
+    try:
         fini = subprocess.run(commande, cwd=cwd, env=env, capture_output=True,
                               text=True, encoding="utf-8", errors="replace",
                               timeout=delai, stdin=subprocess.DEVNULL)
@@ -158,6 +258,8 @@ def executer(commande: list[str], cwd: Path, env: dict[str, str], delai: int) ->
         return 124, sortie, f"délai dépassé après {delai} s"
     except FileNotFoundError:
         return 127, "", f"binaire introuvable : {commande[0]}"
+    except OSError as e:
+        return 126, "", f"ne démarre pas : {commande[0]} ({e})"
     return fini.returncode, fini.stdout, fini.stderr
 
 
@@ -167,31 +269,39 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
     """Essaie l'agent du poste, puis ses secours, dans l'ordre.
 
     `exclure` retire des outils : le modèle qui a écrit un lot ne le relit
-    jamais. On ne passe au secours que pour un quota ou une session ; un
-    agent qui échoue pour une autre raison a répondu, et c'est son échec.
+    jamais. On ne passe au secours que pour un quota, une session ou un
+    outil qui ne démarre pas ; un agent qui échoue pour une autre raison a
+    répondu, et c'est son échec. Chaque essai garde la ligne qui dit
+    pourquoi : « écarté » sans raison ne se répare pas.
     """
     essais: list[str] = []
+    ecartes = 0
     for agent in poste.agents:
         if agent.outil in exclure:
             essais.append(f"{agent} : écarté (il a écrit ce lot)")
+            ecartes += 1
             continue
         # La réponse finale de Codex s'écrit hors du dossier du lot : un
         # fichier laissé dans le worktree finirait dans le commit.
         sortie = Path(tempfile.mkdtemp(prefix="atelier-")) / "reponse.txt" if agent.outil == "codex" else None
-        code, out, err = executeur(
-            argv(agent, prompt, lecture_seule=poste.lecture_seule, sortie=sortie),
-            Path(cwd), environnement(agent.outil), delai)
-        texte = out
-        if sortie is not None and sortie.exists():
-            texte = sortie.read_text(encoding="utf-8", errors="replace")
-            sortie.unlink()
+        try:
+            code, out, err = executeur(
+                argv(agent, prompt, lecture_seule=poste.lecture_seule, sortie=sortie),
+                Path(cwd), environnement(agent.outil), delai)
+            texte = out
+            if sortie is not None and sortie.exists():
+                texte = sortie.read_text(encoding="utf-8", errors="replace")
+        finally:
+            if sortie is not None:
+                shutil.rmtree(sortie.parent, ignore_errors=True)
         cause = cause_de_refus(code, f"{out}\n{err}")
         if cause:
-            essais.append(f"{agent} : {'quota épuisé' if cause == 'quota' else 'session expirée ou absente'}")
+            pourquoi = derniere_ligne(f"{out}\n{err}")
+            essais.append(f"{agent} : {LIBELLES[cause]}" + (f" (« {pourquoi} »)" if pourquoi else ""))
             continue
         essais.append(f"{agent} : code {code}")
         return Resultat(agent=agent, code=code, texte=texte if code == 0 else f"{texte}\n{err}".strip(),
                         essais=essais)
-    tous_ecartes = all(e.endswith("(il a écrit ce lot)") for e in essais)
+    tous_ecartes = ecartes == len(essais)
     return Resultat(agent=None, code=-1, texte="", attente=not tous_ecartes,
                     personne=tous_ecartes, essais=essais)

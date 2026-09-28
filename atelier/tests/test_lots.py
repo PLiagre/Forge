@@ -93,6 +93,53 @@ def test_un_envoi_au_pc_attend_son_retour_puis_se_relance():
     assert action_suivante(_pr(), "vert", [envoi, retour], corrections_max=2, role_codeur="codeur_3d").nom == "relire"
 
 
+ENVOI = {"role": "codeur_3d", "etat": "envoye"}
+ATTENTE = {"role": "codeur_3d", "etat": "attente"}
+ECHEC_PC = {"role": "codeur_3d", "etat": "echec", "agent": "cursor/opus-high"}
+
+
+def test_une_attente_du_pc_ne_brule_pas_d_essai_et_se_renvoie_apres_une_heure():
+    # Tous les agents du PC en attente (quota) : le PC le dit par une marque,
+    # qui répond à l'envoi sans compter comme un passage du codeur.
+    liste = [ENVOI, ATTENTE]
+    assert action_suivante(_pr(), "vert", liste, corrections_max=2, role_codeur="codeur_3d",
+                           heures_depuis_attente_pc=0.2).nom == "attendre_pc"
+    renvoi = action_suivante(_pr(), "vert", liste, corrections_max=2, role_codeur="codeur_3d",
+                             heures_depuis_attente_pc=1.2)
+    assert (renvoi.nom, renvoi.essai) == ("coder", 0)
+    # Trois attentes après un échec : un seul essai brûlé, le lot n'est pas bloqué.
+    longue = [ENVOI, ECHEC_PC] + [ENVOI, ATTENTE] * 3
+    action = action_suivante(_pr(), "vert", longue, corrections_max=2, role_codeur="codeur_3d",
+                             heures_depuis_attente_pc=2)
+    assert (action.nom, action.essai) == ("coder", 1)
+    # Renvoyé après l'attente : on attend de nouveau la réponse du PC.
+    assert action_suivante(_pr(), "vert", liste + [ENVOI], corrections_max=2, role_codeur="codeur_3d",
+                           heures_depuis_envoi_pc=0.1, heures_depuis_attente_pc=1.2).nom == "attendre_pc"
+
+
+def test_une_reprise_remet_les_compteurs_a_zero():
+    reprise = {"role": "pilote", "etat": "reprise"}
+    trois_echecs = [ENVOI, ECHEC_PC] * 3
+    assert action_suivante(_pr(), "vert", trois_echecs, corrections_max=2, role_codeur="codeur_3d").nom == "bloquer"
+    action = action_suivante(_pr(), "vert", trois_echecs + [reprise], corrections_max=2, role_codeur="codeur_3d")
+    assert (action.nom, action.essai) == ("coder", 0)
+    # Le travail déjà fait reste : un lot repris après trois « CORRIGER »
+    # repart en correction de la dernière revue, pas de zéro.
+    verdict = {"role": "relecteur", "sha": "tete", "verdict": "CORRIGER"}
+    corrige = [FAIT, verdict, FAIT, verdict, FAIT, verdict]
+    assert action_suivante(_pr(), "vert", corrige, corrections_max=2).nom == "bloquer"
+    action = action_suivante(_pr(), "vert", corrige + [reprise], corrections_max=2)
+    assert (action.nom, action.essai) == ("corriger_relecture", 0)
+
+
+def test_les_echecs_du_chef_comptent_depuis_le_dernier_blocage():
+    echec = {"role": "chef", "etat": "echec"}
+    bloque = {"role": "pilote", "etat": "bloque"}
+    assert lots.echecs_du_chef([echec, echec]) == 2
+    assert lots.echecs_du_chef([echec, echec, bloque]) == 0
+    assert lots.echecs_du_chef([echec, echec, bloque, echec]) == 1
+
+
 def test_les_auteurs_d_un_lot():
     liste = [FAIT, {"role": "codeur_3d", "etat": "fait", "agent": "claude/opus"},
              {"role": "codeur", "etat": "echec", "agent": "cursor/grok"}, {"role": "chef", "agent": "claude/x"}]

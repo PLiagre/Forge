@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
@@ -52,20 +51,27 @@ def _cmd_veille(args: argparse.Namespace) -> int:
         return 1
     for outil in sorted({a.outil for p in projet.postes.values() for a in p.agents}):
         binaire = {"claude": "claude", "codex": "codex", "cursor": "cursor-agent"}[outil]
-        chemin = shutil.which(binaire)
-        if not chemin:
-            dire(False, f"{binaire} — absent du PATH")
+        # Lancé comme la chaîne le lance : sous Windows, un .cmd passe par son
+        # node.exe, jamais par cmd.exe (`agents.lancement`).
+        try:
+            commande, env = agents_mod.lancement([binaire, "--version"], dict(os.environ))
+        except agents_mod.Introuvable as e:
+            dire(False, f"{binaire} — {e}")
             continue
         try:
-            version = subprocess.run([chemin, "--version"], capture_output=True, text=True, timeout=30).stdout.strip()
-            dire(bool(version), f"{binaire} — {version.splitlines()[0] if version else 'ne rend pas sa version'}")
+            version = subprocess.run(commande, env=env, capture_output=True, text=True, encoding="utf-8",
+                                     errors="replace", timeout=60).stdout.strip()
+            ou = commande[1] if len(commande) > 1 and commande[1].endswith(".js") else commande[0]
+            dire(bool(version), f"{binaire} — {version.splitlines()[0] if version else 'ne rend pas sa version'} ({ou})")
         except (OSError, subprocess.TimeoutExpired) as e:
             dire(False, f"{binaire} — ne démarre pas : {e}")
     jeton = agents_mod.FICHIER_JETON_CLAUDE
-    if jeton.is_file():
+    if jeton.is_file() and jeton.stat().st_size > 0:
         mode = jeton.stat().st_mode & 0o777
         dire(mode & 0o077 == 0 or sys.platform.startswith("win"),
              f"jeton Claude longue durée — {jeton} (mode {oct(mode)})")
+    elif jeton.is_file():
+        dire(None, f"jeton Claude longue durée vide ({jeton}) : la session de `claude` fait foi")
     else:
         dire(None, f"jeton Claude longue durée absent ({jeton}) : la session de `claude` fait foi")
     fuites = [k for k in agents_mod.CLES_API if os.environ.get(k)]
@@ -83,7 +89,8 @@ def _cmd_sonde(args: argparse.Namespace) -> int:
     projet = charger(_racine(args))
     vus = set()
     fautes = 0
-    for poste in projet.postes.values():
+    postes = [projet.poste(args.role)] if args.role else list(projet.postes.values())
+    for poste in postes:
         for agent in poste.agents:
             cle = (str(agent), poste.lecture_seule)
             if cle in vus or (args.outil and agent.outil != args.outil):
@@ -157,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     sous.add_parser("veille", help="ce qui manque pour tourner").set_defaults(f=_cmd_veille)
     sonde = sous.add_parser("sonde", help="chaque agent répond-il avec son modèle ?")
     sonde.add_argument("--outil", choices=["claude", "codex", "cursor"])
+    sonde.add_argument("--role", help="les seuls agents de ce rôle (codeur_3d sur le PC)")
     sonde.set_defaults(f=_cmd_sonde)
     tour = sous.add_parser("tour", help="un tour du pilote")
     tour.add_argument("--a-sec", action="store_true", help="lire et dire, sans rien écrire ni invoquer")

@@ -28,6 +28,12 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   (`idee` → `pret` → `en-cours` → `livre`, ou `bloque` avec sa raison en
   commentaire), l'étiquette `pc` s'il demande Unity ou Blender. Le formulaire
   « Demander un lot » les pose.
+- **Reprendre un lot bloqué** : corriger la cause, retirer `bloque`, remettre
+  `pret`. Si sa PR est ouverte, le pilote la reprend où elle en est, sans
+  relancer le chef, essais remis à zéro ; sinon le chef reprend le lot.
+- **Un lot `pc` n'avance que quand le PC est allumé** : un PC en veille garde
+  le travail en file ; ses agents qui ne peuvent pas répondre le disent sur la
+  PR (attente, renvoyée dans l'heure, sans compter d'essai).
 - **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les dix
   minutes) prend le lot suivant du jalon courant. Le **chef** écrit le brief
   dans la branche `lot/<n>-<slug>` et ouvre la PR (moins de 300 lignes, sinon

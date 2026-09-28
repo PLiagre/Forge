@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 
 from atelier.lots import marque, marques
 from atelier.pilote import Pilote
@@ -180,6 +181,109 @@ def test_un_lot_pc_part_sur_le_pc_sans_agent_local(projet, gh, depot, tmp_path):
     envoi = _gestes(gh, "lancer_workflow")[0]
     assert envoi[1] == "lot-pc.yml" and envoi[2]["branche"] == BRANCHE and envoi[2]["action"] == "coder"
     assert marques(gh.prs_[50]["comments"])[-1]["etat"] == "envoye"
+
+
+ENVOI_PC = marque(role="codeur_3d", etat="envoye", essai=1, quand="2026-09-27T13:40:10+00:00")
+ECHEC_127 = marque(role="codeur_3d", etat="echec", essai=1, agent="cursor/opus-high")
+
+
+def test_un_lot_pret_dont_la_pr_est_ouverte_est_repris_sans_le_chef(projet, gh, depot, tmp_path):
+    # Le lot #118 : trois 127 l'ont bloqué, le propriétaire le remet « pret ».
+    # Relancer le chef coûterait un quota et buterait sur la branche et la
+    # PR qui existent déjà : le lot est REPRIS où il en est.
+    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "pret", "pc"))
+    gh.issues_[10]["comments"].append({"body": marque(role="pilote", etat="bloque", raison="le codeur a échoué 3 fois")})
+    gh.ajouter_pr(50, BRANCHE, brouillon=True, commentaires=[ENVOI_PC, ECHEC_127] * 3)
+    agents = Agents()
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not _gestes(gh, "creer_pr")
+    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "en-cours" in etiquettes and "pret" not in etiquettes and "bloque" not in etiquettes
+    assert any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
+    envoi = _gestes(gh, "lancer_workflow")[0][2]
+    assert (envoi["action"], envoi["essai"]) == ("coder", "0")
+    assert any("repris" in l for l in lignes)
+
+
+def test_le_message_de_blocage_dit_comment_reprendre(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=[marque(role="codeur", etat="echec", essai=1, agent="codex/sol")] * 3)
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    texte = gh.issues_[10]["comments"][-1]["body"]
+    assert "remettre « pret »" in texte and "sans relancer le chef" in texte
+
+
+def test_l_echec_du_codeur_dit_pourquoi_les_autres_ont_ete_ecartes(projet, gh, depot, tmp_path):
+    _en_cours(gh)
+    agents = Agents((1, "Error: You've hit your usage limit"), (2, "SyntaxError: invalid syntax"))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    commentaire = gh.prs_[50]["comments"][-1]["body"]
+    assert "codex/sol : quota épuisé" in commentaire and "cursor/grok : code 2" in commentaire
+    journal = (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
+    assert "quota épuisé" in journal
+
+
+def test_un_binaire_introuvable_fait_attendre_sans_bruler_d_essai(projet, gh, depot, tmp_path):
+    _en_cours(gh)
+    agents = Agents((127, "binaire introuvable : codex"), (127, "binaire introuvable : cursor-agent"))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert gh.prs_[50]["comments"] == []
+    assert any("attente" in l and "introuvable" in l for l in lignes)
+
+
+def test_le_pc_en_attente_est_relance_apres_une_heure(projet, gh, depot, tmp_path):
+    attente = marque(role="codeur_3d", etat="attente", quand="2026-09-28T07:30:00+00:00")
+    _en_cours(gh, commentaires=[ENVOI_PC, attente], etiquettes=("lot", "en-cours", "pc"))
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()      # 08:00 : trente minutes
+    assert not _gestes(gh, "lancer_workflow")
+    plus_tard = Pilote(projet, gh, depot, executeur_agents=Agents(), journal=tmp_path / "j.jsonl",
+                       maintenant=lambda: datetime(2026, 9, 28, 8, 45, tzinfo=timezone.utc))
+    plus_tard.tour()
+    envoi = _gestes(gh, "lancer_workflow")[0][2]
+    assert (envoi["action"], envoi["essai"]) == ("coder", "0")
+
+
+def test_relancer_le_pc_renvoie_la_meme_action(projet, gh, depot, tmp_path):
+    premier = marque(role="codeur_3d", etat="envoye", essai=1, action="coder", quand="2026-09-26T10:00:00+00:00")
+    fait = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
+    envoi = marque(role="codeur_3d", etat="envoye", essai=2, action="corriger_ci",
+                   quand="2026-09-27T06:00:00+00:00")
+    _en_cours(gh, commentaires=[premier, fait, envoi], ci="rouge", etiquettes=("lot", "en-cours", "pc"))
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert _gestes(gh, "lancer_workflow")[0][2]["action"] == "corriger_ci"
+
+
+def test_a_sec_une_reprise_est_suivie_de_ce_qu_elle_declenche(projet, tmp_path, capsys):
+    # Le tour à sec lit le vrai GitHub : sans relire ses propres gestes, il
+    # annonçait « bloqué » juste après avoir repris le lot.
+    from atelier.asec import DepotASec, GitHubASec, executeur_a_sec
+    issue = {"number": 10, "title": "Le service lit un lieu", "body": "", "state": "OPEN", "comments": [],
+             "labels": [{"name": n} for n in ("lot", "pret", "pc")], "milestone": {"title": "J1 — Le pont"}}
+    rollup = [{"__typename": "CheckRun", "name": n, "status": "COMPLETED", "conclusion": "SUCCESS",
+               "startedAt": "2026-09-27T10:00:00Z"} for n in ("tests", "gitleaks")]
+    pr = {"number": 50, "state": "OPEN", "headRefName": BRANCHE, "headRefOid": "a" * 40, "isDraft": True,
+          "mergeable": "MERGEABLE", "statusCheckRollup": rollup, "mergedAt": None, "autoMergeRequest": None,
+          "comments": [{"body": c} for c in [ENVOI_PC, ECHEC_127] * 3], "url": "https://x/pull/50", "title": "x"}
+
+    def faux_gh(argv, entree):
+        args = argv[1:]
+        if args[:2] == ["issue", "list"]:
+            return 0, json.dumps([issue] if args[args.index("--state") + 1] == "open" else []), ""
+        if args[:2] == ["issue", "view"]:
+            return 0, json.dumps(issue), ""
+        if args[:2] in (["pr", "list"], ["pr", "view"]):
+            return 0, json.dumps(pr if args[1] == "view" else [pr]), ""
+        if args[0] == "api":
+            return 0, json.dumps([{"number": 1, "title": "J1 — Le pont", "state": "open",
+                                   "open_issues": 1, "closed_issues": 0}]), ""
+        return 0, "[]", ""
+
+    pilote = Pilote(projet, GitHubASec("moi/essai", executeur=faux_gh), DepotASec(tmp_path, "master"),
+                    executeur_agents=executeur_a_sec, journal=tmp_path / "j.jsonl",
+                    maintenant=lambda: datetime(2026, 9, 28, 8, 0, tzinfo=timezone.utc))
+    pilote.tour()
+    dit = capsys.readouterr().out
+    assert "lot repris" in dit and "lancer lot-pc.yml" in dit
+    assert "+['bloque']" not in dit
 
 
 def test_un_jalon_sans_lot_ouvert_est_atteint(projet, gh, depot, tmp_path):

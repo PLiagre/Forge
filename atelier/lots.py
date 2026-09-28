@@ -161,14 +161,44 @@ class Action:
     essai: int = 0
 
 
+# Ce que le PC répond à un envoi. `attente` : aucun de ses agents n'a pu
+# répondre (quota, session, installation) ; ce n'est pas un passage du codeur.
+REPONSES_PC = ("fait", "echec", "attente")
+# Après une attente du PC, on renvoie au bout d'une heure ; sans réponse du
+# tout (PC éteint : GitHub garde le travail en file un jour), au bout de 24 h.
+HEURES_ATTENTE_PC = 1
+HEURES_SILENCE_PC = 24
+
+
+def depuis_reprise(liste: list[dict]) -> list[dict]:
+    """Les marques depuis la dernière reprise : un lot bloqué que le
+    propriétaire remet « pret » recompte ses essais de zéro."""
+    for i in range(len(liste) - 1, -1, -1):
+        if liste[i].get("etat") == "reprise":
+            return liste[i + 1:]
+    return list(liste)
+
+
+def echecs_du_chef(liste: list[dict]) -> int:
+    """Les échecs du chef sur une issue, depuis son dernier blocage ou sa
+    dernière reprise : remettre « pret » un lot bloqué redonne ses essais."""
+    debut = 0
+    for i, m in enumerate(liste):
+        if m.get("etat") in ("bloque", "reprise"):
+            debut = i + 1
+    return sum(1 for m in liste[debut:] if m.get("role") == "chef" and m.get("etat") == "echec")
+
+
 def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
                     corrections_max: int, role_codeur: str = "codeur",
-                    heures_depuis_envoi_pc: float | None = None) -> Action:
+                    heures_depuis_envoi_pc: float | None = None,
+                    heures_depuis_attente_pc: float | None = None) -> Action:
     """Ce que le pilote fait ensuite pour un lot en cours. Fonction pure.
 
     Un lot a droit à 1 + `corrections_max` passages du codeur : le premier,
     puis une correction par CI rouge ou relecture « CORRIGER ». Au-delà, il
-    est bloqué, avec sa raison.
+    est bloqué, avec sa raison. Les compteurs partent de la dernière reprise ;
+    l'état du travail (code écrit, verdicts), de tout l'historique.
     """
     if pr is None:
         return Action("chef")
@@ -177,21 +207,25 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
     if pr.get("state") == "CLOSED":
         return Action("bloquer", "la PR a été fermée sans fusion")
     tete = pr.get("headRefOid") or ""
-    codeurs = [m for m in liste if m.get("role") == role_codeur]
-    essais = sum(1 for m in codeurs if m.get("etat") != "envoye")
+    codeurs = [m for m in depuis_reprise(liste) if m.get("role") == role_codeur]
+    essais = sum(1 for m in codeurs if m.get("etat") in ("fait", "echec"))
     max_essais = 1 + corrections_max
 
-    # Un envoi au PC attend son retour ; passé un jour, on renvoie une fois.
-    envois = [m for m in codeurs if m.get("etat") == "envoye"]
-    if envois and len(envois) > essais:
-        if heures_depuis_envoi_pc is not None and heures_depuis_envoi_pc > 24:
+    # Un envoi au PC attend sa réponse ; sans réponse en un jour, on renvoie.
+    envois = sum(1 for m in codeurs if m.get("etat") == "envoye")
+    reponses = sum(1 for m in codeurs if m.get("etat") in REPONSES_PC)
+    if envois > reponses:
+        if heures_depuis_envoi_pc is not None and heures_depuis_envoi_pc > HEURES_SILENCE_PC:
             return Action("relancer_pc", "le PC n'a pas répondu en 24 h", essai=essais)
         return Action("attendre_pc", "le travail est parti sur le PC")
+    if (codeurs and codeurs[-1].get("etat") == "attente" and heures_depuis_attente_pc is not None
+            and heures_depuis_attente_pc < HEURES_ATTENTE_PC):
+        return Action("attendre_pc", "aucun agent du PC n'a pu répondre : renvoi au bout d'une heure")
 
     if pr.get("mergeable") == "CONFLICTING":
         return Action("conflit", "la branche est en conflit avec la base")
 
-    reussis = [m for m in codeurs if m.get("etat") == "fait"]
+    reussis = [m for m in liste if m.get("role") == role_codeur and m.get("etat") == "fait"]
     if not reussis:
         if essais >= max_essais:
             return Action("bloquer", f"le codeur a échoué {essais} fois")
