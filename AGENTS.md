@@ -38,7 +38,8 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   minutes) prend le lot suivant du jalon courant. Le **chef** écrit le brief
   dans la branche `lot/<n>-<slug>` et ouvre la PR (moins de 300 lignes, sinon
   il découpe ; hors du jalon courant, il refuse). Le **codeur** code, la CI
-  joue les tests, le **relecteur** — jamais l'outil qui a écrit — rend
+  joue les tests, le **relecteur** — jamais la famille de modèle qui a
+  écrit, quel que soit l'outil — rend
   `ACCEPTE` (fusion automatique) ou `CORRIGER` (le codeur corrige, deux fois
   au plus, puis `bloque`).
 - **Les agents éditent des fichiers ou rendent un texte.** Commit, poussée,

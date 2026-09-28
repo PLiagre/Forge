@@ -141,9 +141,12 @@ def test_les_echecs_du_chef_comptent_depuis_le_dernier_blocage():
 
 
 def test_les_auteurs_d_un_lot():
+    # Les familles de modèles qui ont écrit du code : codex/sol est d'OpenAI.
     liste = [FAIT, {"role": "codeur_3d", "etat": "fait", "agent": "claude/opus"},
              {"role": "codeur", "etat": "echec", "agent": "cursor/grok"}, {"role": "chef", "agent": "claude/x"}]
-    assert lots.auteurs(liste) == frozenset({"codex", "claude"})
+    assert lots.auteurs(liste) == frozenset({"gpt", "claude"})
+    # Le même modèle par un autre outil est le même auteur.
+    assert lots.auteurs([{"role": "codeur_3d", "etat": "fait", "agent": "cursor/claude-opus-5-5-high"}]) == {"claude"}
 
 
 def _check(nom, status="COMPLETED", conclusion="SUCCESS", quand="2026-09-27T10:00:00Z"):

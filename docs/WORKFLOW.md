@@ -13,24 +13,30 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (claude opus) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (claude opus · secours cursor claude-opus) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant)          │ trop gros : découpe en sous-lots · hors du jalon : bloque
                           ▼
-                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : claude sur le PC
+                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : claude sur le PC (secours cursor claude-opus)
                           │ le pilote commit, pousse, capture
                           ▼
                     CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus)
                           │ vert
                           ▼
-                    RELECTEUR (claude opus ; codex si claude a écrit)
+                    RELECTEUR (claude opus ; codex si un Claude a écrit, quel que soit l'outil)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus) ──► puis « bloque »
 ```
 
 Le **mécanicien** (cursor composer) répare master quand sa CI est rouge et
 résout les conflits d'une branche de lot. Le **chroniqueur** (cursor grok, en
-lecture seule) écrit le journal chaque matin ; la **boussole** (claude opus)
-compare chaque lundi les lots livrés à CAP.md.
+lecture seule) écrit le journal chaque matin ; la **boussole** (claude opus,
+secours cursor claude-opus) compare chaque lundi les lots livrés à CAP.md.
+
+Le relecteur n'est jamais de la **famille de modèle** qui a écrit le lot :
+Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
+(sa famille se lit dans le nom du modèle). Du code écrit par
+`cursor/claude-opus-5-5-high` est donc relu par codex, pas par
+`claude/claude-opus-5-5`.
 
 ## Qui fait quoi
 

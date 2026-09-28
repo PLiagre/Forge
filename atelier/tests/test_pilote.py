@@ -136,6 +136,25 @@ def test_l_auteur_claude_est_relu_par_codex(projet, gh, depot, tmp_path):
     assert not _gestes(gh, "fusion_auto")
 
 
+def test_du_code_ecrit_par_cursor_claude_est_relu_par_codex(projet, gh, depot, tmp_path):
+    # L'exclusion se fait par famille de modèle : du code écrit par
+    # cursor/claude-opus ne se relit pas par claude/claude-opus.
+    fait = marque(role="codeur_3d", etat="fait", essai=1, agent="cursor/opus-high", sha="a" * 40)
+    _en_cours(gh, commentaires=[fait], etiquettes=("lot", "en-cours", "pc"))
+    agents = Agents((0, "VERDICT: ACCEPTE"))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["codex"]
+
+
+def test_un_quota_claude_ne_retient_pas_le_chef(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Le service lit un lieu")
+    agents = Agents((1, "Error: You've hit your usage limit"),
+                    (0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude", "cursor-agent"]
+    assert any("brief écrit" in l and "cursor/opus-high" in l for l in lignes)
+
+
 def test_corriger_donne_la_revue_au_codeur(projet, gh, depot, tmp_path):
     revue = "## Relecture — CORRIGER\n\nLe test SC1 ne peut pas rougir (jeu/sim/tests/x.py:3).\n\n" + marque(
         role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus")

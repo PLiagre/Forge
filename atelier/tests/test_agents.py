@@ -9,7 +9,7 @@ import subprocess
 import pytest
 
 from atelier import agents as A
-from atelier.projet import Agent, ProjetIncomplet, charger, lire_poste, table_des_roles
+from atelier.projet import Agent, ProjetIncomplet, charger, lire_agent, lire_poste, table_des_roles
 
 from conftest import RACINE, Agents
 
@@ -30,7 +30,8 @@ def test_un_outil_inconnu_ou_un_role_absent_se_refuse(tmp_path, projet):
     with pytest.raises(ProjetIncomplet):
         lire_poste("codeur", "codex")
     texte = (projet.racine / "atelier.toml").read_text(encoding="utf-8")
-    (tmp_path / "atelier.toml").write_text(texte.replace('boussole    = "claude/opus"\n', ""), encoding="utf-8")
+    sans_boussole = "".join(l for l in texte.splitlines(keepends=True) if not l.startswith("boussole"))
+    (tmp_path / "atelier.toml").write_text(sans_boussole, encoding="utf-8")
     with pytest.raises(ProjetIncomplet, match="boussole"):
         charger(tmp_path)
 
@@ -199,9 +200,50 @@ def test_un_echec_ordinaire_ne_passe_pas_au_secours(projet, tmp_path):
 
 
 def test_le_modele_qui_ecrit_ne_relit_jamais(projet, tmp_path):
+    # `exclure` nomme des familles de modèles, pas des outils.
     agents = Agents((0, "VERDICT: ACCEPTE"))
     res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10, exclure=frozenset({"claude"}), executeur=agents)
     assert str(res.agent) == "codex/sol" and agents.outils() == ["codex"]
     personne = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
-                          exclure=frozenset({"claude", "codex"}), executeur=Agents())
+                          exclure=frozenset({"claude", "gpt"}), executeur=Agents())
     assert personne.personne and not personne.attente
+
+
+@pytest.mark.parametrize("agent,famille", [
+    ("claude/claude-opus-5-5", "claude"),
+    ("cursor/claude-opus-5-5-high", "claude"),
+    ("cursor/sonnet-5", "claude"),
+    ("codex/gpt-5.6-sol", "gpt"),
+    ("cursor/gpt-5.6", "gpt"),
+    ("cursor/grok-4.7-high", "grok"),
+    ("cursor/composer-2.5", "composer"),
+    ("cursor/gemini-3-pro", "gemini"),
+    ("cursor/kimi-k3", "kimi"),
+])
+def test_la_famille_d_un_modele_ne_depend_pas_de_l_outil(agent, famille):
+    # Claude Code ne porte que des modèles Claude, Codex que des modèles
+    # d'OpenAI ; Cursor porte tout : sa famille se lit dans le nom du modèle.
+    assert lire_agent(agent).famille == famille
+
+
+def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_path):
+    agents = Agents((0, "VERDICT: ACCEPTE"))
+    res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
+                     exclure=frozenset({lire_agent("cursor/opus-high").famille}), executeur=agents)
+    assert str(res.agent) == "codex/sol" and agents.outils() == ["codex"]
+    assert "claude/opus : écarté" in res.essais[0]
+
+
+def test_le_chef_et_la_boussole_ont_un_secours_hors_de_claude_code():
+    # Un quota de Claude Code arrêtait net le chef et la boussole.
+    projet = charger(RACINE)
+    for role in ("chef", "boussole"):
+        poste = projet.poste(role)
+        assert poste.principal.outil == "claude", role
+        assert any(a.outil != "claude" for a in poste.secours), role
+
+
+def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):
+    agents = Agents((1, "Error: You've hit your usage limit"), (0, "DECISION: BRIEF"))
+    res = A.invoquer(projet.poste("chef"), "prépare", tmp_path, 10, executeur=agents)
+    assert res.reussi and str(res.agent) == "cursor/opus-high"

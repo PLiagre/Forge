@@ -424,7 +424,8 @@ class Pilote:
                                    url=pr.get("url", ""), sha=tete, rapports=rapports)
         res = self._invoquer("relecteur", prompt, chemin, exclure=lots.auteurs(liste))
         if res.personne:
-            self._bloquer(lot.numero, "aucun relecteur possible : chaque outil du poste a écrit ce lot", numero_pr)
+            self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
+                                      f"({' · '.join(res.essais)})", numero_pr)
             return False
         if res.attente:
             self.noter(lot.numero, "attente", "relecteur : " + " · ".join(res.essais))
