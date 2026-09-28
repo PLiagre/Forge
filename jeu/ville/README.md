@@ -24,6 +24,9 @@ explicitement acceptée ou refusée. Rien ne s'applique en optimiste dans la vue
 
 ## Ce que ce contrat attend encore
 
-Il exige un `city_id` stable que le moteur ne produit pas encore — voir
-[`../unity/README.md`](../unity/README.md) et le lot 122. Tant que la cellule
-ne se subdivise pas, ce contrat est écrit, testé, et sans producteur.
+Rien que le moteur ne produise déjà : chaque message porte `cell_id`, l'entier
+de `data/world-1400.json` et la seule clé spatiale de `sim/`
+([`sim/MODELE.md`](../sim/MODELE.md)). Aucune identité de ville n'y figure. Le
+lieu, subdivision de la cellule, viendra au jalon 3 avec une identité
+**dérivée** de `cell_id`, jamais une seconde clé. `tests/` juge les exemples
+d'après le schéma lu.

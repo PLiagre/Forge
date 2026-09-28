@@ -1,0 +1,14 @@
+{
+  "name": "Victoria.CityMode.Contracts.EditorTests",
+  "rootNamespace": "Victoria.CityMode.Integration.Tests",
+  "references": [
+    "Victoria.CityMode.Contracts"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false
+}

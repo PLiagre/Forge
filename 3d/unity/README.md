@@ -40,15 +40,12 @@ cd VictoriaCityLab && git lfs pull
 
 ## Ce que la vue ville attend du moteur
 
-`M3-FH-05` et `M3-FH-07` étaient bloqués dans l'ancien dépôt, et pas seulement
-faute de travail. Le contrat exige un `city_id` stable ; `sim/MODELE.md`
-interdit explicitement tout `city_id` — « le bourg n'est pas déclaré, il est
-compté ». Le contrat réclamait une chose que le modèle avait déclaré ne jamais
-produire.
-
-La contradiction est tranchée dans [`../OBJECTIF.md`](../OBJECTIF.md) : **on
-subdivise la cellule en lieux**. Une cellule fait 11 186 km² en moyenne — une
-région, pas une ville. C'est le lot 122, et c'est lui qui débloque la vue.
+Rien de plus que ce qu'il produit : le contrat
+([`jeu/ville/`](../../jeu/ville/README.md)) identifie chaque message par
+`cell_id`, l'entier du monde et sa seule clé spatiale. Côté C#, le champ
+s'appelle aussi `cell_id` et vaut `-1` tant qu'il n'est pas posé ; la
+validation le refuse. Le lieu, subdivision de la cellule, viendra au jalon 3
+avec une identité **dérivée** de `cell_id`, jamais une seconde clé.
 
 ## Les tests
 

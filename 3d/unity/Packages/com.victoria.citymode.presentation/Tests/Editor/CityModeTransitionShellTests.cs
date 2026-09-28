@@ -30,7 +30,7 @@ namespace Victoria.CityMode.Presentation.Tests
             Assert.IsTrue(entered.Succeeded, entered.Message);
             Assert.AreEqual(CityModeTransitionState.City, shell.State);
             Assert.AreEqual(1, host.loadCount);
-            Assert.AreEqual("city:42", host.view.openedCityId);
+            Assert.AreEqual(42, host.view.openedCellId);
             Assert.AreEqual(9, host.view.presentedRevision);
             CollectionAssert.Contains(observer.states, CityModeTransitionState.LoadingCity);
             CollectionAssert.Contains(observer.progress, 0.5f);
@@ -40,7 +40,7 @@ namespace Victoria.CityMode.Presentation.Tests
             Assert.AreEqual(CityModeTransitionState.Map, shell.State);
             Assert.AreEqual(1, host.unloadCount);
             Assert.AreEqual(1, host.restoreCount);
-            Assert.AreEqual("cell:42", host.restoredContext.mapCellId);
+            Assert.AreEqual(42, host.restoredContext.cell_id);
             Assert.AreEqual("map:political", host.restoredContext.returnViewId);
             Assert.AreEqual("{\"x\":12,\"y\":34,\"zoom\":2}",
                 host.restoredContext.returnViewStateJson);
@@ -159,8 +159,7 @@ namespace Victoria.CityMode.Presentation.Tests
             return new CityLaunchContext
             {
                 sessionId = sessionId,
-                cityId = "city:42",
-                mapCellId = "cell:42",
+                cell_id = 42,
                 worldSeed = 42,
                 worldTick = 100,
                 stateRevision = 9,
@@ -254,13 +253,13 @@ namespace Victoria.CityMode.Presentation.Tests
 
         sealed class RecordingView : ICityModePresentationView
         {
-            public string openedCityId;
+            public int openedCellId = -1;
             public long presentedRevision = -1;
             public int closeCount;
 
             public void Open(CityLaunchContext context)
             {
-                openedCityId = context.cityId;
+                openedCellId = context.cell_id;
             }
 
             public void Present(CitySnapshotEnvelope snapshot)
@@ -284,7 +283,7 @@ namespace Victoria.CityMode.Presentation.Tests
             {
                 return new CitySnapshotEnvelope
                 {
-                    cityId = context.cityId,
+                    cell_id = context.cell_id,
                     worldTick = context.worldTick,
                     stateRevision = context.stateRevision,
                     isFullSnapshot = true,
@@ -299,7 +298,7 @@ namespace Victoria.CityMode.Presentation.Tests
                 {
                     sessionId = intent.sessionId,
                     intentId = intent.intentId,
-                    cityId = intent.cityId,
+                    cell_id = intent.cell_id,
                     status = CityIntentStatus.Accepted,
                     errorCode = CityModeErrorCode.None,
                     resultingWorldTick = intent.issuedAtWorldTick,

@@ -41,8 +41,8 @@ namespace Victoria.CityMode.Integration
         None = 0,
         InvalidProtocolVersion = 1,
         InvalidSessionId = 2,
-        InvalidCityId = 3,
-        InvalidMapCellId = 4,
+        InvalidCellId = 3,
+        InvalidMapCellId = 4, // plus émis : cell_id est la seule clé spatiale
         InvalidWorldTick = 5,
         InvalidStateRevision = 6,
         InvalidTimePolicy = 7,
@@ -62,8 +62,8 @@ namespace Victoria.CityMode.Integration
     {
         public int protocolVersion = CityModeProtocol.Current;
         public string sessionId = string.Empty;
-        public string cityId = string.Empty;
-        public string mapCellId = string.Empty;
+        // Nom filaire identique au schéma et à sim/ ; -1 : non calculé, 0 est une cellule.
+        public int cell_id = -1;
         public int worldSeed;
         public long worldTick;
         public long stateRevision;
@@ -83,7 +83,7 @@ namespace Victoria.CityMode.Integration
     {
         public int protocolVersion = CityModeProtocol.Current;
         public int payloadSchemaVersion = CityModeProtocol.SnapshotSchema;
-        public string cityId = string.Empty;
+        public int cell_id = -1;
         public long worldTick;
         public long stateRevision;
         public bool isFullSnapshot = true;
@@ -103,7 +103,7 @@ namespace Victoria.CityMode.Integration
         public int payloadSchemaVersion = CityModeProtocol.IntentSchema;
         public string sessionId = string.Empty;
         public string intentId = string.Empty;
-        public string cityId = string.Empty;
+        public int cell_id = -1;
         public long issuedAtWorldTick;
         public long expectedStateRevision;
         public string intentKind = string.Empty;
@@ -121,7 +121,7 @@ namespace Victoria.CityMode.Integration
         public int protocolVersion = CityModeProtocol.Current;
         public string sessionId = string.Empty;
         public string intentId = string.Empty;
-        public string cityId = string.Empty;
+        public int cell_id = -1;
         public CityIntentStatus status;
         public CityModeErrorCode errorCode;
         public long resultingWorldTick;
@@ -236,8 +236,8 @@ namespace Victoria.CityMode.Integration
             }
             if (!CityModeContractValidation.TryValidate(next, out error))
                 return false;
-            if (next.cityId != Context.cityId)
-                return FailOpen(CityModeErrorCode.InvalidCityId, out error);
+            if (next.cell_id != Context.cell_id)
+                return FailOpen(CityModeErrorCode.InvalidCellId, out error);
             if (next.worldTick < CurrentSnapshot.worldTick)
                 return FailOpen(CityModeErrorCode.InvalidWorldTick, out error);
             if (next.stateRevision < CurrentSnapshot.stateRevision)
@@ -259,8 +259,8 @@ namespace Victoria.CityMode.Integration
                 return false;
             if (intent.sessionId != Context.sessionId)
                 return FailOpen(CityModeErrorCode.InvalidSessionId, out error);
-            if (intent.cityId != Context.cityId)
-                return FailOpen(CityModeErrorCode.InvalidCityId, out error);
+            if (intent.cell_id != Context.cell_id)
+                return FailOpen(CityModeErrorCode.InvalidCellId, out error);
             if (intent.expectedStateRevision != CurrentSnapshot.stateRevision)
             {
                 receipt = ConflictReceipt(intent, CurrentSnapshot);
@@ -277,9 +277,10 @@ namespace Victoria.CityMode.Integration
             }
             if (!CityModeContractValidation.TryValidate(receipt, out error))
                 return false;
-            if (receipt.sessionId != intent.sessionId || receipt.intentId != intent.intentId ||
-                receipt.cityId != intent.cityId)
+            if (receipt.sessionId != intent.sessionId || receipt.intentId != intent.intentId)
                 return FailOpen(CityModeErrorCode.InvalidPayload, out error);
+            if (receipt.cell_id != intent.cell_id)
+                return FailOpen(CityModeErrorCode.InvalidCellId, out error);
             if (receipt.resultingWorldTick < CurrentSnapshot.worldTick ||
                 receipt.resultingStateRevision < CurrentSnapshot.stateRevision)
                 return FailOpen(CityModeErrorCode.InvalidStateRevision, out error);
@@ -305,8 +306,8 @@ namespace Victoria.CityMode.Integration
             CitySnapshotEnvelope snapshot,
             out CityModeErrorCode error)
         {
-            if (snapshot.cityId != context.cityId)
-                return FailOpen(CityModeErrorCode.InvalidCityId, out error);
+            if (snapshot.cell_id != context.cell_id)
+                return FailOpen(CityModeErrorCode.InvalidCellId, out error);
             if (snapshot.worldTick < context.worldTick)
                 return FailOpen(CityModeErrorCode.InvalidWorldTick, out error);
             if (snapshot.stateRevision < context.stateRevision)
@@ -327,7 +328,7 @@ namespace Victoria.CityMode.Integration
             {
                 sessionId = intent.sessionId,
                 intentId = intent.intentId,
-                cityId = intent.cityId,
+                cell_id = intent.cell_id,
                 status = CityIntentStatus.RevisionConflict,
                 errorCode = CityModeErrorCode.RevisionConflict,
                 resultingWorldTick = snapshot.worldTick,
@@ -351,10 +352,8 @@ namespace Victoria.CityMode.Integration
                 return Fail(CityModeErrorCode.InvalidProtocolVersion, out error);
             if (IsBlank(value.sessionId))
                 return Fail(CityModeErrorCode.InvalidSessionId, out error);
-            if (IsBlank(value.cityId))
-                return Fail(CityModeErrorCode.InvalidCityId, out error);
-            if (IsBlank(value.mapCellId))
-                return Fail(CityModeErrorCode.InvalidMapCellId, out error);
+            if (value.cell_id < 0)
+                return Fail(CityModeErrorCode.InvalidCellId, out error);
             if (value.worldTick < 0)
                 return Fail(CityModeErrorCode.InvalidWorldTick, out error);
             if (value.stateRevision < 0)
@@ -373,8 +372,8 @@ namespace Victoria.CityMode.Integration
                 return Fail(CityModeErrorCode.InvalidProtocolVersion, out error);
             if (value.payloadSchemaVersion != CityModeProtocol.SnapshotSchema)
                 return Fail(CityModeErrorCode.InvalidPayload, out error);
-            if (IsBlank(value.cityId))
-                return Fail(CityModeErrorCode.InvalidCityId, out error);
+            if (value.cell_id < 0)
+                return Fail(CityModeErrorCode.InvalidCellId, out error);
             if (value.worldTick < 0)
                 return Fail(CityModeErrorCode.InvalidWorldTick, out error);
             if (value.stateRevision < 0)
@@ -395,8 +394,8 @@ namespace Victoria.CityMode.Integration
                 return Fail(CityModeErrorCode.InvalidSessionId, out error);
             if (IsBlank(value.intentId))
                 return Fail(CityModeErrorCode.InvalidPayload, out error);
-            if (IsBlank(value.cityId))
-                return Fail(CityModeErrorCode.InvalidCityId, out error);
+            if (value.cell_id < 0)
+                return Fail(CityModeErrorCode.InvalidCellId, out error);
             if (value.issuedAtWorldTick < 0)
                 return Fail(CityModeErrorCode.InvalidWorldTick, out error);
             if (value.expectedStateRevision < 0)
@@ -415,8 +414,8 @@ namespace Victoria.CityMode.Integration
                 return Fail(CityModeErrorCode.InvalidSessionId, out error);
             if (IsBlank(value.intentId))
                 return Fail(CityModeErrorCode.InvalidPayload, out error);
-            if (IsBlank(value.cityId))
-                return Fail(CityModeErrorCode.InvalidCityId, out error);
+            if (value.cell_id < 0)
+                return Fail(CityModeErrorCode.InvalidCellId, out error);
             if (value.resultingWorldTick < 0)
                 return Fail(CityModeErrorCode.InvalidWorldTick, out error);
             if (value.resultingStateRevision < 0)

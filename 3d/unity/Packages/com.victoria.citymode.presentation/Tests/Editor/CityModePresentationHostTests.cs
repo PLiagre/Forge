@@ -65,14 +65,14 @@ namespace Victoria.CityMode.Presentation.Tests
                 session, out presentation, out error), error.ToString());
             var view = new RecordingView();
             Assert.IsTrue(presentation.TryAttachView(view, out error), error.ToString());
-            Assert.AreEqual("city:minimal", view.openedCityId);
+            Assert.AreEqual(1175, view.openedCellId);
             Assert.AreEqual(7, view.presentedRevision);
 
             var intent = new CityIntentEnvelope
             {
                 sessionId = "session:minimal",
                 intentId = "intent:1",
-                cityId = "city:minimal",
+                cell_id = 1175,
                 issuedAtWorldTick = 20,
                 expectedStateRevision = 7,
                 intentKind = "selection.inspect",
@@ -96,8 +96,7 @@ namespace Victoria.CityMode.Presentation.Tests
             var context = new CityLaunchContext
             {
                 sessionId = "session:minimal",
-                cityId = "city:minimal",
-                mapCellId = "cell:minimal",
+                cell_id = 1175,
                 worldSeed = 31,
                 worldTick = 20,
                 stateRevision = 7,
@@ -114,14 +113,14 @@ namespace Victoria.CityMode.Presentation.Tests
 
         sealed class RecordingView : ICityModePresentationView
         {
-            public string openedCityId;
+            public int openedCellId = -1;
             public long presentedRevision = -1;
             public string completedIntentId;
             public int closeCount;
 
             public void Open(CityLaunchContext context)
             {
-                openedCityId = context.cityId;
+                openedCellId = context.cell_id;
             }
 
             public void Present(CitySnapshotEnvelope snapshot)
@@ -149,7 +148,7 @@ namespace Victoria.CityMode.Presentation.Tests
             {
                 snapshot = new CitySnapshotEnvelope
                 {
-                    cityId = context.cityId,
+                    cell_id = context.cell_id,
                     worldTick = context.worldTick,
                     stateRevision = context.stateRevision,
                     isFullSnapshot = true,
@@ -168,7 +167,7 @@ namespace Victoria.CityMode.Presentation.Tests
                 submitCount++;
                 snapshot = new CitySnapshotEnvelope
                 {
-                    cityId = snapshot.cityId,
+                    cell_id = snapshot.cell_id,
                     worldTick = snapshot.worldTick + 1,
                     stateRevision = snapshot.stateRevision + 1,
                     isFullSnapshot = true,
@@ -179,7 +178,7 @@ namespace Victoria.CityMode.Presentation.Tests
                 {
                     sessionId = intent.sessionId,
                     intentId = intent.intentId,
-                    cityId = intent.cityId,
+                    cell_id = intent.cell_id,
                     status = CityIntentStatus.Accepted,
                     errorCode = CityModeErrorCode.None,
                     resultingWorldTick = snapshot.worldTick,

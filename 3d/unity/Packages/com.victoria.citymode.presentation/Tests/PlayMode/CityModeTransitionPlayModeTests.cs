@@ -34,7 +34,7 @@ namespace Victoria.CityMode.Presentation.PlayModeTests
             yield return Await(shell.ExitAsync(), value => exited = value);
             Assert.IsTrue(exited.Succeeded, exited.Message);
             Assert.AreEqual(CityModeTransitionState.Map, shell.State);
-            Assert.AreEqual("cell:play", host.restored.mapCellId);
+            Assert.AreEqual(1175, host.restored.cell_id);
             Assert.AreEqual("{\"camera\":\"preserved\"}", host.restored.returnViewStateJson);
         }
 
@@ -137,8 +137,7 @@ namespace Victoria.CityMode.Presentation.PlayModeTests
             return new CityLaunchContext
             {
                 sessionId = sessionId,
-                cityId = "city:play",
-                mapCellId = "cell:play",
+                cell_id = 1175,
                 worldSeed = 99,
                 worldTick = 400,
                 stateRevision = 12,
@@ -225,7 +224,7 @@ namespace Victoria.CityMode.Presentation.PlayModeTests
             {
                 return new CitySnapshotEnvelope
                 {
-                    cityId = context.cityId,
+                    cell_id = context.cell_id,
                     worldTick = context.worldTick,
                     stateRevision = context.stateRevision,
                     isFullSnapshot = true,
@@ -240,7 +239,7 @@ namespace Victoria.CityMode.Presentation.PlayModeTests
                 {
                     sessionId = intent.sessionId,
                     intentId = intent.intentId,
-                    cityId = intent.cityId,
+                    cell_id = intent.cell_id,
                     status = CityIntentStatus.Accepted,
                     errorCode = CityModeErrorCode.None,
                     resultingWorldTick = intent.issuedAtWorldTick,
