@@ -3027,3 +3027,23 @@ def test_service_reponse_figee_du_pont_est_celle_du_service():
         # Contre-épreuve : un tick de plus, et les octets ne sont plus ceux du fichier.
         requete_service(port, "/tick?n=1", "POST")
         assert requete_service(port, chemin)[2] != fige
+
+
+def test_service_reponse_figee_du_pont_tick4_est_celle_du_service():
+    """Lot #186 SC1 — le fichier figé du tick 4 est la réponse `/lieu` du service, décalée d'un tick."""
+    dossier = _REPO.parent / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
+    fige3 = (dossier / "lieu-graine0-tick3.json").read_bytes()
+    fige4 = (dossier / "lieu-graine0-tick4.json").read_bytes()
+    cell_id = json.loads(fige3.decode("utf-8"))["cell_id"]
+    with lancer_service(0) as port:
+        assert requete_service(port, "/tick?n=4", "POST")[1]["tick"] == 4
+        chemin = f"/lieu?cell={cell_id}"
+        statut, lieu, octets = requete_service(port, chemin)
+        assert statut is HTTPStatus.OK
+        assert octets == fige4
+        assert lieu["tick"] == 4
+        assert octets != fige3
+
+        # Contre-épreuve : un tick de plus, et les octets ne sont plus ceux du tick 4.
+        requete_service(port, "/tick?n=1", "POST")
+        assert requete_service(port, chemin)[2] != fige4
