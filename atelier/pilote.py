@@ -116,7 +116,7 @@ class Pilote:
         if not agent_parti and courant is not None:
             libres = {m: not o for m, o in occupe.items()}
             candidats = [l for l in ouvertes if "lot" in l.etiquettes]
-            suivant = lots.a_prendre(candidats, courant.numero, libres, frozenset(l.numero for l in ouvertes))
+            suivant = lots.a_prendre(candidats, courant.numero, libres, lots.bloquantes(ouvertes))
             if suivant is not None:
                 try:
                     self._chef(suivant, courant.titre)
@@ -300,7 +300,10 @@ class Pilote:
         crees = []
         for titre, quoi in sous:
             etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if lot.machine == "pc" else [])
-            n = self.gh.creer_issue(titre.strip(), f"{quoi.strip()}\n\nDécoupé du lot #{lot.numero} par le chef.",
+            # Les sous-lots se suivent dans l'ordre du chef : un morceau
+            # bloqué retient les suivants, qui s'appuient sur lui.
+            suite = f"\n\nDépend de : #{crees[-1]}" if crees else ""
+            n = self.gh.creer_issue(titre.strip(), f"{quoi.strip()}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
                                     etiquettes, titre_jalon or None)
             crees.append(n)
         liste = ", ".join(f"#{n}" for n in crees)
