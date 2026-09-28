@@ -71,6 +71,19 @@ jobs:
       - name: Les contrôles de la commande
         run: python -m pytest forge/tests/ -q
         working-directory: jeu
+      - name: Les autres tests du jeu
+        # Le contrat ville (jeu/ville/tests, lot #118), et tout dossier de
+        # tests qu'un lot ajoute ailleurs que dans ceux joués plus haut : un
+        # lot ne touche pas .github/, et un test que la CI ne joue pas ne
+        # protège rien (atelier/tests/test_ci.py le vérifie). Les --ignore
+        # sont exactement les dossiers des étapes ci-dessus. Code 5 : aucun
+        # test trouvé, ce n'est pas un échec.
+        working-directory: jeu
+        run: |
+          code=0
+          python -m pytest . -q --ignore=sim/tests --ignore=vues/tableau/tests --ignore=vues/chronique/tests \
+            --ignore=vues/relief/tests --ignore=forge/tests || code=$?
+          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then exit "$code"; fi
       - name: Lancer une simulation et l'afficher
         run: python -m forge --ticks 60 --seed 0 --pas 20 --sortie sortie
         working-directory: jeu
