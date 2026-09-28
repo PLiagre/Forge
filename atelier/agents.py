@@ -158,7 +158,8 @@ def lancement(commande: list[str], env: dict[str, str], *, windows: bool | None 
     if chemin.suffix.lower() == ".cmd":
         m = _SHIM_NPM.search(chemin.read_text(encoding="utf-8", errors="replace"))
         if m:
-            script = chemin.parent / m.group(1)
+            # Le shim écrit son chemin à la Windows : un segment à la fois.
+            script = chemin.parent.joinpath(*m.group(1).split("\\"))
             node = chemin.parent / "node.exe"
             node = str(node) if node.is_file() else chercher("node")
             if node and script.is_file():
