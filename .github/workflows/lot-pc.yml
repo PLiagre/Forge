@@ -12,6 +12,12 @@ name: lot-pc
 #   .atelier\chantiers\pc    le lot, sur sa branche ; sa Library Unity reste
 #                            chaude d'un lot à l'autre
 #   .atelier\journal         la branche des captures
+#
+# Le travail ne part que quand le PC est allumé : GitHub le garde en file un
+# jour, puis le pilote le renvoie. Pas de groupe de concurrence : il
+# n'admet qu'un travail en attente, et le build de la nuit en file pendant
+# que le PC dort annulait l'envoi d'un lot. Le runner unique enchaîne déjà
+# les travaux un par un.
 
 on:
   workflow_dispatch:
@@ -37,10 +43,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: pc-forge
-  cancel-in-progress: false
-
 jobs:
   lot:
     runs-on: [self-hosted, Windows, unity]
@@ -56,8 +58,10 @@ jobs:
           ACTION: ${{ inputs.action }}
         run: |
           $ErrorActionPreference = 'Stop'
-          # Le service ne voit pas le PATH de la session : on y remet les agents.
-          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
+          # Le service ne voit pas le PATH de la session : on y remet les agents
+          # (claude, codex par npm, cursor-agent). Les .cmd ne se lancent pas
+          # tels quels : `atelier.agents.lancement` appelle leur node.exe.
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:LOCALAPPDATA\cursor-agent;$env:PATH"
           git -C D:\Forge fetch --quiet --prune origin
           $atelier = 'D:\Forge\.atelier\pilote-pc'
           if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }

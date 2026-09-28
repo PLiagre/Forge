@@ -176,6 +176,10 @@ class FauxDepot(Depot):
         super().__init__(racine, "master", executeur=lambda argv, cwd: (0, "", ""))
         self.gestes: list[tuple] = []
         self.fichiers_changes: dict[str, list[str]] = {}
+        self.tete_ = "a" * 40
+
+    def tete(self, chemin):
+        return self.tete_
 
     def fetch(self):
         pass
@@ -203,7 +207,8 @@ class FauxDepot(Depot):
         for p in sorted(Path(chemin).rglob("*"), reverse=True):
             if p.is_file():
                 p.unlink()
-        return "b" * 40
+        self.tete_ = "b" * 40
+        return self.tete_
 
     def pousser(self, chemin, branche):
         self.gestes.append(("pousser", branche))

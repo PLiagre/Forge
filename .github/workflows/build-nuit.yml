@@ -8,6 +8,9 @@ name: build-nuit
 # les packs de l'Asset Store : il ne quitte jamais le PC.
 #
 # Un PC éteint à l'heure dite garde le travail en file : il part au réveil.
+# Pas de groupe de concurrence : il n'admet qu'un travail en attente, et ce
+# build en file annulait l'envoi d'un lot au PC (ou l'inverse). Le runner
+# unique enchaîne déjà les travaux un par un.
 
 on:
   schedule:
@@ -16,10 +19,6 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: pc-forge
-  cancel-in-progress: false
 
 jobs:
   build:

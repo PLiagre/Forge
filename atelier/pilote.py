@@ -15,10 +15,12 @@ fonction pure ; ici, on fait les gestes.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
+from typing import Callable
 
 from . import agents as agents_mod
 from . import captures, lots, prompts, traces
@@ -33,6 +35,19 @@ _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
 SECTIONS_BRIEF = ("## But", "## Règle du monde", "## Périmètre", "## Conditions de succès", "## Hors périmètre")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Codex, Cursor)"
+
+
+@dataclass
+class Photos:
+    """Ce qu'on a regardé d'une révision poussée : les images publiées, une
+    note pour le relecteur, et ce qui entre dans la marque (`unity`)."""
+
+    urls: list[str] = field(default_factory=list)
+    note: str = ""
+    marque: dict = field(default_factory=dict)
+
+
+Photographe = Callable[[Path, Lot, str], Photos]
 
 
 def _extrait(texte: str, lignes: int = 60) -> str:
@@ -79,6 +94,8 @@ class Pilote:
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._normaliser(ouvertes, jalons)
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
+        if self._reprendre(ouvertes):
+            ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._livrer_les_fermes()
 
         occupe = {"vps": False, "pc": False}
@@ -124,6 +141,33 @@ class Pilote:
             if re.search(r"### Machine\s+pc\b", lot.corps, re.I) and lots.ETIQUETTE_PC not in lot.etiquettes:
                 self.gh.etiqueter(lot.numero, [lots.ETIQUETTE_PC])
 
+    # ---------------------------------------------------------- reprendre
+    def _reprendre(self, ouvertes: list[Lot]) -> set[int]:
+        """Un lot remis « pret » alors que sa PR est ouverte reprend où il en
+        est. Relancer le chef coûterait un quota, et buterait sur la branche et
+        la PR qui existent déjà. La marque « reprise » sur la PR remet les
+        compteurs à zéro (`lots.depuis_reprise`) ; elle s'écrit avant
+        l'étiquette : sans elle, un lot « en-cours » recompterait ses échecs et
+        serait rebloqué."""
+        prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes]
+        if not prets:
+            return set()
+        par_branche = {p["headRefName"]: p for p in self.gh.prs_ouvertes()}
+        repris = set()
+        for lot in prets:
+            pr = par_branche.get(lot.branche(self.projet.prefixe_branche))
+            if pr is None:
+                continue
+            quand = self.maintenant().isoformat(timespec="seconds")
+            self.gh.commenter_pr(pr["number"], "🤖 **pilote** : lot repris (remis « pret » par le propriétaire). "
+                                               "Les essais du codeur, du chef et du relecteur repartent de zéro ; "
+                                               "le travail déjà poussé reste.\n\n"
+                                               f"{marque(role='pilote', etat='reprise', quand=quand)}")
+            self.gh.etiqueter(lot.numero, ["en-cours"], [e for e in ("pret", "idee", "bloque") if e in lot.etiquettes])
+            self.noter(lot.numero, "repris", f"PR #{pr['number']}")
+            repris.add(lot.numero)
+        return repris
+
     # ---------------------------------------------------------- avancer
     def _avancer(self, lot: Lot, jalons: list[lots.Jalon]) -> bool:
         branche = lot.branche(self.projet.prefixe_branche)
@@ -136,16 +180,18 @@ class Pilote:
         etat_ci, _ = etat_des_controles(pr)
         role = "codeur_3d" if lot.machine == "pc" else "codeur"
         action = lots.action_suivante(pr, etat_ci, liste, corrections_max=self.projet.corrections_max,
-                                      role_codeur=role, heures_depuis_envoi_pc=self._heures_envoi(liste, role))
+                                      role_codeur=role,
+                                      heures_depuis_envoi_pc=self._heures_depuis(liste, role, "envoye"),
+                                      heures_depuis_attente_pc=self._heures_depuis(liste, role, "attente"))
         numero_pr = pr["number"]
         if action.nom == "livrer":
             self._livrer(lot.numero, numero_pr)
             return False
         if action.nom == "bloquer":
-            self._bloquer(lot.numero, action.raison, numero_pr)
+            self._bloquer(lot.numero, action.raison, numero_pr if pr.get("state") == "OPEN" else None)
             return False
         if action.nom.startswith("attendre"):
-            self.noter(lot.numero, action.nom, f"PR #{numero_pr}")
+            self.noter(lot.numero, action.nom, f"PR #{numero_pr}" + (f" — {action.raison}" if action.raison else ""))
             return False
         if action.nom == "fusionner":
             self.gh.fusion_auto(numero_pr)
@@ -153,7 +199,12 @@ class Pilote:
             return False
         if action.nom == "conflit":
             return self._conflit(lot, pr, branche)
-        if action.nom in ("coder", "corriger_ci", "corriger_relecture", "relancer_pc"):
+        if action.nom == "relancer_pc":
+            # Le PC n'a pas répondu : on lui renvoie ce qu'on lui avait demandé.
+            derniere = next((m.get("action") for m in reversed(liste)
+                             if m.get("role") == role and m.get("etat") == "envoye"), None)
+            action = lots.Action(derniere or "coder", action.raison, action.essai)
+        if action.nom in ("coder", "corriger_ci", "corriger_relecture"):
             if lot.machine == "pc":
                 self._envoyer_pc(lot, pr, branche, action)
                 return False
@@ -165,19 +216,20 @@ class Pilote:
         self.noter(lot.numero, "action inconnue", action.nom)
         return False
 
-    def _heures_envoi(self, liste: list[dict], role: str) -> float | None:
-        envois = [m for m in liste if m.get("role") == role and m.get("etat") == "envoye" and m.get("quand")]
-        if not envois:
+    def _heures_depuis(self, liste: list[dict], role: str, etat: str) -> float | None:
+        """Les heures écoulées depuis la dernière marque `etat` de ce rôle."""
+        vues = [m for m in liste if m.get("role") == role and m.get("etat") == etat and m.get("quand")]
+        if not vues:
             return None
-        depuis = datetime.fromisoformat(envois[-1]["quand"])
+        depuis = datetime.fromisoformat(vues[-1]["quand"])
         return (self.maintenant() - depuis).total_seconds() / 3600
 
     # --------------------------------------------------------------- chef
     def _chef(self, lot: Lot, titre_jalon: str) -> bool:
         issue = self.gh.issue(lot.numero)
-        echecs = [m for m in lots.marques(issue.get("comments") or []) if m.get("role") == "chef" and m.get("etat") == "echec"]
-        if len(echecs) >= 2:
-            self._bloquer(lot.numero, f"le chef a échoué {len(echecs)} fois")
+        echecs = lots.echecs_du_chef(lots.marques(issue.get("comments") or []))
+        if echecs >= 2:
+            self._bloquer(lot.numero, f"le chef a échoué {echecs} fois")
             return False
         branche = lot.branche(self.projet.prefixe_branche)
         chemin_brief = lot.brief(self.projet.dossier_briefs)
@@ -202,7 +254,7 @@ class Pilote:
         raison = ""
         brief = Path(chemin) / chemin_brief
         if not res.reussi:
-            raison = f"le chef a rendu le code {res.code}"
+            raison = f"le chef a rendu le code {res.code} ({' · '.join(res.essais)})"
         elif decision != "BRIEF" or not brief.is_file():
             raison = "le chef n'a pas écrit de brief (« DECISION: BRIEF » absente ou fichier manquant)"
         else:
@@ -259,11 +311,16 @@ class Pilote:
 
     # ------------------------------------------------------------- coder
     def _coder(self, lot: Lot, pr: dict, branche: str, action: lots.Action, liste: list[dict], *,
-               role: str, chantier: str | int, poste: str | None = None, prompt: str | None = None) -> bool:
+               role: str, chantier: str | int, poste: str | None = None, prompt: str | None = None,
+               photographe: Photographe | None = None, marquer_attente: bool = False) -> bool:
         """Un passage du codeur (ou du mécanicien) sur la branche d'une PR.
 
         `role` est le nom écrit dans la marque ; `poste` celui de la ligne de
-        `[agents]` qui répond (le même, sauf pour le mécanicien de master)."""
+        `[agents]` qui répond (le même, sauf pour le mécanicien de master).
+        `photographe` regarde la révision poussée (la carte du monde par
+        défaut ; Unity sur le PC) ; ce qu'il voit entre dans le compte rendu.
+        `marquer_attente` : sur le PC, une attente s'écrit sur la PR, sinon
+        le pilote du VPS ne la voit pas et attend un jour."""
         numero_pr = pr["number"]
         chemin = self.depot.preparer(chantier, branche)
         if prompt is None:
@@ -276,14 +333,18 @@ class Pilote:
                                     chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction)
         res = self._invoquer(poste or role, prompt, chemin)
         passage = action.essai + 1
+        essais = " · ".join(res.essais)
         if res.attente:
-            self.noter(lot.numero, "attente", f"{role} : " + " · ".join(res.essais))
+            self.noter(lot.numero, "attente", f"{role} : {essais}")
+            if marquer_attente:
+                self.marquer_attente(numero_pr, role, f"aucun agent n'a pu répondre : {essais}")
             return True
         if not res.reussi:
             self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) a échoué (code {res.code}).\n\n"
+                                            f"Essais : {essais}\n\n"
                                             f"```\n{_extrait(res.texte, 40)}\n```\n\n"
                                             f"{marque(role=role, etat='echec', essai=passage, agent=str(res.agent))}")
-            self.noter(lot.numero, f"{role} en échec", f"code {res.code}", str(res.agent))
+            self.noter(lot.numero, f"{role} en échec", f"code {res.code} — {essais}", str(res.agent))
             return True
         interdits = [f for f in self.depot.changements(chemin) if self.projet.interdit(f)]
         if interdits:
@@ -301,17 +362,30 @@ class Pilote:
             self.gh.pr_prete(numero_pr)
         retires = ("\n\n⚠️ Changements retirés, hors de portée d'un lot : "
                    + ", ".join(f"`{f}`" for f in interdits)) if interdits else ""
-        images = captures.photographier_lot(self.depot, self.gh.depot, chemin, lot.numero, sha,
-                                            f"{self.maintenant():%Y-%m-%d}")
-        photos = "".join(f"\n\n📷 ![capture du lot #{lot.numero}]({url})" for url in images)
+        vu = (photographe or self._photographier)(chemin, lot, sha)
+        photos = "".join(f"\n\n📷 ![capture du lot #{lot.numero}]({url})" for url in vu.urls)
+        note = f"\n\n{vu.note}" if vu.note else ""
         # Un agent cite ses fichiers par leur chemin sur la machine du lot :
         # dans la PR, ce sont des liens vers la branche.
         texte = res.texte.replace(f"{chemin}/", f"https://github.com/{self.gh.depot}/blob/{branche}/")
         self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) — {quoi}, révision `{sha[:7]}`.\n\n"
-                                        f"{_extrait(texte)}{retires}{photos}\n\n"
-                                        f"{marque(role=role, etat='fait', essai=passage, agent=str(res.agent), sha=sha)}")
+                                        f"{_extrait(texte)}{retires}{note}{photos}\n\n"
+                                        + marque(role=role, etat="fait", essai=passage, agent=str(res.agent), sha=sha,
+                                                 **vu.marque))
         self.noter(lot.numero, f"{role} : {quoi}", f"PR #{numero_pr}", str(res.agent))
         return True
+
+    def _photographier(self, chemin: Path, lot: Lot, sha: str) -> Photos:
+        return Photos(urls=captures.photographier_lot(self.depot, self.gh.depot, chemin, lot.numero, sha,
+                                                      f"{self.maintenant():%Y-%m-%d}"))
+
+    def marquer_attente(self, numero_pr: int, role: str, raison: str) -> None:
+        """Le PC n'a pas pu travailler : la marque répond à l'envoi sans
+        compter comme un passage du codeur, et le pilote renvoie dans l'heure."""
+        quand = self.maintenant().isoformat(timespec="seconds")
+        self.gh.commenter_pr(numero_pr, f"🤖 **{role}** (PC) : le lot attend — {raison}\n\n"
+                                        "Aucun essai n'est compté ; le pilote renvoie le travail dans une heure.\n\n"
+                                        f"{marque(role=role, etat='attente', quand=quand)}")
 
     def _erreur_ci(self, numero_pr: int) -> str:
         try:
@@ -333,7 +407,8 @@ class Pilote:
     # ------------------------------------------------------------- relire
     def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict]) -> bool:
         numero_pr, tete = pr["number"], pr["headRefOid"]
-        echecs = [m for m in liste if m.get("role") == "relecteur" and m.get("etat") == "echec" and m.get("sha") == tete]
+        echecs = [m for m in lots.depuis_reprise(liste)
+                  if m.get("role") == "relecteur" and m.get("etat") == "echec" and m.get("sha") == tete]
         if len(echecs) >= 2:
             self._bloquer(lot.numero, "le relecteur a échoué deux fois sur la même révision", numero_pr)
             return False
@@ -356,7 +431,7 @@ class Pilote:
             return True
         verdicts = _VERDICT.findall(res.texte) if res.reussi else []
         if not verdicts:
-            raison = f"code {res.code}" if not res.reussi else "verdict illisible"
+            raison = f"code {res.code} ; {' · '.join(res.essais)}" if not res.reussi else "verdict illisible"
             self.gh.commenter_pr(numero_pr, f"🤖 **relecteur** ({res.agent}) : relecture sans verdict ({raison}).\n\n"
                                             f"{marque(role='relecteur', etat='echec', sha=tete, agent=str(res.agent))}")
             self.noter(lot.numero, "relecteur en échec", raison, str(res.agent))
@@ -405,8 +480,10 @@ class Pilote:
             "issue": str(lot.numero), "branche": branche, "pr": str(numero_pr),
             "essai": str(action.essai), "action": action.nom})
         quand = self.maintenant().isoformat(timespec="seconds")
-        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : travail envoyé au PC ({action.nom}).\n\n"
-                                        f"{marque(role='codeur_3d', etat='envoye', essai=action.essai + 1, quand=quand)}")
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : travail envoyé au PC ({action.nom}). Il part quand le PC "
+                                        "est allumé ; sans réponse en 24 h, il est renvoyé.\n\n"
+                                        + marque(role="codeur_3d", etat="envoye", essai=action.essai + 1,
+                                                 action=action.nom, quand=quand))
         self.noter(lot.numero, "envoyé au PC", action.nom)
 
     # --------------------------------------------------- livrer, bloquer
@@ -433,9 +510,12 @@ class Pilote:
 
     def _bloquer(self, numero: int, raison: str, numero_pr: int | None = None) -> None:
         self.gh.etiqueter(numero, ["bloque"], ["en-cours", "pret", "idee"])
+        reprendre = ("sa PR reste ouverte : le pilote la reprend où elle en est, sans relancer le chef, "
+                     "et ses essais repartent de zéro" if numero_pr else
+                     "le chef reprend le lot, avec ses essais remis à zéro")
         self.gh.commenter_issue(numero, f"🤖 **pilote** : lot bloqué — {raison}.\n\n"
-                                        "Pour le reprendre : retirer « bloque » et remettre « pret », "
-                                        "ou corriger en mode direct.\n\n"
+                                        "Pour le reprendre, corriger la cause (en mode direct si elle est dans la "
+                                        f"chaîne), puis retirer « bloque » et remettre « pret » : {reprendre}.\n\n"
                                         f"{marque(role='pilote', etat='bloque', raison=raison)}")
         self.noter(numero, "bloqué", raison)
 
