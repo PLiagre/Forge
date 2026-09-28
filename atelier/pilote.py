@@ -94,9 +94,11 @@ class Pilote:
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._normaliser(ouvertes, jalons)
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
-        if self._reprendre(ouvertes):
+        fermees = self.gh.issues("closed")
+        bloq = lots.bloquantes(ouvertes, [Lot.de(i) for i in fermees])
+        if self._attendre_dependances(ouvertes, bloq) | self._reprendre(ouvertes, bloq):
             ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
-        self._livrer_les_fermes()
+        self._livrer_les_fermes(fermees)
 
         occupe = {"vps": False, "pc": False}
         agent_parti = False
@@ -116,7 +118,7 @@ class Pilote:
         if not agent_parti and courant is not None:
             libres = {m: not o for m, o in occupe.items()}
             candidats = [l for l in ouvertes if "lot" in l.etiquettes]
-            suivant = lots.a_prendre(candidats, courant.numero, libres, lots.bloquantes(ouvertes))
+            suivant = lots.a_prendre(candidats, courant.numero, libres, bloq)
             if suivant is not None:
                 try:
                     self._chef(suivant, courant.titre)
@@ -142,14 +144,35 @@ class Pilote:
                 self.gh.etiqueter(lot.numero, [lots.ETIQUETTE_PC])
 
     # ---------------------------------------------------------- reprendre
-    def _reprendre(self, ouvertes: list[Lot]) -> set[int]:
+    def _attendre_dependances(self, ouvertes: list[Lot], bloq: frozenset[int]) -> set[int]:
+        """Un lot en cours dont une dépendance est encore ouverte n'avance
+        pas et ne tient pas sa machine : il redevient « pret », et la reprise
+        le relance quand elles sont livrées, compteurs remis à zéro. Mesuré le
+        28 septembre 2026 : #184 (le panneau), pris avant #185 et #186 (le
+        client qu'il lit), gardait le PC et brûlait ses essais."""
+        rendus = set()
+        for lot in ouvertes:
+            attend = sorted(lot.dependances & bloq)
+            if lot.etat != "en-cours" or not attend:
+                continue
+            liste = ", ".join(f"#{n}" for n in attend)
+            self.gh.etiqueter(lot.numero, ["pret"], ["en-cours"])
+            self.gh.commenter_issue(lot.numero, f"🤖 **pilote** : lot remis « pret » — il dépend de {liste}, pas encore "
+                                                "livré. Il sera repris où il en est quand ce sera fait, essais remis "
+                                                f"à zéro ; d'ici là, il rend sa machine.\n\n"
+                                                f"{marque(role='pilote', etat='attend', raison=f'dépend de {liste}')}")
+            self.noter(lot.numero, "remis pret", f"dépend de {liste}")
+            rendus.add(lot.numero)
+        return rendus
+
+    def _reprendre(self, ouvertes: list[Lot], bloq: frozenset[int] = frozenset()) -> set[int]:
         """Un lot remis « pret » alors que sa PR est ouverte reprend où il en
-        est. Relancer le chef coûterait un quota, et buterait sur la branche et
-        la PR qui existent déjà. La marque « reprise » sur la PR remet les
-        compteurs à zéro (`lots.depuis_reprise`) ; elle s'écrit avant
-        l'étiquette : sans elle, un lot « en-cours » recompterait ses échecs et
-        serait rebloqué."""
-        prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes]
+        est, dès que ses dépendances sont livrées. Relancer le chef coûterait
+        un quota, et buterait sur la branche et la PR qui existent déjà. La
+        marque « reprise » sur la PR remet les compteurs à zéro
+        (`lots.depuis_reprise`) ; elle s'écrit avant l'étiquette : sans elle,
+        un lot « en-cours » recompterait ses échecs et serait rebloqué."""
+        prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes and not l.dependances & bloq]
         if not prets:
             return set()
         par_branche = {p["headRefName"]: p for p in self.gh.prs_ouvertes()}
@@ -159,7 +182,7 @@ class Pilote:
             if pr is None:
                 continue
             quand = self.maintenant().isoformat(timespec="seconds")
-            self.gh.commenter_pr(pr["number"], "🤖 **pilote** : lot repris (remis « pret » par le propriétaire). "
+            self.gh.commenter_pr(pr["number"], "🤖 **pilote** : lot repris (remis « pret »). "
                                                "Les essais du codeur, du chef et du relecteur repartent de zéro ; "
                                                "le travail déjà poussé reste.\n\n"
                                                f"{marque(role='pilote', etat='reprise', quand=quand)}")
@@ -502,10 +525,10 @@ class Pilote:
         self.depot.retirer(numero)
         self.noter(numero, "livré", f"PR #{numero_pr}" if numero_pr else "")
 
-    def _livrer_les_fermes(self) -> None:
+    def _livrer_les_fermes(self, fermees: list[dict] | None = None) -> None:
         """Une PR fusionnée ferme son issue (« Closes #N ») avant que le
         pilote ne la voie : l'issue fermée encore « en-cours » est livrée."""
-        for issue in self.gh.issues("closed"):
+        for issue in self.gh.issues("closed") if fermees is None else fermees:
             lot = Lot.de(issue)
             if lot.etat == "en-cours":
                 resume = self.gh.pr_de_branche(lot.branche(self.projet.prefixe_branche))

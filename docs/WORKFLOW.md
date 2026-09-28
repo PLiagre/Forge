@@ -63,7 +63,12 @@ Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
 Le chef découpe en sous-lots (`pret`, même jalon, même machine), écrits
 « Découpé du lot #N », et ferme le lot d'origine. Les sous-lots se suivent
 dans l'ordre du chef : chacun dépend du précédent. Un lot qui « dépend de
-#N » attend tous les sous-lots de #N, pas seulement sa fermeture.
+#N » attend tous les sous-lots de #N (et les leurs, si un sous-lot est
+découpé à son tour), pas seulement sa fermeture.
+
+Un lot **en cours** dont une dépendance est encore ouverte redevient `pret`
+et rend sa machine ; la reprise le relance quand elle est livrée, essais
+remis à zéro.
 
 ### Reprendre un lot bloqué
 

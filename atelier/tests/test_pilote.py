@@ -109,6 +109,37 @@ def test_un_lot_attend_les_sous_lots_ouverts_du_lot_dont_il_depend(projet, gh, d
     assert _gestes(gh, "creer_pr")[-1][1] == "lot/20-le-lanceur"
 
 
+def test_un_lot_en_cours_qui_attend_une_dependance_rend_sa_machine(projet, gh, depot, tmp_path):
+    # Mesuré le 28 septembre 2026 : #184 (le panneau), pris avant #185 et #186
+    # (le client qu'il lit), gardait le PC et brûlait ses essais : le codeur
+    # refusait, à raison, de coder sans le client.
+    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "en-cours", "pc"), corps="Dépend de : #11")
+    refus = marque(role="codeur_3d", etat="echec", essai=1, agent="claude/opus")
+    gh.ajouter_pr(50, BRANCHE, commentaires=[ENVOI_PC, refus])
+    gh.ajouter_issue(11, "Le client", ("lot", "pret", "pc"))
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/11-le-client.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "pret" in etiquettes and "en-cours" not in etiquettes
+    assert "#11" in gh.issues_[10]["comments"][-1]["body"]
+    assert not _gestes(gh, "lancer_workflow")
+    # La machine rendue, le client est pris.
+    assert _gestes(gh, "creer_pr")[-1][1] == "lot/11-le-client"
+
+
+def test_un_lot_pret_ne_se_reprend_qu_une_fois_ses_dependances_livrees(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "pret", "pc"), corps="Dépend de : #11")
+    gh.ajouter_pr(50, BRANCHE, commentaires=[ENVOI_PC, ECHEC_127])
+    gh.ajouter_issue(11, "Le client", ("lot", "en-cours"))
+    gh.ajouter_pr(51, "lot/11-le-client", ci="attente", commentaires=[FAIT_CODEX])
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert not any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
+    gh.issues_[11]["state"] = "CLOSED"
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
+    assert _gestes(gh, "lancer_workflow")[-1][2]["essai"] == "0"
+
+
 def test_un_brief_trop_gros_est_un_echec_puis_un_blocage(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "Le service lit un lieu")
     gros = BRIEF_BON.replace("120 lignes", "450 lignes")

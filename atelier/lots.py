@@ -149,13 +149,21 @@ class Lot:
         return int(m.group(1)) if m else None
 
 
-def bloquantes(ouvertes: list[Lot]) -> frozenset[int]:
+def bloquantes(ouvertes: list[Lot], fermees: list[Lot] = ()) -> frozenset[int]:
     """Les issues qu'un lot qui en dépend attend encore : chaque issue
-    ouverte, et un lot découpé tant qu'un de ses sous-lots est ouvert. Sans
+    ouverte, et un lot découpé tant qu'un de ses descendants est ouvert. Sans
     cela, « Dépend de : #119 » se libérait dès la découpe de #119, avant ses
-    morceaux (mesuré le 28 septembre 2026 sur #120)."""
-    return (frozenset(l.numero for l in ouvertes)
-            | frozenset(l.decoupe_de for l in ouvertes if l.decoupe_de is not None))
+    morceaux (mesuré le 28 septembre 2026 sur #120). Les découpes s'emboîtent
+    (#119 → #183 → #185) : les lots fermés disent de qui ils descendent."""
+    parents = {l.numero: l.decoupe_de for l in (*ouvertes, *fermees) if l.decoupe_de is not None}
+    resultat = {l.numero for l in ouvertes}
+    for lot in ouvertes:
+        n, vus = lot.decoupe_de, set()
+        while n is not None and n not in vus:
+            vus.add(n)
+            resultat.add(n)
+            n = parents.get(n)
+    return frozenset(resultat)
 
 
 def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool],
