@@ -144,16 +144,21 @@ Termine par un compte rendu court."""
 
 
 def chroniqueur(*, faits: str) -> str:
-    return f"""Tu es le chroniqueur de Forge. Écris le journal du matin pour le propriétaire, qui le lit sur son téléphone.
+    return f"""Tu es le chroniqueur de Forge. Écris le journal du matin pour le propriétaire. Il le lit sur son téléphone en quelques minutes ; il ne valide rien : il veut savoir ce qui a changé dans le jeu, ce que la chaîne a vécu depuis hier, et ce qu'il doit faire.
 
-Voici les faits, relevés par le pilote sur GitHub. Ce sont les seuls que tu as le droit d'écrire : n'invente ni lot, ni nombre, ni cause.
+Voici les faits, relevés par le pilote sur GitHub et dans son journal. Ce sont les seuls que tu as le droit d'écrire : n'invente ni lot, ni nombre, ni cause.
 -----
 {faits.strip()}
 -----
 
-Écris en français, court, dans cet ordre et avec ces titres :
-### Livré hier
+Écris en français clair, dans cet ordre et avec ces titres :
+### Ce qui a changé dans le jeu
+Pour chaque lot livré : une ou deux phrases sur ce que le joueur ou le monde y gagne, tirées de « Ce que dit le codeur » et de la relecture (pas le titre recopié), puis ses captures, chacune précédée d'une légende d'une ligne. Aucun lot livré : dis-le en une phrase.
+### Ce que la chaîne a vécu
+Ce qui a avancé, attendu ou échoué, et pourquoi (quota, session, PC éteint ou en veille, découpe, reprise), lot par lot ; puis les changements de la machine (mode direct) en une ligne.
 ### Bloqué, et pourquoi
+### À faire par toi
+Les gestes que demandent les faits (« À FAIRE PAR LE PROPRIÉTAIRE »), un par ligne, avec la commande exacte ; « Rien. » s'il n'y en a pas.
 ### Prévu aujourd'hui
 ### Jalon en cours
 Garde tels quels les liens et les images (lignes `![…](…)`) des faits. N'écris rien d'autre que le journal."""

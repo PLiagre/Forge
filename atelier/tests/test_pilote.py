@@ -245,6 +245,17 @@ def test_un_quota_claude_ne_retient_pas_le_chef(projet, gh, depot, tmp_path):
     assert any("brief écrit" in l and "cursor/opus-high" in l for l in lignes)
 
 
+def test_un_secours_qui_repond_laisse_au_journal_la_raison_du_refus(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Le service lit un lieu")
+    agents = Agents((1, "You've hit your monthly spend limit · resets 5:50pm"),
+                    (0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    entrees = [json.loads(l) for l in (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()]
+    secours = [e for e in entrees if e["action"] == "secours"]
+    assert secours and "monthly spend limit" in secours[0]["detail"] and secours[0]["lot"] == 10
+    assert secours[0]["agent"] == "cursor/opus-high"
+
+
 def test_corriger_donne_la_revue_au_codeur(projet, gh, depot, tmp_path):
     revue = "## Relecture — CORRIGER\n\nLe test SC1 ne peut pas rougir (jeu/sim/tests/x.py:3).\n\n" + marque(
         role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus")
