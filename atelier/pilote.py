@@ -81,9 +81,17 @@ class Pilote:
             pass
         self.lignes.append(f"#{lot} {action}" + (f" [{agent}]" if agent else "") + (f" — {detail}" if detail else ""))
 
-    def _invoquer(self, role: str, prompt: str, chemin: Path, *, exclure=frozenset()) -> agents_mod.Resultat:
-        return agents_mod.invoquer(self.projet.poste(role), prompt, chemin, self.projet.delai(role),
-                                   exclure=exclure, executeur=self.executeur_agents)
+    def _invoquer(self, role: str, prompt: str, chemin: Path, *, lot: int | str,
+                  exclure=frozenset()) -> agents_mod.Resultat:
+        res = agents_mod.invoquer(self.projet.poste(role), prompt, chemin, self.projet.delai(role),
+                                  exclure=exclure, executeur=self.executeur_agents)
+        # Un secours a répondu : pourquoi les précédents ne l'ont pas fait
+        # entre au journal, sinon un quota ou une session perdue ne se voit
+        # nulle part (le chef de #184, le 28 septembre 2026).
+        refus = [e for e in res.essais[:-1] if "écarté" not in e]
+        if res.agent is not None and refus:
+            self.noter(lot, "secours", f"{role} : " + " · ".join(refus), str(res.agent))
+        return res
 
     # --------------------------------------------------------------- tour
     def tour(self) -> list[str]:
@@ -263,7 +271,7 @@ class Pilote:
         prompt = prompts.chef(self.projet, numero=lot.numero, titre=lot.titre, corps=lot.corps,
                               commentaires=commentaires, jalon=lot.jalon or 0, jalon_titre=titre_jalon,
                               machine=lot.machine, chemin_brief=chemin_brief)
-        res = self._invoquer("chef", prompt, chemin)
+        res = self._invoquer("chef", prompt, chemin, lot=lot.numero)
         if res.attente:
             self.noter(lot.numero, "attente", "chef : " + " · ".join(res.essais))
             return True
@@ -357,7 +365,7 @@ class Pilote:
                 correction = prompts.correction_relecture(self._derniere_revue(pr))
             prompt = prompts.codeur(self.projet, numero=lot.numero, titre=lot.titre,
                                     chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction)
-        res = self._invoquer(poste or role, prompt, chemin)
+        res = self._invoquer(poste or role, prompt, chemin, lot=lot.numero)
         passage = action.essai + 1
         essais = " · ".join(res.essais)
         if res.attente:
@@ -448,7 +456,7 @@ class Pilote:
         prompt = prompts.relecteur(self.projet, numero=lot.numero, titre=lot.titre,
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
                                    url=pr.get("url", ""), sha=tete, rapports=rapports)
-        res = self._invoquer("relecteur", prompt, chemin, exclure=lots.auteurs(liste))
+        res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
                                       f"({' · '.join(res.essais)})", numero_pr)
@@ -482,7 +490,7 @@ class Pilote:
             self.noter(lot.numero, "base fusionnée", "sans conflit")
             return False
         prompt = prompts.mecanicien_conflit(self.projet, numero=lot.numero, branche=branche, fichiers=conflits)
-        res = self._invoquer("mecanicien", prompt, chemin)
+        res = self._invoquer("mecanicien", prompt, chemin, lot=lot.numero)
         if res.attente:
             self.depot.git_code("merge", "--abort", cwd=chemin)
             self.noter(lot.numero, "attente", "mécanicien : " + " · ".join(res.essais))
@@ -569,7 +577,7 @@ class Pilote:
         except Exception:  # noqa: BLE001 — un journal illisible ne retient pas la réparation
             erreur = ""
         prompt = prompts.mecanicien_master(self.projet, url=run.get("url", ""), erreur=erreur)
-        res = self._invoquer("mecanicien", prompt, chemin)
+        res = self._invoquer("mecanicien", prompt, chemin, lot="master")
         if res.attente:
             self.noter("master", "attente", "mécanicien : " + " · ".join(res.essais))
             return True
