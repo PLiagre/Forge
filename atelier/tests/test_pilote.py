@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from atelier.lots import marque, marques
+from atelier.lots import Lot, marque, marques
 from atelier.pilote import Pilote
 
 from conftest import Agents
@@ -77,6 +77,36 @@ def test_le_chef_decoupe_un_lot_trop_gros(projet, gh, depot, tmp_path):
     assert crees == ["Le service", "Le panneau"]
     assert ("fermer_issue", 10, True) in gh.gestes
     assert all(i["milestone"]["title"] == "J1 — Le pont" for n, i in gh.issues_.items() if n > 100)
+
+
+def test_les_sous_lots_se_suivent_et_ce_qui_attendait_le_lot_decoupe_les_attend(projet, gh, depot, tmp_path):
+    # Mesuré le 28 septembre 2026 : #119 découpé en #183 et #184 ; #120, qui
+    # « dépend de #119 », devenait libre au tour suivant, avant ses morceaux.
+    gh.ajouter_issue(10, "Tout le pont")
+    gh.ajouter_issue(20, "Le lanceur", corps="Dépend de : #10")
+    texte = "DECISION: DECOUPE\n- Le service :: sim sert un lieu\n- Le panneau :: Unity affiche le lieu\n"
+    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
+    service, panneau = 101, 102
+    assert Lot.de(gh.issues_[panneau]).dependances == frozenset({service})
+    # Le tour suivant prend le premier sous-lot, jamais le lanceur.
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/101-le-service.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[-1][1] == "lot/101-le-service"
+
+
+def test_un_lot_attend_les_sous_lots_ouverts_du_lot_dont_il_depend(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Tout le pont", etat="CLOSED")
+    gh.ajouter_issue(20, "Le lanceur", corps="Dépend de : #10")
+    # Le sous-lot ouvert est sur le PC : la machine du VPS est libre, seule la
+    # dépendance retient le lanceur.
+    gh.ajouter_issue(30, "Le panneau", ("lot", "en-cours", "pc"), corps="Ce qu'il fait.\n\nDécoupé du lot #10 par le chef.")
+    fait_pc = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
+    gh.ajouter_pr(60, "lot/30-le-panneau", ci="attente", commentaires=[fait_pc])
+    assert _pilote(projet, gh, depot, Agents(), tmp_path).tour() == ["#30 attendre_ci — PR #60"]
+    gh.issues_[30]["state"] = "CLOSED"
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/20-le-lanceur.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[-1][1] == "lot/20-le-lanceur"
 
 
 def test_un_brief_trop_gros_est_un_echec_puis_un_blocage(projet, gh, depot, tmp_path):

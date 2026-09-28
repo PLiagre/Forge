@@ -58,6 +58,13 @@ Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
 | `livre` | fusionné | le pilote |
 | `pc` | demande Unity ou Blender : le travail part sur le PC | le formulaire |
 
+### Découper un lot trop gros
+
+Le chef découpe en sous-lots (`pret`, même jalon, même machine), écrits
+« Découpé du lot #N », et ferme le lot d'origine. Les sous-lots se suivent
+dans l'ordre du chef : chacun dépend du précédent. Un lot qui « dépend de
+#N » attend tous les sous-lots de #N, pas seulement sa fermeture.
+
 ### Reprendre un lot bloqué
 
 Corriger la cause (en mode direct si elle est dans la chaîne), puis retirer
