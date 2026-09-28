@@ -124,8 +124,21 @@ class GitHub:
     def commenter_pr(self, numero: int, texte: str) -> None:
         self.gh("pr", "comment", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
 
-    def fusion_auto(self, numero: int) -> None:
-        self.gh("pr", "merge", str(numero), "-R", self.depot, "--auto", "--squash")
+    def fusion_auto(self, numero: int, tete: str | None = None) -> None:
+        """Fusion (squash) dès que les contrôles exigés sont verts, de la
+        révision `tete` seulement : celle que le relecteur a jugée.
+
+        Une PR déjà fusionnable refuse l'auto-fusion (« clean status », mesuré
+        le 28 septembre 2026 sur la PR #174 : le pilote échouait à chaque tour).
+        On la fusionne alors tout de suite : c'est ce que l'auto-fusion aurait
+        fait, et la protection de master s'applique pareil."""
+        garde = ["--match-head-commit", tete] if tete else []
+        try:
+            self.gh("pr", "merge", str(numero), "-R", self.depot, "--auto", "--squash", *garde)
+        except GitHubErreur as e:
+            if "clean status" not in str(e):
+                raise
+            self.gh("pr", "merge", str(numero), "-R", self.depot, "--squash", *garde)
 
     def fermer_pr(self, numero: int, commentaire: str) -> None:
         self.gh("pr", "close", str(numero), "-R", self.depot, "--comment", commentaire)

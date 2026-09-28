@@ -194,7 +194,7 @@ class Pilote:
             self.noter(lot.numero, action.nom, f"PR #{numero_pr}" + (f" — {action.raison}" if action.raison else ""))
             return False
         if action.nom == "fusionner":
-            self.gh.fusion_auto(numero_pr)
+            self.gh.fusion_auto(numero_pr, pr.get("headRefOid"))
             self.noter(lot.numero, "fusion automatique demandée", f"PR #{numero_pr}")
             return False
         if action.nom == "conflit":
@@ -442,7 +442,7 @@ class Pilote:
         self.gh.commenter_pr(numero_pr, f"## Relecture — {verdict}\n\nRévision `{tete[:7]}` · relu par {res.agent}\n\n"
                                         f"{texte}\n\n{marque(role='relecteur', verdict=verdict, sha=tete, agent=str(res.agent))}")
         if verdict == "ACCEPTE":
-            self.gh.fusion_auto(numero_pr)
+            self.gh.fusion_auto(numero_pr, tete)
         self.noter(lot.numero, f"relecture {verdict}", f"PR #{numero_pr}", str(res.agent))
         return True
 
@@ -578,7 +578,7 @@ class Pilote:
         if action.nom == "relire":
             return self._relire(faux, pr, pr["headRefName"], liste)
         if action.nom == "fusionner":
-            self.gh.fusion_auto(pr["number"])
+            self.gh.fusion_auto(pr["number"], pr.get("headRefOid"))
             self.noter("master", "fusion automatique demandée", f"PR #{pr['number']}")
             return False
         if action.nom in ("corriger_ci", "corriger_relecture"):
