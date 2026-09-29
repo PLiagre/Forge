@@ -22,15 +22,18 @@ body:
     id: jalon
     attributes:
       label: Jalon
-      description: Le jalon de CAP.md que ce lot sert. Obligatoire.
+      description: Le jalon de CAP.md que ce lot sert, ou la Réserve s'il n'en sert aucun pour l'instant. Obligatoire.
       options:
         - "J1 — Le pont"
-        - "J2 — Le geste revient"
-        - "J3 — La nourriture traverse le lieu"
-        - "J4 — Des foyers"
-        - "J5 — Le siège prélève"
-        - "J6 — La colonne"
-        - "J7 — 1400 → 1900"
+        - "J2 — Le monde de 1400"
+        - "J3 — Le lieu et son maître"
+        - "J4 — La capitale"
+        - "J5 — Les autres"
+        - "J6 — La dynastie"
+        - "J7 — La guerre"
+        - "J8 — L'argent"
+        - "J9 — Le premier siècle"
+        - "Réserve"
     validations:
       required: true
   - type: dropdown

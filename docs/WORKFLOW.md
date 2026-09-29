@@ -57,14 +57,41 @@ Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
 | `bloque` | une décision attend ; la raison est en commentaire | le pilote |
 | `livre` | fusionné | le pilote |
 | `pc` | demande Unity ou Blender : le travail part sur le PC | le formulaire |
+| `reserve` | à ranger dans la Réserve ; le pilote l'y range et retire l'étiquette | qui veut, même depuis le téléphone |
+
+## Les jalons suivent CAP.md
+
+Chaque section « ## Jalon n — Titre » de [CAP.md](../CAP.md) est un
+milestone « Jn — Titre ». À chaque tour, le pilote crée celui qui manque et
+renomme celui dont le titre a changé ; il ne supprime ni ne ferme rien (un
+jalon se ferme quand ses lots sont livrés). Changer l'échelle, c'est donc
+changer CAP.md en mode direct : les milestones suivent seuls au tour d'après.
+
+La **Réserve** (la section « ## La réserve » de CAP.md) est le milestone des
+lots qui ne servent aucun jalon pour l'instant. Son titre ne commence pas par
+« J » : le pilote ne la prend jamais pour le jalon courant, et il n'en fait
+sortir aucun lot. Un lot y entre par le formulaire (jalon « Réserve »), par
+l'étiquette `reserve`, ou à la main ; un jalon qui en a besoin l'en tire.
+
+### Un jalon qui commence se fait découper
+
+Quand le jalon courant n'a encore aucun lot prêt, en cours ou livré, le
+pilote ouvre un lot « Découper le jalon Jn — Titre » (`pret`). Le chef le
+prend comme un autre, et le découpe d'après la section du jalon dans
+CAP.md et d'après [VISION.md](VISION.md) : les lots qu'il faut, dans l'ordre,
+le dernier portant la preuve du jalon. Les lots déjà ouverts dans le jalon
+passent d'abord (la découpe « dépend » d'eux), et la découpe ne se refait
+jamais : son lot porte une marque que le pilote relit. Un jalon qu'on a
+lancé à la main, avec un lot `pret`, n'est pas redécoupé.
 
 ### Découper un lot trop gros
 
-Le chef découpe en sous-lots (`pret`, même jalon, même machine), écrits
-« Découpé du lot #N », et ferme le lot d'origine. Les sous-lots se suivent
-dans l'ordre du chef : chacun dépend du précédent. Un lot qui « dépend de
-#N » attend tous les sous-lots de #N (et les leurs, si un sous-lot est
-découpé à son tour), pas seulement sa fermeture.
+Le chef découpe en sous-lots (`pret`, même jalon), écrits « Découpé du lot
+#N », et ferme le lot d'origine. Un sous-lot garde la machine du lot
+découpé, sauf si le chef finit sa ligne par « :: pc » ou « :: vps ». Les
+sous-lots se suivent dans l'ordre du chef : chacun dépend du précédent. Un
+lot qui « dépend de #N » attend tous les sous-lots de #N (et les leurs, si
+un sous-lot est découpé à son tour), pas seulement sa fermeture.
 
 Un lot **en cours** dont une dépendance est encore ouverte redevient `pret`
 et rend sa machine ; la reprise le relance quand elle est livrée, essais
@@ -175,5 +202,5 @@ Regarder : `atelier-boucle etat`. Installer : [atelier/crons/README.md](../ateli
 | issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, ou le chef a refusé | lire la raison en commentaire ; corriger en mode direct, ou reformuler l'issue ; puis remettre `pret` (reprise, ci-dessus) |
 | « attente » répétée au journal | quotas épuisés, session expirée, ou outil qui ne démarre pas (la raison de chaque agent est écrite) | `python3 -m atelier veille`, puis `claude setup-token` si c'est la session Claude |
 | un lot `pc` n'avance pas | le PC est éteint ou en veille, ou ses agents attendent (marque d'attente sur la PR) | allumer le PC ; `gh workflow run sonde-pc.yml` |
-| rien ne bouge | profil `arret`, copie principale hors de master, ou aucun lot dans le jalon courant | `atelier-boucle etat` |
+| rien ne bouge | profil `arret`, copie principale hors de master, ou un jalon courant que CAP.md ne décrit pas (le pilote ne découpe que ce que CAP.md décrit) | `atelier-boucle etat` ; ajouter la section du jalon à CAP.md, ou des lots |
 | master rouge | le mécanicien ouvre une PR `meca/…` ; s'il ne peut pas, le journal le dit | mode direct |

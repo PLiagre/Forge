@@ -7,6 +7,7 @@ import json
 
 import pytest
 
+from atelier import lots
 from atelier.lots import Lot, marque, marques
 from atelier.pilote import Pilote
 
@@ -414,3 +415,89 @@ def test_un_jalon_sans_lot_ouvert_est_atteint(projet, gh, depot, tmp_path):
 
 def test_rien_a_faire_se_dit(projet, gh, depot, tmp_path):
     assert _pilote(projet, gh, depot, Agents(), tmp_path).tour() == ["RIEN"]
+
+
+CAP_NEUF = """# CAP
+
+## Jalon 1 — Le pont
+
+## Jalon 2 — Le monde de 1400
+
+## Jalon 3 — Le lieu et son maître
+
+## La réserve
+"""
+
+
+def _ecrire_cap(projet, texte=CAP_NEUF):
+    (projet.racine / "CAP.md").write_text(texte, encoding="utf-8")
+
+
+def _etiquettes(gh, numero):
+    return {e["name"] for e in gh.issues_[numero]["labels"]}
+
+
+def test_les_jalons_suivent_cap_et_le_jalon_qui_commence_se_fait_decouper(projet, gh, depot, tmp_path):
+    _ecrire_cap(projet)
+    gh.jalons_[0]["state"] = "closed"  # le pont est atteint : J2 devient le jalon courant
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert [j["title"] for j in gh.jalons_] == ["J1 — Le pont", "J2 — Le monde de 1400",
+                                                "J3 — Le lieu et son maître", "Réserve"]
+    (decoupe,) = [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
+    assert decoupe["title"] == "Découper le jalon J2 — Le monde de 1400"
+    assert decoupe["milestone"]["title"] == "J2 — Le monde de 1400"
+    assert _etiquettes(gh, decoupe["number"]) == {"lot", "pret"}
+
+
+def test_le_chef_decoupe_le_jalon_et_chaque_sous_lot_dit_sa_machine(projet, gh, depot, tmp_path):
+    _ecrire_cap(projet)
+    gh.jalons_[0]["state"] = "closed"
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    texte = ("DECISION: DECOUPE\n- La table de 1400 :: les sources publiques, citées\n"
+             "- La carte de 1400 :: Unity montre les royaumes :: pc\n")
+    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
+    decoupe, table, carte = 101, 102, 103
+    assert gh.issues_[decoupe]["state"] == "CLOSED"
+    assert "pc" not in _etiquettes(gh, table) and "pc" in _etiquettes(gh, carte)
+    assert gh.issues_[carte]["body"].startswith("Unity montre les royaumes\n")
+    assert Lot.de(gh.issues_[carte]).dependances == frozenset({table})
+    # Découpé une fois : le tour suivant ne rouvre pas de découpe.
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/102-la-table-de-1400.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert len([i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]) == 1
+
+
+def test_un_jalon_deja_lance_ne_se_decoupe_pas(projet, gh, depot, tmp_path):
+    _ecrire_cap(projet)
+    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert not [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
+
+
+def test_la_decoupe_d_un_jalon_passe_apres_ses_lots_deja_ouverts(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(20, "La cellule se peuple de lieux", ("lot", "idee"), "J2 — Le geste revient")
+    gh.ajouter_issue(21, "Un lot bloqué", ("lot", "bloque"), "J2 — Le geste revient")
+    j2 = lots.jalons(gh.jalons_)[1]
+    _pilote(projet, gh, depot, Agents(), tmp_path)._faire_decouper(j2, [Lot.de(i) for i in gh.issues("open")])
+    decoupe = Lot.de(gh.issues_[101])
+    assert decoupe.dependances == frozenset({20}) and decoupe.etat == "pret" and decoupe.jalon == 2
+
+
+def test_l_etiquette_reserve_range_le_lot_et_le_formulaire_ne_le_rappelle_pas(projet, gh, depot, tmp_path):
+    _ecrire_cap(projet)
+    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
+    gh.ajouter_issue(30, "Audio de ville", ("lot", "idee", "reserve"), "J2 — Le geste revient")
+    gh.ajouter_issue(31, "Venu du formulaire", ("lot", "idee"), "Réserve",
+                     corps="### Jalon\n\nJ2 — Le monde de 1400")
+    gh.ajouter_issue(32, "Rangé d'emblée", ("lot",), None, corps="### Jalon\n\nRéserve")
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert gh.issues_[30]["milestone"]["title"] == "Réserve" and "reserve" not in _etiquettes(gh, 30)
+    assert gh.issues_[31]["milestone"]["title"] == "Réserve"
+    assert gh.issues_[32]["milestone"]["title"] == "Réserve"
+
+
+def test_sans_reserve_dans_cap_l_etiquette_attend(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(30, "Audio de ville", ("lot", "idee", "reserve"), "J2 — Le geste revient")
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert gh.issues_[30]["milestone"]["title"] == "J2 — Le geste revient" and "reserve" in _etiquettes(gh, 30)
+    assert not _gestes(gh, "creer_jalon")

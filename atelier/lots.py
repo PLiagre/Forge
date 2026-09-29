@@ -23,11 +23,20 @@ from .projet import FAMILLE_DE_L_OUTIL, famille_du_modele
 
 ETATS =("idee", "pret", "en-cours", "bloque", "livre")
 ETIQUETTE_PC = "pc"
+# Le milestone des lots qui ne servent aucun jalon. Son titre ne commence pas
+# par « J » : le pilote ne le prend jamais pour le jalon courant.
+RESERVE = "Réserve"
+# L'étiquette qui y range un lot, d'un geste, même depuis le téléphone.
+ETIQUETTE_RESERVE = "reserve"
 _MARQUE = re.compile(r"<!-- atelier (\{.*?\}) -->", re.S)
 _DEPEND = re.compile(r"^[ \t]*(?:#+[ \t]*)?D[ée]pend de[ \t]*:?[ \t]*(.*)$", re.I | re.M)
 # La phrase que le pilote écrit dans chaque sous-lot d'une découpe.
 _DECOUPE = re.compile(r"D[ée]coup[ée] du lot #(\d+)", re.I)
 _JALON = re.compile(r"^J(\d+)\b")
+# Dans CAP.md, un jalon est une section « ## Jalon 2 — Le monde de 1400 », et
+# la réserve une section « ## La réserve ». Rien d'autre ne se devine.
+_JALON_DU_CAP = re.compile(r"^##[ \t]+Jalon[ \t]+(\d+)[ \t]+[—–-][ \t]+(.+?)[ \t]*$", re.M)
+_RESERVE_DU_CAP = re.compile(r"^##[ \t]+La r[ée]serve[ \t]*$", re.M | re.I)
 ROLES_CODEURS = ("codeur", "codeur_3d", "mecanicien_master")
 
 
@@ -87,6 +96,37 @@ def jalons(bruts: list[dict]) -> list[Jalon]:
 def jalon_courant(liste: list[Jalon]) -> Jalon | None:
     """Le premier jalon ouvert, dans l'ordre de CAP.md."""
     return next((j for j in liste if j.ouvert), None)
+
+
+def jalons_du_cap(cap: str) -> dict[int, str]:
+    """Les jalons que CAP.md déclare : numéro → titre du milestone
+    (« J2 — Le monde de 1400 »), tirés de ses sections « ## Jalon n — Titre ».
+    Un CAP.md sans section de jalon n'en déclare aucun."""
+    trouves: dict[int, str] = {}
+    for m in _JALON_DU_CAP.finditer(cap or ""):
+        trouves.setdefault(int(m.group(1)), f"J{m.group(1)} — {m.group(2)}")
+    return dict(sorted(trouves.items()))
+
+
+def accord_des_jalons(cap: str, bruts: list[dict]) -> list[tuple]:
+    """Ce qu'il faut faire pour que les milestones disent ce que dit CAP.md :
+    `("creer", titre)` ou `("renommer", numero, ancien, titre)`.
+
+    Jamais de suppression ni de fermeture : un jalon atteint reste fermé, et
+    un milestone que CAP.md ne nomme plus reste tel quel, avec ses issues.
+    Deux milestones du même numéro : c'est l'ouvert qui porte le titre."""
+    gestes: list[tuple] = []
+    for n, titre in jalons_du_cap(cap).items():
+        memes = [m for m in bruts if numero_de_jalon(m.get("title")) == n]
+        if not memes:
+            gestes.append(("creer", titre))
+            continue
+        garde = next((m for m in memes if m.get("state") == "open"), None) or max(memes, key=lambda m: m["number"])
+        if garde.get("title") != titre:
+            gestes.append(("renommer", garde["number"], garde.get("title"), titre))
+    if _RESERVE_DU_CAP.search(cap or "") and not any(m.get("title") == RESERVE for m in bruts):
+        gestes.append(("creer", RESERVE))
+    return gestes
 
 
 @dataclass(frozen=True)
@@ -179,6 +219,53 @@ def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool]
                     and not (lot.dependances & ouvertes)):
                 return lot
     return None
+
+
+# La marque que porte le lot ouvert par le pilote pour faire découper un jalon.
+ETAT_DECOUPE_JALON = "decoupe-jalon"
+
+
+def jalon_a_decouper_par(lot: Lot) -> int | None:
+    """Le jalon que ce lot fait découper, quand le pilote l'a ouvert pour ça."""
+    for m in marques([{"body": lot.corps}]):
+        if m.get("role") == "pilote" and m.get("etat") == ETAT_DECOUPE_JALON:
+            return m.get("jalon")
+    return None
+
+
+def a_decouper(courant: Jalon | None, cap: str, ouvertes: list[Lot], fermees: list[Lot] = ()) -> bool:
+    """Le jalon courant se fait découper, une seule fois, quand CAP.md le
+    décrit et qu'il n'a encore aucun lot prêt, en cours ou livré : un jalon
+    que personne n'a planifié ne laisse pas la chaîne sans travail, et un
+    jalon lancé à la main ne se redécoupe pas."""
+    if courant is None or courant.numero not in jalons_du_cap(cap):
+        return False
+    siens = [l for l in (*ouvertes, *fermees) if l.jalon == courant.numero]
+    if any(jalon_a_decouper_par(l) == courant.numero for l in siens):
+        return False
+    ouverts = {l.numero for l in ouvertes}
+    # Un lot fermé encore « en-cours » vient d'être fusionné : le pilote le
+    # livre dans ce même tour, il compte déjà comme livré.
+    return not any(l.etat in ("livre", "en-cours") or (l.numero in ouverts and l.etat == "pret")
+                   for l in siens if "lot" in l.etiquettes)
+
+
+def corps_de_la_decoupe(jalon: Jalon, avant: list[int]) -> str:
+    """Le texte du lot qui fait découper un jalon. Les lots déjà ouverts dans
+    le jalon passent d'abord : la découpe vient après eux et les complète."""
+    lignes = [
+        f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé.",
+        "",
+        "Ce lot ne se code pas. Le chef le découpe (« DECISION: DECOUPE ») d'après la section "
+        f"« Jalon {jalon.numero} » de `CAP.md` et d'après `docs/VISION.md` : les lots qu'il faut, dans "
+        "l'ordre où ils se font, chacun à la taille d'un lot. Le dernier porte la preuve du jalon et sa "
+        "capture au journal. Un lot qui demande Unity ou Blender finit sa ligne par « :: pc ».",
+    ]
+    if avant:
+        lignes += ["", "Les lots déjà ouverts dans ce jalon passent d'abord ; la découpe les complète, "
+                   "elle ne les refait pas.", "", "Dépend de : " + ", ".join(f"#{n}" for n in avant)]
+    lignes += ["", marque(role="pilote", etat=ETAT_DECOUPE_JALON, jalon=jalon.numero)]
+    return "\n".join(lignes)
 
 
 @dataclass(frozen=True)

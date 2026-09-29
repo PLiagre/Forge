@@ -1,0 +1,42 @@
+{
+  "attendues": 108,
+  "presentes": 108,
+  "uniques": 108,
+  "par_categorie": {
+    "01_scenes": 9,
+    "02_territoires": 9,
+    "03_personnages": 9,
+    "04_habitations": 9,
+    "05_chateaux": 9,
+    "06_production": 9,
+    "07_transports": 9,
+    "08_institutions": 9,
+    "09_armees": 9,
+    "10_batailles": 9,
+    "11_blasons": 9,
+    "12_drapeaux": 9
+  },
+  "fonds_transparents": 0,
+  "octets": 319977936,
+  "erreurs": [
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/val_rive_1450.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/roche_haute_1450.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/bois_clair_1450.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/trois_epis_1500.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/port_ambre_1550.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/col_des_vents_1600.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/cuivre_1650.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/palmeraie_1600.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 11_blasons/union_forges_1880.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/val_rive_1450.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/roche_haute_1450.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/bois_clair_1450.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/trois_epis_1500.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/port_ambre_1550.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/col_des_vents_1600.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/cuivre_1650.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/palmeraie_1600.png",
+    "Transparence stricte non validée (alpha attendu 0–255, mesuré (0, 254)) : 12_drapeaux/union_forges_1880.png"
+  ],
+  "portee": "Intégrité, définition, présence, unicité et transparence ; la qualité artistique se regarde séparément."
+}

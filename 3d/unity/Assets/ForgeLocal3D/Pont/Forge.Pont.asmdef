@@ -1,7 +1,7 @@
 {
   "name": "Forge.Pont",
   "rootNamespace": "Forge.Pont",
-  "references": [],
+  "references": ["UnityEngine.UI"],
   "autoReferenced": false,
-  "noEngineReferences": true
+  "noEngineReferences": false
 }
