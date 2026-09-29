@@ -17,10 +17,11 @@ from conftest import RACINE, Agents
 def test_le_branchement_du_depot_nomme_chaque_role():
     projet = charger(RACINE)
     assert projet.depot == "PLiagre/Forge"
-    assert str(projet.poste("codeur").principal) == "codex/gpt-5.6-sol@high"
+    assert str(projet.poste("codeur").principal) == "codex/gpt-6-sol@high"
     assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
     assert [str(a) for a in projet.poste("relecteur").agents] == [
-        "claude/claude-opus-5-5@high", "codex/gpt-5.6-sol@high", "cursor/grok-4.7-high@high"]
+        "claude/claude-opus-5-5@high", "codex/gpt-6-astra@high", "codex/gpt-6-sol@high",
+        "cursor/grok-4.7-high@high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -298,15 +299,30 @@ def _relecteurs_restants(poste_relecteur, famille_auteur):
     return [a for a in poste_relecteur.agents if a.famille != famille_auteur]
 
 
-def test_claude_juge_et_ne_code_qu_en_dernier_secours():
-    # Le plafond de Claude Code (29 septembre 2026) se garde pour la relecture :
-    # aucun codeur n'est un Claude en premier, et chacun a un secours.
+def test_claude_juge_et_ne_code_que_les_lots_du_pc():
+    # Le plafond de Claude Code (29 septembre 2026) se garde pour le chef et
+    # la relecture : le codeur du VPS n'est pas un Claude. Les lots du PC, peu
+    # nombreux et chers quand ils ratent, ont Claude en tête (choix du
+    # propriétaire, 29 septembre 2026) ; chaque codeur a un secours d'une
+    # autre famille, qu'un quota de Claude n'arrête pas.
     projet = charger(RACINE)
+    assert projet.poste("codeur").principal.famille != "claude"
+    assert projet.poste("codeur_3d").principal.famille == "claude"
     for role in ("codeur", "codeur_3d"):
         poste = projet.poste(role)
-        assert poste.principal.famille != "claude", role
-        assert poste.secours, role
+        assert any(a.famille != "claude" for a in poste.secours), role
     assert projet.poste("relecteur").principal.famille == "claude"
+
+
+def test_gpt_6_astra_ne_passe_qu_en_secours():
+    # Avec l'abonnement ChatGPT Plus, GPT-6 Astra n'a que quelques dizaines
+    # de messages toutes les cinq heures dans Codex : aucun rôle ne l'a en
+    # tête, et le relecteur a GPT-6 Sol après lui quand son quota s'épuise.
+    projet = charger(RACINE)
+    for role in projet.postes:
+        assert projet.poste(role).principal.modele != "gpt-6-astra", role
+    relecteurs = [a.modele for a in projet.poste("relecteur").agents]
+    assert relecteurs.index("gpt-6-sol") > relecteurs.index("gpt-6-astra")
 
 
 def test_un_lot_a_toujours_deux_relecteurs_possibles():

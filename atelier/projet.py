@@ -75,7 +75,7 @@ MACHINES = ("vps", "pc")
 @dataclass(frozen=True)
 class Agent:
     """Un harnais (l'outil qui porte le modèle), un modèle, et l'effort qu'on
-    lui donne : `codex/gpt-5.6-sol@high`. Sans effort, le harnais garde le
+    lui donne : `codex/gpt-6-sol@high`. Sans effort, le harnais garde le
     sien ; le dépôt en donne un à chaque agent (tests)."""
 
     outil: str
