@@ -17,7 +17,7 @@ la fusionne toute seule.
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
-                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : le même sur le PC (claude en dernier secours)
+                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : cursor grok sur le PC (secours claude)
                           │ le pilote commit, pousse, capture
                           ▼
                     CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus)
@@ -41,8 +41,9 @@ Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
 
 **Claude juge, les autres écrivent.** Le plafond de Claude Code a été atteint
 le 29 septembre 2026 : il se garde pour la relecture. Le chef reste Claude
-Opus, porté d'abord par Cursor ; le code s'écrit avec codex sol, sur le VPS
-comme sur le PC, et Claude n'y vient qu'en dernier secours. La ligne du
+Opus, porté d'abord par Cursor ; le code s'écrit avec codex sol sur le VPS,
+avec cursor grok sur le PC (où le bac à sable de codex ne démarre pas), et
+Claude n'y vient qu'en secours. La ligne du
 relecteur laisse toujours au moins deux agents à un lot, quelle que soit la
 famille qui l'a écrit : un quota ne le laisse plus sans relecture.
 

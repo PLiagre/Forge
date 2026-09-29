@@ -326,3 +326,33 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
     tous_ecartes = ecartes == len(essais)
     return Resultat(agent=None, code=-1, texte="", attente=not tous_ecartes,
                     personne=tous_ecartes, essais=essais)
+
+
+# Le fichier qu'un agent qui écrit doit créer pour passer la sonde.
+FICHIER_SONDE = "sonde-atelier.txt"
+
+
+def sonder(poste: Poste, racine: Path, *, delai: int = 300,
+           executeur: Executeur = executer) -> tuple[bool, str]:
+    """Un agent répond-il, avec son modèle, en non interactif ? Et s'il écrit,
+    écrit-il vraiment ? Un agent en lecture seule répond « OK » ; un agent qui
+    écrit crée un fichier dans un dossier jetable, et la sonde le relit. Le
+    29 septembre 2026, codex a répondu « OK » à la sonde du PC, puis n'a rien
+    pu écrire sur le lot #120 (son bac à sable Windows ne démarrait pas) : le
+    lot a brûlé son dernier essai. Rend (réussi, la ligne qui le dit)."""
+    if poste.lecture_seule:
+        res = invoquer(poste, "Réponds exactement par le mot : OK", racine, delai, executeur=executeur)
+        return res.reussi and "OK" in res.texte, _detail(res)
+    with tempfile.TemporaryDirectory(prefix="sonde-") as dossier:
+        prompt = (f"Crée dans le dossier courant le fichier `{FICHIER_SONDE}`, qui contient exactement le mot OK. "
+                  "Puis réponds exactement par le mot : OK")
+        res = invoquer(poste, prompt, Path(dossier), delai, executeur=executeur)
+        fichier = Path(dossier) / FICHIER_SONDE
+        ecrit = fichier.is_file() and "OK" in fichier.read_text(encoding="utf-8", errors="replace")
+    if res.reussi and not ecrit:
+        return False, f"a répondu sans rien écrire : {_detail(res)}"
+    return res.reussi and ecrit and "OK" in res.texte, _detail(res)
+
+
+def _detail(res: Resultat) -> str:
+    return res.texte.strip().splitlines()[-1][:80] if res.texte.strip() else "; ".join(res.essais)

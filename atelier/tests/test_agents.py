@@ -344,3 +344,28 @@ def test_tous_les_outils_occupes_le_lot_attend_sans_essai(projet, tmp_path):
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents,
                      place=_Places("codex", "cursor"))
     assert res.attente and not res.personne and agents.appels == []
+
+
+# La sonde : un agent qui écrit doit vraiment écrire.
+
+def test_la_sonde_exige_qu_un_agent_qui_ecrit_ecrive(projet):
+    codeur = projet.poste("codeur")
+    unique = type(codeur)(role="codeur", agents=codeur.agents[:1])
+    ok, _ = A.sonder(unique, projet.racine, executeur=Agents((0, "OK", {A.FICHIER_SONDE: "OK"})))
+    assert ok
+    # Contre-épreuve : le codex du PC du 29 septembre 2026, qui répond « OK »
+    # sans rien pouvoir écrire.
+    ok, detail = A.sonder(unique, projet.racine, executeur=Agents((0, "OK")))
+    assert not ok and "sans rien écrire" in detail
+
+
+def test_la_sonde_d_un_agent_en_lecture_seule_ne_demande_qu_une_reponse(projet):
+    relecteur = projet.poste("relecteur")
+    unique = type(relecteur)(role="relecteur", agents=relecteur.agents[:1])
+    assert A.sonder(unique, projet.racine, executeur=Agents((0, "OK")))[0]
+    assert not A.sonder(unique, projet.racine, executeur=Agents((0, "non")))[0]
+
+
+def test_codex_ne_code_pas_sur_le_pc():
+    # Son bac à sable Windows ne démarre pas : il répond, mais n'écrit rien.
+    assert all(a.outil != "codex" for a in charger(RACINE).poste("codeur_3d").agents)

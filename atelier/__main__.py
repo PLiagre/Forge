@@ -85,7 +85,8 @@ def _cmd_veille(args: argparse.Namespace) -> int:
 
 
 def _cmd_sonde(args: argparse.Namespace) -> int:
-    """Chaque agent distinct de [agents], appelé comme la chaîne l'appelle."""
+    """Chaque agent distinct de [agents], appelé comme la chaîne l'appelle ;
+    un agent qui écrit doit vraiment écrire (agents.sonder)."""
     projet = charger(_racine(args))
     vus = set()
     fautes = 0
@@ -97,10 +98,8 @@ def _cmd_sonde(args: argparse.Namespace) -> int:
                 continue
             vus.add(cle)
             unique = type(poste)(role=poste.role, agents=(agent,))
-            res = agents_mod.invoquer(unique, "Réponds exactement par le mot : OK", projet.racine, 300)
-            ok = res.reussi and "OK" in res.texte
+            ok, detail = agents_mod.sonder(unique, projet.racine)
             fautes += not ok
-            detail = res.texte.strip().splitlines()[-1][:80] if res.texte.strip() else "; ".join(res.essais)
             print(f"{'PASS' if ok else 'FAIL'}  {str(agent):34} {'lecture seule' if poste.lecture_seule else 'écriture':14} {detail}")
     return 1 if fautes else 0
 
