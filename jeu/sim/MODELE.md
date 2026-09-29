@@ -61,8 +61,10 @@ comme « le centre administratif le plus proche ». La **pluie** n'est pas
 stockée sur `Cell` : sa vue se recalcule depuis le relevé le plus proche et
 entre dans la carte au moment où le monde la lit. La **puissance** dont relève
 une cellule est pareillement une vue dérivée, jamais un second identifiant
-spatial stocké. Le tick lit la pluie dans la carte, jamais dans sa vue ; il ne
-consomme ni la vue des provinces, ni celle des puissances.
+spatial stocké. Les **lieux** d'une cellule se dérivent aussi de sa surface,
+sans se stocker sur `Cell`. Le tick lit la pluie dans la carte, jamais dans sa
+vue ; il ne consomme ni la vue des provinces, ni celle des puissances, ni
+celle des lieux.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -104,8 +106,10 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   le monde ne se construit, et aucune capacité de transport ne s'améliore.
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
-- **descendre sous la cellule.** La population est un entier agrégé : pas de
-  familles, pas de personnes, pas de bâtiments, pas de quartiers.
+- **descendre sous la cellule pour les habitants et les biens.** La cellule se
+  découpe désormais en lieux par sa surface, mais la population, les stocks et
+  le tick restent à l'échelle de la cellule : pas de familles, pas de personnes,
+  pas de bâtiments, pas de quartiers.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
@@ -1202,6 +1206,33 @@ artificiellement élargie.
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
 lit pas**.
+
+---
+
+## Les lieux d'une cellule, vue dérivée
+
+La surface `area_km2` d'une cellule de la carte se partage en lieux. Leur
+nombre est `max(1, floor(area_km2 / SURFACE_KM2_PAR_LIEU))`, avec
+`SURFACE_KM2_PAR_LIEU = 1000.0`. Chaque lieu a pour identité le couple
+(`cell_id`, `rang`), des rangs 0 à `n − 1` ; **le rang 0 est le bourg**. Aucun
+identifiant spatial supplémentaire n'est stocké.
+
+Chaque rang supérieur à 0 reçoit `q = floor(area_km2 / n)` kilomètres carrés.
+Le bourg reçoit le reste, `area_km2 − (n − 1) × q` : il est au moins aussi
+grand que les autres. Ce reste est une soustraction exacte tant que la surface
+de la carte est sous 2⁵³ km² ; les surfaces des lieux rendent ainsi celle de
+la cellule au bit près, sans l'arrondi d'un partage égal par division.
+
+La vue refuse une surface absente, booléenne, textuelle, non finie, nulle ou
+négative en nommant sa cellule. Elle refuse aussi une constante non finie ou
+inférieure à 1 km². Elle est pure, recalculée à chaque consultation hors de
+`sim.model`, ne pose rien sur `Cell`, et **le tick ne la lit pas**.
+
+Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
+plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
+l'échelle d'une cellule », vu ici par sa surface ; il ne reçoit aucun habitant.
+La distribution de la population et des stocks dans la cellule reste gratuite.
+La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
 
 ---
 
