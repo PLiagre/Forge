@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-JEU = Path(__file__).resolve().parents[2]
+NIVEAUX_JUSQU_A_JEU = 2  # tests/ → ville/ → jeu/
+JEU = Path(__file__).resolve().parents[NIVEAUX_JUSQU_A_JEU]
 RACINE = JEU.parent
 REGLE = JEU / "ville" / "cellule_du_desert.py"
 LANCEUR = RACINE / "pc" / "jouer.py"

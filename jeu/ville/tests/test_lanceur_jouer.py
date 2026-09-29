@@ -14,11 +14,13 @@ import subprocess
 import sys
 import threading
 import time
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
 
-JEU = Path(__file__).resolve().parents[2]
+NIVEAUX_JUSQU_A_JEU = 2  # tests/ → ville/ → jeu/
+JEU = Path(__file__).resolve().parents[NIVEAUX_JUSQU_A_JEU]
 RACINE = JEU.parent
 LANCEUR = RACINE / "pc" / "jouer.py"
 REGLE = JEU / "ville" / "cellule_du_desert.py"
@@ -30,6 +32,7 @@ CODE_DU_JEU_QUI_PLANTE = 3
 DELAI_LANCEUR_S = 180
 ECART_ENTRE_HORLOGES_S = 1.5
 PAS_DE_SURVEILLANCE_S = 0.05
+DELAI_COURT_S = 0.5
 
 if str(JEU) not in sys.path:
     sys.path.insert(0, str(JEU))
@@ -58,7 +61,8 @@ def port_refuse(port):
 FAUX_JEU = inspect.getsource(port_refuse) + '''
 import json, sys, time, urllib.error, urllib.request
 
-sortie, code, port = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+_, sortie, code, port, *_ = sys.argv
+code, port = int(code), int(port)
 cellule = sys.argv[sys.argv.index("-forgeCell") + 1]
 base = f"http://127.0.0.1:{port}"
 try:
@@ -122,7 +126,7 @@ def test_chemin_nominal(faux_jeu, tmp_path):
     recu = json.loads(sortie.read_text(encoding="utf-8"))
     attendue = _charger("cellule_du_desert", REGLE).charger_et_choisir()
     assert recu["forgeCell"] == str(attendue)
-    assert recu["statut"] == 200
+    assert recu["statut"] == HTTPStatus.OK
     assert recu["cell_id"] == attendue
     premier, second = recu["ticks"]
     assert second > premier, f"l'horloge ne tourne pas : {recu['ticks']}"
@@ -147,7 +151,7 @@ def test_cellule_choisie(faux_jeu, tmp_path):
     assert code == 0, texte
     recu = json.loads(sortie.read_text(encoding="utf-8"))
     assert recu["forgeCell"] == str(CELLULE_DU_PANNEAU)
-    assert recu["statut"] == 200
+    assert recu["statut"] == HTTPStatus.OK
     assert recu["cell_id"] == CELLULE_DU_PANNEAU
     assert port_refuse(port)
 
@@ -158,7 +162,7 @@ def test_cellule_absente_de_la_carte(faux_jeu, tmp_path):
         port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port), "--cellule", str(CELLULE_ABSENTE)
     )
     assert code != 0
-    assert str(CELLULE_ABSENTE) in texte and "404" in texte, texte
+    assert str(CELLULE_ABSENTE) in texte and str(HTTPStatus.NOT_FOUND.value) in texte, texte
     assert not sortie.exists(), "le jeu a été lancé malgré le refus du service"
     assert port_refuse(port)
 
@@ -202,3 +206,85 @@ def test_le_meme_port_partout():
     trouve = re.search(r"DEFAULT_SERVICE_PORT\s*=\s*(\d+)\s*;", PANNEAU.read_text(encoding="utf-8"))
     assert trouve, f"constante DEFAULT_SERVICE_PORT introuvable dans {PANNEAU}"
     assert int(trouve.group(1)) == DEFAULT_SERVICE_PORT
+
+
+@pytest.mark.parametrize("valeur", ["abc", "-1"], ids=["non_entiere", "negative"])
+def test_cellule_invalide_refusee(faux_jeu, tmp_path, valeur):
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port), "--cellule", valeur)
+    assert code != 0
+    assert "--cellule" in texte and repr(valeur) in texte, texte
+    assert not sortie.exists(), "le jeu a été lancé malgré une cellule invalide"
+    assert port_refuse(port)
+
+
+def _processus(code_python):
+    return subprocess.Popen(
+        [sys.executable, "-c", code_python],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def _fin_de_stderr(jouer, processus):
+    stderr = jouer.collections.deque(maxlen=jouer.LIGNES_STDERR_GARDEES)
+    lecteur = threading.Thread(target=jouer._lire_flux, args=(processus.stderr, stderr.append))
+    lecteur.start()
+    return stderr, lecteur
+
+
+def test_service_mort_avant_d_etre_pret():
+    jouer = _charger("jouer", LANCEUR)
+    service = _processus("import sys; sys.stderr.write('panne du service\\n'); sys.exit(1)")
+    stderr, lecteur = _fin_de_stderr(jouer, service)
+    service.wait(timeout=DELAI_LANCEUR_S)
+    lecteur.join(timeout=DELAI_LANCEUR_S)
+    with pytest.raises(RuntimeError) as erreur:
+        jouer._attendre_pret(service, "service prêt sur 127.0.0.1:0", stderr)
+    assert "s'est arrêté" in str(erreur.value)
+    assert "panne du service" in str(erreur.value)
+
+
+def test_service_muet_depasse_le_delai(monkeypatch):
+    jouer = _charger("jouer", LANCEUR)
+    monkeypatch.setattr(jouer, "DELAI_SERVICE_PRET_S", DELAI_COURT_S)
+    service = _processus(f"import time; time.sleep({DELAI_LANCEUR_S})")
+    try:
+        stderr, _ = _fin_de_stderr(jouer, service)
+        with pytest.raises(RuntimeError) as erreur:
+            jouer._attendre_pret(service, "service prêt sur 127.0.0.1:0", stderr)
+        assert "n'a pas dit" in str(erreur.value)
+        assert str(DELAI_COURT_S) in str(erreur.value)
+    finally:
+        service.kill()
+        service.wait()
+
+
+def test_service_mort_apres_s_etre_dit_pret():
+    jouer = _charger("jouer", LANCEUR)
+    port = _port_libre()
+    stderr = jouer.collections.deque(["panne du service"])
+    with pytest.raises(RuntimeError) as erreur:
+        jouer._verifier_lieu(port, CELLULE_DU_PANNEAU, stderr)
+    message = str(erreur.value)
+    assert "sans réponse" in message and "URLError" in message, message
+    assert f"{HOTE}:{port}" in message
+    assert "panne du service" in message
+
+
+def test_service_qui_ne_repond_pas_depasse_le_delai(monkeypatch):
+    jouer = _charger("jouer", LANCEUR)
+    monkeypatch.setattr(jouer, "DELAI_REQUETE_S", DELAI_COURT_S)
+    stderr = jouer.collections.deque(["service bloqué"])
+    with socket.socket() as muet:
+        # Écoute sans jamais répondre : la connexion aboutit, la réponse ne vient pas.
+        muet.bind((HOTE, 0))
+        muet.listen()
+        with pytest.raises(RuntimeError) as erreur:
+            jouer._verifier_lieu(muet.getsockname()[1], CELLULE_DU_PANNEAU, stderr)
+    message = str(erreur.value)
+    assert "sans réponse" in message and "timed out" in message, message
+    assert "service bloqué" in message

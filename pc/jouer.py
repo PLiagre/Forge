@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import http.client
 import importlib.util
 import os
 import queue
@@ -96,13 +97,20 @@ def _attendre_pret(service: subprocess.Popen, attendue: str, stderr: collections
             )
 
 
-def _verifier_lieu(port: int, cellule: int) -> None:
+def _verifier_lieu(port: int, cellule: int, stderr: collections.deque) -> None:
     url = f"http://{SERVICE_HOST}:{port}/lieu?cell={cellule}"
     try:
         with urllib.request.urlopen(url, timeout=DELAI_REQUETE_S) as reponse:
             statut, corps = reponse.status, reponse.read()
     except urllib.error.HTTPError as exc:
         statut, corps = exc.code, exc.read()
+    except (OSError, http.client.HTTPException) as exc:
+        # Service mort après s'être dit prêt (URLError, connexion coupée, réponse
+        # tronquée) ou délai de DELAI_REQUETE_S dépassé (TimeoutError) : la cause se dit.
+        raise RuntimeError(
+            f"GET {url} sans réponse ({type(exc).__name__} : {exc}) ; "
+            f"fin de stderr : {_fin(stderr)}"
+        ) from exc
     if statut != HTTPStatus.OK:
         raise RuntimeError(
             f"GET {url} a rendu {statut} : {corps.decode('utf-8', errors='replace')}"
@@ -159,7 +167,7 @@ def main(argv: list[str]) -> int:
         try:
             _attendre_pret(service, attendue, stderr)
             print(attendue, flush=True)
-            _verifier_lieu(args.port, cellule)
+            _verifier_lieu(args.port, cellule, stderr)
         except RuntimeError as exc:
             print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
             return 1
