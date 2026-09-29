@@ -1,0 +1,853 @@
+{
+  "projection": "EPSG:3035",
+  "reference": "EPSG:4326",
+  "conversion": "Coordonnées WGS84 (longitude, latitude) transformées avec pyproj 3.8.0, Transformer.from_crs(EPSG:4326, EPSG:3035, always_xy=True), arrondies au centimètre.",
+  "sources": [
+    {
+      "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+      "passage": "Annexe E, tableau E.1 (1400), pages imprimées 150–151 ; reprend Bairoch, Batou et Chèvre (1988)."
+    },
+    {
+      "url": "https://sourcebooks.web.fordham.edu/source/europe-populationurbanareas500-1500.asp",
+      "passage": "Tableau Population of the Larger Urban Areas, colonne 1483."
+    },
+    {
+      "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Cairo&disp_time=1400",
+      "passage": "Ligne Cairo 1400 ; Chandler, p. 56."
+    },
+    {
+      "url": "https://ejournals.lib.uoc.gr/Ariadne/article/view/1670",
+      "passage": "Résumé : chiffre de Bryennios, 1415–1421."
+    },
+    {
+      "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Fez&disp_time=1400",
+      "passage": "Ligne Fez 1400 ; Chandler, p. 56."
+    },
+    {
+      "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Tunis&disp_time=1400",
+      "passage": "Ligne Tunis 1400 ; Chandler, p. 56."
+    },
+    {
+      "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Bursa&disp_time=1400",
+      "passage": "Ligne Bursa 1400 ; Chandler, p. 74."
+    },
+    {
+      "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Edirne&disp_time=1400",
+      "passage": "Ligne Adrianople 1400 ; Chandler, p. 18."
+    }
+  ],
+  "villes": [
+    {
+      "nom": "Paris",
+      "latitude": 48.8566,
+      "longitude": 2.3522,
+      "x_m": 3760771.86,
+      "y_m": 2889484.8,
+      "population": 275000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne PARIS ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Bruges",
+      "latitude": 51.2089,
+      "longitude": 3.2242,
+      "x_m": 3848272.12,
+      "y_m": 3143919.01,
+      "population": 125000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BRUGGE ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Gênes",
+      "latitude": 44.4056,
+      "longitude": 8.9463,
+      "x_m": 4236895.27,
+      "y_m": 2366696.52,
+      "population": 100000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne GENOVA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Grenade",
+      "latitude": 37.1773,
+      "longitude": -3.5986,
+      "x_m": 3110698.36,
+      "y_m": 1674822.24,
+      "population": 100000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne GRANADA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Venise",
+      "latitude": 45.4408,
+      "longitude": 12.3155,
+      "x_m": 4502405.83,
+      "y_m": 2483759.05,
+      "population": 100000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne VENEZIA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Prague",
+      "latitude": 50.0755,
+      "longitude": 14.4378,
+      "x_m": 4638483.08,
+      "y_m": 3005512.59,
+      "population": 95000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne PRAHA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Milan",
+      "latitude": 45.4642,
+      "longitude": 9.19,
+      "x_m": 4257558.0,
+      "y_m": 2483883.68,
+      "population": 90000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne MILAN ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Séville",
+      "latitude": 37.3891,
+      "longitude": -5.9845,
+      "x_m": 2905882.28,
+      "y_m": 1738810.31,
+      "population": 70000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne SEVILLA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Gand",
+      "latitude": 51.0543,
+      "longitude": 3.7174,
+      "x_m": 3881109.08,
+      "y_m": 3123697.09,
+      "population": 56000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne GENT ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Florence",
+      "latitude": 43.7696,
+      "longitude": 11.2558,
+      "x_m": 4422351.95,
+      "y_m": 2296442.24,
+      "population": 55000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne FIRENZE ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Lisbonne",
+      "latitude": 38.7223,
+      "longitude": -9.1393,
+      "x_m": 2665519.21,
+      "y_m": 1946764.04,
+      "population": 55000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne LISBOA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Bologne",
+      "latitude": 44.4949,
+      "longitude": 11.3426,
+      "x_m": 4427993.29,
+      "y_m": 2376967.47,
+      "population": 45000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BOLOGNA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Londres",
+      "latitude": 51.5074,
+      "longitude": -0.1278,
+      "x_m": 3620438.01,
+      "y_m": 3203903.36,
+      "population": 45000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne LONDON ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Naples",
+      "latitude": 40.8518,
+      "longitude": 14.2681,
+      "x_m": 4682317.11,
+      "y_m": 1982770.49,
+      "population": 45000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne NAPOLI ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Tolède",
+      "latitude": 39.8628,
+      "longitude": -4.0273,
+      "x_m": 3121998.13,
+      "y_m": 1974411.49,
+      "population": 45000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne TOLEDO ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Thessalonique",
+      "latitude": 40.6401,
+      "longitude": 22.9444,
+      "x_m": 5415109.3,
+      "y_m": 2042937.18,
+      "population": 42000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne SALONIKA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Cordoue",
+      "latitude": 37.8882,
+      "longitude": -4.7794,
+      "x_m": 3020491.15,
+      "y_m": 1771614.55,
+      "population": 40000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne CORDOBA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Ferrare",
+      "latitude": 44.8381,
+      "longitude": 11.6198,
+      "x_m": 4449296.85,
+      "y_m": 2415463.42,
+      "population": 40000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne FERRARA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Cologne",
+      "latitude": 50.9375,
+      "longitude": 6.9603,
+      "x_m": 4107399.6,
+      "y_m": 3096228.04,
+      "population": 40000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne KOELN ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Malaga",
+      "latitude": 36.7213,
+      "longitude": -4.4214,
+      "x_m": 3030041.96,
+      "y_m": 1638622.45,
+      "population": 40000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne MALAGA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Tournai",
+      "latitude": 50.6056,
+      "longitude": 3.3878,
+      "x_m": 3853625.55,
+      "y_m": 3075988.58,
+      "population": 40000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne TOURNAI ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Barcelone",
+      "latitude": 41.3874,
+      "longitude": 2.1686,
+      "x_m": 3664620.65,
+      "y_m": 2065844.92,
+      "population": 38000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BARCELONA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Valence",
+      "latitude": 39.4699,
+      "longitude": -0.3763,
+      "x_m": 3426097.39,
+      "y_m": 1881047.54,
+      "population": 36000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne VALENCIA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Athènes",
+      "latitude": 37.9838,
+      "longitude": 23.7275,
+      "x_m": 5528419.39,
+      "y_m": 1764743.25,
+      "population": 35000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne ATHINAI ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Crémone",
+      "latitude": 45.1332,
+      "longitude": 10.0227,
+      "x_m": 4322788.65,
+      "y_m": 2446811.03,
+      "population": 35000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne CREMONA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Rouen",
+      "latitude": 49.4431,
+      "longitude": 1.0993,
+      "x_m": 3677200.02,
+      "y_m": 2964618.39,
+      "population": 35000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne ROUEN ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Vérone",
+      "latitude": 45.4384,
+      "longitude": 10.9916,
+      "x_m": 4398701.05,
+      "y_m": 2481192.6,
+      "population": 35000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne VERONA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Padoue",
+      "latitude": 45.4064,
+      "longitude": 11.8768,
+      "x_m": 4468137.28,
+      "y_m": 2478976.39,
+      "population": 34000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne PADOVA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Lyon",
+      "latitude": 45.764,
+      "longitude": 4.8357,
+      "x_m": 3919078.92,
+      "y_m": 2530754.34,
+      "population": 33000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne LYON ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Rome",
+      "latitude": 41.9028,
+      "longitude": 12.4964,
+      "x_m": 4528866.76,
+      "y_m": 2092277.14,
+      "population": 33000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne ROMA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "L'Aquila",
+      "latitude": 42.3498,
+      "longitude": 13.3995,
+      "x_m": 4601939.69,
+      "y_m": 2144652.31,
+      "population": 30000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne AQUILA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Avignon",
+      "latitude": 43.9493,
+      "longitude": 4.8055,
+      "x_m": 3903427.67,
+      "y_m": 2329989.82,
+      "population": 30000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne AVIGNON ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Belgrade",
+      "latitude": 44.7866,
+      "longitude": 20.4489,
+      "x_m": 5146367.87,
+      "y_m": 2466210.17,
+      "population": 30000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BELGRADE ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Bordeaux",
+      "latitude": 44.8378,
+      "longitude": -0.5792,
+      "x_m": 3486180.81,
+      "y_m": 2473296.42,
+      "population": 30000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BORDEAUX ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Liège",
+      "latitude": 50.6326,
+      "longitude": 5.5797,
+      "x_m": 4008465.83,
+      "y_m": 3067308.64,
+      "population": 30000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne LIEGE ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Orléans",
+      "latitude": 47.9029,
+      "longitude": 1.9093,
+      "x_m": 3717141.67,
+      "y_m": 2787462.33,
+      "population": 30000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne ORLEANS ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Brescia",
+      "latitude": 45.5416,
+      "longitude": 10.2118,
+      "x_m": 4337565.93,
+      "y_m": 2492152.23,
+      "population": 27000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BRESCIA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Burgos",
+      "latitude": 42.3439,
+      "longitude": -3.6969,
+      "x_m": 3195587.41,
+      "y_m": 2240373.46,
+      "population": 27000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BURGOS ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Palerme",
+      "latitude": 38.1157,
+      "longitude": 13.3615,
+      "x_m": 4617774.52,
+      "y_m": 1677080.59,
+      "population": 27000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne PALERMO ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Bruxelles",
+      "latitude": 50.8503,
+      "longitude": 4.3517,
+      "x_m": 3923672.02,
+      "y_m": 3097434.54,
+      "population": 26000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne BRUXELLES ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Almería",
+      "latitude": 36.834,
+      "longitude": -2.4637,
+      "x_m": 3205205.49,
+      "y_m": 1620171.82,
+      "population": 25000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne ALMERIA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Angers",
+      "latitude": 47.4784,
+      "longitude": -0.5632,
+      "x_m": 3527348.66,
+      "y_m": 2763971.11,
+      "population": 25000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne ANGERS ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Lübeck",
+      "latitude": 53.8655,
+      "longitude": 10.6866,
+      "x_m": 4366176.14,
+      "y_m": 3417803.4,
+      "population": 25000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne LUEBECK ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Mantoue",
+      "latitude": 45.1564,
+      "longitude": 10.7914,
+      "x_m": 4383331.08,
+      "y_m": 2449715.22,
+      "population": 25000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne MANTUA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Metz",
+      "latitude": 49.1193,
+      "longitude": 6.1757,
+      "x_m": 4041909.39,
+      "y_m": 2896827.89,
+      "population": 25000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne METZ ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Plaisance",
+      "latitude": 45.0526,
+      "longitude": 9.693,
+      "x_m": 4296774.95,
+      "y_m": 2437918.28,
+      "population": 25000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne PIACENZA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Târgoviște",
+      "latitude": 44.9254,
+      "longitude": 25.4567,
+      "x_m": 5533514.06,
+      "y_m": 2549947.99,
+      "population": 25000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne TIRGOVISTE ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Erfurt",
+      "latitude": 50.9848,
+      "longitude": 11.0299,
+      "x_m": 4393318.9,
+      "y_m": 3097560.71,
+      "population": 24000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne ERFURT ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Lucques",
+      "latitude": 43.843,
+      "longitude": 10.504,
+      "x_m": 4361626.59,
+      "y_m": 2303866.16,
+      "population": 23000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne LUCCA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Pise",
+      "latitude": 43.716,
+      "longitude": 10.401,
+      "x_m": 4353395.03,
+      "y_m": 2289739.59,
+      "population": 23000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne PISA ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Valenciennes",
+      "latitude": 50.359,
+      "longitude": 3.525,
+      "x_m": 3860893.43,
+      "y_m": 3047780.78,
+      "population": 23000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur arrondi au millier ; estimations urbaines discutées.",
+        "url": "https://discovery.ucl.ac.uk/id/eprint/10052256/1/The%20friends%20we%20make.pdf",
+        "passage": "Annexe E, tableau E.1 (1400), ligne VALENCIENNES ; source du tableau : Bairoch, Batou et Chèvre (1988)."
+      }
+    },
+    {
+      "nom": "Le Caire",
+      "latitude": 30.0444,
+      "longitude": 31.2357,
+      "x_m": 6378369.92,
+      "y_m": 1066036.7,
+      "population": 360000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Autres lignes de la même table : 360 000 à plus de 400 000.",
+        "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Cairo&disp_time=1400",
+        "passage": "Ligne Cairo 1400, 360 000 ; Chandler, Four Thousand Years of Urban Growth, p. 56."
+      }
+    },
+    {
+      "nom": "Alexandrie",
+      "latitude": 31.2001,
+      "longitude": 29.9187,
+      "x_m": 6227267.92,
+      "y_m": 1156092.44,
+      "population": 35000,
+      "estimation": {
+        "annee": 1483,
+        "incertitude": "Valeur représentative arrondie dans la classe 23–49 000 de 1483 ; écart de 83 ans avec 1400, sans estimation directe de 1400.",
+        "url": "https://sourcebooks.web.fordham.edu/source/europe-populationurbanareas500-1500.asp",
+        "passage": "Table Population of the Larger Urban Areas, colonne 1483, classe 23–49 000, ligne Alexandria."
+      }
+    },
+    {
+      "nom": "Constantinople",
+      "latitude": 41.0082,
+      "longitude": 28.9784,
+      "x_m": 5905602.58,
+      "y_m": 2190181.4,
+      "population": 70000,
+      "estimation": {
+        "annee": 1415,
+        "incertitude": "Estimation postérieure de 15 à 21 ans ; autres estimations contemporaines 25 000 à 60 000.",
+        "url": "https://ejournals.lib.uoc.gr/Ariadne/article/view/1670",
+        "passage": "Résumé : Bryennios, discours composé entre 1415 et 1421, cite 70 000 habitants."
+      }
+    },
+    {
+      "nom": "Fès",
+      "latitude": 34.064,
+      "longitude": -4.974,
+      "x_m": 2931718.78,
+      "y_m": 1359800.26,
+      "population": 125000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Autre page du même ouvrage : 150 000.",
+        "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Fez&disp_time=1400",
+        "passage": "Ligne Fez 1400 ; Chandler, Four Thousand Years of Urban Growth, p. 56."
+      }
+    },
+    {
+      "nom": "Tunis",
+      "latitude": 36.8065,
+      "longitude": 10.1815,
+      "x_m": 4337335.05,
+      "y_m": 1526407.05,
+      "population": 50000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur ; autres reconstructions divergentes.",
+        "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Tunis&disp_time=1400",
+        "passage": "Ligne Tunis 1400 ; Chandler, Four Thousand Years of Urban Growth, p. 56."
+      }
+    },
+    {
+      "nom": "Brousse",
+      "latitude": 40.1885,
+      "longitude": 29.061,
+      "x_m": 5933158.35,
+      "y_m": 2103368.71,
+      "population": 70000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur ; point de ville historique approché.",
+        "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Bursa&disp_time=1400",
+        "passage": "Ligne Bursa 1400 ; Chandler, Four Thousand Years of Urban Growth, p. 74."
+      }
+    },
+    {
+      "nom": "Edirne",
+      "latitude": 41.6771,
+      "longitude": 26.5557,
+      "x_m": 5692362.81,
+      "y_m": 2215115.5,
+      "population": 36000,
+      "estimation": {
+        "annee": 1400,
+        "incertitude": "Ordre de grandeur ; source sous le nom Adrianople.",
+        "url": "https://www.worldcitypop.com/data_source.asp?disp_city=Edirne&disp_time=1400",
+        "passage": "Ligne Adrianople 1400 ; Chandler, Four Thousand Years of Urban Growth, p. 18."
+      }
+    }
+  ]
+}

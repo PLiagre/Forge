@@ -10,6 +10,7 @@ import json
 import pathlib
 import random
 
+import sim.constants as constantes
 from sim.aggregation import PositionCelluleInconnue, charger_positions
 from sim.constants import (
     FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK,
@@ -20,12 +21,13 @@ from sim.constants import (
     SEED_POPULATION_VARIATION_LOW,
     date_de_tick,
 )
-from sim.model import Cell, cellule_vers_dict
+from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise
 from sim.pluie import (
     charger_latitude_moyenne_pluie,
     charger_releves,
     pluie_par_cellule,
 )
+from sim.villes import attribuer_villes, charger_villes
 
 # Racine du dépôt : deux niveaux au-dessus du paquet sim/
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -90,15 +92,19 @@ class World:
         carte_meta : l'en-tête de la carte (version, projection, versions
                      du pipeline qui l'a produite).
         stocks_mer : panier de marchandises du bassin maritime commun.
+        attribution_villes : résultat initial des points historiques, y
+                     compris ceux hors carte ; le tick ne le consulte pas.
     """
 
     def __init__(self, cells: dict, adjacency: list,
-                 carte: dict | None = None, carte_meta: dict | None = None):
+                 carte: dict | None = None, carte_meta: dict | None = None,
+                 attribution_villes=None):
         self.cells = cells
         self.adjacency = adjacency
         self.carte = carte or {}
         self.carte_meta = carte_meta or {}
         self.stocks_mer: dict[str, float] = {}
+        self.attribution_villes = attribution_villes
         self.ticks_ecoules = 0
 
     @property
@@ -154,6 +160,12 @@ class World:
         carte = {int(raw["cell_id"]): raw for raw in raw_cells}
         carte_meta = {cle: valeur for cle, valeur in carte_doc.items()
                       if cle not in ("cellules", "adjacence")}
+        attribution = attribuer_villes(carte_doc, charger_villes())
+        populations_villes = {}
+        for ville in attribution.entrees:
+            cid = attribution.placees.get(ville.nom)
+            if cid is not None:
+                populations_villes[cid] = populations_villes.get(cid, 0) + ville.population
 
         # L'amorçage se fait en deux temps, et l'ordre porte : la population
         # d'une cellule se dérive de ce que cette cellule produit, et la
@@ -171,14 +183,19 @@ class World:
                 mortality_remainder=0.0, natalite_remainder=0.0,
                 migration_remainder=0.0,
             )
-            pop = _seed_population(population_soutenable_de(cellule_vide, carte), rng)
+            soutenable = population_soutenable_de(cellule_vide, carte)
+            pop_rurale = _seed_population(soutenable, rng)
+            pop = max(pop_rurale, populations_villes.get(cid, 0))
             stock = _seed_food_stock(pop)
-            stocks_init = {MARCHANDISE_NOURRITURE: stock}
+            if cid in populations_villes:
+                manque_kg = max(0.0, pop - soutenable) * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+                stock = round(stock + manque_kg * constantes.RESERVE_VILLES_TICKS,
+                              constantes.SNAPSHOT_FLOAT_DECIMALS)
             cell = Cell(
                 cell_id=cid,
                 area_km2=area,
                 population=pop,
-                stocks=stocks_init,
+                stocks={},
                 hunger_ticks=0,
                 food_deficit_kg=0.0,
                 # Monde amorcé : aucune fraction de mort en attente.
@@ -188,10 +205,12 @@ class World:
                 natalite_remainder=0.0,
                 migration_remainder=0.0,
             )
+            ecrire_stock_marchandise(cell, MARCHANDISE_NOURRITURE, stock)
             cells[cid] = cell
 
         return cls(cells=cells, adjacency=raw_adjacency,
-                   carte=carte, carte_meta=carte_meta)
+                   carte=carte, carte_meta=carte_meta,
+                   attribution_villes=attribution)
 
     def to_dict(self) -> dict:
         """

@@ -421,6 +421,10 @@ SEED_POPULATION_VARIATION_HIGH = 1.1
 # L'unité est le tick, pas le jour calendaire.
 INITIAL_FOOD_RESERVE_TICKS = 5
 
+# Réserve initiale supplémentaire des cellules urbaines déficitaires :
+# proxy de niveau 2, environ un mois de manque, sans renouvellement automatique.
+RESERVE_VILLES_TICKS = 30
+
 # --- Récupération physique du déficit alimentaire ---
 
 # Kilogrammes de dette alimentaire remboursés par kilogramme de surplus
