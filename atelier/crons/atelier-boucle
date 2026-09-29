@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # atelier-boucle <jour|arret|etat> : armer, désarmer, regarder.
 #
-#   jour    la cadence réelle : le pilote toutes les dix minutes, le journal
+#   jour    la cadence réelle : le pilote toutes les deux minutes, le journal
 #           à 07:15, la boussole le lundi
 #   arret   plus aucun réveil ; un tour en cours finit le sien
 #   etat    le profil, la ligne de cron, les tours en vol, les dernières

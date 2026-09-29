@@ -4,10 +4,16 @@
 # minute, quel réveil ensuite. Il ne lance rien — le répartiteur s'en charge.
 # Les heures sont celles de Paris (lib.sh pose TZ).
 #
-# Le pilote passe toutes les dix minutes, jour et nuit : un tour n'invoque
+# Le pilote passe toutes les deux minutes, jour et nuit : un tour n'invoque
 # qu'un agent, et un tour qui tourne encore fait passer le suivant (verrou).
+# Un tour sans agent ne coûte que quelques lectures de GitHub ; à dix
+# minutes, chaque étape d'un lot en attendait cinq en moyenne (#120, le
+# 29 septembre 2026 : brief à 09:53, envoi au PC à 10:02).
 # Le journal s'écrit à 07:15 ; la boussole, le lundi à 07:45 ; la veille
-# regarde les outils à 06:45, avant tout le monde.
+# regarde les outils à 06:45, avant tout le monde. Ces minutes sont impaires :
+# elles ne tombent jamais sur un tour du pilote.
+
+PAS_DU_PILOTE=2
 
 roles_du_moment() {
   local quand="${1:-}" minute
@@ -16,7 +22,7 @@ roles_du_moment() {
   [[ "$quand" == "06:45" ]] && printf 'veille\n'
   [[ "$quand" == "07:15" ]] && printf 'journal\n'
   [[ "$quand" == "07:45" && "$(date +%u)" == "1" ]] && printf 'boussole\n'
-  (( 10#$minute % 10 == 0 )) && printf 'pilote\n'
+  (( 10#$minute % PAS_DU_PILOTE == 0 )) && printf 'pilote\n'
   # Une minute sans réveil n'est pas une erreur : sans ce `return`, la
   # fonction rendrait le code du dernier test.
   return 0
@@ -27,7 +33,7 @@ prochain_reveil() {
   heure="${quand%%:*}"
   minute="${quand#*:}"
   [[ "$minute" =~ ^[0-9]+$ ]] || return 0
-  suivante=$(( (10#$minute / 10 + 1) * 10 ))
+  suivante=$(( (10#$minute / PAS_DU_PILOTE + 1) * PAS_DU_PILOTE ))
   if (( suivante > 59 )); then
     printf '%02d:00 pilote\n' $(( (10#$heure + 1) % 24 ))
   else

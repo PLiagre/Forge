@@ -18,8 +18,9 @@ def test_le_branchement_du_depot_nomme_chaque_role():
     projet = charger(RACINE)
     assert projet.depot == "PLiagre/Forge"
     assert str(projet.poste("codeur").principal) == "codex/gpt-5.6-sol"
-    assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5"
-    assert [str(a) for a in projet.poste("relecteur").agents] == ["claude/claude-opus-5-5", "codex/gpt-5.6-sol"]
+    assert str(projet.poste("chef").principal) == "cursor/claude-opus-5-5-high"
+    assert [str(a) for a in projet.poste("relecteur").agents] == [
+        "claude/claude-opus-5-5", "cursor/claude-opus-5-5-high", "codex/gpt-5.6-sol", "cursor/grok-4.7-high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -235,12 +236,47 @@ def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_p
 
 
 def test_le_chef_et_la_boussole_ont_un_secours_hors_de_claude_code():
-    # Un quota de Claude Code arrêtait net le chef et la boussole.
+    # Un quota de Claude Code arrêtait net le chef et la boussole. Le chef
+    # reste Claude Opus quel que soit l'outil qui le porte.
     projet = charger(RACINE)
     for role in ("chef", "boussole"):
         poste = projet.poste(role)
-        assert poste.principal.outil == "claude", role
-        assert any(a.outil != "claude" for a in poste.secours), role
+        assert {a.outil for a in poste.agents} >= {"claude", "cursor"}, role
+        assert {a.famille for a in poste.agents} == {"claude"}, role
+
+
+def _relecteurs_restants(poste_relecteur, famille_auteur):
+    return [a for a in poste_relecteur.agents if a.famille != famille_auteur]
+
+
+def test_claude_juge_et_ne_code_qu_en_dernier_secours():
+    # Le plafond de Claude Code (29 septembre 2026) se garde pour la relecture :
+    # aucun codeur n'est un Claude en premier, et chacun a un secours.
+    projet = charger(RACINE)
+    for role in ("codeur", "codeur_3d"):
+        poste = projet.poste(role)
+        assert poste.principal.famille != "claude", role
+        assert poste.secours, role
+    assert projet.poste("relecteur").principal.famille == "claude"
+
+
+def test_un_lot_a_toujours_deux_relecteurs_possibles():
+    # Quelle que soit la famille qui a écrit, au moins deux agents peuvent
+    # relire : un quota ne laisse plus un lot sans relecture (#186, le
+    # 28 septembre 2026 : Claude écarté, codex à court de quota).
+    projet = charger(RACINE)
+    relecteur = projet.poste("relecteur")
+    auteurs = {a.famille for role in ("codeur", "codeur_3d", "mecanicien") for a in projet.poste(role).agents}
+    for famille in auteurs:
+        restants = _relecteurs_restants(relecteur, famille)
+        assert len(restants) >= 2, f"un lot écrit par {famille} n'a que {[str(a) for a in restants]}"
+
+
+def test_l_ancienne_ligne_du_relecteur_laissait_un_lot_sans_secours():
+    # Contre-épreuve : la ligne d'avant ne laissait qu'un relecteur à un lot
+    # écrit par Claude, et la même règle la refuse.
+    ancienne = lire_poste("relecteur", "claude/claude-opus-5-5 | codex/gpt-5.6-sol")
+    assert len(_relecteurs_restants(ancienne, "claude")) == 1
 
 
 def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):

@@ -38,7 +38,7 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
 - **Les jalons suivent CAP.md** : chaque section « ## Jalon n — Titre » est
   un milestone, que le pilote crée ou renomme seul. Un jalon courant qui n'a
   encore rien de prêt, en cours ou livré se fait découper par le chef.
-- **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les dix
+- **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les deux
   minutes) prend le lot suivant du jalon courant. Le **chef** écrit le brief
   dans la branche `lot/<n>-<slug>` et ouvre la PR (moins de 300 lignes, sinon
   il découpe ; hors du jalon courant, il refuse). Le **codeur** code, la CI
