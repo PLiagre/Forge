@@ -22,7 +22,7 @@ from . import agents as agents_mod
 from . import journal, traces
 from .depot import Depot
 from .github import GitHub
-from .projet import ProjetIncomplet, charger, table_des_roles
+from .projet import MACHINES, ProjetIncomplet, charger, table_des_roles
 
 
 def _racine(args: argparse.Namespace) -> Path:
@@ -85,7 +85,8 @@ def _cmd_veille(args: argparse.Namespace) -> int:
 
 
 def _cmd_sonde(args: argparse.Namespace) -> int:
-    """Chaque agent distinct de [agents], appelé comme la chaîne l'appelle."""
+    """Chaque agent distinct de [agents], appelé comme la chaîne l'appelle ;
+    un agent qui écrit doit vraiment écrire (agents.sonder)."""
     projet = charger(_racine(args))
     vus = set()
     fautes = 0
@@ -97,31 +98,41 @@ def _cmd_sonde(args: argparse.Namespace) -> int:
                 continue
             vus.add(cle)
             unique = type(poste)(role=poste.role, agents=(agent,))
-            res = agents_mod.invoquer(unique, "Réponds exactement par le mot : OK", projet.racine, 300)
-            ok = res.reussi and "OK" in res.texte
+            ok, detail = agents_mod.sonder(unique, projet.racine)
             fautes += not ok
-            detail = res.texte.strip().splitlines()[-1][:80] if res.texte.strip() else "; ".join(res.essais)
             print(f"{'PASS' if ok else 'FAIL'}  {str(agent):34} {'lecture seule' if poste.lecture_seule else 'écriture':14} {detail}")
     return 1 if fautes else 0
 
 
 def _pilote(args: argparse.Namespace):
     from .pilote import Pilote
+    from .verrous import Verrous
     projet = charger(_racine(args))
     gh = GitHub(projet.depot)
-    depot = Depot(projet.racine, projet.branche_base)
     if getattr(args, "a_sec", False):
         from .asec import GitHubASec, DepotASec, executeur_a_sec
         # À sec, rien ne s'écrit : pas même le journal local, que le
         # chroniqueur et la veille lisent comme ce qui a vraiment eu lieu.
         return Pilote(projet, GitHubASec(projet.depot), DepotASec(projet.racine, projet.branche_base),
                       executeur_agents=executeur_a_sec, journal=Path(os.devnull))
-    return Pilote(projet, gh, depot)
+    # Plusieurs tours tournent en même temps : ils partagent leurs verrous
+    # (ATELIER_VERROUS, ~/.atelier/verrous), ceux des crons compris.
+    verrous = Verrous()
+    return Pilote(projet, gh, Depot(projet.racine, projet.branche_base, verrous=verrous), verrous=verrous)
 
 
 def _cmd_tour(args: argparse.Namespace) -> int:
-    for ligne in _pilote(args).tour():
-        print(ligne)
+    pilote = _pilote(args)
+    # Assez de places pour chaque lot que les machines tiennent, plus le
+    # mécanicien et un tour qui range ; au-delà, un tour passe : si GitHub ne
+    # répond plus, les tours ne s'empilent pas toutes les deux minutes.
+    places = sum(pilote.projet.capacite(m) for m in MACHINES) + 2
+    with pilote.verrous.place("tour", places) as libre:
+        if not libre:
+            print(f"RIEN — {places} tours tournent déjà")
+            return 0
+        for ligne in pilote.tour():
+            print(ligne)
     return 0
 
 

@@ -29,6 +29,7 @@ from . import captures, lots, prompts
 from .depot import Depot
 from .github import GitHub
 from .projet import Projet
+from .verrous import Verrous
 
 _IMAGE = re.compile(r"!\[[^\]]*\]\((https://raw\.githubusercontent\.com/[^)]+)\)")
 # Ce que le pilote écrit sur la machine qui le fait tourner (le VPS).
@@ -492,8 +493,9 @@ def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime) -> list[str
         nommee = Path(tmp) / f"monde-{maintenant:%Y-%m-%d}.png"
         carte.rename(nommee)
         try:
-            return captures.publier(Depot(projet.racine, projet.branche_base), gh.depot, [nommee],
-                                    f"{maintenant:%Y-%m-%d}")
+            # Le journal partage la branche des captures avec les tours du pilote.
+            depot = Depot(projet.racine, projet.branche_base, verrous=Verrous())
+            return captures.publier(depot, gh.depot, [nommee], f"{maintenant:%Y-%m-%d}")
         except Exception:  # noqa: BLE001 — une photo manquée ne retient pas le journal
             return []
 

@@ -8,7 +8,7 @@ La seule pièce qui a besoin d'une machine allumée. Le reste décide en Python
 | `installer.sh` | installer ou réinstaller, sans sudo, rejouable |
 | `repartiteur.sh` | appelé chaque minute par la crontab ; lit le profil, lance les rôles du moment |
 | `profils/jour.sh` | la cadence : pilote toutes les 2 min, veille 06:45, journal 07:15, boussole lundi 07:45 |
-| `tour.sh <rôle>` | un verrou par rôle, la base à jour, puis Python |
+| `tour.sh <rôle>` | un verrou par rôle (sauf le pilote, dont les tours tournent en même temps sous les verrous de `atelier/verrous.py`), la base à jour, puis Python |
 | `atelier-boucle <jour\|arret\|etat>` | armer, désarmer, regarder |
 | `veille.sh` | ce qui manque pour tourner, à la main |
 | `lib.sh` | ce que tous les scripts partagent (chemins, PATH, clés retirées) |

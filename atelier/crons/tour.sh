@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # Un tour d'un rôle : un verrou, la base à jour, Python, puis on sort.
 #
-# Rôles : pilote (un tour de la chaîne), journal, boussole, veille. Un tour
-# qui tourne encore fait passer le suivant : le verrou est par rôle. Le
-# pilote tourne depuis la copie principale, restée sur la base ; les lots
-# travaillent dans leurs worktrees (.atelier/chantiers/), et ne touchent
-# jamais atelier/ : le code qui pilote ne change que par le mode direct.
+# Rôles : pilote (un tour de la chaîne), journal, boussole, veille. Pour le
+# journal, la boussole et la veille, un tour qui tourne encore fait passer
+# le suivant : le verrou est par rôle. Les tours du pilote, eux, tournent en
+# même temps — un par lot en cours, chacun avec son agent — et se partagent
+# les verrous de Python (atelier/verrous.py : un par lot, « decider »,
+# « git », les places des tours et des outils). Le pilote tourne depuis la
+# copie principale, restée sur la base ; les lots travaillent dans leurs
+# worktrees (.atelier/chantiers/), et ne touchent jamais atelier/ : le code
+# qui pilote ne change que par le mode direct.
 set -euo pipefail
 
 _self="${BASH_SOURCE[0]}"
@@ -23,10 +27,12 @@ case "$role" in
 esac
 
 mkdir -p "$ATELIER_VERROUS"
-exec 9>"$ATELIER_VERROUS/atelier-$role.lock"
-if ! flock -n 9; then
-  dire "tour $role : un tour tourne encore — celui-ci passe"
-  exit 0
+if [[ "$role" != "pilote" ]]; then
+  exec 9>"$ATELIER_VERROUS/atelier-$role.lock"
+  if ! flock -n 9; then
+    dire "tour $role : un tour tourne encore — celui-ci passe"
+    exit 0
+  fi
 fi
 
 # Le pilote tourne depuis la copie principale, et elle reste sur la base. Une
@@ -38,9 +44,12 @@ if [[ "$courante" != "${ATELIER_BASE:-master}" ]]; then
   exit 0
 fi
 
-# La base d'abord : le pilote décide sur ce qui a été fusionné.
+# La base d'abord : le pilote décide sur ce qui a été fusionné. Sous le
+# verrou « git » de Python : deux gestes git en même temps sur le dépôt se
+# marchent dessus (index.lock).
 if [[ "${ATELIER_SANS_PULL:-0}" != "1" ]]; then
-  git -C "$ATELIER_PROJET" pull --quiet --ff-only >&2 || dire "tour $role : base non rafraîchie — on continue"
+  flock -w 300 "$ATELIER_VERROUS/atelier-git.lock" git -C "$ATELIER_PROJET" pull --quiet --ff-only >&2 \
+    || dire "tour $role : base non rafraîchie — on continue"
 fi
 
 # Un tour ne dure jamais plus de trois heures : un agent a son propre délai,

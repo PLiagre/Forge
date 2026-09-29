@@ -283,3 +283,89 @@ def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):
     agents = Agents((1, "Error: You've hit your usage limit"), (0, "DECISION: BRIEF"))
     res = A.invoquer(projet.poste("chef"), "prépare", tmp_path, 10, executeur=agents)
     assert res.reussi and str(res.agent) == "cursor/opus-high"
+
+
+# Le parallélisme : combien de lots par machine, combien d'agents par outil.
+
+def _toml_avec(projet, tmp_path, ajout):
+    texte = (projet.racine / "atelier.toml").read_text(encoding="utf-8") + ajout
+    (tmp_path / "atelier.toml").write_text(texte, encoding="utf-8")
+    return tmp_path
+
+
+def test_sans_reglage_chaque_machine_tient_un_lot_et_aucun_outil_n_a_de_plafond(projet):
+    assert projet.capacite("vps") == 1 and projet.capacite("pc") == 1
+    assert projet.plafond("codex") is None
+
+
+def test_le_parallelisme_se_lit_et_une_faute_se_refuse(projet, tmp_path):
+    (tmp_path / "bon").mkdir()
+    lu = charger(_toml_avec(projet, tmp_path / "bon", "\n[machines]\nvps = 3\n\n[outils]\ncodex = 2\n"))
+    assert lu.capacite("vps") == 3 and lu.capacite("pc") == 1
+    assert lu.plafond("codex") == 2 and lu.plafond("claude") is None
+    assert "vps 3" in table_des_roles(lu) and "codex 2" in table_des_roles(lu)
+    for ajout, motif in (("\n[machines]\nvps = 0\n", "vps"), ("\n[machines]\nmac = 2\n", "mac"),
+                         ("\n[outils]\ncodex = \"deux\"\n", "codex"), ("\n[outils]\ncopilot = 1\n", "copilot")):
+        dossier = tmp_path / motif
+        dossier.mkdir(exist_ok=True)
+        with pytest.raises(ProjetIncomplet, match=motif):
+            charger(_toml_avec(projet, dossier, ajout))
+
+
+def test_le_depot_fait_avancer_plusieurs_lots_du_vps_et_plafonne_ses_outils():
+    projet = charger(RACINE)
+    assert projet.capacite("vps") >= 2 and projet.capacite("pc") == 1
+    for outil in ("claude", "codex", "cursor"):
+        assert projet.plafond(outil), outil
+
+
+class _Places:
+    """Des places d'outil dictées : `pleins` n'en a plus."""
+
+    def __init__(self, *pleins):
+        self.pleins = set(pleins)
+        self.demandees: list[str] = []
+
+    def __call__(self, outil):
+        from contextlib import nullcontext
+        self.demandees.append(outil)
+        return nullcontext(outil not in self.pleins)
+
+
+def test_un_outil_a_son_plafond_passe_la_main_a_son_secours(projet, tmp_path):
+    agents = Agents((0, "fait"))
+    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents, place=_Places("codex"))
+    assert res.reussi and str(res.agent) == "cursor/grok" and agents.outils() == ["cursor-agent"]
+    assert "codex/sol : occupé" in res.essais[0]
+
+
+def test_tous_les_outils_occupes_le_lot_attend_sans_essai(projet, tmp_path):
+    agents = Agents()
+    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents,
+                     place=_Places("codex", "cursor"))
+    assert res.attente and not res.personne and agents.appels == []
+
+
+# La sonde : un agent qui écrit doit vraiment écrire.
+
+def test_la_sonde_exige_qu_un_agent_qui_ecrit_ecrive(projet):
+    codeur = projet.poste("codeur")
+    unique = type(codeur)(role="codeur", agents=codeur.agents[:1])
+    ok, _ = A.sonder(unique, projet.racine, executeur=Agents((0, "OK", {A.FICHIER_SONDE: "OK"})))
+    assert ok
+    # Contre-épreuve : le codex du PC du 29 septembre 2026, qui répond « OK »
+    # sans rien pouvoir écrire.
+    ok, detail = A.sonder(unique, projet.racine, executeur=Agents((0, "OK")))
+    assert not ok and "sans rien écrire" in detail
+
+
+def test_la_sonde_d_un_agent_en_lecture_seule_ne_demande_qu_une_reponse(projet):
+    relecteur = projet.poste("relecteur")
+    unique = type(relecteur)(role="relecteur", agents=relecteur.agents[:1])
+    assert A.sonder(unique, projet.racine, executeur=Agents((0, "OK")))[0]
+    assert not A.sonder(unique, projet.racine, executeur=Agents((0, "non")))[0]
+
+
+def test_codex_ne_code_pas_sur_le_pc():
+    # Son bac à sable Windows ne démarre pas : il répond, mais n'écrit rien.
+    assert all(a.outil != "codex" for a in charger(RACINE).poste("codeur_3d").agents)

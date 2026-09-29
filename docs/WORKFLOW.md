@@ -17,7 +17,7 @@ la fusionne toute seule.
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
-                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : le même sur le PC (claude en dernier secours)
+                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : cursor grok sur le PC (secours claude)
                           │ le pilote commit, pousse, capture
                           ▼
                     CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus)
@@ -41,8 +41,9 @@ Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
 
 **Claude juge, les autres écrivent.** Le plafond de Claude Code a été atteint
 le 29 septembre 2026 : il se garde pour la relecture. Le chef reste Claude
-Opus, porté d'abord par Cursor ; le code s'écrit avec codex sol, sur le VPS
-comme sur le PC, et Claude n'y vient qu'en dernier secours. La ligne du
+Opus, porté d'abord par Cursor ; le code s'écrit avec codex sol sur le VPS,
+avec cursor grok sur le PC (où le bac à sable de codex ne démarre pas), et
+Claude n'y vient qu'en secours. La ligne du
 relecteur laisse toujours au moins deux agents à un lot, quelle que soit la
 famille qui l'a écrit : un quota ne le laisse plus sans relecture.
 
@@ -112,8 +113,13 @@ lancé à la main, avec un lot `pret`, n'est pas redécoupé.
 
 Le chef découpe en sous-lots (`pret`, même jalon), écrits « Découpé du lot
 #N », et ferme le lot d'origine. Un sous-lot garde la machine du lot
-découpé, sauf si le chef finit sa ligne par « :: pc » ou « :: vps ». Les
-sous-lots se suivent dans l'ordre du chef : chacun dépend du précédent. Un
+découpé, sauf si le chef finit sa ligne par « :: pc » ou « :: vps ». Chaque
+ligne dit aussi ce qu'elle attend : « :: après 1, 3 » (les rangs, dans la
+liste, des sous-lots dont elle a besoin), « :: après rien » (elle part tout
+de suite) ; sans « après », elle attend la précédente. Les sous-lots qui ne
+s'attendent pas avancent en même temps. Le dernier d'une découpe de jalon
+porte la preuve : il attend tous les autres. Une ligne qui attend un
+sous-lot placé après elle rend la découpe illisible, et rien n'est créé. Un
 lot qui « dépend de #N » attend tous les sous-lots de #N (et les leurs, si
 un sous-lot est découpé à son tour), pas seulement sa fermeture.
 
@@ -139,6 +145,39 @@ branche, puis remettre `pret`.
 
 Remettre `en-cours` à la main ne suffit pas : sans marque de reprise, le
 pilote recompte les échecs et rebloque.
+
+## Plusieurs lots en même temps
+
+Le cron lance un tour toutes les deux minutes, même si d'autres tournent
+encore ; chaque tour n'invoque qu'un agent, et un tour dont l'agent code
+pendant quarante minutes n'empêche plus les autres lots d'avancer. Ce qui
+ne doit se faire qu'une fois se tient par des verrous de fichier
+([`atelier/verrous.py`](../atelier/verrous.py), dans `~/.atelier/verrous`),
+que le système rend seul quand un tour meurt :
+
+| verrou | ce qu'il garde |
+|---|---|
+| `lot-<n>` | un lot n'avance que dans un tour à la fois |
+| `decider` | relire GitHub, ranger, reprendre, livrer, choisir le lot suivant : un tour après l'autre, en quelques secondes |
+| `git` | un geste git à la fois sur le dépôt partagé (les worktrees partagent ses références) |
+| `captures` | une publication à la fois sur la branche `journal` (le journal du matin compris) |
+| `meca` | un mécanicien de master à la fois |
+| `outil-<outil>-<i>` | les places d'un outil, jusqu'à son plafond |
+| `tour-<i>` | les places des tours : si GitHub ne répond plus, ils ne s'empilent pas |
+
+Les réglages sont dans [`atelier.toml`](../atelier.toml) :
+
+- `[machines]` : combien de lots chaque machine fait avancer en même temps
+  (le VPS en tient plusieurs, chacun dans son worktree ; le PC n'a qu'un
+  runner). Un lot dont un autre tour écrit le brief compte déjà.
+- `[outils]` : combien d'agents de chaque outil tournent ensemble. Un outil
+  plein passe la main au secours de sa ligne, comme un quota : le troisième
+  lot du VPS code avec cursor grok pendant que codex en tient deux. Si
+  personne n'est libre, le lot attend, sans compter d'essai.
+
+Deux lots qui touchent les mêmes fichiers finissent en conflit : le
+mécanicien le résout. Le chef les fait s'attendre quand il le voit.
+`atelier-boucle etat` montre les verrous en vol.
 
 ## Ce que le pilote retient, et où
 
@@ -210,7 +249,7 @@ sort du gabarit, ou cite une image ou un numéro absent des faits, est
 
 | quand | quoi |
 |---|---|
-| toutes les 2 min | un tour du pilote (au plus un agent ; un tour qui tourne encore fait passer le suivant) |
+| toutes les 2 min | un tour du pilote (au plus un agent), même si d'autres tournent encore : un par lot en cours, voir « Plusieurs lots en même temps » |
 | 06:45 | la veille : outils, jetons, accès GitHub |
 | 07:15 | le journal |
 | lundi 07:45 | la boussole |
