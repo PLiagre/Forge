@@ -393,7 +393,11 @@ class Pilote:
             if lot.machine == "pc":
                 self._envoyer_pc(lot, pr, branche, action)
                 return False
-            return self._coder(lot, pr, branche, action, liste, role="codeur", chantier=lot.numero)
+            # Le dernier passage avant blocage se fait par le renfort. Les
+            # lots du PC n'en ont pas : Codex n'y écrit pas, Claude y code déjà.
+            renfort = lots.passage_de_renfort(action.essai, self.projet.corrections_max)
+            return self._coder(lot, pr, branche, action, liste, role="codeur", chantier=lot.numero,
+                               poste="renfort" if renfort else None)
         if action.nom == "relire":
             return self._relire(lot, pr, branche, liste)
         if action.nom == "chef":
@@ -558,6 +562,8 @@ class Pilote:
             self.noter(lot.numero, f"{role} sans changement", "", str(res.agent))
             return True
         quoi = "code" if action.essai == 0 else f"correction {action.essai}"
+        if poste == "renfort":
+            quoi += ", en renfort (dernier passage avant blocage)"
         sha = self.depot.enregistrer(chemin, f"Lot #{lot.numero} — {quoi}\n\nÉcrit par {res.agent}.")
         self.depot.pousser(chemin, branche)
         if pr.get("isDraft"):

@@ -50,7 +50,8 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   Le **codeur** code, la CI joue les tests, le **relecteur** — jamais la
   famille de modèle qui a écrit, quel que soit l'outil — rend
   `ACCEPTE` (fusion automatique) ou `CORRIGER` (le codeur corrige, deux fois
-  au plus, puis `bloque`).
+  au plus, puis `bloque`). Sur le VPS, la dernière correction se fait par le
+  **renfort** (GPT-6 Astra), plus fort que le codeur.
 - **Les agents éditent des fichiers ou rendent un texte.** Commit, poussée,
   PR, commentaire, étiquette et fusion appartiennent au pilote.
 - **Un lot ne touche jamais** `atelier/`, `.github/`, `atelier.toml`,

@@ -20,7 +20,8 @@ interdits = ["atelier/", ".github/", "atelier.toml", "AGENTS.md", "CLAUDE.md", "
 # découpe le lot.
 lignes_max = 300
 # Passages du codeur après le premier (CI rouge ou relecture « CORRIGER »)
-# avant que le lot soit « bloque », avec sa raison.
+# avant que le lot soit « bloque », avec sa raison. Sur le VPS, le dernier se
+# fait par le renfort ([agents]).
 corrections_max = 2
 dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
@@ -56,6 +57,14 @@ codeur      = "codex/gpt-6-sol@high | cursor/grok-4.7-high@high"
 # pipe-in », lot #120, 29 septembre 2026) ; il répond, mais n'écrit rien.
 # `gh workflow run sonde-pc.yml` prouve que chaque agent du PC écrit vraiment.
 codeur_3d   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high"
+# Le dernier passage du codeur d'un lot du VPS avant blocage (la
+# 2e correction) : GPT-6 Astra, plus fort que Sol (62 contre 57), qui ne sert
+# qu'aux lots que deux passages n'ont pas suffi à faire, donc peu de son
+# quota Plus ; s'il est épuisé, les agents du codeur reprennent la main. Les
+# lots du PC n'ont pas de renfort : Codex n'écrit pas sous Windows, et Claude
+# Opus y code déjà. La marque reste celle du codeur : le passage compte, et
+# la famille qui a écrit (GPT) ne relit pas.
+renfort     = "codex/gpt-6-astra@high | codex/gpt-6-sol@high | cursor/grok-4.7-high@high"
 # Le modèle qui écrit ne relit jamais : la FAMILLE de modèle qui a écrit le
 # lot est écartée, et le suivant de la ligne relit. Quelle que soit la
 # famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
@@ -96,6 +105,7 @@ cursor = 3
 chef = 1800
 codeur = 3600
 codeur_3d = 3600
+renfort = 3600
 relecteur = 1800
 mecanicien = 1800
 chroniqueur = 600
