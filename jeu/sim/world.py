@@ -10,6 +10,7 @@ import json
 import pathlib
 import random
 
+from sim.aggregation import PositionCelluleInconnue, charger_positions
 from sim.constants import (
     FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK,
     INITIAL_FOOD_RESERVE_TICKS,
@@ -20,6 +21,11 @@ from sim.constants import (
     date_de_tick,
 )
 from sim.model import Cell, cellule_vers_dict
+from sim.pluie import (
+    charger_latitude_moyenne_pluie,
+    charger_releves,
+    pluie_par_cellule,
+)
 
 # Racine du dépôt : deux niveaux au-dessus du paquet sim/
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -77,8 +83,8 @@ class World:
     Attributs :
         cells      : dict cell_id → Cell (l'état que le moteur fait évoluer)
         adjacency  : liste des arêtes d'adjacence entre cellules
-        carte      : dict cell_id → enregistrement de la carte figée
-                     (géométrie, centroïde, relief, climat, gisements).
+        carte      : dict cell_id → enregistrement de la carte lue
+                     (géométrie, centroïde, relief, climat, gisements, pluie).
                      Donnée de terrain, en lecture seule : le moteur ne la
                      modifie jamais.
         carte_meta : l'en-tête de la carte (version, projection, versions
@@ -102,14 +108,28 @@ class World:
 
     @classmethod
     def lire_carte(cls) -> dict:
-        """La carte figée, telle qu'elle est sur le disque."""
+        """La carte figée enrichie en mémoire de la pluie de chaque cellule."""
         if not CARTE_PATH.is_file():
             raise FileNotFoundError(
                 f"Carte du monde introuvable : {CARTE_PATH}. "
                 "Elle est versionnée : la récupérer avec "
                 "`git checkout -- data/world-1400.json`."
             )
-        return json.loads(CARTE_PATH.read_text(encoding="utf-8"))
+        document = json.loads(CARTE_PATH.read_text(encoding="utf-8"))
+        pluies = pluie_par_cellule(
+            charger_positions(),
+            charger_releves(),
+            charger_latitude_moyenne_pluie(),
+        )
+        pluie_par_id = {pluie.cell_id: pluie.mm_par_an for pluie in pluies}
+        for enregistrement in document["cellules"]:
+            cell_id = enregistrement["cell_id"]
+            if cell_id not in pluie_par_id:
+                raise PositionCelluleInconnue(
+                    f"pluie absente pour cell_id={cell_id}"
+                )
+            enregistrement["pluie_mm_par_an"] = pluie_par_id[cell_id]
+        return document
 
     @classmethod
     def charger(cls, rng_seed: int = 0, carte_doc: dict | None = None) -> "World":

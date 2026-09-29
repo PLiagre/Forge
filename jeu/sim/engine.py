@@ -41,6 +41,10 @@ class ClimatInvalideError(ValueError):
     """Climat absent ou durée de solstice invalide sur une cellule du monde chargé."""
 
 
+class PluieInvalideError(ValueError):
+    """Pluie absente ou inexploitable sur une cellule du monde chargé."""
+
+
 class LongueurFrontiereInvalideError(ValueError):
     """Longueur de frontière non numérique ou NaN sur une arête."""
 
@@ -84,6 +88,26 @@ def _facteur_relief_pour_cellule(cell: Cell, carte: dict) -> float:
             f"cell_id={cell.cell_id} relief={relief!r}"
         )
     return facteurs[relief]
+
+
+def _facteur_eau_pour_cellule(cell: Cell, carte: dict) -> float:
+    """Lit la pluie annuelle de la carte et refuse toute valeur invalide."""
+    raw = carte.get(cell.cell_id)
+    if not isinstance(raw, dict):
+        raise PluieInvalideError(
+            f"cell_id={cell.cell_id} pluie_mm_par_an=absente de world.carte"
+        )
+    pluie = raw.get("pluie_mm_par_an")
+    if (
+        isinstance(pluie, bool)
+        or not isinstance(pluie, (int, float))
+        or not math.isfinite(pluie)
+        or pluie < 0
+    ):
+        raise PluieInvalideError(
+            f"cell_id={cell.cell_id} pluie_mm_par_an={pluie!r}"
+        )
+    return _constantes.facteur_eau(float(pluie))
 
 
 def _lire_solstices(cell: Cell, carte: dict) -> tuple[float, float]:
@@ -152,8 +176,8 @@ def production_du_tick_kg(
     jour: int | None = None,
 ) -> float:
     """
-    Production alimentaire d'une cellule pendant un tick, avec relief, saison
-    et part minière lus depuis la carte passée en argument.
+    Production alimentaire d'une cellule pendant un tick, avec relief, eau,
+    saison et part minière lus depuis la carte passée en argument.
 
     `jour` facultatif : sans jour, relief et part minière seulement (appels
     historiques à trois arguments). Avec un jour explicite, le facteur saisonnier
@@ -162,7 +186,8 @@ def production_du_tick_kg(
     base = _production_base_kg(cell, yield_factor)
     relief = _facteur_relief_pour_cellule(cell, carte)
     agricole = _facteur_agricole(cell, carte)
-    produit = base * relief * agricole
+    eau = _facteur_eau_pour_cellule(cell, carte)
+    produit = base * relief * agricole * eau
     if jour is None:
         return produit
     return produit * _facteur_saison_pour_cellule(cell, carte, jour)
@@ -202,7 +227,8 @@ def population_soutenable_de(cell: Cell, carte: dict) -> float:
     DÉRIVÉE de l'unique formule de production du moteur, facteur saisonnier
     moyen compris : c'est exactement ce que le tick produira sur l'année. Le
     plafond ne peut donc pas diverger de ce que le monde produit, et il suivra
-    tout seul le jour où le relief, la saison ou la part minière changeront.
+    tout seul le jour où le relief, l'eau, la saison ou la part minière
+    changeront.
 
     Lue à l'amorçage (`sim.world`) et par personne d'autre : le tick ne la
     consulte jamais. Une cellule qui ne produit rien nourrit zéro habitant —
