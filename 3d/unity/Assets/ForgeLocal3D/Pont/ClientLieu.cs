@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 
 namespace Forge.Pont
 {
@@ -58,13 +59,23 @@ namespace Forge.Pont
     {
         private const string Hote = "127.0.0.1";
         private readonly int port;
+        private readonly TimeSpan delai;
         private readonly HttpClient http;
 
         public ClientLieu(int port, TimeSpan delai)
         {
             if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port), port, "port hors de 1..65535");
+            if (delai <= TimeSpan.Zero && delai != Timeout.InfiniteTimeSpan)
+                throw new ArgumentOutOfRangeException(nameof(delai), delai, "un délai positif attendu");
             this.port = port;
-            http = new HttpClient { Timeout = delai };
+            this.delai = delai;
+            // Aucune redirection suivie : un 3xx est un statut autre que 200, et la
+            // lecture ne quitte jamais 127.0.0.1. Le délai est tenu par Lire, qui
+            // sait ainsi le distinguer d'une erreur réseau quel que soit le runtime.
+            http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+            {
+                Timeout = Timeout.InfiniteTimeSpan
+            };
         }
 
         public void Dispose() => http.Dispose();
@@ -74,23 +85,26 @@ namespace Forge.Pont
             string prefixe = "lieu " + cellId.ToString(CultureInfo.InvariantCulture) + " : ";
             HttpStatusCode statut;
             string corps;
-            try
+            using (var minuterie = new CancellationTokenSource())
             {
-                string url = "http://" + Hote + ":" + port.ToString(CultureInfo.InvariantCulture)
-                    + "/lieu?cell=" + cellId.ToString(CultureInfo.InvariantCulture);
-                using (HttpResponseMessage reponse = http.GetAsync(url).GetAwaiter().GetResult())
+                try
                 {
-                    statut = reponse.StatusCode;
-                    corps = Encoding.UTF8.GetString(reponse.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult());
+                    string url = "http://" + Hote + ":" + port.ToString(CultureInfo.InvariantCulture)
+                        + "/lieu?cell=" + cellId.ToString(CultureInfo.InvariantCulture);
+                    minuterie.CancelAfter(delai);
+                    using (HttpResponseMessage reponse = http.GetAsync(url, minuterie.Token).GetAwaiter().GetResult())
+                    {
+                        statut = reponse.StatusCode;
+                        corps = Encoding.UTF8.GetString(reponse.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult());
+                    }
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                return LectureLieu.Absent(prefixe + "délai dépassé (" + http.Timeout.TotalMilliseconds.ToString(CultureInfo.InvariantCulture) + " ms) sur " + Hote + ":" + port);
-            }
-            catch (Exception erreur)
-            {
-                return LectureLieu.Absent(prefixe + "service absent sur " + Hote + ":" + port + " (" + erreur.GetBaseException().Message + ")");
+                catch (Exception erreur)
+                {
+                    // Le runtime peut rendre l'annulation sous plusieurs formes : seule la minuterie fait foi.
+                    if (minuterie.IsCancellationRequested)
+                        return LectureLieu.Absent(prefixe + "délai dépassé (" + delai.TotalMilliseconds.ToString(CultureInfo.InvariantCulture) + " ms) sur " + Hote + ":" + port);
+                    return LectureLieu.Absent(prefixe + "service absent sur " + Hote + ":" + port + " (" + erreur.GetBaseException().Message + ")");
+                }
             }
 
             if (statut != HttpStatusCode.OK)
@@ -149,8 +163,9 @@ namespace Forge.Pont
         private static long Entier(Dictionary<string, object> objet, string cle, string chemin, long min, long max)
         {
             double nombre = Nombre(Valeur(objet, cle, chemin), chemin);
-            // Au-delà de 2^53 un double ne dit plus quel entier il porte : refusé plutôt que deviné.
-            if (nombre != Math.Floor(nombre) || Math.Abs(nombre) > 9007199254740992.0 || nombre < min || nombre > max)
+            // Dès 2^53 un double ne dit plus quel entier le texte portait (9007199254740993
+            // se lit 9007199254740992) : la borne elle-même est refusée plutôt que devinée.
+            if (nombre != Math.Floor(nombre) || Math.Abs(nombre) >= 9007199254740992.0 || nombre < min || nombre > max)
                 throw new CleRefusee("clé " + chemin + " : un entier attendu, reçu " + nombre.ToString("R", CultureInfo.InvariantCulture));
             return (long)nombre;
         }

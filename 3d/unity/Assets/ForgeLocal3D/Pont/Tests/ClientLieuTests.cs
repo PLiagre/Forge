@@ -42,7 +42,9 @@ namespace Forge.Pont.Tests
             fil = null;
         }
 
-        private void Servir(int statut, string corps)
+        // `redirection` : `/lieu` répond 302 vers ce chemin, qui rend `statut` et `corps`.
+        // `muet` : la requête est acceptée et jamais répondue (le délai doit dépasser).
+        private void Servir(int statut, string corps, string redirection = null, bool muet = false)
         {
             byte[] octets = Encoding.UTF8.GetBytes(corps);
             ecoute = new HttpListener();
@@ -56,6 +58,15 @@ namespace Forge.Pont.Tests
                     HttpListenerContext contexte;
                     try { contexte = auditeur.GetContext(); }
                     catch (Exception) { return; }
+                    if (muet) continue;
+                    if (redirection != null && contexte.Request.Url.AbsolutePath == "/lieu")
+                    {
+                        contexte.Response.StatusCode = 302;
+                        contexte.Response.RedirectLocation = "http://127.0.0.1:" + port + redirection;
+                        contexte.Response.ContentLength64 = 0;
+                        contexte.Response.OutputStream.Close();
+                        continue;
+                    }
                     contexte.Response.StatusCode = statut;
                     contexte.Response.ContentType = "application/json; charset=utf-8";
                     contexte.Response.ContentLength64 = octets.Length;
@@ -231,6 +242,59 @@ namespace Forge.Pont.Tests
             Assert.IsNull(lecture.Lieu);
             StringAssert.Contains("9923", lecture.Absence);
             StringAssert.Contains("9922", lecture.Absence);
+        }
+
+        [Test]
+        public void UneRedirectionNEstPasSuivie()
+        {
+            // Suivie, elle mènerait à un lieu valide : seul le refus de la suivre rend l'absence.
+            Servir(200, TexteFige("lieu-graine0-tick3.json"), redirection: "/ailleurs");
+
+            LectureLieu lecture = Absence(CellFigee);
+
+            StringAssert.Contains("302", lecture.Absence);
+        }
+
+        [Test]
+        public void UnEntierAuDelaDeDeuxPuissance53EstRefuse()
+        {
+            // 9007199254740993 se lit 9007199254740992 en double : accepté, il deviendrait un autre nombre.
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            string altere = texte.Replace("\"population\":109752", "\"population\":9007199254740993");
+            Assert.AreNotEqual(texte, altere);
+            Servir(200, altere);
+
+            StringAssert.Contains("clé population", Absence(CellFigee).Absence);
+        }
+
+        [Test]
+        public void LePlusGrandEntierSurEstReluExactement()
+        {
+            // Contre-épreuve : juste sous 2^53, l'entier reste lu tel quel.
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            string altere = texte.Replace("\"population\":109752", "\"population\":9007199254740991");
+            Assert.AreNotEqual(texte, altere);
+            Servir(200, altere);
+
+            LectureLieu lecture = Lire(CellFigee);
+
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            Assert.IsTrue(lecture.Lieu.Population == 9007199254740991L);
+        }
+
+        [Test]
+        public void UnServiceMuetRendUneAbsenceDeDelaiDepasse()
+        {
+            Servir(200, TexteFige("lieu-graine0-tick3.json"), muet: true);
+
+            LectureLieu lecture;
+            using (var client = new ClientLieu(port, TimeSpan.FromMilliseconds(300)))
+                lecture = client.Lire(CellFigee);
+
+            Assert.IsFalse(lecture.Presente);
+            Assert.IsNull(lecture.Lieu);
+            StringAssert.Contains("9922", lecture.Absence);
+            StringAssert.Contains("délai dépassé", lecture.Absence);
         }
 
         [Test]
