@@ -149,6 +149,45 @@ def test_a_faire_lit_les_secours_du_vps_et_un_lot_du_pc_mis_de_cote(projet, gh, 
     assert "#12 : secours" in texte.split("CE QUE LA CHAÎNE A VÉCU")[1]
 
 
+def test_une_attente_dementie_par_une_reponse_plus_recente_ne_se_demande_plus(projet, gh, tmp_path):
+    # Le 29 septembre 2026, le journal demandait de relever le plafond de
+    # Claude et disait Codex sans quota : Claude codait sur le PC depuis la
+    # veille, et Codex avait relu #186 à 23:31.
+    local, veille = _journee(gh, tmp_path)
+    reponse = ("🤖 **codeur_3d** (claude/claude-opus-5-5) — code.\n\n"
+               + marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40))
+    gh.prs_[50]["comments"].append({"body": reponse, "createdAt": "2026-09-28T03:10:00Z"})
+    evenements = [("2026-09-28T02:30:00+00:00", 10, "attente", None,
+                   "relecteur : claude/claude-opus-5-5 : écarté (sa famille, claude, a écrit ce lot) · "
+                   "codex/gpt-5.6-sol : quota épuisé (« usage limit · try again later »)"),
+                  ("2026-09-28T03:31:00+00:00", 10, "relecture CORRIGER", "codex/gpt-5.6-sol", "PR #50")]
+    local.write_text("".join(json.dumps({"quand": q, "lot": l, "action": a, "agent": ag, "detail": d}) + "\n"
+                             for q, l, a, ag, d in evenements), encoding="utf-8")
+    texte = journal.faits(gh, projet, MAINTENANT, journal_local=local, veille=veille)
+    a_faire = texte.split("À FAIRE PAR LE PROPRIÉTAIRE")[1]
+    assert "plafond de dépense" not in a_faire
+    # Cursor n'a pas répondu depuis sur le PC : sa session reste à rouvrir.
+    assert "PC : la session cursor est expirée ou absente → cursor-agent login" in a_faire
+    vecu = texte.split("CE QUE LA CHAÎNE A VÉCU")[1].split("BLOQUÉS")[0]
+    assert "quota épuisé" in vecu and "LEVÉE DEPUIS" in vecu
+
+
+def test_une_attente_sans_reponse_plus_recente_reste_a_faire(projet, gh, tmp_path):
+    # La contre-épreuve : une réponse plus ancienne que l'attente ne la lève pas.
+    local, veille = _journee(gh, tmp_path)
+    reponse = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40)
+    gh.prs_[50]["comments"].insert(0, {"body": reponse, "createdAt": "2026-09-28T01:00:00Z"})
+    local.write_text(json.dumps({"quand": "2026-09-28T02:30:00+00:00", "lot": 10, "action": "relecture ACCEPTE",
+                                 "agent": "codex/gpt-5.6-sol", "detail": "PR #50"}) + "\n" +
+                     json.dumps({"quand": "2026-09-28T02:40:00+00:00", "lot": 10, "action": "attente", "agent": None,
+                                 "detail": "relecteur : codex/gpt-5.6-sol : quota épuisé (« usage limit »)"}) + "\n",
+                     encoding="utf-8")
+    texte = journal.faits(gh, projet, MAINTENANT, journal_local=local, veille=veille)
+    assert "plafond de dépense" in texte.split("À FAIRE PAR LE PROPRIÉTAIRE")[1]
+    vecu = texte.split("CE QUE LA CHAÎNE A VÉCU")[1].split("BLOQUÉS")[0]
+    assert "quota épuisé" in vecu and "LEVÉE DEPUIS" not in vecu
+
+
 def test_les_prochains_lots_suivent_l_ordre_du_pilote(projet, gh, tmp_path):
     # Le 28 septembre 2026, le journal annonçait « ensuite #120, #121, #184 » :
     # l'ordre des numéros, alors que les trois attendaient des dépendances.
