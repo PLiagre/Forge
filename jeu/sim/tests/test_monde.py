@@ -136,7 +136,7 @@ def test_schema_ferme_et_couches():
     assert set(doc) == _ROOT_KEYS
     assert doc["schema_version"] == SNAPSHOT_SCHEMA_VERSION
     assert doc["cell_count"] == len(world.cells) == len(doc["cells"])
-    assert set(doc["couches"]) == {"relief", "climat", "gisements"}
+    assert set(doc["couches"]) == {"relief", "climat", "gisements", "pluie"}
     for couche in doc["couches"].values():
         assert couche["dans_la_carte"] is True
         assert isinstance(couche["utilisee_par_le_moteur"], bool)

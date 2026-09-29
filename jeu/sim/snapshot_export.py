@@ -1,4 +1,4 @@
-"""Photographie déterministe du monde déjà simulé (schéma v0a-4).
+"""Photographie déterministe du monde déjà simulé (schéma v0a-5).
 
 Ce module ne recalcule aucune mécanique. Il joint ce que porte la carte
 figée (géométrie, relief, climat, gisements) à la province dérivée et à
@@ -8,8 +8,7 @@ Une seule entrée géographique, `data/world-1400.json`, déjà
 chargée par le monde. Ce module ne lit plus aucun artefact de pipeline.
 
 Honnêteté des couches : `dans_la_carte` dit que la donnée est là ;
-`utilisee_par_le_moteur` dit si le tick s'en sert. Aujourd'hui le tick ne
-se sert d'aucune des trois — elles sont exportées, pas encore jouées.
+`utilisee_par_le_moteur` mesure si le moteur s'en sert.
 """
 
 from __future__ import annotations
@@ -35,7 +34,7 @@ from sim.world import CARTE_PATH, CARTE_RELATIVE, World
 
 _HASH_CHUNK_BYTES = 1024 * 1024
 
-# Les trois couches que la carte apporte au-delà de la géométrie.
+# Les couches que la carte lue apporte au-delà de la géométrie.
 #
 # Leur consommation par le tick n'est PAS déclarée ici : elle est MESURÉE
 # (voir `_couche_consommee`). Ce dictionnaire n'était auparavant qu'un
@@ -44,7 +43,7 @@ _HASH_CHUNK_BYTES = 1024 * 1024
 # lire une couche, ou qui aurait commencé à en lire une, l'aurait dit faux
 # sans que rien ne rougisse. C'est le mode de défaillance n° 5 du dépôt :
 # un compteur dérive des données, ou il n'existe pas.
-_COUCHES = ("relief", "climat", "gisements")
+_COUCHES = ("relief", "climat", "gisements", "pluie")
 
 # Assez de ticks pour que production, commerce, consommation et mortalité
 # aient tous joué au moins une fois : une couche qui n'agirait qu'au
@@ -58,6 +57,7 @@ _TICKS_SONDE_COUCHE = 3
 _SONDE_RELIEF = "haute_montagne"
 _SONDE_CLIMAT_FACTEUR = 7.0
 _SONDE_GISEMENT = [{"nature": "sonde", "classe": "sonde"}]
+_SONDE_PLUIE_MM = 0.0
 
 
 class SnapshotExportError(RuntimeError):
@@ -122,6 +122,8 @@ def _alterer(carte_doc: dict, couche: str) -> None:
                 }
         elif couche == "gisements":
             enregistrement["gisements"] = list(_SONDE_GISEMENT)
+        elif couche == "pluie":
+            enregistrement["pluie_mm_par_an"] = _SONDE_PLUIE_MM
 
 
 def _couche_consommee(couche: str) -> bool:
