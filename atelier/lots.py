@@ -447,6 +447,79 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
     return Action("corriger_relecture", "relecture « CORRIGER »", essai=essais)
 
 
+# La question que le chef pose au propriétaire, quand un lot demande une
+# décision que lui seul peut prendre (un test ou une règle du monde à
+# changer) : « DECISION: QUESTION :: <la question> », une ligne par réponse
+# possible, « - A :: <la réponse> :: <ce qu'elle coûte> », et
+# « RECOMMANDATION :: A :: <pourquoi> ». Le 29 septembre 2026, #209 a attendu
+# une décision que le journal ne posait pas : « lire sa raison ».
+_OPTION = re.compile(r"^\s*-\s*([A-Z])\s*::\s*(.+?)(?:\s*::\s*(.+?))?\s*$", re.M)
+_RECOMMANDATION = re.compile(r"^\s*RECOMMANDATION\s*::\s*([A-Z])\s*(?:::\s*(.+?))?\s*$", re.M)
+
+
+@dataclass(frozen=True)
+class Question:
+    texte: str
+    options: tuple[tuple[str, str, str], ...] = ()  # (lettre, réponse, ce qu'elle coûte)
+    recommandation: tuple[str, str] | None = None    # (lettre, pourquoi)
+
+    def marque(self) -> dict:
+        return {"question": self.texte, "options": [list(o) for o in self.options],
+                "recommandation": list(self.recommandation) if self.recommandation else None}
+
+    @classmethod
+    def de_marque(cls, m: dict) -> "Question | None":
+        if not m.get("question"):
+            return None
+        reco = m.get("recommandation")
+        return cls(texte=m["question"], options=tuple(tuple(o) for o in m.get("options") or []),
+                   recommandation=tuple(reco) if reco else None)
+
+    def en_une_ligne(self) -> str:
+        """Pour le journal : la question, ses réponses, et le choix du chef."""
+        ligne = self.texte.rstrip(" ?") + " ?"
+        if self.options:
+            ligne += " " + " ; ".join(f"{l} : {r}" for l, r, _ in self.options) + "."
+        if self.recommandation:
+            lettre, pourquoi = self.recommandation
+            ligne += f" Le chef recommande {lettre}" + (f" ({pourquoi})" if pourquoi else "") + "."
+        return ligne
+
+
+def question_du_chef(texte: str, question: str) -> Question:
+    """La question du chef, lue dans sa réponse : ses options et sa
+    recommandation, s'il en a écrit. Une recommandation qui ne nomme aucune
+    des options est ignorée."""
+    options = tuple((l, r.strip(), (c or "").strip()) for l, r, c in _OPTION.findall(texte))
+    reco = None
+    trouvees = _RECOMMANDATION.findall(texte)
+    if trouvees:
+        lettre, pourquoi = trouvees[-1]
+        if not options or lettre in {o[0] for o in options}:
+            reco = (lettre, (pourquoi or "").strip())
+    return Question(texte=question.strip() or "le chef n'a pas écrit sa question", options=options,
+                    recommandation=reco)
+
+
+def reponse_apres_blocage(commentaires: list[dict]) -> bool:
+    """Un humain a-t-il écrit sur l'issue depuis son dernier blocage ? Ce
+    commentaire vaut réponse : le pilote remet le lot en route. Un lot
+    bloqué à la main, sans marque du pilote, n'est pas concerné ; les
+    commentaires du pilote (marqués) et des robots ne comptent pas."""
+    dernier = None
+    for i, c in enumerate(commentaires or []):
+        if any(m.get("etat") == "bloque" for m in marques([c])):
+            dernier = i
+    if dernier is None:
+        return False
+    for c in commentaires[dernier + 1:]:
+        corps = (c.get("body") or "").strip()
+        auteur = ((c.get("author") or {}).get("login") or "").lower()
+        if corps and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions":
+            return True
+    return False
+
+
 def passage_de_renfort(essai: int, corrections_max: int) -> bool:
     """Le passage du codeur numéro `essai` (0 : le premier) est-il le dernier
     avant blocage ? Avec deux corrections, c'est la deuxième : le renfort la

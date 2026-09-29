@@ -29,9 +29,16 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   (`idee` → `pret` → `en-cours` → `livre`, ou `bloque` avec sa raison en
   commentaire), l'étiquette `pc` s'il demande Unity ou Blender. Le formulaire
   « Demander un lot » les pose.
-- **Reprendre un lot bloqué** : corriger la cause, retirer `bloque`, remettre
-  `pret`. Si sa PR est ouverte, le pilote la reprend où elle en est, sans
-  relancer le chef, essais remis à zéro ; sinon le chef reprend le lot.
+- **Reprendre un lot bloqué** : corriger la cause s'il le faut, puis
+  **répondre par un commentaire sur l'issue** (une lettre suffit quand le
+  chef a posé une question) : au tour suivant, le pilote remet le lot
+  `pret`. Si sa PR est ouverte, il la reprend où elle en est, sans relancer
+  le chef, essais remis à zéro ; sinon le chef reprend le lot et lit la
+  réponse. Retirer `bloque` et remettre `pret` à la main marche aussi.
+- **Le chef pose ses questions** : un lot qui demande une décision du
+  propriétaire (un test ou une règle du monde à changer) est bloqué avec la
+  question, deux à quatre réponses possibles et la recommandation du chef ;
+  le journal du matin la pose telle quelle.
 - **Un lot `pc` n'avance que quand le PC est allumé** : un PC en veille garde
   le travail en file ; ses agents qui ne peuvent pas répondre le disent sur la
   PR (attente, renvoyée dans l'heure, sans compter d'essai).

@@ -160,16 +160,42 @@ remis à zéro.
 
 ### Reprendre un lot bloqué
 
-Corriger la cause (en mode direct si elle est dans la chaîne), puis retirer
-`bloque` et remettre `pret`. Le pilote décide selon ce qui existe :
+Corriger la cause s'il le faut (en mode direct si elle est dans la chaîne),
+puis **écrire un commentaire sur l'issue** : ce qui a été fait, ou la
+décision. Tout commentaire d'un humain écrit après le dernier blocage vaut
+réponse ; ceux du pilote (marqués) et des robots ne comptent pas, et un lot
+bloqué à la main, sans marque du pilote, ne se lève pas tout seul. Au tour
+suivant, le pilote écrit « réponse reçue » et remet le lot `pret` ; retirer
+`bloque` et remettre `pret` à la main revient au même. Le pilote décide
+ensuite selon ce qui existe :
 
 - **la PR du lot est ouverte** : le lot est **repris** où il en est. Le pilote
   écrit une marque `reprise` sur la PR et le remet `en-cours`, sans relancer
   le chef ; le travail déjà poussé reste, et les essais du codeur, du chef et
   du relecteur repartent de zéro (ils se comptent depuis la dernière
   reprise) ;
-- **pas de PR** (le chef avait échoué ou refusé) : le chef reprend le lot, ses
-  essais comptés depuis le dernier blocage.
+- **pas de PR** (le chef avait échoué, refusé ou posé une question) : le chef
+  reprend le lot, ses essais comptés depuis le dernier blocage ; il relit sa
+  question et la réponse du propriétaire.
+
+### Quand le chef a besoin d'une décision
+
+Un lot qui ne peut se faire qu'en changeant un test existant ou une règle du
+monde, ou qui oblige à trancher entre deux lectures de `CAP.md` ou de
+`docs/VISION.md`, n'est pas au chef de trancher. Il rend :
+
+```
+DECISION: QUESTION :: <la question, en une phrase>
+- A :: <une réponse possible> :: <ce qu'elle coûte>
+- B :: …
+RECOMMANDATION :: A :: <pourquoi>
+```
+
+Le pilote bloque le lot avec la question, les réponses possibles et la
+recommandation, lisibles sur un téléphone ; le journal du matin les reprend
+dans « À faire ». Le propriétaire répond d'un commentaire (« A » suffit) :
+le lot repart au tour suivant. Le 29 septembre 2026, #209 attendait une telle
+décision derrière une ligne « lire sa raison ».
 
 Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
 branche, puis remettre `pret`.
@@ -295,7 +321,7 @@ Regarder : `atelier-boucle etat`. Installer : [atelier/crons/README.md](../ateli
 
 | symptôme | ce que ça veut dire | le geste |
 |---|---|---|
-| issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, ou le chef a refusé | lire la raison en commentaire ; corriger en mode direct, ou reformuler l'issue ; puis remettre `pret` (reprise, ci-dessus) |
+| issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, le chef a refusé, ou il pose une question | lire la raison (ou la question) en commentaire ; corriger en mode direct s'il le faut ; puis répondre d'un commentaire sur l'issue (reprise, ci-dessus) |
 | « attente » répétée au journal | quotas épuisés, session expirée, ou outil qui ne démarre pas (la raison de chaque agent est écrite) | `python3 -m atelier veille`, puis `claude setup-token` si c'est la session Claude |
 | un lot `pc` n'avance pas | le PC est éteint ou en veille, ou ses agents attendent (marque d'attente sur la PR) | allumer le PC ; `gh workflow run sonde-pc.yml` |
 | rien ne bouge | profil `arret`, copie principale hors de master, ou un jalon courant que CAP.md ne décrit pas (le pilote ne découpe que ce que CAP.md décrit) | `atelier-boucle etat` ; ajouter la section du jalon à CAP.md, ou des lots |
