@@ -50,6 +50,16 @@ class Photos:
 Photographe = Callable[[Path, Lot, str], Photos]
 
 
+_MACHINE_DU_SOUS_LOT = re.compile(r"\s*::\s*(pc|vps)\s*$", re.I)
+
+
+def _machine_du_sous_lot(quoi: str, defaut: str) -> tuple[str, str]:
+    """« … :: pc » en fin de ligne : ce sous-lot demande Unity ou Blender ;
+    « :: vps », Python seul. Sans rien, il garde la machine du lot découpé."""
+    m = _MACHINE_DU_SOUS_LOT.search(quoi)
+    return (quoi[:m.start()].strip(), m.group(1).lower()) if m else (quoi.strip(), defaut)
+
+
 def _extrait(texte: str, lignes: int = 60) -> str:
     morceaux = texte.strip().splitlines()
     if len(morceaux) <= lignes:
@@ -97,16 +107,21 @@ class Pilote:
     def tour(self) -> list[str]:
         self.lignes = []
         self.depot.fetch()
-        jalons = lots.jalons(self.gh.jalons())
+        cap = self._cap()
+        bruts = self._accorder_jalons(cap)
+        jalons = lots.jalons(bruts)
         courant = lots.jalon_courant(jalons)
+        reserve = any(m.get("title") == lots.RESERVE for m in bruts)
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
-        self._normaliser(ouvertes, jalons)
+        self._normaliser(ouvertes, jalons, reserve)
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         fermees = self.gh.issues("closed")
         bloq = lots.bloquantes(ouvertes, [Lot.de(i) for i in fermees])
         if self._attendre_dependances(ouvertes, bloq) | self._reprendre(ouvertes, bloq):
             ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._livrer_les_fermes(fermees)
+        if lots.a_decouper(courant, cap, ouvertes, [Lot.de(i) for i in fermees]):
+            self._faire_decouper(courant, ouvertes)
 
         occupe = {"vps": False, "pc": False}
         agent_parti = False
@@ -137,19 +152,68 @@ class Pilote:
             self.lignes.append("RIEN")
         return self.lignes
 
+    # ------------------------------------------------------------ jalons
+    def _cap(self) -> str:
+        """CAP.md tel que la copie principale le porte : la source des jalons."""
+        try:
+            return (self.projet.racine / "CAP.md").read_text(encoding="utf-8")
+        except OSError:
+            return ""
+
+    def _accorder_jalons(self, cap: str) -> list[dict]:
+        """Les milestones disent ce que dit CAP.md : un jalon nouveau se crée,
+        un jalon renommé se renomme, la réserve existe si CAP.md la déclare.
+        Rien ne se ferme ni ne s'efface ici. Rend les milestones d'après."""
+        bruts = self.gh.jalons()
+        gestes = lots.accord_des_jalons(cap, bruts)
+        for geste in gestes:
+            titre = geste[-1]
+            cle = f"J{lots.numero_de_jalon(titre)}" if lots.numero_de_jalon(titre) else titre
+            try:
+                if geste[0] == "creer":
+                    self.gh.creer_jalon(titre)
+                    self.noter(cle, "jalon créé", f"« {titre} », d'après CAP.md")
+                else:
+                    self.gh.renommer_jalon(geste[1], titre)
+                    self.noter(cle, "jalon renommé", f"« {geste[2]} » devient « {titre} »")
+            except GitHubErreur as e:
+                self.noter(cle, "erreur", str(e))
+        return self.gh.jalons() if gestes else bruts
+
+    def _faire_decouper(self, jalon: lots.Jalon, ouvertes: list[Lot]) -> None:
+        """Un jalon qui commence sans plan se fait découper : le pilote ouvre
+        le lot de sa découpe, que le chef prend comme un autre."""
+        avant = sorted(l.numero for l in ouvertes
+                       if l.jalon == jalon.numero and "lot" in l.etiquettes and l.etat == "idee")
+        try:
+            n = self.gh.creer_issue(f"Découper le jalon {jalon.titre}", lots.corps_de_la_decoupe(jalon, avant),
+                                    ["lot", "pret"], jalon.titre)
+            self.noter(n, "jalon à découper", jalon.titre)
+        except GitHubErreur as e:
+            self.noter(f"J{jalon.numero}", "erreur", str(e))
+
     # ------------------------------------------------------- normaliser
-    def _normaliser(self, ouvertes: list[Lot], jalons: list[lots.Jalon]) -> None:
+    def _normaliser(self, ouvertes: list[Lot], jalons: list[lots.Jalon], reserve: bool = False) -> None:
         """Une issue du formulaire porte son jalon et sa machine dans le texte :
-        le pilote les pose en milestone et en étiquette, une fois."""
+        le pilote les pose en milestone et en étiquette, une fois. Une issue
+        déjà rangée dans un milestone, réserve comprise, n'est pas déplacée.
+        L'étiquette `reserve` range un lot dans la réserve, puis s'efface."""
         par_numero = {j.numero: j for j in jalons}
         for lot in ouvertes:
             if not any(e in lot.etiquettes for e in lots.ETATS) and "lot" in lot.etiquettes:
                 self.gh.etiqueter(lot.numero, ["idee"])
             m = re.search(r"### Jalon\s+J(\d+)", lot.corps)
-            if lot.jalon is None and m and int(m.group(1)) in par_numero:
+            if lot.jalon_titre is None and m and int(m.group(1)) in par_numero:
                 self.gh.jalon_de(lot.numero, par_numero[int(m.group(1))].titre)
+            elif lot.jalon_titre is None and reserve and re.search(r"### Jalon\s+R[ée]serve", lot.corps, re.I):
+                self.gh.jalon_de(lot.numero, lots.RESERVE)
             if re.search(r"### Machine\s+pc\b", lot.corps, re.I) and lots.ETIQUETTE_PC not in lot.etiquettes:
                 self.gh.etiqueter(lot.numero, [lots.ETIQUETTE_PC])
+            if reserve and lots.ETIQUETTE_RESERVE in lot.etiquettes:
+                if lot.jalon_titre != lots.RESERVE:
+                    self.gh.jalon_de(lot.numero, lots.RESERVE)
+                    self.noter(lot.numero, "rangé dans la réserve", lot.jalon_titre or "sans jalon")
+                self.gh.etiqueter(lot.numero, retirer=[lots.ETIQUETTE_RESERVE])
 
     # ---------------------------------------------------------- reprendre
     def _attendre_dependances(self, ouvertes: list[Lot], bloq: frozenset[int]) -> set[int]:
@@ -330,15 +394,17 @@ class Pilote:
             return True
         crees = []
         for titre, quoi in sous:
-            etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if lot.machine == "pc" else [])
+            quoi, machine = _machine_du_sous_lot(quoi, lot.machine)
+            etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if machine == "pc" else [])
             # Les sous-lots se suivent dans l'ordre du chef : un morceau
             # bloqué retient les suivants, qui s'appuient sur lui.
             suite = f"\n\nDépend de : #{crees[-1]}" if crees else ""
-            n = self.gh.creer_issue(titre.strip(), f"{quoi.strip()}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
+            n = self.gh.creer_issue(titre.strip(), f"{quoi}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
                                     etiquettes, titre_jalon or None)
             crees.append(n)
         liste = ", ".join(f"#{n}" for n in crees)
-        self.gh.fermer_issue(lot.numero, f"🤖 **chef** ({res.agent}) : trop gros pour un lot, découpé en {liste}.",
+        pourquoi = "jalon découpé" if lots.jalon_a_decouper_par(lot) else "trop gros pour un lot, découpé"
+        self.gh.fermer_issue(lot.numero, f"🤖 **chef** ({res.agent}) : {pourquoi} en {liste}.",
                              abandon=True)
         self.noter(lot.numero, "découpé", liste, str(res.agent))
         return True

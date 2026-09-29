@@ -228,9 +228,11 @@ Il rougit si le monde recommence à amorcer plus de bouches qu'il n'en nourrit.
 
 ## 5. Les lots
 
-Un lot est une **issue** GitHub : un jalon (milestone `J1`…`J7`), un état
-(`idee`, `pret`, `en-cours`, `bloque`, `livre`), l'étiquette `pc` s'il demande
-Unity ou Blender. Le formulaire « Demander un lot » les pose. Il n'y a plus de
+Un lot est une **issue** GitHub : un jalon (milestone `J1`…`J9`, tirés des
+sections de [CAP.md](../CAP.md), ou `Réserve` pour un lot qui n'en sert aucun),
+un état (`idee`, `pret`, `en-cours`, `bloque`, `livre`), l'étiquette `pc` s'il
+demande Unity ou Blender. Le formulaire « Demander un lot » les pose ;
+l'étiquette `reserve` range un lot dans la Réserve. Il n'y a plus de
 registre dans un fichier : `ROADMAP.md` a été migré en issues le 27 septembre
 2026 (correspondance dans [registre-migre.md](registre-migre.md)).
 

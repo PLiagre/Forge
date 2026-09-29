@@ -2,7 +2,9 @@
 
 > Inventaire daté, antérieur au rangement du 27 septembre 2026 : les chemins
 > `sim/`, `vues/`, `data/` y désignent aujourd'hui `jeu/sim/`, `jeu/vues/`,
-> `jeu/data/`, et `VISION.md` vit dans `docs/`.
+> `jeu/data/`, et `VISION.md` vit dans `docs/`. Il est aussi antérieur à la
+> réécriture de `VISION.md` du 29 septembre 2026 : ses sections suivent
+> l'ancienne vision, et il reste comme constat daté.
 
 Document de **constat** pour la révision mesurée ci-dessous. Une suite verte
 ne transforme pas une promesse absente en promesse tenue ; l'état des lots

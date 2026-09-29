@@ -94,6 +94,12 @@ class GitHub:
     def fermer_jalon(self, numero: int) -> None:
         self.gh("api", "-X", "PATCH", f"repos/{self.depot}/milestones/{numero}", "-f", "state=closed")
 
+    def creer_jalon(self, titre: str) -> None:
+        self.gh("api", "-X", "POST", f"repos/{self.depot}/milestones", "-f", f"title={titre}")
+
+    def renommer_jalon(self, numero: int, titre: str) -> None:
+        self.gh("api", "-X", "PATCH", f"repos/{self.depot}/milestones/{numero}", "-f", f"title={titre}")
+
     # --------------------------------------------------------------- PR
     def pr_de_branche(self, branche: str) -> dict | None:
         prs = self.json("pr", "list", "-R", self.depot, "--head", branche, "--state", "all",

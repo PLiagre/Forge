@@ -33,7 +33,7 @@ def chef(projet: Projet, *, numero: int, titre: str, corps: str, commentaires: s
          jalon: int, jalon_titre: str, machine: str, chemin_brief: str) -> str:
     return f"""Tu es le chef de la chaîne de Forge. Tu prépares le lot #{numero} « {titre} », rangé dans le jalon {jalon_titre}.
 
-Lis d'abord : `CAP.md` (le jalon J{jalon} : ce que le joueur fait, ce qu'on voit, sa preuve), `AGENTS.md`, et `jeu/sim/MODELE.md` si le lot touche le monde.
+Lis d'abord : `CAP.md` (le jalon J{jalon} : ce que le joueur fait, la décision qu'il prend, ce qu'on voit, sa preuve), `docs/VISION.md` (ce que le jeu doit devenir), `AGENTS.md`, et `jeu/sim/MODELE.md` si le lot touche le monde.
 
 La demande (issue #{numero}) :
 -----
@@ -58,7 +58,7 @@ ce que ce lot ne fait pas.
 
 Règles :
 - Le lot doit servir le jalon J{jalon} de `CAP.md`. S'il ne le sert pas, n'écris rien et termine par la ligne « DECISION: REFUS :: <raison> ».
-- La taille prévue du diff reste sous {projet.lignes_max} lignes. Sinon n'écris rien : découpe, et termine par la ligne « DECISION: DECOUPE », suivie d'une ligne par sous-lot au format « - <titre> :: <ce qu'il fait> ».
+- La taille prévue du diff reste sous {projet.lignes_max} lignes. Sinon n'écris rien : découpe, et termine par la ligne « DECISION: DECOUPE », suivie d'une ligne par sous-lot au format « - <titre> :: <ce qu'il fait> », finie par « :: pc » si ce sous-lot demande Unity ou Blender, par « :: vps » s'il n'en demande pas (sans rien, il garde la machine de ce lot).
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
 - Machine « pc » : le lot demande Unity ou Blender sur le PC Windows ; « vps » : Python seul.
