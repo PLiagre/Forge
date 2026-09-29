@@ -238,12 +238,16 @@ def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_p
 
 def test_le_chef_et_la_boussole_ont_un_secours_hors_de_claude_code():
     # Un quota de Claude Code arrêtait net le chef et la boussole : Claude
-    # Code en premier, et un secours d'un autre harnais.
+    # Code en premier, et un secours d'un autre harnais. Astra seul ne suffit
+    # pas : son quota Plus est court, et quand Claude est à court, chaque
+    # brief lui tombe dessus (29 septembre 2026). Un secours qui n'est ni
+    # Claude ni Astra tient le poste quand les deux sont épuisés.
     projet = charger(RACINE)
     for role in ("chef", "boussole"):
         poste = projet.poste(role)
         assert poste.principal.outil == "claude", role
         assert any(a.outil != "claude" for a in poste.secours), role
+        assert any(a.outil != "claude" and a.modele != "gpt-6-astra" for a in poste.secours), role
 
 
 def test_claude_ne_passe_que_par_claude_code():

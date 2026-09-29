@@ -13,7 +13,7 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6-astra, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6-astra, puis gpt-6-sol, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
@@ -40,7 +40,7 @@ Opus y code déjà).
 Le **mécanicien** (Codex, gpt-6-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
 grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
-**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6-astra, high) compare
+**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6-astra, puis gpt-6-sol, high) compare
 chaque lundi les lots livrés à CAP.md.
 
 **Chaque agent dit son harnais, son modèle et son effort** :
@@ -72,7 +72,7 @@ sable de Codex n'y démarre pas) : choix du propriétaire, 29 septembre 2026.
 GPT-6 Astra ne passe qu'en secours (chef, relecteur, boussole) : l'abonnement
 ChatGPT Plus ne lui donne que quelques dizaines de messages toutes les cinq
 heures ; il relit le code de Claude, et GPT-6 Sol prend la suite quand son
-quota est épuisé. La ligne du relecteur laisse toujours au moins deux agents à
+quota est épuisé, au relecteur comme au chef et à la boussole. La ligne du relecteur laisse toujours au moins deux agents à
 un lot, quelle que soit la famille qui l'a écrit : un quota ne le laisse plus
 sans relecture.
 
