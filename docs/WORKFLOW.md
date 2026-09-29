@@ -66,7 +66,9 @@ avec l'agent suivant de sa ligne.
 **Claude juge, les autres écrivent, sauf sur le PC.** Le plafond de Claude
 Code a été atteint le 29 septembre 2026 : il se garde pour le chef, la
 relecture et les lots du PC. Le code du VPS s'écrit avec Codex GPT-6 Sol, le
-meilleur score par dollar mesuré. Les lots du PC, peu nombreux et chers quand
+meilleur score par dollar mesuré ; GPT-5.6 Sol le suit partout où GPT-6 sert,
+car un Codex trop ancien refuse GPT-6, et ce refus passe la main sans brûler
+d'essai. Les lots du PC, peu nombreux et chers quand
 ils ratent, ont Claude Opus en tête et Cursor grok-high en secours (le bac à
 sable de Codex n'y démarre pas) : choix du propriétaire, 29 septembre 2026.
 GPT-6 Astra ne passe qu'en secours (chef, relecteur, boussole) : l'abonnement
