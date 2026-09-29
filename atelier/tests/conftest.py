@@ -113,6 +113,18 @@ class FauxGitHub(GitHub):
                 j["state"] = "closed"
         self.gestes.append(("fermer_jalon", numero))
 
+    def creer_jalon(self, titre):
+        numero = max((j["number"] for j in self.jalons_), default=0) + 1
+        self.jalons_.append({"number": numero, "title": titre, "state": "open", "open_issues": 0,
+                             "closed_issues": 0})
+        self.gestes.append(("creer_jalon", titre))
+
+    def renommer_jalon(self, numero, titre):
+        for j in self.jalons_:
+            if j["number"] == numero:
+                j["title"] = titre
+        self.gestes.append(("renommer_jalon", numero, titre))
+
     # PR
     def ajouter_pr(self, numero, branche, *, sha="a" * 40, brouillon=False, ci="vert", commentaires=(),
                    etat="OPEN", mergeable="MERGEABLE"):

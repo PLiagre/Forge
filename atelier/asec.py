@@ -67,6 +67,12 @@ class GitHubASec(GitHub):
     def fermer_jalon(self, numero):
         _dire(f"fermer le jalon {numero}")
 
+    def creer_jalon(self, titre):
+        _dire(f"créer le jalon « {titre} »")
+
+    def renommer_jalon(self, numero, titre):
+        _dire(f"renommer le jalon {numero} en « {titre} »")
+
     def creer_pr(self, branche, base, titre, corps, *, brouillon=True):
         _dire(f"ouvrir la PR « {titre} » ({branche} → {base})")
         return 0

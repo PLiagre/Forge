@@ -35,6 +35,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
 - **Un lot `pc` n'avance que quand le PC est allumé** : un PC en veille garde
   le travail en file ; ses agents qui ne peuvent pas répondre le disent sur la
   PR (attente, renvoyée dans l'heure, sans compter d'essai).
+- **Les jalons suivent CAP.md** : chaque section « ## Jalon n — Titre » est
+  un milestone, que le pilote crée ou renomme seul. Un jalon courant qui n'a
+  encore rien de prêt, en cours ou livré se fait découper par le chef.
 - **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les dix
   minutes) prend le lot suivant du jalon courant. Le **chef** écrit le brief
   dans la branche `lot/<n>-<slug>` et ouvre la PR (moins de 300 lignes, sinon

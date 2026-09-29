@@ -188,3 +188,81 @@ def test_un_lot_attend_ses_dependances_ouvertes():
     assert Lot.de(dict(_issue(14), body=formulaire)).dependances == frozenset({3, 4})
     # Une référence plus loin dans le texte n'est pas une dépendance.
     assert Lot.de(dict(_issue(15), body="Dépend de : #12\n\nDécoupé du lot #10.")).dependances == frozenset({12})
+
+
+CAP = """# CAP
+
+| # | jalon | le joueur |
+|---|---|---|
+| 1 | **Le pont** | ouvre un lieu |
+
+## Jalon 1 — Le pont
+
+Le joueur ouvre un lieu.
+
+## Jalon 2 — Le monde de 1400
+
+Le joueur choisit sa terre.
+
+### Jalon 9 — un titre de niveau trois n'est pas un jalon
+
+## La réserve
+
+Les lots qui ne servent aucun jalon.
+"""
+
+
+def _lot(numero, etiquettes, jalon="J2 — Le monde de 1400", corps=""):
+    return Lot.de({"number": numero, "title": "Un lot", "body": corps,
+                   "labels": [{"name": e} for e in etiquettes], "milestone": {"title": jalon} if jalon else None})
+
+
+def test_les_jalons_se_lisent_dans_les_sections_de_cap():
+    assert lots.jalons_du_cap(CAP) == {1: "J1 — Le pont", 2: "J2 — Le monde de 1400"}
+    assert lots.jalons_du_cap("# CAP\n") == {}
+
+
+def test_l_accord_renomme_cree_et_ne_touche_pas_au_reste():
+    bruts = [{"number": 1, "title": "J1 — Le pont", "state": "closed"},
+             {"number": 2, "title": "J2 — Le geste revient", "state": "open"},
+             {"number": 7, "title": "J7 — 1400 → 1900", "state": "open"}]
+    assert lots.accord_des_jalons(CAP, bruts) == [
+        ("renommer", 2, "J2 — Le geste revient", "J2 — Le monde de 1400"), ("creer", "Réserve")]
+    # L'accord fait, il ne demande plus rien ; un CAP sans jalon ne demande rien.
+    bruts[1]["title"] = "J2 — Le monde de 1400"
+    assert lots.accord_des_jalons(CAP, bruts + [{"number": 8, "title": "Réserve", "state": "open"}]) == []
+    assert lots.accord_des_jalons("# CAP\n", bruts) == []
+
+
+def test_un_jalon_absent_se_cree_et_c_est_l_ouvert_qui_porte_le_titre():
+    cap = "## Jalon 3 — Le lieu et son maître\n\n## Jalon 4 — La capitale\n"
+    bruts = [{"number": 3, "title": "J3 — Ancien", "state": "closed"},
+             {"number": 9, "title": "J3 — Moins ancien", "state": "open"}]
+    assert lots.accord_des_jalons(cap, bruts) == [
+        ("renommer", 9, "J3 — Moins ancien", "J3 — Le lieu et son maître"), ("creer", "J4 — La capitale")]
+
+
+def test_un_jalon_qui_commence_sans_plan_se_decoupe_une_seule_fois():
+    j2 = lots.Jalon(numero=2, titre="J2 — Le monde de 1400", id=2, ouvert=True, ouvertes=0, fermees=0)
+    assert lots.a_decouper(j2, CAP, [])
+    assert lots.a_decouper(j2, CAP, [_lot(5, ("lot", "idee")), _lot(6, ("lot", "bloque"))])
+    # Déjà lancé : un lot prêt, en cours, livré, ou fusionné à l'instant.
+    assert not lots.a_decouper(j2, CAP, [_lot(5, ("lot", "pret"))])
+    assert not lots.a_decouper(j2, CAP, [], [_lot(5, ("lot", "livre"))])
+    assert not lots.a_decouper(j2, CAP, [], [_lot(5, ("lot", "en-cours"))])
+    # Sa découpe déjà ouverte, ou déjà faite.
+    decoupe = _lot(7, ("lot", "pret"), corps=lots.corps_de_la_decoupe(j2, []))
+    assert not lots.a_decouper(j2, CAP, [], [decoupe])
+    # Un jalon que CAP.md ne décrit pas ne se devine pas.
+    j5 = lots.Jalon(numero=5, titre="J5 — Les autres", id=5, ouvert=True, ouvertes=0, fermees=0)
+    assert not lots.a_decouper(j5, CAP, [])
+    assert not lots.a_decouper(None, CAP, [])
+
+
+def test_la_decoupe_d_un_jalon_passe_apres_ses_lots_deja_ouverts():
+    j3 = lots.Jalon(numero=3, titre="J3 — Le lieu et son maître", id=3, ouvert=True, ouvertes=2, fermees=0)
+    lot = _lot(9, ("lot", "pret"), jalon=j3.titre, corps=lots.corps_de_la_decoupe(j3, [124, 125]))
+    assert lot.dependances == frozenset({124, 125})
+    assert lots.jalon_a_decouper_par(lot) == 3
+    seul = _lot(9, ("lot", "pret"), jalon=j3.titre, corps=lots.corps_de_la_decoupe(j3, []))
+    assert seul.dependances == frozenset()
