@@ -7,7 +7,6 @@ import pathlib
 
 from sim.model import _NoBadSpatialField
 
-
 _RACINE_DEPOT = pathlib.Path(__file__).parent.parent
 _CHEMIN_TABLE = _RACINE_DEPOT / "data" / "puissances-1400.json"
 _CLE_DATE = "date"
@@ -118,7 +117,8 @@ def charger_table(path=None) -> TableDesPuissances:
         lon = _nombre(brute.get(_CLE_LON), identifiant, _CLE_LON)
         ancres.append(Ancre(identifiant, puissance, nom, lat, lon, source))
         puissances_visees.add(puissance)
-    for identifiant in ids_puissances - puissances_visees:
+    if ids_puissances - puissances_visees:
+        identifiant = min(ids_puissances - puissances_visees)
         raise PuissanceInvalide(f"puissance {identifiant}, champ ancres : aucune ancre")
     return TableDesPuissances(
         date, tuple(sorted(puissances, key=lambda p: p.id)), tuple(sorted(ancres, key=lambda a: a.id))

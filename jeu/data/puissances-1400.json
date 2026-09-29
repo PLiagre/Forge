@@ -20,7 +20,7 @@
     { "id": 1, "puissance": 1, "nom": "Londres", "lat": 51.51, "lon": -0.13, "source": "Wikipédia, article Royaume d'Angleterre : Londres en est la capitale" },
     { "id": 2, "puissance": 1, "nom": "Bordeaux", "lat": 44.84, "lon": -0.58, "source": "Wikipédia, article Guyenne : possession du roi d'Angleterre de 1152 à 1453" },
     { "id": 3, "puissance": 1, "nom": "Dublin", "lat": 53.35, "lon": -6.26, "source": "Wikipédia, article Seigneurie d'Irlande : seigneurie anglaise de 1171 à 1541" },
-    { "id": 4, "puissance": 2, "nom": "Édimbourg", "lat": 55.95, "lon": -3.19, "source": "Wikipédia, article Édimbourg : capitale de l'Écosse depuis 1437 et résidence royale médiévale" },
+    { "id": 4, "puissance": 2, "nom": "Édimbourg", "lat": 55.95, "lon": -3.19, "source": "Wikipédia, article Édimbourg : bourg royal d'Écosse établi au XIIe siècle" },
     { "id": 5, "puissance": 3, "nom": "Paris", "lat": 48.86, "lon": 2.35, "source": "Wikipédia, article Royaume de France : Paris, capitale du royaume" },
     { "id": 6, "puissance": 3, "nom": "Dijon", "lat": 47.32, "lon": 5.04, "source": "Wikipédia, article Duché de Bourgogne : fief du royaume de France, capitale Dijon" },
     { "id": 7, "puissance": 3, "nom": "Nantes", "lat": 47.22, "lon": -1.55, "source": "Wikipédia, article Duché de Bretagne : fief du royaume de France, ville ducale de Nantes" },

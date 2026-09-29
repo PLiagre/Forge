@@ -16,7 +16,7 @@ CAS_REFUS = [
     ("nom_vide", "ancre 1", "nom"),
     ("puissance_inconnue", "ancre 1", "puissance"),
     ("puissance_booleenne", "ancre 1", "puissance"),
-    ("navarre_sans_ancre", "puissance 7", "ancres"),
+    ("navarre_sans_ancre", "puissance {id_navarre}", "ancres"),
     ("id_puissance_duplique", "puissance 1", "id"),
     ("id_puissance_booleen", "puissance True", "id"),
     ("id_ancre_duplique", "ancre 1", "id"),
@@ -27,15 +27,12 @@ CAS_REFUS = [
     ("date", "champ date", "date"),
     ("ancres_vides", "champ ancres", "ancres"),
 ]
-
 def _document():
     return json.loads(TABLE.read_text(encoding="utf-8"))
-
 def _ecrire(tmp_path, document):
     chemin = tmp_path / "table.json"
     chemin.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
     return chemin
-
 def test_lecture_de_toutes_les_lignes(tmp_path):
     brut, table = _document(), charger_table()
     puissances_lues, ancres_lues = len(table.puissances), len(table.ancres)
@@ -47,8 +44,7 @@ def test_lecture_de_toutes_les_lignes(tmp_path):
     assert 20 <= ancres_lues == len(brut["ancres"]) <= 30
     assert puissances_sans_ancre == 0
     assert charger_table(_ecrire(tmp_path, brut)) == table
-
-def _alterer(document, cas):
+def _alterer(document, cas, id_navarre):
     puissance, ancre = document["puissances"][0], document["ancres"][0]
     if cas == "nature": puissance["nature"] = "duché"
     elif cas == "religion": puissance["religion"] = "protestante"
@@ -57,7 +53,7 @@ def _alterer(document, cas):
     elif cas == "nom_vide": ancre["nom"] = "  "
     elif cas == "puissance_inconnue": ancre["puissance"] = max(p["id"] for p in document["puissances"]) + 1
     elif cas == "puissance_booleenne": ancre["puissance"] = True
-    elif cas == "navarre_sans_ancre": document["ancres"] = [a for a in document["ancres"] if a["puissance"] != 7]
+    elif cas == "navarre_sans_ancre": document["ancres"] = [a for a in document["ancres"] if a["puissance"] != id_navarre]
     elif cas == "id_puissance_duplique": document["puissances"][1]["id"] = puissance["id"]
     elif cas == "id_puissance_booleen": puissance["id"] = True
     elif cas == "id_ancre_duplique": document["ancres"][1]["id"] = ancre["id"]
@@ -67,27 +63,31 @@ def _alterer(document, cas):
     elif cas == "lat_infinie": ancre["lat"] = math.inf
     elif cas == "date": document["date"] = "1453-05-29"
     elif cas == "ancres_vides": document["ancres"] = []
-
-@pytest.mark.parametrize("cas,ligne,champ", CAS_REFUS)
-def test_refus_d_une_alteration(tmp_path, cas, ligne, champ):
-    document = _document()
-    _alterer(document, cas)
-    with pytest.raises(PuissanceInvalide) as erreur:
-        charger_table(_ecrire(tmp_path, document))
-    nombre_de_cas = len(CAS_REFUS)
-    print(f"nombre_de_cas={nombre_de_cas}, cas_joué={cas}")
-    assert nombre_de_cas > 0 and ligne in str(erreur.value) and champ in str(erreur.value)
-
+def test_refus_d_une_alteration(tmp_path):
+    refus_observes = 0
+    for cas, ligne, champ in CAS_REFUS:
+        document = _document()
+        id_navarre = next(p["id"] for p in document["puissances"] if p["nom"] == "Navarre")
+        _alterer(document, cas, id_navarre)
+        with pytest.raises(PuissanceInvalide) as erreur:
+            charger_table(_ecrire(tmp_path, document))
+        message = str(erreur.value)
+        assert ligne.format(id_navarre=id_navarre) in message and champ in message
+        refus_observes += 1
+    print(f"refus_observés={refus_observes}/{len(CAS_REFUS)}")
+    assert refus_observes == len(CAS_REFUS)
+    assert refus_observes > 0
 def _connues(table):
     attendues = {"Angleterre", "Écosse", "France", "Portugal", "Castille", "Aragon", "Navarre", "Grenade", "Saint-Empire", "Bohême"}
     par_nom = {p.nom: p for p in table.puissances}
+    if not attendues <= par_nom.keys():
+        return False
     villes = {a.nom for a in table.ancres if a.puissance == par_nom["Angleterre"].id}
-    return (attendues <= par_nom.keys() and par_nom["Grenade"].religion == "musulmane"
+    return (par_nom["Grenade"].religion == "musulmane"
             and all(par_nom[n].religion == "catholique" for n in attendues - {"Grenade"})
             and any(p.nature == "Église" for p in table.puissances)
             and any(p.nature == "république" for p in table.puissances)
             and {"Londres", "Bordeaux", "Dublin"} <= villes)
-
 def test_puissances_connues(tmp_path):
     assert _connues(charger_table())
     document = _document()
@@ -98,7 +98,6 @@ def test_puissances_connues(tmp_path):
     bordeaux_absente = _connues(charger_table(_ecrire(tmp_path, document)))
     print(f"vraie=1, religion_fausse={int(religion_fausse)}, bordeaux_absente={int(bordeaux_absente)}")
     assert not religion_fausse and not bordeaux_absente
-
 def _compter_ancrage(table):
     positions = charger_positions()
     lats, lons = zip(*positions.values())
