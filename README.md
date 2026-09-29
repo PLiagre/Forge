@@ -71,7 +71,7 @@ les tests du jeu et vérifie les lanceurs.
 Deux façons, et seulement deux.
 
 - **La chaîne**, quand personne n'est là : un lot est une issue du jalon
-  courant ; le pilote (VPS, toutes les dix minutes) la fait passer par le chef,
+  courant ; le pilote (VPS, toutes les deux minutes) la fait passer par le chef,
   le codeur, la CI et un relecteur qui ne l'a pas écrite ; `ACCEPTE` fusionne
   tout seul. La table des rôles et de leurs modèles :
   `python3 -m atelier agents`. Détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).

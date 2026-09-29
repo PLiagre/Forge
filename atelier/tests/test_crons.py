@@ -31,8 +31,10 @@ def _roles(quand: str, jour_semaine: str = "3") -> list[str]:
     ("07:15", ["journal"]),
     ("07:20", ["pilote"]),
     ("07:21", []),
+    ("07:22", ["pilote"]),
     ("00:00", ["pilote"]),
-    ("23:50", ["pilote"]),
+    ("23:58", ["pilote"]),
+    ("23:59", []),
 ])
 def test_qui_se_reveille(quand, roles):
     assert _roles(quand) == roles
@@ -44,6 +46,16 @@ def test_la_boussole_le_lundi_seulement():
 
 
 def test_le_prochain_reveil():
-    script = f'. "{PROFIL.as_posix()}"; prochain_reveil 07:21; prochain_reveil 23:55'
+    script = (f'. "{PROFIL.as_posix()}"; prochain_reveil 07:21; prochain_reveil 07:22; '
+              'prochain_reveil 23:59; prochain_reveil 09:08')
     fini = subprocess.run([BASH, "-c", script], capture_output=True, text=True, check=True)
-    assert fini.stdout.split("\n")[:2] == ["07:30 pilote", "00:00 pilote"]
+    assert fini.stdout.split("\n")[:4] == ["07:22 pilote", "07:24 pilote", "00:00 pilote", "09:10 pilote"]
+
+
+def test_le_pilote_passe_toutes_les_deux_minutes():
+    # Trente tours par heure, jamais deux minutes de suite : un tour sans agent
+    # ne coûte que quelques lectures de GitHub.
+    heure = [f"10:{m:02d}" for m in range(60)]
+    tours = [q for q in heure if "pilote" in _roles(q)]
+    assert len(tours) == 30
+    assert all(int(q[-2:]) % 2 == 0 for q in tours)

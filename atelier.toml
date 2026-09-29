@@ -31,16 +31,23 @@ prefixe_branche = "lot/"
 # session ; si aucun ne répond, le lot attend, il n'échoue pas.
 # Changer de modèle, c'est changer une ligne.
 [agents]
-# Un quota de Claude Code ne retient pas le chef : le même modèle, par Cursor.
-chef        = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high"
+# Claude Opus juge, les autres écrivent : le plafond de Claude Code, atteint
+# le 29 septembre 2026, se garde pour la relecture.
+#
+# Le chef reste Claude Opus, porté d'abord par Cursor (un autre abonnement) ;
+# Claude Code le reprend quand Cursor ne répond pas.
+chef        = "cursor/claude-opus-5-5-high | claude/claude-opus-5-5"
 codeur      = "codex/gpt-5.6-sol | cursor/grok-4.7-high"
-# Les lots « machine : pc » (Unity, Blender), sur le PC Windows.
-codeur_3d   = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high"
+# Les lots « machine : pc » (Unity, Blender), sur le PC Windows : le même
+# codeur que sur le VPS ; Claude n'y code qu'en dernier secours.
+codeur_3d   = "codex/gpt-5.6-sol | cursor/grok-4.7-high | claude/claude-opus-5-5"
 # Le modèle qui écrit ne relit jamais : la FAMILLE de modèle qui a écrit le
 # lot est écartée, quel que soit l'outil (cursor/claude-opus est de la
-# famille claude), et le suivant de la ligne relit (codex quand l'auteur est
-# un Claude).
-relecteur   = "claude/claude-opus-5-5 | codex/gpt-5.6-sol"
+# famille claude), et le suivant de la ligne relit. Quelle que soit la
+# famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
+# pas un lot sans relecteur (#186 a attendu une cinquantaine de tours le
+# 28 septembre, Claude écarté et codex à court de quota).
+relecteur   = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high | codex/gpt-5.6-sol | cursor/grok-4.7-high"
 # CI rouge sur master, conflits d'une branche de lot, dépendances.
 mecanicien  = "cursor/composer-2.5"
 # Journal du matin, en lecture seule (cursor --mode ask).

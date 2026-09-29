@@ -13,16 +13,16 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (claude opus · secours cursor claude-opus) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (claude opus, par cursor · secours claude code) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant)          │ trop gros : découpe en sous-lots · hors du jalon : bloque
                           ▼
-                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : claude sur le PC (secours cursor claude-opus)
+                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : le même sur le PC (claude en dernier secours)
                           │ le pilote commit, pousse, capture
                           ▼
                     CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus)
                           │ vert
                           ▼
-                    RELECTEUR (claude opus ; codex si un Claude a écrit, quel que soit l'outil)
+                    RELECTEUR (claude opus, puis par cursor ; codex, puis grok, si un Claude a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus) ──► puis « bloque »
 ```
@@ -37,6 +37,13 @@ Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
 (sa famille se lit dans le nom du modèle). Du code écrit par
 `cursor/claude-opus-5-5-high` est donc relu par codex, pas par
 `claude/claude-opus-5-5`.
+
+**Claude juge, les autres écrivent.** Le plafond de Claude Code a été atteint
+le 29 septembre 2026 : il se garde pour la relecture. Le chef reste Claude
+Opus, porté d'abord par Cursor ; le code s'écrit avec codex sol, sur le VPS
+comme sur le PC, et Claude n'y vient qu'en dernier secours. La ligne du
+relecteur laisse toujours au moins deux agents à un lot, quelle que soit la
+famille qui l'a écrit : un quota ne le laisse plus sans relecture.
 
 ## Qui fait quoi
 
@@ -186,7 +193,7 @@ sort du gabarit, ou cite une image ou un numéro absent des faits, est
 
 | quand | quoi |
 |---|---|
-| toutes les 10 min | un tour du pilote (au plus un agent) |
+| toutes les 2 min | un tour du pilote (au plus un agent ; un tour qui tourne encore fait passer le suivant) |
 | 06:45 | la veille : outils, jetons, accès GitHub |
 | 07:15 | le journal |
 | lundi 07:45 | la boussole |
