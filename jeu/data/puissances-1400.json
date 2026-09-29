@@ -2,6 +2,16 @@
   "description": "Puissances de l'Ouest au 1er janvier 1400 et leurs points d'ancrage.",
   "date": "1400-01-01",
   "fidelite": "Niveau 1, d'après des sources publiques ; le Grand Schisme, les maisons et les suzerainetés ne sont pas simulés.",
+  "projection": {
+    "type": "equirectangular",
+    "mid_latitude": 47.5,
+    "comment": "x = lon * cos(mid_latitude), y = -lat"
+  },
+  "portee": {
+    "degres_projetes": 4.0,
+    "niveau": 2,
+    "note": "Frontière plausible, jamais sourcée ; au-delà, la cellule est déclarée non couverte."
+  },
   "puissances": [
     { "id": 1, "nom": "Angleterre", "nature": "royaume", "religion": "catholique" },
     { "id": 2, "nom": "Écosse", "nature": "royaume", "religion": "catholique" },

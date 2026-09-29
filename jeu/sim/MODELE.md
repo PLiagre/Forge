@@ -59,8 +59,10 @@ part. À chaque tick, dans cet ordre :
 La **province** ne se stocke pas : elle se recalcule à chaque consultation
 comme « le centre administratif le plus proche ». La **pluie** n'est pas
 stockée sur `Cell` : sa vue se recalcule depuis le relevé le plus proche et
-entre dans la carte au moment où le monde la lit. Le tick lit cette valeur
-dans la carte, jamais dans la vue. Il ne consomme pas la vue des provinces.
+entre dans la carte au moment où le monde la lit. La **puissance** dont relève
+une cellule est pareillement une vue dérivée, jamais un second identifiant
+spatial stocké. Le tick lit la pluie dans la carte, jamais dans sa vue ; il ne
+consomme ni la vue des provinces, ni celle des puissances.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -1175,6 +1177,31 @@ traverse l'isthme. Le fichier déclare donc cette lacune au lieu de la masquer.
 Enfin, **le tick ne la lit pas**. Cette géographie ne donne encore aucune eau
 aux champs : le delta reste vidé par l'aridité tant qu'un lot suivant n'aura
 pas représenté la cause physique, la crue du fleuve.
+
+---
+
+## Les puissances de 1400, vue dérivée
+
+La provenance est `data/puissances-1400.json`. Les puissances, leurs ancres et
+leurs sources publiques sont de **niveau 1** : elles doivent être justes dans
+les grandes lignes. Le tracé qui en découle est de **niveau 2**, plausible et
+jamais sourcé : il ne restitue ni frontière réelle, ni enclave, ni suzeraineté.
+
+À chaque consultation, une cellule relève de la puissance qui tient l'ancre
+la plus proche de son centroïde selon la projection déclarée par le fichier.
+La règle unique de `sim/aggregation.py` départage une égalité exacte par le
+plus petit identifiant d'ancre, indépendamment de l'ordre de la table.
+
+Cette attribution s'arrête à la portée mesurée de **4,0 degrés projetés**,
+environ 440 km. Au-delà, la cellule est explicitement **non couverte** : elle
+n'est rattachée à aucune puissance par défaut. Cette limite plausible laisse
+notamment Le Caire et Constantinople hors de la table occidentale actuelle ;
+de futures puissances devront les couvrir par leurs ancres, pas par une portée
+artificiellement élargie.
+
+La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
+`Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
+lit pas**.
 
 ---
 
