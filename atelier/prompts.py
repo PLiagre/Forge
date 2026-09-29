@@ -66,6 +66,7 @@ ce que ce lot ne fait pas.
 Règles :
 - Le lot doit servir le jalon J{jalon} de `CAP.md`. S'il ne le sert pas, n'écris rien et termine par la ligne « DECISION: REFUS :: <raison> ».
 {en_avance}- La taille prévue du diff reste sous {projet.lignes_max} lignes. Sinon n'écris rien : découpe, et termine par la ligne « DECISION: DECOUPE », suivie d'une ligne par sous-lot au format « - <titre> :: <ce qu'il fait> », finie par « :: pc » si ce sous-lot demande Unity ou Blender, par « :: vps » s'il n'en demande pas (sans rien, il garde la machine de ce lot).
+- Dans une découpe, les sous-lots qui ne s'attendent pas avancent en même temps, chacun dans son chantier. Finis une ligne par « :: après 1, 3 » (les rangs, dans ta liste, des sous-lots dont il a vraiment besoin, tous plus haut que lui) ou par « :: après rien » (il part tout de suite) ; sans « après », il attend le précédent. Deux sous-lots qui modifient les mêmes fichiers s'attendent : sinon ils se marchent dessus.
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
 - Machine « pc » : le lot demande Unity ou Blender sur le PC Windows ; « vps » : Python seul.

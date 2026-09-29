@@ -41,6 +41,10 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
 - **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les deux
   minutes) prend le lot suivant du jalon courant ; une machine qui n'y a plus
   rien à prendre prend dans le jalon suivant (la **fenêtre de deux jalons**).
+  Plusieurs tours tournent en même temps : le VPS fait avancer jusqu'à
+  `[machines].vps` lots à la fois, le PC un ; chaque outil a son plafond
+  d'agents simultanés (`[outils]`), et un outil plein passe la main à son
+  secours.
   Le **chef** écrit le brief dans la branche `lot/<n>-<slug>` et ouvre la PR
   (moins de 300 lignes, sinon il découpe ; hors de son jalon, il refuse).
   Le **codeur** code, la CI joue les tests, le **relecteur** — jamais la

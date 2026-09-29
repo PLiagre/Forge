@@ -29,10 +29,17 @@ def adresse(depot_github: str, chemin: str) -> str:
 
 
 def publier(depot: Depot, depot_github: str, fichiers: list[Path], dossier: str) -> list[str]:
-    """Pousse les images sur la branche `journal` ; rend leurs adresses."""
+    """Pousse les images sur la branche `journal` ; rend leurs adresses. Une
+    publication à la fois (verrou « captures ») : les tours parallèles et le
+    journal partagent le même worktree de la branche."""
     fichiers = [Path(f) for f in fichiers if Path(f).is_file()]
     if not fichiers:
         return []
+    with depot.verrous.tenir("captures", attente=depot.ATTENTE_GIT):
+        return _publier(depot, depot_github, fichiers, dossier)
+
+
+def _publier(depot: Depot, depot_github: str, fichiers: list[Path], dossier: str) -> list[str]:
     chemin = depot.racine / ".atelier" / "journal"
     depot.git_code("worktree", "prune")
     if not (chemin / ".git").exists():

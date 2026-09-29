@@ -1,11 +1,15 @@
 """Le pilote : un tour de la chaîne.
 
-Un tour relit GitHub, fait avancer chaque lot en cours d'un pas, et prend
-le lot suivant du jalon courant quand une machine est libre ; une machine qui
-n'y a plus rien à prendre prend dans le jalon suivant (la fenêtre de deux
-jalons). Il invoque au plus UN agent par tour : un tour reste court à lire,
-et un quota ne se vide pas en une minute. Tout ce qui se décide se décide dans `lots.py`, en
-fonction pure ; ici, on fait les gestes.
+Un tour relit GitHub, fait avancer d'un pas les lots en cours, et prend le
+lot suivant du jalon courant quand une machine a de la place ; une machine
+qui n'y a plus rien à prendre prend dans le jalon suivant (la fenêtre de
+deux jalons). Il invoque au plus UN agent : un tour reste court à lire.
+Plusieurs tours tournent en même temps — le cron en lance un toutes les deux
+minutes —, et des verrous (`verrous.py`) font qu'un lot n'avance que dans un
+tour à la fois, que relire et choisir se font un tour après l'autre, et
+qu'une machine ne prend pas plus de lots que sa capacité (`[machines]`).
+Tout ce qui se décide se décide dans `lots.py`, en fonction pure ; ici, on
+fait les gestes.
 
     un lot = une issue → le chef écrit le brief dans la branche du lot et
     ouvre la PR → le codeur code → la CI joue les tests → le relecteur rend
@@ -16,6 +20,7 @@ fonction pure ; ici, on fait les gestes.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
@@ -28,7 +33,8 @@ from . import captures, lots, prompts, traces
 from .depot import Depot, DepotErreur
 from .github import GitHub, GitHubErreur, etat_des_controles
 from .lots import Lot, marque
-from .projet import Projet
+from .projet import MACHINES, Projet
+from .verrous import AucunVerrou
 
 _DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|DECOUPE|MODE-DIRECT)\b[ \t]*(?:::[ \t]*(.*))?$", re.M)
 _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
@@ -51,14 +57,21 @@ class Photos:
 Photographe = Callable[[Path, Lot, str], Photos]
 
 
-_MACHINE_DU_SOUS_LOT = re.compile(r"\s*::\s*(pc|vps)\s*$", re.I)
+@dataclass
+class _Vue:
+    """Ce qu'un tour a relu et rangé, sous le verrou « decider »."""
+
+    cap: str
+    jalons: list
+    courant: "lots.Jalon | None"
+    apres: "lots.Jalon | None"
+    ouvertes: list[Lot]
+    fermes: list[Lot]
+    decoupe_du_courant: bool
 
 
-def _machine_du_sous_lot(quoi: str, defaut: str) -> tuple[str, str]:
-    """« … :: pc » en fin de ligne : ce sous-lot demande Unity ou Blender ;
-    « :: vps », Python seul. Sans rien, il garde la machine du lot découpé."""
-    m = _MACHINE_DU_SOUS_LOT.search(quoi)
-    return (quoi[:m.start()].strip(), m.group(1).lower()) if m else (quoi.strip(), defaut)
+def _verrou_du_lot(numero: int | str) -> str:
+    return f"lot-{numero}"
 
 
 def _extrait(texte: str, lignes: int = 60) -> str:
@@ -71,11 +84,14 @@ def _extrait(texte: str, lignes: int = 60) -> str:
 class Pilote:
     def __init__(self, projet: Projet, gh: GitHub, depot: Depot, *,
                  executeur_agents: agents_mod.Executeur = agents_mod.executer,
-                 maintenant=None, journal: Path | None = None):
+                 maintenant=None, journal: Path | None = None, verrous=None):
         self.projet = projet
         self.gh = gh
         self.depot = depot
         self.executeur_agents = executeur_agents
+        # Les verrous partagés avec les autres tours ; sans eux, un seul
+        # tour à la fois (les tests, le tour à sec).
+        self.verrous = verrous or AucunVerrou()
         self.maintenant = maintenant or (lambda: datetime.now(timezone.utc))
         self.journal = journal or Path.home() / ".atelier" / "journal.jsonl"
         self.lignes: list[str] = []
@@ -95,7 +111,9 @@ class Pilote:
     def _invoquer(self, role: str, prompt: str, chemin: Path, *, lot: int | str,
                   exclure=frozenset()) -> agents_mod.Resultat:
         res = agents_mod.invoquer(self.projet.poste(role), prompt, chemin, self.projet.delai(role),
-                                  exclure=exclure, executeur=self.executeur_agents)
+                                  exclure=exclure, executeur=self.executeur_agents,
+                                  place=lambda outil: self.verrous.place(f"outil-{outil}",
+                                                                         self.projet.plafond(outil)))
         # Un secours a répondu : pourquoi les précédents ne l'ont pas fait
         # entre au journal, sinon un quota ou une session perdue ne se voit
         # nulle part (le chef de #184, le 28 septembre 2026).
@@ -106,7 +124,47 @@ class Pilote:
 
     # --------------------------------------------------------------- tour
     def tour(self) -> list[str]:
+        """Un tour : relire et ranger (un tour après l'autre), faire avancer
+        d'un pas les lots en cours qu'aucun autre tour ne tient, puis, si
+        aucun agent n'est parti, prendre le lot suivant quand une machine a
+        de la place."""
         self.lignes = []
+        with self.verrous.tenir("decider"):
+            vue = self._ranger_le_monde()
+        agent_parti = False
+        for lot in sorted(vue.ouvertes, key=lambda l: l.numero):
+            if lot.etat != "en-cours" or agent_parti:
+                continue
+            if not self.verrous.prendre(_verrou_du_lot(lot.numero)):
+                continue  # un autre tour le fait avancer
+            try:
+                # Relu sous son verrou : depuis la relecture du tour, un autre
+                # tour a pu le livrer, le bloquer ou le rendre.
+                lot = Lot.de(self.gh.issue(lot.numero))
+                if lot.etat != "en-cours":
+                    continue
+                agent_parti = self._avancer(lot, vue.jalons, vue.courant)
+            except (GitHubErreur, DepotErreur) as e:
+                self.noter(lot.numero, "erreur", str(e))
+            finally:
+                self._lacher_lot(lot.numero)
+
+        if not agent_parti:
+            agent_parti = self._master_rouge()
+        if not agent_parti and vue.courant is not None:
+            self._prendre_le_suivant(vue)
+        with self.verrous.tenir("decider"):
+            self._ranger_jalons()
+        if not self.lignes:
+            self.lignes.append("RIEN")
+        return self.lignes
+
+    def _ranger_le_monde(self) -> "_Vue":
+        """Ce que le tour sait du monde, rangé : les jalons suivent CAP.md, les
+        issues du formulaire sont rangées, les lots qui attendent une
+        dépendance rendent leur machine, les lots remis « pret » reprennent,
+        les lots fusionnés sont livrés, et le jalon courant sans plan se
+        découpe. Se fait sous le verrou « decider » : un tour à la fois."""
         self.depot.fetch()
         cap = self._cap()
         bruts = self._accorder_jalons(cap)
@@ -126,44 +184,58 @@ class Pilote:
         decoupe_du_courant = lots.a_decouper(courant, cap, ouvertes, fermes)
         if decoupe_du_courant:
             self._faire_decouper(courant, ouvertes)
+        return _Vue(cap=cap, jalons=jalons, courant=courant, apres=apres, ouvertes=ouvertes,
+                    fermes=fermes, decoupe_du_courant=decoupe_du_courant)
 
-        occupe = {"vps": False, "pc": False}
-        agent_parti = False
-        for lot in sorted(ouvertes, key=lambda l: l.numero):
-            if lot.etat != "en-cours":
-                continue
-            occupe[lot.machine] = True
-            if agent_parti:
-                continue
-            try:
-                agent_parti = self._avancer(lot, jalons, courant) or agent_parti
-            except (GitHubErreur, DepotErreur) as e:
-                self.noter(lot.numero, "erreur", str(e))
-
-        if not agent_parti:
-            agent_parti = self._master_rouge()
-        if not agent_parti and courant is not None:
-            libres = {m: not o for m, o in occupe.items()}
-            candidats = [l for l in ouvertes if "lot" in l.etiquettes]
-            suivant = lots.a_prendre(candidats, courant.numero, libres, bloq)
+    def _prendre_le_suivant(self, vue: "_Vue") -> None:
+        """Le lot suivant, quand sa machine a de la place : ses lots en cours,
+        et ceux qu'un autre tour est en train de prendre (son chef travaille),
+        restent sous sa capacité. Le choix se fait sur une relecture fraîche,
+        sous le verrou « decider » ; le chef travaille ensuite, sous le seul
+        verrou du lot."""
+        courant, apres = vue.courant, vue.apres
+        with self.verrous.tenir("decider"):
+            ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
+            bloq = lots.bloquantes(ouvertes, vue.fermes)
+            # L'état est frais (un autre tour a pu prendre un lot depuis), mais
+            # un lot né pendant ce tour (une découpe) part au tour suivant.
+            connus = {l.numero for l in vue.ouvertes}
+            tous = [l for l in ouvertes if "lot" in l.etiquettes]
+            en_prise = {l.numero for l in tous
+                        if l.etat in ("pret", "idee") and self.verrous.pris_ailleurs(_verrou_du_lot(l.numero))}
+            tenus = Counter(l.machine for l in tous if l.etat == "en-cours" or l.numero in en_prise)
+            libres = {m: tenus[m] < self.projet.capacite(m) for m in MACHINES}
+            if not any(libres.values()):
+                return
+            libres_de_prendre = [l for l in tous if l.numero in connus and l.numero not in en_prise]
+            suivant = lots.a_prendre(libres_de_prendre, courant.numero, libres, bloq)
             # La fenêtre de deux jalons : une machine libre qui n'a plus rien
             # à prendre dans le jalon courant prend dans le suivant, et le
             # découpe s'il n'a encore rien. Le 29 septembre 2026, J1 n'avait
             # plus que des lots « pc » : le VPS attendait sans rien faire que
             # le PC finisse, alors que J2 ne demande que `sim/`.
-            if suivant is None and apres is not None and any(libres.values()) and not decoupe_du_courant:
-                if lots.a_decouper(apres, cap, ouvertes, fermes):
+            if suivant is None and apres is not None and not vue.decoupe_du_courant:
+                if lots.a_decouper(apres, vue.cap, ouvertes, vue.fermes):
                     self._faire_decouper(apres, ouvertes, courant)
-                suivant = lots.a_prendre(candidats, apres.numero, libres, bloq)
-            if suivant is not None:
-                try:
-                    self._chef(suivant, suivant.jalon_titre or courant.titre, courant)
-                except (GitHubErreur, DepotErreur) as e:
-                    self.noter(suivant.numero, "erreur", str(e))
-        self._ranger_jalons()
-        if not self.lignes:
-            self.lignes.append("RIEN")
-        return self.lignes
+                suivant = lots.a_prendre(libres_de_prendre, apres.numero, libres, bloq)
+            if suivant is None or not self.verrous.prendre(_verrou_du_lot(suivant.numero)):
+                return
+        try:
+            self._chef(suivant, suivant.jalon_titre or courant.titre, courant)
+        except (GitHubErreur, DepotErreur) as e:
+            self.noter(suivant.numero, "erreur", str(e))
+        finally:
+            self._lacher_lot(suivant.numero)
+
+    def _lacher_lot(self, numero: int) -> None:
+        """Rend le lot aux autres tours, sous le verrou « decider » : un tour
+        qui choisit le lot suivant voit soit le verrou encore tenu, soit
+        l'étiquette que ce tour vient de poser, jamais un entre-deux."""
+        with self.verrous.tenir("decider"):
+            self.verrous.lacher(_verrou_du_lot(numero))
+
+    def _pris_ailleurs(self, numero: int) -> bool:
+        return self.verrous.pris_ailleurs(_verrou_du_lot(numero))
 
     # ------------------------------------------------------------ jalons
     def _cap(self) -> str:
@@ -242,7 +314,7 @@ class Pilote:
         rendus = set()
         for lot in ouvertes:
             attend = sorted(lot.dependances & bloq)
-            if lot.etat != "en-cours" or not attend:
+            if lot.etat != "en-cours" or not attend or self._pris_ailleurs(lot.numero):
                 continue
             liste = ", ".join(f"#{n}" for n in attend)
             self.gh.etiqueter(lot.numero, ["pret"], ["en-cours"])
@@ -261,7 +333,8 @@ class Pilote:
         marque « reprise » sur la PR remet les compteurs à zéro
         (`lots.depuis_reprise`) ; elle s'écrit avant l'étiquette : sans elle,
         un lot « en-cours » recompterait ses échecs et serait rebloqué."""
-        prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes and not l.dependances & bloq]
+        prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes and not l.dependances & bloq
+                 and not self._pris_ailleurs(l.numero)]
         if not prets:
             return set()
         par_branche = {p["headRefName"]: p for p in self.gh.prs_ouvertes()}
@@ -407,20 +480,28 @@ class Pilote:
 
     def _decouper(self, lot: Lot, res: agents_mod.Resultat, titre_jalon: str) -> bool:
         apres = res.texte[res.texte.rfind("DECISION: DECOUPE"):]
-        sous = _SOUS_LOT.findall(apres)
-        if not sous:
-            self.gh.commenter_issue(lot.numero, "🤖 **chef** : découpe demandée, mais aucun sous-lot lisible.\n\n"
-                                    f"{marque(role='chef', etat='echec', raison='découpe illisible')}")
-            self.noter(lot.numero, "chef en échec", "découpe illisible", str(res.agent))
+        sous = [lots.sous_lot(titre, quoi, lot.machine) for titre, quoi in _SOUS_LOT.findall(apres)]
+        raison = "" if sous else "découpe illisible"
+        rangs: list[tuple[int, ...]] = []
+        if sous:
+            try:
+                rangs = lots.dependances_des_sous_lots(
+                    sous, preuve_en_dernier=lots.jalon_a_decouper_par(lot) is not None)
+            except ValueError as e:
+                raison = f"découpe illisible : {e}"
+        if raison:
+            self.gh.commenter_issue(lot.numero, f"🤖 **chef** : {raison}, aucun sous-lot créé.\n\n"
+                                    f"{marque(role='chef', etat='echec', raison=raison)}")
+            self.noter(lot.numero, "chef en échec", raison, str(res.agent))
             return True
-        crees = []
-        for titre, quoi in sous:
-            quoi, machine = _machine_du_sous_lot(quoi, lot.machine)
-            etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if machine == "pc" else [])
-            # Les sous-lots se suivent dans l'ordre du chef : un morceau
-            # bloqué retient les suivants, qui s'appuient sur lui.
-            suite = f"\n\nDépend de : #{crees[-1]}" if crees else ""
-            n = self.gh.creer_issue(titre.strip(), f"{quoi}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
+        crees: list[int] = []
+        for s, attend in zip(sous, rangs):
+            etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if s.machine == "pc" else [])
+            # Un sous-lot attend ceux que le chef a nommés (le précédent, sans
+            # rien dire) : un morceau bloqué retient ceux qui s'appuient sur
+            # lui, et les autres avancent en même temps.
+            suite = ("\n\nDépend de : " + ", ".join(f"#{crees[k - 1]}" for k in attend)) if attend else ""
+            n = self.gh.creer_issue(s.titre, f"{s.quoi}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
                                     etiquettes, titre_jalon or None)
             crees.append(n)
         liste = ", ".join(f"#{n}" for n in crees)
@@ -625,7 +706,7 @@ class Pilote:
         pilote ne la voie : l'issue fermée encore « en-cours » est livrée."""
         for issue in self.gh.issues("closed") if fermees is None else fermees:
             lot = Lot.de(issue)
-            if lot.etat == "en-cours":
+            if lot.etat == "en-cours" and not self._pris_ailleurs(lot.numero):
                 resume = self.gh.pr_de_branche(lot.branche(self.projet.prefixe_branche))
                 if resume and (resume.get("mergedAt") or resume.get("state") == "MERGED"):
                     self._livrer(lot.numero, resume["number"])
@@ -650,6 +731,15 @@ class Pilote:
 
     # ----------------------------------------------------- master rouge
     def _master_rouge(self) -> bool:
+        """Master rouge : un mécanicien à la fois, quel que soit le tour."""
+        if not self.verrous.prendre("meca"):
+            return False
+        try:
+            return self._reparer_master()
+        finally:
+            self.verrous.lacher("meca")
+
+    def _reparer_master(self) -> bool:
         ouvertes = [p for p in self.gh.prs_ouvertes() if p["headRefName"].startswith("meca/")]
         if ouvertes:
             return self._avancer_meca(ouvertes[0])

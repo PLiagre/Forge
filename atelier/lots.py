@@ -233,6 +233,70 @@ def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool]
 # La marque que porte le lot ouvert par le pilote pour faire découper un jalon.
 ETAT_DECOUPE_JALON = "decoupe-jalon"
 
+# Les options qu'une ligne de découpe porte à sa fin, dans n'importe quel
+# ordre : « :: pc » ou « :: vps » (sa machine), « :: après 1, 3 » ou
+# « :: après rien » (les sous-lots de la même liste qu'il attend).
+_OPTION_MACHINE = re.compile(r"\s*::\s*(pc|vps)\s*$", re.I)
+_OPTION_APRES = re.compile(r"\s*::\s*apr[èe]s\s*:?\s*(rien|[\d\s,#et]+?)\s*$", re.I)
+
+
+@dataclass(frozen=True)
+class SousLot:
+    """Une ligne de découpe du chef. `apres` : None quand elle ne dit rien
+    (le sous-lot attend le précédent), () pour « après rien », sinon les
+    rangs, dans la liste, des sous-lots qu'il attend."""
+
+    titre: str
+    quoi: str
+    machine: str
+    apres: tuple[int, ...] | None = None
+
+
+def sous_lot(titre: str, quoi: str, machine_par_defaut: str) -> SousLot:
+    """Lit « <titre> :: <ce qu'il fait> [:: pc|vps] [:: après …] ». Sans
+    machine, le sous-lot garde celle du lot découpé."""
+    machine, apres = None, None
+    while True:
+        m = _OPTION_MACHINE.search(quoi)
+        if m and machine is None:
+            machine, quoi = m.group(1).lower(), quoi[:m.start()]
+            continue
+        m = _OPTION_APRES.search(quoi)
+        if m and apres is None:
+            valeur = m.group(1).strip().lower()
+            apres = () if valeur == "rien" else tuple(int(n) for n in re.findall(r"\d+", valeur))
+            quoi = quoi[:m.start()]
+            continue
+        break
+    return SousLot(titre.strip(), quoi.strip(), machine or machine_par_defaut, apres)
+
+
+def dependances_des_sous_lots(sous: list[SousLot], *, preuve_en_dernier: bool = False) -> list[tuple[int, ...]]:
+    """Pour chaque sous-lot (rang 1…n), les rangs des sous-lots qu'il attend.
+
+    Sans « après », il attend le précédent : c'est l'ordre du chef, et ce qui
+    était vrai de toutes les découpes jusqu'au 29 septembre 2026. « Après
+    rien », il part tout de suite ; « après 1, 3 », quand 1 et 3 sont livrés.
+    Des sous-lots qui ne s'attendent pas avancent en même temps. Le dernier
+    d'une découpe de jalon porte la preuve du jalon : il attend tous les
+    autres, quoi que dise sa ligne. Un rang qui ne précède pas le sous-lot se
+    refuse (ValueError) : les issues naissent dans l'ordre de la liste, et une
+    dépendance vers l'avant ne se devine pas."""
+    rangs: list[tuple[int, ...]] = []
+    for i, s in enumerate(sous, start=1):
+        if preuve_en_dernier and i == len(sous):
+            rangs.append(tuple(range(1, i)))
+            continue
+        if s.apres is None:
+            rangs.append((i - 1,) if i > 1 else ())
+            continue
+        fautifs = [k for k in s.apres if not 1 <= k < i]
+        if fautifs:
+            raise ValueError(f"le sous-lot {i} (« {s.titre} ») attend {', '.join(map(str, fautifs))}, "
+                             "qui ne le précède pas dans la liste")
+        rangs.append(tuple(sorted(set(s.apres))))
+    return rangs
+
 
 def jalon_a_decouper_par(lot: Lot) -> int | None:
     """Le jalon que ce lot fait découper, quand le pilote l'a ouvert pour ça."""
@@ -275,7 +339,9 @@ def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = 
         "Ce lot ne se code pas. Le chef le découpe (« DECISION: DECOUPE ») d'après la section "
         f"« Jalon {jalon.numero} » de `CAP.md` et d'après `docs/VISION.md` : les lots qu'il faut, dans "
         "l'ordre où ils se font, chacun à la taille d'un lot. Le dernier porte la preuve du jalon et sa "
-        "capture au journal. Un lot qui demande Unity ou Blender finit sa ligne par « :: pc ».",
+        "capture au journal : il attend tous les autres. Un lot qui demande Unity ou Blender finit sa ligne "
+        "par « :: pc ». Les lots qui ne s'attendent pas avancent en même temps : chaque ligne dit ceux "
+        "qu'elle attend vraiment (« :: après 1, 3 », ou « :: après rien »).",
     ]
     if avant:
         lignes += ["", "Les lots déjà ouverts dans ce jalon passent d'abord ; la découpe les complète, "

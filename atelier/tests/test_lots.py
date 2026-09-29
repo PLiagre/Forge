@@ -266,3 +266,29 @@ def test_la_decoupe_d_un_jalon_passe_apres_ses_lots_deja_ouverts():
     assert lots.jalon_a_decouper_par(lot) == 3
     seul = _lot(9, ("lot", "pret"), jalon=j3.titre, corps=lots.corps_de_la_decoupe(j3, []))
     assert seul.dependances == frozenset()
+
+
+def test_une_ligne_de_decoupe_dit_sa_machine_et_ce_qu_elle_attend():
+    s = lots.sous_lot("La carte", "Unity montre les royaumes :: pc :: après 1, 3", "vps")
+    assert (s.titre, s.quoi, s.machine, s.apres) == ("La carte", "Unity montre les royaumes", "pc", (1, 3))
+    s = lots.sous_lot("Le Nil", "le fleuve arrose :: après rien :: vps", "pc")
+    assert (s.quoi, s.machine, s.apres) == ("le fleuve arrose", "vps", ())
+    s = lots.sous_lot("L'aridité", "le moteur apprend", "vps")
+    assert (s.quoi, s.machine, s.apres) == ("le moteur apprend", "vps", None)
+    assert lots.sous_lot("x", "y :: Après : #2 et #1", "vps").apres == (2, 1)
+
+
+def test_les_sous_lots_n_attendent_que_ce_qu_ils_disent():
+    sous = [lots.sous_lot("a", "a", "vps"), lots.sous_lot("b", "b :: après rien", "vps"),
+            lots.sous_lot("c", "c", "vps"), lots.sous_lot("d", "d :: après 1, 2", "vps")]
+    # Sans « après », le précédent (l'ordre du chef, comme avant).
+    assert lots.dependances_des_sous_lots(sous) == [(), (), (2,), (1, 2)]
+    # Le dernier d'une découpe de jalon porte la preuve : il attend tout.
+    assert lots.dependances_des_sous_lots(sous, preuve_en_dernier=True) == [(), (), (2,), (1, 2, 3)]
+
+
+@pytest.mark.parametrize("ligne", ["d :: après 4", "d :: après 5", "d :: après 0"])
+def test_une_dependance_qui_ne_precede_pas_se_refuse(ligne):
+    sous = [lots.sous_lot(t, t, "vps") for t in "abc"] + [lots.sous_lot("d", ligne, "vps")]
+    with pytest.raises(ValueError, match="sous-lot 4"):
+        lots.dependances_des_sous_lots(sous)

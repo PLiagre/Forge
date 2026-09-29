@@ -55,6 +55,23 @@ chroniqueur = "cursor/grok-4.7-high"
 # Comparaison hebdomadaire avec CAP.md, en lecture seule.
 boussole    = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high"
 
+# Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
+# plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
+# qu'un runner. Des lots qui touchent les mêmes fichiers se retrouvent en
+# conflit : le mécanicien le résout.
+[machines]
+vps = 3
+pc = 1
+
+# Combien d'agents d'un même outil tournent ensemble : un abonnement ne se
+# vide pas en une heure. Un outil à son plafond passe la main au secours de
+# la ligne, comme un quota : le troisième lot du VPS code avec cursor grok
+# pendant que codex en tient deux. Si personne n'est libre, le lot attend.
+[outils]
+claude = 2
+codex = 2
+cursor = 3
+
 # Le temps qu'un agent a pour rendre la main, en secondes.
 [delais]
 chef = 1800

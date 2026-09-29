@@ -11,13 +11,16 @@ appartiennent au pilote. C'est ce qui rend un avis impossible à falsifier
 par celui qui le donne, et ce qui évite les refus de shell propres à chaque
 outil (`cd … &&` chez Cursor, mesuré le 23 septembre 2026).
 
-Quota épuisé, session expirée, ou outil qui ne démarre pas (installation) :
-on passe au secours. Si aucun agent du poste ne répond pour ces raisons, le
-lot **attend** — ce n'est pas un échec, et le tour suivant réessaie.
+Quota épuisé, session expirée, outil qui ne démarre pas (installation), ou
+outil qui a déjà tous ses agents en route (son plafond, quand plusieurs lots
+avancent en même temps) : on passe au secours. Si aucun agent du poste ne
+répond pour ces raisons, le lot **attend** — ce n'est pas un échec, et le
+tour suivant réessaie.
 """
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
@@ -243,6 +246,9 @@ class Resultat:
 
 
 Executeur = Callable[[list[str], Path, dict[str, str], int], tuple[int, str, str]]
+# Une place pour un agent de cet outil : vraie, tenue le temps de l'appel ;
+# fausse quand l'outil a déjà tous ses agents en route (Verrous.place).
+Place = Callable[[str], AbstractContextManager[bool]]
 
 
 def executer(commande: list[str], cwd: Path, env: dict[str, str], delai: int) -> tuple[int, str, str]:
@@ -264,17 +270,38 @@ def executer(commande: list[str], cwd: Path, env: dict[str, str], delai: int) ->
     return fini.returncode, fini.stdout, fini.stderr
 
 
+def _appeler(agent: Agent, poste: Poste, prompt: str, cwd: Path, delai: int,
+             executeur: Executeur) -> tuple[int, str, str, str]:
+    """Un appel d'un agent : son code, sa sortie, son erreur, et son texte."""
+    # La réponse finale de Codex s'écrit hors du dossier du lot : un
+    # fichier laissé dans le worktree finirait dans le commit.
+    sortie = Path(tempfile.mkdtemp(prefix="atelier-")) / "reponse.txt" if agent.outil == "codex" else None
+    try:
+        code, out, err = executeur(
+            argv(agent, prompt, lecture_seule=poste.lecture_seule, sortie=sortie),
+            Path(cwd), environnement(agent.outil), delai)
+        texte = out
+        if sortie is not None and sortie.exists():
+            texte = sortie.read_text(encoding="utf-8", errors="replace")
+    finally:
+        if sortie is not None:
+            shutil.rmtree(sortie.parent, ignore_errors=True)
+    return code, out, err, texte
+
+
 def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
              exclure: frozenset[str] = frozenset(),
-             executeur: Executeur = executer) -> Resultat:
+             executeur: Executeur = executer,
+             place: Place | None = None) -> Resultat:
     """Essaie l'agent du poste, puis ses secours, dans l'ordre.
 
     `exclure` retire des familles de modèles (`Agent.famille`) : le modèle
     qui a écrit un lot ne le relit jamais, par quelque outil que ce soit.
-    On ne passe au secours que pour un quota, une session ou un outil qui ne
-    démarre pas ; un agent qui échoue pour une autre raison a répondu, et
-    c'est son échec. Chaque essai garde la ligne qui dit pourquoi :
-    « écarté » sans raison ne se répare pas.
+    On ne passe au secours que pour un quota, une session, un outil qui ne
+    démarre pas, ou un outil à son plafond d'agents simultanés (`place`) ;
+    un agent qui échoue pour une autre raison a répondu, et c'est son échec.
+    Chaque essai garde la ligne qui dit pourquoi : « écarté » sans raison ne
+    se répare pas.
     """
     essais: list[str] = []
     ecartes = 0
@@ -283,19 +310,11 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
             essais.append(f"{agent} : écarté (sa famille, {agent.famille}, a écrit ce lot)")
             ecartes += 1
             continue
-        # La réponse finale de Codex s'écrit hors du dossier du lot : un
-        # fichier laissé dans le worktree finirait dans le commit.
-        sortie = Path(tempfile.mkdtemp(prefix="atelier-")) / "reponse.txt" if agent.outil == "codex" else None
-        try:
-            code, out, err = executeur(
-                argv(agent, prompt, lecture_seule=poste.lecture_seule, sortie=sortie),
-                Path(cwd), environnement(agent.outil), delai)
-            texte = out
-            if sortie is not None and sortie.exists():
-                texte = sortie.read_text(encoding="utf-8", errors="replace")
-        finally:
-            if sortie is not None:
-                shutil.rmtree(sortie.parent, ignore_errors=True)
+        with (place(agent.outil) if place else nullcontext(True)) as libre:
+            if not libre:
+                essais.append(f"{agent} : occupé ({agent.outil} a déjà tous ses agents en route)")
+                continue
+            code, out, err, texte = _appeler(agent, poste, prompt, cwd, delai, executeur)
         cause = cause_de_refus(code, f"{out}\n{err}")
         if cause:
             pourquoi = derniere_ligne(f"{out}\n{err}")

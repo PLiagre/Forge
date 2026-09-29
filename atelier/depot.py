@@ -4,6 +4,11 @@ Un lot travaille dans un worktree du dépôt, sous `.atelier/chantiers/<issue>`
 (ignoré par git) : la copie principale reste sur la base, et c'est d'elle
 que tourne le pilote. Seul le pilote commit et pousse ; l'agent n'a édité
 que des fichiers.
+
+Plusieurs tours du pilote tournent en même temps, chacun sur son lot : les
+worktrees partagent les références et les objets du dépôt. Chaque geste git
+passe donc sous le verrou « git » (`verrous.py`), un à la fois ; un geste
+dure quelques secondes, l'agent travaille entre deux.
 """
 
 from __future__ import annotations
@@ -13,6 +18,8 @@ from pathlib import Path
 import shutil
 import subprocess
 from typing import Callable
+
+from .verrous import AucunVerrou
 
 Executeur = Callable[[list[str], Path], tuple[int, str, str]]
 
@@ -28,17 +35,23 @@ def executer(argv: list[str], cwd: Path) -> tuple[int, str, str]:
 
 
 class Depot:
+    # Un geste git qui attend plus que ceci qu'un autre finisse le sien : un
+    # tour est bloqué, et on le dit au lieu d'attendre sans fin.
+    ATTENTE_GIT = 900
+
     def __init__(self, racine: Path, base: str, *, executeur: Executeur = executer,
-                 nom: str | None = None, email: str | None = None):
+                 nom: str | None = None, email: str | None = None, verrous=None):
         self.racine = Path(racine).resolve()
         self.base = base
         self._executer = executeur
+        self.verrous = verrous or AucunVerrou()
         self.nom = nom or os.environ.get("ATELIER_GIT_NOM", "atelier")
         self.email = email or os.environ.get("ATELIER_GIT_EMAIL", "")
 
     # --------------------------------------------------------------- bas
     def git_code(self, *args: str, cwd: Path | None = None) -> tuple[int, str, str]:
-        return self._executer(["git", *args], Path(cwd or self.racine))
+        with self.verrous.tenir("git", attente=self.ATTENTE_GIT):
+            return self._executer(["git", *args], Path(cwd or self.racine))
 
     def git(self, *args: str, cwd: Path | None = None) -> str:
         code, out, err = self.git_code(*args, cwd=cwd)

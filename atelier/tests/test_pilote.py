@@ -10,6 +10,8 @@ import pytest
 from atelier import lots
 from atelier.lots import Lot, marque, marques
 from atelier.pilote import Pilote
+from atelier.projet import charger
+from atelier.verrous import Verrous
 
 from conftest import Agents
 
@@ -583,3 +585,160 @@ def test_une_machine_occupee_n_ouvre_pas_la_fenetre(projet, gh, depot, tmp_path)
     _pilote(projet, gh, depot, agents, tmp_path).tour()
     assert not [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
     assert not _gestes(gh, "creer_pr")
+
+
+# Les tours parallèles. Plusieurs tours tournent en même temps, chacun avec
+# son agent : deux instances de Verrous sur le même dossier se comportent
+# comme deux processus.
+
+def _parallele(projet, vps=2):
+    chemin = projet.racine / "atelier.toml"
+    sans = chemin.read_text(encoding="utf-8").split("\n[machines]\n")[0]
+    chemin.write_text(sans + f"\n[machines]\nvps = {vps}\n", encoding="utf-8")
+    return charger(projet.racine)
+
+
+def _pilote_verrouille(projet, gh, depot, agents, tmp_path):
+    verrous = Verrous(tmp_path / "verrous")
+    return Pilote(projet, gh, depot, executeur_agents=agents, journal=tmp_path / "journal.jsonl",
+                  maintenant=lambda: datetime(2026, 9, 28, 8, 0, tzinfo=timezone.utc), verrous=verrous)
+
+
+def _autre_tour(tmp_path):
+    return Verrous(tmp_path / "verrous")
+
+
+def _vps_attend_sa_ci(gh):
+    """#10 est en cours sur le VPS : codé, sa CI tourne ; aucun agent à lancer."""
+    _en_cours(gh, commentaires=[FAIT_CODEX], ci="attente")
+
+
+def test_le_vps_prend_un_second_lot_quand_sa_capacite_le_permet(projet, gh, depot, tmp_path):
+    _vps_attend_sa_ci(gh)
+    gh.ajouter_issue(11, "La pluie de 1400")
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(11, "La pluie de 1400")))
+    _pilote(_parallele(projet), gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[0][2] == "Lot #11 — La pluie de 1400"
+
+
+def test_une_machine_pleine_ne_prend_rien(projet, gh, depot, tmp_path):
+    # Contre-épreuve : un lot par machine, comme avant la phase 2.
+    _vps_attend_sa_ci(gh)
+    gh.ajouter_issue(11, "La pluie de 1400")
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not _gestes(gh, "creer_pr")
+
+
+def test_un_lot_tenu_par_un_autre_tour_n_avance_pas_ici(projet, gh, depot, tmp_path):
+    _en_cours(gh)  # #10 attend son codeur…
+    autre = _autre_tour(tmp_path)
+    assert autre.prendre("lot-10")  # … qu'un autre tour fait déjà travailler
+    gh.ajouter_issue(11, "La pluie de 1400")
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(11, "La pluie de 1400")))
+    _pilote_verrouille(_parallele(projet), gh, depot, agents, tmp_path).tour()
+    assert not [g for g in depot.gestes if g[:2] == ("preparer", 10)]
+    assert _gestes(gh, "creer_pr")[0][2] == "Lot #11 — La pluie de 1400"
+    assert autre.prendre("lot-10") and not autre.pris_ailleurs("lot-11"), "le tour rend le lot qu'il a pris"
+
+
+def test_un_lot_que_prend_un_autre_tour_compte_dans_la_capacite(projet, gh, depot, tmp_path):
+    _vps_attend_sa_ci(gh)
+    gh.ajouter_issue(11, "La pluie de 1400")
+    gh.ajouter_issue(12, "Le Nil arrose sa vallée")
+    autre = _autre_tour(tmp_path)
+    assert autre.prendre("lot-11")  # son chef travaille : il est encore « pret »
+    agents = Agents()
+    _pilote_verrouille(_parallele(projet, vps=2), gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [], "#10 en cours et #11 en prise : le VPS est plein"
+    # Une place de plus : #12 part, et #11 n'est pas pris deux fois.
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(12, "Le Nil arrose sa vallée")))
+    _pilote_verrouille(_parallele(projet, vps=3), gh, depot, agents, tmp_path).tour()
+    assert [g[2] for g in _gestes(gh, "creer_pr")] == ["Lot #12 — Le Nil arrose sa vallée"]
+
+
+def test_la_tenue_ne_touche_pas_un_lot_qu_un_autre_tour_tient(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(9, "Le service", ("lot", "pret"))
+    _en_cours(gh, commentaires=[FAIT_CODEX], ci="attente", etiquettes=("lot", "en-cours"))
+    gh.issues_[10]["body"] = "Dépend de : #9"
+    autre = _autre_tour(tmp_path)
+    assert autre.prendre("lot-10")
+    _pilote_verrouille(projet, gh, depot, Agents((1, "rien")), tmp_path).tour()
+    assert "en-cours" in _etiquettes(gh, 10), "un lot qu'un autre tour fait travailler ne se remet pas « pret »"
+    autre.lacher("lot-10")
+    _pilote_verrouille(projet, gh, depot, Agents((1, "rien")), tmp_path).tour()
+    assert "pret" in _etiquettes(gh, 10)
+
+
+def test_un_seul_mecanicien_a_la_fois(projet, gh, depot, tmp_path):
+    gh.dernier_run = lambda workflow, branche: {"status": "completed", "conclusion": "failure",
+                                                "databaseId": 7, "url": "https://x/run/7"}
+    autre = _autre_tour(tmp_path)
+    assert autre.prendre("meca")
+    agents = Agents()
+    _pilote_verrouille(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == []
+
+
+def test_un_outil_a_son_plafond_fait_coder_le_secours(projet, gh, depot, tmp_path):
+    chemin = projet.racine / "atelier.toml"
+    chemin.write_text(chemin.read_text(encoding="utf-8") + "\n[outils]\ncodex = 1\n", encoding="utf-8")
+    _en_cours(gh)
+    autre = _autre_tour(tmp_path)
+    assert autre.prendre("outil-codex-1")  # un autre lot code déjà avec codex
+    agents = Agents((0, "fait", {"jeu/sim/service.py": "x = 1\n"}))
+    _pilote_verrouille(charger(projet.racine), gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["cursor-agent"]
+    assert "codex/sol : occupé" in (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
+
+
+def test_les_tours_ne_s_empilent_pas(projet, gh, depot, tmp_path, monkeypatch, capsys):
+    # Un lot par machine (vps 1, pc 1), plus le mécanicien et un tour qui
+    # range : quatre places. Si GitHub ne répond plus, le cinquième passe.
+    from atelier import __main__ as cli
+    monkeypatch.setattr(cli, "_pilote", lambda args: _pilote_verrouille(projet, gh, depot, Agents(), tmp_path))
+    autres = [_autre_tour(tmp_path) for _ in range(4)]
+    for i, autre in enumerate(autres, start=1):
+        assert autre.prendre(f"tour-{i}")
+    assert cli._cmd_tour(None) == 0
+    assert capsys.readouterr().out.strip() == "RIEN — 4 tours tournent déjà"
+    autres[2].lacher("tour-3")
+    assert cli._cmd_tour(None) == 0
+    assert capsys.readouterr().out.strip() == "RIEN"
+
+
+def test_une_decoupe_fait_avancer_ensemble_ce_qui_ne_s_attend_pas(projet, gh, depot, tmp_path):
+    _ecrire_cap(projet)
+    gh.jalons_[0]["state"] = "closed"
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()  # ouvre « Découper le jalon J2 »
+    texte = ("DECISION: DECOUPE\n"
+             "- L'aridité :: le moteur apprend l'aridité\n"
+             "- Les puissances de l'Ouest :: la table de l'Ouest :: après rien\n"
+             "- Les puissances de l'Orient :: la table de l'Orient :: après rien\n"
+             "- Les grandes maisons :: elles tiennent leurs cellules :: après 2, 3\n"
+             "- La preuve du jalon 2 :: la table de référence contre le monde :: après 4\n")
+    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
+    aridite, ouest, orient, maisons, preuve = 102, 103, 104, 105, 106
+    dep = {n: Lot.de(gh.issues_[n]).dependances for n in (aridite, ouest, orient, maisons, preuve)}
+    assert dep[aridite] == dep[ouest] == dep[orient] == frozenset()
+    assert dep[maisons] == frozenset({ouest, orient})
+    assert dep[preuve] == frozenset({aridite, ouest, orient, maisons}), "la preuve attend tout le jalon"
+
+
+def test_une_decoupe_qui_attend_vers_l_avant_ne_cree_rien(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Un gros lot")
+    texte = "DECISION: DECOUPE\n- a :: le premier :: après 2\n- b :: le second\n"
+    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
+    assert set(gh.issues_) == {10}, "aucun sous-lot n'est créé"
+    assert "ne le précède pas" in gh.issues_[10]["comments"][-1]["body"]
+
+
+def test_un_lot_se_relit_sous_son_verrou(projet, gh, depot, tmp_path):
+    # Entre la relecture du tour et la prise du verrou, un autre tour a bloqué
+    # #10 : ce tour ne le fait pas avancer sur une vue périmée.
+    _en_cours(gh)
+    lire = gh.issue
+    gh.issue = lambda n: dict(lire(n), labels=[{"name": "lot"}, {"name": "bloque"}]) if n == 10 else lire(n)
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not [g for g in depot.gestes if g[:2] == ("preparer", 10)]

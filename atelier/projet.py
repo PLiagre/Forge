@@ -1,8 +1,12 @@
 """Branchement du dépôt sur l'atelier : `atelier.toml`. L'atelier ne devine rien.
 
-Le fichier dit trois choses : le projet (dépôt, base, tests, ce qu'un lot ne
-touche jamais), les rôles (une ligne par rôle : outil/modèle, puis les
-secours) et les délais. Un champ qui manque se refuse, il ne s'invente pas.
+Le fichier dit le projet (dépôt, base, tests, ce qu'un lot ne touche
+jamais), les rôles (une ligne par rôle : outil/modèle, puis les secours), les
+délais, et le parallélisme : combien de lots chaque machine tient en même
+temps (`[machines]`), combien d'agents de chaque outil tournent ensemble
+(`[outils]`). Un champ obligatoire qui manque se refuse, il ne s'invente
+pas ; sans `[machines]`, chaque machine tient un lot, et sans `[outils]`,
+aucun outil n'a de plafond : la chaîne d'avant le 29 septembre 2026.
 """
 
 from __future__ import annotations
@@ -47,6 +51,9 @@ ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "chroniqueur"
 
 # Les rôles qui n'écrivent rien : leur outil est appelé en lecture seule.
 ROLES_LECTURE_SEULE = ("relecteur", "chroniqueur", "boussole")
+
+# Les machines d'un lot : le VPS (Python) et le PC (Unity, Blender).
+MACHINES = ("vps", "pc")
 
 
 @dataclass(frozen=True)
@@ -102,6 +109,16 @@ class Projet:
     prefixe_branche: str
     postes: dict[str, Poste] = field(default_factory=dict)
     delais: dict[str, int] = field(default_factory=dict)
+    machines: dict[str, int] = field(default_factory=lambda: {m: 1 for m in MACHINES})
+    plafonds: dict[str, int] = field(default_factory=dict)
+
+    def capacite(self, machine: str) -> int:
+        """Combien de lots cette machine tient en même temps."""
+        return self.machines.get(machine, 1)
+
+    def plafond(self, outil: str) -> int | None:
+        """Combien d'agents de cet outil tournent ensemble ; None : sans plafond."""
+        return self.plafonds.get(outil)
 
     def poste(self, role: str) -> Poste:
         if role not in self.postes:
@@ -159,6 +176,8 @@ def charger(racine: Path | str) -> Projet:
         raise ProjetIncomplet(f"[agents] ne nomme pas : {', '.join(manquants)}")
     postes = {role: lire_poste(role, agents[role]) for role in ROLES}
     delais = {cle: int(valeur) for cle, valeur in (doc.get("delais") or {}).items()}
+    machines = {m: 1 for m in MACHINES} | _entiers_positifs("machines", doc.get("machines") or {}, MACHINES)
+    plafonds = _entiers_positifs("outils", doc.get("outils") or {}, tuple(OUTILS))
     return Projet(
         racine=racine,
         nom=str(bloc["nom"]),
@@ -172,15 +191,36 @@ def charger(racine: Path | str) -> Projet:
         prefixe_branche=str(bloc["prefixe_branche"]),
         postes=postes,
         delais=delais,
+        machines=machines,
+        plafonds=plafonds,
     )
 
 
+def _entiers_positifs(section: str, bloc: dict, connus: tuple[str, ...]) -> dict[str, int]:
+    """Une section de nombres (`[machines]`, `[outils]`) : chaque clé est
+    connue, chaque valeur un entier ≥ 1. Un zéro arrêterait la chaîne sans le
+    dire ; une faute de frappe laisserait croire à un réglage qui ne joue pas."""
+    lus = {}
+    for cle, valeur in bloc.items():
+        if cle not in connus:
+            raise ProjetIncomplet(f"[{section}] ne connaît pas {cle!r} (connus : {', '.join(connus)})")
+        if isinstance(valeur, bool) or not isinstance(valeur, int) or valeur < 1:
+            raise ProjetIncomplet(f"[{section}].{cle} doit être un entier ≥ 1, pas {valeur!r}")
+        lus[cle] = valeur
+    return lus
+
+
 def table_des_roles(projet: Projet) -> str:
-    """Ce que `python3 -m atelier agents` imprime : une ligne par rôle."""
+    """Ce que `python3 -m atelier agents` imprime : une ligne par rôle, puis
+    le parallélisme."""
     lignes = [f"{'rôle':12} {'agent':40} secours"]
     for role in ROLES:
         poste = projet.postes[role]
         secours = ", ".join(str(a) for a in poste.secours) or "—"
         lecture = " (lecture seule)" if poste.lecture_seule else ""
         lignes.append(f"{role:12} {str(poste.principal) + lecture:40} {secours}")
+    lignes.append("")
+    lignes.append("lots en même temps : " + ", ".join(f"{m} {projet.capacite(m)}" for m in MACHINES))
+    lignes.append("agents en même temps : " + (", ".join(f"{o} {n}" for o, n in sorted(projet.plafonds.items()))
+                                               or "sans plafond"))
     return "\n".join(lignes)
