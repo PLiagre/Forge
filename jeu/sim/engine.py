@@ -45,6 +45,10 @@ class PluieInvalideError(ValueError):
     """Pluie absente ou inexploitable sur une cellule du monde chargé."""
 
 
+class CrueInvalideError(ValueError):
+    """Crue absente ou inexploitable sur une cellule du monde chargé."""
+
+
 class LongueurFrontiereInvalideError(ValueError):
     """Longueur de frontière non numérique ou NaN sur une arête."""
 
@@ -91,7 +95,7 @@ def _facteur_relief_pour_cellule(cell: Cell, carte: dict) -> float:
 
 
 def _facteur_eau_pour_cellule(cell: Cell, carte: dict) -> float:
-    """Lit la pluie annuelle de la carte et refuse toute valeur invalide."""
+    """Lit la pluie et la crue annuelles et refuse toute valeur invalide."""
     raw = carte.get(cell.cell_id)
     if not isinstance(raw, dict):
         raise PluieInvalideError(
@@ -107,7 +111,17 @@ def _facteur_eau_pour_cellule(cell: Cell, carte: dict) -> float:
         raise PluieInvalideError(
             f"cell_id={cell.cell_id} pluie_mm_par_an={pluie!r}"
         )
-    return _constantes.facteur_eau(float(pluie))
+    crue = raw.get("crue_mm_par_an")
+    if (
+        isinstance(crue, bool)
+        or not isinstance(crue, (int, float))
+        or not math.isfinite(crue)
+        or crue < 0
+    ):
+        raise CrueInvalideError(
+            f"cell_id={cell.cell_id} crue_mm_par_an={crue!r}"
+        )
+    return _constantes.facteur_eau(float(pluie) + float(crue))
 
 
 def _lire_solstices(cell: Cell, carte: dict) -> tuple[float, float]:

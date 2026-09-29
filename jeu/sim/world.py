@@ -10,6 +10,7 @@ import json
 import pathlib
 import random
 
+from sim import constants as _constantes
 from sim.aggregation import PositionCelluleInconnue, charger_positions
 from sim.constants import (
     FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK,
@@ -21,6 +22,11 @@ from sim.constants import (
     date_de_tick,
 )
 from sim.model import Cell, cellule_vers_dict
+from sim.fleuve import (
+    cellules_traversees,
+    charger_latitude_moyenne_fleuve,
+    charger_points,
+)
 from sim.pluie import (
     charger_latitude_moyenne_pluie,
     charger_releves,
@@ -108,7 +114,7 @@ class World:
 
     @classmethod
     def lire_carte(cls) -> dict:
-        """La carte figée enrichie en mémoire de la pluie de chaque cellule."""
+        """La carte figée enrichie en mémoire de la pluie et de la crue."""
         if not CARTE_PATH.is_file():
             raise FileNotFoundError(
                 f"Carte du monde introuvable : {CARTE_PATH}. "
@@ -116,12 +122,21 @@ class World:
                 "`git checkout -- data/world-1400.json`."
             )
         document = json.loads(CARTE_PATH.read_text(encoding="utf-8"))
+        positions = charger_positions()
         pluies = pluie_par_cellule(
-            charger_positions(),
+            positions,
             charger_releves(),
             charger_latitude_moyenne_pluie(),
         )
         pluie_par_id = {pluie.cell_id: pluie.mm_par_an for pluie in pluies}
+        traversees = {
+            cellule.cell_id
+            for cellule in cellules_traversees(
+                charger_points(),
+                positions,
+                charger_latitude_moyenne_fleuve(),
+            )
+        }
         for enregistrement in document["cellules"]:
             cell_id = enregistrement["cell_id"]
             if cell_id not in pluie_par_id:
@@ -129,6 +144,11 @@ class World:
                     f"pluie absente pour cell_id={cell_id}"
                 )
             enregistrement["pluie_mm_par_an"] = pluie_par_id[cell_id]
+            enregistrement["crue_mm_par_an"] = (
+                _constantes.CRUE_EQUIVALENT_PLUIE_MM
+                if cell_id in traversees
+                else 0.0
+            )
         return document
 
     @classmethod

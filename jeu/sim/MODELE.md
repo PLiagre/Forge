@@ -31,9 +31,10 @@ part. À chaque tick, dans cet ordre :
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
-   `facteur_eau` de sa pluie annuelle et par le facteur de saison du jour,
-   tiré de la durée du jour de la cellule : on ne récolte pas en janvier
-   comme en juin, ni sans eau comme sous une pluie suffisante.
+   `facteur_eau` de l'eau de la cellule — sa pluie plus la crue du fleuve — et
+   par le facteur de saison du jour, tiré de la durée du jour de la cellule :
+   on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
+   pluie suffisante.
 5. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
@@ -57,10 +58,11 @@ part. À chaque tick, dans cet ordre :
     date dérivée au jour suivant.
 
 La **province** ne se stocke pas : elle se recalcule à chaque consultation
-comme « le centre administratif le plus proche ». La **pluie** n'est pas
-stockée sur `Cell` : sa vue se recalcule depuis le relevé le plus proche et
-entre dans la carte au moment où le monde la lit. Le tick lit cette valeur
-dans la carte, jamais dans la vue. Il ne consomme pas la vue des provinces.
+comme « le centre administratif le plus proche ». La **pluie** et la **crue**
+ne sont pas stockées sur `Cell` : leurs vues se dérivent respectivement du
+relevé le plus proche et du cours du fleuve, puis entrent dans la carte au
+moment où le monde la lit. Le tick lit ces valeurs dans la carte, jamais dans
+les vues. Il ne consomme pas la vue des provinces.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -472,16 +474,17 @@ duree_jour   = duree_jour_h(jour, solstice_ete_h, solstice_hiver_h)  # de la cel
 
 food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
-                × facteur_eau(pluie_mm_par_an de la cellule)
+                × facteur_eau(pluie_mm_par_an + crue_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
 ```
 
 Les trois derniers facteurs sont lus dans la carte, cellule par cellule. Une
 cellule dont la carte ne porte pas ces données ne se voit pas attribuer une
 valeur par défaut — le moteur refuse, par `ReliefInvalideError`,
-`PluieInvalideError` ou `ClimatInvalideError` (règle 10 : l'absence ne
-s'invente pas en silence). Pour la pluie, il refuse aussi `None`, les booléens,
-les valeurs non numériques, non finies ou négatives ; zéro reste une mesure.
+`PluieInvalideError`, `CrueInvalideError` ou `ClimatInvalideError` (règle 10 :
+l'absence ne s'invente pas en silence). Pour la pluie et la crue, il refuse
+aussi `None`, les booléens, les valeurs non numériques, non finies ou
+négatives ; zéro reste une mesure.
 
 **Il n'y a qu'une seule formule de production alimentaire dans `sim/`.** Le
 tick lui passe un rendement tiré au sort ; le plafond de survie lui passe le
@@ -514,12 +517,18 @@ champ sans eau ne donne rien ; sous le seuil bas, la terre ne nourrit que le
 parcours des troupeaux. Entre les seuils, le facteur monte en ligne droite ;
 au seuil haut et au-delà, il vaut exactement 1 et ne punit pas l'excès d'eau.
 Son plancher est strictement positif parce qu'un désert de 1400 n'est pas
-inhabité.
+inhabité. La crue annuelle du Nil vaut 600 mm équivalents : elle dépasse le
+seuil haut afin qu'une cellule traversée ait un facteur d'eau exactement égal
+à 1, quelle que soit sa pluie. Cette valeur est de niveau 2, plausible et
+jamais sourcée. La crue est tout ou rien à l'échelle de la cellule : toute une
+cellule traversée est arrosée, même au-delà de la vallée réelle ; cette
+anomalie de niveau 2 est déclarée.
 
 | Constante | Valeur | Sens |
 |---|---|---|
 | `PLUIE_SANS_CULTURE_MM` | 250.0 | À égalité ou dessous, pas de culture pluviale |
 | `PLUIE_PLEINE_CULTURE_MM` | 400.0 | À égalité ou dessus, l'eau ne limite plus |
+| `CRUE_EQUIVALENT_PLUIE_MM` | 600.0 | Eau laissée aux champs par la submersion annuelle du Nil |
 | `FACTEUR_EAU_PLANCHER` | 0.05 | Nourriture tirée du parcours des troupeaux |
 
 **Le facteur de saison** — fidélité niveau 2 également. Il compare la durée du
@@ -1141,13 +1150,11 @@ toute valeur inexploitable. Une cellule sans position connue est nommée dans
 le refus au lieu d'être écartée ou complétée par défaut. Zéro millimètre reste
 une mesure ; une cellule absente de la vue rend `None`, jamais un faux zéro.
 
-Enfin, **la pluie n'est pas l'eau**. Le delta et la vallée du **Nil** reçoivent
-presque la même pluie que le désert occidental tout en étant fertiles grâce à
-la crue du fleuve. Crue, fleuves, irrigation et oasis ne sont pas encore
-simulés : depuis l'entrée du facteur d'eau dans la production, cette erreur de
-niveau 1 connue les **vide** aussi. Seul le futur mécanisme du fleuve pourra la
-réparer ; aucun plancher relevé ni exception égyptienne ne la masque. Le
-moteur lit la pluie de la carte, mais pour la vue elle-même, le tick ne la lit pas.
+Enfin, **la pluie n'est pas l'eau** : l'eau disponible est la pluie plus la
+crue. Le delta du **Nil** reçoit presque la même pluie que le désert occidental,
+mais le cours du fleuve lui apporte sa crue (voir « Le cours du Nil, vue
+dérivée »). Le moteur lit la pluie de la carte, mais pour la vue elle-même, le
+tick ne la lit pas.
 
 ---
 
@@ -1172,9 +1179,10 @@ La vallée au sud du Caire est explicitement **hors de la carte**. Lui donner
 un point ferait choisir le centroïde de Suez et affirmerait à tort que le Nil
 traverse l'isthme. Le fichier déclare donc cette lacune au lieu de la masquer.
 
-Enfin, **le tick ne la lit pas**. Cette géographie ne donne encore aucune eau
-aux champs : le delta reste vidé par l'aridité tant qu'un lot suivant n'aura
-pas représenté la cause physique, la crue du fleuve.
+Enfin, **le tick ne la lit pas**. À la lecture de la carte,
+`World.lire_carte` dérive de cette vue `crue_mm_par_an` pour chaque cellule :
+la valeur équivalente de la crue si le Nil la traverse, zéro sinon. Le moteur
+lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
 
 ---
 
