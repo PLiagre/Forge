@@ -286,6 +286,22 @@ def test_les_prochains_lots_suivent_l_ordre_du_pilote(projet, gh, tmp_path):
     assert "#20 « Le lanceur » (attend #10)" in texte
 
 
+def test_le_journal_annonce_les_lots_du_jalon_suivant_a_part(projet, gh, tmp_path):
+    # La fenêtre de deux jalons : un lot de J2 part quand sa machine n'a plus
+    # rien dans J1. Le journal le dit à part, sans le mêler aux prochains de J1.
+    local, veille = _journee(gh, tmp_path)
+    gh.ajouter_issue(40, "La table de 1400", ("lot", "pret"), "J2 — Le geste revient")
+    gh.ajouter_issue(41, "Attend la table", ("lot", "pret"), "J2 — Le geste revient", corps="Dépend de : #40")
+    gh.ajouter_issue(42, "Rangé ailleurs", ("lot", "idee", "reserve"), "J2 — Le geste revient")
+    r = journal.releve(gh, projet, MAINTENANT, journal_local=local, veille=veille)
+    prochains = next(l for l in r.texte.splitlines() if l.startswith("PROCHAINS LOTS"))
+    avance = next(l for l in r.texte.splitlines() if l.startswith("EN AVANCE"))
+    assert "#40" not in prochains
+    assert "J2 — Le geste revient" in avance and "#40 « La table de 1400 » (vps)" in avance
+    assert "#41" not in avance and "#42" not in avance
+    assert "#40 La table de 1400 : jalon suivant, il part quand le VPS n'a plus rien dans J1 — Le pont." in r.aujourd_hui
+
+
 def test_le_chroniqueur_doit_raconter_et_non_recopier(projet, gh, tmp_path):
     texte = prompts.chroniqueur(faits="LOTS LIVRÉS …")
     for debut in journal._ENTETES:

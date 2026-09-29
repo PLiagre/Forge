@@ -2,14 +2,17 @@
 
 > Ce fichier dit **où va Forge et dans quel ordre**. Il est court exprès : tout
 > le reste en découle. Chaque lot porte le jalon qu'il sert (le jalon de son
-> issue) ; un lot qui ne sert pas le jalon courant est refusé par le chef.
+> issue) ; un lot qui ne sert pas son jalon est refusé par le chef.
 >
 > Chaque jalon est un milestone GitHub (`J1 — Le pont`, …). Le **jalon
-> courant** est le premier milestone ouvert. Un jalon est atteint quand ses lots
-> sont livrés — sa preuve comprise, avec sa capture au journal — et le pilote
-> ferme alors son milestone. Le pourcentage d'un jalon se dérive de ses issues
-> (fermées / toutes), jamais d'une estimation écrite à la main ; ce fichier ne
-> tient pas d'état.
+> courant** est le premier milestone ouvert. La chaîne travaille dans une
+> **fenêtre de deux jalons** : le courant d'abord ; une machine qui n'y a plus
+> rien à prendre avance le suivant, et le découpe s'il n'a encore rien. Un lot
+> pris en avance ne s'appuie sur rien que le courant doit encore livrer. Un
+> jalon est atteint quand ses lots sont livrés — sa preuve comprise, avec sa
+> capture au journal — et le pilote ferme alors son milestone. Le pourcentage
+> d'un jalon se dérive de ses issues (fermées / toutes), jamais d'une
+> estimation écrite à la main ; ce fichier ne tient pas d'état.
 
 ## Le constat qui commande (29 septembre 2026)
 

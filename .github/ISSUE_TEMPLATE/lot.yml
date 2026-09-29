@@ -7,7 +7,8 @@ body:
     attributes:
       value: |
         Un lot est une issue. La chaîne la prend quand elle appartient au
-        **jalon courant** de [CAP.md](../blob/master/CAP.md) : le chef écrit
+        **jalon courant** de [CAP.md](../blob/master/CAP.md), ou au suivant
+        quand sa machine n'a plus rien dans le courant : le chef écrit
         son brief dans la branche du lot, le codeur code, le relecteur rend
         son verdict, et ACCEPTE fusionne tout seul.
 

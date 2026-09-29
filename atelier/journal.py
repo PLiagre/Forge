@@ -370,6 +370,18 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
                 f"#{l.numero} « {l.titre} » (attend {', '.join(f'#{n}' for n in attendus[l.numero])})"
                 for l in attendent))
         r.aujourd_hui += [f"#{l.numero} {l.titre} : prêt, il part dès qu'une machine est libre." for l in suivants]
+        # La fenêtre de deux jalons : une machine qui n'a plus rien dans le
+        # jalon courant prend dans le suivant (Pilote.tour).
+        apres = lots.jalon_suivant(jalons, courant)
+        en_avance = [l for l in sorted(ouvertes, key=lambda l: (l.etat != "pret", l.numero))
+                     if apres is not None and l.jalon == apres.numero and l.etat in ("pret", "idee")
+                     and "lot" in l.etiquettes and lots.ETIQUETTE_RESERVE not in l.etiquettes
+                     and not l.dependances & bloq][:3]
+        if en_avance:
+            lignes.append(f"EN AVANCE, DU JALON SUIVANT ({apres.titre}) : " + ", ".join(
+                f"#{l.numero} « {l.titre} » ({l.machine})" for l in en_avance))
+        r.aujourd_hui += [f"#{l.numero} {l.titre} : jalon suivant, il part quand le {'PC' if l.machine == 'pc' else 'VPS'} "
+                          f"n'a plus rien dans {courant.titre}." for l in en_avance]
         r.aujourd_hui += [f"#{l.numero} {l.titre} : attend {', '.join(f'#{n}' for n in attendus[l.numero])}."
                           for l in attendent]
         r.jalon = f"{courant.titre} — {courant.pourcentage} %"
