@@ -54,3 +54,28 @@ py ville/cellule_du_desert.py      # depuis jeu/ : écrit le cell_id seul
 ```
 
 Pour ouvrir une autre cellule : `pc\Jouer.cmd --cellule <cell_id>`.
+
+## L'épreuve du jalon 1
+
+Le panneau du lieu doit montrer les mêmes nombres que la photographie de `sim/`,
+pour la même graine, le même tick et la même cellule. Depuis la racine du dépôt :
+
+```bash
+py pc\epreuve_jalon1.py --sortie <dossier>
+```
+
+La capture Unity lance le service de `sim/`, ouvre la scène du désert en Play,
+écrit le texte du panneau, et le script le compare nombre par nombre à
+`py -m sim --ticks N --seed S --snapshot-json`.
+
+- **0** — égalité exacte : `verdict.txt` commence par `ÉGALITÉ` ;
+- **1** — un écart : le verdict nomme chaque champ, la valeur du panneau et celle de la photographie ;
+- **2** — l'épreuve n'a pas pu se jouer (Unity introuvable, port déjà pris, photographie ou capture absente ou antérieure à l'essai, service laissé ouvert).
+
+La contre-épreuve pousse le service un tick plus loin que la photographie ; elle doit sortir **1** :
+
+```bash
+py pc\epreuve_jalon1.py --sortie <dossier> --decalage 1
+```
+
+La capture que la chaîne prend ensuite lance ce même service (sans choisir de cellule) : le panneau publié au journal porte les chiffres du monde, pas une absence.
