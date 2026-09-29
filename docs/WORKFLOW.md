@@ -164,8 +164,9 @@ là où ils tournent : `gh workflow run sonde-pc.yml -R PLiagre/Forge`.
 Un lot qui touche `jeu/` est photographié par `python3 -m forge` (la carte du
 monde) ; un lot `pc`, par Unity. Les images vivent sur la branche orpheline
 `journal` et s'affichent par leur adresse `raw.githubusercontent.com`, sur
-téléphone comme ailleurs. Chaque matin à 07:15, le journal est commenté dans
-l'issue épinglée « Journal de Forge ». Le pilote relève les faits
+téléphone comme ailleurs. Chaque matin à 07:15, le journal paraît dans sa
+propre issue, épinglée, « Journal du JJ/MM/AAAA » ; celle de la veille se
+désépingle et se ferme (la boussole du lundi fait de même). Le pilote relève les faits
 (`atelier/journal.py`) : pour chaque lot livré, ce qu'en dit le compte rendu
 du codeur, son nombre de passages, le verdict du relecteur et ses captures ;
 à part, les changements de la machine (mode direct) ; ce que la chaîne a
@@ -174,8 +175,12 @@ secours, découpes, reprises) ; les lots bloqués et en cours ; le jalon et son
 pourcentage (lots fermés / lots du jalon) ; et **ce que le propriétaire doit
 faire** (une session à rouvrir, sur le VPS ou le PC, avec sa commande ; le
 plafond Claude ; une ligne de veille en échec ; un lot bloqué). Le
-chroniqueur en fait un récit sans rien inventer ; s'il se tait, les faits
-bruts sont publiés.
+chroniqueur écrit trois parties : un bandeau (avancé, bloqué, à faire), ce
+qui a changé dans le jeu avec une capture par lot livré (celle de la
+révision fusionnée), et aujourd'hui. Le pilote ajoute lui-même l'avancement
+du jalon, lot par lot, et les détails de la chaîne, repliés. Un texte qui
+sort du gabarit, ou cite une image ou un numéro absent des faits, est
+écarté : le pilote écrit alors le journal seul, dans le même gabarit.
 
 ## La cadence (VPS, heure de Paris)
 

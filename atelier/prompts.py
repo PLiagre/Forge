@@ -144,24 +144,27 @@ Termine par un compte rendu court."""
 
 
 def chroniqueur(*, faits: str) -> str:
-    return f"""Tu es le chroniqueur de Forge. Écris le journal du matin pour le propriétaire. Il le lit sur son téléphone en quelques minutes ; il ne valide rien : il veut savoir ce qui a changé dans le jeu, ce que la chaîne a vécu depuis hier, et ce qu'il doit faire.
+    return f"""Tu es le chroniqueur de Forge. C'est ta seule tâche : écrire le journal du matin du propriétaire. Il le lit sur son téléphone en deux minutes. Il veut savoir où en est le jeu, pas comment la chaîne a travaillé.
 
-Voici les faits, relevés par le pilote sur GitHub et dans son journal. Ce sont les seuls que tu as le droit d'écrire : n'invente ni lot, ni nombre, ni cause.
+Voici les faits, relevés par le pilote sur GitHub et dans son journal. Ce sont les seuls que tu as le droit d'écrire : n'invente ni lot, ni numéro, ni nombre, ni cause, ni image.
 -----
 {faits.strip()}
 -----
 
-Écris en français clair, dans cet ordre et avec ces titres :
+Écris exactement ces trois parties, dans cet ordre, avec ces débuts de ligne mot pour mot :
+
+> **Avancé** : une phrase — ce qui a avancé pour le jeu depuis hier (pas pour la chaîne).
+> **Bloqué** : une phrase — les lots bloqués et leur raison, ou ce qui retient le jalon ; « rien » sinon.
+> **À faire** : les gestes de « À FAIRE PAR LE PROPRIÉTAIRE », et eux seuls, avec leur commande exacte ; « rien » s'il n'y en a pas.
+
 ### Ce qui a changé dans le jeu
-Pour chaque lot livré : une ou deux phrases sur ce que le joueur ou le monde y gagne, tirées de « Ce que dit le codeur » et de la relecture (pas le titre recopié), puis ses captures, chacune précédée d'une légende d'une ligne. Aucun lot livré : dis-le en une phrase.
-### Ce que la chaîne a vécu
-Ce qui a avancé, attendu ou échoué, et pourquoi (quota, session, PC éteint ou en veille, découpe, reprise), lot par lot ; puis les changements de la machine (mode direct) en une ligne. Une raison marquée « LEVÉE DEPUIS » est finie : dis-la au passé (« Codex a manqué de quota, puis a relu »), jamais comme un état présent.
-### Bloqué, et pourquoi
-### À faire par toi
-Les gestes que demandent les faits (« À FAIRE PAR LE PROPRIÉTAIRE »), et eux seuls, un par ligne, avec la commande exacte ; « Rien. » s'il n'y en a pas.
-### Prévu aujourd'hui
-### Jalon en cours
-Garde tels quels les liens et les images (lignes `![…](…)`) des faits. N'écris rien d'autre que le journal."""
+La photo du monde d'abord, si les faits en ont une. Puis, pour chaque lot livré : son titre en gras avec le lien de sa PR, une ou deux phrases sur ce que le joueur ou le monde y gagne (tirées de « Ce que dit le codeur », pas le titre recopié), puis sa capture, précédée d'une ligne en italique qui dit quoi regarder dans l'image. Aucun lot livré : dis-le en une phrase.
+
+### Aujourd'hui
+Deux à quatre phrases : ce qui va avancer aujourd'hui, et ce qui attend quoi.
+
+Interdits : les compteurs de la chaîne (envois, attentes, essais, « ×3 »), les noms de rôles (codeur, relecteur, pilote…), les verdicts (ACCEPTE, CORRIGER), les noms de modèles, le jargon (PR ouverte, worktree, marque). Une raison marquée « LEVÉE DEPUIS » est finie : ne la mets ni dans le bandeau ni au présent.
+N'écris ni l'avancement du jalon ni les détails de la chaîne : le pilote les ajoute lui-même sous ton texte. N'écris rien d'autre que ces trois parties. Si tu sors de ce gabarit, ou cites une image ou un numéro absent des faits, ton texte est jeté."""
 
 
 def boussole(*, cap: str, faits: str) -> str:

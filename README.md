@@ -15,7 +15,7 @@ monde**.
 | pour savoir | lire |
 |---|---|
 | où on va, dans quel ordre (les jalons) | [CAP.md](CAP.md) |
-| où on en est aujourd'hui | l'issue épinglée **« Journal de Forge »** |
+| où on en est aujourd'hui | l'issue épinglée **« Journal du … »** du jour |
 | ce que le jeu doit devenir | [docs/VISION.md](docs/VISION.md) |
 | comment le monde fonctionne | [jeu/sim/MODELE.md](jeu/sim/MODELE.md) |
 | les règles (mode direct en tête) | [AGENTS.md](AGENTS.md) |

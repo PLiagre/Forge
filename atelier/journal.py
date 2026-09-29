@@ -4,16 +4,20 @@ Les faits se relèvent en Python — sur GitHub et dans le journal du pilote :
 ce que chaque lot livré a changé (le compte rendu du codeur, le verdict du
 relecteur, ses captures), ce que la chaîne a vécu (attentes et leur raison,
 découpes, reprises), ce qui est bloqué ou en cours, ce que le propriétaire
-doit faire, le jalon et son pourcentage. Le chroniqueur en fait un récit ;
-s'il ne répond pas, les faits bruts sont publiés tels quels. Un journal ne se
-tait jamais.
+doit faire, le jalon et son pourcentage. Le chroniqueur en fait un récit
+court (un bandeau, ce qui a changé, aujourd'hui) ; le pilote y ajoute
+lui-même l'avancement du jalon et les détails repliés. Si le chroniqueur se
+tait, sort du gabarit ou cite ce que les faits ne disent pas, le pilote écrit
+le journal seul. Un journal ne se tait jamais.
 
-Tout va dans une seule issue, épinglée : « Journal de Forge ».
+Chaque journal est sa propre issue, épinglée ; celle de la veille se ferme.
+La boussole fait de même.
 """
 
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
@@ -26,7 +30,6 @@ from .depot import Depot
 from .github import GitHub
 from .projet import Projet
 
-TITRE_JOURNAL = "Journal de Forge"
 _IMAGE = re.compile(r"!\[[^\]]*\]\((https://raw\.githubusercontent\.com/[^)]+)\)")
 # Ce que le pilote écrit sur la machine qui le fait tourner (le VPS).
 JOURNAL_LOCAL = Path.home() / ".atelier" / "journal.jsonl"
@@ -83,11 +86,21 @@ def _reponses_du_pc(commentaires: list[dict], reponses: dict[str, datetime]) -> 
                 _repondre(reponses, m["agent"], _date(c.get("createdAt")) or _date(m.get("quand")))
 
 
-def issue_du_journal(gh: GitHub) -> int | None:
-    for issue in gh.issues("open"):
-        if issue["title"].strip() == TITRE_JOURNAL:
-            return issue["number"]
-    return None
+@dataclass
+class Releve:
+    """Les faits du matin : `texte` pour le chroniqueur et la boussole, et
+    leurs morceaux pour ce que le pilote écrit lui-même (l'avancement du
+    jalon, les détails, et le journal entier quand le chroniqueur fait défaut)."""
+    texte: str
+    livres: list[dict] = field(default_factory=list)
+    machine: list[dict] = field(default_factory=list)
+    vecu: list[str] = field(default_factory=list)
+    bloques: list[tuple[lots.Lot, str]] = field(default_factory=list)
+    en_cours: list[str] = field(default_factory=list)
+    aujourd_hui: list[str] = field(default_factory=list)
+    a_faire: list[str] = field(default_factory=list)
+    jalon: str = ""
+    avancement: list[str] = field(default_factory=list)
 
 
 def fusionnees_depuis(gh: GitHub, depuis: datetime) -> list[dict]:
@@ -116,7 +129,18 @@ def _compte_rendu(commentaires: list[dict], lignes_max: int = 25) -> str:
     return ""
 
 
-def _lot_livre(p: dict, commentaires: list[dict]) -> list[str]:
+def _capture_finale(commentaires: list[dict]) -> str | None:
+    """La première image du dernier commentaire qui en porte : la révision
+    fusionnée. Le journal du 29 septembre 2026 montrait aussi les captures des
+    révisions d'avant, et on ne savait plus laquelle était neuve."""
+    for c in reversed(commentaires):
+        images = _IMAGE.findall(c.get("body") or "")
+        if images:
+            return images[0]
+    return None
+
+
+def _lot_livre(p: dict, commentaires: list[dict]) -> tuple[dict, list[str]]:
     liste = lots.marques(commentaires)
     passages = sum(1 for m in liste if m.get("role") in lots.ROLES_CODEURS and m.get("etat") in ("fait", "echec"))
     verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("verdict")]
@@ -126,11 +150,56 @@ def _lot_livre(p: dict, commentaires: list[dict]) -> list[str]:
     if rendu:
         lignes.append("  Ce que dit le codeur :")
         lignes += [f"    {l}" for l in rendu.splitlines()]
-    vues: list[str] = []
-    for c in commentaires:
-        vues += [u for u in _IMAGE.findall(c.get("body") or "") if u not in vues]
-    lignes += [f"  ![capture]({u})" for u in vues]
-    return lignes
+    capture = _capture_finale(commentaires)
+    if capture:
+        lignes.append(f"  ![capture]({capture})")
+    # « Lot #185 — Unity lit… » : le propriétaire connaît le lot, pas la PR.
+    m = _TITRE_DE_LOT.match(p["title"])
+    nom = f"#{m.group(1)} {m.group(2)}" if m else p["title"]
+    livre = {"numero": p["number"], "nom": nom, "url": p["url"], "rendu": rendu, "capture": capture}
+    return livre, lignes
+
+
+_TITRE_DE_LOT = re.compile(r"Lot #(\d+) — (.+)")
+
+
+def _attend(lot: lots.Lot, bloq: frozenset[int], ouverts: set[int], enfants: dict[int, list[int]]) -> list[int]:
+    """Les lots ouverts qu'attend ce lot : un lot découpé, déjà fermé, se
+    remplace par ses morceaux encore ouverts (#120 attend #184 et #186, pas
+    #119 et #183, fermés depuis leur découpe)."""
+    attendus: set[int] = set()
+    a_voir, vus = sorted(lot.dependances & bloq), set()
+    while a_voir:
+        n = a_voir.pop()
+        if n in vus:
+            continue
+        vus.add(n)
+        if n in ouverts:
+            attendus.add(n)
+        else:
+            a_voir += enfants.get(n, [])
+    return sorted(attendus)
+
+
+def _avancement(lot: lots.Lot, ouvert: bool, enfants: dict[int, list[int]], attendus: list[int],
+                raisons: dict[int, str]) -> str:
+    """Une ligne de la liste du jalon : ce lot est-il fait, et sinon, qu'attend-il ?"""
+    nom = f"#{lot.numero} {lot.titre}"
+    if not ouvert:
+        if lot.etat == "livre":
+            return f"- [x] {nom}"
+        morceaux = sorted(enfants.get(lot.numero, []))
+        return f"- ~~{nom}~~ — " + (f"découpé en {', '.join(f'#{n}' for n in morceaux)}" if morceaux else "abandonné")
+    ou = "sur le PC" if lot.machine == "pc" else "sur le VPS"
+    if lot.etat == "bloque":
+        quoi = f"**bloqué** : {raisons.get(lot.numero, '')}"
+    elif lot.etat == "en-cours":
+        quoi = f"en cours {ou}"
+    elif attendus:
+        quoi = "attend " + ", ".join(f"#{n}" for n in attendus)
+    else:
+        quoi = "prêt" if lot.etat == "pret" else "idée, pas encore prête"
+    return f"- [ ] {nom} — {quoi}"
 
 
 def _vecu(chemin: Path, depuis: datetime) -> tuple[list[str], list[str]]:
@@ -216,6 +285,12 @@ def _a_faire(raisons_vps: list[str], raisons_pc: list[str], veille: Path, bloque
 
 def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
           journal_local: Path | None = None, veille: Path | None = None) -> str:
+    return releve(gh, projet, maintenant, heures=heures, journal_local=journal_local, veille=veille).texte
+
+
+def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
+           journal_local: Path | None = None, veille: Path | None = None) -> Releve:
+    r = Releve("")
     depuis = maintenant - timedelta(hours=heures)
     lignes = []
     livres = fusionnees_depuis(gh, depuis)
@@ -226,17 +301,22 @@ def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
     for p in des_lots:
         commentaires = gh.pr(p["number"]).get("comments") or []
         _reponses_du_pc(commentaires, reponses_pc)
-        lignes += _lot_livre(p, commentaires)
+        livre, faits_du_lot = _lot_livre(p, commentaires)
+        r.livres.append(livre)
+        lignes += faits_du_lot
     lignes.append(f"\nLA MACHINE, CHANGÉE EN MODE DIRECT ({len(machine)}) :")
     lignes += [f"- PR #{p['number']} « {p['title']} »" for p in machine]
+    r.machine = machine
     vecu, raisons_vps = _vecu(journal_local or JOURNAL_LOCAL, depuis)
+    r.vecu = vecu
     lignes.append("\nCE QUE LA CHAÎNE A VÉCU (journal du pilote, par lot) :")
     lignes += vecu
     ouvertes = [lots.Lot.de(i) for i in gh.issues("open")]
     bloques = [l for l in ouvertes if l.etat == "bloque"]
     lignes.append(f"\nBLOQUÉS ({len(bloques)}) :")
     for l in bloques:
-        lignes.append(f"- #{l.numero} « {l.titre} » : {_raison_du_blocage(gh, l.numero)}")
+        r.bloques.append((l, _raison_du_blocage(gh, l.numero)))
+        lignes.append(f"- #{l.numero} « {l.titre} » : {r.bloques[-1][1]}")
     en_cours = [l for l in ouvertes if l.etat == "en-cours"]
     lignes.append(f"\nEN COURS ({len(en_cours)}) :")
     lues: dict[int, list[dict]] = {}
@@ -249,6 +329,8 @@ def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
             if dernier:
                 ligne += f" — dernier état : {dernier}"
         lignes.append(ligne)
+        r.en_cours.append(ligne)
+        r.aujourd_hui.append(f"#{l.numero} {l.titre} : en cours sur le {'PC' if l.machine == 'pc' else 'VPS'}.")
     # Le PC dit ses attentes sur la PR du lot, pas dans le journal du VPS :
     # on les lit sur chaque lot du PC qui a une PR, en cours ou non.
     raisons_pc = []
@@ -268,30 +350,124 @@ def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
     else:
         # L'ordre du pilote : `pret` avant `idee`, par numéro, et un lot dont
         # une dépendance est encore ouverte attend (lots.a_prendre).
-        bloq = lots.bloquantes(ouvertes, [lots.Lot.de(i) for i in gh.issues("closed")])
+        fermees = [lots.Lot.de(i) for i in gh.issues("closed")]
+        bloq = lots.bloquantes(ouvertes, fermees)
         candidats = [l for l in sorted(ouvertes, key=lambda l: (l.etat != "pret", l.numero))
                      if l.jalon == courant.numero and l.etat in ("pret", "idee") and "lot" in l.etiquettes]
         suivants = [l for l in candidats if not l.dependances & bloq][:3]
         attendent = [l for l in candidats if l.dependances & bloq]
+        enfants: dict[int, list[int]] = {}
+        for l in (*ouvertes, *fermees):
+            if l.decoupe_de is not None:
+                enfants.setdefault(l.decoupe_de, []).append(l.numero)
+        ouverts = {l.numero for l in ouvertes}
+        attendus = {l.numero: _attend(l, bloq, ouverts, enfants) for l in ouvertes}
         lignes.append(f"\nJALON EN COURS : {courant.titre} — {courant.pourcentage} % "
                       f"({courant.fermees} lot(s) fermé(s) sur {courant.ouvertes + courant.fermees}).")
         lignes.append("PROCHAINS LOTS : " + (", ".join(f"#{l.numero} « {l.titre} »" for l in suivants) or "aucun"))
         if attendent:
             lignes.append("EN ATTENTE DE LEURS DÉPENDANCES : " + ", ".join(
-                f"#{l.numero} « {l.titre} » (attend {', '.join(f'#{n}' for n in sorted(l.dependances & bloq))})"
+                f"#{l.numero} « {l.titre} » (attend {', '.join(f'#{n}' for n in attendus[l.numero])})"
                 for l in attendent))
+        r.aujourd_hui += [f"#{l.numero} {l.titre} : prêt, il part dès qu'une machine est libre." for l in suivants]
+        r.aujourd_hui += [f"#{l.numero} {l.titre} : attend {', '.join(f'#{n}' for n in attendus[l.numero])}."
+                          for l in attendent]
+        r.jalon = f"{courant.titre} — {courant.pourcentage} %"
+        raisons = {l.numero: raison for l, raison in r.bloques}
+        du_jalon = sorted([(l, True) for l in ouvertes] + [(l, False) for l in fermees], key=lambda x: x[0].numero)
+        r.avancement = [_avancement(l, ouvert, enfants, attendus.get(l.numero, []), raisons)
+                        for l, ouvert in du_jalon if l.jalon == courant.numero and "lot" in l.etiquettes]
+        lignes.append("AVANCEMENT DU JALON (le pilote l'ajoute lui-même sous le journal) :")
+        lignes += r.avancement
     lignes.append("\nÀ FAIRE PAR LE PROPRIÉTAIRE :")
-    lignes += _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques)
-    return "\n".join(lignes)
+    r.a_faire = _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques)
+    lignes += r.a_faire
+    r.texte = "\n".join(lignes)
+    return r
 
 
-def _publier(gh: GitHub, texte: str) -> int:
-    numero = issue_du_journal(gh)
-    if numero is None:
-        numero = gh.creer_issue(TITRE_JOURNAL, "Le journal de la chaîne : un commentaire chaque matin, "
-                                             "la boussole chaque lundi.", ["journal"])
-    gh.commenter_issue(numero, texte)
+def _publier(gh: GitHub, titre: str, corps: str, famille: str) -> int:
+    """Une issue par journal, épinglée ; celles d'avant de la même famille
+    (« Journal », « Boussole ») se désépinglent et se ferment : l'issue ouverte
+    est toujours la dernière. Un commentaire au bas d'une issue unique ne se
+    trouvait pas (29 septembre 2026)."""
+    anciennes = [i["number"] for i in gh.issues("open")
+                 if i["title"].startswith(famille) and "journal" in {e["name"] for e in i.get("labels") or []}]
+    numero = gh.creer_issue(titre, corps, ["journal"])
+    for n in anciennes:
+        try:
+            gh.desepingler(n)
+        except Exception:  # noqa: BLE001 — une issue jamais épinglée ne retient pas le journal
+            pass
+        gh.fermer_issue(n, f"Le suivant : #{numero}.")
+    try:
+        gh.epingler(numero)
+    except Exception:  # noqa: BLE001 — trois issues déjà épinglées ne retiennent pas le journal
+        pass
     return numero
+
+
+_ENTETES = ("> **Avancé** :", "> **Bloqué** :", "> **À faire** :", "### Ce qui a changé dans le jeu", "### Aujourd'hui")
+_NUMERO = re.compile(r"#(\d+)")
+_TOUTE_IMAGE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+
+
+def _infidele(texte: str, faits_du_matin: str) -> str | None:
+    """Pourquoi le texte du chroniqueur ne peut pas paraître, ou None : il
+    suit le gabarit, et chaque image et chaque numéro qu'il cite est dans les
+    faits. Un journal qui invente ne paraît pas ; ceux du pilote le remplacent."""
+    manquants = [e for e in _ENTETES if e not in texte]
+    if manquants:
+        return f"il manque {', '.join(f'« {e} »' for e in manquants)}"
+    inventees = [u for u in _TOUTE_IMAGE.findall(texte) if u not in faits_du_matin]
+    if inventees:
+        return f"image absente des faits : {inventees[0]}"
+    connus = set(_NUMERO.findall(faits_du_matin))
+    inventes = sorted({n for n in _NUMERO.findall(texte) if n not in connus}, key=int)
+    if inventes:
+        return f"numéro absent des faits : #{inventes[0]}"
+    return None
+
+
+def _redaction_du_pilote(r: Releve, monde: list[str]) -> str:
+    """Le journal écrit par le pilote seul, dans le gabarit du chroniqueur :
+    moins bien tourné, jamais faux."""
+    avance = " ; ".join(f"{l['nom']} est livré" for l in r.livres) or "aucun lot livré depuis hier"
+    bloque = " ; ".join(f"#{l.numero} {l.titre} ({raison})" for l, raison in r.bloques) or "rien"
+    gestes = [g.removeprefix("- ") for g in r.a_faire if g != "- rien"]
+    lignes = [f"> **Avancé** : {avance}.", f"> **Bloqué** : {bloque}.",
+              f"> **À faire** : {' ; '.join(gestes) or 'rien'}.", "", "### Ce qui a changé dans le jeu", ""]
+    for url in monde:
+        lignes += ["*Le monde ce matin, trente jours simulés depuis master.*", f"![le monde]({url})", ""]
+    for l in r.livres:
+        lignes.append(f"**[{l['nom']}]({l['url']})**")
+        # La première phrase du compte rendu : ce que le lot fait, avant le détail.
+        paragraphe = next((x.strip() for x in (l["rendu"] or "").splitlines() if x.strip() and not x.startswith("#")), "")
+        if paragraphe:
+            lignes.append(paragraphe.split(". ")[0].rstrip(".") + ".")
+        if l["capture"]:
+            lignes += ["", "*La capture de la révision livrée.*", f"![capture]({l['capture']})"]
+        lignes.append("")
+    if not r.livres:
+        lignes += ["Aucun lot livré depuis hier.", ""]
+    lignes += ["### Aujourd'hui", "", *[f"- {l}" for l in r.aujourd_hui or ["Rien ne part aujourd'hui."]]]
+    return "\n".join(lignes).rstrip()
+
+
+def _annexe(r: Releve) -> str:
+    """Ce que le pilote ajoute sous tout journal : l'avancement du jalon, lot
+    par lot, et les détails de la chaîne, repliés."""
+    lignes = []
+    if r.jalon:
+        lignes += [f"### Jalon {r.jalon}", "", *r.avancement, ""]
+    lignes += ["<details><summary>Détails de la chaîne</summary>", "", "**Ce que la chaîne a vécu**", "", *r.vecu, ""]
+    if r.machine:
+        lignes += ["**La machine, changée en mode direct**", "",
+                   *[f"- PR #{p['number']} {p['title']}" for p in r.machine], ""]
+    if r.en_cours:
+        lignes += ["**En cours**", "", *r.en_cours, ""]
+    lignes.append("</details>")
+    return "\n".join(lignes)
 
 
 def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime) -> list[str]:
@@ -313,22 +489,26 @@ def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime) -> list[str
 def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, publier: bool = True,
            executeur=agents_mod.executer, dossier: Path | None = None, photographe=photo_du_monde) -> str:
     maintenant = maintenant or datetime.now(timezone.utc)
-    releve = faits(gh, projet, maintenant)
-    images = photographe(gh, projet, maintenant) if publier else []
-    if images:
-        photos = "".join(f"![le monde]({url})\n" for url in images)
-        releve = f"LE MONDE CE MATIN (master, 30 jours simulés) :\n{photos}\n{releve}"
-    res = agents_mod.invoquer(projet.poste("chroniqueur"), prompts.chroniqueur(faits=releve),
+    r = releve(gh, projet, maintenant)
+    monde = photographe(gh, projet, maintenant) if publier else []
+    texte = r.texte
+    if monde:
+        photos = "".join(f"![le monde]({url})\n" for url in monde)
+        texte = f"LE MONDE CE MATIN (master, 30 jours simulés) :\n{photos}\n{texte}"
+    res = agents_mod.invoquer(projet.poste("chroniqueur"), prompts.chroniqueur(faits=texte),
                               dossier or projet.racine, projet.delai("chroniqueur"), executeur=executeur)
-    if res.reussi and res.texte.strip():
-        corps = f"## Journal du {maintenant:%d/%m/%Y}\n\n{res.texte.strip()}\n\n<sub>Écrit par {res.agent}.</sub>"
+    if not (res.reussi and res.texte.strip()):
+        pourquoi = f"Le chroniqueur n'a pas répondu ({'; '.join(res.essais) or f'code {res.code}'})"
     else:
-        raison = "; ".join(res.essais) or f"code {res.code}"
-        # Les faits bruts restent du markdown : leurs images s'affichent.
-        corps = (f"## Journal du {maintenant:%d/%m/%Y} (faits bruts)\n\nLe chroniqueur n'a pas répondu ({raison}).\n\n"
-                 f"{releve}")
+        pourquoi = _infidele(res.texte, texte)
+        pourquoi = pourquoi and f"Le texte du chroniqueur ({res.agent}) est écarté : {pourquoi}"
+    if pourquoi:
+        redaction, signature = _redaction_du_pilote(r, monde), f"{pourquoi}. Écrit par le pilote, à partir des faits."
+    else:
+        redaction, signature = res.texte.strip(), f"Écrit par {res.agent}."
+    corps = f"{redaction}\n\n{_annexe(r)}\n\n<sub>{signature}</sub>"
     if publier:
-        _publier(gh, corps)
+        _publier(gh, f"Journal du {maintenant:%d/%m/%Y}", corps, "Journal")
     return corps
 
 
@@ -340,10 +520,10 @@ def boussole(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, 
     res = agents_mod.invoquer(projet.poste("boussole"), prompts.boussole(cap=cap, faits=releve),
                               projet.racine, projet.delai("boussole"), executeur=executeur)
     if res.reussi and res.texte.strip():
-        corps = f"## Boussole de la semaine du {maintenant:%d/%m/%Y}\n\n{res.texte.strip()}\n\n<sub>Écrit par {res.agent}.</sub>"
+        corps = f"{res.texte.strip()}\n\n<sub>Écrit par {res.agent}.</sub>"
     else:
-        corps = (f"## Boussole de la semaine du {maintenant:%d/%m/%Y}\n\nLa boussole n'a pas répondu "
-                 f"({'; '.join(res.essais) or res.code}). Les faits :\n\n```\n{releve}\n```")
+        corps = (f"La boussole n'a pas répondu ({'; '.join(res.essais) or res.code}). Les faits :\n\n"
+                 f"```\n{releve}\n```")
     if publier:
-        _publier(gh, corps)
+        _publier(gh, f"Boussole de la semaine du {maintenant:%d/%m/%Y}", corps, "Boussole")
     return corps

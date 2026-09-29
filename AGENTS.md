@@ -52,8 +52,8 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   `AGENTS.md`, `CLAUDE.md`, `CAP.md` : le pilote retire ces changements.
 - Les rôles et leurs modèles : `python3 -m atelier agents`. Changer de modèle,
   c'est changer une ligne de [`atelier.toml`](atelier.toml).
-- Chaque matin, le journal est commenté dans l'issue épinglée « Journal de
-  Forge ». Détail de la chaîne : [docs/WORKFLOW.md](docs/WORKFLOW.md).
+- Chaque matin, le journal paraît dans sa propre issue, épinglée : « Journal
+  du JJ/MM/AAAA » ; celle de la veille se ferme. Détail de la chaîne : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
 ## 3. Les principes du jeu, non négociables
 
