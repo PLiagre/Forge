@@ -56,8 +56,9 @@ part. À chaque tick, dans cet ordre :
     date dérivée au jour suivant.
 
 La **province** ne se stocke pas : elle se recalcule à chaque consultation
-comme « le centre administratif le plus proche ». Le tick ne la
-consomme pas.
+comme « le centre administratif le plus proche ». La **pluie**, elle non plus,
+n'est ni stockée ni consommée par le tick : sa vue se recalcule depuis le
+relevé le plus proche. Le tick ne consomme aucune de ces deux vues.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -1091,6 +1092,38 @@ monde, pas un acteur économique.
 sans en changer une ligne : elle vit hors de `sim.model`, elle est pure, elle
 refuse de deviner, elle départage ses égalités par `cell_id` croissant, et le
 tick ne la lit pas.
+
+---
+
+## La pluie de 1400, vue dérivée
+
+La provenance de cette vue est `data/pluie-releves-1400.json`. Chaque ligne y
+associe un point géographique, un cumul annuel moyen et une source publique
+nommée. Ces relevés sont de **niveau 1** : ils doivent être justes dans les
+grandes lignes et rendre notamment le contraste entre façade atlantique et
+désert. Le fichier déclare leur limite essentielle : la pluie de 1400 n'a pas
+été mesurée. Les normales climatiques modernes sont une **approximation** du
+climat de 1400, pas une mesure historique que le projet prétendrait posséder.
+
+À chaque consultation, `sim/pluie.py` attribue à une cellule le relevé le plus
+proche selon la projection déclarée par le fichier. Il appelle la règle unique
+de `sim/aggregation.py` : pas d'interpolation, pas de moyenne, pas de correction
+par le relief. À égalité exacte, le plus petit identifiant de relevé gagne.
+Cette attribution est de **niveau 2** : une cellule étendue ou montagneuse ne
+reçoit qu'une valeur et une anomalie locale n'est pas un défaut.
+
+La vue vit hors de `sim.model`, ne pose aucun champ sur `Cell` et se recalcule
+sans modifier le monde. Elle refuse une table vide, une provenance ou une
+déclaration d'approximation absente, une unité inattendue et toute valeur
+inexploitable. Une cellule sans position connue est nommée dans le refus au
+lieu d'être écartée ou complétée par défaut. Zéro millimètre reste une mesure ;
+une cellule absente de la vue rend `None`, jamais un faux zéro.
+
+Enfin, **la pluie n'est pas l'eau**. Le delta du **Nil** peut recevoir presque
+la même pluie que le désert occidental tout en étant fertile grâce à la crue
+du fleuve. Crue, fleuves, irrigation et oasis ne figurent dans aucune table de
+ce lot. La vue ne suffit donc jamais à décider la densité du delta, et **le
+tick ne la lit pas**.
 
 ---
 
