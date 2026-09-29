@@ -110,9 +110,11 @@ positif, `charger_latitude_moyenne_puissances()` égale la `mid_latitude` de
 `province-centres-1400.json` (lue, pas écrite). Contre-épreuve, dans le même
 test : la vraie table réécrite dans un fichier temporaire avec **une**
 altération à la fois — `portee` retirée, `degres_projetes` retiré, en chaîne,
-en booléen, à `NaN`, à `0`, à `-1`, `niveau` à `1`, `projection` retirée —
-lève `PuissanceInvalide` à chaque cas (compteur `refus_observés` = nombre de
-cas) ; et `charger_table` lit toujours cette même table altérée sans erreur
+en booléen, à `NaN`, à `0`, à `-1`, `niveau` à `1` (refusés par
+`charger_portee`), `projection` retirée, `mid_latitude` en chaîne (refusés par
+`charger_latitude_moyenne_puissances`) — lève `PuissanceInvalide` à chaque cas
+(compteur `refus_observés` = nombre de cas joués, égal à la longueur de la
+liste, > 0) ; et `charger_table` lit toujours cette même table altérée sans erreur
 tant que seules `portee` ou `projection` sont touchées (le lot n'a pas
 durci #219 en silence).
 
@@ -168,10 +170,12 @@ dérivée" jeu/sim/MODELE.md` rend une ligne ; la section, placée après « Le
 cours du Nil, vue dérivée », dit la provenance
 (`data/puissances-1400.json`), les niveaux 1 et 2, la règle du plus proche et
 son départage, la portée et sa valeur mesurée, « non couverte », et contient
-« le tick ne la lit pas ». `grep -n "puissance" jeu/sim/MODELE.md` rend aussi
-une ligne dans « En une page » (le paragraphe qui dit que la province et la
-pluie ne se stockent pas). Sans la section, la première commande ne rend
-rien.
+« le tick ne la lit pas ». Et
+`awk '/^## En une page/{s=1;next} /^## /{s=0} s' jeu/sim/MODELE.md | grep -n -i "puissance"`
+rend au moins une ligne (dans le paragraphe qui dit que la province et la
+pluie ne se stockent pas). Contre-épreuve : sur la base, avant le lot, les
+deux commandes ne rendent rien (le mot « puissance » n'apparaît nulle part
+dans `MODELE.md`).
 
 ## Hors périmètre
 - Le tick, l'amorçage, `World.lire_carte` et la carte ne lisent pas la vue :
