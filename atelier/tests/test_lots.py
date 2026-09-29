@@ -301,3 +301,27 @@ def test_le_renfort_fait_le_dernier_passage_avant_blocage():
     assert [lots.passage_de_renfort(e, 1) for e in (0, 1)] == [False, True]
     # Sans correction permise, le seul passage reste au codeur.
     assert not lots.passage_de_renfort(0, 0)
+
+
+def test_la_question_du_chef_se_lit_dans_sa_reponse():
+    texte = ("DECISION: QUESTION :: Faut-il un grenier ?\n- A :: oui :: les villes maigrissent\n- B :: non\n"
+             "RECOMMANDATION :: A :: garde l'histoire")
+    q = lots.question_du_chef(texte, "Faut-il un grenier ?")
+    assert q.options == (("A", "oui", "les villes maigrissent"), ("B", "non", ""))
+    assert q.recommandation == ("A", "garde l'histoire")
+    assert lots.Question.de_marque(q.marque()) == q
+    assert q.en_une_ligne() == "Faut-il un grenier ? A : oui ; B : non. Le chef recommande A (garde l'histoire)."
+    # Une recommandation qui ne nomme aucune option est ignorée ; une question
+    # sans option reste une question.
+    assert lots.question_du_chef("- A :: oui\nRECOMMANDATION :: C :: ?", "Q ?").recommandation is None
+    assert lots.question_du_chef("rien", "Q ?").options == ()
+
+
+def test_seul_un_humain_apres_le_blocage_repond():
+    avant = {"body": "Idée : les villes de 1400.", "author": {"login": "PLiagre"}}
+    bloque = {"body": marque(role="pilote", etat="bloque", raison="x")}
+    assert not lots.reponse_apres_blocage([avant, bloque])
+    assert lots.reponse_apres_blocage([avant, bloque, {"body": "B", "author": {"login": "PLiagre"}}])
+    assert not lots.reponse_apres_blocage([bloque, {"body": "vu", "author": {"login": "github-actions"}}])
+    # Bloqué à la main, sans marque du pilote : rien ne le lève tout seul.
+    assert not lots.reponse_apres_blocage([avant])
