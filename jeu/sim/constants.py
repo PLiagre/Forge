@@ -11,6 +11,10 @@ durées dérivent de TICK_DURATION_DAYS : jamais un second littéral de temps.
 
 import math
 
+# Surface indicative d'un lieu autour de son bourg ; règle de découpage de niveau 2.
+# Elle ne décrit ni les frontières ni la position réelle de ces lieux.
+SURFACE_KM2_PAR_LIEU = 1000.0
+
 # --- Marchandises ---
 
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.
