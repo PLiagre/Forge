@@ -21,7 +21,7 @@ def test_le_branchement_du_depot_nomme_chaque_role():
     assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
     assert [str(a) for a in projet.poste("relecteur").agents] == [
         "claude/claude-opus-5-5@high", "codex/gpt-6-astra@high", "codex/gpt-6-sol@high",
-        "cursor/grok-4.7-high@high"]
+        "codex/gpt-5.6-sol@high", "cursor/grok-4.7-high@high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -238,12 +238,16 @@ def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_p
 
 def test_le_chef_et_la_boussole_ont_un_secours_hors_de_claude_code():
     # Un quota de Claude Code arrêtait net le chef et la boussole : Claude
-    # Code en premier, et un secours d'un autre harnais.
+    # Code en premier, et un secours d'un autre harnais. Astra seul ne suffit
+    # pas : son quota Plus est court, et quand Claude est à court, chaque
+    # brief lui tombe dessus (29 septembre 2026). Un secours qui n'est ni
+    # Claude ni Astra tient le poste quand les deux sont épuisés.
     projet = charger(RACINE)
     for role in ("chef", "boussole"):
         poste = projet.poste(role)
         assert poste.principal.outil == "claude", role
         assert any(a.outil != "claude" for a in poste.secours), role
+        assert any(a.outil != "claude" and a.modele != "gpt-6-astra" for a in poste.secours), role
 
 
 def test_claude_ne_passe_que_par_claude_code():
@@ -453,6 +457,12 @@ def test_codex_ne_code_pas_sur_le_pc():
     "error: unknown option '--effort'",                                         # un Claude Code trop ancien
     "Error loading config.toml: unknown variant `extreme`, expected one of `minimal`, `low`, `medium`, `high`",
     "error: unexpected argument '--effort' found",                              # clap, côté Codex
+    # Un modèle que ce Codex ne sait pas appeler : Codex 0.151 sur le VPS, le
+    # 29 septembre 2026 ; les lots #220 et #224 y ont brûlé leurs trois essais.
+    'ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'gpt-6-sol\' '
+    'model is not supported when using Codex with a ChatGPT account."}}',
+    'ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'gpt-6-astra\' '
+    'model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}',
 ])
 def test_un_harnais_qui_refuse_l_appel_passe_la_main_sans_bruler_d_essai(projet, tmp_path, sortie):
     assert A.cause_de_refus(2, sortie) == "appel"
@@ -460,6 +470,17 @@ def test_un_harnais_qui_refuse_l_appel_passe_la_main_sans_bruler_d_essai(projet,
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
     assert res.reussi and str(res.agent) == "cursor/grok"
     assert "refuse l'appel" in res.essais[0]
+
+
+def test_un_codex_trop_ancien_pour_gpt_6_code_avec_gpt_5_6(tmp_path):
+    # Le VPS du 29 septembre 2026, sur la vraie ligne du codeur : GPT-6 Sol
+    # refusé par Codex 0.151, GPT-5.6 Sol code, et aucun essai n'est brûlé.
+    refus = ('ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":'
+             '"The \'gpt-6-sol\' model is not supported when using Codex with a ChatGPT account."}}')
+    agents = Agents((1, refus), (0, "fait"))
+    res = A.invoquer(charger(RACINE).poste("codeur"), "code", tmp_path, 10, executeur=agents)
+    assert res.reussi and str(res.agent) == "codex/gpt-5.6-sol@high"
+    assert "codex/gpt-6-sol@high : refuse l'appel" in res.essais[0]
 
 
 def test_un_effort_inconnu_que_claude_code_ignore_n_est_pas_un_refus():
