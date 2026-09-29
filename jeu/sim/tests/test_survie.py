@@ -615,26 +615,102 @@ def test_le_monde_nourrit_ceux_qu_il_amorce():
 
 def test_aucune_cellule_n_amorce_au_dessus_de_ce_qu_elle_nourrit():
     """
-    Le même invariant, cellule par cellule — parce qu'une moyenne mondiale
-    saine peut cacher des cellules condamnées dès le premier tick.
-
-    Une cellule amorcée au-dessus de son plafond n'est pas interdite en soi :
-    le commerce existe pour ça. Mais AU TICK ZÉRO, avant qu'aucune route
-    n'ait servi, aucune ne doit l'être — sinon la première mesure du monde
-    est déjà une famine que personne n'a déclenchée.
+    Premier tick nourri par la production, les échanges et les réserves.
+    Les cellules sans ville restent sous leur plafond de production moyen.
     """
-    monde = World.charger(rng_seed=RNG_SEED)
-    fautives = []
-    for cell in monde.cells.values():
-        soutenable = population_soutenable_de(cell, monde.carte)
-        if cell.population > soutenable:
-            fautives.append((cell.cell_id, cell.population, soutenable))
+    monde = World.charger(rng_seed=0)
+    assert monde.cells and monde.attribution_villes.placees
+    urbaines = set(monde.attribution_villes.placees.values())
+    rurales = [c for c in monde.cells.values() if c.cell_id not in urbaines]
+    assert rurales
+    fautives = [(c.cell_id, c.population, population_soutenable_de(c, monde.carte))
+                for c in rurales if c.population > population_soutenable_de(c, monde.carte)]
+    assert not fautives, f"cellules sans ville au-dessus du plafond : {fautives[:1]}"
+    tick(monde, random.Random(0), numero_tick=0)
+    affamees = [(c.cell_id, c.food_deficit_kg) for c in monde.cells.values()
+                if c.hunger_ticks or c.food_deficit_kg]
+    assert not affamees, f"faim ou dette au premier tick : {affamees[:1]}"
 
-    print(f"cellules au-dessus de leur plafond : {len(fautives)} / {len(monde.cells)}")
-    assert not fautives, (
-        f"{len(fautives)} cellules amorcent plus d'habitants qu'elles n'en "
-        f"nourrissent, la première étant {fautives[0]}."
-    )
+
+def _controle_stock_amorce(monde):
+    urbaines = set(monde.attribution_villes.placees.values())
+    assert monde.cells and urbaines
+    for c in monde.cells.values():
+        soutenable = population_soutenable_de(c, monde.carte)
+        ordinaire = c.population * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK * constantes.INITIAL_FOOD_RESERVE_TICKS
+        supplement = (max(0, c.population - soutenable) * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+                      * constantes.RESERVE_VILLES_TICKS if c.cell_id in urbaines else 0)
+        assert c.food_stock_kg == pytest.approx(ordinaire + supplement)
+        if c.cell_id not in urbaines:
+            assert c.population <= soutenable
+
+
+def test_grenier_formule_et_contre_epreuves(monkeypatch):
+    monde = World.charger(rng_seed=0)
+    _controle_stock_amorce(monde)
+    urbaines = set(monde.attribution_villes.placees.values())
+    deficitaires = [c.cell_id for c in monde.cells.values()
+                   if c.cell_id in urbaines and c.population > population_soutenable_de(c, monde.carte)]
+    rurales = [c.cell_id for c in monde.cells.values() if c.cell_id not in urbaines]
+    assert deficitaires and rurales
+    ancien = constantes.RESERVE_VILLES_TICKS
+    monkeypatch.setattr(constantes, "RESERVE_VILLES_TICKS", 2 * ancien)
+    double = World.charger(rng_seed=0)
+    for cid, c in monde.cells.items():
+        base = c.population * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK * constantes.INITIAL_FOOD_RESERVE_TICKS
+        assert double.cells[cid].food_stock_kg - base == pytest.approx(2 * (c.food_stock_kg - base))
+    monkeypatch.setattr(constantes, "RESERVE_VILLES_TICKS", ancien)
+
+    monde.cells[rurales[0]].food_stock_kg += 1
+    with pytest.raises(AssertionError):
+        _controle_stock_amorce(monde)
+    monde = World.charger(rng_seed=0)
+    cid = rurales[0]
+    monde.cells[cid].population = int(population_soutenable_de(monde.cells[cid], monde.carte)) + 1
+    with pytest.raises(AssertionError):
+        _controle_stock_amorce(monde)
+
+    sans_stock = World.charger(rng_seed=0)
+    for cid in deficitaires:
+        sans_stock.cells[cid].food_stock_kg = 0.0
+    tick(sans_stock, random.Random(0), numero_tick=0)
+    assert any(sans_stock.cells[cid].hunger_ticks > 0 for cid in deficitaires)
+
+
+def test_bilan_villes():
+    monde = World.charger(rng_seed=0)
+    noms = {}
+    for nom, cid in monde.attribution_villes.placees.items():
+        noms.setdefault(cid, []).append(nom)
+    cohorte = {cid: c for cid, c in monde.cells.items()
+               if cid in noms and c.population > population_soutenable_de(c, monde.carte)}
+    assert cohorte
+    init = {cid: (c.population, c.food_stock_kg) for cid, c in cohorte.items()}
+    faim = {cid: 0 for cid in cohorte}
+    rng = random.Random(0)
+    for numero_tick in range(constantes.CALENDAR_DAYS_PER_YEAR):
+        tick(monde, rng, numero_tick=numero_tick)
+        for cid in cohorte:
+            faim[cid] += int(monde.cells[cid].hunger_ticks > 0)
+    tiennent = 0
+    for cid in cohorte:
+        c = monde.cells[cid]
+        population_initiale, reserve_initiale = init[cid]
+        tiennent += int(c.population >= population_initiale and c.food_deficit_kg == 0)
+        print(f"{'+'.join(noms[cid])} | {cid} | {population_initiale} → {c.population} habitants | "
+              f"{reserve_initiale:.0f} → {c.food_stock_kg:.0f} kg | "
+              f"dette {c.food_deficit_kg:.9g} kg | faim {faim[cid]} ticks")
+    print(f"tiennent : {tiennent}/{len(cohorte)}")
+
+    cid = next(iter(cohorte))
+    population_initiale, reserve_initiale = init[cid]
+    isolee = Cell(cell_id=cid, area_km2=0.0, population=population_initiale,
+                  food_stock_kg=reserve_initiale, hunger_ticks=0, food_deficit_kg=0.0,
+                  mortality_remainder=0.0, natalite_remainder=0.0, migration_remainder=0.0)
+    petit_monde = World(cells={cid: isolee}, adjacency=[])
+    for numero_tick in range(constantes.CALENDAR_DAYS_PER_YEAR):
+        tick(petit_monde, random.Random(0), numero_tick=numero_tick)
+    assert isolee.food_stock_kg == 0 and isolee.population < population_initiale
 
 
 def test_le_monde_ne_meurt_pas_et_ne_nourrit_pas_plus_qu_il_ne_produit():

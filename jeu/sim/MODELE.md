@@ -291,10 +291,11 @@ n'autorise personne à inventer ce second métier en même temps que la vue.
 
 ### Ce qui se refuse plutôt que se devine
 
-- **Aucune liste de villes historiques.** L'outil qui a fabriqué la carte en
-  a employé pour semer la maille ; ce n'est pas une entité du moteur, et
-  `data/world-1400.json` n'en porte aucune. Une ville nommée entrerait au niveau 1 de fidélité, donc
-  exigerait une source : le jeu n'en a pas, et le niveau 3 ne se simule pas.
+- **Villes historiques nommées.** `data/villes-1400.json` porte une table
+  non exhaustive de niveau 1, avec point et population sourcés. À l'amorçage,
+  `sim/villes.py` attribue chaque point à un polygone de cellule ; un point
+  hors carte reste explicitement hors carte. Cette ville est distincte du
+  bourg dérivé des métiers : elle ne crée aucun métier ni champ sur `Cell`.
 - **Aucun `city_id`, `ville_id` ni `bourg_id`.** `cell_id` reste la seule clé
   spatiale (mode de défaillance n° 1).
 - **Aucun seuil qui « fait » une ville.** Poser un drapeau au-dessus d'un
@@ -325,11 +326,12 @@ pas, exactement comme il ne consulte pas la province.
 
 ## Déclaration explicite
 
-**L'amorçage décrit dans ce fichier est un proxy paramétrique, pas une donnée
-historique.** Aucune valeur de population ou de stock alimentaire initial ne
-provient d'une source historique documentée. Conformément à la règle 10
-(« l'absence de données ne s'invente pas en silence »), cette limitation est
-déclarée ici de manière explicite.
+Le peuplement rural amorcé par cellule reste un **proxy paramétrique** de
+niveau 2. Les populations des villes nommées sont des estimations historiques
+de niveau 1, datées, sourcées et incertaines. Aucun stock alimentaire initial
+n'est attesté : la réserve ordinaire et le grenier urbain sont des proxies de
+niveau 2, déclarés comme présents avant le début de la partie. Le défaut
+d'eau du Nil demeure : placer Le Caire et Alexandrie ne crée pas de crue.
 
 Les paramètres ci-dessous sont des valeurs d'ordre de grandeur plausibles pour
 une simulation médiévale/proto-moderne (1400-1900). Ils peuvent être calibrés
@@ -379,8 +381,9 @@ pas « le premier jour de l'année » — voir « Les trois régimes de producti
 ### Formule
 
 ```
-population = max(0, int(population_soutenable_de(cellule)
-                        × PART_SOUTENABLE_AMORCEE × variation))
+population_rurale = max(0, int(population_soutenable_de(cellule)
+                               × PART_SOUTENABLE_AMORCEE × variation))
+population = max(population_rurale, somme_des_villes_contenues)
 ```
 
 où `variation = rng.uniform(SEED_POPULATION_VARIATION_LOW, SEED_POPULATION_VARIATION_HIGH)`.
@@ -396,10 +399,13 @@ rendement et à la saison moyens.
 | `SEED_POPULATION_VARIATION_HIGH` | 1.1 | — | Variation maximale autour de la densité nominale (±10 %) |
 
 **Conséquence à connaître : le monde démarre selon ce qu'il nourrit.** La
-population initiale suit le relief, la saison moyenne, la part laissée à
+population rurale initiale suit le relief, la saison moyenne, la part laissée à
 l'agriculture par les mines et le `facteur_eau`. Le désert s'amorce presque
 vide ; la variation de plus ou moins dix pour cent ne remplace pas cette
-géographie, elle s'y applique.
+géographie, elle s'y applique. Les villes historiques peuvent dépasser la
+capacité nourricière locale ; leurs habitants ne s'ajoutent pas au proxy
+rural, ce qui évite un double compte. Plusieurs villes dans une cellule se
+cumulent. Leur plancher ne s'applique qu'une fois, à l'amorçage.
 
 ### Déterminisme
 
@@ -444,13 +450,28 @@ panier.
 ### Formule
 
 ```
-food_stock_kg = population × FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK × INITIAL_FOOD_RESERVE_TICKS
+réserve_ordinaire = population_finale × ration × INITIAL_FOOD_RESERVE_TICKS
+manque_kg = max(0, population_finale - population_soutenable_de(cellule, carte)) × ration
+grenier_urbain = manque_kg × RESERVE_VILLES_TICKS  # seulement si la cellule porte une ville
+food_stock_kg = réserve_ordinaire + grenier_urbain
 ```
 
-Le stock de départ couvre `INITIAL_FOOD_RESERVE_TICKS` ticks de consommation
-normale. Ce buffer initial est volontairement court (5 ticks = 5 jours) pour
-que la dynamique de production/consommation prenne effet rapidement sans
-créer une réserve artificielle trop grande.
+Le stock ordinaire couvre cinq ticks de consommation normale, y compris dans
+les cellules urbaines. `RESERVE_VILLES_TICKS = 30` est fixé avant mesure :
+environ un mois de manque donne du temps aux échanges, sans promettre un an
+de survie. Le supplément n'existe que pour une cellule portant une ville et
+dépassant sa capacité locale. Son origine est une réserve antérieure à 1400,
+non une production du premier tick. Le commerce peut l'exporter ; rien ne la
+réapprovisionne automatiquement.
+Le total urbain est arrondi à la précision en kilogrammes de la photographie
+du monde (`SNAPSHOT_FLOAT_DECIMALS`), pour que le stock lu et le stock exporté
+portent exactement la même valeur ; les cellules sans ville gardent leur
+amorçage antérieur.
+
+Invariant d'amorçage : toutes les cellules mangent sans faim ni dette au
+premier tick ; celles sans ville restent en outre sous leur plafond local et
+conservent exactement leur réserve de cinq ticks. Après ce premier tick,
+aucune absence de famine n'est garantie.
 
 C'est la **seule** marchandise présente au panier d'une cellule à l'amorçage.
 Toutes les autres y entrent par l'extraction.
@@ -461,6 +482,7 @@ Toutes les autres y entrent par l'extraction.
 |---|---|---|---|
 | `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK` | 2.0 × TICK_DURATION_DAYS | kg/personne/tick | Ration journalière médiévale approx. 2 kg (céréales + substituts) × 1 jour/tick |
 | `INITIAL_FOOD_RESERVE_TICKS` | 5 | ticks | Réserve de subsistance de 5 jours — suffisante pour absorber 2–3 mauvaises journées consécutives sans mort immédiate, sans masquer le comportement de long terme |
+| `RESERVE_VILLES_TICKS` | 30 | ticks | Proxy de niveau 2 : un mois environ de manque local pour laisser agir les échanges |
 
 ---
 
