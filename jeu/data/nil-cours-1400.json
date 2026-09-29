@@ -1,0 +1,20 @@
+{
+  "description": "Points du cours du Nil, du Caire aux embouchures de Rosette et de Damiette, une source publique par ligne.",
+  "cours_de_1400": "Approximation déclarée : le cours actuel situe le fleuve dans les grandes lignes ; les bras du delta ont bougé depuis 1400.",
+  "hors_carte": "La vallée au sud du Caire reste hors de la table : la carte ne la couvre pas et son point le plus proche serait la cellule de Suez, ce qui ferait traverser l'isthme au Nil.",
+  "fidelite": "Niveau 1 pour les points ; niveau 2 pour leur attribution à une cellule.",
+  "projection": {"type": "equirectangular", "mid_latitude": 47.5, "comment": "x = lon * cos(mid_latitude), y = -lat"},
+  "points": [
+    {"id": 1, "nom": "Le Caire", "lat": 30.04458, "lon": 31.245587, "source": "Wikipédia, Le Caire, coordonnées de l'article"},
+    {"id": 2, "nom": "El-Qanater", "lat": 30.194424, "lon": 31.131168, "source": "Wikipédia, Barrage du Caire, coordonnées de l'article"},
+    {"id": 3, "nom": "Benha", "lat": 30.466667, "lon": 31.183333, "source": "Wikipédia, Benha, coordonnées de l'article"},
+    {"id": 4, "nom": "Kafr el-Zayat", "lat": 30.824722, "lon": 30.815278, "source": "Wikipédia, Kafr El-Zayat, coordonnées de l'article"},
+    {"id": 5, "nom": "Mit Ghamr", "lat": 30.716667, "lon": 31.333333, "source": "NGA Geographic Names, Markaz Mit Ghamr, coordonnées publiques"},
+    {"id": 6, "nom": "Desouk", "lat": 31.1289, "lon": 30.65, "source": "OpenStreetMap via Mapcarta, Desouk, coordonnées du lieu"},
+    {"id": 7, "nom": "Mansourah", "lat": 31.05, "lon": 31.383333, "source": "Wikipédia, Mansourah (Égypte), coordonnées de l'article"},
+    {"id": 8, "nom": "Rosette", "lat": 31.4, "lon": 30.416667, "source": "Wikipédia, Rosette (Égypte), coordonnées de l'article"},
+    {"id": 9, "nom": "Damiette", "lat": 31.41648, "lon": 31.81332, "source": "Geodatos, Damietta, coordonnées publiques de la ville"},
+    {"id": 10, "nom": "Embouchure de Rosette", "lat": 31.464833, "lon": 30.3635, "source": "Coastal Research Institute, Sea-Level Changes at Rosetta Promontory, station marine"},
+    {"id": 11, "nom": "Embouchure de Damiette", "lat": 31.52703, "lon": 31.85, "source": "OpenStreetMap via Mapcarta, Damietta Mouth, coordonnées de l'embouchure"}
+  ]
+}

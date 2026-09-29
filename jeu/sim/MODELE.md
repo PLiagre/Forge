@@ -1151,6 +1151,33 @@ moteur lit la pluie de la carte, mais pour la vue elle-même, le tick ne la lit 
 
 ---
 
+## Le cours du Nil, vue dérivée
+
+La provenance de cette vue est `data/nil-cours-1400.json`. Chaque ligne y
+place un point du cours et nomme sa source publique. Ces points actuels sont de
+**niveau 1**, justes dans les grandes lignes : le fichier déclare qu'ils ne
+prétendent pas restituer les bras du delta en 1400. Leur attribution aux
+cellules est de **niveau 2**.
+
+À chaque consultation, `sim/fleuve.py` fait chercher à chaque point son
+centroïde de cellule le plus proche avec la règle unique de
+`sim/aggregation.py`. Ce sens est l'inverse de celui de la pluie : le point
+cherche sa cellule. Il n'y a ni segment interpolé, ni largeur, ni bassin
+versant. À égalité exacte, le plus petit identifiant de cellule gagne. La vue,
+pure et hors de `sim.model`, refuse une table vide, une déclaration ou une
+source absente, une coordonnée inexploitable et toute cellule du monde sans
+position connue.
+
+La vallée au sud du Caire est explicitement **hors de la carte**. Lui donner
+un point ferait choisir le centroïde de Suez et affirmerait à tort que le Nil
+traverse l'isthme. Le fichier déclare donc cette lacune au lieu de la masquer.
+
+Enfin, **le tick ne la lit pas**. Cette géographie ne donne encore aucune eau
+aux champs : le delta reste vidé par l'aridité tant qu'un lot suivant n'aura
+pas représenté la cause physique, la crue du fleuve.
+
+---
+
 ## Le moteur sans état caché
 
 Deux règles d'architecture qui décident comment un lot s'écrit, et qui ont
