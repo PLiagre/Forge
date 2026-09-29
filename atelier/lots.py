@@ -98,6 +98,14 @@ def jalon_courant(liste: list[Jalon]) -> Jalon | None:
     return next((j for j in liste if j.ouvert), None)
 
 
+def jalon_suivant(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
+    """Le jalon ouvert qui suit le courant : le second de la fenêtre. Une
+    machine qui n'a plus rien à prendre dans le courant y prend son travail."""
+    if courant is None:
+        return None
+    return next((j for j in liste if j.ouvert and j.numero > courant.numero), None)
+
+
 def jalons_du_cap(cap: str) -> dict[int, str]:
     """Les jalons que CAP.md déclare : numéro → titre du milestone
     (« J2 — Le monde de 1400 »), tirés de ses sections « ## Jalon n — Titre ».
@@ -208,15 +216,16 @@ def bloquantes(ouvertes: list[Lot], fermees: list[Lot] = ()) -> frozenset[int]:
 
 def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool],
               ouvertes: frozenset[int] = frozenset()) -> Lot | None:
-    """Le lot suivant du jalon courant : `pret` d'abord, puis `idee`, dans
+    """Le lot suivant du jalon `jalon` : `pret` d'abord, puis `idee`, dans
     l'ordre des numéros d'issue. Une machine occupée ne prend rien ; un lot
-    dont une dépendance est encore ouverte attend."""
+    dont une dépendance est encore ouverte attend ; un lot marqué `reserve`
+    sort de son jalon, il ne se prend pas."""
     if jalon is None:
         return None
     for etat in ("pret", "idee"):
         for lot in sorted(lots, key=lambda l: l.numero):
             if (lot.jalon == jalon and lot.etat == etat and machine_libre.get(lot.machine, False)
-                    and not (lot.dependances & ouvertes)):
+                    and not (lot.dependances & ouvertes) and ETIQUETTE_RESERVE not in lot.etiquettes):
                 return lot
     return None
 
@@ -233,15 +242,16 @@ def jalon_a_decouper_par(lot: Lot) -> int | None:
     return None
 
 
-def a_decouper(courant: Jalon | None, cap: str, ouvertes: list[Lot], fermees: list[Lot] = ()) -> bool:
-    """Le jalon courant se fait découper, une seule fois, quand CAP.md le
-    décrit et qu'il n'a encore aucun lot prêt, en cours ou livré : un jalon
-    que personne n'a planifié ne laisse pas la chaîne sans travail, et un
-    jalon lancé à la main ne se redécoupe pas."""
-    if courant is None or courant.numero not in jalons_du_cap(cap):
+def a_decouper(jalon: Jalon | None, cap: str, ouvertes: list[Lot], fermees: list[Lot] = ()) -> bool:
+    """Un jalon de la fenêtre (le courant, ou le suivant quand une machine
+    n'a plus rien dans le courant) se fait découper, une seule fois, quand
+    CAP.md le décrit et qu'il n'a encore aucun lot prêt, en cours ou livré :
+    un jalon que personne n'a planifié ne laisse pas la chaîne sans travail,
+    et un jalon lancé à la main ne se redécoupe pas."""
+    if jalon is None or jalon.numero not in jalons_du_cap(cap):
         return False
-    siens = [l for l in (*ouvertes, *fermees) if l.jalon == courant.numero]
-    if any(jalon_a_decouper_par(l) == courant.numero for l in siens):
+    siens = [l for l in (*ouvertes, *fermees) if l.jalon == jalon.numero]
+    if any(jalon_a_decouper_par(l) == jalon.numero for l in siens):
         return False
     ouverts = {l.numero for l in ouvertes}
     # Un lot fermé encore « en-cours » vient d'être fusionné : le pilote le
@@ -250,11 +260,17 @@ def a_decouper(courant: Jalon | None, cap: str, ouvertes: list[Lot], fermees: li
                    for l in siens if "lot" in l.etiquettes)
 
 
-def corps_de_la_decoupe(jalon: Jalon, avant: list[int]) -> str:
+def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = None) -> str:
     """Le texte du lot qui fait découper un jalon. Les lots déjà ouverts dans
-    le jalon passent d'abord : la découpe vient après eux et les complète."""
+    le jalon passent d'abord : la découpe vient après eux et les complète.
+    Un jalon découpé en avance (il suit le `courant`) le dit : ses lots
+    partent pendant que le courant se termine."""
+    en_avance = courant is not None and jalon.numero > courant.numero
     lignes = [
-        f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé.",
+        (f"Le jalon suivant, {jalon.titre}, n'a encore aucun lot prêt, et une machine n'a plus rien à prendre "
+         f"dans le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent pendant que le "
+         "courant se termine ; ils ne s'appuient sur rien qu'il doit encore livrer." if en_avance else
+         f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé."),
         "",
         "Ce lot ne se code pas. Le chef le découpe (« DECISION: DECOUPE ») d'après la section "
         f"« Jalon {jalon.numero} » de `CAP.md` et d'après `docs/VISION.md` : les lots qu'il faut, dans "

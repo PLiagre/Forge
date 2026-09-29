@@ -1,9 +1,10 @@
 """Le pilote : un tour de la chaîne.
 
 Un tour relit GitHub, fait avancer chaque lot en cours d'un pas, et prend
-le lot suivant du jalon courant quand une machine est libre. Il invoque au
-plus UN agent par tour : un tour reste court à lire, et un quota ne se vide
-pas en une minute. Tout ce qui se décide se décide dans `lots.py`, en
+le lot suivant du jalon courant quand une machine est libre ; une machine qui
+n'y a plus rien à prendre prend dans le jalon suivant (la fenêtre de deux
+jalons). Il invoque au plus UN agent par tour : un tour reste court à lire,
+et un quota ne se vide pas en une minute. Tout ce qui se décide se décide dans `lots.py`, en
 fonction pure ; ici, on fait les gestes.
 
     un lot = une issue → le chef écrit le brief dans la branche du lot et
@@ -111,6 +112,7 @@ class Pilote:
         bruts = self._accorder_jalons(cap)
         jalons = lots.jalons(bruts)
         courant = lots.jalon_courant(jalons)
+        apres = lots.jalon_suivant(jalons, courant)
         reserve = any(m.get("title") == lots.RESERVE for m in bruts)
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._normaliser(ouvertes, jalons, reserve)
@@ -120,7 +122,9 @@ class Pilote:
         if self._attendre_dependances(ouvertes, bloq) | self._reprendre(ouvertes, bloq):
             ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._livrer_les_fermes(fermees)
-        if lots.a_decouper(courant, cap, ouvertes, [Lot.de(i) for i in fermees]):
+        fermes = [Lot.de(i) for i in fermees]
+        decoupe_du_courant = lots.a_decouper(courant, cap, ouvertes, fermes)
+        if decoupe_du_courant:
             self._faire_decouper(courant, ouvertes)
 
         occupe = {"vps": False, "pc": False}
@@ -132,7 +136,7 @@ class Pilote:
             if agent_parti:
                 continue
             try:
-                agent_parti = self._avancer(lot, jalons) or agent_parti
+                agent_parti = self._avancer(lot, jalons, courant) or agent_parti
             except (GitHubErreur, DepotErreur) as e:
                 self.noter(lot.numero, "erreur", str(e))
 
@@ -142,9 +146,18 @@ class Pilote:
             libres = {m: not o for m, o in occupe.items()}
             candidats = [l for l in ouvertes if "lot" in l.etiquettes]
             suivant = lots.a_prendre(candidats, courant.numero, libres, bloq)
+            # La fenêtre de deux jalons : une machine libre qui n'a plus rien
+            # à prendre dans le jalon courant prend dans le suivant, et le
+            # découpe s'il n'a encore rien. Le 29 septembre 2026, J1 n'avait
+            # plus que des lots « pc » : le VPS attendait sans rien faire que
+            # le PC finisse, alors que J2 ne demande que `sim/`.
+            if suivant is None and apres is not None and any(libres.values()) and not decoupe_du_courant:
+                if lots.a_decouper(apres, cap, ouvertes, fermes):
+                    self._faire_decouper(apres, ouvertes, courant)
+                suivant = lots.a_prendre(candidats, apres.numero, libres, bloq)
             if suivant is not None:
                 try:
-                    self._chef(suivant, courant.titre)
+                    self._chef(suivant, suivant.jalon_titre or courant.titre, courant)
                 except (GitHubErreur, DepotErreur) as e:
                     self.noter(suivant.numero, "erreur", str(e))
         self._ranger_jalons()
@@ -180,15 +193,19 @@ class Pilote:
                 self.noter(cle, "erreur", str(e))
         return self.gh.jalons() if gestes else bruts
 
-    def _faire_decouper(self, jalon: lots.Jalon, ouvertes: list[Lot]) -> None:
+    def _faire_decouper(self, jalon: lots.Jalon, ouvertes: list[Lot], courant: lots.Jalon | None = None) -> None:
         """Un jalon qui commence sans plan se fait découper : le pilote ouvre
-        le lot de sa découpe, que le chef prend comme un autre."""
+        le lot de sa découpe, que le chef prend comme un autre. Le jalon
+        suivant se découpe en avance quand une machine n'a plus rien dans le
+        `courant`."""
         avant = sorted(l.numero for l in ouvertes
                        if l.jalon == jalon.numero and "lot" in l.etiquettes and l.etat == "idee")
+        en_avance = courant is not None and jalon.numero > courant.numero
         try:
-            n = self.gh.creer_issue(f"Découper le jalon {jalon.titre}", lots.corps_de_la_decoupe(jalon, avant),
+            n = self.gh.creer_issue(f"Découper le jalon {jalon.titre}",
+                                    lots.corps_de_la_decoupe(jalon, avant, courant if en_avance else None),
                                     ["lot", "pret"], jalon.titre)
-            self.noter(n, "jalon à découper", jalon.titre)
+            self.noter(n, "jalon à découper", jalon.titre + (" (en avance)" if en_avance else ""))
         except GitHubErreur as e:
             self.noter(f"J{jalon.numero}", "erreur", str(e))
 
@@ -264,12 +281,12 @@ class Pilote:
         return repris
 
     # ---------------------------------------------------------- avancer
-    def _avancer(self, lot: Lot, jalons: list[lots.Jalon]) -> bool:
+    def _avancer(self, lot: Lot, jalons: list[lots.Jalon], courant: lots.Jalon | None = None) -> bool:
         branche = lot.branche(self.projet.prefixe_branche)
         resume = self.gh.pr_de_branche(branche)
         if resume is None:
             titre_jalon = lot.jalon_titre or next((j.titre for j in jalons if j.numero == lot.jalon), "")
-            return self._chef(lot, titre_jalon)
+            return self._chef(lot, titre_jalon, courant)
         pr = self.gh.pr(resume["number"])
         liste = lots.marques(pr.get("comments") or [])
         etat_ci, _ = etat_des_controles(pr)
@@ -307,7 +324,7 @@ class Pilote:
         if action.nom == "relire":
             return self._relire(lot, pr, branche, liste)
         if action.nom == "chef":
-            return self._chef(lot, lot.jalon_titre or "")
+            return self._chef(lot, lot.jalon_titre or "", courant)
         self.noter(lot.numero, "action inconnue", action.nom)
         return False
 
@@ -320,7 +337,7 @@ class Pilote:
         return (self.maintenant() - depuis).total_seconds() / 3600
 
     # --------------------------------------------------------------- chef
-    def _chef(self, lot: Lot, titre_jalon: str) -> bool:
+    def _chef(self, lot: Lot, titre_jalon: str, courant: lots.Jalon | None = None) -> bool:
         issue = self.gh.issue(lot.numero)
         echecs = lots.echecs_du_chef(lots.marques(issue.get("comments") or []))
         if echecs >= 2:
@@ -332,9 +349,13 @@ class Pilote:
         commentaires = "\n\n".join(
             f"{(c.get('author') or {}).get('login', '?')} : {c.get('body', '')}"
             for c in issue.get("comments") or [] if "<!-- atelier" not in (c.get("body") or ""))
+        # Un lot du jalon suivant, pris par la fenêtre, le sait : il ne
+        # s'appuie sur rien que le jalon courant doit encore livrer.
+        en_avance = courant is not None and lot.jalon is not None and lot.jalon > courant.numero
         prompt = prompts.chef(self.projet, numero=lot.numero, titre=lot.titre, corps=lot.corps,
                               commentaires=commentaires, jalon=lot.jalon or 0, jalon_titre=titre_jalon,
-                              machine=lot.machine, chemin_brief=chemin_brief)
+                              machine=lot.machine, chemin_brief=chemin_brief,
+                              jalon_courant=courant.titre if en_avance else "")
         res = self._invoquer("chef", prompt, chemin, lot=lot.numero)
         if res.attente:
             self.noter(lot.numero, "attente", "chef : " + " · ".join(res.essais))

@@ -14,7 +14,8 @@ la fusionne toute seule.
 
 ```
  issue « lot »  ──►  CHEF (claude opus, par cursor · secours claude code) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
- (jalon courant)          │ trop gros : découpe en sous-lots · hors du jalon : bloque
+ (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
+  suivant en avance)      │
                           ▼
                     CODEUR (codex sol · secours cursor grok)   — lot « pc » : le même sur le PC (claude en dernier secours)
                           │ le pilote commit, pousse, capture
@@ -80,11 +81,27 @@ lots qui ne servent aucun jalon pour l'instant. Son titre ne commence pas par
 sortir aucun lot. Un lot y entre par le formulaire (jalon « Réserve »), par
 l'étiquette `reserve`, ou à la main ; un jalon qui en a besoin l'en tire.
 
+### La fenêtre de deux jalons
+
+Le pilote prend d'abord dans le jalon courant. Une machine libre qui n'y a
+plus rien à prendre (tout est en cours, livré, ou attend une dépendance)
+prend dans le **jalon suivant**, jamais plus loin. Le 29 septembre 2026, J1
+n'avait plus que des lots `pc` : le VPS attendait sans rien faire que le PC
+finisse, alors que J2 ne demande que `sim/`.
+
+Le chef d'un lot pris en avance le sait : son lot ne s'appuie sur rien que le
+jalon courant doit encore livrer (ce qui n'est pas sur master n'existe pas) ;
+s'il en a besoin, il refuse, et le lot est bloqué avec sa raison. Le journal
+annonce ces lots à part, sous « EN AVANCE ». Un lot marqué `reserve` ne se
+prend jamais : il sort de son jalon.
+
 ### Un jalon qui commence se fait découper
 
 Quand le jalon courant n'a encore aucun lot prêt, en cours ou livré, le
-pilote ouvre un lot « Découper le jalon Jn — Titre » (`pret`). Le chef le
-prend comme un autre, et le découpe d'après la section du jalon dans
+pilote ouvre un lot « Découper le jalon Jn — Titre » (`pret`). Le jalon
+suivant se découpe de même, en avance, quand la fenêtre s'ouvre : le courant
+a déjà sa découpe ou ses lots, et une machine libre n'y a plus rien à
+prendre. Le chef le prend comme un autre, et le découpe d'après la section du jalon dans
 CAP.md et d'après [VISION.md](VISION.md) : les lots qu'il faut, dans l'ordre,
 le dernier portant la preuve du jalon. Les lots déjà ouverts dans le jalon
 passent d'abord (la découpe « dépend » d'eux), et la découpe ne se refait

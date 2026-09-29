@@ -471,7 +471,10 @@ def test_un_jalon_deja_lance_ne_se_decoupe_pas(projet, gh, depot, tmp_path):
     _ecrire_cap(projet)
     gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
     _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert not [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
+    assert not [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon J1")]
+    # J1 n'a plus rien à prendre : c'est le jalon suivant qui se découpe, en avance.
+    assert [i["title"] for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")] == [
+        "Découper le jalon J2 — Le monde de 1400"]
 
 
 def test_la_decoupe_d_un_jalon_passe_apres_ses_lots_deja_ouverts(projet, gh, depot, tmp_path):
@@ -501,3 +504,82 @@ def test_sans_reserve_dans_cap_l_etiquette_attend(projet, gh, depot, tmp_path):
     _pilote(projet, gh, depot, Agents(), tmp_path).tour()
     assert gh.issues_[30]["milestone"]["title"] == "J2 — Le geste revient" and "reserve" in _etiquettes(gh, 30)
     assert not _gestes(gh, "creer_jalon")
+
+
+# La fenêtre de deux jalons. Le 29 septembre 2026, J1 n'avait plus que des
+# lots « pc » (#120 en cours, #121 qui l'attend) : le VPS ne faisait rien
+# pendant que le PC finissait, alors que J2 ne demande que `sim/`.
+
+def _j1_occupe_le_pc(gh):
+    """J1 n'a plus qu'un lot « pc », en cours, dont le travail est parti sur le PC."""
+    _en_cours(gh, commentaires=[ENVOI_PC], etiquettes=("lot", "en-cours", "pc"))
+
+
+def _brief_du_lot(numero, titre):
+    return {f"docs/briefs/{numero}-{lots.slug(titre)}.md": BRIEF_BON}
+
+
+def test_le_vps_sans_travail_dans_le_jalon_courant_prend_dans_le_suivant(projet, gh, depot, tmp_path):
+    _j1_occupe_le_pc(gh)
+    gh.ajouter_issue(40, "La table de 1400", ("lot", "pret"), "J2 — Le geste revient")
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(40, "La table de 1400")))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[0][1:] == ("lot/40-la-table-de-1400", "Lot #40 — La table de 1400")
+    pr = gh.prs_[max(gh.prs_)]
+    assert "Jalon : J2 — Le geste revient" in pr["body"]
+    prompt = agents.appels[0][2]
+    assert "pris en avance" in prompt and "J1 — Le pont" in prompt
+
+
+def test_le_jalon_courant_passe_avant_le_suivant(projet, gh, depot, tmp_path):
+    # Contre-épreuve : le VPS a encore un lot dans J1, il le prend, et son
+    # chef ne se croit pas en avance.
+    _j1_occupe_le_pc(gh)
+    gh.ajouter_issue(11, "Le panneau lit l'horloge", ("lot", "idee"))
+    gh.ajouter_issue(40, "La table de 1400", ("lot", "pret"), "J2 — Le geste revient")
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(11, "Le panneau lit l'horloge")))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[0][2] == "Lot #11 — Le panneau lit l'horloge"
+    assert "pris en avance" not in agents.appels[0][2]
+
+
+def test_la_fenetre_s_arrete_au_jalon_suivant(projet, gh, depot, tmp_path):
+    _j1_occupe_le_pc(gh)
+    gh.jalons_.append({"number": 3, "title": "J3 — Le lieu et son maître", "state": "open",
+                       "open_issues": 1, "closed_issues": 0})
+    gh.ajouter_issue(60, "La cellule se peuple de lieux", ("lot", "pret"), "J3 — Le lieu et son maître")
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not _gestes(gh, "creer_pr")
+
+
+def test_le_jalon_suivant_sans_lot_se_decoupe_en_avance(projet, gh, depot, tmp_path):
+    _ecrire_cap(projet)
+    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
+    _j1_occupe_le_pc(gh)
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    (decoupe,) = [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
+    assert decoupe["title"] == "Découper le jalon J2 — Le monde de 1400"
+    assert "en avance" in decoupe["body"] and "J1 — Le pont" in decoupe["body"]
+    assert lots.jalon_a_decouper_par(Lot.de(decoupe)) == 2
+    # Le VPS la prend au tour suivant, et la découpe ne se refait pas.
+    texte = "DECISION: DECOUPE\n- La table de 1400 :: les sources publiques, citées\n"
+    agents = Agents((0, texte))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "pris en avance" in agents.appels[0][2]
+    assert gh.issues_[decoupe["number"]]["state"] == "CLOSED"
+    (table,) = [i for i in gh.issues_.values() if i["title"] == "La table de 1400"]
+    assert table["milestone"]["title"] == "J2 — Le monde de 1400"
+
+
+def test_une_machine_occupee_n_ouvre_pas_la_fenetre(projet, gh, depot, tmp_path):
+    # Le PC et le VPS ont chacun leur lot en cours : rien ne se découpe en
+    # avance, rien ne se prend.
+    _ecrire_cap(projet)
+    _j1_occupe_le_pc(gh)
+    gh.ajouter_issue(12, "Le service compte ses ticks", ("lot", "en-cours"))
+    gh.ajouter_pr(52, "lot/12-le-service-compte-ses-ticks", ci="attente", commentaires=[FAIT_CODEX])
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert not [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
+    assert not _gestes(gh, "creer_pr")
