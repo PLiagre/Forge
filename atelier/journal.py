@@ -39,6 +39,48 @@ GESTES_SESSION = {
     "cursor": "cursor-agent login",
 }
 _PLAFOND = re.compile(r"spend limit|plafond de dépense", re.I)
+# Une raison d'attente se coupe devant chaque agent qu'elle nomme : « chef :
+# claude/… : quota épuisé (…) · cursor/… : session expirée ». La citation de
+# l'erreur peut elle-même contenir « · » : on coupe devant l'agent, pas là.
+_DEVANT_AGENT = re.compile(r"(?=\b(?:claude|codex|cursor)/[\w.-]+ : )")
+_AGENT = re.compile(r"\b(claude|codex|cursor)/[\w.-]+ : ")
+_ORIGINE = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _date(texte: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat((texte or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _encore_vraies(raisons: list[tuple[datetime, str]], reponses: dict[str, datetime]) -> list[str]:
+    """Les agents qu'une raison dit empêchés, et qu'aucune réponse plus récente
+    du même outil, sur la même machine, n'a démentis : le journal du 29
+    septembre 2026 demandait encore de relever le plafond de Claude, qui codait
+    depuis la veille. Un agent écarté (sa famille a écrit le lot) n'est pas
+    empêché."""
+    vraies = []
+    for quand, texte in raisons:
+        for morceau in _DEVANT_AGENT.split(texte):
+            m = _AGENT.match(morceau)
+            if m and "écarté" not in morceau and reponses.get(m.group(1), _ORIGINE) <= quand:
+                vraies.append(morceau)
+    return vraies
+
+
+def _repondre(reponses: dict[str, datetime], agent: str | None, quand: datetime | None) -> None:
+    outil = (agent or "").split("/")[0]
+    if outil and quand is not None and quand > reponses.get(outil, _ORIGINE):
+        reponses[outil] = quand
+
+
+def _reponses_du_pc(commentaires: list[dict], reponses: dict[str, datetime]) -> None:
+    """Les réponses des agents du PC (le codeur_3d), datées par leur commentaire."""
+    for c in commentaires:
+        for m in lots.marques([c]):
+            if m.get("role") == "codeur_3d" and m.get("agent"):
+                _repondre(reponses, m["agent"], _date(c.get("createdAt")) or _date(m.get("quand")))
 
 
 def issue_du_journal(gh: GitHub) -> int | None:
@@ -74,8 +116,7 @@ def _compte_rendu(commentaires: list[dict], lignes_max: int = 25) -> str:
     return ""
 
 
-def _lot_livre(gh: GitHub, p: dict) -> list[str]:
-    commentaires = gh.pr(p["number"]).get("comments") or []
+def _lot_livre(p: dict, commentaires: list[dict]) -> list[str]:
     liste = lots.marques(commentaires)
     passages = sum(1 for m in liste if m.get("role") in lots.ROLES_CODEURS and m.get("etat") in ("fait", "echec"))
     verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("verdict")]
@@ -94,8 +135,9 @@ def _lot_livre(gh: GitHub, p: dict) -> list[str]:
 
 def _vecu(chemin: Path, depuis: datetime) -> tuple[list[str], list[str]]:
     """Ce que le pilote a fait, lot par lot, d'après son journal ; et les
-    raisons de ses attentes (pour « À faire »)."""
+    raisons de ses attentes que rien n'a démenties depuis (pour « À faire »)."""
     par_lot: dict[str, list[dict]] = {}
+    reponses: dict[str, datetime] = {}
     try:
         texte = chemin.read_text(encoding="utf-8")
     except OSError:
@@ -103,11 +145,12 @@ def _vecu(chemin: Path, depuis: datetime) -> tuple[list[str], list[str]]:
     for ligne in texte.splitlines():
         try:
             e = json.loads(ligne)
-            quand = datetime.fromisoformat(e["quand"])
+            e["_quand"] = datetime.fromisoformat(e["quand"])
         except (ValueError, KeyError, TypeError):
             continue
-        if quand >= depuis:
+        if e["_quand"] >= depuis:
             par_lot.setdefault(str(e.get("lot")), []).append(e)
+            _repondre(reponses, e.get("agent"), e["_quand"])
     lignes, raisons = [], []
     ordre = sorted(par_lot, key=lambda n: (not n.isdigit(), int(n) if n.isdigit() else 0, n))
     for lot in ordre:
@@ -120,9 +163,15 @@ def _vecu(chemin: Path, depuis: datetime) -> tuple[list[str], list[str]]:
         soucis = [e for e in evenements
                   if e["action"] in ("attente", "secours", "erreur", "bloqué") or "échec" in e["action"]]
         if soucis:
-            lignes.append(f"  dernière raison : {(soucis[-1].get('detail') or '')[:400]}")
-            raisons += [e.get("detail") or "" for e in soucis]
-    return lignes or ["- rien dans le journal du pilote"], raisons
+            dernier_souci = soucis[-1]
+            ligne = f"  dernière raison ({dernier_souci['_quand']:%d/%m %H:%M} UTC) : {(dernier_souci.get('detail') or '')[:400]}"
+            detail = dernier_souci.get("detail") or ""
+            empeches = _encore_vraies([(_ORIGINE, detail)], {})
+            if empeches and not _encore_vraies([(dernier_souci["_quand"], detail)], reponses):
+                ligne += " — LEVÉE DEPUIS : ces agents ont répondu ensuite"
+            lignes.append(ligne)
+            raisons += [(e["_quand"], e.get("detail") or "") for e in soucis]
+    return lignes or ["- rien dans le journal du pilote"], _encore_vraies(raisons, reponses)
 
 
 def _etat_en_cours(commentaires: list[dict]) -> tuple[str, str | None]:
@@ -136,14 +185,14 @@ def _etat_en_cours(commentaires: list[dict]) -> tuple[str, str | None]:
     return "", None
 
 
-def _attentes_depuis(commentaires: list[dict], depuis: datetime) -> list[str]:
-    """Le texte des attentes écrites sur une PR depuis `depuis`."""
+def _attentes_depuis(commentaires: list[dict], depuis: datetime) -> list[tuple[datetime, str]]:
+    """Les attentes écrites sur une PR depuis `depuis`, avec leur date."""
     textes = []
     for c in commentaires:
         for m in lots.marques([c]):
-            quand = m.get("quand")
-            if m.get("etat") == "attente" and quand and datetime.fromisoformat(quand) >= depuis:
-                textes.append(lots._MARQUE.sub("", c.get("body") or "").strip())
+            quand = _date(m.get("quand"))
+            if m.get("etat") == "attente" and quand and quand >= depuis:
+                textes.append((quand, lots._MARQUE.sub("", c.get("body") or "").strip()))
     return textes
 
 
@@ -173,8 +222,11 @@ def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
     des_lots = [p for p in livres if (p.get("headRefName") or "").startswith(projet.prefixe_branche)]
     machine = [p for p in livres if p not in des_lots]
     lignes.append(f"LOTS LIVRÉS DEPUIS {depuis:%Y-%m-%d %H:%M} UTC ({len(des_lots)}) :")
+    reponses_pc: dict[str, datetime] = {}
     for p in des_lots:
-        lignes += _lot_livre(gh, p)
+        commentaires = gh.pr(p["number"]).get("comments") or []
+        _reponses_du_pc(commentaires, reponses_pc)
+        lignes += _lot_livre(p, commentaires)
     lignes.append(f"\nLA MACHINE, CHANGÉE EN MODE DIRECT ({len(machine)}) :")
     lignes += [f"- PR #{p['number']} « {p['title']} »" for p in machine]
     vecu, raisons_vps = _vecu(journal_local or JOURNAL_LOCAL, depuis)
@@ -207,6 +259,8 @@ def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
             resume = gh.pr_de_branche(l.branche(projet.prefixe_branche))
             lues[l.numero] = (gh.pr(resume["number"]).get("comments") or []) if resume else []
         raisons_pc += _attentes_depuis(lues[l.numero], depuis)
+    for commentaires in lues.values():
+        _reponses_du_pc(commentaires, reponses_pc)
     jalons = lots.jalons(gh.jalons())
     courant = lots.jalon_courant(jalons)
     if courant is None:
@@ -227,7 +281,7 @@ def faits(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24,
                 f"#{l.numero} « {l.titre} » (attend {', '.join(f'#{n}' for n in sorted(l.dependances & bloq))})"
                 for l in attendent))
     lignes.append("\nÀ FAIRE PAR LE PROPRIÉTAIRE :")
-    lignes += _a_faire(raisons_vps, raisons_pc, veille or VEILLE, bloques)
+    lignes += _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques)
     return "\n".join(lignes)
 
 

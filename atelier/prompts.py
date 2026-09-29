@@ -155,10 +155,10 @@ Voici les faits, relevés par le pilote sur GitHub et dans son journal. Ce sont 
 ### Ce qui a changé dans le jeu
 Pour chaque lot livré : une ou deux phrases sur ce que le joueur ou le monde y gagne, tirées de « Ce que dit le codeur » et de la relecture (pas le titre recopié), puis ses captures, chacune précédée d'une légende d'une ligne. Aucun lot livré : dis-le en une phrase.
 ### Ce que la chaîne a vécu
-Ce qui a avancé, attendu ou échoué, et pourquoi (quota, session, PC éteint ou en veille, découpe, reprise), lot par lot ; puis les changements de la machine (mode direct) en une ligne.
+Ce qui a avancé, attendu ou échoué, et pourquoi (quota, session, PC éteint ou en veille, découpe, reprise), lot par lot ; puis les changements de la machine (mode direct) en une ligne. Une raison marquée « LEVÉE DEPUIS » est finie : dis-la au passé (« Codex a manqué de quota, puis a relu »), jamais comme un état présent.
 ### Bloqué, et pourquoi
 ### À faire par toi
-Les gestes que demandent les faits (« À FAIRE PAR LE PROPRIÉTAIRE »), un par ligne, avec la commande exacte ; « Rien. » s'il n'y en a pas.
+Les gestes que demandent les faits (« À FAIRE PAR LE PROPRIÉTAIRE »), et eux seuls, un par ligne, avec la commande exacte ; « Rien. » s'il n'y en a pas.
 ### Prévu aujourd'hui
 ### Jalon en cours
 Garde tels quels les liens et les images (lignes `![…](…)`) des faits. N'écris rien d'autre que le journal."""
