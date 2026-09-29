@@ -81,9 +81,17 @@ class Pilote:
             pass
         self.lignes.append(f"#{lot} {action}" + (f" [{agent}]" if agent else "") + (f" — {detail}" if detail else ""))
 
-    def _invoquer(self, role: str, prompt: str, chemin: Path, *, exclure=frozenset()) -> agents_mod.Resultat:
-        return agents_mod.invoquer(self.projet.poste(role), prompt, chemin, self.projet.delai(role),
-                                   exclure=exclure, executeur=self.executeur_agents)
+    def _invoquer(self, role: str, prompt: str, chemin: Path, *, lot: int | str,
+                  exclure=frozenset()) -> agents_mod.Resultat:
+        res = agents_mod.invoquer(self.projet.poste(role), prompt, chemin, self.projet.delai(role),
+                                  exclure=exclure, executeur=self.executeur_agents)
+        # Un secours a répondu : pourquoi les précédents ne l'ont pas fait
+        # entre au journal, sinon un quota ou une session perdue ne se voit
+        # nulle part (le chef de #184, le 28 septembre 2026).
+        refus = [e for e in res.essais[:-1] if "écarté" not in e]
+        if res.agent is not None and refus:
+            self.noter(lot, "secours", f"{role} : " + " · ".join(refus), str(res.agent))
+        return res
 
     # --------------------------------------------------------------- tour
     def tour(self) -> list[str]:
@@ -94,9 +102,11 @@ class Pilote:
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._normaliser(ouvertes, jalons)
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
-        if self._reprendre(ouvertes):
+        fermees = self.gh.issues("closed")
+        bloq = lots.bloquantes(ouvertes, [Lot.de(i) for i in fermees])
+        if self._attendre_dependances(ouvertes, bloq) | self._reprendre(ouvertes, bloq):
             ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
-        self._livrer_les_fermes()
+        self._livrer_les_fermes(fermees)
 
         occupe = {"vps": False, "pc": False}
         agent_parti = False
@@ -116,7 +126,7 @@ class Pilote:
         if not agent_parti and courant is not None:
             libres = {m: not o for m, o in occupe.items()}
             candidats = [l for l in ouvertes if "lot" in l.etiquettes]
-            suivant = lots.a_prendre(candidats, courant.numero, libres, frozenset(l.numero for l in ouvertes))
+            suivant = lots.a_prendre(candidats, courant.numero, libres, bloq)
             if suivant is not None:
                 try:
                     self._chef(suivant, courant.titre)
@@ -142,14 +152,35 @@ class Pilote:
                 self.gh.etiqueter(lot.numero, [lots.ETIQUETTE_PC])
 
     # ---------------------------------------------------------- reprendre
-    def _reprendre(self, ouvertes: list[Lot]) -> set[int]:
+    def _attendre_dependances(self, ouvertes: list[Lot], bloq: frozenset[int]) -> set[int]:
+        """Un lot en cours dont une dépendance est encore ouverte n'avance
+        pas et ne tient pas sa machine : il redevient « pret », et la reprise
+        le relance quand elles sont livrées, compteurs remis à zéro. Mesuré le
+        28 septembre 2026 : #184 (le panneau), pris avant #185 et #186 (le
+        client qu'il lit), gardait le PC et brûlait ses essais."""
+        rendus = set()
+        for lot in ouvertes:
+            attend = sorted(lot.dependances & bloq)
+            if lot.etat != "en-cours" or not attend:
+                continue
+            liste = ", ".join(f"#{n}" for n in attend)
+            self.gh.etiqueter(lot.numero, ["pret"], ["en-cours"])
+            self.gh.commenter_issue(lot.numero, f"🤖 **pilote** : lot remis « pret » — il dépend de {liste}, pas encore "
+                                                "livré. Il sera repris où il en est quand ce sera fait, essais remis "
+                                                f"à zéro ; d'ici là, il rend sa machine.\n\n"
+                                                f"{marque(role='pilote', etat='attend', raison=f'dépend de {liste}')}")
+            self.noter(lot.numero, "remis pret", f"dépend de {liste}")
+            rendus.add(lot.numero)
+        return rendus
+
+    def _reprendre(self, ouvertes: list[Lot], bloq: frozenset[int] = frozenset()) -> set[int]:
         """Un lot remis « pret » alors que sa PR est ouverte reprend où il en
-        est. Relancer le chef coûterait un quota, et buterait sur la branche et
-        la PR qui existent déjà. La marque « reprise » sur la PR remet les
-        compteurs à zéro (`lots.depuis_reprise`) ; elle s'écrit avant
-        l'étiquette : sans elle, un lot « en-cours » recompterait ses échecs et
-        serait rebloqué."""
-        prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes]
+        est, dès que ses dépendances sont livrées. Relancer le chef coûterait
+        un quota, et buterait sur la branche et la PR qui existent déjà. La
+        marque « reprise » sur la PR remet les compteurs à zéro
+        (`lots.depuis_reprise`) ; elle s'écrit avant l'étiquette : sans elle,
+        un lot « en-cours » recompterait ses échecs et serait rebloqué."""
+        prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes and not l.dependances & bloq]
         if not prets:
             return set()
         par_branche = {p["headRefName"]: p for p in self.gh.prs_ouvertes()}
@@ -159,7 +190,7 @@ class Pilote:
             if pr is None:
                 continue
             quand = self.maintenant().isoformat(timespec="seconds")
-            self.gh.commenter_pr(pr["number"], "🤖 **pilote** : lot repris (remis « pret » par le propriétaire). "
+            self.gh.commenter_pr(pr["number"], "🤖 **pilote** : lot repris (remis « pret »). "
                                                "Les essais du codeur, du chef et du relecteur repartent de zéro ; "
                                                "le travail déjà poussé reste.\n\n"
                                                f"{marque(role='pilote', etat='reprise', quand=quand)}")
@@ -240,7 +271,7 @@ class Pilote:
         prompt = prompts.chef(self.projet, numero=lot.numero, titre=lot.titre, corps=lot.corps,
                               commentaires=commentaires, jalon=lot.jalon or 0, jalon_titre=titre_jalon,
                               machine=lot.machine, chemin_brief=chemin_brief)
-        res = self._invoquer("chef", prompt, chemin)
+        res = self._invoquer("chef", prompt, chemin, lot=lot.numero)
         if res.attente:
             self.noter(lot.numero, "attente", "chef : " + " · ".join(res.essais))
             return True
@@ -300,7 +331,10 @@ class Pilote:
         crees = []
         for titre, quoi in sous:
             etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if lot.machine == "pc" else [])
-            n = self.gh.creer_issue(titre.strip(), f"{quoi.strip()}\n\nDécoupé du lot #{lot.numero} par le chef.",
+            # Les sous-lots se suivent dans l'ordre du chef : un morceau
+            # bloqué retient les suivants, qui s'appuient sur lui.
+            suite = f"\n\nDépend de : #{crees[-1]}" if crees else ""
+            n = self.gh.creer_issue(titre.strip(), f"{quoi.strip()}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
                                     etiquettes, titre_jalon or None)
             crees.append(n)
         liste = ", ".join(f"#{n}" for n in crees)
@@ -331,7 +365,7 @@ class Pilote:
                 correction = prompts.correction_relecture(self._derniere_revue(pr))
             prompt = prompts.codeur(self.projet, numero=lot.numero, titre=lot.titre,
                                     chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction)
-        res = self._invoquer(poste or role, prompt, chemin)
+        res = self._invoquer(poste or role, prompt, chemin, lot=lot.numero)
         passage = action.essai + 1
         essais = " · ".join(res.essais)
         if res.attente:
@@ -422,7 +456,7 @@ class Pilote:
         prompt = prompts.relecteur(self.projet, numero=lot.numero, titre=lot.titre,
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
                                    url=pr.get("url", ""), sha=tete, rapports=rapports)
-        res = self._invoquer("relecteur", prompt, chemin, exclure=lots.auteurs(liste))
+        res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
                                       f"({' · '.join(res.essais)})", numero_pr)
@@ -456,7 +490,7 @@ class Pilote:
             self.noter(lot.numero, "base fusionnée", "sans conflit")
             return False
         prompt = prompts.mecanicien_conflit(self.projet, numero=lot.numero, branche=branche, fichiers=conflits)
-        res = self._invoquer("mecanicien", prompt, chemin)
+        res = self._invoquer("mecanicien", prompt, chemin, lot=lot.numero)
         if res.attente:
             self.depot.git_code("merge", "--abort", cwd=chemin)
             self.noter(lot.numero, "attente", "mécanicien : " + " · ".join(res.essais))
@@ -499,10 +533,10 @@ class Pilote:
         self.depot.retirer(numero)
         self.noter(numero, "livré", f"PR #{numero_pr}" if numero_pr else "")
 
-    def _livrer_les_fermes(self) -> None:
+    def _livrer_les_fermes(self, fermees: list[dict] | None = None) -> None:
         """Une PR fusionnée ferme son issue (« Closes #N ») avant que le
         pilote ne la voie : l'issue fermée encore « en-cours » est livrée."""
-        for issue in self.gh.issues("closed"):
+        for issue in self.gh.issues("closed") if fermees is None else fermees:
             lot = Lot.de(issue)
             if lot.etat == "en-cours":
                 resume = self.gh.pr_de_branche(lot.branche(self.projet.prefixe_branche))
@@ -543,7 +577,7 @@ class Pilote:
         except Exception:  # noqa: BLE001 — un journal illisible ne retient pas la réparation
             erreur = ""
         prompt = prompts.mecanicien_master(self.projet, url=run.get("url", ""), erreur=erreur)
-        res = self._invoquer("mecanicien", prompt, chemin)
+        res = self._invoquer("mecanicien", prompt, chemin, lot="master")
         if res.attente:
             self.noter("master", "attente", "mécanicien : " + " · ".join(res.essais))
             return True

@@ -25,6 +25,8 @@ ETATS =("idee", "pret", "en-cours", "bloque", "livre")
 ETIQUETTE_PC = "pc"
 _MARQUE = re.compile(r"<!-- atelier (\{.*?\}) -->", re.S)
 _DEPEND = re.compile(r"^[ \t]*(?:#+[ \t]*)?D[ée]pend de[ \t]*:?[ \t]*(.*)$", re.I | re.M)
+# La phrase que le pilote écrit dans chaque sous-lot d'une découpe.
+_DECOUPE = re.compile(r"D[ée]coup[ée] du lot #(\d+)", re.I)
 _JALON = re.compile(r"^J(\d+)\b")
 ROLES_CODEURS = ("codeur", "codeur_3d", "mecanicien_master")
 
@@ -139,6 +141,29 @@ class Lot:
                     bloc.append(ligne)
             trouvees |= {int(n) for n in re.findall(r"#(\d+)", " ".join(bloc))}
         return frozenset(trouvees)
+
+    @property
+    def decoupe_de(self) -> int | None:
+        """Le lot dont celui-ci est un morceau, quand le chef l'a découpé."""
+        m = _DECOUPE.search(self.corps)
+        return int(m.group(1)) if m else None
+
+
+def bloquantes(ouvertes: list[Lot], fermees: list[Lot] = ()) -> frozenset[int]:
+    """Les issues qu'un lot qui en dépend attend encore : chaque issue
+    ouverte, et un lot découpé tant qu'un de ses descendants est ouvert. Sans
+    cela, « Dépend de : #119 » se libérait dès la découpe de #119, avant ses
+    morceaux (mesuré le 28 septembre 2026 sur #120). Les découpes s'emboîtent
+    (#119 → #183 → #185) : les lots fermés disent de qui ils descendent."""
+    parents = {l.numero: l.decoupe_de for l in (*ouvertes, *fermees) if l.decoupe_de is not None}
+    resultat = {l.numero for l in ouvertes}
+    for lot in ouvertes:
+        n, vus = lot.decoupe_de, set()
+        while n is not None and n not in vus:
+            vus.add(n)
+            resultat.add(n)
+            n = parents.get(n)
+    return frozenset(resultat)
 
 
 def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool],

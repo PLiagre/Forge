@@ -58,6 +58,18 @@ Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
 | `livre` | fusionné | le pilote |
 | `pc` | demande Unity ou Blender : le travail part sur le PC | le formulaire |
 
+### Découper un lot trop gros
+
+Le chef découpe en sous-lots (`pret`, même jalon, même machine), écrits
+« Découpé du lot #N », et ferme le lot d'origine. Les sous-lots se suivent
+dans l'ordre du chef : chacun dépend du précédent. Un lot qui « dépend de
+#N » attend tous les sous-lots de #N (et les leurs, si un sous-lot est
+découpé à son tour), pas seulement sa fermeture.
+
+Un lot **en cours** dont une dépendance est encore ouverte redevient `pret`
+et rend sa machine ; la reprise le relance quand elle est livrée, essais
+remis à zéro.
+
 ### Reprendre un lot bloqué
 
 Corriger la cause (en mode direct si elle est dans la chaîne), puis retirer
@@ -126,9 +138,17 @@ Un lot qui touche `jeu/` est photographié par `python3 -m forge` (la carte du
 monde) ; un lot `pc`, par Unity. Les images vivent sur la branche orpheline
 `journal` et s'affichent par leur adresse `raw.githubusercontent.com`, sur
 téléphone comme ailleurs. Chaque matin à 07:15, le journal est commenté dans
-l'issue épinglée « Journal de Forge » : livré hier (avec captures), bloqué et
-pourquoi, prévu aujourd'hui, jalon en cours et son pourcentage (lots fermés /
-lots du jalon).
+l'issue épinglée « Journal de Forge ». Le pilote relève les faits
+(`atelier/journal.py`) : pour chaque lot livré, ce qu'en dit le compte rendu
+du codeur, son nombre de passages, le verdict du relecteur et ses captures ;
+à part, les changements de la machine (mode direct) ; ce que la chaîne a
+vécu, lot par lot, d'après le journal du pilote (attentes et leur raison,
+secours, découpes, reprises) ; les lots bloqués et en cours ; le jalon et son
+pourcentage (lots fermés / lots du jalon) ; et **ce que le propriétaire doit
+faire** (une session à rouvrir, sur le VPS ou le PC, avec sa commande ; le
+plafond Claude ; une ligne de veille en échec ; un lot bloqué). Le
+chroniqueur en fait un récit sans rien inventer ; s'il se tait, les faits
+bruts sont publiés.
 
 ## La cadence (VPS, heure de Paris)
 

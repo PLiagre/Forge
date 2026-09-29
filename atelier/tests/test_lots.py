@@ -140,6 +140,18 @@ def test_les_echecs_du_chef_comptent_depuis_le_dernier_blocage():
     assert lots.echecs_du_chef([echec, echec, bloque, echec]) == 1
 
 
+def test_les_decoupes_imbriquees_retiennent_tous_leurs_ancetres():
+    # #119 découpé en #183 et #184, puis #183 en #185 et #186 : tant que #185
+    # est ouvert, ce qui dépend de #119 ou de #183 attend, même #184 fermé.
+    ouvert = Lot.de(dict(_issue(185), body="Le lecteur.\n\nDécoupé du lot #183 par le chef."))
+    ferme = Lot.de(dict(_issue(183), body="Le client.\n\nDécoupé du lot #119 par le chef."))
+    assert lots.bloquantes([ouvert], [ferme]) == frozenset({185, 183, 119})
+    assert lots.bloquantes([ouvert]) == frozenset({185, 183})
+    # Une découpe qui se citerait elle-même ne boucle pas.
+    boucle = Lot.de(dict(_issue(7), body="Découpé du lot #7 par le chef."))
+    assert lots.bloquantes([boucle]) == frozenset({7})
+
+
 def test_les_auteurs_d_un_lot():
     # Les familles de modèles qui ont écrit du code : codex/sol est d'OpenAI.
     liste = [FAIT, {"role": "codeur_3d", "etat": "fait", "agent": "claude/opus"},
