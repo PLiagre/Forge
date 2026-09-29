@@ -244,8 +244,8 @@ def test_un_quota_claude_ne_retient_pas_le_chef(projet, gh, depot, tmp_path):
     agents = Agents((1, "Error: You've hit your usage limit"),
                     (0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
     lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["claude", "cursor-agent"]
-    assert any("brief écrit" in l and "cursor/opus-high" in l for l in lignes)
+    assert agents.outils() == ["claude", "codex"]
+    assert any("brief écrit" in l and "codex/sol" in l for l in lignes)
 
 
 def test_un_secours_qui_repond_laisse_au_journal_la_raison_du_refus(projet, gh, depot, tmp_path):
@@ -256,7 +256,7 @@ def test_un_secours_qui_repond_laisse_au_journal_la_raison_du_refus(projet, gh, 
     entrees = [json.loads(l) for l in (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()]
     secours = [e for e in entrees if e["action"] == "secours"]
     assert secours and "monthly spend limit" in secours[0]["detail"] and secours[0]["lot"] == 10
-    assert secours[0]["agent"] == "cursor/opus-high"
+    assert secours[0]["agent"] == "codex/sol"
 
 
 def test_corriger_donne_la_revue_au_codeur(projet, gh, depot, tmp_path):

@@ -25,38 +25,44 @@ corrections_max = 2
 dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
 
-# Une ligne par rôle : outil/modèle, puis des secours séparés par « | ».
-# Outils : claude (Claude Code), codex (Codex CLI), cursor (cursor-agent).
-# Un secours ne sert que si le précédent a épuisé son quota ou perdu sa
-# session ; si aucun ne répond, le lot attend, il n'échoue pas.
-# Changer de modèle, c'est changer une ligne.
-[agents]
-# Claude Opus juge, les autres écrivent : le plafond de Claude Code, atteint
-# le 29 septembre 2026, se garde pour la relecture.
+# Une ligne par rôle : harnais/modèle@effort, puis des secours séparés par
+# « | ». Harnais : claude (Claude Code), codex (Codex CLI), cursor
+# (cursor-agent). L'effort est donné à chaque agent : Claude Code le reçoit
+# par `--effort` (low, medium, high, xhigh, max), Codex par
+# `model_reasoning_effort` (minimal, low, medium, high, xhigh) ; Cursor n'a
+# pas d'option, l'effort est dans le nom du modèle (`grok-4.7-high` s'écrit
+# `@high`), et `@defaut` dit qu'un modèle Cursor n'en propose pas.
 #
-# Le chef reste Claude Opus, porté d'abord par Cursor (un autre abonnement) ;
-# Claude Code le reprend quand Cursor ne répond pas.
-chef        = "cursor/claude-opus-5-5-high | claude/claude-opus-5-5"
-codeur      = "codex/gpt-5.6-sol | cursor/grok-4.7-high"
+# Un modèle Claude ne passe que par Claude Code, jamais par Cursor : le
+# chargement le refuse (choix du propriétaire, 29 septembre 2026).
+#
+# Un secours ne sert que si le précédent a épuisé son quota, perdu sa
+# session, ne démarre pas, refuse l'appel ou a déjà tous ses agents en
+# route ; si aucun ne répond, le lot attend, il n'échoue pas.
+# Changer de modèle ou d'effort, c'est changer une ligne.
+[agents]
+# Claude Opus juge, les autres écrivent. Le chef écrit le brief, dont tout
+# dépend : Claude Opus, codex en secours.
+chef        = "claude/claude-opus-5-5@high | codex/gpt-5.6-sol@high"
+codeur      = "codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
 # Les lots « machine : pc » (Unity, Blender), sur le PC Windows : cursor grok,
 # Claude en secours. Pas codex : son bac à sable Windows ne démarre pas
 # (« timed out connecting runner pipe-in », lot #120, 29 septembre 2026) ;
 # il répond, mais n'écrit rien. `gh workflow run sonde-pc.yml` prouve que
 # chaque agent du PC écrit vraiment.
-codeur_3d   = "cursor/grok-4.7-high | claude/claude-opus-5-5"
+codeur_3d   = "cursor/grok-4.7-high@high | claude/claude-opus-5-5@high"
 # Le modèle qui écrit ne relit jamais : la FAMILLE de modèle qui a écrit le
-# lot est écartée, quel que soit l'outil (cursor/claude-opus est de la
-# famille claude), et le suivant de la ligne relit. Quelle que soit la
+# lot est écartée, et le suivant de la ligne relit. Quelle que soit la
 # famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
 # pas un lot sans relecteur (#186 a attendu une cinquantaine de tours le
 # 28 septembre, Claude écarté et codex à court de quota).
-relecteur   = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high | codex/gpt-5.6-sol | cursor/grok-4.7-high"
+relecteur   = "claude/claude-opus-5-5@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
 # CI rouge sur master, conflits d'une branche de lot, dépendances.
-mecanicien  = "cursor/composer-2.5"
+mecanicien  = "cursor/composer-2.5@defaut"
 # Journal du matin, en lecture seule (cursor --mode ask).
-chroniqueur = "cursor/grok-4.7-high"
+chroniqueur = "cursor/grok-4.7-high@high"
 # Comparaison hebdomadaire avec CAP.md, en lecture seule.
-boussole    = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high"
+boussole    = "claude/claude-opus-5-5@high | codex/gpt-5.6-sol@high"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a

@@ -315,3 +315,11 @@ def test_chaque_journal_porte_la_photo_du_monde(projet, gh):
     agents = Agents((1, "429 Too Many Requests"))
     corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=agents, photographe=lambda *a: [url])
     assert f"![le monde]({url})" in corps
+
+
+def test_le_journal_dit_quel_agent_refuse_l_appel(tmp_path):
+    raisons = ["codeur : codex/gpt-5.6-sol@high : refuse l'appel (option, effort ou réglage) "
+               "(« error: unknown option '--effort' »)"]
+    gestes = journal._a_faire(raisons, [], tmp_path / "veille.txt", [])
+    assert any("VPS : codex/gpt-5.6-sol@high refuse l'appel" in g and "atelier.toml" in g for g in gestes)
+    assert journal._a_faire([], [], tmp_path / "veille.txt", []) == ["- rien"]

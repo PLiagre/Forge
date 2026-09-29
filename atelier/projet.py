@@ -1,7 +1,8 @@
 """Branchement du dépôt sur l'atelier : `atelier.toml`. L'atelier ne devine rien.
 
 Le fichier dit le projet (dépôt, base, tests, ce qu'un lot ne touche
-jamais), les rôles (une ligne par rôle : outil/modèle, puis les secours), les
+jamais), les rôles (une ligne par rôle : harnais/modèle@effort, puis les
+secours), les
 délais, et le parallélisme : combien de lots chaque machine tient en même
 temps (`[machines]`), combien d'agents de chaque outil tournent ensemble
 (`[outils]`). Un champ obligatoire qui manque se refuse, il ne s'invente
@@ -46,6 +47,21 @@ def famille_du_modele(modele: str) -> str:
             return nom
     return re.split(r"[-_.\s]", modele.strip().lower(), maxsplit=1)[0]
 
+# L'effort (la profondeur de raisonnement) que chaque harnais sait recevoir,
+# et comment : Claude Code par `--effort` (`claude --help`, 2.1.284) ; Codex
+# par `-c model_reasoning_effort` ; Cursor n'a pas d'option, l'effort est dans
+# le nom du modèle (`grok-4.7-high`), et « defaut » dit qu'un modèle Cursor
+# n'en propose pas (composer). Un effort hors de cette liste se refuse : le
+# harnais le refuserait à chaque appel.
+EFFORTS = {
+    "claude": ("low", "medium", "high", "xhigh", "max"),
+    "codex": ("minimal", "low", "medium", "high", "xhigh"),
+    "cursor": ("low", "medium", "high", "xhigh", "defaut"),
+}
+_EFFORT_DANS_LE_NOM = re.compile(r"-(low|medium|high|xhigh)$")
+# Le nom lisible de chaque harnais, pour la table des rôles.
+HARNAIS = {"claude": "Claude Code", "codex": "Codex CLI", "cursor": "Cursor (cursor-agent)"}
+
 # Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents].
 ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "chroniqueur", "boussole")
 
@@ -58,13 +74,25 @@ MACHINES = ("vps", "pc")
 
 @dataclass(frozen=True)
 class Agent:
-    """Un outil et un modèle : `codex/gpt-5.6-sol`."""
+    """Un harnais (l'outil qui porte le modèle), un modèle, et l'effort qu'on
+    lui donne : `codex/gpt-5.6-sol@high`. Sans effort, le harnais garde le
+    sien ; le dépôt en donne un à chaque agent (tests)."""
 
     outil: str
     modele: str
+    effort: str | None = None
 
     def __str__(self) -> str:
-        return f"{self.outil}/{self.modele}"
+        return f"{self.outil}/{self.modele}" + (f"@{self.effort}" if self.effort else "")
+
+    @property
+    def effort_lisible(self) -> str:
+        if self.effort is None:
+            return "non donné (celui du harnais)"
+        if self.outil == "cursor":
+            return ("aucun (Cursor n'en propose pas pour ce modèle)" if self.effort == "defaut"
+                    else f"{self.effort} (dans le nom du modèle)")
+        return self.effort
 
     @property
     def binaire(self) -> str:
@@ -138,22 +166,43 @@ class Projet:
 
 
 def lire_agent(texte: str) -> Agent:
-    """`outil/modèle`, sans espace superflu. Un outil inconnu se refuse."""
+    """`harnais/modèle@effort` (l'effort est facultatif ici), sans espace
+    superflu. Un harnais inconnu, ou un effort qu'il ne sait pas recevoir,
+    se refuse."""
     morceau = texte.strip()
-    outil, barre, modele = morceau.partition("/")
-    if not barre or not outil or not modele:
-        raise ProjetIncomplet(f"agent illisible : {texte!r} (attendu : outil/modèle)")
+    outil, barre, reste = morceau.partition("/")
+    modele, arobase, effort = reste.partition("@")
+    if not barre or not outil or not modele or (arobase and not effort):
+        raise ProjetIncomplet(f"agent illisible : {texte!r} (attendu : harnais/modèle@effort)")
     if outil not in OUTILS:
         connus = ", ".join(sorted(OUTILS))
         raise ProjetIncomplet(f"outil inconnu : {outil!r} (connus : {connus})")
-    return Agent(outil=outil, modele=modele)
+    if effort:
+        if effort not in EFFORTS[outil]:
+            raise ProjetIncomplet(f"{morceau} : {HARNAIS[outil]} ne connaît pas l'effort {effort!r} "
+                                  f"(connus : {', '.join(EFFORTS[outil])})")
+        if outil == "cursor":
+            dans_le_nom = _EFFORT_DANS_LE_NOM.search(modele)
+            voulu = None if effort == "defaut" else effort
+            if (dans_le_nom.group(1) if dans_le_nom else None) != voulu:
+                raise ProjetIncomplet(
+                    f"{morceau} : Cursor n'a pas d'option d'effort, il est dans le nom du modèle "
+                    + (f"(« {modele} » n'en porte pas : « @defaut »)" if not dans_le_nom and voulu is None
+                       else f"(« {modele} » dit « {dans_le_nom.group(1) if dans_le_nom else 'rien'} »)"))
+    return Agent(outil=outil, modele=modele, effort=effort or None)
 
 
 def lire_poste(role: str, ligne: str) -> Poste:
-    """`outil/modèle | secours | …` : l'ordre est celui des essais."""
+    """`harnais/modèle@effort | secours | …` : l'ordre est celui des essais.
+    Un modèle Claude ne passe que par Claude Code, jamais par un autre
+    harnais : c'est le choix du propriétaire (29 septembre 2026)."""
     if not isinstance(ligne, str) or not ligne.strip():
         raise ProjetIncomplet(f"[agents].{role} est vide")
     agents = tuple(lire_agent(morceau) for morceau in ligne.split("|"))
+    for agent in agents:
+        if agent.outil != "claude" and famille_du_modele(agent.modele) == "claude":
+            raise ProjetIncomplet(f"[agents].{role} : {agent} — un modèle Claude ne passe que par Claude Code "
+                                  f"(harnais « claude »), jamais par {HARNAIS[agent.outil]}")
     return Poste(role=role, agents=agents)
 
 
@@ -211,14 +260,16 @@ def _entiers_positifs(section: str, bloc: dict, connus: tuple[str, ...]) -> dict
 
 
 def table_des_roles(projet: Projet) -> str:
-    """Ce que `python3 -m atelier agents` imprime : une ligne par rôle, puis
-    le parallélisme."""
-    lignes = [f"{'rôle':12} {'agent':40} secours"]
+    """Ce que `python3 -m atelier agents` imprime : pour chaque rôle, chaque
+    agent dans l'ordre des essais, avec son harnais, son modèle et son effort ;
+    puis le parallélisme."""
+    lignes = [f"{'rôle':28} {'rang':8} {'harnais':22} {'modèle':22} effort"]
     for role in ROLES:
         poste = projet.postes[role]
-        secours = ", ".join(str(a) for a in poste.secours) or "—"
-        lecture = " (lecture seule)" if poste.lecture_seule else ""
-        lignes.append(f"{role:12} {str(poste.principal) + lecture:40} {secours}")
+        nom = role + (" (lecture seule)" if poste.lecture_seule else "")
+        for i, agent in enumerate(poste.agents):
+            lignes.append(f"{nom if i == 0 else '':28} {'1' if i == 0 else 'secours':8} "
+                          f"{HARNAIS[agent.outil]:22} {agent.modele:22} {agent.effort_lisible}")
     lignes.append("")
     lignes.append("lots en même temps : " + ", ".join(f"{m} {projet.capacite(m)}" for m in MACHINES))
     lignes.append("agents en même temps : " + (", ".join(f"{o} {n}" for o, n in sorted(projet.plafonds.items()))

@@ -36,18 +36,20 @@ _IMAGE = re.compile(r"!\[[^\]]*\]\((https://raw\.githubusercontent\.com/[^)]+)\)
 JOURNAL_LOCAL = Path.home() / ".atelier" / "journal.jsonl"
 VEILLE = Path.home() / ".atelier" / "veille.txt"
 # Une session à rouvrir, et le geste qui la rouvre.
-_SESSION = re.compile(r"\b(claude|codex|cursor)/[\w.-]+ : session expirée ou absente")
+_SESSION = re.compile(r"\b(claude|codex|cursor)/[\w.@-]+ : session expirée ou absente")
 GESTES_SESSION = {
     "claude": "claude setup-token, puis ranger le jeton dans ~/.atelier/claude.token (mode 600)",
     "codex": "codex login",
     "cursor": "cursor-agent login",
 }
 _PLAFOND = re.compile(r"spend limit|plafond de dépense", re.I)
+# Un harnais qui refuse l'appel tel que la chaîne le construit (agents._APPEL).
+_APPEL_REFUSE = re.compile(r"\b((?:claude|codex|cursor)/[\w.@-]+) : refuse l'appel")
 # Une raison d'attente se coupe devant chaque agent qu'elle nomme : « chef :
 # claude/… : quota épuisé (…) · cursor/… : session expirée ». La citation de
 # l'erreur peut elle-même contenir « · » : on coupe devant l'agent, pas là.
-_DEVANT_AGENT = re.compile(r"(?=\b(?:claude|codex|cursor)/[\w.-]+ : )")
-_AGENT = re.compile(r"\b(claude|codex|cursor)/[\w.-]+ : ")
+_DEVANT_AGENT = re.compile(r"(?=\b(?:claude|codex|cursor)/[\w.@-]+ : )")
+_AGENT = re.compile(r"\b(claude|codex|cursor)/[\w.@-]+ : ")
 _ORIGINE = datetime.min.replace(tzinfo=timezone.utc)
 
 
@@ -271,6 +273,11 @@ def _a_faire(raisons_vps: list[str], raisons_pc: list[str], veille: Path, bloque
     for machine, raisons in (("VPS", raisons_vps), ("PC", raisons_pc)):
         for outil in sorted({m.group(1) for r in raisons for m in _SESSION.finditer(r)}):
             gestes.append(f"- {machine} : la session {outil} est expirée ou absente → {GESTES_SESSION[outil]}")
+    for machine, raisons in (("VPS", raisons_vps), ("PC", raisons_pc)):
+        for agent in sorted({m.group(1) for r in raisons for m in _APPEL_REFUSE.finditer(r)}):
+            gestes.append(f"- {machine} : {agent} refuse l'appel tel que la chaîne le construit (option, effort "
+                          "ou réglage) → corriger sa ligne dans atelier.toml, ou mettre le harnais à jour ; "
+                          "`python3 -m atelier sonde` le prouve")
     if any(_PLAFOND.search(r) for r in raisons_vps + raisons_pc):
         gestes.append("- Claude a atteint son plafond de dépense mensuel : le relever sur claude.ai/settings/usage, "
                       "ou attendre que la limite se rouvre (la chaîne attend, elle ne perd rien)")
