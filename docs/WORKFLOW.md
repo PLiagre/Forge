@@ -13,39 +13,70 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (claude opus, par cursor · secours claude code) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6-astra, puis gpt-6-sol, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
-                    CODEUR (codex sol · secours cursor grok)   — lot « pc » : cursor grok sur le PC (secours claude)
+                    CODEUR (Codex, gpt-6-sol, high · secours Cursor, grok-high)   — lot « pc » : Claude Code, opus, high sur le PC (secours Cursor, grok-high)
                           │ le pilote commit, pousse, capture
                           ▼
-                    CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus)
+                    CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
                           │ vert
                           ▼
-                    RELECTEUR (claude opus, puis par cursor ; codex, puis grok, si un Claude a écrit)
+                    RELECTEUR (Claude Code, opus, high ; puis Codex astra, Codex sol, Cursor grok-high : jamais la famille qui a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
-                     └─ CORRIGER ──► CODEUR corrige (2 fois au plus) ──► puis « bloque »
+                     └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
 ```
 
-Le **mécanicien** (cursor composer) répare master quand sa CI est rouge et
-résout les conflits d'une branche de lot. Le **chroniqueur** (cursor grok, en
-lecture seule) écrit le journal chaque matin ; la **boussole** (claude opus,
-secours cursor claude-opus) compare chaque lundi les lots livrés à CAP.md.
+Le **renfort** (Codex, gpt-6-astra, high ; puis les agents du codeur) fait
+le dernier passage du codeur d'un lot du VPS avant blocage : la 2e correction,
+avec `corrections_max = 2`. Deux passages n'ont pas suffi, un modèle plus fort
+reprend, avec la revue ou l'erreur de CI sous les yeux. Il ne sert qu'à ces
+lots-là, donc peu du quota Plus d'Astra ; épuisé, Sol reprend la main. Sa
+marque reste celle du codeur : le passage compte, et la famille GPT ne relit
+pas le lot. Les lots du PC n'ont pas de renfort (Codex n'y écrit pas, Claude
+Opus y code déjà).
 
-Le relecteur n'est jamais de la **famille de modèle** qui a écrit le lot :
-Claude Code ne porte que des Claude, Codex que des GPT, et Cursor porte tout
-(sa famille se lit dans le nom du modèle). Du code écrit par
-`cursor/claude-opus-5-5-high` est donc relu par codex, pas par
-`claude/claude-opus-5-5`.
+Le **mécanicien** (Codex, gpt-6-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
+et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
+grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
+**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6-astra, puis gpt-6-sol, high) compare
+chaque lundi les lots livrés à CAP.md.
 
-**Claude juge, les autres écrivent.** Le plafond de Claude Code a été atteint
-le 29 septembre 2026 : il se garde pour la relecture. Le chef reste Claude
-Opus, porté d'abord par Cursor ; le code s'écrit avec codex sol sur le VPS,
-avec cursor grok sur le PC (où le bac à sable de codex ne démarre pas), et
-Claude n'y vient qu'en secours. La ligne du
-relecteur laisse toujours au moins deux agents à un lot, quelle que soit la
-famille qui l'a écrit : un quota ne le laisse plus sans relecture.
+**Chaque agent dit son harnais, son modèle et son effort** :
+`harnais/modèle@effort` dans [`atelier.toml`](../atelier.toml), et
+`python3 -m atelier agents` en fait la table. L'effort passe à chaque harnais
+par son chemin : `--effort` pour Claude Code (low, medium, high, xhigh, max),
+`model_reasoning_effort` pour Codex (minimal, low, medium, high, xhigh) ;
+Cursor n'a pas d'option, l'effort est dans le nom du modèle
+(`grok-4.7-high` s'écrit `@high`, et `@defaut` dit qu'un modèle Cursor n'en
+propose pas). Un effort qu'un harnais ne connaît pas, ou qui ne correspond pas
+au nom d'un modèle Cursor, se refuse au chargement : Claude Code, lui,
+l'ignorerait sans rien dire (mesuré le 29 septembre 2026). Chaque commentaire
+de la chaîne nomme l'agent avec son effort (`codex/gpt-6-sol@high`).
+
+**Claude ne passe que par Claude Code**, jamais par Cursor ni un autre
+harnais : c'est le choix du propriétaire, et le chargement de `atelier.toml`
+refuse la ligne qui en mettrait un.
+
+Le relecteur n'est jamais de la **famille de modèle** qui a écrit le lot
+(Claude, GPT, Grok, Composer ; elle se lit dans le nom du modèle) : il relit
+avec l'agent suivant de sa ligne.
+
+**Claude juge, les autres écrivent, sauf sur le PC.** Le plafond de Claude
+Code a été atteint le 29 septembre 2026 : il se garde pour le chef, la
+relecture et les lots du PC. Le code du VPS s'écrit avec Codex GPT-6 Sol, le
+meilleur score par dollar mesuré ; GPT-5.6 Sol le suit partout où GPT-6 sert,
+car un Codex trop ancien refuse GPT-6, et ce refus passe la main sans brûler
+d'essai. Les lots du PC, peu nombreux et chers quand
+ils ratent, ont Claude Opus en tête et Cursor grok-high en secours (le bac à
+sable de Codex n'y démarre pas) : choix du propriétaire, 29 septembre 2026.
+GPT-6 Astra ne passe qu'en secours (chef, relecteur, boussole) : l'abonnement
+ChatGPT Plus ne lui donne que quelques dizaines de messages toutes les cinq
+heures ; il relit le code de Claude, et GPT-6 Sol prend la suite quand son
+quota est épuisé, au relecteur comme au chef et à la boussole. La ligne du relecteur laisse toujours au moins deux agents à
+un lot, quelle que soit la famille qui l'a écrit : un quota ne le laisse plus
+sans relecture.
 
 ## Qui fait quoi
 
@@ -193,9 +224,11 @@ Un tour interrompu ne perd rien : le suivant relit GitHub. Le journal local
 
 ## Quotas et sessions
 
-Un agent qui répond « quota épuisé » ou « session expirée », ou dont l'outil
+Un agent qui répond « quota épuisé » ou « session expirée », dont l'outil
 ne démarre pas (binaire introuvable : une panne d'installation, pas un échec
-du codeur), passe la main à son secours (la suite de sa ligne dans
+du codeur), ou dont le harnais refuse l'appel (une option ou une valeur de
+réglage qu'il ne connaît pas : sa version ou sa ligne est en cause, le journal
+le dit), passe la main à son secours (la suite de sa ligne dans
 `atelier.toml`). Si personne ne répond, le lot **attend** : ce n'est pas un
 échec, aucun essai n'est compté, le tour suivant réessaie, et une ligne le dit
 dans le journal avec la raison de chaque agent. Les clés d'API sont retirées

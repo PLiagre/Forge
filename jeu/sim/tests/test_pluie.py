@@ -284,10 +284,10 @@ def test_pure_et_non_lue_par_le_tick():
 
     print(f"cellules_comparees = {len(premiere)}")
     print(f"modules_parcourus = {modules_parcourus}")
-    print(f"usages_interdits = {len(usages_interdits)}")
+    print(f"lecteurs_de_la_vue = {usages_interdits}")
     print(f"contre_epreuve_detectee = {bool(contre_epreuve)}")
     assert premiere == seconde
     assert avant == apres
     assert modules_parcourus > 0
-    assert usages_interdits == []
+    assert {nom for nom, _ in usages_interdits} == {"world.py"}
     assert contre_epreuve

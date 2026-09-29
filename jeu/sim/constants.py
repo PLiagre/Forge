@@ -51,6 +51,34 @@ TICK_DURATION_DAYS = 1
 FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = 18.0 * TICK_DURATION_DAYS
 
 
+# --- Eau dans le rendement (fidélité niveau 2) ---
+
+# En dessous de cette pluie annuelle, la culture pluviale est impossible ;
+# ordre de grandeur plausible niveau 2, jamais sourcé.
+PLUIE_SANS_CULTURE_MM = 250.0
+
+# À partir de cette pluie annuelle, l'eau ne limite plus les champs ;
+# ordre de grandeur plausible niveau 2, jamais sourcé.
+PLUIE_PLEINE_CULTURE_MM = 400.0
+
+# Part de nourriture tirée du parcours des troupeaux en terre sèche ;
+# ordre de grandeur plausible niveau 2, jamais sourcé.
+FACTEUR_EAU_PLANCHER = 0.05
+
+
+def facteur_eau(pluie_mm_par_an: float) -> float:
+    """Facteur agricole croissant de la pluie, relu des constantes."""
+    seuil_bas = PLUIE_SANS_CULTURE_MM
+    seuil_haut = PLUIE_PLEINE_CULTURE_MM
+    plancher = FACTEUR_EAU_PLANCHER
+    if pluie_mm_par_an <= seuil_bas:
+        return plancher
+    if pluie_mm_par_an >= seuil_haut:
+        return 1.0
+    progression = (pluie_mm_par_an - seuil_bas) / (seuil_haut - seuil_bas)
+    return plancher + (1.0 - plancher) * progression
+
+
 # --- Saison dans le rendement (fidélité niveau 2) ---
 
 # Durée d'un jour d'équinoxe — niveau 1 (douze heures partout).
@@ -493,6 +521,6 @@ DEFAULT_CLI_SEED = 0
 # --- Snapshot cellulaire ---
 # Photographie cellulaire déterministe ; le suffixe numéroté permet une
 # révision du contrat sans réutiliser le même nom.
-SNAPSHOT_SCHEMA_VERSION = "v0a-4"
+SNAPSHOT_SCHEMA_VERSION = "v0a-5"
 # Plus fin serait du bruit, plus gros écraserait des centroïdes voisins.
 SNAPSHOT_FLOAT_DECIMALS = 6

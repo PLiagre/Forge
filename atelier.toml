@@ -20,43 +20,74 @@ interdits = ["atelier/", ".github/", "atelier.toml", "AGENTS.md", "CLAUDE.md", "
 # découpe le lot.
 lignes_max = 300
 # Passages du codeur après le premier (CI rouge ou relecture « CORRIGER »)
-# avant que le lot soit « bloque », avec sa raison.
+# avant que le lot soit « bloque », avec sa raison. Sur le VPS, le dernier se
+# fait par le renfort ([agents]).
 corrections_max = 2
 dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
 
-# Une ligne par rôle : outil/modèle, puis des secours séparés par « | ».
-# Outils : claude (Claude Code), codex (Codex CLI), cursor (cursor-agent).
-# Un secours ne sert que si le précédent a épuisé son quota ou perdu sa
-# session ; si aucun ne répond, le lot attend, il n'échoue pas.
-# Changer de modèle, c'est changer une ligne.
-[agents]
-# Claude Opus juge, les autres écrivent : le plafond de Claude Code, atteint
-# le 29 septembre 2026, se garde pour la relecture.
+# Une ligne par rôle : harnais/modèle@effort, puis des secours séparés par
+# « | ». Harnais : claude (Claude Code), codex (Codex CLI), cursor
+# (cursor-agent). L'effort est donné à chaque agent : Claude Code le reçoit
+# par `--effort` (low, medium, high, xhigh, max), Codex par
+# `model_reasoning_effort` (minimal, low, medium, high, xhigh) ; Cursor n'a
+# pas d'option, l'effort est dans le nom du modèle (`grok-4.7-high` s'écrit
+# `@high`), et `@defaut` dit qu'un modèle Cursor n'en propose pas.
 #
-# Le chef reste Claude Opus, porté d'abord par Cursor (un autre abonnement) ;
-# Claude Code le reprend quand Cursor ne répond pas.
-chef        = "cursor/claude-opus-5-5-high | claude/claude-opus-5-5"
-codeur      = "codex/gpt-5.6-sol | cursor/grok-4.7-high"
-# Les lots « machine : pc » (Unity, Blender), sur le PC Windows : cursor grok,
-# Claude en secours. Pas codex : son bac à sable Windows ne démarre pas
-# (« timed out connecting runner pipe-in », lot #120, 29 septembre 2026) ;
-# il répond, mais n'écrit rien. `gh workflow run sonde-pc.yml` prouve que
-# chaque agent du PC écrit vraiment.
-codeur_3d   = "cursor/grok-4.7-high | claude/claude-opus-5-5"
+# Un modèle Claude ne passe que par Claude Code, jamais par Cursor : le
+# chargement le refuse (choix du propriétaire, 29 septembre 2026).
+#
+# Un secours ne sert que si le précédent a épuisé son quota, perdu sa
+# session, ne démarre pas, refuse l'appel ou a déjà tous ses agents en
+# route ; si aucun ne répond, le lot attend, il n'échoue pas.
+# Changer de modèle ou d'effort, c'est changer une ligne.
+[agents]
+# Qui fait quoi, d'après les mesures publiques de septembre 2026 (indice des
+# agents de code d'Artificial Analysis : Claude Opus 5.5 66, GPT-6 Astra 62,
+# GPT-6 Sol 57, Grok 4.7 56) et l'abonnement ChatGPT Plus du propriétaire.
+# Le chef écrit le brief, dont tout dépend : Claude Opus ; GPT-6 Astra en
+# secours seulement, son quota Plus est court, puis GPT-6 Sol : quand Claude
+# est à court, chaque brief tombe sur Astra, qui s'épuise vite.
+chef        = "claude/claude-opus-5-5@high | codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high"
+# GPT-6 Sol : le meilleur score par dollar, sur l'abonnement ChatGPT.
+# GPT-5.6 Sol le suit partout où GPT-6 sert : un Codex trop ancien refuse
+# GPT-6 (Codex 0.151 sur le VPS, le 29 septembre 2026 : « not supported »,
+# « requires a newer version of Codex »), et ce refus passe la main au
+# suivant sans brûler d'essai. Codex à jour, GPT-6 répond et GPT-5.6 ne sert
+# plus.
+codeur      = "codex/gpt-6-sol@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
+# Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
+# en tête (choix du propriétaire, 29 septembre 2026 : le temps du PC est
+# rare, un passage raté y coûte cher), cursor grok en secours. Pas codex :
+# son bac à sable Windows ne démarre pas (« timed out connecting runner
+# pipe-in », lot #120, 29 septembre 2026) ; il répond, mais n'écrit rien.
+# `gh workflow run sonde-pc.yml` prouve que chaque agent du PC écrit vraiment.
+codeur_3d   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high"
+# Le dernier passage du codeur d'un lot du VPS avant blocage (la
+# 2e correction) : GPT-6 Astra, plus fort que Sol (62 contre 57), qui ne sert
+# qu'aux lots que deux passages n'ont pas suffi à faire, donc peu de son
+# quota Plus ; s'il est épuisé, les agents du codeur reprennent la main. Les
+# lots du PC n'ont pas de renfort : Codex n'écrit pas sous Windows, et Claude
+# Opus y code déjà. La marque reste celle du codeur : le passage compte, et
+# la famille qui a écrit (GPT) ne relit pas.
+renfort     = "codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
 # Le modèle qui écrit ne relit jamais : la FAMILLE de modèle qui a écrit le
-# lot est écartée, quel que soit l'outil (cursor/claude-opus est de la
-# famille claude), et le suivant de la ligne relit. Quelle que soit la
+# lot est écartée, et le suivant de la ligne relit. Quelle que soit la
 # famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
 # pas un lot sans relecteur (#186 a attendu une cinquantaine de tours le
-# 28 septembre, Claude écarté et codex à court de quota).
-relecteur   = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high | codex/gpt-5.6-sol | cursor/grok-4.7-high"
-# CI rouge sur master, conflits d'une branche de lot, dépendances.
-mecanicien  = "cursor/composer-2.5"
-# Journal du matin, en lecture seule (cursor --mode ask).
-chroniqueur = "cursor/grok-4.7-high"
-# Comparaison hebdomadaire avec CAP.md, en lecture seule.
-boussole    = "claude/claude-opus-5-5 | cursor/claude-opus-5-5-high"
+# 28 septembre, Claude écarté et codex à court de quota). Astra relit le
+# code de Claude (les lots du PC) ; Sol prend la suite quand son quota est
+# épuisé.
+relecteur   = "claude/claude-opus-5-5@high | codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
+# CI rouge sur master, conflits d'une branche de lot, dépendances : GPT-6
+# Sol en effort moyen, travail mécanique ; composer en secours.
+mecanicien  = "codex/gpt-6-sol@medium | codex/gpt-5.6-sol@medium | cursor/composer-2.5@defaut"
+# Journal du matin, en lecture seule (cursor --mode ask) : grok est le
+# modèle qui invente le moins (Artificial Analysis Omniscience).
+chroniqueur = "cursor/grok-4.7-high@high"
+# Comparaison hebdomadaire avec CAP.md, en lecture seule : un appel par
+# semaine, à fort enjeu.
+boussole    = "claude/claude-opus-5-5@xhigh | codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
@@ -80,6 +111,7 @@ cursor = 3
 chef = 1800
 codeur = 3600
 codeur_3d = 3600
+renfort = 3600
 relecteur = 1800
 mecanicien = 1800
 chroniqueur = 600

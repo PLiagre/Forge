@@ -30,9 +30,10 @@ part. À chaque tick, dans cet ordre :
 4. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
-   relief — une montagne ne produit pas comme une plaine — et par le facteur
-   de saison du jour, tiré de la durée du jour de la cellule : on ne récolte
-   pas en janvier comme en juin.
+   relief — une montagne ne produit pas comme une plaine —, par le
+   `facteur_eau` de sa pluie annuelle et par le facteur de saison du jour,
+   tiré de la durée du jour de la cellule : on ne récolte pas en janvier
+   comme en juin, ni sans eau comme sous une pluie suffisante.
 5. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
@@ -56,17 +57,19 @@ part. À chaque tick, dans cet ordre :
     date dérivée au jour suivant.
 
 La **province** ne se stocke pas : elle se recalcule à chaque consultation
-comme « le centre administratif le plus proche ». La **pluie**, elle non plus,
-n'est ni stockée ni consommée par le tick : sa vue se recalcule depuis le
-relevé le plus proche. Le tick ne consomme aucune de ces deux vues.
+comme « le centre administratif le plus proche ». La **pluie** n'est pas
+stockée sur `Cell` : sa vue se recalcule depuis le relevé le plus proche et
+entre dans la carte au moment où le monde la lit. Le tick lit cette valeur
+dans la carte, jamais dans la vue. Il ne consomme pas la vue des provinces.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
 
 ## Ce que le moteur ne fait pas encore
 
-La carte porte trois couches — relief, climat, gisements. **Le tick les joue
-toutes les trois.** Le snapshot le dit lui-même, couche par couche.
+La carte, telle que le monde la lit, porte quatre couches — relief, climat,
+gisements, pluie. **Le tick les joue toutes les quatre.** Le snapshot le dit
+lui-même, couche par couche.
 
 Ce n'est pas une déclaration, c'est une **mesure**. Pour chaque couche, le
 snapshot charge deux mondes identiques, en altère franchement la couche dans
@@ -79,13 +82,12 @@ le relief, puis le climat, puis les gisements, `utilisee_par_le_moteur` est
 passé à `true` tout seul. Personne n'a eu de constante à retourner, et personne
 ne peut la retourner sans que le moteur ait changé.
 
-**Ce que la sonde ne peut pas voir.** Elle altère une couche en
-**multipliant** ses valeurs numériques. Elle est donc aveugle à toute lecture
-qui serait, elle aussi, invariante par multiplication — un rapport entre deux
-grandeurs de la même couche, par exemple, dont numérateur et dénominateur
-seraient altérés ensemble. C'est une limite de l'instrument, à connaître quand
-on lit son verdict : un `false` signifie « la sonde n'a rien vu », pas « le
-moteur ne lit rien ».
+**Ce que la sonde ne peut pas voir.** Elle altère les couches numériques en
+**multipliant** leurs valeurs, sauf la pluie qu'elle **remplace par zéro**.
+Elle est donc aveugle à toute lecture invariante sous l'altération choisie —
+un rapport entre deux grandeurs multipliées ensemble, par exemple. C'est une
+limite de l'instrument : un `false` signifie « la sonde n'a rien vu », pas
+« le moteur ne lit rien ».
 
 Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 
@@ -375,24 +377,27 @@ pas « le premier jour de l'année » — voir « Les trois régimes de producti
 ### Formule
 
 ```
-population = max(0, int(area_km2 × INITIAL_POPULATION_PER_KM2 × variation))
+population = max(0, int(population_soutenable_de(cellule)
+                        × PART_SOUTENABLE_AMORCEE × variation))
 ```
 
 où `variation = rng.uniform(SEED_POPULATION_VARIATION_LOW, SEED_POPULATION_VARIATION_HIGH)`.
+`population_soutenable_de` se dérive de l'unique formule de production, au
+rendement et à la saison moyens.
 
 ### Paramètres
 
 | Constante | Valeur | Unité | Justification |
 |---|---|---|---|
-| `INITIAL_POPULATION_PER_KM2` | 10.0 | hab/km² | Densité médiévale européenne moyenne (ordre de grandeur : 5–20 hab/km², Bairoch 1988) |
+| `PART_SOUTENABLE_AMORCEE` | 0.8 | part | Marge sous le plafond physique pour absorber les ticks sous la moyenne |
 | `SEED_POPULATION_VARIATION_LOW` | 0.9 | — | Variation minimale autour de la densité nominale (±10 %) |
 | `SEED_POPULATION_VARIATION_HIGH` | 1.1 | — | Variation maximale autour de la densité nominale (±10 %) |
 
-**Conséquence à connaître : le monde démarre plat.** La densité ne varie que de
-plus ou moins dix pour cent d'une cellule à l'autre, et cette variation est un
-tirage, pas une géographie. Aucun endroit n'est peuplé parce qu'il est bon. Ce
-qui différencie ensuite les cellules vient du relief, du climat et de la mort,
-jamais de l'amorçage.
+**Conséquence à connaître : le monde démarre selon ce qu'il nourrit.** La
+population initiale suit le relief, la saison moyenne, la part laissée à
+l'agriculture par les mines et le `facteur_eau`. Le désert s'amorce presque
+vide ; la variation de plus ou moins dix pour cent ne remplace pas cette
+géographie, elle s'y applique.
 
 ### Déterminisme
 
@@ -467,13 +472,16 @@ duree_jour   = duree_jour_h(jour, solstice_ete_h, solstice_hiver_h)  # de la cel
 
 food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
+                × facteur_eau(pluie_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
 ```
 
-Les deux derniers facteurs sont lus dans la carte, cellule par cellule. Une
+Les trois derniers facteurs sont lus dans la carte, cellule par cellule. Une
 cellule dont la carte ne porte pas ces données ne se voit pas attribuer une
-valeur par défaut — le moteur refuse, par `ReliefInvalideError` ou
-`ClimatInvalideError` (règle 10 : l'absence ne s'invente pas en silence).
+valeur par défaut — le moteur refuse, par `ReliefInvalideError`,
+`PluieInvalideError` ou `ClimatInvalideError` (règle 10 : l'absence ne
+s'invente pas en silence). Pour la pluie, il refuse aussi `None`, les booléens,
+les valeurs non numériques, non finies ou négatives ; zéro reste une mesure.
 
 **Il n'y a qu'une seule formule de production alimentaire dans `sim/`.** Le
 tick lui passe un rendement tiré au sort ; le plafond de survie lui passe le
@@ -501,6 +509,19 @@ nominal.
 | `FACTEUR_RELIEF_MONTAGNE` | 0.45 |
 | `FACTEUR_RELIEF_HAUTE_MONTAGNE` | 0.15 |
 
+**Le facteur d'eau** — fidélité niveau 2, plausible et jamais sourcée. Un
+champ sans eau ne donne rien ; sous le seuil bas, la terre ne nourrit que le
+parcours des troupeaux. Entre les seuils, le facteur monte en ligne droite ;
+au seuil haut et au-delà, il vaut exactement 1 et ne punit pas l'excès d'eau.
+Son plancher est strictement positif parce qu'un désert de 1400 n'est pas
+inhabité.
+
+| Constante | Valeur | Sens |
+|---|---|---|
+| `PLUIE_SANS_CULTURE_MM` | 250.0 | À égalité ou dessous, pas de culture pluviale |
+| `PLUIE_PLEINE_CULTURE_MM` | 400.0 | À égalité ou dessus, l'eau ne limite plus |
+| `FACTEUR_EAU_PLANCHER` | 0.05 | Nourriture tirée du parcours des troupeaux |
+
 **Le facteur de saison** — fidélité niveau 2 également. Il compare la durée du
 jour de la cellule à l'équinoxe :
 `max(0, 1 + SENSIBILITE_SAISON × (duree_jour − DUREE_JOUR_EQUINOXE_H) / DUREE_JOUR_EQUINOXE_H)`.
@@ -522,9 +543,9 @@ tick : deux de ces régimes ne jouent pas la saison du jour.
 
 | ce que reçoit le tick | ce que joue la production |
 |---|---|
-| un monde sans carte | ni relief ni saison — le nominal seul |
-| une carte, **pas** de `numero_tick` | le relief, et le facteur de saison **moyen sur l'année** |
-| une carte **et** un `numero_tick` | le relief, et la saison du jour dérivé du numéro de tick |
+| un monde sans carte | ni relief, ni eau, ni saison — le nominal seul |
+| une carte, **pas** de `numero_tick` | le relief, l'eau et le facteur de saison **moyen sur l'année** |
+| une carte **et** un `numero_tick` | le relief, l'eau et la saison du jour dérivé du numéro de tick |
 
 Le deuxième régime est le piège : un appelant sans compteur n'obtient pas
 « le premier jour de l'année », il obtient une année moyennée. C'est un choix
@@ -534,13 +555,11 @@ lequel des trois régimes il fait jouer.
 
 ### L'équilibre que ces valeurs produisent
 
-À 10 hab/km², la production **nominale** est de 18 kg/km²/tick et la
-consommation de 20. Le monde démarre donc **au-dessus de ce qu'il nourrit**, et
-le relief creuse l'écart : son facteur vaut 1 sur la plaine et descend jusqu'à
-0,15, donc aucune cellule ne produit plus que le nominal, et toute cellule qui
-n'est pas de plaine produit moins. La population descend jusqu'à un régime où
-elle tient, et la variabilité `[0.5, 1.5]` crée des ticks de surplus qui
-alimentent le commerce et des ticks de manque qui créent de la dette.
+Le monde amorce une part de la population que sa production moyenne peut
+nourrir. Relief, eau et part minière abaissent ensemble ce plafond, sans
+qu'aucune densité soit posée à part. La variabilité `[0.5, 1.5]` crée ensuite
+des ticks de surplus qui alimentent le commerce et des ticks de manque qui
+créent de la dette.
 
 La saison, elle, ne creuse rien **sur l'année** : `facteur_saison_moyen_annuel`
 vaut 1 pour une cellule dont les deux solstices sont symétriques autour des
@@ -1113,17 +1132,49 @@ Cette attribution est de **niveau 2** : une cellule étendue ou montagneuse ne
 reçoit qu'une valeur et une anomalie locale n'est pas un défaut.
 
 La vue vit hors de `sim.model`, ne pose aucun champ sur `Cell` et se recalcule
-sans modifier le monde. Elle refuse une table vide, une provenance ou une
-déclaration d'approximation absente, une unité inattendue et toute valeur
-inexploitable. Une cellule sans position connue est nommée dans le refus au
-lieu d'être écartée ou complétée par défaut. Zéro millimètre reste une mesure ;
-une cellule absente de la vue rend `None`, jamais un faux zéro.
+sans modifier le monde. À la lecture de la carte figée, `World.lire_carte`
+calcule cette vue et ajoute seulement en mémoire `pluie_mm_par_an` à chaque
+enregistrement de cellule ; le fichier sur disque reste inchangé. Le moteur
+lit ensuite cette valeur dans la carte. La vue refuse une table vide, une
+provenance ou une déclaration d'approximation absente, une unité inattendue et
+toute valeur inexploitable. Une cellule sans position connue est nommée dans
+le refus au lieu d'être écartée ou complétée par défaut. Zéro millimètre reste
+une mesure ; une cellule absente de la vue rend `None`, jamais un faux zéro.
 
-Enfin, **la pluie n'est pas l'eau**. Le delta du **Nil** peut recevoir presque
-la même pluie que le désert occidental tout en étant fertile grâce à la crue
-du fleuve. Crue, fleuves, irrigation et oasis ne figurent dans aucune table de
-ce lot. La vue ne suffit donc jamais à décider la densité du delta, et **le
-tick ne la lit pas**.
+Enfin, **la pluie n'est pas l'eau**. Le delta et la vallée du **Nil** reçoivent
+presque la même pluie que le désert occidental tout en étant fertiles grâce à
+la crue du fleuve. Crue, fleuves, irrigation et oasis ne sont pas encore
+simulés : depuis l'entrée du facteur d'eau dans la production, cette erreur de
+niveau 1 connue les **vide** aussi. Seul le futur mécanisme du fleuve pourra la
+réparer ; aucun plancher relevé ni exception égyptienne ne la masque. Le
+moteur lit la pluie de la carte, mais pour la vue elle-même, le tick ne la lit pas.
+
+---
+
+## Le cours du Nil, vue dérivée
+
+La provenance de cette vue est `data/nil-cours-1400.json`. Chaque ligne y
+place un point du cours et nomme sa source publique. Ces points actuels sont de
+**niveau 1**, justes dans les grandes lignes : le fichier déclare qu'ils ne
+prétendent pas restituer les bras du delta en 1400. Leur attribution aux
+cellules est de **niveau 2**.
+
+À chaque consultation, `sim/fleuve.py` fait chercher à chaque point son
+centroïde de cellule le plus proche avec la règle unique de
+`sim/aggregation.py`. Ce sens est l'inverse de celui de la pluie : le point
+cherche sa cellule. Il n'y a ni segment interpolé, ni largeur, ni bassin
+versant. À égalité exacte, le plus petit identifiant de cellule gagne. La vue,
+pure et hors de `sim.model`, refuse une table vide, une déclaration ou une
+source absente, une coordonnée inexploitable et toute cellule du monde sans
+position connue.
+
+La vallée au sud du Caire est explicitement **hors de la carte**. Lui donner
+un point ferait choisir le centroïde de Suez et affirmerait à tort que le Nil
+traverse l'isthme. Le fichier déclare donc cette lacune au lieu de la masquer.
+
+Enfin, **le tick ne la lit pas**. Cette géographie ne donne encore aucune eau
+aux champs : le delta reste vidé par l'aridité tant qu'un lot suivant n'aura
+pas représenté la cause physique, la crue du fleuve.
 
 ---
 

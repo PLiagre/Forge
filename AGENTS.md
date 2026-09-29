@@ -50,13 +50,16 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   Le **codeur** code, la CI joue les tests, le **relecteur** — jamais la
   famille de modèle qui a écrit, quel que soit l'outil — rend
   `ACCEPTE` (fusion automatique) ou `CORRIGER` (le codeur corrige, deux fois
-  au plus, puis `bloque`).
+  au plus, puis `bloque`). Sur le VPS, la dernière correction se fait par le
+  **renfort** (GPT-6 Astra), plus fort que le codeur.
 - **Les agents éditent des fichiers ou rendent un texte.** Commit, poussée,
   PR, commentaire, étiquette et fusion appartiennent au pilote.
 - **Un lot ne touche jamais** `atelier/`, `.github/`, `atelier.toml`,
   `AGENTS.md`, `CLAUDE.md`, `CAP.md` : le pilote retire ces changements.
-- Les rôles et leurs modèles : `python3 -m atelier agents`. Changer de modèle,
-  c'est changer une ligne de [`atelier.toml`](atelier.toml).
+- Les rôles, leurs harnais, leurs modèles et leurs efforts :
+  `python3 -m atelier agents`. Changer de modèle ou d'effort, c'est changer
+  une ligne de [`atelier.toml`](atelier.toml) (`harnais/modèle@effort`). Un
+  modèle Claude ne passe que par Claude Code : le chargement refuse le reste.
 - Chaque matin, le journal paraît dans sa propre issue, épinglée : « Journal
   du JJ/MM/AAAA » ; celle de la veille se ferme. Détail de la chaîne : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
