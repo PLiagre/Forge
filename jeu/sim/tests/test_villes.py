@@ -101,7 +101,7 @@ def test_placement_refuse_le_centroide_le_plus_proche():
     assert math.dist((1, 0.5), (15, 10)) < math.dist((1, 0.5), (500, 0.5))
 
 
-def test_amorcage_planchers_sommes_et_determinisme():
+def test_amorcage_planchers_sommes_et_determinisme(monkeypatch):
     carte = World.lire_carte()
     villes = charger_villes()
     placement = attribuer_villes(carte, villes)
@@ -111,8 +111,19 @@ def test_amorcage_planchers_sommes_et_determinisme():
             cid = placement.placees[ville.nom]
             sommes[cid] = sommes.get(cid, 0) + ville.population
     assert sommes
+    monkeypatch.setattr(module_monde, "charger_villes", lambda: ())
+    rural = World.charger(rng_seed=0, carte_doc=carte)
+    deficitaires = [cid for cid, total in sommes.items()
+                    if total > rural.cells[cid].population]
+    assert deficitaires, (
+        "échantillon déficitaire vide : la somme des villes ne dépasse "
+        "nulle part le peuplement rural"
+    )
+    monkeypatch.setattr(module_monde, "charger_villes", charger_villes)
     monde = World.charger(rng_seed=0, carte_doc=carte)
     assert all(monde.cells[cid].population >= total for cid, total in sommes.items())
+    assert all(monde.cells[cid].population >= sommes[cid] > rural.cells[cid].population
+               for cid in deficitaires)
     assert monde.to_dict() == World.charger(rng_seed=0, carte_doc=carte).to_dict()
     cid = next(iter(sommes))
     monde.cells[cid].population = 1

@@ -642,7 +642,9 @@ def _controle_stock_amorce(monde):
                       * constantes.RESERVE_VILLES_TICKS if c.cell_id in urbaines else 0)
         assert c.food_stock_kg == pytest.approx(ordinaire + supplement)
         if c.cell_id not in urbaines:
-            assert c.population <= soutenable
+            assert c.population <= soutenable, (
+                f"plafond dépassé pour la cellule sans ville {c.cell_id}"
+            )
 
 
 def test_grenier_formule_et_contre_epreuves(monkeypatch):
@@ -665,9 +667,17 @@ def test_grenier_formule_et_contre_epreuves(monkeypatch):
     with pytest.raises(AssertionError):
         _controle_stock_amorce(monde)
     monde = World.charger(rng_seed=0)
-    cid = rurales[0]
-    monde.cells[cid].population = int(population_soutenable_de(monde.cells[cid], monde.carte)) + 1
-    with pytest.raises(AssertionError):
+    cellule = monde.cells[rurales[0]]
+    soutenable = population_soutenable_de(cellule, monde.carte)
+    cellule.population = int(soutenable) + 1
+    assert cellule.population > soutenable
+    # Le stock suit la nouvelle population : seule l'assertion de plafond peut rougir.
+    cellule.food_stock_kg = (
+        cellule.population
+        * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+        * constantes.INITIAL_FOOD_RESERVE_TICKS
+    )
+    with pytest.raises(AssertionError, match="plafond"):
         _controle_stock_amorce(monde)
 
     sans_stock = World.charger(rng_seed=0)

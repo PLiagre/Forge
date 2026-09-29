@@ -9,6 +9,9 @@ from pathlib import Path
 CHEMIN_VILLES = Path(__file__).resolve().parent.parent / "data" / "villes-1400.json"
 PROJECTION_VILLES = "EPSG:3035"
 REFERENCE_VILLES = "EPSG:4326"
+LATITUDE_MAX = 90
+LONGITUDE_MAX = 180
+SUR_FRONTIERE = 2
 
 
 @dataclass(frozen=True)
@@ -87,11 +90,6 @@ def charger_villes(chemin: Path | None = None) -> tuple[Ville, ...]:
         _texte(estimation.get("passage"), f"{nom} passage")
         villes.append(Ville(nom, lat, lon, x, y, population, estimation))
     return tuple(villes)
-
-
-LATITUDE_MAX = 90
-LONGITUDE_MAX = 180
-SUR_FRONTIERE = 2
 
 
 def _dans_anneau(x, y, anneau):
