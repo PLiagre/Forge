@@ -13,25 +13,25 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, sol, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6-astra, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
-                    CODEUR (Codex, sol, high · secours Cursor, grok-high)   — lot « pc » : Cursor, grok-high sur le PC (secours Claude Code)
+                    CODEUR (Codex, gpt-6-sol, high · secours Cursor, grok-high)   — lot « pc » : Claude Code, opus, high sur le PC (secours Cursor, grok-high)
                           │ le pilote commit, pousse, capture
                           ▼
                     CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus)
                           │ vert
                           ▼
-                    RELECTEUR (Claude Code, opus, high ; puis Codex, puis Cursor grok-high : jamais la famille qui a écrit)
+                    RELECTEUR (Claude Code, opus, high ; puis Codex astra, Codex sol, Cursor grok-high : jamais la famille qui a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus) ──► puis « bloque »
 ```
 
-Le **mécanicien** (Cursor, composer-2.5) répare master quand sa CI est rouge
+Le **mécanicien** (Codex, gpt-6-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
 grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
-**boussole** (Claude Code, opus, high ; secours Codex, sol, high) compare
+**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6-astra, high) compare
 chaque lundi les lots livrés à CAP.md.
 
 **Chaque agent dit son harnais, son modèle et son effort** :
@@ -44,7 +44,7 @@ Cursor n'a pas d'option, l'effort est dans le nom du modèle
 propose pas). Un effort qu'un harnais ne connaît pas, ou qui ne correspond pas
 au nom d'un modèle Cursor, se refuse au chargement : Claude Code, lui,
 l'ignorerait sans rien dire (mesuré le 29 septembre 2026). Chaque commentaire
-de la chaîne nomme l'agent avec son effort (`codex/gpt-5.6-sol@high`).
+de la chaîne nomme l'agent avec son effort (`codex/gpt-6-sol@high`).
 
 **Claude ne passe que par Claude Code**, jamais par Cursor ni un autre
 harnais : c'est le choix du propriétaire, et le chargement de `atelier.toml`
@@ -54,12 +54,18 @@ Le relecteur n'est jamais de la **famille de modèle** qui a écrit le lot
 (Claude, GPT, Grok, Composer ; elle se lit dans le nom du modèle) : il relit
 avec l'agent suivant de sa ligne.
 
-**Claude juge, les autres écrivent.** Le plafond de Claude Code a été atteint
-le 29 septembre 2026 : il se garde pour le chef et la relecture. Le code
-s'écrit avec Codex sol sur le VPS, avec Cursor grok-high sur le PC (où le bac
-à sable de Codex ne démarre pas), et Claude n'y vient qu'en secours. La ligne
-du relecteur laisse toujours au moins deux agents à un lot, quelle que soit la
-famille qui l'a écrit : un quota ne le laisse plus sans relecture.
+**Claude juge, les autres écrivent, sauf sur le PC.** Le plafond de Claude
+Code a été atteint le 29 septembre 2026 : il se garde pour le chef, la
+relecture et les lots du PC. Le code du VPS s'écrit avec Codex GPT-6 Sol, le
+meilleur score par dollar mesuré. Les lots du PC, peu nombreux et chers quand
+ils ratent, ont Claude Opus en tête et Cursor grok-high en secours (le bac à
+sable de Codex n'y démarre pas) : choix du propriétaire, 29 septembre 2026.
+GPT-6 Astra ne passe qu'en secours (chef, relecteur, boussole) : l'abonnement
+ChatGPT Plus ne lui donne que quelques dizaines de messages toutes les cinq
+heures ; il relit le code de Claude, et GPT-6 Sol prend la suite quand son
+quota est épuisé. La ligne du relecteur laisse toujours au moins deux agents à
+un lot, quelle que soit la famille qui l'a écrit : un quota ne le laisse plus
+sans relecture.
 
 ## Qui fait quoi
 
