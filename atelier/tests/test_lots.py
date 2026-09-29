@@ -292,3 +292,12 @@ def test_une_dependance_qui_ne_precede_pas_se_refuse(ligne):
     sous = [lots.sous_lot(t, t, "vps") for t in "abc"] + [lots.sous_lot("d", ligne, "vps")]
     with pytest.raises(ValueError, match="sous-lot 4"):
         lots.dependances_des_sous_lots(sous)
+
+
+def test_le_renfort_fait_le_dernier_passage_avant_blocage():
+    # corrections_max = 2 : le code (essai 0), la 1re correction (1), puis la
+    # 2e (2), la dernière, qui passe au renfort.
+    assert [lots.passage_de_renfort(e, 2) for e in (0, 1, 2)] == [False, False, True]
+    assert [lots.passage_de_renfort(e, 1) for e in (0, 1)] == [False, True]
+    # Sans correction permise, le seul passage reste au codeur.
+    assert not lots.passage_de_renfort(0, 0)

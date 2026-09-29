@@ -314,15 +314,26 @@ def test_claude_juge_et_ne_code_que_les_lots_du_pc():
     assert projet.poste("relecteur").principal.famille == "claude"
 
 
-def test_gpt_6_astra_ne_passe_qu_en_secours():
+def test_gpt_6_astra_ne_passe_qu_en_secours_ou_en_renfort():
     # Avec l'abonnement ChatGPT Plus, GPT-6 Astra n'a que quelques dizaines
-    # de messages toutes les cinq heures dans Codex : aucun rôle ne l'a en
-    # tête, et le relecteur a GPT-6 Sol après lui quand son quota s'épuise.
+    # de messages toutes les cinq heures dans Codex : il n'est en tête que du
+    # renfort, qui ne sert qu'au dernier passage d'un lot, et le relecteur a
+    # GPT-6 Sol après lui quand son quota s'épuise.
     projet = charger(RACINE)
     for role in projet.postes:
-        assert projet.poste(role).principal.modele != "gpt-6-astra", role
+        if role != "renfort":
+            assert projet.poste(role).principal.modele != "gpt-6-astra", role
     relecteurs = [a.modele for a in projet.poste("relecteur").agents]
     assert relecteurs.index("gpt-6-sol") > relecteurs.index("gpt-6-astra")
+
+
+def test_le_renfort_est_astra_puis_le_codeur():
+    # Le quota d'Astra épuisé, le dernier passage revient aux agents du
+    # codeur, dans le même ordre : le renfort ne fait jamais moins bien.
+    projet = charger(RACINE)
+    renfort = projet.poste("renfort")
+    assert str(renfort.principal) == "codex/gpt-6-astra@high" and not renfort.lecture_seule
+    assert renfort.secours == projet.poste("codeur").agents
 
 
 def test_un_lot_a_toujours_deux_relecteurs_possibles():

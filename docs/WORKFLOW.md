@@ -20,13 +20,22 @@ la fusionne toute seule.
                     CODEUR (Codex, gpt-6-sol, high · secours Cursor, grok-high)   — lot « pc » : Claude Code, opus, high sur le PC (secours Cursor, grok-high)
                           │ le pilote commit, pousse, capture
                           ▼
-                    CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus)
+                    CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
                           │ vert
                           ▼
                     RELECTEUR (Claude Code, opus, high ; puis Codex astra, Codex sol, Cursor grok-high : jamais la famille qui a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
-                     └─ CORRIGER ──► CODEUR corrige (2 fois au plus) ──► puis « bloque »
+                     └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
 ```
+
+Le **renfort** (Codex, gpt-6-astra, high ; puis les agents du codeur) fait
+le dernier passage du codeur d'un lot du VPS avant blocage : la 2e correction,
+avec `corrections_max = 2`. Deux passages n'ont pas suffi, un modèle plus fort
+reprend, avec la revue ou l'erreur de CI sous les yeux. Il ne sert qu'à ces
+lots-là, donc peu du quota Plus d'Astra ; épuisé, Sol reprend la main. Sa
+marque reste celle du codeur : le passage compte, et la famille GPT ne relit
+pas le lot. Les lots du PC n'ont pas de renfort (Codex n'y écrit pas, Claude
+Opus y code déjà).
 
 Le **mécanicien** (Codex, gpt-6-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,

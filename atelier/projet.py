@@ -62,8 +62,10 @@ _EFFORT_DANS_LE_NOM = re.compile(r"-(low|medium|high|xhigh)$")
 # Le nom lisible de chaque harnais, pour la table des rôles.
 HARNAIS = {"claude": "Claude Code", "codex": "Codex CLI", "cursor": "Cursor (cursor-agent)"}
 
-# Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents].
-ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "chroniqueur", "boussole")
+# Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents]. Le
+# renfort fait le dernier passage du codeur d'un lot du VPS avant blocage
+# (lots.passage_de_renfort) ; sa marque reste celle du codeur.
+ROLES = ("chef", "codeur", "codeur_3d", "renfort", "relecteur", "mecanicien", "chroniqueur", "boussole")
 
 # Les rôles qui n'écrivent rien : leur outil est appelé en lecture seule.
 ROLES_LECTURE_SEULE = ("relecteur", "chroniqueur", "boussole")

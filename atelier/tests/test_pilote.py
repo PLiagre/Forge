@@ -270,6 +270,62 @@ def test_corriger_donne_la_revue_au_codeur(projet, gh, depot, tmp_path):
     assert marques(gh.prs_[50]["comments"])[-1]["essai"] == 2
 
 
+def _modele(argv):
+    return argv[argv.index("--model") + 1]
+
+
+def _deux_passages_corriges():
+    """Deux passages du codeur, chacun renvoyé par le relecteur : il reste la
+    dernière correction permise (corrections_max = 2)."""
+    return [marque(role="codeur", etat="fait", essai=1, agent="codex/sol", sha="c" * 40),
+            marque(role="relecteur", verdict="CORRIGER", sha="c" * 40, agent="claude/opus"),
+            marque(role="codeur", etat="fait", essai=2, agent="codex/sol", sha="a" * 40),
+            "## Relecture — CORRIGER\n\nToujours faux (jeu/sim/x.py:3).\n\n"
+            + marque(role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus")]
+
+
+def test_la_premiere_correction_reste_au_codeur(projet, gh, depot, tmp_path):
+    revue = marque(role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus")
+    _en_cours(gh, commentaires=[FAIT_CODEX, revue])
+    agents = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _modele(agents.appels[0]) == "sol"
+    assert "renfort" not in gh.prs_[50]["comments"][-1]["body"]
+
+
+def test_la_derniere_correction_passe_au_renfort(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=_deux_passages_corriges())
+    agents = Agents((0, "Corrigé autrement.", {"jeu/sim/x.py": "juste"}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["codex"] and _modele(agents.appels[0]) == "astra"
+    assert "Toujours faux" in agents.appels[0][-1]
+    dernier = gh.prs_[50]["comments"][-1]["body"]
+    assert "correction 2, en renfort" in dernier
+    # La marque reste celle du codeur : le passage compte, et la famille
+    # d'Astra (GPT) ne relira pas le lot.
+    m = marques([{"body": dernier}])[-1]
+    assert (m["role"], m["essai"], m["agent"]) == ("codeur", 3, "codex/astra")
+    assert lots.auteurs(marques(gh.prs_[50]["comments"])) == {"gpt"}
+
+
+def test_le_quota_d_astra_epuise_rend_le_dernier_passage_au_codeur(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=_deux_passages_corriges())
+    agents = Agents((1, "You've hit your usage limit for GPT-6 Astra"), (0, "Corrigé.", {"jeu/sim/x.py": "juste"}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert [_modele(a) for a in agents.appels] == ["astra", "sol"]
+    assert marques(gh.prs_[50]["comments"])[-1]["agent"] == "codex/sol"
+
+
+def test_un_lot_du_pc_n_a_pas_de_renfort(projet, gh, depot, tmp_path):
+    commentaires = [c.replace('"role": "codeur"', '"role": "codeur_3d"') for c in _deux_passages_corriges()]
+    _en_cours(gh, commentaires=commentaires, etiquettes=("lot", "en-cours", "pc"))
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == []
+    envoi = _gestes(gh, "lancer_workflow")[0]
+    assert envoi[1] == "lot-pc.yml" and envoi[2]["action"] == "corriger_relecture"
+
+
 def test_sans_agent_disponible_le_lot_attend_sans_bruit(projet, gh, depot, tmp_path):
     _en_cours(gh)
     lignes = _pilote(projet, gh, depot, Agents((1, "429 Too Many Requests"), (1, "usage limit reached")), tmp_path).tour()
