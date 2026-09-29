@@ -120,10 +120,18 @@ namespace Forge.Pont
 
         private string Adresse() => HOTE + ":" + port.ToString(CultureInfo.InvariantCulture);
 
-        private string DireAbsence(string cause) =>
-            cause.Contains(MARQUE_SERVICE_ABSENT) || cause.Contains(MARQUE_DELAI)
+        // Le client ouvre sa cause par « lieu <cell_id> : », puis la nomme. Seules ses deux
+        // causes réseau (service absent, délai dépassé) disent le service absent : on les lit
+        // en tête, jamais dans le reste, où un corps reçu (une 404…) peut dire n'importe quoi.
+        private string DireAbsence(string cause)
+        {
+            string tete = "lieu " + Entier(celluleLue) + " : ";
+            bool serviceAbsent = cause.StartsWith(tete + MARQUE_SERVICE_ABSENT + " sur ", StringComparison.Ordinal)
+                || cause.StartsWith(tete + MARQUE_DELAI + " (", StringComparison.Ordinal);
+            return serviceAbsent
                 ? MARQUE_SERVICE_ABSENT + " : " + Adresse() + " — " + cause
                 : "lieu illisible : " + cause;
+        }
 
         private static string Nombre(double valeur) => valeur.ToString("R", CultureInfo.InvariantCulture);
         private static string Entier(long valeur) => valeur.ToString(CultureInfo.InvariantCulture);
