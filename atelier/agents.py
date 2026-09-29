@@ -63,23 +63,38 @@ _AUTH = re.compile(
     r"authentication (failed|required|error)", re.I)
 
 
+# Un harnais qui refuse l'appel tel que la chaîne le construit : une option
+# qu'il ne connaît pas (un Claude Code trop ancien pour `--effort`), une
+# valeur de réglage qu'il refuse (Codex). C'est le réglage ou la version du
+# harnais qui est en cause, pas l'agent : on passe au secours sans brûler
+# d'essai. Les motifs sont ceux des harnais eux-mêmes (commander pour Claude
+# Code, clap et serde pour Codex), pas ceux qu'un test lancé par l'agent
+# écrirait (argparse dit « unrecognized »). Un effort inconnu, Claude Code
+# 2.1.284 ne le refuse pas : il l'ignore et prend le sien — c'est le
+# chargement de atelier.toml qui le refuse (projet.EFFORTS).
+_APPEL = re.compile(r"error: unknown option '|error: unexpected argument '|unknown variant `|error loading config",
+                    re.I)
+
 # Les codes d'un outil qui n'a pas démarré : introuvable (127) ou refusé par
 # le système (126). C'est une panne de la machine, pas un échec du codeur :
 # trois 127 ont bloqué le lot #118 le 27 septembre 2026.
 CODES_INSTALLATION = (126, 127)
-LIBELLES = {"quota": "quota épuisé", "auth": "session expirée ou absente", "installation": "ne démarre pas"}
+LIBELLES = {"quota": "quota épuisé", "auth": "session expirée ou absente", "installation": "ne démarre pas",
+            "appel": "refuse l'appel (option, effort ou réglage)"}
 _SECRET = re.compile(r"\b(sk-[A-Za-z0-9_-]{8,}|[A-Za-z0-9_-]{40,})")
 
 
 def cause_de_refus(code: int, texte: str) -> str | None:
-    """`quota`, `auth`, `installation` ou None. Seule la fin de la sortie
-    compte : c'est là que les outils écrivent leur erreur, et le travail d'un
-    agent peut citer ces mots sans que ce soit un refus."""
+    """`quota`, `auth`, `installation`, `appel` ou None. Seule la fin de la
+    sortie compte : c'est là que les outils écrivent leur erreur, et le
+    travail d'un agent peut citer ces mots sans que ce soit un refus."""
     if code == 0:
         return None
     if code in CODES_INSTALLATION:
         return "installation"
     fin = "\n".join(texte.strip().splitlines()[-25:])
+    if _APPEL.search(fin):
+        return "appel"
     if _AUTH.search(fin):
         return "auth"
     if _QUOTA.search(fin):
@@ -186,6 +201,8 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
     if agent.outil == "claude":
         commande = [agent.binaire, "-p", prompt, "--model", agent.modele,
                     "--output-format", "text"]
+        if agent.effort:
+            commande += ["--effort", agent.effort]
         if lecture_seule:
             commande += [
                 "--permission-mode", "default",
@@ -209,6 +226,8 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
         commande = [agent.binaire, "exec", "--model", agent.modele,
                     "--sandbox", "read-only" if lecture_seule else "workspace-write",
                     "--skip-git-repo-check", "--color", "never"]
+        if agent.effort:
+            commande += ["-c", f'model_reasoning_effort="{agent.effort}"']
         if not lecture_seule:
             # Le bac à sable coupe le réseau, jusqu'aux sockets locales : les
             # tests du tableau et du service (127.0.0.1) y échouaient
@@ -218,6 +237,8 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
             commande += ["--output-last-message", str(sortie)]
         return commande + [prompt]
     if agent.outil == "cursor":
+        # Cursor n'a pas d'option d'effort : il est dans le nom du modèle
+        # (`grok-4.7-high`), vérifié au chargement (projet.lire_agent).
         commande = [agent.binaire, "-p", prompt, "--model", agent.modele,
                     "--output-format", "text", "--trust"]
         commande += ["--mode", "ask"] if lecture_seule else ["--force"]

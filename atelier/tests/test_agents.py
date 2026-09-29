@@ -17,10 +17,10 @@ from conftest import RACINE, Agents
 def test_le_branchement_du_depot_nomme_chaque_role():
     projet = charger(RACINE)
     assert projet.depot == "PLiagre/Forge"
-    assert str(projet.poste("codeur").principal) == "codex/gpt-5.6-sol"
-    assert str(projet.poste("chef").principal) == "cursor/claude-opus-5-5-high"
+    assert str(projet.poste("codeur").principal) == "codex/gpt-5.6-sol@high"
+    assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
     assert [str(a) for a in projet.poste("relecteur").agents] == [
-        "claude/claude-opus-5-5", "cursor/claude-opus-5-5-high", "codex/gpt-5.6-sol", "cursor/grok-4.7-high"]
+        "claude/claude-opus-5-5@high", "codex/gpt-5.6-sol@high", "cursor/grok-4.7-high@high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -236,13 +236,62 @@ def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_p
 
 
 def test_le_chef_et_la_boussole_ont_un_secours_hors_de_claude_code():
-    # Un quota de Claude Code arrêtait net le chef et la boussole. Le chef
-    # reste Claude Opus quel que soit l'outil qui le porte.
+    # Un quota de Claude Code arrêtait net le chef et la boussole : Claude
+    # Code en premier, et un secours d'un autre harnais.
     projet = charger(RACINE)
     for role in ("chef", "boussole"):
         poste = projet.poste(role)
-        assert {a.outil for a in poste.agents} >= {"claude", "cursor"}, role
-        assert {a.famille for a in poste.agents} == {"claude"}, role
+        assert poste.principal.outil == "claude", role
+        assert any(a.outil != "claude" for a in poste.secours), role
+
+
+def test_claude_ne_passe_que_par_claude_code():
+    # Le choix du propriétaire (29 septembre 2026) : jamais un modèle Claude
+    # porté par Cursor ou un autre harnais. Le dépôt n'en a aucun, et le
+    # chargement refuse la ligne qui en mettrait un.
+    projet = charger(RACINE)
+    for poste in projet.postes.values():
+        for agent in poste.agents:
+            assert agent.famille != "claude" or agent.outil == "claude", f"{poste.role} : {agent}"
+    for ligne in ("cursor/claude-opus-5-5-high@high", "claude/opus | cursor/opus-high", "codex/sonnet-4"):
+        with pytest.raises(ProjetIncomplet, match="ne passe que par Claude Code"):
+            lire_poste("chef", ligne)
+
+
+def test_chaque_agent_du_depot_dit_son_harnais_son_modele_et_son_effort():
+    projet = charger(RACINE)
+    for poste in projet.postes.values():
+        for agent in poste.agents:
+            assert agent.effort, f"{poste.role} : {agent} ne dit pas son effort"
+    table = table_des_roles(projet)
+    for mot in ("Claude Code", "Codex CLI", "Cursor (cursor-agent)", "claude-opus-5-5", "high"):
+        assert mot in table
+
+
+def test_l_effort_passe_a_chaque_harnais_par_son_chemin():
+    claude = A.argv(lire_agent("claude/claude-opus-5-5@xhigh"), "x", lecture_seule=True)
+    assert claude[claude.index("--effort") + 1] == "xhigh"
+    codex = A.argv(lire_agent("codex/gpt-5.6-sol@medium"), "x", lecture_seule=False)
+    assert codex[codex.index("-c") + 1] == 'model_reasoning_effort="medium"'
+    cursor = A.argv(lire_agent("cursor/grok-4.7-high@high"), "x", lecture_seule=False)
+    assert cursor[cursor.index("--model") + 1] == "grok-4.7-high" and "--effort" not in cursor
+    # Sans effort, l'appel reste celui d'avant.
+    assert "--effort" not in A.argv(lire_agent("claude/opus"), "x", lecture_seule=True)
+    assert not any("reasoning" in a for a in A.argv(lire_agent("codex/sol"), "x", lecture_seule=True))
+
+
+@pytest.mark.parametrize("texte,motif", [
+    ("claude/claude-opus-5-5@minimal", "ne connaît pas l'effort"),   # minimal est à codex
+    ("codex/gpt-5.6-sol@max", "ne connaît pas l'effort"),            # max est à Claude Code
+    ("cursor/grok-4.7-high@xhigh", "dans le nom du modèle"),         # le nom dit high
+    ("cursor/grok-4.7@high", "dans le nom du modèle"),               # le nom ne dit rien
+    ("cursor/composer-2.5@high", "dans le nom du modèle"),
+    ("cursor/grok-4.7-high@defaut", "dans le nom du modèle"),
+    ("codex/gpt-5.6-sol@", "illisible"),
+])
+def test_un_effort_que_le_harnais_ne_recoit_pas_se_refuse(texte, motif):
+    with pytest.raises(ProjetIncomplet, match=motif):
+        lire_agent(texte)
 
 
 def _relecteurs_restants(poste_relecteur, famille_auteur):
@@ -282,7 +331,7 @@ def test_l_ancienne_ligne_du_relecteur_laissait_un_lot_sans_secours():
 def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):
     agents = Agents((1, "Error: You've hit your usage limit"), (0, "DECISION: BRIEF"))
     res = A.invoquer(projet.poste("chef"), "prépare", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "cursor/opus-high"
+    assert res.reussi and str(res.agent) == "codex/sol"
 
 
 # Le parallélisme : combien de lots par machine, combien d'agents par outil.
@@ -369,3 +418,35 @@ def test_la_sonde_d_un_agent_en_lecture_seule_ne_demande_qu_une_reponse(projet):
 def test_codex_ne_code_pas_sur_le_pc():
     # Son bac à sable Windows ne démarre pas : il répond, mais n'écrit rien.
     assert all(a.outil != "codex" for a in charger(RACINE).poste("codeur_3d").agents)
+
+
+# Un harnais qui refuse l'appel : le réglage est en cause, pas l'agent.
+
+@pytest.mark.parametrize("sortie", [
+    "error: unknown option '--effort'",                                         # un Claude Code trop ancien
+    "Error loading config.toml: unknown variant `extreme`, expected one of `minimal`, `low`, `medium`, `high`",
+    "error: unexpected argument '--effort' found",                              # clap, côté Codex
+])
+def test_un_harnais_qui_refuse_l_appel_passe_la_main_sans_bruler_d_essai(projet, tmp_path, sortie):
+    assert A.cause_de_refus(2, sortie) == "appel"
+    agents = Agents((2, sortie), (0, "fait"))
+    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
+    assert res.reussi and str(res.agent) == "cursor/grok"
+    assert "refuse l'appel" in res.essais[0]
+
+
+def test_un_effort_inconnu_que_claude_code_ignore_n_est_pas_un_refus():
+    # Mesuré le 29 septembre 2026 (Claude Code 2.1.284) : il prévient, prend
+    # son effort par défaut et rend 0. C'est le chargement qui l'empêche.
+    sortie = ("Warning: Unknown --effort value 'bogus' — ignoring it and using the default effort. "
+              "Valid values: low, medium, high, xhigh, max.")
+    assert A.cause_de_refus(0, sortie) is None
+    with pytest.raises(ProjetIncomplet):
+        lire_agent("claude/claude-opus-5-5@bogus")
+
+
+def test_un_test_rouge_de_l_agent_n_est_pas_un_appel_refuse():
+    # Contre-épreuve : argparse, lancé par un test que l'agent a joué, écrit
+    # « unrecognized arguments » ; c'est l'échec de l'agent, pas du harnais.
+    sortie = "E   SystemExit: 2\nusage: forge [-h]\nforge: error: unrecognized arguments: --vite\n1 failed"
+    assert A.cause_de_refus(1, sortie) is None

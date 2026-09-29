@@ -34,13 +34,13 @@ dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
 
 [agents]
-chef        = "claude/opus | cursor/opus-high"
+chef        = "claude/opus | codex/sol"
 codeur      = "codex/sol | cursor/grok"
-codeur_3d   = "claude/opus | cursor/opus-high"
+codeur_3d   = "claude/opus | cursor/grok"
 relecteur   = "claude/opus | codex/sol"
 mecanicien  = "cursor/composer"
 chroniqueur = "cursor/grok"
-boussole    = "claude/opus | cursor/opus-high"
+boussole    = "claude/opus | codex/sol"
 """
 
 
