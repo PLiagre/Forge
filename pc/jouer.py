@@ -75,19 +75,27 @@ def _fin(stderr: collections.deque) -> str:
     return " | ".join(ligne for ligne in stderr if ligne is not FIN_DE_FLUX) or "(vide)"
 
 
+def _delai_depasse(attendue: str, stderr: collections.deque) -> RuntimeError:
+    return RuntimeError(
+        f"le service n'a pas dit « {attendue} » en {DELAI_SERVICE_PRET_S} s ; "
+        f"fin de stderr : {_fin(stderr)}"
+    )
+
+
 def _attendre_pret(service: subprocess.Popen, attendue: str, stderr: collections.deque) -> None:
     lignes: queue.Queue = queue.Queue()
     threading.Thread(target=_lire_flux, args=(service.stdout, lignes.put), daemon=True).start()
     echeance = time.monotonic() + DELAI_SERVICE_PRET_S
     while True:
         reste = echeance - time.monotonic()
+        # Échéance atteinte : on ne lit plus, même si la file a déjà des lignes.
+        # Sinon un service bavard (timeout=0 qui rend tout de suite) ne s'arrête jamais.
+        if reste <= 0:
+            raise _delai_depasse(attendue, stderr)
         try:
-            ligne = lignes.get(timeout=max(reste, 0))
+            ligne = lignes.get(timeout=reste)
         except queue.Empty:
-            raise RuntimeError(
-                f"le service n'a pas dit « {attendue} » en {DELAI_SERVICE_PRET_S} s ; "
-                f"fin de stderr : {_fin(stderr)}"
-            )
+            raise _delai_depasse(attendue, stderr)
         if ligne == attendue:
             return
         if ligne is FIN_DE_FLUX:
@@ -95,6 +103,10 @@ def _attendre_pret(service: subprocess.Popen, attendue: str, stderr: collections
                 f"le service s'est arrêté (code {service.poll()}) avant d'être prêt ; "
                 f"fin de stderr : {_fin(stderr)}"
             )
+        # Ligne reçue, mais ce n'est pas « prêt » : l'échéance se recontrôle ici,
+        # pas seulement quand la file est vide.
+        if time.monotonic() >= echeance:
+            raise _delai_depasse(attendue, stderr)
 
 
 def _verifier_lieu(port: int, cellule: int, stderr: collections.deque) -> None:

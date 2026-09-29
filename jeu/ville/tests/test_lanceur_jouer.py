@@ -33,6 +33,8 @@ DELAI_LANCEUR_S = 180
 ECART_ENTRE_HORLOGES_S = 1.5
 PAS_DE_SURVEILLANCE_S = 0.05
 DELAI_COURT_S = 0.5
+# Marge au-delà du délai court : assez large pour la CI, trop courte pour une boucle sans fin.
+MARGE_ECHEANCE_S = 5
 
 if str(JEU) not in sys.path:
     sys.path.insert(0, str(JEU))
@@ -261,6 +263,47 @@ def test_service_muet_depasse_le_delai(monkeypatch):
     finally:
         service.kill()
         service.wait()
+
+
+def test_service_bavard_ne_devient_jamais_pret(monkeypatch):
+    # Contre-épreuve du service muet : des lignes arrivent sans cesse, aucune n'est
+    # « prêt ». L'échéance doit tomber quand même ; la boucle ne suit pas le flux.
+    jouer = _charger("jouer", LANCEUR)
+    monkeypatch.setattr(jouer, "DELAI_SERVICE_PRET_S", DELAI_COURT_S)
+    service = _processus(
+        "import sys\n"
+        "while True:\n"
+        "    print('toujours pas', flush=True)\n"
+    )
+    erreur = []
+
+    def attendre(stderr):
+        try:
+            jouer._attendre_pret(service, "service prêt sur 127.0.0.1:0", stderr)
+        except RuntimeError as exc:
+            erreur.append(exc)
+
+    fil = None
+    try:
+        stderr, _ = _fin_de_stderr(jouer, service)
+        fil = threading.Thread(target=attendre, args=(stderr,))
+        debut = time.monotonic()
+        fil.start()
+        fil.join(timeout=DELAI_COURT_S + MARGE_ECHEANCE_S)
+        duree = time.monotonic() - debut
+        assert not fil.is_alive(), (
+            "l'attente continue après l'échéance alors que des lignes arrivent"
+        )
+        assert len(erreur) == 1
+        message = str(erreur[0])
+        assert "n'a pas dit" in message, message
+        assert str(DELAI_COURT_S) in message
+        assert DELAI_COURT_S <= duree < DELAI_COURT_S + MARGE_ECHEANCE_S
+    finally:
+        service.kill()
+        service.wait(timeout=DELAI_LANCEUR_S)
+        if fil is not None:
+            fil.join(timeout=DELAI_LANCEUR_S)
 
 
 def test_service_mort_apres_s_etre_dit_pret():
