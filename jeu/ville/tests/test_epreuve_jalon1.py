@@ -7,9 +7,11 @@ construit ici au format de `PanneauLieu.Decrire`, à partir de leurs valeurs.
 import copy
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,10 @@ CAPTURE_CS = RACINE / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Editor" / "F
 GRAINE = 0
 TICK_AVANT = 3
 TICK_APRES = TICK_AVANT + 1
+CELLULE_SIMULEE = 1
+TICK_SIMULE = 0
+AGE_CAPTURE_ANTERIEURE_S = 120
+PID_RESIDUEL = 4242
 NOURRITURE = "nourriture"
 MARCHANDISE_AJOUTEE = "sel de test"
 CHAMPS_DU_MONDE = ("population", "hunger_ticks", "food_deficit_kg", "stocks.")
@@ -210,3 +216,125 @@ def test_un_unity_introuvable_sort_a_2_en_le_nommant(epreuve, tmp_path, capsys):
     absent = tmp_path / "pas-d-unity.exe"
     assert epreuve.main(["--sortie", str(tmp_path / "j1"), "--unity", str(absent)]) == epreuve.IMPOSSIBLE
     assert str(absent) in capsys.readouterr().err
+
+
+def _photo_simulee(cellule, tick):
+    return {
+        "tick": tick,
+        "cells": [{
+            "cell_id": cellule,
+            "population": 1,
+            "hunger_ticks": 0,
+            "food_deficit_kg": 0.0,
+            "stocks": {NOURRITURE: 1.0},
+        }],
+    }
+
+
+def _simuler_photographie(monkeypatch, epreuve, photo):
+    def run(commande, **kwargs):
+        if "-m" in commande and "sim" in commande:
+            Path(commande[commande.index("--snapshot-json") + 1]).write_text(json.dumps(photo), encoding="utf-8")
+            return subprocess.CompletedProcess(commande, 0, "", "")
+        raise AssertionError(commande)
+    monkeypatch.setattr(epreuve.subprocess, "run", run)
+
+
+def _args_simules(tmp_path, sortie):
+    unity = tmp_path / "Unity.exe"
+    unity.write_bytes(b"")
+    return ["--sortie", str(sortie), "--unity", str(unity), "--cellule", str(CELLULE_SIMULEE),
+            "--ticks", str(TICK_SIMULE), "--seed", str(GRAINE)]
+
+
+def _capture_anterieure(dossier, epreuve, photo):
+    """Pose une capture déjà égale à la photographie, datée d'avant cet essai."""
+    image = dossier / f"{epreuve.SCENE}.png"
+    texte = dossier / f"{epreuve.SCENE}.panneau.txt"
+    image.write_bytes(b"\x89PNG")
+    texte.write_text(_panneau(photo, CELLULE_SIMULEE), encoding="utf-8")
+    passe = time.time() - AGE_CAPTURE_ANTERIEURE_S
+    os.utime(image, (passe, passe))
+    os.utime(texte, (passe, passe))
+    return image, texte
+
+
+def test_une_capture_anterieure_ne_donne_pas_legalite(epreuve, tmp_path, monkeypatch, capsys):
+    """Unity rend 0 sans rien écrire : l'ancien panneau, même égal, ne doit pas donner 0."""
+    photo = _photo_simulee(CELLULE_SIMULEE, TICK_SIMULE)
+    _simuler_photographie(monkeypatch, epreuve, photo)
+    monkeypatch.setattr(epreuve.JOUER, "_repond", lambda port: False)
+    monkeypatch.setattr(epreuve, "_unity", lambda commande: 0)
+    sortie = tmp_path / "reprise"
+    sortie.mkdir()
+    _capture_anterieure(sortie, epreuve, photo)
+    (sortie / "verdict.txt").write_text("ÉGALITÉ\n", encoding="utf-8")
+    code = epreuve.main(_args_simules(tmp_path, sortie))
+    capture = capsys.readouterr()
+    assert code == epreuve.IMPOSSIBLE
+    assert epreuve.SCENE in capture.err
+    assert "ÉGALITÉ" not in capture.out
+    verdict = sortie / "verdict.txt"
+    assert not verdict.is_file() or not verdict.read_text(encoding="utf-8").startswith("ÉGALITÉ")
+
+
+def test_un_fichier_laisse_avec_un_vieil_horodatage_ne_compte_pas(epreuve, tmp_path, monkeypatch, capsys):
+    """Même présent après Unity, un fichier antérieur à l'essai n'est pas une capture."""
+    photo = _photo_simulee(CELLULE_SIMULEE, TICK_SIMULE)
+    _simuler_photographie(monkeypatch, epreuve, photo)
+    monkeypatch.setattr(epreuve.JOUER, "_repond", lambda port: False)
+    sortie = tmp_path / "horodatage"
+
+    def unity(commande):
+        dossier = Path(commande[commande.index("-forgeCaptures") + 1])
+        _capture_anterieure(dossier, epreuve, photo)
+        return 0
+
+    monkeypatch.setattr(epreuve, "_unity", unity)
+    code = epreuve.main(_args_simules(tmp_path, sortie))
+    capture = capsys.readouterr()
+    assert code == epreuve.IMPOSSIBLE
+    assert "non produit pendant cet essai" in capture.err
+    assert "ÉGALITÉ" not in capture.out
+
+
+def test_une_capture_ecrite_pendant_lessai_peut_egaliser(epreuve, tmp_path, monkeypatch, capsys):
+    photo = _photo_simulee(CELLULE_SIMULEE, TICK_SIMULE)
+    _simuler_photographie(monkeypatch, epreuve, photo)
+    monkeypatch.setattr(epreuve.JOUER, "_repond", lambda port: False)
+    sortie = tmp_path / "frais"
+
+    def unity(commande):
+        dossier = Path(commande[commande.index("-forgeCaptures") + 1])
+        (dossier / f"{epreuve.SCENE}.png").write_bytes(b"\x89PNG")
+        (dossier / f"{epreuve.SCENE}.panneau.txt").write_text(_panneau(photo, CELLULE_SIMULEE), encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(epreuve, "_unity", unity)
+    code = epreuve.main(_args_simules(tmp_path, sortie))
+    assert code == epreuve.EGALITE
+    assert (sortie / "verdict.txt").read_text(encoding="utf-8").startswith("ÉGALITÉ")
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("code_unity", [1, "délai dépassé"])
+def test_toute_sortie_apres_lancement_ferme_le_service(epreuve, tmp_path, monkeypatch, capsys, code_unity):
+    """Un Unity qui ne rend pas 0 doit quand même tuer le service qu'il a laissé."""
+    photo = _photo_simulee(CELLULE_SIMULEE, TICK_SIMULE)
+    _simuler_photographie(monkeypatch, epreuve, photo)
+    reponses = iter([False, True])
+    monkeypatch.setattr(epreuve.JOUER, "_repond", lambda port: next(reponses))
+    tues = []
+    monkeypatch.setattr(epreuve, "_tuer_pid", tues.append)
+    sortie = tmp_path / "plante"
+
+    def unity(commande):
+        dossier = Path(commande[commande.index("-forgeCaptures") + 1])
+        (dossier / "service.pid").write_text(str(PID_RESIDUEL), encoding="utf-8")
+        return code_unity
+
+    monkeypatch.setattr(epreuve, "_unity", unity)
+    code = epreuve.main(_args_simules(tmp_path, sortie))
+    assert code == epreuve.IMPOSSIBLE
+    assert tues == [str(PID_RESIDUEL)]
+    assert f"rendu {code_unity}" in capsys.readouterr().err

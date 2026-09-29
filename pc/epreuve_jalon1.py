@@ -5,7 +5,8 @@
 La capture Unity lance le service (graine S, poussé au tick N+K), ouvre la scène du
 désert en Play et écrit le texte du panneau ; on le compare, nombre par nombre, à
 `py -m sim --ticks N --seed S --snapshot-json`. Sortie : 0 égalité, 1 écart,
-2 épreuve impossible (Unity introuvable, port pris, photographie ou capture absente).
+2 épreuve impossible (Unity introuvable, port pris, photographie ou capture absente
+ou antérieure à l'essai, service laissé ouvert).
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parents[1]
@@ -42,6 +44,9 @@ SCENE = "Forge_Desert_Ville_ksar_des_sept_puits"
 GRAINE_PAR_DEFAUT = 0
 TICKS_PAR_DEFAUT = 30
 DELAI_UNITY_S = 1800
+# L'horloge du fichier peut retarder d'une fraction de seconde sur time.time(),
+# et certains volumes arrondissent à la seconde. Un essai précédent est plus vieux.
+MARGE_HORODATAGE_S = 1
 LIGNES_JOURNAL_CITEES = 30
 DEBUT_CITE = 120
 EGALITE, ECART, IMPOSSIBLE = 0, 1, 2
@@ -154,6 +159,34 @@ def _tuer_pid(texte: str) -> None:
         pass
 
 
+def _couper_service_residuel(sortie: Path) -> str | None:
+    """Si le port répond encore après le lancement, tue le service et cite son pid.
+
+    None si le port est libre. L'appel a lieu pour toute sortie après lancement :
+    un Unity qui plante laisse sinon Python ouvert, et l'essai suivant trouve le port pris.
+    """
+    if not JOUER._repond(DEFAULT_SERVICE_PORT):
+        return None
+    pid = sortie / "service.pid"
+    cite = pid.read_text(encoding="utf-8").strip() if pid.is_file() else "inconnu"
+    _tuer_pid(cite)
+    return cite
+
+
+def _manquants_de_cet_essai(image: Path, texte: Path, debut: float) -> list[str]:
+    """La capture de cet essai : un fichier antérieur, même égal, ne prouve rien."""
+    manque = []
+    if not image.is_file() or image.stat().st_size == 0:
+        manque.append(f"{image} (absente ou vide)")
+    elif image.stat().st_mtime + MARGE_HORODATAGE_S < debut:
+        manque.append(f"{image} (non produit pendant cet essai)")
+    if not texte.is_file():
+        manque.append(f"{texte} (absent)")
+    elif texte.stat().st_mtime + MARGE_HORODATAGE_S < debut:
+        manque.append(f"{texte} (non produit pendant cet essai)")
+    return manque
+
+
 def _unity(commande: list[str]) -> int | str:
     proc = subprocess.Popen(commande)
     try:
@@ -201,24 +234,26 @@ def main(argv: list[str]) -> int:
                 "-executeMethod", "ForgeLocal3D.Capture.Photographier", "-logFile", str(journal),
                 "-forgeCaptures", str(sortie), "-forgeCell", str(cellule),
                 "-forgeSeed", str(args.seed), "-forgeTicks", str(args.ticks + args.decalage)]
+    # Le dossier est réutilisé : on oublie la capture et le verdict de l'essai précédent.
+    for nom in (f"{SCENE}.png", f"{SCENE}.panneau.txt", "verdict.txt"):
+        ancien = sortie / nom
+        if ancien.is_file():
+            ancien.unlink()
+    # Horodatage pris avant le lancement : un fichier déjà là ne date pas de cet essai.
+    debut_capture = time.time()
     try:
         code = _unity(commande)
     except OSError as exc:
         return _impossible(f"Unity n'a pas démarré : {exc}")
+    # Toute sortie après lancement passe par l'arrêt de secours, y compris un code non nul.
+    service_ouvert = _couper_service_residuel(sortie)
     if code != 0:
-        fin = journal.read_text(encoding="utf-8", errors="replace").splitlines() if journal.exists() else []
+        fin = journal.read_text(encoding="utf-8", errors="replace").splitlines() if journal.is_file() else []
         return _impossible(f"Unity a rendu {code} ; fin du journal :\n" + "\n".join(fin[-LIGNES_JOURNAL_CITEES:]))
-    if JOUER._repond(DEFAULT_SERVICE_PORT):
-        pid = sortie / "service.pid"
-        cite = pid.read_text(encoding="utf-8").strip() if pid.exists() else "inconnu"
-        _tuer_pid(cite)
-        return _impossible(f"service laissé ouvert (pid {cite})")
+    if service_ouvert is not None:
+        return _impossible(f"service laissé ouvert (pid {service_ouvert})")
     image, texte = sortie / f"{SCENE}.png", sortie / f"{SCENE}.panneau.txt"
-    manque = []
-    if not image.is_file() or image.stat().st_size == 0:
-        manque.append(f"{image} (absente ou vide)")
-    if not texte.is_file():
-        manque.append(f"{texte} (absent)")
+    manque = _manquants_de_cet_essai(image, texte, debut_capture)
     if manque:
         return _impossible(f"capture incomplète : {', '.join(manque)}")
 

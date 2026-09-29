@@ -70,7 +70,7 @@ La capture Unity lance le service de `sim/`, ouvre la scène du désert en Play,
 
 - **0** — égalité exacte : `verdict.txt` commence par `ÉGALITÉ` ;
 - **1** — un écart : le verdict nomme chaque champ, la valeur du panneau et celle de la photographie ;
-- **2** — l'épreuve n'a pas pu se jouer (Unity introuvable, port déjà pris, photographie ou capture absente, service laissé ouvert).
+- **2** — l'épreuve n'a pas pu se jouer (Unity introuvable, port déjà pris, photographie ou capture absente ou antérieure à l'essai, service laissé ouvert).
 
 La contre-épreuve pousse le service un tick plus loin que la photographie ; elle doit sortir **1** :
 
