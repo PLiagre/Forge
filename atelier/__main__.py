@@ -4,7 +4,7 @@
     veille     ce qui manque pour tourner (binaires, jetons, branchement)
     sonde      chaque agent répond-il, en non interactif, avec son modèle ?
     tour       un tour du pilote (--a-sec : lire et dire, sans rien faire)
-    journal    le journal du matin, dans l'issue « Journal de Forge »
+    journal    le journal du matin, dans sa propre issue « Journal du JJ/MM/AAAA »
     boussole   la comparaison de la semaine avec CAP.md
     pc         le côté PC d'un lot « machine : pc » (appelé par lot-pc.yml)
     traces     ce qui fait rougir les contrôles d'une PR

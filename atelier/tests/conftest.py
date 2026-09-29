@@ -90,6 +90,12 @@ class FauxGitHub(GitHub):
         self.issues_[numero]["comments"].append({"body": texte, "author": {"login": "pilote"}})
         self.gestes.append(("commenter_issue", numero, texte))
 
+    def epingler(self, numero):
+        self.gestes.append(("epingler", numero))
+
+    def desepingler(self, numero):
+        self.gestes.append(("desepingler", numero))
+
     def etiqueter(self, numero, ajouter=(), retirer=()):
         noms = [e["name"] for e in self.issues_[numero]["labels"] if e["name"] not in retirer]
         noms += [a for a in ajouter if a not in noms]

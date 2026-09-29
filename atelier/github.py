@@ -67,6 +67,12 @@ class GitHub:
     def commenter_issue(self, numero: int, texte: str) -> None:
         self.gh("issue", "comment", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
 
+    def epingler(self, numero: int) -> None:
+        self.gh("issue", "pin", str(numero), "-R", self.depot)
+
+    def desepingler(self, numero: int) -> None:
+        self.gh("issue", "unpin", str(numero), "-R", self.depot)
+
     def etiqueter(self, numero: int, ajouter: Iterable[str] = (), retirer: Iterable[str] = ()) -> None:
         argv = ["issue", "edit", str(numero), "-R", self.depot]
         ajouter, retirer = list(ajouter), list(retirer)

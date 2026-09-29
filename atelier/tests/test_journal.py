@@ -29,7 +29,7 @@ def _preparer(gh):
     gh.ajouter_issue(11, "Le panneau", ("lot", "bloque"))
     gh.issues_[11]["comments"].append({"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="conflit non résolu")})
     gh.ajouter_issue(12, "La preuve du jalon", ("lot", "pret"))
-    gh.ajouter_issue(99, journal.TITRE_JOURNAL, ("journal",), jalon=None)
+    gh.ajouter_issue(99, "Journal de Forge", ("journal",), jalon=None)
     gh.ajouter_pr(49, "lot/9-le-contrat", etat="MERGED",
                   commentaires=["📷 ![capture](https://raw.githubusercontent.com/moi/essai/journal/captures/a.png)"])
     gh.prs_[49]["mergedAt"] = "2026-09-27T20:00:00Z"
@@ -50,18 +50,104 @@ def test_le_journal_se_publie_meme_si_le_chroniqueur_se_tait(projet, gh):
     _preparer(gh)
     corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429 Too Many Requests")),
                            photographe=lambda *a: [])
-    assert "faits bruts" in corps and "conflit non résolu" in corps
-    # Les faits bruts restent du markdown : une image s'y affiche.
+    # Le pilote écrit seul, dans le gabarit du chroniqueur, et dit pourquoi.
+    assert corps.startswith("> **Avancé** : #9 Le contrat est livré.")
+    assert "> **Bloqué** : #11 Le panneau (conflit non résolu)." in corps
+    assert "Le chroniqueur n'a pas répondu" in corps and "Écrit par le pilote" in corps
+    # Du markdown, pas des faits bruts : une image s'y affiche.
     assert "```" not in corps and "![capture](https://raw.githubusercontent.com" in corps
-    assert gh.issues_[99]["comments"][-1]["body"] == corps
+    nouvelle = max(gh.issues_)
+    assert gh.issues_[nouvelle]["title"] == "Journal du 28/09/2026" and gh.issues_[nouvelle]["body"] == corps
+
+
+JOURNAL_BIEN_ECRIT = """> **Avancé** : le contrat ne parle plus qu'en cellules.
+> **Bloqué** : le panneau attend la résolution d'un conflit.
+> **À faire** : rien.
+
+### Ce qui a changé dans le jeu
+
+**[Le contrat](https://x/pull/49)** — Unity reçoit la clé du monde.
+
+*Le ksar : rien ne bouge, c'est voulu.*
+![capture](https://raw.githubusercontent.com/moi/essai/journal/captures/a.png)
+
+### Aujourd'hui
+
+#12 part dès que #11 est débloqué."""
 
 
 def test_le_chroniqueur_met_les_faits_en_phrases(projet, gh):
     _preparer(gh)
-    agents = Agents((0, "### Livré hier\nLe contrat.\n"))
+    agents = Agents((0, JOURNAL_BIEN_ECRIT))
     corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=agents, photographe=lambda *a: [])
-    assert corps.startswith("## Journal du 28/09/2026") and "Écrit par cursor/grok" in corps
+    assert corps.startswith(JOURNAL_BIEN_ECRIT) and "Écrit par cursor/grok" in corps
     assert "--mode" in agents.appels[0] and "ask" in agents.appels[0]
+    # Sous le texte du chroniqueur, le pilote ajoute l'avancement du jalon et les détails, repliés.
+    assert "### Jalon J1 — Le pont" in corps and "- [ ] #11 Le panneau — **bloqué** : conflit non résolu" in corps
+    assert "<details><summary>Détails de la chaîne</summary>" in corps
+
+
+@pytest.mark.parametrize("faute, pourquoi", [
+    ("#12 part dès que #11", "#12 part dès que #777"),
+    ("captures/a.png", "captures/inventee.png"),
+    ("> **Bloqué** :", "> Bloqué :"),
+])
+def test_un_journal_qui_invente_ou_sort_du_gabarit_ne_parait_pas(projet, gh, faute, pourquoi):
+    _preparer(gh)
+    agents = Agents((0, JOURNAL_BIEN_ECRIT.replace(faute, pourquoi)))
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=agents, photographe=lambda *a: [])
+    texte, signature = corps.rsplit("<sub>", 1)
+    assert pourquoi not in texte and "est écarté" in signature and "Écrit par le pilote" in signature
+    assert corps.startswith("> **Avancé** : #9 Le contrat")
+
+
+def test_chaque_journal_est_une_issue_epinglee_qui_ferme_la_precedente(projet, gh):
+    _preparer(gh)
+    gh.ajouter_issue(98, "Boussole de la semaine du 21/09/2026", ("journal",), jalon=None)
+    journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((0, JOURNAL_BIEN_ECRIT)),
+                   photographe=lambda *a: [])
+    hier = max(gh.issues_)
+    journal.ecrire(gh, projet, maintenant=MAINTENANT.replace(day=29), executeur=Agents((0, JOURNAL_BIEN_ECRIT)),
+                   photographe=lambda *a: [])
+    aujourd_hui = max(gh.issues_)
+    ouvertes = {i["title"] for i in gh.issues("open") if i["number"] in (98, 99, hier, aujourd_hui)}
+    # L'ancienne issue unique et le journal d'hier se ferment ; la boussole reste.
+    assert ouvertes == {"Journal du 29/09/2026", "Boussole de la semaine du 21/09/2026"}
+    assert ("epingler", aujourd_hui) in gh.gestes and ("desepingler", hier) in gh.gestes
+    assert ("fermer_issue", 99, False) in gh.gestes
+
+
+def test_le_journal_ne_montre_que_la_capture_de_la_revision_livree(projet, gh):
+    # Le 29 septembre 2026, #174 montrait ses captures du 27 et du 28.
+    _preparer(gh)
+    vieille = "📷 ![capture](https://raw.githubusercontent.com/moi/essai/journal/captures/vieille.png)"
+    neuve = ("📷 ![capture](https://raw.githubusercontent.com/moi/essai/journal/captures/neuve.png)\n"
+             "![carte](https://raw.githubusercontent.com/moi/essai/journal/captures/neuve-carte.png)")
+    gh.prs_[49]["comments"] = [{"body": vieille}, {"body": neuve}]
+    texte = journal.faits(gh, projet, MAINTENANT)
+    assert "neuve.png" in texte and "vieille.png" not in texte and "neuve-carte.png" not in texte
+
+
+def test_l_avancement_dit_de_chaque_lot_du_jalon_s_il_est_fait_et_sinon_ce_qu_il_attend(projet, gh):
+    _preparer(gh)
+    gh.ajouter_issue(5, "Le service", ("lot", "livre"), etat="CLOSED")
+    gh.ajouter_issue(6, "Le grand lot", ("lot", "pret"), etat="CLOSED")
+    gh.ajouter_issue(7, "Un morceau", ("lot", "livre"), corps="Découpé du lot #6", etat="CLOSED")
+    gh.ajouter_issue(8, "Un autre morceau", ("lot", "idee"), corps="Découpé du lot #6")
+    gh.ajouter_issue(13, "Le lanceur", ("lot", "pret", "pc"), corps="Dépend de : #10, #6")
+    gh.ajouter_issue(14, "Hors du jalon", ("lot", "idee"), jalon="J2 — Le geste revient")
+    r = journal.releve(gh, projet, MAINTENANT)
+    assert r.avancement == [
+        "- [x] #5 Le service",
+        "- ~~#6 Le grand lot~~ — découpé en #7, #8",
+        "- [x] #7 Un morceau",
+        "- [ ] #8 Un autre morceau — idée, pas encore prête",
+        "- [ ] #10 Le service lit un lieu — en cours sur le VPS",
+        "- [ ] #11 Le panneau — **bloqué** : conflit non résolu",
+        "- [ ] #12 La preuve du jalon — prêt",
+        # #6 est fermé depuis sa découpe : le lanceur attend son morceau encore ouvert.
+        "- [ ] #13 Le lanceur — attend #8, #10",
+    ]
 
 
 COMPTE_RENDU = ("🤖 **codeur_3d** (claude/claude-opus-5-5) — code, révision `fe2b1e8`.\n\n"
@@ -75,7 +161,7 @@ REVUE = ("## Relecture — ACCEPTE\n\nRévision `fffffff` · relu par codex/gpt-
 def _journee(gh, tmp_path):
     """Une journée comme le 28 septembre 2026 : un lot livré, un changement de
     la machine, un lot du PC qui attend, et le journal du pilote."""
-    gh.ajouter_issue(99, journal.TITRE_JOURNAL, ("journal",), jalon=None)
+    gh.ajouter_issue(99, "Journal de Forge", ("journal",), jalon=None)
     gh.ajouter_pr(49, "lot/9-le-contrat", etat="MERGED", commentaires=[COMPTE_RENDU, REVUE])
     gh.ajouter_pr(48, "direct/fusion-propre", etat="MERGED")
     for p in (48, 49):
@@ -202,9 +288,9 @@ def test_les_prochains_lots_suivent_l_ordre_du_pilote(projet, gh, tmp_path):
 
 def test_le_chroniqueur_doit_raconter_et_non_recopier(projet, gh, tmp_path):
     texte = prompts.chroniqueur(faits="LOTS LIVRÉS …")
-    for titre in ("### Ce qui a changé dans le jeu", "### Ce que la chaîne a vécu", "### À faire par toi"):
-        assert titre in texte
-    assert "pas le titre recopié" in texte
+    for debut in journal._ENTETES:
+        assert debut in texte
+    assert "pas le titre recopié" in texte and "compteurs de la chaîne" in texte
 
 
 def test_chaque_journal_porte_la_photo_du_monde(projet, gh):
