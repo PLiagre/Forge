@@ -126,6 +126,22 @@ s'il en a besoin, il refuse, et le lot est bloqué avec sa raison. Le journal
 annonce ces lots à part, sous « EN AVANCE ». Un lot marqué `reserve` ne se
 prend jamais : il sort de son jalon.
 
+### La fenêtre du PC a trois jalons
+
+Le PC voit un jalon de plus. Quand il n'a plus rien à prendre dans le
+courant ni dans le suivant, il prend un lot `pc` du **troisième jalon
+ouvert**, jamais plus loin ; les lots du VPS de ce jalon attendent qu'il
+entre dans la fenêtre. Le 30 septembre 2026, J2 et J3 ne demandaient que
+`sim/` et la 3D n'arrivait qu'à J4 : le PC serait resté des semaines sans
+travail.
+
+Un troisième jalon sans plan se découpe en avance pour le PC. Sa découpe
+part même quand le VPS est plein : ce n'est que le chef, et c'est le PC
+qu'elle nourrit. Son texte demande au chef de placer d'abord les lots `pc`
+qui ne s'appuient que sur master, en « :: après rien » : un lot `pc` qui
+attend un lot du VPS de ce jalon ne part pas plus tôt. Le journal les
+annonce sous « EN AVANCE, POUR LE PC ».
+
 ### Un jalon qui commence se fait découper
 
 Quand le jalon courant n'a encore aucun lot prêt, en cours ou livré, le

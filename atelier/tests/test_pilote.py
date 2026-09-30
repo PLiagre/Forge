@@ -708,6 +708,76 @@ def test_une_machine_occupee_n_ouvre_pas_la_fenetre(projet, gh, depot, tmp_path)
     assert not _gestes(gh, "creer_pr")
 
 
+# La fenêtre du PC a trois jalons. Le 30 septembre 2026, J2 et J3 ne
+# demandaient que `sim/` et la 3D n'arrivait qu'au jalon 4 : le PC attendait.
+
+def _j3(gh, titre="J3 — Le lieu et son maître"):
+    gh.jalons_.append({"number": 3, "title": titre, "state": "open", "open_issues": 1, "closed_issues": 0})
+
+
+def test_le_pc_sans_travail_dans_la_fenetre_prend_dans_le_troisieme_jalon(projet, gh, depot, tmp_path):
+    _vps_attend_sa_ci(gh)
+    _j3(gh)
+    gh.ajouter_issue(60, "La caméra survole la ville", ("lot", "pret", "pc"), "J3 — Le lieu et son maître")
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(60, "La caméra survole la ville")))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[0][2] == "Lot #60 — La caméra survole la ville"
+    prompt = agents.appels[0][2]
+    assert "pris en avance" in prompt and "les jalons d'avant" in prompt
+
+
+def test_le_vps_ne_prend_pas_dans_le_troisieme_jalon(projet, gh, depot, tmp_path):
+    # Contre-épreuve : le troisième jalon n'est ouvert qu'au PC.
+    _j3(gh)
+    gh.ajouter_issue(60, "La cellule se peuple de lieux", ("lot", "pret"), "J3 — Le lieu et son maître")
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not _gestes(gh, "creer_pr")
+
+
+def test_la_fenetre_du_pc_s_arrete_au_troisieme_jalon(projet, gh, depot, tmp_path):
+    _j3(gh)
+    gh.jalons_.append({"number": 4, "title": "J4 — La capitale", "state": "open", "open_issues": 1,
+                       "closed_issues": 0})
+    gh.ajouter_issue(70, "Le kit de pisé", ("lot", "pret", "pc"), "J4 — La capitale")
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not _gestes(gh, "creer_pr")
+
+
+def test_le_pc_passe_d_abord_par_le_jalon_suivant(projet, gh, depot, tmp_path):
+    _vps_attend_sa_ci(gh)
+    _j3(gh)
+    gh.ajouter_issue(40, "La carte de 1400", ("lot", "pret", "pc"), "J2 — Le geste revient")
+    gh.ajouter_issue(60, "La caméra survole la ville", ("lot", "pret", "pc"), "J3 — Le lieu et son maître")
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(40, "La carte de 1400")))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[0][2] == "Lot #40 — La carte de 1400"
+
+
+def test_le_troisieme_jalon_sans_plan_se_decoupe_pour_le_pc(projet, gh, depot, tmp_path):
+    _ecrire_cap(projet)
+    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
+    _vps_attend_sa_ci(gh)
+    gh.ajouter_issue(40, "La table de 1400", ("lot", "pret"), "J2 — Le geste revient")
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    (decoupe,) = [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
+    assert decoupe["title"] == "Découper le jalon J3 — Le lieu et son maître"
+    assert "pour lui" in decoupe["body"] and "après rien" in decoupe["body"]
+    # Le VPS est toujours plein : la découpe part quand même, c'est le PC
+    # qu'elle nourrit. Ses lots « pc » sont prêts, ceux du VPS attendent.
+    texte = ("DECISION: DECOUPE\n- La caméra :: survole la ville :: pc :: après rien\n"
+             "- Le plan de la ville :: vit dans le monde :: vps\n"
+             "- La preuve :: la ville redessinée :: pc\n")
+    agents = Agents((0, texte))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "pris en avance" in agents.appels[0][2]
+    assert gh.issues_[decoupe["number"]]["state"] == "CLOSED"
+    (camera,) = [i for i in gh.issues_.values() if i["title"] == "La caméra"]
+    assert camera["milestone"]["title"] == "J3 — Le lieu et son maître" and "pc" in _etiquettes(gh, camera["number"])
+    assert Lot.de(camera).dependances == frozenset()
+
+
 # Les tours parallèles. Plusieurs tours tournent en même temps, chacun avec
 # son agent : deux instances de Verrous sur le même dossier se comportent
 # comme deux processus.

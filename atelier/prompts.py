@@ -31,12 +31,14 @@ def _interdits(projet: Projet) -> str:
 
 def chef(projet: Projet, *, numero: int, titre: str, corps: str, commentaires: str,
          jalon: int, jalon_titre: str, machine: str, chemin_brief: str, jalon_courant: str = "") -> str:
-    """`jalon_courant` : le titre du jalon courant quand ce lot sert le
-    suivant (la fenêtre de deux jalons) ; vide sinon."""
+    """`jalon_courant` : le titre du jalon courant quand ce lot sert un
+    jalon plus loin (la fenêtre de deux jalons, trois pour le PC) ; vide
+    sinon."""
     en_avance = (f"- Ce lot est pris en avance : le jalon courant, {jalon_courant}, n'est pas atteint, et la machine "
                  f"de ce lot n'y avait plus rien à prendre. Il sert son propre jalon, J{jalon}, et ne s'appuie sur "
-                 "rien que le jalon courant doit encore livrer : ce qui n'est pas sur la base n'existe pas. S'il en "
-                 "a besoin, n'écris rien et termine par la ligne « DECISION: REFUS :: attend <ce qui manque> ».\n"
+                 "rien que les jalons d'avant doivent encore livrer : ce qui n'est pas sur la base n'existe pas. "
+                 "S'il en a besoin, n'écris rien et termine par la ligne « DECISION: REFUS :: attend <ce qui "
+                 "manque> ».\n"
                  if jalon_courant else "")
     return f"""Tu es le chef de la chaîne de Forge. Tu prépares le lot #{numero} « {titre} », rangé dans le jalon {jalon_titre}.
 
