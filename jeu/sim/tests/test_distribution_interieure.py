@@ -165,3 +165,60 @@ def test_monde_ressent_la_distribution(monkeypatch):
         controle(gratuites)
     print(f"cellules_avec_bourg={len(cellules_bourg)}, sans_chemin={populations[0]}, "
           f"avec_chemins={populations[1]}, gratuites={gratuites}, contre_epreuves=1")
+
+
+def test_identique_hors_manque_bourg_avec_surplus(monkeypatch):
+    """Sans surplus aux champs ou avec un bourg servi, garder le calcul ancien."""
+    cellule, carte, besoin, besoin_bourg, local, _ = _epreuve()
+    stock_servant_bourg = besoin_bourg * _stock(cellule) / local
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0.0)
+    cellules_comparees = sentinelles = 0
+    for stock in (None, 0.0, (besoin - besoin_bourg) / 2, stock_servant_bourg * 1.5):
+        copie = copy.deepcopy(cellule)
+        if stock is None:
+            copie.stocks.clear()
+            assert _stock(copie) == -1
+            sentinelles += 1
+        else:
+            ecrire_stock_marchandise(copie, constantes.MARCHANDISE_NOURRITURE, stock)
+        copie.food_deficit_kg = 1_000.0
+        gratuite = copy.deepcopy(copie)
+        assert engine._apply_consumption(copie, carte) == engine._apply_consumption(gratuite)
+        assert _stock(copie) == _stock(gratuite)
+        assert copie.food_deficit_kg == gratuite.food_deficit_kg
+        cellules_comparees += 1
+    assert cellules_comparees > 0
+    print(f"cellules_comparees={cellules_comparees}, sentinelles={sentinelles}, "
+          f"dettes_anciennes={cellules_comparees}")
+
+
+def test_capacite_calculs_inutiles_evites(monkeypatch):
+    """Sans mine, pas de lieux ; avec un seul lieu, pas de transport."""
+    def interdit(*args, **kwargs):
+        pytest.fail("calcul intérieur inutile")
+
+    cellules_controlees = 0
+    cellule, carte, *_ = _epreuve()
+    gratuite = copy.deepcopy(cellule)
+    with monkeypatch.context() as garde:
+        garde.setattr(engine, "lieux_de_cellule", interdit)
+        garde.setattr(engine, "_facteur_transport_pour_cellule", interdit)
+        garde.setattr(constantes, "capacite_chemins_interieurs_kg", interdit)
+        assert engine._apply_consumption(cellule) == engine._apply_consumption(gratuite)
+        cellules_controlees += 1
+        cellule, carte, *_ = _epreuve()
+        carte[cellule.cell_id]["gisements"] = []
+        assert _part(cellule, carte) == 0
+        gratuite = copy.deepcopy(cellule)
+        assert engine._apply_consumption(cellule, carte) == engine._apply_consumption(gratuite)
+        assert _stock(cellule) == _stock(gratuite)
+        assert cellule.food_deficit_kg == gratuite.food_deficit_kg
+        cellules_controlees += 1
+    monkeypatch.setattr(engine, "_facteur_transport_pour_cellule", interdit)
+    monkeypatch.setattr(constantes, "capacite_chemins_interieurs_kg", interdit)
+    seule, carte, *_, chemins = _epreuve(surface=constantes.SURFACE_KM2_PAR_LIEU / 2)
+    assert chemins == 0 and _part(seule, carte) > 0
+    assert engine._apply_consumption(seule, carte) == 0.0
+    cellules_controlees += 1
+    assert cellules_controlees > 0
+    print(f"cellules_controlees={cellules_controlees}, chemins_cellule_seule={chemins}")
