@@ -16,12 +16,25 @@ NOUVEAUX = ['scierie', 'four_pain_pise']
 PLAFONDS = {'scierie': (2400, 1200, 400), 'four_pain_pise': (1600, 800, 300)}
 TOLERANCE_ORIGINE = 0.01       # m : le point le plus bas du LOD0 est au sol à 1 cm près
 NIVEAUX = 3
-ETIQUETTES = ('budget', 'origine', 'lod', 'materiau', 'echantillon', 'catalogue', 'empreinte')
+# `regression` : le vérificateur des scènes du ksar (`atelier_desert.py verifier`) n'est pas vert.
+ETIQUETTES = ('budget', 'origine', 'lod', 'materiau', 'echantillon', 'catalogue', 'empreinte', 'regression')
 
 
 def defaut(etiquette, message):
     assert etiquette in ETIQUETTES, etiquette
     return {'etiquette': etiquette, 'message': message}
+
+
+def ecart_pixels(pixels):
+    """Variation spatiale d'une image (hauteur × largeur × canaux) : le plus grand des
+    écarts-types de chaque canal pris sur les pixels. Une image uniforme, de quelque couleur
+    qu'elle soit, donne 0 ; une image vide, -1."""
+    import numpy as np
+    p = np.asarray(pixels, dtype=float)
+    if not p.size:
+        return -1.0
+    p = p.reshape(-1, p.shape[-1]) if p.ndim == 3 else p.reshape(-1, 1)
+    return float(p.std(axis=0).max())
 
 
 def controler(nom, triangles, materiaux, connus, plafonds=None):
@@ -42,8 +55,9 @@ def juger(entrees):
     """Les défauts, sans les contre-épreuves.
 
     `entrees` : plafonds, catalogue_avant, catalogue_apres, unity (le rapport de
-    DesertKit), empreintes_avant, empreintes_apres, ecart_image (écart-type des pixels
-    de la planche, -1 si elle manque), ecart_minimal.
+    DesertKit), empreintes_avant, empreintes_apres, ecart_image (`ecart_pixels` de la
+    planche, -1 si elle manque), ecart_minimal, verification (le vérificateur des scènes
+    rejoué par la commande : status, message, et le status de chaque disposition).
     """
     plafonds = entrees['plafonds']; u = entrees['unity'] or {}
     avant = entrees['catalogue_avant']; apres = entrees['catalogue_apres']
@@ -89,6 +103,13 @@ def juger(entrees):
     if not entrees['ecart_image'] >= entrees['ecart_minimal']:
         fautes.append(defaut('echantillon', 'planche des ateliers absente ou uniforme (écart-type {:.1f}, {} au moins)'.format(
             entrees['ecart_image'], entrees['ecart_minimal'])))
+
+    # SC9 : le vérificateur existant reste vert, sur chaque disposition.
+    v = entrees.get('verification') or {}
+    rapports = v.get('dispositions') or {}
+    if v.get('status') != 'valide' or not rapports or any(s != 'valide' for s in rapports.values()):
+        fautes.append(defaut('regression', 'verifier : {} ({}) ; dispositions {}'.format(
+            v.get('status'), v.get('message') or 'aucun message', rapports or 'aucune')))
 
     catalogue = {a['id']: a for a in apres['assets']}
     for m in modules:
@@ -159,6 +180,14 @@ def contre_epreuves(entrees):
         if chemin.endswith('Forge_Desert_ksar_des_sept_puits.unity'):
             e['empreintes_apres'][chemin] = 'touchee'
     ce['scene_touchee'] = ('empreinte', e)
+
+    # La mesure elle-même est rejouée : une planche toute rouge doit être jugée uniforme.
+    e = copy.deepcopy(entrees); e['ecart_image'] = ecart_pixels([[[255, 0, 0]] * 16] * 9)
+    ce['planche_uniforme'] = ('echantillon', e)
+
+    e = copy.deepcopy(entrees)
+    e['verification'] = dict(e.get('verification') or {}, status='echec', message='contre-épreuve')
+    ce['verification_rouge'] = ('regression', e)
     return ce
 
 
@@ -176,4 +205,4 @@ def jugement(entrees):
     return {'status': 'valide' if not fautes else 'echec', 'nouveaux': NOUVEAUX, 'anciens_modules': anciens,
             'empreintes': len(entrees['empreintes_avant']), 'plafonds': {k: list(v) for k, v in entrees['plafonds'].items()},
             'modules': (entrees['unity'] or {}).get('modules') or [], 'ecart_image': entrees['ecart_image'],
-            'defauts': fautes, 'contre_epreuves': resultats}
+            'verification': entrees.get('verification'), 'defauts': fautes, 'contre_epreuves': resultats}

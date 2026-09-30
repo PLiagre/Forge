@@ -15,9 +15,10 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 objects = []
 # Les modules ajoutés par `fabriquer.py kit` n'entrent dans Kit_Desert.blend qu'à la
 # prochaine reconstruction complète : d'ici là, ils se lisent dans le cache du kit.
-for library in (OUT / 'bibliotheque/Kit_Desert.blend', OUT / 'cache/kit_nouveaux.blend'):
-    if not library.exists():
-        continue
+# Pour un module présent dans les deux, la bibliothèque écrite en dernier l'emporte :
+# la planche montre la géométrie que vient d'exporter `kit` ou `assets`, jamais une ancienne.
+libraries = [p for p in (OUT / 'bibliotheque/Kit_Desert.blend', OUT / 'cache/kit_nouveaux.blend') if p.exists()]
+for library in sorted(libraries, key=lambda p: p.stat().st_mtime, reverse=True):
     known = {o.name for o in objects}
     with bpy.data.libraries.load(str(library), link=False) as (src, dst):
         dst.objects = [n for n in src.objects if n.endswith('_LOD0') and n not in known and (not wanted or any(w in n for w in wanted))]

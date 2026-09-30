@@ -60,7 +60,15 @@
    ]
   }
  ],
- "ecart_image": 32.77117346075043,
+ "ecart_image": 38.93894188307132,
+ "verification": {
+  "status": "valide",
+  "message": "",
+  "dispositions": {
+   "ksar_des_sept_puits": "valide",
+   "oued_des_vents": "valide"
+  }
+ },
  "defauts": [],
  "contre_epreuves": {
   "piece_trop_lourde": {
@@ -109,6 +117,20 @@
    "attendue": "empreinte",
    "obtenues": [
     "empreinte"
+   ],
+   "rougit": true
+  },
+  "planche_uniforme": {
+   "attendue": "echantillon",
+   "obtenues": [
+    "echantillon"
+   ],
+   "rougit": true
+  },
+  "verification_rouge": {
+   "attendue": "regression",
+   "obtenues": [
+    "regression"
    ],
    "rougit": true
   }

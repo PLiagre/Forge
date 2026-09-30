@@ -172,11 +172,23 @@ def empreintes():
 
 
 def ecart_image(path):
-    """Écart-type des pixels d'une image ; -1 si elle manque."""
+    """Variation spatiale des pixels d'une image (`kit.ecart_pixels`) ; -1 si elle manque."""
     if not path.exists():return -1.0
     import numpy as np
     from PIL import Image
-    with Image.open(path) as image:return float(np.asarray(image.convert('RGB'),dtype=float).std())
+    from local3d.desert import kit
+    with Image.open(path) as image:return kit.ecart_pixels(np.asarray(image.convert('RGB')))
+
+
+def verification_scenes(ds):
+    """SC9 : rejoue `verifier` sur chaque disposition et rend son résultat, sans lever."""
+    try:verify(ds);status,message='valide',''
+    except (RuntimeError,ValueError,OSError,KeyError) as e:status,message='echec',str(e)[-600:]
+    dispositions={}
+    for d in ds:
+        rapport=OUT/'villages'/d['id']/'verification.json'
+        dispositions[d['id']]=json.loads(rapport.read_text(encoding='utf-8')).get('status') if rapport.exists() else None
+    return {'status':status,'message':message,'dispositions':dispositions}
 
 
 def kit_ateliers():
@@ -207,13 +219,19 @@ def kit_ateliers():
     except RuntimeError as e:failure=e
     rapport=dossier/'unity-kit.json'
     if not rapport.exists():raise RuntimeError('Unity n’a pas écrit de rapport ('+str(failure or 'voir sorties/logs/kit.log')+')')
+    # Les empreintes après se relèvent sur ce qu'ont laissé Blender et Unity, avant le vérificateur :
+    # lui réécrit ses propres rapports (sorties/villages/*/verification.json), fins de ligne du système comprises.
+    apres=empreintes()
+    print('Vérificateur des scènes : '+', '.join(d['id'] for d in RECIPE['dispositions'])+'.',flush=True)
+    verification=verification_scenes(RECIPE['dispositions'])
     entrees={'plafonds':dict(kit.PLAFONDS),'catalogue_avant':catalogue_avant,
              'catalogue_apres':json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8')),
-             'unity':json.loads(rapport.read_text(encoding='utf-8-sig')),'empreintes_avant':avant,'empreintes_apres':empreintes(),
-             'ecart_image':ecart_image(OUT/'diagnostic/kit_ateliers.png'),'ecart_minimal':ECART_CAPTURE}
+             'unity':json.loads(rapport.read_text(encoding='utf-8-sig')),'empreintes_avant':avant,'empreintes_apres':apres,
+             'ecart_image':ecart_image(OUT/'diagnostic/kit_ateliers.png'),'ecart_minimal':ECART_CAPTURE,'verification':verification}
     j=kit.jugement(entrees)
     (dossier/'jugement.json').write_text(json.dumps(j,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
     print('{} : {} anciens modules intacts attendus, {} empreintes, planche à écart-type {:.1f}'.format(j['status'],j['anciens_modules'],j['empreintes'],j['ecart_image']),flush=True)
+    print('  verifier : {} ; {}'.format(verification['status'],', '.join('{} {}'.format(k,v) for k,v in verification['dispositions'].items())),flush=True)
     for m in j['modules']:
         print('  {:<16} LOD {} ; triangles {} (plafonds {}) ; y min {:.4f} m ; matériaux {}'.format(
             m['id'],m['niveaux'],m['triangles'],j['plafonds'].get(m['id']),m['y_min'],', '.join(m['materiaux'])),flush=True)
