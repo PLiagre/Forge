@@ -151,6 +151,9 @@ def routes(ds):
             axe=x.get('axe',{})
             print('  {:<30} {:<13} {:<9} {}'.format(x['id'],x['famille'],x['decision'],
                   'écart au profil max {:.4f} m, marche à {:.2f} m du bout'.format(axe['max'],x['marche']['distance_fin']) if axe else ''),flush=True)
+        c=j.get('camera') or {};b=c.get('balayage') or {};z=c.get('zoom') or {};m=c.get('marche') or {}
+        if b and z and m:print('  caméra du joueur : {}/{} poses mesurées, {} sous le terrain, marge min {:.2f} m ; zoom de {:.1f} à {:.0f} m ; œil à {:.2f} m, marche à {:.2f} m du bout'.format(
+            b['mesurees'],b['prevues'],b['sous_terrain'],b['marge_min'],z['distance_min'],z['distance_max'],c['oeil'],m.get('distance_fin',-1)),flush=True)
         for fault in j['defauts']:print('  défaut : '+fault,flush=True)
         faults+=len(j['defauts'])
     if failure:raise failure
