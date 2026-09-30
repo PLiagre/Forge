@@ -435,7 +435,10 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
         return Action("corriger_ci", "CI rouge", essai=essais)
 
     verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("sha") == tete]
-    if not verdicts:
+    # Une relecture sans verdict (délai, verdict illisible) n'est pas un
+    # « CORRIGER » : elle se rejoue, et `_relire` bloque à deux échecs. Le
+    # 30 septembre 2026, elle renvoyait au codeur une revue vide (#126).
+    if not verdicts or not verdicts[-1].get("verdict"):
         return Action("relire")
     dernier = verdicts[-1].get("verdict")
     if dernier == "ACCEPTE":
