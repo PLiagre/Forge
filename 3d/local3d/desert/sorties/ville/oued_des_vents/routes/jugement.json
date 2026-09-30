@@ -226,24 +226,77 @@
   "pente_40": true,
   "couches_echangees": true,
   "touffe_sur_route": true,
-  "mur": true
+  "mur": true,
+  "camera_sans_garde": true,
+  "zoom_court": true,
+  "mur_joueur": true,
+  "captures_camera_vides": true
  },
  "captures": [
   {
    "nom": "plaine",
-   "ecart": 96.91916666666667
+   "ecart": 97.00627777777778
   },
   {
    "nom": "bord",
-   "ecart": 143.1013888888889
+   "ecart": 144.77783333333332
   },
   {
    "nom": "flanc_de_dune",
-   "ecart": 167.07236666666665
+   "ecart": 167.75273333333334
   },
   {
    "nom": "refus",
-   "ecart": 168.57072222222223
+   "ecart": 168.8941111111111
+  }
+ ],
+ "camera": {
+  "branchee": true,
+  "balayage": {
+   "prevues": 49572,
+   "mesurees": 49572,
+   "sous_terrain": 0,
+   "marge_min": 1.1974334716796875
+  },
+  "releve": {
+   "prevues": 15300,
+   "mesurees": 15300,
+   "sous_terrain": 0,
+   "marge_min": 1.1917228698730469
+  },
+  "sans_garde": {
+   "prevues": 15300,
+   "mesurees": 15300,
+   "sous_terrain": 745,
+   "marge_min": -39.72557592391968
+  },
+  "zoom": {
+   "distance_min": 5.999999523162842,
+   "distance_max": 449.9999694824219,
+   "hauteur_rue": 4.305253982543945
+  },
+  "oeil": 1.7499990463256836,
+  "retour": 0.0,
+  "marche": {
+   "faite": true,
+   "distance_fin": 0.10320508480072021,
+   "pas_max": 0.1120062917470932,
+   "pas_permis": 0.1119999960064888,
+   "pas": 892
+  }
+ },
+ "captures_camera": [
+  {
+   "nom": "ensemble",
+   "ecart": 129.9258888888889
+  },
+  {
+   "nom": "rue",
+   "ecart": 96.54582222222223
+  },
+  {
+   "nom": "marcheur",
+   "ecart": 79.48256666666667
   }
  ],
  "defauts": [],
