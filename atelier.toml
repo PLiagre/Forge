@@ -45,17 +45,17 @@ prefixe_branche = "lot/"
 # Qui fait quoi, d'après les mesures publiques de septembre 2026 (indice des
 # agents de code d'Artificial Analysis : Claude Opus 5.5 66, GPT-6 Astra 62,
 # GPT-6 Sol 57, Grok 4.7 56) et l'abonnement ChatGPT Plus du propriétaire.
-# Le chef écrit le brief, dont tout dépend : Claude Opus ; GPT-6 Astra en
-# secours seulement, son quota Plus est court, puis GPT-6 Sol : quand Claude
-# est à court, chaque brief tombe sur Astra, qui s'épuise vite.
-chef        = "claude/claude-opus-5-5@high | codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high"
-# GPT-6 Sol : le meilleur score par dollar, sur l'abonnement ChatGPT.
-# GPT-5.6 Sol le suit partout où GPT-6 sert : un Codex trop ancien refuse
-# GPT-6 (Codex 0.151 sur le VPS, le 29 septembre 2026 : « not supported »,
-# « requires a newer version of Codex »), et ce refus passe la main au
-# suivant sans brûler d'essai. Codex à jour, GPT-6 répond et GPT-5.6 ne sert
-# plus.
-codeur      = "codex/gpt-6-sol@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
+# Un seul modèle GPT : GPT-6.1 Sol (`gpt-6.1-sol`, sorti le 29 septembre
+# 2026), annoncé presque au niveau d'Astra en code agentique pour un
+# cinquième de son prix ; il remplace GPT-5.6 Sol, GPT-6 Sol et GPT-6 Astra
+# (choix du propriétaire, 30 septembre 2026). Il demande un Codex récent
+# (0.159) : un Codex trop ancien refuse le modèle, et ce refus passe la main
+# au secours sans brûler d'essai.
+# Le chef écrit le brief, dont tout dépend : Claude Opus ; GPT-6.1 Sol en
+# secours, en effort xhigh.
+chef        = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@xhigh"
+# GPT-6.1 Sol : le meilleur score par dollar, sur l'abonnement ChatGPT.
+codeur      = "codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
 # Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
 # en tête (choix du propriétaire, 29 septembre 2026 : le temps du PC est
 # rare, un passage raté y coûte cher), cursor grok en secours. Pas codex :
@@ -64,30 +64,29 @@ codeur      = "codex/gpt-6-sol@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-h
 # `gh workflow run sonde-pc.yml` prouve que chaque agent du PC écrit vraiment.
 codeur_3d   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high"
 # Le dernier passage du codeur d'un lot du VPS avant blocage (la
-# 2e correction) : GPT-6 Astra, plus fort que Sol (62 contre 57), qui ne sert
-# qu'aux lots que deux passages n'ont pas suffi à faire, donc peu de son
-# quota Plus ; s'il est épuisé, les agents du codeur reprennent la main. Les
-# lots du PC n'ont pas de renfort : Codex n'écrit pas sous Windows, et Claude
-# Opus y code déjà. La marque reste celle du codeur : le passage compte, et
-# la famille qui a écrit (GPT) ne relit pas.
-renfort     = "codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
+# 2e correction) : le même GPT-6.1 Sol, mais en effort xhigh, qui ne sert
+# qu'aux lots que deux passages n'ont pas suffi à faire ; s'il ne répond
+# pas, les agents du codeur reprennent la main. Les lots du PC n'ont pas de
+# renfort : Codex n'écrit pas sous Windows, et Claude Opus y code déjà. La
+# marque reste celle du codeur : le passage compte, et la famille qui a
+# écrit (GPT) ne relit pas.
+renfort     = "codex/gpt-6.1-sol@xhigh | codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
 # Le modèle qui écrit ne relit jamais : la FAMILLE de modèle qui a écrit le
 # lot est écartée, et le suivant de la ligne relit. Quelle que soit la
 # famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
 # pas un lot sans relecteur (#186 a attendu une cinquantaine de tours le
-# 28 septembre, Claude écarté et codex à court de quota). Astra relit le
-# code de Claude (les lots du PC) ; Sol prend la suite quand son quota est
-# épuisé.
-relecteur   = "claude/claude-opus-5-5@high | codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high | cursor/grok-4.7-high@high"
-# CI rouge sur master, conflits d'une branche de lot, dépendances : GPT-6
+# 28 septembre, Claude écarté et codex à court de quota). GPT-6.1 Sol relit
+# le code de Claude (les lots du PC) ; grok prend la suite.
+relecteur   = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
+# CI rouge sur master, conflits d'une branche de lot, dépendances : GPT-6.1
 # Sol en effort moyen, travail mécanique ; composer en secours.
-mecanicien  = "codex/gpt-6-sol@medium | codex/gpt-5.6-sol@medium | cursor/composer-2.5@defaut"
+mecanicien  = "codex/gpt-6.1-sol@medium | cursor/composer-2.5@defaut"
 # Journal du matin, en lecture seule (cursor --mode ask) : grok est le
 # modèle qui invente le moins (Artificial Analysis Omniscience).
 chroniqueur = "cursor/grok-4.7-high@high"
 # Comparaison hebdomadaire avec CAP.md, en lecture seule : un appel par
 # semaine, à fort enjeu.
-boussole    = "claude/claude-opus-5-5@xhigh | codex/gpt-6-astra@high | codex/gpt-6-sol@high | codex/gpt-5.6-sol@high"
+boussole    = "claude/claude-opus-5-5@xhigh | codex/gpt-6.1-sol@xhigh"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
