@@ -12,19 +12,10 @@ from mathutils import Vector
 OUT = Path(__file__).parent / 'sorties'
 wanted = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 bpy.ops.wm.read_factory_settings(use_empty=True)
-objects = []
-# Les modules ajoutés par `fabriquer.py kit` n'entrent dans Kit_Desert.blend qu'à la
-# prochaine reconstruction complète : d'ici là, ils se lisent dans le cache du kit.
-# Pour un module présent dans les deux, la bibliothèque écrite en dernier l'emporte :
-# la planche montre la géométrie que vient d'exporter `kit` ou `assets`, jamais une ancienne.
-libraries = [p for p in (OUT / 'bibliotheque/Kit_Desert.blend', OUT / 'cache/kit_nouveaux.blend') if p.exists()]
-for library in sorted(libraries, key=lambda p: p.stat().st_mtime, reverse=True):
-    known = {o.name for o in objects}
-    with bpy.data.libraries.load(str(library), link=False) as (src, dst):
-        dst.objects = [n for n in src.objects if n.endswith('_LOD0') and n not in known and (not wanted or any(w in n for w in wanted))]
-    objects += dst.objects
+with bpy.data.libraries.load(str(OUT / 'bibliotheque/Kit_Desert.blend'), link=False) as (src, dst):
+    dst.objects = [n for n in src.objects if n.endswith('_LOD0') and (not wanted or any(w in n for w in wanted))]
 families = {}
-for o in objects:
+for o in dst.objects:
     families.setdefault(o.name.split('_')[0], []).append(o)
 sc = bpy.context.scene
 sc.render.engine = 'BLENDER_EEVEE'; sc.render.resolution_x = 1600; sc.render.resolution_y = 900

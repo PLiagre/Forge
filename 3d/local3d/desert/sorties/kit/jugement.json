@@ -128,9 +128,9 @@
    "rougit": true
   },
   "verification_rouge": {
-   "attendue": "regression",
+   "attendue": "empreinte",
    "obtenues": [
-    "regression"
+    "empreinte"
    ],
    "rougit": true
   }

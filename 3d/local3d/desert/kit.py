@@ -16,8 +16,7 @@ NOUVEAUX = ['scierie', 'four_pain_pise']
 PLAFONDS = {'scierie': (2400, 1200, 400), 'four_pain_pise': (1600, 800, 300)}
 TOLERANCE_ORIGINE = 0.01       # m : le point le plus bas du LOD0 est au sol à 1 cm près
 NIVEAUX = 3
-# `regression` : le vérificateur des scènes du ksar (`atelier_desert.py verifier`) n'est pas vert.
-ETIQUETTES = ('budget', 'origine', 'lod', 'materiau', 'echantillon', 'catalogue', 'empreinte', 'regression')
+ETIQUETTES = ('budget', 'origine', 'lod', 'materiau', 'echantillon', 'catalogue', 'empreinte')
 
 
 def defaut(etiquette, message):
@@ -104,11 +103,15 @@ def juger(entrees):
         fautes.append(defaut('echantillon', 'planche des ateliers absente ou uniforme (écart-type {:.1f}, {} au moins)'.format(
             entrees['ecart_image'], entrees['ecart_minimal'])))
 
-    # SC9 : le vérificateur existant reste vert, sur chaque disposition.
+    # SC9 : le vérificateur existant reste vert, sur chaque disposition. Il n'a pas d'étiquette
+    # à lui : aucune disposition vérifiée est un échantillon vide ; un vérificateur rouge dit
+    # que les scènes du ksar, que gardent aussi les empreintes (SC7), ne sont plus intactes.
     v = entrees.get('verification') or {}
     rapports = v.get('dispositions') or {}
-    if v.get('status') != 'valide' or not rapports or any(s != 'valide' for s in rapports.values()):
-        fautes.append(defaut('regression', 'verifier : {} ({}) ; dispositions {}'.format(
+    if not rapports:
+        fautes.append(defaut('echantillon', 'verifier : aucune disposition vérifiée'))
+    if v.get('status') != 'valide' or any(s != 'valide' for s in rapports.values()):
+        fautes.append(defaut('empreinte', 'verifier : {} ({}) ; dispositions {}'.format(
             v.get('status'), v.get('message') or 'aucun message', rapports or 'aucune')))
 
     catalogue = {a['id']: a for a in apres['assets']}
@@ -187,7 +190,7 @@ def contre_epreuves(entrees):
 
     e = copy.deepcopy(entrees)
     e['verification'] = dict(e.get('verification') or {}, status='echec', message='contre-épreuve')
-    ce['verification_rouge'] = ('regression', e)
+    ce['verification_rouge'] = ('empreinte', e)
     return ce
 
 

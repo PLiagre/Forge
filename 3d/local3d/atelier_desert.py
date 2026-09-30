@@ -160,15 +160,40 @@ def routes(ds):
     if faults:raise RuntimeError(str(faults)+' défauts : voir sorties/ville/<implantation>/routes/jugement.json')
 
 
-def empreintes():
-    """SHA-256 de ce que la commande `kit` ne doit pas toucher, relevé sur le disque par glob."""
+def proteges():
+    """Ce que la commande `kit` ne doit pas toucher, relevé sur le disque par glob."""
     from local3d.desert import kit
     nouveaux=set(kit.NOUVEAUX)
     chemins=sorted((UNITY_ROOT/'Scenes').glob('*.unity'))
     for dossier,motif in (('Prefabs','*.prefab'),('Models','*.fbx'),('Materials','*.mat')):
         chemins+=[p for p in sorted((UNITY_ROOT/dossier).glob(motif)) if p.stem not in nouveaux]
     for motif in ('*/*.json','*/*.fbx'):chemins+=sorted((OUT/'villages').glob(motif))
-    return {p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in chemins}
+    return chemins
+
+
+def empreintes():
+    """SHA-256 des fichiers protégés."""
+    return {p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in proteges()}
+
+
+def planche(noms):
+    """SC8 : la planche des nouveaux modules, par `inspecter_kit.py` tel qu'il est.
+
+    Il lit sa bibliothèque à côté de lui (`sorties/bibliotheque/Kit_Desert.blend`), où les
+    nouveaux modules n'entrent qu'à la prochaine reconstruction complète, et ce fichier-là
+    ne se touche pas. Il tourne donc dans un banc d'essai, sorties/cache/planche/ : une copie
+    du script, et pour bibliothèque les LOD0 que `fabriquer.py kit` vient d'écrire
+    (sorties/cache/kit_nouveaux.blend, chemins de textures absolus). Le banc est refait à
+    chaque passage : la planche montre ce que `kit` vient de construire, jamais une ancienne.
+    """
+    banc=OUT/'cache/planche';image=OUT/'diagnostic/kit_ateliers.png'
+    shutil.rmtree(banc,ignore_errors=True);image.unlink(missing_ok=True)
+    (banc/'sorties/bibliotheque').mkdir(parents=True)
+    shutil.copy2(CODE/'inspecter_kit.py',banc/'inspecter_kit.py')
+    shutil.copy2(OUT/'cache/kit_nouveaux.blend',banc/'sorties/bibliotheque/Kit_Desert.blend')
+    blender([(banc/'inspecter_kit.py').relative_to(CODE).as_posix()]+noms,'planche_ateliers.log')
+    rendu=banc/'sorties/diagnostic/kit_ateliers.png'
+    if rendu.exists():image.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(rendu,image)
 
 
 def ecart_image(path):
@@ -181,13 +206,27 @@ def ecart_image(path):
 
 
 def verification_scenes(ds):
-    """SC9 : rejoue `verifier` sur chaque disposition et rend son résultat, sans lever."""
-    try:verify(ds);status,message='valide',''
-    except (RuntimeError,ValueError,OSError,KeyError) as e:status,message='echec',str(e)[-600:]
-    dispositions={}
-    for d in ds:
-        rapport=OUT/'villages'/d['id']/'verification.json'
-        dispositions[d['id']]=json.loads(rapport.read_text(encoding='utf-8')).get('status') if rapport.exists() else None
+    """SC9 : rejoue `verifier` sur chaque disposition et rend son résultat, sans lever.
+
+    Le vérificateur réécrit ses rapports (sorties/villages/*/verification.json, fins de ligne
+    du système comprises, et verification-serie.json). Ils sont lus, puis chaque fichier
+    protégé est remis octet pour octet dans l'état d'avant la vérification : ce qu'ont laissé
+    Blender et Unity reste en place, et les empreintes après, relevées ensuite, le jugent.
+    """
+    serie=OUT/'verification-serie.json'
+    gardes={p:p.read_bytes() for p in proteges()+[serie] if p.exists()}
+    try:
+        try:verify(ds);status,message='valide',''
+        except (RuntimeError,ValueError,OSError,KeyError) as e:status,message='echec',str(e)[-600:]
+        dispositions={}
+        for d in ds:
+            rapport=OUT/'villages'/d['id']/'verification.json'
+            dispositions[d['id']]=json.loads(rapport.read_text(encoding='utf-8')).get('status') if rapport.exists() else None
+    finally:
+        for p in proteges()+[serie]:
+            if p.exists() and p not in gardes:p.unlink()
+        for p,octets in gardes.items():
+            if not p.exists() or p.read_bytes()!=octets:p.write_bytes(octets)
     return {'status':status,'message':message,'dispositions':dispositions}
 
 
@@ -206,8 +245,7 @@ def kit_ateliers():
         print('Textures du kit.',flush=True);prepare(OUT/'textures')
     print('Blender : '+', '.join(kit.NOUVEAUX)+'.',flush=True)
     blender(['fabriquer.py','kit'],'kit_ateliers.log')
-    (OUT/'diagnostic/kit_ateliers.png').unlink(missing_ok=True)
-    blender(['inspecter_kit.py','scierie','four'],'planche_ateliers.log')
+    planche(['scierie','four'])
     for sub in ('Models','Data'):(UNITY_ROOT/sub).mkdir(parents=True,exist_ok=True)
     for nom in kit.NOUVEAUX:shutil.copy2(OUT/'bibliotheque'/(nom+'.fbx'),UNITY_ROOT/'Models'/(nom+'.fbx'))
     shutil.copy2(OUT/'bibliotheque/catalogue.json',UNITY_ROOT/'Data/catalogue.json')
@@ -219,11 +257,10 @@ def kit_ateliers():
     except RuntimeError as e:failure=e
     rapport=dossier/'unity-kit.json'
     if not rapport.exists():raise RuntimeError('Unity n’a pas écrit de rapport ('+str(failure or 'voir sorties/logs/kit.log')+')')
-    # Les empreintes après se relèvent sur ce qu'ont laissé Blender et Unity, avant le vérificateur :
-    # lui réécrit ses propres rapports (sorties/villages/*/verification.json), fins de ligne du système comprises.
-    apres=empreintes()
     print('Vérificateur des scènes : '+', '.join(d['id'] for d in RECIPE['dispositions'])+'.',flush=True)
     verification=verification_scenes(RECIPE['dispositions'])
+    # Les empreintes après se relèvent une fois tous les effets de la commande passés, vérificateur compris.
+    apres=empreintes()
     entrees={'plafonds':dict(kit.PLAFONDS),'catalogue_avant':catalogue_avant,
              'catalogue_apres':json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8')),
              'unity':json.loads(rapport.read_text(encoding='utf-8-sig')),'empreintes_avant':avant,'empreintes_apres':apres,

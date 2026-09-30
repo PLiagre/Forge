@@ -104,11 +104,13 @@ portant un matériau hors catalogue, puis réécrit `catalogue.json` en reprenan
 anciens enregistrements tels quels ; Unity en fait des prefabs à trois LOD avec les
 matériaux existants (`DesertKit.cs`) et les mesure ; `kit.juger` décide et écrit
 `sorties/kit/jugement.json`. `Kit_Desert.blend`, les anciens FBX et prefabs et les
-scènes ne bougent pas : leurs empreintes sont comparées avant et après. La commande
-rejoue ensuite `verifier` sur les deux implantations, et son résultat entre au
-jugement. La planche `sorties/diagnostic/kit_ateliers.png` montre les nouveaux
-modules, lus dans `sorties/cache/kit_nouveaux.blend` tant qu'une reconstruction
-complète ne les a pas fait entrer dans `Kit_Desert.blend`.
+scènes ne bougent pas : leurs empreintes sont comparées avant et après, une fois
+tous les effets passés. La commande rejoue `verifier` sur les deux implantations,
+et son résultat entre au jugement ; les rapports que le vérificateur réécrit sont
+remis tels qu'ils étaient. La planche `sorties/diagnostic/kit_ateliers.png` montre
+les nouveaux modules : `inspecter_kit.py` tourne tel quel dans un banc d'essai
+(`sorties/cache/planche/`) dont la bibliothèque est `sorties/cache/kit_nouveaux.blend`,
+tant qu'une reconstruction complète ne les a pas fait entrer dans `Kit_Desert.blend`.
 
 Pour ajouter un module : l'écrire dans `assets.py`, à la fin de `jobs()`, puis
 l'inscrire dans `kit.py` (`NOUVEAUX` et `PLAFONDS`, le seul endroit du budget).
