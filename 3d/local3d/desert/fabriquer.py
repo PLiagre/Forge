@@ -87,7 +87,7 @@ def library():
         record,lods=module(name,builder,kind);records.append(record)
         export_fbx(LIB/(name+'.fbx'),lods);objects.extend(lods)
     bpy.data.libraries.write(str(LIB/'Kit_Desert.blend'),set(objects),path_remap='RELATIVE',fake_user=True,compress=True)
-    write(LIB/'catalogue.json',{'schema':3,'assets':records,'materials':matters(objects)})
+    write(LIB/'catalogue.json',{'schema':3,'assets':records,'materials':matters(objects),'chantiers':{f:kit.suite(f) for f in kit.CHANTIERS}})
     print('KIT_DESERT_OK',len(records),flush=True)
 
 
@@ -112,7 +112,9 @@ def kit_nouveaux():
         records.append(record);built.append((name,lods))
     for name,lods in built:export_fbx(LIB/(name+'.fbx'),lods)
     anciens=[a for a in catalogue['assets'] if a['id'] not in kit.NOUVEAUX]
-    write(LIB/'catalogue.json',{'schema':catalogue['schema'],'assets':anciens+records,'materials':catalogue['materials']})
+    # Lot 269 : la suite des étapes de chaque chantier, dans une clé à part, après les matériaux.
+    write(LIB/'catalogue.json',{'schema':catalogue['schema'],'assets':anciens+records,'materials':catalogue['materials'],
+                                'chantiers':{f:kit.suite(f) for f in kit.CHANTIERS}})
     (OUT/'cache').mkdir(parents=True,exist_ok=True)
     bpy.data.libraries.write(str(OUT/'cache/kit_nouveaux.blend'),{o for _,lods in built for o in lods if o.name.endswith('_LOD0')},path_remap='ABSOLUTE',fake_user=True,compress=True)
     print('KIT_NOUVEAUX_OK',len(anciens),len(records),flush=True)

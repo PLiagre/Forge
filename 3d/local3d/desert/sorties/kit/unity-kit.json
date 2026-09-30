@@ -19,7 +19,12 @@
                 "pise",
                 "pise_clair",
                 "stipe_palmier"
-            ]
+            ],
+            "x_min": -4.249826908111572,
+            "x_max": 4.174853801727295,
+            "z_min": -2.513153314590454,
+            "z_max": 2.7620933055877687,
+            "y_max": 4.25
         },
         {
             "id": "four_pain_pise",
@@ -40,7 +45,161 @@
                 "pise",
                 "pise_clair",
                 "poterie"
-            ]
+            ],
+            "x_min": -1.718504548072815,
+            "x_max": 1.6098729372024537,
+            "z_min": -1.1685781478881837,
+            "z_max": 1.3356293439865113,
+            "y_max": 2.1946027278900148
+        },
+        {
+            "id": "chantier_maison_pise_0_piquets",
+            "niveaux": 3,
+            "triangles": [
+                288,
+                192,
+                48
+            ],
+            "y_min": 0.0,
+            "materiaux": [
+                "bois_palmier",
+                "bois_sombre"
+            ],
+            "x_min": -3.556727170944214,
+            "x_max": 3.219172716140747,
+            "z_min": -3.2693002223968508,
+            "z_max": 3.6190271377563478,
+            "y_max": 1.0
+        },
+        {
+            "id": "chantier_maison_pise_0_murs",
+            "niveaux": 3,
+            "triangles": [
+                984,
+                298,
+                130
+            ],
+            "y_min": -1.0244548320770264e-8,
+            "materiaux": [
+                "bois_palmier",
+                "bois_sombre",
+                "pise",
+                "stipe_palmier"
+            ],
+            "x_min": -3.563554525375366,
+            "x_max": 3.2260000705718996,
+            "z_min": -3.2807490825653078,
+            "z_max": 3.630476236343384,
+            "y_max": 3.0853686332702638
+        },
+        {
+            "id": "chantier_scierie_piquets",
+            "niveaux": 3,
+            "triangles": [
+                281,
+                192,
+                48
+            ],
+            "y_min": 0.0,
+            "materiaux": [
+                "bois_palmier",
+                "bois_sombre"
+            ],
+            "x_min": -4.298476219177246,
+            "x_max": 4.223503112792969,
+            "z_min": -2.562326192855835,
+            "z_max": 2.8112661838531496,
+            "y_max": 1.0
+        },
+        {
+            "id": "chantier_scierie_murs",
+            "niveaux": 3,
+            "triangles": [
+                730,
+                220,
+                100
+            ],
+            "y_min": -6.51925802230835e-9,
+            "materiaux": [
+                "bois_palmier",
+                "bois_sombre",
+                "pise",
+                "stipe_palmier"
+            ],
+            "x_min": -4.3058271408081059,
+            "x_max": 4.230854034423828,
+            "z_min": -2.573775053024292,
+            "z_max": 2.8227150440216066,
+            "y_max": 2.762500047683716
+        },
+        {
+            "id": "chantier_four_pain_pise_piquets",
+            "niveaux": 3,
+            "triangles": [
+                144,
+                96,
+                48
+            ],
+            "y_min": 0.0,
+            "materiaux": [
+                "bois_palmier",
+                "bois_sombre"
+            ],
+            "x_min": -1.7719364166259766,
+            "x_max": 1.6540158987045289,
+            "z_min": -1.2123582363128663,
+            "z_max": 1.3794093132019044,
+            "y_max": 1.0
+        },
+        {
+            "id": "chantier_four_pain_pise_murs",
+            "niveaux": 3,
+            "triangles": [
+                609,
+                250,
+                130
+            ],
+            "y_min": -3.725290298461914e-9,
+            "materiaux": [
+                "bois_palmier",
+                "bois_sombre",
+                "pise",
+                "stipe_palmier"
+            ],
+            "x_min": -1.7841565608978272,
+            "x_max": 1.6662360429763795,
+            "z_min": -1.2291998863220215,
+            "z_max": 1.3962510824203492,
+            "y_max": 1.4264918565750123
+        }
+    ],
+    "references": [
+        {
+            "id": "maison_pise_0",
+            "niveaux": 3,
+            "triangles": [
+                1254,
+                566,
+                198
+            ],
+            "y_min": -1.5366822481155397e-8,
+            "materiaux": [
+                "baie_sombre",
+                "bois_palmier",
+                "bois_peint_vert",
+                "chaux",
+                "cuivre",
+                "enduit_pise",
+                "fer_noir",
+                "pierre_taille",
+                "pise",
+                "pise_clair"
+            ],
+            "x_min": -3.507554531097412,
+            "x_max": 3.1700000762939455,
+            "z_min": -3.2201273441314699,
+            "z_max": 3.569854497909546,
+            "y_max": 4.746720790863037
         }
     ],
     "materiaux_manquants": [],

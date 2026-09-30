@@ -2,7 +2,13 @@
  "status": "valide",
  "nouveaux": [
   "scierie",
-  "four_pain_pise"
+  "four_pain_pise",
+  "chantier_maison_pise_0_piquets",
+  "chantier_maison_pise_0_murs",
+  "chantier_scierie_piquets",
+  "chantier_scierie_murs",
+  "chantier_four_pain_pise_piquets",
+  "chantier_four_pain_pise_murs"
  ],
  "anciens_modules": 49,
  "empreintes": 165,
@@ -16,6 +22,36 @@
    1600,
    800,
    300
+  ],
+  "chantier_maison_pise_0_piquets": [
+   400,
+   200,
+   80
+  ],
+  "chantier_maison_pise_0_murs": [
+   1200,
+   600,
+   240
+  ],
+  "chantier_scierie_piquets": [
+   400,
+   200,
+   80
+  ],
+  "chantier_scierie_murs": [
+   1200,
+   600,
+   240
+  ],
+  "chantier_four_pain_pise_piquets": [
+   400,
+   200,
+   80
+  ],
+  "chantier_four_pain_pise_murs": [
+   1200,
+   600,
+   240
   ]
  },
  "modules": [
@@ -36,7 +72,12 @@
     "pise",
     "pise_clair",
     "stipe_palmier"
-   ]
+   ],
+   "x_min": -4.249826908111572,
+   "x_max": 4.174853801727295,
+   "z_min": -2.513153314590454,
+   "z_max": 2.7620933055877686,
+   "y_max": 4.25
   },
   {
    "id": "four_pain_pise",
@@ -57,10 +98,182 @@
     "pise",
     "pise_clair",
     "poterie"
-   ]
+   ],
+   "x_min": -1.718504548072815,
+   "x_max": 1.6098729372024536,
+   "z_min": -1.1685781478881836,
+   "z_max": 1.3356293439865112,
+   "y_max": 2.1946027278900146
+  },
+  {
+   "id": "chantier_maison_pise_0_piquets",
+   "niveaux": 3,
+   "triangles": [
+    288,
+    192,
+    48
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre"
+   ],
+   "x_min": -3.556727170944214,
+   "x_max": 3.219172716140747,
+   "z_min": -3.2693002223968506,
+   "z_max": 3.6190271377563477,
+   "y_max": 1.0
+  },
+  {
+   "id": "chantier_maison_pise_0_murs",
+   "niveaux": 3,
+   "triangles": [
+    984,
+    298,
+    130
+   ],
+   "y_min": -1.0244548320770264e-08,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise",
+    "stipe_palmier"
+   ],
+   "x_min": -3.563554525375366,
+   "x_max": 3.2260000705718994,
+   "z_min": -3.2807490825653076,
+   "z_max": 3.630476236343384,
+   "y_max": 3.0853686332702637
+  },
+  {
+   "id": "chantier_scierie_piquets",
+   "niveaux": 3,
+   "triangles": [
+    281,
+    192,
+    48
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre"
+   ],
+   "x_min": -4.298476219177246,
+   "x_max": 4.223503112792969,
+   "z_min": -2.562326192855835,
+   "z_max": 2.8112661838531494,
+   "y_max": 1.0
+  },
+  {
+   "id": "chantier_scierie_murs",
+   "niveaux": 3,
+   "triangles": [
+    730,
+    220,
+    100
+   ],
+   "y_min": -6.51925802230835e-09,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise",
+    "stipe_palmier"
+   ],
+   "x_min": -4.3058271408081055,
+   "x_max": 4.230854034423828,
+   "z_min": -2.573775053024292,
+   "z_max": 2.8227150440216064,
+   "y_max": 2.762500047683716
+  },
+  {
+   "id": "chantier_four_pain_pise_piquets",
+   "niveaux": 3,
+   "triangles": [
+    144,
+    96,
+    48
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre"
+   ],
+   "x_min": -1.7719364166259766,
+   "x_max": 1.6540158987045288,
+   "z_min": -1.2123582363128662,
+   "z_max": 1.3794093132019043,
+   "y_max": 1.0
+  },
+  {
+   "id": "chantier_four_pain_pise_murs",
+   "niveaux": 3,
+   "triangles": [
+    609,
+    250,
+    130
+   ],
+   "y_min": -3.725290298461914e-09,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise",
+    "stipe_palmier"
+   ],
+   "x_min": -1.7841565608978271,
+   "x_max": 1.6662360429763794,
+   "z_min": -1.2291998863220215,
+   "z_max": 1.3962510824203491,
+   "y_max": 1.4264918565750122
   }
  ],
+ "references": [
+  {
+   "id": "maison_pise_0",
+   "niveaux": 3,
+   "triangles": [
+    1254,
+    566,
+    198
+   ],
+   "y_min": -1.5366822481155396e-08,
+   "materiaux": [
+    "baie_sombre",
+    "bois_palmier",
+    "bois_peint_vert",
+    "chaux",
+    "cuivre",
+    "enduit_pise",
+    "fer_noir",
+    "pierre_taille",
+    "pise",
+    "pise_clair"
+   ],
+   "x_min": -3.507554531097412,
+   "x_max": 3.1700000762939453,
+   "z_min": -3.2201273441314697,
+   "z_max": 3.569854497909546,
+   "y_max": 4.746720790863037
+  }
+ ],
+ "chantiers": {
+  "maison_pise_0": [
+   "chantier_maison_pise_0_piquets",
+   "chantier_maison_pise_0_murs",
+   "maison_pise_0"
+  ],
+  "scierie": [
+   "chantier_scierie_piquets",
+   "chantier_scierie_murs",
+   "scierie"
+  ],
+  "four_pain_pise": [
+   "chantier_four_pain_pise_piquets",
+   "chantier_four_pain_pise_murs",
+   "four_pain_pise"
+  ]
+ },
  "ecart_image": 38.93894188307132,
+ "ecart_chantiers": 14.88937070312182,
  "verification": {
   "status": "valide",
   "message": "",
@@ -95,7 +308,10 @@
   "echantillon_vide": {
    "attendue": "echantillon",
    "obtenues": [
-    "echantillon"
+    "echantillon",
+    "emprise",
+    "hauteur",
+    "suite"
    ],
    "rougit": true
   },
@@ -131,6 +347,34 @@
    "attendue": "empreinte",
    "obtenues": [
     "empreinte"
+   ],
+   "rougit": true
+  },
+  "etape_decalee": {
+   "attendue": "emprise",
+   "obtenues": [
+    "emprise"
+   ],
+   "rougit": true
+  },
+  "murs_trop_hauts": {
+   "attendue": "hauteur",
+   "obtenues": [
+    "hauteur"
+   ],
+   "rougit": true
+  },
+  "etape_manquante": {
+   "attendue": "suite",
+   "obtenues": [
+    "suite"
+   ],
+   "rougit": true
+  },
+  "planche_chantiers_uniforme": {
+   "attendue": "echantillon",
+   "obtenues": [
+    "echantillon"
    ],
    "rougit": true
   }

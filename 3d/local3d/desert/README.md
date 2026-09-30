@@ -112,6 +112,17 @@ les nouveaux modules : `inspecter_kit.py` tourne tel quel dans un banc d'essai
 (`sorties/cache/planche/`) dont la bibliothèque est `sorties/cache/kit_nouveaux.blend`,
 tant qu'une reconstruction complète ne les a pas fait entrer dans `Kit_Desert.blend`.
 
+Le lot 269 y ajoute les **étapes de chantier** de `maison_pise_0`, de la scierie
+et du four (`kit.CHANTIERS`) : `chantier_<fini>_piquets` (piquets et cordeau) puis
+`chantier_<fini>_murs` (murs à mi-hauteur, perches, planches sur boulins, échelle).
+Leur emprise se tire des sommets du bâtiment fini (`assets.emprise`), jamais d'un
+nombre recopié. Le catalogue déclare leur ordre dans une clé à part, `chantiers`,
+après `materials` : `{"maison_pise_0": [piquets, murs, "maison_pise_0"], …}`
+(`kit.suite`). Unity mesure l'enveloppe du LOD0 de chaque étape et celle du bâtiment
+fini (le prefab de `maison_pise_0`, déjà là, est seulement chargé : `references`
+de `selection.json`) ; `kit.juger` vérifie l'emprise, les hauteurs et la suite. La
+planche `sorties/diagnostic/kit_chantiers.png` montre les six étapes.
+
 Pour ajouter un module : l'écrire dans `assets.py`, à la fin de `jobs()`, puis
 l'inscrire dans `kit.py` (`NOUVEAUX` et `PLAFONDS`, le seul endroit du budget).
 `edition --asset` ne le connaît qu'après la prochaine reconstruction complète

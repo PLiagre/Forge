@@ -176,24 +176,30 @@ def empreintes():
     return {p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in proteges()}
 
 
+PLANCHES=('ateliers','chantiers')
+
+
 def planche(noms):
-    """SC8 : la planche des nouveaux modules, par `inspecter_kit.py` tel qu'il est.
+    """SC8 : les planches des nouveaux modules, par `inspecter_kit.py` tel qu'il est.
 
     Il lit sa bibliothèque à côté de lui (`sorties/bibliotheque/Kit_Desert.blend`), où les
     nouveaux modules n'entrent qu'à la prochaine reconstruction complète, et ce fichier-là
     ne se touche pas. Il tourne donc dans un banc d'essai, sorties/cache/planche/ : une copie
     du script, et pour bibliothèque les LOD0 que `fabriquer.py kit` vient d'écrire
     (sorties/cache/kit_nouveaux.blend, chemins de textures absolus). Le banc est refait à
-    chaque passage : la planche montre ce que `kit` vient de construire, jamais une ancienne.
+    chaque passage : chaque planche (`PLANCHES`) montre ce que `kit` vient de construire,
+    jamais une ancienne.
     """
-    banc=OUT/'cache/planche';image=OUT/'diagnostic/kit_ateliers.png'
-    shutil.rmtree(banc,ignore_errors=True);image.unlink(missing_ok=True)
+    banc=OUT/'cache/planche';images={p:OUT/'diagnostic'/('kit_'+p+'.png') for p in PLANCHES}
+    shutil.rmtree(banc,ignore_errors=True)
+    for image in images.values():image.unlink(missing_ok=True)
     (banc/'sorties/bibliotheque').mkdir(parents=True)
     shutil.copy2(CODE/'inspecter_kit.py',banc/'inspecter_kit.py')
     shutil.copy2(OUT/'cache/kit_nouveaux.blend',banc/'sorties/bibliotheque/Kit_Desert.blend')
     blender([(banc/'inspecter_kit.py').relative_to(CODE).as_posix()]+noms,'planche_ateliers.log')
-    rendu=banc/'sorties/diagnostic/kit_ateliers.png'
-    if rendu.exists():image.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(rendu,image)
+    for p,image in images.items():
+        rendu=banc/'sorties/diagnostic'/image.name
+        if rendu.exists():image.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(rendu,image)
 
 
 def ecart_image(path):
@@ -231,7 +237,8 @@ def verification_scenes(ds):
 
 
 def kit_ateliers():
-    """Lot 266 : ajoute les modules de kit.NOUVEAUX au kit, jusqu'aux prefabs d'Unity, puis juge."""
+    """Lots 266 et 269 : ajoute les modules de kit.NOUVEAUX au kit, jusqu'aux prefabs d'Unity,
+    fait mesurer par Unity les bâtiments finis de kit.REFERENCES, puis juge."""
     from local3d.desert import kit
     from local3d.desert.routes import ECART_CAPTURE
     # La garde passe avant tout effet : l'éditeur ouvert réimporterait sous nos pieds.
@@ -245,11 +252,12 @@ def kit_ateliers():
         print('Textures du kit.',flush=True);prepare(OUT/'textures')
     print('Blender : '+', '.join(kit.NOUVEAUX)+'.',flush=True)
     blender(['fabriquer.py','kit'],'kit_ateliers.log')
-    planche(['scierie','four'])
+    planche(['scierie','four','chantier'])
     for sub in ('Models','Data'):(UNITY_ROOT/sub).mkdir(parents=True,exist_ok=True)
     for nom in kit.NOUVEAUX:shutil.copy2(OUT/'bibliotheque'/(nom+'.fbx'),UNITY_ROOT/'Models'/(nom+'.fbx'))
     shutil.copy2(OUT/'bibliotheque/catalogue.json',UNITY_ROOT/'Data/catalogue.json')
-    (dossier/'selection.json').write_text(json.dumps({'modules':kit.NOUVEAUX},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    # Les références : bâtiments finis des chantiers, mesurés par Unity sans être refaits.
+    (dossier/'selection.json').write_text(json.dumps({'modules':kit.NOUVEAUX,'references':kit.REFERENCES},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     (dossier/'unity-kit.json').unlink(missing_ok=True)
     print('Unity : prefabs et mesures.',flush=True)
     failure=None
@@ -264,16 +272,26 @@ def kit_ateliers():
     entrees={'plafonds':dict(kit.PLAFONDS),'catalogue_avant':catalogue_avant,
              'catalogue_apres':json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8')),
              'unity':json.loads(rapport.read_text(encoding='utf-8-sig')),'empreintes_avant':avant,'empreintes_apres':apres,
-             'ecart_image':ecart_image(OUT/'diagnostic/kit_ateliers.png'),'ecart_minimal':ECART_CAPTURE,'verification':verification}
+             'ecart_image':ecart_image(OUT/'diagnostic/kit_ateliers.png'),'ecart_chantiers':ecart_image(OUT/'diagnostic/kit_chantiers.png'),
+             'ecart_minimal':ECART_CAPTURE,'verification':verification}
     j=kit.jugement(entrees)
     (dossier/'jugement.json').write_text(json.dumps(j,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
-    print('{} : {} anciens modules intacts attendus, {} empreintes, planche à écart-type {:.1f}'.format(j['status'],j['anciens_modules'],j['empreintes'],j['ecart_image']),flush=True)
+    print('{} : {} anciens modules intacts attendus, {} empreintes, planches à écart-type {:.1f} (ateliers) et {:.1f} (chantiers)'.format(
+        j['status'],j['anciens_modules'],j['empreintes'],j['ecart_image'],j['ecart_chantiers']),flush=True)
     print('  verifier : {} ; {}'.format(verification['status'],', '.join('{} {}'.format(k,v) for k,v in verification['dispositions'].items())),flush=True)
     for m in j['modules']:
-        print('  {:<16} LOD {} ; triangles {} (plafonds {}) ; y min {:.4f} m ; matériaux {}'.format(
+        print('  {:<32} LOD {} ; triangles {} (plafonds {}) ; y min {:.4f} m ; matériaux {}'.format(
             m['id'],m['niveaux'],m['triangles'],j['plafonds'].get(m['id']),m['y_min'],', '.join(m['materiaux'])),flush=True)
+    # Pour chaque chantier : l'enveloppe et la hauteur de chaque étape, puis du bâtiment fini.
+    mesures={m['id']:m for m in j['modules']+j['references']}
+    for fini,etapes in j['chantiers'].items():
+        print('  chantier '+fini+' :',flush=True)
+        for e in etapes:
+            m=mesures.get(e) or {}
+            print('    {:<32} x {:.2f} à {:.2f} m ; z {:.2f} à {:.2f} m ; hauteur {:.2f} m'.format(
+                e,*(m.get(k,-1) for k in ('x_min','x_max','z_min','z_max','y_max'))),flush=True)
     for nom,c in j['contre_epreuves'].items():
-        print('  contre-épreuve {:<22} {} ({})'.format(nom,'rougit' if c['rougit'] else 'SANS EFFET',', '.join(c['obtenues']) or 'aucun défaut'),flush=True)
+        print('  contre-épreuve {:<28} {} ({})'.format(nom,'rougit' if c['rougit'] else 'SANS EFFET',', '.join(c['obtenues']) or 'aucun défaut'),flush=True)
     for f in j['defauts']:print('  défaut [{}] {}'.format(f['etiquette'],f['message']),flush=True)
     if failure:raise failure
     if j['defauts']:raise RuntimeError(str(len(j['defauts']))+' défauts : voir sorties/kit/jugement.json')
