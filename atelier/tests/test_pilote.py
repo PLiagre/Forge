@@ -863,3 +863,18 @@ def test_un_lot_se_relit_sous_son_verrou(projet, gh, depot, tmp_path):
     agents = Agents()
     _pilote(projet, gh, depot, agents, tmp_path).tour()
     assert agents.appels == [] and not [g for g in depot.gestes if g[:2] == ("preparer", 10)]
+
+
+def test_une_ci_rouge_renvoie_au_codeur_l_extrait_de_son_journal(projet, gh, depot, tmp_path, monkeypatch):
+    """Le 30 septembre 2026, `traces.lire` n'existait pas : chaque tour qui
+    tombait sur une CI rouge plantait, et avec lui toute la chaîne."""
+    from atelier import traces
+    table = "sim\tfail\t1m\thttps://github.com/moi/essai/actions/runs/7/job/42\t\n"
+    gh._executer = lambda argv, entree: (1, table, "") if argv[1:3] == ["pr", "checks"] else (1, "", "non")
+    journal = "2026-09-30T08:00:00Z E   assert 406 == 407\n2026-09-30T08:00:01Z ##[error]Process completed\n"
+    monkeypatch.setattr(traces, "_gh", lambda *args: __import__("subprocess").CompletedProcess(args, 0, journal, ""))
+    _en_cours(gh, commentaires=[FAIT_CODEX], ci="rouge")
+    agents = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["codex"]
+    assert "assert 406 == 407" in agents.appels[0][-1]
