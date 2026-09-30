@@ -1,0 +1,48 @@
+{
+    "status": "mesure",
+    "unity": "6000.0.43f1",
+    "modules": [
+        {
+            "id": "scierie",
+            "niveaux": 3,
+            "triangles": [
+                1492,
+                608,
+                280
+            ],
+            "y_min": -5.238689482212067e-10,
+            "materiaux": [
+                "bois_palmier",
+                "bois_sombre",
+                "fer_noir",
+                "palme_seche",
+                "pise",
+                "pise_clair",
+                "stipe_palmier"
+            ]
+        },
+        {
+            "id": "four_pain_pise",
+            "niveaux": 3,
+            "triangles": [
+                927,
+                415,
+                231
+            ],
+            "y_min": 0.0,
+            "materiaux": [
+                "baie_sombre",
+                "bois_palmier",
+                "bois_sombre",
+                "brique_crue",
+                "enduit_pise",
+                "fer_noir",
+                "pise",
+                "pise_clair",
+                "poterie"
+            ]
+        }
+    ],
+    "materiaux_manquants": [],
+    "erreurs": []
+}

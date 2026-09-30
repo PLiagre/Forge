@@ -983,6 +983,138 @@ def velum():
     return m
 
 
+# ---------------------------------------------------------------- ateliers (lot 266)
+
+def slab(m, top, thickness, name):
+    """Dalle sous quatre coins donnés à l'endroit (sens trigonométrique vu du dessus)."""
+    vs = [(x, y, z - thickness) for x, y, z in top] + list(top)
+    m.surface(vs, [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], mat(name))
+
+
+def frond_card(m, a, b, width, name):
+    """Palme posée à plat de a (base) à b (pointe), rachis au milieu, comme la texture `palm`."""
+    a = Vector(a); b = Vector(b); side = (b - a).cross(Vector((0, 0, 1))).normalized() * width / 2
+    for sign, v in ((-1, 0), (1, 1)):
+        quad = [tuple(a), tuple(b), tuple(b + side * sign), tuple(a + side * sign)]
+        # Les deux moitiés regardent le ciel ; les UV suivent les sommets, pas l'ordre de la face.
+        m.surface(quad, [(0, 1, 2, 3) if sign < 0 else (3, 2, 1, 0)], mat(name), [(0, .5), (1, .5), (1, v), (0, v)])
+
+
+def sawmill():
+    """Atelier de scieurs de long : auvent de palmes sur poteaux de palmier, deux murets de pisé,
+    grume sur un chevalet haut, scie de long et pile de planches. Environ 8 × 5 m, ouvert au sud."""
+    m = Mesh(); w = 8; d = 5
+    # Égout haut et pente douce : sous l'auvent, la grume reste visible depuis la rue.
+    def roof(y): return 3.65 + (y + 2.2) * .1
+    # Deux murets : le fond et le pignon ouest ; l'atelier s'ouvre sur la façade et à l'est.
+    frustum(m, 0, d / 2 - .25, 0, (w, .5), (w, .38), 1.5, 'pise')
+    frustum(m, -w / 2 + .25, -.1, 0, (.5, d - 1.2), (.38, d - 1.2), 1.5, 'pise')
+    m.detail = 1
+    m.box((0, d / 2 - .25, 1.54), (w + .04, .44, .08), mat('pise_clair'))
+    m.box((-w / 2 + .25, -.1, 1.54), (.44, d - 1.2, .08), mat('pise_clair'))
+    m.detail = 2
+    # Poteaux de stipe : ceux des angles portent la silhouette, ceux du milieu le détail.
+    for x in (-3.7, 0, 3.7):
+        m.detail = 2 if x else 1
+        for y in (-2.2, 1.75):
+            m.cylinder((x, y, 0), (x, y, roof(y) - .1), .13, .11, mat('stipe_palmier'), 6)
+    m.detail = 2
+    for y in (-2.2, 1.75):
+        m.beam((-4.0, y, roof(y) - .1), (4.0, y, roof(y) - .1), .16, mat('stipe_palmier'))
+    # Nattes de nervures sous les palmes, puis deux rangs de palmes sèches qui se recouvrent.
+    top = [(-4.15, -2.55, roof(-2.55) + .06), (4.15, -2.55, roof(-2.55) + .06), (4.15, 2.45, roof(2.45) + .06), (-4.15, 2.45, roof(2.45) + .06)]
+    slab(m, top, .1, 'bois_palmier')
+    m.detail = 1
+    for k in range(7):
+        x = -3.6 + k * 1.2
+        m.beam((x, -2.45, roof(-2.45) - .04), (x, 2.4, roof(2.4) - .04), .1, mat('bois_palmier'))
+    for row, (y0, y1) in enumerate(((-2.75, .35), (-.35, 2.5))):
+        for k in range(9):
+            x = -3.6 + k * .9 + row * .15
+            frond_card(m, (x, y1, roof(y1) + .1 + row * .03), (x + .15 * (k % 2 - .5), y0, roof(y0) + .08 + row * .03), 1.0, 'palme_seche')
+    m.detail = 2
+    # Chevalet haut : deux tréteaux en A, avancés vers la façade ; le scieur du dessous travaille
+    # debout sous la grume.
+    yc = -.5
+    for x in (-1.9, 1.3):
+        for sy in (-1, 1):
+            m.beam((x, yc + sy * .9, .08), (x, yc + sy * .22, 1.9), .14, mat('bois_sombre'))
+        m.beam((x, yc - .5, 1.98), (x, yc + .5, 1.98), .18, mat('bois_sombre'))
+        m.detail = 1
+        m.beam((x, yc - .72, .62), (x, yc + .72, .62), .08, mat('bois_sombre'))
+        m.detail = 0
+        m.beam((x - .55, yc, .1), (x, yc, 1.25), .07, mat('bois_sombre'))
+        m.beam((x - .04, yc - .2, 2.12), (x - .04, yc - .2, 2.36), .04, mat('fer_noir'))
+        m.detail = 2
+    m.cylinder((-3.1, yc, 2.37), (2.3, yc, 2.37), .29, .26, mat('bois_sombre'), 10)
+    # Scie de long plantée dans la grume : lame, manche du haut en T, poignée du bas.
+    m.detail = 1
+    m.beam((.35, yc, .75), (.35, yc, 3.1), .2, mat('fer_noir'), .015)
+    m.detail = 0
+    m.beam((.35, yc, 3.08), (.35, yc, 3.2), .05, mat('bois_sombre'))
+    m.beam((.35, yc - .38, 3.22), (.35, yc + .38, 3.22), .06, mat('bois_sombre'))
+    m.beam((.35, yc - .24, .72), (.35, yc + .24, .72), .05, mat('bois_sombre'))
+    m.ico((.35, yc + .1, .1), (.7, .5, .1), mat('pise_clair'), 1)
+    m.detail = 2
+    # Pile de planches sur deux traverses : lits séparés par des liteaux, planches libres dessus,
+    # et d'autres dressées contre le fond.
+    for y in (-.9, 1.0):
+        m.box((3.05, y, .06), (1.2, .16, .12), mat('bois_sombre'))
+    m.box((3.05, .05, .47), (1.0, 2.6, .7), mat('bois_palmier'))
+    m.detail = 0
+    for z in (.3, .47, .64):
+        m.box((3.05, .05, z), (1.04, 2.64, .025), mat('bois_sombre'))
+    for y in (-.8, .05, .9):
+        m.box((3.05, y, .835), (1.04, .06, .03), mat('bois_sombre'))
+    m.detail = 1
+    for k in range(3):
+        m.box((2.72 + k * .33, .05 + (k - 1) * .12, .875), (.28, 2.6, .05), mat('bois_palmier'))
+        m.beam((1.6 + k * .45, 1.6, .04), (1.6 + k * .45, 1.93, 2.2), .26, mat('bois_palmier'), .05)
+    m.detail = 2
+    return m
+
+
+def bread_oven():
+    """Four à pain en coupole de pisé sur socle : bouche en arc, évent, banc de brique crue et
+    réserve de bois. Environ 3 × 3 m ; la bouche regarde le sud."""
+    m = Mesh()
+    frustum(m, 0, 0, 0, (2.3, 2.3), (2.2, 2.2), .7, 'pise')
+    m.detail = 1
+    m.box((0, 0, .72), (2.26, 2.26, .04), mat('pise_clair'))
+    m.detail = 2
+    dome_shell(m, 0, .2, .7, .98, 1.2, 'enduit_pise', 12, 5)
+    # Évent au sommet : un court tuyau de terre, bouché de noir de fumée.
+    m.cylinder((0, .2, 1.8), (0, .2, 2.2), .13, .1, mat('pise'), 6)
+    m.detail = 1
+    m.surface([(.095 * math.cos(i * math.tau / 6), .2 + .095 * math.sin(i * math.tau / 6), 2.205) for i in range(6)], [tuple(range(6))], mat('baie_sombre'))
+    m.detail = 2
+    # Bouche : un avant-corps percé d'un arc, cerné de brique crue.
+    m.box((0, -.85, 1.1), (.9, .5, .8), mat('pise'))
+    pts = horseshoe(.5, .55, 22, 8)
+    m.surface([(a, -1.11, .76 + b) for a, b in pts], [tuple(range(len(pts)))], mat('baie_sombre'))
+    m.detail = 1
+    outline(m, horseshoe(.64, .64, 22, 8)[1:-1], 0, -1.12, .74, .09, 'brique_crue')
+    m.detail = 0
+    m.beam((.62, -1.3, .03), (.62, -1.18, .55), .45, mat('fer_noir'), .03)
+    m.beam((-.55, -1.3, .05), (-.4, -1.2, 1.55), .05, mat('bois_sombre'))
+    m.box((-.4, -1.24, 1.58), (.3, .03, .26), mat('bois_sombre'))
+    jar(m, -1.37, .45, .495, .5)
+    m.detail = 2
+    # Banc de brique crue à l'ouest, réserve de bois de palmier à l'est.
+    m.box((-1.37, -.1, .225), (.4, 1.6, .45), mat('brique_crue'))
+    m.detail = 1
+    m.box((-1.37, -.1, .47), (.46, 1.7, .05), mat('pise_clair'))
+    m.detail = 2
+    for level, xs in enumerate(((1.28, 1.46, 1.64), (1.37, 1.55), (1.46,))):
+        m.detail = 2 if level == 0 else 1
+        for x in xs:
+            z = .09 + level * .16
+            m.cylinder((x, -.75, z), (x, .75, z), .09, .09, mat('bois_palmier'), 6)
+    m.detail = 2
+    warp(m, .02, 5, 2.2)
+    return m
+
+
 def jobs(tex):
     global TEX; TEX = tex
     result = [(f'maison_pise_{i}', lambda j=i: house(j), 'batiment') for i in range(6)]
@@ -1001,4 +1133,6 @@ def jobs(tex):
     result += [(f'chameau_{i}', lambda j=i: camel(j), 'accessoire') for i in range(3)]
     result += [(f'souk_{k}', lambda j=k: stall(j), 'module') for k in ('epices', 'tissus', 'poteries', 'dattes')]
     result += [('souk_tapis', rug_rack, 'module'), ('souk_jarres', jars, 'module'), ('souk_velum', velum, 'module')]
+    # Lot 266 : toujours à la fin, pour qu'une reconstruction complète garde l'ordre du catalogue.
+    result += [('scierie', sawmill, 'batiment'), ('four_pain_pise', bread_oven, 'batiment')]
     return result

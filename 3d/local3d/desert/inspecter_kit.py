@@ -12,10 +12,18 @@ from mathutils import Vector
 OUT = Path(__file__).parent / 'sorties'
 wanted = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 bpy.ops.wm.read_factory_settings(use_empty=True)
-with bpy.data.libraries.load(str(OUT / 'bibliotheque/Kit_Desert.blend'), link=False) as (src, dst):
-    dst.objects = [n for n in src.objects if n.endswith('_LOD0') and (not wanted or any(w in n for w in wanted))]
+objects = []
+# Les modules ajoutés par `fabriquer.py kit` n'entrent dans Kit_Desert.blend qu'à la
+# prochaine reconstruction complète : d'ici là, ils se lisent dans le cache du kit.
+for library in (OUT / 'bibliotheque/Kit_Desert.blend', OUT / 'cache/kit_nouveaux.blend'):
+    if not library.exists():
+        continue
+    known = {o.name for o in objects}
+    with bpy.data.libraries.load(str(library), link=False) as (src, dst):
+        dst.objects = [n for n in src.objects if n.endswith('_LOD0') and n not in known and (not wanted or any(w in n for w in wanted))]
+    objects += dst.objects
 families = {}
-for o in dst.objects:
+for o in objects:
     families.setdefault(o.name.split('_')[0], []).append(o)
 sc = bpy.context.scene
 sc.render.engine = 'BLENDER_EEVEE'; sc.render.resolution_x = 1600; sc.render.resolution_y = 900
@@ -29,7 +37,7 @@ camera = bpy.data.objects.new('Camera', bpy.data.cameras.new('Camera')); sc.coll
 (OUT / 'diagnostic').mkdir(parents=True, exist_ok=True)
 groups = [('maison', ['maison']), ('ksar', ['tour', 'rempart', 'porte', 'pont']), ('mosquee', ['mosquee', 'minaret', 'coupole', 'fontaine', 'escalier']),
           ('vegetation', ['palmier', 'acacia']), ('relief', ['falaise', 'dune', 'butte']), ('vie', ['chameau', 'tente', 'lanterne', 'etendard', 'garde', 'dalles', 'jarres', 'puits']),
-          ('souk', ['souk'])]
+          ('souk', ['souk']), ('ateliers', ['scierie', 'four'])]
 for label, prefixes in groups:
     items = [o for p in prefixes for o in families.get(p, [])]
     if not items:

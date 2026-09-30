@@ -1,0 +1,116 @@
+{
+ "status": "valide",
+ "nouveaux": [
+  "scierie",
+  "four_pain_pise"
+ ],
+ "anciens_modules": 49,
+ "empreintes": 165,
+ "plafonds": {
+  "scierie": [
+   2400,
+   1200,
+   400
+  ],
+  "four_pain_pise": [
+   1600,
+   800,
+   300
+  ]
+ },
+ "modules": [
+  {
+   "id": "scierie",
+   "niveaux": 3,
+   "triangles": [
+    1492,
+    608,
+    280
+   ],
+   "y_min": -5.238689482212067e-10,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "fer_noir",
+    "palme_seche",
+    "pise",
+    "pise_clair",
+    "stipe_palmier"
+   ]
+  },
+  {
+   "id": "four_pain_pise",
+   "niveaux": 3,
+   "triangles": [
+    927,
+    415,
+    231
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "baie_sombre",
+    "bois_palmier",
+    "bois_sombre",
+    "brique_crue",
+    "enduit_pise",
+    "fer_noir",
+    "pise",
+    "pise_clair",
+    "poterie"
+   ]
+  }
+ ],
+ "ecart_image": 32.77117346075043,
+ "defauts": [],
+ "contre_epreuves": {
+  "piece_trop_lourde": {
+   "attendue": "budget",
+   "obtenues": [
+    "budget"
+   ],
+   "rougit": true
+  },
+  "origine_relevee": {
+   "attendue": "origine",
+   "obtenues": [
+    "origine"
+   ],
+   "rougit": true
+  },
+  "triangles_divergents": {
+   "attendue": "lod",
+   "obtenues": [
+    "lod"
+   ],
+   "rougit": true
+  },
+  "echantillon_vide": {
+   "attendue": "echantillon",
+   "obtenues": [
+    "echantillon"
+   ],
+   "rougit": true
+  },
+  "materiau_neuf": {
+   "attendue": "materiau",
+   "obtenues": [
+    "materiau"
+   ],
+   "rougit": true
+  },
+  "ancien_module_change": {
+   "attendue": "catalogue",
+   "obtenues": [
+    "catalogue"
+   ],
+   "rougit": true
+  },
+  "scene_touchee": {
+   "attendue": "empreinte",
+   "obtenues": [
+    "empreinte"
+   ],
+   "rougit": true
+  }
+ }
+}

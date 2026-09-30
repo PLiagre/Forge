@@ -16,8 +16,8 @@ from local3d.atelier_citadelle import prepare_terrain_sample
 CODE=ROOT/'local3d/desert';OUT=CODE/'sorties'
 RECIPE=json.loads((CODE/'recette.json').read_text(encoding='utf-8'))
 UNITY_ROOT=ROOT/'unity/Assets/ForgeLocal3D/Desert'
-ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes'}
-LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log'}
+ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes','ForgeLocal3D.DesertKit.Start':'desert_kit'}
+LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log','desert_kit':'kit.log'}
 
 
 def blender(args,log):
@@ -160,6 +160,70 @@ def routes(ds):
     if faults:raise RuntimeError(str(faults)+' défauts : voir sorties/ville/<implantation>/routes/jugement.json')
 
 
+def empreintes():
+    """SHA-256 de ce que la commande `kit` ne doit pas toucher, relevé sur le disque par glob."""
+    from local3d.desert import kit
+    nouveaux=set(kit.NOUVEAUX)
+    chemins=sorted((UNITY_ROOT/'Scenes').glob('*.unity'))
+    for dossier,motif in (('Prefabs','*.prefab'),('Models','*.fbx'),('Materials','*.mat')):
+        chemins+=[p for p in sorted((UNITY_ROOT/dossier).glob(motif)) if p.stem not in nouveaux]
+    for motif in ('*/*.json','*/*.fbx'):chemins+=sorted((OUT/'villages').glob(motif))
+    return {p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in chemins}
+
+
+def ecart_image(path):
+    """Écart-type des pixels d'une image ; -1 si elle manque."""
+    if not path.exists():return -1.0
+    import numpy as np
+    from PIL import Image
+    with Image.open(path) as image:return float(np.asarray(image.convert('RGB'),dtype=float).std())
+
+
+def kit_ateliers():
+    """Lot 266 : ajoute les modules de kit.NOUVEAUX au kit, jusqu'aux prefabs d'Unity, puis juge."""
+    from local3d.desert import kit
+    from local3d.desert.routes import ECART_CAPTURE
+    # La garde passe avant tout effet : l'éditeur ouvert réimporterait sous nos pieds.
+    if (ROOT/'unity/Temp/UnityLockfile').exists():
+        raise RuntimeError('Unity est ouvert : enregistrer et fermer l’éditeur, puis relancer (l’ajout au kit tourne en mode batch).')
+    dossier=OUT/'kit';dossier.mkdir(parents=True,exist_ok=True)
+    avant=empreintes()
+    catalogue_avant=json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8'))
+    print('Empreintes avant : {} fichiers ; {} anciens modules au catalogue.'.format(len(avant),sum(a['id'] not in kit.NOUVEAUX for a in catalogue_avant['assets'])),flush=True)
+    if not any((OUT/'textures').glob('*.png')):
+        print('Textures du kit.',flush=True);prepare(OUT/'textures')
+    print('Blender : '+', '.join(kit.NOUVEAUX)+'.',flush=True)
+    blender(['fabriquer.py','kit'],'kit_ateliers.log')
+    (OUT/'diagnostic/kit_ateliers.png').unlink(missing_ok=True)
+    blender(['inspecter_kit.py','scierie','four'],'planche_ateliers.log')
+    for sub in ('Models','Data'):(UNITY_ROOT/sub).mkdir(parents=True,exist_ok=True)
+    for nom in kit.NOUVEAUX:shutil.copy2(OUT/'bibliotheque'/(nom+'.fbx'),UNITY_ROOT/'Models'/(nom+'.fbx'))
+    shutil.copy2(OUT/'bibliotheque/catalogue.json',UNITY_ROOT/'Data/catalogue.json')
+    (dossier/'selection.json').write_text(json.dumps({'modules':kit.NOUVEAUX},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    (dossier/'unity-kit.json').unlink(missing_ok=True)
+    print('Unity : prefabs et mesures.',flush=True)
+    failure=None
+    try:run_unity('ForgeLocal3D.DesertKit.Start',True)
+    except RuntimeError as e:failure=e
+    rapport=dossier/'unity-kit.json'
+    if not rapport.exists():raise RuntimeError('Unity n’a pas écrit de rapport ('+str(failure or 'voir sorties/logs/kit.log')+')')
+    entrees={'plafonds':dict(kit.PLAFONDS),'catalogue_avant':catalogue_avant,
+             'catalogue_apres':json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8')),
+             'unity':json.loads(rapport.read_text(encoding='utf-8-sig')),'empreintes_avant':avant,'empreintes_apres':empreintes(),
+             'ecart_image':ecart_image(OUT/'diagnostic/kit_ateliers.png'),'ecart_minimal':ECART_CAPTURE}
+    j=kit.jugement(entrees)
+    (dossier/'jugement.json').write_text(json.dumps(j,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
+    print('{} : {} anciens modules intacts attendus, {} empreintes, planche à écart-type {:.1f}'.format(j['status'],j['anciens_modules'],j['empreintes'],j['ecart_image']),flush=True)
+    for m in j['modules']:
+        print('  {:<16} LOD {} ; triangles {} (plafonds {}) ; y min {:.4f} m ; matériaux {}'.format(
+            m['id'],m['niveaux'],m['triangles'],j['plafonds'].get(m['id']),m['y_min'],', '.join(m['materiaux'])),flush=True)
+    for nom,c in j['contre_epreuves'].items():
+        print('  contre-épreuve {:<22} {} ({})'.format(nom,'rougit' if c['rougit'] else 'SANS EFFET',', '.join(c['obtenues']) or 'aucun défaut'),flush=True)
+    for f in j['defauts']:print('  défaut [{}] {}'.format(f['etiquette'],f['message']),flush=True)
+    if failure:raise failure
+    if j['defauts']:raise RuntimeError(str(len(j['defauts']))+' défauts : voir sorties/kit/jugement.json')
+
+
 def verify(ds):
     for d in ds:blender(['verifier.py','--nom',d['id']],'verification_'+d['id']+'.log')
     reports=[json.loads((OUT/'villages'/d['id']/(d['id']+'.json')).read_text(encoding='utf-8')) for d in ds]
@@ -175,7 +239,7 @@ def verify(ds):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');a=p.parse_args()
     ds=[d for d in RECIPE['dispositions'] if not a.disposition or d['id']==a.disposition]
     if not ds:p.error('Disposition inconnue')
     if a.action=='fabriquer':build(ds,a.force,a.sans_rendus);verify(ds)
@@ -195,3 +259,4 @@ if __name__=='__main__':
     if a.action=='parcours':run_unity('ForgeLocal3D.DesertTraversalCheck.Start')
     if a.action=='terrain':terrain(ds,a.force)
     if a.action=='routes':routes(ds)
+    if a.action=='kit':kit_ateliers()
