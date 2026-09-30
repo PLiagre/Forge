@@ -82,9 +82,12 @@ boussole    = "claude/claude-opus-5-5@xhigh | codex/gpt-6.1-sol@high"
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
 # qu'un runner. Des lots qui touchent les mêmes fichiers se retrouvent en
-# conflit : le mécanicien le résout.
+# conflit : le mécanicien le résout. Le VPS n'a que deux processeurs : à
+# cinq lots, la suite du jeu passait de 14 à 24 minutes, et codeurs comme
+# relecteurs dépassaient leur délai (30 septembre 2026). Un lot par
+# processeur (choix du propriétaire, 30 septembre 2026).
 [machines]
-vps = 5
+vps = 2
 pc = 1
 
 # Combien d'agents d'un même outil tournent ensemble : un abonnement ne se
@@ -94,7 +97,7 @@ pc = 1
 # 30 septembre 2026). Si personne n'est libre, le lot attend.
 [outils]
 claude = 2
-codex = 5
+codex = 2
 cursor = 3
 
 # Le temps qu'un agent a pour rendre la main, en secondes.
