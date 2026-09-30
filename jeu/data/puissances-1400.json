@@ -67,10 +67,10 @@
     { "id": 27, "puissance": 15, "nom": "Florence", "lat": 43.77, "lon": 11.26, "source": "Wikipédia, article République de Florence : Florence est le siège de la république" },
     { "id": 28, "puissance": 15, "nom": "Arezzo", "lat": 43.46, "lon": 11.88, "source": "Wikipédia, article Arezzo : la ville passe sous la domination florentine en 1384" },
     { "id": 29, "puissance": 16, "nom": "Gênes", "lat": 44.41, "lon": 8.93, "source": "Wikipédia, article République de Gênes : Gênes demeure le siège de la république en 1400" },
-    { "id": 30, "puissance": 17, "nom": "Rome", "lat": 41.90, "lon": 12.50, "source": "Wikipédia, article Boniface IX : le pape établit son pouvoir temporel sur Rome avant 1400" },
+    { "id": 30, "puissance": 17, "nom": "Rome", "lat": 41.90, "lon": 12.50, "source": "Treccani, Enciclopedia dei Papi, article Bonifacio IX : souveraineté sur Rome remise au pape en juin 1398 (https://www.treccani.it/enciclopedia/bonifacio-ix_(Enciclopedia-dei-Papi)/)" },
     { "id": 31, "puissance": 18, "nom": "Naples", "lat": 40.85, "lon": 14.27, "source": "Wikipédia, article Royaume de Naples : Naples est la capitale du royaume continental" },
-    { "id": 32, "puissance": 18, "nom": "Bari", "lat": 41.12, "lon": 16.87, "source": "Wikipédia, article Duché de Bari : Bari est une division du royaume de Naples" },
-    { "id": 33, "puissance": 19, "nom": "Palerme", "lat": 38.12, "lon": 13.36, "source": "Wikipédia, article Histoire de Palerme : la ville relève du royaume insulaire de Sicile depuis 1282" },
+    { "id": 32, "puissance": 18, "nom": "Bari", "lat": 41.12, "lon": 16.87, "source": "Wikipédia, article Bari, section Histoire : les rois de Naples règnent sur la ville de 1282 à 1806 (https://fr.wikipedia.org/wiki/Bari#Histoire)" },
+    { "id": 33, "puissance": 19, "nom": "Palerme", "lat": 38.12, "lon": 13.36, "source": "Wikipédia, article Histoire de Palerme, section Les Aragonais : Frédéric IV de Sicile reprend la ville en 1360 ; Martin Ier y règne à partir de 1392 (https://fr.wikipedia.org/wiki/Histoire_de_Palerme#Les_Aragonais)" },
     { "id": 34, "puissance": 19, "nom": "Catane", "lat": 37.50, "lon": 15.09, "source": "Wikipédia, article Catane : ville du royaume insulaire de Sicile au XIVe siècle" },
     { "id": 35, "puissance": 20, "nom": "Chambéry", "lat": 45.57, "lon": 5.92, "source": "Wikipédia, article Chambéry : ville du comté de Savoie et résidence de ses comtes" },
     { "id": 36, "puissance": 20, "nom": "Nice", "lat": 43.70, "lon": 7.27, "source": "Wikipédia, article Comté de Nice : dédition de Nice à la Savoie en 1388" },
@@ -82,8 +82,8 @@
     { "id": 42, "puissance": 23, "nom": "Cracovie", "lat": 50.06, "lon": 19.94, "source": "Wikipédia, article Royaume de Pologne (1385-1569) : Cracovie est la capitale du royaume" },
     { "id": 43, "puissance": 23, "nom": "Vilnius", "lat": 54.69, "lon": 25.28, "source": "Wikipédia, article Vilnius : ville du grand-duché de Lituanie uni à la Pologne depuis 1385" },
     { "id": 44, "puissance": 23, "nom": "Lviv", "lat": 49.84, "lon": 24.03, "source": "Wikipédia, article Lviv : la ville entre dans la couronne polonaise en 1386" },
-    { "id": 45, "puissance": 24, "nom": "Buda", "lat": 47.50, "lon": 19.04, "source": "Wikipédia, article Buda : ville royale du royaume de Hongrie depuis le XIIIe siècle" },
-    { "id": 46, "puissance": 24, "nom": "Zagreb", "lat": 45.81, "lon": 15.98, "source": "Wikipédia, article Croatie en union avec la Hongrie : Zagreb relève de la couronne hongroise en 1400" },
+    { "id": 45, "puissance": 24, "nom": "Buda", "lat": 47.50, "lon": 19.04, "source": "Wikipédia, article Budapest, section Royaume hongrois puis austro-hongrois : Buda redevient capitale de la Hongrie en 1361 (https://fr.wikipedia.org/wiki/Budapest#Royaume_hongrois_puis_austro-hongrois)" },
+    { "id": 46, "puissance": 24, "nom": "Zagreb", "lat": 45.81, "lon": 15.98, "source": "Wikipédia en anglais, article Zagreb, section Early Zagreb : Béla IV, roi de Croatie et de Hongrie, accorde la bulle d'or à Gradec en 1242 (https://en.wikipedia.org/wiki/Zagreb#Early_Zagreb)" },
     { "id": 47, "puissance": 24, "nom": "Kolozsvár", "lat": 46.77, "lon": 23.59, "source": "Wikipédia, article Cluj-Napoca : Kolozsvár appartient à la Transylvanie du royaume de Hongrie en 1400" }
   ]
 }
