@@ -222,3 +222,51 @@ def test_capacite_calculs_inutiles_evites(monkeypatch):
     cellules_controlees += 1
     assert cellules_controlees > 0
     print(f"cellules_controlees={cellules_controlees}, chemins_cellule_seule={chemins}")
+
+
+def test_identique_quand_reste_champs_est_nul(monkeypatch):
+    """Le manque du bourg ne suffit pas : les champs doivent avoir un surplus."""
+    cellule, carte, besoin, besoin_bourg, _, chemins = _epreuve()
+    mange_bourg = besoin_bourg / 2
+    stock = besoin - besoin_bourg + mange_bourg
+    ecrire_stock_marchandise(cellule, constantes.MARCHANDISE_NOURRITURE, stock)
+    lieux = lieux_de_cellule(cellule.cell_id, cellule.area_km2)
+    local = stock * lieux[0].surface_km2 / cellule.area_km2
+    capacite = (mange_bourg - local) / chemins / constantes.FACTEUR_TRANSPORT_PLAINE
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", capacite)
+    accessible = engine._nourriture_accessible_au_rang0_kg(cellule, carte, stock)
+    assert besoin_bourg - accessible > 0
+    assert stock - accessible - (besoin - besoin_bourg) == 0
+    cellule.food_deficit_kg = 1_000.0
+    gratuite = copy.deepcopy(cellule)
+    assert engine._apply_consumption(cellule, carte) == engine._apply_consumption(gratuite)
+    assert _stock(cellule) == _stock(gratuite) == 0
+    assert cellule.food_deficit_kg == gratuite.food_deficit_kg
+    assert chemins > 0
+    print(f"cellules_comparees=1, chemins={chemins}, reste_champs=0")
+
+
+def test_sans_chemin_part_locale_par_surface(monkeypatch):
+    """Le rang 0 reçoit sa surface réelle, y compris le reste du découpage."""
+    cellule, carte, besoin, besoin_bourg, local, chemins = _epreuve(
+        surface=20 * constantes.SURFACE_KM2_PAR_LIEU + 0.5)
+    lieux = lieux_de_cellule(cellule.cell_id, cellule.area_km2)
+    assert chemins > 0 and lieux[0].surface_km2 > lieux[1].surface_km2
+    avant = _stock(cellule)
+    dette_avant = cellule.food_deficit_kg
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0.0)
+
+    def controle(copie):
+        penurie = engine._apply_consumption(copie, carte)
+        _egal_kg(penurie, besoin_bourg - local)
+        _egal_kg(_stock(copie), avant - local - (besoin - besoin_bourg))
+        _egal_kg(copie.food_deficit_kg - dette_avant, penurie)
+        assert penurie > 0 and _stock(copie) > 0
+
+    controle(copy.deepcopy(cellule))
+    monkeypatch.setattr(engine, "_nourriture_accessible_au_rang0_kg",
+                        lambda cellule, carte, stock: stock / len(lieux))
+    with pytest.raises(AssertionError):
+        controle(copy.deepcopy(cellule))
+    print(f"cellules_controlees=1, lieux={len(lieux)}, local={local}, "
+          "contre_epreuves=1")
