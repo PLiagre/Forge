@@ -29,7 +29,7 @@ camera = bpy.data.objects.new('Camera', bpy.data.cameras.new('Camera')); sc.coll
 (OUT / 'diagnostic').mkdir(parents=True, exist_ok=True)
 groups = [('maison', ['maison']), ('ksar', ['tour', 'rempart', 'porte', 'pont']), ('mosquee', ['mosquee', 'minaret', 'coupole', 'fontaine', 'escalier']),
           ('vegetation', ['palmier', 'acacia']), ('relief', ['falaise', 'dune', 'butte']), ('vie', ['chameau', 'tente', 'lanterne', 'etendard', 'garde', 'dalles', 'jarres', 'puits']),
-          ('souk', ['souk'])]
+          ('souk', ['souk']), ('ateliers', ['scierie', 'four'])]
 for label, prefixes in groups:
     items = [o for p in prefixes for o in families.get(p, [])]
     if not items:

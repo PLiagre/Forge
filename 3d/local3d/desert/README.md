@@ -78,7 +78,8 @@ des sources : une scène inchangée est réutilisée, `--force` impose la recons
 |---|---|
 | `recette.json` | contexte et deux implantations : **Ksar des Sept Puits** (1433), **Oued des Vents** (2851) |
 | `textures.py` | palette procédurale : pisé à banchées et trous de boulins, grès en bancs, sable ridé, zellige, palmes, tissus |
-| `assets.py` | les 49 modules et leurs trois niveaux de détail |
+| `assets.py` | les modules et leurs trois niveaux de détail |
+| `kit.py` | modules ajoutés sans reconstruction, leurs plafonds de triangles et leur jugement |
 | `urbanisme.py` | îlots mitoyens du ksar et du bourg |
 | `paysage.py` | relief, oued, dunes, guelta, rues, jardins |
 | `terrain.py` | la ville : `paysage.field` échantillonné pour un Unity Terrain |
@@ -89,6 +90,32 @@ des sources : une scène inchangée est réutilisée, `--force` impose la recons
 
 Les dunes et les buttes lointaines portent une couleur et des normales calculées
 depuis leur propre relief (faces d'avalanche plus sombres, rides éoliennes).
+
+## Ajouter un module au kit : `kit`
+
+```powershell
+py 3d/local3d/atelier_desert.py kit      # Unity fermé
+```
+
+Ajoute les seuls modules de `kit.NOUVEAUX` (lot 266 : `scierie`, `four_pain_pise`)
+sans reconstruire le kit : Blender les fabrique par le même chemin que la
+bibliothèque (`fabriquer.py kit`), refuse un module au-dessus de son plafond ou
+portant un matériau hors catalogue, puis réécrit `catalogue.json` en reprenant les
+anciens enregistrements tels quels ; Unity en fait des prefabs à trois LOD avec les
+matériaux existants (`DesertKit.cs`) et les mesure ; `kit.juger` décide et écrit
+`sorties/kit/jugement.json`. `Kit_Desert.blend`, les anciens FBX et prefabs et les
+scènes ne bougent pas : leurs empreintes sont comparées avant et après, une fois
+tous les effets passés. La commande rejoue `verifier` sur les deux implantations,
+et son résultat entre au jugement ; les rapports que le vérificateur réécrit sont
+remis tels qu'ils étaient. La planche `sorties/diagnostic/kit_ateliers.png` montre
+les nouveaux modules : `inspecter_kit.py` tourne tel quel dans un banc d'essai
+(`sorties/cache/planche/`) dont la bibliothèque est `sorties/cache/kit_nouveaux.blend`,
+tant qu'une reconstruction complète ne les a pas fait entrer dans `Kit_Desert.blend`.
+
+Pour ajouter un module : l'écrire dans `assets.py`, à la fin de `jobs()`, puis
+l'inscrire dans `kit.py` (`NOUVEAUX` et `PLAFONDS`, le seul endroit du budget).
+`edition --asset` ne le connaît qu'après la prochaine reconstruction complète
+(`fabriquer --force`), qui le fait entrer dans `Kit_Desert.blend`.
 
 ## Vérification
 
