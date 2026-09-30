@@ -11,6 +11,10 @@ durées dérivent de TICK_DURATION_DAYS : jamais un second littéral de temps.
 
 import math
 
+# Surface indicative d'un lieu autour de son bourg ; règle de découpage de niveau 2.
+# Elle ne décrit ni les frontières ni la position réelle de ces lieux.
+SURFACE_KM2_PAR_LIEU = 1000.0
+
 # --- Marchandises ---
 
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.
@@ -419,6 +423,10 @@ SEED_POPULATION_VARIATION_HIGH = 1.1
 # Nombre de ticks de consommation couverts par le stock alimentaire initial.
 # L'unité est le tick, pas le jour calendaire.
 INITIAL_FOOD_RESERVE_TICKS = 5
+
+# Réserve initiale supplémentaire des cellules urbaines déficitaires :
+# proxy de niveau 2, environ un mois de manque, sans renouvellement automatique.
+RESERVE_VILLES_TICKS = 30
 
 # --- Récupération physique du déficit alimentaire ---
 

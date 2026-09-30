@@ -71,9 +71,15 @@ _AUTH = re.compile(
 # Code, clap et serde pour Codex), pas ceux qu'un test lancé par l'agent
 # écrirait (argparse dit « unrecognized »). Un effort inconnu, Claude Code
 # 2.1.284 ne le refuse pas : il l'ignore et prend le sien — c'est le
-# chargement de atelier.toml qui le refuse (projet.EFFORTS).
-_APPEL = re.compile(r"error: unknown option '|error: unexpected argument '|unknown variant `|error loading config",
-                    re.I)
+# chargement de atelier.toml qui le refuse (projet.EFFORTS). Un modèle que
+# ce Codex ne sait pas appeler est aussi un refus d'appel, pas un échec : le
+# 29 septembre 2026, Codex 0.151 sur le VPS a refusé gpt-6-sol (« not
+# supported when using Codex with a ChatGPT account ») et gpt-6-astra
+# (« requires a newer version of Codex ») ; compté comme un échec du codeur,
+# ce refus a brûlé les trois essais des lots #220 et #224 sans que le
+# secours ne soit essayé.
+_APPEL = re.compile(r"error: unknown option '|error: unexpected argument '|unknown variant `|error loading config|"
+                    r"model is not supported when using codex|model requires a newer version of codex", re.I)
 
 # Les codes d'un outil qui n'a pas démarré : introuvable (127) ou refusé par
 # le système (126). C'est une panne de la machine, pas un échec du codeur :

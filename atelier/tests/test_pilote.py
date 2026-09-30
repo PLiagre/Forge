@@ -72,6 +72,71 @@ def test_le_chef_refuse_un_lot_hors_du_jalon(projet, gh, depot, tmp_path):
     assert not _gestes(gh, "creer_pr")
 
 
+QUESTION_DU_CHEF = """Le lot ferait rougir un invariant du monde.
+DECISION: QUESTION :: Que faire des villes que leurs champs ne nourrissent pas ?
+- A :: leur donner un grenier de départ :: elles peuvent maigrir ensuite
+- B :: plafonner les villes :: Paris démarre plus petit
+RECOMMANDATION :: A :: garde l'histoire et la physique"""
+
+
+def test_le_chef_pose_sa_question_et_le_lot_l_attend(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Les grandes villes")
+    agents = Agents((0, QUESTION_DU_CHEF))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    prompt = next(a for a in agents.appels[0] if "Tu es le chef" in a)
+    assert "DECISION: QUESTION" in prompt and "RECOMMANDATION" in prompt
+    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "bloque" in etiquettes and "pret" not in etiquettes
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert "le chef attend ta décision" in corps and "**Que faire des villes" in corps
+    assert "- **A** — leur donner un grenier de départ (elles peuvent maigrir ensuite)" in corps
+    assert "Le chef recommande **A** : garde l'histoire et la physique." in corps
+    assert "une lettre suffit" in corps
+    m = marques([{"body": corps}])[-1]
+    assert m["etat"] == "bloque" and m["question"].startswith("Que faire des villes")
+    assert m["options"][1] == ["B", "plafonner les villes", "Paris démarre plus petit"]
+    assert m["recommandation"] == ["A", "garde l'histoire et la physique"]
+    assert not _gestes(gh, "creer_pr")
+
+
+def test_une_reponse_du_proprietaire_remet_le_lot_en_route(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Les grandes villes")
+    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
+    gh.issues_[10]["comments"].append({"body": "A", "author": {"login": "PLiagre"}})
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-les-grandes-villes.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "bloque" not in [e["name"] for e in gh.issues_[10]["labels"]]
+    assert any("réponse reçue" in c["body"] for c in gh.issues_[10]["comments"])
+    # Le chef relit sa question avec la réponse : « A » seul ne dit rien.
+    prompt = next(a for a in agents.appels[0] if "Tu es le chef" in a)
+    assert "ta question au propriétaire" in prompt and "Que faire des villes" in prompt and "PLiagre : A" in prompt
+    assert _gestes(gh, "creer_pr")
+
+
+@pytest.mark.parametrize("commentaire", [
+    {"body": "🤖 **pilote** : autre chose\n\n" + marque(role="pilote", etat="attend", raison="x"),
+     "author": {"login": "PLiagre"}},
+    {"body": "Une faille dans une dépendance.", "author": {"login": "dependabot[bot]"}},
+])
+def test_ni_le_pilote_ni_un_robot_ne_repondent_a_la_place_du_proprietaire(projet, gh, depot, tmp_path, commentaire):
+    gh.ajouter_issue(10, "Les grandes villes")
+    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
+    gh.issues_[10]["comments"].append(commentaire)
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]] and agents.appels == []
+
+
+def test_une_reponse_sur_un_lot_a_pr_ouverte_le_reprend_ou_il_en_est(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=[FAIT_CODEX], etiquettes=("lot", "bloque"))
+    gh.issues_[10]["comments"] += [
+        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="le codeur a échoué 3 fois")},
+        {"body": "Codex est à jour sur le VPS.", "author": {"login": "PLiagre"}}]
+    _pilote(projet, gh, depot, Agents((0, "VERDICT: ACCEPTE")), tmp_path).tour()
+    assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
+    assert "bloque" not in [e["name"] for e in gh.issues_[10]["labels"]]
+
+
 def test_le_chef_decoupe_un_lot_trop_gros(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "Tout le pont")
     texte = "DECISION: DECOUPE\n- Le service :: sim sert un lieu\n- Le panneau :: Unity affiche le lieu\n"

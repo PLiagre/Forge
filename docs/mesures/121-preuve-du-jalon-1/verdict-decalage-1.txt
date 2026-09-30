@@ -1,0 +1,13 @@
+ÉCART
+graine 0
+ticks 30 (photographie), 31 (service)
+cellule 9008
+décalage 1
+cellule : panneau 9008 · photographie 9008 · égal
+tick : panneau 31 · photographie 30 · ÉCART
+annee : panneau 1400 · photographie 1400 · égal
+jour : panneau 32 · photographie 31 · ÉCART
+population : panneau 8041 · photographie 8041 · égal
+hunger_ticks : panneau 1 · photographie 0 · ÉCART
+food_deficit_kg : panneau 0.0 · photographie 0.0 · égal
+stocks.nourriture : panneau 0.0 · photographie 0.0 · égal

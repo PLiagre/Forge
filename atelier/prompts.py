@@ -69,6 +69,7 @@ Règles :
 - Dans une découpe, les sous-lots qui ne s'attendent pas avancent en même temps, chacun dans son chantier. Finis une ligne par « :: après 1, 3 » (les rangs, dans ta liste, des sous-lots dont il a vraiment besoin, tous plus haut que lui) ou par « :: après rien » (il part tout de suite) ; sans « après », il attend le précédent. Deux sous-lots qui modifient les mêmes fichiers s'attendent : sinon ils se marchent dessus.
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
+- Si le lot demande une décision que seul le propriétaire peut prendre (changer un test existant ou une règle du monde, trancher entre deux lectures de `CAP.md` ou de `docs/VISION.md`), n'écris rien et pose-lui la question : termine par la ligne « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Il te lit sur son téléphone : des phrases courtes, sans jargon de code. Si les commentaires contiennent déjà sa réponse à ta question, suis-la : ne la repose pas.
 - Machine « pc » : le lot demande Unity ou Blender sur le PC Windows ; « vps » : Python seul.
 - Tu n'écris que le fichier du brief. {_FRONTIERE}
 

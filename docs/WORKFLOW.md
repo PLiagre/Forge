@@ -13,7 +13,7 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6-astra, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6-astra, puis gpt-6-sol, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
@@ -40,7 +40,7 @@ Opus y code déjà).
 Le **mécanicien** (Codex, gpt-6-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
 grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
-**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6-astra, high) compare
+**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6-astra, puis gpt-6-sol, high) compare
 chaque lundi les lots livrés à CAP.md.
 
 **Chaque agent dit son harnais, son modèle et son effort** :
@@ -66,13 +66,15 @@ avec l'agent suivant de sa ligne.
 **Claude juge, les autres écrivent, sauf sur le PC.** Le plafond de Claude
 Code a été atteint le 29 septembre 2026 : il se garde pour le chef, la
 relecture et les lots du PC. Le code du VPS s'écrit avec Codex GPT-6 Sol, le
-meilleur score par dollar mesuré. Les lots du PC, peu nombreux et chers quand
+meilleur score par dollar mesuré ; GPT-5.6 Sol le suit partout où GPT-6 sert,
+car un Codex trop ancien refuse GPT-6, et ce refus passe la main sans brûler
+d'essai. Les lots du PC, peu nombreux et chers quand
 ils ratent, ont Claude Opus en tête et Cursor grok-high en secours (le bac à
 sable de Codex n'y démarre pas) : choix du propriétaire, 29 septembre 2026.
 GPT-6 Astra ne passe qu'en secours (chef, relecteur, boussole) : l'abonnement
 ChatGPT Plus ne lui donne que quelques dizaines de messages toutes les cinq
 heures ; il relit le code de Claude, et GPT-6 Sol prend la suite quand son
-quota est épuisé. La ligne du relecteur laisse toujours au moins deux agents à
+quota est épuisé, au relecteur comme au chef et à la boussole. La ligne du relecteur laisse toujours au moins deux agents à
 un lot, quelle que soit la famille qui l'a écrit : un quota ne le laisse plus
 sans relecture.
 
@@ -158,16 +160,42 @@ remis à zéro.
 
 ### Reprendre un lot bloqué
 
-Corriger la cause (en mode direct si elle est dans la chaîne), puis retirer
-`bloque` et remettre `pret`. Le pilote décide selon ce qui existe :
+Corriger la cause s'il le faut (en mode direct si elle est dans la chaîne),
+puis **écrire un commentaire sur l'issue** : ce qui a été fait, ou la
+décision. Tout commentaire d'un humain écrit après le dernier blocage vaut
+réponse ; ceux du pilote (marqués) et des robots ne comptent pas, et un lot
+bloqué à la main, sans marque du pilote, ne se lève pas tout seul. Au tour
+suivant, le pilote écrit « réponse reçue » et remet le lot `pret` ; retirer
+`bloque` et remettre `pret` à la main revient au même. Le pilote décide
+ensuite selon ce qui existe :
 
 - **la PR du lot est ouverte** : le lot est **repris** où il en est. Le pilote
   écrit une marque `reprise` sur la PR et le remet `en-cours`, sans relancer
   le chef ; le travail déjà poussé reste, et les essais du codeur, du chef et
   du relecteur repartent de zéro (ils se comptent depuis la dernière
   reprise) ;
-- **pas de PR** (le chef avait échoué ou refusé) : le chef reprend le lot, ses
-  essais comptés depuis le dernier blocage.
+- **pas de PR** (le chef avait échoué, refusé ou posé une question) : le chef
+  reprend le lot, ses essais comptés depuis le dernier blocage ; il relit sa
+  question et la réponse du propriétaire.
+
+### Quand le chef a besoin d'une décision
+
+Un lot qui ne peut se faire qu'en changeant un test existant ou une règle du
+monde, ou qui oblige à trancher entre deux lectures de `CAP.md` ou de
+`docs/VISION.md`, n'est pas au chef de trancher. Il rend :
+
+```
+DECISION: QUESTION :: <la question, en une phrase>
+- A :: <une réponse possible> :: <ce qu'elle coûte>
+- B :: …
+RECOMMANDATION :: A :: <pourquoi>
+```
+
+Le pilote bloque le lot avec la question, les réponses possibles et la
+recommandation, lisibles sur un téléphone ; le journal du matin les reprend
+dans « À faire ». Le propriétaire répond d'un commentaire (« A » suffit) :
+le lot repart au tour suivant. Le 29 septembre 2026, #209 attendait une telle
+décision derrière une ligne « lire sa raison ».
 
 Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
 branche, puis remettre `pret`.
@@ -293,7 +321,7 @@ Regarder : `atelier-boucle etat`. Installer : [atelier/crons/README.md](../ateli
 
 | symptôme | ce que ça veut dire | le geste |
 |---|---|---|
-| issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, ou le chef a refusé | lire la raison en commentaire ; corriger en mode direct, ou reformuler l'issue ; puis remettre `pret` (reprise, ci-dessus) |
+| issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, le chef a refusé, ou il pose une question | lire la raison (ou la question) en commentaire ; corriger en mode direct s'il le faut ; puis répondre d'un commentaire sur l'issue (reprise, ci-dessus) |
 | « attente » répétée au journal | quotas épuisés, session expirée, ou outil qui ne démarre pas (la raison de chaque agent est écrite) | `python3 -m atelier veille`, puis `claude setup-token` si c'est la session Claude |
 | un lot `pc` n'avance pas | le PC est éteint ou en veille, ou ses agents attendent (marque d'attente sur la PR) | allumer le PC ; `gh workflow run sonde-pc.yml` |
 | rien ne bouge | profil `arret`, copie principale hors de master, ou un jalon courant que CAP.md ne décrit pas (le pilote ne découpe que ce que CAP.md décrit) | `atelier-boucle etat` ; ajouter la section du jalon à CAP.md, ou des lots |

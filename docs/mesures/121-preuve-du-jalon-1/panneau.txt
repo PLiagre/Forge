@@ -1,0 +1,6 @@
+Cellule 9008 · tick 30
+Date : jour 31 de 1400
+Habitants : 8041
+Nourriture : 0 kg
+Faim : 0 ticks de manque
+Dette de nourriture : 0 kg

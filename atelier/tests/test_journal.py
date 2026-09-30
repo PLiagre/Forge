@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from atelier import journal, prompts
+from atelier import journal, lots, prompts
 from atelier.lots import marque
 
 from conftest import Agents
@@ -323,3 +323,18 @@ def test_le_journal_dit_quel_agent_refuse_l_appel(tmp_path):
     gestes = journal._a_faire(raisons, [], tmp_path / "veille.txt", [])
     assert any("VPS : codex/gpt-5.6-sol@high refuse l'appel" in g and "atelier.toml" in g for g in gestes)
     assert journal._a_faire([], [], tmp_path / "veille.txt", []) == ["- rien"]
+
+
+def test_le_journal_pose_la_question_du_chef(projet, gh):
+    _preparer(gh)
+    gh.ajouter_issue(13, "Les grandes villes", ("lot", "bloque"))
+    q = lots.question_du_chef("- A :: un grenier de départ\n- B :: plafonner les villes\n"
+                              "RECOMMANDATION :: A :: garde l'histoire", "Que faire des villes affamées ?")
+    gh.issues_[13]["comments"].append({"body": "bloqué\n\n" + marque(
+        role="pilote", etat="bloque", raison=f"question au propriétaire : {q.texte}", **q.marque())})
+    a_faire = journal.faits(gh, projet, MAINTENANT).split("À FAIRE PAR LE PROPRIÉTAIRE")[1]
+    assert ("#13 « Les grandes villes » attend ta décision : Que faire des villes affamées ? "
+            "A : un grenier de départ ; B : plafonner les villes. Le chef recommande A (garde l'histoire).") in a_faire
+    assert "Réponds par un commentaire sur l'issue #13 (une lettre suffit)" in a_faire
+    # Un blocage sans question garde sa consigne, et dit qu'un commentaire suffit.
+    assert "#11 bloqué : lire sa raison" in a_faire and "répondre par un commentaire sur l'issue" in a_faire

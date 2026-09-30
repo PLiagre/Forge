@@ -113,12 +113,18 @@ def fusionnees_depuis(gh: GitHub, depuis: datetime) -> list[dict]:
     return [p for p in prs if (p.get("mergedAt") or "") >= depuis.strftime("%Y-%m-%dT%H:%M:%S")]
 
 
-def _raison_du_blocage(gh: GitHub, numero: int) -> str:
+def _blocage(gh: GitHub, numero: int) -> dict:
+    """La dernière marque « bloque » du pilote sur l'issue : sa raison, et la
+    question du chef s'il en a posé une ; {} pour un lot bloqué à la main."""
     issue = gh.issue(numero)
     for m in reversed(lots.marques(issue.get("comments") or [])):
         if m.get("etat") == "bloque" and m.get("raison"):
-            return m["raison"]
-    return "raison non écrite par le pilote (bloqué à la main ?)"
+            return m
+    return {}
+
+
+def _raison_du_blocage(gh: GitHub, numero: int) -> str:
+    return _blocage(gh, numero).get("raison") or "raison non écrite par le pilote (bloqué à la main ?)"
 
 
 def _compte_rendu(commentaires: list[dict], lignes_max: int = 25) -> str:
@@ -268,7 +274,8 @@ def _attentes_depuis(commentaires: list[dict], depuis: datetime) -> list[tuple[d
     return textes
 
 
-def _a_faire(raisons_vps: list[str], raisons_pc: list[str], veille: Path, bloques: list) -> list[str]:
+def _a_faire(raisons_vps: list[str], raisons_pc: list[str], veille: Path, bloques: list,
+             questions: dict | None = None) -> list[str]:
     gestes = []
     for machine, raisons in (("VPS", raisons_vps), ("PC", raisons_pc)):
         for outil in sorted({m.group(1) for r in raisons for m in _SESSION.finditer(r)}):
@@ -286,8 +293,17 @@ def _a_faire(raisons_vps: list[str], raisons_pc: list[str], veille: Path, bloque
                    if l.startswith("FAIL")]
     except OSError:
         pass
-    gestes += [f"- #{l.numero} bloqué : lire sa raison, corriger (mode direct si c'est la chaîne), remettre « pret »"
-               for l in bloques]
+    # Une question du chef se pose ici telle qu'il l'a écrite : le
+    # propriétaire répond d'un commentaire sur l'issue, sans chercher.
+    questions = questions or {}
+    for l in bloques:
+        if l.numero in questions:
+            gestes.append(f"- #{l.numero} « {l.titre} » attend ta décision : {questions[l.numero].en_une_ligne()} "
+                          f"Réponds par un commentaire sur l'issue #{l.numero} (une lettre suffit) : le pilote "
+                          "reprend le lot au tour suivant")
+        else:
+            gestes.append(f"- #{l.numero} bloqué : lire sa raison, corriger (mode direct si c'est la chaîne), puis "
+                          "répondre par un commentaire sur l'issue : le pilote reprend le lot au tour suivant")
     return gestes or ["- rien"]
 
 
@@ -322,8 +338,13 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
     ouvertes = [lots.Lot.de(i) for i in gh.issues("open")]
     bloques = [l for l in ouvertes if l.etat == "bloque"]
     lignes.append(f"\nBLOQUÉS ({len(bloques)}) :")
+    questions = {}
     for l in bloques:
-        r.bloques.append((l, _raison_du_blocage(gh, l.numero)))
+        blocage = _blocage(gh, l.numero)
+        r.bloques.append((l, blocage.get("raison") or "raison non écrite par le pilote (bloqué à la main ?)"))
+        question = lots.Question.de_marque(blocage)
+        if question:
+            questions[l.numero] = question
         lignes.append(f"- #{l.numero} « {l.titre} » : {r.bloques[-1][1]}")
     en_cours = [l for l in ouvertes if l.etat == "en-cours"]
     lignes.append(f"\nEN COURS ({len(en_cours)}) :")
@@ -400,7 +421,7 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
         lignes.append("AVANCEMENT DU JALON (le pilote l'ajoute lui-même sous le journal) :")
         lignes += r.avancement
     lignes.append("\nÀ FAIRE PAR LE PROPRIÉTAIRE :")
-    r.a_faire = _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques)
+    r.a_faire = _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques, questions)
     lignes += r.a_faire
     r.texte = "\n".join(lignes)
     return r

@@ -36,7 +36,7 @@ from .lots import Lot, marque
 from .projet import MACHINES, Projet
 from .verrous import AucunVerrou
 
-_DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|DECOUPE|MODE-DIRECT)\b[ \t]*(?:::[ \t]*(.*))?$", re.M)
+_DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|QUESTION|DECOUPE|MODE-DIRECT)\b[ \t]*(?:::[ \t]*(.*))?$", re.M)
 _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
@@ -72,6 +72,21 @@ class _Vue:
 
 def _verrou_du_lot(numero: int | str) -> str:
     return f"lot-{numero}"
+
+
+def _commentaires_pour_le_chef(commentaires: list[dict]) -> str:
+    """Ce que le chef lit sous l'issue : les commentaires des humains, et les
+    questions qu'il a posées lui-même (sans elles, une réponse « A » ne veut
+    rien dire). Le reste de ce qu'écrit le pilote ne le concerne pas."""
+    lus = []
+    for c in commentaires:
+        corps = c.get("body") or ""
+        faites = lots.marques([c])
+        if not faites:
+            lus.append(f"{(c.get('author') or {}).get('login', '?')} : {corps}")
+        elif any(m.get("etat") == "bloque" and m.get("question") for m in faites):
+            lus.append("ta question au propriétaire : " + lots._MARQUE.sub("", corps).strip())
+    return "\n\n".join(lus)
 
 
 def _extrait(texte: str, lignes: int = 60) -> str:
@@ -177,6 +192,8 @@ class Pilote:
         ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         fermees = self.gh.issues("closed")
         bloq = lots.bloquantes(ouvertes, [Lot.de(i) for i in fermees])
+        if self._lever_sur_reponse(ouvertes):
+            ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         if self._attendre_dependances(ouvertes, bloq) | self._reprendre(ouvertes, bloq):
             ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
         self._livrer_les_fermes(fermees)
@@ -326,6 +343,27 @@ class Pilote:
             rendus.add(lot.numero)
         return rendus
 
+    def _lever_sur_reponse(self, ouvertes: list[Lot]) -> set[int]:
+        """Un lot bloqué sur lequel le propriétaire a écrit depuis son blocage
+        repart : sa réponse (une lettre, une décision, « c'est corrigé »)
+        suffit, sans toucher aux étiquettes. Il redevient « pret » : le chef le
+        reprend et lit la réponse, ou sa PR reprend où elle en est
+        (`_reprendre`), essais remis à zéro."""
+        leves = set()
+        for lot in ouvertes:
+            if lot.etat != "bloque" or "lot" not in lot.etiquettes or self._pris_ailleurs(lot.numero):
+                continue
+            if not lots.reponse_apres_blocage(self.gh.issue(lot.numero).get("comments") or []):
+                continue
+            self.gh.commenter_issue(lot.numero, "🤖 **pilote** : réponse reçue — lot remis « pret ». Au tour suivant, "
+                                                "il reprend où il en est, essais remis à zéro ; le chef lit ta "
+                                                "réponse s'il reprend le lot.\n\n"
+                                                f"{marque(role='pilote', etat='reponse')}")
+            self.gh.etiqueter(lot.numero, ["pret"], ["bloque"])
+            self.noter(lot.numero, "réponse reçue", "remis pret")
+            leves.add(lot.numero)
+        return leves
+
     def _reprendre(self, ouvertes: list[Lot], bloq: frozenset[int] = frozenset()) -> set[int]:
         """Un lot remis « pret » alors que sa PR est ouverte reprend où il en
         est, dès que ses dépendances sont livrées. Relancer le chef coûterait
@@ -423,9 +461,7 @@ class Pilote:
         branche = lot.branche(self.projet.prefixe_branche)
         chemin_brief = lot.brief(self.projet.dossier_briefs)
         chemin = self.depot.preparer(lot.numero, branche)
-        commentaires = "\n\n".join(
-            f"{(c.get('author') or {}).get('login', '?')} : {c.get('body', '')}"
-            for c in issue.get("comments") or [] if "<!-- atelier" not in (c.get("body") or ""))
+        commentaires = _commentaires_pour_le_chef(issue.get("comments") or [])
         # Un lot du jalon suivant, pris par la fenêtre, le sait : il ne
         # s'appuie sur rien que le jalon courant doit encore livrer.
         en_avance = courant is not None and lot.jalon is not None and lot.jalon > courant.numero
@@ -441,6 +477,10 @@ class Pilote:
         decision, motif = decisions[-1] if decisions else ("", "")
         if res.reussi and decision == "REFUS":
             self._bloquer(lot.numero, f"refusé par le chef : {motif or 'hors du jalon courant'}")
+            return True
+        if res.reussi and decision == "QUESTION":
+            question = lots.question_du_chef(res.texte, motif or "")
+            self._bloquer(lot.numero, f"question au propriétaire : {question.texte}", question=question)
             return True
         if res.reussi and decision == "DECOUPE":
             return self._decouper(lot, res, titre_jalon)
@@ -717,15 +757,30 @@ class Pilote:
                 if resume and (resume.get("mergedAt") or resume.get("state") == "MERGED"):
                     self._livrer(lot.numero, resume["number"])
 
-    def _bloquer(self, numero: int, raison: str, numero_pr: int | None = None) -> None:
+    def _bloquer(self, numero: int, raison: str, numero_pr: int | None = None, *,
+                 question: lots.Question | None = None) -> None:
         self.gh.etiqueter(numero, ["bloque"], ["en-cours", "pret", "idee"])
         reprendre = ("sa PR reste ouverte : le pilote la reprend où elle en est, sans relancer le chef, "
                      "et ses essais repartent de zéro" if numero_pr else
                      "le chef reprend le lot, avec ses essais remis à zéro")
-        self.gh.commenter_issue(numero, f"🤖 **pilote** : lot bloqué — {raison}.\n\n"
-                                        "Pour le reprendre, corriger la cause (en mode direct si elle est dans la "
-                                        f"chaîne), puis retirer « bloque » et remettre « pret » : {reprendre}.\n\n"
-                                        f"{marque(role='pilote', etat='bloque', raison=raison)}")
+        if question is None:
+            texte = (f"🤖 **pilote** : lot bloqué — {raison}.\n\n"
+                     "Pour le reprendre : corriger la cause (en mode direct si elle est dans la chaîne), puis "
+                     "écrire un commentaire ici, ce qui a été fait ou ta décision. Au tour suivant, le pilote "
+                     f"remet le lot en route : {reprendre}. Retirer « bloque » et remettre « pret » marche aussi.")
+            champs = {}
+        else:
+            options = "".join(f"\n- **{l}** — {r}" + (f" ({c})" if c else "") for l, r, c in question.options)
+            reco = ""
+            if question.recommandation:
+                lettre, pourquoi = question.recommandation
+                reco = f"\n\nLe chef recommande **{lettre}**" + (f" : {pourquoi}" if pourquoi else "") + "."
+            texte = (f"🤖 **pilote** : lot bloqué — le chef attend ta décision.\n\n**{question.texte}**\n"
+                     f"{options}{reco}\n\n"
+                     "**Pour répondre** : écris un commentaire ici (une lettre suffit, ou ta propre réponse). "
+                     "Au tour suivant, le pilote remet le lot en route, et le chef lit ta réponse.")
+            champs = question.marque()
+        self.gh.commenter_issue(numero, f"{texte}\n\n{marque(role='pilote', etat='bloque', raison=raison, **champs)}")
         self.noter(numero, "bloqué", raison)
 
     # ------------------------------------------------------------ jalons

@@ -61,8 +61,12 @@ La **province** ne se stocke pas : elle se recalcule à chaque consultation
 comme « le centre administratif le plus proche ». La **pluie** et la **crue**
 ne sont pas stockées sur `Cell` : leurs vues se dérivent respectivement du
 relevé le plus proche et du cours du fleuve, puis entrent dans la carte au
-moment où le monde la lit. Le tick lit ces valeurs dans la carte, jamais dans
-les vues. Il ne consomme pas la vue des provinces.
+moment où le monde la lit. La **puissance** dont relève une cellule est
+pareillement une vue dérivée, jamais un second identifiant spatial stocké.
+Les **lieux** d'une cellule se dérivent aussi de sa surface, sans se stocker
+sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans leurs
+vues ; il ne consomme ni la vue des provinces, ni celle des puissances, ni
+celle des lieux.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -104,8 +108,10 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   le monde ne se construit, et aucune capacité de transport ne s'améliore.
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
-- **descendre sous la cellule.** La population est un entier agrégé : pas de
-  familles, pas de personnes, pas de bâtiments, pas de quartiers.
+- **descendre sous la cellule pour les habitants et les biens.** La cellule se
+  découpe désormais en lieux par sa surface, mais la population, les stocks et
+  le tick restent à l'échelle de la cellule : pas de familles, pas de personnes,
+  pas de bâtiments, pas de quartiers.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
@@ -291,10 +297,11 @@ n'autorise personne à inventer ce second métier en même temps que la vue.
 
 ### Ce qui se refuse plutôt que se devine
 
-- **Aucune liste de villes historiques.** L'outil qui a fabriqué la carte en
-  a employé pour semer la maille ; ce n'est pas une entité du moteur, et
-  `data/world-1400.json` n'en porte aucune. Une ville nommée entrerait au niveau 1 de fidélité, donc
-  exigerait une source : le jeu n'en a pas, et le niveau 3 ne se simule pas.
+- **Villes historiques nommées.** `data/villes-1400.json` porte une table
+  non exhaustive de niveau 1, avec point et population sourcés. À l'amorçage,
+  `sim/villes.py` attribue chaque point à un polygone de cellule ; un point
+  hors carte reste explicitement hors carte. Cette ville est distincte du
+  bourg dérivé des métiers : elle ne crée aucun métier ni champ sur `Cell`.
 - **Aucun `city_id`, `ville_id` ni `bourg_id`.** `cell_id` reste la seule clé
   spatiale (mode de défaillance n° 1).
 - **Aucun seuil qui « fait » une ville.** Poser un drapeau au-dessus d'un
@@ -325,11 +332,12 @@ pas, exactement comme il ne consulte pas la province.
 
 ## Déclaration explicite
 
-**L'amorçage décrit dans ce fichier est un proxy paramétrique, pas une donnée
-historique.** Aucune valeur de population ou de stock alimentaire initial ne
-provient d'une source historique documentée. Conformément à la règle 10
-(« l'absence de données ne s'invente pas en silence »), cette limitation est
-déclarée ici de manière explicite.
+Le peuplement rural amorcé par cellule reste un **proxy paramétrique** de
+niveau 2. Les populations des villes nommées sont des estimations historiques
+de niveau 1, datées, sourcées et incertaines. Aucun stock alimentaire initial
+n'est attesté : la réserve ordinaire et le grenier urbain sont des proxies de
+niveau 2, déclarés comme présents avant le début de la partie. Le défaut
+d'eau du Nil demeure : placer Le Caire et Alexandrie ne crée pas de crue.
 
 Les paramètres ci-dessous sont des valeurs d'ordre de grandeur plausibles pour
 une simulation médiévale/proto-moderne (1400-1900). Ils peuvent être calibrés
@@ -379,8 +387,9 @@ pas « le premier jour de l'année » — voir « Les trois régimes de producti
 ### Formule
 
 ```
-population = max(0, int(population_soutenable_de(cellule)
-                        × PART_SOUTENABLE_AMORCEE × variation))
+population_rurale = max(0, int(population_soutenable_de(cellule)
+                               × PART_SOUTENABLE_AMORCEE × variation))
+population = max(population_rurale, somme_des_villes_contenues)
 ```
 
 où `variation = rng.uniform(SEED_POPULATION_VARIATION_LOW, SEED_POPULATION_VARIATION_HIGH)`.
@@ -396,10 +405,13 @@ rendement et à la saison moyens.
 | `SEED_POPULATION_VARIATION_HIGH` | 1.1 | — | Variation maximale autour de la densité nominale (±10 %) |
 
 **Conséquence à connaître : le monde démarre selon ce qu'il nourrit.** La
-population initiale suit le relief, la saison moyenne, la part laissée à
+population rurale initiale suit le relief, la saison moyenne, la part laissée à
 l'agriculture par les mines et le `facteur_eau`. Le désert s'amorce presque
 vide ; la variation de plus ou moins dix pour cent ne remplace pas cette
-géographie, elle s'y applique.
+géographie, elle s'y applique. Les villes historiques peuvent dépasser la
+capacité nourricière locale ; leurs habitants ne s'ajoutent pas au proxy
+rural, ce qui évite un double compte. Plusieurs villes dans une cellule se
+cumulent. Leur plancher ne s'applique qu'une fois, à l'amorçage.
 
 ### Déterminisme
 
@@ -444,13 +456,28 @@ panier.
 ### Formule
 
 ```
-food_stock_kg = population × FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK × INITIAL_FOOD_RESERVE_TICKS
+réserve_ordinaire = population_finale × ration × INITIAL_FOOD_RESERVE_TICKS
+manque_kg = max(0, population_finale - population_soutenable_de(cellule, carte)) × ration
+grenier_urbain = manque_kg × RESERVE_VILLES_TICKS  # seulement si la cellule porte une ville
+food_stock_kg = réserve_ordinaire + grenier_urbain
 ```
 
-Le stock de départ couvre `INITIAL_FOOD_RESERVE_TICKS` ticks de consommation
-normale. Ce buffer initial est volontairement court (5 ticks = 5 jours) pour
-que la dynamique de production/consommation prenne effet rapidement sans
-créer une réserve artificielle trop grande.
+Le stock ordinaire couvre cinq ticks de consommation normale, y compris dans
+les cellules urbaines. `RESERVE_VILLES_TICKS = 30` est fixé avant mesure :
+environ un mois de manque donne du temps aux échanges, sans promettre un an
+de survie. Le supplément n'existe que pour une cellule portant une ville et
+dépassant sa capacité locale. Son origine est une réserve antérieure à 1400,
+non une production du premier tick. Le commerce peut l'exporter ; rien ne la
+réapprovisionne automatiquement.
+Le total urbain est arrondi à la précision en kilogrammes de la photographie
+du monde (`SNAPSHOT_FLOAT_DECIMALS`), pour que le stock lu et le stock exporté
+portent exactement la même valeur ; les cellules sans ville gardent leur
+amorçage antérieur.
+
+Invariant d'amorçage : toutes les cellules mangent sans faim ni dette au
+premier tick ; celles sans ville restent en outre sous leur plafond local et
+conservent exactement leur réserve de cinq ticks. Après ce premier tick,
+aucune absence de famine n'est garantie.
 
 C'est la **seule** marchandise présente au panier d'une cellule à l'amorçage.
 Toutes les autres y entrent par l'extraction.
@@ -461,6 +488,7 @@ Toutes les autres y entrent par l'extraction.
 |---|---|---|---|
 | `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK` | 2.0 × TICK_DURATION_DAYS | kg/personne/tick | Ration journalière médiévale approx. 2 kg (céréales + substituts) × 1 jour/tick |
 | `INITIAL_FOOD_RESERVE_TICKS` | 5 | ticks | Réserve de subsistance de 5 jours — suffisante pour absorber 2–3 mauvaises journées consécutives sans mort immédiate, sans masquer le comportement de long terme |
+| `RESERVE_VILLES_TICKS` | 30 | ticks | Proxy de niveau 2 : un mois environ de manque local pour laisser agir les échanges |
 
 ---
 
@@ -1183,6 +1211,58 @@ Enfin, **le tick ne la lit pas**. À la lecture de la carte,
 `World.lire_carte` dérive de cette vue `crue_mm_par_an` pour chaque cellule :
 la valeur équivalente de la crue si le Nil la traverse, zéro sinon. Le moteur
 lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
+
+---
+
+## Les puissances de 1400, vue dérivée
+
+La provenance est `data/puissances-1400.json`. Les puissances, leurs ancres et
+leurs sources publiques sont de **niveau 1** : elles doivent être justes dans
+les grandes lignes. Le tracé qui en découle est de **niveau 2**, plausible et
+jamais sourcé : il ne restitue ni frontière réelle, ni enclave, ni suzeraineté.
+
+À chaque consultation, une cellule relève de la puissance qui tient l'ancre
+la plus proche de son centroïde selon la projection déclarée par le fichier.
+La règle unique de `sim/aggregation.py` départage une égalité exacte par le
+plus petit identifiant d'ancre, indépendamment de l'ordre de la table.
+
+Cette attribution s'arrête à la portée mesurée de **4,0 degrés projetés**,
+environ 440 km. Au-delà, la cellule est explicitement **non couverte** : elle
+n'est rattachée à aucune puissance par défaut. Cette limite plausible laisse
+notamment Le Caire et Constantinople hors de la table occidentale actuelle ;
+de futures puissances devront les couvrir par leurs ancres, pas par une portée
+artificiellement élargie.
+
+La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
+`Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
+lit pas**.
+
+---
+
+## Les lieux d'une cellule, vue dérivée
+
+La surface `area_km2` d'une cellule de la carte se partage en lieux. Leur
+nombre est `max(1, floor(area_km2 / SURFACE_KM2_PAR_LIEU))`, avec
+`SURFACE_KM2_PAR_LIEU = 1000.0`. Chaque lieu a pour identité le couple
+(`cell_id`, `rang`), des rangs 0 à `n − 1` ; **le rang 0 est le bourg**. Aucun
+identifiant spatial supplémentaire n'est stocké.
+
+Chaque rang supérieur à 0 reçoit `q = floor(area_km2 / n)` kilomètres carrés.
+Le bourg reçoit le reste, `area_km2 − (n − 1) × q` : il est au moins aussi
+grand que les autres. Ce reste est une soustraction exacte tant que la surface
+de la carte est sous 2⁵³ km² ; les surfaces des lieux rendent ainsi celle de
+la cellule au bit près, sans l'arrondi d'un partage égal par division.
+
+La vue refuse une surface absente, booléenne, textuelle, non finie, nulle ou
+négative en nommant sa cellule. Elle refuse aussi une constante non finie ou
+inférieure à 1 km². Elle est pure, recalculée à chaque consultation hors de
+`sim.model`, ne pose rien sur `Cell`, et **le tick ne la lit pas**.
+
+Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
+plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
+l'échelle d'une cellule », vu ici par sa surface ; il ne reçoit aucun habitant.
+La distribution de la population et des stocks dans la cellule reste gratuite.
+La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
 
 ---
 

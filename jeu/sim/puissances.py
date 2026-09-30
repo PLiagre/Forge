@@ -5,6 +5,13 @@ import json
 import math
 import pathlib
 
+from sim.aggregation import (
+    charger_positions,
+    derive_appartenance,
+    facteur_de_projection,
+    positions_du_monde,
+    projeter,
+)
 from sim.model import _NoBadSpatialField
 
 _RACINE_DEPOT = pathlib.Path(__file__).parent.parent
@@ -20,7 +27,13 @@ _CLE_PUISSANCE = "puissance"
 _CLE_LAT = "lat"
 _CLE_LON = "lon"
 _CLE_SOURCE = "source"
+_CLE_PROJECTION = "projection"
+_CLE_LATITUDE_MOYENNE = "mid_latitude"
+_CLE_PORTEE = "portee"
+_CLE_DEGRES_PROJETES = "degres_projetes"
+_CLE_NIVEAU = "niveau"
 _DATE_ATTENDUE = "1400-01-01"
+_NIVEAU_FRONTIERE = 2
 
 NATURES = frozenset({"royaume", "république", "Église", "ordre"})
 RELIGIONS = frozenset({"catholique", "orthodoxe", "musulmane"})
@@ -123,3 +136,110 @@ def charger_table(path=None) -> TableDesPuissances:
     return TableDesPuissances(
         date, tuple(sorted(puissances, key=lambda p: p.id)), tuple(sorted(ancres, key=lambda a: a.id))
     )
+
+
+def charger_latitude_moyenne_puissances(path=None) -> float:
+    """Lit le paramètre fini de la projection propre à la table."""
+    chemin = pathlib.Path(path) if path is not None else _CHEMIN_TABLE
+    document = json.loads(chemin.read_text(encoding="utf-8"))
+    projection = document.get(_CLE_PROJECTION)
+    if not isinstance(projection, dict):
+        raise PuissanceInvalide("champ projection : bloc absent")
+    latitude = projection.get(_CLE_LATITUDE_MOYENNE)
+    if (
+        isinstance(latitude, bool)
+        or not isinstance(latitude, (int, float))
+        or not math.isfinite(latitude)
+    ):
+        raise PuissanceInvalide(
+            "champ projection.mid_latitude : nombre fini attendu"
+        )
+    return latitude
+
+
+def charger_portee(path=None) -> float:
+    """Lit la portée plausible et refuse toute valeur inexploitable."""
+    chemin = pathlib.Path(path) if path is not None else _CHEMIN_TABLE
+    document = json.loads(chemin.read_text(encoding="utf-8"))
+    declaration = document.get(_CLE_PORTEE)
+    if not isinstance(declaration, dict):
+        raise PuissanceInvalide("champ portee : bloc absent")
+    if declaration.get(_CLE_NIVEAU) != _NIVEAU_FRONTIERE:
+        raise PuissanceInvalide("champ portee.niveau : niveau 2 attendu")
+    portee = declaration.get(_CLE_DEGRES_PROJETES)
+    if (
+        isinstance(portee, bool)
+        or not isinstance(portee, (int, float))
+        or not math.isfinite(portee)
+        or portee <= 0
+    ):
+        raise PuissanceInvalide(
+            "champ portee.degres_projetes : nombre fini strictement positif attendu"
+        )
+    return portee
+
+
+def puissance_par_cellule(
+    positions, table, portee, latitude_moyenne
+) -> dict:
+    """Rend la puissance de l'ancre la plus proche, dans la portée donnée."""
+    if (
+        isinstance(portee, bool)
+        or not isinstance(portee, (int, float))
+        or math.isnan(portee)
+        or portee <= 0
+    ):
+        raise PuissanceInvalide("portee : nombre strictement positif attendu")
+
+    ancres_par_id = {ancre.id: ancre for ancre in table.ancres}
+    appartenance = derive_appartenance(
+        positions, table.ancres, latitude_moyenne
+    )
+    facteur = facteur_de_projection(latitude_moyenne)
+    carre_portee = portee * portee
+    vue = {}
+    for cell_id in sorted(positions):
+        ancre = ancres_par_id[appartenance[cell_id]]
+        cellule_x, cellule_y = projeter(*positions[cell_id], facteur)
+        ancre_x, ancre_y = projeter(ancre.lat, ancre.lon, facteur)
+        ecart_x = cellule_x - ancre_x
+        ecart_y = cellule_y - ancre_y
+        carre_distance = ecart_x * ecart_x + ecart_y * ecart_y
+        vue[cell_id] = ancre.puissance if carre_distance <= carre_portee else None
+    return vue
+
+
+def puissances_depuis_monde(
+    world,
+    positions=None,
+    table=None,
+    portee=None,
+    latitude_moyenne=None,
+) -> dict:
+    """Adapte la vue pure aux cellules chargées, sans modifier le monde."""
+    if positions is None:
+        positions = charger_positions()
+    if table is None:
+        table = charger_table()
+    if portee is None:
+        portee = charger_portee()
+    if latitude_moyenne is None:
+        latitude_moyenne = charger_latitude_moyenne_puissances()
+    retenues = positions_du_monde(world, positions)
+    return puissance_par_cellule(retenues, table, portee, latitude_moyenne)
+
+
+def puissance_de_cellule(cell_id, vue, table):
+    """Rend la puissance d'une cellule couverte, sinon ``None``."""
+    identifiant = vue.get(cell_id)
+    if identifiant is None:
+        return None
+    return next(
+        (puissance for puissance in table.puissances if puissance.id == identifiant),
+        None,
+    )
+
+
+def cellules_non_couvertes(vue) -> tuple:
+    """Rend, triés, les identifiants explicitement non couverts."""
+    return tuple(sorted(cell_id for cell_id, puissance in vue.items() if puissance is None))
