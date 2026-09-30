@@ -282,3 +282,42 @@ def test_vue_du_fleuve_n_a_que_world_parmi_ses_lecteurs():
     assert len(modules) > 0
     assert lecteurs == {"world.py"}
     assert contre_epreuve
+
+
+def test_amorcage_sans_crue_conserve_les_populations_des_villes():
+    """Une crue nulle ne supprime aucun plancher historique de population."""
+    monde = World.charger(0, carte_doc=_carte_sans_crue())
+    attribution = monde.attribution_villes
+    planchers = {}
+    for ville in attribution.entrees:
+        cell_id = attribution.placees.get(ville.nom)
+        if cell_id is not None:
+            planchers[cell_id] = planchers.get(cell_id, 0) + ville.population
+
+    conformes = sum(
+        monde.cells[cell_id].population >= population
+        for cell_id, population in planchers.items()
+    )
+    print(f"planchers_urbains_conserves = {conformes} / {len(planchers)}")
+    assert len(planchers) > 0
+    assert conformes == len(planchers)
+
+
+def test_amorcage_depuis_carte_ne_relit_pas_la_vue_du_fleuve(monkeypatch):
+    """La crue est déjà dans la carte ; l'amorçage ne consulte pas le cours."""
+    import sim.world as module_monde
+
+    carte = _carte_sans_crue()
+    appels = 0
+
+    def lecture_interdite():
+        nonlocal appels
+        appels += 1
+        pytest.fail("L'amorçage relit la vue du fleuve malgré la carte fournie")
+
+    monkeypatch.setattr(module_monde, "charger_points", lecture_interdite)
+    monde = World.charger(0, carte_doc=carte)
+    print(f"cellules_amorcees = {len(monde.cells)}")
+    print(f"lectures_du_cours_a_l_amorcage = {appels}")
+    assert len(monde.cells) == len(carte["cellules"]) > 0
+    assert appels == 0

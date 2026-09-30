@@ -66,18 +66,6 @@ def _seed_food_stock(population: int) -> float:
     return tick_need * INITIAL_FOOD_RESERVE_TICKS
 
 
-def _ids_traverses_par_le_nil(positions) -> set[int]:
-    """Cellules que le cours documenté du Nil traverse, même vue que la carte."""
-    return {
-        cellule.cell_id
-        for cellule in cellules_traversees(
-            charger_points(),
-            positions,
-            charger_latitude_moyenne_fleuve(),
-        )
-    }
-
-
 def lire_stock_mer(world: "World", marchandise: str) -> float:
     """
     Lit le stock d'une marchandise dans le bassin maritime.
@@ -146,7 +134,14 @@ class World:
             charger_latitude_moyenne_pluie(),
         )
         pluie_par_id = {pluie.cell_id: pluie.mm_par_an for pluie in pluies}
-        traversees = _ids_traverses_par_le_nil(positions)
+        traversees = {
+            cellule.cell_id
+            for cellule in cellules_traversees(
+                charger_points(),
+                positions,
+                charger_latitude_moyenne_fleuve(),
+            )
+        }
         for enregistrement in document["cellules"]:
             cell_id = enregistrement["cell_id"]
             if cell_id not in pluie_par_id:
@@ -190,7 +185,6 @@ class World:
             cid = attribution.placees.get(ville.nom)
             if cid is not None:
                 populations_villes[cid] = populations_villes.get(cid, 0) + ville.population
-        traversees = _ids_traverses_par_le_nil(charger_positions())
 
         # L'amorçage se fait en deux temps, et l'ordre porte : la population
         # d'une cellule se dérive de ce que cette cellule produit, et la
@@ -210,20 +204,9 @@ class World:
             )
             soutenable = population_soutenable_de(cellule_vide, carte)
             pop_rurale = _seed_population(soutenable, rng)
-            # Le plancher urbain d'une cellule traversée est celui d'une terre
-            # que la crue arrose. Une crue de zéro est une mesure : sans elle,
-            # cette cellule ne garde que le proxy rural. Les villes que le
-            # fleuve ne traverse pas gardent leur plancher.
-            plancher_urbain = populations_villes.get(cid, 0)
-            if (
-                plancher_urbain
-                and cid in traversees
-                and raw["crue_mm_par_an"] == 0
-            ):
-                plancher_urbain = 0
-            pop = max(pop_rurale, plancher_urbain)
+            pop = max(pop_rurale, populations_villes.get(cid, 0))
             stock = _seed_food_stock(pop)
-            if plancher_urbain:
+            if cid in populations_villes:
                 manque_kg = max(0.0, pop - soutenable) * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
                 stock = round(stock + manque_kg * constantes.RESERVE_VILLES_TICKS,
                               constantes.SNAPSHOT_FLOAT_DECIMALS)

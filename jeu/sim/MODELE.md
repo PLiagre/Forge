@@ -337,10 +337,7 @@ niveau 2. Les populations des villes nommées sont des estimations historiques
 de niveau 1, datées, sourcées et incertaines. Aucun stock alimentaire initial
 n'est attesté : la réserve ordinaire et le grenier urbain sont des proxies de
 niveau 2, déclarés comme présents avant le début de la partie. Le défaut
-d'eau du Nil ne se répare pas en y posant des habitants : placer Le Caire
-et Alexandrie ne crée pas de crue. L'eau du delta est celle du cours, lue
-dans la carte. Sans cette crue, la cellule traversée ne garde que son
-peuplement rural.
+d'eau du Nil demeure : placer Le Caire et Alexandrie ne crée pas de crue.
 
 Les paramètres ci-dessous sont des valeurs d'ordre de grandeur plausibles pour
 une simulation médiévale/proto-moderne (1400-1900). Ils peuvent être calibrés
@@ -392,16 +389,12 @@ pas « le premier jour de l'année » — voir « Les trois régimes de producti
 ```
 population_rurale = max(0, int(population_soutenable_de(cellule)
                                × PART_SOUTENABLE_AMORCEE × variation))
-plancher_urbain = somme_des_villes_contenues
-si la cellule est traversée par le Nil et que crue_mm_par_an vaut 0 :
-    plancher_urbain = 0
-population = max(population_rurale, plancher_urbain)
+population = max(population_rurale, somme_des_villes_contenues)
 ```
 
 où `variation = rng.uniform(SEED_POPULATION_VARIATION_LOW, SEED_POPULATION_VARIATION_HIGH)`.
 `population_soutenable_de` se dérive de l'unique formule de production, au
-rendement et à la saison moyens. `crue_mm_par_an` est celle de la carte, pas
-une relecture de la vue au tick.
+rendement et à la saison moyens.
 
 ### Paramètres
 
@@ -418,12 +411,7 @@ vide ; la variation de plus ou moins dix pour cent ne remplace pas cette
 géographie, elle s'y applique. Les villes historiques peuvent dépasser la
 capacité nourricière locale ; leurs habitants ne s'ajoutent pas au proxy
 rural, ce qui évite un double compte. Plusieurs villes dans une cellule se
-cumulent. Leur plancher ne s'applique qu'une fois, à l'amorçage. Exception,
-celle de la crue : sur une cellule que le Nil traverse, ce plancher n'a de
-sens que si la carte porte une crue non nulle. Une crue de zéro est une
-mesure, et la cellule garde alors le seul proxy rural — les hommes comptés
-là sont ceux de la terre que le fleuve arrose. Une ville que le fleuve ne
-traverse pas garde son plancher, même quand la pluie locale ne la nourrit pas.
+cumulent. Leur plancher ne s'applique qu'une fois, à l'amorçage.
 
 ### Déterminisme
 
@@ -1223,8 +1211,6 @@ Enfin, **le tick ne la lit pas**. À la lecture de la carte,
 `World.lire_carte` dérive de cette vue `crue_mm_par_an` pour chaque cellule :
 la valeur équivalente de la crue si le Nil la traverse, zéro sinon. Le moteur
 lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
-L'amorçage la lit aussi pour le plancher des villes : une crue nulle sur une
-cellule traversée n'y assoit que le peuplement rural.
 
 ---
 
