@@ -1208,10 +1208,13 @@ pas représenté la cause physique, la crue du fleuve.
 
 ## Les puissances de 1400, vue dérivée
 
-La provenance est `data/puissances-1400.json`. Les puissances, leurs ancres et
-leurs sources publiques sont de **niveau 1** : elles doivent être justes dans
-les grandes lignes. Le tracé qui en découle est de **niveau 2**, plausible et
-jamais sourcé : il ne restitue ni frontière réelle, ni enclave, ni suzeraineté.
+La provenance est `data/puissances-1400.json`. La table couvre l'Ouest,
+l'Italie, le Nord et le Centre, notamment Venise. Les puissances, leurs ancres
+et leurs sources publiques sont de **niveau 1** : elles doivent être justes
+dans les grandes lignes. La nature `principauté` désigne ici une puissance
+tenue par un duc, un comte ou un prince, comme Milan et la Savoie. Le tracé
+qui en découle est de **niveau 2**, plausible et jamais sourcé : il ne
+restitue ni frontière réelle, ni enclave, ni suzeraineté.
 
 À chaque consultation, une cellule relève de la puissance qui tient l'ancre
 la plus proche de son centroïde selon la projection déclarée par le fichier.
@@ -1219,11 +1222,12 @@ La règle unique de `sim/aggregation.py` départage une égalité exacte par le
 plus petit identifiant d'ancre, indépendamment de l'ordre de la table.
 
 Cette attribution s'arrête à la portée mesurée de **4,0 degrés projetés**,
-environ 440 km. Au-delà, la cellule est explicitement **non couverte** : elle
-n'est rattachée à aucune puissance par défaut. Cette limite plausible laisse
-notamment Le Caire et Constantinople hors de la table occidentale actuelle ;
-de futures puissances devront les couvrir par leurs ancres, pas par une portée
-artificiellement élargie.
+environ 440 km. Sur les 596 cellules de la carte figée, 406 sont couvertes et
+190 sont non couvertes. Au-delà de la portée, la cellule est explicitement
+**non couverte** : elle n'est rattachée à aucune puissance par défaut. Cette
+limite plausible laisse notamment Le Caire et Constantinople hors de la table
+actuelle ; les puissances de l'Orient devront les couvrir par leurs ancres,
+pas par une portée artificiellement élargie.
 
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la

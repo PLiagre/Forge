@@ -1,5 +1,5 @@
 {
-  "description": "Puissances de l'Ouest au 1er janvier 1400 et leurs points d'ancrage.",
+  "description": "Puissances de l'Ouest, l'Italie, le Nord et le Centre au 1er janvier 1400 et leurs points d'ancrage.",
   "date": "1400-01-01",
   "fidelite": "Niveau 1, d'après des sources publiques ; le Grand Schisme, les maisons et les suzerainetés ne sont pas simulés.",
   "projection": {
@@ -24,7 +24,19 @@
     { "id": 9, "nom": "Saint-Empire", "nature": "royaume", "religion": "catholique" },
     { "id": 10, "nom": "Bohême", "nature": "royaume", "religion": "catholique" },
     { "id": 11, "nom": "Archevêché de Trèves", "nature": "Église", "religion": "catholique" },
-    { "id": 12, "nom": "Confédération des cantons suisses", "nature": "république", "religion": "catholique" }
+    { "id": 12, "nom": "Confédération des cantons suisses", "nature": "république", "religion": "catholique" },
+    { "id": 13, "nom": "Venise", "nature": "république", "religion": "catholique" },
+    { "id": 14, "nom": "Milan", "nature": "principauté", "religion": "catholique" },
+    { "id": 15, "nom": "Florence", "nature": "république", "religion": "catholique" },
+    { "id": 16, "nom": "Gênes", "nature": "république", "religion": "catholique" },
+    { "id": 17, "nom": "Papauté", "nature": "Église", "religion": "catholique" },
+    { "id": 18, "nom": "Naples", "nature": "royaume", "religion": "catholique" },
+    { "id": 19, "nom": "Sicile", "nature": "royaume", "religion": "catholique" },
+    { "id": 20, "nom": "Savoie", "nature": "principauté", "religion": "catholique" },
+    { "id": 21, "nom": "Union de Kalmar", "nature": "royaume", "religion": "catholique" },
+    { "id": 22, "nom": "Ordre teutonique", "nature": "ordre", "religion": "catholique" },
+    { "id": 23, "nom": "Pologne-Lituanie", "nature": "royaume", "religion": "catholique" },
+    { "id": 24, "nom": "Hongrie", "nature": "royaume", "religion": "catholique" }
   ],
   "ancres": [
     { "id": 1, "puissance": 1, "nom": "Londres", "lat": 51.51, "lon": -0.13, "source": "Wikipédia, article Royaume d'Angleterre : Londres en est la capitale" },
@@ -49,6 +61,29 @@
     { "id": 20, "puissance": 9, "nom": "Heidelberg", "lat": 49.41, "lon": 8.69, "source": "Wikipédia, article Électorat palatin : principauté du Saint-Empire, résidence à Heidelberg" },
     { "id": 21, "puissance": 10, "nom": "Prague", "lat": 50.08, "lon": 14.44, "source": "Wikipédia, article Royaume de Bohême : Prague en est la capitale" },
     { "id": 22, "puissance": 11, "nom": "Coblence", "lat": 50.36, "lon": 7.59, "source": "Wikipédia, article Électorat de Trèves : Coblence résidence de l'archevêque-électeur dès le XIIIe siècle" },
-    { "id": 23, "puissance": 12, "nom": "Lucerne", "lat": 47.05, "lon": 8.31, "source": "Wikipédia, article Confédération des III cantons : Lucerne rejoint la Confédération en 1332" }
+    { "id": 23, "puissance": 12, "nom": "Lucerne", "lat": 47.05, "lon": 8.31, "source": "Wikipédia, article Confédération des III cantons : Lucerne rejoint la Confédération en 1332" },
+    { "id": 24, "puissance": 13, "nom": "Venise", "lat": 45.44, "lon": 12.33, "source": "Wikipédia, article République de Venise : Venise est la capitale de la république" },
+    { "id": 25, "puissance": 14, "nom": "Milan", "lat": 45.46, "lon": 9.19, "source": "Wikipédia, article Duché de Milan : Milan est la capitale du duché créé en 1395" },
+    { "id": 26, "puissance": 15, "nom": "Florence", "lat": 43.77, "lon": 11.26, "source": "Wikipédia, article République de Florence : Florence est le siège de la république" },
+    { "id": 27, "puissance": 15, "nom": "Arezzo", "lat": 43.46, "lon": 11.88, "source": "Wikipédia, article Arezzo : la ville passe sous la domination florentine en 1384" },
+    { "id": 28, "puissance": 16, "nom": "Gênes", "lat": 44.41, "lon": 8.93, "source": "Wikipédia, article République de Gênes : Gênes demeure le siège de la république en 1400" },
+    { "id": 29, "puissance": 17, "nom": "Rome", "lat": 41.90, "lon": 12.50, "source": "Wikipédia, article Boniface IX : le pape établit son pouvoir temporel sur Rome avant 1400" },
+    { "id": 30, "puissance": 18, "nom": "Naples", "lat": 40.85, "lon": 14.27, "source": "Wikipédia, article Royaume de Naples : Naples est la capitale du royaume continental" },
+    { "id": 31, "puissance": 18, "nom": "Bari", "lat": 41.12, "lon": 16.87, "source": "Wikipédia, article Duché de Bari : Bari est une division du royaume de Naples" },
+    { "id": 32, "puissance": 19, "nom": "Palerme", "lat": 38.12, "lon": 13.36, "source": "Wikipédia, article Histoire de Palerme : la ville relève du royaume insulaire de Sicile depuis 1282" },
+    { "id": 33, "puissance": 19, "nom": "Catane", "lat": 37.50, "lon": 15.09, "source": "Wikipédia, article Catane : ville du royaume insulaire de Sicile au XIVe siècle" },
+    { "id": 34, "puissance": 20, "nom": "Chambéry", "lat": 45.57, "lon": 5.92, "source": "Wikipédia, article Chambéry : ville du comté de Savoie et résidence de ses comtes" },
+    { "id": 35, "puissance": 20, "nom": "Nice", "lat": 43.70, "lon": 7.27, "source": "Wikipédia, article Comté de Nice : dédition de Nice à la Savoie en 1388" },
+    { "id": 36, "puissance": 21, "nom": "Copenhague", "lat": 55.68, "lon": 12.57, "source": "Wikipédia, article Union de Kalmar : le Danemark, dont Copenhague, rejoint l'union en 1397" },
+    { "id": 37, "puissance": 21, "nom": "Kalmar", "lat": 56.66, "lon": 16.36, "source": "Wikipédia, article Union de Kalmar : l'union des trois royaumes est conclue à Kalmar en 1397" },
+    { "id": 38, "puissance": 21, "nom": "Bergen", "lat": 60.39, "lon": 5.32, "source": "Wikipédia, article Union de Kalmar : la Norvège, dont Bergen, rejoint l'union en 1397" },
+    { "id": 39, "puissance": 22, "nom": "Marienbourg", "lat": 54.04, "lon": 19.03, "source": "Wikipédia, article Ordre Teutonique : Marienbourg est la capitale de l'État de l'Ordre en 1400" },
+    { "id": 40, "puissance": 22, "nom": "Königsberg", "lat": 54.71, "lon": 20.51, "source": "Wikipédia, article Königsberg : ville fondée par l'Ordre teutonique en 1255" },
+    { "id": 41, "puissance": 23, "nom": "Cracovie", "lat": 50.06, "lon": 19.94, "source": "Wikipédia, article Royaume de Pologne (1385-1569) : Cracovie est la capitale du royaume" },
+    { "id": 42, "puissance": 23, "nom": "Vilnius", "lat": 54.69, "lon": 25.28, "source": "Wikipédia, article Vilnius : ville du grand-duché de Lituanie uni à la Pologne depuis 1385" },
+    { "id": 43, "puissance": 23, "nom": "Lviv", "lat": 49.84, "lon": 24.03, "source": "Wikipédia, article Lviv : la ville entre dans la couronne polonaise en 1386" },
+    { "id": 44, "puissance": 24, "nom": "Buda", "lat": 47.50, "lon": 19.04, "source": "Wikipédia, article Buda : ville royale du royaume de Hongrie depuis le XIIIe siècle" },
+    { "id": 45, "puissance": 24, "nom": "Zagreb", "lat": 45.81, "lon": 15.98, "source": "Wikipédia, article Croatie en union avec la Hongrie : Zagreb relève de la couronne hongroise en 1400" },
+    { "id": 46, "puissance": 24, "nom": "Kolozsvár", "lat": 46.77, "lon": 23.59, "source": "Wikipédia, article Cluj-Napoca : Kolozsvár appartient à la Transylvanie du royaume de Hongrie en 1400" }
   ]
 }
