@@ -72,6 +72,21 @@ def test_l_action_suivante(pr, ci, liste, attendu):
     assert action_suivante(pr, ci, liste, corrections_max=2).nom == attendu
 
 
+def test_une_relecture_sans_verdict_se_rejoue_sans_toucher_au_codeur():
+    """Le 30 septembre 2026, un relecteur hors délai (« relecture sans
+    verdict ») valait « CORRIGER » : le codeur de #126 est repassé deux fois
+    sur une revue vide, et le lot s'est bloqué avec un code qui tenait."""
+    echec = {"role": "relecteur", "etat": "echec", "sha": "tete", "agent": "claude/opus"}
+    assert action_suivante(_pr(), "vert", [FAIT, echec], corrections_max=2).nom == "relire"
+    # Même au bout des corrections, une relecture ratée ne bloque pas le lot
+    # à la place d'un verdict : `_relire` s'arrête à deux échecs.
+    trois = [FAIT, dict(FAIT), dict(FAIT)]
+    assert action_suivante(_pr(), "vert", trois + [echec], corrections_max=2).nom == "relire"
+    # Un verdict rendu après l'échec compte.
+    corriger = {"role": "relecteur", "sha": "tete", "verdict": "CORRIGER"}
+    assert action_suivante(_pr(), "vert", [FAIT, echec, corriger], corrections_max=2).nom == "corriger_relecture"
+
+
 def test_trois_passages_du_codeur_puis_bloque():
     trois = [FAIT, dict(FAIT, etat="fait"), dict(FAIT, etat="fait")]
     assert action_suivante(_pr(), "rouge", trois[:2], corrections_max=2).nom == "corriger_ci"

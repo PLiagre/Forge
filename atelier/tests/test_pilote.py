@@ -878,3 +878,14 @@ def test_une_ci_rouge_renvoie_au_codeur_l_extrait_de_son_journal(projet, gh, dep
     _pilote(projet, gh, depot, agents, tmp_path).tour()
     assert agents.outils() == ["codex"]
     assert "assert 406 == 407" in agents.appels[0][-1]
+
+
+def test_deux_relectures_sans_verdict_bloquent_le_lot_sans_rappeler_le_codeur(projet, gh, depot, tmp_path):
+    echec = marque(role="relecteur", etat="echec", sha="a" * 40, agent="claude/opus")
+    _en_cours(gh, commentaires=[FAIT_CODEX, echec])
+    agents = Agents((0, "texte sans verdict"))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude"]  # la relecture se rejoue, le codeur n'est pas appelé
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "deux fois" in gh.issues_[10]["comments"][-1]["body"]
