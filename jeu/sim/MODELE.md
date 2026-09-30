@@ -1253,6 +1253,29 @@ l'échelle d'une cellule », vu ici par sa surface ; la part minière de la
 population y mange selon « La distribution à l'intérieur de la cellule ».
 La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
 
+### L'identité d'un lieu, et ce qui la change
+
+Un lieu se retrouve par son couple (`cell_id`, `rang`) avec `lieu_du_monde`,
+qui ne découpe que la cellule demandée. Un couple mal formé — `cell_id` ou
+`rang` booléen, textuel, flottant, ou absent — lève `LieuxInvalides`. Un
+couple bien formé qui ne désigne aucun lieu lève `LieuInconnu` : cellule
+absente du monde, rang négatif, ou rang au-delà du dernier lieu de la
+cellule. Le rang négatif est refusé avant l'indexation. Rien n'est deviné,
+rien n'est ramené dans l'intervalle.
+
+Ce couple désigne le même lieu, de même surface, à tout tick, pour toute
+graine, et dans tout ordre des cellules. Le découpage ne lit que `area_km2`
+et `SURFACE_KM2_PAR_LIEU` ; le tick ne modifie pas la surface ; l'amorçage
+la lit sur la carte figée, sans tirage ; la vue trie par `cell_id`.
+
+Changer la surface d'une cellule sur la carte, ou `SURFACE_KM2_PAR_LIEU`,
+renumérote les lieux de cette cellule. C'est un changement du monde : tout
+ce qui s'accroche à un lieu devra le suivre. Il n'y a pas de numéro global
+de lieu : un tel numéro suivrait l'ordre d'énumération des cellules, et
+rien ne fixe cet ordre.
+
+---
+
 ## La distribution à l'intérieur de la cellule
 
 Les habitants qui ne cultivent pas vivent au **rang 0**, le bourg : leur nombre

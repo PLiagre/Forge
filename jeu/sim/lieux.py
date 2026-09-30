@@ -11,6 +11,10 @@ class LieuxInvalides(ValueError):
     """Une surface ou la règle de découpage empêche de former les lieux."""
 
 
+class LieuInconnu(LieuxInvalides):
+    """Un couple bien formé ne désigne aucun lieu du monde."""
+
+
 @dataclasses.dataclass(frozen=True)
 class Lieu(_NoBadSpatialField):
     cell_id: int
@@ -60,3 +64,32 @@ def lieux_depuis_monde(world) -> dict:
         cell_id: getattr(cellule, "area_km2", None)
         for cell_id, cellule in world.cells.items()
     })
+
+
+def lieu_du_monde(world, cell_id, rang) -> Lieu:
+    """Retrouve un lieu par son couple, en ne découpant que sa cellule.
+
+    Pure et en lecture seule. La forme est jugée avant la recherche : un
+    booléen n'est jamais pris pour un numéro. Un rang négatif est refusé
+    avant l'indexation.
+    """
+    if (
+        isinstance(cell_id, bool)
+        or not isinstance(cell_id, int)
+        or isinstance(rang, bool)
+        or not isinstance(rang, int)
+    ):
+        raise LieuxInvalides(
+            f"couple mal formé : cell_id={cell_id!r}, rang={rang!r}"
+        )
+    if cell_id not in world.cells:
+        raise LieuInconnu(
+            f"lieu inconnu : cell_id={cell_id!r}, rang={rang!r}"
+        )
+    cellule = world.cells[cell_id]
+    lieux = lieux_de_cellule(cell_id, getattr(cellule, "area_km2", None))
+    if rang < 0 or rang >= len(lieux):
+        raise LieuInconnu(
+            f"lieu inconnu : cell_id={cell_id!r}, rang={rang!r}"
+        )
+    return lieux[rang]
