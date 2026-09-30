@@ -42,19 +42,14 @@ prefixe_branche = "lot/"
 # route ; si aucun ne répond, le lot attend, il n'échoue pas.
 # Changer de modèle ou d'effort, c'est changer une ligne.
 [agents]
-# Qui fait quoi, d'après les mesures publiques de septembre 2026 (indice des
-# agents de code d'Artificial Analysis : Claude Opus 5.5 66, GPT-6 Astra 62,
-# GPT-6 Sol 57, Grok 4.7 56) et l'abonnement ChatGPT Plus du propriétaire.
-# Un seul modèle GPT : GPT-6.1 Sol (`gpt-6.1-sol`, sorti le 29 septembre
-# 2026), annoncé presque au niveau d'Astra en code agentique pour un
-# cinquième de son prix ; il remplace GPT-5.6 Sol, GPT-6 Sol et GPT-6 Astra
-# (choix du propriétaire, 30 septembre 2026). Il demande un Codex récent
-# (0.159) : un Codex trop ancien refuse le modèle, et ce refus passe la main
-# au secours sans brûler d'essai.
+# Un seul modèle GPT, partout où Codex sert : GPT-6.1 Sol (`gpt-6.1-sol`,
+# sorti le 29 septembre 2026). Il remplace GPT-5.6 Sol, GPT-6 Sol et GPT-6
+# Astra (choix du propriétaire, 30 septembre 2026).
 # Le chef écrit le brief, dont tout dépend : Claude Opus ; GPT-6.1 Sol en
-# secours, en effort xhigh.
-chef        = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@xhigh"
-# GPT-6.1 Sol : le meilleur score par dollar, sur l'abonnement ChatGPT.
+# secours.
+chef        = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high"
+# GPT-6.1 Sol code les lots du VPS ; grok en secours. Un Codex trop ancien
+# refuse le modèle, et ce refus passe la main au suivant sans brûler d'essai.
 codeur      = "codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
 # Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
 # en tête (choix du propriétaire, 29 septembre 2026 : le temps du PC est
@@ -64,19 +59,15 @@ codeur      = "codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
 # `gh workflow run sonde-pc.yml` prouve que chaque agent du PC écrit vraiment.
 codeur_3d   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high"
 # Le dernier passage du codeur d'un lot du VPS avant blocage (la
-# 2e correction) : le même GPT-6.1 Sol, mais en effort xhigh, qui ne sert
-# qu'aux lots que deux passages n'ont pas suffi à faire ; s'il ne répond
-# pas, les agents du codeur reprennent la main. Les lots du PC n'ont pas de
-# renfort : Codex n'écrit pas sous Windows, et Claude Opus y code déjà. La
-# marque reste celle du codeur : le passage compte, et la famille qui a
-# écrit (GPT) ne relit pas.
-renfort     = "codex/gpt-6.1-sol@xhigh | codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
+# 2e correction). La marque reste celle du codeur : le passage compte, et
+# la famille qui a écrit (GPT) ne relit pas. Les lots du PC n'ont pas de
+# renfort.
+renfort     = "codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
 # Le modèle qui écrit ne relit jamais : la FAMILLE de modèle qui a écrit le
 # lot est écartée, et le suivant de la ligne relit. Quelle que soit la
 # famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
 # pas un lot sans relecteur (#186 a attendu une cinquantaine de tours le
-# 28 septembre, Claude écarté et codex à court de quota). GPT-6.1 Sol relit
-# le code de Claude (les lots du PC) ; grok prend la suite.
+# 28 septembre, Claude écarté et codex à court de quota).
 relecteur   = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
 # CI rouge sur master, conflits d'une branche de lot, dépendances : GPT-6.1
 # Sol en effort moyen, travail mécanique ; composer en secours.
@@ -86,23 +77,24 @@ mecanicien  = "codex/gpt-6.1-sol@medium | cursor/composer-2.5@defaut"
 chroniqueur = "cursor/grok-4.7-high@high"
 # Comparaison hebdomadaire avec CAP.md, en lecture seule : un appel par
 # semaine, à fort enjeu.
-boussole    = "claude/claude-opus-5-5@xhigh | codex/gpt-6.1-sol@xhigh"
+boussole    = "claude/claude-opus-5-5@xhigh | codex/gpt-6.1-sol@high"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
 # qu'un runner. Des lots qui touchent les mêmes fichiers se retrouvent en
 # conflit : le mécanicien le résout.
 [machines]
-vps = 3
+vps = 5
 pc = 1
 
 # Combien d'agents d'un même outil tournent ensemble : un abonnement ne se
 # vide pas en une heure. Un outil à son plafond passe la main au secours de
-# la ligne, comme un quota : le troisième lot du VPS code avec cursor grok
-# pendant que codex en tient deux. Si personne n'est libre, le lot attend.
+# la ligne, comme un quota. Codex en tient autant que le VPS a de lots :
+# chaque lot du VPS code avec GPT-6.1 Sol (choix du propriétaire,
+# 30 septembre 2026). Si personne n'est libre, le lot attend.
 [outils]
 claude = 2
-codex = 2
+codex = 5
 cursor = 3
 
 # Le temps qu'un agent a pour rendre la main, en secondes.

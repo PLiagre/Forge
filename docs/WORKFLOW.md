@@ -13,7 +13,7 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6.1-sol, xhigh) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Codex, gpt-6.1-sol, high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
@@ -28,11 +28,10 @@ la fusionne toute seule.
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
 ```
 
-Le **renfort** (Codex, gpt-6.1-sol, xhigh ; puis les agents du codeur) fait
+Le **renfort** (Codex, gpt-6.1-sol, high ; puis Cursor grok-high) fait
 le dernier passage du codeur d'un lot du VPS avant blocage : la 2e correction,
-avec `corrections_max = 2`. Deux passages n'ont pas suffi, le même modèle
-reprend avec plus d'effort, la revue ou l'erreur de CI sous les yeux. Il ne
-sert qu'à ces lots-là ; s'il ne répond pas, les agents du codeur reprennent. Sa
+avec `corrections_max = 2`. Deux passages n'ont pas suffi : il reprend avec
+la revue ou l'erreur de CI sous les yeux. Sa
 marque reste celle du codeur : le passage compte, et la famille GPT ne relit
 pas le lot. Les lots du PC n'ont pas de renfort (Codex n'y écrit pas, Claude
 Opus y code déjà).
@@ -40,7 +39,7 @@ Opus y code déjà).
 Le **mécanicien** (Codex, gpt-6.1-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
 grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
-**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6.1-sol, xhigh) compare
+**boussole** (Claude Code, opus, xhigh ; secours Codex, gpt-6.1-sol, high) compare
 chaque lundi les lots livrés à CAP.md.
 
 **Chaque agent dit son harnais, son modèle et son effort** :

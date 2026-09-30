@@ -321,14 +321,21 @@ def test_un_seul_modele_gpt_gpt_6_1_sol():
     assert modeles == {"gpt-6.1-sol"}
 
 
-def test_le_renfort_pense_plus_fort_puis_rend_la_main_au_codeur():
-    # Le renfort ne fait jamais moins bien : le même modèle que le codeur,
-    # avec plus d'effort ; s'il ne répond pas, les agents du codeur, dans le
-    # même ordre.
+def test_le_renfort_est_gpt_6_1_sol_puis_grok():
+    # Le dernier passage d'un lot du VPS : GPT-6.1 Sol, puis grok s'il ne
+    # répond pas ; jamais un Claude, dont la famille relit le lot.
     projet = charger(RACINE)
     renfort = projet.poste("renfort")
-    assert str(renfort.principal) == "codex/gpt-6.1-sol@xhigh" and not renfort.lecture_seule
-    assert renfort.secours == projet.poste("codeur").agents
+    assert str(renfort.principal) == "codex/gpt-6.1-sol@high" and not renfort.lecture_seule
+    assert all(a.famille != "claude" for a in renfort.agents)
+
+
+def test_chaque_lot_du_vps_peut_coder_avec_codex():
+    # Choix du propriétaire (30 septembre 2026) : Codex en tient autant que
+    # le VPS a de lots, grok ne code que sur quota ou panne.
+    projet = charger(RACINE)
+    assert projet.capacite("vps") == 5
+    assert projet.plafond("codex") >= projet.capacite("vps")
 
 
 def test_un_lot_a_toujours_deux_relecteurs_possibles():
