@@ -158,7 +158,7 @@ def test_refus_des_crues_invalides():
     assert refus == len(valeurs)
 
 
-def test_crue_zero_est_une_mesure_et_ne_change_pas_la_pluie():
+def test_refus_accepte_crue_zero_sans_changer_la_pluie():
     """SC2 : zéro est accepté et la pluie lue reste exactement la même."""
     carte = World.lire_carte()
     delta, _, _ = _cellules_de_reference()
@@ -201,7 +201,7 @@ def test_densite_du_delta_depasse_la_mediane_grace_a_la_crue():
     assert densites_seches[delta] < mediane_seche
 
 
-def test_crue_entre_dans_l_argument_de_l_unique_facteur_eau():
+def test_formule_inclut_la_crue_dans_l_argument_du_facteur_eau():
     """SC4 : le gain du delta est exactement le rapport des facteurs d'eau."""
     delta, desert, suez = _cellules_de_reference()
     monde = World.charger(0)
@@ -251,7 +251,7 @@ def test_plafond_et_production_partagent_la_meme_formule():
     assert conformes == len(monde.cells)
 
 
-def test_vue_du_fleuve_n_a_que_world_pour_lecteur():
+def test_vue_du_fleuve_n_a_que_world_parmi_ses_lecteurs():
     """SC5 : seul le chargement de carte importe la vue dérivée du Nil."""
     def importe_fleuve(source: str) -> bool:
         arbre = ast.parse(source)
