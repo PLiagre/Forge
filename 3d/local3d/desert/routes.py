@@ -636,6 +636,18 @@ def juger_marche(r, nom):
     return fautes
 
 
+def arret_au_mur(r):
+    """Contre-épreuve du mur (lot 251) : le marcheur a été lancé, ses mesures sont valides, et
+    c'est le mur qui l'arrête avant le bout — pas une absence de marche ni un pas trop long."""
+    m = (r or {}).get('marche') or {}
+    if not m.get('faite'):
+        return False
+    fin_, pas_max, permis, pas = (m.get(k, -1) for k in ('distance_fin', 'pas_max', 'pas_permis', 'pas'))
+    if not (isinstance(pas, (int, float)) and pas > 0 and permis > 0 and 0 <= pas_max <= permis * 1.001):
+        return False
+    return fin_ > 1 and bool(juger_marche(r, 'mur'))
+
+
 def juger_refus(gestes, u):
     """SC4 : les deux familles trop raides sont refusées pour leur motif, sans rien changer."""
     fautes = []
@@ -822,7 +834,13 @@ def juger(ident):
     sg = cam.get('sans_garde') or {}
     ce['camera_sans_garde'] = sg.get('prevues', -1) > 0 and sg.get('mesurees') == sg.get('prevues') and sg.get('sous_terrain', -1) > 0
     ce['zoom_court'] = bool(juger_zoom(dict(cam.get('zoom') or {}, distance_min=20.0)))
-    ce['mur_joueur'] = bool(juger_marche(cam.get('mur') or {}, 'mur du joueur'))
+    # Le mur doit arrêter un marcheur réellement lancé : une marche absente ou non faite ne compte pas.
+    ce['mur_joueur'] = arret_au_mur(cam.get('mur'))
+    # Un marcheur du joueur absent ou non lancé est un défaut du jugement de la caméra.
+    ce['marcheur_joueur_absent'] = 'marcheur du joueur : marcheur non lancé' in juger_camera(dict(u, camera=dict(cam, marche=None)))
+    ce['marcheur_joueur_non_lance'] = 'marcheur du joueur : marcheur non lancé' in juger_camera(dict(u, camera=dict(cam, marche={'faite': False})))
+    # Et la contre-épreuve du mur elle-même refuse ces absences.
+    ce['mur_joueur_absent'] = not arret_au_mur({}) and not arret_au_mur(dict(cam.get('mur') or {}, marche={'faite': False}))
     ce['captures_camera_vides'] = bool(juger_captures_camera([]))
     for nom, rougit in ce.items():
         if not rougit:

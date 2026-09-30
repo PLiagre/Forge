@@ -230,16 +230,19 @@
   "camera_sans_garde": true,
   "zoom_court": true,
   "mur_joueur": true,
+  "marcheur_joueur_absent": true,
+  "marcheur_joueur_non_lance": true,
+  "mur_joueur_absent": true,
   "captures_camera_vides": true
  },
  "captures": [
   {
    "nom": "plaine",
-   "ecart": 96.45774444444444
+   "ecart": 96.45771111111111
   },
   {
    "nom": "bord",
-   "ecart": 130.52543333333332
+   "ecart": 130.5253888888889
   },
   {
    "nom": "flanc_de_dune",
@@ -292,11 +295,11 @@
   },
   {
    "nom": "rue",
-   "ecart": 93.25852222222223
+   "ecart": 93.25847777777778
   },
   {
    "nom": "marcheur",
-   "ecart": 128.97896666666668
+   "ecart": 128.97885555555555
   }
  ],
  "defauts": [],
