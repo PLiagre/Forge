@@ -27,6 +27,7 @@ import random
 from collections import defaultdict
 
 from sim import constants as _constantes
+from sim.lieux import lieux_de_cellule
 from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise, lire_stock_marchandise
 
 # Carte lue pendant un tick sur un monde chargé ; None hors tick ou sans carte.
@@ -43,6 +44,10 @@ class ClimatInvalideError(ValueError):
 
 class PluieInvalideError(ValueError):
     """Pluie absente ou inexploitable sur une cellule du monde chargé."""
+
+
+class CrueInvalideError(ValueError):
+    """Crue absente ou inexploitable sur une cellule du monde chargé."""
 
 
 class LongueurFrontiereInvalideError(ValueError):
@@ -91,7 +96,7 @@ def _facteur_relief_pour_cellule(cell: Cell, carte: dict) -> float:
 
 
 def _facteur_eau_pour_cellule(cell: Cell, carte: dict) -> float:
-    """Lit la pluie annuelle de la carte et refuse toute valeur invalide."""
+    """Lit la pluie et la crue annuelles et refuse toute valeur invalide."""
     raw = carte.get(cell.cell_id)
     if not isinstance(raw, dict):
         raise PluieInvalideError(
@@ -107,7 +112,17 @@ def _facteur_eau_pour_cellule(cell: Cell, carte: dict) -> float:
         raise PluieInvalideError(
             f"cell_id={cell.cell_id} pluie_mm_par_an={pluie!r}"
         )
-    return _constantes.facteur_eau(float(pluie))
+    crue = raw.get("crue_mm_par_an")
+    if (
+        isinstance(crue, bool)
+        or not isinstance(crue, (int, float))
+        or not math.isfinite(crue)
+        or crue < 0
+    ):
+        raise CrueInvalideError(
+            f"cell_id={cell.cell_id} crue_mm_par_an={crue!r}"
+        )
+    return _constantes.facteur_eau(float(pluie) + float(crue))
 
 
 def _lire_solstices(cell: Cell, carte: dict) -> tuple[float, float]:
@@ -939,7 +954,19 @@ def _apply_commerce(
         )
 
 
-def _apply_consumption(cell: Cell) -> float:
+def _nourriture_accessible_au_rang0_kg(cell: Cell, carte: dict, stock: float) -> float:
+    """Part locale du panier et apport possible des chemins vers le bourg."""
+    lieux = lieux_de_cellule(cell.cell_id, cell.area_km2)
+    if len(lieux) == 1:
+        return stock
+    local = stock * lieux[0].surface_km2 / cell.area_km2
+    capacite = _constantes.capacite_chemins_interieurs_kg(
+        len(lieux) - 1, _facteur_transport_pour_cellule(cell.cell_id, carte)
+    )
+    return min(stock, local + capacite)
+
+
+def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
     """
     Maillon 3 — Consommation.
 
@@ -963,12 +990,31 @@ def _apply_consumption(cell: Cell) -> float:
     Si stock < consommation (manque) :
         - stock = 0, le manque est ajouté à food_deficit_kg, et la pénurie
           du tick est retournée.
+
+    Si le bourg manque alors que les champs gardent un surplus : seuls les
+    kilos accessibles sont mangés au bourg, et aucune dette n'est remboursée.
+    Dans tous les autres cas, le calcul ci-dessus reste inchangé.
     """
     tick_need = cell.population * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
     stock = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
     stock_eff = stock if stock >= 0 else 0.0
     remaining = stock_eff - tick_need
     prev_deficit = cell.food_deficit_kg if cell.food_deficit_kg > 0 else 0.0
+
+    if carte is not None:
+        part = _constantes.part_miniere_de(
+            _gisements_de(cell, carte), _constantes.facteurs_richesse_extraction()
+        )
+        if part > 0:
+            besoin_bourg = cell.population * part * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+            accessible = _nourriture_accessible_au_rang0_kg(cell, carte, stock_eff)
+            mange_bourg = min(besoin_bourg, accessible)
+            manque_bourg = besoin_bourg - mange_bourg
+            reste_champs = stock_eff - mange_bourg - (tick_need - besoin_bourg)
+            if manque_bourg > 0 and reste_champs > 0:
+                ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, reste_champs)
+                cell.food_deficit_kg = prev_deficit + manque_bourg
+                return manque_bourg
 
     if remaining >= 0.0:
         # Le ratio est borné à 1 kg de dette par kg de surplus : la réduction
@@ -1275,7 +1321,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
 
     penuries: dict[int, float] = {}
     for cell in world.cells.values():
-        penurie_kg = _apply_consumption(cell)
+        penurie_kg = _apply_consumption(cell, carte)
         penuries[cell.cell_id] = penurie_kg
         _update_hunger(cell, penurie_kg)
         _apply_mortality(cell)

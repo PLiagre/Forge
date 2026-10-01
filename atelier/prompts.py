@@ -72,14 +72,24 @@ Règles :
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
 - Si le lot demande une décision que seul le propriétaire peut prendre (changer un test existant ou une règle du monde, trancher entre deux lectures de `CAP.md` ou de `docs/VISION.md`), n'écris rien et pose-lui la question : termine par la ligne « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Il te lit sur son téléphone : des phrases courtes, sans jargon de code. Si les commentaires contiennent déjà sa réponse à ta question, suis-la : ne la repose pas.
+- Une seule question par lot, qui porte TOUTES ses décisions. Avant de la poser, recense tout ce que le lot fera changer : chaque test existant qui rougira (cherche dans les tests ce qui compte, borne ou fige ce que le lot touche), chaque règle du monde. Si le lot en demande plusieurs, ta question les nomme toutes, et chaque réponse dit ce qu'elle décide pour chacune (« A :: oui aux deux… »). Le 30 septembre 2026, #207 a posé deux questions à quatre minutes d'écart : le propriétaire a cru avoir répondu, et le lot a attendu une nuit.
 - Machine « pc » : le lot demande Unity ou Blender sur le PC Windows ; « vps » : Python seul.
 - Tu n'écris que le fichier du brief. {_FRONTIERE}
 
 Si tu as écrit le brief, termine ta réponse par la ligne « DECISION: BRIEF »."""
 
 
+def _consigne(consigne: str) -> str:
+    """La consigne du dépanneur, qui a relancé ce lot bloqué : elle guide ce
+    passage, jamais contre le brief ni contre `AGENTS.md`."""
+    if not consigne.strip():
+        return ""
+    return ("\n\nCE LOT A ÉTÉ BLOQUÉ, PUIS RELANCÉ PAR LE DÉPANNEUR. Sa consigne, pour ce passage :\n"
+            f"-----\n{consigne.strip()[:3000]}\n-----")
+
+
 def codeur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
-           correction: str = "") -> str:
+           correction: str = "", consigne: str = "") -> str:
     texte = f"""Tu es le codeur de Forge. Exécute le lot #{numero} « {titre} ».
 
 Le brief `{chemin_brief}` est ta SEULE source d'instruction : lis-le en entier, puis `AGENTS.md`.
@@ -92,7 +102,7 @@ Le brief `{chemin_brief}` est ta SEULE source d'instruction : lis-le en entier, 
 Termine par un court compte rendu : ce qui a été fait, les commandes de test jouées et leur résultat."""
     if correction:
         texte += "\n\n" + correction
-    return texte
+    return texte + _consigne(consigne)
 
 
 def correction_ci(erreur: str) -> str:
@@ -108,15 +118,25 @@ def correction_relecture(revue: str) -> str:
 
 
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
-              url: str, sha: str, rapports: str = "") -> str:
+              url: str, sha: str, rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
+              lfs_illisibles: tuple[str, ...] = (), consigne: str = "") -> str:
     comptes_rendus = (f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
                       f"ce sont des affirmations à vérifier, pas des preuves) :\n-----\n{rapports.strip()[:8000]}\n-----\n"
                       if rapports.strip() else "")
+    lfs = ""
+    if lfs_lisibles:
+        lfs += ("\nCes fichiers du lot sont en LFS : à leur place, ce dossier n'a que leur pointeur. Leur contenu "
+                "réel est dans `.atelier/lfs/`, au même chemin ; ouvre-les là :\n"
+                + "".join(f"- `.atelier/lfs/{f}`\n" for f in lfs_lisibles))
+    if lfs_illisibles:
+        lfs += ("\nCes fichiers du lot sont en LFS et n'ont pas pu être téléchargés : "
+                + ", ".join(f"`{f}`" for f in lfs_illisibles)
+                + ". Juge-les sur le compte rendu et les captures de la PR.\n")
     return f"""Tu es le relecteur de Forge. Tu n'as pas écrit ce code et tu ne le modifies pas.
 
 Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce dossier est cette révision.
 Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte ; tu peux rejouer un test (`{_tests(projet)} -k …`) pour vérifier une affirmation.
-{comptes_rendus}
+{comptes_rendus}{lfs}
 Vérifie, du plus grave au plus léger :
 1. Le diff reste dans le Périmètre du brief, et rien ne touche {_interdits(projet)}.
 2. Chaque condition de succès est mesurée par un test ou une commande qui peut échouer.
@@ -126,7 +146,8 @@ Vérifie, du plus grave au plus léger :
 6. Lot « pc » : tu n'as pas Unity ; le compte rendu du PC dit si Unity compile la révision. S'il dit que non, c'est CORRIGER.
 
 Écris ta revue en français. Si tu demandes des changements, liste chaque constat avec son fichier et sa ligne.
-La DERNIÈRE ligne de ta réponse est exactement « VERDICT: ACCEPTE » ou « VERDICT: CORRIGER »."""
+Ne demande au codeur que ce qu'il peut faire dans le Périmètre : ce que toi seul ne peux pas vérifier (un outil qui te manque, une image que tu ne peux pas ouvrir) se dit dans ta revue, ce n'est pas un constat.
+La DERNIÈRE ligne de ta réponse est exactement « VERDICT: ACCEPTE » ou « VERDICT: CORRIGER ».""" + _consigne(consigne)
 
 
 def mecanicien_conflit(projet: Projet, *, numero: int, branche: str, fichiers: list[str]) -> str:
@@ -152,6 +173,47 @@ Répare la cause. Ne modifie pas un test pour le faire passer. Lance `{_tests(pr
 Jamais dans : {_interdits(projet)}. Si la réparation l'exige, n'écris rien et termine par la ligne « DECISION: MODE-DIRECT :: <raison> ».
 {_FRONTIERE}
 Termine par un compte rendu court."""
+
+
+def depanneur(projet: Projet, *, numero: int, titre: str, corps: str, raison: str, chemin_brief: str,
+              issue: str, pr: str, erreur_ci: str = "", relances: int = 0) -> str:
+    """Le dépanneur, devant un lot que le pilote vient de bloquer."""
+    deja = (f"Tu as déjà relancé ce lot {relances} fois : relance encore seulement si tu vois une cause "
+            "nouvelle et une consigne nouvelle.\n" if relances else "")
+    ci = f"\nCe que dit la CI rouge :\n-----\n{erreur_ci.strip()[:5000]}\n-----\n" if erreur_ci.strip() else ""
+    return f"""Tu es le dépanneur de Forge. Le pilote vient de bloquer le lot #{numero} « {titre} » ; avant de le laisser au propriétaire, tu cherches pourquoi et tu décides. Tu ne modifies aucun fichier.
+
+La raison du pilote : {raison}
+{deja}
+Ce dossier est la branche du lot (ou la base, s'il n'a pas encore de PR). La chaîne, elle, tourne depuis `origin/{projet.branche_base}` : avant d'accuser `atelier/`, lis-le là (`git show origin/{projet.branche_base}:atelier/<fichier>`), car la branche du lot peut en porter une copie ancienne. Le brief : `{chemin_brief}`. Lis aussi `AGENTS.md`. Tu peux lire le code, `git log`, `git diff origin/{projet.branche_base}...HEAD`, et rejouer un test (`{_tests(projet)} -k …`).
+
+La demande (issue #{numero}) :
+-----
+{corps.strip()[:4000] or "(vide)"}
+-----
+Ce qui s'est dit sur l'issue :
+-----
+{issue.strip()[-6000:] or "(rien)"}
+-----
+Ce qui s'est dit sur la PR, du plus ancien au plus récent (les comptes rendus du codeur, les revues, les échecs) :
+-----
+{pr.strip()[-14000:] or "(pas de PR)"}
+-----
+{ci}
+Les causes que tu rencontreras, et ce qu'elles demandent :
+- passagère : quota épuisé, délai dépassé, agents tous occupés, relecture vide ou sans verdict, PC éteint → relancer ;
+- le codeur tourne en rond, ou rate la vraie cause d'un test rouge → relancer, avec la consigne exacte : le fichier, la fonction, ce qu'il faut changer et pourquoi ;
+- le relecteur exige ce que le codeur ne peut pas donner, ou ce que le brief ne demande pas, ou ce qui est déjà fait → relancer, avec la consigne au relecteur : ce qu'il doit vérifier, et où ;
+- le brief contredit un test existant, une règle du monde ou `CAP.md`, ou deux lectures se valent → c'est au propriétaire de trancher : pose-lui la question ;
+- la chaîne elle-même est en cause (un outil manque sur une machine, un défaut dans `atelier/`, `.github/` ou `atelier.toml`) : ni le codeur ni le relecteur n'y peuvent rien → dis-le.
+
+Jamais de consigne qui assouplit un test existant, sort du Périmètre du brief ou touche {_interdits(projet)}.
+
+Écris d'abord ton diagnostic en français, court : ce qui bloque vraiment, avec ses preuves (fichier, ligne, test, commentaire). Puis termine par UNE de ces fins, la ligne « DECISION: » en texte brut, sans gras :
+- « DECISION: REPRENDRE :: <la consigne, en un paragraphe, adressée au codeur et au relecteur du prochain passage> »
+- « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code. Une seule question, qui porte toutes les décisions que le lot demande encore : recense chaque test existant qui rougira et chaque règle du monde touchée avant de l'écrire.
+- « DECISION: MODE-DIRECT :: <ce qu'il faut corriger dans la chaîne, et où> »
+{_FRONTIERE}"""
 
 
 def chroniqueur(*, faits: str) -> str:

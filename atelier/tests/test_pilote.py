@@ -959,3 +959,162 @@ def test_deux_relectures_sans_verdict_bloquent_le_lot_sans_rappeler_le_codeur(pr
     _pilote(projet, gh, depot, Agents(), tmp_path).tour()
     assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
     assert "deux fois" in gh.issues_[10]["comments"][-1]["body"]
+
+
+# ------------------------------------------------------------ le dépanneur
+REVUE_CORRIGER = ("## Relecture — CORRIGER\n\n- SC6 : décris la planche.\n\n"
+                  + marque(role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus"))
+BLOQUE_CORRIGER = ("🤖 **pilote** : lot bloqué.\n\n"
+                   + marque(role="pilote", etat="bloque", raison="relecture « CORRIGER » après 2 correction(s)"))
+
+
+def _bloque(gh, commentaires_issue=(BLOQUE_CORRIGER,)):
+    _en_cours(gh, commentaires=[FAIT_CODEX, REVUE_CORRIGER], etiquettes=("lot", "bloque"))
+    gh.issues_[10]["comments"] += [{"body": c, "author": {"login": "pilote"}} for c in commentaires_issue]
+
+
+def test_le_depanneur_relance_un_lot_bloque_avec_sa_consigne(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    agents = Agents((0, "Le relecteur n'a pas pu ouvrir l'image : elle est en LFS.\n"
+                        "DECISION: REPRENDRE :: Relecteur : la planche est dans .atelier/lfs/, ouvre-la."))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude"]
+    prompt = next(a for a in agents.appels[0] if "Tu es le dépanneur" in a)
+    assert "Tu es le dépanneur" in prompt and "relecture « CORRIGER » après 2 correction(s)" in prompt
+    assert "SC6 : décris la planche" in prompt  # il lit la PR
+    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "pret" in etiquettes and "bloque" not in etiquettes
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert "lot relancé (1/2)" in corps and "**Consigne** : Relecteur : la planche" in corps
+    # Au tour suivant, le lot reprend où il en est, et la consigne suit.
+    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, codeur, tmp_path).tour()
+    assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
+    assert codeur.outils() == ["codex"]
+    assert "RELANCÉ PAR LE DÉPANNEUR" in codeur.appels[0][-1] and "ouvre-la" in codeur.appels[0][-1]
+
+
+def test_le_depanneur_pose_la_question_au_proprietaire_et_ne_la_regarde_plus(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    agents = Agents((0, "Le brief contredit le plancher du Caire.\n"
+                        "DECISION: QUESTION :: Le Caire garde-t-il ses 360 000 habitants sans crue ?\n"
+                        "- A :: oui, SC3 exclut sa cellule :: la mesure ne voit plus le Caire\n"
+                        "- B :: non :: le test du Caire change\n"
+                        "RECOMMANDATION :: A :: aucun test existant ne change"))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert "le dépanneur attend ta décision" in corps and "Le dépanneur recommande **A**" in corps
+    assert "Le brief contredit le plancher du Caire" in corps
+    m = marques([{"body": corps}])[-1]
+    assert m["etat"] == "bloque" and m["question"].startswith("Le Caire") and m["par"] == "depanneur"
+    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == []
+
+
+def test_le_depanneur_renvoie_la_chaine_au_mode_direct(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    _pilote(projet, gh, depot, Agents((0, "git-lfs manque sur le VPS.\n"
+                                           "DECISION: MODE-DIRECT :: installer git-lfs sur le VPS")), tmp_path).tour()
+    m = marques(gh.issues_[10]["comments"])[-1]
+    assert m["etat"] == "bloque" and m["par"] == "depanneur" and "installer git-lfs" in m["raison"]
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == []
+
+
+def test_un_depanneur_sans_decision_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    _pilote(projet, gh, depot, Agents((0, "Je ne sais pas.")), tmp_path).tour()
+    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "pas de décision" in gh.issues_[10]["comments"][-1]["body"]
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == []
+
+
+def test_le_depanneur_ne_relance_pas_un_lot_plus_de_depannages_max_fois(projet, gh, depot, tmp_path):
+    relance = "relancé\n\n" + marque(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="x")
+    _bloque(gh, (BLOQUE_CORRIGER, relance, BLOQUE_CORRIGER, relance, BLOQUE_CORRIGER))
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
+
+
+def test_le_relecteur_lit_les_fichiers_lfs_du_lot(projet, gh, depot, tmp_path, monkeypatch):
+    """Le 1er octobre 2026, le relecteur de #270 n'avait que le pointeur de la
+    planche Unity : il a fait décrire l'image au codeur, et le lot s'est bloqué."""
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    oid = "6" * 64
+    planche = "3d/sorties/planche.png"
+    vue = depot.preparer(10, BRANCHE) / planche
+    vue.parent.mkdir(parents=True)
+    vue.write_text(f"version https://git-lfs.github.com/spec/v1\noid sha256:{oid}\nsize 4\n", encoding="utf-8")
+    monkeypatch.setattr(depot, "fichiers_du_lot", lambda chemin: [planche, "absent.png"])
+    demandes = []
+
+    def telechargeur(depot_gh, o, taille):
+        demandes.append((depot_gh, o, taille))
+        return b"\x89PNG"
+
+    agents = Agents((0, "Vu.\nVERDICT: ACCEPTE"))
+    Pilote(projet, gh, depot, executeur_agents=agents, journal=tmp_path / "j.jsonl",
+           lfs_telechargeur=telechargeur).tour()
+    assert demandes == [("moi/essai", oid, 4)]
+    assert (depot.racine / "chantiers" / "10" / ".atelier" / "lfs" / planche).read_bytes() == b"\x89PNG"
+    prompt = next(a for a in agents.appels[0] if "Tu es le relecteur" in a)
+    assert f"`.atelier/lfs/{planche}`" in prompt
+
+
+def test_le_depanneur_se_lit_en_gras_avec_sa_consigne_a_la_ligne(projet, gh, depot, tmp_path):
+    """Le 1er octobre 2026, sa décision sur #235 est restée illisible."""
+    _bloque(gh)
+    _pilote(projet, gh, depot, Agents((0, "Quota épuisé, rien d'autre.\n\n**DECISION: REPRENDRE**\n"
+                                           "Codeur : reprends là où le délai t'a coupé.")), tmp_path).tour()
+    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
+    assert lots.consigne_du_depanneur(gh.issues_[10]["comments"]) == "Codeur : reprends là où le délai t'a coupé."
+
+
+def test_un_depanneur_illisible_laisse_lire_ce_qu_il_a_ecrit(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    _pilote(projet, gh, depot, Agents((0, "La cause est un quota.")), tmp_path).tour()
+    assert "La cause est un quota." in gh.issues_[10]["comments"][-1]["body"]
+
+
+def test_le_chef_et_le_depanneur_posent_toutes_les_decisions_d_un_lot_en_une_question(projet):
+    """Le 30 septembre 2026, #207 a posé deux questions à quatre minutes
+    d'écart : le propriétaire a répondu à la première, pas à la seconde."""
+    from atelier import prompts
+    chef = prompts.chef(projet, numero=1, titre="t", corps="", commentaires="", jalon=2, jalon_titre="J2",
+                        machine="vps", chemin_brief="b.md")
+    depanneur = prompts.depanneur(projet, numero=1, titre="t", corps="", raison="r", chemin_brief="b.md",
+                                  issue="", pr="")
+    assert "Une seule question par lot, qui porte TOUTES ses décisions" in chef
+    assert "chaque test existant qui rougira" in chef
+    assert "Une seule question, qui porte toutes les décisions" in depanneur
+
+
+def test_le_codeur_repond_a_une_revue_sans_changer_de_fichier_et_le_relecteur_relit(projet, gh, depot, tmp_path):
+    """Le 1er octobre 2026, #270 : le constat ne demandait qu'une description
+    écrite ; « n'a rien changé » comptait comme un échec, et le lot s'est bloqué."""
+    _en_cours(gh, commentaires=[FAIT_CODEX, REVUE_CORRIGER])
+    _pilote(projet, gh, depot, Agents((0, "La planche montre trois rangées : maison, scierie, four.")), tmp_path).tour()
+    m = marques(gh.prs_[50]["comments"])[-1]
+    assert m["role"] == "codeur" and m["etat"] == "reponse"
+    relecteur = Agents((0, "La description suffit.\nVERDICT: ACCEPTE"))
+    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
+    prompt = next(a for a in relecteur.appels[0] if "Tu es le relecteur" in a)
+    assert "maison, scierie, four" in prompt
+    assert ("fusion_auto", 50) in gh.gestes
+
+
+def test_la_branche_recoit_la_base_avant_que_le_codeur_travaille(projet, gh, depot, tmp_path, monkeypatch):
+    """Le 1er octobre 2026, la branche de #208 partait d'avant #207, livré
+    quatre minutes plus tôt : le codeur ne pouvait pas la mettre à jour."""
+    _en_cours(gh)
+    monkeypatch.setattr(depot, "en_retard", lambda chemin: True)
+    agents = Agents((0, "Fait.", {"jeu/sim/x.py": "code"}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert any("base fusionnée" in l for l in lignes)
+    assert depot.gestes.index(("pousser", BRANCHE)) < depot.gestes.index(("enregistrer", "Lot #10 — code"))

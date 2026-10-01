@@ -31,16 +31,19 @@ part. À chaque tick, dans cet ordre :
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
-   `facteur_eau` de sa pluie annuelle et par le facteur de saison du jour,
-   tiré de la durée du jour de la cellule : on ne récolte pas en janvier
-   comme en juin, ni sans eau comme sous une pluie suffisante.
+   `facteur_eau` de l'eau de la cellule — sa pluie plus la crue du fleuve — et
+   par le facteur de saison du jour, tiré de la durée du jour de la cellule :
+   on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
+   pluie suffisante.
 5. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture.
-6. **Consommation** (`_apply_consumption`) — chaque habitant mange sa ration.
-   Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Un
-   surplus rembourse la dette, jamais plus vite que le surplus lui-même.
+6. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+   atteint, par sa part locale du panier et les chemins venus des champs.
+   Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
+   bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
+   Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
 7. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
@@ -57,14 +60,15 @@ part. À chaque tick, dans cet ordre :
     date dérivée au jour suivant.
 
 La **province** ne se stocke pas : elle se recalcule à chaque consultation
-comme « le centre administratif le plus proche ». La **pluie** n'est pas
-stockée sur `Cell` : sa vue se recalcule depuis le relevé le plus proche et
-entre dans la carte au moment où le monde la lit. La **puissance** dont relève
-une cellule est pareillement une vue dérivée, jamais un second identifiant
-spatial stocké. Les **lieux** d'une cellule se dérivent aussi de sa surface,
-sans se stocker sur `Cell`. Le tick lit la pluie dans la carte, jamais dans sa
-vue ; il ne consomme ni la vue des provinces, ni celle des puissances, ni
-celle des lieux.
+comme « le centre administratif le plus proche ». La **pluie** et la **crue**
+ne sont pas stockées sur `Cell` : leurs vues se dérivent respectivement du
+relevé le plus proche et du cours du fleuve, puis entrent dans la carte au
+moment où le monde la lit. La **puissance** dont relève une cellule est
+pareillement une vue dérivée, jamais un second identifiant spatial stocké.
+Les **lieux** d'une cellule se dérivent aussi de sa surface, sans se stocker
+sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans leurs
+vues ; il ne consomme ni la vue des provinces, ni celle des puissances.
+Il lit celle des lieux à la consommation, sans rien stocker.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -107,9 +111,10 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
 - **descendre sous la cellule pour les habitants et les biens.** La cellule se
-  découpe désormais en lieux par sa surface, mais la population, les stocks et
-  le tick restent à l'échelle de la cellule : pas de familles, pas de personnes,
-  pas de bâtiments, pas de quartiers.
+  découpe en lieux par sa surface. La population reste cellulaire et les stocks
+  restent un seul panier, réparti par surface à la consommation ; les chemins
+  limitent ce que le bourg atteint. Pas de familles, de personnes, de bâtiments
+  ni de quartiers.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
@@ -279,15 +284,10 @@ Trois raisons, dans l'ordre où elles pèsent :
 
 De la **part non agricole** que le moteur calcule déjà, et de rien d'autre.
 
-Aujourd'hui cette part vaut zéro partout : tout le monde cultive, et la mine
-tourne en plus. Le premier mécanisme qui la rend non nulle est le lot 044
-(`un-metier-le-mineur`), écrit et non exécuté, qui fait qu'une part des
-habitants d'une cellule à gisement **cesse de cultiver** pour extraire.
-
-Conséquence directe et voulue : **tant que 044 n'est pas fusionné, le bourg
-n'existe nulle part**, l'échantillon est vide, et un échantillon vide
-**échoue** — il ne passe pas en silence (règle 6). Un lot de bourg se déclare
-donc **bloqué** tant que 044 n'est pas là, jamais « à adapter ».
+Cette part est `part_miniere_de(gisements, facteurs_richesse_extraction())` :
+les habitants occupés par la mine **cessent de cultiver** pour extraire.
+Ce sont les mêmes bras que le facteur agricole retire des champs. Leur
+ravitaillement suit « La distribution à l'intérieur de la cellule ».
 
 Le nom « bourg » est délibérément plus large que le mécanisme qui le porte : le
 jour où un second métier existera, la vue le comptera sans être réécrite. Cela
@@ -313,20 +313,18 @@ La part du bourg est de **niveau 2** : plausible, générée, jamais sourcée. U
 répartition locale surprenante n'est pas un défaut historique et n'ouvre ni
 correctif, ni brief.
 
-**Ce que B coûte, dit franchement : la distribution à l'intérieur d'une cellule
-est gratuite.** La campagne nourrit son bourg sans transport, sans perte et
-sans délai. C'est une entorse au troisième principe — l'économie est physique —
-mais elle n'est pas ajoutée par cette décision : elle existe déjà, parce
-qu'une cellule n'a qu'un seul panier de stocks pour toute sa surface. B **nomme**
-cette gratuité au lieu de l'introduire. Le jour où la cellule se subdivisera,
-c'est ici qu'il faudra revenir.
+**Ce que B coûte, dit franchement : un seul panier reste partagé dans la
+cellule.** La gratuité prend fin pour le bourg : sa part locale et la capacité
+des chemins limitent ce qu'il peut manger, selon « La distribution à
+l'intérieur de la cellule ». Les pertes et le délai ne sont pas simulés ; la
+distribution entre les lieux des champs reste gratuite.
 
 ### Ce que le moteur ne fait toujours pas
 
 Le bourg ne donne ni quartiers, ni bâtiments, ni familles, ni personnes, ni
-salaires, ni marchés, ni prix, ni routes, ni États. Il ne change aucun nombre du
-monde : c'est une vue, et **une vue ne décide rien** — le tick ne la consulte
-pas, exactement comme il ne consulte pas la province.
+salaires, ni marchés, ni prix, ni routes, ni États. La vue du bourg ne décide
+rien et le tick ne la consulte pas : il calcule la part minière et lit les
+lieux pour appliquer « La distribution à l'intérieur de la cellule ».
 
 ## Déclaration explicite
 
@@ -500,16 +498,17 @@ duree_jour   = duree_jour_h(jour, solstice_ete_h, solstice_hiver_h)  # de la cel
 
 food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
-                × facteur_eau(pluie_mm_par_an de la cellule)
+                × facteur_eau(pluie_mm_par_an + crue_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
 ```
 
 Les trois derniers facteurs sont lus dans la carte, cellule par cellule. Une
 cellule dont la carte ne porte pas ces données ne se voit pas attribuer une
 valeur par défaut — le moteur refuse, par `ReliefInvalideError`,
-`PluieInvalideError` ou `ClimatInvalideError` (règle 10 : l'absence ne
-s'invente pas en silence). Pour la pluie, il refuse aussi `None`, les booléens,
-les valeurs non numériques, non finies ou négatives ; zéro reste une mesure.
+`PluieInvalideError`, `CrueInvalideError` ou `ClimatInvalideError` (règle 10 :
+l'absence ne s'invente pas en silence). Pour la pluie et la crue, il refuse
+aussi `None`, les booléens, les valeurs non numériques, non finies ou
+négatives ; zéro reste une mesure.
 
 **Il n'y a qu'une seule formule de production alimentaire dans `sim/`.** Le
 tick lui passe un rendement tiré au sort ; le plafond de survie lui passe le
@@ -542,12 +541,18 @@ champ sans eau ne donne rien ; sous le seuil bas, la terre ne nourrit que le
 parcours des troupeaux. Entre les seuils, le facteur monte en ligne droite ;
 au seuil haut et au-delà, il vaut exactement 1 et ne punit pas l'excès d'eau.
 Son plancher est strictement positif parce qu'un désert de 1400 n'est pas
-inhabité.
+inhabité. La crue annuelle du Nil vaut 600 mm équivalents : elle dépasse le
+seuil haut afin qu'une cellule traversée ait un facteur d'eau exactement égal
+à 1, quelle que soit sa pluie. Cette valeur est de niveau 2, plausible et
+jamais sourcée. La crue est tout ou rien à l'échelle de la cellule : toute une
+cellule traversée est arrosée, même au-delà de la vallée réelle ; cette
+anomalie de niveau 2 est déclarée.
 
 | Constante | Valeur | Sens |
 |---|---|---|
 | `PLUIE_SANS_CULTURE_MM` | 250.0 | À égalité ou dessous, pas de culture pluviale |
 | `PLUIE_PLEINE_CULTURE_MM` | 400.0 | À égalité ou dessus, l'eau ne limite plus |
+| `CRUE_EQUIVALENT_PLUIE_MM` | 600.0 | Eau laissée aux champs par la submersion annuelle du Nil |
 | `FACTEUR_EAU_PLANCHER` | 0.05 | Nourriture tirée du parcours des troupeaux |
 
 **Le facteur de saison** — fidélité niveau 2 également. Il compare la durée du
@@ -1169,13 +1174,11 @@ toute valeur inexploitable. Une cellule sans position connue est nommée dans
 le refus au lieu d'être écartée ou complétée par défaut. Zéro millimètre reste
 une mesure ; une cellule absente de la vue rend `None`, jamais un faux zéro.
 
-Enfin, **la pluie n'est pas l'eau**. Le delta et la vallée du **Nil** reçoivent
-presque la même pluie que le désert occidental tout en étant fertiles grâce à
-la crue du fleuve. Crue, fleuves, irrigation et oasis ne sont pas encore
-simulés : depuis l'entrée du facteur d'eau dans la production, cette erreur de
-niveau 1 connue les **vide** aussi. Seul le futur mécanisme du fleuve pourra la
-réparer ; aucun plancher relevé ni exception égyptienne ne la masque. Le
-moteur lit la pluie de la carte, mais pour la vue elle-même, le tick ne la lit pas.
+Enfin, **la pluie n'est pas l'eau** : l'eau disponible est la pluie plus la
+crue. Le delta du **Nil** reçoit presque la même pluie que le désert occidental,
+mais le cours du fleuve lui apporte sa crue (voir « Le cours du Nil, vue
+dérivée »). Le moteur lit la pluie de la carte, mais pour la vue elle-même, le
+tick ne la lit pas.
 
 ---
 
@@ -1200,21 +1203,25 @@ La vallée au sud du Caire est explicitement **hors de la carte**. Lui donner
 un point ferait choisir le centroïde de Suez et affirmerait à tort que le Nil
 traverse l'isthme. Le fichier déclare donc cette lacune au lieu de la masquer.
 
-Enfin, **le tick ne la lit pas**. Cette géographie ne donne encore aucune eau
-aux champs : le delta reste vidé par l'aridité tant qu'un lot suivant n'aura
-pas représenté la cause physique, la crue du fleuve.
+Enfin, **le tick ne la lit pas**. À la lecture de la carte,
+`World.lire_carte` dérive de cette vue `crue_mm_par_an` pour chaque cellule :
+la valeur équivalente de la crue si le Nil la traverse, zéro sinon. Le moteur
+lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
 
 ---
 
 ## Les puissances de 1400, vue dérivée
 
 La provenance est `data/puissances-1400.json`. La table couvre l'Ouest,
-l'Italie, le Nord et le Centre, notamment Venise. Les puissances, leurs ancres
-et leurs sources publiques sont de **niveau 1** : elles doivent être justes
-dans les grandes lignes. La nature `principauté` désigne ici une puissance
-tenue par un duc, un comte ou un prince, comme Milan et la Savoie. Le tracé
-qui en découle est de **niveau 2**, plausible et jamais sourcé : il ne
-restitue ni frontière réelle, ni enclave, ni suzeraineté.
+l'Italie, le Nord, le Centre et l'Orient : Byzance, les Ottomans, les Mamelouks,
+le Maghreb et la Russie de Novgorod. Ses 39 puissances et 73 ancres, vérifiées
+contre des sources publiques, sont de **niveau 1** : elles doivent être justes
+dans les grandes lignes au 1er janvier 1400. La nature `principauté` désigne
+une puissance tenue par un duc, un comte ou un prince, comme Milan et la
+Savoie ; `empire` désigne Byzance, `sultanat` les Ottomans, les Mamelouks et
+les trois puissances du Maghreb, `khanat` la Horde d'Or. Le tracé qui en découle
+est de **niveau 2**, plausible et jamais sourcé : il ne restitue ni frontière
+réelle, ni enclave, ni suzeraineté.
 
 À chaque consultation, une cellule relève de la puissance qui tient l'ancre
 la plus proche de son centroïde selon la projection déclarée par le fichier.
@@ -1222,12 +1229,29 @@ La règle unique de `sim/aggregation.py` départage une égalité exacte par le
 plus petit identifiant d'ancre, indépendamment de l'ordre de la table.
 
 Cette attribution s'arrête à la portée mesurée de **4,0 degrés projetés**,
-environ 440 km. Sur les 596 cellules de la carte figée, 406 sont couvertes et
-190 sont non couvertes. Au-delà de la portée, la cellule est explicitement
+environ 440 km. Sur les 596 cellules de la carte figée, 565 sont couvertes et
+31 sont non couvertes. Au-delà de la portée, la cellule est explicitement
 **non couverte** : elle n'est rattachée à aucune puissance par défaut. Cette
-limite plausible laisse notamment Le Caire et Constantinople hors de la table
-actuelle ; les puissances de l'Orient devront les couvrir par leurs ancres,
-pas par une portée artificiellement élargie.
+vue donne la cellule de Constantinople à Byzance. Le Caire se situe au sud
+de la carte, qui s'arrête à 30,45 N : sa cellule la plus proche relève des
+Mamelouks grâce aux ancres d'Alexandrie et de Damiette, sans ancre au Caire.
+
+Les huit `lacunes` déclarent des points nommés et une `raison` : Shetland,
+Féroé, Finlande, Hiiumaa, Dalécarlie, Tripolitaine, Cyrénaïque et Oued Righ.
+Une cellule non couverte est expliquée par la lacune la plus proche de son
+centroïde, dans la même projection et la même portée ; une égalité exacte
+se départage par le plus petit identifiant de lacune. Au-delà, sa raison est
+`None` et la preuve échoue. Chaque cellule non couverte a une raison, chaque
+lacune sert. Une lacune n'attribue aucune cellule à une puissance ; son point
+est de **niveau 2**, plausible, jamais sourcé.
+
+Les anomalies mesurées de **niveau 2** sont acceptées : Rhodes donne aux
+Hospitaliers les Cyclades orientales, l'est de la Crète et un bout de côte
+carienne ; Mistra donne à Byzance l'Attique, les îles Ioniennes et l'ouest
+de la Crète. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
+sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés,
+les tributs, le siège de Constantinople et l'Église de Bosnie restent de
+**niveau 3**, pas simulés.
 
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
@@ -1252,12 +1276,13 @@ la cellule au bit près, sans l'arrondi d'un partage égal par division.
 La vue refuse une surface absente, booléenne, textuelle, non finie, nulle ou
 négative en nommant sa cellule. Elle refuse aussi une constante non finie ou
 inférieure à 1 km². Elle est pure, recalculée à chaque consultation hors de
-`sim.model`, ne pose rien sur `Cell`, et **le tick ne la lit pas**.
+`sim.model`, ne pose rien sur `Cell`, et le tick la lit désormais à la
+consommation pour les cellules à part minière positive, sans rien stocker.
 
 Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
 plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
-l'échelle d'une cellule », vu ici par sa surface ; il ne reçoit aucun habitant.
-La distribution de la population et des stocks dans la cellule reste gratuite.
+l'échelle d'une cellule », vu ici par sa surface ; la part minière de la
+population y mange selon « La distribution à l'intérieur de la cellule ».
 La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
 
 ### L'identité d'un lieu, et ce qui la change
@@ -1280,6 +1305,49 @@ renumérote les lieux de cette cellule. C'est un changement du monde : tout
 ce qui s'accroche à un lieu devra le suivre. Il n'y a pas de numéro global
 de lieu : un tel numéro suivrait l'ordre d'énumération des cellules, et
 rien ne fixe cet ordre.
+
+---
+
+## La distribution à l'intérieur de la cellule
+
+Les habitants qui ne cultivent pas vivent au **rang 0**, le bourg : leur nombre
+est `population × part_miniere_de(gisements, facteurs_richesse_extraction())`.
+Aucune population ni aucun stock par lieu n'est stocké. Les villes historiques
+nommées ne sont pas comptées au bourg.
+
+À chaque consommation, le panier alimentaire est réputé réparti au prorata
+des surfaces : pour un stock `S` (sentinelle −1 lue comme 0), une surface
+cellulaire `A` et une surface de rang 0 `s0`, le bourg dispose localement de
+`S × s0 / A`. Chacun des `n − 1` autres lieux a un chemin vers lui :
+`capacite = CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK × (n − 1) × facteur_transport`.
+Le facteur de relief est celui de `facteurs_transport_par_relief()`, comme pour
+le commerce. Le bourg atteint `min(S, local + capacite)` ; s'il n'y a qu'un
+lieu, il atteint tout le panier et aucune capacité n'est calculée.
+
+`CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK = 2500.0 × TICK_DURATION_DAYS` : cinq
+charrettes d'une demi-tonne par jour, ordre de grandeur de **niveau 2**,
+plausible, jamais sourcé. La fonction `capacite_chemins_interieurs_kg` relit
+cette constante et refuse une valeur NaN ou négative ; l'infini est accepté.
+
+Le besoin du bourg est `population × part × ration`, celui des champs est le
+besoin total moins celui du bourg. Le bourg mange le minimum de son besoin et
+de ce qu'il atteint ; les champs mangent ensuite sur le reste.
+
+- **Le bourg a faim pendant que les champs débordent** si son manque est
+  strictement positif et si `reste_champs = S − mange_bourg − besoin_champs`
+  est strictement positif. Le panier garde ce reste ; la dette augmente du
+  manque du bourg, sans remboursement de dette ancienne. Ce manque est la
+  pénurie du tick, lue par la faim, la mortalité, la natalité et la migration.
+- **Sinon, la consommation reste inchangée au bit près**, y compris son
+  remboursement physique de la dette. Sans carte ou sans part minière,
+  c'est aussi ce calcul qui s'applique.
+
+Aucun kilo n'est créé : les kilos qui quittent le panier ont été mangés, le
+besoin du tick n'est pas dépassé dans le cas de distribution limitée, et le
+panier reste non négatif. Le remboursement de dette conserve ses kilos réels.
+Restent de niveau 3, non simulés : délai, pertes en route, bras des porteurs,
+tracé des chemins, stock propre à chaque lieu, distribution entre les lieux
+des champs et intégration des villes nommées dans le bourg.
 
 ---
 

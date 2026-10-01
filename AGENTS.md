@@ -29,6 +29,13 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   (`idee` → `pret` → `en-cours` → `livre`, ou `bloque` avec sa raison en
   commentaire), l'étiquette `pc` s'il demande Unity ou Blender. Le formulaire
   « Demander un lot » les pose.
+- **Le dépanneur passe d'abord** : un lot que le pilote bloque (essais
+  épuisés, CI rouge, relecture `CORRIGER`) est lu par le dépanneur, en
+  lecture seule. Il le relance avec une consigne que le codeur et le
+  relecteur reçoivent (`depannages_max` fois au plus par lot), le change en
+  question au propriétaire, ou le laisse bloqué en disant ce qu'il faut
+  corriger dans la chaîne. Une question au propriétaire ne passe jamais par
+  lui.
 - **Reprendre un lot bloqué** : corriger la cause s'il le faut, puis
   **répondre par un commentaire sur l'issue** (une lettre suffit quand le
   chef a posé une question) : au tour suivant, le pilote remet le lot

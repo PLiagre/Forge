@@ -167,6 +167,11 @@ class Depot:
         return self.tete(chemin)
 
     # ------------------------------------------------------------ lecture
+    def en_retard(self, chemin: Path) -> bool:
+        """La base a-t-elle des commits que la branche n'a pas ?"""
+        sortie = self.git("rev-list", "--count", f"HEAD..origin/{self.base}", cwd=chemin).strip()
+        return int(sortie or 0) > 0
+
     def diff_base(self, chemin: Path) -> str:
         return self.git("diff", f"origin/{self.base}...HEAD", cwd=chemin)
 

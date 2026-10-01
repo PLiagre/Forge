@@ -340,3 +340,39 @@ def test_seul_un_humain_apres_le_blocage_repond():
     assert not lots.reponse_apres_blocage([bloque, {"body": "vu", "author": {"login": "github-actions"}}])
     # Bloqué à la main, sans marque du pilote : rien ne le lève tout seul.
     assert not lots.reponse_apres_blocage([avant])
+
+
+def _c(**champs):
+    return {"body": lots.marque(**champs)}
+
+
+def test_le_depanneur_regarde_un_blocage_du_pilote_une_fois():
+    bloque = _c(role="pilote", etat="bloque", raison="CI rouge après 2 correction(s)")
+    assert lots.depannage_a_faire([bloque], 2)
+    assert not lots.depannage_a_faire([], 2)
+    assert not lots.depannage_a_faire([bloque, _c(role="depanneur", etat="echec")], 2)
+    assert not lots.depannage_a_faire([_c(role="pilote", etat="bloque", raison="q", question="Q ?")], 2)
+    assert not lots.depannage_a_faire([_c(role="pilote", etat="bloque", raison="x", par="depanneur")], 2)
+    relance = _c(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="c")
+    assert lots.depannage_a_faire([bloque, relance, bloque], 2)
+    assert not lots.depannage_a_faire([bloque, relance, bloque, relance, bloque], 2)
+
+
+def test_la_consigne_du_depanneur_tombe_au_blocage_suivant():
+    bloque = _c(role="pilote", etat="bloque", raison="x")
+    relance = _c(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="ouvre la planche")
+    assert lots.consigne_du_depanneur([bloque, relance]) == "ouvre la planche"
+    assert lots.consigne_du_depanneur([bloque, relance, bloque]) == ""
+    assert lots.consigne_du_depanneur([]) == ""
+
+
+def test_une_reponse_du_codeur_a_la_revue_se_relit_et_compte_comme_un_passage():
+    pr = {"state": "OPEN", "headRefOid": "a" * 40, "mergeable": "MERGEABLE"}
+    fait = {"role": "codeur", "etat": "fait", "sha": "a" * 40}
+    corriger = {"role": "relecteur", "verdict": "CORRIGER", "sha": "a" * 40}
+    reponse = {"role": "codeur", "etat": "reponse"}
+    assert action_suivante(pr, "vert", [fait, corriger, reponse], corrections_max=2).nom == "relire"
+    apres = action_suivante(pr, "vert", [fait, corriger, reponse, corriger], corrections_max=2)
+    assert apres.nom == "corriger_relecture" and apres.essai == 2
+    assert action_suivante(pr, "vert", [fait, corriger, reponse, corriger, reponse, corriger],
+                           corrections_max=2).nom == "bloquer"
