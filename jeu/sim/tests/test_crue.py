@@ -179,8 +179,10 @@ def test_refus_accepte_crue_zero_sans_changer_la_pluie():
     assert monde.carte[delta]["pluie_mm_par_an"] == pluie_attendue
 
 
-def test_densite_du_delta_depasse_la_mediane_grace_a_la_crue():
-    """SC3 : la crue remplit le delta sans remplir le désert ni Suez."""
+def test_densite_du_delta_depasse_la_mediane_grace_a_la_crue(monkeypatch):
+    """SC3 : la crue augmente la densité rurale du delta, pas du désert ni de Suez."""
+    # Décision du propriétaire sur #224 : mesurer hors populations urbaines.
+    monkeypatch.setattr("sim.world.charger_villes", lambda: ())
     delta, desert, suez = _cellules_de_reference()
     monde = World.charger(0)
     densites = _densites(monde)
@@ -190,10 +192,10 @@ def test_densite_du_delta_depasse_la_mediane_grace_a_la_crue():
     mediane_seche = statistics.median(densites_seches.values())
 
     print(f"cellules_distinctes = {len({delta, desert, suez})}")
-    print(f"densite_delta = {densites[delta]} / mediane {mediane}")
-    print(f"densite_desert = {densites[desert]}")
-    print(f"densite_suez = {densites[suez]}")
-    print(f"delta_sans_crue = {densites_seches[delta]} / mediane {mediane_seche}")
+    print(f"densité rurale du delta = {densites[delta]} / médiane rurale {mediane}")
+    print(f"densité rurale du désert = {densites[desert]}")
+    print(f"densité rurale de Suez = {densites[suez]}")
+    print(f"densité rurale du delta sans crue = {densites_seches[delta]} / médiane rurale {mediane_seche}")
     assert len({delta, desert, suez}) == 3
     assert densites[delta] > mediane
     assert densites[desert] < mediane
