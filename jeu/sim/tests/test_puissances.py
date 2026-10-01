@@ -62,8 +62,8 @@ def test_lecture_de_toutes_les_lignes(tmp_path):
     puissances_sans_ancre = sum(p.id not in visees for p in table.puissances)
     print(f"puissances_lues={puissances_lues}, ancres_lues={ancres_lues}")
     print(f"puissances_sans_ancre={puissances_sans_ancre}")
-    assert 12 <= puissances_lues == len(brut["puissances"]) <= 16
-    assert 20 <= ancres_lues == len(brut["ancres"]) <= 30
+    assert 24 <= puissances_lues == len(brut["puissances"]) <= 40
+    assert 46 <= ancres_lues == len(brut["ancres"]) <= 80
     assert puissances_sans_ancre == 0
     assert charger_table(_ecrire(tmp_path, brut)) == table
 def _alterer(document, cas, id_navarre):
@@ -353,3 +353,161 @@ def test_vue_pure_que_le_tick_ne_lit_pas():
     assert avant == apres
     assert attributs_avant == attributs_apres
     assert str(plus_petite) in str(capture.value)
+
+
+def test_lecture_des_douze_ajouts(tmp_path):
+    attendues = {
+        "Venise", "Milan", "Florence", "Gênes", "Papauté", "Naples",
+        "Sicile", "Savoie", "Union de Kalmar", "Ordre teutonique",
+        "Pologne-Lituanie", "Hongrie",
+    }
+
+    def compter(table):
+        visees = {ancre.puissance for ancre in table.ancres}
+        return sum(p.nom in attendues and p.id in visees for p in table.puissances)
+
+    def verifier_bornes(table, document):
+        assert 24 <= len(table.puissances) == len(document["puissances"]) <= 40
+        assert 46 <= len(table.ancres) == len(document["ancres"]) <= 80
+
+    table = charger_table()
+    verifier_bornes(table, _document())
+    ajouts_lus = compter(table)
+    document = _document()
+    hongrie = next(p for p in document["puissances"] if p["nom"] == "Hongrie")
+    document["puissances"].remove(hongrie)
+    document["ancres"] = [a for a in document["ancres"] if a["puissance"] != hongrie["id"]]
+    table_reduite = charger_table(_ecrire(tmp_path, document))
+    ajouts_reduits = compter(table_reduite)
+    with pytest.raises(AssertionError):
+        verifier_bornes(table_reduite, document)
+    print(f"ajouts_lus={ajouts_lus}, ajouts_réduits={ajouts_reduits}, bornes_refusées=1")
+    assert ajouts_lus == len(attendues) == 12
+    assert ajouts_reduits == 11
+
+
+@pytest.mark.parametrize("nom,champ,valeur", [
+    ("Gênes", "ancres", None),
+    ("Milan", "nature", "duché"),
+    ("Savoie", "nature", "comté"),
+    ("Hongrie", "religion", "protestante"),
+])
+def test_refus_des_nouveaux_cas(tmp_path, nom, champ, valeur):
+    document = _document()
+    puissance = next(p for p in document["puissances"] if p["nom"] == nom)
+    if champ == "ancres":
+        document["ancres"] = [a for a in document["ancres"] if a["puissance"] != puissance["id"]]
+    else:
+        puissance[champ] = valeur
+    with pytest.raises(PuissanceInvalide) as erreur:
+        charger_table(_ecrire(tmp_path, document))
+    message = str(erreur.value)
+    refus_observes = int(f"puissance {puissance['id']}" in message and champ in message)
+    print(f"refus_observés={refus_observes}/1, cas={nom}, champ={champ}")
+    assert refus_observes == 1
+    assert next(p for p in charger_table().puissances if p.nom == "Milan").nature == "principauté"
+
+
+def test_nouvelles_puissances_connues(tmp_path):
+    attendues = {
+        "Venise": "république", "Milan": "principauté", "Florence": "république",
+        "Gênes": "république", "Papauté": "Église", "Naples": "royaume",
+        "Sicile": "royaume", "Savoie": "principauté", "Union de Kalmar": "royaume",
+        "Ordre teutonique": "ordre", "Pologne-Lituanie": "royaume", "Hongrie": "royaume",
+    }
+
+    def connues(table):
+        par_nom = {p.nom: p for p in table.puissances}
+        return (attendues.keys() <= par_nom.keys()
+                and all(par_nom[nom].nature == nature and par_nom[nom].religion == "catholique"
+                        for nom, nature in attendues.items()))
+
+    vraie = connues(charger_table())
+    document = _document()
+    next(p for p in document["puissances"] if p["nom"] == "Papauté")["nature"] = "royaume"
+    papaute_fausse = connues(charger_table(_ecrire(tmp_path, document)))
+    document = _document()
+    milan = next(p for p in document["puissances"] if p["nom"] == "Milan")
+    document["puissances"].remove(milan)
+    document["ancres"] = [a for a in document["ancres"] if a["puissance"] != milan["id"]]
+    milan_absente = connues(charger_table(_ecrire(tmp_path, document)))
+    print(f"connues={int(vraie)}, papauté_fausse={int(papaute_fausse)}, milan_absente={int(milan_absente)}")
+    assert vraie and not papaute_fausse and not milan_absente
+
+
+def test_geographie_et_compte_des_douze_nouvelles_puissances():
+    monde = World.charger(0)
+    positions = charger_positions()
+    latitude = charger_latitude_moyenne_puissances()
+    table = charger_table()
+    points = {
+        "Venise": (45.44, 12.33), "Milan": (45.46, 9.19),
+        "Florence": (43.77, 11.26), "Papauté": (41.90, 12.50),
+        "Gênes": (44.41, 8.93), "Naples": (40.85, 14.27),
+        "Sicile": (38.12, 13.36), "Savoie": (45.57, 5.92),
+        "Union de Kalmar": (55.68, 12.57), "Ordre teutonique": (54.04, 19.03),
+        "Pologne-Lituanie": (50.06, 19.94), "Hongrie": (47.50, 19.04),
+    }
+    cellules = {nom: _cellule_la_plus_proche(point, positions, latitude)
+                for nom, point in points.items()}
+    vue = puissances_depuis_monde(monde)
+    noms = {nom: puissance_de_cellule(cell_id, vue, table).nom
+            for nom, cell_id in cellules.items()}
+    couvertes = sum(p is not None for p in vue.values())
+    non_couvertes = len(cellules_non_couvertes(vue))
+    print(f"cellules_distinctes={len(set(cellules.values()))}, couvertes={couvertes}, non_couvertes={non_couvertes}")
+    assert len(set(cellules.values())) == len(points) > 0
+    assert noms == {nom: nom for nom in points}
+    assert couvertes + non_couvertes == len(monde.cells)
+
+    ids = {p.nom: p.id for p in table.puissances}
+    venise, milan = ids["Venise"], ids["Milan"]
+    echangees = tuple(dataclasses.replace(a, puissance=milan if a.puissance == venise
+                                           else venise if a.puissance == milan else a.puissance)
+                      for a in table.ancres)
+    table_echangee = dataclasses.replace(table, ancres=echangees)
+    vue_echangee = puissances_depuis_monde(monde, table=table_echangee)
+    venise_echangee = puissance_de_cellule(cellules["Venise"], vue_echangee, table_echangee).nom
+    milan_echangee = puissance_de_cellule(cellules["Milan"], vue_echangee, table_echangee).nom
+    print(f"Venise_après_échange={venise_echangee}, Milan_après_échange={milan_echangee}")
+    assert venise_echangee == "Milan" and milan_echangee == "Venise"
+
+    verone = dataclasses.replace(next(a for a in table.ancres if a.nom == "Milan"),
+                                 id=max(a.id for a in table.ancres) + 1,
+                                 nom="Vérone", lat=45.44, lon=10.99)
+    table_verone = dataclasses.replace(table, ancres=table.ancres + (verone,))
+    vue_verone = puissances_depuis_monde(monde, table=table_verone)
+    venise_avec_verone = puissance_de_cellule(cellules["Venise"], vue_verone, table_verone).nom
+    print(f"Venise_avec_ancre_à_Vérone={venise_avec_verone}")
+    assert venise_avec_verone == "Milan"
+
+    table_sans_venise = dataclasses.replace(table, ancres=tuple(a for a in table.ancres if a.puissance != venise))
+    vue_sans_venise = puissances_depuis_monde(monde, table=table_sans_venise)
+    cellules_venise = sum(p == venise for p in vue.values())
+    cellules_venise_sans_ancre = sum(p == venise for p in vue_sans_venise.values())
+    print(f"cellules_de_Venise={cellules_venise}, sans_ancre={cellules_venise_sans_ancre}")
+    assert cellules_venise > 0 and cellules_venise_sans_ancre == 0
+
+
+def test_ancrage_sans_piege():
+    table = charger_table()
+    pieges = {
+        "Vérone": (45.44, 10.99), "Pise": (43.72, 10.40),
+        "Sienne": (43.32, 11.33), "Pérouse": (43.11, 12.39),
+        "Bologne": (44.49, 11.34), "Padoue": (45.41, 11.88),
+        "Turin": (45.07, 7.69), "Visby": (57.64, 18.29),
+        "Candie": (35.34, 25.14), "Corfou": (39.62, 19.92),
+    }
+
+    def compter(ancres):
+        return sum(any(abs(a.lat - lat) < .2 and abs(a.lon - lon) < .2
+                       for lat, lon in pieges.values()) for a in ancres)
+
+    ancres_sur_piege = compter(table.ancres)
+    florence = next(a for a in table.ancres if a.nom == "Florence")
+    lat, lon = pieges["Pise"]
+    pise = dataclasses.replace(florence, id=max(a.id for a in table.ancres) + 1,
+                               nom="Pise", lat=lat, lon=lon)
+    contre_epreuve = compter(table.ancres + (pise,))
+    print(f"ancres_sur_piege={ancres_sur_piege}, avec_Pise={contre_epreuve}")
+    assert ancres_sur_piege == 0 and contre_epreuve == 1

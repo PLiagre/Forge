@@ -1,4 +1,4 @@
-"""Lecture de la table documentée des puissances occidentales en 1400."""
+"""Lecture de la table documentée des puissances d'Europe en 1400."""
 
 import dataclasses
 import json
@@ -35,7 +35,7 @@ _CLE_NIVEAU = "niveau"
 _DATE_ATTENDUE = "1400-01-01"
 _NIVEAU_FRONTIERE = 2
 
-NATURES = frozenset({"royaume", "république", "Église", "ordre"})
+NATURES = frozenset({"royaume", "république", "Église", "ordre", "principauté"})
 RELIGIONS = frozenset({"catholique", "orthodoxe", "musulmane"})
 
 class PuissanceInvalide(ValueError):

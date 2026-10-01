@@ -106,6 +106,13 @@ def jalon_suivant(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
     return next((j for j in liste if j.ouvert and j.numero > courant.numero), None)
 
 
+def jalon_du_pc(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
+    """Le troisième jalon ouvert, que seul le PC voit. La 3D n'arrive qu'au
+    jalon 4 : le 30 septembre 2026, J2 et J3 ne demandaient que `sim/`, et le
+    PC n'avait rien à faire pendant des semaines."""
+    return jalon_suivant(liste, jalon_suivant(liste, courant))
+
+
 def jalons_du_cap(cap: str) -> dict[int, str]:
     """Les jalons que CAP.md déclare : numéro → titre du milestone
     (« J2 — Le monde de 1400 »), tirés de ses sections « ## Jalon n — Titre ».
@@ -324,17 +331,28 @@ def a_decouper(jalon: Jalon | None, cap: str, ouvertes: list[Lot], fermees: list
                    for l in siens if "lot" in l.etiquettes)
 
 
-def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = None) -> str:
+def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = None,
+                        pour_le_pc: bool = False) -> str:
     """Le texte du lot qui fait découper un jalon. Les lots déjà ouverts dans
     le jalon passent d'abord : la découpe vient après eux et les complète.
     Un jalon découpé en avance (il suit le `courant`) le dit : ses lots
-    partent pendant que le courant se termine."""
+    partent pendant que le courant se termine. Découpé `pour_le_pc` (le
+    troisième jalon), seuls ses lots « pc » partent avant leur tour."""
     en_avance = courant is not None and jalon.numero > courant.numero
+    if pour_le_pc:
+        tete = (f"Le PC n'a plus rien à prendre dans le jalon courant, {courant.titre}, ni dans le suivant : "
+                f"{jalon.titre} se découpe en avance pour lui. Seuls ses lots « pc » partent avant leur tour ; "
+                "ceux du VPS attendent que le jalon entre dans la fenêtre. Place d'abord les lots « pc » qui ne "
+                "s'appuient que sur ce qui est déjà sur master, et finis leur ligne par « :: après rien » : "
+                "un lot « pc » qui attend un lot du VPS ne part pas plus tôt.")
+    elif en_avance:
+        tete = (f"Le jalon suivant, {jalon.titre}, n'a encore aucun lot prêt, et une machine n'a plus rien à "
+                f"prendre dans le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent "
+                "pendant que le courant se termine ; ils ne s'appuient sur rien qu'il doit encore livrer.")
+    else:
+        tete = f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé."
     lignes = [
-        (f"Le jalon suivant, {jalon.titre}, n'a encore aucun lot prêt, et une machine n'a plus rien à prendre "
-         f"dans le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent pendant que le "
-         "courant se termine ; ils ne s'appuient sur rien qu'il doit encore livrer." if en_avance else
-         f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé."),
+        tete,
         "",
         "Ce lot ne se code pas. Le chef le découpe (« DECISION: DECOUPE ») d'après la section "
         f"« Jalon {jalon.numero} » de `CAP.md` et d'après `docs/VISION.md` : les lots qu'il faut, dans "
@@ -435,7 +453,10 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
         return Action("corriger_ci", "CI rouge", essai=essais)
 
     verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("sha") == tete]
-    if not verdicts:
+    # Une relecture sans verdict (délai, verdict illisible) n'est pas un
+    # « CORRIGER » : elle se rejoue, et `_relire` bloque à deux échecs. Le
+    # 30 septembre 2026, elle renvoyait au codeur une revue vide (#126).
+    if not verdicts or not verdicts[-1].get("verdict"):
         return Action("relire")
     dernier = verdicts[-1].get("verdict")
     if dernier == "ACCEPTE":
@@ -518,6 +539,47 @@ def reponse_apres_blocage(commentaires: list[dict]) -> bool:
         if corps and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions":
             return True
     return False
+
+
+# Le dépanneur (`pilote._depanner`) regarde un lot que le pilote vient de
+# bloquer, avant le propriétaire. Il le relance avec une consigne (marque
+# « depanne »), pose une question au propriétaire, ou dit que la chaîne est en
+# cause ; il ne relance pas un même lot plus de `depannages_max` fois. Le
+# 1er octobre 2026, cinq lots attendaient le propriétaire au matin : trois
+# pour un quota, une relecture vide ou une image illisible, que la chaîne
+# pouvait lever seule.
+ETAT_DEPANNE = "depanne"
+PAR_DEPANNEUR = "depanneur"
+
+
+def depannage_a_faire(commentaires: list[dict], depannages_max: int) -> bool:
+    """Le dépanneur doit-il regarder ce lot ? Oui si son dernier blocage
+    vient du pilote, n'est ni une question au propriétaire ni un blocage posé
+    par le dépanneur lui-même, que le dépanneur n'a rien dit depuis, et qu'il
+    n'a pas déjà relancé le lot `depannages_max` fois."""
+    liste = marques(commentaires)
+    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
+    if dernier is None:
+        return False
+    blocage = liste[dernier]
+    if blocage.get("question") or blocage.get("par") == PAR_DEPANNEUR:
+        return False
+    if any(m.get("role") == "depanneur" for m in liste[dernier + 1:]):
+        return False
+    relances = sum(1 for m in liste if m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE)
+    return relances < depannages_max
+
+
+def consigne_du_depanneur(commentaires: list[dict]) -> str:
+    """La consigne du dépanneur qui vaut encore : celle de sa dernière
+    relance, tant que le lot n'a pas été rebloqué depuis."""
+    consigne = ""
+    for m in marques(commentaires):
+        if m.get("etat") == "bloque":
+            consigne = ""
+        elif m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE:
+            consigne = m.get("consigne") or ""
+    return consigne
 
 
 def passage_de_renfort(essai: int, corrections_max: int) -> bool:

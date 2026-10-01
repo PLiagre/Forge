@@ -12,6 +12,8 @@ namespace ForgeLocal3D
         public Route[] routes; public Plot[] plots;
         public Vector3 spawn,forest; public Camera view;
         public bool walking,automatic;
+        // Tab entre et sort de la marche ; faux quand un autre composant la pilote (caméra de la capitale).
+        public bool tabulation=true;
         public CharacterController body;
         Vector3 savedPosition; Quaternion savedRotation; float savedFov,yaw,pitch,vertical;
         Transform savedParent; bool savedOrbit;
@@ -19,7 +21,8 @@ namespace ForgeLocal3D
         {
             if(walking)return;
             savedParent=view.transform.parent;savedPosition=view.transform.position;savedRotation=view.transform.rotation;savedFov=view.fieldOfView;
-            var orbit=view.GetComponent<VillageV2Visit>();savedOrbit=orbit.enabled;orbit.enabled=false;
+            // La ville du désert n'a pas forcément d'orbite VillageV2Visit : son absence est tolérée.
+            var orbit=view.GetComponent<VillageV2Visit>();savedOrbit=orbit&&orbit.enabled;if(orbit)orbit.enabled=false;
             body.enabled=false;transform.position=spawn;body.enabled=true;
             view.transform.SetParent(transform);view.transform.localPosition=new Vector3(0,1.7f,0);
             yaw=0;pitch=0;vertical=0;view.fieldOfView=65;view.nearClipPlane=.08f;walking=true;Look();
@@ -29,7 +32,7 @@ namespace ForgeLocal3D
             if(!walking)return;
             walking=false;body.enabled=false;view.transform.SetParent(savedParent);
             view.transform.SetPositionAndRotation(savedPosition,savedRotation);view.fieldOfView=savedFov;view.nearClipPlane=.3f;
-            view.GetComponent<VillageV2Visit>().enabled=savedOrbit;
+            var orbit=view.GetComponent<VillageV2Visit>();if(orbit)orbit.enabled=savedOrbit;
         }
         void Look()=>view.transform.rotation=Quaternion.Euler(pitch,yaw,0);
         public void Step(Vector3 horizontal,float seconds)
@@ -47,7 +50,7 @@ namespace ForgeLocal3D
         void Update()
         {
             var k=Keyboard.current;
-            if(k!=null && k.tabKey.wasPressedThisFrame){if(walking)Leave();else Enter();}
+            if(tabulation && k!=null && k.tabKey.wasPressedThisFrame){if(walking)Leave();else Enter();}
             if(!walking||automatic)return;
             Vector2 input=Vector2.zero;
             if(k!=null)

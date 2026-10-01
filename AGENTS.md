@@ -29,6 +29,13 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   (`idee` → `pret` → `en-cours` → `livre`, ou `bloque` avec sa raison en
   commentaire), l'étiquette `pc` s'il demande Unity ou Blender. Le formulaire
   « Demander un lot » les pose.
+- **Le dépanneur passe d'abord** : un lot que le pilote bloque (essais
+  épuisés, CI rouge, relecture `CORRIGER`) est lu par le dépanneur, en
+  lecture seule. Il le relance avec une consigne que le codeur et le
+  relecteur reçoivent (`depannages_max` fois au plus par lot), le change en
+  question au propriétaire, ou le laisse bloqué en disant ce qu'il faut
+  corriger dans la chaîne. Une question au propriétaire ne passe jamais par
+  lui.
 - **Reprendre un lot bloqué** : corriger la cause s'il le faut, puis
   **répondre par un commentaire sur l'issue** (une lettre suffit quand le
   chef a posé une question) : au tour suivant, le pilote remet le lot
@@ -47,7 +54,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   encore rien de prêt, en cours ou livré se fait découper par le chef.
 - **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les deux
   minutes) prend le lot suivant du jalon courant ; une machine qui n'y a plus
-  rien à prendre prend dans le jalon suivant (la **fenêtre de deux jalons**).
+  rien à prendre prend dans le jalon suivant (la **fenêtre de deux jalons**) ;
+  le PC, lui, prend encore un lot `pc` du troisième, qu'il fait découper
+  s'il n'a pas de plan.
   Plusieurs tours tournent en même temps : le VPS fait avancer jusqu'à
   `[machines].vps` lots à la fois, le PC un ; chaque outil a son plafond
   d'agents simultanés (`[outils]`), et un outil plein passe la main à son

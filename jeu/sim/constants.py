@@ -65,6 +65,9 @@ PLUIE_SANS_CULTURE_MM = 250.0
 # ordre de grandeur plausible niveau 2, jamais sourcé.
 PLUIE_PLEINE_CULTURE_MM = 400.0
 
+# Eau laissée aux champs par la crue annuelle du Nil ; niveau 2, jamais sourcé.
+CRUE_EQUIVALENT_PLUIE_MM = 600.0
+
 # Part de nourriture tirée du parcours des troupeaux en terre sèche ;
 # ordre de grandeur plausible niveau 2, jamais sourcé.
 FACTEUR_EAU_PLANCHER = 0.05

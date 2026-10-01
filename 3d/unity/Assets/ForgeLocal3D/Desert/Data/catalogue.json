@@ -931,6 +931,158 @@
         2.060621738433838,
         4.199999809265137
       ]
+    },
+    {
+      "id": "scierie",
+      "kind": "batiment",
+      "triangles": [
+        1492,
+        608,
+        280
+      ],
+      "bounds_min": [
+        -4.174853801727295,
+        -2.7620933055877686,
+        -5.238689482212067e-10
+      ],
+      "bounds_max": [
+        4.249826908111572,
+        2.513153314590454,
+        4.25
+      ]
+    },
+    {
+      "id": "four_pain_pise",
+      "kind": "batiment",
+      "triangles": [
+        927,
+        415,
+        231
+      ],
+      "bounds_min": [
+        -1.6098729372024536,
+        -1.3356293439865112,
+        0.0
+      ],
+      "bounds_max": [
+        1.718504548072815,
+        1.1685781478881836,
+        2.1946027278900146
+      ]
+    },
+    {
+      "id": "chantier_maison_pise_0_piquets",
+      "kind": "batiment",
+      "triangles": [
+        288,
+        192,
+        48
+      ],
+      "bounds_min": [
+        -3.219172716140747,
+        -3.6190271377563477,
+        0.0
+      ],
+      "bounds_max": [
+        3.556727170944214,
+        3.2693002223968506,
+        1.0
+      ]
+    },
+    {
+      "id": "chantier_maison_pise_0_murs",
+      "kind": "batiment",
+      "triangles": [
+        984,
+        298,
+        130
+      ],
+      "bounds_min": [
+        -3.2260000705718994,
+        -3.630476236343384,
+        -1.0244548320770264e-08
+      ],
+      "bounds_max": [
+        3.563554525375366,
+        3.2807490825653076,
+        3.0853686332702637
+      ]
+    },
+    {
+      "id": "chantier_scierie_piquets",
+      "kind": "batiment",
+      "triangles": [
+        281,
+        192,
+        48
+      ],
+      "bounds_min": [
+        -4.223503112792969,
+        -2.8112661838531494,
+        0.0
+      ],
+      "bounds_max": [
+        4.298476219177246,
+        2.562326192855835,
+        1.0
+      ]
+    },
+    {
+      "id": "chantier_scierie_murs",
+      "kind": "batiment",
+      "triangles": [
+        730,
+        220,
+        100
+      ],
+      "bounds_min": [
+        -4.230854034423828,
+        -2.8227150440216064,
+        -6.51925802230835e-09
+      ],
+      "bounds_max": [
+        4.3058271408081055,
+        2.573775053024292,
+        2.762500047683716
+      ]
+    },
+    {
+      "id": "chantier_four_pain_pise_piquets",
+      "kind": "batiment",
+      "triangles": [
+        144,
+        96,
+        48
+      ],
+      "bounds_min": [
+        -1.6540158987045288,
+        -1.3794093132019043,
+        0.0
+      ],
+      "bounds_max": [
+        1.7719364166259766,
+        1.2123582363128662,
+        1.0
+      ]
+    },
+    {
+      "id": "chantier_four_pain_pise_murs",
+      "kind": "batiment",
+      "triangles": [
+        609,
+        250,
+        130
+      ],
+      "bounds_min": [
+        -1.6662360429763794,
+        -1.3962510824203491,
+        -3.725290298461914e-09
+      ],
+      "bounds_max": [
+        1.7841565608978271,
+        1.2291998863220215,
+        1.4264918565750122
+      ]
     }
   ],
   "materials": [
@@ -1474,5 +1626,22 @@
       ],
       "roughness": 0.8500000238418579
     }
-  ]
+  ],
+  "chantiers": {
+    "maison_pise_0": [
+      "chantier_maison_pise_0_piquets",
+      "chantier_maison_pise_0_murs",
+      "maison_pise_0"
+    ],
+    "scierie": [
+      "chantier_scierie_piquets",
+      "chantier_scierie_murs",
+      "scierie"
+    ],
+    "four_pain_pise": [
+      "chantier_four_pain_pise_piquets",
+      "chantier_four_pain_pise_murs",
+      "four_pain_pise"
+    ]
+  }
 }

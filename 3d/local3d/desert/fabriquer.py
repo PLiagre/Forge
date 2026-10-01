@@ -17,7 +17,7 @@ import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT))
-from local3d.desert import assets, paysage, urbanisme
+from local3d.desert import assets, kit, paysage, urbanisme
 from local3d.desert.cameras import CAMERAS
 from local3d.desert.paysage import PLATEAU, Z
 from local3d.atelier_v2.geometrie import Mesh,MATS,export_fbx,tri_count
@@ -39,50 +39,85 @@ def clean_mesh(o):
     bm.to_mesh(o.data);bm.free();o.data.update()
 
 
+def module(name,builder,kind):
+    """Un module du kit : ses trois LOD contrôlés et son enregistrement, sans rien écrire sur le disque."""
+    source=Path(__file__).parent/'sources'/(name+'.blend');wanted=[name+'_LOD'+str(i) for i in range(3)]
+    if source.exists():
+        with bpy.data.libraries.load(str(source),link=False) as (src,dst):
+            if not set(wanted)<=set(src.objects):raise ValueError('Source sans ses trois LOD : '+name)
+            dst.objects=wanted
+        lods=dst.objects
+        for o in lods:
+            bpy.context.collection.objects.link(o);o.hide_render=False;o.hide_set(False)
+            if o.location.length>.0001 or any(abs(s-1)>.0001 for s in o.scale) or any(abs(a)>.0001 for a in o.rotation_euler):raise ValueError('Transformations non appliquées : '+name)
+            for slot in o.material_slots:
+                if not slot.material:raise ValueError('Matériau absent : '+name)
+                key=slot.material.name.split('.')[0]
+                if key in MATS:slot.material=MATS[key]
+                else:
+                    slot.material.name=key;MATS[key]=slot.material
+                    assets.configure_material(slot.material,key)
+    else:
+        mesh=builder();lods=[mesh.object(name+'_LOD'+str(i),i) for i in range(3)]
+    for o in lods:
+        # Un petit chanfrein capte la lumière rasante sur les arêtes des volumes de terre.
+        if not source.exists() and o.name.endswith('_LOD0') and kind in ('batiment','repere','module'):
+            bpy.context.view_layer.objects.active=o
+            bm=bmesh.new();bm.from_mesh(o.data);bm.normal_update();weight=bm.edges.layers.float.new('bevel_weight_edge')
+            for edge in bm.edges:
+                faces=list(edge.link_faces)
+                edge[weight]=1 if len(faces)==2 and edge.calc_length()>.3 and min(f.calc_area() for f in faces)>.08 and faces[0].normal.dot(faces[1].normal)<.86 else 0
+            bm.to_mesh(o.data);bm.free()
+            bevel=o.modifiers.new('Arêtes adoucies de la terre crue','BEVEL')
+            bevel.width=.04;bevel.segments=1;bevel.limit_method='WEIGHT'
+            bpy.ops.object.modifier_apply(modifier=bevel.name)
+        clean_mesh(o)
+        o.asset_mark();o.asset_data.description='Ksar du désert • module en mètres • '+name
+        if name.startswith(('dune_','butte_')):
+            for p in o.data.polygons:p.use_smooth=True
+    counts=[tri_count(o) for o in lods]
+    if not counts[0]>=counts[1]>=counts[2]>0:raise ValueError('LOD invalides : '+name)
+    vs=np.array([v.co for v in lods[0].data.vertices])
+    return {'id':name,'kind':kind,'triangles':counts,'bounds_min':vs.min(axis=0).tolist(),'bounds_max':vs.max(axis=0).tolist()},lods
+
+
 def library():
     reset();LIB.mkdir(parents=True,exist_ok=True);records=[];objects=[]
     for name,builder,kind in assets.jobs(TEX):
-        source=Path(__file__).parent/'sources'/(name+'.blend');wanted=[name+'_LOD'+str(i) for i in range(3)]
-        if source.exists():
-            with bpy.data.libraries.load(str(source),link=False) as (src,dst):
-                if not set(wanted)<=set(src.objects):raise ValueError('Source sans ses trois LOD : '+name)
-                dst.objects=wanted
-            lods=dst.objects
-            for o in lods:
-                bpy.context.collection.objects.link(o);o.hide_render=False;o.hide_set(False)
-                if o.location.length>.0001 or any(abs(s-1)>.0001 for s in o.scale) or any(abs(a)>.0001 for a in o.rotation_euler):raise ValueError('Transformations non appliquées : '+name)
-                for slot in o.material_slots:
-                    if not slot.material:raise ValueError('Matériau absent : '+name)
-                    key=slot.material.name.split('.')[0]
-                    if key in MATS:slot.material=MATS[key]
-                    else:
-                        slot.material.name=key;MATS[key]=slot.material
-                        assets.configure_material(slot.material,key)
-        else:
-            mesh=builder();lods=[mesh.object(name+'_LOD'+str(i),i) for i in range(3)]
-        for o in lods:
-            # Un petit chanfrein capte la lumière rasante sur les arêtes des volumes de terre.
-            if not source.exists() and o.name.endswith('_LOD0') and kind in ('batiment','repere','module'):
-                bpy.context.view_layer.objects.active=o
-                bm=bmesh.new();bm.from_mesh(o.data);bm.normal_update();weight=bm.edges.layers.float.new('bevel_weight_edge')
-                for edge in bm.edges:
-                    faces=list(edge.link_faces)
-                    edge[weight]=1 if len(faces)==2 and edge.calc_length()>.3 and min(f.calc_area() for f in faces)>.08 and faces[0].normal.dot(faces[1].normal)<.86 else 0
-                bm.to_mesh(o.data);bm.free()
-                bevel=o.modifiers.new('Arêtes adoucies de la terre crue','BEVEL')
-                bevel.width=.04;bevel.segments=1;bevel.limit_method='WEIGHT'
-                bpy.ops.object.modifier_apply(modifier=bevel.name)
-            clean_mesh(o)
-            o.asset_mark();o.asset_data.description='Ksar du désert • module en mètres • '+name
-            if name.startswith(('dune_','butte_')):
-                for p in o.data.polygons:p.use_smooth=True
-        counts=[tri_count(o) for o in lods]
-        if not counts[0]>=counts[1]>=counts[2]>0:raise ValueError('LOD invalides : '+name)
-        vs=np.array([v.co for v in lods[0].data.vertices]);records.append({'id':name,'kind':kind,'triangles':counts,'bounds_min':vs.min(axis=0).tolist(),'bounds_max':vs.max(axis=0).tolist()})
+        record,lods=module(name,builder,kind);records.append(record)
         export_fbx(LIB/(name+'.fbx'),lods);objects.extend(lods)
     bpy.data.libraries.write(str(LIB/'Kit_Desert.blend'),set(objects),path_remap='RELATIVE',fake_user=True,compress=True)
-    write(LIB/'catalogue.json',{'schema':3,'assets':records,'materials':matters(objects)})
+    write(LIB/'catalogue.json',{'schema':3,'assets':records,'materials':matters(objects),'chantiers':{f:kit.suite(f) for f in kit.CHANTIERS}})
     print('KIT_DESERT_OK',len(records),flush=True)
+
+
+def kit_nouveaux():
+    """Lot 266 : ajoute au kit les seuls modules de kit.NOUVEAUX, par le même chemin que library().
+
+    Kit_Desert.blend, les FBX des anciens modules et les scènes ne sont pas touchés. Les
+    enregistrements anciens du catalogue sont repris tels quels ; la commande se rejoue.
+    Les LOD0 vont dans sorties/cache/kit_nouveaux.blend, que lit la planche de contrôle.
+    """
+    reset();catalogue=json.loads((LIB/'catalogue.json').read_text(encoding='utf-8'))
+    connus=[m['name'] for m in catalogue['materials']];builders={name:(builder,kind) for name,builder,kind in assets.jobs(TEX)}
+    records=[];built=[]
+    for name in kit.NOUVEAUX:
+        if name not in builders:raise ValueError('Module absent de assets.jobs : '+name)
+        record,lods=module(name,*builders[name])
+        materiaux={s.material.name for o in lods for s in o.material_slots if s.material}
+        fautes=kit.controler(name,record['triangles'],materiaux,connus)
+        print('KIT_MODULE',name,record['triangles'],sorted(materiaux),flush=True)
+        # Le refus tombe avant tout export : un module trop lourd ne laisse aucun FBX.
+        if fautes:raise ValueError('Module refusé : '+' ; '.join(f['etiquette']+' — '+f['message'] for f in fautes))
+        records.append(record);built.append((name,lods))
+    for name,lods in built:export_fbx(LIB/(name+'.fbx'),lods)
+    anciens=[a for a in catalogue['assets'] if a['id'] not in kit.NOUVEAUX]
+    # Lot 269 : la suite des étapes de chaque chantier, dans une clé à part, après les matériaux.
+    write(LIB/'catalogue.json',{'schema':catalogue['schema'],'assets':anciens+records,'materials':catalogue['materials'],
+                                'chantiers':{f:kit.suite(f) for f in kit.CHANTIERS}})
+    (OUT/'cache').mkdir(parents=True,exist_ok=True)
+    bpy.data.libraries.write(str(OUT/'cache/kit_nouveaux.blend'),{o for _,lods in built for o in lods if o.name.endswith('_LOD0')},path_remap='ABSOLUTE',fake_user=True,compress=True)
+    print('KIT_NOUVEAUX_OK',len(anciens),len(records),flush=True)
 
 
 def edition(name):
@@ -437,7 +472,8 @@ def scene(name,seed,quick=False,no_render=False,views=None):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('phase',choices=['assets','scene','edition']);p.add_argument('--nom',default='ksar_des_sept_puits');p.add_argument('--graine',type=int,default=1433);p.add_argument('--rapide',action='store_true');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--vues',default='');a=p.parse_args(sys.argv[sys.argv.index('--')+1:])
+    p=argparse.ArgumentParser();p.add_argument('phase',choices=['assets','kit','scene','edition']);p.add_argument('--nom',default='ksar_des_sept_puits');p.add_argument('--graine',type=int,default=1433);p.add_argument('--rapide',action='store_true');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--vues',default='');a=p.parse_args(sys.argv[sys.argv.index('--')+1:])
     if a.phase=='assets':library()
+    elif a.phase=='kit':kit_nouveaux()
     elif a.phase=='edition':edition(a.nom)
     else:scene(a.nom,a.graine,a.rapide,a.sans_rendus,[v for v in a.vues.split(',') if v])

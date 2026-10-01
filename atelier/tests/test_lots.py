@@ -72,6 +72,21 @@ def test_l_action_suivante(pr, ci, liste, attendu):
     assert action_suivante(pr, ci, liste, corrections_max=2).nom == attendu
 
 
+def test_une_relecture_sans_verdict_se_rejoue_sans_toucher_au_codeur():
+    """Le 30 septembre 2026, un relecteur hors délai (« relecture sans
+    verdict ») valait « CORRIGER » : le codeur de #126 est repassé deux fois
+    sur une revue vide, et le lot s'est bloqué avec un code qui tenait."""
+    echec = {"role": "relecteur", "etat": "echec", "sha": "tete", "agent": "claude/opus"}
+    assert action_suivante(_pr(), "vert", [FAIT, echec], corrections_max=2).nom == "relire"
+    # Même au bout des corrections, une relecture ratée ne bloque pas le lot
+    # à la place d'un verdict : `_relire` s'arrête à deux échecs.
+    trois = [FAIT, dict(FAIT), dict(FAIT)]
+    assert action_suivante(_pr(), "vert", trois + [echec], corrections_max=2).nom == "relire"
+    # Un verdict rendu après l'échec compte.
+    corriger = {"role": "relecteur", "sha": "tete", "verdict": "CORRIGER"}
+    assert action_suivante(_pr(), "vert", [FAIT, echec, corriger], corrections_max=2).nom == "corriger_relecture"
+
+
 def test_trois_passages_du_codeur_puis_bloque():
     trois = [FAIT, dict(FAIT, etat="fait"), dict(FAIT, etat="fait")]
     assert action_suivante(_pr(), "rouge", trois[:2], corrections_max=2).nom == "corriger_ci"
@@ -325,3 +340,27 @@ def test_seul_un_humain_apres_le_blocage_repond():
     assert not lots.reponse_apres_blocage([bloque, {"body": "vu", "author": {"login": "github-actions"}}])
     # Bloqué à la main, sans marque du pilote : rien ne le lève tout seul.
     assert not lots.reponse_apres_blocage([avant])
+
+
+def _c(**champs):
+    return {"body": lots.marque(**champs)}
+
+
+def test_le_depanneur_regarde_un_blocage_du_pilote_une_fois():
+    bloque = _c(role="pilote", etat="bloque", raison="CI rouge après 2 correction(s)")
+    assert lots.depannage_a_faire([bloque], 2)
+    assert not lots.depannage_a_faire([], 2)
+    assert not lots.depannage_a_faire([bloque, _c(role="depanneur", etat="echec")], 2)
+    assert not lots.depannage_a_faire([_c(role="pilote", etat="bloque", raison="q", question="Q ?")], 2)
+    assert not lots.depannage_a_faire([_c(role="pilote", etat="bloque", raison="x", par="depanneur")], 2)
+    relance = _c(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="c")
+    assert lots.depannage_a_faire([bloque, relance, bloque], 2)
+    assert not lots.depannage_a_faire([bloque, relance, bloque, relance, bloque], 2)
+
+
+def test_la_consigne_du_depanneur_tombe_au_blocage_suivant():
+    bloque = _c(role="pilote", etat="bloque", raison="x")
+    relance = _c(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="ouvre la planche")
+    assert lots.consigne_du_depanneur([bloque, relance]) == "ouvre la planche"
+    assert lots.consigne_du_depanneur([bloque, relance, bloque]) == ""
+    assert lots.consigne_du_depanneur([]) == ""

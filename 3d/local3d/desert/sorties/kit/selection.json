@@ -1,0 +1,15 @@
+{
+  "modules": [
+    "scierie",
+    "four_pain_pise",
+    "chantier_maison_pise_0_piquets",
+    "chantier_maison_pise_0_murs",
+    "chantier_scierie_piquets",
+    "chantier_scierie_murs",
+    "chantier_four_pain_pise_piquets",
+    "chantier_four_pain_pise_murs"
+  ],
+  "references": [
+    "maison_pise_0"
+  ]
+}

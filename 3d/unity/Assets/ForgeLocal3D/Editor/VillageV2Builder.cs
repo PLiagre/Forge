@@ -178,6 +178,13 @@ namespace ForgeLocal3D
                 }).ToArray();
         }
 
+        // Lot 266 : un prefab du désert seul, sans reconstruire les autres prefabs ni les scènes.
+        public static GameObject ImportPrefab(string root, Asset asset, Dictionary<string, Material> materials)
+        {
+            Root = root; Desert = true;
+            return MakePrefab(asset, materials);
+        }
+
         static GameObject MakePrefab(Asset asset, Dictionary<string, Material> materials)
         {
             string path = Root + "/Models/" + asset.id + ".fbx";

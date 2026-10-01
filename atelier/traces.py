@@ -106,15 +106,26 @@ def rapport(numero: int, lignes: int, depot: str | None = None) -> tuple[int, st
         if not rouge.travail:
             blocs.append(f"== {rouge.nom} : pas de journal de travail — {rouge.description}")
             continue
-        journal = _gh("api", f"repos/{rouge.depot}/actions/jobs/{rouge.travail}/logs")
-        if journal.returncode != 0:
+        lu, corps = _lire(rouge, lignes)
+        if not lu:
             code = 1
-            raison = journal.stderr.strip() or f"code {journal.returncode}"
-            blocs.append(f"== {rouge.nom} (travail {rouge.travail}) : journal illisible — {raison}")
+            blocs.append(f"== {rouge.nom} (travail {rouge.travail}) : {corps}")
             continue
-        corps = "\n".join(extrait(journal.stdout, lignes))
         blocs.append(f"== {rouge.nom} (travail {rouge.travail})\n{corps}")
     return code, "\n\n".join(blocs)
+
+
+def _lire(rouge: Rouge, lignes: int) -> tuple[bool, str]:
+    journal = _gh("api", f"repos/{rouge.depot}/actions/jobs/{rouge.travail}/logs")
+    if journal.returncode != 0:
+        return False, f"journal illisible — {journal.stderr.strip() or f'code {journal.returncode}'}"
+    return True, "\n".join(extrait(journal.stdout, lignes))
+
+
+def lire(rouge: Rouge, lignes: int = 80) -> str:
+    """L'extrait du journal d'un contrôle rouge, pour la correction du
+    codeur. Un journal illisible se dit ; il ne passe pas pour un vide."""
+    return _lire(rouge, lignes)[1]
 
 
 def lire_run(depot: str, run: int, lignes: int = 80) -> str:

@@ -43,6 +43,14 @@ ATTENDU = {'plaine': 'acceptee', 'flanc': 'acceptee', 'raide_long': 'pente', 'ra
 COUCHES_ROUTES = ['Ville_sable', 'Ville_reg', 'Ville_gres', 'Ville_terre', 'Ville_terre_battue', 'Ville_paves']
 REVETEMENTS = {'terre': 4, 'paves': 5}
 LARGEUR_NEUVE = 4.0
+# La caméra du joueur (lot 251).
+MARGE_CAMERA = 1.0             # m : la caméra reste au moins à 1 m au-dessus du terrain
+ZOOM_LOIN = 400.0              # m : distance maximale obtenue, au moins (vue d'ensemble)
+ZOOM_PRES = 8.0                # m : distance minimale obtenue, au plus (la rue)
+HAUTEUR_RUE = 10.0             # m : hauteur au-dessus du sol au zoom le plus court, au plus
+OEIL = (1.5, 1.9)              # m : l'œil du marcheur au-dessus du sol
+RETOUR = 0.01                  # m : Remonter rend la pose d'orbite quittée à 1 cm près
+CAPTURES_CAMERA = ['ensemble', 'rue', 'marcheur']
 
 
 def dossier(ident):
@@ -628,6 +636,18 @@ def juger_marche(r, nom):
     return fautes
 
 
+def arret_au_mur(r):
+    """Contre-épreuve du mur (lot 251) : le marcheur a été lancé, ses mesures sont valides, et
+    c'est le mur qui l'arrête avant le bout — pas une absence de marche ni un pas trop long."""
+    m = (r or {}).get('marche') or {}
+    if not m.get('faite'):
+        return False
+    fin_, pas_max, permis, pas = (m.get(k, -1) for k in ('distance_fin', 'pas_max', 'pas_permis', 'pas'))
+    if not (isinstance(pas, (int, float)) and pas > 0 and permis > 0 and 0 <= pas_max <= permis * 1.001):
+        return False
+    return fin_ > 1 and bool(juger_marche(r, 'mur'))
+
+
 def juger_refus(gestes, u):
     """SC4 : les deux familles trop raides sont refusées pour leur motif, sans rien changer."""
     fautes = []
@@ -643,6 +663,69 @@ def juger_refus(gestes, u):
             fautes.append(r['id'] + ' : le refus ne dit ni la valeur ni l’endroit')
         if not r.get('avant') or r.get('avant') != r.get('apres'):
             fautes.append(r['id'] + ' : le terrain a changé pendant le refus')
+    return fautes
+
+
+def juger_balayage(b, nom):
+    """SC1 (lot 251) : toutes les poses prévues sont mesurées, aucune sous le terrain, marge d'1 m au moins."""
+    b = b or {}; fautes = []
+    prevues = b.get('prevues', -1); mesurees = b.get('mesurees', -1)
+    if prevues <= 0 or mesurees != prevues:
+        fautes.append('{} : {} poses mesurées pour {} prévues'.format(nom, mesurees, prevues))
+    if b.get('sous_terrain', -1) != 0:
+        fautes.append('{} : {} poses sous le terrain'.format(nom, b.get('sous_terrain', -1)))
+    marge_min = b.get('marge_min', -1)
+    if not marge_min >= MARGE_CAMERA:
+        fautes.append('{} : caméra à {:.2f} m au-dessus du terrain ({} m au moins)'.format(nom, marge_min, MARGE_CAMERA))
+    return fautes
+
+
+def juger_zoom(z):
+    """SC2 (lot 251) : le zoom va de la vue d'ensemble à la rue."""
+    z = z or {}; fautes = []
+    loin = z.get('distance_max', -1); pres = z.get('distance_min', -1); haut = z.get('hauteur_rue', -1)
+    if not loin >= ZOOM_LOIN:
+        fautes.append('zoom : distance maximale {:.1f} m ({} m au moins)'.format(loin, ZOOM_LOIN))
+    if not 0 <= pres <= ZOOM_PRES:
+        fautes.append('zoom : distance minimale {:.1f} m ({} m au plus)'.format(pres, ZOOM_PRES))
+    if not 0 <= haut <= HAUTEUR_RUE:
+        fautes.append('zoom : caméra à {:.1f} m du sol au zoom le plus court ({} m au plus)'.format(haut, HAUTEUR_RUE))
+    return fautes
+
+
+def juger_captures_camera(caps):
+    """SC4 (lot 251) : les trois vues de la caméra du joueur, aucune uniforme."""
+    fautes = []
+    if not caps:
+        return ['aucune capture de la caméra du joueur']
+    noms = [c['nom'] for c in caps]
+    for nom in CAPTURES_CAMERA:
+        if nom not in noms:
+            fautes.append('capture de la caméra absente : ' + nom)
+    for cap in caps:
+        if not cap['ecart'] >= ECART_CAPTURE:
+            fautes.append('capture uniforme : camera/' + cap['nom'])
+    return fautes
+
+
+def juger_camera(u):
+    """Lot 251 : la caméra du joueur ne passe jamais sous le terrain, même relevé ; elle zoome de
+    l'ensemble à la rue ; son marcheur descend à hauteur d'homme, remonte à la vue quittée et va
+    au bout de la route de plaine."""
+    c = u.get('camera') or {}; fautes = []
+    if not c.get('branchee'):
+        fautes.append('caméra du joueur non branchée sur la scène')
+    fautes += juger_balayage(c.get('balayage'), 'caméra')
+    fautes += juger_balayage(c.get('releve'), 'caméra sur le terrain relevé')
+    fautes += juger_zoom(c.get('zoom'))
+    oeil = c.get('oeil', -1)
+    if not OEIL[0] <= oeil <= OEIL[1]:
+        fautes.append('marcheur du joueur : œil à {:.2f} m du sol ({} à {} m)'.format(oeil, *OEIL))
+    retour = c.get('retour', -1)
+    if not 0 <= retour <= RETOUR:
+        fautes.append('marcheur du joueur : la vue rendue est à {:.3f} m de la vue quittée'.format(retour))
+    fautes += juger_marche(c, 'marcheur du joueur')
+    fautes += juger_captures_camera(u.get('captures_camera'))
     return fautes
 
 
@@ -719,6 +802,10 @@ def juger(ident):
         if cap['ecart'] < ECART_CAPTURE:
             fautes.append('capture uniforme : ' + cap['nom'])
 
+    # Lot 251 : la caméra du joueur et son marcheur.
+    fautes += juger_camera(u)
+    cam = u.get('camera') or {}
+
     # Contre-épreuves du jugement : chacune doit le faire échouer.
     ce = {}
     ce['gestes_vides'] = bool(juger_gestes({'routes': []}))
@@ -743,11 +830,25 @@ def juger(ident):
     else:
         rapport['touffes'] = 'pack Terrain Sample absent : aucune touffe, contre-épreuve sans objet'
     ce['mur'] = bool(juger_marche(u['mur'], 'mur'))
+    # Garde coupée, sur le terrain relevé : la mesure doit trouver la caméra sous le terrain.
+    sg = cam.get('sans_garde') or {}
+    ce['camera_sans_garde'] = sg.get('prevues', -1) > 0 and sg.get('mesurees') == sg.get('prevues') and sg.get('sous_terrain', -1) > 0
+    ce['zoom_court'] = bool(juger_zoom(dict(cam.get('zoom') or {}, distance_min=20.0)))
+    # Le mur doit arrêter un marcheur réellement lancé : une marche absente ou non faite ne compte pas.
+    ce['mur_joueur'] = arret_au_mur(cam.get('mur'))
+    # Un marcheur du joueur absent ou non lancé est un défaut du jugement de la caméra.
+    ce['marcheur_joueur_absent'] = 'marcheur du joueur : marcheur non lancé' in juger_camera(dict(u, camera=dict(cam, marche=None)))
+    ce['marcheur_joueur_non_lance'] = 'marcheur du joueur : marcheur non lancé' in juger_camera(dict(u, camera=dict(cam, marche={'faite': False})))
+    # Et la contre-épreuve du mur elle-même refuse ces absences.
+    ce['mur_joueur_absent'] = not arret_au_mur({}) and not arret_au_mur(dict(cam.get('mur') or {}, marche={'faite': False}))
+    ce['captures_camera_vides'] = bool(juger_captures_camera([]))
     for nom, rougit in ce.items():
         if not rougit:
             fautes.append('contre-épreuve sans effet : ' + nom)
     rapport['contre_epreuves'] = ce
     rapport['captures'] = caps
+    rapport['camera'] = {k: cam.get(k) for k in ('branchee', 'balayage', 'releve', 'sans_garde', 'zoom', 'oeil', 'retour', 'marche')}
+    rapport['captures_camera'] = u.get('captures_camera', [])
     return fin(ident, rapport, fautes)
 
 

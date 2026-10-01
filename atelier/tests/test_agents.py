@@ -332,9 +332,10 @@ def test_le_renfort_est_gpt_6_1_sol_puis_grok():
 
 def test_chaque_lot_du_vps_peut_coder_avec_codex():
     # Choix du propriétaire (30 septembre 2026) : Codex en tient autant que
-    # le VPS a de lots, grok ne code que sur quota ou panne.
+    # le VPS a de lots, grok ne code que sur quota ou panne ; deux lots, un
+    # par processeur du VPS.
     projet = charger(RACINE)
-    assert projet.capacite("vps") == 5
+    assert projet.capacite("vps") == 2
     assert projet.plafond("codex") >= projet.capacite("vps")
 
 
