@@ -184,7 +184,7 @@ def depanneur(projet: Projet, *, numero: int, titre: str, corps: str, raison: st
 
 La raison du pilote : {raison}
 {deja}
-Ce dossier est la branche du lot (ou la base, s'il n'a pas encore de PR). Le brief : `{chemin_brief}`. Lis aussi `AGENTS.md`. Tu peux lire le code, `git log`, `git diff origin/{projet.branche_base}...HEAD`, et rejouer un test (`{_tests(projet)} -k …`).
+Ce dossier est la branche du lot (ou la base, s'il n'a pas encore de PR). La chaîne, elle, tourne depuis `origin/{projet.branche_base}` : avant d'accuser `atelier/`, lis-le là (`git show origin/{projet.branche_base}:atelier/<fichier>`), car la branche du lot peut en porter une copie ancienne. Le brief : `{chemin_brief}`. Lis aussi `AGENTS.md`. Tu peux lire le code, `git log`, `git diff origin/{projet.branche_base}...HEAD`, et rejouer un test (`{_tests(projet)} -k …`).
 
 La demande (issue #{numero}) :
 -----
@@ -208,7 +208,7 @@ Les causes que tu rencontreras, et ce qu'elles demandent :
 
 Jamais de consigne qui assouplit un test existant, sort du Périmètre du brief ou touche {_interdits(projet)}.
 
-Écris d'abord ton diagnostic en français, court : ce qui bloque vraiment, avec ses preuves (fichier, ligne, test, commentaire). Puis termine par UNE de ces fins :
+Écris d'abord ton diagnostic en français, court : ce qui bloque vraiment, avec ses preuves (fichier, ligne, test, commentaire). Puis termine par UNE de ces fins, la ligne « DECISION: » en texte brut, sans gras :
 - « DECISION: REPRENDRE :: <la consigne, en un paragraphe, adressée au codeur et au relecteur du prochain passage> »
 - « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code.
 - « DECISION: MODE-DIRECT :: <ce qu'il faut corriger dans la chaîne, et où> »

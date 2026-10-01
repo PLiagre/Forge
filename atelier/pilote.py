@@ -37,6 +37,11 @@ from .projet import MACHINES, Projet
 from .verrous import AucunVerrou
 
 _DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|QUESTION|DECOUPE|MODE-DIRECT|REPRENDRE)\b[ \t]*(?:::[ \t]*(.*))?$", re.M)
+# Le dépanneur écrit en Markdown : le 1er octobre 2026, sa décision sur #235
+# est restée illisible. Sa ligne se lit en gras, citée ou en code, et sa
+# consigne peut suivre sur les lignes d'après.
+_DECISION_DEPANNEUR = re.compile(r"^[ \t>*_`]*DECISION\s*:[ \t*_`]*(REPRENDRE|QUESTION|MODE-DIRECT)\b[ \t*_`]*"
+                                 r"(?:::[ \t]*(.*))?$", re.M)
 _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
@@ -801,9 +806,14 @@ class Pilote:
         if res.attente:
             self.noter(lot.numero, "attente", "dépanneur : " + " · ".join(res.essais))
             return True
-        decisions = _DECISION.findall(res.texte) if res.reussi else []
-        decision, motif = decisions[-1] if decisions else ("", "")
-        diagnostic = _extrait(res.texte[:res.texte.rfind("DECISION:")] if decisions else res.texte, 40)
+        trouvees = list(_DECISION_DEPANNEUR.finditer(res.texte)) if res.reussi else []
+        decision, motif, diagnostic = "", "", _extrait(res.texte, 40)
+        if trouvees:
+            m = trouvees[-1]
+            decision = m.group(1)
+            # La consigne suit « :: », ou les lignes d'après quand il passe à la ligne.
+            motif = (m.group(2) or "").strip().strip("*_` ") or res.texte[m.end():].strip()[:3000]
+            diagnostic = _extrait(res.texte[:m.start()], 40)
         numero_pr = pr["number"] if pr else None
         if decision == "REPRENDRE" and motif.strip():
             # La consigne vit dans la marque : « --> » la fermerait.
@@ -824,9 +834,10 @@ class Pilote:
                           par=lots.PAR_DEPANNEUR, diagnostic=diagnostic)
         else:
             pourquoi = f"code {res.code}" if not res.reussi else "décision illisible"
-            self.gh.commenter_issue(lot.numero, f"🤖 **dépanneur** ({res.agent or '—'}) : pas de diagnostic "
+            self.gh.commenter_issue(lot.numero, f"🤖 **dépanneur** ({res.agent or '—'}) : pas de décision "
                                                 f"({pourquoi}) ; le lot attend le propriétaire.\n\n"
-                                                + marque(role="depanneur", etat="echec", raison=pourquoi))
+                                                f"<details><summary>Ce qu'il a écrit</summary>\n\n{diagnostic}\n\n"
+                                                "</details>\n\n" + marque(role="depanneur", etat="echec", raison=pourquoi))
             self.noter(lot.numero, "dépanneur en échec", pourquoi, str(res.agent or ""))
         return True
 
