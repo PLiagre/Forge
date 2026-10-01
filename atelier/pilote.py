@@ -2,8 +2,8 @@
 
 Un tour relit GitHub, fait avancer d'un pas les lots en cours, et prend le
 lot suivant du jalon courant quand une machine a de la place ; une machine
-qui n'y a plus rien à prendre prend dans le jalon suivant (la fenêtre de
-deux jalons). Il invoque au plus UN agent : un tour reste court à lire.
+qui n'y a plus rien à prendre prend dans le jalon suivant, puis dans le
+troisième (la fenêtre de trois jalons). Il invoque au plus UN agent : un tour reste court à lire.
 Plusieurs tours tournent en même temps — le cron en lance un toutes les deux
 minutes —, et des verrous (`verrous.py`) font qu'un lot n'avance que dans un
 tour à la fois, que relire et choisir se font un tour après l'autre, et
@@ -248,9 +248,8 @@ class Pilote:
                 if apres_a_decouper:
                     self._faire_decouper(apres, ouvertes, courant)
                 suivant = lots.a_prendre(libres_de_prendre, apres.numero, libres, bloq)
-            if suivant is None and libres["pc"] and apres is not None and not vue.decoupe_du_courant \
-                    and not apres_a_decouper:
-                suivant = self._plus_loin_pour_le_pc(vue, ouvertes, libres_de_prendre, bloq)
+            if suivant is None and apres is not None and not vue.decoupe_du_courant and not apres_a_decouper:
+                suivant = self._plus_loin(vue, ouvertes, libres_de_prendre, libres, bloq)
             if suivant is None or not self.verrous.prendre(_verrou_du_lot(suivant.numero)):
                 return
         try:
@@ -260,23 +259,22 @@ class Pilote:
         finally:
             self._lacher_lot(suivant.numero)
 
-    def _plus_loin_pour_le_pc(self, vue: "_Vue", ouvertes: list[Lot], libres_de_prendre: list[Lot],
-                              bloq: frozenset[int]) -> Lot | None:
-        """La fenêtre du PC a trois jalons. La 3D n'arrive qu'au jalon 4 : le
-        30 septembre 2026, J2 et J3 ne demandaient que `sim/`, et le PC
-        attendait des semaines. Un PC qui n'a plus rien dans les deux premiers
-        prend un lot « pc » du troisième ; un troisième sans plan se découpe en
-        avance pour lui, et sa découpe part même si le VPS est plein : ce
-        n'est que le chef, et c'est le PC qu'elle nourrit. Les lots du VPS de
-        ce jalon attendent qu'il entre dans la fenêtre."""
-        loin = lots.jalon_du_pc(vue.jalons, vue.courant)
+    def _plus_loin(self, vue: "_Vue", ouvertes: list[Lot], libres_de_prendre: list[Lot],
+                   libres: dict[str, bool], bloq: frozenset[int]) -> Lot | None:
+        """La fenêtre a trois jalons. Une machine libre qui n'a plus rien
+        dans les deux premiers prend dans le troisième ; un troisième sans plan
+        se découpe en avance. Le 30 septembre 2026, la 3D n'arrivait qu'au
+        jalon 4 et le PC attendait ; le 1er octobre, le VPS est resté trois
+        heures sans rien faire, J2 et J3 en file derrière un lot, alors que
+        #253, de J4, n'attendait rien."""
+        loin = lots.troisieme_jalon(vue.jalons, vue.courant)
         if loin is None:
             return None
-        suivant = lots.a_prendre(libres_de_prendre, loin.numero, {"pc": True}, bloq)
+        suivant = lots.a_prendre(libres_de_prendre, loin.numero, libres, bloq)
         if suivant is not None:
             return suivant
         if lots.a_decouper(loin, vue.cap, ouvertes, vue.fermes):
-            self._faire_decouper(loin, ouvertes, vue.courant, pour_le_pc=True)
+            self._faire_decouper(loin, ouvertes, vue.courant)
             return None
         return next((l for l in sorted(libres_de_prendre, key=lambda l: l.numero)
                      if l.jalon == loin.numero and l.etat == "pret" and not l.dependances & bloq
@@ -320,23 +318,20 @@ class Pilote:
                 self.noter(cle, "erreur", str(e))
         return self.gh.jalons() if gestes else bruts
 
-    def _faire_decouper(self, jalon: lots.Jalon, ouvertes: list[Lot], courant: lots.Jalon | None = None,
-                        pour_le_pc: bool = False) -> None:
+    def _faire_decouper(self, jalon: lots.Jalon, ouvertes: list[Lot], courant: lots.Jalon | None = None) -> None:
         """Un jalon qui commence sans plan se fait découper : le pilote ouvre
         le lot de sa découpe, que le chef prend comme un autre. Le jalon
         suivant se découpe en avance quand une machine n'a plus rien dans le
-        `courant` ; le troisième, `pour_le_pc`, quand le PC n'a plus rien dans
-        les deux premiers."""
+        `courant` ; le troisième, quand elle n'a plus rien dans les deux
+        premiers."""
         avant = sorted(l.numero for l in ouvertes
                        if l.jalon == jalon.numero and "lot" in l.etiquettes and l.etat == "idee")
         en_avance = courant is not None and jalon.numero > courant.numero
         try:
             n = self.gh.creer_issue(f"Découper le jalon {jalon.titre}",
-                                    lots.corps_de_la_decoupe(jalon, avant, courant if en_avance else None,
-                                                             pour_le_pc=pour_le_pc),
+                                    lots.corps_de_la_decoupe(jalon, avant, courant if en_avance else None),
                                     ["lot", "pret"], jalon.titre)
-            self.noter(n, "jalon à découper", jalon.titre + (" (en avance, pour le PC)" if pour_le_pc else
-                                                             " (en avance)" if en_avance else ""))
+            self.noter(n, "jalon à découper", jalon.titre + (" (en avance)" if en_avance else ""))
         except GitHubErreur as e:
             self.noter(f"J{jalon.numero}", "erreur", str(e))
 

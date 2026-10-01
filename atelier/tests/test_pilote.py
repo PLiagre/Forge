@@ -152,7 +152,7 @@ def test_les_sous_lots_se_suivent_et_ce_qui_attendait_le_lot_decoupe_les_attend(
     # « dépend de #119 », devenait libre au tour suivant, avant ses morceaux.
     gh.ajouter_issue(10, "Tout le pont")
     gh.ajouter_issue(20, "Le lanceur", corps="Dépend de : #10")
-    texte = "DECISION: DECOUPE\n- Le service :: sim sert un lieu\n- Le panneau :: Unity affiche le lieu\n"
+    texte = "DECISION: DECOUPE\n- Le service :: sim sert un lieu\n- Le panneau :: Unity affiche le lieu :: après 1\n"
     _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
     service, panneau = 101, 102
     assert Lot.de(gh.issues_[panneau]).dependances == frozenset({service})
@@ -666,11 +666,11 @@ def test_le_jalon_courant_passe_avant_le_suivant(projet, gh, depot, tmp_path):
     assert "pris en avance" not in agents.appels[0][2]
 
 
-def test_la_fenetre_s_arrete_au_jalon_suivant(projet, gh, depot, tmp_path):
+def test_la_fenetre_s_arrete_au_troisieme_jalon(projet, gh, depot, tmp_path):
     _j1_occupe_le_pc(gh)
-    gh.jalons_.append({"number": 3, "title": "J3 — Le lieu et son maître", "state": "open",
-                       "open_issues": 1, "closed_issues": 0})
-    gh.ajouter_issue(60, "La cellule se peuple de lieux", ("lot", "pret"), "J3 — Le lieu et son maître")
+    for n, titre in ((3, "J3 — Le lieu et son maître"), (4, "J4 — La capitale")):
+        gh.jalons_.append({"number": n, "title": titre, "state": "open", "open_issues": 1, "closed_issues": 0})
+    gh.ajouter_issue(60, "Le plan de la capitale", ("lot", "pret"), "J4 — La capitale")
     agents = Agents()
     _pilote(projet, gh, depot, agents, tmp_path).tour()
     assert agents.appels == [] and not _gestes(gh, "creer_pr")
@@ -726,13 +726,15 @@ def test_le_pc_sans_travail_dans_la_fenetre_prend_dans_le_troisieme_jalon(projet
     assert "pris en avance" in prompt and "les jalons d'avant" in prompt
 
 
-def test_le_vps_ne_prend_pas_dans_le_troisieme_jalon(projet, gh, depot, tmp_path):
-    # Contre-épreuve : le troisième jalon n'est ouvert qu'au PC.
+def test_le_vps_sans_travail_dans_les_deux_premiers_prend_dans_le_troisieme_jalon(projet, gh, depot, tmp_path):
+    # Le 1er octobre 2026, le VPS est resté trois heures sans rien faire, J2 et
+    # J3 en file derrière un lot, alors que #253, de J4, n'attendait rien.
     _j3(gh)
     gh.ajouter_issue(60, "La cellule se peuple de lieux", ("lot", "pret"), "J3 — Le lieu et son maître")
-    agents = Agents()
+    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(60, "La cellule se peuple de lieux")))
     _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and not _gestes(gh, "creer_pr")
+    assert _gestes(gh, "creer_pr")[0][2] == "Lot #60 — La cellule se peuple de lieux"
+    assert "pris en avance" in agents.appels[0][2]
 
 
 def test_la_fenetre_du_pc_s_arrete_au_troisieme_jalon(projet, gh, depot, tmp_path):
@@ -755,7 +757,7 @@ def test_le_pc_passe_d_abord_par_le_jalon_suivant(projet, gh, depot, tmp_path):
     assert _gestes(gh, "creer_pr")[0][2] == "Lot #40 — La carte de 1400"
 
 
-def test_le_troisieme_jalon_sans_plan_se_decoupe_pour_le_pc(projet, gh, depot, tmp_path):
+def test_le_troisieme_jalon_sans_plan_se_decoupe_en_avance(projet, gh, depot, tmp_path):
     _ecrire_cap(projet)
     gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
     _vps_attend_sa_ci(gh)
@@ -763,9 +765,8 @@ def test_le_troisieme_jalon_sans_plan_se_decoupe_pour_le_pc(projet, gh, depot, t
     _pilote(projet, gh, depot, Agents(), tmp_path).tour()
     (decoupe,) = [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
     assert decoupe["title"] == "Découper le jalon J3 — Le lieu et son maître"
-    assert "pour lui" in decoupe["body"] and "après rien" in decoupe["body"]
-    # Le VPS est toujours plein : la découpe part quand même, c'est le PC
-    # qu'elle nourrit. Ses lots « pc » sont prêts, ceux du VPS attendent.
+    assert "se découpe en avance" in decoupe["body"] and "déjà sur master" in decoupe["body"]
+    # Le VPS est toujours plein : la découpe part quand même, avec le PC libre.
     texte = ("DECISION: DECOUPE\n- La caméra :: survole la ville :: pc :: après rien\n"
              "- Le plan de la ville :: vit dans le monde :: vps\n"
              "- La preuve :: la ville redessinée :: pc\n")

@@ -106,10 +106,9 @@ def jalon_suivant(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
     return next((j for j in liste if j.ouvert and j.numero > courant.numero), None)
 
 
-def jalon_du_pc(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
-    """Le troisième jalon ouvert, que seul le PC voit. La 3D n'arrive qu'au
-    jalon 4 : le 30 septembre 2026, J2 et J3 ne demandaient que `sim/`, et le
-    PC n'avait rien à faire pendant des semaines."""
+def troisieme_jalon(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
+    """Le troisième jalon ouvert, le bout de la fenêtre. Une machine qui n'a
+    plus rien dans les deux premiers y prend (Pilote._plus_loin)."""
     return jalon_suivant(liste, jalon_suivant(liste, courant))
 
 
@@ -250,7 +249,7 @@ _OPTION_APRES = re.compile(r"\s*::\s*apr[èe]s\s*:?\s*(rien|[\d\s,#et]+?)\s*$", 
 @dataclass(frozen=True)
 class SousLot:
     """Une ligne de découpe du chef. `apres` : None quand elle ne dit rien
-    (le sous-lot attend le précédent), () pour « après rien », sinon les
+    (le sous-lot part tout de suite), () pour « après rien », sinon les
     rangs, dans la liste, des sous-lots qu'il attend."""
 
     titre: str
@@ -281,9 +280,10 @@ def sous_lot(titre: str, quoi: str, machine_par_defaut: str) -> SousLot:
 def dependances_des_sous_lots(sous: list[SousLot], *, preuve_en_dernier: bool = False) -> list[tuple[int, ...]]:
     """Pour chaque sous-lot (rang 1…n), les rangs des sous-lots qu'il attend.
 
-    Sans « après », il attend le précédent : c'est l'ordre du chef, et ce qui
-    était vrai de toutes les découpes jusqu'au 29 septembre 2026. « Après
-    rien », il part tout de suite ; « après 1, 3 », quand 1 et 3 sont livrés.
+    Sans « après », ou « après rien », il part tout de suite ; « après 1, 3 »,
+    quand 1 et 3 sont livrés. Jusqu'au 1er octobre 2026, une ligne muette
+    attendait la précédente : J2 et J4 sont devenus des files de sept lots,
+    et le VPS, qui en tient deux, n'en faisait avancer qu'un.
     Des sous-lots qui ne s'attendent pas avancent en même temps. Le dernier
     d'une découpe de jalon porte la preuve du jalon : il attend tous les
     autres, quoi que dise sa ligne. Un rang qui ne précède pas le sous-lot se
@@ -295,7 +295,7 @@ def dependances_des_sous_lots(sous: list[SousLot], *, preuve_en_dernier: bool = 
             rangs.append(tuple(range(1, i)))
             continue
         if s.apres is None:
-            rangs.append((i - 1,) if i > 1 else ())
+            rangs.append(())
             continue
         fautifs = [k for k in s.apres if not 1 <= k < i]
         if fautifs:
@@ -331,24 +331,17 @@ def a_decouper(jalon: Jalon | None, cap: str, ouvertes: list[Lot], fermees: list
                    for l in siens if "lot" in l.etiquettes)
 
 
-def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = None,
-                        pour_le_pc: bool = False) -> str:
+def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = None) -> str:
     """Le texte du lot qui fait découper un jalon. Les lots déjà ouverts dans
     le jalon passent d'abord : la découpe vient après eux et les complète.
     Un jalon découpé en avance (il suit le `courant`) le dit : ses lots
-    partent pendant que le courant se termine. Découpé `pour_le_pc` (le
-    troisième jalon), seuls ses lots « pc » partent avant leur tour."""
+    partent pendant que le courant se termine."""
     en_avance = courant is not None and jalon.numero > courant.numero
-    if pour_le_pc:
-        tete = (f"Le PC n'a plus rien à prendre dans le jalon courant, {courant.titre}, ni dans le suivant : "
-                f"{jalon.titre} se découpe en avance pour lui. Seuls ses lots « pc » partent avant leur tour ; "
-                "ceux du VPS attendent que le jalon entre dans la fenêtre. Place d'abord les lots « pc » qui ne "
-                "s'appuient que sur ce qui est déjà sur master, et finis leur ligne par « :: après rien » : "
-                "un lot « pc » qui attend un lot du VPS ne part pas plus tôt.")
-    elif en_avance:
-        tete = (f"Le jalon suivant, {jalon.titre}, n'a encore aucun lot prêt, et une machine n'a plus rien à "
-                f"prendre dans le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent "
-                "pendant que le courant se termine ; ils ne s'appuient sur rien qu'il doit encore livrer.")
+    if en_avance:
+        tete = (f"Le jalon {jalon.titre} n'a encore aucun lot prêt, et une machine n'a plus rien à prendre "
+                f"avant lui depuis le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent "
+                "pendant que les jalons d'avant se terminent ; ils ne s'appuient sur rien que ceux-ci doivent "
+                "encore livrer. Place d'abord ceux qui ne s'appuient que sur ce qui est déjà sur master.")
     else:
         tete = f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé."
     lignes = [
