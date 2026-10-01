@@ -1217,12 +1217,15 @@ lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
 ## Les puissances de 1400, vue dérivée
 
 La provenance est `data/puissances-1400.json`. La table couvre l'Ouest,
-l'Italie, le Nord et le Centre, notamment Venise. Les puissances, leurs ancres
-et leurs sources publiques sont de **niveau 1** : elles doivent être justes
-dans les grandes lignes. La nature `principauté` désigne ici une puissance
-tenue par un duc, un comte ou un prince, comme Milan et la Savoie. Le tracé
-qui en découle est de **niveau 2**, plausible et jamais sourcé : il ne
-restitue ni frontière réelle, ni enclave, ni suzeraineté.
+l'Italie, le Nord, le Centre et l'Orient : Byzance, les Ottomans, les Mamelouks,
+le Maghreb et la Russie de Novgorod. Ses 39 puissances et 73 ancres, vérifiées
+contre des sources publiques, sont de **niveau 1** : elles doivent être justes
+dans les grandes lignes au 1er janvier 1400. La nature `principauté` désigne
+une puissance tenue par un duc, un comte ou un prince, comme Milan et la
+Savoie ; `empire` désigne Byzance, `sultanat` les Ottomans, les Mamelouks et
+les trois puissances du Maghreb, `khanat` la Horde d'Or. Le tracé qui en découle
+est de **niveau 2**, plausible et jamais sourcé : il ne restitue ni frontière
+réelle, ni enclave, ni suzeraineté.
 
 À chaque consultation, une cellule relève de la puissance qui tient l'ancre
 la plus proche de son centroïde selon la projection déclarée par le fichier.
@@ -1230,12 +1233,29 @@ La règle unique de `sim/aggregation.py` départage une égalité exacte par le
 plus petit identifiant d'ancre, indépendamment de l'ordre de la table.
 
 Cette attribution s'arrête à la portée mesurée de **4,0 degrés projetés**,
-environ 440 km. Sur les 596 cellules de la carte figée, 406 sont couvertes et
-190 sont non couvertes. Au-delà de la portée, la cellule est explicitement
+environ 440 km. Sur les 596 cellules de la carte figée, 565 sont couvertes et
+31 sont non couvertes. Au-delà de la portée, la cellule est explicitement
 **non couverte** : elle n'est rattachée à aucune puissance par défaut. Cette
-limite plausible laisse notamment Le Caire et Constantinople hors de la table
-actuelle ; les puissances de l'Orient devront les couvrir par leurs ancres,
-pas par une portée artificiellement élargie.
+vue donne la cellule de Constantinople à Byzance. Le Caire se situe au sud
+de la carte, qui s'arrête à 30,45 N : sa cellule la plus proche relève des
+Mamelouks grâce aux ancres d'Alexandrie et de Damiette, sans ancre au Caire.
+
+Les huit `lacunes` déclarent des points nommés et une `raison` : Shetland,
+Féroé, Finlande, Hiiumaa, Dalécarlie, Tripolitaine, Cyrénaïque et Oued Righ.
+Une cellule non couverte est expliquée par la lacune la plus proche de son
+centroïde, dans la même projection et la même portée ; une égalité exacte
+se départage par le plus petit identifiant de lacune. Au-delà, sa raison est
+`None` et la preuve échoue. Chaque cellule non couverte a une raison, chaque
+lacune sert. Une lacune n'attribue aucune cellule à une puissance ; son point
+est de **niveau 2**, plausible, jamais sourcé.
+
+Les anomalies mesurées de **niveau 2** sont acceptées : Rhodes donne aux
+Hospitaliers les Cyclades orientales, l'est de la Crète et un bout de côte
+carienne ; Mistra donne à Byzance l'Attique, les îles Ioniennes et l'ouest
+de la Crète. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
+sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés,
+les tributs, le siège de Constantinople et l'Église de Bosnie restent de
+**niveau 3**, pas simulés.
 
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
