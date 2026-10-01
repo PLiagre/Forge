@@ -115,8 +115,8 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 - **descendre sous la cellule pour les habitants et les biens.** La cellule se
   découpe en lieux par sa surface. La population reste cellulaire et les stocks
   restent un seul panier, réparti par surface à la consommation ; les chemins
-  limitent ce que le bourg atteint. Pas de familles, de personnes, de bâtiments
-  ni de quartiers.
+  limitent ce que le bourg atteint. Pas de familles, de personnes ni de quartiers.
+  Le plan peut porter des bâtiments, mais ils ne font rien.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
@@ -323,8 +323,9 @@ distribution entre les lieux des champs reste gratuite.
 
 ### Ce que le moteur ne fait toujours pas
 
-Le bourg ne donne ni quartiers, ni bâtiments, ni familles, ni personnes, ni
-salaires, ni marchés, ni prix, ni routes, ni États. La vue du bourg ne décide
+Le bourg ne donne ni quartiers, ni familles, ni personnes, ni salaires, ni
+marchés, ni prix, ni États. Son plan peut porter des rues et des bâtiments,
+mais ils ne font rien. La vue du bourg ne décide
 rien et le tick ne la consulte pas : il calcule la part minière et lit les
 lieux pour appliquer « La distribution à l'intérieur de la cellule ».
 
@@ -1409,6 +1410,51 @@ panier reste non négatif. Le remboursement de dette conserve ses kilos réels.
 Restent de niveau 3, non simulés : délai, pertes en route, bras des porteurs,
 tracé des chemins, stock propre à chaque lieu, distribution entre les lieux
 des champs et intégration des villes nommées dans le bourg.
+
+---
+
+## Le plan du bourg
+
+Chaque cellule possède un plan du lieu (`cell_id`, 0), le bourg, dans
+`World.plans` : un dictionnaire `cell_id → Plan`. Aucun `bourg_id`, `ville_id`
+ou numéro de plan n'est ajouté. Le bourg reste une vue dérivée de la
+population ; seuls ses tracés sont stockés. Un monde chargé ou construit
+directement reçoit un plan vide par cellule, sans tirage ni choix de capitale.
+
+`sim/plan.py` contient trois listes triées par `identifiant`, entier non
+négatif et unique dans sa liste :
+
+- `rues` : `identifiant`, `points` (au moins `POINTS_MIN_RUE = 2`),
+  `largeur_m` finie et strictement positive ;
+- `parcelles` : `identifiant`, `contour` (au moins `POINTS_MIN_CONTOUR = 3`) ;
+- `batiments` : `identifiant`, `parcelle` (identifiant d'une parcelle du même
+  plan), `nature` (texte non vide), `emprise` (au moins `POINTS_MIN_CONTOUR`).
+
+Chaque point est un couple `(x, y)` de nombres finis, sans booléen ni texte.
+Le repère est local au bourg : x vers l'est, y vers le nord, en mètres,
+origine au centre du bourg. `PlanInvalide` nomme la donnée manquante ou
+invalide : point non fini, nombre de points insuffisant, largeur nulle ou
+négative, identifiant invalide ou en double, parcelle absente, nature vide.
+Aucune coordonnée n'est bornée : la position et la forme du bourg dans la
+cellule ne sont pas simulées.
+
+Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
+en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
+son plan. Le tick ne le lit pas et ne l'écrit pas : toutes les règles
+existantes et l'évolution des cellules restent identiques au bit près.
+
+`GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
+`parcelles` et `batiments`. Les octets sont construits dans `EtatPublie` avec
+la photographie du tick : une lecture n'attend pas son calcul et ne consulte
+pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
+inconnue donne 404 en la nommant. `/monde`, `/lieu` et le snapshot restent
+inchangés.
+
+La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
+vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
+et forme du bourg dans la cellule, effet des rues et bâtiments sur le monde,
+gestes qui remplissent le plan, inclusion d'une emprise dans une parcelle et
+croisements des tracés. Aucun bras, coût ou transport n'en est encore dérivé.
 
 ---
 
