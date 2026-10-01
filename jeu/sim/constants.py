@@ -311,6 +311,20 @@ def facteurs_transport_par_relief() -> dict[str, float]:
         "haute_montagne": FACTEUR_TRANSPORT_HAUTE_MONTAGNE,
     }
 
+
+# Nourriture amenée par chaque chemin des champs au bourg, freinée par le relief.
+# Niveau 2 : cinq charrettes d'une demi-tonne par jour ; plausible, jamais sourcé.
+CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK = 2500.0 * TICK_DURATION_DAYS
+
+
+def capacite_chemins_interieurs_kg(nombre_chemins, facteur_transport) -> float:
+    """Relit la capacité intérieure ; une capacité infinie est acceptée."""
+    capacite = CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK
+    if math.isnan(capacite) or capacite < 0:
+        raise ValueError("CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK invalide")
+    return capacite * nombre_chemins * facteur_transport
+
+
 # --- Variabilité de rendement ---
 
 # Le rendement de chaque cellule est multiplié par un facteur uniforme
