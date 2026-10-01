@@ -1270,6 +1270,16 @@ def _valider_numero_tick(world, numero_tick: int | None) -> None:
         )
 
 
+def _appliquer_intentions(world) -> None:
+    """Applique les choix en attente dans l'ordre, sans cellule ni aléa."""
+    from sim.world import World
+
+    if isinstance(world, World):
+        for intention in world.intentions_en_attente:
+            world.maison_du_joueur = intention.identifiant
+        world.intentions_en_attente.clear()
+
+
 def _avancer_compteur_ticks(world) -> None:
     from sim.world import World
 
@@ -1282,15 +1292,18 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     Avance le monde d'un pas de temps.
 
     Ordre du tick :
-        1. Fabrication (_apply_fabrication)  — pour chaque cellule
-        2. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
-        3. Production  (_apply_production)   — pour chaque cellule
-        4. Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
-        5. Consommation (_apply_consumption) — pour chaque cellule
-        6. Faim        (_update_hunger)      — pour chaque cellule
-        7. Mortalité   (_apply_mortality)    — pour chaque cellule
-        8. Natalité    (_apply_natalite)     — pour chaque cellule
-        9. Migration   (_apply_migration)    — sur le monde entier (snapshot)
+        1. Validation  (_valider_numero_tick) — avant toute mutation
+        2. Intentions  (_appliquer_intentions) — choix en attente
+        3. Fabrication (_apply_fabrication)  — pour chaque cellule
+        4. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
+        5. Production  (_apply_production)   — pour chaque cellule
+        6. Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
+        7. Consommation (_apply_consumption) — pour chaque cellule
+        8. Faim        (_update_hunger)      — pour chaque cellule
+        9. Mortalité   (_apply_mortality)    — pour chaque cellule
+        10. Natalité   (_apply_natalite)     — pour chaque cellule
+        11. Migration  (_apply_migration)    — sur le monde entier (snapshot)
+        12. Compteur   (_avancer_compteur_ticks) — après tous les maillons
 
     rng : instance de random.Random initialisée par l'appelant —
           jamais d'aléa global non contrôlé.
@@ -1299,6 +1312,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     pendant ce tick (kg).
     """
     _valider_numero_tick(world, numero_tick)
+    _appliquer_intentions(world)
     total_transported = [0.0]
     for cell in world.cells.values():
         _apply_fabrication(cell)

@@ -22,12 +22,14 @@ part. À chaque tick, dans cet ordre :
 1. **Validation du numéro de tick** (`_valider_numero_tick`) — lorsqu'un
    `numero_tick` est fourni, il doit être égal à `world.ticks_ecoules` ; le
    tick refuse tout écart avant la première mutation.
-2. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
+2. **Intentions** (`_appliquer_intentions`) — les choix validés en attente
+   deviennent la maison du joueur, sans cellule ni aléa.
+3. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sur place et sans occuper de bras.
-3. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
+4. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
-4. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
+5. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
@@ -35,27 +37,27 @@ part. À chaque tick, dans cet ordre :
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
    pluie suffisante.
-5. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
+6. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture.
-6. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+7. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
    bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
    Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
-7. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+8. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-8. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
+9. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
    fraction d'habitant non encore morte pour qu'une petite cellule ne devienne
    pas immortelle par arrondi.
-9. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
+10. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
    des habitants, avec le même report de fraction.
-10. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
+11. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
     qui a manqué ce tick part vers les voisines dont il reste de la nourriture
     après consommation. Personne n'emporte de kilogrammes.
-11. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+12. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -1377,6 +1379,53 @@ puissances, ses maisons, l'amorçage, la carte et le tick restent identiques.
 **Le tick ne la lit pas.**
 
 ---
+
+## Les intentions du joueur
+
+Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
+`POST /intention` ou `python3 -m forge --depart ID`. Les deux appellent
+`deposer_intention` de `sim/intentions.py`, chemin que prendra aussi l'IA.
+La table se lit par `charger_seigneuries()` ; `cellule_du_siege` vérifie
+que le siège est dans la carte. Aucune cellule ni aucun plan ne change.
+
+Le dépôt refuse avant toute mise en attente, par `IntentionRefusee` :
+
+- une valeur absente, booléenne, non entière ou inconnue :
+  « seigneurie inconnue : <valeur reçue> » ; un siège hors carte est aussi refusé ;
+- un choix déjà retenu ou en attente : « départ déjà choisi : <id> ».
+
+Le choix accepté est un `ChoixDepart(identifiant)` gelé, placé dans
+`World.intentions_en_attente`. Il reste invisible dans `to_dict()` et les
+vues. Au tick suivant, `_appliquer_intentions` vient après la validation du
+numéro et avant la fabrication : elle vide la liste dans l'ordre et pose
+`maison_du_joueur`. Un numéro invalide laisse donc le choix en attente.
+Cette étape ignore les mondes d'épreuve, ne tire aucun aléa et ne lit ni
+n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
+
+`maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
+et `/monde` portent cette clé et l'id choisi ; sans choix, la clé est absente
+et les octets comme l'empreinte restent ceux d'avant. Même graine et même
+choix donnent le même monde ; un autre choix change son empreinte, sans
+changer les cellules, les plans ou l'état du générateur aléatoire.
+
+Le service dépose sous `verrou_tick`. Il répond 200 avec
+`{"acceptee": true, "appliquee_au_tick": <tick publié>}`, 400 pour une terre
+inconnue ou mal formée, 409 pour un second choix, avec la cause du refus.
+**Lacune déclarée :** tout autre objet reste accepté sans effet ; la liste
+fermée des intentions viendra avec la deuxième intention.
+
+`--depart` est entier et répétable : chaque valeur se dépose dans l'ordre
+avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
+ni `resume.json`. Avec `--ticks 0`, la commande refuse : « l'intention
+s'applique au tick suivant ». Le compte rendu porte
+`simulation.maison_du_joueur` seulement après un choix appliqué ; la
+photographie `monde.json` reste identique avec ou sans choix.
+
+**Niveau 1 :** les cinq terres et leurs attributions héritées, sans changement.
+**Niveau 2, plausible :** la maison du joueur réduite à l'id de sa terre,
+donc à la cellule de son siège. **Niveau 3, pas simulé :** ses effets
+(prélèvement, jalon 3), les maisons de l'IA (jalon 5) et les personnes
+(jalon 6). Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
 ## Les lieux d'une cellule, vue dérivée
 

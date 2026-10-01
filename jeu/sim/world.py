@@ -101,6 +101,8 @@ class World:
         attribution_villes : résultat initial des points historiques, y
                      compris ceux hors carte ; le tick ne le consulte pas.
         plans      : dict cell_id → Plan du bourg (rang 0), sans effet au tick.
+        intentions_en_attente : choix validés, invisibles avant le tick suivant.
+        maison_du_joueur : identifiant du départ appliqué, ou None sans choix.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -114,6 +116,8 @@ class World:
         self.stocks_mer: dict[str, float] = {}
         self.attribution_villes = attribution_villes
         self.ticks_ecoules = 0
+        self.intentions_en_attente = []
+        self.maison_du_joueur = None
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -239,7 +243,7 @@ class World:
         Sérialisation canonique pour calcul d'empreinte SHA256.
         Les clés sont triées pour garantir le déterminisme.
         """
-        return {
+        document = {
             "cells": {
                 str(cid): cellule_vers_dict(c)
                 for cid, c in sorted(self.cells.items())
@@ -250,3 +254,6 @@ class World:
             },
             "ticks_ecoules": self.ticks_ecoules,
         }
+        if self.maison_du_joueur is not None:
+            document["maison_du_joueur"] = self.maison_du_joueur
+        return document

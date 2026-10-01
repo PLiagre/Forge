@@ -18,6 +18,11 @@ le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide et n'a aucun effet sur le tick.
 
+`POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}` : le
+dépôt validé reste en attente jusqu’au tick suivant. Le choix est unique ; une
+terre inconnue rend 400, un second choix 409, et les autres objets restent
+acceptés sans effet.
+
 `--snapshot-json` écrit une photographie cellulaire déterministe (schéma
 `SNAPSHOT_SCHEMA_VERSION`) : géométrie, état simulé, province dérivée,
 climat. Ce n'est pas une seconde simulation. Le snapshot déclare lui-même,
@@ -40,6 +45,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/constants.py` | Constantes paramétriques nommées (voir `sim/MODELE.md`) |
 | `sim/model.py` | Dataclass `Cell` — entité géographique de base |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
+| `sim/intentions.py` | Dépôt commun des choix de départ validés, en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
 | `sim/aggregation.py` | Agrégation dérivée : regroupe les cellules par centre administratif le plus proche. Ne modifie rien, n'écrit rien |
