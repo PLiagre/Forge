@@ -46,6 +46,12 @@ for label, prefixes in groups:
     camera.location = (width / 2 + distance * .15, -distance, distance * .45 + top * .3)
     camera.data.lens = 35
     camera.rotation_euler = (Vector((width / 2, 0, top * .35)) - camera.location).to_track_quat('-Z', 'Y').to_euler()
+    # Le recul se tire de l'objectif, pas de la largeur : toutes les enveloppes entrent dans le cadre, avec une marge.
+    bpy.context.view_layer.update()
+    coins = [o.matrix_world @ Vector(b) for o in items for b in o.bound_box]
+    cadre, _ = camera.camera_fit_coords(bpy.context.evaluated_depsgraph_get(), [v for c in coins for v in c])
+    recul = camera.matrix_world.to_quaternion() @ Vector((0, 0, 1)); distance = (Vector(cadre) - sum(coins, Vector()) / len(coins)).dot(recul)
+    camera.location = Vector(cadre) + recul * distance * .1
     camera.data.clip_end = distance * 6
     sc.render.filepath = str(OUT / 'diagnostic' / ('kit_' + label + '.png'))
     bpy.ops.render.render(write_still=True)
