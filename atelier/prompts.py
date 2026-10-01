@@ -72,6 +72,7 @@ Règles :
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
 - Si le lot demande une décision que seul le propriétaire peut prendre (changer un test existant ou une règle du monde, trancher entre deux lectures de `CAP.md` ou de `docs/VISION.md`), n'écris rien et pose-lui la question : termine par la ligne « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Il te lit sur son téléphone : des phrases courtes, sans jargon de code. Si les commentaires contiennent déjà sa réponse à ta question, suis-la : ne la repose pas.
+- Une seule question par lot, qui porte TOUTES ses décisions. Avant de la poser, recense tout ce que le lot fera changer : chaque test existant qui rougira (cherche dans les tests ce qui compte, borne ou fige ce que le lot touche), chaque règle du monde. Si le lot en demande plusieurs, ta question les nomme toutes, et chaque réponse dit ce qu'elle décide pour chacune (« A :: oui aux deux… »). Le 30 septembre 2026, #207 a posé deux questions à quatre minutes d'écart : le propriétaire a cru avoir répondu, et le lot a attendu une nuit.
 - Machine « pc » : le lot demande Unity ou Blender sur le PC Windows ; « vps » : Python seul.
 - Tu n'écris que le fichier du brief. {_FRONTIERE}
 
@@ -210,7 +211,7 @@ Jamais de consigne qui assouplit un test existant, sort du Périmètre du brief 
 
 Écris d'abord ton diagnostic en français, court : ce qui bloque vraiment, avec ses preuves (fichier, ligne, test, commentaire). Puis termine par UNE de ces fins, la ligne « DECISION: » en texte brut, sans gras :
 - « DECISION: REPRENDRE :: <la consigne, en un paragraphe, adressée au codeur et au relecteur du prochain passage> »
-- « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code.
+- « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code. Une seule question, qui porte toutes les décisions que le lot demande encore : recense chaque test existant qui rougira et chaque règle du monde touchée avant de l'écrire.
 - « DECISION: MODE-DIRECT :: <ce qu'il faut corriger dans la chaîne, et où> »
 {_FRONTIERE}"""
 
