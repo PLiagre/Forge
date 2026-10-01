@@ -377,7 +377,8 @@ class Action:
 
 # Ce que le PC répond à un envoi. `attente` : aucun de ses agents n'a pu
 # répondre (quota, session, installation) ; ce n'est pas un passage du codeur.
-REPONSES_PC = ("fait", "echec", "attente")
+# `reponse` : le codeur a répondu à une revue sans changer de fichier.
+REPONSES_PC = ("fait", "echec", "attente", "reponse")
 # Après une attente du PC, on renvoie au bout d'une heure ; sans réponse du
 # tout (PC éteint : GitHub garde le travail en file un jour), au bout de 24 h.
 HEURES_ATTENTE_PC = 1
@@ -422,7 +423,7 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
         return Action("bloquer", "la PR a été fermée sans fusion")
     tete = pr.get("headRefOid") or ""
     codeurs = [m for m in depuis_reprise(liste) if m.get("role") == role_codeur]
-    essais = sum(1 for m in codeurs if m.get("etat") in ("fait", "echec"))
+    essais = sum(1 for m in codeurs if m.get("etat") in ("fait", "echec", "reponse"))
     max_essais = 1 + corrections_max
 
     # Un envoi au PC attend sa réponse ; sans réponse en un jour, on renvoie.
@@ -459,6 +460,14 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
     if not verdicts or not verdicts[-1].get("verdict"):
         return Action("relire")
     dernier = verdicts[-1].get("verdict")
+    # Le codeur a répondu à cette revue sans changer de fichier (le constat ne
+    # demandait qu'une réponse écrite) : le relecteur relit avec sa réponse.
+    # Le 1er octobre 2026, #270 s'est bloqué sur un « n'a rien changé ».
+    i_verdict = max(i for i, m in enumerate(liste) if m.get("role") == "relecteur" and m.get("sha") == tete)
+    i_reponse = max((i for i, m in enumerate(liste) if m.get("role") == role_codeur and m.get("etat") == "reponse"),
+                    default=-1)
+    if dernier == "CORRIGER" and i_reponse > i_verdict:
+        return Action("relire")
     if dernier == "ACCEPTE":
         if pr.get("autoMergeRequest"):
             return Action("attendre_fusion")

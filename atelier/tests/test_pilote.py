@@ -1093,3 +1093,28 @@ def test_le_chef_et_le_depanneur_posent_toutes_les_decisions_d_un_lot_en_une_que
     assert "Une seule question par lot, qui porte TOUTES ses décisions" in chef
     assert "chaque test existant qui rougira" in chef
     assert "Une seule question, qui porte toutes les décisions" in depanneur
+
+
+def test_le_codeur_repond_a_une_revue_sans_changer_de_fichier_et_le_relecteur_relit(projet, gh, depot, tmp_path):
+    """Le 1er octobre 2026, #270 : le constat ne demandait qu'une description
+    écrite ; « n'a rien changé » comptait comme un échec, et le lot s'est bloqué."""
+    _en_cours(gh, commentaires=[FAIT_CODEX, REVUE_CORRIGER])
+    _pilote(projet, gh, depot, Agents((0, "La planche montre trois rangées : maison, scierie, four.")), tmp_path).tour()
+    m = marques(gh.prs_[50]["comments"])[-1]
+    assert m["role"] == "codeur" and m["etat"] == "reponse"
+    relecteur = Agents((0, "La description suffit.\nVERDICT: ACCEPTE"))
+    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
+    prompt = next(a for a in relecteur.appels[0] if "Tu es le relecteur" in a)
+    assert "maison, scierie, four" in prompt
+    assert ("fusion_auto", 50) in gh.gestes
+
+
+def test_la_branche_recoit_la_base_avant_que_le_codeur_travaille(projet, gh, depot, tmp_path, monkeypatch):
+    """Le 1er octobre 2026, la branche de #208 partait d'avant #207, livré
+    quatre minutes plus tôt : le codeur ne pouvait pas la mettre à jour."""
+    _en_cours(gh)
+    monkeypatch.setattr(depot, "en_retard", lambda chemin: True)
+    agents = Agents((0, "Fait.", {"jeu/sim/x.py": "code"}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert any("base fusionnée" in l for l in lignes)
+    assert depot.gestes.index(("pousser", BRANCHE)) < depot.gestes.index(("enregistrer", "Lot #10 — code"))
