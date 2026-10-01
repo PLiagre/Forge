@@ -63,11 +63,13 @@ La **province** ne se stocke pas : elle se recalcule à chaque consultation
 comme « le centre administratif le plus proche ». La **pluie** et la **crue**
 ne sont pas stockées sur `Cell` : leurs vues se dérivent respectivement du
 relevé le plus proche et du cours du fleuve, puis entrent dans la carte au
-moment où le monde la lit. La **puissance** dont relève une cellule est
-pareillement une vue dérivée, jamais un second identifiant spatial stocké.
+moment où le monde la lit. La **puissance** et la **maison** dont relève une
+cellule sont pareillement des vues dérivées, jamais un second identifiant
+spatial stocké.
 Les **lieux** d'une cellule se dérivent aussi de sa surface, sans se stocker
 sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans leurs
-vues ; il ne consomme ni la vue des provinces, ni celle des puissances.
+vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
+ni celle des maisons.
 Il lit celle des lieux à la consommation, sans rien stocker.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
@@ -1256,6 +1258,65 @@ les tributs, le siège de Constantinople et l'Église de Bosnie restent de
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
 lit pas**.
+
+---
+
+## Les maisons de 1400, vue dérivée
+
+La même table `data/puissances-1400.json` déclare 30 maisons, chacune avec
+un `id`, un `nom` et une `source` publique qui atteste sa tenure au
+1er janvier 1400 : Lancastre, Stuart, Valois, Aviz, Trastamare, Barcelone,
+Évreux, Nasrides, Luxembourg, Visconti, Anjou-Durazzo, Savoie, Poméranie,
+Jagellon, Paléologue, Osman, Lazarević, Kotromanić, Basarab, Mușat,
+Djötchides, Barquq, Hafsides, Zayyanides, Mérinides, Lusignan,
+Valois-Bourgogne, Montfort, Wittelsbach et Habsbourg.
+
+Chacune des 29 puissances de nature `royaume`, `principauté`, `empire`,
+`sultanat` ou `khanat` désigne une maison connue. Les dix autres se
+**déclarent sans maison**, par leur nature `république`, `Église` ou `ordre` :
+Archevêché de Trèves, Confédération des cantons suisses, Venise, Florence,
+Gênes, Papauté, Ordre teutonique, Novgorod, Pskov et Hospitaliers. Leur ligne
+ne porte pas de champ `maison` ; une absence de ce champ sur une autre
+nature est refusée. Une maison qui ne tient ni puissance ni ancre est refusée.
+
+Six ancres déclarent une maison de grand vassal différente de celle de leur
+puissance : Dijon et Bruges sont tenues par **Valois-Bourgogne**, Nantes par
+**Montfort**, Munich et Heidelberg par **Wittelsbach**, Vienne par
+**Habsbourg**. Une ancre sans déclaration hérite de la maison de sa puissance,
+ou de son absence déclarée de maison. Déclarer une maison inconnue ou déjà
+celle de la puissance est refusé. L'ancre du vassal reste une ancre de sa
+puissance : la preuve vérifie que la cellule la plus proche de son point
+relève de cette puissance et de cette maison.
+
+La maison tenante d'une cellule est celle de **la même ancre la plus proche**
+qui donne sa puissance, selon `sim/aggregation.py`, la projection et la portée
+existantes. À distance exactement égale, le plus petit `id` d'ancre gagne.
+Une cellule non couverte rend `None`, comme une cellule de république,
+d'Église ou d'ordre. Toute autre cellule couverte porte la maison de sa
+puissance ou d'un vassal ancré dans celle-ci, jamais une maison étrangère.
+Sur les 596 cellules figées, **476** sont tenues par une maison, **89** sont
+sans maison par déclaration de nature, et **31** sont non couvertes.
+Chacune des 30 maisons tient au moins une cellule.
+
+Les attributions aux puissances et aux six villes de vassal sont de
+**niveau 1**, vérifiées contre des sources publiques. Leur étendue suit les
+ancres : elle est de **niveau 2**, plausible et jamais sourcée. Montfort tient
+18 cellules et Valois 13 ; Habsbourg en tient 2. Innsbruck tombe chez
+Wittelsbach, Linz en Bohême, Besançon et Lille chez Valois-Bourgogne : ces
+anomalies sont acceptées. Luxembourg tient le Saint-Empire, mais aucune de
+ses cellules, dont les trois ancres sont tenues par des vassaux ; ses cellules
+sont celles de la Bohême et de la Hongrie.
+
+Restent de **niveau 3**, pas simulés : le lien de suzeraineté et l'hommage,
+les personnes et la succession des dynasties, Vytautas en Lituanie, Naples
+disputée, Édigu derrière le khan, Marguerite derrière Éric, les vassaux sans
+ancre (Orléans, Anjou, Berry, Foix, Armagnac, Wettin, Hohenzollern, la Hollande
+des Wittelsbach) et les terres d'Empire de Bourgogne.
+
+La vue `sim/maisons.py` est pure, recalculée et vit hors de `sim.model`.
+Elle passe par `positions_du_monde`, refuse une position absente en nommant
+la cellule et ne pose rien sur `Cell`. **Le tick ne la lit pas** ; la règle
+des puissances, leurs ancres et leurs cellules restent identiques.
 
 ---
 
