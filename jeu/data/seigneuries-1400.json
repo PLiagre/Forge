@@ -1,0 +1,34 @@
+{
+  "date": "1400-01-01",
+  "projection": "EPSG:3035",
+  "reference": "EPSG:4326",
+  "conversion": "Lambert azimutale équivalente ellipsoïdale GRS80 : φ0 = 52° N, λ0 = 10° E, x0 = 4 321 000 m, y0 = 3 210 000 m ; coordonnées arrondies au centimètre, conversion retrouvant les centroïdes de la carte à 6 cm près.",
+  "fidelite": "Niveau 1 : seigneurs, maisons, suzerains et points des sièges attestés par des sources publiques au 1er janvier 1400. Niveau 2 : seigneurie réduite à la cellule entière du siège, habitants amorcés, production du moteur et étendue du suzerain suivant ses ancres. Niveau 3 : prélèvement, hommage, personnes et autres seigneuries non simulés.",
+  "seigneuries": [
+    {
+      "id": 1, "nom": "Duché de Bar", "religion": "catholique", "maison": "Bar", "suzerain": 3,
+      "siege": {"nom": "Bar-le-Duc", "lat": 48.772, "lon": 5.160, "x_m": 3965409.11, "y_m": 2862646.57},
+      "source": "https://fr.wikipedia.org/wiki/Robert_Ier_de_Bar : Robert Ier, comte dès 1352 puis duc de 1354 à 1411, maison de Scarpone (branche de Bar). https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Bar : Bar-le-Duc, capitale ; le Barrois mouvant relève du roi de France depuis 1301, contrairement au Barrois non mouvant d'Empire."
+    },
+    {
+      "id": 2, "nom": "Comté de Wurtemberg", "religion": "catholique", "maison": "Wurtemberg", "suzerain": 9,
+      "siege": {"nom": "Stuttgart", "lat": 48.776, "lon": 9.183, "x_m": 4260932.34, "y_m": 2851742.83},
+      "source": "https://www.deutsche-biographie.de/sfz35480.html : Eberhard III de Wurtemberg succède à son grand-père en 1392, meurt en 1417 et agit au nom de l'Empire. https://en.wikipedia.org/wiki/County_of_W%C3%BCrttemberg : comté du Saint-Empire, capitale Stuttgart, tenu par la maison de Wurtemberg."
+    },
+    {
+      "id": 3, "nom": "Despotat de Morée", "religion": "orthodoxe", "maison": "Paléologue", "suzerain": 25,
+      "siege": {"nom": "Mistra", "lat": 37.074, "lon": 22.367, "x_m": 5424441.58, "y_m": 1644956.82},
+      "source": "https://www.worldhistory.org/Despotate_of_the_Morea/ : apanage byzantin à Mistra, Théodore Ier Paléologue règne de 1383 à 1407 et reste fidèle à Manuel II. La cession de Corinthe est datée de 1400, suivie des prétentions hospitalières sur Mistra, refusées par ses habitants ; leur abandon est acquis en 1404."
+    },
+    {
+      "id": 4, "nom": "Terre des Branković", "religion": "orthodoxe", "maison": "Branković", "suzerain": 26,
+      "siege": {"nom": "Vučitrn", "lat": 42.823, "lon": 20.969, "x_m": 5217097.38, "y_m": 2256208.68},
+      "source": "https://en.wikipedia.org/wiki/%C4%90ura%C4%91_Brankovi%C4%87 : Đurađ, maison Branković, seigneur du domaine de 1396 à 1412. https://en.wikipedia.org/wiki/Vuk_Brankovi%C4%87 : après la déposition de Vuk en 1395–1396, Priština et Vučitrn restent à ses fils comme vassaux ottomans."
+    },
+    {
+      "id": 5, "nom": "Uç d'Evrenos", "religion": "musulmane", "maison": "Evrenosoğulları", "suzerain": 26,
+      "siege": {"nom": "Giannitsa", "lat": 40.792, "lon": 22.408, "x_m": 5367717.15, "y_m": 2051967.94},
+      "source": "https://islamansiklopedisi.org.tr/evrenosogullari : Gazi Evrenos Bey, fondateur des Evrenosoğulları, chef de marche au service des sultans dont Bayezid Ier, installé à Yenice-i Vardar où il meurt en 1417. https://en.wikipedia.org/wiki/Evrenos : Yenice-i Vardar correspond à Giannitsa."
+    }
+  ]
+}
