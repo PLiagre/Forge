@@ -11,7 +11,7 @@
   "chantier_four_pain_pise_murs"
  ],
  "anciens_modules": 49,
- "empreintes": 165,
+ "empreintes": 170,
  "plafonds": {
   "scierie": [
    2400,
@@ -274,6 +274,107 @@
  },
  "ecart_image": 32.74342535475011,
  "ecart_chantiers": 11.98860879825522,
+ "planche": [
+  {
+   "id": "chantier_maison_pise_0_piquets",
+   "rangee": 0,
+   "colonne": 0,
+   "x": 0,
+   "y": 0,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 9.608558722116847
+  },
+  {
+   "id": "chantier_maison_pise_0_murs",
+   "rangee": 0,
+   "colonne": 1,
+   "x": 640,
+   "y": 0,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 36.983029885518945
+  },
+  {
+   "id": "maison_pise_0",
+   "rangee": 0,
+   "colonne": 2,
+   "x": 1280,
+   "y": 0,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 31.327416623881682
+  },
+  {
+   "id": "chantier_scierie_piquets",
+   "rangee": 1,
+   "colonne": 0,
+   "x": 0,
+   "y": 480,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 9.598539817412096
+  },
+  {
+   "id": "chantier_scierie_murs",
+   "rangee": 1,
+   "colonne": 1,
+   "x": 640,
+   "y": 480,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 31.630132115045114
+  },
+  {
+   "id": "scierie",
+   "rangee": 1,
+   "colonne": 2,
+   "x": 1280,
+   "y": 480,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 42.58402285652105
+  },
+  {
+   "id": "chantier_four_pain_pise_piquets",
+   "rangee": 2,
+   "colonne": 0,
+   "x": 0,
+   "y": 960,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 17.703576570167318
+  },
+  {
+   "id": "chantier_four_pain_pise_murs",
+   "rangee": 2,
+   "colonne": 1,
+   "x": 640,
+   "y": 960,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 38.06321068141862
+  },
+  {
+   "id": "four_pain_pise",
+   "rangee": 2,
+   "colonne": 2,
+   "x": 1280,
+   "y": 960,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 32.52578066284957
+  }
+ ],
  "verification": {
   "status": "valide",
   "message": "",
@@ -375,6 +476,62 @@
    "attendue": "echantillon",
    "obtenues": [
     "echantillon"
+   ],
+   "rougit": true
+  },
+  "planche_unity_absente": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
+   ],
+   "rougit": true
+  },
+  "planche_unity_uniforme": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
+   ],
+   "rougit": true
+  },
+  "case_absente": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
+   ],
+   "rougit": true
+  },
+  "cases_permutees": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
+   ],
+   "rougit": true
+  },
+  "etape_manquante_planche": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
+   ],
+   "rougit": true
+  },
+  "scene_enregistree": {
+   "attendue": "empreinte",
+   "obtenues": [
+    "empreinte"
+   ],
+   "rougit": true
+  },
+  "scene_non_renseignee": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
+   ],
+   "rougit": true
+  },
+  "scene_apparue": {
+   "attendue": "empreinte",
+   "obtenues": [
+    "empreinte"
    ],
    "rougit": true
   }

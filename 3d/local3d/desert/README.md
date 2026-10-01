@@ -123,6 +123,24 @@ fini (le prefab de `maison_pise_0`, déjà là, est seulement chargé : `referen
 de `selection.json`) ; `kit.juger` vérifie l'emprise, les hauteurs et la suite. La
 planche `sorties/diagnostic/kit_chantiers.png` montre les six étapes.
 
+Le lot 270 fait voir ce qu'Unity affichera : `sorties/diagnostic/kit_chantiers_unity.png`,
+une rangée par bâtiment de `kit.CHANTIERS` (maison, scierie, four), trois colonnes
+(piquets, murs, fini), rendue avec les prefabs et les matériaux d'Unity. Python
+écrit les rangées dans `selection.json` (`planche`, d'après `kit.suite`) ;
+`DesertKit.Planche` ouvre une scène neuve qu'il n'enregistre jamais (une lumière,
+une caméra au fond uni, pas de sol), rend chaque prefab seul, LOD0 forcé, avec un
+cadrage de trois quarts depuis la façade calé sur le bâtiment fini de sa rangée :
+les trois étapes se comparent à la même échelle. Le rapport donne la place de chaque
+case. L'image est effacée avant Unity, puis relue ; `kit.juger_planche` refuse
+(défaut `planche`) une image absente, uniforme ou d'autres dimensions que le
+rapport, des cases qui ne sont pas exactement les étapes des chantiers à leur
+place, sans renderer actif, hors de l'image ou qui se chevauchent, un rectangle
+qui n'est pas dans la rangée et la colonne qu'il déclare (plus bas pour une
+rangée plus loin, plus à droite pour une colonne plus loin), une case qui n'a que
+son fond, et une scène du rendu non renseignée (seule une chaîne vide prouve la
+scène jamais enregistrée). Une scène enregistrée pour le rendu, ou toute scène
+apparue sous `unity/Assets/`, est un défaut `empreinte`.
+
 Pour ajouter un module : l'écrire dans `assets.py`, à la fin de `jobs()`, puis
 l'inscrire dans `kit.py` (`NOUVEAUX` et `PLAFONDS`, le seul endroit du budget).
 `edition --asset` ne le connaît qu'après la prochaine reconstruction complète

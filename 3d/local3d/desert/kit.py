@@ -36,7 +36,21 @@ RAPPORT_MURS = (0.5, 0.8)      # hauteur de l'étape des murs, perches comprises
 BORDS = ('x_min', 'x_max', 'z_min', 'z_max')
 NIVEAUX = 3
 ETIQUETTES = ('budget', 'origine', 'lod', 'materiau', 'echantillon', 'catalogue', 'empreinte',
-              'emprise', 'hauteur', 'suite')
+              'emprise', 'hauteur', 'suite', 'planche')
+# Lot 270 : la planche qu'Unity rend des étapes de chantier, chemin relatif au dossier du désert.
+PLANCHE_UNITY = 'sorties/diagnostic/kit_chantiers_unity.png'
+SCENE_NON_RELEVEE = '-1'       # `scene_chemin` du rapport quand Unity n'a pas rendu la planche
+
+
+def rangees_planche():
+    """Ce qu'Unity photographie : une rangée par bâtiment de CHANTIERS, dans l'ordre, ses étapes
+    puis le bâtiment fini. Écrit dans `selection.json`, jamais à la main."""
+    return [{'fini': fini, 'etapes': suite(fini)} for fini in CHANTIERS]
+
+
+def cases_attendues():
+    """(rangée, colonne, id) de chaque case de la planche Unity, dérivés de `rangees_planche`."""
+    return [(r, c, i) for r, rangee in enumerate(rangees_planche()) for c, i in enumerate(rangee['etapes'])]
 
 
 def defaut(etiquette, message):
@@ -139,6 +153,114 @@ def juger_chantiers(entrees):
     return fautes
 
 
+def rectangle(case, largeur, hauteur):
+    """(x, y, l, h) d'une case s'il est entier, non vide et tient dans une image largeur × hauteur ;
+    None sinon. Pixels de l'image PNG, origine en haut à gauche."""
+    r = tuple(case.get(k) for k in ('x', 'y', 'largeur', 'hauteur'))
+    if not all(isinstance(v, int) for v in r):
+        return None
+    x, y, l, h = r
+    return r if l > 0 and h > 0 and x >= 0 and y >= 0 and x + l <= largeur and y + h <= hauteur else None
+
+
+def ecarts_cases(entrees):
+    """Pour chaque case du rapport : son id, sa place et l'écart-type de ses pixels, rejoué sur
+    l'image (`entrees['planche']`) ; -1 quand l'image manque ou que la case n'y tient pas."""
+    import numpy as np
+    p = (entrees['unity'] or {}).get('planche') or {}
+    pixels = entrees.get('planche')
+    pixels = None if pixels is None else np.asarray(pixels)
+    resultats = []
+    for c in p.get('cases') or []:
+        r = rectangle(c, pixels.shape[1], pixels.shape[0]) if pixels is not None and pixels.ndim == 3 else None
+        ecart = ecart_pixels(pixels[r[1]:r[1] + r[3], r[0]:r[0] + r[2]]) if r else -1.0
+        resultats.append({'id': c.get('id'), 'rangee': c.get('rangee'), 'colonne': c.get('colonne'),
+                          'x': c.get('x'), 'y': c.get('y'), 'largeur': c.get('largeur'), 'hauteur': c.get('hauteur'),
+                          'renderers': c.get('renderers', -1), 'ecart': ecart})
+    return resultats
+
+
+def juger_planche(entrees):
+    """Lot 270 : la planche qu'Unity a rendue des étapes de chantier. La mesure est rejouée sur
+    les pixels (`entrees['planche']`, hauteur × largeur × 3, ou None si l'image manque)."""
+    import numpy as np
+    u = entrees['unity'] or {}; minimal = entrees['ecart_minimal']
+    if 'planche' not in u:
+        return [defaut('planche', 'le rapport d\'Unity n\'a pas de planche')]
+    p = u['planche'] or {}
+    fautes = []
+    # SC4 : la scène du rendu n'a jamais été enregistrée. Seule une chaîne vide le prouve ; une
+    # valeur absente, nulle ou non relevée ne prouve rien.
+    scene = p.get('scene_chemin')
+    if not isinstance(scene, str) or scene == SCENE_NON_RELEVEE:
+        fautes.append(defaut('planche', 'Unity n\'a pas relevé la scène du rendu : {!r}'.format(scene)))
+    elif scene:
+        fautes.append(defaut('empreinte', 'la planche a été rendue dans une scène enregistrée : ' + str(scene)))
+    if p.get('chemin') != PLANCHE_UNITY:
+        fautes.append(defaut('planche', 'Unity a écrit la planche dans {} ; attendu {}'.format(p.get('chemin'), PLANCHE_UNITY)))
+
+    # SC1 : l'image existe, aux dimensions du rapport, et n'est pas uniforme.
+    pixels = entrees.get('planche')
+    pixels = None if pixels is None else np.asarray(pixels)
+    if pixels is None:
+        fautes.append(defaut('planche', 'image ' + PLANCHE_UNITY + ' absente'))
+    elif pixels.ndim != 3 or pixels.shape[:2] != (p.get('hauteur'), p.get('largeur')):
+        fautes.append(defaut('planche', 'image de forme {} ; le rapport dit {} × {}'.format(
+            pixels.shape, p.get('largeur'), p.get('hauteur'))))
+        if pixels.ndim != 3:
+            pixels = None
+    if pixels is not None:
+        ecart = ecart_pixels(pixels)
+        if not ecart >= minimal:
+            fautes.append(defaut('planche', 'planche Unity uniforme (écart-type {:.1f}, {} au moins)'.format(ecart, minimal)))
+
+    # SC2 : exactement les cases des chantiers, à leur place, un renderer au moins, sans chevauchement.
+    cases = p.get('cases') or []
+    attendues = cases_attendues()
+    obtenues = [(c.get('rangee'), c.get('colonne'), c.get('id')) for c in cases]
+    if not attendues or obtenues != attendues:
+        fautes.append(defaut('planche', 'cases {} ; attendu {}'.format(obtenues, attendues)))
+    largeur, hauteur = (pixels.shape[1], pixels.shape[0]) if pixels is not None else (p.get('largeur'), p.get('hauteur'))
+    if not isinstance(largeur, int) or not isinstance(hauteur, int):
+        largeur = hauteur = 0
+    rects = []
+    for c in cases:
+        nom = str(c.get('id'))
+        if not (isinstance(c.get('renderers'), int) and c['renderers'] >= 1):
+            fautes.append(defaut('planche', '{} : {} renderer actif au rendu'.format(nom, c.get('renderers'))))
+        r = rectangle(c, largeur, hauteur)
+        if r is None:
+            fautes.append(defaut('planche', '{} : rectangle {} hors de l\'image {} × {}'.format(
+                nom, [c.get(k) for k in ('x', 'y', 'largeur', 'hauteur')], largeur, hauteur)))
+            continue
+        for autre, (x, y, l, h) in rects:
+            if r[0] < x + l and x < r[0] + r[2] and r[1] < y + h and y < r[1] + r[3]:
+                fautes.append(defaut('planche', '{} chevauche {}'.format(nom, autre)))
+        rects.append((nom, r))
+    # Chaque rectangle est à sa place dans la grille déclarée : une rangée ou une colonne plus
+    # loin, c'est plus bas ou plus à droite, sans recouvrement ; même rangée, même bande
+    # horizontale ; même colonne, même bande verticale.
+    places = [(c.get('rangee'), c.get('colonne'), str(c.get('id')), rectangle(c, largeur, hauteur)) for c in cases]
+    places = [(ra, co, nom, r) for ra, co, nom, r in places if isinstance(ra, int) and isinstance(co, int) and r]
+    for i, (ra, co, nom, (x, y, l, h)) in enumerate(places):
+        for rb, cb, autre, (x2, y2, l2, h2) in places[i + 1:]:
+            mal = ((ra < rb and not y + h <= y2) or (rb < ra and not y2 + h2 <= y)
+                   or (ra == rb and (y, h) != (y2, h2))
+                   or (co < cb and not x + l <= x2) or (cb < co and not x2 + l2 <= x)
+                   or (co == cb and (x, l) != (x2, l2)))
+            if mal:
+                fautes.append(defaut('planche', '{} (rangée {}, colonne {}) et {} (rangée {}, colonne {}) : rectangles {} et {} hors de leur place'.format(
+                    nom, ra, co, autre, rb, cb, [x, y, l, h], [x2, y2, l2, h2])))
+
+    # SC3 : aucune case n'a que son fond.
+    if pixels is not None:
+        for c in ecarts_cases(entrees):
+            if c['ecart'] != -1 and not c['ecart'] >= minimal:
+                fautes.append(defaut('planche', '{} : étape manquante à l\'image (écart-type {:.1f}, {} au moins)'.format(
+                    c['id'], c['ecart'], minimal)))
+    return fautes
+
+
 def juger(entrees):
     """Les défauts, sans les contre-épreuves.
 
@@ -146,7 +268,8 @@ def juger(entrees):
     DesertKit), empreintes_avant, empreintes_apres, ecart_image (`ecart_pixels` de la
     planche des ateliers, -1 si elle manque), ecart_chantiers (de même pour la planche des
     chantiers), ecart_minimal, verification (le vérificateur des scènes rejoué par la
-    commande : status, message, et le status de chaque disposition).
+    commande : status, message, et le status de chaque disposition), planche (les pixels de la
+    planche Unity, hauteur × largeur × 3, None si elle manque).
     """
     plafonds = entrees['plafonds']; u = entrees['unity'] or {}
     avant = entrees['catalogue_avant']; apres = entrees['catalogue_apres']
@@ -240,7 +363,7 @@ def juger(entrees):
             fautes.append(defaut('materiau', '{} : matériau hors catalogue : {}'.format(nom, mat)))
         if not m.get('materiaux'):
             fautes.append(defaut('materiau', nom + ' : aucun matériau mesuré'))
-    return fautes + juger_chantiers(entrees)
+    return fautes + juger_chantiers(entrees) + juger_planche(entrees)
 
 
 def contre_epreuves(entrees):
@@ -318,6 +441,54 @@ def contre_epreuves(entrees):
 
     e = copy.deepcopy(entrees); e['ecart_chantiers'] = ecart_pixels([[[255, 0, 0]] * 16] * 9)
     ce['planche_chantiers_uniforme'] = ('echantillon', e)
+
+    # Lot 270 : la planche Unity. Les pixels déréglés sont ceux d'une copie de l'image.
+    import numpy as np
+    p = (entrees['unity'] or {}).get('planche') or {}
+    fond = p.get('fond') if isinstance(p.get('fond'), list) and len(p['fond']) == 3 else [0, 0, 0]
+    e = copy.deepcopy(entrees); e['planche'] = None
+    ce['planche_unity_absente'] = ('planche', e)
+
+    e = copy.deepcopy(entrees)
+    if e.get('planche') is not None:
+        forme = np.shape(e['planche'])[:2]
+    else:
+        forme = tuple(v if isinstance(v, int) and v > 0 else 1 for v in (p.get('hauteur'), p.get('largeur')))
+    e['planche'] = np.empty(forme + (3,), dtype=np.uint8); e['planche'][...] = fond
+    ce['planche_unity_uniforme'] = ('planche', e)
+
+    e = copy.deepcopy(entrees)
+    pe = (e['unity'] or {}).get('planche')
+    if isinstance(pe, dict):
+        pe['cases'] = [c for c in pe.get('cases') or [] if c.get('id') != 'chantier_four_pain_pise_piquets']
+    ce['case_absente'] = ('planche', e)
+
+    # Les rangées et colonnes déclarées restent, mais les deux premières cases échangent leur x.
+    e = copy.deepcopy(entrees)
+    cs = (((e['unity'] or {}).get('planche') or {}).get('cases') or [])[:2]
+    if len(cs) == 2:
+        cs[0]['x'], cs[1]['x'] = cs[1].get('x'), cs[0].get('x')
+    ce['cases_permutees'] = ('planche', e)
+
+    e = copy.deepcopy(entrees)
+    if e.get('planche') is not None:
+        e['planche'] = np.array(e['planche'])
+        for c in ((e['unity'] or {}).get('planche') or {}).get('cases') or []:
+            r = rectangle(c, e['planche'].shape[1], e['planche'].shape[0]) if e['planche'].ndim == 3 else None
+            if c.get('id') == 'chantier_scierie_murs' and r:
+                e['planche'][r[1]:r[1] + r[3], r[0]:r[0] + r[2]] = fond
+    ce['etape_manquante_planche'] = ('planche', e)
+
+    e = copy.deepcopy(entrees); e['unity'] = dict(e['unity'] or {})
+    e['unity']['planche'] = dict(e['unity'].get('planche') or {}, scene_chemin='Assets/ForgeLocal3D/Desert/Scenes/Planche.unity')
+    ce['scene_enregistree'] = ('empreinte', e)
+
+    e = copy.deepcopy(entrees); e['unity'] = dict(e['unity'] or {})
+    e['unity']['planche'] = dict(e['unity'].get('planche') or {}, scene_chemin=None)
+    ce['scene_non_renseignee'] = ('planche', e)
+
+    e = copy.deepcopy(entrees); e['empreintes_apres']['3d/unity/Assets/Planche.unity'] = 'apparue'
+    ce['scene_apparue'] = ('empreinte', e)
     return ce
 
 
@@ -337,5 +508,5 @@ def jugement(entrees):
             'empreintes': len(entrees['empreintes_avant']), 'plafonds': {k: list(v) for k, v in entrees['plafonds'].items()},
             'modules': u.get('modules') or [], 'references': u.get('references') or [],
             'chantiers': {fini: suite(fini) for fini in CHANTIERS}, 'ecart_image': entrees['ecart_image'],
-            'ecart_chantiers': entrees.get('ecart_chantiers', -1.0),
+            'ecart_chantiers': entrees.get('ecart_chantiers', -1.0), 'planche': ecarts_cases(entrees),
             'verification': entrees.get('verification'), 'defauts': fautes, 'contre_epreuves': resultats}
