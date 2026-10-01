@@ -164,7 +164,8 @@ def proteges():
     """Ce que la commande `kit` ne doit pas toucher, relevé sur le disque par glob."""
     from local3d.desert import kit
     nouveaux=set(kit.NOUVEAUX)
-    chemins=sorted((UNITY_ROOT/'Scenes').glob('*.unity'))
+    # Lot 270 : toute scène du projet, en plus de celles du ksar ; une scène apparue est un défaut.
+    chemins=sorted(set((UNITY_ROOT/'Scenes').glob('*.unity'))|set((ROOT/'unity/Assets').glob('**/*.unity')))
     for dossier,motif in (('Prefabs','*.prefab'),('Models','*.fbx'),('Materials','*.mat')):
         chemins+=[p for p in sorted((UNITY_ROOT/dossier).glob(motif)) if p.stem not in nouveaux]
     for motif in ('*/*.json','*/*.fbx'):chemins+=sorted((OUT/'villages').glob(motif))
@@ -235,6 +236,14 @@ def ecart_image(path):
     with Image.open(path) as image:return kit.ecart_pixels(np.asarray(image.convert('RGB')))
 
 
+def pixels_image(path):
+    """Lot 270 : les pixels RGB d'une image (hauteur × largeur × 3) ; None si elle manque."""
+    if not path.exists():return None
+    import numpy as np
+    from PIL import Image
+    with Image.open(path) as image:return np.array(image.convert('RGB'))
+
+
 def verification_scenes(ds):
     """SC9 : rejoue `verifier` sur chaque disposition et rend son résultat, sans lever.
 
@@ -262,7 +271,8 @@ def verification_scenes(ds):
 
 def kit_ateliers():
     """Lots 266 et 269 : ajoute les modules de kit.NOUVEAUX au kit, jusqu'aux prefabs d'Unity,
-    fait mesurer par Unity les bâtiments finis de kit.REFERENCES, puis juge."""
+    fait mesurer par Unity les bâtiments finis de kit.REFERENCES, puis juge. Lot 270 : Unity
+    photographie aussi les étapes de chantier (kit.rangees_planche), et Python juge la planche."""
     from local3d.desert import kit
     from local3d.desert.routes import ECART_CAPTURE
     # La garde passe avant tout effet : l'éditeur ouvert réimporterait sous nos pieds.
@@ -281,8 +291,11 @@ def kit_ateliers():
     for nom in kit.NOUVEAUX:shutil.copy2(OUT/'bibliotheque'/(nom+'.fbx'),UNITY_ROOT/'Models'/(nom+'.fbx'))
     shutil.copy2(OUT/'bibliotheque/catalogue.json',UNITY_ROOT/'Data/catalogue.json')
     # Les références : bâtiments finis des chantiers, mesurés par Unity sans être refaits.
-    (dossier/'selection.json').write_text(json.dumps({'modules':kit.NOUVEAUX,'references':kit.REFERENCES},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    # Lot 270 : la planche, une rangée par chantier, qu'Unity photographie.
+    (dossier/'selection.json').write_text(json.dumps({'modules':kit.NOUVEAUX,'references':kit.REFERENCES,'planche':kit.rangees_planche()},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     (dossier/'unity-kit.json').unlink(missing_ok=True)
+    # Une ancienne planche Unity ne compte jamais : seule celle de ce passage est relue.
+    planche_unity=CODE/kit.PLANCHE_UNITY;planche_unity.unlink(missing_ok=True)
     print('Unity : prefabs et mesures.',flush=True)
     failure=None
     try:run_unity('ForgeLocal3D.DesertKit.Start',True)
@@ -297,7 +310,7 @@ def kit_ateliers():
              'catalogue_apres':json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8')),
              'unity':json.loads(rapport.read_text(encoding='utf-8-sig')),'empreintes_avant':avant,'empreintes_apres':apres,
              'ecart_image':ecart_image(OUT/'diagnostic/kit_ateliers.png'),'ecart_chantiers':ecart_image(OUT/'diagnostic/kit_chantiers.png'),
-             'ecart_minimal':ECART_CAPTURE,'verification':verification}
+             'ecart_minimal':ECART_CAPTURE,'verification':verification,'planche':pixels_image(planche_unity)}
     j=kit.jugement(entrees)
     (dossier/'jugement.json').write_text(json.dumps(j,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
     print('{} : {} anciens modules intacts attendus, {} empreintes, planches à écart-type {:.1f} (ateliers) et {:.1f} (chantiers)'.format(
@@ -314,6 +327,12 @@ def kit_ateliers():
             m=mesures.get(e) or {}
             print('    {:<32} x {:.2f} à {:.2f} m ; z {:.2f} à {:.2f} m ; hauteur {:.2f} m'.format(
                 e,*(m.get(k,-1) for k in ('x_min','x_max','z_min','z_max','y_max'))),flush=True)
+    p=entrees['unity'].get('planche') or {}
+    print('  planche Unity {} : {} × {} px, fond {}, scène « {} »'.format(
+        p.get('chemin'),p.get('largeur'),p.get('hauteur'),p.get('fond'),p.get('scene_chemin')),flush=True)
+    for c in j['planche']:
+        print('    rangée {} colonne {} {:<32} {} renderers ; écart-type {:.1f}'.format(
+            c['rangee'],c['colonne'],c['id'],c['renderers'],c['ecart']),flush=True)
     for nom,c in j['contre_epreuves'].items():
         print('  contre-épreuve {:<28} {} ({})'.format(nom,'rougit' if c['rougit'] else 'SANS EFFET',', '.join(c['obtenues']) or 'aucun défaut'),flush=True)
     for f in j['defauts']:print('  défaut [{}] {}'.format(f['etiquette'],f['message']),flush=True)

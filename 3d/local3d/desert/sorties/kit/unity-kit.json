@@ -203,5 +203,108 @@
         }
     ],
     "materiaux_manquants": [],
-    "erreurs": []
+    "erreurs": [],
+    "planche": {
+        "chemin": "sorties/diagnostic/kit_chantiers_unity.png",
+        "largeur": 1920,
+        "hauteur": 1440,
+        "fond": [
+            150,
+            166,
+            184
+        ],
+        "scene_chemin": "",
+        "cases": [
+            {
+                "id": "chantier_maison_pise_0_piquets",
+                "rangee": 0,
+                "colonne": 0,
+                "x": 0,
+                "y": 0,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "chantier_maison_pise_0_murs",
+                "rangee": 0,
+                "colonne": 1,
+                "x": 640,
+                "y": 0,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "maison_pise_0",
+                "rangee": 0,
+                "colonne": 2,
+                "x": 1280,
+                "y": 0,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "chantier_scierie_piquets",
+                "rangee": 1,
+                "colonne": 0,
+                "x": 0,
+                "y": 480,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "chantier_scierie_murs",
+                "rangee": 1,
+                "colonne": 1,
+                "x": 640,
+                "y": 480,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "scierie",
+                "rangee": 1,
+                "colonne": 2,
+                "x": 1280,
+                "y": 480,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "chantier_four_pain_pise_piquets",
+                "rangee": 2,
+                "colonne": 0,
+                "x": 0,
+                "y": 960,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "chantier_four_pain_pise_murs",
+                "rangee": 2,
+                "colonne": 1,
+                "x": 640,
+                "y": 960,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            },
+            {
+                "id": "four_pain_pise",
+                "rangee": 2,
+                "colonne": 2,
+                "x": 1280,
+                "y": 960,
+                "largeur": 640,
+                "hauteur": 480,
+                "renderers": 1
+            }
+        ]
+    }
 }

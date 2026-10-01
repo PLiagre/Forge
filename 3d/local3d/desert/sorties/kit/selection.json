@@ -11,5 +11,31 @@
   ],
   "references": [
     "maison_pise_0"
+  ],
+  "planche": [
+    {
+      "fini": "maison_pise_0",
+      "etapes": [
+        "chantier_maison_pise_0_piquets",
+        "chantier_maison_pise_0_murs",
+        "maison_pise_0"
+      ]
+    },
+    {
+      "fini": "scierie",
+      "etapes": [
+        "chantier_scierie_piquets",
+        "chantier_scierie_murs",
+        "scierie"
+      ]
+    },
+    {
+      "fini": "four_pain_pise",
+      "etapes": [
+        "chantier_four_pain_pise_piquets",
+        "chantier_four_pain_pise_murs",
+        "four_pain_pise"
+      ]
+    }
   ]
 }
