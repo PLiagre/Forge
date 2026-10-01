@@ -541,6 +541,47 @@ def reponse_apres_blocage(commentaires: list[dict]) -> bool:
     return False
 
 
+# Le dépanneur (`pilote._depanner`) regarde un lot que le pilote vient de
+# bloquer, avant le propriétaire. Il le relance avec une consigne (marque
+# « depanne »), pose une question au propriétaire, ou dit que la chaîne est en
+# cause ; il ne relance pas un même lot plus de `depannages_max` fois. Le
+# 1er octobre 2026, cinq lots attendaient le propriétaire au matin : trois
+# pour un quota, une relecture vide ou une image illisible, que la chaîne
+# pouvait lever seule.
+ETAT_DEPANNE = "depanne"
+PAR_DEPANNEUR = "depanneur"
+
+
+def depannage_a_faire(commentaires: list[dict], depannages_max: int) -> bool:
+    """Le dépanneur doit-il regarder ce lot ? Oui si son dernier blocage
+    vient du pilote, n'est ni une question au propriétaire ni un blocage posé
+    par le dépanneur lui-même, que le dépanneur n'a rien dit depuis, et qu'il
+    n'a pas déjà relancé le lot `depannages_max` fois."""
+    liste = marques(commentaires)
+    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
+    if dernier is None:
+        return False
+    blocage = liste[dernier]
+    if blocage.get("question") or blocage.get("par") == PAR_DEPANNEUR:
+        return False
+    if any(m.get("role") == "depanneur" for m in liste[dernier + 1:]):
+        return False
+    relances = sum(1 for m in liste if m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE)
+    return relances < depannages_max
+
+
+def consigne_du_depanneur(commentaires: list[dict]) -> str:
+    """La consigne du dépanneur qui vaut encore : celle de sa dernière
+    relance, tant que le lot n'a pas été rebloqué depuis."""
+    consigne = ""
+    for m in marques(commentaires):
+        if m.get("etat") == "bloque":
+            consigne = ""
+        elif m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE:
+            consigne = m.get("consigne") or ""
+    return consigne
+
+
 def passage_de_renfort(essai: int, corrections_max: int) -> bool:
     """Le passage du codeur numéro `essai` (0 : le premier) est-il le dernier
     avant blocage ? Avec deux corrections, c'est la deuxième : le renfort la

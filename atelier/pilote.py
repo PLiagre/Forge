@@ -29,14 +29,14 @@ import re
 from typing import Callable
 
 from . import agents as agents_mod
-from . import captures, lots, prompts, traces
+from . import captures, lfs, lots, prompts, traces
 from .depot import Depot, DepotErreur
 from .github import GitHub, GitHubErreur, etat_des_controles
 from .lots import Lot, marque
 from .projet import MACHINES, Projet
 from .verrous import AucunVerrou
 
-_DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|QUESTION|DECOUPE|MODE-DIRECT)\b[ \t]*(?:::[ \t]*(.*))?$", re.M)
+_DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|QUESTION|DECOUPE|MODE-DIRECT|REPRENDRE)\b[ \t]*(?:::[ \t]*(.*))?$", re.M)
 _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
@@ -86,6 +86,8 @@ def _commentaires_pour_le_chef(commentaires: list[dict]) -> str:
             lus.append(f"{(c.get('author') or {}).get('login', '?')} : {corps}")
         elif any(m.get("etat") == "bloque" and m.get("question") for m in faites):
             lus.append("ta question au propriétaire : " + lots._MARQUE.sub("", corps).strip())
+        elif any(m.get("role") == "depanneur" for m in faites):
+            lus.append("le dépanneur : " + lots._MARQUE.sub("", corps).strip())
     return "\n\n".join(lus)
 
 
@@ -99,7 +101,8 @@ def _extrait(texte: str, lignes: int = 60) -> str:
 class Pilote:
     def __init__(self, projet: Projet, gh: GitHub, depot: Depot, *,
                  executeur_agents: agents_mod.Executeur = agents_mod.executer,
-                 maintenant=None, journal: Path | None = None, verrous=None):
+                 maintenant=None, journal: Path | None = None, verrous=None,
+                 lfs_telechargeur: lfs.Telechargeur = lfs.telecharger):
         self.projet = projet
         self.gh = gh
         self.depot = depot
@@ -110,6 +113,7 @@ class Pilote:
         self.maintenant = maintenant or (lambda: datetime.now(timezone.utc))
         self.journal = journal or Path.home() / ".atelier" / "journal.jsonl"
         self.lignes: list[str] = []
+        self.lfs_telechargeur = lfs_telechargeur
 
     # ----------------------------------------------------------- journal
     def noter(self, lot: int | str, action: str, detail: str = "", agent: str | None = None) -> None:
@@ -166,6 +170,8 @@ class Pilote:
 
         if not agent_parti:
             agent_parti = self._master_rouge()
+        if not agent_parti:
+            agent_parti = self._depanner_un_lot(vue)
         if not agent_parti and vue.courant is not None:
             self._prendre_le_suivant(vue)
         with self.verrous.tenir("decider"):
@@ -607,7 +613,8 @@ class Pilote:
             elif action.nom == "corriger_relecture":
                 correction = prompts.correction_relecture(self._derniere_revue(pr))
             prompt = prompts.codeur(self.projet, numero=lot.numero, titre=lot.titre,
-                                    chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction)
+                                    chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction,
+                                    consigne=self._consigne(lot))
         res = self._invoquer(poste or role, prompt, chemin, lot=lot.numero)
         passage = action.essai + 1
         essais = " · ".join(res.essais)
@@ -698,9 +705,12 @@ class Pilote:
             lots._MARQUE.sub("", c.get("body") or "").strip()
             for c in pr.get("comments") or []
             if any(m.get("role") in lots.ROLES_CODEURS and m.get("etat") == "fait" for m in lots.marques([c])))
+        lisibles, illisibles = self._lfs_du_lot(chemin)
         prompt = prompts.relecteur(self.projet, numero=lot.numero, titre=lot.titre,
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
-                                   url=pr.get("url", ""), sha=tete, rapports=rapports)
+                                   url=pr.get("url", ""), sha=tete, rapports=rapports,
+                                   lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
+                                   consigne=self._consigne(lot))
         res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
@@ -723,6 +733,101 @@ class Pilote:
         if verdict == "ACCEPTE":
             self.gh.fusion_auto(numero_pr, tete)
         self.noter(lot.numero, f"relecture {verdict}", f"PR #{numero_pr}", str(res.agent))
+        return True
+
+    def _lfs_du_lot(self, chemin: Path) -> tuple[list[str], list[str]]:
+        """Les fichiers LFS du lot, rendus lisibles dans `.atelier/lfs/` du
+        chantier (`lfs.py`). Un échec se dit au relecteur ; il ne bloque rien."""
+        try:
+            fichiers = self.depot.fichiers_du_lot(chemin)
+        except DepotErreur as e:
+            self.noter("lfs", "erreur", str(e))
+            return [], []
+        return lfs.rendre_lisibles(chemin, fichiers, self.gh.depot, telechargeur=self.lfs_telechargeur)
+
+    def _consigne(self, lot: Lot) -> str:
+        """La consigne du dépanneur qui vaut encore pour ce lot ; rien pour la
+        réparation de master, qui n'a pas d'issue."""
+        if "lot" not in lot.etiquettes:
+            return ""
+        try:
+            return lots.consigne_du_depanneur(self.gh.issue(lot.numero).get("comments") or [])
+        except GitHubErreur:
+            return ""
+
+    # ---------------------------------------------------------- dépanner
+    def _depanner_un_lot(self, vue: "_Vue") -> bool:
+        """Un lot que le pilote vient de bloquer, regardé par le dépanneur
+        avant le propriétaire : un seul par tour, comme tout agent."""
+        for lot in sorted(vue.ouvertes, key=lambda l: l.numero):
+            if lot.etat != "bloque" or "lot" not in lot.etiquettes:
+                continue
+            if not self.verrous.prendre(_verrou_du_lot(lot.numero)):
+                continue
+            try:
+                issue = self.gh.issue(lot.numero)
+                lot = Lot.de(issue)
+                commentaires = issue.get("comments") or []
+                if lot.etat != "bloque" or not lots.depannage_a_faire(commentaires, self.projet.depannages_max):
+                    continue
+                return self._depanner(lot, commentaires)
+            except (GitHubErreur, DepotErreur) as e:
+                self.noter(lot.numero, "erreur", str(e))
+            finally:
+                self._lacher_lot(lot.numero)
+        return False
+
+    def _depanner(self, lot: Lot, commentaires: list[dict]) -> bool:
+        """Le dépanneur lit le lot bloqué et décide : le relancer avec une
+        consigne, poser la question au propriétaire, ou dire que la chaîne est
+        en cause. Sans décision lisible, le lot attend le propriétaire."""
+        liste = lots.marques(commentaires)
+        raison = next((m.get("raison") or "" for m in reversed(liste) if m.get("etat") == "bloque"), "")
+        relances = sum(1 for m in liste if m.get("role") == "depanneur" and m.get("etat") == lots.ETAT_DEPANNE)
+        branche = lot.branche(self.projet.prefixe_branche)
+        resume = self.gh.pr_de_branche(branche)
+        pr = self.gh.pr(resume["number"]) if resume and resume.get("state") == "OPEN" else None
+        erreur_ci = self._erreur_ci(pr["number"]) if pr is not None and etat_des_controles(pr)[0] == "rouge" else ""
+        chemin = self.depot.preparer(lot.numero, branche)
+        dit_issue = "\n\n".join(f"{(c.get('author') or {}).get('login', '?')} : "
+                                 f"{_extrait(lots._MARQUE.sub('', c.get('body') or ''), 25)}"
+                                 for c in commentaires[-8:])
+        dit_pr = "\n\n".join(_extrait(lots._MARQUE.sub("", c.get("body") or ""), 40)
+                              for c in (pr.get("comments") or [])[-10:]) if pr else ""
+        prompt = prompts.depanneur(self.projet, numero=lot.numero, titre=lot.titre, corps=lot.corps, raison=raison,
+                                   chemin_brief=lot.brief(self.projet.dossier_briefs), issue=dit_issue, pr=dit_pr,
+                                   erreur_ci=erreur_ci, relances=relances)
+        res = self._invoquer("depanneur", prompt, chemin, lot=lot.numero)
+        if res.attente:
+            self.noter(lot.numero, "attente", "dépanneur : " + " · ".join(res.essais))
+            return True
+        decisions = _DECISION.findall(res.texte) if res.reussi else []
+        decision, motif = decisions[-1] if decisions else ("", "")
+        diagnostic = _extrait(res.texte[:res.texte.rfind("DECISION:")] if decisions else res.texte, 40)
+        numero_pr = pr["number"] if pr else None
+        if decision == "REPRENDRE" and motif.strip():
+            # La consigne vit dans la marque : « --> » la fermerait.
+            consigne = motif.strip().replace("-->", "→")
+            self.gh.commenter_issue(lot.numero, f"🤖 **dépanneur** ({res.agent}) : lot relancé "
+                                                f"({relances + 1}/{self.projet.depannages_max}).\n\n{diagnostic}\n\n"
+                                                f"**Consigne** : {consigne}\n\n"
+                                                + marque(role="depanneur", etat=lots.ETAT_DEPANNE, consigne=consigne,
+                                                         agent=str(res.agent)))
+            self.gh.etiqueter(lot.numero, ["pret"], ["bloque"])
+            self.noter(lot.numero, "dépanné", "remis pret", str(res.agent))
+        elif decision == "QUESTION":
+            question = lots.question_du_chef(res.texte, motif or "")
+            self._bloquer(lot.numero, f"question au propriétaire : {question.texte}", numero_pr,
+                          question=question, par=lots.PAR_DEPANNEUR, diagnostic=diagnostic)
+        elif decision == "MODE-DIRECT" and motif.strip():
+            self._bloquer(lot.numero, f"la chaîne est en cause, mode direct : {motif.strip()}", numero_pr,
+                          par=lots.PAR_DEPANNEUR, diagnostic=diagnostic)
+        else:
+            pourquoi = f"code {res.code}" if not res.reussi else "décision illisible"
+            self.gh.commenter_issue(lot.numero, f"🤖 **dépanneur** ({res.agent or '—'}) : pas de diagnostic "
+                                                f"({pourquoi}) ; le lot attend le propriétaire.\n\n"
+                                                + marque(role="depanneur", etat="echec", raison=pourquoi))
+            self.noter(lot.numero, "dépanneur en échec", pourquoi, str(res.agent or ""))
         return True
 
     # ------------------------------------------------------------ conflit
@@ -789,7 +894,10 @@ class Pilote:
                     self._livrer(lot.numero, resume["number"])
 
     def _bloquer(self, numero: int, raison: str, numero_pr: int | None = None, *,
-                 question: lots.Question | None = None) -> None:
+                 question: lots.Question | None = None, par: str | None = None, diagnostic: str = "") -> None:
+        """Bloque le lot, avec sa raison. `par` le dépanneur : ce blocage est
+        sa décision, il ne le regarde pas une seconde fois, et son
+        `diagnostic` l'accompagne."""
         self.gh.etiqueter(numero, ["bloque"], ["en-cours", "pret", "idee"])
         reprendre = ("sa PR reste ouverte : le pilote la reprend où elle en est, sans relancer le chef, "
                      "et ses essais repartent de zéro" if numero_pr else
@@ -801,16 +909,21 @@ class Pilote:
                      f"remet le lot en route : {reprendre}. Retirer « bloque » et remettre « pret » marche aussi.")
             champs = {}
         else:
+            qui = "le dépanneur" if par == lots.PAR_DEPANNEUR else "le chef"
             options = "".join(f"\n- **{l}** — {r}" + (f" ({c})" if c else "") for l, r, c in question.options)
             reco = ""
             if question.recommandation:
                 lettre, pourquoi = question.recommandation
-                reco = f"\n\nLe chef recommande **{lettre}**" + (f" : {pourquoi}" if pourquoi else "") + "."
-            texte = (f"🤖 **pilote** : lot bloqué — le chef attend ta décision.\n\n**{question.texte}**\n"
+                reco = f"\n\n{qui.capitalize()} recommande **{lettre}**" + (f" : {pourquoi}" if pourquoi else "") + "."
+            texte = (f"🤖 **pilote** : lot bloqué — {qui} attend ta décision.\n\n**{question.texte}**\n"
                      f"{options}{reco}\n\n"
                      "**Pour répondre** : écris un commentaire ici (une lettre suffit, ou ta propre réponse). "
                      "Au tour suivant, le pilote remet le lot en route, et le chef lit ta réponse.")
             champs = question.marque()
+        if par:
+            champs["par"] = par
+        if diagnostic:
+            texte += f"\n\n<details><summary>Le diagnostic du dépanneur</summary>\n\n{diagnostic}\n\n</details>"
         self.gh.commenter_issue(numero, f"{texte}\n\n{marque(role='pilote', etat='bloque', raison=raison, **champs)}")
         self.noter(numero, "bloqué", raison)
 

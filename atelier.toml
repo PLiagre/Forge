@@ -23,6 +23,10 @@ lignes_max = 300
 # avant que le lot soit « bloque », avec sa raison. Sur le VPS, le dernier se
 # fait par le renfort ([agents]).
 corrections_max = 2
+# Combien de fois le dépanneur ([agents]) relance un même lot bloqué, avec
+# sa consigne, avant de le laisser au propriétaire. Il pose toujours une
+# question, ou dit que la chaîne est en cause, quand c'est ce qu'il faut.
+depannages_max = 2
 dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
 
@@ -72,6 +76,14 @@ relecteur   = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high | cursor/gro
 # CI rouge sur master, conflits d'une branche de lot, dépendances : GPT-6.1
 # Sol en effort moyen, travail mécanique ; composer en secours.
 mecanicien  = "codex/gpt-6.1-sol@medium | cursor/composer-2.5@defaut"
+# Un lot vient d'être bloqué (essais épuisés, CI rouge, relecture
+# « CORRIGER ») : le dépanneur lit tout, en lecture seule, et décide avant le
+# propriétaire. Il relance le lot avec une consigne (quota, délai, revue vide,
+# codeur qui tourne en rond, relecteur qui exige l'impossible), pose la
+# question au propriétaire (le brief contredit un test existant ou la règle
+# du monde), ou dit que la chaîne est en cause (mode direct). Diagnostiquer
+# demande du jugement : Claude Opus en tête, GPT-6.1 Sol en secours.
+depanneur   = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high"
 # Journal du matin, en lecture seule (cursor --mode ask) : grok est le
 # modèle qui invente le moins (Artificial Analysis Omniscience).
 chroniqueur = "cursor/grok-4.7-high@high"
@@ -108,5 +120,6 @@ codeur_3d = 3600
 renfort = 3600
 relecteur = 1800
 mecanicien = 1800
+depanneur = 1800
 chroniqueur = 600
 boussole = 1200
