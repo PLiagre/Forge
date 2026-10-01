@@ -117,11 +117,11 @@ lots qui ne servent aucun jalon pour l'instant. Son titre ne commence pas par
 sortir aucun lot. Un lot y entre par le formulaire (jalon « Réserve »), par
 l'étiquette `reserve`, ou à la main ; un jalon qui en a besoin l'en tire.
 
-### La fenêtre de deux jalons
+### Le jalon suivant
 
 Le pilote prend d'abord dans le jalon courant. Une machine libre qui n'y a
 plus rien à prendre (tout est en cours, livré, ou attend une dépendance)
-prend dans le **jalon suivant**, jamais plus loin. Le 29 septembre 2026, J1
+prend dans le **jalon suivant**, puis dans le troisième (ci-dessous). Le 29 septembre 2026, J1
 n'avait plus que des lots `pc` : le VPS attendait sans rien faire que le PC
 finisse, alors que J2 ne demande que `sim/`.
 
@@ -131,21 +131,17 @@ s'il en a besoin, il refuse, et le lot est bloqué avec sa raison. Le journal
 annonce ces lots à part, sous « EN AVANCE ». Un lot marqué `reserve` ne se
 prend jamais : il sort de son jalon.
 
-### La fenêtre du PC a trois jalons
+### La fenêtre a trois jalons
 
-Le PC voit un jalon de plus. Quand il n'a plus rien à prendre dans le
-courant ni dans le suivant, il prend un lot `pc` du **troisième jalon
-ouvert**, jamais plus loin ; les lots du VPS de ce jalon attendent qu'il
-entre dans la fenêtre. Le 30 septembre 2026, J2 et J3 ne demandaient que
-`sim/` et la 3D n'arrivait qu'à J4 : le PC serait resté des semaines sans
-travail.
+Une machine qui n'a plus rien à prendre dans le courant ni dans le suivant
+prend dans le **troisième jalon ouvert**, jamais plus loin. Le 30 septembre
+2026, la 3D n'arrivait qu'à J4 et le PC attendait ; le 1er octobre, le VPS
+est resté trois heures sans rien faire, J2 et J3 en file derrière un lot,
+alors que #253, de J4, n'attendait rien (choix du propriétaire : la fenêtre
+passe à trois jalons pour les deux machines).
 
-Un troisième jalon sans plan se découpe en avance pour le PC. Sa découpe
-part même quand le VPS est plein : ce n'est que le chef, et c'est le PC
-qu'elle nourrit. Son texte demande au chef de placer d'abord les lots `pc`
-qui ne s'appuient que sur master, en « :: après rien » : un lot `pc` qui
-attend un lot du VPS de ce jalon ne part pas plus tôt. Le journal les
-annonce sous « EN AVANCE, POUR LE PC ».
+Un troisième jalon sans plan se découpe en avance, dès qu'une machine est
+libre. Le journal annonce ses lots sous « EN AVANCE, DU TROISIÈME JALON ».
 
 ### Un jalon qui commence se fait découper
 
@@ -167,7 +163,9 @@ Le chef découpe en sous-lots (`pret`, même jalon), écrits « Découpé du lot
 découpé, sauf si le chef finit sa ligne par « :: pc » ou « :: vps ». Chaque
 ligne dit aussi ce qu'elle attend : « :: après 1, 3 » (les rangs, dans la
 liste, des sous-lots dont elle a besoin), « :: après rien » (elle part tout
-de suite) ; sans « après », elle attend la précédente. Les sous-lots qui ne
+de suite) ; sans « après », elle part aussi tout de suite (jusqu'au 1er
+octobre 2026, elle attendait la précédente : J2 et J4 étaient devenus des
+files de sept lots). Les sous-lots qui ne
 s'attendent pas avancent en même temps. Le dernier d'une découpe de jalon
 porte la preuve : il attend tous les autres. Une ligne qui attend un
 sous-lot placé après elle rend la découpe illisible, et rien n'est créé. Un

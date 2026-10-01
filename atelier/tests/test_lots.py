@@ -296,10 +296,11 @@ def test_une_ligne_de_decoupe_dit_sa_machine_et_ce_qu_elle_attend():
 def test_les_sous_lots_n_attendent_que_ce_qu_ils_disent():
     sous = [lots.sous_lot("a", "a", "vps"), lots.sous_lot("b", "b :: après rien", "vps"),
             lots.sous_lot("c", "c", "vps"), lots.sous_lot("d", "d :: après 1, 2", "vps")]
-    # Sans « après », le précédent (l'ordre du chef, comme avant).
-    assert lots.dependances_des_sous_lots(sous) == [(), (), (2,), (1, 2)]
+    # Sans « après », rien : le 1er octobre 2026, attendre le précédent par
+    # défaut avait fait de J2 et de J4 des files de sept lots.
+    assert lots.dependances_des_sous_lots(sous) == [(), (), (), (1, 2)]
     # Le dernier d'une découpe de jalon porte la preuve : il attend tout.
-    assert lots.dependances_des_sous_lots(sous, preuve_en_dernier=True) == [(), (), (2,), (1, 2, 3)]
+    assert lots.dependances_des_sous_lots(sous, preuve_en_dernier=True) == [(), (), (), (1, 2, 3)]
 
 
 @pytest.mark.parametrize("ligne", ["d :: après 4", "d :: après 5", "d :: après 0"])

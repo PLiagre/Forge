@@ -302,17 +302,20 @@ def test_le_journal_annonce_les_lots_du_jalon_suivant_a_part(projet, gh, tmp_pat
     assert "#40 La table de 1400 : jalon suivant, il part quand le VPS n'a plus rien dans J1 — Le pont." in r.aujourd_hui
 
 
-def test_le_journal_annonce_les_lots_pc_du_troisieme_jalon(projet, gh, tmp_path):
-    # La fenêtre du PC a trois jalons : seuls ses lots y sont annoncés.
+def test_le_journal_annonce_les_lots_du_troisieme_jalon(projet, gh, tmp_path):
+    # La fenêtre a trois jalons, pour les deux machines.
     local, veille = _journee(gh, tmp_path)
     gh.jalons_.append({"number": 3, "title": "J3 — Le lieu et son maître", "state": "open",
                        "open_issues": 2, "closed_issues": 0})
     gh.ajouter_issue(60, "La caméra survole la ville", ("lot", "pret", "pc"), "J3 — Le lieu et son maître")
     gh.ajouter_issue(61, "La cellule se peuple de lieux", ("lot", "pret"), "J3 — Le lieu et son maître")
     r = journal.releve(gh, projet, MAINTENANT, journal_local=local, veille=veille)
-    pc = next(l for l in r.texte.splitlines() if l.startswith("EN AVANCE, POUR LE PC"))
-    assert "J3 — Le lieu et son maître" in pc and "#60" in pc and "#61" not in r.texte.split("EN AVANCE")[-1]
+    loin = next(l for l in r.texte.splitlines() if l.startswith("EN AVANCE, DU TROISIÈME JALON"))
+    assert "J3 — Le lieu et son maître" in loin and "#60 « La caméra survole la ville » (pc)" in loin
+    assert "#61 « La cellule se peuple de lieux » (vps)" in loin
     assert ("#60 La caméra survole la ville : il part quand le PC n'a plus rien dans J1 — Le pont "
+            "ni dans J2 — Le geste revient.") in r.aujourd_hui
+    assert ("#61 La cellule se peuple de lieux : il part quand le VPS n'a plus rien dans J1 — Le pont "
             "ni dans J2 — Le geste revient.") in r.aujourd_hui
 
 

@@ -32,7 +32,7 @@ def _interdits(projet: Projet) -> str:
 def chef(projet: Projet, *, numero: int, titre: str, corps: str, commentaires: str,
          jalon: int, jalon_titre: str, machine: str, chemin_brief: str, jalon_courant: str = "") -> str:
     """`jalon_courant` : le titre du jalon courant quand ce lot sert un
-    jalon plus loin (la fenêtre de deux jalons, trois pour le PC) ; vide
+    jalon plus loin (la fenêtre de trois jalons) ; vide
     sinon."""
     en_avance = (f"- Ce lot est pris en avance : le jalon courant, {jalon_courant}, n'est pas atteint, et la machine "
                  f"de ce lot n'y avait plus rien à prendre. Il sert son propre jalon, J{jalon}, et ne s'appuie sur "
@@ -68,7 +68,7 @@ ce que ce lot ne fait pas.
 Règles :
 - Le lot doit servir le jalon J{jalon} de `CAP.md`. S'il ne le sert pas, n'écris rien et termine par la ligne « DECISION: REFUS :: <raison> ».
 {en_avance}- La taille prévue du diff reste sous {projet.lignes_max} lignes. Sinon n'écris rien : découpe, et termine par la ligne « DECISION: DECOUPE », suivie d'une ligne par sous-lot au format « - <titre> :: <ce qu'il fait> », finie par « :: pc » si ce sous-lot demande Unity ou Blender, par « :: vps » s'il n'en demande pas (sans rien, il garde la machine de ce lot).
-- Dans une découpe, les sous-lots qui ne s'attendent pas avancent en même temps, chacun dans son chantier. Finis une ligne par « :: après 1, 3 » (les rangs, dans ta liste, des sous-lots dont il a vraiment besoin, tous plus haut que lui) ou par « :: après rien » (il part tout de suite) ; sans « après », il attend le précédent. Deux sous-lots qui modifient les mêmes fichiers s'attendent : sinon ils se marchent dessus.
+- Dans une découpe, les sous-lots qui ne s'attendent pas avancent en même temps, chacun dans son chantier. Finis une ligne par « :: après 1, 3 » (les rangs, dans ta liste, des sous-lots dont il a vraiment besoin, tous plus haut que lui) ou par « :: après rien » (il part tout de suite) ; sans « après », il part tout de suite aussi. Une file n'avance qu'un lot à la fois : un sous-lot n'en attend un autre que s'il a besoin de ce que celui-là crée (une fonction, une donnée, un fichier), et ta ligne le dit. Deux sous-lots qui modifient les mêmes fichiers s'attendent : sinon ils se marchent dessus.
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
 - Si le lot demande une décision que seul le propriétaire peut prendre (changer un test existant ou une règle du monde, trancher entre deux lectures de `CAP.md` ou de `docs/VISION.md`), n'écris rien et pose-lui la question : termine par la ligne « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Il te lit sur son téléphone : des phrases courtes, sans jargon de code. Si les commentaires contiennent déjà sa réponse à ta question, suis-la : ne la repose pas.

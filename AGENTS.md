@@ -54,9 +54,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   encore rien de prêt, en cours ou livré se fait découper par le chef.
 - **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les deux
   minutes) prend le lot suivant du jalon courant ; une machine qui n'y a plus
-  rien à prendre prend dans le jalon suivant (la **fenêtre de deux jalons**) ;
-  le PC, lui, prend encore un lot `pc` du troisième, qu'il fait découper
-  s'il n'a pas de plan.
+  rien à prendre prend dans le jalon suivant, puis dans le troisième (la
+  **fenêtre de trois jalons**), qu'elle fait découper s'il n'a pas de plan.
+  Une ligne de découpe sans « après » part tout de suite.
   Plusieurs tours tournent en même temps : le VPS fait avancer jusqu'à
   `[machines].vps` lots à la fois, le PC un ; chaque outil a son plafond
   d'agents simultanés (`[outils]`), et un outil plein passe la main à son
