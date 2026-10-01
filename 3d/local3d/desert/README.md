@@ -134,9 +134,12 @@ les trois étapes se comparent à la même échelle. Le rapport donne la place d
 case. L'image est effacée avant Unity, puis relue ; `kit.juger_planche` refuse
 (défaut `planche`) une image absente, uniforme ou d'autres dimensions que le
 rapport, des cases qui ne sont pas exactement les étapes des chantiers à leur
-place, sans renderer actif, hors de l'image ou qui se chevauchent, et une case
-qui n'a que son fond. Une scène enregistrée pour le rendu, ou toute scène apparue
-sous `unity/Assets/`, est un défaut `empreinte`.
+place, sans renderer actif, hors de l'image ou qui se chevauchent, un rectangle
+qui n'est pas dans la rangée et la colonne qu'il déclare (plus bas pour une
+rangée plus loin, plus à droite pour une colonne plus loin), une case qui n'a que
+son fond, et une scène du rendu non renseignée (seule une chaîne vide prouve la
+scène jamais enregistrée). Une scène enregistrée pour le rendu, ou toute scène
+apparue sous `unity/Assets/`, est un défaut `empreinte`.
 
 Pour ajouter un module : l'écrire dans `assets.py`, à la fin de `jobs()`, puis
 l'inscrire dans `kit.py` (`NOUVEAUX` et `PLAFONDS`, le seul endroit du budget).

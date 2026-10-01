@@ -189,10 +189,11 @@ def juger_planche(entrees):
         return [defaut('planche', 'le rapport d\'Unity n\'a pas de planche')]
     p = u['planche'] or {}
     fautes = []
-    # SC4 : la scène du rendu n'a jamais été enregistrée.
-    scene = p.get('scene_chemin', SCENE_NON_RELEVEE)
-    if scene == SCENE_NON_RELEVEE:
-        fautes.append(defaut('planche', 'Unity n\'a pas relevé la scène du rendu'))
+    # SC4 : la scène du rendu n'a jamais été enregistrée. Seule une chaîne vide le prouve ; une
+    # valeur absente, nulle ou non relevée ne prouve rien.
+    scene = p.get('scene_chemin')
+    if not isinstance(scene, str) or scene == SCENE_NON_RELEVEE:
+        fautes.append(defaut('planche', 'Unity n\'a pas relevé la scène du rendu : {!r}'.format(scene)))
     elif scene:
         fautes.append(defaut('empreinte', 'la planche a été rendue dans une scène enregistrée : ' + str(scene)))
     if p.get('chemin') != PLANCHE_UNITY:
@@ -236,6 +237,20 @@ def juger_planche(entrees):
             if r[0] < x + l and x < r[0] + r[2] and r[1] < y + h and y < r[1] + r[3]:
                 fautes.append(defaut('planche', '{} chevauche {}'.format(nom, autre)))
         rects.append((nom, r))
+    # Chaque rectangle est à sa place dans la grille déclarée : une rangée ou une colonne plus
+    # loin, c'est plus bas ou plus à droite, sans recouvrement ; même rangée, même bande
+    # horizontale ; même colonne, même bande verticale.
+    places = [(c.get('rangee'), c.get('colonne'), str(c.get('id')), rectangle(c, largeur, hauteur)) for c in cases]
+    places = [(ra, co, nom, r) for ra, co, nom, r in places if isinstance(ra, int) and isinstance(co, int) and r]
+    for i, (ra, co, nom, (x, y, l, h)) in enumerate(places):
+        for rb, cb, autre, (x2, y2, l2, h2) in places[i + 1:]:
+            mal = ((ra < rb and not y + h <= y2) or (rb < ra and not y2 + h2 <= y)
+                   or (ra == rb and (y, h) != (y2, h2))
+                   or (co < cb and not x + l <= x2) or (cb < co and not x2 + l2 <= x)
+                   or (co == cb and (x, l) != (x2, l2)))
+            if mal:
+                fautes.append(defaut('planche', '{} (rangée {}, colonne {}) et {} (rangée {}, colonne {}) : rectangles {} et {} hors de leur place'.format(
+                    nom, ra, co, autre, rb, cb, [x, y, l, h], [x2, y2, l2, h2])))
 
     # SC3 : aucune case n'a que son fond.
     if pixels is not None:
@@ -448,6 +463,13 @@ def contre_epreuves(entrees):
         pe['cases'] = [c for c in pe.get('cases') or [] if c.get('id') != 'chantier_four_pain_pise_piquets']
     ce['case_absente'] = ('planche', e)
 
+    # Les rangées et colonnes déclarées restent, mais les deux premières cases échangent leur x.
+    e = copy.deepcopy(entrees)
+    cs = (((e['unity'] or {}).get('planche') or {}).get('cases') or [])[:2]
+    if len(cs) == 2:
+        cs[0]['x'], cs[1]['x'] = cs[1].get('x'), cs[0].get('x')
+    ce['cases_permutees'] = ('planche', e)
+
     e = copy.deepcopy(entrees)
     if e.get('planche') is not None:
         e['planche'] = np.array(e['planche'])
@@ -460,6 +482,10 @@ def contre_epreuves(entrees):
     e = copy.deepcopy(entrees); e['unity'] = dict(e['unity'] or {})
     e['unity']['planche'] = dict(e['unity'].get('planche') or {}, scene_chemin='Assets/ForgeLocal3D/Desert/Scenes/Planche.unity')
     ce['scene_enregistree'] = ('empreinte', e)
+
+    e = copy.deepcopy(entrees); e['unity'] = dict(e['unity'] or {})
+    e['unity']['planche'] = dict(e['unity'].get('planche') or {}, scene_chemin=None)
+    ce['scene_non_renseignee'] = ('planche', e)
 
     e = copy.deepcopy(entrees); e['empreintes_apres']['3d/unity/Assets/Planche.unity'] = 'apparue'
     ce['scene_apparue'] = ('empreinte', e)

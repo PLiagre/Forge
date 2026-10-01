@@ -500,6 +500,13 @@
    ],
    "rougit": true
   },
+  "cases_permutees": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
+   ],
+   "rougit": true
+  },
   "etape_manquante_planche": {
    "attendue": "planche",
    "obtenues": [
@@ -511,6 +518,13 @@
    "attendue": "empreinte",
    "obtenues": [
     "empreinte"
+   ],
+   "rougit": true
+  },
+  "scene_non_renseignee": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
    ],
    "rougit": true
   },
