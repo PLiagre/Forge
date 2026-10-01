@@ -1080,3 +1080,16 @@ def test_un_depanneur_illisible_laisse_lire_ce_qu_il_a_ecrit(projet, gh, depot, 
     _bloque(gh)
     _pilote(projet, gh, depot, Agents((0, "La cause est un quota.")), tmp_path).tour()
     assert "La cause est un quota." in gh.issues_[10]["comments"][-1]["body"]
+
+
+def test_le_chef_et_le_depanneur_posent_toutes_les_decisions_d_un_lot_en_une_question(projet):
+    """Le 30 septembre 2026, #207 a posé deux questions à quatre minutes
+    d'écart : le propriétaire a répondu à la première, pas à la seconde."""
+    from atelier import prompts
+    chef = prompts.chef(projet, numero=1, titre="t", corps="", commentaires="", jalon=2, jalon_titre="J2",
+                        machine="vps", chemin_brief="b.md")
+    depanneur = prompts.depanneur(projet, numero=1, titre="t", corps="", raison="r", chemin_brief="b.md",
+                                  issue="", pr="")
+    assert "Une seule question par lot, qui porte TOUTES ses décisions" in chef
+    assert "chaque test existant qui rougira" in chef
+    assert "Une seule question, qui porte toutes les décisions" in depanneur

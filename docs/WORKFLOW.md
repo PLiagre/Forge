@@ -240,6 +240,11 @@ DECISION: QUESTION :: <la question, en une phrase>
 RECOMMANDATION :: A :: <pourquoi>
 ```
 
+Une seule question par lot, qui porte toutes ses décisions : le chef recense
+d'abord chaque test existant qui rougira et chaque règle du monde touchée. Le
+30 septembre 2026, #207 a posé deux questions à quatre minutes d'écart, et le
+propriétaire n'a vu que la première.
+
 Le pilote bloque le lot avec la question, les réponses possibles et la
 recommandation, lisibles sur un téléphone ; le journal du matin les reprend
 dans « À faire ». Le propriétaire répond d'un commentaire (« A » suffit) :
