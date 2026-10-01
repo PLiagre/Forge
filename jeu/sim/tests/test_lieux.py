@@ -136,3 +136,261 @@ def test_vue_pure_que_le_tick_ne_lit_pas():
     assert premiere == seconde
     assert avant == apres
     assert attributs_avant == attributs_apres
+
+
+# Lot 235 : habitants et panier persistés, sans calcul économique par lieu.
+def _controle_conservation(monde):
+    contrôlées = 0
+    for cid, cellule in monde.cells.items():
+        lieux = cellule.lieux
+        assert lieux, f"cell_id={cid} : lieux absents"
+        nombre = len(lieux_de_cellule(cid, cellule.area_km2))
+        assert [lieu.rang for lieu in lieux] == list(range(nombre)), cid
+        assert all(lieu.population >= 0 for lieu in lieux), cid
+        assert sum(lieu.population for lieu in lieux) == cellule.population, cid
+        for lieu in lieux:
+            assert set(lieu.stocks) == set(cellule.stocks), cid
+            assert all(quantité >= 0 for quantité in lieu.stocks.values()), cid
+        for marchandise, total in cellule.stocks.items():
+            parts = [lieu.stocks[marchandise] for lieu in lieux]
+            assert sum(parts) == total, (cid, marchandise)
+            assert sum(map(Fraction, parts)) == Fraction(total), (cid, marchandise)
+        contrôlées += 1
+    assert contrôlées > 0
+    return contrôlées
+
+
+def _etats_cellules(monde):
+    from sim.model import cellule_vers_dict
+    return {cid: {clé: valeur for clé, valeur in cellule_vers_dict(cellule).items()
+                  if clé != "lieux"} for cid, cellule in monde.cells.items()}
+
+
+def _cellule_multiple_peuplee(monde):
+    return next(cellule for cellule in monde.cells.values()
+                if len(cellule.lieux) > 1 and cellule.lieux[0].population > 0)
+
+
+def test_partager_plus_fort_reste_et_refus():
+    from sim.lieux import partager
+
+    def contrôler(total, poids, parts):
+        assert len(parts) == len(poids) > 0
+        assert sum(map(Fraction, parts)) == Fraction(total)
+        assert all(part >= 0 for part in parts)
+        assert all(part == math.floor(part) for part in parts[1:])
+        if total == math.floor(total):
+            somme = sum(map(Fraction, poids))
+            assert all(abs(Fraction(part) - Fraction(total) * Fraction(poids[rang]) / somme) < 1
+                       for rang, part in enumerate(parts))
+
+    cas = [(9, [1] * 10), (1234.75, [3, 2, 1]), (0, [0, 1]),
+           (17, [0.5, 1.5, 2]), (0.125, [1, 1]), (100, [0, 1, 0])]
+    for total, poids in cas:
+        contrôler(total, poids, partager(total, poids))
+    assert partager(9, [1] * 10) == [1] * 9 + [0]
+    assert partager(1234.75, [3, 2, 1])[0] % 1 == 0.75
+    invalides = [(1, [-1, 2]), (1, [float("nan")]), (1, [float("inf")]),
+                 (1, [True]), (1, [0, 0]), (1, []), (-1, [1]),
+                 (float("inf"), [1]), (float("nan"), [1]), (True, [1])]
+    refus_observés = 0
+    for total, poids in invalides:
+        with pytest.raises(LieuxInvalides):
+            partager(total, poids)
+        refus_observés += 1
+    total, poids = cas[0]
+    autres = [math.floor(total * poids[rang] / sum(poids)) for rang in range(1, len(poids))]
+    with pytest.raises(AssertionError):
+        contrôler(total, poids, [total - sum(autres)] + autres)
+    print(f"partages_contrôlés={len(cas)}, refus_observés={refus_observés}, biais_naïf_vu=1")
+    assert refus_observés == len(invalides) > 0
+
+
+def test_amorcage_conserve_habitants_et_panier(monkeypatch):
+    import sim.lieux as lieux_module
+    from sim.model import Cell, EtatDeLieu, cellule_vers_dict
+
+    assert {champ.name for champ in dataclasses.fields(EtatDeLieu)} == {"rang", "population", "stocks"}
+    assert issubclass(EtatDeLieu, _NoBadSpatialField)
+    monde = World.charger(0)
+    contrôlées = _controle_conservation(monde)
+    multiples_peuplées = sum(sum(lieu.population > 0 for lieu in cellule.lieux) > 1
+                            for cellule in monde.cells.values())
+    assert multiples_peuplées > 0
+    assert sum(lieu.population for cellule in monde.cells.values() for lieu in cellule.lieux) == sum(
+        cellule.population for cellule in monde.cells.values())
+    cellule = _cellule_multiple_peuplee(monde)
+    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+    assert [lieu.population for lieu in cellule.lieux] == lieux_module.partager(cellule.population, surfaces)
+    panier = cellule_vers_dict(cellule)["lieux"][0]["stocks"]
+    panier.clear()
+    assert cellule.lieux[0].stocks
+    liste = list(cellule.lieux)
+    témoin = Cell(cellule.cell_id, cellule.area_km2, cellule.population, lieux=liste)
+    liste.clear()
+    assert témoin.lieux and Cell(cellule.cell_id, cellule.area_km2, 0).lieux == []
+    corrompu = copy.deepcopy(monde)
+    _cellule_multiple_peuplee(corrompu).lieux[0].population -= 1
+    with pytest.raises(AssertionError):
+        _controle_conservation(corrompu)
+    partager = lieux_module.partager
+
+    def perdre_un_habitant(total, poids):
+        parts = partager(total, poids)
+        if isinstance(total, int) and total > 0:
+            parts[next(rang for rang, part in enumerate(parts) if part > 0)] -= 1
+        return parts
+
+    monkeypatch.setattr(lieux_module, "partager", perdre_un_habitant)
+    with pytest.raises(AssertionError):
+        _controle_conservation(World.charger(0))
+    print(f"cellules_contrôlées={contrôlées}, multiples_peuplées={multiples_peuplées}, pertes_vues=2")
+    assert contrôlées == len(monde.cells)
+
+
+def test_tick_repartit_sur_une_annee_et_suit_les_ecritures(monkeypatch):
+    import random
+    import time
+    import sim.lieux as lieux_module
+    from sim.engine import tick
+
+    monde = World.charger(0)
+    rng = random.Random(0)
+    répartir = lieux_module.repartir_sur_les_lieux
+    temps_répartition = 0.0
+
+    def mesurer(cellule):
+        nonlocal temps_répartition
+        début = time.perf_counter()
+        répartir(cellule)
+        temps_répartition += time.perf_counter() - début
+
+    populations_modifiées, marchandises_apparues, lieux_modifiés = set(), set(), set()
+    temps_ticks = 0.0
+    nombre_ticks = _constantes.CALENDAR_DAYS_PER_YEAR
+    with monkeypatch.context() as contexte:
+        contexte.setattr(lieux_module, "repartir_sur_les_lieux", mesurer)
+        for numéro in range(nombre_ticks):
+            avant = {cid: (cellule.population, set(cellule.stocks),
+                          [(lieu.population, dict(lieu.stocks)) for lieu in cellule.lieux])
+                     for cid, cellule in monde.cells.items()}
+            début = time.perf_counter()
+            tick(monde, rng, numero_tick=numéro)
+            temps_ticks += time.perf_counter() - début
+            assert _controle_conservation(monde) == len(monde.cells)
+            for cid, cellule in monde.cells.items():
+                population, marchandises, contenus = avant[cid]
+                if cellule.population != population:
+                    populations_modifiées.add(cid)
+                marchandises_apparues.update((cid, nom) for nom in set(cellule.stocks) - marchandises)
+                lieux_modifiés.update((cid, lieu.rang) for lieu, contenu in zip(cellule.lieux, contenus)
+                                      if (lieu.population, lieu.stocks) != contenu)
+    assert populations_modifiées and marchandises_apparues and lieux_modifiés
+    print(f"cellules_population_modifiée={len(populations_modifiées)}, "
+          f"marchandises_apparues={len(marchandises_apparues)}, lieux_modifiés={len(lieux_modifiés)}, "
+          f"ticks={nombre_ticks}, temps_moyen_tick={temps_ticks / nombre_ticks:.6f}s, "
+          f"part_répartition={temps_répartition / temps_ticks:.2%}")
+
+    synthétique = World.charger(0)
+    cellule = _cellule_multiple_peuplee(synthétique)
+    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+    cellule.stocks["sonde_retirée"] = 17
+    répartir(cellule)
+    del cellule.stocks["sonde_retirée"]
+    cellule.stocks["sonde"] = 1234.75
+    cellule.population += len(cellule.lieux)
+    poids_population = [lieu.population for lieu in cellule.lieux]
+    tick(synthétique, random.Random(0), numero_tick=0)
+    assert [lieu.stocks["sonde"] for lieu in cellule.lieux] == lieux_module.partager(cellule.stocks["sonde"], surfaces)
+    assert all("sonde_retirée" not in lieu.stocks for lieu in cellule.lieux)
+    assert [lieu.population for lieu in cellule.lieux] == lieux_module.partager(cellule.population, poids_population)
+    assert _controle_conservation(synthétique) == len(synthétique.cells)
+    del cellule.stocks["sonde"]
+    répartir(cellule)
+    assert all("sonde" not in lieu.stocks for lieu in cellule.lieux)
+    avant = copy.deepcopy(cellule.lieux)
+    répartir(cellule)
+    assert cellule.lieux == avant
+    for lieu in cellule.lieux:
+        lieu.population = 0
+    répartir(cellule)
+    assert [lieu.population for lieu in cellule.lieux] == lieux_module.partager(cellule.population, surfaces)
+    témoin = World.charger(0)
+    monkeypatch.setattr(lieux_module, "repartir_sur_les_lieux", lambda cellule: None)
+    tick(témoin, random.Random(0), numero_tick=0)
+    with pytest.raises(AssertionError):
+        _controle_conservation(témoin)
+
+
+def test_cellule_independante_du_contenu_des_lieux():
+    import random
+    from sim.engine import tick
+
+    avec = World.charger(0)
+    sans = copy.deepcopy(avec)
+    for cellule in sans.cells.values():
+        cellule.lieux = []
+    rng_avec, rng_sans = random.Random(0), random.Random(0)
+    for numéro in range(30):
+        tick(avec, rng_avec, numero_tick=numéro)
+        tick(sans, rng_sans, numero_tick=numéro)
+        assert _etats_cellules(avec) == _etats_cellules(sans)
+        assert all(cellule.lieux == [] for cellule in sans.cells.values())
+    déplacé = copy.deepcopy(avec)
+    cellule = _cellule_multiple_peuplee(déplacé)
+    cellule.lieux[0].population -= 1
+    cellule.lieux[1].population += 1
+    rng_avec, rng_déplacé = random.Random(0), random.Random(0)
+    for numéro in range(30, 40):
+        tick(avec, rng_avec, numero_tick=numéro)
+        tick(déplacé, rng_déplacé, numero_tick=numéro)
+        assert _etats_cellules(avec) == _etats_cellules(déplacé)
+    assert _controle_conservation(avec) == _controle_conservation(déplacé)
+    cellule.population += 1
+    assert _etats_cellules(avec) != _etats_cellules(déplacé)
+    print(f"cellules_comparées={len(avec.cells)}, ticks_sans_lieux=30, ticks_habitant_déplacé=10, écart_vu=1")
+
+
+def test_photographie_et_empreinte_portent_les_lieux():
+    import hashlib
+    import pathlib
+    import random
+    import subprocess
+    import sys
+    from sim.engine import tick
+    from sim.snapshot_export import SnapshotExportError, build_snapshot_document, serialize_snapshot
+
+    courses = [World.charger(0), World.charger(0)]
+    for monde in courses:
+        rng = random.Random(0)
+        for numéro in range(25):
+            tick(monde, rng, numero_tick=numéro)
+    assert json.dumps(courses[0].to_dict(), sort_keys=True) == json.dumps(courses[1].to_dict(), sort_keys=True)
+    assert all("lieux" in cellule for cellule in courses[0].to_dict()["cells"].values())
+    monde = World.charger(0)
+    document = build_snapshot_document(monde, 0, 0)
+    assert document["cells"]
+    for cellule in document["cells"]:
+        cid = cellule["cell_id"]
+        vue = lieux_de_cellule(cid, monde.cells[cid].area_km2)
+        assert len(cellule["lieux"]) == len(vue) > 0
+        assert [lieu["rang"] for lieu in cellule["lieux"]] == list(range(len(vue)))
+        assert all(set(lieu) == {"rang", "surface_km2", "population", "stocks"} for lieu in cellule["lieux"])
+        assert [lieu["surface_km2"] for lieu in cellule["lieux"]] == [lieu.surface_km2 for lieu in vue]
+        assert sum(lieu["population"] for lieu in cellule["lieux"]) == cellule["population"]
+    assert serialize_snapshot(document) == serialize_snapshot(build_snapshot_document(monde, 0, 0))
+    commande = [sys.executable, "-m", "sim", "--ticks", "0", "--seed", "0", "--json"]
+    dossier = pathlib.Path(__file__).parents[2]
+    assert subprocess.check_output(commande, cwd=dossier) == subprocess.check_output(commande, cwd=dossier)
+    empreinte_avant = json.dumps(monde.to_dict(), sort_keys=True)
+    sha_avant = hashlib.sha256(serialize_snapshot(document)).hexdigest()
+    cellule = _cellule_multiple_peuplee(monde)
+    cellule.lieux[0].population -= 1
+    cellule.lieux[1].population += 1
+    assert _controle_conservation(monde) == len(monde.cells)
+    assert json.dumps(monde.to_dict(), sort_keys=True) != empreinte_avant
+    assert hashlib.sha256(serialize_snapshot(build_snapshot_document(monde, 0, 0))).hexdigest() != sha_avant
+    cellule.lieux.pop()
+    with pytest.raises(SnapshotExportError, match=str(cellule.cell_id)):
+        build_snapshot_document(monde, 0, 0)
+    print(f"cellules_photographiées={len(document['cells'])}, courses_identiques=2, empreintes_modifiées=2, refus_vu=1")

@@ -22,6 +22,7 @@ from sim.constants import (
     date_de_tick,
 )
 from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise
+from sim.lieux import amorcer_lieux
 from sim.pluie import (
     charger_latitude_moyenne_pluie,
     charger_releves,
@@ -206,6 +207,7 @@ class World:
                 migration_remainder=0.0,
             )
             ecrire_stock_marchandise(cell, MARCHANDISE_NOURRITURE, stock)
+            cell.lieux = amorcer_lieux(cell)
             cells[cid] = cell
 
         return cls(cells=cells, adjacency=raw_adjacency,

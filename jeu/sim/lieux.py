@@ -4,7 +4,7 @@ import dataclasses
 import math
 
 import sim.constants as _constantes
-from sim.model import _NoBadSpatialField
+from sim.model import _NoBadSpatialField, copier_panier, creer_etat_de_lieu, remplacer_panier
 
 
 class LieuxInvalides(ValueError):
@@ -60,3 +60,63 @@ def lieux_depuis_monde(world) -> dict:
         cell_id: getattr(cellule, "area_km2", None)
         for cell_id, cellule in world.cells.items()
     })
+
+
+def partager(total, poids) -> list:
+    """Plus fort reste ; les fractions de kilogramme restent au rang zéro."""
+    poids = list(poids)
+    for valeur in [total, *poids]:
+        if (isinstance(valeur, bool) or not isinstance(valeur, (int, float))
+                or (isinstance(valeur, float) and not math.isfinite(valeur)) or valeur < 0):
+            raise LieuxInvalides("total ou poids absent, négatif, booléen ou non fini")
+    # Les flottants sont des rapports d'entiers à dénominateur puissance
+    # de deux : un dénominateur commun rend les restes exacts, sans arrondi.
+    rapports = [poids.as_integer_ratio() for poids in poids]
+    dénominateur = max((rapport[1] for rapport in rapports), default=1)
+    poids_exacts = [numérateur * (dénominateur // diviseur) for numérateur, diviseur in rapports]
+    somme = sum(poids_exacts)
+    if somme <= 0:
+        raise LieuxInvalides("somme des poids nulle")
+    numérateur_total, diviseur_total = total.as_integer_ratio()
+    divisions = [divmod(numérateur_total * poids, diviseur_total * somme) for poids in poids_exacts]
+    parts = [part for part, reste in divisions]
+    unités = max(0, min(len(parts), math.floor(total) - sum(parts)))
+    ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
+    for rang in ordre[:unités]:
+        parts[rang] += 1
+    parts[0] = total - sum(parts[1:])
+    if parts[0] < 0:
+        raise LieuxInvalides("reste négatif au rang zéro")
+    return parts
+
+
+def amorcer_lieux(cellule) -> list:
+    """Répartit les habitants et chaque marchandise selon les surfaces."""
+    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+    populations = partager(cellule.population, surfaces)
+    paniers = {nom: partager(total, surfaces) for nom, total in copier_panier(cellule).items()}
+    return [creer_etat_de_lieu(rang, population, {nom: parts[rang] for nom, parts in paniers.items()})
+            for rang, population in enumerate(populations)]
+
+
+def repartir_sur_les_lieux(cellule) -> None:
+    """Suit l'état de la cellule, sans intervenir dans ses calculs."""
+    if not cellule.lieux:
+        return
+    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+
+    def parts_pour(total, contenus):
+        if sum(contenus) == total:
+            return contenus
+        poids = contenus
+        if all(contenu == 0 for contenu in contenus):
+            poids = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+        return partager(total, poids)
+
+    populations = parts_pour(cellule.population, [lieu.population for lieu in lieux])
+    contenus = [copier_panier(lieu) for lieu in lieux]
+    paniers = {nom: parts_pour(total, [panier.get(nom, 0) for panier in contenus])
+               for nom, total in copier_panier(cellule).items()}
+    for rang, lieu in enumerate(lieux):
+        lieu.population = populations[rang]
+        remplacer_panier(lieu, {nom: parts[rang] for nom, parts in paniers.items()})

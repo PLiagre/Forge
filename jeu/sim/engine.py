@@ -27,6 +27,7 @@ import random
 from collections import defaultdict
 
 from sim import constants as _constantes
+import sim.lieux as _lieux
 from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise, lire_stock_marchandise
 
 # Carte lue pendant un tick sur un monde chargé ; None hors tick ou sans carte.
@@ -1245,6 +1246,8 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         7. Mortalité   (_apply_mortality)    — pour chaque cellule
         8. Natalité    (_apply_natalite)     — pour chaque cellule
         9. Migration   (_apply_migration)    — sur le monde entier (snapshot)
+        10. Répartition (repartir_sur_les_lieux) — habitants et paniers des lieux
+        11. Avance du compteur (_avancer_compteur_ticks)
 
     rng : instance de random.Random initialisée par l'appelant —
           jamais d'aléa global non contrôlé.
@@ -1282,6 +1285,9 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         _apply_natalite(cell, penurie_kg)
 
     _apply_migration(world, penuries)
+
+    for cell in world.cells.values():
+        _lieux.repartir_sur_les_lieux(cell)
 
     _avancer_compteur_ticks(world)
     return total_transported[0]

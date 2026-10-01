@@ -50,6 +50,7 @@ _ROOT_KEYS = {
     "jour_de_tick",
 }
 _CELL_KEYS = {
+    "lieux",
     "cell_id",
     "area_km2",
     "geometry",

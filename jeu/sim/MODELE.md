@@ -52,7 +52,9 @@ part. À chaque tick, dans cet ordre :
 10. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
     qui a manqué ce tick part vers les voisines dont il reste de la nourriture
     après consommation. Personne n'emporte de kilogrammes.
-11. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+11. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
+    et paniers sont remis d'accord avec les totaux de la cellule.
+12. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -61,10 +63,11 @@ comme « le centre administratif le plus proche ». La **pluie** n'est pas
 stockée sur `Cell` : sa vue se recalcule depuis le relevé le plus proche et
 entre dans la carte au moment où le monde la lit. La **puissance** dont relève
 une cellule est pareillement une vue dérivée, jamais un second identifiant
-spatial stocké. Les **lieux** d'une cellule se dérivent aussi de sa surface,
-sans se stocker sur `Cell`. Le tick lit la pluie dans la carte, jamais dans sa
-vue ; il ne consomme ni la vue des provinces, ni celle des puissances, ni
-celle des lieux.
+spatial stocké. Le nombre et les surfaces des **lieux** se dérivent de la
+surface de la cellule ; ses lieux portent désormais leur population et leur
+panier sur `Cell`. Le tick lit la pluie dans la carte, jamais dans sa vue ;
+il ne consomme ni la vue des provinces, ni celle des puissances. Il calcule
+à l'échelle de la cellule, puis remet les lieux d'accord à la fin.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -106,10 +109,9 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   le monde ne se construit, et aucune capacité de transport ne s'améliore.
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
-- **descendre sous la cellule pour les habitants et les biens.** La cellule se
-  découpe désormais en lieux par sa surface, mais la population, les stocks et
-  le tick restent à l'échelle de la cellule : pas de familles, pas de personnes,
-  pas de bâtiments, pas de quartiers.
+- **descendre sous la cellule pour les calculs.** Les lieux portent habitants
+  et paniers, mais le tick calcule toujours à l'échelle de la cellule : pas de
+  mouvement propre aux lieux, de familles, de personnes, de bâtiments ni de quartiers.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
@@ -1248,13 +1250,44 @@ la cellule au bit près, sans l'arrondi d'un partage égal par division.
 La vue refuse une surface absente, booléenne, textuelle, non finie, nulle ou
 négative en nommant sa cellule. Elle refuse aussi une constante non finie ou
 inférieure à 1 km². Elle est pure, recalculée à chaque consultation hors de
-`sim.model`, ne pose rien sur `Cell`, et **le tick ne la lit pas**.
+`sim.model`. Le tick ne lit pas les lieux pour calculer : il les remet
+d'accord avec la cellule à la fin.
 
 Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
 plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
-l'échelle d'une cellule », vu ici par sa surface ; il ne reçoit aucun habitant.
+l'échelle d'une cellule », vu ici par sa surface et sa part des habitants ; il
+ne concentre encore ni les gens de la ville ni ceux de `RepartitionBourg`.
 La distribution de la population et des stocks dans la cellule reste gratuite.
 La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
+
+### Ce que porte un lieu
+
+`EtatDeLieu`, dataclass mutable de `sim.model`, porte exactement `rang`,
+`population` et `stocks`. La liste `Cell.lieux` rattache ces états à leur
+cellule : aucun `cell_id` recopié ni `lieu_id`. La surface reste celle de la
+vue `lieux_de_cellule`, jamais une deuxième donnée stockée.
+
+La règle unique `partager(total, poids)` utilise le **plus fort reste** : les
+parts exactes sont mises au plancher, puis les unités entières restantes vont
+aux plus grands restes, à égalité au plus petit rang. Les rangs supérieurs à
+zéro gardent des entiers ; le bourg reçoit `total − somme(des autres parts)`.
+Cette soustraction conserve la fraction de kilogramme, et la somme retrouve
+le total de la cellule **au bit près**. Les totaux et poids négatifs, booléens
+ou non finis et une somme de poids nulle sont refusés par `LieuxInvalides`.
+
+`amorcer_lieux` partage la population et chaque marchandise selon les surfaces
+après leur amorçage dans `World.charger`. Après la migration et avant l'avance
+du compteur, `repartir_sur_les_lieux` compare chaque somme au total actuel de
+la cellule : déjà d'accord, elle ne bouge pas ; sinon, le contenu actuel donne
+les poids. Quand tous les lieux sont à zéro, les surfaces donnent les poids.
+Une marchandise absente de la cellule disparaît de tous ses lieux : l'absence
+n'est pas zéro. Une écriture sur la cellule hors du tick est suivie de même.
+
+Une cellule construite à la main avec une liste vide reste sans lieux ; le
+tick ne lui en invente pas. Les compteurs de faim, la dette et les restes de
+mortalité, natalité et migration restent à la cellule. Ce partage est de
+**niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
+n'est simulé (niveau 3).
 
 ---
 
