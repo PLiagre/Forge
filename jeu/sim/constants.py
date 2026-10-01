@@ -549,3 +549,8 @@ DEFAULT_CLI_SEED = 0
 SNAPSHOT_SCHEMA_VERSION = "v0a-5"
 # Plus fin serait du bruit, plus gros écraserait des centroïdes voisins.
 SNAPSHOT_FLOAT_DECIMALS = 6
+
+# --- Plan du bourg (mètres locaux, fidélité niveau 2) ---
+POINTS_MIN_RUE = 2
+POINTS_MIN_CONTOUR = 3
+COORDONNEES_PAR_POINT = 2

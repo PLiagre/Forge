@@ -440,3 +440,39 @@ def test_horloge_publie_des_etats_coherents_et_deterministes():
     tick_temoin = min(observes)
     with pytest.raises(AssertionError):
         _comparer_etats_service(observes[tick_temoin], rejoues[tick_temoin + 1])
+
+
+def test_plan_deterministe_independant_de_la_graine_et_du_tick():
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+
+    a, b = World.charger(0), World.charger(0)
+    assert a.plans and b.plans
+    def octets_plans(monde):
+        return json.dumps(monde.to_dict()["plans"], sort_keys=True).encode()
+
+    assert octets_plans(a) == octets_plans(b) == octets_plans(World.charger(1))
+    b.plans[min(b.cells)] = _construire_plan(_donnees_plan())
+    avant = octets_plans(b)
+    alea_a, alea_b = random.Random(0), random.Random(0)
+    for numero in range(30):
+        engine.tick(a, alea_a, numero)
+        engine.tick(b, alea_b, numero)
+        assert a.to_dict()["cells"] == b.to_dict()["cells"]
+        assert a.ticks_ecoules == b.ticks_ecoules == numero + 1
+        assert alea_a.getstate() == alea_b.getstate()
+        assert octets_plans(b) == avant
+    copie = copy.deepcopy(b)
+    copie.cells[min(copie.cells)].food_stock_kg += 1
+    with pytest.raises(AssertionError):
+        assert copie.to_dict()["cells"] == b.to_dict()["cells"]
+
+
+def test_plan_absent_de_l_arbre_du_moteur():
+    import ast
+
+    def lectures(source):
+        return [noeud for noeud in ast.walk(ast.parse(source))
+                if isinstance(noeud, ast.Attribute) and noeud.attr == "plans"]
+
+    assert not lectures(pathlib.Path(engine.__file__).read_text(encoding="utf-8"))
+    assert len(lectures("world.plans")) == 1

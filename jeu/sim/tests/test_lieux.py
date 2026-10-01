@@ -316,3 +316,117 @@ def test_la_constante_renumerote(monkeypatch):
     n_apres = len(lieux_de_cellule(c, monde.cells[c].area_km2))
     print(f"lieux_avant={n}, lieux_apres={n_apres}")
     assert n_apres < n
+
+
+def _donnees_plan():
+    """Un plan complet ; les mêmes numéros peuvent servir dans deux listes."""
+    triangle = [(0, 0), (10, 0), (0, 10)]
+    return {
+        "rues": [{"identifiant": 7, "points": [(0, 0), (10, 0)], "largeur_m": 4}],
+        "parcelles": [{"identifiant": 7, "contour": triangle}],
+        "batiments": [{"identifiant": 7, "parcelle": 7, "nature": "atelier", "emprise": triangle}],
+    }
+
+
+def _construire_plan(document):
+    from sim.plan import Batiment, Parcelle, Plan, Rue
+
+    return Plan(
+        rues=[Rue(**entree) for entree in document["rues"]],
+        parcelles=[Parcelle(**entree) for entree in document["parcelles"]],
+        batiments=[Batiment(**entree) for entree in document["batiments"]],
+    )
+
+
+def test_plan_valide_trie_et_serialise_sans_muter():
+    donnees = _donnees_plan()
+    for liste in donnees.values():
+        entree = copy.deepcopy(liste[0])
+        entree["identifiant"] = 1
+        liste.append(entree)
+    avant = copy.deepcopy(donnees)
+    a = _construire_plan(donnees)
+    b = _construire_plan(donnees)
+    for liste in (a.rues, a.parcelles, a.batiments):
+        assert [entree.identifiant for entree in liste] == [1, 7]
+    document = a.to_dict()
+    assert all([entree["identifiant"] for entree in liste] == [1, 7]
+               for liste in document.values())
+    assert document["rues"][0]["points"] == [[0, 0], [10, 0]]
+    assert document["batiments"][0]["nature"] == "atelier"
+    assert json.dumps(document, sort_keys=True) == json.dumps(b.to_dict(), sort_keys=True)
+    assert donnees == avant
+    document["rues"][0]["points"][0][0] = 999
+    assert a.to_dict() != document
+
+
+@pytest.mark.parametrize("liste,champ,valeur,message", [
+    *[("rues", "points", [(v, 0), (1, 0)], "points")
+      for v in (float("nan"), float("inf"), -float("inf"), True, "0", None)],
+    ("rues", "points", [(0, 0)], "points"),
+    ("rues", "points", [(0,), (1, 0)], "point"),
+    *[("rues", "largeur_m", v, "largeur_m")
+      for v in (0, -1, float("nan"), float("inf"), True, "4", None)],
+    ("parcelles", "contour", [(0, 0), (1, 0)], "contour"),
+    ("parcelles", "contour", [(0, 0), (1, True), (0, 1)], "contour"),
+    ("batiments", "emprise", [(0, 0), (1, 0)], "emprise"),
+    ("batiments", "emprise", [(0, 0), (1, 0), (0, float("nan"))], "emprise"),
+    *[("batiments", "nature", v, "nature") for v in ("", "  ", None, 42)],
+    ("batiments", "parcelle", 99, "parcelle"),
+    *[("batiments", "parcelle", v, "parcelle") for v in (True, "7", -1)],
+    *[(liste, "identifiant", v, "identifiant")
+      for liste in ("rues", "parcelles", "batiments") for v in (-1, True, "7", 1.5)],
+    *[(liste, "doublon", None, "double") for liste in ("rues", "parcelles", "batiments")],
+])
+def test_plan_refuse_un_seul_defaut(liste, champ, valeur, message):
+    from sim.plan import PlanInvalide
+
+    donnees = _donnees_plan()
+    assert _construire_plan(donnees).to_dict()
+    if champ == "doublon":
+        donnees[liste].append(copy.deepcopy(donnees[liste][0]))
+    else:
+        donnees[liste][0][champ] = valeur
+    with pytest.raises(PlanInvalide, match=message):
+        _construire_plan(donnees)
+
+
+def test_plan_relit_les_minimums(monkeypatch):
+    from sim.plan import PlanInvalide
+
+    for constante, message in (("POINTS_MIN_RUE", "points"), ("POINTS_MIN_CONTOUR", "contour")):
+        with monkeypatch.context() as contexte:
+            contexte.setattr(_constantes, constante, getattr(_constantes, constante) + 1)
+            with pytest.raises(PlanInvalide, match=message):
+                _construire_plan(_donnees_plan())
+
+
+@pytest.mark.parametrize("liste", ["rues", "parcelles", "batiments"])
+@pytest.mark.parametrize("valeur", [None, (), [None]])
+def test_plan_refuse_une_liste_absente_ou_un_element_invalide(liste, valeur):
+    from sim.plan import Plan, PlanInvalide
+
+    with pytest.raises(PlanInvalide, match=liste):
+        Plan(**{liste: valeur})
+
+
+def test_plan_refuse_un_defaut_ajoute_apres_construction():
+    from sim.plan import PlanInvalide
+
+    plan = _construire_plan(_donnees_plan())
+    plan.rues.append(plan.rues[0])
+    with pytest.raises(PlanInvalide, match="double"):
+        plan.to_dict()
+    plan = _construire_plan(_donnees_plan())
+    plan.rues[0].points[0] = (float("nan"), 0)
+    with pytest.raises(PlanInvalide, match="points"):
+        plan.to_dict()
+
+
+def test_plan_accepte_des_metres_locaux_sans_borne_inventee():
+    donnees = _donnees_plan()
+    donnees["rues"][0]["points"] = [(-1e12, -1e12), (1e12, 1e12)]
+    donnees["batiments"][0]["emprise"] = [(-100, -100), (-90, -100), (-100, -90)]
+    document = _construire_plan(donnees).to_dict()
+    assert document["rues"][0]["points"] == [[-1e12, -1e12], [1e12, 1e12]]
+    assert document["batiments"][0]["emprise"][0] == [-100, -100]

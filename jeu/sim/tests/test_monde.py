@@ -3047,3 +3047,97 @@ def test_service_reponse_figee_du_pont_tick4_est_celle_du_service():
         # Contre-épreuve : un tick de plus, et les octets ne sont plus ceux du tick 4.
         requete_service(port, "/tick?n=1", "POST")
         assert requete_service(port, chemin)[2] != fige4
+
+
+def test_plan_vide_par_cellule_et_empreinte_sensible():
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+
+    monde = World.charger(0)
+    assert set(monde.plans) == set(monde.cells) and monde.cells
+    document = monde.to_dict()["plans"]
+    assert list(document) == [str(cid) for cid in sorted(monde.cells)]
+    for cid, plan in monde.plans.items():
+        assert plan.rues == plan.parcelles == plan.batiments == []
+        assert document[str(cid)] == plan.to_dict() == {
+            "rues": [], "parcelles": [], "batiments": [],
+        }
+    direct = World(cells=dict(reversed(tuple(monde.cells.items()))), adjacency=[])
+    assert direct.to_dict()["plans"] == document
+    assert len({id(plan) for plan in direct.plans.values()}) == len(direct.cells)
+    copie = copy.deepcopy(monde)
+    copie.plans[min(copie.cells)] = _construire_plan(_donnees_plan())
+    assert copie.to_dict()["cells"] == monde.to_dict()["cells"]
+    assert copie.to_dict() != monde.to_dict()
+    assert _sha(json.dumps(copie.to_dict(), sort_keys=True).encode()) != _sha(
+        json.dumps(monde.to_dict(), sort_keys=True).encode()
+    )
+
+
+def test_plan_service_vide_date_tick_et_octets_deterministes():
+    def course():
+        with lancer_service(0) as port:
+            cellules = requete_service(port, "/monde")[1]["cells"]
+            assert cellules
+            cid = min(c["cell_id"] for c in cellules)
+            chemin = f"/plan?cell={cid}"
+            statut, plan, avant = requete_service(port, chemin)
+            assert statut == HTTPStatus.OK
+            assert plan == {"cell_id": cid, "rang": 0, "tick": 0,
+                            "date": requete_service(port, "/horloge")[1]["date"],
+                            "rues": [], "parcelles": [], "batiments": []}
+            requete_service(port, "/tick?n=2", "POST")
+            statut, apres, octets = requete_service(port, chemin)
+            assert statut == HTTPStatus.OK and apres["tick"] == 2
+            assert apres["date"] == requete_service(port, "/horloge")[1]["date"]
+            assert apres["rues"] == apres["parcelles"] == apres["batiments"] == []
+            return avant, octets
+
+    assert course() == course()
+
+
+def test_plan_service_refuse_sans_avancer():
+    with lancer_service(0) as port:
+        monde = requete_service(port, "/monde")[1]
+        absent = max(c["cell_id"] for c in monde["cells"]) + 1
+        for chemin, statut in (("/plan", HTTPStatus.BAD_REQUEST),
+                               ("/plan?cell=abc", HTTPStatus.BAD_REQUEST),
+                               (f"/plan?cell={absent}", HTTPStatus.NOT_FOUND)):
+            obtenu, erreur, _ = requete_service(port, chemin)
+            assert obtenu == statut
+            assert "cell" in erreur["erreur"]
+            if statut == HTTPStatus.NOT_FOUND:
+                assert str(absent) in erreur["erreur"]
+        assert requete_service(port, "/monde")[1] == monde
+        assert monde["tick"] == 0
+
+
+def test_plan_service_publie_le_monde_et_ne_bloque_pas_la_lecture():
+    from sim.service import ServeurMonde
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+
+    serveur = ServeurMonde(("127.0.0.1", 0), seed=0, jours_par_seconde=0)
+    fil = threading.Thread(target=serveur.serve_forever, daemon=True)
+    fil.start()
+    try:
+        cid = min(serveur.world.cells)
+        port = serveur.server_address[1]
+        chemin = f"/plan?cell={cid}"
+        ancien = serveur.etat_publie
+        octets = requete_service(port, chemin)[2]
+        serveur.world.plans[cid] = _construire_plan(_donnees_plan())
+        assert requete_service(port, chemin)[2] == octets
+        serveur.jouer_un_tick()
+        with serveur.verrou_tick:
+            with urlopen(f"http://127.0.0.1:{port}{chemin}", timeout=2) as reponse:
+                statut = HTTPStatus(reponse.status)
+                publies = reponse.read()
+        plan = json.loads(publies)
+        assert statut == HTTPStatus.OK and plan["tick"] == 1
+        assert plan["date"] == serveur.world.date_simulation
+        assert {cle: plan[cle] for cle in ("rues", "parcelles", "batiments")} == serveur.world.plans[cid].to_dict()
+        assert publies == serveur.etat_publie.plans[cid] != octets
+        assert ancien.plans[cid] == octets
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+        fil.join(timeout=5)

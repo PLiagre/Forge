@@ -27,6 +27,7 @@ from sim.fleuve import (
     charger_points,
 )
 from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise
+from sim.plan import Plan
 from sim.pluie import (
     charger_latitude_moyenne_pluie,
     charger_releves,
@@ -99,12 +100,14 @@ class World:
         stocks_mer : panier de marchandises du bassin maritime commun.
         attribution_villes : résultat initial des points historiques, y
                      compris ceux hors carte ; le tick ne le consulte pas.
+        plans      : dict cell_id → Plan du bourg (rang 0), sans effet au tick.
     """
 
     def __init__(self, cells: dict, adjacency: list,
                  carte: dict | None = None, carte_meta: dict | None = None,
                  attribution_villes=None):
         self.cells = cells
+        self.plans = {cid: Plan() for cid in sorted(cells)}
         self.adjacency = adjacency
         self.carte = carte or {}
         self.carte_meta = carte_meta or {}
@@ -240,6 +243,10 @@ class World:
             "cells": {
                 str(cid): cellule_vers_dict(c)
                 for cid, c in sorted(self.cells.items())
+            },
+            "plans": {
+                str(cid): plan.to_dict()
+                for cid, plan in sorted(self.plans.items())
             },
             "ticks_ecoules": self.ticks_ecoules,
         }

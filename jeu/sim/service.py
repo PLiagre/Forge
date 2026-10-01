@@ -95,6 +95,7 @@ class EtatPublie:
 
     monde: bytes
     lieux: dict[int, bytes]
+    plans: dict[int, bytes]
     tick: int
     date: dict[str, int]
     jours_par_seconde: float
@@ -154,9 +155,17 @@ class ServeurMonde(ThreadingHTTPServer):
                 "cells": cellules,
             }
         )
+        plans = {
+            cell_id: _serialiser(
+                plan.to_dict()
+                | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
+            )
+            for cell_id, plan in sorted(self.world.plans.items())
+        }
         return EtatPublie(
             monde=monde,
             lieux=lieux,
+            plans=plans,
             tick=numero_tick,
             date=date,
             jours_par_seconde=jours_par_seconde,
@@ -280,13 +289,14 @@ class RequetesMonde(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         cible = urlsplit(self.path)
         etat = self.server.etat_publie
-        if cible.path == "/lieu":
+        if cible.path in ("/lieu", "/plan"):
             try:
                 cell_id = _parametre_entier(cible.query, "cell")
             except ValueError as exc:
                 self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                 return
-            lieu = etat.lieux.get(cell_id)
+            documents = etat.plans if cible.path == "/plan" else etat.lieux
+            lieu = documents.get(cell_id)
             if lieu is None:
                 self._refuser(
                     HTTPStatus.NOT_FOUND,

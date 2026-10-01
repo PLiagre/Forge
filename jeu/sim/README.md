@@ -14,8 +14,9 @@ Le service avance par défaut d'un jour par seconde. L'option
 `--jours-par-seconde` choisit cette cadence (`0` le met en pause). À chaud,
 `POST /vitesse?jours_par_seconde=X` change la vitesse et `GET /horloge` rend
 le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
-`GET /monde` et `GET /lieu?cell=...` restent lisibles pendant qu'un tick est
-calculé.
+`GET /monde`, `GET /lieu?cell=...` et `GET /plan?cell=...` restent lisibles
+pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
+bâtiments en mètres locaux ; il part vide et n'a aucun effet sur le tick.
 
 `--snapshot-json` écrit une photographie cellulaire déterministe (schéma
 `SNAPSHOT_SCHEMA_VERSION`) : géométrie, état simulé, province dérivée,
@@ -38,6 +39,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/__init__.py` | Paquet Python, expose `__version__` |
 | `sim/constants.py` | Constantes paramétriques nommées (voir `sim/MODELE.md`) |
 | `sim/model.py` | Dataclass `Cell` — entité géographique de base |
+| `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
 | `sim/aggregation.py` | Agrégation dérivée : regroupe les cellules par centre administratif le plus proche. Ne modifie rien, n'écrit rien |
