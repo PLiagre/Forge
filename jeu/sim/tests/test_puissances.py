@@ -238,8 +238,8 @@ def test_geographie_des_puissances_et_des_non_couvertes():
     non_couvertes = cellules_non_couvertes(vue)
     assert noms["Paris"].nom == "France"
     assert noms["Londres"].nom == "Angleterre"
-    assert noms["Le Caire"] is None and cellules["Le Caire"] in non_couvertes
-    assert noms["Constantinople"] is None and cellules["Constantinople"] in non_couvertes
+    assert noms["Le Caire"].nom == "Mamelouks" and cellules["Le Caire"] not in non_couvertes
+    assert noms["Constantinople"].nom == "Byzance" and cellules["Constantinople"] not in non_couvertes
 
     par_nom = {puissance.nom: puissance.id for puissance in table.puissances}
     france, angleterre = par_nom["France"], par_nom["Angleterre"]
@@ -367,8 +367,8 @@ def test_lecture_des_douze_ajouts(tmp_path):
         return sum(p.nom in attendues and p.id in visees for p in table.puissances)
 
     def verifier_bornes(table, document):
-        assert 24 <= len(table.puissances) == len(document["puissances"]) <= 40
-        assert 46 <= len(table.ancres) == len(document["ancres"]) <= 80
+        assert 39 <= len(table.puissances) == len(document["puissances"]) <= 40
+        assert 73 <= len(table.ancres) == len(document["ancres"]) <= 80
 
     table = charger_table()
     verifier_bornes(table, _document())
@@ -511,3 +511,238 @@ def test_ancrage_sans_piege():
     contre_epreuve = compter(table.ancres + (pise,))
     print(f"ancres_sur_piege={ancres_sur_piege}, avec_Pise={contre_epreuve}")
     assert ancres_sur_piege == 0 and contre_epreuve == 1
+
+
+ORIENT_CONNU = {
+    "Byzance": ("empire", "orthodoxe"), "Ottomans": ("sultanat", "musulmane"),
+    "Serbie": ("principauté", "orthodoxe"), "Bosnie": ("royaume", "catholique"),
+    "Valachie": ("principauté", "orthodoxe"), "Moldavie": ("principauté", "orthodoxe"),
+    "Novgorod": ("république", "orthodoxe"), "Pskov": ("république", "orthodoxe"),
+    "Horde d'Or": ("khanat", "musulmane"), "Mamelouks": ("sultanat", "musulmane"),
+    "Hafsides": ("sultanat", "musulmane"), "Zayyanides": ("sultanat", "musulmane"),
+    "Mérinides": ("sultanat", "musulmane"), "Chypre": ("royaume", "catholique"),
+    "Hospitaliers": ("ordre", "catholique"),
+}
+
+
+def test_lecture_des_quinze_ajouts_orientaux(tmp_path):
+    def compter(table):
+        visees = {a.puissance for a in table.ancres}
+        return sum(p.nom in ORIENT_CONNU and p.id in visees for p in table.puissances)
+
+    table = charger_table()
+    ajouts_lus = compter(table)
+    print(f"ajouts_lus={ajouts_lus}")
+    assert ajouts_lus == len(ORIENT_CONNU) == 15
+    lituanie = next(p.id for p in table.puissances if p.nom == "Pologne-Lituanie")
+    assert {"Kiev", "Smolensk"} <= {a.nom for a in table.ancres if a.puissance == lituanie}
+    document = _document()
+    byzance = next(p for p in document["puissances"] if p["nom"] == "Byzance")
+    document["puissances"].remove(byzance)
+    document["ancres"] = [a for a in document["ancres"] if a["puissance"] != byzance["id"]]
+    ajouts_reduits = compter(charger_table(_ecrire(tmp_path, document)))
+    print(f"sans_Byzance={ajouts_reduits}")
+    assert ajouts_reduits == 14
+    with pytest.raises(AssertionError):
+        assert ajouts_reduits == len(ORIENT_CONNU)
+
+
+@pytest.mark.parametrize("nom,champ,valeur", [
+    ("Byzance", "ancres", None), ("Ottomans", "nature", "beylik"),
+    ("Horde d'Or", "nature", "horde"), ("Mamelouks", "religion", "copte"),
+])
+def test_refus_des_cas_orientaux(tmp_path, nom, champ, valeur):
+    document = _document()
+    puissance = next(p for p in document["puissances"] if p["nom"] == nom)
+    if champ == "ancres":
+        document["ancres"] = [a for a in document["ancres"] if a["puissance"] != puissance["id"]]
+    else:
+        puissance[champ] = valeur
+    with pytest.raises(PuissanceInvalide) as erreur:
+        charger_table(_ecrire(tmp_path, document))
+    refus_observes = int(f"puissance {puissance['id']}" in str(erreur.value) and champ in str(erreur.value))
+    print(f"refus_observés={refus_observes}/1, cas={nom}, champ={champ}")
+    assert refus_observes == 1
+    assert next(p for p in charger_table().puissances if p.nom == "Byzance").nature == "empire"
+
+
+def test_puissances_orientales_connues(tmp_path):
+    def connues(table):
+        par_nom = {p.nom: (p.nature, p.religion) for p in table.puissances}
+        return all(par_nom.get(nom) == traits for nom, traits in ORIENT_CONNU.items())
+
+    vraie = connues(charger_table())
+    print(f"connues={int(vraie)}, attendues={len(ORIENT_CONNU)}")
+    assert vraie and len(ORIENT_CONNU) > 0
+    document = _document()
+    next(p for p in document["puissances"] if p["nom"] == "Byzance")["religion"] = "catholique"
+    byzance_fausse = connues(charger_table(_ecrire(tmp_path, document)))
+    document = _document()
+    hospitaliers = next(p for p in document["puissances"] if p["nom"] == "Hospitaliers")
+    document["puissances"].remove(hospitaliers)
+    document["ancres"] = [a for a in document["ancres"] if a["puissance"] != hospitaliers["id"]]
+    hospitaliers_absents = connues(charger_table(_ecrire(tmp_path, document)))
+    print(f"Byzance_fausse={int(byzance_fausse)}, Hospitaliers_absents={int(hospitaliers_absents)}")
+    assert not byzance_fausse and not hospitaliers_absents
+
+
+def test_geographie_et_compte_des_puissances_orientales():
+    monde, table = World.charger(0), charger_table()
+    positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
+    points = {
+        "Mistra": (37.07, 22.37, "Byzance"), "Edirne": (41.68, 26.56, "Ottomans"),
+        "Ankara": (39.93, 32.85, "Ottomans"), "Kruševac": (43.58, 21.33, "Serbie"),
+        "Bobovac": (44.14, 18.22, "Bosnie"), "Târgoviște": (44.93, 25.46, "Valachie"),
+        "Suceava": (47.65, 26.26, "Moldavie"), "Novgorod": (58.52, 31.27, "Novgorod"),
+        "Pskov": (57.82, 28.33, "Pskov"), "Qırq Yer": (44.74, 33.88, "Horde d'Or"),
+        "Tunis": (36.81, 10.18, "Hafsides"), "Tlemcen": (34.88, -1.32, "Zayyanides"),
+        "Fès": (34.03, -5.00, "Mérinides"), "Nicosie": (35.17, 33.36, "Chypre"),
+        "Rhodes": (36.43, 28.22, "Hospitaliers"), "Kiev": (50.45, 30.52, "Pologne-Lituanie"),
+    }
+    cellules = {nom: _cellule_la_plus_proche((lat, lon), positions, latitude)
+                for nom, (lat, lon, _) in points.items()}
+    vue = puissances_depuis_monde(monde)
+    couvertes, non_couvertes = sum(p is not None for p in vue.values()), len(cellules_non_couvertes(vue))
+    print(f"cellules_distinctes={len(set(cellules.values()))}, couvertes={couvertes}, non_couvertes={non_couvertes}")
+    assert len(set(cellules.values())) == len(points) > 0
+    assert couvertes + non_couvertes == len(monde.cells)
+    assert {nom: puissance_de_cellule(cellule, vue, table).nom for nom, cellule in cellules.items()} == {
+        nom: puissance for nom, (_, _, puissance) in points.items()}
+
+    constantinople = _cellule_la_plus_proche((41.01, 28.98), positions, latitude)
+    par_nom = {p.nom: p.id for p in table.puissances}
+    byzance, ottomans = par_nom["Byzance"], par_nom["Ottomans"]
+    echange = {byzance: ottomans, ottomans: byzance}
+    table_echangee = dataclasses.replace(table, ancres=tuple(
+        dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance)) for a in table.ancres))
+    vue_echangee = puissances_depuis_monde(monde, table=table_echangee)
+    assert puissance_de_cellule(constantinople, vue_echangee, table_echangee).nom == "Ottomans"
+    assert puissance_de_cellule(cellules["Edirne"], vue_echangee, table_echangee).nom == "Byzance"
+    bursa = dataclasses.replace(next(a for a in table.ancres if a.puissance == ottomans),
+                               id=max(a.id for a in table.ancres) + 1, nom="Bursa", lat=40.19, lon=29.06)
+    table_bursa = dataclasses.replace(table, ancres=table.ancres + (bursa,))
+    vue_bursa = puissances_depuis_monde(monde, table=table_bursa)
+    assert puissance_de_cellule(constantinople, vue_bursa, table_bursa).nom == "Ottomans"
+    sans_nicosie = dataclasses.replace(table, ancres=tuple(a for a in table.ancres if a.nom != "Nicosie"))
+    cellules_chypre = sum(p == par_nom["Chypre"] for p in vue.values())
+    sans_ancre = sum(p == par_nom["Chypre"] for p in puissances_depuis_monde(monde, table=sans_nicosie).values())
+    print(f"Constantinople_échangée=Ottomans, Edirne_échangée=Byzance, avec_Bursa=Ottomans, Chypre={cellules_chypre}, sans_Nicosie={sans_ancre}")
+    assert cellules_chypre > 0 and sans_ancre == 0
+
+
+def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
+    from sim.puissances import charger_lacunes, lacune_par_cellule
+
+    monde, positions = World.charger(0), charger_positions()
+    vue, lacunes = puissances_depuis_monde(monde), charger_lacunes()
+    portee, latitude = charger_portee(), charger_latitude_moyenne_puissances()
+    assert len(lacunes) == 8 and all(l.raison.strip() for l in lacunes)
+    assert tuple(l.id for l in lacunes) == tuple(sorted(l.id for l in lacunes))
+    avant = copy.deepcopy((positions, vue, lacunes, monde.to_dict()))
+
+    def compter(retenues):
+        raisons = lacune_par_cellule(positions, vue, retenues, portee, latitude)
+        assert set(raisons) == set(cellules_non_couvertes(vue))
+        return len(raisons), sum(r is None for r in raisons.values()), sum(l.id not in raisons.values() for l in retenues)
+
+    non_couvertes, sans_raison, lacunes_inutiles = compter(lacunes)
+    print(f"non_couvertes={non_couvertes}, sans_raison={sans_raison}, lacunes_inutiles={lacunes_inutiles}")
+    assert non_couvertes > 0 and sans_raison == lacunes_inutiles == 0
+    sans_cyrenaique = compter(tuple(l for l in lacunes if l.nom != "Cyrénaïque"))
+    paris = dataclasses.replace(lacunes[0], id=max(l.id for l in lacunes) + 1,
+                                nom="Paris", lat=48.86, lon=2.35)
+    avec_paris = compter(lacunes + (paris,))
+    print(f"sans_Cyrénaïque={sans_cyrenaique}, avec_Paris={avec_paris}")
+    assert sans_cyrenaique[1] == 1 and avec_paris[2] == 1
+    assert compter(tuple(reversed(lacunes))) == (non_couvertes, sans_raison, lacunes_inutiles)
+    assert (positions, vue, lacunes, monde.to_dict()) == avant
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        paris.raison = "modifiée"
+
+
+def test_refus_des_lacunes_sans_affecter_la_table(tmp_path):
+    from sim.puissances import charger_lacunes
+
+    cas = [
+        ("lacunes", None), ("lacunes", []), ("lacunes", {}),
+        ("raison", ""), ("raison", None), ("nom", "  "), ("nom", None),
+        ("lat", "32.89"), ("lon", math.nan), ("lat", math.inf), ("lon", True),
+        ("id", "dupliqué"), ("id", False),
+    ]
+    refus_observes = 0
+    for champ, valeur in cas:
+        document = _document()
+        lacune = document["lacunes"][0]
+        identifiant = lacune["id"]
+        if champ == "lacunes":
+            if valeur is None:
+                del document[champ]
+            else:
+                document[champ] = valeur
+            ligne = "champ lacunes"
+        else:
+            if valeur is None:
+                del lacune[champ]
+            elif champ == "id" and valeur == "dupliqué":
+                document["lacunes"][1]["id"] = identifiant
+            else:
+                lacune[champ] = valeur
+            ligne = f"lacune {valeur if champ == 'id' and isinstance(valeur, bool) else identifiant}"
+        chemin = _ecrire(tmp_path, document)
+        with pytest.raises(PuissanceInvalide) as erreur:
+            charger_lacunes(chemin)
+        assert ligne in str(erreur.value) and champ in str(erreur.value)
+        assert charger_table(chemin) == charger_table()
+        refus_observes += 1
+    print(f"refus_observés={refus_observes}/{len(cas)}")
+    assert refus_observes == len(cas) > 0
+
+
+def test_ancrage_oriental_sans_piege():
+    table = charger_table()
+    pieges = {"Bursa": (40.19, 29.06), "Iznik": (40.43, 29.72), "Athènes": (37.98, 23.73)}
+
+    def compter(ancres):
+        return sum(any(abs(a.lat - lat) < .2 and abs(a.lon - lon) < .2
+                       for lat, lon in pieges.values()) for a in ancres)
+
+    ancres_sur_piege = compter(table.ancres)
+    ottomans = next(p.id for p in table.puissances if p.nom == "Ottomans")
+    bursa = dataclasses.replace(next(a for a in table.ancres if a.puissance == ottomans),
+                               id=max(a.id for a in table.ancres) + 1, nom="Bursa", lat=40.19, lon=29.06)
+    contre_epreuve = compter(table.ancres + (bursa,))
+    print(f"ancres_sur_piege={ancres_sur_piege}, avec_Bursa={contre_epreuve}")
+    assert ancres_sur_piege == 0 and contre_epreuve == 1
+
+
+def test_lacune_departage_projection_et_bord_de_portee():
+    from sim.puissances import charger_lacunes, lacune_par_cellule
+
+    positions = charger_positions()
+    latitude = charger_latitude_moyenne_puissances()
+    paris = _cellule_la_plus_proche((48.86, 2.35), positions, latitude)
+    londres = _cellule_la_plus_proche((51.51, -.13), positions, latitude)
+    assert paris != londres
+    lacunes = charger_lacunes()
+    ouest = dataclasses.replace(lacunes[0], lat=0.0, lon=-1.0)
+    est = dataclasses.replace(lacunes[1], lat=0.0, lon=1.0)
+    vue = {paris: None, londres: charger_table().puissances[0].id}
+    gagnants = [lacune_par_cellule({paris: (0.0, 0.0)}, vue, ordre, 1.0, 0.0)
+                for ordre in ((ouest, est), (est, ouest))]
+    assert gagnants == [{paris: ouest.id}, {paris: ouest.id}]
+    origine = dataclasses.replace(ouest, lon=0.0)
+    sur_bord = lacune_par_cellule({paris: (0.0, 1.0)}, vue, (origine,), 1.0, 0.0)
+    au_dela = lacune_par_cellule({paris: (0.0, math.nextafter(1.0, math.inf))}, vue, (origine,), 1.0, 0.0)
+    assert sur_bord == {paris: origine.id} and au_dela == {paris: None}
+    portee = (facteur_de_projection(latitude) + 1.0) / 2
+    avec_projection = lacune_par_cellule({paris: (0.0, 1.0)}, vue, (origine,), portee, latitude)
+    sans_projection = lacune_par_cellule({paris: (0.0, 1.0)}, vue, (origine,), portee, 0.0)
+    assert avec_projection == {paris: origine.id} and sans_projection == {paris: None}
+    assert lacune_par_cellule({}, {}, lacunes, portee, latitude) == {}
+    refus_observes = 0
+    for invalide in (True, "1", math.nan, 0, -1):
+        with pytest.raises(PuissanceInvalide, match="portee"):
+            lacune_par_cellule({paris: (0.0, 0.0)}, vue, lacunes, invalide, latitude)
+        refus_observes += 1
+    print(f"départages={len(gagnants)}, bord_couvert={sur_bord[paris] is not None}, au_delà={au_dela[paris]}, refus_observés={refus_observes}")
+    assert refus_observes > 0
