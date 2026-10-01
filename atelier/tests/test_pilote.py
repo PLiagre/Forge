@@ -1028,7 +1028,7 @@ def test_un_depanneur_sans_decision_laisse_le_lot_au_proprietaire(projet, gh, de
     _bloque(gh)
     _pilote(projet, gh, depot, Agents((0, "Je ne sais pas.")), tmp_path).tour()
     assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "pas de diagnostic" in gh.issues_[10]["comments"][-1]["body"]
+    assert "pas de décision" in gh.issues_[10]["comments"][-1]["body"]
     rien = Agents()
     _pilote(projet, gh, depot, rien, tmp_path).tour()
     assert rien.appels == []
@@ -1065,3 +1065,18 @@ def test_le_relecteur_lit_les_fichiers_lfs_du_lot(projet, gh, depot, tmp_path, m
     assert (depot.racine / "chantiers" / "10" / ".atelier" / "lfs" / planche).read_bytes() == b"\x89PNG"
     prompt = next(a for a in agents.appels[0] if "Tu es le relecteur" in a)
     assert f"`.atelier/lfs/{planche}`" in prompt
+
+
+def test_le_depanneur_se_lit_en_gras_avec_sa_consigne_a_la_ligne(projet, gh, depot, tmp_path):
+    """Le 1er octobre 2026, sa décision sur #235 est restée illisible."""
+    _bloque(gh)
+    _pilote(projet, gh, depot, Agents((0, "Quota épuisé, rien d'autre.\n\n**DECISION: REPRENDRE**\n"
+                                           "Codeur : reprends là où le délai t'a coupé.")), tmp_path).tour()
+    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
+    assert lots.consigne_du_depanneur(gh.issues_[10]["comments"]) == "Codeur : reprends là où le délai t'a coupé."
+
+
+def test_un_depanneur_illisible_laisse_lire_ce_qu_il_a_ecrit(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    _pilote(projet, gh, depot, Agents((0, "La cause est un quota.")), tmp_path).tour()
+    assert "La cause est un quota." in gh.issues_[10]["comments"][-1]["body"]
