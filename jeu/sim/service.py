@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
+from sim.intentions import TYPE_CHOISIR_DEPART, IntentionRefusee, deposer_intention
 from sim.model import cellule_vers_dict
 from sim.snapshot_export import _round_tree
 from sim.world import World
@@ -147,14 +148,15 @@ class ServeurMonde(ThreadingHTTPServer):
             )
             for cellule in cellules
         }
-        monde = _serialiser(
-            {
-                "tick": numero_tick,
-                "date": date,
-                "cell_count": len(cellules),
-                "cells": cellules,
-            }
-        )
+        document = {
+            "tick": numero_tick,
+            "date": date,
+            "cell_count": len(cellules),
+            "cells": cellules,
+        }
+        if self.world.maison_du_joueur is not None:
+            document["maison_du_joueur"] = self.world.maison_du_joueur
+        monde = _serialiser(document)
         plans = {
             cell_id: _serialiser(
                 plan.to_dict()
@@ -362,7 +364,19 @@ class RequetesMonde(BaseHTTPRequestHandler):
                     f"corps d'intention invalide : reçu {intention!r}, attendu un objet JSON",
                 )
                 return
-            etat = self.server.etat_publie
+            if intention.get("type") == TYPE_CHOISIR_DEPART:
+                try:
+                    with self.server.verrou_tick:
+                        deposer_intention(self.server.world, intention)
+                        etat = self.server.etat_publie
+                except IntentionRefusee as exc:
+                    statut = (HTTPStatus.CONFLICT
+                              if str(exc).startswith("départ déjà choisi :")
+                              else HTTPStatus.BAD_REQUEST)
+                    self._refuser(statut, str(exc))
+                    return
+            else:
+                etat = self.server.etat_publie
             self._repondre(
                 HTTPStatus.OK,
                 {"acceptee": True, "appliquee_au_tick": etat.tick},

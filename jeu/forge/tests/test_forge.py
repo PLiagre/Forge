@@ -116,3 +116,56 @@ def test_une_lecture_inconnue_est_refusee_avant_de_simuler(tmp_path):
     """argparse refuse la lecture : on ne joue pas 365 ticks pour rien."""
     with pytest.raises(SystemExit):
         main(["--lecture", "prosperite", "--sortie", str(tmp_path / "x")])
+
+
+def _terres_depart():
+    from sim.seigneuries import charger_seigneuries
+
+    table = charger_seigneuries()
+    assert table, "échantillon vide : aucune terre de départ"
+    return next(s.id for s in table if s.nom == "Duché de Bar"), max(s.id for s in table) + 1
+
+
+def test_depart_et_photographie_inchangee(tmp_path):
+    bar, _ = _terres_depart()
+    code, avec = _jouer(tmp_path / "avec", "--depart", str(bar), "--sans-chronique")
+    assert code == 0
+    code, sans = _jouer(tmp_path / "sans", "--sans-chronique")
+    assert code == 0
+    assert json.loads((avec / "resume.json").read_text())["simulation"]["maison_du_joueur"] == bar
+    assert "maison_du_joueur" not in json.loads((sans / "resume.json").read_text())["simulation"]
+    photographie = (avec / "monde.json").read_bytes()
+    assert photographie and photographie == (sans / "monde.json").read_bytes()
+    print(f"départs_appliqués=1, photographies_comparées=2, octets_vus={len(photographie)}")
+
+
+def _verifier_refus_depart(tmp_path, arguments, message, capsys):
+    code, sortie = _jouer(tmp_path, *arguments, "--sans-chronique")
+    assert code == 2
+    assert message in capsys.readouterr().err
+    assert not (sortie / "resume.json").exists()
+    assert not (sortie / "monde.json").exists()
+
+
+@pytest.mark.parametrize("cas", ["inconnu", "double", "sans_tick"])
+def test_depart_refuse_avant_simulation(tmp_path, cas, capsys, monkeypatch):
+    bar, inconnu = _terres_depart()
+    arguments, message = {
+        "inconnu": (["--depart", str(inconnu)], "seigneurie inconnue"),
+        "double": (["--depart", str(bar), "--depart", str(bar)], "départ déjà choisi"),
+        "sans_tick": (["--depart", str(bar), "--ticks", "0"], "l'intention s'applique au tick suivant"),
+    }[cas]
+    monkeypatch.setattr("sim.engine.tick", lambda *a, **kw: pytest.fail("tick joué avant refus"))
+    _verifier_refus_depart(tmp_path, arguments, message, capsys)
+    print(f"cas={cas}, refus_observés=1, ticks_joués=0, résumés_écrits=0")
+
+
+def test_depart_contre_epreuve_acceptation_trop_large(tmp_path, capsys, monkeypatch):
+    _, inconnu = _terres_depart()
+    arguments = ["--depart", str(inconnu)]
+    with monkeypatch.context() as sonde:
+        sonde.setattr("sim.intentions.deposer_intention", lambda *a, **kw: None)
+        with pytest.raises(AssertionError):
+            _verifier_refus_depart(tmp_path / "altere", arguments, "seigneurie inconnue", capsys)
+    _verifier_refus_depart(tmp_path / "valide", arguments, "seigneurie inconnue", capsys)
+    print("contre_épreuves_rouges=1, refus_observés=1")
