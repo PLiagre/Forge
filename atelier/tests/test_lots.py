@@ -364,3 +364,15 @@ def test_la_consigne_du_depanneur_tombe_au_blocage_suivant():
     assert lots.consigne_du_depanneur([bloque, relance]) == "ouvre la planche"
     assert lots.consigne_du_depanneur([bloque, relance, bloque]) == ""
     assert lots.consigne_du_depanneur([]) == ""
+
+
+def test_une_reponse_du_codeur_a_la_revue_se_relit_et_compte_comme_un_passage():
+    pr = {"state": "OPEN", "headRefOid": "a" * 40, "mergeable": "MERGEABLE"}
+    fait = {"role": "codeur", "etat": "fait", "sha": "a" * 40}
+    corriger = {"role": "relecteur", "verdict": "CORRIGER", "sha": "a" * 40}
+    reponse = {"role": "codeur", "etat": "reponse"}
+    assert action_suivante(pr, "vert", [fait, corriger, reponse], corrections_max=2).nom == "relire"
+    apres = action_suivante(pr, "vert", [fait, corriger, reponse, corriger], corrections_max=2)
+    assert apres.nom == "corriger_relecture" and apres.essai == 2
+    assert action_suivante(pr, "vert", [fait, corriger, reponse, corriger, reponse, corriger],
+                           corrections_max=2).nom == "bloquer"

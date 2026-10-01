@@ -611,6 +611,7 @@ class Pilote:
         le pilote du VPS ne la voit pas et attend un jour."""
         numero_pr = pr["number"]
         chemin = self.depot.preparer(chantier, branche)
+        self._mettre_a_jour(chemin, branche, lot.numero)
         if prompt is None:
             correction = ""
             if action.nom == "corriger_ci":
@@ -638,6 +639,14 @@ class Pilote:
         interdits = [f for f in self.depot.changements(chemin) if self.projet.interdit(f)]
         if interdits:
             self.depot.annuler(chemin, interdits)
+        if not self.depot.changements(chemin) and action.nom == "corriger_relecture":
+            # Un constat qui ne demandait qu'une réponse écrite : elle part au
+            # relecteur, au lieu de compter comme un échec.
+            self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) répond à la revue sans changer de "
+                                            f"fichier ; le relecteur relit.\n\n{_extrait(res.texte)}\n\n"
+                                            f"{marque(role=role, etat='reponse', essai=passage, agent=str(res.agent))}")
+            self.noter(lot.numero, f"{role} : réponse à la revue", "", str(res.agent))
+            return True
         if not self.depot.changements(chemin):
             self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) n'a rien changé.\n\n"
                                             f"{_extrait(res.texte, 30)}\n\n"
@@ -665,6 +674,21 @@ class Pilote:
                                                  **vu.marque))
         self.noter(lot.numero, f"{role} : {quoi}", f"PR #{numero_pr}", str(res.agent))
         return True
+
+    def _mettre_a_jour(self, chemin: Path, branche: str, numero: int | str) -> None:
+        """La branche du lot reçoit la base avant que le codeur travaille : il
+        ne peut pas fusionner lui-même (le `.git` du chantier lui est fermé).
+        Le 1er octobre 2026, la branche de #208 partait d'avant #207, livré
+        quatre minutes plus tôt, et le codeur n'a rien pu faire. Un conflit
+        attend le mécanicien, qui le résout quand la PR le montre."""
+        if not self.depot.en_retard(chemin):
+            return
+        if self.depot.fusionner_base(chemin):
+            self.depot.git_code("merge", "--abort", cwd=chemin)
+            self.noter(numero, "base non fusionnée", "conflit : le mécanicien le résoudra")
+            return
+        self.depot.pousser(chemin, branche)
+        self.noter(numero, "base fusionnée", "avant le codeur")
 
     def _photographier(self, chemin: Path, lot: Lot, sha: str) -> Photos:
         return Photos(urls=captures.photographier_lot(self.depot, self.gh.depot, chemin, lot.numero, sha,
@@ -709,7 +733,8 @@ class Pilote:
         rapports = "\n\n".join(
             lots._MARQUE.sub("", c.get("body") or "").strip()
             for c in pr.get("comments") or []
-            if any(m.get("role") in lots.ROLES_CODEURS and m.get("etat") == "fait" for m in lots.marques([c])))
+            if any(m.get("role") in lots.ROLES_CODEURS and m.get("etat") in ("fait", "reponse")
+                   for m in lots.marques([c])))
         lisibles, illisibles = self._lfs_du_lot(chemin)
         prompt = prompts.relecteur(self.projet, numero=lot.numero, titre=lot.titre,
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
