@@ -177,6 +177,29 @@ def empreintes():
 
 
 PLANCHES=('ateliers','chantiers')
+# Le cadrage du banc. `inspecter_kit.py` recule sa caméra d'après la largeur de la famille, ce qui
+# coupe les bouts d'une planche large comme celle des six étapes. Le banc ne change pas le script :
+# il le lance par ce relais, qui, juste avant chaque rendu, recule la caméra sans la tourner jusqu'à
+# ce que toutes les enveloppes entrent dans le cadre, avec une marge.
+CADRAGE='''import runpy
+from pathlib import Path
+import bpy
+from mathutils import Vector
+
+
+@bpy.app.handlers.persistent
+def cadrer(scene,*_):
+    camera=scene.camera;bpy.context.view_layer.update()
+    coins=[o.matrix_world@Vector(b) for o in scene.objects if o.type=='MESH' for b in o.bound_box]
+    if not coins:return
+    cadre,_=camera.camera_fit_coords(bpy.context.evaluated_depsgraph_get(),[v for c in coins for v in c])
+    recul=camera.matrix_world.to_quaternion()@Vector((0,0,1));distance=(Vector(cadre)-sum(coins,Vector())/len(coins)).dot(recul)
+    camera.location=Vector(cadre)+recul*distance*.1;camera.data.clip_end=distance*6
+
+
+bpy.app.handlers.render_pre.append(cadrer)
+runpy.run_path(str(Path(__file__).with_name('inspecter_kit.py')),run_name='__main__')
+'''
 
 
 def planche(noms):
@@ -188,15 +211,16 @@ def planche(noms):
     du script, et pour bibliothèque les LOD0 que `fabriquer.py kit` vient d'écrire
     (sorties/cache/kit_nouveaux.blend, chemins de textures absolus). Le banc est refait à
     chaque passage : chaque planche (`PLANCHES`) montre ce que `kit` vient de construire,
-    jamais une ancienne.
+    jamais une ancienne, et entière (`CADRAGE`).
     """
     banc=OUT/'cache/planche';images={p:OUT/'diagnostic'/('kit_'+p+'.png') for p in PLANCHES}
     shutil.rmtree(banc,ignore_errors=True)
     for image in images.values():image.unlink(missing_ok=True)
     (banc/'sorties/bibliotheque').mkdir(parents=True)
     shutil.copy2(CODE/'inspecter_kit.py',banc/'inspecter_kit.py')
+    (banc/'cadrer.py').write_text(CADRAGE,encoding='utf-8')
     shutil.copy2(OUT/'cache/kit_nouveaux.blend',banc/'sorties/bibliotheque/Kit_Desert.blend')
-    blender([(banc/'inspecter_kit.py').relative_to(CODE).as_posix()]+noms,'planche_ateliers.log')
+    blender([(banc/'cadrer.py').relative_to(CODE).as_posix()]+noms,'planche_ateliers.log')
     for p,image in images.items():
         rendu=banc/'sorties/diagnostic'/image.name
         if rendu.exists():image.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(rendu,image)
