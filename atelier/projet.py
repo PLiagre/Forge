@@ -65,10 +65,12 @@ HARNAIS = {"claude": "Claude Code", "codex": "Codex CLI", "cursor": "Cursor (cur
 # Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents]. Le
 # renfort fait le dernier passage du codeur d'un lot du VPS avant blocage
 # (lots.passage_de_renfort) ; sa marque reste celle du codeur.
-ROLES = ("chef", "codeur", "codeur_3d", "renfort", "relecteur", "mecanicien", "chroniqueur", "boussole")
+# Le dépanneur regarde un lot bloqué avant le propriétaire (pilote._depanner).
+ROLES = ("chef", "codeur", "codeur_3d", "renfort", "relecteur", "mecanicien", "depanneur", "chroniqueur",
+         "boussole")
 
 # Les rôles qui n'écrivent rien : leur outil est appelé en lecture seule.
-ROLES_LECTURE_SEULE = ("relecteur", "chroniqueur", "boussole")
+ROLES_LECTURE_SEULE = ("relecteur", "depanneur", "chroniqueur", "boussole")
 
 # Les machines d'un lot : le VPS (Python) et le PC (Unity, Blender).
 MACHINES = ("vps", "pc")
@@ -135,6 +137,7 @@ class Projet:
     interdits: tuple[str, ...]
     lignes_max: int
     corrections_max: int
+    depannages_max: int
     dossier_briefs: str
     prefixe_branche: str
     postes: dict[str, Poste] = field(default_factory=dict)
@@ -217,7 +220,7 @@ def charger(racine: Path | str) -> Projet:
         doc = tomllib.load(f)
     bloc = doc.get("projet") or {}
     obligatoires = ("nom", "depot", "branche_base", "tests", "interdits",
-                    "lignes_max", "corrections_max", "dossier_briefs", "prefixe_branche")
+                    "lignes_max", "corrections_max", "depannages_max", "dossier_briefs", "prefixe_branche")
     manquants = [cle for cle in obligatoires if cle not in bloc]
     if manquants:
         raise ProjetIncomplet(f"[projet] ne dit pas : {', '.join(manquants)}")
@@ -238,6 +241,7 @@ def charger(racine: Path | str) -> Projet:
         interdits=tuple(str(x) for x in bloc["interdits"]),
         lignes_max=int(bloc["lignes_max"]),
         corrections_max=int(bloc["corrections_max"]),
+        depannages_max=int(bloc["depannages_max"]),
         dossier_briefs=str(bloc["dossier_briefs"]).rstrip("/"),
         prefixe_branche=str(bloc["prefixe_branche"]),
         postes=postes,

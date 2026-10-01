@@ -26,6 +26,11 @@ la fusionne toute seule.
                     RELECTEUR (Claude Code, opus, high ; puis Codex gpt-6.1-sol, Cursor grok-high : jamais la famille qui a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
+                                                                                     │
+                    DÉPANNEUR (Claude Code, opus, high ; secours Codex gpt-6.1-sol) ◄─┘
+                     ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
+                     ├─ QUESTION    ──► question au propriétaire
+                     └─ MODE-DIRECT ──► reste « bloque » : la chaîne est à corriger
 ```
 
 Le **renfort** (Codex, gpt-6.1-sol, high ; puis Cursor grok-high) fait
@@ -172,6 +177,35 @@ un sous-lot est découpé à son tour), pas seulement sa fermeture.
 Un lot **en cours** dont une dépendance est encore ouverte redevient `pret`
 et rend sa machine ; la reprise le relance quand elle est livrée, essais
 remis à zéro.
+
+### Le dépanneur, avant le propriétaire
+
+Un lot que le pilote vient de bloquer (le codeur a échoué trois fois, la CI
+reste rouge, la relecture dit encore `CORRIGER`, le relecteur n'a pas rendu de
+verdict) est lu par le **dépanneur**, au tour suivant, avant le propriétaire.
+Il est en lecture seule dans le chantier du lot. Il lit la demande, la raison
+du blocage, les comptes rendus du codeur, les revues et la CI rouge, et il
+peut rejouer un test. Puis il rend une décision :
+
+- `DECISION: REPRENDRE :: <consigne>` : la cause est passagère (quota, délai,
+  relecture vide), le codeur tourne en rond, ou le relecteur demande ce que
+  personne ne peut lui donner. Le lot redevient `pret` et reprend où il en
+  est, essais remis à zéro. La consigne entre dans le prompt du codeur et du
+  relecteur jusqu'au blocage suivant. Il relance un même lot
+  `depannages_max` fois au plus (`atelier.toml`), puis le laisse au
+  propriétaire ;
+- `DECISION: QUESTION` (le format du chef, ci-dessous) : le brief contredit un
+  test existant ou une règle du monde. Le pilote pose la question, et le
+  journal du matin la reprend ;
+- `DECISION: MODE-DIRECT :: <quoi>` : la chaîne elle-même est en cause (un
+  outil manque, un défaut dans `atelier/`). Le lot reste bloqué, avec cette
+  raison.
+
+Il ne regarde jamais une question au propriétaire, ni un blocage qu'il a lui-même
+posé. Sans décision lisible, il le dit, et le lot attend le propriétaire. Le
+1er octobre 2026, cinq lots attendaient le propriétaire au matin : trois pour
+un quota, une relecture vide ou une image que le relecteur ne pouvait pas
+ouvrir.
 
 ### Reprendre un lot bloqué
 
