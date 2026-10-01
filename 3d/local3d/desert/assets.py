@@ -1115,6 +1115,114 @@ def bread_oven():
     return m
 
 
+# ---------------------------------------------------------------- étapes de chantier (lot 269)
+
+def emprise(builder):
+    """L'emprise d'un bâtiment fini, tirée de ses sommets (tous LOD) : x0, x1, y0, y1, hauteur."""
+    vs = np.array(builder().verts)
+    return (float(vs[:, 0].min()), float(vs[:, 0].max()), float(vs[:, 1].min()), float(vs[:, 1].max()), float(vs[:, 2].max()))
+
+
+def _cotes(x0, x1, y0, y1):
+    """Les quatre côtés de l'emprise, chacun de son premier coin au second."""
+    return {'-Y': ((x0, y0), (x1, y0)), '+X': ((x1, y0), (x1, y1)), '+Y': ((x1, y1), (x0, y1)), '-X': ((x0, y1), (x0, y0))}
+
+
+def chantier_piquets(emprise):
+    """Implantation : un piquet à chaque coin de l'emprise, d'autres tous les 1,5 à 2 m le long
+    des côtés, et le cordeau tendu de piquet en piquet à 0,4 m du sol."""
+    x0, x1, y0, y1, _ = emprise; m = Mesh(); haut = 1.0
+    for (ax, ay), (bx, by) in _cotes(x0, x1, y0, y1).values():
+        n = max(1, math.ceil(math.hypot(bx - ax, by - ay) / 2))
+        for k in range(n):
+            # Le coin porte la silhouette ; les piquets du milieu disparaissent au LOD lointain.
+            m.detail = 2 if k == 0 else 1
+            x = ax + (bx - ax) * k / n; y = ay + (by - ay) * k / n
+            m.box((x, y, haut / 2), (.07, .07, haut), mat('bois_sombre'), .3 * k)
+        m.detail = 0
+        m.beam((ax, ay, .4), (bx, by, .4), .018, mat('bois_palmier'))
+    m.detail = 2
+    return m
+
+
+def chantier_murs(emprise, cotes):
+    """Élévation : des murs de pisé montés à mi-hauteur du bâtiment fini sur les côtés `cotes`
+    ('-Y', '+X', '+Y', '-X'), la baie de la porte laissée en façade, une perche à chaque coin,
+    des planches posées en travers sur des boulins, et une échelle dans l'emprise."""
+    x0, x1, y0, y1, h = emprise; m = Mesh(); r = .07; cote_min = min(x1 - x0, y1 - y0)
+    # Épaisseur du mur et saillie des boulins suivent la taille : le four n'a que 2,5 m de fond.
+    e = min(.45, .12 * cote_min); saillie = min(.75, .22 * cote_min)
+    haut = .5 * h; perche = .65 * h; cx = (x0 + x1) / 2; baie = min(1.2, .3 * (x1 - x0))
+    cotes_emprise = _cotes(x0, x1, y0, y1)
+
+    def repere(cote):
+        """Origine, longueur, direction et normale intérieure d'un côté."""
+        (ax, ay), (bx, by) = cotes_emprise[cote]; longueur = math.hypot(bx - ax, by - ay)
+        dx, dy = (bx - ax) / longueur, (by - ay) / longueur
+        return (ax, ay), longueur, (dx, dy), (-dy, dx)
+    # Les murs, posés juste en dedans des perches ; celui de façade laisse la baie de la porte.
+    # Les murs est et ouest s'arrêtent contre ceux du fond et de la façade.
+    for cote in cotes:
+        (ax, ay), (bx, by) = cotes_emprise[cote]
+        if cote in ('-Y', '+Y'):
+            y = ay + (e / 2 + r if cote == '-Y' else -e / 2 - r); a, b = sorted((ax, bx))
+            troncons = [(a + r, cx - baie / 2), (cx + baie / 2, b - r)] if cote == '-Y' else [(a + r, b - r)]
+            for u, v in troncons:
+                frustum(m, (u + v) / 2, y, 0, (v - u, e), (v - u, e - .08), haut, 'pise')
+        else:
+            x = ax + (e / 2 + r if cote == '-X' else -e / 2 - r); a, b = sorted((ay, by))
+            a += r + (e if '-Y' in cotes else 0); b -= r + (e if '+Y' in cotes else 0)
+            frustum(m, x, (a + b) / 2, 0, (e, b - a), (e - .08, b - a), haut, 'pise')
+    # Les perches des coins, liées en tête : la silhouette de l'échafaudage.
+    coins = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    for x, y in coins:
+        m.cylinder((x, y, 0), (x, y, perche), r, r * .8, mat('stipe_palmier'), 6)
+    m.detail = 1
+    for (ax, ay), (bx, by) in zip(coins, coins[1:] + coins[:1]):
+        m.beam((ax, ay, perche - .15), (bx, by, perche - .15), .07, mat('stipe_palmier'))
+    # L'échelle se dresse au milieu du mur du fond (ou du premier monté) : pas de boulin devant elle.
+    cote_echelle = '+Y' if '+Y' in cotes else cotes[0]
+    # Boulins pris dans le mur, qui dépassent vers l'intérieur, sous la dernière banchée.
+    plancher = max(.35, haut - .9); boulins = []
+    for cote in cotes:
+        (ax, ay), longueur, (dx, dy), (nx, ny) = repere(cote); n = max(3, round(longueur / 1.6))
+        for k in range(1, n):
+            s = longueur * k / n; x = ax + dx * s; y = ay + dy * s
+            if cote == '-Y' and abs(x - cx) < baie / 2 + .15 or cote == cote_echelle and abs(s - longueur / 2) < .35:
+                continue
+            a = (x + nx * (r + .05), y + ny * (r + .05), plancher); b = (x + nx * (r + e + saillie), y + ny * (r + e + saillie), plancher)
+            m.beam(a, b, .08, mat('bois_sombre')); boulins.append((cote, s, a, b))
+    # Planches posées en travers sur deux boulins voisins d'un même côté, sans barrer l'échelle.
+    m.detail = 0
+    for cote in cotes:
+        sur = [(s, a, b) for c, s, a, b in boulins if c == cote]; milieu = repere(cote)[1] / 2
+        for (s0, a0, b0), (s1, a1, b1) in zip(sur, sur[1:]):
+            if s1 - s0 > 2.2 or cote == cote_echelle and s0 < milieu < s1:
+                continue
+            for t in (.62, .86):
+                p = [a0[i] + (b0[i] - a0[i]) * t for i in range(2)]; q = [a1[i] + (b1[i] - a1[i]) * t for i in range(2)]
+                m.beam((p[0], p[1], plancher + .06), (q[0], q[1], plancher + .06), .22, mat('bois_palmier'), .04)
+    # L'échelle, dans l'emprise : elle s'appuie sur l'arase intérieure du mur et la dépasse.
+    (ax, ay), longueur, (dx, dy), (nx, ny) = repere(cote_echelle)
+    sommet = min(haut + .6, perche - .05); pied = r + e + .3 * haut + .1; appui = r + e
+    tete = pied + (appui - pied) * (sommet - .03) / (haut - .03)
+    base = (ax + dx * longueur / 2, ay + dy * longueur / 2)
+    montants = []
+    for s in (-.22, .22):
+        # Le pied part à 3 cm du sol : la section inclinée ne passe pas sous l'origine.
+        bas = (base[0] + dx * s + nx * pied, base[1] + dy * s + ny * pied, .03)
+        dessus = (base[0] + dx * s + nx * tete, base[1] + dy * s + ny * tete, sommet)
+        m.beam(bas, dessus, .06, mat('bois_sombre')); montants.append((bas, dessus))
+    (g0, g1), (d0, d1) = montants
+    for k in range(1, int(sommet / .32)):
+        t = k * .32 / sommet
+        m.beam(tuple(g0[i] + (g1[i] - g0[i]) * t for i in range(3)), tuple(d0[i] + (d1[i] - d0[i]) * t for i in range(3)), .04, mat('bois_sombre'))
+    # Un tas de terre à damer au milieu de l'enceinte.
+    frustum(m, cx, (y0 + y1) / 2, 0, (min(1.2, .25 * (x1 - x0)), min(1.0, .25 * (y1 - y0))), (.3, .25), min(.5, .25 * h), 'pise')
+    m.detail = 2
+    return m
+
+
 def jobs(tex):
     global TEX; TEX = tex
     result = [(f'maison_pise_{i}', lambda j=i: house(j), 'batiment') for i in range(6)]
@@ -1135,4 +1243,9 @@ def jobs(tex):
     result += [('souk_tapis', rug_rack, 'module'), ('souk_jarres', jars, 'module'), ('souk_velum', velum, 'module')]
     # Lot 266 : toujours à la fin, pour qu'une reconstruction complète garde l'ordre du catalogue.
     result += [('scierie', sawmill, 'batiment'), ('four_pain_pise', bread_oven, 'batiment')]
+    # Lot 269 : les étapes de chantier, posées sur l'emprise du bâtiment fini, après lui.
+    tous = ('-Y', '+X', '+Y', '-X')
+    for fini, builder, cotes in (('maison_pise_0', lambda: house(0), tous), ('scierie', sawmill, ('+Y', '-X')), ('four_pain_pise', bread_oven, tous)):
+        result += [(f'chantier_{fini}_piquets', lambda b=builder: chantier_piquets(emprise(b)), 'batiment'),
+                   (f'chantier_{fini}_murs', lambda b=builder, c=cotes: chantier_murs(emprise(b), c), 'batiment')]
     return result

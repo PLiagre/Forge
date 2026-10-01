@@ -10,29 +10,34 @@ namespace ForgeLocal3D
 {
     // Lot 266, en mode batch : ajoute au kit du désert les seuls modules choisis par Python
     // (sorties/kit/selection.json, écrit d'après kit.NOUVEAUX), puis mesure leurs prefabs. Aucune
-    // scène ouverte, aucun autre prefab refait, aucun matériau recréé. Il ne juge rien :
-    // local3d/desert/kit.py lit unity-kit.json et décide.
+    // scène ouverte, aucun autre prefab refait, aucun matériau recréé. Lot 269 : les
+    // références de la sélection (bâtiments finis des chantiers) sont mesurées sur leur prefab
+    // existant, en lecture seule. Il ne juge rien : local3d/desert/kit.py lit unity-kit.json et décide.
     public static class DesertKit
     {
         const string Output="../local3d/desert/sorties/kit/";
 
-        [Serializable] class Selection{public string[] modules;}
+        [Serializable] class Selection{public string[] modules;public string[] references;}
         [Serializable] public class Module
         {
             public string id="";public int niveaux=-1;public int[] triangles=new int[0];
             // Point le plus bas des maillages du LOD0, prefab posé à l'origine ; -1 : non mesuré.
             public double y_min=-1;public string[] materiaux=new string[0];
+            // Lot 269 : l'enveloppe des maillages du LOD0 dans le repère d'Unity ; -1 : non mesuré.
+            public double x_min=-1,x_max=-1,z_min=-1,z_max=-1,y_max=-1;
         }
         [Serializable] public class Rapport
         {
             public string status="mesure",unity="";public Module[] modules=new Module[0];
+            // Lot 269 : les bâtiments finis des chantiers, mesurés sur leur prefab existant.
+            public Module[] references=new Module[0];
             public string[] materiaux_manquants=new string[0],erreurs=new string[0];
         }
 
         [MenuItem("Forge/Désert/Kit : ajouter les nouveaux modules")]
         public static void Start()
         {
-            var modules=new List<Module>();var manquants=new List<string>();var erreurs=new List<string>();
+            var modules=new List<Module>();var references=new List<Module>();var manquants=new List<string>();var erreurs=new List<string>();
             try
             {
                 var selection=JsonUtility.FromJson<Selection>(File.ReadAllText(Output+"selection.json"));
@@ -55,11 +60,20 @@ namespace ForgeLocal3D
                     catch(Exception e){erreurs.Add(id+" : "+e.Message);}
                 }
                 AssetDatabase.SaveAssets();
+                // Les bâtiments finis de référence : leur prefab existant est chargé et mesuré,
+                // jamais recréé ni enregistré.
+                foreach(string id in selection.references??new string[0])
+                {
+                    var prefab=AssetDatabase.LoadAssetAtPath<GameObject>(DesertBuilder.Root+"/Prefabs/"+id+".prefab");
+                    if(!prefab){erreurs.Add(id+" : prefab de référence absent");continue;}
+                    try{references.Add(Measure(prefab));}
+                    catch(Exception e){erreurs.Add(id+" : "+e.Message);}
+                }
             }
             catch(Exception e){erreurs.Add(e.Message);}
-            var rapport=new Rapport{unity=Application.unityVersion,modules=modules.ToArray(),materiaux_manquants=manquants.ToArray(),erreurs=erreurs.ToArray()};
+            var rapport=new Rapport{unity=Application.unityVersion,modules=modules.ToArray(),references=references.ToArray(),materiaux_manquants=manquants.ToArray(),erreurs=erreurs.ToArray()};
             File.WriteAllText(Path.GetFullPath(Output+"unity-kit.json"),JsonUtility.ToJson(rapport,true));
-            Debug.Log("FORGE_DESERT_KIT modules="+modules.Count+" erreurs="+erreurs.Count+" materiaux_manquants="+manquants.Count);
+            Debug.Log("FORGE_DESERT_KIT modules="+modules.Count+" references="+references.Count+" erreurs="+erreurs.Count+" materiaux_manquants="+manquants.Count);
         }
 
         static Module Measure(GameObject prefab)
@@ -77,7 +91,12 @@ namespace ForgeLocal3D
                 if(lods.Length>0)
                 {
                     var points=Filters(lods[0]).SelectMany(f=>f.sharedMesh.vertices.Select(v=>f.transform.localToWorldMatrix.MultiplyPoint3x4(v))).ToArray();
-                    if(points.Length>0)result.y_min=points.Min(p=>p.y);
+                    if(points.Length>0)
+                    {
+                        result.y_min=points.Min(p=>p.y);result.y_max=points.Max(p=>p.y);
+                        result.x_min=points.Min(p=>p.x);result.x_max=points.Max(p=>p.x);
+                        result.z_min=points.Min(p=>p.z);result.z_max=points.Max(p=>p.z);
+                    }
                 }
                 result.materiaux=go.GetComponentsInChildren<Renderer>(true).SelectMany(r=>r.sharedMaterials).Select(m=>m?m.name:"(vide)").Distinct().OrderBy(n=>n,StringComparer.Ordinal).ToArray();
                 return result;
