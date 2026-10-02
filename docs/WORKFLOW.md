@@ -351,7 +351,8 @@ faire** (une session à rouvrir, sur le VPS ou le PC, avec sa commande ; le
 plafond Claude ; une ligne de veille en échec ; un lot bloqué). Le
 chroniqueur écrit trois parties : un bandeau (avancé, bloqué, à faire), ce
 qui a changé dans le jeu avec une capture par lot livré (celle de la
-révision fusionnée), et aujourd'hui. Le pilote ajoute lui-même l'avancement
+révision fusionnée, omise si c'est la même image que la photo du monde ou
+qu'une capture déjà montrée), et aujourd'hui. Le pilote ajoute lui-même l'avancement
 du jalon, lot par lot, et les détails de la chaîne, repliés. Un texte qui
 sort du gabarit, ou cite une image ou un numéro absent des faits, est
 écarté : le pilote écrit alors le journal seul, dans le même gabarit.
