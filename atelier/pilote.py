@@ -235,7 +235,11 @@ class Pilote:
             libres = {m: tenus[m] < self.projet.capacite(m) for m in MACHINES}
             if not any(libres.values()):
                 return
-            libres_de_prendre = [l for l in tous if l.numero in connus and l.numero not in en_prise]
+            # Un lot « pret » qui a déjà sa PR attend une place pour reprendre
+            # (`_reprendre`) : le chef ne le reprend jamais de zéro.
+            avec_pr = {p["headRefName"] for p in self.gh.prs_ouvertes()}
+            libres_de_prendre = [l for l in tous if l.numero in connus and l.numero not in en_prise
+                                 and l.branche(self.projet.prefixe_branche) not in avec_pr]
             suivant = lots.a_prendre(libres_de_prendre, courant.numero, libres, bloq)
             # La fenêtre de deux jalons : une machine libre qui n'a plus rien
             # à prendre dans le jalon courant prend dans le suivant, et le
@@ -407,17 +411,24 @@ class Pilote:
         un quota, et buterait sur la branche et la PR qui existent déjà. La
         marque « reprise » sur la PR remet les compteurs à zéro
         (`lots.depuis_reprise`) ; elle s'écrit avant l'étiquette : sans elle,
-        un lot « en-cours » recompterait ses échecs et serait rebloqué."""
+        un lot « en-cours » recompterait ses échecs et serait rebloqué.
+
+        Il reprend seulement si sa machine a une place, comme un lot neuf :
+        le 3 octobre 2026, #235 est reparti sur un VPS que #212 et #254
+        tenaient déjà, et son mécanicien a été coupé deux fois à 3600 s. Sans
+        place, il garde « pret » et reprend à un tour où une place se libère."""
         prets = [l for l in ouvertes if l.etat == "pret" and "lot" in l.etiquettes and not l.dependances & bloq
                  and not self._pris_ailleurs(l.numero)]
         if not prets:
             return set()
         par_branche = {p["headRefName"]: p for p in self.gh.prs_ouvertes()}
+        tenus = Counter(l.machine for l in ouvertes if "lot" in l.etiquettes and l.etat == "en-cours")
         repris = set()
         for lot in prets:
             pr = par_branche.get(lot.branche(self.projet.prefixe_branche))
-            if pr is None:
+            if pr is None or tenus[lot.machine] >= self.projet.capacite(lot.machine):
                 continue
+            tenus[lot.machine] += 1
             quand = self.maintenant().isoformat(timespec="seconds")
             self.gh.commenter_pr(pr["number"], "🤖 **pilote** : lot repris (remis « pret »). "
                                                "Les essais du codeur, du chef et du relecteur repartent de zéro ; "

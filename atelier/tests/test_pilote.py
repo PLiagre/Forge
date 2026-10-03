@@ -1151,3 +1151,25 @@ def test_un_conflit_dont_les_marqueurs_restent_bloque_tout_de_suite(projet, gh, 
     _pilote(projet, gh, depot, agents, tmp_path).tour()
     assert "bloque" in _etiquettes(gh, 10)
     assert "conflit non résolu : jeu/sim/lieux.py" in gh.issues_[10]["comments"][-1]["body"]
+
+
+def test_un_lot_remis_pret_avec_sa_pr_attend_une_place_pour_reprendre(projet, gh, depot, tmp_path):
+    # #235 le 3 octobre 2026 : repris sur un VPS que deux lots tenaient déjà.
+    projet = _parallele(projet, vps=2)
+    _en_cours(gh, commentaires=[FAIT_CODEX], etiquettes=("lot", "pret"))
+    for n in (11, 12):
+        gh.ajouter_issue(n, f"Lot {n}", ("lot", "en-cours"))
+    autre = _autre_tour(tmp_path)
+    assert autre.prendre("lot-11") and autre.prendre("lot-12")  # ils travaillent ailleurs
+    agents = Agents()
+    _pilote_verrouille(projet, gh, depot, agents, tmp_path).tour()
+    assert "pret" in _etiquettes(gh, 10) and "en-cours" not in _etiquettes(gh, 10)
+    assert "reprise" not in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
+    assert agents.appels == [], "ni reprise ni chef : sa PR attend une place"
+    # Une place se libère : il reprend où il en est.
+    autre.lacher("lot-12")
+    gh.etiqueter(12, ["livre"], ["en-cours"])
+    gh.issues_[12]["state"] = "CLOSED"
+    _pilote_verrouille(projet, gh, depot, Agents((0, "VERDICT: ACCEPTE")), tmp_path).tour()
+    assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
+    assert "en-cours" in _etiquettes(gh, 10)
