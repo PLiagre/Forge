@@ -307,3 +307,34 @@ def test_refus_ancre_absente_de_la_vue(carte):
         maison_par_cellule(positions, table, dataclasses.replace(maisons, par_ancre=tenantes),
                            charger_portee(), latitude)
     print("ancre_absente_refusée=1")
+
+
+def test_ancre_contenue(carte):
+    from sim.projection import projeter_epsg3035
+    from sim.puissances import ancre_par_cellule
+    from sim.villes import point_dans_geometrie
+
+    monde, table, maisons, positions, latitude, cellules = carte
+    geometries = {c: ligne["geometry"] for c, ligne in monde.carte.items()}
+    ancres = ancre_par_cellule(positions, table, charger_portee(), latitude, geometries)
+    vue = maisons_depuis_monde(monde)
+    ids = {m.nom: m.id for m in maisons.maisons}
+    assert vue[10374] == ids["Paléologue"]
+    assert _compter(monde, table, maisons, vue) == (476, 89, 31, 0)
+    assert ancres and all(vue[c] == (maisons.par_ancre[a] if a is not None else None)
+                          for c, a in ancres.items())
+    deplacee = dataclasses.replace(table, ancres=tuple(
+        dataclasses.replace(a, lat=positions[10032][0], lon=positions[10032][1])
+        if a.nom == "Constantinople" else a for a in table.ancres))
+    assert maisons_depuis_monde(monde, table=deplacee)[10374] == ids["Osman"]
+    constantinople = next(a for a in table.ancres if a.nom == "Constantinople")
+    lat, lon = positions[10374]
+    assert point_dans_geometrie(*projeter_epsg3035(lat, lon), geometries[10374])
+    intruse = dataclasses.replace(constantinople, id=max(a.id for a in table.ancres) + 1,
+                                 nom="Ancre synthétique", lat=lat, lon=lon)
+    alteree = dataclasses.replace(table, ancres=table.ancres + (intruse,))
+    tenantes = dataclasses.replace(maisons, par_ancre={**maisons.par_ancre,
+                                  intruse.id: ids["Wittelsbach"]})
+    assert maisons_depuis_monde(monde, table=alteree, maisons=tenantes)[10374] == ids["Wittelsbach"]
+    assert puissances_depuis_monde(monde, table=alteree)[10374] == constantinople.puissance
+    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(476, 89, 31)")
