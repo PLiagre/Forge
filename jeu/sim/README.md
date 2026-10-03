@@ -7,6 +7,7 @@ seul, sans moteur de rendu :
 py -m sim
 py -m sim --ticks 0 --json
 py -m sim --ticks 0 --seed 0 --snapshot-json /tmp/world.json
+python3 -m sim --ticks 4 --seed 0 --gestes gestes.json --monde-json monde.json
 py -m sim.service --seed 0 --port 8000 --jours-par-seconde 1
 ```
 
@@ -18,14 +19,20 @@ le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide et n'a aucun effet sur le tick.
 
-`POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}` : le
-dépôt validé reste en attente jusqu’au tick suivant. Le choix est unique ; une
-terre inconnue rend 400, un second choix 409, et les autres objets restent
-acceptés sans effet.
+`POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}` ou
+`{"type": "tracer_route", "cell": X, "points": [[0, 0], [40, 0]], "largeur_m": 4}`.
+Le dépôt validé reste en attente jusqu’au tick suivant : le choix devient
+la maison du joueur, la route entre au plan en chantier. Le reçu accepté
+est `{"acceptee": true, "appliquee_au_tick": T}`. Un type inconnu, un corps
+ou une route mal formés rendent 400 ; un second choix rend 409. Le reçu
+refusé est `{"acceptee": false, "erreur": "<raison>"}`, sans effet sur le monde.
+`--gestes` rejoue une liste `[{"tick": T, "intention": {…}}, …]` avant chaque
+tick indiqué ; `--monde-json` écrit le monde final en JSON canonique.
 
 `--snapshot-json` écrit une photographie cellulaire déterministe (schéma
 `SNAPSHOT_SCHEMA_VERSION`) : géométrie, état simulé, province dérivée,
-climat. Ce n'est pas une seconde simulation. Le snapshot déclare lui-même,
+climat, puissance, maison tenante, densité, villes de 1400 et terre choisie.
+Ce n'est pas une seconde simulation. Le snapshot déclare lui-même,
 couche par couche, ce que le moteur consomme et ce qu'il ne consomme pas.
 
 Le nom du schéma n'est pas recopié ici : il est dans `sim/constants.py`.
@@ -45,7 +52,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/constants.py` | Constantes paramétriques nommées (voir `sim/MODELE.md`) |
 | `sim/model.py` | Dataclass `Cell` — entité géographique de base |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
-| `sim/intentions.py` | Dépôt commun des choix de départ validés, en attente du tick |
+| `sim/intentions.py` | Dépôt commun des choix de départ et tracés de route, en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
 | `sim/aggregation.py` | Agrégation dérivée : regroupe les cellules par centre administratif le plus proche. Ne modifie rien, n'écrit rien |
