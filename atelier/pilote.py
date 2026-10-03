@@ -458,7 +458,7 @@ class Pilote:
             self.noter(lot.numero, "fusion automatique demandée", f"PR #{numero_pr}")
             return False
         if action.nom == "conflit":
-            return self._conflit(lot, pr, branche)
+            return self._conflit(lot, pr, branche, liste)
         if action.nom == "relancer_pc":
             # Le PC n'a pas répondu : on lui renvoie ce qu'on lui avait demandé.
             derniere = next((m.get("action") for m in reversed(liste)
@@ -862,8 +862,12 @@ class Pilote:
         return True
 
     # ------------------------------------------------------------ conflit
-    def _conflit(self, lot: Lot, pr: dict, branche: str) -> bool:
+    def _conflit(self, lot: Lot, pr: dict, branche: str, liste: list[dict]) -> bool:
         numero_pr = pr["number"]
+        echecs = [m for m in lots.depuis_reprise(liste) if m.get("role") == "mecanicien" and m.get("etat") == "echec"]
+        if len(echecs) >= 2:
+            self._bloquer(lot.numero, f"le mécanicien a échoué {len(echecs)} fois sur le conflit", numero_pr)
+            return False
         chemin = self.depot.preparer(lot.numero, branche)
         conflits = self.depot.fusionner_base(chemin)
         if not conflits:
@@ -876,10 +880,21 @@ class Pilote:
             self.depot.git_code("merge", "--abort", cwd=chemin)
             self.noter(lot.numero, "attente", "mécanicien : " + " · ".join(res.essais))
             return True
-        restants = self.depot.marqueurs_restants(chemin, conflits)
-        if not res.reussi or restants:
+        if not res.reussi:
+            # Un mécanicien coupé (délai, code non nul) n'a rien dit du
+            # conflit : c'est un essai perdu, pas un conflit insoluble (#235,
+            # coupé deux fois à 30 minutes pile le 1er octobre 2026).
             self.depot.git_code("merge", "--abort", cwd=chemin)
-            self._bloquer(lot.numero, "conflit non résolu : " + ", ".join(restants or conflits), numero_pr)
+            raison = ("délai dépassé" if res.code == 124 else f"code {res.code}") + " ; " + " · ".join(res.essais)
+            self.gh.commenter_pr(numero_pr, f"🤖 **mécanicien** ({res.agent or '—'}) : conflit non traité ({raison}). "
+                                            "Il réessaie au tour suivant.\n\n"
+                                            f"{marque(role='mecanicien', etat='echec', agent=str(res.agent))}")
+            self.noter(lot.numero, "mécanicien en échec", raison, str(res.agent or ""))
+            return True
+        restants = self.depot.marqueurs_restants(chemin, conflits)
+        if restants:
+            self.depot.git_code("merge", "--abort", cwd=chemin)
+            self._bloquer(lot.numero, "conflit non résolu : " + ", ".join(restants), numero_pr)
             return True
         sha = self.depot.conclure_fusion(chemin)
         self.depot.pousser(chemin, branche)

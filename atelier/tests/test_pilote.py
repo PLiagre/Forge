@@ -1119,3 +1119,35 @@ def test_la_branche_recoit_la_base_avant_que_le_codeur_travaille(projet, gh, dep
     lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
     assert any("base fusionnée" in l for l in lignes)
     assert depot.gestes.index(("pousser", BRANCHE)) < depot.gestes.index(("enregistrer", "Lot #10 — code"))
+
+
+def _en_conflit(gh, depot):
+    pr = _en_cours(gh, commentaires=[FAIT_CODEX])
+    pr["mergeable"] = "CONFLICTING"
+    depot.fusionner_base = lambda chemin: ["jeu/sim/lieux.py"]
+    return pr
+
+
+def test_un_mecanicien_coupe_par_le_delai_ne_bloque_pas_au_premier_essai(projet, gh, depot, tmp_path):
+    # #235 : le mécanicien coupé deux fois à 30 minutes a été présenté comme
+    # un « conflit non résolu » et le lot s'est bloqué au premier essai.
+    pr = _en_conflit(gh, depot)
+    _pilote(projet, gh, depot, Agents((124, "")), tmp_path).tour()
+    assert "bloque" not in _etiquettes(gh, 10)
+    dernier = pr["comments"][-1]["body"]
+    assert "délai dépassé" in dernier and "conflit non résolu" not in dernier
+    assert marques([{"body": dernier}])[0] | {"agent": None} == {"role": "mecanicien", "etat": "echec", "agent": None}
+    _pilote(projet, gh, depot, Agents((124, "")), tmp_path).tour()
+    assert "bloque" not in _etiquettes(gh, 10), "un deuxième échec se réessaie encore"
+    agents = Agents()
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and "bloque" in _etiquettes(gh, 10)
+    assert "le mécanicien a échoué 2 fois" in gh.issues_[10]["comments"][-1]["body"]
+
+
+def test_un_conflit_dont_les_marqueurs_restent_bloque_tout_de_suite(projet, gh, depot, tmp_path):
+    _en_conflit(gh, depot)
+    agents = Agents((0, "fait", {"jeu/sim/lieux.py": "<<<<<<< HEAD\na\n=======\nb\n>>>>>>> origin/master\n"}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "bloque" in _etiquettes(gh, 10)
+    assert "conflit non résolu : jeu/sim/lieux.py" in gh.issues_[10]["comments"][-1]["body"]
