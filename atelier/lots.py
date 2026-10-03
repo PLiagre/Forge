@@ -478,6 +478,18 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
 # une décision que le journal ne posait pas : « lire sa raison ».
 _OPTION = re.compile(r"^\s*-\s*([A-Z])\s*::\s*(.+?)(?:\s*::\s*(.+?))?\s*$", re.M)
 _RECOMMANDATION = re.compile(r"^\s*RECOMMANDATION\s*::\s*([A-Z])\s*(?:::\s*(.+?))?\s*$", re.M)
+# « NATURE :: jeu » ou « NATURE :: technique ». Le propriétaire tranche ce qui
+# oriente le jeu ; une question technique (un test, un format, une règle de
+# code) suit la recommandation sans l'attendre : le 3 octobre 2026, il
+# répondait toujours la recommandée, et J2, J3, J4 attendaient ses lettres.
+# Sans nature lisible, la question est « jeu » : dans le doute, on demande.
+_NATURE = re.compile(r"^\s*NATURE\s*::\s*(jeu|technique)\b", re.M | re.I)
+NATURE_JEU, NATURE_TECHNIQUE = "jeu", "technique"
+# La marque du pilote qui a suivi seul la recommandation d'une question
+# technique ; au-delà de DECISIONS_SEULES_MAX par lot, la question suivante
+# va au propriétaire : un lot qui pose question sur question tourne en rond.
+ETAT_DECISION = "decision"
+DECISIONS_SEULES_MAX = 2
 
 
 @dataclass(frozen=True)
@@ -485,10 +497,12 @@ class Question:
     texte: str
     options: tuple[tuple[str, str, str], ...] = ()  # (lettre, réponse, ce qu'elle coûte)
     recommandation: tuple[str, str] | None = None    # (lettre, pourquoi)
+    nature: str = NATURE_JEU
 
     def marque(self) -> dict:
         return {"question": self.texte, "options": [list(o) for o in self.options],
-                "recommandation": list(self.recommandation) if self.recommandation else None}
+                "recommandation": list(self.recommandation) if self.recommandation else None,
+                "nature": self.nature}
 
     @classmethod
     def de_marque(cls, m: dict) -> "Question | None":
@@ -496,7 +510,15 @@ class Question:
             return None
         reco = m.get("recommandation")
         return cls(texte=m["question"], options=tuple(tuple(o) for o in m.get("options") or []),
-                   recommandation=tuple(reco) if reco else None)
+                   recommandation=tuple(reco) if reco else None, nature=m.get("nature") or NATURE_JEU)
+
+    def se_decide_seule(self) -> bool:
+        """Une question technique dont la recommandation nomme une réponse."""
+        return self.nature == NATURE_TECHNIQUE and self.recommandation is not None
+
+    def reponse_recommandee(self) -> str:
+        lettre = self.recommandation[0] if self.recommandation else ""
+        return next((r for l, r, _ in self.options if l == lettre), "")
 
     def en_une_ligne(self) -> str:
         """Pour le journal : la question, ses réponses, et le choix du chef."""
@@ -520,8 +542,14 @@ def question_du_chef(texte: str, question: str) -> Question:
         lettre, pourquoi = trouvees[-1]
         if not options or lettre in {o[0] for o in options}:
             reco = (lettre, (pourquoi or "").strip())
+    natures = _NATURE.findall(texte)
     return Question(texte=question.strip() or "le chef n'a pas écrit sa question", options=options,
-                    recommandation=reco)
+                    recommandation=reco, nature=natures[-1].lower() if natures else NATURE_JEU)
+
+
+def decisions_seules(commentaires: list[dict]) -> int:
+    """Les questions techniques que le pilote a déjà tranchées seul sur ce lot."""
+    return sum(1 for m in marques(commentaires) if m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION)
 
 
 def reponse_apres_blocage(commentaires: list[dict]) -> bool:
@@ -581,6 +609,10 @@ def consigne_du_depanneur(commentaires: list[dict]) -> str:
             consigne = ""
         elif m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE:
             consigne = m.get("consigne") or ""
+        elif m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION and m.get("consigne"):
+            # Une question technique du dépanneur, tranchée seule : sa décision
+            # suit le codeur et le relecteur comme une consigne.
+            consigne = m["consigne"]
     return consigne
 
 

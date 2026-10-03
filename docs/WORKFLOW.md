@@ -236,6 +236,7 @@ DECISION: QUESTION :: <la question, en une phrase>
 - A :: <une réponse possible> :: <ce qu'elle coûte>
 - B :: …
 RECOMMANDATION :: A :: <pourquoi>
+NATURE :: jeu | technique
 ```
 
 Une seule question par lot, qui porte toutes ses décisions : le chef recense
@@ -248,6 +249,18 @@ recommandation, lisibles sur un téléphone ; le journal du matin les reprend
 dans « À faire ». Le propriétaire répond d'un commentaire (« A » suffit) :
 le lot repart au tour suivant. Le 29 septembre 2026, #209 attendait une telle
 décision derrière une ligne « lire sa raison ».
+
+Le propriétaire ne tranche que **le jeu** : ce que le joueur voit, choisit ou
+vit, ce que le monde fait et comment il raisonne, le niveau de vraisemblance.
+Une question **technique** (un test réécrit, un format, un découpage, le jeu
+restant le même quelle que soit la réponse) ne bloque pas : le pilote suit la
+recommandation, l'écrit sur l'issue (« tranchée seul »), et le lot repart. Le
+chef relit cette décision ; une PR ouverte la reçoit comme consigne. Une
+recommandation qui rend un test moins exigeant est toujours « jeu », et sans
+nature lisible, la question va au propriétaire. Au-delà de deux décisions
+seules sur un lot, la suivante lui va aussi. Pour revenir sur une décision :
+bloquer le lot, écrire sa réponse, puis remettre « pret ». Le 3 octobre 2026, le propriétaire
+répondait toujours la recommandée, et trois jalons attendaient ses lettres.
 
 Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
 branche, puis remettre `pret`.

@@ -46,6 +46,10 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   propriétaire (un test ou une règle du monde à changer) est bloqué avec la
   question, deux à quatre réponses possibles et la recommandation du chef ;
   le journal du matin la pose telle quelle.
+- **Le propriétaire ne tranche que le jeu.** Une question du chef ou du
+  dépanneur se dit `jeu` ou `technique` ; une question technique (un test
+  réécrit, un format) suit seule la recommandation, écrite sur l'issue, deux
+  fois au plus par lot ; elle ne rend jamais un test moins exigeant.
 - **Un lot `pc` n'avance que quand le PC est allumé** : un PC en veille garde
   le travail en file ; ses agents qui ne peuvent pas répondre le disent sur la
   PR (attente, renvoyée dans l'heure, sans compter d'essai).
