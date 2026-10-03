@@ -22,6 +22,18 @@ def valider_metiers(habitants_par_metier):
         _entier(personnes, f"Compte du métier {metier!r}", minimum=1)
 
 
+def metiers_d_amorcage(population, gisements):
+    """Amorçage A : les mineurs suivent les gisements, les autres sont paysans."""
+    _entier(population, "Population")
+    mineurs = int(population * _constantes.part_miniere_de(
+        gisements, _constantes.facteurs_richesse_extraction()
+    ))
+    return {metier: n for metier, n in (
+        (_constantes.METIER_MINEURS, mineurs),
+        (_constantes.METIER_PAYSANS, population - mineurs),
+    ) if n > 0}
+
+
 @dataclass(frozen=True)
 class Foyers:
     taille: int
