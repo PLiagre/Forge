@@ -73,6 +73,7 @@ namespace Forge.Pont.Tests
         [TestCase(200, "{\"acceptee\":true}", "200", "appliquee_au_tick")]
         [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tick\":9007199254740990.5}", "200", "appliquee_au_tick")]
         [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tick\":7.0000000000000001}", "200", "appliquee_au_tick")]
+        [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tic\\u006b\":7.0000000000000001,\"extra\":{\"appliquee_au_tick\":7}}", "200", "appliquee_au_tick")]
         [TestCase(400, Accepte, "400", "acceptee")]
         [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tick\":7", "200", "JSON invalide à la position")]
         [TestCase(404, "{\"erreur\":\"chemin inconnu : '/x'\"}", "404", "{\"erreur\":\"chemin inconnu : '/x'\"}")]

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -30,7 +29,7 @@ namespace Forge.Pont
     // Dépose une intention au service local (`POST /intention` sur 127.0.0.1) et relit son reçu, sans juger ni recalculer.
     public sealed class ClientIntention : IDisposable
     {
-        private static readonly Regex Jetons = new Regex(@"(""(?:[^""\\]|\\.)*"")(?:\s*:\s*(-?[0-9][0-9.eE+-]*))?");
+        private static readonly Regex Jetons = new Regex(@"""(?:[^""\\]|\\.)*""|[{}\[\]]|:[ \t\n\r]*([-0-9.eE+]*)");
         private readonly string adresse;
         private readonly TimeSpan delai;
         private readonly HttpClient http;
@@ -52,7 +51,7 @@ namespace Forge.Pont
         {
             try { LecteurJson.LireObjet(intentionJson ?? throw new ArgumentException("une intention est un objet JSON, reçu null", nameof(intentionJson))); }
             catch (ErreurJson erreur) { throw new ArgumentException("une intention est un objet JSON : " + erreur.Message, nameof(intentionJson), erreur); }
-            int statut; string corps;
+            int statut, profondeur = 0; string corps, cle = null, ecrit = null;
             using (var minuterie = new CancellationTokenSource(delai))
             using (var contenu = new ByteArrayContent(Encoding.UTF8.GetBytes(intentionJson)) { Headers = { ContentType = new MediaTypeHeaderValue("application/json") } })
                 try
@@ -66,8 +65,7 @@ namespace Forge.Pont
                         : "service absent sur " + adresse + " (" + erreur.GetBaseException().Message + ")");
                 }
             if (statut != 200 && statut != 400 && statut != 409) return Absente("statut " + statut + ", corps reçu : " + corps);
-            string code = "statut " + statut + " : ";
-            Dictionary<string, object> objet;
+            string code = "statut " + statut + " : "; Dictionary<string, object> objet;
             try { objet = LecteurJson.LireObjet(corps); }
             catch (ErreurJson erreur) { return Absente(code + erreur.Message); }
             // Le statut et le corps doivent dire la même chose : un 4xx n'est jamais une acceptation.
@@ -77,10 +75,11 @@ namespace Forge.Pont
             if (!accepte)
                 return objet.TryGetValue("erreur", out object raison) && raison is string texte && texte.Length > 0
                     ? RecuIntention.Refusee(statut, texte) : Absente(code + Fautive(objet, "erreur", "un texte non vide"));
-            // LecteurJson rend un double, qui arrondit `9007199254740990.5` en entier : le tick se relit aussi dans le texte (Jetons y lit chaque
-            // chaîne entière, puis le nombre qui suit une clé), écrit une seule fois, en chiffres seuls, < 2^53 et égal à la valeur lue ; sinon refusé.
-            string[] ecrits = Jetons.Matches(corps).Cast<Match>().Where(j => j.Groups[1].Value == "\"appliquee_au_tick\"" && j.Groups[2].Success).Select(j => j.Groups[2].Value).ToArray();
-            return ecrits.Length == 1 && long.TryParse(ecrits[0], NumberStyles.None, CultureInfo.InvariantCulture, out long tick) && tick < 9007199254740992L
+            // LecteurJson arrondit `7.0000000000000001` en 7 : le tick se relit aussi dans le texte (Jetons : chaînes, accolades, crochets, nombre après `:`), sous la
+            // clé de la racine décodée par LecteurJson (échappements compris), en chiffres seuls, < 2^53 et égal à la valeur lue ; sinon refusé.
+            foreach (Match j in Jetons.Matches(corps)) if (j.Value == "{" || j.Value == "[") profondeur++; else if (j.Value == "}" || j.Value == "]") profondeur--;
+                else if (j.Value[0] == '"') cle = (string)LecteurJson.Lire(j.Value); else if (profondeur == 1 && cle == "appliquee_au_tick") ecrit = j.Groups[1].Value;
+            return long.TryParse(ecrit, NumberStyles.None, CultureInfo.InvariantCulture, out long tick) && tick < 9007199254740992L
                 && objet.TryGetValue("appliquee_au_tick", out object valeur) && valeur is double d && d == tick
                 ? RecuIntention.AccepteeAu(tick) : Absente(code + Fautive(objet, "appliquee_au_tick", "un entier écrit en chiffres, ≥ 0 et < 2^53"));
         }
