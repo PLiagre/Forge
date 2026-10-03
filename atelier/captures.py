@@ -72,15 +72,23 @@ def touche_ce_qu_on_voit(fichiers: list[str]) -> bool:
     return any(f.startswith(("jeu/", "3d/")) for f in fichiers)
 
 
-def carte_du_monde(chemin_depot: Path, sortie: Path, *, ticks: int = 30) -> Path | None:
-    """La carte que rend `python3 -m forge` sur la révision du lot."""
+# La terre de départ que la capture choisit : la carte porte alors sa fiche
+# (siège, suzerain, voisins), ce que la preuve du jalon 2 montre au journal
+# (#214, le 3 octobre 2026). 1 : le duché de Bar.
+TERRE_DE_DEPART = 1
+
+
+def carte_du_monde(chemin_depot: Path, sortie: Path, *, ticks: int = 30,
+                   depart: int | None = TERRE_DE_DEPART) -> Path | None:
+    """La carte que rend `python3 -m forge` sur la révision du lot, avec la
+    fiche de la terre `depart` (None : sans terre choisie)."""
     sortie.mkdir(parents=True, exist_ok=True)
     if not (Path(chemin_depot) / "jeu").is_dir():
         return None
     try:
         fini = subprocess.run(
             [sys.executable, "-m", "forge", "--ticks", str(ticks), "--seed", "0", "--sortie", str(sortie),
-             "--sans-chronique", "--largeur", "900"],
+             "--sans-chronique", "--largeur", "900", *(["--depart", str(depart)] if depart is not None else [])],
             cwd=Path(chemin_depot) / "jeu", capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=600)
     except (OSError, subprocess.TimeoutExpired):
