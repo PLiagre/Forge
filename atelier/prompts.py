@@ -37,6 +37,11 @@ def _tests(projet: Projet) -> str:
     return projet.tests
 
 
+def _lanceur(projet: Projet) -> str:
+    """`python3` ou `py`, celui que la commande des tests emploie ici."""
+    return _tests(projet).split(" -m ")[0]
+
+
 def _interdits(projet: Projet) -> str:
     return ", ".join(f"`{c}`" for c in projet.interdits)
 
@@ -169,7 +174,7 @@ Une fusion de `origin/{projet.branche_base}` est en cours dans ce dossier. Les f
 {liste}
 
 Résous chaque conflit en gardant l'intention des deux côtés, le lot et la base. Retire tous les marqueurs `<<<<<<<`, `=======`, `>>>>>>>`.
-Lance `{_tests(projet)}`. Jamais dans : {_interdits(projet)}. {_FRONTIERE}
+Lance seulement les fichiers de test qui couvrent les fichiers en conflit (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q`), jamais la suite entière : elle dépasse ton délai, et la CI la joue après la poussée ; une CI rouge revient au codeur. Jamais dans : {_interdits(projet)}. {_FRONTIERE}
 Termine par un compte rendu court."""
 
 
