@@ -107,9 +107,10 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 - **organiser la fabrication.** Les matières premières sont transformées sur
   place, sans atelier, sans métier et sans bras affectés ; les objets produits
   ne sont pas consommés.
-- **répartir le travail.** Les habitants ont désormais un métier, mineur ou
-  paysan, que le tick ne lit pas encore. La part minière retire déjà des bras
-  aux champs ; les changements de métier ne sont pas encore simulés.
+- **répartir le travail.** Les habitants ont un métier, mineur ou paysan.
+  Naissances, morts et départs suivent les métiers, mais aucun nombre du
+  tick ne les lit. La part minière retire déjà des bras aux champs ; les
+  changements de métier ne sont pas encore simulés.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Aucune route, aucun pont, aucun port, aucun ouvrage : rien dans
   le monde ne se construit, et aucune capacité de transport ne s'améliore.
@@ -439,10 +440,11 @@ figé : taille, foyers complets, personnes du dernier foyer incomplet.
 Cent personnes donnent vingt foyers complets ; cent trois ajoutent un
 dernier foyer de trois personnes. La désagrégation rend le nombre exact.
 
-Toute écriture de la population passe par `repartir` : chaque métier reçoit
-`N × compte // somme`, puis le reste va au métier le plus nombreux (nom le
-plus petit en cas d'égalité). Une population inchangée garde ses comptes ;
-sans métier, les nouveaux habitants sont paysans. Les comptes nuls disparaissent.
+Une écriture directe de la population, hors du tick, passe par `repartir` :
+chaque métier reçoit `N × compte // somme`, puis le reste va au métier le
+plus nombreux (nom le plus petit en cas d'égalité). Une population inchangée
+garde ses comptes ; sans métier, les nouveaux habitants sont paysans. Les
+comptes nuls disparaissent.
 
 Une cellule construite sans métiers les déclare non calculés : la lecture
 et la clé sérialisée `foyers` rendent `-1`, même après écriture de la population.
@@ -453,9 +455,19 @@ Sont aussi refusés une population écrite négative ou non entière sur une
 cellule amorcée, un rangement négatif ou non entier, une taille non entière
 ou inférieure à un et un foyer négatif ou dont le dernier atteint la taille.
 
-**Le tick ne lit pas les métiers** : extraction et vue du bourg gardent
-leur calcul de part minière. Naissances, morts et migrations par foyer sont
-à venir. Âge, sexe, parenté et logement restent de niveau 3, non simulés.
+Naissances, morts, départs et arrivées du tick se répartissent au prorata
+des métiers, plus forts restes d'abord. Chaque métier reçoit d'abord
+`n × compte // somme`, en calcul entier. Les personnes qui restent vont
+une à une aux métiers dont le reste `n × compte % somme` est le plus fort.
+À reste égal, le nom de métier le plus petit passe d'abord. Un mort parmi
+50 mineurs et 950 paysans est un paysan ; deux morts parmi 5 et 5 font un
+mineur et un paysan ; un seul mort parmi les mêmes est un mineur. Le
+migrant ne garde pas son métier. Une cellule sans métier accueille des
+paysans.
+
+**Le tick ne lit pas les métiers** pour calculer un nombre : il les écrit.
+Extraction et vue du bourg gardent leur calcul de part minière. Âge, sexe,
+parenté et logement restent de niveau 3, non simulés.
 
 ## Le panier de marchandises
 
@@ -742,6 +754,9 @@ si food_deficit_kg > 0 et population > 0 :
     population = max(0, population − morts)
 ```
 
+Les personnes réellement retirées quittent les métiers au prorata. Un métier
+tombé à zéro disparaît.
+
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
 | `HUNGER_DEATH_SCALE` | 0.005 | 1/(kg/personne) | 1 kg de dette par tête → 0,5 % de mortalité par tick. Une famine médiévale sévère est documentée à 10–30 % de mortalité annuelle sur les populations les plus touchées, soit 0,03–0,08 %/jour ; ce facteur permet à une dette de 5–10 kg/tête d'atteindre 2–5 % par jour. |
@@ -772,6 +787,8 @@ si penurie_du_tick == 0 et food_deficit_kg == 0 et population > 0 :
     natalite_remainder = brut − naissances
     population += naissances
 ```
+
+Les naissances rejoignent les métiers de la cellule au prorata.
 
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
@@ -840,6 +857,10 @@ Deux règles, qui font que la migration est un déplacement et non une diffusion
 
 Le report de fraction (`migration_remainder`, sentinelle `-1.0`) empêche une
 petite cellule affamée d'être immobile par arrondi.
+
+Le solde de la cellule, entrées moins sorties, quitte ou rejoint ses métiers
+au prorata. Les arrivants prennent les métiers de la cellule d'arrivée ;
+dans une cellule sans métier, ils sont paysans.
 
 ---
 

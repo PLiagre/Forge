@@ -57,6 +57,16 @@ def lire_habitants_par_metier(cell: "Cell") -> dict[str, int] | int:
     return dict(cell.habitants_par_metier)
 
 
+def ecrire_habitants_par_metier(cell: "Cell", metiers: dict[str, int]) -> None:
+    """Valide les métiers, les écrit, puis aligne la population sur leur somme.
+
+    `repartir` voit alors une somme égale et ne change rien.
+    """
+    _foyers.valider_metiers(metiers)
+    cell.habitants_par_metier = dict(metiers)
+    cell.population = sum(metiers.values())
+
+
 def cellule_vers_dict(cell: "Cell") -> dict:
     """
     Sérialisation canonique d'une cellule pour World.to_dict().
