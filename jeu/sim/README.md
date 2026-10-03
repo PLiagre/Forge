@@ -51,6 +51,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/__init__.py` | Paquet Python, expose `__version__` |
 | `sim/constants.py` | Constantes paramétriques nommées (voir `sim/MODELE.md`) |
 | `sim/model.py` | Dataclass `Cell` — entité géographique de base |
+| `sim/foyers.py` | Foyers par métier : rangement réversible et répartition entière des habitants |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
 | `sim/intentions.py` | Dépôt commun des choix de départ et tracés de route, en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
