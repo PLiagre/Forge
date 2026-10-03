@@ -126,7 +126,7 @@ def _terres_depart():
     return next(s.id for s in table if s.nom == "Duché de Bar"), max(s.id for s in table) + 1
 
 
-def test_depart_et_photographie_inchangee(tmp_path):
+def test_depart_et_photographie_ne_differe_que_par_la_terre(tmp_path):
     bar, _ = _terres_depart()
     code, avec = _jouer(tmp_path / "avec", "--depart", str(bar), "--sans-chronique")
     assert code == 0
@@ -134,9 +134,18 @@ def test_depart_et_photographie_inchangee(tmp_path):
     assert code == 0
     assert json.loads((avec / "resume.json").read_text())["simulation"]["maison_du_joueur"] == bar
     assert "maison_du_joueur" not in json.loads((sans / "resume.json").read_text())["simulation"]
-    photographie = (avec / "monde.json").read_bytes()
-    assert photographie and photographie == (sans / "monde.json").read_bytes()
-    print(f"départs_appliqués=1, photographies_comparées=2, octets_vus={len(photographie)}")
+    photographie = json.loads((avec / "monde.json").read_text())
+    temoin = json.loads((sans / "monde.json").read_text())
+    assert photographie.pop("terre_choisie")["id"] == bar
+    assert temoin.pop("terre_choisie") is None
+    assert photographie == temoin
+    import copy
+    sonde = copy.deepcopy(photographie)
+    assert sonde["cells"], "échantillon vide"
+    sonde["cells"][0]["population"] += 1
+    with pytest.raises(AssertionError):
+        assert sonde == temoin
+    print(f"photographies_comparées={len((photographie, temoin))}, cellules_vues={len(photographie['cells'])}")
 
 
 def _verifier_refus_depart(tmp_path, arguments, message, capsys):
