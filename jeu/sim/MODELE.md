@@ -1419,13 +1419,35 @@ avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
 ni `resume.json`. Avec `--ticks 0`, la commande refuse : « l'intention
 s'applique au tick suivant ». Le compte rendu porte
 `simulation.maison_du_joueur` seulement après un choix appliqué ; la
-photographie `monde.json` reste identique avec ou sans choix.
+photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différence.
 
 **Niveau 1 :** les cinq terres et leurs attributions héritées, sans changement.
 **Niveau 2, plausible :** la maison du joueur réduite à l'id de sa terre,
 donc à la cellule de son siège. **Niveau 3, pas simulé :** ses effets
 (prélèvement, jalon 3), les maisons de l'IA (jalon 5) et les personnes
 (jalon 6). Changer de départ, sauvegarder et recharger ne sont pas simulés.
+
+## La photographie de 1400, vue dérivée
+
+La photographie lit les vues existantes sans modifier le monde. Chaque
+cellule porte `puissance` et `maison` (`id`, `nom`), issues de
+`puissances_depuis_monde` et `maisons_depuis_monde` : une cellule non couverte
+porte deux `null` ; une république, une Église ou un ordre porte une puissance
+et une maison `null`. `densite_hab_par_km2` lit population / surface par
+`densite_de_cellule`, avec l'arrondi commun de la photographie. `villes`
+porte les noms et populations de `charger_villes`, placés par
+`attribuer_villes` et triés par nom ; sans ville documentée, la liste est vide.
+
+À la racine, `villes_hors_carte` déclare les noms triés des villes non placées.
+`terre_choisie` vaut `null` sans choix, sinon porte la fiche actuelle de
+`fiche_de_seigneurie`, avec siège, source, cellule, habitants, production,
+suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
+dans l'ordre de la fiche. **Le tick ne la lit pas.**
+
+**Niveau 1 :** puissances, maisons, villes et terres avec leurs sources.
+**Niveau 2, plausible :** étendue des puissances et maisons, terre réduite à
+la cellule de son siège, population amorcée. **Niveau 3, pas simulé :**
+frontières réelles, suzeraineté et villes hors carte, déclarées sans placement.
 
 ## Les lieux d'une cellule, vue dérivée
 

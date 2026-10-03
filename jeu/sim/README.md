@@ -25,7 +25,8 @@ acceptés sans effet.
 
 `--snapshot-json` écrit une photographie cellulaire déterministe (schéma
 `SNAPSHOT_SCHEMA_VERSION`) : géométrie, état simulé, province dérivée,
-climat. Ce n'est pas une seconde simulation. Le snapshot déclare lui-même,
+climat, puissance, maison tenante, densité, villes de 1400 et terre choisie.
+Ce n'est pas une seconde simulation. Le snapshot déclare lui-même,
 couche par couche, ce que le moteur consomme et ce qu'il ne consomme pas.
 
 Le nom du schéma n'est pas recopié ici : il est dans `sim/constants.py`.
