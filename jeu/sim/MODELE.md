@@ -288,12 +288,24 @@ Trois raisons, dans l'ordre où elles pèsent :
 
 ### D'où vient la donnée
 
-De la **part non agricole** que le moteur calcule déjà, et de rien d'autre.
+Des **foyers par métier** : le bourg compte tous les habitants dont le métier
+n'est pas « paysans », et les champs comptent le reste. Des paysans seuls
+donnent un bourg de zéro, même sur de riches gisements. La vue lit une copie
+par `lire_habitants_par_metier` et ne modifie jamais la cellule.
 
-Cette part est `part_miniere_de(gisements, facteurs_richesse_extraction())` :
-les habitants occupés par la mine **cessent de cultiver** pour extraire.
-Ce sont les mêmes bras que le facteur agricole retire des champs. Leur
-ravitaillement suit « La distribution à l'intérieur de la cellule ».
+Sans métiers calculés (lecture `-1`), la vue appelle `metiers_d_amorcage`,
+dans `sim/foyers.py`, comme `World.charger`. Cet amorçage A donne aux mineurs
+`int(population × part_miniere_de(gisements, facteurs_richesse_extraction()))`
+et aux paysans le reste ; seuls les comptes strictement positifs sont rendus.
+
+À l'amorçage, la vue et le moteur comptent les mêmes personnes. Ensuite, les
+naissances, morts et migrations se répartissent au prorata des métiers,
+tandis que le moteur relit la part minière : un **écart** apparaît. Mesuré le
+03/10/2026 sur la graine 0, il touche 10 des 25 cellules minières après un tick
+(une personne au plus), puis les 25 après 30 ticks (15 personnes au plus).
+Aucune cellule sans part minière ne s'écarte. Le rang 0 que nourrit la
+distribution intérieure reste la part minière du moteur, pas le bourg de la
+vue. Réconcilier les deux demanderait de faire lire les métiers par le tick.
 
 Le nom « bourg » est délibérément plus large que le mécanisme qui le porte : le
 jour où un second métier existera, la vue le comptera sans être réécrite. Cela
@@ -327,7 +339,7 @@ distribution entre les lieux des champs reste gratuite.
 
 ### Ce que le moteur ne fait toujours pas
 
-Des foyers par métier existent, mais le bourg ne les compte pas encore.
+La vue du bourg compte les foyers par métier ; le moteur garde la part minière.
 Le bourg ne donne ni quartiers, ni personnes, ni salaires, ni marchés,
 ni prix, ni États. Son plan peut porter des rues et des bâtiments,
 mais ils ne font rien. La vue du bourg ne décide
@@ -466,8 +478,9 @@ migrant ne garde pas son métier. Une cellule sans métier accueille des
 paysans.
 
 **Le tick ne lit pas les métiers** pour calculer un nombre : il les écrit.
-Extraction et vue du bourg gardent leur calcul de part minière. Âge, sexe,
-parenté et logement restent de niveau 3, non simulés.
+L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
+L'amorçage A est partagé par le chargement et la vue dans `metiers_d_amorcage`.
+Âge, sexe, parenté et logement restent de niveau 3, non simulés.
 
 ## Le panier de marchandises
 
@@ -1616,10 +1629,15 @@ rien ne fixe cet ordre.
 
 ## La distribution à l'intérieur de la cellule
 
-Les habitants qui ne cultivent pas vivent au **rang 0**, le bourg : leur nombre
-est `population × part_miniere_de(gisements, facteurs_richesse_extraction())`.
+Le nombre d'habitants que le moteur compte au **rang 0** est
+`population × part_miniere_de(gisements, facteurs_richesse_extraction())`.
 Aucune population ni aucun stock par lieu n'est stocké. Les villes historiques
 nommées ne sont pas comptées au bourg.
+
+Ce nombre reste la part minière du moteur. Après des ticks, un écart avec le
+bourg de la vue est possible : celle-ci compte les métiers non paysans,
+dont les variations suivent le prorata des foyers. La distribution nourrit
+le rang 0 selon la part minière, sans consulter la vue ni les métiers.
 
 À chaque consommation, le panier alimentaire est réputé réparti au prorata
 des surfaces : pour un stock `S` (sentinelle −1 lue comme 0), une surface

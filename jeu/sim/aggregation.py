@@ -28,7 +28,8 @@ import math
 import pathlib
 
 from sim import constants as _constantes
-from sim.model import _NoBadSpatialField
+from sim import foyers
+from sim.model import _NoBadSpatialField, lire_habitants_par_metier
 
 # Racine du dépôt : un niveau au-dessus du paquet sim/
 _RACINE_DEPOT = pathlib.Path(__file__).parent.parent
@@ -326,7 +327,7 @@ def regroupements_non_vides(regroupements) -> tuple:
     )
 
 
-# --- Bourg : vue dérivée de la part non agricole ---
+# --- Bourg : vue dérivée des métiers non paysans ---
 
 
 @dataclasses.dataclass(frozen=True)
@@ -340,7 +341,7 @@ class RepartitionBourg(_NoBadSpatialField):
 
     Champs :
         cell_id               : identifiant de la cellule.
-        habitants_du_bourg    : population non agricole (troncature entière).
+        habitants_du_bourg    : habitants des métiers non paysans.
         habitants_des_champs  : population agricole, dérivée comme le reste.
     """
 
@@ -355,21 +356,19 @@ def _gisements_de_cellule(world, cell_id: int) -> list:
     return entree.get("gisements") or []
 
 
-def _part_non_agricole(gisements) -> float:
-    """Relit la fonction unique du lot 044 ; aucune seconde version ici."""
-    return _constantes.part_miniere_de(
-        gisements, _constantes.facteurs_richesse_extraction()
-    )
-
-
 def repartition_bourg_de_cellule(cellule, gisements) -> RepartitionBourg:
     """
     Fonction pure : rend la répartition bourg / campagne d'une cellule.
 
-    Ne modifie aucun objet reçu. La troncature est délibérée ; la campagne
-    est le reste, donc personne ne se perd.
+    Ne modifie aucun objet reçu. Sans métiers calculés, relit l'amorçage A.
+    La campagne est le reste, donc personne ne se perd.
     """
-    habitants_du_bourg = int(cellule.population * _part_non_agricole(gisements))
+    metiers = lire_habitants_par_metier(cellule)
+    if metiers == -1:
+        metiers = foyers.metiers_d_amorcage(cellule.population, gisements)
+    habitants_du_bourg = sum(
+        n for metier, n in metiers.items() if metier != _constantes.METIER_PAYSANS
+    )
     habitants_des_champs = cellule.population - habitants_du_bourg
     return RepartitionBourg(
         cell_id=cellule.cell_id,

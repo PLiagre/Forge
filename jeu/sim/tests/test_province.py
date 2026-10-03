@@ -999,3 +999,131 @@ def test_bourg_sans_gisement_est_toute_campagne():
         repartition.habitants_du_bourg + repartition.habitants_des_champs
         == cellule.population
     )
+
+
+def _echantillon_gisements_par_richesse():
+    from sim import constants
+
+    facteurs = constants.facteurs_richesse_extraction()
+    echantillon = {}
+    for raw in World.lire_carte()["cellules"]:
+        gisements = _gisements_complets(raw)
+        if len(gisements) == 1 and gisements[0]["richesse"] in facteurs:
+            echantillon.setdefault(gisements[0]["richesse"], gisements)
+    assert echantillon and set(echantillon) == set(facteurs), "Échantillon incomplet"
+    return echantillon
+
+
+def test_bourg_compte_les_metiers():
+    from sim import constants
+
+    gisements = _echantillon_gisements_par_richesse()["majeure"]
+    ancienne_regle = int(100 * constants.part_miniere_de(
+        gisements, constants.facteurs_richesse_extraction()))
+    assert ancienne_regle not in (7, 0)
+    for population, metiers, attendu in (
+        (100, {"forgerons": 4, "mineurs": 3, "paysans": 93}, 7),
+        (100, {"paysans": 100}, 0),
+        (0, {}, 0),
+    ):
+        cellule = Cell(cell_id=1, area_km2=1.0, population=population,
+                       habitants_par_metier=metiers)
+        avant = modele.cellule_vers_dict(cellule)
+        vue = repartition_bourg_de_cellule(cellule, gisements)
+        assert vue.habitants_du_bourg == attendu
+        assert vue.habitants_des_champs == population - attendu
+        assert vue.habitants_du_bourg + vue.habitants_des_champs == population
+        assert modele.cellule_vers_dict(cellule) == avant
+
+
+def test_bourg_amorcage_unique(monkeypatch):
+    from sim import constants, foyers
+
+    cellule = Cell(cell_id=1, area_km2=1.0, population=10000)
+    for gisements in _echantillon_gisements_par_richesse().values():
+        attendu = int(cellule.population * constants.part_miniere_de(
+            gisements, constants.facteurs_richesse_extraction()))
+        metiers = foyers.metiers_d_amorcage(cellule.population, gisements)
+        assert repartition_bourg_de_cellule(cellule, gisements).habitants_du_bourg == (
+            metiers.get(constants.METIER_MINEURS, 0)) == attendu
+        assert sum(metiers.values()) == cellule.population
+        assert all(n > 0 for n in metiers.values())
+    assert foyers.metiers_d_amorcage(0, []) == {}
+    assert foyers.metiers_d_amorcage(100, []) == {constants.METIER_PAYSANS: 100}
+    monde = World.charger(0)
+    assert monde.cells, "Échantillon vide"
+    for cid, cell in monde.cells.items():
+        assert modele.lire_habitants_par_metier(cell) == foyers.metiers_d_amorcage(
+            cell.population, monde.carte[cid].get("gisements") or [])
+
+    originale = foyers.metiers_d_amorcage
+
+    def avec_un_mineur(population, gisements):
+        metiers = originale(population, gisements)
+        if metiers.get(constants.METIER_PAYSANS, 0) > 0:
+            metiers[constants.METIER_PAYSANS] -= 1
+            metiers[constants.METIER_MINEURS] = metiers.get(constants.METIER_MINEURS, 0) + 1
+        return {metier: n for metier, n in metiers.items() if n > 0}
+
+    gisements = _echantillon_gisements_par_richesse()["majeure"]
+    avant = repartition_bourg_de_cellule(cellule, gisements).habitants_du_bourg
+    monkeypatch.setattr(foyers, "metiers_d_amorcage", avec_un_mineur)
+    assert repartition_bourg_de_cellule(cellule, gisements).habitants_du_bourg == avant + 1
+    assert modele.lire_habitants_par_metier(cellule) == -1
+    recharge = World.charger(0)
+    controles = 0
+    for cid, cell in monde.cells.items():
+        if cell.habitants_par_metier.get(constants.METIER_PAYSANS, 0) > 0:
+            assert recharge.cells[cid].habitants_par_metier.get(constants.METIER_MINEURS, 0) == (
+                cell.habitants_par_metier.get(constants.METIER_MINEURS, 0) + 1)
+            assert recharge.cells[cid].population == cell.population
+            controles += 1
+    assert controles > 0
+
+
+def test_bourg_suit_les_foyers():
+    import random
+    from sim import constants
+    from sim.engine import tick
+
+    monde = World.charger(0)
+    rng = random.Random(0)
+    for _ in range(30):
+        tick(monde, rng)
+    ecarts = minieres = 0
+    for vue in bourg_depuis_monde(monde):
+        cell = monde.cells[vue.cell_id]
+        metiers = modele.lire_habitants_par_metier(cell)
+        assert vue.habitants_du_bourg == sum(
+            n for metier, n in metiers.items() if metier != constants.METIER_PAYSANS)
+        assert vue.habitants_des_champs == metiers.get(constants.METIER_PAYSANS, 0)
+        assert vue.habitants_du_bourg + vue.habitants_des_champs == cell.population
+        part = constants.part_miniere_de(
+            monde.carte[vue.cell_id].get("gisements") or [],
+            constants.facteurs_richesse_extraction())
+        minieres += part > 0
+        if vue.habitants_du_bourg != int(cell.population * part):
+            assert part > 0
+            ecarts += 1
+    print(f"ecarts_bourg_part_miniere={ecarts} / {minieres}")
+    assert ecarts > 0 and minieres > 0
+
+
+def _controler_documentation_bourg(texte):
+    section = texte.split("## Ce qu'est une ville, à l'échelle d'une cellule\n", 1)[1].split("\n## ", 1)[0]
+    distribution = texte.split("## La distribution à l'intérieur de la cellule\n", 1)[1].split("\n## ", 1)[0]
+    for attendu in ("paysans", "amorçage", "metiers_d_amorcage", "part_miniere_de", "écart"):
+        assert attendu in section
+    assert "ne les compte pas encore" not in section
+    assert "écart" in distribution
+
+
+def test_bourg_documente():
+    texte = (pathlib.Path(agregation.__file__).parent / "MODELE.md").read_text(encoding="utf-8")
+    _controler_documentation_bourg(texte)
+    avant, reste = texte.split("## Ce qu'est une ville, à l'échelle d'une cellule\n", 1)
+    section, apres = reste.split("\n## ", 1)
+    with pytest.raises(AssertionError):
+        _controler_documentation_bourg(
+            avant + "## Ce qu'est une ville, à l'échelle d'une cellule\n"
+            + section.replace("écart", "différence") + "\n## " + apres)

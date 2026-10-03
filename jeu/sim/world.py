@@ -11,6 +11,7 @@ import pathlib
 import random
 
 import sim.constants as constantes
+from sim import foyers
 from sim.aggregation import PositionCelluleInconnue, charger_positions
 from sim.constants import (
     FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK,
@@ -212,13 +213,7 @@ class World:
             soutenable = population_soutenable_de(cellule_vide, carte)
             pop_rurale = _seed_population(soutenable, rng)
             pop = max(pop_rurale, populations_villes.get(cid, 0))
-            mineurs = int(pop * constantes.part_miniere_de(
-                raw.get("gisements") or [], constantes.facteurs_richesse_extraction()
-            ))
-            metiers = {metier: n for metier, n in (
-                (constantes.METIER_MINEURS, mineurs),
-                (constantes.METIER_PAYSANS, pop - mineurs),
-            ) if n > 0}
+            metiers = foyers.metiers_d_amorcage(pop, raw.get("gisements") or [])
             stock = _seed_food_stock(pop)
             if cid in populations_villes:
                 manque_kg = max(0.0, pop - soutenable) * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
