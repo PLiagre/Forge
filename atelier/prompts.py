@@ -16,6 +16,18 @@ _FRONTIERE = (
     "le pilote de la chaîne enregistre, pousse et parle à GitHub."
 )
 
+# La nature d'une question : le propriétaire ne tranche que ce qui oriente le
+# jeu ; le reste suit la recommandation sans l'attendre (lots._NATURE).
+_NATURE_DE_LA_QUESTION = (
+    "Après la recommandation, une ligne « NATURE :: jeu » ou « NATURE :: technique ». "
+    "« jeu » : une réponse change ce que le joueur voit, choisit ou vit, ce que le monde fait ou comment il "
+    "raisonne, le niveau de vraisemblance, ou la lecture de `CAP.md` et de `docs/VISION.md` sur le jeu ; "
+    "le propriétaire tranche. « technique » : les réponses ne diffèrent que par le code, un test réécrit, "
+    "un format ou un découpage, et le jeu reste le même quelle que soit la réponse ; le pilote suit alors "
+    "ta recommandation sans attendre, donc elle doit tenir seule. Une recommandation qui rend un test "
+    "moins exigeant est toujours « jeu ». Dans le doute : « jeu »."
+)
+
 
 def _tests(projet: Projet) -> str:
     """La commande des tests, telle qu'on la tape sur cette machine : sous
@@ -23,6 +35,11 @@ def _tests(projet: Projet) -> str:
     if sys.platform.startswith("win") and projet.tests.startswith("python3 "):
         return "py " + projet.tests[len("python3 "):]
     return projet.tests
+
+
+def _lanceur(projet: Projet) -> str:
+    """`python3` ou `py`, celui que la commande des tests emploie ici."""
+    return _tests(projet).split(" -m ")[0]
 
 
 def _interdits(projet: Projet) -> str:
@@ -71,7 +88,7 @@ Règles :
 - Dans une découpe, les sous-lots qui ne s'attendent pas avancent en même temps, chacun dans son chantier. Finis une ligne par « :: après 1, 3 » (les rangs, dans ta liste, des sous-lots dont il a vraiment besoin, tous plus haut que lui) ou par « :: après rien » (il part tout de suite) ; sans « après », il part tout de suite aussi. Une file n'avance qu'un lot à la fois : un sous-lot n'en attend un autre que s'il a besoin de ce que celui-là crée (une fonction, une donnée, un fichier), et ta ligne le dit. Deux sous-lots qui modifient les mêmes fichiers s'attendent : sinon ils se marchent dessus.
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
-- Si le lot demande une décision que seul le propriétaire peut prendre (changer un test existant ou une règle du monde, trancher entre deux lectures de `CAP.md` ou de `docs/VISION.md`), n'écris rien et pose-lui la question : termine par la ligne « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Il te lit sur son téléphone : des phrases courtes, sans jargon de code. Si les commentaires contiennent déjà sa réponse à ta question, suis-la : ne la repose pas.
+- Si le lot demande une décision que seul le propriétaire peut prendre (changer un test existant ou une règle du monde, trancher entre deux lectures de `CAP.md` ou de `docs/VISION.md`), n'écris rien et pose-lui la question : termine par la ligne « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». {_NATURE_DE_LA_QUESTION} Il te lit sur son téléphone : des phrases courtes, sans jargon de code. Si les commentaires contiennent déjà sa réponse à ta question, ou la décision que le pilote a prise seul, suis-la : ne la repose pas.
 - Une seule question par lot, qui porte TOUTES ses décisions. Avant de la poser, recense tout ce que le lot fera changer : chaque test existant qui rougira (cherche dans les tests ce qui compte, borne ou fige ce que le lot touche), chaque règle du monde. Si le lot en demande plusieurs, ta question les nomme toutes, et chaque réponse dit ce qu'elle décide pour chacune (« A :: oui aux deux… »). Le 30 septembre 2026, #207 a posé deux questions à quatre minutes d'écart : le propriétaire a cru avoir répondu, et le lot a attendu une nuit.
 - Machine « pc » : le lot demande Unity ou Blender sur le PC Windows ; « vps » : Python seul.
 - Tu n'écris que le fichier du brief. {_FRONTIERE}
@@ -157,7 +174,7 @@ Une fusion de `origin/{projet.branche_base}` est en cours dans ce dossier. Les f
 {liste}
 
 Résous chaque conflit en gardant l'intention des deux côtés, le lot et la base. Retire tous les marqueurs `<<<<<<<`, `=======`, `>>>>>>>`.
-Lance `{_tests(projet)}`. Jamais dans : {_interdits(projet)}. {_FRONTIERE}
+Lance seulement les fichiers de test qui couvrent les fichiers en conflit (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q`), jamais la suite entière : elle dépasse ton délai, et la CI la joue après la poussée ; une CI rouge revient au codeur. Jamais dans : {_interdits(projet)}. {_FRONTIERE}
 Termine par un compte rendu court."""
 
 
@@ -211,7 +228,7 @@ Jamais de consigne qui assouplit un test existant, sort du Périmètre du brief 
 
 Écris d'abord ton diagnostic en français, court : ce qui bloque vraiment, avec ses preuves (fichier, ligne, test, commentaire). Puis termine par UNE de ces fins, la ligne « DECISION: » en texte brut, sans gras :
 - « DECISION: REPRENDRE :: <la consigne, en un paragraphe, adressée au codeur et au relecteur du prochain passage> »
-- « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code. Une seule question, qui porte toutes les décisions que le lot demande encore : recense chaque test existant qui rougira et chaque règle du monde touchée avant de l'écrire.
+- « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». {_NATURE_DE_LA_QUESTION} Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code. Une seule question, qui porte toutes les décisions que le lot demande encore : recense chaque test existant qui rougira et chaque règle du monde touchée avant de l'écrire.
 - « DECISION: MODE-DIRECT :: <ce qu'il faut corriger dans la chaîne, et où> »
 {_FRONTIERE}"""
 

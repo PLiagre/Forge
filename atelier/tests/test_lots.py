@@ -377,3 +377,19 @@ def test_une_reponse_du_codeur_a_la_revue_se_relit_et_compte_comme_un_passage():
     assert apres.nom == "corriger_relecture" and apres.essai == 2
     assert action_suivante(pr, "vert", [fait, corriger, reponse, corriger, reponse, corriger],
                            corrections_max=2).nom == "bloquer"
+
+
+def test_la_nature_de_la_question_se_lit_et_vaut_jeu_dans_le_doute():
+    base = "DECISION: QUESTION :: Réécrire le test ?\n- A :: oui :: plus strict\n- B :: non\nRECOMMANDATION :: A :: tient l'issue\n"
+    technique = lots.question_du_chef(base + "NATURE :: technique", "Réécrire le test ?")
+    assert technique.nature == "technique" and technique.se_decide_seule()
+    assert technique.reponse_recommandee() == "oui"
+    assert lots.Question.de_marque(technique.marque()) == technique
+    # Sans nature, ou « jeu », c'est au propriétaire de trancher.
+    assert lots.question_du_chef(base, "Q ?").nature == "jeu"
+    assert not lots.question_du_chef(base + "NATURE :: jeu", "Q ?").se_decide_seule()
+    # Une marque d'avant la nature se relit « jeu ».
+    assert lots.Question.de_marque({"question": "Q ?", "recommandation": ["A", ""]}).nature == "jeu"
+    # Sans recommandation, rien ne se décide seul.
+    sans = lots.question_du_chef("- A :: oui\n- B :: non\nNATURE :: technique", "Q ?")
+    assert sans.nature == "technique" and not sans.se_decide_seule()
