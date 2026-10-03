@@ -1284,17 +1284,35 @@ les trois puissances du Maghreb, `khanat` la Horde d'Or. Le tracé qui en décou
 est de **niveau 2**, plausible et jamais sourcé : il ne restitue ni frontière
 réelle, ni enclave, ni suzeraineté.
 
-À chaque consultation, une cellule relève de la puissance qui tient l'ancre
-la plus proche de son centroïde selon la projection déclarée par le fichier.
-La règle unique de `sim/aggregation.py` départage une égalité exacte par le
-plus petit identifiant d'ancre, indépendamment de l'ordre de la table.
+À chaque consultation, une cellule retient d'abord une ancre contenue dans
+son polygone (bord compris, trous exclus). Les points EPSG:4326 des ancres
+sont projetés en **EPSG:3035** par `sim/projection.py` : Lambert azimutale
+équivalente ellipsoïdale GRS80, latitude authalique de Snyder, origine 52° N
+et 10° E, fausse abscisse 4 321 000 m et fausse ordonnée 3 210 000 m.
+Cette projection est vérifiée au centimètre sur les 58 villes et les 5 sièges.
+Si plusieurs ancres sont contenues, la plus proche du centroïde gagne ; sans
+ancre contenue, la plus proche parmi toutes gagne. Les distances gardent la
+projection et la latitude moyenne déclarées par la table ; la règle unique
+de `sim/aggregation.py` départage une égalité exacte par le plus petit `id`
+d'ancre, indépendamment de l'ordre de la table. La puissance est celle de
+l'ancre retenue. Les fonctions pures sans géométries gardent la règle du
+centroïde seul ; les adaptateurs lisent `world.carte[cell_id]["geometry"]`
+et refusent une géométrie absente en nommant la cellule.
 
-Cette attribution s'arrête à la portée mesurée de **4,0 degrés projetés**,
-environ 440 km. Sur les 596 cellules de la carte figée, 565 sont couvertes et
+La portée mesurée de **4,0 degrés projetés**, environ 440 km, s'applique à
+l'ancre retenue, même si elle est contenue dans le polygone. Sur les
+596 cellules de la carte figée, 565 sont couvertes et
 31 sont non couvertes. Au-delà de la portée, la cellule est explicitement
 **non couverte** : elle n'est rattachée à aucune puissance par défaut. Cette
-vue donne la cellule de Constantinople à Byzance. Le Caire se situe au sud
-de la carte, qui s'arrête à 30,45 N : sa cellule la plus proche relève des
+vue donne la cellule de Constantinople à Byzance : celle du point de la ville,
+**10374**, et non plus seulement celle au centroïde le plus proche, 10032.
+Seule 10374 change : Edirne cède la place à Constantinople ; Byzance passe
+de 23 à 24 cellules et les Ottomans de 49 à 48. Venise (25) et Copenhague
+(37), les deux ancres hors des polygones de la carte, ne comptent que par
+la règle du centroïde. Grenade (16) et Malaga (17) sont dans la même cellule,
+10209, qui reste aux Nasrides. Les comptes 565/31 restent inchangés.
+Le Caire se situe au sud de la carte, qui s'arrête à 30,45 N : sa cellule
+la plus proche relève des
 Mamelouks grâce aux ancres d'Alexandrie et de Damiette, sans ancre au Caire.
 
 Les huit `lacunes` déclarent des points nommés et une `raison` : Shetland,
@@ -1347,9 +1365,15 @@ celle de la puissance est refusé. L'ancre du vassal reste une ancre de sa
 puissance : la preuve vérifie que la cellule la plus proche de son point
 relève de cette puissance et de cette maison.
 
-La maison tenante d'une cellule est celle de **la même ancre la plus proche**
-qui donne sa puissance, selon `sim/aggregation.py`, la projection et la portée
-existantes. À distance exactement égale, le plus petit `id` d'ancre gagne.
+La maison tenante d'une cellule lit **la même ancre retenue** que sa puissance,
+par la fonction commune `ancre_par_cellule` de `sim/puissances.py`. Une ancre
+contenue dans le polygone l'emporte ; entre ancres contenues, la plus proche
+du centroïde gagne, à égalité exacte le plus petit `id`. Sans ancre contenue,
+la règle du centroïde parmi toutes reste celle de `sim/aggregation.py`.
+La portée existante s'applique ensuite à l'ancre retenue. Venise et Copenhague,
+hors carte, gardent la règle du centroïde ; Grenade et Malaga partagent 10209,
+toujours aux Nasrides. La cellule du point de Constantinople, 10374, passe
+d'Osman à Paléologue ; 10032 reste à Paléologue, les comptes restent inchangés.
 Une cellule non couverte rend `None`, comme une cellule de république,
 d'Église ou d'ordre. Toute autre cellule couverte porte la maison de sa
 puissance ou d'un vassal ancré dans celle-ci, jamais une maison étrangère.
@@ -1761,7 +1785,10 @@ branches y travaillent vraiment ; relâcher l'assertion ne l'est jamais.
 
 ## Référence de code
 
-Tous les paramètres ci-dessus sont définis comme constantes nommées dans
+La projection ellipsoïdale des ancres est définie dans `sim/projection.py` ;
+leur sélection commune vit dans `sim/puissances.py` et sert `sim/maisons.py`.
+
+Les paramètres du tick sont définis comme constantes nommées dans
 `sim/constants.py`. Aucun littéral numérique de ces valeurs n'apparaît dans
 les fonctions de calcul de `sim/engine.py` ou `sim/world.py` (vérifiable
 via `sim/tests/test_no_hardcoded.py`).

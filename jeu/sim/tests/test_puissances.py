@@ -746,3 +746,116 @@ def test_lacune_departage_projection_et_bord_de_portee():
         refus_observes += 1
     print(f"départages={len(gagnants)}, bord_couvert={sur_bord[paris] is not None}, au_delà={au_dela[paris]}, refus_observés={refus_observes}")
     assert refus_observes > 0
+
+
+def test_projection_epsg3035_au_centimetre():
+    from sim.projection import projeter_epsg3035
+
+    villes = json.loads((TABLE.parent / "villes-1400.json").read_text(encoding="utf-8"))["villes"]
+    sieges = json.loads((TABLE.parent / "seigneuries-1400.json").read_text(encoding="utf-8"))["seigneuries"]
+    points = [(v["latitude"], v["longitude"], v["x_m"], v["y_m"]) for v in villes]
+    points += [(s["siege"]["lat"], s["siege"]["lon"], s["siege"]["x_m"], s["siege"]["y_m"])
+               for s in sieges]
+    assert len(villes) == 58 and len(sieges) == 5 and points
+    ecarts = [abs(obtenu - attendu) for lat, lon, x, y in points
+              for obtenu, attendu in zip(projeter_epsg3035(lat, lon), (x, y))]
+    assert max(ecarts) <= 0.01
+    for alteration in ({"longitude_origine": 9.0}, {"aplatissement": 0.0}):
+        assert any(abs(obtenu - attendu) > 0.01 for lat, lon, x, y in points
+                   for obtenu, attendu in zip(projeter_epsg3035(lat, lon, **alteration), (x, y)))
+    print(f"points_comparés={len(points)}, écart_maximal_m={max(ecarts)}")
+
+
+def _carre_projete(latitude, longitude, demi_cote):
+    from sim.projection import projeter_epsg3035
+
+    x, y = projeter_epsg3035(latitude, longitude)
+    return {"type": "Polygon", "coordinates": [[
+        [x - demi_cote, y - demi_cote], [x + demi_cote, y - demi_cote],
+        [x + demi_cote, y + demi_cote], [x - demi_cote, y + demi_cote],
+        [x - demi_cote, y - demi_cote],
+    ]]}
+
+
+def test_ancre_contenue_synthetique():
+    from sim.projection import projeter_epsg3035
+
+    a = Ancre(3, 1, "A", 40.5, 10.0, "synthétique")
+    b = Ancre(7, 2, "B", 40.1, 10.0, "synthétique")
+    table = TableDesPuissances("1400-01-01", (), (a, b))
+    positions, geometries = {11: (40.0, 10.0)}, {11: _carre_projete(a.lat, a.lon, 100)}
+    assert puissance_par_cellule(positions, table, 1.0, 0.0, geometries)[11] == 1
+    assert puissance_par_cellule(positions, table, 1.0, 0.0)[11] == 2
+    assert puissance_par_cellule(positions, table, 0.2, 0.0, geometries)[11] is None
+    deplacee = dataclasses.replace(table, ancres=(dataclasses.replace(a, lat=41.0), b))
+    assert puissance_par_cellule(positions, deplacee, 2.0, 0.0, geometries)[11] == 2
+    grande = {11: _carre_projete(40.0, 10.0, 200_000)}
+    for ancres, attendue in (((a, b), 2),
+                             ((dataclasses.replace(a, lat=40.0, lon=9.0),
+                               dataclasses.replace(b, lat=40.0, lon=11.0)), 1)):
+        for ordre in (ancres, tuple(reversed(ancres))):
+            assert puissance_par_cellule(positions, dataclasses.replace(table, ancres=ordre),
+                                         2.0, 0.0, grande)[11] == attendue
+    # Le bord contient A ; un trou autour d'A l'exclut ; un MultiPolygon le retrouve.
+    bord = _carre_projete(a.lat, a.lon, 100)
+    x, _ = projeter_epsg3035(a.lat, a.lon)
+    for sommet in (bord["coordinates"][0][0], bord["coordinates"][0][3], bord["coordinates"][0][4]):
+        sommet[0] = x
+    trou = copy.deepcopy(grande[11])
+    trou["coordinates"].append(geometries[11]["coordinates"][0])
+    multi = {"type": "MultiPolygon", "coordinates": [geometries[11]["coordinates"]]}
+    for geometrie, attendue in ((bord, 1), (trou, 2), (multi, 1)):
+        assert puissance_par_cellule(positions, table, 2.0, 0.0, {11: geometrie})[11] == attendue
+
+
+def test_ancre_contenue_carte():
+    from collections import Counter
+    from sim.projection import projeter_epsg3035
+    from sim.villes import point_dans_geometrie
+
+    monde, table = World.charger(0), charger_table()
+    positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
+    vue = puissances_depuis_monde(monde)
+    ancienne = puissance_par_cellule(positions, table, charger_portee(), latitude)
+    ids = {p.nom: p.id for p in table.puissances}
+    assert [vue[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Byzance"], ids["Ottomans"]]
+    assert [c for c in vue if vue[c] != ancienne[c]] == [10374]
+    hors = {(a.id, a.nom) for a in table.ancres if not any(
+        point_dans_geometrie(*projeter_epsg3035(a.lat, a.lon), cell["geometry"])
+        for cell in monde.carte.values())}
+    assert hors == {(25, "Venise"), (37, "Copenhague")}
+    comptes = Counter(vue.values())
+    assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (24, 48)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (565, 31)
+    grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
+    assert len(grenade) == 2 and all(point_dans_geometrie(
+        *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
+    assert vue[10209] == ids["Grenade"]
+    edirne = next(a for a in table.ancres if a.nom == "Edirne")
+    for point, attendues in ((positions[10032], {10374: ids["Ottomans"], 10032: ids["Byzance"]}),
+                             ((edirne.lat, edirne.lon), {10366: ids["Byzance"]})):
+        alteree = dataclasses.replace(table, ancres=tuple(
+            dataclasses.replace(a, lat=point[0], lon=point[1]) if a.nom == "Constantinople" else a
+            for a in table.ancres))
+        contre = puissances_depuis_monde(monde, table=alteree)
+        assert all(contre[c] == p for c, p in attendues.items())
+    print(f"Byzance={comptes[ids['Byzance']]}, Ottomans={comptes[ids['Ottomans']]}, hors_carte={hors}")
+
+
+@pytest.mark.parametrize("absence", ["champ", "cellule", "valeur_nulle"])
+def test_geometrie_absente(absence):
+    from sim.maisons import maisons_depuis_monde
+
+    monde = World.charger(0)
+    assert puissances_depuis_monde(monde) and maisons_depuis_monde(monde)
+    monde.carte = copy.deepcopy(monde.carte)
+    cellule = min(monde.cells)
+    if absence == "champ":
+        monde.carte[cellule].pop("geometry")
+    elif absence == "cellule":
+        monde.carte.pop(cellule)
+    else:
+        monde.carte[cellule]["geometry"] = None
+    for adapter in (puissances_depuis_monde, maisons_depuis_monde):
+        with pytest.raises(PuissanceInvalide, match=f"cellule {cellule}"):
+            adapter(monde)
