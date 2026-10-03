@@ -508,3 +508,38 @@ def test_depart_deterministe_sans_effet_sur_les_cellules():
         assert etat["cells"] == etats[-1]["cells"]
         assert etat["plans"] == etats[-1]["plans"]
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
+
+
+def test_gestes_routes_deterministes_sans_cellule_ni_alea():
+    from sim.intentions import recevoir_intention
+    from sim.tests.test_intentions import _route_reference
+
+    mondes = [World.charger(0) for _ in range(4)]
+    aleas = [random.Random(0) for _ in mondes]
+    route = _route_reference(mondes[0])
+    for numero in range(10):
+        for rang, (monde, alea) in enumerate(zip(mondes, aleas)):
+            if numero in (0, 3) and rang != 2:
+                geste = copy.deepcopy(route)
+                if rang == 3:
+                    geste["points"][0][0] += 1
+                recevoir_intention(monde, geste)
+            engine.tick(monde, alea, numero)
+    etats = [monde.to_dict() for monde in mondes]
+    empreintes = [hashlib.sha256(json.dumps(etat, sort_keys=True).encode()).hexdigest()
+                  for etat in etats]
+    with pytest.raises(AssertionError):
+        assert empreintes[0] == empreintes[3]
+    copie = copy.deepcopy(etats[0])
+    assert copie["cells"] and copie["plans"]
+    copie["cells"][min(copie["cells"])]["population"] += 1
+    with pytest.raises(AssertionError):
+        assert copie["cells"] == etats[0]["cells"]
+    assert etats[0] == etats[1] and empreintes[0] == empreintes[1]
+    assert all(etat["cells"] == etats[2]["cells"] for etat in etats)
+    assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
+    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules"}
+    assert all(plan == {"rues": [], "parcelles": [], "batiments": []}
+               for plan in etats[2]["plans"].values())
+    assert len(etats[0]["plans"][str(route["cell"])]["rues"]) == 2
+    print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")

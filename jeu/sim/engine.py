@@ -1271,12 +1271,12 @@ def _valider_numero_tick(world, numero_tick: int | None) -> None:
 
 
 def _appliquer_intentions(world) -> None:
-    """Applique les choix en attente dans l'ordre, sans cellule ni aléa."""
+    """Applique les intentions dans l'ordre du dépôt, sans cellule ni aléa."""
     from sim.world import World
 
     if isinstance(world, World):
         for intention in world.intentions_en_attente:
-            world.maison_du_joueur = intention.identifiant
+            intention.appliquer(world)
         world.intentions_en_attente.clear()
 
 
@@ -1293,7 +1293,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
 
     Ordre du tick :
         1. Validation  (_valider_numero_tick) — avant toute mutation
-        2. Intentions  (_appliquer_intentions) — choix en attente
+        2. Intentions  (_appliquer_intentions) — intentions en attente, dans l'ordre du dépôt
         3. Fabrication (_apply_fabrication)  — pour chaque cellule
         4. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
         5. Production  (_apply_production)   — pour chaque cellule

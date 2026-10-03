@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
-from sim.intentions import TYPE_CHOISIR_DEPART, IntentionRefusee, deposer_intention
+from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.model import cellule_vers_dict
 from sim.snapshot_export import _round_tree
 from sim.world import World
@@ -345,6 +345,9 @@ class RequetesMonde(BaseHTTPRequestHandler):
             self._repondre(HTTPStatus.OK, self._document_horloge(etat))
             return
         if cible.path == "/intention":
+            def refuser(statut, raison):
+                self._repondre(statut, {"acceptee": False, "erreur": raison})
+
             longueur_recue = self.headers.get("Content-Length")
             try:
                 longueur = int(longueur_recue)
@@ -353,30 +356,27 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 corps = self.rfile.read(longueur)
                 intention = json.loads(corps.decode("utf-8"))
             except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-                self._refuser(
+                refuser(
                     HTTPStatus.BAD_REQUEST,
                     f"corps d'intention invalide : reçu {longueur_recue!r}",
                 )
                 return
             if not isinstance(intention, dict):
-                self._refuser(
+                refuser(
                     HTTPStatus.BAD_REQUEST,
                     f"corps d'intention invalide : reçu {intention!r}, attendu un objet JSON",
                 )
                 return
-            if intention.get("type") == TYPE_CHOISIR_DEPART:
-                try:
-                    with self.server.verrou_tick:
-                        deposer_intention(self.server.world, intention)
-                        etat = self.server.etat_publie
-                except IntentionRefusee as exc:
-                    statut = (HTTPStatus.CONFLICT
-                              if str(exc).startswith("départ déjà choisi :")
-                              else HTTPStatus.BAD_REQUEST)
-                    self._refuser(statut, str(exc))
-                    return
-            else:
-                etat = self.server.etat_publie
+            try:
+                with self.server.verrou_tick:
+                    recevoir_intention(self.server.world, intention)
+                    etat = self.server.etat_publie
+            except IntentionRefusee as exc:
+                statut = (HTTPStatus.CONFLICT
+                          if str(exc).startswith("départ déjà choisi :")
+                          else HTTPStatus.BAD_REQUEST)
+                refuser(statut, str(exc))
+                return
             self._repondre(
                 HTTPStatus.OK,
                 {"acceptee": True, "appliquee_au_tick": etat.tick},

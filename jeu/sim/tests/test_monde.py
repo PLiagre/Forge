@@ -2771,9 +2771,17 @@ def test_service_monde_est_leger_et_intention_ne_mute_rien():
             lieu = requete_service(port, f"/lieu?cell={cellule['cell_id']}")[1]
             assert lieu["population"] == cellule["population"]
 
-        intention = json.dumps({"route": "essai"}).encode("utf-8")
+        intention = json.dumps({"type": "tracer_route", "cell": min(c["cell_id"] for c in monde["cells"]), "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}).encode("utf-8")
+        cell_id = min(c["cell_id"] for c in monde["cells"])
+        plan_avant = requete_service(port, f"/plan?cell={cell_id}")[2]
         reponse = requete_service(port, "/intention", "POST", intention)[1]
         assert reponse == {"acceptee": True, "appliquee_au_tick": 2}
+        assert requete_service(port, "/monde")[2] == octets_avant
+        assert requete_service(port, f"/plan?cell={cell_id}")[2] == plan_avant
+        statut, refus, _ = requete_service(
+            port, "/intention", "POST", json.dumps({"route": "essai"}).encode("utf-8"),
+        )
+        assert statut is HTTPStatus.BAD_REQUEST and refus["acceptee"] is False
         assert requete_service(port, "/monde")[2] == octets_avant
 
 
