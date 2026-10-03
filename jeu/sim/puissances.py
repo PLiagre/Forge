@@ -13,6 +13,8 @@ from sim.aggregation import (
     projeter,
 )
 from sim.model import _NoBadSpatialField
+from sim.projection import projeter_epsg3035
+from sim.villes import point_dans_geometrie
 
 _RACINE_DEPOT = pathlib.Path(__file__).parent.parent
 _CHEMIN_TABLE = _RACINE_DEPOT / "data" / "puissances-1400.json"
@@ -179,10 +181,14 @@ def charger_portee(path=None) -> float:
     return portee
 
 
-def puissance_par_cellule(
-    positions, table, portee, latitude_moyenne
+def ancre_par_cellule(
+    positions, table, portee, latitude_moyenne, geometries=None,
 ) -> dict:
-    """Rend la puissance de l'ancre la plus proche, dans la portée donnée."""
+    """Retient l'ancre contenue la plus proche, sinon la plus proche de toutes.
+
+    Les distances et égalités suivent la règle unique d'agrégation ; la
+    portée s'applique ensuite à l'ancre retenue, même si elle est contenue.
+    """
     if (
         isinstance(portee, bool)
         or not isinstance(portee, (int, float))
@@ -195,6 +201,18 @@ def puissance_par_cellule(
     appartenance = derive_appartenance(
         positions, table.ancres, latitude_moyenne
     )
+    if geometries is not None:
+        points = {a.id: projeter_epsg3035(a.lat, a.lon) for a in table.ancres}
+        for cell_id in sorted(positions):
+            geometrie = geometries.get(cell_id)
+            if geometrie is None:
+                raise PuissanceInvalide(f"cellule {cell_id}, champ geometry : géométrie absente")
+            contenues = tuple(a for a in table.ancres
+                              if point_dans_geometrie(*points[a.id], geometrie))
+            if contenues:
+                appartenance[cell_id] = derive_appartenance(
+                    {cell_id: positions[cell_id]}, contenues, latitude_moyenne
+                )[cell_id]
     facteur = facteur_de_projection(latitude_moyenne)
     carre_portee = portee * portee
     vue = {}
@@ -205,8 +223,30 @@ def puissance_par_cellule(
         ecart_x = cellule_x - ancre_x
         ecart_y = cellule_y - ancre_y
         carre_distance = ecart_x * ecart_x + ecart_y * ecart_y
-        vue[cell_id] = ancre.puissance if carre_distance <= carre_portee else None
+        vue[cell_id] = ancre.id if carre_distance <= carre_portee else None
     return vue
+
+
+def puissance_par_cellule(
+    positions, table, portee, latitude_moyenne, geometries=None,
+) -> dict:
+    """Rend la puissance de l'ancre retenue, dans la portée donnée."""
+    ancres = {a.id: a for a in table.ancres}
+    return {c: ancres[a].puissance if a is not None else None
+            for c, a in ancre_par_cellule(
+                positions, table, portee, latitude_moyenne, geometries
+            ).items()}
+
+
+def geometries_du_monde(world) -> dict:
+    """Lit les polygones des cellules chargées, refuse une géométrie absente."""
+    geometries = {}
+    for cell_id in sorted(world.cells):
+        geometrie = world.carte.get(cell_id, {}).get("geometry")
+        if geometrie is None:
+            raise PuissanceInvalide(f"cellule {cell_id}, champ geometry : géométrie absente")
+        geometries[cell_id] = geometrie
+    return geometries
 
 
 def puissances_depuis_monde(
@@ -226,7 +266,9 @@ def puissances_depuis_monde(
     if latitude_moyenne is None:
         latitude_moyenne = charger_latitude_moyenne_puissances()
     retenues = positions_du_monde(world, positions)
-    return puissance_par_cellule(retenues, table, portee, latitude_moyenne)
+    return puissance_par_cellule(
+        retenues, table, portee, latitude_moyenne, geometries_du_monde(world)
+    )
 
 
 def puissance_de_cellule(cell_id, vue, table):

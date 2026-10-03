@@ -3,11 +3,12 @@ import dataclasses
 import json
 import pathlib
 
-from sim.aggregation import charger_positions, derive_appartenance, positions_du_monde
+from sim.aggregation import charger_positions, positions_du_monde
 from sim.model import _NoBadSpatialField
 from sim.puissances import (
     _CHEMIN_TABLE, _refuser_id, _texte, PuissanceInvalide, charger_table,
-    charger_portee, charger_latitude_moyenne_puissances, puissance_par_cellule,
+    charger_portee, charger_latitude_moyenne_puissances, ancre_par_cellule,
+    geometries_du_monde,
 )
 
 _NATURES_SANS_MAISON = frozenset({"république", "Église", "ordre"})
@@ -84,15 +85,16 @@ def charger_maisons(path=None) -> TableDesMaisons:
     )
 
 
-def maison_par_cellule(positions, table, maisons, portee, latitude_moyenne) -> dict:
+def maison_par_cellule(
+    positions, table, maisons, portee, latitude_moyenne, geometries=None,
+) -> dict:
     """Rend la maison de la même ancre que la puissance, dans sa portée."""
     for ancre in table.ancres:
         if ancre.id not in maisons.par_ancre:
             raise PuissanceInvalide(f"ancre {ancre.id}, champ maison : ancre absente")
-    puissances = puissance_par_cellule(positions, table, portee, latitude_moyenne)
-    appartenance = derive_appartenance(positions, table.ancres, latitude_moyenne)
-    return {cell_id: maisons.par_ancre[appartenance[cell_id]] if puissance is not None else None
-            for cell_id, puissance in puissances.items()}
+    appartenance = ancre_par_cellule(positions, table, portee, latitude_moyenne, geometries)
+    return {cell_id: maisons.par_ancre[ancre] if ancre is not None else None
+            for cell_id, ancre in appartenance.items()}
 
 
 def maisons_depuis_monde(
@@ -110,7 +112,9 @@ def maisons_depuis_monde(
     if latitude_moyenne is None:
         latitude_moyenne = charger_latitude_moyenne_puissances()
     retenues = positions_du_monde(world, positions)
-    return maison_par_cellule(retenues, table, maisons, portee, latitude_moyenne)
+    return maison_par_cellule(
+        retenues, table, maisons, portee, latitude_moyenne, geometries_du_monde(world)
+    )
 
 
 def maison_de_cellule(cell_id, vue, maisons):
