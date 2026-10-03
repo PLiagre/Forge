@@ -224,6 +224,11 @@ def facteurs_richesse_extraction() -> dict[str, float]:
 # Part de la population qu'un gisement notable occupe ; niveau 2.
 PART_MINIERE_PAR_GISEMENT = 0.05
 
+# Foyers par métier : ordre de grandeur plausible d'un ménage, niveau 2.
+TAILLE_FOYER = 5
+METIER_MINEURS = "mineurs"
+METIER_PAYSANS = "paysans"
+
 # Plafond : une cellule ne devient jamais entièrement minière. Invariant,
 # pas un réglage de confort — sans lui une cellule chargée de gisements
 # majeurs verrait toute sa population descendre à la mine.
