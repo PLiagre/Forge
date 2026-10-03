@@ -107,9 +107,9 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 - **organiser la fabrication.** Les matières premières sont transformées sur
   place, sans atelier, sans métier et sans bras affectés ; les objets produits
   ne sont pas consommés.
-- **répartir le travail.** Tout le monde fait tout : la mine tourne *en plus*
-  de l'agriculture, sans occuper de bras. Le lot 044, écrit et non exécuté,
-  est le premier à défaire cela.
+- **répartir le travail.** Les habitants ont désormais un métier, mineur ou
+  paysan, que le tick ne lit pas encore. La part minière retire déjà des bras
+  aux champs ; les changements de métier ne sont pas encore simulés.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Aucune route, aucun pont, aucun port, aucun ouvrage : rien dans
   le monde ne se construit, et aucune capacité de transport ne s'améliore.
@@ -326,8 +326,9 @@ distribution entre les lieux des champs reste gratuite.
 
 ### Ce que le moteur ne fait toujours pas
 
-Le bourg ne donne ni quartiers, ni familles, ni personnes, ni salaires, ni
-marchés, ni prix, ni États. Son plan peut porter des rues et des bâtiments,
+Des foyers par métier existent, mais le bourg ne les compte pas encore.
+Le bourg ne donne ni quartiers, ni personnes, ni salaires, ni marchés,
+ni prix, ni États. Son plan peut porter des rues et des bâtiments,
 mais ils ne font rien. La vue du bourg ne décide
 rien et le tick ne la consulte pas : il calcule la part minière et lit les
 lieux pour appliquer « La distribution à l'intérieur de la cellule ».
@@ -422,6 +423,39 @@ des populations initiales byte-identiques, car `rng = random.Random(rng_seed)`
 initialise un générateur pseudo-aléatoire isolé (jamais de source globale).
 
 ---
+
+## Les foyers par métier
+
+À l'amorçage A, une fois la population fixée, villes comprises, les mineurs
+valent `int(population × part_miniere_de(gisements, facteurs_richesse_extraction()))`.
+Les gisements viennent de la carte de la cellule ; les paysans sont le reste.
+`Cell.habitants_par_metier` conserve seulement les métiers dont le compte
+est strictement positif ; une cellule vide porte `{}`. Leur somme est
+exactement la population. `cell_id` reste la seule clé spatiale.
+
+`TAILLE_FOYER = 5` est une règle de **niveau 2**, plausible, jamais sourcée.
+`sim/foyers.py` relit cette taille à chaque rangement et rend un `Foyers`
+figé : taille, foyers complets, personnes du dernier foyer incomplet.
+Cent personnes donnent vingt foyers complets ; cent trois ajoutent un
+dernier foyer de trois personnes. La désagrégation rend le nombre exact.
+
+Toute écriture de la population passe par `repartir` : chaque métier reçoit
+`N × compte // somme`, puis le reste va au métier le plus nombreux (nom le
+plus petit en cas d'égalité). Une population inchangée garde ses comptes ;
+sans métier, les nouveaux habitants sont paysans. Les comptes nuls disparaissent.
+
+Une cellule construite sans métiers les déclare non calculés : la lecture
+et la clé sérialisée `foyers` rendent `-1`, même après écriture de la population.
+Sinon, la sérialisation porte par métier les personnes, les foyers complets
+et le dernier foyer. Une somme initiale incohérente, un nom vide, un compte
+nul, négatif, booléen ou non entier sont refusés par `FoyersInvalides`.
+Sont aussi refusés une population écrite négative ou non entière sur une
+cellule amorcée, un rangement négatif ou non entier, une taille non entière
+ou inférieure à un et un foyer négatif ou dont le dernier atteint la taille.
+
+**Le tick ne lit pas les métiers** : extraction et vue du bourg gardent
+leur calcul de part minière. Naissances, morts et migrations par foyer sont
+à venir. Âge, sexe, parenté et logement restent de niveau 3, non simulés.
 
 ## Le panier de marchandises
 
