@@ -28,7 +28,15 @@ from collections import defaultdict
 
 from sim import constants as _constantes
 from sim.lieux import lieux_de_cellule
-from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise, lire_stock_marchandise
+import sim.foyers as foyers
+from sim.model import (
+    Cell,
+    cellule_vers_dict,
+    ecrire_habitants_par_metier,
+    ecrire_stock_marchandise,
+    lire_habitants_par_metier,
+    lire_stock_marchandise,
+)
 
 # Carte lue pendant un tick sur un monde chargé ; None hors tick ou sans carte.
 _carte_du_tick: dict | None = None
@@ -1061,6 +1069,30 @@ def _update_hunger(cell: Cell, penurie_kg: float) -> None:
         cell.hunger_ticks = 0
 
 
+def _retirer_par_les_foyers(cell: Cell, n: int) -> None:
+    """Retire n habitants. Sans métiers calculés, seule la population bouge.
+
+    Appelé par les maillons, jamais par tick() : l'ordre documenté ne le cite pas.
+    """
+    metiers = lire_habitants_par_metier(cell)
+    if metiers == -1:
+        cell.population = cell.population - n
+        return
+    ecrire_habitants_par_metier(cell, foyers.retirer(metiers, n))
+
+
+def _ajouter_par_les_foyers(cell: Cell, n: int) -> None:
+    """Ajoute n habitants. Sans métiers calculés, seule la population bouge.
+
+    Appelé par les maillons, jamais par tick() : l'ordre documenté ne le cite pas.
+    """
+    metiers = lire_habitants_par_metier(cell)
+    if metiers == -1:
+        cell.population = cell.population + n
+        return
+    ecrire_habitants_par_metier(cell, foyers.ajouter(metiers, n))
+
+
 def _apply_mortality(cell: Cell) -> None:
     """
     Maillon 5 — Mortalité.
@@ -1092,7 +1124,8 @@ def _apply_mortality(cell: Cell) -> None:
         raw = cell.population * death_rate + remainder
         deaths = int(raw)
         cell.mortality_remainder = raw - deaths
-        cell.population = max(0, cell.population - deaths)
+        retires = cell.population - max(0, cell.population - deaths)
+        _retirer_par_les_foyers(cell, retires)
     else:
         # Aucun décès ce tick : la fraction en attente est conservée telle
         # quelle (et la sentinelle -1 devient une mesure réelle : 0.0).
@@ -1107,7 +1140,7 @@ def _apply_natalite(cell: Cell, penurie_kg: float) -> None:
         raw = cell.population * rate + remainder
         births = int(raw)
         cell.natalite_remainder = raw - births
-        cell.population += births
+        _ajouter_par_les_foyers(cell, births)
     else:
         cell.natalite_remainder = remainder
 
@@ -1238,9 +1271,11 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         entrees[dest] += nb
 
     for cid, cell in world.cells.items():
-        pop_snapshot = snapshot_pop[cid]
         delta = entrees.get(cid, 0) - sorties.get(cid, 0)
-        cell.population = pop_snapshot + delta
+        if delta > 0:
+            _ajouter_par_les_foyers(cell, delta)
+        elif delta < 0:
+            _retirer_par_les_foyers(cell, -delta)
 
 
 def _valider_numero_tick(world, numero_tick: int | None) -> None:
