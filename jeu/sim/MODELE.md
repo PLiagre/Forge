@@ -482,6 +482,16 @@ L'extraction garde son calcul de part minière ; la vue du bourg compte les mét
 L'amorçage A est partagé par le chargement et la vue dans `metiers_d_amorcage`.
 Âge, sexe, parenté et logement restent de niveau 3, non simulés.
 
+`GET /lieu?cell=X` porte `foyers` : par métier, trié par nom, ses
+`personnes` et son nombre de `foyers`, dernier foyer incomplet compris
+(10 974 mineurs font 2 195 foyers). Des métiers non calculés publient
+`"foyers": -1`, jamais un dictionnaire deviné ; une cellule amorcée vide
+publie `{}`. Ces octets sont construits dans `EtatPublie` avec la
+photographie du tick, dans le même appel que la population et les stocks :
+une lecture de `/lieu` donne toute la cellule au même tick et ne consulte
+pas le monde mutable. `/monde` ne les porte pas et reste léger ; le snapshot
+de la CLI n'est pas touché.
+
 ## Le panier de marchandises
 
 Le stock d'une cellule n'est pas un nombre : c'est un **panier**,
@@ -1711,8 +1721,8 @@ existantes et l'évolution des cellules restent identiques au bit près.
 `parcelles` et `batiments`. Les octets sont construits dans `EtatPublie` avec
 la photographie du tick : une lecture n'attend pas son calcul et ne consulte
 pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
-inconnue donne 404 en la nommant. `/monde`, `/lieu` et le snapshot restent
-inchangés.
+inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
+`/lieu`, ni au snapshot.
 
 La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
 vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
