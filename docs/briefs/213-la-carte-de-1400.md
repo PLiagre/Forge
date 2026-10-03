@@ -111,3 +111,17 @@ Toutes les commandes se lancent depuis `jeu/`, sauf mention contraire. Les tests
 - Choisir sa terre en cliquant sur la carte, la carte dans Unity, le service (`/monde`, `/lieu`), le tableau (`vues/tableau`), la chronique (`vues/chronique`) et le rendu 3D de `vues/relief`.
 - Les maisons sur la carte (couleur ou nom par maison) : la carte montre les puissances.
 - `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`, `CLAUDE.md`, `CAP.md`, et tout test existant.
+
+## Ce que la capture montre
+Les deux `carte.png` ont été ouvertes et regardées à 900 px, après 30 ticks, avec et sans choix.
+La France porte des frontières orange sur terre, avec Paris dedans ; la côte reste sans trait orange.
+Londres et Constantinople ont un point blanc et un nom lisible.
+Le Caire et le delta apparaissent tout en bas à droite, dans une étroite portion de l'Égypte.
+La Flandre, autour de Bruges et Tournai, est foncée ; le désert égyptien ne se distingue pas clairement dans cette portion de carte.
+Ce contraste désert/delta n'est donc pas vérifiable à l'œil ici : le cadrage géométrique vient de la photographie, sans correction du monde dans ce lot.
+Le Duché de Bar est entouré de rouge ; sa fiche entière est lisible, avec siège, habitants, production, suzerain et voisins.
+La capture sans choix donne la commande de départ ; les deux fiches déclarent Venise hors carte.
+22 étiquettes sont omises dans chaque capture : surtout Belgique/Rhénanie, Italie, péninsule Ibérique, Balkans et bord égyptien.
+Parmi les villes omises : Bruxelles, Liège, Cologne, Vérone, Rome, Edirne, Almería et Alexandrie ; leurs points restent visibles.
+Les petits pouvoirs de ces zones ne peuvent pas tous être identifiés par un nom ; les frontières restent visibles.
+Les noms affichés ne se chevauchent pas et aucune fiche n'est tronquée ; le bord rouge passe sous les cartouches pour garder Paris lisible.

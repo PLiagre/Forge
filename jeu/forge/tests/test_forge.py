@@ -178,3 +178,32 @@ def test_depart_contre_epreuve_acceptation_trop_large(tmp_path, capsys, monkeypa
             _verifier_refus_depart(tmp_path / "altere", arguments, "seigneurie inconnue", capsys)
     _verifier_refus_depart(tmp_path / "valide", arguments, "seigneurie inconnue", capsys)
     print("contre_épreuves_rouges=1, refus_observés=1")
+
+
+def test_carte_de_1400_depart_lectures_et_refus(tmp_path, monkeypatch, capsys):
+    bar, _ = _terres_depart()
+    for nom, arguments, choix, lecture in (
+        ("avec", ["--depart", str(bar)], bar, "densite"),
+        ("sans", [], None, "densite"),
+        ("faim", ["--lecture", "faim"], None, "faim"),
+    ):
+        code, sortie = _jouer(tmp_path / nom, *arguments, "--sans-chronique")
+        assert code == 0
+        assert (sortie / "carte.png").is_file()
+        compte = json.loads((sortie / "resume.json").read_text())["carte"]
+        assert compte["lecture"] == lecture
+        assert compte["terre_choisie"] == choix
+        if choix is not None:
+            with pytest.raises(AssertionError):
+                assert compte["terre_choisie"] is None
+    from vues.relief.carte1400 import Carte1400Erreur
+
+    def refuser(*args, **kwargs):
+        raise Carte1400Erreur("photographie sonde incomplète")
+
+    monkeypatch.setattr("vues.relief.carte1400.carte_de_1400", refuser)
+    code, sortie = _jouer(tmp_path / "refus", "--sans-chronique")
+    assert code == 2
+    assert "carte : photographie sonde incomplète" in capsys.readouterr().err
+    assert not (sortie / "resume.json").exists()
+    print("cartes_vérifiées=3, refus=1, contre_épreuves_rouges=1")

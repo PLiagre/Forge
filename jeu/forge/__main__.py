@@ -9,7 +9,7 @@ rend 0, le moteur tourne et les trois vues montrent le même monde.
 L'option --depart ID dépose le choix de départ avant le premier tick.
 
         monde.json      la photographie — la seule source des trois vues
-        carte.png       la statistique en plan, coloriée par une grandeur
+        carte.png : la carte de 1400 — densités, frontières, villes, terre choisie et sa fiche
         planche.html    la chronique : la suite des instants
         tableau.svg     le tableau de bord, en preuve dessinée
         resume.json     ce que la commande a mesuré
@@ -31,7 +31,6 @@ import time
 from pathlib import Path
 
 TICKS_PAR_DEFAUT = 365
-LECTURE_PAR_DEFAUT = "population"
 PAS_DE_CHRONIQUE = 8
 
 
@@ -81,13 +80,13 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None) -> tuple[Pa
 def _carte(snapshot: Path, sortie: Path, lecture: str, largeur: int) -> dict:
     from PIL import Image
 
-    from vues.relief.statistique import carte_de_statistique, plan_avec_legende, resume
+    from vues.relief.carte1400 import carte_de_1400
 
     document = json.loads(snapshot.read_text(encoding="utf-8"))
-    carte = carte_de_statistique(document, lecture=lecture, largeur=largeur)
+    image, compte_rendu = carte_de_1400(document, lecture=lecture, largeur=largeur)
     sortie.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(plan_avec_legende(carte), mode="RGBA").save(sortie)
-    return resume(carte)
+    Image.fromarray(image, mode="RGBA").save(sortie)
+    return compte_rendu
 
 
 def _tableau(snapshot: Path, sortie: Path, lecture: str) -> dict:
@@ -128,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--depart", type=int, action="append", help="Identifiant de la terre de départ.")
     parser.add_argument("--sortie", type=Path, default=Path("sortie"))
-    parser.add_argument("--lecture", default=LECTURE_PAR_DEFAUT, choices=sorted(LECTURES))
+    parser.add_argument("--lecture", default=None, choices=sorted(LECTURES))
     parser.add_argument("--largeur", type=int, default=900, help="Largeur du raster de la carte.")
     parser.add_argument(
         "--pas", type=int, default=PAS_DE_CHRONIQUE,
@@ -161,13 +160,13 @@ def main(argv: list[str] | None = None) -> int:
     compte_rendu["snapshot"] = str(snapshot)
 
     try:
-        compte_rendu["carte"] = _carte(snapshot, sortie / "carte.png", args.lecture, args.largeur)
+        compte_rendu["carte"] = _carte(snapshot, sortie / "carte.png", args.lecture or "densite", args.largeur)
     except Exception as exc:                      # noqa: BLE001 — on dit lequel a manqué
         print(f"carte : {exc}", file=sys.stderr)
         return 2
 
     try:
-        compte_rendu["tableau"] = _tableau(snapshot, sortie / "tableau.svg", args.lecture)
+        compte_rendu["tableau"] = _tableau(snapshot, sortie / "tableau.svg", args.lecture or "population")
     except Exception as exc:                      # noqa: BLE001
         print(f"tableau : {exc}", file=sys.stderr)
         return 2
