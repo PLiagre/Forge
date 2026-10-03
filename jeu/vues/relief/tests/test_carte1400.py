@@ -257,3 +257,52 @@ def test_villes_points_et_etiquettes_lisibles_sans_chevauchement(photographies, 
     with pytest.raises(AssertionError):
         verifier_cartouches(altere)
     print(f"points_blancs={points}, cartouches_sans_chevauchement={len(boites)}, contre_épreuves_rouges=1")
+
+
+@pytest.mark.parametrize("choix", [False, True])
+def test_villes_aucun_point_ne_recouvre_un_cartouche(photographies, monkeypatch, choix):
+    from PIL import ImageDraw
+    from vues.relief.carte1400 import COULEUR_FOND, RAYON_VILLE
+    from vues.relief.raster import _vers_pixel
+
+    document = photographies[int(choix)]
+    boites = []
+    original = ImageDraw.ImageDraw.rectangle
+
+    def observer(self, xy, *args, **kwargs):
+        if kwargs.get("fill") == COULEUR_FOND:
+            boites.append(tuple(xy))
+        return original(self, xy, *args, **kwargs)
+
+    with monkeypatch.context() as sonde:
+        sonde.setattr(ImageDraw.ImageDraw, "rectangle", observer)
+        _, compte = _rendre(document)
+    index, bounds, cellules = index_des_cellules(document, largeur=LARGEUR)
+    decalage = len(plan_avec_legende(carte_de_statistique(
+        document, lecture="densite", largeur=LARGEUR,
+    ))) - len(index)
+    points = []
+    for cellule in cellules:
+        if cellule["villes"]:
+            centre = cellule["centroid"]
+            x, y = _vers_pixel(centre["x_m"], centre["y_m"], bounds, LARGEUR, len(index))
+            points.append((cellule["cell_id"], x, y + decalage))
+    assert points and boites, "échantillon vide : aucun point ou cartouche"
+
+    def verifier(cartouches):
+        for cell_id, x, y in points:
+            for gauche, haut, droite, bas in cartouches:
+                # Le cercle entier doit rester hors des cartouches, même de puissance.
+                assert (x + RAYON_VILLE < gauche or x - RAYON_VILLE > droite
+                        or y + RAYON_VILLE < haut or y - RAYON_VILLE > bas), (
+                    f"point de cell_id={cell_id} sur le cartouche {(gauche, haut, droite, bas)}"
+                )
+
+    verifier(boites)
+    altere = copy.deepcopy(boites)
+    _, x, y = points[0]
+    altere.append((x, y, x, y))
+    with pytest.raises(AssertionError):
+        verifier(altere)
+    print(f"choix={choix}, points_vérifiés={len(points)}, cartouches={len(boites)}, "
+          f"étiquettes_omises={compte['etiquettes_omises']}, contre_épreuves_rouges=1")

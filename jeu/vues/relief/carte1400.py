@@ -145,12 +145,18 @@ def carte_de_1400(document, *, lecture, largeur):
     vignette = Image.fromarray(image, mode="RGBA")
     dessin, police = ImageDraw.Draw(vignette), ImageFont.load_default()
     bounds = _bbox(cellules)
-    boites, omises, points = [], 0, []
+    boites, omises = [], 0
 
     def position(cellule):
         centre = cellule["centroid"]
         x, y = _vers_pixel(centre["x_m"], centre["y_m"], bounds, largeur, hauteur)
         return x, y + decalage
+
+    villes = [c for c in cellules if c["villes"]]
+    points = [position(c) for c in villes]
+    # Tous les cercles occupent leur place, même si leur nom sera omis.
+    boites_points = [(x - RAYON_VILLE, y - RAYON_VILLE,
+                      x + RAYON_VILLE, y + RAYON_VILLE) for x, y in points]
 
     def etiqueter(texte, x, y, centrer=False):
         nonlocal omises
@@ -166,7 +172,7 @@ def carte_de_1400(document, *, lecture, largeur):
         y = max(decalage, min(y, decalage + hauteur - h))
         boite = (x, y, x + w - 1, y + h - 1)
         if any(x <= droite and x + w - 1 >= gauche and y <= bas and y + h - 1 >= haut
-               for gauche, haut, droite, bas in boites):
+               for gauche, haut, droite, bas in boites + boites_points):
             omises += 1
             return
         boites.append(boite)
@@ -174,14 +180,13 @@ def carte_de_1400(document, *, lecture, largeur):
         dessin.text((x + MARGE_ETIQUETTE - gauche, y + MARGE_ETIQUETTE - haut),
                     texte, font=police, fill=COULEUR_TEXTE)
 
-    villes = [c for c in cellules if c["villes"]]
+    # Population urbaine permise au point 5 du brief : classement et choix du nom.
     villes.sort(key=lambda c: (-max(v['population'] for v in c["villes"]), c["cell_id"]))
     for cellule in villes:
         ville = max(cellule["villes"], key=lambda v: v['population'])
         autres = len(cellule["villes"]) - 1
         nom = ville["nom"] + (f" +{autres}" if autres else "")
         x, y = position(cellule)
-        points.append((x, y))
         etiqueter(nom, x, y)
 
     groupes = defaultdict(list)

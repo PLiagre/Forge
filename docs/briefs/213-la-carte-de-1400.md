@@ -114,14 +114,14 @@ Toutes les commandes se lancent depuis `jeu/`, sauf mention contraire. Les tests
 
 ## Ce que la capture montre
 Les deux `carte.png` ont été ouvertes et regardées à 900 px, après 30 ticks, avec et sans choix.
-La France porte des frontières orange sur terre, avec Paris dedans ; la côte reste sans trait orange.
-Londres et Constantinople ont un point blanc et un nom lisible.
-Le Caire et le delta apparaissent tout en bas à droite, dans une étroite portion de l'Égypte.
-La Flandre, autour de Bruges et Tournai, est foncée ; le désert égyptien ne se distingue pas clairement dans cette portion de carte.
-Ce contraste désert/delta n'est donc pas vérifiable à l'œil ici : le cadrage géométrique vient de la photographie, sans correction du monde dans ce lot.
-Le Duché de Bar est entouré de rouge ; sa fiche entière est lisible, avec siège, habitants, production, suzerain et voisins.
+La France porte des frontières orange sur terre, avec Paris dedans ; son nom est omis, et la côte reste sans trait orange.
+Londres et Constantinople ont un point blanc et un nom entier, lisible.
+Le Caire, foncé, est tout en bas à droite, contre une cellule très pâle ; la bande d'Égypte est trop étroite pour y lire un désert plus vaste.
+La Flandre est foncée autour des points de Bruges et Tournai, dont les noms sont omis.
+Le Duché de Bar est entouré de rouge, près de Metz ; sa fiche entière est lisible, avec siège, habitants, production, suzerain et voisins.
 La capture sans choix donne la commande de départ ; les deux fiches déclarent Venise hors carte.
-22 étiquettes sont omises dans chaque capture : surtout Belgique/Rhénanie, Italie, péninsule Ibérique, Balkans et bord égyptien.
-Parmi les villes omises : Bruxelles, Liège, Cologne, Vérone, Rome, Edirne, Almería et Alexandrie ; leurs points restent visibles.
+25 étiquettes sont omises dans chaque capture : surtout Belgique/Rhénanie, Italie, péninsule Ibérique, Balkans et bord égyptien.
+Parmi les villes omises : Bruges, Tournai, Bruxelles, Milan, Rome, Edirne, Grenade, Séville, Lisbonne et Alexandrie ; leurs points restent visibles.
 Les petits pouvoirs de ces zones ne peuvent pas tous être identifiés par un nom ; les frontières restent visibles.
-Les noms affichés ne se chevauchent pas et aucune fiche n'est tronquée ; le bord rouge passe sous les cartouches pour garder Paris lisible.
+Chaque cartouche affiché est entier : séparé des autres cartouches et des cercles de ville. Les deux fiches tiennent dans l'image.
+Le bord rouge de Bar passe sous les cartouches de Paris et d'Orléans, qui restent lisibles.
