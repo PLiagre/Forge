@@ -231,7 +231,7 @@ Voici les faits, relevés par le pilote sur GitHub et dans son journal. Ce sont 
 > **À faire** : les gestes de « À FAIRE PAR LE PROPRIÉTAIRE », et eux seuls, avec leur commande exacte ; « rien » s'il n'y en a pas.
 
 ### Ce qui a changé dans le jeu
-La photo du monde d'abord, si les faits en ont une. Puis, pour chaque lot livré : son titre en gras avec le lien de sa PR, une ou deux phrases sur ce que le joueur ou le monde y gagne (tirées de « Ce que dit le codeur », pas le titre recopié), puis sa capture, précédée d'une ligne en italique qui dit quoi regarder dans l'image. Aucun lot livré : dis-le en une phrase.
+La photo du monde d'abord, si les faits en ont une. Puis, pour chaque lot livré : son titre en gras avec le lien de sa PR, une ou deux phrases sur ce que le joueur ou le monde y gagne (tirées de « Ce que dit le codeur », pas le titre recopié), puis sa capture seulement si les faits en donnent une pour CE lot — jamais la photo du monde à la place, ni celle d'un autre lot. Une ligne en italique dit quoi regarder. Aucun lot livré : dis-le en une phrase.
 
 ### Aujourd'hui
 Deux à quatre phrases : ce qui va avancer aujourd'hui, et ce qui attend quoi.
