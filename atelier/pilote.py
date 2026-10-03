@@ -91,6 +91,8 @@ def _commentaires_pour_le_chef(commentaires: list[dict]) -> str:
             lus.append(f"{(c.get('author') or {}).get('login', '?')} : {corps}")
         elif any(m.get("etat") == "bloque" and m.get("question") for m in faites):
             lus.append("ta question au propriétaire : " + lots._MARQUE.sub("", corps).strip())
+        elif any(m.get("etat") == lots.ETAT_DECISION for m in faites):
+            lus.append("ta question technique, et la décision du pilote : " + lots._MARQUE.sub("", corps).strip())
         elif any(m.get("role") == "depanneur" for m in faites):
             lus.append("le dépanneur : " + lots._MARQUE.sub("", corps).strip())
     return "\n\n".join(lus)
@@ -943,7 +945,10 @@ class Pilote:
                  question: lots.Question | None = None, par: str | None = None, diagnostic: str = "") -> None:
         """Bloque le lot, avec sa raison. `par` le dépanneur : ce blocage est
         sa décision, il ne le regarde pas une seconde fois, et son
-        `diagnostic` l'accompagne."""
+        `diagnostic` l'accompagne. Une question technique ne bloque pas : le
+        pilote suit la recommandation (`_decider_seul`)."""
+        if question is not None and self._decider_seul(numero, question, par=par, diagnostic=diagnostic):
+            return
         self.gh.etiqueter(numero, ["bloque"], ["en-cours", "pret", "idee"])
         reprendre = ("sa PR reste ouverte : le pilote la reprend où elle en est, sans relancer le chef, "
                      "et ses essais repartent de zéro" if numero_pr else
@@ -972,6 +977,34 @@ class Pilote:
             texte += f"\n\n<details><summary>Le diagnostic du dépanneur</summary>\n\n{diagnostic}\n\n</details>"
         self.gh.commenter_issue(numero, f"{texte}\n\n{marque(role='pilote', etat='bloque', raison=raison, **champs)}")
         self.noter(numero, "bloqué", raison)
+
+    def _decider_seul(self, numero: int, question: lots.Question, *, par: str | None, diagnostic: str) -> bool:
+        """Une question technique suit la recommandation, sans attendre le
+        propriétaire : il tranche le jeu, pas les tests ni les formats. Le lot
+        redevient « pret » : le chef relit la décision, ou sa PR reprend avec
+        elle pour consigne. Au-delà de `DECISIONS_SEULES_MAX` sur un lot, ou
+        sans recommandation, la question va au propriétaire."""
+        if not question.se_decide_seule():
+            return False
+        if lots.decisions_seules(self.gh.issue(numero).get("comments") or []) >= lots.DECISIONS_SEULES_MAX:
+            return False
+        qui = "le dépanneur" if par == lots.PAR_DEPANNEUR else "le chef"
+        lettre, pourquoi = question.recommandation
+        reponse = question.reponse_recommandee()
+        decision = f"**{lettre}**" + (f" — {reponse}" if reponse else "")
+        # La consigne vit dans la marque : « --> » la fermerait.
+        consigne = (f"Question technique : {question.texte} Décision : {lettre}"
+                    + (f" — {reponse}" if reponse else "")).replace("-->", "→")
+        texte = (f"🤖 **pilote** : question technique de {qui}, tranchée seul selon sa recommandation.\n\n"
+                 f"**{question.texte}**\n\nDécision : {decision}" + (f" ({pourquoi})" if pourquoi else "") + ".\n\n"
+                 "Le lot continue. Pour une autre décision : bloque le lot, écris ta réponse ici, puis remets « pret ».")
+        if diagnostic:
+            texte += f"\n\n<details><summary>Le diagnostic du dépanneur</summary>\n\n{diagnostic}\n\n</details>"
+        self.gh.commenter_issue(numero, f"{texte}\n\n" + marque(role="pilote", etat=lots.ETAT_DECISION,
+                                                                consigne=consigne, **question.marque()))
+        self.gh.etiqueter(numero, ["pret"], ["en-cours", "idee", "bloque"])
+        self.noter(numero, "décision technique", f"{lettre} — {question.texte}")
+        return True
 
     # ------------------------------------------------------------ jalons
     def _ranger_jalons(self) -> None:
