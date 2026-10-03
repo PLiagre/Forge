@@ -26,6 +26,11 @@ la fusionne toute seule.
                     RELECTEUR (Claude Code, opus, high ; puis Codex gpt-6.1-sol, Cursor grok-high : jamais la famille qui a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
+                                                                                     │
+                    DÉPANNEUR (Claude Code, opus, high ; secours Codex gpt-6.1-sol) ◄─┘
+                     ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
+                     ├─ QUESTION    ──► question au propriétaire
+                     └─ MODE-DIRECT ──► reste « bloque » : la chaîne est à corriger
 ```
 
 Le **renfort** (Codex, gpt-6.1-sol, high ; puis Cursor grok-high) fait
@@ -112,11 +117,11 @@ lots qui ne servent aucun jalon pour l'instant. Son titre ne commence pas par
 sortir aucun lot. Un lot y entre par le formulaire (jalon « Réserve »), par
 l'étiquette `reserve`, ou à la main ; un jalon qui en a besoin l'en tire.
 
-### La fenêtre de deux jalons
+### Le jalon suivant
 
 Le pilote prend d'abord dans le jalon courant. Une machine libre qui n'y a
 plus rien à prendre (tout est en cours, livré, ou attend une dépendance)
-prend dans le **jalon suivant**, jamais plus loin. Le 29 septembre 2026, J1
+prend dans le **jalon suivant**, puis dans le troisième (ci-dessous). Le 29 septembre 2026, J1
 n'avait plus que des lots `pc` : le VPS attendait sans rien faire que le PC
 finisse, alors que J2 ne demande que `sim/`.
 
@@ -125,6 +130,18 @@ jalon courant doit encore livrer (ce qui n'est pas sur master n'existe pas) ;
 s'il en a besoin, il refuse, et le lot est bloqué avec sa raison. Le journal
 annonce ces lots à part, sous « EN AVANCE ». Un lot marqué `reserve` ne se
 prend jamais : il sort de son jalon.
+
+### La fenêtre a trois jalons
+
+Une machine qui n'a plus rien à prendre dans le courant ni dans le suivant
+prend dans le **troisième jalon ouvert**, jamais plus loin. Le 30 septembre
+2026, la 3D n'arrivait qu'à J4 et le PC attendait ; le 1er octobre, le VPS
+est resté trois heures sans rien faire, J2 et J3 en file derrière un lot,
+alors que #253, de J4, n'attendait rien (choix du propriétaire : la fenêtre
+passe à trois jalons pour les deux machines).
+
+Un troisième jalon sans plan se découpe en avance, dès qu'une machine est
+libre. Le journal annonce ses lots sous « EN AVANCE, DU TROISIÈME JALON ».
 
 ### Un jalon qui commence se fait découper
 
@@ -146,7 +163,9 @@ Le chef découpe en sous-lots (`pret`, même jalon), écrits « Découpé du lot
 découpé, sauf si le chef finit sa ligne par « :: pc » ou « :: vps ». Chaque
 ligne dit aussi ce qu'elle attend : « :: après 1, 3 » (les rangs, dans la
 liste, des sous-lots dont elle a besoin), « :: après rien » (elle part tout
-de suite) ; sans « après », elle attend la précédente. Les sous-lots qui ne
+de suite) ; sans « après », elle part aussi tout de suite (jusqu'au 1er
+octobre 2026, elle attendait la précédente : J2 et J4 étaient devenus des
+files de sept lots). Les sous-lots qui ne
 s'attendent pas avancent en même temps. Le dernier d'une découpe de jalon
 porte la preuve : il attend tous les autres. Une ligne qui attend un
 sous-lot placé après elle rend la découpe illisible, et rien n'est créé. Un
@@ -156,6 +175,35 @@ un sous-lot est découpé à son tour), pas seulement sa fermeture.
 Un lot **en cours** dont une dépendance est encore ouverte redevient `pret`
 et rend sa machine ; la reprise le relance quand elle est livrée, essais
 remis à zéro.
+
+### Le dépanneur, avant le propriétaire
+
+Un lot que le pilote vient de bloquer (le codeur a échoué trois fois, la CI
+reste rouge, la relecture dit encore `CORRIGER`, le relecteur n'a pas rendu de
+verdict) est lu par le **dépanneur**, au tour suivant, avant le propriétaire.
+Il est en lecture seule dans le chantier du lot. Il lit la demande, la raison
+du blocage, les comptes rendus du codeur, les revues et la CI rouge, et il
+peut rejouer un test. Puis il rend une décision :
+
+- `DECISION: REPRENDRE :: <consigne>` : la cause est passagère (quota, délai,
+  relecture vide), le codeur tourne en rond, ou le relecteur demande ce que
+  personne ne peut lui donner. Le lot redevient `pret` et reprend où il en
+  est, essais remis à zéro. La consigne entre dans le prompt du codeur et du
+  relecteur jusqu'au blocage suivant. Il relance un même lot
+  `depannages_max` fois au plus (`atelier.toml`), puis le laisse au
+  propriétaire ;
+- `DECISION: QUESTION` (le format du chef, ci-dessous) : le brief contredit un
+  test existant ou une règle du monde. Le pilote pose la question, et le
+  journal du matin la reprend ;
+- `DECISION: MODE-DIRECT :: <quoi>` : la chaîne elle-même est en cause (un
+  outil manque, un défaut dans `atelier/`). Le lot reste bloqué, avec cette
+  raison.
+
+Il ne regarde jamais une question au propriétaire, ni un blocage qu'il a lui-même
+posé. Sans décision lisible, il le dit, et le lot attend le propriétaire. Le
+1er octobre 2026, cinq lots attendaient le propriétaire au matin : trois pour
+un quota, une relecture vide ou une image que le relecteur ne pouvait pas
+ouvrir.
 
 ### Reprendre un lot bloqué
 
@@ -188,13 +236,31 @@ DECISION: QUESTION :: <la question, en une phrase>
 - A :: <une réponse possible> :: <ce qu'elle coûte>
 - B :: …
 RECOMMANDATION :: A :: <pourquoi>
+NATURE :: jeu | technique
 ```
+
+Une seule question par lot, qui porte toutes ses décisions : le chef recense
+d'abord chaque test existant qui rougira et chaque règle du monde touchée. Le
+30 septembre 2026, #207 a posé deux questions à quatre minutes d'écart, et le
+propriétaire n'a vu que la première.
 
 Le pilote bloque le lot avec la question, les réponses possibles et la
 recommandation, lisibles sur un téléphone ; le journal du matin les reprend
 dans « À faire ». Le propriétaire répond d'un commentaire (« A » suffit) :
 le lot repart au tour suivant. Le 29 septembre 2026, #209 attendait une telle
 décision derrière une ligne « lire sa raison ».
+
+Le propriétaire ne tranche que **le jeu** : ce que le joueur voit, choisit ou
+vit, ce que le monde fait et comment il raisonne, le niveau de vraisemblance.
+Une question **technique** (un test réécrit, un format, un découpage, le jeu
+restant le même quelle que soit la réponse) ne bloque pas : le pilote suit la
+recommandation, l'écrit sur l'issue (« tranchée seul »), et le lot repart. Le
+chef relit cette décision ; une PR ouverte la reçoit comme consigne. Une
+recommandation qui rend un test moins exigeant est toujours « jeu », et sans
+nature lisible, la question va au propriétaire. Au-delà de deux décisions
+seules sur un lot, la suivante lui va aussi. Pour revenir sur une décision :
+bloquer le lot, écrire sa réponse, puis remettre « pret ». Le 3 octobre 2026, le propriétaire
+répondait toujours la recommandée, et trois jalons attendaient ses lettres.
 
 Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
 branche, puis remettre `pret`.
@@ -298,7 +364,8 @@ faire** (une session à rouvrir, sur le VPS ou le PC, avec sa commande ; le
 plafond Claude ; une ligne de veille en échec ; un lot bloqué). Le
 chroniqueur écrit trois parties : un bandeau (avancé, bloqué, à faire), ce
 qui a changé dans le jeu avec une capture par lot livré (celle de la
-révision fusionnée), et aujourd'hui. Le pilote ajoute lui-même l'avancement
+révision fusionnée, omise si c'est la même image que la photo du monde ou
+qu'une capture déjà montrée), et aujourd'hui. Le pilote ajoute lui-même l'avancement
 du jalon, lot par lot, et les détails de la chaîne, repliés. Un texte qui
 sort du gabarit, ou cite une image ou un numéro absent des faits, est
 écarté : le pilote écrit alors le journal seul, dans le même gabarit.

@@ -16,8 +16,8 @@ from local3d.atelier_citadelle import prepare_terrain_sample
 CODE=ROOT/'local3d/desert';OUT=CODE/'sorties'
 RECIPE=json.loads((CODE/'recette.json').read_text(encoding='utf-8'))
 UNITY_ROOT=ROOT/'unity/Assets/ForgeLocal3D/Desert'
-ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes'}
-LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log'}
+ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes','ForgeLocal3D.DesertKit.Start':'desert_kit'}
+LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log','desert_kit':'kit.log'}
 
 
 def blender(args,log):
@@ -151,10 +151,193 @@ def routes(ds):
             axe=x.get('axe',{})
             print('  {:<30} {:<13} {:<9} {}'.format(x['id'],x['famille'],x['decision'],
                   'écart au profil max {:.4f} m, marche à {:.2f} m du bout'.format(axe['max'],x['marche']['distance_fin']) if axe else ''),flush=True)
+        c=j.get('camera') or {};b=c.get('balayage') or {};z=c.get('zoom') or {};m=c.get('marche') or {}
+        if b and z and m:print('  caméra du joueur : {}/{} poses mesurées, {} sous le terrain, marge min {:.2f} m ; zoom de {:.1f} à {:.0f} m ; œil à {:.2f} m, marche à {:.2f} m du bout'.format(
+            b['mesurees'],b['prevues'],b['sous_terrain'],b['marge_min'],z['distance_min'],z['distance_max'],c['oeil'],m.get('distance_fin',-1)),flush=True)
         for fault in j['defauts']:print('  défaut : '+fault,flush=True)
         faults+=len(j['defauts'])
     if failure:raise failure
     if faults:raise RuntimeError(str(faults)+' défauts : voir sorties/ville/<implantation>/routes/jugement.json')
+
+
+def proteges():
+    """Ce que la commande `kit` ne doit pas toucher, relevé sur le disque par glob."""
+    from local3d.desert import kit
+    nouveaux=set(kit.NOUVEAUX)
+    # Lot 270 : toute scène du projet, en plus de celles du ksar ; une scène apparue est un défaut.
+    chemins=sorted(set((UNITY_ROOT/'Scenes').glob('*.unity'))|set((ROOT/'unity/Assets').glob('**/*.unity')))
+    for dossier,motif in (('Prefabs','*.prefab'),('Models','*.fbx'),('Materials','*.mat')):
+        chemins+=[p for p in sorted((UNITY_ROOT/dossier).glob(motif)) if p.stem not in nouveaux]
+    for motif in ('*/*.json','*/*.fbx'):chemins+=sorted((OUT/'villages').glob(motif))
+    return chemins
+
+
+def empreintes():
+    """SHA-256 des fichiers protégés."""
+    return {p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in proteges()}
+
+
+PLANCHES=('ateliers','chantiers')
+# Le cadrage du banc. `inspecter_kit.py` recule sa caméra d'après la largeur de la famille, ce qui
+# coupe les bouts d'une planche large comme celle des six étapes. Le banc ne change pas le script :
+# il le lance par ce relais, qui, juste avant chaque rendu, recule la caméra sans la tourner jusqu'à
+# ce que toutes les enveloppes entrent dans le cadre, avec une marge.
+CADRAGE='''import runpy
+from pathlib import Path
+import bpy
+from mathutils import Vector
+
+
+@bpy.app.handlers.persistent
+def cadrer(scene,*_):
+    camera=scene.camera;bpy.context.view_layer.update()
+    coins=[o.matrix_world@Vector(b) for o in scene.objects if o.type=='MESH' for b in o.bound_box]
+    if not coins:return
+    cadre,_=camera.camera_fit_coords(bpy.context.evaluated_depsgraph_get(),[v for c in coins for v in c])
+    recul=camera.matrix_world.to_quaternion()@Vector((0,0,1));distance=(Vector(cadre)-sum(coins,Vector())/len(coins)).dot(recul)
+    camera.location=Vector(cadre)+recul*distance*.1;camera.data.clip_end=distance*6
+
+
+bpy.app.handlers.render_pre.append(cadrer)
+runpy.run_path(str(Path(__file__).with_name('inspecter_kit.py')),run_name='__main__')
+'''
+
+
+def planche(noms):
+    """SC8 : les planches des nouveaux modules, par `inspecter_kit.py` tel qu'il est.
+
+    Il lit sa bibliothèque à côté de lui (`sorties/bibliotheque/Kit_Desert.blend`), où les
+    nouveaux modules n'entrent qu'à la prochaine reconstruction complète, et ce fichier-là
+    ne se touche pas. Il tourne donc dans un banc d'essai, sorties/cache/planche/ : une copie
+    du script, et pour bibliothèque les LOD0 que `fabriquer.py kit` vient d'écrire
+    (sorties/cache/kit_nouveaux.blend, chemins de textures absolus). Le banc est refait à
+    chaque passage : chaque planche (`PLANCHES`) montre ce que `kit` vient de construire,
+    jamais une ancienne, et entière (`CADRAGE`).
+    """
+    banc=OUT/'cache/planche';images={p:OUT/'diagnostic'/('kit_'+p+'.png') for p in PLANCHES}
+    shutil.rmtree(banc,ignore_errors=True)
+    for image in images.values():image.unlink(missing_ok=True)
+    (banc/'sorties/bibliotheque').mkdir(parents=True)
+    shutil.copy2(CODE/'inspecter_kit.py',banc/'inspecter_kit.py')
+    (banc/'cadrer.py').write_text(CADRAGE,encoding='utf-8')
+    shutil.copy2(OUT/'cache/kit_nouveaux.blend',banc/'sorties/bibliotheque/Kit_Desert.blend')
+    blender([(banc/'cadrer.py').relative_to(CODE).as_posix()]+noms,'planche_ateliers.log')
+    for p,image in images.items():
+        rendu=banc/'sorties/diagnostic'/image.name
+        if rendu.exists():image.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(rendu,image)
+
+
+def ecart_image(path):
+    """Variation spatiale des pixels d'une image (`kit.ecart_pixels`) ; -1 si elle manque."""
+    if not path.exists():return -1.0
+    import numpy as np
+    from PIL import Image
+    from local3d.desert import kit
+    with Image.open(path) as image:return kit.ecart_pixels(np.asarray(image.convert('RGB')))
+
+
+def pixels_image(path):
+    """Lot 270 : les pixels RGB d'une image (hauteur × largeur × 3) ; None si elle manque."""
+    if not path.exists():return None
+    import numpy as np
+    from PIL import Image
+    with Image.open(path) as image:return np.array(image.convert('RGB'))
+
+
+def verification_scenes(ds):
+    """SC9 : rejoue `verifier` sur chaque disposition et rend son résultat, sans lever.
+
+    Le vérificateur réécrit ses rapports (sorties/villages/*/verification.json, fins de ligne
+    du système comprises, et verification-serie.json). Ils sont lus, puis chaque fichier
+    protégé est remis octet pour octet dans l'état d'avant la vérification : ce qu'ont laissé
+    Blender et Unity reste en place, et les empreintes après, relevées ensuite, le jugent.
+    """
+    serie=OUT/'verification-serie.json'
+    gardes={p:p.read_bytes() for p in proteges()+[serie] if p.exists()}
+    try:
+        try:verify(ds);status,message='valide',''
+        except (RuntimeError,ValueError,OSError,KeyError) as e:status,message='echec',str(e)[-600:]
+        dispositions={}
+        for d in ds:
+            rapport=OUT/'villages'/d['id']/'verification.json'
+            dispositions[d['id']]=json.loads(rapport.read_text(encoding='utf-8')).get('status') if rapport.exists() else None
+    finally:
+        for p in proteges()+[serie]:
+            if p.exists() and p not in gardes:p.unlink()
+        for p,octets in gardes.items():
+            if not p.exists() or p.read_bytes()!=octets:p.write_bytes(octets)
+    return {'status':status,'message':message,'dispositions':dispositions}
+
+
+def kit_ateliers():
+    """Lots 266 et 269 : ajoute les modules de kit.NOUVEAUX au kit, jusqu'aux prefabs d'Unity,
+    fait mesurer par Unity les bâtiments finis de kit.REFERENCES, puis juge. Lot 270 : Unity
+    photographie aussi les étapes de chantier (kit.rangees_planche), et Python juge la planche."""
+    from local3d.desert import kit
+    from local3d.desert.routes import ECART_CAPTURE
+    # La garde passe avant tout effet : l'éditeur ouvert réimporterait sous nos pieds.
+    if (ROOT/'unity/Temp/UnityLockfile').exists():
+        raise RuntimeError('Unity est ouvert : enregistrer et fermer l’éditeur, puis relancer (l’ajout au kit tourne en mode batch).')
+    dossier=OUT/'kit';dossier.mkdir(parents=True,exist_ok=True)
+    avant=empreintes()
+    catalogue_avant=json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8'))
+    print('Empreintes avant : {} fichiers ; {} anciens modules au catalogue.'.format(len(avant),sum(a['id'] not in kit.NOUVEAUX for a in catalogue_avant['assets'])),flush=True)
+    if not any((OUT/'textures').glob('*.png')):
+        print('Textures du kit.',flush=True);prepare(OUT/'textures')
+    print('Blender : '+', '.join(kit.NOUVEAUX)+'.',flush=True)
+    blender(['fabriquer.py','kit'],'kit_ateliers.log')
+    planche(['scierie','four','chantier'])
+    for sub in ('Models','Data'):(UNITY_ROOT/sub).mkdir(parents=True,exist_ok=True)
+    for nom in kit.NOUVEAUX:shutil.copy2(OUT/'bibliotheque'/(nom+'.fbx'),UNITY_ROOT/'Models'/(nom+'.fbx'))
+    shutil.copy2(OUT/'bibliotheque/catalogue.json',UNITY_ROOT/'Data/catalogue.json')
+    # Les références : bâtiments finis des chantiers, mesurés par Unity sans être refaits.
+    # Lot 270 : la planche, une rangée par chantier, qu'Unity photographie.
+    (dossier/'selection.json').write_text(json.dumps({'modules':kit.NOUVEAUX,'references':kit.REFERENCES,'planche':kit.rangees_planche()},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    (dossier/'unity-kit.json').unlink(missing_ok=True)
+    # Une ancienne planche Unity ne compte jamais : seule celle de ce passage est relue.
+    planche_unity=CODE/kit.PLANCHE_UNITY;planche_unity.unlink(missing_ok=True)
+    print('Unity : prefabs et mesures.',flush=True)
+    failure=None
+    try:run_unity('ForgeLocal3D.DesertKit.Start',True)
+    except RuntimeError as e:failure=e
+    rapport=dossier/'unity-kit.json'
+    if not rapport.exists():raise RuntimeError('Unity n’a pas écrit de rapport ('+str(failure or 'voir sorties/logs/kit.log')+')')
+    print('Vérificateur des scènes : '+', '.join(d['id'] for d in RECIPE['dispositions'])+'.',flush=True)
+    verification=verification_scenes(RECIPE['dispositions'])
+    # Les empreintes après se relèvent une fois tous les effets de la commande passés, vérificateur compris.
+    apres=empreintes()
+    entrees={'plafonds':dict(kit.PLAFONDS),'catalogue_avant':catalogue_avant,
+             'catalogue_apres':json.loads((OUT/'bibliotheque/catalogue.json').read_text(encoding='utf-8')),
+             'unity':json.loads(rapport.read_text(encoding='utf-8-sig')),'empreintes_avant':avant,'empreintes_apres':apres,
+             'ecart_image':ecart_image(OUT/'diagnostic/kit_ateliers.png'),'ecart_chantiers':ecart_image(OUT/'diagnostic/kit_chantiers.png'),
+             'ecart_minimal':ECART_CAPTURE,'verification':verification,'planche':pixels_image(planche_unity)}
+    j=kit.jugement(entrees)
+    (dossier/'jugement.json').write_text(json.dumps(j,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
+    print('{} : {} anciens modules intacts attendus, {} empreintes, planches à écart-type {:.1f} (ateliers) et {:.1f} (chantiers)'.format(
+        j['status'],j['anciens_modules'],j['empreintes'],j['ecart_image'],j['ecart_chantiers']),flush=True)
+    print('  verifier : {} ; {}'.format(verification['status'],', '.join('{} {}'.format(k,v) for k,v in verification['dispositions'].items())),flush=True)
+    for m in j['modules']:
+        print('  {:<32} LOD {} ; triangles {} (plafonds {}) ; y min {:.4f} m ; matériaux {}'.format(
+            m['id'],m['niveaux'],m['triangles'],j['plafonds'].get(m['id']),m['y_min'],', '.join(m['materiaux'])),flush=True)
+    # Pour chaque chantier : l'enveloppe et la hauteur de chaque étape, puis du bâtiment fini.
+    mesures={m['id']:m for m in j['modules']+j['references']}
+    for fini,etapes in j['chantiers'].items():
+        print('  chantier '+fini+' :',flush=True)
+        for e in etapes:
+            m=mesures.get(e) or {}
+            print('    {:<32} x {:.2f} à {:.2f} m ; z {:.2f} à {:.2f} m ; hauteur {:.2f} m'.format(
+                e,*(m.get(k,-1) for k in ('x_min','x_max','z_min','z_max','y_max'))),flush=True)
+    p=entrees['unity'].get('planche') or {}
+    print('  planche Unity {} : {} × {} px, fond {}, scène « {} »'.format(
+        p.get('chemin'),p.get('largeur'),p.get('hauteur'),p.get('fond'),p.get('scene_chemin')),flush=True)
+    for c in j['planche']:
+        print('    rangée {} colonne {} {:<32} {} renderers ; écart-type {:.1f}'.format(
+            c['rangee'],c['colonne'],c['id'],c['renderers'],c['ecart']),flush=True)
+    for nom,c in j['contre_epreuves'].items():
+        print('  contre-épreuve {:<28} {} ({})'.format(nom,'rougit' if c['rougit'] else 'SANS EFFET',', '.join(c['obtenues']) or 'aucun défaut'),flush=True)
+    for f in j['defauts']:print('  défaut [{}] {}'.format(f['etiquette'],f['message']),flush=True)
+    if failure:raise failure
+    if j['defauts']:raise RuntimeError(str(len(j['defauts']))+' défauts : voir sorties/kit/jugement.json')
 
 
 def verify(ds):
@@ -172,7 +355,7 @@ def verify(ds):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');a=p.parse_args()
     ds=[d for d in RECIPE['dispositions'] if not a.disposition or d['id']==a.disposition]
     if not ds:p.error('Disposition inconnue')
     if a.action=='fabriquer':build(ds,a.force,a.sans_rendus);verify(ds)
@@ -192,3 +375,4 @@ if __name__=='__main__':
     if a.action=='parcours':run_unity('ForgeLocal3D.DesertTraversalCheck.Start')
     if a.action=='terrain':terrain(ds,a.force)
     if a.action=='routes':routes(ds)
+    if a.action=='kit':kit_ateliers()

@@ -440,3 +440,106 @@ def test_horloge_publie_des_etats_coherents_et_deterministes():
     tick_temoin = min(observes)
     with pytest.raises(AssertionError):
         _comparer_etats_service(observes[tick_temoin], rejoues[tick_temoin + 1])
+
+
+def test_plan_deterministe_independant_de_la_graine_et_du_tick():
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+
+    a, b = World.charger(0), World.charger(0)
+    assert a.plans and b.plans
+    def octets_plans(monde):
+        return json.dumps(monde.to_dict()["plans"], sort_keys=True).encode()
+
+    assert octets_plans(a) == octets_plans(b) == octets_plans(World.charger(1))
+    b.plans[min(b.cells)] = _construire_plan(_donnees_plan())
+    avant = octets_plans(b)
+    alea_a, alea_b = random.Random(0), random.Random(0)
+    for numero in range(30):
+        engine.tick(a, alea_a, numero)
+        engine.tick(b, alea_b, numero)
+        assert a.to_dict()["cells"] == b.to_dict()["cells"]
+        assert a.ticks_ecoules == b.ticks_ecoules == numero + 1
+        assert alea_a.getstate() == alea_b.getstate()
+        assert octets_plans(b) == avant
+    copie = copy.deepcopy(b)
+    copie.cells[min(copie.cells)].food_stock_kg += 1
+    with pytest.raises(AssertionError):
+        assert copie.to_dict()["cells"] == b.to_dict()["cells"]
+
+
+def test_plan_absent_de_l_arbre_du_moteur():
+    import ast
+
+    def lectures(source):
+        return [noeud for noeud in ast.walk(ast.parse(source))
+                if isinstance(noeud, ast.Attribute) and noeud.attr == "plans"]
+
+    assert not lectures(pathlib.Path(engine.__file__).read_text(encoding="utf-8"))
+    assert len(lectures("world.plans")) == 1
+
+
+def test_depart_deterministe_sans_effet_sur_les_cellules():
+    from sim.intentions import deposer_intention
+    from sim.seigneuries import charger_seigneuries
+
+    table = charger_seigneuries()
+    ids = {s.nom: s.id for s in table}
+    mondes = [World.charger(0) for _ in range(4)]
+    aleas = [random.Random(0) for _ in mondes]
+    for monde, nom in zip(mondes, ("Duché de Bar", "Duché de Bar", "Despotat de Morée")):
+        deposer_intention(monde, {"type": "choisir_depart", "seigneurie": ids[nom]})
+    for numero in range(10):
+        for monde, alea in zip(mondes, aleas):
+            engine.tick(monde, alea, numero)
+    etats = [monde.to_dict() for monde in mondes]
+    empreintes = [hashlib.sha256(json.dumps(etat, sort_keys=True).encode()).hexdigest() for etat in etats]
+    # Les comparaisons doivent détecter un autre choix et un habitant de plus.
+    with pytest.raises(AssertionError):
+        assert empreintes[0] == empreintes[2]
+    copie = copy.deepcopy(etats[0])
+    assert copie["cells"] and copie["plans"]
+    copie["cells"][min(copie["cells"])]["population"] += 1
+    with pytest.raises(AssertionError):
+        assert copie["cells"] == etats[0]["cells"]
+    assert etats[0] == etats[1] and empreintes[0] == empreintes[1]
+    assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
+    assert set(etats[-1]) == {"cells", "plans", "ticks_ecoules"}
+    for etat in etats:
+        assert etat["cells"] == etats[-1]["cells"]
+        assert etat["plans"] == etats[-1]["plans"]
+    print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
+
+
+def test_gestes_routes_deterministes_sans_cellule_ni_alea():
+    from sim.intentions import recevoir_intention
+    from sim.tests.test_intentions import _route_reference
+
+    mondes = [World.charger(0) for _ in range(4)]
+    aleas = [random.Random(0) for _ in mondes]
+    route = _route_reference(mondes[0])
+    for numero in range(10):
+        for rang, (monde, alea) in enumerate(zip(mondes, aleas)):
+            if numero in (0, 3) and rang != 2:
+                geste = copy.deepcopy(route)
+                if rang == 3:
+                    geste["points"][0][0] += 1
+                recevoir_intention(monde, geste)
+            engine.tick(monde, alea, numero)
+    etats = [monde.to_dict() for monde in mondes]
+    empreintes = [hashlib.sha256(json.dumps(etat, sort_keys=True).encode()).hexdigest()
+                  for etat in etats]
+    with pytest.raises(AssertionError):
+        assert empreintes[0] == empreintes[3]
+    copie = copy.deepcopy(etats[0])
+    assert copie["cells"] and copie["plans"]
+    copie["cells"][min(copie["cells"])]["population"] += 1
+    with pytest.raises(AssertionError):
+        assert copie["cells"] == etats[0]["cells"]
+    assert etats[0] == etats[1] and empreintes[0] == empreintes[1]
+    assert all(etat["cells"] == etats[2]["cells"] for etat in etats)
+    assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
+    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules"}
+    assert all(plan == {"rues": [], "parcelles": [], "batiments": []}
+               for plan in etats[2]["plans"].values())
+    assert len(etats[0]["plans"][str(route["cell"])]["rues"]) == 2
+    print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")

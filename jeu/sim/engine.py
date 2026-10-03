@@ -28,7 +28,16 @@ from collections import defaultdict
 
 from sim import constants as _constantes
 import sim.lieux as _lieux
-from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise, lire_stock_marchandise
+from sim.lieux import lieux_de_cellule
+import sim.foyers as foyers
+from sim.model import (
+    Cell,
+    cellule_vers_dict,
+    ecrire_habitants_par_metier,
+    ecrire_stock_marchandise,
+    lire_habitants_par_metier,
+    lire_stock_marchandise,
+)
 
 # Carte lue pendant un tick sur un monde chargé ; None hors tick ou sans carte.
 _carte_du_tick: dict | None = None
@@ -44,6 +53,10 @@ class ClimatInvalideError(ValueError):
 
 class PluieInvalideError(ValueError):
     """Pluie absente ou inexploitable sur une cellule du monde chargé."""
+
+
+class CrueInvalideError(ValueError):
+    """Crue absente ou inexploitable sur une cellule du monde chargé."""
 
 
 class LongueurFrontiereInvalideError(ValueError):
@@ -92,7 +105,7 @@ def _facteur_relief_pour_cellule(cell: Cell, carte: dict) -> float:
 
 
 def _facteur_eau_pour_cellule(cell: Cell, carte: dict) -> float:
-    """Lit la pluie annuelle de la carte et refuse toute valeur invalide."""
+    """Lit la pluie et la crue annuelles et refuse toute valeur invalide."""
     raw = carte.get(cell.cell_id)
     if not isinstance(raw, dict):
         raise PluieInvalideError(
@@ -108,7 +121,17 @@ def _facteur_eau_pour_cellule(cell: Cell, carte: dict) -> float:
         raise PluieInvalideError(
             f"cell_id={cell.cell_id} pluie_mm_par_an={pluie!r}"
         )
-    return _constantes.facteur_eau(float(pluie))
+    crue = raw.get("crue_mm_par_an")
+    if (
+        isinstance(crue, bool)
+        or not isinstance(crue, (int, float))
+        or not math.isfinite(crue)
+        or crue < 0
+    ):
+        raise CrueInvalideError(
+            f"cell_id={cell.cell_id} crue_mm_par_an={crue!r}"
+        )
+    return _constantes.facteur_eau(float(pluie) + float(crue))
 
 
 def _lire_solstices(cell: Cell, carte: dict) -> tuple[float, float]:
@@ -940,7 +963,19 @@ def _apply_commerce(
         )
 
 
-def _apply_consumption(cell: Cell) -> float:
+def _nourriture_accessible_au_rang0_kg(cell: Cell, carte: dict, stock: float) -> float:
+    """Part locale du panier et apport possible des chemins vers le bourg."""
+    lieux = lieux_de_cellule(cell.cell_id, cell.area_km2)
+    if len(lieux) == 1:
+        return stock
+    local = stock * lieux[0].surface_km2 / cell.area_km2
+    capacite = _constantes.capacite_chemins_interieurs_kg(
+        len(lieux) - 1, _facteur_transport_pour_cellule(cell.cell_id, carte)
+    )
+    return min(stock, local + capacite)
+
+
+def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
     """
     Maillon 3 — Consommation.
 
@@ -964,12 +999,31 @@ def _apply_consumption(cell: Cell) -> float:
     Si stock < consommation (manque) :
         - stock = 0, le manque est ajouté à food_deficit_kg, et la pénurie
           du tick est retournée.
+
+    Si le bourg manque alors que les champs gardent un surplus : seuls les
+    kilos accessibles sont mangés au bourg, et aucune dette n'est remboursée.
+    Dans tous les autres cas, le calcul ci-dessus reste inchangé.
     """
     tick_need = cell.population * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
     stock = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
     stock_eff = stock if stock >= 0 else 0.0
     remaining = stock_eff - tick_need
     prev_deficit = cell.food_deficit_kg if cell.food_deficit_kg > 0 else 0.0
+
+    if carte is not None:
+        part = _constantes.part_miniere_de(
+            _gisements_de(cell, carte), _constantes.facteurs_richesse_extraction()
+        )
+        if part > 0:
+            besoin_bourg = cell.population * part * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+            accessible = _nourriture_accessible_au_rang0_kg(cell, carte, stock_eff)
+            mange_bourg = min(besoin_bourg, accessible)
+            manque_bourg = besoin_bourg - mange_bourg
+            reste_champs = stock_eff - mange_bourg - (tick_need - besoin_bourg)
+            if manque_bourg > 0 and reste_champs > 0:
+                ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, reste_champs)
+                cell.food_deficit_kg = prev_deficit + manque_bourg
+                return manque_bourg
 
     if remaining >= 0.0:
         # Le ratio est borné à 1 kg de dette par kg de surplus : la réduction
@@ -1016,6 +1070,30 @@ def _update_hunger(cell: Cell, penurie_kg: float) -> None:
         cell.hunger_ticks = 0
 
 
+def _retirer_par_les_foyers(cell: Cell, n: int) -> None:
+    """Retire n habitants. Sans métiers calculés, seule la population bouge.
+
+    Appelé par les maillons, jamais par tick() : l'ordre documenté ne le cite pas.
+    """
+    metiers = lire_habitants_par_metier(cell)
+    if metiers == -1:
+        cell.population = cell.population - n
+        return
+    ecrire_habitants_par_metier(cell, foyers.retirer(metiers, n))
+
+
+def _ajouter_par_les_foyers(cell: Cell, n: int) -> None:
+    """Ajoute n habitants. Sans métiers calculés, seule la population bouge.
+
+    Appelé par les maillons, jamais par tick() : l'ordre documenté ne le cite pas.
+    """
+    metiers = lire_habitants_par_metier(cell)
+    if metiers == -1:
+        cell.population = cell.population + n
+        return
+    ecrire_habitants_par_metier(cell, foyers.ajouter(metiers, n))
+
+
 def _apply_mortality(cell: Cell) -> None:
     """
     Maillon 5 — Mortalité.
@@ -1047,7 +1125,8 @@ def _apply_mortality(cell: Cell) -> None:
         raw = cell.population * death_rate + remainder
         deaths = int(raw)
         cell.mortality_remainder = raw - deaths
-        cell.population = max(0, cell.population - deaths)
+        retires = cell.population - max(0, cell.population - deaths)
+        _retirer_par_les_foyers(cell, retires)
     else:
         # Aucun décès ce tick : la fraction en attente est conservée telle
         # quelle (et la sentinelle -1 devient une mesure réelle : 0.0).
@@ -1062,7 +1141,7 @@ def _apply_natalite(cell: Cell, penurie_kg: float) -> None:
         raw = cell.population * rate + remainder
         births = int(raw)
         cell.natalite_remainder = raw - births
-        cell.population += births
+        _ajouter_par_les_foyers(cell, births)
     else:
         cell.natalite_remainder = remainder
 
@@ -1193,9 +1272,11 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         entrees[dest] += nb
 
     for cid, cell in world.cells.items():
-        pop_snapshot = snapshot_pop[cid]
         delta = entrees.get(cid, 0) - sorties.get(cid, 0)
-        cell.population = pop_snapshot + delta
+        if delta > 0:
+            _ajouter_par_les_foyers(cell, delta)
+        elif delta < 0:
+            _retirer_par_les_foyers(cell, -delta)
 
 
 def _valider_numero_tick(world, numero_tick: int | None) -> None:
@@ -1225,6 +1306,16 @@ def _valider_numero_tick(world, numero_tick: int | None) -> None:
         )
 
 
+def _appliquer_intentions(world) -> None:
+    """Applique les intentions dans l'ordre du dépôt, sans cellule ni aléa."""
+    from sim.world import World
+
+    if isinstance(world, World):
+        for intention in world.intentions_en_attente:
+            intention.appliquer(world)
+        world.intentions_en_attente.clear()
+
+
 def _avancer_compteur_ticks(world) -> None:
     from sim.world import World
 
@@ -1237,17 +1328,19 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     Avance le monde d'un pas de temps.
 
     Ordre du tick :
-        1. Fabrication (_apply_fabrication)  — pour chaque cellule
-        2. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
-        3. Production  (_apply_production)   — pour chaque cellule
-        4. Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
-        5. Consommation (_apply_consumption) — pour chaque cellule
-        6. Faim        (_update_hunger)      — pour chaque cellule
-        7. Mortalité   (_apply_mortality)    — pour chaque cellule
-        8. Natalité    (_apply_natalite)     — pour chaque cellule
-        9. Migration   (_apply_migration)    — sur le monde entier (snapshot)
-        10. Répartition (repartir_sur_les_lieux) — habitants et paniers des lieux
-        11. Avance du compteur (_avancer_compteur_ticks)
+        1. Validation  (_valider_numero_tick) — avant toute mutation
+        2. Intentions  (_appliquer_intentions) — intentions en attente, dans l'ordre du dépôt
+        3. Fabrication (_apply_fabrication)  — pour chaque cellule
+        4. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
+        5. Production  (_apply_production)   — pour chaque cellule
+        6. Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
+        7. Consommation (_apply_consumption) — pour chaque cellule
+        8. Faim        (_update_hunger)      — pour chaque cellule
+        9. Mortalité   (_apply_mortality)    — pour chaque cellule
+        10. Natalité   (_apply_natalite)     — pour chaque cellule
+        11. Migration  (_apply_migration)    — sur le monde entier (snapshot)
+        12. Répartition (repartir_sur_les_lieux) — habitants et paniers des lieux
+        13. Compteur   (_avancer_compteur_ticks) — après tous les maillons
 
     rng : instance de random.Random initialisée par l'appelant —
           jamais d'aléa global non contrôlé.
@@ -1256,6 +1349,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     pendant ce tick (kg).
     """
     _valider_numero_tick(world, numero_tick)
+    _appliquer_intentions(world)
     total_transported = [0.0]
     for cell in world.cells.values():
         _apply_fabrication(cell)
@@ -1278,7 +1372,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
 
     penuries: dict[int, float] = {}
     for cell in world.cells.values():
-        penurie_kg = _apply_consumption(cell)
+        penurie_kg = _apply_consumption(cell, carte)
         penuries[cell.cell_id] = penurie_kg
         _update_hunger(cell, penurie_kg)
         _apply_mortality(cell)

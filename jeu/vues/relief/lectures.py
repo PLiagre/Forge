@@ -159,11 +159,7 @@ def _population(cellule: dict) -> Optional[float]:
 
 
 def _densite(cellule: dict) -> Optional[float]:
-    population = cellule.get("population")
-    surface = cellule.get("area_km2")
-    if population is None or surface is None or float(surface) <= 0.0:
-        return None
-    return float(population) / float(surface)
+    return cellule.get("densite_hab_par_km2")
 
 
 def _faim(cellule: dict) -> Optional[float]:

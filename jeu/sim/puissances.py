@@ -1,4 +1,4 @@
-"""Lecture de la table documentée des puissances occidentales en 1400."""
+"""Lecture des puissances d'Europe et de Méditerranée et de leurs lacunes en 1400."""
 
 import dataclasses
 import json
@@ -35,7 +35,7 @@ _CLE_NIVEAU = "niveau"
 _DATE_ATTENDUE = "1400-01-01"
 _NIVEAU_FRONTIERE = 2
 
-NATURES = frozenset({"royaume", "république", "Église", "ordre"})
+NATURES = frozenset({"royaume", "république", "Église", "ordre", "principauté", "empire", "sultanat", "khanat"})
 RELIGIONS = frozenset({"catholique", "orthodoxe", "musulmane"})
 
 class PuissanceInvalide(ValueError):
@@ -82,10 +82,10 @@ def _texte(valeur, sorte: str, identifiant, champ: str) -> str:
     return valeur
 
 
-def _nombre(valeur, identifiant, champ: str):
+def _nombre(valeur, identifiant, champ: str, sorte="ancre"):
     if isinstance(valeur, bool) or not isinstance(valeur, (int, float)) or not math.isfinite(valeur):
         raise PuissanceInvalide(
-            f"ancre {identifiant!r}, champ {champ} : nombre fini attendu"
+            f"{sorte} {identifiant!r}, champ {champ} : nombre fini attendu"
         )
     return valeur
 
@@ -243,3 +243,55 @@ def puissance_de_cellule(cell_id, vue, table):
 def cellules_non_couvertes(vue) -> tuple:
     """Rend, triés, les identifiants explicitement non couverts."""
     return tuple(sorted(cell_id for cell_id, puissance in vue.items() if puissance is None))
+
+
+@dataclasses.dataclass(frozen=True)
+class Lacune(_NoBadSpatialField):
+    id: int
+    nom: str
+    lat: float
+    lon: float
+    raison: str
+
+
+def charger_lacunes(path=None) -> tuple:
+    """Lit les raisons déclarées, indépendamment de la table des puissances."""
+    chemin = pathlib.Path(path) if path is not None else _CHEMIN_TABLE
+    document = json.loads(chemin.read_text(encoding="utf-8"))
+    brutes = document.get("lacunes")
+    if not isinstance(brutes, list) or not brutes:
+        raise PuissanceInvalide("champ lacunes : liste absente ou vide")
+    lacunes, ids = [], set()
+    for brute in brutes:
+        identifiant = _refuser_id(brute.get(_CLE_ID), "lacune", ids)
+        nom = _texte(brute.get(_CLE_NOM), "lacune", identifiant, _CLE_NOM)
+        raison = _texte(brute.get("raison"), "lacune", identifiant, "raison")
+        lat = _nombre(brute.get(_CLE_LAT), identifiant, _CLE_LAT, sorte="lacune")
+        lon = _nombre(brute.get(_CLE_LON), identifiant, _CLE_LON, sorte="lacune")
+        lacunes.append(Lacune(identifiant, nom, lat, lon, raison))
+    return tuple(sorted(lacunes, key=lambda lacune: lacune.id))
+
+
+def lacune_par_cellule(positions, vue, lacunes, portee, latitude_moyenne) -> dict:
+    """Explique uniquement les cellules non couvertes, sans rien attribuer."""
+    if (
+        isinstance(portee, bool)
+        or not isinstance(portee, (int, float))
+        or math.isnan(portee)
+        or portee <= 0
+    ):
+        raise PuissanceInvalide("portee : nombre strictement positif attendu")
+    retenues = {cell_id: positions[cell_id] for cell_id in cellules_non_couvertes(vue)}
+    appartenance = derive_appartenance(retenues, lacunes, latitude_moyenne)
+    par_id = {lacune.id: lacune for lacune in lacunes}
+    facteur = facteur_de_projection(latitude_moyenne)
+    carre_portee = portee * portee
+    raisons = {}
+    for cell_id, position in retenues.items():
+        lacune = par_id[appartenance[cell_id]]
+        cellule_x, cellule_y = projeter(*position, facteur)
+        lacune_x, lacune_y = projeter(lacune.lat, lacune.lon, facteur)
+        ecart_x, ecart_y = cellule_x - lacune_x, cellule_y - lacune_y
+        carre_distance = ecart_x * ecart_x + ecart_y * ecart_y
+        raisons[cell_id] = lacune.id if carre_distance <= carre_portee else None
+    return raisons

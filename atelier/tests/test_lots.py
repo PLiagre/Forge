@@ -72,6 +72,21 @@ def test_l_action_suivante(pr, ci, liste, attendu):
     assert action_suivante(pr, ci, liste, corrections_max=2).nom == attendu
 
 
+def test_une_relecture_sans_verdict_se_rejoue_sans_toucher_au_codeur():
+    """Le 30 septembre 2026, un relecteur hors délai (« relecture sans
+    verdict ») valait « CORRIGER » : le codeur de #126 est repassé deux fois
+    sur une revue vide, et le lot s'est bloqué avec un code qui tenait."""
+    echec = {"role": "relecteur", "etat": "echec", "sha": "tete", "agent": "claude/opus"}
+    assert action_suivante(_pr(), "vert", [FAIT, echec], corrections_max=2).nom == "relire"
+    # Même au bout des corrections, une relecture ratée ne bloque pas le lot
+    # à la place d'un verdict : `_relire` s'arrête à deux échecs.
+    trois = [FAIT, dict(FAIT), dict(FAIT)]
+    assert action_suivante(_pr(), "vert", trois + [echec], corrections_max=2).nom == "relire"
+    # Un verdict rendu après l'échec compte.
+    corriger = {"role": "relecteur", "sha": "tete", "verdict": "CORRIGER"}
+    assert action_suivante(_pr(), "vert", [FAIT, echec, corriger], corrections_max=2).nom == "corriger_relecture"
+
+
 def test_trois_passages_du_codeur_puis_bloque():
     trois = [FAIT, dict(FAIT, etat="fait"), dict(FAIT, etat="fait")]
     assert action_suivante(_pr(), "rouge", trois[:2], corrections_max=2).nom == "corriger_ci"
@@ -281,10 +296,11 @@ def test_une_ligne_de_decoupe_dit_sa_machine_et_ce_qu_elle_attend():
 def test_les_sous_lots_n_attendent_que_ce_qu_ils_disent():
     sous = [lots.sous_lot("a", "a", "vps"), lots.sous_lot("b", "b :: après rien", "vps"),
             lots.sous_lot("c", "c", "vps"), lots.sous_lot("d", "d :: après 1, 2", "vps")]
-    # Sans « après », le précédent (l'ordre du chef, comme avant).
-    assert lots.dependances_des_sous_lots(sous) == [(), (), (2,), (1, 2)]
+    # Sans « après », rien : le 1er octobre 2026, attendre le précédent par
+    # défaut avait fait de J2 et de J4 des files de sept lots.
+    assert lots.dependances_des_sous_lots(sous) == [(), (), (), (1, 2)]
     # Le dernier d'une découpe de jalon porte la preuve : il attend tout.
-    assert lots.dependances_des_sous_lots(sous, preuve_en_dernier=True) == [(), (), (2,), (1, 2, 3)]
+    assert lots.dependances_des_sous_lots(sous, preuve_en_dernier=True) == [(), (), (), (1, 2, 3)]
 
 
 @pytest.mark.parametrize("ligne", ["d :: après 4", "d :: après 5", "d :: après 0"])
@@ -325,3 +341,55 @@ def test_seul_un_humain_apres_le_blocage_repond():
     assert not lots.reponse_apres_blocage([bloque, {"body": "vu", "author": {"login": "github-actions"}}])
     # Bloqué à la main, sans marque du pilote : rien ne le lève tout seul.
     assert not lots.reponse_apres_blocage([avant])
+
+
+def _c(**champs):
+    return {"body": lots.marque(**champs)}
+
+
+def test_le_depanneur_regarde_un_blocage_du_pilote_une_fois():
+    bloque = _c(role="pilote", etat="bloque", raison="CI rouge après 2 correction(s)")
+    assert lots.depannage_a_faire([bloque], 2)
+    assert not lots.depannage_a_faire([], 2)
+    assert not lots.depannage_a_faire([bloque, _c(role="depanneur", etat="echec")], 2)
+    assert not lots.depannage_a_faire([_c(role="pilote", etat="bloque", raison="q", question="Q ?")], 2)
+    assert not lots.depannage_a_faire([_c(role="pilote", etat="bloque", raison="x", par="depanneur")], 2)
+    relance = _c(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="c")
+    assert lots.depannage_a_faire([bloque, relance, bloque], 2)
+    assert not lots.depannage_a_faire([bloque, relance, bloque, relance, bloque], 2)
+
+
+def test_la_consigne_du_depanneur_tombe_au_blocage_suivant():
+    bloque = _c(role="pilote", etat="bloque", raison="x")
+    relance = _c(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="ouvre la planche")
+    assert lots.consigne_du_depanneur([bloque, relance]) == "ouvre la planche"
+    assert lots.consigne_du_depanneur([bloque, relance, bloque]) == ""
+    assert lots.consigne_du_depanneur([]) == ""
+
+
+def test_une_reponse_du_codeur_a_la_revue_se_relit_et_compte_comme_un_passage():
+    pr = {"state": "OPEN", "headRefOid": "a" * 40, "mergeable": "MERGEABLE"}
+    fait = {"role": "codeur", "etat": "fait", "sha": "a" * 40}
+    corriger = {"role": "relecteur", "verdict": "CORRIGER", "sha": "a" * 40}
+    reponse = {"role": "codeur", "etat": "reponse"}
+    assert action_suivante(pr, "vert", [fait, corriger, reponse], corrections_max=2).nom == "relire"
+    apres = action_suivante(pr, "vert", [fait, corriger, reponse, corriger], corrections_max=2)
+    assert apres.nom == "corriger_relecture" and apres.essai == 2
+    assert action_suivante(pr, "vert", [fait, corriger, reponse, corriger, reponse, corriger],
+                           corrections_max=2).nom == "bloquer"
+
+
+def test_la_nature_de_la_question_se_lit_et_vaut_jeu_dans_le_doute():
+    base = "DECISION: QUESTION :: Réécrire le test ?\n- A :: oui :: plus strict\n- B :: non\nRECOMMANDATION :: A :: tient l'issue\n"
+    technique = lots.question_du_chef(base + "NATURE :: technique", "Réécrire le test ?")
+    assert technique.nature == "technique" and technique.se_decide_seule()
+    assert technique.reponse_recommandee() == "oui"
+    assert lots.Question.de_marque(technique.marque()) == technique
+    # Sans nature, ou « jeu », c'est au propriétaire de trancher.
+    assert lots.question_du_chef(base, "Q ?").nature == "jeu"
+    assert not lots.question_du_chef(base + "NATURE :: jeu", "Q ?").se_decide_seule()
+    # Une marque d'avant la nature se relit « jeu ».
+    assert lots.Question.de_marque({"question": "Q ?", "recommandation": ["A", ""]}).nature == "jeu"
+    # Sans recommandation, rien ne se décide seul.
+    sans = lots.question_du_chef("- A :: oui\n- B :: non\nNATURE :: technique", "Q ?")
+    assert sans.nature == "technique" and not sans.se_decide_seule()

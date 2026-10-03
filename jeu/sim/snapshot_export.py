@@ -5,7 +5,8 @@ figée (géométrie, relief, climat, gisements) à la province dérivée et à
 l'état que le moteur fait évoluer.
 
 Une seule entrée géographique, `data/world-1400.json`, déjà
-chargée par le monde. Ce module ne lit plus aucun artefact de pipeline.
+chargée par le monde. Les vues historiques apportent puissances, maisons,
+villes et terre choisie. Ce module ne lit plus aucun artefact de pipeline.
 
 Honnêteté des couches : `dans_la_carte` dit que la donnée est là ;
 `utilisee_par_le_moteur` mesure si le moteur s'en sert.
@@ -31,6 +32,10 @@ from sim import constants as _constants
 from sim.constants import SNAPSHOT_FLOAT_DECIMALS, SNAPSHOT_SCHEMA_VERSION
 from sim.model import cellule_vers_dict, copier_panier
 from sim.lieux import lieux_de_cellule
+from sim.maisons import charger_maisons, maisons_depuis_monde
+from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
+from sim.seigneuries import SeigneurieInconnue, fiche_de_seigneurie
+from sim.villes import attribuer_villes, charger_villes
 from sim.world import CARTE_PATH, CARTE_RELATIVE, World
 
 _HASH_CHUNK_BYTES = 1024 * 1024
@@ -163,6 +168,32 @@ def _couches(carte_meta: dict) -> dict:
     }
 
 
+def densite_de_cellule(cell) -> float:
+    """Lit la population et la surface, sans modifier la cellule."""
+    return cell.population / cell.area_km2
+
+
+def _identite(entite) -> dict | None:
+    return None if entite is None else {"id": entite.id, "nom": entite.nom}
+
+
+def _fiche_document(fiche) -> dict:
+    """Sérialise la fiche dérivée, dans l'ordre de ses voisins."""
+    terre = fiche.seigneurie
+    return {
+        "id": terre.id, "nom": terre.nom, "religion": terre.religion,
+        "maison": terre.maison,
+        "siege": {"nom": terre.siege.nom, "lat": terre.siege.lat, "lon": terre.siege.lon},
+        "source": terre.source, "cell_id": fiche.cell_id, "habitants": fiche.habitants,
+        "production_kg_par_tick": fiche.production_kg_par_tick,
+        "suzerain": _identite(fiche.suzerain), "maison_du_suzerain": _identite(fiche.maison),
+        "cellules_du_suzerain": fiche.cellules_du_suzerain,
+        "habitants_du_suzerain": fiche.habitants_du_suzerain,
+        "voisins": [{"cell_id": voisin.cell_id, "puissance": _identite(voisin.puissance),
+                     "habitants": voisin.habitants} for voisin in fiche.voisins],
+    }
+
+
 def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
     if not world.carte:
         raise SnapshotExportError(
@@ -214,6 +245,7 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
                 "hunger_ticks": cell.hunger_ticks,
                 "mortality_remainder": cell.mortality_remainder,
                 "population": cell.population,
+                "densite_hab_par_km2": densite_de_cellule(cell),
                 "province": {"id": int(province_id), "name": province_name},
                 "relief": raw.get("relief"),
                 "stocks": cellule_vers_dict(cell)["stocks"],
@@ -229,6 +261,34 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
             }
         )
 
+    try:
+        table = charger_table()
+        maisons = charger_maisons()
+        puissances_vue = puissances_depuis_monde(world, table=table)
+        maisons_vue = maisons_depuis_monde(world, table=table, maisons=maisons)
+        puissances_par_id = {p.id: _identite(p) for p in table.puissances}
+        maisons_par_id = {m.id: _identite(m) for m in maisons.maisons}
+        carte = {**world.carte_meta, "cellules": [world.carte[c] for c in sorted(world.carte)]}
+        attribution = attribuer_villes(carte, charger_villes())
+        villes_par_cellule = {cid: [] for cid in world.carte}
+        for ville in sorted(attribution.entrees, key=lambda v: v.nom):
+            cid = attribution.placees.get(ville.nom)
+            if cid is not None:
+                villes_par_cellule[cid].append({"nom": ville.nom, "population": ville.population})
+        terre_choisie = None if world.maison_du_joueur is None else _fiche_document(
+            fiche_de_seigneurie(world.maison_du_joueur, world, table=table, maisons=maisons)
+        )
+    except (PuissanceInvalide, SeigneurieInconnue, ValueError) as exc:
+        raise SnapshotExportError(str(exc)) from exc
+
+    for cellule in cells_out:
+        cid = cellule["cell_id"]
+        cellule.update({
+            "puissance": puissances_par_id.get(puissances_vue[cid]),
+            "maison": maisons_par_id.get(maisons_vue[cid]),
+            "villes": villes_par_cellule[cid],
+        })
+
     document: dict[str, Any] = {
         "cell_count": len(cells_out),
         "cells": cells_out,
@@ -242,6 +302,8 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "seed": int(seed),
         "tick": int(tick),
+        "terre_choisie": terre_choisie,
+        "villes_hors_carte": sorted(attribution.hors_carte),
     }
     if hasattr(_constants, "jour_de_tick"):
         document["jour_de_tick"] = _constants.jour_de_tick(int(tick))

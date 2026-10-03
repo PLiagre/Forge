@@ -18,9 +18,14 @@ MAINTENANT = datetime(2026, 9, 28, 5, 15, tzinfo=timezone.utc)
 
 @pytest.fixture(autouse=True)
 def _sans_la_machine(monkeypatch, tmp_path):
-    """Aucun test ne lit le journal du pilote ni la veille de la machine qui le joue."""
+    """Aucun test ne lit le journal du pilote, la veille, ni le réseau."""
     monkeypatch.setattr(journal, "JOURNAL_LOCAL", tmp_path / "absent" / "journal.jsonl")
     monkeypatch.setattr(journal, "VEILLE", tmp_path / "absent" / "veille.txt")
+
+    def _pas_de_reseau(url):
+        raise OSError(f"pas de réseau dans les tests ({url})")
+
+    monkeypatch.setattr(journal, "_lire_image", _pas_de_reseau)
 
 
 def _preparer(gh):
@@ -302,11 +307,100 @@ def test_le_journal_annonce_les_lots_du_jalon_suivant_a_part(projet, gh, tmp_pat
     assert "#40 La table de 1400 : jalon suivant, il part quand le VPS n'a plus rien dans J1 — Le pont." in r.aujourd_hui
 
 
+def test_le_journal_annonce_les_lots_du_troisieme_jalon(projet, gh, tmp_path):
+    # La fenêtre a trois jalons, pour les deux machines.
+    local, veille = _journee(gh, tmp_path)
+    gh.jalons_.append({"number": 3, "title": "J3 — Le lieu et son maître", "state": "open",
+                       "open_issues": 2, "closed_issues": 0})
+    gh.ajouter_issue(60, "La caméra survole la ville", ("lot", "pret", "pc"), "J3 — Le lieu et son maître")
+    gh.ajouter_issue(61, "La cellule se peuple de lieux", ("lot", "pret"), "J3 — Le lieu et son maître")
+    r = journal.releve(gh, projet, MAINTENANT, journal_local=local, veille=veille)
+    loin = next(l for l in r.texte.splitlines() if l.startswith("EN AVANCE, DU TROISIÈME JALON"))
+    assert "J3 — Le lieu et son maître" in loin and "#60 « La caméra survole la ville » (pc)" in loin
+    assert "#61 « La cellule se peuple de lieux » (vps)" in loin
+    assert ("#60 La caméra survole la ville : il part quand le PC n'a plus rien dans J1 — Le pont "
+            "ni dans J2 — Le geste revient.") in r.aujourd_hui
+    assert ("#61 La cellule se peuple de lieux : il part quand le VPS n'a plus rien dans J1 — Le pont "
+            "ni dans J2 — Le geste revient.") in r.aujourd_hui
+
+
 def test_le_chroniqueur_doit_raconter_et_non_recopier(projet, gh, tmp_path):
     texte = prompts.chroniqueur(faits="LOTS LIVRÉS …")
     for debut in journal._ENTETES:
         assert debut in texte
     assert "pas le titre recopié" in texte and "compteurs de la chaîne" in texte
+    assert "pour CE lot" in texte and "jamais la photo du monde à la place" in texte
+
+
+def test_deux_urls_du_meme_fichier_ne_gardent_que_la_premiere():
+    a = "https://raw.githubusercontent.com/moi/essai/journal/captures/a.png"
+    b = "https://raw.githubusercontent.com/moi/essai/journal/captures/b.png"
+    livres = [{"capture": a}, {"capture": b}]
+    texte = journal._dedupliquer_images(
+        f"![x]({a})\n![y]({b})\n", livres, lire=lambda _u: b"png-identique")
+    assert a in texte and b not in texte
+    assert livres[0]["capture"] == a and livres[1]["capture"] is None
+
+
+def test_une_capture_identique_a_la_photo_du_monde_ne_se_repete_pas(projet, gh):
+    # Le 2 octobre 2026, six cartes de lots étaient le même fichier que
+    # monde-2026-10-02.png ; le chroniqueur les collait toutes.
+    _preparer(gh)
+    monde = "https://raw.githubusercontent.com/moi/essai/journal/captures/2026-09-28/monde-2026-09-28.png"
+    lot = "https://raw.githubusercontent.com/moi/essai/journal/captures/a.png"
+    corps = journal.ecrire(
+        gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429 Too Many Requests")),
+        photographe=lambda *a: [monde], lire_image=lambda u: b"png-identique")
+    assert f"![le monde]({monde})" in corps
+    assert lot not in corps
+    assert corps.count("![") == 1
+
+
+def test_deux_captures_differentes_restent(projet, gh):
+    _preparer(gh)
+    monde = "https://raw.githubusercontent.com/moi/essai/journal/captures/2026-09-28/monde-2026-09-28.png"
+    lot = "https://raw.githubusercontent.com/moi/essai/journal/captures/a.png"
+
+    def lire(url):
+        return b"monde" if "monde" in url else b"lot"
+
+    corps = journal.ecrire(
+        gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429 Too Many Requests")),
+        photographe=lambda *a: [monde], lire_image=lire)
+    assert f"![le monde]({monde})" in corps
+    assert f"![capture]({lot})" in corps
+
+
+def test_une_image_illisible_reste(projet, gh):
+    # On ne devine pas qu'une capture double une autre : si on n'a pas pu
+    # la lire, elle reste.
+    _preparer(gh)
+    monde = "https://raw.githubusercontent.com/moi/essai/journal/captures/2026-09-28/monde-2026-09-28.png"
+    lot = "https://raw.githubusercontent.com/moi/essai/journal/captures/a.png"
+
+    def lire(_url):
+        raise OSError("réseau")
+
+    corps = journal.ecrire(
+        gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429 Too Many Requests")),
+        photographe=lambda *a: [monde], lire_image=lire)
+    assert f"![le monde]({monde})" in corps
+    assert f"![capture]({lot})" in corps
+
+
+def test_le_chroniqueur_ne_colle_pas_deux_fois_la_meme_image(projet, gh):
+    _preparer(gh)
+    monde = "https://raw.githubusercontent.com/moi/essai/journal/captures/2026-09-28/monde-2026-09-28.png"
+    lot = "https://raw.githubusercontent.com/moi/essai/journal/captures/a.png"
+    double = JOURNAL_BIEN_ECRIT.replace(
+        "![capture](https://raw.githubusercontent.com/moi/essai/journal/captures/a.png)",
+        f"![le monde]({monde})\n![capture]({monde})")
+    corps = journal.ecrire(
+        gh, projet, maintenant=MAINTENANT, executeur=Agents((0, double)),
+        photographe=lambda *a: [monde], lire_image=lambda u: b"png-identique")
+    assert f"![le monde]({monde})" in corps
+    assert corps.count(monde) == 1
+    assert lot not in corps
 
 
 def test_chaque_journal_porte_la_photo_du_monde(projet, gh):

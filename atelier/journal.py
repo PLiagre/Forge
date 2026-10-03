@@ -6,9 +6,12 @@ relecteur, ses captures), ce que la chaîne a vécu (attentes et leur raison,
 découpes, reprises), ce qui est bloqué ou en cours, ce que le propriétaire
 doit faire, le jalon et son pourcentage. Le chroniqueur en fait un récit
 court (un bandeau, ce qui a changé, aujourd'hui) ; le pilote y ajoute
-lui-même l'avancement du jalon et les détails repliés. Si le chroniqueur se
-tait, sort du gabarit ou cite ce que les faits ne disent pas, le pilote écrit
-le journal seul. Un journal ne se tait jamais.
+lui-même l'avancement du jalon et les détails repliés. Une image déjà
+montrée — mêmes octets que la photo du monde, ou qu'une capture précédente —
+est omise : le 2 octobre 2026, six cartes de lots et trois photos du ksar
+étaient le même fichier. Si le chroniqueur se tait, sort du gabarit ou cite
+ce que les faits ne disent pas, le pilote écrit le journal seul. Un journal
+ne se tait jamais.
 
 Chaque journal est sa propre issue, épinglée ; celle de la veille se ferme.
 La boussole fait de même.
@@ -19,10 +22,12 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 from pathlib import Path
 import re
 import tempfile
+import urllib.request
 
 from . import agents as agents_mod
 from . import captures, lots, prompts
@@ -411,6 +416,17 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
                 f"#{l.numero} « {l.titre} » ({l.machine})" for l in en_avance))
         r.aujourd_hui += [f"#{l.numero} {l.titre} : jalon suivant, il part quand le {'PC' if l.machine == 'pc' else 'VPS'} "
                           f"n'a plus rien dans {courant.titre}." for l in en_avance]
+        # La fenêtre a trois jalons (Pilote._plus_loin).
+        loin = lots.troisieme_jalon(jalons, courant)
+        plus_loin = [l for l in sorted(ouvertes, key=lambda l: (l.etat != "pret", l.numero))
+                     if loin is not None and l.jalon == loin.numero
+                     and l.etat in ("pret", "idee") and "lot" in l.etiquettes
+                     and lots.ETIQUETTE_RESERVE not in l.etiquettes and not l.dependances & bloq][:3]
+        if plus_loin:
+            lignes.append(f"EN AVANCE, DU TROISIÈME JALON ({loin.titre}) : " + ", ".join(
+                f"#{l.numero} « {l.titre} » ({l.machine})" for l in plus_loin))
+        r.aujourd_hui += [f"#{l.numero} {l.titre} : il part quand le {'PC' if l.machine == 'pc' else 'VPS'} "
+                          f"n'a plus rien dans {courant.titre} ni dans {apres.titre}." for l in plus_loin]
         r.aujourd_hui += [f"#{l.numero} {l.titre} : attend {', '.join(f'#{n}' for n in attendus[l.numero])}."
                           for l in attendent]
         r.jalon = f"{courant.titre} — {courant.pourcentage} %"
@@ -511,6 +527,47 @@ def _annexe(r: Releve) -> str:
     return "\n".join(lignes)
 
 
+def _lire_image(url: str) -> bytes:
+    """Le contenu d'une capture déjà publiée. Seules les adresses de la
+    branche `journal` passent : on ne suit pas un lien inventé."""
+    if not url.startswith("https://raw.githubusercontent.com/"):
+        raise ValueError(url)
+    with urllib.request.urlopen(url, timeout=30) as r:
+        return r.read()
+
+
+def _dedupliquer_images(texte: str, livres: list[dict], *, lire, cache: dict | None = None) -> str:
+    """Retire du texte (et des lots) une image déjà montrée : mêmes octets
+    que la photo du monde, ou qu'une capture précédente. Une image qu'on
+    n'a pas pu lire reste : on ne devine pas qu'elle double une autre."""
+    cache = cache if cache is not None else {}
+    vus: set[str] = set()
+
+    def garder(url: str) -> bool:
+        if url not in cache:
+            try:
+                cache[url] = hashlib.sha256(lire(url)).hexdigest()
+            except Exception:  # noqa: BLE001 — illisible ≠ identique
+                cache[url] = None
+        empreinte = cache[url]
+        if empreinte is None:
+            return True
+        if empreinte in vus:
+            return False
+        vus.add(empreinte)
+        return True
+
+    def remplacer(m) -> str:
+        return m.group(0) if garder(m.group(1)) else ""
+
+    texte = _IMAGE.sub(remplacer, texte)
+    restantes = set(_IMAGE.findall(texte))
+    for lot in livres:
+        if lot.get("capture") and lot["capture"] not in restantes:
+            lot["capture"] = None
+    return texte
+
+
 def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime) -> list[str]:
     """La carte du monde tel que master le simule ce matin : chaque journal
     porte au moins une image, même un jour sans lot livré."""
@@ -529,7 +586,8 @@ def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime) -> list[str
 
 
 def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, publier: bool = True,
-           executeur=agents_mod.executer, dossier: Path | None = None, photographe=photo_du_monde) -> str:
+           executeur=agents_mod.executer, dossier: Path | None = None, photographe=photo_du_monde,
+           lire_image=None) -> str:
     maintenant = maintenant or datetime.now(timezone.utc)
     r = releve(gh, projet, maintenant)
     monde = photographe(gh, projet, maintenant) if publier else []
@@ -537,6 +595,9 @@ def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, pu
     if monde:
         photos = "".join(f"![le monde]({url})\n" for url in monde)
         texte = f"LE MONDE CE MATIN (master, 30 jours simulés) :\n{photos}\n{texte}"
+    lire = lire_image or _lire_image
+    cache: dict[str, str | None] = {}
+    texte = _dedupliquer_images(texte, r.livres, lire=lire, cache=cache)
     res = agents_mod.invoquer(projet.poste("chroniqueur"), prompts.chroniqueur(faits=texte),
                               dossier or projet.racine, projet.delai("chroniqueur"), executeur=executeur)
     if not (res.reussi and res.texte.strip()):
@@ -548,6 +609,8 @@ def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, pu
         redaction, signature = _redaction_du_pilote(r, monde), f"{pourquoi}. Écrit par le pilote, à partir des faits."
     else:
         redaction, signature = res.texte.strip(), f"Écrit par {res.agent}."
+    # Une même image collée deux fois (faits ou texte du chroniqueur) n'apparaît qu'une.
+    redaction = _dedupliquer_images(redaction, [], lire=lire, cache=cache)
     corps = f"{redaction}\n\n{_annexe(r)}\n\n<sub>{signature}</sub>"
     if publier:
         _publier(gh, f"Journal du {maintenant:%d/%m/%Y}", corps, "Journal")

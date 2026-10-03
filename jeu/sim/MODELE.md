@@ -22,52 +22,61 @@ part. À chaque tick, dans cet ordre :
 1. **Validation du numéro de tick** (`_valider_numero_tick`) — lorsqu'un
    `numero_tick` est fourni, il doit être égal à `world.ticks_ecoules` ; le
    tick refuse tout écart avant la première mutation.
-2. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
+2. **Intentions** (`_appliquer_intentions`) — les intentions en attente
+   s'appliquent dans l'ordre du dépôt : un choix de départ devient la maison
+   du joueur, une route entre au plan en chantier ; sans cellule ni aléa.
+3. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sur place et sans occuper de bras.
-3. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
+4. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
-4. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
+5. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
-   `facteur_eau` de sa pluie annuelle et par le facteur de saison du jour,
-   tiré de la durée du jour de la cellule : on ne récolte pas en janvier
-   comme en juin, ni sans eau comme sous une pluie suffisante.
-5. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
+   `facteur_eau` de l'eau de la cellule — sa pluie plus la crue du fleuve — et
+   par le facteur de saison du jour, tiré de la durée du jour de la cellule :
+   on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
+   pluie suffisante.
+6. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture.
-6. **Consommation** (`_apply_consumption`) — chaque habitant mange sa ration.
-   Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Un
-   surplus rembourse la dette, jamais plus vite que le surplus lui-même.
-7. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+7. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+   atteint, par sa part locale du panier et les chemins venus des champs.
+   Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
+   bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
+   Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
+8. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-8. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
+9. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
    fraction d'habitant non encore morte pour qu'une petite cellule ne devienne
    pas immortelle par arrondi.
-9. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
+10. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
    des habitants, avec le même report de fraction.
-10. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
+11. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
     qui a manqué ce tick part vers les voisines dont il reste de la nourriture
     après consommation. Personne n'emporte de kilogrammes.
-11. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
+12. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
     et paniers sont remis d'accord avec les totaux de la cellule.
-12. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+13. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
 La **province** ne se stocke pas : elle se recalcule à chaque consultation
-comme « le centre administratif le plus proche ». La **pluie** n'est pas
-stockée sur `Cell` : sa vue se recalcule depuis le relevé le plus proche et
-entre dans la carte au moment où le monde la lit. La **puissance** dont relève
-une cellule est pareillement une vue dérivée, jamais un second identifiant
+comme « le centre administratif le plus proche ». La **pluie** et la **crue**
+ne sont pas stockées sur `Cell` : leurs vues se dérivent respectivement du
+relevé le plus proche et du cours du fleuve, puis entrent dans la carte au
+moment où le monde la lit. La **puissance** et la **maison** dont relève une
+cellule sont pareillement des vues dérivées, jamais un second identifiant
 spatial stocké. Le nombre et les surfaces des **lieux** se dérivent de la
 surface de la cellule ; ses lieux portent désormais leur population et leur
-panier sur `Cell`. Le tick lit la pluie dans la carte, jamais dans sa vue ;
-il ne consomme ni la vue des provinces, ni celle des puissances. Il calcule
-à l'échelle de la cellule, puis remet les lieux d'accord à la fin.
+panier sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans
+leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
+ni celle des maisons. Il lit les surfaces des lieux à la consommation pour
+limiter la distribution intérieure, puis remet leurs états d'accord avec
+les totaux de la cellule à la fin.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -101,17 +110,21 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 - **organiser la fabrication.** Les matières premières sont transformées sur
   place, sans atelier, sans métier et sans bras affectés ; les objets produits
   ne sont pas consommés.
-- **répartir le travail.** Tout le monde fait tout : la mine tourne *en plus*
-  de l'agriculture, sans occuper de bras. Le lot 044, écrit et non exécuté,
-  est le premier à défaire cela.
+- **répartir le travail.** Les habitants ont un métier, mineur ou paysan.
+  Naissances, morts et départs suivent les métiers, mais aucun nombre du
+  tick ne les lit. La part minière retire déjà des bras aux champs ; les
+  changements de métier ne sont pas encore simulés.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Aucune route, aucun pont, aucun port, aucun ouvrage : rien dans
   le monde ne se construit, et aucune capacité de transport ne s'améliore.
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
 - **descendre sous la cellule pour les calculs.** Les lieux portent habitants
-  et paniers, mais le tick calcule toujours à l'échelle de la cellule : pas de
-  mouvement propre aux lieux, de familles, de personnes, de bâtiments ni de quartiers.
+  et paniers, mais le tick calcule toujours à l'échelle de la cellule : les
+  surfaces et chemins limitent ce que le bourg atteint à la consommation,
+  sans lire ses stocks persistés. Pas de mouvement propre aux lieux, de
+  familles, de personnes ni de quartiers. Le plan peut porter des bâtiments,
+  mais ils ne font rien.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
@@ -281,15 +294,10 @@ Trois raisons, dans l'ordre où elles pèsent :
 
 De la **part non agricole** que le moteur calcule déjà, et de rien d'autre.
 
-Aujourd'hui cette part vaut zéro partout : tout le monde cultive, et la mine
-tourne en plus. Le premier mécanisme qui la rend non nulle est le lot 044
-(`un-metier-le-mineur`), écrit et non exécuté, qui fait qu'une part des
-habitants d'une cellule à gisement **cesse de cultiver** pour extraire.
-
-Conséquence directe et voulue : **tant que 044 n'est pas fusionné, le bourg
-n'existe nulle part**, l'échantillon est vide, et un échantillon vide
-**échoue** — il ne passe pas en silence (règle 6). Un lot de bourg se déclare
-donc **bloqué** tant que 044 n'est pas là, jamais « à adapter ».
+Cette part est `part_miniere_de(gisements, facteurs_richesse_extraction())` :
+les habitants occupés par la mine **cessent de cultiver** pour extraire.
+Ce sont les mêmes bras que le facteur agricole retire des champs. Leur
+ravitaillement suit « La distribution à l'intérieur de la cellule ».
 
 Le nom « bourg » est délibérément plus large que le mécanisme qui le porte : le
 jour où un second métier existera, la vue le comptera sans être réécrite. Cela
@@ -315,20 +323,20 @@ La part du bourg est de **niveau 2** : plausible, générée, jamais sourcée. U
 répartition locale surprenante n'est pas un défaut historique et n'ouvre ni
 correctif, ni brief.
 
-**Ce que B coûte, dit franchement : la distribution à l'intérieur d'une cellule
-est gratuite.** La campagne nourrit son bourg sans transport, sans perte et
-sans délai. C'est une entorse au troisième principe — l'économie est physique —
-mais elle n'est pas ajoutée par cette décision : elle existe déjà, parce
-qu'une cellule n'a qu'un seul panier de stocks pour toute sa surface. B **nomme**
-cette gratuité au lieu de l'introduire. Le jour où la cellule se subdivisera,
-c'est ici qu'il faudra revenir.
+**Ce que B coûte, dit franchement : un seul panier reste partagé dans la
+cellule.** La gratuité prend fin pour le bourg : sa part locale et la capacité
+des chemins limitent ce qu'il peut manger, selon « La distribution à
+l'intérieur de la cellule ». Les pertes et le délai ne sont pas simulés ; la
+distribution entre les lieux des champs reste gratuite.
 
 ### Ce que le moteur ne fait toujours pas
 
-Le bourg ne donne ni quartiers, ni bâtiments, ni familles, ni personnes, ni
-salaires, ni marchés, ni prix, ni routes, ni États. Il ne change aucun nombre du
-monde : c'est une vue, et **une vue ne décide rien** — le tick ne la consulte
-pas, exactement comme il ne consulte pas la province.
+Des foyers par métier existent, mais le bourg ne les compte pas encore.
+Le bourg ne donne ni quartiers, ni personnes, ni salaires, ni marchés,
+ni prix, ni États. Son plan peut porter des rues et des bâtiments,
+mais ils ne font rien. La vue du bourg ne décide
+rien et le tick ne la consulte pas : il calcule la part minière et lit les
+lieux pour appliquer « La distribution à l'intérieur de la cellule ».
 
 ## Déclaration explicite
 
@@ -421,6 +429,50 @@ initialise un générateur pseudo-aléatoire isolé (jamais de source globale).
 
 ---
 
+## Les foyers par métier
+
+À l'amorçage A, une fois la population fixée, villes comprises, les mineurs
+valent `int(population × part_miniere_de(gisements, facteurs_richesse_extraction()))`.
+Les gisements viennent de la carte de la cellule ; les paysans sont le reste.
+`Cell.habitants_par_metier` conserve seulement les métiers dont le compte
+est strictement positif ; une cellule vide porte `{}`. Leur somme est
+exactement la population. `cell_id` reste la seule clé spatiale.
+
+`TAILLE_FOYER = 5` est une règle de **niveau 2**, plausible, jamais sourcée.
+`sim/foyers.py` relit cette taille à chaque rangement et rend un `Foyers`
+figé : taille, foyers complets, personnes du dernier foyer incomplet.
+Cent personnes donnent vingt foyers complets ; cent trois ajoutent un
+dernier foyer de trois personnes. La désagrégation rend le nombre exact.
+
+Une écriture directe de la population, hors du tick, passe par `repartir` :
+chaque métier reçoit `N × compte // somme`, puis le reste va au métier le
+plus nombreux (nom le plus petit en cas d'égalité). Une population inchangée
+garde ses comptes ; sans métier, les nouveaux habitants sont paysans. Les
+comptes nuls disparaissent.
+
+Une cellule construite sans métiers les déclare non calculés : la lecture
+et la clé sérialisée `foyers` rendent `-1`, même après écriture de la population.
+Sinon, la sérialisation porte par métier les personnes, les foyers complets
+et le dernier foyer. Une somme initiale incohérente, un nom vide, un compte
+nul, négatif, booléen ou non entier sont refusés par `FoyersInvalides`.
+Sont aussi refusés une population écrite négative ou non entière sur une
+cellule amorcée, un rangement négatif ou non entier, une taille non entière
+ou inférieure à un et un foyer négatif ou dont le dernier atteint la taille.
+
+Naissances, morts, départs et arrivées du tick se répartissent au prorata
+des métiers, plus forts restes d'abord. Chaque métier reçoit d'abord
+`n × compte // somme`, en calcul entier. Les personnes qui restent vont
+une à une aux métiers dont le reste `n × compte % somme` est le plus fort.
+À reste égal, le nom de métier le plus petit passe d'abord. Un mort parmi
+50 mineurs et 950 paysans est un paysan ; deux morts parmi 5 et 5 font un
+mineur et un paysan ; un seul mort parmi les mêmes est un mineur. Le
+migrant ne garde pas son métier. Une cellule sans métier accueille des
+paysans.
+
+**Le tick ne lit pas les métiers** pour calculer un nombre : il les écrit.
+Extraction et vue du bourg gardent leur calcul de part minière. Âge, sexe,
+parenté et logement restent de niveau 3, non simulés.
+
 ## Le panier de marchandises
 
 Le stock d'une cellule n'est pas un nombre : c'est un **panier**,
@@ -502,16 +554,17 @@ duree_jour   = duree_jour_h(jour, solstice_ete_h, solstice_hiver_h)  # de la cel
 
 food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
-                × facteur_eau(pluie_mm_par_an de la cellule)
+                × facteur_eau(pluie_mm_par_an + crue_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
 ```
 
 Les trois derniers facteurs sont lus dans la carte, cellule par cellule. Une
 cellule dont la carte ne porte pas ces données ne se voit pas attribuer une
 valeur par défaut — le moteur refuse, par `ReliefInvalideError`,
-`PluieInvalideError` ou `ClimatInvalideError` (règle 10 : l'absence ne
-s'invente pas en silence). Pour la pluie, il refuse aussi `None`, les booléens,
-les valeurs non numériques, non finies ou négatives ; zéro reste une mesure.
+`PluieInvalideError`, `CrueInvalideError` ou `ClimatInvalideError` (règle 10 :
+l'absence ne s'invente pas en silence). Pour la pluie et la crue, il refuse
+aussi `None`, les booléens, les valeurs non numériques, non finies ou
+négatives ; zéro reste une mesure.
 
 **Il n'y a qu'une seule formule de production alimentaire dans `sim/`.** Le
 tick lui passe un rendement tiré au sort ; le plafond de survie lui passe le
@@ -544,12 +597,18 @@ champ sans eau ne donne rien ; sous le seuil bas, la terre ne nourrit que le
 parcours des troupeaux. Entre les seuils, le facteur monte en ligne droite ;
 au seuil haut et au-delà, il vaut exactement 1 et ne punit pas l'excès d'eau.
 Son plancher est strictement positif parce qu'un désert de 1400 n'est pas
-inhabité.
+inhabité. La crue annuelle du Nil vaut 600 mm équivalents : elle dépasse le
+seuil haut afin qu'une cellule traversée ait un facteur d'eau exactement égal
+à 1, quelle que soit sa pluie. Cette valeur est de niveau 2, plausible et
+jamais sourcée. La crue est tout ou rien à l'échelle de la cellule : toute une
+cellule traversée est arrosée, même au-delà de la vallée réelle ; cette
+anomalie de niveau 2 est déclarée.
 
 | Constante | Valeur | Sens |
 |---|---|---|
 | `PLUIE_SANS_CULTURE_MM` | 250.0 | À égalité ou dessous, pas de culture pluviale |
 | `PLUIE_PLEINE_CULTURE_MM` | 400.0 | À égalité ou dessus, l'eau ne limite plus |
+| `CRUE_EQUIVALENT_PLUIE_MM` | 600.0 | Eau laissée aux champs par la submersion annuelle du Nil |
 | `FACTEUR_EAU_PLANCHER` | 0.05 | Nourriture tirée du parcours des troupeaux |
 
 **Le facteur de saison** — fidélité niveau 2 également. Il compare la durée du
@@ -699,6 +758,9 @@ si food_deficit_kg > 0 et population > 0 :
     population = max(0, population − morts)
 ```
 
+Les personnes réellement retirées quittent les métiers au prorata. Un métier
+tombé à zéro disparaît.
+
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
 | `HUNGER_DEATH_SCALE` | 0.005 | 1/(kg/personne) | 1 kg de dette par tête → 0,5 % de mortalité par tick. Une famine médiévale sévère est documentée à 10–30 % de mortalité annuelle sur les populations les plus touchées, soit 0,03–0,08 %/jour ; ce facteur permet à une dette de 5–10 kg/tête d'atteindre 2–5 % par jour. |
@@ -729,6 +791,8 @@ si penurie_du_tick == 0 et food_deficit_kg == 0 et population > 0 :
     natalite_remainder = brut − naissances
     population += naissances
 ```
+
+Les naissances rejoignent les métiers de la cellule au prorata.
 
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
@@ -797,6 +861,10 @@ Deux règles, qui font que la migration est un déplacement et non une diffusion
 
 Le report de fraction (`migration_remainder`, sentinelle `-1.0`) empêche une
 petite cellule affamée d'être immobile par arrondi.
+
+Le solde de la cellule, entrées moins sorties, quitte ou rejoint ses métiers
+au prorata. Les arrivants prennent les métiers de la cellule d'arrivée ;
+dans une cellule sans métier, ils sont paysans.
 
 ---
 
@@ -1171,13 +1239,11 @@ toute valeur inexploitable. Une cellule sans position connue est nommée dans
 le refus au lieu d'être écartée ou complétée par défaut. Zéro millimètre reste
 une mesure ; une cellule absente de la vue rend `None`, jamais un faux zéro.
 
-Enfin, **la pluie n'est pas l'eau**. Le delta et la vallée du **Nil** reçoivent
-presque la même pluie que le désert occidental tout en étant fertiles grâce à
-la crue du fleuve. Crue, fleuves, irrigation et oasis ne sont pas encore
-simulés : depuis l'entrée du facteur d'eau dans la production, cette erreur de
-niveau 1 connue les **vide** aussi. Seul le futur mécanisme du fleuve pourra la
-réparer ; aucun plancher relevé ni exception égyptienne ne la masque. Le
-moteur lit la pluie de la carte, mais pour la vue elle-même, le tick ne la lit pas.
+Enfin, **la pluie n'est pas l'eau** : l'eau disponible est la pluie plus la
+crue. Le delta du **Nil** reçoit presque la même pluie que le désert occidental,
+mais le cours du fleuve lui apporte sa crue (voir « Le cours du Nil, vue
+dérivée »). Le moteur lit la pluie de la carte, mais pour la vue elle-même, le
+tick ne la lit pas.
 
 ---
 
@@ -1202,18 +1268,25 @@ La vallée au sud du Caire est explicitement **hors de la carte**. Lui donner
 un point ferait choisir le centroïde de Suez et affirmerait à tort que le Nil
 traverse l'isthme. Le fichier déclare donc cette lacune au lieu de la masquer.
 
-Enfin, **le tick ne la lit pas**. Cette géographie ne donne encore aucune eau
-aux champs : le delta reste vidé par l'aridité tant qu'un lot suivant n'aura
-pas représenté la cause physique, la crue du fleuve.
+Enfin, **le tick ne la lit pas**. À la lecture de la carte,
+`World.lire_carte` dérive de cette vue `crue_mm_par_an` pour chaque cellule :
+la valeur équivalente de la crue si le Nil la traverse, zéro sinon. Le moteur
+lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
 
 ---
 
 ## Les puissances de 1400, vue dérivée
 
-La provenance est `data/puissances-1400.json`. Les puissances, leurs ancres et
-leurs sources publiques sont de **niveau 1** : elles doivent être justes dans
-les grandes lignes. Le tracé qui en découle est de **niveau 2**, plausible et
-jamais sourcé : il ne restitue ni frontière réelle, ni enclave, ni suzeraineté.
+La provenance est `data/puissances-1400.json`. La table couvre l'Ouest,
+l'Italie, le Nord, le Centre et l'Orient : Byzance, les Ottomans, les Mamelouks,
+le Maghreb et la Russie de Novgorod. Ses 39 puissances et 73 ancres, vérifiées
+contre des sources publiques, sont de **niveau 1** : elles doivent être justes
+dans les grandes lignes au 1er janvier 1400. La nature `principauté` désigne
+une puissance tenue par un duc, un comte ou un prince, comme Milan et la
+Savoie ; `empire` désigne Byzance, `sultanat` les Ottomans, les Mamelouks et
+les trois puissances du Maghreb, `khanat` la Horde d'Or. Le tracé qui en découle
+est de **niveau 2**, plausible et jamais sourcé : il ne restitue ni frontière
+réelle, ni enclave, ni suzeraineté.
 
 À chaque consultation, une cellule relève de la puissance qui tient l'ancre
 la plus proche de son centroïde selon la projection déclarée par le fichier.
@@ -1221,17 +1294,256 @@ La règle unique de `sim/aggregation.py` départage une égalité exacte par le
 plus petit identifiant d'ancre, indépendamment de l'ordre de la table.
 
 Cette attribution s'arrête à la portée mesurée de **4,0 degrés projetés**,
-environ 440 km. Au-delà, la cellule est explicitement **non couverte** : elle
-n'est rattachée à aucune puissance par défaut. Cette limite plausible laisse
-notamment Le Caire et Constantinople hors de la table occidentale actuelle ;
-de futures puissances devront les couvrir par leurs ancres, pas par une portée
-artificiellement élargie.
+environ 440 km. Sur les 596 cellules de la carte figée, 565 sont couvertes et
+31 sont non couvertes. Au-delà de la portée, la cellule est explicitement
+**non couverte** : elle n'est rattachée à aucune puissance par défaut. Cette
+vue donne la cellule de Constantinople à Byzance. Le Caire se situe au sud
+de la carte, qui s'arrête à 30,45 N : sa cellule la plus proche relève des
+Mamelouks grâce aux ancres d'Alexandrie et de Damiette, sans ancre au Caire.
+
+Les huit `lacunes` déclarent des points nommés et une `raison` : Shetland,
+Féroé, Finlande, Hiiumaa, Dalécarlie, Tripolitaine, Cyrénaïque et Oued Righ.
+Une cellule non couverte est expliquée par la lacune la plus proche de son
+centroïde, dans la même projection et la même portée ; une égalité exacte
+se départage par le plus petit identifiant de lacune. Au-delà, sa raison est
+`None` et la preuve échoue. Chaque cellule non couverte a une raison, chaque
+lacune sert. Une lacune n'attribue aucune cellule à une puissance ; son point
+est de **niveau 2**, plausible, jamais sourcé.
+
+Les anomalies mesurées de **niveau 2** sont acceptées : Rhodes donne aux
+Hospitaliers les Cyclades orientales, l'est de la Crète et un bout de côte
+carienne ; Mistra donne à Byzance l'Attique, les îles Ioniennes et l'ouest
+de la Crète. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
+sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés,
+les tributs, le siège de Constantinople et l'Église de Bosnie restent de
+**niveau 3**, pas simulés.
 
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
 lit pas**.
 
 ---
+
+## Les maisons de 1400, vue dérivée
+
+La même table `data/puissances-1400.json` déclare 30 maisons, chacune avec
+un `id`, un `nom` et une `source` publique qui atteste sa tenure au
+1er janvier 1400 : Lancastre, Stuart, Valois, Aviz, Trastamare, Barcelone,
+Évreux, Nasrides, Luxembourg, Visconti, Anjou-Durazzo, Savoie, Poméranie,
+Jagellon, Paléologue, Osman, Lazarević, Kotromanić, Basarab, Mușat,
+Djötchides, Barquq, Hafsides, Zayyanides, Mérinides, Lusignan,
+Valois-Bourgogne, Montfort, Wittelsbach et Habsbourg.
+
+Chacune des 29 puissances de nature `royaume`, `principauté`, `empire`,
+`sultanat` ou `khanat` désigne une maison connue. Les dix autres se
+**déclarent sans maison**, par leur nature `république`, `Église` ou `ordre` :
+Archevêché de Trèves, Confédération des cantons suisses, Venise, Florence,
+Gênes, Papauté, Ordre teutonique, Novgorod, Pskov et Hospitaliers. Leur ligne
+ne porte pas de champ `maison` ; une absence de ce champ sur une autre
+nature est refusée. Une maison qui ne tient ni puissance ni ancre est refusée.
+
+Six ancres déclarent une maison de grand vassal différente de celle de leur
+puissance : Dijon et Bruges sont tenues par **Valois-Bourgogne**, Nantes par
+**Montfort**, Munich et Heidelberg par **Wittelsbach**, Vienne par
+**Habsbourg**. Une ancre sans déclaration hérite de la maison de sa puissance,
+ou de son absence déclarée de maison. Déclarer une maison inconnue ou déjà
+celle de la puissance est refusé. L'ancre du vassal reste une ancre de sa
+puissance : la preuve vérifie que la cellule la plus proche de son point
+relève de cette puissance et de cette maison.
+
+La maison tenante d'une cellule est celle de **la même ancre la plus proche**
+qui donne sa puissance, selon `sim/aggregation.py`, la projection et la portée
+existantes. À distance exactement égale, le plus petit `id` d'ancre gagne.
+Une cellule non couverte rend `None`, comme une cellule de république,
+d'Église ou d'ordre. Toute autre cellule couverte porte la maison de sa
+puissance ou d'un vassal ancré dans celle-ci, jamais une maison étrangère.
+Sur les 596 cellules figées, **476** sont tenues par une maison, **89** sont
+sans maison par déclaration de nature, et **31** sont non couvertes.
+Chacune des 30 maisons tient au moins une cellule.
+
+Les attributions aux puissances et aux six villes de vassal sont de
+**niveau 1**, vérifiées contre des sources publiques. Leur étendue suit les
+ancres : elle est de **niveau 2**, plausible et jamais sourcée. Montfort tient
+18 cellules et Valois 13 ; Habsbourg en tient 2. Innsbruck tombe chez
+Wittelsbach, Linz en Bohême, Besançon et Lille chez Valois-Bourgogne : ces
+anomalies sont acceptées. Luxembourg tient le Saint-Empire, mais aucune de
+ses cellules, dont les trois ancres sont tenues par des vassaux ; ses cellules
+sont celles de la Bohême et de la Hongrie.
+
+Restent de **niveau 3**, pas simulés : le lien de suzeraineté et l'hommage,
+les personnes et la succession des dynasties, Vytautas en Lituanie, Naples
+disputée, Édigu derrière le khan, Marguerite derrière Éric, les vassaux sans
+ancre (Orléans, Anjou, Berry, Foix, Armagnac, Wettin, Hohenzollern, la Hollande
+des Wittelsbach) et les terres d'Empire de Bourgogne.
+
+La vue `sim/maisons.py` est pure, recalculée et vit hors de `sim.model`.
+Elle passe par `positions_du_monde`, refuse une position absente en nommant
+la cellule et ne pose rien sur `Cell`. **Le tick ne la lit pas** ; la règle
+des puissances, leurs ancres et leurs cellules restent identiques.
+
+---
+
+## Les seigneuries de départ, vue dérivée
+
+La table `data/seigneuries-1400.json`, datée du **1er janvier 1400**, déclare
+cinq petites seigneuries : le **Duché de Bar** (maison Bar, Robert Ier,
+Barrois mouvant relevant de la France), le **Comté de Wurtemberg** (maison
+Wurtemberg, Eberhard III, Saint-Empire), le **Despotat de Morée** (maison
+Paléologue, Théodore Ier, Byzance), la **Terre des Branković** (maison
+Branković, Đurađ, Ottomans) et l'**Uç d'Evrenos** (maison Evrenosoğulları,
+Gazi Evrenos Bey, Ottomans). Bar et Wurtemberg sont catholiques ; Morée
+et Branković sont orthodoxes ; Evrenos est musulman. Bar désigne ici la
+branche de Scarpone. Le projet hospitalier concernant Mistra est postérieur
+au départ : la cession de Corinthe est datée de 1400 par la source publique.
+
+Chaque ligne donne un `id`, un `nom`, une `religion` de `RELIGIONS`, le nom
+de sa `maison`, l'identifiant de sa puissance `suzerain`, une `source`
+publique et son `siege` : nom, latitude et longitude en EPSG:4326, coordonnées
+`x_m`, `y_m` en EPSG:3035. Les sièges sont Bar-le-Duc, Stuttgart, Mistra,
+Vučitrn et Giannitsa (Yenice-i Vardar). La cellule du siège est dérivée par
+`point_dans_geometrie` de `sim/villes.py`, en parcourant les polygones de la
+carte dans l'ordre des `cell_id` ; sur une frontière, le plus petit gagne.
+Le centroïde le plus proche ne sert jamais à cette attribution. Un siège
+hors carte est refusé en nommant la seigneurie et le champ `siege`.
+La table refuse les listes absentes ou vides, les identifiants booléens ou
+dupliqués, les noms dupliqués, les textes absents ou vides, les religions
+et suzerains inconnus, les coordonnées non finies et une date ou projection
+incompatible. Un identifiant de seigneurie absent, booléen ou non entier
+lève `SeigneurieInconnue`, sous-classe de `LookupError`, avant tout calcul.
+
+`fiche_de_seigneurie` de `sim/seigneuries.py` recalcule une fiche gelée :
+
+- `cell_id` du siège et `habitants = monde.cells[cell_id].population` ;
+- `production_kg_par_tick = population_soutenable_de(cellule, monde.carte)
+  × constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK`, nourriture par tick
+  au rendement moyen et sur la saison moyenne, issue de l'unique formule
+  du moteur ;
+- `suzerain`, la `Puissance`, et `maison`, sa `Maison` selon `par_puissance`,
+  ou `None` pour une république, une Église ou un ordre ;
+- `cellules_du_suzerain`, le nombre de cellules que `puissances_depuis_monde`
+  attribue au suzerain, et `habitants_du_suzerain`, la somme de leurs populations ;
+- `voisins`, cellules reliées au siège par une arête `land-land` de
+  `monde.adjacency`, sans doublon et triées par `cell_id`, chacune avec sa
+  puissance (ou `None`) et ses habitants actuels.
+
+**Niveau 1** : seigneur, maison, suzerain et point du siège, vérifiés contre
+des sources publiques. **Niveau 2**, plausible et jamais sourcé : seigneurie
+réduite à la cellule entière de son siège, habitants amorcés et production
+de cette cellule, étendue du suzerain suivant ses ancres. Les anomalies
+de cette réduction ne sont pas des défauts. **Niveau 3**, pas simulé :
+prélèvement et hommage (jalon 3), personnes, autres seigneuries.
+
+La fiche est une **vue pure**, recalculée, hors de `sim.model` : elle ne pose
+rien sur `Cell` et ne stocke aucune seconde clé spatiale. La table des
+puissances, ses maisons, l'amorçage, la carte et le tick restent identiques.
+**Le tick ne la lit pas.**
+
+---
+
+## Les intentions du joueur
+
+`recevoir_intention` de `sim/intentions.py` est l'entrée commune de
+`POST /intention` et `python3 -m sim --gestes`, que prendra aussi l'IA.
+La liste est fermée : `choisir_depart` appelle `deposer_intention`,
+`tracer_route` dépose une route ; tout autre type, même absent, lève
+`IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
+
+Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
+`POST /intention`. `python3 -m forge --depart ID` continue d'appeler
+directement `deposer_intention`, dont le comportement ne change pas.
+La table se lit par `charger_seigneuries()` ; `cellule_du_siege` vérifie
+que le siège est dans la carte. Aucune cellule ni aucun plan ne change.
+
+Le dépôt refuse avant toute mise en attente, par `IntentionRefusee` :
+
+- une valeur absente, booléenne, non entière ou inconnue :
+  « seigneurie inconnue : <valeur reçue> » ; un siège hors carte est aussi refusé ;
+- un choix déjà retenu ou en attente : « départ déjà choisi : <id> ».
+
+Le choix accepté est un `ChoixDepart(identifiant)` gelé, placé dans
+`World.intentions_en_attente`. Il reste invisible dans `to_dict()` et les
+vues. Au tick suivant, `_appliquer_intentions` vient après la validation du
+numéro et avant la fabrication : elle appelle chaque intention par
+`.appliquer(monde)` dans l'ordre du dépôt, puis vide la liste.
+`ChoixDepart.appliquer` pose `maison_du_joueur`.
+Un numéro invalide laisse donc les intentions en attente.
+Cette étape ignore les mondes d'épreuve, ne tire aucun aléa et ne lit ni
+n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
+
+`maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
+et `/monde` portent cette clé et l'id choisi ; sans choix, la clé est absente
+et les octets comme l'empreinte restent ceux d'avant. Même graine et même
+choix donnent le même monde ; un autre choix change son empreinte, sans
+changer les cellules, les plans ou l'état du générateur aléatoire.
+
+Une route se dépose avec exactement `{"type": "tracer_route", "cell": X,
+"points": [[x, y], …], "largeur_m": L}`. Un champ absent ou supplémentaire
+est refusé. `cell` est un entier présent dans `World.plans`, sans booléen ;
+toute cellule de la carte convient. La construction d'une `Rue` vérifie
+points et largeur selon le contrat du plan ; un `PlanInvalide` devient
+`IntentionRefusee("route invalide : <raison>")`. Le dépôt accepté est un
+`TraceRoute(cell_id, points, largeur_m)` gelé, aux points copiés en tuples.
+L'attente ne change ni les cellules, ni les plans, ni `to_dict()`.
+
+`TraceRoute.appliquer` reconstruit le plan avec une rue en chantier. Son
+identifiant est le maximum des identifiants de rue, ou −1 si le plan est
+vide, plus un. Les dépôts sur la même cellule se suivent donc sans collision.
+L'écriture vit dans `sim/intentions.py` ; le moteur ne lit pas le plan.
+La route ne consomme aucun aléa et ne lit ni n'écrit aucune cellule : mêmes
+gestes et même graine donnent le même monde ; sans geste, les plans restent
+vides et l'empreinte reste celle d'avant.
+
+Le service dépose tout objet JSON sous `verrou_tick`. Il répond 200 avec
+`{"acceptee": true, "appliquee_au_tick": <tick publié>}`, 400 pour une intention
+inconnue ou mal formée, 409 pour un second choix. Tout refus, y compris un
+corps illisible ou qui n'est pas un objet, rend
+`{"acceptee": false, "erreur": "<raison>"}` sans avancer ni republier le monde.
+
+`python3 -m sim --gestes FICHIER` lit une liste JSON d'entrées
+`{"tick": t, "intention": {…}}` : les intentions du tick `t` se déposent dans
+l'ordre du fichier juste avant ce tick, qui les applique. Les ticks doivent
+être entiers, sans booléen, non négatifs, croissants ou égaux, et inférieurs
+à `--ticks`. Sinon, ou si le fichier est illisible, n'est pas une liste,
+manque un champ, ou contient une intention refusée, la commande rend 2 avec
+la raison sur stderr (et le rang de l'entrée pour une intention refusée).
+Elle n'écrit alors ni `--monde-json`, ni `--snapshot-json`.
+`--monde-json FICHIER` écrit `World.to_dict()` final en JSON canonique : clés
+triées, UTF-8, `ensure_ascii=False`, séparateurs compacts.
+
+`--depart` est entier et répétable : chaque valeur se dépose dans l'ordre
+avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
+ni `resume.json`. Avec `--ticks 0`, la commande refuse : « l'intention
+s'applique au tick suivant ». Le compte rendu porte
+`simulation.maison_du_joueur` seulement après un choix appliqué ; la
+photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différence.
+
+**Niveau 1 :** les cinq terres et leurs attributions héritées, sans changement.
+**Niveau 2, plausible :** la maison du joueur réduite à l'id de sa terre,
+donc à la cellule de son siège. **Niveau 3, pas simulé :** ses effets
+(prélèvement, jalon 3), les maisons de l'IA (jalon 5) et les personnes
+(jalon 6). Changer de départ, sauvegarder et recharger ne sont pas simulés.
+
+## La photographie de 1400, vue dérivée
+
+La photographie lit les vues existantes sans modifier le monde. Chaque
+cellule porte `puissance` et `maison` (`id`, `nom`), issues de
+`puissances_depuis_monde` et `maisons_depuis_monde` : une cellule non couverte
+porte deux `null` ; une république, une Église ou un ordre porte une puissance
+et une maison `null`. `densite_hab_par_km2` lit population / surface par
+`densite_de_cellule`, avec l'arrondi commun de la photographie. `villes`
+porte les noms et populations de `charger_villes`, placés par
+`attribuer_villes` et triés par nom ; sans ville documentée, la liste est vide.
+
+À la racine, `villes_hors_carte` déclare les noms triés des villes non placées.
+`terre_choisie` vaut `null` sans choix, sinon porte la fiche actuelle de
+`fiche_de_seigneurie`, avec siège, source, cellule, habitants, production,
+suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
+dans l'ordre de la fiche. **Le tick ne la lit pas.**
+
+**Niveau 1 :** puissances, maisons, villes et terres avec leurs sources.
+**Niveau 2, plausible :** étendue des puissances et maisons, terre réduite à
+la cellule de son siège, population amorcée. **Niveau 3, pas simulé :**
+frontières réelles, suzeraineté et villes hors carte, déclarées sans placement.
 
 ## Les lieux d'une cellule, vue dérivée
 
@@ -1250,14 +1562,15 @@ la cellule au bit près, sans l'arrondi d'un partage égal par division.
 La vue refuse une surface absente, booléenne, textuelle, non finie, nulle ou
 négative en nommant sa cellule. Elle refuse aussi une constante non finie ou
 inférieure à 1 km². Elle est pure, recalculée à chaque consultation hors de
-`sim.model`. Le tick ne lit pas les lieux pour calculer : il les remet
-d'accord avec la cellule à la fin.
+`sim.model`. Le tick lit les surfaces à la consommation pour limiter la
+distribution intérieure, sans lire les habitants et paniers persistés ; il
+remet ces états d'accord avec la cellule à la fin.
 
 Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
 plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
 l'échelle d'une cellule », vu ici par sa surface et sa part des habitants ; il
 ne concentre encore ni les gens de la ville ni ceux de `RepartitionBourg`.
-La distribution de la population et des stocks dans la cellule reste gratuite.
+Les chemins limitent la distribution alimentaire intérieure décrite ci-dessous.
 La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
 
 ### Ce que porte un lieu
@@ -1288,6 +1601,122 @@ tick ne lui en invente pas. Les compteurs de faim, la dette et les restes de
 mortalité, natalité et migration restent à la cellule. Ce partage est de
 **niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
 n'est simulé (niveau 3).
+
+### L'identité d'un lieu, et ce qui la change
+
+Un lieu se retrouve par son couple (`cell_id`, `rang`) avec `lieu_du_monde`,
+qui ne découpe que la cellule demandée. Un couple mal formé — `cell_id` ou
+`rang` booléen, textuel, flottant, ou absent — lève `LieuxInvalides`. Un
+couple bien formé qui ne désigne aucun lieu lève `LieuInconnu` : cellule
+absente du monde, rang négatif, ou rang au-delà du dernier lieu de la
+cellule. Le rang négatif est refusé avant l'indexation. Rien n'est deviné,
+rien n'est ramené dans l'intervalle.
+
+Ce couple désigne le même lieu, de même surface, à tout tick, pour toute
+graine, et dans tout ordre des cellules. Le découpage ne lit que `area_km2`
+et `SURFACE_KM2_PAR_LIEU` ; le tick ne modifie pas la surface ; l'amorçage
+la lit sur la carte figée, sans tirage ; la vue trie par `cell_id`.
+
+Changer la surface d'une cellule sur la carte, ou `SURFACE_KM2_PAR_LIEU`,
+renumérote les lieux de cette cellule. C'est un changement du monde : tout
+ce qui s'accroche à un lieu devra le suivre. Il n'y a pas de numéro global
+de lieu : un tel numéro suivrait l'ordre d'énumération des cellules, et
+rien ne fixe cet ordre.
+
+---
+
+## La distribution à l'intérieur de la cellule
+
+Les habitants qui ne cultivent pas vivent au **rang 0**, le bourg : leur nombre
+est `population × part_miniere_de(gisements, facteurs_richesse_extraction())`.
+Ce calcul ne lit ni la population ni les stocks persistés des lieux : il
+utilise les totaux cellulaires et les surfaces. Les villes historiques
+nommées ne sont pas comptées au bourg.
+
+À chaque consommation, le panier alimentaire est réputé réparti au prorata
+des surfaces : pour un stock `S` (sentinelle −1 lue comme 0), une surface
+cellulaire `A` et une surface de rang 0 `s0`, le bourg dispose localement de
+`S × s0 / A`. Chacun des `n − 1` autres lieux a un chemin vers lui :
+`capacite = CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK × (n − 1) × facteur_transport`.
+Le facteur de relief est celui de `facteurs_transport_par_relief()`, comme pour
+le commerce. Le bourg atteint `min(S, local + capacite)` ; s'il n'y a qu'un
+lieu, il atteint tout le panier et aucune capacité n'est calculée.
+
+`CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK = 2500.0 × TICK_DURATION_DAYS` : cinq
+charrettes d'une demi-tonne par jour, ordre de grandeur de **niveau 2**,
+plausible, jamais sourcé. La fonction `capacite_chemins_interieurs_kg` relit
+cette constante et refuse une valeur NaN ou négative ; l'infini est accepté.
+
+Le besoin du bourg est `population × part × ration`, celui des champs est le
+besoin total moins celui du bourg. Le bourg mange le minimum de son besoin et
+de ce qu'il atteint ; les champs mangent ensuite sur le reste.
+
+- **Le bourg a faim pendant que les champs débordent** si son manque est
+  strictement positif et si `reste_champs = S − mange_bourg − besoin_champs`
+  est strictement positif. Le panier garde ce reste ; la dette augmente du
+  manque du bourg, sans remboursement de dette ancienne. Ce manque est la
+  pénurie du tick, lue par la faim, la mortalité, la natalité et la migration.
+- **Sinon, la consommation reste inchangée au bit près**, y compris son
+  remboursement physique de la dette. Sans carte ou sans part minière,
+  c'est aussi ce calcul qui s'applique.
+
+Aucun kilo n'est créé : les kilos qui quittent le panier ont été mangés, le
+besoin du tick n'est pas dépassé dans le cas de distribution limitée, et le
+panier reste non négatif. Le remboursement de dette conserve ses kilos réels.
+Restent de niveau 3, non simulés : délai, pertes en route, bras des porteurs,
+tracé des chemins, consommation du stock persisté de chaque lieu, distribution
+entre les lieux des champs et intégration des villes nommées dans le bourg.
+
+---
+
+## Le plan du bourg
+
+Chaque cellule possède un plan du lieu (`cell_id`, 0), le bourg, dans
+`World.plans` : un dictionnaire `cell_id → Plan`. Aucun `bourg_id`, `ville_id`
+ou numéro de plan n'est ajouté. Le bourg reste une vue dérivée de la
+population ; seuls ses tracés sont stockés. Un monde chargé ou construit
+directement reçoit un plan vide par cellule, sans tirage ni choix de capitale.
+
+`sim/plan.py` contient trois listes triées par `identifiant`, entier non
+négatif et unique dans sa liste :
+
+- `rues` : `identifiant`, `points` (au moins `POINTS_MIN_RUE = 2`),
+  `largeur_m` finie et strictement positive, `en_chantier` booléen (faux par
+  défaut, vrai pour une route déposée ; tout autre type est refusé) ;
+- `parcelles` : `identifiant`, `contour` (au moins `POINTS_MIN_CONTOUR = 3`) ;
+- `batiments` : `identifiant`, `parcelle` (identifiant d'une parcelle du même
+  plan), `nature` (texte non vide), `emprise` (au moins `POINTS_MIN_CONTOUR`).
+
+Chaque point est un couple `(x, y)` de nombres finis, sans booléen ni texte.
+Le repère est local au bourg : x vers l'est, y vers le nord, en mètres,
+origine au centre du bourg. `PlanInvalide` nomme la donnée manquante ou
+invalide : point non fini, nombre de points insuffisant, largeur nulle ou
+négative, identifiant invalide ou en double, parcelle absente, nature vide.
+Aucune coordonnée n'est bornée : la position et la forme du bourg dans la
+cellule ne sont pas simulées.
+
+Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
+en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
+son plan. Aucune règle du tick ne le lit ; seule l'étape Intentions y ajoute
+une rue en chantier. Toutes les règles
+existantes et l'évolution des cellules restent identiques au bit près.
+
+`GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
+`parcelles` et `batiments`. Les octets sont construits dans `EtatPublie` avec
+la photographie du tick : une lecture n'attend pas son calcul et ne consulte
+pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
+inconnue donne 404 en la nommant. `/monde`, `/lieu` et le snapshot restent
+inchangés.
+
+La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
+vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
+et forme du bourg dans la cellule, effet des rues et bâtiments sur le monde,
+gestes de parcelle et de bâtiment, inclusion d'une emprise dans une parcelle
+et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
+son coût, les bras pris aux champs, son achèvement, la restriction à la
+capitale, les bornes et les doublons restent de niveau 3, non simulés.
+Aucune règle ne fait passer une rue en chantier à achevée et aucun flux
+ne découle encore de son tracé.
 
 ---
 

@@ -65,6 +65,9 @@ PLUIE_SANS_CULTURE_MM = 250.0
 # ordre de grandeur plausible niveau 2, jamais sourcé.
 PLUIE_PLEINE_CULTURE_MM = 400.0
 
+# Eau laissée aux champs par la crue annuelle du Nil ; niveau 2, jamais sourcé.
+CRUE_EQUIVALENT_PLUIE_MM = 600.0
+
 # Part de nourriture tirée du parcours des troupeaux en terre sèche ;
 # ordre de grandeur plausible niveau 2, jamais sourcé.
 FACTEUR_EAU_PLANCHER = 0.05
@@ -221,6 +224,11 @@ def facteurs_richesse_extraction() -> dict[str, float]:
 # Part de la population qu'un gisement notable occupe ; niveau 2.
 PART_MINIERE_PAR_GISEMENT = 0.05
 
+# Foyers par métier : ordre de grandeur plausible d'un ménage, niveau 2.
+TAILLE_FOYER = 5
+METIER_MINEURS = "mineurs"
+METIER_PAYSANS = "paysans"
+
 # Plafond : une cellule ne devient jamais entièrement minière. Invariant,
 # pas un réglage de confort — sans lui une cellule chargée de gisements
 # majeurs verrait toute sa population descendre à la mine.
@@ -307,6 +315,20 @@ def facteurs_transport_par_relief() -> dict[str, float]:
         "montagne": FACTEUR_TRANSPORT_MONTAGNE,
         "haute_montagne": FACTEUR_TRANSPORT_HAUTE_MONTAGNE,
     }
+
+
+# Nourriture amenée par chaque chemin des champs au bourg, freinée par le relief.
+# Niveau 2 : cinq charrettes d'une demi-tonne par jour ; plausible, jamais sourcé.
+CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK = 2500.0 * TICK_DURATION_DAYS
+
+
+def capacite_chemins_interieurs_kg(nombre_chemins, facteur_transport) -> float:
+    """Relit la capacité intérieure ; une capacité infinie est acceptée."""
+    capacite = CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK
+    if math.isnan(capacite) or capacite < 0:
+        raise ValueError("CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK invalide")
+    return capacite * nombre_chemins * facteur_transport
+
 
 # --- Variabilité de rendement ---
 
@@ -529,6 +551,13 @@ DEFAULT_CLI_SEED = 0
 # --- Snapshot cellulaire ---
 # Photographie cellulaire déterministe ; le suffixe numéroté permet une
 # révision du contrat sans réutiliser le même nom.
+# Le contrat existant de la sonde pluie exige cette version ; les champs
+# de 1400 s'y ajoutent sans modifier ce test.
 SNAPSHOT_SCHEMA_VERSION = "v0a-5"
 # Plus fin serait du bruit, plus gros écraserait des centroïdes voisins.
 SNAPSHOT_FLOAT_DECIMALS = 6
+
+# --- Plan du bourg (mètres locaux, fidélité niveau 2) ---
+POINTS_MIN_RUE = 2
+POINTS_MIN_CONTOUR = 3
+COORDONNEES_PAR_POINT = 2

@@ -106,6 +106,12 @@ def jalon_suivant(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
     return next((j for j in liste if j.ouvert and j.numero > courant.numero), None)
 
 
+def troisieme_jalon(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
+    """Le troisième jalon ouvert, le bout de la fenêtre. Une machine qui n'a
+    plus rien dans les deux premiers y prend (Pilote._plus_loin)."""
+    return jalon_suivant(liste, jalon_suivant(liste, courant))
+
+
 def jalons_du_cap(cap: str) -> dict[int, str]:
     """Les jalons que CAP.md déclare : numéro → titre du milestone
     (« J2 — Le monde de 1400 »), tirés de ses sections « ## Jalon n — Titre ».
@@ -243,7 +249,7 @@ _OPTION_APRES = re.compile(r"\s*::\s*apr[èe]s\s*:?\s*(rien|[\d\s,#et]+?)\s*$", 
 @dataclass(frozen=True)
 class SousLot:
     """Une ligne de découpe du chef. `apres` : None quand elle ne dit rien
-    (le sous-lot attend le précédent), () pour « après rien », sinon les
+    (le sous-lot part tout de suite), () pour « après rien », sinon les
     rangs, dans la liste, des sous-lots qu'il attend."""
 
     titre: str
@@ -274,9 +280,10 @@ def sous_lot(titre: str, quoi: str, machine_par_defaut: str) -> SousLot:
 def dependances_des_sous_lots(sous: list[SousLot], *, preuve_en_dernier: bool = False) -> list[tuple[int, ...]]:
     """Pour chaque sous-lot (rang 1…n), les rangs des sous-lots qu'il attend.
 
-    Sans « après », il attend le précédent : c'est l'ordre du chef, et ce qui
-    était vrai de toutes les découpes jusqu'au 29 septembre 2026. « Après
-    rien », il part tout de suite ; « après 1, 3 », quand 1 et 3 sont livrés.
+    Sans « après », ou « après rien », il part tout de suite ; « après 1, 3 »,
+    quand 1 et 3 sont livrés. Jusqu'au 1er octobre 2026, une ligne muette
+    attendait la précédente : J2 et J4 sont devenus des files de sept lots,
+    et le VPS, qui en tient deux, n'en faisait avancer qu'un.
     Des sous-lots qui ne s'attendent pas avancent en même temps. Le dernier
     d'une découpe de jalon porte la preuve du jalon : il attend tous les
     autres, quoi que dise sa ligne. Un rang qui ne précède pas le sous-lot se
@@ -288,7 +295,7 @@ def dependances_des_sous_lots(sous: list[SousLot], *, preuve_en_dernier: bool = 
             rangs.append(tuple(range(1, i)))
             continue
         if s.apres is None:
-            rangs.append((i - 1,) if i > 1 else ())
+            rangs.append(())
             continue
         fautifs = [k for k in s.apres if not 1 <= k < i]
         if fautifs:
@@ -330,11 +337,15 @@ def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = 
     Un jalon découpé en avance (il suit le `courant`) le dit : ses lots
     partent pendant que le courant se termine."""
     en_avance = courant is not None and jalon.numero > courant.numero
+    if en_avance:
+        tete = (f"Le jalon {jalon.titre} n'a encore aucun lot prêt, et une machine n'a plus rien à prendre "
+                f"avant lui depuis le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent "
+                "pendant que les jalons d'avant se terminent ; ils ne s'appuient sur rien que ceux-ci doivent "
+                "encore livrer. Place d'abord ceux qui ne s'appuient que sur ce qui est déjà sur master.")
+    else:
+        tete = f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé."
     lignes = [
-        (f"Le jalon suivant, {jalon.titre}, n'a encore aucun lot prêt, et une machine n'a plus rien à prendre "
-         f"dans le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent pendant que le "
-         "courant se termine ; ils ne s'appuient sur rien qu'il doit encore livrer." if en_avance else
-         f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé."),
+        tete,
         "",
         "Ce lot ne se code pas. Le chef le découpe (« DECISION: DECOUPE ») d'après la section "
         f"« Jalon {jalon.numero} » de `CAP.md` et d'après `docs/VISION.md` : les lots qu'il faut, dans "
@@ -359,7 +370,8 @@ class Action:
 
 # Ce que le PC répond à un envoi. `attente` : aucun de ses agents n'a pu
 # répondre (quota, session, installation) ; ce n'est pas un passage du codeur.
-REPONSES_PC = ("fait", "echec", "attente")
+# `reponse` : le codeur a répondu à une revue sans changer de fichier.
+REPONSES_PC = ("fait", "echec", "attente", "reponse")
 # Après une attente du PC, on renvoie au bout d'une heure ; sans réponse du
 # tout (PC éteint : GitHub garde le travail en file un jour), au bout de 24 h.
 HEURES_ATTENTE_PC = 1
@@ -404,7 +416,7 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
         return Action("bloquer", "la PR a été fermée sans fusion")
     tete = pr.get("headRefOid") or ""
     codeurs = [m for m in depuis_reprise(liste) if m.get("role") == role_codeur]
-    essais = sum(1 for m in codeurs if m.get("etat") in ("fait", "echec"))
+    essais = sum(1 for m in codeurs if m.get("etat") in ("fait", "echec", "reponse"))
     max_essais = 1 + corrections_max
 
     # Un envoi au PC attend sa réponse ; sans réponse en un jour, on renvoie.
@@ -435,9 +447,20 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
         return Action("corriger_ci", "CI rouge", essai=essais)
 
     verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("sha") == tete]
-    if not verdicts:
+    # Une relecture sans verdict (délai, verdict illisible) n'est pas un
+    # « CORRIGER » : elle se rejoue, et `_relire` bloque à deux échecs. Le
+    # 30 septembre 2026, elle renvoyait au codeur une revue vide (#126).
+    if not verdicts or not verdicts[-1].get("verdict"):
         return Action("relire")
     dernier = verdicts[-1].get("verdict")
+    # Le codeur a répondu à cette revue sans changer de fichier (le constat ne
+    # demandait qu'une réponse écrite) : le relecteur relit avec sa réponse.
+    # Le 1er octobre 2026, #270 s'est bloqué sur un « n'a rien changé ».
+    i_verdict = max(i for i, m in enumerate(liste) if m.get("role") == "relecteur" and m.get("sha") == tete)
+    i_reponse = max((i for i, m in enumerate(liste) if m.get("role") == role_codeur and m.get("etat") == "reponse"),
+                    default=-1)
+    if dernier == "CORRIGER" and i_reponse > i_verdict:
+        return Action("relire")
     if dernier == "ACCEPTE":
         if pr.get("autoMergeRequest"):
             return Action("attendre_fusion")
@@ -455,6 +478,18 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
 # une décision que le journal ne posait pas : « lire sa raison ».
 _OPTION = re.compile(r"^\s*-\s*([A-Z])\s*::\s*(.+?)(?:\s*::\s*(.+?))?\s*$", re.M)
 _RECOMMANDATION = re.compile(r"^\s*RECOMMANDATION\s*::\s*([A-Z])\s*(?:::\s*(.+?))?\s*$", re.M)
+# « NATURE :: jeu » ou « NATURE :: technique ». Le propriétaire tranche ce qui
+# oriente le jeu ; une question technique (un test, un format, une règle de
+# code) suit la recommandation sans l'attendre : le 3 octobre 2026, il
+# répondait toujours la recommandée, et J2, J3, J4 attendaient ses lettres.
+# Sans nature lisible, la question est « jeu » : dans le doute, on demande.
+_NATURE = re.compile(r"^\s*NATURE\s*::\s*(jeu|technique)\b", re.M | re.I)
+NATURE_JEU, NATURE_TECHNIQUE = "jeu", "technique"
+# La marque du pilote qui a suivi seul la recommandation d'une question
+# technique ; au-delà de DECISIONS_SEULES_MAX par lot, la question suivante
+# va au propriétaire : un lot qui pose question sur question tourne en rond.
+ETAT_DECISION = "decision"
+DECISIONS_SEULES_MAX = 2
 
 
 @dataclass(frozen=True)
@@ -462,10 +497,12 @@ class Question:
     texte: str
     options: tuple[tuple[str, str, str], ...] = ()  # (lettre, réponse, ce qu'elle coûte)
     recommandation: tuple[str, str] | None = None    # (lettre, pourquoi)
+    nature: str = NATURE_JEU
 
     def marque(self) -> dict:
         return {"question": self.texte, "options": [list(o) for o in self.options],
-                "recommandation": list(self.recommandation) if self.recommandation else None}
+                "recommandation": list(self.recommandation) if self.recommandation else None,
+                "nature": self.nature}
 
     @classmethod
     def de_marque(cls, m: dict) -> "Question | None":
@@ -473,7 +510,15 @@ class Question:
             return None
         reco = m.get("recommandation")
         return cls(texte=m["question"], options=tuple(tuple(o) for o in m.get("options") or []),
-                   recommandation=tuple(reco) if reco else None)
+                   recommandation=tuple(reco) if reco else None, nature=m.get("nature") or NATURE_JEU)
+
+    def se_decide_seule(self) -> bool:
+        """Une question technique dont la recommandation nomme une réponse."""
+        return self.nature == NATURE_TECHNIQUE and self.recommandation is not None
+
+    def reponse_recommandee(self) -> str:
+        lettre = self.recommandation[0] if self.recommandation else ""
+        return next((r for l, r, _ in self.options if l == lettre), "")
 
     def en_une_ligne(self) -> str:
         """Pour le journal : la question, ses réponses, et le choix du chef."""
@@ -497,8 +542,14 @@ def question_du_chef(texte: str, question: str) -> Question:
         lettre, pourquoi = trouvees[-1]
         if not options or lettre in {o[0] for o in options}:
             reco = (lettre, (pourquoi or "").strip())
+    natures = _NATURE.findall(texte)
     return Question(texte=question.strip() or "le chef n'a pas écrit sa question", options=options,
-                    recommandation=reco)
+                    recommandation=reco, nature=natures[-1].lower() if natures else NATURE_JEU)
+
+
+def decisions_seules(commentaires: list[dict]) -> int:
+    """Les questions techniques que le pilote a déjà tranchées seul sur ce lot."""
+    return sum(1 for m in marques(commentaires) if m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION)
 
 
 def reponse_apres_blocage(commentaires: list[dict]) -> bool:
@@ -518,6 +569,51 @@ def reponse_apres_blocage(commentaires: list[dict]) -> bool:
         if corps and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions":
             return True
     return False
+
+
+# Le dépanneur (`pilote._depanner`) regarde un lot que le pilote vient de
+# bloquer, avant le propriétaire. Il le relance avec une consigne (marque
+# « depanne »), pose une question au propriétaire, ou dit que la chaîne est en
+# cause ; il ne relance pas un même lot plus de `depannages_max` fois. Le
+# 1er octobre 2026, cinq lots attendaient le propriétaire au matin : trois
+# pour un quota, une relecture vide ou une image illisible, que la chaîne
+# pouvait lever seule.
+ETAT_DEPANNE = "depanne"
+PAR_DEPANNEUR = "depanneur"
+
+
+def depannage_a_faire(commentaires: list[dict], depannages_max: int) -> bool:
+    """Le dépanneur doit-il regarder ce lot ? Oui si son dernier blocage
+    vient du pilote, n'est ni une question au propriétaire ni un blocage posé
+    par le dépanneur lui-même, que le dépanneur n'a rien dit depuis, et qu'il
+    n'a pas déjà relancé le lot `depannages_max` fois."""
+    liste = marques(commentaires)
+    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
+    if dernier is None:
+        return False
+    blocage = liste[dernier]
+    if blocage.get("question") or blocage.get("par") == PAR_DEPANNEUR:
+        return False
+    if any(m.get("role") == "depanneur" for m in liste[dernier + 1:]):
+        return False
+    relances = sum(1 for m in liste if m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE)
+    return relances < depannages_max
+
+
+def consigne_du_depanneur(commentaires: list[dict]) -> str:
+    """La consigne du dépanneur qui vaut encore : celle de sa dernière
+    relance, tant que le lot n'a pas été rebloqué depuis."""
+    consigne = ""
+    for m in marques(commentaires):
+        if m.get("etat") == "bloque":
+            consigne = ""
+        elif m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE:
+            consigne = m.get("consigne") or ""
+        elif m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION and m.get("consigne"):
+            # Une question technique du dépanneur, tranchée seule : sa décision
+            # suit le codeur et le relecteur comme une consigne.
+            consigne = m["consigne"]
+    return consigne
 
 
 def passage_de_renfort(essai: int, corrections_max: int) -> bool:

@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
+from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.model import cellule_vers_dict
 from sim.snapshot_export import _round_tree
 from sim.world import World
@@ -95,6 +96,7 @@ class EtatPublie:
 
     monde: bytes
     lieux: dict[int, bytes]
+    plans: dict[int, bytes]
     tick: int
     date: dict[str, int]
     jours_par_seconde: float
@@ -146,17 +148,26 @@ class ServeurMonde(ThreadingHTTPServer):
             )
             for cellule in cellules
         }
-        monde = _serialiser(
-            {
-                "tick": numero_tick,
-                "date": date,
-                "cell_count": len(cellules),
-                "cells": cellules,
-            }
-        )
+        document = {
+            "tick": numero_tick,
+            "date": date,
+            "cell_count": len(cellules),
+            "cells": cellules,
+        }
+        if self.world.maison_du_joueur is not None:
+            document["maison_du_joueur"] = self.world.maison_du_joueur
+        monde = _serialiser(document)
+        plans = {
+            cell_id: _serialiser(
+                plan.to_dict()
+                | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
+            )
+            for cell_id, plan in sorted(self.world.plans.items())
+        }
         return EtatPublie(
             monde=monde,
             lieux=lieux,
+            plans=plans,
             tick=numero_tick,
             date=date,
             jours_par_seconde=jours_par_seconde,
@@ -280,13 +291,14 @@ class RequetesMonde(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         cible = urlsplit(self.path)
         etat = self.server.etat_publie
-        if cible.path == "/lieu":
+        if cible.path in ("/lieu", "/plan"):
             try:
                 cell_id = _parametre_entier(cible.query, "cell")
             except ValueError as exc:
                 self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                 return
-            lieu = etat.lieux.get(cell_id)
+            documents = etat.plans if cible.path == "/plan" else etat.lieux
+            lieu = documents.get(cell_id)
             if lieu is None:
                 self._refuser(
                     HTTPStatus.NOT_FOUND,
@@ -333,6 +345,9 @@ class RequetesMonde(BaseHTTPRequestHandler):
             self._repondre(HTTPStatus.OK, self._document_horloge(etat))
             return
         if cible.path == "/intention":
+            def refuser(statut, raison):
+                self._repondre(statut, {"acceptee": False, "erreur": raison})
+
             longueur_recue = self.headers.get("Content-Length")
             try:
                 longueur = int(longueur_recue)
@@ -341,18 +356,27 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 corps = self.rfile.read(longueur)
                 intention = json.loads(corps.decode("utf-8"))
             except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-                self._refuser(
+                refuser(
                     HTTPStatus.BAD_REQUEST,
                     f"corps d'intention invalide : reçu {longueur_recue!r}",
                 )
                 return
             if not isinstance(intention, dict):
-                self._refuser(
+                refuser(
                     HTTPStatus.BAD_REQUEST,
                     f"corps d'intention invalide : reçu {intention!r}, attendu un objet JSON",
                 )
                 return
-            etat = self.server.etat_publie
+            try:
+                with self.server.verrou_tick:
+                    recevoir_intention(self.server.world, intention)
+                    etat = self.server.etat_publie
+            except IntentionRefusee as exc:
+                statut = (HTTPStatus.CONFLICT
+                          if str(exc).startswith("départ déjà choisi :")
+                          else HTTPStatus.BAD_REQUEST)
+                refuser(statut, str(exc))
+                return
             self._repondre(
                 HTTPStatus.OK,
                 {"acceptee": True, "appliquee_au_tick": etat.tick},

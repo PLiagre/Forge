@@ -30,6 +30,7 @@ tests = "python3 -m pytest jeu -q"
 interdits = ["atelier/", ".github/", "atelier.toml"]
 lignes_max = 300
 corrections_max = 2
+depannages_max = 2
 dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
 
@@ -40,6 +41,7 @@ codeur_3d   = "claude/opus | cursor/grok"
 renfort     = "codex/astra | codex/sol | cursor/grok"
 relecteur   = "claude/opus | codex/sol"
 mecanicien  = "cursor/composer"
+depanneur   = "claude/opus | codex/sol"
 chroniqueur = "cursor/grok"
 boussole    = "claude/opus | codex/sol"
 """

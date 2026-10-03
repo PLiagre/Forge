@@ -394,3 +394,296 @@ def test_photographie_et_empreinte_portent_les_lieux():
     with pytest.raises(SnapshotExportError, match=str(cellule.cell_id)):
         build_snapshot_document(monde, 0, 0)
     print(f"cellules_photographiées={len(document['cells'])}, courses_identiques=2, empreintes_modifiées=2, refus_vu=1")
+
+import random
+
+from sim.engine import tick
+from sim.lieux import LieuInconnu, lieu_du_monde
+
+
+def test_chaque_lieu_se_retrouve_par_son_couple():
+    monde = World.charger(0)
+    vue = lieux_depuis_monde(monde)
+    assert vue
+    lieux_retrouvés = 0
+    for lieux in vue.values():
+        for lieu in lieux:
+            assert lieu_du_monde(monde, lieu.cell_id, lieu.rang) == lieu
+            lieux_retrouvés += 1
+    print(f"lieux_retrouvés={lieux_retrouvés}")
+    assert lieux_retrouvés == sum(map(len, vue.values())) > 0
+
+    cellules = [cid for cid, lieux in vue.items() if len(lieux) >= 2]
+    assert cellules
+    c = min(cellules)
+    n = len(vue[c])
+    # L'indexation naïve rend le dernier lieu ; le rang négatif est refusé.
+    dernier = lieux_depuis_monde(monde)[c][-1]
+    assert isinstance(dernier, Lieu) and dernier.cell_id == c
+    with pytest.raises(LieuInconnu):
+        lieu_du_monde(monde, c, -1)
+    with pytest.raises(LieuInconnu):
+        lieu_du_monde(monde, c, n)
+
+
+def test_refus_du_couple():
+    monde = World.charger(0)
+    c = min(monde.cells)
+    couples_mal_formes = [
+        (True, 0),
+        (c, True),
+        (c, False),
+        (str(c), 0),
+        (c, "0"),
+        (float(c), 0),
+        (c, 0.0),
+        (None, 0),
+        (c, None),
+    ]
+    couples_inconnus = [
+        (max(monde.cells) + 1, 0),
+        (c, -1),
+    ]
+    refus_observés = 0
+    for cell_id, rang in couples_mal_formes:
+        with pytest.raises(LieuxInvalides) as info:
+            lieu_du_monde(monde, cell_id, rang)
+        assert not isinstance(info.value, LieuInconnu)
+        message = str(info.value)
+        assert repr(cell_id) in message and repr(rang) in message
+        refus_observés += 1
+    for cell_id, rang in couples_inconnus:
+        with pytest.raises(LieuInconnu) as info:
+            lieu_du_monde(monde, cell_id, rang)
+        message = str(info.value)
+        assert repr(cell_id) in message and repr(rang) in message
+        refus_observés += 1
+    print(f"refus_observés={refus_observés}")
+    assert refus_observés == len(couples_mal_formes) + len(couples_inconnus) > 0
+
+    copie = copy.deepcopy(monde)
+    copie.cells[c].area_km2 = None
+    with pytest.raises(LieuxInvalides) as info:
+        lieu_du_monde(copie, c, 0)
+    assert str(c) in str(info.value)
+
+    bourg = lieu_du_monde(monde, c, 0)
+    assert bourg.est_bourg and bourg.cell_id == c and bourg.rang == 0
+    with pytest.raises(LieuxInvalides) as info:
+        lieu_du_monde(monde, True, 0)
+    assert not isinstance(info.value, LieuInconnu)
+
+
+def test_le_tick_ne_detache_pas_un_lieu():
+    monde = World.charger(0)
+    avant = lieux_depuis_monde(monde)
+    populations = {
+        cid: cellule.population for cid, cellule in monde.cells.items()
+    }
+    alea = random.Random(0)
+    for numero in range(30):
+        tick(monde, alea, numero_tick=numero)
+    apres = lieux_depuis_monde(monde)
+    cellules_changées = sum(
+        monde.cells[cid].population != populations[cid] for cid in monde.cells
+    )
+    assert apres == avant
+    assert cellules_changées > 0
+
+    copie = copy.deepcopy(monde)
+    plus_grande = max(
+        copie.cells, key=lambda cid: copie.cells[cid].area_km2
+    )
+    copie.cells[plus_grande].area_km2 /= 2
+    vue_rognee = lieux_depuis_monde(copie)
+    cellules_détachées = sum(
+        vue_rognee[cid] != apres[cid] for cid in apres
+    )
+    print(
+        f"cellules_changées={cellules_changées}, "
+        f"cellules_détachées={cellules_détachées}"
+    )
+    assert cellules_détachées == 1
+
+
+def test_ni_la_graine_ni_l_ordre_ne_changent_l_identite():
+    monde_0 = World.charger(0)
+    monde_1 = World.charger(1)
+    vue_0 = lieux_depuis_monde(monde_0)
+    vue_1 = lieux_depuis_monde(monde_1)
+    assert vue_0 == vue_1
+    populations_différentes = sum(
+        monde_0.cells[cid].population != monde_1.cells[cid].population
+        for cid in monde_0.cells
+    )
+    assert populations_différentes > 0
+
+    copie = copy.deepcopy(monde_0)
+    copie.cells = {
+        cle: copie.cells[cle] for cle in reversed(tuple(monde_0.cells))
+    }
+    vue_inverse = lieux_depuis_monde(copie)
+    assert vue_inverse == vue_0
+    assert list(vue_inverse) == list(vue_0)
+    for lieux in vue_0.values():
+        for lieu in lieux:
+            assert lieu_du_monde(monde_0, lieu.cell_id, lieu.rang) == lieu
+            assert lieu_du_monde(copie, lieu.cell_id, lieu.rang) == lieu
+
+    def numeros_globaux(world):
+        numeros = {}
+        position = 0
+        for cell_id, cellule in world.cells.items():
+            lieux = lieux_de_cellule(
+                cell_id, getattr(cellule, "area_km2", None)
+            )
+            for lieu in lieux:
+                numeros[(lieu.cell_id, lieu.rang)] = position
+                position += 1
+        return numeros
+
+    origine = numeros_globaux(monde_0)
+    inverse = numeros_globaux(copie)
+    numéros_globaux_déplacés = sum(
+        origine[couple] != inverse[couple] for couple in origine
+    )
+    print(
+        f"populations_différentes={populations_différentes}, "
+        f"numéros_globaux_déplacés={numéros_globaux_déplacés}"
+    )
+    assert numéros_globaux_déplacés > 0
+
+
+def test_la_constante_renumerote(monkeypatch):
+    monde = World.charger(0)
+    vue = lieux_depuis_monde(monde)
+    candidats = [cid for cid, lieux in vue.items() if len(lieux) >= 3]
+    assert candidats
+    c = min(candidats)
+    n = len(vue[c])
+    lieu = lieu_du_monde(monde, c, n - 1)
+    assert lieu.cell_id == c and lieu.rang == n - 1
+    monkeypatch.setattr(
+        _constantes,
+        "SURFACE_KM2_PAR_LIEU",
+        _constantes.SURFACE_KM2_PAR_LIEU * 2,
+    )
+    with pytest.raises(LieuInconnu):
+        lieu_du_monde(monde, c, n - 1)
+    n_apres = len(lieux_de_cellule(c, monde.cells[c].area_km2))
+    print(f"lieux_avant={n}, lieux_apres={n_apres}")
+    assert n_apres < n
+
+
+def _donnees_plan():
+    """Un plan complet ; les mêmes numéros peuvent servir dans deux listes."""
+    triangle = [(0, 0), (10, 0), (0, 10)]
+    return {
+        "rues": [{"identifiant": 7, "points": [(0, 0), (10, 0)], "largeur_m": 4}],
+        "parcelles": [{"identifiant": 7, "contour": triangle}],
+        "batiments": [{"identifiant": 7, "parcelle": 7, "nature": "atelier", "emprise": triangle}],
+    }
+
+
+def _construire_plan(document):
+    from sim.plan import Batiment, Parcelle, Plan, Rue
+
+    return Plan(
+        rues=[Rue(**entree) for entree in document["rues"]],
+        parcelles=[Parcelle(**entree) for entree in document["parcelles"]],
+        batiments=[Batiment(**entree) for entree in document["batiments"]],
+    )
+
+
+def test_plan_valide_trie_et_serialise_sans_muter():
+    donnees = _donnees_plan()
+    for liste in donnees.values():
+        entree = copy.deepcopy(liste[0])
+        entree["identifiant"] = 1
+        liste.append(entree)
+    avant = copy.deepcopy(donnees)
+    a = _construire_plan(donnees)
+    b = _construire_plan(donnees)
+    for liste in (a.rues, a.parcelles, a.batiments):
+        assert [entree.identifiant for entree in liste] == [1, 7]
+    document = a.to_dict()
+    assert all([entree["identifiant"] for entree in liste] == [1, 7]
+               for liste in document.values())
+    assert document["rues"][0]["points"] == [[0, 0], [10, 0]]
+    assert document["batiments"][0]["nature"] == "atelier"
+    assert json.dumps(document, sort_keys=True) == json.dumps(b.to_dict(), sort_keys=True)
+    assert donnees == avant
+    document["rues"][0]["points"][0][0] = 999
+    assert a.to_dict() != document
+
+
+@pytest.mark.parametrize("liste,champ,valeur,message", [
+    *[("rues", "points", [(v, 0), (1, 0)], "points")
+      for v in (float("nan"), float("inf"), -float("inf"), True, "0", None)],
+    ("rues", "points", [(0, 0)], "points"),
+    ("rues", "points", [(0,), (1, 0)], "point"),
+    *[("rues", "largeur_m", v, "largeur_m")
+      for v in (0, -1, float("nan"), float("inf"), True, "4", None)],
+    ("parcelles", "contour", [(0, 0), (1, 0)], "contour"),
+    ("parcelles", "contour", [(0, 0), (1, True), (0, 1)], "contour"),
+    ("batiments", "emprise", [(0, 0), (1, 0)], "emprise"),
+    ("batiments", "emprise", [(0, 0), (1, 0), (0, float("nan"))], "emprise"),
+    *[("batiments", "nature", v, "nature") for v in ("", "  ", None, 42)],
+    ("batiments", "parcelle", 99, "parcelle"),
+    *[("batiments", "parcelle", v, "parcelle") for v in (True, "7", -1)],
+    *[(liste, "identifiant", v, "identifiant")
+      for liste in ("rues", "parcelles", "batiments") for v in (-1, True, "7", 1.5)],
+    *[(liste, "doublon", None, "double") for liste in ("rues", "parcelles", "batiments")],
+])
+def test_plan_refuse_un_seul_defaut(liste, champ, valeur, message):
+    from sim.plan import PlanInvalide
+
+    donnees = _donnees_plan()
+    assert _construire_plan(donnees).to_dict()
+    if champ == "doublon":
+        donnees[liste].append(copy.deepcopy(donnees[liste][0]))
+    else:
+        donnees[liste][0][champ] = valeur
+    with pytest.raises(PlanInvalide, match=message):
+        _construire_plan(donnees)
+
+
+def test_plan_relit_les_minimums(monkeypatch):
+    from sim.plan import PlanInvalide
+
+    for constante, message in (("POINTS_MIN_RUE", "points"), ("POINTS_MIN_CONTOUR", "contour")):
+        with monkeypatch.context() as contexte:
+            contexte.setattr(_constantes, constante, getattr(_constantes, constante) + 1)
+            with pytest.raises(PlanInvalide, match=message):
+                _construire_plan(_donnees_plan())
+
+
+@pytest.mark.parametrize("liste", ["rues", "parcelles", "batiments"])
+@pytest.mark.parametrize("valeur", [None, (), [None]])
+def test_plan_refuse_une_liste_absente_ou_un_element_invalide(liste, valeur):
+    from sim.plan import Plan, PlanInvalide
+
+    with pytest.raises(PlanInvalide, match=liste):
+        Plan(**{liste: valeur})
+
+
+def test_plan_refuse_un_defaut_ajoute_apres_construction():
+    from sim.plan import PlanInvalide
+
+    plan = _construire_plan(_donnees_plan())
+    plan.rues.append(plan.rues[0])
+    with pytest.raises(PlanInvalide, match="double"):
+        plan.to_dict()
+    plan = _construire_plan(_donnees_plan())
+    plan.rues[0].points[0] = (float("nan"), 0)
+    with pytest.raises(PlanInvalide, match="points"):
+        plan.to_dict()
+
+
+def test_plan_accepte_des_metres_locaux_sans_borne_inventee():
+    donnees = _donnees_plan()
+    donnees["rues"][0]["points"] = [(-1e12, -1e12), (1e12, 1e12)]
+    donnees["batiments"][0]["emprise"] = [(-100, -100), (-90, -100), (-100, -90)]
+    document = _construire_plan(donnees).to_dict()
+    assert document["rues"][0]["points"] == [[-1e12, -1e12], [1e12, 1e12]]
+    assert document["batiments"][0]["emprise"][0] == [-100, -100]

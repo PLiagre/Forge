@@ -78,7 +78,8 @@ des sources : une scène inchangée est réutilisée, `--force` impose la recons
 |---|---|
 | `recette.json` | contexte et deux implantations : **Ksar des Sept Puits** (1433), **Oued des Vents** (2851) |
 | `textures.py` | palette procédurale : pisé à banchées et trous de boulins, grès en bancs, sable ridé, zellige, palmes, tissus |
-| `assets.py` | les 49 modules et leurs trois niveaux de détail |
+| `assets.py` | les modules et leurs trois niveaux de détail |
+| `kit.py` | modules ajoutés sans reconstruction, leurs plafonds de triangles et leur jugement |
 | `urbanisme.py` | îlots mitoyens du ksar et du bourg |
 | `paysage.py` | relief, oued, dunes, guelta, rues, jardins |
 | `terrain.py` | la ville : `paysage.field` échantillonné pour un Unity Terrain |
@@ -89,6 +90,61 @@ des sources : une scène inchangée est réutilisée, `--force` impose la recons
 
 Les dunes et les buttes lointaines portent une couleur et des normales calculées
 depuis leur propre relief (faces d'avalanche plus sombres, rides éoliennes).
+
+## Ajouter un module au kit : `kit`
+
+```powershell
+py 3d/local3d/atelier_desert.py kit      # Unity fermé
+```
+
+Ajoute les seuls modules de `kit.NOUVEAUX` (lot 266 : `scierie`, `four_pain_pise`)
+sans reconstruire le kit : Blender les fabrique par le même chemin que la
+bibliothèque (`fabriquer.py kit`), refuse un module au-dessus de son plafond ou
+portant un matériau hors catalogue, puis réécrit `catalogue.json` en reprenant les
+anciens enregistrements tels quels ; Unity en fait des prefabs à trois LOD avec les
+matériaux existants (`DesertKit.cs`) et les mesure ; `kit.juger` décide et écrit
+`sorties/kit/jugement.json`. `Kit_Desert.blend`, les anciens FBX et prefabs et les
+scènes ne bougent pas : leurs empreintes sont comparées avant et après, une fois
+tous les effets passés. La commande rejoue `verifier` sur les deux implantations,
+et son résultat entre au jugement ; les rapports que le vérificateur réécrit sont
+remis tels qu'ils étaient. La planche `sorties/diagnostic/kit_ateliers.png` montre
+les nouveaux modules : `inspecter_kit.py` tourne tel quel dans un banc d'essai
+(`sorties/cache/planche/`) dont la bibliothèque est `sorties/cache/kit_nouveaux.blend`,
+tant qu'une reconstruction complète ne les a pas fait entrer dans `Kit_Desert.blend`.
+
+Le lot 269 y ajoute les **étapes de chantier** de `maison_pise_0`, de la scierie
+et du four (`kit.CHANTIERS`) : `chantier_<fini>_piquets` (piquets et cordeau) puis
+`chantier_<fini>_murs` (murs à mi-hauteur, perches, planches sur boulins, échelle).
+Leur emprise se tire des sommets du bâtiment fini (`assets.emprise`), jamais d'un
+nombre recopié. Le catalogue déclare leur ordre dans une clé à part, `chantiers`,
+après `materials` : `{"maison_pise_0": [piquets, murs, "maison_pise_0"], …}`
+(`kit.suite`). Unity mesure l'enveloppe du LOD0 de chaque étape et celle du bâtiment
+fini (le prefab de `maison_pise_0`, déjà là, est seulement chargé : `references`
+de `selection.json`) ; `kit.juger` vérifie l'emprise, les hauteurs et la suite. La
+planche `sorties/diagnostic/kit_chantiers.png` montre les six étapes.
+
+Le lot 270 fait voir ce qu'Unity affichera : `sorties/diagnostic/kit_chantiers_unity.png`,
+une rangée par bâtiment de `kit.CHANTIERS` (maison, scierie, four), trois colonnes
+(piquets, murs, fini), rendue avec les prefabs et les matériaux d'Unity. Python
+écrit les rangées dans `selection.json` (`planche`, d'après `kit.suite`) ;
+`DesertKit.Planche` ouvre une scène neuve qu'il n'enregistre jamais (une lumière,
+une caméra au fond uni, pas de sol), rend chaque prefab seul, LOD0 forcé, avec un
+cadrage de trois quarts depuis la façade calé sur le bâtiment fini de sa rangée :
+les trois étapes se comparent à la même échelle. Le rapport donne la place de chaque
+case. L'image est effacée avant Unity, puis relue ; `kit.juger_planche` refuse
+(défaut `planche`) une image absente, uniforme ou d'autres dimensions que le
+rapport, des cases qui ne sont pas exactement les étapes des chantiers à leur
+place, sans renderer actif, hors de l'image ou qui se chevauchent, un rectangle
+qui n'est pas dans la rangée et la colonne qu'il déclare (plus bas pour une
+rangée plus loin, plus à droite pour une colonne plus loin), une case qui n'a que
+son fond, et une scène du rendu non renseignée (seule une chaîne vide prouve la
+scène jamais enregistrée). Une scène enregistrée pour le rendu, ou toute scène
+apparue sous `unity/Assets/`, est un défaut `empreinte`.
+
+Pour ajouter un module : l'écrire dans `assets.py`, à la fin de `jobs()`, puis
+l'inscrire dans `kit.py` (`NOUVEAUX` et `PLAFONDS`, le seul endroit du budget).
+`edition --asset` ne le connaît qu'après la prochaine reconstruction complète
+(`fabriquer --force`), qui le fait entrer dans `Kit_Desert.blend`.
 
 ## Vérification
 
