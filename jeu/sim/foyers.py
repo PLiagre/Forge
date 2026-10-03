@@ -69,3 +69,55 @@ def repartir(habitants_par_metier, population):
                       key=lambda metier: (-habitants_par_metier[metier], metier))
     parts[majoritaire] += population - sum(parts.values())
     return {metier: n for metier, n in parts.items() if n > 0}
+
+
+def au_prorata(n, habitants_par_metier):
+    """Parts entières, puis une personne aux plus forts restes. Somme exacte `n`."""
+    _entier(n, "Nombre de personnes")
+    if n == 0:
+        return {}
+    if not habitants_par_metier or sum(habitants_par_metier.values()) <= 0:
+        raise FoyersInvalides("Aucun métier pour répartir des personnes")
+    somme = sum(habitants_par_metier.values())
+    parts = {}
+    for metier, compte in habitants_par_metier.items():
+        quotient = n * compte // somme
+        if quotient > 0:
+            parts[metier] = quotient
+    restant = n - sum(parts.values())
+    ordre = sorted(
+        habitants_par_metier,
+        key=lambda metier: (-(n * habitants_par_metier[metier] % somme), metier),
+    )
+    for metier in ordre[:restant]:
+        parts[metier] = parts.get(metier, 0) + 1
+    return parts
+
+
+def retirer(habitants_par_metier, n):
+    """Retire `n` personnes au prorata. Un métier tombé à zéro disparaît."""
+    _entier(n, "Retrait")
+    if n == 0:
+        return dict(habitants_par_metier)
+    somme = sum(habitants_par_metier.values())
+    if n > somme:
+        raise FoyersInvalides(f"Retrait de {n} supérieur à la somme {somme}")
+    parts = au_prorata(n, habitants_par_metier)
+    return {
+        metier: compte - parts.get(metier, 0)
+        for metier, compte in habitants_par_metier.items()
+        if compte > parts.get(metier, 0)
+    }
+
+
+def ajouter(habitants_par_metier, n):
+    """Ajoute `n` personnes au prorata. Sans métier, ce sont des paysans."""
+    _entier(n, "Ajout")
+    if n == 0:
+        return dict(habitants_par_metier)
+    if not habitants_par_metier:
+        return {_constantes.METIER_PAYSANS: n}
+    resultat = dict(habitants_par_metier)
+    for metier, part in au_prorata(n, habitants_par_metier).items():
+        resultat[metier] = resultat[metier] + part
+    return resultat
