@@ -42,7 +42,7 @@ Elle écrit cinq fichiers :
 
 ```
 sortie/monde.json      la photographie — la seule source des trois vues
-sortie/carte.png       la statistique en plan, coloriée par une grandeur
+sortie/carte.png       la carte de 1400 — densités, frontières, villes, terre choisie et sa fiche
 sortie/tableau.svg     le tableau de bord, en preuve dessinée
 sortie/planche.html    la chronique : la suite des instants
 sortie/resume.json     ce que la commande a mesuré
@@ -68,7 +68,7 @@ Deux nombres à lire en premier :
 Options utiles :
 
 ```bash
---lecture faim          la grandeur que la carte montre
+--lecture faim          la grandeur des vues (par défaut : densité pour la carte, population pour le tableau)
 --pas 15                un instant de chronique tous les N ticks
 --sans-chronique        sauter la planche : elle rejoue le monde, donc le paie deux fois
 --largeur 1400          finesse du raster de la carte
@@ -122,7 +122,7 @@ Six lectures :
 | lecture | ce qu'elle montre | échelle |
 |---|---|---|
 | `population` | habitants par cellule | par rang |
-| `densite` | habitants au km² | par rang |
+| `densite` | densité en habitants au km², lue dans la photographie | par rang |
 | `nourriture` | stock de nourriture, en kg | par rang |
 | `faim` | ticks de faim consécutifs | linéaire |
 | `dette` | dette alimentaire par habitant | logarithme |
