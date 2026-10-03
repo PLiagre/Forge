@@ -30,7 +30,8 @@ from sim.aggregation import (
 )
 from sim import constants as _constants
 from sim.constants import SNAPSHOT_FLOAT_DECIMALS, SNAPSHOT_SCHEMA_VERSION
-from sim.model import cellule_vers_dict
+from sim.model import cellule_vers_dict, copier_panier
+from sim.lieux import lieux_de_cellule
 from sim.maisons import charger_maisons, maisons_depuis_monde
 from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
 from sim.seigneuries import SeigneurieInconnue, fiche_de_seigneurie
@@ -229,6 +230,9 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
         if province_id is None or province_name is None:
             raise SnapshotExportError(f"province absente pour cell_id={cid}")
         repartition = repartition_bourg_de_cellule_consultation(cid, repartitions_bourg)
+        vue_lieux = lieux_de_cellule(cid, cell.area_km2)
+        if len(cell.lieux) != len(vue_lieux):
+            raise SnapshotExportError(f"nombre de lieux incohérent pour cell_id={cid}")
         cells_out.append(
             {
                 "area_km2": cell.area_km2,
@@ -245,6 +249,11 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
                 "province": {"id": int(province_id), "name": province_name},
                 "relief": raw.get("relief"),
                 "stocks": cellule_vers_dict(cell)["stocks"],
+                "lieux": [
+                    {"rang": lieu.rang, "surface_km2": vue_lieux[lieu.rang].surface_km2,
+                     "population": lieu.population, "stocks": copier_panier(lieu)}
+                    for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
+                ],
                 "bourg": {
                     "habitants_du_bourg": repartition.habitants_du_bourg,
                     "habitants_des_champs": repartition.habitants_des_champs,
@@ -298,7 +307,11 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
     }
     if hasattr(_constants, "jour_de_tick"):
         document["jour_de_tick"] = _constants.jour_de_tick(int(tick))
-    return _round_tree(document)
+    photographie = _round_tree(document)
+    # Les restes des lieux gardent leur précision de conservation.
+    for cellule, source in zip(photographie["cells"], cells_out):
+        cellule["lieux"] = source["lieux"]
+    return photographie
 
 
 def serialize_snapshot(document: dict) -> bytes:
