@@ -33,7 +33,14 @@ Les nouvelles vues se calculent **après** l'appel existant à `agregat_depuis_m
 
 Le monde n'est jamais modifié : `world.to_dict()` est identique avant et après la photographie. **Le tick ne lit rien de tout cela.**
 
-**Version.** `SNAPSHOT_SCHEMA_VERSION` passe de `"v0a-5"` à `"v0a-6"` dans `sim/constants.py`. Le tableau la compare à la constante, aucun test ne fige la valeur.
+**Version — correction après CI rouge.** `SNAPSHOT_SCHEMA_VERSION` reste
+`"v0a-5"` dans `sim/constants.py`, avec les six nouvelles clés décrites ici.
+Le tableau la compare à la constante, mais
+`sim/tests/test_aridite.py::test_sonde_voit_la_couche_pluie` fige déjà
+`"v0a-5"`. L'affirmation initiale « aucun test ne fige la valeur » était
+fausse. La consigne de correction « Corrige la cause, jamais le test »
+prime sur le passage initialement demandé à `"v0a-6"` : on conserve le
+contrat existant, sans modifier ce test ni contourner sa comparaison.
 
 **La chronique.** `vues/chronique/capture.py` découpe la photographie en décor (les champs fixes) et en images (les champs que le tick fait bouger). Elle **mesure** ces champs : `test_les_champs_mobiles_sont_mesures_et_pas_declares` rougit si un champ bouge sans être dans `CHAMPS_MOBILES`. La densité suit la population, donc elle bouge. Le codeur ajoute `"densite_hab_par_km2"` à `CHAMPS_MOBILES`. Dans `_image_du_monde`, il ajoute une branche qui l'obtient par `densite_de_cellule`, arrondie par `_round_tree`. Puissance, maison et villes ne bougent pas : elles vont dans le décor. La chronique rejoue un monde sans choix, donc sa `terre_choisie` reste `null` (voir Hors périmètre).
 
@@ -45,8 +52,8 @@ Le monde n'est jamais modifié : `world.to_dict()` est identique avant et après
 - niveau 3, pas simulé : frontières réelles, suzeraineté, villes hors carte (déclarées, pas placées).
 
 ### Ce que le codeur écrit
-1. **`jeu/sim/snapshot_export.py`** : `densite_de_cellule`, les quatre clés de cellule, `villes_hors_carte`, `terre_choisie` (une fonction privée qui sérialise la `Fiche`), la conversion des refus. La docstring du module dit « schéma v0a-6 ». Aucun littéral numérique hors {0, 1, −1} (`test_no_hardcoded.py`).
-2. **`jeu/sim/constants.py`** : `SNAPSHOT_SCHEMA_VERSION = "v0a-6"`.
+1. **`jeu/sim/snapshot_export.py`** : `densite_de_cellule`, les quatre clés de cellule, `villes_hors_carte`, `terre_choisie` (une fonction privée qui sérialise la `Fiche`), la conversion des refus. La docstring du module dit « schéma v0a-5 ». Aucun littéral numérique hors {0, 1, −1} (`test_no_hardcoded.py`).
+2. **`jeu/sim/constants.py`** : `SNAPSHOT_SCHEMA_VERSION = "v0a-5"`.
 3. **`jeu/vues/chronique/capture.py`** : `"densite_hab_par_km2"` dans `CHAMPS_MOBILES`, et sa branche dans `_image_du_monde`.
 4. **`jeu/sim/MODELE.md`** : la phrase corrigée et la section décrite plus haut.
 5. **`jeu/sim/README.md`** : la phrase sur `--snapshot-json` nomme puissance, maison, densité, villes et terre choisie.
@@ -69,7 +76,7 @@ docs/briefs/212-la-photographie-porte-le-monde-de-1400.md
 Toutes les commandes se lancent depuis `jeu/`, sauf mention contraire. Aucun identifiant, nom de ville ou compte n'est écrit en dur dans un test : tout se dérive des vues (`puissances_depuis_monde`, `maisons_depuis_monde`, `attribuer_villes`, `charger_seigneuries`, `fiche_de_seigneurie`). Chaque test imprime ses compteurs, et un échantillon vide échoue. Chaque contre-épreuve est prouvée rouge avant d'être gardée.
 
 **SC1 — le schéma s'élargit et reste fermé.** Commande : `python3 -m pytest sim/tests/test_monde.py -q -s -k "schema or sentinelle or photographie_1400"`.
-- `test_schema_ferme_et_couches` est vert, avec `_ROOT_KEYS` élargi de `terre_choisie` et `villes_hors_carte`, et `_CELL_KEYS` élargi de `puissance`, `maison`, `densite_hab_par_km2` et `villes`. **Chaque** cellule (pas seulement la première) a exactement `_CELL_KEYS`. `doc["schema_version"] == "v0a-6"` passe par la constante.
+- `test_schema_ferme_et_couches` est vert, avec `_ROOT_KEYS` élargi de `terre_choisie` et `villes_hors_carte`, et `_CELL_KEYS` élargi de `puissance`, `maison`, `densite_hab_par_km2` et `villes`. **Chaque** cellule (pas seulement la première) a exactement `_CELL_KEYS`. `doc["schema_version"] == "v0a-5"` passe par la constante.
 - Contre-épreuve en mémoire, comme pour `bourg` : une cellule privée de `villes`, ou augmentée d'une clé `owner`, ne vérifie plus `set(cellule) == _CELL_KEYS`.
 
 **SC2 — puissance et maison sont celles des vues, et l'absence s'écrit.** Commande : `python3 -m pytest sim/tests/test_monde.py -q -s -k photographie_1400_puissance`.

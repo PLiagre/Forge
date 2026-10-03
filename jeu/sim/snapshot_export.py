@@ -1,4 +1,4 @@
-"""Photographie déterministe du monde déjà simulé (schéma v0a-6).
+"""Photographie déterministe du monde déjà simulé (schéma v0a-5).
 
 Ce module ne recalcule aucune mécanique. Il joint ce que porte la carte
 figée (géométrie, relief, climat, gisements) à la province dérivée et à
