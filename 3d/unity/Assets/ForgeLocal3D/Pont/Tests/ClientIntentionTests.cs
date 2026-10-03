@@ -8,14 +8,12 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #291 — un faux service local rend un statut et des octets fixés, et retient la dernière
-    // requête ; le client relit le reçu tel quel, ou rend une absence qui nomme sa cause.
+    // Lot #291 — un faux service local rend un statut et des octets fixés et retient la dernière requête.
     public sealed class ClientIntentionTests
     {
         private const string Intention = "{\"type\":\"tracer_route\",\"cell\":9922,\"points\":[[0,0],[40,0],[40,25]],\"largeur_m\":4}";
         private const string Accepte = "{\"acceptee\":true,\"appliquee_au_tick\":7}";
-        private static readonly TimeSpan Delai = TimeSpan.FromSeconds(5);
-
+        private const int Ferme = 0, Muet = -1; // statuts fictifs : aucun faux service, ou un faux service qui ne répond pas
         private int port;
         private HttpListener ecoute;
         private Thread fil;
@@ -30,129 +28,79 @@ namespace Forge.Pont.Tests
             sonde.Stop();
             recue = null;
         }
-
         [TearDown]
         public void Fermer()
         {
             ecoute?.Close();
-            ecoute = null;
             fil?.Join(TimeSpan.FromSeconds(5));
-            fil = null;
+            (ecoute, fil) = (null, null);
         }
-
-        // `muet` : la requête est lue et retenue, jamais répondue (le délai doit dépasser).
-        private void Servir(int statut, string corps, bool muet = false)
+        // Retient chaque requête puis rend le statut et les octets fixés (`Muet` : jamais), jusqu'à Fermer qui fait lever GetContext.
+        private void Servir(int statut, string corps)
         {
-            byte[] octets = Encoding.UTF8.GetBytes(corps);
             var auditeur = ecoute = new HttpListener();
-            ecoute.Prefixes.Add("http://127.0.0.1:" + port + "/");
-            ecoute.Start();
-            fil = new Thread(() =>
-            {
-                try
-                {
-                    while (true)
-                    {
-                        HttpListenerContext contexte = auditeur.GetContext();
-                        var lu = new MemoryStream();
-                        contexte.Request.InputStream.CopyTo(lu);
-                        recue = Tuple.Create(contexte.Request.HttpMethod, contexte.Request.Url.AbsolutePath, lu.ToArray());
-                        if (muet) continue;
-                        contexte.Response.StatusCode = statut;
-                        contexte.Response.ContentLength64 = octets.Length;
-                        contexte.Response.OutputStream.Write(octets, 0, octets.Length);
-                        contexte.Response.OutputStream.Close();
-                    }
-                }
-                catch (Exception) { }
-            }) { IsBackground = true };
-            fil.Start();
+            auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/");
+            auditeur.Start();
+            (fil = new Thread(() => { try { while (true) Repondre(auditeur.GetContext(), statut, Encoding.UTF8.GetBytes(corps)); } catch (Exception) { } }) { IsBackground = true }).Start();
         }
-
-        private RecuIntention Deposer(int millisecondes = 5000)
+        private void Repondre(HttpListenerContext contexte, int statut, byte[] octets)
         {
-            using (var client = new ClientIntention(port, TimeSpan.FromMilliseconds(millisecondes))) return client.Deposer(Intention);
+            var lu = new MemoryStream(); contexte.Request.InputStream.CopyTo(lu);
+            recue = Tuple.Create(contexte.Request.HttpMethod, contexte.Request.Url.AbsolutePath, lu.ToArray());
+            if (statut == Muet) return;
+            contexte.Response.StatusCode = statut;
+            contexte.Response.Close(octets, true);
         }
+        private RecuIntention Deposer(int ms = 5000) { using (var client = new ClientIntention(port, TimeSpan.FromMilliseconds(ms))) return client.Deposer(Intention); }
 
-        private string Absence(int millisecondes = 5000)
+        // Un reçu se relit tel que le service l'écrit (le tick sans +1, la raison mot pour mot) ; l'intention arrive octet pour octet.
+        [TestCase(200, Accepte, 7L, null)]
+        [TestCase(400, "{\"acceptee\":false,\"erreur\":\"type d'intention inconnu : 'x'\"}", null, "type d'intention inconnu : 'x'")]
+        [TestCase(409, "{\"acceptee\":false,\"erreur\":\"départ déjà choisi : X\"}", null, "départ déjà choisi : X")]
+        public void UnRecuEstReluTelQueLeServiceLEcrit(int statut, string corps, long? tick, string raison)
         {
-            RecuIntention recu = Deposer(millisecondes);
-            Assert.IsFalse(recu.Presente || recu.Acceptee, "sans reçu, ni présent ni accepté");
-            Assert.IsTrue(recu.AppliqueeAuTick == null && recu.Statut == null && recu.Erreur == null);
-            StringAssert.StartsWith("intention : ", recu.Absence);
-            return recu.Absence;
-        }
-
-        [Test]
-        public void UnRecuAccepteEstReluExactementEtLIntentionArriveIntacte()
-        {
-            Servir(200, Accepte);
+            Servir(statut, corps);
             RecuIntention recu = Deposer();
-            Assert.IsTrue(recu.Presente && recu.Acceptee, recu.Absence);
-            Assert.IsTrue(recu.AppliqueeAuTick == 7, "le tick du service, sans +1 : " + recu.AppliqueeAuTick);
-            Assert.IsTrue(recu.Statut == 200 && recu.Erreur == null && recu.Absence == null);
-            Assert.AreEqual("POST", recue.Item1);
-            Assert.AreEqual("/intention", recue.Item2);
+            Assert.IsTrue(recu.Presente && recu.Acceptee == (statut == 200) && recu.Statut == statut && recu.Absence == null, recu.Absence);
+            Assert.AreEqual(tick, recu.AppliqueeAuTick, "le tick du service, sans +1");
+            Assert.AreEqual(raison, recu.Erreur, "la raison, mot pour mot");
+            Assert.AreEqual("POST /intention", recue.Item1 + " " + recue.Item2);
             CollectionAssert.AreEqual(Encoding.UTF8.GetBytes(Intention), recue.Item3, "l'intention arrive octet pour octet");
         }
 
-        [TestCase(400, "{\"acceptee\":false,\"erreur\":\"type d'intention inconnu : 'x'\"}", "type d'intention inconnu : 'x'")]
-        [TestCase(409, "{\"acceptee\":false,\"erreur\":\"départ déjà choisi : X\"}", "départ déjà choisi : X")]
-        public void UnRefusResteUnRefusAvecLaRaisonDuService(int statut, string corps, string raison)
+        // Statut et corps doivent dire la même chose, le tick être écrit exactement ; sinon pas de reçu.
+        [TestCase(200, "{\"acceptee\":false,\"erreur\":\"incohérent\"}", "200", "acceptee")]
+        [TestCase(200, "{\"acceptee\":true}", "200", "appliquee_au_tick")]
+        [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tick\":9007199254740990.5}", "200", "appliquee_au_tick")]
+        [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tick\":7.0000000000000001}", "200", "appliquee_au_tick")]
+        [TestCase(400, Accepte, "400", "acceptee")]
+        [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tick\":7", "200", "JSON invalide à la position")]
+        [TestCase(404, "{\"erreur\":\"chemin inconnu : '/x'\"}", "404", "{\"erreur\":\"chemin inconnu : '/x'\"}")]
+        [TestCase(Ferme, null, "service absent sur 127.0.0.1:<port>", "service absent")]
+        [TestCase(Muet, Accepte, "délai dépassé", "300 ms")]
+        public void SansRecuUneAbsenceNommeSaCause(int statut, string corps, string attendu, string cause)
         {
-            Servir(statut, corps);
-            RecuIntention recu = Deposer();
-            Assert.IsTrue(recu.Presente && !recu.Acceptee, recu.Absence);
-            Assert.IsTrue(recu.AppliqueeAuTick == null && recu.Statut == statut && recu.Absence == null);
-            Assert.AreEqual(raison, recu.Erreur, "la raison, mot pour mot");
-        }
-
-        // Statut et corps doivent dire la même chose ; un corps cassé ou un autre statut n'est pas un reçu.
-        [TestCase(200, "{\"acceptee\":false,\"erreur\":\"incohérent\"}", "acceptee")]
-        [TestCase(200, "{\"acceptee\":true}", "appliquee_au_tick")]
-        [TestCase(400, Accepte, "acceptee")]
-        [TestCase(200, "{\"acceptee\":true,\"appliquee_au_tick\":7", "JSON invalide à la position")]
-        [TestCase(404, "{\"erreur\":\"chemin inconnu : '/x'\"}", "{\"erreur\":\"chemin inconnu : '/x'\"}")]
-        public void UnCorpsQuiNeConcordePasEstUneAbsenceQuiNommeLeStatutEtLaCause(int statut, string corps, string cause)
-        {
-            Servir(statut, corps);
-            string absence = Absence();
-            StringAssert.Contains(statut.ToString(), absence);
-            StringAssert.Contains(cause, absence);
-        }
-
-        [Test]
-        public void UnPortFermeRendUneAbsenceQuiNommeLePort()
-        {
-            StringAssert.Contains("service absent sur 127.0.0.1:" + port, Absence());
-        }
-
-        [Test]
-        public void UnServiceMuetRendUneAbsenceDeDelaiDepasse()
-        {
-            Servir(200, Accepte, muet: true);
-            StringAssert.Contains("délai dépassé", Absence(300));
+            if (statut != Ferme) Servir(statut, corps);
+            RecuIntention recu = Deposer(statut == Muet ? 300 : 5000);
+            Assert.IsTrue(!recu.Presente && !recu.Acceptee && recu.AppliqueeAuTick == null && recu.Statut == null && recu.Erreur == null, "ni présent ni accepté");
+            StringAssert.StartsWith("intention : ", recu.Absence);
+            StringAssert.Contains(attendu.Replace("<port>", port.ToString()), recu.Absence);
+            StringAssert.Contains(cause, recu.Absence);
         }
 
         [Test]
         public void LesFautesDeLAppelantLeventAvantToutEnvoi()
         {
             Servir(200, Accepte);
-            using (var client = new ClientIntention(port, Delai))
+            using (var client = new ClientIntention(port, TimeSpan.FromSeconds(5)))
                 foreach (string faute in new[] { null, "[1]", "{" })
                     Assert.Throws<ArgumentException>(() => client.Deposer(faute));
             Assert.IsNull(recue, "aucune requête ne part pour une faute de l'appelant");
-            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientIntention(0, Delai));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientIntention(65536, Delai));
-        }
-
-        [Test]
-        public void UneFabriqueHorsDeSesBornesLeve()
-        {
-            Assert.Throws<ArgumentException>(() => RecuIntention.Refusee(404, "x"));
-            Assert.Throws<ArgumentException>(() => RecuIntention.Refusee(400, ""));
-            Assert.Throws<ArgumentException>(() => RecuIntention.Absente(""));
-            Assert.Throws<ArgumentException>(() => RecuIntention.AccepteeAu(-1));
+            foreach (int hors in new[] { 0, 65536 })
+                Assert.Throws<ArgumentOutOfRangeException>(() => new ClientIntention(hors, TimeSpan.FromSeconds(5)));
+            foreach (TestDelegate fabrique in new TestDelegate[] { () => RecuIntention.Refusee(404, "x"), () => RecuIntention.Refusee(400, ""),
+                () => RecuIntention.Absente(""), () => RecuIntention.AccepteeAu(-1) })
+                Assert.Throws<ArgumentException>(fabrique);
         }
     }
 }
