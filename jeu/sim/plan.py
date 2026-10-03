@@ -38,8 +38,11 @@ class Rue:
     identifiant: int
     points: list[tuple[float, float]]
     largeur_m: float
+    en_chantier: bool = False
 
     def __post_init__(self):
+        if not isinstance(self.en_chantier, bool):
+            raise PlanInvalide("rue.en_chantier : booléen attendu")
         _identifiant(self.identifiant, "rue.identifiant")
         _points(self.points, _constantes.POINTS_MIN_RUE, "rue.points")
         _nombre_fini(self.largeur_m, "rue.largeur_m")

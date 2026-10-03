@@ -22,8 +22,9 @@ part. À chaque tick, dans cet ordre :
 1. **Validation du numéro de tick** (`_valider_numero_tick`) — lorsqu'un
    `numero_tick` est fourni, il doit être égal à `world.ticks_ecoules` ; le
    tick refuse tout écart avant la première mutation.
-2. **Intentions** (`_appliquer_intentions`) — les choix validés en attente
-   deviennent la maison du joueur, sans cellule ni aléa.
+2. **Intentions** (`_appliquer_intentions`) — les intentions en attente
+   s'appliquent dans l'ordre du dépôt : un choix de départ devient la maison
+   du joueur, une route entre au plan en chantier ; sans cellule ni aléa.
 3. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sur place et sans occuper de bras.
@@ -1382,9 +1383,15 @@ puissances, ses maisons, l'amorçage, la carte et le tick restent identiques.
 
 ## Les intentions du joueur
 
+`recevoir_intention` de `sim/intentions.py` est l'entrée commune de
+`POST /intention` et `python3 -m sim --gestes`, que prendra aussi l'IA.
+La liste est fermée : `choisir_depart` appelle `deposer_intention`,
+`tracer_route` dépose une route ; tout autre type, même absent, lève
+`IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
+
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
-`POST /intention` ou `python3 -m forge --depart ID`. Les deux appellent
-`deposer_intention` de `sim/intentions.py`, chemin que prendra aussi l'IA.
+`POST /intention`. `python3 -m forge --depart ID` continue d'appeler
+directement `deposer_intention`, dont le comportement ne change pas.
 La table se lit par `charger_seigneuries()` ; `cellule_du_siege` vérifie
 que le siège est dans la carte. Aucune cellule ni aucun plan ne change.
 
@@ -1397,8 +1404,10 @@ Le dépôt refuse avant toute mise en attente, par `IntentionRefusee` :
 Le choix accepté est un `ChoixDepart(identifiant)` gelé, placé dans
 `World.intentions_en_attente`. Il reste invisible dans `to_dict()` et les
 vues. Au tick suivant, `_appliquer_intentions` vient après la validation du
-numéro et avant la fabrication : elle vide la liste dans l'ordre et pose
-`maison_du_joueur`. Un numéro invalide laisse donc le choix en attente.
+numéro et avant la fabrication : elle appelle chaque intention par
+`.appliquer(monde)` dans l'ordre du dépôt, puis vide la liste.
+`ChoixDepart.appliquer` pose `maison_du_joueur`.
+Un numéro invalide laisse donc les intentions en attente.
 Cette étape ignore les mondes d'épreuve, ne tire aucun aléa et ne lit ni
 n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
 
@@ -1408,11 +1417,39 @@ et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
 
-Le service dépose sous `verrou_tick`. Il répond 200 avec
-`{"acceptee": true, "appliquee_au_tick": <tick publié>}`, 400 pour une terre
-inconnue ou mal formée, 409 pour un second choix, avec la cause du refus.
-**Lacune déclarée :** tout autre objet reste accepté sans effet ; la liste
-fermée des intentions viendra avec la deuxième intention.
+Une route se dépose avec exactement `{"type": "tracer_route", "cell": X,
+"points": [[x, y], …], "largeur_m": L}`. Un champ absent ou supplémentaire
+est refusé. `cell` est un entier présent dans `World.plans`, sans booléen ;
+toute cellule de la carte convient. La construction d'une `Rue` vérifie
+points et largeur selon le contrat du plan ; un `PlanInvalide` devient
+`IntentionRefusee("route invalide : <raison>")`. Le dépôt accepté est un
+`TraceRoute(cell_id, points, largeur_m)` gelé, aux points copiés en tuples.
+L'attente ne change ni les cellules, ni les plans, ni `to_dict()`.
+
+`TraceRoute.appliquer` reconstruit le plan avec une rue en chantier. Son
+identifiant est le maximum des identifiants de rue, ou −1 si le plan est
+vide, plus un. Les dépôts sur la même cellule se suivent donc sans collision.
+L'écriture vit dans `sim/intentions.py` ; le moteur ne lit pas le plan.
+La route ne consomme aucun aléa et ne lit ni n'écrit aucune cellule : mêmes
+gestes et même graine donnent le même monde ; sans geste, les plans restent
+vides et l'empreinte reste celle d'avant.
+
+Le service dépose tout objet JSON sous `verrou_tick`. Il répond 200 avec
+`{"acceptee": true, "appliquee_au_tick": <tick publié>}`, 400 pour une intention
+inconnue ou mal formée, 409 pour un second choix. Tout refus, y compris un
+corps illisible ou qui n'est pas un objet, rend
+`{"acceptee": false, "erreur": "<raison>"}` sans avancer ni republier le monde.
+
+`python3 -m sim --gestes FICHIER` lit une liste JSON d'entrées
+`{"tick": t, "intention": {…}}` : les intentions du tick `t` se déposent dans
+l'ordre du fichier juste avant ce tick, qui les applique. Les ticks doivent
+être entiers, sans booléen, non négatifs, croissants ou égaux, et inférieurs
+à `--ticks`. Sinon, ou si le fichier est illisible, n'est pas une liste,
+manque un champ, ou contient une intention refusée, la commande rend 2 avec
+la raison sur stderr (et le rang de l'entrée pour une intention refusée).
+Elle n'écrit alors ni `--monde-json`, ni `--snapshot-json`.
+`--monde-json FICHIER` écrit `World.to_dict()` final en JSON canonique : clés
+triées, UTF-8, `ensure_ascii=False`, séparateurs compacts.
 
 `--depart` est entier et répétable : chaque valeur se dépose dans l'ordre
 avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
@@ -1531,7 +1568,8 @@ directement reçoit un plan vide par cellule, sans tirage ni choix de capitale.
 négatif et unique dans sa liste :
 
 - `rues` : `identifiant`, `points` (au moins `POINTS_MIN_RUE = 2`),
-  `largeur_m` finie et strictement positive ;
+  `largeur_m` finie et strictement positive, `en_chantier` booléen (faux par
+  défaut, vrai pour une route déposée ; tout autre type est refusé) ;
 - `parcelles` : `identifiant`, `contour` (au moins `POINTS_MIN_CONTOUR = 3`) ;
 - `batiments` : `identifiant`, `parcelle` (identifiant d'une parcelle du même
   plan), `nature` (texte non vide), `emprise` (au moins `POINTS_MIN_CONTOUR`).
@@ -1546,7 +1584,8 @@ cellule ne sont pas simulées.
 
 Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
 en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
-son plan. Le tick ne le lit pas et ne l'écrit pas : toutes les règles
+son plan. Aucune règle du tick ne le lit ; seule l'étape Intentions y ajoute
+une rue en chantier. Toutes les règles
 existantes et l'évolution des cellules restent identiques au bit près.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
@@ -1559,8 +1598,12 @@ inchangés.
 La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
 vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
 et forme du bourg dans la cellule, effet des rues et bâtiments sur le monde,
-gestes qui remplissent le plan, inclusion d'une emprise dans une parcelle et
-croisements des tracés. Aucun bras, coût ou transport n'en est encore dérivé.
+gestes de parcelle et de bâtiment, inclusion d'une emprise dans une parcelle
+et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
+son coût, les bras pris aux champs, son achèvement, la restriction à la
+capitale, les bornes et les doublons restent de niveau 3, non simulés.
+Aucune règle ne fait passer une rue en chantier à achevée et aucun flux
+ne découle encore de son tracé.
 
 ---
 
