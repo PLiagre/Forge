@@ -48,6 +48,8 @@ _ROOT_KEYS = {
     "couches",
     "cells",
     "jour_de_tick",
+    "terre_choisie",
+    "villes_hors_carte",
 }
 _CELL_KEYS = {
     "cell_id",
@@ -64,6 +66,10 @@ _CELL_KEYS = {
     "climat",
     "gisements",
     "relief",
+    "puissance",
+    "maison",
+    "densite_hab_par_km2",
+    "villes",
 }
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -3149,3 +3155,170 @@ def test_plan_service_publie_le_monde_et_ne_bloque_pas_la_lecture():
         serveur.shutdown()
         serveur.server_close()
         fil.join(timeout=5)
+
+
+# --- Lot 212 : la photographie porte les vues de 1400 ---
+from sim.maisons import charger_maisons, maisons_depuis_monde
+from sim.puissances import charger_table, puissances_depuis_monde, PuissanceInvalide
+from sim.seigneuries import charger_seigneuries, fiche_de_seigneurie, SeigneurieInconnue
+from sim.snapshot_export import _round_tree
+from sim.villes import attribuer_villes, charger_villes
+
+
+def _photographie_1400(monde=None, numero_tick=0):
+    monde = World.charger(0) if monde is None else monde
+    doc = build_snapshot_document(monde, 0, numero_tick)
+    assert doc["cell_count"] == len(monde.cells) > 0, "échantillon vide"
+    return monde, doc
+
+
+def test_photographie_1400_schema():
+    _, doc = _photographie_1400()
+    assert set(doc) == _ROOT_KEYS
+    assert doc["schema_version"] == SNAPSHOT_SCHEMA_VERSION
+    for cellule in doc["cells"]:
+        assert set(cellule) == _CELL_KEYS
+    for cle, valeur in (("villes", None), ("owner", 0)):
+        sonde = dict(doc["cells"][0])
+        if cle == "villes":
+            del sonde[cle]
+        else:
+            sonde[cle] = valeur
+        with pytest.raises(AssertionError):
+            assert set(sonde) == _CELL_KEYS
+    print(f"cellules_vérifiées={doc['cell_count']}")
+
+
+def test_photographie_1400_puissance(monkeypatch):
+    monde, doc = _photographie_1400()
+    puissances, maisons = puissances_depuis_monde(monde), maisons_depuis_monde(monde)
+    noms_p = {p.id: p.nom for p in charger_table().puissances}
+    noms_m = {m.id: m.nom for m in charger_maisons().maisons}
+
+    def comparer(document):
+        for cellule in document["cells"]:
+            cid = cellule["cell_id"]
+            for cle, vue, noms in (("puissance", puissances, noms_p), ("maison", maisons, noms_m)):
+                identifiant = vue[cid]
+                assert cellule[cle] == (None if identifiant is None else {"id": identifiant, "nom": noms[identifiant]})
+            if puissances[cid] is None:
+                assert cellule["maison"] is None
+
+    comparer(doc)
+    non_couvertes = sum(p is None for p in puissances.values())
+    avec_maison = sum(m is not None for m in maisons.values())
+    sans_maison = sum(puissances[cid] is not None and m is None for cid, m in maisons.items())
+    natures = {p.id: p.nature for p in charger_table().puissances}
+    assert all(natures[puissances[cid]] in {"république", "Église", "ordre"}
+               for cid, m in maisons.items() if puissances[cid] is not None and m is None)
+    assert non_couvertes > 0 and sans_maison > 0 and avec_maison > 0
+    assert non_couvertes + avec_maison + sans_maison == doc["cell_count"]
+    monkeypatch.setattr("sim.snapshot_export.puissances_depuis_monde", lambda monde, **kw: dict.fromkeys(monde.cells))
+    with pytest.raises(AssertionError):
+        comparer(_photographie_1400(monde)[1])
+    print(f"couvertes={doc['cell_count'] - non_couvertes}, non_couvertes={non_couvertes}, "
+          f"avec_maison={avec_maison}, sans_maison_par_nature={sans_maison}")
+
+
+def test_photographie_1400_densite():
+    import random
+    from sim.engine import tick
+
+    monde, doc = _photographie_1400()
+    rng = random.Random(0)
+    for numero in range(3):
+        tick(monde, rng, numero)
+    apres = _photographie_1400(monde, 3)[1]
+    for photographie in (doc, apres):
+        for cellule in photographie["cells"]:
+            assert cellule["densite_hab_par_km2"] == _round_tree(cellule["population"] / cellule["area_km2"])
+        assert len({c["densite_hab_par_km2"] for c in photographie["cells"]}) >= 2
+    cellule = apres["cells"][0]
+    monde.cells[cellule["cell_id"]].population += 1
+    sonde = _photographie_1400(monde, 3)[1]["cells"][0]
+    with pytest.raises(AssertionError):
+        assert sonde["densite_hab_par_km2"] == cellule["densite_hab_par_km2"]
+    print(f"densités_vérifiées={len(doc['cells']) + len(apres['cells'])}, ticks_joués={apres['tick']}")
+
+
+def test_photographie_1400_villes():
+    monde, doc = _photographie_1400()
+    villes = charger_villes()
+    carte = {**monde.carte_meta, "cellules": [monde.carte[c] for c in sorted(monde.carte)]}
+    attribution = attribuer_villes(carte, villes)
+    attendus = {v.nom for v in villes}
+    assert attendus and attribution.placees and attribution.hors_carte, "échantillon vide"
+
+    def comparer(document):
+        noms = [v["nom"] for c in document["cells"] for v in c["villes"]] + document["villes_hors_carte"]
+        assert set(noms) == attendus
+        assert len(noms) == len(set(noms))
+
+    comparer(doc)
+    for cellule in doc["cells"]:
+        assert cellule["villes"] == sorted(
+            [{"nom": v.nom, "population": v.population} for v in villes
+             if attribution.placees.get(v.nom) == cellule["cell_id"]], key=lambda v: v["nom"])
+    assert doc["villes_hors_carte"] == sorted(attribution.hors_carte)
+    sonde = copy.deepcopy(doc)
+    next(c for c in sonde["cells"] if c["villes"])["villes"].pop()
+    with pytest.raises(AssertionError):
+        comparer(sonde)
+    print(f"villes_placées={len(attribution.placees)}, hors_carte={len(attribution.hors_carte)}")
+
+
+def test_photographie_1400_terre():
+    import random
+    from sim.engine import tick
+    from sim.intentions import deposer_intention
+
+    monde, doc = _photographie_1400()
+    assert doc["terre_choisie"] is None
+    terres = charger_seigneuries()
+    assert terres, "échantillon vide"
+    bar = next(s for s in terres if s.nom == "Duché de Bar")
+    moree = next(s for s in terres if "Morée" in s.nom)
+    deposer_intention(monde, {"type": "choisir_depart", "seigneurie": bar.id})
+    tick(monde, random.Random(0), 0)
+    avant = copy.deepcopy(monde.to_dict())
+    doc = _photographie_1400(monde, 1)[1]
+    assert monde.to_dict() == avant
+    fiche = fiche_de_seigneurie(bar.id, monde)
+    assert fiche.voisins, "échantillon de voisins vide"
+    assert doc["terre_choisie"] == _round_tree({
+        "id": bar.id, "nom": bar.nom, "religion": bar.religion, "maison": bar.maison,
+        "siege": {"nom": bar.siege.nom, "lat": bar.siege.lat, "lon": bar.siege.lon}, "source": bar.source,
+        "cell_id": fiche.cell_id, "habitants": fiche.habitants, "production_kg_par_tick": fiche.production_kg_par_tick,
+        "suzerain": {"id": fiche.suzerain.id, "nom": fiche.suzerain.nom},
+        "maison_du_suzerain": None if fiche.maison is None else {"id": fiche.maison.id, "nom": fiche.maison.nom},
+        "cellules_du_suzerain": fiche.cellules_du_suzerain, "habitants_du_suzerain": fiche.habitants_du_suzerain,
+        "voisins": [{"cell_id": v.cell_id, "puissance": None if v.puissance is None else {"id": v.puissance.id, "nom": v.puissance.nom},
+                     "habitants": v.habitants} for v in fiche.voisins],
+    })
+    jumeau = World.charger(0)
+    tick(jumeau, random.Random(0), 0)
+    sans = _photographie_1400(jumeau, 1)[1]
+    assert sans.pop("terre_choisie") is None
+    doc.pop("terre_choisie")
+    assert doc == sans
+    monde.maison_du_joueur = moree.id
+    with pytest.raises(AssertionError):
+        assert _photographie_1400(monde, 1)[1]["terre_choisie"]["cell_id"] == fiche.cell_id
+    monde.maison_du_joueur = max(s.id for s in terres) + 1
+    with pytest.raises(SnapshotExportError, match="seigneurie inconnue"):
+        _photographie_1400(monde, 1)
+    print(f"terres_lues={len(terres)}, voisins_vérifiés={len(fiche.voisins)}, jumeaux_comparés={len((doc, sans))}")
+
+
+@pytest.mark.parametrize("fonction,erreur", [("charger_table", PuissanceInvalide),
+                                               ("fiche_de_seigneurie", SeigneurieInconnue),
+                                               ("attribuer_villes", ValueError)])
+def test_photographie_1400_refus(monkeypatch, fonction, erreur):
+    monde = World.charger(0)
+    monde.maison_du_joueur = charger_seigneuries()[0].id
+    def refuser(*args, **kwargs):
+        raise erreur("donnée refusée par la vue")
+    monkeypatch.setattr(f"sim.snapshot_export.{fonction}", refuser)
+    with pytest.raises(SnapshotExportError, match="donnée refusée par la vue"):
+        _photographie_1400(monde)
+    print(f"vue={fonction}, cellules={len(monde.cells)}")
