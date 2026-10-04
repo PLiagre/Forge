@@ -262,6 +262,14 @@ seules sur un lot, la suivante lui va aussi. Pour revenir sur une décision :
 bloquer le lot, écrire sa réponse, puis remettre « pret ». Le 3 octobre 2026, le propriétaire
 répondait toujours la recommandée, et trois jalons attendaient ses lettres.
 
+Chaque décision suit le lot jusqu'au bout : la réponse du propriétaire à une
+question, ou la décision prise seule, est relue sur l'issue à chaque passage
+et donnée au codeur et au relecteur, avec le brief. Elle prime sur lui là où
+il la contredit (un fichier qu'elle autorise entre dans le Périmètre), et ni un
+blocage ni une reprise ne l'efface. Le 3 octobre 2026, #235 avait l'accord du
+propriétaire pour toucher la chronique, mais le brief l'excluait encore, et
+le lot s'est bloqué sur la même CI rouge.
+
 Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
 branche, puis remettre `pret`.
 
@@ -335,6 +343,22 @@ la chaîne), `.atelier\chantiers\pc` (le lot, avec sa `Library` Unity et une
 jonction vers les packs de l'Asset Store). Unity compile la révision poussée
 et photographie la scène en Play ; ce qu'il a vu entre dans le compte rendu du
 codeur, que lit le relecteur (qui n'a pas Unity), et les images s'y affichent.
+
+**La photo d'un lot Unity lui est propre.** Unity prend d'abord le plan fixe
+(la caméra de la scène du désert, sans rien toucher), qui ne montre ni un
+bâtiment du kit qu'on n'a pas posé, ni une route qu'on n'a pas tracée, ni une
+caméra qui bouge. Puis il joue les scénarios de capture du lot : des méthodes
+`[ScenarioDeCapture(<lot>, "<nom>")] static IEnumerator X(Camera camera)` que
+le codeur écrit dans `3d/unity/Assets/ForgeLocal3D/Editor/Captures/Lot<n>.cs`
+(modèle : `ScenarioExemple.cs`). Chacune pose ce que le lot ajoute ou joue son
+geste, place la caméra, et rend une photo `<scène>--<nom>.png`. Le brief d'un
+lot `pc` a une section « Photo » qui dit ce qu'elle montre. Le pilote renvoie
+au codeur, comme une revue « CORRIGER », un lot sans photo propre ou dont la
+photo est identique au plan fixe (Unity mesure la part des pixels
+changés ; il en faut 2 %), sauf si la section « Photo »
+dit « sans objet : <raison> ». Du 30 septembre au 3 octobre 2026, treize
+captures de lots Unity étaient le même plan fixe, et des lots « vérifiés
+jusqu'à Unity » ont été acceptés sur une image qui ne pouvait rien prouver.
 
 **La partie PC n'avance que quand le PC est allumé.** Un PC éteint ou en
 veille garde le travail en file chez GitHub ; il part au réveil. Le PC répond

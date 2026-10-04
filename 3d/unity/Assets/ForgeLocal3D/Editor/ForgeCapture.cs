@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
@@ -7,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using UnityEditor;
@@ -18,11 +20,12 @@ namespace ForgeLocal3D
 {
     // La photo d'un lot, prise par la chaîne en batch sur le PC :
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
-    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C]
+    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L]
     // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N) : le panneau du lieu
     // montre alors les vrais chiffres. La scène du désert se construit à l'exécution (terrain, ville) :
     // on entre en Play, on laisse passer quelques images, on attend que le panneau ait lu le service,
-    // on photographie la caméra de la scène, on écrit le texte du panneau, puis on rend la main.
+    // on photographie la caméra de la scène (le plan fixe), on écrit le texte du panneau, puis on
+    // joue les scénarios du lot L (`ScenarioDeCaptureAttribute`), une photo chacun, et on rend la main.
     [InitializeOnLoad]
     public static class Capture
     {
@@ -30,7 +33,9 @@ namespace ForgeLocal3D
         const string Dossier = "Forge.Capture.Dossier";
         const string Scene = "Forge.Capture.Scene";
         const string Pid = "Forge.Capture.ServicePid";
+        const string Lot = "Forge.Capture.Lot";
         const int Attente = 90;
+        const int DELAI_SCENARIO_S = 60;
 
         const int GRAINE_PAR_DEFAUT = 0;
         const int TICKS_PAR_DEFAUT = 30; // les 30 jours de la carte du journal
@@ -51,6 +56,16 @@ namespace ForgeLocal3D
 
         static int images, derniere = -1;
         static double debutPanneau = -1;
+
+        // Les scénarios du lot, joués après le plan fixe : un à la fois, une image par pas.
+        static MethodInfo[] scenarios;
+        static int scenario = -1;
+        static IEnumerator enCours;
+        static double debutScenario;
+        static Camera cameraScene;
+        static string dossierScenarios, nomScene;
+        static Color32[] pixelsDuPlan;
+        const int SEUIL_PIXEL = 24; // sur 255 : au-delà du bruit d'une ombre qui frémit
 
         static Capture()
         {
@@ -85,9 +100,10 @@ namespace ForgeLocal3D
             string dossier = Argument("-forgeCaptures") ?? Path.GetFullPath(Path.Combine(Application.dataPath, "../../../captures"));
             int graine = Entier("-forgeSeed", GRAINE_PAR_DEFAUT, out string erreurGraine);
             int ticks = Entier("-forgeTicks", TICKS_PAR_DEFAUT, out string erreurTicks);
-            if (erreurGraine != null || erreurTicks != null)
+            int lot = Entier("-forgeLot", -1, out string erreurLot);
+            if (erreurGraine != null || erreurTicks != null || erreurLot != null)
             {
-                Debug.LogError(erreurGraine ?? erreurTicks);
+                Debug.LogError(erreurGraine ?? erreurTicks ?? erreurLot);
                 Sortir(CODE_REFUS);
                 return;
             }
@@ -108,6 +124,7 @@ namespace ForgeLocal3D
             Directory.CreateDirectory(dossier);
             SessionState.SetString(Dossier, dossier);
             SessionState.SetString(Scene, scene);
+            SessionState.SetInt(Lot, lot);
             LancerService(graine, ticks, dossier);
             SessionState.SetBool(Flag, true);
             images = 0;
@@ -249,9 +266,89 @@ namespace ForgeLocal3D
             return panneau != null ? panneau.GetComponentInChildren<UnityEngine.UI.Text>() : null;
         }
 
+        // Les scénarios du lot, triés par nom ; une méthode mal formée est une erreur du lot, pas un oubli.
+        static MethodInfo[] ScenariosDuLot(int lot)
+        {
+            if (lot < 0) return new MethodInfo[0];
+            var trouves = TypeCache.GetMethodsWithAttribute<ScenarioDeCaptureAttribute>()
+                .Select(m => (m, a: m.GetCustomAttribute<ScenarioDeCaptureAttribute>()))
+                .Where(x => x.a.Lot == lot).OrderBy(x => x.a.Nom, StringComparer.Ordinal).ToArray();
+            foreach (var (m, a) in trouves)
+            {
+                string defaut = a.Defaut();
+                var p = m.GetParameters();
+                if (defaut == null && (!m.IsStatic || m.ReturnType != typeof(IEnumerator) || p.Length != 1 || p[0].ParameterType != typeof(Camera)))
+                    defaut = "attendu : static IEnumerator " + m.Name + "(Camera camera)";
+                if (defaut != null)
+                    throw new InvalidOperationException("scénario " + m.DeclaringType + "." + m.Name + " : " + defaut);
+            }
+            if (trouves.Select(x => x.a.Nom).Distinct().Count() != trouves.Length)
+                throw new InvalidOperationException("deux scénarios du lot " + lot + " portent le même nom");
+            return trouves.Select(x => x.m).ToArray();
+        }
+
+        // La part des pixels dont une composante a bougé de plus de SEUIL_PIXEL depuis le plan fixe ; 1 si
+        // les deux images n'ont pas la même taille.
+        static double Ecart(Color32[] plan, Color32[] photo)
+        {
+            if (plan == null || photo == null || plan.Length != photo.Length || plan.Length == 0) return 1;
+            int changes = 0;
+            for (int i = 0; i < plan.Length; i++)
+            {
+                Color32 a = plan[i], b = photo[i];
+                if (Math.Abs(a.r - b.r) > SEUIL_PIXEL || Math.Abs(a.g - b.g) > SEUIL_PIXEL || Math.Abs(a.b - b.b) > SEUIL_PIXEL)
+                    changes++;
+            }
+            return (double)changes / plan.Length;
+        }
+
+        // Un pas par image : le scénario courant avance jusqu'à son prochain `yield return null` ; fini, sa
+        // caméra est photographiée, et le suivant commence. Le dernier fini, la capture rend la main.
+        static void AvancerScenario()
+        {
+            var m = scenarios[scenario];
+            string nom = m.GetCustomAttribute<ScenarioDeCaptureAttribute>().Nom;
+            try
+            {
+                if (enCours == null)
+                {
+                    enCours = (IEnumerator)m.Invoke(null, new object[] { cameraScene });
+                    debutScenario = Time.realtimeSinceStartupAsDouble;
+                    if (enCours == null) throw new InvalidOperationException("il a rendu null");
+                }
+                if (Time.realtimeSinceStartupAsDouble - debutScenario > DELAI_SCENARIO_S)
+                    throw new TimeoutException("pas fini en " + DELAI_SCENARIO_S + " s");
+                if (enCours.MoveNext()) return;
+                string chemin = Path.Combine(dossierScenarios, nomScene + "--" + nom + ".png");
+                var pixels = CitadelPlayCheck.Capture(cameraScene, chemin, 1600, 900);
+                // Deux photos de suite ne sont jamais identiques à l'octet (ombres, rendu) : la chaîne lit la
+                // part des pixels qui ont vraiment changé depuis le plan fixe.
+                double ecart = Ecart(pixelsDuPlan, pixels);
+                File.WriteAllText(Path.ChangeExtension(chemin, ".ecart.txt"), ecart.ToString("R", CultureInfo.InvariantCulture));
+                Debug.Log("CAPTURE_SCENARIO_OK " + chemin + " écart " + ecart.ToString("P1", CultureInfo.InvariantCulture));
+                enCours = null;
+                if (++scenario < scenarios.Length) return;
+                scenarios = null;
+                Terminer(0);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("CAPTURE : le scénario « " + nom + " » a échoué : " + (e is TargetInvocationException t ? t.InnerException : e));
+                scenarios = null;
+                Terminer(1);
+            }
+        }
+
         static void Tick()
         {
-            if (!SessionState.GetBool(Flag, false) || !Application.isPlaying || derniere == Time.frameCount) return;
+            if (!Application.isPlaying || derniere == Time.frameCount) return;
+            if (scenarios != null)
+            {
+                derniere = Time.frameCount;
+                AvancerScenario();
+                return;
+            }
+            if (!SessionState.GetBool(Flag, false)) return;
             derniere = Time.frameCount;
             if (++images < Attente) return;
             var texte = TexteDuPanneau();
@@ -276,7 +373,7 @@ namespace ForgeLocal3D
                 string nom = Path.GetFileNameWithoutExtension(SessionState.GetString(Scene, "scene"));
                 string dossier = SessionState.GetString(Dossier, ".");
                 string chemin = Path.Combine(dossier, nom + ".png");
-                CitadelPlayCheck.Capture(camera, chemin, 1600, 900);
+                pixelsDuPlan = CitadelPlayCheck.Capture(camera, chemin, 1600, 900);
                 Debug.Log("CAPTURE_OK " + chemin);
                 if (texte != null)
                 {
@@ -287,7 +384,21 @@ namespace ForgeLocal3D
                 }
                 else if (GameObject.Find("/" + PANNEAU) != null)
                     Debug.LogError("CAPTURE : le panneau du lieu n'a pas de texte");
-                Terminer(0);
+                int lot = SessionState.GetInt(Lot, -1);
+                var duLot = ScenariosDuLot(lot);
+                if (duLot.Length == 0)
+                {
+                    if (lot >= 0) Debug.Log("CAPTURE_SANS_SCENARIO lot " + lot);
+                    Terminer(0);
+                    return;
+                }
+                Debug.Log("CAPTURE_SCENARIOS lot " + lot + " : " + duLot.Length);
+                cameraScene = camera;
+                dossierScenarios = dossier;
+                nomScene = nom;
+                enCours = null;
+                scenario = 0;
+                scenarios = duLot;
             }
             catch (Exception e)
             {
