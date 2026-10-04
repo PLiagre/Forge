@@ -1232,3 +1232,25 @@ def test_un_lot_remis_pret_avec_sa_pr_attend_une_place_pour_reprendre(projet, gh
     _pilote_verrouille(projet, gh, depot, Agents((0, "VERDICT: ACCEPTE")), tmp_path).tour()
     assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
     assert "en-cours" in _etiquettes(gh, 10)
+
+
+def test_une_decision_du_proprietaire_va_au_codeur_et_au_relecteur_apres_un_blocage(projet, gh, depot, tmp_path):
+    # #235 : la réponse A autorisait la chronique ; le brief l'excluait, le
+    # codeur ne lisait que lui, et la CI est restée rouge trois fois.
+    question = lots.Question("Le lot peut-il toucher la chronique ?",
+                             (("A", "oui, capture.py transporte les lieux", ""), ("B", "non", "")), ("A", ""))
+    _en_cours(gh)
+    gh.issues_[10]["comments"] += [
+        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="q", **question.marque())},
+        {"body": "A", "author": {"login": "PLiagre"}},
+        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="CI rouge après 2 correction(s)")},
+        {"body": "repris\n\n" + marque(role="pilote", etat="reponse")}]
+    attendu = "Réponse du propriétaire : A — oui, capture.py transporte les lieux"
+    codeur = Agents((0, "Fait.", {"jeu/vues/chronique/capture.py": "lieux"}))
+    _pilote(projet, gh, depot, codeur, tmp_path).tour()
+    prompt = codeur.appels[0][-1]
+    assert "LES DÉCISIONS DU PROPRIÉTAIRE" in prompt and attendu in prompt
+    relecteur = Agents((0, "VERDICT: ACCEPTE"))
+    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
+    prompt = next(a for a in relecteur.appels[0] if "Tu es le relecteur" in a)
+    assert attendu in prompt and "élargi par les décisions du propriétaire" in prompt

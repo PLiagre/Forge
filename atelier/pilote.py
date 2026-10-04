@@ -626,9 +626,10 @@ class Pilote:
                 correction = prompts.correction_ci(self._erreur_ci(numero_pr))
             elif action.nom == "corriger_relecture":
                 correction = prompts.correction_relecture(self._derniere_revue(pr))
+            consigne, decisions = self._consigne(lot)
             prompt = prompts.codeur(self.projet, numero=lot.numero, titre=lot.titre,
                                     chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction,
-                                    consigne=self._consigne(lot))
+                                    consigne=consigne, decisions=decisions)
         res = self._invoquer(poste or role, prompt, chemin, lot=lot.numero)
         passage = action.essai + 1
         essais = " · ".join(res.essais)
@@ -744,11 +745,12 @@ class Pilote:
             if any(m.get("role") in lots.ROLES_CODEURS and m.get("etat") in ("fait", "reponse")
                    for m in lots.marques([c])))
         lisibles, illisibles = self._lfs_du_lot(chemin)
+        consigne, decisions = self._consigne(lot)
         prompt = prompts.relecteur(self.projet, numero=lot.numero, titre=lot.titre,
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
                                    url=pr.get("url", ""), sha=tete, rapports=rapports,
                                    lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
-                                   consigne=self._consigne(lot))
+                                   consigne=consigne, decisions=decisions)
         res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
@@ -783,15 +785,17 @@ class Pilote:
             return [], []
         return lfs.rendre_lisibles(chemin, fichiers, self.gh.depot, telechargeur=self.lfs_telechargeur)
 
-    def _consigne(self, lot: Lot) -> str:
-        """La consigne du dépanneur qui vaut encore pour ce lot ; rien pour la
-        réparation de master, qui n'a pas d'issue."""
+    def _consigne(self, lot: Lot) -> tuple[str, tuple[str, ...]]:
+        """Ce que l'issue dit encore au codeur et au relecteur : la consigne du
+        dépanneur qui vaut encore, et les décisions prises sur le lot ; rien
+        pour la réparation de master, qui n'a pas d'issue."""
         if "lot" not in lot.etiquettes:
-            return ""
+            return "", ()
         try:
-            return lots.consigne_du_depanneur(self.gh.issue(lot.numero).get("comments") or [])
+            commentaires = self.gh.issue(lot.numero).get("comments") or []
         except GitHubErreur:
-            return ""
+            return "", ()
+        return lots.consigne_du_depanneur(commentaires), tuple(lots.decisions_du_lot(commentaires))
 
     # ---------------------------------------------------------- dépanner
     def _depanner_un_lot(self, vue: "_Vue") -> bool:
