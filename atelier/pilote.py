@@ -641,7 +641,7 @@ class Pilote:
             consigne, decisions = self._consigne(lot)
             prompt = prompts.codeur(self.projet, numero=lot.numero, titre=lot.titre,
                                     chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction,
-                                    consigne=consigne, decisions=decisions)
+                                    consigne=consigne, decisions=decisions, pc=role == "codeur_3d")
         res = self._invoquer(poste or role, prompt, chemin, lot=lot.numero)
         passage = action.essai + 1
         essais = " · ".join(res.essais)
@@ -749,6 +749,18 @@ class Pilote:
             self._bloquer(lot.numero, "le relecteur a échoué deux fois sur la même révision", numero_pr)
             return False
         chemin = self.depot.preparer(lot.numero, branche)
+        # Un lot Unity dont la photo ne montre rien de lui ne se relit pas : le
+        # pilote le renvoie au codeur, comme une revue « CORRIGER ».
+        dernier = next((m for m in reversed(liste) if m.get("role") == "codeur_3d" and m.get("etat") == "fait"
+                        and m.get("sha") == tete), None)
+        brief = Path(chemin) / lot.brief(self.projet.dossier_briefs)
+        refus = lots.refus_de_photo(dernier, brief.read_text(encoding="utf-8") if brief.is_file() else "")
+        if refus:
+            self.gh.commenter_pr(numero_pr, f"## Relecture — CORRIGER\n\nRévision `{tete[:7]}` · relu par le pilote\n\n"
+                                            f"- {refus}\n\n"
+                                            f"{marque(role='relecteur', verdict='CORRIGER', sha=tete, agent='pilote')}")
+            self.noter(lot.numero, "relecture CORRIGER", f"PR #{numero_pr} — photo", "pilote")
+            return False  # aucun agent n'est parti
         # Le relecteur n'a pas `gh` : ce que le codeur a dit sur la PR lui est
         # donné ici, comme une affirmation à vérifier.
         rapports = "\n\n".join(

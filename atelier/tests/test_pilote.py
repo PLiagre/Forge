@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from atelier import lots
+from atelier import lots, prompts
 from atelier.lots import Lot, marque, marques
 from atelier.pilote import Pilote
 from atelier.projet import charger
@@ -1232,6 +1232,41 @@ def test_un_lot_remis_pret_avec_sa_pr_attend_une_place_pour_reprendre(projet, gh
     _pilote_verrouille(projet, gh, depot, Agents((0, "VERDICT: ACCEPTE")), tmp_path).tour()
     assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
     assert "en-cours" in _etiquettes(gh, 10)
+
+
+def _lot_unity_fait(gh, depot, photo, photo_du_brief="le chantier se voit pousser"):
+    fait = marque(role="codeur_3d", etat="fait", essai=1, agent="codex/sol", sha="a" * 40, unity="vert", photo=photo)
+    _en_cours(gh, commentaires=[fait], etiquettes=("lot", "en-cours", "pc"))
+    brief = depot.racine / "chantiers" / "10" / "docs" / "briefs" / "10-le-service-lit-un-lieu.md"
+    brief.parent.mkdir(parents=True, exist_ok=True)
+    brief.write_text(BRIEF_BON + f"## Photo\n{photo_du_brief}\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("photo", ["absente", "identique"])
+def test_un_lot_unity_dont_la_photo_ne_montre_rien_retourne_au_codeur(projet, gh, depot, tmp_path, photo):
+    _lot_unity_fait(gh, depot, photo)
+    relecteur = Agents()
+    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
+    assert relecteur.appels == [], "le pilote refuse sans relecteur"
+    corps = gh.prs_[50]["comments"][-1]["body"]
+    assert "## Relecture — CORRIGER" in corps and "relu par le pilote" in corps
+    assert marques([{"body": corps}])[0] == {"role": "relecteur", "verdict": "CORRIGER", "sha": "a" * 40,
+                                                  "agent": "pilote"}
+
+
+@pytest.mark.parametrize("photo, brief", [("propre", "le chantier se voit pousser"),
+                                          ("absente", "sans objet : Blender seul, rien à l'écran")])
+def test_une_photo_propre_ou_sans_objet_va_au_relecteur(projet, gh, depot, tmp_path, photo, brief):
+    _lot_unity_fait(gh, depot, photo, brief)
+    relecteur = Agents((0, "VERDICT: ACCEPTE"))
+    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
+    assert len(relecteur.appels) == 1 and ("fusion_auto", 50) in gh.gestes
+
+
+def test_le_codeur_d_un_lot_unity_apprend_a_ecrire_sa_photo(projet, gh, depot, tmp_path):
+    prompt = prompts.codeur(projet, numero=235, titre="x", chemin_brief="b.md", pc=True)
+    assert "Captures/Lot235.cs" in prompt and "[ScenarioDeCapture(235," in prompt
+    assert "ScenarioDeCapture" not in prompts.codeur(projet, numero=235, titre="x", chemin_brief="b.md")
 
 
 def test_une_decision_du_proprietaire_va_au_codeur_et_au_relecteur_apres_un_blocage(projet, gh, depot, tmp_path):

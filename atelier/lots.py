@@ -664,3 +664,26 @@ def auteurs(liste: list[dict]) -> frozenset[str]:
     leurs modèles ne le relit, quel que soit l'outil qui le porte."""
     return frozenset(famille_de(m["agent"]) for m in liste
                      if m.get("role") in ROLES_CODEURS and m.get("etat") == "fait" and m.get("agent"))
+
+
+# La photo d'un lot Unity (`pc.regarder_avec_unity`) : « propre » quand un
+# scénario de capture du lot a rendu une image différente du plan fixe. Du 30
+# septembre au 3 octobre 2026, treize captures de lots Unity étaient le même
+# plan fixe à l'octet près, et des lots « vérifiés jusqu'à Unity » ont été
+# acceptés sur une image qui ne pouvait rien prouver.
+PHOTO_PROPRE, PHOTO_ABSENTE, PHOTO_IDENTIQUE = "propre", "absente", "identique"
+_PHOTO_SANS_OBJET = re.compile(r"^##\s*Photo\b[^\n]*\n+\s*sans objet\s*:\s*\S", re.M | re.I)
+
+
+def refus_de_photo(marque_du_codeur: dict | None, brief: str) -> str | None:
+    """Pourquoi la photo du dernier passage du PC ne prouve rien ; None si elle
+    est propre au lot, si Unity n'a pas rendu (le relecteur le voit déjà), ou
+    si le brief dit « sans objet »."""
+    photo = (marque_du_codeur or {}).get("photo")
+    if photo not in (PHOTO_ABSENTE, PHOTO_IDENTIQUE) or _PHOTO_SANS_OBJET.search(brief or ""):
+        return None
+    if photo == PHOTO_ABSENTE:
+        return ("aucune photo propre au lot : le PC n'a photographié que le plan fixe de la scène, qui ne montre "
+                "pas ce que le lot ajoute. Écris le scénario de capture que demande la section « Photo » du brief.")
+    return ("la photo du lot est identique au plan fixe : presque aucun pixel n'a changé, son scénario de capture ne montre rien "
+            "de ce que le lot ajoute. Pose ce qu'il ajoute, ou joue son geste, et place la caméra pour qu'on le voie.")
