@@ -346,10 +346,22 @@ class Pilote:
         """Une issue du formulaire porte son jalon et sa machine dans le texte :
         le pilote les pose en milestone et en étiquette, une fois. Une issue
         déjà rangée dans un milestone, réserve comprise, n'est pas déplacée.
-        L'étiquette `reserve` range un lot dans la réserve, puis s'efface."""
+        L'étiquette `reserve` range un lot dans la réserve, puis s'efface.
+
+        Seul un lot se range : le journal du matin titre « ### Jalon J2 — … »,
+        et rangé dans J2, il le tenait ouvert. Le 4 octobre 2026, J2 était
+        livré, mais la fenêtre restait sur J2, J3, J4, et J5 ne se découpait
+        jamais."""
         par_numero = {j.numero: j for j in jalons}
         for lot in ouvertes:
-            if not any(e in lot.etiquettes for e in lots.ETATS) and "lot" in lot.etiquettes:
+            if "lot" not in lot.etiquettes:
+                # Un journal déjà rangé dans un jalon en sort : il le tiendrait
+                # ouvert jusqu'au journal suivant.
+                if "journal" in lot.etiquettes and lots.numero_de_jalon(lot.jalon_titre) is not None:
+                    self.gh.sortir_du_jalon(lot.numero)
+                    self.noter(lot.numero, "journal sorti du jalon", lot.jalon_titre or "")
+                continue
+            if not any(e in lot.etiquettes for e in lots.ETATS):
                 self.gh.etiqueter(lot.numero, ["idee"])
             m = re.search(r"### Jalon\s+J(\d+)", lot.corps)
             if lot.jalon_titre is None and m and int(m.group(1)) in par_numero:
