@@ -87,7 +87,10 @@ class GitHub:
         self.gh("issue", "edit", str(numero), "-R", self.depot, "--milestone", titre_jalon)
 
     def sortir_du_jalon(self, numero: int) -> None:
-        self.gh("issue", "edit", str(numero), "-R", self.depot, "--remove-milestone")
+        # Par l'API : `gh issue edit --remove-milestone` n'existe pas dans le
+        # gh 2.45 du VPS (le 4 octobre 2026, chaque tour du pilote s'arrêtait là).
+        self.gh("api", "-X", "PATCH", f"repos/{self.depot}/issues/{numero}", "--input", "-",
+                entree=json.dumps({"milestone": None}))
 
     def fermer_issue(self, numero: int, commentaire: str | None = None, *, abandon: bool = False) -> None:
         argv = ["issue", "close", str(numero), "-R", self.depot,
