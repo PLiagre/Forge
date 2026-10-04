@@ -27,6 +27,7 @@ import random
 from collections import defaultdict
 
 from sim import constants as _constantes
+import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
 from sim.model import (
@@ -1350,7 +1351,8 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         9. Mortalité   (_apply_mortality)    — pour chaque cellule
         10. Natalité   (_apply_natalite)     — pour chaque cellule
         11. Migration  (_apply_migration)    — sur le monde entier (snapshot)
-        12. Compteur   (_avancer_compteur_ticks) — après tous les maillons
+        12. Répartition (repartir_sur_les_lieux) — habitants et paniers des lieux
+        13. Compteur   (_avancer_compteur_ticks) — après tous les maillons
 
     rng : instance de random.Random initialisée par l'appelant —
           jamais d'aléa global non contrôlé.
@@ -1389,6 +1391,9 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         _apply_natalite(cell, penurie_kg)
 
     _apply_migration(world, penuries)
+
+    for cell in world.cells.values():
+        _lieux.repartir_sur_les_lieux(cell)
 
     _avancer_compteur_ticks(world)
     return total_transported[0]

@@ -52,6 +52,7 @@ _ROOT_KEYS = {
     "villes_hors_carte",
 }
 _CELL_KEYS = {
+    "lieux",
     "cell_id",
     "area_km2",
     "geometry",
