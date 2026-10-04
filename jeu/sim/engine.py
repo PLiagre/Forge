@@ -371,6 +371,16 @@ def _apply_extraction(cell: Cell, carte: dict) -> None:
         ecrire_stock_marchandise(cell, ressource, base + quantite)
 
 
+def _facteur_bras_pour_cellule(cell: Cell, carte: dict | None) -> float:
+    """Surface travaillée hors saison ; seuls les paysans apportent des bras."""
+    km2_cultives = cell.area_km2
+    if carte:
+        km2_cultives *= _facteur_relief_pour_cellule(cell, carte)
+        km2_cultives *= _facteur_eau_pour_cellule(cell, carte)
+        km2_cultives *= _facteur_agricole(cell, carte)
+    return foyers.facteur_bras(lire_habitants_par_metier(cell), km2_cultives)
+
+
 def _apply_production(
     cell: Cell,
     rng: random.Random,
@@ -388,6 +398,7 @@ def _apply_production(
         food_produced = production_du_tick_kg(cell, yield_factor, carte, jour=jour)
     else:
         food_produced = production_kg(cell, yield_factor)
+    food_produced *= _facteur_bras_pour_cellule(cell, carte)
     current = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
     current = current if current >= 0 else 0.0
     ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)
@@ -405,6 +416,7 @@ def _apply_production_saison_moyenne(
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
     food_produced = _production_du_tick_kg_saison_moyenne(cell, yield_factor, carte)
+    food_produced *= _facteur_bras_pour_cellule(cell, carte)
     current = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
     current = current if current >= 0 else 0.0
     ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)

@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import json
+import math
 import pathlib
 import random
 
@@ -14,6 +15,9 @@ from sim.aggregation import bourg_depuis_monde
 from sim.engine import tick
 from sim.model import Cell, cellule_vers_dict, lire_habitants_par_metier
 from sim.world import World
+import sim.engine as engine
+from sim.model import (ecrire_habitants_par_metier, ecrire_stock_marchandise,
+                       lire_stock_marchandise)
 
 
 def _controler_somme(metiers, population):
@@ -232,7 +236,7 @@ def test_gardes_et_documentation(monkeypatch):
     modele = (dossier / "MODELE.md").read_text(encoding="utf-8")
     section = modele.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
     for attendu in ("TAILLE_FOYER", "part_miniere_de", "paysans", "-1",
-                    "le tick ne lit pas les métiers"):
+                    "le tick ne lit les métiers que pour la récolte"):
         assert attendu.lower() in section.lower()
     assert "sim/foyers.py" in (dossier / "README.md").read_text(encoding="utf-8")
     print(f"contre_épreuves_structurelles={len(contre_epreuves)} sections_contrôlées=1")
@@ -564,7 +568,7 @@ def _controler_documentation(texte):
     natalite = texte.split("## La natalité\n", 1)[1].split("\n## ", 1)[0]
     migration = texte.split("## La migration de famine\n", 1)[1].split("\n## ", 1)[0]
     for attendu in ("plus forts restes", "nom de métier", "paysans",
-                    "le tick ne lit pas les métiers"):
+                    "le tick ne lit les métiers que pour la récolte"):
         assert attendu in foyers_section.lower()
     for nom, section in (("mortalité", mortalite), ("natalité", natalite),
                          ("migration", migration)):
@@ -582,3 +586,165 @@ def test_documentation():
         _controler_documentation(avant + "## La natalité\n" + privee + "\n## " + apres)
     print("sections_contrôlées=4")
     assert texte
+
+
+def _km2_cultives_reference(cell, carte):
+    if not carte:
+        return cell.area_km2
+    raw = carte[cell.cell_id]
+    relief = _constantes.facteurs_production_par_relief()[raw["relief"]]
+    eau = _constantes.facteur_eau(raw["pluie_mm_par_an"] + raw["crue_mm_par_an"])
+    agricole = 1 - _constantes.part_miniere_de(
+        raw.get("gisements"), _constantes.facteurs_richesse_extraction())
+    return cell.area_km2 * relief * eau * agricole
+
+
+def _recolter_reference(cell, carte, moyenne):
+    rendement = random.Random(0).uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+    ecrire_stock_marchandise(cell, "nourriture", 0.0)
+    if moyenne:
+        pleine = engine._production_du_tick_kg_saison_moyenne(cell, rendement, carte)
+        engine._apply_production_saison_moyenne(cell, random.Random(0), carte)
+    else:
+        pleine = (engine.production_du_tick_kg(cell, rendement, carte, jour=0)
+                  if carte else engine.production_kg(cell, rendement))
+        engine._apply_production(cell, random.Random(0), carte, jour=0)
+    return pleine, lire_stock_marchandise(cell, "nourriture")
+
+
+@pytest.mark.parametrize("moyenne", [False, True])
+def test_recolte_bras(monkeypatch, moyenne):
+    monde = World.charger(0)
+    cell = max((c for c in monde.cells.values() if monde.carte[c.cell_id].get("gisements")),
+               key=lambda c: _km2_cultives_reference(c, monde.carte))
+    requis = _km2_cultives_reference(cell, monde.carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+    assert requis > 3
+
+    def recolte(paysans, mineurs=0):
+        ecrire_habitants_par_metier(cell, {m: n for m, n in
+                                         (("paysans", paysans), ("mineurs", mineurs)) if n})
+        return _recolter_reference(cell, monde.carte, moyenne)
+
+    for paysans in (math.ceil(requis), math.ceil(10 * requis)):
+        pleine, produite = recolte(paysans)
+        assert produite == pleine > 0
+
+    def controler_manque():
+        productions = []
+        for k in (1, 2):
+            paysans = math.floor(requis) - k
+            pleine, produite = recolte(paysans)
+            assert math.isclose(produite, pleine * paysans / requis, rel_tol=1e-12)
+            productions.append(produite)
+        assert math.isclose(productions[0] - productions[1], pleine / requis, rel_tol=1e-12)
+        assert recolte(math.floor(requis) - 2, 1)[1] < productions[0]
+
+    def controler_mineurs():
+        paysans = math.floor(requis) - 2
+        assert recolte(paysans, 1)[1] == recolte(paysans)[1]
+        assert recolte(paysans, math.ceil(requis))[1] == recolte(paysans)[1]
+
+    controler_manque()
+    controler_mineurs()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(foyers, "facteur_bras", lambda *a: 1.0)
+        with pytest.raises(AssertionError):
+            controler_manque()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(foyers, "facteur_bras", lambda metiers, km2: min(
+            1.0, sum(metiers.values()) / (km2 * _constantes.BRAS_AUX_CHAMPS_PAR_KM2)))
+        with pytest.raises(AssertionError):
+            controler_mineurs()
+
+
+@pytest.mark.parametrize("cartee,moyenne", [(False, False), (True, False), (True, True)])
+def test_recolte_sans_metiers(monkeypatch, cartee, moyenne):
+    monde = World.charger(0)
+    origine = monde.cells[min(monde.cells)]
+    cell = Cell(cell_id=origine.cell_id, area_km2=origine.area_km2, population=50)
+    carte = monde.carte if cartee else None
+
+    def controler_nue():
+        assert lire_habitants_par_metier(cell) == -1
+        pleine, produite = _recolter_reference(cell, carte, moyenne)
+        assert produite == pleine > 0
+
+    controler_nue()
+    ecrire_habitants_par_metier(origine, {})
+    assert origine.population == 0
+    assert _recolter_reference(origine, carte, moyenne)[1] == 0.0
+    ecrire_habitants_par_metier(origine, {"mineurs": 50})
+    assert _recolter_reference(origine, carte, moyenne)[1] == 0.0
+    assert foyers.facteur_bras({}, 0.0) == 1.0
+    vrai_facteur = foyers.facteur_bras
+    with monkeypatch.context() as ctx:
+        ctx.setattr(foyers, "facteur_bras", lambda metiers, km2:
+                    vrai_facteur({} if metiers == -1 else metiers, km2))
+        with pytest.raises(AssertionError):
+            controler_nue()
+
+
+@pytest.mark.parametrize("numerote", [False, True])
+def test_bras_suffisent_un_an(monkeypatch, numerote):
+    vrai_facteur = foyers.facteur_bras
+    valeurs, rapports = [], []
+
+    def enregistrer(metiers, km2):
+        facteur = vrai_facteur(metiers, km2)
+        valeurs.append(facteur)
+        requis = km2 * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+        if metiers != -1 and requis > 0:
+            rapports.append(metiers.get("paysans", 0) / requis)
+        return facteur
+
+    def jouer(n):
+        valeurs.clear()
+        rapports.clear()
+        monde = World.charger(0)
+        rng = random.Random(0)
+        for i in range(n):
+            tick(monde, rng, **({"numero_tick": i} if numerote else {}))
+        assert len(valeurs) >= max(596, len(monde.cells)) * n
+        assert len(rapports) == len(valeurs)
+        return monde
+
+    monkeypatch.setattr(foyers, "facteur_bras", enregistrer)
+    jouer(365)
+    assert all(v == 1.0 for v in valeurs)
+    print(f"numéroté={numerote} appels={len(valeurs)} rapport_minimum={min(rapports):.6f}")
+    nominal = _octets_sans_foyers(jouer(30))
+    with monkeypatch.context() as ctx:
+        ctx.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2",
+                    _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * 100)
+        altere = _octets_sans_foyers(jouer(30))
+        assert any(v < 1.0 for v in valeurs)
+        assert altere != nominal
+
+
+def test_documentation_bras(monkeypatch):
+    lire = pathlib.Path.read_text
+    chemin = pathlib.Path(__file__).parents[1] / "MODELE.md"
+
+    def controler():
+        texte = chemin.read_text(encoding="utf-8")
+        section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
+        for attendu in ("BRAS_AUX_CHAMPS_PAR_KM2", "km² cultivés", "niveau 2",
+                        "Le tick ne lit les métiers que pour la récolte"):
+            assert attendu in section
+        reste = texte.split("## Ce que le moteur ne fait pas encore\n", 1)[1].split("\n## ", 1)[0]
+        assert "aucun nombre du tick ne les lit" not in " ".join(reste.split())
+
+    for ancien, nouveau in (("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
+                            ("Le tick ne lit les métiers que pour la récolte",
+                             "Le tick ne lit pas les métiers")):
+        def texte_altere(path, *args, **kwargs):
+            texte = lire(path, *args, **kwargs)
+            avant, suite = texte.split("## Les foyers par métier\n", 1)
+            section, apres = suite.split("\n## ", 1)
+            return avant + "## Les foyers par métier\n" + section.replace(ancien, nouveau) + "\n## " + apres
+
+        with monkeypatch.context() as ctx:
+            ctx.setattr(pathlib.Path, "read_text", texte_altere)
+            with pytest.raises(AssertionError):
+                controler()
+    controler()
