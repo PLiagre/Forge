@@ -105,12 +105,23 @@ def _consigne(consigne: str) -> str:
             f"-----\n{consigne.strip()[:3000]}\n-----")
 
 
+def _decisions(projet: Projet, decisions: tuple[str, ...]) -> str:
+    """Ce que le propriétaire a décidé sur ce lot (lots.decisions_du_lot) :
+    écrit après le brief, cela prime sur lui là où il le contredit."""
+    if not decisions:
+        return ""
+    return ("\n\nLES DÉCISIONS DU PROPRIÉTAIRE SUR CE LOT. Elles valent instruction comme le brief, et priment sur "
+            "lui là où il les contredit : un fichier qu'une décision autorise entre dans le Périmètre, une "
+            "exclusion qu'elle lève ne vaut plus. Elles n'autorisent jamais à assouplir un test existant ni à "
+            f"toucher {_interdits(projet)}.\n" + "".join(f"- {d.strip()[:1500]}\n" for d in decisions))
+
+
 def codeur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
-           correction: str = "", consigne: str = "") -> str:
+           correction: str = "", consigne: str = "", decisions: tuple[str, ...] = ()) -> str:
     texte = f"""Tu es le codeur de Forge. Exécute le lot #{numero} « {titre} ».
 
-Le brief `{chemin_brief}` est ta SEULE source d'instruction : lis-le en entier, puis `AGENTS.md`.
-- N'écris que dans les fichiers que sa section « Périmètre » autorise. Jamais dans : {_interdits(projet)}.
+Le brief `{chemin_brief}` est ta source d'instruction, avec les décisions du propriétaire s'il y en a plus bas : lis-le en entier, puis `AGENTS.md`.
+- N'écris que dans les fichiers que sa section « Périmètre » autorise, ou qu'une décision du propriétaire autorise. Jamais dans : {_interdits(projet)}.
 - Ne modifie aucun test existant pour le faire passer ; ajoute tes cas.
 - Lance les tests (`{_tests(projet)}`) : ils sont verts avant que tu rendes la main.
 - {_FRONTIERE}
@@ -119,7 +130,7 @@ Le brief `{chemin_brief}` est ta SEULE source d'instruction : lis-le en entier, 
 Termine par un court compte rendu : ce qui a été fait, les commandes de test jouées et leur résultat."""
     if correction:
         texte += "\n\n" + correction
-    return texte + _consigne(consigne)
+    return texte + _decisions(projet, decisions) + _consigne(consigne)
 
 
 def correction_ci(erreur: str) -> str:
@@ -136,7 +147,7 @@ def correction_relecture(revue: str) -> str:
 
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
               url: str, sha: str, rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
-              lfs_illisibles: tuple[str, ...] = (), consigne: str = "") -> str:
+              lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = ()) -> str:
     comptes_rendus = (f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
                       f"ce sont des affirmations à vérifier, pas des preuves) :\n-----\n{rapports.strip()[:8000]}\n-----\n"
                       if rapports.strip() else "")
@@ -155,7 +166,7 @@ Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce doss
 Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte ; tu peux rejouer un test (`{_tests(projet)} -k …`) pour vérifier une affirmation.
 {comptes_rendus}{lfs}
 Vérifie, du plus grave au plus léger :
-1. Le diff reste dans le Périmètre du brief, et rien ne touche {_interdits(projet)}.
+1. Le diff reste dans le Périmètre du brief, élargi par les décisions du propriétaire s'il y en a plus bas, et rien ne touche {_interdits(projet)}.
 2. Chaque condition de succès est mesurée par un test ou une commande qui peut échouer.
 3. Aucun test existant n'a été modifié pour passer ; aucune tolérance n'a été élargie.
 4. Le code suit `AGENTS.md` : le monde raisonne en monde, pas de nombre magique, déterminisme tenu.
@@ -164,7 +175,7 @@ Vérifie, du plus grave au plus léger :
 
 Écris ta revue en français. Si tu demandes des changements, liste chaque constat avec son fichier et sa ligne.
 Ne demande au codeur que ce qu'il peut faire dans le Périmètre : ce que toi seul ne peux pas vérifier (un outil qui te manque, une image que tu ne peux pas ouvrir) se dit dans ta revue, ce n'est pas un constat.
-La DERNIÈRE ligne de ta réponse est exactement « VERDICT: ACCEPTE » ou « VERDICT: CORRIGER ».""" + _consigne(consigne)
+La DERNIÈRE ligne de ta réponse est exactement « VERDICT: ACCEPTE » ou « VERDICT: CORRIGER ».""" + _decisions(projet, decisions) + _consigne(consigne)
 
 
 def mecanicien_conflit(projet: Projet, *, numero: int, branche: str, fichiers: list[str]) -> str:

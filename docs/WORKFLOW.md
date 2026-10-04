@@ -262,6 +262,14 @@ seules sur un lot, la suivante lui va aussi. Pour revenir sur une décision :
 bloquer le lot, écrire sa réponse, puis remettre « pret ». Le 3 octobre 2026, le propriétaire
 répondait toujours la recommandée, et trois jalons attendaient ses lettres.
 
+Chaque décision suit le lot jusqu'au bout : la réponse du propriétaire à une
+question, ou la décision prise seule, est relue sur l'issue à chaque passage
+et donnée au codeur et au relecteur, avec le brief. Elle prime sur lui là où
+il la contredit (un fichier qu'elle autorise entre dans le Périmètre), et ni un
+blocage ni une reprise ne l'efface. Le 3 octobre 2026, #235 avait l'accord du
+propriétaire pour toucher la chronique, mais le brief l'excluait encore, et
+le lot s'est bloqué sur la même CI rouge.
+
 Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
 branche, puis remettre `pret`.
 

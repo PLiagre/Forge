@@ -563,12 +563,7 @@ def reponse_apres_blocage(commentaires: list[dict]) -> bool:
             dernier = i
     if dernier is None:
         return False
-    for c in commentaires[dernier + 1:]:
-        corps = (c.get("body") or "").strip()
-        auteur = ((c.get("author") or {}).get("login") or "").lower()
-        if corps and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions":
-            return True
-    return False
+    return any(_ecrit_par_un_humain(c) for c in commentaires[dernier + 1:])
 
 
 # Le dépanneur (`pilote._depanner`) regarde un lot que le pilote vient de
@@ -609,11 +604,44 @@ def consigne_du_depanneur(commentaires: list[dict]) -> str:
             consigne = ""
         elif m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE:
             consigne = m.get("consigne") or ""
-        elif m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION and m.get("consigne"):
-            # Une question technique du dépanneur, tranchée seule : sa décision
-            # suit le codeur et le relecteur comme une consigne.
-            consigne = m["consigne"]
     return consigne
+
+
+def _ecrit_par_un_humain(c: dict) -> bool:
+    """Ni le pilote (ses commentaires sont marqués), ni un robot."""
+    corps = (c.get("body") or "").strip()
+    auteur = ((c.get("author") or {}).get("login") or "").lower()
+    return bool(corps) and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions"
+
+
+def decisions_du_lot(commentaires: list[dict]) -> list[str]:
+    """Ce qui a été décidé sur ce lot : chaque question posée au propriétaire,
+    avec la réponse qu'il a écrite ensuite, et chaque question technique que
+    le pilote a tranchée seul. Rien ne les efface, ni un blocage ni une
+    reprise : le 3 octobre 2026, #235 avait l'accord du propriétaire pour
+    toucher la chronique, mais le codeur ne lisait que le brief, qui
+    l'excluait, et le lot s'est bloqué trois fois sur la même CI rouge."""
+    decisions: list[str] = []
+    question: Question | None = None
+    for c in commentaires or []:
+        faites = marques([c])
+        for m in faites:
+            if m.get("role") != "pilote":
+                continue
+            if m.get("etat") == "bloque" and m.get("question"):
+                question = Question.de_marque(m)
+            elif m.get("etat") == ETAT_DECISION and (q := Question.de_marque(m)) and q.recommandation:
+                lettre = q.recommandation[0]
+                reponse = q.reponse_recommandee()
+                decisions.append(f"Question technique : {q.texte} Décision : {lettre}"
+                                 + (f" — {reponse}" if reponse else "")
+                                 + " (prise par le pilote, selon la recommandation).")
+        if faites or question is None or not _ecrit_par_un_humain(c):
+            continue
+        texte = (c.get("body") or "").strip()
+        choisie = next((f"{l} — {r}" for l, r, _ in question.options if texte.rstrip(" .").upper() == l), None)
+        decisions.append(f"Question : {question.texte} Réponse du propriétaire : {choisie or texte}")
+    return decisions
 
 
 def passage_de_renfort(essai: int, corrections_max: int) -> bool:
