@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using Forge.Pont;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -50,6 +52,14 @@ namespace ForgeLocal3D
             public bool branchee;public Balayage balayage=new Balayage(),releve=new Balayage(),sans_garde=new Balayage();public Zoom zoom=new Zoom();
             public double oeil=-1,retour=-1;public Marche marche=new Marche();public Route mur=new Route();
         }
+        // Lot 293 : les deux clics passent par le service du monde, dont le contrôle fait passer les ticks.
+        [Serializable] public class Raide{public bool clique,depose;public int rues_avant=-1,rues_apres=-1;}
+        [Serializable] public class Plaine
+        {
+            public bool depose,recu_accepte;public long appliquee_au_tick=-1;public string recu="",empreinte_avant_tick="";public bool dessinee_avant_tick;
+            public long tick_plan=-1;public int rues_neuves=-1;public double[] rue_x=new double[0],rue_y=new double[0];public double rue_largeur=-1;public bool rue_en_chantier;
+        }
+        [Serializable] public class Service{public long cell=-1;public int port=-1;public string empreinte_vierge="";public Raide raide=new Raide();public Plaine plaine=new Plaine();}
         [Serializable] public class Rapport
         {
             public string status="mesure",implantation,scene;public int graine,resolution=-1,couches_resolution=-1,details_resolution=-1;
@@ -59,6 +69,7 @@ namespace ForgeLocal3D
             public Empreintes empreintes=new Empreintes();public string asset_avant="",asset_apres="";
             public Clic clic=new Clic();public Capture[] captures=new Capture[0];public string[] defauts=new string[0];public double duree_s;
             public Joueur camera=new Joueur();public Capture[] captures_camera=new Capture[0];
+            public Service service=new Service();
         }
 
         static DesertCityRoads(){EditorApplication.update+=Tick;}
@@ -201,6 +212,29 @@ namespace ForgeLocal3D
             foreach(var p in pixels)dev+=Mathf.Abs(p.r+p.g+p.b-mean);return dev/pixels.Length;
         }
 
+        // ---------- Lot 293 : le service du monde ----------
+
+        // L'horloge passée à la main (le service tourne à vitesse 0) : un tick, et le tick rendu ; -1 et un défaut sinon.
+        static long Tick(int port,List<string> faults)
+        {
+            string url="http://127.0.0.1:"+port+"/tick?n=1";
+            try
+            {
+                using var http=new HttpClient{Timeout=TimeSpan.FromSeconds(60)};
+                using var reponse=http.PostAsync(url,new ByteArrayContent(new byte[0])).GetAwaiter().GetResult();
+                string corps=reponse.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                if((int)reponse.StatusCode!=200){faults.Add("service : POST "+url+" rend le statut "+(int)reponse.StatusCode+" ("+corps+")");return -1;}
+                if(LecteurJson.LireObjet(corps).TryGetValue("tick",out var tick)&&tick is double t)return (long)t;
+                faults.Add("service : POST "+url+" ne rend pas de tick ("+corps+")");return -1;
+            }
+            catch(Exception e){faults.Add("service : POST "+url+" a échoué ("+e.GetBaseException().Message+")");return -1;}
+        }
+        static int Rues(ClientPlan plan,long cell,List<string> faults)
+        {
+            var lu=plan.Lire(cell);if(lu.Presente)return lu.Plan.Rues.Count;
+            faults.Add("service : "+lu.Absence);return -1;
+        }
+
         // ---------- Lot 251 : la caméra du joueur ----------
 
         static Vector3[] Grid(Vector3 centre,float half,int n)
@@ -303,6 +337,8 @@ namespace ForgeLocal3D
             var roads=Object.FindFirstObjectByType<DesertRoads>();var tool=Object.FindFirstObjectByType<DesertRoadTool>();
             if(!roads||!tool)throw new InvalidOperationException("Scène sans routes du joueur : relancer py local3d/atelier_desert.py terrain");
             if(gestes.routes==null||gestes.routes.Length==0)throw new InvalidOperationException("Jeu de gestes vide : "+DesertRoads.CheminGestes(id));
+            var sv=report.service;sv.cell=tool.Cellule;sv.port=tool.Port;
+            using var plan=new ClientPlan(tool.Port,TimeSpan.FromSeconds(1));
             tool.automatique=true;var terrain=roads.terrain;var camera=tool.view;var env=Object.FindFirstObjectByType<DesertEnvironment>();
             // Lot 251 : la caméra du joueur s'est branchée seule au chargement ; le contrôle la pilote.
             var player=camera.GetComponent<DesertCityCamera>();report.camera.branchee=player;
@@ -384,10 +420,13 @@ namespace ForgeLocal3D
                 var centre=World(terrain,steep.x.Average(),steep.y.Average());
                 var rt=new RenderTexture(1600,900,24);camera.targetTexture=rt;
                 camera.transform.position=centre+new Vector3(28,70,28);camera.transform.LookAt(centre);camera.fieldOfView=45;
-                tool.revetement=steep.revetement;tool.largeur=steep.largeur;tool.Annuler();
-                for(int i=0;i<steep.x.Length;i++)tool.Clic(camera.WorldToScreenPoint(World(terrain,steep.x[i],steep.y[i])));
+                tool.largeur=steep.largeur;tool.Annuler();
+                sv.raide.rues_avant=Rues(plan,sv.cell,faults);bool clique=steep.x.Length>=2;
+                for(int i=0;i<steep.x.Length;i++)clique&=tool.Clic(camera.WorldToScreenPoint(World(terrain,steep.x[i],steep.y[i])));
                 var res=tool.Valider();camera.targetTexture=null;rt.Release();Object.DestroyImmediate(rt);
                 if(res==null||res.acceptee)faults.Add("la route trop raide, cliquée à l'écran, n'est pas refusée");
+                // Refusée par le relief, elle n'atteint pas le monde : un vrai tick n'ajoute aucune rue.
+                sv.raide.clique=clique;sv.raide.depose=tool.Recu!=null;Tick(sv.port,faults);sv.raide.rues_apres=Rues(plan,sv.cell,faults);
                 shots.Add(new Capture{nom="refus",ecart=Shot(camera,tool,folder+"refus.png",centre+new Vector3(28,70,28),centre,45)});
                 tool.Annuler();
             }
@@ -414,17 +453,38 @@ namespace ForgeLocal3D
             // Le clic : les points de la route de plaine, projetés à l'écran puis cliqués.
             if(plainGeste!=null)
             {
-                roads.Preparer(P,gestes.graine);
+                roads.Preparer(P,gestes.graine);sv.empreinte_vierge=roads.Empreintes().Tout;
                 var centre=World(terrain,plainGeste.x.Average(),plainGeste.y.Average());
                 var rt=new RenderTexture(1600,900,24);camera.targetTexture=rt;
                 camera.transform.position=centre+new Vector3(0,120,-.5f);camera.transform.LookAt(centre);camera.fieldOfView=60;
-                tool.revetement=plainGeste.revetement;tool.largeur=plainGeste.largeur;tool.Annuler();
+                tool.largeur=plainGeste.largeur;tool.Annuler();
                 for(int i=0;i<plainGeste.x.Length;i++)tool.Clic(camera.WorldToScreenPoint(World(terrain,plainGeste.x[i],plainGeste.y[i])));
                 var res=tool.Valider();camera.targetTexture=null;rt.Release();Object.DestroyImmediate(rt);
                 var c=report.clic;c.voulus_x=plainGeste.x;c.voulus_y=plainGeste.y;
                 c.obtenus_x=tool.Derniers.Select(p=>p.x).ToArray();c.obtenus_y=tool.Derniers.Select(p=>p.y).ToArray();
+                // Le dépôt : un reçu, et le terrain encore vierge ; la route ne se dessine qu'après un vrai tick.
+                var pl=sv.plaine;var recu=tool.Recu;
+                pl.depose=recu!=null;pl.recu_accepte=recu!=null&&recu.Acceptee;pl.appliquee_au_tick=recu?.AppliqueeAuTick??-1;
+                pl.recu=recu==null?"":recu.Acceptee?"acceptée, appliquée au tick "+recu.AppliqueeAuTick:recu.Presente?"refusée ("+recu.Statut+") : "+recu.Erreur:"absente : "+recu.Absence;
+                pl.empreinte_avant_tick=roads.Empreintes().Tout;pl.dessinee_avant_tick=tool.Attendre();
+                Tick(sv.port,faults);
+                if(!tool.Attendre())faults.Add("service : après le tick, l'outil n'a pas relu de plan plus récent que son dépôt");
+                var lu=plan.Lire(sv.cell);
+                if(lu.Presente)
+                {
+                    pl.tick_plan=lu.Plan.Tick;
+                    var neuves=lu.Plan.Rues.Where(u=>tool.Posees.Any(p=>p.identifiant==u.Identifiant)).ToList();pl.rues_neuves=neuves.Count;
+                    if(neuves.Count>0)
+                    {
+                        var rue=neuves[^1];pl.rue_x=rue.Points.Select(p=>p.X).ToArray();pl.rue_y=rue.Points.Select(p=>p.Y).ToArray();
+                        pl.rue_largeur=rue.LargeurM;pl.rue_en_chantier=rue.EnChantier;
+                    }
+                }
+                else faults.Add("service : "+lu.Absence);
                 c.acceptee=res!=null&&res.acceptee;c.empreinte_clic=roads.Empreintes().Tout;
-                roads.Preparer(P,gestes.graine);roads.Poser(plainGeste);c.empreinte_gestes=roads.Empreintes().Tout;
+                // La référence (décision du propriétaire, issue #293) : la même route posée en terre battue.
+                var terre=new DesertRoads.Geste{id=plainGeste.id,famille=plainGeste.famille,revetement="terre",largeur=plainGeste.largeur,x=plainGeste.x,y=plainGeste.y};
+                roads.Preparer(P,gestes.graine);roads.Poser(terre);c.empreinte_gestes=roads.Empreintes().Tout;
             }
 
             // Lot 251 — la caméra du joueur, sur la ville aux routes posées.
