@@ -15,6 +15,9 @@ namespace ForgeLocal3D
     // chaque scénario du lot dans l'ordre de leur nom : `yield return null` laisse passer une image,
     // et quand le scénario a fini, la caméra qu'il a reçue (déplacée ou non) est photographiée sous
     // `<scène>--<nom>.png`. Exemple : `Captures/ScenarioExemple.cs`.
+    // Un `yield return` d'un autre IEnumerator ne l'exécute pas (ce n'est pas une coroutine) : pour
+    // attendre plusieurs images, `for (…) yield return null;`. La caméra de la ville se pose par
+    // `DesertCityCamera.Poser` ; bouger `camera.transform` à la main, elle le reprend à l'image suivante.
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class ScenarioDeCaptureAttribute : Attribute
     {
