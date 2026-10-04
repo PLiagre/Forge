@@ -336,6 +336,22 @@ jonction vers les packs de l'Asset Store). Unity compile la révision poussée
 et photographie la scène en Play ; ce qu'il a vu entre dans le compte rendu du
 codeur, que lit le relecteur (qui n'a pas Unity), et les images s'y affichent.
 
+**La photo d'un lot Unity lui est propre.** Unity prend d'abord le plan fixe
+(la caméra de la scène du désert, sans rien toucher), qui ne montre ni un
+bâtiment du kit qu'on n'a pas posé, ni une route qu'on n'a pas tracée, ni une
+caméra qui bouge. Puis il joue les scénarios de capture du lot : des méthodes
+`[ScenarioDeCapture(<lot>, "<nom>")] static IEnumerator X(Camera camera)` que
+le codeur écrit dans `3d/unity/Assets/ForgeLocal3D/Editor/Captures/Lot<n>.cs`
+(modèle : `ScenarioExemple.cs`). Chacune pose ce que le lot ajoute ou joue son
+geste, place la caméra, et rend une photo `<scène>--<nom>.png`. Le brief d'un
+lot `pc` a une section « Photo » qui dit ce qu'elle montre. Le pilote renvoie
+au codeur, comme une revue « CORRIGER », un lot sans photo propre ou dont la
+photo est identique au plan fixe (Unity mesure la part des pixels
+changés ; il en faut 2 %), sauf si la section « Photo »
+dit « sans objet : <raison> ». Du 30 septembre au 3 octobre 2026, treize
+captures de lots Unity étaient le même plan fixe, et des lots « vérifiés
+jusqu'à Unity » ont été acceptés sur une image qui ne pouvait rien prouver.
+
 **La partie PC n'avance que quand le PC est allumé.** Un PC éteint ou en
 veille garde le travail en file chez GitHub ; il part au réveil. Le PC répond
 toujours sur la PR : un compte rendu, ou une **attente** (aucun de ses agents

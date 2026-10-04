@@ -101,3 +101,45 @@ def test_aucun_travail_du_pc_ne_peut_en_annuler_un_autre():
     for nom in ("lot-pc.yml", "sonde-pc.yml", "build-nuit.yml"):
         texte = (RACINE / ".github" / "workflows" / nom).read_text(encoding="utf-8")
         assert "\nconcurrency:" not in texte, nom
+
+
+class _UnityQuiPhotographie:
+    """Unity dicté : le plan fixe, et les photos des scénarios du lot."""
+
+    def __init__(self, scenarios=None):
+        self.scenarios, self.lots = scenarios or {}, []
+
+    def __call__(self, chantier: Path, sortie: Path, *, lot=None, **_):
+        self.lots.append(lot)
+        sortie.mkdir(parents=True, exist_ok=True)
+        (sortie / "desert.png").write_bytes(b"plan fixe")
+        for nom, ecart in self.scenarios.items():
+            (sortie / f"desert--{nom}.png").write_bytes(b"photo")
+            if ecart is not None:
+                (sortie / f"desert--{nom}.ecart.txt").write_text(str(ecart), encoding="utf-8")
+        return True, sorted(sortie.glob("*.png")), ""
+
+
+@pytest.mark.parametrize("scenarios, photo, dit", [
+    ({}, "absente", "aucune photo propre au lot"),
+    ({"route": 0.004}, "identique", "« route » (0.4% des pixels changés)"),
+    ({"route": None}, "identique", "« route » (écart non mesuré)"),
+    ({"route": 0.31}, "propre", "propre au lot, « route » (31% des pixels changés)"),
+])
+def test_le_pc_dit_si_la_photo_est_propre_au_lot(projet, gh, depot, scenarios, photo, dit):
+    # Du 30 septembre au 3 octobre 2026, treize captures de lots Unity étaient
+    # le même plan fixe à l'octet près.
+    _lot_pc(gh)
+    unity = _UnityQuiPhotographie(scenarios)
+    _travailler(projet, gh, depot, Agents((0, "Fait.", {"3d/unity/Assets/X.cs": "code"})), unity)
+    assert unity.lots == [118], "Unity joue les scénarios du lot"
+    corps = gh.prs_[174]["comments"][-1]["body"]
+    assert marques([{"body": corps}])[0]["photo"] == photo and dit in corps
+
+
+def test_la_capture_passe_le_lot_a_unity(tmp_path, monkeypatch):
+    vus = []
+    monkeypatch.setattr(pc, "unity_de", lambda projet: Path("Unity.exe"))
+    monkeypatch.setattr(pc.subprocess, "run", lambda argv, **kw: vus.append(argv) or pc.subprocess.CompletedProcess(argv, 0))
+    pc.compiler_et_photographier(tmp_path, tmp_path / "sortie", lot=235)
+    assert vus[0][vus[0].index("-forgeLot") + 1] == "235"
