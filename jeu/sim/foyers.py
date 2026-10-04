@@ -9,6 +9,14 @@ class FoyersInvalides(ValueError):
     """Un compte, une taille ou une déclaration de métiers est incohérent."""
 
 
+def facteur_bras(metiers, km2_cultives):
+    """Part de récolte permise par les paysans ; métiers non calculés inchangés."""
+    requis = km2_cultives * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+    if metiers == -1 or requis == 0:
+        return 1.0
+    return min(1.0, metiers.get(_constantes.METIER_PAYSANS, 0) / requis)
+
+
 def _entier(valeur, nom, minimum=0):
     if type(valeur) is not int or valeur < minimum:
         raise FoyersInvalides(f"{nom} doit être un entier ≥ {minimum}, reçu : {valeur!r}")

@@ -357,9 +357,13 @@ class Pilote:
             if "lot" not in lot.etiquettes:
                 # Un journal déjà rangé dans un jalon en sort : il le tiendrait
                 # ouvert jusqu'au journal suivant.
+                # Un rangement : s'il échoue, il se dit, et le tour continue.
                 if "journal" in lot.etiquettes and lots.numero_de_jalon(lot.jalon_titre) is not None:
-                    self.gh.sortir_du_jalon(lot.numero)
-                    self.noter(lot.numero, "journal sorti du jalon", lot.jalon_titre or "")
+                    try:
+                        self.gh.sortir_du_jalon(lot.numero)
+                        self.noter(lot.numero, "journal sorti du jalon", lot.jalon_titre or "")
+                    except GitHubErreur as e:
+                        self.noter(lot.numero, "erreur", f"journal non sorti du jalon : {e}")
                 continue
             if not any(e in lot.etiquettes for e in lots.ETATS):
                 self.gh.etiqueter(lot.numero, ["idee"])

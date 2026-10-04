@@ -54,6 +54,10 @@ TICK_DURATION_DAYS = 1
 # TICK_DURATION_DAYS (voir MODELE.md).
 FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = 18.0 * TICK_DURATION_DAYS
 
+# Bras par km² cultivé, niveau 2 : valeur basse pour préserver l'année mesurée.
+# À revoir quand un geste retirera des paysans aux champs.
+BRAS_AUX_CHAMPS_PAR_KM2 = 0.1
+
 
 # --- Eau dans le rendement (fidélité niveau 2) ---
 
