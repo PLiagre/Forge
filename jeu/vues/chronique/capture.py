@@ -37,10 +37,11 @@ from sim.engine import tick as _tick
 # finissent par diverger, et la recomposition ne rendrait plus la
 # photographie au bit près — c'est-à-dire qu'elle ne prouverait plus rien.
 from sim.snapshot_export import _round_tree, build_snapshot_document
-from sim.snapshot_export import densite_de_cellule
+from sim.snapshot_export import densite_de_cellule, lieux_en_photographie
 from sim.world import World
 
-# Les champs d'une cellule que le tick fait bouger. Cette liste n'est pas
+# Les champs d'une cellule que le tick fait bouger, lieux compris.
+# Les lieux gardent la précision exacte de la photographie. Cette liste n'est pas
 # une déclaration de confiance : `chronique/tests` la MESURE en jouant des
 # ticks et en comparant les cellules avant / après (règle 7, la présence
 # n'est pas la fonction). Un champ qui se mettrait à bouger sans être ici
@@ -50,6 +51,7 @@ CHAMPS_MOBILES: tuple[str, ...] = (
     "densite_hab_par_km2",
     "food_deficit_kg",
     "hunger_ticks",
+    "lieux",
     "mortality_remainder",
     "population",
     "stocks",
@@ -167,6 +169,9 @@ def _image_du_monde(world: World, numero_tick: int) -> dict:
                 }
             elif champ == "densite_hab_par_km2":
                 valeur = densite_de_cellule(cellule)
+            elif champ == "lieux":
+                colonnes[champ].append(lieux_en_photographie(cid, cellule))
+                continue
             else:
                 valeur = (
                     canonique[champ]

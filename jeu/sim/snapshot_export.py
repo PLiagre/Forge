@@ -173,6 +173,18 @@ def densite_de_cellule(cell) -> float:
     return cell.population / cell.area_km2
 
 
+def lieux_en_photographie(cid, cell) -> list[dict]:
+    """Lit les lieux et leurs surfaces, sans arrondir leur contenu."""
+    vue_lieux = lieux_de_cellule(cid, cell.area_km2)
+    if len(cell.lieux) != len(vue_lieux):
+        raise SnapshotExportError(f"nombre de lieux incohérent pour cell_id={cid}")
+    return [
+        {"rang": lieu.rang, "surface_km2": vue_lieux[lieu.rang].surface_km2,
+         "population": lieu.population, "stocks": copier_panier(lieu)}
+        for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
+    ]
+
+
 def _identite(entite) -> dict | None:
     return None if entite is None else {"id": entite.id, "nom": entite.nom}
 
@@ -230,9 +242,6 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
         if province_id is None or province_name is None:
             raise SnapshotExportError(f"province absente pour cell_id={cid}")
         repartition = repartition_bourg_de_cellule_consultation(cid, repartitions_bourg)
-        vue_lieux = lieux_de_cellule(cid, cell.area_km2)
-        if len(cell.lieux) != len(vue_lieux):
-            raise SnapshotExportError(f"nombre de lieux incohérent pour cell_id={cid}")
         cells_out.append(
             {
                 "area_km2": cell.area_km2,
@@ -249,11 +258,7 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
                 "province": {"id": int(province_id), "name": province_name},
                 "relief": raw.get("relief"),
                 "stocks": cellule_vers_dict(cell)["stocks"],
-                "lieux": [
-                    {"rang": lieu.rang, "surface_km2": vue_lieux[lieu.rang].surface_km2,
-                     "population": lieu.population, "stocks": copier_panier(lieu)}
-                    for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
-                ],
+                "lieux": lieux_en_photographie(cid, cell),
                 "bourg": {
                     "habitants_du_bourg": repartition.habitants_du_bourg,
                     "habitants_des_champs": repartition.habitants_des_champs,
