@@ -1301,3 +1301,29 @@ def test_le_journal_ne_tient_pas_un_jalon_ouvert(projet, gh, depot, tmp_path):
     assert gh.issues_[311]["milestone"] is None, "le journal du jour ne se range pas"
     assert gh.issues_[312]["milestone"] is None, "un journal déjà rangé en sort"
     assert ("sortir_du_jalon", 312) in gh.gestes
+
+
+def test_sortir_du_jalon_passe_par_l_api_que_connait_le_gh_du_vps():
+    # Le 4 octobre 2026 : `gh issue edit --remove-milestone` n'existe pas dans
+    # le gh 2.45 du VPS, et chaque tour du pilote s'arrêtait là.
+    from atelier.github import GitHub
+    vus = []
+    GitHub("moi/essai", executeur=lambda argv, entree: vus.append((argv, entree)) or (0, "{}", "")).sortir_du_jalon(311)
+    argv, entree = vus[0]
+    assert argv[:5] == ["gh", "api", "-X", "PATCH", "repos/moi/essai/issues/311"]
+    assert json.loads(entree) == {"milestone": None} and "--remove-milestone" not in argv
+
+
+def test_un_journal_qui_ne_sort_pas_de_son_jalon_n_arrete_pas_le_tour(projet, gh, depot, tmp_path):
+    from atelier.github import GitHubErreur
+
+    def refuse(numero):
+        raise GitHubErreur("gh issue edit 311 : unknown flag: --remove-milestone")
+
+    gh.sortir_du_jalon = refuse
+    gh.ajouter_issue(311, "Journal du 04/10/2026", ("journal",), jalon="J1 — Le pont", corps="### Jalon J1 — x")
+    gh.ajouter_issue(10, "Le service lit un lieu")
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr"), "le tour continue jusqu'au lot"
+    assert "journal non sorti du jalon" in (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
