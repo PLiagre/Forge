@@ -346,10 +346,22 @@ class Pilote:
         """Une issue du formulaire porte son jalon et sa machine dans le texte :
         le pilote les pose en milestone et en étiquette, une fois. Une issue
         déjà rangée dans un milestone, réserve comprise, n'est pas déplacée.
-        L'étiquette `reserve` range un lot dans la réserve, puis s'efface."""
+        L'étiquette `reserve` range un lot dans la réserve, puis s'efface.
+
+        Seul un lot se range : le journal du matin titre « ### Jalon J2 — … »,
+        et rangé dans J2, il le tenait ouvert. Le 4 octobre 2026, J2 était
+        livré, mais la fenêtre restait sur J2, J3, J4, et J5 ne se découpait
+        jamais."""
         par_numero = {j.numero: j for j in jalons}
         for lot in ouvertes:
-            if not any(e in lot.etiquettes for e in lots.ETATS) and "lot" in lot.etiquettes:
+            if "lot" not in lot.etiquettes:
+                # Un journal déjà rangé dans un jalon en sort : il le tiendrait
+                # ouvert jusqu'au journal suivant.
+                if "journal" in lot.etiquettes and lots.numero_de_jalon(lot.jalon_titre) is not None:
+                    self.gh.sortir_du_jalon(lot.numero)
+                    self.noter(lot.numero, "journal sorti du jalon", lot.jalon_titre or "")
+                continue
+            if not any(e in lot.etiquettes for e in lots.ETATS):
                 self.gh.etiqueter(lot.numero, ["idee"])
             m = re.search(r"### Jalon\s+J(\d+)", lot.corps)
             if lot.jalon_titre is None and m and int(m.group(1)) in par_numero:
@@ -626,9 +638,10 @@ class Pilote:
                 correction = prompts.correction_ci(self._erreur_ci(numero_pr))
             elif action.nom == "corriger_relecture":
                 correction = prompts.correction_relecture(self._derniere_revue(pr))
+            consigne, decisions = self._consigne(lot)
             prompt = prompts.codeur(self.projet, numero=lot.numero, titre=lot.titre,
                                     chemin_brief=lot.brief(self.projet.dossier_briefs), correction=correction,
-                                    consigne=self._consigne(lot), pc=role == "codeur_3d")
+                                    consigne=consigne, decisions=decisions, pc=role == "codeur_3d")
         res = self._invoquer(poste or role, prompt, chemin, lot=lot.numero)
         passage = action.essai + 1
         essais = " · ".join(res.essais)
@@ -756,11 +769,12 @@ class Pilote:
             if any(m.get("role") in lots.ROLES_CODEURS and m.get("etat") in ("fait", "reponse")
                    for m in lots.marques([c])))
         lisibles, illisibles = self._lfs_du_lot(chemin)
+        consigne, decisions = self._consigne(lot)
         prompt = prompts.relecteur(self.projet, numero=lot.numero, titre=lot.titre,
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
                                    url=pr.get("url", ""), sha=tete, rapports=rapports,
                                    lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
-                                   consigne=self._consigne(lot))
+                                   consigne=consigne, decisions=decisions)
         res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
@@ -795,15 +809,17 @@ class Pilote:
             return [], []
         return lfs.rendre_lisibles(chemin, fichiers, self.gh.depot, telechargeur=self.lfs_telechargeur)
 
-    def _consigne(self, lot: Lot) -> str:
-        """La consigne du dépanneur qui vaut encore pour ce lot ; rien pour la
-        réparation de master, qui n'a pas d'issue."""
+    def _consigne(self, lot: Lot) -> tuple[str, tuple[str, ...]]:
+        """Ce que l'issue dit encore au codeur et au relecteur : la consigne du
+        dépanneur qui vaut encore, et les décisions prises sur le lot ; rien
+        pour la réparation de master, qui n'a pas d'issue."""
         if "lot" not in lot.etiquettes:
-            return ""
+            return "", ()
         try:
-            return lots.consigne_du_depanneur(self.gh.issue(lot.numero).get("comments") or [])
+            commentaires = self.gh.issue(lot.numero).get("comments") or []
         except GitHubErreur:
-            return ""
+            return "", ()
+        return lots.consigne_du_depanneur(commentaires), tuple(lots.decisions_du_lot(commentaires))
 
     # ---------------------------------------------------------- dépanner
     def _depanner_un_lot(self, vue: "_Vue") -> bool:

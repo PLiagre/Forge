@@ -393,3 +393,22 @@ def test_la_nature_de_la_question_se_lit_et_vaut_jeu_dans_le_doute():
     # Sans recommandation, rien ne se décide seul.
     sans = lots.question_du_chef("- A :: oui\n- B :: non\nNATURE :: technique", "Q ?")
     assert sans.nature == "technique" and not sans.se_decide_seule()
+
+
+def test_les_decisions_du_lot_survivent_aux_blocages():
+    question = lots.Question("Le lot peut-il toucher la chronique ?",
+                             (("A", "oui, capture.py transporte les lieux", ""), ("B", "non", "")), ("A", ""))
+    commentaires = [
+        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="q", **question.marque())},
+        {"body": "a", "author": {"login": "PLiagre"}},
+        {"body": "repris\n\n" + marque(role="pilote", etat="reponse")},
+        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="CI rouge après 2 correction(s)")},
+        {"body": "Une faille.", "author": {"login": "dependabot[bot]"}},
+        {"body": "Plutôt sans arrondir les stocks.", "author": {"login": "PLiagre"}},
+    ]
+    assert lots.decisions_du_lot(commentaires) == [
+        "Question : Le lot peut-il toucher la chronique ? Réponse du propriétaire : A — oui, capture.py transporte les lieux",
+        "Question : Le lot peut-il toucher la chronique ? Réponse du propriétaire : Plutôt sans arrondir les stocks.",
+    ]
+    # Sans question posée, un commentaire n'est pas une décision.
+    assert lots.decisions_du_lot([{"body": "Bravo", "author": {"login": "PLiagre"}}]) == []

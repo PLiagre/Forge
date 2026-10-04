@@ -108,6 +108,10 @@ class FauxGitHub(GitHub):
     def jalon_de(self, numero, titre_jalon):
         self.issues_[numero]["milestone"] = {"title": titre_jalon}
 
+    def sortir_du_jalon(self, numero):
+        self.issues_[numero]["milestone"] = None
+        self.gestes.append(("sortir_du_jalon", numero))
+
     def fermer_issue(self, numero, commentaire=None, *, abandon=False):
         self.issues_[numero]["state"] = "CLOSED"
         self.gestes.append(("fermer_issue", numero, abandon))
