@@ -1232,3 +1232,15 @@ def test_un_lot_remis_pret_avec_sa_pr_attend_une_place_pour_reprendre(projet, gh
     _pilote_verrouille(projet, gh, depot, Agents((0, "VERDICT: ACCEPTE")), tmp_path).tour()
     assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
     assert "en-cours" in _etiquettes(gh, 10)
+
+
+def test_le_journal_ne_tient_pas_un_jalon_ouvert(projet, gh, depot, tmp_path):
+    # Le 4 octobre 2026 : le journal titrait « ### Jalon J2 — … », le pilote
+    # le rangeait dans J2, et J2, livré, ne se fermait jamais.
+    corps = "### Jalon J1 — Le pont — 96 %\n\n- [x] #9 Le service"
+    gh.ajouter_issue(311, "Journal du 04/10/2026", ("journal",), jalon=None, corps=corps)
+    gh.ajouter_issue(312, "Journal du 03/10/2026", ("journal",), jalon="J1 — Le pont", corps=corps)
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert gh.issues_[311]["milestone"] is None, "le journal du jour ne se range pas"
+    assert gh.issues_[312]["milestone"] is None, "un journal déjà rangé en sort"
+    assert ("sortir_du_jalon", 312) in gh.gestes
