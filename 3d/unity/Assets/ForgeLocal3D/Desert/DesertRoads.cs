@@ -199,8 +199,9 @@ namespace ForgeLocal3D
         {r.acceptee=false;r.motif=motif;r.valeur=valeur;r.position=position;r.message=message;return r;}
 
         // Pose une route, ou la refuse sans rien changer. `decalage` relève le profil (contre-épreuve) ;
-        // `penteMax` remplace la pente maximale des paramètres (contre-épreuve).
-        public Resultat Poser(Geste g,double decalage=0,double penteMax=double.NaN)
+        // `penteMax` remplace la pente maximale des paramètres (contre-épreuve). `essai` passe tous
+        // les refus puis s'arrête juste avant la première écriture : le terrain ne bouge pas (lot 293).
+        public Resultat Poser(Geste g,double decalage=0,double penteMax=double.NaN,bool essai=false)
         {
             Assure();var P=Actuels;var r=new Resultat();
             double pmax=double.IsNaN(penteMax)?P.pente_max:penteMax;
@@ -248,6 +249,7 @@ namespace ForgeLocal3D
                 if(norm<0||norm>1)return Refus(r,"boite",v,f.V[1][q],"Route refusée : le terrain sortirait de sa boîte de hauteurs.");
                 region[jj,ii]=chaussee[q]||talus[q]?(float)norm:heights[f.j0+jj,f.i0+ii];
             }
+            if(essai){r.acceptee=true;r.message=$"Route possible : {s[^1]:0} m, pente maximale {g1*100:0} %.";return r;}
             for(int jj=0;jj<H;jj++)for(int ii=0;ii<W;ii++)heights[f.j0+jj,f.i0+ii]=region[jj,ii];
             Copie.SetHeights(f.i0,f.j0,region);
 

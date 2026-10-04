@@ -123,8 +123,47 @@ def terrain(ds,force=False):
     if failure:raise failure
 
 
-def routes(ds):
-    """Lot 263 : Python écrit les gestes, Unity les pose et mesure, Python rejoue et juge."""
+PORT_SERVICE=8000
+
+
+def lancer_service(sourd=False):
+    """Lot 293 : le service du monde sur 127.0.0.1:8000, à vitesse 0 (le contrôle fait passer les ticks).
+    Sourd, le monde ignore toute intention (local3d/desert/routes.py). Rend le processus, prêt."""
+    import socket
+    import threading
+    # Sous Windows, le service (SO_REUSEADDR) se lierait au port même déjà pris : on le vérifie avant.
+    with socket.socket() as s:
+        s.settimeout(1)
+        if s.connect_ex(('127.0.0.1',PORT_SERVICE))==0:
+            raise RuntimeError('Service du monde : le port '+str(PORT_SERVICE)+' est déjà pris par un autre processus.')
+    commande=[sys.executable,str(CODE/'routes.py'),'--service-sourd'] if sourd else [sys.executable,'-m','sim.service']
+    p=subprocess.Popen(commande+['--port',str(PORT_SERVICE),'--jours-par-seconde','0'],cwd=ROOT.parent/'jeu',
+                       stdout=subprocess.PIPE,stderr=subprocess.STDOUT,env=dict(os.environ,PYTHONIOENCODING='utf-8'))
+    attendue='service prêt sur 127.0.0.1:'+str(PORT_SERVICE);lignes=[];pret=threading.Event()
+    def lire():
+        # La sortie est lue jusqu'au bout : un tuyau plein bloquerait le service.
+        for brute in p.stdout:
+            ligne=brute.decode('utf-8',errors='replace').rstrip();lignes.append(ligne)
+            if ligne==attendue:pret.set()
+        pret.set()
+    threading.Thread(target=lire,daemon=True).start()
+    if pret.wait(120) and p.poll() is None and attendue in lignes:
+        print('Service du monde{} prêt sur 127.0.0.1:{} (vitesse 0).'.format(' sourd' if sourd else '',PORT_SERVICE),flush=True)
+        return p
+    arreter_service(p)
+    raise RuntimeError('Service du monde absent sur le port {} (déjà pris, ou service tombé). Fin de sa sortie :\n{}'.format(PORT_SERVICE,'\n'.join(lignes[-30:])))
+
+
+def arreter_service(p):
+    if p.poll() is None:
+        p.terminate()
+        try:p.wait(15)
+        except subprocess.TimeoutExpired:p.kill();p.wait()
+
+
+def routes(ds,sourd=False):
+    """Lot 263 : Python écrit les gestes, Unity les pose et mesure, Python rejoue et juge.
+    Lot 293 : les clics d'Unity passent par un vrai service du monde, lancé et arrêté ici."""
     from local3d.desert import routes as r, terrain as t
     for d in ds:
         donnees=r.ecrire_gestes(d['id'],d['seed'])
@@ -137,8 +176,10 @@ def routes(ds):
     if (ROOT/'unity/Temp/UnityLockfile').exists():
         raise RuntimeError('Unity est ouvert : enregistrer et fermer l’éditeur, puis relancer (le contrôle des routes tourne en mode batch).')
     failure=None
+    service=lancer_service(sourd)
     try:run_unity('ForgeLocal3D.DesertCityRoads.Start')
     except RuntimeError as e:failure=e
+    finally:arreter_service(service)
     faults=0
     for d in ds:
         if not (r.dossier(d['id'])/'unity-routes.json').exists():
@@ -355,7 +396,7 @@ def verify(ds):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--service-sourd',action='store_true',help='routes : le monde ignore les intentions (contre-épreuve du lot 293)');a=p.parse_args()
     ds=[d for d in RECIPE['dispositions'] if not a.disposition or d['id']==a.disposition]
     if not ds:p.error('Disposition inconnue')
     if a.action=='fabriquer':build(ds,a.force,a.sans_rendus);verify(ds)
@@ -374,5 +415,5 @@ if __name__=='__main__':
         if r.returncode:raise RuntimeError(r.stderr.decode(errors='replace')[-2000:])
     if a.action=='parcours':run_unity('ForgeLocal3D.DesertTraversalCheck.Start')
     if a.action=='terrain':terrain(ds,a.force)
-    if a.action=='routes':routes(ds)
+    if a.action=='routes':routes(ds,a.service_sourd)
     if a.action=='kit':kit_ateliers()

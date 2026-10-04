@@ -233,24 +233,25 @@
   "marcheur_joueur_absent": true,
   "marcheur_joueur_non_lance": true,
   "mur_joueur_absent": true,
-  "captures_camera_vides": true
+  "captures_camera_vides": true,
+  "service_sourd": true
  },
  "captures": [
   {
    "nom": "plaine",
-   "ecart": 96.45771111111111
+   "ecart": 98.17398888888889
   },
   {
    "nom": "bord",
-   "ecart": 130.5253888888889
+   "ecart": 127.40624444444444
   },
   {
    "nom": "flanc_de_dune",
-   "ecart": 152.88557777777777
+   "ecart": 153.89757777777777
   },
   {
    "nom": "refus",
-   "ecart": 187.38953333333333
+   "ecart": 188.15571111111112
   }
  ],
  "camera": {
@@ -291,17 +292,66 @@
  "captures_camera": [
   {
    "nom": "ensemble",
-   "ecart": 130.73036666666667
+   "ecart": 131.76655555555556
   },
   {
    "nom": "rue",
-   "ecart": 93.25847777777778
+   "ecart": 95.58947777777777
   },
   {
    "nom": "marcheur",
-   "ecart": 128.97885555555555
+   "ecart": 128.5825111111111
   }
  ],
+ "service": {
+  "cell": 1175,
+  "port": 8000,
+  "empreinte_vierge": "b0b3744befd939ddb83d17451fa79c035a63bb2df221a262ddd20a291b5a75b694b9b649154d6ab52c129bf1836c3f65ec6e0c95b19fb8af9de5b38a8fa77f1aeed0874bb5057c15807bf2af340918ebcbddadf657c9740ec50f2a7da48e5cea",
+  "raide": {
+   "clique": true,
+   "depose": false,
+   "rues_avant": 0,
+   "rues_apres": 0
+  },
+  "plaine": {
+   "depose": true,
+   "recu_accepte": true,
+   "appliquee_au_tick": 1,
+   "recu": "acceptée, appliquée au tick 1",
+   "empreinte_avant_tick": "b0b3744befd939ddb83d17451fa79c035a63bb2df221a262ddd20a291b5a75b694b9b649154d6ab52c129bf1836c3f65ec6e0c95b19fb8af9de5b38a8fa77f1aeed0874bb5057c15807bf2af340918ebcbddadf657c9740ec50f2a7da48e5cea",
+   "dessinee_avant_tick": false,
+   "tick_plan": 2,
+   "rues_neuves": 1,
+   "rue_x": [
+    8.0,
+    -0.91,
+    -10.05,
+    -19.38,
+    -28.89,
+    -38.55,
+    -48.33,
+    -58.21,
+    -68.15,
+    -78.14,
+    -88.14
+   ],
+   "rue_y": [
+    120.0,
+    124.54,
+    128.61,
+    132.19,
+    135.28,
+    137.87,
+    139.95,
+    141.51,
+    142.56,
+    143.08,
+    143.08
+   ],
+   "rue_largeur": 4.0,
+   "rue_en_chantier": true
+  }
+ },
  "defauts": [],
  "status": "valide"
 }
