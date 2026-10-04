@@ -736,6 +736,67 @@ def distance_axe(axe, x, y):
     return float(np.min(np.hypot(x - a[:, 0] - t * s[:, 0], y - a[:, 1] - t * s[:, 1])))
 
 
+PORT_SERVICE = 8000            # le port du service local (jeu/sim/service.py)
+ECART_PLAN = 0.01              # m : les points de la rue relue au plan valent ceux du clic à 1 cm près
+FAUTE_SOURD = "service : la route acceptée n'a pas paru au plan"
+
+
+def juger_service(s, c, largeur):
+    """Lot 293 : la route raide n'atteint jamais le monde ; celle de plaine est déposée, le terrain
+    ne bouge pas au dépôt, et elle ne se dessine qu'après le tick, d'après la rue relue au plan.
+
+    `s` : le bloc `service` du rapport Unity ; `c` : son bloc `clic` ; `largeur` : celle du geste de plaine.
+    """
+    if not isinstance(s, dict):
+        return ['service : bloc absent du rapport Unity']
+    fautes = []
+    if not s.get('cell', -1) >= 0:
+        fautes.append('service : cellule non lue ({})'.format(s.get('cell')))
+    if s.get('port') != PORT_SERVICE:
+        fautes.append('service : port {} au lieu de {}'.format(s.get('port'), PORT_SERVICE))
+    r = s.get('raide') or {}
+    if not r.get('clique'):
+        fautes.append('service : la route raide n’a pas été cliquée')
+    if r.get('depose', True):
+        fautes.append('service : la route raide a été déposée au monde')
+    avant = r.get('rues_avant', -1); apres = r.get('rues_apres', -1)
+    if not avant >= 0:
+        fautes.append('service : rues du plan non relevées avant la route raide')
+    elif apres != avant:
+        fautes.append('service : {} rues au plan après le tick de la route raide, {} avant'.format(apres, avant))
+    p = s.get('plaine') or {}
+    if not p.get('depose'):
+        fautes.append('service : la route de plaine n’a pas été déposée')
+    if not p.get('recu_accepte'):
+        fautes.append('service : le monde n’a pas accepté la route de plaine ({})'.format(p.get('recu') or 'aucun reçu'))
+    tick = p.get('appliquee_au_tick', -1)
+    if not tick >= 0:
+        fautes.append('service : reçu sans tick d’application')
+    vierge = s.get('empreinte_vierge') or ''
+    if not vierge:
+        fautes.append('service : empreinte du terrain vierge absente')
+    elif p.get('empreinte_avant_tick') != vierge:
+        fautes.append('service : le terrain a bougé au dépôt, avant le tick')
+    if p.get('dessinee_avant_tick', True):
+        fautes.append('service : la route s’est dessinée avant le tick')
+    if not p.get('tick_plan', -1) > tick:
+        fautes.append('service : plan relu au tick {}, pas après le tick {}'.format(p.get('tick_plan', -1), tick))
+    if p.get('rues_neuves', -1) != 1:
+        fautes.append(FAUTE_SOURD + ' après le tick ({} rues neuves dessinées, 1 attendue)'.format(p.get('rues_neuves', -1)))
+    else:
+        x, y = p.get('rue_x') or [], p.get('rue_y') or []
+        ox, oy = c.get('obtenus_x') or [], c.get('obtenus_y') or []
+        if not ox or len(x) != len(ox) or len(y) != len(oy) or np.abs(np.subtract(x, ox)).max() > ECART_PLAN or np.abs(np.subtract(y, oy)).max() > ECART_PLAN:
+            fautes.append('service : les points de la rue du plan ne sont pas ceux du clic')
+        if not largeur > 0 or p.get('rue_largeur', -1) != largeur:
+            fautes.append('service : rue du plan large de {} m, {} m cliqués'.format(p.get('rue_largeur', -1), largeur))
+        if not p.get('rue_en_chantier'):
+            fautes.append('service : la rue neuve du plan n’est pas en chantier')
+    if not vierge or c.get('empreinte_clic') == vierge:
+        fautes.append('service : la route de plaine n’a pas été dessinée sur le terrain')
+    return fautes
+
+
 def juger(ident):
     """Le jugement d'une implantation : les défauts, puis les contre-épreuves du jugement lui-même."""
     donnees = json.loads((dossier(ident) / 'gestes.json').read_text(encoding='utf-8'))
@@ -794,6 +855,12 @@ def juger(ident):
     if not c['empreinte_clic'] or c['empreinte_clic'] != c['empreinte_gestes']:
         fautes.append('clic : le terrain diffère de la même route posée par le jeu de gestes')
 
+    # Lot 293 : les clics passent par le service du monde.
+    plaine_g = next((g for g in gestes if g['famille'] == 'plaine'), None)
+    largeur_plaine = plaine_g['largeur'] if plaine_g else -1
+    service = u.get('service')
+    fautes += juger_service(service, c, largeur_plaine)
+
     # SC9 : captures non uniformes, quatre au plus.
     caps = u.get('captures', [])
     if not caps or len(caps) > 4:
@@ -842,6 +909,10 @@ def juger(ident):
     # Et la contre-épreuve du mur elle-même refuse ces absences.
     ce['mur_joueur_absent'] = not arret_au_mur({}) and not arret_au_mur(dict(cam.get('mur') or {}, marche={'faite': False}))
     ce['captures_camera_vides'] = bool(juger_captures_camera([]))
+    # Un service qui accepte le dépôt mais dont le monde l'ignore : aucune rue neuve, terrain vierge.
+    sourd = dict(service or {}); sourd['plaine'] = dict(sourd.get('plaine') or {}, rues_neuves=0, rue_x=[], rue_y=[])
+    ce['service_sourd'] = any(f.startswith(FAUTE_SOURD) for f in
+                              juger_service(sourd, dict(c, empreinte_clic=sourd.get('empreinte_vierge', '')), largeur_plaine))
     for nom, rougit in ce.items():
         if not rougit:
             fautes.append('contre-épreuve sans effet : ' + nom)
@@ -849,6 +920,7 @@ def juger(ident):
     rapport['captures'] = caps
     rapport['camera'] = {k: cam.get(k) for k in ('branchee', 'balayage', 'releve', 'sans_garde', 'zoom', 'oeil', 'retour', 'marche')}
     rapport['captures_camera'] = u.get('captures_camera', [])
+    rapport['service'] = service
     return fin(ident, rapport, fautes)
 
 
@@ -856,3 +928,26 @@ def fin(ident, rapport, fautes):
     rapport['defauts'] = fautes; rapport['status'] = 'valide' if not fautes else 'echec'
     (dossier(ident) / 'jugement.json').write_text(json.dumps(rapport, ensure_ascii=False, indent=1), encoding='utf-8')
     return rapport
+
+
+# ---------- Le service sourd (lot 293, contre-épreuve SC5) ----------
+
+def service_sourd(argv):
+    """Le vrai service du monde, dont le monde ignore chaque intention reçue : le reçu reste
+    « accepté », mais l'intention est retirée de l'attente aussitôt. Seul ce processus est touché ;
+    jeu/sim/ ne change pas. Se lance depuis jeu/ : py <ce fichier> --service-sourd --port …"""
+    sys.path.insert(0, str(ROOT.parent / 'jeu'))
+    from sim import service
+    vraie = service.recevoir_intention
+
+    def sourde(monde, intention):
+        recue = vraie(monde, intention)
+        monde.intentions_en_attente.remove(recue)
+        return recue
+
+    service.recevoir_intention = sourde
+    service.main(argv)
+
+
+if __name__ == '__main__' and sys.argv[1:2] == ['--service-sourd']:
+    service_sourd(sys.argv[2:])
