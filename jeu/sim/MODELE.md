@@ -108,8 +108,8 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   place, sans atelier, sans métier et sans bras affectés ; les objets produits
   ne sont pas consommés.
 - **répartir le travail.** Les habitants ont un métier, mineur ou paysan.
-  Naissances, morts et départs suivent les métiers, mais aucun nombre du
-  tick ne les lit. La part minière retire déjà des bras aux champs ; les
+  Naissances, morts et départs suivent les métiers ; le tick ne les lit que pour
+  la récolte. La part minière retire déjà des bras aux champs ; les
   changements de métier ne sont pas encore simulés.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Aucune route, aucun pont, aucun port, aucun ouvrage : rien dans
@@ -477,7 +477,21 @@ mineur et un paysan ; un seul mort parmi les mêmes est un mineur. Le
 migrant ne garde pas son métier. Une cellule sans métier accueille des
 paysans.
 
-**Le tick ne lit pas les métiers** pour calculer un nombre : il les écrit.
+**Le tick ne lit les métiers que pour la récolte**.
+Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × facteur_agricole`
+(sans carte : `area_km2`), sans facteur saisonnier. Ils demandent
+`km² cultivés × BRAS_AUX_CHAMPS_PAR_KM2` bras. Le facteur de bras vaut
+`min(1, paysans / bras_requis)` ; les mineurs ne comptent pas et la part
+minière reste appliquée. Sous le seuil, chaque paysan retiré enlève sa part
+de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
+Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
+La règle est de **niveau 2**, plausible, jamais sourcée.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` est choisie basse pour que le monde mesuré
+ne bouge pas : sur 365 ticks, graine 0, le minimum de paysans par km² cultivé
+vaut 0,291 sans numéro de tick et 0,248 avec. Ce n'est pas une densité agricole
+réaliste ; elle sera revue quand un geste retirera des bras aux champs.
+En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
+peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
 L'amorçage A est partagé par le chargement et la vue dans `metiers_d_amorcage`.
 Âge, sexe, parenté et logement restent de niveau 3, non simulés.
@@ -575,9 +589,10 @@ food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
                 × facteur_eau(pluie_mm_par_an + crue_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
+                × facteur_agricole(1 − part minière) × facteur_bras
 ```
 
-Les trois derniers facteurs sont lus dans la carte, cellule par cellule. Une
+Le relief, l'eau, la saison et la part minière sont lus dans la carte. Une
 cellule dont la carte ne porte pas ces données ne se voit pas attribuer une
 valeur par défaut — le moteur refuse, par `ReliefInvalideError`,
 `PluieInvalideError`, `CrueInvalideError` ou `ClimatInvalideError` (règle 10 :
@@ -587,9 +602,14 @@ négatives ; zéro reste une mesure.
 
 **Il n'y a qu'une seule formule de production alimentaire dans `sim/`.** Le
 tick lui passe un rendement tiré au sort ; le plafond de survie lui passe le
-rendement moyen. C'est ce qui garantit que le plafond ne peut pas diverger de
-ce que le monde produit vraiment, et c'est ce qui l'a fait suivre tout seul le
+rendement moyen. À bras suffisants, le plafond suit donc ce que le monde
+produit vraiment, et c'est ce qui l'a fait suivre tout seul le
 jour où le relief, puis la saison, ont modulé le rendement.
+
+Le facteur de bras s'applique uniquement aux deux maillons de production du
+tick. Le plafond de survie et la production moyenne restent la récolte à bras
+suffisants : le facteur ne peut que l'abaisser, donc le plafond reste une borne
+supérieure. L'amorçage ne dépend pas des métiers et ne forme pas de cercle.
 
 ### Paramètres
 
