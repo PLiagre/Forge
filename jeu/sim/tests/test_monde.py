@@ -3323,3 +3323,92 @@ def test_photographie_1400_refus(monkeypatch, fonction, erreur):
     with pytest.raises(SnapshotExportError, match="donnée refusée par la vue"):
         _photographie_1400(monde)
     print(f"vue={fonction}, cellules={len(monde.cells)}")
+
+
+# --- Lot 300 : /lieu sert les foyers par métier ---
+def _foyers_attendus(cellule) -> dict:
+    from sim.foyers import ranger_en_foyers
+
+    return {
+        metier: {"personnes": n, "foyers": ranger_en_foyers(n).nombre}
+        for metier, n in sorted(cellule.habitants_par_metier.items())
+    }
+
+
+def test_service_lieu_porte_les_foyers_du_tick():
+    import random
+    from sim.constants import TAILLE_FOYER
+    from sim.engine import tick
+    from sim.foyers import ranger_en_foyers
+
+    temoin = 9922
+    world = World.charger(rng_seed=0)
+    rng = random.Random(0)
+    for _ in range(3):
+        tick(world, rng, world.ticks_ecoules)
+    assert world.ticks_ecoules == 3
+
+    with lancer_service(0) as port:
+        assert requete_service(port, "/tick?n=3", "POST")[1]["tick"] == 3
+        _, monde, octets_monde = requete_service(port, "/monde")
+        assert b'"foyers"' not in octets_monde
+        controlees = 0
+        for cellule in monde["cells"]:
+            cid = cellule["cell_id"]
+            statut, lieu, _ = requete_service(port, f"/lieu?cell={cid}")
+            assert statut is HTTPStatus.OK
+            assert lieu["tick"] == 3
+            assert lieu["foyers"] == _foyers_attendus(world.cells[cid])
+            assert sum(m["personnes"] for m in lieu["foyers"].values()) == lieu["population"]
+            assert all(m["personnes"] > 0 for m in lieu["foyers"].values())
+            controlees += 1
+        print(f"cellules_controlees={controlees}")
+        assert controlees == len(monde["cells"]) > 0
+
+        # Contre-épreuve : le dernier foyer incomplet compte.
+        assert temoin in world.cells
+        foyers_tick3 = requete_service(port, f"/lieu?cell={temoin}")[1]["foyers"]
+        mineurs = world.cells[temoin].habitants_par_metier["mineurs"]
+        assert foyers_tick3["mineurs"]["foyers"] == ranger_en_foyers(mineurs).nombre
+        assert foyers_tick3["mineurs"]["foyers"] != mineurs // TAILLE_FOYER
+
+        # Contre-épreuve : un tick de plus, et les foyers ne sont plus ceux du tick 3.
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 4
+        lieu4 = requete_service(port, f"/lieu?cell={temoin}")[1]
+        assert lieu4["foyers"] != _foyers_attendus(world.cells[temoin])
+        tick(world, rng, world.ticks_ecoules)
+        assert lieu4["foyers"] == _foyers_attendus(world.cells[temoin])
+
+
+def test_service_foyers_du_lieu_declare_les_metiers_non_calcules():
+    from sim import service
+
+    non_calcules = service._foyers_du_lieu(Cell(cell_id=1, area_km2=1.0, population=10))
+    assert non_calcules == -1
+    assert not isinstance(non_calcules, dict)
+    vide = Cell(cell_id=1, area_km2=1.0, population=0, habitants_par_metier={})
+    assert service._foyers_du_lieu(vide) == {}
+    amorcee = Cell(
+        cell_id=1, area_km2=1.0, population=8,
+        habitants_par_metier={"mineurs": 3, "paysans": 5},
+    )
+    assert service._foyers_du_lieu(amorcee) == {
+        "mineurs": {"foyers": 1, "personnes": 3},
+        "paysans": {"foyers": 1, "personnes": 5},
+    }
+
+
+def _controler_lieu_documente(texte: str) -> None:
+    section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
+    for attendu in ("/lieu", "personnes", "EtatPublie", "/monde"):
+        assert attendu in section, f"« {attendu} » absent de la section des foyers"
+
+
+def test_service_lieu_documente_dans_le_modele():
+    texte = (pathlib.Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    _controler_lieu_documente(texte)
+    avant, reste = texte.split("## Les foyers par métier\n", 1)
+    section, apres = reste.split("\n## ", 1)
+    privee = section.replace("/lieu", "la route")
+    with pytest.raises(AssertionError):
+        _controler_lieu_documente(avant + "## Les foyers par métier\n" + privee + "\n## " + apres)

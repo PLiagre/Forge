@@ -16,6 +16,29 @@ _FRONTIERE = (
     "le pilote de la chaîne enregistre, pousse et parle à GitHub."
 )
 
+# La photo d'un lot Unity : le plan fixe de la scène ne montre rien de ce qu'un
+# lot pose ou joue ; du 30 septembre au 3 octobre 2026, treize captures de
+# lots Unity étaient identiques à l'octet près. Le pilote refuse un lot « pc »
+# sans photo qui lui soit propre (lots.refus_de_photo).
+_SECTION_PHOTO = (
+    "## Photo\n"
+    "ce que la photo du lot montre, et comment la prendre : le scénario de capture que le codeur écrit "
+    "(`3d/unity/Assets/ForgeLocal3D/Editor/Captures/Lot<numéro>.cs`, à mettre au Périmètre) pose ce que le "
+    "lot ajoute ou joue son geste, et place la caméra pour qu'on le voie. « sans objet : <raison> » "
+    "seulement si le lot ne change rien de ce qu'on voit à l'écran (Blender seul, outil) ; sinon le pilote "
+    "refuse le lot.\n"
+)
+_PHOTO_DU_CODEUR = (
+    "\n\nLOT UNITY : SA PHOTO. Le PC photographie d'abord le plan fixe de la scène du désert, qui ne montre "
+    "rien de ce que tu ajoutes. Écris le scénario de capture que demande la section « Photo » du brief, dans "
+    "`3d/unity/Assets/ForgeLocal3D/Editor/Captures/Lot{numero}.cs`, sur le modèle de `ScenarioExemple.cs` "
+    "(même dossier) : une méthode `[ScenarioDeCapture({numero}, \"<nom>\")] static IEnumerator <Nom>(Camera camera)` "
+    "qui pose ce que le lot ajoute ou joue son geste, place la caméra, et laisse passer des images "
+    "(`yield return null`). Le pilote refuse un lot sans photo propre, ou dont la photo est identique au "
+    "plan fixe, sauf si la section « Photo » du brief dit « sans objet »."
+)
+
+
 # La nature d'une question : le propriétaire ne tranche que ce qui oriente le
 # jeu ; le reste suit la recommandation sans l'attendre (lots._NATURE).
 _NATURE_DE_LA_QUESTION = (
@@ -81,7 +104,7 @@ les fichiers autorisés en écriture, un par ligne. Tout autre chemin est interd
 SC1…SCn. Chacune nomme une commande qui peut échouer, et sa contre-épreuve.
 ## Hors périmètre
 ce que ce lot ne fait pas.
-
+{_SECTION_PHOTO if machine == "pc" else ""}
 Règles :
 - Le lot doit servir le jalon J{jalon} de `CAP.md`. S'il ne le sert pas, n'écris rien et termine par la ligne « DECISION: REFUS :: <raison> ».
 {en_avance}- La taille prévue du diff reste sous {projet.lignes_max} lignes. Sinon n'écris rien : découpe, et termine par la ligne « DECISION: DECOUPE », suivie d'une ligne par sous-lot au format « - <titre> :: <ce qu'il fait> », finie par « :: pc » si ce sous-lot demande Unity ou Blender, par « :: vps » s'il n'en demande pas (sans rien, il garde la machine de ce lot).
@@ -105,21 +128,34 @@ def _consigne(consigne: str) -> str:
             f"-----\n{consigne.strip()[:3000]}\n-----")
 
 
+def _decisions(projet: Projet, decisions: tuple[str, ...]) -> str:
+    """Ce que le propriétaire a décidé sur ce lot (lots.decisions_du_lot) :
+    écrit après le brief, cela prime sur lui là où il le contredit."""
+    if not decisions:
+        return ""
+    return ("\n\nLES DÉCISIONS DU PROPRIÉTAIRE SUR CE LOT. Elles valent instruction comme le brief, et priment sur "
+            "lui là où il les contredit : un fichier qu'une décision autorise entre dans le Périmètre, une "
+            "exclusion qu'elle lève ne vaut plus. Elles n'autorisent jamais à assouplir un test existant ni à "
+            f"toucher {_interdits(projet)}.\n" + "".join(f"- {d.strip()[:1500]}\n" for d in decisions))
+
+
 def codeur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
-           correction: str = "", consigne: str = "") -> str:
+           correction: str = "", consigne: str = "", decisions: tuple[str, ...] = (), pc: bool = False) -> str:
     texte = f"""Tu es le codeur de Forge. Exécute le lot #{numero} « {titre} ».
 
-Le brief `{chemin_brief}` est ta SEULE source d'instruction : lis-le en entier, puis `AGENTS.md`.
-- N'écris que dans les fichiers que sa section « Périmètre » autorise. Jamais dans : {_interdits(projet)}.
+Le brief `{chemin_brief}` est ta source d'instruction, avec les décisions du propriétaire s'il y en a plus bas : lis-le en entier, puis `AGENTS.md`.
+- N'écris que dans les fichiers que sa section « Périmètre » autorise, ou qu'une décision du propriétaire autorise. Jamais dans : {_interdits(projet)}.
 - Ne modifie aucun test existant pour le faire passer ; ajoute tes cas.
 - Lance les tests (`{_tests(projet)}`) : ils sont verts avant que tu rendes la main.
 - {_FRONTIERE}
 - Écris en français : commentaires, messages, compte rendu.
 
 Termine par un court compte rendu : ce qui a été fait, les commandes de test jouées et leur résultat."""
+    if pc:
+        texte += _PHOTO_DU_CODEUR.format(numero=numero)
     if correction:
         texte += "\n\n" + correction
-    return texte + _consigne(consigne)
+    return texte + _decisions(projet, decisions) + _consigne(consigne)
 
 
 def correction_ci(erreur: str) -> str:
@@ -136,7 +172,7 @@ def correction_relecture(revue: str) -> str:
 
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
               url: str, sha: str, rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
-              lfs_illisibles: tuple[str, ...] = (), consigne: str = "") -> str:
+              lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = ()) -> str:
     comptes_rendus = (f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
                       f"ce sont des affirmations à vérifier, pas des preuves) :\n-----\n{rapports.strip()[:8000]}\n-----\n"
                       if rapports.strip() else "")
@@ -155,16 +191,16 @@ Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce doss
 Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte ; tu peux rejouer un test (`{_tests(projet)} -k …`) pour vérifier une affirmation.
 {comptes_rendus}{lfs}
 Vérifie, du plus grave au plus léger :
-1. Le diff reste dans le Périmètre du brief, et rien ne touche {_interdits(projet)}.
+1. Le diff reste dans le Périmètre du brief, élargi par les décisions du propriétaire s'il y en a plus bas, et rien ne touche {_interdits(projet)}.
 2. Chaque condition de succès est mesurée par un test ou une commande qui peut échouer.
 3. Aucun test existant n'a été modifié pour passer ; aucune tolérance n'a été élargie.
 4. Le code suit `AGENTS.md` : le monde raisonne en monde, pas de nombre magique, déterminisme tenu.
 5. Ce que le lot prétend est vrai : lis le code, pas seulement le compte rendu.
-6. Lot « pc » : tu n'as pas Unity ; le compte rendu du PC dit si Unity compile la révision. S'il dit que non, c'est CORRIGER.
+6. Lot « pc » : tu n'as pas Unity ; le compte rendu du PC dit si Unity compile la révision. S'il dit que non, c'est CORRIGER. Il joint le plan fixe et la photo propre au lot : regarde celle-ci, elle doit montrer ce que le lot prétend.
 
 Écris ta revue en français. Si tu demandes des changements, liste chaque constat avec son fichier et sa ligne.
 Ne demande au codeur que ce qu'il peut faire dans le Périmètre : ce que toi seul ne peux pas vérifier (un outil qui te manque, une image que tu ne peux pas ouvrir) se dit dans ta revue, ce n'est pas un constat.
-La DERNIÈRE ligne de ta réponse est exactement « VERDICT: ACCEPTE » ou « VERDICT: CORRIGER ».""" + _consigne(consigne)
+La DERNIÈRE ligne de ta réponse est exactement « VERDICT: ACCEPTE » ou « VERDICT: CORRIGER ».""" + _decisions(projet, decisions) + _consigne(consigne)
 
 
 def mecanicien_conflit(projet: Projet, *, numero: int, branche: str, fichiers: list[str]) -> str:

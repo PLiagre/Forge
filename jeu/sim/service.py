@@ -15,8 +15,9 @@ from urllib.parse import parse_qs, urlsplit
 
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
+from sim.foyers import ranger_en_foyers
 from sim.intentions import IntentionRefusee, recevoir_intention
-from sim.model import cellule_vers_dict
+from sim.model import cellule_vers_dict, lire_habitants_par_metier
 from sim.snapshot_export import _round_tree
 from sim.world import World
 
@@ -48,6 +49,17 @@ def _cellule_legere(cellule) -> dict:
         {"cell_id": etat["cell_id"]}
         | {champ: etat[champ] for champ in _CHAMPS_ETAT}
     )
+
+
+def _foyers_du_lieu(cellule) -> dict | int:
+    """Publie, par métier trié, ses personnes et ses foyers ; -1 si non calculés."""
+    metiers = lire_habitants_par_metier(cellule)
+    if metiers == -1:
+        return -1
+    return {
+        metier: {"personnes": personnes, "foyers": ranger_en_foyers(personnes).nombre}
+        for metier, personnes in sorted(metiers.items())
+    }
 
 
 def _parametre_entier(requete: str, nom: str, minimum: int | None = None) -> int:
@@ -144,7 +156,12 @@ class ServeurMonde(ThreadingHTTPServer):
         date = self.world.date_simulation
         lieux = {
             cellule["cell_id"]: _serialiser(
-                cellule | {"tick": numero_tick, "date": date}
+                cellule
+                | {
+                    "foyers": _foyers_du_lieu(self.world.cells[cellule["cell_id"]]),
+                    "tick": numero_tick,
+                    "date": date,
+                }
             )
             for cellule in cellules
         }

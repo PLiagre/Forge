@@ -86,6 +86,9 @@ class GitHub:
     def jalon_de(self, numero: int, titre_jalon: str) -> None:
         self.gh("issue", "edit", str(numero), "-R", self.depot, "--milestone", titre_jalon)
 
+    def sortir_du_jalon(self, numero: int) -> None:
+        self.gh("issue", "edit", str(numero), "-R", self.depot, "--remove-milestone")
+
     def fermer_issue(self, numero: int, commentaire: str | None = None, *, abandon: bool = False) -> None:
         argv = ["issue", "close", str(numero), "-R", self.depot,
                 "--reason", "not planned" if abandon else "completed"]

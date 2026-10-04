@@ -1,1 +1,1 @@
-{"cell_id":9922,"date":{"annee":1400,"jour_de_l_annee":5},"food_deficit_kg":0.0,"hunger_ticks":0,"population":109774,"stocks":{"fer":814.099723,"nourriture":1083228.071171,"objet":38.192566},"tick":4}
+{"cell_id":9922,"date":{"annee":1400,"jour_de_l_annee":5},"food_deficit_kg":0.0,"foyers":{"mineurs":{"foyers":2196,"personnes":10976},"paysans":{"foyers":19760,"personnes":98798}},"hunger_ticks":0,"population":109774,"stocks":{"fer":814.099723,"nourriture":1083228.071171,"objet":38.192566},"tick":4}

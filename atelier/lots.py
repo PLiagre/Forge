@@ -563,12 +563,7 @@ def reponse_apres_blocage(commentaires: list[dict]) -> bool:
             dernier = i
     if dernier is None:
         return False
-    for c in commentaires[dernier + 1:]:
-        corps = (c.get("body") or "").strip()
-        auteur = ((c.get("author") or {}).get("login") or "").lower()
-        if corps and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions":
-            return True
-    return False
+    return any(_ecrit_par_un_humain(c) for c in commentaires[dernier + 1:])
 
 
 # Le dépanneur (`pilote._depanner`) regarde un lot que le pilote vient de
@@ -609,11 +604,44 @@ def consigne_du_depanneur(commentaires: list[dict]) -> str:
             consigne = ""
         elif m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE:
             consigne = m.get("consigne") or ""
-        elif m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION and m.get("consigne"):
-            # Une question technique du dépanneur, tranchée seule : sa décision
-            # suit le codeur et le relecteur comme une consigne.
-            consigne = m["consigne"]
     return consigne
+
+
+def _ecrit_par_un_humain(c: dict) -> bool:
+    """Ni le pilote (ses commentaires sont marqués), ni un robot."""
+    corps = (c.get("body") or "").strip()
+    auteur = ((c.get("author") or {}).get("login") or "").lower()
+    return bool(corps) and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions"
+
+
+def decisions_du_lot(commentaires: list[dict]) -> list[str]:
+    """Ce qui a été décidé sur ce lot : chaque question posée au propriétaire,
+    avec la réponse qu'il a écrite ensuite, et chaque question technique que
+    le pilote a tranchée seul. Rien ne les efface, ni un blocage ni une
+    reprise : le 3 octobre 2026, #235 avait l'accord du propriétaire pour
+    toucher la chronique, mais le codeur ne lisait que le brief, qui
+    l'excluait, et le lot s'est bloqué trois fois sur la même CI rouge."""
+    decisions: list[str] = []
+    question: Question | None = None
+    for c in commentaires or []:
+        faites = marques([c])
+        for m in faites:
+            if m.get("role") != "pilote":
+                continue
+            if m.get("etat") == "bloque" and m.get("question"):
+                question = Question.de_marque(m)
+            elif m.get("etat") == ETAT_DECISION and (q := Question.de_marque(m)) and q.recommandation:
+                lettre = q.recommandation[0]
+                reponse = q.reponse_recommandee()
+                decisions.append(f"Question technique : {q.texte} Décision : {lettre}"
+                                 + (f" — {reponse}" if reponse else "")
+                                 + " (prise par le pilote, selon la recommandation).")
+        if faites or question is None or not _ecrit_par_un_humain(c):
+            continue
+        texte = (c.get("body") or "").strip()
+        choisie = next((f"{l} — {r}" for l, r, _ in question.options if texte.rstrip(" .").upper() == l), None)
+        decisions.append(f"Question : {question.texte} Réponse du propriétaire : {choisie or texte}")
+    return decisions
 
 
 def passage_de_renfort(essai: int, corrections_max: int) -> bool:
@@ -636,3 +664,26 @@ def auteurs(liste: list[dict]) -> frozenset[str]:
     leurs modèles ne le relit, quel que soit l'outil qui le porte."""
     return frozenset(famille_de(m["agent"]) for m in liste
                      if m.get("role") in ROLES_CODEURS and m.get("etat") == "fait" and m.get("agent"))
+
+
+# La photo d'un lot Unity (`pc.regarder_avec_unity`) : « propre » quand un
+# scénario de capture du lot a rendu une image différente du plan fixe. Du 30
+# septembre au 3 octobre 2026, treize captures de lots Unity étaient le même
+# plan fixe à l'octet près, et des lots « vérifiés jusqu'à Unity » ont été
+# acceptés sur une image qui ne pouvait rien prouver.
+PHOTO_PROPRE, PHOTO_ABSENTE, PHOTO_IDENTIQUE = "propre", "absente", "identique"
+_PHOTO_SANS_OBJET = re.compile(r"^##\s*Photo\b[^\n]*\n+\s*sans objet\s*:\s*\S", re.M | re.I)
+
+
+def refus_de_photo(marque_du_codeur: dict | None, brief: str) -> str | None:
+    """Pourquoi la photo du dernier passage du PC ne prouve rien ; None si elle
+    est propre au lot, si Unity n'a pas rendu (le relecteur le voit déjà), ou
+    si le brief dit « sans objet »."""
+    photo = (marque_du_codeur or {}).get("photo")
+    if photo not in (PHOTO_ABSENTE, PHOTO_IDENTIQUE) or _PHOTO_SANS_OBJET.search(brief or ""):
+        return None
+    if photo == PHOTO_ABSENTE:
+        return ("aucune photo propre au lot : le PC n'a photographié que le plan fixe de la scène, qui ne montre "
+                "pas ce que le lot ajoute. Écris le scénario de capture que demande la section « Photo » du brief.")
+    return ("la photo du lot est identique au plan fixe : presque aucun pixel n'a changé, son scénario de capture ne montre rien "
+            "de ce que le lot ajoute. Pose ce qu'il ajoute, ou joue son geste, et place la caméra pour qu'on le voie.")

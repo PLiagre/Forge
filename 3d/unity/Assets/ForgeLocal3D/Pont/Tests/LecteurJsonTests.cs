@@ -35,7 +35,7 @@ namespace Forge.Pont.Tests
             var lieu = LecteurJson.LireObjet(TexteFige());
 
             CollectionAssert.AreEqual(
-                new[] { "cell_id", "date", "food_deficit_kg", "hunger_ticks", "population", "stocks", "tick" },
+                new[] { "cell_id", "date", "food_deficit_kg", "foyers", "hunger_ticks", "population", "stocks", "tick" },
                 lieu.Keys.ToArray());
             var date = (Dictionary<string, object>)lieu["date"];
             Assert.AreEqual(2, date.Count);
@@ -56,6 +56,21 @@ namespace Forge.Pont.Tests
             Assert.IsTrue((double)stocks["fer"] == 625.890235);
             Assert.IsTrue((double)stocks["nourriture"] == 1086412.323983);
             Assert.IsTrue((double)stocks["objet"] == 19.415859);
+
+            // Lot #300 — les foyers par métier, lus dans la même photographie.
+            var foyers = (Dictionary<string, object>)lieu["foyers"];
+            CollectionAssert.AreEqual(new[] { "mineurs", "paysans" }, foyers.Keys.ToArray());
+            var mineurs = (Dictionary<string, object>)foyers["mineurs"];
+            var paysans = (Dictionary<string, object>)foyers["paysans"];
+            CollectionAssert.AreEqual(new[] { "foyers", "personnes" }, mineurs.Keys.ToArray());
+            CollectionAssert.AreEqual(new[] { "foyers", "personnes" }, paysans.Keys.ToArray());
+            Assert.IsTrue((double)mineurs["personnes"] == 10974.0);
+            Assert.IsTrue((double)mineurs["foyers"] == 2195.0, "le dernier foyer incomplet compte");
+            Assert.IsTrue((double)paysans["personnes"] == 98778.0);
+            Assert.IsTrue((double)paysans["foyers"] == 19756.0);
+            Assert.IsTrue(
+                (double)mineurs["personnes"] + (double)paysans["personnes"] == (double)lieu["population"],
+                "les personnes des métiers font la population");
         }
 
         [Test]
