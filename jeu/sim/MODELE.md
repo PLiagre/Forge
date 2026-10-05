@@ -76,7 +76,7 @@ spatial stocké. Le nombre et les surfaces des **lieux** se dérivent de la
 surface de la cellule ; ses lieux portent désormais leur population et leur
 panier sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans
 leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
-ni celle des maisons. Il lit les surfaces des lieux à la consommation pour
+ni celle des maisons. Il lit les habitants et paniers des lieux pour
 limiter la distribution intérieure, puis remet leurs états d'accord avec
 les totaux de la cellule à la fin.
 
@@ -121,11 +121,10 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   transport ne s'améliore encore ; ponts et ports restent non simulés.
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
-- **descendre sous la cellule pour les calculs.** Les lieux portent habitants
-  et paniers, mais le tick calcule toujours à l'échelle de la cellule : les
-  surfaces et chemins limitent ce que le bourg atteint à la consommation,
-  sans lire ses stocks persistés. Pas de mouvement propre aux lieux, de
-  familles, de personnes ni de quartiers. Le plan peut porter des bâtiments,
+- **descendre sous les lieux pour les calculs.** Les lieux portent habitants
+  et paniers ; à la consommation, les
+  paniers, habitants et chemins déterminent ce que chaque lieu mange.
+  Pas de mouvement propre aux lieux, de familles, de personnes ni de quartiers. Le plan peut porter des bâtiments,
   mais ils ne font rien.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
@@ -309,9 +308,8 @@ naissances, morts et migrations se répartissent au prorata des métiers,
 tandis que le moteur relit la part minière : un **écart** apparaît. Mesuré le
 03/10/2026 sur la graine 0, il touche 10 des 25 cellules minières après un tick
 (une personne au plus), puis les 25 après 30 ticks (15 personnes au plus).
-Aucune cellule sans part minière ne s'écarte. Le rang 0 que nourrit la
-distribution intérieure reste la part minière du moteur, pas le bourg de la
-vue. Réconcilier les deux demanderait de faire lire les métiers par le tick.
+Aucune cellule sans part minière ne s'écarte. La distribution intérieure lit
+désormais les habitants persistés au rang 0, sans relire les métiers.
 
 Le nom « bourg » est délibérément plus large que le mécanisme qui le porte : le
 jour où un second métier existera, la vue le comptera sans être réécrite. Cela
@@ -337,19 +335,17 @@ La part du bourg est de **niveau 2** : plausible, générée, jamais sourcée. U
 répartition locale surprenante n'est pas un défaut historique et n'ouvre ni
 correctif, ni brief.
 
-**Ce que B coûte, dit franchement : un seul panier reste partagé dans la
-cellule.** La gratuité prend fin pour le bourg : sa part locale et la capacité
-des chemins limitent ce qu'il peut manger, selon « La distribution à
-l'intérieur de la cellule ». Les pertes et le délai ne sont pas simulés ; la
-distribution entre les lieux des champs reste gratuite.
+**La distribution coûte des chemins.** Chaque lieu mange dans son panier ;
+les échanges passent par le bourg, selon « La distribution à
+l'intérieur de la cellule ». Les pertes et le délai ne sont pas simulés.
 
 ### Ce que le moteur ne fait toujours pas
 
-La vue du bourg compte les foyers par métier ; le moteur garde la part minière.
+La vue du bourg compte les foyers par métier ; la consommation lit les lieux.
 Le bourg ne donne ni quartiers, ni personnes, ni salaires, ni marchés,
 ni prix, ni États. Son plan peut porter des rues et des bâtiments,
 mais ils ne font rien. La vue du bourg ne décide
-rien et le tick ne la consulte pas : il calcule la part minière et lit les
+rien et le tick ne la consulte pas : il lit les habitants et paniers des
 lieux pour appliquer « La distribution à l'intérieur de la cellule ».
 
 ## Déclaration explicite
@@ -1688,9 +1684,8 @@ la cellule au bit près, sans l'arrondi d'un partage égal par division.
 La vue refuse une surface absente, booléenne, textuelle, non finie, nulle ou
 négative en nommant sa cellule. Elle refuse aussi une constante non finie ou
 inférieure à 1 km². Elle est pure, recalculée à chaque consultation hors de
-`sim.model`. Le tick lit les surfaces à la consommation pour limiter la
-distribution intérieure, sans lire les habitants et paniers persistés ; il
-remet ces états d'accord avec la cellule à la fin.
+`sim.model`. Le tick lit surfaces, habitants et paniers pour limiter la
+distribution intérieure ; il remet ces états d'accord avec la cellule à la fin.
 
 Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
 plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
@@ -1775,7 +1770,7 @@ rien ne fixe cet ordre.
 
 ## La distribution à l'intérieur de la cellule
 
-Le nombre d'habitants que le moteur compte au **rang 0** est
+**Sans lieux, avec carte.** Le nombre d'habitants que le moteur compte au **rang 0** est
 `population × part_miniere_de(gisements, facteurs_richesse_extraction())`.
 Ce calcul ne lit ni la population ni les stocks persistés des lieux : il
 utilise les totaux cellulaires et les surfaces. Les villes historiques
@@ -1786,8 +1781,8 @@ bourg de la vue est possible : celle-ci compte les métiers non paysans,
 dont les variations suivent le prorata des foyers. La distribution nourrit
 le rang 0 selon la part minière, sans consulter la vue ni les métiers.
 
-À chaque consommation, le panier alimentaire est réputé réparti au prorata
-des surfaces : pour un stock `S` (sentinelle −1 lue comme 0), une surface
+À chaque consommation sans lieux, le panier alimentaire se partage selon
+les surfaces : pour un stock `S` (sentinelle −1 lue comme 0), une surface
 cellulaire `A` et une surface de rang 0 `s0`, le bourg dispose localement de
 `S × s0 / A`. Chacun des `n − 1` autres lieux a un chemin vers lui :
 `capacite = CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK × (n − 1) × facteur_transport`.
@@ -1817,8 +1812,31 @@ Aucun kilo n'est créé : les kilos qui quittent le panier ont été mangés, le
 besoin du tick n'est pas dépassé dans le cas de distribution limitée, et le
 panier reste non négatif. Le remboursement de dette conserve ses kilos réels.
 Restent de niveau 3, non simulés : délai, pertes en route, bras des porteurs,
-tracé des chemins, consommation du stock persisté de chaque lieu, distribution
-entre les lieux des champs et intégration des villes nommées dans le bourg.
+tracé des chemins et intégration des villes nommées dans le bourg.
+
+**Avec carte et lieux.** Chaque lieu reçoit `récolte × surface / area_km2`, dans
+les deux chemins de production, sans changer la récolte cellulaire. Avant de
+manger, `repartir_sur_les_lieux` aligne nourriture et habitants sur la cellule :
+le commerce et les écritures se répartissent à proportion du contenu actuel,
+ou par surface si tous les lieux sont vides. Chaque lieu mange dans son panier
+`min(nourriture, population × ration)`, sentinelle −1 lue comme zéro.
+L'écart avec la part minière n'intervient plus : le bourg mange selon `lieux[0].population`.
+
+Chaque champ a un chemin vers le bourg, de capacité `c = capacite_chemins_interieurs_kg(1, facteur_transport)`.
+La demande est le manque du bourg plus la somme des `min(manque_champ, c)`.
+Le pot prend le reste du bourg, puis les surplus des champs par rang croissant,
+au plus `c` chacun, jusqu'à couvrir la demande. Le bourg est servi d'abord,
+puis les champs par rang croissant, au plus `c` chacun ; le restant reste au bourg.
+
+Si un lieu manque et qu'un autre garde de la nourriture, la pénurie est la somme
+des manques : la dette augmente d'autant, sans remboursement ancien, et le panier
+cellulaire devient la somme des restes. Sinon, le calcul cellulaire reste identique
+au bit près, remboursement physique compris. Les paniers finaux sortent de
+`partager(total, restes)`, ou des surfaces si les restes sont nuls : leur somme
+retrouve exactement la cellule, en `Fraction` aussi. Dette et faim restent portées
+par la cellule. Un lieu unique ne calcule aucune capacité ; des chemins infinis
+rendent le calcul gratuit au bit près. Récolte par surface, étoile et ordre de
+service sont de niveau 2, plausibles, jamais sourcés.
 
 ---
 

@@ -30,7 +30,7 @@ class Lieu(_NoBadSpatialField):
         return self.rang == 0
 
 
-def lieux_de_cellule(cell_id, surface_km2) -> tuple:
+def surfaces_des_lieux(cell_id, surface_km2) -> tuple:
     """Découpe une surface sans perdre de kilomètres carrés."""
     surface_par_lieu = _constantes.SURFACE_KM2_PAR_LIEU
     if (
@@ -51,9 +51,13 @@ def lieux_de_cellule(cell_id, surface_km2) -> tuple:
     nombre = max(1, math.floor(surface_km2 / surface_par_lieu))
     surface_autres = math.floor(surface_km2 / nombre)
     surface_bourg = surface_km2 - (nombre - 1) * surface_autres
-    return (Lieu(cell_id, 0, surface_bourg),) + tuple(
-        Lieu(cell_id, rang, surface_autres) for rang in range(1, nombre)
-    )
+    return (surface_bourg,) + (surface_autres,) * (nombre - 1)
+
+
+def lieux_de_cellule(cell_id, surface_km2) -> tuple:
+    """Construit la vue des lieux depuis leurs surfaces dérivées."""
+    return tuple(Lieu(cell_id, rang, surface)
+                 for rang, surface in enumerate(surfaces_des_lieux(cell_id, surface_km2)))
 
 
 def lieux_par_cellule(surfaces) -> dict:
@@ -99,7 +103,7 @@ def partager(total, poids) -> list:
 
 def amorcer_lieux(cellule) -> list:
     """Loge les non-paysans au bourg ; partage paysans et paniers par surface."""
-    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+    surfaces = surfaces_des_lieux(cellule.cell_id, cellule.area_km2)
     metiers = lire_habitants_par_metier(cellule)
     paysans = cellule.population if metiers == -1 else metiers.get(_constantes.METIER_PAYSANS, 0)
     populations = partager(paysans, surfaces)
@@ -110,7 +114,7 @@ def amorcer_lieux(cellule) -> list:
 
 
 def repartir_sur_les_lieux(cellule) -> None:
-    """Suit l'état de la cellule, sans intervenir dans ses calculs."""
+    """Aligne habitants et paniers à proportion de leur contenu actuel."""
     if not cellule.lieux:
         return
     lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
@@ -123,7 +127,7 @@ def repartir_sur_les_lieux(cellule) -> None:
         poids = contenus
         if all(contenu == 0 for contenu in contenus):
             if surfaces is None:
-                surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+                surfaces = surfaces_des_lieux(cellule.cell_id, cellule.area_km2)
             poids = surfaces
         return partager(total, poids)
 
