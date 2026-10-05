@@ -479,10 +479,11 @@ def test_tick_repartit_sur_une_annee_et_suit_les_ecritures(monkeypatch):
         _controle_conservation(témoin)
 
 
-def test_cellule_independante_du_contenu_des_lieux():
+def test_cellule_depend_du_contenu_des_lieux(monkeypatch):
     import random
     from sim.engine import tick
 
+    monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", float("inf"))
     avec = World.charger(0)
     sans = copy.deepcopy(avec)
     for cellule in sans.cells.values():
@@ -506,6 +507,33 @@ def test_cellule_independante_du_contenu_des_lieux():
     cellule.population += 1
     assert _etats_cellules(avec) != _etats_cellules(déplacé)
     print(f"cellules_comparées={len(avec.cells)}, ticks_sans_lieux=30, ticks_habitant_déplacé=10, écart_vu=1")
+
+    from sim import engine
+    monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0)
+    def verifier_ecart():
+        source = World.charger(0)
+        modifié = copy.deepcopy(source)
+        cellule = next(c for c in modifié.cells.values() if len(c.lieux) > 1 and
+                       _constantes.part_miniere_de(modifié.carte[c.cell_id].get("gisements"),
+                                                  _constantes.facteurs_richesse_extraction()) > 0)
+        non_paysans = cellule.population - cellule.habitants_par_metier["paysans"]
+        assert non_paysans > 0
+        cellule.lieux[0].population -= non_paysans
+        cellule.lieux[1].population += non_paysans
+        assert _controle_conservation(source) == _controle_conservation(modifié)
+        rng_source, rng_modifié = random.Random(0), random.Random(0)
+        for numéro in range(10):
+            tick(source, rng_source, numero_tick=numéro)
+            tick(modifié, rng_modifié, numero_tick=numéro)
+            if _etats_cellules(source) != _etats_cellules(modifié):
+                print(f"écart_cellule={cellule.cell_id}, tick={numéro + 1}")
+                return
+        raise AssertionError("aucun écart sans chemin après déplacement des non-paysans")
+    verifier_ecart()
+    original = engine._apply_consumption
+    monkeypatch.setattr(engine, "_apply_consumption", lambda cellule, carte=None: original(cellule))
+    with pytest.raises(AssertionError):
+        verifier_ecart()
 
 
 def test_photographie_et_empreinte_portent_les_lieux():

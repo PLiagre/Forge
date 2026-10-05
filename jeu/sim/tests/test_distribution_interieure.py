@@ -270,3 +270,157 @@ def test_sans_chemin_part_locale_par_surface(monkeypatch):
         controle(copy.deepcopy(cellule))
     print(f"cellules_controlees=1, lieux={len(lieux)}, local={local}, "
           "contre_epreuves=1")
+
+
+def _cellule_par_lieu(populations, paniers):
+    from sim.model import creer_etat_de_lieu
+    cellule = Cell(0, 3 * constantes.SURFACE_KM2_PAR_LIEU + 0.5, sum(populations))
+    cellule.lieux = [creer_etat_de_lieu(rang, population, {"nourriture": stock})
+                     for rang, (population, stock) in enumerate(zip(populations, paniers))]
+    ecrire_stock_marchandise(cellule, "nourriture", sum(paniers))
+    cellule.food_deficit_kg = 9.0
+    return cellule, {0: {"relief": "plaine", "gisements": []}}
+
+
+def _controle_par_lieu(cellule, attendus, avant):
+    from fractions import Fraction
+    observes = [_stock(lieu) for lieu in cellule.lieux]
+    for observe, attendu in zip(observes, attendus):
+        _egal_kg(observe, attendu)
+    assert sum(observes) == _stock(cellule)
+    assert sum(map(Fraction, observes)) == Fraction(_stock(cellule))
+    assert min(observes) >= 0
+    besoin = cellule.population * constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    assert 0 <= avant - _stock(cellule) <= besoin
+
+
+@pytest.mark.parametrize("capacite,relief,populations,paniers,restes,manque", [
+    (0, "plaine", [20, 1, 1], [0, 6, 200], [0, 4, 198], 40),
+    (10, "plaine", [20, 1, 1], [0, 6, 200], [0, 0, 188], 26),
+    (10, "montagne", [20, 1, 1], [0, 6, 200], [0, 1, 195], 34),
+    (10, "plaine", [1, 20, 1], [200, 0, 100], [188, 0, 98], 30),
+])
+def test_consommation_par_lieu(monkeypatch, capacite, relief, populations, paniers, restes, manque):
+    cellule, carte = _cellule_par_lieu(populations, paniers)
+    carte[0]["relief"] = relief
+    gratuite = copy.deepcopy(cellule)
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", capacite)
+    _egal_kg(engine._apply_consumption(cellule, carte), manque)
+    _egal_kg(cellule.food_deficit_kg, 9 + manque)
+    engine._update_hunger(cellule, manque)
+    assert cellule.hunger_ticks == 1
+    _controle_par_lieu(cellule, restes, sum(paniers))
+    engine._apply_consumption(gratuite)
+    with pytest.raises(AssertionError):
+        _controle_par_lieu(gratuite, restes, sum(paniers))
+
+
+@pytest.mark.parametrize("facteur", [2, 0.5])
+def test_commerce_a_proportion(monkeypatch, facteur):
+    import sim.lieux as lieux
+    paniers, populations = [100, 500, 1000], [1, 2, 3]
+    cellule, carte = _cellule_par_lieu(populations, paniers)
+    cellule.food_deficit_kg = 0
+    ecrire_stock_marchandise(cellule, "nourriture", facteur * sum(paniers))
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0)
+    attendus = [facteur * stock - population * constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+                for population, stock in zip(populations, paniers)]
+    def verifier(copie):
+        assert engine._apply_consumption(copie, carte) == 0
+        _controle_par_lieu(copie, attendus, facteur * sum(paniers))
+    verifier(copy.deepcopy(cellule))
+    partager = lieux.partager
+    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(0, cellule.area_km2)]
+    monkeypatch.setattr(lieux, "partager", lambda total, poids: partager(total, surfaces))
+    with pytest.raises(AssertionError):
+        verifier(copy.deepcopy(cellule))
+
+
+def test_donneurs_par_lieu_par_rang_croissant(monkeypatch):
+    """La demande s'arrête avant d'épuiser les deux champs donneurs."""
+    paniers = [0, 102, 202, 0]
+    cellule, carte = _cellule_par_lieu([2, 1, 1, 20], paniers)
+    cellule.area_km2 = len(cellule.lieux) * constantes.SURFACE_KM2_PAR_LIEU + 0.5
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 10)
+
+    def verifier(copie):
+        # Demande : 4 au bourg + 10 au champ affamé. Envois : 10 puis 4.
+        _egal_kg(engine._apply_consumption(copie, carte), 30)
+        _egal_kg(copie.food_deficit_kg, 39)
+        _controle_par_lieu(copie, [0, 90, 196, 0], sum(paniers))
+
+    inversee = copy.deepcopy(cellule)
+    inversee.lieux[1].rang, inversee.lieux[2].rang = 2, 1
+    with pytest.raises(AssertionError):
+        verifier(inversee)
+    verifier(cellule)
+
+
+def test_consommation_par_lieu_sans_repartage_inutile(monkeypatch):
+    """Des paniers déjà exacts et suffisants ne repassent pas par les grands entiers."""
+    import sim.lieux as lieux
+    cellule, carte = _cellule_par_lieu([1, 2, 3], [100.25, 500, 1000])
+    cellule.food_deficit_kg = 0
+    def interdit(*args):
+        pytest.fail("repartage inutile de paniers déjà exacts")
+    monkeypatch.setattr(lieux, "partager", interdit)
+    assert engine._apply_consumption(cellule, carte) == 0
+    _controle_par_lieu(cellule, [98.25, 496, 994], 1600.25)
+    assert all(isinstance(_stock(lieu), int) for lieu in cellule.lieux[1:])
+
+
+def test_bourg_miniers_ont_faim(monkeypatch):
+    original = engine._apply_consumption
+    def mesurer(capacite):
+        monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", capacite)
+        monde, rng, affamees = World.charger(0), random.Random(0), set()
+        consommation = engine._apply_consumption
+        def observer(cellule, carte=None):
+            penurie = consommation(cellule, carte)
+            if (penurie > 0 and _stock(cellule) > 0
+                    and (math.isinf(capacite) or _part(cellule, carte) > 0)):
+                affamees.add(cellule.cell_id)
+            return penurie
+        with monkeypatch.context() as ctx:
+            ctx.setattr(engine, "_apply_consumption", observer)
+            for numero in range(60):
+                engine.tick(monde, rng, numero_tick=numero)
+        return len(affamees)
+    sans, illimites = mesurer(0), mesurer(float("inf"))
+    assert sans > 0 and illimites == 0
+    monkeypatch.setattr(engine, "_apply_consumption", lambda cellule, carte=None: original(cellule))
+    gratuite = mesurer(0)
+    with pytest.raises(AssertionError):
+        assert gratuite > 0
+    print(f"bourgs_miniers_affames={sans}, illimites={illimites}, gratuits={gratuite}")
+
+
+def test_distribution_par_lieu_documentee():
+    from pathlib import Path
+    def verifier(texte):
+        section = texte.split("## La distribution à l'intérieur de la cellule\n")[1].split("\n## ")[0]
+        for mot in ("partager", "surface", "chemin", "capacite_chemins_interieurs_kg", "par rang",
+                    "dette", "somme", "commerce", "à proportion", "sans lieux", "écart", "niveau 3"):
+            assert mot in section
+        for obsolete in ("réputé réparti au prorata des surfaces", "consommation du stock persisté de chaque lieu"):
+            assert obsolete not in section
+        assert "sans lire les habitants et paniers persistés" not in texte
+        assert "un seul panier reste partagé dans la cellule" not in texte
+    texte = (Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    verifier(texte)
+    with pytest.raises(AssertionError):
+        verifier(texte.replace("à proportion", "au hasard"))
+
+
+@pytest.mark.parametrize("moyenne", [False, True])
+def test_recolte_par_lieu_selon_surface(moyenne):
+    monde = World.charger(0)
+    cellule = next(c for c in monde.cells.values() if len(c.lieux) > 1)
+    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+    for entite in [cellule, *cellule.lieux]:
+        ecrire_stock_marchandise(entite, "nourriture", 0)
+    production = engine._apply_production_saison_moyenne if moyenne else engine._apply_production
+    production(cellule, random.Random(0), monde.carte)
+    assert _stock(cellule) > 0
+    for lieu, surface in zip(cellule.lieux, surfaces):
+        _egal_kg(_stock(lieu), _stock(cellule) * surface / cellule.area_km2)

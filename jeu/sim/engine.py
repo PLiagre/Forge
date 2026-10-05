@@ -33,6 +33,7 @@ import sim.foyers as foyers
 from sim.model import (
     Cell,
     cellule_vers_dict,
+    contenus_des_paniers,
     copier_panier,
     ecrire_habitants_par_metier,
     ecrire_stock_marchandise,
@@ -383,6 +384,15 @@ def _facteur_bras_pour_cellule(cell: Cell, carte: dict | None) -> float:
     return foyers.facteur_bras(lire_habitants_par_metier(cell), km2_cultives)
 
 
+def _produire_sur_les_lieux(cell: Cell, recolte: float) -> None:
+    """La récolte pousse sur chaque surface, indépendamment des habitants."""
+    surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    for lieu in cell.lieux:
+        stock = max(0.0, lire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE))
+        ecrire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE,
+                                stock + recolte * surfaces[lieu.rang] / cell.area_km2)
+
+
 def _apply_production(
     cell: Cell,
     rng: random.Random,
@@ -404,6 +414,8 @@ def _apply_production(
     current = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
     current = current if current >= 0 else 0.0
     ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)
+    if carte is not None and len(cell.lieux) > 1:
+        _produire_sur_les_lieux(cell, food_produced)
 
 
 def _apply_production_saison_moyenne(
@@ -422,6 +434,8 @@ def _apply_production_saison_moyenne(
     current = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
     current = current if current >= 0 else 0.0
     ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)
+    if carte is not None and len(cell.lieux) > 1:
+        _produire_sur_les_lieux(cell, food_produced)
 
 
 def _cle_arête(a_id: int, b_id: int) -> tuple[int, int]:
@@ -993,6 +1007,63 @@ def _nourriture_accessible_au_rang0_kg(cell: Cell, carte: dict, stock: float) ->
 
 
 def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
+    """Chaque lieu mange localement ; les chemins passent par le bourg."""
+    if carte is None or not cell.lieux:
+        return _apply_consumption_cellule(cell, carte)
+    lieux = cell.lieux if len(cell.lieux) == 1 else sorted(cell.lieux, key=lambda lieu: lieu.rang)
+    if len(lieux) == 1:
+        penurie = _apply_consumption_cellule(cell)
+        lieux[0].population = cell.population
+        ecrire_stock_marchandise(lieux[0], _constantes.MARCHANDISE_NOURRITURE,
+                                lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE))
+        return penurie
+    populations = _lieux.partager_si_necessaire(cell, cell.population, [lieu.population for lieu in lieux])
+    for lieu, population in zip(lieux, populations):
+        lieu.population = population
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    stocks = [stock if stock >= 0 else 0.0 for stock in contenus_des_paniers(lieux, nourriture)]
+    total = max(0.0, lire_stock_marchandise(cell, nourriture))
+    stocks = _lieux.partager_si_necessaire(cell, total, stocks)
+    restes = [stock - population * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+              for population, stock in zip(populations, stocks)]
+    penurie = 0.0
+    if min(restes) < 0:
+        manques = [max(0.0, -reste) for reste in restes]
+        restes = [max(0.0, reste) for reste in restes]
+        capacite = _constantes.capacite_chemins_interieurs_kg(
+            1, _facteur_transport_pour_cellule(cell.cell_id, carte))
+        demande = manques[0] + sum(min(manque, capacite) for manque in manques[1:])
+        pot, restes[0] = restes[0], 0.0
+        for rang in range(1, len(lieux)):
+            envoi = min(restes[rang], capacite, max(0.0, demande - pot))
+            restes[rang] -= envoi
+            pot += envoi
+        couverte, surplus = pot >= demande, max(0.0, pot - demande)
+        for rang in range(len(lieux)):
+            servi = min(manques[rang], manques[rang] if rang == 0 else capacite)
+            if not couverte:
+                servi = min(servi, pot)
+            manques[rang] -= servi
+            pot = max(0.0, pot - servi)
+        restes[0] = surplus if couverte else pot
+        penurie = sum(manques)
+    total = sum(restes) if penurie > 0 else total
+    if penurie > 0 and total > 0:
+        cell.food_deficit_kg = max(0.0, cell.food_deficit_kg) + penurie
+        ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, total)
+    else:
+        penurie = _apply_consumption_cellule(cell)
+        total = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
+    parts = _lieux.parts_sans_repartage(total, restes)
+    if parts is None:
+        poids = restes if any(restes) else _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+        parts = _lieux.partager(total, poids)
+    for lieu, part in zip(lieux, parts):
+        ecrire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE, part)
+    return penurie
+
+
+def _apply_consumption_cellule(cell: Cell, carte: dict | None = None) -> float:
     """
     Maillon 3 — Consommation.
 
