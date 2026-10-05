@@ -510,7 +510,8 @@ def test_depart_deterministe_sans_effet_sur_les_cellules():
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
 
 
-def test_gestes_routes_deterministes_sans_cellule_ni_alea():
+def test_gestes_routes_deterministes_seule_la_cellule_du_chantier():
+    from sim import constants as k
     from sim.intentions import recevoir_intention
     from sim.tests.test_intentions import _route_reference
 
@@ -536,7 +537,27 @@ def test_gestes_routes_deterministes_sans_cellule_ni_alea():
     with pytest.raises(AssertionError):
         assert copie["cells"] == etats[0]["cells"]
     assert etats[0] == etats[1] and empreintes[0] == empreintes[1]
-    assert all(etat["cells"] == etats[2]["cells"] for etat in etats)
+    def comparer_cellules(etat):
+        cellules, temoin = etat["cells"], etats[2]["cells"]
+        cid = str(route["cell"])
+        assert cellules and cellules.keys() == temoin.keys()
+        assert all(cellules[cle] == temoin[cle] for cle in cellules if cle != cid)
+        assert {cle: v for cle, v in cellules[cid].items() if cle != "foyers"} == {
+            cle: v for cle, v in temoin[cid].items() if cle != "foyers"}
+        metiers, reference = cellules[cid]["foyers"], temoin[cid]["foyers"]
+        assert sum(m["personnes"] for m in metiers.values()) == sum(m["personnes"] for m in reference.values())
+        assert sum(metiers.get(nom, {}).get("personnes", 0) for nom in (k.METIER_PAYSANS, k.METIER_OUVRIERS)) == reference[k.METIER_PAYSANS]["personnes"]
+
+    for etat in etats:
+        comparer_cellules(etat)
+    autre = next(cle for cle in copie["cells"]
+                 if cle != str(route["cell"]) and copie["cells"][cle]["foyers"])
+    copie = copy.deepcopy(etats[0])
+    copie["cells"][autre]["foyers"] = {}
+    with pytest.raises(AssertionError):
+        comparer_cellules(copie)
+    for etat in (etats[0], etats[1], etats[3]):
+        assert [rue["travail_fourni"] for rue in etat["plans"][str(route["cell"])]["rues"]] == [10 * k.TAILLE_FOYER, 7 * k.TAILLE_FOYER]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
     assert set(etats[2]) == {"cells", "plans", "ticks_ecoules"}
     assert all(plan == {"rues": [], "parcelles": [], "batiments": []}
