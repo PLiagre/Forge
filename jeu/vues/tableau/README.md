@@ -42,3 +42,17 @@ py -m viewer --snapshot /tmp/monde-t20.json --port 8766
 
 Le viewer ne recalcule rien, ne lit que le snapshot, et ne charge
 aucune ressource réseau.
+
+## La cellule découpée en lieux
+
+Depuis `jeu/`, dessiner les lieux d'une cellule de la photographie :
+
+```bash
+python3 -m vues.tableau --snapshot /tmp/monde.json --cellule <id> --proof-svg /tmp/cellule.svg
+```
+
+Le clic sur une cellule affiche le même dessin, servi par `/cellule/<id>.svg`.
+Le bourg est le rang 0 ; chaque carte porte la surface, les habitants et le
+panier photographiés. La vue lit les lieux de la photographie, elle n'en
+calcule aucun. Des lieux manquants s'affichent « lieux absents de la photographie » ;
+des lieux illisibles sont refusés. `--cellule` refuse `--compare`.

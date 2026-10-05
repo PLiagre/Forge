@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from vues.tableau.cellule import LieuxIllisibles, render_cellule_svg
 from vues.tableau.server import serve
 from vues.tableau.snapshot_loader import SnapshotLoadError, load_snapshot
 from vues.tableau.svg_proof import write_svg
@@ -21,11 +22,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--snapshot", required=False, help="fichier snapshot v0a-1")
     parser.add_argument("--compare", required=False, help="second snapshot à comparer")
+    parser.add_argument("--cellule", type=int, help="cellule dont dessiner les lieux")
     parser.add_argument("--proof-svg", dest="proof_svg", default=None)
     parser.add_argument("--layer", default="population")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args(argv)
+    if args.cellule is not None and args.compare:
+        print("refus : --cellule est incompatible avec --compare", file=sys.stderr)
+        return EXIT_REFUS
     if not args.snapshot:
         print("refus : --snapshot est obligatoire", file=sys.stderr)
         return EXIT_REFUS
@@ -35,14 +40,26 @@ def main(argv: list[str] | None = None) -> int:
     except SnapshotLoadError as exc:
         print(f"refus : {exc}", file=sys.stderr)
         return EXIT_REFUS
+    cellule_svg = None
+    if args.cellule is not None:
+        try:
+            cellule_svg = render_cellule_svg(document, args.cellule)
+        except (KeyError, LieuxIllisibles) as exc:
+            print(f"refus : {exc}", file=sys.stderr)
+            return EXIT_REFUS
     if args.proof_svg:
         try:
-            write_svg(
-                document,
-                Path(args.proof_svg),
-                layer=args.layer,
-                compare=compare,
-            )
+            if args.cellule is not None:
+                Path(args.proof_svg).write_text(
+                    cellule_svg, encoding="utf-8"
+                )
+            else:
+                write_svg(
+                    document,
+                    Path(args.proof_svg),
+                    layer=args.layer,
+                    compare=compare,
+                )
         except (OSError, KeyError, ValueError) as exc:
             print(f"refus : {exc}", file=sys.stderr)
             return EXIT_REFUS

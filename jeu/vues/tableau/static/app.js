@@ -323,7 +323,7 @@
     }
     box.innerHTML = "";
     Object.keys(cell).sort().forEach(function (key) {
-      if (key === "geometry") {
+      if (key === "geometry" || key === "lieux") {
         return;
       }
       var dt = document.createElement("dt");
@@ -344,6 +344,14 @@
       box.appendChild(dt);
       box.appendChild(dd);
     });
+  }
+
+  function showLieux(cell) {
+    var box = document.getElementById("lieux");
+    var image = document.createElement("img");
+    image.src = "cellule/" + cell.cell_id + ".svg";
+    image.alt = "Lieux de la cellule " + cell.cell_id;
+    box.replaceChildren(image);
   }
 
   function hitTest(mx, my, canvas) {
@@ -432,6 +440,7 @@
         if (cell) {
           state.selected = cell;
           showDetails(cell);
+          showLieux(cell);
           draw();
         }
       }

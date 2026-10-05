@@ -10,8 +10,9 @@
 nom = "Forge"
 depot = "PLiagre/Forge"
 branche_base = "master"
-# Les tests du jeu, depuis la racine du dépôt. Ce que le codeur joue avant de
-# rendre la main ; la CI joue les mêmes, plus l'atelier et gitleaks.
+# Les tests du jeu, depuis la racine du dépôt, tels que la CI les joue, plus
+# l'atelier et gitleaks. Le codeur ne joue que ceux de ce qu'il touche : sur
+# le VPS, la suite entière dépassait son délai (4 octobre 2026).
 tests = "python3 -m pytest jeu -q"
 # Ce qu'un lot ne touche jamais. Un changement d'un lot sur ces chemins est
 # retiré avant l'enregistrement, et le commentaire de la PR le dit.

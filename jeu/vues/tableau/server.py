@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Lock
 from typing import Optional
 from urllib.parse import urlparse
 
+from vues.tableau.cellule import LieuxIllisibles, render_cellule_svg
 from vues.tableau.snapshot_loader import EchantillonVide, construire_dashboard, serialize_dashboard
 
 _STATIC = Path(__file__).resolve().parent / "static"
@@ -22,13 +25,21 @@ class SnapshotServer(ThreadingHTTPServer):
     ) -> None:
         self.snapshot_a = snapshot_a
         self.snapshot_b = snapshot_b
+        self._document_a: Optional[dict] = None
+        self._document_lock = Lock()
         self._dashboard: Optional[bytes] = None
         super().__init__(address, _Handler)
 
+    @property
+    def document_a(self) -> dict:
+        with self._document_lock:
+            if self._document_a is None:
+                self._document_a = json.loads(self.snapshot_a.decode("utf-8"))
+        return self._document_a
+
     def dashboard_bytes(self) -> bytes:
         if self._dashboard is None:
-            document = json.loads(self.snapshot_a.decode("utf-8"))
-            self._dashboard = serialize_dashboard(construire_dashboard(document))
+            self._dashboard = serialize_dashboard(construire_dashboard(self.document_a))
         return self._dashboard
 
 
@@ -47,6 +58,21 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
+        if path.startswith("/cellule/"):
+            route = re.fullmatch(r"/cellule/([+-]?[0-9]+)\.svg", path)
+            if route is None:
+                self._send(404, b"absent\n", "text/plain; charset=utf-8")
+                return
+            try:
+                payload = render_cellule_svg(self.server.document_a, int(route[1])).encode("utf-8")
+            except KeyError:
+                self._send(404, b"absent\n", "text/plain; charset=utf-8")
+                return
+            except LieuxIllisibles as exc:
+                self._send(409, f"{exc}\n".encode("utf-8"), "text/plain; charset=utf-8")
+                return
+            self._send(200, payload, "image/svg+xml; charset=utf-8")
+            return
         if path == "/snapshot.json":
             self._send(200, self.server.snapshot_a, "application/json; charset=utf-8")
             return

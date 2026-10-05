@@ -146,7 +146,7 @@ def codeur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
 Le brief `{chemin_brief}` est ta source d'instruction, avec les décisions du propriétaire s'il y en a plus bas : lis-le en entier, puis `AGENTS.md`.
 - N'écris que dans les fichiers que sa section « Périmètre » autorise, ou qu'une décision du propriétaire autorise. Jamais dans : {_interdits(projet)}.
 - Ne modifie aucun test existant pour le faire passer ; ajoute tes cas.
-- Lance les tests (`{_tests(projet)}`) : ils sont verts avant que tu rendes la main.
+- Lance les tests qui couvrent ce que tu touches : tes fichiers de test, ceux des modules que tu changes, `jeu/sim/tests/test_no_hardcoded.py`, `jeu/sim/tests/test_write_coverage.py` et les commandes des conditions de succès, sauf celle de la suite entière (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q`) : ils sont verts avant que tu rendes la main. Jamais la suite entière : elle dépasse ton délai, et la CI la joue après la poussée ; une CI rouge te revient.
 - {_FRONTIERE}
 - Écris en français : commentaires, messages, compte rendu.
 
