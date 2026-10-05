@@ -45,6 +45,7 @@ _DECISION_DEPANNEUR = re.compile(r"^[ \t>*_`]*DECISION\s*:[ \t*_`]*(REPRENDRE|QU
 _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
+_MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
 SECTIONS_BRIEF = ("## But", "## Règle du monde", "## Périmètre", "## Conditions de succès", "## Hors périmètre")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Codex, Cursor)"
 
@@ -574,9 +575,16 @@ class Pilote:
         autres = [f for f in self.depot.changements(chemin) if f != chemin_brief]
         if autres:
             self.depot.annuler(chemin, autres)
+        # Le brief peut demander le PC (Unity, Blender) quand l'issue ne le
+        # disait pas : l'étiquette suit, sinon le lot part sur le VPS, sans
+        # Unity (#237, 4 octobre 2026).
+        machine = lot.machine
+        if machine == "vps" and _MACHINE_PC.search(texte):
+            self.gh.etiqueter(lot.numero, [lots.ETIQUETTE_PC])
+            machine = "pc"
         sha = self.depot.enregistrer(chemin, f"Brief du lot #{lot.numero} : {lot.titre}\n\nÉcrit par {res.agent}.")
         self.depot.pousser(chemin, branche)
-        corps = (f"Closes #{lot.numero}\n\nJalon : {titre_jalon} · Machine : {lot.machine}\n"
+        corps = (f"Closes #{lot.numero}\n\nJalon : {titre_jalon} · Machine : {machine}\n"
                  f"Brief : [`{chemin_brief}`](../blob/{branche}/{chemin_brief})\n\n"
                  "Le chef écrit le brief, le codeur code, la CI joue les tests, le relecteur rend son verdict ; "
                  "ACCEPTE fusionne tout seul." + SIGNATURE)

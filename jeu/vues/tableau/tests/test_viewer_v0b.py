@@ -1056,3 +1056,236 @@ def test_bourg_une_seule_voie_lecture_tableau():
     eprouvee = loader + "\n# sonde\nbourg_depuis_monde(world)\n"
     with pytest.raises(AssertionError):
         _controle_tableau_pas_seconde_formule_bourg(eprouvee)
+
+
+# Lot 238 : les lieux sont lus dans la photographie, sans seconde formule.
+@pytest.fixture(scope="module")
+def photographie_lieux():
+    from sim.snapshot_export import serialize_snapshot
+
+    document = json.loads(serialize_snapshot(build_snapshot_document(World.charger(0), 0, 0)))
+    assert document["cells"], "échantillon vide"
+    return document
+
+
+def _groupes_lieux(svg):
+    import xml.etree.ElementTree as ET
+
+    return [g for g in ET.fromstring(svg).iter() if g.get("id", "").startswith("lieu-")]
+
+
+def _controle_sources_lieux(source):
+    for interdit in ("sum(", "sim.lieux", "lieux_de_cellule", "partager", "sim.world", "sim.engine"):
+        assert interdit not in source, f"calcul interdit : {interdit}"
+    _controle_tableau_pas_seconde_formule_bourg(source)
+
+
+def test_lieux_lus(photographie_lieux):
+    import copy
+    import xml.etree.ElementTree as ET
+    from vues.tableau.cellule import lire_lieux, render_cellule_svg
+
+    document = photographie_lieux
+    cellules_dessinees = lieux_dessines = 0
+    tailles = set()
+    for cell in document["cells"]:
+        cid = cell["cell_id"]
+        lieux = cell["lieux"]
+        assert lieux and lire_lieux(cell) is lieux
+        svg = render_cellule_svg(document, cid)
+        assert svg == render_cellule_svg(document, cid)
+        groupes = _groupes_lieux(svg)
+        assert [g.get("id") for g in groupes] == [f"lieu-{i}" for i in range(len(lieux))]
+        for g, lieu in zip(groupes, lieux):
+            assert json.loads(g.get("data-rang")) == lieu["rang"]
+            assert json.loads(g.get("data-population")) == lieu["population"]
+            assert json.loads(g.get("data-surface-km2")) == lieu["surface_km2"]
+            stocks = [t for t in g.iter() if t.get("data-marchandise") is not None]
+            assert [t.get("data-marchandise") for t in stocks] == sorted(lieu["stocks"])
+            for t in stocks:
+                assert json.loads(t.get("data-kg")) == lieu["stocks"][t.get("data-marchandise")]
+            assert ("bourg" in list(g.itertext())) == (lieu["rang"] == 0)
+        cellules_dessinees += 1
+        lieux_dessines += len(groupes)
+        tailles.add(len(groupes))
+    assert cellules_dessinees == len(document["cells"])
+    assert lieux_dessines == sum(len(c["lieux"]) for c in document["cells"])
+    assert lieux_dessines > cellules_dessinees and 1 in tailles and max(tailles) > 1
+    cell = max(document["cells"], key=lambda c: len(c["lieux"]))
+    modifie = copy.deepcopy(document)
+    cible = next(c for c in modifie["cells"] if c["cell_id"] == cell["cell_id"])
+    cible["lieux"][1]["population"] += 1
+    avant = _groupes_lieux(render_cellule_svg(document, cell["cell_id"]))
+    apres = _groupes_lieux(render_cellule_svg(modifie, cell["cell_id"]))
+    assert json.loads(apres[1].get("data-population")) == cible["lieux"][1]["population"]
+    assert avant[1].get("data-population") != apres[1].get("data-population")
+    assert all(ET.tostring(a) == ET.tostring(b) for i, (a, b) in enumerate(zip(avant, apres)) if i != 1)
+    print(f"cellules_dessinées={cellules_dessinees}, lieux_dessinés={lieux_dessines}, tailles={sorted(tailles)}")
+
+
+def test_lieux_sans_calcul(photographie_lieux):
+    import copy
+    import xml.etree.ElementTree as ET
+    from vues.tableau.cellule import render_cellule_svg
+
+    cell = max(photographie_lieux["cells"], key=lambda c: len(c["lieux"]))
+    assert len(cell["lieux"]) > 1
+    document = {**photographie_lieux, "cells": [cell]}
+    modifie = copy.deepcopy(document)
+    cible = modifie["cells"][0]
+    cible.update(population=cell["population"] + 100, stocks={"factice": 42},
+                 area_km2=-15, densite_hab_par_km2=-1, bourg=None)
+    assert render_cellule_svg(document, cell["cell_id"]) == render_cellule_svg(modifie, cell["cell_id"])
+    compte = 0
+    for g, lieu in zip(_groupes_lieux(render_cellule_svg(document, cell["cell_id"])), cell["lieux"]):
+        for element in g.iter():
+            for cle, valeur in element.attrib.items():
+                if cle.startswith("data-") and cle != "data-marchandise":
+                    attendu = {"data-rang": lieu["rang"], "data-population": lieu["population"],
+                               "data-surface-km2": lieu["surface_km2"],
+                               "data-kg": lieu["stocks"].get(element.get("data-marchandise"))}
+                    assert json.loads(valeur) == attendu[cle]
+                    compte += 1
+    for path in (_VIEWER / "cellule.py", _VIEWER / "static" / "app.js"):
+        source = path.read_text(encoding="utf-8")
+        _controle_sources_lieux(source)
+        with pytest.raises(AssertionError):
+            _controle_sources_lieux(source + "\nsum(x)\n")
+    js = (_VIEWER / "static" / "app.js").read_text(encoding="utf-8")
+    assert all(interdit not in js for interdit in (".lieux", '["lieux"]', "lieux["))
+    def rendu_factice(c):
+        return [c["population"] // len(c["lieux"]) for _ in c["lieux"]]
+    with pytest.raises(AssertionError):
+        assert rendu_factice(cell) == rendu_factice(cible)
+    assert compte > 0
+    assert ET.fromstring(render_cellule_svg(document, cell["cell_id"])) is not None
+    print(f"attributs_exacts={compte}, lieux={len(cell['lieux'])}, sources_contrôlées=2")
+
+
+def test_lieux_absents(photographie_lieux):
+    import copy
+    from vues.tableau.cellule import LieuxIllisibles, formater, lire_lieux, render_cellule_svg
+
+    cell = copy.deepcopy(max(photographie_lieux["cells"], key=lambda c: len(c["lieux"])))
+    cid = cell["cell_id"]
+    document = {**photographie_lieux, "cells": [cell]}
+    lieux = cell.pop("lieux")
+    for absent in (None, []):
+        if absent is not None:
+            cell["lieux"] = absent
+        assert lire_lieux(cell) is None
+        svg = render_cellule_svg(document, cid)
+        assert "lieux absents de la photographie" in svg and not _groupes_lieux(svg)
+    mauvais = [
+        [{**lieux[0], "rang": 1}, {**lieux[1], "rang": 2}],
+        [lieux[0], {**lieux[1], "rang": 0}],
+        *[[{**lieux[0], "population": p}] for p in (-3, True, "12")],
+        [{**lieux[0], "stocks": []}], [{**lieux[0], "stocks": {"blé": -5.0}}],
+        [{**lieux[0], "surface_km2": 0}],
+        *[[{**lieux[0], "surface_km2": s}] for s in (float("nan"), float("inf"), True, "12")],
+        *[[{**lieux[0], "stocks": {"blé": s}}] for s in (float("nan"), float("inf"), True, "12")],
+        [{**lieux[0], "rang": False}], [{**lieux[0], "rang": 0.0}],
+        None, {}, [None], [{}],
+    ]
+    refus = 0
+    for valeur in mauvais:
+        cell["lieux"] = valeur
+        with pytest.raises(LieuxIllisibles, match=str(cid)):
+            render_cellule_svg(document, cid)
+        refus += 1
+    absent_id = max(c["cell_id"] for c in photographie_lieux["cells"]) + 1
+    with pytest.raises(KeyError, match=str(absent_id)):
+        render_cellule_svg(document, absent_id)
+    nom = 'blé & "réserve" <grain>'
+    cell["lieux"] = [{**lieux[0], "population": 0, "stocks": {nom: 0.0}}]
+    svg = render_cellule_svg(document, cid)
+    assert "0 habitants" in svg and "0 kg" in svg
+    texte_stock = next(t for t in _groupes_lieux(svg)[0].iter() if t.get("data-marchandise"))
+    assert texte_stock.get("data-marchandise") == nom and json.loads(texte_stock.get("data-kg")) == 0.0
+    assert formater(1234.5) == "1 234,5" and formater(0.0) == "0"
+    assert refus == len(mauvais) > 0
+    print(f"absences_déclarées=2, refus_observés={refus}, zéros_mesurés=2")
+
+
+def test_lieux_commande(tmp_path, photographie_lieux):
+    from vues.tableau.cellule import render_cellule_svg
+
+    snapshot = tmp_path / "s.json"
+    export_snapshot(World.charger(0), 0, 0, snapshot)
+    document = load_snapshot(snapshot)
+    cid = max(document["cells"], key=lambda c: len(c["lieux"]))["cell_id"]
+    absent = max(c["cell_id"] for c in document["cells"]) + 1
+    destination = tmp_path / "c.svg"
+    base = [sys.executable, "-m", "vues.tableau", "--snapshot", str(snapshot), "--proof-svg", str(destination)]
+    def commande(*options):
+        return subprocess.run(base + list(options), cwd=_REPO, capture_output=True, text=True)
+    assert commande("--cellule", str(cid)).returncode == 0
+    assert destination.read_bytes() == render_cellule_svg(document, cid).encode("utf-8")
+    refus = commande("--cellule", str(absent))
+    assert refus.returncode == 2 and str(absent) in refus.stderr and "refus :" in refus.stderr
+    assert commande("--cellule", str(cid), "--compare", str(snapshot)).returncode == 2
+    document["cells"][0]["lieux"][0]["population"] = -3
+    snapshot.write_text(json.dumps(document), encoding="utf-8")
+    assert commande("--cellule", str(document["cells"][0]["cell_id"])).returncode == 2
+    assert commande().returncode == 0
+    assert 'id="cell-' in destination.read_text() and 'id="lieu-0"' not in destination.read_text()
+    print(f"commandes_jouées=5, cellule={cid}, lieux={len(max(document['cells'], key=lambda c: len(c['lieux']))['lieux'])}")
+
+
+def test_lieux_serveur(photographie_lieux):
+    import copy
+    import http.client
+    from html.parser import HTMLParser
+    from vues.tableau.cellule import render_cellule_svg
+
+    cell = max(photographie_lieux["cells"], key=lambda c: len(c["lieux"]))
+    cid = cell["cell_id"]
+    absent = max(c["cell_id"] for c in photographie_lieux["cells"]) + 1
+    document = {**photographie_lieux, "cells": [cell]}
+    server = _ouvrir_serveur(json.dumps(document).encode("utf-8"))
+    host, port = server.server_address[:2]
+    try:
+        conn = http.client.HTTPConnection(host, port, timeout=5)
+        conn.request("GET", f"/cellule/{cid}.svg")
+        reponse = conn.getresponse()
+        assert reponse.status == 200 and reponse.getheader("Content-Type").startswith("image/svg+xml")
+        assert reponse.read() == render_cellule_svg(document, cid).encode("utf-8")
+        conn.close()
+        for chemin in (f"/cellule/{absent}.svg", "/cellule/abc.svg"):
+            assert _get(host, port, chemin)[0] == 404
+        assert server.document_a is server.document_a
+    finally:
+        _fermer_serveur(server)
+    for illisible in (True, False):
+        modifie = copy.deepcopy(document)
+        if illisible:
+            modifie["cells"][0]["lieux"][0]["population"] = -3
+        else:
+            del modifie["cells"][0]["lieux"]
+        server = _ouvrir_serveur(json.dumps(modifie).encode("utf-8"))
+        try:
+            statut, corps = _get(*server.server_address[:2], f"/cellule/{cid}.svg")
+            assert statut == (409 if illisible else 200)
+            assert (str(cid) if illisible else "lieux absents de la photographie") in corps.decode("utf-8")
+        finally:
+            _fermer_serveur(server)
+    class Panneau(HTMLParser):
+        dans_panel = False
+        lieux_dans_panel = False
+        def handle_starttag(self, tag, attrs):
+            identifiant = dict(attrs).get("id")
+            if identifiant == "panel":
+                self.dans_panel = True
+            if identifiant == "lieux":
+                self.lieux_dans_panel = self.dans_panel
+        def handle_endtag(self, tag):
+            if tag == "section":
+                self.dans_panel = False
+    panneau = Panneau()
+    panneau.feed((_VIEWER / "static" / "index.html").read_text(encoding="utf-8"))
+    assert panneau.lieux_dans_panel
+    js = (_VIEWER / "static" / "app.js").read_text(encoding="utf-8")
+    assert '"cellule/"' in js.split("function showLieux(cell)")[1].split("\n  }")[0]
+    assert "showLieux(cell)" in js.split('addEventListener("mouseup"')[1].split('addEventListener("mousemove"')[0]
+    assert 'key === "lieux"' in js
+    print(f"requêtes_vérifiées=5, cellule={cid}, panneau_lieux=1")

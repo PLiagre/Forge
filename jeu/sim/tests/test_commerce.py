@@ -2467,3 +2467,53 @@ def test_migration_mer_determinisme_trente_ticks():
     import json
     from sim.__main__ import run
     assert json.dumps(run(30, 0), sort_keys=True) == json.dumps(run(30, 0), sort_keys=True)
+
+
+def test_index_aretes_premiere_entree_repli_et_tick_suivant(monkeypatch):
+    from sim import engine
+    from sim.tests.test_determinisme import _REFERENCE_TICK_331
+
+    monde = World(cells={i: Cell(cell_id=i, area_km2=1, population=0,
+                                food_stock_kg=0) for i in range(1, 5)}, adjacency=[
+        {"a": 1, "b": 2, "shared_length_m": 1000},
+        {"a": 2, "b": 1, "shared_length_m": 5000},
+        {"a": 2, "b": 3},
+    ])
+    anciennes = {}
+    exec(_REFERENCE_TICK_331["engine"], engine.__dict__, anciennes)
+    paires = [(1, 2), (2, 1), (1, 3), (2, 3)]
+    index = engine._index_aretes(monde)
+    for a, b in paires:
+        assert engine._arete_adjacence(monde, a, b, index) is anciennes["_arete_adjacence"](monde, a, b)
+    assert engine._arete_adjacence(monde, 1, 2, index) is monde.adjacency[0]
+    assert engine._arete_adjacence(monde, 1, 3, index) is None
+    capacites = [engine._capacite_transport_arete_kg(monde, a, b) for a, b in paires]
+    assert capacites == [engine._capacite_transport_arete_kg(monde, a, b, index)
+                        for a, b in paires]
+    initialisees = engine._initialiser_capacite_aretes(monde)
+    with monkeypatch.context() as ctx:
+        for nom in ("_arete_adjacence", "_capacite_base_arete_kg",
+                    "_capacite_transport_arete_kg", "_initialiser_capacite_aretes"):
+            ctx.setattr(engine, nom, anciennes[nom])
+        assert capacites == [engine._capacite_transport_arete_kg(monde, a, b) for a, b in paires]
+        assert initialisees == engine._initialiser_capacite_aretes(monde)
+    assert capacites[2:] == [TRADE_CAPACITY_KG_PER_EDGE_PER_TICK] * 2
+    dernier = World(cells=monde.cells, adjacency=[monde.adjacency[1]])
+    assert engine._capacite_transport_arete_kg(dernier, 1, 2) != capacites[0]
+
+    construire, vus = engine._index_aretes, []
+
+    def observer(world):
+        resultat = construire(world)
+        vus.append(resultat)
+        return resultat
+
+    monkeypatch.setattr(engine, "_index_aretes", observer)
+    rng = random.Random(0)
+    engine.tick(monde, rng, numero_tick=0)
+    nouvelle = {"a": 3, "b": 4, "shared_length_m": 2000}
+    monde.adjacency.append(nouvelle)
+    engine.tick(monde, rng, numero_tick=1)
+    assert len(vus) == 2
+    assert (3, 4) not in vus[0] and vus[1][3, 4] is nouvelle
+    print(f"paires comparées={len(paires)} index reconstruits={len(vus)}")

@@ -50,6 +50,22 @@ def ecrire_stock_marchandise(cell: "Cell", marchandise: str, quantite_kg: float)
     cell.stocks[marchandise] = quantite_kg
 
 
+def copier_panier(entite: "Cell | EtatDeLieu") -> dict[str, float]:
+    """Lit un panier par copie, pour une cellule ou l'un de ses lieux."""
+    return dict(entite.stocks)
+
+
+def contenus_des_paniers(entites, marchandise: str) -> list[float]:
+    """Lit les poids d'une répartition ; une clé absente y pèse zéro."""
+    return [entite.stocks.get(marchandise, 0) for entite in entites]
+
+
+def remplacer_panier(entite: "Cell | EtatDeLieu", panier: dict[str, float]) -> None:
+    """Pose le panier exact, y compris les absences de marchandises."""
+    if entite.stocks != panier:
+        entite.stocks = dict(panier)
+
+
 def lire_habitants_par_metier(cell: "Cell") -> dict[str, int] | int:
     """Copie les métiers calculés ; -1 déclare leur absence de calcul."""
     if cell.habitants_par_metier is None:
@@ -93,7 +109,25 @@ def cellule_vers_dict(cell: "Cell") -> dict:
         "natalite_remainder": cell.natalite_remainder,
         "migration_remainder": cell.migration_remainder,
         "stocks": dict(cell.stocks),
+        "lieux": [
+            {"rang": lieu.rang, "population": lieu.population, "stocks": dict(lieu.stocks)}
+            for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
+        ],
     }
+
+
+@dataclass
+class EtatDeLieu(_NoBadSpatialField):
+    """Habitants et panier d'un rang, rattaché à sa cellule par la liste."""
+
+    rang: int
+    population: int
+    stocks: dict[str, float]
+
+
+def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float]) -> EtatDeLieu:
+    """Crée l'état d'un rang avec son propre panier, sans clé recopiée."""
+    return EtatDeLieu(rang=rang, population=population, stocks=dict(stocks))
 
 
 @dataclass
@@ -115,6 +149,7 @@ class Cell(_NoBadSpatialField):
     mortality_remainder: float = field(default=-1.0)
     natalite_remainder: float = field(default=-1.0)
     migration_remainder: float = field(default=-1.0)
+    lieux: list = field(default_factory=list)
     habitants_par_metier: dict[str, int] | None = None
 
     def __init__(
@@ -129,6 +164,7 @@ class Cell(_NoBadSpatialField):
         natalite_remainder: float = -1.0,
         migration_remainder: float = -1.0,
         food_stock_kg: float | None = None,
+        lieux: list | None = None,
         habitants_par_metier: dict[str, int] | None = None,
     ):
         if habitants_par_metier is not None:
@@ -149,6 +185,7 @@ class Cell(_NoBadSpatialField):
         self.mortality_remainder = mortality_remainder
         self.natalite_remainder = natalite_remainder
         self.migration_remainder = migration_remainder
+        self.lieux = list(lieux) if lieux is not None else []
         if food_stock_kg is not None and food_stock_kg >= 0:
             self.stocks = {MARCHANDISE_NOURRITURE: food_stock_kg}
         _NoBadSpatialField.__post_init__(self)
