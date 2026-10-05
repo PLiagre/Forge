@@ -232,6 +232,10 @@ PART_MINIERE_PAR_GISEMENT = 0.05
 TAILLE_FOYER = 5
 METIER_MINEURS = "mineurs"
 METIER_PAYSANS = "paysans"
+METIER_OUVRIERS = "ouvriers"
+
+# Déblai, nivellement et fossés d'une route en terre battue ; niveau 2.
+TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0.5
 
 # Plafond : une cellule ne devient jamais entièrement minière. Invariant,
 # pas un réglage de confort — sans lui une cellule chargée de gisements

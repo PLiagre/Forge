@@ -25,12 +25,14 @@ part. À chaque tick, dans cet ordre :
 2. **Intentions** (`_appliquer_intentions`) — les intentions en attente
    s'appliquent dans l'ordre du dépôt : un choix de départ devient la maison
    du joueur, une route entre au plan en chantier ; sans cellule ni aléa.
-3. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
+3. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
+   puis les rues prennent leurs bras et comptent les journées fournies.
+4. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sur place et sans occuper de bras.
-4. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
+5. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
-5. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
+6. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
@@ -38,29 +40,29 @@ part. À chaque tick, dans cet ordre :
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
    pluie suffisante.
-6. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
+7. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture.
-7. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+8. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
    bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
    Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
-8. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+9. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-9. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
+10. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
    fraction d'habitant non encore morte pour qu'une petite cellule ne devienne
    pas immortelle par arrondi.
-10. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
+11. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
    des habitants, avec le même report de fraction.
-11. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
+12. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
     qui a manqué ce tick part vers les voisines dont il reste de la nourriture
     après consommation. Personne n'emporte de kilogrammes.
-12. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
+13. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
     et paniers sont remis d'accord avec les totaux de la cellule.
-13. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+14. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -111,12 +113,12 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   place, sans atelier, sans métier et sans bras affectés ; les objets produits
   ne sont pas consommés.
 - **répartir le travail.** Les habitants ont un métier, mineur ou paysan.
-  Naissances, morts et départs suivent les métiers ; le tick ne les lit que pour
-  la récolte. La part minière retire déjà des bras aux champs ; les
-  changements de métier ne sont pas encore simulés.
+  Naissances, morts et départs suivent les métiers ; seuls la récolte et le
+  chantier les lisent. Seul le chantier fait passer des paysans à ouvriers
+  et retour ; la part minière retire déjà des bras aux champs.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
-- **investir.** Aucune route, aucun pont, aucun port, aucun ouvrage : rien dans
-  le monde ne se construit, et aucune capacité de transport ne s'améliore.
+- **investir.** Une route se bâtit à la journée, mais aucune capacité de
+  transport ne s'améliore encore ; ponts et ports restent non simulés.
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
 - **descendre sous la cellule pour les calculs.** Les lieux portent habitants
@@ -481,7 +483,8 @@ mineur et un paysan ; un seul mort parmi les mêmes est un mineur. Le
 migrant ne garde pas son métier. Une cellule sans métier accueille des
 paysans.
 
-**Le tick ne lit les métiers que pour la récolte**.
+**Le tick ne lit les métiers que pour la récolte et pour le chantier**.
+Le métier `ouvriers` reçoit les paysans envoyés aux routes pour ce tick.
 Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × facteur_agricole`
 (sans carte : `area_km2`), sans facteur saisonnier. Ils demandent
 `km² cultivés × BRAS_AUX_CHAMPS_PAR_KM2` bras. Le facteur de bras vaut
@@ -1595,20 +1598,24 @@ et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
 
-Une route se dépose avec exactement `{"type": "tracer_route", "cell": X,
-"points": [[x, y], …], "largeur_m": L}`. Un champ absent ou supplémentaire
-est refusé. `cell` est un entier présent dans `World.plans`, sans booléen ;
+Une route se dépose avec les quatre champs obligatoires `{"type": "tracer_route", "cell": X,
+"points": [[x, y], …], "largeur_m": L}` et le champ facultatif `foyers`.
+Celui-ci vaut 1 par défaut : entier ≥ 1, sans booléen et sans borne haute.
+Sinon `IntentionRefusee("foyers invalide : attendu un entier ≥ 1, reçu <repr>")`
+est levée avant toute mise en attente. Tout autre champ ou champ obligatoire
+absent est refusé. `cell` est un entier présent dans `World.plans`, sans booléen ;
 toute cellule de la carte convient. La construction d'une `Rue` vérifie
 points et largeur selon le contrat du plan ; un `PlanInvalide` devient
 `IntentionRefusee("route invalide : <raison>")`. Le dépôt accepté est un
-`TraceRoute(cell_id, points, largeur_m)` gelé, aux points copiés en tuples.
+`TraceRoute(cell_id, points, largeur_m, foyers)` gelé, aux points copiés en tuples.
 L'attente ne change ni les cellules, ni les plans, ni `to_dict()`.
 
 `TraceRoute.appliquer` reconstruit le plan avec une rue en chantier. Son
 identifiant est le maximum des identifiants de rue, ou −1 si le plan est
 vide, plus un. Les dépôts sur la même cellule se suivent donc sans collision.
 L'écriture vit dans `sim/intentions.py` ; le moteur ne lit pas le plan.
-La route ne consomme aucun aléa et ne lit ni n'écrit aucune cellule : mêmes
+Le dépôt et l'application de la route n'écrivent aucune cellule ; l'étape
+Chantiers écrit ensuite les métiers de sa seule cellule, sans aléa. Mêmes
 gestes et même graine donnent le même monde ; sans geste, les plans restent
 vides et l'empreinte reste celle d'avant.
 
@@ -1818,7 +1825,11 @@ négatif et unique dans sa liste :
 
 - `rues` : `identifiant`, `points` (au moins `POINTS_MIN_RUE = 2`),
   `largeur_m` finie et strictement positive, `en_chantier` booléen (faux par
-  défaut, vrai pour une route déposée ; tout autre type est refusé) ;
+  défaut, vrai pour une route déposée ; tout autre type est refusé),
+  `foyers`, `travail_requis`, `travail_fourni` : entiers ≥ 0, sans booléens,
+  tous à 0 par défaut. Le fourni ne dépasse pas le requis ; `en_chantier`
+  vaut exactement `travail_fourni < travail_requis`, avec au moins un foyer
+  en chantier. Une rue ancienne (0, 0, 0, pas en chantier) reste valide ;
 - `parcelles` : `identifiant`, `contour` (au moins `POINTS_MIN_CONTOUR = 3`) ;
 - `batiments` : `identifiant`, `parcelle` (identifiant d'une parcelle du même
   plan), `nature` (texte non vide), `emprise` (au moins `POINTS_MIN_CONTOUR`).
@@ -1833,9 +1844,9 @@ cellule ne sont pas simulées.
 
 Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
 en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
-son plan. Aucune règle du tick ne le lit ; seule l'étape Intentions y ajoute
-une rue en chantier. Toutes les règles
-existantes et l'évolution des cellules restent identiques au bit près.
+son plan ; seules les étapes Intentions et Chantiers le lisent. Intentions
+y ajoute une rue ; Chantiers compte son travail et écrit les métiers de
+sa cellule. Sans geste, l'évolution reste identique au bit près.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
 `parcelles` et `batiments`. Les octets sont construits dans `EtatPublie` avec
@@ -1849,10 +1860,42 @@ vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
 et forme du bourg dans la cellule, effet des rues et bâtiments sur le monde,
 gestes de parcelle et de bâtiment, inclusion d'une emprise dans une parcelle
 et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
-son coût, les bras pris aux champs, son achèvement, la restriction à la
-capitale, les bornes et les doublons restent de niveau 3, non simulés.
-Aucune règle ne fait passer une rue en chantier à achevée et aucun flux
-ne découle encore de son tracé.
+son coût en journées, les bras pris aux champs et son achèvement sont de
+niveau 2. La restriction à la capitale, les bornes et les doublons restent
+de niveau 3, non simulés. Aucun flux ne découle encore de son tracé.
+
+## Le chantier et ses bras
+
+Règle de **niveau 2**, plausible, jamais sourcée : le déblai, le nivellement
+et les fossés d’une route en terre battue demandent
+`TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0,5` journées par m². La longueur est la
+somme euclidienne des segments en mètres ; le requis vaut
+`max(1, ceil(longueur × largeur_m × TRAVAIL_ROUTE_JOURNEES_PAR_M2))`.
+Une journée est une personne pendant un tick, soit un jour.
+
+`sim/chantiers.py` parcourt les cellules par `cell_id`. Tous leurs `ouvriers`
+redeviennent d’abord `paysans`, puis chaque rue en chantier, par identifiant
+(priorité à la plus ancienne rue), prend le minimum des bras disponibles,
+de `foyers × TAILLE_FOYER` et du travail restant. Ces paysans deviennent
+ouvriers ; chaque personne envoyée ajoute exactement une journée fournie.
+La rue s’achève au requis. Le dernier jour n’envoie que les journées
+manquantes : aucune journée ne se crée ni ne se perd. Les métiers gardent
+leur somme et la population ; non calculés (`-1`), ils n’envoient personne.
+Sans travail fourni le plan n’est pas reconstruit, et sans changement les
+métiers ne sont pas écrits. Sans chantier ni ouvrier, rien n’est écrit.
+
+La récolte du même tick lit les paysans restés aux champs. Les naissances,
+morts et départs suivent le prorata des métiers, ouvriers compris ; le retour
+du tick suivant remet tous les bras en commun. Le jour de l’achèvement, les
+ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
+bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
+`/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
+
+L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
+Une cellule est immense et le chantier ne coûte de récolte que s’il retire
+presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
+sexe, nourriture propre, outils, matériaux, saison et salaire restent de
+niveau 3, comme l’effet de la route achevée sur les flux.
 
 ---
 

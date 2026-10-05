@@ -164,6 +164,7 @@ def _route_reference(monde):
 
 
 CAS_REFUS_ROUTE = [
+    *[({"foyers": valeur}, None, "foyers") for valeur in (0, -1, True, 1.5, "1")],
     ({}, "type", "type"), ({"type": "essai"}, None, "type"),
     ({}, "cell", "champ"), ({"cell": True}, None, "cell"),
     ({"cell": "abc"}, None, "cell"), ({"cell": "absente"}, None, "cell"),
@@ -256,6 +257,10 @@ def test_route_appliquee_en_tete_et_dans_l_ordre(monkeypatch):
 
 
 def test_service_route_recu_refus_et_rejeu():
+    from sim import constants as k
+    from sim.tests.test_chantiers import _requis
+
+    lieux = []
     route = _route_reference(World.charger(0))
     chemin = f"/plan?cell={route['cell']}"
     plans, mondes = [], []
@@ -289,20 +294,30 @@ def test_service_route_recu_refus_et_rejeu():
             requete_service(port, "/tick?n=1", "POST")
             _, plan, octets = requete_service(port, chemin)
             if avec_route:
-                assert plan["rues"] == [{"identifiant": 0, "points": route["points"],
-                                         "largeur_m": 4, "en_chantier": True}]
+                assert plan["rues"] == [{"identifiant": 0, "foyers": 1, "points": route["points"],
+                                         "largeur_m": 4, "en_chantier": True,
+                                         "travail_requis": _requis(route),
+                                         "travail_fourni": k.TAILLE_FOYER}]
             else:
                 assert plan["rues"] == []
             plans.append(octets)
             mondes.append(requete_service(port, "/monde")[2])
+            lieu = requete_service(port, f"/lieu?cell={route['cell']}")[1]
+            lieux.append(lieu["foyers"])
+            if avec_route:
+                assert lieu["foyers"][k.METIER_OUVRIERS] == {"personnes": k.TAILLE_FOYER, "foyers": 1}
+            else:
+                assert k.METIER_OUVRIERS not in lieu["foyers"]
     with pytest.raises(AssertionError):
         assert plans[0] == plans[-1]
     assert plans[0] == plans[1] and mondes[0] == mondes[1] == mondes[2]
+    assert len({sum(m["personnes"] for m in metiers.values()) for metiers in lieux}) == 1
     assert refus_observes > 0
     print(f"services_comparés={len(plans)}, refus_observés={refus_observes}, contre_épreuves_rouges=1")
 
 
 def test_ligne_de_commande_gestes_et_refus(tmp_path):
+    from sim import constants as k
     import os
     import subprocess
     import sys
@@ -338,7 +353,19 @@ def test_ligne_de_commande_gestes_et_refus(tmp_path):
     assert all(rue["en_chantier"] is True for rue in rues)
     assert jouer([], avec_gestes=False).returncode == 0
     temoin = json.loads(sortie.read_bytes())
-    assert temoin["cells"] == monde["cells"] and temoin["plans"]
+    assert temoin["plans"] and temoin["cells"]
+    assert temoin["cells"].keys() == monde["cells"].keys()
+    for cle, cell in monde["cells"].items():
+        reference = temoin["cells"][cle]
+        if cle != str(route["cell"]):
+            assert cell == reference
+        else:
+            assert {k: v for k, v in cell.items() if k != "foyers"} == {
+                k: v for k, v in reference.items() if k != "foyers"}
+            metiers = cell["foyers"]
+            assert sum(m["personnes"] for m in metiers.values()) == sum(m["personnes"] for m in reference["foyers"].values())
+            assert sum(metiers.get(nom, {}).get("personnes", 0) for nom in (k.METIER_PAYSANS, k.METIER_OUVRIERS)) == reference["foyers"][k.METIER_PAYSANS]["personnes"]
+    assert [rue["travail_fourni"] for rue in rues] == [4 * k.TAILLE_FOYER, k.TAILLE_FOYER]
     assert all(plan["rues"] == [] for plan in temoin["plans"].values())
     cas = [([{"tick": 0, "intention": {"type": "essai"}}], "entrée 1"),
            ([{"tick": 4, "intention": route}], "l'intention s'applique au tick suivant"),

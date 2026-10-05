@@ -1,4 +1,4 @@
-"""Plan du bourg en mètres locaux ; aucune règle du tick ne le consulte."""
+"""Plan du bourg en mètres locaux, lu par les intentions et les chantiers."""
 
 from dataclasses import asdict, dataclass, field
 import math
@@ -39,11 +39,22 @@ class Rue:
     points: list[tuple[float, float]]
     largeur_m: float
     en_chantier: bool = False
+    foyers: int = 0
+    travail_requis: int = 0
+    travail_fourni: int = 0
 
     def __post_init__(self):
         if not isinstance(self.en_chantier, bool):
             raise PlanInvalide("rue.en_chantier : booléen attendu")
         _identifiant(self.identifiant, "rue.identifiant")
+        for champ in ("foyers", "travail_requis", "travail_fourni"):
+            _identifiant(getattr(self, champ), f"rue.{champ}")
+        if self.travail_fourni > self.travail_requis:
+            raise PlanInvalide("rue.travail_fourni : dépasse le travail requis")
+        if self.en_chantier != (self.travail_fourni < self.travail_requis):
+            raise PlanInvalide("rue.en_chantier : contredit le travail restant")
+        if self.en_chantier and self.foyers == 0:
+            raise PlanInvalide("rue.foyers : chantier sans foyer")
         _points(self.points, _constantes.POINTS_MIN_RUE, "rue.points")
         _nombre_fini(self.largeur_m, "rue.largeur_m")
         if self.largeur_m <= 0:
