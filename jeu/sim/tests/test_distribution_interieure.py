@@ -336,6 +336,26 @@ def test_commerce_a_proportion(monkeypatch, facteur):
         verifier(copy.deepcopy(cellule))
 
 
+def test_donneurs_par_lieu_par_rang_croissant(monkeypatch):
+    """La demande s'arrête avant d'épuiser les deux champs donneurs."""
+    paniers = [0, 102, 202, 0]
+    cellule, carte = _cellule_par_lieu([2, 1, 1, 20], paniers)
+    cellule.area_km2 = len(cellule.lieux) * constantes.SURFACE_KM2_PAR_LIEU + 0.5
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 10)
+
+    def verifier(copie):
+        # Demande : 4 au bourg + 10 au champ affamé. Envois : 10 puis 4.
+        _egal_kg(engine._apply_consumption(copie, carte), 30)
+        _egal_kg(copie.food_deficit_kg, 39)
+        _controle_par_lieu(copie, [0, 90, 196, 0], sum(paniers))
+
+    inversee = copy.deepcopy(cellule)
+    inversee.lieux[1].rang, inversee.lieux[2].rang = 2, 1
+    with pytest.raises(AssertionError):
+        verifier(inversee)
+    verifier(cellule)
+
+
 def test_bourg_miniers_ont_faim(monkeypatch):
     original = engine._apply_consumption
     def mesurer(capacite):
