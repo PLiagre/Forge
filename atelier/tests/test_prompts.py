@@ -15,6 +15,13 @@ def test_le_codeur_ne_lance_pas_la_suite_entiere(projet):
     assert "test_no_hardcoded.py" in texte and "Jamais la suite entière" in texte
 
 
+def test_le_relecteur_ne_lance_pas_la_suite_entiere(projet):
+    # Le 5 octobre 2026, le relecteur de #257 a lancé la suite entière, encore en cours après 20 min.
+    texte = prompts.relecteur(projet, numero=257, titre="x", chemin_brief="b.md", url="u", sha="abcdef0")
+    assert prompts._tests(projet) not in texte
+    assert "-m pytest jeu/sim/tests/" in texte and "jamais la suite entière" in texte
+
+
 def test_le_brief_d_un_lot_unity_dit_ce_que_sa_photo_montre(projet):
     def brief(machine):
         return prompts.chef(projet, numero=293, titre="x", corps="", commentaires="", jalon=4, jalon_titre="J4",

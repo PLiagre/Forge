@@ -188,7 +188,7 @@ def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
     return f"""Tu es le relecteur de Forge. Tu n'as pas écrit ce code et tu ne le modifies pas.
 
 Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce dossier est cette révision.
-Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte ; tu peux rejouer un test (`{_tests(projet)} -k …`) pour vérifier une affirmation.
+Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte : elle a joué la suite entière. Tu peux rejouer un fichier de test (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q -k …`) pour vérifier une affirmation, jamais la suite entière : elle dépasse ton délai.
 {comptes_rendus}{lfs}
 Vérifie, du plus grave au plus léger :
 1. Le diff reste dans le Périmètre du brief, élargi par les décisions du propriétaire s'il y en a plus bas, et rien ne touche {_interdits(projet)}.
