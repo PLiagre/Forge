@@ -338,3 +338,172 @@ def test_ancre_contenue(carte):
     assert maisons_depuis_monde(monde, table=alteree, maisons=tenantes)[10374] == ids["Wittelsbach"]
     assert puissances_depuis_monde(monde, table=alteree)[10374] == constantinople.puissance
     print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(476, 89, 31)")
+
+
+# Capitales : la maison jouée par l'IA est distincte de sa tenure dérivée.
+import random
+
+from sim.capitales import charger_capitales, cellule_de_capitale, maisons_de_l_ia
+from sim.engine import tick
+from sim.intentions import deposer_intention
+from sim.model import _NoBadSpatialField
+from sim.projection import projeter_epsg3035
+from sim.seigneuries import charger_seigneuries, cellule_du_siege
+
+CAPITALES = TABLE.with_name("capitales-1400.json")
+CELLULES_CAPITALES = (
+    10237, 10206, 10322, 10231, 10204, 10313, 10192, 10209, 10284, 10466,
+    10283, 10433, 9892, 10327, 10374, 10366, 10329, 10300, 10362, 10371,
+    None, 8992, 10143, 9788, 9831, 10059, 10420, 10191, 10452, 10294,
+)
+
+
+def test_capitale_lecture():
+    capitales = charger_capitales()
+    assert len(capitales) == 30
+    assert {c.maison for c in capitales} == {m.id for m in charger_maisons().maisons}
+    assert tuple(c.maison for c in capitales) == tuple(sorted(c.maison for c in capitales))
+    assert all(isinstance(c, _NoBadSpatialField) for c in capitales)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        capitales[0].nom = "Paris"
+
+
+@pytest.mark.parametrize("champ,valeur", [
+    ("capitales", None), ("capitales", []), ("capitales", {}),
+    ("date", None), ("date", "1401-01-01"),
+    ("maison", None), ("maison", 999), ("maison", True), ("maison", 1.5),
+    ("maison", 2), ("nom", None), ("nom", "  "),
+    ("source", None), ("source", "  "), ("hors_carte", None), ("hors_carte", "  "),
+] + [(champ, valeur) for champ in ("lat", "lon")
+     for valeur in (None, True, "48", float("nan"), float("inf"), -float("inf"))])
+def test_capitale_refus(tmp_path, champ, valeur):
+    document = json.loads(CAPITALES.read_text(encoding="utf-8"))
+    ligne = document["capitales"][0]
+    if champ in ("date", "capitales"):
+        if valeur is None:
+            document.pop(champ)
+        else:
+            document[champ] = valeur
+        maison = "inconnue"
+    else:
+        ligne[champ] = valeur
+        maison = repr(valeur) if champ == "maison" else "1"
+    with pytest.raises(PuissanceInvalide) as erreur:
+        charger_capitales(_ecrire(tmp_path, document))
+    assert f"maison {maison}, champ {champ}" in str(erreur.value)
+
+
+def test_capitale_manquante_et_ligne_invalide(tmp_path):
+    document = json.loads(CAPITALES.read_text(encoding="utf-8"))
+    document["capitales"] = [c for c in document["capitales"] if c["maison"] != 26]
+    with pytest.raises(PuissanceInvalide, match="maison 26, champ maison"):
+        charger_capitales(_ecrire(tmp_path, document))
+    document["capitales"].append(None)
+    with pytest.raises(PuissanceInvalide, match="maison inconnue, champ maison"):
+        charger_capitales(_ecrire(tmp_path, document))
+
+
+def _preuve_coherence_capitales(vue, tenantes):
+    placees = [m for m in vue if m.sorte == "grande maison" and m.cell_id is not None]
+    assert placees
+    incoherentes = sum(tenantes[m.cell_id] != m.id for m in placees)
+    assert incoherentes == 0, f"capitales incohérentes : {incoherentes}"
+
+
+def test_capitale_polygones_et_coherence(carte, tmp_path):
+    monde = carte[0]
+    capitales = charger_capitales()
+    vue = maisons_de_l_ia(monde)
+    assert tuple(m.cell_id for m in vue[:30]) == CELLULES_CAPITALES
+    assert sum(m.cell_id is not None for m in vue[:30]) == 29
+    hors = [m for m in vue[:30] if m.cell_id is None]
+    assert len(hors) == 1 and hors[0].id == 21
+    assert hors[0].nom == "Djötchides" and hors[0].capitale == "Saraï" and hors[0].hors_carte
+    tenantes = maisons_depuis_monde(monde)
+    _preuve_coherence_capitales(vue, tenantes)
+    sarai = next(c for c in capitales if c.maison == 21)
+    with pytest.raises(PuissanceInvalide, match="maison 21.*hors carte"):
+        cellule_de_capitale(dataclasses.replace(sarai, hors_carte=None), monde.carte)
+    paris = next(c for c in capitales if c.maison == 3)
+    with pytest.raises(PuissanceInvalide, match="maison 3.*10322"):
+        cellule_de_capitale(dataclasses.replace(paris, hors_carte="Déclaration fausse"), monde.carte)
+    document = json.loads(CAPITALES.read_text(encoding="utf-8"))
+    document["capitales"][0].update(lat=paris.lat, lon=paris.lon)
+    fausse = maisons_de_l_ia(monde, capitales=charger_capitales(_ecrire(tmp_path, document)))
+    assert sum(tenantes[m.cell_id] != m.id for m in fausse[:30] if m.cell_id is not None) == 1
+    with pytest.raises(AssertionError, match="incohérentes : 1"):
+        _preuve_coherence_capitales(fausse, tenantes)
+
+
+def test_capitale_frontiere_sans_centroide():
+    capitale = charger_capitales()[0]
+    x, y = projeter_epsg3035(capitale.lat, capitale.lon)
+    def carre(gauche, droite, bas, haut):
+        return {"geometry": {"type": "Polygon", "coordinates": [[
+            [gauche, bas], [droite, bas], [droite, haut], [gauche, haut], [gauche, bas]]]}}
+    carte = {20: carre(x, x + 100, y - 50, y + 50),
+             10: carre(x - 2, x, y - 1, y + 1)}
+    assert cellule_de_capitale(capitale, carte) == 10
+    # Le point est dans le grand carré, plus proche du centre du petit.
+    carte[10] = carre(x - 3, x - 1, y - 1, y + 1)
+    assert cellule_de_capitale(capitale, carte) == 20
+    with pytest.raises(PuissanceInvalide, match="maison 1.*hors carte"):
+        cellule_de_capitale(capitale, {})
+
+
+def test_capitale_maisons_ia_et_choix(carte):
+    monde = carte[0]
+    seigneuries = charger_seigneuries()
+    vue = maisons_de_l_ia(monde)
+    assert len(vue) == 35
+    assert [m.sorte for m in vue] == ["grande maison"] * 30 + ["seigneurie"] * 5
+    assert [m.id for m in vue[:30]] == sorted(m.id for m in vue[:30])
+    assert [m.id for m in vue[30:]] == [s.id for s in seigneuries]
+    for maison, seigneurie in zip(vue[30:], seigneuries):
+        assert (maison.nom, maison.capitale, maison.cell_id, maison.source, maison.hors_carte) == (
+            seigneurie.maison, seigneurie.siege.nom,
+            cellule_du_siege(seigneurie, monde.carte), seigneurie.source, None)
+    assert sum(m.nom == "Paléologue" for m in vue) == 2
+    for seigneurie in seigneuries:
+        choisi = copy.deepcopy(monde)
+        deposer_intention(choisi, {"type": "choisir_depart", "seigneurie": seigneurie.id})
+        assert len(maisons_de_l_ia(choisi)) == 35  # Le dépôt attend le tick.
+        tick(choisi, random.Random(0), 0)
+        apres = maisons_de_l_ia(choisi)
+        assert len(apres) == 34 and apres[:30] == vue[:30]
+        assert {m.id for m in apres if m.sorte == "seigneurie"} == {
+            s.id for s in seigneuries if s.id != seigneurie.id}
+        assert any(m.id == 15 and m.capitale == "Constantinople" and m.cell_id == 10374
+                   for m in apres if m.sorte == "grande maison")
+        if seigneurie.maison == "Bar":
+            choisi.maison_du_joueur = None
+            fausse = maisons_de_l_ia(choisi)
+            assert len(fausse) == 35
+            with pytest.raises(AssertionError):
+                assert all(m.nom != "Bar" for m in fausse)
+
+
+def test_capitale_vue_pure(carte):
+    monde, table, maisons, positions = carte[:4]
+    capitales, seigneuries = charger_capitales(), charger_seigneuries()
+    avant = copy.deepcopy((monde.to_dict(), monde.carte,
+                           {c: vars(cell) for c, cell in monde.cells.items()},
+                           table, maisons, positions, capitales, seigneuries))
+    vue = maisons_de_l_ia(monde, capitales, maisons, seigneuries, positions)
+    assert vue == maisons_de_l_ia(monde, capitales, maisons, seigneuries, positions)
+    assert (monde.to_dict(), monde.carte, {c: vars(cell) for c, cell in monde.cells.items()},
+            table, maisons, positions, capitales, seigneuries) == avant
+    assert isinstance(vue, tuple) and all(isinstance(m, _NoBadSpatialField) for m in vue)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        vue[0].cell_id = 0
+    cellule = min(monde.cells)
+    with pytest.raises(PositionCelluleInconnue, match=f"cellule {cellule}"):
+        maisons_de_l_ia(monde, positions={c: p for c, p in positions.items() if c != cellule})
+    sim = TABLE.parents[1] / "sim"
+    comptes = [subprocess.run(["grep", "-c", "capitales", str(sim / fichier)],
+                             capture_output=True, text=True, check=False)
+               for fichier in ("engine.py", "world.py", "model.py", "capitales.py")]
+    assert [int(r.stdout) for r in comptes[:3]] == [0, 0, 0]
+    assert int(comptes[-1].stdout) > 0
+    with pytest.raises(AssertionError):
+        assert int(comptes[-1].stdout) == 0  # La garde détecte un lecteur.
