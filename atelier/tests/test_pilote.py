@@ -55,6 +55,16 @@ def test_le_chef_ecrit_le_brief_dans_la_branche_et_ouvre_la_pr(projet, gh, depot
     assert marques(pr["comments"])[0]["role"] == "chef"
 
 
+def test_un_brief_qui_demande_le_pc_etiquette_le_lot(projet, gh, depot, tmp_path):
+    # #237 : le brief disait « Machine : pc », l'issue n'avait pas l'étiquette.
+    gh.ajouter_issue(10, "Le service lit un lieu")
+    brief = BRIEF_BON.replace("Machine : vps", "Machine : pc")
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": brief}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert ("etiqueter", 10, (lots.ETIQUETTE_PC,), ()) in gh.gestes
+    assert "Machine : pc" in gh.prs_[max(gh.prs_)]["body"]
+
+
 def test_le_chef_ne_garde_que_le_brief(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "Le service lit un lieu")
     agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON,
