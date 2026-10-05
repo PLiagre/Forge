@@ -6,7 +6,7 @@ import math
 import sim.constants as _constantes
 from sim.model import (
     _NoBadSpatialField, contenus_des_paniers, copier_panier,
-    creer_etat_de_lieu, remplacer_panier,
+    creer_etat_de_lieu, lire_habitants_par_metier, remplacer_panier,
 )
 
 
@@ -98,9 +98,12 @@ def partager(total, poids) -> list:
 
 
 def amorcer_lieux(cellule) -> list:
-    """Répartit les habitants et chaque marchandise selon les surfaces."""
+    """Loge les non-paysans au bourg ; partage paysans et paniers par surface."""
     surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
-    populations = partager(cellule.population, surfaces)
+    metiers = lire_habitants_par_metier(cellule)
+    paysans = cellule.population if metiers == -1 else metiers.get(_constantes.METIER_PAYSANS, 0)
+    populations = partager(paysans, surfaces)
+    populations[0] += cellule.population - paysans
     paniers = {nom: partager(total, surfaces) for nom, total in copier_panier(cellule).items()}
     return [creer_etat_de_lieu(rang, population, {nom: parts[rang] for nom, parts in paniers.items()})
             for rang, population in enumerate(populations)]

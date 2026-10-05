@@ -92,7 +92,7 @@ namespace Forge.Pont.Tests
                 sommePopulation += (double)unLieu["population"];
             }
             var bourg = (Dictionary<string, object>)lieux[0];
-            Assert.IsTrue((double)bourg["population"] == 7404.0);
+            Assert.IsTrue((double)bourg["population"] == 17637.0);
             foreach (Dictionary<string, object> autre in lieux)
                 Assert.GreaterOrEqual((double)bourg["surface_km2"], (double)autre["surface_km2"]);
             Assert.IsTrue(sommePopulation == (double)lieu["population"], "les habitants des lieux font la population");
