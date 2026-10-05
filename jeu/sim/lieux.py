@@ -4,7 +4,10 @@ import dataclasses
 import math
 
 import sim.constants as _constantes
-from sim.model import _NoBadSpatialField, copier_panier, creer_etat_de_lieu, remplacer_panier
+from sim.model import (
+    _NoBadSpatialField, contenus_des_paniers, copier_panier,
+    creer_etat_de_lieu, remplacer_panier,
+)
 
 
 class LieuxInvalides(ValueError):
@@ -108,18 +111,21 @@ def repartir_sur_les_lieux(cellule) -> None:
     if not cellule.lieux:
         return
     lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+    surfaces = None
 
     def parts_pour(total, contenus):
+        nonlocal surfaces
         if sum(contenus) == total:
             return contenus
         poids = contenus
         if all(contenu == 0 for contenu in contenus):
-            poids = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+            if surfaces is None:
+                surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+            poids = surfaces
         return partager(total, poids)
 
     populations = parts_pour(cellule.population, [lieu.population for lieu in lieux])
-    contenus = [copier_panier(lieu) for lieu in lieux]
-    paniers = {nom: parts_pour(total, [panier.get(nom, 0) for panier in contenus])
+    paniers = {nom: parts_pour(total, contenus_des_paniers(lieux, nom))
                for nom, total in copier_panier(cellule).items()}
     for rang, lieu in enumerate(lieux):
         lieu.population = populations[rang]

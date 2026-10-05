@@ -55,6 +55,11 @@ def copier_panier(entite: "Cell | EtatDeLieu") -> dict[str, float]:
     return dict(entite.stocks)
 
 
+def contenus_des_paniers(entites, marchandise: str) -> list[float]:
+    """Lit les poids d'une répartition ; une clé absente y pèse zéro."""
+    return [entite.stocks.get(marchandise, 0) for entite in entites]
+
+
 def remplacer_panier(entite: "Cell | EtatDeLieu", panier: dict[str, float]) -> None:
     """Pose le panier exact, y compris les absences de marchandises."""
     if entite.stocks != panier:
