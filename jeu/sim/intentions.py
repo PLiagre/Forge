@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from sim.chantiers import travail_requis_de_route
 from sim.plan import Plan, PlanInvalide, Rue
 from sim.puissances import PuissanceInvalide
 from sim.seigneuries import cellule_du_siege, charger_seigneuries
@@ -27,12 +28,15 @@ class TraceRoute:
     cell_id: int
     points: tuple[tuple[float, float], ...]
     largeur_m: float
+    foyers: int = 1
 
     def appliquer(self, monde):
         """Ajoute la rue en chantier en reconstruisant et revalidant le plan."""
         plan = monde.plans[self.cell_id]
         identifiant = max((rue.identifiant for rue in plan.rues), default=-1) + 1
-        rue = Rue(identifiant, self.points, self.largeur_m, en_chantier=True)
+        rue = Rue(identifiant, self.points, self.largeur_m, en_chantier=True,
+                  foyers=self.foyers,
+                  travail_requis=travail_requis_de_route(self.points, self.largeur_m))
         monde.plans[self.cell_id] = Plan(
             rues=[*plan.rues, rue], parcelles=plan.parcelles, batiments=plan.batiments,
         )
@@ -50,8 +54,11 @@ def recevoir_intention(monde, intention):
         if champ not in intention:
             raise IntentionRefusee(f"champ manquant : {champ}")
     for champ in intention:
-        if champ not in champs:
+        if champ not in champs and champ != "foyers":
             raise IntentionRefusee(f"champ inconnu : {champ}")
+    foyers = intention.get("foyers", 1)
+    if isinstance(foyers, bool) or not isinstance(foyers, int) or foyers < 1:
+        raise IntentionRefusee(f"foyers invalide : attendu un entier ≥ 1, reçu {foyers!r}")
     cell_id = intention["cell"]
     if isinstance(cell_id, bool) or not isinstance(cell_id, int) or cell_id not in monde.plans:
         raise IntentionRefusee(f"cell inconnu : {cell_id!r}")
@@ -59,7 +66,7 @@ def recevoir_intention(monde, intention):
         rue = Rue(0, intention["points"], intention["largeur_m"])
     except PlanInvalide as exc:
         raise IntentionRefusee(f"route invalide : {exc}") from exc
-    route = TraceRoute(cell_id, tuple(tuple(point) for point in rue.points), rue.largeur_m)
+    route = TraceRoute(cell_id, tuple(tuple(point) for point in rue.points), rue.largeur_m, foyers)
     monde.intentions_en_attente.append(route)
     return route
 

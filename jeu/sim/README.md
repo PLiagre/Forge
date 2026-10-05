@@ -53,6 +53,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/model.py` | Dataclass `Cell` — entité géographique de base |
 | `sim/foyers.py` | Foyers par métier : rangement réversible et répartition entière des habitants |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
+| `sim/chantiers.py` | Journées de route et passage des paysans aux ouvriers, puis retour aux champs |
 | `sim/intentions.py` | Dépôt commun des choix de départ et tracés de route, en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
