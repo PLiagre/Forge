@@ -1695,7 +1695,8 @@ remet ces états d'accord avec la cellule à la fin.
 Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
 plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
 l'échelle d'une cellule », vu ici par sa surface et sa part des habitants ; il
-ne concentre encore ni les gens de la ville ni ceux de `RepartitionBourg`.
+loge tous les non-paysans à l'amorçage. Les gens des villes nommées, paysans
+à l'amorçage A, restent répartis selon les surfaces.
 Les chemins limitent la distribution alimentaire intérieure décrite ci-dessous.
 La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
 
@@ -1714,9 +1715,18 @@ Cette soustraction conserve la fraction de kilogramme, et la somme retrouve
 le total de la cellule **au bit près**. Les totaux et poids négatifs, booléens
 ou non finis et une somme de poids nulle sont refusés par `LieuxInvalides`.
 
-`amorcer_lieux` partage la population et chaque marchandise selon les surfaces
-après leur amorçage dans `World.charger`. Après la migration et avant l'avance
-du compteur, `repartir_sur_les_lieux` compare chaque somme au total actuel de
+À l'amorçage seulement, `amorcer_lieux`, appelée par `World.charger`, lit une
+fois les métiers par `lire_habitants_par_metier` de `sim.model`. Le compte
+`P` de `METIER_PAYSANS` vaut zéro si ce métier est absent ; tous les autres
+habitants, `M = population − P`, sont non-paysans. Les paysans se partagent
+entre tous les lieux, bourg compris : `parts = partager(P, surfaces)`.
+Le bourg (rang 0) reçoit `parts[0] + M`, chaque autre rang reçoit `parts[r]` :
+la somme retrouve exactement la population. Des métiers non calculés (`-1`,
+cellule construite sans métiers) déclarent tout le monde paysan,
+`P = population`. Chaque marchandise garde `partager(total, surfaces)`.
+
+Après la migration et avant l'avance du compteur, `repartir_sur_les_lieux`
+ne lit jamais les métiers et compare chaque somme au total actuel de
 la cellule : déjà d'accord, elle ne bouge pas ; sinon, le contenu actuel donne
 les poids. Quand tous les lieux sont à zéro, les surfaces donnent les poids.
 Une marchandise absente de la cellule disparaît de tous ses lieux : l'absence

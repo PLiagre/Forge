@@ -206,6 +206,35 @@ def test_partager_plus_fort_reste_et_refus():
     assert refus_observés == len(invalides) > 0
 
 
+# Référence prise avant tout remplacement de partager par une contre-épreuve.
+from sim.lieux import partager as _partager_reference
+
+
+def _controle_bourg(monde):
+    from sim.model import lire_habitants_par_metier
+
+    différences = non_paysannes_multiples = contrôlées = 0
+    for cid, cellule in monde.cells.items():
+        surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cid, cellule.area_km2)]
+        métiers = lire_habitants_par_metier(cellule)
+        paysans = cellule.population if métiers == -1 else métiers.get(_constantes.METIER_PAYSANS, 0)
+        autres = cellule.population - paysans
+        attendus = _partager_reference(paysans, surfaces)
+        attendus[0] += autres
+        assert [lieu.population for lieu in cellule.lieux] == attendus, f"cell_id={cid} : habitants"
+        if autres:
+            assert cellule.lieux[0].population >= autres, f"cell_id={cid} : bourg"
+        for marchandise, total in cellule.stocks.items():
+            assert [lieu.stocks[marchandise] for lieu in cellule.lieux] == _partager_reference(
+                total, surfaces), f"cell_id={cid} : {marchandise}"
+        différences += attendus != _partager_reference(cellule.population, surfaces)
+        non_paysannes_multiples += autres > 0 and len(surfaces) > 1
+        contrôlées += 1
+    assert contrôlées == len(monde.cells) > 0
+    assert différences == non_paysannes_multiples > 0
+    return différences
+
+
 def test_amorcage_conserve_habitants_et_panier(monkeypatch):
     import sim.lieux as lieux_module
     from sim.model import Cell, EtatDeLieu, cellule_vers_dict
@@ -220,8 +249,53 @@ def test_amorcage_conserve_habitants_et_panier(monkeypatch):
     assert sum(lieu.population for cellule in monde.cells.values() for lieu in cellule.lieux) == sum(
         cellule.population for cellule in monde.cells.values())
     cellule = _cellule_multiple_peuplee(monde)
-    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
-    assert [lieu.population for lieu in cellule.lieux] == lieux_module.partager(cellule.population, surfaces)
+    différences = _controle_bourg(monde)
+    print(f"cellules_avec_non_paysans_et_partage_différent={différences}")
+    from sim.model import lire_habitants_par_metier
+
+    minière = next(c for c in monde.cells.values() if len(c.lieux) > 1
+                   and c.population > lire_habitants_par_metier(c).get(_constantes.METIER_PAYSANS, 0))
+    ancien = copy.deepcopy(monde)
+    for c in ancien.cells.values():
+        surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(c.cell_id, c.area_km2)]
+        for lieu, population in zip(c.lieux, _partager_reference(c.population, surfaces)):
+            lieu.population = population
+    _controle_conservation(ancien)
+    with pytest.raises(AssertionError, match=f"cell_id={minière.cell_id}"):
+        _controle_bourg(ancien)
+    déplacé = copy.deepcopy(monde)
+    c = déplacé.cells[minière.cell_id]
+    autres = c.population - lire_habitants_par_metier(c).get(_constantes.METIER_PAYSANS, 0)
+    c.lieux[0].population -= autres
+    c.lieux[1].population += autres
+    _controle_conservation(déplacé)
+    with pytest.raises(AssertionError, match=f"cell_id={minière.cell_id}"):
+        _controle_bourg(déplacé)
+
+    # L'absence déclarée de métiers retrouve le partage de tous par surface.
+    brut = Cell(cellule.cell_id, cellule.area_km2, cellule.population)
+    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(brut.cell_id, brut.area_km2)]
+    assert lire_habitants_par_metier(brut) == -1
+    assert [lieu.population for lieu in lieux_module.amorcer_lieux(brut)] == _partager_reference(
+        brut.population, surfaces)
+    lectures = 0
+
+    def lire_une_fois(c):
+        nonlocal lectures
+        lectures += 1
+        return lire_habitants_par_metier(c)
+
+    cas = [{_constantes.METIER_PAYSANS: 7, "artisans": 3}, {"artisans": 10}, {}, None]
+    with monkeypatch.context() as contexte:
+        contexte.setattr(lieux_module, "lire_habitants_par_metier", lire_une_fois)
+        for métiers in cas:
+            population = 10 if métiers is None else sum(métiers.values())
+            c = Cell(cellule.cell_id, cellule.area_km2, population, habitants_par_metier=métiers)
+            paysans = population if métiers is None else métiers.get(_constantes.METIER_PAYSANS, 0)
+            attendus = _partager_reference(paysans, surfaces)
+            attendus[0] += population - paysans
+            assert [lieu.population for lieu in lieux_module.amorcer_lieux(c)] == attendus
+    assert lectures == len(cas)
     panier = cellule_vers_dict(cellule)["lieux"][0]["stocks"]
     panier.clear()
     assert cellule.lieux[0].stocks
@@ -246,6 +320,89 @@ def test_amorcage_conserve_habitants_et_panier(monkeypatch):
         _controle_conservation(World.charger(0))
     print(f"cellules_contrôlées={contrôlées}, multiples_peuplées={multiples_peuplées}, pertes_vues=2")
     assert contrôlées == len(monde.cells)
+
+
+def test_metiers_lus_a_l_amorcage(monkeypatch):
+    import sim.lieux as lieux_module
+    import sim.world as monde_module
+    from sim.model import ecrire_habitants_par_metier
+
+    appels = 0
+    amorcer = lieux_module.amorcer_lieux
+
+    def compter(cellule):
+        nonlocal appels
+        appels += 1
+        return amorcer(cellule)
+
+    def comparer(premier, second):
+        assert premier.cells.keys() == second.cells.keys()
+        assert premier.cells
+        for cid in premier.cells:
+            def états(monde):
+                return [(lieu.rang, lieu.population, dict(lieu.stocks))
+                        for lieu in monde.cells[cid].lieux]
+            assert états(premier) == états(second), f"cell_id={cid} : lieux"
+
+    def charger():
+        nonlocal appels
+        appels = 0
+        monde = World.charger(0)
+        assert appels == len(monde.cells) > 0
+        appels = 0
+        paysan = World.charger(0)
+        assert appels == len(paysan.cells)
+        for cellule in paysan.cells.values():
+            ecrire_habitants_par_metier(cellule, {_constantes.METIER_PAYSANS: cellule.population}
+                                       if cellule.population else {})
+        comparer(monde, paysan)
+        appels = 0
+        return monde, paysan
+
+    def jouer(monde, paysan, nombre):
+        aléas = [random.Random(0), random.Random(0)]
+        for numéro in range(nombre):
+            tick(monde, aléas[0], numero_tick=numéro)
+            tick(paysan, aléas[1], numero_tick=numéro)
+            comparer(monde, paysan)
+
+    monkeypatch.setattr(lieux_module, "amorcer_lieux", compter)
+    # World lie actuellement la fonction par import : instrumenter aussi cet appel.
+    monkeypatch.setattr(monde_module, "amorcer_lieux", compter)
+    monde, paysan = charger()
+    jouer(monde, paysan, 30)
+    assert appels == 0
+
+    def réamorcer(cellule):
+        cellule.lieux = lieux_module.amorcer_lieux(cellule)
+
+    monde, paysan = charger()
+    monkeypatch.setattr(lieux_module, "repartir_sur_les_lieux", réamorcer)
+    with pytest.raises(AssertionError, match="cell_id="):
+        jouer(monde, paysan, 1)
+    assert appels > 0
+    print("ticks_comparés=30, réamorçage_pendant_tick_vu=1")
+
+
+def test_amorcage_documente():
+    import pathlib
+
+    def contrôler(texte):
+        section = texte.split("### Ce que porte un lieu\n", 1)[1]
+        section = section.split("\n### ", 1)[0].split("\n## ", 1)[0]
+        for attendu in ("amorcer_lieux", "lire_habitants_par_metier", "paysans", "bourg", "amorçage", "-1"):
+            assert attendu in section, f"{attendu} absent de Ce que porte un lieu"
+        assert "`amorcer_lieux` partage la population et chaque marchandise selon les surfaces" not in section
+        lieux = texte.split("## Les lieux d'une cellule, vue dérivée\n", 1)[1].split("\n## ", 1)[0]
+        assert "ni ceux de `RepartitionBourg`" not in lieux
+
+    texte = (pathlib.Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    contrôler(texte)
+    avant, reste = texte.split("### Ce que porte un lieu\n", 1)
+    section, après = reste.split("\n### ", 1)
+    with pytest.raises(AssertionError, match="paysans"):
+        contrôler(avant + "### Ce que porte un lieu\n" + section.replace("paysans", "gens")
+                  + "\n### " + après)
 
 
 def test_tick_repartit_sur_une_annee_et_suit_les_ecritures(monkeypatch):
