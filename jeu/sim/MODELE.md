@@ -1358,9 +1358,9 @@ de 23 à 24 cellules et les Ottomans de 49 à 48. Venise (25) et Copenhague
 (37), les deux ancres hors des polygones de la carte, ne comptent que par
 la règle du centroïde. Grenade (16) et Malaga (17) sont dans la même cellule,
 10209, qui reste aux Nasrides. Les comptes 565/31 restent inchangés.
-Le Caire se situe au sud de la carte, qui s'arrête à 30,45 N : sa cellule
-la plus proche relève des
-Mamelouks grâce aux ancres d'Alexandrie et de Damiette, sans ancre au Caire.
+Le point du Caire est dans le polygone **8992**, même si aucune ancre
+n'y est placée. Cette cellule relève des Mamelouks grâce aux ancres
+d'Alexandrie et de Damiette.
 
 Les huit `lacunes` déclarent des points nommés et une `raison` : Shetland,
 Féroé, Finlande, Hiiumaa, Dalécarlie, Tripolitaine, Cyrénaïque et Oued Righ.
@@ -1504,6 +1504,58 @@ La fiche est une **vue pure**, recalculée, hors de `sim.model` : elle ne pose
 rien sur `Cell` et ne stocke aucune seconde clé spatiale. La table des
 puissances, ses maisons, l'amorçage, la carte et le tick restent identiques.
 **Le tick ne la lit pas.**
+
+---
+
+## Les maisons de l'IA et leurs capitales, vue dérivée
+
+La table `data/capitales-1400.json`, datée du **1er janvier 1400**, déclare
+une capitale par grande maison de la table des puissances, sans modifier
+celle-ci : `maison` (id), `nom`, `lat`, `lon` en EPSG:4326 et `source`
+publique du siège et de la tenure dynastique. Seul un point hors de tous
+les polygones porte `hors_carte`, sa raison textuelle. Sur la carte figée,
+**30** capitales sont déclarées : **29** placées, chacune dans une cellule
+que `maisons_depuis_monde` donne à sa propre maison, et **1** hors carte,
+Saraï des Djötchides sur la basse Volga, avec `cell_id = None` et sa raison.
+
+`cellule_de_capitale` projette le point par `projeter_epsg3035`, puis lit
+`point_dans_geometrie` en parcourant les polygones par `cell_id` croissant ;
+le plus petit gagne sur une frontière. Le centroïde le plus proche ne sert
+jamais. Un point hors carte sans raison est refusé ; une raison hors carte
+pour un point contenu est refusée en nommant sa cellule. Londres tombe en
+10237, Constantinople en 10374, Le Caire en 8992 et Roskilde en 9892.
+Perth est retenue pour les Stuart avant le transfert à Édimbourg au milieu
+du XVe siècle ; Roskilde représente la maison Poméranie avant 1443.
+
+Le chargement lève `PuissanceInvalide` en nommant la maison et le champ :
+liste absente ou vide, date autre que `1400-01-01`, maison inconnue,
+booléenne ou non entière, doublon, maison sans capitale, nom ou source
+absents ou vides, coordonnée non finie ou booléenne, `hors_carte` présent
+mais vide. Le placement refuse aussi une géométrie absente ; la vue passe
+par `positions_du_monde` et refuse une position absente en nommant la cellule.
+
+`maisons_de_l_ia(monde, …)` de `sim/capitales.py` recalcule un tuple gelé :
+d'abord les grandes maisons triées par id, puis les seigneuries de départ
+triées par id, sauf celle de `monde.maison_du_joueur`. Chaque ligne porte
+`sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
+`capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
+Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
+Sans choix, **35** maisons ; après un choix appliqué au tick, **34**.
+La branche Paléologue de Morée est distincte de celle de Constantinople :
+sans choix, toutes deux sont à l'IA ; choisir la Morée laisse la grande
+maison Paléologue à l'IA. La vue ne conserve rien entre deux appels,
+hérite de `_NoBadSpatialField`, vit hors de `sim.model` et ne pose rien sur
+`Cell`. `engine.py`, `world.py` et `model.py` ne lisent pas `capitales`.
+**Le tick ne lit pas cette vue.**
+
+**Niveau 1** : villes capitales et sources publiques, sièges des seigneuries
+déjà sourcés. **Niveau 2**, plausible et jamais sourcé : une maison réduite
+à une seule capitale, notamment Tolède pour la cour itinérante de Castille
+et Heidelberg pour la branche palatine Wittelsbach (Munich reste une ancre),
+et la cellule donnée par le polygone. **Niveau 3**, pas simulé : décisions
+et gestes de l'IA, liens entre branches dynastiques, personnes, succession,
+capitales qui changent, autres seigneuries et vassaux sans ancre.
+Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ---
 
@@ -1880,6 +1932,9 @@ branches y travaillent vraiment ; relâcher l'assertion ne l'est jamais.
 ---
 
 ## Référence de code
+
+Les capitales déclarées dans `data/capitales-1400.json` et les maisons de
+l’IA sont lues et recalculées dans `sim/capitales.py`.
 
 La projection ellipsoïdale des ancres est définie dans `sim/projection.py` ;
 leur sélection commune vit dans `sim/puissances.py` et sert `sim/maisons.py`.
