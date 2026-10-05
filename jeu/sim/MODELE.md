@@ -122,10 +122,10 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
 - **descendre sous les lieux pour les calculs.** Les lieux portent habitants
-  et paniers ; à la consommation, les
-  paniers, habitants et chemins déterminent ce que chaque lieu mange.
-  Pas de mouvement propre aux lieux, de familles, de personnes ni de quartiers. Le plan peut porter des bâtiments,
-  mais ils ne font rien.
+  et paniers ; à la consommation, les paniers, habitants et chemins déterminent
+  ce que chaque lieu mange. Pas de mouvement propre aux lieux, de familles,
+  de personnes ni de quartiers. Le plan peut porter des bâtiments, mais ils
+  ne font rien.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 

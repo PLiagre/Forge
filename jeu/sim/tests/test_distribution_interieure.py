@@ -356,6 +356,19 @@ def test_donneurs_par_lieu_par_rang_croissant(monkeypatch):
     verifier(cellule)
 
 
+def test_consommation_par_lieu_sans_repartage_inutile(monkeypatch):
+    """Des paniers déjà exacts et suffisants ne repassent pas par les grands entiers."""
+    import sim.lieux as lieux
+    cellule, carte = _cellule_par_lieu([1, 2, 3], [100.25, 500, 1000])
+    cellule.food_deficit_kg = 0
+    def interdit(*args):
+        pytest.fail("repartage inutile de paniers déjà exacts")
+    monkeypatch.setattr(lieux, "partager", interdit)
+    assert engine._apply_consumption(cellule, carte) == 0
+    _controle_par_lieu(cellule, [98.25, 496, 994], 1600.25)
+    assert all(isinstance(_stock(lieu), int) for lieu in cellule.lieux[1:])
+
+
 def test_bourg_miniers_ont_faim(monkeypatch):
     original = engine._apply_consumption
     def mesurer(capacite):
@@ -364,7 +377,8 @@ def test_bourg_miniers_ont_faim(monkeypatch):
         consommation = engine._apply_consumption
         def observer(cellule, carte=None):
             penurie = consommation(cellule, carte)
-            if penurie > 0 and _stock(cellule) > 0 and _part(cellule, carte) > 0:
+            if (penurie > 0 and _stock(cellule) > 0
+                    and (math.isinf(capacite) or _part(cellule, carte) > 0)):
                 affamees.add(cellule.cell_id)
             return penurie
         with monkeypatch.context() as ctx:

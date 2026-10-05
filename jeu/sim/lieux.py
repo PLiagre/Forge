@@ -89,16 +89,39 @@ def partager(total, poids) -> list:
     if somme <= 0:
         raise LieuxInvalides("somme des poids nulle")
     numérateur_total, diviseur_total = total.as_integer_ratio()
-    divisions = [divmod(numérateur_total * poids, diviseur_total * somme) for poids in poids_exacts]
+    diviseur = diviseur_total * somme
+    divisions = [divmod(numérateur_total * poids, diviseur) for poids in poids_exacts]
     parts = [part for part, reste in divisions]
     unités = max(0, min(len(parts), math.floor(total) - sum(parts)))
-    ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
-    for rang in ordre[:unités]:
-        parts[rang] += 1
+    if unités:
+        ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
+        for rang in ordre[:unités]:
+            parts[rang] += 1
     parts[0] = total - sum(parts[1:])
     if parts[0] < 0:
         raise LieuxInvalides("reste négatif au rang zéro")
     return parts
+
+
+def parts_sans_repartage(total, parts) -> list | None:
+    """Reconnaît le résultat de partager, sans refaire ses divisions entières."""
+    entiers = [int(part) for part in parts[1:]]
+    if entiers != parts[1:]:
+        return None
+    autres = sum(entiers)
+    num, den = total.as_integer_ratio()
+    num_bourg, den_bourg = parts[0].as_integer_ratio()
+    if num * den_bourg == num_bourg * den + autres * den * den_bourg:
+        return [total - autres, *entiers]
+    return None
+
+
+def partager_si_necessaire(cellule, total, contenus):
+    """Conserve les parts alignées ; ne recalcule que les sommes différentes."""
+    if sum(contenus) == total:
+        return contenus
+    poids = contenus if any(contenus) else surfaces_des_lieux(cellule.cell_id, cellule.area_km2)
+    return partager(total, poids)
 
 
 def amorcer_lieux(cellule) -> list:
@@ -117,22 +140,13 @@ def repartir_sur_les_lieux(cellule) -> None:
     """Aligne habitants et paniers à proportion de leur contenu actuel."""
     if not cellule.lieux:
         return
+    if len(cellule.lieux) == 1:
+        cellule.lieux[0].population = cellule.population
+        remplacer_panier(cellule.lieux[0], copier_panier(cellule))
+        return
     lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
-    surfaces = None
-
-    def parts_pour(total, contenus):
-        nonlocal surfaces
-        if sum(contenus) == total:
-            return contenus
-        poids = contenus
-        if all(contenu == 0 for contenu in contenus):
-            if surfaces is None:
-                surfaces = surfaces_des_lieux(cellule.cell_id, cellule.area_km2)
-            poids = surfaces
-        return partager(total, poids)
-
-    populations = parts_pour(cellule.population, [lieu.population for lieu in lieux])
-    paniers = {nom: parts_pour(total, contenus_des_paniers(lieux, nom))
+    populations = partager_si_necessaire(cellule, cellule.population, [lieu.population for lieu in lieux])
+    paniers = {nom: partager_si_necessaire(cellule, total, contenus_des_paniers(lieux, nom))
                for nom, total in copier_panier(cellule).items()}
     for rang, lieu in enumerate(lieux):
         lieu.population = populations[rang]
