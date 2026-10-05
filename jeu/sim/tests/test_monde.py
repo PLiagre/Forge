@@ -3414,6 +3414,153 @@ def test_service_lieu_documente_dans_le_modele():
         _controler_lieu_documente(avant + "## Les foyers par métier\n" + privee + "\n## " + apres)
 
 
+# --- Lot 237 : /lieu sert les lieux de la cellule ---
+_CLES_D_UN_LIEU = {"population", "rang", "stocks", "surface_km2"}
+
+
+def _verifier_lieux_contre_photo(lieu: dict, cellule: dict, nombre_attendu: int) -> None:
+    lieux = lieu["lieux"]
+    assert lieux == cellule["lieux"], f"lieux servis ≠ photographie pour cell_id={cellule['cell_id']}"
+    for un_lieu in lieux:
+        assert set(un_lieu) == _CLES_D_UN_LIEU
+    assert [un_lieu["rang"] for un_lieu in lieux] == list(range(nombre_attendu))
+    assert sum(un_lieu["population"] for un_lieu in lieux) == lieu["population"]
+
+
+def test_service_lieu_porte_les_lieux_de_la_photographie(tmp_path: Path):
+    from sim.lieux import lieux_de_cellule
+    from sim.service import ServeurMonde, SERVICE_HOST
+
+    photo = _photographie_cli(tmp_path, 0, 3)
+    photo4 = _photographie_cli(tmp_path, 0, 4)
+    suivantes = {cellule["cell_id"]: cellule for cellule in photo4["cells"]}
+    monde_neuf = World.charger(rng_seed=0)
+    nombres = {
+        cid: len(lieux_de_cellule(cid, cellule.area_km2))
+        for cid, cellule in monde_neuf.cells.items()
+    }
+    temoin = next(
+        (
+            cellule
+            for cellule in sorted(photo["cells"], key=lambda c: c["cell_id"])
+            if cellule["lieux"] != suivantes[cellule["cell_id"]]["lieux"]
+        ),
+        None,
+    )
+    assert temoin is not None, "échantillon vide : aucun lieu ne change au tick suivant"
+
+    with lancer_service(0) as port:
+        assert requete_service(port, "/tick?n=3", "POST")[1]["tick"] == 3
+        octets_monde = requete_service(port, "/monde")[2]
+        assert b'"lieux"' not in octets_monde
+        cellules = lieux_controles = a_plusieurs = 0
+        servis = {}
+        for cellule in photo["cells"]:
+            cid = cellule["cell_id"]
+            statut, lieu, _ = requete_service(port, f"/lieu?cell={cid}")
+            assert statut is HTTPStatus.OK
+            assert lieu["tick"] == 3
+            _verifier_lieux_contre_photo(lieu, cellule, nombres[cid])
+            servis[cid] = lieu
+            cellules += 1
+            lieux_controles += len(lieu["lieux"])
+            a_plusieurs += len(lieu["lieux"]) > 1
+        print(
+            f"cellules_controlees={cellules} lieux_controles={lieux_controles} "
+            f"cellules_a_plusieurs_lieux={a_plusieurs}"
+        )
+        assert cellules == len(photo["cells"]) > 0
+        assert a_plusieurs > 0
+
+        # Contre-épreuve : un habitant déplacé d'un lieu peuplé à un autre, total inchangé.
+        cellule = next(
+            c for c in photo["cells"]
+            if len(c["lieux"]) > 1 and any(l["population"] > 0 for l in c["lieux"])
+        )
+        deplace = copy.deepcopy(cellule)
+        source = next(i for i, l in enumerate(deplace["lieux"]) if l["population"] > 0)
+        cible = next(i for i in range(len(deplace["lieux"])) if i != source)
+        deplace["lieux"][source]["population"] -= 1
+        deplace["lieux"][cible]["population"] += 1
+        assert sum(l["population"] for l in deplace["lieux"]) == cellule["population"]
+        with pytest.raises(AssertionError):
+            _verifier_lieux_contre_photo(servis[cellule["cell_id"]], deplace, nombres[cellule["cell_id"]])
+
+        # Contre-épreuve : un tick de plus, les lieux servis sont ceux du tick 4.
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 4
+        lieu4 = requete_service(port, f"/lieu?cell={temoin['cell_id']}")[1]
+        assert lieu4["lieux"] != temoin["lieux"]
+        with pytest.raises(AssertionError):
+            _verifier_lieux_contre_photo(lieu4, temoin, nombres[temoin["cell_id"]])
+        _verifier_lieux_contre_photo(lieu4, suivantes[temoin["cell_id"]], nombres[temoin["cell_id"]])
+        print(f"temoin_tick4={temoin['cell_id']}")
+
+    # Le coût de la publication, mesuré, pas exigé.
+    serveur = ServeurMonde((SERVICE_HOST, 0), 0, 0)
+    try:
+        debut = time.perf_counter()
+        serveur._construire_etat(0, -1)
+        duree_ms = (time.perf_counter() - debut) * MILLISECONDES_PAR_SECONDE_TEST
+    finally:
+        serveur.server_close()
+    print(f"construire_etat_ms={duree_ms:.1f}")
+
+
+def _cles_d_identite(document, chemin: tuple = ()) -> set[tuple]:
+    """Rend les chemins de toutes les clés `id` ou en `_id`, en profondeur."""
+    trouves = set()
+    if isinstance(document, dict):
+        for cle, valeur in document.items():
+            if cle == "id" or cle.endswith("_id"):
+                trouves.add(chemin + (cle,))
+            trouves |= _cles_d_identite(valeur, chemin + (cle,))
+    elif isinstance(document, list):
+        for indice, valeur in enumerate(document):
+            trouves |= _cles_d_identite(valeur, chemin + (indice,))
+    return trouves
+
+
+def test_service_lieu_sans_seconde_cle_spatiale():
+    with lancer_service(0) as port:
+        monde = requete_service(port, "/monde")[1]
+        assert monde["tick"] == 0
+        reponses = 0
+        premiere = None
+        for cellule in monde["cells"]:
+            statut, lieu, _ = requete_service(port, f"/lieu?cell={cellule['cell_id']}")
+            assert statut is HTTPStatus.OK
+            assert lieu["lieux"], f"aucun lieu servi pour cell_id={cellule['cell_id']}"
+            assert _cles_d_identite(lieu) == {("cell_id",)}
+            premiere = premiere or lieu
+            reponses += 1
+        print(f"reponses_controlees={reponses}")
+        assert reponses == len(monde["cells"]) > 0
+
+    # Contre-épreuves : un identifiant ajouté au premier lieu est vu.
+    for cle in ("lieu_id", "cell_id"):
+        alteree = copy.deepcopy(premiere)
+        alteree["lieux"][0][cle] = 0
+        assert _cles_d_identite(alteree) == {("cell_id",), ("lieux", 0, cle)}
+
+
+def _controler_lieux_documentes(texte: str) -> None:
+    section = texte.split("### Ce que porte un lieu\n", 1)[1]
+    section = section.split("\n### ", 1)[0].split("\n## ", 1)[0]
+    for attendu in ("/lieu", "lieux_en_photographie", "EtatPublie", "/monde"):
+        assert attendu in section, f"« {attendu} » absent de « Ce que porte un lieu »"
+
+
+def test_service_lieux_documentes_dans_le_modele():
+    texte = (pathlib.Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    _controler_lieux_documentes(texte)
+    avant, reste = texte.split("### Ce que porte un lieu\n", 1)
+    section, apres = reste.split("\n### ", 1)
+    print(f"section_controlee={len(section)} caracteres")
+    privee = section.replace("/lieu", "la route")
+    with pytest.raises(AssertionError):
+        _controler_lieux_documentes(avant + "### Ce que porte un lieu\n" + privee + "\n### " + apres)
+
+
 def test_tick_sous_le_budget_du_service(monkeypatch):
     import random
     import statistics

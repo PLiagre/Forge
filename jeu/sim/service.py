@@ -18,7 +18,7 @@ from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
-from sim.snapshot_export import _round_tree
+from sim.snapshot_export import _round_tree, lieux_en_photographie
 from sim.world import World
 
 
@@ -154,11 +154,15 @@ class ServeurMonde(ThreadingHTTPServer):
         ]
         numero_tick = self.world.ticks_ecoules
         date = self.world.date_simulation
+        # Les lieux s'ajoutent après l'arrondi, comme dans la photographie, par la même fonction.
         lieux = {
             cellule["cell_id"]: _serialiser(
                 cellule
                 | {
                     "foyers": _foyers_du_lieu(self.world.cells[cellule["cell_id"]]),
+                    "lieux": lieux_en_photographie(
+                        cellule["cell_id"], self.world.cells[cellule["cell_id"]]
+                    ),
                     "tick": numero_tick,
                     "date": date,
                 }
