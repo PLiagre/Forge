@@ -33,6 +33,7 @@ import sim.foyers as foyers
 from sim.model import (
     Cell,
     cellule_vers_dict,
+    copier_panier,
     ecrire_habitants_par_metier,
     ecrire_stock_marchandise,
     lire_habitants_par_metier,
@@ -341,7 +342,7 @@ def _extraction_du_tick_kg(cell: Cell, carte: dict) -> dict[str, float]:
 
 def _matieres_premieres_du_panier(cell: Cell) -> list[str]:
     """Noms des matières premières présentes dans le panier, ordre stable."""
-    panier = cellule_vers_dict(cell).get("stocks") or {}
+    panier = copier_panier(cell)
     nourriture = _constantes.MARCHANDISE_NOURRITURE
     objet = _constantes.MARCHANDISE_OBJET
     return sorted(m for m in panier if m not in (nourriture, objet))
@@ -448,8 +449,18 @@ def _facteur_transport_pour_cellule(cell_id: int, carte: dict) -> float:
     return facteurs[relief]
 
 
-def _arete_adjacence(world, a_id: int, b_id: int) -> dict | None:
+def _index_aretes(world) -> dict[tuple[int, int], dict]:
+    """Index local au commerce du tick ; la première entrée fait foi."""
+    index = {}
+    for edge in world.adjacency:
+        index.setdefault(_cle_arête(edge["a"], edge["b"]), edge)
+    return index
+
+
+def _arete_adjacence(world, a_id: int, b_id: int, index=None) -> dict | None:
     """Entrée d'adjacence appariée aux deux cell_id, sans recalcul."""
+    if index is not None:
+        return index.get(_cle_arête(a_id, b_id))
     for edge in world.adjacency:
         ea = edge["a"]
         eb = edge["b"]
@@ -458,7 +469,7 @@ def _arete_adjacence(world, a_id: int, b_id: int) -> dict | None:
     return None
 
 
-def _capacite_base_arete_kg(world, a_id: int, b_id: int) -> float:
+def _capacite_base_arete_kg(world, a_id: int, b_id: int, index=None) -> float:
     """
     Capacité dérivée de shared_length_m sur l'arête, ou repli plat.
 
@@ -466,7 +477,7 @@ def _capacite_base_arete_kg(world, a_id: int, b_id: int) -> float:
     Longueur non numérique : erreur nommant les deux cell_id.
     Longueur nulle : zéro réel (frontière ponctuelle).
     """
-    edge = _arete_adjacence(world, a_id, b_id)
+    edge = _arete_adjacence(world, a_id, b_id, index)
     if edge is None or "shared_length_m" not in edge:
         return _constantes.TRADE_CAPACITY_KG_PER_EDGE_PER_TICK
     raw = edge["shared_length_m"]
@@ -487,14 +498,14 @@ def _capacite_base_arete_kg(world, a_id: int, b_id: int) -> float:
     )
 
 
-def _capacite_transport_arete_kg(world, a_id: int, b_id: int) -> float:
+def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None) -> float:
     """
     Capacité de transport d'une arête terrestre entre deux cellules du monde.
 
     Base dérivée de shared_length_m sur l'adjacence, puis goulot de relief
     si une carte est chargée.
     """
-    base = _capacite_base_arete_kg(world, a_id, b_id)
+    base = _capacite_base_arete_kg(world, a_id, b_id, index)
     if base == 0.0:
         return 0.0
     carte = getattr(world, "carte", None)
@@ -514,13 +525,14 @@ def _capacite_transport_arete_kg(world, a_id: int, b_id: int) -> float:
 def _initialiser_capacite_aretes(world) -> dict[tuple[int, int], float]:
     """Capacité restante par arête au début du maillon commerce."""
     capacite: dict[tuple[int, int], float] = {}
+    index = _index_aretes(world)
     for edge in world.adjacency:
         a_id = edge["a"]
         b_id = edge["b"]
         if a_id not in world.cells or b_id not in world.cells:
             continue
         cle = _cle_arête(a_id, b_id)
-        capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id)
+        capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id, index)
     return capacite
 
 
@@ -744,15 +756,8 @@ def _appliquer_flux_maritimes(
 def _marchandises_du_monde(world) -> list[str]:
     """Marchandises jouées : clés de panier présentes, plus la ration alimentaire."""
     noms: set[str] = set()
-    if hasattr(world, "to_dict"):
-        cellules = world.to_dict()["cells"].values()
-        for entree in cellules:
-            panier = entree.get("stocks") or {}
-            noms.update(panier)
-    else:
-        for cell in world.cells.values():
-            panier = cellule_vers_dict(cell).get("stocks") or {}
-            noms.update(panier)
+    for cell in world.cells.values():
+        noms.update(copier_panier(cell))
     noms.add(_constantes.MARCHANDISE_NOURRITURE)
     return sorted(noms)
 

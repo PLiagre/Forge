@@ -3559,3 +3559,38 @@ def test_service_lieux_documentes_dans_le_modele():
     privee = section.replace("/lieu", "la route")
     with pytest.raises(AssertionError):
         _controler_lieux_documentes(avant + "### Ce que porte un lieu\n" + privee + "\n### " + apres)
+
+
+def test_tick_sous_le_budget_du_service(monkeypatch):
+    import random
+    import statistics
+    import time
+    from sim import engine
+    from sim.service import BUDGET_TICK_MS
+
+    def mesurer():
+        monde, rng = World.charger(0), random.Random(0)
+        for numero in range(5):
+            engine.tick(monde, rng, numero_tick=numero)
+        durees = []
+        for numero in range(5, 25):
+            debut = time.perf_counter()
+            engine.tick(monde, rng, numero_tick=numero)
+            durees.append((time.perf_counter() - debut) * 1000)
+        mediane = statistics.median(durees)
+        print(f"médiane={mediane:.2f} ms maximum={max(durees):.2f} ms budget={BUDGET_TICK_MS} ms")
+        assert mediane < BUDGET_TICK_MS
+
+    mesurer()
+    commerce, appels = engine._apply_commerce, []
+
+    def commerce_lent(*args, **kwargs):
+        appels.append(1)
+        time.sleep(BUDGET_TICK_MS / 1000)
+        return commerce(*args, **kwargs)
+
+    with monkeypatch.context() as ctx:
+        ctx.setattr(engine, "_apply_commerce", commerce_lent)
+        with pytest.raises(AssertionError):
+            mesurer()
+    assert appels

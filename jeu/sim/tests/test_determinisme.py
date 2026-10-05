@@ -543,3 +543,200 @@ def test_gestes_routes_deterministes_sans_cellule_ni_alea():
                for plan in etats[2]["plans"].values())
     assert len(etats[0]["plans"][str(route["cell"])]["rues"]) == 2
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
+
+
+# Copies intégrales de 1924f24 : la référence joue réellement les anciens chemins.
+_REFERENCE_TICK_331 = {
+    "engine": '''
+def _matieres_premieres_du_panier(cell: Cell) -> list[str]:
+    """Noms des matières premières présentes dans le panier, ordre stable."""
+    panier = cellule_vers_dict(cell).get("stocks") or {}
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    objet = _constantes.MARCHANDISE_OBJET
+    return sorted(m for m in panier if m not in (nourriture, objet))
+
+def _arete_adjacence(world, a_id: int, b_id: int) -> dict | None:
+    """Entrée d'adjacence appariée aux deux cell_id, sans recalcul."""
+    for edge in world.adjacency:
+        ea = edge["a"]
+        eb = edge["b"]
+        if (ea == a_id and eb == b_id) or (ea == b_id and eb == a_id):
+            return edge
+    return None
+
+def _capacite_base_arete_kg(world, a_id: int, b_id: int) -> float:
+    """
+    Capacité dérivée de shared_length_m sur l'arête, ou repli plat.
+
+    Longueur absente : repli TRADE_CAPACITY_KG_PER_EDGE_PER_TICK.
+    Longueur non numérique : erreur nommant les deux cell_id.
+    Longueur nulle : zéro réel (frontière ponctuelle).
+    """
+    edge = _arete_adjacence(world, a_id, b_id)
+    if edge is None or "shared_length_m" not in edge:
+        return _constantes.TRADE_CAPACITY_KG_PER_EDGE_PER_TICK
+    raw = edge["shared_length_m"]
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise LongueurFrontiereInvalideError(
+            f"cell_id={a_id} cell_id={b_id} shared_length_m={raw!r}"
+        )
+    longueur_m = float(raw)
+    if math.isnan(longueur_m):
+        raise LongueurFrontiereInvalideError(
+            f"cell_id={a_id} cell_id={b_id} shared_length_m={raw!r}"
+        )
+    if longueur_m == 0.0:
+        return 0.0
+    return (
+        _constantes.DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK
+        * (longueur_m / _constantes.metres_par_km())
+    )
+
+def _capacite_transport_arete_kg(world, a_id: int, b_id: int) -> float:
+    """
+    Capacité de transport d'une arête terrestre entre deux cellules du monde.
+
+    Base dérivée de shared_length_m sur l'adjacence, puis goulot de relief
+    si une carte est chargée.
+    """
+    base = _capacite_base_arete_kg(world, a_id, b_id)
+    if base == 0.0:
+        return 0.0
+    carte = getattr(world, "carte", None)
+    if not carte:
+        return base
+    try:
+        fa = _facteur_transport_pour_cellule(a_id, carte)
+        fb = _facteur_transport_pour_cellule(b_id, carte)
+    except ReliefInvalideError as e:
+        raise ReliefInvalideError(
+            f"arête ({a_id},{b_id}) : {e}"
+        ) from e
+    facteur = min(fa, fb)
+    return base * facteur
+
+def _initialiser_capacite_aretes(world) -> dict[tuple[int, int], float]:
+    """Capacité restante par arête au début du maillon commerce."""
+    capacite: dict[tuple[int, int], float] = {}
+    for edge in world.adjacency:
+        a_id = edge["a"]
+        b_id = edge["b"]
+        if a_id not in world.cells or b_id not in world.cells:
+            continue
+        cle = _cle_arête(a_id, b_id)
+        capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id)
+    return capacite
+
+def _marchandises_du_monde(world) -> list[str]:
+    """Marchandises jouées : clés de panier présentes, plus la ration alimentaire."""
+    noms: set[str] = set()
+    if hasattr(world, "to_dict"):
+        cellules = world.to_dict()["cells"].values()
+        for entree in cellules:
+            panier = entree.get("stocks") or {}
+            noms.update(panier)
+    else:
+        for cell in world.cells.values():
+            panier = cellule_vers_dict(cell).get("stocks") or {}
+            noms.update(panier)
+    noms.add(_constantes.MARCHANDISE_NOURRITURE)
+    return sorted(noms)
+''',
+    "lieux": '''
+def repartir_sur_les_lieux(cellule) -> None:
+    """Suit l'état de la cellule, sans intervenir dans ses calculs."""
+    if not cellule.lieux:
+        return
+    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+
+    def parts_pour(total, contenus):
+        if sum(contenus) == total:
+            return contenus
+        poids = contenus
+        if all(contenu == 0 for contenu in contenus):
+            poids = [lieu.surface_km2 for lieu in lieux_de_cellule(cellule.cell_id, cellule.area_km2)]
+        return partager(total, poids)
+
+    populations = parts_pour(cellule.population, [lieu.population for lieu in lieux])
+    contenus = [copier_panier(lieu) for lieu in lieux]
+    paniers = {nom: parts_pour(total, [panier.get(nom, 0) for panier in contenus])
+               for nom, total in copier_panier(cellule).items()}
+    for rang, lieu in enumerate(lieux):
+        lieu.population = populations[rang]
+        remplacer_panier(lieu, {nom: parts[rang] for nom, parts in paniers.items()})
+''',
+}
+
+
+def _empreinte_tick_331(monde, rng, retour):
+    octets = json.dumps([monde.to_dict(), monde.stocks_mer, retour], sort_keys=True).encode()
+    return hashlib.sha256(octets).hexdigest(), hashlib.sha256(
+        repr(rng.getstate()).encode()).hexdigest()
+
+
+def _comparer_empreintes_tick_331(neuves, references):
+    assert len(neuves) == len(references) == 366
+    for numero, (neuve, reference) in enumerate(zip(neuves, references)):
+        assert neuve == reference, f"empreinte différente au tick {numero - 1}"
+
+
+def test_tick_bit_pres_sur_une_annee(monkeypatch):
+    import math
+    import sim.lieux as lieux
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    compteurs = {}
+    serialisations = {"monde": 0, "cellule": 0}
+
+    def compter(fonction, compte, nom):
+        def enveloppe(*args, **kwargs):
+            compte[nom] += 1
+            return fonction(*args, **kwargs)
+        return enveloppe
+
+    def course(reference):
+        with monkeypatch.context() as ctx:
+            if reference:
+                for nom_module, source in _REFERENCE_TICK_331.items():
+                    module = {"engine": engine, "lieux": lieux}[nom_module]
+                    anciennes = {}
+                    exec(source, module.__dict__, anciennes)
+                    for nom, fonction in anciennes.items():
+                        compteurs[nom] = 0
+                        ctx.setattr(module, nom, compter(fonction, compteurs, nom))
+            ctx.setattr(World, "to_dict", compter(World.to_dict, serialisations, "monde"))
+            ctx.setattr(engine, "cellule_vers_dict", compter(
+                engine.cellule_vers_dict, serialisations, "cellule"))
+            debut = time.perf_counter()
+            monde, rng = World.charger(0), random.Random(0)
+            empreintes = [_empreinte_tick_331(monde, rng, None)]
+            appels = {"monde": 0, "cellule": 0}
+            retour = None
+            for numero in range(365):
+                serialisations.update(monde=0, cellule=0)
+                retour = engine.tick(monde, rng, numero_tick=numero)
+                for nom, nombre in serialisations.items():
+                    appels[nom] += nombre
+                    if not reference:
+                        assert nombre == 0, f"sérialisation {nom} pendant le tick {numero}"
+                empreintes.append(_empreinte_tick_331(monde, rng, retour))
+            duree = time.perf_counter() - debut
+            print(f"reference={reference} premiere={empreintes[0]} "
+                  f"derniere={empreintes[-1]} duree={duree:.2f} s appels={appels}")
+            return empreintes, monde, rng, retour, appels
+
+    neuves, monde, rng, retour, appels_neufs = course(False)
+    references, _, _, _, appels_reference = course(True)
+    _comparer_empreintes_tick_331(neuves, references)
+    assert compteurs and all(nombre > 0 for nombre in compteurs.values()), compteurs
+    assert all(nombre == 0 for nombre in appels_neufs.values())
+    assert all(nombre >= 365 for nombre in appels_reference.values())
+    cellule = next(c for c in monde.cells.values() if len(c.lieux) > 1)
+    lieu = next(lieu for lieu in cellule.lieux if lieu.rang == 1)
+    stock = lire_stock_marchandise(lieu, "nourriture")
+    assert stock >= 0
+    ecrire_stock_marchandise(lieu, "nourriture", math.nextafter(stock, math.inf))
+    alterees = [*neuves[:-1], _empreinte_tick_331(monde, rng, retour)]
+    assert alterees[-1] != neuves[-1]
+    with pytest.raises(AssertionError, match="tick 364"):
+        _comparer_empreintes_tick_331(alterees, references)
