@@ -35,7 +35,7 @@ namespace Forge.Pont.Tests
             var lieu = LecteurJson.LireObjet(TexteFige());
 
             CollectionAssert.AreEqual(
-                new[] { "cell_id", "date", "food_deficit_kg", "foyers", "hunger_ticks", "population", "stocks", "tick" },
+                new[] { "cell_id", "date", "food_deficit_kg", "foyers", "hunger_ticks", "lieux", "population", "stocks", "tick" },
                 lieu.Keys.ToArray());
             var date = (Dictionary<string, object>)lieu["date"];
             Assert.AreEqual(2, date.Count);
@@ -71,6 +71,31 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(
                 (double)mineurs["personnes"] + (double)paysans["personnes"] == (double)lieu["population"],
                 "les personnes des métiers font la population");
+
+            // Lot #237 — les lieux de la cellule, par rang, lus dans la même photographie.
+            Assert.IsInstanceOf<List<object>>(lieu["lieux"]);
+            var lieux = (List<object>)lieu["lieux"];
+            Assert.AreEqual(15, lieux.Count);
+            double sommePopulation = 0.0;
+            for (int rang = 0; rang < lieux.Count; rang++)
+            {
+                Assert.IsInstanceOf<Dictionary<string, object>>(lieux[rang]);
+                var unLieu = (Dictionary<string, object>)lieux[rang];
+                CollectionAssert.AreEqual(
+                    new[] { "population", "rang", "stocks", "surface_km2" },
+                    unLieu.Keys.ToArray());
+                Assert.IsTrue((double)unLieu["rang"] == rang, "le rang du lieu vaut son indice");
+                var panier = (Dictionary<string, object>)unLieu["stocks"];
+                CollectionAssert.AreEqual(
+                    stocks.Keys.ToArray(), panier.Keys.ToArray(),
+                    "un lieu porte toutes les marchandises de sa cellule");
+                sommePopulation += (double)unLieu["population"];
+            }
+            var bourg = (Dictionary<string, object>)lieux[0];
+            Assert.IsTrue((double)bourg["population"] == 7404.0);
+            foreach (Dictionary<string, object> autre in lieux)
+                Assert.GreaterOrEqual((double)bourg["surface_km2"], (double)autre["surface_km2"]);
+            Assert.IsTrue(sommePopulation == (double)lieu["population"], "les habitants des lieux font la population");
         }
 
         [Test]

@@ -181,3 +181,32 @@ def test_contre_epreuve_le_refus_vient_du_schema(schema, exemples):
     message[CLE_VILLE] = "city:1001"
     assert juger(message, ancien)
     assert not juger(message, schema["$defs"]["CityLaunchContext"])
+
+
+# --- Lot #237 : le contrat dit que /lieu porte les lieux de la cellule ---
+SECTION_ATTENTES = "## Ce que ce contrat attend encore\n"
+
+
+def _controler_lieux_documentes(texte):
+    section = texte.split(SECTION_ATTENTES, 1)[1].split("\n## ", 1)[0]
+    for attendu in ("/lieu", "lieux", "rang", "surface_km2", "population", "stocks", "cell_id"):
+        assert attendu in section, f"« {attendu} » absent de la section des attentes"
+    assert "viendra au jalon 3" not in section, "le lieu y est encore annoncé pour plus tard"
+
+
+def test_lieux_documentes_dans_le_contrat():
+    texte = (VILLE / "README.md").read_text(encoding="utf-8")
+    _controler_lieux_documentes(texte)
+    avant, reste = texte.split(SECTION_ATTENTES, 1)
+    section, apres = reste.split("\n## ", 1)
+    print(f"section_controlee={len(section)} caracteres")
+    assert section.strip()
+
+    # Contre-épreuve : la section privée de /lieu ne passe plus.
+    privee = section.replace("/lieu", "la route")
+    with pytest.raises(AssertionError):
+        _controler_lieux_documentes(avant + SECTION_ATTENTES + privee + "\n## " + apres)
+    # Contre-épreuve : la phrase de la base, qui annonce le lieu pour plus tard, ne passe plus.
+    annonce = section + "\nLe lieu viendra au jalon 3.\n"
+    with pytest.raises(AssertionError):
+        _controler_lieux_documentes(avant + SECTION_ATTENTES + annonce + "\n## " + apres)

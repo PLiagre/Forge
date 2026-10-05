@@ -1669,6 +1669,18 @@ mortalité, natalité et migration restent à la cellule. Ce partage est de
 **niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
 n'est simulé (niveau 3).
 
+Le service les publie. `GET /lieu?cell=X` porte `lieux`, rangés par rang,
+chacun avec exactement `rang`, `surface_km2`, `population` et `stocks`. Ils
+sont lus par `lieux_en_photographie`, la fonction même qui remplit les lieux
+de la photographie, **sans arrondi** : la somme de leurs paniers égale le
+panier du monde au bit près, pas le panier arrondi en tête de la réponse.
+Ces octets sont construits dans `EtatPublie`, avec la photographie du tick,
+dans le même appel que la population, le panier et les foyers. Un lieu publié
+ne porte aucun `cell_id` recopié ni `lieu_id` : son identité est le couple
+(`cell_id` de la réponse, `rang`). Des lieux qui ne correspondent pas au
+découpage lèvent `SnapshotExportError` : le service ne publie jamais une
+liste inventée. `/monde` reste léger et ne les porte pas.
+
 ### L'identité d'un lieu, et ce qui la change
 
 Un lieu se retrouve par son couple (`cell_id`, `rang`) avec `lieu_du_monde`,
