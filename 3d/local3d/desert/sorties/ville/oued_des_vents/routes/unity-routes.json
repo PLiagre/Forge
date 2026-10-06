@@ -36,7 +36,7 @@
             "largeur": 6.0,
             "valeur": 0.19932579924084363,
             "position": 58.80963576285279,
-            "duree_s": 0.9483280999999999,
+            "duree_s": 0.9741854000000001,
             "acceptee": false,
             "ax": [
                 0.0,
@@ -889,7 +889,7 @@
             "largeur": 3.0,
             "valeur": 0.131505793343634,
             "position": 24.20736804471188,
-            "duree_s": 0.7573638999999997,
+            "duree_s": 0.9789604000000001,
             "acceptee": false,
             "ax": [
                 -123.0,
@@ -1212,7 +1212,7 @@
             "largeur": 4.0,
             "valeur": 0.02116642168589955,
             "position": 26.75,
-            "duree_s": 0.9369727000000001,
+            "duree_s": 0.8427898999999997,
             "acceptee": true,
             "ax": [
                 -97.0,
@@ -1469,7 +1469,7 @@
             "largeur": 3.0,
             "valeur": 0.2842539230982464,
             "position": 0.75,
-            "duree_s": 0.9266591999999996,
+            "duree_s": 0.9645493999999992,
             "acceptee": false,
             "ax": [
                 -96.0,
@@ -1594,7 +1594,7 @@
             "largeur": 3.0,
             "valeur": 0.00970458984375,
             "position": 10.25,
-            "duree_s": 0.9242998999999994,
+            "duree_s": 1.0065251999999987,
             "acceptee": true,
             "ax": [
                 -112.5,
@@ -1711,7 +1711,7 @@
             "largeur": 4.5,
             "valeur": 0.11095973690169513,
             "position": 38.28841854329439,
-            "duree_s": 0.9974960999999993,
+            "duree_s": 0.8864722,
             "acceptee": true,
             "ax": [
                 -65.0,
@@ -2976,7 +2976,7 @@
             "largeur": 3.0,
             "valeur": 0.22177489510105564,
             "position": 1.7444780740470783,
-            "duree_s": 0.7738123000000012,
+            "duree_s": 0.7909735999999992,
             "acceptee": false,
             "ax": [
                 -96.0,
@@ -3103,7 +3103,7 @@
             "largeur": 3.0,
             "valeur": 0.2743187529820722,
             "position": 2.260012157987913,
-            "duree_s": 0.9390883999999993,
+            "duree_s": 0.7924400000000009,
             "acceptee": false,
             "ax": [
                 -124.0,
@@ -3228,7 +3228,7 @@
             "largeur": 3.0,
             "valeur": 0.16264146276630518,
             "position": 2.7528536439872677,
-            "duree_s": 0.9464973999999984,
+            "duree_s": 0.9536470000000001,
             "acceptee": false,
             "ax": [
                 -154.0,
@@ -3365,7 +3365,7 @@
             "largeur": 3.0,
             "valeur": 0.026872672069489454,
             "position": 1.7428313290465943,
-            "duree_s": 0.8159489999999998,
+            "duree_s": 0.8420704000000008,
             "acceptee": true,
             "ax": [
                 -160.0,
@@ -3618,7 +3618,7 @@
             "largeur": 4.0,
             "valeur": 0.07048532148404015,
             "position": 20.251863658513999,
-            "duree_s": 0.9274637000000006,
+            "duree_s": 0.8965892999999987,
             "acceptee": true,
             "ax": [
                 -16.0,
@@ -4451,7 +4451,7 @@
             "largeur": 4.0,
             "valeur": 0.024235160661917084,
             "position": 0.24930546022901962,
-            "duree_s": 0.9654857000000021,
+            "duree_s": 0.8472504000000001,
             "acceptee": true,
             "ax": [
                 64.0,
@@ -4964,7 +4964,7 @@
             "largeur": 4.0,
             "valeur": 0.36606577330185349,
             "position": 4.724369858280493,
-            "duree_s": 0.7866812999999979,
+            "duree_s": 0.8031241000000016,
             "acceptee": false,
             "ax": [
                 -208.0,
@@ -5107,7 +5107,7 @@
             "largeur": 4.0,
             "valeur": 1.1719277514091644,
             "position": 0.0,
-            "duree_s": 0.9136440000000015,
+            "duree_s": 0.9727067999999974,
             "acceptee": false,
             "ax": [
                 208.0,
@@ -6570,7 +6570,7 @@
             "touffes": "f47cdcb895c3728882104d626d7ee777f8dac303012b592964968ba1e96f71de"
         }
     },
-    "asset_avant": "04320f5373349851053dcfe069ca314c176d0e8607f878079efe5ac75f83528e4bb41c050e31ad818f4a64c5cbb1fd4e92099f4299cb05c49b65b9fc64d8128c9851a8808f1ca8881bcd8809e3dfe086b809108b8657e537c1546ab01b289bf0",
+    "asset_avant": "8cd669eaf8ab93e2283f735701b48187be12f79df23ca0ffd40ebc260e2427d38c37a0a7f253c84e958eba4bb21170b56b6fc3bc05c01470665bb94ee50217a61be04bdf6e1583f6c05de9ebf6e00dea1e96a3cc7872a86c3d5df5ac1607246c",
     "asset_apres": "8cd669eaf8ab93e2283f735701b48187be12f79df23ca0ffd40ebc260e2427d38c37a0a7f253c84e958eba4bb21170b56b6fc3bc05c01470665bb94ee50217a61be04bdf6e1583f6c05de9ebf6e00dea1e96a3cc7872a86c3d5df5ac1607246c",
     "clic": {
         "voulus_x": [
@@ -6632,23 +6632,23 @@
     "captures": [
         {
             "nom": "plaine",
-            "ecart": 96.79876666666667
+            "ecart": 96.91558888888889
         },
         {
             "nom": "bord",
-            "ecart": 144.5922
+            "ecart": 144.7482222222222
         },
         {
             "nom": "flanc_de_dune",
-            "ecart": 167.7511111111111
+            "ecart": 167.73422222222224
         },
         {
             "nom": "refus",
-            "ecart": 168.89484444444444
+            "ecart": 168.8942888888889
         }
     ],
     "defauts": [],
-    "duree_s": 41.4030303,
+    "duree_s": 42.1867474,
     "camera": {
         "branchee": true,
         "balayage": {
@@ -7116,15 +7116,15 @@
     "captures_camera": [
         {
             "nom": "ensemble",
-            "ecart": 129.90331111111113
+            "ecart": 129.92506666666669
         },
         {
             "nom": "rue",
-            "ecart": 96.56035555555556
+            "ecart": 96.55226666666667
         },
         {
             "nom": "marcheur",
-            "ecart": 79.5075
+            "ecart": 79.5115888888889
         }
     ],
     "service": {

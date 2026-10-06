@@ -239,19 +239,19 @@
  "captures": [
   {
    "nom": "plaine",
-   "ecart": 109.17911111111111
+   "ecart": 98.17398888888889
   },
   {
    "nom": "bord",
-   "ecart": 108.11474444444444
+   "ecart": 127.40624444444444
   },
   {
    "nom": "flanc_de_dune",
-   "ecart": 159.89983333333333
+   "ecart": 153.89757777777777
   },
   {
    "nom": "refus",
-   "ecart": 180.0577888888889
+   "ecart": 188.15571111111112
   }
  ],
  "camera": {
@@ -292,15 +292,15 @@
  "captures_camera": [
   {
    "nom": "ensemble",
-   "ecart": 140.95085555555556
+   "ecart": 131.76655555555556
   },
   {
    "nom": "rue",
-   "ecart": 95.80752222222222
+   "ecart": 95.58947777777777
   },
   {
    "nom": "marcheur",
-   "ecart": 129.61524444444444
+   "ecart": 128.5825111111111
   }
  ],
  "service": {
@@ -352,8 +352,6 @@
    "rue_en_chantier": true
   }
  },
- "defauts": [
-  "l’asset du terrain a changé"
- ],
- "status": "echec"
+ "defauts": [],
+ "status": "valide"
 }
