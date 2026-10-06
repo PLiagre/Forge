@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5afa4c0d4064c3faf8881e058552239, type: 3}
+  m_Name: KitDesBatiments
+  m_EditorClassIdentifier: 
+  natures:
+  - nature: maison
+    piquets: {fileID: 3098908430231723573, guid: e985289e398c5a7498a040675f3de1dd, type: 3}
+    murs: {fileID: 5284588481682110971, guid: c09686b1f12716546a083dedc306a8e3, type: 3}
+    fini: {fileID: 6017052373620483911, guid: 450a5528a7bc7334a83dcc57c20c1d6e, type: 3}
+  - nature: scierie
+    piquets: {fileID: 6032836527666713825, guid: 40be798ae938c5f4ab7500bc66b9b661, type: 3}
+    murs: {fileID: 6535702028959190746, guid: a4c30be3b92ac924ab5e597d48c960ee, type: 3}
+    fini: {fileID: 3793188618797191352, guid: 954a0aead40c1414a9a51063c80c21c7, type: 3}
+  - nature: four
+    piquets: {fileID: 8525422234860915443, guid: a9a830a624ed67c46b98d3629df51fca, type: 3}
+    murs: {fileID: 7111400619667868090, guid: fb7d386753565a04dadc08b0f65054ed, type: 3}
+    fini: {fileID: 4583928087612599342, guid: a4d96dbbf41d1e64ca4442f83ec9e7cb, type: 3}
