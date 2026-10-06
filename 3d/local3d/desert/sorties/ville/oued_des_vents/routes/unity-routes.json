@@ -36,7 +36,7 @@
             "largeur": 6.0,
             "valeur": 0.19932579924084363,
             "position": 58.80963576285279,
-            "duree_s": 0.8577525000000001,
+            "duree_s": 0.9741854000000001,
             "acceptee": false,
             "ax": [
                 0.0,
@@ -889,7 +889,7 @@
             "largeur": 3.0,
             "valeur": 0.131505793343634,
             "position": 24.20736804471188,
-            "duree_s": 0.9336391000000006,
+            "duree_s": 0.9789604000000001,
             "acceptee": false,
             "ax": [
                 -123.0,
@@ -1212,7 +1212,7 @@
             "largeur": 4.0,
             "valeur": 0.02116642168589955,
             "position": 26.75,
-            "duree_s": 0.8308238000000001,
+            "duree_s": 0.8427898999999997,
             "acceptee": true,
             "ax": [
                 -97.0,
@@ -1469,7 +1469,7 @@
             "largeur": 3.0,
             "valeur": 0.2842539230982464,
             "position": 0.75,
-            "duree_s": 0.9141647000000006,
+            "duree_s": 0.9645493999999992,
             "acceptee": false,
             "ax": [
                 -96.0,
@@ -1594,7 +1594,7 @@
             "largeur": 3.0,
             "valeur": 0.00970458984375,
             "position": 10.25,
-            "duree_s": 0.9673034999999999,
+            "duree_s": 1.0065251999999987,
             "acceptee": true,
             "ax": [
                 -112.5,
@@ -1711,7 +1711,7 @@
             "largeur": 4.5,
             "valeur": 0.11095973690169513,
             "position": 38.28841854329439,
-            "duree_s": 0.8756838000000009,
+            "duree_s": 0.8864722,
             "acceptee": true,
             "ax": [
                 -65.0,
@@ -2976,7 +2976,7 @@
             "largeur": 3.0,
             "valeur": 0.22177489510105564,
             "position": 1.7444780740470783,
-            "duree_s": 0.9189880000000006,
+            "duree_s": 0.7909735999999992,
             "acceptee": false,
             "ax": [
                 -96.0,
@@ -3103,7 +3103,7 @@
             "largeur": 3.0,
             "valeur": 0.2743187529820722,
             "position": 2.260012157987913,
-            "duree_s": 0.9252827999999997,
+            "duree_s": 0.7924400000000009,
             "acceptee": false,
             "ax": [
                 -124.0,
@@ -3228,7 +3228,7 @@
             "largeur": 3.0,
             "valeur": 0.16264146276630518,
             "position": 2.7528536439872677,
-            "duree_s": 0.7817718000000014,
+            "duree_s": 0.9536470000000001,
             "acceptee": false,
             "ax": [
                 -154.0,
@@ -3365,7 +3365,7 @@
             "largeur": 3.0,
             "valeur": 0.026872672069489454,
             "position": 1.7428313290465943,
-            "duree_s": 0.8200181999999998,
+            "duree_s": 0.8420704000000008,
             "acceptee": true,
             "ax": [
                 -160.0,
@@ -3618,7 +3618,7 @@
             "largeur": 4.0,
             "valeur": 0.07048532148404015,
             "position": 20.251863658513999,
-            "duree_s": 0.8186774999999997,
+            "duree_s": 0.8965892999999987,
             "acceptee": true,
             "ax": [
                 -16.0,
@@ -4451,7 +4451,7 @@
             "largeur": 4.0,
             "valeur": 0.024235160661917084,
             "position": 0.24930546022901962,
-            "duree_s": 0.8376839999999994,
+            "duree_s": 0.8472504000000001,
             "acceptee": true,
             "ax": [
                 64.0,
@@ -4964,7 +4964,7 @@
             "largeur": 4.0,
             "valeur": 0.36606577330185349,
             "position": 4.724369858280493,
-            "duree_s": 0.7630711000000012,
+            "duree_s": 0.8031241000000016,
             "acceptee": false,
             "ax": [
                 -208.0,
@@ -5107,7 +5107,7 @@
             "largeur": 4.0,
             "valeur": 1.1719277514091644,
             "position": 0.0,
-            "duree_s": 0.7746066999999997,
+            "duree_s": 0.9727067999999974,
             "acceptee": false,
             "ax": [
                 208.0,
@@ -6625,30 +6625,30 @@
             79.08,
             84.08
         ],
-        "empreinte_clic": "8cd669eaf8ab93e2283f735701b48187be12f79df23ca0ffd40ebc260e2427d34944c27b9a2d1c76ddd1b3ca092cd4f4cfd818191bacb44cde3b49dfc7b0dd1f1be04bdf6e1583f6c05de9ebf6e00dea1e96a3cc7872a86c3d5df5ac1607246c",
+        "empreinte_clic": "bdab87bd84d1872767df796914d60f0c74e319f05dd8983a071365d9960d87af3c6554263ffc5cae03777bf1af1cce99ff02237405774cdcb4a8468bdb23cb6ef47cdcb895c3728882104d626d7ee777f8dac303012b592964968ba1e96f71de",
         "empreinte_gestes": "bdab87bd84d1872767df796914d60f0c74e319f05dd8983a071365d9960d87af3c6554263ffc5cae03777bf1af1cce99ff02237405774cdcb4a8468bdb23cb6ef47cdcb895c3728882104d626d7ee777f8dac303012b592964968ba1e96f71de",
         "acceptee": true
     },
     "captures": [
         {
             "nom": "plaine",
-            "ecart": 96.971
+            "ecart": 96.91558888888889
         },
         {
             "nom": "bord",
-            "ecart": 144.8304
+            "ecart": 144.7482222222222
         },
         {
             "nom": "flanc_de_dune",
-            "ecart": 167.77334444444444
+            "ecart": 167.73422222222224
         },
         {
             "nom": "refus",
-            "ecart": 168.89433333333333
+            "ecart": 168.8942888888889
         }
     ],
     "defauts": [],
-    "duree_s": 41.7216862,
+    "duree_s": 42.1867474,
     "camera": {
         "branchee": true,
         "balayage": {
@@ -7116,15 +7116,15 @@
     "captures_camera": [
         {
             "nom": "ensemble",
-            "ecart": 129.92266666666667
+            "ecart": 129.92506666666669
         },
         {
             "nom": "rue",
-            "ecart": 96.69737777777778
+            "ecart": 96.55226666666667
         },
         {
             "nom": "marcheur",
-            "ecart": 79.69542777777778
+            "ecart": 79.5115888888889
         }
     ],
     "service": {
@@ -7134,8 +7134,8 @@
         "raide": {
             "clique": true,
             "depose": false,
-            "rues_avant": 0,
-            "rues_apres": 0
+            "rues_avant": 1,
+            "rues_apres": 1
         },
         "plaine": {
             "depose": true,
@@ -7145,11 +7145,35 @@
             "empreinte_avant_tick": "8cd669eaf8ab93e2283f735701b48187be12f79df23ca0ffd40ebc260e2427d34944c27b9a2d1c76ddd1b3ca092cd4f4cfd818191bacb44cde3b49dfc7b0dd1f1be04bdf6e1583f6c05de9ebf6e00dea1e96a3cc7872a86c3d5df5ac1607246c",
             "dessinee_avant_tick": false,
             "tick_plan": 4,
-            "rues_neuves": 0,
-            "rue_x": [],
-            "rue_y": [],
-            "rue_largeur": -1.0,
-            "rue_en_chantier": false
+            "rues_neuves": 1,
+            "rue_x": [
+                -16.0,
+                -6.01,
+                3.93,
+                13.81,
+                23.59,
+                33.25,
+                42.76,
+                52.1,
+                61.23,
+                70.14,
+                78.8
+            ],
+            "rue_y": [
+                56.0,
+                56.52,
+                57.57,
+                59.13,
+                61.21,
+                63.8,
+                66.89,
+                70.47,
+                74.54,
+                79.08,
+                84.08
+            ],
+            "rue_largeur": 4.0,
+            "rue_en_chantier": true
         }
     }
 }

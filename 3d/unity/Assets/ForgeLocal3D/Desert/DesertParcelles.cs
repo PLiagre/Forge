@@ -99,7 +99,8 @@ namespace ForgeLocal3D
         static Vector3 Horizontal(Vector3 v){v.y=0;return v.sqrMagnitude>1e-12f?v.normalized:Vector3.zero;}
 
         // Chaque côté, du coin i au coin i+1 (le dernier vers le premier), échantillonné à pas égaux d'au plus
-        // 0,5 m, ses deux bouts compris : deux sommets par échantillon, à ±0,10 m de l'axe, au sol + 0,03 m.
+        // 0,5 m, ses deux bouts compris : deux sommets par échantillon, à ±0,10 m de l'axe, chacun au sol lu
+        // sous lui-même + 0,03 m (sur une pente en travers, le bord amont n'est pas enterré).
         // Deux triangles par pas, tournés vers le ciel ; un côté n'est pas joint au suivant.
         (List<Vector3> sommets,int[] triangles) Ruban(Vector3[] coins)
         {
@@ -111,8 +112,8 @@ namespace ForgeLocal3D
                 int debut=sommets.Count;
                 for(int k=0;k<=pas;k++)
                 {
-                    var q=Vector3.Lerp(a,b,(float)k/pas);q.y=Sol(q)+AuDessusRuban;
-                    sommets.Add(q+travers);sommets.Add(q-travers);
+                    var q=Vector3.Lerp(a,b,(float)k/pas);
+                    foreach(var s in new[]{q+travers,q-travers}){var v=s;v.y=Sol(v)+AuDessusRuban;sommets.Add(v);}
                 }
                 for(int k=0;k<pas;k++){int g=debut+2*k;triangles.AddRange(new[]{g,g+2,g+1,g+1,g+2,g+3});}
             }
