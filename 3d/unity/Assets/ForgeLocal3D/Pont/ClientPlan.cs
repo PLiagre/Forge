@@ -36,19 +36,73 @@ namespace Forge.Pont
         }
     }
 
-    // Le plan d'une cellule à un tick. `Rues` vide est une mesure (aucune route encore), jamais une absence.
+    // Une parcelle telle que `sim/` la tient : contour en mètres locaux, chantier et travail relus tels quels.
+    public sealed class ParcelleDuPlan
+    {
+        public long Identifiant { get; }
+        public IReadOnlyList<PointLocal> Contour { get; }
+        public bool EnChantier { get; }
+        public long TravailRequis { get; }
+        public long TravailFourni { get; }
+
+        public ParcelleDuPlan(long identifiant, IList<PointLocal> contour, bool enChantier, long travailRequis, long travailFourni)
+        {
+            if (contour == null) throw new ArgumentNullException(nameof(contour));
+            Identifiant = identifiant;
+            Contour = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(contour));
+            EnChantier = enChantier;
+            TravailRequis = travailRequis;
+            TravailFourni = travailFourni;
+        }
+    }
+
+    // Un bâtiment tel que `sim/` le tient, posé sur la parcelle `Parcelle` du même plan.
+    // `Nature` n'est pas bornée : un bâtiment ancien peut porter un autre texte que maison, scierie ou four.
+    public sealed class BatimentDuPlan
+    {
+        public long Identifiant { get; }
+        public long Parcelle { get; }
+        public string Nature { get; }
+        public IReadOnlyList<PointLocal> Emprise { get; }
+        public bool EnChantier { get; }
+        public long TravailRequis { get; }
+        public long TravailFourni { get; }
+
+        public BatimentDuPlan(long identifiant, long parcelle, string nature, IList<PointLocal> emprise,
+            bool enChantier, long travailRequis, long travailFourni)
+        {
+            if (nature == null) throw new ArgumentNullException(nameof(nature));
+            if (emprise == null) throw new ArgumentNullException(nameof(emprise));
+            Identifiant = identifiant;
+            Parcelle = parcelle;
+            Nature = nature;
+            Emprise = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(emprise));
+            EnChantier = enChantier;
+            TravailRequis = travailRequis;
+            TravailFourni = travailFourni;
+        }
+    }
+
+    // Le plan d'une cellule à un tick. Une liste vide (aucune rue, parcelle ou bâtiment encore)
+    // est une mesure, jamais une absence.
     public sealed class PlanLu
     {
         public long CellId { get; }
         public long Tick { get; }
         public IReadOnlyList<RueDuPlan> Rues { get; }
+        public IReadOnlyList<ParcelleDuPlan> Parcelles { get; }
+        public IReadOnlyList<BatimentDuPlan> Batiments { get; }
 
-        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues)
+        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments)
         {
             if (rues == null) throw new ArgumentNullException(nameof(rues));
+            if (parcelles == null) throw new ArgumentNullException(nameof(parcelles));
+            if (batiments == null) throw new ArgumentNullException(nameof(batiments));
             CellId = cellId;
             Tick = tick;
             Rues = new ReadOnlyCollection<RueDuPlan>(new List<RueDuPlan>(rues));
+            Parcelles = new ReadOnlyCollection<ParcelleDuPlan>(new List<ParcelleDuPlan>(parcelles));
+            Batiments = new ReadOnlyCollection<BatimentDuPlan>(new List<BatimentDuPlan>(batiments));
         }
     }
 
@@ -70,7 +124,7 @@ namespace Forge.Pont
 
     // Demande le plan d'une cellule au service local (`GET /plan?cell=<cell_id>` sur 127.0.0.1).
     // Ne lève jamais pour une cause du service : elle devient une absence déclarée.
-    // Une rue mal formée refuse tout le plan : aucun plan partiel n'est rendu.
+    // Une rue, une parcelle ou un bâtiment mal formé refuse tout le plan : aucun plan partiel n'est rendu.
     public sealed class ClientPlan : IDisposable
     {
         private const string Hote = "127.0.0.1";
@@ -141,7 +195,23 @@ namespace Forge.Pont
                 var rues = new List<RueDuPlan>(tableau.Count);
                 for (int i = 0; i < tableau.Count; i++)
                     rues.Add(Rue(tableau[i], "rues[" + i.ToString(CultureInfo.InvariantCulture) + "]"));
-                return LecturePlan.De(new PlanLu(relu, tick, rues));
+
+                List<object> brutesParcelles = Tableau(Valeur(objet, "parcelles", "parcelles"), "parcelles");
+                var parcelles = new List<ParcelleDuPlan>(brutesParcelles.Count);
+                var identifiantsParcelles = new HashSet<long>();
+                for (int i = 0; i < brutesParcelles.Count; i++)
+                {
+                    ParcelleDuPlan parcelle = Parcelle(brutesParcelles[i], "parcelles[" + i.ToString(CultureInfo.InvariantCulture) + "]");
+                    parcelles.Add(parcelle);
+                    identifiantsParcelles.Add(parcelle.Identifiant);
+                }
+
+                List<object> brutsBatiments = Tableau(Valeur(objet, "batiments", "batiments"), "batiments");
+                var batiments = new List<BatimentDuPlan>(brutsBatiments.Count);
+                for (int i = 0; i < brutsBatiments.Count; i++)
+                    batiments.Add(Batiment(brutsBatiments[i], "batiments[" + i.ToString(CultureInfo.InvariantCulture) + "]", identifiantsParcelles));
+
+                return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments));
             }
             catch (CleRefusee refus)
             {
@@ -186,6 +256,79 @@ namespace Forge.Pont
         private sealed class CleRefusee : Exception
         {
             public CleRefusee(string message) : base(message) { }
+        }
+
+        private static ParcelleDuPlan Parcelle(object valeur, string chemin)
+        {
+            var parcelle = valeur as Dictionary<string, object>
+                ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(valeur));
+
+            long identifiant = Entier(Valeur(parcelle, "identifiant", chemin + ".identifiant"), chemin + ".identifiant", 0);
+            List<PointLocal> contour = Contour(parcelle, "contour", chemin + ".contour");
+            Chantier(parcelle, chemin, out bool enChantier, out long requis, out long fourni);
+            return new ParcelleDuPlan(identifiant, contour, enChantier, requis, fourni);
+        }
+
+        // `parcelles` : les identifiants des parcelles lues dans ce plan ; un bâtiment posé ailleurs refuse le plan.
+        private static BatimentDuPlan Batiment(object valeur, string chemin, HashSet<long> parcelles)
+        {
+            var batiment = valeur as Dictionary<string, object>
+                ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(valeur));
+
+            long identifiant = Entier(Valeur(batiment, "identifiant", chemin + ".identifiant"), chemin + ".identifiant", 0);
+
+            string cheminParcelle = chemin + ".parcelle";
+            long parcelle = Entier(Valeur(batiment, "parcelle", cheminParcelle), cheminParcelle, 0);
+            if (!parcelles.Contains(parcelle))
+                throw new CleRefusee("clé " + cheminParcelle + " : aucune parcelle " + parcelle + " dans ce plan");
+
+            string cheminNature = chemin + ".nature";
+            object brute = Valeur(batiment, "nature", cheminNature);
+            if (!(brute is string nature) || string.IsNullOrWhiteSpace(nature))
+                throw new CleRefusee("clé " + cheminNature + " : un texte non vide attendu, reçu " + Decrire(brute));
+
+            List<PointLocal> emprise = Contour(batiment, "emprise", chemin + ".emprise");
+            Chantier(batiment, chemin, out bool enChantier, out long requis, out long fourni);
+            return new BatimentDuPlan(identifiant, parcelle, nature, emprise, enChantier, requis, fourni);
+        }
+
+        // Le contour d'une parcelle ou l'emprise d'un bâtiment : au moins 3 points de exactement 2 nombres.
+        private static List<PointLocal> Contour(Dictionary<string, object> objet, string cle, string chemin)
+        {
+            List<object> brut = Tableau(Valeur(objet, cle, chemin), chemin);
+            if (brut.Count < 3)
+                throw new CleRefusee("clé " + chemin + " : au moins 3 points attendus, reçu " + brut.Count);
+            var points = new List<PointLocal>(brut.Count);
+            for (int j = 0; j < brut.Count; j++)
+            {
+                string cheminPoint = chemin + "[" + j.ToString(CultureInfo.InvariantCulture) + "]";
+                if (!(brut[j] is List<object> paire) || paire.Count != 2)
+                    throw new CleRefusee("clé " + cheminPoint + " : un tableau de exactement 2 nombres attendu, reçu " + Decrire(brut[j]));
+                points.Add(new PointLocal(Nombre(paire[0], cheminPoint), Nombre(paire[1], cheminPoint)));
+            }
+            return points;
+        }
+
+        // Jamais `false` par défaut, et un chantier qui contredit son travail refuse le plan :
+        // les vues n'ont pas à choisir entre `en_chantier` et le travail restant.
+        private static void Chantier(Dictionary<string, object> objet, string chemin, out bool enChantier, out long requis, out long fourni)
+        {
+            string cheminChantier = chemin + ".en_chantier";
+            object chantier = Valeur(objet, "en_chantier", cheminChantier);
+            if (!(chantier is bool booleen))
+                throw new CleRefusee("clé " + cheminChantier + " : un booléen attendu, reçu " + Decrire(chantier));
+
+            string cheminRequis = chemin + ".travail_requis";
+            requis = Entier(Valeur(objet, "travail_requis", cheminRequis), cheminRequis, 0);
+            string cheminFourni = chemin + ".travail_fourni";
+            fourni = Entier(Valeur(objet, "travail_fourni", cheminFourni), cheminFourni, 0);
+
+            if (fourni > requis)
+                throw new CleRefusee("clé " + cheminFourni + " : " + fourni + " dépasse le travail requis " + requis);
+            if (booleen != (fourni < requis))
+                throw new CleRefusee("clé " + cheminChantier + " : " + (booleen ? "true" : "false")
+                    + " contredit le travail restant (" + fourni + " fourni sur " + requis + " requis)");
+            enChantier = booleen;
         }
 
         private static object Valeur(Dictionary<string, object> objet, string cle, string chemin)
