@@ -4,14 +4,22 @@ from dataclasses import dataclass
 import math
 
 import sim.constants as _constantes
-from sim.chantiers import travail_requis_de_parcelle, travail_requis_de_route
-from sim.plan import Parcelle, Plan, PlanInvalide, Rue
+from sim.chantiers import travail_requis_de_batiment, travail_requis_de_parcelle, travail_requis_de_route
+from sim.plan import Batiment, Parcelle, Plan, PlanInvalide, Rue
 from sim.puissances import PuissanceInvalide
 from sim.seigneuries import cellule_du_siege, charger_seigneuries
 
 TYPE_CHOISIR_DEPART = "choisir_depart"
 TYPE_TRACER_ROUTE = "tracer_route"
 TYPE_DECOUPER_PARCELLE = "decouper_parcelle"
+TYPE_POSER_BATIMENT = "poser_batiment"
+NATURES_BATIMENT = ("maison", "scierie", "four")
+
+CHAMPS_OBLIGATOIRES = {
+    TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m"),
+    TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote"),
+    TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature"),
+}
 
 
 class IntentionRefusee(ValueError):
@@ -62,6 +70,27 @@ class DecoupeParcelle:
                             travail_requis=travail_requis_de_parcelle(self.facade_m, self.profondeur_m))
         monde.plans[self.cell_id] = Plan(
             rues=plan.rues, parcelles=[*plan.parcelles, parcelle], batiments=plan.batiments,
+        )
+
+
+@dataclass(frozen=True)
+class PoseBatiment:
+    cell_id: int
+    parcelle: int
+    nature: str
+    foyers: int = 1
+
+    def appliquer(self, monde):
+        """Relit l’emprise et le coût puis ajoute un bâtiment en chantier."""
+        plan = monde.plans[self.cell_id]
+        parcelle = next(p for p in plan.parcelles if p.identifiant == self.parcelle)
+        emprise = tuple(tuple(point) for point in parcelle.contour)
+        identifiant = max((b.identifiant for b in plan.batiments), default=-1) + 1
+        batiment = Batiment(identifiant, self.parcelle, self.nature, emprise,
+                            en_chantier=True, foyers=self.foyers,
+                            travail_requis=travail_requis_de_batiment(emprise))
+        monde.plans[self.cell_id] = Plan(
+            rues=plan.rues, parcelles=plan.parcelles, batiments=[*plan.batiments, batiment],
         )
 
 
@@ -117,6 +146,24 @@ def _decoupe_parcelle(monde, intention):
     return DecoupeParcelle(cell_id, contour, facade, profondeur, _foyers(intention))
 
 
+def _pose_batiment(monde, intention):
+    cell_id = _cellule(monde, intention)
+    identifiant = intention["parcelle"]
+    plan = monde.plans[cell_id]
+    if (isinstance(identifiant, bool) or not isinstance(identifiant, int)
+            or not any(p.identifiant == identifiant for p in plan.parcelles)):
+        raise IntentionRefusee(f"parcelle absente du plan : {identifiant!r}")
+    if any(b.parcelle == identifiant for b in plan.batiments):
+        raise IntentionRefusee(f"parcelle déjà bâtie : {identifiant}")
+    if any(isinstance(p, PoseBatiment) and p.cell_id == cell_id and p.parcelle == identifiant
+           for p in monde.intentions_en_attente):
+        raise IntentionRefusee(f"parcelle déjà promise : {identifiant}")
+    nature = intention["nature"]
+    if nature not in NATURES_BATIMENT:
+        raise IntentionRefusee(f"nature inconnue : {nature!r}")
+    return PoseBatiment(cell_id, identifiant, nature, _foyers(intention))
+
+
 def recevoir_intention(monde, intention):
     """Point d'entrée commun : seuls les types connus peuvent être déposés."""
     type_intention = intention.get("type") if isinstance(intention, dict) else None
@@ -124,16 +171,19 @@ def recevoir_intention(monde, intention):
         return deposer_intention(monde, intention)
     if isinstance(intention, dict) and "type" not in intention and "rue" in intention:
         raise IntentionRefusee("champ manquant : type")
-    if type_intention not in (TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE):
+    if type_intention not in tuple(CHAMPS_OBLIGATOIRES):
         raise IntentionRefusee(f"type d'intention inconnu : {type_intention!r}")
-    champs = (("type", "cell", "points", "largeur_m") if type_intention == TYPE_TRACER_ROUTE else
-              ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote"))
+    champs = CHAMPS_OBLIGATOIRES[type_intention]
     for champ in champs:
         if champ not in intention:
             raise IntentionRefusee(f"champ manquant : {champ}")
     for champ in intention:
         if champ not in champs and champ != "foyers":
             raise IntentionRefusee(f"champ inconnu : {champ}")
+    if type_intention == TYPE_POSER_BATIMENT:
+        pose = _pose_batiment(monde, intention)
+        monde.intentions_en_attente.append(pose)
+        return pose
     if type_intention == TYPE_DECOUPER_PARCELLE:
         decoupe = _decoupe_parcelle(monde, intention)
         monde.intentions_en_attente.append(decoupe)
