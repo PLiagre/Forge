@@ -19,6 +19,7 @@ namespace Forge.Pont
         public const string ARGUMENT_CELLULE = "-forgeCell";
         private const string HOTE = "127.0.0.1";
         private const string NOURRITURE = "nourriture";
+        private const string OUVRIERS = "ouvriers";
         private const string MARQUE_SERVICE_ABSENT = "service absent";
         private const string MARQUE_DELAI = "délai dépassé";
         private static readonly TimeSpan DELAI_LECTURE = TimeSpan.FromSeconds(2);
@@ -35,6 +36,7 @@ namespace Forge.Pont
         public new Camera camera;
 
         private Text texte;
+        private Text texteFoyers;
         private ClientLieu client;
         private long celluleLue;
         private Task<LectureLieu> enCours;
@@ -44,6 +46,8 @@ namespace Forge.Pont
         private string absenceAffichee;
 
         public string TexteAffiche => texte != null ? texte.text : null;
+        public string TexteFoyers => texteFoyers != null ? texteFoyers.text : null;
+        public GameObject ObjetFoyers => texteFoyers != null ? texteFoyers.gameObject : null;
         public int Reconstructions { get; private set; }
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
 
@@ -115,6 +119,8 @@ namespace Forge.Pont
             tickAffiche = tick;
             absenceAffichee = lecture.Absence;
             texte.text = lecture.Presente ? Decrire(lecture.Lieu) : DireAbsence(lecture.Absence);
+            texteFoyers.text = lecture.Presente ? DecrireFoyers(lecture.Lieu) : "";
+            texteFoyers.gameObject.SetActive(lecture.Presente);
             Reconstructions++;
         }
 
@@ -150,6 +156,28 @@ namespace Forge.Pont
             return s.ToString();
         }
 
+        // Foyers, chantier et logement, lus tels quels : aucune somme, aucune division.
+        private static string DecrireFoyers(Lieu lieu)
+        {
+            var s = new StringBuilder("Foyers par métier :");
+            if (lieu.EtatFoyers == EtatFoyers.Servis && lieu.Foyers.Count > 0)
+                foreach (var metier in lieu.Foyers)
+                    s.Append('\n').Append(metier.Key).Append(" : ").Append(Entier(metier.Value.Foyers))
+                        .Append(" foyers, ").Append(Entier(metier.Value.Personnes)).Append(" personnes");
+            else s.Append(lieu.EtatFoyers == EtatFoyers.Servis ? " aucun"
+                : lieu.EtatFoyers == EtatFoyers.NonCalcules ? " non calculés par le monde" : " absents de la réponse du service");
+            s.Append("\nAu chantier : ").Append(lieu.EtatFoyers == EtatFoyers.NonCalcules ? "non calculé"
+                : lieu.EtatFoyers == EtatFoyers.Absents ? "absent de la réponse du service"
+                : lieu.Foyers.TryGetValue(OUVRIERS, out var ouvriers) ? Entier(ouvriers.Personnes) + " bras pris aux champs" : "personne");
+            Logement l = lieu.Logement;
+            if (l == null) s.Append("\nLogement : absent du service (aucun bâtiment au plan)");
+            else if (l.Loges == -1 || l.SansLogis == -1)
+                s.Append("\nLogement des artisans : ").Append(Entier(l.Capacite)).Append(" places, logés et sans-logis non calculés");
+            else s.Append("\nLogement des artisans : ").Append(Entier(l.Loges)).Append(" foyers logés, ")
+                .Append(Entier(l.SansLogis)).Append(" sans logis, ").Append(Entier(l.Capacite)).Append(" places");
+            return s.ToString();
+        }
+
         private void Construire()
         {
             var toile = new GameObject("Toile du panneau", typeof(RectTransform));
@@ -181,6 +209,13 @@ namespace Forge.Pont
             texte.font = Resources.GetBuiltinResource<Font>(POLICE);
             texte.fontSize = TAILLE_POLICE;
             texte.color = Color.white;
+            pile.spacing = RETRAIT;
+            texteFoyers = Instantiate(texte, fond.transform);
+            texteFoyers.name = "Foyers";
+            texteFoyers.horizontalOverflow = HorizontalWrapMode.Overflow;
+            texteFoyers.verticalOverflow = VerticalWrapMode.Overflow;
+            texteFoyers.text = "";
+            texteFoyers.gameObject.SetActive(false);
         }
     }
 }

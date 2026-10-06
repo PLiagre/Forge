@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Forge.Pont.Tests
 {
@@ -318,6 +319,74 @@ namespace Forge.Pont.Tests
 
             Assert.AreEqual(1, Volatile.Read(ref requetes));
             Assert.AreEqual("/lieu?cell=42", derniereRequete);
+        }
+
+        // Lot #263 — le second texte s'ajoute après l'accolade de Document, qui ne change pas.
+        private const string FoyersMesures = "{\"artisans\":{\"foyers\":7,\"personnes\":20},\"ouvriers\":{\"foyers\":15,\"personnes\":71},\"paysans\":{\"foyers\":48,\"personnes\":238}}";
+        private const string LogementMesure = "{\"capacite\":9,\"loges\":1,\"sans_logis\":3}";
+        private const string BlocMesure = "Foyers par métier :\nartisans : 7 foyers, 20 personnes\nouvriers : 15 foyers, 71 personnes\npaysans : 48 foyers, 238 personnes\nAu chantier : 71 bras pris aux champs\n";
+        private static string AvecFoyers(Etat e, string foyers, string logement = null)
+        { string brut = Document(e); Assert.IsTrue(brut.EndsWith("}")); return brut.Substring(0, brut.Length - 1) + ",\"foyers\":" + foyers + (logement == null ? "" : ",\"logement\":" + logement) + "}"; }
+        private void Montrer(string foyers, string logement = null)
+        { Servir(0, Ok(foyers == null ? Document(Tick12) : AvecFoyers(Tick12, foyers, logement))); Poser(); Lire(); }
+        private static void SansChiffre(string ligne) => Assert.IsFalse(ligne.Any(c => c >= '0' && c <= '9'), "un chiffre dans : " + ligne);
+
+        [Test]
+        public void Le_jalon_1_reste_intact_avec_foyers_et_logement()
+        {
+            Montrer(FoyersMesures, LogementMesure);
+            Verifier(panneau.TexteAffiche, Tick12);
+            Assert.AreEqual(panneau.TexteAffiche, objet.GetComponentInChildren<Text>().text);
+        }
+
+        [Test]
+        public void Rien_n_est_calcule_dans_les_foyers_le_chantier_et_le_logement()
+        {
+            Montrer(FoyersMesures, LogementMesure);
+            string[] l = panneau.TexteFoyers.Split('\n');
+            Assert.AreEqual(6, l.Length, panneau.TexteFoyers);
+            Assert.AreEqual("Foyers par métier :", l[0]);
+            CollectionAssert.AreEqual(new[] { 7d, 20d }, Relire(l[1], "artisans : ", " foyers, ", " personnes"));
+            CollectionAssert.AreEqual(new[] { 15d, 71d }, Relire(l[2], "ouvriers : ", " foyers, ", " personnes"));
+            CollectionAssert.AreEqual(new[] { 48d, 238d }, Relire(l[3], "paysans : ", " foyers, ", " personnes"));
+            CollectionAssert.AreEqual(new[] { 71d }, Relire(l[4], "Au chantier : ", " bras pris aux champs"));
+            CollectionAssert.AreEqual(new[] { 1d, 3d, 9d }, Relire(l[5], "Logement des artisans : ", " foyers logés, ", " sans logis, ", " places"));
+        }
+
+        [TestCase("non", "-1", null, "Foyers par métier : non calculés par le monde\nAu chantier : non calculé\nLogement : absent du service (aucun bâtiment au plan)", true)]
+        [TestCase("absents", null, null, "Foyers par métier : absents de la réponse du service\nAu chantier : absent de la réponse du service\nLogement : absent du service (aucun bâtiment au plan)", true)]
+        [TestCase("vide", "{}", null, "Foyers par métier : aucun\nAu chantier : personne\nLogement : absent du service (aucun bâtiment au plan)", true)]
+        [TestCase("sans-ouvriers", "{\"paysans\":{\"foyers\":48,\"personnes\":238}}", null, "Foyers par métier :\npaysans : 48 foyers, 238 personnes\nAu chantier : personne\nLogement : absent du service (aucun bâtiment au plan)", false)]
+        [TestCase("sans-logement", FoyersMesures, null, BlocMesure + "Logement : absent du service (aucun bâtiment au plan)", false)]
+        [TestCase("loges", FoyersMesures, "{\"capacite\":9,\"loges\":-1,\"sans_logis\":-1}", BlocMesure + "Logement des artisans : 9 places, logés et sans-logis non calculés", false)]
+        public void Les_absences_se_disent(string cas, string foyers, string logement, string attendu, bool sansChiffre)
+        {
+            Montrer(foyers, logement);
+            Assert.AreEqual(attendu, panneau.TexteFoyers, cas);
+            if (sansChiffre) SansChiffre(panneau.TexteFoyers);
+            else if (cas == "loges") StringAssert.DoesNotContain("-1", panneau.TexteFoyers);
+            foreach (string ligne in panneau.TexteFoyers.Split('\n'))
+                if (ligne.StartsWith("Au chantier : personne", StringComparison.Ordinal) || ligne.StartsWith("Au chantier : non", StringComparison.Ordinal) || ligne.StartsWith("Au chantier : absent", StringComparison.Ordinal) || ligne.StartsWith("Logement :", StringComparison.Ordinal) || ligne.StartsWith("Foyers par métier : aucun", StringComparison.Ordinal) || ligne.StartsWith("Foyers par métier : non", StringComparison.Ordinal) || ligne.StartsWith("Foyers par métier : absents", StringComparison.Ordinal))
+                    SansChiffre(ligne);
+        }
+
+        [Test]
+        public void Le_panneau_suit_le_tick_et_une_absence_efface_les_chiffres()
+        {
+            string huit = FoyersMesures.Replace("\"foyers\":7", "\"foyers\":8");
+            Assert.AreNotEqual(FoyersMesures, huit);
+            Servir(0, Ok(AvecFoyers(Tick12, FoyersMesures)), Ok(AvecFoyers(Tick13, huit)), (STATUT_INTROUVABLE, "{\"erreur\":\"absent\"}"));
+            Poser();
+            Lire();
+            string premier = panneau.TexteFoyers;
+            Lire();
+            StringAssert.Contains("artisans : 7 foyers, 20 personnes", premier);
+            StringAssert.Contains("artisans : 8 foyers, 20 personnes", panneau.TexteFoyers);
+            Assert.AreNotEqual(premier, panneau.TexteFoyers);
+            Lire();
+            Assert.AreEqual("", panneau.TexteFoyers);
+            Assert.IsFalse(panneau.ObjetFoyers.activeSelf);
+            StringAssert.StartsWith("lieu illisible : ", panneau.TexteAffiche);
         }
     }
 }
