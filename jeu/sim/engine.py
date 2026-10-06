@@ -1006,16 +1006,42 @@ def _nourriture_accessible_au_rang0_kg(cell: Cell, carte: dict, stock: float) ->
     return min(stock, local + capacite)
 
 
+def _porter_dette_et_faim_sur_les_lieux(cell, lieux, dette_avant, dettes, penurie, manques=None):
+    """Porte les résultats locaux sans changer aucun calcul de la cellule."""
+    if penurie > 0 and (manques is None or not any(manques)):
+        # Un écart d'arrondi cellulaire revient au bourg, comme la fraction.
+        manques = [penurie] + [0.0] * (len(lieux) - 1)
+    nouvelle_dette = cell.food_deficit_kg
+    if nouvelle_dette == 0:
+        dettes = [0.0] * len(lieux)
+    elif len(lieux) == 1:
+        dettes = [nouvelle_dette]
+    else:
+        dettes = _lieux.partager_si_necessaire(cell, dette_avant, dettes)
+        if penurie > 0:
+            dettes = _lieux.partager(nouvelle_dette,
+                                     [dette + manque for dette, manque in zip(dettes, manques)])
+        else:
+            dettes = _lieux.partager_si_necessaire(cell, nouvelle_dette, dettes)
+    for rang, lieu in enumerate(lieux):
+        lieu.dette_alimentaire_kg = dettes[rang]
+        lieu.duree_faim_ticks = (lieu.duree_faim_ticks + 1
+                                if penurie > 0 and manques[rang] > 0 else 0)
+
+
 def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
     """Chaque lieu mange localement ; les chemins passent par le bourg."""
     if carte is None or not cell.lieux:
         return _apply_consumption_cellule(cell, carte)
     lieux = cell.lieux if len(cell.lieux) == 1 else sorted(cell.lieux, key=lambda lieu: lieu.rang)
+    dette_avant = max(0.0, cell.food_deficit_kg)
+    dettes = [lieu.dette_alimentaire_kg for lieu in lieux]
     if len(lieux) == 1:
         penurie = _apply_consumption_cellule(cell)
         lieux[0].population = cell.population
         ecrire_stock_marchandise(lieux[0], _constantes.MARCHANDISE_NOURRITURE,
                                 lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE))
+        _porter_dette_et_faim_sur_les_lieux(cell, lieux, dette_avant, dettes, penurie)
         return penurie
     populations = _lieux.partager_si_necessaire(cell, cell.population, [lieu.population for lieu in lieux])
     for lieu, population in zip(lieux, populations):
@@ -1027,6 +1053,7 @@ def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
     restes = [stock - population * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
               for population, stock in zip(populations, stocks)]
     penurie = 0.0
+    manques = None
     if min(restes) < 0:
         manques = [max(0.0, -reste) for reste in restes]
         restes = [max(0.0, reste) for reste in restes]
@@ -1060,6 +1087,7 @@ def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
         parts = _lieux.partager(total, poids)
     for lieu, part in zip(lieux, parts):
         ecrire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE, part)
+    _porter_dette_et_faim_sur_les_lieux(cell, lieux, dette_avant, dettes, penurie, manques)
     return penurie
 
 

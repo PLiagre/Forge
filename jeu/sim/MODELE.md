@@ -1698,8 +1698,9 @@ La forme, la position, les frontières et les noms des lieux ne sont pas simulé
 ### Ce que porte un lieu
 
 `EtatDeLieu`, dataclass mutable de `sim.model`, porte exactement `rang`,
-`population` et `stocks`. La liste `Cell.lieux` rattache ces états à leur
-cellule : aucun `cell_id` recopié ni `lieu_id`. La surface reste celle de la
+`population`, `stocks`, `dette_alimentaire_kg` (flottant, défaut `0.0`) et
+`duree_faim_ticks` (entier, défaut `0`). La liste `Cell.lieux` rattache ces états
+à leur cellule : aucun `cell_id` recopié ni `lieu_id`. La surface reste celle de la
 vue `lieux_de_cellule`, jamais une deuxième donnée stockée.
 
 La règle unique `partager(total, poids)` utilise le **plus fort reste** : les
@@ -1728,9 +1729,9 @@ Une marchandise absente de la cellule disparaît de tous ses lieux : l'absence
 n'est pas zéro. Une écriture sur la cellule hors du tick est suivie de même.
 
 Une cellule construite à la main avec une liste vide reste sans lieux ; le
-tick ne lui en invente pas. Les compteurs de faim, la dette et les restes de
-mortalité, natalité et migration restent à la cellule. Ce partage est de
-**niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
+tick ne lui en invente pas. La dette et la faim partent à zéro dans chaque lieu,
+comme dans sa cellule. Les restes de mortalité, natalité et migration restent
+à la cellule. Ce partage est de **niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
 n'est simulé (niveau 3).
 
 Le service les publie. `GET /lieu?cell=X` porte `lieux`, rangés par rang,
@@ -1833,10 +1834,29 @@ des manques : la dette augmente d'autant, sans remboursement ancien, et le panie
 cellulaire devient la somme des restes. Sinon, le calcul cellulaire reste identique
 au bit près, remboursement physique compris. Les paniers finaux sortent de
 `partager(total, restes)`, ou des surfaces si les restes sont nuls : leur somme
-retrouve exactement la cellule, en `Fraction` aussi. Dette et faim restent portées
-par la cellule. Un lieu unique ne calcule aucune capacité ; des chemins infinis
-rendent le calcul gratuit au bit près. Récolte par surface, étoile et ordre de
+retrouve exactement la cellule, en `Fraction` aussi. Un lieu unique ne calcule
+aucune capacité ; des chemins infinis rendent le calcul gratuit au bit près.
+Récolte par surface, étoile et ordre de
 service sont de niveau 2, plausibles, jamais sourcés.
+
+Chaque lieu porte aussi sa dette et sa durée de faim, de niveau 2. Avant
+consommation, si la somme des dettes locales diffère de la dette cellulaire
+(`−1` lu comme zéro), `partager` les remet d'accord avec leurs dettes actuelles
+comme poids, ou les surfaces si toutes sont nulles. Une dette finale nulle
+met tous les lieux à zéro sans partage. En pénurie, `partager` répartit la
+dette finale selon les dettes anciennes augmentées des manques finaux de
+l'étoile ; sans pénurie, le remboursement se fait **à proportion des dettes**,
+seulement si leur somme diffère du nouveau total. Un lieu unique porte toute
+la dette. La somme retrouve la dette cellulaire au bit près, en `Fraction` aussi.
+
+Sans pénurie cellulaire, aucun lieu ne manque. Si la cellule manque mais que
+les manques locaux sont tous nuls par arrondi, le bourg porte toute la pénurie.
+Chaque lieu qui manque incrémente `duree_faim_ticks`, les autres reviennent à
+zéro. La cellule a faim si et seulement si un de ses lieux a faim ; aucune
+durée locale ne dépasse la sienne. Ces données figurent dans l'empreinte,
+mais pas dans la photographie ni `/lieu`. Aucune règle ne les lit encore :
+panier, dette et faim cellulaires, morts, naissances et migration restent
+identiques au bit près.
 
 ---
 

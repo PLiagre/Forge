@@ -5,7 +5,7 @@ cell_id est la seule clé spatiale. Province est
 une agrégation dérivée — jamais un champ stocké sur une entité.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 import sim.foyers as _foyers
 from sim.constants import MARCHANDISE_NOURRITURE
@@ -110,7 +110,7 @@ def cellule_vers_dict(cell: "Cell") -> dict:
         "migration_remainder": cell.migration_remainder,
         "stocks": dict(cell.stocks),
         "lieux": [
-            {"rang": lieu.rang, "population": lieu.population, "stocks": dict(lieu.stocks)}
+            asdict(lieu)
             for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
         ],
     }
@@ -118,16 +118,22 @@ def cellule_vers_dict(cell: "Cell") -> dict:
 
 @dataclass
 class EtatDeLieu(_NoBadSpatialField):
-    """Habitants et panier d'un rang, rattaché à sa cellule par la liste."""
+    """Habitants, panier, dette et faim d'un rang rattaché par la liste."""
 
     rang: int
     population: int
     stocks: dict[str, float]
+    dette_alimentaire_kg: float = 0.0
+    duree_faim_ticks: int = 0
 
 
-def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float]) -> EtatDeLieu:
+def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float], *,
+                       dette_alimentaire_kg: float = 0.0,
+                       duree_faim_ticks: int = 0) -> EtatDeLieu:
     """Crée l'état d'un rang avec son propre panier, sans clé recopiée."""
-    return EtatDeLieu(rang=rang, population=population, stocks=dict(stocks))
+    return EtatDeLieu(rang=rang, population=population, stocks=dict(stocks),
+                      dette_alimentaire_kg=dette_alimentaire_kg,
+                      duree_faim_ticks=duree_faim_ticks)
 
 
 @dataclass
