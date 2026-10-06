@@ -34,12 +34,13 @@ TICKS_PAR_DEFAUT = 365
 PAS_DE_CHRONIQUE = 8
 
 
-def _simuler(ticks: int, seed: int, destination: Path, departs=None) -> tuple[Path, dict]:
+def _simuler(ticks: int, seed: int, destination: Path, departs=None, ia=False) -> tuple[Path, dict]:
     """Joue le monde et le photographie. C'est la seule simulation de la commande."""
     from sim.engine import production_moyenne_kg_par_tick, tick as jouer_un_tick
     from sim.constants import FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
     from sim.intentions import TYPE_CHOISIR_DEPART, IntentionRefusee, deposer_intention
     from sim.snapshot_export import export_snapshot
+    from sim.ia import jouer_ia
     from sim.world import World
 
     if departs and ticks == 0:
@@ -55,12 +56,15 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None) -> tuple[Pa
     )
 
     debut = time.monotonic()
+    releve = [] if ia else None
     for _ in range(ticks):
+        if ia:
+            jouer_ia(monde, releve)
         jouer_un_tick(monde, rng)
     duree = time.monotonic() - debut
 
     population_arrivee = sum(cell.population for cell in monde.cells.values())
-    export_snapshot(monde, seed, ticks, destination)
+    export_snapshot(monde, seed, ticks, destination, releve_ia=releve)
 
     mesures = {
         "ticks": ticks,
@@ -74,6 +78,8 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None) -> tuple[Pa
     }
     if monde.maison_du_joueur is not None:
         mesures["maison_du_joueur"] = monde.maison_du_joueur
+    if ia:
+        mesures['ia'] = json.loads(destination.read_text(encoding='utf-8'))['ia']
     return destination, mesures
 
 
@@ -117,6 +123,7 @@ def _planche(ticks: int, seed: int, pas: int, sortie: Path) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     from sim.intentions import IntentionRefusee
+    from sim.snapshot_export import SnapshotExportError
     from vues.relief.lectures import LECTURES
 
     parser = argparse.ArgumentParser(
@@ -125,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--ticks", type=int, default=TICKS_PAR_DEFAUT)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument('--ia', action='store_true', help="Faire jouer les maisons de l'IA avant chaque tick.")
     parser.add_argument("--depart", type=int, action="append", help="Identifiant de la terre de départ.")
     parser.add_argument("--sortie", type=Path, default=Path("sortie"))
     parser.add_argument("--lecture", default=None, choices=sorted(LECTURES))
@@ -152,8 +160,8 @@ def main(argv: list[str] | None = None) -> int:
     compte_rendu: dict = {"sortie": str(sortie)}
 
     try:
-        snapshot, mesures = _simuler(args.ticks, args.seed, sortie / "monde.json", args.depart)
-    except IntentionRefusee as exc:
+        snapshot, mesures = _simuler(args.ticks, args.seed, sortie / "monde.json", args.depart, ia=args.ia)
+    except (IntentionRefusee, SnapshotExportError, ValueError, LookupError, OSError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
     compte_rendu["simulation"] = mesures
@@ -176,6 +184,8 @@ def main(argv: list[str] | None = None) -> int:
             compte_rendu["planche"] = _planche(
                 args.ticks, args.seed, args.pas, sortie / "planche.html"
             )
+            if args.ia:
+                compte_rendu['planche']['ia'] = False
         except Exception as exc:                  # noqa: BLE001
             print(f"planche : {exc}", file=sys.stderr)
             return 2

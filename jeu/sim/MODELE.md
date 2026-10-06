@@ -1549,6 +1549,13 @@ hérite de `_NoBadSpatialField`, vit hors de `sim.model` et ne pose rien sur
 `Cell`. `engine.py`, `world.py` et `model.py` ne lisent pas `capitales`.
 **Le tick ne lit pas cette vue.**
 
+Avec l'IA, la photographie ajoute les habitants actuels du **bourg de capitale**,
+lieu de rang 0 : ni population historique de la ville, ni total des terres de la maison.
+Une capitale hors carte conserve sa raison, `cell_id = null`, `population = null`
+et `gestes = []`. Sur carte, zéro habitant est une mesure ; cellule ou bourg
+attendu mais absent fait refuser l'export en nommant la maison et la donnée.
+Ces habitants actuels sont de niveau 2, plausible et jamais sourcé.
+
 **Niveau 1** : villes capitales et sources publiques, sièges des seigneuries
 déjà sourcés. **Niveau 2**, plausible et jamais sourcé : une maison réduite
 à une seule capitale, notamment Tolède pour la cour itinérante de Castille
@@ -1739,6 +1746,16 @@ porte les noms et populations de `charger_villes`, placés par
 `fiche_de_seigneurie`, avec siège, source, cellule, habitants, production,
 suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
 dans l'ordre de la fiche. **Le tick ne la lit pas.**
+
+`build_snapshot_document` et `export_snapshot` acceptent `releve_ia=None` :
+aucun calcul de maisons IA ni nouvelle clé, mêmes octets et même version.
+Une liste, même vide, ajoute seulement `ia = {maisons, maisons_actives_30j}`.
+Les maisons suivent exactement `maisons_de_l_ia` au tick photographié, sans
+la seigneurie choisie ; leurs sept champs sont complétés par `population` et `gestes`.
+Les gestes `{tick, maison: {sorte, id}, intention}` filtrent le couple (`sorte`, `id`),
+gardent l'ordre des dépôts acceptés, sans tri, déduplication ni arrondi, en copies indépendantes.
+`simulation.ia` de `forge`, dans le résumé et le JSON affiché, reprend exactement
+ce bloc construit une seule fois dans `snapshot_export.py` ; les cellules restent inchangées.
 
 **Niveau 1 :** puissances, maisons, villes et terres avec leurs sources.
 **Niveau 2, plausible :** étendue des puissances et maisons, terre réduite à
@@ -1948,6 +1965,13 @@ avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `
 déposés dans les trente premiers jours, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
 Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
 Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. Tick économique inchangé ; sans option, aucune décision ni sortie IA.
+
+Cette absence sans option vaut aussi pour `python3 -m forge`. Avec `--ia`,
+son relevé neuf reste hors de `World` : après validation des départs déposés,
+`jouer_ia` précède chaque tick, premier compris ; zéro tick ne dépose rien.
+La mesure de la photographie vient de `maisons_actives_30j` et des ticks écoulés.
+La planche rejoue séparément sans intentions ; avec `--ia`, son compte rendu
+déclare `planche.ia = false`. `--sans-chronique` évite ce rejeu sans IA.
 
 ## Le plan du bourg
 

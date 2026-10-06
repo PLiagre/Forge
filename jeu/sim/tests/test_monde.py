@@ -3650,3 +3650,77 @@ def test_ia_option_explicitement(tmp_path, monkeypatch):
     assert cli._simulate(30, 0)[0] == resume
     assert _ia_cli(tmp_path, ticks=0, options=['--ia'])[0]['ia'] == {'releve': [], 'maisons_actives_30j': -1}
     assert _ia_cli(tmp_path, options=['--ia'])[1] != json.dumps(temoin.to_dict(), sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+
+
+def test_snapshot_ia_maisons(tmp_path, monkeypatch):
+    from dataclasses import asdict
+    from sim.capitales import maisons_de_l_ia
+    from sim.intentions import deposer_intention
+    from sim.engine import tick
+    import random
+    monde = World.charger(0)
+    choisie = next(m for m in maisons_de_l_ia(monde) if m.sorte == 'seigneurie' and m.id == charger_seigneuries()[0].id)
+    deposer_intention(monde, {'type': 'choisir_depart', 'seigneurie': charger_seigneuries()[0].id})
+    tick(monde, random.Random(0))
+    maisons = maisons_de_l_ia(monde)
+    attendues = [dict(asdict(m), population=None if m.hors_carte else next(l.population for l in monde.cells[m.cell_id].lieux if l.rang == 0), gestes=[]) for m in maisons]
+    lignes = build_snapshot_document(monde, 0, 1, releve_ia=[])['ia']['maisons']
+    assert lignes == attendues and lignes
+    assert len([m for m in lignes if 'Paléologue' in m['nom']]) == 2
+    assert all(m['sorte'] != 'seigneurie' or m['id'] != monde.maison_du_joueur for m in lignes)
+    assert any(m['hors_carte'] and m['cell_id'] is None and m['population'] is None and m['gestes'] == [] for m in lignes)
+    for faux in (lignes + [dict(asdict(choisie), population=0, gestes=[])], [dict(m, id=lignes[0]['id'], sorte=lignes[0]['sorte']) for m in lignes]):
+        with pytest.raises(AssertionError): assert faux == attendues
+    maison = next(m for m in maisons if m.cell_id is not None)
+    cellule = monde.cells[maison.cell_id]; bourg = next(l for l in cellule.lieux if l.rang == 0)
+    assert bourg.population > 0
+    bourg.population = 0
+    assert next(m for m in build_snapshot_document(monde, 0, 1, releve_ia=[])['ia']['maisons'] if (m['sorte'], m['id']) == (maison.sorte, maison.id))['population'] == 0
+    cellule.lieux.remove(bourg)
+    with pytest.raises(SnapshotExportError, match=rf'{maison.id}.*bourg'):
+        export_snapshot(monde, 0, 1, tmp_path / 'absent.json', releve_ia=[])
+    assert not (tmp_path / 'absent.json').exists()
+    cellule.lieux.append(bourg)
+    monkeypatch.setattr('sim.snapshot_export.maisons_de_l_ia', lambda w: maisons)
+    del monde.cells[maison.cell_id]
+    with pytest.raises(SnapshotExportError, match=rf'{maison.id}.*cellule'):
+        export_snapshot(monde, 0, 1, tmp_path / 'absent.json', releve_ia=[])
+    monde.cells[maison.cell_id] = cellule
+    def interrompre(p, donnees): p.write_text('partiel'); raise OSError('écriture interrompue')
+    monkeypatch.setattr(Path, 'write_bytes', interrompre)
+    with pytest.raises(OSError, match='écriture interrompue'): export_snapshot(monde, 0, 1, tmp_path / 'absent.json', releve_ia=[])
+    assert not (tmp_path / 'absent.json').exists()
+
+
+def test_snapshot_ia_gestes():
+    from sim.capitales import maisons_de_l_ia
+    from sim.ia import maisons_actives_30j
+    monde = World.charger(0)
+    monde.ticks_ecoules = 30
+    a, b = [m for m in maisons_de_l_ia(monde) if 'Paléologue' in m.nom]
+    releve = [dict(tick=t, maison={'sorte': m.sorte, 'id': m.id}, intention={'points': [[x, 0]]}) for m, t, x in ((a, 2, 0.123456789), (b, 2, 3), (a, 2, 1), (a, 3, 4))]
+    releve.append(copy.deepcopy(releve[0]))
+    avant, original = copy.deepcopy(monde.to_dict()), copy.deepcopy(releve)
+    bloc = build_snapshot_document(monde, 0, 30, releve_ia=releve)['ia']
+    def verifier(doc):
+        assert doc['maisons'] and any(m['gestes'] for m in doc['maisons'])
+        assert doc['maisons_actives_30j'] == maisons_actives_30j(30, original) > 0
+        for m in doc['maisons']: assert m['gestes'] == [e for e in original if e['maison'] == {'sorte': m['sorte'], 'id': m['id']}]
+    verifier(bloc)
+    assert monde.to_dict() == avant and releve == original
+    for mutation in ('ordre', 'suppression', 'arrondi', 'vide'):
+        faux = copy.deepcopy(bloc); gestes = next(m['gestes'] for m in faux['maisons'] if len(m['gestes']) > 1)
+        if mutation == 'ordre': gestes.reverse()
+        elif mutation == 'suppression': gestes.pop()
+        elif mutation == 'arrondi': gestes[0]['intention']['points'][0][0] = round(gestes[0]['intention']['points'][0][0], 2)
+        else:
+            for m in faux['maisons']: m['gestes'] = []
+        with pytest.raises(AssertionError): verifier(faux)
+    next(m['gestes'] for m in bloc['maisons'] if m['gestes'])[0]['intention']['points'][0][0] = -1
+    assert monde.to_dict() == avant and releve == original
+
+
+def test_snapshot_ia_sans(monkeypatch):
+    monkeypatch.setattr('sim.snapshot_export.maisons_de_l_ia', lambda *a: pytest.fail('maisons calculées sans IA'))
+    monde = World.charger(0)
+    assert serialize_snapshot(build_snapshot_document(monde, 0, 0)) == serialize_snapshot(build_snapshot_document(monde, 0, 0, releve_ia=None))
