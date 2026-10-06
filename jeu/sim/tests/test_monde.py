@@ -3910,3 +3910,167 @@ def test_logement_monde_inchange(monkeypatch):
     monkeypatch.setattr(logement, "logement_de", retirer)
     with pytest.raises(AssertionError):
         controler()
+
+
+@contextmanager
+def _lancer_service_ia():
+    """Ajoute l'option sans modifier le lanceur partagé par les tests existants."""
+    original = subprocess.Popen
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(subprocess, 'Popen', lambda args, **kw: original([*args, '--ia'], **kw))
+        with lancer_service(0) as port:
+            yield port
+
+
+@contextmanager
+def _service_ia_en_processus(ia=True):
+    from sim.service import ServeurMonde
+    serveur = ServeurMonde(('127.0.0.1', 0), 0, 0, ia=ia)
+    fil = threading.Thread(target=serveur.serve_forever, daemon=True)
+    fil.start()
+    try:
+        yield serveur, serveur.server_address[1]
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+        fil.join(timeout=5)
+
+
+def test_service_ia_egal_cli(tmp_path):
+    from sim.constants import date_de_tick
+    photo = tmp_path / 'ia-photo.json'
+    resume, brut = _ia_cli(tmp_path, options=['--ia', '--snapshot-json', str(photo)])
+    monde = json.loads(brut)
+    cellules = {int(cid): c for cid, c in monde['cells'].items()}
+    reference = dict(tick=30, date=date_de_tick(30), **resume['ia'])
+    assert reference['releve'] and reference['maisons_actives_30j'] > 0
+    ids = {e['intention']['cell'] for e in reference['releve']}
+    assert ids
+    with _lancer_service_ia() as port:
+        assert requete_service(port, '/tick?n=30', 'POST')[1]['tick'] == 30
+        obtenu = requete_service(port, '/ia')[1]
+        assert obtenu == reference
+        faux = copy.deepcopy(reference); faux['releve'][0]['tick'] += 1
+        with pytest.raises(AssertionError): assert obtenu == faux
+        attendus = {}
+        for cid in ids:
+            plan = requete_service(port, f'/plan?cell={cid}')[1]
+            assert {k: plan[k] for k in ('rues', 'parcelles', 'batiments')} == monde['plans'][str(cid)]
+            lieu = requete_service(port, f'/lieu?cell={cid}')[1]
+            assert {k: v['personnes'] for k, v in lieu['foyers'].items()} == {k: v['personnes'] for k, v in cellules[cid]['foyers'].items()}
+            attendus[cid] = (plan, lieu)
+        photos = {c['cell_id']: c for c in json.loads(photo.read_bytes())['cells']}
+        servis = requete_service(port, '/monde')[1]['cells']
+        assert servis
+        for c in servis: _verifier_lieu_contre_photo(port, photos[c['cell_id']], 30)
+    with lancer_service(0) as port:
+        requete_service(port, '/tick?n=30', 'POST')
+        assert requete_service(port, '/ia')[0] == HTTPStatus.NOT_FOUND
+        assert any((requete_service(port, f'/plan?cell={cid}')[1], requete_service(port, f'/lieu?cell={cid}')[1]) != attendus[cid] for cid in ids)
+
+
+def test_service_ia_ordre(monkeypatch):
+    from sim import service
+    from sim.intentions import recevoir_intention
+    with _service_ia_en_processus() as (s, port):
+        evenements = []
+        def ia(w, r): evenements.append(('ia', s.verrou_tick.locked(), w, r))
+        def tick(w, *a): evenements.append(('tick', s.verrou_tick.locked(), w, s.releve))
+        monkeypatch.setattr(service, 'jouer_ia', ia)
+        monkeypatch.setattr(service, 'tick', tick)
+        for _ in range(3): s.jouer_un_tick()
+        def verifier(e):
+            assert len(e) == 6 and [x[0] for x in e] == ['ia', 'tick'] * 3
+            assert all(x[1] and x[2] is s.world and x[3] is s.releve for x in e)
+        verifier(evenements)
+        for faux in (evenements[1:] + evenements[:1], [('ia', False, s.world, s.releve)] + evenements[1:]):
+            with pytest.raises(AssertionError): verifier(faux)
+        route = dict(type='tracer_route', cell=min(s.world.cells), points=[[0, 0], [40, 0]], largeur_m=4)
+        assert requete_service(port, '/intention', 'POST', json.dumps(route).encode())[0] == HTTPStatus.OK
+        joueur = list(s.world.intentions_en_attente)
+        def deposer(w, r):
+            assert s.verrou_tick.locked() and w is s.world and r is s.releve
+            recevoir_intention(w, dict(route, points=[[0, 4], [40, 4]]))
+        monkeypatch.setattr(service, 'jouer_ia', deposer)
+        monkeypatch.setattr(service, 'tick', lambda w, *a: None)
+        s.jouer_un_tick()
+        assert len(s.world.intentions_en_attente) == 2 and s.world.intentions_en_attente[:1] == joueur
+        assert s.world.intentions_en_attente[1] != joueur[0]
+        instants = iter([0, .2, .5])
+        monkeypatch.setattr(service.time, 'perf_counter', lambda: next(instants))
+        monkeypatch.setattr(service, 'jouer_ia', lambda *a: service.time.perf_counter())
+        assert s.jouer_un_tick().duree_dernier_tick_ms == 500
+    monkeypatch.setattr(service, 'maisons_actives_30j', lambda *a: pytest.fail('mesure calculée sans option'))
+    with _service_ia_en_processus(False) as (s, port):
+        monkeypatch.setattr(service, 'jouer_ia', lambda *a: pytest.fail('IA appelée sans option'))
+        monkeypatch.setattr(service.time, 'perf_counter', lambda: 0)
+        s.jouer_un_tick()
+        assert s.etat_publie.ia is None and s.releve == []
+
+
+@pytest.mark.parametrize('erreur', ['donnee', 'intention'])
+def test_service_ia_refus(monkeypatch, capsys, erreur):
+    from sim import service
+    from sim.intentions import IntentionRefusee, recevoir_intention
+    erreur = ValueError if erreur == 'donnee' else IntentionRefusee
+    with _service_ia_en_processus() as (s, port):
+        route = dict(type='tracer_route', cell=min(s.world.cells), points=[[0, 0], [40, 0]], largeur_m=4)
+        recevoir_intention(s.world, route)
+        file = list(s.world.intentions_en_attente)
+        chemins = ['/monde', '/ia', f"/plan?cell={route['cell']}"]
+        avant = [requete_service(port, c)[2] for c in chemins]
+        def refuser(w, r):
+            recevoir_intention(w, route)
+            r.append(dict(tick=0, maison={'sorte': 'seigneurie', 'id': 0}, intention=route))
+            raise erreur('route refusée')
+        monkeypatch.setattr(service, 'jouer_ia', refuser)
+        assert requete_service(port, '/tick?n=1', 'POST')[:2] == (HTTPStatus.INTERNAL_SERVER_ERROR, {'erreur': 'ia : route refusée'})
+        assert [requete_service(port, c)[2] for c in chemins] == avant
+        assert s.world.ticks_ecoules == 0 and s.world.intentions_en_attente == file and s.releve == []
+        recevoir_intention(s.world, route)
+        with pytest.raises(AssertionError): assert s.world.intentions_en_attente == file
+        del s.world.intentions_en_attente[len(file):]
+        s.changer_vitesse(1)
+        limite = time.monotonic() + 5
+        while requete_service(port, '/horloge')[1]['jours_par_seconde'] != 0 and time.monotonic() < limite: time.sleep(.01)
+        horloge = requete_service(port, '/horloge')[1]
+        assert horloge['jours_par_seconde'] == 0 and horloge['tick'] == 0 and s._fil_horloge.is_alive()
+        assert s.world.intentions_en_attente == file and s.releve == []
+        assert [requete_service(port, c)[2] for c in chemins] == avant
+        assert 'ia : route refusée' in capsys.readouterr().err
+
+
+def test_service_ia_sans():
+    # Empreintes de la base, graine 0 : cellule minimale 1175 et témoin du pont 9922.
+    empreintes = {
+        0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
+        4: ['bf0f4e5325941519685bd98f2f8c8f3d0bc8f3749f56a5c76ddd79a046e13095', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', '5f275256a1356bdcfbc5880cfa2081c0d87f45507df01d63e08ad9ac65d3998c'],
+    }
+    with lancer_service(0) as port:
+        for t, attendues in empreintes.items():
+            if t: requete_service(port, '/tick?n=4', 'POST')
+            for chemin, attendue in zip(['/monde', '/lieu?cell=1175', '/lieu?cell=9922'], attendues):
+                octets = requete_service(port, chemin)[2]
+                assert hashlib.sha256(octets).hexdigest() == attendue
+                faux = json.loads(octets); faux['ia'] = []
+                from sim.service import _serialiser
+                with pytest.raises(AssertionError): assert hashlib.sha256(_serialiser(faux)).hexdigest() == attendue
+        statut, refus, _ = requete_service(port, '/ia')
+        assert statut == HTTPStatus.NOT_FOUND and refus == {'erreur': 'ia désactivée : lancer le service avec --ia'}
+
+
+def test_service_ia_lecture(monkeypatch):
+    from sim.constants import date_de_tick
+    with _lancer_service_ia() as port:
+        assert requete_service(port, '/ia')[1] == dict(tick=0, date=date_de_tick(0), releve=[], maisons_actives_30j=-1)
+    with _service_ia_en_processus() as (s, port):
+        ancien = requete_service(port, '/ia')[2]
+        entree = dict(tick=0, maison={'sorte': 'seigneurie', 'id': 0}, intention={'points': [[.123456789, 0]]})
+        s.releve.append(entree)
+        assert requete_service(port, '/ia')[2] == ancien
+        monkeypatch.setattr('sim.service.jouer_ia', lambda *a: None)
+        s.jouer_un_tick()
+        lu = requete_service(port, '/ia')[1]
+        assert lu['tick'] == requete_service(port, '/monde')[1]['tick'] == 1
+        assert lu['releve'] == [entree] and lu['maisons_actives_30j'] == -1
+        assert requete_service(port, '/ia')[2] != ancien

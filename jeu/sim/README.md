@@ -19,6 +19,12 @@ le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide, puis ses chantiers prennent des bras aux champs.
 
+`python3 -m sim.service --ia` fait jouer les maisons avant chaque tick, sous le
+même verrou que le joueur. `GET /ia` rend le tick, la date, le relevé des dépôts
+et `maisons_actives_30j` (−1 avant trente jours) ; sans option, il rend 404.
+Un refus IA annule ses dépôts : le tick manuel rend 500, l'horloge se met en pause.
+La durée publiée inclut l'IA ; les autres routes gardent leur forme.
+
 `POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}`,
 `{"type": "tracer_route", "cell": X, "points": [[0, 0], [40, 0]], "largeur_m": 4}`,
 `{"type": "decouper_parcelle", "cell": X, "rue": 0, "segment": 0,

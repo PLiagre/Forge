@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 import random
+import sys
 import threading
 import time
 from urllib.parse import parse_qs, urlsplit
@@ -17,6 +18,7 @@ from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
+from sim.ia import jouer_ia, maisons_actives_30j
 from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
 from sim.snapshot_export import _round_tree, lieux_en_photographie
@@ -114,6 +116,11 @@ class EtatPublie:
     date: dict[str, int]
     jours_par_seconde: float
     duree_dernier_tick_ms: float
+    ia: bytes | None
+
+
+class ErreurIA(RuntimeError):
+    """Refus de l'IA avant le tick, après retrait de ses dépôts."""
 
 
 class ServeurMonde(ThreadingHTTPServer):
@@ -126,10 +133,13 @@ class ServeurMonde(ThreadingHTTPServer):
         adresse: tuple[str, int],
         seed: int,
         jours_par_seconde: float,
+        ia: bool = False,
     ):
         super().__init__(adresse, RequetesMonde)
         self.world = World.charger(rng_seed=seed)
         self.rng = random.Random(seed)
+        self.ia = ia
+        self.releve = []
         self.verrou_tick = threading.Lock()
         self.condition_vitesse = threading.Condition()
         self._generation_vitesse = 0
@@ -197,6 +207,10 @@ class ServeurMonde(ThreadingHTTPServer):
             date=date,
             jours_par_seconde=jours_par_seconde,
             duree_dernier_tick_ms=duree_dernier_tick_ms,
+            ia=_serialiser({
+                "tick": numero_tick, "date": date, "releve": self.releve,
+                "maisons_actives_30j": maisons_actives_30j(numero_tick, self.releve),
+            }) if self.ia else None,
         )
 
     def jouer_un_tick(
@@ -214,6 +228,15 @@ class ServeurMonde(ThreadingHTTPServer):
                 self._tick_en_cours = True
             debut = time.perf_counter()
             try:
+                if self.ia:
+                    longueur_file = len(self.world.intentions_en_attente)
+                    longueur_releve = len(self.releve)
+                    try:
+                        jouer_ia(self.world, self.releve)
+                    except Exception as exc:
+                        del self.world.intentions_en_attente[longueur_file:]
+                        del self.releve[longueur_releve:]
+                        raise ErreurIA(f"ia : {exc}") from exc
                 tick(self.world, self.rng, self.world.ticks_ecoules)
                 duree_ms = (
                     time.perf_counter() - debut
@@ -263,7 +286,12 @@ class ServeurMonde(ThreadingHTTPServer):
                         continue
                     break
 
-            etat = self.jouer_un_tick(generation_attendue=generation)
+            try:
+                etat = self.jouer_un_tick(generation_attendue=generation)
+            except ErreurIA as exc:
+                self.changer_vitesse(0)
+                print(str(exc), file=sys.stderr, flush=True)
+                continue
             if etat is None:
                 continue
 
@@ -316,6 +344,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         cible = urlsplit(self.path)
         etat = self.server.etat_publie
+        if cible.path == "/ia":
+            if etat.ia is None:
+                self._refuser(HTTPStatus.NOT_FOUND, "ia désactivée : lancer le service avec --ia")
+            else:
+                self._repondre_octets(HTTPStatus.OK, etat.ia)
+            return
         if cible.path in ("/lieu", "/plan"):
             try:
                 cell_id = _parametre_entier(cible.query, "cell")
@@ -349,8 +383,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                 return
             etat = self.server.etat_publie
-            for _ in range(nombre):
-                etat = self.server.jouer_un_tick()
+            try:
+                for _ in range(nombre):
+                    etat = self.server.jouer_un_tick()
+            except ErreurIA as exc:
+                self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
             self._repondre(
                 HTTPStatus.OK,
                 {"tick": etat.tick, "date": etat.date},
@@ -414,6 +452,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Service local du monde Forge")
     parser.add_argument("--seed", type=int, default=DEFAULT_SERVICE_SEED)
     parser.add_argument("--port", type=int, default=DEFAULT_SERVICE_PORT)
+    parser.add_argument("--ia", action="store_true")
     parser.add_argument(
         "--jours-par-seconde",
         type=_vitesse_cli,
@@ -424,6 +463,7 @@ def main(argv: list[str] | None = None) -> None:
         (SERVICE_HOST, args.port),
         args.seed,
         args.jours_par_seconde,
+        ia=args.ia,
     )
     port_reel = serveur.server_address[1]
     print(f"service prêt sur {SERVICE_HOST}:{port_reel}", flush=True)
