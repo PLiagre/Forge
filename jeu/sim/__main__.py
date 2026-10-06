@@ -21,6 +21,7 @@ from pathlib import Path
 
 from sim.constants import DEFAULT_CLI_SEED, DEFAULT_CLI_TICKS, MARCHANDISE_NOURRITURE
 from sim.engine import tick
+from sim.ia import jouer_ia, maisons_actives_30j
 from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.snapshot_export import SnapshotExportError, export_snapshot
 from sim.model import lire_stock_marchandise
@@ -52,7 +53,7 @@ def _valider_gestes(gestes, ticks):
     return gestes
 
 
-def _simulate(ticks: int, seed: int, gestes=None) -> tuple[dict, World]:
+def _simulate(ticks: int, seed: int, gestes=None, ia=False) -> tuple[dict, World]:
     """Amorce le monde G3 et avance `ticks` pas. Retourne résumé + monde."""
     gestes = _valider_gestes([] if gestes is None else gestes, ticks)
     world = World.charger(rng_seed=seed)
@@ -64,6 +65,7 @@ def _simulate(ticks: int, seed: int, gestes=None) -> tuple[dict, World]:
     rng = random.Random(seed)
     kg_transportes = 0.0
     rang = 0
+    releve = []
     for _ in range(ticks):
         while rang < len(gestes) and gestes[rang]["tick"] == world.ticks_ecoules:
             try:
@@ -71,6 +73,8 @@ def _simulate(ticks: int, seed: int, gestes=None) -> tuple[dict, World]:
             except IntentionRefusee as exc:
                 raise IntentionRefusee(f"entrée {rang + 1} : {exc}") from exc
             rang += 1
+        if ia:
+            jouer_ia(world, releve)
         kg_transportes += tick(world, rng, world.ticks_ecoules)
     population_arrivee = sum(cell.population for cell in world.cells.values())
     stock_arrivee = sum(
@@ -93,6 +97,8 @@ def _simulate(ticks: int, seed: int, gestes=None) -> tuple[dict, World]:
         "sans_unity": True,
         "date_simulation": world.date_simulation,
     }
+    if ia:
+        resume['ia'] = {'releve': releve, 'maisons_actives_30j': maisons_actives_30j(world.ticks_ecoules, releve)}
     return resume, world
 
 
@@ -110,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=DEFAULT_CLI_SEED)
     parser.add_argument("--json", action="store_true", dest="as_json")
     parser.add_argument("--gestes", help="rejoue une liste JSON d'intentions datées")
+    parser.add_argument("--ia", action="store_true", help="active les décisions des maisons de l'IA")
     parser.add_argument("--monde-json", help="écrit le monde final en JSON canonique")
     parser.add_argument(
         "--snapshot-json",
@@ -127,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
             gestes = _valider_gestes(
                 json.loads(Path(args.gestes).read_text(encoding="utf-8")), args.ticks,
             )
-        resume, world = _simulate(args.ticks, args.seed, gestes)
+        resume, world = _simulate(args.ticks, args.seed, gestes, ia=args.ia)
     except (OSError, UnicodeError, ValueError) as exc:
         print(f"refus : {exc}", file=sys.stderr)
         return EXIT_REFUS
@@ -162,6 +169,8 @@ def main(argv: list[str] | None = None) -> int:
     date = resume["date_simulation"]
     print(f"  année              : {date['annee']}")
     print(f"  jour dans l'année  : {date['jour_de_l_annee']}")
+    if args.ia:
+        print(f"  maisons actives 30j : {resume['ia']['maisons_actives_30j']}")
     return 0
 
 

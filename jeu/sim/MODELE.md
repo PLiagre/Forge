@@ -1554,7 +1554,7 @@ hérite de `_NoBadSpatialField`, vit hors de `sim.model` et ne pose rien sur
 déjà sourcés. **Niveau 2**, plausible et jamais sourcé : une maison réduite
 à une seule capitale, notamment Tolède pour la cour itinérante de Castille
 et Heidelberg pour la branche palatine Wittelsbach (Munich reste une ancre),
-et la cellule donnée par le polygone. **Niveau 3**, pas simulé : décisions
+et la cellule donnée par le polygone. **Niveau 3**, pas simulé : autres décisions
 et gestes de l'IA, liens entre branches dynastiques, personnes, succession,
 capitales qui changent, autres seigneuries et vassaux sans ancre.
 Républiques, Église et ordres, sans maison, sont absents de cette vue.
@@ -1564,7 +1564,7 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 ## Les intentions du joueur
 
 `recevoir_intention` de `sim/intentions.py` est l'entrée commune de
-`POST /intention` et `python3 -m sim --gestes`, que prendra aussi l'IA.
+`POST /intention`, `python3 -m sim --gestes` et des routes déposées par l'IA.
 La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `tracer_route` dépose une route, `decouper_parcelle` une parcelle,
 `poser_batiment` un bâtiment ; tout autre type lève
@@ -1933,11 +1933,22 @@ les manques locaux sont tous nuls par arrondi, le bourg porte toute la pénurie.
 Chaque lieu qui manque incrémente `duree_faim_ticks`, les autres reviennent à
 zéro. La cellule a faim si et seulement si un de ses lieux a faim ; aucune
 durée locale ne dépasse la sienne. Ces données figurent dans l'empreinte,
-mais pas dans la photographie ni `/lieu`. Aucune règle ne les lit encore :
+mais pas dans la photographie ni `/lieu`. L'IA lit désormais la faim du bourg ;
 panier, dette et faim cellulaires, morts, naissances et migration restent
 identiques au bit près.
 
 ---
+
+## Les décisions et les gestes de l'IA
+
+`sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia` : population et faim du rang 0 positives, quelle que soit la cause. Dette, stock vide ou faim des champs ne suffisent pas.
+Hors carte : aucun geste. Cellule, plan, bourg ou faim absent/non calculé : refus nommé avant tout dépôt.
+Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des dépôts acceptés. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
+Paramètres relus dans `constants.py`. `jouer_ia` utilise uniquement `recevoir_intention`, JSON du joueur intact, puis copie `{tick, maison: {sorte, id}, intention}` après acceptation. `python3 -m sim --ia` joue après les gestes scriptés,
+avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
+déposés dans les trente premiers jours, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
+Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
+Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. Tick économique inchangé ; sans option, aucune décision ni sortie IA.
 
 ## Le plan du bourg
 
