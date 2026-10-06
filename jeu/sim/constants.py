@@ -562,6 +562,12 @@ def date_de_tick(ticks_ecoules: int) -> dict[str, int]:
 DEFAULT_CLI_TICKS = CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 DEFAULT_CLI_SEED = 0
 
+# IA : premier tracé local et fenêtre de mesure, plausibles de niveau 2.
+IA_LONGUEUR_ROUTE_M = 40
+IA_LARGEUR_ROUTE_M = 4
+IA_FOYERS_ROUTE = 1
+IA_DUREE_MESURE_JOURS = 30
+
 # --- Snapshot cellulaire ---
 # Photographie cellulaire déterministe ; le suffixe numéroté permet une
 # révision du contrat sans réutiliser le même nom.

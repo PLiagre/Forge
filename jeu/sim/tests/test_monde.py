@@ -3594,3 +3594,59 @@ def test_tick_sous_le_budget_du_service(monkeypatch):
         with pytest.raises(AssertionError):
             mesurer()
     assert appels
+
+
+def _ia_cli(tmp_path, ticks=30, options=()):
+    sortie = tmp_path / 'ia-monde.json'
+    proc = subprocess.run([sys.executable, '-m', 'sim', '--ticks', str(ticks), '--seed', '0', '--json', '--monde-json', str(sortie), *options], cwd=_REPO, capture_output=True, check=True)
+    return json.loads(proc.stdout), sortie.read_bytes()
+
+
+def test_ia_rejeu_octets(tmp_path):
+    a, monde = _ia_cli(tmp_path, options=['--ia'])
+    assert _ia_cli(tmp_path, options=['--ia']) == (a, monde)
+    gestes = [{k: e[k] for k in ('tick', 'intention')} for e in a['ia']['releve']]
+    assert gestes
+    chemin = tmp_path / 'gestes.json'
+    chemin.write_text(json.dumps(gestes))
+    assert _ia_cli(tmp_path, options=['--gestes', str(chemin)])[1] == monde
+    gestes[0]['intention']['points'][0][0] += 1
+    chemin.write_text(json.dumps(gestes))
+    assert _ia_cli(tmp_path, options=['--gestes', str(chemin)])[1] != monde
+
+
+def test_ia_mesure_reelle(tmp_path):
+    from sim import ia, constants as k
+    resume, _ = _ia_cli(tmp_path, ticks=31, options=['--ia'])
+    releve = resume['ia']['releve']
+    capitales = {(m.sorte, m.id): m.cell_id for m in ia.maisons_de_l_ia(World.charger(0)) if m.cell_id is not None}
+    def verifier(entrees):
+        assert entrees
+        for e in entrees:
+            assert 0 <= e['tick'] < 31 and e['intention']['cell'] == capitales[(e['maison']['sorte'], e['maison']['id'])]
+    verifier(releve)
+    compte = len({(e['maison']['sorte'], e['maison']['id']) for e in releve if e['tick'] * k.TICK_DURATION_DAYS < 30})
+    assert 0 < compte <= len(capitales) and resume['ia']['maisons_actives_30j'] == compte
+    assert ia.maisons_actives_30j(29, releve) == -1
+    assert ia.maisons_actives_30j(31, releve * 2) == compte
+    assert ia.maisons_actives_30j(31, releve + [dict(releve[0], tick=30, maison={'sorte': 'tardive', 'id': -1})]) == compte
+    with pytest.raises(AssertionError): verifier([])
+    faux = copy.deepcopy(releve)
+    faux[0]['intention']['cell'] = -1
+    with pytest.raises(AssertionError): verifier(faux)
+
+
+def test_ia_option_explicitement(tmp_path, monkeypatch):
+    from sim import __main__ as cli
+    from sim.engine import tick
+    import random
+    resume, monde = cli._simulate(30, 0)
+    temoin = World.charger(0)
+    rng = random.Random(0)
+    for _ in range(30): tick(temoin, rng, temoin.ticks_ecoules)
+    assert monde.to_dict() == temoin.to_dict() and 'ia' not in resume
+    def interdit(*args): raise AssertionError('IA appelée sans option')
+    monkeypatch.setattr(cli, 'jouer_ia', interdit)
+    assert cli._simulate(30, 0)[0] == resume
+    assert _ia_cli(tmp_path, ticks=0, options=['--ia'])[0]['ia'] == {'releve': [], 'maisons_actives_30j': -1}
+    assert _ia_cli(tmp_path, options=['--ia'])[1] != json.dumps(temoin.to_dict(), sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
