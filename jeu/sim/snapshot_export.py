@@ -15,6 +15,7 @@ Honnêteté des couches : `dans_la_carte` dit que la donnée est là ;
 from __future__ import annotations
 
 import copy
+from dataclasses import asdict
 import hashlib
 import json
 from pathlib import Path
@@ -32,6 +33,7 @@ from sim import constants as _constants
 from sim.constants import SNAPSHOT_FLOAT_DECIMALS, SNAPSHOT_SCHEMA_VERSION
 from sim.model import cellule_vers_dict, copier_panier
 from sim.lieux import lieux_de_cellule
+from sim.ia import maisons_de_l_ia, maisons_actives_30j
 from sim.maisons import charger_maisons, maisons_depuis_monde
 from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
 from sim.seigneuries import SeigneurieInconnue, fiche_de_seigneurie
@@ -206,15 +208,35 @@ def _fiche_document(fiche) -> dict:
     }
 
 
-def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
+def _photographie_ia(world: World, releve) -> dict:
+    """Habitants actuels du bourg de capitale et dépôts dans leur ordre."""
+    maisons = []
+    for maison in maisons_de_l_ia(world):
+        population, gestes = None, []
+        if maison.hors_carte is None:
+            cellule = world.cells.get(maison.cell_id)
+            bourg = next((l for l in cellule.lieux if l.rang == 0), None) if cellule is not None else None
+            if cellule is None or bourg is None:
+                donnee = 'cellule' if cellule is None else 'bourg'
+                raise SnapshotExportError(f'maison {maison.sorte} {maison.id} ({maison.nom}) : donnée absente : {donnee}')
+            population = bourg.population
+            gestes = [dict(tick=e['tick'], maison={'sorte': maison.sorte, 'id': maison.id},
+                           intention=copy.deepcopy(e['intention'])) for e in releve
+                      if (e['maison']['sorte'], e['maison']['id']) == (maison.sorte, maison.id)]
+        maisons.append(dict(asdict(maison), population=population, gestes=gestes))
+    return {'maisons': maisons, 'maisons_actives_30j': maisons_actives_30j(world.ticks_ecoules, releve)}
+
+
+def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) -> dict:
     if not world.carte:
         raise SnapshotExportError(
             "Le monde n'a pas été chargé depuis la carte figée ; "
             "aucune géométrie à photographier."
         )
     try:
+        ia = None if releve_ia is None else _photographie_ia(world, releve_ia)
         regroupements = agregat_depuis_monde(world)
-    except PositionCelluleInconnue as exc:
+    except (PositionCelluleInconnue, SeigneurieInconnue, ValueError) as exc:
         raise SnapshotExportError(str(exc)) from exc
 
     repartitions_bourg = bourg_depuis_monde(world)
@@ -316,6 +338,8 @@ def build_snapshot_document(world: World, seed: int, tick: int) -> dict:
     # Les restes des lieux gardent leur précision de conservation.
     for cellule, source in zip(photographie["cells"], cells_out):
         cellule["lieux"] = source["lieux"]
+    if ia is not None:
+        photographie['ia'] = ia
     return photographie
 
 
@@ -330,9 +354,14 @@ def serialize_snapshot(document: dict) -> bytes:
     return (payload + "\n").encode("utf-8")
 
 
-def export_snapshot(world: World, seed: int, tick: int, path: Path) -> Path:
+def export_snapshot(world: World, seed: int, tick: int, path: Path, releve_ia=None) -> Path:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    payload = serialize_snapshot(build_snapshot_document(world, seed, tick))
-    destination.write_bytes(payload)
+    payload = serialize_snapshot(build_snapshot_document(world, seed, tick, releve_ia=releve_ia))
+    existait = destination.exists()
+    try:
+        destination.write_bytes(payload)
+    except OSError:
+        if not existait: destination.unlink(missing_ok=True)
+        raise
     return destination
