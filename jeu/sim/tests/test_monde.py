@@ -3804,3 +3804,109 @@ def test_snapshot_ia_sans(monkeypatch):
     monkeypatch.setattr('sim.snapshot_export.maisons_de_l_ia', lambda *a: pytest.fail('maisons calculées sans IA'))
     monde = World.charger(0)
     assert serialize_snapshot(build_snapshot_document(monde, 0, 0)) == serialize_snapshot(build_snapshot_document(monde, 0, 0, releve_ia=None))
+
+
+def test_service_logement():
+    from sim import constants as k
+    monde = World.charger(0)
+    depart = charger_seigneuries()[0]
+    cid = fiche_de_seigneurie(depart.id, monde).cell_id
+    def controler(port):
+        lieu = requete_service(port, f"/lieu?cell={cid}")[1]
+        plan = requete_service(port, f"/plan?cell={cid}")[1]
+        from sim.plan import aire_du_contour
+        maisons = [b for b in plan["batiments"] if b["nature"] == "maison" and not b["en_chantier"]]
+        assert maisons and lieu["tick"] == plan["tick"]
+        capacite = sum(max(1, int(aire_du_contour(b["emprise"]) // k.SURFACE_M2_PAR_FOYER_LOGE)) for b in maisons)
+        nombre = lieu["foyers"][k.METIER_ARTISANS]["foyers"]
+        assert lieu["logement"] == {"capacite": capacite, "loges": min(nombre, capacite), "sans_logis": max(0, nombre - capacite)}
+        assert lieu["logement"]["loges"] > 0 and lieu["logement"]["sans_logis"] > 0
+        assert b'"logement"' not in requete_service(port, "/monde")[2]
+        autre = next(c for c in monde.cells if c != cid)
+        assert "logement" not in requete_service(port, f"/lieu?cell={autre}")[1]
+    with lancer_service(0) as port:
+        def deposer(geste):
+            statut, recu, _ = requete_service(port, "/intention", "POST", json.dumps(geste).encode())
+            assert statut is HTTPStatus.OK and recu["acceptee"]
+        def avancer():
+            requete_service(port, "/tick?n=1", "POST")
+        deposer({"type": "choisir_depart", "seigneurie": depart.id})
+        avancer()
+        deposer({"type": "tracer_route", "cell": cid, "points": [[0, 0], [20, 0]], "largeur_m": 1, "foyers": 100})
+        avancer()
+        for debut, facade, profondeur in ((0, 4, 10), (6, 8, 20)):
+            deposer({"type": "decouper_parcelle", "cell": cid, "rue": 0, "segment": 0, "debut_m": debut,
+                     "facade_m": facade, "profondeur_m": profondeur, "cote": "gauche", "foyers": 100})
+        avancer()
+        for parcelle, nature in enumerate(("maison", "four")):
+            deposer({"type": "poser_batiment", "cell": cid, "parcelle": parcelle, "nature": nature, "foyers": 100})
+        for _ in range(10):
+            avancer()
+            batiments = requete_service(port, f"/plan?cell={cid}")[1]["batiments"]
+            if batiments and all(not b["en_chantier"] for b in batiments):
+                break
+        assert len(batiments) == 2 and all(not b["en_chantier"] for b in batiments)
+        avancer()
+        controler(port)
+    with lancer_service(0) as port:
+        with pytest.raises(AssertionError):
+            controler(port)
+
+
+def test_logement_sans_geste(monkeypatch):
+    from sim import service
+    from sim.tests.test_foyers import _plan_logement
+    with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        for _ in range(3):
+            serveur.jouer_un_tick()
+        def controler():
+            lieux = serveur._construire_etat(0, -1).lieux
+            dossier = _REPO.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
+            fige = (dossier / "lieu-graine0-tick3.json").read_bytes()
+            assert lieux[json.loads(fige)["cell_id"]] == fige
+            assert lieux and all(b'"logement"' not in octets for octets in lieux.values())
+        controler()
+        vrai = service.logement_de
+        with monkeypatch.context() as ctx:
+            ctx.setattr(service, "logement_de", lambda c, p: vrai(c, p) or {"capacite": 0, "loges": 0, "sans_logis": 0})
+            with pytest.raises(AssertionError):
+                controler()
+        cid = min(serveur.world.cells)
+        plan = _plan_logement()
+        from dataclasses import replace
+        plan.batiments = [replace(plan.batiments[1], nature="scierie", en_chantier=True, foyers=1, travail_requis=1)]
+        serveur.world.plans[cid] = plan
+        assert json.loads(serveur._construire_etat(0, -1).lieux[cid])["logement"] == {"capacite": 0, "loges": 0, "sans_logis": 0}
+
+
+def test_logement_monde_inchange(monkeypatch):
+    import random
+    from sim import engine, logement
+    from sim.tests.test_foyers import _plan_logement
+    def controler():
+        mondes, rngs = [World.charger(0) for _ in range(2)], [random.Random(0) for _ in range(2)]
+        for monde in mondes:
+            cid = max(monde.cells, key=lambda c: monde.cells[c].population)
+            plan = _plan_logement()
+            plan.batiments = [b for b in plan.batiments if b.identifiant in (0, 4)]
+            monde.plans[cid] = plan
+        assert mondes[0].cells
+        def photographier():
+            for cid, cell in mondes[0].cells.items():
+                logement.logement_de(cell, mondes[0].plans[cid])
+        for _ in range(10):
+            photographier()
+            retours = [engine.tick(m, r, m.ticks_ecoules) for m, r in zip(mondes, rngs)]
+            photographier()
+            empreintes = [json.dumps((m.to_dict(), m.stocks_mer, t, r.getstate()), sort_keys=True).encode() for m, r, t in zip(mondes, rngs, retours)]
+            assert empreintes[0] == empreintes[1]
+    controler()
+    vrai = logement.logement_de
+    def retirer(cell, plan):
+        resultat = vrai(cell, plan)
+        if (cell.habitants_par_metier or {}).get("artisans", 0):
+            cell.habitants_par_metier["artisans"] -= 1
+        return resultat
+    monkeypatch.setattr(logement, "logement_de", retirer)
+    with pytest.raises(AssertionError):
+        controler()

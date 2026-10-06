@@ -748,3 +748,109 @@ def test_documentation_bras(monkeypatch):
             with pytest.raises(AssertionError):
                 controler()
     controler()
+
+
+def _plan_logement(surface=80):
+    from sim.plan import Batiment, Parcelle, Plan
+    contour = [(0, 0), (surface, 0), (surface, 1), (0, 1)]
+    plan = Plan(parcelles=[Parcelle(i, contour) for i in range(5)], batiments=[
+        Batiment(i, i, nature, contour, **kw) for i, nature, kw in [
+            (1, "maison", {}), (0, "maison", {}),
+            (2, "maison", {"en_chantier": True, "foyers": 1, "travail_requis": 1}),
+            (3, "scierie", {}), (4, "four", {})]])
+    plan.batiments.reverse()
+    return plan
+
+
+def _reference_logement(cell, plan):
+    from sim.plan import aire_du_contour
+    capacite = sum(max(1, int(aire_du_contour(b.emprise) // _constantes.SURFACE_M2_PAR_FOYER_LOGE))
+                   for b in plan.batiments if b.nature == "maison" and not b.en_chantier)
+    metiers = lire_habitants_par_metier(cell)
+    if metiers == -1:
+        return {"capacite": capacite, "loges": -1, "sans_logis": -1}
+    n = metiers.get(_constantes.METIER_ARTISANS, 0)
+    nombre = (n + _constantes.TAILLE_FOYER - 1) // _constantes.TAILLE_FOYER
+    return {"capacite": capacite, "loges": min(nombre, capacite), "sans_logis": max(0, nombre - capacite)}
+
+
+def _verifier_logement(cell, plan, fonction):
+    avant = copy.deepcopy((cell, plan))
+    resultat = fonction(cell, plan)
+    assert resultat == _reference_logement(cell, plan)
+    if lire_habitants_par_metier(cell) != -1:
+        n = cell.habitants_par_metier.get(_constantes.METIER_ARTISANS, 0)
+        assert resultat["loges"] + resultat["sans_logis"] == math.ceil(n / _constantes.TAILLE_FOYER)
+    assert (cell, plan) == avant
+
+
+@pytest.mark.parametrize("surface", [20, 40, 80])
+def test_logement_compte(surface, monkeypatch):
+    from sim import logement
+    from sim.plan import Plan
+    def controler():
+        for n in (0, 1, 10 * _constantes.TAILLE_FOYER + 1):
+            cell = Cell(0, 1, n + 30, habitants_par_metier={
+                "paysans": 10, "mineurs": 10, "ouvriers": 10} | ({"artisans": n} if n else {}))
+            plan = _plan_logement(surface)
+            _verifier_logement(cell, plan, logement.logement_de)
+            plan.batiments = [b for b in plan.batiments if b.identifiant >= 2]
+            _verifier_logement(cell, plan, logement.logement_de)
+        _verifier_logement(Cell(0, 1, 30), _plan_logement(surface), logement.logement_de)
+        assert logement.logement_de(cell, Plan()) is None
+    controler()
+    lire, ranger = logement.lire_habitants_par_metier, logement.ranger_en_foyers
+    for nom, faux in (
+        ("ranger_en_foyers", lambda n: ranger(n - n % _constantes.TAILLE_FOYER)),
+        ("lire_habitants_par_metier", lambda c: {"artisans": sum(lire(c).values())} if lire(c) != -1 else -1)):
+        with monkeypatch.context() as ctx:
+            ctx.setattr(logement, nom, faux)
+            with pytest.raises(AssertionError):
+                controler()
+    vrai = logement.logement_de
+    def chantier_loge(cell, plan):
+        from dataclasses import replace
+        plan = copy.deepcopy(plan)
+        plan.batiments = [replace(b, en_chantier=False, travail_fourni=b.travail_requis) for b in plan.batiments]
+        return vrai(cell, plan)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(logement, "logement_de", chantier_loge)
+        with pytest.raises(AssertionError):
+            controler()
+
+
+def test_logement_constantes(monkeypatch):
+    from sim import logement
+    cell = Cell(0, 1, 21, habitants_par_metier={"artisans": 21})
+    plan = _plan_logement()
+    nominal = logement.logement_de(cell, plan)
+    from types import SimpleNamespace
+    surface, taille = _constantes.SURFACE_M2_PAR_FOYER_LOGE, _constantes.TAILLE_FOYER
+    for nom in ("SURFACE_M2_PAR_FOYER_LOGE", "TAILLE_FOYER"):
+        with monkeypatch.context() as ctx:
+            ctx.setattr(_constantes, nom, getattr(_constantes, nom) * 2)
+            _verifier_logement(cell, plan, logement.logement_de)
+            assert logement.logement_de(cell, plan) != nominal
+            if nom == "SURFACE_M2_PAR_FOYER_LOGE":
+                ctx.setattr(logement, "_constantes", SimpleNamespace(SURFACE_M2_PAR_FOYER_LOGE=surface, METIER_ARTISANS="artisans"))
+            else:
+                ctx.setattr(logement, "ranger_en_foyers", lambda n: foyers.Foyers(taille, n // taille, n % taille))
+            with pytest.raises(AssertionError):
+                _verifier_logement(cell, plan, logement.logement_de)
+
+
+def test_logement_documentation():
+    dossier = pathlib.Path(__file__).parents[1]
+    texte = (dossier / "MODELE.md").read_text(encoding="utf-8")
+    def controler(texte):
+        section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
+        assert section
+        for mot in ("SURFACE_M2_PAR_FOYER_LOGE", "sans_logis", "logement", "seulement si"):
+            assert mot in section
+    controler(texte)
+    avant, suite = texte.split("## Les foyers par métier\n", 1)
+    section, apres = suite.split("\n## ", 1)
+    with pytest.raises(AssertionError):
+        controler(avant + "## Les foyers par métier\n" + section.replace("sans_logis", "absent") + "\n## " + apres)
+    assert "La maison achevée reste sans effet" not in texte.split("## Le plan du bourg\n", 1)[1].split("\n## ", 1)[0]
+    assert "sim/logement.py" in (dossier / "README.md").read_text(encoding="utf-8")

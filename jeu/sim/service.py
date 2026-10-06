@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlsplit
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
 from sim.foyers import ranger_en_foyers
+from sim.logement import logement_de
 from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
 from sim.snapshot_export import _round_tree, lieux_en_photographie
@@ -158,6 +159,9 @@ class ServeurMonde(ThreadingHTTPServer):
         lieux = {
             cellule["cell_id"]: _serialiser(
                 cellule
+                | ({"logement": logement} if (logement := logement_de(
+                    self.world.cells[cellule["cell_id"]], self.world.plans[cellule["cell_id"]]
+                )) is not None else {})
                 | {
                     "foyers": _foyers_du_lieu(self.world.cells[cellule["cell_id"]]),
                     "lieux": lieux_en_photographie(
