@@ -9,6 +9,18 @@ using System.Threading;
 
 namespace Forge.Pont
 {
+    // Les foyers par métier de `/lieu` : servis (un objet), non calculés (`-1`) ou absents (la clé manque).
+    public enum EtatFoyers { Absents, NonCalcules, Servis }
+
+    // Le logement des artisans tel que `/lieu` l'écrit ; `-1` est relu tel quel.
+    public sealed class Logement
+    {
+        public long Capacite { get; }
+        public long Loges { get; }
+        public long SansLogis { get; }
+        public Logement(long capacite, long loges, long sansLogis) { Capacite = capacite; Loges = loges; SansLogis = sansLogis; }
+    }
+
     // Un lieu tel que `sim/` l'écrit à un tick : rien n'est calculé ici.
     // `Stocks` porte toutes les marchandises reçues, et seulement elles.
     public sealed class Lieu
@@ -21,11 +33,20 @@ namespace Forge.Pont
         public IReadOnlyDictionary<string, double> Stocks { get; }
         public long HungerTicks { get; }
         public double FoodDeficitKg { get; }
+        public EtatFoyers EtatFoyers { get; }
+        // Métier → (foyers, personnes), dans l'ordre reçu, seulement si les foyers sont servis ; null sinon.
+        public IReadOnlyDictionary<string, (long Foyers, long Personnes)> Foyers { get; }
+        // null : la clé `logement` manque (aucun bâtiment au plan).
+        public Logement Logement { get; }
 
         public Lieu(long cellId, long tick, int annee, int jourDeLAnnee, long population,
-            IDictionary<string, double> stocks, long hungerTicks, double foodDeficitKg)
+            IDictionary<string, double> stocks, long hungerTicks, double foodDeficitKg,
+            EtatFoyers etatFoyers = EtatFoyers.Absents, IDictionary<string, (long Foyers, long Personnes)> foyers = null,
+            Logement logement = null)
         {
             if (stocks == null) throw new ArgumentNullException(nameof(stocks));
+            if ((etatFoyers == EtatFoyers.Servis) != (foyers != null))
+                throw new ArgumentException("des foyers servis portent leurs métiers, et seulement eux", nameof(foyers));
             CellId = cellId;
             Tick = tick;
             Annee = annee;
@@ -34,6 +55,11 @@ namespace Forge.Pont
             Stocks = new ReadOnlyDictionary<string, double>(new Dictionary<string, double>(stocks));
             HungerTicks = hungerTicks;
             FoodDeficitKg = foodDeficitKg;
+            EtatFoyers = etatFoyers;
+            // Un Dictionary rempli sans retrait s'énumère dans l'ordre d'ajout : celui du service.
+            Foyers = foyers == null ? null
+                : new ReadOnlyDictionary<string, (long Foyers, long Personnes)>(new Dictionary<string, (long Foyers, long Personnes)>(foyers));
+            Logement = logement;
         }
     }
 
@@ -126,6 +152,33 @@ namespace Forge.Pont
                 var stocks = new Dictionary<string, double>();
                 foreach (var marchandise in Objet(objet, "stocks", "stocks"))
                     stocks.Add(marchandise.Key, Nombre(marchandise.Value, "stocks." + marchandise.Key));
+                var etatFoyers = EtatFoyers.Absents;
+                Dictionary<string, (long Foyers, long Personnes)> foyers = null;
+                if (objet.TryGetValue("foyers", out object brut))
+                {
+                    if (brut is double nonCalcules && nonCalcules == -1) etatFoyers = EtatFoyers.NonCalcules;
+                    else if (brut is Dictionary<string, object> metiers)
+                    {
+                        etatFoyers = EtatFoyers.Servis;
+                        foyers = new Dictionary<string, (long Foyers, long Personnes)>();
+                        foreach (string metier in metiers.Keys)
+                        {
+                            string chemin = "foyers." + metier;
+                            var fiche = Objet(metiers, metier, chemin);
+                            foyers.Add(metier, (Entier(fiche, "foyers", chemin + ".foyers", long.MinValue, long.MaxValue),
+                                Entier(fiche, "personnes", chemin + ".personnes", long.MinValue, long.MaxValue)));
+                        }
+                    }
+                    else throw new CleRefusee("clé foyers : un objet ou -1 attendu, reçu " + Decrire(brut));
+                }
+                Logement logement = null;
+                if (objet.ContainsKey("logement"))
+                {
+                    var l = Objet(objet, "logement", "logement");
+                    logement = new Logement(Entier(l, "capacite", "logement.capacite", long.MinValue, long.MaxValue),
+                        Entier(l, "loges", "logement.loges", long.MinValue, long.MaxValue),
+                        Entier(l, "sans_logis", "logement.sans_logis", long.MinValue, long.MaxValue));
+                }
                 return LectureLieu.De(new Lieu(
                     relu,
                     Entier(objet, "tick", "tick", long.MinValue, long.MaxValue),
@@ -134,7 +187,8 @@ namespace Forge.Pont
                     Entier(objet, "population", "population", long.MinValue, long.MaxValue),
                     stocks,
                     Entier(objet, "hunger_ticks", "hunger_ticks", long.MinValue, long.MaxValue),
-                    Nombre(Valeur(objet, "food_deficit_kg", "food_deficit_kg"), "food_deficit_kg")));
+                    Nombre(Valeur(objet, "food_deficit_kg", "food_deficit_kg"), "food_deficit_kg"),
+                    etatFoyers, foyers, logement));
             }
             catch (CleRefusee refus)
             {

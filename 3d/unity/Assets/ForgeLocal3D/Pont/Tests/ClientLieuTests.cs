@@ -303,5 +303,88 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => new ClientLieu(0, Delai));
             Assert.Throws<ArgumentOutOfRangeException>(() => new ClientLieu(65536, Delai));
         }
+
+        // Lot #263 — les foyers par métier et le logement, relus tels que le service les écrit.
+        private const string FoyersTick3 = "\"foyers\":{\"mineurs\":{\"foyers\":2195,\"personnes\":10974},\"paysans\":{\"foyers\":19756,\"personnes\":98778}}";
+
+        private static string Remplacer(string texte, string avant, string apres)
+        {
+            string altere = texte.Replace(avant, apres);
+            Assert.AreNotEqual(texte, altere, "le remplacement de " + avant + " n'a rien changé");
+            return altere;
+        }
+
+        private static string AvecLogement(string texte, string logement)
+        {
+            Assert.IsTrue(texte.EndsWith("}"));
+            return texte.Substring(0, texte.Length - 1) + ",\"logement\":" + logement + "}";
+        }
+
+        private LectureLieu Present(string corps)
+        {
+            Servir(200, corps);
+            LectureLieu lecture = Lire(CellFigee);
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            return lecture;
+        }
+
+        [Test]
+        public void LesFoyersServisSontRelusDansLOrdreEtSansLogement()
+        {
+            Lieu lieu = Present(TexteFige("lieu-graine0-tick3.json")).Lieu;
+
+            Assert.AreEqual(EtatFoyers.Servis, lieu.EtatFoyers);
+            CollectionAssert.AreEqual(new[] { "mineurs", "paysans" }, lieu.Foyers.Keys.ToArray());
+            Assert.IsTrue(lieu.Foyers["mineurs"].Foyers == 2195 && lieu.Foyers["mineurs"].Personnes == 10974);
+            Assert.IsTrue(lieu.Foyers["paysans"].Foyers == 19756 && lieu.Foyers["paysans"].Personnes == 98778);
+            Assert.IsNull(lieu.Logement, "sans bâtiment au plan, le logement est absent");
+
+            // Contre-épreuve : le tick suivant rend d'autres foyers ; des foyers figés échoueraient.
+            Fermer();
+            PortLibre();
+            Lieu suivant = Present(TexteFige("lieu-graine0-tick4.json")).Lieu;
+            Assert.IsTrue(suivant.Foyers["mineurs"].Foyers == 2196 && suivant.Foyers["mineurs"].Personnes == 10976);
+        }
+
+        [TestCase("\"foyers\":-1", EtatFoyers.NonCalcules)]
+        [TestCase("", EtatFoyers.Absents)]
+        public void DesFoyersNonCalculesOuAbsentsSeDeclarent(string remplacement, EtatFoyers attendu)
+        {
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            string corps = remplacement == "" ? Remplacer(texte, FoyersTick3 + ",", "") : Remplacer(texte, FoyersTick3, remplacement);
+
+            Lieu lieu = Present(corps).Lieu;
+
+            Assert.AreEqual(attendu, lieu.EtatFoyers);
+            Assert.IsNull(lieu.Foyers, "des foyers non servis ne sont jamais un dictionnaire vide");
+        }
+
+        // 9 places, 1 logé, 3 sans logis : incohérent exprès, un client qui recalculerait échoue.
+        [TestCase("{\"capacite\":9,\"loges\":1,\"sans_logis\":3}", 9L, 1L, 3L)]
+        [TestCase("{\"capacite\":9,\"loges\":-1,\"sans_logis\":-1}", 9L, -1L, -1L)]
+        public void LeLogementEstReluTelQuel(string logement, long capacite, long loges, long sansLogis)
+        {
+            Logement lu = Present(AvecLogement(TexteFige("lieu-graine0-tick3.json"), logement)).Lieu.Logement;
+
+            Assert.IsNotNull(lu);
+            Assert.IsTrue(lu.Capacite == capacite && lu.Loges == loges && lu.SansLogis == sansLogis);
+        }
+
+        [TestCase("\"foyers\":\"x\"", null, "foyers")]
+        [TestCase("\"personnes\":1.5", null, "foyers.mineurs.personnes")]
+        [TestCase("retrait", null, "foyers.mineurs.personnes")]
+        [TestCase(null, "{\"capacite\":9,\"loges\":1}", "logement.sans_logis")]
+        [TestCase(null, "3", "logement")]
+        public void DesFoyersOuUnLogementMalFormesRendentUneAbsence(string foyers, string logement, string chemin)
+        {
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            string corps = foyers == null ? AvecLogement(texte, logement)
+                : foyers == "retrait" ? Remplacer(texte, ",\"personnes\":10974", "")
+                : foyers.StartsWith("\"personnes\"") ? Remplacer(texte, "\"personnes\":10974", foyers)
+                : Remplacer(texte, FoyersTick3, foyers);
+            Servir(200, corps);
+
+            StringAssert.Contains(chemin, Absence(CellFigee).Absence);
+        }
     }
 }

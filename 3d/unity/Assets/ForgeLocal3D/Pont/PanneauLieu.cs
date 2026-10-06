@@ -19,6 +19,7 @@ namespace Forge.Pont
         public const string ARGUMENT_CELLULE = "-forgeCell";
         private const string HOTE = "127.0.0.1";
         private const string NOURRITURE = "nourriture";
+        private const string OUVRIERS = "ouvriers"; // les bras partis au chantier (MODELE.md, « Le chantier et ses bras »)
         private const string MARQUE_SERVICE_ABSENT = "service absent";
         private const string MARQUE_DELAI = "délai dépassé";
         private static readonly TimeSpan DELAI_LECTURE = TimeSpan.FromSeconds(2);
@@ -35,6 +36,9 @@ namespace Forge.Pont
         public new Camera camera;
 
         private Text texte;
+        // Le second texte (foyers, chantier, logement), créé après le premier : `GetComponentInChildren<Text>`
+        // rend toujours celui du jalon 1, que ForgeCapture écrit et que l'épreuve relit ligne par ligne.
+        private Text texteFoyers;
         private ClientLieu client;
         private long celluleLue;
         private Task<LectureLieu> enCours;
@@ -44,6 +48,8 @@ namespace Forge.Pont
         private string absenceAffichee;
 
         public string TexteAffiche => texte != null ? texte.text : null;
+        public string TexteFoyers => texteFoyers != null ? texteFoyers.text : null;
+        public GameObject ObjetFoyers => texteFoyers != null ? texteFoyers.gameObject : null;
         public int Reconstructions { get; private set; }
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
 
@@ -115,6 +121,9 @@ namespace Forge.Pont
             tickAffiche = tick;
             absenceAffichee = lecture.Absence;
             texte.text = lecture.Presente ? Decrire(lecture.Lieu) : DireAbsence(lecture.Absence);
+            // Une absence efface les chiffres d'avant : rien d'une lecture précédente ne reste à l'écran.
+            texteFoyers.text = lecture.Presente ? DecrireFoyers(lecture.Lieu) : "";
+            texteFoyers.gameObject.SetActive(lecture.Presente);
             Reconstructions++;
         }
 
@@ -150,6 +159,32 @@ namespace Forge.Pont
             return s.ToString();
         }
 
+        // Les foyers, le chantier et le logement, lus tels quels : aucune somme, aucune division.
+        private static string DecrireFoyers(Lieu lieu)
+        {
+            var s = new StringBuilder("Foyers par métier :");
+            if (lieu.EtatFoyers == EtatFoyers.Servis && lieu.Foyers.Count == 0) s.Append(" aucun");
+            else if (lieu.EtatFoyers == EtatFoyers.NonCalcules) s.Append(" non calculés par le monde");
+            else if (lieu.EtatFoyers == EtatFoyers.Absents) s.Append(" absents de la réponse du service");
+            else
+                foreach (var metier in lieu.Foyers)
+                    s.Append('\n').Append(metier.Key).Append(" : ").Append(Entier(metier.Value.Foyers)).Append(" foyers, ")
+                        .Append(Entier(metier.Value.Personnes)).Append(" personnes");
+            s.Append("\nAu chantier : ");
+            if (lieu.EtatFoyers == EtatFoyers.NonCalcules) s.Append("non calculé");
+            else if (lieu.EtatFoyers == EtatFoyers.Absents) s.Append("absent de la réponse du service");
+            else if (lieu.Foyers.TryGetValue(OUVRIERS, out var ouvriers)) s.Append(Entier(ouvriers.Personnes)).Append(" bras pris aux champs");
+            else s.Append("personne");
+            Logement l = lieu.Logement;
+            if (l == null) s.Append("\nLogement : absent du service (aucun bâtiment au plan)");
+            else if (l.Loges == -1 || l.SansLogis == -1)
+                s.Append("\nLogement des artisans : ").Append(Entier(l.Capacite)).Append(" places, logés et sans-logis non calculés");
+            else
+                s.Append("\nLogement des artisans : ").Append(Entier(l.Loges)).Append(" foyers logés, ")
+                    .Append(Entier(l.SansLogis)).Append(" sans logis, ").Append(Entier(l.Capacite)).Append(" places");
+            return s.ToString();
+        }
+
         private void Construire()
         {
             var toile = new GameObject("Toile du panneau", typeof(RectTransform));
@@ -175,12 +210,26 @@ namespace Forge.Pont
             var ajuste = fond.AddComponent<ContentSizeFitter>();
             ajuste.horizontalFit = ajuste.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var ligne = new GameObject("Texte", typeof(RectTransform));
+            pile.spacing = RETRAIT;
+            texte = Ecrire(fond, "Texte");
+            // Inactif et vide tant qu'aucun lieu n'est lu : la mise en page l'ignore alors.
+            texteFoyers = Ecrire(fond, "Foyers");
+            // Rien ne se coupe : le fond grandit avec le texte, et le débordement reste dessiné.
+            texteFoyers.horizontalOverflow = HorizontalWrapMode.Overflow;
+            texteFoyers.verticalOverflow = VerticalWrapMode.Overflow;
+            texteFoyers.text = "";
+            texteFoyers.gameObject.SetActive(false);
+        }
+
+        private static Text Ecrire(GameObject fond, string nom)
+        {
+            var ligne = new GameObject(nom, typeof(RectTransform));
             ligne.transform.SetParent(fond.transform, false);
-            texte = ligne.AddComponent<Text>();
-            texte.font = Resources.GetBuiltinResource<Font>(POLICE);
-            texte.fontSize = TAILLE_POLICE;
-            texte.color = Color.white;
+            var t = ligne.AddComponent<Text>();
+            t.font = Resources.GetBuiltinResource<Font>(POLICE);
+            t.fontSize = TAILLE_POLICE;
+            t.color = Color.white;
+            return t;
         }
     }
 }
