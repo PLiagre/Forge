@@ -346,6 +346,7 @@ namespace ForgeLocal3D
             if(player&&player.Marcheur)player.Marcheur.automatic=true;
             else{faults.Add("caméra de la ville non branchée : DesertCityCamera absente ou sans marcheur");player=null;}
             var data=DesertCityTerrain.Load(id);
+            roads.Restaurer(); // Lot 361 : l'outil a ouvert la ville d'après le plan ; le contrôle part de l'asset
             report.asset_avant=DesertRoads.Empreintes(terrain.terrainData).Tout;
 
             // A — le jeu de gestes, dans l'ordre, sur une copie fraîche.

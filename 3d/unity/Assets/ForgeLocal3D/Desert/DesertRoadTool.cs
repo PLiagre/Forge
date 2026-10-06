@@ -16,6 +16,9 @@ namespace ForgeLocal3D
     // puis dessine au tick suivant les rues neuves que `/plan` publie. Toute route en chantier est
     // en terre battue. Le panneau est un texte posé devant la caméra : il apparaît aussi dans les
     // captures.
+    // Lot 361 : au lancement, l'outil lit le plan de sa cellule et pose toutes ses rues, dans l'ordre
+    // du plan, sur une copie vierge du terrain. Une rue que le relief refuse reste au plan : le panneau
+    // la déclare par son identifiant. Unity ne garde aucun plan à lui : relancé, il redessine la même ville.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -31,8 +34,14 @@ namespace ForgeLocal3D
         public RecuIntention Recu{get;private set;}
         // Les rues neuves du plan dessinées par Attendre : identifiant et résultat de la pose.
         public readonly List<(long identifiant,DesertRoads.Resultat resultat)> Posees=new();
+        // Lot 361 : chaque rue essayée à l'ouverture, dans l'ordre du plan, acceptée ou refusée ;
+        // le tick du plan lu à l'ouverture, -1 tant qu'aucun ne l'a été.
+        public readonly List<(long identifiant,DesertRoads.Resultat resultat)> Ouverture=new();
+        public long TickOuverture{get;private set;}=-1;
         ClientIntention depot;ClientPlan plan;string erreurCellule;
-        RecuIntention enAttente;HashSet<long> connues;double prochaineLecture;
+        // Les rues déjà essayées dans la session, posées ou refusées : aucune n'est posée deux fois, ni réessayée.
+        readonly HashSet<long> essayees=new();
+        RecuIntention enAttente;double prochaineLecture;
         TextMesh panneau,halo;
         const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler";
         const double PeriodeLecture=.25;
@@ -55,6 +64,7 @@ namespace ForgeLocal3D
             if(erreurCellule==null){depot=new ClientIntention(Port,Delai);plan=new ClientPlan(Port,Delai);}
             Afficher(erreurCellule??Aide);
         }
+        void Start()=>Ouvrir();
         void OnDestroy(){depot?.Dispose();plan?.Dispose();depot=null;plan=null;}
         void Afficher(string texte)
         {
@@ -111,12 +121,9 @@ namespace ForgeLocal3D
             if(erreurCellule!=null){Afficher(erreurCellule);return r;}
             var lu=plan.Lire(Cellule);
             if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return r;}
-            var avant=new HashSet<long>(lu.Plan.Rues.Select(u=>u.Identifiant));
             Recu=depot.Deposer(Intention(g));
             if(Recu.Acceptee)
             {
-                // Un dépôt déjà en attente garde son relevé : ses rues neuves restent à dessiner.
-                if(enAttente==null)connues=avant;
                 enAttente=Recu;
                 Afficher("Route déposée au monde : elle se trace au tick suivant (après le tick "+Recu.AppliqueeAuTick.Value.ToString(CultureInfo.InvariantCulture)+").");
             }
@@ -125,7 +132,8 @@ namespace ForgeLocal3D
         }
 
         // Formée à la main : les nombres en culture invariante, au format "R" (aller-retour exact).
-        string Intention(DesertRoads.Geste g)
+        // Publique (lot 361) : le contrôle du relancement et la capture forment leurs dépôts avec elle.
+        public string Intention(DesertRoads.Geste g)
         {
             string N(double v)=>v.ToString("R",CultureInfo.InvariantCulture);
             var s=new StringBuilder("{\"type\":\"tracer_route\",\"cell\":").Append(Cellule.ToString(CultureInfo.InvariantCulture)).Append(",\"points\":[");
@@ -133,23 +141,54 @@ namespace ForgeLocal3D
             return s.Append("],\"largeur_m\":").Append(N(g.largeur)).Append('}').ToString();
         }
 
-        // Après le tick qui a appliqué le dépôt, dessine chaque rue apparue au plan depuis le dépôt,
+        // Après le tick qui a appliqué le dépôt, dessine chaque rue du plan encore jamais essayée,
         // de tout auteur, dans l'ordre du plan. Faux tant que ce tick n'est pas publié.
         public bool Attendre()
         {
             if(enAttente==null||plan==null)return false;
             var lu=plan.Lire(Cellule);
             if(!lu.Presente||lu.Plan.Tick<=enAttente.AppliqueeAuTick.Value)return false;
-            DesertRoads.Resultat dernier=null;
-            foreach(var rue in lu.Plan.Rues.Where(u=>!connues.Contains(u.Identifiant)))
-            {
-                dernier=roads.Poser(new DesertRoads.Geste{id="plan_"+rue.Identifiant.ToString(CultureInfo.InvariantCulture),revetement=Revetement,largeur=rue.LargeurM,
-                    x=rue.Points.Select(p=>p.X).ToArray(),y=rue.Points.Select(p=>p.Y).ToArray()});
-                Posees.Add((rue.Identifiant,dernier));
-            }
-            Afficher(dernier!=null?dernier.message:"Aucune rue neuve au plan après le tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+".");
-            enAttente=null;connues=null;
+            var essais=Dessiner(lu.Plan);Posees.AddRange(essais);
+            Afficher(Bilan("Après le tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+essais.Count(e=>e.resultat.acceptee)+" rue(s) neuve(s) posée(s).",essais));
+            enAttente=null;
             return true;
         }
+
+        // Lot 361 : la ville d'après le plan, sur une copie vierge du terrain. Appelée au lancement ;
+        // un dépôt en attente n'est pas touché. Faux, terrain inchangé, si la cellule, le plan ou les
+        // paramètres des routes manquent : l'absence est affichée, jamais devinée.
+        public bool Ouvrir()
+        {
+            Ouverture.Clear();essayees.Clear();TickOuverture=-1;
+            if(erreurCellule!=null){Afficher(erreurCellule);return false;}
+            var lu=plan.Lire(Cellule);
+            if(!lu.Presente){Afficher("Pas de plan à l'ouverture : "+lu.Absence);return false;}
+            DesertRoads.Gestes parametres;
+            try{parametres=DesertRoads.Lire(roads.implantation);}
+            catch(InvalidOperationException e){Afficher(e.Message);return false;}
+            roads.Preparer(parametres.parametres,parametres.graine);
+            Ouverture.AddRange(Dessiner(lu.Plan));TickOuverture=lu.Plan.Tick;
+            Afficher(Bilan("Plan du tick "+TickOuverture.ToString(CultureInfo.InvariantCulture)+" : "+Ouverture.Count(e=>e.resultat.acceptee)+" rue(s) posée(s).",Ouverture));
+            return true;
+        }
+
+        // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux
+        // points et à la largeur du plan. Rend ce qu'elle a essayé, posé ou refusé.
+        List<(long identifiant,DesertRoads.Resultat resultat)> Dessiner(PlanLu lu)
+        {
+            var essais=new List<(long identifiant,DesertRoads.Resultat resultat)>();
+            foreach(var rue in lu.Rues.Where(u=>!essayees.Contains(u.Identifiant)))
+            {
+                var r=roads.Poser(new DesertRoads.Geste{id="plan_"+rue.Identifiant.ToString(CultureInfo.InvariantCulture),revetement=Revetement,largeur=rue.LargeurM,
+                    x=rue.Points.Select(p=>p.X).ToArray(),y=rue.Points.Select(p=>p.Y).ToArray()});
+                essayees.Add(rue.Identifiant);essais.Add((rue.Identifiant,r));
+            }
+            return essais;
+        }
+
+        // La ligne de tête, puis une ligne par rue que le relief refuse : elle reste au plan, l'écran la nomme.
+        static string Bilan(string tete,IEnumerable<(long identifiant,DesertRoads.Resultat resultat)> essais)
+            =>string.Join("\n",new[]{tete}.Concat(essais.Where(e=>!e.resultat.acceptee)
+                .Select(e=>"Rue "+e.identifiant.ToString(CultureInfo.InvariantCulture)+" refusée par le relief : "+e.resultat.message)));
     }
 }
