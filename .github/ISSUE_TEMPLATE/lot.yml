@@ -30,10 +30,13 @@ body:
         - "J3 — Le lieu et son maître"
         - "J4 — La capitale"
         - "J5 — Les autres"
-        - "J6 — La dynastie"
-        - "J7 — La guerre"
-        - "J8 — L'argent"
-        - "J9 — Le premier siècle"
+        - "J6 — La ville vivante"
+        - "J7 — Première bataille"
+        - "J8 — La dynastie"
+        - "J9 — La campagne"
+        - "J10 — Le siège et la paix"
+        - "J11 — L'argent"
+        - "J12 — Le premier siècle"
         - "Réserve"
     validations:
       required: true

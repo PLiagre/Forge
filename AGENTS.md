@@ -24,7 +24,7 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
 
 ## 2. La chaîne — le propriétaire n'est pas là
 
-- **Un lot = une issue** : un jalon (milestone `J1`…`J9`, ou `Réserve` que le
+- **Un lot = une issue** : un jalon (milestone `J1`…`J12`, ou `Réserve` que le
   pilote ne prend jamais ; obligatoire), un état
   (`idee` → `pret` → `en-cours` → `livre`, ou `bloque` avec sa raison en
   commentaire), l'étiquette `pc` s'il demande Unity ou Blender. Le formulaire

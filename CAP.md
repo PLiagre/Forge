@@ -1,4 +1,4 @@
-# CAP — neuf jalons jusqu'au premier siècle jouable
+# CAP — douze jalons jusqu'au premier siècle jouable
 
 > Ce fichier dit **où va Forge et dans quel ordre**. Il est court exprès : tout
 > le reste en découle. Chaque lot porte le jalon qu'il sert (le jalon de son
@@ -6,8 +6,9 @@
 >
 > Chaque jalon est un milestone GitHub (`J1 — Le pont`, …). Le **jalon
 > courant** est le premier milestone ouvert. La chaîne travaille dans une
-> **fenêtre de deux jalons** : le courant d'abord ; une machine qui n'y a plus
-> rien à prendre avance le suivant, et le découpe s'il n'a encore rien. Un lot
+> **fenêtre de trois jalons** : le courant d'abord ; une machine qui n'y a plus
+> rien à prendre avance le suivant, puis le troisième, et le découpe s'il n'a
+> encore rien. Un lot
 > pris en avance ne s'appuie sur rien que le courant doit encore livrer. Un
 > jalon est atteint quand ses lots sont livrés — sa preuve comprise, avec sa
 > capture au journal — et le pilote ferme alors son milestone. Le pourcentage
@@ -35,6 +36,26 @@ Mesuré le même jour, et à rejouer : le monde ne ressemble pas encore à 1400.
 L'amorçage ignore l'aridité — le désert occidental égyptien y est aussi peuplé
 que le delta du Nil — et il n'y a ni royaume, ni ville, ni maison.
 
+## La ville et la bataille montent (6 octobre 2026)
+
+La vision prend deux choses à deux jeux : à Manor Lords, la capitale bâtie à
+la main, dense et vivante ; à Total War, la bataille tactique en temps réel.
+L'échelle du 29 septembre leur faisait trop peu de place. La capitale du
+jalon 4 est une base — une route, une parcelle, un atelier — et la ville
+vivante n'avait pas de jalon : ses lots dormaient dans la réserve. La guerre
+arrivait au septième jalon, en un seul bloc qui portait la levée, la marche,
+la bataille, le siège et la paix.
+
+L'échelle passe donc de neuf à douze jalons, sans toucher aux cinq premiers :
+
+- **la ville vivante** (jalon 6) suit les autres, pour que l'IA bâtisse ses
+  capitales par les mêmes gestes dès qu'ils existent ;
+- **une première bataille** (jalon 7) vient avant la dynastie : le pont entre
+  `sim/` et le moteur de bataille est le plus risqué du jeu, on le pose tôt ;
+- **la guerre se fait en trois temps** : la bataille (jalon 7), la campagne,
+  qui a besoin de la dynastie pour risquer la vie du chef (jalon 9), puis le
+  siège et la paix, livrés dans la ville bâtie au jalon 6 (jalon 10).
+
 ## La règle d'un jalon
 
 Un jalon est **jouable** : on lance quelque chose, on fait un geste, on voit le
@@ -60,10 +81,13 @@ monde répondre. Il a :
 | 3 | **Le lieu et son maître** | fixe la part qu'il prend sur ses lieux | la cellule découpée en lieux, chacun avec son seigneur ; les flux vers son siège et vers son suzerain |
 | 4 | **La capitale** | trace une route, découpe une parcelle, pose un atelier | sa capitale en 3D, dessinée d'après le plan que tient le monde ; ses foyers par métier |
 | 5 | **Les autres** | regarde ses voisins faire comme lui | les capitales voisines qui grandissent, leurs prélèvements, par les mêmes gestes |
-| 6 | **La dynastie** | marie, éduque, meurt, hérite | l'arbre de la dynastie, l'héritier que désigne la loi, le partage des terres |
-| 7 | **La guerre** | lève ses hommes, marche, assiège, livre bataille | la colonne sur la carte, la bataille en 3D, jouée ou déléguée, la terre qui change de main |
-| 8 | **L'argent** | emprunte, frappe, dévalue, achète une terre | les prix lieu par lieu, sa dette, l'inflation qui suit la dévaluation |
-| 9 | **Le premier siècle** | joue de 1400 à 1500 sans changer de jeu | la chronique d'un siècle de sa dynastie, et la carte de 1500 que la partie a faite |
+| 6 | **La ville vivante** | découpe des lots où ses foyers bâtissent, pose les grands bâtiments, trace l'enceinte | une capitale dense en 3D, qui fume, vend et s'éclaire, dans ses murs ; la rue à hauteur d'homme |
+| 7 | **Première bataille** | lève une troupe dans ses foyers et la mène en 3D, ou la confie à un général | la levée, la mêlée en 3D, et au retour les foyers qui ont perdu un homme |
+| 8 | **La dynastie** | marie, éduque, meurt, hérite | l'arbre de la dynastie, l'héritier que désigne la loi, le partage des terres |
+| 9 | **La campagne** | fait marcher et nourrir son armée, cherche la bataille, y risque sa vie | la colonne sur la carte, ce qu'elle mange, le creux qu'elle laisse ; le chef qui revient, ou son héritier |
+| 10 | **Le siège et la paix** | assiège, donne l'assaut, défend sa capitale, signe la paix | le siège en 3D, la brèche, les combats de rue dans sa propre ville ; la terre qui change de main |
+| 11 | **L'argent** | emprunte, frappe, dévalue, achète une terre | les prix lieu par lieu, sa dette, l'inflation qui suit la dévaluation |
+| 12 | **Le premier siècle** | joue de 1400 à 1500 sans changer de jeu | la chronique d'un siècle de sa dynastie, et la carte de 1500 que la partie a faite |
 
 ---
 
@@ -209,8 +233,8 @@ seul Unity connaît, font échouer l'épreuve.
 **Dans le monde** : la route, première infrastructure — elle coûte du travail
 réel et concentre un flux là où une frontière le diffuse ; les premiers
 bâtiments ; la population cesse d'être un entier par lieu et se compte en
-foyers. Le kit du désert et les lots de ville de la réserve servent ici,
-reformulés contre `sim/`.
+foyers. Le kit du désert sert ici ; les lots de ville de la réserve
+attendent la ville vivante (jalon 6).
 
 ## Jalon 5 — Les autres
 
@@ -234,7 +258,68 @@ dans le monde fait échouer le contrôle.
 raisons de monde (la faim de leurs gens, la richesse de leurs lieux). À partir
 d'ici, chaque jalon qui ajoute un geste le donne aussi à l'IA.
 
-## Jalon 6 — La dynastie
+## Jalon 6 — La ville vivante
+
+**Le joueur** bâtit sa capitale à la main, comme dans Manor Lords : il découpe
+ses parcelles en lots où les foyers bâtissent leurs maisons, pose les
+bâtiments singuliers (l'église, la halle, le moulin, la demeure du seigneur),
+trace l'enceinte et ses portes. Il survole sa ville et descend dans la rue.
+
+**La décision** : des murs ou des maisons — la pierre et les bras d'une
+enceinte, c'est autant de moins pour loger et nourrir ; une ville serrée dans
+ses murs, ou étalée et ouverte ; quel grand bâtiment d'abord.
+
+**L'écran** : une capitale dense et vivante en 3D — les maisons sur leurs
+lots, les étals garnis de ce que contiennent les stocks, la fumée des foyers
+qui cuisent, les lumières la nuit ; l'enceinte et ses portes ; la caméra de
+city builder qui passe du survol à la rue.
+
+**La preuve** : chaque maison est celle d'un foyer de `sim/`, et un foyer sans
+toit se déclare sans abri ; un étal ne montre que ce que le stock du lieu
+contient, une cheminée ne fume que si un foyer cuit ; un mur coûte la pierre
+transportée et les journées de travail réelles ; Unity relancé redessine la
+même ville d'après le service. L'IA bâtit ses capitales par les mêmes
+intentions. La ville dense tient 60 images par seconde sur la machine de
+référence. Contre-épreuve : une maison sans foyer, un étal plein dans un lieu
+affamé, ou un mur sans pierre font échouer l'épreuve.
+
+**Dans le monde** : le bâti devient une donnée du moteur. Les lots, les
+maisons, les bâtiments singuliers et l'enceinte entrent dans le plan de la
+ville que tient `sim/` — le siège du jalon 10 se livrera dedans. Les lots de
+ville de la réserve servent ici, reformulés contre `sim/` : la caméra (#155),
+les maisons sur leurs lots (#158), les bâtiments posés à la main (#161), la
+ville qui vit (#165), la ville dense à 60 images par seconde (#166).
+
+## Jalon 7 — Première bataille
+
+**Le joueur** lève une troupe dans ses foyers et la mène en 3D contre celle
+d'un voisin, sur le terrain de sa cellule : il la place, lui donne ses ordres,
+la voit tenir ou plier. Il peut aussi la confier à un général.
+
+**La décision** : combien d'hommes lever — chaque homme levé est un bras de
+moins aux champs cette saison ; des piques ou des arbalètes ; engager, ou
+reculer quand la ligne plie.
+
+**L'écran** : la levée foyer par foyer ; le champ de bataille en 3D, les deux
+troupes, la mêlée ; au retour, les foyers qui ont perdu un homme et les champs
+qui manquent de bras.
+
+**La preuve** : les soldats sont des habitants — ils quittent leur foyer et y
+reviennent, ou meurent, et le compte tient ; les pertes reviennent au monde au
+tick qui suit la bataille. Une bataille déléguée passe par le même moteur
+qu'une bataille jouée : mêmes troupes, même terrain, mêmes ordres et même
+graine donnent la même issue, avec ou sans image. L'IA lève ses troupes par
+les mêmes intentions. Contre-épreuve : une bataille dont les pertes ne
+reviennent pas au monde, ou une issue calculée à part, « abstraite », font
+échouer l'épreuve.
+
+**Dans le monde** : la levée et la bataille, rien de plus — ni marche sur la
+carte, ni siège, ni terre qui change de main. Citadelle-Guerre sort des
+archives : son moteur de foule (#169) porte la bataille, sur le terrain du
+monde. Le pont entre `sim/` et la bataille — des hommes vers le champ, des
+pertes vers les foyers — est le cœur du jalon.
+
+## Jalon 8 — La dynastie
 
 **Le joueur** est un personnage : il vieillit, se marie, a des enfants qu'il
 éduque, et meurt. Il joue ensuite l'héritier que désigne la loi de succession.
@@ -254,32 +339,57 @@ un partage qui perd un lieu, ou une défaite jamais déclarée, doivent échouer
 personnages des dynasties, avec des personnalités qui raisonnent en monde.
 Les maisons de l'IA ont les leurs, sous les mêmes règles.
 
-## Jalon 7 — La guerre
+## Jalon 9 — La campagne
 
-**Le joueur** lève des hommes dans ses foyers, les fait marcher, assiège un
-lieu ou livre bataille — qu'il mène lui-même en 3D, ou qu'il confie à un
-général.
+**Le joueur** déclare la guerre à une maison voisine, fait marcher son armée
+sur la carte, la nourrit en route, cherche la bataille ou l'évite — et la
+mène en personne, à ses risques, ou la confie à un général de sa dynastie.
 
-**La décision** : lever des hommes, c'est vider des champs ; risquer une
-bataille — et sa propre vie — pour trancher la guerre, ou assiéger et attendre.
+**La décision** : marcher vite en vivant sur le pays, ou lentement avec ses
+vivres ; risquer la vie du chef pour trancher la guerre, ou confier l'armée à
+un cadet qui pourrait en tirer gloire et ambition.
 
 **L'écran** : la colonne sur la carte, ce qu'elle mange dans les lieux
-traversés, le creux qu'elle laisse ; le champ de bataille en 3D ; le siège
-d'une citadelle ; la terre qui change de main à la paix.
+traversés, le creux qu'elle laisse ; la bataille où elle rencontre l'ennemi ;
+le chef qui en revient, ou son héritier.
 
-**La preuve** : les soldats sont des habitants (ils quittent leur foyer et y
-reviennent, ou meurent) ; une colonne qui ne mange pas meurt de faim ; les
-morts manquent ensuite aux champs. Une bataille déléguée passe par le même
-moteur qu'une bataille jouée : mêmes armées, même terrain, mêmes ordres et
-même graine donnent la même issue, avec ou sans image. Le siège de la capitale
-se livre dans la ville que le joueur a bâtie. Contre-épreuve : une bataille
-dont les pertes ne reviennent pas au monde doit échouer.
+**La preuve** : une colonne qui ne mange pas meurt de faim, et ce qu'elle
+mange manque aux lieux traversés ; les morts manquent ensuite aux champs ; un
+chef tombé au combat meurt dans le monde, et sa succession suit la loi du
+jalon 8. Les batailles entre maisons de l'IA passent par le même moteur que
+celles du joueur. Contre-épreuve : une colonne qui mange sans rien retirer
+des lieux doit faire échouer la conservation.
 
-**Dans le monde** : la guerre, le siège, et la paix qui cède des terres.
-Citadelle-Guerre sort des archives : son moteur de foule porte la bataille,
-sur le terrain du monde. Le chef de la dynastie peut mourir au combat.
+**Dans le monde** : la guerre entre maisons, la colonne qui marche et mange,
+le général. L'IA mène ses campagnes par le même chemin que le joueur.
 
-## Jalon 8 — L'argent
+## Jalon 10 — Le siège et la paix
+
+**Le joueur** assiège un lieu fortifié — il l'affame, ou donne l'assaut par
+la brèche —, défend sa propre capitale, et signe une paix qui cède ou gagne
+des terres.
+
+**La décision** : assiéger et attendre, en payant ce que l'armée mange, ou
+donner l'assaut et le payer en morts ; céder un lieu pour avoir la paix, ou
+continuer la guerre.
+
+**L'écran** : le siège en 3D — les murs, la brèche, les combats de rue ; sa
+propre capitale assiégée ; sur la carte, la terre qui change de main à la
+paix.
+
+**La preuve** : le siège de sa capitale se livre dans la ville qu'il a bâtie
+(jalon 6) : mêmes rues, mêmes murs, d'après le plan que tient `sim/` ; une
+ville assiégée mange ses stocks et a faim quand ils sont vides ; une brèche
+ne s'ouvre que dans un mur qui existe dans le plan ; un lieu cédé à la paix
+change de maître sans qu'aucun lieu se perde ni se crée. Contre-épreuve : un
+siège livré dans une ville que seul Unity connaît, ou une paix qui perd un
+lieu, font échouer l'épreuve.
+
+**Dans le monde** : le siège, l'assaut, la paix et ses clauses ; la terre
+change de main par la guerre. Les engins et les essais de siège de
+Citadelle-Guerre (brèche, assaut, combats de rue) servent ici.
+
+## Jalon 11 — L'argent
 
 **Le joueur** emprunte pour acheter une terre, met un lieu en gage, dote sa
 fille, frappe monnaie — et peut la dévaluer.
@@ -301,7 +411,7 @@ ne s'efface jamais. Contre-épreuve : une monnaie créée sans métal doit faire
 deviennent le signal sur lequel l'IA décide, et les républiques marchandes
 trouvent ici leurs outils.
 
-## Jalon 9 — Le premier siècle
+## Jalon 12 — Le premier siècle
 
 **Le joueur** joue de 1400 à 1500 d'un seul trait, sans changer de jeu :
 plusieurs générations, des guerres, des mariages, des dettes.
@@ -325,7 +435,7 @@ doit la faire échouer.
 
 ## L'horizon, après le premier siècle
 
-Ce ne sont pas encore des jalons : ils s'écriront quand le jalon 9 sera
+Ce ne sont pas encore des jalons : ils s'écriront quand le jalon 12 sera
 atteint, avec ce qu'on aura appris.
 
 - **Les rails de l'histoire** : l'imprimerie, la Réforme, les Grandes
