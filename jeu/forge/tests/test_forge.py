@@ -207,3 +207,102 @@ def test_carte_de_1400_depart_lectures_et_refus(tmp_path, monkeypatch, capsys):
     assert "carte : photographie sonde incomplète" in capsys.readouterr().err
     assert not (sortie / "resume.json").exists()
     print("cartes_vérifiées=3, refus=1, contre_épreuves_rouges=1")
+
+
+def test_forge_ia_boucle(tmp_path, monkeypatch):
+    import random
+    from forge.__main__ import _simuler
+    from sim import ia, engine, snapshot_export as photo
+    from sim.world import World
+    jouer, tick, exporter = ia.jouer_ia, engine.tick, photo.export_snapshot
+    evenements, sorties = [], []
+    def jouer_sonde(w, r):
+        evenements.append(('ia', w, r)); jouer(w, r)
+    def tick_sonde(w, rng, *a):
+        if evenements and w is evenements[0][1]: evenements.append(('tick', w, evenements[0][2]))
+        return tick(w, rng, *a)
+    def export_sonde(w, *a, **kw):
+        sorties.append(w.to_dict()); return exporter(w, *a, **kw)
+    monkeypatch.setattr(ia, 'jouer_ia', jouer_sonde)
+    monkeypatch.setattr(engine, 'tick', tick_sonde)
+    monkeypatch.setattr(photo, 'export_snapshot', export_sonde)
+    _simuler(30, 0, tmp_path / 'ia.json', ia=True)
+    def ordre(e):
+        assert [x[0] for x in e] == ['ia', 'tick'] * 30
+        assert all(x[1] is e[0][1] and x[2] is e[0][2] for x in e)
+    ordre(evenements)
+    with pytest.raises(AssertionError): ordre(evenements[::-1])
+    temoin, releve, rng = World.charger(0), [], random.Random(0)
+    for _ in range(30): jouer(temoin, releve); tick(temoin, rng)
+    assert releve and evenements[0][2] == releve and sorties[-1] == temoin.to_dict()
+    monkeypatch.setattr(ia, 'jouer_ia', lambda *a: None)
+    _simuler(30, 0, tmp_path / 'muet.json', ia=True)
+    with pytest.raises(AssertionError): assert sorties[-1] == temoin.to_dict()
+    monkeypatch.setattr(ia, 'jouer_ia', lambda *a: pytest.fail('IA avant le premier tick'))
+    _simuler(0, 0, tmp_path / 'zero.json', ia=True)
+
+
+def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
+    import copy
+    from sim.ia import maisons_actives_30j
+    blocs, octets = [], []
+    for n, ticks in enumerate((30, 30, 0)):
+        code, sortie = _jouer(tmp_path / str(n), '--ticks', str(ticks), '--ia', '--sans-chronique')
+        assert code == 0 and all((sortie / f).stat().st_size > 0 for f in ('monde.json', 'resume.json', 'carte.png', 'tableau.svg'))
+        photo = json.loads((sortie / 'monde.json').read_bytes())
+        resume = json.loads((sortie / 'resume.json').read_bytes())
+        affiche = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+        bloc = photo['ia']; blocs.append(bloc); octets.append((sortie / 'monde.json').read_bytes())
+        assert bloc == resume['simulation']['ia'] == affiche['simulation']['ia']
+        gestes = [g for m in bloc['maisons'] for g in m['gestes']]
+        assert bloc['maisons'] and bloc['maisons_actives_30j'] == maisons_actives_30j(ticks, gestes)
+        if ticks:
+            def activite(r): assert r and maisons_actives_30j(ticks, r) > 0
+            activite(gestes)
+            with pytest.raises(AssertionError): activite([])
+            for champ in ('gestes', 'population'):
+                faux = copy.deepcopy(bloc)
+                maison = next(m for m in faux['maisons'] if m['gestes'])
+                if champ == 'gestes': maison[champ].pop()
+                else: maison[champ] += 1
+                with pytest.raises(AssertionError): assert faux == resume['simulation']['ia']
+        else: assert not gestes and bloc['maisons_actives_30j'] == -1
+    assert octets[0] == octets[1] and blocs[0] == blocs[1]
+    monkeypatch.setattr('forge.__main__._planche', lambda *a: {'code': 0})
+    assert _jouer(tmp_path / 'planche', '--ticks', '0', '--ia')[0] == 0
+    assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])['planche']['ia'] is False
+
+
+@pytest.mark.parametrize('ticks,empreinte', [(0, '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9'), (30, '33886a9e1eb7843144ed36bf0861c4b5c44d73d4752a0b8fdf36eba69603f640')])
+def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
+    import hashlib
+    from forge.__main__ import _simuler
+    from sim.snapshot_export import serialize_snapshot
+    monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: pytest.fail('IA sans option'))
+    chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
+    assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
+    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == empreinte
+    faux = json.loads(chemin.read_bytes()); faux['ia'] = []
+    with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux)).hexdigest() == empreinte
+
+
+@pytest.mark.parametrize('cas', ['inconnu', 'double', 'sans_tick', 'donnee', 'position', 'intention', 'export', 'export_io'])
+def test_forge_ia_refus(tmp_path, capsys, monkeypatch, cas):
+    from sim.intentions import IntentionRefusee
+    from sim.snapshot_export import SnapshotExportError
+    from sim.aggregation import PositionCelluleInconnue
+    bar, inconnu = _terres_depart()
+    arguments = {'inconnu': ['--depart', str(inconnu)], 'double': ['--depart', str(bar), '--depart', str(bar)], 'sans_tick': ['--depart', str(bar), '--ticks', '0']}
+    if cas in arguments:
+        monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: pytest.fail('IA avant validation'))
+        message = {'inconnu': 'seigneurie inconnue', 'double': 'départ déjà choisi', 'sans_tick': "l'intention s'applique au tick suivant"}[cas]
+    else:
+        message = 'maison sonde : bourg absent'
+        def refuser(*a, **kw): raise {'donnee': ValueError, 'position': PositionCelluleInconnue, 'intention': IntentionRefusee, 'export': SnapshotExportError, 'export_io': OSError}[cas](message)
+        monkeypatch.setattr('sim.snapshot_export.export_snapshot' if cas in ('export', 'export_io') else 'sim.ia.jouer_ia', refuser)
+    _verifier_refus_depart(tmp_path, [*arguments.get(cas, []), '--ia'], message, capsys)
+    if cas in ('inconnu', 'donnee'):
+        monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: None)
+        if cas == 'inconnu': monkeypatch.setattr('sim.intentions.deposer_intention', lambda *a: None)
+        with pytest.raises(AssertionError):
+            _verifier_refus_depart(tmp_path / 'ignore', [*arguments.get(cas, []), '--ia'], message, capsys)
