@@ -25,7 +25,7 @@ namespace ForgeLocal3D.Captures
         const int DELAI_S = 60;
 
         // Point du repère de paysage.py vers le monde d'Unity (comme DesertCityRoads.World).
-        static Vector3 Monde(Terrain t, double x, double y)
+        internal static Vector3 Monde(Terrain t, double x, double y)
         {
             var p = new Vector3((float)-x, 0, (float)-y);
             p.y = t.SampleHeight(p) + t.transform.position.y;
@@ -33,7 +33,7 @@ namespace ForgeLocal3D.Captures
         }
 
         // La dernière rue du plan aux points et à la largeur du geste : celle que ce scénario vient de déposer.
-        static long Identifiant(PlanLu plan, DesertRoads.Geste g)
+        internal static long Identifiant(PlanLu plan, DesertRoads.Geste g)
         {
             var rue = plan.Rues.LastOrDefault(u => u.LargeurM == g.largeur && u.Points.Count == g.x.Length
                 && Enumerable.Range(0, g.x.Length).All(i => Math.Abs(u.Points[i].X - g.x[i]) < 1e-6 && Math.Abs(u.Points[i].Y - g.y[i]) < 1e-6));
@@ -43,7 +43,7 @@ namespace ForgeLocal3D.Captures
         }
 
         // Les dépôts, hors du fil de l'éditeur : y attendre HttpClient peut ne jamais revenir.
-        static void Deposer(int port, params string[] intentions)
+        internal static void Deposer(int port, params string[] intentions)
         {
             var recus = Task.Run(() =>
             {
@@ -56,7 +56,7 @@ namespace ForgeLocal3D.Captures
                         + (recus[i].Presente ? recus[i].Erreur : recus[i].Absence));
         }
 
-        static void Tick(int port)
+        internal static void Tick(int port)
         {
             string url = "http://127.0.0.1:" + port + "/tick?n=1";
             int statut = Task.Run(() =>
@@ -70,7 +70,7 @@ namespace ForgeLocal3D.Captures
                 throw new InvalidOperationException("POST " + url + " a rendu " + statut);
         }
 
-        static PlanLu Lire(int port, long cellule)
+        internal static PlanLu Lire(int port, long cellule)
         {
             var lu = Task.Run(() =>
             {
