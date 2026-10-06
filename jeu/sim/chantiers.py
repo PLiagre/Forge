@@ -1,4 +1,4 @@
-"""Journées de route puis de parcelle : des paysans deviennent ouvriers au tick."""
+"""Journées de route, parcelle puis bâtiment : des paysans deviennent ouvriers."""
 
 from dataclasses import replace
 import math
@@ -41,7 +41,7 @@ def _servir(element, metiers):
 
 
 def avancer_chantiers(world):
-    """Retour aux champs, rues par identifiant, puis parcelles, sans aléa."""
+    """Retour aux champs, rues, parcelles puis bâtiments prêts, par identifiant."""
     envois = {}
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
@@ -51,11 +51,15 @@ def avancer_chantiers(world):
         if metiers is not None and ouvriers in metiers:
             metiers[paysans] = metiers.get(paysans, 0) + metiers.pop(ouvriers)
         listes, travail_apporte = {}, False
-        for nom, cle in (("rues", ()), ("parcelles", ("parcelle",))):
+        parcelles_en_chantier = {p.identifiant for p in plan.parcelles if p.en_chantier}
+        for nom, cle in (("rues", ()), ("parcelles", ("parcelle",)), ("batiments", ("batiment",))):
             listes[nom] = []
             for element in sorted(getattr(plan, nom), key=lambda element: element.identifiant):
                 if element.en_chantier:
-                    element, personnes = _servir(element, metiers)
+                    if nom == "batiments" and element.parcelle in parcelles_en_chantier:
+                        personnes = 0
+                    else:
+                        element, personnes = _servir(element, metiers)
                     envois[(cell_id, *cle, element.identifiant)] = personnes
                     travail_apporte = travail_apporte or personnes > 0
                 listes[nom].append(element)
@@ -63,5 +67,5 @@ def avancer_chantiers(world):
             ecrire_habitants_par_metier(cell, metiers)
         if travail_apporte:
             world.plans[cell_id] = Plan(rues=listes["rues"], parcelles=listes["parcelles"],
-                                       batiments=plan.batiments)
+                                       batiments=listes["batiments"])
     return envois

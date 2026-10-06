@@ -476,3 +476,224 @@ def test_documentation_batiment(monkeypatch):
             sonde.setattr(Path, "read_text", lambda path, *a, **kw: lire(path, *a, **kw).replace(mot, "retiré"))
             with pytest.raises(AssertionError):
                 controler()
+
+
+def test_batiment_priorite(monkeypatch):
+    from sim import chantiers
+    from sim.plan import Batiment, Parcelle
+
+    monde = World.charger(0)
+    candidats = [c for c in monde.cells.values()
+                 if lire_habitants_par_metier(c).get(k.METIER_PAYSANS, 0) > 0]
+    assert candidats, "échantillon vide : aucun paysan"
+    cell = min(candidats, key=lambda c: (lire_habitants_par_metier(c)[k.METIER_PAYSANS], c.cell_id))
+    c, population = cell.cell_id, cell.population
+    paysans = lire_habitants_par_metier(cell)[k.METIER_PAYSANS]
+    requis, foyers = paysans + k.TAILLE_FOYER, paysans + 1
+    triangle = [(0, 0), (1, 0), (0, 1)]
+    rue = Rue(5, [(0, 0), (1, 0)], 1, True, foyers, requis)
+    parcelles = [Parcelle(0, triangle, True, foyers, requis),
+                 Parcelle(1, triangle), Parcelle(2, triangle)]
+    batiments = [Batiment(i, i + 1, "maison", triangle, True, foyers, requis) for i in (1, 0)]
+    plan = Plan(rues=[rue], parcelles=parcelles, batiments=batiments)
+    monde.plans[c] = plan
+    attendu = {(c, 5): paysans, (c, "parcelle", 0): 0,
+               (c, "batiment", 0): 0, (c, "batiment", 1): 0}
+    assert chantiers.avancer_chantiers(monde) == attendu
+    assert monde.plans[c].rues[0].travail_fourni == paysans
+    assert all(p.travail_fourni == 0 for p in monde.plans[c].parcelles)
+    assert all(b.travail_fourni == 0 for b in monde.plans[c].batiments)
+    monde = World.charger(0)
+    monde.plans[c] = Plan(parcelles=parcelles[1:], batiments=batiments)
+    assert chantiers.avancer_chantiers(monde) == {(c, "batiment", 0): paysans, (c, "batiment", 1): 0}
+    assert [b.travail_fourni for b in monde.plans[c].batiments] == [paysans, 0]
+    assert sum(lire_habitants_par_metier(monde.cells[c]).values()) == population
+    monde = World.charger(0)
+    monde.plans[c] = plan
+    monde.cells[c].habitants_par_metier = None
+    avant = monde.to_dict()
+    assert chantiers.avancer_chantiers(monde) == {cle: 0 for cle in attendu}
+    assert monde.to_dict() == avant and monde.plans[c] is plan
+    monde = World.charger(0)
+    monkeypatch.setitem(monde.plans, c, Plan(rues=[Rue(5, rue.points, rue.largeur_m)],
+                                           parcelles=parcelles, batiments=batiments))
+    envois = chantiers.avancer_chantiers(monde)
+    assert envois == {(c, "parcelle", 0): paysans, (c, "batiment", 0): 0, (c, "batiment", 1): 0}
+    with pytest.raises(AssertionError):
+        assert envois == attendu
+
+
+def test_batiment_attend_sa_parcelle(monkeypatch):
+    from sim import chantiers
+    from sim.plan import Batiment, Parcelle
+
+    monde = World.charger(0)
+    c = _route_reference(monde)["cell"]
+    t = k.TAILLE_FOYER
+    assert lire_habitants_par_metier(monde.cells[c])[k.METIER_PAYSANS] > 2 * t > 0
+    triangle = [(0, 0), (1, 0), (0, 1)]
+    parcelle = Parcelle(0, triangle, True, 1, t, 0)
+    batiment = Batiment(0, 0, "four", triangle, True, 1, 3 * t, 0)
+    plan = Plan(parcelles=[parcelle], batiments=[batiment])
+    monde.plans[c] = plan
+    assert chantiers.avancer_chantiers(monde) == {(c, "parcelle", 0): t, (c, "batiment", 0): 0}
+    assert not monde.plans[c].parcelles[0].en_chantier
+    assert monde.plans[c].batiments[0].travail_fourni == 0
+    assert lire_habitants_par_metier(monde.cells[c])[k.METIER_PAYSANS] > 0
+    assert chantiers.avancer_chantiers(monde) == {(c, "batiment", 0): t}
+    monde = World.charger(0)
+    monde.plans[c] = Plan(parcelles=[parcelle, Parcelle(1, triangle)],
+                          batiments=[batiment, Batiment(1, 1, "four", triangle, True, 1, 3 * t, 0)])
+    assert chantiers.avancer_chantiers(monde) == {
+        (c, "parcelle", 0): t, (c, "batiment", 0): 0, (c, "batiment", 1): t}
+    monde = World.charger(0)
+    monkeypatch.setitem(monde.plans, c, Plan(parcelles=[Parcelle(0, triangle)], batiments=[batiment]))
+    assert chantiers.avancer_chantiers(monde) == {(c, "batiment", 0): t}
+    with pytest.raises(AssertionError):
+        assert monde.plans[c].batiments[0].travail_fourni == 0
+
+
+@pytest.mark.parametrize("nature", ["maison", "scierie", "four"])
+def test_batiment_compte(nature, monkeypatch):
+    from sim import chantiers
+    from sim.plan import Batiment, Parcelle
+
+    monde = World.charger(0)
+    c = _route_reference(monde)["cell"]
+    requis = 3 * k.TAILLE_FOYER - 2
+    assert requis % k.TAILLE_FOYER != 0
+    triangle = [(0, 0), (1, 0), (0, 1)]
+    depart = Plan(parcelles=[Parcelle(0, triangle)],
+                  batiments=[Batiment(0, 0, nature, triangle, True, 1, requis, 0)])
+    monde.plans[c] = depart
+    cell = monde.cells[c]
+    population, paysans = cell.population, lire_habitants_par_metier(cell)[k.METIER_PAYSANS]
+    assert paysans >= k.TAILLE_FOYER > 0
+    total = 0
+    for attendu in (k.TAILLE_FOYER, k.TAILLE_FOYER, requis - 2 * k.TAILLE_FOYER):
+        assert chantiers.avancer_chantiers(monde) == {(c, "batiment", 0): attendu}
+        total += attendu
+        _controler_compte(cell, monde.plans[c].batiments[0], attendu, total, population, paysans)
+    assert total == requis
+    assert chantiers.avancer_chantiers(monde) == {}
+    _controler_compte(cell, monde.plans[c].batiments[0], 0, requis, population, paysans)
+    plan = monde.plans[c]
+    with monkeypatch.context() as sonde:
+        sonde.setattr(chantiers, "ecrire_habitants_par_metier", lambda *a: pytest.fail("écriture inutile"))
+        sonde.setattr(chantiers, "Plan", lambda **kw: pytest.fail("plan reconstruit sans travail"))
+        assert chantiers.avancer_chantiers(monde) == {} and monde.plans[c] is plan
+    monde.plans[c] = depart
+    with monkeypatch.context() as sonde:
+        sonde.setattr(chantiers, "Plan", lambda **kw: depart)
+        assert chantiers.avancer_chantiers(monde) == {(c, "batiment", 0): k.TAILLE_FOYER}
+        assert monde.plans[c].batiments[0].travail_fourni == 0
+        with pytest.raises(AssertionError):
+            assert monde.plans[c].batiments[0].travail_fourni == k.TAILLE_FOYER
+
+
+def test_batiment_tick(monkeypatch):
+    from sim.chantiers import travail_requis_de_batiment
+    from sim.plan import Batiment, Parcelle
+    from sim.tests.test_intentions import _batiment_reference
+
+    reference = World.charger(0)
+    geste = _batiment_reference(reference)
+    c = geste["cell"]
+    contour = reference.plans[c].parcelles[0].contour
+    route = _route_reference(reference)
+    requis = travail_requis_de_batiment(contour)
+    f = math.ceil(requis / (3 * k.TAILLE_FOYER))
+    bras = f * k.TAILLE_FOYER
+    assert 2 * bras < requis <= 3 * bras
+    assert 0 < bras <= lire_habitants_par_metier(reference.cells[c])[k.METIER_PAYSANS]
+    base = Plan(rues=[Rue(0, route["points"], 4)], parcelles=[Parcelle(0, contour)])
+    production = engine._apply_production
+
+    def jouer():
+        mondes = [World.charger(0) for _ in range(3)]
+        aleas = [random.Random(0) for _ in mondes]
+        for i, monde in enumerate(mondes):
+            monde.plans[c] = base
+            if i < 2:
+                recevoir_intention(monde, geste | {"foyers": f})
+        releves = []
+
+        def relever(cell, *a, **kw):
+            if cell is mondes[0].cells[c]:
+                releves.append(lire_habitants_par_metier(cell).get(k.METIER_OUVRIERS, 0))
+            return production(cell, *a, **kw)
+
+        with monkeypatch.context() as sonde:
+            sonde.setattr(engine, "_apply_production", relever)
+            for i in range(5):
+                for monde, alea in zip(mondes, aleas):
+                    engine.tick(monde, alea, numero_tick=i)
+        assert mondes[0].to_dict() == mondes[1].to_dict()
+        assert aleas[0].getstate() == aleas[1].getstate() == aleas[2].getstate()
+        _cellules_identiques_sauf_metiers(mondes[2], mondes[0], c)
+        a, b = mondes[0].to_dict()["plans"], mondes[2].to_dict()["plans"]
+        assert a and a.keys() == b.keys()
+        assert all(a[cle] == b[cle] for cle in a if cle != str(c))
+        assert {cle: v for cle, v in a[str(c)].items() if cle != "batiments"} == {
+            cle: v for cle, v in b[str(c)].items() if cle != "batiments"}
+        assert not b[str(c)]["batiments"]
+        return mondes[0].plans[c].batiments[0], releves
+
+    batiment, releves = jouer()
+    assert releves == [bras, bras, requis - 2 * bras, 0, 0]
+    assert not batiment.en_chantier and batiment.travail_fourni == batiment.travail_requis == requis
+    with monkeypatch.context() as sonde:
+        sonde.setattr(engine, "_avancer_chantiers", lambda monde: None)
+        faux, _ = jouer()
+        assert faux.travail_fourni == 0
+        with pytest.raises(AssertionError):
+            assert not faux.en_chantier
+
+    def comparer_acheve():
+        mondes = [World.charger(0) for _ in range(2)]
+        aleas = [random.Random(0) for _ in mondes]
+        mondes[0].plans[c] = Plan(rues=base.rues, parcelles=base.parcelles, batiments=[cas["batiment"]])
+        mondes[1].plans[c] = base
+        for i in range(3):
+            for monde, alea in zip(mondes, aleas):
+                engine.tick(monde, alea, numero_tick=i)
+        assert aleas[0].getstate() == aleas[1].getstate()
+        return mondes
+
+    acheve = Batiment(0, 0, "maison", contour, False, 1, requis, requis)
+    cas = {"batiment": acheve}
+    mondes = comparer_acheve()
+    assert mondes[0].to_dict()["cells"] == mondes[1].to_dict()["cells"]
+    assert mondes[0].plans[c].batiments == [acheve]
+    with monkeypatch.context() as sonde:
+        sonde.setitem(cas, "batiment", replace(acheve, en_chantier=True, travail_fourni=0))
+        mondes = comparer_acheve()
+        with pytest.raises(AssertionError):
+            assert mondes[0].to_dict()["cells"] == mondes[1].to_dict()["cells"]
+
+
+def test_documentation_chantier_batiment(monkeypatch):
+    dossier = Path(engine.__file__).parent
+    lire = Path.read_text
+
+    def controler():
+        texte = (dossier / "MODELE.md").read_text(encoding="utf-8")
+        sections = {titre: texte.split(f"## {titre}\n", 1)[1].split("\n## ", 1)[0]
+                    for titre in ("Le chantier et ses bras", "Ce que le moteur ne fait pas encore", "En une page")}
+        assert '"batiment"' in sections["Le chantier et ses bras"]
+        assert "Aucune étape ne sert encore un bâtiment" not in sections["Le chantier et ses bras"]
+        assert "aucune étape ne le servant encore" not in sections["Ce que le moteur ne fait pas encore"]
+        assert "bâtiments" in sections["En une page"]
+        assert "journées de route puis de parcelle puis de bâtiment" in (dossier / "engine.py").read_text(encoding="utf-8")
+        assert "aucune étape ne lui fournissant encore" not in (dossier / "README.md").read_text(encoding="utf-8")
+
+    controler()
+    for fichier, ancien, nouveau in (
+        ("MODELE.md", "## Le chantier et ses bras\n", "## Le chantier et ses bras\nAucune étape ne sert encore un bâtiment\n"),
+        ("engine.py", " puis de bâtiment", ""),
+    ):
+        with monkeypatch.context() as sonde:
+            sonde.setattr(Path, "read_text", lambda path, *a, **kw: lire(path, *a, **kw).replace(ancien, nouveau)
+                          if path.name == fichier else lire(path, *a, **kw))
+            with pytest.raises(AssertionError):
+                controler()

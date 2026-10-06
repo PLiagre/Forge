@@ -17,7 +17,7 @@ Le service avance par défaut d'un jour par seconde. L'option
 le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
 `GET /monde`, `GET /lieu?cell=...` et `GET /plan?cell=...` restent lisibles
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
-bâtiments en mètres locaux ; il part vide et n'a aucun effet sur le tick.
+bâtiments en mètres locaux ; il part vide, puis ses chantiers prennent des bras aux champs.
 
 `POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}`,
 `{"type": "tracer_route", "cell": X, "points": [[0, 0], [40, 0]], "largeur_m": 4}`,
@@ -29,8 +29,9 @@ la maison du joueur, la route, la parcelle ou le bâtiment entre au plan en chan
 La parcelle borde une rue déjà au plan ; son contour est figé au dépôt.
 Le bâtiment occupe le contour d'une parcelle déjà au plan, même en chantier ;
 sa nature est maison, scierie ou four. Une parcelle déjà bâtie ou promise est
-refusée. Le coût en journées est calculé à l'application ; le bâtiment reste
-en chantier, aucune étape ne lui fournissant encore de journées.
+refusée. Le coût en journées est calculé à l'application ; le bâtiment prend
+ses bras après les routes et les parcelles, une fois sa parcelle achevée au
+début du tick. Achevé, il ne fait encore rien.
 Routes et parcelles prennent ensuite des bras aux champs et comptent leurs
 journées, les rues passant en premier. `foyers` vaut 1 par défaut. Le reçu accepté
 est `{"acceptee": true, "appliquee_au_tick": T}`. Un type inconnu, un corps
@@ -63,7 +64,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/model.py` | Dataclass `Cell` — entité géographique de base |
 | `sim/foyers.py` | Foyers par métier : rangement réversible et répartition entière des habitants |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
-| `sim/chantiers.py` | Journées de route et passage des paysans aux ouvriers, puis retour aux champs |
+| `sim/chantiers.py` | Journées de route, parcelle et bâtiment, passage des paysans aux ouvriers puis retour aux champs |
 | `sim/intentions.py` | Dépôt commun des choix de départ, routes, parcelles et bâtiments, en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
