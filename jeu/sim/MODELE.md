@@ -29,9 +29,10 @@ part. À chaque tick, dans cet ordre :
 3. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
    puis les rues, les parcelles et enfin les bâtiments dont la parcelle est
    prête prennent leurs bras et comptent les journées fournies.
+   **Ateliers** (`_affecter_artisans`) — les scieries et fours achevés prennent les paysans restants.
 4. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
-   de l'`objet`, sur place et sans occuper de bras.
+   de l'`objet`, sans bras ; les artisans façonnent ensuite le reliquat avec un budget commun.
 5. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
 6. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
@@ -112,11 +113,10 @@ limite de l'instrument : un `false` signifie « la sonde n'a rien vu », pas
 Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
 
 - **organiser la fabrication.** Les matières premières sont transformées sur
-  place, sans atelier, sans métier et sans bras affectés ; les objets produits
+  place : 5 % sans bras, puis un supplément par les artisans des ateliers ; les objets produits
   ne sont pas consommés.
-- **répartir le travail.** Les habitants ont un métier, mineur ou paysan.
-  Naissances, morts et départs suivent les métiers ; seuls la récolte et le
-  chantier, des rues, parcelles et bâtiments, les lisent. Seul le chantier fait passer des paysans à ouvriers
+- **répartir le travail.** Les habitants ont un métier : mineur, paysan, ouvrier ou artisan.
+  Naissances, morts et départs suivent les métiers ; récolte, chantiers, ateliers et fabrication les lisent. Les chantiers font passer les paysans à ouvriers, les ateliers à artisans
   et retour ; la part minière retire déjà des bras aux champs.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Une route se bâtit à la journée, mais aucune capacité de
@@ -482,7 +482,8 @@ migrant ne garde pas son métier. Une cellule sans métier accueille des
 paysans.
 
 **Le tick ne lit les métiers que pour la récolte et pour le chantier**.
-Le métier `ouvriers` reçoit les paysans envoyés aux routes pour ce tick.
+Ateliers lit aussi les métiers pour affecter les artisans ; Fabrication les lit pour leur budget de matière.
+Le métier `ouvriers` reçoit les paysans envoyés aux chantiers pour ce tick.
 Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × facteur_agricole`
 (sans carte : `area_km2`), sans facteur saisonnier. Ils demandent
 `km² cultivés × BRAS_AUX_CHAMPS_PAR_KM2` bras. Le facteur de bras vaut
@@ -724,8 +725,8 @@ objet_produit = matiere_consommee × RENDEMENT_FABRICATION
 | `RENDEMENT_FABRICATION` | 0.6 | kg d'objet/kg consommé | niveau 2, jamais sourcé |
 
 La fabrication est de **niveau 2**. Elle transforme la matière sur place et
-tourne en plus de la mine, de l'agriculture et du reste : aucun atelier,
-aucun métier et aucun bras affecté ne la limitent. L'`objet` produit n'est pas
+garde les 5 % sans bras. Ensuite, par nom de matière, `budget = artisans × FABRICATION_KG_PAR_ARTISAN_PAR_TICK` (5 kg/personne/tick), commun à toutes les matières.
+`consomme = min(stock restant, budget restant)` ; l'objet vaut cette masse × `RENDEMENT_FABRICATION`, les chutes la différence. Métiers non calculés : aucun supplément ; sans matière positive, aucun objet écrit. L'extraction vient après. L'`objet` produit n'est pas
 consommé et n'est jamais repris comme matière première.
 
 ---
@@ -1991,7 +1992,7 @@ cellule ne sont pas simulées.
 
 Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
 en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
-son plan ; seules les étapes Intentions et Chantiers le lisent. Intentions
+son plan ; Intentions, Chantiers et Ateliers le lisent. Intentions
 y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
 des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
@@ -2004,7 +2005,7 @@ inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
 
 La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
 vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
-et forme du bourg dans la cellule, effet des rues et bâtiments sur le monde,
+et forme du bourg dans la cellule, effet des rues et des maisons achevées sur le monde,
 gestes de bâtiment autres que la pose (démolir, déplacer, agrandir),
 et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
 son coût en journées, les bras pris aux champs et son achèvement sont de
@@ -2015,8 +2016,7 @@ une rue ou l'extérieur du bourg, sa propriété, son prix et son cadastre
 restent de niveau 3. Aucun bâtiment ni flux ne découle encore de son achèvement.
 La pose d'un bâtiment, son emprise égale au contour de sa parcelle, son coût
 et son achèvement sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
-l'orientation, l'étage, les matériaux et l'effet du bâtiment achevé (logement,
-fabrication) restent de niveau 3.
+l'orientation, l'étage, les matériaux et le logement restent de niveau 3. La maison achevée reste sans effet ; scierie et four emploient des artisans, de niveau 2.
 
 ## Le chantier et ses bras
 
@@ -2041,8 +2041,9 @@ produits croisés `x_i × y_{i+1} − x_{i+1} × y_i`, multipliée par
 `AIRE_PAR_PRODUIT_CROISE = 0,5`, moitié géométrique. Les deux fonctions
 relisent leur constante à chaque appel, quel que soit le sens du contour.
 Ainsi, 10 m × 20 m demandent 400 journées ; un contour plat demande 1 journée.
-Un bâtiment achevé ne fait encore rien : ni logement, ni fabrication, ni bras.
-Aucune autre étape ne lit le plan.
+Ateliers (`sim/ateliers.py`) rend les artisans aux champs, puis emploie par identifiant les paysans restants des scieries et fours achevés :
+`min(paysans restants, max(1, int(surface // SURFACE_M2_PAR_FOYER_ARTISAN)) × TAILLE_FOYER)`, avec 40 m² par foyer et la surface issue de `aire_du_contour(emprise)`.
+Les foyers du chantier ne fixent pas cet emploi ; mineurs et ouvriers restent en poste, les ouvriers du jour reviennent le lendemain. Sans atelier, retour aux champs ; métiers non calculés : zéro emploi. Ni aléa, ni emploi stocké sur le bâtiment, ni réécriture du plan. Scierie et four utilisent les matières disponibles pour le même objet générique, sans bois ni argile dans cette base.
 
 `sim/chantiers.py` parcourt les cellules par `cell_id`. Tous leurs `ouvriers`
 redeviennent d’abord `paysans`, puis les rues en chantier, par identifiant,

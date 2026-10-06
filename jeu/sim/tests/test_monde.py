@@ -3650,3 +3650,84 @@ def test_ia_option_explicitement(tmp_path, monkeypatch):
     assert cli._simulate(30, 0)[0] == resume
     assert _ia_cli(tmp_path, ticks=0, options=['--ia'])[0]['ia'] == {'releve': [], 'maisons_actives_30j': -1}
     assert _ia_cli(tmp_path, options=['--ia'])[1] != json.dumps(temoin.to_dict(), sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+
+
+@pytest.mark.parametrize("stocks", [(2, 100), (100, 100), (2, 2), (0, 0)])
+@pytest.mark.parametrize("artisans", [None, 0, 2])
+def test_fabrication_artisanale(stocks, artisans, monkeypatch):
+    from sim.tests.test_chantiers import _contre_ateliers; from sim import constants as k, engine
+    def controler():
+        budget = (artisans or 0) * k.FABRICATION_KG_PAR_ARTISAN_PAR_TICK
+        for ordre in (("cuivre", "fer"), ("fer", "cuivre")):
+            cell = Cell(0, 1, artisans or 0, habitants_par_metier=None if artisans is None else ({"artisans": artisans} if artisans else {}))
+            cell.stocks = {m: dict(zip(("cuivre", "fer"), stocks))[m] for m in ordre} | {"objet": 7, "nourriture": 13}; attendu = {m: v - v * k.TAUX_FABRICATION_PAR_TICK for m, v in zip(("cuivre", "fer"), stocks)}
+            consomme, restant = sum(stocks) * k.TAUX_FABRICATION_PAR_TICK, budget
+            for m in sorted(ordre):
+                prise = min(attendu[m], restant); attendu[m] -= prise; consomme, restant = consomme + prise, restant - prise
+            attendu.update(objet=7 + consomme * k.RENDEMENT_FABRICATION, nourriture=13); engine._apply_fabrication(cell); assert cell.stocks == pytest.approx(attendu)
+            assert sum(stocks) - cell.stocks["cuivre"] - cell.stocks["fer"] == pytest.approx(consomme); assert consomme - (cell.stocks["objet"] - 7) == pytest.approx(consomme * (1 - k.RENDEMENT_FABRICATION))
+        vide = Cell(0, 1, 1, habitants_par_metier={"artisans": 1}); engine._apply_fabrication(vide); assert "objet" not in vide.stocks
+    controler()
+    if artisans and any(stocks):
+        _contre_ateliers(monkeypatch, k, "faconnage_artisanal_kg", lambda stock, budget: (0, min(stock, budget) * k.RENDEMENT_FABRICATION), controler)
+        class BudgetInchange(float):
+            def __sub__(self, prise): return self
+        if sum(stocks) * (1 - k.TAUX_FABRICATION_PAR_TICK) > artisans * k.FABRICATION_KG_PAR_ARTISAN_PAR_TICK:
+            _contre_ateliers(monkeypatch, k, "budget_artisanal_kg", lambda n: BudgetInchange(n * k.FABRICATION_KG_PAR_ARTISAN_PAR_TICK), controler)
+
+def test_ateliers_sans_geste(monkeypatch):
+    from sim.tests.test_chantiers import _atelier; import random, math; from sim import engine
+    # Copie exacte du passage de base, indépendamment de la nouvelle Fabrication.
+    espace = dict(vars(engine))
+    exec('def _apply_fabrication(cell: Cell) -> None:\n    """\n    Maillon 0 — Façonnage des matières premières en objet, sur le panier\n    d\'ouverture de tick (avant extraction du jour).\n    """\n    objet = _constantes.MARCHANDISE_OBJET\n    for marchandise in _matieres_premieres_du_panier(cell):\n        stock = lire_stock_marchandise(cell, marchandise)\n        if stock <= 0:\n            continue\n        consomme, produit = _constantes.fabrication_kg(stock)\n        ecrire_stock_marchandise(cell, marchandise, stock - consomme)\n        objet_actuel = lire_stock_marchandise(cell, objet)\n        base_objet = objet_actuel if objet_actuel >= 0 else 0.0\n        ecrire_stock_marchandise(cell, objet, base_objet + produit)', espace)
+    mondes, aleas = [World.charger(0) for _ in range(2)], [random.Random(0) for _ in range(2)]; cid = next(c for c in mondes[0].cells if mondes[0].cells[c].population > 0)
+    for monde in mondes:
+        monde.plans[cid] = _atelier(nature="maison").plans[0]
+    def comparer(retours):
+        assert mondes[0].to_dict() == mondes[1].to_dict() and mondes[0].stocks_mer == mondes[1].stocks_mer; assert retours[0] == retours[1] and aleas[0].getstate() == aleas[1].getstate()
+    for numero in range(10):
+        retours = [engine.tick(mondes[0], aleas[0], numero)]
+        with monkeypatch.context() as ctx:
+            ctx.setattr(engine, "_affecter_artisans", lambda m: None); ctx.setattr(engine, "_apply_fabrication", espace["_apply_fabrication"]); retours.append(engine.tick(mondes[1], aleas[1], numero))
+        comparer(retours)
+    assert any(any(v > 0 for m, v in c.stocks.items() if m not in ("objet", "nourriture")) for c in mondes[0].cells.values()) and any(c.stocks.get("objet", 0) > 0 for c in mondes[0].cells.values()); mondes[1].cells[cid].food_stock_kg = math.nextafter(mondes[1].cells[cid].food_stock_kg, math.inf)
+    with pytest.raises(AssertionError): comparer(retours)
+
+def test_ateliers_constantes(monkeypatch):
+    from sim.tests.test_chantiers import _atelier, _contre_ateliers; from sim import constants as k, ateliers, engine; debit = k.FABRICATION_KG_PAR_ARTISAN_PAR_TICK
+    def controler():
+        monde = _atelier(); emploi = max(1, int(80 // k.SURFACE_M2_PAR_FOYER_ARTISAN)) * k.TAILLE_FOYER; assert ateliers.affecter_artisans(monde) == {(0, 0): emploi}; cell = monde.cells[0]; cell.stocks["fer"] = 1000
+        engine._apply_fabrication(cell); prise = 1000 * k.TAUX_FABRICATION_PAR_TICK + emploi * k.FABRICATION_KG_PAR_ARTISAN_PAR_TICK; assert cell.stocks["objet"] == pytest.approx(prise * k.RENDEMENT_FABRICATION)
+    for nom in ("SURFACE_M2_PAR_FOYER_ARTISAN", "TAILLE_FOYER", "FABRICATION_KG_PAR_ARTISAN_PAR_TICK", "RENDEMENT_FABRICATION"):
+        with monkeypatch.context() as ctx:
+            ctx.setattr(k, nom, getattr(k, nom) * 2); controler()
+            if nom == "FABRICATION_KG_PAR_ARTISAN_PAR_TICK":
+                _contre_ateliers(monkeypatch, k, "budget_artisanal_kg", lambda n: n * debit, controler)
+
+def test_ateliers_documentation(monkeypatch):
+    from sim.tests.test_chantiers import _contre_ateliers
+    def controler():
+        texte = (Path(__file__).parents[1] / "MODELE.md").read_text(); assert "Le tick ne lit les métiers que pour la récolte" in texte
+        for titre, mots in {"En une page": ["_affecter_artisans"], "Les foyers par métier": ["Ateliers", "Fabrication"],
+                            "La fabrication": ["5 % sans bras", "budget = artisans × FABRICATION_KG_PAR_ARTISAN_PAR_TICK", "consomme = min(stock restant, budget restant)"],
+                            "Le chantier et ses bras": ["max(1, int(surface // SURFACE_M2_PAR_FOYER_ARTISAN)) × TAILLE_FOYER", "Ateliers"]}.items():
+            assert all(m in texte.split("## " + titre + "\n")[1].split("\n## ")[0] for m in mots)
+    controler(); lire = Path.read_text; _contre_ateliers(monkeypatch, Path, "read_text", lambda p, *a, **kw: lire(p, *a, **kw).replace("Ateliers", "retiré").replace("_affecter_artisans", "retiré"), controler)
+
+def test_ateliers_budget(monkeypatch):
+    from sim.tests.test_chantiers import _atelier, _contre_ateliers; import random, statistics, time; from sim import engine; from sim.service import BUDGET_TICK_MS
+    def mesurer():
+        monde, rng = World.charger(0), random.Random(0)
+        for cid, cell in monde.cells.items():
+            if cell.population and cell.habitants_par_metier is not None:
+                monde.plans[cid] = _atelier().plans[0]
+        assert sum(bool(p.batiments) for p in monde.plans.values()) > 0; durees = []
+        for numero in range(25):
+            debut = time.perf_counter(); engine.tick(monde, rng, numero)
+            if numero >= 5:
+                durees.append((time.perf_counter() - debut) * 1000)
+        assert sum(c.habitants_par_metier.get("artisans", 0) for c in monde.cells.values()) > 0; print(f"ateliers : médiane={statistics.median(durees):.2f} ms maximum={max(durees):.2f} ms"); assert statistics.median(durees) < BUDGET_TICK_MS
+    mesurer(); affecter = engine._affecter_artisans
+    def lent(monde):
+        time.sleep(BUDGET_TICK_MS / 1000); affecter(monde)
+    _contre_ateliers(monkeypatch, engine, "_affecter_artisans", lent, mesurer)

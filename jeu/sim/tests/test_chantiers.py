@@ -697,3 +697,73 @@ def test_documentation_chantier_batiment(monkeypatch):
                           if path.name == fichier else lire(path, *a, **kw))
             with pytest.raises(AssertionError):
                 controler()
+
+
+def _contre_ateliers(monkeypatch, module, nom, faux, controler):
+    with monkeypatch.context() as ctx:
+        ctx.setattr(module, nom, faux, raising=False)
+        with pytest.raises(AssertionError): controler()
+
+def _atelier(surface=80, nature="four", personnes=None):
+    from sim.model import Cell, ecrire_habitants_par_metier; from sim.plan import Batiment, Parcelle; contour = [(0, 0), (surface, 0), (surface, 1), (0, 1)]; monde = World({0: Cell(0, 100, 0)}, [])
+    ecrire_habitants_par_metier(monde.cells[0], personnes if personnes is not None else {"paysans": 100}); monde.plans[0] = Plan(parcelles=[Parcelle(0, contour)], batiments=[Batiment(0, 0, nature, contour)]); return monde
+
+@pytest.mark.parametrize("surface", [20, 40, 80])
+def test_ateliers_effectifs(surface, monkeypatch):
+    from sim import ateliers
+    def controler():
+        monde = _atelier(surface, personnes={"paysans": k.TAILLE_FOYER + 2, "mineurs": 1, "ouvriers": 1}); plan, cell = monde.plans[0], monde.cells[0]
+        plan.batiments = [replace(plan.batiments[0], identifiant=i, nature=n, **kw) for i, n, kw in
+                           [(1, "four", {}), (0, "scierie", {}), (2, "maison", {}),
+                            (3, "four", {"en_chantier": True, "foyers": 1, "travail_requis": 1})]]
+        total, population = k.TAILLE_FOYER + 2, cell.population; premier = min(total, max(1, int(surface // k.SURFACE_M2_PAR_FOYER_ARTISAN)) * k.TAILLE_FOYER)
+        for _ in range(2):
+            assert ateliers.affecter_artisans(monde) == {(0, 0): premier, (0, 1): total - premier}; assert lire_habitants_par_metier(cell) == {"artisans": total, "mineurs": 1, "ouvriers": 1}
+            assert cell.population == population == sum(cell.habitants_par_metier.values()) and monde.plans[0] is plan
+        plan.batiments = []; ateliers.affecter_artisans(monde); assert lire_habitants_par_metier(cell) == {"paysans": total, "mineurs": 1, "ouvriers": 1}
+        with monkeypatch.context() as ctx:
+            ctx.setattr(ateliers, "ecrire_habitants_par_metier", lambda *a: pytest.fail("écriture inutile")); assert ateliers.affecter_artisans(monde) == {}
+            for metiers in (None, {}):
+                vide = _atelier(personnes={"paysans": k.TAILLE_FOYER} if metiers is None else {}); population = vide.cells[0].population; vide.cells[0].habitants_par_metier = metiers; assert ateliers.affecter_artisans(vide) == {(0, 0): 0}; assert lire_habitants_par_metier(vide.cells[0]) == (-1 if metiers is None else {}) and vide.cells[0].population == population
+    controler()
+    for cible, faux in (("sorted", lambda xs, **kw: list(reversed(sorted(xs, **kw)))),
+                        ("lire_habitants_par_metier", lambda c: {m: n for m, n in c.habitants_par_metier.items() if m != "artisans"})):
+        _contre_ateliers(monkeypatch, ateliers, cible, faux, controler)
+
+@pytest.mark.parametrize("requis", [1, 2 * k.TAILLE_FOYER + 1])
+def test_ateliers_tick(requis, monkeypatch):
+    def controler():
+        monde = _atelier(personnes={"paysans": k.TAILLE_FOYER + 1}); monde.plans[0].batiments[0] = replace(monde.plans[0].batiments[0], en_chantier=True, foyers=1, travail_requis=requis); cell, releves = monde.cells[0], []
+        cell.food_stock_kg = 100; fabrication, recolte = engine._apply_fabrication, engine._apply_production
+        def relever(c):
+            releves.append(lire_habitants_par_metier(c)); fabrication(c)
+        def recolter(c, *a, **kw):
+            assert lire_habitants_par_metier(c) == releves[-1]; avant = c.food_stock_kg; recolte(c, *a, **kw)
+            nominal = c.area_km2 * k.FOOD_PRODUCTION_KG_PER_KM2_PER_TICK * random.Random(0).uniform(k.RNG_YIELD_LOW, k.RNG_YIELD_HIGH)
+            facteur = min(1, releves[-1].get("paysans", 0) / (c.area_km2 * k.BRAS_AUX_CHAMPS_PAR_KM2))
+            assert 0 <= facteur < 1 and c.food_stock_kg - avant == pytest.approx(nominal * facteur)
+        with monkeypatch.context() as ctx:
+            ctx.setattr(engine, "_apply_fabrication", relever); ctx.setattr(engine, "_apply_production", recolter)
+            for numero in range(2):
+                engine.tick(monde, random.Random(0), numero)
+        attendu = [{"ouvriers": 1, "artisans": k.TAILLE_FOYER}, {"artisans": k.TAILLE_FOYER + 1}] if requis == 1 else [{"ouvriers": k.TAILLE_FOYER, "paysans": 1}] * 2
+        assert releves == attendu and monde.plans[0].batiments[0].en_chantier == (requis > 1); assert sum(releves[0].values()) == sum(releves[1].values()) == k.TAILLE_FOYER + 1
+    controler()
+    if requis == 1: _contre_ateliers(monkeypatch, engine, "_affecter_artisans", lambda m: None, controler)
+
+@pytest.mark.parametrize("nature", ["scierie", "four"])
+def test_ateliers_rejeu(nature, monkeypatch):
+    from sim.tests.test_intentions import _batiment_reference; from sim.service import _foyers_du_lieu
+    def controler():
+        reference = World.charger(0); geste = _batiment_reference(reference) | {"nature": nature, "foyers": 1000}; cid = geste["cell"]
+        base = replace(reference.plans[cid].parcelles[0], en_chantier=False, travail_fourni=reference.plans[cid].parcelles[0].travail_requis); mondes, aleas = [World.charger(0) for _ in range(3)], [random.Random(0) for _ in range(3)]
+        for i, monde in enumerate(mondes):
+            monde.plans[cid] = Plan(parcelles=[base]); assert lire_habitants_par_metier(monde.cells[cid])["paysans"] > 0; monde.cells[cid].stocks["fer"] = 1000
+            if i < 2: recevoir_intention(monde, geste)
+        for numero in range(3):
+            for monde, alea in zip(mondes, aleas):
+                engine.tick(monde, alea, numero)
+        assert mondes[0].to_dict() == mondes[1].to_dict() and mondes[0].stocks_mer == mondes[1].stocks_mer; assert aleas[0].getstate() == aleas[1].getstate() == aleas[2].getstate(); cell, temoin = mondes[0].cells[cid], mondes[2].cells[cid]
+        assert not mondes[0].plans[cid].batiments[0].en_chantier and not mondes[2].plans[cid].batiments; assert _foyers_du_lieu(cell).get("artisans", {}).get("personnes", 0) == lire_habitants_par_metier(cell).get("artisans", 0) > 0
+        assert "artisans" not in lire_habitants_par_metier(temoin) and cell.stocks["fer"] < temoin.stocks["fer"]
+    controler(); _contre_ateliers(monkeypatch, engine, "_affecter_artisans", lambda m: None, controler)
