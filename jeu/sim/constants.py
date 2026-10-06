@@ -233,6 +233,9 @@ TAILLE_FOYER = 5
 METIER_MINEURS = "mineurs"
 METIER_PAYSANS = "paysans"
 METIER_OUVRIERS = "ouvriers"
+METIER_ARTISANS = "artisans"
+SURFACE_M2_PAR_FOYER_ARTISAN = 40  # Emploi par emprise, niveau 2.
+FABRICATION_KG_PAR_ARTISAN_PAR_TICK = 5  # Matière façonnée par personne, niveau 2.
 
 # Déblai, nivellement et fossés d'une route en terre battue ; niveau 2.
 TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0.5
@@ -587,3 +590,12 @@ DEMI_LARGEUR_PAR_LARGEUR = 0.5
 
 # Géométrie : moitié de la somme des produits croisés dans la formule du lacet.
 AIRE_PAR_PRODUIT_CROISE = 0.5
+
+def budget_artisanal_kg(artisans):
+    """Budget commun de matière consommable, relu à chaque appel."""
+    return artisans * FABRICATION_KG_PAR_ARTISAN_PAR_TICK
+
+def faconnage_artisanal_kg(stock, budget):
+    """Consommation bornée et objet produit avec le rendement courant."""
+    consomme = min(stock, budget)
+    return consomme, consomme * RENDEMENT_FABRICATION

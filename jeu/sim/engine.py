@@ -1,9 +1,10 @@
 """
 Moteur de simulation : boucle de tick.
 
-`tick(world, rng)` avance le monde d'un pas de temps. Huit maillons, dans
+`tick(world, rng)` avance le monde d'un pas de temps. Les maillons, dans
 cet ordre — l'ordre est la mécanique, pas une convention :
 
+    _affecter_artisans → les ateliers achevés emploient les paysans restants
     _apply_fabrication → les matières premières deviennent de l'objet
     _apply_extraction  → les gisements rendent des kg dans le panier
     _apply_production  → la nourriture pousse, avec variabilité rng
@@ -355,7 +356,8 @@ def _apply_fabrication(cell: Cell) -> None:
     d'ouverture de tick (avant extraction du jour).
     """
     objet = _constantes.MARCHANDISE_OBJET
-    for marchandise in _matieres_premieres_du_panier(cell):
+    matieres = _matieres_premieres_du_panier(cell)
+    for marchandise in matieres:
         stock = lire_stock_marchandise(cell, marchandise)
         if stock <= 0:
             continue
@@ -365,6 +367,18 @@ def _apply_fabrication(cell: Cell) -> None:
         base_objet = objet_actuel if objet_actuel >= 0 else 0.0
         ecrire_stock_marchandise(cell, objet, base_objet + produit)
 
+    metiers = lire_habitants_par_metier(cell)
+    budget = _constantes.budget_artisanal_kg(metiers.get(_constantes.METIER_ARTISANS, 0) if metiers != -1 else 0)
+    if budget <= 0:
+        return
+    for marchandise in matieres:
+        stock = lire_stock_marchandise(cell, marchandise)
+        if budget <= 0 or stock <= 0:
+            continue
+        consomme, produit = _constantes.faconnage_artisanal_kg(stock, budget)
+        ecrire_stock_marchandise(cell, marchandise, stock - consomme)
+        ecrire_stock_marchandise(cell, objet, max(0.0, lire_stock_marchandise(cell, objet)) + produit)
+        budget -= consomme
 
 def _apply_extraction(cell: Cell, carte: dict) -> None:
     """Maillon 0 — Extraction minière depuis la carte vers le panier de la cellule."""
@@ -1441,6 +1455,14 @@ def _avancer_chantiers(world) -> None:
         chantiers.avancer_chantiers(world)
 
 
+def _affecter_artisans(world) -> None:
+    """Emploie les paysans restants après le travail des chantiers."""
+    from sim import ateliers
+    from sim.world import World
+    if isinstance(world, World):
+        ateliers.affecter_artisans(world)
+
+
 def _avancer_compteur_ticks(world) -> None:
     from sim.world import World
 
@@ -1456,6 +1478,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         1. Validation  (_valider_numero_tick) — avant toute mutation
         2. Intentions  (_appliquer_intentions) — intentions en attente, dans l'ordre du dépôt
         3. Chantiers   (_avancer_chantiers) — retour aux champs puis journées de route puis de parcelle puis de bâtiment
+           Ateliers    (_affecter_artisans) — emploi dans les scieries et fours achevés
         4. Fabrication (_apply_fabrication)  — pour chaque cellule
         5. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
         6. Production  (_apply_production)   — pour chaque cellule
@@ -1477,6 +1500,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     _valider_numero_tick(world, numero_tick)
     _appliquer_intentions(world)
     _avancer_chantiers(world)
+    _affecter_artisans(world)
     total_transported = [0.0]
     for cell in world.cells.values():
         _apply_fabrication(cell)
