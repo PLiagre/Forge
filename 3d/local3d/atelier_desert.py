@@ -239,6 +239,7 @@ def relance(ds,service_neuf=True):
         essais=lambda liste:', '.join('{} {}'.format(e['identifiant'],'acceptée' if e['acceptee'] else 'refusée ('+e['motif']+')') for e in liste) or 'aucun'
         print('{} : tick d’ouverture {} ; ouverture : {} ; traces : {} ; plan : {} ; empreinte {} ; vierge {} ; {} défaut(s)'.format(
             s,j['tick_ouverture'],essais(j['ouverture']),essais(j['traces']),j['plan'],j['empreinte'],j['vierge'],len(j['defauts'])),flush=True)
+        print('  parcelles : {} ; plan : {} ; pièces {} ; empreinte des parcelles {}'.format(*(', '.join('{} {}'.format(e['identifiant'],e['etat']) for e in j[c]) or 'aucune' for c in ('parcelles','parcelles_plan')),j['pieces_parcelles'],j['empreinte_parcelles']),flush=True)
         for fault in j['defauts']:print('  défaut : '+fault,flush=True)
         defauts+=len(j['defauts'])
     if manquants:raise RuntimeError('Unity n’a pas écrit de rapport pour : '+', '.join(manquants)+(' ('+' ; '.join(echecs)+')' if echecs else ''))

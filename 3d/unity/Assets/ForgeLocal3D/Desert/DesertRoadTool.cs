@@ -19,6 +19,8 @@ namespace ForgeLocal3D
     // Lot 361 : au lancement, l'outil lit le plan de sa cellule et pose toutes ses rues, dans l'ordre
     // du plan, sur une copie vierge du terrain. Une rue que le relief refuse reste au plan : le panneau
     // la déclare par son identifiant. Unity ne garde aucun plan à lui : relancé, il redessine la même ville.
+    // Lot 362 : après les rues, l'outil trace au sol chaque parcelle du plan (DesertParcelles) : cordeau
+    // en chantier, bornes achevée. Il les redessine toutes à l'ouverture, après une route et par Rafraichir.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -38,6 +40,11 @@ namespace ForgeLocal3D
         // le tick du plan lu à l'ouverture, -1 tant qu'aucun ne l'a été.
         public readonly List<(long identifiant,DesertRoads.Resultat resultat)> Ouverture=new();
         public long TickOuverture{get;private set;}=-1;
+        // Lot 362 : le dernier dessin des parcelles, dans l'ordre du plan (cordeau, bornes ou refusee).
+        public readonly List<(long identifiant,string etat,string message)> Parcelles=new();
+        public Transform RacineParcelles=>parcelles?.Racine;
+        public string EmpreinteParcelles=>parcelles?.Empreinte??"";
+        DesertParcelles parcelles;string erreurParcelles;
         ClientIntention depot;ClientPlan plan;string erreurCellule;
         // Les rues déjà essayées dans la session, posées ou refusées : aucune n'est posée deux fois, ni réessayée.
         readonly HashSet<long> essayees=new();
@@ -62,7 +69,10 @@ namespace ForgeLocal3D
             Cellule=PanneauLieu.LireCellule(Environment.GetCommandLineArgs(),PanneauLieu.CELLULE_PAR_DEFAUT,out erreurCellule);
             Port=PanneauLieu.DEFAULT_SERVICE_PORT;
             if(erreurCellule==null){depot=new ClientIntention(Port,Delai);plan=new ClientPlan(Port,Delai);}
-            Afficher(erreurCellule??Aide);
+            // Sans matériau, aucune parcelle n'est jamais dessinée : le panneau le dit.
+            try{parcelles=new DesertParcelles(transform,roads.terrain);}
+            catch(InvalidOperationException e){erreurParcelles=e.Message;}
+            Afficher(erreurCellule??erreurParcelles??Aide);
         }
         void Start()=>Ouvrir();
         void OnDestroy(){depot?.Dispose();plan?.Dispose();depot=null;plan=null;}
@@ -149,7 +159,9 @@ namespace ForgeLocal3D
             var lu=plan.Lire(Cellule);
             if(!lu.Presente||lu.Plan.Tick<=enAttente.AppliqueeAuTick.Value)return false;
             var essais=Dessiner(lu.Plan);Posees.AddRange(essais);
-            Afficher(Bilan("Après le tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+essais.Count(e=>e.resultat.acceptee)+" rue(s) neuve(s) posée(s).",essais));
+            // Une rue neuve a pu changer le sol sous les parcelles : toutes sont redessinées.
+            Afficher(Bilan("Après le tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+essais.Count(e=>e.resultat.acceptee)+" rue(s) neuve(s) posée(s).",essais)
+                +"\n"+DessinerParcelles(lu.Plan));
             enAttente=null;
             return true;
         }
@@ -168,8 +180,30 @@ namespace ForgeLocal3D
             catch(InvalidOperationException e){Afficher(e.Message);return false;}
             roads.Preparer(parametres.parametres,parametres.graine);
             Ouverture.AddRange(Dessiner(lu.Plan));TickOuverture=lu.Plan.Tick;
-            Afficher(Bilan("Plan du tick "+TickOuverture.ToString(CultureInfo.InvariantCulture)+" : "+Ouverture.Count(e=>e.resultat.acceptee)+" rue(s) posée(s).",Ouverture));
+            // Les parcelles après les rues : leur sol est celui de la copie où les rues sont posées.
+            Afficher(Bilan("Plan du tick "+TickOuverture.ToString(CultureInfo.InvariantCulture)+" : "+Ouverture.Count(e=>e.resultat.acceptee)+" rue(s) posée(s).",Ouverture)
+                +"\n"+DessinerParcelles(lu.Plan));
             return true;
+        }
+
+        // Lot 362 : relit le plan et redessine ses parcelles, sans toucher aux rues. Faux, parcelles
+        // inchangées, si la cellule est en erreur ou le plan absent. Jamais appelée périodiquement.
+        public bool Rafraichir()
+        {
+            if(erreurCellule!=null){Afficher(erreurCellule);return false;}
+            var lu=plan.Lire(Cellule);
+            if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return false;}
+            Afficher("Plan du tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+DessinerParcelles(lu.Plan));
+            return true;
+        }
+
+        // Remplace Parcelles par le dessin du plan. Rend la ligne du panneau, puis une ligne par parcelle refusée.
+        string DessinerParcelles(PlanLu lu)
+        {
+            if(parcelles==null)return erreurParcelles;
+            Parcelles.Clear();Parcelles.AddRange(parcelles.Dessiner(lu.Parcelles));
+            return string.Join("\n",new[]{"Parcelles : "+Parcelles.Count(p=>p.etat=="cordeau")+" en chantier, "+Parcelles.Count(p=>p.etat=="bornes")+" achevée(s)."}
+                .Concat(Parcelles.Where(p=>p.etat=="refusee").Select(p=>p.message)));
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -18,6 +19,9 @@ namespace ForgeLocal3D
     // sélection : `Tracer` (service neuf) trace deux routes par l'outil et en dépose une trop raide au
     // monde ; `Relancer` (même service) rouvre la ville et doit retrouver l'empreinte de `Tracer` ;
     // `Vierge` (service neuf) doit retrouver le sable vierge. Rien n'est capturé.
+    // Lot 362 : les sessions portent aussi les parcelles du plan. `Tracer` en découpe deux sur la rue de
+    // plaine (l'une s'achève, l'autre reste en chantier) ; `Relancer` doit les redessiner à la même
+    // empreinte ; `Vierge` n'en dessine aucune.
     [InitializeOnLoad] public static class DesertCityRelance
     {
         const string Flag="Forge.Desert.Relance",Cle="Forge.Desert.Relance.Session",Id="Forge.Desert.Relance.Implantation";
@@ -27,11 +31,13 @@ namespace ForgeLocal3D
 
         [Serializable] class Selection{public string[] implantations;}
         [Serializable] public class Essai{public long identifiant=-1;public bool acceptee;public string motif="",message="";}
+        [Serializable] public class Trace{public long identifiant=-1;public string etat="",message="";}
         [Serializable] public class Rapport
         {
             public string session="",implantation="";public long cell=-1;public int port=-1;public long tick_ouverture=-1;
             public Essai[] ouverture=new Essai[0],traces=new Essai[0];public long[] plan=new long[0];
             public string panneau="",empreinte="",vierge="";public string[] defauts=new string[0];
+            public Trace[] parcelles_plan=new Trace[0],parcelles=new Trace[0];public int pieces_parcelles=-1;public string empreinte_parcelles="";
         }
 
         static DesertCityRelance(){EditorApplication.update+=Tick;}
@@ -112,8 +118,11 @@ namespace ForgeLocal3D
                 var lu=plan.Lire(tool.Cellule);
                 if(lu.Presente)report.plan=lu.Plan.Rues.Select(u=>u.Identifiant).ToArray();
                 else faults.Add("service : "+lu.Absence);
+                if(lu.Presente)report.parcelles_plan=lu.Plan.Parcelles.Select(p=>new Trace{identifiant=p.Identifiant,etat=p.EnChantier?"cordeau":"bornes"}).ToArray();
             }
             report.panneau=tool.Message;
+            report.parcelles=tool.Parcelles.Select(p=>new Trace{identifiant=p.identifiant,etat=p.etat,message=p.message??""}).ToArray();
+            report.pieces_parcelles=tool.RacineParcelles?tool.RacineParcelles.childCount:-1;report.empreinte_parcelles=tool.EmpreinteParcelles;
             report.empreinte=roads.Empreintes().Tout;
             roads.Preparer(gestes.parametres,gestes.graine);report.vierge=roads.Empreintes().Tout;
             roads.Restaurer();
@@ -159,6 +168,18 @@ namespace ForgeLocal3D
                 traces.AddRange(tool.Posees.Select(Copie));
             }
             report.traces=traces.ToArray();
+            // Lot 362 : deux parcelles sur la rue de plaine, segments 3 et 4, à gauche ; la première, à 100 foyers,
+            // s'achève avant la seconde. Hors du fil de l'éditeur, comme le dépôt de la route raide.
+            if(report.traces.Length==0)faults.Add("pas de rue de plaine tracée : aucune parcelle découpée");
+            else
+            {
+                string decoupe="{\"type\":\"decouper_parcelle\",\"cell\":"+tool.Cellule.ToString(CultureInfo.InvariantCulture)+",\"rue\":"+report.traces[0].identifiant.ToString(CultureInfo.InvariantCulture);
+                var decoupes=new[]{decoupe+",\"segment\":3,\"debut_m\":1,\"facade_m\":8,\"profondeur_m\":15,\"cote\":\"gauche\",\"foyers\":100}",decoupe+",\"segment\":4,\"debut_m\":1,\"facade_m\":8,\"profondeur_m\":15,\"cote\":\"gauche\"}"};
+                int portParcelles=tool.Port;
+                var recusParcelles=Task.Run(()=>{using var depot=new ClientIntention(portParcelles,TimeSpan.FromSeconds(5));return decoupes.Select(depot.Deposer).ToArray();}).GetAwaiter().GetResult();
+                for(int i=0;i<recusParcelles.Length;i++)if(!recusParcelles[i].Acceptee)faults.Add("parcelle du segment "+(3+i)+" non acceptée par le monde : "+(recusParcelles[i].Presente?recusParcelles[i].Erreur:recusParcelles[i].Absence));
+                Tick(portParcelles,faults);
+            }
 
             var raide=gestes.routes.FirstOrDefault(x=>x.famille=="raide_long");
             if(raide==null){faults.Add("jeu de gestes sans route raide_long");return;}
@@ -166,10 +187,21 @@ namespace ForgeLocal3D
             var recu=Task.Run(()=>{using var depot=new ClientIntention(port,TimeSpan.FromSeconds(5));return depot.Deposer(intention);}).GetAwaiter().GetResult();
             if(!recu.Acceptee)faults.Add("route "+raide.id+" (raide_long) non acceptée par le monde : "+(recu.Presente?recu.Erreur:recu.Absence));
             Tick(port,faults);
+            // Deux fois de suite : un dessin qui ne viderait pas la racine y laisserait 4 parcelles au lieu de 2.
+            if(!tool.Rafraichir()||!tool.Rafraichir())faults.Add("l'outil n'a pas redessiné les parcelles du plan : "+tool.Message);
         }
+
+        // Lot 362 : une liste de parcelles « id état », et l'égalité de deux listes (identifiants, états, ordre).
+        static string Etats(IEnumerable<Trace> t)=>"["+string.Join(", ",t.Select(x=>x.identifiant+" "+x.etat))+"]";
+        static bool Memes(Trace[] a,Trace[] b)=>a.Select(x=>(x.identifiant,x.etat)).SequenceEqual(b.Select(x=>(x.identifiant,x.etat)));
 
         static void JugerTracer(Rapport r,List<string> faults)
         {
+            if(r.parcelles_plan.Length!=2||r.parcelles_plan[0].etat!="bornes"||r.parcelles_plan[1].etat!="cordeau")
+                faults.Add("le plan n'a pas une parcelle achevée puis une en chantier : "+Etats(r.parcelles_plan));
+            if(!Memes(r.parcelles,r.parcelles_plan))faults.Add("parcelles dessinées "+Etats(r.parcelles)+" différentes du plan "+Etats(r.parcelles_plan));
+            foreach(var p in r.parcelles.Where(x=>x.etat=="refusee"))faults.Add("parcelle "+p.identifiant+" refusée : "+p.message);
+            if(r.pieces_parcelles!=2)faults.Add(r.pieces_parcelles+" parcelle(s) sous la racine des parcelles au lieu de 2");
             if(r.ouverture.Length>0)faults.Add("le service n'est pas neuf : "+r.ouverture.Length+" rue(s) essayée(s) à l'ouverture");
             if(r.traces.Length!=2||!r.traces.All(t=>t.acceptee)||r.traces.Select(t=>t.identifiant).Distinct().Count()!=r.traces.Length)
                 faults.Add("traces : "+r.traces.Length+" essai(s) "+Liste(r.traces.Select(t=>t.identifiant))+", il en faut exactement 2 acceptés, d'identifiants distincts");
@@ -194,10 +226,17 @@ namespace ForgeLocal3D
             }
             if(r.empreinte!=tracer.empreinte)faults.Add("la ville relancée n'a pas l'empreinte de la ville tracée");
             if(r.vierge!=tracer.vierge)faults.Add("le sable vierge de cette session n'est pas celui de la session tracer");
+            if(!Memes(r.parcelles,r.parcelles_plan)||!Memes(r.parcelles,tracer.parcelles))
+                faults.Add("parcelles relancées "+Etats(r.parcelles)+" différentes du plan "+Etats(r.parcelles_plan)+" ou de la session tracer "+Etats(tracer.parcelles));
+            if(r.pieces_parcelles!=2)faults.Add(r.pieces_parcelles+" parcelle(s) sous la racine des parcelles au lieu de 2");
+            if(r.empreinte_parcelles!=tracer.empreinte_parcelles)faults.Add("les parcelles relancées n'ont pas l'empreinte de la session tracer");
         }
 
         static void JugerVierge(Rapport r,Rapport tracer,List<string> faults)
         {
+            if(r.parcelles_plan.Length>0)faults.Add("le plan d'un service neuf compte "+r.parcelles_plan.Length+" parcelle(s) "+Etats(r.parcelles_plan));
+            if(r.parcelles.Length>0||r.pieces_parcelles!=0)
+                faults.Add(r.parcelles.Length+" parcelle(s) dessinée(s) contre un service vide "+Etats(r.parcelles)+", "+r.pieces_parcelles+" sous la racine des parcelles");
             if(r.plan.Length>0)faults.Add("le plan d'un service neuf compte "+r.plan.Length+" rue(s) "+Liste(r.plan));
             if(r.ouverture.Length>0)faults.Add(r.ouverture.Length+" rue(s) essayée(s) à l'ouverture "+Liste(r.ouverture.Select(e=>e.identifiant)));
             if(r.empreinte!=r.vierge)faults.Add("la ville n'est pas revenue vierge : son empreinte n'est pas celle du sable vierge");
