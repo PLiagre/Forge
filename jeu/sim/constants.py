@@ -237,6 +237,9 @@ METIER_OUVRIERS = "ouvriers"
 # Déblai, nivellement et fossés d'une route en terre battue ; niveau 2.
 TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0.5
 
+# Arpentage, bornage, défrichage et clôture d’un lot à bâtir ; niveau 2.
+TRAVAIL_PARCELLE_JOURNEES_PAR_M2 = 0.1
+
 # Plafond : une cellule ne devient jamais entièrement minière. Invariant,
 # pas un réglage de confort — sans lui une cellule chargée de gisements
 # majeurs verrait toute sa population descendre à la mine.
@@ -569,3 +572,6 @@ SNAPSHOT_FLOAT_DECIMALS = 6
 POINTS_MIN_RUE = 2
 POINTS_MIN_CONTOUR = 3
 COORDONNEES_PAR_POINT = 2
+
+# Distance de l’axe au bord de la chaussée : moitié géométrique de sa largeur.
+DEMI_LARGEUR_PAR_LARGEUR = 0.5

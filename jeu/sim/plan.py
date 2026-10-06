@@ -31,6 +31,21 @@ def _points(points, minimum, champ):
             _nombre_fini(coordonnee, champ)
 
 
+def _chantier(element, nature):
+    """Valide l’état, les foyers et le compte des journées d’un chantier."""
+    if not isinstance(element.en_chantier, bool):
+        raise PlanInvalide(f"{nature}.en_chantier : booléen attendu")
+    _identifiant(element.identifiant, f"{nature}.identifiant")
+    for champ in ("foyers", "travail_requis", "travail_fourni"):
+        _identifiant(getattr(element, champ), f"{nature}.{champ}")
+    if element.travail_fourni > element.travail_requis:
+        raise PlanInvalide(f"{nature}.travail_fourni : dépasse le travail requis")
+    if element.en_chantier != (element.travail_fourni < element.travail_requis):
+        raise PlanInvalide(f"{nature}.en_chantier : contredit le travail restant")
+    if element.en_chantier and element.foyers == 0:
+        raise PlanInvalide(f"{nature}.foyers : chantier sans foyer")
+
+
 @dataclass(frozen=True)
 class Rue:
     """Ligne de rue et largeur, sans effet sur les flux du monde."""
@@ -44,17 +59,7 @@ class Rue:
     travail_fourni: int = 0
 
     def __post_init__(self):
-        if not isinstance(self.en_chantier, bool):
-            raise PlanInvalide("rue.en_chantier : booléen attendu")
-        _identifiant(self.identifiant, "rue.identifiant")
-        for champ in ("foyers", "travail_requis", "travail_fourni"):
-            _identifiant(getattr(self, champ), f"rue.{champ}")
-        if self.travail_fourni > self.travail_requis:
-            raise PlanInvalide("rue.travail_fourni : dépasse le travail requis")
-        if self.en_chantier != (self.travail_fourni < self.travail_requis):
-            raise PlanInvalide("rue.en_chantier : contredit le travail restant")
-        if self.en_chantier and self.foyers == 0:
-            raise PlanInvalide("rue.foyers : chantier sans foyer")
+        _chantier(self, "rue")
         _points(self.points, _constantes.POINTS_MIN_RUE, "rue.points")
         _nombre_fini(self.largeur_m, "rue.largeur_m")
         if self.largeur_m <= 0:
@@ -67,9 +72,13 @@ class Parcelle:
 
     identifiant: int
     contour: list[tuple[float, float]]
+    en_chantier: bool = False
+    foyers: int = 0
+    travail_requis: int = 0
+    travail_fourni: int = 0
 
     def __post_init__(self):
-        _identifiant(self.identifiant, "parcelle.identifiant")
+        _chantier(self, "parcelle")
         _points(self.contour, _constantes.POINTS_MIN_CONTOUR, "parcelle.contour")
 
 

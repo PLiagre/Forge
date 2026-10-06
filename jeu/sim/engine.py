@@ -1427,7 +1427,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     Ordre du tick :
         1. Validation  (_valider_numero_tick) — avant toute mutation
         2. Intentions  (_appliquer_intentions) — intentions en attente, dans l'ordre du dépôt
-        3. Chantiers   (_avancer_chantiers) — retour aux champs puis journées de route
+        3. Chantiers   (_avancer_chantiers) — retour aux champs puis journées de route puis de parcelle
         4. Fabrication (_apply_fabrication)  — pour chaque cellule
         5. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
         6. Production  (_apply_production)   — pour chaque cellule

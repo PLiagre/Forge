@@ -19,12 +19,17 @@ le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide et n'a aucun effet sur le tick.
 
-`POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}` ou
-`{"type": "tracer_route", "cell": X, "points": [[0, 0], [40, 0]], "largeur_m": 4}`.
+`POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}`,
+`{"type": "tracer_route", "cell": X, "points": [[0, 0], [40, 0]], "largeur_m": 4}`
+ou `{"type": "decouper_parcelle", "cell": X, "rue": 0, "segment": 0,
+"debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}`.
 Le dépôt validé reste en attente jusqu’au tick suivant : le choix devient
-la maison du joueur, la route entre au plan en chantier. Le reçu accepté
+la maison du joueur, la route ou la parcelle entre au plan en chantier.
+La parcelle borde une rue déjà au plan ; son contour est figé au dépôt.
+Routes et parcelles prennent ensuite des bras aux champs et comptent leurs
+journées, les rues passant en premier. `foyers` vaut 1 par défaut. Le reçu accepté
 est `{"acceptee": true, "appliquee_au_tick": T}`. Un type inconnu, un corps
-ou une route mal formés rendent 400 ; un second choix rend 409. Le reçu
+ou un geste mal formés rendent 400 ; un second choix rend 409. Le reçu
 refusé est `{"acceptee": false, "erreur": "<raison>"}`, sans effet sur le monde.
 `--gestes` rejoue une liste `[{"tick": T, "intention": {…}}, …]` avant chaque
 tick indiqué ; `--monde-json` écrit le monde final en JSON canonique.

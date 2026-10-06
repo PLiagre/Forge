@@ -24,9 +24,10 @@ part. À chaque tick, dans cet ordre :
    tick refuse tout écart avant la première mutation.
 2. **Intentions** (`_appliquer_intentions`) — les intentions en attente
    s'appliquent dans l'ordre du dépôt : un choix de départ devient la maison
-   du joueur, une route entre au plan en chantier ; sans cellule ni aléa.
+   du joueur, une route ou une parcelle entre au plan en chantier ; sans cellule ni aléa.
 3. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
-   puis les rues prennent leurs bras et comptent les journées fournies.
+   puis les rues, et après elles les parcelles, prennent leurs bras et comptent
+   les journées fournies.
 4. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sur place et sans occuper de bras.
@@ -114,7 +115,7 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   ne sont pas consommés.
 - **répartir le travail.** Les habitants ont un métier, mineur ou paysan.
   Naissances, morts et départs suivent les métiers ; seuls la récolte et le
-  chantier les lisent. Seul le chantier fait passer des paysans à ouvriers
+  chantier, des rues et des parcelles, les lisent. Seul le chantier fait passer des paysans à ouvriers
   et retour ; la part minière retire déjà des bras aux champs.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Une route se bâtit à la journée, mais aucune capacité de
@@ -1563,7 +1564,7 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 `recevoir_intention` de `sim/intentions.py` est l'entrée commune de
 `POST /intention` et `python3 -m sim --gestes`, que prendra aussi l'IA.
 La liste est fermée : `choisir_depart` appelle `deposer_intention`,
-`tracer_route` dépose une route ; tout autre type, même absent, lève
+`tracer_route` dépose une route, `decouper_parcelle` une parcelle ; tout autre type lève
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
@@ -1610,10 +1611,57 @@ L'attente ne change ni les cellules, ni les plans, ni `to_dict()`.
 identifiant est le maximum des identifiants de rue, ou −1 si le plan est
 vide, plus un. Les dépôts sur la même cellule se suivent donc sans collision.
 L'écriture vit dans `sim/intentions.py` ; le moteur ne lit pas le plan.
-Le dépôt et l'application de la route n'écrivent aucune cellule ; l'étape
+Le dépôt et l'application de la route ou de la parcelle n'écrivent aucune cellule ; l'étape
 Chantiers écrit ensuite les métiers de sa seule cellule, sans aléa. Mêmes
 gestes et même graine donnent le même monde ; sans geste, les plans restent
 vides et l'empreinte reste celle d'avant.
+
+Une parcelle se dépose avec `{"type": "decouper_parcelle", "cell": X,
+"rue": 0, "segment": 0, "debut_m": 5, "facade_m": 10, "profondeur_m": 20,
+"cote": "gauche"}`. Ces huit champs sont obligatoires ; un absent donne
+« champ manquant : X », un champ supplémentaire « champ inconnu : X ».
+Seul `foyers` est facultatif, avec la même validation que pour la route.
+Les refus lèvent `IntentionRefusee`, avant toute attente et sans effet,
+dans cet ordre :
+
+- `cell`, entier sans booléen présent dans les plans : « cell inconnu : <repr> » ;
+- `rue`, entier sans booléen, identifiant d'une rue déjà au plan de cette
+  cellule, même en chantier : « rue absente du plan : <repr> ». Une route
+  en attente ne convient pas ; il faut attendre son application au tick suivant ;
+- `segment`, entier sans booléen entre 0 inclus et `len(rue.points) − 1`
+  exclu : « segment hors de la rue : <repr> » ;
+- `debut_m`, nombre fini sans booléen ≥ 0, puis `facade_m` et `profondeur_m`,
+  nombres finis sans booléen > 0 : « <champ> invalide : <repr> » ;
+- `debut_m + facade_m` supérieur à la longueur euclidienne du segment,
+  sans tolérance : « façade dépasse le segment : <debut> + <facade> > <longueur> ».
+  Ce contrôle refuse une façade sur un segment nul avant toute division ;
+- `cote`, exactement `"gauche"` ou `"droite"` : « cote invalide : <repr> » ;
+- le contour passe par `Parcelle(0, contour)` ; un `PlanInvalide`, notamment
+  un point devenu infini, donne « parcelle invalide : <raison> ».
+
+Pour le segment de `a` à `b`, `L = dist(a, b)` et `u = (b − a) / L`.
+La normale gauche est `n = (−u_y, u_x)`, en regardant dans le sens du tracé,
+x vers l'est et y vers le nord ; à droite, on prend son opposée.
+`d = largeur_m × DEMI_LARGEUR_PAR_LARGEUR`, avec la constante géométrique
+à 0,5. Le contour est ordonné : `c0 = a + u·debut_m + n·d`,
+`c1 = a + u·(debut_m + facade_m) + n·d`, `c2 = c1 + n·profondeur_m`,
+`c3 = c0 + n·profondeur_m`. La façade borde la chaussée ; le lot va vers
+l'extérieur. Sur `[[0, 0], [40, 0], [40, 25]]`, largeur 4 m, début 5 m,
+façade 10 m, profondeur 20 m, au segment 0 :
+`[(5, 2), (15, 2), (15, 22), (5, 22)]` à gauche,
+`[(5, −2), (15, −2), (15, −22), (5, −22)]` à droite.
+Au segment 1, à gauche, début 0, façade 25, profondeur 10 :
+`[(38, 0), (38, 25), (28, 25), (28, 0)]`.
+
+Le dépôt accepté est un `DecoupeParcelle(cell_id, contour, facade_m,
+profondeur_m, foyers)` gelé, au contour en tuples calculé au dépôt.
+L'attente ne change ni les cellules, ni les plans, ni `to_dict()`.
+`DecoupeParcelle.appliquer` reconstruit le plan avec une parcelle en chantier,
+identifiant maximum des parcelles (ou −1) plus 1, `en_chantier=True`,
+`foyers`, `travail_fourni=0`. Le requis se calcule à l'application par
+`travail_requis_de_parcelle(facade_m, profondeur_m)`, en relisant la constante.
+Rues et bâtiments sont repris tels quels. Sans geste, aucune parcelle
+n'entre en chantier et le monde reste identique à l'octet près.
 
 Le service dépose tout objet JSON sous `verrou_tick`. Il répond 200 avec
 `{"acceptee": true, "appliquee_au_tick": <tick publié>}`, 400 pour une intention
@@ -1858,7 +1906,11 @@ négatif et unique dans sa liste :
   tous à 0 par défaut. Le fourni ne dépasse pas le requis ; `en_chantier`
   vaut exactement `travail_fourni < travail_requis`, avec au moins un foyer
   en chantier. Une rue ancienne (0, 0, 0, pas en chantier) reste valide ;
-- `parcelles` : `identifiant`, `contour` (au moins `POINTS_MIN_CONTOUR = 3`) ;
+- `parcelles` : `identifiant`, `contour` (au moins `POINTS_MIN_CONTOUR = 3`),
+  `en_chantier` booléen faux par défaut, `foyers`, `travail_requis`,
+  `travail_fourni` entiers ≥ 0 sans booléens, à 0 par défaut. Comme pour une
+  rue, fourni ≤ requis, `en_chantier == (travail_fourni < travail_requis)`
+  et au moins un foyer en chantier. Une parcelle ancienne reste valide ;
 - `batiments` : `identifiant`, `parcelle` (identifiant d'une parcelle du même
   plan), `nature` (texte non vide), `emprise` (au moins `POINTS_MIN_CONTOUR`).
 
@@ -1873,7 +1925,7 @@ cellule ne sont pas simulées.
 Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
 en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
 son plan ; seules les étapes Intentions et Chantiers le lisent. Intentions
-y ajoute une rue ; Chantiers compte son travail et écrit les métiers de
+y ajoute une rue ou une parcelle ; Chantiers compte son travail et écrit les métiers de
 sa cellule. Sans geste, l'évolution reste identique au bit près.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
@@ -1886,11 +1938,14 @@ inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
 La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
 vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
 et forme du bourg dans la cellule, effet des rues et bâtiments sur le monde,
-gestes de parcelle et de bâtiment, inclusion d'une emprise dans une parcelle
+gestes de bâtiment, inclusion d'une emprise dans une parcelle
 et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
 son coût en journées, les bras pris aux champs et son achèvement sont de
 niveau 2. La restriction à la capitale, les bornes et les doublons restent
-de niveau 3, non simulés. Aucun flux ne découle encore de son tracé.
+de niveau 3, non simulés. Le découpage d'une parcelle, son coût et son
+achèvement sont de niveau 2. Ses chevauchements avec d'autres parcelles,
+une rue ou l'extérieur du bourg, sa propriété, son prix et son cadastre
+restent de niveau 3. Aucun bâtiment ni flux ne découle encore de son achèvement.
 
 ## Le chantier et ses bras
 
@@ -1899,18 +1954,27 @@ et les fossés d’une route en terre battue demandent
 `TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0,5` journées par m². La longueur est la
 somme euclidienne des segments en mètres ; le requis vaut
 `max(1, ceil(longueur × largeur_m × TRAVAIL_ROUTE_JOURNEES_PAR_M2))`.
-Une journée est une personne pendant un tick, soit un jour.
+La préparation d'un lot à bâtir (arpentage, bornage, défrichage et clôture)
+demande `TRAVAIL_PARCELLE_JOURNEES_PAR_M2 = 0,1` journées par m², de niveau 2.
+Le requis vaut `max(1, ceil(facade_m × profondeur_m × TRAVAIL_PARCELLE_JOURNEES_PAR_M2))` :
+la surface est le produit exact du rectangle, sans recalcul sur les points.
+Ainsi, 10 m × 20 m demandent 20 journées. La fonction relit la constante à
+chaque appel. Une journée est une personne pendant un tick, soit un jour.
 
 `sim/chantiers.py` parcourt les cellules par `cell_id`. Tous leurs `ouvriers`
-redeviennent d’abord `paysans`, puis chaque rue en chantier, par identifiant
-(priorité à la plus ancienne rue), prend le minimum des bras disponibles,
+redeviennent d’abord `paysans`, puis les rues en chantier, par identifiant,
+et après elles les parcelles en chantier, par identifiant, prennent le
+minimum des bras disponibles,
 de `foyers × TAILLE_FOYER` et du travail restant. Ces paysans deviennent
 ouvriers ; chaque personne envoyée ajoute exactement une journée fournie.
-La rue s’achève au requis. Le dernier jour n’envoie que les journées
+La rue ou la parcelle s’achève au requis. Le dernier jour n’envoie que les journées
 manquantes : aucune journée ne se crée ni ne se perd. Les métiers gardent
 leur somme et la population ; non calculés (`-1`), ils n’envoient personne.
 Sans travail fourni le plan n’est pas reconstruit, et sans changement les
 métiers ne sont pas écrits. Sans chantier ni ouvrier, rien n’est écrit.
+Le retour compte chaque envoi : clé `(cell_id, identifiant)` pour une rue,
+`(cell_id, "parcelle", identifiant)` pour une parcelle, même pour zéro bras.
+Le plan est reconstruit seulement si une rue ou une parcelle reçoit du travail.
 
 La récolte du même tick lit les paysans restés aux champs. Les naissances,
 morts et départs suivent le prorata des métiers, ouvriers compris ; le retour

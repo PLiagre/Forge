@@ -411,3 +411,196 @@ def test_ligne_de_commande_refus_chemin_vide(tmp_path, monkeypatch, capsys):
     assert "refus" in capsys.readouterr().err
     assert not sortie.exists() and not snapshot.exists()
     print("chemins_vides_refusés=1, ticks_joués=0, sorties_écrites=0")
+
+
+def _parcelle_reference(monde):
+    from sim.intentions import recevoir_intention
+
+    route = _route_reference(monde)
+    recevoir_intention(monde, route)
+    engine._appliquer_intentions(monde)
+    return {"type": "decouper_parcelle", "cell": route["cell"], "rue": 0, "segment": 0,
+            "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}
+
+
+CAS_REFUS_PARCELLE = [
+    *[({}, champ, "champ") for champ in
+      ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote")],
+    ({"extra": 0}, None, "champ"), ({"cell": "absente"}, None, "cell"),
+    *[({"cell": v}, None, "cell") for v in (True, "0", 0.0)],
+    *[({"foyers": v}, None, "foyers") for v in (0, -1, True, 1.5, "1")],
+    *[({"rue": v}, None, "rue") for v in (1, -1, True, "0")],
+    ({"cell": "autre"}, None, "rue"),
+    *[({"segment": v}, None, "segment") for v in (2, -1, True, 0.0)],
+    *[({"debut_m": v}, None, "debut_m") for v in (-1, float("nan"), float("inf"), True, "5")],
+    *[({"facade_m": v}, None, "facade_m") for v in (0, -1, float("nan"), float("inf"), True)],
+    *[({"profondeur_m": v}, None, "profondeur_m") for v in (0, -1, float("inf"), None)],
+    ({"facade_m": 36}, None, "dépasse"), ({"debut_m": 40, "facade_m": 1}, None, "dépasse"),
+    *[({"cote": v}, None, "cote") for v in ("haut", "Gauche", None)],
+    ({"debut_m": 1e308, "facade_m": 1e308}, None, "dépasse"),
+]
+
+
+@pytest.mark.parametrize("modifications,retire,mot", CAS_REFUS_PARCELLE)
+def test_refus_parcelle_sans_mutation(modifications, retire, mot):
+    from sim.intentions import IntentionRefusee, recevoir_intention
+
+    monde = World.charger(0)
+    geste = _parcelle_reference(monde) | modifications
+    if geste["cell"] == "absente":
+        geste["cell"] = max(monde.plans) + 1
+    elif geste["cell"] == "autre":
+        geste["cell"] = next(c for c, plan in monde.plans.items() if not plan.rues)
+    if retire:
+        del geste[retire]
+    avant = monde.to_dict()
+    with pytest.raises(IntentionRefusee, match=mot):
+        recevoir_intention(monde, geste)
+    assert monde.intentions_en_attente == [] and monde.to_dict() == avant
+    assert CAS_REFUS_PARCELLE
+    print(f"refus_observés=1, cas_prévus={len(CAS_REFUS_PARCELLE)}")
+
+
+def test_refus_parcelle_route_en_attente_et_limite_segment():
+    from sim.intentions import IntentionRefusee, recevoir_intention
+
+    monde = World.charger(0)
+    reference = _parcelle_reference(World.charger(0))
+    route = recevoir_intention(monde, _route_reference(monde))
+    avant = monde.to_dict()
+    with pytest.raises(IntentionRefusee, match="rue absente du plan"):
+        recevoir_intention(monde, reference)
+    assert monde.intentions_en_attente == [route] and monde.to_dict() == avant
+    engine._appliquer_intentions(monde)
+    limite = reference | {"segment": 1, "debut_m": 0, "facade_m": 25}
+    assert recevoir_intention(monde, limite)
+    attente = list(monde.intentions_en_attente)
+    with pytest.raises(IntentionRefusee, match="dépasse"):
+        recevoir_intention(monde, limite | {"facade_m": 25.000001})
+    assert monde.intentions_en_attente == attente and monde.to_dict() != avant
+
+
+def test_refus_parcelle_segment_nul_et_contour_non_fini():
+    from sim.intentions import IntentionRefusee, recevoir_intention
+    from sim.plan import Plan, Rue
+
+    monde = World.charger(0)
+    geste = _parcelle_reference(monde)
+    for rue, mot in ((Rue(0, [(0, 0), (0, 0)], 4), "dépasse"),
+                     (Rue(0, [(0, 1e308), (40, 1e308)], 4), "parcelle invalide")):
+        monde.plans[geste["cell"]] = Plan(rues=[rue])
+        avant = monde.to_dict()
+        with pytest.raises(IntentionRefusee, match=mot):
+            recevoir_intention(monde, geste | {"profondeur_m": 1e308})
+        assert monde.to_dict() == avant and monde.intentions_en_attente == []
+
+
+def test_contour_parcelle_cotes_segments_et_copie(monkeypatch):
+    from sim import constants as k
+    from sim.intentions import DecoupeParcelle, recevoir_intention
+
+    monde = World.charger(0)
+    geste = _parcelle_reference(monde)
+    d = _route_reference(monde)["largeur_m"] * k.DEMI_LARGEUR_PAR_LARGEUR
+    attendus = [((5, d), (15, d), (15, d + 20), (5, d + 20)),
+                ((5, -d), (15, -d), (15, -d - 20), (5, -d - 20)),
+                ((40 - d, 0), (40 - d, 25), (30 - d, 25), (30 - d, 0))]
+    gestes = [geste, geste | {"cote": "droite"},
+              geste | {"segment": 1, "debut_m": 0, "facade_m": 25, "profondeur_m": 10}]
+    for entree, attendu in zip(gestes, attendus):
+        decoupe = recevoir_intention(monde, entree)
+        assert isinstance(decoupe, DecoupeParcelle) and decoupe.contour == attendu
+        entree["debut_m"] += 1
+        assert decoupe.contour == attendu
+        with pytest.raises(FrozenInstanceError):
+            decoupe.contour = ()
+    monkeypatch.setattr(k, "DEMI_LARGEUR_PAR_LARGEUR", 0)
+    sur_axe = recevoir_intention(monde, gestes[0] | {"debut_m": 5})
+    assert sur_axe.contour[:2] == ((5, 0), (15, 0))
+    with pytest.raises(AssertionError):
+        assert sur_axe.contour == attendus[0]
+
+
+def test_parcelle_appliquee_identifiants_et_cout_relu(monkeypatch):
+    import math
+    from sim import constants as k
+    from sim.intentions import recevoir_intention
+    from sim.plan import Parcelle, Plan
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+
+    monde = World.charger(0)
+    geste = _parcelle_reference(monde)
+    c = geste["cell"]
+    avant, rues = monde.to_dict(), monde.plans[c].rues
+    decoupe = recevoir_intention(monde, geste)
+    assert monde.to_dict() == avant
+    requis = max(1, math.ceil(geste["facade_m"] * geste["profondeur_m"]
+                              * k.TRAVAIL_PARCELLE_JOURNEES_PAR_M2))
+    engine._appliquer_intentions(monde)
+    assert monde.plans[c].parcelles == [Parcelle(0, decoupe.contour, True, 1, requis, 0)]
+    assert monde.plans[c].rues == rues and all(a is b for a, b in zip(rues, monde.plans[c].rues))
+    recevoir_intention(monde, geste | {"foyers": 3})
+    engine._appliquer_intentions(monde)
+    assert monde.plans[c].parcelles[-1] == Parcelle(1, decoupe.contour, True, 3, requis, 0)
+    ancien = _construire_plan(_donnees_plan())
+    monde.plans[c] = Plan(rues=rues + ancien.rues, parcelles=ancien.parcelles, batiments=ancien.batiments)
+    recevoir_intention(monde, geste)
+    engine._appliquer_intentions(monde)
+    assert monde.plans[c].parcelles[-1].identifiant == 8
+    assert monde.plans[c].batiments == ancien.batiments and ancien.batiments[0].identifiant == 7
+    document = Plan(parcelles=[Parcelle(0, [(0, 0), (1, 0), (0, 1)])]).to_dict()["parcelles"][0]
+    assert {champ: document[champ] for champ in
+            ("en_chantier", "foyers", "travail_requis", "travail_fourni")} == {
+                "en_chantier": False, "foyers": 0, "travail_requis": 0, "travail_fourni": 0}
+    recevoir_intention(monde, geste)
+    monkeypatch.setattr(k, "TRAVAIL_PARCELLE_JOURNEES_PAR_M2", k.TRAVAIL_PARCELLE_JOURNEES_PAR_M2 * 2)
+    engine._appliquer_intentions(monde)
+    double = monde.plans[c].parcelles[-1].travail_requis
+    assert double == max(1, math.ceil(10 * 20 * k.TRAVAIL_PARCELLE_JOURNEES_PAR_M2))
+    with pytest.raises(AssertionError):
+        assert double == requis
+
+
+def test_refus_parcelle_ordre_et_messages():
+    from sim.intentions import IntentionRefusee, recevoir_intention
+
+    monde = World.charger(0)
+    reference = _parcelle_reference(monde)
+    geste = reference | {"cell": True, "rue": True, "segment": True, "debut_m": -1,
+                         "facade_m": 0, "profondeur_m": 0, "cote": "haut"}
+    avant = monde.to_dict()
+    controles = [("cell", "cell inconnu : True"), ("rue", "rue absente du plan : True"),
+                 ("segment", "segment hors de la rue : True"), ("debut_m", "debut_m invalide : -1"),
+                 ("facade_m", "facade_m invalide : 0"), ("profondeur_m", "profondeur_m invalide : 0"),
+                 ("cote", "cote invalide : 'haut'")]
+    for champ, message in controles:
+        with pytest.raises(IntentionRefusee) as erreur:
+            recevoir_intention(monde, geste)
+        assert str(erreur.value) == message
+        assert monde.to_dict() == avant and monde.intentions_en_attente == []
+        geste[champ] = reference[champ]
+    assert recevoir_intention(monde, geste)
+
+
+def test_service_parcelle_plan_et_journees():
+    import math
+    from sim import constants as k
+
+    reference = _parcelle_reference(World.charger(0))
+    c = reference["cell"]
+    with lancer_service(0) as port:
+        assert _poster(port, _route_reference(World.charger(0)))[0] == HTTPStatus.OK
+        requete_service(port, "/tick?n=1", "POST")
+        avant = requete_service(port, f"/plan?cell={c}")[2]
+        assert _poster(port, reference)[0] == HTTPStatus.OK
+        assert requete_service(port, f"/plan?cell={c}")[2] == avant
+        requete_service(port, "/tick?n=1", "POST")
+        document = requete_service(port, f"/plan?cell={c}")[1]
+        assert len(document["parcelles"]) == 1
+        parcelle = document["parcelles"][0]
+        d = 4 * k.DEMI_LARGEUR_PAR_LARGEUR
+        assert parcelle == {"identifiant": 0,
+                            "contour": [[5, d], [15, d], [15, d + 20], [5, d + 20]],
+                            "en_chantier": True, "foyers": 1,
+                            "travail_requis": max(1, math.ceil(10 * 20 * k.TRAVAIL_PARCELLE_JOURNEES_PAR_M2)),
+                            "travail_fourni": k.TAILLE_FOYER}
