@@ -1704,6 +1704,8 @@ Le service dépose tout objet JSON sous `verrou_tick`. Il répond 200 avec
 inconnue ou mal formée, 409 pour un second choix. Tout refus, y compris un
 corps illisible ou qui n'est pas un objet, rend
 `{"acceptee": false, "erreur": "<raison>"}` sans avancer ni republier le monde.
+Avec `--ia`, l'IA dépose par le même `recevoir_intention`, sous ce même verrou,
+après les intentions du joueur déjà reçues et avant le tick.
 
 `python3 -m sim --gestes FICHIER` lit une liste JSON d'entrées
 `{"tick": t, "intention": {…}}` : les intentions du tick `t` se déposent dans
@@ -1964,7 +1966,20 @@ Paramètres relus dans `constants.py`. `jouer_ia` utilise uniquement `recevoir_i
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
 déposés dans les trente premiers jours, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
 Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
-Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. Tick économique inchangé ; sans option, aucune décision ni sortie IA.
+Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
+
+`python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
+neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
+manuel ou cadencé ; les intentions du joueur déjà reçues précèdent les dépôts IA.
+Un refus remet file et relevé à leur longueur initiale, sans tick ni publication :
+`POST /tick` rend 500 `{"erreur": "ia : <raison>"}` ; l'horloge passe sa vitesse
+à zéro, écrit la raison sur stderr et reste vivante.
+`GET /ia` publie avec le monde `{tick, date, releve, maisons_actives_30j}`,
+sans arrondi ; la mesure vient de `maisons_actives_30j`, −1 avant trente jours.
+Sans option, cette route rend 404 et demande `--ia` ; les autres routes gardent leur forme.
+La durée du tick inclut l'IA. Mesure sur la base, VPS, 06/10/2026, graine 0,
+30 ticks : médianes IA ≈ 275 ms, tick ≈ 91 ms, soit environ 2,7 jours/s au plus.
+Le placement des capitales par polygone est recalculé ; la cadence par défaut de 1 jour/s passe.
 
 Cette absence sans option vaut aussi pour `python3 -m forge`. Avec `--ia`,
 son relevé neuf reste hors de `World` : après validation des départs déposés,
