@@ -1,0 +1,14 @@
+{
+    "session": "vierge",
+    "implantation": "ksar_des_sept_puits",
+    "cell": 1175,
+    "port": 8000,
+    "tick_ouverture": 0,
+    "ouverture": [],
+    "traces": [],
+    "plan": [],
+    "panneau": "Plan du tick 0 : 0 rue(s) posée(s).",
+    "empreinte": "b0b3744befd939ddb83d17451fa79c035a63bb2df221a262ddd20a291b5a75b694b9b649154d6ab52c129bf1836c3f65ec6e0c95b19fb8af9de5b38a8fa77f1aeed0874bb5057c15807bf2af340918ebcbddadf657c9740ec50f2a7da48e5cea",
+    "vierge": "b0b3744befd939ddb83d17451fa79c035a63bb2df221a262ddd20a291b5a75b694b9b649154d6ab52c129bf1836c3f65ec6e0c95b19fb8af9de5b38a8fa77f1aeed0874bb5057c15807bf2af340918ebcbddadf657c9740ec50f2a7da48e5cea",
+    "defauts": []
+}

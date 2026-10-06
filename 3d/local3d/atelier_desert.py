@@ -16,8 +16,10 @@ from local3d.atelier_citadelle import prepare_terrain_sample
 CODE=ROOT/'local3d/desert';OUT=CODE/'sorties'
 RECIPE=json.loads((CODE/'recette.json').read_text(encoding='utf-8'))
 UNITY_ROOT=ROOT/'unity/Assets/ForgeLocal3D/Desert'
-ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes','ForgeLocal3D.DesertKit.Start':'desert_kit'}
-LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log','desert_kit':'kit.log'}
+ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes','ForgeLocal3D.DesertKit.Start':'desert_kit',
+         'ForgeLocal3D.DesertCityRelance.Tracer':'desert_relance_tracer','ForgeLocal3D.DesertCityRelance.Relancer':'desert_relance','ForgeLocal3D.DesertCityRelance.Vierge':'desert_relance_vierge'}
+LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log','desert_kit':'kit.log',
+      'desert_relance_tracer':'relance_tracer.log','desert_relance':'relance.log','desert_relance_vierge':'relance_vierge.log'}
 
 
 def blender(args,log):
@@ -199,6 +201,49 @@ def routes(ds,sourd=False):
         faults+=len(j['defauts'])
     if failure:raise failure
     if faults:raise RuntimeError(str(faults)+' défauts : voir sorties/ville/<implantation>/routes/jugement.json')
+
+
+RELANCE=(('tracer','ForgeLocal3D.DesertCityRelance.Tracer'),('relance','ForgeLocal3D.DesertCityRelance.Relancer'),('vierge','ForgeLocal3D.DesertCityRelance.Vierge'))
+
+
+def relance(ds,service_neuf=True):
+    """Lot 361 : Unity relancé redessine la même ville, d'après le seul plan du monde. Sur un service
+    neuf, `tracer` trace deux routes et en dépose une trop raide ; `relance`, sur le même service, doit
+    retrouver la même ville ; `vierge`, sur un service neuf, le sable vierge. Unity contrôle et juge.
+    Sans service neuf (contre-épreuve), `vierge` joue sur le premier service et doit rougir."""
+    from local3d.desert import routes as r, terrain as t
+    d=ds[0]
+    r.ecrire_gestes(d['id'],d['seed'])
+    (t.SORTIES/'selection.json').write_text(json.dumps({'implantations':[d['id']]}),encoding='utf-8')
+    rapports={s:t.SORTIES/d['id']/'relance'/(s+'.json') for s,_ in RELANCE}
+    for p in rapports.values():p.unlink(missing_ok=True)
+    if (ROOT/'unity/Temp/UnityLockfile').exists():
+        raise RuntimeError('Unity est ouvert : enregistrer et fermer l’éditeur, puis relancer (le contrôle du relancement tourne en mode batch).')
+    methodes=dict(RELANCE);echecs=[]
+    def jouer(session):
+        try:run_unity(methodes[session])
+        except RuntimeError as e:echecs.append(session+' : '+str(e))
+    service=lancer_service()
+    try:
+        jouer('tracer');jouer('relance')
+        if not service_neuf:jouer('vierge')
+    finally:arreter_service(service)
+    if service_neuf:
+        service=lancer_service()
+        try:jouer('vierge')
+        finally:arreter_service(service)
+    manquants=[];defauts=0
+    for s,p in rapports.items():
+        if not p.exists():manquants.append(s);print(s+' : pas de rapport ('+str(p)+')',flush=True);continue
+        j=json.loads(p.read_text(encoding='utf-8-sig'))
+        essais=lambda liste:', '.join('{} {}'.format(e['identifiant'],'acceptée' if e['acceptee'] else 'refusée ('+e['motif']+')') for e in liste) or 'aucun'
+        print('{} : tick d’ouverture {} ; ouverture : {} ; traces : {} ; plan : {} ; empreinte {} ; vierge {} ; {} défaut(s)'.format(
+            s,j['tick_ouverture'],essais(j['ouverture']),essais(j['traces']),j['plan'],j['empreinte'],j['vierge'],len(j['defauts'])),flush=True)
+        for fault in j['defauts']:print('  défaut : '+fault,flush=True)
+        defauts+=len(j['defauts'])
+    if manquants:raise RuntimeError('Unity n’a pas écrit de rapport pour : '+', '.join(manquants)+(' ('+' ; '.join(echecs)+')' if echecs else ''))
+    if defauts:raise RuntimeError(str(defauts)+' défauts : voir sorties/ville/'+d['id']+'/relance/')
+    if echecs:raise RuntimeError(' ; '.join(echecs))
 
 
 def proteges():
@@ -396,7 +441,7 @@ def verify(ds):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--service-sourd',action='store_true',help='routes : le monde ignore les intentions (contre-épreuve du lot 293)');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit','relance']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--service-sourd',action='store_true',help='routes : le monde ignore les intentions (contre-épreuve du lot 293)');p.add_argument('--sans-service-neuf',action='store_true',help='relance : la session vierge joue sur le premier service (contre-épreuve du lot 361)');a=p.parse_args()
     ds=[d for d in RECIPE['dispositions'] if not a.disposition or d['id']==a.disposition]
     if not ds:p.error('Disposition inconnue')
     if a.action=='fabriquer':build(ds,a.force,a.sans_rendus);verify(ds)
@@ -417,3 +462,4 @@ if __name__=='__main__':
     if a.action=='terrain':terrain(ds,a.force)
     if a.action=='routes':routes(ds,a.service_sourd)
     if a.action=='kit':kit_ateliers()
+    if a.action=='relance':relance(ds,not a.sans_service_neuf)
