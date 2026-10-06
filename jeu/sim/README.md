@@ -37,7 +37,7 @@ Le bâtiment occupe le contour d'une parcelle déjà au plan, même en chantier 
 sa nature est maison, scierie ou four. Une parcelle déjà bâtie ou promise est
 refusée. Le coût en journées est calculé à l'application ; le bâtiment prend
 ses bras après les routes et les parcelles, une fois sa parcelle achevée au
-début du tick. Achevés, scierie et four emploient les paysans restants comme artisans ; la maison reste sans effet. Les artisans façonnent davantage de matière après les 5 % sans bras, avec un budget commun.
+début du tick. Achevés, scierie et four emploient les paysans restants comme artisans ; la maison loge des foyers d’artisans dans `/lieu`, sans effet sur le tick. Les artisans façonnent davantage de matière après les 5 % sans bras, avec un budget commun.
 Routes et parcelles prennent ensuite des bras aux champs et comptent leurs
 journées, les rues passant en premier. `foyers` vaut 1 par défaut. Le reçu accepté
 est `{"acceptee": true, "appliquee_au_tick": T}`. Un type inconnu, un corps
@@ -68,6 +68,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/__init__.py` | Paquet Python, expose `__version__` |
 | `sim/constants.py` | Constantes paramétriques nommées (voir `sim/MODELE.md`) |
 | `sim/model.py` | Dataclass `Cell` — entité géographique de base |
+| `sim/logement.py` | Places des maisons finies, artisans logés et sans logis, dérivés sans effet sur le tick |
 | `sim/foyers.py` | Foyers par métier : rangement réversible et répartition entière des habitants |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
 | `sim/ateliers.py` | Emploi des artisans par surface des scieries et fours achevés, pris aux champs |

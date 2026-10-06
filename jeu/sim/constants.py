@@ -234,6 +234,7 @@ METIER_MINEURS = "mineurs"
 METIER_PAYSANS = "paysans"
 METIER_OUVRIERS = "ouvriers"
 METIER_ARTISANS = "artisans"
+SURFACE_M2_PAR_FOYER_LOGE = 40  # Logement des artisans, niveau 2.
 SURFACE_M2_PAR_FOYER_ARTISAN = 40  # Emploi par emprise, niveau 2.
 FABRICATION_KG_PAR_ARTISAN_PAR_TICK = 5  # Matière façonnée par personne, niveau 2.
 

@@ -500,7 +500,14 @@ En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
 peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
 L'amorçage A est partagé par le chargement et la vue dans `metiers_d_amorcage`.
-Âge, sexe, parenté et logement restent de niveau 3, non simulés.
+Le logement des artisans est de niveau 2 : réponse A, seuls les artisans cherchent un logis ; paysans, mineurs et ouvriers gardent le leur.
+`sim/logement.py` relit `SURFACE_M2_PAR_FOYER_LOGE = 40` et `TAILLE_FOYER` à chaque appel.
+Une maison finie loge `max(1, int(aire_du_contour(emprise) // SURFACE_M2_PAR_FOYER_LOGE))` foyers ; les autres bâtiments et chantiers ne logent personne.
+`capacite` somme ces places ; `loges = min(foyers d’artisans, capacite)` ; `sans_logis = foyers d’artisans − loges`, dernier foyer incomplet compris.
+Métiers non calculés : capacité calculée, les deux autres champs à `-1`.
+`/lieu` publie `logement` seulement si le plan porte un bâtiment, avec `foyers` et `lieux` au même tick.
+Le logement ne lit les métiers que dans la photographie, sans stockage ni effet sur le tick.
+Âge, sexe, parenté, logement des autres métiers et sort des sans-logis (froid, départ, santé) restent de niveau 3, non simulés.
 
 `GET /lieu?cell=X` porte `foyers` : par métier, trié par nom, ses
 `personnes` et son nombre de `foyers`, dernier foyer incomplet compris
@@ -2055,7 +2062,7 @@ une rue ou l'extérieur du bourg, sa propriété, son prix et son cadastre
 restent de niveau 3. Aucun bâtiment ni flux ne découle encore de son achèvement.
 La pose d'un bâtiment, son emprise égale au contour de sa parcelle, son coût
 et son achèvement sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
-l'orientation, l'étage, les matériaux et le logement restent de niveau 3. La maison achevée reste sans effet ; scierie et four emploient des artisans, de niveau 2.
+l'orientation, l'étage et les matériaux restent de niveau 3. La maison achevée loge des artisans, sans effet sur le tick ; scierie et four emploient des artisans, de niveau 2.
 
 ## Le chantier et ses bras
 

@@ -1,0 +1,45 @@
+# Lot #348 — Une maison finie loge les artisans, et les sans-logis se comptent
+Jalon : J4 · Machine : vps · Taille prévue : 230 lignes
+
+## But
+Le joueur qui bâtit des maisons dans sa capitale voit, sur `/lieu`, combien de foyers d'artisans elles logent et combien restent sans logis.
+
+## Règle du monde
+Règle de **niveau 2**, plausible, jamais sourcée. Elle découle de « Les foyers par métier » de `jeu/sim/MODELE.md`, et s'appuie sur « Le plan du bourg » et « Le chantier et ses bras ». Ce lot sert l'écran de J4 (« les foyers du bourg par métier et leur logement ») et ne demande rien à J3. Sa dépendance #347 est livrée sur la base : `sim/ateliers.py`, `METIER_ARTISANS`, `SURFACE_M2_PAR_FOYER_ARTISAN`, `aire_du_contour`, `Batiment` et l'achèvement des bâtiments existent. Réponse A du propriétaire (issue #258) acquise : seuls les artisans cherchent un logis ; paysans, mineurs et ouvriers gardent celui qu'ils avaient avant le plan. Aucun test existant ne change.
+
+Une maison finie du plan d'une cellule (`nature == "maison"`, `en_chantier` faux) loge `max(1, int(aire_du_contour(emprise) // SURFACE_M2_PAR_FOYER_LOGE))` foyers, avec `SURFACE_M2_PAR_FOYER_LOGE = 40` dans `constants.py`. La `capacite` de la cellule est la somme de ces places sur ses maisons finies. Une maison en chantier, une scierie et un four ne logent personne. Les foyers d'artisans valent `ranger_en_foyers(artisans).nombre` : le dernier foyer incomplet compte, comme dans `foyers` de `/lieu`. Zéro artisan donne zéro foyer. `loges = min(foyers d'artisans, capacite)` et `sans_logis = foyers d'artisans − loges`. Des métiers non calculés (`-1`) ne se devinent pas : `capacite` reste calculée, `loges` et `sans_logis` valent `-1`.
+
+Le compte est **dérivé** à chaque construction de la photographie, et rien n'est stocké : ni champ sur `Cell`, `Plan` ou `Batiment`, ni écriture dans le tick. Le tick ne change pas : le monde, son empreinte et ses aléas restent identiques au bit près, avec ou sans maison. Une fonction pure, `logement_de(cellule, plan)` dans le nouveau module `sim/logement.py`, relit les deux constantes par leur module à chaque appel. Elle rend `{"capacite", "loges", "sans_logis"}`, ou `None` si le plan n'a aucun bâtiment. Elle trie par identifiant et n'écrit rien.
+
+`EtatPublie` ajoute la clé `logement` aux octets de `/lieu` **seulement** si le plan de la cellule porte au moins un bâtiment, quels que soient sa nature et son état. Le service l'ajoute dans le même appel que `foyers` et `lieux`, au même tick. Sans bâtiment, les octets de `/lieu` sont exactement ceux d'avant le lot : les fichiers figés d'Unity `lieu-graine0-tick3.json` et `lieu-graine0-tick4.json` ne changent pas. `/monde`, `/plan`, le snapshot de la CLI et la photographie restent inchangés.
+
+Documentation, dans « Les foyers par métier » : la formule, la constante, les trois champs, la condition « seulement si le plan porte un bâtiment » et la réponse A. Garder mot pour mot « Le tick ne lit les métiers que pour la récolte » et préciser que le logement ne lit les métiers que dans la photographie. Remplacer « Âge, sexe, parenté et logement restent de niveau 3 » : le logement des artisans devient de niveau 2 ; âge, sexe, parenté, et logement des autres métiers restent de niveau 3. Dans « Le plan du bourg », corriger « le logement restent de niveau 3 » et « La maison achevée reste sans effet » : la maison loge des artisans, sans effet sur le tick. Garder « gestes de bâtiment » et « poser_batiment ». Dans `README.md`, corriger « la maison reste sans effet » et ajouter `sim/logement.py` à la table. Le sort des sans-logis (froid, départ, santé) reste de niveau 3, non simulé.
+
+## Périmètre
+jeu/sim/logement.py
+jeu/sim/constants.py
+jeu/sim/service.py
+jeu/sim/MODELE.md
+jeu/sim/README.md
+jeu/sim/tests/test_foyers.py
+jeu/sim/tests/test_monde.py
+
+## Conditions de succès
+Toutes les commandes partent de la racine. Les cas s'ajoutent aux fichiers ci-dessus, sans modifier un cas existant. Les références se calculent depuis les données et les constantes, jamais en appelant la fonction éprouvée. Chaque contrôle refuse un échantillon vide. Montrer d'abord le rouge des nouveaux cas sur la base, puis le vert. Les contre-épreuves altèrent le code sous `monkeypatch` et font échouer le même contrôle. Le diff total, brief compris, reste strictement sous 300 lignes.
+
+**SC1 — Le compte suit la règle.** `python3 -m pytest jeu/sim/tests/test_foyers.py -q -k logement_compte` : construire des plans à la main avec deux maisons finies aux identifiants présentés à l'envers (surfaces sous 40 m², à 40 et à 80), une maison en chantier, une scierie et un four finis. Cas d'artisans : zéro ; moins de foyers que de places ; plus de foyers que de places, avec un dernier foyer incomplet ; aucune maison finie. Vérifier `capacite`, `loges` et `sans_logis`, l'égalité `loges + sans_logis = foyers d'artisans`, et que paysans, mineurs et ouvriers ne comptent pas. Métiers `-1` : `capacite` calculée, les deux autres à `-1`. Plan sans bâtiment : `None`. Cellule, métiers et plan restent inchangés après l'appel. Contre-épreuves : faire loger la maison en chantier ; compter les foyers complets seulement (`personnes // TAILLE_FOYER`) ; compter les paysans comme artisans. Chacune fait échouer le contrôle.
+
+**SC2 — Les constantes se relisent.** `python3 -m pytest jeu/sim/tests/test_foyers.py jeu/sim/tests/test_no_hardcoded.py -q -k 'logement_constantes or hardcoded'` : doubler séparément `SURFACE_M2_PAR_FOYER_LOGE` et `TAILLE_FOYER` sur des données où chacun change le résultat attendu. Aucun littéral 40 dans `sim/logement.py` ni dans `sim/service.py`. Contre-épreuve : figer la surface par foyer dans `logement_de` ; le contrôle échoue.
+
+**SC3 — `/lieu` publie le logement d'une capitale bâtie.** `python3 -m pytest jeu/sim/tests/test_monde.py -q -k service_logement` : sur le vrai service graine 0, déposer par `POST /intention` une route, deux parcelles, puis une maison et un four, avec assez de foyers pour finir chaque chantier. Jouer les ticks jusqu'à l'achèvement, puis un tick d'emploi. Choisir des surfaces pour que la maison loge des artisans et en laisse sans logis. `/lieu` de cette cellule porte `logement` avec `loges > 0` et `sans_logis > 0`, égal à la référence calculée depuis `/plan` et `foyers` du même tick. Une autre cellule sans bâtiment ne porte pas la clé. `/monde` ne contient pas `logement`. Contre-épreuve : le même contrôle, lancé sur un second service sans les intentions de bâtiment, doit échouer (le service tourne dans un autre processus, `monkeypatch` ne l'atteint pas).
+
+**SC4 — Sans geste, les octets ne bougent pas.** `python3 -m pytest jeu/sim/tests/test_monde.py -q -k 'reponse_figee_du_pont or service_lieu_porte_les_foyers or logement_sans_geste'` : les deux tests figés existants restent verts sans changement. Ajouter le cas suivant : toutes les cellules de `/lieu` au tick 3, graine 0, plans vides, ne contiennent pas `b'"logement"'`. Ajouter aussi qu'un plan avec une seule scierie en chantier publie `logement` à capacité zéro. Contre-épreuve : publier `logement` pour tout plan, même vide ; le contrôle sur les fichiers figés échoue.
+
+**SC5 — Le logement ne touche pas le monde.** `python3 -m pytest jeu/sim/tests/test_monde.py -q -k logement_monde_inchange` : deux mondes chargés graine 0, chacun avec la même maison finie et le même four fini dans une cellule peuplée. Les deux jouent dix ticks ; pour le premier seulement, `logement_de` est appelé sur chaque cellule avant et après chaque tick. Comparer au bit près `to_dict()`, les stocks maritimes, le retour du tick et `rng.getstate()`. Contre-épreuve : une fonction qui retire un artisan à chaque appel ; le comparateur échoue.
+
+**SC6 — La documentation suit.** `python3 -m pytest jeu/sim/tests/test_foyers.py -q -k 'documentation or logement_documentation'` : les contrôles existants restent verts. Ajouter la présence, dans « Les foyers par métier », de `SURFACE_M2_PAR_FOYER_LOGE`, `sans_logis`, `logement` et « seulement si » ; vérifier que « La maison achevée reste sans effet » n'est plus dans « Le plan du bourg » ; vérifier que `sim/logement.py` est dans `README.md`. Contre-épreuve : retirer `sans_logis` de la seule section ; le contrôle échoue.
+
+**SC7 — Toute la suite.** `python3 -m pytest jeu -q` passe. Si un contrôle de durée existant (`tick_sous_le_budget_du_service`, `ateliers_budget`) est déjà rouge sur la base du VPS, le rapporter avec sa mesure, sans toucher ni au seuil ni au test.
+
+## Hors périmètre
+Unity, Blender, rendu des maisons ou des sans-logis. Logement des paysans, mineurs et ouvriers. Effet des sans-logis sur le monde (faim, départ, santé, natalité). Loyer, propriété, étage, matériaux. Choix des foyers logés ou ordre entre maisons. Toute donnée stockée sur `Cell`, `Plan` ou `Batiment`. Toute modification du tick, de Chantiers, d'Ateliers, de Fabrication, de `/monde`, `/plan`, de la photographie ou du snapshot. Les fichiers figés d'Unity. Tout test existant. Tout fichier hors du périmètre.
