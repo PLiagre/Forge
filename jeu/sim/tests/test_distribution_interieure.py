@@ -424,3 +424,142 @@ def test_recolte_par_lieu_selon_surface(moyenne):
     assert _stock(cellule) > 0
     for lieu, surface in zip(cellule.lieux, surfaces):
         _egal_kg(_stock(lieu), _stock(cellule) * surface / cellule.area_km2)
+
+
+def _controle_dette_par_lieu(cellule, dettes=None, faims=None):
+    from fractions import Fraction
+    observes = [lieu.dette_alimentaire_kg for lieu in cellule.lieux]
+    assert sum(observes) == cellule.food_deficit_kg
+    assert sum(map(Fraction, observes)) == Fraction(cellule.food_deficit_kg)
+    assert min(observes) >= 0
+    if dettes is not None:
+        assert observes == dettes
+    if faims is not None:
+        assert [lieu.duree_faim_ticks for lieu in cellule.lieux] == faims
+
+
+@pytest.mark.parametrize("capacite,populations,paniers,dette,dettes,faims", [
+    (0, [20, 1, 1], [0, 6, 200], 49, [43, 3, 3], [1, 0, 0]),
+    (10, [1, 20, 1], [200, 0, 100], 39, [3, 33, 3], [0, 1, 0]),
+])
+def test_dette_par_lieu_manque(monkeypatch, capacite, populations, paniers, dette, dettes, faims):
+    cellule, carte = _cellule_par_lieu(populations, paniers)
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", capacite)
+    assert engine._apply_consumption(cellule, carte) == dette - 9
+    assert cellule.food_deficit_kg == dette
+    _controle_dette_par_lieu(cellule, dettes, faims)
+    copie = copy.deepcopy(cellule)
+    copie.lieux[0].dette_alimentaire_kg, copie.lieux[1].dette_alimentaire_kg = (
+        copie.lieux[1].dette_alimentaire_kg, copie.lieux[0].dette_alimentaire_kg)
+    with pytest.raises(AssertionError):
+        _controle_dette_par_lieu(copie, dettes, faims)
+
+
+def test_dette_par_lieu_remboursement():
+    cellule, carte = _cellule_par_lieu([1, 2, 3], [10, 10, 12])
+    cellule.food_deficit_kg = 40
+    for lieu, dette, faim in zip(cellule.lieux, [30, 10, 0], [2, 0, 0]):
+        lieu.dette_alimentaire_kg = dette
+        lieu.duree_faim_ticks = faim
+    assert engine._apply_consumption(cellule, carte) == 0
+    assert cellule.food_deficit_kg == 20
+    _controle_dette_par_lieu(cellule, [15, 5, 0], [0, 0, 0])
+
+
+def test_dette_par_lieu_nulle_sans_partager(monkeypatch):
+    from sim import lieux
+    cellule, carte = _cellule_par_lieu([1, 2, 3], [100.25, 500, 1000])
+    cellule.food_deficit_kg = 0
+    cellule.lieux[0].duree_faim_ticks = 2
+    monkeypatch.setattr(lieux, "partager", lambda *args: pytest.fail("partage inutile"))
+    assert engine._apply_consumption(cellule, carte) == 0
+    _controle_dette_par_lieu(cellule, [0, 0, 0], [0, 0, 0])
+
+
+def test_dette_par_lieu_unique():
+    from sim.model import creer_etat_de_lieu
+    cellule = Cell(0, 100, 2)
+    cellule.lieux = [creer_etat_de_lieu(0, 2, {"nourriture": 0},
+                                      dette_alimentaire_kg=0.0, duree_faim_ticks=0)]
+    cellule.food_deficit_kg = -1
+    for stock, faim in [(0, 1), (0, 2), (100, 0)]:
+        ecrire_stock_marchandise(cellule, "nourriture", stock)
+        penurie = engine._apply_consumption(cellule, {0: {}})
+        engine._update_hunger(cellule, penurie)
+        _controle_dette_par_lieu(cellule, [cellule.food_deficit_kg], [faim])
+        assert cellule.lieux[0].duree_faim_ticks == cellule.hunger_ticks
+
+
+def test_dette_par_lieu_documentee():
+    from pathlib import Path
+    def verifier(texte):
+        contenu = texte.split("### Ce que porte un lieu\n")[1].split("\n### ")[0]
+        for champ in ("rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks"):
+            assert champ in contenu
+        distribution = texte.split("## La distribution à l'intérieur de la cellule\n")[1].split("\n## ")[0]
+        for mot in ("partager", "à proportion des dettes", "faim", "au bit près"):
+            assert mot in distribution
+        assert "Dette et faim restent portées par la cellule" not in distribution
+    texte = (Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    verifier(texte)
+    with pytest.raises(AssertionError):
+        verifier(texte.replace("à proportion des dettes", "au hasard"))
+
+
+def test_dette_par_lieu_arrondi_cellulaire(monkeypatch):
+    ration = 0.3
+    populations = [1, 3, 3]
+    paniers = [population * ration for population in populations]
+    cellule, carte = _cellule_par_lieu(populations, paniers)
+    cellule.food_deficit_kg = 0
+    monkeypatch.setattr(constantes, "FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK", ration)
+    manque = cellule.population * ration - sum(paniers)
+    assert manque > 0  # Les lieux ont pourtant exactement leur ration locale.
+    assert engine._apply_consumption(cellule, carte) == manque
+    _controle_dette_par_lieu(cellule, [manque, 0, 0], [1, 0, 0])
+
+
+@pytest.mark.parametrize("paniers,dette_finale", [([2, 4, 6], 40), ([100, 100, 100], 0)])
+def test_dette_par_lieu_inchangee_ou_effacee(monkeypatch, paniers, dette_finale):
+    from sim import lieux
+    cellule, carte = _cellule_par_lieu([1, 2, 3], paniers)
+    cellule.food_deficit_kg = 40
+    for lieu, dette in zip(cellule.lieux, [30, 10, 0]):
+        lieu.dette_alimentaire_kg = dette
+        lieu.duree_faim_ticks = 2
+    porter = engine._porter_dette_et_faim_sur_les_lieux
+    def sans_partage_de_dette(*args):
+        with monkeypatch.context() as garde:
+            garde.setattr(lieux, "partager", lambda *args: pytest.fail("partage inutile de dette"))
+            return porter(*args)
+    monkeypatch.setattr(engine, "_porter_dette_et_faim_sur_les_lieux", sans_partage_de_dette)
+    assert engine._apply_consumption(cellule, carte) == 0
+    assert cellule.food_deficit_kg == dette_finale
+    _controle_dette_par_lieu(cellule, [30, 10, 0] if dette_finale else [0, 0, 0], [0, 0, 0])
+
+
+def test_dette_par_lieu_creation_et_sans_carte():
+    from sim.model import creer_etat_de_lieu
+    lieu = creer_etat_de_lieu(0, 2, {"nourriture": 0},
+                             dette_alimentaire_kg=7.5, duree_faim_ticks=3)
+    cellule = Cell(0, 100, 2)
+    cellule.lieux = [lieu]
+    avant = copy.deepcopy(lieu)
+    assert engine._apply_consumption(cellule) > 0
+    assert lieu == avant
+    assert lieu.dette_alimentaire_kg == 7.5 and lieu.duree_faim_ticks == 3
+
+
+def test_dette_par_lieu_lecture_faim_couverte(monkeypatch, tmp_path):
+    from sim.tests import test_write_coverage as couverture
+    source = couverture._ENGINE_FILE.read_text(encoding="utf-8")
+    lecture = "lieu.duree_faim_ticks + 1"
+    assert source.count(lecture) == 1
+    sans_lecture = tmp_path / "engine.py"
+    sans_lecture.write_text(source.replace(lecture, "0 + 1"), encoding="utf-8")
+    fichiers = [sans_lecture if fichier == couverture._ENGINE_FILE else fichier
+                for fichier in couverture._SIM_SOURCE_FILES]
+    couverture.test_all_dataclass_fields_have_write_and_read_sites()
+    monkeypatch.setattr(couverture, "_SIM_SOURCE_FILES", fichiers)
+    with pytest.raises(AssertionError, match="duree_faim_ticks : aucun site de lecture"):
+        couverture.test_all_dataclass_fields_have_write_and_read_sites()

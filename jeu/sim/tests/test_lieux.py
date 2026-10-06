@@ -239,7 +239,7 @@ def test_amorcage_conserve_habitants_et_panier(monkeypatch):
     import sim.lieux as lieux_module
     from sim.model import Cell, EtatDeLieu, cellule_vers_dict
 
-    assert {champ.name for champ in dataclasses.fields(EtatDeLieu)} == {"rang", "population", "stocks"}
+    assert {champ.name for champ in dataclasses.fields(EtatDeLieu)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks"}
     assert issubclass(EtatDeLieu, _NoBadSpatialField)
     monde = World.charger(0)
     contrôlées = _controle_conservation(monde)
@@ -872,3 +872,78 @@ def test_plan_accepte_des_metres_locaux_sans_borne_inventee():
     document = _construire_plan(donnees).to_dict()
     assert document["rues"][0]["points"] == [[-1e12, -1e12], [1e12, 1e12]]
     assert document["batiments"][0]["emprise"][0] == [-100, -100]
+
+
+def _controle_dette_et_faim_des_lieux(monde):
+    mixtes = 0
+    assert monde.cells
+    for cellule in monde.cells.values():
+        assert cellule.lieux
+        dettes = [lieu.dette_alimentaire_kg for lieu in cellule.lieux]
+        assert sum(dettes) == cellule.food_deficit_kg
+        assert sum(map(Fraction, dettes)) == Fraction(cellule.food_deficit_kg)
+        assert min(dettes) >= 0
+        faims = [lieu.duree_faim_ticks for lieu in cellule.lieux]
+        assert (cellule.hunger_ticks > 0) == any(faim > 0 for faim in faims)
+        assert all(0 <= faim <= cellule.hunger_ticks for faim in faims)
+        mixtes += any(faims) and not all(faims)
+    return mixtes
+
+
+def test_dette_et_faim_des_lieux(monkeypatch):
+    from sim import engine
+    from sim.model import cellule_vers_dict
+    capacite = _constantes.CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK
+    for reglage in (capacite, 0):
+        monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", reglage)
+        monde, rng, mixtes = World.charger(0), random.Random(0), 0
+        _controle_dette_et_faim_des_lieux(monde)
+        for numero in range(60):
+            tick(monde, rng, numero_tick=numero)
+            mixtes += _controle_dette_et_faim_des_lieux(monde)
+        if reglage == 0:
+            assert mixtes > 0
+        print(f"capacite={reglage}, couples_cellule_tick_faim_mixte={mixtes}")
+    monkeypatch.setattr(engine, "_porter_dette_et_faim_sur_les_lieux", lambda *args: None)
+    temoin = World.charger(0)
+    tick(temoin, random.Random(0), numero_tick=0)
+    assert any(c.food_deficit_kg > 0 for c in temoin.cells.values())
+    with pytest.raises(AssertionError):
+        _controle_dette_et_faim_des_lieux(temoin)
+
+    def verifier_empreinte(serialiser):
+        for cellule in monde.cells.values():
+            for lieu in serialiser(cellule)["lieux"]:
+                assert {"dette_alimentaire_kg", "duree_faim_ticks"} <= set(lieu)
+    verifier_empreinte(cellule_vers_dict)
+    def omettre(cellule):
+        document = cellule_vers_dict(cellule)
+        for lieu in document["lieux"]:
+            del lieu["dette_alimentaire_kg"], lieu["duree_faim_ticks"]
+        return document
+    with pytest.raises(AssertionError):
+        verifier_empreinte(omettre)
+    avant = json.dumps(monde.to_dict(), sort_keys=True)
+    next(iter(monde.cells.values())).lieux[0].dette_alimentaire_kg += 1
+    assert json.dumps(monde.to_dict(), sort_keys=True) != avant
+
+
+def test_dette_sans_effet_sur_le_monde(monkeypatch):
+    from sim import engine
+    monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0)
+    normal, temoin = World.charger(0), World.charger(0)
+    rng_normal, rng_temoin = random.Random(0), random.Random(0)
+    def contenus(monde):
+        return {cid: [(lieu.population, lieu.stocks) for lieu in cellule.lieux]
+                for cid, cellule in monde.cells.items()}
+    for numero in range(60):
+        retour = tick(normal, rng_normal, numero_tick=numero)
+        with monkeypatch.context() as garde:
+            garde.setattr(engine, "_porter_dette_et_faim_sur_les_lieux", lambda *args: None)
+            assert tick(temoin, rng_temoin, numero_tick=numero) == retour
+        assert _etats_cellules(normal) == _etats_cellules(temoin)
+        assert contenus(normal) == contenus(temoin)
+    with pytest.raises(AssertionError):
+        assert [[l.dette_alimentaire_kg for l in c.lieux] for c in normal.cells.values()] == (
+            [[l.dette_alimentaire_kg for l in c.lieux] for c in temoin.cells.values()])
+    print(f"cellules_comparees={len(normal.cells)}, ticks_identiques=60, ecart_dette_vu=1")
