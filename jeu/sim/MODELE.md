@@ -27,8 +27,8 @@ part. À chaque tick, dans cet ordre :
    du joueur, une route, une parcelle ou un bâtiment entre au plan en chantier ;
    sans cellule ni aléa.
 3. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
-   puis les rues, et après elles les parcelles, prennent leurs bras et comptent
-   les journées fournies.
+   puis les rues, les parcelles et enfin les bâtiments dont la parcelle est
+   prête prennent leurs bras et comptent les journées fournies.
 4. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sur place et sans occuper de bras.
@@ -116,7 +116,7 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   ne sont pas consommés.
 - **répartir le travail.** Les habitants ont un métier, mineur ou paysan.
   Naissances, morts et départs suivent les métiers ; seuls la récolte et le
-  chantier, des rues et des parcelles, les lisent. Seul le chantier fait passer des paysans à ouvriers
+  chantier, des rues, parcelles et bâtiments, les lisent. Seul le chantier fait passer des paysans à ouvriers
   et retour ; la part minière retire déjà des bras aux champs.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Une route se bâtit à la journée, mais aucune capacité de
@@ -127,8 +127,7 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   et paniers ; à la consommation, les paniers, habitants et chemins déterminent
   ce que chaque lieu mange. Pas de mouvement propre aux lieux, de familles,
   de personnes ni de quartiers. Le plan peut porter des bâtiments, mais ils
-  ne font rien ; un bâtiment posé reste en chantier, aucune étape ne le
-  servant encore.
+  ne font rien une fois achevés ; un bâtiment posé se bâtit à la journée.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
 
@@ -1983,7 +1982,7 @@ Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
 en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
 son plan ; seules les étapes Intentions et Chantiers le lisent. Intentions
 y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
-des rues et parcelles et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
+des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
 `parcelles` et `batiments`. Les octets sont construits dans `EtatPublie` avec
@@ -2003,8 +2002,8 @@ de niveau 3, non simulés. Le découpage d'une parcelle, son coût et son
 achèvement sont de niveau 2. Ses chevauchements avec d'autres parcelles,
 une rue ou l'extérieur du bourg, sa propriété, son prix et son cadastre
 restent de niveau 3. Aucun bâtiment ni flux ne découle encore de son achèvement.
-La pose d'un bâtiment, son emprise égale au contour de sa parcelle et son coût
-sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
+La pose d'un bâtiment, son emprise égale au contour de sa parcelle, son coût
+et son achèvement sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
 l'orientation, l'étage, les matériaux et l'effet du bâtiment achevé (logement,
 fabrication) restent de niveau 3.
 
@@ -2031,23 +2030,33 @@ produits croisés `x_i × y_{i+1} − x_{i+1} × y_i`, multipliée par
 `AIRE_PAR_PRODUIT_CROISE = 0,5`, moitié géométrique. Les deux fonctions
 relisent leur constante à chaque appel, quel que soit le sens du contour.
 Ainsi, 10 m × 20 m demandent 400 journées ; un contour plat demande 1 journée.
-Aucune étape ne sert encore un bâtiment en chantier : il garde zéro journée
-fournie et les reconstructions de plan le reprennent tel quel.
+Un bâtiment achevé ne fait encore rien : ni logement, ni fabrication, ni bras.
+Aucune autre étape ne lit le plan.
 
 `sim/chantiers.py` parcourt les cellules par `cell_id`. Tous leurs `ouvriers`
 redeviennent d’abord `paysans`, puis les rues en chantier, par identifiant,
-et après elles les parcelles en chantier, par identifiant, prennent le
-minimum des bras disponibles,
+après elles les parcelles en chantier, puis les bâtiments en chantier, chacun
+par identifiant, prennent le minimum des bras disponibles,
 de `foyers × TAILLE_FOYER` et du travail restant. Ces paysans deviennent
 ouvriers ; chaque personne envoyée ajoute exactement une journée fournie.
-La rue ou la parcelle s’achève au requis. Le dernier jour n’envoie que les journées
+La rue, la parcelle ou le bâtiment s’achève au requis : `en_chantier` devient faux.
+Le dernier jour n’envoie que les journées
 manquantes : aucune journée ne se crée ni ne se perd. Les métiers gardent
 leur somme et la population ; non calculés (`-1`), ils n’envoient personne.
 Sans travail fourni le plan n’est pas reconstruit, et sans changement les
 métiers ne sont pas écrits. Sans chantier ni ouvrier, rien n’est écrit.
 Le retour compte chaque envoi : clé `(cell_id, identifiant)` pour une rue,
-`(cell_id, "parcelle", identifiant)` pour une parcelle, même pour zéro bras.
-Le plan est reconstruit seulement si une rue ou une parcelle reçoit du travail.
+`(cell_id, "parcelle", identifiant)` pour une parcelle et
+`(cell_id, "batiment", identifiant)` pour un bâtiment, même pour zéro bras
+ou pour un bâtiment qui attend sa parcelle. Un chantier achevé n'a pas d'entrée.
+Un bâtiment dont la parcelle est en chantier au début de l'étape attend :
+l'état est lu dans le plan d'avant l'étape. Même achevée ce jour, la parcelle
+ne laisse son bâtiment prendre des bras que le tick suivant. Cette attente
+concerne sa parcelle, pas les autres bâtiments de la cellule.
+Le plan est reconstruit par `Plan(rues=…, parcelles=…, batiments=…)`, en mots-clés,
+seulement si une rue, une parcelle ou un bâtiment reçoit du travail ; sinon
+il reste le même objet. Sans geste, aucun bâtiment n'entre en chantier et
+le monde reste identique à l'octet près.
 
 La récolte du même tick lit les paysans restés aux champs. Les naissances,
 morts et départs suivent le prorata des métiers, ouvriers compris ; le retour
@@ -2060,7 +2069,8 @@ L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
 Une cellule est immense et le chantier ne coûte de récolte que s’il retire
 presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
 sexe, nourriture propre, outils, matériaux, saison et salaire restent de
-niveau 3, comme l’effet de la route achevée sur les flux.
+niveau 3, comme l’effet de la route achevée sur les flux, les artisans
+spécialisés et une priorité choisie par le joueur entre chantiers.
 
 ---
 
