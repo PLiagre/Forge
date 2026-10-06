@@ -604,3 +604,199 @@ def test_service_parcelle_plan_et_journees():
                             "en_chantier": True, "foyers": 1,
                             "travail_requis": max(1, math.ceil(10 * 20 * k.TRAVAIL_PARCELLE_JOURNEES_PAR_M2)),
                             "travail_fourni": k.TAILLE_FOYER}
+
+
+def _batiment_reference(monde):
+    from sim.intentions import recevoir_intention
+
+    parcelle = _parcelle_reference(monde)
+    recevoir_intention(monde, parcelle)
+    engine._appliquer_intentions(monde)
+    return {"type": "poser_batiment", "cell": parcelle["cell"], "parcelle": 0, "nature": "maison"}
+
+
+CAS_REFUS_BATIMENT = [
+    *[({}, champ, "champ") for champ in ("cell", "parcelle", "nature")],
+    ({}, "type", "type"), ({"extra": 0}, None, "champ"),
+    *[({"cell": v}, None, "cell") for v in ("absente", True, "0", 0.0)],
+    *[({"parcelle": v}, None, "parcelle absente") for v in (1, -1, True, "0", 0.0, None)],
+    ({"cell": "autre"}, None, "parcelle absente"),
+    *[({"nature": v}, None, "nature") for v in ("atelier", "Maison", " maison", "", None, 0)],
+    *[({"foyers": v}, None, "foyers") for v in (0, -1, True, 1.5, "1")],
+]
+
+
+@pytest.mark.parametrize("modifications,retire,mot", CAS_REFUS_BATIMENT)
+def test_refus_batiment_sans_mutation(modifications, retire, mot):
+    from sim.intentions import IntentionRefusee, recevoir_intention
+
+    monde = World.charger(0)
+    geste = _batiment_reference(monde) | modifications
+    if geste["cell"] == "absente":
+        geste["cell"] = max(monde.plans) + 1
+    elif geste["cell"] == "autre":
+        geste["cell"] = next(c for c, plan in monde.plans.items() if not plan.parcelles)
+    if retire:
+        del geste[retire]
+    avant = monde.to_dict()
+    with pytest.raises(IntentionRefusee, match=mot):
+        recevoir_intention(monde, geste)
+    assert monde.intentions_en_attente == [] and monde.to_dict() == avant
+    assert CAS_REFUS_BATIMENT
+
+
+def test_refus_batiment_bati_promis_et_en_attente():
+    from sim.intentions import IntentionRefusee, recevoir_intention
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+
+    monde = World.charger(0)
+    geste = _batiment_reference(monde)
+    decoupe = {"type": "decouper_parcelle", "cell": geste["cell"], "rue": 0, "segment": 0,
+               "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "droite"}
+    recevoir_intention(monde, decoupe)
+    avant, attente = monde.to_dict(), list(monde.intentions_en_attente)
+    with pytest.raises(IntentionRefusee) as erreur:
+        recevoir_intention(monde, geste | {"parcelle": 1})
+    assert str(erreur.value) == "parcelle absente du plan : 1"
+    assert monde.to_dict() == avant and monde.intentions_en_attente == attente
+    engine._appliquer_intentions(monde)
+    pose = recevoir_intention(monde, geste)
+    avant = monde.to_dict()
+    with pytest.raises(IntentionRefusee) as erreur:
+        recevoir_intention(monde, geste | {"nature": "x", "foyers": 0})
+    assert str(erreur.value) == "parcelle déjà promise : 0"
+    assert monde.intentions_en_attente == [pose] and monde.to_dict() == avant
+    recevoir_intention(monde, geste | {"parcelle": 1, "nature": "scierie"})
+    assert len(monde.intentions_en_attente) == 2
+    engine._appliquer_intentions(monde)
+    assert [b.nature for b in monde.plans[geste["cell"]].batiments] == ["maison", "scierie"]
+    for plan, identifiant in ((monde.plans[geste["cell"]], 0), (_construire_plan(_donnees_plan()), 7)):
+        monde.plans[geste["cell"]] = plan
+        avant = monde.to_dict()
+        with pytest.raises(IntentionRefusee) as erreur:
+            recevoir_intention(monde, geste | {"parcelle": identifiant, "nature": "x", "foyers": 0})
+        assert str(erreur.value) == f"parcelle déjà bâtie : {identifiant}"
+        assert monde.intentions_en_attente == [] and monde.to_dict() == avant
+
+
+def test_refus_batiment_ordre_et_messages():
+    from sim.intentions import IntentionRefusee, recevoir_intention
+
+    monde = World.charger(0)
+    reference = _batiment_reference(monde)
+    geste = reference | {"cell": True, "parcelle": True, "nature": "x", "foyers": 0}
+    for champ, message in (("cell", "cell inconnu : True"),
+                           ("parcelle", "parcelle absente du plan : True"),
+                           ("nature", "nature inconnue : 'x'"),
+                           ("foyers", "foyers invalide : attendu un entier ≥ 1, reçu 0")):
+        avant = monde.to_dict()
+        with pytest.raises(IntentionRefusee) as erreur:
+            recevoir_intention(monde, geste)
+        assert str(erreur.value) == message
+        assert monde.intentions_en_attente == [] and monde.to_dict() == avant
+        geste[champ] = reference.get(champ, 1)
+    assert recevoir_intention(monde, geste) == monde.intentions_en_attente[0]
+
+
+def test_batiment_applique_au_plan_et_cout_relu(monkeypatch):
+    import math
+    from sim import constants as k
+    from sim.intentions import PoseBatiment, recevoir_intention
+    from sim.plan import Batiment
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+
+    monde = World.charger(0)
+    geste = _batiment_reference(monde)
+    c = geste["cell"]
+    plan = monde.plans[c]
+    avant = monde.to_dict()
+    pose = recevoir_intention(monde, geste)
+    assert pose == PoseBatiment(c, 0, "maison", 1)
+    with pytest.raises(FrozenInstanceError):
+        pose.nature = "four"
+    assert monde.to_dict() == avant
+    engine._appliquer_intentions(monde)
+    contour = tuple(tuple(p) for p in plan.parcelles[0].contour)
+    requis = max(1, math.ceil(10 * 20 * k.TRAVAIL_BATIMENT_JOURNEES_PAR_M2))
+    assert monde.plans[c].batiments == [Batiment(0, 0, "maison", contour, True, 1, requis, 0)]
+    assert isinstance(monde.plans[c].batiments[0].emprise, tuple)
+    assert all(isinstance(p, tuple) for p in monde.plans[c].batiments[0].emprise)
+    assert all(a is b for a, b in zip(plan.rues, monde.plans[c].rues))
+    assert all(a is b for a, b in zip(plan.parcelles, monde.plans[c].parcelles))
+    recevoir_intention(monde, {"type": "decouper_parcelle", "cell": c, "rue": 0, "segment": 0,
+                              "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "droite"})
+    engine._appliquer_intentions(monde)
+    recevoir_intention(monde, geste | {"parcelle": 1, "nature": "four", "foyers": 3})
+    engine._appliquer_intentions(monde)
+    four = monde.plans[c].batiments[1]
+    assert (four.identifiant, four.parcelle, four.nature, four.foyers, four.travail_requis) == (
+        1, 1, "four", 3, requis)
+    autre = World.charger(0)
+    autre.plans[c] = _construire_plan(_donnees_plan())
+    ancien = autre.plans[c].batiments[0]
+    route = _route_reference(autre)
+    recevoir_intention(autre, route)
+    engine._appliquer_intentions(autre)
+    recevoir_intention(autre, {"type": "decouper_parcelle", "cell": c, "rue": 8, "segment": 0,
+                              "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"})
+    engine._appliquer_intentions(autre)
+    recevoir_intention(autre, geste | {"parcelle": 8})
+    # Le coût doit être lu à l’application, même après le dépôt.
+    monkeypatch.setattr(k, "TRAVAIL_BATIMENT_JOURNEES_PAR_M2", 2 * k.TRAVAIL_BATIMENT_JOURNEES_PAR_M2)
+    engine._appliquer_intentions(autre)
+    assert autre.plans[c].batiments[0] is ancien
+    nouveau = autre.plans[c].batiments[1]
+    assert (nouveau.identifiant, nouveau.parcelle, nouveau.travail_requis) == (8, 8, 2 * requis)
+    with pytest.raises(AssertionError):
+        assert nouveau.travail_requis == requis
+    document = _construire_plan(_donnees_plan()).to_dict()["batiments"][0]
+    assert document["nature"] == "atelier"
+    assert {champ: document[champ] for champ in ("en_chantier", "foyers", "travail_requis", "travail_fourni")} == {
+        "en_chantier": False, "foyers": 0, "travail_requis": 0, "travail_fourni": 0}
+
+
+def test_batiment_tick_rejeu_et_temoin(monkeypatch):
+    from sim import constants as k
+    from sim.intentions import recevoir_intention
+    from sim.plan import Parcelle, Plan, Rue
+
+    reference = World.charger(0)
+    geste = _batiment_reference(reference)
+    c = geste["cell"]
+    route = _route_reference(reference)
+    contour = reference.plans[c].parcelles[0].contour
+
+    def jouer():
+        mondes = [World.charger(0) for _ in range(3)]
+        aleas = [random.Random(0) for _ in mondes]
+        for i, monde in enumerate(mondes):
+            monde.plans[c] = Plan(rues=[Rue(0, route["points"], 4)],
+                                  parcelles=[Parcelle(0, contour, True, 1, 4 * k.TAILLE_FOYER, 0)])
+            if i < 2:
+                recevoir_intention(monde, geste)
+        for i in range(3):
+            for monde, alea in zip(mondes, aleas):
+                engine.tick(monde, alea, numero_tick=i)
+        documents = [m.to_dict() for m in mondes]
+        assert documents[0] == documents[1]
+        assert aleas[0].getstate() == aleas[1].getstate() == aleas[2].getstate()
+        assert documents[0]["cells"] == documents[2]["cells"]
+        a, b = documents[0]["plans"], documents[2]["plans"]
+        assert a and a.keys() == b.keys()
+        assert all(a[cle] == b[cle] for cle in a if cle != str(c))
+        assert {cle: v for cle, v in a[str(c)].items() if cle != "batiments"} == {
+            cle: v for cle, v in b[str(c)].items() if cle != "batiments"}
+        assert not b[str(c)]["batiments"]
+        return mondes[0], mondes[2]
+
+    monde, temoin = jouer()
+    assert monde.plans[c].batiments and monde.plans[c].parcelles[0].en_chantier
+    assert monde.plans[c].batiments[0].en_chantier
+    assert monde.plans[c].batiments[0].travail_fourni == 0
+    assert monde.to_dict()["plans"] != temoin.to_dict()["plans"]
+    with monkeypatch.context() as sonde:
+        sonde.setattr(engine, "_appliquer_intentions", lambda monde: None)
+        monde, temoin = jouer()
+        assert monde.to_dict() == temoin.to_dict()
+        with pytest.raises(AssertionError):
+            assert monde.to_dict()["plans"] != temoin.to_dict()["plans"]

@@ -20,12 +20,17 @@ pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide et n'a aucun effet sur le tick.
 
 `POST /intention` reçoit `{"type": "choisir_depart", "seigneurie": ID}`,
-`{"type": "tracer_route", "cell": X, "points": [[0, 0], [40, 0]], "largeur_m": 4}`
-ou `{"type": "decouper_parcelle", "cell": X, "rue": 0, "segment": 0,
-"debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}`.
+`{"type": "tracer_route", "cell": X, "points": [[0, 0], [40, 0]], "largeur_m": 4}`,
+`{"type": "decouper_parcelle", "cell": X, "rue": 0, "segment": 0,
+"debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}`
+ou `{"type": "poser_batiment", "cell": X, "parcelle": 0, "nature": "maison"}`.
 Le dépôt validé reste en attente jusqu’au tick suivant : le choix devient
-la maison du joueur, la route ou la parcelle entre au plan en chantier.
+la maison du joueur, la route, la parcelle ou le bâtiment entre au plan en chantier.
 La parcelle borde une rue déjà au plan ; son contour est figé au dépôt.
+Le bâtiment occupe le contour d'une parcelle déjà au plan, même en chantier ;
+sa nature est maison, scierie ou four. Une parcelle déjà bâtie ou promise est
+refusée. Le coût en journées est calculé à l'application ; le bâtiment reste
+en chantier, aucune étape ne lui fournissant encore de journées.
 Routes et parcelles prennent ensuite des bras aux champs et comptent leurs
 journées, les rues passant en premier. `foyers` vaut 1 par défaut. Le reçu accepté
 est `{"acceptee": true, "appliquee_au_tick": T}`. Un type inconnu, un corps
@@ -59,7 +64,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/foyers.py` | Foyers par métier : rangement réversible et répartition entière des habitants |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
 | `sim/chantiers.py` | Journées de route et passage des paysans aux ouvriers, puis retour aux champs |
-| `sim/intentions.py` | Dépôt commun des choix de départ et tracés de route, en attente du tick |
+| `sim/intentions.py` | Dépôt commun des choix de départ, routes, parcelles et bâtiments, en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
 | `sim/aggregation.py` | Agrégation dérivée : regroupe les cellules par centre administratif le plus proche. Ne modifie rien, n'écrit rien |

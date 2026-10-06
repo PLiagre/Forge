@@ -414,3 +414,65 @@ def test_documentation_parcelle(monkeypatch):
                           if path.name == "MODELE.md" else lire(path, *a, **kw))
             with pytest.raises(AssertionError):
                 controler()
+
+
+def test_aire_batiment_lacet_et_travail(monkeypatch):
+    from sim.chantiers import travail_requis_de_batiment
+    from sim.plan import aire_du_contour
+    from sim.tests.test_intentions import _parcelle_reference
+
+    triangle = [(0, 0), (10, 0), (0, 10)]
+    nominal = 100 * k.AIRE_PAR_PRODUIT_CROISE
+    monde = World.charger(0)
+    geste = _parcelle_reference(monde)
+    for cote in ("gauche", "droite"):
+        recevoir_intention(monde, geste | {"cote": cote})
+    engine._appliquer_intentions(monde)
+    contours = [p.contour for p in monde.plans[geste["cell"]].parcelles]
+    assert len(contours) == 2
+    plat = [(0, 0), (1, 0), (2, 0)]
+    petit = [(0, 0), (0.1, 0), (0, 0.1)]
+    for contour, aire in [(triangle, nominal), (triangle[::-1], nominal),
+                           *[(c, 400 * k.AIRE_PAR_PRODUIT_CROISE) for c in contours],
+                           (plat, 0), (petit, 0.01 * k.AIRE_PAR_PRODUIT_CROISE)]:
+        assert aire_du_contour(contour) == pytest.approx(aire)
+        assert travail_requis_de_batiment(contour) == max(1, math.ceil(aire * k.TRAVAIL_BATIMENT_JOURNEES_PAR_M2))
+    assert travail_requis_de_batiment(plat) == travail_requis_de_batiment(petit) == 1
+    monkeypatch.setattr(k, "AIRE_PAR_PRODUIT_CROISE", 1)
+    assert aire_du_contour(triangle) == 2 * nominal
+    with pytest.raises(AssertionError):
+        assert aire_du_contour(triangle) == nominal
+
+
+@pytest.mark.parametrize("champs", CAS_PARCELLE_INVALIDE)
+def test_batiment_invalide(champs):
+    from sim.plan import Batiment
+
+    coherent = {"en_chantier": True, "foyers": 1, "travail_requis": 1, "travail_fourni": 0}
+    triangle = [(0, 0), (1, 0), (0, 1)]
+    with pytest.raises(PlanInvalide, match="bâtiment"):
+        Batiment(0, 0, "maison", triangle, **(coherent | champs))
+    assert Batiment(0, 0, "maison", triangle, **coherent).en_chantier
+    assert CAS_PARCELLE_INVALIDE
+
+
+def test_documentation_batiment(monkeypatch):
+    dossier = Path(engine.__file__).parent
+    lire = Path.read_text
+
+    def controler():
+        texte = (dossier / "MODELE.md").read_text(encoding="utf-8")
+        sections = {titre: texte.split(f"## {titre}\n", 1)[1].split("\n## ", 1)[0]
+                    for titre in ("Le chantier et ses bras", "Les intentions du joueur", "Le plan du bourg")}
+        assert all(mot in sections["Le chantier et ses bras"] for mot in (
+            "TRAVAIL_BATIMENT_JOURNEES_PAR_M2", "AIRE_PAR_PRODUIT_CROISE"))
+        assert all(mot in sections["Les intentions du joueur"] for mot in ("poser_batiment", "PoseBatiment"))
+        assert "poser_batiment" in sections["Le plan du bourg"]
+        assert "poser_batiment" in (dossier / "README.md").read_text(encoding="utf-8")
+
+    controler()
+    for mot in ("TRAVAIL_BATIMENT_JOURNEES_PAR_M2", "PoseBatiment"):
+        with monkeypatch.context() as sonde:
+            sonde.setattr(Path, "read_text", lambda path, *a, **kw: lire(path, *a, **kw).replace(mot, "retiré"))
+            with pytest.raises(AssertionError):
+                controler()

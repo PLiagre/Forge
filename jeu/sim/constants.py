@@ -240,6 +240,9 @@ TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0.5
 # Arpentage, bornage, défrichage et clôture d’un lot à bâtir ; niveau 2.
 TRAVAIL_PARCELLE_JOURNEES_PAR_M2 = 0.1
 
+# Fondations, murs de pisé, charpente et couverture par m² d’emprise ; niveau 2.
+TRAVAIL_BATIMENT_JOURNEES_PAR_M2 = 2
+
 # Plafond : une cellule ne devient jamais entièrement minière. Invariant,
 # pas un réglage de confort — sans lui une cellule chargée de gisements
 # majeurs verrait toute sa population descendre à la mine.
@@ -575,3 +578,6 @@ COORDONNEES_PAR_POINT = 2
 
 # Distance de l’axe au bord de la chaussée : moitié géométrique de sa largeur.
 DEMI_LARGEUR_PAR_LARGEUR = 0.5
+
+# Géométrie : moitié de la somme des produits croisés dans la formule du lacet.
+AIRE_PAR_PRODUIT_CROISE = 0.5

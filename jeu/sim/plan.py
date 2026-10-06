@@ -10,6 +10,13 @@ class PlanInvalide(ValueError):
     """Une donnée du plan manque ou contredit son contrat."""
 
 
+def aire_du_contour(points):
+    """Aire en m² par le lacet, indépendante du sens du contour."""
+    produits = sum(a[0] * b[1] - b[0] * a[1]
+                   for a, b in zip(points, (*points[1:], points[0])))
+    return abs(produits) * _constantes.AIRE_PAR_PRODUIT_CROISE
+
+
 def _identifiant(valeur, champ):
     if isinstance(valeur, bool) or not isinstance(valeur, int) or valeur < 0:
         raise PlanInvalide(f"{champ} invalide : attendu un entier ≥ 0, reçu {valeur!r}")
@@ -90,9 +97,13 @@ class Batiment:
     parcelle: int
     nature: str
     emprise: list[tuple[float, float]]
+    en_chantier: bool = False
+    foyers: int = 0
+    travail_requis: int = 0
+    travail_fourni: int = 0
 
     def __post_init__(self):
-        _identifiant(self.identifiant, "bâtiment.identifiant")
+        _chantier(self, "bâtiment")
         _identifiant(self.parcelle, "bâtiment.parcelle")
         if not isinstance(self.nature, str) or not self.nature.strip():
             raise PlanInvalide("bâtiment.nature : texte non vide attendu")

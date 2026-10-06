@@ -5,7 +5,7 @@ import math
 
 import sim.constants as _constantes
 from sim.model import ecrire_habitants_par_metier, lire_habitants_par_metier
-from sim.plan import Plan
+from sim.plan import Plan, aire_du_contour
 
 
 def travail_requis_de_route(points, largeur_m):
@@ -17,6 +17,11 @@ def travail_requis_de_route(points, largeur_m):
 def travail_requis_de_parcelle(facade_m, profondeur_m):
     """Surface exacte du rectangle convertie en journées de préparation du lot."""
     return max(1, math.ceil(facade_m * profondeur_m * _constantes.TRAVAIL_PARCELLE_JOURNEES_PAR_M2))
+
+
+def travail_requis_de_batiment(emprise):
+    """Surface de l’emprise convertie en journées de construction."""
+    return max(1, math.ceil(aire_du_contour(emprise) * _constantes.TRAVAIL_BATIMENT_JOURNEES_PAR_M2))
 
 
 def _servir(element, metiers):
