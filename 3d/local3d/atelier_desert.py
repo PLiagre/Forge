@@ -17,9 +17,11 @@ CODE=ROOT/'local3d/desert';OUT=CODE/'sorties'
 RECIPE=json.loads((CODE/'recette.json').read_text(encoding='utf-8'))
 UNITY_ROOT=ROOT/'unity/Assets/ForgeLocal3D/Desert'
 ACTIONS={'ForgeLocal3D.DesertBuilder.Build':'desert_build','ForgeLocal3D.DesertPlayCheck.Start':'desert_visite','ForgeLocal3D.DesertTraversalCheck.Start':'desert_parcours','ForgeLocal3D.DesertCityTerrain.Start':'desert_terrain','ForgeLocal3D.DesertCityRoads.Start':'desert_routes','ForgeLocal3D.DesertKit.Start':'desert_kit',
-         'ForgeLocal3D.DesertCityRelance.Tracer':'desert_relance_tracer','ForgeLocal3D.DesertCityRelance.Relancer':'desert_relance','ForgeLocal3D.DesertCityRelance.Vierge':'desert_relance_vierge'}
+         'ForgeLocal3D.DesertCityRelance.Tracer':'desert_relance_tracer','ForgeLocal3D.DesertCityRelance.Relancer':'desert_relance','ForgeLocal3D.DesertCityRelance.Vierge':'desert_relance_vierge',
+         'ForgeLocal3D.DesertCityBatiments.Poser':'desert_batiments_poser','ForgeLocal3D.DesertCityBatiments.Relancer':'desert_batiments_relance','ForgeLocal3D.DesertCityBatiments.Vierge':'desert_batiments_vierge'}
 LOGS={'desert_build':'unity.log','desert_visite':'play.log','desert_parcours':'parcours.log','desert_terrain':'terrain.log','desert_routes':'routes.log','desert_kit':'kit.log',
-      'desert_relance_tracer':'relance_tracer.log','desert_relance':'relance.log','desert_relance_vierge':'relance_vierge.log'}
+      'desert_relance_tracer':'relance_tracer.log','desert_relance':'relance.log','desert_relance_vierge':'relance_vierge.log',
+      'desert_batiments_poser':'batiments_poser.log','desert_batiments_relance':'batiments_relance.log','desert_batiments_vierge':'batiments_vierge.log'}
 
 
 def blender(args,log):
@@ -247,6 +249,55 @@ def relance(ds,service_neuf=True):
     if echecs:raise RuntimeError(' ; '.join(echecs))
 
 
+BATIMENTS=(('poser','ForgeLocal3D.DesertCityBatiments.Poser'),('relance','ForgeLocal3D.DesertCityBatiments.Relancer'),('vierge','ForgeLocal3D.DesertCityBatiments.Vierge'))
+
+
+def batiments(ds,service_neuf=True):
+    """Lot 370 : les bâtiments de la capitale vivent dans le monde, pas dans Unity. Sur un service neuf,
+    `poser` pose une maison, une scierie et un four et relève la ville rouverte à trois ticks ; `relance`,
+    sur le même service, doit reposer les mêmes pièces aux mêmes places ; `vierge`, sur un service neuf,
+    n'en poser aucune. Unity contrôle et juge. Sans service neuf (contre-épreuve), `vierge` joue sur le
+    premier service et doit rougir."""
+    from local3d.desert import routes as r, terrain as t
+    d=ds[0]
+    r.ecrire_gestes(d['id'],d['seed'])
+    (t.SORTIES/'selection.json').write_text(json.dumps({'implantations':[d['id']]}),encoding='utf-8')
+    dossier=t.SORTIES/d['id']/'batiments'
+    for p in dossier.glob('*.json'):p.unlink()
+    rapports={s:dossier/(s+'.json') for s,_ in BATIMENTS}
+    if (ROOT/'unity/Temp/UnityLockfile').exists():
+        raise RuntimeError('Unity est ouvert : enregistrer et fermer l’éditeur, puis relancer (le contrôle des bâtiments tourne en mode batch).')
+    methodes=dict(BATIMENTS);echecs=[]
+    def jouer(session):
+        try:run_unity(methodes[session])
+        except RuntimeError as e:echecs.append(session+' : '+str(e))
+    service=lancer_service()
+    try:
+        jouer('poser');jouer('relance')
+        if not service_neuf:jouer('vierge')
+    finally:arreter_service(service)
+    if service_neuf:
+        service=lancer_service()
+        try:jouer('vierge')
+        finally:arreter_service(service)
+    def releve(x):
+        pieces=', '.join('{} {} {}/{} {}'.format(b['identifiant'],b['nature'],b['fourni'],b['requis'],b['dessinee']) for b in x['batiments']) or 'aucun bâtiment'
+        return 'tick {} : {} ; pièces {} ; empreinte {}'.format(x['tick'],pieces,x['pieces'],x['empreinte'])
+    manquants=[];defauts=0
+    for s,p in rapports.items():
+        if not p.exists():manquants.append(s);print(s+' : pas de rapport ('+str(p)+')',flush=True);continue
+        j=json.loads(p.read_text(encoding='utf-8-sig'))
+        print('{} : tick d’ouverture {} ; {} défaut(s)'.format(s,j['tick_ouverture'],len(j['defauts'])),flush=True)
+        print('  ouverture, '+releve(j['ouverture']),flush=True)
+        for x in j['ticks']:print('  '+releve(x),flush=True)
+        if s=='poser':print('  séquence de la maison : '+(', '.join(j['sequence_maison']) or 'aucune'),flush=True)
+        for fault in j['defauts']:print('  défaut : '+fault,flush=True)
+        defauts+=len(j['defauts'])
+    if manquants:raise RuntimeError('Unity n’a pas écrit de rapport pour : '+', '.join(manquants)+(' ('+' ; '.join(echecs)+')' if echecs else ''))
+    if defauts:raise RuntimeError(str(defauts)+' défauts : voir sorties/ville/'+d['id']+'/batiments/')
+    if echecs:raise RuntimeError(' ; '.join(echecs))
+
+
 def proteges():
     """Ce que la commande `kit` ne doit pas toucher, relevé sur le disque par glob."""
     from local3d.desert import kit
@@ -442,7 +493,7 @@ def verify(ds):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit','relance']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--service-sourd',action='store_true',help='routes : le monde ignore les intentions (contre-épreuve du lot 293)');p.add_argument('--sans-service-neuf',action='store_true',help='relance : la session vierge joue sur le premier service (contre-épreuve du lot 361)');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit','relance','batiments']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--service-sourd',action='store_true',help='routes : le monde ignore les intentions (contre-épreuve du lot 293)');p.add_argument('--sans-service-neuf',action='store_true',help='relance et batiments : la session vierge joue sur le premier service (contre-épreuves des lots 361 et 370)');a=p.parse_args()
     ds=[d for d in RECIPE['dispositions'] if not a.disposition or d['id']==a.disposition]
     if not ds:p.error('Disposition inconnue')
     if a.action=='fabriquer':build(ds,a.force,a.sans_rendus);verify(ds)
@@ -464,3 +515,4 @@ if __name__=='__main__':
     if a.action=='routes':routes(ds,a.service_sourd)
     if a.action=='kit':kit_ateliers()
     if a.action=='relance':relance(ds,not a.sans_service_neuf)
+    if a.action=='batiments':batiments(ds,not a.sans_service_neuf)
