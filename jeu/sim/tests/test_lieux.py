@@ -1073,6 +1073,37 @@ def test_demographie_locale_natalite(monkeypatch):
     with pytest.raises(AssertionError): verifier()
 
 
+def test_demographie_locale_arrondis_apres_consommation_identique(monkeypatch):
+    from sim import engine
+    from sim.model import Cell, creer_etat_de_lieu
+
+    def verifier():
+        cellules = []
+        carte = {0: {"relief": "plaine", "gisements": []}}
+        ration = 5000 * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+        for populations in ((2500, 2500), (5000, 0)):
+            cellule = Cell(0, 2000, 5000, stocks={"nourriture": 2 * ration},
+                           food_deficit_kg=0.0)
+            cellule.lieux = [creer_etat_de_lieu(rang, population, {"nourriture": ration})
+                             for rang, population in enumerate(populations)]
+            cellules.append(cellule)
+        penuries = [engine._apply_consumption(c, carte) for c in cellules]
+        assert penuries == [0.0, 0.0]
+        assert cellules[0].stocks == cellules[1].stocks
+        assert cellules[0].food_deficit_kg == cellules[1].food_deficit_kg == 0.0
+        for cellule, penurie in zip(cellules, penuries):
+            engine._apply_natalite(cellule, penurie)
+            assert cellule.population == sum(l.population for l in cellule.lieux)
+        # Une consommation identique ne promet pas les mêmes arrondis locaux.
+        assert [c.population for c in cellules] == [5000, 5001]
+        assert [l.natalite_remainder for l in cellules[0].lieux] == [0.5, 0.5]
+        assert [l.natalite_remainder for l in cellules[1].lieux] == [0.0, 0.0]
+
+    verifier()
+    monkeypatch.setattr(engine, "_apply_natalite", lambda *args: None)
+    with pytest.raises(AssertionError): verifier()
+
+
 @pytest.mark.parametrize("dette,faim", [(0, 2), (7, 0)])
 def test_demographie_locale_blocages(dette, faim):
     from sim import engine
