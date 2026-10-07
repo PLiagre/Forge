@@ -20,6 +20,8 @@ Jalon : J1 · Machine : vps · Taille prévue : 120 lignes
 
 ## But
 Unity lit un lieu.
+## Le joueur
+Le joueur voit les vrais chiffres de son lieu dans Unity.
 ## Règle du monde
 sans objet
 ## Périmètre
@@ -227,6 +229,18 @@ def test_un_brief_trop_gros_est_un_echec_puis_un_blocage(projet, gh, depot, tmp_
     assert "trop gros" in gh.issues_[10]["comments"][0]["body"]
     _pilote(projet, gh, depot, Agents(), tmp_path).tour()
     assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
+
+
+def test_un_brief_sans_le_joueur_est_un_echec_du_chef(projet, gh, depot, tmp_path):
+    # Le 6 octobre 2026, J3 avait livré dix lots sans qu'aucun ne donne un geste au joueur :
+    # un brief dit désormais ce que le joueur y gagne, ou il ne passe pas.
+    gh.ajouter_issue(10, "Le service lit un lieu")
+    muet = BRIEF_BON.replace("## Le joueur\nLe joueur voit les vrais chiffres de son lieu dans Unity.\n", "")
+    assert "## Le joueur" not in muet
+    _pilote(projet, gh, depot, Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": muet})),
+            tmp_path).tour()
+    assert "brief incomplet : ## Le joueur" in gh.issues_[10]["comments"][0]["body"]
+    assert not _gestes(gh, "creer_pr")
 
 
 def _en_cours(gh, commentaires=(), ci="vert", etiquettes=("lot", "en-cours")):
