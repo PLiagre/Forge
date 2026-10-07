@@ -33,3 +33,14 @@ Commandes depuis `jeu/`. Le fichier porte trois fonctions de jugement qui renden
 - Nouveaux gestes de l'IA (parcelle, bâtiment, prélèvement) ; exiger que l'IA emploie tous les types d'intention ; accélérer `jouer_ia`.
 - Le rejeu par le service HTTP ou par Unity ; le PC.
 - Retirer, réécrire ou assouplir un test existant.
+
+## Preuve exécutée par le codeur
+Rouge d'abord : 23 échecs avec les contrôles encore vides (`-k 'chemin or depot'`). Le fichier ajoute les trois jugements, les contre-épreuves et une fixture de module partageant les quatre courses CLI ; aucun test existant n'est modifié.
+
+Depuis `jeu/`, `python3 -m pytest sim/tests/test_epreuve_jalon5.py -q` : 26 réussites. Les sélections SC1 à SC4 donnent respectivement 1 (`-k types`), 21 (`-k chemin`), 3 (`-k depot`) et 1 (`-s -k rejeu`) réussite ; toutes sont non vides. Une sélection volontairement vide (`-k selection_inexistante_324`) échoue avec le code 5.
+`python3 -m pytest sim/tests/test_no_hardcoded.py sim/tests/test_write_coverage.py -q` : 7 réussites. La suite entière reste à la CI, conformément à la consigne du codeur.
+`python3 -m pytest sim/tests/test_intentions.py sim/tests/test_monde.py forge/tests/test_forge.py vues/relief/tests/test_carte1400.py -q -k 'test_ia_ or test_forge_ia_ or test_service_ia_ or test_capitales_ia_'` : 48 réussites, 308 désélections ; aucun test existant retouché.
+
+Mesure CLI, sans départ choisi : quatre intentions ; égalité du rejeu à l'octet. Le témoin diffère sur les cellules 10206, 10209, 10466 et les plans 10206, 10209, 10283, 10466. Ces identifiants sont imprimés depuis les données, jamais attendus dans les assertions. Le geste déplacé d'un mètre rompt l'égalité.
+Les deux commandes SC6 (sans puis avec `--ia`) rendent 0 et écrivent leur `carte.png`, ouvertes par le codeur. La fiche du duché de Bar est lisible dans les deux ; avec l'IA apparaissent Paris (Valois), Dijon (Valois-Bourgogne), Heidelberg (Wittelsbach), leurs losanges verts, les autres capitales en violet et le panneau de quatre gestes, absent sans IA. À l'œil : texte du panneau petit, couleurs des losanges sans explication dans la légende ; pas de chevauchement manifeste. Aucune vue corrigée.
+Périmètre : 291 lignes depuis la base commune `59a60f5`, uniquement les deux fichiers autorisés (nouveau test inclus). Pendant les vérifications, `origin/master` a avancé à `74b5653` (PR #510) : le `git diff --stat origin/master` final montre aussi les écarts de cette PR ; ils ne sont pas des modifications du codeur et n'ont pas été réintroduits ici. Le pilote devra intégrer cette nouvelle base.
