@@ -1559,7 +1559,7 @@ triées par id, sauf celle de `monde.maison_du_joueur`. Chaque ligne porte
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
-Sans choix, **35** maisons ; après un choix appliqué au tick, **34**.
+Sans choix, **36** maisons ; après un choix appliqué au tick, **35**.
 La branche Paléologue de Morée est distincte de celle de Constantinople :
 sans choix, toutes deux sont à l'IA ; choisir la Morée laisse la grande
 maison Paléologue à l'IA. La vue ne conserve rien entre deux appels,
@@ -1758,7 +1758,7 @@ s'applique au tick suivant ». Le compte rendu porte
 `simulation.maison_du_joueur` seulement après un choix appliqué ; la
 photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différence.
 
-**Niveau 1 :** les cinq terres et leurs attributions héritées, sans changement.
+**Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
 **Niveau 2, plausible :** la maison du joueur réduite à l'id de sa terre,
 donc à la cellule de son siège. **Niveau 3, pas simulé :** ses effets
 (prélèvement, jalon 3), les maisons de l'IA (jalon 5) et les personnes
