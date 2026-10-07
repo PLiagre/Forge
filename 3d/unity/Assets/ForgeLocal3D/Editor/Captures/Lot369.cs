@@ -85,6 +85,27 @@ namespace ForgeLocal3D.Captures
                 throw new InvalidOperationException("le plan du tick " + plan.Tick + " compte " + plan.Batiments.Count + " bâtiment(s), il en faut " + (b0 + 3));
             var poses = plan.Batiments.Skip(b0).Take(3).ToArray();
 
+            // Le code même que le Start de la scène joue au lancement. La vue est jugée avant les nombres du plan
+            // et avant la lecture du kit : une pièce refusée (qui déborde d'une façade de 8 m, ou dont la nature
+            // n'a plus d'entrée au kit) se lit ainsi au panneau, même quand le travail requis n'est plus celui de
+            // 10 m × 15 m ou que la pièce attendue manque au kit.
+            if (!outil.Ouvrir())
+                throw new InvalidOperationException("l'outil n'a pas ouvert la ville : " + outil.Message);
+            var etats = outil.Batiments.Skip(Math.Max(0, outil.Batiments.Count - 3)).Select(e => e.etat).ToArray();
+            if (!etats.SequenceEqual(ATTENDUS.Select(a => a.etat)))
+                throw new InvalidOperationException("les bâtiments ne sont pas dessinés fini, murs, piquets : "
+                    + string.Join(", ", outil.Batiments.Select(e => e.identifiant + " " + e.etat)) + " (" + outil.Message + ")");
+            if (!outil.Message.Split('\n').Any(l => l.StartsWith("Bâtiments : ", StringComparison.Ordinal)))
+                throw new InvalidOperationException("le panneau ne compte pas les bâtiments : " + outil.Message);
+            for (int i = 0; i < 3; i++)
+            {
+                var b = poses[i];
+                var a = ATTENDUS[i];
+                if (b.Nature != a.nature || b.TravailFourni != a.fourni || b.TravailRequis != REQUIS || b.EnChantier != (a.fourni < REQUIS))
+                    throw new InvalidOperationException("le bâtiment " + b.Identifiant + " est " + b.Nature + " à " + b.TravailFourni + "/" + b.TravailRequis
+                        + (b.EnChantier ? " en chantier" : " achevé") + ", il faut " + a.nature + " à " + a.fourni + "/" + REQUIS);
+            }
+
             // Les pièces attendues, lues au kit par l'étape voulue, indépendamment de ce que Dessiner a choisi.
             var kit = KitDesBatiments.Charger();
             if (!kit)
@@ -107,25 +128,6 @@ namespace ForgeLocal3D.Captures
                 }
             }
 
-            // Le code même que le Start de la scène joue au lancement. La vue est jugée avant les nombres du plan :
-            // une pièce refusée (par exemple qui déborde d'une façade de 8 m) se lit ainsi au panneau, même
-            // quand le travail requis n'est plus celui de 10 m × 15 m.
-            if (!outil.Ouvrir())
-                throw new InvalidOperationException("l'outil n'a pas ouvert la ville : " + outil.Message);
-            var etats = outil.Batiments.Skip(Math.Max(0, outil.Batiments.Count - 3)).Select(e => e.etat).ToArray();
-            if (!etats.SequenceEqual(ATTENDUS.Select(a => a.etat)))
-                throw new InvalidOperationException("les bâtiments ne sont pas dessinés fini, murs, piquets : "
-                    + string.Join(", ", outil.Batiments.Select(e => e.identifiant + " " + e.etat)) + " (" + outil.Message + ")");
-            if (!outil.Message.Split('\n').Any(l => l.StartsWith("Bâtiments : ", StringComparison.Ordinal)))
-                throw new InvalidOperationException("le panneau ne compte pas les bâtiments : " + outil.Message);
-            for (int i = 0; i < 3; i++)
-            {
-                var b = poses[i];
-                var a = ATTENDUS[i];
-                if (b.Nature != a.nature || b.TravailFourni != a.fourni || b.TravailRequis != REQUIS || b.EnChantier != (a.fourni < REQUIS))
-                    throw new InvalidOperationException("le bâtiment " + b.Identifiant + " est " + b.Nature + " à " + b.TravailFourni + "/" + b.TravailRequis
-                        + (b.EnChantier ? " en chantier" : " achevé") + ", il faut " + a.nature + " à " + a.fourni + "/" + REQUIS);
-            }
             var racine = outil.RacineBatiments;
             int posees = outil.Batiments.Count(e => e.etat != "refusee");
             if (racine.childCount != posees)
