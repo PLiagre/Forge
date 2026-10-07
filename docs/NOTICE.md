@@ -42,7 +42,7 @@ Elle écrit cinq fichiers :
 
 ```
 sortie/monde.json      la photographie — la seule source des trois vues
-sortie/carte.png       la carte de 1400 — densités, frontières, villes, terre choisie et sa fiche
+sortie/carte.png       la carte de 1400 — densités, frontières, villes, terre choisie et sa fiche ; capitales de l'IA, voisines et gestes (avec --ia)
 sortie/tableau.svg     le tableau de bord, en preuve dessinée
 sortie/planche.html    la chronique : la suite des instants
 sortie/resume.json     ce que la commande a mesuré
