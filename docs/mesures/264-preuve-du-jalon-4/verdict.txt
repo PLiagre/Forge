@@ -1,7 +1,7 @@
 preuve valide
 commande : py pc/epreuve_jalon4.py --avec-unity --sortie C:\Users\liagr\AppData\Local\Temp\forge-387-normal
-date : 2026-10-07T17:27:12+02:00
-révision : d31f06f4275b332039399b6c287c6867c6af66b7
+date : 2026-10-07T18:34:18+02:00
+révision : b6e00287c99893443b4c92269c55356a1ad42deb 493d139cf17f47f80be1a8509aec1b7b76b4044c
 unity : 6000.0.43f1
 code : 0
 égalité du monde : tenu — octets égaux sur 10 ticks
