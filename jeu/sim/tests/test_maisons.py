@@ -663,7 +663,8 @@ def test_registre_pure(registre):
     for s in documents[-1]["seigneuries"]:
         monde.maison_du_joueur = s["id"]
         assert vue == charger()
-    alteree = copy.deepcopy(avant)
-    alteree[0][0]["maisons"][0]["nom"] = "Altérée"
+    alteree = copy.deepcopy(documents)
+    alteree[0]["maisons"][0]["nom"] = "Altérée"
+    documents[:] = alteree
     with pytest.raises(AssertionError):
-        assert avant == alteree
+        assert vue == charger()
