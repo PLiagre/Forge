@@ -22,6 +22,9 @@ namespace ForgeLocal3D
     // Lot 362 : après les rues, l'outil trace au sol chaque parcelle du plan (DesertParcelles) : cordeau
     // en chantier, bornes achevée. Il les redessine toutes à l'ouverture, après une route et par Rafraichir.
     // Lot 369 : après les parcelles, la pièce du kit à l'étape de chaque bâtiment du plan (DesertBatiments).
+    // Lot 375 : P passe en mode parcelle. Deux coins posés le long d'une rue, Entrée calcule la parcelle
+    // (TraceDeParcelle) et dépose `decouper_parcelle` au monde ; Attendre la dessine au tick suivant. Un refus
+    // de l'outil n'atteint jamais le monde ; celui du monde s'affiche avec sa raison. Échap ramène aux routes.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -56,7 +59,11 @@ namespace ForgeLocal3D
         readonly HashSet<long> essayees=new();
         RecuIntention enAttente;double prochaineLecture;
         TextMesh panneau,halo;
-        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler";
+        // Lot 375 : le mode parcelle, et le dernier calcul de l'outil (null tant qu'aucun n'a été fait).
+        public bool ModeParcelle{get;private set;}
+        public ParcelleTracee Tracee{get;private set;}
+        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle";
+        const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
         const double PeriodeLecture=.25;
         static readonly TimeSpan Delai=TimeSpan.FromSeconds(1);
 
@@ -88,8 +95,15 @@ namespace ForgeLocal3D
         void Afficher(string texte)
         {
             Message=texte;
-            string etat="Terre battue, "+largeur.ToString("0.#")+" m"+(points.Count>0?" · "+points.Count+" point(s)":"");
-            panneau.text=texte==Aide?etat+"\n"+Aide:texte+"\n"+etat;halo.text=panneau.text;
+            // Lot 375 : en mode parcelle, l'aide du mode suit toujours l'état, sous le message s'il y en a un.
+            if(ModeParcelle)
+                panneau.text=(texte==AideParcelle?"":texte+"\n")+"Parcelle le long d'une rue · "+points.Count+"/2 coin(s)\n"+AideParcelle;
+            else
+            {
+                string etat="Terre battue, "+largeur.ToString("0.#")+" m"+(points.Count>0?" · "+points.Count+" point(s)":"");
+                panneau.text=texte==Aide?etat+"\n"+Aide:texte+"\n"+etat;
+            }
+            halo.text=panneau.text;
             Placer();
         }
         // En bas à gauche de l'image, à hauteur de lecture quelle que soit la focale.
@@ -113,7 +127,8 @@ namespace ForgeLocal3D
             var mouse=Mouse.current;var k=Keyboard.current;
             if(mouse!=null&&mouse.leftButton.wasPressedThisFrame)Clic(mouse.position.ReadValue());
             if(k==null)return;
-            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame)Valider();
+            if(k.pKey.wasPressedThisFrame)EntrerParcelle();
+            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else Valider();}
             if(k.escapeKey.wasPressedThisFrame)Annuler();
         }
         void LateUpdate()=>Placer();
@@ -122,9 +137,38 @@ namespace ForgeLocal3D
         {
             var ray=view.ScreenPointToRay(ecran);
             if(!roads.terrain.GetComponent<TerrainCollider>().Raycast(ray,out var hit,10000)){Afficher("Ce point n'est pas sur le terrain.");return false;}
-            points.Add(roads.PointExact(hit.point));Afficher(Aide);return true;
+            if(ModeParcelle&&points.Count>=2){Afficher("Deux coins suffisent : Entrée pour déposer, Échap pour annuler.");return false;}
+            points.Add(roads.PointExact(hit.point));Afficher(ModeParcelle?AideParcelle:Aide);return true;
         }
-        public void Annuler(){points.Clear();Recu=null;Afficher(Aide);}
+        public void Annuler(){ModeParcelle=false;points.Clear();Recu=null;Afficher(Aide);}
+
+        // Lot 375 : le mode parcelle, coins effacés. Échap (Annuler) ramène au mode route.
+        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;Afficher(AideParcelle);}
+
+        // Lot 375 : calcule la parcelle des deux coins, puis la dépose au monde, qui reste le seul juge.
+        // Le terrain ne bouge pas ici : la parcelle se dessine dans Attendre, d'après le plan du tick suivant.
+        // Rend le calcul de l'outil, null hors du mode parcelle ou faute de coins, de cellule ou de plan.
+        public ParcelleTracee ValiderParcelle()
+        {
+            if(!ModeParcelle)return null;
+            if(points.Count<2){Afficher("Il faut deux coins.");return null;}
+            Recu=null;
+            var (x1,y1)=points[0];var (x2,y2)=points[1];points.Clear();
+            if(erreurCellule!=null){Afficher(erreurCellule);return null;}
+            var lu=plan.Lire(Cellule);
+            if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return null;}
+            Tracee=TraceDeParcelle.Calculer(lu.Plan,new PointLocal(x1,y1),new PointLocal(x2,y2));
+            // Une parcelle que l'outil refuse n'atteint jamais le monde.
+            if(!Tracee.Presente){Afficher("Parcelle refusée par l'outil : "+Tracee.Absence);return Tracee;}
+            Recu=depot.Deposer(Tracee.IntentionJson);
+            if(Recu.Acceptee)
+            {
+                enAttente=Recu;
+                Afficher("Parcelle déposée au monde : elle se dessine au tick suivant (après le tick "+Recu.AppliqueeAuTick.Value.ToString(CultureInfo.InvariantCulture)+").");
+            }
+            else Afficher(Recu.Presente?"Le monde refuse la parcelle : "+Recu.Erreur:"Pas de reçu : "+Recu.Absence);
+            return Tracee;
+        }
 
         // Essaie la route sur le relief, puis la dépose au monde. Le terrain ne bouge pas ici :
         // la route se dessine dans Attendre, d'après le plan du tick suivant. Rend le résultat de l'essai.
