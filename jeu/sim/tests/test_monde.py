@@ -19,6 +19,7 @@ import json
 import pathlib
 import pytest
 from sim.world import World
+from sim.seigneuries import identifiant_de_seigneurie
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _CARTE_PATH = _REPO_ROOT / "data" / "world-1400.json"
 import subprocess
@@ -3268,6 +3269,34 @@ def test_photographie_1400_villes():
     print(f"villes_placées={len(attribution.placees)}, hors_carte={len(attribution.hors_carte)}")
 
 
+def test_photographie_1400_registre():
+    from sim.snapshot_export import _fiche_document
+    from sim.tests.test_maisons import IDENTIFIANTS_SEIGNEURIE_MAL_FORMES
+    terres = charger_seigneuries()
+    assert terres, "échantillon vide"
+    monde = World.charger(0)
+    for terre in terres:
+        monde.maison_du_joueur = f"seigneurie-{terre.id}"
+        avant = copy.deepcopy(monde.to_dict())
+        attendue = _round_tree(_fiche_document(fiche_de_seigneurie(terre.id, monde)))
+        def verifier(document):
+            assert document["terre_choisie"] == attendue
+            assert type(document["terre_choisie"]["id"]) is int
+        verifier(_photographie_1400(monde)[1])
+        assert monde.to_dict() == avant
+        autre = next(s for s in terres if s.id != terre.id)
+        with pytest.raises(AssertionError):
+            verifier({"terre_choisie": _round_tree(_fiche_document(fiche_de_seigneurie(autre.id, monde)))})
+    for valeur in (terres[0].id, *IDENTIFIANTS_SEIGNEURIE_MAL_FORMES):
+        if valeur is None:
+            continue  # None déclare l'absence de choix, pas un identifiant.
+        monde.maison_du_joueur = valeur
+        avant = copy.deepcopy(monde.to_dict())
+        with pytest.raises(SnapshotExportError, match="seigneurie inconnue"):
+            _photographie_1400(monde)
+        assert monde.to_dict() == avant
+
+
 def test_photographie_1400_zab():
     import random
     from sim.engine import tick
@@ -3282,7 +3311,7 @@ def test_photographie_1400_zab():
     assert monde.maison_du_joueur is None
     assert _photographie_1400(monde)[1]["terre_choisie"] is None
     tick(monde, random.Random(0), 0)
-    assert monde.maison_du_joueur == zab.id
+    assert monde.maison_du_joueur == f"seigneurie-{zab.id}"
     avant = copy.deepcopy(monde.to_dict())
     fiche = fiche_de_seigneurie(zab.id, monde)
     doc = _photographie_1400(monde, 1)[1]
@@ -3338,10 +3367,10 @@ def test_photographie_1400_terre():
     assert sans.pop("terre_choisie") is None
     doc.pop("terre_choisie")
     assert doc == sans
-    monde.maison_du_joueur = moree.id
+    monde.maison_du_joueur = f"seigneurie-{moree.id}"
     with pytest.raises(AssertionError):
         assert _photographie_1400(monde, 1)[1]["terre_choisie"]["cell_id"] == fiche.cell_id
-    monde.maison_du_joueur = max(s.id for s in terres) + 1
+    monde.maison_du_joueur = f"seigneurie-{max(s.id for s in terres) + 1}"
     with pytest.raises(SnapshotExportError, match="seigneurie inconnue"):
         _photographie_1400(monde, 1)
     print(f"terres_lues={len(terres)}, voisins_vérifiés={len(fiche.voisins)}, jumeaux_comparés={len((doc, sans))}")
@@ -3352,7 +3381,7 @@ def test_photographie_1400_terre():
                                                ("attribuer_villes", ValueError)])
 def test_photographie_1400_refus(monkeypatch, fonction, erreur):
     monde = World.charger(0)
-    monde.maison_du_joueur = charger_seigneuries()[0].id
+    monde.maison_du_joueur = f"seigneurie-{charger_seigneuries()[0].id}"
     def refuser(*args, **kwargs):
         raise erreur("donnée refusée par la vue")
     monkeypatch.setattr(f"sim.snapshot_export.{fonction}", refuser)
@@ -3783,7 +3812,7 @@ def test_snapshot_ia_maisons(tmp_path, monkeypatch):
     lignes = build_snapshot_document(monde, 0, 1, releve_ia=[])['ia']['maisons']
     assert lignes == attendues and lignes
     assert len([m for m in lignes if 'Paléologue' in m['nom']]) == 2
-    assert all(m['sorte'] != 'seigneurie' or m['id'] != monde.maison_du_joueur for m in lignes)
+    assert all(m['sorte'] != 'seigneurie' or identifiant_de_seigneurie(m['id']) != monde.maison_du_joueur for m in lignes)
     assert any(m['hors_carte'] and m['cell_id'] is None and m['population'] is None and m['gestes'] == [] for m in lignes)
     for faux in (lignes + [dict(asdict(choisie), population=0, gestes=[])], [dict(m, id=lignes[0]['id'], sorte=lignes[0]['sorte']) for m in lignes]):
         with pytest.raises(AssertionError): assert faux == attendues

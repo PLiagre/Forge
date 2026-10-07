@@ -7,7 +7,7 @@ from sim.capitales import Capitale, charger_capitales, cellule_de_capitale
 from sim.maisons import charger_maisons
 from sim.model import _NoBadSpatialField
 from sim.puissances import _CHEMIN_TABLE, _texte, PuissanceInvalide, charger_table
-from sim.seigneuries import charger_seigneuries, cellule_du_siege
+from sim.seigneuries import charger_seigneuries, cellule_du_siege, identifiant_de_seigneurie
 
 @dataclass(frozen=True)
 class MaisonDuMonde(_NoBadSpatialField):
@@ -63,7 +63,7 @@ def charger_registre_maisons(carte, puissances_path=None, capitales_path=None, s
             ajouter(racines[p.id], p.nom, "institution", None,
                     c.nom, cellule_de_capitale(c, carte), raison)
     for s in seigneuries:
-        ajouter(f"seigneurie-{s.id}", s.maison, "seigneurie", racines[s.suzerain],
+        ajouter(identifiant_de_seigneurie(s.id), s.maison, "seigneurie", racines[s.suzerain],
                 s.siege.nom, cellule_du_siege(s, carte))
     resultat = tuple(sorted(registre, key=lambda m: m.id))
     valider_registre_maisons(resultat)

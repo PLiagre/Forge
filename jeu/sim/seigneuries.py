@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 
 from sim import constants as constantes
 from sim.engine import population_soutenable_de
@@ -60,7 +61,19 @@ class Fiche(_NoBadSpatialField):
 
 
 class SeigneurieInconnue(LookupError):
-    """Identifiant absent de la table ou qui n'est pas un entier."""
+    """Numéro inconnu ou identifiant mal formé."""
+
+
+def identifiant_de_seigneurie(numero) -> str:
+    """Nomme une maison de seigneurie dans le registre."""
+    return f"seigneurie-{numero}"
+
+
+def numero_de_seigneurie(identifiant) -> int:
+    """Lit seulement le format canonique du registre, sans consulter de table."""
+    if not isinstance(identifiant, str) or re.fullmatch(r"seigneurie-(0|[1-9][0-9]*)", identifiant) is None:
+        raise SeigneurieInconnue(f"seigneurie inconnue : {identifiant!r}")
+    return int(identifiant.removeprefix("seigneurie-"))
 
 
 def charger_seigneuries(path=None, table=None) -> tuple[Seigneurie, ...]:
