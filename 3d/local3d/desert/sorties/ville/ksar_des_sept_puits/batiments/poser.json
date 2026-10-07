@@ -1,0 +1,141 @@
+{
+    "session": "poser",
+    "implantation": "ksar_des_sept_puits",
+    "cell": 1175,
+    "port": 8000,
+    "tick_ouverture": 0,
+    "ouverture": {
+        "tick": 0,
+        "batiments": [],
+        "pieces": 0,
+        "empreinte": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ticks": [
+        {
+            "tick": 4,
+            "batiments": [
+                {
+                    "identifiant": 0,
+                    "nature": "maison",
+                    "fourni": 120,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "piquets",
+                    "dessinee": "piquets",
+                    "message": "",
+                    "maillages": true
+                },
+                {
+                    "identifiant": 1,
+                    "nature": "scierie",
+                    "fourni": 60,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "piquets",
+                    "dessinee": "piquets",
+                    "message": "",
+                    "maillages": true
+                },
+                {
+                    "identifiant": 2,
+                    "nature": "four",
+                    "fourni": 5,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "piquets",
+                    "dessinee": "piquets",
+                    "message": "",
+                    "maillages": true
+                }
+            ],
+            "pieces": 3,
+            "empreinte": "4d3926a3ca12339385284d0ec06e87e13f1dd1a238447312a63eae2707ea15ac"
+        },
+        {
+            "tick": 5,
+            "batiments": [
+                {
+                    "identifiant": 0,
+                    "nature": "maison",
+                    "fourni": 240,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "murs",
+                    "dessinee": "murs",
+                    "message": "",
+                    "maillages": true
+                },
+                {
+                    "identifiant": 1,
+                    "nature": "scierie",
+                    "fourni": 120,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "piquets",
+                    "dessinee": "piquets",
+                    "message": "",
+                    "maillages": true
+                },
+                {
+                    "identifiant": 2,
+                    "nature": "four",
+                    "fourni": 10,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "piquets",
+                    "dessinee": "piquets",
+                    "message": "",
+                    "maillages": true
+                }
+            ],
+            "pieces": 3,
+            "empreinte": "ecd620dd95388e0cef499f59967d5b41a1409ae883bf50c26802f880cea6dd71"
+        },
+        {
+            "tick": 6,
+            "batiments": [
+                {
+                    "identifiant": 0,
+                    "nature": "maison",
+                    "fourni": 300,
+                    "requis": 300,
+                    "en_chantier": false,
+                    "attendue": "fini",
+                    "dessinee": "fini",
+                    "message": "",
+                    "maillages": true
+                },
+                {
+                    "identifiant": 1,
+                    "nature": "scierie",
+                    "fourni": 180,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "murs",
+                    "dessinee": "murs",
+                    "message": "",
+                    "maillages": true
+                },
+                {
+                    "identifiant": 2,
+                    "nature": "four",
+                    "fourni": 15,
+                    "requis": 300,
+                    "en_chantier": true,
+                    "attendue": "piquets",
+                    "dessinee": "piquets",
+                    "message": "",
+                    "maillages": true
+                }
+            ],
+            "pieces": 3,
+            "empreinte": "b30cf1748b82acec194206d6d6a0db31f829787fe3008f0632b8ccbc13ddfeb3"
+        }
+    ],
+    "sequence_maison": [
+        "piquets",
+        "murs",
+        "fini"
+    ],
+    "defauts": []
+}
