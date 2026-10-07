@@ -158,9 +158,9 @@ Tout tourne autour d'une question : **qui tient quel lieu**.
 
 - **L'Europe réelle.** Au premier jour, le monde contient ce que l'histoire
   dit qu'il contient : les grandes maisons, les frontières, les villes, les
-  populations de 1400. Ce n'est pas encore le cas — l'amorçage est un proxy,
-  et le moteur ne connaît pas l'aridité : le désert occidental égyptien y est
-  aussi peuplé que le delta du Nil. C'est un jalon de [CAP.md](../CAP.md).
+  populations de 1400. C'est vrai dans les grandes lignes depuis le jalon 2
+  de [CAP.md](../CAP.md) : l'aridité, le Nil, les puissances, les grandes
+  maisons et les villes de 1400 sont dans le monde, et le désert est vide.
 - **Les rails de l'histoire.** L'histoire allume ses étincelles à leur date
   et à leur lieu : l'imprimerie à Mayence, les thèses de Luther, les voyages
   vers l'Amérique, les épidémies, la vapeur. Elle n'impose jamais une
@@ -250,10 +250,9 @@ tour.
 | question | ce qu'on sait déjà |
 |---|---|
 | la machine de référence (« un PC de jeu courant ») | Citadelle-Guerre mesure sur un i7-13700K et une RTX 3070 Ti, en 1920 × 1080 |
-| où se dessine la carte du joueur | les vues d'aujourd'hui (tableau, chronique, relief forge3d) sont des outils de développement ; la carte du joueur pourrait vivre dans Unity, avec la ville et la bataille |
 | les batailles navales | la Méditerranée, la Manche et la Baltique en appellent ; rien n'est décidé |
 | la religion et la technique | les rails en allument les étincelles ; leur diffusion reste à écrire |
-| combien de lieux dans une cellule | assez pour qu'un petit seigneur en tienne quelques-uns ; à mesurer contre le budget du tick |
+| combien de lieux dans une cellule | un lieu pour 1 000 km² aujourd'hui (6 619 lieux) ; une terre de départ en tient quatre, un seigneur plausible trois (niveau 2, CAP.md, jalon 3) ; à revoir contre le budget du tick |
 | la capitale peut-elle changer de ville | rien n'est décidé |
 
 ## Les décisions du 29 septembre 2026
@@ -283,3 +282,14 @@ change.
 | 18 | le reste du monde sera jouable un jour | un jeu borné à l'Europe |
 | 19 | pas de multijoueur pour l'instant | — |
 | 20 | un projet personnel, sans date | une sortie à date |
+
+## Les décisions du 7 octobre 2026
+
+Prises par le propriétaire en relisant ce que les lots construisaient
+vraiment (CAP.md, « Le constat qui commande »).
+
+| # | décision | ce qu'elle a écarté |
+|---|---|---|
+| 21 | une sixième terre de départ en pays de terre crue, l'émirat du Zab (Biskra, sous les Hafsides) : le kit du désert est sa capitale dès le jalon 4 ; les kits des autres terres suivent, Balkans et Morée d'abord, puis l'Ouest | un nouveau kit avant toute capitale ; un désert qui ne serait la terre de personne |
+| 22 | la carte du joueur vit dans Unity, avec la ville et la bataille : les trois vues dans un seul jeu ; les vues de Python restent des outils et des captures du journal | une carte dans le navigateur ; une carte en image seulement |
+| 23 | l'ordre des neuf jalons du 29 septembre est gardé ; la ville vivante entre au jalon 4, la bataille détaillée au jalon 7 | douze jalons (#344) ; une tranche verticale de chaque pilier |
