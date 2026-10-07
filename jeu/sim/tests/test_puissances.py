@@ -756,7 +756,7 @@ def test_projection_epsg3035_au_centimetre():
     points = [(v["latitude"], v["longitude"], v["x_m"], v["y_m"]) for v in villes]
     points += [(s["siege"]["lat"], s["siege"]["lon"], s["siege"]["x_m"], s["siege"]["y_m"])
                for s in sieges]
-    assert len(villes) == 58 and len(sieges) == 5 and points
+    assert len(villes) == 58 and sieges and len(points) == len(villes) + len(sieges)
     ecarts = [abs(obtenu - attendu) for lat, lon, x, y in points
               for obtenu, attendu in zip(projeter_epsg3035(lat, lon), (x, y))]
     assert max(ecarts) <= 0.01

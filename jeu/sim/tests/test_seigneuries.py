@@ -26,9 +26,10 @@ SUZERAINS = {
     "Duché de Bar": "France", "Comté de Wurtemberg": "Saint-Empire",
     "Despotat de Morée": "Byzance", "Terre des Branković": "Ottomans",
     "Uç d'Evrenos": "Ottomans",
+    "Émirat du Zab": "Hafsides",
 }
 MAISONS = {"France": "Valois", "Saint-Empire": "Luxembourg",
-           "Byzance": "Paléologue", "Ottomans": "Osman"}
+           "Byzance": "Paléologue", "Ottomans": "Osman", "Hafsides": "Hafsides"}
 
 
 def _ecrire(tmp_path, document):
@@ -47,9 +48,77 @@ def _preuve_lecture(seigneuries):
     assert not religions_manquantes(seigneuries)
 
 
+def _preuve_lecture_zab(seigneuries):
+    _preuve_lecture(seigneuries)
+    assert tuple(s.id for s in seigneuries) == (1, 2, 3, 4, 5, 6)
+    assert {s.nom for s in seigneuries} == set(SUZERAINS)
+    zab = next(s for s in seigneuries if s.nom == "Émirat du Zab")
+    assert (zab.id, zab.maison, zab.religion, zab.suzerain) == (6, "Banou Mozni", "musulmane", 35)
+    assert (zab.siege.nom, zab.siege.lat, zab.siege.lon) == ("Biskra", 34.85, 5.73)
+    for mention in ("https://en.wikipedia.org/wiki/Zab_Emirate",
+                    "https://fr.wikipedia.org/wiki/Zibans",
+                    "https://fr.wikipedia.org/wiki/%C3%89mirat_de_Zab",
+                    "Chef de la maison au 1er janvier 1400 : non sourcé"):
+        assert mention in zab.source
+
+
+def test_lecture_zab():
+    seigneuries = charger_seigneuries()
+    _preuve_lecture_zab(seigneuries)
+    sans_zab = tuple(s for s in seigneuries if s.nom != "Émirat du Zab")
+    with pytest.raises(AssertionError):
+        _preuve_lecture_zab(sans_zab)
+
+
+@pytest.mark.parametrize("cas", ["absente", "vide", "blanche"])
+def test_zab_source_refusee(tmp_path, cas):
+    document = json.loads(TABLE.read_text(encoding="utf-8"))
+    ligne = next(s for s in document["seigneuries"] if s["nom"] == "Émirat du Zab")
+    assert set(ligne) == {"id", "nom", "maison", "religion", "suzerain", "siege", "source"}
+    if cas == "absente":
+        ligne.pop("source")
+    else:
+        ligne["source"] = "" if cas == "vide" else "  "
+    with pytest.raises(PuissanceInvalide, match=f"seigneurie {ligne['id']}, champ source"):
+        charger_seigneuries(_ecrire(tmp_path, document))
+
+
+def test_zab_siege_et_fiche(contexte):
+    from sim.projection import projeter_epsg3035
+    from sim.villes import point_dans_geometrie
+
+    monde, seigneuries, table, _ = contexte
+    zab = next(s for s in seigneuries if s.nom == "Émirat du Zab")
+    bar = next(s for s in seigneuries if s.nom == "Duché de Bar")
+    point = projeter_epsg3035(zab.siege.lat, zab.siege.lon)
+    assert (round(point[0], 2), round(point[1], 2)) == (zab.siege.x_m, zab.siege.y_m)
+    assert [cid for cid, c in monde.carte.items() if point_dans_geometrie(*point, c["geometry"])] == [10103]
+    assert cellule_du_siege(zab, monde.carte) == 10103
+    assert puissances_depuis_monde(monde)[10103] == zab.suzerain == 35
+    hors = dataclasses.replace(zab, siege=dataclasses.replace(zab.siege, x_m=0, y_m=0))
+    with pytest.raises(PuissanceInvalide, match=f"seigneurie {zab.id}, champ siege : hors carte"):
+        cellule_du_siege(hors, monde.carte)
+    for mauvais in (dataclasses.replace(zab, suzerain=bar.suzerain),
+                    dataclasses.replace(zab, siege=bar.siege)):
+        with pytest.raises(AssertionError):
+            _preuve_sieges(monde, tuple(mauvais if s == zab else s for s in seigneuries), table)
+    avant = copy.deepcopy(monde.to_dict())
+    fiche = fiche_de_seigneurie(zab.id, monde)
+    assert fiche.seigneurie == zab and fiche.cell_id == 10103
+    assert fiche.habitants == monde.cells[fiche.cell_id].population > 0
+    assert fiche.suzerain.nom == "Hafsides" and fiche.maison.nom == "Hafsides"
+    assert fiche.production_kg_par_tick == population_soutenable_de(
+        monde.cells[fiche.cell_id], monde.carte) * constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    assert fiche.production_kg_par_tick > 0 and monde.to_dict() == avant
+    monde.cells[fiche.cell_id].population += 1
+    assert fiche_de_seigneurie(zab.id, monde).habitants == fiche.habitants + 1
+
+
 def test_lecture(tmp_path):
     document = json.loads(TABLE.read_text(encoding="utf-8"))
-    next(s for s in document["seigneuries"] if s["nom"] == "Uç d'Evrenos")["religion"] = "catholique"
+    for ligne in document["seigneuries"]:
+        if ligne["religion"] == "musulmane":
+            ligne["religion"] = "catholique"
     alterees = charger_seigneuries(_ecrire(tmp_path, document))
     assert religions_manquantes(alterees) == {"musulmane"}
     with pytest.raises(AssertionError):
@@ -170,7 +239,9 @@ def test_fiche(contexte):
             (c, puissances.get(vue[c]), monde.cells[c].population) for c in voisins]
         fiches[s.nom] = fiche
         print(f"{s.nom}: cell_id={cid}, habitants={fiche.habitants}, production_kg_par_tick={fiche.production_kg_par_tick}, suzerain={fiche.suzerain.nom}, maison={fiche.maison.nom}, cellules_du_suzerain={fiche.cellules_du_suzerain}, habitants_du_suzerain={fiche.habitants_du_suzerain}, voisins={voisins}")
-    bar, wurtemberg, moree, brankovic, evrenos = (fiches[n] for n in SUZERAINS)
+    bar, wurtemberg, moree, brankovic, evrenos = (fiches[n] for n in (
+        "Duché de Bar", "Comté de Wurtemberg", "Despotat de Morée", "Terre des Branković", "Uç d'Evrenos"))
+    assert fiches["Émirat du Zab"].seigneurie.siege.nom == "Biskra"
     assert evrenos.cell_id in {v.cell_id for v in brankovic.voisins}
     assert brankovic.cell_id in {v.cell_id for v in evrenos.voisins}
     assert evrenos.cellules_du_suzerain > moree.cellules_du_suzerain

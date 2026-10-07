@@ -1,6 +1,7 @@
 """Carte servie et terres actuelles : preuves sur les données et contre-épreuves."""
 
 import copy
+import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from http import HTTPStatus
@@ -177,6 +178,38 @@ def test_departs(monde, photographie):
         actuelles, _ = _lire(port, "/departs")
         assert actuelles["tick"] == 4
         assert any(a["habitants"] != b["habitants"] for a, b in zip(actuelles["departs"], references))
+
+
+def test_departs_zab():
+    from sim.intentions import deposer_intention
+
+    monde = World.charger(0)
+    terres = charger_seigneuries()
+    ids = [s.id for s in terres]
+    assert len(ids) == 6 and ids == sorted(ids)
+    zab = next(s for s in terres if s.nom == "Émirat du Zab")
+    rng = random.Random(0)
+    deposer_intention(monde, {"type": "choisir_depart", "seigneurie": zab.id})
+    with lancer_service(0) as port:
+        intention = json.dumps({"type": "choisir_depart", "seigneurie": zab.id}).encode("utf-8")
+        assert requete_service(port, "/intention", "POST", intention)[0] == HTTPStatus.OK
+        assert monde.maison_du_joueur is None
+        for numero in range(2):
+            tick(monde, rng, numero)
+            _lire(port, "/tick?n=1", "POST")
+            avant = copy.deepcopy(monde.to_dict())
+            doc, _ = _lire(port, "/departs")
+            photo = build_snapshot_document(monde, 0, numero + 1)
+            fiche = fiche_de_seigneurie(zab.id, monde)
+            assert doc["tick"] == photo["tick"] and doc["date"] == monde.date_simulation
+            assert [f["id"] for f in doc["departs"]] == ids
+            servie = next(f for f in doc["departs"] if f["id"] == zab.id)
+            assert servie == photo["terre_choisie"] == _round_tree(_fiche_document(fiche))
+            assert servie["habitants"] == monde.cells[fiche.cell_id].population
+            assert monde.to_dict() == avant
+            sans_zab = [f for f in doc["departs"] if f["id"] != zab.id]
+            with pytest.raises(AssertionError):
+                assert [f["id"] for f in sans_zab] == ids
 
 
 def test_contour_cas_geometriques():
