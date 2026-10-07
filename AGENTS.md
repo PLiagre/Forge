@@ -29,6 +29,11 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   (`idee` → `pret` → `en-cours` → `livre`, ou `bloque` avec sa raison en
   commentaire), l'étiquette `pc` s'il demande Unity ou Blender. Le formulaire
   « Demander un lot » les pose.
+- **Un lot dit d'abord ce que le joueur y gagne** : ce qu'il peut faire, voir
+  ou décider après lui — ou, pour un lot de fond, le geste qu'il prépare. Le
+  brief le reprend dans sa section « Le joueur », le chef refuse un lot qui
+  n'en a pas, le relecteur vérifie que c'est vrai
+  ([CAP.md](CAP.md), « La règle d'un lot »).
 - **Le dépanneur passe d'abord** : un lot que le pilote bloque (essais
   épuisés, CI rouge, relecture `CORRIGER`) est lu par le dépanneur, en
   lecture seule. Il le relance avec une consigne que le codeur et le
@@ -54,8 +59,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   le travail en file ; ses agents qui ne peuvent pas répondre le disent sur la
   PR (attente, renvoyée dans l'heure, sans compter d'essai).
 - **Les jalons suivent CAP.md** : chaque section « ## Jalon n — Titre » est
-  un milestone, que le pilote crée ou renomme seul. Un jalon qui n'a
-  encore rien de prêt, en cours ou livré se fait découper par le chef.
+  un milestone, que le pilote crée ou renomme seul. Les lots de chaque jalon
+  sont écrits sous sa section, en mode direct ; un jalon qu'on aurait laissé
+  sans lot se fait découper par le chef.
 - **Le pilote** (`python3 -m atelier tour`, sur le VPS, toutes les deux
   minutes) prend le lot suivant du jalon courant ; une machine qui n'y a plus
   rien à prendre prend dans le jalon suivant, puis dans le troisième (la

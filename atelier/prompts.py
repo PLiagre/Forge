@@ -82,7 +82,7 @@ def chef(projet: Projet, *, numero: int, titre: str, corps: str, commentaires: s
                  if jalon_courant else "")
     return f"""Tu es le chef de la chaîne de Forge. Tu prépares le lot #{numero} « {titre} », rangé dans le jalon {jalon_titre}.
 
-Lis d'abord : `CAP.md` (le jalon J{jalon} : ce que le joueur fait, la décision qu'il prend, ce qu'on voit, sa preuve), `docs/VISION.md` (ce que le jeu doit devenir), `AGENTS.md`, et `jeu/sim/MODELE.md` si le lot touche le monde.
+Lis d'abord : `CAP.md` (« La règle d'un lot », et le jalon J{jalon} : ce que le joueur fait, la décision qu'il prend, ce qu'on voit, sa preuve, la liste de ses lots), `docs/VISION.md` (ce que le jeu doit devenir), `AGENTS.md`, et `jeu/sim/MODELE.md` si le lot touche le monde.
 
 La demande (issue #{numero}) :
 -----
@@ -96,6 +96,8 @@ Jalon : J{jalon} · Machine : {machine} · Taille prévue : N lignes
 
 ## But
 une phrase : ce que le joueur ou le monde saura faire après ce lot.
+## Le joueur
+ce que le joueur peut faire, voir ou décider après ce lot, et ce qu'il en sent, repris de la phrase « Le joueur » de l'issue ; pour un lot de fond, le geste du jalon qu'il prépare et le lot qui le rendra visible.
 ## Règle du monde
 comment ça marche en termes de monde, avec la section de `jeu/sim/MODELE.md` dont ça découle ; « sans objet » pour un lot de vue ou d'outil.
 ## Périmètre
@@ -106,7 +108,7 @@ SC1…SCn. Chacune nomme une commande qui peut échouer, et sa contre-épreuve.
 ce que ce lot ne fait pas.
 {_SECTION_PHOTO if machine == "pc" else ""}
 Règles :
-- Le lot doit servir le jalon J{jalon} de `CAP.md`. S'il ne le sert pas, n'écris rien et termine par la ligne « DECISION: REFUS :: <raison> ».
+- Le lot doit servir le jalon J{jalon} de `CAP.md` et rapprocher le joueur d'un geste de ce jalon (« La règle d'un lot »). S'il ne le sert pas, ou si tu ne peux pas écrire sa section « Le joueur », n'écris rien et termine par la ligne « DECISION: REFUS :: <raison> ».
 {en_avance}- La taille prévue du diff reste sous {projet.lignes_max} lignes. Sinon n'écris rien : découpe, et termine par la ligne « DECISION: DECOUPE », suivie d'une ligne par sous-lot au format « - <titre> :: <ce qu'il fait> », finie par « :: pc » si ce sous-lot demande Unity ou Blender, par « :: vps » s'il n'en demande pas (sans rien, il garde la machine de ce lot).
 - Dans une découpe, les sous-lots qui ne s'attendent pas avancent en même temps, chacun dans son chantier. Finis une ligne par « :: après 1, 3 » (les rangs, dans ta liste, des sous-lots dont il a vraiment besoin, tous plus haut que lui) ou par « :: après rien » (il part tout de suite) ; sans « après », il part tout de suite aussi. Une file n'avance qu'un lot à la fois : un sous-lot n'en attend un autre que s'il a besoin de ce que celui-là crée (une fonction, une donnée, un fichier), et ta ligne le dit. Deux sous-lots qui modifient les mêmes fichiers s'attendent : sinon ils se marchent dessus.
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
@@ -197,6 +199,7 @@ Vérifie, du plus grave au plus léger :
 4. Le code suit `AGENTS.md` : le monde raisonne en monde, pas de nombre magique, déterminisme tenu.
 5. Ce que le lot prétend est vrai : lis le code, pas seulement le compte rendu.
 6. Lot « pc » : tu n'as pas Unity ; le compte rendu du PC dit si Unity compile la révision. S'il dit que non, c'est CORRIGER. Il joint le plan fixe et la photo propre au lot : regarde celle-ci, elle doit montrer ce que le lot prétend.
+7. La section « Le joueur » du brief est vraie une fois le lot fait : ce qu'elle promet au joueur, le diff le donne ; un lot de fond prépare bien le geste qu'elle nomme.
 
 Écris ta revue en français. Si tu demandes des changements, liste chaque constat avec son fichier et sa ligne.
 Ne demande au codeur que ce qu'il peut faire dans le Périmètre : ce que toi seul ne peux pas vérifier (un outil qui te manque, une image que tu ne peux pas ouvrir) se dit dans ta revue, ce n'est pas un constat.
@@ -307,7 +310,7 @@ Les faits de la semaine, relevés sur GitHub :
 
 Écris en français, court :
 ### On avance, ou on dérive
-un verdict en une phrase, puis ses preuves (lots, PR, jalons ; rien d'inventé).
+un verdict en une phrase, puis ses preuves (lots, PR, jalons ; rien d'inventé). Juge d'abord le joueur : ce qu'il peut faire, voir ou décider de plus qu'il y a une semaine, au regard du geste du jalon courant et de la phrase « Le joueur » des lots livrés.
 ### Ce que je propose
 un réordonnancement des lots du jalon en cours, ou des lots qui manquent pour atteindre sa preuve, avec pourquoi.
 Tu proposes ; tu ne décides pas."""

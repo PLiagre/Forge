@@ -145,6 +145,12 @@ libre. Le journal annonce ses lots sous « EN AVANCE, DU TROISIÈME JALON ».
 
 ### Un jalon qui commence se fait découper
 
+Depuis le 7 octobre 2026, les lots de chaque jalon sont écrits sous sa section
+de [CAP.md](../CAP.md), en mode direct, chacun avec ce que le joueur y gagne
+(« La règle d'un lot ») : ce qui suit ne sert plus qu'à un jalon qu'on aurait
+laissé sans lot. Le 6 octobre, les découpes du chef avaient livré dix lots du
+jalon 3 sans qu'aucun ne donne un maître à un lieu.
+
 Quand le jalon courant n'a encore aucun lot prêt, en cours ou livré, le
 pilote ouvre un lot « Découper le jalon Jn — Titre » (`pret`). Le jalon
 suivant se découpe de même, en avance, quand la fenêtre s'ouvre : le courant
