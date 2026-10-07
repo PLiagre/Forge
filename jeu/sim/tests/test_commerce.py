@@ -2517,3 +2517,161 @@ def test_index_aretes_premiere_entree_repli_et_tick_suivant(monkeypatch):
     assert len(vus) == 2
     assert (3, 4) not in vus[0] and vus[1][3, 4] is nouvelle
     print(f"paires comparées={len(paires)} index reconstruits={len(vus)}")
+
+
+def _monde_routes():
+    return World(cells={i: Cell(cell_id=i, area_km2=0, population=0,
+                                food_stock_kg=0) for i in (1, 2, 3)}, adjacency=[
+        {"a": 1, "b": 2, "shared_length_m": 1000}, {"a": 2, "b": 3}])
+
+
+def _rue_route(porte=2, largeur=4, chantier=False, identifiant=0):
+    from sim.plan import Rue
+    return Rue(identifiant, [(0, 0), (6.5, 0)], largeur, chantier,
+               1 if chantier else 0, 13 if chantier else 0, 0, porte)
+
+
+@pytest.mark.parametrize("longueur", [1000, None, 0])
+@pytest.mark.parametrize("relief", [None, "plaine", "montagne"])
+@pytest.mark.parametrize("cas,largeurs", [("locale", 0), ("chantier", 0), ("autre", 0),
+                                         ("simple", 4), ("plusieurs", 7), ("deux_bouts", 8)])
+def test_routes_commerciales_capacites(longueur, relief, cas, largeurs, monkeypatch):
+    from sim import engine, constants as k, plan
+    monde = _monde_routes()
+    assert len(monde.cells) >= 3 and len(monde.adjacency) >= 2
+    if longueur is None:
+        del monde.adjacency[0]["shared_length_m"]
+    else:
+        monde.adjacency[0]["shared_length_m"] = longueur
+    if relief:
+        monde.carte = {i: {"relief": relief if i == 2 else "plaine"} for i in monde.cells}
+    base = engine._capacite_transport_arete_kg(monde, 1, 2)
+    autre = engine._capacite_transport_arete_kg(monde, 2, 3)
+    monde.plans[1].rues = [_rue_route(None if cas == "locale" else 3 if cas == "autre" else 2,
+                                    chantier=cas == "chantier")]
+    if cas == "plusieurs":
+        monde.plans[1].rues.append(_rue_route(largeur=3, identifiant=1))
+    if cas == "deux_bouts":
+        monde.plans[2].rues = [_rue_route(porte=1)]
+    apport = 5000 * k.TICK_DURATION_DAYS * largeurs * (0.3 if relief == "montagne" else 1)
+    def controler(attendu):
+        for a, b in ((1, 2), (2, 1)):
+            for index in (None, engine._index_aretes(monde)):
+                assert engine._capacite_transport_arete_kg(monde, a, b, index) == attendu
+        assert engine._capacite_transport_arete_kg(monde, 2, 3).hex() == autre.hex()
+    controler(base + apport)
+    if apport:
+        with monkeypatch.context() as sonde:
+            sonde.setattr(k, "DEBIT_ROUTE_KG_PAR_M_PAR_TICK", k.DEBIT_ROUTE_KG_PAR_M_PAR_TICK * 2)
+            controler(base + 2 * apport)
+            with pytest.raises(AssertionError):
+                controler(base + apport)
+        with monkeypatch.context() as sonde:
+            sonde.setattr(plan, "apport_routes_arete_kg", lambda *args: 0.0)
+            with pytest.raises(AssertionError):
+                controler(base + apport)
+        monde.adjacency[0]["shared_length_m"] = "invalide"
+        with pytest.raises(engine.LongueurFrontiereInvalideError):
+            controler(base + apport)
+        monde.adjacency[0]["shared_length_m"] = 0
+        monde.carte = {i: {"relief": "invalide"} for i in monde.cells}
+        with pytest.raises(engine.ReliefInvalideError):
+            controler(base + apport)
+
+
+@pytest.mark.parametrize("variante", ["vide", "locale", "chantier", "sans_plans"])
+@pytest.mark.parametrize("longueur", [1000, None, 0])
+@pytest.mark.parametrize("relief", [None, "plaine", "montagne", "haute_montagne"])
+def test_routes_commerciales_reference(variante, longueur, relief, monkeypatch):
+    from sim import engine
+    from sim.tests.test_determinisme import _REFERENCE_TICK_331
+    monde = _monde_routes()
+    monde.adjacency.insert(1, {"a": 2, "b": 1, "shared_length_m": 5000})
+    if longueur is None:
+        del monde.adjacency[0]["shared_length_m"]
+    else:
+        monde.adjacency[0]["shared_length_m"] = longueur
+    if relief:
+        monde.carte = {i: {"relief": relief if i == 2 else "colline"} for i in monde.cells}
+    if variante in ("locale", "chantier"):
+        monde.plans[1].rues = [_rue_route(None if variante == "locale" else 2,
+                                        chantier=variante == "chantier")]
+    if variante == "sans_plans":
+        del monde.plans
+    anciennes = {}
+    exec(_REFERENCE_TICK_331["engine"], engine.__dict__, anciennes)
+    paires = [(1, 2), (2, 1), (1, 3), (2, 3)]
+    reference = [anciennes["_capacite_transport_arete_kg"](monde, *p).hex() for p in paires]
+    def controler(valeurs):
+        assert valeurs and valeurs == reference
+    for index in (None, engine._index_aretes(monde)):
+        controler([engine._capacite_transport_arete_kg(monde, *p, index).hex() for p in paires])
+    actuelles = engine._initialiser_capacite_aretes(monde)
+    with monkeypatch.context() as sonde:
+        for nom in ("_arete_adjacence", "_capacite_base_arete_kg", "_capacite_transport_arete_kg", "_initialiser_capacite_aretes"):
+            sonde.setattr(engine, nom, anciennes[nom])
+        assert {p: v.hex() for p, v in actuelles.items()} == {
+            p: v.hex() for p, v in engine._initialiser_capacite_aretes(monde).items()}
+    with pytest.raises(AssertionError):
+        controler([(float.fromhex(reference[0]) + 1).hex(), *reference[1:]])
+
+
+@pytest.mark.parametrize("reserve", [0, 25000])
+def test_routes_commerciales_flux(reserve, monkeypatch):
+    import copy
+    from sim import engine, plan
+    from sim.model import lire_stock_marchandise
+    _patch_consommation_essai(monkeypatch)
+    def jouer(porte):
+        monde = _monde_routes()
+        monde.cells[1].stocks = {MARCHANDISE_NOURRITURE: 100000., _MARCHANDISE_ESSAI: 100000.}
+        monde.cells[2].population = 20000
+        monde.cells[2].food_stock_kg = reserve
+        monde.plans[1].rues = [_rue_route(porte)]
+        assert monde.cells and monde.plans[1].rues and monde.adjacency
+        avant = copy.deepcopy(monde)
+        total = [0.0]
+        engine._apply_commerce(monde, total)
+        def conserver(apres):
+            for marchandise in avant.cells[1].stocks:
+                stock = lambda m, i: max(0, lire_stock_marchandise(m.cells[i], marchandise))
+                assert sum(stock(apres, i) for i in apres.cells) == sum(stock(avant, i) for i in avant.cells)
+                assert stock(avant, 1) - stock(apres, 1) == stock(apres, 2) - stock(avant, 2)
+        conserver(monde)
+        faux = copy.deepcopy(monde)
+        faux.cells[2].stocks[MARCHANDISE_NOURRITURE] += 1
+        with pytest.raises(AssertionError):
+            conserver(faux)
+        assert total[0] == engine._capacite_transport_arete_kg(avant, 1, 2)
+        if reserve and porte is not None:
+            assert lire_stock_marchandise(monde.cells[2], _MARCHANDISE_ESSAI) > 0
+            assert monde.cells[2].food_stock_kg > reserve
+        return total[0]
+    local = jouer(None)
+    def controler():
+        assert jouer(2) > local
+    controler()
+    with monkeypatch.context() as sonde:
+        sonde.setattr(plan, "apport_routes_arete_kg", lambda *args: 0.0)
+        with pytest.raises(AssertionError):
+            controler()
+
+
+def test_routes_commerciales_modele():
+    from pathlib import Path
+    from sim import engine
+    texte = Path(engine.__file__).with_name("MODELE.md").read_text(encoding="utf-8")
+    def controler(document):
+        exigences = {"En une page": ("route", "achev"),
+            "Le commerce entre cellules": ("DEBIT_ROUTE_KG_PAR_M_PAR_TICK", "somme", "goulot", "niveau 2", "Sans apport"),
+            "Les intentions du joueur": ("porte_cell_id", "facultatif", "voisine"),
+            "Le plan du bourg": ("porte_cell_id", "None"), "Le chantier et ses bras": ("commerce", "achèvement")}
+        for titre, mots in exigences.items():
+            section = document.split(f"## {titre}\n", 1)[1].split("\n## ", 1)[0]
+            assert all(mot in section for mot in mots)
+        assert "comme l’effet de la route achevée sur les flux" not in document
+    controler(texte)
+    for faux in (texte.replace("DEBIT_ROUTE_KG_PAR_M_PAR_TICK", "retirée"),
+                 texte + "comme l’effet de la route achevée sur les flux"):
+        with pytest.raises(AssertionError):
+            controler(faux)

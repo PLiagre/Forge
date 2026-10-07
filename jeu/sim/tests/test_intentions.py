@@ -912,3 +912,36 @@ def test_ia_depot_commun_et_copies(monkeypatch):
     with pytest.raises(AssertionError):
         ia.jouer_ia(monde, [])
         assert monde.cells == avant['cells'] and monde.plans == avant['plans']
+
+
+@pytest.mark.parametrize("porte", ["absente", None, 2, True, "2", 2.0, -1, 99, 1, 3, 4, "origine_absente"])
+def test_intention_porte(porte):
+    from sim.intentions import IntentionRefusee, recevoir_intention
+    from sim.tests.test_commerce import _monde_routes
+    monde = _monde_routes()
+    monde.adjacency = [{"a": 1, "b": 2}, {"a": 1, "b": 4, "kind": "sea", "shared_length_m": 0}]
+    assert monde.cells and monde.adjacency
+    if porte == "origine_absente":
+        del monde.cells[1]
+    avant = monde.to_dict()
+    geste = _route_reference(monde)
+    if porte != "absente":
+        geste["porte_cell_id"] = 2 if porte == "origine_absente" else porte
+    if porte not in ("absente", None) and (type(porte) is not int or porte != 2):
+        with pytest.raises(IntentionRefusee, match="porte"):
+            recevoir_intention(monde, geste)
+        assert monde.intentions_en_attente == [] and monde.to_dict() == avant
+        return
+    route = recevoir_intention(monde, geste)
+    assert monde.to_dict() == avant
+    geste["porte_cell_id"] = 3
+    assert route.porte_cell_id == (2 if porte == 2 else None)
+    engine.tick(monde, random.Random(0), 0)
+    publie = monde.to_dict()["plans"]["1"]
+    def correspondance(document):
+        assert document["rues"]
+        assert document["rues"][0].get("porte_cell_id") == route.porte_cell_id
+    correspondance(publie)
+    publie["rues"][0]["porte_cell_id"] = 3
+    with pytest.raises(AssertionError):
+        correspondance(publie)

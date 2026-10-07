@@ -240,6 +240,7 @@ FABRICATION_KG_PAR_ARTISAN_PAR_TICK = 5  # Matière façonnée par personne, niv
 
 # Déblai, nivellement et fossés d'une route en terre battue ; niveau 2.
 TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0.5
+DEBIT_ROUTE_KG_PAR_M_PAR_TICK = 5000.0 * TICK_DURATION_DAYS
 
 # Arpentage, bornage, défrichage et clôture d’un lot à bâtir ; niveau 2.
 TRAVAIL_PARCELLE_JOURNEES_PAR_M2 = 0.1

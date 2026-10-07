@@ -40,6 +40,7 @@ class TraceRoute:
     points: tuple[tuple[float, float], ...]
     largeur_m: float
     foyers: int = 1
+    porte_cell_id: int | None = None
 
     def appliquer(self, monde):
         """Ajoute la rue en chantier en reconstruisant et revalidant le plan."""
@@ -47,7 +48,8 @@ class TraceRoute:
         identifiant = max((rue.identifiant for rue in plan.rues), default=-1) + 1
         rue = Rue(identifiant, self.points, self.largeur_m, en_chantier=True,
                   foyers=self.foyers,
-                  travail_requis=travail_requis_de_route(self.points, self.largeur_m))
+                  travail_requis=travail_requis_de_route(self.points, self.largeur_m),
+                  porte_cell_id=self.porte_cell_id)
         monde.plans[self.cell_id] = Plan(
             rues=[*plan.rues, rue], parcelles=plan.parcelles, batiments=plan.batiments,
         )
@@ -178,7 +180,8 @@ def recevoir_intention(monde, intention):
         if champ not in intention:
             raise IntentionRefusee(f"champ manquant : {champ}")
     for champ in intention:
-        if champ not in champs and champ != "foyers":
+        if (champ not in champs and champ != "foyers"
+                and not (type_intention == TYPE_TRACER_ROUTE and champ == "porte_cell_id")):
             raise IntentionRefusee(f"champ inconnu : {champ}")
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
@@ -191,10 +194,17 @@ def recevoir_intention(monde, intention):
     foyers = _foyers(intention)
     cell_id = _cellule(monde, intention)
     try:
-        rue = Rue(0, intention["points"], intention["largeur_m"])
+        rue = Rue(0, intention["points"], intention["largeur_m"],
+                  porte_cell_id=intention.get("porte_cell_id"))
     except PlanInvalide as exc:
         raise IntentionRefusee(f"route invalide : {exc}") from exc
-    route = TraceRoute(cell_id, tuple(tuple(point) for point in rue.points), rue.largeur_m, foyers)
+    porte = rue.porte_cell_id
+    if porte is not None and (cell_id not in monde.cells or porte not in monde.cells
+            or porte == cell_id or not any(
+                (edge["a"] == cell_id and edge["b"] == porte)
+                or (edge["b"] == cell_id and edge["a"] == porte) for edge in monde.adjacency)):
+        raise IntentionRefusee(f"porte_cell_id : voisine terrestre attendue, reçu {porte!r}")
+    route = TraceRoute(cell_id, tuple(tuple(point) for point in rue.points), rue.largeur_m, foyers, porte)
     monde.intentions_en_attente.append(route)
     return route
 
