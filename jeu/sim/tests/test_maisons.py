@@ -507,3 +507,163 @@ def test_capitale_vue_pure(carte):
     assert int(comptes[-1].stdout) > 0
     with pytest.raises(AssertionError):
         assert int(comptes[-1].stdout) == 0  # La garde détecte un lecteur.
+
+@pytest.fixture
+def registre(carte, tmp_path):
+    from sim.registre_maisons import charger_registre_maisons, valider_registre_maisons
+    chemins = [TABLE, CAPITALES, TABLE.with_name("seigneuries-1400.json")]
+    documents = [json.loads(p.read_text(encoding="utf-8")) for p in chemins]
+    copies = [tmp_path / p.name for p in chemins]
+    def charger():
+        for p, d in zip(copies, documents):
+            p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        avant = [p.read_bytes() for p in copies]
+        resultat = charger_registre_maisons(carte[0].carte, *copies)
+        assert [p.read_bytes() for p in copies] == avant
+        return resultat
+    return carte[0], documents, charger, valider_registre_maisons
+
+def _preuve_registre(vue, documents, carte):
+    from sim.villes import point_dans_geometrie
+    puissances, capitales, departs = documents
+    racines = {p["id"]: f"grande-{p['maison']}" if "maison" in p else f"institution-{p['id']}" for p in puissances["puissances"]}
+    noms = {m["id"]: m["nom"] for m in puissances["maisons"]}
+    attendus = {f"grande-{c['maison']}": (noms[c["maison"]], "grande maison", None, c) for c in capitales["capitales"]}
+    for p in puissances["puissances"]:
+        if "maison" not in p:
+            ancre = min((a for a in puissances["ancres"] if a["puissance"] == p["id"]), key=lambda a: a["id"])
+            attendus[racines[p["id"]]] = (p["nom"], "institution", None, ancre)
+    attendus.update({f"seigneurie-{s['id']}": (s["maison"], "seigneurie", racines[s["suzerain"]], s["siege"]) for s in departs["seigneuries"]})
+    assert len(vue) == len(attendus) and {m.id for m in vue} == set(attendus)
+    for m in vue:
+        nom, sorte, suzerain, point = attendus[m.id]
+        xy = (point["x_m"], point["y_m"]) if sorte == "seigneurie" else projeter_epsg3035(point["lat"], point["lon"])
+        cellules = [cid for cid, c in carte.items() if point_dans_geometrie(*xy, c["geometry"])]
+        cid = min(cellules) if cellules else None
+        assert (m.nom, m.sorte, m.suzerain, m.siege, m.cell_id, m.rang, m.hors_carte) == (
+            nom, sorte, suzerain, point["nom"], cid, 0 if cid is not None else None, point.get("hors_carte"))
+        assert cid is not None or m.hors_carte.strip()
+
+def test_registre_chargement(registre):
+    monde, documents, charger, _ = registre
+    vue = charger()
+    _preuve_registre(vue, documents, monde.carte)
+    paleologue = [m for m in vue if m.nom == "Paléologue"]
+    assert {m.siege for m in paleologue} == {"Constantinople", "Mistra"}
+    lignes = [next(m for m in vue if m.sorte == sorte) for sorte in ("grande maison", "institution", "seigneurie")]
+    for ligne in lignes + [paleologue[-1]]:
+        with pytest.raises(AssertionError):
+            _preuve_registre(tuple(m for m in vue if m.id != ligne.id), documents, monde.carte)
+    for document, champs in zip(documents, (("maisons", "puissances", "ancres"), ("capitales",), ("seigneuries",))):
+        for champ in champs:
+            original = document[champ]
+            for valeur in (None, []):
+                document.pop(champ) if valeur is None else document.update({champ: valeur})
+                with pytest.raises(PuissanceInvalide):
+                    charger()
+                document[champ] = original
+
+def test_registre_pyramide(registre):
+    monde, documents, charger, valider = registre
+    vue = charger()
+    _preuve_registre(vue, documents, monde.carte)
+    par_id = {m.id: m for m in vue}
+    for m in vue:
+        chemin = set()
+        while m.suzerain is not None:
+            assert m.id not in chemin
+            chemin.add(m.id)
+            m = par_id[m.suzerain]
+    depart = documents[-1]["seigneuries"][0]
+    institution = next(m for m in vue if m.sorte == "institution")
+    depart["suzerain"] = int(institution.id.split("-")[-1])
+    _preuve_registre(charger(), documents, monde.carte)
+    depart["suzerain"] = max(p["id"] for p in documents[0]["puissances"]) + 1
+    with pytest.raises(PuissanceInvalide, match=f"seigneurie {depart['id']}.*suzerain"):
+        charger()
+    a, b = vue[:2]
+    for changements in ({a.id: "inconnue"}, {a.id: a.id}, {a.id: b.id, b.id: a.id}):
+        alteree = tuple(dataclasses.replace(m, suzerain=changements[m.id]) if m.id in changements else m for m in vue)
+        with pytest.raises(PuissanceInvalide, match=a.id):
+            valider(alteree)
+    depart["suzerain"] = int(institution.id.split("-")[-1])
+    mauvaise = tuple(dataclasses.replace(m, suzerain=a.id) if m.id == f"seigneurie-{depart['id']}" else m for m in charger())
+    valider(mauvaise)
+    with pytest.raises(AssertionError):
+        _preuve_registre(mauvaise, documents, monde.carte)
+
+def test_registre_sieges(registre):
+    monde, documents, charger, _ = registre
+    vue, originaux = charger(), copy.deepcopy(documents)
+    _preuve_registre(vue, documents, monde.carte)
+    assert next(m.cell_id for m in vue if m.nom == "Valois") == 10322
+    capitale = next(c for c in documents[1]["capitales"] if c["nom"] == "Paris")
+    capitale.update(lat=documents[1]["capitales"][0]["lat"], lon=documents[1]["capitales"][0]["lon"])
+    with pytest.raises(AssertionError):
+        _preuve_registre(charger(), originaux, monde.carte)
+    ancre = next(a for a in documents[0]["ancres"] if a["nom"] == "Arezzo")
+    cellule = cellule_de_capitale(dataclasses.replace(charger_capitales()[0], lat=ancre["lat"], lon=ancre["lon"]), monde.carte)
+    fausse = tuple(dataclasses.replace(m, siege=ancre["nom"], cell_id=cellule) if m.nom == "Florence" else m for m in vue)
+    with pytest.raises(AssertionError):
+        _preuve_registre(fausse, originaux, monde.carte)
+    x, y = projeter_epsg3035(capitale["lat"], capitale["lon"])
+    def carre(gauche, droite, bas, haut):
+        return {"geometry": {"type": "Polygon", "coordinates": [[[gauche, bas], [droite, bas], [droite, haut], [gauche, haut], [gauche, bas]]]}}
+    synthese = {20: carre(x, x + 100, y - 50, y + 50), 10: carre(x - 2, x, y - 1, y + 1)}
+    # Toutes les sources sont au même point ; aucune exception hors carte ne subsiste.
+    for lignes in (documents[0]["ancres"], documents[1]["capitales"], [s["siege"] for s in documents[2]["seigneuries"]]):
+        for p in lignes:
+            p.update(lat=capitale["lat"], lon=capitale["lon"], x_m=x, y_m=y)
+            p.pop("hors_carte", None)
+    for ordre in (synthese, dict(reversed(list(synthese.items())))):
+        monde.carte = ordre
+        assert {m.cell_id for m in charger()} == {10}
+    monde.carte[10] = carre(x - 3, x - 1, y - 1, y + 1)
+    assert {m.cell_id for m in charger()} == {20}
+    with pytest.raises(AssertionError):
+        _preuve_registre(tuple(dataclasses.replace(m, cell_id=10) for m in charger()), documents, monde.carte)
+
+def test_registre_hors_carte(registre):
+    monde, documents, charger, _ = registre
+    vue = charger()
+    _preuve_registre(vue, documents, monde.carte)
+    assert {m.siege for m in vue if m.cell_id is None} == {"Saraï", "Venise"}
+    for lignes in (documents[0]["ancres"], documents[1]["capitales"]):
+        for p in (p for p in lignes if "hors_carte" in p):
+            raison = p["hors_carte"]
+            for valeur in (None, "  "):
+                p.pop("hors_carte") if valeur is None else p.update(hors_carte=valeur)
+                with pytest.raises(PuissanceInvalide, match="hors_carte"):
+                    charger()
+            p["hors_carte"] = raison
+    next(c for c in documents[1]["capitales"] if c["nom"] == "Paris")["hors_carte"] = "Fausse raison"
+    with pytest.raises(PuissanceInvalide, match="hors_carte"):
+        charger()
+    cid = max(monde.carte)
+    monde.carte[cid].pop("geometry")
+    with pytest.raises(PuissanceInvalide, match=f"cellule {cid}.*géométrie absente"):
+        charger()
+
+def test_registre_pure(registre):
+    monde, documents, charger, _ = registre
+    avant = copy.deepcopy((documents, monde.to_dict(), monde.carte, [vars(c) for c in monde.cells.values()]))
+    vue = charger()
+    assert isinstance(vue, tuple) and all(isinstance(m, _NoBadSpatialField) for m in vue)
+    assert vue == charger()
+    assert (documents, monde.to_dict(), monde.carte, [vars(c) for c in monde.cells.values()]) == avant
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        vue[0].nom = "Altérée"
+    with pytest.raises(AssertionError):
+        assert vue == (dataclasses.replace(vue[0], nom="Altérée"),) + vue[1:]
+    for document in documents:
+        for lignes in (v for v in document.values() if isinstance(v, list)):
+            lignes.reverse()
+    monde.carte = dict(reversed(list(monde.carte.items())))
+    assert vue == charger()
+    for s in documents[-1]["seigneuries"]:
+        monde.maison_du_joueur = s["id"]
+        assert vue == charger()
+    alteree = copy.deepcopy(avant)
+    alteree[0][0]["maisons"][0]["nom"] = "Altérée"
+    with pytest.raises(AssertionError):
+        assert avant == alteree

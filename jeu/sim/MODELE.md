@@ -1389,7 +1389,7 @@ carienne ; Mistra donne à Byzance l'Attique, les îles Ioniennes et l'ouest
 de la Crète. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
 sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés,
 les tributs, le siège de Constantinople et l'Église de Bosnie restent de
-**niveau 3**, pas simulés.
+**niveau 3**, pas simulés, sauf les seuls liens de départ du registre ci-dessous.
 
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
@@ -1449,7 +1449,7 @@ anomalies sont acceptées. Luxembourg tient le Saint-Empire, mais aucune de
 ses cellules, dont les trois ancres sont tenues par des vassaux ; ses cellules
 sont celles de la Bohême et de la Hongrie.
 
-Restent de **niveau 3**, pas simulés : le lien de suzeraineté et l'hommage,
+Le registre ajoute seulement les liens de départ décrits ci-dessous ; cette vue reste inchangée. Restent de **niveau 3**, pas simulés : les autres liens de suzeraineté et l'hommage,
 les personnes et la succession des dynasties, Vytautas en Lituanie, Naples
 disputée, Édigu derrière le khan, Marguerite derrière Éric, les vassaux sans
 ancre (Orléans, Anjou, Berry, Foix, Armagnac, Wettin, Hohenzollern, la Hollande
@@ -1577,6 +1577,16 @@ capitales qui changent, autres seigneuries et vassaux sans ancre.
 Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ---
+
+## Les maisons du monde
+
+`sim/registre_maisons.py` charge les trois tables `data/puissances-1400.json`, `data/capitales-1400.json` et `data/seigneuries-1400.json` avec la carte en argument ; des chemins alternatifs permettent les contre-épreuves. Le tuple stable de fiches gelées héritant de `_NoBadSpatialField` comprend toutes les maisons, y compris celle du joueur, sans fusionner les branches homonymes. Chaque fiche porte `id`, `nom`, `sorte`, `suzerain`, `siege` (nom), `cell_id`, `rang` et `hors_carte`.
+Une grande maison a l'id `grande-<id maison>`, son nom et sa capitale ; une puissance sans maison devient `institution-<id puissance>`, nommée comme la puissance, siégeant à son ancre de plus petit id ; chaque départ devient `seigneurie-<id>`, nommé par son champ `maison`, à son siège déclaré.
+Les grandes maisons et institutions sont des racines sans suzerain ; les départs relèvent de la grande maison de leur puissance suzeraine, ou de son institution. Aucun lien supplémentaire ne rattache les grands vassaux des ancres.
+La validation publique refuse une référence inconnue ou tout cycle, même sur soi, avec `PuissanceInvalide` nommant la maison ; elle accepte un registre altéré pour l'éprouver.
+Les ancres sont projetées par `projeter_epsg3035` ; les sièges suivent les polygones, frontière au plus petit `cell_id`, jamais le centroïde le plus proche. Sur carte, le siège est le couple (`cell_id`, `rang = 0`), sans seconde clé spatiale.
+Hors carte, `cell_id` et `rang` sont `None` : Saraï reprend la raison de sa capitale, Venise celle déclarée dans son ancre, sans déplacement ni bourg inventé. Toute raison absente ou vide hors carte, raison sur un point contenu ou géométrie absente est refusée.
+**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : propriété des lieux, hommage matériel, greniers, personnes et succession. Le chargement ne modifie ni tables ni carte, n'amorce rien sur `World` ou `Cell` et reste hors du tick ; les anciennes vues et la sélection de l'IA gardent leur contrat.
 
 ## Les intentions du joueur
 
@@ -1778,7 +1788,7 @@ ce bloc construit une seule fois dans `snapshot_export.py` ; les cellules resten
 **Niveau 1 :** puissances, maisons, villes et terres avec leurs sources.
 **Niveau 2, plausible :** étendue des puissances et maisons, terre réduite à
 la cellule de son siège, population amorcée. **Niveau 3, pas simulé :**
-frontières réelles, suzeraineté et villes hors carte, déclarées sans placement.
+frontières réelles, suzeraineté hors des seuls liens de départ du registre, et villes hors carte, déclarées sans placement.
 
 ## Les lieux d'une cellule, vue dérivée
 
