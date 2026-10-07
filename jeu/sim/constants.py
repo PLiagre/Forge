@@ -29,6 +29,10 @@ TAUX_FABRICATION_PAR_TICK = 0.05
 # Kilogrammes d'objet produits par kilogramme de matière consommée ; niveau 2.
 RENDEMENT_FABRICATION = 0.6
 
+# Part du stock alimentaire d'un grenier perdue en un an, par rongeurs et moisissure.
+# Niveau 2, plausible, jamais sourcé. La part d'un tick se relit dans greniers.py.
+PERTE_GRENIER_PAR_AN = 0.25
+
 
 def fabrication_kg(stock_brut_kg: float) -> tuple[float, float]:
     """

@@ -882,3 +882,111 @@ def test_registre_vue_impure(carte, monkeypatch):
     monkeypatch.setattr(sys.modules[__name__], "maisons_depuis_monde", impure)
     with pytest.raises(AssertionError):
         test_pure(carte)
+
+
+def _controler_grenier_etat(monde, raisons):
+    assert monde.maisons and monde.greniers
+    ids = [m.id for m in monde.maisons]
+    assert len(ids) == len(set(ids)) == len(monde.greniers) and set(monde.greniers) == set(ids)
+    assert {m.sorte for m in monde.maisons} >= {"grande maison", "institution", "seigneurie"}
+    homonymes = [n for n, k in Counter(m.nom for m in monde.maisons).items() if k > 1]
+    assert homonymes and any(raisons.values())
+    for nom in homonymes:
+        freres = [m.id for m in monde.maisons if m.nom == nom]
+        assert len(freres) > 1
+        assert all(monde.greniers[a] is not monde.greniers[b] for a, b in zip(freres, freres[1:]))
+    assert len({id(p) for p in monde.greniers.values()}) == len(monde.greniers)
+    assert {m.id: m.hors_carte for m in monde.maisons} == raisons
+    sans = World({}, [])
+    assert sans.maisons == () and sans.greniers == {} and sans.pertes_kg == 0.0
+
+
+def test_grenier_etat():
+    """Un panier vide et distinct par maison ; le remplir ne touche pas le siège."""
+    import sim.constants as constantes
+    from sim.model import copier_panier
+    monde = World.charger(0)
+    raisons = {m.id: m.hors_carte for m in monde.maisons}
+    assert all(p == {} for p in monde.greniers.values())
+    _controler_grenier_etat(monde, raisons)
+    siege = next(m for m in monde.maisons if m.cell_id in monde.cells)
+    cellule = monde.cells[siege.cell_id]
+    avant = (copier_panier(cellule), [copier_panier(l) for l in cellule.lieux])
+    assert avant[0]
+    autres = {i: dict(p) for i, p in monde.greniers.items() if i != siege.id}
+    monde.greniers[siege.id][constantes.MARCHANDISE_NOURRITURE] = 1000.0
+    assert {i: dict(p) for i, p in monde.greniers.items() if i != siege.id} == autres
+    assert (copier_panier(cellule), [copier_panier(l) for l in cellule.lieux]) == avant
+    assert {m.id: m.hors_carte for m in monde.maisons} == raisons
+    nom = next(n for n, k in Counter(m.nom for m in monde.maisons).items() if k > 1)
+    freres = [m.id for m in monde.maisons if m.nom == nom]
+    for geste in ("retirer", "fusionner", "partager"):
+        sauve = {i: dict(p) for i, p in monde.greniers.items()}
+        if geste == "retirer":
+            monde.greniers.pop(freres[0])
+        elif geste == "fusionner":
+            del monde.greniers[freres[1]]
+        else:
+            monde.greniers[freres[1]] = monde.greniers[freres[0]]
+        with pytest.raises(AssertionError):
+            _controler_grenier_etat(monde, raisons)
+        monde.greniers = {i: dict(p) for i, p in sauve.items()}
+    print(f"maisons={len(monde.maisons)}, homonymes={len(freres)}")
+
+
+_CHAMPS_FICHE = {"id", "nom", "sorte", "suzerain", "siege", "cell_id", "rang", "hors_carte"}
+
+
+def _verifier_grenier_serialise(document, monde):
+    fiches = [dataclasses.asdict(m) for m in sorted(monde.maisons, key=lambda m: m.id)]
+    assert document["maisons"] == fiches and all(set(f) == _CHAMPS_FICHE for f in fiches)
+    non_vides = {i: {n: p[n] for n in sorted(p)} for i, p in sorted(monde.greniers.items()) if p}
+    if non_vides:
+        assert document.get("greniers") == non_vides and all(document["greniers"].values())
+    else:
+        assert "greniers" not in document
+    if monde.pertes_kg != 0.0:
+        assert document.get("pertes_kg") == monde.pertes_kg
+    else:
+        assert "pertes_kg" not in document
+
+
+def test_grenier_serialisation():
+    """À vide, aucune clé nouvelle ; après perte, paniers pleins et cumul exact."""
+    import random
+    import sim.constants as constantes
+    monde = World.charger(0)
+    assert all(p == {} for p in monde.greniers.values()) and monde.pertes_kg == 0.0
+    _verifier_grenier_serialise(monde.to_dict(), monde)
+    assert set(monde.to_dict()) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    nourriture = constantes.MARCHANDISE_NOURRITURE
+    choisis = [m for m in monde.maisons if m.cell_id in monde.cells][:2]
+    assert len(choisis) == 2
+    for rang, maison in enumerate(choisis, start=1):
+        monde.greniers[maison.id][nourriture] = 1000.0 * rang + 0.5
+    engine.tick(monde, random.Random(0), 0)
+    assert monde.pertes_kg != 0.0
+    document = monde.to_dict()
+    _verifier_grenier_serialise(document, monde)
+    assert set(document["greniers"]) == {m.id for m in choisis}
+    octets = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode()
+    monde.greniers = {c: monde.greniers[c] for c in reversed(list(monde.greniers))}
+    assert json.dumps(monde.to_dict(), ensure_ascii=False, separators=(",", ":")).encode() == octets
+    rendu, identifiant = monde.to_dict(), choisis[0].id
+    poids = monde.greniers[identifiant][nourriture]
+    assert poids != round(poids)
+    rendu["greniers"][identifiant][nourriture] = 0.0
+    assert monde.greniers[identifiant][nourriture] == poids
+    vide = next(c for c, p in monde.greniers.items() if not p)
+    arrondi = copy.deepcopy(document)
+    arrondi["greniers"][identifiant][nourriture] = round(poids)
+    faux = (
+        {**copy.deepcopy(document), "greniers": {k: v for k, v in document["greniers"].items() if k != identifiant}},
+        arrondi,
+        {**copy.deepcopy(document), "greniers": {**document["greniers"], vide: {}}},
+        {k: v for k, v in document.items() if k != "pertes_kg"},
+    )
+    for altéré in faux:
+        with pytest.raises(AssertionError):
+            _verifier_grenier_serialise(altéré, monde)
+    print(f"paniers_publies={len(document['greniers'])}, pertes_kg={monde.pertes_kg}")
