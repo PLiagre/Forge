@@ -1,12 +1,12 @@
 invariant violé
 commande : py pc/epreuve_jalon4.py --avec-unity --sortie C:\Users\liagr\AppData\Local\Temp\forge-387-sourd --service-sourd
-date : 2026-10-07T16:15:48+02:00
-révision : 5eff378c3fd31ebb0daf71e870e89a7401d9a296
+date : 2026-10-07T17:25:15+02:00
+révision : d31f06f4275b332039399b6c287c6867c6af66b7
 unity : 6000.0.43f1
 code : 1
 égalité du monde : violé — écart entre monde servi et monde rejoué
-relancement : violé — jouer : 2 défaut(s) ; relance : 1 défaut(s) ; jouer : une rue au tick de la recette ; jouer : parcelle aux bornes ; bâtiment absent ; jouer : une pièce de chaque type ; relance : rues ; relance : rues_posees ; relance : parcelles ; relance : pieces_parcelles ; relance : pieces_batiments ; empreinte de relance différente : empreinte_rues ; empreinte de relance différente : empreinte_parcelles ; empreinte de relance différente : empreinte_batiments
+relancement : violé — jouer : 2 défaut(s) ; relance : 1 défaut(s) ; tick des rapports différent du monde servi ; jouer : une rue au tick de la recette ; jouer : parcelle aux bornes ; bâtiment absent ; jouer : une pièce de chaque type ; relance : rues ; relance : rues_posees ; relance : parcelles ; relance : pieces_parcelles ; relance : pieces_batiments ; empreinte de relance différente : empreinte des rues ; empreinte de relance différente : empreinte_parcelles ; empreinte de relance différente : empreinte_batiments
 sans geste : tenu — plan vide au tick 0, témoin sans geste au tick 3
 foyers : tenu — 596 cellules, personnes conservées
 gestes : tenu — journal identique aux reçus, ticks 0, 1 et 2
-motif : égalité du monde — écart entre monde servi et monde rejoué ; relancement — jouer : 2 défaut(s) ; relance : 1 défaut(s) ; jouer : une rue au tick de la recette ; jouer : parcelle aux bornes ; bâtiment absent ; jouer : une pièce de chaque type ; relance : rues ; relance : rues_posees ; relance : parcelles ; relance : pieces_parcelles ; relance : pieces_batiments ; empreinte de relance différente : empreinte_rues ; empreinte de relance différente : empreinte_parcelles ; empreinte de relance différente : empreinte_batiments
+motif : égalité du monde — écart entre monde servi et monde rejoué ; relancement — jouer : 2 défaut(s) ; relance : 1 défaut(s) ; tick des rapports différent du monde servi ; jouer : une rue au tick de la recette ; jouer : parcelle aux bornes ; bâtiment absent ; jouer : une pièce de chaque type ; relance : rues ; relance : rues_posees ; relance : parcelles ; relance : pieces_parcelles ; relance : pieces_batiments ; empreinte de relance différente : empreinte des rues ; empreinte de relance différente : empreinte_parcelles ; empreinte de relance différente : empreinte_batiments

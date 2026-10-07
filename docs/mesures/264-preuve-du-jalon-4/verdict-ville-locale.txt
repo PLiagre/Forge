@@ -1,12 +1,12 @@
 invariant violé
 commande : py pc/epreuve_jalon4.py --avec-unity --sortie C:\Users\liagr\AppData\Local\Temp\forge-387-locale --ville-locale
-date : 2026-10-07T16:17:12+02:00
-révision : 5eff378c3fd31ebb0daf71e870e89a7401d9a296
+date : 2026-10-07T17:26:16+02:00
+révision : d31f06f4275b332039399b6c287c6867c6af66b7
 unity : 6000.0.43f1
 code : 1
 égalité du monde : tenu — octets égaux sur 10 ticks
-relancement : violé — relance : 1 défaut(s) ; empreinte de relance différente : empreinte_rues ; c'est le redessin qui échoue ; l'égalité Python peut rester vraie
+relancement : violé — relance : 1 défaut(s) ; empreinte de relance différente : empreinte des rues ; c'est le redessin qui échoue ; l'égalité Python peut rester vraie
 sans geste : tenu — plan vide au tick 0, témoin sans geste au tick 10
 foyers : tenu — 596 cellules, personnes conservées
 gestes : tenu — journal identique aux reçus, ticks 0, 1 et 2
-motif : relancement — relance : 1 défaut(s) ; empreinte de relance différente : empreinte_rues ; c'est le redessin qui échoue ; l'égalité Python peut rester vraie
+motif : relancement — relance : 1 défaut(s) ; empreinte de relance différente : empreinte des rues ; c'est le redessin qui échoue ; l'égalité Python peut rester vraie

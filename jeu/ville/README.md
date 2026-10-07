@@ -86,9 +86,7 @@ La capture que la chaîne prend ensuite lance ce même service (sans choisir de 
 
 ## L'épreuve du jalon 4
 
-Unity joue une route, une parcelle et une scierie ; Python rejoue leur journal et le verdict dit si la ville, le redessin et les foyers ont tenu. Ce n'est pas la preuve complète du jalon (#508).
-
-L'éditeur Unity est fermé. La scène et les données locales sont celles du contrôle #386 (`py local3d/atelier_desert.py terrain` depuis `3d/`). Depuis la racine :
+Unity joue une route, une parcelle et une scierie ; Python rejoue leur journal. Ce n'est pas la preuve complète (#508). L'éditeur est fermé ; la scène et les données sont celles de #386 (`py local3d/atelier_desert.py terrain` depuis `3d/`). Depuis la racine :
 
 ```powershell
 py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-normal"
@@ -96,8 +94,7 @@ py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-sourd" --serv
 py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-locale" --ville-locale
 ```
 
-- **0** — preuve valide (monde, relancement, témoin sans geste, foyers) ;
-- **1** — invariant violé. Le service sourd rend 1 et nomme « bâtiment absent » et « écart entre monde servi et monde rejoué ». La ville locale rend 1 et nomme « empreinte des rues », « c'est le redessin qui échoue » et « l'égalité Python peut rester vraie » ;
+- **0** — preuve valide ;
+- **1** — invariant violé. Le service sourd nomme « bâtiment absent » et « écart entre monde servi et monde rejoué ». La ville locale nomme « empreinte des rues », « c'est le redessin qui échoue » et « l'égalité Python peut rester vraie » ;
 - **2** — essai impossible (Unity, scène, port, délai, rapport absent ou ancien).
-
-Verdicts relevés : [normal](../../docs/mesures/264-preuve-du-jalon-4/verdict.txt), [service sourd](../../docs/mesures/264-preuve-du-jalon-4/verdict-service-sourd.txt), [ville locale](../../docs/mesures/264-preuve-du-jalon-4/verdict-ville-locale.txt).
+- Verdicts : [normal](../../docs/mesures/264-preuve-du-jalon-4/verdict.txt), [service sourd](../../docs/mesures/264-preuve-du-jalon-4/verdict-service-sourd.txt), [ville locale](../../docs/mesures/264-preuve-du-jalon-4/verdict-ville-locale.txt).
