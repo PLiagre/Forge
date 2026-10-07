@@ -76,8 +76,10 @@ ne sont pas stockées sur `Cell` : leurs vues se dérivent respectivement du
 relevé le plus proche et du cours du fleuve, puis entrent dans la carte au
 moment où le monde la lit. La **puissance** et la **maison** dont relève une
 cellule sont pareillement des vues dérivées, jamais un second identifiant
-spatial stocké. Le nombre et les surfaces des **lieux** se dérivent de la
-surface de la cellule ; ses lieux portent désormais leur population et leur
+spatial stocké. Le registre des maisons, distinct de cette tenure dérivée,
+est désormais détenu par `World.maisons` : chargé une fois, il figure dans
+`to_dict()` et n'est jamais lu au tick. Le nombre et les surfaces des **lieux**
+se dérivent de la surface de la cellule ; ses lieux portent désormais leur population et leur
 panier sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans
 leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
 ni celle des maisons. Il lit les habitants et paniers des lieux pour
@@ -1586,7 +1588,17 @@ Les grandes maisons et institutions sont des racines sans suzerain ; les départ
 La validation publique refuse une référence inconnue ou tout cycle, même sur soi, avec `PuissanceInvalide` nommant la maison ; elle accepte un registre altéré pour l'éprouver.
 Les ancres sont projetées par `projeter_epsg3035` ; les sièges suivent les polygones, frontière au plus petit `cell_id`, jamais le centroïde le plus proche. Sur carte, le siège est le couple (`cell_id`, `rang = 0`), sans seconde clé spatiale.
 Hors carte, `cell_id` et `rang` sont `None` : Saraï reprend la raison de sa capitale, Venise celle déclarée dans son ancre, sans déplacement ni bourg inventé. Toute raison absente ou vide hors carte, raison sur un point contenu ou géométrie absente est refusée.
-**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : propriété des lieux, hommage matériel, greniers, personnes et succession. Le chargement ne modifie ni tables ni carte, n'amorce rien sur `World` ou `Cell` et reste hors du tick ; les anciennes vues et la sélection de l'IA gardent leur contrat.
+**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : propriété des lieux, hommage matériel, greniers, personnes et succession.
+
+Le lecteur reste pur : il ne modifie ni tables, ni carte, ni monde.
+`World.charger` l'appelle une fois avec sa carte et conserve son tuple de fiches
+gelées dans `World.maisons`, joueur compris ; un `World(...)` d'épreuve initialise
+explicitement ce registre à `()`, sans lire les tables. `to_dict()` sérialise
+toujours les fiches détenues dans une liste de dictionnaires indépendants triée
+par `id`, sans rappeler le lecteur ou une vue. Aucun champ n'est ajouté à `Cell` ;
+le siège reste (`cell_id`, `rang`). Le tick ne consulte jamais le registre :
+sans geste, ses octets restent identiques pour toute graine et tout tick, tandis
+que le monde évolue. Les anciennes vues et la sélection de l'IA gardent leur contrat.
 
 ## Les intentions du joueur
 

@@ -1,14 +1,17 @@
 """Preuves des maisons tenantes, avec leurs contre-épreuves."""
+import ast
 import copy
 import dataclasses
 import json
 import pathlib
 import subprocess
+import sys
 from collections import Counter
 
 import pytest
 
 from sim.aggregation import PositionCelluleInconnue, charger_positions, derive_appartenance
+from sim import engine, world as etat_monde
 from sim.maisons import (
     charger_maisons, maison_de_cellule, maison_par_cellule, maisons_depuis_monde,
 )
@@ -17,6 +20,7 @@ from sim.puissances import (
     charger_latitude_moyenne_puissances, puissances_depuis_monde,
 )
 from sim.tests.test_puissances import _cellule_la_plus_proche
+from sim.registre_maisons import charger_registre_maisons
 from sim.world import World
 
 TABLE = pathlib.Path(__file__).parents[2] / "data" / "puissances-1400.json"
@@ -288,12 +292,17 @@ def test_pure(carte):
         maisons_depuis_monde(monde, positions=incompletes)
     sim = TABLE.parents[1] / "sim"
     comptes = []
-    for fichier in ("engine.py", "world.py", "model.py", "maisons.py"):
+    for fichier in ("engine.py", "model.py", "maisons.py"):
         resultat = subprocess.run(["grep", "-c", "maisons", str(sim / fichier)],
                                   capture_output=True, text=True, check=False)
         assert resultat.returncode in (0, 1)
         comptes.append(int(resultat.stdout))
-    assert comptes[:-1] == [0, 0, 0] and comptes[-1] > 0
+    assert comptes[:-1] == [0, 0] and comptes[-1] > 0
+    source_monde = (sim / "world.py").read_text(encoding="utf-8")
+    assert "sim.maisons" not in source_monde and "maisons_depuis_monde" not in source_monde
+    assert all("maisons" not in n.name or n.name == "charger_registre_maisons"
+               for n in ast.walk(ast.parse(source_monde)) if isinstance(n, ast.alias))
+    _tick_sans_lecture_registre(pytest.MonkeyPatch(), monde, engine.tick, 0)
     assert vue
     print(f"cellules_pures={len(vue)}, lectures_tick={comptes[:-1]}, module_lisible={comptes[-1]}")
 
@@ -668,3 +677,131 @@ def test_registre_pure(registre):
     documents[:] = alteree
     with pytest.raises(AssertionError):
         assert vue == charger()
+
+
+def _octets_registre(document):
+    return json.dumps(document, sort_keys=True, ensure_ascii=False,
+                      separators=(",", ":")).encode()
+
+
+def test_registre_world(registre, monkeypatch):
+    monde, documents, charger, _ = registre
+    attendu = charger()
+    _preuve_registre(attendu, documents, monde.carte)
+    categories = {m.sorte for m in attendu}
+    assert categories == {"grande maison", "institution", "seigneurie"}
+    homonymes = {nom for nom, n in Counter(m.nom for m in attendu).items() if n > 1}
+    assert homonymes
+    appels = []
+    def lecteur(carte):
+        appels.append(carte)
+        return charger_registre_maisons(carte)
+    monkeypatch.setattr(etat_monde, "charger_registre_maisons", lecteur)
+    charge = World.charger(0)
+    assert charge.maisons == attendu and isinstance(charge.maisons, tuple)
+    assert appels == [charge.carte]
+    for maison in charge.maisons:
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            maison.nom = "Altérée"
+    assert World({}, []).maisons == ()
+    charge.to_dict()
+    maisons_depuis_monde(charge)
+    maisons_de_l_ia(charge)
+    assert appels == [charge.carte]
+    retraits = [next(m for m in attendu if m.sorte == sorte) for sorte in categories]
+    retraits += [m for m in attendu if m.nom in homonymes]
+    faux = [tuple(m for m in attendu if m.id != retiree.id) for retiree in retraits]
+    faux += [(), (dataclasses.replace(attendu[0], nom="Altérée"),) + attendu[1:]]
+    for resultat in faux:
+        monkeypatch.setattr(etat_monde, "charger_registre_maisons", lambda carte: resultat)
+        with pytest.raises(AssertionError):
+            assert World.charger(0).maisons == attendu
+    def refuser(carte):
+        raise PuissanceInvalide("registre indisponible")
+    monkeypatch.setattr(etat_monde, "charger_registre_maisons", refuser)
+    with pytest.raises(PuissanceInvalide, match="registre indisponible"):
+        World.charger(0)
+    assert World({}, []).maisons == ()  # Aucun chargement sur les mondes d'épreuve.
+
+
+def test_registre_serialisation(monkeypatch):
+    import hashlib
+    import sim.maisons as vues_maisons
+    import sim.capitales as vues_capitales
+    import sim.registre_maisons as lecteur
+    monde = World.charger(0)
+    registre = monde.maisons
+    assert registre
+    attendu = [dataclasses.asdict(m) for m in sorted(registre, key=lambda m: m.id)]
+    champs = {"id", "nom", "sorte", "suzerain", "siege", "cell_id", "rang", "hors_carte"}
+    assert all(set(m) == champs for m in attendu)
+    def interdit(*args, **kwargs):
+        raise AssertionError("lecture après chargement")
+    for module, nom in ((etat_monde, "charger_registre_maisons"),
+                        (lecteur, "charger_registre_maisons"),
+                        (vues_maisons, "maisons_depuis_monde"),
+                        (vues_capitales, "maisons_de_l_ia")):
+        monkeypatch.setattr(module, nom, interdit)
+    document = monde.to_dict()
+    def verifier(doc):
+        assert doc.get("maisons") == attendu
+    verifier(document)
+    assert World({}, []).to_dict()["maisons"] == []
+    original = _octets_registre(document)
+    monde.maisons = tuple(reversed(registre))
+    assert _octets_registre(monde.to_dict()) == original
+    assert monde.maisons == tuple(reversed(registre))
+    sans = {k: v for k, v in document.items() if k != "maisons"}
+    assert hashlib.sha256(original).digest() != hashlib.sha256(_octets_registre(sans)).digest()
+    faux = [sans, {**document, "maisons": attendu[1:]},
+            {**document, "maisons": list(reversed(attendu))}]
+    for champ in champs:
+        copie = copy.deepcopy(document)
+        copie["maisons"][0][champ] = "Altéré"
+        faux.append(copie)
+    for copie in faux:
+        with pytest.raises(AssertionError):
+            verifier(copie)
+    document["maisons"][0]["nom"] = "Altérée"
+    assert _octets_registre(monde.to_dict()) == original
+    monde.maisons = (dataclasses.replace(registre[0], nom="Altérée"),) + registre[1:]
+    alteres = _octets_registre(monde.to_dict())
+    assert alteres != original
+    assert hashlib.sha256(alteres).digest() != hashlib.sha256(original).digest()
+
+
+def _tick_sans_lecture_registre(monkeypatch, monde, tick, numero):
+    assert monde.maisons
+    acces = []
+    original = World.__getattribute__
+    def intercepter(self, nom):
+        if nom == "maisons":
+            acces.append(nom)
+            raise RuntimeError("registre consulté au tick")
+        return original(self, nom)
+    with monkeypatch.context() as garde:
+        garde.setattr(World, "__getattribute__", intercepter)
+        tick(monde, random.Random(numero), numero)
+    assert acces == []
+
+
+def test_registre_tick(carte, monkeypatch):
+    monde = carte[0]
+    for numero in range(3):
+        _tick_sans_lecture_registre(monkeypatch, monde, engine.tick, numero)
+    def impur(monde, rng, numero):
+        getattr(monde, "maisons")  # Lecture sans effet, avant le véritable tick.
+        return engine.tick(monde, rng, numero)
+    with pytest.raises(RuntimeError, match="registre consulté au tick"):
+        _tick_sans_lecture_registre(monkeypatch, monde, impur, monde.ticks_ecoules)
+
+
+def test_registre_vue_impure(carte, monkeypatch):
+    original = maisons_depuis_monde
+    def impure(monde, *args, **kwargs):
+        vue = original(monde, *args, **kwargs)
+        monde.maisons = (dataclasses.replace(monde.maisons[0], nom="Altérée"),) + monde.maisons[1:]
+        return vue
+    monkeypatch.setattr(sys.modules[__name__], "maisons_depuis_monde", impure)
+    with pytest.raises(AssertionError):
+        test_pure(carte)
