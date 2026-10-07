@@ -31,6 +31,7 @@ from sim import constants as _constantes
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
+from sim import plan as _plan
 from sim.model import (
     Cell,
     cellule_vers_dict,
@@ -530,10 +531,12 @@ def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None) -> flo
     """
     Capacité de transport d'une arête terrestre entre deux cellules du monde.
 
-    Base dérivée de shared_length_m sur l'adjacence, puis goulot de relief
-    si une carte est chargée.
+    Base dérivée de shared_length_m et routes achevées, puis goulot de relief.
     """
     base = _capacite_base_arete_kg(world, a_id, b_id, index)
+    apport = _plan.apport_routes_arete_kg(world, a_id, b_id)
+    if apport:
+        base += apport
     if base == 0.0:
         return 0.0
     carte = getattr(world, "carte", None)
