@@ -1,6 +1,7 @@
 """La carte de 1400 lit la photographie : densités, puissances et terre choisie."""
 
 from collections import defaultdict
+from math import dist
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -22,6 +23,9 @@ COULEUR_TEXTE = (245, 245, 245, 255)
 COULEUR_CERCLE = (0, 0, 0, 255)
 # Trois pixels de rayon rendent les points visibles sur la capture du journal.
 RAYON_VILLE = 3
+COULEUR_CAPITALE = (180, 85, 230, 255)
+COULEUR_VOISINE = (70, 235, 130, 255)
+RAYON_CAPITALE, RAYON_VOISINE = 2, 4
 # Deux pixels vers l'intérieur soulignent le choix sans déborder de sa cellule.
 EPAISSEUR_CHOIX = 2
 # Deux pixels séparent le texte du bord de son cartouche.
@@ -52,6 +56,62 @@ def _verifier(document):
     choix = document["terre_choisie"]
     if choix is not None and not any(c["cell_id"] == choix["cell_id"] for c in document.get("cells", [])):
         raise Carte1400Erreur(f"terre_choisie : cell_id={choix['cell_id']} absent des cellules")
+    _maisons_et_voisines(document)
+
+
+def _maisons_et_voisines(document):
+    if "ia" not in document:
+        return [], []
+    bloc = document["ia"]
+    for cle in ("maisons", "maisons_actives_30j"):
+        if cle not in bloc:
+            raise Carte1400Erreur(f"ia : {cle} absent")
+    cellules = {c["cell_id"]: c for c in document["cells"]}
+    for maison in bloc["maisons"]:
+        nom = maison.get("nom", f"id={maison.get('id')}")
+        for cle in ("sorte", "id", "nom", "capitale", "cell_id", "hors_carte", "population", "gestes"):
+            if cle not in maison:
+                raise Carte1400Erreur(f"maison {nom} : {cle} absent")
+        if maison["cell_id"] is not None and maison["cell_id"] not in cellules:
+            raise Carte1400Erreur(f"maison {nom} : cell_id={maison['cell_id']} absent des cellules")
+        for geste in maison["gestes"]:
+            for cle in ("tick", "intention"):
+                if cle not in geste:
+                    raise Carte1400Erreur(f"maison {nom} : geste sans {cle}")
+    choix = document["terre_choisie"]
+    voisins = {v["cell_id"] for v in choix["voisins"]} if choix else set()
+    ids = {cellules[c]["maison"]["id"] for c in voisins if cellules[c]["maison"]}
+    maisons = bloc["maisons"]
+    return maisons, [m for m in maisons if
+                     (m["sorte"] == "grande maison" and m["id"] in ids) or
+                     (m["sorte"] == "seigneurie" and m["cell_id"] in voisins)]
+
+
+def lignes_de_l_ia(document) -> list[str]:
+    """Lit les maisons et tous leurs gestes, dans leur ordre photographié."""
+    if "ia" not in document:
+        return []
+    maisons, voisines = _maisons_et_voisines(document)
+    actives = document["ia"]["maisons_actives_30j"]
+    mesure = "non mesuré (moins de 30 jours)" if actives == -1 else str(actives)
+    lignes = [f"L'IA : {len(maisons)} maisons ; actives sur 30 jours : {mesure}"]
+    for m in voisines + [m for m in maisons if m not in voisines and m["gestes"]]:
+        n = len(m["gestes"])
+        nombre = f"{n} geste" + ("s" if n > 1 else "") if n else "aucun geste"
+        lignes.append(f"{'Voisine ' if m in voisines else ''}{m['nom']} : capitale {m['capitale']}, "
+                      f"cellule {m['cell_id']}, bourg {m['population']} habitants ; {nombre}")
+        for geste in m["gestes"]:
+            i = geste["intention"]
+            if i["type"] == "tracer_route":
+                longueur = round(sum(dist(a, b) for a, b in zip(i["points"], i["points"][1:])))
+                texte = (f"trace une route de {longueur} m, large de {i['largeur_m']} m, "
+                         f"par {i['foyers']} foyer{'s' if i['foyers'] != 1 else ''}, dans la cellule {i['cell']}")
+            else:
+                texte = i["type"] + "".join(f" {k}={v}" for k, v in i.items() if k != "type")
+            lignes.append(f"tick {geste['tick']} : {texte}")
+    lignes.append(f"Sans geste : {sum(not m['gestes'] and m not in voisines for m in maisons)} autres maisons")
+    hors = [f"{m['capitale']} ({m['nom']})" for m in maisons if m["cell_id"] is None]
+    return lignes + [f"Capitales hors carte : {', '.join(hors) or 'aucune'}"]
 
 
 def lignes_de_fiche(document) -> list[str]:
@@ -180,6 +240,24 @@ def carte_de_1400(document, *, lecture, largeur):
         dessin.text((x + MARGE_ETIQUETTE - gauche, y + MARGE_ETIQUETTE - haut),
                     texte, font=police, fill=COULEUR_TEXTE)
 
+    maisons, voisines = _maisons_et_voisines(document)
+    capitales = []
+    par_cellule = {c["cell_id"]: c for c in cellules}
+    for m in maisons:
+        if m["cell_id"] is not None:
+            x, y = position(par_cellule[m["cell_id"]])
+            r = RAYON_VOISINE if m in voisines else RAYON_CAPITALE
+            capitales.append((m, x, y, r))
+            boites_points.append((x - r, y - r, x + r, y + r))
+    for m, x, y, r in capitales:
+        if m in voisines:
+            avant = omises
+            etiqueter(f"{m['capitale']} ({m['nom']})", x + r - RAYON_VILLE, y)
+            if omises > avant:
+                omises = avant
+                etiqueter(f"{m['capitale']} ({m['nom']})", x + r - RAYON_VILLE, y - HAUTEUR_LIGNE)
+    omises_voisines = omises
+
     # Population urbaine permise au point 5 du brief : classement et choix du nom.
     villes.sort(key=lambda c: (-max(v['population'] for v in c["villes"]), c["cell_id"]))
     for cellule in villes:
@@ -203,6 +281,9 @@ def carte_de_1400(document, *, lecture, largeur):
     for x, y in points:
         dessin.ellipse((x - RAYON_VILLE, y - RAYON_VILLE, x + RAYON_VILLE, y + RAYON_VILLE),
                        fill=COULEUR_TEXTE, outline=COULEUR_CERCLE)
+    for m, x, y, r in capitales:
+        dessin.polygon([(x, y - r), (x + r, y), (x, y + r), (x - r, y)],
+                       fill=COULEUR_VOISINE if m in voisines else COULEUR_CAPITALE)
     image = np.array(vignette)
 
     fiche = _lignes_ajustees(lignes_de_fiche(document), dessin, police, largeur)
@@ -217,4 +298,15 @@ def carte_de_1400(document, *, lecture, largeur):
         cellules_avec_villes=len(villes), villes_hors_carte=document["villes_hors_carte"],
         etiquettes_omises=omises, terre_choisie=choix["id"] if choix else None,
     )
-    return np.concatenate([image, np.array(bande)], axis=0), compte
+    bandes = [image, np.array(bande)]
+    if "ia" in document:
+        lignes_ia = _lignes_ajustees(lignes_de_l_ia(document), dessin, police, largeur)
+        bande_ia = Image.new("RGBA", (largeur, 2 * MARGE_FICHE + HAUTEUR_LIGNE * len(lignes_ia)), COULEUR_FOND)
+        crayon_ia = ImageDraw.Draw(bande_ia)
+        for i, ligne in enumerate(lignes_ia):
+            crayon_ia.text((MARGE_FICHE, MARGE_FICHE + i * HAUTEUR_LIGNE), ligne, font=police, fill=COULEUR_TEXTE)
+        bandes.append(np.array(bande_ia))
+        compte.update(capitales_dessinees=len(capitales), capitales_hors_carte=[m["nom"] for m in maisons if m["cell_id"] is None],
+                      voisines=[m["nom"] for m in voisines], etiquettes_voisines_omises=omises_voisines,
+                      gestes_listes=sum(len(m["gestes"]) for m in maisons))
+    return np.concatenate(bandes, axis=0), compte
