@@ -21,6 +21,7 @@ namespace ForgeLocal3D
     // la déclare par son identifiant. Unity ne garde aucun plan à lui : relancé, il redessine la même ville.
     // Lot 362 : après les rues, l'outil trace au sol chaque parcelle du plan (DesertParcelles) : cordeau
     // en chantier, bornes achevée. Il les redessine toutes à l'ouverture, après une route et par Rafraichir.
+    // Lot 369 : après les parcelles, la pièce du kit à l'étape de chaque bâtiment du plan (DesertBatiments).
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -45,6 +46,11 @@ namespace ForgeLocal3D
         public Transform RacineParcelles=>parcelles?.Racine;
         public string EmpreinteParcelles=>parcelles?.Empreinte??"";
         DesertParcelles parcelles;string erreurParcelles;
+        // Lot 369 : le dernier dessin des bâtiments, dans l'ordre du plan (piquets, murs, fini ou refusee).
+        public readonly List<(long identifiant,string etat,string message)> Batiments=new();
+        public Transform RacineBatiments=>batiments?.Racine;
+        public string EmpreinteBatiments=>batiments?.Empreinte??"";
+        DesertBatiments batiments;string erreurBatiments;
         ClientIntention depot;ClientPlan plan;string erreurCellule;
         // Les rues déjà essayées dans la session, posées ou refusées : aucune n'est posée deux fois, ni réessayée.
         readonly HashSet<long> essayees=new();
@@ -72,7 +78,10 @@ namespace ForgeLocal3D
             // Sans matériau, aucune parcelle n'est jamais dessinée : le panneau le dit.
             try{parcelles=new DesertParcelles(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurParcelles=e.Message;}
-            Afficher(erreurCellule??erreurParcelles??Aide);
+            // Sans kit, aucun bâtiment n'est jamais dessiné : le panneau le dit.
+            try{batiments=new DesertBatiments(transform,roads.terrain);}
+            catch(InvalidOperationException e){erreurBatiments=e.Message;}
+            Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
         }
         void Start()=>Ouvrir();
         void OnDestroy(){depot?.Dispose();plan?.Dispose();depot=null;plan=null;}
@@ -161,7 +170,7 @@ namespace ForgeLocal3D
             var essais=Dessiner(lu.Plan);Posees.AddRange(essais);
             // Une rue neuve a pu changer le sol sous les parcelles : toutes sont redessinées.
             Afficher(Bilan("Après le tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+essais.Count(e=>e.resultat.acceptee)+" rue(s) neuve(s) posée(s).",essais)
-                +"\n"+DessinerParcelles(lu.Plan));
+                +"\n"+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
             enAttente=null;
             return true;
         }
@@ -182,7 +191,7 @@ namespace ForgeLocal3D
             Ouverture.AddRange(Dessiner(lu.Plan));TickOuverture=lu.Plan.Tick;
             // Les parcelles après les rues : leur sol est celui de la copie où les rues sont posées.
             Afficher(Bilan("Plan du tick "+TickOuverture.ToString(CultureInfo.InvariantCulture)+" : "+Ouverture.Count(e=>e.resultat.acceptee)+" rue(s) posée(s).",Ouverture)
-                +"\n"+DessinerParcelles(lu.Plan));
+                +"\n"+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
             return true;
         }
 
@@ -193,7 +202,7 @@ namespace ForgeLocal3D
             if(erreurCellule!=null){Afficher(erreurCellule);return false;}
             var lu=plan.Lire(Cellule);
             if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return false;}
-            Afficher("Plan du tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+DessinerParcelles(lu.Plan));
+            Afficher("Plan du tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
             return true;
         }
 
@@ -204,6 +213,16 @@ namespace ForgeLocal3D
             Parcelles.Clear();Parcelles.AddRange(parcelles.Dessiner(lu.Parcelles));
             return string.Join("\n",new[]{"Parcelles : "+Parcelles.Count(p=>p.etat=="cordeau")+" en chantier, "+Parcelles.Count(p=>p.etat=="bornes")+" achevée(s)."}
                 .Concat(Parcelles.Where(p=>p.etat=="refusee").Select(p=>p.message)));
+        }
+
+        // Lot 369 : remplace Batiments par le dessin du plan, après les parcelles (sur le sol où les rues sont
+        // posées). Rend la ligne du panneau, puis une ligne par bâtiment refusé.
+        string DessinerBatiments(PlanLu lu)
+        {
+            if(batiments==null)return erreurBatiments;
+            Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments));
+            return string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
+                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)));
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux
