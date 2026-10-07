@@ -306,3 +306,122 @@ def test_villes_aucun_point_ne_recouvre_un_cartouche(photographies, monkeypatch,
         verifier(altere)
     print(f"choix={choix}, points_vérifiés={len(points)}, cartouches={len(boites)}, "
           f"étiquettes_omises={compte['etiquettes_omises']}, contre_épreuves_rouges=1")
+
+
+@pytest.fixture(scope="module")
+def photographie_ia():
+    monde = World.charger(0)
+    deposer_intention(monde, {"type": TYPE_CHOISIR_DEPART, "seigneurie": 1})
+    tick(monde, random.Random(0))
+    releve = [dict(tick=17, maison={"sorte": "grande maison", "id": identifiant}, intention=intention)
+              for identifiant, intention in [(3, {"type": "tracer_route", "cell": 10322,
+                  "points": [[0, 0], [12.5, 0], [12.5, 27.1]], "largeur_m": 4, "foyers": 1}),
+                  (10, {"type": "premier", "valeur": 1}), (2, {"type": "inventé", "texte": "tel quel", "liste": [2, 1]}),
+                  (10, {"type": "second", "valeur": 2})]]
+    return build_snapshot_document(monde, 0, 1, releve_ia=releve)
+
+def _voisines_ia(document):
+    ids = {v["cell_id"] for v in document["terre_choisie"]["voisins"]} if document["terre_choisie"] else set()
+    maisons = {c["maison"]["id"] for c in document["cells"] if c["cell_id"] in ids and c["maison"]}
+    return [m for m in document["ia"]["maisons"] if
+            (m["sorte"] == "grande maison" and m["id"] in maisons) or
+            (m["sorte"] == "seigneurie" and m["cell_id"] in ids)]
+
+def test_capitales_ia_sans(photographies):
+    import hashlib
+    from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
+    empreintes = ["d1f5a5ba48404264fac7532450fbfe665f17cf9404bec144e51536478b4bfae6",
+                  "85150ecc7fe99f71db116aaf6cfb9d5c7940ef1c5dcb5e26f7730b92a7f13776"]
+    cles = "lecture titre unite echelle minimum maximum cellules cellules_mesurees cellules_non_mesurees tick seed puissances cellules_sans_puissance pixels_de_frontiere villes_dessinees cellules_avec_villes villes_hors_carte etiquettes_omises terre_choisie".split()
+    for document, empreinte in zip(photographies, empreintes):
+        image, compte = _rendre(document)
+        assert hashlib.sha256(image.tobytes()).hexdigest() == empreinte and list(compte) == cles
+        assert lignes_de_l_ia(document) == []
+        assert not any(np.all(image == couleur, axis=-1).any() for couleur in (COULEUR_CAPITALE, COULEUR_VOISINE))
+        autre = copy.deepcopy(document); autre["ia"] = {"maisons": [], "maisons_actives_30j": -1}
+        assert hashlib.sha256(_rendre(autre)[0].tobytes()).hexdigest() != empreinte
+
+def test_capitales_ia_voisines(photographie_ia):
+    from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
+    from vues.relief.raster import _vers_pixel
+    document, reference = photographie_ia, _voisines_ia(photographie_ia)
+    assert [m["nom"] for m in reference] == ["Valois", "Valois-Bourgogne", "Wittelsbach"]
+    def verifier(d):
+        image, compte = _rendre(d)
+        voisines = _voisines_ia(d)
+        assert compte["voisines"] == [m["nom"] for m in voisines]
+        index, bounds, cellules = index_des_cellules(d, largeur=LARGEUR)
+        decalage = len(plan_avec_legende(carte_de_statistique(d, lecture="densite", largeur=LARGEUR))) - len(index)
+        placees = [m for m in d["ia"]["maisons"] if m["cell_id"] is not None]
+        assert placees and compte["capitales_dessinees"] == len(placees)
+        for m in placees:
+            centre = next(c["centroid"] for c in cellules if c["cell_id"] == m["cell_id"])
+            x, y = _vers_pixel(centre["x_m"], centre["y_m"], bounds, LARGEUR, len(index))
+            assert tuple(image[y + decalage, x]) == (COULEUR_VOISINE if m in voisines else COULEUR_CAPITALE)
+        return image, compte
+    _, compte = verifier(document)
+    with pytest.raises(AssertionError): assert compte["voisines"] == [m["nom"] for m in reference[:-1]]
+    autre = copy.deepcopy(document)
+    siege = next(m for m in autre["ia"]["maisons"] if m["sorte"] == "seigneurie")
+    siege["cell_id"] = autre["terre_choisie"]["voisins"][0]["cell_id"]
+    verifier(autre)
+    assert any(l.startswith(f"Voisine {siege['nom']} :") for l in lignes_de_l_ia(autre))
+    autre["terre_choisie"] = None
+    image, compte = verifier(autre)
+    assert compte["voisines"] == [] and not np.all(image == COULEUR_VOISINE, axis=-1).any()
+
+
+def test_capitales_ia_encadre(photographie_ia, monkeypatch):
+    import math
+    from PIL import Image, ImageDraw, ImageFont
+    from vues.relief.carte1400 import lignes_de_l_ia, lignes_de_fiche, _lignes_ajustees, MARGE_FICHE, HAUTEUR_LIGNE
+    d = photographie_ia; maisons = d["ia"]["maisons"]; voisines = _voisines_ia(d)
+    attendues = [f"L'IA : {len(maisons)} maisons ; actives sur 30 jours : non mesuré (moins de 30 jours)"]
+    selection = voisines + [m for m in maisons if m not in voisines and m["gestes"]]
+    assert voisines and sum(len(m["gestes"]) for m in selection) == 4
+    for m in selection:
+        gestes = m["gestes"]; nombre = f"{len(gestes)} geste" + ("s" if len(gestes) > 1 else "") if gestes else "aucun geste"
+        attendues.append(f"{'Voisine ' if m in voisines else ''}{m['nom']} : capitale {m['capitale']}, cellule {m['cell_id']}, bourg {m['population']} habitants ; {nombre}")
+        for g in gestes:
+            i = g["intention"]
+            if i["type"] == "tracer_route":
+                longueur = round(sum(math.dist(a, b) for a, b in zip(i["points"], i["points"][1:])))
+                texte = f"trace une route de {longueur} m, large de {i['largeur_m']} m, par {i['foyers']} foyer, dans la cellule {i['cell']}"
+            else:
+                texte = i["type"] + "".join(f" {k}={v}" for k, v in i.items() if k != "type")
+            attendues.append(f"tick {g['tick']} : {texte}")
+    attendues += [f"Sans geste : {sum(not m['gestes'] and m not in voisines for m in maisons)} autres maisons",
+                  "Capitales hors carte : Saraï (Djötchides)"]
+    assert lignes_de_l_ia(d) == attendues
+    for action in ("inverser", "retirer", "mesurer"):
+        autre = copy.deepcopy(d); visconti = next(m for m in autre["ia"]["maisons"] if m["nom"] == "Visconti")
+        if action == "inverser": visconti["gestes"].reverse()
+        elif action == "retirer": visconti["gestes"].pop()
+        else: autre["ia"]["maisons_actives_30j"] = 3
+        with pytest.raises(AssertionError): assert lignes_de_l_ia(autre) == attendues
+    traces = []; original = ImageDraw.ImageDraw.text
+    def observer(self, xy, texte, *args, **kwargs):
+        traces.append((self._image.size, xy, texte)); return original(self, xy, texte, *args, **kwargs)
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", observer)
+    image, compte = _rendre(d)
+    dessin = ImageDraw.Draw(Image.new("RGBA", (LARGEUR, 1)))
+    repliees = _lignes_ajustees(attendues, dessin, ImageFont.load_default(), LARGEUR)
+    hauteur = 2 * MARGE_FICHE + HAUTEUR_LIGNE * len(repliees)
+    assert traces[-len(repliees):] == [((LARGEUR, hauteur), (MARGE_FICHE, MARGE_FICHE + n * HAUTEUR_LIGNE), l) for n, l in enumerate(repliees)]
+    fiche = _lignes_ajustees(lignes_de_fiche(d), dessin, ImageFont.load_default(), LARGEUR)
+    plan = plan_avec_legende(carte_de_statistique(d, lecture="densite", largeur=LARGEUR))
+    assert len(image) == len(plan) + 2 * MARGE_FICHE + HAUTEUR_LIGNE * len(fiche) + hauteur
+    assert compte["etiquettes_voisines_omises"] == len(voisines) - sum(_sans_accent(f"{m['capitale']} ({m['nom']})") in [t for _, _, t in traces] for m in voisines)
+    assert compte["gestes_listes"] == sum(len(m["gestes"]) for m in maisons)
+
+
+@pytest.mark.parametrize("niveau,cle", [("bloc", c) for c in ("maisons", "maisons_actives_30j")] +
+    [("maison", c) for c in ("sorte", "id", "nom", "capitale", "cell_id", "hors_carte", "population", "gestes")] +
+    [("cellule", "cell_id"), ("geste", "intention"), ("geste", "tick")])
+def test_capitales_ia_refus(photographie_ia, niveau, cle):
+    from vues.relief.carte1400 import Carte1400Erreur
+    autre = copy.deepcopy(photographie_ia); maison = next(m for m in autre["ia"]["maisons"] if m["gestes"])
+    if niveau == "cellule": maison[cle] = -999
+    else: del {"bloc": autre["ia"], "maison": maison, "geste": maison["gestes"][0]}[niveau][cle]
+    with pytest.raises(Carte1400Erreur, match=cle if niveau == "bloc" else (cle if cle == "nom" else maison["nom"])): _rendre(autre)
+    assert _rendre(photographie_ia)[1]["capitales_dessinees"] > 0
