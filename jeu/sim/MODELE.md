@@ -55,11 +55,10 @@ part. À chaque tick, dans cet ordre :
 9. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-10. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
-   fraction d'habitant non encore morte pour qu'une petite cellule ne devienne
-   pas immortelle par arrondi.
-11. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
-   des habitants, avec le même report de fraction.
+10. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
+    avec son report de fraction ; sans lieux, le calcul reste cellulaire.
+11. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
+    des habitants, avec son report local ; sans lieux, le calcul reste cellulaire.
 12. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
     qui a manqué ce tick part vers les voisines dont il reste de la nourriture
     après consommation. Personne n'emporte de kilogrammes.
@@ -800,18 +799,31 @@ La nourriture qui a manqué est une **dette**, pas un oubli. Sentinelle `-1.0`
 
 ### La mortalité
 
+Après consommation et faim, chaque lieu vivant meurt de sa propre
+`dette_alimentaire_kg`. La faim locale (`duree_faim_ticks`) dit le manque du
+jour ; c'est la dette locale qui décide des décès. Son report local
+`mortality_remainder`, flottant initialisé à `0.0`, conserve les fractions :
+
 ```
-si food_deficit_kg > 0 et population > 0 :
-    deficit_par_tete = food_deficit_kg / population
+si dette_alimentaire_kg > 0 et population > 0 :
+    deficit_par_tete = dette_alimentaire_kg / population
     taux = min(deficit_par_tete × HUNGER_DEATH_SCALE, MAX_DEATH_RATE_PER_TICK)
     brut   = population × taux + mortality_remainder
     morts  = int(brut)
     mortality_remainder = brut − morts
-    population = max(0, population − morts)
+    population -= min(population, morts)
 ```
 
-Les personnes réellement retirées quittent les métiers au prorata. Un métier
-tombé à zéro disparaît.
+Sans dette ou sans habitants, le report reste intact. Un décès ne rembourse
+aucune dette. Les morts des lieux sont totalisés : une seule application
+cellulaire retire les personnes des métiers au prorata, plus forts restes
+compris. La population cellulaire égale alors exactement la somme des lieux.
+Un métier tombé à zéro disparaît ; les métiers ne décident pas des morts.
+
+**Sans lieux**, le repli garde cette formule sur `food_deficit_kg` et la
+population cellulaire, avec le report `Cell.mortality_remainder` et sa
+sentinelle `-1.0` lue comme zéro. Avec lieux, ce report cellulaire ne commande
+plus les décès et n'est pas réinitialisé. Aucun nouvel aléa n'intervient.
 
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
@@ -819,7 +831,7 @@ tombé à zéro disparaît.
 | `MAX_DEATH_RATE_PER_TICK` | 0.10 | — | Plafond de 10 % par tick : pas d'effondrement instantané, même à dette extrême. |
 
 **Il n'y a pas de plancher `max(1, …)`.** Une famine légère ne tue plus au
-moins une personne par cellule et par tick : le report de la fraction
+moins une personne par lieu et par tick : le report de la fraction
 (`mortality_remainder`, plus bas) fait ce travail correctement, sans inventer
 de mort.
 
@@ -833,32 +845,43 @@ de mort.
 
 ## La natalité
 
-Le pendant exact de la mortalité, et la seule façon dont la population
-augmente.
+Après la mortalité, chaque lieu vivant fait des enfants selon sa propre
+abondance : sa faim locale `duree_faim_ticks` et sa dette locale
+`dette_alimentaire_kg` doivent être nulles. Le report local
+`natalite_remainder` est un flottant initialisé à `0.0`.
 
 ```
-si penurie_du_tick == 0 et food_deficit_kg == 0 et population > 0 :
-    brut       = population × NAISSANCES_PAR_HABITANT_PAR_TICK + natalite_remainder
+si duree_faim_ticks == 0 et dette_alimentaire_kg == 0 et population > 0 :
+    brut       = population × naissances_par_habitant_par_tick() + natalite_remainder
     naissances = int(brut)
     natalite_remainder = brut − naissances
     population += naissances
 ```
 
-Les naissances rejoignent les métiers de la cellule au prorata.
+La population utilisée est celle du lieu après mortalité. Un lieu vide ne
+fait pas d'enfant. La faim ou la dette bloquent les naissances et conservent
+son report : manger aujourd'hui ne suffit pas si la dette demeure. Ni faim
+ni dette d'un autre lieu ne bloquent ses enfants. Un champ rassasié peut donc
+grandir pendant que son bourg meurt ; couper les chemins peut augmenter la
+population totale de la cellule. C'est une règle de niveau 2, plausible,
+jamais sourcée.
+
+Les naissances sont totalisées, puis ajoutées une fois aux métiers de la
+cellule au prorata, plus forts restes compris. Les métiers ne décident pas
+des naissances. Après ce maillon, la somme des lieux retrouve exactement la
+population cellulaire.
 
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
 | `NAISSANCES_PAR_HABITANT_PAR_TICK` | 0.0002 | naissance/hab/tick | niveau 2, jamais sourcé |
 
-**Les deux conditions sont distinctes et toutes deux nécessaires.** La pénurie
-du tick dit « on a mangé sa ration aujourd'hui » ; la dette dit « on ne doit
-plus rien d'hier ». Une cellule qui vient de manger sa ration mais traîne une
-dette ne fait pas d'enfant : elle rembourse d'abord. C'est ce qui empêche une
-population de rebondir avant que la famine soit payée.
-
-Le report de fraction (`natalite_remainder`, sentinelle `-1.0`) joue le même
-rôle que pour la mortalité : sans lui, une petite cellule rassasiée serait
-stérile par arrondi pendant que sa grande voisine croît normalement.
+**Sans lieux**, le repli conserve les conditions cellulaires
+`penurie_du_tick == 0` et `food_deficit_kg == 0`, la population après mortalité
+et `Cell.natalite_remainder`, sentinelle `-1.0` lue comme zéro. Avec lieux,
+ce report cellulaire ne commande plus les naissances et reste intact.
+Le report empêche la stérilité des petits lieux par arrondi.
+La migration qui suit reste cellulaire ; elle déplace les habitants au
+prorata du contenu des lieux, sans effacer leurs reports locaux cohérents.
 
 ---
 
@@ -1091,24 +1114,21 @@ produit `5 × 0.10 = 0.5` mort par tick : `int(0.5) = 0`, à chaque tick, pour
 toujours. Cinq habitants deviennent immortels par arrondi, tandis que leurs
 voisins de 5 000 habitants meurent normalement.
 
-Le champ `Cell.mortality_remainder` (float, sentinelle `-1.0` = non calculé)
-conserve la fraction non appliquée :
+Chaque lieu conserve la fraction non appliquée dans son
+`EtatDeLieu.mortality_remainder` (float, défaut `0.0`). Cinq habitants au
+plafond produisent un mort après deux ticks ; leur voisin sans dette garde
+ses habitants et son report. La formule est celle de « Le déficit alimentaire
+et la mortalité ». Sans lieux seulement, `Cell.mortality_remainder` conserve
+le repli et sa sentinelle `-1.0` lue comme zéro.
 
-```py
-remainder = cell.mortality_remainder if cell.mortality_remainder >= 0.0 else 0.0
-raw = cell.population * death_rate + remainder
-deaths = int(raw)
-cell.mortality_remainder = raw - deaths
-cell.population = max(0, cell.population - deaths)
-```
-
-**Borne `N_BOUND_MORT`** : au plafond de mortalité, une cellule accumule au
-moins `MAX_DEATH_RATE_PER_TICK` mort par habitant et par tick ; il faut donc au
-plus `ceil(1 / MAX_DEATH_RATE_PER_TICK) = 10` ticks pour qu'une mort entière
-soit appliquée, quelle que soit la taille de la cellule.
+**Borne `N_BOUND_MORT`** : au plafond de mortalité, un lieu (ou une cellule
+sans lieux) accumule au moins `MAX_DEATH_RATE_PER_TICK` mort par habitant et
+par tick ; il faut donc au plus `ceil(1 / MAX_DEATH_RATE_PER_TICK) = 10` ticks
+pour qu'une mort entière soit appliquée, quelle que soit sa taille.
 
 Le même motif sert trois fois — mortalité, natalité, migration — avec un champ
-de report par maillon. Ce ne sont pas trois règles : c'est une seule, appliquée
+de report par maillon : les deux premiers sont locaux quand il y a des lieux,
+le troisième reste cellulaire. Ce ne sont pas trois règles : c'est une seule, appliquée
 partout où un entier d'habitants sort d'un taux.
 
 ---
@@ -1127,9 +1147,10 @@ manque) et `_update_hunger` n'incrémente que si cette pénurie est positive.
 Propriété : `food_stock_kg == 0` et `food_deficit_kg == 0` après consommation
 → `hunger_ticks` non incrémenté.
 
-Cette même valeur de retour — la pénurie du tick — commande aussi la natalité
-et le départ des migrants. C'est le signal causal du manque, et il n'y en a
-qu'un.
+Cette valeur de retour — la pénurie du tick — commande le départ des migrants
+et la natalité du repli sans lieux. Avec lieux, chaque `duree_faim_ticks` suit
+son manque local ; la natalité lit cette faim et la dette du même lieu.
+Un lieu exactement nourri revient à zéro, même si son voisin manque.
 
 ---
 
@@ -1803,8 +1824,9 @@ La forme, la position, les frontières et les noms des lieux ne sont pas simulé
 ### Ce que porte un lieu
 
 `EtatDeLieu`, dataclass mutable de `sim.model`, porte exactement `rang`,
-`population`, `stocks`, `dette_alimentaire_kg` (flottant, défaut `0.0`) et
-`duree_faim_ticks` (entier, défaut `0`). La liste `Cell.lieux` rattache ces états
+`population`, `stocks`, `dette_alimentaire_kg` (flottant, défaut `0.0`),
+`duree_faim_ticks` (entier, défaut `0`), `mortality_remainder` et
+`natalite_remainder` (flottants, défaut `0.0`). La liste `Cell.lieux` rattache ces états
 à leur cellule : aucun `cell_id` recopié ni `lieu_id`. La surface reste celle de la
 vue `lieux_de_cellule`, jamais une deuxième donnée stockée.
 
@@ -1835,8 +1857,9 @@ n'est pas zéro. Une écriture sur la cellule hors du tick est suivie de même.
 
 Une cellule construite à la main avec une liste vide reste sans lieux ; le
 tick ne lui en invente pas. La dette et la faim partent à zéro dans chaque lieu,
-comme dans sa cellule. Les restes de mortalité, natalité et migration restent
-à la cellule. Ce partage est de **niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
+comme dans sa cellule. Les reports de mortalité et natalité sont locaux ;
+celui de migration reste cellulaire. Les deux reports locaux figurent dans
+la sérialisation canonique de l'empreinte, sans ajout à la photographie ni à `/lieu`. Ce partage est de **niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
 n'est simulé (niveau 3).
 
 Le service les publie. `GET /lieu?cell=X` porte `lieux`, rangés par rang,
@@ -1960,8 +1983,10 @@ Chaque lieu qui manque incrémente `duree_faim_ticks`, les autres reviennent à
 zéro. La cellule a faim si et seulement si un de ses lieux a faim ; aucune
 durée locale ne dépasse la sienne. Ces données figurent dans l'empreinte,
 mais pas dans la photographie ni `/lieu`. L'IA lit désormais la faim du bourg ;
-panier, dette et faim cellulaires, morts, naissances et migration restent
-identiques au bit près.
+panier, dette et faim cellulaires restent leurs totaux. Morts et naissances
+suivent chaque lieu et ses reports locaux ; leurs totaux rejoignent les métiers
+au prorata. La migration reste cellulaire : `repartir_sur_les_lieux` suit ses
+déplacements à proportion du contenu et conserve les états locaux déjà cohérents.
 
 ---
 
