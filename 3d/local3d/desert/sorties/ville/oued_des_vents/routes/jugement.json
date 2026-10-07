@@ -239,19 +239,19 @@
  "captures": [
   {
    "nom": "plaine",
-   "ecart": 97.15244444444444
+   "ecart": 96.91558888888889
   },
   {
    "nom": "bord",
-   "ecart": 145.18316666666666
+   "ecart": 144.7482222222222
   },
   {
    "nom": "flanc_de_dune",
-   "ecart": 167.99523333333335
+   "ecart": 167.73422222222223
   },
   {
    "nom": "refus",
-   "ecart": 168.8947777777778
+   "ecart": 168.8942888888889
   }
  ],
  "camera": {
@@ -292,15 +292,15 @@
  "captures_camera": [
   {
    "nom": "ensemble",
-   "ecart": 130.0747888888889
+   "ecart": 129.92506666666668
   },
   {
    "nom": "rue",
-   "ecart": 96.90828888888889
+   "ecart": 96.55226666666667
   },
   {
    "nom": "marcheur",
-   "ecart": 79.9569
+   "ecart": 79.5115888888889
   }
  ],
  "service": {
@@ -310,8 +310,8 @@
   "raide": {
    "clique": true,
    "depose": false,
-   "rues_avant": 0,
-   "rues_apres": 0
+   "rues_avant": 1,
+   "rues_apres": 1
   },
   "plaine": {
    "depose": true,
@@ -321,17 +321,37 @@
    "empreinte_avant_tick": "8cd669eaf8ab93e2283f735701b48187be12f79df23ca0ffd40ebc260e2427d34944c27b9a2d1c76ddd1b3ca092cd4f4cfd818191bacb44cde3b49dfc7b0dd1f1be04bdf6e1583f6c05de9ebf6e00dea1e96a3cc7872a86c3d5df5ac1607246c",
    "dessinee_avant_tick": false,
    "tick_plan": 4,
-   "rues_neuves": 0,
-   "rue_x": [],
-   "rue_y": [],
-   "rue_largeur": -1.0,
-   "rue_en_chantier": false
+   "rues_neuves": 1,
+   "rue_x": [
+    -16.0,
+    -6.01,
+    3.93,
+    13.81,
+    23.59,
+    33.25,
+    42.76,
+    52.1,
+    61.23,
+    70.14,
+    78.8
+   ],
+   "rue_y": [
+    56.0,
+    56.52,
+    57.57,
+    59.13,
+    61.21,
+    63.8,
+    66.89,
+    70.47,
+    74.54,
+    79.08,
+    84.08
+   ],
+   "rue_largeur": 4.0,
+   "rue_en_chantier": true
   }
  },
- "defauts": [
-  "clic : le terrain diffère de la même route posée par le jeu de gestes",
-  "service : la route acceptée n'a pas paru au plan après le tick (0 rues neuves dessinées, 1 attendue)",
-  "service : la route de plaine n’a pas été dessinée sur le terrain"
- ],
- "status": "echec"
+ "defauts": [],
+ "status": "valide"
 }

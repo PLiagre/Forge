@@ -239,19 +239,19 @@
  "captures": [
   {
    "nom": "plaine",
-   "ecart": 109.50393333333334
+   "ecart": 98.17398888888889
   },
   {
    "nom": "bord",
-   "ecart": 109.10806666666667
+   "ecart": 127.40624444444444
   },
   {
    "nom": "flanc_de_dune",
-   "ecart": 159.62645555555557
+   "ecart": 153.89757777777777
   },
   {
    "nom": "refus",
-   "ecart": 180.0578
+   "ecart": 188.15571111111112
   }
  ],
  "camera": {
@@ -292,15 +292,15 @@
  "captures_camera": [
   {
    "nom": "ensemble",
-   "ecart": 141.0942
+   "ecart": 131.76655555555556
   },
   {
    "nom": "rue",
-   "ecart": 96.10587777777778
+   "ecart": 95.58947777777777
   },
   {
    "nom": "marcheur",
-   "ecart": 129.83756666666667
+   "ecart": 128.5825111111111
   }
  ],
  "service": {
@@ -321,17 +321,37 @@
    "empreinte_avant_tick": "b0b3744befd939ddb83d17451fa79c035a63bb2df221a262ddd20a291b5a75b694b9b649154d6ab52c129bf1836c3f65ec6e0c95b19fb8af9de5b38a8fa77f1aeed0874bb5057c15807bf2af340918ebcbddadf657c9740ec50f2a7da48e5cea",
    "dessinee_avant_tick": false,
    "tick_plan": 2,
-   "rues_neuves": 0,
-   "rue_x": [],
-   "rue_y": [],
-   "rue_largeur": -1.0,
-   "rue_en_chantier": false
+   "rues_neuves": 1,
+   "rue_x": [
+    8.0,
+    -0.91,
+    -10.05,
+    -19.38,
+    -28.89,
+    -38.55,
+    -48.33,
+    -58.21,
+    -68.15,
+    -78.14,
+    -88.14
+   ],
+   "rue_y": [
+    120.0,
+    124.54,
+    128.61,
+    132.19,
+    135.28,
+    137.87,
+    139.95,
+    141.51,
+    142.56,
+    143.08,
+    143.08
+   ],
+   "rue_largeur": 4.0,
+   "rue_en_chantier": true
   }
  },
- "defauts": [
-  "clic : le terrain diffère de la même route posée par le jeu de gestes",
-  "service : la route acceptée n'a pas paru au plan après le tick (0 rues neuves dessinées, 1 attendue)",
-  "service : la route de plaine n’a pas été dessinée sur le terrain"
- ],
- "status": "echec"
+ "defauts": [],
+ "status": "valide"
 }
