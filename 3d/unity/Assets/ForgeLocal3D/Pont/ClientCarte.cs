@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -14,7 +15,6 @@ namespace Forge.Pont
     {
         public double X { get; }
         public double Y { get; }
-
         public PointCarte(double x, double y) { X = x; Y = y; }
     }
 
@@ -23,16 +23,10 @@ namespace Forge.Pont
     {
         public IReadOnlyList<PointCarte> Exterieur { get; }
         public IReadOnlyList<IReadOnlyList<PointCarte>> Trous { get; }
-
-        public PolygoneDeCarte(IList<PointCarte> exterieur, IList<IList<PointCarte>> trous)
+        public PolygoneDeCarte(IEnumerable<PointCarte> exterieur, IEnumerable<IEnumerable<PointCarte>> trous)
         {
-            if (exterieur == null) throw new ArgumentNullException(nameof(exterieur));
-            if (trous == null) throw new ArgumentNullException(nameof(trous));
-            Exterieur = new ReadOnlyCollection<PointCarte>(new List<PointCarte>(exterieur));
-            var copies = new List<IReadOnlyList<PointCarte>>(trous.Count);
-            foreach (IList<PointCarte> trou in trous)
-                copies.Add(new ReadOnlyCollection<PointCarte>(new List<PointCarte>(trou ?? throw new ArgumentNullException(nameof(trous)))));
-            Trous = new ReadOnlyCollection<IReadOnlyList<PointCarte>>(copies);
+            Exterieur = ClientCarte.Copier(exterieur, nameof(exterieur));
+            Trous = ClientCarte.Copier(ClientCarte.Copier(trous, nameof(trous)).Select(t => (IReadOnlyList<PointCarte>)ClientCarte.Copier(t, nameof(trous))), nameof(trous));
         }
     }
 
@@ -41,12 +35,7 @@ namespace Forge.Pont
     {
         public long Id { get; }
         public string Nom { get; }
-
-        public IdentiteDeCarte(long id, string nom)
-        {
-            Id = id;
-            Nom = nom ?? throw new ArgumentNullException(nameof(nom));
-        }
+        public IdentiteDeCarte(long id, string nom) { Id = id; Nom = nom ?? throw new ArgumentNullException(nameof(nom)); }
     }
 
     public sealed class VilleDeCarte
@@ -54,13 +43,7 @@ namespace Forge.Pont
         public string Nom { get; }
         public long Population { get; }
         public PointCarte Position { get; }
-
-        public VilleDeCarte(string nom, long population, PointCarte position)
-        {
-            Nom = nom ?? throw new ArgumentNullException(nameof(nom));
-            Population = population;
-            Position = position;
-        }
+        public VilleDeCarte(string nom, long population, PointCarte position) { Nom = nom ?? throw new ArgumentNullException(nameof(nom)); Population = population; Position = position; }
     }
 
     // Une cellule de la carte de 1400. `Puissance` ou `Maison` nulle est une mesure : le service a servi `null`.
@@ -71,16 +54,13 @@ namespace Forge.Pont
         public IdentiteDeCarte Puissance { get; }
         public IdentiteDeCarte Maison { get; }
         public IReadOnlyList<VilleDeCarte> Villes { get; }
-
-        public CelluleDeCarte(long cellId, IList<PolygoneDeCarte> contour, IdentiteDeCarte puissance, IdentiteDeCarte maison, IList<VilleDeCarte> villes)
+        public CelluleDeCarte(long cellId, IEnumerable<PolygoneDeCarte> contour, IdentiteDeCarte puissance, IdentiteDeCarte maison, IEnumerable<VilleDeCarte> villes)
         {
-            if (contour == null) throw new ArgumentNullException(nameof(contour));
-            if (villes == null) throw new ArgumentNullException(nameof(villes));
             CellId = cellId;
-            Contour = new ReadOnlyCollection<PolygoneDeCarte>(new List<PolygoneDeCarte>(contour));
+            Contour = ClientCarte.Copier(contour, nameof(contour));
             Puissance = puissance;
             Maison = maison;
-            Villes = new ReadOnlyCollection<VilleDeCarte>(new List<VilleDeCarte>(villes));
+            Villes = ClientCarte.Copier(villes, nameof(villes));
         }
     }
 
@@ -89,13 +69,7 @@ namespace Forge.Pont
     {
         public long CellCount { get; }
         public IReadOnlyList<CelluleDeCarte> Cellules { get; }
-
-        public CarteLue(long cellCount, IList<CelluleDeCarte> cellules)
-        {
-            if (cellules == null) throw new ArgumentNullException(nameof(cellules));
-            CellCount = cellCount;
-            Cellules = new ReadOnlyCollection<CelluleDeCarte>(new List<CelluleDeCarte>(cellules));
-        }
+        public CarteLue(long cellCount, IEnumerable<CelluleDeCarte> cellules) { CellCount = cellCount; Cellules = ClientCarte.Copier(cellules, nameof(cellules)); }
     }
 
     // Soit une carte, soit une absence qui nomme sa cause : jamais les deux, jamais aucune.
@@ -104,27 +78,21 @@ namespace Forge.Pont
         public CarteLue Carte { get; }
         public string Absence { get; }
         public bool Presente => Carte != null;
-
         private LectureCarte(CarteLue carte, string absence) { Carte = carte; Absence = absence; }
-
-        public static LectureCarte De(CarteLue carte) =>
-            new LectureCarte(carte ?? throw new ArgumentNullException(nameof(carte)), null);
-
+        public static LectureCarte De(CarteLue carte) => new LectureCarte(carte ?? throw new ArgumentNullException(nameof(carte)), null);
         public static LectureCarte Absent(string cause) =>
             new LectureCarte(null, string.IsNullOrEmpty(cause) ? throw new ArgumentException("une absence nomme sa cause", nameof(cause)) : cause);
     }
 
     // Demande la carte de 1400 au service local (`GET /carte` sur 127.0.0.1).
     // Ne lève jamais pour une cause du service : elle devient une absence déclarée.
-    // Une seule clé fautive refuse toute la carte : aucune carte partielle n'est rendue.
+    // Une seule clé fautive refuse toute la carte, en nommant son chemin : aucune carte partielle n'est rendue.
     public sealed class ClientCarte : IDisposable
     {
         // La première requête calcule la carte pour toute la partie et prend 1,8 à 2 s :
         // le délai de 2 s des autres lectures n'y suffit pas.
         public static readonly TimeSpan DelaiMinimal = TimeSpan.FromSeconds(10);
-
-        private const string Hote = "127.0.0.1";
-        private const string Prefixe = "carte : ";
+        private const string Hote = "127.0.0.1", Prefixe = "carte : ";
         private readonly int port;
         private readonly TimeSpan delai;
         private readonly HttpClient http;
@@ -133,15 +101,11 @@ namespace Forge.Pont
         {
             if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port), port, "port hors de 1..65535");
             // `Timeout.InfiniteTimeSpan` vaut -1 ms : il tombe sous le minimum, comme tout délai trop court.
-            if (delai < DelaiMinimal)
-                throw new ArgumentOutOfRangeException(nameof(delai), delai, "un délai d'au moins " + DelaiMinimal.TotalSeconds + " s attendu");
+            if (delai < DelaiMinimal) throw new ArgumentOutOfRangeException(nameof(delai), delai, "un délai d'au moins " + DelaiMinimal.TotalSeconds + " s attendu");
             this.port = port;
             this.delai = delai;
             // Aucune redirection suivie, et le délai tenu par Lire, comme dans ClientPlan.
-            http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
-            {
-                Timeout = Timeout.InfiniteTimeSpan
-            };
+            http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
         }
 
         public void Dispose() => http.Dispose();
@@ -154,9 +118,8 @@ namespace Forge.Pont
             {
                 try
                 {
-                    string url = "http://" + Hote + ":" + port.ToString(CultureInfo.InvariantCulture) + "/carte";
                     minuterie.CancelAfter(delai);
-                    using (HttpResponseMessage reponse = http.GetAsync(url, minuterie.Token).GetAwaiter().GetResult())
+                    using (HttpResponseMessage reponse = http.GetAsync("http://" + Hote + ":" + port.ToString(CultureInfo.InvariantCulture) + "/carte", minuterie.Token).GetAwaiter().GetResult())
                     {
                         statut = reponse.StatusCode;
                         corps = Encoding.UTF8.GetString(reponse.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult());
@@ -170,179 +133,106 @@ namespace Forge.Pont
                     return LectureCarte.Absent(Prefixe + "service absent sur " + Hote + ":" + port + " (" + erreur.GetBaseException().Message + ")");
                 }
             }
+            if (statut != HttpStatusCode.OK) return LectureCarte.Absent(Prefixe + "statut " + (int)statut + ", corps reçu : " + corps);
+            try { return LectureCarte.De(Carte(LecteurJson.LireObjet(corps))); }
+            catch (ErreurJson erreur) { return LectureCarte.Absent(Prefixe + "JSON invalide à la position " + erreur.Position + " (" + erreur.Message + ")"); }
+            catch (CleRefusee refus) { return LectureCarte.Absent(Prefixe + refus.Message); }
+        }
 
-            if (statut != HttpStatusCode.OK)
-                return LectureCarte.Absent(Prefixe + "statut " + (int)statut + ", corps reçu : " + corps);
+        internal static ReadOnlyCollection<T> Copier<T>(IEnumerable<T> liste, string nom) => new ReadOnlyCollection<T>(new List<T>(liste ?? throw new ArgumentNullException(nom)));
 
-            Dictionary<string, object> objet;
-            try { objet = LecteurJson.LireObjet(corps); }
-            catch (ErreurJson erreur)
-            {
-                return LectureCarte.Absent(Prefixe + "JSON invalide à la position " + erreur.Position + " (" + erreur.Message + ")");
-            }
-
-            try
-            {
-                // Les mètres des contours et des villes n'ont de sens que dans cette projection.
-                object crs = Valeur(objet, "crs", "crs");
-                if (!(crs is string projection && projection == "EPSG:3035"))
-                    throw new CleRefusee("clé crs : le texte \"EPSG:3035\" attendu, reçu " + Decrire(crs));
-
-                // Une carte sans cellule n'est pas une mesure.
-                List<object> brutes = Tableau(Valeur(objet, "cells", "cells"), "cells");
-                if (brutes.Count == 0)
-                    throw new CleRefusee("clé cells : au moins une cellule attendue, reçu un tableau vide");
-                var cellules = new List<CelluleDeCarte>(brutes.Count);
-                var identifiants = new HashSet<long>();
-                for (int i = 0; i < brutes.Count; i++)
-                    cellules.Add(Cellule(brutes[i], Indice("cells", i), identifiants));
-
-                long annonce = Entier(Valeur(objet, "cell_count", "cell_count"), "cell_count", 0);
-                if (annonce != cellules.Count)
-                    throw new CleRefusee("clé cell_count : " + annonce + " annoncées, " + cellules.Count + " lues");
-
-                return LectureCarte.De(new CarteLue(annonce, cellules));
-            }
-            catch (CleRefusee refus)
-            {
-                return LectureCarte.Absent(Prefixe + refus.Message);
-            }
+        private static CarteLue Carte(Dictionary<string, object> racine)
+        {
+            // Les mètres des contours et des villes n'ont de sens que dans cette projection ; une carte sans cellule n'est pas une mesure.
+            if (!"EPSG:3035".Equals(Valeur(racine, "crs"))) throw Refus("crs", "le texte \"EPSG:3035\"", racine["crs"]);
+            var identifiants = new HashSet<long>();
+            List<CelluleDeCarte> cellules = Liste(Valeur(racine, "cells"), "cells", 1, (brute, chemin) => Cellule(brute, chemin, identifiants));
+            long annonce = Entier(racine, "cell_count");
+            if (annonce != cellules.Count) throw new CleRefusee("clé cell_count : " + annonce + " annoncées, " + cellules.Count + " lues");
+            return new CarteLue(annonce, cellules);
         }
 
         // `identifiants` : les cell_id déjà lus dans cette carte ; un second refuse la carte.
         private static CelluleDeCarte Cellule(object valeur, string chemin, HashSet<long> identifiants)
         {
-            var cellule = valeur as Dictionary<string, object>
-                ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(valeur));
-
-            string cheminId = chemin + ".cell_id";
-            long cellId = Entier(Valeur(cellule, "cell_id", cheminId), cheminId, 0);
-            if (!identifiants.Add(cellId))
-                throw new CleRefusee("clé " + cheminId + " : " + cellId + " déjà lu dans cette carte");
-
-            List<PolygoneDeCarte> contour = Contour(cellule, chemin + ".contour");
-            IdentiteDeCarte puissance = Identite(cellule, "puissance", chemin + ".puissance");
-            IdentiteDeCarte maison = Identite(cellule, "maison", chemin + ".maison");
-
-            string cheminVilles = chemin + ".villes";
-            List<object> brutes = Tableau(Valeur(cellule, "villes", cheminVilles), cheminVilles);
-            var villes = new List<VilleDeCarte>(brutes.Count);
-            for (int i = 0; i < brutes.Count; i++)
-                villes.Add(Ville(brutes[i], Indice(cheminVilles, i)));
-
-            return new CelluleDeCarte(cellId, contour, puissance, maison, villes);
-        }
-
-        // Le contour GeoJSON : un MultiPolygon d'au moins un polygone, chacun d'au moins un anneau.
-        private static List<PolygoneDeCarte> Contour(Dictionary<string, object> cellule, string chemin)
-        {
-            object brut = Valeur(cellule, "contour", chemin);
-            var contour = brut as Dictionary<string, object>
-                ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(brut));
-
-            string cheminType = chemin + ".type";
-            object type = Valeur(contour, "type", cheminType);
-            if (!(type is string texte && texte == "MultiPolygon"))
-                throw new CleRefusee("clé " + cheminType + " : le texte \"MultiPolygon\" attendu, reçu " + Decrire(type));
-
-            string cheminCoordonnees = chemin + ".coordinates";
-            List<object> polygones = Tableau(Valeur(contour, "coordinates", cheminCoordonnees), cheminCoordonnees);
-            if (polygones.Count == 0)
-                throw new CleRefusee("clé " + cheminCoordonnees + " : au moins un polygone attendu, reçu 0");
-            var lus = new List<PolygoneDeCarte>(polygones.Count);
-            for (int i = 0; i < polygones.Count; i++)
+            Dictionary<string, object> cellule = Objet(valeur, chemin), contour = Objet(Valeur(cellule, chemin + ".contour"), chemin + ".contour");
+            long cellId = Entier(cellule, chemin + ".cell_id");
+            if (!identifiants.Add(cellId)) throw new CleRefusee("clé " + chemin + ".cell_id : " + cellId + " déjà lu dans cette carte");
+            if (!"MultiPolygon".Equals(Valeur(contour, chemin + ".contour.type"))) throw Refus(chemin + ".contour.type", "le texte \"MultiPolygon\"", contour["type"]);
+            // Au moins un polygone, chacun d'au moins un anneau : l'extérieur, puis les trous.
+            List<PolygoneDeCarte> polygones = Liste(Valeur(contour, chemin + ".contour.coordinates"), chemin + ".contour.coordinates", 1, (brut, cheminPolygone) =>
             {
-                string cheminPolygone = Indice(cheminCoordonnees, i);
-                List<object> anneaux = Tableau(polygones[i], cheminPolygone);
-                if (anneaux.Count == 0)
-                    throw new CleRefusee("clé " + cheminPolygone + " : au moins un anneau attendu, reçu 0");
-                var trous = new List<IList<PointCarte>>(anneaux.Count - 1);
-                for (int j = 1; j < anneaux.Count; j++)
-                    trous.Add(Anneau(anneaux[j], Indice(cheminPolygone, j)));
-                lus.Add(new PolygoneDeCarte(Anneau(anneaux[0], Indice(cheminPolygone, 0)), trous));
-            }
-            return lus;
+                List<List<PointCarte>> anneaux = Liste(brut, cheminPolygone, 1, Anneau);
+                return new PolygoneDeCarte(anneaux[0], anneaux.Skip(1));
+            });
+            List<VilleDeCarte> villes = Liste(Valeur(cellule, chemin + ".villes"), chemin + ".villes", 0, Ville);
+            return new CelluleDeCarte(cellId, polygones, Identite(cellule, chemin + ".puissance"), Identite(cellule, chemin + ".maison"), villes);
         }
 
         // Un anneau : au moins 4 points de exactement 2 nombres, le dernier égal au premier.
         private static List<PointCarte> Anneau(object valeur, string chemin)
         {
-            List<object> brut = Tableau(valeur, chemin);
-            if (brut.Count < 4)
-                throw new CleRefusee("clé " + chemin + " : au moins 4 points attendus, reçu " + brut.Count);
-            var points = new List<PointCarte>(brut.Count);
-            for (int k = 0; k < brut.Count; k++)
+            List<PointCarte> points = Liste(valeur, chemin, 4, (brut, cheminPoint) =>
             {
-                string cheminPoint = Indice(chemin, k);
-                if (!(brut[k] is List<object> paire) || paire.Count != 2)
-                    throw new CleRefusee("clé " + cheminPoint + " : un tableau de exactement 2 nombres attendu, reçu " + Decrire(brut[k]));
-                points.Add(new PointCarte(Nombre(paire[0], cheminPoint), Nombre(paire[1], cheminPoint)));
-            }
-            PointCarte premier = points[0], dernier = points[points.Count - 1];
-            if (premier.X != dernier.X || premier.Y != dernier.Y)
+                if (!(brut is List<object> paire) || paire.Count != 2) throw Refus(cheminPoint, "un tableau de exactement 2 nombres", brut);
+                return new PointCarte(Nombre(paire[0], cheminPoint), Nombre(paire[1], cheminPoint));
+            });
+            if (points[0].X != points[points.Count - 1].X || points[0].Y != points[points.Count - 1].Y)
                 throw new CleRefusee("clé " + chemin + " : un anneau fermé attendu (dernier point égal au premier)");
             return points;
         }
 
         // La clé est toujours présente : `null` dit que la cellule n'en a pas, une clé absente refuse la carte.
-        private static IdentiteDeCarte Identite(Dictionary<string, object> cellule, string cle, string chemin)
+        private static IdentiteDeCarte Identite(Dictionary<string, object> cellule, string chemin)
         {
-            object valeur = Valeur(cellule, cle, chemin);
+            object valeur = Valeur(cellule, chemin);
             if (valeur == null) return null;
-            var identite = valeur as Dictionary<string, object>
-                ?? throw new CleRefusee("clé " + chemin + " : null ou un objet attendu, reçu " + Decrire(valeur));
-            long id = Entier(Valeur(identite, "id", chemin + ".id"), chemin + ".id", 0);
-            return new IdentiteDeCarte(id, Texte(identite, "nom", chemin + ".nom"));
+            var identite = valeur as Dictionary<string, object> ?? throw Refus(chemin, "null ou un objet", valeur);
+            return new IdentiteDeCarte(Entier(identite, chemin + ".id"), Texte(identite, chemin + ".nom"));
         }
 
         private static VilleDeCarte Ville(object valeur, string chemin)
         {
-            var ville = valeur as Dictionary<string, object>
-                ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(valeur));
-            string nom = Texte(ville, "nom", chemin + ".nom");
-            long population = Entier(Valeur(ville, "population", chemin + ".population"), chemin + ".population", 0);
-            double x = Nombre(Valeur(ville, "x_m", chemin + ".x_m"), chemin + ".x_m");
-            double y = Nombre(Valeur(ville, "y_m", chemin + ".y_m"), chemin + ".y_m");
-            return new VilleDeCarte(nom, population, new PointCarte(x, y));
+            Dictionary<string, object> ville = Objet(valeur, chemin);
+            var position = new PointCarte(Nombre(Valeur(ville, chemin + ".x_m"), chemin + ".x_m"), Nombre(Valeur(ville, chemin + ".y_m"), chemin + ".y_m"));
+            return new VilleDeCarte(Texte(ville, chemin + ".nom"), Entier(ville, chemin + ".population"), position);
         }
 
-        private static string Texte(Dictionary<string, object> objet, string cle, string chemin)
+        private sealed class CleRefusee : Exception { public CleRefusee(string message) : base(message) { } }
+
+        private static CleRefusee Refus(string chemin, string attendu, object recu) => new CleRefusee("clé " + chemin + " : " + attendu + " attendu, reçu " + Decrire(recu));
+
+        // La clé lue est le dernier segment du chemin pointé : `cells[1].contour` lit `contour`.
+        private static object Valeur(Dictionary<string, object> objet, string chemin) =>
+            objet.TryGetValue(chemin.Substring(chemin.LastIndexOf('.') + 1), out object valeur) ? valeur : throw new CleRefusee("clé absente : " + chemin);
+
+        private static Dictionary<string, object> Objet(object valeur, string chemin) => valeur as Dictionary<string, object> ?? throw Refus(chemin, "un objet", valeur);
+
+        // Un tableau d'au moins `min` éléments, chacun lu avec son chemin indicé.
+        private static List<T> Liste<T>(object valeur, string chemin, int min, Func<object, string, T> lire)
         {
-            object brute = Valeur(objet, cle, chemin);
-            if (!(brute is string texte) || string.IsNullOrWhiteSpace(texte))
-                throw new CleRefusee("clé " + chemin + " : un texte non vide attendu, reçu " + Decrire(brute));
-            return texte;
+            var tableau = valeur as List<object> ?? throw Refus(chemin, "un tableau", valeur);
+            if (tableau.Count < min) throw new CleRefusee("clé " + chemin + " : au moins " + min + (min > 1 ? " éléments attendus" : " élément attendu") + ", reçu " + tableau.Count);
+            return tableau.Select((brute, i) => lire(brute, chemin + "[" + i.ToString(CultureInfo.InvariantCulture) + "]")).ToList();
         }
 
-        private static string Indice(string chemin, int i) => chemin + "[" + i.ToString(CultureInfo.InvariantCulture) + "]";
-
-        private sealed class CleRefusee : Exception
+        private static string Texte(Dictionary<string, object> objet, string chemin)
         {
-            public CleRefusee(string message) : base(message) { }
+            object brute = Valeur(objet, chemin);
+            return brute is string texte && !string.IsNullOrWhiteSpace(texte) ? texte : throw Refus(chemin, "un texte non vide", brute);
         }
 
-        private static object Valeur(Dictionary<string, object> objet, string cle, string chemin)
+        private static double Nombre(object valeur, string chemin) => valeur is double nombre ? nombre : throw Refus(chemin, "un nombre", valeur);
+
+        // Un entier ≥ 0. Dès 2^53 un double ne dit plus quel entier le texte portait : la borne est refusée plutôt que devinée.
+        private static long Entier(Dictionary<string, object> objet, string chemin)
         {
-            if (!objet.TryGetValue(cle, out object valeur)) throw new CleRefusee("clé absente : " + chemin);
-            return valeur;
-        }
-
-        private static List<object> Tableau(object valeur, string chemin) =>
-            valeur as List<object> ?? throw new CleRefusee("clé " + chemin + " : un tableau attendu, reçu " + Decrire(valeur));
-
-        private static double Nombre(object valeur, string chemin) =>
-            valeur is double nombre ? nombre : throw new CleRefusee("clé " + chemin + " : un nombre attendu, reçu " + Decrire(valeur));
-
-        private static long Entier(object valeur, string chemin, long min)
-        {
-            double nombre = Nombre(valeur, chemin);
-            // Dès 2^53 un double ne dit plus quel entier le texte portait : la borne est refusée plutôt que devinée.
-            if (nombre != Math.Floor(nombre) || Math.Abs(nombre) >= 9007199254740992.0 || nombre < min)
-                throw new CleRefusee("clé " + chemin + " : un entier" + (min == 0 ? " ≥ 0" : "") + " attendu, reçu " + nombre.ToString("R", CultureInfo.InvariantCulture));
+            double nombre = Nombre(Valeur(objet, chemin), chemin);
+            if (nombre != Math.Floor(nombre) || nombre < 0 || nombre >= 9007199254740992.0)
+                throw new CleRefusee("clé " + chemin + " : un entier ≥ 0 attendu, reçu " + nombre.ToString("R", CultureInfo.InvariantCulture));
             return (long)nombre;
         }
 
-        private static string Decrire(object valeur) =>
-            valeur == null ? "null" : valeur is string texte ? "le texte \"" + texte + "\"" : valeur.GetType().Name;
+        private static string Decrire(object valeur) => valeur == null ? "null" : valeur is string texte ? "le texte \"" + texte + "\"" : valeur.GetType().Name;
     }
 }
