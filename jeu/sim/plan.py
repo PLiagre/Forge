@@ -55,7 +55,7 @@ def _chantier(element, nature):
 
 @dataclass(frozen=True)
 class Rue:
-    """Ligne de rue et largeur, sans effet sur les flux du monde."""
+    """Ligne de rue ; achevée avec porte, elle concentre le commerce terrestre."""
 
     identifiant: int
     points: list[tuple[float, float]]
@@ -64,9 +64,12 @@ class Rue:
     foyers: int = 0
     travail_requis: int = 0
     travail_fourni: int = 0
+    porte_cell_id: int | None = None
 
     def __post_init__(self):
         _chantier(self, "rue")
+        if self.porte_cell_id is not None:
+            _identifiant(self.porte_cell_id, "rue.porte_cell_id")
         _points(self.points, _constantes.POINTS_MIN_RUE, "rue.points")
         _nombre_fini(self.largeur_m, "rue.largeur_m")
         if self.largeur_m <= 0:
@@ -154,8 +157,21 @@ class Plan:
             document[nom] = []
             for element in elements:
                 entree = asdict(element)
+                if nom == "rues" and entree["porte_cell_id"] is None:
+                    del entree["porte_cell_id"]
                 for champ in ("points", "contour", "emprise"):
                     if champ in entree:
                         entree[champ] = [list(point) for point in entree[champ]]
                 document[nom].append(entree)
         return document
+
+
+def apport_routes_arete_kg(monde, a_id, b_id):
+    """Somme stable des largeurs achevées vers l'autre bout, sans cache."""
+    plans = getattr(monde, "plans", {})
+    largeurs = sum(rue.largeur_m
+                   for origine, porte in sorted(((a_id, b_id), (b_id, a_id)))
+                   if origine in plans
+                   for rue in sorted(plans[origine].rues, key=lambda rue: rue.identifiant)
+                   if not rue.en_chantier and rue.porte_cell_id == porte)
+    return _constantes.DEBIT_ROUTE_KG_PAR_M_PAR_TICK * largeurs

@@ -26,7 +26,7 @@ namespace ForgeLocal3D.Captures
         const double TOLERANCE_M = .05;
 
         // Le point à `s` m le long du segment `i` de la rue et à `h` m à sa gauche (normale (−u_y, u_x)).
-        static (double x, double y) Point(RueDuPlan rue, int i, double s, double h)
+        internal static (double x, double y) Point(RueDuPlan rue, int i, double s, double h)
         {
             PointLocal a = rue.Points[i], b = rue.Points[i + 1];
             double dx = b.X - a.X, dy = b.Y - a.Y, l = Math.Sqrt(dx * dx + dy * dy);
@@ -34,11 +34,11 @@ namespace ForgeLocal3D.Captures
             return (a.X + s * ux - h * uy, a.Y + s * uy + h * ux);
         }
 
-        static Vector3 Milieu(Terrain t, RueDuPlan rue, int i) =>
+        internal static Vector3 Milieu(Terrain t, RueDuPlan rue, int i) =>
             Lot362.Monde(t, (rue.Points[i].X + rue.Points[i + 1].X) / 2, (rue.Points[i].Y + rue.Points[i + 1].Y) / 2);
 
         // Vise de haut `vise`, puis clique chaque point avec l'outil du joueur. La caméra est rendue ensuite.
-        static void Cliquer(Camera camera, DesertCityCamera ville, DesertRoadTool outil, Vector3 vise, params (double x, double y)[] points)
+        internal static void Cliquer(Camera camera, DesertCityCamera ville, DesertRoadTool outil, Vector3 vise, params (double x, double y)[] points)
         {
             var rt = new RenderTexture(1600, 900, 24);
             camera.targetTexture = rt;

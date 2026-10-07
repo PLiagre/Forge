@@ -46,7 +46,8 @@ part. À chaque tick, dans cet ordre :
 7. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
-   circule, pas seulement la nourriture.
+   circule, pas seulement la nourriture. Une route achevée avec porte augmente
+   le plafond de sa frontière dès ce tick.
 8. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
@@ -118,8 +119,8 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   Naissances, morts et départs suivent les métiers ; récolte, chantiers, ateliers et fabrication les lisent. Les chantiers font passer les paysans à ouvriers, les ateliers à artisans
   et retour ; la part minière retire déjà des bras aux champs.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
-- **investir.** Une route se bâtit à la journée, mais aucune capacité de
-  transport ne s'améliore encore ; ponts et ports restent non simulés.
+- **investir.** Une route se bâtit à la journée ; achevée avec porte, elle
+  augmente la capacité de transport terrestre ; ponts et ports restent non simulés.
 - **tenir un prix.** Il n'y a ni monnaie, ni marché, ni salaire, ni propriété.
   Le commerce déplace des kilogrammes vers qui en manque, gratuitement.
 - **descendre sous les lieux pour les calculs.** Les lieux portent habitants
@@ -193,12 +194,9 @@ disponibles :**
 1. **La mer.** La carte porte une façade maritime pour trois cellules sur
    quatre, et le moteur ne la lit pas du tout. Voir la section suivante. C'est
    la plus grosse donnée de transport non lue du dépôt.
-2. **Les routes.** Une route concentre un flux là où une frontière perméable le
-   diffuse : c'est la forme de transport qu'une ville exige. **La carte n'en
-   porte aucune**, et le moteur n'a ni investissement, ni travail, ni monnaie
-   pour en faire naître. Ce n'est donc pas un lot `sim/` aujourd'hui — c'est
-   une décision de modèle qui n'a pas été prise, et elle est déclarée ici comme
-   absente plutôt que devinée (règle 10).
+2. **Les routes.** La carte n'en porte aucune à l'amorçage. Le joueur peut
+   désormais en bâtir : une route achevée vers une voisine concentre le commerce
+   à cette frontière. Ponts, ports, entretien et monnaie restent non simulés.
 
 ## La mer : la façade que le moteur ne lit pas
 
@@ -281,10 +279,9 @@ nourriture de ses champs.** La campagne de la même cellule les nourrit.
 
 Trois raisons, dans l'ordre où elles pèsent :
 
-1. **A n'est pas mesurable aujourd'hui, et ne le sera pas bientôt.** Voir « Le
-   mur » : aucune cellule ne peut couvrir sa consommation par ses importations,
-   et ce qui lèverait le mur — les routes — n'existe ni dans la carte ni dans
-   le moteur. Un critère d'acceptation fondé sur A serait invérifiable.
+1. **A dépend des surplus et des infrastructures.** Voir « Le mur » : les
+   routes commerciales choisies et bâties relèvent le plafond de transport,
+   sans garantir les surplus nécessaires. A ne définit pas le bourg.
 2. **B tient à l'échelle.** Une région de plusieurs milliers de kilomètres
    carrés contient évidemment un bourg et sa campagne. C'est la seule des deux
    lectures qui décrive quelque chose de vrai à la taille de la cellule.
@@ -1025,7 +1022,8 @@ composent :
 ```
 base    = DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK × (shared_length_m / METRES_PAR_KM)
 goulot  = min(facteur_transport(relief de a), facteur_transport(relief de b))
-capacité = base × goulot
+apport  = DEBIT_ROUTE_KG_PAR_M_PAR_TICK × somme des largeurs achevées vers cette porte
+capacité = (base + apport) × goulot
 ```
 
 | Constante | Valeur | Unité | Ce que c'est |
@@ -1036,8 +1034,13 @@ capacité = base × goulot
 
 **Ce que cette forme dit du monde.** Une longue frontière commune laisse passer
 plus de convois qu'un contact ponctuel : il y a plus de chemins, plus de gués,
-plus de cols. Ce n'est pas une route — le jeu n'a pas de routes — c'est la
-perméabilité brute d'une frontière.
+plus de cols. Cette base décrit la perméabilité brute d'une frontière.
+L'apport routier est de niveau 2 : `DEBIT_ROUTE_KG_PAR_M_PAR_TICK =
+5000.0 * TICK_DURATION_DAYS`, relu à chaque appel. La somme des largeurs
+achevées vers l'autre cellule, aux deux bouts et en ordre stable, sert le
+même plafond dans les deux sens et pour toutes les marchandises : 4 m
+ajoutent 20 000 kg en plaine, 6 000 kg en montagne. Sans carte, goulot = 1.
+Sans apport, les opérations et retours restent exactement ceux de la base.
 
 **Le facteur de transport du relief** — niveau 2, échelle distincte de celle de
 la production : un marais se traverse mal et produit mal, sans coïncidence
@@ -1058,8 +1061,8 @@ montagne reste une mauvaise frontière.
 **Le refus de deviner.** Une longueur de frontière non numérique — chaîne,
 booléen, `NaN` — lève `LongueurFrontiereInvalideError` en nommant les deux
 `cell_id`. Une longueur **absente** n'est pas une invalide : elle active le
-repli. Une longueur **nulle** est valide et rend zéro : deux cellules qui ne se
-touchent qu'en un point ne laissent rien passer, et ce zéro est une mesure.
+repli. Une longueur **nulle** est valide : base zéro mesurée, mais une route
+achevée avec porte peut y ajouter son débit. Les données invalides restent refusées.
 
 **Le plafond est partagé entre les marchandises** pour la durée du tick : ce
 qu'une arête a laissé passer en blé n'est plus disponible pour le fer. Il n'y a
@@ -1634,16 +1637,21 @@ choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
 
 Une route se dépose avec les quatre champs obligatoires `{"type": "tracer_route", "cell": X,
-"points": [[x, y], …], "largeur_m": L}` et le champ facultatif `foyers`.
-Celui-ci vaut 1 par défaut : entier ≥ 1, sans booléen et sans borne haute.
+"points": [[x, y], …], "largeur_m": L}` et les champs facultatifs `foyers` et `porte_cell_id`.
+`foyers` vaut 1 par défaut : entier ≥ 1, sans booléen et sans borne haute.
 Sinon `IntentionRefusee("foyers invalide : attendu un entier ≥ 1, reçu <repr>")`
 est levée avant toute mise en attente. Tout autre champ ou champ obligatoire
 absent est refusé. `cell` est un entier présent dans `World.plans`, sans booléen ;
 toute cellule de la carte convient. La construction d'une `Rue` vérifie
 points et largeur selon le contrat du plan ; un `PlanInvalide` devient
 `IntentionRefusee("route invalide : <raison>")`. Le dépôt accepté est un
-`TraceRoute(cell_id, points, largeur_m, foyers)` gelé, aux points copiés en tuples.
+`TraceRoute(cell_id, points, largeur_m, foyers, porte_cell_id)` gelé, aux points copiés en tuples.
 L'attente ne change ni les cellules, ni les plans, ni `to_dict()`.
+`porte_cell_id`, absent ou `null`, laisse la route locale, sans apport commercial.
+Sinon, entier ≥ 0 sans booléen, il nomme une voisine terrestre distincte : les
+deux cellules doivent exister dans `world.cells` et être reliées par `world.adjacency`.
+Le dépôt refuse toute porte invalide avant la file ; il ne déduit rien des points.
+La porte copiée dans le geste gelé passe à la rue au tick suivant.
 
 `TraceRoute.appliquer` reconstruit le plan avec une rue en chantier. Son
 identifiant est le maximum des identifiants de rue, ou −1 si le plan est
@@ -2038,7 +2046,10 @@ négatif et unique dans sa liste :
   `foyers`, `travail_requis`, `travail_fourni` : entiers ≥ 0, sans booléens,
   tous à 0 par défaut. Le fourni ne dépasse pas le requis ; `en_chantier`
   vaut exactement `travail_fourni < travail_requis`, avec au moins un foyer
-  en chantier. Une rue ancienne (0, 0, 0, pas en chantier) reste valide ;
+  en chantier. Une rue ancienne (0, 0, 0, pas en chantier) reste valide.
+  `porte_cell_id`, entier ≥ 0 sans booléen ou `None`, est le dernier champ ;
+  `Plan.to_dict()` l'omet si `None`, préservant les octets locaux et anciens,
+  sinon le publie dans `/plan` et l'empreinte, sans autre identifiant spatial ;
 - `parcelles` : `identifiant`, `contour` (au moins `POINTS_MIN_CONTOUR = 3`),
   `en_chantier` booléen faux par défaut, `foyers`, `travail_requis`,
   `travail_fourni` entiers ≥ 0 sans booléens, à 0 par défaut. Comme pour une
@@ -2063,7 +2074,7 @@ cellule ne sont pas simulées.
 
 Le plan se sérialise dans `World.to_dict()["plans"]`, sous des clés de cellule
 en chaîne, triées comme celles de `"cells"`. L'empreinte du monde voit donc
-son plan ; Intentions, Chantiers et Ateliers le lisent. Intentions
+son plan ; Intentions, Chantiers, Ateliers et Commerce le lisent via leurs modules. Intentions
 y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
 des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
@@ -2076,7 +2087,7 @@ inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
 
 La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
 vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
-et forme du bourg dans la cellule, effet des rues et des maisons achevées sur le monde,
+et forme du bourg dans la cellule, effets locaux des rues et des maisons achevées sur le monde,
 gestes de bâtiment autres que la pose (démolir, déplacer, agrandir),
 et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
 son coût en journées, les bras pris aux champs et son achèvement sont de
@@ -2123,6 +2134,8 @@ par identifiant, prennent le minimum des bras disponibles,
 de `foyers × TAILLE_FOYER` et du travail restant. Ces paysans deviennent
 ouvriers ; chaque personne envoyée ajoute exactement une journée fournie.
 La rue, la parcelle ou le bâtiment s’achève au requis : `en_chantier` devient faux.
+La porte survit aux reconstructions par `dataclasses.replace` ; le commerce,
+placé après Chantiers, bénéficie de la route dès ce tick d'achèvement.
 Le dernier jour n’envoie que les journées
 manquantes : aucune journée ne se crée ni ne se perd. Les métiers gardent
 leur somme et la population ; non calculés (`-1`), ils n’envoient personne.
@@ -2152,7 +2165,7 @@ L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
 Une cellule est immense et le chantier ne coûte de récolte que s’il retire
 presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
 sexe, nourriture propre, outils, matériaux, saison et salaire restent de
-niveau 3, comme l’effet de la route achevée sur les flux, les artisans
+niveau 3, comme les effets locaux des rues achevées, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.
 
 ---

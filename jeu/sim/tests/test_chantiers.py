@@ -767,3 +767,42 @@ def test_ateliers_rejeu(nature, monkeypatch):
         assert not mondes[0].plans[cid].batiments[0].en_chantier and not mondes[2].plans[cid].batiments; assert _foyers_du_lieu(cell).get("artisans", {}).get("personnes", 0) == lire_habitants_par_metier(cell).get("artisans", 0) > 0
         assert "artisans" not in lire_habitants_par_metier(temoin) and cell.stocks["fer"] < temoin.stocks["fer"]
     controler(); _contre_ateliers(monkeypatch, engine, "_affecter_artisans", lambda m: None, controler)
+
+
+def test_porte_achevement_ouvre_commerce(monkeypatch):
+    from sim.model import ecrire_habitants_par_metier
+    from sim.tests.test_commerce import _monde_routes
+    commerce = engine._apply_commerce
+    def jouer():
+        mondes, aleas, mesures = [_monde_routes(), _monde_routes()], [random.Random(0), random.Random(0)], []
+        for monde in mondes:
+            ecrire_habitants_par_metier(monde.cells[1], {k.METIER_PAYSANS: 100})
+            monde.cells[1].food_stock_kg = 10000
+            recevoir_intention(monde, _route_reference(monde) | {
+                "points": [[0, 0], [6.5, 0]], "porte_cell_id": 2})
+        def observer(monde, *args, **kwargs):
+            if monde is mondes[0] and len(mesures) == monde.ticks_ecoules:
+                rue = monde.plans[1].rues[0]
+                _controler_compte(monde.cells[1], rue, lire_habitants_par_metier(monde.cells[1]).get(
+                    k.METIER_OUVRIERS, 0), rue.travail_fourni, 100, 100)
+                mesures.append((rue.travail_fourni, rue.en_chantier, rue.porte_cell_id,
+                                engine._capacite_transport_arete_kg(monde, 1, 2),
+                                lire_habitants_par_metier(monde.cells[1]).get(k.METIER_OUVRIERS, 0)))
+            return commerce(monde, *args, **kwargs)
+        with monkeypatch.context() as sonde:
+            sonde.setattr(engine, "_apply_commerce", observer)
+            for numero in range(4):
+                for monde, alea in zip(mondes, aleas):
+                    engine.tick(monde, alea, numero)
+                assert mondes[0].to_dict() == mondes[1].to_dict()
+                assert aleas[0].getstate() == aleas[1].getstate()
+        assert mesures and mondes[0].plans[1].rues
+        return mesures
+    def controler(mesures):
+        assert mesures == [(5, True, 2, 200., 5), (10, True, 2, 200., 5),
+                           (13, False, 2, 20200., 3), (13, False, 2, 20200., 0)]
+    controler(jouer())
+    with monkeypatch.context() as sonde:
+        sonde.setattr(engine, "_avancer_chantiers", lambda monde: None)
+        with pytest.raises(AssertionError):
+            controler(jouer())

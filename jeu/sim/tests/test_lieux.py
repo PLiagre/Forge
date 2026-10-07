@@ -1128,3 +1128,21 @@ def test_demographie_locale_documentation():
     verifier(texte)
     for report in ("mortality_remainder", "natalite_remainder"):
         with pytest.raises(AssertionError): verifier(texte.replace(report, "fraction"))
+
+
+@pytest.mark.parametrize("porte", [None, 2, True, "2", 2.0, -1])
+def test_plan_porte(porte):
+    from sim.plan import PlanInvalide
+    donnees = _donnees_plan()
+    donnees["rues"][0]["porte_cell_id"] = porte
+    if isinstance(porte, bool) or (porte is not None and (type(porte) is not int or porte < 0)):
+        with pytest.raises(PlanInvalide, match="porte"):
+            _construire_plan(donnees)
+        return
+    document = _construire_plan(donnees).to_dict()
+    assert document["rues"] and _construire_plan(document).to_dict() == document
+    if porte is None:
+        assert document == _construire_plan(_donnees_plan()).to_dict()
+        assert "porte_cell_id" not in document["rues"][0]
+    else:
+        assert document["rues"][0]["porte_cell_id"] == porte
