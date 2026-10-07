@@ -40,9 +40,11 @@ Ce qui existe sur master (e714cfe), vérifié le 07/10/2026 :
   |---|---|---|---|---|
   | 0 | rien : 0 rue, 0 parcelle, 0 bâtiment | — | — | — |
   | 1 | la route `plaine` du jeu de gestes (11 points, 4 m) | 5/200 | — | — |
-  | 2 | la parcelle : segment 5, à gauche, début 1 m, façade 8 m, profondeur 15 m | 10/200 | 5/12 cordeau | — |
-  | 3 | la scierie sur la parcelle 0 | 15/200 | 10/12 cordeau | 0/240 piquets |
-  | 10 | sept ticks plus tard | 50/200 | 12/12 bornes | 30/240 piquets |
+  | 2 | la parcelle : segment 5, à gauche, début 0,5 m, façade 9 m, profondeur 15 m (135 m²) | 10/200 | 5/14 cordeau | — |
+  | 3 | la scierie sur la parcelle 0 | 15/200 | 10/14 cordeau | 0/270 piquets |
+  | 10 | sept ticks plus tard | 50/200 | 14/14 bornes | 30/270 piquets |
+
+  Les requis de la parcelle et de la scierie sont **calculés, non mesurés** : la recette rejouée posait une façade de 8 m (requis 12 et 240), et la parcelle a été élargie à 9 m ensuite (voir l'étape 3 de la session `jouer`). Ils suivent `jeu/sim/MODELE.md`, « Le chantier et ses bras » : environ 14 journées pour la parcelle (`ceil(9 × 15 × 0,1)`) et 270 pour la scierie (`ceil(135 × 2)`), les clics étant arrondis au centimètre. La parcelle est au `cordeau` aux ticks 2 et 3, puis aux `bornes` au tick 10 ; la scierie reste aux `piquets`, avec 30/270 au tick 10.
 
 Le lot ne s'appuie sur rien que J2 ou J3 doivent encore livrer : `/plan`, les trois gestes, l'étape Chantiers, l'outil, ses modes, #361, #362, #369 et #370 sont sur master.
 
@@ -71,7 +73,7 @@ Précisions :
   - **Session `jouer`** (service neuf). Chaque étape qui échoue ajoute un défaut qui la nomme, et la session s'arrête là. Les étapes :
     1. `outil.automatique = true`, puis le relevé `ouverture`.
     2. **La route.** La première route `famille == "plaine"` de `DesertRoads.Lire(implantation)`. La vue est posée de haut (`ville.Poser(milieu de la route, ville.Cap, 85, 160)`, sur une `RenderTexture` 1600 × 900, comme `Lot293.Depot`). Puis `outil.largeur = g.largeur`, `Annuler()`, un `Clic` par point, et `Valider()` (Entrée). L'essai et le reçu doivent être acceptés. Ensuite `Lot362.Tick`, puis `Attendre()` doit rendre vrai. Le plan doit compter **une** rue de plus, et `Posees` doit l'avoir acceptée.
-    3. **La parcelle.** `EntrerParcelle()` (P), puis `Lot375.Cliquer` aux coins `Point(rue, 5, 1, 3)` et `Point(rue, 5, 9, 17)`, en visant `Milieu(terrain, rue, 5)`. Puis `ValiderParcelle()` (Entrée) : `Tracee.Presente` et le reçu accepté. Ensuite `Lot362.Tick` et `Attendre()`. Le plan doit compter une parcelle de plus, dessinée `cordeau`.
+    3. **La parcelle.** `EntrerParcelle()` (P), puis `Lot375.Cliquer` aux coins `Point(rue, 5, .5, 3)` et `Point(rue, 5, 9.5, 17)`, en visant `Milieu(terrain, rue, 5)`. La raison de ces coins : la scierie aux piquets fait 8,52 m de large dans `unity-kit.json`, et une façade de 8 m la fait refuser par la vue (c'est la contre-épreuve de `Lot369.cs:25`) ; le segment 5 de la route `plaine` mesure 9,999 m, donc une façade de 10 m n'y tient pas ; une façade de 9 m laisse 0,24 m de marge de chaque côté. Puis `ValiderParcelle()` (Entrée) : `Tracee.Presente` et le reçu accepté. Ensuite `Lot362.Tick` et `Attendre()`. Le plan doit compter une parcelle de plus, dessinée `cordeau`.
     4. **L'atelier.** `EntrerBatiment(PoseDeBatiment.Natures[1])` (touche 2), puis un `Lot375.Cliquer` au centre du contour de la parcelle : `Pose.Presente`, nature `scierie`, sur cette parcelle, reçu accepté. Ensuite `Lot362.Tick` et `Attendre()`. Le plan doit compter un bâtiment de plus, `scierie` sur cette parcelle, dessiné `piquets`.
     5. **Le temps.** `TICKS_APRES = 7` fois `Lot362.Tick`, puis `outil.Rafraichir()` (s'il rend faux, c'est un défaut).
     6. **La ville locale.** Si la consigne dit `ville_locale`, la première route `famille == "flanc"` est posée par `roads.Poser(g)`, sans dépôt ni essai : une rue que seul Unity connaît. Si le relief la refuse, c'est un défaut : la contre-épreuve ne doit jamais passer à vide.
