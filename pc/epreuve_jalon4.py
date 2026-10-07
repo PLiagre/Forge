@@ -1,6 +1,8 @@
 """Prouve les gestes HTTP par leur rejeu CLI exact et la conservation des foyers."""
 import argparse, json, subprocess, sys, threading
+import hashlib, os, time
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -10,6 +12,9 @@ from sim import constants as constantes, service
 MONDES = ("monde-service.json", "monde-rejoue.json", "monde-sans-gestes.json")
 ADRESSE = (service.SERVICE_HOST, service.DEFAULT_SERVICE_PORT)
 DELAI_HTTP, DELAI_CLI, DELAI_ARRET = 10, 60, 5
+DELAI_UNITY, MARGE_RAPPORT = 900, 2
+RECETTE_UNITY = (0, 10, 1175)
+STATUTS = ("égalité du monde", "relancement", "sans geste", "foyers", "gestes")
 
 def serialiser(document):
     return json.dumps(document, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode("utf-8")
@@ -110,6 +115,148 @@ def recette(cellule):
                                   debut_m=5, facade_m=10, profondeur_m=20, cote="gauche")),
             (5, "batiments", dict(type="poser_batiment", cell=cellule, parcelle=0, nature="maison"))]
 
+def rejouer(sortie, ticks, seed):
+    for nom, gestes in ((MONDES[1], True), (MONDES[2], False)):
+        cmd = [sys.executable, "-m", "sim", "--ticks", str(ticks), "--seed", str(seed), "--monde-json", str(sortie / nom)]
+        if gestes: cmd += ["--gestes", str(sortie / "journal.json")]
+        fait = subprocess.run(cmd, cwd=JEU, capture_output=True, timeout=DELAI_CLI)
+        if fait.returncode: raise OSError("rejeu CLI refusé : " + fait.stderr.decode("utf-8", errors="replace"))
+def charger_aides():
+    """Les aides 3D ne se chargent que pour --avec-unity : les tests HTTP n'en dépendent pas."""
+    racine = Path(__file__).resolve().parents[1] / "3d"
+    if str(racine) not in sys.path: sys.path.insert(0, str(racine))
+    from local3d.atelier_alpin import UNITY; from local3d.atelier_citadelle import prepare_terrain_sample
+    from local3d.atelier_desert import PREUVE, RECIPE; from local3d.desert import terrain; from local3d.desert.routes import ecrire_gestes
+    return {"unity": UNITY, "preuve": dict(PREUVE), "disposition": RECIPE["dispositions"][0], "ecrire": ecrire_gestes, "sorties": terrain.SORTIES, "projet": racine / "unity", "terrain": prepare_terrain_sample}
+def version_unity(projet):
+    try: return next((l.split(":", 1)[1].strip() for l in (projet / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8").splitlines() if l.startswith("m_EditorVersion:")), "inconnue")
+    except OSError: return "inconnue"
+def revision_eprouvee():
+    git = lambda *a: subprocess.run(("git", *a), cwd=JEU.parent, capture_output=True, text=True, timeout=DELAI_HTTP)
+    tete, blob, commis = git("rev-parse", "HEAD"), git("hash-object", "--", "pc/epreuve_jalon4.py"), git("rev-parse", "HEAD:pc/epreuve_jalon4.py")
+    base = tete.stdout.strip() if tete.returncode == 0 and tete.stdout.strip() else "inconnue"
+    return base if blob.returncode or commis.returncode or blob.stdout.strip() == commis.stdout.strip() else base + " " + blob.stdout.strip()
+def port_occupe():
+    import socket; prise = socket.socket(); prise.settimeout(1); occupe = prise.connect_ex(ADRESSE) == 0; prise.close(); return occupe
+def verifier_prealables(aides):
+    if not Path(aides["unity"]).is_file(): raise OSError(f"Unity introuvable : {aides['unity']}")
+    ident, projet = aides["disposition"]["id"], aides["projet"]; scene = projet / f"Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_Ville_{ident}.unity"
+    if not scene.is_file(): raise OSError("scène absente")
+    manquantes = [n for n in ("terrain.json", "hauteurs.f32") if not (aides["sorties"] / ident / n).is_file()]
+    if manquantes: raise OSError("données locales absentes (" + ", ".join(manquantes) + ") : lancer py local3d/atelier_desert.py terrain")
+    if (projet / "Temp" / "UnityLockfile").exists(): raise OSError("Unity est ouvert : fermer l'éditeur")
+def preparer_sessions(aides, ville_locale):
+    ident = aides["disposition"]["id"]; aides["ecrire"](ident, aides["disposition"]["seed"]); dossier = aides["sorties"] / ident / "preuve"
+    (aides["sorties"] / "selection.json").write_text(json.dumps({"implantations": [ident]}), encoding="utf-8"); dossier.mkdir(parents=True, exist_ok=True)
+    for chemin in dossier.glob("*.json"): chemin.unlink()
+    (dossier / "consigne.json").write_text(json.dumps({"ville_locale": bool(ville_locale)}), encoding="utf-8"); return dossier
+def appeler_unity(aides, nom, sortie):
+    log = sortie / "logs" / f"{nom}.log"; log.parent.mkdir(parents=True, exist_ok=True)
+    try: aides["terrain"]()
+    except RuntimeError as exc: raise OSError(str(exc)) from exc
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+    proc = subprocess.Popen([str(aides["unity"]), "-batchmode", "-projectPath", str(aides["projet"]), "-executeMethod", aides["preuve"][nom], "-logFile", str(log)], cwd=str(aides["projet"].parent), creationflags=flags)
+    try: return proc.wait(timeout=DELAI_UNITY)
+    except subprocess.TimeoutExpired:
+        (subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, timeout=30) if os.name == "nt" else proc.kill())
+        proc.wait(timeout=30); raise OSError(f"délai Unity dépassé ({DELAI_UNITY} s)")
+def lire_defauts(nom, rapport):
+    brut = rapport.get("defauts") if isinstance(rapport, dict) else None
+    exiger(isinstance(brut, list) and all(type(d) is str for d in brut), f"{nom} : défauts absents"); return brut
+def lire_session(dossier, nom, debut, code):
+    chemin = dossier / f"{nom}.json"
+    if not chemin.is_file(): raise OSError(("session en erreur : " if code not in (0, 1) else "rapport absent : ") + nom)
+    if chemin.stat().st_mtime + MARGE_RAPPORT < debut: raise OSError("rapport ancien : " + nom)
+    if code not in (0, 1): raise OSError(f"session en erreur : {nom}, Unity a rendu {code}")
+    rapport = json.loads(chemin.read_text(encoding="utf-8-sig")); pannes = [d for d in lire_defauts(nom, rapport) if "exception :" in d]
+    if pannes: raise OSError(" ; ".join(pannes))
+    return rapport
+def juger_recus(journal, gestes):
+    pareil = isinstance(gestes, list) and len(gestes) == len(journal) and all(e.get("tick") == g.get("apres_le_tick") and e.get("intention", {}).get("type") == g.get("type") for e, g in zip(journal, gestes))
+    exiger(pareil, "reçu Unity différent du journal")
+def juger_monde_relance(avant, apres, journal_avant, journal_apres):
+    exiger(avant == apres, "monde changé pendant la relance"); exiger(journal_avant == journal_apres, "journal changé pendant la relance")
+def fautes_dessin(jouer, relance, vierge, ticks):
+    j, r, v = jouer["ville"], relance["ville"], vierge["ville"]; bat, vide = j["batiments_plan"], hashlib.sha256(b"").hexdigest()
+    gardes = [(not (j["tick"] == ticks and len(j["rues"]) == 1 and j["rues"] == j["rues_posees"]), "jouer : une rue au tick de la recette"), (not (len(j["parcelles_plan"]) == 1 and j["parcelles_plan"][0]["etat"] == "bornes"), "jouer : parcelle aux bornes"),
+              (not (len(bat) == 1 and bat[0]["nature"] == "scierie" and bat[0]["etat"] == "piquets"), "bâtiment absent"), (j["pieces_parcelles"] != 1 or j["pieces_batiments"] != 1, "jouer : une pièce de chaque type")]
+    fautes = [message for garde, message in gardes if garde]; locale = jouer.get("ville_locale") or relance.get("ville_locale")
+    for nom in ("rues", "rues_posees", "parcelles", "batiments", "pieces_parcelles", "pieces_batiments", "empreinte_rues", "empreinte_parcelles", "empreinte_batiments"):
+        if j.get(nom) == r.get(nom): continue
+        message = "empreinte de relance différente : empreinte des rues" if nom == "empreinte_rues" else f"empreinte de relance différente : {nom}" if nom.startswith("empreinte") else f"relance : {nom}"
+        fautes.append(message + (" ; c'est le redessin qui échoue ; l'égalité Python peut rester vraie" if nom == "empreinte_rues" and locale else ""))
+    if v["tick"] != 0 or v["rues"] or v["parcelles_plan"] or v["batiments_plan"]: fautes.append("vierge : le plan n'est pas vide")
+    if v["pieces_parcelles"] != 0 or v["pieces_batiments"] != 0: fautes.append("pièce dans le rapport vierge")
+    if v["empreinte_rues"] != vierge["vierge"]: fautes.append("vierge : empreinte des rues différente du terrain vierge")
+    if v["empreinte_parcelles"] != vide or v["empreinte_batiments"] != vide: fautes.append("vierge : dessin non vide")
+    return fautes
+def juger_dessin(jouer, relance, vierge, ticks):
+    fautes = fautes_dessin(jouer, relance, vierge, ticks); exiger(not fautes, " ; ".join(fautes))
+def poser(statuts, nom, fautes, tenu): statuts[nom] = ["violé", " ; ".join(fautes)] if fautes else ["tenu", tenu]
+def plan_vide(monde): return all(not plan.get(cle) for plan in monde["plans"].values() for cle in ("rues", "parcelles", "batiments"))
+def juger_essai(args, sortie, statuts, ident, rapports, avant, apres, journal_avant, journal_apres):
+    jouer, relance, vierge = (rapports[n] for n in ("jouer", "relance", "vierge")); relance_fautes, vierge_fautes, pannes = [], [], []
+    for nom, rapport in rapports.items():
+        if (rapport.get("session"), rapport.get("cell"), rapport.get("port")) != (nom, args.cellule, ADRESSE[1]): relance_fautes.append(f"{nom} : session, cellule ou port inattendus")
+        if rapport.get("implantation") != ident: relance_fautes.append(f"{nom} : implantation {rapport.get('implantation')}")
+        brut = lire_defauts(nom, rapport); pannes += [d for d in brut if "exception :" in d]
+        if brut and not any("exception :" in d for d in brut): (vierge_fautes if nom == "vierge" else relance_fautes).append(f"{nom} : {len(brut)} défaut(s)")
+    if pannes: [statuts.__setitem__(cle, ["non exécuté", " ; ".join(pannes)]) for cle in STATUTS]; return 2
+    try: juger_monde_relance(avant, apres, journal_avant, journal_apres)
+    except ValueError as exc: relance_fautes.append(str(exc))
+    ticks = json.loads(apres)["ticks_ecoules"]; exiger(type(ticks) is int and ticks >= 1, "monde : ticks écoulés absents"); horloge = []
+    if not args.service_sourd and ticks != args.ticks: horloge.append("le normal exige 10 ticks")
+    if jouer["ville"].get("tick") != ticks or relance["ville"].get("tick") != ticks: horloge.append("tick des rapports différent du monde servi")
+    if horloge and not args.service_sourd: relance_fautes.extend(horloge); poser(statuts, "relancement", relance_fautes, ""); return 1
+    relance_fautes.extend(horloge)
+    for faute in fautes_dessin(jouer, relance, vierge, args.ticks): (vierge_fautes if faute.startswith(("vierge", "pièce")) else relance_fautes).append(faute)
+    poser(statuts, "relancement", relance_fautes, "mêmes identifiants, états, pièces et empreintes")
+    if vierge_fautes: poser(statuts, "sans geste", vierge_fautes, "")
+    try: journal, recus = json.loads((sortie / "journal.json").read_bytes()), jouer.get("gestes") or []; juger_recus(journal, recus); exiger([g.get("apres_le_tick") for g in recus] == [0, 1, 2], "gestes : ticks attendus 0, 1 et 2"); statuts["gestes"] = ["tenu", "journal identique aux reçus, ticks 0, 1 et 2"]
+    except (ValueError, KeyError, TypeError) as exc: statuts["gestes"] = ["violé", str(exc)]
+    rejouer(sortie, ticks, args.seed); octets = [(sortie / nom).read_bytes() for nom in MONDES]; mondes = [json.loads(d) for d in octets]
+    try: [controler_foyers(monde) for monde in mondes]; statuts["foyers"] = ["tenu", f"{len(mondes[0]['cells'])} cellules, personnes conservées"]
+    except (ValueError, KeyError, TypeError) as exc: statuts["foyers"] = ["violé", str(exc)]
+    if octets[0] == octets[1] != octets[2]: statuts["égalité du monde"] = ["tenu", f"octets égaux sur {ticks} ticks"]
+    elif octets[0] != octets[1]: statuts["égalité du monde"] = ["violé", "écart entre monde servi et monde rejoué"]
+    else: statuts["égalité du monde"] = ["violé", "témoin : aucun effet des gestes"]
+    try: bilan = juger(*octets, json.loads((sortie / "journal.json").read_bytes()), ticks); statuts.__setitem__("égalité du monde", ["violé", "échantillon vide"]) if not bilan["cellules_modifiees"] or not bilan["plans_modifies"] else None
+    except (ValueError, KeyError, TypeError) as exc: bilan = None; statuts.update({"égalité du monde": ["violé", str(exc)]}) if statuts["égalité du monde"][0] == "tenu" else None
+    if not plan_vide(mondes[2]) or mondes[2].get("ticks_ecoules") != ticks: vierge_fautes.append("témoin : le plan n'est pas vide au tick servi")
+    if vierge_fautes: poser(statuts, "sans geste", vierge_fautes, "")
+    elif statuts["sans geste"][0] != "violé": statuts["sans geste"] = ["tenu", f"plan vide au tick 0, témoin sans geste au tick {ticks}"]
+    if any(e[0] == "violé" for e in statuts.values()): return 1
+    if any(e[0] != "tenu" for e in statuts.values()): return 2
+    (sortie / "bilan.json").write_bytes(serialiser(bilan)); return 0
+def ecrire_verdict(sortie, args, code, statuts, version, revision, motif):
+    drapeau = (" --service-sourd" if args.service_sourd else "") + (" --ville-locale" if args.ville_locale else "")
+    lignes = [("preuve valide", "invariant violé", "essai impossible")[code], "commande : py pc/epreuve_jalon4.py --avec-unity --sortie " + str(args.sortie) + drapeau, "date : " + datetime.now().astimezone().isoformat(timespec="seconds"), "révision : " + revision, "unity : " + version, f"code : {code}"]
+    lignes += [f"{nom} : {statuts[nom][0]} — {statuts[nom][1]}" for nom in STATUTS]
+    if motif: lignes.append("motif : " + motif)
+    texte = "\n".join(lignes) + "\n"; (sortie / "verdict.txt").write_text(texte, encoding="utf-8"); print(texte, end="")
+def epreuve_unity(args):
+    sortie = args.sortie.resolve(); sortie.mkdir(parents=True, exist_ok=True); statuts = {nom: ["non exécuté", "contrôle non exécuté"] for nom in STATUTS}
+    version, revision, motif, code = "inconnue", revision_eprouvee(), "", 2
+    try:
+        if (args.seed, args.ticks, args.cellule) != RECETTE_UNITY: raise OSError("la recette Unity fixe la graine 0, la cellule 1175 et 10 ticks")
+        aides = charger_aides(); version = version_unity(aides["projet"]); verifier_prealables(aides)
+        if port_occupe(): raise OSError(f"port {ADRESSE[0]}:{ADRESSE[1]} indisponible")
+        for nom in (*MONDES, "journal.json", "bilan.json", "verdict.txt", "jouer.json", "relance.json", "vierge.json"): (sortie / nom).unlink(missing_ok=True)
+        dossier, debut = preparer_sessions(aides, args.ville_locale), time.time()
+        with lancer_service(sortie, args.seed, args.service_sourd):
+            jouer = lire_session(dossier, "jouer", debut, appeler_unity(aides, "jouer", sortie)); avant, journal_avant = http("/monde-complet"), (sortie / "journal.json").read_bytes()
+            relance = lire_session(dossier, "relance", debut, appeler_unity(aides, "relance", sortie)); apres, journal_apres = http("/monde-complet"), (sortie / "journal.json").read_bytes(); (sortie / MONDES[0]).write_bytes(apres)
+        (sortie / "service-vierge").mkdir(parents=True, exist_ok=True)
+        with lancer_service(sortie / "service-vierge", args.seed, False): vierge = lire_session(dossier, "vierge", debut, appeler_unity(aides, "vierge", sortie))
+        for nom in ("jouer", "relance", "vierge"): (sortie / f"{nom}.json").write_bytes((dossier / f"{nom}.json").read_bytes())
+        code = juger_essai(args, sortie, statuts, aides["disposition"]["id"], {"jouer": jouer, "relance": relance, "vierge": vierge}, avant, apres, journal_avant, journal_apres)
+        if code: motif = " ; ".join(f"{nom} — {etat[1]}" for nom, etat in statuts.items() if etat[0] == ("violé" if code == 1 else "non exécuté"))
+    except (OSError, subprocess.SubprocessError, RuntimeError) as exc: code, motif = 2, str(exc)
+    except (ValueError, KeyError, TypeError) as exc: code, motif = 1, str(exc)
+    ecrire_verdict(sortie, args, code, statuts, version, revision, motif)
+    if code: print(("Invariant violé : " if code == 1 else "Essai impossible : ") + motif, file=sys.stderr)
+    return code
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sortie", type=Path, required=True)
@@ -117,12 +264,16 @@ def main(argv=None):
     parser.add_argument("--ticks", type=int, default=10)
     parser.add_argument("--cellule", type=int, default=1175)
     parser.add_argument("--service-sourd", action="store_true")
+    parser.add_argument("--avec-unity", action="store_true"); parser.add_argument("--ville-locale", action="store_true")
     args = parser.parse_args(argv)
+    if args.ville_locale and not args.avec_unity: print("Essai impossible : --ville-locale n'est admis qu'avec --avec-unity", file=sys.stderr); return 2
+    if args.avec_unity: return epreuve_unity(args)
     sortie = args.sortie.resolve()
     try:
         sortie.mkdir(parents=True, exist_ok=True)
         for nom in (*MONDES, "journal.json", "bilan.json"): (sortie / nom).unlink(missing_ok=True)
         if args.ticks <= 5: raise OSError("la recette exige au moins 6 ticks")
+        if port_occupe(): raise OSError(f"port {ADRESSE[0]}:{ADRESSE[1]} indisponible")
         with lancer_service(sortie, args.seed, args.service_sourd):
             ecoules = 0
             chemin = f"/plan?cell={args.cellule}"
