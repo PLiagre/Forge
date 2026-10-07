@@ -505,8 +505,10 @@ def test_depart_deterministe_sans_effet_sur_les_cellules():
         assert copie["cells"] == etats[0]["cells"]
     assert etats[0] == etats[1] and empreintes[0] == empreintes[1]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[-1]) == {"cells", "plans", "ticks_ecoules"}
+    assert set(etats[-1]) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert etats[-1]["maisons"]
     for etat in etats:
+        assert etat["maisons"] == etats[-1]["maisons"]
         assert etat["cells"] == etats[-1]["cells"]
         assert etat["plans"] == etats[-1]["plans"]
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
@@ -561,7 +563,10 @@ def test_gestes_routes_deterministes_seule_la_cellule_du_chantier():
     for etat in (etats[0], etats[1], etats[3]):
         assert [rue["travail_fourni"] for rue in etat["plans"][str(route["cell"])]["rues"]] == [10 * k.TAILLE_FOYER, 7 * k.TAILLE_FOYER]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules"}
+    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert etats[2]["maisons"]
+    for etat in etats:
+        assert etat["maisons"] == etats[2]["maisons"]
     assert all(plan == {"rues": [], "parcelles": [], "batiments": []}
                for plan in etats[2]["plans"].values())
     assert len(etats[0]["plans"][str(route["cell"])]["rues"]) == 2
