@@ -1790,6 +1790,45 @@ ce bloc construit une seule fois dans `snapshot_export.py` ; les cellules resten
 la cellule de son siège, population amorcée. **Niveau 3, pas simulé :**
 frontières réelles, suzeraineté hors des seuls liens de départ du registre, et villes hors carte, déclarées sans placement.
 
+## La carte et les terres servies, vue dérivée
+
+`GET /carte` sert `crs` (`EPSG:3035`), `tolerance_m`, la `version` de la
+carte, `cell_count`, `cells` triées par `cell_id` et `villes_hors_carte`.
+Chaque cellule porte exactement `cell_id`, `contour` (toujours un
+`MultiPolygon`), `relief`, `puissance`, `maison` (`id`, `nom` ou `null`)
+et `villes` (`nom`, `population`, `x_m`, `y_m`), triées par nom. Les identités
+et les villes viennent des mêmes vues que la photographie ; les villes
+hors carte sont déclarées par leurs noms triés. Aucun tick, stock ou
+population de cellule n'entre dans ce document.
+
+Douglas-Peucker simplifie chaque anneau à `TOLERANCE_CONTOUR_M = 1000` mètres,
+en gardant son premier sommet, puis arrondit ses coordonnées au mètre.
+Une garde sur ce résultat exige `SOMMETS_MIN_ANNEAU = 4` points par anneau
+(fermeture comprise) et conserve le point témoin. Celui-ci est le centroïde
+de la carte s'il est intérieur ; certains contours concaves l'excluent déjà.
+Dans ce cas, le témoin est le milieu du plus large intervalle intérieur sur
+l'horizontale du centroïde, calculé par intersections selon la règle pair-impair.
+Sans intervalle, la cellule est refusée explicitement. Si la simplification
+perd un anneau ou le témoin, la cellule sert son contour d'origine arrondi ;
+si ce repli perd encore le témoin, elle est refusée avec son `cell_id`.
+
+Les octets de `/carte`, la vue des puissances et les tables des seigneuries,
+puissances et maisons sont calculés à la première lecture de `/carte` ou
+`/departs`, sous un verrou propre, puis figés pour la partie.
+`GET /departs` recalcule à chaque requête `tick`, `date` et `departs` : les
+fiches triées par `id`, exactement dans la forme de `terre_choisie` de la
+photographie. `fiche_de_seigneurie` accepte `vue=None` : sans vue fournie,
+elle recalcule les puissances ; avec la vue figée, seuls les contours et
+les ancres de 1400 sont réutilisés. Les fiches dérivent des tables et du
+monde sous le verrou du tick, sans cache des nombres du monde et sans
+calcul supplémentaire à chaque tick. Une erreur de construction rend
+`500` avec `erreur`, sans arrêter le service.
+
+**Niveau 1 :** trait des contours de la carte figée, puissances, maisons et
+villes avec leurs sources. **Niveau 2, plausible :** simplification à 1 km,
+approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
+frontières réelles, comme dans la photographie.
+
 ## Les lieux d'une cellule, vue dérivée
 
 La surface `area_km2` d'une cellule de la carte se partage en lieux. Leur
