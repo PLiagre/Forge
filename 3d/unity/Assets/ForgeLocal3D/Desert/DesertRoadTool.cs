@@ -25,6 +25,8 @@ namespace ForgeLocal3D
     // Lot 375 : P passe en mode parcelle. Deux coins posés le long d'une rue, Entrée calcule la parcelle
     // (TraceDeParcelle) et dépose `decouper_parcelle` au monde ; Attendre la dessine au tick suivant. Un refus
     // de l'outil n'atteint jamais le monde ; celui du monde s'affiche avec sa raison. Échap ramène aux routes.
+    // Lot 377 : 1, 2, 3 passent en mode bâtiment (maison, scierie, four). Un clic sur une parcelle forme la pose
+    // (PoseDeBatiment) et dépose `poser_batiment` au monde ; Attendre dessine la pièce au tick suivant.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -62,8 +64,13 @@ namespace ForgeLocal3D
         // Lot 375 : le mode parcelle, et le dernier calcul de l'outil (null tant qu'aucun n'a été fait).
         public bool ModeParcelle{get;private set;}
         public ParcelleTracee Tracee{get;private set;}
-        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle";
+        // Lot 377 : la nature choisie (null hors du mode bâtiment), et le dernier calcul de pose (null tant qu'aucun n'a été fait).
+        public string NatureBatiment{get;private set;}
+        public bool ModeBatiment=>NatureBatiment!=null;
+        public BatimentPose Pose{get;private set;}
+        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment";
         const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
+        const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · Échap : annuler";
         const double PeriodeLecture=.25;
         static readonly TimeSpan Delai=TimeSpan.FromSeconds(1);
 
@@ -98,6 +105,9 @@ namespace ForgeLocal3D
             // Lot 375 : en mode parcelle, l'aide du mode suit toujours l'état, sous le message s'il y en a un.
             if(ModeParcelle)
                 panneau.text=(texte==AideParcelle?"":texte+"\n")+"Parcelle le long d'une rue · "+points.Count+"/2 coin(s)\n"+AideParcelle;
+            // Lot 377 : de même en mode bâtiment.
+            else if(ModeBatiment)
+                panneau.text=(texte==AideBatiment?"":texte+"\n")+"Bâtiment : "+NatureBatiment+" · un clic sur une parcelle\n"+AideBatiment;
             else
             {
                 string etat="Terre battue, "+largeur.ToString("0.#")+" m"+(points.Count>0?" · "+points.Count+" point(s)":"");
@@ -128,7 +138,11 @@ namespace ForgeLocal3D
             if(mouse!=null&&mouse.leftButton.wasPressedThisFrame)Clic(mouse.position.ReadValue());
             if(k==null)return;
             if(k.pKey.wasPressedThisFrame)EntrerParcelle();
-            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else Valider();}
+            // Les chiffres suivent la position physique : sur un clavier AZERTY, la touche « & 1 », sans Maj.
+            if(k.digit1Key.wasPressedThisFrame||k.numpad1Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[0]);
+            if(k.digit2Key.wasPressedThisFrame||k.numpad2Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[1]);
+            if(k.digit3Key.wasPressedThisFrame||k.numpad3Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[2]);
+            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(!ModeBatiment)Valider();}
             if(k.escapeKey.wasPressedThisFrame)Annuler();
         }
         void LateUpdate()=>Placer();
@@ -137,13 +151,18 @@ namespace ForgeLocal3D
         {
             var ray=view.ScreenPointToRay(ecran);
             if(!roads.terrain.GetComponent<TerrainCollider>().Raycast(ray,out var hit,10000)){Afficher("Ce point n'est pas sur le terrain.");return false;}
+            // Lot 377 : en mode bâtiment, le point désigne la parcelle ; il ne s'ajoute pas aux points.
+            if(ModeBatiment){var (x,y)=roads.PointExact(hit.point);PoserBatiment(x,y);return true;}
             if(ModeParcelle&&points.Count>=2){Afficher("Deux coins suffisent : Entrée pour déposer, Échap pour annuler.");return false;}
             points.Add(roads.PointExact(hit.point));Afficher(ModeParcelle?AideParcelle:Aide);return true;
         }
-        public void Annuler(){ModeParcelle=false;points.Clear();Recu=null;Afficher(Aide);}
+        public void Annuler(){ModeParcelle=false;NatureBatiment=null;points.Clear();Recu=null;Afficher(Aide);}
 
         // Lot 375 : le mode parcelle, coins effacés. Échap (Annuler) ramène au mode route.
-        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;Afficher(AideParcelle);}
+        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;Afficher(AideParcelle);}
+
+        // Lot 377 : le mode bâtiment, pour la nature choisie. Elle n'est pas jugée ici : Calculer le fait au clic.
+        public void EntrerBatiment(string nature){points.Clear();Recu=null;Pose=null;ModeParcelle=false;NatureBatiment=nature;Afficher(AideBatiment);}
 
         // Lot 375 : calcule la parcelle des deux coins, puis la dépose au monde, qui reste le seul juge.
         // Le terrain ne bouge pas ici : la parcelle se dessine dans Attendre, d'après le plan du tick suivant.
@@ -168,6 +187,28 @@ namespace ForgeLocal3D
             }
             else Afficher(Recu.Presente?"Le monde refuse la parcelle : "+Recu.Erreur:"Pas de reçu : "+Recu.Absence);
             return Tracee;
+        }
+
+        // Lot 377 : forme la pose sur la parcelle sous le point, puis la dépose au monde, qui reste le seul juge
+        // (« parcelle déjà bâtie » est son refus, pas celui de l'outil). La pièce se dessine dans Attendre, au
+        // tick suivant. L'outil reste en mode bâtiment, avec la même nature.
+        void PoserBatiment(double x,double y)
+        {
+            Recu=null;Pose=null;
+            if(erreurCellule!=null){Afficher(erreurCellule);return;}
+            var lu=plan.Lire(Cellule);
+            if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return;}
+            Pose=PoseDeBatiment.Calculer(lu.Plan,new PointLocal(x,y),NatureBatiment);
+            // Une pose que l'outil refuse n'atteint jamais le monde.
+            if(!Pose.Presente){Afficher("Bâtiment refusé par l'outil : "+Pose.Absence);return;}
+            Recu=depot.Deposer(Pose.IntentionJson);
+            if(Recu.Acceptee)
+            {
+                enAttente=Recu;
+                Afficher("Bâtiment déposé au monde : "+Pose.Nature+" sur la parcelle "+Pose.Parcelle.ToString(CultureInfo.InvariantCulture)
+                    +", dessiné au tick suivant (après le tick "+Recu.AppliqueeAuTick.Value.ToString(CultureInfo.InvariantCulture)+").");
+            }
+            else Afficher(Recu.Presente?"Le monde refuse le bâtiment : "+Recu.Erreur:"Pas de reçu : "+Recu.Absence);
         }
 
         // Essaie la route sur le relief, puis la dépose au monde. Le terrain ne bouge pas ici :
