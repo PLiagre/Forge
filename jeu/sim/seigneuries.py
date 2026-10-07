@@ -114,7 +114,7 @@ def cellule_du_siege(seigneurie, carte) -> int:
     raise PuissanceInvalide(f"seigneurie {seigneurie.id}, champ siege : hors carte")
 
 
-def fiche_de_seigneurie(identifiant, monde, seigneuries=None, table=None, maisons=None) -> Fiche:
+def fiche_de_seigneurie(identifiant, monde, seigneuries=None, table=None, maisons=None, vue=None) -> Fiche:
     """Refuse l'identifiant d'abord, puis dérive la fiche des données actuelles."""
     if isinstance(identifiant, bool) or not isinstance(identifiant, int):
         raise SeigneurieInconnue(f"seigneurie inconnue : {identifiant!r}")
@@ -130,7 +130,8 @@ def fiche_de_seigneurie(identifiant, monde, seigneuries=None, table=None, maison
     cell_id = cellule_du_siege(seigneurie, monde.carte)
     cellule = monde.cells[cell_id]
     puissances = {p.id: p for p in table.puissances}
-    vue = puissances_depuis_monde(monde, table=table)
+    if vue is None:
+        vue = puissances_depuis_monde(monde, table=table)
     cellules = tuple(cid for cid, puissance in vue.items() if puissance == seigneurie.suzerain)
     maison_id = maisons.par_puissance[seigneurie.suzerain]
     maison = next((m for m in maisons.maisons if m.id == maison_id), None)
