@@ -21,6 +21,45 @@ def _id(nom):
     return next(s.id for s in charger_seigneuries() if s.nom == nom)
 
 
+def test_choix_depart_registre(monkeypatch):
+    from copy import deepcopy
+    from sim.intentions import ChoixDepart, IntentionRefusee, deposer_intention
+
+    terres = charger_seigneuries()
+    assert terres, "échantillon vide"
+    def verifier(terre):
+        monde = World.charger(0)
+        identifiant = f"seigneurie-{terre.id}"
+        fiche = next(m for m in monde.maisons if m.id == identifiant)
+        assert (fiche.sorte, fiche.nom, fiche.siege) == ("seigneurie", terre.maison, terre.siege.nom)
+        for sorte in (None, "grande maison"):
+            sans = deepcopy(monde)
+            sans.maisons = tuple(replace(m, sorte=sorte) if m.id == identifiant else m
+                                for m in sans.maisons if sorte is not None or m.id != identifiant)
+            avant = sans.to_dict()
+            with pytest.raises(IntentionRefusee) as erreur:
+                deposer_intention(sans, {"seigneurie": terre.id})
+            assert str(erreur.value) == f"seigneurie inconnue : {terre.id}"
+            assert sans.to_dict() == avant and sans.intentions_en_attente == []
+        choix = deposer_intention(monde, {"seigneurie": terre.id})
+        assert choix == ChoixDepart(terre.id)
+        for applique in (False, True):
+            if applique:
+                engine.tick(monde, random.Random(0), 0)
+                assert monde.maison_du_joueur == monde.to_dict()["maison_du_joueur"] == identifiant
+            avant = monde.to_dict()
+            with pytest.raises(IntentionRefusee) as erreur:
+                deposer_intention(monde, {"seigneurie": terre.id})
+            assert str(erreur.value) == f"départ déjà choisi : {identifiant}"
+            assert monde.to_dict() == avant
+            assert monde.intentions_en_attente == ([] if applique else [choix])
+    for terre in terres:
+        verifier(terre)
+    monkeypatch.setattr(ChoixDepart, "appliquer", lambda choix, monde: setattr(monde, "maison_du_joueur", choix.identifiant))
+    with pytest.raises(AssertionError):
+        verifier(terres[0])
+
+
 CAS_REFUS = [None, True, "Bar", 2.5, max(s.id for s in charger_seigneuries()) + 1]
 
 
@@ -55,10 +94,10 @@ def test_refus_second_choix_et_acceptation():
         if applique:
             engine.tick(monde, random.Random(0), 0)
         avant = monde.to_dict()
-        with pytest.raises(IntentionRefusee, match=f"départ déjà choisi : {bar}"):
+        with pytest.raises(IntentionRefusee, match=f"départ déjà choisi : seigneurie-{bar}"):
             deposer_intention(monde, {"seigneurie": moree})
         assert monde.to_dict() == avant
-        assert monde.maison_du_joueur == (bar if applique else None)
+        assert monde.maison_du_joueur == (f"seigneurie-{bar}" if applique else None)
         assert monde.intentions_en_attente == ([] if applique else [choix])
     print("choix_acceptés=1, refus_observés=2, dataclasses_gelées=1")
 
@@ -90,8 +129,8 @@ def test_applique_seulement_apres_la_garde():
         engine.tick(monde, random.Random(0), 5)
     assert monde.to_dict() == avant and monde.intentions_en_attente == [choix]
     engine.tick(monde, random.Random(0), 0)
-    assert monde.maison_du_joueur == bar and monde.intentions_en_attente == []
-    assert monde.to_dict()["maison_du_joueur"] == bar
+    assert monde.maison_du_joueur == f"seigneurie-{bar}" and monde.intentions_en_attente == []
+    assert monde.to_dict()["maison_du_joueur"] == f"seigneurie-{bar}"
     ordre = _etapes_tick_dans_code(Path(engine.__file__).read_text())
     assert ordre[:2] == ["_valider_numero_tick", "_appliquer_intentions"]
     engine._appliquer_intentions(object())
@@ -122,7 +161,7 @@ def test_service_refus_et_choix():
         assert _poster(port, {"type": "choisir_depart", "seigneurie": moree})[0] == HTTPStatus.CONFLICT
         requete_service(port, "/tick?n=1", "POST")
         _, monde, apres = requete_service(port, "/monde")
-        assert monde["tick"] == 1 and monde["maison_du_joueur"] == bar
+        assert monde["tick"] == 1 and monde["maison_du_joueur"] == f"seigneurie-{bar}"
         statut, erreur, _ = _poster(port, {"type": "choisir_depart", "seigneurie": moree})
         assert statut == HTTPStatus.CONFLICT and "déjà choisi" in erreur["erreur"]
         assert requete_service(port, "/monde")[2] == apres
@@ -244,7 +283,7 @@ def test_route_appliquee_en_tete_et_dans_l_ordre(monkeypatch):
     recevoir_intention(autre, {"type": "choisir_depart", "seigneurie": _id("Duché de Bar")})
     engine.tick(autre, random.Random(0), 0)
     assert autre.plans[a["cell"]].rues[-1].identifiant == 8
-    assert autre.maison_du_joueur == _id("Duché de Bar")
+    assert autre.maison_du_joueur == f"seigneurie-{_id('Duché de Bar')}"
     assert autre.intentions_en_attente == []
     ignore = World.charger(0)
     recevoir_intention(ignore, a)
@@ -855,6 +894,13 @@ def test_ia_lecture_refus_avant_depot(monkeypatch, donnee):
     assert monde.intentions_en_attente == []
 
 
+def test_ia_registre_choix(monkeypatch):
+    ia, _, maisons = _ia_monde()
+    # Éprouver aussi le filtre de décision sans l'exclusion préalable de la vue.
+    monkeypatch.setattr(ia, "maisons_de_l_ia", lambda monde: maisons)
+    test_ia_budget_annuel_et_branches()
+
+
 def test_ia_budget_annuel_et_branches():
     from copy import deepcopy
     from sim import constants as k
@@ -864,7 +910,7 @@ def test_ia_budget_annuel_et_branches():
     assert len([m for m in maisons if m.nom == 'Paléologue']) == 2
     for identifiant in (_id('Despotat de Morée'), _id('Duché de Bar')):
         for attente in (False, True):
-            monde.maison_du_joueur = None if attente else identifiant
+            monde.maison_du_joueur = None if attente else f"seigneurie-{identifiant}"
             monde.intentions_en_attente = [ChoixDepart(identifiant)] if attente else []
             assert {(p['maison']['sorte'], p['maison']['id']) for p in ia.decider_intentions(monde, [])} == couples - {('seigneurie', identifiant)}
     monde.maison_du_joueur, monde.intentions_en_attente = None, []

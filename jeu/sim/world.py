@@ -106,7 +106,7 @@ class World:
                      compris ceux hors carte ; le tick ne le consulte pas.
         plans      : dict cell_id → Plan du bourg (rang 0), chantiers lus au tick.
         intentions_en_attente : choix validés, invisibles avant le tick suivant.
-        maison_du_joueur : identifiant du départ appliqué, ou None sans choix.
+        maison_du_joueur : identifiant de la maison du registre appliquée, ou None sans choix.
         maisons    : tuple initial de fiches gelées, jamais consulté au tick.
     """
 

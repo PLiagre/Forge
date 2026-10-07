@@ -699,7 +699,7 @@ def test_registre_pure(registre):
     monde.carte = dict(reversed(list(monde.carte.items())))
     assert vue == charger()
     for s in documents[-1]["seigneuries"]:
-        monde.maison_du_joueur = s["id"]
+        monde.maison_du_joueur = f"seigneurie-{s['id']}"
         assert vue == charger()
     alteree = copy.deepcopy(documents)
     alteree[0]["maisons"][0]["nom"] = "Altérée"
@@ -812,6 +812,54 @@ def _tick_sans_lecture_registre(monkeypatch, monde, tick, numero):
         garde.setattr(World, "__getattribute__", intercepter)
         tick(monde, random.Random(numero), numero)
     assert acces == []
+
+
+IDENTIFIANTS_SEIGNEURIE_MAL_FORMES = (
+    True, None, "grande-3", "seigneurie-03", "seigneurie-", " seigneurie-3",
+    "seigneurie-3 ", "seigneurie-+3", "seigneurie--3", "seigneurie-3\n", "seigneurie-٣",
+)
+
+
+def test_registre_identifiant(monkeypatch):
+    from sim import seigneuries
+    terres = charger_seigneuries()
+    assert terres, "échantillon vide"
+    attendus = {seigneuries.identifiant_de_seigneurie(s.id) for s in terres}
+    assert attendus == {m.id for m in World.charger(0).maisons if m.sorte == "seigneurie"}
+    for terre in terres:
+        identifiant = seigneuries.identifiant_de_seigneurie(terre.id)
+        assert identifiant == f"seigneurie-{terre.id}"
+        assert seigneuries.numero_de_seigneurie(identifiant) == terre.id
+    def refuser(valeur):
+        with pytest.raises(seigneuries.SeigneurieInconnue) as erreur:
+            seigneuries.numero_de_seigneurie(valeur)
+        assert str(erreur.value) == f"seigneurie inconnue : {valeur!r}"
+    for valeur in (terres[0].id, *IDENTIFIANTS_SEIGNEURIE_MAL_FORMES):
+        refuser(valeur)
+    monkeypatch.setattr(seigneuries, "numero_de_seigneurie", lambda valeur: int(valeur.removeprefix("seigneurie-")))
+    with pytest.raises(pytest.fail.Exception):
+        refuser("seigneurie-03")
+
+
+def test_registre_choix(carte, monkeypatch):
+    from sim.intentions import ChoixDepart, deposer_intention
+    monde = copy.deepcopy(carte[0])
+    terres = charger_seigneuries()
+    assert terres, "échantillon vide"
+    terre = terres[0]
+    registre = monde.maisons
+    deposer_intention(monde, {"seigneurie": terre.id})
+    impur = copy.deepcopy(monde)
+    _tick_sans_lecture_registre(monkeypatch, monde, engine.tick, monde.ticks_ecoules)
+    assert monde.maison_du_joueur == f"seigneurie-{terre.id}"
+    assert any(m.id == monde.maison_du_joueur and m.sorte == "seigneurie" for m in registre)
+    original = ChoixDepart.appliquer
+    def lire(choix, monde):
+        getattr(monde, "maisons")
+        original(choix, monde)
+    monkeypatch.setattr(ChoixDepart, "appliquer", lire)
+    with pytest.raises(RuntimeError, match="registre consulté au tick"):
+        _tick_sans_lecture_registre(monkeypatch, impur, engine.tick, impur.ticks_ecoules)
 
 
 def test_registre_tick(carte, monkeypatch):

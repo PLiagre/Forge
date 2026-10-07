@@ -1557,7 +1557,8 @@ par `positions_du_monde` et refuse une position absente en nommant la cellule.
 
 `maisons_de_l_ia(monde, …)` de `sim/capitales.py` recalcule un tuple gelé :
 d'abord les grandes maisons triées par id, puis les seigneuries de départ
-triées par id, sauf celle de `monde.maison_du_joueur`. Chaque ligne porte
+triées par id, sauf celle dont `identifiant_de_seigneurie(s.id)` vaut
+`monde.maison_du_joueur`. Les ids des lignes restent entiers. Chaque ligne porte
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
@@ -1591,6 +1592,7 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 `sim/registre_maisons.py` charge les trois tables `data/puissances-1400.json`, `data/capitales-1400.json` et `data/seigneuries-1400.json` avec la carte en argument ; des chemins alternatifs permettent les contre-épreuves. Le tuple stable de fiches gelées héritant de `_NoBadSpatialField` comprend toutes les maisons, y compris celle du joueur, sans fusionner les branches homonymes. Chaque fiche porte `id`, `nom`, `sorte`, `suzerain`, `siege` (nom), `cell_id`, `rang` et `hors_carte`.
 Une grande maison a l'id `grande-<id maison>`, son nom et sa capitale ; une puissance sans maison devient `institution-<id puissance>`, nommée comme la puissance, siégeant à son ancre de plus petit id ; chaque départ devient `seigneurie-<id>`, nommé par son champ `maison`, à son siège déclaré.
+La maison du joueur est cette fiche `seigneurie-<n>`, comme toute autre seigneurie du registre. `sim/seigneuries.py` définit seul le format par `identifiant_de_seigneurie(numero)` ; `numero_de_seigneurie` refuse toute valeur non canonique (préfixe exact, chiffres décimaux ASCII sans signe ni zéro de tête).
 Les grandes maisons et institutions sont des racines sans suzerain ; les départs relèvent de la grande maison de leur puissance suzeraine, ou de son institution. Aucun lien supplémentaire ne rattache les grands vassaux des ancres.
 La validation publique refuse une référence inconnue ou tout cycle, même sur soi, avec `PuissanceInvalide` nommant la maison ; elle accepte un registre altéré pour l'éprouver.
 Les ancres sont projetées par `projeter_epsg3035` ; les sièges suivent les polygones, frontière au plus petit `cell_id`, jamais le centroïde le plus proche. Sur carte, le siège est le couple (`cell_id`, `rang = 0`), sans seconde clé spatiale.
@@ -1618,28 +1620,31 @@ La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
 `POST /intention`. `python3 -m forge --depart ID` continue d'appeler
-directement `deposer_intention`, dont le comportement ne change pas.
+directement `deposer_intention`, toujours avec le numéro entier de la terre.
 La table se lit par `charger_seigneuries()` ; `cellule_du_siege` vérifie
-que le siège est dans la carte. Aucune cellule ni aucun plan ne change.
+que le siège est dans la carte. Le dépôt vérifie aussi que `identifiant_de_seigneurie(n)`
+est une fiche de sorte `seigneurie` de `monde.maisons`, sinon refuse la seigneurie inconnue.
+Aucune cellule ni aucun plan ne change.
 
 Le dépôt refuse avant toute mise en attente, par `IntentionRefusee` :
 
 - une valeur absente, booléenne, non entière ou inconnue :
   « seigneurie inconnue : <valeur reçue> » ; un siège hors carte est aussi refusé ;
-- un choix déjà retenu ou en attente : « départ déjà choisi : <id> ».
+- un choix déjà retenu ou en attente : « départ déjà choisi : seigneurie-<n> ».
 
 Le choix accepté est un `ChoixDepart(identifiant)` gelé, placé dans
-`World.intentions_en_attente`. Il reste invisible dans `to_dict()` et les
+`World.intentions_en_attente` ; il garde le numéro entier. Il reste invisible dans `to_dict()` et les
 vues. Au tick suivant, `_appliquer_intentions` vient après la validation du
 numéro et avant la fabrication : elle appelle chaque intention par
 `.appliquer(monde)` dans l'ordre du dépôt, puis vide la liste.
-`ChoixDepart.appliquer` pose `maison_du_joueur`.
+`ChoixDepart.appliquer` pose `maison_du_joueur = identifiant_de_seigneurie(self.identifiant)`
+sans consulter le registre : la validation appartient au dépôt, jamais au tick.
 Un numéro invalide laisse donc les intentions en attente.
 Cette étape ignore les mondes d'épreuve, ne tire aucun aléa et ne lit ni
 n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
 
 `maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
-et `/monde` portent cette clé et l'id choisi ; sans choix, la clé est absente
+et `/monde` portent cette clé et l'identifiant du registre `seigneurie-<n>` ; sans choix, la clé est absente
 et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
@@ -1766,15 +1771,14 @@ triées, UTF-8, `ensure_ascii=False`, séparateurs compacts.
 `--depart` est entier et répétable : chaque valeur se dépose dans l'ordre
 avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
 ni `resume.json`. Avec `--ticks 0`, la commande refuse : « l'intention
-s'applique au tick suivant ». Le compte rendu porte
-`simulation.maison_du_joueur` seulement après un choix appliqué ; la
+s'applique au tick suivant ». Le compte rendu écrit dans
+`resume.json["simulation"]["maison_du_joueur"]` l'identifiant du registre seulement après un choix appliqué ; la
 photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différence.
 
 **Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
-**Niveau 2, plausible :** la maison du joueur réduite à l'id de sa terre,
-donc à la cellule de son siège. **Niveau 3, pas simulé :** ses effets
-(prélèvement, jalon 3), les maisons de l'IA (jalon 5) et les personnes
-(jalon 6). Changer de départ, sauvegarder et recharger ne sont pas simulés.
+**Niveau 2 :** aucun ajout. **Niveau 3, pas simulé ici :** les lieux du joueur,
+son grenier, sa part et son dû au suzerain, et les personnes.
+Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
 
 ## La photographie de 1400, vue dérivée
@@ -1790,9 +1794,11 @@ porte les noms et populations de `charger_villes`, placés par
 
 À la racine, `villes_hors_carte` déclare les noms triés des villes non placées.
 `terre_choisie` vaut `null` sans choix, sinon porte la fiche actuelle de
-`fiche_de_seigneurie`, avec siège, source, cellule, habitants, production,
+`fiche_de_seigneurie(numero_de_seigneurie(world.maison_du_joueur), …)`, dont l'id
+reste entier, avec siège, source, cellule, habitants, production,
 suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
-dans l'ordre de la fiche. **Le tick ne la lit pas.**
+dans l'ordre de la fiche. Un identifiant mal formé lève `SnapshotExportError`
+« seigneurie inconnue », sans modifier le monde. **Le tick ne la lit pas.**
 
 `build_snapshot_document` et `export_snapshot` acceptent `releve_ia=None` :
 aucun calcul de maisons IA ni nouvelle clé, mêmes octets et même version.
@@ -2046,6 +2052,7 @@ identiques au bit près.
 `sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia` : population et faim du rang 0 positives, quelle que soit la cause. Dette, stock vide ou faim des champs ne suffisent pas.
 Hors carte : aucun geste. Cellule, plan, bourg ou faim absent/non calculé : refus nommé avant tout dépôt.
 Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des dépôts acceptés. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
+L'exclusion compare l'identifiant du registre : le numéro d'un `ChoixDepart` en attente est converti par `identifiant_de_seigneurie`, comme celui des lignes de seigneurie.
 Paramètres relus dans `constants.py`. `jouer_ia` utilise uniquement `recevoir_intention`, JSON du joueur intact, puis copie `{tick, maison: {sorte, id}, intention}` après acceptation. `python3 -m sim --ia` joue après les gestes scriptés,
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
 déposés dans les trente premiers jours, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.

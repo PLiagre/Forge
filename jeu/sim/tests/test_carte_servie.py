@@ -37,7 +37,7 @@ def monde():
 @pytest.fixture(scope="module")
 def photographie(monde):
     copie = copy.deepcopy(monde)
-    copie.maison_du_joueur = next(s.id for s in charger_seigneuries() if s.nom == "Duché de Bar")
+    copie.maison_du_joueur = f"seigneurie-{next(s.id for s in charger_seigneuries() if s.nom == 'Duché de Bar')}"
     return build_snapshot_document(copie, 0, 3)
 
 

@@ -132,7 +132,7 @@ def test_depart_et_photographie_ne_differe_que_par_la_terre(tmp_path):
     assert code == 0
     code, sans = _jouer(tmp_path / "sans", "--sans-chronique")
     assert code == 0
-    assert json.loads((avec / "resume.json").read_text())["simulation"]["maison_du_joueur"] == bar
+    assert json.loads((avec / "resume.json").read_text())["simulation"]["maison_du_joueur"] == f"seigneurie-{bar}"
     assert "maison_du_joueur" not in json.loads((sans / "resume.json").read_text())["simulation"]
     photographie = json.loads((avec / "monde.json").read_text())
     temoin = json.loads((sans / "monde.json").read_text())

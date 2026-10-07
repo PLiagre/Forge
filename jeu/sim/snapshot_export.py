@@ -36,7 +36,7 @@ from sim.lieux import lieux_de_cellule
 from sim.ia import maisons_de_l_ia, maisons_actives_30j
 from sim.maisons import charger_maisons, maisons_depuis_monde
 from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
-from sim.seigneuries import SeigneurieInconnue, fiche_de_seigneurie
+from sim.seigneuries import SeigneurieInconnue, fiche_de_seigneurie, numero_de_seigneurie
 from sim.villes import attribuer_villes, charger_villes
 from sim.world import CARTE_PATH, CARTE_RELATIVE, World
 
@@ -303,7 +303,7 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
             if cid is not None:
                 villes_par_cellule[cid].append({"nom": ville.nom, "population": ville.population})
         terre_choisie = None if world.maison_du_joueur is None else _fiche_document(
-            fiche_de_seigneurie(world.maison_du_joueur, world, table=table, maisons=maisons)
+            fiche_de_seigneurie(numero_de_seigneurie(world.maison_du_joueur), world, table=table, maisons=maisons)
         )
     except (PuissanceInvalide, SeigneurieInconnue, ValueError) as exc:
         raise SnapshotExportError(str(exc)) from exc
