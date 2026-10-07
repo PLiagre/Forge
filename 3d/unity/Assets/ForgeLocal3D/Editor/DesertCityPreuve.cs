@@ -220,8 +220,10 @@ namespace ForgeLocal3D
             {
                 if(rue.Points.Count<7)return "la rue "+N(rue.Identifiant)+" n'a que "+rue.Points.Count+" point(s), il faut un segment 5";
                 var avant=Plan().Parcelles.Select(p=>p.Identifiant).ToArray();
+                // 0,5 m après le début du segment 5 (10 m), 9 m de façade, 15 m de profondeur : la scierie aux piquets
+                // (8,52 m de large) déborde d'une façade de 8 m (contre-épreuve du lot 369), pas de celle-ci.
                 tool.EntrerParcelle();
-                Lot375.Cliquer(camera,ville,tool,Lot375.Milieu(terrain,rue,5),Lot375.Point(rue,5,1,3),Lot375.Point(rue,5,9,17));
+                Lot375.Cliquer(camera,ville,tool,Lot375.Milieu(terrain,rue,5),Lot375.Point(rue,5,.5,3),Lot375.Point(rue,5,9.5,17));
                 var tracee=tool.ValiderParcelle();
                 if(tracee==null||tool.Tracee==null||!tool.Tracee.Presente)return "l'outil n'a pas tracé la parcelle : "+tool.Message;
                 var manque=Recu("la parcelle");if(manque!=null)return manque;
