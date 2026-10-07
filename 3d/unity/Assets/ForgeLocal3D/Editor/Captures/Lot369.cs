@@ -22,13 +22,24 @@ namespace ForgeLocal3D.Captures
         const float DISTANCE_M = 70f;
         const int IMAGES_DE_POSE = 10;
         static readonly int[] SEGMENTS = { 4, 6, 8 };
-        static readonly (string nature, int foyers, long fourni, string etat)[] ATTENDUS =
-        {
-            ("maison", 24, 300, "fini"), ("scierie", 12, 180, "murs"), ("four", 1, 15, "piquets"),
-        };
+        // La contre-épreuve du débordement (façade de 8 m) ne change que FACADE_M.
+        const int FACADE_M = 10;
+        const int PROFONDEUR_M = 15;
+        // Le travail requis et fourni trois ticks après la pose, à 10 m × 15 m.
         const long REQUIS = 300;
+        static readonly (string nature, int foyers, long fourni, string etat, EtapeDuBatiment etape)[] ATTENDUS =
+        {
+            ("maison", 24, 300, "fini", EtapeDuBatiment.Fini),
+            ("scierie", 12, 180, "murs", EtapeDuBatiment.Murs),
+            ("four", 1, 15, "piquets", EtapeDuBatiment.Piquets),
+        };
 
         static string N(long v) => v.ToString(CultureInfo.InvariantCulture);
+
+        // Les maillages d'une pièce, dans l'ordre de sa hiérarchie, tous LOD compris : une instance garde
+        // ceux de son prefab, c'est ce qui dit quelle pièce est réellement posée.
+        static Mesh[] Maillages(GameObject go) =>
+            go.GetComponentsInChildren<MeshFilter>(true).Select(f => f.sharedMesh).Where(m => m != null).ToArray();
 
         [ScenarioDeCapture(369, "batiments")]
         static IEnumerator Batiments(Camera camera)
@@ -53,8 +64,8 @@ namespace ForgeLocal3D.Captures
 
             // Trois parcelles de 10 m × 15 m à gauche de la rue, assez grandes pour toutes les pièces du kit.
             string decoupe = "{\"type\":\"decouper_parcelle\",\"cell\":" + N(cellule) + ",\"rue\":" + N(rue) + ",\"segment\":";
-            const string MESURES = ",\"debut_m\":0,\"facade_m\":10,\"profondeur_m\":15,\"cote\":\"gauche\",\"foyers\":100}";
-            Lot362.Deposer(port, SEGMENTS.Select(s => decoupe + s.ToString(CultureInfo.InvariantCulture) + MESURES).ToArray());
+            string mesures = ",\"debut_m\":0,\"facade_m\":" + N(FACADE_M) + ",\"profondeur_m\":" + N(PROFONDEUR_M) + ",\"cote\":\"gauche\",\"foyers\":100}";
+            Lot362.Deposer(port, SEGMENTS.Select(s => decoupe + s.ToString(CultureInfo.InvariantCulture) + mesures).ToArray());
             Lot362.Tick(port);
             Lot362.Tick(port);
             plan = Lot362.Lire(port, cellule);
@@ -73,16 +84,32 @@ namespace ForgeLocal3D.Captures
             if (plan.Batiments.Count < b0 + 3)
                 throw new InvalidOperationException("le plan du tick " + plan.Tick + " compte " + plan.Batiments.Count + " bâtiment(s), il en faut " + (b0 + 3));
             var poses = plan.Batiments.Skip(b0).Take(3).ToArray();
+
+            // Les pièces attendues, lues au kit par l'étape voulue, indépendamment de ce que Dessiner a choisi.
+            var kit = KitDesBatiments.Charger();
+            if (!kit)
+                throw new InvalidOperationException("pas de kit des bâtiments (Resources/KitDesBatiments)");
+            var prefabs = new GameObject[3];
             for (int i = 0; i < 3; i++)
             {
-                var b = poses[i];
-                var a = ATTENDUS[i];
-                if (b.Nature != a.nature || b.TravailFourni != a.fourni || b.TravailRequis != REQUIS || b.EnChantier != (a.fourni < REQUIS))
-                    throw new InvalidOperationException("le bâtiment " + b.Identifiant + " est " + b.Nature + " à " + b.TravailFourni + "/" + b.TravailRequis
-                        + (b.EnChantier ? " en chantier" : " achevé") + ", il faut " + a.nature + " à " + a.fourni + "/" + REQUIS);
+                var attendue = kit.Piece(ATTENDUS[i].nature, ATTENDUS[i].etape);
+                if (!attendue.Presente)
+                    throw new InvalidOperationException("le kit n'a pas la pièce attendue : " + attendue.Absence);
+                prefabs[i] = attendue.Prefab;
+                if (Maillages(prefabs[i]).Length == 0)
+                    throw new InvalidOperationException(prefabs[i].name + " n'a aucun maillage à comparer");
+                // Sans quoi la comparaison des maillages ne distinguerait pas les étapes de cette nature.
+                foreach (EtapeDuBatiment autre in Enum.GetValues(typeof(EtapeDuBatiment)))
+                {
+                    var p = kit.Piece(ATTENDUS[i].nature, autre);
+                    if (autre != ATTENDUS[i].etape && p.Presente && Maillages(p.Prefab).SequenceEqual(Maillages(prefabs[i])))
+                        throw new InvalidOperationException(p.Prefab.name + " a les mêmes maillages que " + prefabs[i].name);
+                }
             }
 
-            // Le code même que le Start de la scène joue au lancement.
+            // Le code même que le Start de la scène joue au lancement. La vue est jugée avant les nombres du plan :
+            // une pièce refusée (par exemple qui déborde d'une façade de 8 m) se lit ainsi au panneau, même
+            // quand le travail requis n'est plus celui de 10 m × 15 m.
             if (!outil.Ouvrir())
                 throw new InvalidOperationException("l'outil n'a pas ouvert la ville : " + outil.Message);
             var etats = outil.Batiments.Skip(Math.Max(0, outil.Batiments.Count - 3)).Select(e => e.etat).ToArray();
@@ -91,15 +118,27 @@ namespace ForgeLocal3D.Captures
                     + string.Join(", ", outil.Batiments.Select(e => e.identifiant + " " + e.etat)) + " (" + outil.Message + ")");
             if (!outil.Message.Split('\n').Any(l => l.StartsWith("Bâtiments : ", StringComparison.Ordinal)))
                 throw new InvalidOperationException("le panneau ne compte pas les bâtiments : " + outil.Message);
+            for (int i = 0; i < 3; i++)
+            {
+                var b = poses[i];
+                var a = ATTENDUS[i];
+                if (b.Nature != a.nature || b.TravailFourni != a.fourni || b.TravailRequis != REQUIS || b.EnChantier != (a.fourni < REQUIS))
+                    throw new InvalidOperationException("le bâtiment " + b.Identifiant + " est " + b.Nature + " à " + b.TravailFourni + "/" + b.TravailRequis
+                        + (b.EnChantier ? " en chantier" : " achevé") + ", il faut " + a.nature + " à " + a.fourni + "/" + REQUIS);
+            }
             var racine = outil.RacineBatiments;
             int posees = outil.Batiments.Count(e => e.etat != "refusee");
             if (racine.childCount != posees)
                 throw new InvalidOperationException("la racine des bâtiments a " + racine.childCount + " enfant(s) pour " + posees + " pièce(s) posée(s)");
-            foreach (var b in poses)
+            for (int i = 0; i < 3; i++)
             {
+                var b = poses[i];
                 var piece = racine.Find("Bâtiment " + N(b.Identifiant));
                 if (piece == null)
                     throw new InvalidOperationException("pas d'enfant « Bâtiment " + b.Identifiant + " » sous la racine des bâtiments");
+                if (!Maillages(piece.gameObject).SequenceEqual(Maillages(prefabs[i])))
+                    throw new InvalidOperationException("le bâtiment " + b.Identifiant + " n'a pas les maillages de " + prefabs[i].name
+                        + " : " + string.Join(", ", Maillages(piece.gameObject).Select(m => m.name)));
                 var pose = LectureDuBatiment.Poser(b);
                 float ecart = new Vector2(piece.position.x - (float)-pose.CentreX, piece.position.z - (float)-pose.CentreY).magnitude;
                 if (ecart >= .01f)
