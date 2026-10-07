@@ -1465,13 +1465,18 @@ des puissances, leurs ancres et leurs cellules restent identiques.
 ## Les seigneuries de départ, vue dérivée
 
 La table `data/seigneuries-1400.json`, datée du **1er janvier 1400**, déclare
-cinq petites seigneuries : le **Duché de Bar** (maison Bar, Robert Ier,
+six petites seigneuries : le **Duché de Bar** (maison Bar, Robert Ier,
 Barrois mouvant relevant de la France), le **Comté de Wurtemberg** (maison
 Wurtemberg, Eberhard III, Saint-Empire), le **Despotat de Morée** (maison
 Paléologue, Théodore Ier, Byzance), la **Terre des Branković** (maison
-Branković, Đurađ, Ottomans) et l'**Uç d'Evrenos** (maison Evrenosoğulları,
-Gazi Evrenos Bey, Ottomans). Bar et Wurtemberg sont catholiques ; Morée
-et Branković sont orthodoxes ; Evrenos est musulman. Bar désigne ici la
+Branković, Đurađ, Ottomans), l'**Uç d'Evrenos** (maison Evrenosoğulları,
+Gazi Evrenos Bey, Ottomans) et l'**Émirat du Zab** (maison Banou Mozni,
+Biskra, Hafsides). Bar et Wurtemberg sont catholiques ; Morée
+et Branković sont orthodoxes ; Evrenos et le Zab sont musulmans. La source
+du Zab déclare « Chef de la maison au 1er janvier 1400 : non sourcé » ;
+cette mention reste visible dans la fiche, la photographie et `/departs`.
+La reprise hafside en 1402 donne un contexte, sans imposer une conquête.
+Bar désigne ici la
 branche de Scarpone. Le projet hospitalier concernant Mistra est postérieur
 au départ : la cession de Corinthe est datée de 1400 par la source publique.
 
@@ -1479,7 +1484,7 @@ Chaque ligne donne un `id`, un `nom`, une `religion` de `RELIGIONS`, le nom
 de sa `maison`, l'identifiant de sa puissance `suzerain`, une `source`
 publique et son `siege` : nom, latitude et longitude en EPSG:4326, coordonnées
 `x_m`, `y_m` en EPSG:3035. Les sièges sont Bar-le-Duc, Stuttgart, Mistra,
-Vučitrn et Giannitsa (Yenice-i Vardar). La cellule du siège est dérivée par
+Vučitrn, Giannitsa (Yenice-i Vardar) et Biskra. La cellule du siège est dérivée par
 `point_dans_geometrie` de `sim/villes.py`, en parcourant les polygones de la
 carte dans l'ordre des `cell_id` ; sur une frontière, le plus petit gagne.
 Le centroïde le plus proche ne sert jamais à cette attribution. Un siège
@@ -1505,10 +1510,12 @@ lève `SeigneurieInconnue`, sous-classe de `LookupError`, avant tout calcul.
   `monde.adjacency`, sans doublon et triées par `cell_id`, chacune avec sa
   puissance (ou `None`) et ses habitants actuels.
 
-**Niveau 1** : seigneur, maison, suzerain et point du siège, vérifiés contre
-des sources publiques. **Niveau 2**, plausible et jamais sourcé : seigneurie
+**Niveau 1** : maison, religion, suzerain et point du siège, vérifiés contre
+des sources publiques ; seigneur quand il est sourcé, chef du Zab déclaré
+non sourcé. **Niveau 2**, plausible et jamais sourcé : seigneurie
 réduite à la cellule entière de son siège, habitants amorcés et production
-de cette cellule, étendue du suzerain suivant ses ancres. Les anomalies
+de cette cellule, étendue du suzerain suivant ses ancres. Les habitants de
+la fiche mesurent la cellule actuelle, pas la ville historique. Les anomalies
 de cette réduction ne sont pas des défauts. **Niveau 3**, pas simulé :
 prélèvement et hommage (jalon 3), personnes, autres seigneuries.
 

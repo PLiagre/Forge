@@ -451,26 +451,36 @@ def test_capitale_frontiere_sans_centroide():
         cellule_de_capitale(capitale, {})
 
 
-def test_capitale_maisons_ia_et_choix(carte):
-    monde = carte[0]
-    seigneuries = charger_seigneuries()
-    vue = maisons_de_l_ia(monde)
-    assert len(vue) == 35
-    assert [m.sorte for m in vue] == ["grande maison"] * 30 + ["seigneurie"] * 5
-    assert [m.id for m in vue[:30]] == sorted(m.id for m in vue[:30])
-    assert [m.id for m in vue[30:]] == [s.id for s in seigneuries]
-    for maison, seigneurie in zip(vue[30:], seigneuries):
+def _preuve_departs_ia(vue, monde, seigneuries, joueur=None):
+    attendues = [s for s in seigneuries if s.id != joueur]
+    departs = [m for m in vue if m.sorte == "seigneurie"]
+    assert attendues and [m.id for m in departs] == [s.id for s in attendues]
+    for maison, seigneurie in zip(departs, attendues):
         assert (maison.nom, maison.capitale, maison.cell_id, maison.source, maison.hors_carte) == (
             seigneurie.maison, seigneurie.siege.nom,
             cellule_du_siege(seigneurie, monde.carte), seigneurie.source, None)
+
+
+def test_capitale_maisons_ia_et_choix(carte):
+    monde = carte[0]
+    seigneuries = charger_seigneuries()
+    capitales = charger_capitales()
+    grandes, total = len(capitales), len(capitales) + len(seigneuries)
+    assert capitales and seigneuries
+    vue = maisons_de_l_ia(monde)
+    assert len(vue) == total
+    assert [m.sorte for m in vue] == ["grande maison"] * grandes + ["seigneurie"] * len(seigneuries)
+    assert [m.id for m in vue[:grandes]] == [c.maison for c in capitales]
+    _preuve_departs_ia(vue, monde, seigneuries)
     assert sum(m.nom == "Paléologue" for m in vue) == 2
     for seigneurie in seigneuries:
         choisi = copy.deepcopy(monde)
         deposer_intention(choisi, {"type": "choisir_depart", "seigneurie": seigneurie.id})
-        assert len(maisons_de_l_ia(choisi)) == 35  # Le dépôt attend le tick.
+        assert maisons_de_l_ia(choisi) == vue  # Le dépôt attend le tick.
         tick(choisi, random.Random(0), 0)
         apres = maisons_de_l_ia(choisi)
-        assert len(apres) == 34 and apres[:30] == vue[:30]
+        assert len(apres) == total - 1 and apres[:grandes] == vue[:grandes]
+        _preuve_departs_ia(apres, choisi, seigneuries, seigneurie.id)
         assert {m.id for m in apres if m.sorte == "seigneurie"} == {
             s.id for s in seigneuries if s.id != seigneurie.id}
         assert any(m.id == 15 and m.capitale == "Constantinople" and m.cell_id == 10374
@@ -478,9 +488,28 @@ def test_capitale_maisons_ia_et_choix(carte):
         if seigneurie.maison == "Bar":
             choisi.maison_du_joueur = None
             fausse = maisons_de_l_ia(choisi)
-            assert len(fausse) == 35
+            assert len(fausse) == total
             with pytest.raises(AssertionError):
                 assert all(m.nom != "Bar" for m in fausse)
+
+
+def test_capitale_zab_contre_epreuves(carte):
+    monde = carte[0]
+    seigneuries = charger_seigneuries()
+    zab = next(s for s in seigneuries if s.nom == "Émirat du Zab")
+    vue = maisons_de_l_ia(monde)
+    sans_zab = tuple(m for m in vue if not (m.sorte == "seigneurie" and m.id == zab.id))
+    with pytest.raises(AssertionError):
+        _preuve_departs_ia(sans_zab, monde, seigneuries)
+    choisi = copy.deepcopy(monde)
+    deposer_intention(choisi, {"type": "choisir_depart", "seigneurie": zab.id})
+    assert maisons_de_l_ia(choisi) == vue
+    tick(choisi, random.Random(0), 0)
+    apres = maisons_de_l_ia(choisi)
+    _preuve_departs_ia(apres, choisi, seigneuries, zab.id)
+    intruse = next(m for m in vue if m.sorte == "seigneurie" and m.id == zab.id)
+    with pytest.raises(AssertionError):
+        _preuve_departs_ia(apres + (intruse,), choisi, seigneuries, zab.id)
 
 
 def test_capitale_vue_pure(carte):

@@ -3268,6 +3268,42 @@ def test_photographie_1400_villes():
     print(f"villes_placées={len(attribution.placees)}, hors_carte={len(attribution.hors_carte)}")
 
 
+def test_photographie_1400_zab():
+    import random
+    from sim.engine import tick
+    from sim.intentions import deposer_intention
+    from sim.snapshot_export import _fiche_document
+
+    monde, doc = _photographie_1400()
+    assert doc["terre_choisie"] is None
+    terres = charger_seigneuries()
+    zab = next(s for s in terres if s.nom == "Émirat du Zab")
+    deposer_intention(monde, {"type": "choisir_depart", "seigneurie": zab.id})
+    assert monde.maison_du_joueur is None
+    assert _photographie_1400(monde)[1]["terre_choisie"] is None
+    tick(monde, random.Random(0), 0)
+    assert monde.maison_du_joueur == zab.id
+    avant = copy.deepcopy(monde.to_dict())
+    fiche = fiche_de_seigneurie(zab.id, monde)
+    doc = _photographie_1400(monde, 1)[1]
+    assert monde.to_dict() == avant
+    attendue = _round_tree(_fiche_document(fiche))
+    assert (attendue["siege"]["nom"], attendue["cell_id"], attendue["maison"],
+            attendue["suzerain"]) == ("Biskra", 10103, "Banou Mozni", {"id": 35, "nom": "Hafsides"})
+    assert attendue["source"] == zab.source
+    assert "Chef de la maison au 1er janvier 1400 : non sourcé" in attendue["source"]
+
+    def verifier(document):
+        assert document["tick"] == 1 and document["terre_choisie"] == attendue
+
+    verifier(doc)
+    sonde = copy.deepcopy(doc)
+    bar = next(s for s in terres if s.nom == "Duché de Bar")
+    sonde["terre_choisie"] = _round_tree(_fiche_document(fiche_de_seigneurie(bar.id, monde)))
+    with pytest.raises(AssertionError):
+        verifier(sonde)
+
+
 def test_photographie_1400_terre():
     import random
     from sim.engine import tick
