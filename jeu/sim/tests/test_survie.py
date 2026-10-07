@@ -1085,3 +1085,161 @@ def test_la_demographie_repond_a_la_natalite(monkeypatch):
         f"La démographie ne répond pas au taux de natalité : "
         f"{s_nul:.6f} / {s_nominal:.6f} / {s_double:.6f}."
     )
+
+
+def _monde_greniers(maisons):
+    """Montage d'épreuve : les maisons viennent du registre, le grain est injecté."""
+    assert maisons
+    monde = World({}, [])
+    monde.maisons = maisons
+    monde.greniers = {maison.id: {} for maison in maisons}
+    monde.pertes_kg = 0.0
+    return monde
+
+
+def _part_perte():
+    return (constantes.PERTE_GRENIER_PAR_AN * constantes.TICK_DURATION_DAYS
+            / constantes.CALENDAR_DAYS_PER_YEAR)
+
+
+def _reste_attendu(stock, ticks):
+    return stock * (1 - _part_perte()) ** ticks
+
+
+def _jouer_greniers(monde, ticks):
+    """Ticks réels ; retourne les retraits alimentaires mesurés par grenier."""
+    nourriture = constantes.MARCHANDISE_NOURRITURE
+    retraits = {identifiant: 0.0 for identifiant in monde.greniers}
+    rng = random.Random(0)
+    for _ in range(ticks):
+        avant = {identifiant: panier.get(nourriture) for identifiant, panier in monde.greniers.items()}
+        tick(monde, rng, monde.ticks_ecoules)
+        for identifiant, stock in avant.items():
+            if stock is not None:
+                retraits[identifiant] += stock - monde.greniers[identifiant][nourriture]
+    return retraits
+
+
+def _stabilite_greniers(monde, vide, zero, autre, marchandise, poids):
+    nourriture = constantes.MARCHANDISE_NOURRITURE
+    assert monde.greniers[vide] == {}
+    assert monde.greniers[zero] == {nourriture: 0.0}
+    assert monde.greniers[autre] == {marchandise: poids}
+    assert nourriture not in monde.greniers[autre]
+
+
+def test_grenier_pertes(monkeypatch):
+    """SC2 — 1 000 t sur un an, au kilogramme près, et les paniers stables."""
+    import sim.engine as engine
+
+    source = World.charger(0)
+    ticks = constantes.CALENDAR_DAYS_PER_YEAR
+    reserve = 1_000_000.0
+    nourriture = constantes.MARCHANDISE_NOURRITURE
+    marchandise = constantes.MARCHANDISE_OBJET
+    poids_autre = 40.0
+    alimentaire, vide, zero, autre = list(source.maisons)[:4]
+    assert len({alimentaire.id, vide.id, zero.id, autre.id}) == 4
+
+    def monter():
+        monde = _monde_greniers(source.maisons)
+        monde.greniers[alimentaire.id][nourriture] = reserve
+        monde.greniers[zero.id][nourriture] = 0.0
+        monde.greniers[autre.id][marchandise] = poids_autre
+        assert monde.greniers[alimentaire.id][nourriture] == reserve
+        return monde
+
+    def mesurer(taux):
+        monkeypatch.setattr(constantes, "PERTE_GRENIER_PAR_AN", taux)
+        monde = monter()
+        retraits = _jouer_greniers(monde, ticks)
+        reste = monde.greniers[alimentaire.id][nourriture]
+        attendu = _reste_attendu(reserve, ticks)
+        assert abs(reste - attendu) < 1
+        assert abs((reserve - reste) - (reserve - attendu)) < 1
+        assert abs(monde.pertes_kg - sum(retraits.values())) < 1
+        _stabilite_greniers(monde, vide.id, zero.id, autre.id, marchandise, poids_autre)
+        return reste, monde.pertes_kg
+
+    nominal = constantes.PERTE_GRENIER_PAR_AN
+    reste, pertes = mesurer(nominal)
+    reste_nul, pertes_nul = mesurer(0.0)
+    reste_autre, pertes_autre = mesurer(nominal * 2)
+    monkeypatch.setattr(constantes, "PERTE_GRENIER_PAR_AN", nominal)
+    assert reste_nul == reserve and pertes_nul == 0.0
+    assert abs(reste - reste_autre) >= 1 and pertes != pertes_autre
+    assert abs(reste_nul - reste) >= 1
+
+    monde = monter()
+    monkeypatch.setattr(engine, "_appliquer_pertes_greniers", lambda world: None)
+    _jouer_greniers(monde, ticks)
+    with pytest.raises(AssertionError):
+        assert abs(monde.greniers[alimentaire.id][nourriture] - _reste_attendu(reserve, ticks)) < 1
+    monkeypatch.undo()
+    monkeypatch.setattr(constantes, "PERTE_GRENIER_PAR_AN", nominal)
+    reel = engine._appliquer_pertes_greniers
+    monkeypatch.setattr(engine, "_appliquer_pertes_greniers", lambda world: (reel(world), reel(world)))
+    monde = monter()
+    _jouer_greniers(monde, ticks)
+    with pytest.raises(AssertionError):
+        assert abs(monde.greniers[alimentaire.id][nourriture] - _reste_attendu(reserve, ticks)) < 1
+    monkeypatch.undo()
+
+    monde = monter()
+    _jouer_greniers(monde, 1)
+    _stabilite_greniers(monde, vide.id, zero.id, autre.id, marchandise, poids_autre)
+    monde.greniers[autre.id][marchandise] -= 1
+    with pytest.raises(AssertionError):
+        _stabilite_greniers(monde, vide.id, zero.id, autre.id, marchandise, poids_autre)
+    monde = monter()
+    monde.greniers[vide.id]["intruse"] = 1.0
+    with pytest.raises(AssertionError):
+        _stabilite_greniers(monde, vide.id, zero.id, autre.id, marchandise, poids_autre)
+    print(f"reste_kg={reste}, pertes_kg={pertes}, ticks={ticks}")
+
+
+def _controler_conservation_grenier(eprouves, lignes):
+    """Bilan de chaque tick ; zéro grenier mesuré est refusé."""
+    assert eprouves and all(stock > 0 for stock in eprouves) and lignes
+    for initial, restant, avant, apres in lignes:
+        assert abs(initial - (restant + (apres - avant))) < 1
+
+
+def test_grenier_conservation():
+    """SC3 — le grain retiré est exactement le cumul, sans remise à zéro."""
+    source = World.charger(0)
+    choisis = list(source.maisons)[:3]
+    assert len(choisis) >= 2
+    nourriture = constantes.MARCHANDISE_NOURRITURE
+    monde = _monde_greniers(source.maisons)
+    for rang, maison in enumerate(choisis, start=1):
+        monde.greniers[maison.id][nourriture] = 1_000_000.0 * rang
+    eprouves = [monde.greniers[maison.id][nourriture] for maison in choisis]
+    assert all(stock > 0 for stock in eprouves)
+    cumul = sum(eprouves)
+    monde.pertes_kg = cumul
+    assert monde.pertes_kg == cumul
+    lignes = []
+    rng = random.Random(0)
+    for _ in range(constantes.CALENDAR_DAYS_PER_YEAR):
+        initial = sum(monde.greniers[maison.id][nourriture] for maison in choisis)
+        avant = monde.pertes_kg
+        tick(monde, rng, monde.ticks_ecoules)
+        restant = sum(monde.greniers[maison.id][nourriture] for maison in choisis)
+        apres = monde.pertes_kg
+        assert apres > avant
+        lignes.append((initial, restant, avant, apres))
+    _controler_conservation_grenier(eprouves, lignes)
+    assert monde.pertes_kg > cumul
+    initial, _, avant, apres = lignes[-1]
+    for maison in choisis:
+        monde.greniers[maison.id][nourriture] = 0.0
+    monde.pertes_kg = avant
+    with pytest.raises(AssertionError):
+        _controler_conservation_grenier(eprouves, [(initial, 0.0, avant, monde.pertes_kg)])
+    delta = apres - avant
+    with pytest.raises(AssertionError):
+        _controler_conservation_grenier(eprouves, [(initial, lignes[-1][1], avant, avant + delta + delta)])
+    with pytest.raises(AssertionError):
+        _controler_conservation_grenier([], lignes)
+    print(f"greniers={len(choisis)}, ticks={len(lignes)}, pertes_kg={apres}")

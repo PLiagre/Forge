@@ -832,3 +832,86 @@ def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
     with pytest.raises(AssertionError):
         _comparer_registre_bit_pres([], [])
     print(f"graines={graine_monde}/{graine_tick}, points_comparés={len(points)}, registre_stable=1")
+
+
+def _point_grenier_bit_pres(monde, alea, retour):
+    """Octets complets, cellules, lieux, bassin, retour et générateur, sans retirer de clé."""
+    octets = json.dumps(monde.to_dict(), sort_keys=True).encode()
+    cellules = pickle.dumps({cid: vars(cellule) for cid, cellule in monde.cells.items()})
+    bassin = pickle.dumps(monde.stocks_mer)
+    reste = pickle.dumps((retour, alea.getstate()))
+    return hashlib.sha256(octets + cellules + bassin + reste).digest()
+
+
+def _comparer_grenier_bit_pres(points, reference):
+    assert points and len(points) == len(reference)
+    for numero, (point, temoin) in enumerate(zip(points, reference)):
+        assert point == temoin, f"divergence au point {numero}"
+
+
+def _garder_siege(plein, vide, maison):
+    """La faim et la consommation du siège ne lisent pas le grenier."""
+    assert plein.cells and vide.cells and plein.cells.keys() == vide.cells.keys()
+    cid = maison.cell_id
+    assert cid in plein.cells
+    for cle in plein.cells:
+        a, b = plein.cells[cle], vide.cells[cle]
+        assert (a.population, a.hunger_ticks, a.food_deficit_kg, a.food_stock_kg) == (
+            b.population, b.hunger_ticks, b.food_deficit_kg, b.food_stock_kg)
+        assert [(lieu.rang, lieu.population, dict(lieu.stocks)) for lieu in a.lieux] == [
+            (lieu.rang, lieu.population, dict(lieu.stocks)) for lieu in b.lieux]
+    siege, temoin = plein.cells[cid], vide.cells[cid]
+    assert siege.hunger_ticks == temoin.hunger_ticks
+    assert siege.food_stock_kg == temoin.food_stock_kg
+    assert siege.food_deficit_kg == temoin.food_deficit_kg
+
+
+@pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (42, 42)))
+def test_grenier_bit_pres(monkeypatch, graine_monde, graine_tick):
+    """SC5 — greniers vides invisibles ; un grenier plein ne nourrit pas le siège."""
+    import math
+    import sim.constants as constantes
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    def course(neutraliser):
+        monde = World.charger(graine_monde)
+        assert monde.maisons and set(monde.greniers) == {maison.id for maison in monde.maisons}
+        assert all(panier == {} for panier in monde.greniers.values()) and monde.pertes_kg == 0.0
+        alea = random.Random(graine_tick)
+        points, retour = [], None
+        with monkeypatch.context() as contexte:
+            if neutraliser:
+                contexte.setattr(engine, "_appliquer_pertes_greniers", lambda world: None)
+            for numero in range(constantes.CALENDAR_DAYS_PER_YEAR + 1):
+                if numero:
+                    retour = engine.tick(monde, alea, numero - 1)
+                points.append(_point_grenier_bit_pres(monde, alea, retour))
+        return monde, alea, points, retour
+
+    normal, alea, points, retour = course(False)
+    _, _, references, _ = course(True)
+    assert normal is not None and len(points) == constantes.CALENDAR_DAYS_PER_YEAR + 1
+    _comparer_grenier_bit_pres(points, references)
+    cellule = next(c for c in normal.cells.values() if lire_stock_marchandise(c, "nourriture") >= 0)
+    stock = lire_stock_marchandise(cellule, "nourriture")
+    ecrire_stock_marchandise(cellule, "nourriture", math.nextafter(stock, math.inf))
+    alteres = points[:-1] + [_point_grenier_bit_pres(normal, alea, retour)]
+    with pytest.raises(AssertionError, match="point 365"):
+        _comparer_grenier_bit_pres(alteres, references)
+    with pytest.raises(AssertionError):
+        _comparer_grenier_bit_pres([], [])
+
+    plein, vide = World.charger(graine_monde), World.charger(graine_monde)
+    maison = next(m for m in plein.maisons if m.cell_id in plein.cells)
+    plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE] = 1_000_000.0
+    assert plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE] > 0
+    aleas = [random.Random(graine_tick) for _ in range(2)]
+    for numero in range(2):
+        for monde, generateur in zip((plein, vide), aleas):
+            engine.tick(monde, generateur, numero)
+    _garder_siege(plein, vide, maison)
+    plein.cells[maison.cell_id].food_stock_kg += plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE]
+    plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE] = 0.0
+    with pytest.raises(AssertionError):
+        _garder_siege(plein, vide, maison)
+    print(f"graines={graine_monde}/{graine_tick}, points={len(points)}")

@@ -26,16 +26,18 @@ part. À chaque tick, dans cet ordre :
    s'appliquent dans l'ordre du dépôt : un choix de départ devient la maison
    du joueur, une route, une parcelle ou un bâtiment entre au plan en chantier ;
    sans cellule ni aléa.
-3. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
+3. **Greniers** (`_appliquer_pertes_greniers`) — chaque réserve de maison
+   perd une part de sa nourriture ; les habitants n'y mangent pas.
+4. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
    puis les rues, les parcelles et enfin les bâtiments dont la parcelle est
    prête prennent leurs bras et comptent les journées fournies.
    **Ateliers** (`_affecter_artisans`) — les scieries et fours achevés prennent les paysans restants.
-4. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
+5. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sans bras ; les artisans façonnent ensuite le reliquat avec un budget commun.
-5. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
+6. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
-6. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
+7. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
@@ -43,30 +45,30 @@ part. À chaque tick, dans cet ordre :
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
    pluie suffisante.
-7. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
+8. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture. Une route achevée avec porte augmente
    le plafond de sa frontière dès ce tick.
-8. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+9. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
    bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
    Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
-9. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+10. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-10. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
+11. **Mortalité** (`_apply_mortality`) — la dette tue, avec report de la
    fraction d'habitant non encore morte pour qu'une petite cellule ne devienne
    pas immortelle par arrondi.
-11. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
+12. **Natalité** (`_apply_natalite`) — une cellule rassasiée et sans dette gagne
    des habitants, avec le même report de fraction.
-12. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
+13. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
     qui a manqué ce tick part vers les voisines dont il reste de la nourriture
     après consommation. Personne n'emporte de kilogrammes.
-13. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
+14. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
     et paniers sont remis d'accord avec les totaux de la cellule.
-14. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+15. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -78,7 +80,8 @@ moment où le monde la lit. La **puissance** et la **maison** dont relève une
 cellule sont pareillement des vues dérivées, jamais un second identifiant
 spatial stocké. Le registre des maisons, distinct de cette tenure dérivée,
 est désormais détenu par `World.maisons` : chargé une fois, il figure dans
-`to_dict()` et n'est jamais lu au tick. Le nombre et les surfaces des **lieux**
+`to_dict()` et n'est jamais lu au tick. Chaque maison a en outre son grenier
+dans `World.greniers`, lu tel quel par le tick. Le nombre et les surfaces des **lieux**
 se dérivent de la surface de la cellule ; ses lieux portent désormais leur population et leur
 panier sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans
 leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
@@ -1597,7 +1600,7 @@ Les grandes maisons et institutions sont des racines sans suzerain ; les départ
 La validation publique refuse une référence inconnue ou tout cycle, même sur soi, avec `PuissanceInvalide` nommant la maison ; elle accepte un registre altéré pour l'éprouver.
 Les ancres sont projetées par `projeter_epsg3035` ; les sièges suivent les polygones, frontière au plus petit `cell_id`, jamais le centroïde le plus proche. Sur carte, le siège est le couple (`cell_id`, `rang = 0`), sans seconde clé spatiale.
 Hors carte, `cell_id` et `rang` sont `None` : Saraï reprend la raison de sa capitale, Venise celle déclarée dans son ancre, sans déplacement ni bourg inventé. Toute raison absente ou vide hors carte, raison sur un point contenu ou géométrie absente est refusée.
-**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : propriété des lieux, hommage matériel, greniers, personnes et succession.
+**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : propriété des lieux, hommage matériel, personnes et succession. Le grenier de chaque maison est conservé à part : voir « Le grenier d'une maison ».
 
 Le lecteur reste pur : il ne modifie ni tables, ni carte, ni monde.
 `World.charger` l'appelle une fois avec sa carte et conserve son tuple de fiches
@@ -1608,6 +1611,37 @@ par `id`, sans rappeler le lecteur ou une vue. Aucun champ n'est ajouté à `Cel
 le siège reste (`cell_id`, `rang`). Le tick ne consulte jamais le registre :
 sans geste, ses octets restent identiques pour toute graine et tout tick, tandis
 que le monde évolue. Les anciennes vues et la sélection de l'IA gardent leur contrat.
+
+## Le grenier d'une maison
+
+Chaque fiche du registre, institutions et maison du joueur comprises, a un
+panier dans `World.greniers` : identifiant de maison → marchandise → kilogrammes.
+Il est vide au chargement, distinct de tous les autres paniers, et `{}` pour
+un `World(...)` sans registre. L'emplacement reste le siège déjà déclaré
+(`cell_id`, `rang`) ; un siège hors carte n'invente pas de lieu. Les fiches
+gardent leurs huit champs.
+
+Après la validation du numéro de tick et avant la fabrication,
+`_appliquer_pertes_greniers` lit ces paniers sans consulter `World.maisons`,
+les tables ni les vues. Les habitants n'y mangent pas. Production, fabrication,
+commerce et répartition ne les remplissent ni ne les déplacent. Un panier vide
+reste vide, une nourriture à zéro reste à zéro, une marchandise absente n'est
+pas ajoutée, et les autres marchandises gardent leur poids.
+
+`PERTE_GRENIER_PAR_AN` vaut 0,25. La part d'un tick est
+`p = PERTE_GRENIER_PAR_AN × TICK_DURATION_DAYS / CALENDAR_DAYS_PER_YEAR`.
+Sur le stock alimentaire courant `S`, le maillon retire `S × p` une fois.
+Après `n` ticks sans apport, le reste est `S × (1 − p)ⁿ`. Aucun retrait annuel
+ne s'ajoute. Chaque kilogramme retiré s'ajoute à `World.pertes_kg`, sans
+arrondi, et ne devient ni dette ni nourriture ailleurs.
+
+`to_dict()` ajoute `greniers` seulement pour les paniers non vides, triés par
+identifiant, en copies indépendantes, et `pertes_kg` seulement si le cumul
+n'est pas nul. Greniers vides et cumul nul laissent les octets antérieurs.
+
+**Niveau 2**, plausible, jamais sourcé : le taux de perte par rongeurs et
+moisissure. **Niveau 3**, pas simulé : la capacité du grenier et la
+dégradation des marchandises autres que la nourriture.
 
 ## Les intentions du joueur
 
@@ -1777,7 +1811,8 @@ photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différen
 
 **Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
 **Niveau 2 :** aucun ajout. **Niveau 3, pas simulé ici :** les lieux du joueur,
-son grenier, sa part et son dû au suzerain, et les personnes.
+la part qu'il prélève, son dû au suzerain, et les personnes. Le grenier existe
+déjà, voir « Le grenier d'une maison » ; l'ouvrir à ses lieux n'est pas simulé.
 Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
 
