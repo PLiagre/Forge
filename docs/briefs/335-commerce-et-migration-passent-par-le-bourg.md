@@ -58,5 +58,45 @@ SC7 — `python3 -m pytest sim/tests/test_monde.py -q -s -k tick_sous_le_budget_
 
 SC8 — `python3 -m pytest sim/tests/test_commerce.py -q -k bourg_documentation`, puis `python3 -m pytest sim/tests/test_lieux.py sim/tests/test_distribution_interieure.py sim/tests/test_foyers.py sim/tests/test_province.py sim/tests/test_monde.py -q -k "documente or documentation or ordre_du_tick"`, puis `python3 -m pytest sim/tests/test_write_coverage.py sim/tests/test_no_hardcoded.py -q`. Ajouter un contrôle des trois sections principales : commerce au bourg avec chemins bornés, départs des lieux affamés, accueil au rang 0, reprise des seules écritures extérieures et niveaux de fidélité. Les gardes documentaires et l'ordre réel du tick restent verts. Contre-épreuves : retirer le chemin ou remettre le partage général après migration dans le texte échoue ; retirer une lecture ou introduire un accès direct au panier reste détecté par les gardes existantes.
 
+## Diagnostic de la correction CI
+
+L'échec de `forge/tests/test_forge.py::test_forge_ia_sans` à 30 ticks est
+reproduit avec la graine 0. Le moteur de `origin/master` produit exactement
+la référence attendue
+`57f377d47076029c36994c12a902aef0f1ce82c6ed2c23dd36d5e8dd053f71d6` ;
+celui du lot produit
+`4775cd7c576c32b4b647b8bd9f82061ac1216b5c658969afd254fdcf081cf694`,
+comme en CI. Les deux photographies ont les mêmes clés hors cellules ;
+348 cellules changent de contenu local. En contre-épreuve, le moteur de
+`origin/master` échoue sur les dix cas sélectionnés de chemins, rations et
+migration des seuls lieux affamés. Restaurer ce moteur abandonnerait donc
+les règles du lot.
+
+La décision A couvre les références du pont et du service, pas la référence
+Forge. `jeu/forge/tests/test_forge.py` reste hors périmètre : aucune assertion
+ni empreinte de ce fichier n'a été modifiée. La référence Forge demande une
+décision distincte avant toute régénération ; ce diagnostic n'élargit pas le
+périmètre.
+
+Contrôles exécutés pour ce diagnostic, avec les commandes SC1 à SC8 ci-dessus
+depuis `jeu/` :
+
+| Condition | Résultat |
+|---|---|
+| SC1 | 10 tests verts |
+| SC2 | 4 tests verts |
+| SC3 | 7 tests verts |
+| SC4 | 1 test vert, 365 ticks, 594 cellules dont la population change, 51 marchandises apparues, 6 619 lieux modifiés |
+| SC5 | 361 tests verts dans les cinq fichiers, puis 2 tests de déterminisme verts ; référence annuelle #331 inchangée |
+| SC6 | 3 tests verts |
+| SC7 | 1 test vert ; médiane 86,45 ms, maximum 107,51 ms, budget médian 100 ms ; contre-épreuve ralentie rejetée à 1 411,37 ms de médiane |
+| SC8 | Sélections successives : 1, 17 et 7 tests verts |
+
+Commandes complémentaires jouées :
+
+- `python3 -m pytest sim/tests/test_lieux.py -q` : 91 tests verts.
+- `python3 -m pytest vues/relief/tests/test_carte1400.py -q -k capitales_ia_sans` : 1 test vert, référence de la carte conservée.
+- `python3 -m pytest forge/tests/test_forge.py -q -k forge_ia_sans` : 1 test vert au tick 0, 1 échec au tick 30 sur la seule empreinte figée ci-dessus.
+
 ## Hors périmètre
 Maîtres des lieux, prélèvement, dû au suzerain, ouverture du grenier et départs pour mieux vivre (#399) ; nouvelle calibration, report migratoire local, réforme des métiers, de la récolte, des formules de fabrication/extraction ou des règles maritimes ; nouvelles clés de service ou de photographie, publication de faim/dette/reports, gestes ou scènes Unity. Les seuls changements de tests existants sont l'adaptation annuelle de SC4 et les références numériques régénérées de SC6. Aucun fichier de la chaîne, aucun commit, aucune poussée ni commande GitHub.
