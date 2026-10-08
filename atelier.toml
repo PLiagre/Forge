@@ -121,6 +121,8 @@ codeur_3d = 3600
 renfort = 3600
 relecteur = 1800
 mecanicien = 3600
-depanneur = 1800
+# Le dépanneur lit, et rejoue parfois un test rouge : à 1800 s, il a dépassé
+# son délai sans rien décider sur #343 et #391 (7 octobre 2026).
+depanneur = 3600
 chroniqueur = 600
 boussole = 1200

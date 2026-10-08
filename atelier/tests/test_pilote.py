@@ -1051,7 +1051,9 @@ def test_le_depanneur_renvoie_la_chaine_au_mode_direct(projet, gh, depot, tmp_pa
 
 def test_un_depanneur_sans_decision_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
     _bloque(gh)
-    _pilote(projet, gh, depot, Agents((0, "Je ne sais pas.")), tmp_path).tour()
+    agents = Agents((0, "Je ne sais pas."), (0, "Moi non plus."))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude", "codex"]  # le secours a lu, lui aussi
     assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
     assert "pas de décision" in gh.issues_[10]["comments"][-1]["body"]
     rien = Agents()
@@ -1103,8 +1105,30 @@ def test_le_depanneur_se_lit_en_gras_avec_sa_consigne_a_la_ligne(projet, gh, dep
 
 def test_un_depanneur_illisible_laisse_lire_ce_qu_il_a_ecrit(projet, gh, depot, tmp_path):
     _bloque(gh)
-    _pilote(projet, gh, depot, Agents((0, "La cause est un quota.")), tmp_path).tour()
+    _pilote(projet, gh, depot, Agents((0, "Je relis."), (0, "La cause est un quota.")), tmp_path).tour()
     assert "La cause est un quota." in gh.issues_[10]["comments"][-1]["body"]
+
+
+def test_un_depanneur_coupe_par_son_delai_passe_la_main_a_son_secours(projet, gh, depot, tmp_path):
+    """Le 7 octobre 2026, Claude a dépassé son délai sur #343 et #391 : sans
+    décision, les deux lots sont restés au propriétaire, codex jamais appelé."""
+    _bloque(gh)
+    agents = Agents((124, "Je lis la suite des tests…"),
+                    (0, "Le codeur a manqué le test rouge.\nDECISION: REPRENDRE :: Codeur : relis SC6."))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude", "codex"]
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert "dépanneur** (codex/sol) : lot relancé (1/2)" in corps and "relis SC6" in corps
+    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
+
+
+def test_un_depanneur_coupe_sans_secours_libre_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    agents = Agents((124, "Je lis…"), (1, "ERROR: You've hit your usage limit."))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert "dépanneur** (claude/opus) : pas de décision (code 124)" in corps
+    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
 
 
 def test_le_chef_et_le_depanneur_posent_toutes_les_decisions_d_un_lot_en_une_question(projet):
@@ -1118,6 +1142,9 @@ def test_le_chef_et_le_depanneur_posent_toutes_les_decisions_d_un_lot_en_une_que
     assert "Une seule question par lot, qui porte TOUTES ses décisions" in chef
     assert "chaque test existant qui rougira" in chef
     assert "Une seule question, qui porte toutes les décisions" in depanneur
+    # Le 7 octobre 2026, #343 et #391 : le dépanneur a dépassé son délai.
+    assert "Jamais `python3 -m pytest jeu -q` en entier" in depanneur.replace("py -m", "python3 -m")
+    assert "lis-la au lieu de la rejouer" in depanneur
 
 
 def test_le_codeur_repond_a_une_revue_sans_changer_de_fichier_et_le_relecteur_relit(projet, gh, depot, tmp_path):
