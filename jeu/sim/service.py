@@ -14,14 +14,18 @@ import threading
 import time
 from urllib.parse import parse_qs, urlsplit
 
+from sim.carte_servie import document_carte
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.intentions import IntentionRefusee, recevoir_intention
+from sim.maisons import charger_maisons
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
-from sim.snapshot_export import _round_tree, lieux_en_photographie
+from sim.puissances import PuissanceInvalide, charger_table
+from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
+from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
 
 
@@ -124,7 +128,7 @@ class ErreurIA(RuntimeError):
 
 
 class ServeurMonde(ThreadingHTTPServer):
-    """Serveur portant l'unique monde, son générateur et ses deux verrous."""
+    """Serveur portant l'unique monde, son générateur et ses verrous."""
 
     daemon_threads = True
 
@@ -141,6 +145,8 @@ class ServeurMonde(ThreadingHTTPServer):
         self.ia = ia
         self.releve = []
         self.verrou_tick = threading.Lock()
+        self.verrou_carte = threading.Lock()
+        self._carte_figee = None
         self.condition_vitesse = threading.Condition()
         self._generation_vitesse = 0
         self._arret_horloge = False
@@ -152,6 +158,30 @@ class ServeurMonde(ThreadingHTTPServer):
             daemon=True,
         )
         self._fil_horloge.start()
+
+    def carte_figee(self):
+        """Publie une seule fois la géométrie et les tables, à la première lecture."""
+        if self._carte_figee is None:
+            with self.verrou_carte:
+                if self._carte_figee is None:
+                    table = charger_table()
+                    maisons = charger_maisons()
+                    seigneuries = charger_seigneuries(table=table)
+                    document, vue = document_carte(self.world, table=table, maisons=maisons)
+                    self._carte_figee = (_serialiser(document), vue, seigneuries, table, maisons)
+        return self._carte_figee
+
+    def document_departs(self):
+        """Lit les fiches actuelles et leur date sous le même verrou que les intentions."""
+        _, vue, seigneuries, table, maisons = self.carte_figee()
+        with self.verrou_tick:
+            return {
+                "tick": self.world.ticks_ecoules,
+                "date": self.world.date_simulation,
+                "departs": [_round_tree(_fiche_document(fiche_de_seigneurie(
+                    s.id, self.world, seigneuries, table, maisons, vue=vue,
+                ))) for s in sorted(seigneuries, key=lambda s: s.id)],
+            }
 
     def _construire_etat(
         self,
@@ -344,6 +374,15 @@ class RequetesMonde(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         cible = urlsplit(self.path)
         etat = self.server.etat_publie
+        if cible.path in ("/carte", "/departs"):
+            try:
+                corps = (self.server.carte_figee()[0] if cible.path == "/carte"
+                         else _serialiser(self.server.document_departs()))
+            except (ValueError, SnapshotExportError, PuissanceInvalide, SeigneurieInconnue) as exc:
+                self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
+            return
         if cible.path == "/ia":
             if etat.ia is None:
                 self._refuser(HTTPStatus.NOT_FOUND, "ia désactivée : lancer le service avec --ia")

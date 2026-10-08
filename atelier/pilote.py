@@ -46,7 +46,8 @@ _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
 _MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
-SECTIONS_BRIEF = ("## But", "## Règle du monde", "## Périmètre", "## Conditions de succès", "## Hors périmètre")
+SECTIONS_BRIEF = ("## But", "## Le joueur", "## Règle du monde", "## Périmètre", "## Conditions de succès",
+                  "## Hors périmètre")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Codex, Cursor)"
 
 

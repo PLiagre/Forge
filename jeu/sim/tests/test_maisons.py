@@ -1,14 +1,17 @@
 """Preuves des maisons tenantes, avec leurs contre-épreuves."""
+import ast
 import copy
 import dataclasses
 import json
 import pathlib
 import subprocess
+import sys
 from collections import Counter
 
 import pytest
 
 from sim.aggregation import PositionCelluleInconnue, charger_positions, derive_appartenance
+from sim import engine, world as etat_monde
 from sim.maisons import (
     charger_maisons, maison_de_cellule, maison_par_cellule, maisons_depuis_monde,
 )
@@ -17,6 +20,7 @@ from sim.puissances import (
     charger_latitude_moyenne_puissances, puissances_depuis_monde,
 )
 from sim.tests.test_puissances import _cellule_la_plus_proche
+from sim.registre_maisons import charger_registre_maisons
 from sim.world import World
 
 TABLE = pathlib.Path(__file__).parents[2] / "data" / "puissances-1400.json"
@@ -288,12 +292,17 @@ def test_pure(carte):
         maisons_depuis_monde(monde, positions=incompletes)
     sim = TABLE.parents[1] / "sim"
     comptes = []
-    for fichier in ("engine.py", "world.py", "model.py", "maisons.py"):
+    for fichier in ("engine.py", "model.py", "maisons.py"):
         resultat = subprocess.run(["grep", "-c", "maisons", str(sim / fichier)],
                                   capture_output=True, text=True, check=False)
         assert resultat.returncode in (0, 1)
         comptes.append(int(resultat.stdout))
-    assert comptes[:-1] == [0, 0, 0] and comptes[-1] > 0
+    assert comptes[:-1] == [0, 0] and comptes[-1] > 0
+    source_monde = (sim / "world.py").read_text(encoding="utf-8")
+    assert "sim.maisons" not in source_monde and "maisons_depuis_monde" not in source_monde
+    assert all("maisons" not in n.name or n.name == "charger_registre_maisons"
+               for n in ast.walk(ast.parse(source_monde)) if isinstance(n, ast.alias))
+    _tick_sans_lecture_registre(pytest.MonkeyPatch(), monde, engine.tick, 0)
     assert vue
     print(f"cellules_pures={len(vue)}, lectures_tick={comptes[:-1]}, module_lisible={comptes[-1]}")
 
@@ -451,26 +460,36 @@ def test_capitale_frontiere_sans_centroide():
         cellule_de_capitale(capitale, {})
 
 
-def test_capitale_maisons_ia_et_choix(carte):
-    monde = carte[0]
-    seigneuries = charger_seigneuries()
-    vue = maisons_de_l_ia(monde)
-    assert len(vue) == 35
-    assert [m.sorte for m in vue] == ["grande maison"] * 30 + ["seigneurie"] * 5
-    assert [m.id for m in vue[:30]] == sorted(m.id for m in vue[:30])
-    assert [m.id for m in vue[30:]] == [s.id for s in seigneuries]
-    for maison, seigneurie in zip(vue[30:], seigneuries):
+def _preuve_departs_ia(vue, monde, seigneuries, joueur=None):
+    attendues = [s for s in seigneuries if s.id != joueur]
+    departs = [m for m in vue if m.sorte == "seigneurie"]
+    assert attendues and [m.id for m in departs] == [s.id for s in attendues]
+    for maison, seigneurie in zip(departs, attendues):
         assert (maison.nom, maison.capitale, maison.cell_id, maison.source, maison.hors_carte) == (
             seigneurie.maison, seigneurie.siege.nom,
             cellule_du_siege(seigneurie, monde.carte), seigneurie.source, None)
+
+
+def test_capitale_maisons_ia_et_choix(carte):
+    monde = carte[0]
+    seigneuries = charger_seigneuries()
+    capitales = charger_capitales()
+    grandes, total = len(capitales), len(capitales) + len(seigneuries)
+    assert capitales and seigneuries
+    vue = maisons_de_l_ia(monde)
+    assert len(vue) == total
+    assert [m.sorte for m in vue] == ["grande maison"] * grandes + ["seigneurie"] * len(seigneuries)
+    assert [m.id for m in vue[:grandes]] == [c.maison for c in capitales]
+    _preuve_departs_ia(vue, monde, seigneuries)
     assert sum(m.nom == "Paléologue" for m in vue) == 2
     for seigneurie in seigneuries:
         choisi = copy.deepcopy(monde)
         deposer_intention(choisi, {"type": "choisir_depart", "seigneurie": seigneurie.id})
-        assert len(maisons_de_l_ia(choisi)) == 35  # Le dépôt attend le tick.
+        assert maisons_de_l_ia(choisi) == vue  # Le dépôt attend le tick.
         tick(choisi, random.Random(0), 0)
         apres = maisons_de_l_ia(choisi)
-        assert len(apres) == 34 and apres[:30] == vue[:30]
+        assert len(apres) == total - 1 and apres[:grandes] == vue[:grandes]
+        _preuve_departs_ia(apres, choisi, seigneuries, seigneurie.id)
         assert {m.id for m in apres if m.sorte == "seigneurie"} == {
             s.id for s in seigneuries if s.id != seigneurie.id}
         assert any(m.id == 15 and m.capitale == "Constantinople" and m.cell_id == 10374
@@ -478,9 +497,28 @@ def test_capitale_maisons_ia_et_choix(carte):
         if seigneurie.maison == "Bar":
             choisi.maison_du_joueur = None
             fausse = maisons_de_l_ia(choisi)
-            assert len(fausse) == 35
+            assert len(fausse) == total
             with pytest.raises(AssertionError):
                 assert all(m.nom != "Bar" for m in fausse)
+
+
+def test_capitale_zab_contre_epreuves(carte):
+    monde = carte[0]
+    seigneuries = charger_seigneuries()
+    zab = next(s for s in seigneuries if s.nom == "Émirat du Zab")
+    vue = maisons_de_l_ia(monde)
+    sans_zab = tuple(m for m in vue if not (m.sorte == "seigneurie" and m.id == zab.id))
+    with pytest.raises(AssertionError):
+        _preuve_departs_ia(sans_zab, monde, seigneuries)
+    choisi = copy.deepcopy(monde)
+    deposer_intention(choisi, {"type": "choisir_depart", "seigneurie": zab.id})
+    assert maisons_de_l_ia(choisi) == vue
+    tick(choisi, random.Random(0), 0)
+    apres = maisons_de_l_ia(choisi)
+    _preuve_departs_ia(apres, choisi, seigneuries, zab.id)
+    intruse = next(m for m in vue if m.sorte == "seigneurie" and m.id == zab.id)
+    with pytest.raises(AssertionError):
+        _preuve_departs_ia(apres + (intruse,), choisi, seigneuries, zab.id)
 
 
 def test_capitale_vue_pure(carte):
@@ -507,3 +545,448 @@ def test_capitale_vue_pure(carte):
     assert int(comptes[-1].stdout) > 0
     with pytest.raises(AssertionError):
         assert int(comptes[-1].stdout) == 0  # La garde détecte un lecteur.
+
+@pytest.fixture
+def registre(carte, tmp_path):
+    from sim.registre_maisons import charger_registre_maisons, valider_registre_maisons
+    chemins = [TABLE, CAPITALES, TABLE.with_name("seigneuries-1400.json")]
+    documents = [json.loads(p.read_text(encoding="utf-8")) for p in chemins]
+    copies = [tmp_path / p.name for p in chemins]
+    def charger():
+        for p, d in zip(copies, documents):
+            p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        avant = [p.read_bytes() for p in copies]
+        resultat = charger_registre_maisons(carte[0].carte, *copies)
+        assert [p.read_bytes() for p in copies] == avant
+        return resultat
+    return carte[0], documents, charger, valider_registre_maisons
+
+def _preuve_registre(vue, documents, carte):
+    from sim.villes import point_dans_geometrie
+    puissances, capitales, departs = documents
+    racines = {p["id"]: f"grande-{p['maison']}" if "maison" in p else f"institution-{p['id']}" for p in puissances["puissances"]}
+    noms = {m["id"]: m["nom"] for m in puissances["maisons"]}
+    attendus = {f"grande-{c['maison']}": (noms[c["maison"]], "grande maison", None, c) for c in capitales["capitales"]}
+    for p in puissances["puissances"]:
+        if "maison" not in p:
+            ancre = min((a for a in puissances["ancres"] if a["puissance"] == p["id"]), key=lambda a: a["id"])
+            attendus[racines[p["id"]]] = (p["nom"], "institution", None, ancre)
+    attendus.update({f"seigneurie-{s['id']}": (s["maison"], "seigneurie", racines[s["suzerain"]], s["siege"]) for s in departs["seigneuries"]})
+    assert len(vue) == len(attendus) and {m.id for m in vue} == set(attendus)
+    for m in vue:
+        nom, sorte, suzerain, point = attendus[m.id]
+        xy = (point["x_m"], point["y_m"]) if sorte == "seigneurie" else projeter_epsg3035(point["lat"], point["lon"])
+        cellules = [cid for cid, c in carte.items() if point_dans_geometrie(*xy, c["geometry"])]
+        cid = min(cellules) if cellules else None
+        assert (m.nom, m.sorte, m.suzerain, m.siege, m.cell_id, m.rang, m.hors_carte) == (
+            nom, sorte, suzerain, point["nom"], cid, 0 if cid is not None else None, point.get("hors_carte"))
+        assert cid is not None or m.hors_carte.strip()
+
+def test_registre_chargement(registre):
+    monde, documents, charger, _ = registre
+    vue = charger()
+    _preuve_registre(vue, documents, monde.carte)
+    paleologue = [m for m in vue if m.nom == "Paléologue"]
+    assert {m.siege for m in paleologue} == {"Constantinople", "Mistra"}
+    lignes = [next(m for m in vue if m.sorte == sorte) for sorte in ("grande maison", "institution", "seigneurie")]
+    for ligne in lignes + [paleologue[-1]]:
+        with pytest.raises(AssertionError):
+            _preuve_registre(tuple(m for m in vue if m.id != ligne.id), documents, monde.carte)
+    for document, champs in zip(documents, (("maisons", "puissances", "ancres"), ("capitales",), ("seigneuries",))):
+        for champ in champs:
+            original = document[champ]
+            for valeur in (None, []):
+                document.pop(champ) if valeur is None else document.update({champ: valeur})
+                with pytest.raises(PuissanceInvalide):
+                    charger()
+                document[champ] = original
+
+def test_registre_pyramide(registre):
+    monde, documents, charger, valider = registre
+    vue = charger()
+    _preuve_registre(vue, documents, monde.carte)
+    par_id = {m.id: m for m in vue}
+    for m in vue:
+        chemin = set()
+        while m.suzerain is not None:
+            assert m.id not in chemin
+            chemin.add(m.id)
+            m = par_id[m.suzerain]
+    depart = documents[-1]["seigneuries"][0]
+    institution = next(m for m in vue if m.sorte == "institution")
+    depart["suzerain"] = int(institution.id.split("-")[-1])
+    _preuve_registre(charger(), documents, monde.carte)
+    depart["suzerain"] = max(p["id"] for p in documents[0]["puissances"]) + 1
+    with pytest.raises(PuissanceInvalide, match=f"seigneurie {depart['id']}.*suzerain"):
+        charger()
+    a, b = vue[:2]
+    for changements in ({a.id: "inconnue"}, {a.id: a.id}, {a.id: b.id, b.id: a.id}):
+        alteree = tuple(dataclasses.replace(m, suzerain=changements[m.id]) if m.id in changements else m for m in vue)
+        with pytest.raises(PuissanceInvalide, match=a.id):
+            valider(alteree)
+    depart["suzerain"] = int(institution.id.split("-")[-1])
+    mauvaise = tuple(dataclasses.replace(m, suzerain=a.id) if m.id == f"seigneurie-{depart['id']}" else m for m in charger())
+    valider(mauvaise)
+    with pytest.raises(AssertionError):
+        _preuve_registre(mauvaise, documents, monde.carte)
+
+def test_registre_sieges(registre):
+    monde, documents, charger, _ = registre
+    vue, originaux = charger(), copy.deepcopy(documents)
+    _preuve_registre(vue, documents, monde.carte)
+    assert next(m.cell_id for m in vue if m.nom == "Valois") == 10322
+    capitale = next(c for c in documents[1]["capitales"] if c["nom"] == "Paris")
+    capitale.update(lat=documents[1]["capitales"][0]["lat"], lon=documents[1]["capitales"][0]["lon"])
+    with pytest.raises(AssertionError):
+        _preuve_registre(charger(), originaux, monde.carte)
+    ancre = next(a for a in documents[0]["ancres"] if a["nom"] == "Arezzo")
+    cellule = cellule_de_capitale(dataclasses.replace(charger_capitales()[0], lat=ancre["lat"], lon=ancre["lon"]), monde.carte)
+    fausse = tuple(dataclasses.replace(m, siege=ancre["nom"], cell_id=cellule) if m.nom == "Florence" else m for m in vue)
+    with pytest.raises(AssertionError):
+        _preuve_registre(fausse, originaux, monde.carte)
+    x, y = projeter_epsg3035(capitale["lat"], capitale["lon"])
+    def carre(gauche, droite, bas, haut):
+        return {"geometry": {"type": "Polygon", "coordinates": [[[gauche, bas], [droite, bas], [droite, haut], [gauche, haut], [gauche, bas]]]}}
+    synthese = {20: carre(x, x + 100, y - 50, y + 50), 10: carre(x - 2, x, y - 1, y + 1)}
+    # Toutes les sources sont au même point ; aucune exception hors carte ne subsiste.
+    for lignes in (documents[0]["ancres"], documents[1]["capitales"], [s["siege"] for s in documents[2]["seigneuries"]]):
+        for p in lignes:
+            p.update(lat=capitale["lat"], lon=capitale["lon"], x_m=x, y_m=y)
+            p.pop("hors_carte", None)
+    for ordre in (synthese, dict(reversed(list(synthese.items())))):
+        monde.carte = ordre
+        assert {m.cell_id for m in charger()} == {10}
+    monde.carte[10] = carre(x - 3, x - 1, y - 1, y + 1)
+    assert {m.cell_id for m in charger()} == {20}
+    with pytest.raises(AssertionError):
+        _preuve_registre(tuple(dataclasses.replace(m, cell_id=10) for m in charger()), documents, monde.carte)
+
+def test_registre_hors_carte(registre):
+    monde, documents, charger, _ = registre
+    vue = charger()
+    _preuve_registre(vue, documents, monde.carte)
+    assert {m.siege for m in vue if m.cell_id is None} == {"Saraï", "Venise"}
+    for lignes in (documents[0]["ancres"], documents[1]["capitales"]):
+        for p in (p for p in lignes if "hors_carte" in p):
+            raison = p["hors_carte"]
+            for valeur in (None, "  "):
+                p.pop("hors_carte") if valeur is None else p.update(hors_carte=valeur)
+                with pytest.raises(PuissanceInvalide, match="hors_carte"):
+                    charger()
+            p["hors_carte"] = raison
+    next(c for c in documents[1]["capitales"] if c["nom"] == "Paris")["hors_carte"] = "Fausse raison"
+    with pytest.raises(PuissanceInvalide, match="hors_carte"):
+        charger()
+    cid = max(monde.carte)
+    monde.carte[cid].pop("geometry")
+    with pytest.raises(PuissanceInvalide, match=f"cellule {cid}.*géométrie absente"):
+        charger()
+
+def test_registre_pure(registre):
+    monde, documents, charger, _ = registre
+    avant = copy.deepcopy((documents, monde.to_dict(), monde.carte, [vars(c) for c in monde.cells.values()]))
+    vue = charger()
+    assert isinstance(vue, tuple) and all(isinstance(m, _NoBadSpatialField) for m in vue)
+    assert vue == charger()
+    assert (documents, monde.to_dict(), monde.carte, [vars(c) for c in monde.cells.values()]) == avant
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        vue[0].nom = "Altérée"
+    with pytest.raises(AssertionError):
+        assert vue == (dataclasses.replace(vue[0], nom="Altérée"),) + vue[1:]
+    for document in documents:
+        for lignes in (v for v in document.values() if isinstance(v, list)):
+            lignes.reverse()
+    monde.carte = dict(reversed(list(monde.carte.items())))
+    assert vue == charger()
+    for s in documents[-1]["seigneuries"]:
+        monde.maison_du_joueur = f"seigneurie-{s['id']}"
+        assert vue == charger()
+    alteree = copy.deepcopy(documents)
+    alteree[0]["maisons"][0]["nom"] = "Altérée"
+    documents[:] = alteree
+    with pytest.raises(AssertionError):
+        assert vue == charger()
+
+
+def _octets_registre(document):
+    return json.dumps(document, sort_keys=True, ensure_ascii=False,
+                      separators=(",", ":")).encode()
+
+
+def test_registre_world(registre, monkeypatch):
+    monde, documents, charger, _ = registre
+    attendu = charger()
+    _preuve_registre(attendu, documents, monde.carte)
+    categories = {m.sorte for m in attendu}
+    assert categories == {"grande maison", "institution", "seigneurie"}
+    homonymes = {nom for nom, n in Counter(m.nom for m in attendu).items() if n > 1}
+    assert homonymes
+    appels = []
+    def lecteur(carte):
+        appels.append(carte)
+        return charger_registre_maisons(carte)
+    monkeypatch.setattr(etat_monde, "charger_registre_maisons", lecteur)
+    charge = World.charger(0)
+    assert charge.maisons == attendu and isinstance(charge.maisons, tuple)
+    assert appels == [charge.carte]
+    for maison in charge.maisons:
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            maison.nom = "Altérée"
+    assert World({}, []).maisons == ()
+    charge.to_dict()
+    maisons_depuis_monde(charge)
+    maisons_de_l_ia(charge)
+    assert appels == [charge.carte]
+    retraits = [next(m for m in attendu if m.sorte == sorte) for sorte in categories]
+    retraits += [m for m in attendu if m.nom in homonymes]
+    faux = [tuple(m for m in attendu if m.id != retiree.id) for retiree in retraits]
+    faux += [(), (dataclasses.replace(attendu[0], nom="Altérée"),) + attendu[1:]]
+    for resultat in faux:
+        monkeypatch.setattr(etat_monde, "charger_registre_maisons", lambda carte: resultat)
+        with pytest.raises(AssertionError):
+            assert World.charger(0).maisons == attendu
+    def refuser(carte):
+        raise PuissanceInvalide("registre indisponible")
+    monkeypatch.setattr(etat_monde, "charger_registre_maisons", refuser)
+    with pytest.raises(PuissanceInvalide, match="registre indisponible"):
+        World.charger(0)
+    assert World({}, []).maisons == ()  # Aucun chargement sur les mondes d'épreuve.
+
+
+def test_registre_serialisation(monkeypatch):
+    import hashlib
+    import sim.maisons as vues_maisons
+    import sim.capitales as vues_capitales
+    import sim.registre_maisons as lecteur
+    monde = World.charger(0)
+    registre = monde.maisons
+    assert registre
+    attendu = [dataclasses.asdict(m) for m in sorted(registre, key=lambda m: m.id)]
+    champs = {"id", "nom", "sorte", "suzerain", "siege", "cell_id", "rang", "hors_carte"}
+    assert all(set(m) == champs for m in attendu)
+    def interdit(*args, **kwargs):
+        raise AssertionError("lecture après chargement")
+    for module, nom in ((etat_monde, "charger_registre_maisons"),
+                        (lecteur, "charger_registre_maisons"),
+                        (vues_maisons, "maisons_depuis_monde"),
+                        (vues_capitales, "maisons_de_l_ia")):
+        monkeypatch.setattr(module, nom, interdit)
+    document = monde.to_dict()
+    def verifier(doc):
+        assert doc.get("maisons") == attendu
+    verifier(document)
+    assert World({}, []).to_dict()["maisons"] == []
+    original = _octets_registre(document)
+    monde.maisons = tuple(reversed(registre))
+    assert _octets_registre(monde.to_dict()) == original
+    assert monde.maisons == tuple(reversed(registre))
+    sans = {k: v for k, v in document.items() if k != "maisons"}
+    assert hashlib.sha256(original).digest() != hashlib.sha256(_octets_registre(sans)).digest()
+    faux = [sans, {**document, "maisons": attendu[1:]},
+            {**document, "maisons": list(reversed(attendu))}]
+    for champ in champs:
+        copie = copy.deepcopy(document)
+        copie["maisons"][0][champ] = "Altéré"
+        faux.append(copie)
+    for copie in faux:
+        with pytest.raises(AssertionError):
+            verifier(copie)
+    document["maisons"][0]["nom"] = "Altérée"
+    assert _octets_registre(monde.to_dict()) == original
+    monde.maisons = (dataclasses.replace(registre[0], nom="Altérée"),) + registre[1:]
+    alteres = _octets_registre(monde.to_dict())
+    assert alteres != original
+    assert hashlib.sha256(alteres).digest() != hashlib.sha256(original).digest()
+
+
+def _tick_sans_lecture_registre(monkeypatch, monde, tick, numero):
+    assert monde.maisons
+    acces = []
+    original = World.__getattribute__
+    def intercepter(self, nom):
+        if nom == "maisons":
+            acces.append(nom)
+            raise RuntimeError("registre consulté au tick")
+        return original(self, nom)
+    with monkeypatch.context() as garde:
+        garde.setattr(World, "__getattribute__", intercepter)
+        tick(monde, random.Random(numero), numero)
+    assert acces == []
+
+
+IDENTIFIANTS_SEIGNEURIE_MAL_FORMES = (
+    True, None, "grande-3", "seigneurie-03", "seigneurie-", " seigneurie-3",
+    "seigneurie-3 ", "seigneurie-+3", "seigneurie--3", "seigneurie-3\n", "seigneurie-٣",
+)
+
+
+def test_registre_identifiant(monkeypatch):
+    from sim import seigneuries
+    terres = charger_seigneuries()
+    assert terres, "échantillon vide"
+    attendus = {seigneuries.identifiant_de_seigneurie(s.id) for s in terres}
+    assert attendus == {m.id for m in World.charger(0).maisons if m.sorte == "seigneurie"}
+    for terre in terres:
+        identifiant = seigneuries.identifiant_de_seigneurie(terre.id)
+        assert identifiant == f"seigneurie-{terre.id}"
+        assert seigneuries.numero_de_seigneurie(identifiant) == terre.id
+    def refuser(valeur):
+        with pytest.raises(seigneuries.SeigneurieInconnue) as erreur:
+            seigneuries.numero_de_seigneurie(valeur)
+        assert str(erreur.value) == f"seigneurie inconnue : {valeur!r}"
+    for valeur in (terres[0].id, *IDENTIFIANTS_SEIGNEURIE_MAL_FORMES):
+        refuser(valeur)
+    monkeypatch.setattr(seigneuries, "numero_de_seigneurie", lambda valeur: int(valeur.removeprefix("seigneurie-")))
+    with pytest.raises(pytest.fail.Exception):
+        refuser("seigneurie-03")
+
+
+def test_registre_choix(carte, monkeypatch):
+    from sim.intentions import ChoixDepart, deposer_intention
+    monde = copy.deepcopy(carte[0])
+    terres = charger_seigneuries()
+    assert terres, "échantillon vide"
+    terre = terres[0]
+    registre = monde.maisons
+    deposer_intention(monde, {"seigneurie": terre.id})
+    impur = copy.deepcopy(monde)
+    _tick_sans_lecture_registre(monkeypatch, monde, engine.tick, monde.ticks_ecoules)
+    assert monde.maison_du_joueur == f"seigneurie-{terre.id}"
+    assert any(m.id == monde.maison_du_joueur and m.sorte == "seigneurie" for m in registre)
+    original = ChoixDepart.appliquer
+    def lire(choix, monde):
+        getattr(monde, "maisons")
+        original(choix, monde)
+    monkeypatch.setattr(ChoixDepart, "appliquer", lire)
+    with pytest.raises(RuntimeError, match="registre consulté au tick"):
+        _tick_sans_lecture_registre(monkeypatch, impur, engine.tick, impur.ticks_ecoules)
+
+
+def test_registre_tick(carte, monkeypatch):
+    monde = carte[0]
+    for numero in range(3):
+        _tick_sans_lecture_registre(monkeypatch, monde, engine.tick, numero)
+    def impur(monde, rng, numero):
+        getattr(monde, "maisons")  # Lecture sans effet, avant le véritable tick.
+        return engine.tick(monde, rng, numero)
+    with pytest.raises(RuntimeError, match="registre consulté au tick"):
+        _tick_sans_lecture_registre(monkeypatch, monde, impur, monde.ticks_ecoules)
+
+
+def test_registre_vue_impure(carte, monkeypatch):
+    original = maisons_depuis_monde
+    def impure(monde, *args, **kwargs):
+        vue = original(monde, *args, **kwargs)
+        monde.maisons = (dataclasses.replace(monde.maisons[0], nom="Altérée"),) + monde.maisons[1:]
+        return vue
+    monkeypatch.setattr(sys.modules[__name__], "maisons_depuis_monde", impure)
+    with pytest.raises(AssertionError):
+        test_pure(carte)
+
+
+def _controler_grenier_etat(monde, raisons):
+    assert monde.maisons and monde.greniers
+    ids = [m.id for m in monde.maisons]
+    assert len(ids) == len(set(ids)) == len(monde.greniers) and set(monde.greniers) == set(ids)
+    assert {m.sorte for m in monde.maisons} >= {"grande maison", "institution", "seigneurie"}
+    homonymes = [n for n, k in Counter(m.nom for m in monde.maisons).items() if k > 1]
+    assert homonymes and any(raisons.values())
+    for nom in homonymes:
+        freres = [m.id for m in monde.maisons if m.nom == nom]
+        assert len(freres) > 1
+        assert all(monde.greniers[a] is not monde.greniers[b] for a, b in zip(freres, freres[1:]))
+    assert len({id(p) for p in monde.greniers.values()}) == len(monde.greniers)
+    assert {m.id: m.hors_carte for m in monde.maisons} == raisons
+    sans = World({}, [])
+    assert sans.maisons == () and sans.greniers == {} and sans.pertes_kg == 0.0
+
+
+def test_grenier_etat():
+    """Un panier vide et distinct par maison ; le remplir ne touche pas le siège."""
+    import sim.constants as constantes
+    from sim.model import copier_panier
+    monde = World.charger(0)
+    raisons = {m.id: m.hors_carte for m in monde.maisons}
+    assert all(p == {} for p in monde.greniers.values())
+    _controler_grenier_etat(monde, raisons)
+    siege = next(m for m in monde.maisons if m.cell_id in monde.cells)
+    cellule = monde.cells[siege.cell_id]
+    avant = (copier_panier(cellule), [copier_panier(l) for l in cellule.lieux])
+    assert avant[0]
+    autres = {i: dict(p) for i, p in monde.greniers.items() if i != siege.id}
+    monde.greniers[siege.id][constantes.MARCHANDISE_NOURRITURE] = 1000.0
+    assert {i: dict(p) for i, p in monde.greniers.items() if i != siege.id} == autres
+    assert (copier_panier(cellule), [copier_panier(l) for l in cellule.lieux]) == avant
+    assert {m.id: m.hors_carte for m in monde.maisons} == raisons
+    nom = next(n for n, k in Counter(m.nom for m in monde.maisons).items() if k > 1)
+    freres = [m.id for m in monde.maisons if m.nom == nom]
+    for geste in ("retirer", "fusionner", "partager"):
+        sauve = {i: dict(p) for i, p in monde.greniers.items()}
+        if geste == "retirer":
+            monde.greniers.pop(freres[0])
+        elif geste == "fusionner":
+            del monde.greniers[freres[1]]
+        else:
+            monde.greniers[freres[1]] = monde.greniers[freres[0]]
+        with pytest.raises(AssertionError):
+            _controler_grenier_etat(monde, raisons)
+        monde.greniers = {i: dict(p) for i, p in sauve.items()}
+    print(f"maisons={len(monde.maisons)}, homonymes={len(freres)}")
+
+
+_CHAMPS_FICHE = {"id", "nom", "sorte", "suzerain", "siege", "cell_id", "rang", "hors_carte"}
+
+
+def _verifier_grenier_serialise(document, monde):
+    fiches = [dataclasses.asdict(m) for m in sorted(monde.maisons, key=lambda m: m.id)]
+    assert document["maisons"] == fiches and all(set(f) == _CHAMPS_FICHE for f in fiches)
+    non_vides = {i: {n: p[n] for n in sorted(p)} for i, p in sorted(monde.greniers.items()) if p}
+    if non_vides:
+        assert document.get("greniers") == non_vides and all(document["greniers"].values())
+    else:
+        assert "greniers" not in document
+    if monde.pertes_kg != 0.0:
+        assert document.get("pertes_kg") == monde.pertes_kg
+    else:
+        assert "pertes_kg" not in document
+
+
+def test_grenier_serialisation():
+    """À vide, aucune clé nouvelle ; après perte, paniers pleins et cumul exact."""
+    import random
+    import sim.constants as constantes
+    monde = World.charger(0)
+    assert all(p == {} for p in monde.greniers.values()) and monde.pertes_kg == 0.0
+    _verifier_grenier_serialise(monde.to_dict(), monde)
+    assert set(monde.to_dict()) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    nourriture = constantes.MARCHANDISE_NOURRITURE
+    choisis = [m for m in monde.maisons if m.cell_id in monde.cells][:2]
+    assert len(choisis) == 2
+    for rang, maison in enumerate(choisis, start=1):
+        monde.greniers[maison.id][nourriture] = 1000.0 * rang + 0.5
+    engine.tick(monde, random.Random(0), 0)
+    assert monde.pertes_kg != 0.0
+    document = monde.to_dict()
+    _verifier_grenier_serialise(document, monde)
+    assert set(document["greniers"]) == {m.id for m in choisis}
+    octets = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode()
+    monde.greniers = {c: monde.greniers[c] for c in reversed(list(monde.greniers))}
+    assert json.dumps(monde.to_dict(), ensure_ascii=False, separators=(",", ":")).encode() == octets
+    rendu, identifiant = monde.to_dict(), choisis[0].id
+    poids = monde.greniers[identifiant][nourriture]
+    assert poids != round(poids)
+    rendu["greniers"][identifiant][nourriture] = 0.0
+    assert monde.greniers[identifiant][nourriture] == poids
+    vide = next(c for c, p in monde.greniers.items() if not p)
+    arrondi = copy.deepcopy(document)
+    arrondi["greniers"][identifiant][nourriture] = round(poids)
+    faux = (
+        {**copy.deepcopy(document), "greniers": {k: v for k, v in document["greniers"].items() if k != identifiant}},
+        arrondi,
+        {**copy.deepcopy(document), "greniers": {**document["greniers"], vide: {}}},
+        {k: v for k, v in document.items() if k != "pertes_kg"},
+    )
+    for altéré in faux:
+        with pytest.raises(AssertionError):
+            _verifier_grenier_serialise(altéré, monde)
+    print(f"paniers_publies={len(document['greniers'])}, pertes_kg={monde.pertes_kg}")

@@ -9,7 +9,7 @@ from sim.maisons import charger_maisons
 from sim.model import _NoBadSpatialField
 from sim.projection import projeter_epsg3035
 from sim.puissances import PuissanceInvalide, _nombre, _texte, geometries_du_monde
-from sim.seigneuries import charger_seigneuries, cellule_du_siege
+from sim.seigneuries import charger_seigneuries, cellule_du_siege, identifiant_de_seigneurie
 from sim.villes import point_dans_geometrie
 
 _CHEMIN = Path(__file__).parents[1] / "data" / "capitales-1400.json"
@@ -112,5 +112,5 @@ def maisons_de_l_ia(
     departs = tuple(MaisonDeLIA(
         "seigneurie", s.id, s.maison, s.siege.nom,
         cellule_du_siege(s, carte), None, s.source,
-    ) for s in sorted(seigneuries, key=lambda s: s.id) if s.id != monde.maison_du_joueur)
+    ) for s in sorted(seigneuries, key=lambda s: s.id) if identifiant_de_seigneurie(s.id) != monde.maison_du_joueur)
     return grandes + departs

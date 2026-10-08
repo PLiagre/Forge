@@ -6,6 +6,7 @@ fichier, produit une fois pour toutes par l'outil carte — et
 amorce la population de chaque cellule avec un rng_seed déterministe.
 """
 
+import dataclasses
 import json
 import pathlib
 import random
@@ -35,6 +36,7 @@ from sim.pluie import (
     charger_releves,
     pluie_par_cellule,
 )
+from sim.registre_maisons import charger_registre_maisons
 from sim.villes import attribuer_villes, charger_villes
 
 # Racine du dépôt : deux niveaux au-dessus du paquet sim/
@@ -104,7 +106,10 @@ class World:
                      compris ceux hors carte ; le tick ne le consulte pas.
         plans      : dict cell_id → Plan du bourg (rang 0), chantiers lus au tick.
         intentions_en_attente : choix validés, invisibles avant le tick suivant.
-        maison_du_joueur : identifiant du départ appliqué, ou None sans choix.
+        maison_du_joueur : identifiant de la maison du registre appliquée, ou None sans choix.
+        maisons    : tuple initial de fiches gelées, jamais consulté au tick.
+        greniers   : identifiant de maison → panier (marchandise → kg), vide au chargement.
+        pertes_kg  : cumul des kilogrammes retirés des greniers, 0 tant qu'aucune perte.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -120,6 +125,9 @@ class World:
         self.ticks_ecoules = 0
         self.intentions_en_attente = []
         self.maison_du_joueur = None
+        self.maisons = ()
+        self.greniers = {}
+        self.pertes_kg = 0.0
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -239,9 +247,12 @@ class World:
             cell.lieux = amorcer_lieux(cell)
             cells[cid] = cell
 
-        return cls(cells=cells, adjacency=raw_adjacency,
+        monde = cls(cells=cells, adjacency=raw_adjacency,
                    carte=carte, carte_meta=carte_meta,
                    attribution_villes=attribution)
+        monde.maisons = charger_registre_maisons(monde.carte)
+        monde.greniers = {maison.id: {} for maison in monde.maisons}
+        return monde
 
     def to_dict(self) -> dict:
         """
@@ -258,7 +269,18 @@ class World:
                 for cid, plan in sorted(self.plans.items())
             },
             "ticks_ecoules": self.ticks_ecoules,
+            "maisons": [dataclasses.asdict(maison)
+                        for maison in sorted(self.maisons, key=lambda m: m.id)],
         }
         if self.maison_du_joueur is not None:
             document["maison_du_joueur"] = self.maison_du_joueur
+        greniers = {
+            identifiant: {nom: panier[nom] for nom in sorted(panier)}
+            for identifiant, panier in sorted(self.greniers.items())
+            if panier
+        }
+        if greniers:
+            document["greniers"] = greniers
+        if self.pertes_kg != 0.0:
+            document["pertes_kg"] = self.pertes_kg
         return document

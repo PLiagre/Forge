@@ -4,6 +4,7 @@ from copy import deepcopy
 import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
 from sim.intentions import ChoixDepart, TYPE_TRACER_ROUTE, recevoir_intention
+from sim.seigneuries import identifiant_de_seigneurie
 
 
 def decider_intentions(monde, releve):
@@ -13,10 +14,10 @@ def decider_intentions(monde, releve):
                if _constantes.date_de_tick(e['tick'])['annee'] == annee}
     choix = monde.maison_du_joueur
     if choix is None:
-        choix = next((i.identifiant for i in monde.intentions_en_attente if isinstance(i, ChoixDepart)), None)
+        choix = next((identifiant_de_seigneurie(i.identifiant) for i in monde.intentions_en_attente if isinstance(i, ChoixDepart)), None)
     propositions = []
     for maison in maisons_de_l_ia(monde):
-        if maison.hors_carte is not None or (maison.sorte == 'seigneurie' and maison.id == choix):
+        if maison.hors_carte is not None or (maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix):
             continue
         cellule, plan = monde.cells.get(maison.cell_id), monde.plans.get(maison.cell_id)
         bourg = next((l for l in cellule.lieux if l.rang == 0), None) if cellule is not None else None

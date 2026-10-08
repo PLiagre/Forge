@@ -54,6 +54,17 @@ body:
       description: Les issues qui doivent être livrées avant celle-ci (« #12, #13 »). Vide si elle n'attend personne.
       placeholder: "#12, #13"
   - type: textarea
+    id: joueur
+    attributes:
+      label: Le joueur
+      description: >
+        Ce que le joueur peut faire, voir ou décider après ce lot, et ce qu'il
+        en sent. Un lot de fond nomme le geste du jalon qu'il prépare. Le chef
+        refuse un lot qui ne rapproche le joueur d'aucun geste de son jalon
+        (CAP.md, « La règle d'un lot »).
+    validations:
+      required: true
+  - type: textarea
     id: quoi
     attributes:
       label: Ce que ça doit faire

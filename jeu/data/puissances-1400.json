@@ -109,7 +109,7 @@
     { "id": 21, "puissance": 10, "nom": "Prague", "lat": 50.08, "lon": 14.44, "source": "Wikipédia, article Royaume de Bohême : Prague en est la capitale" },
     { "id": 22, "puissance": 11, "nom": "Coblence", "lat": 50.36, "lon": 7.59, "source": "Wikipédia, article Électorat de Trèves : Coblence résidence de l'archevêque-électeur dès le XIIIe siècle" },
     { "id": 23, "puissance": 12, "nom": "Lucerne", "lat": 47.05, "lon": 8.31, "source": "Wikipédia, article Confédération des III cantons : Lucerne rejoint la Confédération en 1332" },
-    { "id": 25, "puissance": 13, "nom": "Venise", "lat": 45.44, "lon": 12.33, "source": "Wikipédia, article République de Venise : Venise est la capitale de la république" },
+    { "id": 25, "puissance": 13, "nom": "Venise", "lat": 45.44, "lon": 12.33, "source": "Wikipédia, article République de Venise : Venise est la capitale de la république", "hors_carte": "Le point de Venise est hors des polygones de la carte figée." },
     { "id": 26, "puissance": 14, "nom": "Milan", "lat": 45.46, "lon": 9.19, "source": "Wikipédia, article Duché de Milan : Milan est la capitale du duché créé en 1395" },
     { "id": 27, "puissance": 15, "nom": "Florence", "lat": 43.77, "lon": 11.26, "source": "Wikipédia, article République de Florence : Florence est le siège de la république" },
     { "id": 28, "puissance": 15, "nom": "Arezzo", "lat": 43.46, "lon": 11.88, "source": "Wikipédia, article Arezzo : la ville passe sous la domination florentine en 1384" },

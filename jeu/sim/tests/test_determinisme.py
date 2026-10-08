@@ -12,6 +12,8 @@ Ce que ce fichier protège :
 
 import hashlib
 import json
+import marshal
+import pickle
 import pytest
 import random
 import time
@@ -503,8 +505,10 @@ def test_depart_deterministe_sans_effet_sur_les_cellules():
         assert copie["cells"] == etats[0]["cells"]
     assert etats[0] == etats[1] and empreintes[0] == empreintes[1]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[-1]) == {"cells", "plans", "ticks_ecoules"}
+    assert set(etats[-1]) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert etats[-1]["maisons"]
     for etat in etats:
+        assert etat["maisons"] == etats[-1]["maisons"]
         assert etat["cells"] == etats[-1]["cells"]
         assert etat["plans"] == etats[-1]["plans"]
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
@@ -559,7 +563,10 @@ def test_gestes_routes_deterministes_seule_la_cellule_du_chantier():
     for etat in (etats[0], etats[1], etats[3]):
         assert [rue["travail_fourni"] for rue in etat["plans"][str(route["cell"])]["rues"]] == [10 * k.TAILLE_FOYER, 7 * k.TAILLE_FOYER]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules"}
+    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert etats[2]["maisons"]
+    for etat in etats:
+        assert etat["maisons"] == etats[2]["maisons"]
     assert all(plan == {"rues": [], "parcelles": [], "batiments": []}
                for plan in etats[2]["plans"].values())
     assert len(etats[0]["plans"][str(route["cell"])]["rues"]) == 2
@@ -761,3 +768,150 @@ def test_tick_bit_pres_sur_une_annee(monkeypatch):
     assert alterees[-1] != neuves[-1]
     with pytest.raises(AssertionError, match="tick 364"):
         _comparer_empreintes_tick_331(alterees, references)
+
+
+def _point_registre_bit_pres(monde, alea, retour):
+    document = monde.to_dict()
+    document.pop("maisons")
+    # Les cellules complètes couvrent aussi les flottants que to_dict arrondit.
+    octets = json.dumps(document, sort_keys=True).encode()
+    complet = pickle.dumps(({cid: vars(c) for cid, c in monde.cells.items()},
+                            monde.stocks_mer, retour, alea.getstate()))
+    # Chaque point inclut toute la carte, ses flottants et le graphe, sans arrondi.
+    terrain = marshal.dumps((monde.carte, monde.carte_meta, monde.adjacency), 2)
+    return hashlib.sha256(octets + complet + terrain).digest()
+
+
+def _comparer_registre_bit_pres(points, reference):
+    assert points and len(points) == len(reference)
+    for numero, (point, temoin) in enumerate(zip(points, reference)):
+        assert point == temoin, f"divergence au point {numero}"
+
+
+@pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (0, 42), (42, 0), (42, 42)))
+def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
+    import math
+    from sim import world as etat_monde
+    from sim.model import lire_stock_marchandise, ecrire_stock_marchandise
+    from sim.tests.test_maisons import _octets_registre
+    from sim.registre_maisons import charger_registre_maisons
+    carte = World.lire_carte()
+    normal = World.charger(graine_monde, copy.deepcopy(carte))
+    with monkeypatch.context() as contexte:
+        contexte.setattr(etat_monde, "charger_registre_maisons", lambda carte: ())
+        temoin = World.charger(graine_monde, copy.deepcopy(carte))
+    assert normal is not temoin and normal.maisons and temoin.maisons == ()
+    assert normal.cells and normal.carte
+    aleas = [random.Random(graine_tick) for _ in range(2)]
+    registre = _octets_registre(normal.to_dict()["maisons"])
+    assert registre == _octets_registre([dataclasses.asdict(m)
+                                        for m in charger_registre_maisons(normal.carte)])
+    def stabilite():
+        assert _octets_registre(normal.to_dict()["maisons"]) == registre
+    points, references = [], []
+    retours = [None, None]
+    for numero in range(366):
+        if numero:
+            retours = [engine.tick(m, rng, numero - 1)
+                       for m, rng in zip((normal, temoin), aleas)]
+        stabilite()
+        points.append(_point_registre_bit_pres(normal, aleas[0], retours[0]))
+        references.append(_point_registre_bit_pres(temoin, aleas[1], retours[1]))
+        _comparer_registre_bit_pres(points[-1:], references[-1:])
+    assert len(points) == 366 and normal.ticks_ecoules == temoin.ticks_ecoules == 365
+    _comparer_registre_bit_pres(points, references)
+    normal.maisons = (dataclasses.replace(normal.maisons[0], nom="Altérée"),) + normal.maisons[1:]
+    with pytest.raises(AssertionError):
+        stabilite()
+    cellule = next(c for c in normal.cells.values() if lire_stock_marchandise(c, "nourriture") >= 0)
+    stock = lire_stock_marchandise(cellule, "nourriture")
+    ecrire_stock_marchandise(cellule, "nourriture", math.nextafter(stock, math.inf))
+    alteres = points[:-1] + [_point_registre_bit_pres(normal, aleas[0], retours[0])]
+    with pytest.raises(AssertionError, match="point 365"):
+        _comparer_registre_bit_pres(alteres, references)
+    with pytest.raises(AssertionError):
+        _comparer_registre_bit_pres([], [])
+    print(f"graines={graine_monde}/{graine_tick}, points_comparés={len(points)}, registre_stable=1")
+
+
+def _point_grenier_bit_pres(monde, alea, retour):
+    """Octets complets, cellules, lieux, bassin, retour et générateur, sans retirer de clé."""
+    octets = json.dumps(monde.to_dict(), sort_keys=True).encode()
+    cellules = pickle.dumps({cid: vars(cellule) for cid, cellule in monde.cells.items()})
+    bassin = pickle.dumps(monde.stocks_mer)
+    reste = pickle.dumps((retour, alea.getstate()))
+    return hashlib.sha256(octets + cellules + bassin + reste).digest()
+
+
+def _comparer_grenier_bit_pres(points, reference):
+    assert points and len(points) == len(reference)
+    for numero, (point, temoin) in enumerate(zip(points, reference)):
+        assert point == temoin, f"divergence au point {numero}"
+
+
+def _garder_siege(plein, vide, maison):
+    """La faim et la consommation du siège ne lisent pas le grenier."""
+    assert plein.cells and vide.cells and plein.cells.keys() == vide.cells.keys()
+    cid = maison.cell_id
+    assert cid in plein.cells
+    for cle in plein.cells:
+        a, b = plein.cells[cle], vide.cells[cle]
+        assert (a.population, a.hunger_ticks, a.food_deficit_kg, a.food_stock_kg) == (
+            b.population, b.hunger_ticks, b.food_deficit_kg, b.food_stock_kg)
+        assert [(lieu.rang, lieu.population, dict(lieu.stocks)) for lieu in a.lieux] == [
+            (lieu.rang, lieu.population, dict(lieu.stocks)) for lieu in b.lieux]
+    siege, temoin = plein.cells[cid], vide.cells[cid]
+    assert siege.hunger_ticks == temoin.hunger_ticks
+    assert siege.food_stock_kg == temoin.food_stock_kg
+    assert siege.food_deficit_kg == temoin.food_deficit_kg
+
+
+@pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (42, 42)))
+def test_grenier_bit_pres(monkeypatch, graine_monde, graine_tick):
+    """SC5 — greniers vides invisibles ; un grenier plein ne nourrit pas le siège."""
+    import math
+    import sim.constants as constantes
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+
+    def course(neutraliser):
+        monde = World.charger(graine_monde)
+        assert monde.maisons and set(monde.greniers) == {maison.id for maison in monde.maisons}
+        assert all(panier == {} for panier in monde.greniers.values()) and monde.pertes_kg == 0.0
+        alea = random.Random(graine_tick)
+        points, retour = [], None
+        with monkeypatch.context() as contexte:
+            if neutraliser:
+                contexte.setattr(engine, "_appliquer_pertes_greniers", lambda world: None)
+            for numero in range(constantes.CALENDAR_DAYS_PER_YEAR + 1):
+                if numero:
+                    retour = engine.tick(monde, alea, numero - 1)
+                points.append(_point_grenier_bit_pres(monde, alea, retour))
+        return monde, alea, points, retour
+
+    normal, alea, points, retour = course(False)
+    _, _, references, _ = course(True)
+    assert normal is not None and len(points) == constantes.CALENDAR_DAYS_PER_YEAR + 1
+    _comparer_grenier_bit_pres(points, references)
+    cellule = next(c for c in normal.cells.values() if lire_stock_marchandise(c, "nourriture") >= 0)
+    stock = lire_stock_marchandise(cellule, "nourriture")
+    ecrire_stock_marchandise(cellule, "nourriture", math.nextafter(stock, math.inf))
+    alteres = points[:-1] + [_point_grenier_bit_pres(normal, alea, retour)]
+    with pytest.raises(AssertionError, match="point 365"):
+        _comparer_grenier_bit_pres(alteres, references)
+    with pytest.raises(AssertionError):
+        _comparer_grenier_bit_pres([], [])
+
+    plein, vide = World.charger(graine_monde), World.charger(graine_monde)
+    maison = next(m for m in plein.maisons if m.cell_id in plein.cells)
+    plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE] = 1_000_000.0
+    assert plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE] > 0
+    aleas = [random.Random(graine_tick) for _ in range(2)]
+    for numero in range(2):
+        for monde, generateur in zip((plein, vide), aleas):
+            engine.tick(monde, generateur, numero)
+    _garder_siege(plein, vide, maison)
+    plein.cells[maison.cell_id].food_stock_kg += plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE]
+    plein.greniers[maison.id][constantes.MARCHANDISE_NOURRITURE] = 0.0
+    with pytest.raises(AssertionError):
+        _garder_siege(plein, vide, maison)
+    print(f"graines={graine_monde}/{graine_tick}, points={len(points)}")

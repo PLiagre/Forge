@@ -7,7 +7,7 @@ import sim.constants as _constantes
 from sim.chantiers import travail_requis_de_batiment, travail_requis_de_parcelle, travail_requis_de_route
 from sim.plan import Batiment, Parcelle, Plan, PlanInvalide, Rue
 from sim.puissances import PuissanceInvalide
-from sim.seigneuries import cellule_du_siege, charger_seigneuries
+from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie
 
 TYPE_CHOISIR_DEPART = "choisir_depart"
 TYPE_TRACER_ROUTE = "tracer_route"
@@ -31,7 +31,7 @@ class ChoixDepart:
     identifiant: int
 
     def appliquer(self, monde):
-        monde.maison_du_joueur = self.identifiant
+        monde.maison_du_joueur = identifiant_de_seigneurie(self.identifiant)
 
 
 @dataclass(frozen=True)
@@ -223,9 +223,12 @@ def deposer_intention(monde, intention, seigneuries=None) -> ChoixDepart:
         cellule_du_siege(terre, monde.carte)
     except PuissanceInvalide as exc:
         raise IntentionRefusee(str(exc)) from exc
+    if not any(m.id == identifiant_de_seigneurie(identifiant) and m.sorte == "seigneurie"
+               for m in monde.maisons):
+        raise IntentionRefusee(f"seigneurie inconnue : {identifiant!r}")
     retenu = monde.maison_du_joueur
     if retenu is None:
-        retenu = next((choix.identifiant for choix in monde.intentions_en_attente
+        retenu = next((identifiant_de_seigneurie(choix.identifiant) for choix in monde.intentions_en_attente
                        if isinstance(choix, ChoixDepart)), None)
     if retenu is not None:
         raise IntentionRefusee(f"départ déjà choisi : {retenu}")

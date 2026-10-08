@@ -26,16 +26,18 @@ part. À chaque tick, dans cet ordre :
    s'appliquent dans l'ordre du dépôt : un choix de départ devient la maison
    du joueur, une route, une parcelle ou un bâtiment entre au plan en chantier ;
    sans cellule ni aléa.
-3. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
+3. **Greniers** (`_appliquer_pertes_greniers`) — chaque réserve de maison
+   perd une part de sa nourriture ; les habitants n'y mangent pas.
+4. **Chantiers** (`_avancer_chantiers`) — les ouvriers reviennent aux champs,
    puis les rues, les parcelles et enfin les bâtiments dont la parcelle est
    prête prennent leurs bras et comptent les journées fournies.
    **Ateliers** (`_affecter_artisans`) — les scieries et fours achevés prennent les paysans restants.
-4. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
+5. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sans bras ; les artisans façonnent ensuite le reliquat avec un budget commun.
-5. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
+6. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
-6. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
+7. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
    la cellule produit de la nourriture proportionnellement à sa surface,
    multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
@@ -43,29 +45,30 @@ part. À chaque tick, dans cet ordre :
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
    pluie suffisante.
-7. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
+8. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture. Une route achevée avec porte augmente
    le plafond de sa frontière dès ce tick.
-8. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+9. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
    bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
    Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
-9. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+10. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-10. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
-    avec son report de fraction ; sans lieux, le calcul reste cellulaire.
-11. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
+11. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
+    avec son report de fraction pour ne pas devenir immortel par arrondi ;
+    sans lieux, le calcul reste cellulaire.
+12. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
     des habitants, avec son report local ; sans lieux, le calcul reste cellulaire.
-12. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
+13. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
     qui a manqué ce tick part vers les voisines dont il reste de la nourriture
     après consommation. Personne n'emporte de kilogrammes.
-13. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
+14. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
     et paniers sont remis d'accord avec les totaux de la cellule.
-14. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+15. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -75,8 +78,11 @@ ne sont pas stockées sur `Cell` : leurs vues se dérivent respectivement du
 relevé le plus proche et du cours du fleuve, puis entrent dans la carte au
 moment où le monde la lit. La **puissance** et la **maison** dont relève une
 cellule sont pareillement des vues dérivées, jamais un second identifiant
-spatial stocké. Le nombre et les surfaces des **lieux** se dérivent de la
-surface de la cellule ; ses lieux portent désormais leur population et leur
+spatial stocké. Le registre des maisons, distinct de cette tenure dérivée,
+est désormais détenu par `World.maisons` : chargé une fois, il figure dans
+`to_dict()` et n'est jamais lu au tick. Chaque maison a en outre son grenier
+dans `World.greniers`, lu tel quel par le tick. Le nombre et les surfaces des **lieux**
+se dérivent de la surface de la cellule ; ses lieux portent désormais leur population et leur
 panier sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans
 leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
 ni celle des maisons. Il lit les habitants et paniers des lieux pour
@@ -1410,7 +1416,7 @@ carienne ; Mistra donne à Byzance l'Attique, les îles Ioniennes et l'ouest
 de la Crète. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
 sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés,
 les tributs, le siège de Constantinople et l'Église de Bosnie restent de
-**niveau 3**, pas simulés.
+**niveau 3**, pas simulés, sauf les seuls liens de départ du registre ci-dessous.
 
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
 `Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
@@ -1470,7 +1476,7 @@ anomalies sont acceptées. Luxembourg tient le Saint-Empire, mais aucune de
 ses cellules, dont les trois ancres sont tenues par des vassaux ; ses cellules
 sont celles de la Bohême et de la Hongrie.
 
-Restent de **niveau 3**, pas simulés : le lien de suzeraineté et l'hommage,
+Le registre ajoute seulement les liens de départ décrits ci-dessous ; cette vue reste inchangée. Restent de **niveau 3**, pas simulés : les autres liens de suzeraineté et l'hommage,
 les personnes et la succession des dynasties, Vytautas en Lituanie, Naples
 disputée, Édigu derrière le khan, Marguerite derrière Éric, les vassaux sans
 ancre (Orléans, Anjou, Berry, Foix, Armagnac, Wettin, Hohenzollern, la Hollande
@@ -1486,13 +1492,18 @@ des puissances, leurs ancres et leurs cellules restent identiques.
 ## Les seigneuries de départ, vue dérivée
 
 La table `data/seigneuries-1400.json`, datée du **1er janvier 1400**, déclare
-cinq petites seigneuries : le **Duché de Bar** (maison Bar, Robert Ier,
+six petites seigneuries : le **Duché de Bar** (maison Bar, Robert Ier,
 Barrois mouvant relevant de la France), le **Comté de Wurtemberg** (maison
 Wurtemberg, Eberhard III, Saint-Empire), le **Despotat de Morée** (maison
 Paléologue, Théodore Ier, Byzance), la **Terre des Branković** (maison
-Branković, Đurađ, Ottomans) et l'**Uç d'Evrenos** (maison Evrenosoğulları,
-Gazi Evrenos Bey, Ottomans). Bar et Wurtemberg sont catholiques ; Morée
-et Branković sont orthodoxes ; Evrenos est musulman. Bar désigne ici la
+Branković, Đurađ, Ottomans), l'**Uç d'Evrenos** (maison Evrenosoğulları,
+Gazi Evrenos Bey, Ottomans) et l'**Émirat du Zab** (maison Banou Mozni,
+Biskra, Hafsides). Bar et Wurtemberg sont catholiques ; Morée
+et Branković sont orthodoxes ; Evrenos et le Zab sont musulmans. La source
+du Zab déclare « Chef de la maison au 1er janvier 1400 : non sourcé » ;
+cette mention reste visible dans la fiche, la photographie et `/departs`.
+La reprise hafside en 1402 donne un contexte, sans imposer une conquête.
+Bar désigne ici la
 branche de Scarpone. Le projet hospitalier concernant Mistra est postérieur
 au départ : la cession de Corinthe est datée de 1400 par la source publique.
 
@@ -1500,7 +1511,7 @@ Chaque ligne donne un `id`, un `nom`, une `religion` de `RELIGIONS`, le nom
 de sa `maison`, l'identifiant de sa puissance `suzerain`, une `source`
 publique et son `siege` : nom, latitude et longitude en EPSG:4326, coordonnées
 `x_m`, `y_m` en EPSG:3035. Les sièges sont Bar-le-Duc, Stuttgart, Mistra,
-Vučitrn et Giannitsa (Yenice-i Vardar). La cellule du siège est dérivée par
+Vučitrn, Giannitsa (Yenice-i Vardar) et Biskra. La cellule du siège est dérivée par
 `point_dans_geometrie` de `sim/villes.py`, en parcourant les polygones de la
 carte dans l'ordre des `cell_id` ; sur une frontière, le plus petit gagne.
 Le centroïde le plus proche ne sert jamais à cette attribution. Un siège
@@ -1526,10 +1537,12 @@ lève `SeigneurieInconnue`, sous-classe de `LookupError`, avant tout calcul.
   `monde.adjacency`, sans doublon et triées par `cell_id`, chacune avec sa
   puissance (ou `None`) et ses habitants actuels.
 
-**Niveau 1** : seigneur, maison, suzerain et point du siège, vérifiés contre
-des sources publiques. **Niveau 2**, plausible et jamais sourcé : seigneurie
+**Niveau 1** : maison, religion, suzerain et point du siège, vérifiés contre
+des sources publiques ; seigneur quand il est sourcé, chef du Zab déclaré
+non sourcé. **Niveau 2**, plausible et jamais sourcé : seigneurie
 réduite à la cellule entière de son siège, habitants amorcés et production
-de cette cellule, étendue du suzerain suivant ses ancres. Les anomalies
+de cette cellule, étendue du suzerain suivant ses ancres. Les habitants de
+la fiche mesurent la cellule actuelle, pas la ville historique. Les anomalies
 de cette réduction ne sont pas des défauts. **Niveau 3**, pas simulé :
 prélèvement et hommage (jalon 3), personnes, autres seigneuries.
 
@@ -1569,11 +1582,12 @@ par `positions_du_monde` et refuse une position absente en nommant la cellule.
 
 `maisons_de_l_ia(monde, …)` de `sim/capitales.py` recalcule un tuple gelé :
 d'abord les grandes maisons triées par id, puis les seigneuries de départ
-triées par id, sauf celle de `monde.maison_du_joueur`. Chaque ligne porte
+triées par id, sauf celle dont `identifiant_de_seigneurie(s.id)` vaut
+`monde.maison_du_joueur`. Les ids des lignes restent entiers. Chaque ligne porte
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
-Sans choix, **35** maisons ; après un choix appliqué au tick, **34**.
+Sans choix, **36** maisons ; après un choix appliqué au tick, **35**.
 La branche Paléologue de Morée est distincte de celle de Constantinople :
 sans choix, toutes deux sont à l'IA ; choisir la Morée laisse la grande
 maison Paléologue à l'IA. La vue ne conserve rien entre deux appels,
@@ -1599,6 +1613,58 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ---
 
+## Les maisons du monde
+
+`sim/registre_maisons.py` charge les trois tables `data/puissances-1400.json`, `data/capitales-1400.json` et `data/seigneuries-1400.json` avec la carte en argument ; des chemins alternatifs permettent les contre-épreuves. Le tuple stable de fiches gelées héritant de `_NoBadSpatialField` comprend toutes les maisons, y compris celle du joueur, sans fusionner les branches homonymes. Chaque fiche porte `id`, `nom`, `sorte`, `suzerain`, `siege` (nom), `cell_id`, `rang` et `hors_carte`.
+Une grande maison a l'id `grande-<id maison>`, son nom et sa capitale ; une puissance sans maison devient `institution-<id puissance>`, nommée comme la puissance, siégeant à son ancre de plus petit id ; chaque départ devient `seigneurie-<id>`, nommé par son champ `maison`, à son siège déclaré.
+La maison du joueur est cette fiche `seigneurie-<n>`, comme toute autre seigneurie du registre. `sim/seigneuries.py` définit seul le format par `identifiant_de_seigneurie(numero)` ; `numero_de_seigneurie` refuse toute valeur non canonique (préfixe exact, chiffres décimaux ASCII sans signe ni zéro de tête).
+Les grandes maisons et institutions sont des racines sans suzerain ; les départs relèvent de la grande maison de leur puissance suzeraine, ou de son institution. Aucun lien supplémentaire ne rattache les grands vassaux des ancres.
+La validation publique refuse une référence inconnue ou tout cycle, même sur soi, avec `PuissanceInvalide` nommant la maison ; elle accepte un registre altéré pour l'éprouver.
+Les ancres sont projetées par `projeter_epsg3035` ; les sièges suivent les polygones, frontière au plus petit `cell_id`, jamais le centroïde le plus proche. Sur carte, le siège est le couple (`cell_id`, `rang = 0`), sans seconde clé spatiale.
+Hors carte, `cell_id` et `rang` sont `None` : Saraï reprend la raison de sa capitale, Venise celle déclarée dans son ancre, sans déplacement ni bourg inventé. Toute raison absente ou vide hors carte, raison sur un point contenu ou géométrie absente est refusée.
+**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : propriété des lieux, hommage matériel, personnes et succession. Le grenier de chaque maison est conservé à part : voir « Le grenier d'une maison ».
+
+Le lecteur reste pur : il ne modifie ni tables, ni carte, ni monde.
+`World.charger` l'appelle une fois avec sa carte et conserve son tuple de fiches
+gelées dans `World.maisons`, joueur compris ; un `World(...)` d'épreuve initialise
+explicitement ce registre à `()`, sans lire les tables. `to_dict()` sérialise
+toujours les fiches détenues dans une liste de dictionnaires indépendants triée
+par `id`, sans rappeler le lecteur ou une vue. Aucun champ n'est ajouté à `Cell` ;
+le siège reste (`cell_id`, `rang`). Le tick ne consulte jamais le registre :
+sans geste, ses octets restent identiques pour toute graine et tout tick, tandis
+que le monde évolue. Les anciennes vues et la sélection de l'IA gardent leur contrat.
+
+## Le grenier d'une maison
+
+Chaque fiche du registre, institutions et maison du joueur comprises, a un
+panier dans `World.greniers` : identifiant de maison → marchandise → kilogrammes.
+Il est vide au chargement, distinct de tous les autres paniers, et `{}` pour
+un `World(...)` sans registre. L'emplacement reste le siège déjà déclaré
+(`cell_id`, `rang`) ; un siège hors carte n'invente pas de lieu. Les fiches
+gardent leurs huit champs.
+
+Après la validation du numéro de tick et avant la fabrication,
+`_appliquer_pertes_greniers` lit ces paniers sans consulter `World.maisons`,
+les tables ni les vues. Les habitants n'y mangent pas. Production, fabrication,
+commerce et répartition ne les remplissent ni ne les déplacent. Un panier vide
+reste vide, une nourriture à zéro reste à zéro, une marchandise absente n'est
+pas ajoutée, et les autres marchandises gardent leur poids.
+
+`PERTE_GRENIER_PAR_AN` vaut 0,25. La part d'un tick est
+`p = PERTE_GRENIER_PAR_AN × TICK_DURATION_DAYS / CALENDAR_DAYS_PER_YEAR`.
+Sur le stock alimentaire courant `S`, le maillon retire `S × p` une fois.
+Après `n` ticks sans apport, le reste est `S × (1 − p)ⁿ`. Aucun retrait annuel
+ne s'ajoute. Chaque kilogramme retiré s'ajoute à `World.pertes_kg`, sans
+arrondi, et ne devient ni dette ni nourriture ailleurs.
+
+`to_dict()` ajoute `greniers` seulement pour les paniers non vides, triés par
+identifiant, en copies indépendantes, et `pertes_kg` seulement si le cumul
+n'est pas nul. Greniers vides et cumul nul laissent les octets antérieurs.
+
+**Niveau 2**, plausible, jamais sourcé : le taux de perte par rongeurs et
+moisissure. **Niveau 3**, pas simulé : la capacité du grenier et la
+dégradation des marchandises autres que la nourriture.
+
 ## Les intentions du joueur
 
 `recevoir_intention` de `sim/intentions.py` est l'entrée commune de
@@ -1610,28 +1676,31 @@ La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
 `POST /intention`. `python3 -m forge --depart ID` continue d'appeler
-directement `deposer_intention`, dont le comportement ne change pas.
+directement `deposer_intention`, toujours avec le numéro entier de la terre.
 La table se lit par `charger_seigneuries()` ; `cellule_du_siege` vérifie
-que le siège est dans la carte. Aucune cellule ni aucun plan ne change.
+que le siège est dans la carte. Le dépôt vérifie aussi que `identifiant_de_seigneurie(n)`
+est une fiche de sorte `seigneurie` de `monde.maisons`, sinon refuse la seigneurie inconnue.
+Aucune cellule ni aucun plan ne change.
 
 Le dépôt refuse avant toute mise en attente, par `IntentionRefusee` :
 
 - une valeur absente, booléenne, non entière ou inconnue :
   « seigneurie inconnue : <valeur reçue> » ; un siège hors carte est aussi refusé ;
-- un choix déjà retenu ou en attente : « départ déjà choisi : <id> ».
+- un choix déjà retenu ou en attente : « départ déjà choisi : seigneurie-<n> ».
 
 Le choix accepté est un `ChoixDepart(identifiant)` gelé, placé dans
-`World.intentions_en_attente`. Il reste invisible dans `to_dict()` et les
+`World.intentions_en_attente` ; il garde le numéro entier. Il reste invisible dans `to_dict()` et les
 vues. Au tick suivant, `_appliquer_intentions` vient après la validation du
 numéro et avant la fabrication : elle appelle chaque intention par
 `.appliquer(monde)` dans l'ordre du dépôt, puis vide la liste.
-`ChoixDepart.appliquer` pose `maison_du_joueur`.
+`ChoixDepart.appliquer` pose `maison_du_joueur = identifiant_de_seigneurie(self.identifiant)`
+sans consulter le registre : la validation appartient au dépôt, jamais au tick.
 Un numéro invalide laisse donc les intentions en attente.
 Cette étape ignore les mondes d'épreuve, ne tire aucun aléa et ne lit ni
 n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
 
 `maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
-et `/monde` portent cette clé et l'id choisi ; sans choix, la clé est absente
+et `/monde` portent cette clé et l'identifiant du registre `seigneurie-<n>` ; sans choix, la clé est absente
 et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
@@ -1758,15 +1827,15 @@ triées, UTF-8, `ensure_ascii=False`, séparateurs compacts.
 `--depart` est entier et répétable : chaque valeur se dépose dans l'ordre
 avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
 ni `resume.json`. Avec `--ticks 0`, la commande refuse : « l'intention
-s'applique au tick suivant ». Le compte rendu porte
-`simulation.maison_du_joueur` seulement après un choix appliqué ; la
+s'applique au tick suivant ». Le compte rendu écrit dans
+`resume.json["simulation"]["maison_du_joueur"]` l'identifiant du registre seulement après un choix appliqué ; la
 photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différence.
 
-**Niveau 1 :** les cinq terres et leurs attributions héritées, sans changement.
-**Niveau 2, plausible :** la maison du joueur réduite à l'id de sa terre,
-donc à la cellule de son siège. **Niveau 3, pas simulé :** ses effets
-(prélèvement, jalon 3), les maisons de l'IA (jalon 5) et les personnes
-(jalon 6). Changer de départ, sauvegarder et recharger ne sont pas simulés.
+**Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
+**Niveau 2 :** aucun ajout. **Niveau 3, pas simulé ici :** les lieux du joueur,
+la part qu'il prélève, son dû au suzerain, et les personnes. Le grenier existe
+déjà, voir « Le grenier d'une maison » ; l'ouvrir à ses lieux n'est pas simulé.
+Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
 
 ## La photographie de 1400, vue dérivée
@@ -1782,9 +1851,11 @@ porte les noms et populations de `charger_villes`, placés par
 
 À la racine, `villes_hors_carte` déclare les noms triés des villes non placées.
 `terre_choisie` vaut `null` sans choix, sinon porte la fiche actuelle de
-`fiche_de_seigneurie`, avec siège, source, cellule, habitants, production,
+`fiche_de_seigneurie(numero_de_seigneurie(world.maison_du_joueur), …)`, dont l'id
+reste entier, avec siège, source, cellule, habitants, production,
 suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
-dans l'ordre de la fiche. **Le tick ne la lit pas.**
+dans l'ordre de la fiche. Un identifiant mal formé lève `SnapshotExportError`
+« seigneurie inconnue », sans modifier le monde. **Le tick ne la lit pas.**
 
 `build_snapshot_document` et `export_snapshot` acceptent `releve_ia=None` :
 aucun calcul de maisons IA ni nouvelle clé, mêmes octets et même version.
@@ -1799,7 +1870,46 @@ ce bloc construit une seule fois dans `snapshot_export.py` ; les cellules resten
 **Niveau 1 :** puissances, maisons, villes et terres avec leurs sources.
 **Niveau 2, plausible :** étendue des puissances et maisons, terre réduite à
 la cellule de son siège, population amorcée. **Niveau 3, pas simulé :**
-frontières réelles, suzeraineté et villes hors carte, déclarées sans placement.
+frontières réelles, suzeraineté hors des seuls liens de départ du registre, et villes hors carte, déclarées sans placement.
+
+## La carte et les terres servies, vue dérivée
+
+`GET /carte` sert `crs` (`EPSG:3035`), `tolerance_m`, la `version` de la
+carte, `cell_count`, `cells` triées par `cell_id` et `villes_hors_carte`.
+Chaque cellule porte exactement `cell_id`, `contour` (toujours un
+`MultiPolygon`), `relief`, `puissance`, `maison` (`id`, `nom` ou `null`)
+et `villes` (`nom`, `population`, `x_m`, `y_m`), triées par nom. Les identités
+et les villes viennent des mêmes vues que la photographie ; les villes
+hors carte sont déclarées par leurs noms triés. Aucun tick, stock ou
+population de cellule n'entre dans ce document.
+
+Douglas-Peucker simplifie chaque anneau à `TOLERANCE_CONTOUR_M = 1000` mètres,
+en gardant son premier sommet, puis arrondit ses coordonnées au mètre.
+Une garde sur ce résultat exige `SOMMETS_MIN_ANNEAU = 4` points par anneau
+(fermeture comprise) et conserve le point témoin. Celui-ci est le centroïde
+de la carte s'il est intérieur ; certains contours concaves l'excluent déjà.
+Dans ce cas, le témoin est le milieu du plus large intervalle intérieur sur
+l'horizontale du centroïde, calculé par intersections selon la règle pair-impair.
+Sans intervalle, la cellule est refusée explicitement. Si la simplification
+perd un anneau ou le témoin, la cellule sert son contour d'origine arrondi ;
+si ce repli perd encore le témoin, elle est refusée avec son `cell_id`.
+
+Les octets de `/carte`, la vue des puissances et les tables des seigneuries,
+puissances et maisons sont calculés à la première lecture de `/carte` ou
+`/departs`, sous un verrou propre, puis figés pour la partie.
+`GET /departs` recalcule à chaque requête `tick`, `date` et `departs` : les
+fiches triées par `id`, exactement dans la forme de `terre_choisie` de la
+photographie. `fiche_de_seigneurie` accepte `vue=None` : sans vue fournie,
+elle recalcule les puissances ; avec la vue figée, seuls les contours et
+les ancres de 1400 sont réutilisés. Les fiches dérivent des tables et du
+monde sous le verrou du tick, sans cache des nombres du monde et sans
+calcul supplémentaire à chaque tick. Une erreur de construction rend
+`500` avec `erreur`, sans arrêter le service.
+
+**Niveau 1 :** trait des contours de la carte figée, puissances, maisons et
+villes avec leurs sources. **Niveau 2, plausible :** simplification à 1 km,
+approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
+frontières réelles, comme dans la photographie.
 
 ## Les lieux d'une cellule, vue dérivée
 
@@ -2003,6 +2113,7 @@ déplacements à proportion du contenu et conserve les états locaux déjà coh�
 `sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia` : population et faim du rang 0 positives, quelle que soit la cause. Dette, stock vide ou faim des champs ne suffisent pas.
 Hors carte : aucun geste. Cellule, plan, bourg ou faim absent/non calculé : refus nommé avant tout dépôt.
 Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des dépôts acceptés. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
+L'exclusion compare l'identifiant du registre : le numéro d'un `ChoixDepart` en attente est converti par `identifiant_de_seigneurie`, comme celui des lignes de seigneurie.
 Paramètres relus dans `constants.py`. `jouer_ia` utilise uniquement `recevoir_intention`, JSON du joueur intact, puis copie `{tick, maison: {sorte, id}, intention}` après acceptation. `python3 -m sim --ia` joue après les gestes scriptés,
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
 déposés dans les trente premiers jours, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.

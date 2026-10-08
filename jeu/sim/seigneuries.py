@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 
 from sim import constants as constantes
 from sim.engine import population_soutenable_de
@@ -60,7 +61,19 @@ class Fiche(_NoBadSpatialField):
 
 
 class SeigneurieInconnue(LookupError):
-    """Identifiant absent de la table ou qui n'est pas un entier."""
+    """Numéro inconnu ou identifiant mal formé."""
+
+
+def identifiant_de_seigneurie(numero) -> str:
+    """Nomme une maison de seigneurie dans le registre."""
+    return f"seigneurie-{numero}"
+
+
+def numero_de_seigneurie(identifiant) -> int:
+    """Lit seulement le format canonique du registre, sans consulter de table."""
+    if not isinstance(identifiant, str) or re.fullmatch(r"seigneurie-(0|[1-9][0-9]*)", identifiant) is None:
+        raise SeigneurieInconnue(f"seigneurie inconnue : {identifiant!r}")
+    return int(identifiant.removeprefix("seigneurie-"))
 
 
 def charger_seigneuries(path=None, table=None) -> tuple[Seigneurie, ...]:
@@ -114,7 +127,7 @@ def cellule_du_siege(seigneurie, carte) -> int:
     raise PuissanceInvalide(f"seigneurie {seigneurie.id}, champ siege : hors carte")
 
 
-def fiche_de_seigneurie(identifiant, monde, seigneuries=None, table=None, maisons=None) -> Fiche:
+def fiche_de_seigneurie(identifiant, monde, seigneuries=None, table=None, maisons=None, vue=None) -> Fiche:
     """Refuse l'identifiant d'abord, puis dérive la fiche des données actuelles."""
     if isinstance(identifiant, bool) or not isinstance(identifiant, int):
         raise SeigneurieInconnue(f"seigneurie inconnue : {identifiant!r}")
@@ -130,7 +143,8 @@ def fiche_de_seigneurie(identifiant, monde, seigneuries=None, table=None, maison
     cell_id = cellule_du_siege(seigneurie, monde.carte)
     cellule = monde.cells[cell_id]
     puissances = {p.id: p for p in table.puissances}
-    vue = puissances_depuis_monde(monde, table=table)
+    if vue is None:
+        vue = puissances_depuis_monde(monde, table=table)
     cellules = tuple(cid for cid, puissance in vue.items() if puissance == seigneurie.suzerain)
     maison_id = maisons.par_puissance[seigneurie.suzerain]
     maison = next((m for m in maisons.maisons if m.id == maison_id), None)
