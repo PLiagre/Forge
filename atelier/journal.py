@@ -4,9 +4,16 @@ Les faits se relèvent en Python — sur GitHub et dans le journal du pilote :
 ce que chaque lot livré a changé (le compte rendu du codeur, le verdict du
 relecteur, ses captures), ce que la chaîne a vécu (attentes et leur raison,
 découpes, reprises), ce qui est bloqué ou en cours, ce que le propriétaire
-doit faire, le jalon et son pourcentage. Le chroniqueur en fait un récit
-court (un bandeau, ce qui a changé, aujourd'hui) ; le pilote y ajoute
-lui-même l'avancement du jalon et les détails repliés. Une image déjà
+doit faire, le jalon et son pourcentage ; pour chaque lot livré, la
+section « Le joueur » de son brief. Le chroniqueur en fait un récit court,
+en langage de jeu (un bandeau, ce qui a changé, aujourd'hui) ; le pilote y
+ajoute lui-même l'avancement du jalon et les détails repliés.
+
+Les images viennent du monde que master joue pendant un an : la terre du
+joueur parmi ses voisins, la faim en Europe, et pour un lot qui parle de
+grenier, de dette ou de population, la carte de cette lecture. La carte
+que le pilote prend de chaque lot (`-carte.png`) ne s'y montre plus : c'est
+la même Europe en densité, quel que soit le lot. Une image déjà
 montrée — mêmes octets que la photo du monde, ou qu'une capture précédente —
 est omise : le 2 octobre 2026, six cartes de lots et trois photos du ksar
 étaient le même fichier. Si le chroniqueur se tait, sort du gabarit ou cite
@@ -154,27 +161,87 @@ def _capture_finale(commentaires: list[dict]) -> str | None:
     return None
 
 
-def _lot_livre(p: dict, commentaires: list[dict]) -> tuple[dict, list[str]]:
+def _le_joueur(racine: Path | None, numero: str | None) -> str:
+    """La section « Le joueur » du brief du lot, en un paragraphe : ce que le
+    joueur y gagne, dans les mots du jeu. Vide si le brief n'est pas sur master."""
+    if racine is None or numero is None:
+        return ""
+    for brief in sorted((Path(racine) / "docs" / "briefs").glob(f"{numero}-*.md")):
+        m = _SECTION_JOUEUR.search(brief.read_text(encoding="utf-8"))
+        if m:
+            return " ".join(m.group(1).split())
+    return ""
+
+
+def _theme(texte: str) -> str | None:
+    """La lecture de carte qui montre le sujet d'un lot, ou None."""
+    bas = texte.lower()
+    return next((lecture for lecture, mots in _THEMES if any(mot in bas for mot in mots)), None)
+
+
+def _lot_livre(p: dict, commentaires: list[dict], racine: Path | None = None) -> tuple[dict, list[str]]:
     liste = lots.marques(commentaires)
     passages = sum(1 for m in liste if m.get("role") in lots.ROLES_CODEURS and m.get("etat") in ("fait", "echec"))
     verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("verdict")]
     relu = f"{verdicts[-1]['verdict']} par {verdicts[-1].get('agent', '?')}" if verdicts else "sans relecture écrite"
     lignes = [f"- PR #{p['number']} « {p['title']} » ({p['url']}) — {passages} passage(s) du codeur, relu : {relu}"]
-    rendu = _compte_rendu(commentaires)
-    if rendu:
-        lignes.append("  Ce que dit le codeur :")
-        lignes += [f"    {l}" for l in rendu.splitlines()]
-    capture = _capture_finale(commentaires)
-    if capture:
-        lignes.append(f"  ![capture]({capture})")
     # « Lot #185 — Unity lit… » : le propriétaire connaît le lot, pas la PR.
     m = _TITRE_DE_LOT.match(p["title"])
     nom = f"#{m.group(1)} {m.group(2)}" if m else p["title"]
-    livre = {"numero": p["number"], "nom": nom, "url": p["url"], "rendu": rendu, "capture": capture}
+    joueur = _le_joueur(racine, m.group(1) if m else None)
+    if joueur:
+        lignes.append(f"  Ce que le joueur y gagne (le brief) : {joueur}")
+    rendu = _compte_rendu(commentaires)
+    if rendu:
+        lignes.append("  Ce que dit le codeur (technique : à traduire en jeu, jamais à recopier) :")
+        lignes += [f"    {l}" for l in rendu.splitlines()]
+    capture = _capture_finale(commentaires)
+    # La carte que le pilote prend de chaque lot est la même Europe en
+    # densité, quel que soit le lot : elle ne montre pas ce qu'il change.
+    if capture and capture.endswith(_CARTE_GENERIQUE):
+        capture = None
+    if capture:
+        lignes.append(f"  ![capture]({capture})")
+    lecture = None if capture else _theme(f"{nom} {joueur}")
+    livre = {"numero": p["number"], "nom": nom, "url": p["url"], "rendu": rendu, "capture": capture,
+             "joueur": joueur, "lecture": lecture}
     return livre, lignes
 
 
 _TITRE_DE_LOT = re.compile(r"Lot #(\d+) — (.+)")
+_SECTION_JOUEUR = re.compile(r"^## Le joueur\s*\n(.*?)(?=^## |\Z)", re.S | re.M)
+_CARTE_GENERIQUE = "-carte.png"
+# Le sujet d'un lot, reconnu à ses mots, et la lecture de carte qui le montre.
+_THEMES = (
+    ("faim", ("faim", "famine", "disette", "affam")),
+    ("nourriture", ("grenier", "grain", "blé", "récolte", "moisson", "vivres", "nourri")),
+    ("dette", ("dette",)),
+    ("population", ("population", "habitant", "naissance", "migr")),
+)
+# Ce que montre chaque image du matin, dit au joueur, par le début du nom de
+# son fichier : (texte de l'image, légende).
+VUES = {
+    "terre": ("ta terre", "Ta terre, cerclée de rouge, parmi ses voisins après un an de jeu : "
+                          "plus le bleu est foncé, plus les gens y vivent serrés."),
+    "faim": ("la faim", "Où l'on a faim en Europe après un an de jeu : plus c'est foncé, "
+                        "plus la faim dure depuis longtemps."),
+    "nourriture": ("les réserves", "Les réserves de nourriture après un an de jeu : plus c'est foncé, "
+                                   "plus il reste de vivres."),
+    "dette": ("le manque", "Ce qui manque pour nourrir chacun après un an de jeu : plus c'est foncé, "
+                           "plus le manque est lourd."),
+    "population": ("les gens", "Où vivent les gens après un an de jeu : plus c'est foncé, plus il y a de monde."),
+    "monde": ("le monde", "Le monde ce matin, simulé depuis master."),
+}
+# Les images de chaque matin, dans l'ordre ; les autres lectures ne se
+# rendent que pour un lot livré qui en parle.
+VUES_DU_MATIN = ("terre", "faim")
+ANNEE_DE_JEU = 365
+
+
+def _vue(url: str) -> str:
+    """La vue d'une image du matin, par le nom de son fichier (« terre-2026-10-08.png »)."""
+    nom = url.rsplit("/", 1)[-1]
+    return next((cle for cle in VUES if nom.startswith(f"{cle}-")), "monde")
 
 
 def _attend(lot: lots.Lot, bloq: frozenset[int], ouverts: set[int], enfants: dict[int, list[int]]) -> list[int]:
@@ -330,7 +397,7 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
     for p in des_lots:
         commentaires = gh.pr(p["number"]).get("comments") or []
         _reponses_du_pc(commentaires, reponses_pc)
-        livre, faits_du_lot = _lot_livre(p, commentaires)
+        livre, faits_du_lot = _lot_livre(p, commentaires, projet.racine)
         r.livres.append(livre)
         lignes += faits_du_lot
     lignes.append(f"\nLA MACHINE, CHANGÉE EN MODE DIRECT ({len(machine)}) :")
@@ -495,15 +562,23 @@ def _redaction_du_pilote(r: Releve, monde: list[str]) -> str:
     lignes = [f"> **Avancé** : {avance}.", f"> **Bloqué** : {bloque}.",
               f"> **À faire** : {' ; '.join(gestes) or 'rien'}.", "", "### Ce qui a changé dans le jeu", ""]
     for url in monde:
-        lignes += ["*Le monde ce matin, trente jours simulés depuis master.*", f"![le monde]({url})", ""]
+        alt, legende = VUES[_vue(url)]
+        lignes += [f"*{legende}*", f"![{alt}]({url})", ""]
     for l in r.livres:
         lignes.append(f"**[{l['nom']}]({l['url']})**")
-        # La première phrase du compte rendu : ce que le lot fait, avant le détail.
-        paragraphe = next((x.strip() for x in (l["rendu"] or "").splitlines() if x.strip() and not x.startswith("#")), "")
+        # Ce que le joueur y gagne, d'après son brief ; à défaut, la première
+        # phrase du compte rendu du codeur.
+        joueur = l.get("joueur") or ""
+        fond = joueur.startswith("Fond.")
+        joueur = joueur.removeprefix("Fond.").strip()
+        paragraphe = joueur or next((x.strip() for x in (l["rendu"] or "").splitlines()
+                                     if x.strip() and not x.startswith("#")), "")
         if paragraphe:
-            lignes.append(paragraphe.split(". ")[0].rstrip(".") + ".")
+            phrase = paragraphe.split(". ")[0].rstrip(".") + "."
+            lignes.append(f"Rien de visible encore, c'est la fondation de la suite : {phrase}" if fond else phrase)
         if l["capture"]:
-            lignes += ["", "*La capture de la révision livrée.*", f"![capture]({l['capture']})"]
+            alt, legende = VUES[l["vue"]] if l.get("vue") else ("capture", "La capture de la révision livrée.")
+            lignes += ["", f"*{legende}*", f"![{alt}]({l['capture']})"]
         lignes.append("")
     if not r.livres:
         lignes += ["Aucun lot livré depuis hier.", ""]
@@ -568,21 +643,55 @@ def _dedupliquer_images(texte: str, livres: list[dict], *, lire, cache: dict | N
     return texte
 
 
-def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime) -> list[str]:
-    """La carte du monde tel que master le simule ce matin : chaque journal
-    porte au moins une image, même un jour sans lot livré."""
+def photo_du_monde(gh: GitHub, projet: Projet, maintenant: datetime, lectures: tuple[str, ...] = ()) -> list[str]:
+    """Le monde tel que master le joue pendant un an : la terre du joueur
+    parmi ses voisins, la faim en Europe, puis la carte de chaque `lectures`
+    qu'un lot livré demande. Chaque journal porte au moins une image, même
+    un jour sans lot livré : si aucune ne se rend, la carte d'avant."""
+    jour = f"{maintenant:%Y-%m-%d}"
     with tempfile.TemporaryDirectory(prefix="journal-") as tmp:
-        carte = captures.carte_du_monde(projet.racine, Path(tmp))
-        if carte is None:
-            return []
-        nommee = Path(tmp) / f"monde-{maintenant:%Y-%m-%d}.png"
-        carte.rename(nommee)
+        tmp = Path(tmp)
+        fichiers = []
+        grande = captures.carte_du_monde(projet.racine, tmp / "terre", ticks=ANNEE_DE_JEU, largeur=2400)
+        zoom = grande and captures.zoom_sur_la_terre(grande, tmp / f"terre-{jour}.png")
+        if zoom:
+            fichiers.append(zoom)
+        for lecture in dict.fromkeys(("faim", *lectures)):
+            carte = captures.carte_du_monde(projet.racine, tmp / lecture, ticks=ANNEE_DE_JEU, lecture=lecture)
+            if carte is not None:
+                fichiers.append(carte.rename(tmp / f"{lecture}-{jour}.png"))
+        if not fichiers:
+            carte = captures.carte_du_monde(projet.racine, tmp / "monde")
+            if carte is None:
+                return []
+            fichiers.append(carte.rename(tmp / f"monde-{jour}.png"))
         try:
             # Le journal partage la branche des captures avec les tours du pilote.
             depot = Depot(projet.racine, projet.branche_base, verrous=Verrous())
-            return captures.publier(depot, gh.depot, [nommee], f"{maintenant:%Y-%m-%d}")
+            return captures.publier(depot, gh.depot, fichiers, jour)
         except Exception:  # noqa: BLE001 — une photo manquée ne retient pas le journal
             return []
+
+
+def _ranger_les_images(monde: list[str], livres: list[dict]) -> tuple[list[str], list[str]]:
+    """Les images du matin en tête du journal, et celles d'une lecture
+    demandée par un lot, à ce lot. Rend (en tête, lignes des faits)."""
+    en_tete, par_vue = [], {}
+    demandees = {l["lecture"] for l in livres if l.get("lecture")}
+    for url in monde:
+        vue = _vue(url)
+        if vue in demandees and vue not in VUES_DU_MATIN:
+            par_vue[vue] = url
+        else:
+            en_tete.append(url)
+    lignes = []
+    for l in livres:
+        url = None if l.get("capture") else par_vue.get(l.get("lecture"))
+        if url:
+            l["capture"], l["vue"] = url, l["lecture"]
+            alt, legende = VUES[l["vue"]]
+            lignes.append(f"- {l['nom']} : ![{alt}]({url}) — {legende}")
+    return en_tete, lignes
 
 
 def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, publier: bool = True,
@@ -590,11 +699,15 @@ def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, pu
            lire_image=None) -> str:
     maintenant = maintenant or datetime.now(timezone.utc)
     r = releve(gh, projet, maintenant)
-    monde = photographe(gh, projet, maintenant) if publier else []
+    lectures = tuple(sorted({l["lecture"] for l in r.livres if l.get("lecture")}))
+    monde = photographe(gh, projet, maintenant, lectures) if publier else []
+    monde, des_lots = _ranger_les_images(monde, r.livres)
     texte = r.texte
+    if des_lots:
+        texte += "\n\nIMAGES DES LOTS (rendues ce matin sur master, une par lot qui en parle) :\n" + "\n".join(des_lots)
     if monde:
-        photos = "".join(f"![le monde]({url})\n" for url in monde)
-        texte = f"LE MONDE CE MATIN (master, 30 jours simulés) :\n{photos}\n{texte}"
+        photos = "".join(f"![{VUES[_vue(url)][0]}]({url}) — {VUES[_vue(url)][1]}\n" for url in monde)
+        texte = f"LES IMAGES DU MATIN (master, le monde joué) :\n{photos}\n{texte}"
     lire = lire_image or _lire_image
     cache: dict[str, str | None] = {}
     texte = _dedupliquer_images(texte, r.livres, lire=lire, cache=cache)

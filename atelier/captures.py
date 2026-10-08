@@ -79,22 +79,54 @@ TERRE_DE_DEPART = 1
 
 
 def carte_du_monde(chemin_depot: Path, sortie: Path, *, ticks: int = 30,
-                   depart: int | None = TERRE_DE_DEPART) -> Path | None:
+                   depart: int | None = TERRE_DE_DEPART, lecture: str | None = None,
+                   largeur: int = 900) -> Path | None:
     """La carte que rend `python3 -m forge` sur la révision du lot, avec la
-    fiche de la terre `depart` (None : sans terre choisie)."""
+    fiche de la terre `depart` (None : sans terre choisie), coloriée selon
+    `lecture` (None : la lecture par défaut de la commande)."""
     sortie.mkdir(parents=True, exist_ok=True)
     if not (Path(chemin_depot) / "jeu").is_dir():
         return None
     try:
         fini = subprocess.run(
             [sys.executable, "-m", "forge", "--ticks", str(ticks), "--seed", "0", "--sortie", str(sortie),
-             "--sans-chronique", "--largeur", "900", *(["--depart", str(depart)] if depart is not None else [])],
+             "--sans-chronique", "--largeur", str(largeur),
+             *(["--depart", str(depart)] if depart is not None else []),
+             *(["--lecture", lecture] if lecture else [])],
             cwd=Path(chemin_depot) / "jeu", capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=600)
     except (OSError, subprocess.TimeoutExpired):
         return None
     carte = sortie / "carte.png"
     return carte if fini.returncode == 0 and carte.is_file() else None
+
+
+# Le liseré que la carte trace autour de la terre choisie : doit rester
+# `COULEUR_CHOIX` de jeu/vues/relief/carte1400.py.
+LISERE_DE_LA_TERRE = (255, 40, 40)
+
+
+def zoom_sur_la_terre(carte: Path, sortie: Path, *, largeur: int = 800, hauteur: int = 560) -> Path | None:
+    """La terre choisie et ses voisins, découpés dans la carte autour de son
+    liseré rouge. Une carte sans liseré (aucune terre choisie) n'a pas de
+    zoom : on ne devine pas où regarder."""
+    try:
+        from PIL import Image, ImageChops
+    except ImportError:
+        return None
+    image = Image.open(carte).convert("RGB")
+    canaux = [c.point(lambda v, voulu=voulu: 255 if v == voulu else 0)
+              for c, voulu in zip(image.split(), LISERE_DE_LA_TERRE)]
+    boite = ImageChops.multiply(ImageChops.multiply(canaux[0], canaux[1]), canaux[2]).getbbox()
+    if boite is None:
+        return None
+    cx, cy = (boite[0] + boite[2]) // 2, (boite[1] + boite[3]) // 2
+    largeur, hauteur = min(largeur, image.width), min(hauteur, image.height)
+    gauche = max(0, min(cx - largeur // 2, image.width - largeur))
+    haut = max(0, min(cy - hauteur // 2, image.height - hauteur))
+    sortie.parent.mkdir(parents=True, exist_ok=True)
+    image.crop((gauche, haut, gauche + largeur, haut + hauteur)).save(sortie)
+    return sortie
 
 
 def photographier_lot(depot: Depot, depot_github: str, chemin: Path, numero: int | str, sha: str,
