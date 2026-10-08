@@ -23,7 +23,10 @@ EPREUVE = RACINE / "pc" / "epreuve_jalon1.py"
 PANNEAU_CS = RACINE / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "PanneauLieu.cs"
 CAPTURE_CS = RACINE / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Editor" / "ForgeCapture.cs"
 GRAINE = 0
-TICK_AVANT = 3
+# Les naissances se comptent lieu par lieu (#343) : entre les ticks 3 et 4,
+# la cellule du désert ne bouge plus ; entre 4 et 5, la faim arrive et des
+# habitants meurent. La garde « la preuve serait aveugle » reste.
+TICK_AVANT = 4
 TICK_APRES = TICK_AVANT + 1
 CELLULE_SIMULEE = 1
 TICK_SIMULE = 0
