@@ -7,6 +7,7 @@ import sim.constants as _constantes
 from sim.model import (
     _NoBadSpatialField, contenus_des_paniers, copier_panier,
     creer_etat_de_lieu, lire_habitants_par_metier, remplacer_panier,
+    lire_stock_marchandise, ecrire_stock_marchandise,
 )
 
 
@@ -179,3 +180,31 @@ def lieu_du_monde(world, cell_id, rang) -> Lieu:
             f"lieu inconnu : cell_id={cell_id!r}, rang={rang!r}"
         )
     return lieux[rang]
+
+
+def accorder_marchandise(cellule, marchandise) -> None:
+    """Fabrication et extraction : accord ciblé à proportion du contenu."""
+    total = lire_stock_marchandise(cellule, marchandise)
+    if not cellule.lieux or total < 0:
+        return
+    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+    parts = partager_si_necessaire(cellule, total, contenus_des_paniers(lieux, marchandise))
+    for lieu, part in zip(lieux, parts):
+        ecrire_stock_marchandise(lieu, marchandise, part)
+
+
+def corriger_residu_au_bourg(cellule, marchandise) -> None:
+    """Corrige la soustraction flottante sans repondérer les lieux."""
+    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+    total = lire_stock_marchandise(cellule, marchandise)
+    autres = sum(contenus_des_paniers(lieux[1:], marchandise))
+    ecrire_stock_marchandise(lieux[0], marchandise, total - autres)
+
+
+def accorder_fabrication(cellule) -> None:
+    """Clôt le maillon de fabrication sans redistribuer la nourriture."""
+    if not cellule.lieux:
+        return
+    for nom in copier_panier(cellule):
+        if nom != _constantes.MARCHANDISE_NOURRITURE:
+            accorder_marchandise(cellule, nom)
