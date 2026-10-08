@@ -511,6 +511,12 @@ def test_cellule_depend_du_contenu_des_lieux(monkeypatch):
 
     from sim import engine
     monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0)
+    # Morts et naissances s'arrondissent lieu par lieu : déplacer des habitants
+    # changerait la cellule même avec une consommation gratuite. On les fige
+    # dans les deux courses pour que seul le contenu des lieux, par la
+    # consommation, puisse faire l'écart.
+    monkeypatch.setattr(engine, "_apply_mortality", lambda cellule: None)
+    monkeypatch.setattr(engine, "_apply_natalite", lambda cellule, penurie_kg: None)
     def verifier_ecart():
         source = World.charger(0)
         modifié = copy.deepcopy(source)

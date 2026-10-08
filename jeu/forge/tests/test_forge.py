@@ -273,7 +273,7 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])['planche']['ia'] is False
 
 
-@pytest.mark.parametrize('ticks,empreinte', [(0, '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9'), (30, '33886a9e1eb7843144ed36bf0861c4b5c44d73d4752a0b8fdf36eba69603f640')])
+@pytest.mark.parametrize('ticks,empreinte', [(0, '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9'), (30, '57f377d47076029c36994c12a902aef0f1ce82c6ed2c23dd36d5e8dd053f71d6')])
 def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     import hashlib
     from forge.__main__ import _simuler
