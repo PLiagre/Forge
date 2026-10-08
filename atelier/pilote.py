@@ -880,6 +880,14 @@ class Pilote:
         if res.attente:
             self.noter(lot.numero, "attente", "dépanneur : " + " · ".join(res.essais))
             return True
+        if res.agent is not None and not (res.reussi and _DECISION_DEPANNEUR.search(res.texte)):
+            # Coupé par son délai, en erreur ou illisible, il n'a rien décidé :
+            # son secours lit le lot à son tour. Le 7 octobre 2026, Claude a
+            # dépassé son délai sur #343 et #391, et codex n'a jamais été appelé.
+            secours = self._invoquer("depanneur", prompt, chemin, lot=lot.numero,
+                                     exclure=frozenset({res.agent.famille}))
+            if secours.agent is not None:
+                res = secours
         trouvees = list(_DECISION_DEPANNEUR.finditer(res.texte)) if res.reussi else []
         decision, motif, diagnostic = "", "", _extrait(res.texte, 40)
         if trouvees:
