@@ -441,7 +441,7 @@ Jalon : J1
 Le monde garde ses réserves.
 
 ## Le joueur
-Fond. Ton grenier se garde mal : les rats entament ta réserve. Ce lot prépare l'ouverture du grenier (#12).
+Ton grenier se garde mal : les rats entament ta réserve. Ce lot prépare l'ouverture du grenier (#12).
 
 ## Règle du monde
 `World.greniers` porte un panier par maison.
@@ -462,7 +462,7 @@ def _lot_du_grenier(projet, gh):
 def test_les_faits_disent_ce_que_le_joueur_y_gagne(projet, gh):
     _lot_du_grenier(projet, gh)
     texte = journal.faits(gh, projet, MAINTENANT)
-    assert "Ce que le joueur y gagne (le brief) : Fond. Ton grenier se garde mal" in texte
+    assert "Ce que le joueur y gagne (le brief, « Le joueur ») : Ton grenier se garde mal" in texte
     # La règle du monde, écrite pour le codeur, n'entre pas dans le récit.
     assert "World.greniers" not in texte
     # La carte d'Europe que le pilote prend de chaque lot ne montre pas ce lot.
@@ -475,8 +475,13 @@ def test_un_lot_sans_brief_garde_le_compte_rendu_du_codeur(projet, gh, tmp_path)
     assert "Ce que le joueur y gagne" not in texte and "Le contrat ne connaît plus que `cell_id`" in texte
 
 
+def _titre_du_grenier(gh):
+    gh.json = lambda *args: [dict(gh.prs_[49], title="Lot #9 — Le grenier se garde mal", url="https://x/pull/49")]
+
+
 def test_un_lot_recoit_la_carte_de_son_sujet(projet, gh):
     _lot_du_grenier(projet, gh)
+    _titre_du_grenier(gh)
     demandees = []
 
     def photographe(_gh, _projet, _maintenant, lectures):
@@ -487,24 +492,24 @@ def test_un_lot_recoit_la_carte_de_son_sujet(projet, gh):
                            photographe=photographe, lire_image=lambda u: u.encode())
     # Un lot de grenier demande la carte des réserves, et elle va sous lui, pas en tête.
     assert demandees == [("nourriture",)]
-    entete, lot = corps.split("**[#9 Le contrat]")
+    entete, lot = corps.split("**[#9 Le grenier se garde mal]")
     assert f"![ta terre]({TERRE})" in entete and f"![la faim]({FAIM})" in entete and RESERVES not in entete
     assert f"![les réserves]({RESERVES})" in lot and "*Les réserves de nourriture" in lot
     assert "*Ta terre, cerclée de rouge" in entete
-    # Le pilote écrit seul : il raconte le lot par son brief, et dit qu'il est de fond.
-    assert ("Rien de visible encore, c'est la fondation de la suite : Ton grenier se garde mal : "
-            "les rats entament ta réserve.") in lot
+    # Le pilote écrit seul : il raconte le lot par son brief.
+    assert "Ton grenier se garde mal : les rats entament ta réserve." in lot
     assert CARTE_DU_LOT not in corps
 
 
 def test_le_chroniqueur_recoit_les_images_et_leur_legende(projet, gh):
     _lot_du_grenier(projet, gh)
+    _titre_du_grenier(gh)
     agents = Agents((1, "429 Too Many Requests"))
     journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=agents,
                    photographe=lambda *a: [TERRE, RESERVES], lire_image=lambda u: u.encode())
     prompt = " ".join(agents.appels[0])
     assert f"![ta terre]({TERRE}) — Ta terre, cerclée de rouge" in prompt
-    assert "IMAGES DES LOTS" in prompt and f"#9 Le contrat : ![les réserves]({RESERVES})" in prompt
+    assert "IMAGES DES LOTS" in prompt and f"#9 Le grenier se garde mal : ![les réserves]({RESERVES})" in prompt
 
 
 def test_un_lot_qui_a_sa_capture_ne_recoit_pas_de_carte(projet, gh):
@@ -522,3 +527,143 @@ def test_le_chroniqueur_parle_en_joueur():
     texte = prompts.chroniqueur(faits="LOTS LIVRÉS …")
     assert "Ce que le joueur y gagne" in texte and "langage de joueur" in texte
     assert "un tick est un jour" in texte and "rien entre accents graves" in texte
+
+
+CAP_AVEC_ECHELLE = """# CAP
+
+| # | jalon | le joueur | l'écran |
+|---|---|---|---|
+| 0 | **L'amorce** — atteint | lance le monde | la carte |
+| 1 | **Le pont** | ouvre un lieu du monde dans Unity | le lieu en 3D |
+| 2 | **Le geste revient** | trace une route | la route sur la carte |
+"""
+PLAN_FIXE = "https://raw.githubusercontent.com/moi/essai/journal/captures/2026-09-27/lot-9-fffffff-0-Forge_Desert_Ville_ksar.png"
+SCENE = ("https://raw.githubusercontent.com/moi/essai/journal/captures/2026-09-27/"
+         "lot-9-fffffff-0-Forge_Desert_Ville_ksar--batiment-pose.png")
+
+
+def test_la_scene_d_unity_passe_avant_le_plan_fixe(projet, gh):
+    _preparer(gh)
+    gh.prs_[49]["comments"] = [{"body": f"📷 ![a]({PLAN_FIXE})\n📷 ![b]({SCENE})"}]
+    texte = journal.faits(gh, projet, MAINTENANT)
+    assert f"![capture]({SCENE})" in texte and PLAN_FIXE not in texte
+
+
+def test_le_plan_fixe_de_la_ville_ne_parait_qu_une_fois(projet, gh):
+    _preparer(gh)
+    gh.prs_[49]["comments"] = [{"body": f"📷 ![a]({PLAN_FIXE})"}]
+    gh.ajouter_pr(47, "lot/8-la-rue", etat="MERGED", commentaires=[f"📷 ![a]({PLAN_FIXE.replace('lot-9', 'lot-8')})"])
+    gh.prs_[47]["mergedAt"] = "2026-09-27T21:00:00Z"
+    gh.json = lambda *args: [dict(gh.prs_[49], title="Lot #9 — Le contrat", url="https://x/pull/49"),
+                             dict(gh.prs_[47], title="Lot #8 — La rue", url="https://x/pull/47")]
+    r = journal.releve(gh, projet, MAINTENANT)
+    assert r.plan_fixe == PLAN_FIXE and all(l["capture"] is None for l in r.livres)
+    assert r.texte.count("Forge_Desert_Ville_ksar.png") == 1 and "LA VILLE EN 3D" in r.texte
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")),
+                           photographe=lambda *a: [], lire_image=lambda u: u.encode())
+    assert corps.count("Forge_Desert_Ville_ksar.png") == 1 and f"![ta ville]({PLAN_FIXE})" in corps
+
+
+def test_un_lot_de_fond_passe_en_coulisses_sans_carte(projet, gh):
+    _lot_du_grenier(projet, gh)
+    brief = projet.racine / "docs" / "briefs" / "9-le-contrat.md"
+    brief.write_text(BRIEF_DU_GRENIER.replace("## Le joueur\n", "## Le joueur\nFond. "), encoding="utf-8")
+    demandees = []
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")),
+                           photographe=lambda *a: demandees.append(a[3]) or [TERRE], lire_image=lambda u: u.encode())
+    assert demandees == [()]
+    coulisses = corps.split("**En coulisses**")[1].split("### Aujourd'hui")[0]
+    assert "- [#9 Le contrat](https://x/pull/49) : Ton grenier se garde mal" in coulisses
+    assert "Nature : de fond" in journal.faits(gh, projet, MAINTENANT)
+
+
+def test_le_journal_dit_ou_en_est_le_jeu(projet, gh):
+    _lot_du_grenier(projet, gh)
+    (projet.racine / "CAP.md").write_text(CAP_AVEC_ECHELLE, encoding="utf-8")
+    gh.jalons_.append({"number": 2, "title": "J2 — Le geste revient", "state": "open",
+                       "open_issues": 3, "closed_issues": 1})
+    r = journal.releve(gh, projet, MAINTENANT)
+    etat = "\n".join(r.etat_du_jeu)
+    assert "**Déjà jouable** : le joueur lance le monde (J0 L'amorce)." in etat
+    assert "**J1 Le pont**" in etat and "Le joueur ouvre un lieu du monde dans Unity. À l'écran : le lieu en 3D." in etat
+    assert "**J2 Le geste revient** ▰▰▱▱▱▱▱▱▱▱ 25 % (1 lots faits sur 4)" in etat
+    # Le lot dit son jalon, avec le geste de ce jalon.
+    assert "Jalon : J1 Le pont — le joueur ouvre un lieu du monde dans Unity" in r.texte
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((0, JOURNAL_BIEN_ECRIT)),
+                           photographe=lambda *a: [], lire_image=lambda u: u.encode())
+    bandeau, reste = corps.split("### Où en est le jeu")
+    assert "> **Avancé**" in bandeau and "### Ce qui a changé dans le jeu" in reste
+    secours = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")),
+                             photographe=lambda *a: [], lire_image=lambda u: u.encode())
+    assert "#### J1 Le pont\n\n**[#9 Le contrat](https://x/pull/49)**" in secours
+
+
+def test_sans_echelle_le_journal_ne_devine_pas_ou_en_est_le_jeu(projet, gh):
+    _preparer(gh)
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")), photographe=lambda *a: [])
+    assert "Où en est le jeu" not in corps
+
+
+def test_les_decisions_ont_leur_partie_et_le_bandeau_reste_court(projet, gh):
+    _preparer(gh)
+    gh.ajouter_issue(13, "Les grandes villes", ("lot", "bloque"))
+    q = lots.question_du_chef("- A :: un grenier de départ\n- B :: plafonner les villes\n"
+                              "RECOMMANDATION :: A :: garde l'histoire", "Que faire des villes affamées ?")
+    gh.issues_[13]["comments"].append({"body": "bloqué\n\n" + marque(
+        role="pilote", etat="bloque", raison=f"question au propriétaire : {q.texte}", **q.marque())})
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")), photographe=lambda *a: [])
+    bandeau = next(l for l in corps.splitlines() if l.startswith("> **À faire**"))
+    assert "Que faire des villes affamées" not in bandeau and "1 décision(s) t'attendent, plus bas" in bandeau
+    decisions = corps.split("### Tes décisions")[1]
+    assert "Que faire des villes affamées ?" in decisions and "Le chef recommande A" in decisions
+
+
+def test_la_liste_des_lots_du_jalon_se_replie(projet, gh):
+    _preparer(gh)
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((0, JOURNAL_BIEN_ECRIT)),
+                           photographe=lambda *a: [])
+    jalon = corps.split("### Jalon J1 — Le pont — 0 %")[1]
+    assert jalon.lstrip().startswith("<details><summary>Les ") and "faits, 1 bloqués</summary>" in jalon
+
+
+def test_le_chroniqueur_choisit_et_groupe():
+    texte = prompts.chroniqueur(faits="LOTS LIVRÉS …")
+    assert "trente mots au plus" in texte and "jamais l'inventaire de tous les lots" in texte
+    assert "#### J<n> <nom du jalon>" in texte and "**En coulisses**" in texte and "### Tes décisions" in texte
+
+
+def test_le_theme_se_lit_au_titre_et_chaque_carte_va_a_un_seul_lot(projet, gh):
+    # Le 8 octobre 2026, « Le joueur » de trois lots du registre citait le
+    # grenier : ils auraient tous reçu la carte des réserves.
+    _lot_du_grenier(projet, gh)
+    texte = journal.faits(gh, projet, MAINTENANT)
+    assert journal.releve(gh, projet, MAINTENANT).livres[0]["lecture"] is None and "IMAGES DES LOTS" not in texte
+    livres = [{"nom": "#1 Le grenier", "capture": None, "lecture": "nourriture"},
+              {"nom": "#2 Le grain", "capture": None, "lecture": "nourriture"}]
+    _, lignes = journal._ranger_les_images([RESERVES], livres)
+    assert len(lignes) == 1 and livres[0]["capture"] == RESERVES and livres[1]["capture"] is None
+
+
+def test_un_ancien_brief_raconte_son_but_et_sa_photo_legende_la_capture(projet, gh):
+    _preparer(gh)
+    (projet.racine / "docs" / "briefs").mkdir(parents=True)
+    (projet.racine / "docs" / "briefs" / "9-le-contrat.md").write_text(
+        "# Lot #9\nJalon : J1\n\n## But\nLe joueur pose un four sur sa parcelle. Le détail suit.\n\n"
+        "## Photo\nLa maison aux piquets, face à la rue. Le panneau dit `refus`.\n\nLe scénario joue.\n", encoding="utf-8")
+    gh.prs_[49]["comments"] = [{"body": f"📷 ![b]({SCENE})"}]
+    texte = journal.faits(gh, projet, MAINTENANT)
+    assert "Ce que le joueur y gagne (le brief, « But ») : Le joueur pose un four" in texte
+    assert "Ce que la capture doit montrer (le brief) : La maison aux piquets" in texte and "Le scénario" not in texte
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")), photographe=lambda *a: [])
+    assert "Le joueur pose un four sur sa parcelle.\n\n*La maison aux piquets, face à la rue. Le panneau dit refus.*" in corps
+
+
+def test_un_lot_dont_la_photo_est_sans_objet_est_de_fond(projet, gh):
+    _preparer(gh)
+    (projet.racine / "docs" / "briefs").mkdir(parents=True)
+    (projet.racine / "docs" / "briefs" / "9-le-contrat.md").write_text(
+        "# Lot #9\nJalon : J1\n\n## But\nUne commande prouve le rejeu.\n\n## Photo\nSans objet : rien ne change.\n",
+        encoding="utf-8")
+    gh.prs_[49]["comments"] = []
+    corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")), photographe=lambda *a: [])
+    assert "- [#9 Le contrat](https://x/pull/49) : Une commande prouve le rejeu." in corps.split("**En coulisses**")[1]

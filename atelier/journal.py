@@ -116,6 +116,8 @@ class Releve:
     a_faire: list[str] = field(default_factory=list)
     jalon: str = ""
     avancement: list[str] = field(default_factory=list)
+    etat_du_jeu: list[str] = field(default_factory=list)
+    plan_fixe: str | None = None
 
 
 def fusionnees_depuis(gh: GitHub, depuis: datetime) -> list[dict]:
@@ -150,27 +152,99 @@ def _compte_rendu(commentaires: list[dict], lignes_max: int = 25) -> str:
     return ""
 
 
-def _capture_finale(commentaires: list[dict]) -> str | None:
-    """La première image du dernier commentaire qui en porte : la révision
+def _captures_finales(commentaires: list[dict]) -> list[str]:
+    """Les images du dernier commentaire qui en porte : la révision
     fusionnée. Le journal du 29 septembre 2026 montrait aussi les captures des
     révisions d'avant, et on ne savait plus laquelle était neuve."""
     for c in reversed(commentaires):
         images = _IMAGE.findall(c.get("body") or "")
         if images:
-            return images[0]
-    return None
+            return images
+    return []
 
 
-def _le_joueur(racine: Path | None, numero: str | None) -> str:
-    """La section « Le joueur » du brief du lot, en un paragraphe : ce que le
-    joueur y gagne, dans les mots du jeu. Vide si le brief n'est pas sur master."""
+def _capture_finale(commentaires: list[dict]) -> str | None:
+    """L'image qui montre le lot : une scène nommée d'Unity (« …--batiment-pose.png »)
+    avant le plan fixe de la ville, et jamais la carte d'Europe que le pilote
+    prend de chaque lot, la même pour tous."""
+    images = [u for u in _captures_finales(commentaires) if not u.endswith(_CARTE_GENERIQUE)]
+    scenes = [u for u in images if not _PLAN_FIXE.search(u)]
+    return (scenes or images or [None])[0]
+
+
+@dataclass(frozen=True)
+class Brief:
+    """Ce que le brief d'un lot dit au journal. `joueur` : sa section « Le
+    joueur », ou son « But » pour les briefs écrits avant qu'elle existe (le
+    7 octobre 2026) ; `source` dit laquelle. `photo` : le premier paragraphe
+    de sa section « Photo », ce que sa capture doit montrer."""
+    joueur: str = ""
+    source: str = ""
+    photo: str = ""
+    jalon: int | None = None
+
+    @property
+    def fond(self) -> bool:
+        return self.joueur.startswith(("Fond.", "Lot de fond")) or self.photo.startswith("Sans objet")
+
+
+def _section(texte: str, titre: str) -> str:
+    m = re.search(rf"^## {titre}\s*\n(.*?)(?=^## |\Z)", texte, re.S | re.M)
+    return m.group(1).strip() if m else ""
+
+
+def _brief(racine: Path | None, numero: str | None) -> Brief:
+    """Le brief du lot sur master ; vide s'il n'y est pas."""
     if racine is None or numero is None:
-        return ""
-    for brief in sorted((Path(racine) / "docs" / "briefs").glob(f"{numero}-*.md")):
-        m = _SECTION_JOUEUR.search(brief.read_text(encoding="utf-8"))
-        if m:
-            return " ".join(m.group(1).split())
-    return ""
+        return Brief()
+    for chemin in sorted((Path(racine) / "docs" / "briefs").glob(f"{numero}-*.md")):
+        texte = chemin.read_text(encoding="utf-8")
+        joueur, source = _section(texte, "Le joueur"), "Le joueur"
+        if not joueur:
+            joueur, source = _section(texte, "But"), "But"
+        j = _JALON_DU_BRIEF.search(texte)
+        return Brief(" ".join(joueur.split()), source if joueur else "",
+                     " ".join(_section(texte, "Photo").split("\n\n")[0].split()), int(j.group(1)) if j else None)
+    return Brief()
+
+
+@dataclass(frozen=True)
+class Marche:
+    """Une ligne de l'échelle de CAP.md : ce que le joueur fait à ce jalon, et
+    ce qu'on voit à l'écran."""
+    nom: str
+    atteint: bool
+    joueur: str
+    ecran: str
+
+
+def echelle(cap: str) -> dict[int, Marche]:
+    return {int(m.group(1)): Marche(m.group(2).strip(), bool(m.group(3)), m.group(4).strip(), m.group(5).strip())
+            for m in _MARCHE.finditer(cap or "")}
+
+
+def _barre(pourcentage: int) -> str:
+    plein = min(10, max(0, pourcentage // 10))
+    return "▰" * plein + "▱" * (10 - plein)
+
+
+def _ou_en_est(marches: dict[int, Marche], jalons: list[lots.Jalon]) -> list[str]:
+    """Où en est le jeu, en jalons : ce qui est déjà jouable, et les trois
+    jalons en route, chacun avec son geste, son écran et son avancement.
+    Rien si CAP.md n'a pas d'échelle : on ne devine pas le geste d'un jalon."""
+    if not marches:
+        return []
+    fermes = {j.numero for j in jalons if not j.ouvert}
+    faits = [f"{m.joueur} (J{n} {m.nom})" for n, m in marches.items() if m.atteint or n in fermes]
+    lignes = ["### Où en est le jeu", ""]
+    if faits:
+        lignes += [f"**Déjà jouable** : le joueur {' ; '.join(faits)}.", ""]
+    for j in [j for j in jalons if j.ouvert and j.numero in marches and j.numero not in fermes][:3]:
+        m = marches[j.numero]
+        lignes += [f"**J{j.numero} {m.nom}** {_barre(j.pourcentage)} {j.pourcentage} % "
+                   f"({j.fermees} lots faits sur {j.ouvertes + j.fermees})",
+                   f"Le joueur {m.joueur}. À l'écran : {m.ecran}.", ""]
+    return lignes[:-1]
 
 
 def _theme(texte: str) -> str | None:
@@ -179,7 +253,8 @@ def _theme(texte: str) -> str | None:
     return next((lecture for lecture, mots in _THEMES if any(mot in bas for mot in mots)), None)
 
 
-def _lot_livre(p: dict, commentaires: list[dict], racine: Path | None = None) -> tuple[dict, list[str]]:
+def _lot_livre(p: dict, commentaires: list[dict], racine: Path | None = None,
+               marches: dict[int, Marche] | None = None) -> tuple[dict, list[str]]:
     liste = lots.marques(commentaires)
     passages = sum(1 for m in liste if m.get("role") in lots.ROLES_CODEURS and m.get("etat") in ("fait", "echec"))
     verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("verdict")]
@@ -188,29 +263,44 @@ def _lot_livre(p: dict, commentaires: list[dict], racine: Path | None = None) ->
     # « Lot #185 — Unity lit… » : le propriétaire connaît le lot, pas la PR.
     m = _TITRE_DE_LOT.match(p["title"])
     nom = f"#{m.group(1)} {m.group(2)}" if m else p["title"]
-    joueur = _le_joueur(racine, m.group(1) if m else None)
-    if joueur:
-        lignes.append(f"  Ce que le joueur y gagne (le brief) : {joueur}")
+    brief = _brief(racine, m.group(1) if m else None)
+    capture = _capture_finale(commentaires)
+    plan_fixe = bool(capture and _PLAN_FIXE.search(capture))
+    scene = capture if capture and not plan_fixe else None
+    # Un lot de fond n'a rien à montrer, sauf si Unity en a pris une scène.
+    fond = brief.fond and scene is None
+    marche = (marches or {}).get(brief.jalon)
+    if brief.jalon is not None:
+        lignes.append(f"  Jalon : J{brief.jalon}" + (f" {marche.nom} — le joueur {marche.joueur}" if marche else ""))
+    if brief.joueur:
+        lignes.append("  Nature : " + ("de fond, rien de visible encore" if fond else "visible pour le joueur"))
+        lignes.append(f"  Ce que le joueur y gagne (le brief, « {brief.source} ») : {brief.joueur}")
     rendu = _compte_rendu(commentaires)
     if rendu:
         lignes.append("  Ce que dit le codeur (technique : à traduire en jeu, jamais à recopier) :")
         lignes += [f"    {l}" for l in rendu.splitlines()]
-    capture = _capture_finale(commentaires)
-    # La carte que le pilote prend de chaque lot est la même Europe en
-    # densité, quel que soit le lot : elle ne montre pas ce qu'il change.
-    if capture and capture.endswith(_CARTE_GENERIQUE):
-        capture = None
-    if capture:
-        lignes.append(f"  ![capture]({capture})")
-    lecture = None if capture else _theme(f"{nom} {joueur}")
-    livre = {"numero": p["number"], "nom": nom, "url": p["url"], "rendu": rendu, "capture": capture,
-             "joueur": joueur, "lecture": lecture}
+    if scene:
+        lignes.append(f"  ![capture]({scene})")
+        if brief.photo:
+            lignes.append(f"  Ce que la capture doit montrer (le brief) : {brief.photo}")
+    # Le thème se lit au titre : « Le joueur » cite les lots voisins, et le
+    # 8 octobre 2026 trois lots du registre se seraient vu donner la carte des greniers.
+    lecture = None if fond or scene else _theme(nom)
+    livre = {"numero": p["number"], "nom": nom, "url": p["url"], "rendu": rendu, "capture": scene,
+             "plan_fixe": capture if plan_fixe else None, "joueur": brief.joueur, "photo": brief.photo,
+             "fond": fond, "jalon": brief.jalon, "lecture": lecture,
+             "jalon_nom": (f"J{brief.jalon} {marche.nom}" if marche else f"J{brief.jalon}")
+             if brief.jalon is not None else None}
     return livre, lignes
 
 
 _TITRE_DE_LOT = re.compile(r"Lot #(\d+) — (.+)")
-_SECTION_JOUEUR = re.compile(r"^## Le joueur\s*\n(.*?)(?=^## |\Z)", re.S | re.M)
 _CARTE_GENERIQUE = "-carte.png"
+# Le plan fixe d'une ville d'Unity, sans scène nommée : le même cadre à
+# chaque lot du PC (54 des 69 captures d'Unity au 8 octobre 2026).
+_PLAN_FIXE = re.compile(r"-\d+-Forge_\w+\.png$")
+_JALON_DU_BRIEF = re.compile(r"^Jalon : J(\d+)", re.M)
+_MARCHE = re.compile(r"^\|\s*(\d+)\s*\|\s*\*\*(.+?)\*\*(\s*—\s*atteint)?\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$", re.M)
 # Le sujet d'un lot, reconnu à ses mots, et la lecture de carte qui le montre.
 _THEMES = (
     ("faim", ("faim", "famine", "disette", "affam")),
@@ -231,6 +321,8 @@ VUES = {
                            "plus le manque est lourd."),
     "population": ("les gens", "Où vivent les gens après un an de jeu : plus c'est foncé, plus il y a de monde."),
     "monde": ("le monde", "Le monde ce matin, simulé depuis master."),
+    "ville": ("ta ville", "La ville en 3D, telle que le PC l'a rendue au dernier lot : le panneau "
+                          "lit les vrais chiffres du monde, jour après jour."),
 }
 # Les images de chaque matin, dans l'ordre ; les autres lectures ne se
 # rendent que pour un lot livré qui en parle.
@@ -394,12 +486,21 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
     machine = [p for p in livres if p not in des_lots]
     lignes.append(f"LOTS LIVRÉS DEPUIS {depuis:%Y-%m-%d %H:%M} UTC ({len(des_lots)}) :")
     reponses_pc: dict[str, datetime] = {}
+    try:
+        marches = echelle((projet.racine / "CAP.md").read_text(encoding="utf-8"))
+    except OSError:
+        marches = {}
     for p in des_lots:
         commentaires = gh.pr(p["number"]).get("comments") or []
         _reponses_du_pc(commentaires, reponses_pc)
-        livre, faits_du_lot = _lot_livre(p, commentaires, projet.racine)
+        livre, faits_du_lot = _lot_livre(p, commentaires, projet.racine, marches)
         r.livres.append(livre)
         lignes += faits_du_lot
+    # Le plan fixe de la ville se montre une fois, pas sous chaque lot du PC.
+    r.plan_fixe = next((l["plan_fixe"] for l in r.livres if l.get("plan_fixe")), None)
+    if r.plan_fixe:
+        alt, legende = VUES["ville"]
+        lignes.append(f"\nLA VILLE EN 3D (une seule fois, pas sous un lot) :\n![{alt}]({r.plan_fixe}) — {legende}")
     lignes.append(f"\nLA MACHINE, CHANGÉE EN MODE DIRECT ({len(machine)}) :")
     lignes += [f"- PR #{p['number']} « {p['title']} »" for p in machine]
     r.machine = machine
@@ -445,6 +546,7 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
     for commentaires in lues.values():
         _reponses_du_pc(commentaires, reponses_pc)
     jalons = lots.jalons(gh.jalons())
+    r.etat_du_jeu = _ou_en_est(marches, jalons)
     courant = lots.jalon_courant(jalons)
     if courant is None:
         lignes.append("\nJALON : aucun jalon ouvert.")
@@ -556,42 +658,103 @@ def _infidele(texte: str, faits_du_matin: str) -> str | None:
 def _redaction_du_pilote(r: Releve, monde: list[str]) -> str:
     """Le journal écrit par le pilote seul, dans le gabarit du chroniqueur :
     moins bien tourné, jamais faux."""
-    avance = " ; ".join(f"{l['nom']} est livré" for l in r.livres) or "aucun lot livré depuis hier"
+    # Par jalon, et dans chaque jalon ce qu'on voit (une image) d'abord.
+    visibles = sorted((l for l in r.livres if not l.get("fond")),
+                      key=lambda l: (l.get("jalon") is None, l.get("jalon") or 0, not l.get("capture")))
+    coulisses = [l for l in r.livres if l.get("fond")]
+    noms = [l["nom"] for l in sorted(visibles, key=lambda l: not l.get("capture")) + coulisses]
+    avance = " ; ".join(f"{n} est livré" for n in noms[:3]) or "aucun lot livré depuis hier"
+    if len(noms) > 3:
+        avance += f" ; et {len(noms) - 3} autres lots"
     bloque = " ; ".join(f"#{l.numero} {l.titre} ({raison})" for l, raison in r.bloques) or "rien"
-    gestes = [g.removeprefix("- ") for g in r.a_faire if g != "- rien"]
+    decisions = [g for g in r.a_faire if _DECISION in g]
+    gestes = [g.removeprefix("- ") for g in r.a_faire if g != "- rien" and g not in decisions]
+    if decisions:
+        gestes.append(f"{len(decisions)} décision(s) t'attendent, plus bas")
     lignes = [f"> **Avancé** : {avance}.", f"> **Bloqué** : {bloque}.",
               f"> **À faire** : {' ; '.join(gestes) or 'rien'}.", "", "### Ce qui a changé dans le jeu", ""]
     for url in monde:
         alt, legende = VUES[_vue(url)]
         lignes += [f"*{legende}*", f"![{alt}]({url})", ""]
-    for l in r.livres:
+    if r.plan_fixe:
+        alt, legende = VUES["ville"]
+        lignes += [f"*{legende}*", f"![{alt}]({r.plan_fixe})", ""]
+    groupe = object()
+    for l in visibles:
+        if l.get("jalon_nom") and l["jalon_nom"] != groupe:
+            groupe = l["jalon_nom"]
+            lignes += [f"#### {groupe}", ""]
         lignes.append(f"**[{l['nom']}]({l['url']})**")
-        # Ce que le joueur y gagne, d'après son brief ; à défaut, la première
-        # phrase du compte rendu du codeur.
-        joueur = l.get("joueur") or ""
-        fond = joueur.startswith("Fond.")
-        joueur = joueur.removeprefix("Fond.").strip()
-        paragraphe = joueur or next((x.strip() for x in (l["rendu"] or "").splitlines()
-                                     if x.strip() and not x.startswith("#")), "")
-        if paragraphe:
-            phrase = paragraphe.split(". ")[0].rstrip(".") + "."
-            lignes.append(f"Rien de visible encore, c'est la fondation de la suite : {phrase}" if fond else phrase)
+        if _phrase(l):
+            lignes.append(_phrase(l))
         if l["capture"]:
-            alt, legende = VUES[l["vue"]] if l.get("vue") else ("capture", "La capture de la révision livrée.")
+            photo = _phrases((l.get("photo") or "").replace("`", ""), 3, 240)
+            alt, legende = VUES[l["vue"]] if l.get("vue") else ("capture", photo or "La capture de la révision livrée.")
             lignes += ["", f"*{legende}*", f"![{alt}]({l['capture']})"]
+        lignes.append("")
+    if coulisses:
+        lignes += ["**En coulisses** — rien de visible encore, ce qui prépare la suite :", ""]
+        lignes += [f"- [{l['nom']}]({l['url']}) : {_phrase(l)}" for l in coulisses]
         lignes.append("")
     if not r.livres:
         lignes += ["Aucun lot livré depuis hier.", ""]
     lignes += ["### Aujourd'hui", "", *[f"- {l}" for l in r.aujourd_hui or ["Rien ne part aujourd'hui."]]]
+    if decisions:
+        lignes += ["", "### Tes décisions", "", *decisions]
     return "\n".join(lignes).rstrip()
+
+
+_DECISION = " attend ta décision : "
+_CE_QUI_A_CHANGE = "### Ce qui a changé dans le jeu"
+
+
+def _avec_l_etat_du_jeu(redaction: str, etat: list[str]) -> str:
+    """Le journal, avec « Où en est le jeu » entre le bandeau et ce qui a
+    changé : on lit d'abord où va le jeu, puis le pas d'hier."""
+    if not etat or _CE_QUI_A_CHANGE not in redaction:
+        return redaction
+    avant, apres = redaction.split(_CE_QUI_A_CHANGE, 1)
+    return f"{avant.rstrip()}\n\n" + "\n".join(etat) + f"\n\n{_CE_QUI_A_CHANGE}{apres}"
+
+
+def _phrase(l: dict) -> str:
+    """Ce que le lot change pour le joueur, en une phrase : d'après son brief ;
+    à défaut, la première phrase du compte rendu du codeur."""
+    joueur = _FOND.sub("", l.get("joueur") or "").strip()
+    paragraphe = joueur or next((x.strip() for x in (l.get("rendu") or "").splitlines()
+                                 if x.strip() and not x.startswith("#")), "")
+    return _premiere_phrase(paragraphe)
+
+
+_FOND = re.compile(r"^(Fond\.|Lot de fond\.)\s*")
+
+
+def _premiere_phrase(texte: str) -> str:
+    return _phrases(texte, 1)
+
+
+def _phrases(texte: str, combien: int, longueur: int = 0) -> str:
+    """Les premières phrases du texte, `combien` au plus, sans dépasser
+    `longueur` caractères au-delà de la première (0 : sans limite)."""
+    morceaux = [m.rstrip(".") + "." for m in texte.strip().split(". ") if m.strip()][:combien]
+    garde = morceaux[:1]
+    for m in morceaux[1:]:
+        if longueur and len(" ".join(garde + [m])) > longueur:
+            break
+        garde.append(m)
+    return " ".join(garde)
 
 
 def _annexe(r: Releve) -> str:
     """Ce que le pilote ajoute sous tout journal : l'avancement du jalon, lot
     par lot, et les détails de la chaîne, repliés."""
     lignes = []
-    if r.jalon:
-        lignes += [f"### Jalon {r.jalon}", "", *r.avancement, ""]
+    if r.jalon and r.avancement:
+        faits = sum(l.startswith("- [x]") for l in r.avancement)
+        bloques = sum("**bloqué**" in l for l in r.avancement)
+        resume = f"Les {len(r.avancement)} lots du jalon : {faits} faits, {bloques} bloqués"
+        lignes += [f"### Jalon {r.jalon}", "", f"<details><summary>{resume}</summary>", "",
+                   *r.avancement, "", "</details>", ""]
     lignes += ["<details><summary>Détails de la chaîne</summary>", "", "**Ce que la chaîne a vécu**", "", *r.vecu, ""]
     if r.machine:
         lignes += ["**La machine, changée en mode direct**", "",
@@ -686,7 +849,7 @@ def _ranger_les_images(monde: list[str], livres: list[dict]) -> tuple[list[str],
             en_tete.append(url)
     lignes = []
     for l in livres:
-        url = None if l.get("capture") else par_vue.get(l.get("lecture"))
+        url = None if l.get("capture") else par_vue.pop(l.get("lecture"), None)
         if url:
             l["capture"], l["vue"] = url, l["lecture"]
             alt, legende = VUES[l["vue"]]
@@ -724,7 +887,7 @@ def ecrire(gh: GitHub, projet: Projet, *, maintenant: datetime | None = None, pu
         redaction, signature = res.texte.strip(), f"Écrit par {res.agent}."
     # Une même image collée deux fois (faits ou texte du chroniqueur) n'apparaît qu'une.
     redaction = _dedupliquer_images(redaction, [], lire=lire, cache=cache)
-    corps = f"{redaction}\n\n{_annexe(r)}\n\n<sub>{signature}</sub>"
+    corps = f"{_avec_l_etat_du_jeu(redaction, r.etat_du_jeu)}\n\n{_annexe(r)}\n\n<sub>{signature}</sub>"
     if publier:
         _publier(gh, f"Journal du {maintenant:%d/%m/%Y}", corps, "Journal")
     return corps

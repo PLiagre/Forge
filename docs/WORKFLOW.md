@@ -398,10 +398,17 @@ joueur, cerclée de rouge parmi ses voisins, et la faim en Europe ; un lot
 qui parle de grenier, de dette ou de population reçoit la carte de cette
 lecture, s'il n'a pas sa propre capture (Unity). La carte d'Europe que le
 pilote prend de chaque lot n'y paraît plus : elle est la même pour tous. Le
-chroniqueur écrit en langage de joueur, sans jargon de code, trois
-parties : un bandeau (avancé, bloqué, à faire), ce qui a changé dans le jeu
-avec une image par lot livré (omise si c'est la même qu'une image déjà
-montrée), et aujourd'hui. Le pilote ajoute lui-même l'avancement
+chroniqueur écrit en langage de joueur, sans jargon de code : un bandeau
+court (la nouveauté la plus forte, ce qui bloque, à faire), ce qui a changé
+dans le jeu (les lots visibles groupés par jalon, chacun avec son image ;
+les lots de fond en une ligne, « En coulisses »), aujourd'hui, et les
+décisions qui attendent le propriétaire. Il lit, pour chaque lot, la section
+« Le joueur » du brief (son « But » pour un brief plus ancien), son jalon et
+ce que sa photo doit montrer. Le plan fixe de la ville, le même à chaque lot
+du PC, ne paraît qu'une fois. Sous le bandeau, le pilote écrit lui-même
+« Où en est le jeu », tiré de l'échelle de [CAP.md](../CAP.md) : ce qui est
+déjà jouable, puis les trois jalons en route, avec leur geste, leur écran et
+leur avancement. Le pilote ajoute aussi, replié, l'avancement
 du jalon, lot par lot, et les détails de la chaîne, repliés. Un texte qui
 sort du gabarit, ou cite une image ou un numéro absent des faits, est
 écarté : le pilote écrit alors le journal seul, dans le même gabarit.
