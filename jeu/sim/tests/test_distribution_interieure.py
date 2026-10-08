@@ -142,14 +142,27 @@ def test_monde_ressent_la_distribution(monkeypatch):
                       if _part(cellule, source.carte) > 0]
     assert cellules_bourg
 
+    consommation_locale = engine._apply_consumption
     def parties():
         populations = []
         for reglage in (0.0, capacite):
             monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", reglage)
             monde, rng = World.charger(0), random.Random(0)
+            sorts_opposes = 0
             for numero in range(120):
+                avant = {cid: [l.population for l in monde.cells[cid].lieux] for cid in cellules_bourg}
                 engine.tick(monde, rng, numero)
-            populations.append(sum(monde.cells[cell_id].population for cell_id in cellules_bourg))
+                if reglage == 0:
+                    sorts_opposes += sum(
+                        monde.cells[cid].lieux[0].population < avant[cid][0]
+                        and any(l.population > ancien for l, ancien in
+                                zip(monde.cells[cid].lieux[1:], avant[cid][1:]))
+                        for cid in cellules_bourg)
+            if reglage == 0:
+                print(f"couples_cellule_tick_bourg_perd_champ_gagne={sorts_opposes}")
+                if engine._apply_consumption is consommation_locale:
+                    assert sorts_opposes > 0
+            populations.append(sum(monde.cells[cell_id].lieux[0].population for cell_id in cellules_bourg))
         return populations
 
     def controle(populations):
@@ -552,13 +565,17 @@ def test_dette_par_lieu_creation_et_sans_carte():
 
 def test_dette_par_lieu_lecture_faim_couverte(monkeypatch, tmp_path):
     from sim.tests import test_write_coverage as couverture
-    source = couverture._ENGINE_FILE.read_text(encoding="utf-8")
-    lecture = "lieu.duree_faim_ticks + 1"
-    assert source.count(lecture) == 1
-    sans_lecture = tmp_path / "engine.py"
-    sans_lecture.write_text(source.replace(lecture, "0 + 1"), encoding="utf-8")
-    fichiers = [sans_lecture if fichier == couverture._ENGINE_FILE else fichier
-                for fichier in couverture._SIM_SOURCE_FILES]
+    import ast
+    class SansLecture(ast.NodeTransformer):
+        def visit_Attribute(self, noeud):
+            if noeud.attr == "duree_faim_ticks" and isinstance(noeud.ctx, ast.Load):
+                return ast.copy_location(ast.Constant(0), noeud)
+            return self.generic_visit(noeud)
+    fichiers = []
+    for fichier in couverture._SIM_SOURCE_FILES:
+        cible = tmp_path / fichier.name
+        cible.write_text(ast.unparse(SansLecture().visit(ast.parse(fichier.read_text()))), encoding="utf-8")
+        fichiers.append(cible)
     couverture.test_all_dataclass_fields_have_write_and_read_sites()
     monkeypatch.setattr(couverture, "_SIM_SOURCE_FILES", fichiers)
     with pytest.raises(AssertionError, match="duree_faim_ticks : aucun site de lecture"):

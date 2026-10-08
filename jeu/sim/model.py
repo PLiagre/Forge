@@ -118,22 +118,28 @@ def cellule_vers_dict(cell: "Cell") -> dict:
 
 @dataclass
 class EtatDeLieu(_NoBadSpatialField):
-    """Habitants, panier, dette et faim d'un rang rattaché par la liste."""
+    """Habitants, panier, dette, faim et reports locaux d'un rang."""
 
     rang: int
     population: int
     stocks: dict[str, float]
     dette_alimentaire_kg: float = 0.0
     duree_faim_ticks: int = 0
+    mortality_remainder: float = 0.0
+    natalite_remainder: float = 0.0
 
 
 def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float], *,
                        dette_alimentaire_kg: float = 0.0,
-                       duree_faim_ticks: int = 0) -> EtatDeLieu:
+                       duree_faim_ticks: int = 0,
+                       mortality_remainder: float = 0.0,
+                       natalite_remainder: float = 0.0) -> EtatDeLieu:
     """Crée l'état d'un rang avec son propre panier, sans clé recopiée."""
     return EtatDeLieu(rang=rang, population=population, stocks=dict(stocks),
                       dette_alimentaire_kg=dette_alimentaire_kg,
-                      duree_faim_ticks=duree_faim_ticks)
+                      duree_faim_ticks=duree_faim_ticks,
+                      mortality_remainder=mortality_remainder,
+                      natalite_remainder=natalite_remainder)
 
 
 @dataclass

@@ -4109,7 +4109,7 @@ def test_service_ia_sans():
     # Empreintes de la base, graine 0 : cellule minimale 1175 et témoin du pont 9922.
     empreintes = {
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
-        4: ['bf0f4e5325941519685bd98f2f8c8f3d0bc8f3749f56a5c76ddd79a046e13095', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', '5f275256a1356bdcfbc5880cfa2081c0d87f45507df01d63e08ad9ac65d3998c'],
+        4: ['53f6ec2bc9a838a11638c15605a2abe82b465d6e77f2077afb7ae5ce33662177', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', '815c82ce1b80b19fa25a9d63b1c681219cec8657ba7a52d0188e868391ebbeb5'],
     }
     with lancer_service(0) as port:
         for t, attendues in empreintes.items():

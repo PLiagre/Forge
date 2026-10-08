@@ -52,7 +52,6 @@ CHAMPS_MOBILES: tuple[str, ...] = (
     "food_deficit_kg",
     "hunger_ticks",
     "lieux",
-    "mortality_remainder",
     "population",
     "stocks",
 )

@@ -331,7 +331,7 @@ def test_capitales_ia_sans(photographies):
     import hashlib
     from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
     empreintes = ["d1f5a5ba48404264fac7532450fbfe665f17cf9404bec144e51536478b4bfae6",
-                  "85150ecc7fe99f71db116aaf6cfb9d5c7940ef1c5dcb5e26f7730b92a7f13776"]
+                  "fc542ae2f53b5361dfc03e9133f82f83950abf34595d0b03e35c731c300e7e90"]
     cles = "lecture titre unite echelle minimum maximum cellules cellules_mesurees cellules_non_mesurees tick seed puissances cellules_sans_puissance pixels_de_frontiere villes_dessinees cellules_avec_villes villes_hors_carte etiquettes_omises terre_choisie".split()
     for document, empreinte in zip(photographies, empreintes):
         image, compte = _rendre(document)
