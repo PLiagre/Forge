@@ -1621,12 +1621,17 @@ Les constantes sont relues à chaque appel et exigent des entiers positifs.
 les maîtres inconnus, les ids dupliqués et tout écart à la règle, couple nommé ;
 `valider_registre_maisons` refuse les suzerains inconnus et cycles.
 Niveau 2, plausible, jamais sourcé : les quatre lieux, groupes de trois,
-maisons plausibles et suzerains. Niveau 3 : maître stocké, changement de maître
-et noms plausibles (#392). Rien n'entre dans l'état, la photographie ou le tick.
+maisons plausibles et suzerains. Le maître est stocké au chargement.
+Niveau 3 : changement de maître et noms plausibles (#392).
+La photographie et le service gardent leurs contrats ; le tick ne lit ni
+les maîtres ni le registre et ne réattribue rien.
 
 Le lecteur reste pur : il ne modifie ni tables, ni carte, ni monde.
-`World.charger` l'appelle une fois avec sa carte et conserve son tuple de fiches
-gelées dans `World.maisons`, joueur compris ; un `World(...)` d'épreuve initialise
+`World.charger` l'appelle une fois avec sa carte, puis appelle `attribuer_maitres`
+après l'amorçage des lieux et le registre historique. Les maîtres sont écrits
+sur leurs lieux ; les fiches plausibles complètent une seule fois `World.maisons`,
+en tuple trié par `id`, gelé et sans doublon, avant les greniers vides.
+Un `World(...)` d'épreuve initialise
 explicitement ce registre à `()`, sans lire les tables. `to_dict()` sérialise
 toujours les fiches détenues dans une liste de dictionnaires indépendants triée
 par `id`, sans rappeler le lecteur ou une vue. Aucun champ n'est ajouté à `Cell` ;
@@ -1943,7 +1948,11 @@ La forme, la position, les frontières et les noms des lieux ne sont pas simulé
 
 `EtatDeLieu`, dataclass mutable de `sim.model`, porte exactement `rang`,
 `population`, `stocks`, `dette_alimentaire_kg` (flottant, défaut `0.0`) et
-`duree_faim_ticks` (entier, défaut `0`). La liste `Cell.lieux` rattache ces états
+`duree_faim_ticks` (entier, défaut `0`), puis `maitre` (identifiant de maison,
+défaut `None`). Pour les états manuels, `None` déclare une donnée absente :
+aucune maison n'est devinée. Dans `World.charger`, tout lieu chargé reçoit
+un maître présent dans le registre complet, historique et plausible.
+La liste `Cell.lieux` rattache ces états
 à leur cellule : aucun `cell_id` recopié ni `lieu_id`. La surface reste celle de la
 vue `lieux_de_cellule`, jamais une deuxième donnée stockée.
 
