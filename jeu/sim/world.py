@@ -108,6 +108,8 @@ class World:
         intentions_en_attente : choix validés, invisibles avant le tick suivant.
         maison_du_joueur : identifiant de la maison du registre appliquée, ou None sans choix.
         maisons    : tuple initial de fiches gelées, jamais consulté au tick.
+        greniers   : identifiant de maison → panier (marchandise → kg), vide au chargement.
+        pertes_kg  : cumul des kilogrammes retirés des greniers, 0 tant qu'aucune perte.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -124,6 +126,8 @@ class World:
         self.intentions_en_attente = []
         self.maison_du_joueur = None
         self.maisons = ()
+        self.greniers = {}
+        self.pertes_kg = 0.0
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -247,6 +251,7 @@ class World:
                    carte=carte, carte_meta=carte_meta,
                    attribution_villes=attribution)
         monde.maisons = charger_registre_maisons(monde.carte)
+        monde.greniers = {maison.id: {} for maison in monde.maisons}
         return monde
 
     def to_dict(self) -> dict:
@@ -269,4 +274,13 @@ class World:
         }
         if self.maison_du_joueur is not None:
             document["maison_du_joueur"] = self.maison_du_joueur
+        greniers = {
+            identifiant: {nom: panier[nom] for nom in sorted(panier)}
+            for identifiant, panier in sorted(self.greniers.items())
+            if panier
+        }
+        if greniers:
+            document["greniers"] = greniers
+        if self.pertes_kg != 0.0:
+            document["pertes_kg"] = self.pertes_kg
         return document
