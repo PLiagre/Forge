@@ -111,8 +111,8 @@ namespace Forge.Pont.Tests
             Assert.That(Couverture(maillage, xM, yM, origine), Is.EqualTo(attendu));
         }
 
-        // La rangée j = 9 (z = 0 exactement) est sur la ligne de coupe du croisement : un point qui y est
-        // n'est strictement dans aucun triangle. Comme pour les autres points des tests, elle est écartée.
+        // La rangée j = 9 tombe sur z = 0, la coupe du croisement : l'inclusion stricte y est
+        // impossible. On la place à z = 0,01, hors des coupes et des arêtes (brief, SC3).
         [Test]
         public void LaGrilleDuNoeudEstCouverteUneFoisDansSesLobesEtJamaisAilleurs()
         {
@@ -125,13 +125,13 @@ namespace Forge.Pont.Tests
                 for (int j = 0; j < 19; j++)
                 {
                     double x = -0.95 + 0.1 * i, z = -0.9 + 0.1 * j;
-                    if (z == 0) continue;
+                    if (z == 0) z = 0.01;
                     verifies++;
                     int attendu = Math.Abs(z) < Math.Abs(x) ? 1 : 0;
                     int compte = Couverture(maillage, 1000 + 1000 * x, 1000 + 1000 * z, origine);
                     if (compte != attendu) ecarts.Add("(" + x + " ; " + z + ") couvert " + compte + " fois");
                 }
-            Assert.That(verifies, Is.EqualTo(360), "la grille a perdu des points");
+            Assert.That(verifies, Is.EqualTo(380), "la grille a perdu des points");
             Assert.That(ecarts, Is.Empty, ecarts.Count + " points sur " + verifies + " en écart : " + string.Join(", ", ecarts.Take(10)));
         }
 

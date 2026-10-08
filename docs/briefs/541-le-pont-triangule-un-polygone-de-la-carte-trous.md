@@ -80,10 +80,10 @@ Contre-épreuve, à la main, dite dans la PR : écrire le trapèze dans l'autre 
 **SC3 — le nœud n'est jamais couvert deux fois (PC, dans SC1).**
 Le nœud synthétique est (0, 0), (2000, 2000), (2000, 0), (0, 2000), (0, 0) m, sans trou, avec pour origine (1000, 1000) m. Ses deux lobes se touchent au croisement (1000, 1000) m.
 - L'aire vaut 2,0 km² à 1e-6 près.
-- **Grille** : pour i de 0 à 19 et j de 0 à 18, le point en km x = −0,95 + 0,1·i, z = −0,9 + 0,1·j (soit, en mètres, 1000 + 1000·x, 1000 + 1000·z) est couvert **1 fois si |z| < |x|, 0 fois sinon**. Cela fait 380 points, sans aucun écart. Le test donne le nombre de points en écart dans son message.
+- **Grille** : pour i de 0 à 19 et j de 0 à 18, le point en km x = −0,95 + 0,1·i, z = −0,9 + 0,1·j (soit, en mètres, 1000 + 1000·x, 1000 + 1000·z). La rangée j = 9 tombe sur z = 0, la coupe du croisement : l'inclusion stricte y est impossible. Adaptation technique : cette rangée seule est placée à z = 0,01, hors des coupes et des arêtes. Chaque point est couvert **1 fois si |z| < |x|, 0 fois sinon**. Cela fait 380 points, sans aucun écart. Le test donne le nombre de points en écart dans son message.
 - **Points nommés**, en km autour de l'origine : (0 ; 0,5) et (0 ; −0,5) couverts 0 fois ; (−0,5 ; 0,1) et (0,5 ; −0,1) couverts 1 fois.
 
-Contre-épreuve, à la main, dite dans la PR : retirer les ordonnées des croisements. L'aire passe alors à 4,0 km², (0 ; 0,5) est couvert **2 fois** et la grille compte 100 écarts : SC3 rougit. SC2 et SC4 restent verts, car ils n'ont aucun croisement. Remettre les croisements le rétablit.
+Contre-épreuve, à la main, dite dans la PR : retirer les ordonnées des croisements. L'aire passe alors à 4,0 km², (0 ; 0,5) est couvert **2 fois** et la grille compte 90 écarts : SC3 rougit. Ces 90 points sont couverts deux fois là où la règle attend zéro ; la rangée déplacée à z = 0,01 n'en fait pas partie. Le chiffre 100 ne se mesure pas, ni sur cette grille ni sur l'ancienne qui écartait z = 0. SC2 et SC4 restent verts, car ils n'ont aucun croisement. Remettre les croisements le rétablit.
 
 **SC4 — un trou qui touche l'extérieur par un sommet (PC, dans SC1).**
 L'extérieur est (0, 0), (0, 2000), (0, 4000), (4000, 4000), (4000, 0), (0, 0) m, horaire. Le trou est (0, 2000), (2000, 1000), (2000, 3000), (0, 2000), anti-horaire. Le sommet (0, 2000) est partagé, comme en 10326. L'origine est (2000, 2000) m.
