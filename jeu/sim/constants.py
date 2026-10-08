@@ -15,6 +15,11 @@ import math
 # Elle ne décrit ni les frontières ni la position réelle de ces lieux.
 SURFACE_KM2_PAR_LIEU = 1000.0
 
+# Niveau 2 : les premiers lieux du siège forment le domaine d'une seigneurie.
+LIEUX_DE_LA_SEIGNEURIE = 4
+# Niveau 2 : les autres lieux se regroupent sous des seigneurs plausibles.
+LIEUX_PAR_SEIGNEUR_PLAUSIBLE = 3
+
 # --- Marchandises ---
 
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.

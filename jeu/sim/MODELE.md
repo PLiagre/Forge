@@ -1600,7 +1600,29 @@ Les grandes maisons et institutions sont des racines sans suzerain ; les départ
 La validation publique refuse une référence inconnue ou tout cycle, même sur soi, avec `PuissanceInvalide` nommant la maison ; elle accepte un registre altéré pour l'éprouver.
 Les ancres sont projetées par `projeter_epsg3035` ; les sièges suivent les polygones, frontière au plus petit `cell_id`, jamais le centroïde le plus proche. Sur carte, le siège est le couple (`cell_id`, `rang = 0`), sans seconde clé spatiale.
 Hors carte, `cell_id` et `rang` sont `None` : Saraï reprend la raison de sa capitale, Venise celle déclarée dans son ancre, sans déplacement ni bourg inventé. Toute raison absente ou vide hors carte, raison sur un point contenu ou géométrie absente est refusée.
-**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : propriété des lieux, hommage matériel, personnes et succession. Le grenier de chaque maison est conservé à part : voir « Le grenier d'une maison ».
+**Niveau 1** : identités, capitales et sièges déjà sourcés. **Niveau 2**, plausible, jamais sourcé : racines sans suzerain, siège institutionnel choisi par id, rattachement au bourg de rang 0. **Niveau 3**, pas simulé ici : hommage matériel, personnes et succession. Le grenier de chaque maison est conservé à part : voir « Le grenier d'une maison ».
+
+**Le maître de chaque lieu.** `sim/maitres.py` dérive les couples de
+`lieux_depuis_monde` et lit le registre `monde.maisons`, sans le recharger.
+D'abord, les seigneuries placées tiennent les `LIEUX_DE_LA_SEIGNEURIE = 4`
+premiers rangs de leur siège, bourg compris, ou tous s'il y en a moins.
+Ensuite, les grandes maisons et institutions placées prennent les lieux
+encore libres de leur capitale ou siège ; hors carte, elles ne tiennent rien.
+Chaque étape passe les maisons par id : un lieu déjà tenu ne change jamais.
+Enfin, dans l'ordre des cellules et des rangs, les rangs libres se découpent
+par `LIEUX_PAR_SEIGNEUR_PLAUSIBLE = 3`, dernier groupe éventuellement incomplet.
+Chaque groupe crée une fiche `plausible-<cell_id>-<premier rang>` : nom et
+siège reprennent l'id, sorte `plausible`, rang initial, `hors_carte=None`.
+Dans une cellule couverte, son suzerain est la racine de la puissance de la
+cellule (`grande-<par_puissance[p]>` ou `institution-<p>`), même si une autre
+maison y tient des terres ; sans couverture, son suzerain est `None`.
+Les constantes sont relues à chaque appel et exigent des entiers positifs.
+`valider_attribution` refuse l'échantillon vide, les couples absents ou en trop,
+les maîtres inconnus, les ids dupliqués et tout écart à la règle, couple nommé ;
+`valider_registre_maisons` refuse les suzerains inconnus et cycles.
+Niveau 2, plausible, jamais sourcé : les quatre lieux, groupes de trois,
+maisons plausibles et suzerains. Niveau 3 : maître stocké, changement de maître
+et noms plausibles (#392). Rien n'entre dans l'état, la photographie ou le tick.
 
 Le lecteur reste pur : il ne modifie ni tables, ni carte, ni monde.
 `World.charger` l'appelle une fois avec sa carte et conserve son tuple de fiches

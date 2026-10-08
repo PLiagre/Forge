@@ -990,3 +990,201 @@ def test_grenier_serialisation():
         with pytest.raises(AssertionError):
             _verifier_grenier_serialise(altéré, monde)
     print(f"paniers_publies={len(document['greniers'])}, pertes_kg={monde.pertes_kg}")
+
+
+# Attribution des maîtres : l'attente ne consulte jamais sim.maitres.
+def _attente_maitres(monde, vue, maisons, depart=4, groupe=3, priorite=True):
+    from sim.lieux import lieux_depuis_monde
+    from sim.registre_maisons import MaisonDuMonde
+    attendus, fiches = {}, []
+    for cid, lieux in lieux_depuis_monde(monde).items():
+        libres = []
+        for lieu in lieux:
+            departs = sorted((m.id for m in monde.maisons if m.cell_id == cid
+                              and m.sorte == "seigneurie" and lieu.rang < depart))
+            sieges = sorted(m.id for m in monde.maisons if m.cell_id == cid
+                            and m.sorte in ("grande maison", "institution"))
+            candidats = departs + sieges if priorite else sieges + departs
+            if candidats:
+                attendus[cid, lieu.rang] = candidats[0]
+            else:
+                libres.append(lieu.rang)
+        puissance = vue[cid]
+        racine = maisons.par_puissance[puissance] if puissance is not None else None
+        suzerain = (f"grande-{racine}" if racine is not None else
+                    f"institution-{puissance}" if puissance is not None else None)
+        for debut in range(0, len(libres), groupe):
+            rangs = libres[debut:debut + groupe]
+            identifiant = f"plausible-{cid}-{rangs[0]}"
+            fiches.append(MaisonDuMonde(identifiant, identifiant, "plausible", suzerain,
+                                       identifiant, cid, rangs[0], None))
+            attendus.update({(cid, rang): identifiant for rang in rangs})
+    return dict(sorted(attendus.items())), tuple(fiches)
+
+
+@pytest.fixture(scope="module")
+def monde_maitres():
+    monde = World.charger(0)
+    return monde, puissances_depuis_monde(monde), charger_maisons()
+
+
+@pytest.fixture
+def cas_maitres():
+    import sim.constants as constantes
+    from sim.model import Cell
+    from sim.registre_maisons import MaisonDuMonde
+    monde = World({cid: Cell(cell_id=cid, area_km2=n * constantes.SURFACE_KM2_PAR_LIEU,
+                            population=0) for cid, n in ((5, 7), (4, 7), (3, 7), (2, 7), (1, 2))}, [])
+    monde.maisons = (
+        MaisonDuMonde("seigneurie-a", "A", "seigneurie", "grande-3", "A", 1, 0, None),
+        MaisonDuMonde("seigneurie-b", "B", "seigneurie", "grande-3", "B", 2, 0, None),
+        MaisonDuMonde("grande-3", "G", "grande maison", None, "G", 2, 0, None),
+        MaisonDuMonde("institution-11", "I", "institution", None, "I", None, None, "hors carte"),
+    )
+    return monde, {1: 3, 2: 3, 3: 3, 4: 11, 5: None}, charger_maisons()
+
+
+def test_maitre_monde(monde_maitres):
+    from sim.maitres import attribuer_maitres, valider_attribution
+    from sim.lieux import lieux_depuis_monde
+    from sim.registre_maisons import valider_registre_maisons
+    monde, vue, maisons = monde_maitres
+    maitres, plausibles = attribuer_maitres(monde)
+    assert (maitres, plausibles) == _attente_maitres(*monde_maitres)
+    couples = [(cid, l.rang) for cid, lieux in lieux_depuis_monde(monde).items() for l in lieux]
+    assert couples and list(maitres) == couples
+    registre = monde.maisons + plausibles
+    assert len({m.id for m in registre}) == len(registre)
+    assert set(maitres.values()) <= {m.id for m in registre}
+    effectifs = Counter(maitres.values())
+    assert sum(effectifs.values()) == len(couples) == sum(len(c.lieux) for c in monde.cells.values())
+    for m in monde.maisons:
+        if m.cell_id is not None:
+            assert maitres[m.cell_id, 0] == m.id
+            if m.sorte == "seigneurie":
+                assert all(maitres[cid, rang] == m.id for cid, rang in couples
+                           if cid == m.cell_id and rang < 4)
+        else:
+            assert m.id not in effectifs
+    assert plausibles and all(cid == m.cell_id for m in plausibles
+                             for (cid, rang), maitre in maitres.items() if maitre == m.id)
+    assert any(m.suzerain and m.suzerain.startswith("grande-") for m in plausibles)
+    assert any(m.suzerain and m.suzerain.startswith("institution-") for m in plausibles)
+    assert any(m.suzerain is None for m in plausibles)
+    assert any(effectifs[m.id] < 3 for m in plausibles)
+    assert any(len(lieux) < 4 for lieux in lieux_depuis_monde(monde).values())
+    tenantes = maisons_depuis_monde(monde)
+    assert any(m.suzerain != f"grande-{tenantes[m.cell_id]}" for m in plausibles
+               if vue[m.cell_id] is not None and maisons.par_puissance[vue[m.cell_id]] is not None)
+    valider_attribution(monde, maitres, plausibles)
+    valider_registre_maisons(registre)
+
+
+def test_maitre_cas(cas_maitres):
+    from sim.maitres import attribuer_maitres, valider_attribution
+    monde, vue, maisons = cas_maitres
+    attendu = _attente_maitres(*cas_maitres)
+    assert attendu != _attente_maitres(*cas_maitres, priorite=False)
+    for registre in (monde.maisons, tuple(reversed(monde.maisons))):
+        monde.maisons = registre
+        maitres, plausibles = attribuer_maitres(*cas_maitres)
+        assert (maitres, plausibles) == attendu
+        assert [maitres[1, r] for r in range(2)] == ["seigneurie-a"] * 2
+        assert [maitres[2, r] for r in range(7)] == ["seigneurie-b"] * 4 + ["grande-3"] * 3
+        for cid, suzerain in ((3, "grande-3"), (4, "institution-11"), (5, None)):
+            groupes = [m for m in plausibles if m.cell_id == cid]
+            assert [m.rang for m in groupes] == [0, 3, 6]
+            assert [Counter(maitres.values())[m.id] for m in groupes] == [3, 3, 1]
+            assert all(m.suzerain == suzerain for m in groupes)
+        valider_attribution(monde, maitres, plausibles, vue, maisons)
+
+
+@pytest.mark.parametrize("nom,valeur", [("LIEUX_DE_LA_SEIGNEURIE", 2),
+                                        ("LIEUX_PAR_SEIGNEUR_PLAUSIBLE", 5)])
+def test_maitre_constantes(cas_maitres, monkeypatch, nom, valeur):
+    import sim.constants as constantes
+    from sim.maitres import AttributionInvalide, attribuer_maitres
+    nominal = attribuer_maitres(*cas_maitres)
+    monkeypatch.setattr(constantes, nom, valeur)
+    attendu = _attente_maitres(*cas_maitres, depart=constantes.LIEUX_DE_LA_SEIGNEURIE,
+                              groupe=constantes.LIEUX_PAR_SEIGNEUR_PLAUSIBLE)
+    assert attribuer_maitres(*cas_maitres) == attendu != nominal
+    for invalide in (True, 0, 2.5):
+        monkeypatch.setattr(constantes, nom, invalide)
+        with pytest.raises(AttributionInvalide, match=nom):
+            attribuer_maitres(*cas_maitres)
+
+
+def test_maitre_contre_epreuves(monde_maitres):
+    from sim.maitres import AttributionInvalide, attribuer_maitres, valider_attribution
+    from sim.registre_maisons import valider_registre_maisons
+    monde, vue, maisons = monde_maitres
+    maitres, plausibles = attribuer_maitres(monde, vue, maisons)
+    premier = next(iter(maitres))
+    p = plausibles[0]
+    siege = (p.cell_id, p.rang)
+    depart = next(m for m in monde.maisons if m.sorte == "seigneurie")
+    bourg = (depart.cell_id, 0)
+    capitale = next(c for c, m in maitres.items() if m.startswith("grande-") and c[1] > 0)
+    a, b = next((a, b) for a, b in zip(plausibles, plausibles[1:]) if a.cell_id == b.cell_id)
+    autre = next(m for m in plausibles if m.cell_id != p.cell_id)
+    cas = [
+        ({c: m for c, m in maitres.items() if c != premier}, plausibles, premier),
+        ({**maitres, premier: "inconnu"}, plausibles, premier),
+        (maitres, plausibles[1:], siege),
+        (maitres, plausibles + (p,), siege),
+        ({**maitres, bourg: p.id}, plausibles, bourg),
+        ({**maitres, capitale: p.id}, plausibles, capitale),
+        ({c: a.id if m == b.id else m for c, m in maitres.items()},
+         tuple(m for m in plausibles if m.id != b.id), (b.cell_id, b.rang)),
+        ({**maitres, siege: autre.id}, plausibles, siege),
+        ({}, plausibles, premier),
+        ({**maitres, (max(monde.cells) + 1, 0): p.id}, plausibles, (max(monde.cells) + 1, 0)),
+    ]
+    for alteres, fiches, couple in cas:
+        with pytest.raises(AttributionInvalide) as erreur:
+            valider_attribution(monde, alteres, fiches, vue, maisons)
+        assert str(couple) in str(erreur.value)
+        if not alteres:
+            assert "échantillon vide" in str(erreur.value)
+    # Toute composante de la fiche est vérifiée, même lorsque les maîtres sont corrects.
+    for champ, valeur in (("nom", "altéré"), ("siege", "altéré"), ("sorte", "institution"),
+                          ("suzerain", "inconnu"), ("hors_carte", "altéré")):
+        with pytest.raises(AttributionInvalide) as erreur:
+            valider_attribution(monde, maitres, (dataclasses.replace(p, **{champ: valeur}),)
+                               + plausibles[1:], vue, maisons)
+        assert str(siege) in str(erreur.value)
+    for fiches in ((dataclasses.replace(p, suzerain="inconnu"),) + plausibles[1:],
+                   (dataclasses.replace(p, suzerain=plausibles[1].id),
+                    dataclasses.replace(plausibles[1], suzerain=p.id)) + plausibles[2:]):
+        with pytest.raises(PuissanceInvalide, match=p.id):
+            valider_registre_maisons(monde.maisons + fiches)
+    valider_attribution(monde, maitres, plausibles, vue, maisons)
+    vide = World({}, [])
+    with pytest.raises(AttributionInvalide, match="échantillon vide.*\\(None, None\\)"):
+        valider_attribution(vide, {}, (), {}, maisons)
+
+
+def _importe_maitres(texte):
+    return any((isinstance(n, ast.ImportFrom) and
+                (n.module == "sim.maitres" or n.module == "sim" and any(a.name == "maitres" for a in n.names)))
+               or (isinstance(n, ast.Import) and any(a.name == "sim.maitres" for a in n.names))
+               for n in ast.walk(ast.parse(texte)))
+
+
+def test_maitre_pur(monde_maitres):
+    from sim.maitres import attribuer_maitres
+    monde, vue, maisons = monde_maitres
+    avant = copy.deepcopy((json.dumps(monde.to_dict(), sort_keys=True), monde.maisons,
+                           monde.carte, [vars(c) for c in monde.cells.values()]))
+    premier = attribuer_maitres(monde, vue, maisons)
+    second = attribuer_maitres(monde, vue, maisons)
+    assert premier == second and premier[0] is not second[0]
+    assert (json.dumps(monde.to_dict(), sort_keys=True), monde.maisons,
+            monde.carte, [vars(c) for c in monde.cells.values()]) == avant
+    assert premier[1]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        premier[1][0].nom = "altéré"
+    for fichier in ("engine.py", "world.py", "snapshot_export.py", "service.py"):
+        assert not _importe_maitres((TABLE.parents[1] / "sim" / fichier).read_text())
+    assert _importe_maitres("from sim.maitres import attribuer_maitres")
