@@ -239,7 +239,7 @@ def test_amorcage_conserve_habitants_et_panier(monkeypatch):
     import sim.lieux as lieux_module
     from sim.model import Cell, EtatDeLieu, cellule_vers_dict
 
-    assert {champ.name for champ in dataclasses.fields(EtatDeLieu)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "maitre"}
+    assert {champ.name for champ in dataclasses.fields(EtatDeLieu)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "mortality_remainder", "natalite_remainder", "maitre"}
     assert issubclass(EtatDeLieu, _NoBadSpatialField)
     monde = World.charger(0)
     contrôlées = _controle_conservation(monde)
@@ -485,32 +485,39 @@ def test_cellule_depend_du_contenu_des_lieux(monkeypatch):
     from sim.engine import tick
 
     monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", float("inf"))
-    avec = World.charger(0)
-    sans = copy.deepcopy(avec)
-    for cellule in sans.cells.values():
-        cellule.lieux = []
-    rng_avec, rng_sans = random.Random(0), random.Random(0)
-    for numéro in range(30):
-        tick(avec, rng_avec, numero_tick=numéro)
-        tick(sans, rng_sans, numero_tick=numéro)
-        assert _etats_cellules(avec) == _etats_cellules(sans)
-        assert all(cellule.lieux == [] for cellule in sans.cells.values())
-    déplacé = copy.deepcopy(avec)
-    cellule = _cellule_multiple_peuplee(déplacé)
-    cellule.lieux[0].population -= 1
-    cellule.lieux[1].population += 1
-    rng_avec, rng_déplacé = random.Random(0), random.Random(0)
-    for numéro in range(30, 40):
-        tick(avec, rng_avec, numero_tick=numéro)
-        tick(déplacé, rng_déplacé, numero_tick=numéro)
-        assert _etats_cellules(avec) == _etats_cellules(déplacé)
-    assert _controle_conservation(avec) == _controle_conservation(déplacé)
-    cellule.population += 1
-    assert _etats_cellules(avec) != _etats_cellules(déplacé)
-    print(f"cellules_comparées={len(avec.cells)}, ticks_sans_lieux=30, ticks_habitant_déplacé=10, écart_vu=1")
+    from sim import engine
+    consommation = engine._apply_consumption
+    def verifier_consommation(capacite):
+        monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", capacite)
+        monde, rng = World.charger(0), random.Random(0)
+        def comparer(cellule, carte=None):
+            copie, sans = copy.deepcopy(cellule), copy.deepcopy(cellule)
+            sans.lieux = []
+            assert consommation(copie, carte) == consommation(sans, carte)
+            assert copie.population == sans.population
+            assert copie.stocks == sans.stocks
+            assert copie.food_deficit_kg == sans.food_deficit_kg
+            assert not (any(l.duree_faim_ticks > 0 for l in copie.lieux)
+                        and any(l.stocks.get("nourriture", 0) > 0 for l in copie.lieux))
+            return consommation(cellule, carte)
+        with monkeypatch.context() as garde:
+            garde.setattr(engine, "_apply_consumption", comparer)
+            for numero in range(30):
+                tick(monde, rng, numero_tick=numero)
+        return monde
+    avec = verifier_consommation(float("inf"))
+    with pytest.raises(AssertionError):
+        verifier_consommation(0)
+    print(f"cellules_comparées={len(avec.cells)}, ticks_consommation_avant_démographie=30, capacité_nulle_vue=1")
 
     from sim import engine
     monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0)
+    # Morts et naissances s'arrondissent lieu par lieu : déplacer des habitants
+    # changerait la cellule même avec une consommation gratuite. On les fige
+    # dans les deux courses pour que seul le contenu des lieux, par la
+    # consommation, puisse faire l'écart.
+    monkeypatch.setattr(engine, "_apply_mortality", lambda cellule: None)
+    monkeypatch.setattr(engine, "_apply_natalite", lambda cellule, penurie_kg: None)
     def verifier_ecart():
         source = World.charger(0)
         modifié = copy.deepcopy(source)
@@ -929,25 +936,236 @@ def test_dette_et_faim_des_lieux(monkeypatch):
     assert json.dumps(monde.to_dict(), sort_keys=True) != avant
 
 
-def test_dette_sans_effet_sur_le_monde(monkeypatch):
+def test_dette_a_un_effet_sur_le_monde(monkeypatch):
     from sim import engine
     monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0)
-    normal, temoin = World.charger(0), World.charger(0)
-    rng_normal, rng_temoin = random.Random(0), random.Random(0)
-    def contenus(monde):
-        return {cid: [(lieu.population, lieu.stocks) for lieu in cellule.lieux]
-                for cid, cellule in monde.cells.items()}
-    for numero in range(60):
-        retour = tick(normal, rng_normal, numero_tick=numero)
+    def courses(sans_portage):
+        normal, temoin = World.charger(0), World.charger(0)
+        rng_normal, rng_temoin = random.Random(0), random.Random(0)
+        for numero in range(60):
+            tick(normal, rng_normal, numero_tick=numero)
+            with monkeypatch.context() as garde:
+                if sans_portage:
+                    garde.setattr(engine, "_porter_dette_et_faim_sur_les_lieux", lambda *args: None)
+                tick(temoin, rng_temoin, numero_tick=numero)
+        return [sum(c.population for c in monde.cells.values()) for monde in (normal, temoin)]
+    def verifier(populations):
+        assert populations[0] != populations[1]
+    populations = courses(True)
+    verifier(populations)
+    with pytest.raises(AssertionError): verifier(courses(False))
+    print(f"ticks=60, populations_avec_et_sans_dettes_locales={populations}, courses_normales_refusées=1")
+
+
+def test_demographie_locale_etat(monkeypatch, tmp_path):
+    import ast
+    import sim.model as modele
+    from sim.tests import test_write_coverage as couverture
+    champs = ("mortality_remainder", "natalite_remainder")
+    lieu = modele.creer_etat_de_lieu(0, 5, {})
+    assert all(getattr(lieu, champ) == 0.0 for champ in champs)
+    explicite = modele.creer_etat_de_lieu(0, 5, {}, mortality_remainder=0.5, natalite_remainder=0.75)
+    assert [getattr(explicite, champ) for champ in champs] == [0.5, 0.75]
+    import inspect
+    constructeur = next(n for n in ast.walk(ast.parse(inspect.getsource(modele.creer_etat_de_lieu)))
+                        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                        and n.func.id == "EtatDeLieu")
+    def verifier_ecrivains(appel):
+        assert set(champs) <= {kw.arg for kw in appel.keywords}
+    verifier_ecrivains(constructeur)
+    for champ in champs:
+        sans_ecrivain = copy.deepcopy(constructeur)
+        sans_ecrivain.keywords = [kw for kw in sans_ecrivain.keywords if kw.arg != champ]
+        with pytest.raises(AssertionError): verifier_ecrivains(sans_ecrivain)
+    monde = World.charger(0)
+    avant = json.dumps(monde.to_dict(), sort_keys=True)
+    for champ in champs:
+        copie = copy.deepcopy(monde)
+        setattr(next(iter(copie.cells.values())).lieux[0], champ, 0.5)
+        assert json.dumps(copie.to_dict(), sort_keys=True) != avant
+        def verifier():
+            assert all(champ in l for l in modele.cellule_vers_dict(next(iter(monde.cells.values())))["lieux"])
+        verifier()
         with monkeypatch.context() as garde:
-            garde.setattr(engine, "_porter_dette_et_faim_sur_les_lieux", lambda *args: None)
-            assert tick(temoin, rng_temoin, numero_tick=numero) == retour
-        assert _etats_cellules(normal) == _etats_cellules(temoin)
-        assert contenus(normal) == contenus(temoin)
-    with pytest.raises(AssertionError):
-        assert [[l.dette_alimentaire_kg for l in c.lieux] for c in normal.cells.values()] == (
-            [[l.dette_alimentaire_kg for l in c.lieux] for c in temoin.cells.values()])
-    print(f"cellules_comparees={len(normal.cells)}, ticks_identiques=60, ecart_dette_vu=1")
+            garde.setattr(modele, "asdict", lambda l: {k: v for k, v in dataclasses.asdict(l).items() if k != champ})
+            with pytest.raises(AssertionError): verifier()
+        for mode in ("lecture", "écriture"):
+            class Omettre(ast.NodeTransformer):
+                def visit_Attribute(self, noeud):
+                    if mode == "lecture" and noeud.attr == champ and isinstance(noeud.ctx, ast.Load):
+                        return ast.copy_location(ast.Constant(0.0), noeud)
+                    return self.generic_visit(noeud)
+                def visit_Call(self, noeud):
+                    self.generic_visit(noeud)
+                    if mode == "écriture":
+                        noeud.keywords = [kw for kw in noeud.keywords if kw.arg != champ]
+                    return noeud
+                def visit_Assign(self, noeud):
+                    if mode == "écriture" and any(isinstance(c, ast.Attribute) and c.attr == champ
+                                                 for c in noeud.targets):
+                        return ast.copy_location(ast.Pass(), noeud)
+                    return self.generic_visit(noeud)
+            fichiers = []
+            for fichier in couverture._SIM_SOURCE_FILES:
+                cible = tmp_path / fichier.name
+                cible.write_text(ast.unparse(Omettre().visit(ast.parse(fichier.read_text()))), encoding="utf-8")
+                fichiers.append(cible)
+            with monkeypatch.context() as garde:
+                garde.setattr(couverture, "_SIM_SOURCE_FILES", fichiers)
+                with pytest.raises(AssertionError, match=f"{champ} : aucun site d.*{mode}"):
+                    couverture.test_all_dataclass_fields_have_write_and_read_sites()
+
+
+def test_demographie_locale_mortalite(monkeypatch):
+    from sim import engine
+    from sim.model import Cell, creer_etat_de_lieu
+    def verifier():
+        cellule = Cell(0, 2000, 10, habitants_par_metier={"mineurs": 5, "paysans": 5},
+                       mortality_remainder=0.9, food_deficit_kg=1000)
+        cellule.lieux = [creer_etat_de_lieu(0, 5, {}, dette_alimentaire_kg=1000),
+                         creer_etat_de_lieu(1, 5, {}, mortality_remainder=0.3)]
+        voisin = copy.deepcopy(cellule.lieux[1])
+        appels, retirer = [], engine._retirer_par_les_foyers
+        with monkeypatch.context() as garde:
+            garde.setattr(engine, "_retirer_par_les_foyers", lambda c, n: (appels.append(n), retirer(c, n)))
+            engine._apply_mortality(cellule)
+            assert [l.population for l in cellule.lieux] == [5, 5]
+            assert [l.mortality_remainder for l in cellule.lieux] == [0.5, 0.3]
+            assert cellule.population == sum(l.population for l in cellule.lieux)
+            engine._apply_mortality(cellule)
+        assert [l.population for l in cellule.lieux] == [4, 5]
+        assert appels == [0, 1]
+        assert cellule.population == sum(l.population for l in cellule.lieux) == 9
+        assert cellule.habitants_par_metier == {"mineurs": 4, "paysans": 5}
+        assert cellule.mortality_remainder == 0.9
+        assert cellule.lieux[0].dette_alimentaire_kg == 1000 and cellule.lieux[1] == voisin
+        from sim.lieux import repartir_sur_les_lieux
+        coherents = copy.deepcopy(cellule.lieux)
+        repartir_sur_les_lieux(cellule)
+        assert cellule.lieux == coherents
+    verifier()
+    original = engine._apply_mortality
+    with monkeypatch.context() as garde:
+        garde.setattr(engine, "_apply_mortality", lambda cellule: None)
+        with pytest.raises(AssertionError): verifier()
+    def dettes_inversees(cellule):
+        cellule.lieux[0].dette_alimentaire_kg, cellule.lieux[1].dette_alimentaire_kg = (
+            cellule.lieux[1].dette_alimentaire_kg, cellule.lieux[0].dette_alimentaire_kg)
+        original(cellule)
+    monkeypatch.setattr(engine, "_apply_mortality", dettes_inversees)
+    with pytest.raises(AssertionError): verifier()
+
+
+def test_demographie_locale_natalite(monkeypatch):
+    from sim import engine
+    from sim.model import Cell, creer_etat_de_lieu
+    def verifier():
+        cellule = Cell(0, 3000, 5005, habitants_par_metier={"mineurs": 5, "paysans": 5000},
+                       natalite_remainder=0.9, food_deficit_kg=1000)
+        cellule.lieux = [creer_etat_de_lieu(0, 5, {}, dette_alimentaire_kg=1000,
+                                          duree_faim_ticks=2, natalite_remainder=0.7),
+                         creer_etat_de_lieu(1, 5000, {}),
+                         creer_etat_de_lieu(2, 0, {}, natalite_remainder=0.8)]
+        appels, ajouter = [], engine._ajouter_par_les_foyers
+        with monkeypatch.context() as garde:
+            garde.setattr(engine, "_ajouter_par_les_foyers", lambda c, n: (appels.append(n), ajouter(c, n)))
+            engine._apply_natalite(cellule, 10)
+        assert [l.population for l in cellule.lieux] == [5, 5001, 0]
+        assert [l.natalite_remainder for l in cellule.lieux] == [0.7, 0.0, 0.8]
+        assert cellule.population == sum(l.population for l in cellule.lieux) == 5006
+        assert cellule.habitants_par_metier == {"mineurs": 5, "paysans": 5001}
+        assert appels == [1] and cellule.natalite_remainder == 0.9
+    verifier()
+    monkeypatch.setattr(engine, "_apply_natalite", lambda *args: None)
+    with pytest.raises(AssertionError): verifier()
+
+
+def test_demographie_locale_arrondis_apres_consommation_identique(monkeypatch):
+    from sim import engine
+    from sim.model import Cell, creer_etat_de_lieu
+
+    def verifier():
+        cellules = []
+        carte = {0: {"relief": "plaine", "gisements": []}}
+        ration = 5000 * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+        for populations in ((2500, 2500), (5000, 0)):
+            cellule = Cell(0, 2000, 5000, stocks={"nourriture": 2 * ration},
+                           food_deficit_kg=0.0)
+            cellule.lieux = [creer_etat_de_lieu(rang, population, {"nourriture": ration})
+                             for rang, population in enumerate(populations)]
+            cellules.append(cellule)
+        penuries = [engine._apply_consumption(c, carte) for c in cellules]
+        assert penuries == [0.0, 0.0]
+        assert cellules[0].stocks == cellules[1].stocks
+        assert cellules[0].food_deficit_kg == cellules[1].food_deficit_kg == 0.0
+        for cellule, penurie in zip(cellules, penuries):
+            engine._apply_natalite(cellule, penurie)
+            assert cellule.population == sum(l.population for l in cellule.lieux)
+        # Une consommation identique ne promet pas les mêmes arrondis locaux.
+        assert [c.population for c in cellules] == [5000, 5001]
+        assert [l.natalite_remainder for l in cellules[0].lieux] == [0.5, 0.5]
+        assert [l.natalite_remainder for l in cellules[1].lieux] == [0.0, 0.0]
+
+    verifier()
+    monkeypatch.setattr(engine, "_apply_natalite", lambda *args: None)
+    with pytest.raises(AssertionError): verifier()
+
+
+@pytest.mark.parametrize("dette,faim", [(0, 2), (7, 0)])
+def test_demographie_locale_blocages(dette, faim):
+    from sim import engine
+    from sim.model import Cell, creer_etat_de_lieu
+    cellule = Cell(0, 1000, 5000)
+    cellule.lieux = [creer_etat_de_lieu(0, 5000, {}, dette_alimentaire_kg=dette,
+                                      duree_faim_ticks=faim, natalite_remainder=0.75,
+                                      mortality_remainder=0.5)]
+    engine._apply_mortality(cellule)
+    if dette:
+        assert 0.5 < cellule.lieux[0].mortality_remainder < 1
+    else:
+        assert cellule.lieux[0].mortality_remainder == 0.5
+    assert cellule.population == cellule.lieux[0].population == 5000
+    engine._apply_natalite(cellule, 0)
+    assert cellule.population == cellule.lieux[0].population == 5000
+    assert cellule.lieux[0].natalite_remainder == 0.75
+    cellule.lieux[0].dette_alimentaire_kg = 0
+    cellule.lieux[0].duree_faim_ticks = 0
+    engine._apply_natalite(cellule, 100)
+    assert cellule.population == cellule.lieux[0].population == 5001
+    assert cellule.lieux[0].natalite_remainder == 0.75
+
+
+def test_demographie_locale_repli_et_lieu_vide():
+    from sim import engine
+    from sim.model import Cell, creer_etat_de_lieu
+    cellule = Cell(0, 1000, 5, food_deficit_kg=1000)
+    for _ in range(2): engine._apply_mortality(cellule)
+    assert cellule.population == 4 and cellule.mortality_remainder == 0
+    cellule.food_deficit_kg = 0
+    cellule.population = 5000
+    engine._apply_natalite(cellule, 0)
+    assert cellule.population == 5001 and cellule.natalite_remainder == 0
+    cellule.population = 0
+    cellule.lieux = [creer_etat_de_lieu(0, 0, {}, dette_alimentaire_kg=1000,
+                                      mortality_remainder=0.5, natalite_remainder=0.75)]
+    avant = copy.deepcopy(cellule.lieux)
+    engine._apply_mortality(cellule)
+    engine._apply_natalite(cellule, 0)
+    assert cellule.population == 0 and cellule.lieux == avant
+
+
+def test_demographie_locale_documentation():
+    from pathlib import Path
+    def verifier(texte):
+        for titre, report in (("Le déficit alimentaire et la mortalité", "mortality_remainder"),
+                              ("La natalité", "natalite_remainder")):
+            section = texte.split(f"## {titre}\n")[1].split("\n## ")[0]
+            for mot in ("dette", "faim", "local", "prorata", report, "Sans lieux"):
+                assert mot in section, f"{mot} absent de {titre}"
+    texte = (Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    verifier(texte)
+    for report in ("mortality_remainder", "natalite_remainder"):
+        with pytest.raises(AssertionError): verifier(texte.replace(report, "fraction"))
 
 
 @pytest.mark.parametrize("porte", [None, 2, True, "2", 2.0, -1])
