@@ -1118,6 +1118,9 @@ def test_le_chef_et_le_depanneur_posent_toutes_les_decisions_d_un_lot_en_une_que
     assert "Une seule question par lot, qui porte TOUTES ses décisions" in chef
     assert "chaque test existant qui rougira" in chef
     assert "Une seule question, qui porte toutes les décisions" in depanneur
+    # Le 7 octobre 2026, #343 et #391 : le dépanneur a dépassé son délai.
+    assert "Jamais `python3 -m pytest jeu -q` en entier" in depanneur.replace("py -m", "python3 -m")
+    assert "lis-la au lieu de la rejouer" in depanneur
 
 
 def test_le_codeur_repond_a_une_revue_sans_changer_de_fichier_et_le_relecteur_relit(projet, gh, depot, tmp_path):
