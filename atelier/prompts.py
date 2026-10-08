@@ -241,7 +241,7 @@ def depanneur(projet: Projet, *, numero: int, titre: str, corps: str, raison: st
 
 La raison du pilote : {raison}
 {deja}
-Ce dossier est la branche du lot (ou la base, s'il n'a pas encore de PR). La chaîne, elle, tourne depuis `origin/{projet.branche_base}` : avant d'accuser `atelier/`, lis-le là (`git show origin/{projet.branche_base}:atelier/<fichier>`), car la branche du lot peut en porter une copie ancienne. Le brief : `{chemin_brief}`. Lis aussi `AGENTS.md`. Tu peux lire le code, `git log`, `git diff origin/{projet.branche_base}...HEAD`, et rejouer un test (`{_tests(projet)} -k …`).
+Ce dossier est la branche du lot (ou la base, s'il n'a pas encore de PR). La chaîne, elle, tourne depuis `origin/{projet.branche_base}` : avant d'accuser `atelier/`, lis-le là (`git show origin/{projet.branche_base}:atelier/<fichier>`), car la branche du lot peut en porter une copie ancienne. Le brief : `{chemin_brief}`. Lis aussi `AGENTS.md`. Tu peux lire le code, `git log`, `git diff origin/{projet.branche_base}...HEAD`, et rejouer **un** test rouge : `{_tests(projet)}` réduit à son fichier, avec `-k <nom>`. Jamais `{_tests(projet)}` en entier, ni un dossier entier : la suite prend près d'une heure sur le VPS, plus que ton délai. Si la CI rouge est recopiée plus bas, lis-la au lieu de la rejouer.
 
 La demande (issue #{numero}) :
 -----
