@@ -384,18 +384,31 @@ monde) ; un lot `pc`, par Unity. Les images vivent sur la branche orpheline
 téléphone comme ailleurs. Chaque matin à 07:15, le journal paraît dans sa
 propre issue, épinglée, « Journal du JJ/MM/AAAA » ; celle de la veille se
 désépingle et se ferme (la boussole du lundi fait de même). Le pilote relève les faits
-(`atelier/journal.py`) : pour chaque lot livré, ce qu'en dit le compte rendu
-du codeur, son nombre de passages, le verdict du relecteur et ses captures ;
+(`atelier/journal.py`) : pour chaque lot livré, la section « Le joueur » de
+son brief, ce qu'en dit le compte rendu du codeur, son nombre de passages,
+le verdict du relecteur et ses captures ;
 à part, les changements de la machine (mode direct) ; ce que la chaîne a
 vécu, lot par lot, d'après le journal du pilote (attentes et leur raison,
 secours, découpes, reprises) ; les lots bloqués et en cours ; le jalon et son
 pourcentage (lots fermés / lots du jalon) ; et **ce que le propriétaire doit
 faire** (une session à rouvrir, sur le VPS ou le PC, avec sa commande ; le
-plafond Claude ; une ligne de veille en échec ; un lot bloqué). Le
-chroniqueur écrit trois parties : un bandeau (avancé, bloqué, à faire), ce
-qui a changé dans le jeu avec une capture par lot livré (celle de la
-révision fusionnée, omise si c'est la même image que la photo du monde ou
-qu'une capture déjà montrée), et aujourd'hui. Le pilote ajoute lui-même l'avancement
+plafond Claude ; une ligne de veille en échec ; un lot bloqué). Les images
+du matin viennent du monde que master joue pendant un an : la terre du
+joueur, cerclée de rouge parmi ses voisins, et la faim en Europe ; un lot
+qui parle de grenier, de dette ou de population reçoit la carte de cette
+lecture, s'il n'a pas sa propre capture (Unity). La carte d'Europe que le
+pilote prend de chaque lot n'y paraît plus : elle est la même pour tous. Le
+chroniqueur écrit en langage de joueur, sans jargon de code : un bandeau
+court (la nouveauté la plus forte, ce qui bloque, à faire), ce qui a changé
+dans le jeu (les lots visibles groupés par jalon, chacun avec son image ;
+les lots de fond en une ligne, « En coulisses »), aujourd'hui, et les
+décisions qui attendent le propriétaire. Il lit, pour chaque lot, la section
+« Le joueur » du brief (son « But » pour un brief plus ancien), son jalon et
+ce que sa photo doit montrer. Le plan fixe de la ville, le même à chaque lot
+du PC, ne paraît qu'une fois. Sous le bandeau, le pilote écrit lui-même
+« Où en est le jeu », tiré de l'échelle de [CAP.md](../CAP.md) : ce qui est
+déjà jouable, puis les trois jalons en route, avec leur geste, leur écran et
+leur avancement. Le pilote ajoute aussi, replié, l'avancement
 du jalon, lot par lot, et les détails de la chaîne, repliés. Un texte qui
 sort du gabarit, ou cite une image ou un numéro absent des faits, est
 écarté : le pilote écrit alors le journal seul, dans le même gabarit.
