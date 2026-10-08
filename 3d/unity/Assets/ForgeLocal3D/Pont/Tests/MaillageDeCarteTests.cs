@@ -86,6 +86,7 @@ namespace Forge.Pont.Tests {
             PointCarte centre = Centre(_carte);
             Assert.IsTrue(centre.X == 4549691.5 && centre.Y == 2747267.5 && _maillee.Origine.X == centre.X && _maillee.Origine.Y == centre.Y);
             Assert.IsInstanceOf<ReadOnlyCollection<MaillageDeCellule>>(_maillee.Cellules); Assert.IsInstanceOf<ReadOnlyCollection<Vector3>>(_maillee.Cellules[0].Maillage.Sommets);
+            Assert.AreEqual(_carte.Cellules.Count, _maillee.Cellules.Count); // ni omission ni doublon en fin de liste
             for (int i = 0; i < _carte.Cellules.Count; i++) {
                 CelluleDeCarte c = _carte.Cellules[i]; MaillageDePolygone m = _maillee.Cellules[i].Maillage;
                 Assert.AreEqual(c.CellId, _maillee.Cellules[i].CellId);
