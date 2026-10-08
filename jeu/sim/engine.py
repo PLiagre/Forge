@@ -1231,8 +1231,9 @@ def _apply_mortality(cell: Cell) -> None:
     """
     Maillon 5 — Mortalité.
 
-    La mortalité est proportionnelle au déficit alimentaire cumulé par habitant
-    (food_deficit_kg / population), plafonnée à MAX_DEATH_RATE_PER_TICK.
+    Chaque lieu meurt de sa dette alimentaire et conserve son report local.
+    Le total des décès quitte les métiers une fois, au prorata. Sans lieux,
+    le repli cellulaire ci-dessous conserve ses formules et sentinelles.
 
     Formule, sans plancher max(1, …) et avec report de la fraction :
         per_capita_deficit = food_deficit_kg / population
@@ -1246,9 +1247,25 @@ def _apply_mortality(cell: Cell) -> None:
     jetait entièrement à chaque tick. La fraction non appliquée est désormais
     conservée et finit par tuer.
 
-    Le taux reste nul si le déficit est infime : aucune mort n'est garantie
-    par le seul fait qu'un déficit est non nul.
+    Un déficit infime produit un taux infime : aucune mort entière n'est
+    garantie ce tick par le seul fait qu'un déficit est non nul.
     """
+    if cell.lieux:
+        retires = 0
+        for lieu in cell.lieux:
+            if lieu.population > 0 and lieu.dette_alimentaire_kg > 0:
+                taux = min(lieu.dette_alimentaire_kg / lieu.population
+                           * _constantes.HUNGER_DEATH_SCALE,
+                           _constantes.MAX_DEATH_RATE_PER_TICK)
+                brut = lieu.population * taux + lieu.mortality_remainder
+                morts = int(brut)
+                lieu.mortality_remainder = brut - morts
+                retrait = min(lieu.population, morts)
+                lieu.population -= retrait
+                retires += retrait
+        _retirer_par_les_foyers(cell, retires)
+        return
+
     remainder = cell.mortality_remainder if cell.mortality_remainder >= 0.0 else 0.0
 
     if cell.food_deficit_kg > 0 and cell.population > 0:
@@ -1267,6 +1284,20 @@ def _apply_mortality(cell: Cell) -> None:
 
 
 def _apply_natalite(cell: Cell, penurie_kg: float) -> None:
+    if cell.lieux:
+        naissances = 0
+        taux = _constantes.naissances_par_habitant_par_tick()
+        for lieu in cell.lieux:
+            if (lieu.population > 0 and lieu.duree_faim_ticks == 0
+                    and lieu.dette_alimentaire_kg == 0):
+                brut = lieu.population * taux + lieu.natalite_remainder
+                enfants = int(brut)
+                lieu.natalite_remainder = brut - enfants
+                lieu.population += enfants
+                naissances += enfants
+        _ajouter_par_les_foyers(cell, naissances)
+        return
+
     remainder = cell.natalite_remainder if cell.natalite_remainder >= 0.0 else 0.0
 
     if penurie_kg == 0.0 and cell.food_deficit_kg == 0.0 and cell.population > 0:
