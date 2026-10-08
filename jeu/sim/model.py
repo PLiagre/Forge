@@ -143,10 +143,10 @@ def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float], *,
                        maitre: str | None = None) -> EtatDeLieu:
     """Crée l'état d'un rang avec son propre panier, sans clé recopiée."""
     etatdelieu = EtatDeLieu(rang=rang, population=population, stocks=dict(stocks),
-                      dette_alimentaire_kg=dette_alimentaire_kg,
-                      duree_faim_ticks=duree_faim_ticks,
-                      mortality_remainder=mortality_remainder,
-                      natalite_remainder=natalite_remainder)
+                          dette_alimentaire_kg=dette_alimentaire_kg,
+                          duree_faim_ticks=duree_faim_ticks,
+                          mortality_remainder=mortality_remainder,
+                          natalite_remainder=natalite_remainder)
     ecrire_maitre(etatdelieu, maitre)
     return etatdelieu
 

@@ -459,8 +459,9 @@ def test_aucune_constante_terminale():
 def test_maitre_couverture_contre_epreuves(tmp_path, monkeypatch):
     import pytest
     source = _MODEL_FILE.read_text(encoding="utf-8")
-    for site, remplacement in (("etatdelieu.maitre = maitre", "pass"), ("lieu.maitre", "None")):
-        assert site in source
+    for site, remplacement in (("etatdelieu.maitre = maitre", "pass"),
+                               ('"maitre": lieu.maitre', '"maitre": None')):
+        assert source.count(site) == 1
         copie = tmp_path / "model.py"
         copie.write_text(source.replace(site, remplacement), encoding="utf-8")
         monkeypatch.setattr(__import__(__name__, fromlist=["_"]), "_SIM_SOURCE_FILES", [_ENGINE_FILE, _WORLD_FILE, copie])

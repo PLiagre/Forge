@@ -235,11 +235,15 @@ def _controle_bourg(monde):
     return différences
 
 
+def _controle_champs_etat_de_lieu(classe):
+    assert {champ.name for champ in dataclasses.fields(classe)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "mortality_remainder", "natalite_remainder", "maitre"}
+
+
 def test_amorcage_conserve_habitants_et_panier(monkeypatch):
     import sim.lieux as lieux_module
     from sim.model import Cell, EtatDeLieu, cellule_vers_dict
 
-    assert {champ.name for champ in dataclasses.fields(EtatDeLieu)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "mortality_remainder", "natalite_remainder", "maitre"}
+    _controle_champs_etat_de_lieu(EtatDeLieu)
     assert issubclass(EtatDeLieu, _NoBadSpatialField)
     monde = World.charger(0)
     contrôlées = _controle_conservation(monde)
@@ -1208,3 +1212,9 @@ def test_maitre_etat_manuel(monkeypatch):
         document = cellule_vers_dict(cellule)["lieux"]
         geste(document[0])
         with pytest.raises(AssertionError): verifier(document)
+    @dataclasses.dataclass
+    class EtatDeLieuParasite(EtatDeLieu):
+        parasite: int = 0
+    _controle_champs_etat_de_lieu(EtatDeLieu)
+    with pytest.raises(AssertionError):
+        _controle_champs_etat_de_lieu(EtatDeLieuParasite)
