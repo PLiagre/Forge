@@ -31,6 +31,12 @@ namespace Forge.Pont {
         public int CellulesPosees => racine != null ? racine.childCount : 0;
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
         public VueDeCarte Vue { get; private set; } // ce que la caméra créée montre ; null sans carte posée ou avec une caméra donnée
+        private ReperageDeCarte reperage; // lot #526 : la cellule sous un point
+        // La cellule servie sous un point du monde (projeté sur le plan de la carte) ; null dans la mer ou sans carte posée.
+        public CelluleDeCarte CelluleSous(Vector3 monde) {
+            if (reperage == null) return null;
+            Vector3 local = transform.InverseTransformPoint(monde); return reperage.Sous(local.x, local.z);
+        }
         private void Start() => Demarrer();
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         private void OnDestroy() => Arreter();
@@ -95,7 +101,7 @@ namespace Forge.Pont {
                 objet.transform.SetParent(racine, false);
                 objet.GetComponent<MeshFilter>().sharedMesh = maillage; objet.GetComponent<MeshRenderer>().sharedMaterial = materiau;
             }
-            Tracer(lue, carte.Origine, defaut); Nommer(lue, carte.Origine);
+            Tracer(lue, carte.Origine, defaut); Nommer(lue, carte.Origine); reperage = new ReperageDeCarte(lue, carte.Origine);
             if (cameraCreee && camera != null && racine.childCount > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
             CellulesServies = lue.Cellules.Count; Dire(""); Cadrer();
         }

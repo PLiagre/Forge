@@ -66,6 +66,10 @@ zoome à la molette, vers le point sous la souris, sans sortir de la carte servi
 En haut à droite, la date et la vitesse du monde, lues au service (lot #525) :
 Espace ou « Pause » arrête le monde et le relance à sa vitesse, + et − (ou les
 boutons) passent d'un palier à l'autre (0,5 à 20 jours par seconde).
+En bas à gauche, la fiche de la cellule sous la souris (lot #526) : ses villes,
+sa puissance et sa maison lues dans `/carte`, ses habitants, sa faim et sa dette
+lus dans `/monde`, avec le tick de cette lecture. Ce que le monde ne nomme pas ou
+ne calcule pas, la fiche le dit.
 
 ## L'épreuve du jalon 1
 
