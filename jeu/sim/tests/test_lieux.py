@@ -442,6 +442,8 @@ def test_tick_repartit_sur_une_annee_et_suit_les_ecritures(monkeypatch):
             assert _controle_conservation(monde) == len(monde.cells)
             for cid, cellule in monde.cells.items():
                 population, marchandises, contenus = avant[cid]
+                from sim.model import lire_habitants_par_metier
+                assert sum(lire_habitants_par_metier(cellule).values()) == cellule.population
                 if cellule.population != population:
                     populations_modifiées.add(cid)
                 marchandises_apparues.update((cid, nom) for nom in set(cellule.stocks) - marchandises)
@@ -462,10 +464,25 @@ def test_tick_repartit_sur_une_annee_et_suit_les_ecritures(monkeypatch):
     cellule.stocks["sonde"] = 1234.75
     cellule.population += len(cellule.lieux)
     poids_population = [lieu.population for lieu in cellule.lieux]
-    tick(synthétique, random.Random(0), numero_tick=0)
-    assert [lieu.stocks["sonde"] for lieu in cellule.lieux] == lieux_module.partager(cellule.stocks["sonde"], surfaces)
-    assert all("sonde_retirée" not in lieu.stocks for lieu in cellule.lieux)
-    assert [lieu.population for lieu in cellule.lieux] == lieux_module.partager(cellule.population, poids_population)
+    reprises = []
+
+    def controler_reprise(c, surfaces, poids_population):
+        assert [lieu.stocks.get("sonde", 0) for lieu in c.lieux] == lieux_module.partager(c.stocks["sonde"], surfaces)
+        assert all("sonde_retirée" not in lieu.stocks for lieu in c.lieux)
+        assert [lieu.population for lieu in c.lieux] == lieux_module.partager(c.population, poids_population)
+
+    def observer_reprise(c):
+        répartir(c)
+        if c is cellule:
+            controler_reprise(c, surfaces, poids_population)
+            reprises.append(c.stocks["sonde"])
+
+    with monkeypatch.context() as contexte:
+        contexte.setattr(lieux_module, "repartir_sur_les_lieux", observer_reprise)
+        tick(synthétique, random.Random(0), numero_tick=0)
+    assert reprises == [1234.75]
+    assert 0 < cellule.stocks["sonde"] < reprises[0]
+    assert sum(lieu.stocks["sonde"] for lieu in cellule.lieux) == cellule.stocks["sonde"]
     assert _controle_conservation(synthétique) == len(synthétique.cells)
     del cellule.stocks["sonde"]
     répartir(cellule)
@@ -478,10 +495,17 @@ def test_tick_repartit_sur_une_annee_et_suit_les_ecritures(monkeypatch):
     répartir(cellule)
     assert [lieu.population for lieu in cellule.lieux] == lieux_module.partager(cellule.population, surfaces)
     témoin = World.charger(0)
-    monkeypatch.setattr(lieux_module, "repartir_sur_les_lieux", lambda cellule: None)
-    tick(témoin, random.Random(0), numero_tick=0)
+    cible = _cellule_multiple_peuplee(témoin)
+    cible.population += 7
+    cible.stocks["sonde"] = 1234.75
+    surfaces_cible = [lieu.surface_km2 for lieu in lieux_de_cellule(cible.cell_id, cible.area_km2)]
+    poids_cible = [lieu.population for lieu in cible.lieux]
+    def reprise_inerte(c):
+        if c is cible:
+            controler_reprise(c, surfaces_cible, poids_cible)
+    monkeypatch.setattr(lieux_module, "repartir_sur_les_lieux", reprise_inerte)
     with pytest.raises(AssertionError):
-        _controle_conservation(témoin)
+        tick(témoin, random.Random(0), numero_tick=0)
 
 
 def test_cellule_depend_du_contenu_des_lieux(monkeypatch):
@@ -1188,6 +1212,78 @@ def test_plan_porte(porte):
         assert "porte_cell_id" not in document["rues"][0]
     else:
         assert document["rues"][0]["porte_cell_id"] == porte
+
+
+def test_tick_sans_partage_general_apres_migration(monkeypatch):
+    from sim import engine, lieux
+    from sim.tests.test_commerce import _cellule_bourg, _conserver_bourg
+    monde_initial = World({1: _cellule_bourg(1, [200, 100], [0., 0.], (0,)),
+                          2: _cellule_bourg(2, [10, 10], [100., 0.])}, [{'a': 1, 'b': 2}])
+    reprendre, migrer = lieux.repartir_sur_les_lieux, engine._apply_migration
+    termine = False
+    def reprise(cellule):
+        assert not termine, 'partage général après migration'
+        reprendre(cellule)
+    def migration(monde, penuries):
+        nonlocal termine
+        migrer(monde, {1: 1.})
+        termine = True
+    monkeypatch.setattr(lieux, 'repartir_sur_les_lieux', reprise)
+    monkeypatch.setattr(engine, '_apply_migration', migration)
+    # Isoler les flux du tick ; leurs vrais maillons restent exécutés.
+    monkeypatch.setattr(engine, '_apply_production', lambda *a: None)
+    monkeypatch.setattr(engine, '_apply_consumption', lambda *a: 0.)
+    monkeypatch.setattr(engine, '_apply_natalite', lambda *a: None)
+    def jouer():
+        nonlocal termine
+        termine = False
+        monde = copy.deepcopy(monde_initial)
+        engine.tick(monde, random.Random(0), numero_tick=0)
+        assert [l.population for l in monde.cells[2].lieux] == [12, 10]
+        assert monde.cells[2].lieux[1].stocks['nourriture'] == 0
+        _conserver_bourg(monde)
+    jouer()
+    avancer = engine._avancer_compteur_ticks
+    def ancien_partage(monde):
+        for cellule in monde.cells.values(): lieux.repartir_sur_les_lieux(cellule)
+        avancer(monde)
+    monkeypatch.setattr(engine, '_avancer_compteur_ticks', ancien_partage)
+    with pytest.raises(AssertionError, match='partage général après migration'): jouer()
+
+
+@pytest.mark.parametrize('saison_moyenne', [False, True])
+def test_maillons_production_fabrication_extraction_tiennent_leurs_lieux(saison_moyenne, monkeypatch):
+    from sim import engine, lieux
+    from sim.model import copier_panier
+    monde = World.charger(0)
+    cellule = next(c for c in monde.cells.values() if len(c.lieux) > 1
+                   and engine._extraction_du_tick_kg(c, monde.carte))
+    engine._apply_extraction(cellule, monde.carte)
+    assert _controle_conservation(monde) == len(monde.cells)
+    minerai_avant = copier_panier(cellule)
+    engine._apply_fabrication(cellule)
+    assert _controle_conservation(monde) == len(monde.cells)
+    assert copier_panier(cellule) != minerai_avant
+    stocks_avant = [l.stocks['nourriture'] for l in cellule.lieux]
+    total_avant = cellule.food_stock_kg
+    recoltes = []
+    produire = engine._produire_sur_les_lieux
+    def observer(c, recolte):
+        recoltes.append(recolte)
+        produire(c, recolte)
+    monkeypatch.setattr(engine, '_produire_sur_les_lieux', observer)
+    if saison_moyenne:
+        engine._apply_production_saison_moyenne(cellule, random.Random(0), monde.carte)
+    else:
+        engine._apply_production(cellule, random.Random(0), monde.carte, jour=1)
+    assert len(recoltes) == 1 and recoltes[0] > 0
+    recolte = recoltes[0]
+    assert cellule.food_stock_kg == total_avant + recolte
+    surfaces = lieux.surfaces_des_lieux(cellule.cell_id, cellule.area_km2)
+    assert [l.stocks['nourriture'] for l in cellule.lieux] == [s + recolte * a / cellule.area_km2 for s, a in zip(stocks_avant, surfaces)]
+    engine._apply_consumption(cellule, monde.carte)
+    assert _controle_conservation(monde) == len(monde.cells)
+
 
 def test_maitre_etat_manuel(monkeypatch):
     from sim import world, maitres
