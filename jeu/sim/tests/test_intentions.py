@@ -991,3 +991,125 @@ def test_intention_porte(porte):
     publie["rues"][0]["porte_cell_id"] = 3
     with pytest.raises(AssertionError):
         correspondance(publie)
+
+
+def _part_geste(maison, part):
+    return {"type": "fixer_part", "maison": maison, "part": part}
+
+@pytest.mark.parametrize("alteration", [
+    {"maison": v} for v in ("inconnue", True, None, [], 1, "seigneurie-03", " plausible-1-0")
+] + [{"part": v} for v in (True, False, None, "0.25", [], float("nan"), float("inf"), -float("inf"), -0.01, 0.61, 25, 10**400)]
+  + [{"foyers": 1}, {"inconnu": 0}] + [{"sans": c} for c in ("type", "maison", "part")])
+def test_part_depot_refus(alteration):
+    from sim.intentions import IntentionRefusee, recevoir_intention
+    monde = World.charger(0)
+    maison = monde.maisons[0].id
+    recevoir_intention(monde, _part_geste(maison, 0.25))
+    file, parts, avant = list(monde.intentions_en_attente), dict(monde.parts), monde.to_dict()
+    geste = _part_geste(maison, 0.5) | alteration
+    champ = geste.pop("sans", None)
+    if champ: geste.pop(champ)
+    with pytest.raises(IntentionRefusee, match=champ or next(iter(alteration))): recevoir_intention(monde, geste)
+    assert (monde.intentions_en_attente, monde.parts, monde.to_dict()) == (file, parts, avant)
+
+def test_part_depot(monkeypatch):
+    from sim.intentions import recevoir_intention
+    import sim.constants as k
+    monde = World.charger(0)
+    a, b = [m.id for m in monde.maisons[:2]]
+    choix = recevoir_intention(monde, {"type": "choisir_depart", "seigneurie": charger_seigneuries()[0].id})
+    for valeur in (0, k.PART_MAXIMALE, 0.25):
+        geste = _part_geste(a, valeur); depose = recevoir_intention(monde, geste)
+        geste["part"] = -1
+        assert depose.part == valeur
+        with pytest.raises(FrozenInstanceError): depose.part = 0
+    second = recevoir_intention(monde, _part_geste(b, 0))
+    monkeypatch.setattr(k, "PART_MAXIMALE", 0.75)
+    dernier = recevoir_intention(monde, _part_geste(a, 0.75))
+    assert monde.intentions_en_attente == [choix, dernier, second] and dernier.maison == a != second.maison
+
+def test_part_tick(monkeypatch):
+    from sim.intentions import recevoir_intention, FixerPart
+    from sim.tests.test_maisons import _tick_sans_lecture_registre
+    from copy import deepcopy
+    def verifier():
+        monde, temoin = World.charger(0), World.charger(0)
+        for w in (monde, temoin): recevoir_intention(w, {"type": "choisir_depart", "seigneurie": charger_seigneuries()[0].id})
+        maison = monde.maisons[0].id
+        avant, parts = monde.to_dict(), dict(monde.parts)
+        for part in (0.2, 0.3): recevoir_intention(monde, _part_geste(maison, part))
+        file = list(monde.intentions_en_attente)
+        assert monde.to_dict() == avant and monde.parts == parts
+        with pytest.raises(ValueError, match="numero_tick"): engine.tick(monde, random.Random(0), 1)
+        assert monde.to_dict() == avant and monde.intentions_en_attente == file and monde.parts == parts
+        rng, rng_temoin, retours = random.Random(0), random.Random(0), []
+        _tick_sans_lecture_registre(monkeypatch, monde, lambda w, r, n: retours.append(engine.tick(w, rng, n)), 0)
+        retour = engine.tick(temoin, rng_temoin, 0)
+        assert monde.parts == parts | {maison: 0.3} and not monde.intentions_en_attente
+        copie = deepcopy(monde); copie.parts = dict(temoin.parts)
+        assert vars(copie) == vars(temoin) and rng.getstate() == rng_temoin.getstate() and retours == [retour]
+        assert engine.tick(monde, rng, 1) == engine.tick(temoin, rng_temoin, 1)
+    verifier()
+    for appliquer, erreur in ((lambda g, w: None, AssertionError),
+                               (lambda g, w: w.parts.update({g.maison: 0.2}), AssertionError),
+                               (lambda g, w: getattr(w, "maisons"), RuntimeError)):
+        with monkeypatch.context() as garde:
+            garde.setattr(FixerPart, "appliquer", appliquer)
+            with pytest.raises(erreur): verifier()
+
+def test_part_service(monkeypatch):
+    import threading
+    from sim.service import ServeurMonde
+    from sim.intentions import recevoir_intention
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever); fil.start()
+    port, monde, terre = serveur.server_port, serveur.world, charger_seigneuries()[0]
+    maison = f"seigneurie-{terre.id}"
+    autre = next(m.id for m in monde.maisons if m.id != maison)
+    def refuser(identifiant, raison):
+        avant = (dict(monde.parts), list(monde.intentions_en_attente), requete_service(port, "/monde")[2])
+        statut, recu, _ = _poster(port, _part_geste(identifiant, 0.25))
+        assert statut == 400 and recu["acceptee"] is False and raison in recu["erreur"]
+        assert (monde.parts, monde.intentions_en_attente, requete_service(port, "/monde")[2]) == avant
+    try:
+        refuser(maison, "départ")
+        _poster(port, {"type": "choisir_depart", "seigneurie": terre.id})
+        refuser(maison, "départ")
+        requete_service(port, "/tick?n=1", "POST")
+        refuser(autre, "maison")
+        with monkeypatch.context() as garde:
+            garde.setattr(monde, "maison_du_joueur", autre)
+            with pytest.raises(AssertionError): refuser(autre, "maison")
+        monde.intentions_en_attente.clear(); coutume = monde.parts[maison]
+        assert _poster(port, _part_geste(maison, 0.25))[:2] == (200, {"acceptee": True, "appliquee_au_tick": 1})
+        assert monde.parts[maison] == coutume
+        requete_service(port, "/tick?n=1", "POST")
+        assert monde.parts[maison] == 0.25 and not monde.intentions_en_attente
+        assert recevoir_intention(monde, _part_geste(autre, 0)).maison == autre
+    finally:
+        serveur.shutdown(); fil.join(); serveur.server_close()
+
+def test_part_cli_determinisme(tmp_path):
+    import subprocess
+    import sys
+    terre = charger_seigneuries()[0]; a = f"seigneurie-{terre.id}"
+    b = next(m.id for m in World.charger(0).maisons if m.id != a)
+    gestes = [{"tick": 0, "intention": {"type": "choisir_depart", "seigneurie": terre.id}}] + [
+        {"tick": 1, "intention": _part_geste(i, p)} for i, p in ((a, 0.2), (a, 0.3), (b, 0))]
+    fichier, sortie, photo = (tmp_path / n for n in ("gestes.json", "monde.json", "photo.json"))
+    def jouer(entrees):
+        sortie.unlink(missing_ok=True); photo.unlink(missing_ok=True)
+        fichier.write_text(json.dumps(entrees))
+        return subprocess.run([sys.executable, "-m", "sim", "--ticks", "3", "--seed", "0", "--gestes", str(fichier),
+                               "--monde-json", str(sortie), "--snapshot-json", str(photo)], cwd=Path(__file__).parents[2], capture_output=True, text=True)
+    octets = []
+    for _ in range(2):
+        resultat = jouer(gestes); assert resultat.returncode == 0, resultat.stderr
+        octets.append(sortie.read_bytes())
+        assert json.loads(octets[-1])["parts"] == {a: 0.3, b: 0}
+    assert octets[0] == octets[1]
+    assert jouer(gestes + [{"tick": 1, "intention": _part_geste(a, 0.4)}]).returncode == 0
+    with pytest.raises(AssertionError): assert sortie.read_bytes() == octets[0]
+    refuse = jouer(gestes + [{"tick": 1, "intention": _part_geste(a, True)}])
+    assert refuse.returncode == 2 and "part" in refuse.stderr and "entrée 5" in refuse.stderr
+    assert not sortie.exists() and not photo.exists()

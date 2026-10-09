@@ -10,12 +10,14 @@ from sim.puissances import PuissanceInvalide
 from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie
 
 TYPE_CHOISIR_DEPART = "choisir_depart"
+TYPE_FIXER_PART = "fixer_part"
 TYPE_TRACER_ROUTE = "tracer_route"
 TYPE_DECOUPER_PARCELLE = "decouper_parcelle"
 TYPE_POSER_BATIMENT = "poser_batiment"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
+    TYPE_FIXER_PART: ("type", "maison", "part"),
     TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m"),
     TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote"),
     TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature"),
@@ -32,6 +34,32 @@ class ChoixDepart:
 
     def appliquer(self, monde):
         monde.maison_du_joueur = identifiant_de_seigneurie(self.identifiant)
+
+
+@dataclass(frozen=True)
+class FixerPart:
+    maison: str
+    part: int | float
+
+    def appliquer(self, monde):
+        monde.parts[self.maison] = self.part
+
+
+def _fixer_part(monde, intention):
+    maison, part = intention["maison"], intention["part"]
+    if not isinstance(maison, str) or not any(m.id == maison for m in monde.maisons):
+        raise IntentionRefusee(f"maison inconnue ou mal formée : {maison!r}")
+    if (isinstance(part, bool) or not isinstance(part, (int, float))
+            or (isinstance(part, float) and not math.isfinite(part))
+            or not 0 <= part <= _constantes.PART_MAXIMALE):
+        raise IntentionRefusee(f"part invalide : attendu un nombre fini entre 0 et {_constantes.PART_MAXIMALE}")
+    geste = FixerPart(maison, part)
+    for rang, precedent in enumerate(monde.intentions_en_attente):
+        if isinstance(precedent, FixerPart) and precedent.maison == maison:
+            monde.intentions_en_attente[rang] = geste
+            return geste
+    monde.intentions_en_attente.append(geste)
+    return geste
 
 
 @dataclass(frozen=True)
@@ -180,9 +208,11 @@ def recevoir_intention(monde, intention):
         if champ not in intention:
             raise IntentionRefusee(f"champ manquant : {champ}")
     for champ in intention:
-        if (champ not in champs and champ != "foyers"
+        if (champ not in champs and not (type_intention != TYPE_FIXER_PART and champ == "foyers")
                 and not (type_intention == TYPE_TRACER_ROUTE and champ == "porte_cell_id")):
             raise IntentionRefusee(f"champ inconnu : {champ}")
+    if type_intention == TYPE_FIXER_PART:
+        return _fixer_part(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
         monde.intentions_en_attente.append(pose)

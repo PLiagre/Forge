@@ -576,6 +576,10 @@ def date_de_tick(ticks_ecoules: int) -> dict[str, int]:
 DEFAULT_CLI_TICKS = CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 DEFAULT_CLI_SEED = 0
 
+# Part du seigneur : fractions plausibles de niveau 2, sans prélèvement ici.
+PART_COUTUMIERE = 0.10
+PART_MAXIMALE = 0.6
+
 # IA : premier tracé local et fenêtre de mesure, plausibles de niveau 2.
 IA_LONGUEUR_ROUTE_M = 40
 IA_LARGEUR_ROUTE_M = 4
