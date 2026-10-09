@@ -106,6 +106,15 @@ py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-locale" --vil
 ```
 **0** preuve valide. **1** invariant violé : le service sourd nomme « bâtiment absent » et « écart entre monde servi et monde rejoué » ; la ville locale nomme « empreinte des rues », « c'est le redessin qui échoue » et « l'égalité Python peut rester vraie ». **2** essai impossible (Unity, scène, port, délai, rapport absent ou ancien, exception dans les défauts) : une panne ne vaut pas contre-épreuve. Verdicts : [normal](../../docs/mesures/264-preuve-du-jalon-4/verdict.txt), [service sourd](../../docs/mesures/264-preuve-du-jalon-4/verdict-service-sourd.txt), [ville locale](../../docs/mesures/264-preuve-du-jalon-4/verdict-ville-locale.txt).
 
+Le parcours Python, sans Unity, bâtit à Biskra après le choix appliqué de l'émirat du Zab. La cellule est celle du siège, lue dans la table. Le journal garde ce choix au tick 0, puis la route, la parcelle et le bâtiment aux ticks 2, 3 et 5. Le rejeu complet reprend les quatre entrées ; le témoin rejoue seulement le choix, au même tick.
+
+```bash
+python3 pc/epreuve_jalon4.py --sortie <dossier>
+python3 pc/epreuve_jalon4.py --sortie <dossier> --service-sourd
+```
+
+**0** le départ est le même dans les trois mondes, Biskra porte les trois gestes, le service et le rejeu sont égaux à l'octet. **1** le service sourd : le bâtiment manque. Ces deux commandes sont celles que le lot #408 valide. La preuve Unity (`--avec-unity`, cellule 1175, sans le choix du Zab) n'est pas rejouée ici : un lot PC distinct, « La preuve Unity bâtit à Biskra après le choix du Zab », doit encore adapter la recette, les reçus et les parcours jouer, relance et vierge.
+
 ## L'épreuve de la carte
 
 Le joueur peut se fier à sa carte (lot #527) : elle dessine autant de cellules

@@ -9,7 +9,10 @@ from urllib.request import Request, urlopen
 JEU = Path(__file__).resolve().parents[1] / "jeu"
 if str(JEU) not in sys.path: sys.path.insert(0, str(JEU))
 from sim import constants as constantes, service
+from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie
+from sim.world import World
 MONDES = ("monde-service.json", "monde-rejoue.json", "monde-sans-gestes.json")
+CONSTRUCTIONS = {"tracer_route", "decouper_parcelle", "poser_batiment"}
 ADRESSE = (service.SERVICE_HOST, service.DEFAULT_SERVICE_PORT)
 DELAI_HTTP, DELAI_CLI, DELAI_ARRET = 10, 60, 5
 DELAI_UNITY, MARGE_RAPPORT = 900, 2
@@ -40,13 +43,30 @@ def controler_foyers(monde):
             desagregees += total
         exiger(personnes == desagregees == population, erreur)
 
+def depart_biskra():
+    """Terre, maison du registre et cellule du siège nommé Biskra, lues dans les tables."""
+    if depart_biskra.memo is not None: return depart_biskra.memo
+    monde = World.charger(0)
+    zab = next((s for s in charger_seigneuries() if s.siege.nom == "Biskra"), None)
+    if zab is None: raise ValueError("siège absent : Biskra")
+    depart_biskra.memo = (zab.id, identifiant_de_seigneurie(zab.id), cellule_du_siege(zab, monde.carte))
+    return depart_biskra.memo
+depart_biskra.memo = None
+
 def juger(servi, rejoue, temoin, journal, ticks):
     exiger(isinstance(journal, list) and bool(journal), "journal vide ou invalide")
     types = {entree["intention"]["type"] for entree in journal}
-    exiger(types == {"tracer_route", "decouper_parcelle", "poser_batiment"}, "journal : type absent ou inattendu")
+    exiger(types == CONSTRUCTIONS | {"choisir_depart"}, "journal : type absent ou inattendu")
     numeros = [entree["tick"] for entree in journal]
-    exiger(all(type(n) is int and 0 <= n < ticks for n in numeros) and numeros == sorted(numeros),
+    exiger(numeros == [0, 2, 3, 5] and all(type(n) is int and 0 <= n < ticks for n in numeros),
            "journal : ticks invalides")
+    attendu, maison, cellule = depart_biskra()
+    choix = [entree for entree in journal if entree["intention"]["type"] == "choisir_depart"]
+    seigneurie = choix[0]["intention"].get("seigneurie") if len(choix) == 1 else None
+    gestes = [entree for entree in journal if entree not in choix]
+    exiger(len(choix) == 1 and choix[0]["tick"] == 0 and type(seigneurie) is int and seigneurie == attendu
+           and len(gestes) == len(CONSTRUCTIONS) and all(entree["intention"].get("cell") == cellule for entree in gestes),
+           "journal : faux choix")
     mondes = [json.loads(octets) for octets in (servi, rejoue, temoin)]
     for monde in mondes:
         exiger(isinstance(monde, dict) and bool(monde.get("cells")) and bool(monde.get("plans")), "monde vide")
@@ -55,11 +75,16 @@ def juger(servi, rejoue, temoin, journal, ticks):
         exiger(set(monde["cells"]) == set(monde["plans"]) == set(mondes[0]["cells"]), "monde : cellules et plans différents")
         exiger(all(str(c["cell_id"]) == cid for cid, c in monde["cells"].items()), "monde : cell_id différent")
         controler_foyers(monde)
+    for rang, monde in enumerate(mondes):
+        tenue = monde.get("maison_du_joueur")
+        exiger(tenue is not None, ("maison absente", "maison absente", "témoin sans départ")[rang])
+        exiger(tenue == maison, ("départ différent", "départ différent", "témoin : autre départ")[rang])
     exiger(servi == rejoue, "octets : écart entre monde servi et monde rejoué")
     exiger(rejoue != temoin, "témoin : aucun effet des gestes")
     bilan = {"cellules_controlees": len(mondes[0]["cells"]), "gestes_acceptes": len(journal)}
     for collection, nom in (("cells", "cellules_modifiees"), ("plans", "plans_modifies")):
         bilan[nom] = [cid for cid, valeur in mondes[1][collection].items() if valeur != mondes[2][collection][cid]]
+    exiger(bilan["cellules_modifiees"] and bilan["plans_modifies"], "échantillon vide")
     return bilan
 
 def http(chemin, document=None):
@@ -271,13 +296,23 @@ def main(argv=None):
     sortie = args.sortie.resolve()
     try:
         sortie.mkdir(parents=True, exist_ok=True)
-        for nom in (*MONDES, "journal.json", "bilan.json"): (sortie / nom).unlink(missing_ok=True)
+        for nom in (*MONDES, "journal.json", "journal-temoin.json", "bilan.json"): (sortie / nom).unlink(missing_ok=True)
         if args.ticks <= 5: raise OSError("la recette exige au moins 6 ticks")
         if port_occupe(): raise OSError(f"port {ADRESSE[0]}:{ADRESSE[1]} indisponible")
+        # Le parcours Python bâtit au siège de Biskra. La recette Unity reste sur args.cellule.
+        seigneurie, maison, cellule = depart_biskra()
         with lancer_service(sortie, args.seed, args.service_sourd):
             ecoules = 0
-            chemin = f"/plan?cell={args.cellule}"
-            for numero, collection, intention in recette(args.cellule):
+            chemin = f"/plan?cell={cellule}"
+            avant = json.loads(http(chemin))
+            recu = json.loads(http("/intention", {"type": "choisir_depart", "seigneurie": seigneurie}))
+            exiger(recu == {"acceptee": True, "appliquee_au_tick": 0}, "reçu : départ non accepté au tick 0")
+            exiger(json.loads(http(chemin)) == avant, "plan : changement avant le tick suivant")
+            apres_tick = json.loads(http("/tick?n=1", {}))
+            ecoules = 1
+            exiger(apres_tick["tick"] == ecoules, "horloge : tick inattendu")
+            exiger(json.loads(http("/monde")).get("maison_du_joueur") == maison, "départ non appliqué")
+            for numero, collection, intention in recette(cellule):
                 if numero > ecoules: http(f"/tick?n={numero - ecoules}", {})
                 avant = json.loads(http(chemin))
                 recu = json.loads(http("/intention", intention))
@@ -291,10 +326,12 @@ def main(argv=None):
                 exiger(len(apres[collection]) == attendu, f"plan : {collection} absents après application")
             if args.ticks > ecoules: http(f"/tick?n={args.ticks - ecoules}", {})
             (sortie / MONDES[0]).write_bytes(http("/monde-complet"))
-        for nom, gestes in ((MONDES[1], True), (MONDES[2], False)):
+        journal = json.loads((sortie / "journal.json").read_bytes())
+        choix = [entree for entree in journal if entree["intention"]["type"] == "choisir_depart"]
+        (sortie / "journal-temoin.json").write_bytes(serialiser(choix))
+        for nom, gestes in ((MONDES[1], "journal.json"), (MONDES[2], "journal-temoin.json")):
             commande = [sys.executable, "-m", "sim", "--ticks", str(args.ticks), "--seed", str(args.seed),
-                        "--monde-json", str(sortie / nom)]
-            if gestes: commande += ["--gestes", str(sortie / "journal.json")]
+                        "--monde-json", str(sortie / nom), "--gestes", str(sortie / gestes)]
             fait = subprocess.run(commande, cwd=JEU, capture_output=True, timeout=DELAI_CLI)
             if fait.returncode: raise OSError(f"rejeu CLI refusé : {fait.stderr.decode('utf-8', errors='replace')}")
         bilan = juger(*(sortie.joinpath(nom).read_bytes() for nom in MONDES),

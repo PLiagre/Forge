@@ -2779,11 +2779,18 @@ def test_service_monde_est_leger_et_intention_ne_mute_rien():
             lieu = requete_service(port, f"/lieu?cell={cellule['cell_id']}")[1]
             assert lieu["population"] == cellule["population"]
 
+        from sim.seigneuries import charger_seigneuries
+        terre = charger_seigneuries()[0].id
+        choix = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
+        assert requete_service(port, "/intention", "POST", choix)[1] == {
+            "acceptee": True, "appliquee_au_tick": 2}
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 3
+        octets_avant = requete_service(port, "/monde")[2]
         intention = json.dumps({"type": "tracer_route", "cell": min(c["cell_id"] for c in monde["cells"]), "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}).encode("utf-8")
         cell_id = min(c["cell_id"] for c in monde["cells"])
         plan_avant = requete_service(port, f"/plan?cell={cell_id}")[2]
         reponse = requete_service(port, "/intention", "POST", intention)[1]
-        assert reponse == {"acceptee": True, "appliquee_au_tick": 2}
+        assert reponse == {"acceptee": True, "appliquee_au_tick": 3}
         assert requete_service(port, "/monde")[2] == octets_avant
         assert requete_service(port, f"/plan?cell={cell_id}")[2] == plan_avant
         statut, refus, _ = requete_service(
@@ -4043,6 +4050,14 @@ def test_service_ia_ordre(monkeypatch):
     from sim import service
     from sim.intentions import recevoir_intention
     with _service_ia_en_processus() as (s, port):
+        from sim import engine
+        from sim.seigneuries import charger_seigneuries
+        terre = charger_seigneuries()[0].id
+        corps = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
+        assert requete_service(port, "/intention", "POST", corps)[0] == HTTPStatus.OK
+        with s.verrou_tick:
+            engine.tick(s.world, s.rng, s.world.ticks_ecoules)
+        assert s.world.intentions_en_attente == [] and s.world.maison_du_joueur == identifiant_de_seigneurie(terre)
         evenements = []
         def ia(w, r): evenements.append(('ia', s.verrou_tick.locked(), w, r))
         def tick(w, *a): evenements.append(('tick', s.verrou_tick.locked(), w, s.releve))
