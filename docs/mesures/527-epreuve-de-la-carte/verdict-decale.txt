@@ -1,0 +1,21 @@
+commande : py pc\epreuve_carte.py --sortie <dossier> --decalage 1
+date : 2026-10-09, PC (i7-13700K), Unity 6000.0.43f1, révision 79f8dc8 + l'épreuve non commitée
+code de sortie : 1
+
+ÉCART
+graine 0
+ticks 30 (référence), 31 (service lu par Unity)
+cellule 9008
+décalage 1
+cellule retirée -1
+service ouvert
+cellules dessinées : carte 596 · /carte 596
+cellules servies selon la carte : 596 · /carte 596
+cellule : fiche 9008 · service 9008 · égal
+villes : fiche [] · service [] · égal
+puissance : fiche 'Mamelouks' · service 'Mamelouks' · égal
+maison : fiche 'Barquq' · service 'Barquq' · égal
+tick : fiche 31 · service 30 · ÉCART
+population : fiche 8027 · service 8026 · ÉCART
+hunger_ticks : fiche 0 · service 1 · ÉCART
+food_deficit_kg : fiche 0.0 · service 0.0 · égal

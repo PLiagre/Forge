@@ -1,0 +1,14 @@
+commande : py pc\epreuve_carte.py --sortie <dossier> --sans-service
+date : 2026-10-09, PC (i7-13700K), Unity 6000.0.43f1, révision 79f8dc8 + l'épreuve non commitée
+code de sortie : 1
+
+ÉCART
+graine 0
+ticks 30 (référence), 30 (service lu par Unity)
+cellule 9008
+décalage 0
+cellule retirée -1
+service arrêté avant Unity
+cellules dessinées : carte 0 · /carte 596
+cellules servies selon la carte : -1 · /carte 596
+la carte ne s'est pas posée : 'le monde ne répond pas\ncarte : service absent sur 127.0.0.1:8000 (Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée.\r\n'
