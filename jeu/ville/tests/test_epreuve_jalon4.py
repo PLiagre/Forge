@@ -25,13 +25,18 @@ def preuve(tmp_path_factory):
     port_libre()
     mondes = [sortie.joinpath(nom).read_bytes() for nom in epreuve.MONDES]
     journal = json.loads(sortie.joinpath("journal.json").read_bytes())
-    assert [entree["tick"] for entree in journal] == [2, 3, 5]
+    _, maison, cellule = epreuve.depart_biskra()
+    assert [entree["tick"] for entree in journal] == [0, 2, 3, 5]
+    assert [entree["intention"]["type"] for entree in journal] == [
+        "choisir_depart", "tracer_route", "decouper_parcelle", "poser_batiment"]
+    assert all(json.loads(octets)["maison_du_joueur"] == maison for octets in mondes)
     bilan = epreuve.juger(*mondes, journal, 10)
-    assert bilan["cellules_modifiees"] == bilan["plans_modifies"] == ["1175"]
+    assert bilan["cellules_modifiees"] == bilan["plans_modifies"] == [str(cellule)]
     assert bilan["cellules_controlees"] == len(json.loads(mondes[0])["cells"])
     return mondes, journal
 
-@pytest.mark.parametrize("cas", ["journal vide", "type absent", "monde vide", "octets", "témoin"])
+@pytest.mark.parametrize("cas", ["journal vide", "type absent", "monde vide", "octets", "témoin",
+                                  "faux choix", "maison absente", "sans départ", "autre départ"])
 def test_le_jugement_refuse_les_fausses_preuves(preuve, cas):
     mondes, journal = copy.deepcopy(preuve)
     if cas == "journal vide": journal = []
@@ -39,10 +44,22 @@ def test_le_jugement_refuse_les_fausses_preuves(preuve, cas):
     if cas == "monde vide": mondes[0] = b"{}"
     if cas == "octets":
         monde = json.loads(mondes[0])
-        autre = next(c for cid, c in monde["cells"].items() if cid != "1175")
+        chantier = str(next(e["intention"]["cell"] for e in journal if e["intention"]["type"] == "tracer_route"))
+        autre = next(c for cid, c in monde["cells"].items() if cid != chantier)
         autre["stocks"]["sel de contre-épreuve"] = 1
         mondes[0] = epreuve.serialiser(monde)
     if cas == "témoin": mondes[2] = mondes[1]
+    if cas == "faux choix": journal[0]["intention"]["seigneurie"] += 1
+    if cas in ("maison absente", "sans départ"):
+        monde = json.loads(mondes[0 if cas == "maison absente" else 2])
+        del monde["maison_du_joueur"]
+        mondes[0 if cas == "maison absente" else 2] = epreuve.serialiser(monde)
+    if cas == "autre départ":
+        from sim.seigneuries import charger_seigneuries, identifiant_de_seigneurie
+        monde = json.loads(mondes[2])
+        monde["maison_du_joueur"] = next(identifiant_de_seigneurie(s.id) for s in charger_seigneuries()
+                                         if identifiant_de_seigneurie(s.id) != monde["maison_du_joueur"])
+        mondes[2] = epreuve.serialiser(monde)
     with pytest.raises(ValueError, match=cas): epreuve.juger(*mondes, journal, 10)
 
 @pytest.mark.parametrize("population", [0, 100, 103])
