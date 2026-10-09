@@ -2675,3 +2675,323 @@ def test_routes_commerciales_modele():
                  texte + "comme l’effet de la route achevée sur les flux"):
         with pytest.raises(AssertionError):
             controler(faux)
+
+
+# Lot 335 : paniers volontairement sans rapport avec les surfaces.
+def _cellule_bourg(cid, populations, stocks, faim=()):
+    from sim.model import creer_etat_de_lieu, ecrire_habitants_par_metier
+    cellule = Cell(cid, len(populations) * 1000., sum(populations),
+                   food_stock_kg=sum(stocks), migration_remainder=0.)
+    cellule.lieux = [creer_etat_de_lieu(r, p, {MARCHANDISE_NOURRITURE: s},
+                                      duree_faim_ticks=int(r in faim))
+                     for r, (p, s) in enumerate(zip(populations, stocks))]
+    ecrire_habitants_par_metier(cellule, {nom: n for nom, n in
+        [('paysans', cellule.population // 2), ('artisans', cellule.population - cellule.population // 2)] if n})
+    return cellule
+
+
+def _paniers_bourg(cellule, nom=MARCHANDISE_NOURRITURE):
+    from sim.model import contenus_des_paniers
+    return contenus_des_paniers(sorted(cellule.lieux, key=lambda l: l.rang), nom)
+
+
+def _conserver_bourg(monde):
+    from fractions import Fraction
+    from sim.model import copier_panier
+    assert monde.cells
+    for cellule in monde.cells.values():
+        assert sum(l.population for l in cellule.lieux) == cellule.population
+        for nom, total in copier_panier(cellule).items():
+            parts = _paniers_bourg(cellule, nom)
+            assert all(set(copier_panier(lieu)) == set(copier_panier(cellule)) for lieu in cellule.lieux)
+            assert min(parts) >= 0
+            assert sum(parts) == total
+            assert sum(map(Fraction, parts)) == Fraction(total)
+
+
+@pytest.mark.parametrize('capacite', [0., 40., float('inf')])
+@pytest.mark.parametrize('relief,facteur', [('plaine', 1.), ('montagne', .3)])
+def test_commerce_par_bourg_chemins_et_ration(capacite, relief, facteur, monkeypatch):
+    from sim import constants as k
+    source = _cellule_bourg(1, [10, 10, 10], [30., 220., 120.])
+    cible = _cellule_bourg(2, [100, 10], [10., 5.])
+    monde = World({1: source, 2: cible}, [{'a': 1, 'b': 2, 'shared_length_m': 100000}])
+    monde.carte = {1: {'relief': relief}, 2: {'relief': 'plaine'}}
+    monkeypatch.setattr(k, 'CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK', capacite)
+    disponible = min(205., 10 + min(200, capacite * facteur) + min(100, capacite * facteur))
+    champs1 = min(200., capacite * facteur, max(0., disponible - 10))
+    champs2 = max(0., disponible - 10 - champs1)
+    avant = sum(c.food_stock_kg for c in monde.cells.values())
+    total = [0.]
+    _apply_commerce(monde, total)
+    def controler():
+        assert _paniers_bourg(source) == [20., 220. - champs1, 120. - champs2]
+        assert _paniers_bourg(cible) == [10. + disponible, 5.]
+        assert total[0] == disponible
+        assert sum(c.food_stock_kg for c in monde.cells.values()) == avant
+        _conserver_bourg(monde)
+    controler()
+    cible.lieux[0].stocks[MARCHANDISE_NOURRITURE] -= 1
+    cible.lieux[1].stocks[MARCHANDISE_NOURRITURE] += 1
+    with pytest.raises(AssertionError): controler()
+
+
+def test_commerce_par_bourg_plafond_cumule_et_flux_bloque(monkeypatch):
+    from sim import constants as k
+    from sim.model import ecrire_stock_marchandise
+    monkeypatch.setattr(k, 'CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK', 40.)
+    monkeypatch.setattr(k, 'consommation_kg_par_habitant_par_tick', lambda nom: 2.)
+    cellules = {1: _cellule_bourg(1, [0, 0], [0., 100.]),
+                2: _cellule_bourg(2, [50, 0], [0., 0.]),
+                3: _cellule_bourg(3, [50, 0], [0., 0.])}
+    for cellule in cellules.values():
+        ecrire_stock_marchandise(cellule, 'z_sonde', cellule.food_stock_kg)
+        for lieu, stock in zip(cellule.lieux, _paniers_bourg(cellule)):
+            ecrire_stock_marchandise(lieu, 'z_sonde', stock)
+    monde = World(cellules, [{'a': 1, 'b': i} for i in (2, 3)])
+    total = [0.]
+    _apply_commerce(monde, total)
+    assert total == [40.]
+    assert _paniers_bourg(cellules[1]) == [0., 60.]
+    assert _paniers_bourg(cellules[1], 'z_sonde') == [0., 100.]
+    assert [cellules[i].food_stock_kg for i in (2, 3)] == [20., 20.]
+    _conserver_bourg(monde)
+    cellules[1].lieux[0].stocks['z_sonde'] = 100.
+    cellules[1].lieux[1].stocks['z_sonde'] = 0.
+    cellules[1].stocks['z_sonde'] = 100.
+    monkeypatch.setattr(k, 'CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK', 0.)
+    total = [0.]
+    _apply_commerce(monde, total)
+    assert total == [100.]
+    assert cellules[1].food_stock_kg == 60.
+
+
+@pytest.mark.parametrize('avec_lieu', [False, True])
+def test_commerce_par_bourg_lieu_unique_sans_chemin(avec_lieu, monkeypatch):
+    from sim import constants as k
+    source = _cellule_bourg(1, [0], [100.])
+    cible = _cellule_bourg(2, [50], [0.])
+    if not avec_lieu: source.lieux = cible.lieux = []
+    monkeypatch.setattr(k, 'capacite_chemins_interieurs_kg', lambda *a: pytest.fail('chemin inutile'))
+    total = [0.]
+    _apply_commerce(World({1: source, 2: cible}, [{'a': 1, 'b': 2}]), total)
+    assert total == [100.] and source.food_stock_kg == 0. and cible.food_stock_kg == 100.
+    if avec_lieu: assert _paniers_bourg(cible) == [100.]
+
+
+@pytest.mark.parametrize('reserve', [0., 100.])
+def test_bourg_maritime_bassin_initial_et_quais(reserve, monkeypatch):
+    from sim import constants as k
+    monkeypatch.setattr(k, 'CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK', 0.)
+    source = _cellule_bourg(1, [0, 0], [30., 100.])
+    cible = _cellule_bourg(2, [50, 0], [0., 0.])
+    monde = World({1: source, 2: cible}, [
+        {'a': i, 'b': -1, 'kind': 'mer', 'shared_length_m': 1000.} for i in (1, 2)])
+    monde.stocks_mer = {MARCHANDISE_NOURRITURE: reserve}
+    total = [0.]
+    _apply_commerce(monde, total)
+    assert _paniers_bourg(source) == [0., 100.]
+    assert _paniers_bourg(cible) == [reserve, 0.]
+    assert monde.stocks_mer[MARCHANDISE_NOURRITURE] == 30.
+    assert total == [30. + reserve]
+    _conserver_bourg(monde)
+
+
+@pytest.mark.parametrize('faim', [(0,), (1,), (0, 1), ()])
+def test_migration_par_bourg_lieux_affames_et_metiers(faim):
+    import copy
+    from sim import constants as k, foyers
+    from sim.engine import _apply_migration
+    from sim.model import lire_habitants_par_metier
+    source = _cellule_bourg(1, [150, 250, 100], [0., 20., 0.], faim)
+    cible = _cellule_bourg(2, [10, 20], [100., 0.])
+    monde = World({1: source, 2: cible}, [{'a': 1, 'b': 2}])
+    avant = copy.deepcopy(monde)
+    partants = int(sum(source.lieux[r].population for r in faim) * k.FRACTION_MIGRANTE_PAR_TICK)
+    parts = {r: 0 for r in range(3)}
+    if faim:
+        from sim.lieux import partager
+        parts.update(dict(zip(faim, partager(partants, [source.lieux[r].population for r in faim]))))
+    _apply_migration(monde, {1: 1.})
+    def controler():
+        assert [l.population for l in source.lieux] == [p - parts[r] for r, p in enumerate([150, 250, 100])]
+        assert [l.population for l in cible.lieux] == [10 + partants, 20]
+        assert source.population == 500 - partants and cible.population == 30 + partants
+        assert lire_habitants_par_metier(source) == foyers.retirer(lire_habitants_par_metier(avant.cells[1]), partants)
+        assert lire_habitants_par_metier(cible) == foyers.ajouter(lire_habitants_par_metier(avant.cells[2]), partants)
+        for cid in monde.cells:
+            for lieu, ancien in zip(monde.cells[cid].lieux, avant.cells[cid].lieux):
+                assert {n: v for n, v in vars(lieu).items() if n != 'population'} == {n: v for n, v in vars(ancien).items() if n != 'population'}
+        _conserver_bourg(monde)
+    controler()
+    if partants:
+        cible.lieux[0].population -= 1
+        cible.lieux[1].population += 1
+        with pytest.raises(AssertionError): controler()
+
+
+def test_migration_par_bourg_accueil_annule_depart_et_ordre():
+    import copy
+    from sim.engine import _apply_migration
+    cellules = {1: _cellule_bourg(1, [200, 100], [0., 0.], (0,)),
+                2: _cellule_bourg(2, [100, 100], [10., 0.], (1,)),
+                3: _cellule_bourg(3, [0, 50], [10., 0.])}
+    monde = World(cellules, [{'a': 1, 'b': 2}, {'a': 1, 'b': 3}, {'a': 2, 'b': 3}])
+    inverse = copy.deepcopy(monde)
+    inverse.cells = dict(reversed(list(inverse.cells.items())))
+    inverse.adjacency.reverse()
+    for m in (monde, inverse):
+        _apply_migration(m, {1: 1., 2: 1.})
+        assert [l.population for l in m.cells[1].lieux] == [198, 100]
+        assert [l.population for l in m.cells[2].lieux] == [101, 100]
+        assert [l.population for l in m.cells[3].lieux] == [1, 50]
+        _conserver_bourg(m)
+    assert monde.to_dict() == inverse.to_dict()
+
+
+def test_migration_par_bourg_petits_effectifs_dette_et_mer():
+    from sim.engine import _apply_migration
+    source = _cellule_bourg(1, [1, 100], [0., 0.], (0,))
+    cible = _cellule_bourg(2, [1, 100], [1., 0.])
+    source.migration_remainder = .99
+    monde = World({1: source, 2: cible}, [{'a': i, 'b': -1} for i in (1, 2)])
+    _apply_migration(monde, {1: 1.})
+    assert [l.population for l in source.lieux] == [0, 100]
+    assert [l.population for l in cible.lieux] == [2, 100]
+    source.migration_remainder = .8
+    source.lieux[1].dette_alimentaire_kg = 100.
+    for _ in range(10): _apply_migration(monde, {1: 1.})
+    assert source.population == 100 and source.migration_remainder == .8
+    _conserver_bourg(monde)
+
+
+def test_bourg_maritime_demande_terre_et_mer_ecretee(monkeypatch):
+    from sim import constants as k
+    monkeypatch.setattr(k, 'CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK', 0.)
+    source = _cellule_bourg(1, [0, 0], [100., 100.])
+    cible = _cellule_bourg(2, [50, 0], [0., 0.])
+    monde = World({1: source, 2: cible}, [{'a': 1, 'b': 2},
+        {'a': 2, 'b': -1, 'kind': 'mer', 'shared_length_m': 1000.}])
+    monde.stocks_mer = {'nourriture': 100.}
+    total = [0.]
+    _apply_commerce(monde, total)
+    assert total == [100.]
+    assert _paniers_bourg(source) == [50., 100.]
+    assert _paniers_bourg(cible) == [100., 0.]
+    assert monde.stocks_mer == {'nourriture': 50.}
+    _conserver_bourg(monde)
+
+
+def test_bourg_documentation():
+    from pathlib import Path
+    from sim import engine
+    texte = Path(engine.__file__).with_name('MODELE.md').read_text(encoding='utf-8')
+    def controler(document):
+        attendus = {'En une page': ('bourg', 'chemin', 'plafond', 'lieux affamés', 'rang 0', 'écritures extérieures', 'niveau 2', 'niveau 3'),
+            'Le commerce entre cellules': ('bourg', 'rang 0', 'capacite_chemins_interieurs_kg', 'partagé', 'effectivement', 'niveau 2', 'niveau 3'),
+            'La migration de famine': ('lieux vivants', 'duree_faim_ticks > 0', 'rang 0', 'report migratoire', 'annulés', 'prorata', 'niveau 2', 'niveau 3')}
+        for titre, mots in attendus.items():
+            section = document.split(f'## {titre}\n')[1].split('\n## ')[0]
+            assert all(mot in section for mot in mots), titre
+        assert 'aucun partage général après migration' in document
+        assert 'Après la migration et avant l’avance du compteur' not in document
+    controler(texte)
+    for faux in (texte.replace('capacite_chemins_interieurs_kg', 'retirée'),
+                 texte.replace('aucun partage général après migration', 'partage général après migration')):
+        with pytest.raises(AssertionError): controler(faux)
+
+
+@pytest.mark.parametrize('mutation', ['arrivee', 'chemin', 'plafond', 'mer', 'departs', 'accueil', 'annulation'])
+def test_bourg_contre_epreuves_memes_controles(mutation, monkeypatch):
+    from sim import engine, constants as k
+    if mutation in ('arrivee', 'mer'):
+        def partager_arrivee(cell, nom, quantite):
+            if cell.lieux:
+                from sim.lieux import accorder_marchandise
+                accorder_marchandise(cell, nom)
+        monkeypatch.setattr(engine, '_entrer_au_bourg', partager_arrivee)
+        controle = (lambda: test_commerce_par_bourg_chemins_et_ration(0., 'plaine', 1., monkeypatch)) if mutation == 'arrivee' else (lambda: test_bourg_maritime_bassin_initial_et_quais(100., monkeypatch))
+    elif mutation in ('chemin', 'plafond'):
+        if mutation == 'chemin':
+            monkeypatch.setattr(k, 'capacite_chemins_interieurs_kg', lambda *a: float('inf'))
+            controle = lambda: test_commerce_par_bourg_chemins_et_ration(0., 'plaine', 1., monkeypatch)
+        else:
+            sortir = engine._sortir_par_bourg
+            def reinitialiser(cell, nom, quantite, chemins, ration):
+                if cell.cell_id in chemins:
+                    chemins[cell.cell_id] = {r: 40. for r in chemins[cell.cell_id]}
+                sortir(cell, nom, quantite, chemins, ration)
+            monkeypatch.setattr(engine, '_sortir_par_bourg', reinitialiser)
+            controle = lambda: test_commerce_par_bourg_plafond_cumule_et_flux_bloque(monkeypatch)
+    else:
+        migrer = engine._apply_migration
+        def mauvaise_migration(monde, penuries):
+            anciens = {cid: [l.population for l in c.lieux] for cid, c in monde.cells.items()}
+            migrer(monde, penuries)
+            from sim.lieux import partager
+            for cid, cell in monde.cells.items():
+                delta = cell.population - sum(anciens[cid])
+                if mutation == 'departs' and delta < 0 or mutation == 'accueil' and delta > 0:
+                    for lieu, part in zip(cell.lieux, partager(cell.population, anciens[cid])):
+                        lieu.population = part
+                elif mutation == 'annulation' and delta > 0 and any(l.duree_faim_ticks for l in cell.lieux):
+                    cell.lieux[1].population -= 1
+        monkeypatch.setattr(engine, '_apply_migration', mauvaise_migration)
+        controle = test_migration_par_bourg_accueil_annule_depart_et_ordre if mutation == 'annulation' else lambda: test_migration_par_bourg_lieux_affames_et_metiers((0,))
+    with pytest.raises(AssertionError): controle()
+
+
+def test_migration_par_bourg_report_accumule_et_egalites():
+    import math
+    from sim import constants as k
+    from sim.engine import _apply_migration
+    source = _cellule_bourg(1, [1, 1, 100], [0., 0., 0.], (0, 1))
+    cible = _cellule_bourg(2, [1, 100], [1., 0.])
+    monde = World({1: source, 2: cible}, [{'a': 1, 'b': 2}])
+    echantillon = []
+    for _ in range(math.ceil(1 / (2 * k.FRACTION_MIGRANTE_PAR_TICK)) + 1):
+        _apply_migration(monde, {1: 1.})
+        _conserver_bourg(monde)
+        echantillon.append(source.migration_remainder)
+        if source.population < 102: break
+    assert echantillon and echantillon[0] > 0
+    assert [l.population for l in source.lieux] == [0, 1, 100]
+    assert [l.population for l in cible.lieux] == [2, 100]
+
+
+def test_bourg_maritime_contre_epreuve_bassin_apres_expedition(monkeypatch):
+    from sim import engine
+    from sim.model import ecrire_stock_marchandise
+    appliquer = engine._appliquer_flux_maritimes
+    def bassin_tardif(monde, nom, debark, expedition, quais, total, chemins):
+        appliquer(monde, nom, debark, expedition, quais, total, chemins)
+        # Mutation : une expédition finance immédiatement l'autre port.
+        quantite = sum(expedition.values())
+        cible = monde.cells[2]
+        ecrire_stock_marchandise(cible, nom, cible.food_stock_kg + quantite)
+        engine._entrer_au_bourg(cible, nom, quantite)
+        monde.stocks_mer[nom] -= quantite
+        total[0] += quantite
+    monkeypatch.setattr(engine, '_appliquer_flux_maritimes', bassin_tardif)
+    with pytest.raises(AssertionError): test_bourg_maritime_bassin_initial_et_quais(0., monkeypatch)
+
+
+def test_commerce_par_bourg_marchandise_absente_et_quota_arete(monkeypatch):
+    from sim import constants as k
+    from sim.model import ecrire_stock_marchandise
+    monkeypatch.setattr(k, 'consommation_kg_par_habitant_par_tick', lambda nom: 2.)
+    source = _cellule_bourg(1, [0, 0], [300., 0.])
+    cible = _cellule_bourg(2, [100, 100], [0., 0.])
+    for entite in (source, source.lieux[0]): ecrire_stock_marchandise(entite, 'z_sonde', 300.)
+    ecrire_stock_marchandise(source.lieux[1], 'z_sonde', 0.)
+    monde = World({1: source, 2: cible}, [{'a': 1, 'b': 2}])
+    total = [0.]
+    _apply_commerce(monde, total)
+    assert total == [k.TRADE_CAPACITY_KG_PER_EDGE_PER_TICK]
+    assert _paniers_bourg(cible) == [200., 0.]
+    assert 'z_sonde' not in cible.stocks  # L'arête pleine ne crée aucune clé.
+    assert source.stocks['z_sonde'] == 300.
+    # Une arête neuve laisse arriver la marchandise absente, au bourg seulement.
+    _apply_commerce(monde, [0.], 'z_sonde', {})
+    assert _paniers_bourg(cible, 'z_sonde') == [200., 0.]
+    _conserver_bourg(monde)
