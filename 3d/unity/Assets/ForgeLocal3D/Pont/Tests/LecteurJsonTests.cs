@@ -76,15 +76,18 @@ namespace Forge.Pont.Tests
             Assert.IsInstanceOf<List<object>>(lieu["lieux"]);
             var lieux = (List<object>)lieu["lieux"];
             Assert.AreEqual(15, lieux.Count);
+            var maitresAttendus = new[] { "plausible-9922-0", "plausible-9922-3", "plausible-9922-6", "plausible-9922-9", "plausible-9922-12" };
             double sommePopulation = 0.0;
             for (int rang = 0; rang < lieux.Count; rang++)
             {
                 Assert.IsInstanceOf<Dictionary<string, object>>(lieux[rang]);
                 var unLieu = (Dictionary<string, object>)lieux[rang];
                 CollectionAssert.AreEqual(
-                    new[] { "population", "rang", "stocks", "surface_km2" },
+                    new[] { "maitre", "population", "rang", "stocks", "surface_km2" },
                     unLieu.Keys.ToArray());
                 Assert.IsTrue((double)unLieu["rang"] == rang, "le rang du lieu vaut son indice");
+                Assert.IsInstanceOf<string>(unLieu["maitre"]);
+                Assert.AreEqual(maitresAttendus[rang / 3], unLieu["maitre"]);
                 var panier = (Dictionary<string, object>)unLieu["stocks"];
                 CollectionAssert.AreEqual(
                     stocks.Keys.ToArray(), panier.Keys.ToArray(),

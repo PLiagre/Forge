@@ -273,17 +273,33 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])['planche']['ia'] is False
 
 
-@pytest.mark.parametrize('ticks,empreinte', [(0, '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9'), (30, '4775cd7c576c32b4b647b8bd9f82061ac1216b5c658969afd254fdcf081cf694')])
+@pytest.mark.parametrize('ticks,empreinte', [(0, '9cc68c20e499efa3b00d66439d2e2d00b14f75289edd9fcafe9b9bf478097e64'), (30, 'afbe1a299ef841dff0c0d10a5e03f96be9cbe126b67912ce0ebc0dc830758278')])
 def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     import hashlib
     from forge.__main__ import _simuler
     from sim.snapshot_export import serialize_snapshot
     monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: pytest.fail('IA sans option'))
+    ancienne = {0: '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9', 30: '4775cd7c576c32b4b647b8bd9f82061ac1216b5c658969afd254fdcf081cf694'}[ticks]
     chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
     assert hashlib.sha256(chemin.read_bytes()).hexdigest() == empreinte
     faux = json.loads(chemin.read_bytes()); faux['ia'] = []
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux)).hexdigest() == empreinte
+    import copy
+    from sim.world import World
+    photo = json.loads(chemin.read_bytes()); prive = copy.deepcopy(photo)
+    assert prive['cells'] and all(c['lieux'] for c in prive['cells'])
+    for cellule in prive['cells']:
+        for lieu in cellule['lieux']: assert lieu.pop('maitre') is not None
+    assert hashlib.sha256(serialize_snapshot(prive)).hexdigest() == ancienne
+    for champ in ('ia', 'population'):
+        faux = copy.deepcopy(prive)
+        if champ == 'ia': faux['ia'] = []
+        else: faux['cells'][0]['lieux'][0]['population'] += 1
+        with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux)).hexdigest() == ancienne
+    autre = next(m.id for m in World.charger(0).maisons if m.id != photo['cells'][0]['lieux'][0]['maitre'])
+    photo['cells'][0]['lieux'][0]['maitre'] = autre
+    with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(photo)).hexdigest() == empreinte
 
 
 @pytest.mark.parametrize('cas', ['inconnu', 'double', 'sans_tick', 'donnee', 'position', 'intention', 'export', 'export_io'])
