@@ -985,7 +985,6 @@ def test_noms_purete_et_tick(monkeypatch):
     with pytest.raises(AssertionError): assert faux == attendu
 
 
-
 # Empreintes capturées avant #395 : document complet et état physique sans arrondi.
 _PART_BASE = {
     (0, 0): ("0ea8fef27f922a382761f51cc2303fff43ff9eba4c68683f9ba8afb0e217768f", "0a034d0f3126bf72177537813b5c4f8f190ded5f4235a27e9f3574220ef7c020"),

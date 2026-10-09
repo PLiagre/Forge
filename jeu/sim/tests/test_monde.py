@@ -4245,6 +4245,6 @@ def test_noms_publication_et_documentation():
     def lecteur(texte):
         import re
         cles = re.search(r'new\[\] \{ ([^}]+) \},\s*lieu.Keys', texte); assert cles and set(re.findall(r'"([^"\n]+)"', cles[1])) == set(json.loads(serveur.etat_publie.lieux[c['cell_id']])) and 'lieu["noms"]' in texte
-        assert all(t in texte for t in ('nomsLieux[rang]', 'maisons[(string)unLieu["maitre"]]', 'nomLieu["nom"]', 'maison["prenom_chef"]'))
+        appel = re.search(r'AreEqual\(([^;]+), maisons\.Keys\.ToArray\(\)\)', texte); ids = re.findall(r'"([^"]+)"', re.search(r'maitresAttendus = new\[\] \{ ([^}]+) \}', texte).group(1)); expr = appel.group(1) if appel else ''; ordre = sorted(ids) if 'StringComparer.Ordinal' in expr else (re.findall(r'"([^"]+)"', expr) or ids); assert appel and ordre == list(json.loads((_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json').read_bytes())['noms']['maisons']) and all(t in texte for t in ('nomsLieux[rang]', 'maisons[(string)unLieu["maitre"]]', 'nomLieu["nom"]', 'maison["prenom_chef"]'))
     texte = (_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/LecteurJsonTests.cs').read_text(); lecteur(texte)
-    with pytest.raises(AssertionError): lecteur(texte.replace('"noms"', '"privé"'))
+    pytest.raises(AssertionError, lecteur, texte.replace('"noms"', '"privé"')); pytest.raises(AssertionError, lecteur, texte.replace('.OrderBy(m => m, StringComparer.Ordinal)', ''))

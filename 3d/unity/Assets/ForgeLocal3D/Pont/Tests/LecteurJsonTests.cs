@@ -80,7 +80,7 @@ namespace Forge.Pont.Tests
             var noms = (Dictionary<string, object>)lieu["noms"];
             CollectionAssert.AreEqual(new[] { "lieux", "maisons" }, noms.Keys.ToArray()); var nomsLieux = (List<object>)noms["lieux"];
             var maisons = (Dictionary<string, object>)noms["maisons"];
-            CollectionAssert.AreEqual(maitresAttendus, maisons.Keys.ToArray()); Assert.AreEqual(lieux.Count, nomsLieux.Count);
+            CollectionAssert.AreEqual(maitresAttendus.OrderBy(m => m, StringComparer.Ordinal).ToArray(), maisons.Keys.ToArray()); Assert.AreEqual(lieux.Count, nomsLieux.Count);
             double sommePopulation = 0.0;
             for (int rang = 0; rang < lieux.Count; rang++)
             {
