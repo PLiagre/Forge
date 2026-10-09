@@ -101,5 +101,80 @@ namespace Forge.Pont.Tests {
             Assert.Less(montre.ElapsedMilliseconds, DELAI_MAX_PAS_MS, "le pas a attendu le service");
             Assert.IsTrue(carte.LectureEnVol);
         }
+        // Lot #548 — contours, noms et caméra. L'attendu : la carte lue par ClientCarte, l'origine de Mailler, et la conversion écrite ici.
+        private CarteLue Lue(out PointCarte origine) {
+            LectureCarte lecture; using (var client = new ClientCarte(port, ClientCarte.DelaiMinimal)) lecture = client.Lire();
+            Assert.IsTrue(lecture.Presente, lecture.Absence); Interlocked.Exchange(ref requetes, 0); origine = MaillageDeCarte.Mailler(lecture.Carte).Origine; return lecture.Carte;
+        }
+        private static Vector3 Converti(PointCarte p, PointCarte o, float y) => new Vector3((float)((p.X - o.X) / 1000), y, (float)((p.Y - o.Y) / 1000));
+        private static bool Egal(Vector3 a, Vector3 b) => a.x == b.x && a.y == b.y && a.z == b.z; // `==` de Vector3 tolère un écart : on compare composante par composante
+        private int Nommes(string nom) { int n = 0; foreach (Transform t in objet.GetComponentsInChildren<Transform>(true)) if (t.name == nom) n++; return n; }
+        [Test] public void Chaque_anneau_servi_a_son_contour() {
+            Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Lire(1);
+            LineRenderer[] traits = objet.transform.Find("Contours de la carte").GetComponentsInChildren<LineRenderer>(true);
+            int i = 0, trous = 0, points = 0, ecarts = 0;
+            foreach (CelluleDeCarte c in lue.Cellules) { int rang = 0;
+                foreach (PolygoneDeCarte p in c.Contour) {
+                    var anneaux = new List<IReadOnlyList<PointCarte>> { p.Exterieur }; anneaux.AddRange(p.Trous); trous += p.Trous.Count;
+                    foreach (IReadOnlyList<PointCarte> a in anneaux) {
+                        Assert.Less(i, traits.Length, "moins de contours que d'anneaux"); LineRenderer t = traits[i++]; Assert.AreEqual("Contour " + c.CellId + "." + rang++, t.name);
+                        Assert.IsTrue(!t.useWorldSpace && !t.loop && t.positionCount == a.Count, t.name + " : " + t.positionCount + " positions pour " + a.Count + " points");
+                        points += a.Count; for (int k = 0; k < a.Count; k++) if (!Egal(t.GetPosition(k), Converti(a[k], o, CarteDessinee.HAUTEUR_CONTOUR))) ecarts++;
+                    }
+                }
+            }
+            Assert.IsTrue(i == traits.Length && i == 746 && trous == 71 && points == 19789, i + " anneaux dont " + trous + " trous, " + points + " points, " + traits.Length + " contours");
+            Assert.AreEqual(0, ecarts, "positions différentes des points convertis");
+            Assert.IsTrue(carte.CellulesPosees == 596 && CellulesSousLaCarte == carte.CellulesPosees, CellulesSousLaCarte + " MeshFilter sous la carte");
+        }
+        [Test] public void Chaque_ville_servie_a_son_nom() {
+            Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Lire(1);
+            TextMesh[] noms = objet.transform.Find("Villes de la carte").GetComponentsInChildren<TextMesh>(true);
+            var vus = new HashSet<string>(); int i = 0;
+            foreach (CelluleDeCarte c in lue.Cellules)
+                foreach (VilleDeCarte v in c.Villes) {
+                    Assert.Less(i, noms.Length, "moins de noms que de villes"); TextMesh n = noms[i++]; vus.Add(v.Nom);
+                    Assert.IsTrue(n.text == v.Nom && n.name == "Ville " + v.Nom, n.name + " pour " + v.Nom);
+                    Vector3 attendu = Converti(v.Position, o, CarteDessinee.HAUTEUR_NOM); Assert.IsTrue(Egal(n.transform.localPosition, attendu),v.Nom + " en " + n.transform.localPosition.ToString("R") + ", attendu " + attendu.ToString("R"));
+                    Assert.IsTrue(n.transform.localRotation == Quaternion.Euler(90, 0, 0), v.Nom + " tourné de " + n.transform.localEulerAngles);
+                }
+            Assert.IsTrue(i == noms.Length && i == 57 && vus.Count == i && vus.Contains("Constantinople"), i + " villes, " + noms.Length + " noms, " + vus.Count + " distincts");
+            Assert.IsNull(objet.GetComponentInChildren<Text>(), "un Text d'UI actif sous la carte");
+        }
+        [Test] public void La_camera_cadre_toute_la_carte() {
+            Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
+            Camera cam = carte.camera; Canvas toile = objet.GetComponentInChildren<Canvas>(true);
+            Assert.IsTrue(Nommes("Caméra de la carte") == 1 && cam != null && cam.name == "Caméra de la carte" && cam.transform.parent == objet.transform && cam.orthographic, "caméra de la carte absente ou mal faite");
+            Assert.IsTrue(toile.renderMode == RenderMode.ScreenSpaceCamera && toile.worldCamera == cam, "la toile n'est pas sur la caméra de la carte");
+            float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
+            foreach (MaillageDeCellule c in attendue.Cellules) foreach (Vector3 s in c.Maillage.Sommets) { minX = Mathf.Min(minX, s.x); maxX = Mathf.Max(maxX, s.x); minZ = Mathf.Min(minZ, s.z); maxZ = Mathf.Max(maxZ, s.z); }
+            var coins = new[] { new Vector3(minX, 0, minZ), new Vector3(maxX, 0, minZ), new Vector3(maxX, 0, maxZ), new Vector3(minX, 0, maxZ) }; // sud-ouest, sud-est, nord-est, nord-ouest
+            foreach (float aspect in new[] { 16f / 9f, 4f / 3f, 0.5f }) {
+                cam.aspect = aspect; carte.Pas(2); var vus = new Vector3[4];
+                for (int k = 0; k < 4; k++) {
+                    vus[k] = cam.WorldToViewportPoint(objet.transform.TransformPoint(coins[k]));
+                    Assert.IsTrue(vus[k].x >= 0 && vus[k].x <= 1 && vus[k].y >= 0 && vus[k].y <= 1 && vus[k].z >= cam.nearClipPlane && vus[k].z <= cam.farClipPlane, "aspect " + aspect + ", coin " + k + " hors du champ : " + vus[k].ToString("R"));
+                }
+                float largeur = vus[1].x - vus[0].x, hauteur = vus[3].y - vus[0].y;
+                Assert.IsTrue(largeur >= 0.9f || hauteur >= 0.9f, "aspect " + aspect + " : la carte ne couvre que " + largeur + " × " + hauteur + " du champ");
+                Assert.Greater(vus[3].y, vus[0].y, "aspect " + aspect + " : le nord n'est pas en haut");
+            }
+        }
+        [Test] public void Sans_carte_ni_contour_ni_nom() {
+            Poser(); Lire(1);
+            Assert.IsTrue(objet.GetComponentsInChildren<LineRenderer>(true).Length == 0 && objet.GetComponentsInChildren<TextMesh>(true).Length == 0, carte.TexteAffiche);
+            Assert.IsTrue(Nommes("Caméra de la carte") == 1 && carte.camera != null && carte.camera.name == "Caméra de la carte", "pas de caméra de la carte sans carte");
+        }
+        [Test] public void Une_camera_donnee_n_est_pas_cadree() {
+            Servir(0, 200, Fixture); Attendue(out int servies);
+            Camera donnee = new GameObject("Caméra donnée du test").AddComponent<Camera>(); Vector3 position = new Vector3(5, 6, 7); Quaternion rotation = Quaternion.Euler(10, 20, 30);
+            try {
+                donnee.orthographic = false; donnee.transform.SetPositionAndRotation(position, rotation);
+                objet = new GameObject("Carte du test"); carte = objet.AddComponent<CarteDessinee>(); carte.port = port; carte.camera = donnee; carte.Demarrer();
+                Lire(1); for (int i = 1; i <= 5; i++) carte.Pas(1 + i);
+                Assert.IsTrue(carte.CellulesPosees == servies && carte.camera == donnee && Nommes("Caméra de la carte") == 0, carte.CellulesPosees + " cellules, " + Nommes("Caméra de la carte") + " caméra(s) créée(s)");
+                Assert.IsTrue(Egal(donnee.transform.position, position) && donnee.transform.rotation == rotation && !donnee.orthographic, "la caméra donnée a été touchée : " + donnee.transform.position + " " + donnee.transform.eulerAngles);
+            } finally { UnityEngine.Object.DestroyImmediate(donnee.gameObject); }
+        }
     }
 }
