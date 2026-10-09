@@ -17,11 +17,30 @@ namespace ForgeLocal3D.Captures
     static class Lot549
     {
         const double ATTENTE_S = 30;
-        const float FORME = 1600f / 900f; // celle de la photo
+        internal const float FORME = 1600f / 900f; // celle de la photo
         const int IMAGES_DE_POSE = 10;
+
+        // Ce que `Ouvrir` a posé : la carte de la scène, cadrée sur toute la carte.
+        internal sealed class CarteOuverte { public CarteDessinee Carte; public int Scenes; }
 
         [ScenarioDeCapture(549, "carte-entiere")]
         static IEnumerator CarteEntiere(Camera camera)
+        {
+            var ouverte = new CarteOuverte();
+            for (var e = Ouvrir(camera, ouverte); e.MoveNext();) yield return null;
+            var carte = ouverte.Carte;
+            camera.CopyFrom(carte.camera); camera.aspect = FORME; carte.camera.enabled = false;
+            Vector3 position = camera.transform.position; Quaternion rotation = camera.transform.rotation;
+            for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
+            if (camera.transform.position != position || camera.transform.rotation != rotation)
+                throw new InvalidOperationException("la caméra a bougé : " + camera.transform.position + " " + camera.transform.eulerAngles);
+            Debug.Log("CAPTURE_549 " + carte.CellulesPosees + " cellules posées pour " + carte.CellulesServies + " servies, scène " + ouverte.Scenes + " sur " + ouverte.Scenes);
+        }
+
+        // La carte chargée à côté du désert, le désert de côté, les cellules servies posées, la caméra de la carte à la forme
+        // de la photo. Les captures des lots de la carte (#524, #525, #526) partent de là. Un `yield return` d'un autre
+        // IEnumerator ne l'exécute pas : `for (var e = Ouvrir(camera, o); e.MoveNext();) yield return null;`.
+        internal static IEnumerator Ouvrir(Camera camera, CarteOuverte ouverte)
         {
             var liste = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
             if (liste.Length < 2 || liste[liste.Length - 1] != CarteBuilder.Chemin || liste[0] == CarteBuilder.Chemin)
@@ -55,12 +74,7 @@ namespace ForgeLocal3D.Captures
                 throw new InvalidOperationException("la carte n'a pas créé sa caméra dans " + CarteBuilder.Nom);
 
             carte.camera.aspect = FORME; yield return null; // le composant recadre
-            camera.CopyFrom(carte.camera); camera.aspect = FORME; carte.camera.enabled = false;
-            Vector3 position = camera.transform.position; Quaternion rotation = camera.transform.rotation;
-            for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
-            if (camera.transform.position != position || camera.transform.rotation != rotation)
-                throw new InvalidOperationException("la caméra a bougé : " + camera.transform.position + " " + camera.transform.eulerAngles);
-            Debug.Log("CAPTURE_549 " + carte.CellulesPosees + " cellules posées pour " + carte.CellulesServies + " servies, scène " + liste.Length + " sur " + liste.Length);
+            ouverte.Carte = carte; ouverte.Scenes = liste.Length;
         }
 
         // Le désert de côté : dans sa scène, tout objet qui ne mène pas à la caméra photographiée s'éteint, ses enfants aussi ;

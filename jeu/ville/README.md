@@ -59,6 +59,11 @@ py ville/cellule_du_desert.py      # depuis jeu/ : écrit le cell_id seul
 
 Pour ouvrir une autre cellule : `pc\Jouer.cmd --cellule <cell_id>`.
 
+Pour ouvrir le jeu sur la carte de 1400 : `pc\Jouer.cmd --carte` (lot #524). Le
+lanceur passe `-forgeCarte` au jeu, qui quitte la ville au lancement pour la scène
+`Forge_Carte`. On s'y déplace en glissant (bouton gauche ou du milieu) et on
+zoome à la molette, vers le point sous la souris, sans sortir de la carte servie.
+
 ## L'épreuve du jalon 1
 
 Le panneau du lieu doit montrer les mêmes nombres que la photographie de `sim/`,

@@ -10,12 +10,13 @@ namespace ForgeLocal3D
 {
     // Lot 549 : la scène de la carte du joueur, `Forge_Carte`, qui porte `CarteDessinee` sans caméra donnée (le composant crée
     // la sienne et cadre toute la carte), et une lumière tombant à la verticale : la couleur d'une puissance ne dépend pas de
-    // l'heure. Elle va en dernier dans la liste du build : la capture et le jeu ouvrent la première, la ville du désert.
+    // l'heure. Elle va en dernier dans la liste du build : la capture et le jeu ouvrent la première, la ville du désert
+    // (`-forgeCarte` y fait passer le jeu, #524). Le joueur la parcourt à la souris (`ParcoursDeCarte`, #524).
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.CarteBuilder.Construire
     public static class CarteBuilder
     {
         public const string Dossier = "Assets/ForgeLocal3D/Carte";
-        public const string Nom = "Forge_Carte";
+        public const string Nom = OuvertureDeLaCarte.SCENE;
         public const string Chemin = Dossier + "/" + Nom + ".unity";
         public const string CARTE = "Carte de 1400";
         static readonly Color AMBIANCE = new Color(.35f, .35f, .35f);
@@ -25,7 +26,7 @@ namespace ForgeLocal3D
         {
             if (!AssetDatabase.IsValidFolder(Dossier)) { Directory.CreateDirectory(Dossier); AssetDatabase.Refresh(); }
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            new GameObject(CARTE).AddComponent<CarteDessinee>();
+            new GameObject(CARTE).AddComponent<ParcoursDeCarte>(); // et sa CarteDessinee, qu'il exige
             var lumiere = new GameObject("Lumière de la carte").AddComponent<Light>();
             lumiere.type = LightType.Directional; lumiere.shadows = LightShadows.None; lumiere.intensity = 1f;
             lumiere.transform.rotation = Quaternion.Euler(90, 0, 0);

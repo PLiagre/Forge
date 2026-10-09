@@ -176,5 +176,36 @@ namespace Forge.Pont.Tests {
                 Assert.IsTrue(Egal(donnee.transform.position, position) && donnee.transform.rotation == rotation && !donnee.orthographic, "la caméra donnée a été touchée : " + donnee.transform.position + " " + donnee.transform.eulerAngles);
             } finally { UnityEngine.Object.DestroyImmediate(donnee.gameObject); }
         }
+        // Lot #524 — la caméra créée montre la vue que le joueur glisse et zoome, sans sortir de la carte servie.
+        [Test] public void La_camera_de_la_carte_suit_la_vue_sans_sortir_de_la_carte() {
+            Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
+            Camera cam = carte.camera; cam.aspect = 16f / 9f; carte.Pas(2);
+            Assert.IsNotNull(carte.Vue, "pas de vue sur une carte posée"); Assert.AreEqual(1f, carte.Vue.Echelle, "la carte ne s'ouvre pas sur toute la carte");
+            float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
+            foreach (MaillageDeCellule c in attendue.Cellules) foreach (Vector3 s in c.Maillage.Sommets) { minX = Mathf.Min(minX, s.x); maxX = Mathf.Max(maxX, s.x); minZ = Mathf.Min(minZ, s.z); maxZ = Mathf.Max(maxZ, s.z); }
+            float demiEnsemble = cam.orthographicSize;
+            foreach (var (crans, glisse) in new[] { (12f, new Vector2(0, 0)), (0f, new Vector2(1e7f, 1e7f)), (0f, new Vector2(-1e7f, -1e7f)), (-1000f, new Vector2(0, 0)) }) {
+                carte.Vue.Zoomer(crans, new Vector2(.3f, .6f)); carte.Vue.Glisser(glisse, 900f); carte.Pas(3);
+                string quand = "crans " + crans + ", glissé " + glisse;
+                Assert.AreEqual(carte.Vue.Demi, cam.orthographicSize, 1e-3f, quand + " : la caméra ne montre pas la vue");
+                Vector3 attenduePosition = objet.transform.TransformPoint(new Vector3(carte.Vue.Centre.x, CarteDessinee.HAUTEUR_CAMERA, carte.Vue.Centre.y));
+                Assert.Less((cam.transform.position - attenduePosition).magnitude, 1e-2f, quand + " : la caméra n'est pas au-dessus du centre de la vue");
+                if (crans < 0) { Assert.AreEqual(demiEnsemble, cam.orthographicSize, 1e-3f, "au plus loin, ce n'est plus toute la carte"); continue; }
+                Assert.Less(cam.orthographicSize, demiEnsemble / 4, quand + " : la vue ne s'est pas approchée");
+                // Les quatre coins de l'écran tombent sur la boîte de la carte : la vue n'en sort pas.
+                foreach (Vector2 coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
+                    Ray rayon = cam.ViewportPointToRay(new Vector3(coin.x, coin.y, 0)); Vector3 local = objet.transform.InverseTransformPoint(rayon.origin);
+                    Assert.IsTrue(local.x >= minX - 1e-2f && local.x <= maxX + 1e-2f && local.z >= minZ - 1e-2f && local.z <= maxZ + 1e-2f, quand + " : le coin " + coin + " de l'écran est hors de la carte : " + local);
+                }
+            }
+        }
+        [Test] public void Une_camera_donnee_n_a_pas_de_vue() {
+            Servir(0, 200, Fixture); Attendue(out int servies);
+            Camera donnee = new GameObject("Caméra donnée du test").AddComponent<Camera>();
+            try {
+                objet = new GameObject("Carte du test"); carte = objet.AddComponent<CarteDessinee>(); carte.port = port; carte.camera = donnee; carte.Demarrer(); Lire(1);
+                Assert.IsTrue(carte.CellulesPosees == servies && carte.Vue == null, carte.CellulesPosees + " cellules posées, vue " + (carte.Vue == null ? "absente" : "présente"));
+            } finally { UnityEngine.Object.DestroyImmediate(donnee.gameObject); }
+        }
     }
 }

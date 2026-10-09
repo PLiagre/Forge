@@ -9,12 +9,13 @@ namespace Forge.Pont {
     // nombre calculé ici. Lecture et maillage partent hors du fil principal ; la pose se fait dans Update, une
     // seule fois. Sans carte, le texte dit pourquoi et rien n'est posé ; la lecture repart plus tard.
     // Lot #548 : le bord de chaque anneau, le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
+    // Lot #524 : cette caméra montre la `Vue`, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
         public const float HAUTEUR_CONTOUR = 0.5f, LARGEUR_CONTOUR = 4f, HAUTEUR_NOM = 1f, HAUTEUR_CAMERA = 1000f;
         private const string SANS_MATERIAU = "carte non dessinée : le pipeline de rendu n'a pas de matériau par défaut";
-        private const float ECART_PLAN = 0.2f, PROCHE = 1f, LOINTAIN = 2000f, MARGE_CADRE = 1.03f; private const int TAILLE_POLICE = 24;
+        private const float ECART_PLAN = 0.2f, PROCHE = 1f, LOINTAIN = 2000f; private const int TAILLE_POLICE = 24;
         private const int TAILLE_NOM = 16; private const float TAILLE_CARACTERE = 25f; // une ligne de nom : environ 40 km, dessinée près de sa taille à l'écran
         private static readonly Color MER = new Color(0.08f, 0.16f, 0.3f), BORD = new Color(0.1f, 0.08f, 0.06f); private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
@@ -29,6 +30,7 @@ namespace Forge.Pont {
         public int CellulesServies { get; private set; } = -1;
         public int CellulesPosees => racine != null ? racine.childCount : 0;
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
+        public VueDeCarte Vue { get; private set; } // ce que la caméra créée montre ; null sans carte posée ou avec une caméra donnée
         private void Start() => Demarrer();
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         private void OnDestroy() => Arreter();
@@ -94,6 +96,7 @@ namespace Forge.Pont {
                 objet.GetComponent<MeshFilter>().sharedMesh = maillage; objet.GetComponent<MeshRenderer>().sharedMaterial = materiau;
             }
             Tracer(lue, carte.Origine, defaut); Nommer(lue, carte.Origine);
+            if (cameraCreee && camera != null && racine.childCount > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
             CellulesServies = lue.Cellules.Count; Dire(""); Cadrer();
         }
         // Un trait par anneau servi, déjà fermé : l'extérieur de chaque polygone, puis ses trous.
@@ -125,11 +128,10 @@ namespace Forge.Pont {
                 }
         }
         private static Vector3 Place(PointCarte point, PointCarte origine, float hauteur) { Vector3 p = TriangulationDeCarte.Point(point.X, point.Y, origine); p.y = hauteur; return p; }
-        // Seule la caméra créée est cadrée : une caméra donnée n'est jamais touchée.
+        // Seule la caméra créée est cadrée, sur la vue : une caméra donnée n'est jamais touchée.
         private void Cadrer() {
-            if (!cameraCreee || racine == null || camera == null) return;
-            camera.transform.SetPositionAndRotation(transform.TransformPoint(new Vector3(boite.center.x, HAUTEUR_CAMERA, boite.center.z)), VERS_LE_BAS);
-            camera.orthographicSize = Mathf.Max(boite.extents.z, boite.extents.x / camera.aspect) * MARGE_CADRE;
+            if (Vue == null || camera == null) return;
+            Vue.Changer(camera.aspect); Vue.Poser(camera, transform, HAUTEUR_CAMERA);
         }
         private void Dire(string message) { texte.text = message; texte.gameObject.SetActive(message != ""); }
     }
