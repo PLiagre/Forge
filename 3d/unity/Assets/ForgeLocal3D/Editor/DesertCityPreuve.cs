@@ -140,6 +140,22 @@ namespace ForgeLocal3D
             }
         }
 
+        // Les gestes de la session jouer, rejoués tels quels par la capture du lot 388 sur la ville ouverte : la route,
+        // la parcelle et la scierie par l'outil, puis sept ticks, et le relevé de la ville. Le rapport porte ses défauts :
+        // la capture refuse d'en photographier un qui en a.
+        internal static Rapport JouerLesGestes(DesertRoadTool tool)
+        {
+            var report=new Rapport{session="jouer",implantation=tool.roads.implantation,cell=tool.Cellule,port=tool.Port,tick_ouverture=tool.TickOuverture};
+            var faults=new List<string>();
+            tool.automatique=true;
+            report.ouverture=Relever(tool,Acceptees(tool.Ouverture));
+            long tickAtelier=Gestes(tool,DesertRoads.Lire(report.implantation),report,faults);
+            if(report.ville.tick>=0)JugerReleve(report.session,report.ville,faults);
+            else if(faults.Count==0)faults.Add("jouer, tick "+N(tickAtelier)+" : la ville n'a pas été relevée");
+            report.defauts=faults.ToArray();
+            return report;
+        }
+
         static long[] Acceptees(IEnumerable<(long identifiant,DesertRoads.Resultat resultat)> essais)=>essais.Where(e=>e.resultat.acceptee).Select(e=>e.identifiant).ToArray();
 
         // La ville telle que l'outil l'a dessinée en dernier, et le plan relu maintenant.
