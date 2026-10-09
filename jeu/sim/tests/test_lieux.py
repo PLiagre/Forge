@@ -235,11 +235,15 @@ def _controle_bourg(monde):
     return différences
 
 
+def _controle_champs_etat_de_lieu(classe):
+    assert {champ.name for champ in dataclasses.fields(classe)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "mortality_remainder", "natalite_remainder", "maitre"}
+
+
 def test_amorcage_conserve_habitants_et_panier(monkeypatch):
     import sim.lieux as lieux_module
     from sim.model import Cell, EtatDeLieu, cellule_vers_dict
 
-    assert {champ.name for champ in dataclasses.fields(EtatDeLieu)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "mortality_remainder", "natalite_remainder"}
+    _controle_champs_etat_de_lieu(EtatDeLieu)
     assert issubclass(EtatDeLieu, _NoBadSpatialField)
     monde = World.charger(0)
     contrôlées = _controle_conservation(monde)
@@ -390,7 +394,7 @@ def test_amorcage_documente():
     def contrôler(texte):
         section = texte.split("### Ce que porte un lieu\n", 1)[1]
         section = section.split("\n### ", 1)[0].split("\n## ", 1)[0]
-        for attendu in ("amorcer_lieux", "lire_habitants_par_metier", "paysans", "bourg", "amorçage", "-1"):
+        for attendu in ("amorcer_lieux", "lire_habitants_par_metier", "paysans", "bourg", "amorçage", "-1", "maitre", "None", "tout lieu chargé"):
             assert attendu in section, f"{attendu} absent de Ce que porte un lieu"
         assert "`amorcer_lieux` partage la population et chaque marchandise selon les surfaces" not in section
         lieux = texte.split("## Les lieux d'une cellule, vue dérivée\n", 1)[1].split("\n## ", 1)[0]
@@ -398,6 +402,7 @@ def test_amorcage_documente():
 
     texte = (pathlib.Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
     contrôler(texte)
+    with pytest.raises(AssertionError, match="maitre"): contrôler(texte.replace("maitre", "attribut retiré"))
     avant, reste = texte.split("### Ce que porte un lieu\n", 1)
     section, après = reste.split("\n### ", 1)
     with pytest.raises(AssertionError, match="paysans"):
@@ -1278,3 +1283,34 @@ def test_maillons_production_fabrication_extraction_tiennent_leurs_lieux(saison_
     assert [l.stocks['nourriture'] for l in cellule.lieux] == [s + recolte * a / cellule.area_km2 for s, a in zip(stocks_avant, surfaces)]
     engine._apply_consumption(cellule, monde.carte)
     assert _controle_conservation(monde) == len(monde.cells)
+
+
+def test_maitre_etat_manuel(monkeypatch):
+    from sim import world, maitres
+    from sim.model import Cell, EtatDeLieu, creer_etat_de_lieu, cellule_vers_dict
+    def interdit(*args, **kwargs): raise AssertionError("chargement implicite")
+    for module, nom in ((world, "charger_registre_maisons"), (maitres, "attribuer_maitres"),
+                        (world, "amorcer_lieux"), (World, "lire_carte")):
+        monkeypatch.setattr(module, nom, interdit)
+    anciens = EtatDeLieu(0, 7, {"grain": 2.5}, 1.5, 3)
+    nomme = creer_etat_de_lieu(1, 2, {}, maitre="maison-déclarée")
+    absent = creer_etat_de_lieu(2, 0, {}, maitre=None)
+    assert (anciens.maitre, nomme.maitre, absent.maitre) == (None, "maison-déclarée", None) and (anciens.dette_alimentaire_kg, anciens.duree_faim_ticks) == (1.5, 3)
+    cellule = Cell(1, 1.0, 9, lieux=[anciens, nomme, absent])
+    monde = World({1: cellule}, [])
+    assert monde.maisons == () and World({2: Cell(2, 1.0, 0)}, []).cells[2].lieux == []
+    attendu = [dataclasses.asdict(lieu) for lieu in cellule.lieux]
+    def verifier(document):
+        assert document and document == attendu
+    verifier(cellule_vers_dict(cellule)["lieux"])
+    verifier(monde.to_dict()["cells"]["1"]["lieux"])
+    for geste in (lambda f: f.pop("maitre"), lambda f: f.update(parasite=0)):
+        document = cellule_vers_dict(cellule)["lieux"]
+        geste(document[0])
+        with pytest.raises(AssertionError): verifier(document)
+    @dataclasses.dataclass
+    class EtatDeLieuParasite(EtatDeLieu):
+        parasite: int = 0
+    _controle_champs_etat_de_lieu(EtatDeLieu)
+    with pytest.raises(AssertionError):
+        _controle_champs_etat_de_lieu(EtatDeLieuParasite)

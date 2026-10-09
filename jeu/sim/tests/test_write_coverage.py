@@ -455,3 +455,15 @@ def test_aucune_constante_terminale():
         "Soit un lecteur a disparu, soit la constante a survécu à sa cause "
         "et doit être retirée."
     )
+
+def test_maitre_couverture_contre_epreuves(tmp_path, monkeypatch):
+    import pytest
+    source = _MODEL_FILE.read_text(encoding="utf-8")
+    for site, remplacement in (("etatdelieu.maitre = maitre", "pass"),
+                               ('"maitre": lieu.maitre', '"maitre": None')):
+        assert source.count(site) == 1
+        copie = tmp_path / "model.py"
+        copie.write_text(source.replace(site, remplacement), encoding="utf-8")
+        monkeypatch.setattr(__import__(__name__, fromlist=["_"]), "_SIM_SOURCE_FILES", [_ENGINE_FILE, _WORLD_FILE, copie])
+        for controle in (test_all_dataclass_fields_have_write_and_read_sites, test_write_coverage_counter_etendu):
+            with pytest.raises(AssertionError): controle()

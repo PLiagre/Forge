@@ -1,0 +1,53 @@
+# Lot #542 — Le pont maille toute la carte, une couleur stable par puissance
+Jalon : J3 · Machine : pc · Taille prévue : 290 lignes
+
+## But
+Le pont sait transformer toute la carte servie en maillages de cellules, trous préservés, avec une couleur stable par puissance et un gris déclaré pour les cellules sans puissance.
+
+## Le joueur
+Lot de fond, même geste préparé que #541 : ouvrir sa carte dans Unity (#403), puis y choisir sa terre (#404) et régler la part qu'il prend ou ouvrir son grenier (#405), l'arbitrage du jalon J3 entre remplir son grenier et garder ses gens. Les royaumes pourront se reconnaître à leur couleur, sans cellule oubliée ni enclave bouchée. Rien de neuf n'est encore visible : le sous-lot 4 de #403, la scène de la carte, dessinera ces maillages et leurs couleurs. C'est le sous-lot 2 de #522 ; il dépend de #541 et réutilise la `CarteLue` de #520.
+
+## Règle du monde
+Sans objet : calcul de vue, sans changement de simulation ni de règle du monde. Il lit « La carte et les terres servies, vue dérivée » et « Les puissances de 1400, vue dérivée » de `jeu/sim/MODELE.md`. La puissance vient du service ; le gris signifie explicitement « sans puissance », jamais une puissance inventée. Aucun niveau de fidélité nouveau : contours et appartenances restent ceux du service. `cell_id` reste la seule clé spatiale.
+
+## Périmètre
+3d/unity/Assets/ForgeLocal3D/Pont/MaillageDeCarte.cs
+3d/unity/Assets/ForgeLocal3D/Pont/MaillageDeCarte.cs.meta
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/MaillageDeCarteTests.cs
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/MaillageDeCarteTests.cs.meta
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/carte-graine0.json
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/carte-graine0.json.meta
+
+Tout autre chemin est interdit. Les précisions suivantes décrivent ces seuls fichiers :
+
+- Dans `Forge.Pont`, `MaillageDeCarte.Mailler(CarteLue carte)` rend une `CarteMaillee` : `PointCarte Origine` et liste immuable de `MaillageDeCellule`, dans l'ordre de `carte.Cellules`. Chaque entrée porte `CellId`, `MaillageDePolygone Maillage` et `Color Couleur`. Les listes rendues sont copiées et en lecture seule.
+- L'origine est calculée en double : centre de la boîte englobant tous les points des contours de la carte, trous compris. Pour chaque cellule, appeler `TriangulationDeCarte.Trianguler` de #541 sur chacun de ses polygones avec cette même origine, puis concaténer leurs sommets dans l'ordre et reconstruire les indices consécutifs. Garder X est, Z nord, Y = 0, en kilomètres. Aucun algorithme de triangulation supplémentaire.
+- `CouleurPourPuissance(long id)` ne dépend que du numéro : par exemple `Color.HSVToRGB((float)((id * 0.6180339887498949) % 1.0), 0.65f, 0.85f)`, alpha 1. La formule et ses constantes sont déclarées. Ni nom, ni maison, ni cellule, ni rang, ni hasard n'intervient. `CouleurSansPuissance` est un gris public déclaré, par exemple `(0.5f, 0.5f, 0.5f, 1f)`, réservé à `Puissance == null`.
+- Une carte nulle lève `ArgumentNullException`. Une carte vide, une cellule sans triangle ou avec au moins 65 535 sommets sont refusées avant de rendre le résultat, avec une cause et, pour une cellule, son `CellId`. Aucune carte partielle n'est rendue.
+- La fixture est le corps UTF-8 brut de `GET /carte`, graine 0, sans tick ni horloge : lancer depuis `jeu/` `py -m sim.service --seed 0 --port 8000 --jours-par-seconde 0`, puis enregistrer les octets HTTP sans reformater, BOM ni saut de ligne ajouté. Elle reste une seule ligne et sert uniquement aux tests, jamais à la carte du jeu.
+- Dans `Forge.Pont.Tests`, un faux service `HttpListener` sur un port libre rend ces octets ; reprendre le principe de `ClientCarteTests` sans modifier ce fichier. Lire par `ClientCarte` avec `DelaiMinimal`, vérifier la lecture présente, puis mailler. Partager cette préparation entre les nouveaux cas. Lire la fixture sous `Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json"` ; ne pas créer de `Resources`.
+
+## Conditions de succès
+**SC1 — compilation et preuve rouge puis verte.** Sur le PC, avec l'éditeur de `3d/unity/ProjectSettings/ProjectVersion.txt`, depuis la racine :
+```powershell
+Unity.exe -batchmode -nographics -projectPath 3d/unity -runTests -testPlatform EditMode -assemblyNames Forge.Pont.Tests -testResults "$env:TEMP\pont-542.xml" -logFile "$env:TEMP\pont-542.log"
+```
+Sans `-quit`. Exiger sortie 0, XML sans échec ni cas nouveau ignoré, au moins les quatre nouveaux cas nommés ci-dessous dans `MaillageDeCarteTests`, et tous les cas existants sous leurs mêmes noms et en même nombre. Le workflow `unity` doit aussi être vert. Contre-épreuve : écrire les nouveaux tests d'abord et constater le rouge avec `Mailler` absent ou rendant une liste vide ; conserver ce constat dans la PR, puis rétablir le vert.
+
+**SC2 — toute la vraie carte, dans son ordre.** Commande SC1 avec `-testFilter Forge.Pont.Tests.MaillageDeCarteTests.ToutesLesCellules`. La fixture compte exactement 464 180 octets, SHA-256 `9b729f9ada67a1e514a8029893a8cb4d04d2dbb91cd33c5ef5fa83d63a024981` (mesuré le 08/10/2026). Le faux service reçoit `/carte` sans requête. Dériver de la carte lue les comptes et la boîte ; vérifier 596 cellules, 675 polygones, 71 trous, 39 numéros de puissance distincts et 31 cellules sans puissance. La liste rendue égale exactement les `CellId` lus, dans leur ordre, sans omission ni doublon. L'origine dérivée vaut (4 549 691,5 ; 2 747 267,5) m ; elle n'est pas figée dans le code de production. Chaque cellule a entre 1 et 65 534 sommets, un multiple de 3, autant d'indices, `Triangles[i] == i`, des coordonnées finies, Y = 0 et des triangles tournés vers le haut selon le produit de #541. Les sommets égalent la concaténation des triangulations de ses polygones à l'origine attendue. Contre-épreuves : omettre une cellule, inverser la liste ou utiliser l'origine (0, 0) doit faire échouer ce cas.
+
+**SC3 — chaque point intérieur couvert exactement une fois.** Commande SC1 avec `-testFilter Forge.Pont.Tests.MaillageDeCarteTests.LaGrilleRespecteLesContours`. Pour chaque cellule, dériver la boîte de ses contours ; prendre les 256 points `x = xmin + (i + 0.5) * (xmax - xmin) / 16`, `y = ymin + (j + 0.5) * (ymax - ymin) / 16`, i et j de 0 à 15. Écarter seulement les points à distance strictement inférieure à 10 m d'un segment des anneaux de cette cellule, fermeture comprise ; calculer cette distance au segment, pas à la droite. L'oracle indépendant utilise le rayon horizontal pair-impair en double sur les coordonnées servies : intérieur d'un extérieur, hors de chacun de ses trous, union des polygones. Il ne lit ni les triangles ni les bandes de #541.
+
+Compter les triangles contenant le point converti en kilomètres autour de l'origine attendue : exactement 1 dedans, exactement 0 dehors. Sur une arête interne, attribuer le point à un seul côté par une règle semi-ouverte identique pour tous les triangles ; ne pas supprimer ces points et ne pas ramener le compte à un booléen. Afficher les comptes dérivés et les premiers écarts avec `CellId` et coordonnées. Chaque cellule garde des points contrôlés ; les totaux dedans et dehors sont positifs. Mesure de référence : 152 259 contrôlés, dont 89 935 dedans et 62 324 dehors ; 317 écartés sur 152 576 candidats. Ces nombres viennent du calcul du test. Contre-épreuves : doubler les triangles d'une cellule et supprimer ceux d'une cellule doivent chacun rougir, avec respectivement des couvertures 2 et 0 là où 1 est attendu.
+
+**SC4 — aucun des 71 trous bouché.** Commande SC1 avec `-testFilter Forge.Pont.Tests.MaillageDeCarteTests.ChaqueTrouResteVide`. En plus de la grille, chaque trou fournit au moins un témoin strictement dans ce trou, dans son extérieur et hors de tous les polygones remplis de la cellule, vérifié par l'oracle. Le trouver en coupant le trou aux ordonnées médianes entre ses niveaux de sommets distincts, puis aux milieux des intervalles intérieurs ; parmi les candidats valides, retenir celui le plus éloigné des segments de la cellule. L'absence de candidat échoue, elle ne saute jamais un trou. Exiger 71 trous visités, 71 témoins, couverture 0 pour chacun. La marge de 10 m concerne seulement SC3 : le trou de 10326 est très étroit ; son témoin mesuré (5 251 721,770642202 ; 2 039 609) m est à environ 0,77 m du bord et reste contrôlé. Contre-épreuve : mailler les mêmes extérieurs sans leurs trous, sans changer la fixture ni l'oracle ; les témoins doivent faire échouer ce cas. Restaurer ensuite les trous.
+
+**SC5 — couleurs stables et absences déclarées.** Commande SC1 avec `-testFilter Forge.Pont.Tests.MaillageDeCarteTests.CouleursEtRefus`. Dériver les 39 numéros de la carte : leurs 39 couleurs sont distinctes, opaques, différentes du gris ; les 31 cellules sans puissance ont exactement le gris déclaré et ses trois composantes RGB égales. Deux appels rendent les mêmes couleurs, sommets et indices. Remailer une `CarteLue` aux cellules inversées et aux noms et maisons changés, contours et numéros de puissance conservés : comparer par `CellId`, les couleurs restent identiques ; le résultat suit le nouvel ordre. Vérifier aussi les refus d'une carte nulle, d'une carte vide et d'une cellule au polygone plat, avec son identifiant dans la cause. Contre-épreuves : choisir la couleur par rang, par maison, ou rendre le gris pour toutes les puissances fait échouer ce cas ; rendre silencieusement une cellule vide fait échouer le refus.
+
+**SC6 — périmètre et budget tenus.** Commandes `py -m pytest jeu -q` sur le PC, `git diff --name-only origin/master...HEAD` et `git diff --numstat origin/master...HEAD` après enregistrement par le pilote. Suite du jeu verte, aucun test existant retouché ; seulement les six fichiers autorisés et ce brief. Le total ajouté et supprimé reste strictement inférieur à 300 lignes, brief, fixture et `.meta` compris ; prévoir environ 55 lignes de production, 115 de tests et 120 pour le brief, la fixture et les métadonnées. Contre-épreuves : toute ligne dans un autre chemin ou un total de 300 lignes fait échouer ce contrôle, même si les tests passent.
+
+## Hors périmètre
+Scène, caméra, matériau, objet Unity `Mesh`, dessin des frontières, panneaux, sélection de terre et lanceur : les lots suivants de #403, puis #404 et #405. Aucun changement de `ClientCarte`, de la triangulation de #541, des tests existants, des asmdef, du service, de la carte source ou de `jeu/sim/MODELE.md`. Aucun lissage, réparation des anneaux ni partage de sommets. Aucun chemin protégé de la chaîne.
+
+## Photo
+Sans objet : rien ne dessine encore la carte. Ce lot ajoute seulement un calcul et ses tests, sans scène ni outil visible. La scène de la carte, sous-lot 4 de #403, rendra les maillages et leurs couleurs visibles et portera son scénario de capture.

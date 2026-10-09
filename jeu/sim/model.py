@@ -110,7 +110,7 @@ def cellule_vers_dict(cell: "Cell") -> dict:
         "migration_remainder": cell.migration_remainder,
         "stocks": dict(cell.stocks),
         "lieux": [
-            asdict(lieu)
+            {**asdict(lieu), "maitre": lieu.maitre}
             for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
         ],
     }
@@ -118,7 +118,7 @@ def cellule_vers_dict(cell: "Cell") -> dict:
 
 @dataclass
 class EtatDeLieu(_NoBadSpatialField):
-    """Habitants, panier, dette, faim et reports locaux d'un rang."""
+    """Habitants, panier, dette, faim, reports locaux et maître déclaré d'un rang."""
 
     rang: int
     population: int
@@ -127,19 +127,28 @@ class EtatDeLieu(_NoBadSpatialField):
     duree_faim_ticks: int = 0
     mortality_remainder: float = 0.0
     natalite_remainder: float = 0.0
+    maitre: str | None = None
+
+
+def ecrire_maitre(etatdelieu: EtatDeLieu, maitre: str | None) -> None:
+    """Pose le maître déclaré, sans inventer de maison en cas d'absence."""
+    etatdelieu.maitre = maitre
 
 
 def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float], *,
                        dette_alimentaire_kg: float = 0.0,
                        duree_faim_ticks: int = 0,
                        mortality_remainder: float = 0.0,
-                       natalite_remainder: float = 0.0) -> EtatDeLieu:
+                       natalite_remainder: float = 0.0,
+                       maitre: str | None = None) -> EtatDeLieu:
     """Crée l'état d'un rang avec son propre panier, sans clé recopiée."""
-    return EtatDeLieu(rang=rang, population=population, stocks=dict(stocks),
-                      dette_alimentaire_kg=dette_alimentaire_kg,
-                      duree_faim_ticks=duree_faim_ticks,
-                      mortality_remainder=mortality_remainder,
-                      natalite_remainder=natalite_remainder)
+    etatdelieu = EtatDeLieu(rang=rang, population=population, stocks=dict(stocks),
+                          dette_alimentaire_kg=dette_alimentaire_kg,
+                          duree_faim_ticks=duree_faim_ticks,
+                          mortality_remainder=mortality_remainder,
+                          natalite_remainder=natalite_remainder)
+    ecrire_maitre(etatdelieu, maitre)
+    return etatdelieu
 
 
 @dataclass
