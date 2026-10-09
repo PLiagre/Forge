@@ -22,6 +22,7 @@ from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.maisons import charger_maisons
+from sim.noms import noms_depuis_monde
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
@@ -151,6 +152,8 @@ class ServeurMonde(ThreadingHTTPServer):
         self._generation_vitesse = 0
         self._arret_horloge = False
         self._tick_en_cours = False
+        self._signature_noms = lambda: (self.world.maisons, tuple((cid, c.area_km2, tuple((l.rang, l.maitre) for l in c.lieux)) for cid, c in sorted(self.world.cells.items())))
+        self._empreinte_noms = self._signature_noms(); self._noms = noms_depuis_monde(self.world)
         self.etat_publie = self._construire_etat(jours_par_seconde, -1)
         self._fil_horloge = threading.Thread(
             target=self._faire_avancer_horloge,
@@ -193,6 +196,9 @@ class ServeurMonde(ThreadingHTTPServer):
             _cellule_legere(self.world.cells[cell_id])
             for cell_id in sorted(self.world.cells)
         ]
+        signature = self._signature_noms()
+        if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world); self._empreinte_noms = signature
+        noms = self._noms
         numero_tick = self.world.ticks_ecoules
         date = self.world.date_simulation
         # Les lieux s'ajoutent après l'arrondi, comme dans la photographie, par la même fonction.
@@ -207,6 +213,7 @@ class ServeurMonde(ThreadingHTTPServer):
                     "lieux": lieux_en_photographie(
                         cellule["cell_id"], self.world.cells[cellule["cell_id"]]
                     ),
+                    "noms": noms[cellule["cell_id"]],
                     "tick": numero_tick,
                     "date": date,
                 }

@@ -1680,7 +1680,7 @@ les maîtres inconnus, les ids dupliqués et tout écart à la règle, couple no
 `valider_registre_maisons` refuse les suzerains inconnus et cycles.
 Niveau 2, plausible, jamais sourcé : les quatre lieux, groupes de trois,
 maisons plausibles et suzerains. Le maître est stocké au chargement.
-Niveau 3 : changement de maître et noms plausibles (#392).
+Niveau 3 : changement de maître. Les noms plausibles sont une vue de niveau 2.
 La photographie et `/lieu` portent le maître de chaque lieu ; `/monde` ne le
 porte pas. Le tick ne lit ni les maîtres ni le registre et ne réattribue rien.
 
@@ -2000,7 +2000,11 @@ l'échelle d'une cellule », vu ici par sa surface et sa part des habitants ; il
 loge tous les non-paysans à l'amorçage. Les gens des villes nommées, paysans
 à l'amorçage A, restent répartis selon les surfaces.
 Les chemins limitent la distribution alimentaire intérieure décrite ci-dessous.
-La forme, la position, les frontières et les noms des lieux ne sont pas simulés.
+La forme, la position et les frontières des lieux ne sont pas simulées.
+Les noms sont une vue pure `sim/noms.py` hors du tick : niveau 1 pour le siège historique du bourg (seigneuries par id), sinon la ville placée de plus forte population historique, puis nom croissant ; niveau 2, plausible, jamais sourcé, pour `data/noms-1400.json`.
+La première règle applicable lit puissance, religion dans la table des puissances et position du centroïde ; sans puissance, les règles géographiques déclarent puissance et religion absentes. Une absence de règle ou une liste insuffisante est refusée.
+Le bloc frère `noms = {"lieux": [{"rang": R, "nom": N}], "maisons": {IDENTIFIANT: {"nom": N, "prenom_chef": P}}}` est identique dans la photographie et `/lieu`. Les maisons suivent leur fiche et leur rang initial, jamais le lieu consulté ; les historiques gardent leur nom et un prénom `null`, absence déclarée.
+Les noms distincts suivent un décalage de `cell_id`, sans aléa ni réemploi, en réservant le nom historique. Seuls version des listes ou règles, données historiques, puissance/religion/position ou découpage changent les noms ; graine, tick, population, faim, maître consulté et ordre des dictionnaires sont sans effet à carte, tables et rangs identiques.
 
 ### Ce que porte un lieu
 

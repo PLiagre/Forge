@@ -35,7 +35,7 @@ namespace Forge.Pont.Tests
             var lieu = LecteurJson.LireObjet(TexteFige());
 
             CollectionAssert.AreEqual(
-                new[] { "cell_id", "date", "food_deficit_kg", "foyers", "hunger_ticks", "lieux", "population", "stocks", "tick" },
+                new[] { "cell_id", "date", "food_deficit_kg", "foyers", "hunger_ticks", "lieux", "noms", "population", "stocks", "tick" },
                 lieu.Keys.ToArray());
             var date = (Dictionary<string, object>)lieu["date"];
             Assert.AreEqual(2, date.Count);
@@ -77,6 +77,10 @@ namespace Forge.Pont.Tests
             var lieux = (List<object>)lieu["lieux"];
             Assert.AreEqual(15, lieux.Count);
             var maitresAttendus = new[] { "plausible-9922-0", "plausible-9922-3", "plausible-9922-6", "plausible-9922-9", "plausible-9922-12" };
+            var noms = (Dictionary<string, object>)lieu["noms"];
+            CollectionAssert.AreEqual(new[] { "lieux", "maisons" }, noms.Keys.ToArray()); var nomsLieux = (List<object>)noms["lieux"];
+            var maisons = (Dictionary<string, object>)noms["maisons"];
+            CollectionAssert.AreEqual(maitresAttendus, maisons.Keys.ToArray()); Assert.AreEqual(lieux.Count, nomsLieux.Count);
             double sommePopulation = 0.0;
             for (int rang = 0; rang < lieux.Count; rang++)
             {
@@ -88,6 +92,12 @@ namespace Forge.Pont.Tests
                 Assert.IsTrue((double)unLieu["rang"] == rang, "le rang du lieu vaut son indice");
                 Assert.IsInstanceOf<string>(unLieu["maitre"]);
                 Assert.AreEqual(maitresAttendus[rang / 3], unLieu["maitre"]);
+                var nomLieu = (Dictionary<string, object>)nomsLieux[rang];
+                CollectionAssert.AreEqual(new[] { "nom", "rang" }, nomLieu.Keys.ToArray()); Assert.AreEqual((double)rang, nomLieu["rang"]);
+                Assert.IsNotEmpty((string)nomLieu["nom"]);
+                var maison = (Dictionary<string, object>)maisons[(string)unLieu["maitre"]];
+                CollectionAssert.AreEqual(new[] { "nom", "prenom_chef" }, maison.Keys.ToArray());
+                Assert.IsNotEmpty((string)maison["nom"]); Assert.IsNotEmpty((string)maison["prenom_chef"]);
                 var panier = (Dictionary<string, object>)unLieu["stocks"];
                 CollectionAssert.AreEqual(
                     stocks.Keys.ToArray(), panier.Keys.ToArray(),
