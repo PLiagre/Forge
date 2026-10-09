@@ -1275,3 +1275,34 @@ def test_noms_maisons():
     for c, fiches in ((cid, {**vue[cid]['maisons'], a: vue[cid]['maisons'][b]}), (cid, {**vue[cid]['maisons'], a: {**vue[cid]['maisons'][a], 'prenom_chef': 'Autre'}}), (m.cell_id, {**vue[m.cell_id]['maisons'], m.id: {'nom': 'Autre', 'prenom_chef': None}}), (cid, {i: f for i,f in vue[cid]['maisons'].items() if i != a})):
         faux = copy.deepcopy(vue); faux[c]['maisons'] = fiches
         with pytest.raises(AssertionError): verifier(faux)
+
+
+def test_part_etat(monkeypatch):
+    import sim.constants as k
+    monde = World.charger(0); ids = {m.id for m in monde.maisons}
+    assert ids and {m.sorte for m in monde.maisons} >= {"plausible", "institution", "seigneurie"}
+    assert any(n > 1 for n in Counter(m.nom for m in monde.maisons).values())
+    def verifier(document):
+        assert set(monde.parts) == ids
+        attendu = {i: p for i, p in sorted(monde.parts.items()) if p != k.PART_COUTUMIERE}
+        assert document.get("parts", {}) == attendu and bool(attendu) == ("parts" in document)
+    assert monde.parts == dict.fromkeys(ids, k.PART_COUTUMIERE) and World({}, []).parts == {}
+    verifier(monde.to_dict())
+    identifiant, autre = sorted(ids)[:2]
+    valeur = monde.parts.pop(identifiant)
+    with pytest.raises(AssertionError): verifier(monde.to_dict())
+    monde.parts[identifiant] = valeur
+    with pytest.raises(AssertionError): verifier(monde.to_dict() | {"parts": dict(monde.parts)})
+    monde.parts[identifiant], monde.parts[autre] = 0, 0.12345678912345678
+    document = monde.to_dict(); verifier(document)
+    assert list(document["parts"]) == sorted(document["parts"])
+    with pytest.raises(AssertionError): verifier(document | {"parts": {identifiant: 0, autre: 0.123}})
+    monde.parts = dict(reversed(list(monde.parts.items())))
+    assert monde.to_dict() == document
+    document["parts"][autre] = 0
+    assert monde.parts[autre] == 0.12345678912345678
+    monde.parts[identifiant] = monde.parts[autre] = k.PART_COUTUMIERE
+    verifier(monde.to_dict())
+    monkeypatch.setattr(k, "PART_COUTUMIERE", 0.17)
+    charge = World.charger(0)
+    assert charge.parts == dict.fromkeys(ids, 0.17) and "parts" not in charge.to_dict()
