@@ -10,7 +10,7 @@ Ce lot de fond prépare le choix de J3 : prendre davantage sur ses lieux ou ouvr
 ## Règle du monde
 Dépend de : #334. Découle de `jeu/sim/MODELE.md`, sections « Le commerce entre cellules », « La migration de famine », « La distribution à l'intérieur de la cellule » et « Les lieux d'une cellule, vue dérivée ». Niveau 2 : passage par le bourg, chemins, départs et accueil plausibles, jamais sourcés. Niveau 1 inchangé : carte et amorçage de 1400. Niveau 3 : délais, pertes, bagages des migrants, métiers propres aux lieux et tracé des chemins non simulés.
 
-La décision technique **A** du pilote est acquise : adapter la preuve annuelle des écritures extérieures dans son test actuel et régénérer les références figées du pont et du service, avec toutes leurs exigences. Aucune nouvelle question. Les seules adaptations de tests existants autorisées sont précisées en SC4 et SC6 ; tous les autres cas s'ajoutent aux fichiers qui portent l'invariant.
+La décision technique **A** du pilote est acquise : adapter la preuve annuelle des écritures extérieures dans son test actuel et régénérer les références figées du pont et du service, avec toutes leurs exigences. La décision distincte **A** du propriétaire autorise aussi la seule empreinte Forge à 30 ticks, précisée au diagnostic de correction. Aucune nouvelle question. Les autres adaptations de tests existants autorisées sont précisées en SC4 et SC6 ; tous les autres cas s'ajoutent aux fichiers qui portent l'invariant.
 
 **Commerce.** Besoin et surplus restent calculés sur les stocks et populations de cellule, par l'instantané et les formules actuelles. L'offre exportable est en outre bornée par ce qui peut quitter le bourg : son surplus local, puis les surplus des champs acheminés par rang croissant. Un champ garde sa ration locale ; son apport est borné par `capacite_chemins_interieurs_kg(1, facteur_transport)`, relue depuis les constantes actuelles. Ne remonter que les quantités effectivement expédiées. Une capacité intérieure nulle bloque l'apport des champs ; un bourg déjà en surplus peut toujours exporter. Une cellule à un seul lieu ne calcule aucun chemin.
 
@@ -33,6 +33,7 @@ jeu/sim/MODELE.md
 jeu/sim/tests/test_commerce.py
 jeu/sim/tests/test_lieux.py
 jeu/sim/tests/test_monde.py
+jeu/forge/tests/test_forge.py (uniquement l'empreinte à 30 ticks, décision A du propriétaire)
 3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json
 3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick4.json
 3d/unity/Assets/ForgeLocal3D/Pont/Tests/LecteurJsonTests.cs
@@ -72,11 +73,10 @@ comme en CI. Les deux photographies ont les mêmes clés hors cellules ;
 migration des seuls lieux affamés. Restaurer ce moteur abandonnerait donc
 les règles du lot.
 
-La décision A couvre les références du pont et du service, pas la référence
-Forge. `jeu/forge/tests/test_forge.py` reste hors périmètre : aucune assertion
-ni empreinte de ce fichier n'a été modifiée. La référence Forge demande une
-décision distincte avant toute régénération ; ce diagnostic n'élargit pas le
-périmètre.
+La décision distincte A du propriétaire ajoute `jeu/forge/tests/test_forge.py`
+au périmètre, uniquement pour remplacer l'empreinte à 30 ticks par
+`4775cd7c576c32b4b647b8bd9f82061ac1216b5c658969afd254fdcf081cf694`.
+L'empreinte du tick 0 et toutes les vérifications restent inchangées.
 
 Contrôles exécutés pour ce diagnostic, avec les commandes SC1 à SC8 ci-dessus
 depuis `jeu/` :
@@ -98,5 +98,16 @@ Commandes complémentaires jouées :
 - `python3 -m pytest vues/relief/tests/test_carte1400.py -q -k capitales_ia_sans` : 1 test vert, référence de la carte conservée.
 - `python3 -m pytest forge/tests/test_forge.py -q -k forge_ia_sans` : 1 test vert au tick 0, 1 échec au tick 30 sur la seule empreinte figée ci-dessus.
 
+Validation après la décision A sur Forge : l'échec à 30 ticks a été reproduit
+avant le remplacement de sa seule empreinte. Toutes les commandes SC1 à SC8
+ont été rejouées, avec les mêmes nombres de tests verts que dans le tableau.
+SC4 garde ses 365 ticks, 594 cellules dont la population change, 51 marchandises
+apparues et 6 619 lieux modifiés. Pour SC7, joué seul après les autres tests,
+la médiane est de 87,08 ms et le maximum de 114,85 ms ; le budget médian reste
+100 ms et la contre-épreuve ralentie échoue à 1 413,83 ms de médiane.
+`python3 -m pytest forge/tests/test_forge.py -q` passe ensuite ses 26 tests,
+y compris les deux empreintes aux ticks 0 et 30 et leurs contre-épreuves.
+Aucune suite entière n'a été lancée.
+
 ## Hors périmètre
-Maîtres des lieux, prélèvement, dû au suzerain, ouverture du grenier et départs pour mieux vivre (#399) ; nouvelle calibration, report migratoire local, réforme des métiers, de la récolte, des formules de fabrication/extraction ou des règles maritimes ; nouvelles clés de service ou de photographie, publication de faim/dette/reports, gestes ou scènes Unity. Les seuls changements de tests existants sont l'adaptation annuelle de SC4 et les références numériques régénérées de SC6. Aucun fichier de la chaîne, aucun commit, aucune poussée ni commande GitHub.
+Maîtres des lieux, prélèvement, dû au suzerain, ouverture du grenier et départs pour mieux vivre (#399) ; nouvelle calibration, report migratoire local, réforme des métiers, de la récolte, des formules de fabrication/extraction ou des règles maritimes ; nouvelles clés de service ou de photographie, publication de faim/dette/reports, gestes ou scènes Unity. Les seuls changements de tests existants sont l'adaptation annuelle de SC4, les références numériques régénérées de SC6 et l'empreinte Forge à 30 ticks autorisée par la décision A du propriétaire. Aucun fichier de la chaîne, aucun commit, aucune poussée ni commande GitHub.
