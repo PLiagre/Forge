@@ -28,7 +28,7 @@ from sim.fleuve import (
     charger_latitude_moyenne_fleuve,
     charger_points,
 )
-from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise
+from sim.model import Cell, cellule_vers_dict, ecrire_stock_marchandise, ecrire_maitre
 from sim.lieux import amorcer_lieux
 from sim.plan import Plan
 from sim.pluie import (
@@ -251,6 +251,14 @@ class World:
                    carte=carte, carte_meta=carte_meta,
                    attribution_villes=attribution)
         monde.maisons = charger_registre_maisons(monde.carte)
+        from sim.maitres import attribuer_maitres
+
+        maitres, plausibles = attribuer_maitres(monde)
+        for cid, cellule in monde.cells.items():
+            for lieu in cellule.lieux:
+                if (cid, lieu.rang) in maitres:
+                    ecrire_maitre(lieu, maitres[cid, lieu.rang])
+        monde.maisons = tuple(sorted(monde.maisons + plausibles, key=lambda m: m.id))
         monde.greniers = {maison.id: {} for maison in monde.maisons}
         return monde
 

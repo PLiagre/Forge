@@ -713,6 +713,17 @@ def _octets_registre(document):
                       separators=(",", ":")).encode()
 
 
+def _preuve_registre_charge(monde, documents):
+    historiques = tuple(m for m in monde.maisons if m.sorte != "plausible")
+    _preuve_registre(historiques, documents, monde.carte)
+    copie = copy.copy(monde)
+    copie.maisons = historiques
+    attendus, plausibles = _attente_maitres(copie, puissances_depuis_monde(monde), charger_maisons())
+    assert plausibles and isinstance(monde.maisons, tuple)
+    assert monde.maisons == tuple(sorted(historiques + plausibles, key=lambda m: m.id))
+    assert len({m.id for m in monde.maisons}) == len(monde.maisons)
+    assert {(cid, l.rang): l.maitre for cid, c in monde.cells.items() for l in c.lieux} == attendus
+
 def test_registre_world(registre, monkeypatch):
     monde, documents, charger, _ = registre
     attendu = charger()
@@ -726,8 +737,17 @@ def test_registre_world(registre, monkeypatch):
         appels.append(carte)
         return charger_registre_maisons(carte)
     monkeypatch.setattr(etat_monde, "charger_registre_maisons", lecteur)
+    from sim import maitres
+    attribution, attributions = maitres.attribuer_maitres, []
+    def attribuer(monde):
+        assert monde.maisons == attendu and all(c.lieux for c in monde.cells.values())
+        assert appels == [monde.carte]
+        attributions.append(monde)
+        return attribution(monde)
+    monkeypatch.setattr(maitres, "attribuer_maitres", attribuer)
     charge = World.charger(0)
-    assert charge.maisons == attendu and isinstance(charge.maisons, tuple)
+    _preuve_registre_charge(charge, documents)
+    assert attributions == [charge]
     assert appels == [charge.carte]
     for maison in charge.maisons:
         with pytest.raises(dataclasses.FrozenInstanceError):
@@ -737,6 +757,8 @@ def test_registre_world(registre, monkeypatch):
     maisons_depuis_monde(charge)
     maisons_de_l_ia(charge)
     assert appels == [charge.carte]
+    assert attributions == [charge]
+    monkeypatch.setattr(maitres, "attribuer_maitres", attribution)
     retraits = [next(m for m in attendu if m.sorte == sorte) for sorte in categories]
     retraits += [m for m in attendu if m.nom in homonymes]
     faux = [tuple(m for m in attendu if m.id != retiree.id) for retiree in retraits]
@@ -744,7 +766,18 @@ def test_registre_world(registre, monkeypatch):
     for resultat in faux:
         monkeypatch.setattr(etat_monde, "charger_registre_maisons", lambda carte: resultat)
         with pytest.raises(AssertionError):
-            assert World.charger(0).maisons == attendu
+            _preuve_registre_charge(World.charger(0), documents)
+    p = next(m for m in charge.maisons if m.sorte == "plausible")
+    for fiches in (tuple(m for m in charge.maisons if m != p), charge.maisons + (p,),
+                   charge.maisons + (dataclasses.replace(p, id="plausible-ajouté"),),
+                   tuple(dataclasses.replace(m, nom="Altérée") if m == p else m for m in charge.maisons)):
+        copie = copy.copy(charge)
+        copie.maisons = fiches
+        with pytest.raises(AssertionError): _preuve_registre_charge(copie, documents)
+    for valeur in (None, "inconnu"):
+        copie = copy.deepcopy(charge)
+        copie.cells[next(iter(charge.cells))].lieux[0].maitre = valeur
+        with pytest.raises(AssertionError): _preuve_registre_charge(copie, documents)
     def refuser(carte):
         raise PuissanceInvalide("registre indisponible")
     monkeypatch.setattr(etat_monde, "charger_registre_maisons", refuser)
@@ -758,6 +791,7 @@ def test_registre_serialisation(monkeypatch):
     import sim.maisons as vues_maisons
     import sim.capitales as vues_capitales
     import sim.registre_maisons as lecteur
+    import sim.maitres as attribution
     monde = World.charger(0)
     registre = monde.maisons
     assert registre
@@ -768,6 +802,7 @@ def test_registre_serialisation(monkeypatch):
         raise AssertionError("lecture après chargement")
     for module, nom in ((etat_monde, "charger_registre_maisons"),
                         (lecteur, "charger_registre_maisons"),
+                        (attribution, "attribuer_maitres"),
                         (vues_maisons, "maisons_depuis_monde"),
                         (vues_capitales, "maisons_de_l_ia")):
         monkeypatch.setattr(module, nom, interdit)
@@ -1025,6 +1060,7 @@ def _attente_maitres(monde, vue, maisons, depart=4, groupe=3, priorite=True):
 @pytest.fixture(scope="module")
 def monde_maitres():
     monde = World.charger(0)
+    monde.maisons = charger_registre_maisons(monde.carte)
     return monde, puissances_depuis_monde(monde), charger_maisons()
 
 
@@ -1165,11 +1201,19 @@ def test_maitre_contre_epreuves(monde_maitres):
         valider_attribution(vide, {}, (), {}, maisons)
 
 
-def _importe_maitres(texte):
-    return any((isinstance(n, ast.ImportFrom) and
+def _importe_maitres(texte, chargement=False):
+    arbre = ast.parse(texte)
+    if chargement:
+        for fonction in (f for c in arbre.body if isinstance(c, ast.ClassDef) and c.name == "World"
+                         for f in c.body if isinstance(f, ast.FunctionDef) and f.name == "charger"):
+            fonction.body = []
+    return any((isinstance(n, ast.Call) and
+                (isinstance(n.func, ast.Name) and n.func.id == "attribuer_maitres" or
+                 isinstance(n.func, ast.Attribute) and n.func.attr == "attribuer_maitres"))
+               or (isinstance(n, ast.ImportFrom) and
                 (n.module == "sim.maitres" or n.module == "sim" and any(a.name == "maitres" for a in n.names)))
                or (isinstance(n, ast.Import) and any(a.name == "sim.maitres" for a in n.names))
-               for n in ast.walk(ast.parse(texte)))
+               for n in ast.walk(arbre))
 
 
 def test_maitre_pur(monde_maitres):
@@ -1186,5 +1230,30 @@ def test_maitre_pur(monde_maitres):
     with pytest.raises(dataclasses.FrozenInstanceError):
         premier[1][0].nom = "altéré"
     for fichier in ("engine.py", "world.py", "snapshot_export.py", "service.py"):
-        assert not _importe_maitres((TABLE.parents[1] / "sim" / fichier).read_text())
+        assert not _importe_maitres((TABLE.parents[1] / "sim" / fichier).read_text(), fichier == "world.py")
     assert _importe_maitres("from sim.maitres import attribuer_maitres")
+
+def test_maitre_permutations(monde_maitres, monkeypatch):
+    from sim.maitres import attribuer_maitres
+    monde, vue, maisons = monde_maitres
+    attendu = attribuer_maitres(monde, vue, maisons)
+    assert attendu[0] and attendu[1]
+    for cellules, fiches in ((True, False), (False, True), (True, True)):
+        copie = copy.copy(monde)
+        copie.cells = dict(reversed(list(monde.cells.items()))) if cellules else monde.cells
+        copie.maisons = tuple(reversed(monde.maisons)) if fiches else monde.maisons
+        assert attribuer_maitres(copie, vue, maisons) == attendu
+        if cellules:
+            couples = [(cid, l.rang) for cid, c in copie.cells.items() for l in c.lieux]
+            faux = (dict(zip(couples, attendu[0].values())), attendu[1])
+            with pytest.raises(AssertionError): assert faux == attendu
+        document = World.lire_carte()
+        if cellules: document["cellules"].reverse()
+        with monkeypatch.context() as garde:
+            if fiches: garde.setattr(etat_monde, "charger_registre_maisons", lambda carte: tuple(reversed(charger_registre_maisons(carte))))
+            charge = World.charger(0, document)
+        assert {(cid, l.rang): l.maitre for cid, c in charge.cells.items() for l in c.lieux} == attendu[0]
+        assert charge.maisons == tuple(sorted(monde.maisons + attendu[1], key=lambda m: m.id))
+    with pytest.raises(AssertionError): assert attribuer_maitres(World({}, []), {}, maisons)[0]
+    assert _importe_maitres("class World:\n def to_dict(self):\n  from sim.maitres import attribuer_maitres", True)
+    assert _importe_maitres("class World:\n def to_dict(self):\n  attribuer_maitres(self)", True)
