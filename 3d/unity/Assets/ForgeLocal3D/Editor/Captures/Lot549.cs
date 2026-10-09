@@ -29,7 +29,7 @@ namespace ForgeLocal3D.Captures
             var ouverte = new CarteOuverte();
             for (var e = Ouvrir(camera, ouverte); e.MoveNext();) yield return null;
             var carte = ouverte.Carte;
-            camera.CopyFrom(carte.camera); camera.aspect = FORME; carte.camera.enabled = false;
+            Photographier(camera, carte);
             Vector3 position = camera.transform.position; Quaternion rotation = camera.transform.rotation;
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             if (camera.transform.position != position || camera.transform.rotation != rotation)
@@ -75,6 +75,15 @@ namespace ForgeLocal3D.Captures
 
             carte.camera.aspect = FORME; yield return null; // le composant recadre
             ouverte.Carte = carte; ouverte.Scenes = liste.Length;
+        }
+
+        // La caméra photographiée prend la place de celle de la carte : sa pose, sa forme, et les panneaux de la carte (le
+        // message, l'horloge de #525), qui ne se dessinent que sur leur caméra.
+        internal static void Photographier(Camera camera, CarteDessinee carte)
+        {
+            camera.CopyFrom(carte.camera); camera.aspect = FORME; carte.camera.enabled = false;
+            foreach (Canvas toile in carte.GetComponentsInChildren<Canvas>(true))
+                if (toile.renderMode == RenderMode.ScreenSpaceCamera && toile.worldCamera == carte.camera) toile.worldCamera = camera;
         }
 
         // Le désert de côté : dans sa scène, tout objet qui ne mène pas à la caméra photographiée s'éteint, ses enfants aussi ;

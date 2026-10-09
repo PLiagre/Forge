@@ -54,7 +54,7 @@ namespace ForgeLocal3D.Captures
             if (Mathf.Abs(carte.camera.orthographicSize - vue.Demi) > TOLERANCE_KM)
                 throw new InvalidOperationException("la caméra de la carte montre " + N(carte.camera.orthographicSize) + " km de demi-hauteur, la vue " + N(vue.Demi));
 
-            camera.CopyFrom(carte.camera); camera.aspect = Lot549.FORME; carte.camera.enabled = false;
+            Lot549.Photographier(camera, carte);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             Debug.Log("CAPTURE_524 échelle " + N(vue.Echelle) + " · demi-hauteur " + N(vue.Demi) + " km sur " + N(demiEnsemble) + " · centre " + vue.Centre);
         }

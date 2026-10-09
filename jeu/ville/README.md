@@ -63,6 +63,9 @@ Pour ouvrir le jeu sur la carte de 1400 : `pc\Jouer.cmd --carte` (lot #524). Le
 lanceur passe `-forgeCarte` au jeu, qui quitte la ville au lancement pour la scène
 `Forge_Carte`. On s'y déplace en glissant (bouton gauche ou du milieu) et on
 zoome à la molette, vers le point sous la souris, sans sortir de la carte servie.
+En haut à droite, la date et la vitesse du monde, lues au service (lot #525) :
+Espace ou « Pause » arrête le monde et le relance à sa vitesse, + et − (ou les
+boutons) passent d'un palier à l'autre (0,5 à 20 jours par seconde).
 
 ## L'épreuve du jalon 1
 
