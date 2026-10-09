@@ -773,9 +773,14 @@ def test_tick_bit_pres_sur_une_annee(monkeypatch):
 def _point_registre_bit_pres(monde, alea, retour):
     document = monde.to_dict()
     document.pop("maisons")
+    for cellule in document["cells"].values():
+        for lieu in cellule["lieux"]:
+            lieu.pop("maitre")
+    cellules = {cid: {**vars(c), "lieux": [{k: v for k, v in vars(l).items() if k != "maitre"}
+                for l in c.lieux]} for cid, c in monde.cells.items()}
     # Les cellules complètes couvrent aussi les flottants que to_dict arrondit.
     octets = json.dumps(document, sort_keys=True).encode()
-    complet = pickle.dumps(({cid: vars(c) for cid, c in monde.cells.items()},
+    complet = pickle.dumps((cellules,
                             monde.stocks_mer, retour, alea.getstate()))
     # Chaque point inclut toute la carte, ses flottants et le graphe, sans arrondi.
     terrain = marshal.dumps((monde.carte, monde.carte_meta, monde.adjacency), 2)
@@ -791,7 +796,7 @@ def _comparer_registre_bit_pres(points, reference):
 @pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (0, 42), (42, 0), (42, 42)))
 def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
     import math
-    from sim import world as etat_monde
+    from sim import world as etat_monde, maitres
     from sim.model import lire_stock_marchandise, ecrire_stock_marchandise
     from sim.tests.test_maisons import _octets_registre
     from sim.registre_maisons import charger_registre_maisons
@@ -799,13 +804,20 @@ def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
     normal = World.charger(graine_monde, copy.deepcopy(carte))
     with monkeypatch.context() as contexte:
         contexte.setattr(etat_monde, "charger_registre_maisons", lambda carte: ())
+        contexte.setattr(maitres, "attribuer_maitres", lambda monde: ({}, ()))
         temoin = World.charger(graine_monde, copy.deepcopy(carte))
     assert normal is not temoin and normal.maisons and temoin.maisons == ()
     assert normal.cells and normal.carte
+    assert all(l.maitre is None for c in temoin.cells.values() for l in c.lieux)
     aleas = [random.Random(graine_tick) for _ in range(2)]
     registre = _octets_registre(normal.to_dict()["maisons"])
-    assert registre == _octets_registre([dataclasses.asdict(m)
-                                        for m in charger_registre_maisons(normal.carte)])
+    historiques = charger_registre_maisons(normal.carte)
+    assert tuple(m for m in normal.maisons if m.sorte != "plausible") == historiques
+    # L'historique exact et les points projetés prouvent les seuls nouveaux champs et fiches.
+    initiaux = {(cid, l.rang): l.maitre for cid, c in normal.cells.items() for l in c.lieux}
+    assert initiaux and all(initiaux.values())
+    def stabilite_maitres():
+        assert {(cid, l.rang): l.maitre for cid, c in normal.cells.items() for l in c.lieux} == initiaux
     def stabilite():
         assert _octets_registre(normal.to_dict()["maisons"]) == registre
     points, references = [], []
@@ -815,14 +827,28 @@ def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
             retours = [engine.tick(m, rng, numero - 1)
                        for m, rng in zip((normal, temoin), aleas)]
         stabilite()
+        stabilite_maitres()
         points.append(_point_registre_bit_pres(normal, aleas[0], retours[0]))
         references.append(_point_registre_bit_pres(temoin, aleas[1], retours[1]))
         _comparer_registre_bit_pres(points[-1:], references[-1:])
     assert len(points) == 366 and normal.ticks_ecoules == temoin.ticks_ecoules == 365
     _comparer_registre_bit_pres(points, references)
-    normal.maisons = (dataclasses.replace(normal.maisons[0], nom="Altérée"),) + normal.maisons[1:]
-    with pytest.raises(AssertionError):
-        stabilite()
+    initial = normal.maisons
+    for sorte in ("grande maison", "plausible"):
+        cible = next(m for m in initial if m.sorte == sorte)
+        normal.maisons = tuple(dataclasses.replace(m, nom="Altérée") if m == cible else m for m in initial)
+        with pytest.raises(AssertionError): stabilite()
+    normal.maisons = initial
+    lieu = next(iter(normal.cells.values())).lieux[0]
+    lieu.maitre = "inconnu"
+    with pytest.raises(AssertionError): stabilite_maitres()
+    lieu.maitre = initiaux[next(iter(normal.cells)), lieu.rang]
+    stock_lieu = next(l for c in normal.cells.values() for l in c.lieux if l.stocks)
+    marchandise, poids = next(iter(stock_lieu.stocks.items()))
+    stock_lieu.stocks[marchandise] = math.nextafter(poids, math.inf)
+    with pytest.raises(AssertionError, match="point 365"): _comparer_registre_bit_pres(
+        points[:-1] + [_point_registre_bit_pres(normal, aleas[0], retours[0])], references)
+    stock_lieu.stocks[marchandise] = poids
     cellule = next(c for c in normal.cells.values() if lire_stock_marchandise(c, "nourriture") >= 0)
     stock = lire_stock_marchandise(cellule, "nourriture")
     ecrire_stock_marchandise(cellule, "nourriture", math.nextafter(stock, math.inf))
@@ -915,3 +941,26 @@ def test_grenier_bit_pres(monkeypatch, graine_monde, graine_tick):
     with pytest.raises(AssertionError):
         _garder_siege(plein, vide, maison)
     print(f"graines={graine_monde}/{graine_tick}, points={len(points)}")
+
+def test_maitre_tick(monkeypatch):
+    from sim import maitres
+    from sim.model import EtatDeLieu
+    from sim.tests.test_maisons import _tick_sans_lecture_registre
+    monde = World.charger(0)
+    assert monde.cells and all(c.lieux for c in monde.cells.values())
+    def lire(self):
+        raise RuntimeError("maître lu au tick")
+    def attribuer(*args): raise RuntimeError("attribution au tick")
+    def controler(tick):
+        with monkeypatch.context() as garde:
+            garde.setattr(EtatDeLieu, "maitre", property(lire))
+            garde.setattr(maitres, "attribuer_maitres", attribuer)
+            _tick_sans_lecture_registre(garde, monde, tick, monde.ticks_ecoules)
+    controler(engine.tick)
+    for lecture, message in ((lambda m: next(iter(m.cells.values())).lieux[0].maitre, "maître lu"),
+                             (lambda m: m.maisons, "registre consulté"),
+                             (lambda m: maitres.attribuer_maitres(m), "attribution au tick")):
+        def impur(m, rng, numero):
+            lecture(m)
+            return engine.tick(m, rng, numero)
+        with pytest.raises(RuntimeError, match=message): controler(impur)
