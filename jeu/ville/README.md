@@ -32,7 +32,8 @@ de `data/world-1400.json` et la seule clé spatiale de `sim/`
 
 Le lieu, subdivision de la cellule, existe : `GET /lieu?cell=N` porte `lieux`,
 la liste des lieux de la cellule rangée par rang, chacun avec `rang`,
-`surface_km2`, `population` et `stocks`. Son identité est le couple (`cell_id`
+`surface_km2`, `population`, `stocks` et `maitre` (identifiant de maison, ou
+`None` pour un état manuel). Son identité est le couple (`cell_id`
 de la réponse, `rang`) : **dérivée** de `cell_id`, jamais une seconde clé ; un
 lieu publié ne porte ni `cell_id` recopié ni `lieu_id`.
 

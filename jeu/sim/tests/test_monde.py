@@ -3480,7 +3480,7 @@ def test_service_lieu_documente_dans_le_modele():
 
 
 # --- Lot 237 : /lieu sert les lieux de la cellule ---
-_CLES_D_UN_LIEU = {"population", "rang", "stocks", "surface_km2"}
+_CLES_D_UN_LIEU = {"maitre", "population", "rang", "stocks", "surface_km2"}
 
 
 def _verifier_lieux_contre_photo(lieu: dict, cellule: dict, nombre_attendu: int) -> None:
@@ -3536,6 +3536,11 @@ def test_service_lieu_porte_les_lieux_de_la_photographie(tmp_path: Path):
         )
         assert cellules == len(photo["cells"]) > 0
         assert a_plusieurs > 0
+
+        prive = copy.deepcopy(servis[temoin["cell_id"]])
+        prive["lieux"][0].pop("maitre")
+        with pytest.raises(AssertionError):
+            _verifier_lieux_contre_photo(prive, temoin, nombres[temoin["cell_id"]])
 
         # Contre-épreuve : un habitant déplacé d'un lieu peuplé à un autre, total inchangé.
         cellule = next(
@@ -4111,6 +4116,11 @@ def test_service_ia_sans():
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
         4: ['53f6ec2bc9a838a11638c15605a2abe82b465d6e77f2077afb7ae5ce33662177', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', '815c82ce1b80b19fa25a9d63b1c681219cec8657ba7a52d0188e868391ebbeb5'],
     }
+    anterieures = copy.deepcopy(empreintes)
+    empreintes = {
+        0: [anterieures[0][0], 'bf688be8de2768c94087ffb718510cec297fb7619ef3e8bd8610fe1e942d18f6', '82d96e630f2f88d0efcbbeb821614c15345684fa1e4127f73adbd261f8f96271'],
+        4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '18fb9f0296c1aff491eb565c6b99f03fc21d4d9c1a843678d36a676531c3106c'],
+    }
     with lancer_service(0) as port:
         for t, attendues in empreintes.items():
             if t: requete_service(port, '/tick?n=4', 'POST')
@@ -4120,6 +4130,17 @@ def test_service_ia_sans():
                 faux = json.loads(octets); faux['ia'] = []
                 from sim.service import _serialiser
                 with pytest.raises(AssertionError): assert hashlib.sha256(_serialiser(faux)).hexdigest() == attendue
+                if chemin == '/monde': continue
+                prive = json.loads(octets)
+                assert prive['lieux'] and all(l['maitre'] for l in prive['lieux'])
+                for lieu in prive['lieux']: lieu.pop('maitre')
+                reference = anterieures[t][1 if '1175' in chemin else 2]
+                assert _sha(_serialiser(prive)) == reference
+                for champ in ('ia', 'population'):
+                    faux = copy.deepcopy(prive)
+                    if champ == 'ia': faux['ia'] = []
+                    else: faux['lieux'][0]['population'] += 1
+                    with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == reference
         statut, refus, _ = requete_service(port, '/ia')
         assert statut == HTTPStatus.NOT_FOUND and refus == {'erreur': 'ia désactivée : lancer le service avec --ia'}
 
@@ -4139,3 +4160,58 @@ def test_service_ia_lecture(monkeypatch):
         assert lu['tick'] == requete_service(port, '/monde')[1]['tick'] == 1
         assert lu['releve'] == [entree] and lu['maisons_actives_30j'] == -1
         assert requete_service(port, '/ia')[2] != ancien
+
+
+@pytest.mark.parametrize("tick,ancienne", [(3, "d58a94c5b4be46a6ee42cc3bcc4cf28590779e3061e78783130d58ea4211cd5c"), (4, "815c82ce1b80b19fa25a9d63b1c681219cec8657ba7a52d0188e868391ebbeb5")])
+def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
+    from sim.service import _serialiser
+    dossier = _REPO.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
+    fige = (dossier / f"lieu-graine0-tick{tick}.json").read_bytes()
+    document = json.loads(fige)
+    assert document["lieux"] and all(isinstance(l["maitre"], str) and l["maitre"] for l in document["lieux"])
+    prive = copy.deepcopy(document)
+    for lieu in prive["lieux"]: lieu.pop("maitre")
+    assert _sha(_serialiser(prive)) == ancienne
+    faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
+    with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == ancienne
+    with lancer_service(0) as port:
+        assert requete_service(port, f"/tick?n={tick}", "POST")[1]["tick"] == tick
+        servi = requete_service(port, f"/lieu?cell={document['cell_id']}")[2]
+        assert fige == servi
+        faux = copy.deepcopy(document); faux["lieux"][0]["maitre"] = document["lieux"][-1]["maitre"]
+        assert faux != document
+        for altere in (bytes([fige[0] ^ 1]) + fige[1:], _serialiser(faux)):
+            with pytest.raises(AssertionError): assert altere == servi
+
+
+def test_lecteur_json_maitres_du_fichier_fige():
+    import re
+    dossier = _REPO.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
+    lieux = json.loads((dossier / "lieu-graine0-tick3.json").read_bytes())["lieux"]
+    def verifier(texte):
+        cles = re.search(r'new\[\] \{ ([^}]+) \},\s*unLieu.Keys', texte)
+        assert cles is not None and lieux
+        assert all(re.findall(r'"([^"\n]+)"', cles[1]) == sorted(lieu) for lieu in lieux)
+        groupes = re.search(r'var maitresAttendus = new\[\] \{ ([^}]+) \};', texte)
+        lecture = re.search(r'Assert.AreEqual\(maitresAttendus\[rang / (\d+)\], unLieu\["maitre"\]\);', texte)
+        assert groupes is not None and lecture is not None
+        attendus = re.findall(r'"([^"\n]+)"', groupes[1])
+        taille = int(lecture[1]); assert taille > 0
+        assert 'Assert.IsInstanceOf<string>(unLieu["maitre"]);' in texte
+        assert [attendus[l["rang"] // taille] for l in lieux] == [l["maitre"] for l in lieux]
+    texte = (dossier / "LecteurJsonTests.cs").read_text(encoding="utf-8")
+    verifier(texte)
+    with pytest.raises(AssertionError): verifier(texte.replace('"maitre", ', ''))
+    with pytest.raises(AssertionError): verifier(texte.replace('plausible-9922-0', 'maison-inconnue'))
+
+
+def test_service_maitre_documente_parmi_les_champs_servis():
+    def verifier(texte):
+        section = texte.split("### Ce que porte un lieu\n", 1)[1].split("\n### ", 1)[0]
+        paragraphe = section.split("Le service les publie.", 1)[1].split("\n\n", 1)[0]
+        champs = paragraphe.split("chacun avec exactement", 1)[1].split(".", 1)[0]
+        assert "/lieu" in paragraphe and "`maitre`" in champs and "`None`" in paragraphe
+    texte = (_REPO / "sim/MODELE.md").read_text(encoding="utf-8")
+    verifier(texte)
+    avant, apres = texte.split("Le service les publie.", 1)
+    with pytest.raises(AssertionError): verifier(avant + "Le service les publie." + apres.replace("`maitre`", "le maître"))

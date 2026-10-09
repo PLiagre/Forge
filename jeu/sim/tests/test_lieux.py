@@ -572,9 +572,36 @@ def test_photographie_et_empreinte_portent_les_lieux():
         vue = lieux_de_cellule(cid, monde.cells[cid].area_km2)
         assert len(cellule["lieux"]) == len(vue) > 0
         assert [lieu["rang"] for lieu in cellule["lieux"]] == list(range(len(vue)))
-        assert all(set(lieu) == {"rang", "surface_km2", "population", "stocks"} for lieu in cellule["lieux"])
+        assert all(set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre"} for lieu in cellule["lieux"])
         assert [lieu["surface_km2"] for lieu in cellule["lieux"]] == [lieu.surface_km2 for lieu in vue]
         assert sum(lieu["population"] for lieu in cellule["lieux"]) == cellule["population"]
+    def verifier_maitres(photo):
+        maisons = {maison.id for maison in monde.maisons}
+        assert photo["cells"] and maisons
+        for cellule in photo["cells"]:
+            assert cellule["lieux"]
+            for lieu in cellule["lieux"]:
+                assert set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre"}
+                assert lieu["maitre"] is not None and lieu["maitre"] in maisons
+                assert lieu["maitre"] == monde.cells[cellule["cell_id"]].lieux[lieu["rang"]].maitre
+    verifier_maitres(document)
+    premier = document["cells"][0]
+    autre = next(m.id for m in monde.maisons if m.id != premier["lieux"][0]["maitre"])
+    for valeur in (None, "maison-absente-du-registre", autre):
+        faux = copy.deepcopy(document)
+        if valeur is None: faux["cells"][0]["lieux"][0].pop("maitre")
+        else: faux["cells"][0]["lieux"][0]["maitre"] = valeur
+        with pytest.raises(AssertionError): verifier_maitres(faux)
+    etat_avant = monde.to_dict()
+    lieu = monde.cells[premier["cell_id"]].lieux[0]
+    ancien = lieu.maitre
+    lieu.maitre = autre
+    etat_apres = monde.to_dict()
+    assert etat_apres != etat_avant
+    etat_apres["cells"][str(premier["cell_id"])]["lieux"][0]["maitre"] = ancien
+    assert etat_apres == etat_avant
+    assert hashlib.sha256(serialize_snapshot(build_snapshot_document(monde, 0, 0))).digest() != hashlib.sha256(serialize_snapshot(document)).digest()
+    lieu.maitre = ancien
     assert serialize_snapshot(document) == serialize_snapshot(build_snapshot_document(monde, 0, 0))
     commande = [sys.executable, "-m", "sim", "--ticks", "0", "--seed", "0", "--json"]
     dossier = pathlib.Path(__file__).parents[2]
@@ -1218,3 +1245,12 @@ def test_maitre_etat_manuel(monkeypatch):
     _controle_champs_etat_de_lieu(EtatDeLieu)
     with pytest.raises(AssertionError):
         _controle_champs_etat_de_lieu(EtatDeLieuParasite)
+
+
+def test_photographie_et_empreinte_maitre_manuel_absent():
+    from sim.model import Cell, EtatDeLieu
+    from sim.snapshot_export import lieux_en_photographie
+    cellule = Cell(1, 1.0, 0, lieux=[EtatDeLieu(0, 0, {})])
+    photo = lieux_en_photographie(1, cellule)
+    assert len(photo) == len(cellule.lieux) > 0
+    assert photo[0]["maitre"] is None
