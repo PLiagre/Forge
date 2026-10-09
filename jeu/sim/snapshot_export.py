@@ -182,7 +182,7 @@ def lieux_en_photographie(cid, cell) -> list[dict]:
         raise SnapshotExportError(f"nombre de lieux incohérent pour cell_id={cid}")
     return [
         {"rang": lieu.rang, "surface_km2": vue_lieux[lieu.rang].surface_km2,
-         "population": lieu.population, "stocks": copier_panier(lieu)}
+         "population": lieu.population, "stocks": copier_panier(lieu), "maitre": lieu.maitre}
         for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
     ]
 

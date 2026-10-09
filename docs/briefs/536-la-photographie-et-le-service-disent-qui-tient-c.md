@@ -1,0 +1,51 @@
+# Lot #536 — La photographie et le service disent qui tient chaque lieu
+Jalon : J3 · Machine : vps · Taille prévue : 230 lignes
+
+## But
+La photographie et `/lieu` disent, pour chaque lieu d'une cellule, la maison qui le tient, au même tick que ses habitants et son panier.
+
+## Le joueur
+Le joueur peut lire, lieu par lieu, qui tient sa cellule : ses quatre lieux autour de son siège, ceux des seigneurs voisins, et leur suzerain. La tenure sort du moteur par la photographie et `/lieu`, que #401 montrera dans la carte de la forge et #403 dans Unity. Lot de fond : pas d'écran neuf. Il prépare le geste de J3, prendre plus sur ses lieux ou laisser plus à ses gens : avant de fixer sa part, le joueur doit savoir quels lieux sont les siens et lesquels relèvent d'un voisin.
+
+## Règle du monde
+Découpé de #391 par le propriétaire. Dépend de : #535, livré (chaque `EtatDeLieu` porte `maitre`, attribué une fois dans `World.charger`). Découle de `jeu/sim/MODELE.md`, « Ce que porte un lieu » (publication par `lieux_en_photographie`) et « Les maisons du monde », paragraphe « Le maître de chaque lieu ». **Niveau 2**, plausible, jamais sourcé, comme l'attribution ; aucune constante nouvelle, aucune règle nouvelle. Le tick, le registre et l'attribution ne changent pas.
+
+`lieux_en_photographie` (`sim/snapshot_export.py`) ajoute à chaque entrée `"maitre": lieu.maitre`, sans arrondi ni transformation : l'identifiant de maison tel que stocké (par exemple `plausible-9922-0`, `seigneurie-3`), ou `None` pour un état manuel, jamais deviné. C'est un identifiant de maison, pas une clé spatiale : aucune clé `id` ou `*_id` n'entre dans un lieu publié. La photographie (`build_snapshot_document`), `/lieu` (`ServeurMonde._construire_etat`, octets construits dans `EtatPublie` au même tick) et la chronique, qui appellent déjà cette fonction, le portent ainsi sans autre code. Les anciens champs (`rang`, `surface_km2`, `population`, `stocks`) gardent leur précision exacte ; `/monde` reste léger, sans lieux ni maîtres, octet pour octet. `SNAPSHOT_SCHEMA_VERSION` ne change pas.
+
+Mesuré le 09/10 sur une copie du dépôt, la fonction seule modifiée : l'empreinte de `/monde` aux ticks 0 et 4 est inchangée ; celles de `/lieu?cell=1175`, `/lieu?cell=9922` (ticks 0 et 4) et de la photographie de la forge (ticks 0 et 30) changent, et retirer `maitre` de chaque lieu puis resérialiser (`_serialiser` pour le service, `serialize_snapshot` pour la forge) retrouve exactement les anciennes empreintes. Les lieux de 9922 sont tenus par cinq maisons plausibles, `plausible-9922-0`, `-3`, `-6`, `-9`, `-12`, trois rangs chacune. Les fichiers figés actuels ont pour SHA-256 `d58a94c5b4be46a6ee42cc3bcc4cf28590779e3061e78783130d58ea4211cd5c` (tick 3) et `815c82ce1b80b19fa25a9d63b1c681219cec8657ba7a52d0188e868391ebbeb5` (tick 4) : ce sont les références antérieures à garder dans les tests.
+
+Dans `MODELE.md`, corriger les seules mentions devenues fausses : « Ce que porte un lieu », paragraphe « Le service les publie » (« chacun avec exactement `rang`, `surface_km2`, `population` et `stocks` » devient la liste avec `maitre`, `None` déclaré pour un état manuel) ; « Le maître de chaque lieu », phrase « La photographie et le service gardent leurs contrats » (ils portent désormais le maître de chaque lieu ; `/monde` ne le porte pas). Garder les mots que les tests exigent déjà dans « Ce que porte un lieu » (`/lieu`, `lieux_en_photographie`, `EtatPublie`, `/monde`, `maitre`, `None`, `tout lieu chargé`, `amorcer_lieux`, `paysans`…) et la phrase sur les reports locaux, qui restent hors de la photographie. Dans `jeu/ville/README.md`, la liste des champs d'un lieu servi reçoit `maitre`.
+
+Budget du diff, ajouts et retraits compris : code 3 lignes, `MODELE.md` et README 14, fichiers figés 4, `LecteurJsonTests.cs` 14, tests Python 125, brief 70 ; total ≈ 230.
+
+## Périmètre
+jeu/sim/snapshot_export.py
+jeu/sim/MODELE.md
+jeu/ville/README.md
+jeu/sim/tests/test_lieux.py
+jeu/sim/tests/test_monde.py
+jeu/forge/tests/test_forge.py
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick4.json
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/LecteurJsonTests.cs
+docs/briefs/536-la-photographie-et-le-service-disent-qui-tient-c.md
+
+## Conditions de succès
+Commandes depuis `jeu/`, sauf SC7. Constater le rouge des nouvelles preuves avant l'implémentation. Les seuls changements d'assertions existantes autorisés par l'issue sont : les deux ensembles exacts de clés d'un lieu augmentés de `maitre`, les empreintes strictes de `test_service_ia_sans` et `test_forge_ia_sans` régénérées, les deux fichiers figés régénérés, le tableau des clés d'un lieu de `LecteurJsonTests.cs` augmenté de `maitre`. Toute autre assertion, contre-épreuve et valeur reste telle quelle. Échantillons non vides, ensembles et compteurs dérivés des données.
+
+SC1 — `python3 -m pytest sim/tests/test_lieux.py -q -k photographie_et_empreinte` : `test_photographie_et_empreinte_portent_les_lieux` exige l'ensemble exact `{"rang", "surface_km2", "population", "stocks", "maitre"}` et garde toutes ses preuves. Ajouter : chaque `maitre` photographié égale celui du lieu du monde au même rang, n'est pas `None` pour un monde chargé, et nomme une maison de `monde.maisons`. Contre-épreuves sur une copie profonde du document : retirer le `maitre` d'un lieu échoue à l'ensemble exact ; le remplacer par un identifiant absent du registre, puis par une autre maison valide, échoue à l'égalité avec le monde. Changer seulement le maître d'un lieu du monde pour une autre maison valide du registre change l'empreinte `to_dict()` et le SHA-256 de `serialize_snapshot(build_snapshot_document(...))` ; aucun autre champ n'est touché pour ce cas.
+
+SC2 — `python3 -m pytest sim/tests/test_monde.py -q -k "lieux_de_la_photographie or sans_seconde_cle"` : `_CLES_D_UN_LIEU` devient `{"maitre", "population", "rang", "stocks", "surface_km2"}` ; `test_service_lieu_porte_les_lieux_de_la_photographie` garde son égalité exacte servie = photographie au même tick, ses contre-épreuves et son témoin du tick 4. `test_service_lieu_sans_seconde_cle_spatiale` passe sans changement : `maitre` n'est pas une clé d'identité. Contre-épreuve : une copie servie privée d'un `maitre` échoue à `_verifier_lieux_contre_photo`.
+
+SC3 — `python3 -m pytest sim/tests/test_monde.py -q -k "reponse_figee or logement_sans_geste"` : les deux fichiers figés sont régénérés depuis le vrai service (`lancer_service(0)`, `/tick?n=3` puis `n=4`, `/lieu?cell=9922`) et égalent ses octets ; les tests existants et leurs contre-épreuves de décalage d'un tick restent intacts. Ajouter un contrôle : pour chaque fichier, retirer `maitre` de chaque lieu et resérialiser par `_serialiser` donne le SHA-256 antérieur cité plus haut, et tout autre champ reste identique ; chaque lieu figé porte un `maitre` non vide. Contre-épreuves : une copie figée dont un octet ou un maître change échoue à l'égalité avec le service ; changer un ancien nombre (une population de lieu) dans la copie privée de `maitre` échoue à l'empreinte antérieure.
+
+SC4 — `python3 -m pytest sim/tests/test_monde.py -q -k service_ia_sans` : les empreintes de `/lieu?cell=1175` et `/lieu?cell=9922` aux ticks 0 et 4 sont régénérées ; celles de `/monde` restent les anciennes, inchangées. Garder les anciennes empreintes de `/lieu` comme références et ajouter le contrôle : sur les octets servis, retirer uniquement `maitre` des lieux et resérialiser par `_serialiser` redonne exactement chaque ancienne empreinte. La nouvelle empreinte de 9922 au tick 4 est celle du nouveau fichier figé du tick 4. Contre-épreuves : ajouter `ia` à la copie privée de `maitre` échoue ; changer un ancien nombre aussi ; la contre-épreuve `ia` existante sur les octets complets reste.
+
+SC5 — `python3 -m pytest forge/tests/test_forge.py -q -k forge_ia_sans` : les empreintes strictes des ticks 0 et 30 sont régénérées, l'IA reste interdite sans option (`pytest.fail` gardé). Garder les anciennes empreintes comme références : retirer uniquement `maitre` des lieux de chaque cellule de la photographie et resérialiser par `serialize_snapshot` redonne exactement l'ancienne. Contre-épreuves : ajouter `ia`, ou changer un ancien nombre, dans cette copie privée de `maitre` échoue à l'ancienne empreinte ; changer un maître pour une autre maison valide change la nouvelle.
+
+SC6 — `python3 -m pytest sim/tests/test_monde.py -q -k "lecteur_json or documente"` : `LecteurJsonTests.cs` (édition de texte, aucune exécution Unity) garde toutes ses anciennes attentes ; le tableau des clés d'un lieu devient `{ "maitre", "population", "rang", "stocks", "surface_km2" }`, ordre trié du service, et la boucle lit le maître de chaque lieu comme une chaîne égale à celui du fichier figé (`plausible-9922-0` pour les rangs 0 à 2, `-3`, `-6`, `-9`, `-12` ensuite). Un nouveau contrôle Python dans `test_monde.py` lit ce fichier C# et vérifie que ce tableau égale les clés triées des lieux du fichier figé du tick 3, et que les maîtres qu'il attend sont ceux du fichier ; contre-épreuve : une copie du texte C# sans `"maitre"` dans le tableau échoue. Les contrôles de documentation existants (`test_service_lieux_documentes_dans_le_modele`, celui de `test_lieux.py` sur « Ce que porte un lieu », `ville/tests/test_contrat_cell_id.py`) passent sur le texte modifié ; ajouter que « Ce que porte un lieu » nomme `maitre` parmi les champs servis par `/lieu`, et qu'une copie du texte où le paragraphe « Le service les publie » ne le nomme plus échoue.
+
+SC7 — Depuis la racine, `python3 -m pytest jeu -q` et `git diff --check` réussissent.
+
+## Hors périmètre
+Écran, scène Unity, lecteur JSON de production et clients C# (`ClientLieu.cs`, `PanneauLieu.cs`) ; aucune exécution Unity ni Blender. Noms plausibles (#392), changement de maître, part, prélèvement, grenier, hommage (#395–#398). Aucun maître ni lieu dans `/monde` ; aucune nouvelle clé spatiale ; aucune modification de `sim/model.py`, `sim/world.py`, `sim/maitres.py`, du registre, du tick, des constantes ni de `SNAPSHOT_SCHEMA_VERSION`. La carte de la forge (#401) et la carte Unity (#403) viendront après. Aucun test assoupli ; tout chemin absent du périmètre est interdit.

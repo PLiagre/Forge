@@ -1681,8 +1681,8 @@ les maîtres inconnus, les ids dupliqués et tout écart à la règle, couple no
 Niveau 2, plausible, jamais sourcé : les quatre lieux, groupes de trois,
 maisons plausibles et suzerains. Le maître est stocké au chargement.
 Niveau 3 : changement de maître et noms plausibles (#392).
-La photographie et le service gardent leurs contrats ; le tick ne lit ni
-les maîtres ni le registre et ne réattribue rien.
+La photographie et `/lieu` portent le maître de chaque lieu ; `/monde` ne le
+porte pas. Le tick ne lit ni les maîtres ni le registre et ne réattribue rien.
 
 Le lecteur reste pur : il ne modifie ni tables, ni carte, ni monde.
 `World.charger` l'appelle une fois avec sa carte, puis appelle `attribuer_maitres`
@@ -2053,9 +2053,10 @@ la sérialisation canonique de l'empreinte, sans ajout à la photographie ni à 
 ne sont pas simulés (niveau 3).
 
 Le service les publie. `GET /lieu?cell=X` porte `lieux`, rangés par rang,
-chacun avec exactement `rang`, `surface_km2`, `population` et `stocks`. Ils
-sont lus par `lieux_en_photographie`, la fonction même qui remplit les lieux
-de la photographie, **sans arrondi** : la somme de leurs paniers égale le
+chacun avec exactement `rang`, `surface_km2`, `population`, `stocks` et `maitre`.
+`maitre` est l’identifiant de maison stocké, ou `None` déclaré pour un état
+manuel, sans maison devinée. Ils sont lus par `lieux_en_photographie`, la
+fonction même qui remplit les lieux de la photographie, **sans arrondi** : la somme de leurs paniers égale le
 panier du monde au bit près, pas le panier arrondi en tête de la réponse.
 Ces octets sont construits dans `EtatPublie`, avec la photographie du tick,
 dans le même appel que la population, le panier et les foyers. Un lieu publié
