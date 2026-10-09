@@ -47,6 +47,7 @@ namespace Forge.Pont.Tests {
             return MaillageDeCarte.Mailler(lecture.Carte);
         }
         private void Poser() { objet = new GameObject("Carte du test"); carte = objet.AddComponent<CarteDessinee>(); carte.port = port; carte.Demarrer(); }
+        private int CellulesSousLaCarte => objet.GetComponentsInChildren<MeshFilter>(true).Length; // toutes racines confondues : une double pose se voit
         // Une lecture complète : le pas la lance, elle finit hors du fil, un pas au même instant l'applique.
         private void Lire(double instant) {
             carte.Pas(instant); var montre = Stopwatch.StartNew();
@@ -63,7 +64,7 @@ namespace Forge.Pont.Tests {
             Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser();
             Lire(1);
             Assert.IsTrue(Volatile.Read(ref requetes) == 1 && chemin == "/carte", requetes + " requêtes, " + chemin);
-            Assert.IsTrue(servies == 596 && attendue.Cellules.Count == servies && carte.CellulesServies == servies && carte.CellulesPosees == servies, carte.CellulesPosees + " posées");
+            Assert.IsTrue(servies == 596 && attendue.Cellules.Count == servies && carte.CellulesServies == servies && carte.CellulesPosees == servies && CellulesSousLaCarte == servies, CellulesSousLaCarte + " posées");
             Transform racine = objet.transform.Find("Cellules de la carte");
             var couleurs = new HashSet<Color>(); var materiaux = new HashSet<Material>(); int ecarts = 0;
             for (int i = 0; i < servies; i++) {
@@ -77,7 +78,7 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(couleurs.Count == 40 && materiaux.Count == couleurs.Count, materiaux.Count + " matériaux, " + couleurs.Count + " couleurs");
             Assert.IsTrue(carte.TexteAffiche == "" && !objet.GetComponentInChildren<Text>(true).gameObject.activeSelf);
             for (int i = 1; i <= 20; i++) { carte.Pas(1 + 10 * i); Assert.IsFalse(carte.LectureEnVol); }
-            Assert.IsTrue(Volatile.Read(ref requetes) == 1 && carte.CellulesPosees == servies);
+            Assert.IsTrue(Volatile.Read(ref requetes) == 1 && carte.CellulesPosees == servies && CellulesSousLaCarte == servies, CellulesSousLaCarte + " cellules");
         }
         [Test] public void Sans_service_aucune_cellule_et_le_message() {
             Poser(); Lire(1);
