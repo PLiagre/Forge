@@ -1,10 +1,11 @@
 """Le lanceur du jeu : démarre le service de sim/, puis le jeu sur une cellule.
 
-    py pc\\jouer.py [--port P] [--cellule C] -- <commande du jeu…>
+    py pc\\jouer.py [--port P] [--cellule C] [--carte] -- <commande du jeu…>
 
 Sans `--cellule`, la cellule est la plus ensoleillée de la carte
-(jeu/ville/cellule_du_desert.py). Le service s'arrête quand le jeu se ferme,
-qu'il plante, ou que le joueur interrompt le lanceur.
+(jeu/ville/cellule_du_desert.py). Avec `--carte`, le jeu s'ouvre sur la carte
+de 1400 (`-forgeCarte`, lot #524) au lieu de la ville. Le service s'arrête
+quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
 """
 from __future__ import annotations
 
@@ -30,6 +31,7 @@ sys.path.insert(0, str(JEU_PY))
 from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
 
 REGLE = JEU_PY / "ville" / "cellule_du_desert.py"
+ARGUMENT_CARTE = "-forgeCarte"  # celui d'OuvertureDeLaCarte.cs
 DELAI_SERVICE_PRET_S = 60
 DELAI_ARRET_S = 5
 DELAI_CONNEXION_S = 1
@@ -133,6 +135,7 @@ def analyseur() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Lance le service de sim/, puis le jeu.")
     parser.add_argument("--port", type=int, default=DEFAULT_SERVICE_PORT)
     parser.add_argument("--cellule", type=_cellule)
+    parser.add_argument("--carte", action="store_true", help="ouvre le jeu sur la carte de 1400")
     return parser
 
 
@@ -183,7 +186,7 @@ def main(argv: list[str]) -> int:
         except RuntimeError as exc:
             print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
             return 1
-        code = subprocess.call(commande + ["-forgeCell", str(cellule)])
+        code = subprocess.call(commande + ["-forgeCell", str(cellule)] + ([ARGUMENT_CARTE] if args.carte else []))
         print(f"jeu fermé (code {code})", flush=True)
         return code
     finally:

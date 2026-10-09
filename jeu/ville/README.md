@@ -60,6 +60,18 @@ py ville/cellule_du_desert.py      # depuis jeu/ : écrit le cell_id seul
 
 Pour ouvrir une autre cellule : `pc\Jouer.cmd --cellule <cell_id>`.
 
+Pour ouvrir le jeu sur la carte de 1400 : `pc\Jouer.cmd --carte` (lot #524). Le
+lanceur passe `-forgeCarte` au jeu, qui quitte la ville au lancement pour la scène
+`Forge_Carte`. On s'y déplace en glissant (bouton gauche ou du milieu) et on
+zoome à la molette, vers le point sous la souris, sans sortir de la carte servie.
+En haut à droite, la date et la vitesse du monde, lues au service (lot #525) :
+Espace ou « Pause » arrête le monde et le relance à sa vitesse, + et − (ou les
+boutons) passent d'un palier à l'autre (0,5 à 20 jours par seconde).
+En bas à gauche, la fiche de la cellule sous la souris (lot #526) : ses villes,
+sa puissance et sa maison lues dans `/carte`, ses habitants, sa faim et sa dette
+lus dans `/monde`, avec le tick de cette lecture. Ce que le monde ne nomme pas ou
+ne calcule pas, la fiche le dit.
+
 ## L'épreuve du jalon 1
 
 Le panneau du lieu doit montrer les mêmes nombres que la photographie de `sim/`,
@@ -93,3 +105,30 @@ py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-sourd" --serv
 py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-locale" --ville-locale
 ```
 **0** preuve valide. **1** invariant violé : le service sourd nomme « bâtiment absent » et « écart entre monde servi et monde rejoué » ; la ville locale nomme « empreinte des rues », « c'est le redessin qui échoue » et « l'égalité Python peut rester vraie ». **2** essai impossible (Unity, scène, port, délai, rapport absent ou ancien, exception dans les défauts) : une panne ne vaut pas contre-épreuve. Verdicts : [normal](../../docs/mesures/264-preuve-du-jalon-4/verdict.txt), [service sourd](../../docs/mesures/264-preuve-du-jalon-4/verdict-service-sourd.txt), [ville locale](../../docs/mesures/264-preuve-du-jalon-4/verdict-ville-locale.txt).
+
+## L'épreuve de la carte
+
+Le joueur peut se fier à sa carte (lot #527) : elle dessine autant de cellules
+que `/carte` en sert, et la fiche d'une cellule dit `/carte` (villes, puissance,
+maison) et `/monde` au même tick (habitants, faim, dette), nombre par nombre.
+Depuis la racine du dépôt :
+
+```bash
+py pc\epreuve_carte.py --sortie <dossier> [--cellule C] [--ticks N] [--seed S]
+```
+
+Le script lance le service (en pause, poussé au tick N) et lit `/carte` et
+`/monde` ; Unity ouvre `Forge_Carte` en Play (`ForgeLocal3D.EpreuveCarte.Jouer`),
+survole la cellule C (par défaut celle du lanceur) et écrit `rapport.json` ; le
+verdict, dans `verdict.txt`, cite chaque valeur des deux côtés. **0** égalité,
+**1** écart, **2** épreuve impossible (Unity introuvable, port pris, référence
+illisible, Unity en erreur, rapport absent ou antérieur à l'essai).
+
+Les trois contre-épreuves doivent sortir **1** : `--decalage 1` (le service lu
+par Unity a un tick d'avance), `--retirer-une-cellule` (Unity retire une cellule
+du dessin) et `--sans-service` (le service s'arrête avant Unity : la carte dit
+que le monde ne répond pas). Verdicts du 9 octobre 2026 :
+[normal](../../docs/mesures/527-epreuve-de-la-carte/verdict-normal.txt),
+[décalé](../../docs/mesures/527-epreuve-de-la-carte/verdict-decale.txt),
+[cellule retirée](../../docs/mesures/527-epreuve-de-la-carte/verdict-retiree.txt),
+[sans service](../../docs/mesures/527-epreuve-de-la-carte/verdict-sans-service.txt).

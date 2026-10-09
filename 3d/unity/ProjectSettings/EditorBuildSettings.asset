@@ -17,5 +17,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_oued_des_vents.unity
     guid: 9c2336b2435a47d43af377185ba5a0e6
+  - enabled: 1
+    path: Assets/ForgeLocal3D/Carte/Forge_Carte.unity
+    guid: d0cf526028874594a96143c922faa57b
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
