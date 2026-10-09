@@ -105,7 +105,7 @@ namespace Forge.Pont
         }
 
         // Tout en double jusqu'ici ; X est l'est, Z le nord, en km.
-        private static Vector3 Point(double x, double y, PointCarte origine) =>
+        internal static Vector3 Point(double x, double y, PointCarte origine) =>
             new Vector3((float)((x - origine.X) / 1000.0), 0f, (float)((y - origine.Y) / 1000.0));
 
         // Gardé seulement s'il est tourné vers le haut une fois en float : cela retire aussi les triangles plats.
