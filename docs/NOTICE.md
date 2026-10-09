@@ -215,6 +215,16 @@ python3 -m pytest vues/relief/tests/ -q  # la carte de statistique
 python3 -m pytest forge/tests/ -q        # la commande de bout en bout
 ```
 
+Les tests du moteur sont longs (près de mille, plus de 3 h sur un seul cœur) :
+`-n auto` les joue sur tous les cœurs (`pip install pytest-xdist`). La CI les
+répartit en trois tranches, test par test, chacune sur les cœurs de son
+runner ; une tranche se rejoue telle quelle en local :
+
+```bash
+python3 -m pytest sim/tests/ -q -n auto                             # tous les cœurs
+FORGE_TRANCHE=2/3 python3 -m pytest sim/tests/ -q -n auto --dist worksteal   # la tranche 2 de la CI
+```
+
 Le test qui garde la V1 :
 
 ```bash

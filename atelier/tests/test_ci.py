@@ -38,3 +38,36 @@ def test_la_ci_joue_chaque_test_du_jeu():
     orphelins = [f for f in fichiers
                  if any(f.startswith(i + "/") for i in ignores) and not any(f.startswith(c + "/") for c in explicites)]
     assert not orphelins
+
+
+def _tranches():
+    """Le module qui répartit les tests du moteur, et les tranches que la CI lui demande."""
+    import importlib.util
+
+    chemin = RACINE / "jeu" / "sim" / "tests" / "conftest.py"
+    spec = importlib.util.spec_from_file_location("tranches_du_moteur", chemin)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    texte = WORKFLOW.read_text(encoding="utf-8")
+    matrice = re.search(r"tranche: \[([\d, ]+)\]", texte)
+    variable = re.search(r"FORGE_TRANCHE: \$\{\{ matrix\.tranche \}\}/(\d+)", texte)
+    assert matrice and variable, "tests.yml ne répartit plus les tests du moteur en tranches"
+    return module, [int(k) for k in matrice.group(1).split(",")], int(variable.group(1))
+
+
+def test_les_tranches_du_moteur_jouent_chaque_test_une_fois():
+    module, tranches, n = _tranches()
+    assert tranches == list(range(1, n + 1)), f"tranches {tranches} pour {n} annoncées"
+    for rang in range(3 * n + 7):
+        assert sum(module.dans_la_tranche(rang, k, n) for k in tranches) == 1, f"le test de rang {rang}"
+
+
+def test_une_tranche_mal_ecrite_est_refusee():
+    import pytest
+
+    module, _, _ = _tranches()
+    assert module.lire_tranche(None) is None and module.lire_tranche("") is None
+    assert module.lire_tranche("2/3") == (2, 3)
+    for faute in ("3", "0/3", "4/3", "a/3", "1/3/5", "-1/3"):
+        with pytest.raises(pytest.UsageError):
+            module.lire_tranche(faute)

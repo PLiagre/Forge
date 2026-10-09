@@ -18,7 +18,16 @@ permissions:
 jobs:
   sim:
     # Le moteur. Bibliothèque standard seule : s'il lui fallait une roue,
-    # ce ne serait plus un moteur qui tourne sur une machine nue.
+    # ce ne serait plus un moteur qui tourne sur une machine nue (pytest et
+    # pytest-xdist ne servent qu'à le tester).
+    # Le 9 octobre 2026, ses 987 tests prenaient 3 h 20 sur un seul cœur, et
+    # chaque PR attendait ce temps : ils se jouent en tranches, test par test
+    # à tour de rôle (jeu/sim/tests/conftest.py), chacune sur les cœurs de
+    # son runner. Toutes les tranches vertes, et `tests` peut l'être.
+    strategy:
+      fail-fast: false
+      matrix:
+        tranche: [1, 2, 3]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -27,10 +36,12 @@ jobs:
       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.13"
-      - run: python -m pip install --upgrade pip pytest
-      - name: Les tests du moteur
-        run: python -m pytest sim/tests/ -q
+      - run: python -m pip install --upgrade pip pytest pytest-xdist
+      - name: Les tests du moteur, tranche ${{ matrix.tranche }} sur 3
+        run: python -m pytest sim/tests/ -q -n auto --dist worksteal
         working-directory: jeu
+        env:
+          FORGE_TRANCHE: ${{ matrix.tranche }}/3
 
   vues:
     # Les trois vues sur la même photographie : le tableau de bord, la
