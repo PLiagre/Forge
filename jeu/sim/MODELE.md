@@ -1651,6 +1651,8 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ## Les maisons du monde
 
+`World.parts` conserve séparément la fraction commune aux lieux de chaque maison, institutions et plausibles comprises, sans changer les huit champs gelés. Après attribution, chaque identifiant reçoit la coutume ; sans registre, `{}`. `to_dict()` omet la coutume et publie les autres parts triées sans arrondi (zéro compris), dans un dictionnaire indépendant ; sans différence, il omet `parts`.
+
 `sim/registre_maisons.py` charge les trois tables `data/puissances-1400.json`, `data/capitales-1400.json` et `data/seigneuries-1400.json` avec la carte en argument ; des chemins alternatifs permettent les contre-épreuves. Le tuple stable de fiches gelées héritant de `_NoBadSpatialField` comprend toutes les maisons, y compris celle du joueur, sans fusionner les branches homonymes. Chaque fiche porte `id`, `nom`, `sorte`, `suzerain`, `siege` (nom), `cell_id`, `rang` et `hors_carte`.
 Une grande maison a l'id `grande-<id maison>`, son nom et sa capitale ; une puissance sans maison devient `institution-<id puissance>`, nommée comme la puissance, siégeant à son ancre de plus petit id ; chaque départ devient `seigneurie-<id>`, nommé par son champ `maison`, à son siège déclaré.
 La maison du joueur est cette fiche `seigneurie-<n>`, comme toute autre seigneurie du registre. `sim/seigneuries.py` définit seul le format par `identifiant_de_seigneurie(numero)` ; `numero_de_seigneurie` refuse toute valeur non canonique (préfixe exact, chiffres décimaux ASCII sans signe ni zéro de tête).
@@ -1730,11 +1732,17 @@ dégradation des marchandises autres que la nourriture.
 
 ## Les intentions du joueur
 
+`fixer_part` accepte exactement `{"type": "fixer_part", "maison": <id du registre>, "part": <fraction>}`.
+Niveau 2, plausible : `PART_COUTUMIERE = 0.10`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
+Le geste copié et gelé remplace à sa position celui de la même maison après validation.
+Après la garde du tick, il écrit seulement `World.parts`, sans lecture du registre ni prélèvement ; l'étape existante vide l'attente, dans le même ordre qu'avant.
+Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le dépôt commun accepte toute maison connue ; `--gestes` garde ce chemin et sa chronologie.
+
 `recevoir_intention` de `sim/intentions.py` est l'entrée commune de
 `POST /intention`, `python3 -m sim --gestes` et des routes déposées par l'IA.
 La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `tracer_route` dépose une route, `decouper_parcelle` une parcelle,
-`poser_batiment` un bâtiment ; tout autre type lève
+`poser_batiment` un bâtiment, `fixer_part` une part ; tout autre type lève
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
@@ -2356,6 +2364,8 @@ spécialisés et une priorité choisie par le joueur entre chantiers.
 ---
 
 ## Le moteur sans état caché
+
+Les parts vivent dans `World.parts` : défaut relu par le module des constantes au chargement, plafond relu au dépôt ; l'application n'écrit que la part validée.
 
 Deux règles d'architecture qui décident comment un lot s'écrit, et qui ont
 chacune coûté un défaut.

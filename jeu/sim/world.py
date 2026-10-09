@@ -109,6 +109,7 @@ class World:
         maison_du_joueur : identifiant de la maison du registre appliquée, ou None sans choix.
         maisons    : tuple initial de fiches gelées, jamais consulté au tick.
         greniers   : identifiant de maison → panier (marchandise → kg), vide au chargement.
+        parts      : identifiant de maison → fraction commune à ses lieux.
         pertes_kg  : cumul des kilogrammes retirés des greniers, 0 tant qu'aucune perte.
     """
 
@@ -127,6 +128,7 @@ class World:
         self.maison_du_joueur = None
         self.maisons = ()
         self.greniers = {}
+        self.parts = {}
         self.pertes_kg = 0.0
 
     @property
@@ -260,6 +262,7 @@ class World:
                     ecrire_maitre(lieu, maitres[cid, lieu.rang])
         monde.maisons = tuple(sorted(monde.maisons + plausibles, key=lambda m: m.id))
         monde.greniers = {maison.id: {} for maison in monde.maisons}
+        monde.parts = {maison.id: constantes.PART_COUTUMIERE for maison in monde.maisons}
         return monde
 
     def to_dict(self) -> dict:
@@ -291,4 +294,7 @@ class World:
             document["greniers"] = greniers
         if self.pertes_kg != 0.0:
             document["pertes_kg"] = self.pertes_kg
+        parts = {i: p for i, p in sorted(self.parts.items()) if p != constantes.PART_COUTUMIERE}
+        if parts:
+            document["parts"] = parts
         return document

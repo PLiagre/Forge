@@ -964,3 +964,36 @@ def test_maitre_tick(monkeypatch):
             lecture(m)
             return engine.tick(m, rng, numero)
         with pytest.raises(RuntimeError, match=message): controler(impur)
+
+
+# Empreintes capturées avant #395 : document complet et état physique sans arrondi.
+_PART_BASE = {
+    (0, 0): ("0ea8fef27f922a382761f51cc2303fff43ff9eba4c68683f9ba8afb0e217768f", "0a034d0f3126bf72177537813b5c4f8f190ded5f4235a27e9f3574220ef7c020"),
+    (0, 1): ("251beaf57162f143ff0245cbe04beaef700ae114a2de5c0e333ad1b92c287914", "35f5723a777023599a64818334517c875f6819733765b5d1d2f407a833811655"),
+    (0, 3): ("3d3ad0b90bdaa8e110405675622b7071a66e97f04323248c85a01d0c987f77c9", "592454f8edc254139768101ea769ab686844c0c7919164c3f41b6bdf57f9033b"),
+    (42, 0): ("9ecd7120a327fe9bfd433fae11fa509a11f2df6957c1a1ab197eb96338acf535", "0e7026e17cf733f98032e1c7fdaf1f1205a6828cd71390c5b3b873dc67289a20"),
+    (42, 1): ("7b52ad8ba75cf8f6224e6008c6d0958177f5a1201680268f1c15a94273a9c9b1", "7205c27a3507ad18f84fd10fb5f08768726b6252ec4ccaead832a3ae73c87365"),
+    (42, 3): ("820ecffc379ada12d00b9072725a37ad5d2ecdb844e5de9d60f1d33800fb6dc2", "04fe962477d55fb6355a4c3dfa68a8bf0a4e3c703ae725fa0273c4090eac41ed"),
+}
+
+def test_part_bit_pres():
+    import math
+    def empreintes(monde, rng, retours):
+        assert monde.cells and all(c.lieux for c in monde.cells.values())
+        return tuple(hashlib.sha256(b).hexdigest() for b in (
+            json.dumps(monde.to_dict(), sort_keys=True).encode(),
+            pickle.dumps(([dataclasses.asdict(c) for c in monde.cells.values()], monde.stocks_mer, rng.getstate(), retours))))
+    mesures = {}
+    for seed in (0, 42):
+        monde, rng, retours = World.charger(seed), random.Random(seed), []
+        for tick in range(4):
+            if tick in (0, 1, 3): mesures[seed, tick] = empreintes(monde, rng, retours)
+            if tick < 3: retours.append(engine.tick(monde, rng, tick))
+    def verifier(observe):
+        assert observe == _PART_BASE and observe
+    verifier(mesures)
+    with pytest.raises(AssertionError): verifier({})
+    with pytest.raises(AssertionError): verifier({k: v for k, v in mesures.items() if k != (42, 3)})
+    cellule = next(c for c in monde.cells.values() if c.stocks); nom = next(iter(cellule.stocks))
+    cellule.stocks[nom] = math.nextafter(cellule.stocks[nom], math.inf)
+    with pytest.raises(AssertionError): verifier(mesures | {(42, 3): empreintes(monde, rng, retours)})
