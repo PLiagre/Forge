@@ -64,7 +64,7 @@ Contre-épreuves, chacune fait rougir ce cas :
 
 **SC5 — sans carte, ni contour ni nom ; une caméra donnée reste où elle est.** `-testFilter Forge.Pont.Tests.CarteDessineeTests.Sans_carte_ni_contour_ni_nom` : sans service, après une lecture, aucun `LineRenderer` ni `TextMesh` sous la carte, et `Caméra de la carte` existe. `-testFilter Forge.Pont.Tests.CarteDessineeTests.Une_camera_donnee_n_est_pas_cadree` : on donne une caméra hors de la carte, posée en perspective en (5 ; 6 ; 7). Après la pose et cinq `Pas`, sa position, sa rotation et `orthographic` sont inchangées, et aucune `Caméra de la carte` n'est créée.
 
-**SC6 — la photo est prise, celle de #547 aussi.** `Unity.exe -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures "$env:TEMP\cap548" -forgeLot 548 -logFile "$env:TEMP\cap548.log"`. Exiger :
+**SC6 — la photo est prise, celle de #547 aussi.** `Unity.exe -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures "$env:TEMP\cap548" -forgeLot 548 -logFile "$env:TEMP\cap548.log"`. Exiger :
 - sortie 0 ;
 - `CAPTURE_SCENARIOS lot 548 : 1` ;
 - un `CAPTURE_SCENARIO_OK` pour `Forge_Desert_Ville_ksar_des_sept_puits--carte-contours-et-villes.png` ;
