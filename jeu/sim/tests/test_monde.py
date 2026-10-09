@@ -4114,12 +4114,12 @@ def test_service_ia_sans():
     # Empreintes de la base, graine 0 : cellule minimale 1175 et témoin du pont 9922.
     empreintes = {
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
-        4: ['53f6ec2bc9a838a11638c15605a2abe82b465d6e77f2077afb7ae5ce33662177', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', '815c82ce1b80b19fa25a9d63b1c681219cec8657ba7a52d0188e868391ebbeb5'],
+        4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', 'e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83'],
     }
     anterieures = copy.deepcopy(empreintes)
     empreintes = {
         0: [anterieures[0][0], 'bf688be8de2768c94087ffb718510cec297fb7619ef3e8bd8610fe1e942d18f6', '82d96e630f2f88d0efcbbeb821614c15345684fa1e4127f73adbd261f8f96271'],
-        4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '18fb9f0296c1aff491eb565c6b99f03fc21d4d9c1a843678d36a676531c3106c'],
+        4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'],
     }
     with lancer_service(0) as port:
         for t, attendues in empreintes.items():
@@ -4162,7 +4162,7 @@ def test_service_ia_lecture(monkeypatch):
         assert requete_service(port, '/ia')[2] != ancien
 
 
-@pytest.mark.parametrize("tick,ancienne", [(3, "d58a94c5b4be46a6ee42cc3bcc4cf28590779e3061e78783130d58ea4211cd5c"), (4, "815c82ce1b80b19fa25a9d63b1c681219cec8657ba7a52d0188e868391ebbeb5")])
+@pytest.mark.parametrize("tick,ancienne", [(3, "e53288c4a92a82002f98645c7f760bf50ccb8ffac765d121e949bde90978b352"), (4, "e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83")])
 def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
     from sim.service import _serialiser
     dossier = _REPO.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"

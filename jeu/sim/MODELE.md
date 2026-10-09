@@ -32,9 +32,13 @@ part. À chaque tick, dans cet ordre :
    puis les rues, les parcelles et enfin les bâtiments dont la parcelle est
    prête prennent leurs bras et comptent les journées fournies.
    **Ateliers** (`_affecter_artisans`) — les scieries et fours achevés prennent les paysans restants.
+   **Reprise des écritures extérieures** (`repartir_sur_les_lieux`) — avant le
+   premier maillon qui lit les lieux, aligne leurs totaux à proportion de leur
+   contenu ; aucun partage général après migration.
 5. **Fabrication** (`_apply_fabrication`) — chaque matière première présente
    dans le panier d'ouverture perd 5 % de son stock, dont 60 % du poids devient
    de l'`objet`, sans bras ; les artisans façonnent ensuite le reliquat avec un budget commun.
+   L'accord ciblé des marchandises façonnées clôt ce maillon, sans toucher la nourriture.
 6. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
 7. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
@@ -49,7 +53,9 @@ part. À chaque tick, dans cet ordre :
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture. Une route achevée avec porte augmente
-   le plafond de sa frontière dès ce tick.
+   le plafond de sa frontière dès ce tick. Arrivées et départs passent par le
+   bourg (rang 0) ; les chemins des champs gardent leur ration et un plafond
+   partagé entre destinataires et marchandises, de niveau 2.
 9. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
@@ -63,12 +69,11 @@ part. À chaque tick, dans cet ordre :
     sans lieux, le calcul reste cellulaire.
 12. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
     des habitants, avec son report local ; sans lieux, le calcul reste cellulaire.
-13. **Migration** (`_apply_migration`) — une part des habitants d'une cellule
-    qui a manqué ce tick part vers les voisines dont il reste de la nourriture
-    après consommation. Personne n'emporte de kilogrammes.
-14. **Répartition sur les lieux** (`repartir_sur_les_lieux`) — leurs habitants
-    et paniers sont remis d'accord avec les totaux de la cellule.
-15. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+13. **Migration** (`_apply_migration`) — seuls les habitants des lieux affamés
+    partent vers les voisines dont il reste de la nourriture après consommation.
+    Accueil au rang 0, report migratoire cellulaire, métiers au prorata : niveau 2.
+    Personne n'emporte de kilogrammes ni d'états locaux (niveau 3).
+14. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -86,8 +91,8 @@ se dérivent de la surface de la cellule ; ses lieux portent désormais leur pop
 panier sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans
 leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
 ni celle des maisons. Il lit les habitants et paniers des lieux pour
-limiter la distribution intérieure, puis remet leurs états d'accord avec
-les totaux de la cellule à la fin.
+limiter la distribution intérieure ; chaque maillon tient ensuite ses
+écritures locales et cellulaires, sans partage général en fin de tick.
 
 L'ordre fait foi dans `sim/engine.py`, fonction `tick()`. Ce résumé le suit ;
 en cas d'écart, c'est le code qui a raison et ce fichier qui a une dette.
@@ -883,8 +888,9 @@ population cellulaire.
 et `Cell.natalite_remainder`, sentinelle `-1.0` lue comme zéro. Avec lieux,
 ce report cellulaire ne commande plus les naissances et reste intact.
 Le report empêche la stérilité des petits lieux par arrondi.
-La migration qui suit reste cellulaire ; elle déplace les habitants au
-prorata du contenu des lieux, sans effacer leurs reports locaux cohérents.
+La migration qui suit prélève les seuls lieux affamés et accueille au bourg,
+sans déplacer leurs reports locaux ; seuls son report et le prorata des métiers
+restent cellulaires.
 
 ---
 
@@ -895,23 +901,29 @@ résolu. **Aucun kilogramme ne bouge avec les partants.**
 
 ### Qui part
 
-Une cellule n'envoie personne si la **pénurie du tick** — la valeur que la
-consommation vient de retourner — n'est pas strictement positive. On ne part
-pas d'une cellule qui a mangé sa ration, même endettée : on part de celle qui a
-manqué aujourd'hui.
+Après mortalité et natalité, seuls les lieux vivants dont `duree_faim_ticks > 0`
+fournissent des partants. La population source est la somme de leurs habitants :
+un champ rassasié reste chez lui, même si son bourg manque. Sans lieu affamé,
+aucun départ ni consommation du report ; une dette seule ne suffit pas.
+Sans lieux, la pénurie du tick strictement positive et la population cellulaire
+conservent le calcul historique.
 
 ```
-brut     = population_instantanée × FRACTION_MIGRANTE_PAR_TICK + migration_remainder
+brut     = habitants_affamés × FRACTION_MIGRANTE_PAR_TICK + migration_remainder
 partants = int(brut)
 ```
 
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
-| `FRACTION_MIGRANTE_PAR_TICK` | 0.01 | — | part de la population d'une cellule affamée qui s'en va en un tick ; niveau 2 |
+| `FRACTION_MIGRANTE_PAR_TICK` | 0.01 | — | part des habitants des lieux affamés qui s'en va en un tick ; niveau 2 |
+
+Les départs se prélèvent à proportion des habitants de ces seuls lieux,
+en entiers par plus forts restes, égalités par rang croissant. Aucun lieu
+ne perd plus que sa population. Le report migratoire reste cellulaire.
 
 ### Où l'on va
 
-Vers les cellules voisines d'adjacence **dont il reste de la nourriture après
+Tous les arrivants rejoignent le bourg, au rang 0. Vers les cellules voisines d'adjacence **dont il reste de la nourriture après
 consommation**, pondérées par ce reste.
 
 Le poids d'une destination est son **stock de nourriture post-consommation**,
@@ -935,14 +947,19 @@ Deux règles, qui font que la migration est un déplacement et non une diffusion
 
 - **une personne ne traverse qu'une arête par tick** ;
 - **une cellule qui reçoit des arrivants n'en envoie pas le même tick.** Les
-  départs d'une cellule receveuse sont annulés, pas différés.
+  départs d'une cellule receveuse sont annulés, pas différés. Ses habitants
+  anciens restent aussi sur place ; les lieux ne sont modifiés qu'après cette annulation.
 
 Le report de fraction (`migration_remainder`, sentinelle `-1.0`) empêche une
 petite cellule affamée d'être immobile par arrondi.
 
 Le solde de la cellule, entrées moins sorties, quitte ou rejoint ses métiers
 au prorata. Les arrivants prennent les métiers de la cellule d'arrivée ;
-dans une cellule sans métier, ils sont paysans.
+dans une cellule sans métier, ils sont paysans. `_ajouter_par_les_foyers` ou
+`_retirer_par_les_foyers` applique ce solde une seule fois.
+Aucun kilo, dette, faim ni report de mortalité ou natalité ne voyage.
+Départs et accueil sont de niveau 2, plausibles, jamais sourcés ; délais,
+bagages et métiers propres aux lieux ne sont pas simulés (niveau 3).
 
 ---
 
@@ -1093,6 +1110,25 @@ croissant, sources parcourues par `cell_id` croissant, part proportionnelle au
 besoin si la somme des demandes dépasse le surplus de la source, puis
 **écrêtage côté receveur** — une cellule adjacente à deux sources ne reçoit
 jamais plus que son besoin, et l'excédent reste aux sources. Rien n'est créé.
+
+### Passage par le bourg
+
+Les besoins et surplus restent ceux de la cellule. L'offre exportable est en
+outre bornée par le surplus local du bourg, puis celui des champs par rang
+croissant. Chaque champ garde `population × consommation_unitaire` et son
+apport est borné par `capacite_chemins_interieurs_kg(1, facteur_transport)`.
+Le plafond de chaque chemin est partagé entre destinataires et marchandises
+pendant ce commerce : seuls les kilogrammes effectivement expédiés le consomment.
+Une quantité inaccessible reste chez sa source et ne compte pas comme transportée.
+Capacité nulle : seul le surplus du bourg peut sortir ; un lieu unique ne
+calcule aucun chemin. Sans lieux, le calcul cellulaire reste inchangé.
+
+Arrivées terrestres et débarquements vont au panier du bourg, au rang 0 ;
+départs terrestres et expéditions le quittent. Le bassin maritime est lu sur
+son instantané d'ouverture : une expédition ne finance aucun débarquement du
+même tick. Arêtes, quais, écrêtage du besoin et atomicité gardent leurs plafonds.
+Ni dette ni faim ne sont modifiées. Passage au bourg et chemins bornés sont de
+niveau 2, plausibles, jamais sourcés ; délais et pertes sont de niveau 3.
 
 `food_deficit_kg` n'est **jamais** modifié par ce maillon.
 
@@ -1956,7 +1992,7 @@ La vue refuse une surface absente, booléenne, textuelle, non finie, nulle ou
 négative en nommant sa cellule. Elle refuse aussi une constante non finie ou
 inférieure à 1 km². Elle est pure, recalculée à chaque consultation hors de
 `sim.model`. Le tick lit surfaces, habitants et paniers pour limiter la
-distribution intérieure ; il remet ces états d'accord avec la cellule à la fin.
+distribution intérieure ; chaque maillon tient ses écritures locales.
 
 Ce découpage est de **niveau 2** : le nombre de lieux et leur surface sont
 plausibles, jamais sourcés. Le bourg est celui de « Ce qu'est une ville, à
@@ -1997,19 +2033,24 @@ la somme retrouve exactement la population. Des métiers non calculés (`-1`,
 cellule construite sans métiers) déclarent tout le monde paysan,
 `P = population`. Chaque marchandise garde `partager(total, surfaces)`.
 
-Après la migration et avant l'avance du compteur, `repartir_sur_les_lieux`
-ne lit jamais les métiers et compare chaque somme au total actuel de
+Avant fabrication, `repartir_sur_les_lieux` reprend les seules écritures
+extérieures faites sur la cellule hors du tick. Elle ne lit jamais les métiers et compare chaque somme au total actuel de
 la cellule : déjà d'accord, elle ne bouge pas ; sinon, le contenu actuel donne
 les poids. Quand tous les lieux sont à zéro, les surfaces donnent les poids.
 Une marchandise absente de la cellule disparaît de tous ses lieux : l'absence
 n'est pas zéro. Une écriture sur la cellule hors du tick est suivie de même.
+Fabrication et extraction accordent uniquement leurs marchandises modifiées,
+à proportion du contenu actuel (surfaces si tout est nul). Production,
+commerce, consommation et démographie tiennent leurs propres écritures locales.
+Le résidu numérique est corrigé au bourg sans repondérer les lieux ; aucun
+partage général après migration ne redistribue importations ou arrivants.
 
 Une cellule construite à la main avec une liste vide reste sans lieux ; le
 tick ne lui en invente pas. La dette et la faim partent à zéro dans chaque lieu,
 comme dans sa cellule. Les reports de mortalité et natalité sont locaux ;
 celui de migration reste cellulaire. Les deux reports locaux figurent dans
-la sérialisation canonique de l'empreinte, sans ajout à la photographie ni à `/lieu`. Ce partage est de **niveau 2**, plausible, jamais sourcé ; aucun mouvement propre aux lieux
-n'est simulé (niveau 3).
+la sérialisation canonique de l'empreinte, sans ajout à la photographie ni à `/lieu`. Ce partage est de **niveau 2**, plausible, jamais sourcé ; délais et bagages des migrants
+ne sont pas simulés (niveau 3).
 
 Le service les publie. `GET /lieu?cell=X` porte `lieux`, rangés par rang,
 chacun avec exactement `rang`, `surface_km2`, `population`, `stocks` et `maitre`.
@@ -2094,10 +2135,10 @@ Restent de niveau 3, non simulés : délai, pertes en route, bras des porteurs,
 tracé des chemins et intégration des villes nommées dans le bourg.
 
 **Avec carte et lieux.** Chaque lieu reçoit `récolte × surface / area_km2`, dans
-les deux chemins de production, sans changer la récolte cellulaire. Avant de
-manger, `repartir_sur_les_lieux` aligne nourriture et habitants sur la cellule :
-le commerce et les écritures se répartissent à proportion du contenu actuel,
-ou par surface si tous les lieux sont vides. Chaque lieu mange dans son panier
+les deux chemins de production, sans changer la récolte cellulaire. La reprise
+des seules écritures extérieures précède la fabrication ; ses paniers se
+répartissent à proportion du contenu actuel, ou par surface si tous sont vides.
+Le commerce dépose la nourriture importée au bourg, sans partage préalable. Chaque lieu mange dans son panier
 `min(nourriture, population × ration)`, sentinelle −1 lue comme zéro.
 L'écart avec la part minière n'intervient plus : le bourg mange selon `lieux[0].population`.
 
@@ -2135,8 +2176,9 @@ durée locale ne dépasse la sienne. Ces données figurent dans l'empreinte,
 mais pas dans la photographie ni `/lieu`. L'IA lit désormais la faim du bourg ;
 panier, dette et faim cellulaires restent leurs totaux. Morts et naissances
 suivent chaque lieu et ses reports locaux ; leurs totaux rejoignent les métiers
-au prorata. La migration reste cellulaire : `repartir_sur_les_lieux` suit ses
-déplacements à proportion du contenu et conserve les états locaux déjà cohérents.
+au prorata. La migration prélève les lieux affamés et accueille au rang 0,
+sans déplacer dette, faim ou reports locaux. Son report reste cellulaire ;
+les métiers suivent une seule fois le solde au prorata, sans partage général final.
 
 ---
 

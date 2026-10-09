@@ -122,12 +122,12 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(lieu.Tick == 3);
             Assert.IsTrue(lieu.Annee == 1400);
             Assert.IsTrue(lieu.JourDeLAnnee == 4);
-            Assert.IsTrue(lieu.Population == 110618);
+            Assert.IsTrue(lieu.Population == 109741);
             Assert.IsTrue(lieu.HungerTicks == 0);
             Assert.IsTrue(lieu.FoodDeficitKg == 0.0, "0.0 est une mesure et se garde");
             CollectionAssert.AreEquivalent(new[] { "fer", "nourriture", "objet" }, lieu.Stocks.Keys.ToArray());
-            Assert.IsTrue(lieu.Stocks["fer"] == 625.866635);
-            Assert.IsTrue(lieu.Stocks["nourriture"] == 1086444.259862);
+            Assert.IsTrue(lieu.Stocks["fer"] == 625.868635);
+            Assert.IsTrue(lieu.Stocks["nourriture"] == 1092551.560271);
             Assert.IsTrue(lieu.Stocks["objet"] == 19.415619);
         }
 
@@ -140,14 +140,14 @@ namespace Forge.Pont.Tests
 
             Assert.IsTrue(lecture.Presente, lecture.Absence);
             Assert.IsTrue(lecture.Lieu.Tick == 4);
-            Assert.AreNotEqual(1086444.259862, lecture.Lieu.Stocks["nourriture"]);
+            Assert.AreNotEqual(1092551.560271, lecture.Lieu.Stocks["nourriture"]);
         }
 
         [Test]
         public void UneMarchandiseNouvellePasseEtUneAbsenteNEstPasInventee()
         {
             string texte = TexteFige("lieu-graine0-tick3.json");
-            string autre = Sans(texte, "\"fer\":625.866635,").Replace("\"stocks\":{", "\"stocks\":{\"zinc_du_test\":0.0,");
+            string autre = Sans(texte, "\"fer\":625.868635,").Replace("\"stocks\":{", "\"stocks\":{\"zinc_du_test\":0.0,");
             Servir(200, autre);
 
             LectureLieu lecture = Lire(CellFigee);
@@ -183,7 +183,7 @@ namespace Forge.Pont.Tests
         [Test]
         public void UneCleRetireeRendUneAbsenceQuiLaNomme()
         {
-            Servir(200, Sans(TexteFige("lieu-graine0-tick3.json"), "\"population\":110618,"));
+            Servir(200, Sans(TexteFige("lieu-graine0-tick3.json"), "\"population\":109741,"));
 
             StringAssert.Contains("population", Absence(CellFigee).Absence);
         }
@@ -200,7 +200,7 @@ namespace Forge.Pont.Tests
         public void UnTypeInattenduRendUneAbsenceQuiNommeLaCle()
         {
             string texte = TexteFige("lieu-graine0-tick3.json");
-            string altere = texte.Replace("\"fer\":625.866635", "\"fer\":\"beaucoup\"");
+            string altere = texte.Replace("\"fer\":625.868635", "\"fer\":\"beaucoup\"");
             Assert.AreNotEqual(texte, altere);
             Servir(200, altere);
 
@@ -211,7 +211,7 @@ namespace Forge.Pont.Tests
         public void UnNombreNonEntierLaOuUnEntierEstAttenduEstRefuse()
         {
             string texte = TexteFige("lieu-graine0-tick3.json");
-            string altere = texte.Replace("\"population\":110618", "\"population\":110618.5");
+            string altere = texte.Replace("\"population\":109741", "\"population\":109741.5");
             Assert.AreNotEqual(texte, altere);
             Servir(200, altere);
 
@@ -260,7 +260,7 @@ namespace Forge.Pont.Tests
         {
             // 9007199254740993 se lit 9007199254740992 en double : accepté, il deviendrait un autre nombre.
             string texte = TexteFige("lieu-graine0-tick3.json");
-            string altere = texte.Replace("\"population\":110618", "\"population\":9007199254740993");
+            string altere = texte.Replace("\"population\":109741", "\"population\":9007199254740993");
             Assert.AreNotEqual(texte, altere);
             Servir(200, altere);
 
@@ -272,7 +272,7 @@ namespace Forge.Pont.Tests
         {
             // Contre-épreuve : juste sous 2^53, l'entier reste lu tel quel.
             string texte = TexteFige("lieu-graine0-tick3.json");
-            string altere = texte.Replace("\"population\":110618", "\"population\":9007199254740991");
+            string altere = texte.Replace("\"population\":109741", "\"population\":9007199254740991");
             Assert.AreNotEqual(texte, altere);
             Servir(200, altere);
 
@@ -305,7 +305,7 @@ namespace Forge.Pont.Tests
         }
 
         // Lot #263 — foyers et logement, relus tels quels. 9, 1 et 3 sont incohérents : un recalcul échoue.
-        private const string FoyersTick3 = "\"foyers\":{\"mineurs\":{\"foyers\":2213,\"personnes\":11062},\"paysans\":{\"foyers\":19912,\"personnes\":99556}}";
+        private const string FoyersTick3 = "\"foyers\":{\"mineurs\":{\"foyers\":2195,\"personnes\":10974},\"paysans\":{\"foyers\":19754,\"personnes\":98767}}";
         private static string Remplacer(string texte, string avant, string apres)
         { string altere = texte.Replace(avant, apres); Assert.AreNotEqual(texte, altere, avant); return altere; }
         private static string AvecLogement(string texte, string logement)
@@ -319,13 +319,13 @@ namespace Forge.Pont.Tests
             Lieu lieu = Servi(TexteFige("lieu-graine0-tick3.json"));
             Assert.AreEqual(EtatFoyers.Servis, lieu.EtatFoyers);
             CollectionAssert.AreEqual(new[] { "mineurs", "paysans" }, lieu.Foyers.Keys.ToArray());
-            Assert.IsTrue(lieu.Foyers["mineurs"].Foyers == 2213 && lieu.Foyers["mineurs"].Personnes == 11062);
-            Assert.IsTrue(lieu.Foyers["paysans"].Foyers == 19912 && lieu.Foyers["paysans"].Personnes == 99556);
+            Assert.IsTrue(lieu.Foyers["mineurs"].Foyers == 2195 && lieu.Foyers["mineurs"].Personnes == 10974);
+            Assert.IsTrue(lieu.Foyers["paysans"].Foyers == 19754 && lieu.Foyers["paysans"].Personnes == 98767);
             Assert.IsNull(lieu.Logement);
             Fermer();
             PortLibre();
             Lieu suivant = Servi(TexteFige("lieu-graine0-tick4.json"));
-            Assert.IsTrue(suivant.Foyers["mineurs"].Foyers == 2213 && suivant.Foyers["mineurs"].Personnes == 11065);
+            Assert.IsTrue(suivant.Foyers["mineurs"].Foyers == 2196 && suivant.Foyers["mineurs"].Personnes == 10977);
         }
 
         [TestCase("\"foyers\":-1", EtatFoyers.NonCalcules)]
@@ -356,8 +356,8 @@ namespace Forge.Pont.Tests
         {
             string texte = TexteFige("lieu-graine0-tick3.json");
             string corps = foyers == null ? AvecLogement(texte, logement)
-                : foyers == "retrait" ? Remplacer(texte, ",\"personnes\":11062", "")
-                : foyers.StartsWith("\"personnes\"") ? Remplacer(texte, "\"personnes\":11062", foyers)
+                : foyers == "retrait" ? Remplacer(texte, ",\"personnes\":10974", "")
+                : foyers.StartsWith("\"personnes\"") ? Remplacer(texte, "\"personnes\":10974", foyers)
                 : Remplacer(texte, FoyersTick3, foyers);
             Servir(200, corps);
             StringAssert.Contains(chemin, Absence(CellFigee).Absence);
