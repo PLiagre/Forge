@@ -71,6 +71,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/logement.py` | Places des maisons finies, artisans logés et sans logis, dérivés sans effet sur le tick |
 | `sim/foyers.py` | Foyers par métier : rangement réversible et répartition entière des habitants |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
+| `sim/ville1400.py` | Ville de 1400 dérivée des foyers du bourg : place, rues, ruelles et maisons, sans effet sur le tick |
 | `sim/ateliers.py` | Emploi des artisans par surface des scieries et fours achevés, pris aux champs |
 | `sim/chantiers.py` | Journées de route, parcelle et bâtiment, passage des paysans aux ouvriers puis retour aux champs |
 | `sim/intentions.py` | Dépôt commun des choix de départ, routes, parcelles et bâtiments, en attente du tick |
