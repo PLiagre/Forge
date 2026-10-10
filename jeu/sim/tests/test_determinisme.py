@@ -402,6 +402,7 @@ VITESSE_DETERMINISME_HORLOGE = 20
 TICKS_DISTINCTS_MINIMUM = 3
 
 
+@pytest.mark.chronometre
 def test_horloge_publie_des_etats_coherents_et_deterministes():
     """SC2 — chaque photographie concurrente égale le même tick rejoué."""
     from sim.tests.test_monde import lancer_service, requete_service

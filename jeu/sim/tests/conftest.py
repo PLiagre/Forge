@@ -6,6 +6,10 @@ plusieurs travaux (`FORGE_TRANCHE=k/n`, k de 1 à n), chacun sur les cœurs de s
 (pytest-xdist). Les tests se distribuent un à un, à tour de rôle dans l'ordre de collecte : les
 longs tests d'un même fichier tombent dans des tranches différentes, et aucun fichier neuf
 n'échappe à la répartition. Sans la variable, tout se joue, comme sur le PC.
+
+Quelques tests comptent des millisecondes (budget d'un tick, cadence de l'horloge) : sur tous les
+cœurs d'un runner, leurs mesures sortent du budget. Ils portent `@pytest.mark.chronometre` ; la CI
+joue les tranches avec `-m "not chronometre"` et ces tests seuls, un travail à part, sans `-n`.
 """
 
 from __future__ import annotations
@@ -33,6 +37,10 @@ def lire_tranche(valeur: str | None) -> tuple[int, int] | None:
 def dans_la_tranche(rang: int, k: int, n: int) -> bool:
     """Le test de rang `rang` (0, 1, 2… dans l'ordre de collecte) est-il de la tranche k sur n ?"""
     return rang % n == k - 1
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "chronometre: compare un temps réel à un budget ; la CI le joue seul, sans -n")
 
 
 def pytest_collection_modifyitems(config, items):

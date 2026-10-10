@@ -2864,6 +2864,7 @@ def test_horloge_controle_cadence_contre_epreuves(ticks: int, accepte: bool):
     assert resultat is accepte
 
 
+@pytest.mark.chronometre
 def test_horloge_pause_vitesse_et_budget():
     """SC1 — pause exacte, cadence choisie, puis nouvelle pause exacte."""
     with lancer_service(0) as port:
@@ -2928,6 +2929,7 @@ def test_horloge_controle_lecture_non_bloquante(
     assert resultat is accepte
 
 
+@pytest.mark.chronometre
 def test_horloge_lectures_ne_bloquent_pas_sur_un_lot_de_ticks():
     """SC3 — monde et lieu restent lisibles avant la fin d'un POST long."""
     with lancer_service(0) as port:
@@ -3631,6 +3633,7 @@ def test_service_lieux_documentes_dans_le_modele():
         _controler_lieux_documentes(avant + "### Ce que porte un lieu\n" + privee + "\n### " + apres)
 
 
+@pytest.mark.chronometre
 def test_tick_sous_le_budget_du_service(monkeypatch):
     import random
     import statistics
@@ -3784,6 +3787,7 @@ def test_ateliers_documentation(monkeypatch):
             assert all(m in texte.split("## " + titre + "\n")[1].split("\n## ")[0] for m in mots)
     controler(); lire = Path.read_text; _contre_ateliers(monkeypatch, Path, "read_text", lambda p, *a, **kw: lire(p, *a, **kw).replace("Ateliers", "retiré").replace("_affecter_artisans", "retiré"), controler)
 
+@pytest.mark.chronometre
 def test_ateliers_budget(monkeypatch):
     from sim.tests.test_chantiers import _atelier, _contre_ateliers; import random, statistics, time; from sim import engine; from sim.service import BUDGET_TICK_MS
     def mesurer():
