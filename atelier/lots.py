@@ -14,6 +14,7 @@ tour suivant relit GitHub et reprend où les faits disent qu'on en est.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 import json
 import re
@@ -30,6 +31,8 @@ RESERVE = "Réserve"
 ETIQUETTE_RESERVE = "reserve"
 _MARQUE = re.compile(r"<!-- atelier (\{.*?\}) -->", re.S)
 _DEPEND = re.compile(r"^[ \t]*(?:#+[ \t]*)?D[ée]pend de[ \t]*:?[ \t]*(.*)$", re.I | re.M)
+# « attend #396 », « attendent #396, #397 et #398 » : ce qu'un refus du chef attend.
+_ATTEND = re.compile(r"\battend(?:ent)?\s+((?:#\d+\s*(?:,|\bet\b)?\s*)+)", re.I)
 # La phrase que le pilote écrit dans chaque sous-lot d'une découpe.
 _DECOUPE = re.compile(r"D[ée]coup[ée] du lot #(\d+)", re.I)
 _JALON = re.compile(r"^J(\d+)\b")
@@ -218,6 +221,32 @@ def bloquantes(ouvertes: list[Lot], fermees: list[Lot] = ()) -> frozenset[int]:
             resultat.add(n)
             n = parents.get(n)
     return frozenset(resultat)
+
+
+def attendus_du_refus(motif: str, ouvertes: Iterable[int], lot: Lot) -> list[int]:
+    """Les issues encore ouvertes qu'un refus du chef dit attendre (« attend
+    #396 ») et que le lot ne déclare pas dans son « Dépend de ». Un refus
+    pour une autre raison, ou qui n'attend que des issues déjà livrées, n'en
+    nomme aucune : le lot reste bloqué. Mesuré le 10 octobre 2026 : #413 était
+    refusé parce qu'il attendait #396, mais le refus le bloquait au lieu de le
+    faire attendre."""
+    dites = {int(n) for m in _ATTEND.finditer(motif) for n in re.findall(r"#(\d+)", m.group(1))}
+    return sorted((dites & set(ouvertes)) - lot.dependances - {lot.numero})
+
+
+def avec_dependances(corps: str, numeros: Iterable[int]) -> str:
+    """Le texte d'une issue avec ces issues de plus dans son « Dépend de » :
+    la dernière ligne « Dépend de : #12 » s'allonge, sinon une ligne s'ajoute
+    à la fin."""
+    ajout = ", ".join(f"#{n}" for n in numeros)
+    lignes = corps.split("\n")
+    for i in range(len(lignes) - 1, -1, -1):
+        m = _DEPEND.match(lignes[i])
+        if m and re.search(r"#\d+", m.group(1)):
+            nu = lignes[i].rstrip()
+            lignes[i] = f"{nu}, {ajout}{lignes[i][len(nu):]}"
+            return "\n".join(lignes)
+    return corps.rstrip("\r\n") + f"\n\nDépend de : {ajout}\n"
 
 
 def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool],

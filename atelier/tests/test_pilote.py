@@ -84,6 +84,34 @@ def test_le_chef_refuse_un_lot_hors_du_jalon(projet, gh, depot, tmp_path):
     assert not _gestes(gh, "creer_pr")
 
 
+def test_un_refus_qui_attend_une_issue_ouverte_fait_attendre_le_lot(projet, gh, depot, tmp_path):
+    # #413 (10 octobre 2026) : « attend #396 » bloquait le lot, qui n'avait rien à décider.
+    gh.ajouter_issue(10, "Le chantier se paie au grenier", corps="Ce qu'il fait.\n\nDépend de : #5")
+    gh.ajouter_issue(396, "Le seigneur prélève sa part", etiquettes=())
+    refus = "DECISION: REFUS :: attend #396 (le seigneur prélève sa part, et elle voyage jusqu'à son grenier)"
+    _pilote(projet, gh, depot, Agents((0, refus)), tmp_path).tour()
+    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "pret" in etiquettes and "bloque" not in etiquettes
+    assert lots.Lot.de(gh.issues_[10]).dependances == frozenset({5, 396})
+    assert gh.issues_[10]["body"].startswith("Ce qu'il fait.\n\nDépend de : #5, #396")
+    commentaire = gh.issues_[10]["comments"][-1]["body"]
+    assert "#396" in commentaire and marques([{"body": commentaire}])[-1]["etat"] == "attend"
+    assert not _gestes(gh, "creer_pr")
+    # Au tour suivant, le lot attend : le chef n'est pas rappelé.
+    rappel = Agents()
+    _pilote(projet, gh, depot, rappel, tmp_path).tour()
+    assert rappel.appels == []
+
+
+def test_un_refus_qui_attend_une_issue_livree_bloque_le_lot(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Des batailles navales")
+    gh.ajouter_issue(396, "Déjà fait", etiquettes=("lot", "livre"), etat="CLOSED")
+    _pilote(projet, gh, depot, Agents((0, "DECISION: REFUS :: attend #396, mais c'est le jalon 6")), tmp_path).tour()
+    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "bloque" in etiquettes and "pret" not in etiquettes
+    assert "corps_de" not in [g[0] for g in gh.gestes]
+
+
 QUESTION_DU_CHEF = """Le lot ferait rougir un invariant du monde.
 DECISION: QUESTION :: Que faire des villes que leurs champs ne nourrissent pas ?
 - A :: leur donner un grenier de départ :: elles peuvent maigrir ensuite
