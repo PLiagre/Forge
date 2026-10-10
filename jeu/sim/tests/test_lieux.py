@@ -596,7 +596,7 @@ def test_photographie_et_empreinte_portent_les_lieux():
         vue = lieux_de_cellule(cid, monde.cells[cid].area_km2)
         assert len(cellule["lieux"]) == len(vue) > 0
         assert [lieu["rang"] for lieu in cellule["lieux"]] == list(range(len(vue)))
-        assert all(set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre"} for lieu in cellule["lieux"])
+        assert all(set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre", "point"} for lieu in cellule["lieux"])
         assert [lieu["surface_km2"] for lieu in cellule["lieux"]] == [lieu.surface_km2 for lieu in vue]
         assert sum(lieu["population"] for lieu in cellule["lieux"]) == cellule["population"]
     def verifier_maitres(photo):
@@ -605,7 +605,7 @@ def test_photographie_et_empreinte_portent_les_lieux():
         for cellule in photo["cells"]:
             assert cellule["lieux"]
             for lieu in cellule["lieux"]:
-                assert set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre"}
+                assert set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre", "point"}
                 assert lieu["maitre"] is not None and lieu["maitre"] in maisons
                 assert lieu["maitre"] == monde.cells[cellule["cell_id"]].lieux[lieu["rang"]].maitre
     verifier_maitres(document)

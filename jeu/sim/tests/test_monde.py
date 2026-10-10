@@ -3480,7 +3480,7 @@ def test_service_lieu_documente_dans_le_modele():
 
 
 # --- Lot 237 : /lieu sert les lieux de la cellule ---
-_CLES_D_UN_LIEU = {"maitre", "population", "rang", "stocks", "surface_km2"}
+_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2"}  # le point : lot #393
 
 
 def _verifier_lieux_contre_photo(lieu: dict, cellule: dict, nombre_attendu: int) -> None:
@@ -4117,9 +4117,14 @@ def test_service_ia_sans():
         4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', 'e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83'],
     }
     anterieures = copy.deepcopy(empreintes)
-    empreintes = {
+    avec_maitres = {
         0: [anterieures[0][0], 'bf688be8de2768c94087ffb718510cec297fb7619ef3e8bd8610fe1e942d18f6', '82d96e630f2f88d0efcbbeb821614c15345684fa1e4127f73adbd261f8f96271'],
         4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'],
+    }
+    # Lot #393 : chaque lieu porte son point ; sans lui, on retrouve les réponses `avec_maitres`.
+    empreintes = {
+        0: [anterieures[0][0], 'f3b601ed6fc1cd6882e97d87a6e48b22d957c7ab547367b0d823d619123694ee', '85170d07d7f14a5eee8e7018a3de5742b20468bbcdec35f04b9f2bea38da7f81'],
+        4: [anterieures[4][0], '47b187d1abb744fdf188d349706945b17144243dd66402b9b12be79a27c6ad34', 'edbf3ade9cfc07189849dba4d9fd556be9c1bd427b9869f5fbaa5403e2a74c63'],
     }
     with lancer_service(0) as port:
         for t, attendues in empreintes.items():
@@ -4132,6 +4137,9 @@ def test_service_ia_sans():
                 with pytest.raises(AssertionError): assert hashlib.sha256(_serialiser(faux)).hexdigest() == attendue
                 if chemin == '/monde': continue
                 prive = json.loads(octets)
+                assert prive['lieux'] and all(set(l['point']) == {'x_m', 'y_m', 'latitude', 'longitude'} for l in prive['lieux'])
+                for lieu in prive['lieux']: lieu.pop('point')
+                assert _sha(_serialiser(prive)) == avec_maitres[t][1 if '1175' in chemin else 2]
                 assert prive['lieux'] and all(l['maitre'] for l in prive['lieux'])
                 for lieu in prive['lieux']: lieu.pop('maitre')
                 reference = anterieures[t][1 if '1175' in chemin else 2]
@@ -4162,6 +4170,25 @@ def test_service_ia_lecture(monkeypatch):
         assert requete_service(port, '/ia')[2] != ancien
 
 
+@pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
+def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
+    """Lot #393 — chaque lieu du fichier figé porte son point, dans sa cellule ; sans les points, c'est la réponse d'avant."""
+    from sim.service import _serialiser
+    from sim.villes import point_dans_geometrie
+    fige = (_REPO.parent / f"3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json").read_bytes()
+    document = json.loads(fige)
+    geometrie = World.charger(0).carte[document["cell_id"]]["geometry"]
+    assert document["lieux"]
+    for lieu in document["lieux"]:
+        assert set(lieu["point"]) == {"x_m", "y_m", "latitude", "longitude"}
+        assert point_dans_geometrie(lieu["point"]["x_m"], lieu["point"]["y_m"], geometrie)
+    prive = copy.deepcopy(document)
+    for lieu in prive["lieux"]: lieu.pop("point")
+    assert _sha(_serialiser(prive)) == avant
+    faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
+    with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == avant
+
+
 @pytest.mark.parametrize("tick,ancienne", [(3, "e53288c4a92a82002f98645c7f760bf50ccb8ffac765d121e949bde90978b352"), (4, "e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83")])
 def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
     from sim.service import _serialiser
@@ -4170,7 +4197,7 @@ def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
     document = json.loads(fige)
     assert document["lieux"] and all(isinstance(l["maitre"], str) and l["maitre"] for l in document["lieux"])
     prive = copy.deepcopy(document)
-    for lieu in prive["lieux"]: lieu.pop("maitre")
+    for lieu in prive["lieux"]: lieu.pop("maitre"); lieu.pop("point")  # le point vient du lot #393
     assert _sha(_serialiser(prive)) == ancienne
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
     with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == ancienne

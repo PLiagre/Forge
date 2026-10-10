@@ -25,6 +25,7 @@ from sim.maisons import charger_maisons
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
+from sim.places import bourgs_et_maitres, places_du_monde
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
 
@@ -147,6 +148,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
         self._carte_figee = None
+        self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
         self.condition_vitesse = threading.Condition()
         self._generation_vitesse = 0
         self._arret_horloge = False
@@ -183,6 +185,14 @@ class ServeurMonde(ThreadingHTTPServer):
                 ))) for s in sorted(seigneuries, key=lambda s: s.id)],
             }
 
+    def _places_des_lieux(self) -> dict:
+        """Les places des lieux (#393), recalculées seulement quand le maître d'un bourg change : c'est
+        la seule chose du monde qui les déplace. Une vue, pas un état : la clé dit d'où elles viennent."""
+        cle = bourgs_et_maitres(self.world)
+        if self._places is None or self._places[0] != cle:
+            self._places = (cle, places_du_monde(self.world))
+        return self._places[1]
+
     def _construire_etat(
         self,
         jours_par_seconde: float,
@@ -195,6 +205,7 @@ class ServeurMonde(ThreadingHTTPServer):
         ]
         numero_tick = self.world.ticks_ecoules
         date = self.world.date_simulation
+        places = self._places_des_lieux()
         # Les lieux s'ajoutent après l'arrondi, comme dans la photographie, par la même fonction.
         lieux = {
             cellule["cell_id"]: _serialiser(
@@ -205,7 +216,8 @@ class ServeurMonde(ThreadingHTTPServer):
                 | {
                     "foyers": _foyers_du_lieu(self.world.cells[cellule["cell_id"]]),
                     "lieux": lieux_en_photographie(
-                        cellule["cell_id"], self.world.cells[cellule["cell_id"]]
+                        cellule["cell_id"], self.world.cells[cellule["cell_id"]],
+                        places[cellule["cell_id"]],
                     ),
                     "tick": numero_tick,
                     "date": date,

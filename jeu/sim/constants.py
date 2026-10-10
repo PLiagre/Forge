@@ -20,6 +20,16 @@ LIEUX_DE_LA_SEIGNEURIE = 4
 # Niveau 2 : les autres lieux se regroupent sous des seigneurs plausibles.
 LIEUX_PAR_SEIGNEUR_PLAUSIBLE = 3
 
+# Niveau 2 (#393) : deux lieux d'une cellule restent écartés d'au moins cette
+# fraction de la racine carrée de la surface d'un lieu (0,5 × √1000 km² ≈ 16 km).
+ECART_MIN_ENTRE_LIEUX = 0.5
+# Tirages au plus pour placer un lieu dans sa cellule ; au-delà, la cellule est
+# refusée en se nommant, jamais tassée.
+TIRAGES_MAX_PAR_LIEU = 10_000
+# Lignes de balayage essayées pour trouver un point intérieur quand le centroïde
+# d'une cellule tombe hors de son polygone (cellule en croissant, côte découpée).
+BALAYAGES_INTERIEURS = 16
+
 # --- Marchandises ---
 
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.
