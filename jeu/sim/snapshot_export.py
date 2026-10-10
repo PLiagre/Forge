@@ -32,6 +32,7 @@ from sim.aggregation import (
 from sim import constants as _constants
 from sim.constants import SNAPSHOT_FLOAT_DECIMALS, SNAPSHOT_SCHEMA_VERSION
 from sim.model import cellule_vers_dict, copier_panier
+from sim.noms import noms_depuis_monde
 from sim.lieux import lieux_de_cellule
 from sim.ia import maisons_de_l_ia, maisons_actives_30j
 from sim.maisons import charger_maisons, maisons_depuis_monde
@@ -308,12 +309,14 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
     except (PuissanceInvalide, SeigneurieInconnue, ValueError) as exc:
         raise SnapshotExportError(str(exc)) from exc
 
+    noms = noms_depuis_monde(world, table=table, vue=puissances_vue, attribution=attribution)
     for cellule in cells_out:
         cid = cellule["cell_id"]
         cellule.update({
             "puissance": puissances_par_id.get(puissances_vue[cid]),
             "maison": maisons_par_id.get(maisons_vue[cid]),
             "villes": villes_par_cellule[cid],
+            "noms": noms[cid],
         })
 
     document: dict[str, Any] = {

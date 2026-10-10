@@ -37,6 +37,8 @@ la liste des lieux de la cellule rangée par rang, chacun avec `rang`,
 de la réponse, `rang`) : **dérivée** de `cell_id`, jamais une seconde clé ; un
 lieu publié ne porte ni `cell_id` recopié ni `lieu_id`.
 
+Le bloc frère `noms` publie `lieux` (`rang`, `nom`) et `maisons`, dictionnaire par identifiant de `maitre` avec `nom` et `prenom_chef` (`null` si historique). Il égale celui de la photographie ; les lectures HTTP utilisent les octets figés.
+
 ## La cellule par défaut du lanceur
 
 `pc\Jouer.cmd` démarre le service de `sim/`, puis ouvre le jeu avec

@@ -965,6 +965,25 @@ def test_maitre_tick(monkeypatch):
             return engine.tick(m, rng, numero)
         with pytest.raises(RuntimeError, match=message): controler(impur)
 
+def test_noms_purete_et_tick(monkeypatch):
+    import sim.noms as noms
+    monde = World.charger(0); rng = random.Random(0); listes = noms.charger_noms()
+    def lire(lecteur):
+        avant = copy.deepcopy((monde.to_dict(), monde.carte, monde.attribution_villes, monde.maisons, listes, rng.getstate())); resultat = lecteur(monde, noms=listes)
+        assert (monde.to_dict(), monde.carte, monde.attribution_villes, monde.maisons, listes, rng.getstate()) == avant; return resultat
+    attendu = lire(noms.noms_depuis_monde); assert attendu == lire(noms.noms_depuis_monde); autre = World.charger(19); autre.cells = dict(reversed(list(autre.cells.items()))); autre.maisons = tuple(reversed(autre.maisons)); assert noms.noms_depuis_monde(autre) == attendu
+    for impur in (lambda m, **k: setattr(m.cells[next(iter(m.cells))], 'population', m.cells[next(iter(m.cells))].population + 1), lambda *a, **k: rng.random()):
+        with pytest.raises(AssertionError): lire(impur)
+    temoin = copy.deepcopy(monde); rng_temoin = copy.deepcopy(rng)
+    with monkeypatch.context() as garde:
+        def interdit(*a, **k): raise RuntimeError('noms consultés au tick')
+        for nom in ('charger_noms', 'aire_de_cellule', 'noms_depuis_monde'): garde.setattr(noms, nom, interdit)
+        for _ in range(3):
+            assert engine.tick(monde, rng) == engine.tick(temoin, rng_temoin); assert (monde.to_dict(), monde.stocks_mer, rng.getstate()) == (temoin.to_dict(), temoin.stocks_mer, rng_temoin.getstate())
+        with pytest.raises(RuntimeError, match='noms consultés'): (lambda m, r: (noms.noms_depuis_monde(m), engine.tick(m, r)))(monde, rng)
+    assert lire(noms.noms_depuis_monde) == attendu; faux = copy.deepcopy(attendu); faux[next(iter(faux))]['lieux'][0]['nom'] = 'Altéré'
+    with pytest.raises(AssertionError): assert faux == attendu
+
 
 # Empreintes capturées avant #395 : document complet et état physique sans arrondi.
 _PART_BASE = {

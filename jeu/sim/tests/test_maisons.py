@@ -1259,6 +1259,24 @@ def test_maitre_permutations(monde_maitres, monkeypatch):
     assert _importe_maitres("class World:\n def to_dict(self):\n  attribuer_maitres(self)", True)
 
 
+def test_noms_maisons():
+    from sim.noms import charger_noms, noms_depuis_monde, aire_de_cellule
+    from sim.puissances import charger_table, puissances_depuis_monde
+    monde = World.charger(0); vue = noms_depuis_monde(monde); listes = charger_noms(); table = charger_table(); puissances = puissances_depuis_monde(monde); registre = {m.id: m for m in monde.maisons}; assert registre and vue
+    def verifier(v):
+        for cid, c in monde.cells.items():
+            fiches = v[cid]['maisons']; aire = listes['aires'][aire_de_cellule(cid, monde.carte[cid], puissances[cid], table, listes)]; assert set(fiches) == {l.maitre for l in c.lieux if l.maitre is not None}
+            plausibles = [f for i, f in fiches.items() if registre[i].sorte == 'plausible']; assert len({f['nom'] for f in plausibles}) == len(plausibles)
+            for i, fiche in fiches.items():
+                m = registre[i]; assert fiche == vue[cid]['maisons'][i]
+                if m.sorte == 'plausible': assert fiche == {'nom': aire['maisons'][(cid + m.rang) % len(aire['maisons'])], 'prenom_chef': aire['prenoms'][(cid + m.rang) % len(aire['prenoms'])]}
+                else: assert fiche == {'nom': m.nom, 'prenom_chef': None}
+    verifier(vue); cid = next(c for c, bloc in vue.items() if len(bloc['maisons']) > 1); a, b = list(vue[cid]['maisons'])[:2]; m = next(m for m in monde.maisons if m.sorte == 'seigneurie')
+    for c, fiches in ((cid, {**vue[cid]['maisons'], a: vue[cid]['maisons'][b]}), (cid, {**vue[cid]['maisons'], a: {**vue[cid]['maisons'][a], 'prenom_chef': 'Autre'}}), (m.cell_id, {**vue[m.cell_id]['maisons'], m.id: {'nom': 'Autre', 'prenom_chef': None}}), (cid, {i: f for i,f in vue[cid]['maisons'].items() if i != a})):
+        faux = copy.deepcopy(vue); faux[c]['maisons'] = fiches
+        with pytest.raises(AssertionError): verifier(faux)
+
+
 def test_part_etat(monkeypatch):
     import sim.constants as k
     monde = World.charger(0); ids = {m.id for m in monde.maisons}
