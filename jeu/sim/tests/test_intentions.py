@@ -953,8 +953,9 @@ def test_ia_depot_commun_et_copies(monkeypatch):
     def refuser(m, i): raise IntentionRefusee('refus sonde')
     monkeypatch.setattr(ia, 'recevoir_intention', refuser)
     refus = []
-    with pytest.raises(IntentionRefusee): ia.jouer_ia(monde, refus)
-    assert refus == []
+    ia.jouer_ia(monde, refus)
+    assert monde.__dict__ == avant
+    assert refus == [dict(tick=0, refus='refus sonde', **p) for p in propositions]
     monkeypatch.setattr(ia, 'recevoir_intention', recevoir_intention)
     releve = []
     ia.jouer_ia(monde, releve)
@@ -968,6 +969,128 @@ def test_ia_depot_commun_et_copies(monkeypatch):
     with pytest.raises(AssertionError):
         ia.jouer_ia(monde, [])
         assert monde.cells == avant['cells'] and monde.plans == avant['plans']
+
+
+def test_ia_raison_lue():
+    from copy import deepcopy
+    from sim.plan import Parcelle, Rue
+    from sim.seigneuries import identifiant_de_seigneurie
+    from sim.tests.test_monde import _lire_raison_monde
+    ia, monde, maisons = _ia_monde()
+    maison = maisons[0]
+    cellule = monde.cells[maison.cell_id]
+    bourg = next(lieu for lieu in cellule.lieux if lieu.rang == 0)
+    champs = sorted((lieu for lieu in cellule.lieux if lieu.rang >= 1), key=lambda lieu: lieu.rang)
+    assert champs
+    bourg.population, bourg.duree_faim_ticks = 20742, 12
+    bourg.dette_alimentaire_kg, bourg.stocks['nourriture'] = 4203.3, 0.8
+    for indice, champ in enumerate(champs, start=1):
+        champ.stocks['nourriture'] = 1000.0 + indice
+    cle = f'grande-{maison.id}' if maison.sorte == 'grande maison' else identifiant_de_seigneurie(maison.id)
+    monde.greniers[cle] = {'nourriture': 77.25}
+    plan = monde.plans[maison.cell_id]
+    rue = Rue(max((r.identifiant for r in plan.rues), default=-1) + 1, [(0, 0), (1, 0)], 4, True, 1, 1, 0)
+    parcelle = Parcelle(max((p.identifiant for p in plan.parcelles), default=-1) + 1,
+                        [(0, 0), (1, 0), (0, 1)], True, 1, 1, 0)
+    plan.rues.append(rue)
+    plan.parcelles.append(parcelle)
+    couple = (maison.sorte, maison.id)
+    propositions = _ia_pure(ia.decider_intentions, monde, [])
+    proposition = next(p for p in propositions if (p['maison']['sorte'], p['maison']['id']) == couple)
+    attendue = _lire_raison_monde(monde, maison)
+    assert proposition['raison'] == attendue
+    assert attendue['regle'] == 'route_si_bourg_affame' and attendue['departs'] == -1
+    assert attendue['bourg'] == {
+        'population': 20742, 'duree_faim_ticks': 12,
+        'dette_alimentaire_kg': 4203.3, 'nourriture_kg': 0.8}
+    assert attendue['champs_nourriture_kg'] == [1000.0 + i for i in range(1, len(champs) + 1)]
+    assert attendue['grenier_nourriture_kg'] == 77.25
+    assert attendue['chantiers_en_cours']['rues'] == sum(r.en_chantier for r in plan.rues)
+    assert attendue['chantiers_en_cours']['parcelles'] == sum(p.en_chantier for p in plan.parcelles)
+
+    def eprouver(muter, restaurer):
+        muter()
+        assert proposition['raison'] != _lire_raison_monde(monde, maison)
+        restaurer()
+        assert proposition['raison'] == _lire_raison_monde(monde, maison)
+
+    eprouver(lambda: setattr(bourg, 'duree_faim_ticks', 13), lambda: setattr(bourg, 'duree_faim_ticks', 12))
+    eprouver(lambda: champs[0].stocks.__setitem__('nourriture', 1),
+             lambda: champs[0].stocks.__setitem__('nourriture', 1001.0))
+    eprouver(lambda: monde.greniers[cle].__setitem__('nourriture', 1),
+             lambda: monde.greniers[cle].__setitem__('nourriture', 77.25))
+    eprouver(lambda: plan.rues.remove(rue), lambda: plan.rues.append(rue))
+    bourg.duree_faim_ticks = 0
+    fausse = deepcopy(proposition['raison'])
+    fausse['bourg']['duree_faim_ticks'] = 12
+    with pytest.raises(AssertionError):
+        assert fausse == _lire_raison_monde(monde, maison)
+    bourg.duree_faim_ticks = 12
+    del monde.greniers[cle]
+    sans_panier = next(p['raison'] for p in ia.decider_intentions(monde, [])
+                       if (p['maison']['sorte'], p['maison']['id']) == couple)
+    assert sans_panier['grenier_nourriture_kg'] == -1
+    monde.greniers[cle] = {'bois': 3}
+    sans_nourriture = next(p['raison'] for p in ia.decider_intentions(monde, [])
+                           if (p['maison']['sorte'], p['maison']['id']) == couple)
+    assert sans_nourriture['grenier_nourriture_kg'] == 0
+
+
+def test_ia_refus_compte_pour_l_annee(monkeypatch):
+    from copy import deepcopy
+    import sim.constants as k
+    from sim.intentions import IntentionRefusee
+    ia, monde, maisons = _ia_monde()
+    assert maisons
+    propositions = ia.decider_intentions(monde, [])
+    assert propositions
+    couples = {(p['maison']['sorte'], p['maison']['id']) for p in propositions}
+
+    def refuser(m, i):
+        raise IntentionRefusee('refus sonde')
+
+    monkeypatch.setattr(ia, 'recevoir_intention', refuser)
+    avant = deepcopy(monde.__dict__)
+    releve = []
+    ia.jouer_ia(monde, releve)
+    attendu = [dict(tick=0, refus='refus sonde', **p) for p in propositions]
+
+    def controle(etat, obtenu):
+        assert obtenu and all('refus' in entree for entree in obtenu)
+        assert obtenu == attendu and monde.__dict__ == etat
+
+    controle(avant, releve)
+    sans_clef = deepcopy(releve)
+    del sans_clef[0]['refus']
+    with pytest.raises(AssertionError):
+        controle(avant, sans_clef)
+    with pytest.raises(AssertionError):
+        controle(avant, [])
+    avant_second = deepcopy(monde.__dict__)
+    assert ia.decider_intentions(monde, releve) == []
+    ia.jouer_ia(monde, releve)
+    assert releve == attendu and monde.__dict__ == avant_second
+    monde.ticks_ecoules = k.CALENDAR_DAYS_PER_YEAR
+    prochaines = ia.decider_intentions(monde, releve)
+    assert {(p['maison']['sorte'], p['maison']['id']) for p in prochaines} == couples
+    avant_an = deepcopy(monde.__dict__)
+    ia.jouer_ia(monde, releve)
+    assert len(releve) == 2 * len(propositions) and monde.__dict__ == avant_an
+    assert ia.maisons_actives_30j(31, releve) == 0
+    acceptees = [dict(tick=0, **p) for p in propositions]
+    assert ia.maisons_actives_30j(31, acceptees) == len(couples) > 0
+    with monkeypatch.context() as isole:
+        test_ia_lecture_refus_avant_depot(isole, 'cellule')
+
+    def deposer_puis_lever(m, i):
+        m.intentions_en_attente.append(i)
+        raise IntentionRefusee('après dépôt')
+
+    monkeypatch.setattr(ia, 'recevoir_intention', deposer_puis_lever)
+    avant_sonde = deepcopy(monde.__dict__)
+    ia.jouer_ia(monde, [])
+    with pytest.raises(AssertionError):
+        assert monde.__dict__ == avant_sonde
 
 
 @pytest.mark.parametrize("porte", ["absente", None, 2, True, "2", 2.0, -1, 99, 1, 3, 4, "origine_absente"])
