@@ -1350,3 +1350,48 @@ def test_photographie_et_empreinte_maitre_manuel_absent():
     photo = lieux_en_photographie(1, cellule)
     assert len(photo) == len(cellule.lieux) > 0
     assert photo[0]["maitre"] is None
+
+
+def test_noms_lieux_et_priorites():
+    from sim.noms import charger_noms, noms_depuis_monde, aire_de_cellule
+    from sim.puissances import charger_table, puissances_depuis_monde
+    from sim.villes import attribuer_villes, charger_villes
+    monde = World.charger(0); table = charger_table(); listes = charger_noms(); puissances = puissances_depuis_monde(monde)
+    villes = attribuer_villes({**monde.carte_meta, 'cellules': list(monde.carte.values())}, charger_villes()); vue = noms_depuis_monde(monde, attribution=villes)
+    def verifier(v):
+        assert v and set(v) == set(monde.cells)
+        for cid, c in monde.cells.items():
+            lieux = v[cid]['lieux']; noms = [l['nom'] for l in lieux]; assert [l['rang'] for l in lieux] == sorted(l.rang for l in c.lieux)
+            assert all(n.strip() for n in noms) and len(set(noms)) == len(noms)
+            sieges = sorted((m for m in monde.maisons if m.cell_id == cid and m.sorte == 'seigneurie'), key=lambda m: m.id)
+            candidates = sorted((v for v in villes.entrees if villes.placees.get(v.nom) == cid), key=lambda v: (-v.population, v.nom))
+            aire = aire_de_cellule(cid, monde.carte[cid], puissances[cid], table, listes); historique = sieges[0].siege if sieges else candidates[0].nom if candidates else None
+            assert lieux[0]['nom'] == historique if historique else lieux[0]['nom'] in listes['aires'][aire]['lieux']
+            assert all(l['nom'] in listes['aires'][aire]['lieux'] for l in lieux[1:])
+    verifier(vue); assert any(p == 25 and len(vue[c]['lieux']) > 1 for c,p in puissances.items()) and None in puissances.values()
+    for puissance, lat, lon, aire in ((3, 44, 2, 'oc'), (3, 48, 2, 'oïl'), (25, 38, 23, 'grecque'), (None, 61, 22, 'finnoise')): assert aire_de_cellule(0, {'centroid': {'lat': lat, 'lon': lon}}, puissance, table, listes) == aire
+    with pytest.raises(ValueError, match='cellule 0'): aire_de_cellule(0, {'centroid': {'lat': 38, 'lon': 23}}, 25, dataclasses.replace(table, puissances=tuple(dataclasses.replace(p, religion='musulmane') if p.id == 25 else p for p in table.puissances)), listes)
+    for nom in ('Bar-le-Duc', 'Stuttgart', 'Mistra'):
+        siege = next(m for m in monde.maisons if m.siege == nom and m.sorte == 'seigneurie'); assert vue[siege.cell_id]['lieux'][0]['nom'] == nom
+    cid = next(c for c in monde.cells if len(vue[c]['lieux']) > 1); bar = next(m.cell_id for m in monde.maisons if m.siege == 'Bar-le-Duc')
+    site = next(m for m in monde.maisons if m.cell_id == bar and m.sorte == 'seigneurie'); copie = copy.copy(monde); copie.maisons += (dataclasses.replace(site, id='seigneurie--a', siege='Stuttgart'),); assert noms_depuis_monde(copie, attribution=dataclasses.replace(villes, placees={**villes.placees, villes.entrees[0].nom: bar}))[bar]['lieux'][0]['nom'] == 'Stuttgart'
+    reserves = copy.deepcopy(listes); aire = aire_de_cellule(bar, monde.carte[bar], puissances[bar], table, listes); reserves['aires'][aire]['lieux'].insert(bar % (len(reserves['aires'][aire]['lieux']) + 1), site.siege); listes = reserves; verifier(noms_depuis_monde(monde, noms=reserves, attribution=villes))
+    for c, lignes in [(cid, vue[cid]['lieux'][:-1])] + [(cid, [{**l, 'nom': n if l['rang'] == 1 else l['nom']} for l in vue[cid]['lieux']]) for n in ('', vue[cid]['lieux'][0]['nom'], 'Nom étranger')] + [(bar, [{**l, 'nom': 'Haute-Rive' if l['rang'] == 0 else l['nom']} for l in vue[bar]['lieux']])]:
+        faux = copy.deepcopy(vue); faux[c]['lieux'] = lignes
+        with pytest.raises(AssertionError): verifier(faux)
+    multi = next(c for c in villes.placees.values() if sum(x == c for x in villes.placees.values()) > 1 and not any(m.cell_id == c and m.sorte == 'seigneurie' for m in monde.maisons))
+    candidats = sorted((v for v in villes.entrees if villes.placees.get(v.nom) == multi), key=lambda v: (-v.population, v.nom)); inverses = dataclasses.replace(villes, entrees=tuple(dataclasses.replace(v, population=candidats[0].population + 1) if v == candidats[1] else v for v in villes.entrees))
+    assert noms_depuis_monde(monde, attribution=inverses)[multi]['lieux'][0]['nom'] == candidats[1].nom != vue[multi]['lieux'][0]['nom']
+
+@pytest.mark.parametrize('champ,defaut', [(c, d) for c in ('lieux', 'maisons', 'prenoms') for d in ('vide', 'texte', 'doublon')] + [('aire', 'absente'), ('regles', 'absentes'), ('lieux', 'capacite'), ('maisons', 'capacite')])
+def test_noms_refus(tmp_path, champ, defaut):
+    from sim.noms import charger_noms, noms_depuis_monde
+    monde = World.charger(0); document = charger_noms(); aire = document['regles'][0]['aire']
+    if champ == 'aire': del document['aires'][aire]
+    elif champ == 'regles': document['regles'] = []
+    elif defaut == 'vide': document['aires'][aire][champ] = []
+    elif defaut in ('texte', 'doublon'): document['aires'][aire][champ].append(' ' if defaut == 'texte' else document['aires'][aire][champ][0])
+    else:
+        for a in document['aires'].values(): a[champ] = a[champ][:1]
+    chemin = tmp_path / 'noms.json'; chemin.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match='cellule' if champ == 'regles' else champ if defaut == 'capacite' else aire + '.*' + (champ if champ != 'aire' else 'listes')): noms_depuis_monde(monde, noms=charger_noms(chemin))

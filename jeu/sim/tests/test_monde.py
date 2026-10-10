@@ -53,6 +53,7 @@ _ROOT_KEYS = {
     "villes_hors_carte",
 }
 _CELL_KEYS = {
+    "noms",
     "lieux",
     "cell_id",
     "area_km2",
@@ -2779,11 +2780,18 @@ def test_service_monde_est_leger_et_intention_ne_mute_rien():
             lieu = requete_service(port, f"/lieu?cell={cellule['cell_id']}")[1]
             assert lieu["population"] == cellule["population"]
 
+        from sim.seigneuries import charger_seigneuries
+        terre = charger_seigneuries()[0].id
+        choix = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
+        assert requete_service(port, "/intention", "POST", choix)[1] == {
+            "acceptee": True, "appliquee_au_tick": 2}
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 3
+        octets_avant = requete_service(port, "/monde")[2]
         intention = json.dumps({"type": "tracer_route", "cell": min(c["cell_id"] for c in monde["cells"]), "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}).encode("utf-8")
         cell_id = min(c["cell_id"] for c in monde["cells"])
         plan_avant = requete_service(port, f"/plan?cell={cell_id}")[2]
         reponse = requete_service(port, "/intention", "POST", intention)[1]
-        assert reponse == {"acceptee": True, "appliquee_au_tick": 2}
+        assert reponse == {"acceptee": True, "appliquee_au_tick": 3}
         assert requete_service(port, "/monde")[2] == octets_avant
         assert requete_service(port, f"/plan?cell={cell_id}")[2] == plan_avant
         statut, refus, _ = requete_service(
@@ -4043,6 +4051,14 @@ def test_service_ia_ordre(monkeypatch):
     from sim import service
     from sim.intentions import recevoir_intention
     with _service_ia_en_processus() as (s, port):
+        from sim import engine
+        from sim.seigneuries import charger_seigneuries
+        terre = charger_seigneuries()[0].id
+        corps = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
+        assert requete_service(port, "/intention", "POST", corps)[0] == HTTPStatus.OK
+        with s.verrou_tick:
+            engine.tick(s.world, s.rng, s.world.ticks_ecoules)
+        assert s.world.intentions_en_attente == [] and s.world.maison_du_joueur == identifiant_de_seigneurie(terre)
         evenements = []
         def ia(w, r): evenements.append(('ia', s.verrou_tick.locked(), w, r))
         def tick(w, *a): evenements.append(('tick', s.verrou_tick.locked(), w, s.releve))
@@ -4126,11 +4142,18 @@ def test_service_ia_sans():
         0: [anterieures[0][0], 'f3b601ed6fc1cd6882e97d87a6e48b22d957c7ab547367b0d823d619123694ee', '85170d07d7f14a5eee8e7018a3de5742b20468bbcdec35f04b9f2bea38da7f81'],
         4: [anterieures[4][0], '47b187d1abb744fdf188d349706945b17144243dd66402b9b12be79a27c6ad34', 'edbf3ade9cfc07189849dba4d9fd556be9c1bd427b9869f5fbaa5403e2a74c63'],
     }
+    from sim.service import _serialiser
     with lancer_service(0) as port:
         for t, attendues in empreintes.items():
             if t: requete_service(port, '/tick?n=4', 'POST')
             for chemin, attendue in zip(['/monde', '/lieu?cell=1175', '/lieu?cell=9922'], attendues):
                 octets = requete_service(port, chemin)[2]
+                reponse = json.loads(octets)
+                if chemin != '/monde':
+                    for lieu in reponse['lieux']: lieu.pop('point')  # le point vient du lot #393
+                assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c16d0b6f5d5699793286ab480344207940c01dc55f4630fcffb84e09fac66e18', 'd8cabad69d78b46f227e1db6d5b7e1238767de836b14c2f5998bc9d59ab87f92'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '32c0fa20e892cc305f9eac5a41dedc4f9b35c834925160a8e8319cc19f66a7bf', 'ea965093c5d6ad8b169b8558dc7a57d7e826e46247d0fe02e3e2dafdabc28ecd']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
+                if chemin != '/monde':
+                    document = json.loads(octets); assert document.pop('noms'); octets = _serialiser(document)
                 assert hashlib.sha256(octets).hexdigest() == attendue
                 faux = json.loads(octets); faux['ia'] = []
                 from sim.service import _serialiser
@@ -4182,7 +4205,7 @@ def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
     for lieu in document["lieux"]:
         assert set(lieu["point"]) == {"x_m", "y_m", "latitude", "longitude"}
         assert point_dans_geometrie(lieu["point"]["x_m"], lieu["point"]["y_m"], geometrie)
-    prive = copy.deepcopy(document)
+    prive = copy.deepcopy(document); assert prive.pop("noms")
     for lieu in prive["lieux"]: lieu.pop("point")
     assert _sha(_serialiser(prive)) == avant
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
@@ -4196,8 +4219,10 @@ def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
     fige = (dossier / f"lieu-graine0-tick{tick}.json").read_bytes()
     document = json.loads(fige)
     assert document["lieux"] and all(isinstance(l["maitre"], str) and l["maitre"] for l in document["lieux"])
-    prive = copy.deepcopy(document)
-    for lieu in prive["lieux"]: lieu.pop("maitre"); lieu.pop("point")  # le point vient du lot #393
+    prive = copy.deepcopy(document); assert prive.pop("noms")
+    for lieu in prive["lieux"]: lieu.pop("point")  # le point vient du lot #393
+    assert _sha(_serialiser(prive)) == {3: 'bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e', 4: '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'}[tick]
+    for lieu in prive["lieux"]: lieu.pop("maitre")
     assert _sha(_serialiser(prive)) == ancienne
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
     with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == ancienne
@@ -4242,3 +4267,30 @@ def test_service_maitre_documente_parmi_les_champs_servis():
     verifier(texte)
     avant, apres = texte.split("Le service les publie.", 1)
     with pytest.raises(AssertionError): verifier(avant + "Le service les publie." + apres.replace("`maitre`", "le maître"))
+
+def test_noms_publication_et_documentation():
+    from sim.noms import noms_depuis_monde
+    from sim.service import ServeurMonde
+    serveur = ServeurMonde(('127.0.0.1', 0), 0, 0)
+    try:
+        monde = serveur.world; vue = noms_depuis_monde(monde); photo = build_snapshot_document(monde, 0, 0)
+        def verifier(document):
+            assert document['cells'] and len(document['cells']) == len(vue)
+            for c in document['cells']: assert set(c) == _CELL_KEYS and c['noms'] == vue[c['cell_id']] == json.loads(serveur.etat_publie.lieux[c['cell_id']])['noms']
+        verifier(photo); c = photo['cells'][0]; bloc = c['noms']; identifiant = next(iter(bloc['maisons']))
+        for faux_bloc in (None, {**bloc, 'lieux': [{**l, 'nom': 'Altéré'} for l in bloc['lieux']]}, {**bloc, 'maisons': {'inconnue': bloc['maisons'][identifiant]}}):
+            faux = copy.deepcopy(photo); faux['cells'][0]['noms'] = faux_bloc
+            if faux_bloc is None: del faux['cells'][0]['noms']
+            with pytest.raises(AssertionError): verifier(faux)
+        monde.cells[c['cell_id']].lieux[0].maitre = None; assert json.loads(serveur._construire_etat(0, -1).lieux[c['cell_id']])['noms'] == noms_depuis_monde(monde)[c['cell_id']]
+    finally: serveur.server_close()
+    def documentation(texte):
+        section = texte.split("## Les lieux d'une cellule, vue dérivée", 1)[1].split('### Ce que porte un lieu', 1)[0]; assert all(m in section for m in ('noms-1400.json', 'siège', 'population historique', 'religion', 'graine', 'tick', 'rang', 'version', 'noms'))
+    texte = (_REPO / 'sim/MODELE.md').read_text(); documentation(texte)
+    with pytest.raises(AssertionError): documentation(texte.replace('noms-1400.json', 'table privée'))
+    def lecteur(texte):
+        import re
+        cles = re.search(r'new\[\] \{ ([^}]+) \},\s*lieu.Keys', texte); assert cles and set(re.findall(r'"([^"\n]+)"', cles[1])) == set(json.loads(serveur.etat_publie.lieux[c['cell_id']])) and 'lieu["noms"]' in texte
+        appel = re.search(r'AreEqual\(([^;]+), maisons\.Keys\.ToArray\(\)\)', texte); ids = re.findall(r'"([^"]+)"', re.search(r'maitresAttendus = new\[\] \{ ([^}]+) \}', texte).group(1)); expr = appel.group(1) if appel else ''; ordre = sorted(ids) if 'StringComparer.Ordinal' in expr else (re.findall(r'"([^"]+)"', expr) or ids); assert appel and ordre == list(json.loads((_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json').read_bytes())['noms']['maisons']) and all(t in texte for t in ('nomsLieux[rang]', 'maisons[(string)unLieu["maitre"]]', 'nomLieu["nom"]', 'maison["prenom_chef"]'))
+    texte = (_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/LecteurJsonTests.cs').read_text(); lecteur(texte)
+    pytest.raises(AssertionError, lecteur, texte.replace('"noms"', '"privé"')); pytest.raises(AssertionError, lecteur, texte.replace('.OrderBy(m => m, StringComparer.Ordinal)', ''))

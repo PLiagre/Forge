@@ -141,6 +141,14 @@ def _poster(port, intention):
     return requete_service(port, "/intention", "POST", json.dumps(intention).encode())
 
 
+def _depart_applique(port):
+    """Choisit la première terre du registre et l'applique avant le geste mesuré."""
+    terre = charger_seigneuries()[0].id
+    statut, recu, _ = _poster(port, {"type": "choisir_depart", "seigneurie": terre})
+    assert statut == HTTPStatus.OK and recu == {"acceptee": True, "appliquee_au_tick": 0}
+    assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 1
+
+
 def test_service_refus_et_choix():
     bar, moree = _id("Duché de Bar"), _id("Despotat de Morée")
     with lancer_service(0) as port:
@@ -306,12 +314,13 @@ def test_service_route_recu_refus_et_rejeu():
     refus_observes = 0
     for avec_route in (True, True, False):
         with lancer_service(0) as port:
+            _depart_applique(port)
             avant = requete_service(port, "/monde")[2]
             plan_avant = requete_service(port, chemin)[2]
             if avec_route:
                 statut, recu, _ = _poster(port, route)
                 assert statut == HTTPStatus.OK
-                assert recu == {"acceptee": True, "appliquee_au_tick": 0}
+                assert recu == {"acceptee": True, "appliquee_au_tick": 1}
                 assert requete_service(port, "/monde")[2] == avant
                 assert requete_service(port, chemin)[2] == plan_avant
             refus = [({"route": "essai"}, "type"),
@@ -628,6 +637,7 @@ def test_service_parcelle_plan_et_journees():
     reference = _parcelle_reference(World.charger(0))
     c = reference["cell"]
     with lancer_service(0) as port:
+        _depart_applique(port)
         assert _poster(port, _route_reference(World.charger(0)))[0] == HTTPStatus.OK
         requete_service(port, "/tick?n=1", "POST")
         avant = requete_service(port, f"/plan?cell={c}")[2]

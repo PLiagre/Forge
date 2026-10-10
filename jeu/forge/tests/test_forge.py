@@ -282,12 +282,13 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     ancienne = {0: '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9', 30: '4775cd7c576c32b4b647b8bd9f82061ac1216b5c658969afd254fdcf081cf694'}[ticks]
     chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
-    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == empreinte
-    faux = json.loads(chemin.read_bytes()); faux['ia'] = []
+    photo_noms = json.loads(chemin.read_bytes()); assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '1250b87e718c98fa9aff62328c9ce557db73b06fc588c07280d5192c7c407f8c', 30: '275ccb885465eb90f933c4c648d18d28fa3375868c5901e2f23fafe46abf271c'}[ticks]
+    assert all(c.pop('noms') for c in photo_noms['cells']); assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == empreinte
+    faux = dict(photo_noms, ia=[])
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux)).hexdigest() == empreinte
     import copy
     from sim.world import World
-    photo = json.loads(chemin.read_bytes()); prive = copy.deepcopy(photo)
+    photo = photo_noms; prive = copy.deepcopy(photo)
     assert prive['cells'] and all(c['lieux'] for c in prive['cells'])
     for cellule in prive['cells']:
         for lieu in cellule['lieux']: assert lieu.pop('maitre') is not None
