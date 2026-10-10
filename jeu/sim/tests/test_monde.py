@@ -4139,8 +4139,8 @@ def test_service_ia_sans():
     }
     # Lot #393 : chaque lieu porte son point ; sans lui, on retrouve les réponses `avec_maitres`.
     empreintes = {
-        0: [anterieures[0][0], 'f3b601ed6fc1cd6882e97d87a6e48b22d957c7ab547367b0d823d619123694ee', '85170d07d7f14a5eee8e7018a3de5742b20468bbcdec35f04b9f2bea38da7f81'],
-        4: [anterieures[4][0], '47b187d1abb744fdf188d349706945b17144243dd66402b9b12be79a27c6ad34', 'edbf3ade9cfc07189849dba4d9fd556be9c1bd427b9869f5fbaa5403e2a74c63'],
+        0: [anterieures[0][0], '1d293e8904ca32aa6b72e29762b42c1c9862459dce1691599f57ce6468df97db', '05d131f47e10eb27753d019491ec5f3649d79c7a9195a9f80dff5293545af30d'],
+        4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
     }
     from sim.service import _serialiser
     with lancer_service(0) as port:

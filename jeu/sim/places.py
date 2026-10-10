@@ -51,8 +51,10 @@ class Place(_NoBadSpatialField):
 
 
 def _place(x, y, origine) -> Place:
+    x, y = round(x, _constantes.DECIMALES_POINT_METRES), round(y, _constantes.DECIMALES_POINT_METRES)
     latitude, longitude = deprojeter_epsg3035(x, y)
-    return Place(x, y, latitude, longitude, origine)
+    return Place(x, y, round(latitude, _constantes.DECIMALES_POINT_DEGRES),
+                 round(longitude, _constantes.DECIMALES_POINT_DEGRES), origine)
 
 
 def distance_km(a: Place, b: Place) -> float:

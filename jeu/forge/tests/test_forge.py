@@ -283,7 +283,7 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
     # Lot #393 : chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
-    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '6509d61c697f01b0d4d826ae251627a216fe8fd7a5241b8289404d6a867cab75', 30: '643a6aed932a23f5b4e2ccadb1c173494e61d6c2440db55983aedf1d7296dba1'}[ticks]
+    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '9a4dba1eaabfde14ff1a9a507f3666e8c762459f740c59cb25a22d50b943a87b', 30: 'a878777d9ea77fb922b2ff834d9ee8a400e6086d628f9ec87398c77a3d01767b'}[ticks]
     photo_noms = json.loads(chemin.read_bytes())
     points = [lieu.pop('point') for c in photo_noms['cells'] for lieu in c['lieux']]
     assert points and all(set(p) == {'x_m', 'y_m', 'latitude', 'longitude'} for p in points)

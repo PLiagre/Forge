@@ -29,6 +29,11 @@ TIRAGES_MAX_PAR_LIEU = 10_000
 # Lignes de balayage essayées pour trouver un point intérieur quand le centroïde
 # d'une cellule tombe hors de son polygone (cellule en croissant, côte découpée).
 BALAYAGES_INTERIEURS = 16
+# Précision publiée d'un point : le millimètre en mètres EPSG:3035, le centimètre en degrés.
+# Les derniers bits de la trigonométrie (projection, projection inverse) changent d'une
+# plateforme à l'autre ; le point publié, lui, est le même partout.
+DECIMALES_POINT_METRES = 3
+DECIMALES_POINT_DEGRES = 7
 
 # --- Marchandises ---
 
