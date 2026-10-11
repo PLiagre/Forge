@@ -193,9 +193,27 @@ def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
     gros = 2 * math.ceil(paysans / k.TAILLE_FOYER)
     assert 0 < paysans - moyen * k.TAILLE_FOYER < requis
     ticks = 30
-    # Même route pour les trois mondes, assez de journées pour le plus gros envoi.
-    geste |= {"points": [[0, 0], [(ticks + 1) * gros * k.TAILLE_FOYER
-                                 / k.TRAVAIL_ROUTE_JOURNEES_PAR_M2, 0]], "largeur_m": 1}
+    # Même travail, replié dans la place : les bandes peuvent se recroiser.
+    travail = (ticks + 1) * gros * k.TAILLE_FOYER
+    largeur = k.DEMI_COTE_PLACE_1400_M / 5
+    limite = k.DEMI_COTE_PLACE_1400_M - largeur / 2
+    longueur = travail / k.TRAVAIL_ROUTE_JOURNEES_PAR_M2 / largeur
+    points, sens = [[-limite, -limite + largeur / 2]], 1
+    while longueur > 0:
+        distance = min(2 * limite, longueur)
+        points.append([points[-1][0] + sens * distance, points[-1][1]])
+        longueur -= distance
+        if longueur > 0:
+            distance = min(1, longueur)
+            points.append([points[-1][0], points[-1][1] + distance])
+            longueur -= distance
+        sens *= -1
+    def dans_place(trace):
+        assert all(abs(v) + largeur / 2 <= k.DEMI_COTE_PLACE_1400_M for p in trace for v in p), "dans la place"
+    dans_place(points)
+    with pytest.raises(AssertionError, match="dans la place"):
+        dans_place([[x + k.DEMI_COTE_PLACE_1400_M, y] for x, y in points])
+    geste |= {"points": points, "largeur_m": largeur}
 
     def jouer():
         recoltes = []
@@ -219,6 +237,7 @@ def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
             assert len(mesures) == ticks > 0
             if nombre is not None:
                 assert monde.plans[cible.cell_id].rues[0].en_chantier
+                assert monde.plans[cible.cell_id].rues[0].travail_requis == travail
             recoltes.append(sum(mesures))
         return recoltes
 

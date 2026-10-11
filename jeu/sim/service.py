@@ -29,6 +29,7 @@ from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_se
 from sim.places import bourgs_et_maitres, places_du_monde
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
+from sim.ville1400 import BaseAbsente, base_de_cellule
 
 
 DEFAULT_SERVICE_SEED = DEFAULT_CLI_SEED
@@ -113,7 +114,7 @@ def _vitesse_cli(recue: str) -> float:
 
 @dataclass(frozen=True)
 class EtatPublie:
-    """Photographie complète qu'aucun écrivain ne modifie après publication."""
+    """Photographie du tick ; les octets de base des plans se complètent à la première lecture."""
 
     monde: bytes
     lieux: dict[int, bytes]
@@ -148,6 +149,8 @@ class ServeurMonde(ThreadingHTTPServer):
         self.releve = []
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
+        self.verrou_base = threading.Lock()
+        self._bases = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
         self.condition_vitesse = threading.Condition()
@@ -175,6 +178,17 @@ class ServeurMonde(ThreadingHTTPServer):
                     document, vue = document_carte(self.world, table=table, maisons=maisons)
                     self._carte_figee = (_serialiser(document), vue, seigneuries, table, maisons)
         return self._carte_figee
+
+    def octets_plan(self, etat, cell_id):
+        """Assemble les octets figés de la base et ceux du plan publié."""
+        with self.verrou_base:
+            if cell_id not in self._bases:
+                self._bases[cell_id] = b'{"base":' + _serialiser(base_de_cellule(self.world, cell_id)) + b','
+            octets = etat.plans[cell_id]
+            if not octets.startswith(b'{"base":'):
+                octets = self._bases[cell_id] + octets[1:]
+                etat.plans[cell_id] = octets
+            return octets
 
     def document_departs(self):
         """Lit les fiches actuelles et leur date sous le même verrou que les intentions."""
@@ -248,6 +262,8 @@ class ServeurMonde(ThreadingHTTPServer):
             )
             for cell_id, plan in sorted(self.world.plans.items())
         }
+        with self.verrou_base:
+            plans = {cid: self._bases.get(cid, b"{") + octets[1:] for cid, octets in plans.items()}
         return EtatPublie(
             monde=monde,
             lieux=lieux,
@@ -422,6 +438,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
                     f"cell inconnu : reçu {cell_id!r}",
                 )
                 return
+            if cible.path == "/plan":
+                try:
+                    lieu = self.server.octets_plan(etat, cell_id)
+                except BaseAbsente as exc:
+                    self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                    return
             self._repondre_octets(HTTPStatus.OK, lieu)
             return
         if cible.path == "/monde":

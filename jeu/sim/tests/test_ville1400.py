@@ -452,7 +452,7 @@ def test_sc7_rien_n_entre_dans_le_monde(campagne):
     modules, lecteurs, ecrivains, importeurs = _parcourir(_sources_moteur())
     print(f"modules_parcourus={modules}")
     assert modules > 0
-    assert set(lecteurs + importeurs) == {"ville1400.py"}
+    assert set(lecteurs + importeurs) == {"ville1400.py", "intentions.py", "service.py"}
     assert set(ecrivains) == {"world.py"}
     _modules, _lecteurs, _ecrivains, importeurs_sonde = _parcourir([
         ("sonde.py", "from sim.ville1400 import base_de_cellule\n"),
@@ -653,3 +653,16 @@ def test_ilots_sc6_modele_et_notice():
     assert "îlots" in ligne
     with pytest.raises(AssertionError, match="échantillon vide"):
         _sous_partie("## Autre\n", "### Le plan de base")
+
+
+def test_base_lecteurs_et_regle_de_refus():
+    sources = _sources_moteur()
+    def verifier(liste):
+        modules, lecteurs, _, importeurs = _parcourir(liste)
+        assert modules > 0, "échantillon vide"
+        assert set(lecteurs + importeurs) == {"ville1400.py", "intentions.py", "service.py"}
+    verifier(sources)
+    with pytest.raises(AssertionError):
+        verifier([*sources, ("engine.py", "from sim.ville1400 import base_de_cellule\n")])
+    section = _sous_partie((_SIM / "MODELE.md").read_text(encoding="utf-8"), "### Le plan de base")
+    assert all(mot in section for mot in ("maison de 1400", "refus", "/plan"))

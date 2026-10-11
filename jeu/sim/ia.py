@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
-from sim.intentions import ChoixDepart, IntentionRefusee, TYPE_TRACER_ROUTE, recevoir_intention
+from sim.intentions import ChoixDepart, IntentionRefusee, TYPE_TRACER_ROUTE, recevoir_intention, verifier_base
 from sim.model import contenus_des_paniers
 from sim.seigneuries import identifiant_de_seigneurie
 
@@ -63,6 +63,13 @@ def decider_intentions(monde, releve):
             raise ValueError(f'maison {maison.sorte} {maison.id} ({maison.nom}) : {donnee} absente ou non calculée')
         if bourg.population > 0 and faim > 0 and (maison.sorte, maison.id) not in actives:
             y = _constantes.IA_LARGEUR_ROUTE_M * len(plan.rues)
+            try:
+                verifier_base(monde, maison.cell_id, points=[[0, y], [_constantes.IA_LONGUEUR_ROUTE_M, y]],
+                              largeur_m=_constantes.IA_LARGEUR_ROUTE_M)
+            except IntentionRefusee as refus:
+                if refus.__cause__ is not None:
+                    raise
+                continue
             propositions.append({
                 'maison': {'sorte': maison.sorte, 'id': maison.id},
                 'intention': {
