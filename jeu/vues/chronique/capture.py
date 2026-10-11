@@ -38,6 +38,7 @@ from sim.engine import tick as _tick
 # photographie au bit près — c'est-à-dire qu'elle ne prouverait plus rien.
 from sim.snapshot_export import _round_tree, build_snapshot_document
 from sim.snapshot_export import densite_de_cellule, lieux_en_photographie
+from sim.places import bourgs_et_maitres, places_du_monde
 from sim.world import World
 
 # Les champs d'une cellule que le tick fait bouger, lieux compris.
@@ -139,18 +140,20 @@ def _instants(ticks: int, pas: int) -> list[int]:
     return instants
 
 
-def _image_du_monde(world: World, numero_tick: int) -> dict:
+def _image_du_monde(world: World, numero_tick: int, places: dict | None = None) -> dict:
     """L'image d'un monde en cours, lue sans repasser par la géométrie.
 
     Les colonnes sont lues sur les cellules dans le même ordre que
     `build_snapshot_document` les écrit — l'ordre du `cell_id` croissant.
     C'est la seule chose que ce module sait de la photographie, et le
-    test de recomposition est ce qui l'empêche de dériver.
+    test de recomposition est ce qui l'empêche de dériver. Les places des
+    lieux (#393) viennent de `places_du_monde`, comme dans la photographie.
     """
     from sim.aggregation import bourg_depuis_monde, repartition_bourg_de_cellule_consultation
     from sim.model import cellule_vers_dict
 
     repartitions = bourg_depuis_monde(world)
+    places = places_du_monde(world) if places is None else places
     colonnes: dict[str, list] = {champ: [] for champ in CHAMPS_MOBILES}
     for identifiant, cellule in sorted(
         world.cells.items(), key=lambda item: int(item[0])
@@ -169,7 +172,7 @@ def _image_du_monde(world: World, numero_tick: int) -> dict:
             elif champ == "densite_hab_par_km2":
                 valeur = densite_de_cellule(cellule)
             elif champ == "lieux":
-                colonnes[champ].append(lieux_en_photographie(cid, cellule))
+                colonnes[champ].append(lieux_en_photographie(cid, cellule, places[cid]))
                 continue
             else:
                 valeur = (
@@ -205,11 +208,15 @@ def capturer(
     images = [premiere]
     rng = random.Random(seed)
     attendus = set(instants)
+    # Les places ne bougent que si le maître d'un bourg change : elles se relisent alors seulement.
+    cle, places = None, None
     for numero_tick in range(ticks):
         _tick(monde, rng, numero_tick)
         acheve = numero_tick + 1
         if acheve in attendus:
-            images.append(_image_du_monde(monde, acheve))
+            if bourgs_et_maitres(monde) != cle:
+                cle, places = bourgs_et_maitres(monde), places_du_monde(monde)
+            images.append(_image_du_monde(monde, acheve, places))
         if avancement is not None:
             avancement(acheve, ticks)
     return {"decor": decor, "images": images, "seed": int(seed), "pas": int(pas)}

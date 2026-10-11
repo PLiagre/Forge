@@ -3490,7 +3490,7 @@ def test_service_lieu_documente_dans_le_modele():
 
 
 # --- Lot 237 : /lieu sert les lieux de la cellule ---
-_CLES_D_UN_LIEU = {"maitre", "population", "rang", "stocks", "surface_km2"}
+_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2"}  # le point : lot #393
 
 
 def _verifier_lieux_contre_photo(lieu: dict, cellule: dict, nombre_attendu: int) -> None:
@@ -4137,9 +4137,14 @@ def test_service_ia_sans():
         4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', 'e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83'],
     }
     anterieures = copy.deepcopy(empreintes)
-    empreintes = {
+    avec_maitres = {
         0: [anterieures[0][0], 'bf688be8de2768c94087ffb718510cec297fb7619ef3e8bd8610fe1e942d18f6', '82d96e630f2f88d0efcbbeb821614c15345684fa1e4127f73adbd261f8f96271'],
         4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'],
+    }
+    # Lot #393 : chaque lieu porte son point ; sans lui, on retrouve les réponses `avec_maitres`.
+    empreintes = {
+        0: [anterieures[0][0], '1d293e8904ca32aa6b72e29762b42c1c9862459dce1691599f57ce6468df97db', '05d131f47e10eb27753d019491ec5f3649d79c7a9195a9f80dff5293545af30d'],
+        4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
     }
     from sim.service import _serialiser
     with lancer_service(0) as port:
@@ -4147,7 +4152,10 @@ def test_service_ia_sans():
             if t: requete_service(port, '/tick?n=4', 'POST')
             for chemin, attendue in zip(['/monde', '/lieu?cell=1175', '/lieu?cell=9922'], attendues):
                 octets = requete_service(port, chemin)[2]
-                assert _sha(octets) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c16d0b6f5d5699793286ab480344207940c01dc55f4630fcffb84e09fac66e18', 'd8cabad69d78b46f227e1db6d5b7e1238767de836b14c2f5998bc9d59ab87f92'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '32c0fa20e892cc305f9eac5a41dedc4f9b35c834925160a8e8319cc19f66a7bf', 'ea965093c5d6ad8b169b8558dc7a57d7e826e46247d0fe02e3e2dafdabc28ecd']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
+                reponse = json.loads(octets)
+                if chemin != '/monde':
+                    for lieu in reponse['lieux']: lieu.pop('point')  # le point vient du lot #393
+                assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c16d0b6f5d5699793286ab480344207940c01dc55f4630fcffb84e09fac66e18', 'd8cabad69d78b46f227e1db6d5b7e1238767de836b14c2f5998bc9d59ab87f92'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '32c0fa20e892cc305f9eac5a41dedc4f9b35c834925160a8e8319cc19f66a7bf', 'ea965093c5d6ad8b169b8558dc7a57d7e826e46247d0fe02e3e2dafdabc28ecd']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
                 if chemin != '/monde':
                     document = json.loads(octets); assert document.pop('noms'); octets = _serialiser(document)
                 assert hashlib.sha256(octets).hexdigest() == attendue
@@ -4156,6 +4164,9 @@ def test_service_ia_sans():
                 with pytest.raises(AssertionError): assert hashlib.sha256(_serialiser(faux)).hexdigest() == attendue
                 if chemin == '/monde': continue
                 prive = json.loads(octets)
+                assert prive['lieux'] and all(set(l['point']) == {'x_m', 'y_m', 'latitude', 'longitude'} for l in prive['lieux'])
+                for lieu in prive['lieux']: lieu.pop('point')
+                assert _sha(_serialiser(prive)) == avec_maitres[t][1 if '1175' in chemin else 2]
                 assert prive['lieux'] and all(l['maitre'] for l in prive['lieux'])
                 for lieu in prive['lieux']: lieu.pop('maitre')
                 reference = anterieures[t][1 if '1175' in chemin else 2]
@@ -4186,6 +4197,25 @@ def test_service_ia_lecture(monkeypatch):
         assert requete_service(port, '/ia')[2] != ancien
 
 
+@pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
+def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
+    """Lot #393 — chaque lieu du fichier figé porte son point, dans sa cellule ; sans les points, c'est la réponse d'avant."""
+    from sim.service import _serialiser
+    from sim.villes import point_dans_geometrie
+    fige = (_REPO.parent / f"3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json").read_bytes()
+    document = json.loads(fige)
+    geometrie = World.charger(0).carte[document["cell_id"]]["geometry"]
+    assert document["lieux"]
+    for lieu in document["lieux"]:
+        assert set(lieu["point"]) == {"x_m", "y_m", "latitude", "longitude"}
+        assert point_dans_geometrie(lieu["point"]["x_m"], lieu["point"]["y_m"], geometrie)
+    prive = copy.deepcopy(document); assert prive.pop("noms")
+    for lieu in prive["lieux"]: lieu.pop("point")
+    assert _sha(_serialiser(prive)) == avant
+    faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
+    with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == avant
+
+
 @pytest.mark.parametrize("tick,ancienne", [(3, "e53288c4a92a82002f98645c7f760bf50ccb8ffac765d121e949bde90978b352"), (4, "e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83")])
 def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
     from sim.service import _serialiser
@@ -4194,6 +4224,7 @@ def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
     document = json.loads(fige)
     assert document["lieux"] and all(isinstance(l["maitre"], str) and l["maitre"] for l in document["lieux"])
     prive = copy.deepcopy(document); assert prive.pop("noms")
+    for lieu in prive["lieux"]: lieu.pop("point")  # le point vient du lot #393
     assert _sha(_serialiser(prive)) == {3: 'bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e', 4: '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'}[tick]
     for lieu in prive["lieux"]: lieu.pop("maitre")
     assert _sha(_serialiser(prive)) == ancienne

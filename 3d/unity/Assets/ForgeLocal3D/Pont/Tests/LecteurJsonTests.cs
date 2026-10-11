@@ -87,9 +87,14 @@ namespace Forge.Pont.Tests
                 Assert.IsInstanceOf<Dictionary<string, object>>(lieux[rang]);
                 var unLieu = (Dictionary<string, object>)lieux[rang];
                 CollectionAssert.AreEqual(
-                    new[] { "maitre", "population", "rang", "stocks", "surface_km2" },
+                    new[] { "maitre", "point", "population", "rang", "stocks", "surface_km2" },
                     unLieu.Keys.ToArray());
                 Assert.IsTrue((double)unLieu["rang"] == rang, "le rang du lieu vaut son indice");
+                // Lot #393 — la place du lieu dans sa cellule : mètres de la carte et degrés.
+                var point = (Dictionary<string, object>)unLieu["point"];
+                CollectionAssert.AreEqual(new[] { "latitude", "longitude", "x_m", "y_m" }, point.Keys.ToArray());
+                Assert.IsInstanceOf<double>(point["x_m"]);
+                Assert.IsInstanceOf<double>(point["y_m"]);
                 Assert.IsInstanceOf<string>(unLieu["maitre"]);
                 Assert.AreEqual(maitresAttendus[rang / 3], unLieu["maitre"]);
                 var nomLieu = (Dictionary<string, object>)nomsLieux[rang];
