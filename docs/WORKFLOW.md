@@ -20,7 +20,7 @@ la fusionne toute seule.
                     CODEUR (Codex, gpt-6.1-sol, high · secours Cursor, grok-high)   — lot « pc » : Claude Code, opus, high sur le PC (secours Cursor, grok-high)
                           │ le pilote commit, pousse, capture
                           ▼
-                    CI : tests + gitleaks ── rouge ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
+                    CI : tests + gitleaks ── rouge (dès le premier travail rouge) ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
                           │ vert
                           ▼
                     RELECTEUR (Claude Code, opus, high ; puis Codex gpt-6.1-sol, Cursor grok-high : jamais la famille qui a écrit)

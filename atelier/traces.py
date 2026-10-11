@@ -45,12 +45,14 @@ def rouges(table: str) -> list[Rouge]:
     """Les contrôles en échec d'une table de `gh pr checks`, dans son ordre.
 
     Un état posé par un travail (`relecture`) n'a pas d'adresse de travail :
-    il garde sa description, qui dit déjà pourquoi il est rouge.
+    il garde sa description, qui dit déjà pourquoi il est rouge. Un travail
+    annulé (`cancel`, une tranche qui a dépassé son délai) rend `tests`
+    rouge comme un échec : son journal dit où il s'est arrêté.
     """
     trouves = []
     for ligne in table.splitlines():
         champs = ligne.split("\t")
-        if len(champs) < 2 or champs[1] != "fail":
+        if len(champs) < 2 or champs[1] not in ("fail", "cancel"):
             continue
         adresse = champs[3] if len(champs) > 3 else ""
         description = champs[4] if len(champs) > 4 else ""
