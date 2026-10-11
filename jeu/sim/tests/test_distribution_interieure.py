@@ -930,3 +930,40 @@ def test_route_documentee():
     assert "sim/routes_interieures.py" in readme
     with pytest.raises(AssertionError):
         assert "FACTEUR_ROUTE_INTERIEURE" in section.replace("FACTEUR_ROUTE_INTERIEURE", "retirée")
+
+
+def test_sans_route_ne_parcourt_pas_les_rues_vides():
+    """Un plan vide est écarté avant tout parcours ou calcul de places."""
+    from types import SimpleNamespace
+
+    class RuesVides(list):
+        def __iter__(self):
+            raise AssertionError("parcours de rues vides")
+
+    monde = World({0: Cell(0, 1.0, 0)}, [])
+    monde.ancres_des_bourgs = {}
+    monde.plans[0] = SimpleNamespace(rues=RuesVides())
+    assert facteurs_des_routes(monde) == {}
+
+
+def test_sans_route_ne_cherche_pas_de_facteur_par_cellule(monkeypatch):
+    """Le tick sans route garde le chemin cellulaire sans accès aux facteurs."""
+    consultations = []
+
+    class FacteursVides(dict):
+        def __bool__(self):
+            consultations.append(1)
+            return False
+
+        def get(self, *args):
+            raise AssertionError("recherche de facteur sans route")
+
+    monkeypatch.setattr(engine.routes, "facteurs_des_routes", lambda monde: FacteursVides())
+    totaux = []
+    for taille in (1, 4):
+        monde = World({cid: Cell(cid, 1.0, 0) for cid in range(taille)}, [])
+        engine.tick(monde, random.Random(0), 0)
+        assert monde.ticks_ecoules == 1
+        totaux.append(len(consultations))
+        consultations.clear()
+    assert totaux[0] > 0 and totaux[0] == totaux[1]

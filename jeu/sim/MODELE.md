@@ -49,7 +49,10 @@ part. À chaque tick, dans cet ordre :
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
    pluie suffisante.
-8. **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
+8. **Chemins intérieurs** (`_remplir_chemins_interieurs`) — seulement si une
+   route achevée sans porte atteint un lieu, initialise les capacités par rang
+   avec les facteurs des routes, pour le commerce du même tick.
+   **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
    voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture. Une route achevée avec porte augmente

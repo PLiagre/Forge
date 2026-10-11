@@ -31,6 +31,7 @@ from sim import constants as _constantes
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
+import sim.routes_interieures as routes
 from sim import plan as _plan
 from sim.model import (
     Cell,
@@ -947,9 +948,11 @@ def _apply_commerce(
                         carte = getattr(world, "carte", None)
                         facteur = _facteur_transport_pour_cellule(cid, carte) if carte else 1.0
                         capacite = _constantes.capacite_chemins_interieurs_kg(1, facteur)
-                        table = facteurs.get(cid) if facteurs else None
-                        chemins[cid] = _capacites_interieures(
-                            capacite, [lieu.rang for lieu in lieux[1:]], table)
+                        if facteurs:
+                            chemins[cid] = _capacites_interieures(
+                                capacite, [lieu.rang for lieu in lieux[1:]], facteurs.get(cid))
+                        else:
+                            chemins[cid] = {lieu.rang: capacite for lieu in lieux[1:]}
                     surplus = min(surplus, locaux[0] + sum(
                         min(stock, chemins[cid][lieu.rang]) for lieu, stock in zip(lieux[1:], locaux[1:])))
                 else:
@@ -1185,22 +1188,38 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
         restes = [max(0.0, reste) for reste in restes]
         capacite = _constantes.capacite_chemins_interieurs_kg(
             1, _facteur_transport_pour_cellule(cell.cell_id, carte))
-        demande = manques[0] + sum(
-            min(manque, _plafond_du_rang(rang, capacite, facteurs))
-            for rang, manque in enumerate(manques[1:], start=1))
-        pot, restes[0] = restes[0], 0.0
-        for rang in range(1, len(lieux)):
-            envoi = min(restes[rang], _plafond_du_rang(rang, capacite, facteurs), max(0.0, demande - pot))
-            restes[rang] -= envoi
-            pot += envoi
-        couverte, surplus = pot >= demande, max(0.0, pot - demande)
-        for rang in range(len(lieux)):
-            plafond = manques[rang] if rang == 0 else _plafond_du_rang(rang, capacite, facteurs)
-            servi = min(manques[rang], plafond)
-            if not couverte:
-                servi = min(servi, pot)
-            manques[rang] -= servi
-            pot = max(0.0, pot - servi)
+        if facteurs:
+            plafonds = [0.0] + [_plafond_du_rang(rang, capacite, facteurs)
+                                for rang in range(1, len(lieux))]
+            demande = manques[0] + sum(min(manque, plafonds[rang])
+                                      for rang, manque in enumerate(manques[1:], start=1))
+            pot, restes[0] = restes[0], 0.0
+            for rang in range(1, len(lieux)):
+                envoi = min(restes[rang], plafonds[rang], max(0.0, demande - pot))
+                restes[rang] -= envoi
+                pot += envoi
+            couverte, surplus = pot >= demande, max(0.0, pot - demande)
+            for rang in range(len(lieux)):
+                servi = min(manques[rang], manques[rang] if rang == 0 else plafonds[rang])
+                if not couverte:
+                    servi = min(servi, pot)
+                manques[rang] -= servi
+                pot = max(0.0, pot - servi)
+        else:
+            # Sans route, garder les boucles communes de capacité, sans appel par rang.
+            demande = manques[0] + sum(min(manque, capacite) for manque in manques[1:])
+            pot, restes[0] = restes[0], 0.0
+            for rang in range(1, len(lieux)):
+                envoi = min(restes[rang], capacite, max(0.0, demande - pot))
+                restes[rang] -= envoi
+                pot += envoi
+            couverte, surplus = pot >= demande, max(0.0, pot - demande)
+            for rang in range(len(lieux)):
+                servi = min(manques[rang], manques[rang] if rang == 0 else capacite)
+                if not couverte:
+                    servi = min(servi, pot)
+                manques[rang] -= servi
+                pot = max(0.0, pot - servi)
         restes[0] = surplus if couverte else pot
         penurie = sum(manques)
     total = sum(restes) if penurie > 0 else total
@@ -1692,8 +1711,6 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         for cell in world.cells.values():
             _apply_production(cell, rng, carte, jour=jour)
 
-    import sim.routes_interieures as routes
-
     facteurs_routes = routes.facteurs_des_routes(world)
     if facteurs_routes:
         chemins = {}
@@ -1703,16 +1720,24 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         _apply_commerce(world, total_transported)
 
     penuries: dict[int, float] = {}
-    for cell in world.cells.values():
-        facteurs = facteurs_routes.get(cell.cell_id) if facteurs_routes else None
-        if facteurs:
-            penurie_kg = _apply_consumption(cell, carte, facteurs)
-        else:
+    if facteurs_routes:
+        for cell in world.cells.values():
+            facteurs = facteurs_routes.get(cell.cell_id)
+            if facteurs:
+                penurie_kg = _apply_consumption(cell, carte, facteurs)
+            else:
+                penurie_kg = _apply_consumption(cell, carte)
+            penuries[cell.cell_id] = penurie_kg
+            _update_hunger(cell, penurie_kg)
+            _apply_mortality(cell)
+            _apply_natalite(cell, penurie_kg)
+    else:
+        for cell in world.cells.values():
             penurie_kg = _apply_consumption(cell, carte)
-        penuries[cell.cell_id] = penurie_kg
-        _update_hunger(cell, penurie_kg)
-        _apply_mortality(cell)
-        _apply_natalite(cell, penurie_kg)
+            penuries[cell.cell_id] = penurie_kg
+            _update_hunger(cell, penurie_kg)
+            _apply_mortality(cell)
+            _apply_natalite(cell, penurie_kg)
 
     _apply_migration(world, penuries)
 

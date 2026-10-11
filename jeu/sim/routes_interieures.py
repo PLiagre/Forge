@@ -10,7 +10,6 @@ from __future__ import annotations
 import math
 
 import sim.constants as _constantes
-import sim.places as places
 from sim.lieux import lieux_de_cellule
 
 
@@ -54,6 +53,9 @@ def lieu_de_la_route(rue, places) -> tuple[int | None, str]:
 
 
 def _places_de(monde, cell_id):
+    # Les places dépendent du moteur via les seigneuries : import réservé aux routes.
+    import sim.places as places
+
     ancres = getattr(monde, "ancres_des_bourgs", None)
     if ancres is None or cell_id not in ancres:
         return None
@@ -96,20 +98,28 @@ def facteurs_des_routes(monde) -> dict[int, dict[int, float]]:
     plans = getattr(monde, "plans", None)
     if not plans or getattr(monde, "ancres_des_bourgs", None) is None:
         return {}
-    facteur = _constantes.FACTEUR_ROUTE_INTERIEURE
-    facteurs = {}
+    facteurs = None
     for cid, plan in plans.items():
-        rues = [rue for rue in plan.rues if _rue_qui_compte(rue)]
-        if not rues or cid not in monde.cells:
+        if not plan.rues:
             continue
-        lieu_places = _places_de(monde, cid)
-        if lieu_places is None:
+        if cid not in monde.cells:
             continue
-        atteints = set()
-        for rue in rues:
+        lieu_places = None
+        atteints = None
+        for rue in plan.rues:
+            if not _rue_qui_compte(rue):
+                continue
+            if lieu_places is None:
+                lieu_places = _places_de(monde, cid)
+                if lieu_places is None:
+                    break
             rang, _raison = lieu_de_la_route(rue, lieu_places)
             if rang is not None:
-                atteints.add(rang)
+                if atteints is None:
+                    atteints = {}
+                atteints[rang] = _constantes.FACTEUR_ROUTE_INTERIEURE
         if atteints:
-            facteurs[cid] = {rang: facteur for rang in atteints}
-    return facteurs
+            if facteurs is None:
+                facteurs = {}
+            facteurs[cid] = atteints
+    return facteurs if facteurs is not None else {}
