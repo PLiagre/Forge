@@ -2443,7 +2443,8 @@ bord de la place, de longueur `LONGUEUR_RUELLE_1400_M` et de largeur
 `LARGEUR_RUELLE_1400_M`. Une ruelle peut croiser une autre rue : ces
 croisements restent de **niveau 3**, comme pour le plan.
 
-Chaque foyer a une maison : façade `FACADE_MAISON_1400_M` le long de la voie,
+Jusqu'à `FOYERS_SANS_ILOTS` foyers, chaque foyer a une maison :
+façade `FACADE_MAISON_1400_M` le long de la voie,
 profondeur `SURFACE_M2_PAR_FOYER_LOGE / FACADE_MAISON_1400_M`, en retrait de
 `RECUL_MAISON_1400_M` du bord de la chaussée, des deux côtés. Les candidats
 sont triés par la distance de leur centre à l'origine, puis par la rue, puis
@@ -2452,6 +2453,20 @@ la place, une rue, une ruelle ou une maison déjà posée est sauté. On s'arrê
 au nombre de foyers ; s'il en manque, les rues s'allongent et le calcul
 recommence. Zéro foyer : la place et les rues, aucune maison. Toute
 coordonnée est arrondie à `SNAPSHOT_FLOAT_DECIMALS` avant d'être éprouvée.
+
+Au-delà du seuil, les foyers se groupent en îlots d'au plus
+`MAISONS_PAR_ILOT_MAX` (20). Pour `k` foyers, la façade vaut
+`FACADE_MAISON_1400_M × min(k, MAISONS_EN_FACADE_ILOT)` et la profondeur
+`k × SURFACE_M2_PAR_FOYER_LOGE / façade` : 40 m² par foyer, soit 25 m × 32 m
+pour un îlot plein et 5 m × 8 m pour un seul foyer. La limite
+`MAISONS_EN_FACADE_ILOT` (5) évite une façade de 100 m : elle ne tiendrait
+ni entre deux ruelles (37 m), ni le long d'une ruelle (60 m), et
+l'allongement ne finirait jamais. Les îlots pleins se posent d'abord,
+puis l'îlot du reste sur les candidats de sa propre forme, avec le même
+recul, le même tri et les mêmes contrôles de chevauchement. L'allongement
+compte les objets, pas les foyers. Chaque îlot reste un élément de
+`maisons`, avec une `emprise` de quatre points et `foyers: k` ; leur somme
+reste exacte. Sous le seuil, la base reste identique à l'octet.
 
 `se_chevauchent` est vrai si les intérieurs de deux polygones convexes se
 recouvrent de plus de `TOLERANCE_CHEVAUCHEMENT_M` (axes séparateurs). Un
@@ -2464,10 +2479,12 @@ des polygones convexes.
 Restent de **niveau 3**, non simulés : position et forme du bourg dans la
 cellule, relief, rivière, côte, enceinte, église, marché, étages, densité
 qui varie, rues courbes, maisons des hameaux (rangs > 0), rues vides qu'on
-rognerait.
+rognerait ; la forme intérieure d'un îlot (cour, maisons mitoyennes,
+passages) et des îlots dans une ville de 500 foyers ou moins.
 
-Sur cette machine (Linux 6.8.0-137-generic, x86_64, AMD EPYC 9354P), les
-596 bases se calculent en 26,0 s, et Paris (10322) en 0,40 s.
+Mesures avant et après le lot #565, sur la même machine, graine 0 : les
+596 bases passent de 85,198 s à 7,462 s ; Paris (10322), de 0,820 s à
+0,051 s. Aucun seuil de temps ne conditionne les tests.
 
 ## Le chantier et ses bras
 

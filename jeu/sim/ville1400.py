@@ -1,7 +1,7 @@
 """Ville de 1400 dérivée des foyers du bourg, sans effet sur le tick.
 
 Vue pure : une place, une rue principale vers chaque voisine par terre,
-des ruelles, et une maison par foyer. Le monde ne la stocke pas.
+des ruelles, des maisons individuelles ou des îlots. Le monde ne la stocke pas.
 """
 
 import math
@@ -330,20 +330,15 @@ def _publier(voie):
     return rue
 
 
-def _assembler(directions, longueur, n_foyers, parametres):
-    place = _place(parametres)
-    voies = _voies(directions, longueur, parametres)
+def _poser(voies, nombre, foyers, parametres, grille):
+    """Pose les objets d'une même forme, du centre vers l'extérieur."""
     candidats = _candidats(voies, parametres)
     maisons = []
-    if n_foyers > 0 and candidats:
+    if nombre > 0 and candidats:
         candidats.sort(key=_cle_candidat)
-        grille = _Grille(parametres.pas)
-        grille.ajouter(_Forme(place))
-        for voie in voies:
-            grille.ajouter(_Forme(emprise_de_rue(voie.points, voie.largeur)))
         tolerance = parametres.tolerance
         for candidat in candidats:
-            if len(maisons) == n_foyers:
+            if len(maisons) == nombre:
                 break
             _distance, _rue, _rang, _signe, cx, cy, direction = candidat
             ux, uy, vx, vy = direction
@@ -352,7 +347,20 @@ def _assembler(directions, longueur, n_foyers, parametres):
             if any(_recouvrent(forme, autre, tolerance) for autre in grille.proches(forme)):
                 continue
             grille.ajouter(forme)
-            maisons.append({"emprise": emprise, "foyers": 1})
+            maisons.append({"emprise": emprise, "foyers": foyers})
+    return maisons
+
+
+def _assembler(directions, longueur, groupes, parametres):
+    place = _place(parametres)
+    voies = _voies(directions, longueur, parametres)
+    grille = _Grille(parametres.pas)
+    grille.ajouter(_Forme(place))
+    for voie in voies:
+        grille.ajouter(_Forme(emprise_de_rue(voie.points, voie.largeur)))
+    maisons = []
+    for nombre, foyers, forme in groupes:
+        maisons.extend(_poser(voies, nombre, foyers, forme, grille))
     return {
         "place": place,
         "rues": [_publier(voie) for voie in voies],
@@ -360,41 +368,66 @@ def _assembler(directions, longueur, n_foyers, parametres):
     }
 
 
+def _forme_ilots(foyers, parametres):
+    forme = SimpleNamespace(**vars(parametres))
+    forme.facade = parametres.facade * min(foyers, _constantes.MAISONS_EN_FACADE_ILOT)
+    forme.demi_facade = forme.facade * parametres.demi
+    forme.demi_profondeur = foyers * _constantes.SURFACE_M2_PAR_FOYER_LOGE / forme.facade * parametres.demi
+    return forme
+
+
+def _groupes(n_foyers, parametres):
+    """Maisons individuelles sous le seuil, sinon îlots pleins puis reste."""
+    if n_foyers <= _constantes.FOYERS_SANS_ILOTS:
+        return ((n_foyers, 1, parametres),)
+    maximum = _constantes.MAISONS_PAR_ILOT_MAX
+    pleins, reste = divmod(n_foyers, maximum)
+    groupes = []
+    if pleins:
+        groupes.append((pleins, maximum, _forme_ilots(maximum, parametres)))
+    if reste:
+        groupes.append((1, reste, _forme_ilots(reste, parametres)))
+    return groupes
+
+
 def _quotient_haut(numerateur, diviseur):
     return (numerateur + diviseur - 1) // diviseur
 
 
-def _longueur_initiale(n_foyers, n_rues, parametres):
-    if n_foyers == 0 or n_rues == 0:
+def _longueur_initiale(n_objets, n_rues, parametres):
+    if n_objets == 0 or n_rues == 0:
         return parametres.longueur_min
     cotes = (1, -1)
-    pas = _quotient_haut(n_foyers, n_rues * len(cotes))
+    pas = _quotient_haut(n_objets, n_rues * len(cotes))
     return max(parametres.longueur_min, pas * parametres.facade)
 
 
-def _etendre(longueur, n_foyers, obtenus, parametres):
+def _etendre(longueur, n_objets, obtenus, parametres):
     if obtenus <= 0:
         return longueur + parametres.espacement
-    suivante = longueur * n_foyers / obtenus + parametres.facade
+    suivante = longueur * n_objets / obtenus + parametres.facade
     if suivante <= longueur:
         return longueur + parametres.espacement
     return suivante
 
 
 def base_d_une_population(population, directions):
-    """Place, rues et maisons d'une population, sans lire le monde."""
+    """Place, rues, maisons ou îlots d'une population, sans lire le monde."""
     parametres = _parametres()
     n_foyers = ranger_en_foyers(population).nombre
+    groupes = _groupes(n_foyers, parametres)
+    n_objets = sum(nombre for nombre, _foyers, _forme in groupes)
+    forme = groupes[0][-1]
     dirs = _trier_directions(directions)
     if n_foyers == 0:
-        return _assembler(dirs, parametres.longueur_min, n_foyers, parametres)
-    longueur = _longueur_initiale(n_foyers, len(dirs), parametres)
+        return _assembler(dirs, parametres.longueur_min, groupes, parametres)
+    longueur = _longueur_initiale(n_objets, len(dirs), forme)
     while True:
-        base = _assembler(dirs, longueur, n_foyers, parametres)
+        base = _assembler(dirs, longueur, groupes, parametres)
         obtenus = len(base["maisons"])
-        if obtenus == n_foyers:
+        if obtenus == n_objets:
             return base
-        longueur = _etendre(longueur, n_foyers, obtenus, parametres)
+        longueur = _etendre(longueur, n_objets, obtenus, forme)
 
 
 def _centroide(monde, cell_id):

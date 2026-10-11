@@ -656,6 +656,15 @@ LARGEUR_RUELLE_1400_M = 3
 # Façade d'une maison de foyer le long de la voie, niveau 2.
 FACADE_MAISON_1400_M = 5
 
+# Jusqu'à ce nombre de foyers, les maisons restent individuelles, niveau 2.
+FOYERS_SANS_ILOTS = 500
+
+# Nombre maximal de foyers groupés dans un îlot de 1400, niveau 2.
+MAISONS_PAR_ILOT_MAX = 20
+
+# Façade limitée pour tenir entre deux ruelles sans allongement infini, niveau 2.
+MAISONS_EN_FACADE_ILOT = 5
+
 # Retrait du mur par rapport au bord de la chaussée, niveau 2.
 RECUL_MAISON_1400_M = 1
 
