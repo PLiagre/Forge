@@ -20,6 +20,21 @@ LIEUX_DE_LA_SEIGNEURIE = 4
 # Niveau 2 : les autres lieux se regroupent sous des seigneurs plausibles.
 LIEUX_PAR_SEIGNEUR_PLAUSIBLE = 3
 
+# Niveau 2 (#393) : deux lieux d'une cellule restent écartés d'au moins cette
+# fraction de la racine carrée de la surface d'un lieu (0,5 × √1000 km² ≈ 16 km).
+ECART_MIN_ENTRE_LIEUX = 0.5
+# Tirages au plus pour placer un lieu dans sa cellule ; au-delà, la cellule est
+# refusée en se nommant, jamais tassée.
+TIRAGES_MAX_PAR_LIEU = 10_000
+# Lignes de balayage essayées pour trouver un point intérieur quand le centroïde
+# d'une cellule tombe hors de son polygone (cellule en croissant, côte découpée).
+BALAYAGES_INTERIEURS = 16
+# Précision publiée d'un point : le millimètre en mètres EPSG:3035, le centimètre en degrés.
+# Les derniers bits de la trigonométrie (projection, projection inverse) changent d'une
+# plateforme à l'autre ; le point publié, lui, est le même partout.
+DECIMALES_POINT_METRES = 3
+DECIMALES_POINT_DEGRES = 7
+
 # --- Marchandises ---
 
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.
@@ -605,6 +620,38 @@ DEMI_LARGEUR_PAR_LARGEUR = 0.5
 
 # Géométrie : moitié de la somme des produits croisés dans la formule du lacet.
 AIRE_PAR_PRODUIT_CROISE = 0.5
+
+# Demi-côté de la place de 1400, niveau 2 : elle contient les gestes déjà
+# éprouvés au centre du bourg, et aucune maison n'y entre.
+DEMI_COTE_PLACE_1400_M = 50
+
+# Chaussée d'une rue principale vers une voisine, niveau 2.
+LARGEUR_RUE_1400_M = 6
+
+# Écart des ruelles le long d'une rue principale, à partir du bord de la place, niveau 2.
+ESPACEMENT_RUELLES_1400_M = 40
+
+# Longueur d'une ruelle, de part et d'autre de la rue principale, niveau 2.
+LONGUEUR_RUELLE_1400_M = 60
+
+# Chaussée d'une ruelle, niveau 2.
+LARGEUR_RUELLE_1400_M = 3
+
+# Façade d'une maison de foyer le long de la voie, niveau 2.
+FACADE_MAISON_1400_M = 5
+
+# Retrait du mur par rapport au bord de la chaussée, niveau 2.
+RECUL_MAISON_1400_M = 1
+
+# Recouvrement d'intérieurs encore tenu pour un simple contact, en mètres, niveau 2.
+TOLERANCE_CHEVAUCHEMENT_M = 0.01
+
+# Côté des cases qui cherchent les emprises voisines, niveau 2.
+# Évite d'éprouver toutes les paires.
+PAS_GRILLE_VILLE_1400_M = 40
+
+# Rue sans foyer : elle quitte tout de même la place, pour garder un segment, niveau 2.
+LONGUEUR_MIN_RUE_1400_M = 1
 
 def budget_artisanal_kg(artisans):
     """Budget commun de matière consommable, relu à chaque appel."""

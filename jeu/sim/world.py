@@ -104,6 +104,10 @@ class World:
         stocks_mer : panier de marchandises du bassin maritime commun.
         attribution_villes : résultat initial des points historiques, y
                      compris ceux hors carte ; le tick ne le consulte pas.
+        populations_bourg_amorcage : population du lieu de rang 0 juste après
+                     l'amorçage, par cellule. Hors de to_dict, jamais lue par
+                     le tick. None si le monde n'a pas été amorcé : la ville
+                     de 1400 se déclare alors absente, elle ne se devine pas.
         plans      : dict cell_id → Plan du bourg (rang 0), chantiers lus au tick.
         intentions_en_attente : choix validés, invisibles avant le tick suivant.
         maison_du_joueur : identifiant de la maison du registre appliquée, ou None sans choix.
@@ -123,6 +127,7 @@ class World:
         self.carte_meta = carte_meta or {}
         self.stocks_mer: dict[str, float] = {}
         self.attribution_villes = attribution_villes
+        self.populations_bourg_amorcage = None
         self.ticks_ecoules = 0
         self.intentions_en_attente = []
         self.maison_du_joueur = None
@@ -212,6 +217,7 @@ class World:
         from sim.engine import population_soutenable_de
 
         cells: dict = {}
+        populations_bourg_amorcage = {}
         for raw in raw_cells:
             cid = raw["cell_id"]
             area = raw["area_km2"]
@@ -247,11 +253,18 @@ class World:
             )
             ecrire_stock_marchandise(cell, MARCHANDISE_NOURRITURE, stock)
             cell.lieux = amorcer_lieux(cell)
+            bourg = cell.lieux[0]
+            if bourg.rang != 0:
+                raise ValueError(
+                    f"cellule {cid} : le lieu de rang 0 manque après l'amorçage"
+                )
+            populations_bourg_amorcage[cid] = bourg.population
             cells[cid] = cell
 
         monde = cls(cells=cells, adjacency=raw_adjacency,
                    carte=carte, carte_meta=carte_meta,
                    attribution_villes=attribution)
+        monde.populations_bourg_amorcage = populations_bourg_amorcage
         monde.maisons = charger_registre_maisons(monde.carte)
         from sim.maitres import attribuer_maitres
 

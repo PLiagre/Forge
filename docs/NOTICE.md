@@ -215,6 +215,22 @@ python3 -m pytest vues/relief/tests/ -q  # la carte de statistique
 python3 -m pytest forge/tests/ -q        # la commande de bout en bout
 ```
 
+Les tests du moteur sont longs (près de mille, plus de 3 h sur un seul cœur) :
+`-n auto` les joue sur tous les cœurs (`pip install pytest-xdist`). La CI les
+répartit en trois tranches, test par test, chacune sur les cœurs de son
+runner ; une tranche se rejoue telle quelle en local :
+
+```bash
+python3 -m pytest sim/tests/ -q -n auto -m "not chronometre"       # tous les cœurs
+FORGE_TRANCHE=2/3 python3 -m pytest sim/tests/ -q -n auto --dist worksteal -m "not chronometre"  # la tranche 2 de la CI
+python3 -m pytest -m chronometre sim/tests/ -q                      # les tests qui chronomètrent, seuls
+```
+
+Quelques tests comparent un temps réel à un budget (un tick sous 100 ms, la
+cadence de l'horloge) : sur tous les cœurs ils mesurent la charge de la
+machine, pas le moteur. Ils portent `@pytest.mark.chronometre` ; la CI les joue
+seuls, dans un travail à part, sans `-n`.
+
 Le test qui garde la V1 :
 
 ```bash
