@@ -2350,7 +2350,7 @@ y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
 des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
-`parcelles` et `batiments`. Les octets sont construits dans `EtatPublie` avec
+`parcelles`, `batiments` et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
 la photographie du tick : une lecture n'attend pas son calcul et ne consulte
 pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
 inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
@@ -2382,10 +2382,13 @@ pour chaque cellule, la population du lieu de rang 0 juste après
 `_seed_population` tire sa variation au fil des cellules ; sans la garder,
 rien ne se recalcule à l'identique. L'attribut est posé comme
 `attribution_villes` : hors de `to_dict`, jamais lu par le tick, ni par
-Intentions, Chantiers, Ateliers, le logement, le service ou les empreintes.
+Chantiers, Ateliers, le logement ou les empreintes. Intentions la lit pour le
+refus des gestes, et le service la sert dans `/plan`.
 Un `World` construit à la main le porte à `None`. `base_de_cellule` lève
 alors `BaseAbsente`, qui nomme la cause et la cellule : la base est
-déclarée absente, jamais devinée.
+déclarée absente, jamais devinée. Dans ce monde sans amorçage, le dépôt
+accepte les gestes sans contrôle des maisons de base. Toute autre absence
+(cellule inconnue ou centroïde absent) devient un refus `IntentionRefusee`.
 
 `sim/ville1400.py` est une vue pure. `base_de_cellule(monde, cell_id)` lit
 cette population, les arêtes `land-land` et les centroïdes
@@ -2393,6 +2396,19 @@ cette population, les arêtes `land-land` et les centroïdes
 sans centroïde lève `BaseAbsente` : l'angle ne se devine pas.
 `base_d_une_population(population, directions)` calcule sans monde.
 `directions` est la liste des voisines `(cell_id ou None, angle en radians)`.
+
+Rien ne se pose sur une maison de 1400 : route, parcelle et bâtiment sont
+refusés avant toute mise en attente, en nommant son rang, ses foyers et la
+cellule. Les voisines sont trouvées par grille ; un bord partagé ou un
+recouvrement au plus égal à `TOLERANCE_CHEVAUCHEMENT_M` ne compte pas.
+Un segment nul n'a pas de bande. La place libre reçoit les premiers gestes.
+L'IA éprouve sa route par la même garde avant de proposer, sans écrire au
+monde ni tirer d'aléa. Le dépôt ne garde aucun cache dans le monde.
+Le service calcule et sérialise la base une fois par cellule à sa première
+lecture, sous un verrou distinct du tick, puis assemble ses octets figés
+avec ceux des gestes. Le tick ne calcule ni ne sérialise de maison de base.
+Restent de niveau 3 : découper le long d'une rue de base, démolir ou déplacer
+une maison de 1400, y loger quelqu'un, croiser une rue de base.
 
 Le repère est celui du plan : x vers l'est, y vers le nord, mètres, origine
 au centre du bourg. Le nombre de foyers est `ranger_en_foyers(population).nombre`,
@@ -2453,6 +2469,12 @@ passages) et des îlots dans une ville de 500 foyers ou moins.
 Mesures avant et après le lot #565, sur la même machine, graine 0 : les
 596 bases passent de 85,198 s à 7,462 s ; Paris (10322), de 0,820 s à
 0,051 s. Aucun seuil de temps ne conditionne les tests.
+
+Mesures #566, même machine, graine 0, avant → après (secondes, CPU partagé avec les tests ciblés) :
+`jouer_ia`, moyenne sur 365 ticks : 0,278226 → 0,450941 ; tick du service : 0,171034 → 0,175798 (+2,8 %).
+Démarrage jusqu'au premier `/monde` : 3,251089 → 4,205791 ; Paris, première lecture de `/plan` : 0,001157 → 0,057330 ; seconde : 0,001443 → 0,009289.
+Dépôt de la route repliée de la preuve de récolte : 0,000093 → 0,003941. La première lecture paie le calcul et la sérialisation de la base ; le dépôt paie son contrôle ; aucun seuil dans les tests.
+L'année donne 7 → 7 dépôts acceptés. Ces mesures ponctuelles ne séparent pas la charge des autres tests du coût de l'IA ; le tick ralentit de moins de 10 %.
 
 ## Le chantier et ses bras
 
