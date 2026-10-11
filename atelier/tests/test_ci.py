@@ -41,10 +41,10 @@ def test_la_ci_joue_chaque_test_du_jeu():
 
 
 def _tranches():
-    """Le module qui répartit les tests du moteur, et les tranches que la CI lui demande."""
+    """Le module qui partage les tests du moteur, et les tranches que la CI lui demande."""
     import importlib.util
 
-    chemin = RACINE / "jeu" / "sim" / "tests" / "conftest.py"
+    chemin = RACINE / "jeu" / "sim" / "tests" / "tranches.py"
     spec = importlib.util.spec_from_file_location("tranches_du_moteur", chemin)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -58,8 +58,30 @@ def _tranches():
 def test_les_tranches_du_moteur_jouent_chaque_test_une_fois():
     module, tranches, n = _tranches()
     assert tranches == list(range(1, n + 1)), f"tranches {tranches} pour {n} annoncées"
-    for rang in range(3 * n + 7):
-        assert sum(module.dans_la_tranche(rang, k, n) for k in tranches) == 1, f"le test de rang {rang}"
+    durees = {"a": 30.0, "b": 1.0, "c": 1.0, "d": 12.5}
+    # Des tests mesurés, d'autres neufs (absents des durées) : chacun a sa tranche, une seule.
+    noms = ["c", "neuf-1", "a", "b", "neuf-2", "d", "neuf-3", "neuf-4"]
+    numeros = module.repartir(noms, durees, n)
+    assert len(numeros) == len(noms) and set(numeros) <= set(tranches)
+    # Le partage ne dépend pas de l'ordre de collecte : chaque tranche fait le même calcul.
+    assert dict(zip(noms, numeros)) == dict(zip(reversed(noms), module.repartir(noms[::-1], durees, n)))
+
+
+def test_les_tranches_du_moteur_s_equilibrent_sur_les_durees_mesurees():
+    """Le 11 octobre 2026, le tour de rôle laissait une tranche à 14 min et deux à 1 h 20."""
+    module, _, n = _tranches()
+    durees = module.lire_durees()
+    noms = sorted(durees)
+    assert len(noms) >= n, "durees.json ne mesure presque rien : l'équilibre ne prouverait rien"
+
+    def equilibre(charges: list[float]) -> bool:
+        # La borne du « plus long d'abord » : jamais plus d'un tiers au-dessus du mieux possible.
+        mieux = max(sum(charges) / n, max(durees.values()))
+        return max(charges) <= 4 / 3 * mieux
+
+    assert equilibre(module.charges(noms, durees, n)), module.charges(noms, durees, n)
+    # Contre-épreuve : tout dans une seule tranche n'est pas équilibré.
+    assert not equilibre([sum(durees.values())] + [0.0] * (n - 1)), "le contrôle d'équilibre accepterait tout"
 
 
 def test_une_tranche_mal_ecrite_est_refusee():
@@ -69,7 +91,7 @@ def test_une_tranche_mal_ecrite_est_refusee():
     assert module.lire_tranche(None) is None and module.lire_tranche("") is None
     assert module.lire_tranche("2/3") == (2, 3)
     for faute in ("3", "0/3", "4/3", "a/3", "1/3/5", "-1/3"):
-        with pytest.raises(pytest.UsageError):
+        with pytest.raises(ValueError):
             module.lire_tranche(faute)
 
 

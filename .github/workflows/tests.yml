@@ -30,9 +30,11 @@ jobs:
     # ce ne serait plus un moteur qui tourne sur une machine nue (pytest et
     # pytest-xdist ne servent qu'à le tester).
     # Le 9 octobre 2026, ses 987 tests prenaient 3 h 20 sur un seul cœur, et
-    # chaque PR attendait ce temps : ils se jouent en tranches, test par test
-    # à tour de rôle (jeu/sim/tests/conftest.py), chacune sur les cœurs de
-    # son runner. Toutes les tranches vertes, et `tests` peut l'être.
+    # chaque PR attendait ce temps : ils se jouent en tranches, partagées
+    # d'après les durées mesurées (jeu/sim/tests/tranches.py), chacune sur
+    # les cœurs de son runner. Toutes les tranches vertes, et `tests` peut
+    # l'être. Chaque tranche garde ses durées en artefact, pour remettre
+    # `durees.json` à jour.
     # Les tests qui comptent des millisecondes (`chronometre`) n'y sont pas :
     # ils ont leur travail, plus bas, car quatre processus sur quatre cœurs
     # leur font dépasser le budget d'un tick.
@@ -58,6 +60,12 @@ jobs:
         working-directory: jeu
         env:
           FORGE_TRANCHE: ${{ matrix.tranche }}/3
+          FORGE_DUREES: durees-${{ matrix.tranche }}.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: durees-${{ matrix.tranche }}
+          path: jeu/durees-${{ matrix.tranche }}.json
+          retention-days: 30
 
   chronometre:
     # Les tests du moteur qui comparent un temps réel à un budget (jeu/sim/tests,
