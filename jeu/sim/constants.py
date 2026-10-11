@@ -595,6 +595,14 @@ DEFAULT_CLI_SEED = 0
 PART_COUTUMIERE = 0.10
 PART_MAXIMALE = 0.6
 
+# Vitesse d'un char à bœufs chargé, sur chemin de terre.
+# Niveau 2 : plausible, jamais sourcé.
+VITESSE_CONVOI_KM_PAR_JOUR = 25.0
+
+# Une traversée, chargement et attente du vent compris.
+# Niveau 2 : plausible, jamais sourcé.
+JOURS_DE_MER = 10
+
 # IA : premier tracé local et fenêtre de mesure, plausibles de niveau 2.
 IA_LONGUEUR_ROUTE_M = 40
 IA_LARGEUR_ROUTE_M = 4
