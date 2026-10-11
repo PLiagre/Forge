@@ -404,6 +404,20 @@ class Pilote:
             rendus.add(lot.numero)
         return rendus
 
+    def _attendre_ce_qui_manque(self, lot: Lot, corps: str, attendus: list[int], motif: str) -> None:
+        """Le chef refuse un lot parce qu'il attend d'autres issues : c'est
+        une dépendance que l'issue ne disait pas. Elle s'écrit dans son
+        « Dépend de », et le lot redevient « pret » : il attend, il ne
+        bloque pas, et personne n'a de décision à prendre."""
+        liste = ", ".join(f"#{n}" for n in attendus)
+        self.gh.corps_de(lot.numero, lots.avec_dependances(corps, attendus))
+        self.gh.etiqueter(lot.numero, ["pret"], ["en-cours", "idee"])
+        self.gh.commenter_issue(lot.numero, f"🤖 **pilote** : le chef refuse le lot tant que {liste} n'est pas livré "
+                                            f"({motif}). {liste} est ajouté à « Dépend de » : le lot attend, et "
+                                            "repart quand ce sera livré.\n\n"
+                                            f"{marque(role='pilote', etat='attend', raison=f'dépend de {liste}')}")
+        self.noter(lot.numero, "remis pret", f"refus du chef : dépend de {liste}")
+
     def _lever_sur_reponse(self, ouvertes: list[Lot]) -> set[int]:
         """Un lot bloqué sur lequel le propriétaire a écrit depuis son blocage
         repart : sa réponse (une lettre, une décision, « c'est corrigé »)
@@ -544,6 +558,10 @@ class Pilote:
         decisions = _DECISION.findall(res.texte)
         decision, motif = decisions[-1] if decisions else ("", "")
         if res.reussi and decision == "REFUS":
+            attendus = lots.attendus_du_refus(motif or "", [i["number"] for i in self.gh.issues("open")], lot)
+            if attendus:
+                self._attendre_ce_qui_manque(lot, issue.get("body") or "", attendus, motif)
+                return True
             self._bloquer(lot.numero, f"refusé par le chef : {motif or 'hors du jalon courant'}")
             return True
         if res.reussi and decision == "QUESTION":

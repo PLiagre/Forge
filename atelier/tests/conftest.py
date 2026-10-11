@@ -93,6 +93,10 @@ class FauxGitHub(GitHub):
         self.issues_[numero]["comments"].append({"body": texte, "author": {"login": "pilote"}})
         self.gestes.append(("commenter_issue", numero, texte))
 
+    def corps_de(self, numero, texte):
+        self.issues_[numero]["body"] = texte
+        self.gestes.append(("corps_de", numero))
+
     def epingler(self, numero):
         self.gestes.append(("epingler", numero))
 
