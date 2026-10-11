@@ -425,3 +425,20 @@ def test_capitales_ia_refus(photographie_ia, niveau, cle):
     else: del {"bloc": autre["ia"], "maison": maison, "geste": maison["gestes"][0]}[niveau][cle]
     with pytest.raises(Carte1400Erreur, match=cle if niveau == "bloc" else (cle if cle == "nom" else maison["nom"])): _rendre(autre)
     assert _rendre(photographie_ia)[1]["capitales_dessinees"] > 0
+
+
+def test_capitales_ia_mention_refus(photographie_ia):
+    from vues.relief.carte1400 import lignes_de_l_ia
+    anciennes = lignes_de_l_ia(photographie_ia)
+    assert anciennes and not any("refusé" in ligne for ligne in anciennes)
+    autre = copy.deepcopy(photographie_ia)
+    geste = next(m for m in autre["ia"]["maisons"] if m["gestes"])["gestes"][0]
+    geste["refus"] = "pont coupé"
+    nouvelles = lignes_de_l_ia(autre)
+    diffs = [(a, b) for a, b in zip(anciennes, nouvelles) if a != b]
+    assert len(anciennes) == len(nouvelles) and len(diffs) == 1
+    assert diffs[0][1] == diffs[0][0] + " — refusé : pont coupé"
+    del geste["refus"]
+    assert lignes_de_l_ia(autre) == anciennes
+    with pytest.raises(AssertionError):
+        assert any(ligne.endswith(" — refusé : pont coupé") for ligne in lignes_de_l_ia(autre))
