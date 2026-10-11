@@ -77,6 +77,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/chantiers.py` | Journées de route, parcelle et bâtiment, passage des paysans aux ouvriers puis retour aux champs |
 | `sim/intentions.py` | Dépôt commun des choix de départ, routes, parcelles et bâtiments, en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
+| `sim/convois.py` | Route de chaque lieu jusqu'au grenier de son maître, calculée une fois au chargement |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
 | `sim/aggregation.py` | Agrégation dérivée : regroupe les cellules par centre administratif le plus proche. Ne modifie rien, n'écrit rien |
 | `sim/__main__.py` | `py -m sim` — lance le monde |

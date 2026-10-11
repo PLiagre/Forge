@@ -1730,6 +1730,37 @@ n'est pas nul. Greniers vides et cumul nul laissent les octets antérieurs.
 moisissure. **Niveau 3**, pas simulé : la capacité du grenier et la
 dégradation des marchandises autres que la nourriture.
 
+## Le prélèvement
+
+Au chargement, une fois les maîtres attribués et les fiches plausibles
+rangées, `World.routes_des_lieux` donne pour chaque lieu tenu la route
+jusqu'au grenier de son maître : le couple (`cell_id`, `rang`) mène à
+`Route(maitre, siege, jours)`. `maitre` est l'identifiant de la maison,
+`siege` le couple (`cell_id`, `rang`) de cette maison, `jours` un entier
+au moins égal à 1. Un lieu sans maître n'entre pas dans la table. Un maître
+absent de `World.maisons`, ou dont le siège est hors carte (`cell_id` is
+None), lève `RouteInvalide` en nommant le couple du lieu. Un `World(...)`
+d'épreuve porte `{}`. La table n'entre pas dans `to_dict` : les octets du
+monde ne changent pas. Le tick ne la lit pas et ne la recalcule pas.
+
+`jours = max(1, ceil(distance / VITESSE_CONVOI_KM_PAR_JOUR))`.
+`VITESSE_CONVOI_KM_PAR_JOUR` est la vitesse d'un char à bœufs chargé sur
+chemin de terre, niveau 2, plausible, jamais sourcé. Le lieu qui est le
+siège de son maître est à 1 jour. Dans la même cellule, la distance est
+celle des places ; le relief n'y freine pas, niveau 3, non simulé. Entre
+deux cellules, une recherche par cellule de siège suit le plus court chemin
+sur les arêtes terrestres de `World.adjacency` (les deux bouts dans
+`World.cells` ; une arête vers le nœud de mer ne se prend jamais). La
+longueur d'une arête est la distance des centroïdes divisée par le plus
+petit des deux facteurs de `facteurs_transport_par_relief()`. Un relief
+inconnu ou un centroïde absent sur une arête empruntée est une erreur qui
+nomme la cellule, jamais un repli. Sans chemin terrestre,
+`jours = JOURS_DE_MER` : une traversée, chargement et attente du vent
+compris, niveau 2.
+
+Temps mesuré du chargement sur srv1914711 (AMD EPYC 9354P) :
+`places_du_monde` 0,35 s, la table 0,011 s, `World.charger` 1,93 s.
+
 ## Les intentions du joueur
 
 `fixer_part` accepte exactement `{"type": "fixer_part", "maison": <id du registre>, "part": <fraction>}`.

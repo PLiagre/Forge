@@ -119,6 +119,9 @@ class World:
         greniers   : identifiant de maison → panier (marchandise → kg), vide au chargement.
         parts      : identifiant de maison → fraction commune à ses lieux.
         pertes_kg  : cumul des kilogrammes retirés des greniers, 0 tant qu'aucune perte.
+        routes_des_lieux : (cell_id, rang) → route jusqu'au siège du maître.
+                     Calculée une fois au chargement, absente de to_dict, jamais
+                     lue par le tick. {} pour un monde construit à la main.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -140,6 +143,7 @@ class World:
         self.greniers = {}
         self.parts = {}
         self.pertes_kg = 0.0
+        self.routes_des_lieux = {}
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -279,6 +283,11 @@ class World:
                 if (cid, lieu.rang) in maitres:
                     ecrire_maitre(lieu, maitres[cid, lieu.rang])
         monde.maisons = tuple(sorted(monde.maisons + plausibles, key=lambda m: m.id))
+        # Une fois, après les maîtres : le tick ne relit pas cette table.
+        from sim.convois import routes_des_lieux
+        from sim.places import places_du_monde
+
+        monde.routes_des_lieux = routes_des_lieux(monde, places_du_monde(monde))
         monde.greniers = {maison.id: {} for maison in monde.maisons}
         monde.parts = {maison.id: constantes.PART_COUTUMIERE for maison in monde.maisons}
         from sim.places import ancres_des_bourgs
