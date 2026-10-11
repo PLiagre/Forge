@@ -2297,6 +2297,70 @@ La pose d'un bâtiment, son emprise égale au contour de sa parcelle, son coût
 et son achèvement sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
 l'orientation, l'étage et les matériaux restent de niveau 3. La maison achevée loge des artisans, sans effet sur le tick ; scierie et four emploient des artisans, de niveau 2.
 
+### Le plan de base
+
+Règle de **niveau 2**, plausible, jamais sourcée. `World.charger` garde,
+pour chaque cellule, la population du lieu de rang 0 juste après
+`amorcer_lieux`, dans `populations_bourg_amorcage` : un dictionnaire
+`cell_id → entier`. Cette population dépend de la graine, parce que
+`_seed_population` tire sa variation au fil des cellules ; sans la garder,
+rien ne se recalcule à l'identique. L'attribut est posé comme
+`attribution_villes` : hors de `to_dict`, jamais lu par le tick, ni par
+Intentions, Chantiers, Ateliers, le logement, le service ou les empreintes.
+Un `World` construit à la main le porte à `None`. `base_de_cellule` lève
+alors `BaseAbsente`, qui nomme la cause et la cellule : la base est
+déclarée absente, jamais devinée.
+
+`sim/ville1400.py` est une vue pure. `base_de_cellule(monde, cell_id)` lit
+cette population, les arêtes `land-land` et les centroïdes
+(`centroid.x_m`, `centroid.y_m`, x vers l'est, y vers le nord). Une voisine
+sans centroïde lève `BaseAbsente` : l'angle ne se devine pas.
+`base_d_une_population(population, directions)` calcule sans monde.
+`directions` est la liste des voisines `(cell_id ou None, angle en radians)`.
+
+Le repère est celui du plan : x vers l'est, y vers le nord, mètres, origine
+au centre du bourg. Le nombre de foyers est `ranger_en_foyers(population).nombre`,
+dernier foyer incomplet compris. La place est un carré aligné sur les axes,
+centré sur l'origine, de demi-côté `DEMI_COTE_PLACE_1400_M`. Aucune maison
+n'y entre. Une rue principale part vers chaque voisine distincte reliée par
+une arête `land-land`, à l'angle `atan2` des centroïdes, triée par angle
+ramené dans [0, 2π) puis par `cell_id`. C'est un segment de largeur
+`LARGEUR_RUE_1400_M`, qui part du bord de la place — là où le rayon sort du
+carré, demi-côté / max(|cos|, |sin|) — et s'allonge vers l'extérieur autant
+qu'il faut pour loger les foyers. Elle porte `vers_cell_id`. Règle déclarée :
+une cellule sans voisine par terre reçoit une seule rue, vers l'est (angle 0),
+sans `vers_cell_id`. Les ruelles sont perpendiculaires, de part et d'autre
+de chaque rue principale, tous les `ESPACEMENT_RUELLES_1400_M` à partir du
+bord de la place, de longueur `LONGUEUR_RUELLE_1400_M` et de largeur
+`LARGEUR_RUELLE_1400_M`. Une ruelle peut croiser une autre rue : ces
+croisements restent de **niveau 3**, comme pour le plan.
+
+Chaque foyer a une maison : façade `FACADE_MAISON_1400_M` le long de la voie,
+profondeur `SURFACE_M2_PAR_FOYER_LOGE / FACADE_MAISON_1400_M`, en retrait de
+`RECUL_MAISON_1400_M` du bord de la chaussée, des deux côtés. Les candidats
+sont triés par la distance de leur centre à l'origine, puis par la rue, puis
+par le rang, et posés du centre vers l'extérieur. Un candidat qui chevauche
+la place, une rue, une ruelle ou une maison déjà posée est sauté. On s'arrête
+au nombre de foyers ; s'il en manque, les rues s'allongent et le calcul
+recommence. Zéro foyer : la place et les rues, aucune maison. Toute
+coordonnée est arrondie à `SNAPSHOT_FLOAT_DECIMALS` avant d'être éprouvée.
+
+`se_chevauchent` est vrai si les intérieurs de deux polygones convexes se
+recouvrent de plus de `TOLERANCE_CHEVAUCHEMENT_M` (axes séparateurs). Un
+côté partagé, ou un recouvrement au plus égal à la tolérance, n'est pas un
+chevauchement. `emprise_de_rue` rend le rectangle d'un segment. Les voisins
+d'une emprise se cherchent par une grille de pas `PAS_GRILLE_VILLE_1400_M`,
+jamais par toutes les paires. Le contrat de ces deux fonctions vaut pour
+des polygones convexes.
+
+Restent de **niveau 3**, non simulés : position et forme du bourg dans la
+cellule, relief, rivière, côte, enceinte, église, marché, étages, densité
+qui varie, rues courbes, maisons des hameaux (rangs > 0), rues vides qu'on
+rognerait.
+
+Sur cette machine (Linux 6.8.0-137-generic, x86_64, AMD EPYC 9354P), les
+596 bases se calculent en 26,0 s, et Paris (10322) en 0,40 s.
+
 ## Le chantier et ses bras
 
 Règle de **niveau 2**, plausible, jamais sourcée : le déblai, le nivellement
