@@ -19,6 +19,41 @@ SIM = Path(__file__).resolve().parents[1]
 BAR = 'seigneurie-1'
 
 
+@pytest.mark.parametrize('nombre_lieux', [1, 2])
+@pytest.mark.parametrize('stock_initial', [None, 0.0, 50.0])
+def test_paniers_production_puis_prelevement(nombre_lieux, stock_initial):
+    """Les paniers absents, nuls et pleins suivent le même chemin du modèle."""
+    from sim.convois import TableRoutes
+    from sim.model import copier_panier, lire_stock_marchandise
+    nourriture = c.MARCHANDISE_NOURRITURE
+    objet = c.MARCHANDISE_OBJET
+    panier = {objet: 7.0}
+    if stock_initial is not None:
+        panier[nourriture] = stock_initial
+    cellule = Cell(1, c.SURFACE_KM2_PAR_LIEU * nombre_lieux, 10 * nombre_lieux,
+                   stocks={k: v * nombre_lieux for k, v in panier.items()},
+                   lieux=[EtatDeLieu(rang, 10, dict(panier))
+                          for rang in range(nombre_lieux)])
+    m = World({1: cellule}, [])
+    m.routes_des_lieux = TableRoutes([
+        (1, lieu.rang, 'a', 1, 0, 1) for lieu in cellule.lieux
+    ])
+    m.parts = {'a': 0.5}
+    m.greniers = {'a': {}}
+    recoltes = {}
+    engine._apply_production(cellule, random.Random(0), recoltes=recoltes)
+    prelevement.prelever(m, recoltes)
+    base = 0.0 if stock_initial is None else stock_initial
+    attendu = [base + kg * (1 - m.parts['a']) for kg in recoltes[1]]
+    assert recoltes[1] and all(kg > 0 for kg in recoltes[1])
+    assert [copier_panier(lieu) for lieu in cellule.lieux] == [
+        {objet: panier[objet], nourriture: kg} for kg in attendu
+    ]
+    assert lire_stock_marchandise(cellule, nourriture) == pytest.approx(sum(attendu))
+    assert lire_stock_marchandise(cellule, objet) == panier[objet] * nombre_lieux
+    assert _route(m) == pytest.approx(sum(recoltes[1]) * m.parts['a'])
+
+
 @pytest.fixture(scope='module')
 def monde():
     return World.charger(0)

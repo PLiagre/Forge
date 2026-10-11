@@ -414,14 +414,14 @@ def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:
     if len(cell.lieux) == 1:
         if quantites is not None:
             quantites[0] = recolte
-        cell.lieux[0].stocks[nourriture] = cell.stocks.get(nourriture, -1.0)
+        ecrire_stock_marchandise(cell.lieux[0], nourriture,
+                                lire_stock_marchandise(cell, nourriture))
         return
     surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
     for lieu in cell.lieux:
-        stocks = lieu.stocks
-        stock = max(0.0, stocks.get(nourriture, -1.0))
+        stock = max(0.0, lire_stock_marchandise(lieu, nourriture))
         kg = recolte * surfaces[lieu.rang] / cell.area_km2
-        stocks[nourriture] = stock + kg
+        ecrire_stock_marchandise(lieu, nourriture, stock + kg)
         if quantites is not None:
             quantites[lieu.rang] = kg
 

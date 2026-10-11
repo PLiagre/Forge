@@ -1787,12 +1787,14 @@ La perte du grenier ne commence qu'au tick suivant son arrivée.
 maison, et le cumul mangé non nul ; à part nulle, les octets restent ceux
 d'avant. Minerai, objets, capacité et pillage des convois : niveau 3, non simulés.
 Temps de l'étape mesuré sur srv1914711 (AMD EPYC 9354P), graine 0,
-20 ticks après 5 de chauffe, sans autre test en parallèle : médiane 3,71 ms,
-moyenne 3,96 ms (première version : 4,62 ms ; prototype : 3,3 ms).
-Après correction du coût du tick, tests chronométrés joués seuls :
-médiane du tick 81,15 ms, et 86,02 ms avec ateliers, sous 100 ms ;
-la base avait donné 90 à 93 ms. Les départs ajoutent leur total une seule fois
-par groupe. La production utilise directement les paniers des lieux ;
+20 ticks après 5 de chauffe, sans autre test en parallèle : médiane 4,79 ms,
+moyenne 4,95 ms (avant correction des accès aux paniers : 3,71 ms et 3,96 ms ;
+prototype : 3,3 ms).
+Après correction des accès aux paniers, test chronométré joué seul :
+médiane du tick 77,44 ms, sous 100 ms ; la base avait donné 90 à 93 ms.
+Les départs ajoutent leur total une seule fois
+par groupe. La production et le prélèvement lisent et écrivent les paniers
+par les fonctions de `model.py` ;
 le commerce réutilise les besoins du snapshot et ne parcourt pas
 les arêtes pour une marchandise sans consommation, donc sans besoin ni flux.
 

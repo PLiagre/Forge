@@ -1,6 +1,7 @@
 """La récolte du maître voyage vers son grenier ; aucun aléa supplémentaire."""
 
 import sim.constants as constantes
+from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
 
 
 class GroupeArrivee:
@@ -62,8 +63,9 @@ def prelever(monde, recoltes) -> None:
             kg = taux[indice] * recolte[rang]
             if not kg:
                 continue
-            stocks = lieux[rang].stocks
-            stocks[nourriture] -= kg
+            lieu = lieux[rang]
+            ecrire_stock_marchandise(lieu, nourriture,
+                                    lire_stock_marchandise(lieu, nourriture) - kg)
             retire += kg
             jours = durees[rang]
             groupe = groupes[jours]
@@ -79,7 +81,8 @@ def prelever(monde, recoltes) -> None:
             # Une arrivée reçoit des départs d'âges différents : défaire son facteur.
             charges[jours][indice] += kg / facteurs[jours]
         if retire:
-            cellule.stocks[nourriture] -= retire
+            ecrire_stock_marchandise(cellule, nourriture,
+                                    lire_stock_marchandise(cellule, nourriture) - retire)
     # Un seul ajout au total de chaque groupe, plutôt qu'une écriture par lieu.
     for jours, groupe in enumerate(groupes):
         if groupe is not None:
