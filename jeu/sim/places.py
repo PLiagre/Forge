@@ -162,19 +162,40 @@ def bourgs_et_maitres(monde) -> tuple:
     return tuple((cid, cellule.lieux[0].maitre if cellule.lieux else None) for cid, cellule in sorted(monde.cells.items()))
 
 
+def _villes_placees(monde) -> dict:
+    """La plus grande ville placée de chaque cellule, en mètres, ou rien."""
+    villes = {}
+    attribution = getattr(monde, "attribution_villes", None)
+    if attribution is None:
+        return villes
+    for ville in sorted(attribution.entrees, key=lambda ville: (-ville.population, ville.nom)):
+        cid = attribution.placees.get(ville.nom)
+        if cid is not None and cid not in villes:
+            villes[cid] = (ville.x_m, ville.y_m)
+    return villes
+
+
+def ancres_des_bourgs(monde, sieges=None) -> dict[int, tuple]:
+    """Siège du maître du bourg et ville placée, par cellule.
+
+    Ce sont les deux arguments que `places_de_cellule` reçoit après la carte.
+    `World.charger` les garde ; le tick les relit et ne relit pas le maître.
+    """
+    sieges = sieges_des_maisons() if sieges is None else sieges
+    villes = _villes_placees(monde)
+    ancres = {}
+    for cid, cellule in sorted(monde.cells.items()):
+        maitre = cellule.lieux[0].maitre if cellule.lieux else None
+        ancres[cid] = (sieges.get(maitre), villes.get(cid))
+    return ancres
+
+
 def places_du_monde(monde, sieges=None) -> dict[int, tuple[Place, ...]]:
     """Les places des lieux de chaque cellule du monde, par `cell_id`."""
     sieges = sieges_des_maisons() if sieges is None else sieges
-    villes = {}
-    attribution = monde.attribution_villes
-    if attribution is not None:
-        for v in sorted(attribution.entrees, key=lambda v: (-v.population, v.nom)):
-            cid = attribution.placees.get(v.nom)
-            if cid is not None and cid not in villes:
-                villes[cid] = (v.x_m, v.y_m)
+    ancres = ancres_des_bourgs(monde, sieges)
     places = {}
     for cid, cellule in sorted(monde.cells.items()):
         surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cid, cellule.area_km2)]
-        maitre = cellule.lieux[0].maitre if cellule.lieux else None
-        places[cid] = places_de_cellule(cid, monde.carte.get(cid), surfaces, sieges.get(maitre), villes.get(cid))
+        places[cid] = places_de_cellule(cid, monde.carte.get(cid), surfaces, *ancres[cid])
     return places
