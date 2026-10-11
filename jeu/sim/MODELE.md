@@ -51,11 +51,12 @@ part. À chaque tick, dans cet ordre :
    pluie suffisante.
 8. **Prélèvement** (`prelevement.prelever`) — perte des charges en route,
    arrivée au grenier, puis départ de la part de la récolte fraîche.
-9. **Commerce** (`_apply_commerce`) — prépare d'abord les **chemins intérieurs**
+9. **Commerce** — prépare d'abord les **chemins intérieurs**
    (`_remplir_chemins_interieurs`) : seulement si une route achevée sans porte
    atteint un lieu, initialise les capacités par rang avec les facteurs des
-   routes, pour le commerce du même tick. Les cellules en surplus livrent leurs
-   voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
+   routes, pour le commerce du même tick. Le commerce (`_apply_commerce`) fait
+   ensuite circuler les surplus vers les voisines en manque, sur les arêtes
+   d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture. Une route achevée avec porte augmente
    le plafond de sa frontière dès ce tick. Arrivées et départs passent par le
