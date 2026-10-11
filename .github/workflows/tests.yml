@@ -15,6 +15,15 @@ on:
 permissions:
   contents: read
 
+# Une révision remplacée ne garde pas ses runners : quand une PR reçoit un
+# nouveau commit, le passage de l'ancien s'arrête. Le 11 octobre 2026, une
+# tranche de #573 a tourné 6 h sur une révision que le mécanicien avait déjà
+# remplacée. Master et les lancements à la main ont chacun leur groupe : ils
+# ne s'annulent jamais.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('tests-pr-{0}', github.event.pull_request.number) || format('tests-{0}', github.run_id) }}
+  cancel-in-progress: true
+
 jobs:
   sim:
     # Le moteur. Bibliothèque standard seule : s'il lui fallait une roue,
@@ -27,6 +36,10 @@ jobs:
     # Les tests qui comptent des millisecondes (`chronometre`) n'y sont pas :
     # ils ont leur travail, plus bas, car quatre processus sur quatre cœurs
     # leur font dépasser le budget d'un tick.
+    # Une tranche qui ne finit pas (un test qui boucle) s'arrête au bout de
+    # 3 h, pas des 6 h de GitHub : la plus lente de master en prend 1 h 40
+    # (11 octobre 2026). Arrêtée, elle compte rouge pour `tests`.
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:

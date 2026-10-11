@@ -176,8 +176,9 @@ def test_les_auteurs_d_un_lot():
     assert lots.auteurs([{"role": "codeur_3d", "etat": "fait", "agent": "cursor/claude-opus-5-5-high"}]) == {"claude"}
 
 
-def _check(nom, status="COMPLETED", conclusion="SUCCESS", quand="2026-09-27T10:00:00Z"):
-    return {"__typename": "CheckRun", "name": nom, "status": status, "conclusion": conclusion, "startedAt": quand}
+def _check(nom, status="COMPLETED", conclusion="SUCCESS", quand="2026-09-27T10:00:00Z", workflow=""):
+    return {"__typename": "CheckRun", "name": nom, "status": status, "conclusion": conclusion, "startedAt": quand,
+            "workflowName": workflow}
 
 
 def test_l_etat_des_controles_exiges():
@@ -190,6 +191,32 @@ def test_l_etat_des_controles_exiges():
     rejeu = [_check("tests", conclusion="FAILURE", quand="2026-09-27T09:00:00Z"), _check("tests"),
              _check("gitleaks"), _check("unity", conclusion="FAILURE")]
     assert etat_des_controles({"statusCheckRollup": rejeu})[0] == "vert"
+
+
+def test_un_travail_rouge_de_tests_rend_tests_rouge_sans_attendre():
+    # La PR #577 le 11 octobre 2026 : trois travaux rouges, une tranche qui
+    # tourne encore, `tests` pas encore né. Le pilote a attendu 6 h.
+    en_cours = [_check("sim (1)", conclusion="FAILURE", workflow="tests"),
+                _check("sim (2)", status="IN_PROGRESS", conclusion="", workflow="tests"),
+                _check("atelier", workflow="tests"), _check("gitleaks", workflow="security")]
+    assert etat_des_controles({"statusCheckRollup": en_cours})[0] == "rouge"
+    # Une tranche annulée (délai dépassé) retient `tests` comme un rouge.
+    annulee = [_check("sim (1)", conclusion="CANCELLED", workflow="tests"), _check("gitleaks", workflow="security")]
+    assert etat_des_controles({"statusCheckRollup": annulee})[0] == "rouge"
+    # Les travaux de `tests` encore en route, aucun rouge : on attend.
+    vert_en_route = [_check("sim (1)", workflow="tests"),
+                     _check("sim (2)", status="IN_PROGRESS", conclusion="", workflow="tests"),
+                     _check("gitleaks", workflow="security")]
+    assert etat_des_controles({"statusCheckRollup": vert_en_route})[0] == "attente"
+    # Un travail rouge d'un workflow que rien d'exigé n'agrège ne retient rien.
+    autre = [_check("tests", workflow="tests"), _check("gitleaks", workflow="security"),
+             _check("photo", conclusion="FAILURE", workflow="unity")]
+    assert etat_des_controles({"statusCheckRollup": autre})[0] == "vert"
+    # Un travail rejoué vert l'emporte sur son passage rouge : plus rien ne retient.
+    rejoue = [_check("sim (1)", conclusion="FAILURE", quand="2026-09-27T09:00:00Z", workflow="tests"),
+              _check("sim (1)", workflow="tests"), _check("tests", workflow="tests"),
+              _check("gitleaks", workflow="security")]
+    assert etat_des_controles({"statusCheckRollup": rejoue})[0] == "vert"
 
 
 def test_un_lot_attend_ses_dependances_ouvertes():
