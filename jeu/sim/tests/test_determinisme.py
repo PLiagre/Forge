@@ -481,7 +481,8 @@ def test_plan_absent_de_l_arbre_du_moteur():
     assert len(lectures("world.plans")) == 1
 
 
-def test_depart_deterministe_sans_effet_sur_les_cellules():
+def test_depart_deterministe_sans_effet_sur_les_cellules(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.intentions import deposer_intention
     from sim.seigneuries import charger_seigneuries
 
@@ -515,7 +516,8 @@ def test_depart_deterministe_sans_effet_sur_les_cellules():
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
 
 
-def test_gestes_routes_deterministes_seule_la_cellule_du_chantier():
+def test_gestes_routes_deterministes_seule_la_cellule_du_chantier(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim import constants as k
     from sim.intentions import recevoir_intention
     from sim.tests.test_intentions import _route_reference
