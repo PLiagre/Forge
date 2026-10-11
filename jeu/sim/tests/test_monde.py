@@ -3028,15 +3028,16 @@ def test_horloge_cli_refuse_vitesse_negative_et_accepte_decimale():
         assert document["jours_par_seconde"] == 2.5
 
 
-def test_service_reponse_figee_du_pont_est_celle_du_service():
+def test_service_reponse_figee_du_pont_est_celle_du_service(monkeypatch):
     """Lot #185 SC1 — le fichier figé que relit Unity est la réponse `/lieu` du service."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     fige = (
         _REPO.parent
         / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
         / "lieu-graine0-tick3.json"
     ).read_bytes()
     assert len(json.loads(fige.decode("utf-8"))["stocks"]) >= 2
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         assert requete_service(port, "/tick?n=3", "POST")[1]["tick"] == 3
         monde = requete_service(port, "/monde")[1]
         candidates = sorted(
@@ -3055,13 +3056,14 @@ def test_service_reponse_figee_du_pont_est_celle_du_service():
         assert requete_service(port, chemin)[2] != fige
 
 
-def test_service_reponse_figee_du_pont_tick4_est_celle_du_service():
+def test_service_reponse_figee_du_pont_tick4_est_celle_du_service(monkeypatch):
     """Lot #186 SC1 — le fichier figé du tick 4 est la réponse `/lieu` du service, décalée d'un tick."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     dossier = _REPO.parent / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
     fige3 = (dossier / "lieu-graine0-tick3.json").read_bytes()
     fige4 = (dossier / "lieu-graine0-tick4.json").read_bytes()
     cell_id = json.loads(fige3.decode("utf-8"))["cell_id"]
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         assert requete_service(port, "/tick?n=4", "POST")[1]["tick"] == 4
         chemin = f"/lieu?cell={cell_id}"
         statut, lieu, octets = requete_service(port, chemin)
@@ -4126,6 +4128,19 @@ def test_logement_monde_inchange(monkeypatch):
 
 
 @contextmanager
+def _lancer_service_sans_part(seed, jours_par_seconde=0):
+    """Pose la part nulle dans le fils, avant le chargement de son monde."""
+    original = subprocess.Popen
+    code = ('import sim.constants as c; c.PART_COUTUMIERE = 0; '
+            'import runpy; runpy.run_module("sim.service", run_name="__main__", alter_sys=True)')
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(subprocess, "Popen", lambda args, **kw:
+                      original([args[0], "-c", code, *args[3:]], **kw))
+        with lancer_service(seed, jours_par_seconde) as port:
+            yield port
+
+
+@contextmanager
 def _lancer_service_ia():
     """Ajoute l'option sans modifier le lanceur partagé par les tests existants."""
     original = subprocess.Popen
@@ -4261,7 +4276,8 @@ def test_service_ia_refus(monkeypatch, capsys, erreur):
         assert 'ia : route refusée' in capsys.readouterr().err
 
 
-def test_service_ia_sans():
+def test_service_ia_sans(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     # Empreintes de la base, graine 0 : cellule minimale 1175 et témoin du pont 9922.
     empreintes = {
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
@@ -4278,7 +4294,7 @@ def test_service_ia_sans():
         4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
     }
     from sim.service import _serialiser
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         for t, attendues in empreintes.items():
             if t: requete_service(port, '/tick?n=4', 'POST')
             for chemin, attendue in zip(['/monde', '/lieu?cell=1175', '/lieu?cell=9922'], attendues):
@@ -4344,8 +4360,9 @@ def test_service_ia_raison():
 
 
 @pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
-def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
+def test_service_reponse_figee_places_et_anciens_champs(tick, avant, monkeypatch):
     """Lot #393 — chaque lieu du fichier figé porte son point, dans sa cellule ; sans les points, c'est la réponse d'avant."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.service import _serialiser
     from sim.villes import point_dans_geometrie
     fige = (_REPO.parent / f"3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json").read_bytes()
@@ -4363,7 +4380,8 @@ def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
 
 
 @pytest.mark.parametrize("tick,ancienne", [(3, "e53288c4a92a82002f98645c7f760bf50ccb8ffac765d121e949bde90978b352"), (4, "e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83")])
-def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
+def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne, monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.service import _serialiser
     dossier = _REPO.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
     fige = (dossier / f"lieu-graine0-tick{tick}.json").read_bytes()
@@ -4376,7 +4394,7 @@ def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
     assert _sha(_serialiser(prive)) == ancienne
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
     with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == ancienne
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         assert requete_service(port, f"/tick?n={tick}", "POST")[1]["tick"] == tick
         servi = requete_service(port, f"/lieu?cell={document['cell_id']}")[2]
         assert fige == servi

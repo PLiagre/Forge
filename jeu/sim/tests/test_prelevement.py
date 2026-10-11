@@ -1,0 +1,198 @@
+"""La part récoltée quitte les lieux, voyage et remplit réellement le grenier."""
+import ast
+import copy
+import json
+import pickle
+import random
+import re
+import time
+from pathlib import Path
+
+import pytest
+from sim import constants as c, engine, prelevement
+from sim.model import Cell, EtatDeLieu
+from sim.world import World
+from sim.tests.test_convois import _importe_convois, _section_prelevement
+from sim.tests.test_maisons import _tick_sans_lecture_registre
+
+SIM = Path(__file__).resolve().parents[1]
+BAR = 'seigneurie-1'
+
+
+@pytest.fixture(scope='module')
+def monde():
+    return World.charger(0)
+
+
+def _food(panier):
+    return panier.get(c.MARCHANDISE_NOURRITURE, 0.0)
+
+
+def _route(m):
+    return sum(kg for _, _, kg in prelevement.charges_en_route(m)) if m.convois else 0.0
+
+
+def _greniers(m):
+    return sum(_food(p) for p in m.greniers.values())
+
+
+def _total(m):
+    return sum(_food(cell.stocks) for cell in m.cells.values()) + _route(m) + _greniers(m) + m.mange_convois_kg + m.pertes_kg
+
+
+def _stocks(m):
+    return {cid: (_food(cell.stocks), sum(_food(l.stocks) for l in cell.lieux)) for cid, cell in m.cells.items()}
+
+
+def _egalite(avant, apres):
+    assert avant and avant.keys() == apres.keys()
+    for cid, (cell, lieux) in avant.items():
+        a, b = apres[cid]
+        assert cell - a == pytest.approx(lieux - b, rel=1e-9, abs=1e-8)
+
+
+def _jouer(m, jours):
+    rng = random.Random(0)
+    for _ in range(jours):
+        engine.tick(m, rng, m.ticks_ecoules)
+
+
+def test_conservation_sur_un_an(monde, monkeypatch):
+    m = copy.deepcopy(monde)
+    original = prelevement.prelever
+    preleves = arrives = duree = 0.0
+    nombre = 0
+    def observer(m, recoltes):
+        nonlocal preleves, arrives, nombre, duree
+        avant, stocks, grenier = _total(m), _stocks(m), _greniers(m)
+        nombre += sum(1 for _, t, _ in prelevement.charges_en_route(m) if t == m.ticks_ecoules) if m.convois else 0
+        debut = time.perf_counter()
+        original(m, recoltes)
+        duree += time.perf_counter() - debut
+        assert _total(m) == pytest.approx(avant, rel=1e-12)
+        apres = _stocks(m)
+        _egalite(stocks, apres)
+        preleves += sum(stocks[cid][0] - apres[cid][0] for cid in stocks)
+        arrives += _greniers(m) - grenier
+    monkeypatch.setattr(prelevement, 'prelever', observer)
+    _jouer(m, c.CALENDAR_DAYS_PER_YEAR)
+    assert preleves == pytest.approx(arrives + _route(m) + m.mange_convois_kg, rel=1e-12)
+    assert arrives == pytest.approx(_greniers(m) + m.pertes_kg, rel=1e-12)
+    assert preleves > 0 and nombre > 0 and m.mange_convois_kg > 0
+    print(f'prélevé={preleves}, arrivé={arrives}, arrivées={nombre}, mangé={m.mange_convois_kg}, étape={duree * 1000 / m.ticks_ecoules:.3f} ms')
+    def faux_prelevement(m, recoltes, rendre_lieux):
+        avant = {cid: (dict(cell.stocks), [dict(l.stocks) for l in cell.lieux]) for cid, cell in m.cells.items()}
+        original(m, recoltes)
+        for cid, (stocks, lieux) in avant.items():
+            m.cells[cid].stocks = stocks
+            if rendre_lieux:
+                for lieu, panier in zip(m.cells[cid].lieux, lieux): lieu.stocks = panier
+    recoltes = {cid: [1.0] * len(cell.lieux) for cid, cell in monde.cells.items()}
+    faux = copy.deepcopy(monde); avant = _total(faux)
+    faux_prelevement(faux, recoltes, True)
+    assert faux.convois
+    with pytest.raises(AssertionError): assert _total(faux) == pytest.approx(avant, rel=1e-12)
+    faux = copy.deepcopy(monde); stocks = _stocks(faux)
+    faux_prelevement(faux, recoltes, False)
+    with pytest.raises(AssertionError): _egalite(stocks, _stocks(faux))
+
+
+def test_charge_et_jours_de_bar(monde, monkeypatch):
+    monkeypatch.setattr(c, 'PERTE_GRENIER_PAR_AN', 0)
+    original = prelevement.prelever
+    lieux = [(cid, rang, route.jours) for (cid, rang), route in monde.routes_des_lieux.items() if route.maitre == BAR]
+    assert lieux and len({j for _, _, j in lieux}) > 1
+    def course(perte):
+        m = copy.deepcopy(monde)
+        m.parts = dict.fromkeys(m.parts, 0.0); m.parts[BAR] = 0.5
+        kg = {}
+        def observer(m, recoltes):
+            avant = {(cid, rang): dict(m.cells[cid].lieux[rang].stocks) for cid, rang, _ in lieux}
+            original(m, recoltes)
+            for cid, rang, _ in lieux:
+                apres = m.cells[cid].lieux[rang].stocks
+                if m.ticks_ecoules == 0: kg[cid, rang] = _food(avant[cid, rang]) - _food(apres)
+                assert {k: v for k, v in avant[cid, rang].items() if k != c.MARCHANDISE_NOURRITURE} == {k: v for k, v in apres.items() if k != c.MARCHANDISE_NOURRITURE}
+        monkeypatch.setattr(prelevement, 'prelever', observer)
+        monkeypatch.setattr(c, 'PERTE_CONVOI_PAR_JOUR', perte)
+        _jouer(m, 1); m.parts[BAR] = 0
+        rng = random.Random(0)
+        for t in range(1, max(j for _, _, j in lieux) + 1):
+            engine.tick(m, rng, t)
+            attendu = sum(kg[cid, rang] * (1 - perte)**j for cid, rang, j in lieux if j <= t)
+            assert _food(m.greniers[BAR]) == pytest.approx(attendu, rel=1e-12)
+            if t == min(j for _, _, j in lieux): assert attendu != pytest.approx(sum(kg.values()))
+        assert all(nom != BAR for nom, _, _ in prelevement.charges_en_route(m))
+        return _food(m.greniers[BAR]), sum(kg.values())
+    perte = c.PERTE_CONVOI_PAR_JOUR
+    normal, total = course(perte)
+    sans, brut = course(0)
+    assert sans == pytest.approx(brut, rel=1e-12) and normal < sans
+    print(f'Bar : prélevé={total}, reçu={normal}, sans perte={sans}')
+
+
+def test_part_forte_et_part_egale(monde):
+    def course(part):
+        m = copy.deepcopy(monde); m.parts[BAR] = part
+        _jouer(m, 30)
+        return _food(m.greniers[BAR]), [_food(m.cells[cid].lieux[rang].stocks) for (cid, rang), route in m.routes_des_lieux.items() if route.maitre == BAR]
+    faible, lieux = course(c.PART_COUTUMIERE)
+    fort, affaiblis = course(c.PART_COUTUMIERE * 10)
+    assert fort > faible and lieux and all(a < b for a, b in zip(affaiblis, lieux))
+    assert course(c.PART_COUTUMIERE) == (faible, lieux)
+    print(f'grenier supplémentaire={fort-faible}, écarts lieux={[b-a for a,b in zip(affaiblis,lieux)]}')
+
+
+def test_part_nulle_octets_et_monde_epreuve(monde, monkeypatch):
+    def octets(m): return json.dumps(m.to_dict(), sort_keys=True), pickle.dumps(m.cells)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(c, 'PART_COUTUMIERE', 0)
+        normal = World.charger(0); temoin = copy.deepcopy(normal)
+        _jouer(normal, 30)
+        ctx.setattr(prelevement, 'prelever', lambda *_: None)
+        _jouer(temoin, 30)
+        assert octets(normal) == octets(temoin)
+        assert not {'convois', 'mange_convois_kg', 'parts'} & normal.to_dict().keys()
+    actif = copy.deepcopy(monde); actif.parts[BAR] = c.PART_COUTUMIERE * 2
+    _jouer(actif, 30)
+    assert {'convois', 'mange_convois_kg', 'parts'} <= actif.to_dict().keys()
+    assert octets(actif) != octets(normal)
+    epreuve = World({1: Cell(1, 1.0, 1)}, [])
+    _jouer(epreuve, 2)
+    assert epreuve.convois == {} and epreuve.mange_convois_kg == 0
+    repos = copy.deepcopy(monde); avant = octets(repos)
+    prelevement.prelever(repos, {cid: [0.0] * len(cell.lieux) for cid, cell in repos.cells.items()})
+    assert octets(repos) == avant and repos.convois == {} and repos.mange_convois_kg == 0
+    print(f'octets comparés={sum(len(o) for o in octets(normal))}')
+
+
+def _lectures(texte, noms):
+    return [n.attr for n in ast.walk(ast.parse(texte)) if isinstance(n, ast.Attribute) and isinstance(n.ctx, ast.Load) and n.attr in noms]
+
+
+def test_tick_sans_maitre_ni_registre(monde, monkeypatch):
+    source = (SIM / 'engine.py').read_text()
+    assert not _importe_convois(source)
+    assert not _lectures(source, {'routes_des_lieux', 'PERTE_CONVOI_PAR_JOUR', 'PART_COUTUMIERE'})
+    assert not _lectures((SIM / 'prelevement.py').read_text(), {'maitre', 'maisons'})
+    assert _lectures('lieu.maitre', {'maitre'})
+    m = copy.deepcopy(monde)
+    def leve(_): raise RuntimeError('maître lu')
+    monkeypatch.setattr(EtatDeLieu, 'maitre', property(leve))
+    for _ in range(3): _tick_sans_lecture_registre(monkeypatch, m, engine.tick, m.ticks_ecoules)
+    assert m.convois and m.mange_convois_kg > 0
+    print(f'groupes après trois ticks={len(m.convois)}')
+
+
+def test_modele_et_notices():
+    texte = (SIM / 'MODELE.md').read_text()
+    section = _section_prelevement(texte)
+    for terme in ('PERTE_CONVOI_PAR_JOUR', 'mange_convois_kg', 'World.convois', '(1 − PERTE_CONVOI_PAR_JOUR)^jours', 'PART_COUTUMIERE', 'niveau 2', 'niveau 3', 'ms'):
+        assert terme in section
+    page = texte.split('## En une page', 1)[1].split('\n## ', 1)[0]
+    rangs = {nom: int(rang) for rang, nom in re.findall(r'^([0-9]+)\. \*\*([^*]+)\*\*', page, re.M)}
+    assert rangs['Production'] + 1 == rangs['Prélèvement'] == rangs['Commerce'] - 1
+    assert 'sim/prelevement.py' in (SIM / 'README.md').read_text()
+    assert 'test_prelevement.py' in (SIM / 'tests/README.md').read_text()
+    with pytest.raises(AssertionError): _section_prelevement('')
+    print(f'taille de la section={len(section)}')

@@ -140,3 +140,5 @@ suite de tests (artefacts de preuve, non collectés par pytest).
 - **Population agrégée** : pas encore de familles ou de personnes individuelles.
 - **stdlib uniquement** : le moteur n'a aucune dépendance tierce (pytest est
   réservé aux tests).
+
+`sim/prelevement.py` retire la part de la récolte, fait voyager les charges et livre les greniers.
