@@ -9,6 +9,9 @@ import pytest
 from sim import constants as constantes, engine
 from sim.lieux import lieux_de_cellule
 from sim.model import Cell, ecrire_stock_marchandise, lire_stock_marchandise
+from sim.places import CENTROIDE, TIRAGE, Place, places_de_cellule, places_du_monde
+from sim.plan import Plan, Rue
+from sim.routes_interieures import facteurs_des_routes, lieu_de_la_route, routes_vers_les_lieux
 from sim.world import World
 
 
@@ -580,3 +583,350 @@ def test_dette_par_lieu_lecture_faim_couverte(monkeypatch, tmp_path):
     monkeypatch.setattr(couverture, "_SIM_SOURCE_FILES", fichiers)
     with pytest.raises(AssertionError, match="duree_faim_ticks : aucun site de lecture"):
         couverture.test_all_dataclass_fields_have_write_and_read_sites()
+
+
+def _rue(theta, identifiant=0, **extras):
+    return Rue(identifiant, [(0.0, 0.0), (math.cos(theta), math.sin(theta))], 4.0, **extras)
+
+
+def _place(x, y, origine=TIRAGE):
+    return Place(x, y, 0.0, 0.0, origine)
+
+
+def _direction(monde, cid, rang):
+    cellule = monde.cells[cid]
+    surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cid, cellule.area_km2)]
+    lieu_places = places_de_cellule(
+        cid, monde.carte[cid], surfaces, *monde.ancres_des_bourgs[cid])
+    bourg, lieu = lieu_places[0], lieu_places[rang]
+    return math.atan2(lieu.y_m - bourg.y_m, lieu.x_m - bourg.x_m), lieu_places
+
+
+def _poser(monde, cid, theta, rues=None):
+    monde.plans[cid] = Plan(rues=rues if rues is not None else [_rue(theta)])
+
+
+_DECOUVERTE = None
+
+
+def _jouer(poser=None, relever=False):
+    """Trente ticks, graine 0. `relever` compte la faim du bourg."""
+    monde = World.charger(0)
+    if poser:
+        poser(monde)
+    original = engine._apply_consumption
+    penuries = {}
+
+    def suivre(cell, carte=None, facteurs=None):
+        penurie = original(cell, carte) if facteurs is None else original(cell, carte, facteurs)
+        penuries[cell.cell_id] = penurie
+        return penurie
+
+    engine._apply_consumption = suivre
+    faims, sommes, premier = {}, {}, {}
+    try:
+        rng = random.Random(0)
+        for numero in range(30):
+            penuries.clear()
+            engine.tick(monde, rng, numero)
+            if not relever:
+                continue
+            for cid, cell in monde.cells.items():
+                if not cell.lieux:
+                    continue
+                bourg = next(lieu for lieu in cell.lieux if lieu.rang == 0)
+                if bourg.duree_faim_ticks <= 0:
+                    continue
+                faims[cid] = faims.get(cid, 0) + 1
+                sommes[cid] = sommes.get(cid, 0.0) + penuries.get(cid, 0.0)
+                if cid in premier:
+                    continue
+                champs = [lieu for lieu in cell.lieux if lieu.rang >= 1 and _stock(lieu) > 0]
+                if champs:
+                    vise = max(champs, key=lambda lieu: (_stock(lieu), -lieu.rang))
+                    premier[cid] = vise.rang
+    finally:
+        engine._apply_consumption = original
+    return monde, faims, sommes, premier
+
+
+def _cible():
+    """Première cellule, par cell_id, où le bourg a faim et un champ garde du grain."""
+    global _DECOUVERTE
+    if _DECOUVERTE is None:
+        _, faims, sommes, premier = _jouer(relever=True)
+        cid = min(premier)
+        _DECOUVERTE = (cid, premier[cid], faims[cid], sommes[cid])
+    return _DECOUVERTE
+
+
+def test_route_vers_lieu():
+    bourg = _place(0, 0, CENTROIDE)
+    alpha = math.radians(20)
+    symetriques = (bourg, _place(math.cos(alpha), math.sin(alpha)),
+                   _place(math.cos(-alpha), math.sin(-alpha)))
+    assert lieu_de_la_route(_rue(0), symetriques)[0] == 1
+    with pytest.raises(AssertionError):
+        assert lieu_de_la_route(_rue(0), symetriques)[0] == 2
+    est, nord = _place(1, 0), _place(0, 1)
+    axe = (bourg, est)
+    assert lieu_de_la_route(_rue(0), axe)[0] == lieu_de_la_route(
+        Rue(0, [(1.0, 0.0), (0.0, 0.0)], 4.0), axe)[0] == 1
+
+    def par_le_plus_proche(rue, lieu_places):
+        premier, dernier = rue.points[0], rue.points[-1]
+        bout = premier if _eloignement_test(premier) <= _eloignement_test(dernier) else dernier
+        if bout[0] == 0 and bout[1] == 0:
+            return None
+        return lieu_de_la_route(Rue(0, [(0.0, 0.0), bout], 4.0), lieu_places)[0]
+
+    with pytest.raises(AssertionError):
+        assert par_le_plus_proche(Rue(0, [(1.0, 0.0), (0.0, 0.0)], 4.0), axe) == 1
+    presque = math.radians(179)
+    opposees = (bourg, _place(math.cos(-presque), math.sin(-presque)))
+    assert lieu_de_la_route(_rue(presque), opposees)[0] == 1
+    with pytest.raises(AssertionError):
+        assert abs(presque - (-presque)) <= math.radians(constantes.ANGLE_ROUTE_INTERIEURE_DEGRES)
+    egalite = (bourg, est, nord)
+    assert lieu_de_la_route(Rue(0, [(1.0, 0.0), (0.0, 1.0)], 4.0), egalite)[0] == 2
+    rang, raison = lieu_de_la_route(Rue(0, [(0.0, 0.0), (0.0, 0.0)], 4.0), axe)
+    assert rang is None and "sans direction" in raison
+
+    monde = World.charger(0)
+    cid = next(c for c in sorted(monde.cells) if len(monde.cells[c].lieux) == 2)
+    phi, lieu_places = _direction(monde, cid, 1)
+    assert lieu_de_la_route(_rue(phi), lieu_places)[0] == 1
+    assert lieu_de_la_route(_rue(phi + math.radians(29)), lieu_places)[0] == 1
+    manquee, raison = lieu_de_la_route(_rue(phi + math.radians(31)), lieu_places)
+    assert manquee is None and "30" in raison
+    chantier = _rue(phi, en_chantier=True, foyers=1, travail_requis=1000, travail_fourni=0)
+    porte = Rue(0, [(0.0, 0.0), (math.cos(phi), math.sin(phi))], 4.0,
+                porte_cell_id=1 if cid != 1 else 2)
+    _poser(monde, cid, phi, [chantier])
+    assert routes_vers_les_lieux(monde, cid)[0] is None
+    _poser(monde, cid, phi, [porte])
+    assert routes_vers_les_lieux(monde, cid)[0] is None
+    _poser(monde, cid, phi, [chantier, Rue(1, [(0.0, 0.0), (math.cos(phi), math.sin(phi))], 4.0)])
+    atteints, _ = routes_vers_les_lieux(monde, cid)
+    assert 1 in atteints
+    assert facteurs_des_routes(monde)[cid] == {1: constantes.FACTEUR_ROUTE_INTERIEURE}
+    _poser(monde, cid, phi, [Rue(0, [(0.0, 0.0), (math.cos(phi), math.sin(phi))], 4.0),
+                             Rue(1, [(0.0, 0.0), (math.cos(phi), math.sin(phi))], 4.0)])
+    assert facteurs_des_routes(monde)[cid][1] == constantes.FACTEUR_ROUTE_INTERIEURE
+
+
+def _eloignement_test(point):
+    return point[0] * point[0] + point[1] * point[1]
+
+
+def test_route_capacite(monkeypatch):
+    monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 5)
+    facteur = constantes.FACTEUR_ROUTE_INTERIEURE
+
+    def mesurer(facteurs):
+        cellule, carte = _cellule_par_lieu([20, 1, 1], [0, 6, 200])
+        penurie = engine._apply_consumption(cellule, carte, facteurs)
+        return penurie, [_stock(lieu) for lieu in cellule.lieux], cellule
+
+    def verifier(facteurs, penurie, paniers):
+        obtenu, observes, cellule = mesurer(facteurs)
+        _egal_kg(obtenu, penurie)
+        for observe, attendu in zip(observes, paniers):
+            _egal_kg(observe, attendu)
+        _controle_par_lieu(cellule, paniers, 206)
+        _egal_kg(cellule.food_deficit_kg, 9 + penurie)
+
+    verifier(None, 31, [0, 0, 193])
+    verifier({2: facteur}, 16, [0, 0, 178])
+    verifier({1: facteur}, 31, [0, 0, 193])
+    # Le rang 1 n'a que 4 kg au-dessus de sa ration, déjà sous la capacité 5.
+    verifier({1: facteur, 2: facteur}, 16, [0, 0, 178])
+    with pytest.raises(AssertionError):
+        verifier({1: facteur}, 16, [0, 0, 178])
+
+
+def test_route_commerce(monkeypatch):
+    cid, rang, _, _ = _cible()
+    monde = World.charger(0)
+    theta, _ = _direction(monde, cid, rang)
+    _poser(monde, cid, theta)
+    transport = engine._facteur_transport_pour_cellule(cid, monde.carte)
+    capacite = constantes.capacite_chemins_interieurs_kg(1, transport)
+    vus = {}
+    original = engine._apply_commerce
+
+    def espion(world, total, marchandise=None, capacite_restante=None, ctx_maritime=None,
+               chemins=None, facteurs=None):
+        if chemins and "chemins" not in vus:
+            vus["chemins"] = {i: dict(table) for i, table in chemins.items()}
+        return original(world, total, marchandise, capacite_restante, ctx_maritime, chemins, facteurs)
+
+    monkeypatch.setattr(engine, "_apply_commerce", espion)
+    engine.tick(monde, random.Random(0), 0)
+    table = vus["chemins"][cid]
+    _egal_kg(table[rang], constantes.FACTEUR_ROUTE_INTERIEURE * capacite)
+    for autre, valeur in table.items():
+        if autre != rang:
+            _egal_kg(valeur, capacite)
+    sans = World.charger(0)
+
+    class _Memoire(dict):
+        def __init__(self):
+            super().__init__()
+            self.initial = {}
+
+        def __setitem__(self, cle, valeur):
+            if cle not in self.initial and isinstance(valeur, dict):
+                self.initial[cle] = dict(valeur)
+            super().__setitem__(cle, valeur)
+
+    chemins = _Memoire()
+    original(sans, [0.0], chemins=chemins)
+    assert chemins.initial
+    for i, valeurs in chemins.initial.items():
+        transport_i = engine._facteur_transport_pour_cellule(i, sans.carte)
+        attendu = constantes.capacite_chemins_interieurs_kg(1, transport_i)
+        for valeur in valeurs.values():
+            _egal_kg(valeur, attendu)
+    rangs = [lieu.rang for lieu in sans.cells[cid].lieux if lieu.rang >= 1]
+    nu = engine._capacites_interieures(capacite, rangs, None)
+    assert all(valeur == capacite for valeur in nu.values())
+    with pytest.raises(AssertionError):
+        assert nu[rang] == constantes.FACTEUR_ROUTE_INTERIEURE * capacite
+
+
+def test_route_nourrit_le_bourg(monkeypatch):
+    cid, rang, faim_sans, somme_sans = _cible()
+    monde = World.charger(0)
+    theta, _ = _direction(monde, cid, rang)
+
+    def poser(cible):
+        _poser(cible, cid, theta)
+
+    _, faims, sommes, _ = _jouer(poser, relever=True)
+    faim_avec, somme_avec = faims.get(cid, 0), sommes.get(cid, 0.0)
+    print(f"cellule={cid}, rang={rang}, angle={math.degrees(theta):.0f}°, "
+          f"faim_sans={faim_sans}, penurie_sans={somme_sans}, "
+          f"faim_avec={faim_avec}, penurie_avec={somme_avec}")
+    assert faim_avec < faim_sans and somme_avec < somme_sans
+    monkeypatch.setattr(constantes, "FACTEUR_ROUTE_INTERIEURE", 1)
+    _, neutres_faim, neutres_somme, _ = _jouer(poser, relever=True)
+    with pytest.raises(AssertionError):
+        assert (neutres_faim.get(cid, 0) < faim_sans
+                and neutres_somme.get(cid, 0.0) < somme_sans)
+
+
+def _sans_plans(monde):
+    document = monde.to_dict()
+    del document["plans"]
+    return document
+
+
+def test_route_vers_le_desert():
+    cid, rang, _, _ = _cible()
+    reference, *_ = _jouer()
+    monde = World.charger(0)
+    theta, _ = _direction(monde, cid, rang)
+    _poser(monde, cid, theta + math.pi)
+    deserts, *_ = _jouer(lambda cible: _poser(cible, cid, theta + math.pi))
+    assert _sans_plans(deserts) == _sans_plans(reference)
+    atteint, raison = routes_vers_les_lieux(monde, cid)
+    assert atteint is None and "30" in raison and "aucun lieu" in raison
+    nourri, *_ = _jouer(lambda cible: _poser(cible, cid, theta))
+    with pytest.raises(AssertionError):
+        assert _sans_plans(nourri) == _sans_plans(reference)
+
+
+def test_sans_route(monkeypatch):
+    import sim.places as places_module
+    monde = World.charger(0)
+    cid = next(c for c in sorted(monde.cells) if len(monde.cells[c].lieux) >= 2)
+    theta, _ = _direction(monde, cid, 1)
+    chantier = World.charger(0)
+    _poser(chantier, cid, theta, [_rue(
+        theta, en_chantier=True, foyers=1, travail_requis=1000, travail_fourni=0)])
+    porte = World.charger(0)
+    _poser(porte, cid, theta, [Rue(
+        0, [(0.0, 0.0), (math.cos(theta), math.sin(theta))], 4.0,
+        porte_cell_id=1 if cid != 1 else 2)])
+    vise = World.charger(0)
+    _poser(vise, cid, theta)
+
+    def echoue(*args, **kwargs):
+        raise RuntimeError("places calculées")
+
+    monkeypatch.setattr(places_module, "places_de_cellule", echoue)
+    rng = random.Random(0)
+    for numero in range(30):
+        engine.tick(monde, rng, numero)
+    engine.tick(chantier, random.Random(0), 0)
+    engine.tick(porte, random.Random(0), 0)
+    with pytest.raises(RuntimeError, match="places calculées"):
+        engine.tick(vise, random.Random(0), 0)
+
+
+def test_route_sans_maitre(monkeypatch):
+    from sim import maitres
+    from sim.model import EtatDeLieu
+    from sim.tests.test_maisons import _tick_sans_lecture_registre
+    cid, rang, _, _ = _cible()
+    monde = World.charger(0)
+    theta, _ = _direction(monde, cid, rang)
+    _poser(monde, cid, theta)
+    vu = {}
+    original = engine._apply_consumption
+
+    def suivre(cell, carte=None, facteurs=None):
+        if cell.cell_id == cid and facteurs:
+            vu["facteurs"] = dict(facteurs)
+        if facteurs is None:
+            return original(cell, carte)
+        return original(cell, carte, facteurs)
+
+    monkeypatch.setattr(engine, "_apply_consumption", suivre)
+
+    def lire(self):
+        raise RuntimeError("maître lu au tick")
+
+    def attribuer(*args):
+        raise RuntimeError("attribution au tick")
+
+    def controler(tick, cible):
+        with monkeypatch.context() as garde:
+            garde.setattr(EtatDeLieu, "maitre", property(lire))
+            garde.setattr(maitres, "attribuer_maitres", attribuer)
+            _tick_sans_lecture_registre(garde, cible, tick, cible.ticks_ecoules)
+
+    controler(engine.tick, monde)
+    assert vu["facteurs"][rang] == constantes.FACTEUR_ROUTE_INTERIEURE
+    charge = World.charger(0)
+    attendues = places_du_monde(charge)
+    for cell_id, cellule in charge.cells.items():
+        surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cell_id, cellule.area_km2)]
+        obtenu = places_de_cellule(
+            cell_id, charge.carte[cell_id], surfaces, *charge.ancres_des_bourgs[cell_id])
+        assert obtenu == attendues[cell_id]
+    assert "ancres_des_bourgs" not in charge.to_dict()
+    assert World({1: Cell(1, 1.0, 0)}, []).ancres_des_bourgs is None
+
+    def impur(cible, rng, numero):
+        places_du_monde(cible)
+        return engine.tick(cible, rng, numero)
+
+    with pytest.raises(RuntimeError, match="maître lu"):
+        controler(impur, monde)
+
+
+def test_route_documentee():
+    from pathlib import Path
+    texte = (Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    section = texte.split("## La distribution à l'intérieur de la cellule\n")[1].split("\n## ")[0]
+    for mot in ("FACTEUR_ROUTE_INTERIEURE", "ANGLE_ROUTE_INTERIEURE_DEGRES",
+                "porte_cell_id", "ancres_des_bourgs", "niveau 2"):
+        assert mot in section
+    plan = texte.split("## Le plan du bourg\n")[1].split("\n## ")[0]
+    assert "vers un lieu" in plan and "porte_cell_id" in plan
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
+    assert "sim/routes_interieures.py" in readme
+    with pytest.raises(AssertionError):
+        assert "FACTEUR_ROUTE_INTERIEURE" in section.replace("FACTEUR_ROUTE_INTERIEURE", "retirée")

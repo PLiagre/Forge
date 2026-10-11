@@ -373,6 +373,12 @@ def capacite_chemins_interieurs_kg(nombre_chemins, facteur_transport) -> float:
     return capacite * nombre_chemins * facteur_transport
 
 
+# Piste achevée du bourg vers un lieu de sa cellule, contre le chemin de terre.
+# Niveau 2 : quatre fois plus de grain, dans un cône de 30° ; plausible, jamais sourcé.
+FACTEUR_ROUTE_INTERIEURE = 4
+ANGLE_ROUTE_INTERIEURE_DEGRES = 30
+
+
 # --- Variabilité de rendement ---
 
 # Le rendement de chaque cellule est multiplié par un facteur uniforme

@@ -838,6 +838,31 @@ def _marchandises_du_monde(world) -> list[str]:
     return sorted(noms)
 
 
+def _capacites_interieures(capacite, rangs, facteurs_cell) -> dict:
+    """Capacité du chemin de chaque rang ; un facteur 1 laisse la valeur telle quelle."""
+    capacites = {}
+    for rang in rangs:
+        if facteurs_cell:
+            facteur = facteurs_cell.get(rang, 1)
+            capacites[rang] = capacite if facteur == 1 else capacite * facteur
+        else:
+            capacites[rang] = capacite
+    return capacites
+
+
+def _remplir_chemins_interieurs(world, chemins, facteurs) -> None:
+    """Pose, avant le commerce, la capacité déjà relevée des cellules routées."""
+    carte = getattr(world, "carte", None)
+    for cid, table in facteurs.items():
+        cell = world.cells.get(cid)
+        if cell is None or len(cell.lieux) <= 1:
+            continue
+        lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)
+        facteur = _facteur_transport_pour_cellule(cid, carte) if carte else 1.0
+        capacite = _constantes.capacite_chemins_interieurs_kg(1, facteur)
+        chemins[cid] = _capacites_interieures(capacite, [lieu.rang for lieu in lieux[1:]], table)
+
+
 def _apply_commerce(
     world,
     total_transported: list,
@@ -845,6 +870,7 @@ def _apply_commerce(
     capacite_restante: dict[tuple[int, int], float] | None = None,
     ctx_maritime: dict | None = None,
     chemins: dict | None = None,
+    facteurs: dict | None = None,
 ) -> None:
     """
     Maillon 2 — Commerce inter-cellules.
@@ -885,7 +911,7 @@ def _apply_commerce(
                 ctx = _initialiser_contexte_maritime(world)
         for nom in _marchandises_du_monde(world):
             _apply_commerce(
-                world, total_transported, nom, capacite_restante, ctx, chemins,
+                world, total_transported, nom, capacite_restante, ctx, chemins, facteurs,
             )
         return
 
@@ -921,7 +947,9 @@ def _apply_commerce(
                         carte = getattr(world, "carte", None)
                         facteur = _facteur_transport_pour_cellule(cid, carte) if carte else 1.0
                         capacite = _constantes.capacite_chemins_interieurs_kg(1, facteur)
-                        chemins[cid] = {lieu.rang: capacite for lieu in lieux[1:]}
+                        table = facteurs.get(cid) if facteurs else None
+                        chemins[cid] = _capacites_interieures(
+                            capacite, [lieu.rang for lieu in lieux[1:]], table)
                     surplus = min(surplus, locaux[0] + sum(
                         min(stock, chemins[cid][lieu.rang]) for lieu, stock in zip(lieux[1:], locaux[1:])))
                 else:
@@ -1117,7 +1145,17 @@ def _porter_dette_et_faim_sur_les_lieux(cell, lieux, dette_avant, dettes, penuri
                                 if penurie > 0 and manques[rang] > 0 else 0)
 
 
-def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
+def _plafond_du_rang(rang, capacite, facteurs):
+    """Capacité du chemin de ce rang ; sans facteur, la valeur commune."""
+    if not facteurs:
+        return capacite
+    facteur = facteurs.get(rang)
+    if facteur is None or facteur == 1:
+        return capacite
+    return capacite * facteur
+
+
+def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | None = None) -> float:
     """Chaque lieu mange localement ; les chemins passent par le bourg."""
     if carte is None or not cell.lieux:
         return _apply_consumption_cellule(cell, carte)
@@ -1147,15 +1185,18 @@ def _apply_consumption(cell: Cell, carte: dict | None = None) -> float:
         restes = [max(0.0, reste) for reste in restes]
         capacite = _constantes.capacite_chemins_interieurs_kg(
             1, _facteur_transport_pour_cellule(cell.cell_id, carte))
-        demande = manques[0] + sum(min(manque, capacite) for manque in manques[1:])
+        demande = manques[0] + sum(
+            min(manque, _plafond_du_rang(rang, capacite, facteurs))
+            for rang, manque in enumerate(manques[1:], start=1))
         pot, restes[0] = restes[0], 0.0
         for rang in range(1, len(lieux)):
-            envoi = min(restes[rang], capacite, max(0.0, demande - pot))
+            envoi = min(restes[rang], _plafond_du_rang(rang, capacite, facteurs), max(0.0, demande - pot))
             restes[rang] -= envoi
             pot += envoi
         couverte, surplus = pot >= demande, max(0.0, pot - demande)
         for rang in range(len(lieux)):
-            servi = min(manques[rang], manques[rang] if rang == 0 else capacite)
+            plafond = manques[rang] if rang == 0 else _plafond_du_rang(rang, capacite, facteurs)
+            servi = min(manques[rang], plafond)
             if not couverte:
                 servi = min(servi, pot)
             manques[rang] -= servi
@@ -1651,11 +1692,23 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         for cell in world.cells.values():
             _apply_production(cell, rng, carte, jour=jour)
 
-    _apply_commerce(world, total_transported)
+    import sim.routes_interieures as routes
+
+    facteurs_routes = routes.facteurs_des_routes(world)
+    if facteurs_routes:
+        chemins = {}
+        _remplir_chemins_interieurs(world, chemins, facteurs_routes)
+        _apply_commerce(world, total_transported, chemins=chemins, facteurs=facteurs_routes)
+    else:
+        _apply_commerce(world, total_transported)
 
     penuries: dict[int, float] = {}
     for cell in world.cells.values():
-        penurie_kg = _apply_consumption(cell, carte)
+        facteurs = facteurs_routes.get(cell.cell_id) if facteurs_routes else None
+        if facteurs:
+            penurie_kg = _apply_consumption(cell, carte, facteurs)
+        else:
+            penurie_kg = _apply_consumption(cell, carte)
         penuries[cell.cell_id] = penurie_kg
         _update_hunger(cell, penurie_kg)
         _apply_mortality(cell)

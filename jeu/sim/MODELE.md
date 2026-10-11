@@ -2170,6 +2170,45 @@ aucune capacité ; des chemins infinis rendent le calcul gratuit au bit près.
 Récolte par surface, étoile et ordre de
 service sont de niveau 2, plausibles, jamais sourcés.
 
+**La route vers un lieu.** Une rue de `World.plans`, achevée (`en_chantier`
+faux) et sans `porte_cell_id`, ne va pas chez le voisin : elle peut viser un
+lieu de la cellule. L'extrémité qui sort du bourg est celui des deux bouts le
+plus loin de l'origine du plan ; à distance égale, c'est le dernier point. Sa
+direction est `atan2(y, x)`, x vers l'est, y vers le nord. Chaque lieu de
+rang ≥ 1 a la direction `atan2(y_k − y_0, x_k − x_0)` de ses places. L'écart
+`|atan2(sin(θ − φ), cos(θ − φ))|` est ramené dans un tour. Le lieu retenu est
+le plus petit écart, au plus `ANGLE_ROUTE_INTERIEURE_DEGRES`, et le plus
+petit rang à égalité. Sinon aucun lieu n'est retenu : « aucun lieu à moins de
+30° (le plus proche, rang k, à X°) », « route sans direction », « un seul
+lieu », ou « ancres des bourgs absentes ». La longueur de la route ne compte
+pas (niveau 3).
+
+Le lieu atteint voit la capacité de son chemin vers le bourg passer de
+`c = capacite_chemins_interieurs_kg(1, facteur_transport)` à
+`c × FACTEUR_ROUTE_INTERIEURE`. Deux routes vers le même lieu ne se cumulent
+pas. Cette capacité sert à l'étoile (demande, envois par rang croissant,
+service) et au dictionnaire `chemins` du commerce. Les facteurs se calculent
+une fois par tick, après Chantiers, et seulement pour les cellules qui ont
+une telle route. Sans elle, aucune place n'est calculée et le tick reste
+identique au bit près. Le chemin sans lieux ne change pas.
+
+`World.charger` garde, après l'attribution des maîtres, `ancres_des_bourgs` :
+`cell_id → (siège du maître du bourg ou None, ville placée ou None)`. Cet
+attribut est posé comme `populations_bourg_amorcage` : hors de `to_dict` et
+de l'empreinte. Un `World` construit à la main le porte à `None` : la route
+est alors « ancres des bourgs absentes », sans effet. Le tick appelle
+`places_de_cellule` avec ces ancres, pour les seules cellules routées. Il ne
+lit ni le maître, ni le registre, ni `attribution_villes`. Un changement de
+maître reste de niveau 3.
+
+Niveau 2 : plausible, jamais sourcé. Mesure, graine 0, 30 ticks, VPS,
+11/10/2026 : la première cellule où le bourg a faim pendant qu'un champ
+garde du grain est la 1241, champ de rang 1 à −124°. Sans route, 5 ticks de
+faim du bourg et 14 375,3 kg de pénurie ; avec la route vers ce champ, 0 et
+0. Sur cette machine (Linux 6.8.0-137-generic, x86_64, AMD EPYC 9354P), un
+tick avec dix cellules routées vers un lieu, graine 0, a une médiane de
+96,5 ms (sept ticks, après un tick d'échauffement).
+
 Chaque lieu porte aussi sa dette et sa durée de faim, de niveau 2. Avant
 consommation, si la somme des dettes locales diffère de la dette cellulaire
 (`−1` lu comme zéro), `partager` les remet d'accord avec leurs dettes actuelles
@@ -2284,8 +2323,10 @@ inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
 `/lieu`, ni au snapshot.
 
 La forme du plan est de **niveau 2** : plausible, jamais sourcée. Son état
-vide initial n'affirme rien. Restent de **niveau 3**, non simulés : position
-et forme du bourg dans la cellule, effets locaux des rues et des maisons achevées sur le monde,
+vide initial n'affirme rien. Une rue achevée sans `porte_cell_id`, dirigée
+vers un lieu de la cellule, relève le chemin de ce lieu vers le bourg
+(distribution intérieure, niveau 2). Restent de **niveau 3**, non simulés : position
+et forme du bourg dans la cellule, les autres effets locaux des rues achevées, et ceux des maisons achevées sur le monde,
 gestes de bâtiment autres que la pose (démolir, déplacer, agrandir),
 et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
 son coût en journées, les bras pris aux champs et son achèvement sont de
@@ -2427,7 +2468,7 @@ L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
 Une cellule est immense et le chantier ne coûte de récolte que s’il retire
 presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
 sexe, nourriture propre, outils, matériaux, saison et salaire restent de
-niveau 3, comme les effets locaux des rues achevées, les artisans
+niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.
 
 ---
