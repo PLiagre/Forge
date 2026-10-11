@@ -1,0 +1,37 @@
+Lot 584 — la photo de la capitale relancée à Biskra avec ses gestes
+PC, 12/10/2026, Unity 6000.0.43f1, éditeur fermé, port 8000 libre, depuis la racine.
+$u = 'C:\Program Files\Unity\Hub\Editor\6000.0.43f1\Editor\Unity.exe'
+Base commune : & $u -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeSeed 0 ...
+
+SC1, avant les changements : -forgeLot 388 -forgeTicks 0 -> code 0, pas 1.
+  Le rouge annoncé par le brief n'existe pas sur la base : rien ne refuse une construction sans choix de départ
+  (la seule garde des gestes est celle des maisons de 1400). Journal : « CAPTURE_388 tick 32 · rue 0 · parcelle 0
+  bornes · scierie 0 murs », sur la cellule 1175. Le vrai rouge du lot est la contre-épreuve -forge584SansChoix.
+SC1, après : -forgeLot 584 -forgeTicks 0 -> code 0.
+  Départ : Biskra, seigneurie 6, cellule 10103, lues dans /departs ; reçu du choix au tick 0, maison tenue seigneurie-6.
+  Reçus : tracer_route au tick 1, decouper_parcelle au tick 2, poser_batiment au tick 3 ; ville au tick 11.
+  Rue [0] redessinée, parcelle 0 aux bornes, scierie 0 aux piquets, pièces 1/1, réouverture identique
+  (empreintes des rues, des parcelles et des bâtiments égales au relevé).
+  Caméra : 101,9 m, 50°, 15/15 points dans le cadre ; toiles du lieu visibles 0/1. Écart au plan fixe 80,5 %.
+SC1, contre-épreuve -forge584SansChoix -> code 1 :
+  « choix du départ 6 sans reçu : aucun dépôt | choix non appliqué : /monde au tick 1 dit maison_du_joueur absente,
+  attendue seigneurie-6 ».
+SC2, -forge584OublierRue -> code 1 :
+  « réouverture, tick 11 : empreinte des rues b0b3744b… différente du relevé conservé ad1b674c… » ; seule la ligne
+  des rues est fausse. Sans le drapeau : code 0, réouverture identique (SC1).
+SC3, -forge584PanneauEtranger -> code 1 :
+  « toile du lieu encore visible après 10 images : [Toile du panneau (Fond, Texte, Foyers)] ».
+  Sans le drapeau : 0/1 toile visible, code 0 ; le panneau des gestes reste lisible.
+SC4, -forgeLot 584 sans -forgeTicks (30 ticks du harnais) -> code 0.
+  Départ au tick 30, reçus aux ticks 31, 32, 33, ville au tick 41 (30 + 1 + 3 + 7). Écart 80,4 %.
+SC5 : py pc\epreuve_jalon4.py --avec-unity -> code 0 (preuve valide, 11 ticks) ;
+  avec --service-sourd -> code 1, « bâtiment absent » parmi les invariants violés.
+  Tests EditMode (-runTests -testPlatform EditMode) -> code 0, 390/390 passés.
+Python : py -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -> 8 passés.
+
+Photos regardées (forge584-apres et forge584-defaut, *--biskra-relancee.png, environ 2 Mo chacune) :
+  vue de haut à 50°, la rue de terre battue entière d'un bord à l'autre de l'image, le contour blanc de la parcelle
+  et ses quatre bornes aux coins, les piquets sombres de la scierie dans la parcelle, contre la rue. Aucun chiffre
+  de 1175 : le panneau du lieu est masqué. En bas à gauche, le panneau des gestes : « Plan du tick 11 (41) :
+  1 rue(s) posée(s). Parcelles : 0 en chantier, 1 achevée(s). Bâtiments : 1 aux piquets… ». Les piquets sont
+  petits à cette distance, mais on les distingue.
