@@ -181,3 +181,102 @@ def test_une_panne_unity_ecrit_le_verdict_et_nettoie(tmp_path, monkeypatch, pann
     assert texte.startswith("essai impossible\n") and "code : 2" in texte and " : tenu" not in texte and attendu in texte
     if panne == "exception": assert "invariant violé" not in texte and "violé —" not in texte
     assert ferme == ([] if panne == "indisponible" else [True]); port_libre()
+
+# Lot #583 : la preuve Unity bâtit à Biskra, après le choix du Zab, hors des maisons de 1400.
+def test_la_chronologie_est_exacte(preuve):
+    mondes, journal = copy.deepcopy(preuve)
+    with pytest.raises(ValueError, match="journal : ticks invalides"): epreuve.juger(*mondes, journal, 10, chronologie=(0, 1, 2, 3))
+    for entree, tick in zip(journal, epreuve.CHRONOLOGIE_UNITY): entree["tick"] = tick
+    with pytest.raises(ValueError, match="journal : ticks invalides"): epreuve.juger(*mondes, journal, 10)
+
+def test_les_recus_unity_se_comparent_aux_seules_constructions():
+    types = ("tracer_route", "decouper_parcelle", "poser_batiment")
+    journal = [{"tick": 0, "intention": {"type": "choisir_depart", "seigneurie": 6}}] + [{"tick": n, "intention": {"type": nom}} for n, nom in zip((1, 2, 3), types)]
+    recus = [{"type": nom, "apres_le_tick": n} for n, nom in zip((1, 2, 3), types)]
+    epreuve.juger_recus(journal, recus)
+    for faux in (recus + [{"type": "poser_batiment", "apres_le_tick": 4}], recus[:2] + [dict(recus[2], type="tracer_route")]):
+        with pytest.raises(ValueError, match="reçu Unity différent du journal"): epreuve.juger_recus(journal, faux)
+
+@pytest.mark.parametrize("ticks", [11, 12])
+def test_le_normal_exige_les_ticks_de_la_recette(tmp_path, ticks):
+    args, jouer, relance, vierge = _essai(); args.ticks = ticks; rapports = {"jouer": jouer, "relance": relance, "vierge": vierge}
+    statuts, dix = {nom: ["non exécuté", "x"] for nom in epreuve.STATUTS}, epreuve.serialiser({"ticks_ecoules": 10})
+    assert epreuve.juger_essai(args, tmp_path, statuts, "k", rapports, dix, dix, b"j", b"j") == 1
+    assert f"le normal exige {ticks} ticks" in statuts["relancement"][1] and "exige 10 ticks" not in statuts["relancement"][1]
+
+def test_le_service_de_la_recette_unity_applique_le_choix(tmp_path):
+    seigneurie, maison, _ = epreuve.depart_biskra()
+    with epreuve.lancer_service(tmp_path, 0, False, seigneurie) as serveur:
+        assert serveur.world.ticks_ecoules == 1 and json.loads(epreuve.http("/monde")).get("maison_du_joueur") == maison
+        journal = json.loads((tmp_path / "journal.json").read_bytes())
+        assert journal == [{"tick": 0, "intention": {"type": "choisir_depart", "seigneurie": seigneurie}}]
+    port_libre()
+    with epreuve.lancer_service(tmp_path, 0, False) as serveur:
+        assert serveur.world.ticks_ecoules == 0 and json.loads(epreuve.http("/monde")).get("maison_du_joueur") != maison
+        assert json.loads((tmp_path / "journal.json").read_bytes()) == []
+    port_libre()
+
+def _aides(tmp_path, dossier, grille):
+    """Des aides sans Unity : un jeu de gestes à une route plaine, la grille donnée."""
+    routes = epreuve.module_routes(); (tmp_path / "x" / "routes").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "x" / "routes" / "gestes.json").write_text(json.dumps({"parametres": dict(routes.PARAMETRES), "routes": [{"famille": "plaine", "largeur": routes.LARGEUR_NEUVE}]}), encoding="utf-8")
+    (dossier / "consigne.json").write_text(json.dumps({"ville_locale": False}), encoding="utf-8")
+    return {"unity": sys.executable, "projet": tmp_path, "disposition": {"id": "x", "seed": 0}, "sorties": tmp_path, "grille": lambda _ident: grille}
+
+def test_la_recette_unity_passe_biskra_a_chaque_session(tmp_path, monkeypatch):
+    seigneurie, _, cellule = epreuve.depart_biskra(); dossier, services, appels, vus = tmp_path / "preuve", [], [], []; dossier.mkdir()
+    sortie = tmp_path / "sortie"
+    for nom in ("jouer", "relance", "vierge"): (dossier / f"{nom}.json").write_text("{}", encoding="utf-8")
+    def service(*a):
+        # Le faux service écrit le journal, comme le vrai à son démarrage.
+        services.append(a[3:]); (a[0] / "journal.json").write_bytes(b"[]")
+        return type("S", (), {"__enter__": lambda s: None, "__exit__": lambda *a: None})()
+    monkeypatch.setattr(epreuve, "lancer_service", service)
+    monkeypatch.setattr(epreuve, "charger_aides", lambda: _aides(tmp_path, dossier, None)); monkeypatch.setattr(epreuve, "verifier_prealables", lambda a: None)
+    monkeypatch.setattr(epreuve, "preparer_sessions", lambda a, _l: dossier); monkeypatch.setattr(epreuve, "port_occupe", lambda: False)
+    monkeypatch.setattr(epreuve, "appeler_unity", lambda _a, nom, _s, cell: appels.append((nom, cell)) or 0)
+    monkeypatch.setattr(epreuve, "lire_session", lambda *_a: {}); monkeypatch.setattr(epreuve, "http", lambda *_a: b"{}")
+    monkeypatch.setattr(epreuve, "juger_essai", lambda args, *_a: vus.append((args.seed, args.ticks, args.cellule)) or 0)
+    assert epreuve.main(["--avec-unity", "--sortie", str(sortie)]) == 0
+    assert appels == [("jouer", cellule), ("relance", cellule), ("vierge", cellule)] and services == [(seigneurie,), ()] and vus == [(0, 11, cellule)]
+    appels.clear(); assert epreuve.main(["--avec-unity", "--sortie", str(sortie), "--cellule", str(cellule + 1)]) == 2 and appels == []
+    assert "la cellule de Biskra" in (sortie / "verdict.txt").read_text(encoding="utf-8")
+
+@pytest.fixture(scope="module")
+def grilles():
+    """Une grille plate, et une pente de 200 % que le relief refuse dans tous les sens."""
+    np = pytest.importorskip("numpy"); terrain = epreuve.module_routes().terrain; n = terrain.RESOLUTION
+    return {"plat": np.zeros((n, n)), "raide": np.tile(np.arange(n) * 2.0 * terrain.pas(), (n, 1))}
+
+def test_une_route_sur_une_maison_de_1400_est_refusee_par_le_monde(tmp_path, grilles):
+    routes = epreuve.module_routes(); P, largeur = dict(routes.PARAMETRES), routes.LARGEUR_NEUVE
+    seigneurie, _, cellule = epreuve.depart_biskra()
+    with epreuve.lancer_service(tmp_path, 0, False, seigneurie):
+        base = json.loads(epreuve.http(f"/plan?cell={cellule}"))["base"]
+        points = epreuve.route_sur_une_maison(base, grilles["plat"], largeur, P)
+        assert points and epreuve.ville1400.maison_touchee(base, [epreuve.ville1400.emprise_de_rue(s, largeur) for s in zip(points, points[1:])]) is not None
+        with pytest.raises(epreuve.HTTPError) as refus: epreuve.http("/intention", {"type": "tracer_route", "cell": cellule, "points": points, "largeur_m": largeur})
+        assert refus.value.code == 400 and "maison de 1400" in json.loads(refus.value.read())["erreur"]
+    port_libre()
+    assert epreuve.route_sur_une_maison(base, grilles["raide"], largeur, P) is None
+
+@pytest.mark.parametrize("relief", ["raide", "plat"])
+def test_sur_une_maison_sans_route_possible_est_un_essai_impossible(tmp_path, monkeypatch, grilles, relief):
+    dossier, appels = tmp_path / "preuve", []; dossier.mkdir()
+    monkeypatch.setattr(epreuve, "charger_aides", lambda: _aides(tmp_path, dossier, grilles[relief])); monkeypatch.setattr(epreuve, "verifier_prealables", lambda a: None)
+    monkeypatch.setattr(epreuve, "preparer_sessions", lambda a, _l: dossier)
+    monkeypatch.setattr(epreuve, "appeler_unity", lambda _a, nom, *_r: appels.append(nom) or (_ for _ in ()).throw(OSError("délai Unity dépassé")))
+    sortie = tmp_path / "sortie"; assert epreuve.main(["--avec-unity", "--sortie", str(sortie), "--sur-une-maison"]) == 2; port_libre()
+    texte, consigne = (sortie / "verdict.txt").read_text(encoding="utf-8"), json.loads((dossier / "consigne.json").read_text(encoding="utf-8"))
+    assert "--sur-une-maison" in texte
+    if relief == "raide": assert "aucune route sur une maison" in texte and appels == [] and "route" not in consigne
+    else: assert "délai Unity dépassé" in texte and appels == ["jouer"] and len(consigne["route"]["x"]) == 3 and consigne["ville_locale"] is False
+    assert epreuve.main(["--sortie", str(sortie), "--sur-une-maison"]) == 2
+
+def test_un_defaut_de_session_se_nomme_dans_le_verdict(tmp_path):
+    args, jouer, relance, vierge = _essai(); args.ticks = 11; rapports = {"jouer": jouer, "relance": relance, "vierge": vierge}; un = epreuve.serialiser({"ticks_ecoules": 1})
+    jouer["ville"]["tick"] = -1
+    for defauts, nomme in (([], False), (["jouer, tick 1, la route : la route consigne refusée par le monde : Le monde refuse la route : cellule 7 : maison de 1400 3 (12 foyers) touchée"], True)):
+        jouer["defauts"] = defauts; statuts = {nom: ["non exécuté", "x"] for nom in epreuve.STATUTS}
+        assert epreuve.juger_essai(args, tmp_path, statuts, "k", rapports, un, un, b"j", b"j") == 1
+        assert statuts["relancement"][0] == "violé" and ("maison de 1400" in statuts["relancement"][1]) is nomme

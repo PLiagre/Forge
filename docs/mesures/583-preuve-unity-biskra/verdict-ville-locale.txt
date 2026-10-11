@@ -1,0 +1,12 @@
+invariant violé
+commande : py pc/epreuve_jalon4.py --avec-unity --sortie C:\Users\liagr\AppData\Local\Temp\forge-583-locale --ville-locale
+date : 2026-10-11T23:27:51+02:00
+révision : 7ad0e3b57c59b58aca8eee8656281f4e70b0e2d0 5b3f9831b9f22e9cb8ab433ebeb7e07ea2526cc6
+unity : 6000.0.43f1
+code : 1
+égalité du monde : tenu — octets égaux sur 11 ticks
+relancement : violé — relance : 1 défaut(s) : relance, tick 11 : la ville relancée n'a pas les mêmes rues : empreinte ad1b674cac8e3fe94d74478eda4e77b8917d2a2d951a122a23f35543944f92885c2f01d1c4020065700b97a83a148d729346a13a4bdb53d32a1a85f67ba6b82a14bbb690951c45472788aff43bdb4a01e88d76ded9d4b8ccd82f851196aeaec9 pour a31f324adafa5e8465878bb616bbec95f1ebf3e952634db2a7656c21a927a31d4aeac7b756f61cfc2895b21191b94dd3ab4544de206edff0425f7c748bd6e7ff14bbb690951c45472788aff43bdb4a01e88d76ded9d4b8ccd82f851196aeaec9 ; empreinte de relance différente : empreinte des rues ; c'est le redessin qui échoue ; l'égalité Python peut rester vraie
+sans geste : tenu — plan vide au tick 0, témoin sans geste au tick 11
+foyers : tenu — 596 cellules, personnes conservées
+gestes : tenu — journal identique aux reçus, ticks 1, 2 et 3
+motif : relancement — relance : 1 défaut(s) : relance, tick 11 : la ville relancée n'a pas les mêmes rues : empreinte ad1b674cac8e3fe94d74478eda4e77b8917d2a2d951a122a23f35543944f92885c2f01d1c4020065700b97a83a148d729346a13a4bdb53d32a1a85f67ba6b82a14bbb690951c45472788aff43bdb4a01e88d76ded9d4b8ccd82f851196aeaec9 pour a31f324adafa5e8465878bb616bbec95f1ebf3e952634db2a7656c21a927a31d4aeac7b756f61cfc2895b21191b94dd3ab4544de206edff0425f7c748bd6e7ff14bbb690951c45472788aff43bdb4a01e88d76ded9d4b8ccd82f851196aeaec9 ; empreinte de relance différente : empreinte des rues ; c'est le redessin qui échoue ; l'égalité Python peut rester vraie

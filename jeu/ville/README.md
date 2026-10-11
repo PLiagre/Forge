@@ -100,13 +100,18 @@ py pc\epreuve_jalon1.py --sortie <dossier> --decalage 1
 La capture que la chaîne prend ensuite lance ce même service (sans choisir de cellule) : le panneau publié au journal porte les chiffres du monde, pas une absence.
 
 ## L'épreuve du jalon 4
-Unity joue une route, une parcelle et une scierie ; Python rejoue leur journal. Ce n'est pas la preuve complète (#508). L'éditeur est fermé ; la scène et les données sont celles de #386 (`py local3d/atelier_desert.py terrain` depuis `3d/`).
+Unity joue une route, une parcelle et une scierie à Biskra, après le choix de l'émirat du Zab ; Python rejoue leur journal. Ce n'est pas la preuve complète (#508). L'éditeur est fermé ; la scène et les données sont celles de #386 (`py local3d/atelier_desert.py terrain` depuis `3d/`).
+
+`--avec-unity` fixe la graine 0 et 11 ticks. La cellule de Biskra est lue dans la table. Le script dépose le choix du Zab au tick 0, appliqué au tick 1 ; Unity pose la route, la parcelle et la scierie aux ticks 1, 2 et 3. Le témoin rejoue le choix seul. Au tick 11, sur `monde-service.json`, la rue est à 50/200, la parcelle 14/14 aux bornes, la scierie 30/271 aux piquets.
+
 ```powershell
-py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-normal"
-py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-sourd" --service-sourd
-py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-387-locale" --ville-locale
+py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-583-normal"
+py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-583-sourd" --service-sourd
+py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-583-locale" --ville-locale
+py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-583-maison" --sur-une-maison
 ```
-**0** preuve valide. **1** invariant violé : le service sourd nomme « bâtiment absent » et « écart entre monde servi et monde rejoué » ; la ville locale nomme « empreinte des rues », « c'est le redessin qui échoue » et « l'égalité Python peut rester vraie ». **2** essai impossible (Unity, scène, port, délai, rapport absent ou ancien, exception dans les défauts) : une panne ne vaut pas contre-épreuve. Verdicts : [normal](../../docs/mesures/264-preuve-du-jalon-4/verdict.txt), [service sourd](../../docs/mesures/264-preuve-du-jalon-4/verdict-service-sourd.txt), [ville locale](../../docs/mesures/264-preuve-du-jalon-4/verdict-ville-locale.txt).
+
+**0** preuve valide : le verdict dit « octets égaux sur 11 ticks » et « ticks 1, 2 et 3 » ; les rapports portent la cellule de Biskra. **1** invariant violé : le service sourd nomme « bâtiment absent » et « écart entre monde servi et monde rejoué » ; la ville locale nomme « empreinte des rues », « c'est le redessin qui échoue » et « l'égalité Python peut rester vraie » ; `--sur-une-maison` nomme « maison de 1400 » (le monde refuse la rue). **2** essai impossible (Unity, scène, port, délai, rapport absent ou ancien, exception dans les défauts, aucune route sur une maison que le relief accepte) : une panne ne vaut pas contre-épreuve. Verdicts : [normal](../../docs/mesures/583-preuve-unity-biskra/verdict.txt), [service sourd](../../docs/mesures/583-preuve-unity-biskra/verdict-service-sourd.txt), [ville locale](../../docs/mesures/583-preuve-unity-biskra/verdict-ville-locale.txt), [sur une maison](../../docs/mesures/583-preuve-unity-biskra/verdict-sur-une-maison.txt).
 
 Le parcours Python, sans Unity, bâtit à Biskra après le choix appliqué de l'émirat du Zab. La cellule est celle du siège, lue dans la table. Le journal garde ce choix au tick 0, puis la route, la parcelle et le bâtiment aux ticks 2, 3 et 5. Le rejeu complet reprend les quatre entrées ; le témoin rejoue seulement le choix, au même tick.
 
@@ -115,7 +120,7 @@ python3 pc/epreuve_jalon4.py --sortie <dossier>
 python3 pc/epreuve_jalon4.py --sortie <dossier> --service-sourd
 ```
 
-**0** le départ est le même dans les trois mondes, Biskra porte les trois gestes, le service et le rejeu sont égaux à l'octet. **1** le service sourd : le bâtiment manque. Ces deux commandes sont celles que le lot #408 valide. La preuve Unity (`--avec-unity`, cellule 1175, sans le choix du Zab) n'est pas rejouée ici : un lot PC distinct, « La preuve Unity bâtit à Biskra après le choix du Zab », doit encore adapter la recette, les reçus et les parcours jouer, relance et vierge.
+**0** le départ est le même dans les trois mondes, Biskra porte les trois gestes, le service et le rejeu sont égaux à l'octet. **1** le service sourd : le bâtiment manque. Ces deux commandes sont celles que le lot #408 valide.
 
 ## L'épreuve de la carte
 
