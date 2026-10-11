@@ -104,6 +104,8 @@ Unity joue une route, une parcelle et une scierie à Biskra, après le choix de 
 
 `--avec-unity` fixe la graine 0 et 11 ticks. La cellule de Biskra est lue dans la table. Le script dépose le choix du Zab au tick 0, appliqué au tick 1 ; Unity pose la route, la parcelle et la scierie aux ticks 1, 2 et 3. Le témoin rejoue le choix seul. Au tick 11, sur `monde-service.json`, la rue est à 50/200, la parcelle 14/14 aux bornes, la scierie 30/271 aux piquets.
 
+Rouge d'abord, sur master `f081666` (`pc/epreuve_jalon4.py` à l'octet de cette révision) : `py pc\epreuve_jalon4.py --avec-unity --sortie <dossier>` rend **1**. Le verdict porte `code : 1` et le motif « égalité du monde — journal : type absent ou inattendu ».
+
 ```powershell
 py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-583-normal"
 py pc\epreuve_jalon4.py --avec-unity --sortie "$env:TEMP\forge-583-sourd" --service-sourd
