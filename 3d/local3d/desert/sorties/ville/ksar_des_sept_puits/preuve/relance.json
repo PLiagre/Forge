@@ -1,0 +1,75 @@
+{
+    "session": "relance",
+    "implantation": "ksar_des_sept_puits",
+    "cell": 10103,
+    "port": 8000,
+    "tick_ouverture": 4,
+    "ville_locale": false,
+    "gestes": [],
+    "ouverture": {
+        "tick": 4,
+        "rues": [
+            0
+        ],
+        "rues_posees": [
+            0
+        ],
+        "parcelles": [
+            {
+                "identifiant": 0,
+                "nature": "",
+                "etat": "cordeau"
+            }
+        ],
+        "parcelles_plan": [
+            {
+                "identifiant": 0,
+                "nature": "",
+                "etat": "cordeau"
+            }
+        ],
+        "batiments": [],
+        "batiments_plan": [],
+        "pieces_parcelles": 1,
+        "pieces_batiments": 0,
+        "empreinte_rues": "ad1b674cac8e3fe94d74478eda4e77b8917d2a2d951a122a23f35543944f92885c2f01d1c4020065700b97a83a148d729346a13a4bdb53d32a1a85f67ba6b82a14bbb690951c45472788aff43bdb4a01e88d76ded9d4b8ccd82f851196aeaec9",
+        "empreinte_parcelles": "bf027fbb685deaf6e66e65358ec112704e99bcd091a0fd19fd1f5ce08207466d",
+        "empreinte_batiments": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "empreinte": "005d6510469cebc428735f9b33cc727c3d5b7881d9d4d426d0c62dbc65d88e13"
+    },
+    "ville": {
+        "tick": 4,
+        "rues": [
+            0
+        ],
+        "rues_posees": [
+            0
+        ],
+        "parcelles": [
+            {
+                "identifiant": 0,
+                "nature": "",
+                "etat": "cordeau"
+            }
+        ],
+        "parcelles_plan": [
+            {
+                "identifiant": 0,
+                "nature": "",
+                "etat": "cordeau"
+            }
+        ],
+        "batiments": [],
+        "batiments_plan": [],
+        "pieces_parcelles": 1,
+        "pieces_batiments": 0,
+        "empreinte_rues": "ad1b674cac8e3fe94d74478eda4e77b8917d2a2d951a122a23f35543944f92885c2f01d1c4020065700b97a83a148d729346a13a4bdb53d32a1a85f67ba6b82a14bbb690951c45472788aff43bdb4a01e88d76ded9d4b8ccd82f851196aeaec9",
+        "empreinte_parcelles": "bf027fbb685deaf6e66e65358ec112704e99bcd091a0fd19fd1f5ce08207466d",
+        "empreinte_batiments": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "empreinte": "005d6510469cebc428735f9b33cc727c3d5b7881d9d4d426d0c62dbc65d88e13"
+    },
+    "vierge": "b0b3744befd939ddb83d17451fa79c035a63bb2df221a262ddd20a291b5a75b694b9b649154d6ab52c129bf1836c3f65ec6e0c95b19fb8af9de5b38a8fa77f1aeed0874bb5057c15807bf2af340918ebcbddadf657c9740ec50f2a7da48e5cea",
+    "defauts": [
+        "relance, tick 4 : la session jouer n'a pas de ville relevée à comparer"
+    ]
+}
