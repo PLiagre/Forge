@@ -39,7 +39,7 @@ import urllib.request
 from . import agents as agents_mod
 from . import captures, lots, prompts
 from .depot import Depot
-from .github import GitHub
+from .github import VARIABLE_PC, GitHub
 from .projet import Projet
 from .verrous import Verrous
 
@@ -439,8 +439,12 @@ def _attentes_depuis(commentaires: list[dict], depuis: datetime) -> list[tuple[d
 
 
 def _a_faire(raisons_vps: list[str], raisons_pc: list[str], veille: Path, bloques: list,
-             questions: dict | None = None) -> list[str]:
+             questions: dict | None = None, pc_en_pause: bool = False) -> list[str]:
     gestes = []
+    if pc_en_pause:
+        gestes.append(f"- le PC est en pause pour la chaîne (variable {VARIABLE_PC} = non) : les lots `pc` et le "
+                      "build de nuit attendent → la remettre à « oui » (fenêtre `pc\\Disponibilite.cmd`, ou GitHub : "
+                      "Settings → Secrets and variables → Actions → Variables)")
     for machine, raisons in (("VPS", raisons_vps), ("PC", raisons_pc)):
         for outil in sorted({m.group(1) for r in raisons for m in _SESSION.finditer(r)}):
             gestes.append(f"- {machine} : la session {outil} est expirée ou absente → {GESTES_SESSION[outil]}")
@@ -606,7 +610,8 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
         lignes.append("AVANCEMENT DU JALON (le pilote l'ajoute lui-même sous le journal) :")
         lignes += r.avancement
     lignes.append("\nÀ FAIRE PAR LE PROPRIÉTAIRE :")
-    r.a_faire = _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques, questions)
+    r.a_faire = _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques, questions,
+                         pc_en_pause=not gh.pc_actif())
     lignes += r.a_faire
     r.texte = "\n".join(lignes)
     return r
