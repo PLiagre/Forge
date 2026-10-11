@@ -1003,6 +1003,17 @@ def test_une_ci_rouge_renvoie_au_codeur_l_extrait_de_son_journal(projet, gh, dep
     assert "assert 406 == 407" in agents.appels[0][-1]
 
 
+def test_une_tranche_annulee_compte_parmi_les_rouges():
+    """Une tranche arrêtée par son délai (`timeout-minutes` de tests.yml)
+    rend `tests` rouge : le codeur doit lire son journal, pas une table."""
+    from atelier import traces
+    table = ("sim (1)\tfail\t1h\thttps://github.com/moi/essai/actions/runs/7/job/41\t\n"
+             "sim (2)\tcancel\t3h\thttps://github.com/moi/essai/actions/runs/7/job/42\t\n"
+             "vues\tpass\t9m\thttps://github.com/moi/essai/actions/runs/7/job/43\t\n"
+             "sim (3)\tpending\t0\thttps://github.com/moi/essai/actions/runs/7/job/44\t\n")
+    assert [(r.nom, r.travail) for r in traces.rouges(table)] == [("sim (1)", "41"), ("sim (2)", "42")]
+
+
 def test_deux_relectures_sans_verdict_bloquent_le_lot_sans_rappeler_le_codeur(projet, gh, depot, tmp_path):
     echec = marque(role="relecteur", etat="echec", sha="a" * 40, agent="claude/opus")
     _en_cours(gh, commentaires=[FAIT_CODEX, echec])

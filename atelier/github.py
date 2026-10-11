@@ -15,6 +15,13 @@ from typing import Any, Callable, Iterable
 # Les contrôles que la protection de master exige. Une PR est verte quand
 # chacun l'est sur sa révision courante ; un contrôle absent n'est pas vert.
 CONTROLES_EXIGES = ("tests", "gitleaks")
+# Le contrôle exigé qui agrège un workflow, et ce workflow : `tests` ne naît
+# qu'une fois tous les travaux de `tests.yml` finis, et il est rouge dès que
+# l'un l'est. Un travail de ce workflow déjà rouge le rend donc rouge
+# d'avance. Le 11 octobre 2026, #573 a attendu 6 h une tranche bloquée
+# alors que trois travaux étaient rouges depuis le matin : le codeur ne
+# l'a pas su.
+AGREGATS = {"tests": "tests"}
 
 Executeur = Callable[[list[str], str | None], tuple[int, str, str]]
 
@@ -177,13 +184,16 @@ class GitHub:
         self.gh(*argv)
 
 
-def etat_des_controles(pr: dict, exiges: Iterable[str] = CONTROLES_EXIGES) -> tuple[str, dict[str, str]]:
+def etat_des_controles(pr: dict, exiges: Iterable[str] = CONTROLES_EXIGES,
+                       agregats: dict[str, str] = AGREGATS) -> tuple[str, dict[str, str]]:
     """`attente`, `vert` ou `rouge`, sur la révision courante de la PR.
 
-    Un contrôle exigé absent retient (attente), il ne passe pas.
+    Un contrôle exigé absent retient (attente), il ne passe pas ; un travail
+    rouge du workflow qu'il agrège le rend rouge sans attendre les autres.
     """
     vus: dict[str, str] = {}
     dates: dict[str, str] = {}
+    workflows: dict[str, str] = {}
     for c in pr.get("statusCheckRollup") or []:
         nom = c.get("name") or c.get("context") or ""
         if c.get("__typename") == "StatusContext":
@@ -197,9 +207,11 @@ def etat_des_controles(pr: dict, exiges: Iterable[str] = CONTROLES_EXIGES) -> tu
         date = c.get("startedAt") or c.get("completedAt") or ""
         if nom not in vus or date >= dates[nom]:
             vus[nom], dates[nom] = etat, date
+            workflows[nom] = c.get("workflowName") or ""
     exiges = list(exiges)
     etats = [vus.get(nom, "attente") for nom in exiges]
-    if "rouge" in etats:
+    agreges = {agregats[nom] for nom in exiges if nom in agregats}
+    if "rouge" in etats or any(etat == "rouge" and workflows[nom] in agreges for nom, etat in vus.items()):
         return "rouge", vus
     if "attente" in etats:
         return "attente", vus
