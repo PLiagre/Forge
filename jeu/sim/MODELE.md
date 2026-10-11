@@ -1933,8 +1933,8 @@ aucun calcul de maisons IA ni nouvelle clé, mêmes octets et même version.
 Une liste, même vide, ajoute seulement `ia = {maisons, maisons_actives_30j}`.
 Les maisons suivent exactement `maisons_de_l_ia` au tick photographié, sans
 la seigneurie choisie ; leurs sept champs sont complétés par `population` et `gestes`.
-Les gestes `{tick, maison: {sorte, id}, intention}` filtrent le couple (`sorte`, `id`),
-gardent l'ordre des dépôts acceptés, sans tri, déduplication ni arrondi, en copies indépendantes.
+Les gestes copient l'entrée entière du relevé (donc `raison`, et `refus` s'il est noté), filtrent le couple (`sorte`, `id`),
+gardent l'ordre du relevé, sans tri, déduplication ni arrondi, en copies profondes.
 `simulation.ia` de `forge`, dans le résumé et le JSON affiché, reprend exactement
 ce bloc construit une seule fois dans `snapshot_export.py` ; les cellules restent inchangées.
 
@@ -2198,20 +2198,21 @@ les métiers suivent une seule fois le solde au prorata, sans partage général 
 
 `sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia` : population et faim du rang 0 positives, quelle que soit la cause. Dette, stock vide ou faim des champs ne suffisent pas.
 Hors carte : aucun geste. Cellule, plan, bourg ou faim absent/non calculé : refus nommé avant tout dépôt.
-Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des dépôts acceptés. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
+Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des entrées du relevé, refus compris. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
 L'exclusion compare l'identifiant du registre : le numéro d'un `ChoixDepart` en attente est converti par `identifiant_de_seigneurie`, comme celui des lignes de seigneurie.
-Paramètres relus dans `constants.py`. `jouer_ia` utilise uniquement `recevoir_intention`, JSON du joueur intact, puis copie `{tick, maison: {sorte, id}, intention}` après acceptation. `python3 -m sim --ia` joue après les gestes scriptés,
+Paramètres relus dans `constants.py`. `jouer_ia` décide tout avant le premier dépôt et n'utilise que `recevoir_intention`, JSON du joueur intact. Chaque proposition porte une `raison` lue avant tout dépôt : `regle` (`route_si_bourg_affame`), `bourg` (`population`, `duree_faim_ticks`, `dette_alimentaire_kg`, `nourriture_kg`, sans arrondi), `champs_nourriture_kg` (rangs 1 à n, dans l'ordre, sans somme), `grenier_nourriture_kg` (panier du registre, `grande-<id>` ou `identifiant_de_seigneurie` ; −1 s'il manque ; une marchandise absente pèse zéro), `chantiers_en_cours` (`rues`, `parcelles`, `batiments`) et `departs` (−1). Une acceptation ajoute `{tick, maison, intention, raison}` ; `IntentionRefusee` ajoute la même entrée avec `refus` (le message), rien n'est déposé, la maison suivante joue. Une donnée absente reste levée avant tout dépôt. `python3 -m sim --ia` joue après les gestes scriptés,
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
-déposés dans les trente premiers jours, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
+déposés dans les trente premiers jours, refus ignorés, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
 Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
-Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
+Niveau 3 : efficacité alimentaire, richesse, autres gestes, personnes, et les départs (la raison porte −1 : le monde ne les compte pas). Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
 
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
 manuel ou cadencé ; les intentions du joueur déjà reçues précèdent les dépôts IA.
-Un refus remet file et relevé à leur longueur initiale, sans tick ni publication :
+Une donnée absente remet file et relevé à leur longueur initiale, sans tick ni publication :
 `POST /tick` rend 500 `{"erreur": "ia : <raison>"}` ; l'horloge passe sa vitesse
 à zéro, écrit la raison sur stderr et reste vivante.
+Un refus de dépôt (`IntentionRefusee`) n'arrête plus le tick : il est noté au relevé et la partie continue.
 `GET /ia` publie avec le monde `{tick, date, releve, maisons_actives_30j}`,
 sans arrondi ; la mesure vient de `maisons_actives_30j`, −1 avant trente jours.
 Sans option, cette route rend 404 et demande `--ia` ; les autres routes gardent leur forme.
@@ -2222,7 +2223,7 @@ Le placement des capitales par polygone est recalculé ; la cadence par défaut 
 Cette absence sans option vaut aussi pour `python3 -m forge`. Avec `--ia`,
 son relevé neuf reste hors de `World` : après validation des départs déposés,
 `jouer_ia` précède chaque tick, premier compris ; zéro tick ne dépose rien.
-La mesure de la photographie vient de `maisons_actives_30j` et des ticks écoulés.
+La photographie copie l'entrée entière du relevé, `raison` et `refus` compris. La mesure vient de `maisons_actives_30j` et des ticks écoulés.
 La planche rejoue séparément sans intentions ; avec `--ia`, son compte rendu
 déclare `planche.ia = false`. `--sans-chronique` évite ce rejeu sans IA.
 

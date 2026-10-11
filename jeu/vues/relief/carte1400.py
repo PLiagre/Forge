@@ -108,7 +108,10 @@ def lignes_de_l_ia(document) -> list[str]:
                          f"par {i['foyers']} foyer{'s' if i['foyers'] != 1 else ''}, dans la cellule {i['cell']}")
             else:
                 texte = i["type"] + "".join(f" {k}={v}" for k, v in i.items() if k != "type")
-            lignes.append(f"tick {geste['tick']} : {texte}")
+            ligne = f"tick {geste['tick']} : {texte}"
+            if "refus" in geste:
+                ligne += f" — refusé : {geste['refus']}"
+            lignes.append(ligne)
     lignes.append(f"Sans geste : {sum(not m['gestes'] and m not in voisines for m in maisons)} autres maisons")
     hors = [f"{m['capitale']} ({m['nom']})" for m in maisons if m["cell_id"] is None]
     return lignes + [f"Capitales hors carte : {', '.join(hors) or 'aucune'}"]

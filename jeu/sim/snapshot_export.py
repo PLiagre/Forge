@@ -229,8 +229,7 @@ def _photographie_ia(world: World, releve) -> dict:
                 donnee = 'cellule' if cellule is None else 'bourg'
                 raise SnapshotExportError(f'maison {maison.sorte} {maison.id} ({maison.nom}) : donnée absente : {donnee}')
             population = bourg.population
-            gestes = [dict(tick=e['tick'], maison={'sorte': maison.sorte, 'id': maison.id},
-                           intention=copy.deepcopy(e['intention'])) for e in releve
+            gestes = [copy.deepcopy(e) for e in releve
                       if (e['maison']['sorte'], e['maison']['id']) == (maison.sorte, maison.id)]
         maisons.append(dict(asdict(maison), population=population, gestes=gestes))
     return {'maisons': maisons, 'maisons_actives_30j': maisons_actives_30j(world.ticks_ecoules, releve)}
