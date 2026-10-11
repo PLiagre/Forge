@@ -15,6 +15,16 @@ on:
 permissions:
   contents: read
 
+# GitHub pose `CI=true`. pytest y répond en comparant deux structures
+# inégales en entier (pformat puis difflib.ndiff, quadratique), même dans un
+# `pytest.raises(AssertionError)` où personne ne lit le diff : le moteur en a
+# plus de 200, ses contre-épreuves. Le 11 octobre 2026,
+# test_maitre_permutations prenait 6 s sur le PC et 63 min ici, et un vrai
+# rouge sur un monde entier pouvait tourner des heures (#573). Vide, la
+# variable laisse pytest faire comme sur le PC (atelier/tests/test_ci.py).
+env:
+  CI: ""
+
 # Une révision remplacée ne garde pas ses runners : quand une PR reçoit un
 # nouveau commit, le passage de l'ancien s'arrête. Le 11 octobre 2026, une
 # tranche de #573 a tourné 6 h sur une révision que le mécanicien avait déjà

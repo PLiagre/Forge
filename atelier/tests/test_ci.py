@@ -84,6 +84,21 @@ def test_les_tranches_du_moteur_s_equilibrent_sur_les_durees_mesurees():
     assert not equilibre([sum(durees.values())] + [0.0] * (n - 1)), "le contrôle d'équilibre accepterait tout"
 
 
+def _ci_videe(texte: str) -> bool:
+    return re.search(r'^env:\n(?:  .*\n)*?  CI: ""\n', texte, re.M) is not None
+
+
+def test_pytest_ne_se_croit_pas_sur_une_ci():
+    """Avec `CI` non vide, pytest compare en entier deux structures inégales,
+    même dans un `pytest.raises(AssertionError)` : 6 s sur le PC, 63 min sur la
+    CI pour test_maitre_permutations (11 octobre 2026)."""
+    texte = WORKFLOW.read_text(encoding="utf-8")
+    assert _ci_videe(texte), "tests.yml doit vider CI pour tous ses travaux"
+    # Contre-épreuve : sans la ligne, ou avec CI posée, le contrôle échoue.
+    assert not _ci_videe(texte.replace('  CI: ""\n', ""))
+    assert not _ci_videe(texte.replace('  CI: ""\n', '  CI: "true"\n'))
+
+
 def test_une_tranche_mal_ecrite_est_refusee():
     import pytest
 

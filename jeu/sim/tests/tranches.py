@@ -90,7 +90,7 @@ def fusionner(fichiers: list[Path]) -> dict[str, float]:
 def ecrire(durees: dict[str, float], chemin: Path = DUREES) -> None:
     """Une ligne par test, triées : un rafraîchissement se relit en diff."""
     lignes = [f"  {json.dumps(nom, ensure_ascii=False)}: {round(s, 2)}" for nom, s in sorted(durees.items())]
-    chemin.write_text("{\n" + ",\n".join(lignes) + "\n}\n", encoding="utf-8")
+    chemin.write_text("{\n" + ",\n".join(lignes) + "\n}\n", encoding="utf-8", newline="\n")
 
 
 def main(argv: list[str]) -> int:
