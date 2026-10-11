@@ -3,9 +3,8 @@
 Le 9 octobre 2026, `sim/tests` jouait 987 tests en 3 h 20 sur un seul cœur : chaque PR, de la
 chaîne comme du mode direct, attendait ce temps avant de fusionner. La CI les répartit donc sur
 plusieurs travaux (`FORGE_TRANCHE=k/n`, k de 1 à n), chacun sur les cœurs de son runner
-(pytest-xdist). Les tests se distribuent un à un, à tour de rôle dans l'ordre de collecte : les
-longs tests d'un même fichier tombent dans des tranches différentes, et aucun fichier neuf
-n'échappe à la répartition. Sans la variable, tout se joue, comme sur le PC.
+(pytest-xdist). Le partage suit les durées mesurées (`tranches.py`) : chaque test est d'une
+tranche et d'une seule, un test neuf compris. Sans la variable, tout se joue, comme sur le PC.
 
 Quelques tests comptent des millisecondes (budget d'un tick, cadence de l'horloge) : sur tous les
 cœurs d'un runner, leurs mesures sortent du budget. Ils portent `@pytest.mark.chronometre` ; la CI
@@ -14,41 +13,52 @@ joue les tranches avec `-m "not chronometre"` et ces tests seuls, un travail à 
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 
 import pytest
 
+from sim.tests import tranches
+
 VARIABLE = "FORGE_TRANCHE"
+# Le fichier où une tranche écrit les durées qu'elle a mesurées (la CI le garde en artefact).
+VARIABLE_DUREES = "FORGE_DUREES"
 
-
-def lire_tranche(valeur: str | None) -> tuple[int, int] | None:
-    """« k/n » → (k, n) ; None sans variable. Une valeur fausse est une erreur, jamais « tout jouer »."""
-    if valeur is None or valeur == "":
-        return None
-    morceaux = valeur.split("/")
-    if len(morceaux) != 2 or not all(m.isdigit() for m in morceaux):
-        raise pytest.UsageError(f"{VARIABLE}={valeur!r} : attendu « k/n », deux entiers")
-    k, n = int(morceaux[0]), int(morceaux[1])
-    if not 1 <= k <= n:
-        raise pytest.UsageError(f"{VARIABLE}={valeur!r} : attendu 1 ≤ k ≤ n")
-    return k, n
-
-
-def dans_la_tranche(rang: int, k: int, n: int) -> bool:
-    """Le test de rang `rang` (0, 1, 2… dans l'ordre de collecte) est-il de la tranche k sur n ?"""
-    return rang % n == k - 1
+_mesures: dict[str, float] = {}
 
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "chronometre: compare un temps réel à un budget ; la CI le joue seul, sans -n")
 
 
+# Après la sélection par `-m` : le partage ne compte que les tests que les tranches jouent.
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
-    tranche = lire_tranche(os.environ.get(VARIABLE))
-    if tranche is None:
-        return
-    gardes = [item for rang, item in enumerate(items) if dans_la_tranche(rang, *tranche)]
-    ecartes = [item for rang, item in enumerate(items) if not dans_la_tranche(rang, *tranche)]
+    try:
+        tranche = tranches.lire_tranche(os.environ.get(VARIABLE))
+        if tranche is None:
+            return
+        durees = tranches.lire_durees()
+    except ValueError as e:
+        raise pytest.UsageError(f"{VARIABLE} : {e}") from e
+    k, n = tranche
+    numeros = tranches.repartir([item.nodeid for item in items], durees, n)
+    gardes = [item for item, numero in zip(items, numeros) if numero == k]
+    ecartes = [item for item, numero in zip(items, numeros) if numero != k]
     if ecartes:
         config.hook.pytest_deselected(items=ecartes)
     items[:] = gardes
+
+
+def pytest_runtest_logreport(report):
+    # Préparation, appel et rangement : tout ce que le test coûte à sa tranche.
+    _mesures[report.nodeid] = _mesures.get(report.nodeid, 0.0) + report.duration
+
+
+def pytest_sessionfinish(session):
+    chemin = os.environ.get(VARIABLE_DUREES)
+    # Sous xdist, chaque travailleur voit ses tests ; le contrôleur les voit tous et écrit seul.
+    if not chemin or hasattr(session.config, "workerinput"):
+        return
+    Path(chemin).write_text(json.dumps(_mesures, ensure_ascii=False, indent=0), encoding="utf-8")
