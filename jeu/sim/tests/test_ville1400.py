@@ -117,17 +117,33 @@ def _controler_foyers(bases, populations):
     ecart_max = 0.0
     tolerance = _tolerance_aire()
     surface = _constantes.SURFACE_M2_PAR_FOYER_LOGE
+    objets = grandes = objets_paris = 0
     for base in bases:
         attendu = ranger_en_foyers(populations[base["cell_id"]]).nombre
-        obtenu = 0
+        obtenu = sum(maison["foyers"] for maison in base["maisons"])
+        assert obtenu == attendu, "somme des foyers"
+        ilots = attendu > _constantes.FOYERS_SANS_ILOTS
+        grandes += ilots
+        objets += len(base["maisons"])
+        if base["cell_id"] == _PARIS:
+            objets_paris = len(base["maisons"])
         for maison in base["maisons"]:
-            assert maison["foyers"] == 1
-            obtenu += maison["foyers"]
-            ecart = abs(aire_du_contour(maison["emprise"]) - surface)
+            foyers = maison["foyers"]
+            if ilots:
+                assert 1 <= foyers <= _constantes.MAISONS_PAR_ILOT_MAX, "borne des foyers par îlot"
+                points = maison["emprise"]
+                perimetre = sum(math.dist(a, b) for a, b in zip(points, points[1:] + points[:1]))
+                tolerance_objet = perimetre * 10 ** (-_constantes.SNAPSHOT_FLOAT_DECIMALS)
+            else:
+                assert foyers == 1, "maison sous le seuil"
+                tolerance_objet = tolerance
+            ecart = abs(aire_du_contour(maison["emprise"]) - foyers * surface)
             ecart_max = max(ecart_max, ecart)
-            assert ecart <= tolerance
-        assert obtenu == attendu
+            assert ecart <= tolerance_objet, "aire des foyers"
+        if ilots:
+            assert len(base["maisons"]) <= math.ceil(attendu / _constantes.MAISONS_PAR_ILOT_MAX) + 1, "nombre d'objets"
         total += obtenu
+    print(f"foyers={total} objets={objets} cellules_au_dessus={grandes} objets_Paris={objets_paris}")
     return total, ecart_max
 
 
@@ -498,5 +514,142 @@ def test_sc10_le_modele_le_dit():
     assert re.search(r"596\b.{0,160}?\d+(?:[.,]\d+)?\s*s", section, re.S)
     assert re.search(r"Paris.{0,160}?\d+(?:[.,]\d+)?\s*s", section, re.S)
     assert "sim/ville1400.py" in (_SIM / "README.md").read_text(encoding="utf-8")
+    with pytest.raises(AssertionError, match="échantillon vide"):
+        _sous_partie("## Autre\n", "### Le plan de base")
+
+
+def _objet_de_foyers(foyers):
+    """Rectangle de bonne aire pour isoler les fautes de compte."""
+    facade = _constantes.FACADE_MAISON_1400_M
+    profondeur = foyers * _constantes.SURFACE_M2_PAR_FOYER_LOGE / facade
+    return {"foyers": foyers, "emprise": [[0, 0], [facade, 0], [facade, profondeur], [0, profondeur]]}
+
+
+def test_ilots_sc1_compte_et_contre_epreuves(campagne):
+    grandes = [base for cid, base in campagne.bases.items()
+               if ranger_en_foyers(campagne.populations[cid]).nombre > _constantes.FOYERS_SANS_ILOTS]
+    print(f"cellules_avec_ilots={len(grandes)}")
+    assert grandes
+    for base in grandes:
+        foyers = ranger_en_foyers(campagne.populations[base["cell_id"]]).nombre
+        pleins, reste = divmod(foyers, _constantes.MAISONS_PAR_ILOT_MAX)
+        assert [objet["foyers"] for objet in base["maisons"]] == (
+            [_constantes.MAISONS_PAR_ILOT_MAX] * pleins + ([reste] if reste else []))
+    paris = campagne.bases[_PARIS]
+    maximum = _constantes.MAISONS_PAR_ILOT_MAX
+    pleins = [i for i, objet in enumerate(paris["maisons"]) if objet["foyers"] == maximum]
+    assert len(pleins) > 1
+    alt = copy.deepcopy(paris)
+    alt["maisons"][pleins[0]] = _objet_de_foyers(maximum + 1)
+    alt["maisons"][pleins[1]] = _objet_de_foyers(maximum - 1)
+    with pytest.raises(AssertionError, match="borne des foyers par îlot"):
+        _controler_foyers([alt], campagne.populations)
+    alt = copy.deepcopy(paris)
+    alt["maisons"].pop(pleins[0])
+    alt["maisons"].extend(_objet_de_foyers(1) for _ in range(maximum))
+    with pytest.raises(AssertionError, match="nombre d'objets"):
+        _controler_foyers([alt], campagne.populations)
+    petite = next(base for cid, base in campagne.bases.items()
+                  if 1 < ranger_en_foyers(campagne.populations[cid]).nombre <= _constantes.FOYERS_SANS_ILOTS)
+    alt = copy.deepcopy(petite)
+    alt["maisons"][:2] = [_objet_de_foyers(2)]
+    with pytest.raises(AssertionError, match="maison sous le seuil"):
+        _controler_foyers([alt], campagne.populations)
+    alt = copy.deepcopy(paris)
+    alt["maisons"].pop()
+    with pytest.raises(AssertionError, match="somme des foyers"):
+        _controler_foyers([alt], campagne.populations)
+    for base in (petite, paris):
+        alt = copy.deepcopy(base)
+        alt["maisons"][0]["emprise"] = _objet_de_foyers(0)["emprise"]
+        with pytest.raises(AssertionError, match="aire des foyers"):
+            _controler_foyers([alt], campagne.populations)
+    with pytest.raises(AssertionError, match="échantillon vide"):
+        _controler_foyers([], {})
+
+
+@pytest.mark.parametrize("directions", [1, 7])
+def test_ilots_sc2_seuil_et_constantes(directions, monkeypatch):
+    seuil = _constantes.FOYERS_SANS_ILOTS
+    maximum = _constantes.MAISONS_PAR_ILOT_MAX
+    population = (seuil + 1) * _constantes.TAILLE_FOYER
+    dirs = _directions(directions)
+    petite = base_d_une_population(seuil * _constantes.TAILLE_FOYER, dirs)
+    assert len(petite["maisons"]) == seuil
+    assert all(objet["foyers"] == 1 for objet in petite["maisons"])
+    grande = base_d_une_population(population, dirs)
+    assert len(grande["maisons"]) == math.ceil((seuil + 1) / maximum)
+    assert [objet["foyers"] for objet in grande["maisons"]] == [maximum] * ((seuil + 1) // maximum) + [(seuil + 1) % maximum]
+    with monkeypatch.context() as patch:
+        patch.setattr(_constantes, "FOYERS_SANS_ILOTS", seuil + 1)
+        autre = base_d_une_population(population, dirs)
+        assert len(autre["maisons"]) == seuil + 1
+        assert all(objet["foyers"] == 1 for objet in autre["maisons"])
+    with monkeypatch.context() as patch:
+        patch.setattr(_constantes, "MAISONS_PAR_ILOT_MAX", maximum // 2)
+        autre = base_d_une_population(population, dirs)
+        assert len(autre["maisons"]) == math.ceil((seuil + 1) / (maximum // 2))
+        assert all(1 <= objet["foyers"] <= maximum // 2 for objet in autre["maisons"])
+        assert sum(objet["foyers"] for objet in autre["maisons"]) == seuil + 1
+    assert json.dumps(base_d_une_population(population, dirs), sort_keys=True) == json.dumps(grande, sort_keys=True)
+
+
+def test_ilots_sc2_facade_relue(campagne, monkeypatch):
+    avant = campagne.bases[_PARIS]
+    with monkeypatch.context() as patch:
+        patch.setattr(_constantes, "MAISONS_EN_FACADE_ILOT", 7)
+        autre = base_de_cellule(campagne.monde, _PARIS)
+        assert autre["maisons"][0]["emprise"] != avant["maisons"][0]["emprise"]
+        _controler_foyers([autre], campagne.populations)
+    assert json.dumps(base_de_cellule(campagne.monde, _PARIS), sort_keys=True) == campagne.octets[_PARIS]
+
+
+def test_ilots_sc3_petites_bases_identiques(campagne, monkeypatch):
+    cellules = sorted(cid for cid, population in campagne.populations.items()
+                      if ranger_en_foyers(population).nombre <= _constantes.FOYERS_SANS_ILOTS)
+    print(f"petites_cellules_comparees={len(cellules)}")
+    assert cellules
+
+    def empreinte():
+        texte = "\n".join(json.dumps(base_de_cellule(campagne.monde, cid), sort_keys=True) for cid in cellules)
+        return hashlib.sha256(texte.encode()).hexdigest()
+
+    avant = empreinte()
+    assert avant == "7f9be1e18e336199993e260423bfe32e5d211b7f6d1c2211d72905506d517004"
+    monkeypatch.setattr(_constantes, "FOYERS_SANS_ILOTS", 0)
+    assert empreinte() != avant
+
+
+def test_ilots_sc4_chevauchement_detecte(campagne):
+    alt = copy.deepcopy(campagne.bases[_PARIS])
+    pleins = [objet for objet in alt["maisons"] if objet["foyers"] == _constantes.MAISONS_PAR_ILOT_MAX]
+    assert len(pleins) > 1
+    points = pleins[0]["emprise"]
+    # Le dernier côté suit la façade ; déplacer d'une demi-façade force le recouvrement.
+    dx, dy = ((points[0][axe] - points[-1][axe]) / 2 for axe in (0, 1))
+    pleins[1]["emprise"] = [[x + dx, y + dy] for x, y in points]
+    with pytest.raises(AssertionError, match="chevauchement"):
+        _controler_chevauchements([alt])
+
+
+def test_ilots_sc5_grande_ville_une_direction(campagne):
+    foyers = ranger_en_foyers(campagne.populations[_PARIS]).nombre
+    base = base_d_une_population(foyers * _constantes.TAILLE_FOYER, _directions(1))
+    print(f"grande_ville_foyers={foyers} objets={len(base['maisons'])}")
+    assert len(base["maisons"]) == math.ceil(foyers / _constantes.MAISONS_PAR_ILOT_MAX)
+    base["cell_id"] = _PARIS
+    _controler_foyers([base], {_PARIS: foyers * _constantes.TAILLE_FOYER})
+    _controler_chevauchements([base])
+
+
+def test_ilots_sc6_modele_et_notice():
+    section = _sous_partie((_SIM / "MODELE.md").read_text(encoding="utf-8"), "### Le plan de base")
+    for nom in ("FOYERS_SANS_ILOTS", "MAISONS_PAR_ILOT_MAX", "MAISONS_EN_FACADE_ILOT", "îlot"):
+        assert nom in section
+    assert "Jusqu'à `FOYERS_SANS_ILOTS` foyers, chaque foyer a une maison" in section
+    assert "Chaque foyer a une maison" not in section
+    ligne = next(ligne for ligne in (_SIM / "README.md").read_text(encoding="utf-8").splitlines()
+                 if "sim/ville1400.py" in ligne)
+    assert "îlots" in ligne
     with pytest.raises(AssertionError, match="échantillon vide"):
         _sous_partie("## Autre\n", "### Le plan de base")
