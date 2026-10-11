@@ -16,7 +16,8 @@ namespace ForgeLocal3D
 {
     // Contrôle du lot 386, en Play : Unity joue les gestes de la preuve et redessine la même ville. Trois
     // sessions, chacune un lancement d'Unity sur la première implantation de la sélection, sur la mécanique de
-    // DesertCityBatiments (recopiée, clés de session à elle) : `Jouer` (service neuf) trace la route de plaine,
+    // DesertCityBatiments (recopiée, clés de session à elle) : `Jouer` (service neuf) trace la route de plaine
+    // (ou celle de la consigne, lot 583),
     // découpe une parcelle et y pose une scierie, chaque geste par ce que `Update` appelle pour sa touche, puis
     // fait passer sept ticks et relève la ville ; `Relancer` (même service) rouvre la ville et doit retrouver ce
     // relevé ; `Vierge` (service neuf) ne doit rien dessiner. Tout dépôt est celui de l'outil. Les étapes des
@@ -31,7 +32,10 @@ namespace ForgeLocal3D
         static readonly string[] TYPES={"tracer_route","decouper_parcelle","poser_batiment"};
 
         [Serializable] class Selection{public string[] implantations;}
-        [Serializable] class Consigne{public bool ville_locale;}
+        // Lot 583 : une route facultative, que la session jouer clique au lieu de la route plaine. JsonUtility
+        // crée la route même absente du fichier : elle ne compte qu'avec deux points au moins.
+        [Serializable] class RouteDeConsigne{public double[] x=new double[0],y=new double[0];public double largeur;}
+        [Serializable] class Consigne{public bool ville_locale;public RouteDeConsigne route;}
         [Serializable] public class Trace{public long identifiant=-1;public string nature="",etat="";}
         [Serializable] public class Geste{public string type="";public long apres_le_tick=-1,identifiant=-1;}
         [Serializable] public class Releve
@@ -112,14 +116,20 @@ namespace ForgeLocal3D
             tool.automatique=true;
             report.cell=tool.Cellule;report.port=tool.Port;report.tick_ouverture=tool.TickOuverture;
             string consigne=Dossier(report.implantation)+"consigne.json";
+            DesertRoads.Geste route=null;
             if(!File.Exists(consigne))faults.Add(report.session+" : consigne absente ("+consigne+") : lancer py local3d/atelier_desert.py preuve");
-            else report.ville_locale=JsonUtility.FromJson<Consigne>(File.ReadAllText(consigne)).ville_locale;
+            else
+            {
+                var c=JsonUtility.FromJson<Consigne>(File.ReadAllText(consigne));report.ville_locale=c.ville_locale;
+                if(c.route!=null&&c.route.x!=null&&c.route.x.Length>=2)
+                    route=new DesertRoads.Geste{id="consigne",famille="plaine",revetement="paves",largeur=c.route.largeur,x=c.route.x,y=c.route.y};
+            }
             if(report.tick_ouverture<0)faults.Add(report.session+", tick -1 : l'outil n'a pas lu de plan à l'ouverture : "+tool.Message);
             report.ouverture=Relever(tool,Acceptees(tool.Ouverture));
             if(report.ouverture.tick!=tool.TickOuverture)
                 faults.Add(report.session+", tick "+N(report.ouverture.tick)+" : le plan relu n'est pas celui que l'outil a dessiné à l'ouverture (tick "+N(tool.TickOuverture)+")");
             long tickAtelier=-1;
-            if(report.session=="jouer")tickAtelier=Gestes(tool,gestes,report,faults);
+            if(report.session=="jouer")tickAtelier=Gestes(tool,gestes,report,faults,route);
             else report.ville=report.ouverture;
             // Le sable vierge, après le relevé de la ville ; puis le terrain de la scène.
             roads.Preparer(gestes.parametres,gestes.graine);report.vierge=roads.Empreintes().Tout;
@@ -191,8 +201,8 @@ namespace ForgeLocal3D
         }
 
         // Service neuf : la route, la parcelle et l'atelier par l'outil du joueur, puis le temps. Rend le tick du plan
-        // après l'atelier, -1 si la session s'est arrêtée avant.
-        static long Gestes(DesertRoadTool tool,DesertRoads.Gestes gestes,Rapport report,List<string> faults)
+        // après l'atelier, -1 si la session s'est arrêtée avant. `consigne`, si elle est donnée, remplace la route plaine.
+        static long Gestes(DesertRoadTool tool,DesertRoads.Gestes gestes,Rapport report,List<string> faults,DesertRoads.Geste consigne=null)
         {
             int port=tool.Port;long cell=tool.Cellule;var terrain=tool.roads.terrain;var camera=tool.view;
             var ville=camera?camera.GetComponent<DesertCityCamera>():null;
@@ -204,7 +214,7 @@ namespace ForgeLocal3D
             bool ok=e.Jouer("la route",()=>
             {
                 if(!ville)return "la caméra de l'outil n'a pas de DesertCityCamera";
-                var g=gestes.routes.FirstOrDefault(x=>x.famille=="plaine");
+                var g=consigne??gestes.routes.FirstOrDefault(x=>x.famille=="plaine");
                 if(g==null)return "jeu de gestes sans route plaine";
                 var avant=Plan().Rues.Select(u=>u.Identifiant).ToArray();
                 // Les clics à l'écran, vus de haut, sur une image de la taille de la photo (comme Lot293.Depot).
