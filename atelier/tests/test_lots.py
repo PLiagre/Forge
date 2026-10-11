@@ -205,6 +205,31 @@ def test_un_lot_attend_ses_dependances_ouvertes():
     assert Lot.de(dict(_issue(15), body="Dépend de : #12\n\nDécoupé du lot #10.")).dependances == frozenset({12})
 
 
+def test_un_refus_nomme_ce_qu_il_attend():
+    lot = Lot.de(dict(_issue(13), body="Dépend de : #12"))
+    ouvertes = [12, 396, 397, 398]
+    assert lots.attendus_du_refus("attend #396 (le seigneur prélève)", ouvertes, lot) == [396]
+    assert lots.attendus_du_refus("Attendent #396, #397 et #398.", ouvertes, lot) == [396, 397, 398]
+    # Livrée (fermée), déjà déclarée, le lot lui-même, ou rien à attendre : le refus reste un refus.
+    assert lots.attendus_du_refus("attend #500", ouvertes, lot) == []
+    assert lots.attendus_du_refus("attend #12", ouvertes, lot) == []
+    assert lots.attendus_du_refus("attend #13", ouvertes + [13], lot) == []
+    assert lots.attendus_du_refus("hors du jalon, voir #396", ouvertes, lot) == []
+    assert lots.attendus_du_refus("", ouvertes, lot) == []
+
+
+def test_une_dependance_s_ecrit_dans_l_issue():
+    ligne = lots.avec_dependances("Le texte.\n\nDépend de : #394, #408\n", [396])
+    assert ligne == "Le texte.\n\nDépend de : #394, #408, #396\n"
+    assert Lot.de(dict(_issue(1), body=ligne)).dependances == frozenset({394, 408, 396})
+    # Sans ligne, une ligne s'ajoute ; le formulaire (valeur au paragraphe suivant) reste lu.
+    assert lots.avec_dependances("Le texte.", [3, 4]) == "Le texte.\n\nDépend de : #3, #4\n"
+    formulaire = "### Dépend de\n\n#3\n\n### Ce que ça doit faire\n\nVoir #99."
+    assert Lot.de(dict(_issue(2), body=lots.avec_dependances(formulaire, [7]))).dependances == frozenset({3, 7})
+    # Les fins de ligne Windows survivent.
+    assert lots.avec_dependances("Dépend de : #1\r\nSuite", [2]) == "Dépend de : #1, #2\r\nSuite"
+
+
 CAP = """# CAP
 
 | # | jalon | le joueur |

@@ -67,6 +67,9 @@ class GitHub:
     def commenter_issue(self, numero: int, texte: str) -> None:
         self.gh("issue", "comment", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
 
+    def corps_de(self, numero: int, texte: str) -> None:
+        self.gh("issue", "edit", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
+
     def epingler(self, numero: int) -> None:
         self.gh("issue", "pin", str(numero), "-R", self.depot)
 
