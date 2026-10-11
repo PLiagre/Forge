@@ -46,11 +46,15 @@ def prelever(monde, recoltes) -> None:
                 panier[nourriture] = panier.get(nourriture, 0.0) + kg * facteur
     taux = [monde.parts[nom] for nom in routes.noms]
     groupes = [None] * (routes.jours_max + 1)
+    charges = [None] * len(groupes)
+    facteurs = [1.0] * len(groupes)
+    ajouts = [0.0] * len(groupes)
     for cid, (indices, durees) in routes.par_cellule.items():
         recolte = recoltes.get(cid)
         if recolte is None:
             continue
         cellule = monde.cells[cid]
+        lieux = cellule.lieux
         retire = 0.0
         for rang, indice in enumerate(indices):
             if indice < 0:
@@ -58,7 +62,7 @@ def prelever(monde, recoltes) -> None:
             kg = taux[indice] * recolte[rang]
             if not kg:
                 continue
-            stocks = cellule.lieux[rang].stocks
+            stocks = lieux[rang].stocks
             stocks[nourriture] -= kg
             retire += kg
             jours = durees[rang]
@@ -69,8 +73,14 @@ def prelever(monde, recoltes) -> None:
                 if groupe is None:
                     groupe = convois[arrivee] = GroupeArrivee(len(taux))
                 groupes[jours] = groupe
-            groupe.total += kg
+                charges[jours] = groupe.charges
+                facteurs[jours] = groupe.facteur
+            ajouts[jours] += kg
             # Une arrivée reçoit des départs d'âges différents : défaire son facteur.
-            groupe.charges[indice] += kg / groupe.facteur
+            charges[jours][indice] += kg / facteurs[jours]
         if retire:
             cellule.stocks[nourriture] -= retire
+    # Un seul ajout au total de chaque groupe, plutôt qu'une écriture par lieu.
+    for jours, groupe in enumerate(groupes):
+        if groupe is not None:
+            groupe.total += ajouts[jours]

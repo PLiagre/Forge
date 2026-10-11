@@ -196,3 +196,34 @@ def test_modele_et_notices():
     assert 'test_prelevement.py' in (SIM / 'tests/README.md').read_text()
     with pytest.raises(AssertionError): _section_prelevement('')
     print(f'taille de la section={len(section)}')
+
+
+def test_arrivee_commune_de_departs_d_ages_differents(monkeypatch):
+    """Le facteur du groupe ne vieillit pas prématurément les nouvelles charges."""
+    from sim.convois import TableRoutes
+    nourriture = c.MARCHANDISE_NOURRITURE
+    cellule = Cell(1, 2.0, 0, stocks={nourriture: 100.0}, lieux=[
+        EtatDeLieu(0, 0, {nourriture: 50.0}),
+        EtatDeLieu(1, 0, {nourriture: 50.0}),
+    ])
+    m = World({1: cellule}, [])
+    m.routes_des_lieux = TableRoutes([
+        (1, 0, 'a', 1, 0, 2), (1, 1, 'b', 1, 1, 1),
+    ])
+    m.parts = {'a': 0.5, 'b': 0.0}
+    m.greniers = {'a': {}, 'b': {}}
+    monkeypatch.setattr(c, 'PERTE_CONVOI_PAR_JOUR', 0.1)
+    prelevement.prelever(m, {1: [10.0, 0.0]})
+    m.ticks_ecoules = 1
+    m.parts = {'a': 0.0, 'b': 0.25}
+    prelevement.prelever(m, {1: [0.0, 12.0]})
+    assert prelevement.charges_en_route(m) == [['a', 2, 4.5], ['b', 2, 3.0]]
+    m.ticks_ecoules = 2
+    monkeypatch.setattr(c, 'PERTE_CONVOI_PAR_JOUR', 0.2)
+    prelevement.prelever(m, {})
+    assert not m.convois
+    assert _food(m.greniers['a']) == pytest.approx(5.0 * 0.9 * 0.8)
+    assert _food(m.greniers['b']) == pytest.approx(3.0 * 0.8)
+    assert m.mange_convois_kg == pytest.approx(8.0 - _greniers(m))
+    assert _food(cellule.stocks) == sum(_food(l.stocks) for l in cellule.lieux)
+    print(f'charges arrivées={_greniers(m)}, mangé={m.mange_convois_kg}')

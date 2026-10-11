@@ -407,20 +407,21 @@ def _facteur_bras_pour_cellule(cell: Cell, carte: dict | None) -> float:
 
 def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:
     """La récolte pousse sur chaque surface, indépendamment des habitants."""
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
     quantites = None if recoltes is None else [0.0] * len(cell.lieux)
     if quantites is not None:
         recoltes[cell.cell_id] = quantites
     if len(cell.lieux) == 1:
         if quantites is not None:
             quantites[0] = recolte
-        ecrire_stock_marchandise(cell.lieux[0], _constantes.MARCHANDISE_NOURRITURE,
-                                lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE))
+        cell.lieux[0].stocks[nourriture] = cell.stocks.get(nourriture, -1.0)
         return
     surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
     for lieu in cell.lieux:
-        stock = max(0.0, lire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE))
+        stocks = lieu.stocks
+        stock = max(0.0, stocks.get(nourriture, -1.0))
         kg = recolte * surfaces[lieu.rang] / cell.area_km2
-        ecrire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE, stock + kg)
+        stocks[nourriture] = stock + kg
         if quantites is not None:
             quantites[lieu.rang] = kg
 
@@ -933,6 +934,10 @@ def _apply_commerce(
         return
 
     consommation_unitaire = _constantes.consommation_kg_par_habitant_par_tick(marchandise)
+    # Sans consommation, aucun besoin ni flux maritime : inutile de parcourir
+    # toutes les arêtes pour les minerais et objets qui restent dans leur panier.
+    if consommation_unitaire == 0.0:
+        return
     # Le commerce maritime ne porte que les marchandises consommées : les autres
     # n'ont ni besoin côté mer ni rôle d'expédition dans la couche 1.
     maritime_actif = (
@@ -1010,8 +1015,9 @@ def _apply_commerce(
 
         surplus_a = _surplus(a_id)
         surplus_b = _surplus(b_id)
-        need_a = _need(a_id)
-        need_b = _need(b_id)
+        # Les besoins du snapshot sont déjà calculés, avant tous les transferts.
+        need_a = snapshot_needs[a_id]
+        need_b = snapshot_needs[b_id]
 
         if surplus_a > 0 and need_b > 0:
             demand = min(need_b, cap_arête)
