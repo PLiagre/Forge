@@ -597,7 +597,7 @@ def date_de_tick(ticks_ecoules: int) -> dict[str, int]:
 DEFAULT_CLI_TICKS = CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 DEFAULT_CLI_SEED = 0
 
-# Part du seigneur : niveau 2, provisoire ; 3 % limite la baisse annuelle mesurée à environ 1 %.
+# Part du seigneur : niveau 2 ; 0,03 : −0,96 % en un an, 0,04 : −1,39 %, graine 0, convois compris.
 PART_COUTUMIERE = 0.03
 # Niveau 2, plausible : charretiers et bêtes mangent cette part de la charge par jour.
 PERTE_CONVOI_PAR_JOUR = 0.01

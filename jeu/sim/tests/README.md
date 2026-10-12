@@ -24,7 +24,7 @@ ajoute ses cas dans le fichier qui porte déjà l'invariant concerné.
 | `test_survie.py` | faim, dette alimentaire, mortalité, direction du modèle de survie |
 | `test_commerce.py` | conservation de la masse, un kg ne nourrit qu'une fois, pas de sur-livraison |
 | `test_province.py` | la province est dérivée, jamais stockée |
-| `test_determinisme.py` | même graine, même monde ; départage stable des égalités |
+| `test_determinisme.py` | même graine, même monde ; départage stable des égalités ; fige le monde avec prélèvement |
 | `test_ville1400.py` | la ville de 1400 se dérive des foyers du bourg et reste la même après une année |
 | `test_monde.py` | chargement de la carte, ligne de commande, schéma du snapshot ; le service local rend la photographie ; l'horloge avance à la vitesse choisie, une lecture n'attend pas un tick |
 | `test_no_hardcoded.py` | aucun nombre magique dans le moteur |
@@ -35,4 +35,4 @@ ajoute ses cas dans le fichier qui porte déjà l'invariant concerné.
 py -m pytest sim/tests/ -q
 ```
 
-`test_prelevement.py` protège la conservation, les pertes et délais de convoi, les parts et le déterminisme à part nulle.
+`test_prelevement.py` protège la conservation, les pertes et délais de convoi, les parts, le déterminisme à part nulle et la calibration de la part coutumière sur un an.

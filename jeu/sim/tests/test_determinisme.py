@@ -1022,3 +1022,66 @@ def test_part_bit_pres(monkeypatch):
     cellule = next(c for c in monde.cells.values() if c.stocks); nom = next(iter(cellule.stocks))
     cellule.stocks[nom] = math.nextafter(cellule.stocks[nom], math.inf)
     with pytest.raises(AssertionError): verifier(mesures | {(42, 3): empreintes(monde, rng, retours)})
+
+
+# Monde avec prélèvement : JSON public et état physique sans aucun arrondi.
+_PRELEVEMENT_BASE = {
+    (0, 1): ("f69f805152a647719bfcb8342bd542e305b0ebcf2bf66100fbeec6faeb589f3a", "9cb3bfca3a04d0ff21a661b8e870a0628703688222ab11df667c480553c58a61"),
+    (0, 3): ("e409fdb3c914c88cf5280508e9438bd9eddd3a032d3ba517d064f10c37e33c50", "4dee9df19b859119da9843c3bef94b251d540ae13f8f017cd8b043550fc04afb"),
+    (0, 20): ("75b6e35087f28b739e0b2daaa092138b2bb6f1583e2fa7f5f876e6952e6174f6", "e13023d248ad411c14db92e5ed13940c2cd4db49b07172800825e158906d45c8"),
+    (42, 1): ("efa9482a4fbcfb721ceacac0e1d374df0fb6c10435b6af56c097d39f13e0a288", "3841bd38e36a16e9a085b1e156e57d94c09c98658c513033cbc68252d616d46c"),
+    (42, 3): ("800653b7e03f311c081dd0bf53eadc56cdb6b31855a11210ff9b075101f5c230", "c2efbd9e9f06bb090bc2fe54d8e0909d8000e89f8d18ab25aad2b656035ecf82"),
+    (42, 20): ("15e666ef1f9ed3cbfc3f5fe4b22bf19cbcd737ffe519e88e4b797d1f874ffc43", "a166b1456bee8b03c8af9b45b54514bb12878eacf64335dab4fcc0314d9e5a74"),
+}
+
+
+def _empreintes_prelevement(monde, rng, retours):
+    assert monde.cells and all(cell.lieux for cell in monde.cells.values())
+    greniers = [(nom, sorted(panier.items())) for nom, panier in sorted(monde.greniers.items())]
+    convois = [(arrivee, groupe.facteur, groupe.total, groupe.charges)
+               for arrivee, groupe in sorted(monde.convois.items())]
+    physique = ([dataclasses.asdict(cell) for cell in monde.cells.values()],
+                monde.stocks_mer, rng.getstate(), retours, greniers, convois,
+                monde.mange_convois_kg, monde.pertes_kg)
+    return tuple(hashlib.sha256(octets).hexdigest() for octets in (
+        json.dumps(monde.to_dict(), sort_keys=True).encode(), pickle.dumps(physique)))
+
+
+def _verifier_prelevement(observe):
+    assert observe and observe == _PRELEVEMENT_BASE
+
+
+def test_prelevement_bit_pres():
+    import math
+    from sim import constants as c
+    mesures = {}
+    for seed in (0, 42):
+        monde, rng, retours = World.charger(seed), random.Random(seed), []
+        for numero in range(20):
+            retours.append(engine.tick(monde, rng, numero))
+            point = numero + 1
+            if point in (1, 3, 20):
+                mesures[seed, point] = _empreintes_prelevement(monde, rng, retours)
+                print(f'point={(seed, point)}, empreintes={mesures[seed, point]}')
+                document = monde.to_dict()
+                if point == 1:
+                    assert document['convois'] and not any(monde.greniers.values())
+                    # Les départs n'ont pas encore mangé : un cumul nul reste omis.
+                    assert monde.mange_convois_kg == 0 and 'mange_convois_kg' not in document
+                if point == 3:
+                    assert document['greniers']
+                    assert document['mange_convois_kg'] == monde.mange_convois_kg > 0
+    _verifier_prelevement(mesures)
+    with pytest.raises(AssertionError):
+        _verifier_prelevement({})
+    with pytest.raises(AssertionError):
+        _verifier_prelevement({k: v for k, v in mesures.items() if k != (42, 20)})
+    panier = next(p for p in monde.greniers.values() if p.get(c.MARCHANDISE_NOURRITURE, 0) > 0)
+    panier[c.MARCHANDISE_NOURRITURE] = math.nextafter(panier[c.MARCHANDISE_NOURRITURE], math.inf)
+    with pytest.raises(AssertionError):
+        _verifier_prelevement(mesures | {(42, 20): _empreintes_prelevement(monde, rng, retours)})
+    communs = mesures.keys() & _PART_BASE.keys()
+    assert communs
+    for point in sorted(communs):
+        assert all(a != b for a, b in zip(_PRELEVEMENT_BASE[point], _PART_BASE[point]))
+    print(f'points figés={len(mesures)}, points comparés sans prélèvement={len(communs)}')

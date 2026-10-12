@@ -1769,7 +1769,7 @@ Temps mesuré du chargement sur srv1914711 (AMD EPYC 9354P) :
 `places_du_monde` 0,35 s, la table 0,011 s, `World.charger` 1,93 s.
 
 Après Production et avant Commerce, l'étape Prélèvement relit `World.parts`
-(la coutume `PART_COUTUMIERE` vaut provisoirement 0,03, niveau 2). Elle entame
+(la coutume `PART_COUTUMIERE` vaut 0,03, niveau 2). Elle entame
 chaque groupe en route de `PERTE_CONVOI_PAR_JOUR` (0,01, niveau 2), cumule
 les kilos mangés par les charretiers et bêtes dans `mange_convois_kg`, puis
 verse les arrivées du tick dans le grenier. Elle retire enfin la part de la
@@ -1778,6 +1778,20 @@ une part du stock ancien. La production recueille les récoltes par surface,
 sans second calcul. Maître et jours viennent de la table, sans lire le
 registre ni le maître du lieu ; la part se relit une fois par maison et tick.
 Une part ou récolte nulle n'écrit rien, un monde sans routes ne prélève rien.
+
+**Calibration de la part coutumière.** Sur la graine 0, `World.charger(0)`
+joue 365 ticks numérotés de 0 à 364 avec `random.Random(0)` ; toutes les
+maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`.
+`habitants(p)` est la somme des populations des cellules après cette année.
+La perte `1 − habitants(p) / habitants(0)` se mesure contre le même monde
+sans prélèvement au même jour, car le monde grandit pendant l'année.
+Convois compris, la part 0,03 coûte 0,96 % des habitants, la part 0,04
+en coûte 1,39 %. `PART_COUTUMIERE` est la plus haute part au centième qui
+coûte au plus 1 % : sa perte reste sous ce seuil et celle de
+`round(PART_COUTUMIERE + 0.01, 2)` le dépasse. Prendre plus coûte davantage.
+C'est une règle plausible de niveau 2, jamais sourcée : la coutume ne vide
+pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
+Tout changement de production, de faim ou de départs exige de remesurer.
 
 `World.convois` regroupe les charges par tick d'arrivée, avec une liste dense
 par maison et un facteur commun de perte : aucune allocation par lieu.
