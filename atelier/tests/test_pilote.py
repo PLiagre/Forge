@@ -297,6 +297,25 @@ def test_un_codeur_qui_ne_change_rien_echoue(projet, gh, depot, tmp_path):
     assert not [g for g in depot.gestes if g[0] == "pousser"]
 
 
+def test_un_codeur_coupe_par_son_delai_garde_son_travail_inacheve(projet, gh, depot, tmp_path):
+    # Le 12 octobre 2026, #398 a été coupé trois fois à 3600 s avec un code vert, et le travail jeté.
+    _en_cours(gh)
+    agents = Agents((124, "délai dépassé", {"jeu/sim/service.py": "code", "atelier/pilote.py": "triche"}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert ("pousser", BRANCHE) in depot.gestes and ("annuler", ("atelier/pilote.py",)) in depot.gestes
+    dernier = gh.prs_[50]["comments"][-1]["body"]
+    assert "inachevé (délai dépassé)" in dernier
+    derniere = marques([{"body": dernier}])[-1]
+    assert derniere["etat"] == "fait" and derniere["inacheve"] is True
+
+
+def test_un_codeur_coupe_sans_rien_ecrire_reste_en_echec(projet, gh, depot, tmp_path):
+    _en_cours(gh)
+    _pilote(projet, gh, depot, Agents((124, "délai dépassé")), tmp_path).tour()
+    assert marques(gh.prs_[50]["comments"])[-1]["etat"] == "echec"
+    assert not [g for g in depot.gestes if g[0] == "pousser"]
+
+
 FAIT_CODEX = marque(role="codeur", etat="fait", essai=1, agent="codex/sol", sha="a" * 40)
 
 
