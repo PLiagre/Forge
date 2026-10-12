@@ -313,3 +313,48 @@ def test_le_modele_le_dit():
     with pytest.raises(AssertionError, match="échantillon vide"):
         assert _section_prelevement("# sans la section")
     print("section Le prélèvement lue = 1")
+
+
+def test_dus_des_vassaux(monde, places_reelles):
+    import dataclasses
+    import time
+    debut = time.perf_counter()
+    table = convois.dus_des_vassaux(monde, places_reelles)
+    duree = time.perf_counter() - debut
+    assert table == monde.dus_des_vassaux
+    maisons = {m.id: m for m in monde.maisons}
+    vassaux = {m.id for m in monde.maisons if m.suzerain is not None}
+    assert table.routes and table.retenus
+    assert not table.routes.keys() & table.retenus.keys()
+    assert table.routes.keys() | table.retenus.keys() == vassaux
+    noms = monde.routes_des_lieux.noms
+    assert len(table.par_indice) == len(noms)
+    for vassal, raison in table.retenus.items():
+        assert raison == maisons[maisons[vassal].suzerain].hors_carte and raison
+        assert maisons[maisons[vassal].suzerain].cell_id is None
+        assert table.par_indice[noms.index(vassal)] is None
+    for vassal, (suzerain, jours) in table.routes.items():
+        assert suzerain == maisons[vassal].suzerain
+        assert maisons[suzerain].cell_id is not None and jours >= 1
+        assert table.par_indice[noms.index(vassal)] == (noms.index(suzerain), jours)
+    bar = maisons['seigneurie-1']; suzerain = maisons[bar.suzerain]
+    epreuve = copy.copy(monde)
+    epreuve.cells = monde.cells.copy()
+    epreuve.cells[bar.cell_id] = Cell(bar.cell_id, 1, 0, lieux=[
+        creer_etat_de_lieu(bar.rang, 0, {}, maitre=suzerain.id)])
+    attendu = routes_des_lieux(epreuve, places_reelles)[bar.cell_id, bar.rang].jours
+    assert table.routes[bar.id] == (suzerain.id, attendu)
+    vide = World({}, []).dus_des_vassaux
+    assert not vide.routes and not vide.retenus and not vide.par_indice
+    assert 'dus_des_vassaux' not in monde.to_dict()
+    print(f'dus : routés={len(table.routes)}, retenus={len(table.retenus)}, suzerains={len({s for s, _ in table.routes.values()})}, Bar={attendu} jours, construction={duree:.3f} s')
+
+    prive = copy.copy(monde)
+    prive.routes_des_lieux = copy.deepcopy(monde.routes_des_lieux)
+    prive.routes_des_lieux.noms.remove(suzerain.id)
+    prive.maisons = (bar, suzerain)
+    with pytest.raises(RouteInvalide, match=bar.id):
+        convois.dus_des_vassaux(prive, places_reelles)
+    prive.maisons = (dataclasses.replace(bar, suzerain='inconnu'),)
+    with pytest.raises(RouteInvalide, match=bar.id):
+        convois.dus_des_vassaux(prive, places_reelles)

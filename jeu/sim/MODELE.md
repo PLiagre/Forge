@@ -1801,6 +1801,31 @@ La perte du grenier ne commence qu'au tick suivant son arrivée.
 `to_dict()` publie seulement les charges en route, triées par arrivée puis
 maison, et le cumul mangé non nul ; à part nulle, les octets restent ceux
 d'avant. Minerai, objets, capacité et pillage des convois : niveau 3, non simulés.
+
+**Le dû au suzerain.** `PART_DUE_AU_SUZERAIN = 0,10`, niveau 2,
+plausible, jamais sourcé : la coutume fait repartir un dixième de chaque
+arrivage de prélèvement vers le grenier du suzerain. Le vassal garde
+l'entrée moins ce dû. Le dû part le même tick, dans `World.convois`, et
+subit exactement `jours` pertes de `PERTE_CONVOI_PAR_JOUR`, ajoutées à
+`mange_convois_kg`. Le suzerain lui-même vassal paie à son tour sa part.
+`to_dict()` montre cette charge sous le nom du suzerain destinataire.
+Les secours, les achats et les greniers remplis à la main ne paient pas de dû.
+L'hommage en hommes, en argent et en service : niveau 3, pas simulé.
+
+`World.dus_des_vassaux` est calculée une fois, juste après les routes des
+lieux, avec les mêmes places et le même calcul des jours : distance des
+places dans une cellule, sinon plus court chemin terrestre depuis le siège
+du suzerain, ou `JOURS_DE_MER` sans chemin, au moins un jour.
+`routes` associe chaque vassal routé au suzerain et aux jours ; `retenus`
+porte la raison `hors_carte` du suzerain hors carte : ce dû reste chez le
+vassal. `par_indice`, alignée sur les noms des routes des lieux, donne
+l'indice du suzerain et les jours, ou `None`. Un suzerain inconnu, ou sur
+carte mais absent des noms, lève `RouteInvalide` en nommant le vassal.
+Un `World(...)` d'épreuve porte une table vide ; cette table reste hors de
+`to_dict()`. Le prélèvement ne consulte que `par_indice` et la constante,
+jamais le registre. Le dû passe entre greniers : lieux, cellules et
+calibration restent identiques.
+
 Temps de l'étape mesuré sur srv1914711 (AMD EPYC 9354P), graine 0,
 20 ticks après 5 de chauffe, sans autre test en parallèle : médiane 4,79 ms,
 moyenne 4,95 ms (avant correction des accès aux paniers : 3,71 ms et 3,96 ms ;
@@ -1987,7 +2012,7 @@ photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différen
 
 **Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
 **Niveau 2 :** aucun ajout. **Niveau 3, pas simulé ici :** les lieux du joueur,
-la part qu'il prélève, son dû au suzerain, et les personnes. Le grenier existe
+la part qu'il prélève et les personnes. Le grenier existe
 déjà, voir « Le grenier d'une maison » ; l'ouvrir à ses lieux n'est pas simulé.
 Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
