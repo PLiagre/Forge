@@ -566,7 +566,7 @@ def _controler_documentation(texte):
     foyers_section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
     mortalite = texte.split("### La mortalité\n", 1)[1].split("\n## ", 1)[0]
     natalite = texte.split("## La natalité\n", 1)[1].split("\n## ", 1)[0]
-    migration = texte.split("## La migration de famine\n", 1)[1].split("\n## ", 1)[0]
+    migration = texte.split("## Les départs\n", 1)[1].split("\n## ", 1)[0]
     for attendu in ("plus forts restes", "nom de métier", "paysans",
                     "le tick ne lit les métiers que pour la récolte"):
         assert attendu in foyers_section.lower()

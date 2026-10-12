@@ -313,7 +313,8 @@ def _verifier_direction(populations):
     assert all(a > b for a, b in zip(populations, populations[1:]))
 
 
-def test_calibration_de_la_part_coutumiere():
+def test_calibration_de_la_part_coutumiere(monkeypatch):
+    monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
     part = c.PART_COUTUMIERE
     dessus = round(part + 0.01, 2)
     parts = (0, part, dessus, 0.10)
@@ -347,7 +348,8 @@ def _verifier_modele_calibration(section, habitants):
     assert 'provisoirement' not in section
 
 
-def test_modele_calibration_de_la_part_coutumiere():
+def test_modele_calibration_de_la_part_coutumiere(monkeypatch):
+    monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())

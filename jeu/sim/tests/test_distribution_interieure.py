@@ -139,6 +139,7 @@ def test_identique_quand_chemins_suffisent(monkeypatch):
 
 
 def test_monde_ressent_la_distribution(monkeypatch):
+    monkeypatch.setattr(constantes, "TAUX_DE_DEPART", 0)
     capacite = constantes.CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK
     source = World.charger(0)
     cellules_bourg = [cellule.cell_id for cellule in source.cells.values()
