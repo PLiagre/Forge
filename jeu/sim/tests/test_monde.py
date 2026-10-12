@@ -3797,7 +3797,8 @@ def test_ia_mesure_reelle(tmp_path):
     with pytest.raises(AssertionError): verifier(faux)
 
 
-def test_ia_raisons_egalent_le_monde():
+def test_ia_raisons_egalent_le_monde(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     releve = _verifier_raisons(70)
     assert [entree['tick'] for entree in releve] == [25, 36, 39, 61, 64, 69]
     assert releve and all(entree['raison']['champs_nourriture_kg'] for entree in releve)
@@ -4076,6 +4077,7 @@ def test_service_logement():
 
 
 def test_logement_sans_geste(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim import service
     from sim.tests.test_foyers import _plan_logement
     with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:

@@ -13,6 +13,14 @@ class GroupeArrivee:
         self.total = 0.0
         self.charges = [0.0] * nombre
 
+    def __eq__(self, autre):
+        """Deux groupes sont égaux si leurs charges et pertes sont identiques."""
+        if not isinstance(autre, GroupeArrivee):
+            return NotImplemented
+        return (self.facteur == autre.facteur
+                and self.total == autre.total
+                and self.charges == autre.charges)
+
 
 def charges_en_route(monde):
     """Charges courantes, triées par arrivée puis maison, sans arrondi."""

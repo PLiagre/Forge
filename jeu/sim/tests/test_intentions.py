@@ -1177,6 +1177,7 @@ def test_part_tick(monkeypatch):
         assert monde.to_dict() == avant and monde.intentions_en_attente == file and monde.parts == parts
         rng, rng_temoin, retours = random.Random(0), random.Random(0), []
         _tick_sans_lecture_registre(monkeypatch, monde, lambda w, r, n: retours.append(engine.tick(w, rng, n)), 0)
+        temoin.parts[maison] = 0.3
         retour = engine.tick(temoin, rng_temoin, 0)
         assert monde.parts == parts | {maison: 0.3} and not monde.intentions_en_attente
         copie = deepcopy(monde); copie.parts = dict(temoin.parts)

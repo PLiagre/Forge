@@ -19,6 +19,23 @@ SIM = Path(__file__).resolve().parents[1]
 BAR = 'seigneurie-1'
 
 
+def test_groupes_arrivee_egalite_de_l_etat():
+    """Une copie du monde compare les charges, sans dépendre de leur identité."""
+    groupe = prelevement.GroupeArrivee(2)
+    groupe.charges[0] = 5.0
+    groupe.total = 5.0
+    copie = copy.deepcopy(groupe)
+    assert copie is not groupe and copie.charges is not groupe.charges
+    assert copie == groupe
+    for champ in ('facteur', 'total'):
+        different = copy.deepcopy(groupe)
+        setattr(different, champ, getattr(different, champ) + 1)
+        assert different != groupe
+    copie.charges[1] = 1.0
+    assert copie != groupe
+    assert groupe != object()
+
+
 @pytest.mark.parametrize('nombre_lieux', [1, 2])
 @pytest.mark.parametrize('stock_initial', [None, 0.0, 50.0])
 def test_paniers_production_puis_prelevement(nombre_lieux, stock_initial):
