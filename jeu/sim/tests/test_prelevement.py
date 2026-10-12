@@ -279,3 +279,85 @@ def test_arrivee_commune_de_departs_d_ages_differents(monkeypatch):
     assert m.mange_convois_kg == pytest.approx(8.0 - _greniers(m))
     assert _food(cellule.stocks) == sum(_food(l.stocks) for l in cellule.lieux)
     print(f'charges arrivées={_greniers(m)}, mangé={m.mange_convois_kg}')
+
+
+from functools import cache
+
+
+@cache
+def _habitants_apres_un_an(part):
+    """Une année par part et par processus, sur le même monde neuf."""
+    monde, rng = World.charger(0), random.Random(0)
+    monde.parts = dict.fromkeys(monde.parts, part)
+    for numero in range(c.CALENDAR_DAYS_PER_YEAR):
+        engine.tick(monde, rng, numero)
+    habitants = sum(cell.population for cell in monde.cells.values())
+    print(f'part={part:.2f}, habitants après un an={habitants}')
+    return habitants
+
+
+def _perte(part, habitants):
+    assert habitants and habitants[0] > 0
+    return 1 - habitants[part] / habitants[0]
+
+
+def _verifier_calibration(part, habitants):
+    """La coutume tient le seuil, le centième suivant le dépasse."""
+    assert _perte(part, habitants) <= 0.01
+    assert _perte(round(part + 0.01, 2), habitants) > 0.01
+
+
+def _verifier_direction(populations):
+    assert len(populations) > 1
+    assert all(a > b for a, b in zip(populations, populations[1:]))
+
+
+def test_calibration_de_la_part_coutumiere():
+    part = c.PART_COUTUMIERE
+    dessus = round(part + 0.01, 2)
+    parts = (0, part, dessus, 0.10)
+    habitants = {p: _habitants_apres_un_an(p) for p in parts}
+    for p in parts:
+        print(f'part={p:.2f}, habitants={habitants[p]}, perte={_perte(p, habitants):.6%}')
+    _verifier_calibration(part, habitants)
+    with pytest.raises(AssertionError):
+        _verifier_calibration(parts[-1], habitants)
+    with pytest.raises(AssertionError):
+        _verifier_calibration(part, habitants | {dessus: habitants[part]})
+    populations = [habitants[p] for p in parts]
+    print(f'écarts entre parts successives={[a - b for a, b in zip(populations, populations[1:])]}')
+    _verifier_direction(populations)
+    with pytest.raises(AssertionError):
+        _verifier_direction(populations[::-1])
+    with pytest.raises(AssertionError):
+        _verifier_direction([])
+    with pytest.raises(AssertionError):
+        _verifier_calibration(part, {})
+
+
+def _verifier_modele_calibration(section, habitants):
+    parts = (c.PART_COUTUMIERE, round(c.PART_COUTUMIERE + 0.01, 2))
+    termes = ['Calibration de la part coutumière', '1 %', 'graine 0', 'niveau 2']
+    for part in parts:
+        termes.extend((f'{part:.2f}'.replace('.', ','),
+                       f'{_perte(part, habitants):.2%}'.replace('.', ',').replace('%', ' %')))
+    for terme in termes:
+        assert terme in section, terme
+    assert 'provisoirement' not in section
+
+
+def test_modele_calibration_de_la_part_coutumiere():
+    part = c.PART_COUTUMIERE
+    habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
+    section = _section_prelevement((SIM / 'MODELE.md').read_text())
+    _verifier_modele_calibration(section, habitants)
+    coutume = f'{part:.2f}'.replace('.', ',')
+    autre = f'{round(part - 0.01, 2):.2f}'.replace('.', ',')
+    with pytest.raises(AssertionError):
+        _verifier_modele_calibration(section.replace(coutume, autre), habitants)
+    commentaire = (SIM / 'constants.py').read_text().split('\nPART_COUTUMIERE =', 1)[0].splitlines()[-1]
+    assert commentaire.startswith('#') and 'provisoire' not in commentaire
+    notice = (SIM / 'tests/README.md').read_text()
+    assert 'calibration' in next(l for l in notice.splitlines() if 'test_prelevement.py' in l)
+    assert 'fige le monde avec prélèvement' in next(l for l in notice.splitlines() if 'test_determinisme.py' in l)
+    print(f'part documentée={coutume}, pertes={[_perte(p, habitants) for p in habitants if p]}')
