@@ -120,8 +120,10 @@ class World:
         parts      : identifiant de maison → fraction commune à ses lieux.
         pertes_kg  : cumul des kilogrammes retirés des greniers, 0 tant qu'aucune perte.
         routes_des_lieux : (cell_id, rang) → route jusqu'au siège du maître.
-                     Calculée une fois au chargement, absente de to_dict, jamais
-                     lue par le tick. {} pour un monde construit à la main.
+                     Calculée une fois au chargement, absente de to_dict,
+                     lue par le prélèvement. {} pour un monde construit à la main.
+        convois : groupes d’arrivée, facteur commun et charges par maison.
+        mange_convois_kg : kilos consommés en route, cumul sans arrondi.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -144,6 +146,8 @@ class World:
         self.parts = {}
         self.pertes_kg = 0.0
         self.routes_des_lieux = {}
+        self.convois = {}
+        self.mange_convois_kg = 0.0
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -283,7 +287,7 @@ class World:
                 if (cid, lieu.rang) in maitres:
                     ecrire_maitre(lieu, maitres[cid, lieu.rang])
         monde.maisons = tuple(sorted(monde.maisons + plausibles, key=lambda m: m.id))
-        # Une fois, après les maîtres : le tick ne relit pas cette table.
+        # Une fois, après les maîtres : le prélèvement lit cet index sans recalcul.
         from sim.convois import routes_des_lieux
         from sim.places import places_du_monde
 
@@ -327,4 +331,9 @@ class World:
         parts = {i: p for i, p in sorted(self.parts.items()) if p != constantes.PART_COUTUMIERE}
         if parts:
             document["parts"] = parts
+        if self.convois:
+            from sim import prelevement
+            document["convois"] = prelevement.charges_en_route(self)
+        if self.mange_convois_kg:
+            document["mange_convois_kg"] = self.mange_convois_kg
         return document

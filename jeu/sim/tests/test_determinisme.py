@@ -481,7 +481,8 @@ def test_plan_absent_de_l_arbre_du_moteur():
     assert len(lectures("world.plans")) == 1
 
 
-def test_depart_deterministe_sans_effet_sur_les_cellules():
+def test_depart_deterministe_sans_effet_sur_les_cellules(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.intentions import deposer_intention
     from sim.seigneuries import charger_seigneuries
 
@@ -515,7 +516,8 @@ def test_depart_deterministe_sans_effet_sur_les_cellules():
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
 
 
-def test_gestes_routes_deterministes_seule_la_cellule_du_chantier():
+def test_gestes_routes_deterministes_seule_la_cellule_du_chantier(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim import constants as k
     from sim.intentions import recevoir_intention
     from sim.tests.test_intentions import _route_reference
@@ -796,6 +798,7 @@ def _comparer_registre_bit_pres(points, reference):
 
 @pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (0, 42), (42, 0), (42, 42)))
 def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import math
     from sim import world as etat_monde, maitres
     from sim.model import lire_stock_marchandise, ecrire_stock_marchandise
@@ -896,6 +899,7 @@ def _garder_siege(plein, vide, maison):
 @pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (42, 42)))
 def test_grenier_bit_pres(monkeypatch, graine_monde, graine_tick):
     """SC5 — greniers vides invisibles ; un grenier plein ne nourrit pas le siège."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import math
     import sim.constants as constantes
     from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
@@ -996,7 +1000,8 @@ _PART_BASE = {
     (42, 3): ("820ecffc379ada12d00b9072725a37ad5d2ecdb844e5de9d60f1d33800fb6dc2", "04fe962477d55fb6355a4c3dfa68a8bf0a4e3c703ae725fa0273c4090eac41ed"),
 }
 
-def test_part_bit_pres():
+def test_part_bit_pres(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import math
     def empreintes(monde, rng, retours):
         assert monde.cells and all(c.lieux for c in monde.cells.values())

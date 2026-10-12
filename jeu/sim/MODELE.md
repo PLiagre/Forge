@@ -49,34 +49,37 @@ part. À chaque tick, dans cet ordre :
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
    pluie suffisante.
-8. **Chemins intérieurs** (`_remplir_chemins_interieurs`) — seulement si une
-   route achevée sans porte atteint un lieu, initialise les capacités par rang
-   avec les facteurs des routes, pour le commerce du même tick.
-   **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
-   voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
+8. **Prélèvement** (`prelevement.prelever`) — perte des charges en route,
+   arrivée au grenier, puis départ de la part de la récolte fraîche.
+9. **Commerce** — prépare d'abord les **chemins intérieurs**
+   (`_remplir_chemins_interieurs`) : seulement si une route achevée sans porte
+   atteint un lieu, initialise les capacités par rang avec les facteurs des
+   routes, pour le commerce du même tick. Le commerce (`_apply_commerce`) fait
+   ensuite circuler les surplus vers les voisines en manque, sur les arêtes
+   d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture. Une route achevée avec porte augmente
    le plafond de sa frontière dès ce tick. Arrivées et départs passent par le
    bourg (rang 0) ; les chemins des champs gardent leur ration et un plafond
    partagé entre destinataires et marchandises, de niveau 2.
-9. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+10. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
    bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
    Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
-10. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+11. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-11. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
+12. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
     avec son report de fraction pour ne pas devenir immortel par arrondi ;
     sans lieux, le calcul reste cellulaire.
-12. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
+13. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
     des habitants, avec son report local ; sans lieux, le calcul reste cellulaire.
-13. **Migration** (`_apply_migration`) — seuls les habitants des lieux affamés
+14. **Migration** (`_apply_migration`) — seuls les habitants des lieux affamés
     partent vers les voisines dont il reste de la nourriture après consommation.
     Accueil au rang 0, report migratoire cellulaire, métiers au prorata : niveau 2.
     Personne n'emporte de kilogrammes ni d'états locaux (niveau 3).
-14. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+15. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -1744,7 +1747,8 @@ au moins égal à 1. Un lieu sans maître n'entre pas dans la table. Un maître
 absent de `World.maisons`, ou dont le siège est hors carte (`cell_id` is
 None), lève `RouteInvalide` en nommant le couple du lieu. Un `World(...)`
 d'épreuve porte `{}`. La table n'entre pas dans `to_dict` : les octets du
-monde ne changent pas. Le tick ne la lit pas et ne la recalcule pas.
+monde au chargement ne changent pas. Le moteur ne la recalcule pas ;
+seul `sim/prelevement.py` lit son index par cellule pendant le tick.
 
 `jours = max(1, ceil(distance / VITESSE_CONVOI_KM_PAR_JOUR))`.
 `VITESSE_CONVOI_KM_PAR_JOUR` est la vitesse d'un char à bœufs chargé sur
@@ -1764,10 +1768,41 @@ compris, niveau 2.
 Temps mesuré du chargement sur srv1914711 (AMD EPYC 9354P) :
 `places_du_monde` 0,35 s, la table 0,011 s, `World.charger` 1,93 s.
 
+Après Production et avant Commerce, l'étape Prélèvement relit `World.parts`
+(la coutume `PART_COUTUMIERE` vaut provisoirement 0,03, niveau 2). Elle entame
+chaque groupe en route de `PERTE_CONVOI_PAR_JOUR` (0,01, niveau 2), cumule
+les kilos mangés par les charretiers et bêtes dans `mange_convois_kg`, puis
+verse les arrivées du tick dans le grenier. Elle retire enfin la part de la
+récolte fraîche de chaque lieu tenu, et la même somme de sa cellule, jamais
+une part du stock ancien. La production recueille les récoltes par surface,
+sans second calcul. Maître et jours viennent de la table, sans lire le
+registre ni le maître du lieu ; la part se relit une fois par maison et tick.
+Une part ou récolte nulle n'écrit rien, un monde sans routes ne prélève rien.
+
+`World.convois` regroupe les charges par tick d'arrivée, avec une liste dense
+par maison et un facteur commun de perte : aucune allocation par lieu.
+Un départ au tick t arrive à t + jours après exactement jours pertes :
+le grenier reçoit `prélevé × (1 − PERTE_CONVOI_PAR_JOUR)^jours`.
+La perte du grenier ne commence qu'au tick suivant son arrivée.
+`to_dict()` publie seulement les charges en route, triées par arrivée puis
+maison, et le cumul mangé non nul ; à part nulle, les octets restent ceux
+d'avant. Minerai, objets, capacité et pillage des convois : niveau 3, non simulés.
+Temps de l'étape mesuré sur srv1914711 (AMD EPYC 9354P), graine 0,
+20 ticks après 5 de chauffe, sans autre test en parallèle : médiane 4,79 ms,
+moyenne 4,95 ms (avant correction des accès aux paniers : 3,71 ms et 3,96 ms ;
+prototype : 3,3 ms).
+Après correction des accès aux paniers, test chronométré joué seul :
+médiane du tick 77,44 ms, sous 100 ms ; la base avait donné 90 à 93 ms.
+Les départs ajoutent leur total une seule fois
+par groupe. La production et le prélèvement lisent et écrivent les paniers
+par les fonctions de `model.py` ;
+le commerce réutilise les besoins du snapshot et ne parcourt pas
+les arêtes pour une marchandise sans consommation, donc sans besoin ni flux.
+
 ## Les intentions du joueur
 
 `fixer_part` accepte exactement `{"type": "fixer_part", "maison": <id du registre>, "part": <fraction>}`.
-Niveau 2, plausible : `PART_COUTUMIERE = 0.10`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
+Niveau 2, plausible : `PART_COUTUMIERE = 0.03`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
 Le geste copié et gelé remplace à sa position celui de la même maison après validation.
 Après la garde du tick, il écrit seulement `World.parts`, sans lecture du registre ni prélèvement ; l'étape existante vide l'attente, dans le même ordre qu'avant.
 Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le dépôt commun accepte toute maison connue ; `--gestes` garde ce chemin et sa chronologie.

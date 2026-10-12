@@ -1,7 +1,7 @@
 """La route de chaque lieu jusqu'au grenier de son maître.
 
 Calculée une fois au chargement, gardée sur le monde, hors de l'empreinte.
-Le tick ne la lit pas. Aucune variable de module : chaque appel relit les
+Le prélèvement lit son index sans la recalculer. Aucune variable de module : chaque appel relit les
 constantes et ne modifie rien.
 
 La table est rangée en tableaux d'entiers. Des milliers de `Route` vivants
@@ -37,7 +37,7 @@ class TableRoutes(Mapping):
 
     __slots__ = (
         "cids", "rangs", "noms", "maitre_idx", "siege_cids", "siege_rangs",
-        "jours", "index",
+        "jours", "index", "par_cellule", "jours_max",
     )
 
     def __init__(self, entrees):
@@ -49,6 +49,8 @@ class TableRoutes(Mapping):
         self.maitre_idx = array.array("i")
         self.noms: list[str] = []
         self.index = None
+        self.par_cellule = {}
+        self.jours_max = 0
         connu: dict[str, int] = {}
         for cid, rang, maitre, siege_cid, siege_rang, jours in entrees:
             indice = connu.get(maitre)
@@ -62,6 +64,12 @@ class TableRoutes(Mapping):
             self.siege_cids.append(siege_cid)
             self.siege_rangs.append(siege_rang)
             self.jours.append(jours)
+            self.jours_max = max(self.jours_max, jours)
+            indices, durees = self.par_cellule.setdefault(cid, ([], []))
+            while len(indices) <= rang:
+                indices.append(-1)
+                durees.append(0)
+            indices[rang], durees[rang] = indice, jours
 
     def __deepcopy__(self, memo):
         copie = TableRoutes.__new__(TableRoutes)
@@ -74,6 +82,8 @@ class TableRoutes(Mapping):
         copie.maitre_idx = array.array("i", self.maitre_idx)
         copie.noms = list(self.noms)
         copie.index = None
+        copie.jours_max = self.jours_max
+        copie.par_cellule = {cid: (list(i), list(j)) for cid, (i, j) in self.par_cellule.items()}
         return copie
 
     def __len__(self):

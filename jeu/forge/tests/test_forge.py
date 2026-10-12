@@ -275,6 +275,7 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
 
 @pytest.mark.parametrize('ticks,empreinte', [(0, '9cc68c20e499efa3b00d66439d2e2d00b14f75289edd9fcafe9b9bf478097e64'), (30, 'afbe1a299ef841dff0c0d10a5e03f96be9cbe126b67912ce0ebc0dc830758278')])
 def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import hashlib
     from forge.__main__ import _simuler
     from sim.snapshot_export import serialize_snapshot

@@ -34,3 +34,5 @@ ajoute ses cas dans le fichier qui porte déjà l'invariant concerné.
 ```bash
 py -m pytest sim/tests/ -q
 ```
+
+`test_prelevement.py` protège la conservation, les pertes et délais de convoi, les parts et le déterminisme à part nulle.
