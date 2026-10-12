@@ -79,7 +79,9 @@ part. À chaque tick, dans cet ordre :
     partent vers les voisines dont il reste de la nourriture après consommation.
     Accueil au rang 0, report migratoire cellulaire, métiers au prorata : niveau 2.
     Personne n'emporte de kilogrammes ni d'états locaux (niveau 3).
-15. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+15. **Départs** (`departs.appliquer_departs`) — mieux-vivre sur une photo après
+    la migration de famine ; foyers entiers, soldes simultanés, aucun bagage.
+16. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -900,12 +902,15 @@ restent cellulaires.
 
 ---
 
-## La migration de famine
+## Les départs
 
-Dernier maillon du tick, joué sur le monde entier après que tout le reste est
-résolu. **Aucun kilogramme ne bouge avec les partants.**
+Deux étapes successives, chacune sur sa photo. **Aucun kilogramme ne bouge avec les partants.**
 
-### Qui part
+### La famine
+
+Après mortalité et natalité, la migration de famine garde les règles ci-dessous.
+
+#### Qui part
 
 Après mortalité et natalité, seuls les lieux vivants dont `duree_faim_ticks > 0`
 fournissent des partants. La population source est la somme de leurs habitants :
@@ -927,7 +932,7 @@ Les départs se prélèvent à proportion des habitants de ces seuls lieux,
 en entiers par plus forts restes, égalités par rang croissant. Aucun lieu
 ne perd plus que sa population. Le report migratoire reste cellulaire.
 
-### Où l'on va
+#### Où l'on va
 
 Tous les arrivants rejoignent le bourg, au rang 0. Vers les cellules voisines d'adjacence **dont il reste de la nourriture après
 consommation**, pondérées par ce reste.
@@ -947,7 +952,7 @@ La répartition entre destinations est proportionnelle aux poids, en parts
 entières, le reliquat allant aux plus fortes fractions, les égalités départagées
 par `cell_id` croissant. Personne ne se perd dans l'arrondi.
 
-### L'atomicité
+#### L'atomicité de la famine
 
 Deux règles, qui font que la migration est un déplacement et non une diffusion :
 
@@ -966,6 +971,23 @@ dans une cellule sans métier, ils sont paysans. `_ajouter_par_les_foyers` ou
 Aucun kilo, dette, faim ni report de mortalité ou natalité ne voyage.
 Départs et accueil sont de niveau 2, plausibles, jamais sourcés ; délais,
 bagages et métiers propres aux lieux ne sont pas simulés (niveau 3).
+
+### Le mieux-vivre
+
+Après la famine, `departs.appliquer_departs` photographie les lieux habités.
+La réserve nette en jours vaut (nourriture moins dette) / ration des habitants ;
+la ration journalière dérive de la consommation et de `TICK_DURATION_DAYS`.
+L'écart doit être strictement supérieur à `ECART_DE_DEPART_JOURS = 30`.
+Par tranche entière de 30 jours, `TAUX_DE_DEPART = 0.002` donne la part quotidienne,
+plafonnée par `PLAFOND_DE_DEPART = 0.01` ; les foyers entiers s'arrondissent vers le bas.
+Destination : meilleur autre lieu habité de la cellule, sinon meilleur bourg habité
+voisin ; égalités par `(cell_id, rang)`. Les soldes s'appliquent simultanément,
+avec métiers au prorata entre cellules. Un lieu peut envoyer et recevoir sur sa photo :
+les interdictions de renvoi et de double traversée ci-dessus concernent seulement la famine.
+Ni kilo, dette, faim ni report ne voyage ; aucun maître ni taux de prélèvement n'est lu.
+Lieux vides et cellules sans lieux ne participent pas. Aucun aléa ni partage général
+après les mouvements. Niveau 2 : plausible, jamais sourcé ; délais, bagages et
+métiers propres aux lieux : niveau 3, non simulés.
 
 ---
 
@@ -1779,7 +1801,8 @@ sans second calcul. Maître et jours viennent de la table, sans lire le
 registre ni le maître du lieu ; la part se relit une fois par maison et tick.
 Une part ou récolte nulle n'écrit rien, un monde sans routes ne prélève rien.
 
-**Calibration de la part coutumière.** Sur la graine 0, `World.charger(0)`
+**Calibration de la part coutumière.** Référence historique avec `TAUX_DE_DEPART = 0`,
+sans mieux-vivre : elle ne mesure pas le monde désormais complet. Sur la graine 0, `World.charger(0)`
 joue 365 ticks numérotés de 0 à 364 avec `random.Random(0)` ; toutes les
 maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`.
 `habitants(p)` est la somme des populations des cellules après cette année.

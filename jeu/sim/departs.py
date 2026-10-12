@@ -1,4 +1,4 @@
-"""Départs vers un lieu mieux nourri, sur une photo, hors du tick."""
+"""Départs vers un lieu mieux nourri, sur une photo après la migration de famine du tick."""
 
 from collections import defaultdict
 from math import floor

@@ -2889,7 +2889,7 @@ def test_bourg_documentation():
     def controler(document):
         attendus = {'En une page': ('bourg', 'chemin', 'plafond', 'lieux affamés', 'rang 0', 'écritures extérieures', 'niveau 2', 'niveau 3'),
             'Le commerce entre cellules': ('bourg', 'rang 0', 'capacite_chemins_interieurs_kg', 'partagé', 'effectivement', 'niveau 2', 'niveau 3'),
-            'La migration de famine': ('lieux vivants', 'duree_faim_ticks > 0', 'rang 0', 'report migratoire', 'annulés', 'prorata', 'niveau 2', 'niveau 3')}
+            'Les départs': ('lieux vivants', 'duree_faim_ticks > 0', 'rang 0', 'report migratoire', 'annulés', 'prorata', 'niveau 2', 'niveau 3')}
         for titre, mots in attendus.items():
             section = document.split(f'## {titre}\n')[1].split('\n## ')[0]
             assert all(mot in section for mot in mots), titre
@@ -3278,3 +3278,128 @@ def test_departs_sentinelle_ration_et_duree_du_tick(monkeypatch):
     monkeypatch.setattr(k, 'consommation_kg_par_habitant_par_tick', lambda nom: 3 * k.TICK_DURATION_DAYS)
     monde = _monde_departs_simple(52.5)  # Ration 3 kg : réserve réelle de 35 jours.
     assert appliquer_departs(monde) == 20
+
+
+def _monde_departs_tick():
+    from sim import constants as c
+    jours = ((20, 200), (20, 20), (400, 20))
+    populations = ((5000, 100), (5000, 2500), (1000, 5000))
+    cellules = {cid: _cellule_bourg(cid, ps, [p * j * c.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+                for p, j in zip(ps, js)]) for cid, (ps, js) in enumerate(zip(populations, jours), 1)}
+    return World(cellules, [{'a': 1, 'b': 2}, {'a': 2, 'b': 3}])
+
+
+def _tick_departs_variante(ancien, nouveau):
+    import inspect
+    from sim import engine
+    espace = {}
+    exec(inspect.getsource(engine.tick).replace(ancien, nouveau), engine.__dict__, espace)
+    return espace['tick']
+
+
+def test_departs_tick_ordre_et_famine(monkeypatch):
+    import copy
+    from sim import engine, departs, constants as c
+    migrer, partir, avancer, commercer = engine._apply_migration, departs.appliquer_departs, engine._avancer_compteur_ticks, engine._apply_commerce
+    ordre, transports = [], []
+    def migration(monde, penuries):
+        migrer(monde, penuries); ordre.append('migration')
+        photo[:] = [copy.deepcopy(monde)]
+    def depart(monde):
+        ordre.append('départs'); assert monde.ticks_ecoules == 0
+        attendu = copy.deepcopy(photo[0]); nombre = partir(attendu)
+        assert nombre > 0 and partir(monde) == nombre
+        assert monde.to_dict() == attendu.to_dict()
+        return nombre
+    def compteur(monde):
+        ordre.append('compteur'); avancer(monde)
+    def commerce(monde, total, *args, **kw):
+        commercer(monde, total, *args, **kw)
+        if not args: transports.append(total[0])
+    photo = []
+    monkeypatch.setattr(engine, '_apply_migration', migration)
+    monkeypatch.setattr(departs, 'appliquer_departs', depart)
+    monkeypatch.setattr(engine, '_avancer_compteur_ticks', compteur)
+    monkeypatch.setattr(engine, '_apply_commerce', commerce)
+    def controler(fonction):
+        ordre.clear(); photo.clear(); transports.clear()
+        assert fonction(_monde_departs_tick(), random.Random(0), 0) == transports[0]
+        assert ordre == ['migration', 'départs', 'compteur']
+    controler(engine.tick)
+    appel = '    departs.appliquer_departs(world)\n'
+    for ancien, nouveau in ((appel, ''), ('    _apply_migration(world, penuries)\n\n' + appel,
+            appel + '    _apply_migration(world, penuries)\n'), ('    _apply_migration(world, penuries)\n', '')):
+        with pytest.raises((AssertionError, IndexError)): controler(_tick_departs_variante(ancien, nouveau))
+    def famine(fonction):
+        monde = _build_monde_migration_trois_cellules(); monde.cells[201].population *= 10; mouvements = []
+        def observer(m, p):
+            avant = m.cells[201].population; migrer(m, p)
+            mouvements.append(avant - m.cells[201].population)
+        with monkeypatch.context() as ctx:
+            ctx.setattr(c, 'TAUX_DE_DEPART', 0); ctx.setattr(departs, 'appliquer_departs', partir)
+            ctx.setattr(engine, '_apply_migration', observer); ctx.setattr(engine, '_avancer_compteur_ticks', avancer)
+            ctx.setattr(c, 'DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK', 0)
+            fonction(monde, random.Random(0), 0)
+        assert len(mouvements) == 1 and mouvements[0] > 0
+    famine(engine.tick)
+    with pytest.raises(AssertionError): famine(_tick_departs_variante('    _apply_migration(world, penuries)\n', ''))
+
+
+def test_departs_tick_conservation_et_rejeu(monkeypatch):
+    import copy
+    from sim import engine, departs, constants as c
+    partir = departs.appliquer_departs
+    monkeypatch.setattr(engine, '_apply_mortality', lambda *a: None)
+    monkeypatch.setattr(engine, '_apply_natalite', lambda *a: None)
+    def course(taux, mutation=None):
+        monde, rng = _monde_departs_tick(), random.Random(0)
+        population = _somme_populations(monde); mouvements = [0, 0]
+        def observer(m):
+            avant = copy.deepcopy(m); nombre = partir(m)
+            if mutation == 'habitant': m.cells[1].lieux[0].population += 1
+            if mutation == 'kilo': m.cells[1].lieux[0].stocks[MARCHANDISE_NOURRITURE] += 1
+            assert _somme_populations(m) == _somme_populations(avant)
+            for cid, cell in m.cells.items():
+                ancien = avant.cells[cid]; exclus = {'population', 'habitants_par_metier', 'lieux'}
+                assert {k: v for k, v in vars(cell).items() if k not in exclus} == {k: v for k, v in vars(ancien).items() if k not in exclus}
+                for lieu, a in zip(cell.lieux, ancien.lieux):
+                    assert {k: v for k, v in vars(lieu).items() if k != 'population'} == {k: v for k, v in vars(a).items() if k != 'population'}
+            assert m.stocks_mer == avant.stocks_mer
+            mouvements[0] += m.cells[1].lieux[1].population > avant.cells[1].lieux[1].population
+            mouvements[1] += m.cells[2].population < avant.cells[2].population
+            return nombre
+        with monkeypatch.context() as ctx:
+            ctx.setattr(c, 'TAUX_DE_DEPART', taux)
+            ctx.setattr(departs, 'appliquer_departs', (lambda m: 0) if mutation == 'inerte' else observer)
+            for numero in range(5):
+                engine.tick(monde, rng, numero)
+                assert _somme_populations(monde) == population
+                for cell in monde.cells.values():
+                    effectifs = [l.population for l in cell.lieux] + list(cell.habitants_par_metier.values())
+                    assert cell.population == sum(l.population for l in cell.lieux) == sum(cell.habitants_par_metier.values())
+                    assert all(type(n) is int and n >= 0 for n in effectifs)
+        if taux: assert all(n > 0 for n in mouvements)
+        return monde.to_dict()
+    actif = course(c.TAUX_DE_DEPART); nul = course(0)
+    assert actif == course(c.TAUX_DE_DEPART)
+    assert [cell['population'] for cell in actif['cells'].values()] != [cell['population'] for cell in nul['cells'].values()]
+    for mutation in ('habitant', 'kilo', 'inerte'):
+        with pytest.raises(AssertionError): course(c.TAUX_DE_DEPART, mutation)
+
+
+def test_departs_tick_modele():
+    import re
+    from pathlib import Path
+    from sim import constants as c
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text()
+    def controler(texte):
+        page = texte.split('## En une page', 1)[1].split('\n## ', 1)[0]
+        etapes = re.findall(r'^\d+\. \*\*([^*]+)\*\*', page, re.M)
+        assert etapes[-3:] == ['Migration', 'Départs', 'Avance du compteur']
+        section = texte.split('### Le mieux-vivre', 1)[1].split('\n## ', 1)[0]
+        for nom in ('ECART_DE_DEPART_JOURS', 'TAUX_DE_DEPART', 'PLAFOND_DE_DEPART'):
+            assert f'`{nom} = {getattr(c, nom):g}`' in section
+    controler(texte)
+    for ancien, nouveau in (('15. **Départs**', '15. **Autre étape**'),
+            (f'TAUX_DE_DEPART = {c.TAUX_DE_DEPART:g}', 'TAUX_DE_DEPART = 9')):
+        with pytest.raises(AssertionError): controler(texte.replace(ancien, nouveau))
