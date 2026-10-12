@@ -989,6 +989,20 @@ Lieux vides et cellules sans lieux ne participent pas. Aucun aléa ni partage g�
 après les mouvements. Niveau 2 : plausible, jamais sourcé ; délais, bagages et
 métiers propres aux lieux : niveau 3, non simulés.
 
+**Preuve annuelle à Bar.** Deux copies du même `World.charger(0)`, graine 0,
+avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
+`seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
+fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
+- part 0,1 : 0 foyers internes, 70 foyers hors domaine ;
+- part 0,6 : 0 foyers internes, 850 foyers hors domaine.
+Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
+en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
+avec sources et destinations. Les mouvements internes restent séparés ;
+les arrivées ne retranchent rien aux sorties d'un lieu qui envoie aussi.
+À chaque étape, leur somme concorde avec le retour mondial et leurs deltas
+avec les populations, sans faire voyager stocks, dette, faim ou reports.
+Cette mesure est de niveau 2, plausible, jamais sourcée.
+
 ---
 
 ## Ce qui dit que le monde vit
@@ -1815,6 +1829,21 @@ coûte au plus 1 % : sa perte reste sous ce seuil et celle de
 C'est une règle plausible de niveau 2, jamais sourcée : la coutume ne vide
 pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
 Tout changement de production, de faim ou de départs exige de remesurer.
+
+**Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
+numérotés de 0 à 364 et `random.Random(0)`, garde le mieux-vivre actif,
+avec `TAUX_DE_DEPART = 0.002` et toutes les constantes livrées. Naissances,
+morts, commerce, famine et convois restent actifs ; toutes les maisons ont
+la même part. La référence est cette année active à part nulle, avec un cache
+séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
+- part 0,00 : 36090320 habitants ; perte 0,000000 % ; 195804 foyers déplacés.
+- part 0,03 : 35745201 habitants ; perte 0,956265 % ; 181882 foyers déplacés.
+- part 0,04 : 35593562 habitants ; perte 1,376430 % ; 179334 foyers déplacés.
+- part 0,10 : 34033348 habitants ; perte 5,699512 % ; 169818 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,956265 % ≤ 1 % < perte(0,04) = 1,376430 %.
+Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
+Les départs sont les sorties brutes du monde, en foyers entiers, observées
+à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
 
 `World.convois` regroupe les charges par tick d'arrivée, avec une liste dense
 par maison et un facteur commun de perte : aucune allocation par lieu.
