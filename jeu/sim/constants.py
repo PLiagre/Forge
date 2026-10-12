@@ -563,6 +563,14 @@ N_BOUND_MORT = math.ceil(1.0 / MAX_DEATH_RATE_PER_TICK)
 # Niveau 2 : ordre de grandeur plausible, jamais sourcé (voir MODELE.md).
 FRACTION_MIGRANTE_PAR_TICK = 0.01
 
+# --- Départs vers un lieu mieux nourri ---
+# Niveau 2 : écart strict de réserve et tranche du taux, en jours.
+ECART_DE_DEPART_JOURS = 30
+# Niveau 2 : part quotidienne des habitants qui part par tranche entière.
+TAUX_DE_DEPART = 0.002
+# Niveau 2 : part maximale des habitants qui peut partir chaque jour.
+PLAFOND_DE_DEPART = 0.01
+
 # --- Entrée en ligne de commande (python -m sim) ---
 # Un an calendaire de ticks, dérivé de la base de temps unique : jamais un
 # second littéral de durée. TICK_DURATION_DAYS vaut 1 aujourd'hui.
