@@ -12,7 +12,14 @@ def test_le_codeur_ne_lance_pas_la_suite_entiere(projet):
     # Le 4 octobre 2026, la suite entière a coupé les codeurs de #237 et #319 à 3600 s.
     texte = prompts.codeur(projet, numero=237, titre="x", chemin_brief="b.md")
     assert prompts._tests(projet) not in texte
-    assert "test_no_hardcoded.py" in texte and "Jamais la suite entière" in texte
+    assert "test_no_hardcoded.py" in texte and "ni la suite entière" in texte
+
+
+def test_le_codeur_ne_lance_pas_un_fichier_de_test_existant_en_entier(projet):
+    # Le 12 octobre 2026, `test_intentions.py` seul a pris 16 à 46 min : #398 a été coupé trois fois à 3600 s.
+    texte = prompts.codeur(projet, numero=398, titre="x", chemin_brief="b.md")
+    assert "tes fichiers de test" not in texte
+    assert "-k ouverture" in texte and "Jamais un fichier de test existant en entier" in texte
 
 
 def test_le_relecteur_ne_lance_pas_la_suite_entiere(projet):
