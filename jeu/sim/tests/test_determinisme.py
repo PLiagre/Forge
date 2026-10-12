@@ -1051,7 +1051,8 @@ def _verifier_prelevement(observe):
     assert observe and observe == _PRELEVEMENT_BASE
 
 
-def test_prelevement_bit_pres():
+def test_prelevement_bit_pres(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_DUE_AU_SUZERAIN", 0)
     import math
     from sim import constants as c
     mesures = {}
@@ -1085,3 +1086,44 @@ def test_prelevement_bit_pres():
     for point in sorted(communs):
         assert all(a != b for a, b in zip(_PRELEVEMENT_BASE[point], _PART_BASE[point]))
     print(f'points figés={len(mesures)}, points comparés sans prélèvement={len(communs)}')
+
+
+# Monde avec dû : capturé une fois, JSON public et état physique sans arrondi.
+_DU_BASE = {
+    (0, 3): ('65cb5bae6ec41debb8004311ea9eb0c867095d193cb55a4d7b2aa5b3de7b36c6', '0e9cc71e314f90cd0bbafe2b9114eca281eb4205fd7f33873890f0fb1c543c3b'),
+    (0, 20): ('c42f5df2567547d9d47414b70fd8f680f1f3779ad24d9cc49ba64544df6707fe', '87c839ae5ccf5035d923c33641c4fc72e0e3f954b4929093a2a91d0ab4b1ae44'),
+    (42, 3): ('7c4ed5367d59bee237d61a2f671cad34fa00dd29ea0af34df5462253bb4b219e', '4b502432b65d64be6a23eacd030552a6284147a428acabe2c9b66e96d37973cb'),
+    (42, 20): ('4ea06e0cb55f55b1a25938955c7e41eb0928dc0b39066f0e17849f3be6e3495e', '6f645c01c8683a431300a5a4f9f9c9bc422e962843deb88b5f4eacd3a7dcdbbd'),
+}
+
+
+def test_du_au_suzerain_bit_pres():
+    import math
+    from sim import constants as c
+    mesures = {}
+    for seed in (0, 42):
+        monde, rng, retours = World.charger(seed), random.Random(seed), []
+        for numero in range(20):
+            retours.append(engine.tick(monde, rng, numero))
+            point = numero + 1
+            if point in (1, 3, 20):
+                mesures[seed, point] = _empreintes_prelevement(monde, rng, retours)
+                print(f'point={(seed, point)}, empreintes avec dû={mesures[seed, point]}')
+    reference = {k: v for k, v in _PRELEVEMENT_BASE.items() if k[1] == 1} | _DU_BASE
+    def verifier(observe):
+        assert observe and observe == reference
+    verifier(mesures)
+    for point, empreintes in mesures.items():
+        if point[1] == 1:
+            assert empreintes == _PRELEVEMENT_BASE[point]
+        else:
+            assert all(a != b for a, b in zip(empreintes, _PRELEVEMENT_BASE[point]))
+    with pytest.raises(AssertionError): verifier({})
+    with pytest.raises(AssertionError): verifier({k: v for k, v in mesures.items() if k != (42, 20)})
+    valois = next(m.suzerain for m in monde.maisons if m.id == 'seigneurie-1')
+    panier = monde.greniers[valois]
+    assert panier[c.MARCHANDISE_NOURRITURE] > 0
+    panier[c.MARCHANDISE_NOURRITURE] = math.nextafter(panier[c.MARCHANDISE_NOURRITURE], math.inf)
+    with pytest.raises(AssertionError):
+        verifier(mesures | {(42, 20): _empreintes_prelevement(monde, rng, retours)})
+    print(f'points figés avec dû={len(_DU_BASE)}, points inchangés={len(reference) - len(_DU_BASE)}')

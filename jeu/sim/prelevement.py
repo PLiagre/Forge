@@ -49,10 +49,24 @@ def prelever(monde, recoltes) -> None:
     arrives = convois.pop(tick, None)
     if arrives:
         facteur = arrives.facteur
-        for nom, kg in zip(routes.noms, arrives.charges):
+        dus = monde.dus_des_vassaux.par_indice
+        part_due = constantes.PART_DUE_AU_SUZERAIN
+        for i, (nom, kg) in enumerate(zip(routes.noms, arrives.charges)):
             if kg:
                 panier = monde.greniers[nom]
-                panier[nourriture] = panier.get(nourriture, 0.0) + kg * facteur
+                entree = kg * facteur
+                route_due = dus[i] if dus else None
+                if route_due is not None and part_due:
+                    indice, jours = route_due
+                    du = entree * part_due
+                    entree -= du
+                    arrivee = tick + jours
+                    groupe = convois.get(arrivee)
+                    if groupe is None:
+                        groupe = convois[arrivee] = GroupeArrivee(len(routes.noms))
+                    groupe.charges[indice] += du / groupe.facteur
+                    groupe.total += du
+                panier[nourriture] = panier.get(nourriture, 0.0) + entree
     taux = [monde.parts[nom] for nom in routes.noms]
     groupes = [None] * (routes.jours_max + 1)
     charges = [None] * len(groupes)
