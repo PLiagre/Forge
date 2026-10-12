@@ -358,3 +358,25 @@ def test_dus_des_vassaux(monde, places_reelles):
     prive.maisons = (dataclasses.replace(bar, suzerain='inconnu'),)
     with pytest.raises(RouteInvalide, match=bar.id):
         convois.dus_des_vassaux(prive, places_reelles)
+
+
+def test_dus_registre_charge_incomplet_refuse_avant_routage(monde, monkeypatch):
+    import sim.world as etat_monde
+
+    vassal = next(m for m in monde.maisons if m.sorte == "plausible" and m.suzerain)
+    registre = tuple(m for m in monde.maisons
+                     if m.sorte != "plausible" and m.id != vassal.suzerain)
+    assert registre and any(m.id == vassal.suzerain for m in monde.maisons)
+    monkeypatch.setattr(etat_monde, "charger_registre_maisons", lambda carte: registre)
+    appels = []
+    routage = convois.dus_des_vassaux
+
+    def observer(candidat, places):
+        appels.append(candidat)
+        return routage(candidat, places)
+
+    monkeypatch.setattr(convois, "dus_des_vassaux", observer)
+    with pytest.raises(AssertionError, match=re.escape(vassal.suzerain)):
+        World.charger(0)
+    assert not appels
+    print(f"suzerain retiré = {vassal.suzerain}, calculs des dus = {len(appels)}")

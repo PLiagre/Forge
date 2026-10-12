@@ -291,6 +291,15 @@ class World:
                 if (cid, lieu.rang) in maitres:
                     ecrire_maitre(lieu, maitres[cid, lieu.rang])
         monde.maisons = tuple(sorted(monde.maisons + plausibles, key=lambda m: m.id))
+        # Les fiches plausibles doivent aussi respecter le registre chargé,
+        # avant que les routes utilisent leurs références aux suzerains.
+        maisons_connues = {maison.id for maison in monde.maisons}
+        for maison in monde.maisons:
+            if maison.suzerain is not None and maison.suzerain not in maisons_connues:
+                raise AssertionError(
+                    f"registre chargé : vassal {maison.id}, "
+                    f"suzerain {maison.suzerain!r} inconnu"
+                )
         # Une fois, après les maîtres : le prélèvement lit cet index sans recalcul.
         from sim.convois import routes_des_lieux, dus_des_vassaux
         from sim.places import places_du_monde
