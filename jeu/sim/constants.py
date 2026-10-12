@@ -599,6 +599,8 @@ DEFAULT_CLI_SEED = 0
 
 # Part du seigneur : niveau 2 ; 0,03 : −0,96 % en un an, 0,04 : −1,39 %, graine 0, convois compris.
 PART_COUTUMIERE = 0.03
+# Niveau 2, plausible : cette part de chaque arrivage repart au suzerain.
+PART_DUE_AU_SUZERAIN = 0.10
 # Niveau 2, plausible : charretiers et bêtes mangent cette part de la charge par jour.
 PERTE_CONVOI_PAR_JOUR = 0.01
 PART_MAXIMALE = 0.6

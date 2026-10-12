@@ -150,6 +150,7 @@ def test_conservation_sur_un_an(monde, monkeypatch):
 
 
 def test_charge_et_jours_de_bar(monde, monkeypatch):
+    monkeypatch.setattr(c, 'PART_DUE_AU_SUZERAIN', 0)
     monkeypatch.setattr(c, 'PERTE_GRENIER_PAR_AN', 0)
     original = prelevement.prelever
     lieux = [(cid, rang, route.jours) for (cid, rang), route in monde.routes_des_lieux.items() if route.maitre == BAR]
@@ -361,3 +362,141 @@ def test_modele_calibration_de_la_part_coutumiere():
     assert 'calibration' in next(l for l in notice.splitlines() if 'test_prelevement.py' in l)
     assert 'fige le monde avec prélèvement' in next(l for l in notice.splitlines() if 'test_determinisme.py' in l)
     print(f'part documentée={coutume}, pertes={[_perte(p, habitants) for p in habitants if p]}')
+
+
+def test_bar_paie_les_valois(monde, monkeypatch):
+    monkeypatch.setattr(c, 'PERTE_GRENIER_PAR_AN', 0)
+    suzerain, duree = monde.dus_des_vassaux.routes[BAR]
+    lieux = [(cid, rang, r.jours) for (cid, rang), r in monde.routes_des_lieux.items() if r.maitre == BAR]
+    original = prelevement.prelever
+    part = c.PART_DUE_AU_SUZERAIN
+    def course(perte, du):
+        m = copy.deepcopy(monde)
+        m.parts = dict.fromkeys(m.parts, 0.0); m.parts[BAR] = 0.5
+        kg = {}
+        def observer(m, recoltes):
+            avant = {(cid, rang): _food(m.cells[cid].lieux[rang].stocks) for cid, rang, _ in lieux}
+            original(m, recoltes)
+            if m.ticks_ecoules == 0:
+                kg.update({cle: stock - _food(m.cells[cle[0]].lieux[cle[1]].stocks) for cle, stock in avant.items()})
+        with monkeypatch.context() as ctx:
+            ctx.setattr(prelevement, 'prelever', observer)
+            ctx.setattr(c, 'PERTE_CONVOI_PAR_JOUR', perte)
+            ctx.setattr(c, 'PART_DUE_AU_SUZERAIN', du)
+            _jouer(m, 1); m.parts[BAR] = 0
+            assert kg and sum(kg.values()) > 0
+            for t in range(1, max(j for _, _, j in lieux) + duree + 1):
+                _jouer(m, 1)
+                bar = (1 - du) * sum(kg[cid, rang] * (1 - perte)**j for cid, rang, j in lieux if j <= t)
+                valois = du * sum(kg[cid, rang] * (1 - perte)**(j + duree) for cid, rang, j in lieux if j + duree <= t)
+                assert _food(m.greniers[BAR]) == pytest.approx(bar, rel=1e-12)
+                assert _food(m.greniers[suzerain]) == pytest.approx(valois, rel=1e-12)
+                if t < min(j for _, _, j in lieux) + duree:
+                    assert _food(m.greniers[suzerain]) == 0
+                if du and t == min(j for _, _, j in lieux):
+                    charges = [(arrivee, kg) for nom, arrivee, kg in m.to_dict()['convois'] if nom == suzerain]
+                    assert charges and all(arrivee == t + duree and kg > 0 for arrivee, kg in charges)
+                print(f'tick={t}, Bar={bar}, Valois={valois}')
+            assert all(nom not in (BAR, suzerain) for nom, _, _ in prelevement.charges_en_route(m))
+        return _food(m.greniers[suzerain]), sum(kg.values())
+    normal, total = course(c.PERTE_CONVOI_PAR_JOUR, part)
+    sans, brut = course(0, part)
+    assert sans == pytest.approx(part * brut, rel=1e-12) and 0 < normal < sans
+    assert course(c.PERTE_CONVOI_PAR_JOUR, 0)[0] == 0
+    print(f'prélevé={total}, dû arrivé={normal}, sans perte={sans}')
+
+
+def test_deux_etages_et_pyramide_videe(monde, monkeypatch):
+    from sim.convois import TableDus
+    monkeypatch.setattr(c, 'PERTE_GRENIER_PAR_AN', 0)
+    original = prelevement.prelever
+    part = c.PART_DUE_AU_SUZERAIN
+    suzerains = {s for s, _ in monde.dus_des_vassaux.routes.values()}
+    assert suzerains and not suzerains & monde.dus_des_vassaux.routes.keys()
+    base = copy.deepcopy(monde)
+    for nom in suzerains: base.parts[nom] = 0
+    dus = []
+    def observer(m, recoltes, rendre=False):
+        avant = _total(m)
+        greniers = {v: _food(m.greniers[v]) for v in m.dus_des_vassaux.routes}
+        original(m, recoltes)
+        for v, (_, jours) in m.dus_des_vassaux.routes.items():
+            entree = _food(m.greniers[v]) - greniers[v]
+            du = entree / (1 - part) * part
+            if du:
+                if rendre:
+                    m.greniers[v][c.MARCHANDISE_NOURRITURE] += du
+                else:
+                    dus.append((m.ticks_ecoules + jours, du * (1 - c.PERTE_CONVOI_PAR_JOUR)**jours))
+        assert _total(m) == pytest.approx(avant, rel=1e-12)
+    normal = copy.deepcopy(base)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(prelevement, 'prelever', observer)
+        _jouer(normal, 30)
+    attendu = sum(kg for t, kg in dus if t < normal.ticks_ecoules)
+    recu = sum(_food(normal.greniers[s]) for s in suzerains)
+    assert attendu > 0 and recu == pytest.approx(attendu, rel=1e-9)
+    vide, sans = copy.deepcopy(base), copy.deepcopy(base)
+    vide.dus_des_vassaux = TableDus()
+    _jouer(vide, 30)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(c, 'PART_DUE_AU_SUZERAIN', 0)
+        _jouer(sans, 30)
+    assert pickle.dumps(vide.greniers) == pickle.dumps(sans.greniers)
+    assert _food(vide.greniers[BAR]) > _food(normal.greniers[BAR])
+    assert pickle.dumps(normal.cells) == pickle.dumps(vide.cells) == pickle.dumps(sans.cells)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(prelevement, 'prelever', lambda m, r: observer(m, r, rendre=True))
+        with pytest.raises(AssertionError): _jouer(copy.deepcopy(base), 30)
+    print(f'dus observés={len(dus)}, attendu={attendu}, reçu={recu}, Bar sans dû={_food(vide.greniers[BAR])}, avec dû={_food(normal.greniers[BAR])}')
+
+
+def test_le_suzerain_paie_a_son_tour():
+    from sim.convois import TableRoutes, TableDus
+    cellule = Cell(1, 3.0, 0, stocks={c.MARCHANDISE_NOURRITURE: 100.0},
+                   lieux=[EtatDeLieu(i, 0, {c.MARCHANDISE_NOURRITURE: 100.0 if i == 0 else 0.0}) for i in range(3)])
+    base = World({1: cellule}, [])
+    base.routes_des_lieux = TableRoutes([(1, i, nom, 1, i, 1) for i, nom in enumerate(('a', 'b', 'c'))])
+    from dataclasses import replace
+    from sim.tests.test_convois import _maison
+    base.maisons = tuple(replace(_maison(nom, 1, i), suzerain=suzerain)
+                        for i, (nom, suzerain) in enumerate((('a', 'b'), ('b', 'c'), ('c', None))))
+    base.parts = {'a': 0.5, 'b': 0, 'c': 0}
+    base.greniers = {nom: {} for nom in base.parts}
+    jours_ab, jours_bc = 2, 3
+    part, garde = c.PART_DUE_AU_SUZERAIN, 1 - c.PERTE_CONVOI_PAR_JOUR
+    recolte = _food(cellule.lieux[0].stocks)
+    entree = base.parts['a'] * recolte * garde
+    for retenu in (False, True):
+        m = copy.deepcopy(base)
+        m.dus_des_vassaux = TableDus(par_indice=[(1, jours_ab), None if retenu else (2, jours_bc), None])
+        prelevement.prelever(m, {1: [recolte, 0, 0]})
+        m.parts['a'] = 0
+        for t in range(1, 1 + jours_ab + jours_bc + 1):
+            m.ticks_ecoules = t
+            prelevement.prelever(m, {})
+        assert _food(m.greniers['a']) == pytest.approx((1 - part) * entree, rel=1e-12)
+        assert _food(m.greniers['b']) == pytest.approx((1 if retenu else 1 - part) * part * entree * garde**jours_ab, rel=1e-12)
+        assert _food(m.greniers['c']) == pytest.approx(0 if retenu else part**2 * entree * garde**(jours_ab + jours_bc), rel=1e-12)
+        assert not m.convois
+        assert _total(m) == pytest.approx(_total(base), rel=1e-12)
+        print(f'retenu={retenu}, entrée a={entree}, greniers={m.greniers}, pertes={m.mange_convois_kg}')
+
+
+def test_modele_du_au_suzerain_et_tick_sans_registre():
+    texte = (SIM / 'MODELE.md').read_text()
+    section = _section_prelevement(texte)
+    def verifier(section):
+        for terme in ('Le dû au suzerain', f'{c.PART_DUE_AU_SUZERAIN:.2f}'.replace('.', ','), 'hors carte', 'à son tour', 'niveau 2', 'niveau 3'):
+            assert terme in section, terme
+    verifier(section)
+    valeur = f'{c.PART_DUE_AU_SUZERAIN:.2f}'.replace('.', ',')
+    autre = f'{c.PART_DUE_AU_SUZERAIN * 2:.2f}'.replace('.', ',')
+    with pytest.raises(AssertionError): verifier(section.replace(valeur, autre))
+    intentions = texte.split('## Les intentions du joueur', 1)[1].split('\n## ', 1)[0]
+    assert 'son dû au suzerain' not in intentions
+    assert not _lectures((SIM / 'prelevement.py').read_text(), {'suzerain', 'maitre', 'maisons'})
+    notice = (SIM / 'tests/README.md').read_text()
+    for fichier in ('test_prelevement.py', 'test_convois.py'):
+        assert 'dû' in next(l for l in notice.splitlines() if fichier in l)
+    print(f'part due documentée={valeur}')

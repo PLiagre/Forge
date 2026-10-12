@@ -122,6 +122,8 @@ class World:
         routes_des_lieux : (cell_id, rang) → route jusqu'au siège du maître.
                      Calculée une fois au chargement, absente de to_dict,
                      lue par le prélèvement. {} pour un monde construit à la main.
+        dus_des_vassaux : routes vers les suzerains, retenues hors carte et index dense,
+                     calculés au chargement, hors de to_dict ; table vide en épreuve.
         convois : groupes d’arrivée, facteur commun et charges par maison.
         mange_convois_kg : kilos consommés en route, cumul sans arrondi.
     """
@@ -146,6 +148,8 @@ class World:
         self.parts = {}
         self.pertes_kg = 0.0
         self.routes_des_lieux = {}
+        from sim.convois import TableDus
+        self.dus_des_vassaux = TableDus()
         self.convois = {}
         self.mange_convois_kg = 0.0
 
@@ -287,11 +291,22 @@ class World:
                 if (cid, lieu.rang) in maitres:
                     ecrire_maitre(lieu, maitres[cid, lieu.rang])
         monde.maisons = tuple(sorted(monde.maisons + plausibles, key=lambda m: m.id))
+        # Les fiches plausibles doivent aussi respecter le registre chargé,
+        # avant que les routes utilisent leurs références aux suzerains.
+        maisons_connues = {maison.id for maison in monde.maisons}
+        for maison in monde.maisons:
+            if maison.suzerain is not None and maison.suzerain not in maisons_connues:
+                raise AssertionError(
+                    f"registre chargé : vassal {maison.id}, "
+                    f"suzerain {maison.suzerain!r} inconnu"
+                )
         # Une fois, après les maîtres : le prélèvement lit cet index sans recalcul.
-        from sim.convois import routes_des_lieux
+        from sim.convois import routes_des_lieux, dus_des_vassaux
         from sim.places import places_du_monde
 
-        monde.routes_des_lieux = routes_des_lieux(monde, places_du_monde(monde))
+        places = places_du_monde(monde)
+        monde.routes_des_lieux = routes_des_lieux(monde, places)
+        monde.dus_des_vassaux = dus_des_vassaux(monde, places)
         monde.greniers = {maison.id: {} for maison in monde.maisons}
         monde.parts = {maison.id: constantes.PART_COUTUMIERE for maison in monde.maisons}
         from sim.places import ancres_des_bourgs

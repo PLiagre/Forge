@@ -131,7 +131,6 @@ def routes_des_lieux(monde, places) -> TableRoutes:
     """(cell_id, rang) → route vers le siège du maître. Pure, sans aléa."""
     maisons = {maison.id: maison for maison in monde.maisons}
     entrees = []
-    hors_cellule = []
     for cid, cellule in sorted(monde.cells.items()):
         for lieu in sorted(cellule.lieux, key=lambda candidat: candidat.rang):
             if lieu.maitre is None:
@@ -142,23 +141,69 @@ def routes_des_lieux(monde, places) -> TableRoutes:
                 raise RouteInvalide(
                     f"lieu ({cid}, {lieu.rang}) : maître {lieu.maitre!r} {raison}"
                 )
-            if maison.cell_id == cid:
-                entrees.append((
-                    cid, lieu.rang, lieu.maitre, maison.cell_id, maison.rang,
-                    _jours(_distance_dans_la_cellule(places, cid, lieu.rang, maison.rang)),
-                ))
-            else:
-                hors_cellule.append((cid, lieu.rang, lieu.maitre, maison.cell_id, maison.rang))
-    if hors_cellule:
-        atteints = {
-            origine: _plus_court(monde, origine)
-            for origine in sorted({siege_cid for _, _, _, siege_cid, _ in hors_cellule})
-        }
-        for cid, rang, maitre, siege_cid, siege_rang in hors_cellule:
-            distance = atteints[siege_cid].get(cid)
-            jours = _constantes.JOURS_DE_MER if distance is None else _jours(distance)
-            entrees.append((cid, rang, maitre, siege_cid, siege_rang, jours))
-    return TableRoutes(entrees)
+            entrees.append((cid, lieu.rang, lieu.maitre, maison.cell_id, maison.rang))
+    return TableRoutes(_avec_jours(monde, places, entrees))
+
+
+@dataclasses.dataclass
+class TableDus:
+    """Routes des vassaux, raisons des retenues et index dense pour le tick."""
+
+    routes: dict = dataclasses.field(default_factory=dict)
+    retenus: dict = dataclasses.field(default_factory=dict)
+    par_indice: list = dataclasses.field(default_factory=list)
+
+
+def dus_des_vassaux(monde, places) -> TableDus:
+    """La même route que les lieux, du siège du vassal à celui du suzerain."""
+    maisons = {m.id: m for m in monde.maisons}
+    indices = {nom: i for i, nom in enumerate(monde.routes_des_lieux.noms)}
+    table = TableDus(par_indice=[None] * len(indices))
+    entrees = []
+    for vassal in monde.maisons:
+        if vassal.suzerain is None:
+            continue
+        suzerain = maisons.get(vassal.suzerain)
+        if suzerain is None:
+            raise RouteInvalide(f"vassal {vassal.id} : suzerain {vassal.suzerain!r} inconnu")
+        if suzerain.cell_id is None:
+            if not suzerain.hors_carte:
+                raise RouteInvalide(f"vassal {vassal.id} : suzerain hors carte sans raison")
+            table.retenus[vassal.id] = suzerain.hors_carte
+            continue
+        if suzerain.id not in indices:
+            raise RouteInvalide(f"vassal {vassal.id} : suzerain {suzerain.id!r} absent des routes")
+        if vassal.cell_id is None:
+            raise RouteInvalide(f"vassal {vassal.id} : siège hors carte")
+        entrees.append((vassal.cell_id, vassal.rang, vassal.id, suzerain.cell_id, suzerain.rang))
+    for _, _, vassal, _, _, jours in _avec_jours(monde, places, entrees):
+        suzerain = maisons[vassal].suzerain
+        table.routes[vassal] = (suzerain, jours)
+    for nom, indice in indices.items():
+        if nom in table.routes:
+            suzerain, jours = table.routes[nom]
+            table.par_indice[indice] = (indices[suzerain], jours)
+    return table
+
+
+def _avec_jours(monde, places, entrees):
+    """Places dans la cellule, sinon chemin terrestre partagé par siège."""
+    resultat, hors_cellule = [], []
+    for cid, rang, nom, siege_cid, siege_rang in entrees:
+        if siege_cid == cid:
+            jours = _jours(_distance_dans_la_cellule(places, cid, rang, siege_rang))
+            resultat.append((cid, rang, nom, siege_cid, siege_rang, jours))
+        else:
+            hors_cellule.append((cid, rang, nom, siege_cid, siege_rang))
+    atteints = {
+        origine: _plus_court(monde, origine)
+        for origine in sorted({siege_cid for _, _, _, siege_cid, _ in hors_cellule})
+    }
+    for cid, rang, nom, siege_cid, siege_rang in hors_cellule:
+        distance = atteints[siege_cid].get(cid)
+        jours = max(1, _constantes.JOURS_DE_MER) if distance is None else _jours(distance)
+        resultat.append((cid, rang, nom, siege_cid, siege_rang, jours))
+    return resultat
 
 
 def _jours(distance) -> int:
