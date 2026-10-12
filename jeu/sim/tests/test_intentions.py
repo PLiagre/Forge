@@ -1246,3 +1246,111 @@ def test_part_cli_determinisme(tmp_path):
     refuse = jouer(gestes + [{"tick": 1, "intention": _part_geste(a, True)}])
     assert refuse.returncode == 2 and "part" in refuse.stderr and "entrée 5" in refuse.stderr
     assert not sortie.exists() and not photo.exists()
+
+
+@pytest.mark.parametrize('cid', [10103, 10322])
+def test_base_gestes_et_refus_purs(cid, monkeypatch):
+    from copy import deepcopy
+    from sim import ville1400 as v
+    from sim.intentions import recevoir_intention, IntentionRefusee
+    from sim.plan import Parcelle, Rue
+    monde = World.charger(0)
+    base = v.base_de_cellule(monde, cid)
+    maison = base['maisons'][0]
+    centre = [sum(p[i] for p in maison['emprise']) / len(maison['emprise']) for i in (0, 1)]
+    route = dict(type='tracer_route', cell=cid, points=[centre, [centre[0]+1, centre[1]]], largeur_m=1)
+    monde.plans[cid].rues.append(Rue(0, [(0, 0), (40, 0)], 4))
+    parcelle = dict(type='decouper_parcelle', cell=cid, rue=0, segment=0, debut_m=0,
+                    facade_m=40, profondeur_m=200, cote='gauche')
+    monde.plans[cid].parcelles.append(Parcelle(0, maison['emprise']))
+    batiment = dict(type='poser_batiment', cell=cid, parcelle=0, nature='maison')
+    emprises = [v.emprise_de_rue(route['points'], 1), [(0, 2), (40, 2), (40, 202), (0, 202)], maison['emprise']]
+    def refuser(geste, emprise):
+        rang = next(i for i, m in enumerate(base['maisons']) if v.se_chevauchent(emprise, m['emprise']))
+        avant, document = deepcopy(monde.__dict__), monde.to_dict()
+        try:
+            recevoir_intention(monde, geste)
+        except IntentionRefusee as erreur:
+            message = str(erreur)
+        else:
+            raise AssertionError("geste interdit accepté")
+        assert f'maison de 1400 {rang}' in message
+        assert f"{base['maisons'][rang]['foyers']} foyers" in message
+        assert str(cid) in message
+        assert monde.__dict__ == avant and monde.to_dict() == document
+    for geste, emprise in zip((route, parcelle, batiment), emprises):
+        refuser(geste, emprise)
+        with monkeypatch.context() as sonde:
+            sonde.setattr(v, 'maison_touchee', lambda *a: None)
+            with pytest.raises(AssertionError):
+                refuser(geste, emprise)
+            monde.intentions_en_attente.clear()
+    recevoir_intention(monde, route | {'points': [[0, 0], [1, 0]]})
+    recevoir_intention(monde, parcelle | {'profondeur_m': 10})
+    monde.plans[cid].parcelles[0] = Parcelle(0, [(0, 2), (1, 2), (1, 3), (0, 3)])
+    recevoir_intention(monde, batiment)
+    voie = base['rues'][0]
+    recevoir_intention(monde, route | {'points': voie['points'], 'largeur_m': voie['largeur_m']})
+    monde.intentions_en_attente.clear()
+    population = monde.populations_bourg_amorcage.pop(cid)
+    with pytest.raises(IntentionRefusee, match=str(cid)):
+        recevoir_intention(monde, route)
+    monde.populations_bourg_amorcage[cid] = population
+    del monde.carte[cid]['centroid']
+    with pytest.raises(IntentionRefusee, match=f'{cid}.*centroïde absent'):
+        recevoir_intention(monde, route)
+    manuel = World(cells=monde.cells, adjacency=[])
+    recevoir_intention(manuel, route)
+
+
+@pytest.mark.parametrize('cid', [10103, 10322])
+def test_ia_base_route_avant_depot(cid, monkeypatch):
+    from copy import deepcopy
+    from sim import ia
+    from sim.capitales import maisons_de_l_ia
+    from sim.intentions import recevoir_intention
+    from sim.plan import Rue
+    monde = World.charger(0)
+    maison = next(m for m in maisons_de_l_ia(monde) if m.cell_id == cid)
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m: [maison])
+    monde.cells[cid].lieux[0].duree_faim_ticks = 1
+    monde.plans[cid].rues = [Rue(i, [(0, 0), (1, 0)], 4) for i in range(13)]
+    avant = deepcopy(monde.__dict__)
+    assert ia.decider_intentions(monde, []) == [] and monde.__dict__ == avant
+    with monkeypatch.context() as sonde:
+        sonde.setattr(ia, 'verifier_base', lambda *a, **kw: None)
+        propositions = ia.decider_intentions(monde, [])
+        assert propositions[0]['intention']['points'] == [[0, 52], [40, 52]]
+        releve = []
+        ia.jouer_ia(monde, releve)
+        assert 'maison de 1400' in releve[0]['refus'] and monde.__dict__ == avant
+    monde.plans[cid].rues.pop()
+    propositions = ia.decider_intentions(monde, [])
+    assert propositions[0]['intention']['points'] == [[0, 48], [40, 48]]
+    recevoir_intention(monde, propositions[0]['intention'])
+
+
+def test_an_ia_sans_refus(monkeypatch):
+    from sim import ia
+    from sim.plan import Rue
+    monde, alea, releve = World.charger(0), random.Random(0), []
+    for i in range(365):
+        ia.jouer_ia(monde, releve)
+        engine.tick(monde, alea, i)
+    acceptes = sum('refus' not in e for e in releve)
+    print(f'depots_ia_acceptes={acceptes}, refus={len(releve)-acceptes}', flush=True)
+    assert acceptes > 0 and all('refus' not in e for e in releve)
+    from sim import ville1400 as v
+    bande = v.emprise_de_rue([[0, 52], [40, 52]], 4)
+    entree = next((e for e in releve if any(v.se_chevauchent(bande, m['emprise']) for m in
+                   v.base_de_cellule(monde, e['intention']['cell'])['maisons'])), None)
+    assert entree is not None, 'échantillon vide : aucun dépôt touché après treize rues'
+    contre = World.charger(0)
+    cid = entree['intention']['cell']
+    contre.plans[cid].rues = [Rue(i, [(0, 0), (1, 0)], 4) for i in range(13)]
+    contre.cells[cid].lieux[0].duree_faim_ticks = 1
+    contre.ticks_ecoules = entree['tick']
+    monkeypatch.setattr(ia, 'verifier_base', lambda *a, **kw: None)
+    faux = []
+    ia.jouer_ia(contre, faux)
+    assert any('refus' in e for e in faux)

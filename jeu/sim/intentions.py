@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import math
 
 import sim.constants as _constantes
+import sim.ville1400 as _ville1400
 from sim.chantiers import travail_requis_de_batiment, travail_requis_de_parcelle, travail_requis_de_route
 from sim.plan import Batiment, Parcelle, Plan, PlanInvalide, Rue
 from sim.puissances import PuissanceInvalide
@@ -194,6 +195,23 @@ def _pose_batiment(monde, intention):
     return PoseBatiment(cell_id, identifiant, nature, _foyers(intention))
 
 
+def verifier_base(monde, cell_id, points=None, largeur_m=None, contour=None):
+    """Garde commune du dépôt et de l'IA, sans cache ni écriture au monde."""
+    if monde.populations_bourg_amorcage is None:
+        return
+    try:
+        base = _ville1400.base_de_cellule(monde, cell_id)
+    except _ville1400.BaseAbsente as exc:
+        raise IntentionRefusee(str(exc)) from exc
+    emprises = [contour] if contour is not None else [
+        _ville1400.emprise_de_rue((a, b), largeur_m)
+        for a, b in zip(points, points[1:]) if a != b]
+    rang = _ville1400.maison_touchee(base, emprises)
+    if rang is not None:
+        foyers = base["maisons"][rang]["foyers"]
+        raise IntentionRefusee(f"cellule {cell_id} : maison de 1400 {rang} ({foyers} foyers) touchée")
+
+
 def recevoir_intention(monde, intention):
     """Point d'entrée commun : seuls les types connus peuvent être déposés."""
     type_intention = intention.get("type") if isinstance(intention, dict) else None
@@ -215,10 +233,13 @@ def recevoir_intention(monde, intention):
         return _fixer_part(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
+        contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)
+        verifier_base(monde, pose.cell_id, contour=contour)
         monde.intentions_en_attente.append(pose)
         return pose
     if type_intention == TYPE_DECOUPER_PARCELLE:
         decoupe = _decoupe_parcelle(monde, intention)
+        verifier_base(monde, decoupe.cell_id, contour=decoupe.contour)
         monde.intentions_en_attente.append(decoupe)
         return decoupe
     foyers = _foyers(intention)
@@ -235,6 +256,7 @@ def recevoir_intention(monde, intention):
                 or (edge["b"] == cell_id and edge["a"] == porte) for edge in monde.adjacency)):
         raise IntentionRefusee(f"porte_cell_id : voisine terrestre attendue, reçu {porte!r}")
     route = TraceRoute(cell_id, tuple(tuple(point) for point in rue.points), rue.largeur_m, foyers, porte)
+    verifier_base(monde, cell_id, points=route.points, largeur_m=route.largeur_m)
     monde.intentions_en_attente.append(route)
     return route
 

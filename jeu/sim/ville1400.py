@@ -472,3 +472,19 @@ def base_de_cellule(monde, cell_id):
     base = base_d_une_population(populations[cell_id], _directions_terre(monde, cell_id))
     base["cell_id"] = cell_id
     return base
+
+
+def maison_touchee(base, emprises):
+    """Premier rang touché, après recherche des voisines dans la grille."""
+    grille = _Grille(_constantes.PAS_GRILLE_VILLE_1400_M)
+    rangs = {}
+    for rang, maison in enumerate(base["maisons"]):
+        forme = _Forme(maison["emprise"])
+        rangs[id(forme)] = rang
+        grille.ajouter(forme)
+    touches = []
+    for emprise in emprises:
+        forme = _Forme(emprise)
+        touches.extend(rangs[id(autre)] for autre in grille.proches(forme)
+                       if _recouvrent(forme, autre, _constantes.TOLERANCE_CHEVAUCHEMENT_M))
+    return min(touches, default=None)

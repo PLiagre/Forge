@@ -3102,6 +3102,9 @@ def test_plan_vide_par_cellule_et_empreinte_sensible():
 
 
 def test_plan_service_vide_date_tick_et_octets_deterministes():
+    from sim.ville1400 import base_de_cellule
+    from sim.service import _serialiser
+    monde_base = World.charger(0)
     def course():
         with lancer_service(0) as port:
             cellules = requete_service(port, "/monde")[1]["cells"]
@@ -3112,12 +3115,16 @@ def test_plan_service_vide_date_tick_et_octets_deterministes():
             assert statut == HTTPStatus.OK
             assert plan == {"cell_id": cid, "rang": 0, "tick": 0,
                             "date": requete_service(port, "/horloge")[1]["date"],
-                            "rues": [], "parcelles": [], "batiments": []}
+                            "rues": [], "parcelles": [], "batiments": [],
+                            "base": json.loads(json.dumps(base_de_cellule(monde_base, cid)))}
+            assert avant == _serialiser(plan)
             requete_service(port, "/tick?n=2", "POST")
             statut, apres, octets = requete_service(port, chemin)
             assert statut == HTTPStatus.OK and apres["tick"] == 2
             assert apres["date"] == requete_service(port, "/horloge")[1]["date"]
             assert apres["rues"] == apres["parcelles"] == apres["batiments"] == []
+            assert apres["base"] == plan["base"]
+            assert octets == _serialiser(apres)
             return avant, octets
 
     assert course() == course()
@@ -4462,3 +4469,42 @@ def test_noms_publication_et_documentation():
         appel = re.search(r'AreEqual\(([^;]+), maisons\.Keys\.ToArray\(\)\)', texte); ids = re.findall(r'"([^"]+)"', re.search(r'maitresAttendus = new\[\] \{ ([^}]+) \}', texte).group(1)); expr = appel.group(1) if appel else ''; ordre = sorted(ids) if 'StringComparer.Ordinal' in expr else (re.findall(r'"([^"]+)"', expr) or ids); assert appel and ordre == list(json.loads((_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json').read_bytes())['noms']['maisons']) and all(t in texte for t in ('nomsLieux[rang]', 'maisons[(string)unLieu["maitre"]]', 'nomLieu["nom"]', 'maison["prenom_chef"]'))
     texte = (_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/LecteurJsonTests.cs').read_text(); lecteur(texte)
     pytest.raises(AssertionError, lecteur, texte.replace('"noms"', '"privé"')); pytest.raises(AssertionError, lecteur, texte.replace('.OrderBy(m => m, StringComparer.Ordinal)', ''))
+
+
+def test_plan_service_base_constante_et_calculee_une_fois(monkeypatch):
+    from sim import ville1400 as v
+    from sim.service import ServeurMonde, _serialiser
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever, daemon=True)
+    fil.start()
+    try:
+        port, cid = serveur.server_address[1], 10103
+        reference = json.loads(json.dumps(v.base_de_cellule(serveur.world, cid)))
+        calcul, appels = v.base_d_une_population, []
+        def compter(*a):
+            appels.append(a)
+            return calcul(*a)
+        monkeypatch.setattr(v, 'base_d_une_population', compter)
+        chemin = f'/plan?cell={cid}'
+        def verifier():
+            statut, plan, octets = requete_service(port, chemin)
+            assert statut == HTTPStatus.OK and plan.get('base') == reference
+            assert octets == _serialiser(plan)
+        verifier()
+        for _ in range(3):
+            requete_service(port, '/tick?n=1', 'POST')
+            verifier()
+        assert len(appels) == 1
+        requete_service(port, '/tick?n=362', 'POST')
+        verifier()
+        assert serveur.world.ticks_ecoules == 365 and len(appels) == 1
+        with monkeypatch.context() as sonde:
+            sonde.setattr(serveur, 'octets_plan', lambda etat, cellule: _serialiser(
+                {k: val for k, val in json.loads(etat.plans[cellule]).items() if k != 'base'}))
+            with pytest.raises(AssertionError):
+                verifier()
+        print(f'calculs_base={len(appels)}, ticks={serveur.world.ticks_ecoules}')
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+        fil.join(timeout=5)
