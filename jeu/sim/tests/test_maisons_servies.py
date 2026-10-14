@@ -347,6 +347,157 @@ def test_modele_et_contre_epreuve():
         _verifier_modele(texte.replace('/maisons', ''))
 
 
+def _verifier_photographie_documentee(texte):
+    section = texte.split('## La photographie de 1400, vue dérivée')[1].split('\n## ')[0]
+    assert '`maisons_du_joueur`' in section and '`document_de_maison`' in section
+    assert "c'est sa seule différence" not in texte
+
+
+def test_photographie_documentee():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
+    _verifier_photographie_documentee(texte)
+    with pytest.raises(AssertionError):
+        _verifier_photographie_documentee(texte.replace('`maisons_du_joueur`', ''))
+
+
+def test_maisons_du_joueur(monkeypatch):
+    from sim import snapshot_export as module
+    from sim.places import places_du_monde
+    from sim.world import World
+
+    monde = World.charger(0)
+    noms, places = noms_depuis_monde(monde), places_du_monde(monde)
+    appels = []
+    def compter(*args):
+        appels.append(args)
+        return matiere_des_maisons(*args)
+    monkeypatch.setattr(module, 'matiere_des_maisons', compter)
+    assert module._maisons_du_joueur(monde, noms, places) is None
+    assert not appels
+    monde.maison_du_joueur = f'seigneurie-{charger_seigneuries()[0].id}'
+    maison = next(m for m in monde.maisons if m.id == monde.maison_du_joueur)
+    matiere = matiere_des_maisons(monde, noms, places)
+    assert module._maisons_du_joueur(monde, noms, places) == {
+        'maison': document_de_maison(matiere, maison.id),
+        'suzerain': document_de_maison(matiere, maison.suzerain),
+    }
+    assert len(appels) == 1 and all(a is b for a, b in zip(appels[0], (monde, noms, places)))
+    racine = next(m for m in monde.maisons if m.suzerain is None)
+    monde.maison_du_joueur = racine.id
+    assert module._maisons_du_joueur(monde, noms, places) == {
+        'maison': document_de_maison(matiere, racine.id), 'suzerain': None,
+    }
+    inconnu = max(m.id for m in monde.maisons) + '-absent'
+    monde.maison_du_joueur = maison.id
+    monde.maisons = tuple(replace(m, suzerain=inconnu) if m.id == maison.id else m for m in monde.maisons)
+    with pytest.raises(module.SnapshotExportError, match=f'maison inconnue : {inconnu}'):
+        module._maisons_du_joueur(monde, noms, places)
+    monde.maison_du_joueur = inconnu
+    with pytest.raises(module.SnapshotExportError, match=f'maison inconnue : {inconnu}'):
+        module._maisons_du_joueur(monde, noms, places)
+
+
+def _verifier_egalite_photographie(document, fiches, octets):
+    from sim.service import _serialiser
+    assert document['tick'] == 35
+    assert document['maisons_du_joueur'] == fiches
+    for cle, fiche in document['maisons_du_joueur'].items():
+        assert _serialiser(fiche) == octets[cle]
+
+
+def _verifier_identite_photographie(document, joueur, suzerain):
+    assert document['maisons_du_joueur']['maison']['id'] == joueur
+    assert document['maisons_du_joueur']['suzerain']['id'] == suzerain
+
+
+def _verifier_releve_photographie(document, releves):
+    assert releves
+    for fiche in document['maisons_du_joueur'].values():
+        total = dict.fromkeys(CHAMPS_KG + ('partis_personnes', 'arrives_personnes'), 0)
+        for kilos, partis, arrives in releves:
+            for champ, nombre in zip(CHAMPS_KG, kilos[fiche['id']]):
+                total[champ] += nombre
+            for lieu in fiche['lieux']:
+                cle = (lieu['cell_id'], lieu['rang'])
+                total['partis_personnes'] += partis.get(cle, 0)
+                total['arrives_personnes'] += arrives.get(cle, 0)
+        for champ, nombre in total.items():
+            assert fiche['flux_30j'][champ] == nombre, champ
+
+
+def test_photographie_rejoue(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+    from sim import constants
+    from sim.__main__ import _simulate
+    from sim.snapshot_export import _round_tree, build_snapshot_document
+
+    bar = next(s for s in charger_seigneuries() if s.nom == 'Duché de Bar')
+    gestes, releves = [], []
+    with _service_local() as (serveur, port):
+        for t in range(35):
+            intention = None
+            if t == 0:
+                intention = {'type': 'choisir_depart', 'seigneurie': bar.id}
+            elif t == 1:
+                joueur = serveur.world.maison_du_joueur
+                assert joueur == f'seigneurie-{bar.id}'
+                suzerain = next(m.suzerain for m in serveur.world.maisons if m.id == joueur)
+                intention = {'type': 'fixer_part', 'maison': joueur, 'part': 0.25}
+            elif t == 20:
+                kg = int(serveur.world.greniers[joueur][constants.MARCHANDISE_NOURRITURE] // 2)
+                assert kg > 0
+                intention = {'type': 'ouvrir_grenier', 'maison': joueur, 'kg': kg}
+            if intention is not None:
+                gestes.append({'tick': t, 'intention': intention})
+                _lire(port, '/intention', 'POST', intention)
+            _lire(port, '/tick?n=1', 'POST')
+            monde = serveur.world
+            ids = (monde.maison_du_joueur, next(m.suzerain for m in monde.maisons if m.id == monde.maison_du_joueur))
+            jour = monde.flux.jours[t]
+            kilos = {identifiant: tuple(getattr(jour, champ)[monde.routes_des_lieux.noms.index(identifiant)]
+                                       for champ in ('preleve', 'recu', 'du', 'mange', 'rendu')) for identifiant in ids}
+            releves.append((kilos, dict(jour.partis), dict(jour.arrives)))
+        servis = {cle: _lire(port, _route(identifiant)) for cle, identifiant in (('maison', joueur), ('suzerain', suzerain))}
+        fiches, octets = ({cle: valeur[i] for cle, valeur in servis.items()} for i in (0, 1))
+        assert all(fiches['maison']['flux_30j'][champ] > 0 for champ in CHAMPS_KG)
+        assert fiches['maison']['flux_30j']['rendu_kg'] == kg
+        assert fiches['maison']['part'] == 0.25
+        assert fiches['maison']['grenier'] == monde.greniers[joueur]
+        assert fiches['suzerain']['flux_30j']['recu_kg'] > 0
+        assert sum(f['flux_30j'][c] for f in fiches.values() for c in ('partis_personnes', 'arrives_personnes')) > 0
+        assert releves[4][0][joueur][0] > 0
+    fichier, sortie = tmp_path / 'gestes.json', tmp_path / 'photographie.json'
+    fichier.write_text(json.dumps(gestes), encoding='utf-8')
+    resultat = subprocess.run([sys.executable, '-m', 'sim', '--ticks', '35', '--seed', '0',
+                              '--gestes', str(fichier), '--snapshot-json', str(sortie)],
+                              cwd=Path(__file__).parents[2], capture_output=True, text=True)
+    assert resultat.returncode == 0, resultat.stderr
+    document = json.loads(sortie.read_text(encoding='utf-8'))
+    _verifier_egalite_photographie(document, fiches, octets)
+    _verifier_identite_photographie(document, joueur, suzerain)
+    _verifier_releve_photographie(document, releves[5:])
+    faux = copy.deepcopy(document)
+    faux['maisons_du_joueur']['maison']['flux_30j']['rendu_kg'] += 1
+    arrondi = copy.deepcopy(document)
+    arrondi['maisons_du_joueur'] = _round_tree(fiches)
+    assert arrondi != document
+    for altere in (faux, arrondi):
+        with pytest.raises(AssertionError):
+            _verifier_egalite_photographie(altere, fiches, octets)
+    inverse = document | {'maisons_du_joueur': {'maison': fiches['suzerain'], 'suzerain': fiches['maison']}}
+    with pytest.raises(AssertionError):
+        _verifier_identite_photographie(inverse, joueur, suzerain)
+    with pytest.raises(AssertionError, match='preleve_kg'):
+        _verifier_releve_photographie(document, releves[6:])
+    with monkeypatch.context() as patch:
+        patch.setattr(constants, 'FENETRE_FLUX_TICKS', 31)
+        _, monde = _simulate(35, 0, gestes)
+        trop_long = build_snapshot_document(monde, 0, 35)
+    with pytest.raises(AssertionError, match='preleve_kg'):
+        _verifier_releve_photographie(trop_long, releves[5:])
+
+
 @pytest.mark.chronometre
 def test_mesure_matiere_et_publication(capsys):
     with _service_local() as (serveur, port):

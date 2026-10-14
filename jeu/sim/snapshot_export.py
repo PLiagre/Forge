@@ -38,6 +38,7 @@ from sim.lieux import surfaces_des_lieux
 from sim.places import places_du_monde
 from sim.ia import maisons_de_l_ia, maisons_actives_30j
 from sim.maisons import charger_maisons, maisons_depuis_monde
+from sim.maisons_servies import MaisonInconnue, document_de_maison, matiere_des_maisons
 from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
 from sim.seigneuries import SeigneurieInconnue, fiche_de_seigneurie, numero_de_seigneurie
 from sim.villes import attribuer_villes, charger_villes
@@ -241,6 +242,19 @@ def _photographie_ia(world: World, releve) -> dict:
     return {'maisons': maisons, 'maisons_actives_30j': maisons_actives_30j(world.ticks_ecoules, releve)}
 
 
+def _maisons_du_joueur(world, noms, places):
+    """Reprend les fiches exactes du joueur et de son suzerain, après son choix."""
+    if world.maison_du_joueur is None:
+        return None
+    matiere = matiere_des_maisons(world, noms, places)
+    try:
+        maison = document_de_maison(matiere, world.maison_du_joueur)
+        suzerain = maison['suzerain']
+        return {'maison': maison, 'suzerain': None if suzerain is None else document_de_maison(matiere, suzerain)}
+    except MaisonInconnue as exc:
+        raise SnapshotExportError(f'maison inconnue : {exc.args[0]}') from exc
+
+
 def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) -> dict:
     if not world.carte:
         raise SnapshotExportError(
@@ -328,6 +342,7 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
         raise SnapshotExportError(str(exc)) from exc
 
     noms = noms_depuis_monde(world, table=table, vue=puissances_vue, attribution=attribution)
+    maisons_du_joueur = _maisons_du_joueur(world, noms, places)
     flux = flux_des_lieux(world)
     for cellule in cells_out:
         cid = cellule["cell_id"]
@@ -363,6 +378,8 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
         cellule["lieux"] = source["lieux"]
     if ia is not None:
         photographie['ia'] = ia
+    if maisons_du_joueur is not None:
+        photographie['maisons_du_joueur'] = maisons_du_joueur
     return photographie
 
 
