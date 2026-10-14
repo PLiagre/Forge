@@ -56,3 +56,10 @@ Recensement des références lors du branchement des départs (ticks par course)
 | `test_commerce.py::test_kg_transportes_augmente_avec_mer`, `test_cellule_sans_production_survit_avec_capacite_derivee`, `test_cellule_sans_production_depérit_avec_capacite_plate`, `test_index_aretes_premiere_entree_repli_et_tick_suivant` | Année CLI, borne dérivée de mortalité, puis 2 ticks : actif, transport, survie sans lieux et reconstruction des arêtes ; les autres montages commerciaux sans lieux jouent 1 tick et les migrations directes restent intactes. |
 | `test_monde.py::test_cellules_minieres_produisent_moins_et_portent_moins_de_monde`, `test_ateliers_sans_geste`, `test_logement_monde_inchange`, `test_plan_service_base_constante_et_calculee_une_fois` | Réserve initiale + borne de mortalité, 10, 10 et 365 ticks : actif, production, neutralité des vues et base constante ; les empreintes embarquées du service à 3 et 4 ticks restent actives. |
 | `test_determinisme.py::test_part_bit_pres`, `test_prelevement_bit_pres`, `test_du_au_suzerain_bit_pres` | Points 1, 3 et 20, graines 0 et 42 : actif, empreintes inchangées et contre-épreuves inchangées ; les autres rejeux (200, 30, 25, 20, 12 ou 10 ticks) comparent le monde courant. |
+
+Les cas `ouverture` de `test_intentions.py` protègent les refus sans effet, la
+réservation du grain, l'application sans registre et la garde du service. Ceux
+de `test_prelevement.py` suivent la conservation des secours, leurs pertes et
+délais, la baisse des dettes, la livraison au lieu et les octets déterministes.
+Les contre-épreuves neutralisent le retrait ou l'arrivée, ignorent l'attente
+ou relisent le maître : les assertions doivent alors échouer.

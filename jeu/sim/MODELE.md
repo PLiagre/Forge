@@ -1772,6 +1772,13 @@ n'est pas nul. Greniers vides et cumul nul laissent les octets antérieurs.
 moisissure. **Niveau 3**, pas simulé : la capacité du grenier et la
 dégradation des marchandises autres que la nourriture.
 
+**L'ouvrir.** `ouvrir_grenier` retire la quantité choisie à l'étape Intentions,
+avant la perte des greniers. Les lieux tenus viennent de l'index des routes,
+sans relire le registre ni leur maître. `sim.lieux.partager` répartit les kilos
+par dette alimentaire, sinon par habitants lorsque toutes les dettes sont nulles.
+Chaque part non nulle prend la même route vers son lieu. Niveau 2, plausible,
+jamais sourcé : la règle de répartition ; aucune constante nouvelle.
+
 ## Le prélèvement
 
 Au chargement, une fois les maîtres attribués et les fiches plausibles
@@ -1784,7 +1791,7 @@ absent de `World.maisons`, ou dont le siège est hors carte (`cell_id` is
 None), lève `RouteInvalide` en nommant le couple du lieu. Un `World(...)`
 d'épreuve porte `{}`. La table n'entre pas dans `to_dict` : les octets du
 monde au chargement ne changent pas. Le moteur ne la recalcule pas ;
-seul `sim/prelevement.py` lit son index par cellule pendant le tick.
+`sim/prelevement.py` lit son index par cellule et `OuvrirGrenier` ses entrées pendant le tick.
 
 `jours = max(1, ceil(distance / VITESSE_CONVOI_KM_PAR_JOUR))`.
 `VITESSE_CONVOI_KM_PAR_JOUR` est la vitesse d'un char à bœufs chargé sur
@@ -1814,6 +1821,19 @@ une part du stock ancien. La production recueille les récoltes par surface,
 sans second calcul. Maître et jours viennent de la table, sans lire le
 registre ni le maître du lieu ; la part se relit une fois par maison et tick.
 Une part ou récolte nulle n'écrit rien, un monde sans routes ne prélève rien.
+
+Les secours vivent dans `World.secours` : arrivée → charges par lieu
+(`cell_id`, `rang`), vide au chargement et en épreuve. Un secours part au début
+du tick `t`, avant Production. À Prélèvement, avant les arrivées, chaque charge
+garde `1 − PERTE_CONVOI_PAR_JOUR` ; le mangé rejoint `mange_convois_kg`.
+Il arrive au tick `t + jours − 1`, après exactement `jours` pertes, pour
+`part × (1 − PERTE_CONVOI_PAR_JOUR)^jours`. Un lieu à un jour le mange dès le
+tick de l'ouverture. L'arrivée ajoute la nourriture au lieu et à sa cellule,
+par `lire/ecrire_stock_marchandise`, puis commerce et consommation la traitent
+comme le reste du panier. Le grain suit le lieu même si son maître change.
+Sans secours, aucun parcours supplémentaire. `to_dict()` publie seulement
+les secours non vides : liste `[cell_id, rang, arrivee, kg]` triée, kilos courants
+sans arrondi ; sans geste, les octets et les empreintes restent identiques.
 
 **Calibration de la part coutumière.** Référence historique avec `TAUX_DE_DEPART = 0`,
 sans mieux-vivre : elle ne mesure pas le monde désormais complet. Sur la graine 0, `World.charger(0)`
@@ -1892,6 +1912,25 @@ les arêtes pour une marchandise sans consommation, donc sans besoin ni flux.
 
 ## Les intentions du joueur
 
+`ouvrir_grenier` accepte exactement `{"type": "ouvrir_grenier", "maison": <id du registre>, "kg": <quantité>}`.
+Tout champ manquant ou inconnu, y compris `foyers`, est refusé. Les refus
+suivants lèvent `IntentionRefusee`, dans cet ordre, sans changer l'attente,
+les greniers ni `to_dict()` :
+
+- « maison inconnue ou mal formée : <repr> » si l'identifiant n'est pas une chaîne ou une fiche du registre ;
+- « maison sans lieu : <id> » si elle est absente de `routes_des_lieux.noms` ;
+- « kg invalide : <repr> » pour un booléen, une valeur non numérique, non finie ou ≤ 0 ;
+- « grenier insuffisant : <kg> kg demandés, <reste> kg disponibles » : du panier alimentaire sont retirées une par une, dans l'ordre, les ouvertures déjà en attente de cette maison ;
+- « lieux sans dette ni habitants : <id> » si tous les poids sont nuls.
+
+Un `OuvrirGrenier(maison, kg)` gelé rejoint la fin de l'attente ; deux ouvertures
+s'additionnent, sans remplacement. À l'application, le retrait garde la clé
+alimentaire, à `0.0` si tout est parti, puis les parts non nulles sont mises en
+route. Sous `verrou_tick`, le service exige le départ appliqué (« départ non
+appliqué : choisir une terre avant d'ouvrir le grenier »), puis la maison du joueur
+(« maison interdite : seule la maison du joueur peut ouvrir son grenier »).
+Le dépôt commun et `--gestes` acceptent toute maison connue, chemin commun de l'IA.
+
 `fixer_part` accepte exactement `{"type": "fixer_part", "maison": <id du registre>, "part": <fraction>}`.
 Niveau 2, plausible : `PART_COUTUMIERE = 0.03`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
 Le geste copié et gelé remplace à sa position celui de la même maison après validation.
@@ -1902,7 +1941,7 @@ Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le
 `POST /intention`, `python3 -m sim --gestes` et des routes déposées par l'IA.
 La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `tracer_route` dépose une route, `decouper_parcelle` une parcelle,
-`poser_batiment` un bâtiment, `fixer_part` une part ; tout autre type lève
+`poser_batiment` un bâtiment, `fixer_part` une part, `ouvrir_grenier` une ouverture ; tout autre type lève
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
@@ -1927,8 +1966,8 @@ numéro et avant la fabrication : elle appelle chaque intention par
 `ChoixDepart.appliquer` pose `maison_du_joueur = identifiant_de_seigneurie(self.identifiant)`
 sans consulter le registre : la validation appartient au dépôt, jamais au tick.
 Un numéro invalide laisse donc les intentions en attente.
-Cette étape ignore les mondes d'épreuve, ne tire aucun aléa et ne lit ni
-n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
+Cette étape ignore les mondes sans attente et ne tire aucun aléa.
+Le choix de départ ne lit ni n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
 
 `maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
 et `/monde` portent cette clé et l'identifiant du registre `seigneurie-<n>` ; sans choix, la clé est absente
@@ -2065,7 +2104,7 @@ photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différen
 **Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
 **Niveau 2 :** aucun ajout. **Niveau 3, pas simulé ici :** les lieux du joueur,
 la part qu'il prélève et les personnes. Le grenier existe
-déjà, voir « Le grenier d'une maison » ; l'ouvrir à ses lieux n'est pas simulé.
+déjà, voir « Le grenier d'une maison » ; `ouvrir_grenier` le rend à ses lieux.
 Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
 

@@ -8,16 +8,19 @@ import sim.ville1400 as _ville1400
 from sim.chantiers import travail_requis_de_batiment, travail_requis_de_parcelle, travail_requis_de_route
 from sim.plan import Batiment, Parcelle, Plan, PlanInvalide, Rue
 from sim.puissances import PuissanceInvalide
+from sim.lieux import partager
 from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie
 
 TYPE_CHOISIR_DEPART = "choisir_depart"
 TYPE_FIXER_PART = "fixer_part"
+TYPE_OUVRIR_GRENIER = "ouvrir_grenier"
 TYPE_TRACER_ROUTE = "tracer_route"
 TYPE_DECOUPER_PARCELLE = "decouper_parcelle"
 TYPE_POSER_BATIMENT = "poser_batiment"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
+    TYPE_OUVRIR_GRENIER: ("type", "maison", "kg"),
     TYPE_FIXER_PART: ("type", "maison", "part"),
     TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m"),
     TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote"),
@@ -44,6 +47,62 @@ class FixerPart:
 
     def appliquer(self, monde):
         monde.parts[self.maison] = self.part
+
+
+def _lieux_de_la_maison(monde, maison):
+    """Relit l'index des routes, dans l'ordre de la table, sans registre."""
+    routes = monde.routes_des_lieux
+    indice = routes.noms.index(maison)
+    return [(cid, rang, jours) for cid, rang, maitre_idx, jours in
+            zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours)
+            if maitre_idx == indice]
+
+
+def _poids_des_lieux(monde, entrees):
+    lieux = [monde.cells[cid].lieux[rang] for cid, rang, _ in entrees]
+    dettes = [lieu.dette_alimentaire_kg for lieu in lieux]
+    return dettes if any(dettes) else [lieu.population for lieu in lieux]
+
+
+@dataclass(frozen=True)
+class OuvrirGrenier:
+    maison: str
+    kg: int | float
+
+    def appliquer(self, monde):
+        nourriture = _constantes.MARCHANDISE_NOURRITURE
+        panier = monde.greniers[self.maison]
+        panier[nourriture] = panier.get(nourriture, 0.0) - self.kg
+        entrees = _lieux_de_la_maison(monde, self.maison)
+        parts = partager(self.kg, _poids_des_lieux(monde, entrees))
+        for (cid, rang, jours), part in zip(entrees, parts):
+            if part:
+                arrivee = monde.ticks_ecoules + jours - 1
+                charges = monde.secours.setdefault(arrivee, {})
+                cle = (cid, rang)
+                charges[cle] = charges.get(cle, 0.0) + part
+
+
+def _ouvrir_grenier(monde, intention):
+    maison, kg = intention["maison"], intention["kg"]
+    if not isinstance(maison, str) or not any(m.id == maison for m in monde.maisons):
+        raise IntentionRefusee(f"maison inconnue ou mal formée : {maison!r}")
+    if maison not in getattr(monde.routes_des_lieux, "noms", ()):
+        raise IntentionRefusee(f"maison sans lieu : {maison}")
+    if (isinstance(kg, bool) or not isinstance(kg, (int, float))
+            or (isinstance(kg, float) and not math.isfinite(kg)) or kg <= 0):
+        raise IntentionRefusee(f"kg invalide : {kg!r}")
+    reste = monde.greniers[maison].get(_constantes.MARCHANDISE_NOURRITURE, 0.0)
+    for precedent in monde.intentions_en_attente:
+        if isinstance(precedent, OuvrirGrenier) and precedent.maison == maison:
+            reste -= precedent.kg
+    if kg > reste:
+        raise IntentionRefusee(f"grenier insuffisant : {kg} kg demandés, {reste} kg disponibles")
+    if not any(_poids_des_lieux(monde, _lieux_de_la_maison(monde, maison))):
+        raise IntentionRefusee(f"lieux sans dette ni habitants : {maison}")
+    geste = OuvrirGrenier(maison, kg)
+    monde.intentions_en_attente.append(geste)
+    return geste
 
 
 def _fixer_part(monde, intention):
@@ -226,11 +285,14 @@ def recevoir_intention(monde, intention):
         if champ not in intention:
             raise IntentionRefusee(f"champ manquant : {champ}")
     for champ in intention:
-        if (champ not in champs and not (type_intention != TYPE_FIXER_PART and champ == "foyers")
+        if (champ not in champs and not (type_intention in (
+                TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT) and champ == "foyers")
                 and not (type_intention == TYPE_TRACER_ROUTE and champ == "porte_cell_id")):
             raise IntentionRefusee(f"champ inconnu : {champ}")
     if type_intention == TYPE_FIXER_PART:
         return _fixer_part(monde, intention)
+    if type_intention == TYPE_OUVRIR_GRENIER:
+        return _ouvrir_grenier(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
         contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)
