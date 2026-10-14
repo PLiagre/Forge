@@ -257,5 +257,51 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentException>(() => Lecture<MondeLu>.Absent(""));
             Assert.Throws<ArgumentNullException>(() => Lecture<HorlogeLue>.De(null));
         }
+
+        // Lot #611 — la maison du joueur, sur le même GET /monde.
+        private static string AvecMaison(string valeur) => MONDE.Substring(0, MONDE.Length - 1) + ",\"maison_du_joueur\":" + valeur + "}";
+        private static void MondeComplet(Lecture<MondeAvecMaisonLu> lecture)
+        {
+            Assert.IsTrue(lecture.Presente && lecture.Absence == null, lecture.Absence);
+            MondeLu m = lecture.Donnees.Monde;
+            Assert.IsTrue(m.Tick == 5 && m.Date.Annee == 1400 && m.Date.JourDeLAnnee == 6 && m.CellCount == 2 && m.Cellules.Count == 2);
+            Cellule(m.Cellules[0], 9922, 123, 3, 12.5); Cellule(m.Cellules[1], 10417, 0, -1, -1);
+        }
+
+        [Test] public void LaMaisonAbsentePuisChoisiePuisAbsente()
+        {
+            Servir((200, MONDE), (200, AvecMaison("\"seigneurie-1\"")), (200, MONDE));
+            using (var client = new ClientMonde(port, TimeSpan.FromSeconds(5)))
+            {
+                var lectures = new[] { client.LireAvecMaison(), client.LireAvecMaison(), client.LireAvecMaison() };
+                CollectionAssert.AreEqual(new[] { "GET /monde []", "GET /monde []", "GET /monde []" }, Recues());
+                foreach (var lecture in lectures) MondeComplet(lecture);
+                Assert.IsTrue(lectures[0].Donnees.MaisonDuJoueur == null && lectures[1].Donnees.MaisonDuJoueur == "seigneurie-1" && lectures[2].Donnees.MaisonDuJoueur == null);
+            }
+        }
+
+        [Test] public void UneMaisonEntoureeDEspacesEstConservee()
+        {
+            Servir((200, AvecMaison("\"  seigneurie-1  \"")));
+            using (var client = new ClientMonde(port, TimeSpan.FromSeconds(5)))
+            { var lecture = client.LireAvecMaison(); MondeComplet(lecture); Assert.AreEqual("  seigneurie-1  ", lecture.Donnees.MaisonDuJoueur); }
+        }
+
+        [TestCase("null", "reçu null")] [TestCase("27", "reçu 27")] [TestCase("true", "Boolean")]
+        [TestCase("{\"a\":1}", "Dictionary")] [TestCase("\"\"", "le texte \"\"")] [TestCase("\"  \"", "le texte \"  \"")]
+        public void UneMaisonMalFormeeRefuseLaLecture(string valeur, string cause)
+        {
+            Servir((200, AvecMaison(valeur)));
+            using (var client = new ClientMonde(port, TimeSpan.FromSeconds(5)))
+                Absente(client.LireAvecMaison(), "monde : ", "maison_du_joueur", "un texte non vide", cause);
+        }
+
+        [Test] public void UnePanneApresUneMaisonNeConserveRien()
+        {
+            const string corps = "{\"erreur\":\"panne 500\"}";
+            Servir((200, AvecMaison("\"seigneurie-1\"")), (500, corps));
+            using (var client = new ClientMonde(port, TimeSpan.FromSeconds(5)))
+            { Assert.AreEqual("seigneurie-1", client.LireAvecMaison().Donnees.MaisonDuJoueur); Absente(client.LireAvecMaison(), "monde : ", "statut 500", corps); }
+        }
     }
 }
