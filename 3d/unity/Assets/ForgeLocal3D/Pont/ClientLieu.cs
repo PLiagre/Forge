@@ -11,6 +11,15 @@ namespace Forge.Pont
 {
     public enum EtatFoyers { Absents, NonCalcules, Servis }
 
+    // Rang, position en mètres EPSG:3035 et maître. Null est déclaré : ni origine ni maître inventé.
+    public sealed class LieuPlace
+    {
+        public long Rang { get; }
+        public PointCarte? Position { get; }
+        public string Maitre { get; }
+        public LieuPlace(long rang, PointCarte? position, string maitre) { Rang = rang; Position = position; Maitre = maitre; }
+    }
+
     public sealed class Logement
     {
         public long Capacite { get; }
@@ -34,9 +43,11 @@ namespace Forge.Pont
         public EtatFoyers EtatFoyers { get; }
         public IReadOnlyDictionary<string, (long Foyers, long Personnes)> Foyers { get; }
         public Logement Logement { get; }
+        public IReadOnlyList<LieuPlace> Lieux { get; }
+        public string AbsenceDesLieux { get; }
 
         public Lieu(long cellId, long tick, int annee, int jourDeLAnnee, long population,
-            IDictionary<string, double> stocks, long hungerTicks, double foodDeficitKg, EtatFoyers etatFoyers = EtatFoyers.Absents, IDictionary<string, (long Foyers, long Personnes)> foyers = null, Logement logement = null)
+            IDictionary<string, double> stocks, long hungerTicks, double foodDeficitKg, EtatFoyers etatFoyers = EtatFoyers.Absents, IDictionary<string, (long Foyers, long Personnes)> foyers = null, Logement logement = null, IEnumerable<LieuPlace> lieux = null, string absenceDesLieux = null)
         {
             if (stocks == null) throw new ArgumentNullException(nameof(stocks));
             if ((etatFoyers == EtatFoyers.Servis) != (foyers != null))
@@ -52,6 +63,8 @@ namespace Forge.Pont
             EtatFoyers = etatFoyers;
             Foyers = foyers == null ? null : new ReadOnlyDictionary<string, (long Foyers, long Personnes)>(new Dictionary<string, (long Foyers, long Personnes)>(foyers));
             Logement = logement;
+            Lieux = lieux == null ? null : new ReadOnlyCollection<LieuPlace>(new List<LieuPlace>(lieux));
+            AbsenceDesLieux = absenceDesLieux;
         }
     }
 
@@ -176,12 +189,47 @@ namespace Forge.Pont
                     Entier(objet, "population", "population", long.MinValue, long.MaxValue),
                     stocks,
                     Entier(objet, "hunger_ticks", "hunger_ticks", long.MinValue, long.MaxValue),
-                    Nombre(Valeur(objet, "food_deficit_kg", "food_deficit_kg"), "food_deficit_kg"), etatFoyers, foyers, logement));
+                    Nombre(Valeur(objet, "food_deficit_kg", "food_deficit_kg"), "food_deficit_kg"), etatFoyers, foyers, logement, Places(objet, out string absenceDesLieux), absenceDesLieux));
             }
             catch (CleRefusee refus)
             {
                 return LectureLieu.Absent(prefixe + refus.Message);
             }
+        }
+
+        // `lieux` absent : liste nulle et la clé nommée. Un tableau, même vide, est une liste sans raison.
+        private static List<LieuPlace> Places(Dictionary<string, object> racine, out string absence)
+        {
+            if (!racine.ContainsKey("lieux")) { absence = "clé absente : lieux"; return null; }
+            absence = null;
+            object brut = Valeur(racine, "lieux", "lieux");
+            var tableau = brut as List<object> ?? throw new CleRefusee("clé lieux : un tableau attendu, reçu " + Decrire(brut));
+            var liste = new List<LieuPlace>(tableau.Count);
+            var rangs = new HashSet<long>();
+            for (int i = 0; i < tableau.Count; i++)
+            {
+                string chemin = "lieux[" + i.ToString(CultureInfo.InvariantCulture) + "]";
+                var entree = tableau[i] as Dictionary<string, object> ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(tableau[i]));
+                long rang = Entier(entree, "rang", chemin + ".rang", 0, long.MaxValue);
+                if (!rangs.Add(rang)) throw new CleRefusee("clé " + chemin + ".rang : " + rang.ToString(CultureInfo.InvariantCulture) + " déjà lu");
+                liste.Add(new LieuPlace(rang, Point(entree, chemin), Maitre(entree, chemin)));
+            }
+            return liste;
+        }
+
+        private static PointCarte? Point(Dictionary<string, object> entree, string chemin)
+        {
+            object brut = Valeur(entree, "point", chemin + ".point");
+            if (brut == null) return null;
+            var point = brut as Dictionary<string, object> ?? throw new CleRefusee("clé " + chemin + ".point : un objet ou null attendu, reçu " + Decrire(brut));
+            return new PointCarte(Nombre(Valeur(point, "x_m", chemin + ".point.x_m"), chemin + ".point.x_m"), Nombre(Valeur(point, "y_m", chemin + ".point.y_m"), chemin + ".point.y_m"));
+        }
+
+        private static string Maitre(Dictionary<string, object> entree, string chemin)
+        {
+            object brut = Valeur(entree, "maitre", chemin + ".maitre");
+            return brut == null ? null : brut is string texte && !string.IsNullOrWhiteSpace(texte) ? texte
+                : throw new CleRefusee("clé " + chemin + ".maitre : un texte non vide ou null attendu, reçu " + Decrire(brut));
         }
 
         private sealed class CleRefusee : Exception

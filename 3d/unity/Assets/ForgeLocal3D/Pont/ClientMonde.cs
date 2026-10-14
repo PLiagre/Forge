@@ -45,6 +45,14 @@ namespace Forge.Pont
         }
     }
 
+    // Le monde déjà relu, et la maison du joueur : nulle tant que le choix n'est pas servi.
+    public sealed class MondeAvecMaisonLu
+    {
+        public MondeLu Monde { get; }
+        public string MaisonDuJoueur { get; }
+        public MondeAvecMaisonLu(MondeLu monde, string maisonDuJoueur) { Monde = monde ?? throw new ArgumentNullException(nameof(monde)); MaisonDuJoueur = maisonDuJoueur; }
+    }
+
     // Soit des données, soit une absence qui nomme sa cause : jamais les deux, jamais aucune.
     public sealed class Lecture<T> where T : class
     {
@@ -68,6 +76,18 @@ namespace Forge.Pont
         public void Dispose() => service.Dispose();
 
         public Lecture<MondeLu> Lire() => service.Demander(HttpMethod.Get, "/monde", Monde);
+
+        // Même `GET /monde` que Lire. La maison absente vaut null ; un texte non vide est gardé tel quel.
+        public Lecture<MondeAvecMaisonLu> LireAvecMaison() => service.Demander(HttpMethod.Get, "/monde", MondeEtMaison);
+
+        private static MondeAvecMaisonLu MondeEtMaison(Dictionary<string, object> racine)
+        {
+            MondeLu monde = Monde(racine);
+            if (!racine.TryGetValue("maison_du_joueur", out object brute)) return new MondeAvecMaisonLu(monde, null);
+            return brute is string texte && !string.IsNullOrWhiteSpace(texte)
+                ? new MondeAvecMaisonLu(monde, texte)
+                : throw ServiceLocal.Refus("maison_du_joueur", "un texte non vide", brute);
+        }
 
         private static MondeLu Monde(Dictionary<string, object> racine)
         {

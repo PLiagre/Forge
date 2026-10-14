@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -361,6 +362,128 @@ namespace Forge.Pont.Tests
                 : Remplacer(texte, FoyersTick3, foyers);
             Servir(200, corps);
             StringAssert.Contains(chemin, Absence(CellFigee).Absence);
+        }
+
+        // Lot #611 — rang, position et maître de chaque lieu, relus sans seconde clé.
+        [Test] public void ChaqueLieuEstReluDansLOrdre()
+        {
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            var attendus = (List<object>)LecteurJson.LireObjet(texte)["lieux"];
+            var fournie = new List<LieuPlace> { new LieuPlace(4, new PointCarte(8, 9), "isole") };
+            Lieu copie = new Lieu(1, 1, 1400, 1, 1, new Dictionary<string, double>(), 0, 0, lieux: fournie);
+            fournie[0] = new LieuPlace(0, null, "autre"); fournie.Add(new LieuPlace(5, null, null));
+            Assert.IsTrue(copie.Lieux.Count == 1 && copie.Lieux[0].Rang == 4 && copie.Lieux[0].Maitre == "isole" && copie.Lieux[0].Position.Value.X == 8 && copie.Lieux[0].Position.Value.Y == 9);
+            Servir(200, texte);
+            using (var client = new ClientLieu(port, Delai))
+            {
+                LectureLieu lecture = client.Lire(CellFigee);
+                Assert.IsTrue(lecture.Presente && lecture.Lieu.Lieux.Count == attendus.Count && lecture.Lieu.Lieux.Count > 1 && lecture.Lieu.AbsenceDesLieux == null, lecture.Absence);
+                var maitres = new HashSet<string>(); bool place = false; Lieu lieu = lecture.Lieu;
+                for (int i = 0; i < attendus.Count; i++)
+                {
+                    var brut = (Dictionary<string, object>)attendus[i]; var point = (Dictionary<string, object>)brut["point"]; LieuPlace lu = lieu.Lieux[i];
+                    Assert.IsTrue(lu.Rang == (long)(double)brut["rang"] && lu.Maitre == (string)brut["maitre"] && lu.Position.Value.X == (double)point["x_m"] && lu.Position.Value.Y == (double)point["y_m"]);
+                    maitres.Add(lu.Maitre); place |= lu.Position.Value.X != 0 || lu.Position.Value.Y != 0;
+                }
+                Assert.IsTrue(maitres.Count > 1 && place);
+                Assert.Throws<NotSupportedException>(() => ((IList<LieuPlace>)lieu.Lieux).Add(null));
+                Fermer();
+                Servir(200, texte.Replace("\"x_m\":4631943.28,\"y_m\":4046406.921", "\"x_m\":1.25,\"y_m\":-3.5").Replace("\"maitre\":\"plausible-9922-0\",\"nom\":\"\u00d6vre dal\"", "\"maitre\":\"maison-b\",\"nom\":\"\u00d6vre dal\""));
+                Lieu relu = client.Lire(CellFigee).Lieu;
+                Assert.IsTrue(relu.Lieux[1].Maitre == "maison-b" && relu.Lieux[1].Position.Value.X == 1.25 && relu.Lieux[1].Position.Value.Y == -3.5 && relu.Lieux[0].Position.Value.X == lieu.Lieux[0].Position.Value.X && relu.Lieux[0].Maitre == lieu.Lieux[0].Maitre);
+            }
+        }
+
+        [Test] public void LesAbsencesDeLieuxRestentDistinctesDesMesures()
+        {
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            int crochet = texte.IndexOf("\"lieux\":[", StringComparison.Ordinal) + 8, fin = FinDelimitee(texte, crochet);
+            string sans = texte.Remove(crochet - 8, fin + 1 - (crochet - 8));
+            Assert.IsFalse(LecteurJson.LireObjet(sans).ContainsKey("lieux"));
+            Lieu Voir(string corps) { Fermer(); Servir(200, corps); LectureLieu lecture = Lire(CellFigee); Assert.IsTrue(lecture.Presente, lecture.Absence); return lecture.Lieu; }
+            Lieu absent = Voir(sans);
+            Assert.IsTrue(absent.Lieux == null && absent.AbsenceDesLieux != null && absent.AbsenceDesLieux.Contains("lieux") && !absent.AbsenceDesLieux.Contains("lieux["));
+            Lieu vide = Voir(texte.Substring(0, crochet) + "[]" + texte.Substring(fin));
+            Assert.IsTrue(vide.Lieux != null && vide.Lieux.Count == 0 && vide.AbsenceDesLieux == null);
+            LieuPlace declare = Voir(texte.Substring(0, crochet) + "[{\"rang\":2,\"point\":null,\"maitre\":null}]" + texte.Substring(fin)).Lieux[0];
+            Assert.IsTrue(declare.Rang == 2 && declare.Position == null && declare.Maitre == null);
+            LieuPlace mesure = Voir(texte.Substring(0, crochet) + "[{\"rang\":2,\"point\":{\"x_m\":0,\"y_m\":0},\"maitre\":\"seigneurie-1\"}]" + texte.Substring(fin)).Lieux[0];
+            Assert.IsTrue(mesure.Position.Value.X == 0 && mesure.Position.Value.Y == 0 && mesure.Maitre == "seigneurie-1");
+        }
+
+        [TestCase("lieux-null", "clé lieux :")] [TestCase("lieux-objet", "clé lieux :")] [TestCase("entree", "clé lieux[1] :")]
+        [TestCase("sans-rang", "lieux[1].rang")] [TestCase("sans-point", "lieux[1].point")] [TestCase("sans-maitre", "lieux[1].maitre")]
+        [TestCase("sans-x", "lieux[1].point.x_m")] [TestCase("sans-y", "lieux[1].point.y_m")] [TestCase("rang-neg", "lieux[1].rang")]
+        [TestCase("rang-frac", "lieux[1].rang")] [TestCase("rang-bool", "lieux[1].rang")] [TestCase("rang-grand", "lieux[1].rang")]
+        [TestCase("rang-doublon", "lieux[1].rang")] [TestCase("point-bool", "lieux[1].point")] [TestCase("x-texte", "lieux[1].point.x_m")]
+        [TestCase("maitre-nombre", "lieux[1].maitre")] [TestCase("maitre-blanc", "lieux[1].maitre")] [TestCase("json", "JSON invalide")]
+        public void UneFauteDePlaceRefuseToutLeLieu(string cas, string chemin)
+        {
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            if (cas == "json")
+            {
+                string hors = texte.Replace("\"x_m\":4631943.28", "\"x_m\":1e309");
+                Assert.AreNotEqual(texte, hors); Assert.Throws<ErreurJson>(() => LecteurJson.LireObjet(hors));
+                Servir(200, hors); StringAssert.Contains(chemin, Absence(CellFigee).Absence); return;
+            }
+            string corps = Muter(texte, cas);
+            Assert.AreNotEqual(texte, corps); Preuve(LecteurJson.LireObjet(corps), cas);
+            Servir(200, corps); StringAssert.Contains(chemin, Absence(CellFigee).Absence);
+        }
+
+        private static int FinDelimitee(string t, int i)
+        {
+            char ouv = t[i], fer = ouv == '{' ? '}' : ']'; int p = 0;
+            for (int k = i; k < t.Length; k++)
+            {
+                if (t[k] == '"') { for (k++; t[k] != '"'; k++) if (t[k] == '\\') k++; }
+                else if (t[k] == ouv) p++; else if (t[k] == fer && --p == 0) return k + 1;
+            }
+            Assert.Fail(ouv.ToString()); return -1;
+        }
+
+        private static string Muter(string texte, string cas)
+        {
+            int crochet = texte.IndexOf("\"lieux\":[", StringComparison.Ordinal) + 8, finTableau = FinDelimitee(texte, crochet);
+            if (cas == "lieux-null" || cas == "lieux-objet") return texte.Substring(0, crochet) + (cas == "lieux-null" ? "null" : "{\"a\":1}") + texte.Substring(finTableau);
+            int debut = FinDelimitee(texte, crochet + 1) + 1; while (texte[debut] != '{') debut++;
+            int fin = FinDelimitee(texte, debut); string lieu = texte.Substring(debut, fin - debut), neu;
+            if (cas == "entree") neu = "null";
+            else if (cas == "sans-point" || cas == "point-bool") neu = RemplacerObjet(lieu, "point", cas == "sans-point" ? null : "true");
+            else
+            {
+                string ancien = cas == "sans-rang" ? ",\"rang\":1" : cas == "sans-maitre" ? "\"maitre\":\"plausible-9922-0\"," : cas == "sans-x" ? "\"x_m\":4631943.28," : cas == "sans-y" ? ",\"y_m\":4046406.921"
+                    : cas == "x-texte" ? "\"x_m\":4631943.28" : cas.StartsWith("maitre") ? "\"maitre\":\"plausible-9922-0\"" : "\"rang\":1";
+                string nouveau = cas == "sans-rang" || cas == "sans-maitre" || cas == "sans-x" || cas == "sans-y" ? "" : cas == "rang-neg" ? "\"rang\":-1" : cas == "rang-frac" ? "\"rang\":1.5"
+                    : cas == "rang-bool" ? "\"rang\":true" : cas == "rang-grand" ? "\"rang\":9007199254740992" : cas == "rang-doublon" ? "\"rang\":0" : cas == "x-texte" ? "\"x_m\":\"ouest\"" : cas == "maitre-nombre" ? "\"maitre\":27" : "\"maitre\":\" \"";
+                neu = lieu.Replace(ancien, nouveau);
+            }
+            Assert.AreNotEqual(lieu, neu); return texte.Substring(0, debut) + neu + texte.Substring(fin);
+        }
+
+        private static string RemplacerObjet(string lieu, string cle, string valeur)
+        {
+            int i = lieu.IndexOf("\"" + cle + "\":", StringComparison.Ordinal), v = i + cle.Length + 3, fin = FinDelimitee(lieu, v), debut = lieu[i - 1] == ',' ? i - 1 : i;
+            if (valeur != null) return lieu.Substring(0, v) + valeur + lieu.Substring(fin);
+            if (debut == i && lieu[fin] == ',') fin++;
+            return lieu.Remove(debut, fin - debut);
+        }
+
+        private static void Preuve(Dictionary<string, object> racine, string cas)
+        {
+            if (cas == "lieux-null") { Assert.IsNull(racine["lieux"]); return; }
+            if (cas == "lieux-objet") { Assert.IsTrue(racine["lieux"] is Dictionary<string, object>); return; }
+            var lieux = (List<object>)racine["lieux"]; var premier = (Dictionary<string, object>)lieux[0];
+            if (cas == "entree") { Assert.IsNull(lieux[1]); Assert.IsTrue(premier.ContainsKey("point")); return; }
+            var second = (Dictionary<string, object>)lieux[1];
+            bool metre = cas.EndsWith("-x") || cas.EndsWith("-y") || cas == "x-texte";
+            var gauche = metre ? (Dictionary<string, object>)premier["point"] : premier;
+            var droite = metre ? (Dictionary<string, object>)second["point"] : second;
+            string cle = cas.Contains("maitre") ? "maitre" : cas.Contains("point") ? "point" : metre ? (cas.Contains("x") ? "x_m" : "y_m") : "rang";
+            if (cas.StartsWith("sans")) { Assert.IsTrue(!droite.ContainsKey(cle) && gauche.ContainsKey(cle)); return; }
+            object attendu = cas == "rang-neg" ? (object)(-1d) : cas == "rang-frac" ? 1.5d : cas == "rang-bool" || cas == "point-bool" ? true
+                : cas == "rang-grand" ? 9007199254740992d : cas == "rang-doublon" ? premier["rang"] : cas == "x-texte" ? "ouest" : cas == "maitre-nombre" ? 27d : " ";
+            Assert.AreEqual(attendu, droite[cle]);
         }
     }
 }
