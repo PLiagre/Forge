@@ -101,3 +101,79 @@ def verifier_legende(document, encart):
     for champ in reference:
         if champ not in encart or encart[champ] != reference[champ]:
             raise EncartErreur(f'{champ} : encart différent de la photographie')
+
+# Le rouge des pertes ne doit jamais se confondre avec celui du choix historique.
+COULEUR_PERTE = (210, 55, 65, 255)
+COULEUR_CONTOUR = (95, 109, 119, 255)
+COULEUR_SANS_MAITRE = '#b0b0b0'
+COULEUR_FLUX = (110, 194, 225)
+
+
+def dessiner_encart(document, *, largeur):
+    """Dessine la photographie vérifiée ; les fractions portent leur couverture."""
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFont
+    from vues.relief.raster import index_des_cellules, _vers_pixel
+    from vues.relief.carte1400 import _lignes_ajustees, MARGE_FICHE, HAUTEUR_LIGNE, COULEUR_FOND, COULEUR_TEXTE
+
+    try:
+        e = lire_encart(document); verifier_legende(document, e)
+        if largeur < 8: raise EncartErreur('largeur de l’encart trop petite')
+        legende = list(e['legende']); hauteur = dessinees = coupees = cercles = 0
+        plan = np.empty((0, largeur, 4), dtype=np.uint8)
+        if e['cellules']:
+            index, bornes, _ = index_des_cellules({'cells': e['cellules']}, largeur=largeur)
+            hauteur = len(index); plan = np.full((hauteur, largeur, 4), (24, 30, 34, 255), dtype=np.uint8)
+            bord = np.zeros(index.shape, bool)
+            for a, b in ((np.s_[:, :-1], np.s_[:, 1:]), (np.s_[:-1, :], np.s_[1:, :])): bord[a] |= index[a] != index[b]
+            # Fermer aussi les contours qui touchent le rectangle.
+            bord[0] |= index[0] > 0; bord[-1] |= index[-1] > 0
+            bord[:, 0] |= index[:, 0] > 0; bord[:, -1] |= index[:, -1] > 0
+            plan[bord] = COULEUR_CONTOUR; yy, xx = np.indices(index.shape)
+            def position(l):
+                p = l['point']; return np.array(_vers_pixel(p['x_m'], p['y_m'], bornes, largeur, hauteur), dtype=float)
+            for f in e['fleches']:
+                source, cible = f['source']['point'], f['destination']['point']
+                a, destination = position(f['source']), position(f['destination']); v = destination-a
+                longueur = np.linalg.norm(v)
+                minx, miny, maxx, maxy = bornes
+                dehors = not (minx <= cible['x_m'] <= maxx and miny <= cible['y_m'] <= maxy)
+                if dehors:
+                    legende.append(f"{f['destination']['nom']} : siège hors encart ; dû = {f['kg']} kg")
+                if f['kg'] <= 0 or longueur == 0: continue
+                t = 1.0
+                # Couper le segment en mètres : jamais un rabattement des deux axes.
+                for axe, minimum, maximum in (('x_m', minx, maxx), ('y_m', miny, maxy)):
+                    delta = cible[axe]-source[axe]
+                    if delta: t = min(t, (maximum-source[axe])/delta if delta > 0 else (minimum-source[axe])/delta)
+                bout = np.array(_vers_pixel(source['x_m']+t*(cible['x_m']-source['x_m']), source['y_m']+t*(cible['y_m']-source['y_m']), bornes, largeur, hauteur))
+                u = v/longueur; n = np.array([-u[1], u[0]]); w = f['epaisseur_px']
+                segment = bout-a; l2 = np.dot(segment, segment)
+                if l2 == 0: continue
+                projection = np.clip(((xx-a[0])*segment[0]+(yy-a[1])*segment[1])/l2, 0, 1)
+                distance = np.hypot(xx-a[0]-projection*segment[0], yy-a[1]-projection*segment[1])
+                couverture = np.clip(w/2+.5-distance, 0, min(1, w))
+                pointe = Image.new('L', (largeur, hauteur)); crayon = ImageDraw.Draw(pointe)
+                base = bout-u*max(6, 2*w); rayon = max(3, w)
+                crayon.polygon([tuple(bout), tuple(base+n*rayon), tuple(base-n*rayon)], fill=255)
+                couverture = np.maximum(couverture, np.array(pointe)/255*min(1, w))
+                # Arrondir la couverture positive vers le haut garde même un kilo visible.
+                alpha = np.ceil(couverture*255)/255
+                plan[..., :3] = np.ceil(plan[..., :3]*(1-alpha[..., None])+np.array(COULEUR_FLUX)*alpha[..., None]).astype(np.uint8)
+                dessinees += int(np.any(alpha)); coupees += int(dehors and np.any(alpha))
+            vignette = Image.fromarray(plan); dessin = ImageDraw.Draw(vignette)
+            for lieu in e['lieux']:
+                x, y = position(lieu); dessin.ellipse((x-3, y-3, x+3, y+3), fill=lieu['couleur'] or COULEUR_SANS_MAITRE)
+            for cercle in e['cercles']:
+                x, y = position(cercle); dessin.ellipse((x-8, y-8, x+8, y+8), outline=COULEUR_PERTE, width=2); cercles += 1
+            plan = np.array(vignette)
+            legende += ['points : couleur du maître ; gris : sans maître', 'flèches : lieu vers siège, siège vers suzerain ; épaisseur absolue en kilos', 'cercles rouges : perte nette positive ; couleur du lieu conservée au centre']
+        police = ImageFont.load_default(); dessin = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
+        lignes = _lignes_ajustees(legende, dessin, police, largeur)
+        bande = Image.new('RGBA', (largeur, 2*MARGE_FICHE+HAUTEUR_LIGNE*len(lignes)), COULEUR_FOND)
+        dessin = ImageDraw.Draw(bande)
+        for i, ligne in enumerate(lignes): dessin.text((MARGE_FICHE, MARGE_FICHE+i*HAUTEUR_LIGNE), ligne, font=police, fill=COULEUR_TEXTE)
+        image = np.concatenate((plan, np.array(bande)))
+        return image, dict(tick=document['tick'], seed=document['seed'], largeur=largeur, hauteur_plan=hauteur, hauteur_totale=len(image), compteurs=e['compteurs'], fleches_dessinees=dessinees, fleches_coupees=coupees, cercles_dessines=cercles, legende=legende)
+    except (KeyError, TypeError, ValueError, RuntimeError, OSError) as exc:
+        raise EncartErreur(f'encart : {exc}') from exc
