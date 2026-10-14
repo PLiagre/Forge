@@ -2231,6 +2231,43 @@ villes avec leurs sources. **Niveau 2, plausible :** simplification à 1 km,
 approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
 frontières réelles, comme dans la photographie.
 
+## Les maisons servies, vue dérivée
+
+`GET /maisons` donne le registre complet trié par identifiant : nom, sorte,
+suzerain, siège (`cell_id`, `rang`, ou `null` hors carte) et nombre de lieux
+tenus. `GET /maison?id=X` donne sa fiche : identité, siège nommé et point
+identique à `/lieu`, couples des lieux tenus triés, part, panier du grenier,
+`flux_30j`, `absents`, tick et date. Un identifiant inconnu reçoit `404` ;
+un paramètre absent, vide ou répété reçoit `400`, sans modifier le monde.
+
+`MatiereMaisons`, dataclass gelée de `sim/maisons_servies.py`, copie les parts,
+chaque panier et les sommes des flux à la publication dans `EtatPublie`.
+Les cinq kilos sont accumulés en une passe sur les jours de la fenêtre,
+dans le même ordre que `flux_de_maison`, sans arrondi. Sans route, les cinq
+zéros sont une mesure. Les départs et arrivées somment les mouvements des
+lieux actuellement tenus : `partis_personnes` et `arrives_personnes` comptent
+des personnes, jamais des foyers. Aucun tick ne lit cette vue.
+
+Les octets des fiches et de la liste sont produits à leur première lecture,
+puis conservés dans `EtatPublie.octets_maisons`, initialement vide. Le verrou
+propre `verrou_maisons` protège ce cache ; une lecture ne prend jamais le
+verrou du tick. Une modification du monde vivant ne change donc pas une
+fiche du tick déjà publié, même avant sa première lecture.
+
+Un siège hors carte porte le nom du registre, des coordonnées nulles et sa
+raison `hors_carte` dans `absents["siege"]`. Un nom plausible manquant, une
+part ou un grenier absent valent `null`, avec une raison dans `absents` ;
+celle du nom précise la cellule. Un panier vide et zéro lieu restent des
+mesures. Les noms historiques viennent du registre (**niveau 1**) ; ceux
+des maisons plausibles viennent du bloc de noms de leur cellule (**niveau 2**,
+plausibles, jamais sourcés).
+
+Mesures sur srv1914711 au tick 35, graine 0, premier départ, part 0,25,
+médianes de neuf appels en pause : avant le lot, matière non construite
+(aucun coût), `_construire_etat` **103,22 ms** ; après le lot,
+`matiere_des_maisons` **33,31 ms**, `_construire_etat` **135,85 ms**.
+`test_mesure_matiere_et_publication` (marque `chronometre`) reproduit ces mesures.
+
 ## Les lieux d'une cellule, vue dérivée
 
 La surface `area_km2` d'une cellule de la carte se partage en lieux. Leur
