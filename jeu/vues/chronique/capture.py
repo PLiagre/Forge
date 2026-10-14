@@ -37,6 +37,8 @@ from sim.engine import tick as _tick
 # finissent par diverger, et la recomposition ne rendrait plus la
 # photographie au bit près — c'est-à-dire qu'elle ne prouverait plus rien.
 from sim.snapshot_export import _round_tree, build_snapshot_document
+from sim.flux import flux_des_lieux
+from sim.noms import noms_depuis_monde
 from sim.snapshot_export import densite_de_cellule, lieux_en_photographie
 from sim.places import bourgs_et_maitres, places_du_monde
 from sim.world import World
@@ -140,7 +142,7 @@ def _instants(ticks: int, pas: int) -> list[int]:
     return instants
 
 
-def _image_du_monde(world: World, numero_tick: int, places: dict | None = None) -> dict:
+def _image_du_monde(world: World, numero_tick: int, places: dict | None = None, noms: dict | None = None) -> dict:
     """L'image d'un monde en cours, lue sans repasser par la géométrie.
 
     Les colonnes sont lues sur les cellules dans le même ordre que
@@ -154,6 +156,8 @@ def _image_du_monde(world: World, numero_tick: int, places: dict | None = None) 
 
     repartitions = bourg_depuis_monde(world)
     places = places_du_monde(world) if places is None else places
+    noms = noms_depuis_monde(world) if noms is None else noms
+    flux = flux_des_lieux(world)
     colonnes: dict[str, list] = {champ: [] for champ in CHAMPS_MOBILES}
     for identifiant, cellule in sorted(
         world.cells.items(), key=lambda item: int(item[0])
@@ -172,7 +176,7 @@ def _image_du_monde(world: World, numero_tick: int, places: dict | None = None) 
             elif champ == "densite_hab_par_km2":
                 valeur = densite_de_cellule(cellule)
             elif champ == "lieux":
-                colonnes[champ].append(lieux_en_photographie(cid, cellule, places[cid]))
+                colonnes[champ].append(lieux_en_photographie(cid, cellule, places[cid], noms[cid], flux[cid]))
                 continue
             else:
                 valeur = (
@@ -205,6 +209,7 @@ def capturer(
     instants = _instants(ticks, pas)
     monde = World.charger(rng_seed=seed)
     decor, premiere = decouper(build_snapshot_document(monde, seed, 0))
+    noms = {cellule["cell_id"]: cellule["noms"] for cellule in decor["cellules"]}
     images = [premiere]
     rng = random.Random(seed)
     attendus = set(instants)
@@ -216,7 +221,7 @@ def capturer(
         if acheve in attendus:
             if bourgs_et_maitres(monde) != cle:
                 cle, places = bourgs_et_maitres(monde), places_du_monde(monde)
-            images.append(_image_du_monde(monde, acheve, places))
+            images.append(_image_du_monde(monde, acheve, places, noms))
         if avancement is not None:
             avancement(acheve, ticks)
     return {"decor": decor, "images": images, "seed": int(seed), "pas": int(pas)}

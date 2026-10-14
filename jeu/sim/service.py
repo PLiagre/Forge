@@ -26,7 +26,8 @@ from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
 )
 from sim.noms import noms_depuis_monde
-from sim.model import cellule_vers_dict, lire_habitants_par_metier
+from sim.flux import flux_des_lieux
+from sim.model import copier_panier, lire_habitants_par_metier
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
@@ -57,10 +58,11 @@ def _serialiser(document: dict) -> bytes:
 
 def _cellule_legere(cellule) -> dict:
     """Extrait exactement l'état cellulaire partagé avec la photographie."""
-    etat = cellule_vers_dict(cellule)
+    # Lire les seuls champs publiés évite de copier les lieux puis de les jeter.
     return _round_tree(
-        {"cell_id": etat["cell_id"]}
-        | {champ: etat[champ] for champ in _CHAMPS_ETAT}
+        {"cell_id": cellule.cell_id}
+        | {champ: copier_panier(cellule) if champ == "stocks" else getattr(cellule, champ)
+           for champ in _CHAMPS_ETAT}
     )
 
 
@@ -238,6 +240,7 @@ class ServeurMonde(ThreadingHTTPServer):
         signature = self._signature_noms()
         if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world); self._empreinte_noms = signature
         noms = self._noms
+        flux = flux_des_lieux(self.world)
         numero_tick = self.world.ticks_ecoules
         date = self.world.date_simulation
         places = self._places_des_lieux()
@@ -252,7 +255,7 @@ class ServeurMonde(ThreadingHTTPServer):
                     "foyers": _foyers_du_lieu(self.world.cells[cellule["cell_id"]]),
                     "lieux": lieux_en_photographie(
                         cellule["cell_id"], self.world.cells[cellule["cell_id"]],
-                        places[cellule["cell_id"]],
+                        places[cellule["cell_id"]], noms[cellule["cell_id"]], flux[cellule["cell_id"]],
                     ),
                     "noms": noms[cellule["cell_id"]],
                     "tick": numero_tick,

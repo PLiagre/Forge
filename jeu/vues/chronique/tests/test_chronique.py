@@ -226,3 +226,23 @@ def test_les_totaux_derivent_des_colonnes():
         assert image["totaux"]["disette"] == sum(
             1 for v in brute["colonnes"]["hunger_ticks"] if v is not None and v > 0
         )
+
+
+
+def test_la_capture_reprend_les_noms_du_decor(monkeypatch):
+    from sim import noms, snapshot_export
+    import importlib
+    capture = importlib.import_module('vues.chronique.capture')
+    calculer, appels = noms.noms_depuis_monde, []
+    def compter(*a, **kw):
+        appels.append(a); return calculer(*a, **kw)
+    for module in (noms, snapshot_export, capture): monkeypatch.setattr(module, 'noms_depuis_monde', compter, raising=False)
+    def verifier():
+        appels.clear(); chronique = capturer(3, 0)
+        assert all(l['nom'] for image in chronique['images'] for lignes in image['colonnes']['lieux'] for l in lignes)
+        assert len(appels) == 1
+    verifier()
+    lire = capture._image_du_monde
+    monkeypatch.setattr(capture, '_image_du_monde', lambda monde, tick, places=None, noms=None: lire(monde, tick, places))
+    with pytest.raises(AssertionError): verifier()
+    assert len(appels) == 4
