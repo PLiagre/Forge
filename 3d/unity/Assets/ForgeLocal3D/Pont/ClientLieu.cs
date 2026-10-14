@@ -222,7 +222,12 @@ namespace Forge.Pont
             object brut = Valeur(entree, "point", chemin + ".point");
             if (brut == null) return null;
             var point = brut as Dictionary<string, object> ?? throw new CleRefusee("clé " + chemin + ".point : un objet ou null attendu, reçu " + Decrire(brut));
-            return new PointCarte(Nombre(Valeur(point, "x_m", chemin + ".point.x_m"), chemin + ".point.x_m"), Nombre(Valeur(point, "y_m", chemin + ".point.y_m"), chemin + ".point.y_m"));
+            string xChemin = chemin + ".point.x_m", yChemin = chemin + ".point.y_m";
+            double x = Nombre(Valeur(point, "x_m", xChemin), xChemin), y = Nombre(Valeur(point, "y_m", yChemin), yChemin);
+            // `Nombre` laisse passer NaN : ce n'est pas une position, et ce n'est pas l'origine.
+            if (double.IsNaN(x) || double.IsInfinity(x)) throw new CleRefusee("clé " + xChemin + " : un nombre fini attendu, reçu " + x.ToString("R", CultureInfo.InvariantCulture));
+            if (double.IsNaN(y) || double.IsInfinity(y)) throw new CleRefusee("clé " + yChemin + " : un nombre fini attendu, reçu " + y.ToString("R", CultureInfo.InvariantCulture));
+            return new PointCarte(x, y);
         }
 
         private static string Maitre(Dictionary<string, object> entree, string chemin)
