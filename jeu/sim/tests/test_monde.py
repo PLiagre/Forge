@@ -4510,3 +4510,34 @@ def test_plan_service_base_constante_et_calculee_une_fois(monkeypatch):
         serveur.shutdown()
         serveur.server_close()
         fil.join(timeout=5)
+
+
+@pytest.mark.chronometre
+def test_departs_budget_comparaison(monkeypatch):
+    import random
+    import statistics
+    import time
+    from sim import engine, departs
+    from sim.service import BUDGET_TICK_MS
+    base, partir = World.charger(0), departs.appliquer_departs
+    def mesurer(fonction):
+        monde, rng, etapes, ticks = copy.deepcopy(base), random.Random(0), [], []
+        def observer(m):
+            debut = time.perf_counter(); resultat = fonction(m)
+            etapes.append((time.perf_counter() - debut) * 1000); return resultat
+        with monkeypatch.context() as ctx:
+            ctx.setattr(departs, 'appliquer_departs', observer)
+            for numero in range(25):
+                debut = time.perf_counter(); engine.tick(monde, rng, numero)
+                if numero >= 5: ticks.append((time.perf_counter() - debut) * 1000)
+        assert len(ticks) == len(etapes[5:]) == 20
+        return ticks, etapes[5:]
+    actif, etapes = mesurer(partir); sans, absence = mesurer(lambda m: 0)
+    for nom, valeurs in (('actif', actif), ('sans départs', sans), ('étape', etapes), ('appel vide', absence)):
+        print(f'{nom} : n={len(valeurs)}, médiane={statistics.median(valeurs):.3f} ms, maximum={max(valeurs):.3f} ms')
+    print(f'écart des médianes={statistics.median(actif) - statistics.median(sans):.3f} ms')
+    def controler(valeurs): assert statistics.median(valeurs) < BUDGET_TICK_MS
+    controler(actif)
+    def lent(m):
+        time.sleep(BUDGET_TICK_MS / 1000); return partir(m)
+    with pytest.raises(AssertionError): controler(mesurer(lent)[0])

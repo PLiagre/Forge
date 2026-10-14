@@ -313,7 +313,8 @@ def _verifier_direction(populations):
     assert all(a > b for a, b in zip(populations, populations[1:]))
 
 
-def test_calibration_de_la_part_coutumiere():
+def test_calibration_de_la_part_coutumiere(monkeypatch):
+    monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
     part = c.PART_COUTUMIERE
     dessus = round(part + 0.01, 2)
     parts = (0, part, dessus, 0.10)
@@ -347,7 +348,8 @@ def _verifier_modele_calibration(section, habitants):
     assert 'provisoirement' not in section
 
 
-def test_modele_calibration_de_la_part_coutumiere():
+def test_modele_calibration_de_la_part_coutumiere(monkeypatch):
+    monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())
@@ -500,3 +502,316 @@ def test_modele_du_au_suzerain_et_tick_sans_registre():
     for fichier in ('test_prelevement.py', 'test_convois.py'):
         assert 'dû' in next(l for l in notice.splitlines() if fichier in l)
     print(f'part due documentée={valeur}')
+
+
+# Lot 592 : les relevés restent dans les tests, jamais dans le monde.
+import inspect
+from collections import Counter, defaultdict
+from sim import departs
+from sim.model import lire_habitants_par_metier
+
+
+_DEPARTS_REELS = departs.appliquer_departs
+
+
+@cache
+def _instrumenter_departs(etape):
+    """Instrumenter l'étape livrée : aucune formule de départ n'est recopiée."""
+    if etape.__name__ == '<lambda>':
+        return None
+    arbre = copy.deepcopy(getattr(etape, '_arbre_observe', None))
+    if arbre is None:
+        arbre = ast.parse(inspect.getsource(etape))
+    fonction = next((n for n in arbre.body if isinstance(n, ast.FunctionDef)), None)
+    if fonction is None:
+        return None
+    points = 0
+    for noeud in ast.walk(fonction):
+        corps = getattr(noeud, 'body', None)
+        if not isinstance(corps, list):
+            continue
+        for i, instruction in reversed(list(enumerate(corps))):
+            if isinstance(instruction, ast.AugAssign) and ast.unparse(instruction) == 'total += partants':
+                sonde = ast.parse('_observer(cle, destination, partants)').body[0]
+                corps.insert(i, ast.copy_location(sonde, instruction))
+                points += 1
+    assert points == 1, 'point de mouvement absent ou ambigu'
+    fonction.args.args.append(ast.arg(arg='_observer'))
+    ast.fix_missing_locations(arbre)
+    espace = dict(etape.__globals__)
+    exec(compile(arbre, '<observation des départs>', 'exec'), espace)
+    return espace[fonction.name]
+
+
+def _observer_mouvements(monde, etape, capturer=None):
+    mouvements = []
+    def observer(source, destination, partants):
+        if partants:
+            if capturer is not None:
+                capturer(monde, source)
+            mouvements.append((source, destination, partants))
+    instrumentee = _instrumenter_departs(etape)
+    total = instrumentee(monde, observer) if instrumentee else etape(monde)
+    return mouvements, total
+
+
+def _photo_departs(monde):
+    """Figer tous les champs de l'étape, sauf populations et métiers."""
+    populations = {(cid, l.rang): l.population
+                   for cid, cell in monde.cells.items() for l in cell.lieux}
+    cellules = {cid: cell.population for cid, cell in monde.cells.items()}
+    immobiles = [
+        ({n: v for n, v in vars(cell).items()
+          if n not in {'population', 'habitants_par_metier', 'lieux'}},
+         [{n: v for n, v in vars(l).items() if n != 'population'} for l in cell.lieux])
+        for cell in monde.cells.values()]
+    immobiles.extend(getattr(monde, nom) for nom in
+                     ('stocks_mer', 'greniers', 'convois', 'mange_convois_kg', 'pertes_kg'))
+    return populations, cellules, pickle.dumps(immobiles)
+
+
+def _verifier_conservation_departs(monde, avant, mouvements, total):
+    populations, cellules, immobiles = avant
+    apres, _, fixes = _photo_departs(monde)
+    sorties, arrivees = Counter(), Counter()
+    for source, cible, nombre in mouvements:
+        assert source != cible and source in populations and cible in populations
+        assert isinstance(nombre, int) and nombre > 0 and nombre % c.TAILLE_FOYER == 0
+        sorties[source] += nombre
+        arrivees[cible] += nombre
+    assert sum(sorties.values()) == sum(arrivees.values()) == total
+    assert sum(apres.values()) == sum(populations.values()) == sum(cellules.values())
+    assert fixes == immobiles
+    for cle, nombre in apres.items():
+        assert isinstance(nombre, int) and nombre >= 0
+        assert sorties[cle] <= populations[cle]
+        assert nombre == populations[cle] - sorties[cle] + arrivees[cle]
+    for cell in monde.cells.values():
+        metiers = lire_habitants_par_metier(cell)
+        assert isinstance(metiers, dict) and all(isinstance(n, int) and n >= 0 for n in metiers.values())
+        assert cell.population == sum(l.population for l in cell.lieux) == sum(metiers.values())
+
+
+def _course_departs(part, etape=_DEPARTS_REELS, toutes=False):
+    monde = copy.deepcopy(_reference_departs())
+    domaine = frozenset(cle for cle, route in monde.routes_des_lieux.items() if route.maitre == BAR)
+    initiaux = {cle: monde.cells[cle[0]].lieux[cle[1]].population // c.TAILLE_FOYER for cle in domaine}
+    if toutes:
+        monde.parts = dict.fromkeys(monde.parts, part)
+    else:
+        monde.parts[BAR] = part
+    releve = dict(lieux=initiaux, ticks=[], internes=0, externes=0, total=0, croises=0, photo=None)
+    def capturer(m, source):
+        if releve['photo'] is None and source in domaine:
+            releve['photo'] = copy.deepcopy(m)
+    def observer(m):
+        avant = _photo_departs(m)
+        mouvements, total = _observer_mouvements(m, etape, capturer if releve['photo'] is None else None)
+        _verifier_conservation_departs(m, avant, mouvements, total)
+        releve['ticks'].append(m.ticks_ecoules)
+        releve['total'] += total // c.TAILLE_FOYER
+        releve['croises'] += len({s for s, _, _ in mouvements} & {d for _, d, _ in mouvements})
+        for source, cible, nombre in mouvements:
+            if source in domaine:
+                categorie = 'internes' if cible in domaine else 'externes'
+                releve[categorie] += nombre // c.TAILLE_FOYER
+        return total
+    with pytest.MonkeyPatch.context() as ctx:
+        ctx.setattr(departs, 'appliquer_departs', observer)
+        rng = random.Random(0)
+        for numero in range(365):
+            engine.tick(monde, rng, numero)
+            if (numero + 1) % 100 == 0:
+                print(f'course {etape.__name__}, part={part:.2f}, toutes={toutes} : {numero + 1}/365 ticks observés', flush=True)
+    releve['habitants'] = sum(cell.population for cell in monde.cells.values())
+    print(f'part={part:.2f}, toutes={toutes}, étape={etape.__name__}, lieux et foyers initiaux={sorted(initiaux.items())}, '
+          f'ticks={len(releve["ticks"])} (0 à 364), lieux envoyant et recevant={releve["croises"]}, internes={releve["internes"]}, hors domaine={releve["externes"]}, '
+          f'foyers déplacés monde={releve["total"]}, habitants={releve["habitants"]}', flush=True)
+    return releve
+
+
+@cache
+def _reference_departs():
+    return World.charger(0)
+
+
+@cache
+def _annee_departs(part, toutes=False):
+    assert c.TAUX_DE_DEPART > 0
+    return _course_departs(part, toutes=toutes)
+
+
+def _verifier_direction_departs(faible, forte):
+    for releve in (faible, forte):
+        assert releve['lieux'] and all(n > 0 for n in releve['lieux'].values())
+        assert releve['ticks'] == list(range(365)) and releve['total'] > 0
+    assert faible['lieux'] == forte['lieux']
+    assert forte['externes'] > faible['externes'] > 0
+
+
+def _departs_aveugles(world):
+    """Contre-épreuve : taux constant et destination géographique fixe."""
+    voisins = defaultdict(list)
+    for edge in world.adjacency:
+        for a, b in ((edge['a'], edge['b']), (edge['b'], edge['a'])):
+            if a in world.cells and b in world.cells and world.cells[b].lieux:
+                voisins[a].append((b, 0))
+    photo = {(cid, l.rang): l.population for cid, cell in world.cells.items() for l in cell.lieux}
+    deltas, cellules = Counter(), Counter()
+    total = 0
+    for cle, population in photo.items():
+        candidats = voisins[cle[0]] or [k for k in photo if k[0] == cle[0] and k != cle]
+        if not candidats:
+            continue
+        destination = min(candidats)
+        partants = int(population * c.TAUX_DE_DEPART / c.TAILLE_FOYER) * c.TAILLE_FOYER
+        deltas[cle] -= partants
+        deltas[destination] += partants
+        cellules[cle[0]] -= partants
+        cellules[destination[0]] += partants
+        total += partants
+    for (cid, rang), population in photo.items():
+        world.cells[cid].lieux[rang].population = population + deltas[cid, rang]
+    for cid, delta in sorted(cellules.items()):
+        if delta > 0:
+            engine._ajouter_par_les_foyers(world.cells[cid], delta)
+        elif delta < 0:
+            engine._retirer_par_les_foyers(world.cells[cid], -delta)
+    return total
+
+
+def test_departs_direction_et_contre_epreuves():
+    faible, forte = _annee_departs(0.1), _annee_departs(0.6)
+    for a, b in ((faible | {'lieux': {}}, forte), (forte, faible), (faible, faible),
+                 (_course_departs(0.1, lambda m: 0), forte)):
+        with pytest.raises(AssertionError):
+            _verifier_direction_departs(a, b)
+    aveugles = [_course_departs(p, _departs_aveugles) for p in (0.1, 0.6)]
+    assert all(r['total'] > 0 and r['externes'] > 0 for r in aveugles)
+    with pytest.raises(AssertionError):
+        _verifier_direction_departs(*aveugles)
+    print('Rouges : vide, inversion, égalité, étape inerte et taux aveugle refusés.')
+    assert faible['croises'] + forte['croises'] > 0
+    _verifier_direction_departs(faible, forte)
+
+
+def _verifier_identite_departs(photo, etape):
+    a, b = copy.deepcopy(photo), copy.deepcopy(photo)
+    noms = list(b.parts)
+    permutation = dict(zip(noms, noms[1:] + noms[:1]))
+    b.routes_des_lieux.noms = [permutation[n] for n in b.routes_des_lieux.noms]
+    for cell in b.cells.values():
+        for lieu in cell.lieux:
+            if lieu.maitre is not None:
+                lieu.maitre = permutation[lieu.maitre]
+    a.parts = dict.fromkeys(a.parts, c.PART_COUTUMIERE)
+    b.parts = dict(a.parts)
+    ma, ta = _observer_mouvements(a, etape)
+    mb, tb = _observer_mouvements(b, etape)
+    print(f'identité : {len(ma)} et {len(mb)} mouvements, {ta} et {tb} habitants déplacés', flush=True)
+    assert ma and mb
+    assert Counter(ma) == Counter(mb) and ta == tb
+    assert _photo_departs(a)[:2] == _photo_departs(b)[:2]
+    assert [lire_habitants_par_metier(cell) for cell in a.cells.values()] == [
+        lire_habitants_par_metier(cell) for cell in b.cells.values()]
+
+
+def test_departs_identite_et_conservation():
+    photo = _annee_departs(0.6)['photo']
+    assert photo is not None
+    # Injecter une dépendance au maître dans la même boucle pour éprouver l'égalité.
+    arbre = ast.parse(inspect.getsource(_DEPARTS_REELS))
+    boucle = next(n for n in ast.walk(arbre) if isinstance(n, ast.For)
+                  and isinstance(n.target, ast.Tuple) and ast.unparse(n.target).startswith('(cle,'))
+    garde = ast.parse("if world.routes_des_lieux[cle].maitre == BAR: continue").body[0]
+    ast.copy_location(garde, boucle.body[0])
+    boucle.body.insert(0, garde)
+    ast.fix_missing_locations(arbre)
+    ast.increment_lineno(arbre, inspect.getsourcelines(_DEPARTS_REELS)[1] - 1)
+    espace = dict(_DEPARTS_REELS.__globals__, BAR=BAR)
+    exec(compile(arbre, inspect.getsourcefile(_DEPARTS_REELS), 'exec'), espace)
+    espace['appliquer_departs']._arbre_observe = arbre
+    with pytest.raises(AssertionError):
+        _verifier_identite_departs(photo, espace['appliquer_departs'])
+    _verifier_identite_departs(photo, _DEPARTS_REELS)
+    monde = copy.deepcopy(photo)
+    avant = _photo_departs(monde)
+    mouvements, total = _observer_mouvements(monde, _DEPARTS_REELS)
+    assert mouvements
+    for mutation in ('habitant', 'kilo'):
+        faux = copy.deepcopy(monde)
+        cid, rang = mouvements[0][1]
+        lieu = faux.cells[cid].lieux[rang]
+        if mutation == 'habitant':
+            lieu.population += 1
+        else:
+            lieu.stocks[c.MARCHANDISE_NOURRITURE] = _food(lieu.stocks) + 1
+        with pytest.raises(AssertionError):
+            _verifier_conservation_departs(faux, avant, mouvements, total)
+    print('Rouges : identité du maître, habitant créé et kilo ajouté refusés.')
+    _verifier_conservation_departs(monde, avant, mouvements, total)
+
+
+def _mesures_calibration_active():
+    parts = (0, c.PART_COUTUMIERE, round(c.PART_COUTUMIERE + 0.01, 2), 0.10)
+    releves = {p: _annee_departs(p, toutes=True) for p in parts}
+    assert all(r['total'] > 0 and r['ticks'] == list(range(365)) for r in releves.values())
+    habitants = {p: r['habitants'] for p, r in releves.items()}
+    for p in parts:
+        print(f'calibration active : part={p:.2f}, habitants={habitants[p]}, '
+              f'perte={_perte(p, habitants):.6%}, départs={releves[p]["total"]} foyers', flush=True)
+    print(f'bornes : perte({parts[1]:.2f}) ≤ 1 % < perte({parts[2]:.2f})', flush=True)
+    return habitants
+
+
+def test_calibration_active_et_contre_epreuves():
+    habitants = _mesures_calibration_active()
+    part, dessus = c.PART_COUTUMIERE, round(c.PART_COUTUMIERE + 0.01, 2)
+    for p, mesures in ((0.10, habitants), (part, habitants | {dessus: habitants[part]}), (part, {})):
+        with pytest.raises(AssertionError):
+            _verifier_calibration(p, mesures)
+    populations = list(habitants.values())
+    for valeurs in (populations[::-1], []):
+        with pytest.raises(AssertionError):
+            _verifier_direction(valeurs)
+    print('Rouges : part trop coûteuse, borne supérieure, direction et vide refusés.')
+    _verifier_direction(populations)
+    _verifier_calibration(part, habitants)
+
+
+def _ligne_calibration_active(part, habitants, releve):
+    return (f'- part {part:.2f} : {habitants[part]} habitants ; '
+            f'perte {_perte(part, habitants):.6%} ; {releve["total"]} foyers déplacés').replace('.', ',').replace('%', ' %') + '.'
+
+
+def _verifier_modele_calibration_active(texte, habitants, bar):
+    section = _section_prelevement(texte).split('**Mesures avec départs actifs.**', 1)
+    assert len(section) == 2, 'mesure active absente'
+    active = section[1].split('\n\n', 1)[0]
+    for terme in ('graine 0', '365 ticks', 'niveau 2', '1 %'):
+        assert terme in active
+    for part in habitants:
+        assert _ligne_calibration_active(part, habitants, _annee_departs(part, toutes=True)) in active
+    part = c.PART_COUTUMIERE
+    verdict = 'tenue' if _perte(part, habitants) <= .01 < _perte(round(part + .01, 2), habitants) else 'en échec'
+    assert f'Calibration {verdict}' in active
+    section = texte.split('## Les départs', 1)[1].split('\n## ', 1)[0]
+    for p, r in zip((.1, .6), bar):
+        assert f'part {p:.1f} : {r["internes"]} foyers internes, {r["externes"]} foyers hors domaine'.replace('.', ',') in section
+    for terme in ('Bar', 'sorties brutes', 'TAILLE_FOYER', '0 à 364', 'graine 0'):
+        assert terme in section
+
+
+def test_modele_calibration_active():
+    habitants = _mesures_calibration_active()
+    bar = [_annee_departs(p) for p in (.1, .6)]
+    texte = (SIM / 'MODELE.md').read_text()
+    marqueur = '**Mesures avec départs actifs.**'
+    assert marqueur in texte, 'mesure active absente'
+    perte = f'{_perte(c.PART_COUTUMIERE, habitants):.6%}'.replace('.', ',').replace('%', ' %')
+    debut, active = texte.split(marqueur, 1)
+    for faux in (debut, debut + marqueur + active.replace(perte, '99,000000 %')):
+        with pytest.raises(AssertionError):
+            _verifier_modele_calibration_active(faux, habitants, bar)
+    print('Rouges documentaires : mesure absente et perte falsifiée refusées.')
+    _verifier_modele_calibration_active(texte, habitants, bar)

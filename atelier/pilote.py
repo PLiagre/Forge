@@ -681,7 +681,12 @@ class Pilote:
             if marquer_attente:
                 self.marquer_attente(numero_pr, role, f"aucun agent n'a pu répondre : {essais}")
             return True
-        if not res.reussi:
+        # Un codeur coupé par son délai a souvent fini son code : la CI le juge
+        # et le passage suivant reprend la branche (#398, coupé trois fois le
+        # 12 octobre 2026 avec un code vert). Le travail part, marqué inachevé.
+        inacheve = (not res.reussi and res.code == 124
+                    and any(not self.projet.interdit(f) for f in self.depot.changements(chemin)))
+        if not res.reussi and not inacheve:
             self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) a échoué (code {res.code}).\n\n"
                                             f"Essais : {essais}\n\n"
                                             f"```\n{_extrait(res.texte, 40)}\n```\n\n"
@@ -708,13 +713,15 @@ class Pilote:
         quoi = "code" if action.essai == 0 else f"correction {action.essai}"
         if poste == "renfort":
             quoi += ", en renfort (dernier passage avant blocage)"
+        if inacheve:
+            quoi += ", inachevé (délai dépassé)"
         sha = self.depot.enregistrer(chemin, f"Lot #{lot.numero} — {quoi}\n\nÉcrit par {res.agent}.")
         self.depot.pousser(chemin, branche)
         if pr.get("isDraft"):
             self.gh.pr_prete(numero_pr)
         retires = ("\n\n⚠️ Changements retirés, hors de portée d'un lot : "
                    + ", ".join(f"`{f}`" for f in interdits)) if interdits else ""
-        vu = (photographe or self._photographier)(chemin, lot, sha)
+        vu = Photos() if inacheve else (photographe or self._photographier)(chemin, lot, sha)
         photos = "".join(f"\n\n📷 ![capture du lot #{lot.numero}]({url})" for url in vu.urls)
         note = f"\n\n{vu.note}" if vu.note else ""
         # Un agent cite ses fichiers par leur chemin sur la machine du lot :
@@ -723,7 +730,7 @@ class Pilote:
         self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) — {quoi}, révision `{sha[:7]}`.\n\n"
                                         f"{_extrait(texte)}{retires}{note}{photos}\n\n"
                                         + marque(role=role, etat="fait", essai=passage, agent=str(res.agent), sha=sha,
-                                                 **vu.marque))
+                                                 **vu.marque, **({"inacheve": True} if inacheve else {})))
         self.noter(lot.numero, f"{role} : {quoi}", f"PR #{numero_pr}", str(res.agent))
         return True
 

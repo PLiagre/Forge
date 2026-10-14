@@ -2889,7 +2889,7 @@ def test_bourg_documentation():
     def controler(document):
         attendus = {'En une page': ('bourg', 'chemin', 'plafond', 'lieux affamés', 'rang 0', 'écritures extérieures', 'niveau 2', 'niveau 3'),
             'Le commerce entre cellules': ('bourg', 'rang 0', 'capacite_chemins_interieurs_kg', 'partagé', 'effectivement', 'niveau 2', 'niveau 3'),
-            'La migration de famine': ('lieux vivants', 'duree_faim_ticks > 0', 'rang 0', 'report migratoire', 'annulés', 'prorata', 'niveau 2', 'niveau 3')}
+            'Les départs': ('lieux vivants', 'duree_faim_ticks > 0', 'rang 0', 'report migratoire', 'annulés', 'prorata', 'niveau 2', 'niveau 3')}
         for titre, mots in attendus.items():
             section = document.split(f'## {titre}\n')[1].split('\n## ')[0]
             assert all(mot in section for mot in mots), titre
@@ -2995,3 +2995,411 @@ def test_commerce_par_bourg_marchandise_absente_et_quota_arete(monkeypatch):
     _apply_commerce(monde, [0.], 'z_sonde', {})
     assert _paniers_bourg(cible, 'z_sonde') == [200., 0.]
     _conserver_bourg(monde)
+
+
+def _monde_departs_simple(reserve, population=5000, dette_source=0., dette_cible=0.):
+    cellule = _cellule_bourg(1, [population, 1000], [0., reserve * 2000])
+    cellule.lieux[0].dette_alimentaire_kg = dette_source
+    cellule.lieux[1].dette_alimentaire_kg = dette_cible
+    return World({1: cellule}, [])
+
+
+@pytest.mark.parametrize('reserve,attendu', [(30., 0), (30.01, 10)])
+def test_departs_seuil_strict(reserve, attendu):
+    from sim.departs import appliquer_departs
+    monde = _monde_departs_simple(reserve)
+    assert appliquer_departs(monde) == attendu
+    assert [l.population for l in monde.cells[1].lieux] == [5000 - attendu, 1000 + attendu]
+
+
+@pytest.mark.parametrize('reserve,dette_source,dette_cible,attendu',
+                         [(50., 0., 40000., 0), (15., 200000., 0., 10)])
+def test_departs_dette_des_deux_cotes(reserve, dette_source, dette_cible, attendu):
+    from sim.departs import appliquer_departs
+    monde = _monde_departs_simple(reserve, dette_source=dette_source, dette_cible=dette_cible)
+    assert appliquer_departs(monde) == attendu
+    assert [l.population for l in monde.cells[1].lieux] == [5000 - attendu, 1000 + attendu]
+    # La même attente refuse une règle qui oublierait la dette.
+    sans_dette = _monde_departs_simple(reserve)
+    with pytest.raises(AssertionError):
+        assert appliquer_departs(sans_dette) == attendu
+
+
+@pytest.mark.parametrize('reserve,attendu', [(60.5, 20), (90.5, 30), (400., 50)])
+def test_departs_taux_et_plafond(reserve, attendu):
+    from sim.departs import appliquer_departs
+    assert appliquer_departs(_monde_departs_simple(reserve)) == attendu
+
+
+@pytest.mark.parametrize('population,attendu', [(2499, 0), (2500, 5), (7499, 10)])
+def test_departs_foyers_entiers(population, attendu):
+    from sim.departs import appliquer_departs
+    monde = _monde_departs_simple(30.5, population)
+    assert appliquer_departs(monde) == attendu
+    assert [l.population for l in monde.cells[1].lieux] == [population - attendu, 1000 + attendu]
+
+
+@pytest.mark.parametrize('nom,valeur,controle,args', [
+    ('ECART_DE_DEPART_JOURS', 31, test_departs_seuil_strict, (30.01, 10)),
+    ('TAUX_DE_DEPART', .004, test_departs_taux_et_plafond, (60.5, 20)),
+    ('TAUX_DE_DEPART', .004, test_departs_taux_et_plafond, (90.5, 30)),
+    ('PLAFOND_DE_DEPART', .02, test_departs_taux_et_plafond, (400., 50)),
+    ('TAILLE_FOYER', 1, test_departs_foyers_entiers, (2499, 0)),
+    ('TAILLE_FOYER', 1, test_departs_foyers_entiers, (7499, 10)),
+])
+def test_departs_constantes_contre_epreuves(nom, valeur, controle, args, monkeypatch):
+    from sim.departs import appliquer_departs
+    from sim import constants as k
+    monkeypatch.setattr(k, nom, valeur)
+    with pytest.raises(AssertionError):
+        controle(*args)
+
+
+@pytest.mark.parametrize('reserve,attendues', [(40., [4990, 110, 100]), (20., [4950, 100, 150])])
+def test_departs_cellule_avant_bourgs_voisins(reserve, attendues):
+    from sim.departs import appliquer_departs
+    cellules = {1: _cellule_bourg(1, [5000, 100, 0], [0., reserve * 200, 100000.]),
+                2: _cellule_bourg(2, [100, 100], [40000., 100000.]),
+                3: _cellule_bourg(3, [100], [100000.]),
+                4: _cellule_bourg(4, [0], [100000.]),
+                5: Cell(5, 1000., 5000, food_stock_kg=10000000.),
+                6: Cell(6, 1000., 5000, food_stock_kg=0.)}
+    monde = World(cellules, [{'a': 2, 'b': 1}, {'a': 1, 'b': 4}, {'a': 1, 'b': 5},
+                            {'a': 2, 'b': 6}, {'a': 1, 'b': -1}, {'a': 1, 'b': 99}])
+    assert appliquer_departs(monde) == 5000 - attendues[0]
+    def controler():
+        assert [cellules[1].lieux[0].population, cellules[1].lieux[1].population,
+                cellules[2].lieux[0].population] == attendues
+        assert cellules[1].lieux[2].population == cellules[4].lieux[0].population == 0
+        assert cellules[2].lieux[1].population == cellules[3].population == 100
+        assert cellules[5].population == cellules[6].population == 5000
+    controler()
+    cellules[1].lieux[1 if reserve == 40 else 0].population -= 1
+    cellules[2].lieux[1].population += 1
+    with pytest.raises(AssertionError): controler()
+
+
+@pytest.mark.parametrize('locale', [True, False])
+def test_departs_egalites_cellule_et_rang(locale):
+    from sim.departs import appliquer_departs
+    if locale:
+        monde = World({1: _cellule_bourg(1, [5000, 100, 100], [0., 8000., 8000.])}, [])
+        monde.cells[1].lieux.reverse()
+        cible = next(l for l in monde.cells[1].lieux if l.rang == 1)
+    else:
+        monde = World({3: _cellule_bourg(3, [100], [8000.]),
+                       1: _cellule_bourg(1, [5000], [0.]),
+                       2: _cellule_bourg(2, [100], [8000.])},
+                      [{'a': 1, 'b': 3}, {'a': 2, 'b': 1}])
+        cible = monde.cells[2].lieux[0]
+    assert appliquer_departs(monde) == 10
+    assert cible.population == 110
+    cible.population -= 1
+    with pytest.raises(AssertionError): assert cible.population == 110
+
+
+@pytest.mark.parametrize('population_b,attendues', [(5000, [2495, 4995, 1010]),
+                                                  (2495, [2495, 2500, 1000])])
+def test_departs_photo_arrivee_et_sortie(population_b, attendues):
+    import copy
+    from sim.departs import appliquer_departs
+    monde = World({1: _cellule_bourg(1, [population_b, 2500], [population_b * 70., 0.]),
+                   2: _cellule_bourg(2, [1000], [140000.])}, [{'a': 1, 'b': 2}])
+    inverse = copy.deepcopy(monde)
+    inverse.cells = dict(reversed(list(inverse.cells.items())))
+    inverse.adjacency = [{'a': 2, 'b': 1}]
+    inverse.cells[1].lieux.reverse()
+    for m in (monde, inverse):
+        assert appliquer_departs(m) == (15 if population_b == 5000 else 5)
+        assert [next(l.population for l in m.cells[c].lieux if l.rang == r)
+                for c, r in [(1, 1), (1, 0), (2, 0)]] == attendues
+        _conserver_bourg(m)
+    assert monde.to_dict() == inverse.to_dict()
+
+
+def _controler_source_departs(source):
+    import ast
+    arbre = ast.parse(source)
+    attributs = {n.attr for n in ast.walk(arbre) if isinstance(n, ast.Attribute)}
+    assert not attributs & {'maitre', 'parts', 'PART_COUTUMIERE', 'PART_DUE_AU_SUZERAIN'}
+    modules = {n.module for n in ast.walk(arbre) if isinstance(n, ast.ImportFrom)}
+    modules.update(a.name for n in ast.walk(arbre) if isinstance(n, ast.Import) for a in n.names)
+    assert not modules & {'sim.prelevement', 'sim.maitres', 'sim.greniers', 'sim.convois'}
+    assert not any(isinstance(n, ast.ImportFrom) and n.module == 'sim'
+                   and any(a.name in {'prelevement', 'maitres', 'greniers', 'convois'} for a in n.names)
+                   for n in ast.walk(arbre))
+    assert 'sim.constants' not in {n.module for n in ast.walk(arbre) if isinstance(n, ast.ImportFrom)}
+    lues = {n.attr for n in ast.walk(arbre) if isinstance(n, ast.Attribute)
+            and isinstance(n.value, ast.Name) and n.value.id == '_constantes'}
+    assert {'ECART_DE_DEPART_JOURS', 'TAUX_DE_DEPART', 'PLAFOND_DE_DEPART', 'TAILLE_FOYER'} <= lues
+
+
+def test_departs_maitre_ignore_et_source(monkeypatch):
+    import copy
+    from pathlib import Path
+    from sim import departs
+    monde = _monde_departs_simple(60.5)
+    autre = copy.deepcopy(monde)
+    for lieu in autre.cells[1].lieux: lieu.maitre = f'maison_{lieu.rang}'
+    autre.parts = {'maison_0': .99, 'maison_1': .01}
+    assert departs.appliquer_departs(monde) == departs.appliquer_departs(autre) == 20
+    assert [l.population for l in monde.cells[1].lieux] == [l.population for l in autre.cells[1].lieux]
+    source = Path(departs.__file__).read_text(encoding='utf-8')
+    _controler_source_departs(source)
+    with pytest.raises(AssertionError): _controler_source_departs(source + '\nlieu.maitre\n')
+    from sim.tests.test_write_coverage import test_aucune_constante_terminale
+    lire = Path.read_text
+    def sans_lecture(chemin, *args, **kwargs):
+        texte = lire(chemin, *args, **kwargs)
+        return (texte.replace('_constantes.ECART_DE_DEPART_JOURS', '30')
+                if chemin == Path(departs.__file__) else texte)
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, 'read_text', sans_lecture)
+        with pytest.raises(AssertionError, match='ECART_DE_DEPART_JOURS'):
+            test_aucune_constante_terminale()
+    # Le même cas à 30 jours refuse une comparaison non stricte.
+    assert source.count(' > ') > 0
+    espace = {}
+    exec(source.replace(' > ', ' >= '), espace)
+    monkeypatch.setattr(departs, 'appliquer_departs', espace['appliquer_departs'])
+    with pytest.raises(AssertionError): test_departs_seuil_strict(30., 0)
+
+
+def _monde_departs_conservation():
+    from sim.model import ecrire_habitants_par_metier, ecrire_stock_marchandise
+    cellules = {1: _cellule_bourg(1, [5000, 100], [0., 8000.]),
+                2: _cellule_bourg(2, [5000, 2500], [0., 0.]),
+                3: _cellule_bourg(3, [1000, 5000], [140000., 0.])}
+    ecrire_habitants_par_metier(cellules[2], {'paysans': 4999, 'artisans': 2501})
+    for c in cellules.values():
+        c.hunger_ticks, c.food_deficit_kg = 3, 7.25
+        c.mortality_remainder, c.natalite_remainder, c.migration_remainder = .1, .2, .3
+        for l in c.lieux:
+            ecrire_stock_marchandise(l, 'sonde', .5)
+            l.duree_faim_ticks, l.mortality_remainder, l.natalite_remainder = 2, .4, .6
+        ecrire_stock_marchandise(c, 'sonde', 1.)
+    monde = World(cellules, [{'a': 1, 'b': 2}, {'a': 2, 'b': 3}, {'a': 1, 'b': 3}])
+    monde.stocks_mer = {MARCHANDISE_NOURRITURE: 31.5}
+    return monde
+
+
+def _controler_departs_conservation(monde, avant, partants):
+    from fractions import Fraction
+    from sim import foyers
+    from sim.model import copier_panier, lire_habitants_par_metier
+    assert partants == 60
+    assert _somme_populations(monde) == _somme_populations(avant)
+    _conserver_bourg(monde)
+    for cid, c in monde.cells.items():
+        ancien = avant.cells[cid]
+        delta = {1: 0, 2: -30, 3: 30}[cid]
+        assert c.population == ancien.population + delta
+        metiers = lire_habitants_par_metier(ancien)
+        attendus = foyers.retirer(metiers, -delta) if delta < 0 else foyers.ajouter(metiers, delta)
+        assert lire_habitants_par_metier(c) == attendus
+        exclus = {'population', 'habitants_par_metier', 'lieux'}
+        assert {n: v for n, v in vars(c).items() if n not in exclus} == {
+            n: v for n, v in vars(ancien).items() if n not in exclus}
+        for l, a in zip(c.lieux, ancien.lieux):
+            assert {n: v for n, v in vars(l).items() if n != 'population'} == {
+                n: v for n, v in vars(a).items() if n != 'population'}
+    def masse(m):
+        return sum(Fraction(v) for c in m.cells.values() for e in [c, *c.lieux]
+                   for v in copier_panier(e).values())
+    assert masse(monde) == masse(avant)
+    assert monde.stocks_mer == avant.stocks_mer
+
+
+def test_departs_conservation_et_contre_epreuves(monkeypatch):
+    import copy
+    from sim import engine
+    from sim.departs import appliquer_departs
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+    avant = _monde_departs_conservation()
+    avant.cells = dict(reversed(list(avant.cells.items())))
+    monde = copy.deepcopy(avant)
+    appels = []
+    for nom in ('_retirer_par_les_foyers', '_ajouter_par_les_foyers'):
+        original = getattr(engine, nom)
+        def compter(c, n, nom=nom, original=original):
+            appels.append((nom, c.cell_id, n))
+            original(c, n)
+        monkeypatch.setattr(engine, nom, compter)
+    partants = appliquer_departs(monde)
+    assert appels == [('_retirer_par_les_foyers', 2, 30), ('_ajouter_par_les_foyers', 3, 30)]
+    _controler_departs_conservation(monde, avant, partants)
+    for mutation in ('kilo', 'habitant'):
+        faux = copy.deepcopy(monde)
+        if mutation == 'kilo':
+            for l, delta in zip(faux.cells[1].lieux, [1, -1]):
+                ecrire_stock_marchandise(l, MARCHANDISE_NOURRITURE,
+                                        lire_stock_marchandise(l, MARCHANDISE_NOURRITURE) + delta)
+        else: faux.cells[1].lieux[0].population += 1
+        with pytest.raises(AssertionError): _controler_departs_conservation(faux, avant, partants)
+    monkeypatch.setattr(engine, '_retirer_par_les_foyers', lambda c, n: setattr(c, 'population', c.population - n))
+    faux = copy.deepcopy(avant)
+    with pytest.raises(AssertionError):
+        _controler_departs_conservation(faux, avant, appliquer_departs(faux))
+
+
+def test_departs_une_lecture_par_lieu_et_cout_lineaire(monkeypatch):
+    from collections import Counter
+    from time import perf_counter
+    from sim import departs
+    monde = _monde_departs_conservation()
+    appels = Counter()
+    original = departs.lire_stock_marchandise
+    def compter(lieu, nom):
+        appels[id(lieu)] += 1
+        return original(lieu, nom)
+    monkeypatch.setattr(departs, 'lire_stock_marchandise', compter)
+    departs.appliquer_departs(monde)
+    attendus = Counter({id(l): 1 for c in monde.cells.values() for l in c.lieux if l.population > 0})
+    assert appels == attendus
+    attendus[id(monde.cells[1].lieux[0])] += 1
+    with pytest.raises(AssertionError): assert appels == attendus
+    grand = World({1: _cellule_bourg(1, [1000] * 4000, [r * 2000. for r in range(4000)]),
+                   2: _cellule_bourg(2, [1000], [10000000.]),
+                   3: _cellule_bourg(3, [1000], [12000000.])},
+                  [{'a': 1, 'b': 2}, {'a': 1, 'b': 3}])
+    debut = perf_counter()
+    assert departs.appliquer_departs(grand) > 0
+    assert perf_counter() - debut < .5
+
+
+def test_departs_sentinelle_ration_et_duree_du_tick(monkeypatch):
+    from sim.departs import appliquer_departs
+    from sim import constants as k
+    from sim.model import remplacer_panier
+    monde = _monde_departs_simple(30.)
+    remplacer_panier(monde.cells[1].lieux[0], {'sonde': 99.})
+    assert appliquer_departs(monde) == 0  # -1 kg aurait fait franchir le seuil.
+    monkeypatch.setattr(k, 'TICK_DURATION_DAYS', 2)
+    monkeypatch.setattr(k, 'consommation_kg_par_habitant_par_tick', lambda nom: 3 * k.TICK_DURATION_DAYS)
+    monde = _monde_departs_simple(52.5)  # Ration 3 kg : réserve réelle de 35 jours.
+    assert appliquer_departs(monde) == 20
+
+
+def _monde_departs_tick():
+    from sim import constants as c
+    jours = ((20, 200), (20, 20), (400, 20))
+    populations = ((5000, 100), (5000, 2500), (1000, 5000))
+    cellules = {cid: _cellule_bourg(cid, ps, [p * j * c.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+                for p, j in zip(ps, js)]) for cid, (ps, js) in enumerate(zip(populations, jours), 1)}
+    return World(cellules, [{'a': 1, 'b': 2}, {'a': 2, 'b': 3}])
+
+
+def _tick_departs_variante(ancien, nouveau):
+    import inspect
+    from sim import engine
+    espace = {}
+    exec(inspect.getsource(engine.tick).replace(ancien, nouveau), engine.__dict__, espace)
+    return espace['tick']
+
+
+def test_departs_tick_ordre_et_famine(monkeypatch):
+    import copy
+    from sim import engine, departs, constants as c
+    migrer, partir, avancer, commercer = engine._apply_migration, departs.appliquer_departs, engine._avancer_compteur_ticks, engine._apply_commerce
+    ordre, transports = [], []
+    def migration(monde, penuries):
+        migrer(monde, penuries); ordre.append('migration')
+        photo[:] = [copy.deepcopy(monde)]
+    def depart(monde):
+        ordre.append('départs'); assert monde.ticks_ecoules == 0
+        attendu = copy.deepcopy(photo[0]); nombre = partir(attendu)
+        assert nombre > 0 and partir(monde) == nombre
+        assert monde.to_dict() == attendu.to_dict()
+        return nombre
+    def compteur(monde):
+        ordre.append('compteur'); avancer(monde)
+    def commerce(monde, total, *args, **kw):
+        commercer(monde, total, *args, **kw)
+        if not args: transports.append(total[0])
+    photo = []
+    monkeypatch.setattr(engine, '_apply_migration', migration)
+    monkeypatch.setattr(departs, 'appliquer_departs', depart)
+    monkeypatch.setattr(engine, '_avancer_compteur_ticks', compteur)
+    monkeypatch.setattr(engine, '_apply_commerce', commerce)
+    def controler(fonction):
+        ordre.clear(); photo.clear(); transports.clear()
+        assert fonction(_monde_departs_tick(), random.Random(0), 0) == transports[0]
+        assert ordre == ['migration', 'départs', 'compteur']
+    controler(engine.tick)
+    appel = '    departs.appliquer_departs(world)\n'
+    for ancien, nouveau in ((appel, ''), ('    _apply_migration(world, penuries)\n\n' + appel,
+            appel + '    _apply_migration(world, penuries)\n'), ('    _apply_migration(world, penuries)\n', '')):
+        with pytest.raises((AssertionError, IndexError)): controler(_tick_departs_variante(ancien, nouveau))
+    def famine(fonction):
+        monde = _build_monde_migration_trois_cellules(); monde.cells[201].population *= 10; mouvements = []
+        def observer(m, p):
+            avant = m.cells[201].population; migrer(m, p)
+            mouvements.append(avant - m.cells[201].population)
+        with monkeypatch.context() as ctx:
+            ctx.setattr(c, 'TAUX_DE_DEPART', 0); ctx.setattr(departs, 'appliquer_departs', partir)
+            ctx.setattr(engine, '_apply_migration', observer); ctx.setattr(engine, '_avancer_compteur_ticks', avancer)
+            ctx.setattr(c, 'DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK', 0)
+            fonction(monde, random.Random(0), 0)
+        assert len(mouvements) == 1 and mouvements[0] > 0
+    famine(engine.tick)
+    with pytest.raises(AssertionError): famine(_tick_departs_variante('    _apply_migration(world, penuries)\n', ''))
+
+
+def test_departs_tick_conservation_et_rejeu(monkeypatch):
+    import copy
+    from sim import engine, departs, constants as c
+    partir = departs.appliquer_departs
+    monkeypatch.setattr(engine, '_apply_mortality', lambda *a: None)
+    monkeypatch.setattr(engine, '_apply_natalite', lambda *a: None)
+    def course(taux, mutation=None):
+        monde, rng = _monde_departs_tick(), random.Random(0)
+        population = _somme_populations(monde); mouvements = [0, 0]
+        def observer(m):
+            avant = copy.deepcopy(m); nombre = partir(m)
+            if mutation == 'habitant': m.cells[1].lieux[0].population += 1
+            if mutation == 'kilo': m.cells[1].lieux[0].stocks[MARCHANDISE_NOURRITURE] += 1
+            assert _somme_populations(m) == _somme_populations(avant)
+            for cid, cell in m.cells.items():
+                ancien = avant.cells[cid]; exclus = {'population', 'habitants_par_metier', 'lieux'}
+                assert {k: v for k, v in vars(cell).items() if k not in exclus} == {k: v for k, v in vars(ancien).items() if k not in exclus}
+                for lieu, a in zip(cell.lieux, ancien.lieux):
+                    assert {k: v for k, v in vars(lieu).items() if k != 'population'} == {k: v for k, v in vars(a).items() if k != 'population'}
+            assert m.stocks_mer == avant.stocks_mer
+            mouvements[0] += m.cells[1].lieux[1].population > avant.cells[1].lieux[1].population
+            mouvements[1] += m.cells[2].population < avant.cells[2].population
+            return nombre
+        with monkeypatch.context() as ctx:
+            ctx.setattr(c, 'TAUX_DE_DEPART', taux)
+            ctx.setattr(departs, 'appliquer_departs', (lambda m: 0) if mutation == 'inerte' else observer)
+            for numero in range(5):
+                engine.tick(monde, rng, numero)
+                assert _somme_populations(monde) == population
+                for cell in monde.cells.values():
+                    effectifs = [l.population for l in cell.lieux] + list(cell.habitants_par_metier.values())
+                    assert cell.population == sum(l.population for l in cell.lieux) == sum(cell.habitants_par_metier.values())
+                    assert all(type(n) is int and n >= 0 for n in effectifs)
+        if taux: assert all(n > 0 for n in mouvements)
+        return monde.to_dict()
+    actif = course(c.TAUX_DE_DEPART); nul = course(0)
+    assert actif == course(c.TAUX_DE_DEPART)
+    assert [cell['population'] for cell in actif['cells'].values()] != [cell['population'] for cell in nul['cells'].values()]
+    for mutation in ('habitant', 'kilo', 'inerte'):
+        with pytest.raises(AssertionError): course(c.TAUX_DE_DEPART, mutation)
+
+
+def test_departs_tick_modele():
+    import re
+    from pathlib import Path
+    from sim import constants as c
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text()
+    def controler(texte):
+        page = texte.split('## En une page', 1)[1].split('\n## ', 1)[0]
+        etapes = re.findall(r'^\d+\. \*\*([^*]+)\*\*', page, re.M)
+        assert etapes[-3:] == ['Migration', 'Départs', 'Avance du compteur']
+        section = texte.split('### Le mieux-vivre', 1)[1].split('\n## ', 1)[0]
+        for nom in ('ECART_DE_DEPART_JOURS', 'TAUX_DE_DEPART', 'PLAFOND_DE_DEPART'):
+            assert f'`{nom} = {getattr(c, nom):g}`' in section
+    controler(texte)
+    for ancien, nouveau in (('15. **Départs**', '15. **Autre étape**'),
+            (f'TAUX_DE_DEPART = {c.TAUX_DE_DEPART:g}', 'TAUX_DE_DEPART = 9')):
+        with pytest.raises(AssertionError): controler(texte.replace(ancien, nouveau))
