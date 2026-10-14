@@ -1,10 +1,10 @@
-# Direction artistique de l’interface — proposition à valider
+# Direction artistique de l’interface — validée le 14 octobre 2026
 
 Lecture du 14 octobre 2026 : les 108 PNG de `docs/direction-artistique/`, examinés dans les douze planches réduites ci-dessous. Dossier confirmé par le propriétaire. Concepts de niveau 2, sans valeur de source historique ni de capture du jeu ; les scènes après 1500 nourrissent les matières, pas le périmètre du premier siècle.
 
 ## Cinq principes
 
-1. **Le territoire reste le sujet.** Une carte plein cadre et un seul document latéral à la fois ; profondeur et chemins de `01_scenes/seigneurie_1400.png`.
+1. **Le territoire reste le sujet.** Une carte plein cadre et plusieurs dossiers visibles simultanément, selon le choix du propriétaire ; profondeur et chemins de `01_scenes/seigneurie_1400.png`. Les documents se rangent sur les côtés sans effacer leurs voisins.
 2. **Le pouvoir a un visage et une matière.** Portrait proche, laine, bois, encre ; `03_personnages/seigneuresse_1400.png` et `08_institutions/conseil_1500.png`. Or discret, aucune armure décorative autour de chaque bouton.
 3. **Une quantité renvoie à quelque chose de physique.** Sacs, charrettes, destinations ; `07_transports/grenier_1500.png` et `charrette_1400.png`. Montrer stock, trajet et destinataire plutôt qu’un bonus abstrait.
 4. **La lumière guide le regard.** Surfaces mates, accents rares ; `06_production/forge_1450.png`. La cire marque une décision importante ; elle ne clignote pas.
@@ -24,7 +24,7 @@ Lecture du 14 octobre 2026 : les 108 PNG de `docs/direction-artistique/`, examin
 | accord | `#405444` | Confirmation accompagnée de son libellé |
 
 Titres : serif humaniste, candidate Noto Serif ; corps et chiffres : sans serif, candidate Noto Sans, chiffres tabulaires si disponibles. Ce sont des choix proposés, pas des fontes présentes : vérifier licence, accents et rendu Unity avant intégration. Aucun gothique pour lire une décision. À 1080p : corps 18 px, titres 28 px, commandes 44 px de haut ; grille d’espacement 4/8/16/24/32 px, texte agrandissable à 150 %. Ces mesures règlent la présentation, jamais le monde.
-Carte visible sur au moins deux tiers de la largeur au repos. Bande haute : maison, date reçue, pause et vitesse ; accès aux dossiers sur le bord ; fiche de lieu à gauche ; décisions à droite seulement lorsqu’on les ouvre. Un dossier remplace le précédent, avec retour conservant la sélection. À petite définition, le dossier peut devenir plein écran avec retour explicite.
+Carte visible sur au moins deux tiers de la largeur au repos. Bande haute : maison, date reçue, pause et vitesse ; accès aux dossiers sur le bord ; lieux et décisions peuvent rester ouverts côte à côte. Chaque dossier conserve sa sélection ; ouvrir l’un ne ferme pas l’autre. À petite définition, réduire les dossiers en onglets explicites plutôt que les superposer sans contrôle. Papier clair sur cadre sombre et ornements discrets validés par le propriétaire.
 Les panneaux évoquent des feuillets posés : papier peu grainé, filet fin, ombre courte, onglet de tissu ; sceau réservé aux engagements. En bataille, commandes basses et terrain dégagé. Les portraits portent les différences culturelles ; les cadres restent lisibles et sobres.
 Icônes : silhouettes simples de sac, route, maison, arbre familial, bannière et livre, toujours nommées. Les blasons du corpus enseignent le contraste et la silhouette ; ils ne sont ni une police d’icônes ni les armoiries historiques du jeu. Alpha des originaux héraldiques à reprendre avant réemploi (réserve du catalogue).
 Transitions : glissement court et fondu de 160 ms proposés, désactivables ; ouverture sans animation en mouvement réduit. Sons suggérés : froissement sec, bois posé, cire pressée ; volume séparé et aucune information donnée seulement par le son. Textes : « Ouvrir le grenier », « Ordre reçu », « Le monde ne répond pas » ; cause concrète, unités, aucune fausse certitude.
