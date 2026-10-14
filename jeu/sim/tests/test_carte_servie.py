@@ -324,3 +324,18 @@ def test_departs_verrou_et_erreur_de_fiche(monkeypatch):
         assert not serveur.verrou_tick.locked()
         _lire(port, "/tick?n=1", "POST")
         assert _lire(port, "/departs")[0]["tick"] == 1
+
+
+def test_departs_fige_du_pont():
+    """Les octets figés du pont sont ceux du service, graine 0, après trois ticks."""
+    from pathlib import Path
+    fige = (Path(__file__).resolve().parents[3] / "3d/unity/Assets/ForgeLocal3D/Pont/Tests/departs-graine0-tick3.json").read_bytes()
+    document = json.loads(fige)
+    assert document["departs"]
+    with lancer_service(0) as port:
+        assert requete_service(port, "/tick?n=3", "POST")[0] == HTTPStatus.OK
+        statut, _, octets = requete_service(port, "/departs")
+        assert statut == HTTPStatus.OK and octets == fige == requete_service(port, "/departs")[2]
+        requete_service(port, "/tick?n=1", "POST")
+        suivants = requete_service(port, "/departs")[1]["departs"]
+        assert any(a["habitants"] != b["habitants"] for a, b in zip(suivants, document["departs"]))
