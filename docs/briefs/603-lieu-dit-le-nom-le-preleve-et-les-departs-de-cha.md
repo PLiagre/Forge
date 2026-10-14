@@ -185,3 +185,45 @@ Neuf comparaisons alternées au tick 35, sur le même monde et sans autre test e
 Les chronomètres échouent sur `test_budget_flux_et_contre_epreuve` (tick médian 299,2 ms), `test_horloge_pause_vitesse_et_budget` (4 ticks en 2,51 s), `test_tick_sous_le_budget_du_service` (200,4 ms), `test_ateliers_budget` (173,4 ms) et `test_departs_budget_comparaison` (208,2 ms avec départs, 184,9 ms sans). Les quatre mesures du tick seul n'appellent pas le nouveau lecteur. Les fonctions du tick sont inchangées depuis avant ce lot ; notamment `git diff eb03011 -- jeu/sim/engine.py jeu/sim/departs.py` est vide.
 
 **SC9 reste bloqué.** Corriger aussi le budget du tick demande une extension du périmètre, puisque ce brief interdit explicitement `sim/engine.py` et `sim/departs.py` ; elle a été demandée au propriétaire, sans réponse à ce stade. Aucun changement n'a été fait dans ces fichiers, aucune constante ni assertion n'a été assouplie. La suite entière n'a pas été lancée.
+
+## Diagnostic de la deuxième CI rouge — 14/10/2026
+
+Les quatre échecs signalés sont reproduits, sans autre test lancé en parallèle :
+`python3 -m pytest jeu/sim/tests/test_flux.py jeu/sim/tests/test_monde.py -q -s -k 'budget_flux_et_contre_epreuve or tick_sous_le_budget_du_service or ateliers_budget or departs_budget_comparaison'`.
+Résultat : **4 échecs**, médianes de 187,3 ms (flux), 185,3 ms (tick),
+171,4 ms (ateliers), 177,0 ms (départs actifs) et 162,2 ms sans départs.
+Le budget demeure 100 ms ; aucun test ni aucune constante n'est modifié.
+
+Une mesure séparée, sur 25 ticks dont les cinq premiers écartés, enveloppe
+les deux fonctions de `flux.py` appelées par le tick. Leur coût cumulé médian
+par tick est de **0,046 ms pour `jour_courant`** et **0,034 ms pour
+`noter_personnes`** (le second inclut son appel au premier). Le tick médian
+est alors de 140,5 ms murales et 101,9 ms de CPU. Ces deux fonctions sont
+inchangées depuis avant le lot ; `flux_des_lieux` n'est pas appelé par le tick.
+
+Un profil de cinq ticks, après cinq ticks d'amorçage, situe les principaux
+coûts cumulés dans `_apply_consumption`, `_apply_commerce` et
+`departs.appliquer_departs`. Les durées sous profilage ne servent pas à
+valider le budget. Le diff avec `eb03011` est vide pour `engine.py`,
+`departs.py`, `prelevement.py`, `model.py` et `world.py`.
+
+La correction du tick reste interdite par « Hors périmètre ». Une extension
+à `jeu/sim/engine.py`, `jeu/sim/departs.py` et à leurs nouveaux cas de test
+est demandée au propriétaire. En attendant cette décision, seul ce diagnostic
+est ajouté ; aucune correction du moteur ni validation de SC9 n'est annoncée.
+
+Vérifications de cette séance, depuis la racine :
+
+| Commande | Résultat |
+|---|---|
+| `python3 -m pytest jeu/sim/tests/test_flux.py jeu/sim/tests/test_monde.py jeu/sim/tests/test_lieux.py -q -k 'flux_des_lieux or lieux_de_la_photographie or sans_seconde_cle or photographie_et_empreinte or cellule_legere_ne_copie or photographie_lit_les_surfaces or service_ia_sans or reponse_figee or lecteur_json or noms_publication'` | 21 verts |
+| `python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q` | 8 verts |
+| `python3 -m pytest jeu/sim/tests/test_monde.py jeu/sim/tests/test_lieux.py jeu/sim/tests/test_flux.py jeu/ville/tests -q -k 'documente or modele or documentation or contrat'` | 30 verts |
+| `python3 -m pytest jeu/forge/tests/test_forge.py jeu/vues/chronique/tests/test_chronique.py -q -k 'forge_ia_sans or decoupe or champs_mobiles or capture_reprend or deux_chroniques'` | 6 verts |
+| `python3 -m pytest jeu/sim/tests/test_monde.py -q -k horloge_pause_vitesse_et_budget` | 1 échec, joué seul : 4 ticks en 2,51 s à 4 jours/s |
+| `python3 -m pytest jeu/sim/tests/test_maisons_servies.py -q -s -k mesure_matiere` | 1 vert, joué seul : matière 75,5 ms, publication 278,7 ms au tick 35 |
+| `git diff --check` | vert |
+
+Les quatre chronomètres reproduits plus haut restent rouges. Aucun fichier
+de test existant n'a été lancé en entier, hors des deux contrôles obligatoires
+`no_hardcoded` et `write_coverage` ; la suite entière n'a pas été lancée.
