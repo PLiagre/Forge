@@ -316,3 +316,64 @@ def test_ouverture_cherche_indice_une_seule_fois():
     assert m.routes_des_lieux.noms.recherches == 1
     assert flux_de_maison(m, 'a')['rendu_kg'] == 400
     assert sum(sum(charges.values()) for charges in m.secours.values()) == 400
+
+
+
+def test_flux_des_lieux_mesures_et_contre_epreuves(monde, monkeypatch):
+    m, releves, rng = copy.deepcopy(monde), {}, random.Random(0)
+    noter = flux.noter_personnes
+    def observer(m, partis, arrives):
+        jour = releves.setdefault(m.ticks_ecoules, ({}, {}))
+        for source, cible in zip((partis, arrives), jour):
+            for cle, nombre in source.items(): cible[cle] = cible.get(cle, 0) + nombre
+        noter(m, partis, arrives)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(flux, 'noter_personnes', observer)
+        for _ in range(35): engine.tick(m, rng)
+    debut = m.ticks_ecoules - c.FENETRE_FLUX_TICKS
+    attendus = ({}, {})
+    for tick, mouvements in releves.items():
+        if tick >= debut:
+            for source, cible in zip(mouvements, attendus):
+                for cle, nombre in source.items(): cible[cle] = cible.get(cle, 0) + nombre
+    assert 0 not in m.flux.jours and attendus[0] and attendus[1]
+    def verifier(monde, egalite=True):
+        vue = flux.flux_des_lieux(monde)
+        assert set(vue) == set(monde.cells)
+        sommes = dict.fromkeys(monde.routes_des_lieux.noms, 0.)
+        nombre = 0
+        for cid, cellule in monde.cells.items():
+            assert len(vue[cid]) == len(cellule.lieux)
+            for lieu in cellule.lieux:
+                f = vue[cid][lieu.rang]; nombre += 1
+                assert type(f['preleve_kg']) is float
+                if egalite: assert f == flux_de_lieu(monde, cid, lieu.rang)
+                assert [f['partis'], f['arrives']] == [a.get((cid, lieu.rang), 0) for a in attendus]
+                indices = monde.routes_des_lieux.par_cellule.get(cid)
+                if indices and indices[0][lieu.rang] >= 0:
+                    sommes[monde.routes_des_lieux.noms[indices[0][lieu.rang]]] += f['preleve_kg']
+        assert nombre == sum(len(cell.lieux) for cell in monde.cells.values()) > 0
+        assert any(sommes.values())
+        for nom, kg in sommes.items(): assert kg == pytest.approx(flux_de_maison(monde, nom)['preleve_kg'], rel=1e-12)
+    verifier(m)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(c, 'FENETRE_FLUX_TICKS', 29)
+        with pytest.raises(AssertionError): verifier(m)
+    faux = copy.deepcopy(m)
+    jour = next(j for j in faux.flux.jours.values() if any(j.preleve))
+    indice = next(i for i, kg in enumerate(jour.preleve) if kg > 0)
+    jour.taux[indice] *= 2
+    with pytest.raises(AssertionError): verifier(faux)
+    jours = flux._jours_de_fenetre
+    with monkeypatch.context() as ctx:
+        ctx.setattr(flux, '_jours_de_fenetre', lambda m: [j for j in jours(m) for _ in range(2)])
+        with pytest.raises(AssertionError): verifier(m, egalite=False)
+    fortune = SimpleNamespace(cells=m.cells, ticks_ecoules=0)
+    assert all(f == {'preleve_kg': 0., 'partis': 0, 'arrives': 0} and type(f['preleve_kg']) is float
+               for lignes in flux.flux_des_lieux(fortune).values() for f in lignes)
+
+
+def test_flux_des_lieux_documentation():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text()
+    section = texte.split('## Les flux sur trente jours')[1].split('\n## ')[0]
+    assert 'flux_des_lieux' in section

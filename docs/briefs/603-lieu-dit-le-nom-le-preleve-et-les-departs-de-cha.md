@@ -140,3 +140,22 @@ SC9 — Depuis la racine :
 - Pas de dû, de reçu, de mangé en route ni de rendu par lieu : ce sont des comptes de maison, servis par `/maison`.
 - La cadence du service à 4 jours/s, déjà dépassée au tick 35, n'est pas corrigée ici : mesurée et déclarée seulement.
 - Aucun test assoupli. Tout chemin hors du périmètre est interdit.
+
+## Vérifications du codeur — 14/10/2026
+
+Les champs et les contre-épreuves sont réalisés, mais **SC9 bloque la validation**. Aucun test n'est assoupli. Commandes depuis `jeu/`, sauf les trois dernières :
+
+| Commande | Résultat |
+|---|---|
+| `python3 -m pytest sim/tests/test_flux.py -q -k flux_des_lieux` | 2 verts ; mouvements relevés indépendamment sur 35 ticks, tous les lieux comparés |
+| `python3 -m pytest sim/tests/test_monde.py -q -k "lieux_de_la_photographie or sans_seconde_cle or flux_des_lieux"` | 3 verts ; nouvelle preuve rejouée seule après ses derniers ajouts : 1 vert |
+| `python3 -m pytest sim/tests/test_lieux.py -q -k photographie_et_empreinte` | 3 verts |
+| `python3 -m pytest sim/tests/test_monde.py -q -k "service_ia_sans or reponse_figee or lecteur_json or noms_publication"` | 11 verts ; anciens octets et empreintes conservés après retrait des nouveaux champs |
+| `python3 -m pytest forge/tests/test_forge.py -q -k forge_ia_sans` | 2 verts |
+| `python3 -m pytest vues/chronique/tests/test_chronique.py -q -k "decoupe or champs_mobiles or capture_reprend or deux_chroniques"` | 4 verts ; nouvelle preuve rejouée seule : 1 vert ; sélection ciblée conformément à la consigne de ne pas jouer un fichier entier |
+| `python3 -m pytest sim/tests/test_monde.py sim/tests/test_lieux.py sim/tests/test_flux.py ville/tests -q -k "documente or modele or documentation or contrat"` | 30 verts |
+| `python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q` | 8 verts |
+| `python3 -m pytest jeu/sim/tests/test_maisons_servies.py -q -s -k mesure_matiere` | 1 vert ; médianes au tick 35 : matière 35,7 ms, publication 243,1 ms |
+| `python3 -m pytest jeu/sim/tests/test_monde.py -q -k horloge_pause_vitesse_et_budget` | 3 échecs isolés : 8, 4 puis 6 ticks en environ 2,52 s ; la version antérieure passe le même contrôle |
+
+Neuf paires alternées sur le même serveur au tick 35, version antérieure relue dans `HEAD` : publication **137,5 ms avant / 216,0 ms après**. Les mesures des ticks 1 à 12 montrent déjà des totaux tick + publication au-delà de 250 ms après le lot ; le dépassement ne se limite donc pas au tick 35 dans cette séance. La correction de cadence reste hors périmètre. Les nouvelles preuves ont été vues rouges, dont la preuve de publication corrigée pour son import puis rejouée avec le lecteur antérieur (absence de `nom`). `git diff --check` est vert. La suite entière n'a pas été lancée.

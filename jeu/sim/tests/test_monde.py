@@ -3499,7 +3499,7 @@ def test_service_lieu_documente_dans_le_modele():
 
 
 # --- Lot 237 : /lieu sert les lieux de la cellule ---
-_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2"}  # le point : lot #393
+_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2", "nom", "flux_30j"}  # le point : lot #393
 
 
 def _verifier_lieux_contre_photo(lieu: dict, cellule: dict, nombre_attendu: int) -> None:
@@ -4302,6 +4302,7 @@ def test_service_ia_sans(monkeypatch):
         0: [anterieures[0][0], '1d293e8904ca32aa6b72e29762b42c1c9862459dce1691599f57ce6468df97db', '05d131f47e10eb27753d019491ec5f3649d79c7a9195a9f80dff5293545af30d'],
         4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
     }
+    completes = {0: ['de57685962dc181ca490b37b0c18db936195fccd6a486239d2b53da6d19e3839', '71a6d72148d243323966706fc8188fd07521c01a756fa8d426c7eb5a1b1e797e'], 4: ['d54ebee7e0061cbade94f4652f8508fd99d8e916acecbddd0ba377560f12c1ee', '53d9b66066656082e80288d965baf5717c3081a2e1b1b3e4a0e73382b52d719c']}
     from sim.service import _serialiser
     with _lancer_service_sans_part(0) as port:
         for t, attendues in empreintes.items():
@@ -4310,10 +4311,14 @@ def test_service_ia_sans(monkeypatch):
                 octets = requete_service(port, chemin)[2]
                 reponse = json.loads(octets)
                 if chemin != '/monde':
+                    assert _sha(octets) == completes[t][0 if '1175' in chemin else 1]
+                    for lieu in reponse['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
                     for lieu in reponse['lieux']: lieu.pop('point')  # le point vient du lot #393
                 assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c16d0b6f5d5699793286ab480344207940c01dc55f4630fcffb84e09fac66e18', 'd8cabad69d78b46f227e1db6d5b7e1238767de836b14c2f5998bc9d59ab87f92'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '32c0fa20e892cc305f9eac5a41dedc4f9b35c834925160a8e8319cc19f66a7bf', 'ea965093c5d6ad8b169b8558dc7a57d7e826e46247d0fe02e3e2dafdabc28ecd']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
                 if chemin != '/monde':
-                    document = json.loads(octets); assert document.pop('noms'); octets = _serialiser(document)
+                    document = json.loads(octets); assert document.pop('noms')
+                    for lieu in document['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
+                    octets = _serialiser(document)
                 assert hashlib.sha256(octets).hexdigest() == attendue
                 faux = json.loads(octets); faux['ia'] = []
                 from sim.service import _serialiser
@@ -4382,6 +4387,7 @@ def test_service_reponse_figee_places_et_anciens_champs(tick, avant, monkeypatch
         assert set(lieu["point"]) == {"x_m", "y_m", "latitude", "longitude"}
         assert point_dans_geometrie(lieu["point"]["x_m"], lieu["point"]["y_m"], geometrie)
     prive = copy.deepcopy(document); assert prive.pop("noms")
+    for lieu in prive["lieux"]: lieu.pop("nom"); lieu.pop("flux_30j")
     for lieu in prive["lieux"]: lieu.pop("point")
     assert _sha(_serialiser(prive)) == avant
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
@@ -4397,6 +4403,7 @@ def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne, monkeyp
     document = json.loads(fige)
     assert document["lieux"] and all(isinstance(l["maitre"], str) and l["maitre"] for l in document["lieux"])
     prive = copy.deepcopy(document); assert prive.pop("noms")
+    for lieu in prive["lieux"]: lieu.pop("nom"); lieu.pop("flux_30j")
     for lieu in prive["lieux"]: lieu.pop("point")  # le point vient du lot #393
     assert _sha(_serialiser(prive)) == {3: 'bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e', 4: '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'}[tick]
     for lieu in prive["lieux"]: lieu.pop("maitre")
@@ -4541,3 +4548,71 @@ def test_departs_budget_comparaison(monkeypatch):
     def lent(m):
         time.sleep(BUDGET_TICK_MS / 1000); return partir(m)
     with pytest.raises(AssertionError): controler(mesurer(lent)[0])
+
+
+
+def test_flux_des_lieux_publication_et_passe_unique(monkeypatch):
+    from sim import flux, service, snapshot_export
+    from sim.engine import tick
+    with service.ServeurMonde(('127.0.0.1', 0), 0, 0) as serveur:
+        for _ in range(35): tick(serveur.world, serveur.rng)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        photo = build_snapshot_document(serveur.world, 0, 35)
+        def verifier(etat):
+            partis, arrives = [], []
+            for cellule in photo['cells']:
+                cid = cellule['cell_id']; lieux = json.loads(etat.lieux[cid])['lieux']
+                assert lieux == cellule['lieux'] and lieux
+                for l in lieux:
+                    assert isinstance(l['nom'], str) and l['nom'] and l['nom'] == cellule['noms']['lieux'][l['rang']]['nom']
+                    f = l['flux_30j']; assert set(f) == {'preleve_kg', 'partis_personnes', 'arrives_personnes'}
+                    partis.append(f['partis_personnes']); arrives.append(f['arrives_personnes'])
+                    route = serveur.world.routes_des_lieux.par_cellule.get(cid)
+                    if route and route[0][l['rang']] >= 0: assert f['preleve_kg'] > 0
+            assert any(partis) and any(arrives)
+        verifier(serveur.etat_publie)
+        faux = copy.deepcopy(serveur.etat_publie)
+        cid = next(c['cell_id'] for c in photo['cells'] if len(c['lieux']) > 1)
+        document = json.loads(faux.lieux[cid]); a, b = document['lieux'][:2]
+        a['nom'], b['nom'] = b['nom'], a['nom']; faux.lieux[cid] = service._serialiser(document)
+        with pytest.raises(AssertionError): verifier(faux)
+        lire = service.lieux_en_photographie
+        with monkeypatch.context() as ctx:
+            ctx.setattr(service, 'lieux_en_photographie', lambda cid, cell, places=None, noms=None, flux=None: lire(cid, cell, places, noms, None))
+            with pytest.raises(AssertionError): verifier(serveur._construire_etat(0, -1))
+        appels = []
+        def compter(m):
+            appels.append(m); assert len(appels) == 1; return flux.flux_des_lieux(m)
+        def interdit(*a): pytest.fail('flux_de_lieu appelé pendant une publication')
+        for module in (flux, service, snapshot_export): monkeypatch.setattr(module, 'flux_de_lieu', interdit, raising=False)
+        monkeypatch.setattr(service, 'flux_des_lieux', compter)
+        monkeypatch.setattr(snapshot_export, 'flux_des_lieux', compter)
+        def une_passe():
+            appels.clear(); serveur._construire_etat(0, -1); assert len(appels) == 1
+            appels.clear(); build_snapshot_document(serveur.world, 0, 35); assert len(appels) == 1
+        une_passe()
+        monkeypatch.setattr(service, 'flux_des_lieux', lambda m: {cid: compter(m)[cid] for cid in m.cells})
+        with pytest.raises(AssertionError): une_passe()
+
+
+@pytest.mark.parametrize('tick,ancienne', [(3, '55748f4bab604cd482274db8af1185601410518af2013a64b777631b70cddb31'), (4, '42da176f1b979cce1172b8c13e0c01e6749f3fb00ba2a372e94b383d1a7a7fd7')])
+def test_service_reponse_figee_flux_et_origine(tick, ancienne):
+    from sim.service import _serialiser
+    document = json.loads((_REPO.parent / f'3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json').read_bytes())
+    assert document['lieux'] and all(l['nom'] and l['flux_30j'] is not None for l in document['lieux'])
+    prive = copy.deepcopy(document)
+    for lieu in prive['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
+    def verifier(d): assert _sha(_serialiser(d)) == ancienne
+    verifier(prive)
+    for champ, valeur in (('population', prive['lieux'][0]['population'] + 1), ('nom', document['lieux'][0]['nom'])):
+        faux = copy.deepcopy(prive); faux['lieux'][0][champ] = valeur
+        with pytest.raises(AssertionError): verifier(faux)
+
+
+def test_service_flux_documente_parmi_les_champs_servis():
+    def verifier(texte):
+        paragraphe = texte.split('Le service les publie.', 1)[1].split('\n\n', 1)[0]
+        champs = paragraphe.split('chacun avec exactement', 1)[1].split('.', 1)[0]
+        assert all(c in champs for c in ('`nom`', '`flux_30j`'))
+    texte = (_REPO / 'sim/MODELE.md').read_text(); verifier(texte)
+    with pytest.raises(AssertionError): verifier(texte.replace('`flux_30j`', 'les flux'))

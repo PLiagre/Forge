@@ -33,6 +33,7 @@ from sim import constants as _constants
 from sim.constants import SNAPSHOT_FLOAT_DECIMALS, SNAPSHOT_SCHEMA_VERSION
 from sim.model import cellule_vers_dict, copier_panier
 from sim.noms import noms_depuis_monde
+from sim.flux import flux_des_lieux
 from sim.lieux import lieux_de_cellule
 from sim.places import places_du_monde
 from sim.ia import maisons_de_l_ia, maisons_actives_30j
@@ -177,11 +178,12 @@ def densite_de_cellule(cell) -> float:
     return cell.population / cell.area_km2
 
 
-def lieux_en_photographie(cid, cell, places=None) -> list[dict]:
+def lieux_en_photographie(cid, cell, places=None, noms=None, flux=None) -> list[dict]:
     """Lit les lieux, leurs surfaces et leurs places (#393), sans arrondir leur contenu.
 
     `places` vient de `places_du_monde` ; sans elles (un monde construit à la main, sans
     carte), chaque lieu déclare `point: None`, jamais un point deviné.
+    Sans bloc de noms ou mesures de flux, `nom` ou `flux_30j` vaut `None`.
     """
     vue_lieux = lieux_de_cellule(cid, cell.area_km2)
     if len(cell.lieux) != len(vue_lieux):
@@ -191,7 +193,11 @@ def lieux_en_photographie(cid, cell, places=None) -> list[dict]:
     return [
         {"rang": lieu.rang, "surface_km2": vue_lieux[lieu.rang].surface_km2,
          "population": lieu.population, "stocks": copier_panier(lieu), "maitre": lieu.maitre,
-         "point": places[lieu.rang].en_document() if places is not None else None}
+         "point": places[lieu.rang].en_document() if places is not None else None,
+         "nom": noms["lieux"][lieu.rang]["nom"] if noms is not None else None,
+         "flux_30j": {"preleve_kg": flux[lieu.rang]["preleve_kg"],
+                      "partis_personnes": flux[lieu.rang]["partis"],
+                      "arrives_personnes": flux[lieu.rang]["arrives"]} if flux is not None else None}
         for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
     ]
 
@@ -300,8 +306,6 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
         places = places_du_monde(world)
     except ValueError as exc:
         raise SnapshotExportError(str(exc)) from exc
-    for cellule, (cid, cell) in zip(cells_out, sorted(world.cells.items(), key=lambda item: int(item[0]))):
-        cellule["lieux"] = lieux_en_photographie(int(cid), cell, places[int(cid)])
 
     try:
         table = charger_table()
@@ -324,8 +328,10 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
         raise SnapshotExportError(str(exc)) from exc
 
     noms = noms_depuis_monde(world, table=table, vue=puissances_vue, attribution=attribution)
+    flux = flux_des_lieux(world)
     for cellule in cells_out:
         cid = cellule["cell_id"]
+        cellule["lieux"] = lieux_en_photographie(cid, world.cells[cid], places[cid], noms[cid], flux[cid])
         cellule.update({
             "puissance": puissances_par_id.get(puissances_vue[cid]),
             "maison": maisons_par_id.get(maisons_vue[cid]),

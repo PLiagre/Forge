@@ -1939,7 +1939,8 @@ jour 0 compte encore ; après trente et un, il ne compte plus. À la création
 d'un jour, les jours antérieurs à `ticks_ecoules + 1 − FENETRE_FLUX_TICKS`
 sont retirés. Une maison connue sans route rend cinq zéros mesurés ; une
 maison ou un lieu inconnu est refusé. Les lecteurs servent les preuves et
-le futur service ; aucun module de règles ne les appelle.
+le service ; `flux_des_lieux` sert `/lieu` et la photographie en une passe,
+dans le même ordre des jours que `flux_de_lieu`. Aucun module de règles ne les appelle.
 
 Le prélèvement accumule les kilos dans une liste locale, sans garde ni
 écriture `array` par lieu ; les vecteurs sont convertis une fois par appel.
@@ -2351,9 +2352,14 @@ la sérialisation canonique de l'empreinte, sans ajout à la photographie ni à 
 ne sont pas simulés (niveau 3).
 
 Le service les publie. `GET /lieu?cell=X` porte `lieux`, rangés par rang,
-chacun avec exactement `rang`, `surface_km2`, `population`, `stocks` et `maitre`.
+chacun avec exactement `rang`, `surface_km2`, `population`, `stocks`, `maitre`,
+`point`, `nom` et `flux_30j`.
 `maitre` est l’identifiant de maison stocké, ou `None` déclaré pour un état
-manuel, sans maison devinée. Ils sont lus par `lieux_en_photographie`, la
+manuel, sans maison devinée. `nom` reprend l'entrée de même `rang` du bloc
+`noms` déjà publié. `flux_30j` vient de `flux_des_lieux` : `preleve_kg` (toujours
+un flottant), `partis_personnes` et `arrives_personnes`, sur trente jours,
+sans arrondi. Sans noms ou flux fournis, ces champs déclarent `None` ; sans
+registre, les flux fournis valent zéro. Ils sont lus par `lieux_en_photographie`, la
 fonction même qui remplit les lieux de la photographie, **sans arrondi** : la somme de leurs paniers égale le
 panier du monde au bit près, pas le panier arrondi en tête de la réponse.
 Ces octets sont construits dans `EtatPublie`, avec la photographie du tick,

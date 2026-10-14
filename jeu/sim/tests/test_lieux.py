@@ -596,7 +596,7 @@ def test_photographie_et_empreinte_portent_les_lieux():
         vue = lieux_de_cellule(cid, monde.cells[cid].area_km2)
         assert len(cellule["lieux"]) == len(vue) > 0
         assert [lieu["rang"] for lieu in cellule["lieux"]] == list(range(len(vue)))
-        assert all(set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre", "point"} for lieu in cellule["lieux"])
+        assert all(set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre", "point", "nom", "flux_30j"} for lieu in cellule["lieux"])
         assert [lieu["surface_km2"] for lieu in cellule["lieux"]] == [lieu.surface_km2 for lieu in vue]
         assert sum(lieu["population"] for lieu in cellule["lieux"]) == cellule["population"]
     def verifier_maitres(photo):
@@ -605,7 +605,7 @@ def test_photographie_et_empreinte_portent_les_lieux():
         for cellule in photo["cells"]:
             assert cellule["lieux"]
             for lieu in cellule["lieux"]:
-                assert set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre", "point"}
+                assert set(lieu) == {"rang", "surface_km2", "population", "stocks", "maitre", "point", "nom", "flux_30j"}
                 assert lieu["maitre"] is not None and lieu["maitre"] in maisons
                 assert lieu["maitre"] == monde.cells[cellule["cell_id"]].lieux[lieu["rang"]].maitre
     verifier_maitres(document)
@@ -1395,3 +1395,15 @@ def test_noms_refus(tmp_path, champ, defaut):
         for a in document['aires'].values(): a[champ] = a[champ][:1]
     chemin = tmp_path / 'noms.json'; chemin.write_text(json.dumps(document))
     with pytest.raises(ValueError, match='cellule' if champ == 'regles' else champ if defaut == 'capacite' else aire + '.*' + (champ if champ != 'aire' else 'listes')): noms_depuis_monde(monde, noms=charger_noms(chemin))
+
+
+
+def test_photographie_et_empreinte_noms_flux_absents():
+    from sim.model import Cell, EtatDeLieu
+    from sim.snapshot_export import lieux_en_photographie
+    photo = lieux_en_photographie(1, Cell(1, 1., 0, lieux=[EtatDeLieu(0, 0, {})]))
+    def verifier(p):
+        assert p and all(l['nom'] is None and l['flux_30j'] is None for l in p)
+    verifier(photo)
+    faux = copy.deepcopy(photo); faux[0]['nom'] = 'Deviné'
+    with pytest.raises(AssertionError): verifier(faux)

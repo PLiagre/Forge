@@ -284,8 +284,13 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
     # Lot #393 : chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
-    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '9a4dba1eaabfde14ff1a9a507f3666e8c762459f740c59cb25a22d50b943a87b', 30: 'a878777d9ea77fb922b2ff834d9ee8a400e6086d628f9ec87398c77a3d01767b'}[ticks]
+    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '10c8ddc27e5d95d54ab40f3abaef247cea004896d2f015c9a5c543d377b26bf3', 30: 'b2d3dc6df84e60c512bb12346e5d0ea96e43fb3dd14e54ea797129f28cf6435b'}[ticks]
     photo_noms = json.loads(chemin.read_bytes())
+    faux_flux = json.loads(chemin.read_bytes()); faux_flux['cells'][0]['lieux'][0]['flux_30j']['preleve_kg'] += 1
+    with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux_flux)).hexdigest() == hashlib.sha256(chemin.read_bytes()).hexdigest()
+    for cellule in photo_noms['cells']:
+        for lieu in cellule['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
+    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '9a4dba1eaabfde14ff1a9a507f3666e8c762459f740c59cb25a22d50b943a87b', 30: 'a878777d9ea77fb922b2ff834d9ee8a400e6086d628f9ec87398c77a3d01767b'}[ticks]
     points = [lieu.pop('point') for c in photo_noms['cells'] for lieu in c['lieux']]
     assert points and all(set(p) == {'x_m', 'y_m', 'latitude', 'longitude'} for p in points)
     assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '1250b87e718c98fa9aff62328c9ce557db73b06fc588c07280d5192c7c407f8c', 30: '275ccb885465eb90f933c4c648d18d28fa3375868c5901e2f23fafe46abf271c'}[ticks]
