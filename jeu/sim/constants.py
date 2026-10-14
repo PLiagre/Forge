@@ -70,6 +70,9 @@ def fabrication_kg(stock_brut_kg: float) -> tuple[float, float]:
 # Toutes les constantes temporelles ci-dessous sont dérivées de cette valeur.
 TICK_DURATION_DAYS = 1
 
+# Fenêtre de lecture : trente jours à un jour par tick, pas une règle du monde.
+FENETRE_FLUX_TICKS = 30
+
 # --- Production alimentaire ---
 
 # Rendement agricole paramétrique : kilogrammes de nourriture produits

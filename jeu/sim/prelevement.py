@@ -1,6 +1,9 @@
 """La récolte du maître voyage vers son grenier ; aucun aléa supplémentaire."""
 
+from array import array
+
 import sim.constants as constantes
+from sim import flux
 from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
 
 
@@ -47,14 +50,25 @@ def prelever(monde, recoltes) -> None:
     routes = getattr(monde, "routes_des_lieux", None)
     if not routes:
         return
+    jour = flux.jour_courant(monde)
+    perte = constantes.PERTE_CONVOI_PAR_JOUR
+    garde = 1.0 - perte
+    if jour is not None:
+        charges_flux = monde.flux.en_route
+        en_route = [charge * garde for charge in charges_flux]
+        mange = list(jour.mange)
+        preleve = [0.0] * len(routes.noms)
     nourriture = constantes.MARCHANDISE_NOURRITURE
-    garde = 1.0 - constantes.PERTE_CONVOI_PAR_JOUR
     tick = monde.ticks_ecoules
     if monde.secours:
         for charges in monde.secours.values():
             for cle, kg in charges.items():
                 reste = kg * garde
                 monde.mange_convois_kg += kg - reste
+                if jour is not None:
+                    cid, rang = cle
+                    indice = routes.par_cellule[cid][0][rang]
+                    mange[indice] += kg - reste
                 charges[cle] = reste
         arrives_secours = monde.secours.pop(tick, None)
         if arrives_secours:
@@ -76,6 +90,8 @@ def prelever(monde, recoltes) -> None:
             if kg:
                 panier = monde.greniers[nom]
                 entree = kg * facteur
+                if jour is not None:
+                    en_route[i] -= entree
                 route_due = dus[i] if dus else None
                 if route_due is not None and part_due:
                     indice, jours = route_due
@@ -87,6 +103,11 @@ def prelever(monde, recoltes) -> None:
                         groupe = convois[arrivee] = GroupeArrivee(len(routes.noms))
                     groupe.charges[indice] += du / groupe.facteur
                     groupe.total += du
+                    if jour is not None:
+                        jour.du[i] += du
+                        en_route[indice] += du
+                if jour is not None:
+                    jour.recu[i] += entree
                 panier[nourriture] = panier.get(nourriture, 0.0) + entree
     taux = [monde.parts[nom] for nom in routes.noms]
     groupes = [None] * (routes.jours_max + 1)
@@ -110,6 +131,8 @@ def prelever(monde, recoltes) -> None:
             ecrire_stock_marchandise(lieu, nourriture,
                                     lire_stock_marchandise(lieu, nourriture) - kg)
             retire += kg
+            if jour is not None:
+                preleve[indice] += kg
             jours = durees[rang]
             groupe = groupes[jours]
             if groupe is None:
@@ -130,3 +153,15 @@ def prelever(monde, recoltes) -> None:
     for jours, groupe in enumerate(groupes):
         if groupe is not None:
             groupe.total += ajouts[jours]
+
+    if jour is not None:
+        # Une seule boucle par maison ; les listes évitent les écritures array par lieu.
+        for i, kg in enumerate(preleve):
+            preleve[i] += jour.preleve[i]
+            en_route[i] += kg
+            mange[i] += charges_flux[i] * perte
+        jour.preleve = array('d', preleve)
+        monde.flux.en_route = array('d', en_route)
+        jour.mange = array('d', mange)
+        jour.taux = taux
+        jour.recoltes = recoltes

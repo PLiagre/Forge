@@ -29,6 +29,7 @@ ajoute ses cas dans le fichier qui porte déjà l'invariant concerné.
 | `test_monde.py` | chargement de la carte, ligne de commande, schéma du snapshot ; le service local rend la photographie ; l'horloge avance à la vitesse choisie, une lecture n'attend pas un tick |
 | `test_no_hardcoded.py` | aucun nombre magique dans le moteur |
 | `test_write_coverage.py` | tout champ du modèle est écrit quelque part et lu quelque part |
+| `test_flux.py` | exactitude des flux sur trente jours, mouvements bruts, neutralité des empreintes et budget du tick, avec contre-épreuves |
 | `test_convois.py` | la table du dû au suzerain, ses retenues hors carte et la durée de route d'un lieu jusqu'au siège de son maître, calculée une fois et laissée hors du tick |
 
 ```bash

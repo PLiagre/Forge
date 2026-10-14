@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import math
 
 import sim.constants as _constantes
+from sim import flux as _flux
 import sim.ville1400 as _ville1400
 from sim.chantiers import travail_requis_de_batiment, travail_requis_de_parcelle, travail_requis_de_route
 from sim.plan import Batiment, Parcelle, Plan, PlanInvalide, Rue
@@ -75,6 +76,9 @@ class OuvrirGrenier:
         panier[nourriture] = panier.get(nourriture, 0.0) - self.kg
         entrees = _lieux_de_la_maison(monde, self.maison)
         parts = partager(self.kg, _poids_des_lieux(monde, entrees))
+        jour = _flux.jour_courant(monde)
+        if jour is not None:
+            jour.rendu[monde.routes_des_lieux.noms.index(self.maison)] += self.kg
         for (cid, rang, jours), part in zip(entrees, parts):
             if part:
                 arrivee = monde.ticks_ecoules + jours - 1

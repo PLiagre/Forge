@@ -12,6 +12,7 @@ import pathlib
 import random
 
 import sim.constants as constantes
+from sim.flux import Flux
 from sim import foyers
 from sim.aggregation import PositionCelluleInconnue, charger_positions
 from sim.constants import (
@@ -127,6 +128,7 @@ class World:
         convois : groupes d’arrivée, facteur commun et charges par maison.
         secours : arrivée → charges courantes par lieu (cell_id, rang).
         mange_convois_kg : kilos consommés en route, cumul sans arrondi.
+        flux : mémoire des circulations sur trente jours, hors de to_dict et des règles.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -154,6 +156,7 @@ class World:
         self.convois = {}
         self.secours = {}
         self.mange_convois_kg = 0.0
+        self.flux = Flux()
 
     @property
     def date_simulation(self) -> dict[str, int]:

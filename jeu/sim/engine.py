@@ -29,6 +29,7 @@ import random
 from collections import defaultdict
 
 from sim import constants as _constantes
+from sim import flux as _flux
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
@@ -1591,22 +1592,29 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         sorties[src] += nb
         entrees[dest] += nb
 
+    partis, arrives = {}, {}
     for cid, cell in world.cells.items():
         delta = entrees.get(cid, 0) - sorties.get(cid, 0)
         if cell.lieux:
             if delta > 0:
                 next(lieu for lieu in cell.lieux if lieu.rang == 0).population += delta
+                arrives[(cid, 0)] = delta
             elif delta < 0:
                 affames = {lieu.rang: lieu.population
                            for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
                            if lieu.population > 0 and lieu.duree_faim_ticks > 0}
                 retraits = dict(zip(affames, _lieux.partager(-delta, affames.values())))
                 for lieu in cell.lieux:
-                    lieu.population -= retraits.get(lieu.rang, 0)
+                    retrait = retraits.get(lieu.rang, 0)
+                    lieu.population -= retrait
+                    if retrait:
+                        partis[(cid, lieu.rang)] = retrait
         if delta > 0:
             _ajouter_par_les_foyers(cell, delta)
         elif delta < 0:
             _retirer_par_les_foyers(cell, -delta)
+
+    _flux.noter_personnes(world, partis, arrives)
 
 
 def _valider_numero_tick(world, numero_tick: int | None) -> None:
