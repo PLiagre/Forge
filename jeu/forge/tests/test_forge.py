@@ -138,6 +138,14 @@ def test_depart_et_photographie_ne_differe_que_par_la_terre(tmp_path):
     temoin = json.loads((sans / "monde.json").read_text())
     assert photographie.pop("terre_choisie")["id"] == bar
     assert temoin.pop("terre_choisie") is None
+    assert "maisons_du_joueur" not in temoin
+    with pytest.raises(AssertionError):
+        assert photographie.copy() == temoin
+    maisons = photographie.pop("maisons_du_joueur")
+    assert maisons["maison"]["id"] == f"seigneurie-{bar}"
+    from sim.world import World
+    suzerain = next(m.suzerain for m in World.charger(0).maisons if m.id == maisons["maison"]["id"])
+    assert suzerain is not None and maisons["suzerain"]["id"] == suzerain
     assert photographie == temoin
     import copy
     sonde = copy.deepcopy(photographie)

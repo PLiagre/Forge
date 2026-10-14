@@ -2150,7 +2150,8 @@ avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
 ni `resume.json`. Avec `--ticks 0`, la commande refuse : « l'intention
 s'applique au tick suivant ». Le compte rendu écrit dans
 `resume.json["simulation"]["maison_du_joueur"]` l'identifiant du registre seulement après un choix appliqué ; la
-photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différence.
+photographie porte `terre_choisie`, `null` sans choix, et `maisons_du_joueur`,
+absente sans choix, avec les fiches du joueur et de son suzerain.
 
 **Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
 **Niveau 2 :** aucun ajout. **Niveau 3, pas simulé ici :** les lieux du joueur,
@@ -2177,6 +2178,14 @@ reste entier, avec siège, source, cellule, habitants, production,
 suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
 dans l'ordre de la fiche. Un identifiant mal formé lève `SnapshotExportError`
 « seigneurie inconnue », sans modifier le monde. **Le tick ne la lit pas.**
+
+Après `terre_choisie`, `maisons_du_joueur` porte `maison` et `suzerain` :
+les deux fiches de `document_de_maison`, tirées d'une seule matière avec
+les noms et places déjà calculés, sans arrondi, exactement comme `/maison`.
+Une racine porte `suzerain: null`. Sans choix, la clé est absente et aucune
+matière de maisons n'est calculée. Une maison absente du registre lève
+`SnapshotExportError` « maison inconnue », avec son identifiant ; le refus
+« seigneurie inconnue » reste prioritaire pour un choix mal formé.
 
 `build_snapshot_document` et `export_snapshot` acceptent `releve_ia=None` :
 aucun calcul de maisons IA ni nouvelle clé, mêmes octets et même version.
@@ -2240,6 +2249,7 @@ tenus. `GET /maison?id=X` donne sa fiche : identité, siège nommé et point
 identique à `/lieu`, couples des lieux tenus triés, part, panier du grenier,
 `flux_30j`, `absents`, tick et date. Un identifiant inconnu reçoit `404` ;
 un paramètre absent, vide ou répété reçoit `400`, sans modifier le monde.
+La photographie réutilise `document_de_maison` pour le joueur et son suzerain.
 
 `MatiereMaisons`, dataclass gelée de `sim/maisons_servies.py`, copie les parts,
 chaque panier et les sommes des flux à la publication dans `EtatPublie`.

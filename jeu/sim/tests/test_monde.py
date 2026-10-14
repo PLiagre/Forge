@@ -3385,6 +3385,13 @@ def test_photographie_1400_terre():
     sans = _photographie_1400(jumeau, 1)[1]
     assert sans.pop("terre_choisie") is None
     doc.pop("terre_choisie")
+    assert "maisons_du_joueur" not in sans
+    with pytest.raises(AssertionError):
+        assert doc.copy() == sans
+    maisons = doc.pop("maisons_du_joueur")
+    assert maisons["maison"]["id"] == f"seigneurie-{bar.id}"
+    suzerain = next(m.suzerain for m in monde.maisons if m.id == maisons["maison"]["id"])
+    assert suzerain is not None and maisons["suzerain"]["id"] == suzerain
     assert doc == sans
     monde.maison_du_joueur = f"seigneurie-{moree.id}"
     with pytest.raises(AssertionError):
