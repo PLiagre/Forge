@@ -4,9 +4,10 @@
 
 - Aucun composant Unity livré. Session limitée au cadrage demandé : DA, fonctionnalités et découpage proposés.
 - Les 108 images du dossier confirmé par le propriétaire ont été regardées, en douze planches de neuf, avec une note par image dans DA.md ; réductions conservées dans `references/`.
-- Branche : `direct/interface-cadrage`, base `origin/master` à `2535e03` ; PR à ouvrir après contrôles documentaires.
+- Branche : `direct/interface-cadrage`, base `origin/master` à `2535e03` ; [PR #628](https://github.com/PLiagre/Forge/pull/628), cadrage proposé, validation artistique toujours attendue.
 - Worktree isolé : `C:/Users/liagr/.codex/worktrees/8c29/Forge/.atelier/direct/interface-cadrage`. Le checkout principal reste intact.
 - Les PR de lots #627 et #511 ont été consultées : aucun fichier commun avec `docs/interface/`.
+- Contrôles : liens locaux et 108 empreintes d’originaux vérifiés, douze planches décodées et regardées, diff sans erreur d’espaces ; douze objets LFS retéléchargés du serveur et vérifiés. Aucun test Unity ou moteur exécuté pour cette documentation.
 
 ## Décisions et prochaine action
 
