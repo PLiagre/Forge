@@ -18,6 +18,9 @@ le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
 `GET /monde`, `GET /lieu?cell=...` et `GET /plan?cell=...` restent lisibles
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide, puis ses chantiers prennent des bras aux champs.
+`GET /maisons` liste toutes les maisons ; `GET /maison?id=X` sert leur siège,
+leurs lieux, leur part, leur grenier et leurs flux sur trente jours (kilos et
+personnes). Un identifiant inconnu reçoit 404 ; les absences sont déclarées.
 
 `python3 -m sim.service --ia` fait jouer les maisons avant chaque tick, sous le
 même verrou que le joueur. `GET /ia` rend le tick, la date, le relevé des dépôts
@@ -83,6 +86,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/__main__.py` | `py -m sim` — lance le monde |
 | `sim/snapshot_export.py` | Photographie cellulaire déterministe (`--snapshot-json`) |
 | `sim/service.py` | Service JSON local du monde courant (`127.0.0.1` uniquement) |
+| `sim/maisons_servies.py` | Matière publiée et documents des maisons, dérivés sans modifier le monde |
 | `sim/MODELE.md` | Comment le monde fonctionne : formules, constantes, limites |
 
 ---

@@ -22,6 +22,9 @@ from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.intentions import IntentionRefusee, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
+from sim.maisons_servies import (
+    MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
+)
 from sim.noms import noms_depuis_monde
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
 from sim.puissances import PuissanceInvalide, charger_table
@@ -114,7 +117,7 @@ def _vitesse_cli(recue: str) -> float:
 
 @dataclass(frozen=True)
 class EtatPublie:
-    """Photographie du tick ; les octets de base des plans se complètent à la première lecture."""
+    """Photographie du tick ; plans et maisons se complètent à la première lecture."""
 
     monde: bytes
     lieux: dict[int, bytes]
@@ -124,6 +127,8 @@ class EtatPublie:
     jours_par_seconde: float
     duree_dernier_tick_ms: float
     ia: bytes | None
+    maisons: MatiereMaisons
+    octets_maisons: dict[str | None, bytes]
 
 
 class ErreurIA(RuntimeError):
@@ -150,6 +155,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
         self.verrou_base = threading.Lock()
+        self.verrou_maisons = threading.Lock()
         self._bases = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
@@ -201,6 +207,15 @@ class ServeurMonde(ThreadingHTTPServer):
                     s.id, self.world, seigneuries, table, maisons, vue=vue,
                 ))) for s in sorted(seigneuries, key=lambda s: s.id)],
             }
+
+    def octets_de_maison(self, etat, identifiant=None):
+        """Sérialise une fiche ou la liste une fois par état, sans attendre le tick."""
+        with self.verrou_maisons:
+            if identifiant not in etat.octets_maisons:
+                document = (liste_des_maisons(etat.maisons) if identifiant is None
+                            else document_de_maison(etat.maisons, identifiant))
+                etat.octets_maisons[identifiant] = _serialiser(document)
+            return etat.octets_maisons[identifiant]
 
     def _places_des_lieux(self) -> dict:
         """Les places des lieux (#393), recalculées seulement quand le maître d'un bourg change : c'est
@@ -268,6 +283,8 @@ class ServeurMonde(ThreadingHTTPServer):
             monde=monde,
             lieux=lieux,
             plans=plans,
+            maisons=matiere_des_maisons(self.world, noms, places),
+            octets_maisons={},
             tick=numero_tick,
             date=date,
             jours_par_seconde=jours_par_seconde,
@@ -409,6 +426,23 @@ class RequetesMonde(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         cible = urlsplit(self.path)
         etat = self.server.etat_publie
+        if cible.path in ("/maisons", "/maison"):
+            identifiant = None
+            if cible.path == "/maison":
+                valeurs = parse_qs(cible.query, keep_blank_values=True).get("id")
+                recue = None if valeurs is None else valeurs if len(valeurs) != 1 else valeurs[0]
+                if not isinstance(recue, str) or not recue:
+                    self._refuser(HTTPStatus.BAD_REQUEST,
+                                  f"paramètre id invalide : reçu {recue!r}, attendu un identifiant de maison")
+                    return
+                identifiant = recue
+            try:
+                corps = self.server.octets_de_maison(etat, identifiant)
+            except MaisonInconnue:
+                self._refuser(HTTPStatus.NOT_FOUND, f"maison inconnue : reçu {identifiant!r}")
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
+            return
         if cible.path in ("/carte", "/departs"):
             try:
                 corps = (self.server.carte_figee()[0] if cible.path == "/carte"
