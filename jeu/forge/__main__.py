@@ -83,16 +83,19 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None, ia=False) -
     return destination, mesures
 
 
-def _carte(snapshot: Path, sortie: Path, lecture: str, largeur: int) -> dict:
+def _carte(snapshot: Path, sortie: Path, lecture: str, largeur: int) -> tuple[dict, dict]:
+    import numpy as np
     from PIL import Image
 
     from vues.relief.carte1400 import carte_de_1400
+    from vues.relief.encart import dessiner_encart
 
     document = json.loads(snapshot.read_text(encoding="utf-8"))
     image, compte_rendu = carte_de_1400(document, lecture=lecture, largeur=largeur)
+    encart, compte_encart = dessiner_encart(document, largeur=largeur)
     sortie.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(image, mode="RGBA").save(sortie)
-    return compte_rendu
+    Image.fromarray(np.concatenate((image, encart)), mode="RGBA").save(sortie)
+    return compte_rendu, compte_encart
 
 
 def _tableau(snapshot: Path, sortie: Path, lecture: str) -> dict:
@@ -168,7 +171,7 @@ def main(argv: list[str] | None = None) -> int:
     compte_rendu["snapshot"] = str(snapshot)
 
     try:
-        compte_rendu["carte"] = _carte(snapshot, sortie / "carte.png", args.lecture or "densite", args.largeur)
+        compte_rendu["carte"], compte_rendu["encart"] = _carte(snapshot, sortie / "carte.png", args.lecture or "densite", args.largeur)
     except Exception as exc:                      # noqa: BLE001 — on dit lequel a manqué
         print(f"carte : {exc}", file=sys.stderr)
         return 2
