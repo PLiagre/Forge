@@ -1910,6 +1910,56 @@ par les fonctions de `model.py` ;
 le commerce réutilise les besoins du snapshot et ne parcourt pas
 les arêtes pour une marchandise sans consommation, donc sans besoin ni flux.
 
+## Les flux sur trente jours
+
+Le monde garde une mémoire d'observation : aucune règle ne la lit. La
+fenêtre `FENETRE_FLUX_TICKS` vaut trente jours, à un jour par tick ; elle
+est relue à chaque appel. `World.flux` part vide au chargement, reste hors
+de `to_dict` et ne se sauvegarde pas. Le registre n'ajoute aucune étape au tick.
+
+Chaque jour porte cinq vecteurs par maison, alignés sur les noms de la table
+des routes : le prélevé des lieux, le reçu au grenier après dû, le dû envoyé
+au suzerain, le mangé en route (convois et secours), et le rendu quand la
+maison ouvre son grenier. `en_route` garde la charge courante vers chaque
+grenier : elle perd la consommation des charretiers et les arrivées, reçoit
+les récoltes et le dû réexpédié. Le dû reçu par le suzerain est une arrivée
+ordinaire, soumise à son propre dû s'il en a un.
+
+Le jour garde les références des parts et récoltes lues par le prélèvement,
+fraîches à chaque tick. Le prélevé d'un lieu se relit avec le même produit
+part × récolte ; on n'alloue aucun tableau supplémentaire par lieu. Les
+départs de famine et de mieux-vivre sont comptés en personnes brutes par
+`(cell_id, rang)`, y compris à l'intérieur d'une cellule. Un lieu peut envoyer
+et recevoir le même jour : les deux mouvements restent visibles. Les cellules
+sans lieux, les naissances, les morts et le commerce ne sont pas comptés.
+
+`flux_de_maison` et `flux_de_lieu` filtrent les jours de tick supérieur ou
+égal à `ticks_ecoules − FENETRE_FLUX_TICKS`. Ainsi, après trente ticks, le
+jour 0 compte encore ; après trente et un, il ne compte plus. À la création
+d'un jour, les jours antérieurs à `ticks_ecoules + 1 − FENETRE_FLUX_TICKS`
+sont retirés. Une maison connue sans route rend cinq zéros mesurés ; une
+maison ou un lieu inconnu est refusé. Les lecteurs servent les preuves et
+le futur service ; aucun module de règles ne les appelle.
+
+Le prélèvement accumule les kilos dans une liste locale, sans garde ni
+écriture `array` par lieu ; les vecteurs sont convertis une fois par appel.
+Les fonctions d'accès au stock sont gardées en variables locales. Les
+références des récoltes et des parts restent celles lues par le prélèvement.
+
+Médianes sur srv1914711, graine 0, cinq ticks de chauffe puis ticks 5 à 24,
+le 14/10/2026, monde réel chargé puis copié :
+
+| Comparaison | Tick | Prélèvement |
+|---|---:|---:|
+| Avant le lot, première comparaison en mémoire | 107,68 ms | 7,04 ms |
+| Registre initial, même comparaison | 119,96 ms | 10,13 ms |
+| Avant le lot (`5d984aa`), nouvelle comparaison en processus séparés | 110,21 ms | 7,42 ms |
+| Registre avec variables locales et sans garde par lieu, même séance | 114,35 ms | 9,51 ms |
+
+Chaque processus de la seconde comparaison importe ses propres fichiers,
+puis joue seul les mêmes vingt ticks mesurés ; leurs `to_dict()` finaux
+ont la même empreinte. Les médianes varient entre les passages.
+
 ## Les intentions du joueur
 
 `ouvrir_grenier` accepte exactement `{"type": "ouvrir_grenier", "maison": <id du registre>, "kg": <quantité>}`.

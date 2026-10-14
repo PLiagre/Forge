@@ -5,6 +5,7 @@ from math import floor
 
 import sim.constants as _constantes
 from sim import engine as _engine
+from sim import flux as _flux
 from sim.model import lire_stock_marchandise
 
 
@@ -55,6 +56,7 @@ def appliquer_departs(world) -> int:
 
     deltas_lieux, deltas_cellules = defaultdict(int), defaultdict(int)
     total = 0
+    partis, arrives = defaultdict(int), defaultdict(int)
     # Les destinations et les effectifs restent ceux de la photo.
     for cle, (_, population, reserve) in photo.items():
         cid, _ = cle
@@ -69,6 +71,9 @@ def appliquer_departs(world) -> int:
         part = (min(_constantes.TAUX_DE_DEPART * tranches, _constantes.PLAFOND_DE_DEPART)
                 * _constantes.TICK_DURATION_DAYS)
         partants = floor(population * part / _constantes.TAILLE_FOYER) * _constantes.TAILLE_FOYER
+        if partants:
+            partis[cle] += partants
+            arrives[destination] += partants
         deltas_lieux[cle] -= partants
         deltas_lieux[destination] += partants
         cible_id, _ = destination
@@ -86,4 +91,5 @@ def appliquer_departs(world) -> int:
             _engine._ajouter_par_les_foyers(world.cells[cid], delta)
         elif delta < 0:
             _engine._retirer_par_les_foyers(world.cells[cid], -delta)
+    _flux.noter_personnes(world, partis, arrives)
     return total
