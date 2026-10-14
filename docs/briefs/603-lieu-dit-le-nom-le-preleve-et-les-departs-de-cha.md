@@ -159,3 +159,29 @@ Les champs et les contre-épreuves sont réalisés, mais **SC9 bloque la validat
 | `python3 -m pytest jeu/sim/tests/test_monde.py -q -k horloge_pause_vitesse_et_budget` | 3 échecs isolés : 8, 4 puis 6 ticks en environ 2,52 s ; la version antérieure passe le même contrôle |
 
 Neuf paires alternées sur le même serveur au tick 35, version antérieure relue dans `HEAD` : publication **137,5 ms avant / 216,0 ms après**. Les mesures des ticks 1 à 12 montrent déjà des totaux tick + publication au-delà de 250 ms après le lot ; le dépassement ne se limite donc pas au tick 35 dans cette séance. La correction de cadence reste hors périmètre. Les nouvelles preuves ont été vues rouges, dont la preuve de publication corrigée pour son import puis rejouée avec le lecteur antérieur (absence de `nom`). `git diff --check` est vert. La suite entière n'a pas été lancée.
+
+## Correction après CI rouge — 14/10/2026
+
+La cellule légère lit seulement ses champs servis : elle ne copie plus tous les lieux pour les jeter ensuite. La publication des lieux lit directement `surfaces_des_lieux`, sans reconstruire les objets `Lieu`. `flux_des_lieux` prépare les rangs routés une fois et additionne les kilos dans des listes privées, toujours dans l'ordre des jours et en une passe. Deux nouvelles preuves interdisent les copies et constructions écartées ; elles ont échoué avant correction puis réussi. Aucun test existant n'a été modifié.
+
+Commandes depuis `jeu/`, sauf mention « racine » :
+
+| Commande | Résultat |
+|---|---|
+| `python3 -m pytest sim/tests/test_flux.py sim/tests/test_monde.py sim/tests/test_lieux.py -q -k 'flux_des_lieux or lieux_de_la_photographie or sans_seconde_cle or photographie_et_empreinte or cellule_legere_ne_copie or photographie_lit_les_surfaces'` | 10 verts |
+| `python3 -m pytest sim/tests/test_flux.py -q -k flux_des_lieux` | 2 verts, rejoués après le dernier changement d'accumulateur |
+| `python3 -m pytest sim/tests/test_monde.py -q -k flux_des_lieux` | 1 vert, publication rejouée après ce même changement |
+| `python3 -m pytest sim/tests/test_monde.py -q -k 'service_ia_sans or reponse_figee or lecteur_json or noms_publication'` | 11 verts |
+| `python3 -m pytest forge/tests/test_forge.py -q -k forge_ia_sans` | 2 verts |
+| `python3 -m pytest vues/chronique/tests/test_chronique.py -q -k 'decoupe or champs_mobiles or capture_reprend or deux_chroniques'` | 4 verts ; fichier entier évité conformément à la consigne |
+| `python3 -m pytest sim/tests/test_monde.py sim/tests/test_lieux.py sim/tests/test_flux.py ville/tests -q -k 'documente or modele or documentation or contrat'` | 30 verts |
+| Racine : `python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q` | 8 verts, dernier code vérifié |
+| `python3 -m pytest -m chronometre sim/tests/ -q -s` | **5 échecs, 3 verts**, sans autre test en parallèle |
+| Racine : `python3 -m pytest jeu/sim/tests/test_maisons_servies.py -q -s -k mesure_matiere` | 1 vert ; matière 57,8 ms, publication 266,7 ms au tick 35 |
+| Racine : `git diff --check` | vert |
+
+Neuf comparaisons alternées au tick 35, sur le même monde et sans autre test en parallèle, relisent les fonctions de chaque révision (service, lecteur des lieux et lecteur des flux) : publication **340,9 ms avant le lot** (`eb03011`), **561,5 ms avant correction** (`5997943`), **383,7 ms après correction**. Les mesures fluctuent fortement dans cette séance ; elles ne garantissent pas le budget.
+
+Les chronomètres échouent sur `test_budget_flux_et_contre_epreuve` (tick médian 299,2 ms), `test_horloge_pause_vitesse_et_budget` (4 ticks en 2,51 s), `test_tick_sous_le_budget_du_service` (200,4 ms), `test_ateliers_budget` (173,4 ms) et `test_departs_budget_comparaison` (208,2 ms avec départs, 184,9 ms sans). Les quatre mesures du tick seul n'appellent pas le nouveau lecteur. Les fonctions du tick sont inchangées depuis avant ce lot ; notamment `git diff eb03011 -- jeu/sim/engine.py jeu/sim/departs.py` est vide.
+
+**SC9 reste bloqué.** Corriger aussi le budget du tick demande une extension du périmètre, puisque ce brief interdit explicitement `sim/engine.py` et `sim/departs.py` ; elle a été demandée au propriétaire, sans réponse à ce stade. Aucun changement n'a été fait dans ces fichiers, aucune constante ni assertion n'a été assouplie. La suite entière n'a pas été lancée.

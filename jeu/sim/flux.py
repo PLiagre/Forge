@@ -114,18 +114,26 @@ def flux_des_lieux(monde) -> dict:
                       for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)]
                 for cid, cell in monde.cells.items()}
     routes = getattr(getattr(monde, 'routes_des_lieux', None), 'par_cellule', {})
+    preleves = {cid: [0.0] * len(lignes) for cid, lignes in resultat.items()}
+    # Les rangs routés sont préparés une fois, plutôt que recherchés chaque jour.
+    prises = {cid: [(rang, indice) for rang, indice in enumerate(entree[0])
+                    if indice >= 0 and rang < len(lignes)]
+              for cid, entree in routes.items() if (lignes := resultat.get(cid)) is not None}
     for jour in _jours_de_fenetre(monde):
         if jour.taux is not None and jour.recoltes is not None:
+            taux, limite = jour.taux, len(jour.taux)
             for cid, recoltes in jour.recoltes.items():
-                entree = routes.get(cid)
-                if entree is None or cid not in resultat:
-                    continue
-                for indice, recolte, mesure in zip(entree[0], recoltes, resultat[cid]):
-                    if 0 <= indice < len(jour.taux):
-                        mesure['preleve_kg'] += jour.taux[indice] * recolte
+                nombre = len(recoltes)
+                kilos = preleves.get(cid)
+                for rang, indice in prises.get(cid, ()):
+                    if indice < limite and rang < nombre:
+                        kilos[rang] += taux[indice] * recoltes[rang]
         for champ in ('partis', 'arrives'):
             for (cid, rang), personnes in getattr(jour, champ).items():
                 lignes = resultat.get(cid, ())
                 if 0 <= rang < len(lignes):
                     lignes[rang][champ] += personnes
+    for cid, lignes in resultat.items():
+        for mesure, kilos in zip(lignes, preleves[cid]):
+            mesure['preleve_kg'] = kilos
     return resultat

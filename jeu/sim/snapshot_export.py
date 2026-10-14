@@ -34,7 +34,7 @@ from sim.constants import SNAPSHOT_FLOAT_DECIMALS, SNAPSHOT_SCHEMA_VERSION
 from sim.model import cellule_vers_dict, copier_panier
 from sim.noms import noms_depuis_monde
 from sim.flux import flux_des_lieux
-from sim.lieux import lieux_de_cellule
+from sim.lieux import surfaces_des_lieux
 from sim.places import places_du_monde
 from sim.ia import maisons_de_l_ia, maisons_actives_30j
 from sim.maisons import charger_maisons, maisons_depuis_monde
@@ -185,13 +185,13 @@ def lieux_en_photographie(cid, cell, places=None, noms=None, flux=None) -> list[
     carte), chaque lieu déclare `point: None`, jamais un point deviné.
     Sans bloc de noms ou mesures de flux, `nom` ou `flux_30j` vaut `None`.
     """
-    vue_lieux = lieux_de_cellule(cid, cell.area_km2)
-    if len(cell.lieux) != len(vue_lieux):
+    surfaces = surfaces_des_lieux(cid, cell.area_km2)
+    if len(cell.lieux) != len(surfaces):
         raise SnapshotExportError(f"nombre de lieux incohérent pour cell_id={cid}")
-    if places is not None and len(places) != len(vue_lieux):
+    if places is not None and len(places) != len(surfaces):
         raise SnapshotExportError(f"nombre de places incohérent pour cell_id={cid}")
     return [
-        {"rang": lieu.rang, "surface_km2": vue_lieux[lieu.rang].surface_km2,
+        {"rang": lieu.rang, "surface_km2": surfaces[lieu.rang],
          "population": lieu.population, "stocks": copier_panier(lieu), "maitre": lieu.maitre,
          "point": places[lieu.rang].en_document() if places is not None else None,
          "nom": noms["lieux"][lieu.rang]["nom"] if noms is not None else None,

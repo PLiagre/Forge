@@ -27,7 +27,7 @@ from sim.maisons_servies import (
 )
 from sim.noms import noms_depuis_monde
 from sim.flux import flux_des_lieux
-from sim.model import cellule_vers_dict, lire_habitants_par_metier
+from sim.model import copier_panier, lire_habitants_par_metier
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
@@ -58,10 +58,11 @@ def _serialiser(document: dict) -> bytes:
 
 def _cellule_legere(cellule) -> dict:
     """Extrait exactement l'état cellulaire partagé avec la photographie."""
-    etat = cellule_vers_dict(cellule)
+    # Lire les seuls champs publiés évite de copier les lieux puis de les jeter.
     return _round_tree(
-        {"cell_id": etat["cell_id"]}
-        | {champ: etat[champ] for champ in _CHAMPS_ETAT}
+        {"cell_id": cellule.cell_id}
+        | {champ: copier_panier(cellule) if champ == "stocks" else getattr(cellule, champ)
+           for champ in _CHAMPS_ETAT}
     )
 
 

@@ -1407,3 +1407,24 @@ def test_photographie_et_empreinte_noms_flux_absents():
     verifier(photo)
     faux = copy.deepcopy(photo); faux[0]['nom'] = 'Deviné'
     with pytest.raises(AssertionError): verifier(faux)
+
+
+def test_photographie_lit_les_surfaces_sans_recreer_les_lieux(monkeypatch):
+    from sim import lieux
+    from sim.model import Cell, EtatDeLieu
+    from sim.snapshot_export import lieux_en_photographie
+
+    surface = _constantes.SURFACE_KM2_PAR_LIEU * 2 + 0.5
+    vue = lieux_de_cellule(1, surface)
+    cellule = Cell(1, surface, 0, lieux=[EtatDeLieu(l.rang, 0, {}) for l in vue])
+    assert len(vue) > 1
+
+    def construction_interdite(*args):
+        pytest.fail('la publication reconstruit des objets de lieux pour lire leurs surfaces')
+
+    monkeypatch.setattr(lieux, 'Lieu', construction_interdite)
+    photo = lieux_en_photographie(1, cellule)
+    assert [l['surface_km2'] for l in photo] == [l.surface_km2 for l in vue]
+    monkeypatch.setattr(_constantes, 'SURFACE_KM2_PAR_LIEU', surface)
+    cellule.lieux = cellule.lieux[:1]
+    assert [l['surface_km2'] for l in lieux_en_photographie(1, cellule)] == [surface]

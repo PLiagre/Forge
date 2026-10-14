@@ -4616,3 +4616,27 @@ def test_service_flux_documente_parmi_les_champs_servis():
         assert all(c in champs for c in ('`nom`', '`flux_30j`'))
     texte = (_REPO / 'sim/MODELE.md').read_text(); verifier(texte)
     with pytest.raises(AssertionError): verifier(texte.replace('`flux_30j`', 'les flux'))
+
+
+def test_cellule_legere_ne_copie_pas_les_champs_ecartes(monkeypatch):
+    from sim import model, service
+    from sim.tests.test_commerce import _cellule_bourg
+
+    cellule = _cellule_bourg(1, [5000, 2500], [350000., 0.])
+    cellule.stocks['fer'] = 1.23456789
+    cellule.food_deficit_kg = 0.123456789
+    canonique = model.cellule_vers_dict(cellule)
+    attendu = service._round_tree({
+        champ: canonique[champ]
+        for champ in ('cell_id', 'population', 'stocks', 'hunger_ticks', 'food_deficit_kg')
+    })
+
+    def copie_interdite(*args):
+        pytest.fail('la cellule légère copie aussi les lieux qui seront écartés')
+
+    monkeypatch.setattr(model, 'asdict', copie_interdite)
+    document = service._cellule_legere(cellule)
+    assert document == attendu
+    assert service._serialiser(document) == service._serialiser(attendu)
+    document['stocks']['fer'] += 1
+    assert cellule.stocks['fer'] == canonique['stocks']['fer']
