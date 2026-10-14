@@ -342,3 +342,30 @@ def test_forge_ia_refus(tmp_path, capsys, monkeypatch, cas):
         if cas == 'inconnu': monkeypatch.setattr('sim.intentions.deposer_intention', lambda *a: None)
         with pytest.raises(AssertionError):
             _verifier_refus_depart(tmp_path / 'ignore', [*arguments.get(cas, []), '--ia'], message, capsys)
+
+@pytest.mark.parametrize('depart', [False, True])
+def test_encart_assemblage(tmp_path, depart):
+    import numpy as np
+    from PIL import Image
+    from vues.relief.carte1400 import carte_de_1400, COULEUR_CHOIX
+    from vues.relief.encart import dessiner_encart
+    largeur = 900 if depart else 64
+    bar, _ = _terres_depart(); code, sortie = _jouer(tmp_path, *(['--depart',str(bar)] if depart else []), '--sans-chronique', '--largeur', str(largeur))
+    assert code == 0; d = json.loads((sortie/'monde.json').read_text()); r = json.loads((sortie/'resume.json').read_text())
+    haut, c = carte_de_1400(d, lecture='densite', largeur=largeur); bas, e = dessiner_encart(d, largeur=largeur); image = np.array(Image.open(sortie/'carte.png'))
+    if depart: assert np.any(np.all(haut[..., :3] == COULEUR_CHOIX[:3],axis=2))
+    def controle(i, resume):
+        assert np.array_equal(i, np.concatenate((haut,bas))) and resume['carte'] == c and resume['encart'] == e
+        assert np.array_equal(np.all(i[..., :3] == COULEUR_CHOIX[:3],axis=2), np.pad(np.all(haut[..., :3] == COULEUR_CHOIX[:3],axis=2), ((0,len(bas)),(0,0))))
+    controle(image,r)
+    for faux in (haut, np.roll(image,1,axis=0), image.copy()):
+        if faux.shape == image.shape and np.array_equal(faux,image): faux[0,0] = 0
+        with pytest.raises(AssertionError): controle(faux,r)
+    r['encart']['fleches_dessinees'] += 1
+    with pytest.raises(AssertionError): controle(image,r)
+
+def test_encart_refus(tmp_path, monkeypatch):
+    from vues.relief.encart import EncartErreur
+    def refuser(*a, **kw): raise EncartErreur('sonde de rendu')
+    monkeypatch.setattr('vues.relief.encart.dessiner_encart', refuser)
+    code, sortie = _jouer(tmp_path, '--sans-chronique'); assert code == 2 and not (sortie/'resume.json').exists()
