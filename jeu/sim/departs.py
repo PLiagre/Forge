@@ -17,8 +17,11 @@ def _meilleur(candidat, actuel, photo):
         return candidat
     _, _, reserve_candidat = photo[candidat]
     _, _, reserve_actuel = photo[actuel]
-    return (candidat if (-reserve_candidat, *candidat) < (-reserve_actuel, *actuel)
-            else actuel)
+    if reserve_candidat > reserve_actuel:
+        return candidat
+    if reserve_candidat == reserve_actuel and candidat < actuel:
+        return candidat
+    return actuel
 
 
 def appliquer_departs(world) -> int:
@@ -28,8 +31,13 @@ def appliquer_departs(world) -> int:
               / _constantes.TICK_DURATION_DAYS)
     photo = {}
     premiers, seconds, bourgs = {}, {}, {}
+    lieux_par_cellule, reserves_minimales = {}, {}
     # Chaque lieu habité fournit une seule lecture du panier.
     for cid, cell in world.cells.items():
+        cles = []
+        premier = second = None
+        reserve_premier = reserve_second = None
+        reserve_minimale = None
         for lieu in cell.lieux:
             population = lieu.population
             if population <= 0:
@@ -38,13 +46,22 @@ def appliquer_departs(world) -> int:
             reserve = (stock - lieu.dette_alimentaire_kg) / (population * ration)
             cle = (cid, lieu.rang)
             photo[cle] = (lieu, population, reserve)
-            premier = premiers.get(cid)
-            if _meilleur(cle, premier, photo) == cle:
-                seconds[cid], premiers[cid] = premier, cle
-            else:
-                seconds[cid] = _meilleur(cle, seconds.get(cid), photo)
+            cles.append(cle)
+            if reserve_minimale is None or reserve < reserve_minimale:
+                reserve_minimale = reserve
+            if (premier is None or reserve > reserve_premier
+                    or (reserve == reserve_premier and cle < premier)):
+                second, premier = premier, cle
+                reserve_second, reserve_premier = reserve_premier, reserve
+            elif (second is None or reserve > reserve_second
+                    or (reserve == reserve_second and cle < second)):
+                second, reserve_second = cle, reserve
             if lieu.rang == 0:
                 bourgs[cid] = cle
+        if cles:
+            lieux_par_cellule[cid] = cles
+            reserves_minimales[cid] = reserve_minimale
+            premiers[cid], seconds[cid] = premier, second
 
     voisins = {}
     for edge in world.adjacency:
@@ -57,8 +74,16 @@ def appliquer_departs(world) -> int:
     deltas_lieux, deltas_cellules = defaultdict(int), defaultdict(int)
     total = 0
     partis, arrives = defaultdict(int), defaultdict(int)
+    # Si même la meilleure destination ne dépasse pas le lieu le moins
+    # nourri, aucun habitant de cette cellule ne peut partir sur cette photo.
+    candidats = []
+    for cid, cles in lieux_par_cellule.items():
+        meilleur = _meilleur(premiers[cid], voisins.get(cid), photo)
+        if photo[meilleur][-1] > reserves_minimales[cid] + _constantes.ECART_DE_DEPART_JOURS:
+            candidats.extend(cles)
     # Les destinations et les effectifs restent ceux de la photo.
-    for cle, (_, population, reserve) in photo.items():
+    for cle in candidats:
+        _, population, reserve = photo[cle]
         cid, _ = cle
         destination = seconds.get(cid) if premiers[cid] == cle else premiers[cid]
         seuil = reserve + _constantes.ECART_DE_DEPART_JOURS
@@ -82,8 +107,9 @@ def appliquer_departs(world) -> int:
             deltas_cellules[cible_id] += partants
         total += partants
 
-    for cle, (lieu, population, _) in photo.items():
-        lieu.population = population + deltas_lieux.get(cle, 0)
+    for cle, delta in deltas_lieux.items():
+        lieu, population, _ = photo[cle]
+        lieu.population = population + delta
     # Les métiers suivent le solde extérieur une seule fois par cellule.
     for cid in sorted(deltas_cellules):
         delta = deltas_cellules[cid]
