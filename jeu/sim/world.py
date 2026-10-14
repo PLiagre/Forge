@@ -125,6 +125,7 @@ class World:
         dus_des_vassaux : routes vers les suzerains, retenues hors carte et index dense,
                      calculés au chargement, hors de to_dict ; table vide en épreuve.
         convois : groupes d’arrivée, facteur commun et charges par maison.
+        secours : arrivée → charges courantes par lieu (cell_id, rang).
         mange_convois_kg : kilos consommés en route, cumul sans arrondi.
     """
 
@@ -151,6 +152,7 @@ class World:
         from sim.convois import TableDus
         self.dus_des_vassaux = TableDus()
         self.convois = {}
+        self.secours = {}
         self.mange_convois_kg = 0.0
 
     @property
@@ -351,4 +353,10 @@ class World:
             document["convois"] = prelevement.charges_en_route(self)
         if self.mange_convois_kg:
             document["mange_convois_kg"] = self.mange_convois_kg
+        if self.secours:
+            document["secours"] = sorted(
+                [cid, rang, arrivee, kg]
+                for arrivee, charges in self.secours.items()
+                for (cid, rang), kg in charges.items()
+            )
         return document

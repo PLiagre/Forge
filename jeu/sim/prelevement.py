@@ -30,6 +30,18 @@ def charges_en_route(monde):
             for nom, kg in sorted(zip(noms, groupe.charges)) if kg]
 
 
+def _livrer_secours(monde, charges):
+    """Le grain rejoint le lieu destinataire et sa cellule, quel que soit son maître."""
+    nourriture = constantes.MARCHANDISE_NOURRITURE
+    for (cid, rang), kg in charges.items():
+        cellule = monde.cells[cid]
+        lieu = cellule.lieux[rang]
+        ecrire_stock_marchandise(lieu, nourriture,
+                                lire_stock_marchandise(lieu, nourriture) + kg)
+        ecrire_stock_marchandise(cellule, nourriture,
+                                lire_stock_marchandise(cellule, nourriture) + kg)
+
+
 def prelever(monde, recoltes) -> None:
     """Perd en route, livre les arrivées, puis retire la part de la récolte."""
     routes = getattr(monde, "routes_des_lieux", None)
@@ -38,6 +50,15 @@ def prelever(monde, recoltes) -> None:
     nourriture = constantes.MARCHANDISE_NOURRITURE
     garde = 1.0 - constantes.PERTE_CONVOI_PAR_JOUR
     tick = monde.ticks_ecoules
+    if monde.secours:
+        for charges in monde.secours.values():
+            for cle, kg in charges.items():
+                reste = kg * garde
+                monde.mange_convois_kg += kg - reste
+                charges[cle] = reste
+        arrives_secours = monde.secours.pop(tick, None)
+        if arrives_secours:
+            _livrer_secours(monde, arrives_secours)
     convois = monde.convois
     # Groupe d'arrivée : facteur commun, total courant, charges nominales par maître.
     for groupe in convois.values():

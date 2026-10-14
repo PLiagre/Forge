@@ -75,7 +75,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/ville1400.py` | Ville de 1400 dérivée des foyers du bourg : place, rues, ruelles, maisons individuelles jusqu'à 500 foyers puis îlots, sans effet sur le tick ; `/plan` sert la base |
 | `sim/ateliers.py` | Emploi des artisans par surface des scieries et fours achevés, pris aux champs |
 | `sim/chantiers.py` | Journées de route, parcelle et bâtiment, passage des paysans aux ouvriers puis retour aux champs |
-| `sim/intentions.py` | Dépôt commun des choix de départ, routes, parcelles et bâtiments ; refuse un geste sur une maison de 1400 avant mise en attente du tick |
+| `sim/intentions.py` | Dépôt commun des choix de départ, routes, parcelles, bâtiments, parts et `ouvrir_grenier` ; refuse un geste sur une maison de 1400 avant mise en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/convois.py` | Route de chaque lieu jusqu'au grenier de son maître, calculée une fois au chargement |
 | `sim/engine.py` | `tick(world, rng)` — avance le monde d'un pas de temps (production + consommation + commerce + faim + mortalité) |
@@ -142,4 +142,4 @@ suite de tests (artefacts de preuve, non collectés par pytest).
 - **stdlib uniquement** : le moteur n'a aucune dépendance tierce (pytest est
   réservé aux tests).
 
-`sim/prelevement.py` retire la part de la récolte, fait voyager les charges et livre les greniers.
+`sim/prelevement.py` retire la part de la récolte, fait voyager les charges, livre les greniers et les secours aux lieux.

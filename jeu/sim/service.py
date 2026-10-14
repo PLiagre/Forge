@@ -20,7 +20,7 @@ from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
-from sim.intentions import IntentionRefusee, TYPE_FIXER_PART, recevoir_intention
+from sim.intentions import IntentionRefusee, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.noms import noms_depuis_monde
 from sim.model import cellule_vers_dict, lire_habitants_par_metier
@@ -512,6 +512,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 return
             try:
                 with self.server.verrou_tick:
+                    if intention.get("type") == TYPE_OUVRIR_GRENIER:
+                        joueur = self.server.world.maison_du_joueur
+                        if joueur is None:
+                            raise IntentionRefusee("départ non appliqué : choisir une terre avant d'ouvrir le grenier")
+                        if intention.get("maison") != joueur:
+                            raise IntentionRefusee("maison interdite : seule la maison du joueur peut ouvrir son grenier")
                     if intention.get("type") == TYPE_FIXER_PART:
                         joueur = self.server.world.maison_du_joueur
                         if joueur is None:

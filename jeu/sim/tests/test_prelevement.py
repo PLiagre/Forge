@@ -815,3 +815,129 @@ def test_modele_calibration_active():
             _verifier_modele_calibration_active(faux, habitants, bar)
     print('Rouges documentaires : mesure absente et perte falsifiée refusées.')
     _verifier_modele_calibration_active(texte, habitants, bar)
+
+
+def _entrees_ouverture(monde):
+    routes = monde.routes_des_lieux
+    indice = routes.noms.index(BAR)
+    return [(cid, rang, jours) for cid, rang, idx, jours in
+            zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours) if idx == indice]
+
+
+def _deposer_ouverture(monde, kg):
+    from sim.intentions import recevoir_intention
+    return recevoir_intention(monde, {"type": "ouvrir_grenier", "maison": BAR, "kg": kg})
+
+
+def test_ouverture_conservation_delais_et_cellules(monde, monkeypatch):
+    from sim.lieux import partager
+    from sim.model import lire_stock_marchandise
+    monkeypatch.setattr(c, 'PERTE_GRENIER_PAR_AN', 0)
+    def verifier():
+        m = copy.deepcopy(monde)
+        m.parts = dict.fromkeys(m.parts, 0)
+        m.greniers[BAR] = {c.MARCHANDISE_NOURRITURE: 200000.0}
+        entrees = _entrees_ouverture(m)
+        assert entrees
+        parts = partager(150000, [m.cells[cid].lieux[rang].population for cid, rang, _ in entrees])
+        _deposer_ouverture(m, 150000)
+        original, recus = prelevement.prelever, []
+        def observer(w, recoltes):
+            lieux = [w.cells[cid].lieux[rang] for cid, rang, _ in entrees]
+            avant = [lire_stock_marchandise(l, c.MARCHANDISE_NOURRITURE) for l in lieux]
+            cellules = {cid: lire_stock_marchandise(w.cells[cid], c.MARCHANDISE_NOURRITURE) for cid, _, _ in entrees}
+            original(w, recoltes)
+            hausses = [lire_stock_marchandise(l, c.MARCHANDISE_NOURRITURE) - kg for l, kg in zip(lieux, avant)]
+            recus.extend(hausses)
+            attendu = [part * (1 - c.PERTE_CONVOI_PAR_JOUR)**jours if w.ticks_ecoules == jours - 1 else 0
+                       for (_, _, jours), part in zip(entrees, parts)]
+            for cid, stock in cellules.items():
+                assert lire_stock_marchandise(w.cells[cid], c.MARCHANDISE_NOURRITURE) - stock == pytest.approx(
+                    sum(kg for (cell_id, _, _), kg in zip(entrees, hausses) if cell_id == cid), rel=1e-12)
+            roulant = sum(sum(charges.values()) for charges in w.secours.values())
+            assert 200000 - _food(w.greniers[BAR]) == pytest.approx(sum(recus) + w.mange_convois_kg + roulant, rel=1e-12)
+            assert hausses == pytest.approx(attendu, rel=1e-12)
+        with monkeypatch.context() as garde:
+            garde.setattr(prelevement, 'prelever', observer)
+            _jouer(m, max(j for _, _, j in entrees) + 1)
+        assert not m.secours and _food(m.greniers[BAR]) == 50000
+        assert sum(recus) > 0
+    verifier()
+    with monkeypatch.context() as garde:
+        garde.setattr(prelevement, '_livrer_secours', lambda w, charges: None)
+        with pytest.raises(AssertionError): verifier()
+
+
+def test_ouverture_baisse_dette_a_chaque_tick(monde, monkeypatch):
+    monkeypatch.setattr(c, 'RNG_YIELD_LOW', 0)
+    monkeypatch.setattr(c, 'RNG_YIELD_HIGH', 0)
+    base = copy.deepcopy(monde)
+    entrees = _entrees_ouverture(base)
+    def dette(m):
+        return sum(m.cells[cid].lieux[rang].dette_alimentaire_kg for cid, rang, _ in entrees)
+    rng = random.Random(0)
+    for _ in range(c.CALENDAR_DAYS_PER_YEAR):
+        engine.tick(base, rng, base.ticks_ecoules)
+        if dette(base) > 0: break
+    assert entrees and dette(base) > 0, 'échantillon sans dette avant ouverture'
+    def verifier():
+        avec, sans = copy.deepcopy(base), copy.deepcopy(base)
+        for m in (avec, sans): m.greniers[BAR] = {c.MARCHANDISE_NOURRITURE: 200000.0}
+        _deposer_ouverture(avec, 200000)
+        generateurs = [random.Random(), random.Random()]
+        for generateur in generateurs: generateur.setstate(rng.getstate())
+        for _ in range(6):
+            for m, generateur in zip((avec, sans), generateurs): engine.tick(m, generateur, m.ticks_ecoules)
+            assert dette(avec) < dette(sans)
+        assert _food(avec.greniers[BAR]) < _food(sans.greniers[BAR])
+    verifier()
+    with monkeypatch.context() as garde:
+        garde.setattr(prelevement, '_livrer_secours', lambda w, charges: None)
+        with pytest.raises(AssertionError): verifier()
+
+
+def test_ouverture_suit_le_lieu_et_octets(monde, monkeypatch):
+    from sim.lieux import partager
+    from sim.model import ecrire_maitre
+    monkeypatch.setattr(c, 'PERTE_GRENIER_PAR_AN', 0)
+    def verifier():
+        base = copy.deepcopy(monde)
+        base.parts = dict.fromkeys(base.parts, 0)
+        base.greniers[BAR] = {c.MARCHANDISE_NOURRITURE: 200000.0}
+        entrees = _entrees_ouverture(base)
+        parts = partager(150000, [base.cells[cid].lieux[rang].population for cid, rang, _ in entrees])
+        cible, part_cible = next((e, p) for e, p in zip(entrees, parts) if e[-1] > 1 and p > 0)
+        copies = [copy.deepcopy(base), copy.deepcopy(base)]
+        octets = []
+        for m in copies:
+            _deposer_ouverture(m, 150000)
+            _jouer(m, 1)
+            charges = m.to_dict()['secours']
+            assert charges == sorted(charges)
+            assert charges == sorted([cid, rang, jours - 1, part * (1 - c.PERTE_CONVOI_PAR_JOUR)]
+                                     for (cid, rang, jours), part in zip(entrees, parts) if jours > 1 and part)
+            cid, rang, jours = cible
+            lieu = m.cells[cid].lieux[rang]
+            ecrire_maitre(lieu, next(n for n in m.parts if n != BAR))
+            original, recus = prelevement.prelever, []
+            def observer(w, recoltes):
+                avant = _food(lieu.stocks)
+                original(w, recoltes)
+                if w.ticks_ecoules == jours - 1: recus.append(_food(lieu.stocks) - avant)
+            with monkeypatch.context() as garde:
+                garde.setattr(prelevement, 'prelever', observer)
+                _jouer(m, max(j for _, _, j in entrees))
+            assert recus == pytest.approx([part_cible * (1 - c.PERTE_CONVOI_PAR_JOUR)**jours], rel=1e-12)
+            assert 'secours' not in m.to_dict()
+            octets.append(json.dumps(m.to_dict(), sort_keys=True, ensure_ascii=False).encode())
+        assert octets[0] == octets[1]
+        _jouer(base, max(j for _, _, j in entrees) + 1)
+        assert 'secours' not in base.to_dict() and 'mange_convois_kg' not in base.to_dict()
+        assert World({}, []).secours == {}
+    verifier()
+    original = prelevement._livrer_secours
+    def mauvais_maitre(m, charges):
+        original(m, {cle: kg for cle, kg in charges.items() if m.cells[cle[0]].lieux[cle[1]].maitre == BAR})
+    with monkeypatch.context() as garde:
+        garde.setattr(prelevement, '_livrer_secours', mauvais_maitre)
+        with pytest.raises(AssertionError): verifier()

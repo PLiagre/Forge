@@ -1355,3 +1355,211 @@ def test_an_ia_sans_refus(monkeypatch):
     faux = []
     ia.jouer_ia(contre, faux)
     assert any('refus' in e for e in faux)
+
+
+def _ouverture(maison="seigneurie-1", kg=100):
+    return {"type": "ouvrir_grenier", "maison": maison, "kg": kg}
+
+
+def _monde_ouverture():
+    from sim.registre_maisons import MaisonDuMonde
+    from sim.convois import TableRoutes
+    from sim.model import Cell, EtatDeLieu
+    monde = World({1: Cell(1, 1, 10, lieux=[EtatDeLieu(0, 10, {})])}, [])
+    monde.maisons = (MaisonDuMonde("seigneurie-1", "Bar", "seigneurie", None, "Bar", 1, 0, None),
+                     MaisonDuMonde("hors-carte", "Hors carte", "grande", None, "Ailleurs", None, None, "hors carte"))
+    monde.routes_des_lieux = TableRoutes([(1, 0, "seigneurie-1", 1, 0, 1)])
+    monde.greniers = {"seigneurie-1": {"nourriture": 100.0}, "hors-carte": {}}
+    return monde
+
+
+@pytest.mark.parametrize("alteration,raison", [
+    *[({"maison": v}, f"maison inconnue ou mal formée : {v!r}") for v in ("inconnue", True, None, 1)],
+    ({"maison": "hors-carte"}, "maison sans lieu : hors-carte"),
+    *[({"kg": v}, f"kg invalide : {v!r}") for v in (True, None, "1", float("nan"), float("inf"), 0, -1)],
+    ({"kg": 101}, "grenier insuffisant : 101 kg demandés, 60.0 kg disponibles"),
+    ({"kg": 61}, "grenier insuffisant : 61 kg demandés, 60.0 kg disponibles"),
+    ({"foyers": 1}, "champ inconnu : foyers"), ({"inconnu": 1}, "champ inconnu : inconnu"),
+    *[({"sans": champ}, f"champ manquant : {champ}" if champ != "type" else "type d'intention inconnu : None")
+      for champ in ("type", "maison", "kg")],
+    ({"vide": True}, "lieux sans dette ni habitants : seigneurie-1"),
+])
+def test_ouverture_depot_refus(alteration, raison):
+    from copy import deepcopy
+    from sim.intentions import IntentionRefusee, recevoir_intention
+    monde = _monde_ouverture()
+    recevoir_intention(monde, _ouverture(kg=40))
+    geste = _ouverture() | alteration
+    if geste.pop("vide", False):
+        monde.cells[1].lieux[0].population = 0
+        geste["kg"] = 1
+    champ = geste.pop("sans", None)
+    if champ: geste.pop(champ)
+    file, greniers, document = list(monde.intentions_en_attente), deepcopy(monde.greniers), monde.to_dict()
+    with pytest.raises(IntentionRefusee) as refus:
+        recevoir_intention(monde, geste)
+    assert str(refus.value) == raison
+    assert (monde.intentions_en_attente, monde.greniers, monde.to_dict()) == (file, greniers, document)
+
+
+def test_ouverture_depot_gele_et_reservation(monkeypatch):
+    from sim.intentions import recevoir_intention, IntentionRefusee
+    monde = _monde_ouverture()
+    premier = recevoir_intention(monde, _ouverture(kg=40))
+    donnees = _ouverture(kg=60)
+    second = recevoir_intention(monde, donnees)
+    donnees["kg"] = 200
+    assert monde.intentions_en_attente == [premier, second] and second.kg == 60
+    with pytest.raises(FrozenInstanceError): second.kg = 0
+    def verifier():
+        with pytest.raises(IntentionRefusee, match="grenier insuffisant"):
+            recevoir_intention(monde, _ouverture(kg=1))
+    verifier()
+    import sim.intentions as intentions
+    original = intentions._ouvrir_grenier
+    def sans_reservation(w, intention):
+        file = w.intentions_en_attente
+        w.intentions_en_attente = []
+        try:
+            geste = original(w, intention)
+        finally:
+            w.intentions_en_attente = file
+        file.append(geste)
+        return geste
+    with monkeypatch.context() as garde:
+        garde.setattr(intentions, "_ouvrir_grenier", sans_reservation)
+        with pytest.raises(pytest.fail.Exception): verifier()
+    del monde.intentions_en_attente[2:]
+    engine._appliquer_intentions(monde)
+    assert monde.greniers["seigneurie-1"]["nourriture"] == 0.0
+    # Une somme préalable arrondirait différemment de ces retraits successifs.
+    monde = _monde_ouverture()
+    monde.greniers["seigneurie-1"]["nourriture"] = 1.0
+    for kg in (0.3, 0.3): recevoir_intention(monde, _ouverture(kg=kg))
+    with pytest.raises(IntentionRefusee, match="grenier insuffisant"):
+        recevoir_intention(monde, _ouverture(kg=0.4))
+    reste = (1.0 - 0.3) - 0.3
+    recevoir_intention(monde, _ouverture(kg=reste))
+    engine._appliquer_intentions(monde)
+    assert monde.greniers["seigneurie-1"]["nourriture"] == 0.0
+
+
+@pytest.mark.parametrize("dettes", [False, True])
+def test_ouverture_application_sans_registre(monkeypatch, dettes):
+    from sim import constants as c, prelevement
+    from sim.intentions import OuvrirGrenier, recevoir_intention
+    from sim.lieux import partager
+    from sim.model import EtatDeLieu
+    from sim.tests.test_maisons import _tick_sans_lecture_registre
+    def verifier():
+        monde = World.charger(0)
+        routes = monde.routes_des_lieux
+        indice = routes.noms.index("seigneurie-1")
+        entrees = [(cid, rang, jours) for cid, rang, idx, jours in
+                   zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours) if idx == indice]
+        lieux = [monde.cells[cid].lieux[rang] for cid, rang, _ in entrees]
+        assert lieux and all(l.population > 0 for l in lieux)
+        if dettes:
+            for rang, lieu in enumerate(lieux): lieu.dette_alimentaire_kg = rang + 1
+        poids = [l.dette_alimentaire_kg if dettes else l.population for l in lieux]
+        parts = partager(150000, poids)
+        monde.parts = dict.fromkeys(monde.parts, 0)
+        monde.greniers["seigneurie-1"] = {"nourriture": 200000.0}
+        recevoir_intention(monde, _ouverture(kg=150000))
+        observes = []
+        original = prelevement.prelever
+        def observer(w, recoltes):
+            observes.append([(cid, rang, w.ticks_ecoules + jours - 1, part)
+                             for (cid, rang, jours), part in zip(entrees, parts) if part])
+            reel = sorted((cid, rang, arrivee, kg) for arrivee, charges in w.secours.items()
+                          for (cid, rang), kg in charges.items())
+            assert reel == sorted(observes[-1])
+            original(w, recoltes)
+        with monkeypatch.context() as garde:
+            garde.setattr(c, "PERTE_GRENIER_PAR_AN", 0)
+            garde.setattr(prelevement, "prelever", observer)
+            garde.setattr(EtatDeLieu, "maitre", property(lambda self: (_ for _ in ()).throw(RuntimeError("maître lu"))))
+            _tick_sans_lecture_registre(garde, monde, engine.tick, 0)
+        assert observes and monde.greniers["seigneurie-1"]["nourriture"] == 50000
+    verifier()
+    original = OuvrirGrenier.appliquer
+    def sans_retrait(geste, monde):
+        original(geste, monde)
+        monde.greniers[geste.maison]["nourriture"] += geste.kg
+    with monkeypatch.context() as garde:
+        garde.setattr(OuvrirGrenier, "appliquer", sans_retrait)
+        with pytest.raises(AssertionError): verifier()
+
+
+def test_ouverture_service(monkeypatch):
+    import threading
+    from sim import constants as c
+    from sim.intentions import recevoir_intention
+    from sim.service import ServeurMonde
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever); fil.start()
+    port, monde = serveur.server_port, serveur.world
+    maison = "seigneurie-1"
+    autre = next(n for n in monde.routes_des_lieux.noms if n != maison)
+    monde.parts = dict.fromkeys(monde.parts, 0)
+    monde.greniers[maison] = {"nourriture": 200000.0}
+    monde.greniers[autre] = {"nourriture": 200000.0}
+    def refuser(nom, raison):
+        avant = monde.to_dict(), list(monde.intentions_en_attente), requete_service(port, "/monde")[2]
+        statut, recu, _ = _poster(port, _ouverture(nom))
+        assert statut == 400 and raison == recu["erreur"]
+        assert (monde.to_dict(), monde.intentions_en_attente, requete_service(port, "/monde")[2]) == avant
+    try:
+        refuser(maison, "départ non appliqué : choisir une terre avant d'ouvrir le grenier")
+        _poster(port, {"type": "choisir_depart", "seigneurie": 1})
+        refuser(maison, "départ non appliqué : choisir une terre avant d'ouvrir le grenier")
+        requete_service(port, "/tick?n=1", "POST")
+        raison = "maison interdite : seule la maison du joueur peut ouvrir son grenier"
+        refuser(autre, raison)
+        with monkeypatch.context() as garde:
+            garde.setattr(monde, "maison_du_joueur", autre)
+            with pytest.raises(AssertionError): refuser(autre, raison)
+        monde.intentions_en_attente.clear()
+        avant = monde.greniers[maison]["nourriture"]
+        with monkeypatch.context() as garde:
+            garde.setattr(c, "PERTE_GRENIER_PAR_AN", 0)
+            monde.parts = dict.fromkeys(monde.parts, 0)
+            assert _poster(port, _ouverture(maison))[:2] == (200, {"acceptee": True, "appliquee_au_tick": 1})
+            assert monde.greniers[maison]["nourriture"] == avant
+            requete_service(port, "/tick?n=1", "POST")
+        assert monde.greniers[maison]["nourriture"] == avant - 100
+        assert recevoir_intention(monde, _ouverture(autre)).maison == autre
+    finally:
+        serveur.shutdown(); fil.join(); serveur.server_close()
+
+
+def test_ouverture_documentation():
+    sim = Path(__file__).resolve().parents[1]
+    texte = (sim / "MODELE.md").read_text()
+    sections = [texte.split("## " + titre, 1)[1].split("\n## ", 1)[0] for titre in
+                ("Le grenier d'une maison", "Le prélèvement", "Les intentions du joueur")]
+    def verifier(sections, notice):
+        assert "L'ouvrir" in sections[0]
+        assert "World.secours" in sections[1] and "t + jours − 1" in sections[1]
+        assert "ouvrir_grenier" in sections[2] and "OuvrirGrenier" in sections[2]
+        assert "ouvrir_grenier" in notice and "secours" in notice
+    notice = (sim / "README.md").read_text()
+    verifier(sections, notice)
+    with pytest.raises(AssertionError): verifier(["", "", ""], "")
+
+
+
+def test_ouverture_cli_gestes(tmp_path):
+    import subprocess
+    import sys
+    gestes = tmp_path / "gestes.json"
+    sortie = tmp_path / "monde.json"
+    # Le grain récolté au premier tick arrive avant le dépôt du tick 2.
+    gestes.write_text(json.dumps([{"tick": 2, "intention": _ouverture(kg=100)}]))
+    resultat = subprocess.run([sys.executable, "-m", "sim", "--ticks", "3", "--seed", "0",
+                               "--gestes", str(gestes), "--monde-json", str(sortie)],
+                              cwd=Path(__file__).parents[2], capture_output=True, text=True)
+    assert resultat.returncode == 0, resultat.stderr
+    document = json.loads(sortie.read_bytes())
+    assert "maison_du_joueur" not in document and document["secours"]
+    assert sum(kg for _, _, _, kg in document["secours"]) < 100
