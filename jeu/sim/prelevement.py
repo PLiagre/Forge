@@ -57,7 +57,10 @@ def prelever(monde, recoltes) -> None:
         charges_flux = monde.flux.en_route
         en_route = [charge * garde for charge in charges_flux]
         mange = list(jour.mange)
-        preleve = [0.0] * len(routes.noms)
+    # Accumulateur local : aucune garde ni écriture array dans la boucle des lieux.
+    preleve = [0.0] * len(routes.noms)
+    lire = lire_stock_marchandise
+    ecrire = ecrire_stock_marchandise
     nourriture = constantes.MARCHANDISE_NOURRITURE
     tick = monde.ticks_ecoules
     if monde.secours:
@@ -128,11 +131,9 @@ def prelever(monde, recoltes) -> None:
             if not kg:
                 continue
             lieu = lieux[rang]
-            ecrire_stock_marchandise(lieu, nourriture,
-                                    lire_stock_marchandise(lieu, nourriture) - kg)
+            ecrire(lieu, nourriture, lire(lieu, nourriture) - kg)
             retire += kg
-            if jour is not None:
-                preleve[indice] += kg
+            preleve[indice] += kg
             jours = durees[rang]
             groupe = groupes[jours]
             if groupe is None:
@@ -147,8 +148,7 @@ def prelever(monde, recoltes) -> None:
             # Une arrivée reçoit des départs d'âges différents : défaire son facteur.
             charges[jours][indice] += kg / facteurs[jours]
         if retire:
-            ecrire_stock_marchandise(cellule, nourriture,
-                                    lire_stock_marchandise(cellule, nourriture) - retire)
+            ecrire(cellule, nourriture, lire(cellule, nourriture) - retire)
     # Un seul ajout au total de chaque groupe, plutôt qu'une écriture par lieu.
     for jours, groupe in enumerate(groupes):
         if groupe is not None:

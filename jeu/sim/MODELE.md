@@ -1941,17 +1941,24 @@ sont retirés. Une maison connue sans route rend cinq zéros mesurés ; une
 maison ou un lieu inconnu est refusé. Les lecteurs servent les preuves et
 le futur service ; aucun module de règles ne les appelle.
 
-Mesure sur srv1914711, graine 0, cinq ticks de chauffe puis ticks 5 à 24,
-le 14/10/2026 : avant ce lot, médiane du tick **93,63 ms**, de l'étape
-Prélèvement **5,39 ms**. Après branchement et regroupement des écritures par
-maison : **119,96 ms** pour le tick et **10,13 ms** pour le prélèvement.
-Dans cette même comparaison, le code d'avant le lot, chargé en mémoire
-depuis la branche de départ, mesure **107,68 ms** et **7,04 ms** ; les temps
-varient entre les passages. Le budget de 100 ms reste dépassé sur cette
-machine : les preuves `chronometre` restent rouges, leurs seuils inchangés.
-Dernier passage de ces preuves, joué seul : médiane du cas flux **138,50 ms**,
-Prélèvement **11,87 ms** ; cas du service **114,56 ms**, ateliers **116,40 ms**,
-départs actifs **117,38 ms**. Le lot ne satisfait donc pas encore son budget.
+Le prélèvement accumule les kilos dans une liste locale, sans garde ni
+écriture `array` par lieu ; les vecteurs sont convertis une fois par appel.
+Les fonctions d'accès au stock sont gardées en variables locales. Les
+références des récoltes et des parts restent celles lues par le prélèvement.
+
+Médianes sur srv1914711, graine 0, cinq ticks de chauffe puis ticks 5 à 24,
+le 14/10/2026, monde réel chargé puis copié :
+
+| Comparaison | Tick | Prélèvement |
+|---|---:|---:|
+| Avant le lot, première comparaison en mémoire | 107,68 ms | 7,04 ms |
+| Registre initial, même comparaison | 119,96 ms | 10,13 ms |
+| Avant le lot (`5d984aa`), nouvelle comparaison en processus séparés | 110,21 ms | 7,42 ms |
+| Registre avec variables locales et sans garde par lieu, même séance | 114,35 ms | 9,51 ms |
+
+Chaque processus de la seconde comparaison importe ses propres fichiers,
+puis joue seul les mêmes vingt ticks mesurés ; leurs `to_dict()` finaux
+ont la même empreinte. Les médianes varient entre les passages.
 
 ## Les intentions du joueur
 

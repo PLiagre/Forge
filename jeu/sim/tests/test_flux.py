@@ -297,3 +297,22 @@ def test_documentation_et_contre_epreuve():
     avant, apres = texte.split(titre)
     prive = avant + '\n## ' + apres.split('\n## ', 1)[1]
     with pytest.raises((AssertionError, IndexError)): controler(prive)
+
+
+def test_ouverture_cherche_indice_une_seule_fois():
+    from sim.intentions import OuvrirGrenier
+
+    class NomsComptes(list):
+        recherches = 0
+
+        def index(self, nom):
+            self.recherches += 1
+            return super().index(nom)
+
+    m = _petit()
+    m.routes_des_lieux.noms = NomsComptes(m.routes_des_lieux.noms)
+    m.greniers['a'][c.MARCHANDISE_NOURRITURE] = 1000.
+    OuvrirGrenier('a', 400).appliquer(m)
+    assert m.routes_des_lieux.noms.recherches == 1
+    assert flux_de_maison(m, 'a')['rendu_kg'] == 400
+    assert sum(sum(charges.values()) for charges in m.secours.values()) == 400

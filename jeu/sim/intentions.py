@@ -50,10 +50,11 @@ class FixerPart:
         monde.parts[self.maison] = self.part
 
 
-def _lieux_de_la_maison(monde, maison):
+def _lieux_de_la_maison(monde, maison, indice=None):
     """Relit l'index des routes, dans l'ordre de la table, sans registre."""
     routes = monde.routes_des_lieux
-    indice = routes.noms.index(maison)
+    if indice is None:
+        indice = routes.noms.index(maison)
     return [(cid, rang, jours) for cid, rang, maitre_idx, jours in
             zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours)
             if maitre_idx == indice]
@@ -74,11 +75,12 @@ class OuvrirGrenier:
         nourriture = _constantes.MARCHANDISE_NOURRITURE
         panier = monde.greniers[self.maison]
         panier[nourriture] = panier.get(nourriture, 0.0) - self.kg
-        entrees = _lieux_de_la_maison(monde, self.maison)
+        indice = monde.routes_des_lieux.noms.index(self.maison)
+        entrees = _lieux_de_la_maison(monde, self.maison, indice)
         parts = partager(self.kg, _poids_des_lieux(monde, entrees))
         jour = _flux.jour_courant(monde)
         if jour is not None:
-            jour.rendu[monde.routes_des_lieux.noms.index(self.maison)] += self.kg
+            jour.rendu[indice] += self.kg
         for (cid, rang, jours), part in zip(entrees, parts):
             if part:
                 arrivee = monde.ticks_ecoules + jours - 1
