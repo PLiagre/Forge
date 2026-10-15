@@ -1081,6 +1081,73 @@ def test_une_ci_rouge_renvoie_au_codeur_l_extrait_de_son_journal(projet, gh, dep
     assert "assert 406 == 407" in agents.appels[0][-1]
 
 
+CHRONOMETRE = "https://github.com/moi/essai/actions/runs/77/job/7"
+VERTS = [(n, "SUCCESS", "07:00") for n in ("sim (1)", "sim (2)", "vues", "forge", "atelier")]
+
+
+def _travail(nom, conclusion, heure):
+    """Un travail de `tests.yml` : sa conclusion (None tant qu'il tourne) et l'heure où il est parti."""
+    return {"__typename": "CheckRun", "name": nom, "workflowName": "tests",
+            "status": "COMPLETED" if conclusion else "IN_PROGRESS", "conclusion": conclusion or "",
+            "startedAt": f"2026-09-28T{heure}:00Z", "detailsUrl": CHRONOMETRE if nom == "chronometre" else ""}
+
+
+def _ci(gh, *travaux):
+    gh.prs_[50]["statusCheckRollup"] = [_travail(*t) for t in travaux] + [
+        {"__typename": "CheckRun", "name": "gitleaks", "workflowName": "security", "status": "COMPLETED",
+         "conclusion": "SUCCESS", "startedAt": "2026-09-28T07:00:00Z"}]
+
+
+def test_un_rouge_du_seul_chronometre_se_rejoue_une_fois_sans_compter_d_essai(projet, gh, depot, tmp_path):
+    """Les 14 et 15 octobre 2026, #625 (du C# seul) a gâché deux fois ses deux
+    corrections sur un rouge de `chronometre` qu'il ne pouvait pas corriger,
+    puis s'est bloqué : la chaîne n'avait aucun geste qui rejoue la CI."""
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    gh.fichiers_[50] = ["3d/unity/Assets/Pont/Reperes.cs", "docs/briefs/10-le-service-lit-un-lieu.md"]
+    rien = Agents()
+    # Le run tourne encore : rejouer attend qu'il finisse, sans codeur.
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", None, "07:00"), *VERTS)
+    lignes = _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert any("`chronometre` rouge seul" in l for l in lignes) and not _gestes(gh, "rejouer_les_echecs")
+    # Le run est fini, seul `chronometre` est rouge : il se rejoue.
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 77)]
+    assert {k: v for k, v in marques(gh.prs_[50]["comments"])[-1].items() if k != "quand"} == {
+        "role": "pilote", "etat": "rejeu", "sha": "a" * 40}
+    # Tant que le rejeu n'est pas parti, le rouge d'avant lui est périmé.
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and len(_gestes(gh, "rejouer_les_echecs")) == 1
+    # Rouge encore : le codeur corrige, et c'est sa première correction.
+    gh.prs_[50]["statusCheckRollup"] += [_travail("chronometre", "FAILURE", "08:05"),
+                                         _travail("tests", "FAILURE", "08:20")]
+    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, codeur, tmp_path).tour()
+    assert codeur.outils() == ["codex"] and len(_gestes(gh, "rejouer_les_echecs")) == 1
+    assert marques(gh.prs_[50]["comments"])[-1]["essai"] == 2, "le rejeu n'a pas compté d'essai"
+
+
+def test_un_rouge_du_chronometre_remet_la_branche_sur_une_base_qui_a_bouge(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    depot.en_retard = lambda chemin: True
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert ("pousser", BRANCHE) in depot.gestes and not _gestes(gh, "rejouer_les_echecs")
+    assert "la branche reçoit `master`" in gh.prs_[50]["comments"][-1]["body"]
+
+
+def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_va_au_codeur(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    gh.fichiers_[50] = ["jeu/sim/monde.py"]
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, codeur, tmp_path).tour()
+    assert codeur.outils() == ["codex"] and not _gestes(gh, "rejouer_les_echecs")
+
+
 def test_une_tranche_annulee_compte_parmi_les_rouges():
     """Une tranche arrêtée par son délai (`timeout-minutes` de tests.yml)
     rend `tests` rouge : le codeur doit lire son journal, pas une table."""

@@ -64,6 +64,7 @@ class FauxGitHub(GitHub):
     prs_: dict[int, dict] = field(default_factory=dict)
     gestes: list[tuple] = field(default_factory=list)
     tetes_fusionnees: list = field(default_factory=list)
+    fichiers_: dict[int, list[str]] = field(default_factory=dict)
     suivant: int = 100
 
     def __post_init__(self):
@@ -189,6 +190,12 @@ class FauxGitHub(GitHub):
     def fermer_pr(self, numero, commentaire):
         self.prs_[numero]["state"] = "CLOSED"
         self.gestes.append(("fermer_pr", numero))
+
+    def fichiers_de_pr(self, numero):
+        return self.fichiers_.get(numero, [])
+
+    def rejouer_les_echecs(self, run):
+        self.gestes.append(("rejouer_les_echecs", run))
 
     def dernier_run(self, workflow, branche):
         return {"status": "completed", "conclusion": "success", "databaseId": 1, "url": "https://x/run/1"}

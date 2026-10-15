@@ -41,6 +41,13 @@ marque reste celle du codeur : le passage compte, et la famille GPT ne relit
 pas le lot. Les lots du PC n'ont pas de renfort (Codex n'y écrit pas, Claude
 Opus y code déjà).
 
+Un rouge du seul travail `chronometre` (les tests qui chronomètrent le moteur,
+au bord de leur budget sur les runners partagés), sur un lot qui ne touche pas
+`jeu/`, ne part pas au codeur : il n'y peut rien. Le pilote attend la fin du
+run, puis le rejoue une fois, sans compter d'essai : la branche reçoit master
+s'il a bougé, sinon le travail rouge se rejoue (`gh run rerun --failed`). Le
+codeur ne corrige que s'il rougit encore.
+
 Le **mécanicien** (Codex, gpt-6.1-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
 grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
