@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Forge.Pont;
@@ -20,7 +21,10 @@ namespace ForgeLocal3D.Captures
         const string HORS_REPERE = "-forge624HorsRepere";
         const double ATTENTE_S = 30;
         const int FICHES = 6;
-        const long TICK = 3;
+        // Le tick où la capture a poussé le service : `-forgeTicks` (3 dans SC5), sinon le défaut de `ForgeCapture`, car le
+        // pilote du PC ne passe pas l'argument. Un 3 figé rougissait la validation du PC (tick servi 30).
+        const string TICKS = "-forgeTicks";
+        const long TICKS_PAR_DEFAUT = 30;
         const int IMAGES_DE_POSE = 10;
 
         [ScenarioDeCapture(624, "fiche-de-la-moree")]
@@ -60,7 +64,9 @@ namespace ForgeLocal3D.Captures
             if (lecture.IsFaulted) throw new InvalidOperationException("lecture interrompue : " + lecture.Exception.GetBaseException().Message);
             var (departs, maison) = lecture.Result;
             if (!departs.Presente || !maison.Presente) throw new InvalidOperationException("attendu /departs et /maison servis, observé « " + departs.Absence + " » et « " + maison.Absence + " »");
-            if (departs.Donnees.Tick != TICK) throw new InvalidOperationException("tick lu : attendu " + TICK + ", observé " + departs.Donnees.Tick);
+            string[] args = Environment.GetCommandLineArgs(); int place = Array.IndexOf(args, TICKS);
+            long tick = place >= 0 && place + 1 < args.Length ? long.Parse(args[place + 1], CultureInfo.InvariantCulture) : TICKS_PAR_DEFAUT;
+            if (departs.Donnees.Tick != tick) throw new InvalidOperationException("tick lu : attendu " + tick + ", observé " + departs.Donnees.Tick);
             FicheDeDepart moree = departs.Donnees.Fiches.FirstOrDefault(f => f.Nom == MOREE) ?? throw new InvalidOperationException("/departs ne sert pas « " + MOREE + " »");
 
             Transform repere = carte.transform.Find(RACINE + "/Repère " + MOREE) ?? throw new InvalidOperationException("pas de « Repère " + MOREE + " » sous « " + RACINE + " »");
