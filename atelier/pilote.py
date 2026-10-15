@@ -123,6 +123,7 @@ class Pilote:
         self.journal = journal or Path.home() / ".atelier" / "journal.jsonl"
         self.lignes: list[str] = []
         self.lfs_telechargeur = lfs_telechargeur
+        self.invoques = 0  # les agents appelés par ce pilote, tous tours confondus
 
     # ----------------------------------------------------------- journal
     def noter(self, lot: int | str, action: str, detail: str = "", agent: str | None = None) -> None:
@@ -138,6 +139,7 @@ class Pilote:
 
     def _invoquer(self, role: str, prompt: str, chemin: Path, *, lot: int | str,
                   exclure=frozenset()) -> agents_mod.Resultat:
+        self.invoques += 1
         res = agents_mod.invoquer(self.projet.poste(role), prompt, chemin, self.projet.delai(role),
                                   exclure=exclure, executeur=self.executeur_agents,
                                   place=lambda outil: self.verrous.place(f"outil-{outil}",
@@ -178,7 +180,17 @@ class Pilote:
                 self._lacher_lot(lot.numero)
 
         if not agent_parti:
-            agent_parti = self._master_rouge()
+            avant = self.invoques
+            try:
+                agent_parti = self._master_rouge()
+            except (GitHubErreur, DepotErreur) as e:
+                # Une réparation en panne se dit et n'arrête que ce tour-ci si
+                # son mécanicien a déjà travaillé ; sinon les lots continuent,
+                # et le tour suivant la retente avant eux. Le 15 octobre 2026,
+                # une DepotErreur ici a fait planter chaque tour pendant 15 h,
+                # sans une ligne lisible, et plus aucun lot n'est parti.
+                self.noter("master", "erreur", str(e))
+                agent_parti = self.invoques > avant
         if not agent_parti:
             agent_parti = self._depanner_un_lot(vue)
         if not agent_parti and vue.courant is not None:
@@ -780,7 +792,9 @@ class Pilote:
 
     # ------------------------------------------------------------- relire
     def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict], *,
-                chantier: str | int | None = None) -> bool:
+                chantier: str | int | None = None, master_rouge: str | None = None) -> bool:
+        """`master_rouge` : ce que dit la PR du mécanicien de master, qui n'a
+        ni issue ni brief ; le relecteur juge alors contre la CI rouge."""
         numero_pr, tete = pr["number"], pr["headRefOid"]
         echecs = [m for m in lots.depuis_reprise(liste)
                   if m.get("role") == "relecteur" and m.get("etat") == "echec" and m.get("sha") == tete]
@@ -816,7 +830,7 @@ class Pilote:
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
                                    url=pr.get("url", ""), sha=tete, rapports=rapports,
                                    lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
-                                   consigne=consigne, decisions=decisions)
+                                   consigne=consigne, decisions=decisions, master_rouge=master_rouge)
         res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
@@ -1160,7 +1174,8 @@ class Pilote:
         faux = Lot(numero=pr["number"], titre=pr.get("title", "master rouge"), corps="", etiquettes=(),
                    jalon=None, jalon_titre=None)
         if action.nom == "relire":
-            return self._relire(faux, pr, pr["headRefName"], liste, chantier="meca")
+            return self._relire(faux, pr, pr["headRefName"], liste, chantier="meca",
+                                master_rouge=(pr.get("body") or "").replace(SIGNATURE, ""))
         if action.nom == "fusionner":
             self.gh.fusion_auto(pr["number"], pr.get("headRefOid"))
             self.noter("master", "fusion automatique demandée", f"PR #{pr['number']}")
