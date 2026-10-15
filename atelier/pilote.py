@@ -31,7 +31,7 @@ from typing import Callable
 from . import agents as agents_mod
 from . import captures, lfs, lots, prompts, traces
 from .depot import Depot, DepotErreur
-from .github import GitHub, GitHubErreur, etat_des_controles
+from .github import VARIABLE_PC, GitHub, GitHubErreur, etat_des_controles
 from .lots import Lot, marque
 from .projet import MACHINES, Projet
 from .verrous import AucunVerrou
@@ -237,6 +237,10 @@ class Pilote:
                         if l.etat in ("pret", "idee") and self.verrous.pris_ailleurs(_verrou_du_lot(l.numero))}
             tenus = Counter(l.machine for l in tous if l.etat == "en-cours" or l.numero in en_prise)
             libres = {m: tenus[m] < self.projet.capacite(m) for m in MACHINES}
+            # Un PC en pause (variable PC_ACTIF) ne prend aucun lot neuf : le
+            # VPS continue, les lots `pc` restent « pret » jusqu'à la reprise.
+            if libres["pc"] and not self.gh.pc_actif():
+                libres["pc"] = False
             if not any(libres.values()):
                 return
             # Un lot « pret » qui a déjà sa PR attend une place pour reprendre
@@ -462,6 +466,9 @@ class Pilote:
             pr = par_branche.get(lot.branche(self.projet.prefixe_branche))
             if pr is None or tenus[lot.machine] >= self.projet.capacite(lot.machine):
                 continue
+            # Un PC en pause ne reprend rien : le lot garde « pret ».
+            if lot.machine == "pc" and not self.gh.pc_actif():
+                continue
             tenus[lot.machine] += 1
             quand = self.maintenant().isoformat(timespec="seconds")
             self.gh.commenter_pr(pr["number"], "🤖 **pilote** : lot repris (remis « pret »). "
@@ -511,6 +518,12 @@ class Pilote:
             action = lots.Action(derniere or "coder", action.raison, action.essai)
         if action.nom in ("coder", "corriger_ci", "corriger_relecture"):
             if lot.machine == "pc":
+                if not self.gh.pc_actif():
+                    # Pas de commentaire sur la PR, pas d'essai compté : le
+                    # travail part au premier tour qui suit la reprise.
+                    self.noter(lot.numero, "attente", f"PC en pause ({VARIABLE_PC} = non) : "
+                                                      f"{action.nom} part à la reprise")
+                    return False
                 self._envoyer_pc(lot, pr, branche, action)
                 return False
             # Le dernier passage avant blocage se fait par le renfort. Les

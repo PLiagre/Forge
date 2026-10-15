@@ -64,6 +64,7 @@ class FauxGitHub(GitHub):
     prs_: dict[int, dict] = field(default_factory=dict)
     gestes: list[tuple] = field(default_factory=list)
     tetes_fusionnees: list = field(default_factory=list)
+    variables_: dict[str, str] = field(default_factory=dict)
     suivant: int = 100
 
     def __post_init__(self):
@@ -195,6 +196,9 @@ class FauxGitHub(GitHub):
 
     def lancer_workflow(self, workflow, reference, champs):
         self.gestes.append(("lancer_workflow", workflow, dict(champs)))
+
+    def variable(self, nom):
+        return self.variables_.get(nom)
 
     def noms_des_gestes(self):
         return [g[0] for g in self.gestes]
