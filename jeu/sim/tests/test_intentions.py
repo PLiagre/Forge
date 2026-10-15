@@ -1,5 +1,7 @@
 """Preuves du dépôt, du tick et du service pour le choix de départ."""
 
+from copy import deepcopy
+from sim.intentions import recevoir_intention, IntentionRefusee
 from dataclasses import FrozenInstanceError, replace
 from http import HTTPStatus
 import json
@@ -142,8 +144,8 @@ def _poster(port, intention):
 
 
 def _depart_applique(port):
-    """Choisit la première terre du registre et l'applique avant le geste mesuré."""
-    terre = charger_seigneuries()[0].id
+    """Choisit le Zab et l'applique avant le geste mesuré."""
+    terre = _id("Émirat du Zab")
     statut, recu, _ = _poster(port, {"type": "choisir_depart", "seigneurie": terre})
     assert statut == HTTPStatus.OK and recu == {"acceptee": True, "appliquee_au_tick": 0}
     assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 1
@@ -204,9 +206,10 @@ def test_controles_du_modele(monkeypatch):
     print(f"sections_intentions=1, étapes_vues={len(document)}, contre_épreuves_rouges=2")
 
 
-def _route_reference(monde):
+def _route_reference(monde, cell=None):
     assert monde.plans, "échantillon vide : aucun plan"
-    return {"type": "tracer_route", "cell": min(monde.plans),
+    cell = min(monde.plans) if cell is None else cell
+    return {"type": "tracer_route", "cell": cell, "maison": next(l.maitre for l in monde.cells[cell].lieux if l.rang == 0),
             "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}
 
 
@@ -308,7 +311,7 @@ def test_service_route_recu_refus_et_rejeu():
     from sim.tests.test_chantiers import _requis
 
     lieux = []
-    route = _route_reference(World.charger(0))
+    route = _route_reference(World.charger(0), 10103)
     chemin = f"/plan?cell={route['cell']}"
     plans, mondes = [], []
     refus_observes = 0
@@ -461,13 +464,13 @@ def test_ligne_de_commande_refus_chemin_vide(tmp_path, monkeypatch, capsys):
     print("chemins_vides_refusés=1, ticks_joués=0, sorties_écrites=0")
 
 
-def _parcelle_reference(monde):
+def _parcelle_reference(monde, cell=None):
     from sim.intentions import recevoir_intention
 
-    route = _route_reference(monde)
+    route = _route_reference(monde, cell)
     recevoir_intention(monde, route)
     engine._appliquer_intentions(monde)
-    return {"type": "decouper_parcelle", "cell": route["cell"], "rue": 0, "segment": 0,
+    return {"type": "decouper_parcelle", "cell": route["cell"], "maison": route["maison"], "rue": 0, "segment": 0,
             "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}
 
 
@@ -634,11 +637,11 @@ def test_service_parcelle_plan_et_journees():
     import math
     from sim import constants as k
 
-    reference = _parcelle_reference(World.charger(0))
+    reference = _parcelle_reference(World.charger(0), 10103)
     c = reference["cell"]
     with lancer_service(0) as port:
         _depart_applique(port)
-        assert _poster(port, _route_reference(World.charger(0)))[0] == HTTPStatus.OK
+        assert _poster(port, _route_reference(World.charger(0), 10103))[0] == HTTPStatus.OK
         requete_service(port, "/tick?n=1", "POST")
         avant = requete_service(port, f"/plan?cell={c}")[2]
         assert _poster(port, reference)[0] == HTTPStatus.OK
@@ -655,13 +658,13 @@ def test_service_parcelle_plan_et_journees():
                             "travail_fourni": k.TAILLE_FOYER}
 
 
-def _batiment_reference(monde):
+def _batiment_reference(monde, cell=None):
     from sim.intentions import recevoir_intention
 
-    parcelle = _parcelle_reference(monde)
+    parcelle = _parcelle_reference(monde, cell)
     recevoir_intention(monde, parcelle)
     engine._appliquer_intentions(monde)
-    return {"type": "poser_batiment", "cell": parcelle["cell"], "parcelle": 0, "nature": "maison"}
+    return {"type": "poser_batiment", "cell": parcelle["cell"], "maison": parcelle["maison"], "parcelle": 0, "nature": "maison"}
 
 
 CAS_REFUS_BATIMENT = [
@@ -700,7 +703,7 @@ def test_refus_batiment_bati_promis_et_en_attente():
 
     monde = World.charger(0)
     geste = _batiment_reference(monde)
-    decoupe = {"type": "decouper_parcelle", "cell": geste["cell"], "rue": 0, "segment": 0,
+    decoupe = {"type": "decouper_parcelle", "maison": geste["maison"], "cell": geste["cell"], "rue": 0, "segment": 0,
                "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "droite"}
     recevoir_intention(monde, decoupe)
     avant, attente = monde.to_dict(), list(monde.intentions_en_attente)
@@ -772,7 +775,7 @@ def test_batiment_applique_au_plan_et_cout_relu(monkeypatch):
     assert all(isinstance(p, tuple) for p in monde.plans[c].batiments[0].emprise)
     assert all(a is b for a, b in zip(plan.rues, monde.plans[c].rues))
     assert all(a is b for a, b in zip(plan.parcelles, monde.plans[c].parcelles))
-    recevoir_intention(monde, {"type": "decouper_parcelle", "cell": c, "rue": 0, "segment": 0,
+    recevoir_intention(monde, {"type": "decouper_parcelle", "maison": geste["maison"], "cell": c, "rue": 0, "segment": 0,
                               "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "droite"})
     engine._appliquer_intentions(monde)
     recevoir_intention(monde, geste | {"parcelle": 1, "nature": "four", "foyers": 3})
@@ -786,7 +789,7 @@ def test_batiment_applique_au_plan_et_cout_relu(monkeypatch):
     route = _route_reference(autre)
     recevoir_intention(autre, route)
     engine._appliquer_intentions(autre)
-    recevoir_intention(autre, {"type": "decouper_parcelle", "cell": c, "rue": 8, "segment": 0,
+    recevoir_intention(autre, {"type": "decouper_parcelle", "maison": geste["maison"], "cell": c, "rue": 8, "segment": 0,
                               "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"})
     engine._appliquer_intentions(autre)
     recevoir_intention(autre, geste | {"parcelle": 8})
@@ -961,7 +964,7 @@ def test_ia_depot_commun_et_copies(monkeypatch):
     ia.jouer_ia(monde, releve)
     assert monde.cells == avant['cells'] and monde.plans == avant['plans']
     assert len(monde.intentions_en_attente) == len(propositions)
-    assert releve[0]['intention'] == {'type': 'tracer_route', 'cell': maisons[0].cell_id, 'points': [[0, 0], [40, 0]], 'largeur_m': 4, 'foyers': 1}
+    assert releve[0]['intention'] == {'type': 'tracer_route', 'maison': ia._cle_du_grenier(maisons[0]), 'cell': maisons[0].cell_id, 'points': [[0, 0], [40, 0]], 'largeur_m': 4, 'foyers': 1}
     releve[0]['intention']['points'][0][0] += 1
     assert monde.intentions_en_attente[0].points == tuple(map(tuple, propositions[0]['intention']['points']))
     def ecrire_plan(m, i): m.plans.pop(i['cell'], None)
@@ -1100,10 +1103,11 @@ def test_intention_porte(porte):
     monde = _monde_routes()
     monde.adjacency = [{"a": 1, "b": 2}, {"a": 1, "b": 4, "kind": "sea", "shared_length_m": 0}]
     assert monde.cells and monde.adjacency
+    _terres_synthetiques(monde)
+    geste = _route_reference(monde)
     if porte == "origine_absente":
         del monde.cells[1]
     avant = monde.to_dict()
-    geste = _route_reference(monde)
     if porte != "absente":
         geste["porte_cell_id"] = 2 if porte == "origine_absente" else porte
     if porte not in ("absente", None) and (type(porte) is not int or porte != 2):
@@ -1259,12 +1263,12 @@ def test_base_gestes_et_refus_purs(cid, monkeypatch):
     base = v.base_de_cellule(monde, cid)
     maison = base['maisons'][0]
     centre = [sum(p[i] for p in maison['emprise']) / len(maison['emprise']) for i in (0, 1)]
-    route = dict(type='tracer_route', cell=cid, points=[centre, [centre[0]+1, centre[1]]], largeur_m=1)
+    route = dict(type='tracer_route', maison=monde.cells[cid].lieux[0].maitre, cell=cid, points=[centre, [centre[0]+1, centre[1]]], largeur_m=1)
     monde.plans[cid].rues.append(Rue(0, [(0, 0), (40, 0)], 4))
-    parcelle = dict(type='decouper_parcelle', cell=cid, rue=0, segment=0, debut_m=0,
+    parcelle = dict(type='decouper_parcelle', maison=route['maison'], cell=cid, rue=0, segment=0, debut_m=0,
                     facade_m=40, profondeur_m=200, cote='gauche')
     monde.plans[cid].parcelles.append(Parcelle(0, maison['emprise']))
-    batiment = dict(type='poser_batiment', cell=cid, parcelle=0, nature='maison')
+    batiment = dict(type='poser_batiment', maison=route['maison'], cell=cid, parcelle=0, nature='maison')
     emprises = [v.emprise_de_rue(route['points'], 1), [(0, 2), (40, 2), (40, 202), (0, 202)], maison['emprise']]
     def refuser(geste, emprise):
         rang = next(i for i, m in enumerate(base['maisons']) if v.se_chevauchent(emprise, m['emprise']))
@@ -1301,6 +1305,7 @@ def test_base_gestes_et_refus_purs(cid, monkeypatch):
     with pytest.raises(IntentionRefusee, match=f'{cid}.*centroïde absent'):
         recevoir_intention(monde, route)
     manuel = World(cells=monde.cells, adjacency=[])
+    manuel.maisons = monde.maisons
     recevoir_intention(manuel, route)
 
 
@@ -1563,3 +1568,116 @@ def test_ouverture_cli_gestes(tmp_path):
     document = json.loads(sortie.read_bytes())
     assert "maison_du_joueur" not in document and document["secours"]
     assert sum(kg for _, _, _, kg in document["secours"]) < 100
+
+@pytest.mark.parametrize('fabrique', [_route_reference, _parcelle_reference, _batiment_reference])
+def test_terres_depot(fabrique):
+    monde = World.charger(0); geste = fabrique(monde) | {'cell': 10322, 'maison': 'grande-3'}
+    monde.plans[10322] = deepcopy(monde.plans[min(monde.plans)])
+    bourg = next(l for l in monde.cells[10322].lieux if l.rang == 0)
+    for donnee in ('absente', 'inconnue', True, None, [], 'voisin', 'bourg', 'maitre', 'maitre inconnu', 'cellule'):
+        copie, intention = deepcopy(monde), deepcopy(geste)
+        lieu = next(l for l in copie.cells[10322].lieux if l.rang == 0)
+        if donnee == 'absente': intention.pop('maison')
+        elif donnee == 'voisin': intention['maison'] = 'seigneurie-3'
+        elif donnee == 'bourg': copie.cells[10322].lieux = [l for l in copie.cells[10322].lieux if l.rang != 0]
+        elif donnee == 'cellule': del copie.cells[10322]
+        elif donnee == 'maitre': lieu.maitre = None
+        elif donnee == 'maitre inconnu': lieu.maitre = 'inconnu'
+        else: intention['maison'] = donnee
+        avant = deepcopy(copie.__dict__)
+        with pytest.raises(IntentionRefusee) as erreur: recevoir_intention(copie, intention)
+        assert str(erreur.value) and copie.__dict__ == avant
+        if donnee == 'voisin': assert str(erreur.value) == "ce lieu n'est pas à toi : grande-3"
+    avant = monde.to_dict(); recevoir_intention(monde, geste)
+    assert monde.to_dict() == avant and len(monde.intentions_en_attente) == 1
+    monde.intentions_en_attente.clear(); bourg.maitre = 'seigneurie-3'
+    with pytest.raises(IntentionRefusee, match="ce lieu n'est pas à toi : seigneurie-3"): recevoir_intention(monde, geste)
+    recevoir_intention(monde, geste | {'maison': bourg.maitre})
+
+def _terres_synthetiques(monde):
+    from sim.model import EtatDeLieu
+    monde.maisons = _monde_ouverture().maisons; monde.cells[1].lieux = [EtatDeLieu(0, 0, {}, maitre="seigneurie-1")]
+
+@pytest.mark.parametrize('fabrique', [_route_reference, _parcelle_reference, _batiment_reference])
+def test_terres_service(fabrique, monkeypatch):
+    from sim import service
+    from sim.tests.test_monde import _service_ia_en_processus
+    journal, original = [], service.recevoir_intention
+    def recevoir(monde, intention):
+        assert serveur.verrou_tick.locked()
+        resultat = original(monde, intention); journal.append(deepcopy(intention))
+        return resultat
+    monkeypatch.setattr(service, 'recevoir_intention', recevoir)
+    with _service_ia_en_processus(ia=False) as (serveur, port):
+        geste = fabrique(World.charger(0), 10103)
+        def refuser(intention, raison):
+            avant = deepcopy(serveur.world.__dict__), serveur.etat_publie, deepcopy(journal)
+            statut, recu, _ = _poster(port, intention)
+            assert statut == 400 and raison in recu['erreur']
+            assert (serveur.world.__dict__, serveur.etat_publie, journal) == avant
+        refuser(geste, 'départ non appliqué'); _poster(port, {'type': 'choisir_depart', 'seigneurie': _id('Émirat du Zab')})
+        refuser(geste, 'départ non appliqué'); requete_service(port, '/tick?n=1', 'POST')
+        for entree in json.loads((Path(__file__).parents[1] / 'gestes-exemple.json').read_text()):
+            if entree['intention']['type'] == geste['type']: break
+            assert _poster(port, entree['intention'])[0] == 200
+            requete_service(port, '/tick?n=1', 'POST')
+        serveur.world.plans[10322] = deepcopy(serveur.world.plans[10103])
+        refuser(geste | {'cell': 10322, 'maison': 'grande-3'}, "ce lieu n'est pas à toi : grande-3")
+        for identite in (None, 'grande-3'):
+            intention = geste | {'maison': identite}
+            if identite is None: intention.pop('maison')
+            avant = serveur.world.to_dict()
+            assert _poster(port, intention)[0] == 200
+            assert serveur.world.to_dict() == avant and journal[-1]['maison'] == 'seigneurie-6'
+            serveur.world.intentions_en_attente.clear()
+        assert _poster(port, geste)[0] == 200; requete_service(port, '/tick?n=1', 'POST')
+        assert serveur.world.to_dict() != avant
+
+def test_terres_ia(monkeypatch):
+    from sim import ia
+    ia, monde, maisons = _ia_monde(); maison = maisons[0]
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m: [maison])
+    bourg = next(l for l in monde.cells[maison.cell_id].lieux if l.rang == 0)
+    cle = ia._cle_du_grenier(maison); bourg.maitre = next(m.id for m in monde.maisons if m.id != cle)
+    assert ia.decider_intentions(monde, []) == []
+    for maitre in (None, 'inconnu', True):
+        bourg.maitre = maitre
+        with pytest.raises(IntentionRefusee, match='maître absent ou inconnu'): ia.jouer_ia(monde, [])
+        assert monde.intentions_en_attente == []
+    bourg.maitre = cle; assert ia.decider_intentions(monde, [])
+    monkeypatch.undo(); monde, releve, depots = World.charger(0), [], []
+    original = ia.recevoir_intention
+    def verifier(entrees):
+        assert entrees and len({e['maison']['id'] for e in entrees}) > 0
+        for e in entrees:
+            identite = ('grande-' if e['maison']['sorte'] == 'grande maison' else 'seigneurie-') + str(e['maison']['id'])
+            assert e['intention']['maison'] == identite
+    def recevoir(m, intention):
+        assert intention['maison'] == next(l.maitre for l in m.cells[intention['cell']].lieux if l.rang == 0)
+        depots.append(deepcopy(intention)); return original(m, intention)
+    monkeypatch.setattr(ia, 'recevoir_intention', recevoir); alea = random.Random(0)
+    for i in range(365):
+        ia.jouer_ia(monde, releve); engine.tick(monde, alea, i)
+    verifier(releve); assert depots == [e['intention'] for e in releve]
+    faux = deepcopy(releve); faux[0]['maison']['id'] = next(e['maison']['id'] for e in releve if e['maison']['id'] != faux[0]['maison']['id'])
+    for entrees in ([], faux):
+        with pytest.raises(AssertionError): verifier(entrees)
+
+def test_terres_gestes(tmp_path):
+    import subprocess, sys
+    fichier, sortie = tmp_path / 'gestes.json', tmp_path / 'monde.json'
+    gestes = json.loads((Path(__file__).parents[1] / 'gestes-exemple.json').read_text())
+    def jouer(entrees):
+        sortie.unlink(missing_ok=True); fichier.write_text(json.dumps(entrees))
+        return subprocess.run([sys.executable, '-m', 'sim', '--ticks', '10', '--seed', '0', '--gestes', str(fichier), '--monde-json', str(sortie)], cwd=Path(__file__).parents[2], capture_output=True, text=True)
+    assert jouer(gestes).returncode == 0
+    avant = sortie.read_bytes(); plan = json.loads(avant)['plans']['10103']
+    assert all(plan[c] for c in ('rues', 'parcelles', 'batiments'))
+    assert jouer(gestes).returncode == 0 and sortie.read_bytes() == avant
+    for rang in range(len(gestes)):
+        for maison in (None, 'seigneurie-3'):
+            faux = json.loads(json.dumps(gestes))
+            if maison is None: faux[rang]['intention'].pop('maison')
+            else: faux[rang]['intention']['maison'] = maison
+            resultat = jouer(faux)
+            assert resultat.returncode == 2 and f'entrée {rang+1}' in resultat.stderr and not sortie.exists()

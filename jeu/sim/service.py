@@ -20,7 +20,7 @@ from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
-from sim.intentions import IntentionRefusee, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
+from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
@@ -561,6 +561,11 @@ class RequetesMonde(BaseHTTPRequestHandler):
                             raise IntentionRefusee("départ non appliqué : choisir une terre avant de fixer la part")
                         if intention.get("maison") != joueur:
                             raise IntentionRefusee("maison interdite : seule la maison du joueur peut fixer sa part")
+                    if intention.get("type") in (TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT):
+                        joueur = self.server.world.maison_du_joueur
+                        if joueur is None:
+                            raise IntentionRefusee("départ non appliqué : choisir une terre avant de bâtir")
+                        intention = dict(intention, maison=joueur)
                     recevoir_intention(self.server.world, intention)
                     etat = self.server.etat_publie
             except IntentionRefusee as exc:

@@ -795,6 +795,8 @@ def test_porte_achevement_ouvre_commerce(monkeypatch):
     def jouer():
         mondes, aleas, mesures = [_monde_routes(), _monde_routes()], [random.Random(0), random.Random(0)], []
         for monde in mondes:
+            from sim.tests.test_intentions import _terres_synthetiques
+            _terres_synthetiques(monde)
             ecrire_habitants_par_metier(monde.cells[1], {k.METIER_PAYSANS: 100})
             monde.cells[1].food_stock_kg = 10000
             recevoir_intention(monde, _route_reference(monde) | {
