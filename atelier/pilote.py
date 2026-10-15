@@ -779,14 +779,18 @@ class Pilote:
         return ""
 
     # ------------------------------------------------------------- relire
-    def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict]) -> bool:
+    def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict], *,
+                chantier: str | int | None = None) -> bool:
         numero_pr, tete = pr["number"], pr["headRefOid"]
         echecs = [m for m in lots.depuis_reprise(liste)
                   if m.get("role") == "relecteur" and m.get("etat") == "echec" and m.get("sha") == tete]
         if len(echecs) >= 2:
             self._bloquer(lot.numero, "le relecteur a échoué deux fois sur la même révision", numero_pr)
             return False
-        chemin = self.depot.preparer(lot.numero, branche)
+        # La branche du mécanicien vit déjà dans son chantier : git refuse de
+        # l'extraire dans un second (le 15 octobre 2026, le pilote a planté là
+        # à chaque tour, et plus aucun lot n'est parti).
+        chemin = self.depot.preparer(lot.numero if chantier is None else chantier, branche)
         # Un lot Unity dont la photo ne montre rien de lui ne se relit pas : le
         # pilote le renvoie au codeur, comme une revue « CORRIGER ».
         dernier = next((m for m in reversed(liste) if m.get("role") == "codeur_3d" and m.get("etat") == "fait"
@@ -1156,7 +1160,7 @@ class Pilote:
         faux = Lot(numero=pr["number"], titre=pr.get("title", "master rouge"), corps="", etiquettes=(),
                    jalon=None, jalon_titre=None)
         if action.nom == "relire":
-            return self._relire(faux, pr, pr["headRefName"], liste)
+            return self._relire(faux, pr, pr["headRefName"], liste, chantier="meca")
         if action.nom == "fusionner":
             self.gh.fusion_auto(pr["number"], pr.get("headRefOid"))
             self.noter("master", "fusion automatique demandée", f"PR #{pr['number']}")
