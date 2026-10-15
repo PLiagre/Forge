@@ -40,7 +40,7 @@ _DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|QUESTION|DECOUPE|MODE-DIRE
 # Le dépanneur écrit en Markdown : le 1er octobre 2026, sa décision sur #235
 # est restée illisible. Sa ligne se lit en gras, citée ou en code, et sa
 # consigne peut suivre sur les lignes d'après.
-_DECISION_DEPANNEUR = re.compile(r"^[ \t>*_`]*DECISION\s*:[ \t*_`]*(REPRENDRE|QUESTION|MODE-DIRECT)\b[ \t*_`]*"
+_DECISION_DEPANNEUR = re.compile(r"^[ \t>*_`]*DECISION\s*:[ \t*_`]*(REPRENDRE|QUESTION|MODE-DIRECT|DECOUPE)\b[ \t*_`]*"
                                  r"(?:::[ \t]*(.*))?$", re.M)
 _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
@@ -624,7 +624,7 @@ class Pilote:
             self._bloquer(lot.numero, f"question au propriétaire : {question.texte}", question=question)
             return True
         if res.reussi and decision == "DECOUPE":
-            return self._decouper(lot, res, titre_jalon)
+            return self._decouper(lot, res.texte[res.texte.rfind("DECISION: DECOUPE"):], res.agent, titre_jalon)
         raison = ""
         brief = Path(chemin) / chemin_brief
         if not res.reussi:
@@ -670,9 +670,13 @@ class Pilote:
         self.noter(lot.numero, "brief écrit", f"PR #{numero_pr}", str(res.agent))
         return True
 
-    def _decouper(self, lot: Lot, res: agents_mod.Resultat, titre_jalon: str) -> bool:
-        apres = res.texte[res.texte.rfind("DECISION: DECOUPE"):]
-        sous = [lots.sous_lot(titre, quoi, lot.machine) for titre, quoi in _SOUS_LOT.findall(apres)]
+    def _decouper(self, lot: Lot, lignes: str, agent, titre_jalon: str, *, role: str = "chef",
+                  pr: dict | None = None, diagnostic: str = "") -> bool:
+        """Ouvre les sous-lots que disent les `lignes` de découpe et ferme le
+        lot. Le chef découpe avant le brief ; le dépanneur (`role`), un lot
+        bloqué : sa PR (`pr`) se ferme aussi, sinon elle fermerait le lot
+        entier en fusionnant une moitié (#408, le 9 octobre 2026)."""
+        sous = [lots.sous_lot(titre, quoi, lot.machine) for titre, quoi in _SOUS_LOT.findall(lignes)]
         raison = "" if sous else "découpe illisible"
         rangs: list[tuple[int, ...]] = []
         if sous:
@@ -681,11 +685,17 @@ class Pilote:
                     sous, preuve_en_dernier=lots.jalon_a_decouper_par(lot) is not None)
             except ValueError as e:
                 raison = f"découpe illisible : {e}"
+        qui = "dépanneur" if role == lots.PAR_DEPANNEUR else role
         if raison:
-            self.gh.commenter_issue(lot.numero, f"🤖 **chef** : {raison}, aucun sous-lot créé.\n\n"
-                                    f"{marque(role='chef', etat='echec', raison=raison)}")
-            self.noter(lot.numero, "chef en échec", raison, str(res.agent))
+            # Une découpe illisible du dépanneur vaut décision illisible : le
+            # lot attend le propriétaire.
+            self.gh.commenter_issue(lot.numero, f"🤖 **{qui}** : {raison}, aucun sous-lot créé.\n\n"
+                                    f"{marque(role=role, etat='echec', raison=raison)}")
+            self.noter(lot.numero, f"{qui} en échec", raison, str(agent))
             return True
+        # Le chef d'un sous-lot du dépanneur relit le brief d'avant la découpe.
+        brief = (f" Le brief d'avant la découpe : `git show origin/{lot.branche(self.projet.prefixe_branche)}:"
+                 f"{lot.brief(self.projet.dossier_briefs)}`." if pr is not None else "")
         crees: list[int] = []
         for s, attend in zip(sous, rangs):
             etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if s.machine == "pc" else [])
@@ -693,14 +703,19 @@ class Pilote:
             # rien dire) : un morceau bloqué retient ceux qui s'appuient sur
             # lui, et les autres avancent en même temps.
             suite = ("\n\nDépend de : " + ", ".join(f"#{crees[k - 1]}" for k in attend)) if attend else ""
-            n = self.gh.creer_issue(s.titre, f"{s.quoi}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
+            n = self.gh.creer_issue(s.titre, f"{s.quoi}\n\nDécoupé du lot #{lot.numero} par le {qui}.{brief}{suite}",
                                     etiquettes, titre_jalon or None)
             crees.append(n)
         liste = ", ".join(f"#{n}" for n in crees)
         pourquoi = "jalon découpé" if lots.jalon_a_decouper_par(lot) else "trop gros pour un lot, découpé"
-        self.gh.fermer_issue(lot.numero, f"🤖 **chef** ({res.agent}) : {pourquoi} en {liste}.",
+        details = (f"\n\n<details><summary>Le diagnostic du dépanneur</summary>\n\n{diagnostic}\n\n</details>"
+                   if diagnostic else "")
+        self.gh.fermer_issue(lot.numero, f"🤖 **{qui}** ({agent}) : {pourquoi} en {liste}.{details}",
                              abandon=True)
-        self.noter(lot.numero, "découpé", liste, str(res.agent))
+        if pr is not None:
+            self.gh.fermer_pr(pr["number"], f"Fermée par le pilote : le {qui} a découpé le lot #{lot.numero} en "
+                                            f"{liste}. La branche garde le travail d'avant la découpe.")
+        self.noter(lot.numero, "découpé", liste, str(agent))
         return True
 
     # ------------------------------------------------------------- coder
@@ -975,10 +990,10 @@ class Pilote:
             if secours.agent is not None:
                 res = secours
         trouvees = list(_DECISION_DEPANNEUR.finditer(res.texte)) if res.reussi else []
-        decision, motif, diagnostic = "", "", _extrait(res.texte, 40)
+        decision, motif, diagnostic, apres = "", "", _extrait(res.texte, 40), ""
         if trouvees:
             m = trouvees[-1]
-            decision = m.group(1)
+            decision, apres = m.group(1), res.texte[m.end():]
             # La consigne suit « :: », ou les lignes d'après quand il passe à la ligne.
             motif = (m.group(2) or "").strip().strip("*_` ") or res.texte[m.end():].strip()[:3000]
             diagnostic = _extrait(res.texte[:m.start()], 40)
@@ -997,6 +1012,9 @@ class Pilote:
             question = lots.question_du_chef(res.texte, motif or "")
             self._bloquer(lot.numero, f"question au propriétaire : {question.texte}", numero_pr,
                           question=question, par=lots.PAR_DEPANNEUR, diagnostic=diagnostic)
+        elif decision == "DECOUPE":
+            self._decouper(lot, apres, res.agent, lot.jalon_titre or "", role=lots.PAR_DEPANNEUR, pr=pr,
+                           diagnostic=diagnostic)
         elif decision == "MODE-DIRECT" and motif.strip():
             self._bloquer(lot.numero, f"la chaîne est en cause, mode direct : {motif.strip()}", numero_pr,
                           par=lots.PAR_DEPANNEUR, diagnostic=diagnostic)

@@ -1233,6 +1233,48 @@ def test_le_depanneur_renvoie_la_chaine_au_mode_direct(projet, gh, depot, tmp_pa
     assert rien.appels == []
 
 
+DECOUPE_DU_DEPANNEUR = """Le codeur a dépassé trois fois son heure : le lot est trop gros.
+**DECISION: DECOUPE**
+- Les essais bâtissent après un départ choisi :: les essais et la preuve J4 choisissent d'abord leur maison
+- La garde des terres :: le joueur ne bâtit que sur ses terres :: après 1
+"""
+
+
+def test_le_depanneur_decoupe_un_lot_trop_gros_et_ouvre_chaque_moitie(projet, gh, depot, tmp_path):
+    """Le 9 octobre 2026, le dépanneur a décidé de couper #408 en deux : il
+    n'en est sorti qu'une consigne, la PR de la première moitié a fermé le lot,
+    et la seconde n'a jamais existé. #413, qui l'attendait, et la file du VPS
+    de J3 à J5 derrière lui sont restés bloqués trois jours."""
+    _bloque(gh)
+    gh.ajouter_issue(20, "Le lanceur", corps="Dépend de : #10")
+    agents = Agents((0, DECOUPE_DU_DEPANNEUR))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "DECISION: DECOUPE" in next(a for a in agents.appels[0] if "Tu es le dépanneur" in a)
+    essais, garde = 101, 102
+    assert [g[1] for g in _gestes(gh, "creer_issue")] == ["Les essais bâtissent après un départ choisi",
+                                                          "La garde des terres"]
+    assert Lot.de(gh.issues_[garde]).dependances == frozenset({essais})
+    assert {Lot.de(gh.issues_[n]).decoupe_de for n in (essais, garde)} == {10}
+    assert f"git show origin/{BRANCHE}:docs/briefs/10-le-service-lit-un-lieu.md" in gh.issues_[essais]["body"]
+    assert ("fermer_pr", 50) in gh.gestes, "fusionnée, la PR d'avant la découpe fermerait le lot entier"
+    assert ("fermer_issue", 10, True) in gh.gestes
+    # Au tour suivant, le chef prend la première moitié ; le lanceur attend les deux.
+    brief = "docs/briefs/101-les-essais-batissent-apres-un-depart-choisi.md"
+    _pilote(projet, gh, depot, Agents((0, "DECISION: BRIEF", {brief: BRIEF_BON})), tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[-1][1] == "lot/101-les-essais-batissent-apres-un-depart-choisi"
+
+
+def test_une_decoupe_illisible_du_depanneur_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
+    _bloque(gh)
+    _pilote(projet, gh, depot, Agents((0, "Trop gros.\nDECISION: DECOUPE\nen deux, je pense")), tmp_path).tour()
+    assert not _gestes(gh, "creer_issue") and not _gestes(gh, "fermer_pr")
+    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
+    assert "découpe illisible" in gh.issues_[10]["comments"][-1]["body"]
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == []
+
+
 def test_un_depanneur_sans_decision_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
     _bloque(gh)
     agents = Agents((0, "Je ne sais pas."), (0, "Moi non plus."))

@@ -30,6 +30,7 @@ la fusionne toute seule.
                     DÉPANNEUR (Claude Code, opus, high ; secours Codex gpt-6.1-sol) ◄─┘
                      ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
                      ├─ QUESTION    ──► question au propriétaire
+                     ├─ DECOUPE     ──► sous-lots ouverts ; le lot et sa PR se ferment
                      └─ MODE-DIRECT ──► reste « bloque » : la chaîne est à corriger
 ```
 
@@ -208,6 +209,12 @@ peut rejouer un test. Puis il rend une décision :
 - `DECISION: QUESTION` (le format du chef, ci-dessous) : le brief contredit un
   test existant ou une règle du monde. Le pilote pose la question, et le
   journal du matin la reprend ;
+- `DECISION: DECOUPE`, suivie des lignes de découpe du chef : le lot est trop
+  gros pour un passage du codeur. Le pilote ouvre les sous-lots, que le chef
+  prend comme d'autres lots, puis ferme le lot et sa PR. Un découpage ne passe
+  jamais par une question ni une consigne : le 9 octobre 2026, la consigne
+  « couper #408 en deux » a laissé la PR de la première moitié fermer le lot,
+  et la seconde n'a jamais existé ;
 - `DECISION: MODE-DIRECT :: <quoi>` : la chaîne elle-même est en cause (un
   outil manque, un défaut dans `atelier/`). Le lot reste bloqué, avec cette
   raison.
