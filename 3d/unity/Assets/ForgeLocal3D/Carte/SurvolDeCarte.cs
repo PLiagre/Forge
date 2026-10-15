@@ -12,17 +12,23 @@ namespace ForgeLocal3D
     {
         public bool automatique;
         FicheDeCellule fiche;
+        ReperesDeDepart reperes; // lot #624 : le même survol ouvre la fiche de la terre sous la souris
 
-        void Awake() => fiche = GetComponent<FicheDeCellule>();
+        void Awake() { fiche = GetComponent<FicheDeCellule>(); reperes = GetComponent<ReperesDeDepart>(); }
 
         void Update()
         {
             var souris = Mouse.current;
             if (automatique || souris == null) return;
-            Vector2 position = souris.position.ReadValue();
+            Survoler(souris.position.ReadValue());
+        }
+
+        public void Survoler(Vector2 position)
+        {
             bool dansLaFenetre = position.x >= 0 && position.y >= 0 && position.x < Screen.width && position.y < Screen.height;
             bool surUnPanneau = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            if (dansLaFenetre && !surUnPanneau) fiche.Survoler(position); else fiche.Quitter();
+            if (dansLaFenetre && !surUnPanneau) { fiche.Survoler(position); if (reperes != null) reperes.Survoler(position); }
+            else { fiche.Quitter(); if (reperes != null) reperes.Quitter(); }
         }
     }
 }
