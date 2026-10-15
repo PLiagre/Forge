@@ -6,7 +6,7 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 
 | Lot | Titre et gain joueur | Dépend de | Capture + test pouvant échouer | Budget | État |
 |---|---|---|---|---|---|
-| UI-01 | Socle : préparer une lecture cohérente ; thème, texte, bouton, panneaux simultanés et galerie minimale | DA validée | Galerie des trois composants et états normal/focus/inactif ; jeton absent ou focus invisible échoue | 285 | en cours |
+| UI-01 | Socle : préparer une lecture cohérente ; thème, texte, bouton, panneaux simultanés et galerie minimale | DA validée | Six tests verts et capture Play regardée ; [preuve](UI01.md), PR #630 | 299 | en cours |
 | UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Quatre états distincts ; `null` affiché comme zéro échoue | 180 | à faire |
 | UI-03 | Horloge : suspendre et reprendre le monde | 02 | Pause/vitesse reçues ; réponse retardée ne doit pas inverser l’état | 240 | à faire |
 | UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | Navigation clavier et retour ; double ouverture échoue | 210 | à faire |
