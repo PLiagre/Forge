@@ -15,7 +15,8 @@ namespace ForgeLocal3D
     // l'heure. Elle va en dernier dans la liste du build : la capture et le jeu ouvrent la première, la ville du désert
     // (`-forgeCarte` y fait passer le jeu, #524). Le joueur la parcourt à la souris (`ParcoursDeCarte`, #524), y lit la date
     // et règle l'horloge (`HorlogeDeCarte` et `CommandesDuTemps`, #525), survole une cellule pour lire sa fiche
-    // (`FicheDeCellule` et `SurvolDeCarte`, #526) ; un EventSystem fait cliquer ses boutons.
+    // (`FicheDeCellule` et `SurvolDeCarte`, #526), et y voit les six terres de départ (`ReperesDeDepart`, #626) ;
+    // un EventSystem fait cliquer ses boutons.
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.CarteBuilder.Construire
     public static class CarteBuilder
     {
@@ -34,6 +35,7 @@ namespace ForgeLocal3D
             carte.AddComponent<ParcoursDeCarte>(); // et sa CarteDessinee, qu'il exige
             carte.AddComponent<CommandesDuTemps>(); // et son HorlogeDeCarte
             carte.AddComponent<SurvolDeCarte>(); // et sa FicheDeCellule
+            carte.AddComponent<ReperesDeDepart>(); // les six terres, sur le siège de chacune
             new GameObject("Événements", typeof(EventSystem), typeof(InputSystemUIInputModule));
             var lumiere = new GameObject("Lumière de la carte").AddComponent<Light>();
             lumiere.type = LightType.Directional; lumiere.shadows = LightShadows.None; lumiere.intensity = 1f;
