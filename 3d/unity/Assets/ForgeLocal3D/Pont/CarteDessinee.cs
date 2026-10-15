@@ -32,6 +32,9 @@ namespace Forge.Pont {
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
         public VueDeCarte Vue { get; private set; } // ce que la caméra créée montre ; null sans carte posée ou avec une caméra donnée
         private ReperageDeCarte reperage; // lot #526 : la cellule sous un point
+        private PointCarte? origine; // lot #625 : l'origine de Mailler, gardée à la pose
+        // Un point servi (EPSG:3035, en m), en local dans la carte, comme ses contours et ses noms ; null tant que la carte n'est pas posée.
+        public Vector3? PositionSurLaCarte(PointCarte point, float hauteur) => origine.HasValue ?Place(point, origine.Value, hauteur) : (Vector3?)null;
         // La cellule servie sous un point du monde (projeté sur le plan de la carte) ; null dans la mer ou sans carte posée.
         public CelluleDeCarte CelluleSous(Vector3 monde) {
             if (reperage == null) return null;
@@ -101,7 +104,7 @@ namespace Forge.Pont {
                 objet.transform.SetParent(racine, false);
                 objet.GetComponent<MeshFilter>().sharedMesh = maillage; objet.GetComponent<MeshRenderer>().sharedMaterial = materiau;
             }
-            Tracer(lue, carte.Origine, defaut); Nommer(lue, carte.Origine); reperage = new ReperageDeCarte(lue, carte.Origine);
+            Tracer(lue, carte.Origine, defaut); Nommer(lue, carte.Origine); reperage = new ReperageDeCarte(lue, carte.Origine); origine = carte.Origine;
             if (cameraCreee && camera != null && racine.childCount > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
             CellulesServies = lue.Cellules.Count; Dire(""); Cadrer();
         }

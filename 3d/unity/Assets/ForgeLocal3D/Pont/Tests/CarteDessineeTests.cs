@@ -143,6 +143,14 @@ namespace Forge.Pont.Tests {
         [Test] public void Chaque_ville_servie_a_son_nom() { Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Lire(1); Noms(lue, o);
             Assert.IsNull(objet.GetComponentInChildren<Text>(), "un Text d'UI actif sous la carte");
         }
+        // Lot #625 — la conversion exposée est celle des noms : rien avant la pose, la place de chaque nom posé ensuite.
+        [Test] public void La_position_sur_la_carte_est_celle_des_noms() {
+            Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Assert.IsNull(carte.PositionSurLaCarte(o, CarteDessinee.HAUTEUR_NOM), "une position avant la pose");
+            Lire(1); Transform noms = objet.transform.Find("Villes de la carte"); int i = 0;
+            foreach (CelluleDeCarte c in lue.Cellules) foreach (VilleDeCarte v in c.Villes) { Vector3? p = carte.PositionSurLaCarte(v.Position, CarteDessinee.HAUTEUR_NOM);
+                Assert.IsTrue(p.HasValue && Egal(p.Value, noms.GetChild(i++).localPosition) && Egal(p.Value, Converti(v.Position, o, CarteDessinee.HAUTEUR_NOM)), v.Nom + " en " + p); }
+            Assert.IsTrue(i == 57 && i == noms.childCount, i + " villes, " + noms.childCount + " noms");
+        }
         [Test] public void La_camera_cadre_toute_la_carte() {
             Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
             Camera cam = carte.camera; Canvas toile = objet.GetComponentInChildren<Canvas>(true);
