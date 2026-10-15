@@ -17,5 +17,6 @@
 - Contrats examinés : lieux, maisons, flux, horloge et intentions du pont. Les fonctions J6–J9 sont planifiées sous réserve de leurs contrats, pas déclarées disponibles.
 - UI-01 : branche `direct/interface-socle` depuis `origin/master`, worktree frère `.atelier/direct/interface-socle` ; thème, composants et deux dossiers simultanés dans une galerie isolée.
 - UI-02 : worktree `.atelier/direct/interface-etats`, branche partie de `origin/master`, rebasée sur le socle fusionné `116975a`. Aucun fichier commun avec les lots #627 et #511 ; aucune modification de la simulation.
-- Prochaine action : attendre la CI et la fusion de UI-02, le marquer livré, puis UI-03 (horloge : pause/vitesse reçues et réponses retardées) depuis `origin/master`. Galeries isolées, police Unity provisoire et aucune donnée du monde branchée.
+- UI-02 fusionné (#631). Le propriétaire demande maintenant l’écran de partie concret : carte, maison, temps et dossiers, sans nouvelle galerie. [Découpage et contrat](PARTIE.md).
+- En cours : `direct/interface-partie` dans `.atelier/direct/interface-partie`, raccordement de maison éprouvé (quatre rouges, vingt-deux verts). Prochaine action : écran intégré sur la carte existante, puis capture et parcours avec le vrai service local.
 - Aucune question artistique ouverte ; fontes candidates à vérifier avant intégration, police Unity de secours explicitement provisoire pour la première galerie.
