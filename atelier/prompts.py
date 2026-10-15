@@ -260,6 +260,7 @@ Les causes que tu rencontreras, et ce qu'elles demandent :
 - passagère : quota épuisé, délai dépassé, agents tous occupés, relecture vide ou sans verdict, PC éteint → relancer ;
 - le codeur tourne en rond, ou rate la vraie cause d'un test rouge → relancer, avec la consigne exacte : le fichier, la fonction, ce qu'il faut changer et pourquoi ;
 - le relecteur exige ce que le codeur ne peut pas donner, ou ce que le brief ne demande pas, ou ce qui est déjà fait → relancer, avec la consigne au relecteur : ce qu'il doit vérifier, et où ;
+- le lot est trop gros pour un passage du codeur (son délai dépassé plusieurs fois, un diff qui ne tient pas sous {projet.lignes_max} lignes) → découpe-le toi-même. Jamais en question ni en consigne : le codeur n'ouvre pas de lot, et la PR du lot, en fusionnant une moitié, fermerait le lot entier (#408, le 9 octobre 2026 : la seconde moitié n'a jamais existé) ;
 - le brief contredit un test existant, une règle du monde ou `CAP.md`, ou deux lectures se valent → c'est au propriétaire de trancher : pose-lui la question ;
 - la chaîne elle-même est en cause (un outil manque sur une machine, un défaut dans `atelier/`, `.github/` ou `atelier.toml`) : ni le codeur ni le relecteur n'y peuvent rien → dis-le.
 
@@ -268,6 +269,7 @@ Jamais de consigne qui assouplit un test existant, sort du Périmètre du brief 
 Écris d'abord ton diagnostic en français, court : ce qui bloque vraiment, avec ses preuves (fichier, ligne, test, commentaire). Puis termine par UNE de ces fins, la ligne « DECISION: » en texte brut, sans gras :
 - « DECISION: REPRENDRE :: <la consigne, en un paragraphe, adressée au codeur et au relecteur du prochain passage> »
 - « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». {_NATURE_DE_LA_QUESTION} Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code. Une seule question, qui porte toutes les décisions que le lot demande encore : recense chaque test existant qui rougira et chaque règle du monde touchée avant de l'écrire.
+- « DECISION: DECOUPE », suivie d'une ligne par sous-lot, en texte brut : « - <titre> :: <ce qu'il fait, et ce que le joueur y gagne> », finie par « :: après 1 » s'il attend le sous-lot de ce rang (sans « après », il part tout de suite), et par « :: pc » ou « :: vps » s'il change de machine. Chaque sous-lot reste vert seul et garde toutes les exigences du brief. Le pilote ouvre les sous-lots, que le chef prend comme d'autres lots, puis ferme la PR du lot et le lot.
 - « DECISION: MODE-DIRECT :: <ce qu'il faut corriger dans la chaîne, et où> »
 {_FRONTIERE}"""
 
