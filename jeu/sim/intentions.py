@@ -23,9 +23,9 @@ NATURES_BATIMENT = ("maison", "scierie", "four")
 CHAMPS_OBLIGATOIRES = {
     TYPE_OUVRIR_GRENIER: ("type", "maison", "kg"),
     TYPE_FIXER_PART: ("type", "maison", "part"),
-    TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m"),
-    TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote"),
-    TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature"),
+    TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m", "maison"),
+    TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote", "maison"),
+    TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature", "maison"),
 }
 
 
@@ -204,6 +204,29 @@ def _cellule(monde, intention):
     return cell_id
 
 
+def maitre_du_bourg(monde, cell_id):
+    """Relit le maître actuel, sans déduire un droit de la puissance."""
+    cellule = monde.cells.get(cell_id)
+    if cellule is None:
+        raise IntentionRefusee(f"cellule absente : {cell_id}")
+    bourg = next((lieu for lieu in cellule.lieux if lieu.rang == 0), None)
+    if bourg is None:
+        raise IntentionRefusee(f"bourg absent : {cell_id}")
+    maitre = bourg.maitre
+    if not isinstance(maitre, str) or not any(m.id == maitre for m in monde.maisons):
+        raise IntentionRefusee(f"maître absent ou inconnu : {maitre!r}")
+    return maitre
+
+
+def _verifier_terres(monde, intention):
+    maison = intention["maison"]
+    if not isinstance(maison, str) or not any(m.id == maison for m in monde.maisons):
+        raise IntentionRefusee(f"maison inconnue ou mal formée : {maison!r}")
+    maitre = maitre_du_bourg(monde, intention["cell"])
+    if maison != maitre:
+        raise IntentionRefusee(f"ce lieu n'est pas à toi : {maitre}")
+
+
 def _decoupe_parcelle(monde, intention):
     cell_id = _cellule(monde, intention)
     identifiant = intention["rue"]
@@ -303,11 +326,13 @@ def recevoir_intention(monde, intention):
         pose = _pose_batiment(monde, intention)
         contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)
         verifier_base(monde, pose.cell_id, contour=contour)
+        _verifier_terres(monde, intention)
         monde.intentions_en_attente.append(pose)
         return pose
     if type_intention == TYPE_DECOUPER_PARCELLE:
         decoupe = _decoupe_parcelle(monde, intention)
         verifier_base(monde, decoupe.cell_id, contour=decoupe.contour)
+        _verifier_terres(monde, intention)
         monde.intentions_en_attente.append(decoupe)
         return decoupe
     foyers = _foyers(intention)
@@ -325,6 +350,7 @@ def recevoir_intention(monde, intention):
         raise IntentionRefusee(f"porte_cell_id : voisine terrestre attendue, reçu {porte!r}")
     route = TraceRoute(cell_id, tuple(tuple(point) for point in rue.points), rue.largeur_m, foyers, porte)
     verifier_base(monde, cell_id, points=route.points, largeur_m=route.largeur_m)
+    _verifier_terres(monde, intention)
     monde.intentions_en_attente.append(route)
     return route
 

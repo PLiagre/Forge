@@ -7,7 +7,7 @@ seul, sans moteur de rendu :
 py -m sim
 py -m sim --ticks 0 --json
 py -m sim --ticks 0 --seed 0 --snapshot-json /tmp/world.json
-python3 -m sim --ticks 4 --seed 0 --gestes gestes.json --monde-json monde.json
+python3 -m sim --ticks 10 --seed 0 --gestes sim/gestes-exemple.json --monde-json monde.json
 py -m sim.service --seed 0 --port 8000 --jours-par-seconde 1
 ```
 
@@ -33,6 +33,9 @@ La durée publiée inclut l'IA ; les autres routes gardent leur forme.
 `{"type": "decouper_parcelle", "cell": X, "rue": 0, "segment": 0,
 "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}`
 ou `{"type": "poser_batiment", "cell": X, "parcelle": 0, "nature": "maison"}`.
+Les trois constructions exigent un bourg tenu par la maison déposante : sinon « ce lieu n'est pas à toi : <maître> ».
+HTTP exige un départ appliqué et impose sa maison au JSON copié, même si le client en fournit une autre.
+Avec `--gestes`, chaque construction exige `maison`, identifiant explicite du registre, même sans départ choisi ; l'exemple construit à Biskra pour `seigneurie-6`.
 Le dépôt validé reste en attente jusqu’au tick suivant : le choix devient
 la maison du joueur, la route, la parcelle ou le bâtiment entre au plan en chantier.
 La parcelle borde une rue déjà au plan ; son contour est figé au dépôt.
