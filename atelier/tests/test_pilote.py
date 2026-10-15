@@ -943,6 +943,13 @@ def test_un_seul_mecanicien_a_la_fois(projet, gh, depot, tmp_path):
     assert agents.appels == []
 
 
+def test_la_reparation_du_mecanicien_se_relit_dans_son_chantier(projet, gh, depot, tmp_path):
+    fait = marque(role="mecanicien_master", etat="fait", essai=1, agent="codex/sol", sha="a" * 40)
+    gh.ajouter_pr(629, "meca/20261014-2304-master-rouge", ci="vert", commentaires=[fait])
+    _pilote(projet, gh, depot, Agents((0, "DECISION: OK")), tmp_path).tour()
+    assert ("preparer", "meca", "meca/20261014-2304-master-rouge") in depot.gestes
+
+
 def test_un_outil_a_son_plafond_fait_coder_le_secours(projet, gh, depot, tmp_path):
     chemin = projet.racine / "atelier.toml"
     chemin.write_text(chemin.read_text(encoding="utf-8") + "\n[outils]\ncodex = 1\n", encoding="utf-8")
