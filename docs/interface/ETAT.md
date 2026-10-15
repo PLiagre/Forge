@@ -2,10 +2,10 @@
 
 ## Livré et en cours
 
-- UI-01 livré sur master ; UI-02 réalisé et vérifié sur `direct/interface-etats`, en cours de publication.
+- UI-01 livré sur master ; UI-02 réalisé et vérifié sur `direct/interface-etats`, [PR #631](https://github.com/PLiagre/Forge/pull/631) en fusion automatique sous réserve de CI verte.
 - Les 108 images du dossier confirmé par le propriétaire ont été regardées, en douze planches de neuf, avec une note par image dans DA.md ; réductions conservées dans `references/`.
 - [Cadrage #628](https://github.com/PLiagre/Forge/pull/628) et [socle #630](https://github.com/PLiagre/Forge/pull/630) fusionnés. La relance unique des tests chronométrés de #630 est verte, sans modification de seuil ; [preuve du socle](UI01.md).
-- UI-02 : douze nouveaux tests rouges puis verts, six tests du socle toujours verts ; capture Play regardée à 1920 × 1080. Quatre états avec cause explicite ; une donnée absente ne devient pas zéro. [Preuves et limites](UI02.md).
+- UI-02 : douze nouveaux tests rouges puis verts, six tests du socle toujours verts ; capture Play regardée à 1920 × 1080, objet LFS distant retéléchargé et empreinte vérifiée. Quatre états avec cause explicite ; une donnée absente ne devient pas zéro. [Preuves et limites](UI02.md).
 - Worktree isolé : `C:/Users/liagr/.codex/worktrees/8c29/Forge/.atelier/direct/interface-cadrage`. Le checkout principal reste intact.
 - Les PR de lots #627 et #511 ont été consultées : aucun fichier commun avec `docs/interface/`.
 - Contrôles : liens locaux et 108 empreintes d’originaux vérifiés, douze planches décodées et regardées, diff sans erreur d’espaces ; douze objets LFS retéléchargés du serveur et vérifiés. Aucun test Unity ou moteur exécuté pour cette documentation.
