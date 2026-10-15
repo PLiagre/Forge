@@ -54,7 +54,7 @@ namespace ForgeLocal3D.Captures
             if (Environment.GetCommandLineArgs().Contains(RETIRER))
             {
                 reperes.enabled = false;
-                Object.Destroy(Premier(carte.transform.Find(RACINE)).gameObject);
+                Object.Destroy(Actifs(carte)[0].gameObject);
                 yield return null;
             }
 
@@ -119,19 +119,8 @@ namespace ForgeLocal3D.Captures
 
         static List<Transform> Actifs(CarteDessinee carte)
         {
-            var actifs = new List<Transform>();
             Transform racine = carte.transform.Find(RACINE);
-            if (racine == null) return actifs;
-            foreach (Transform enfant in racine)
-                if (enfant.gameObject.activeInHierarchy) actifs.Add(enfant);
-            return actifs;
-        }
-
-        static Transform Premier(Transform racine)
-        {
-            foreach (Transform enfant in racine)
-                if (enfant.gameObject.activeInHierarchy) return enfant;
-            return null;
+            return racine == null ? new List<Transform>() : racine.Cast<Transform>().Where(t => t.gameObject.activeInHierarchy).ToList();
         }
     }
 }
