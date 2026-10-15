@@ -1,0 +1,4 @@
+{
+    "name": "Forge.Interface",
+    "references": ["UnityEngine.UI", "Unity.InputSystem"]
+}
