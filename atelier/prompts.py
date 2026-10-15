@@ -174,8 +174,21 @@ def correction_relecture(revue: str) -> str:
 
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
               url: str, sha: str, rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
-              lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = ()) -> str:
-    comptes_rendus = (f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
+              lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = (),
+              master_rouge: str | None = None) -> str:
+    """`master_rouge` : la réparation de master par le mécanicien, sans issue
+    ni brief ; c'est ce que dit sa PR. Jusqu'au 15 octobre 2026, le relecteur
+    recevait un brief `docs/briefs/<n° de la PR>-….md` qui n'existe pas."""
+    if master_rouge is None:
+        reference = f"Le brief `{chemin_brief}` est la référence."
+    else:
+        base = projet.branche_base
+        reference = (f"Ce n'est pas un lot : c'est la réparation de `{base}` par le mécanicien, sans issue ni brief. "
+                     f"La référence est la CI rouge de `{base}`, que cette réparation doit rendre verte en corrigeant "
+                     "la cause, jamais en changeant un test ; sa PR dit :\n"
+                     f"-----\n{master_rouge.strip()[:4000] or '(rien)'}\n-----\n"
+                     "Là où la liste ci-dessous parle du brief, lis : le diff ne touche que ce que demande cette cause.")
+    comptes_rendus =(f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
                       f"ce sont des affirmations à vérifier, pas des preuves) :\n-----\n{rapports.strip()[:8000]}\n-----\n"
                       if rapports.strip() else "")
     lfs = ""
@@ -190,7 +203,7 @@ def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
     return f"""Tu es le relecteur de Forge. Tu n'as pas écrit ce code et tu ne le modifies pas.
 
 Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce dossier est cette révision.
-Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte : elle a joué la suite entière. Tu peux rejouer un fichier de test (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q -k …`) pour vérifier une affirmation, jamais la suite entière : elle dépasse ton délai.
+{reference} Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte : elle a joué la suite entière. Tu peux rejouer un fichier de test (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q -k …`) pour vérifier une affirmation, jamais la suite entière : elle dépasse ton délai.
 {comptes_rendus}{lfs}
 Vérifie, du plus grave au plus léger :
 1. Le diff reste dans le Périmètre du brief, élargi par les décisions du propriétaire s'il y en a plus bas, et rien ne touche {_interdits(projet)}.

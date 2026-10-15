@@ -8,6 +8,7 @@ import json
 import pytest
 
 from atelier import lots, prompts
+from atelier.depot import DepotErreur
 from atelier.lots import Lot, marque, marques
 from atelier.pilote import Pilote
 from atelier.projet import charger
@@ -948,6 +949,57 @@ def test_la_reparation_du_mecanicien_se_relit_dans_son_chantier(projet, gh, depo
     gh.ajouter_pr(629, "meca/20261014-2304-master-rouge", ci="vert", commentaires=[fait])
     _pilote(projet, gh, depot, Agents((0, "DECISION: OK")), tmp_path).tour()
     assert ("preparer", "meca", "meca/20261014-2304-master-rouge") in depot.gestes
+
+
+def test_le_relecteur_de_la_reparation_juge_contre_la_ci_rouge_de_master(projet, gh, depot, tmp_path):
+    fait = marque(role="mecanicien_master", etat="fait", essai=1, agent="codex/sol", sha="a" * 40)
+    pr = gh.ajouter_pr(629, "meca/20261014-2304-master-rouge", ci="vert", commentaires=[fait])
+    pr["body"] = "La CI de `master` est rouge : https://x/run/7.\n\nLe tick dépassait son budget."
+    agents = Agents((0, "Réparation juste.\nVERDICT: ACCEPTE"))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    prompt = next(a for a in agents.appels[0] if "Tu es le relecteur" in a)
+    assert "docs/briefs/" not in prompt, "la réparation de master n'a pas de brief"
+    assert "https://x/run/7" in prompt and "Le tick dépassait son budget." in prompt
+    assert "La référence est la CI rouge de `master`" in prompt
+
+
+def _master_rouge(gh):
+    gh.dernier_run = lambda workflow, branche: {"status": "completed", "conclusion": "failure",
+                                                "databaseId": 7, "url": "https://x/run/7"}
+
+
+def test_une_reparation_de_master_en_panne_se_dit_et_les_lots_continuent(projet, gh, depot, tmp_path):
+    """Le 15 octobre 2026, une DepotErreur de la réparation de master a fait
+    planter chaque tour pendant 15 h, sans une ligne lisible au journal : plus
+    aucun lot ne partait."""
+    _master_rouge(gh)
+    preparer = depot.preparer
+
+    def preparer_sauf_meca(nom, branche):
+        if nom == "meca":
+            raise DepotErreur("la branche est déjà extraite ailleurs")
+        return preparer(nom, branche)
+
+    depot.preparer = preparer_sauf_meca
+    gh.ajouter_issue(10, "Le service lit un lieu")
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "#master erreur — la branche est déjà extraite ailleurs" in lignes
+    assert _gestes(gh, "creer_pr"), "aucun agent n'est parti pour master : le lot suivant part"
+
+
+def test_une_reparation_en_panne_apres_son_mecanicien_arrete_le_tour(projet, gh, depot, tmp_path):
+    _master_rouge(gh)
+
+    def pousser(chemin, branche):
+        raise DepotErreur("poussée refusée")
+
+    depot.pousser = pousser
+    gh.ajouter_issue(10, "Le service lit un lieu")
+    agents = Agents((0, "Réparé.", {"jeu/sim/x.py": "mieux"}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert "#master erreur — poussée refusée" in lignes
+    assert len(agents.appels) == 1 and not _gestes(gh, "creer_pr"), "un seul agent par tour"
 
 
 def test_un_outil_a_son_plafond_fait_coder_le_secours(projet, gh, depot, tmp_path):
