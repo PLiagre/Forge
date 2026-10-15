@@ -1,0 +1,5 @@
+[
+  {"tick": 2, "intention": {"type": "tracer_route", "cell": 10103, "maison": "seigneurie-6", "points": [[0, 0], [40, 0]], "largeur_m": 4}},
+  {"tick": 3, "intention": {"type": "decouper_parcelle", "cell": 10103, "maison": "seigneurie-6", "rue": 0, "segment": 0, "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}},
+  {"tick": 5, "intention": {"type": "poser_batiment", "cell": 10103, "maison": "seigneurie-6", "parcelle": 0, "nature": "maison"}}
+]

@@ -314,7 +314,7 @@ def photographie_ia():
     deposer_intention(monde, {"type": TYPE_CHOISIR_DEPART, "seigneurie": 1})
     tick(monde, random.Random(0))
     releve = [dict(tick=17, maison={"sorte": "grande maison", "id": identifiant}, intention=intention)
-              for identifiant, intention in [(3, {"type": "tracer_route", "cell": 10322,
+              for identifiant, intention in [(3, {"type": "tracer_route", "maison": "grande-3", "cell": 10322,
                   "points": [[0, 0], [12.5, 0], [12.5, 27.1]], "largeur_m": 4, "foyers": 1}),
                   (10, {"type": "premier", "valeur": 1}), (2, {"type": "inventé", "texte": "tel quel", "liste": [2, 1]}),
                   (10, {"type": "second", "valeur": 2})]]

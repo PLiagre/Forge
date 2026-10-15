@@ -2780,15 +2780,15 @@ def test_service_monde_est_leger_et_intention_ne_mute_rien():
             lieu = requete_service(port, f"/lieu?cell={cellule['cell_id']}")[1]
             assert lieu["population"] == cellule["population"]
 
-        from sim.seigneuries import charger_seigneuries
+        from sim.seigneuries import charger_seigneuries, cellule_du_siege
         terre = charger_seigneuries()[0].id
         choix = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
         assert requete_service(port, "/intention", "POST", choix)[1] == {
             "acceptee": True, "appliquee_au_tick": 2}
         assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 3
         octets_avant = requete_service(port, "/monde")[2]
-        intention = json.dumps({"type": "tracer_route", "cell": min(c["cell_id"] for c in monde["cells"]), "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}).encode("utf-8")
-        cell_id = min(c["cell_id"] for c in monde["cells"])
+        intention = json.dumps({"type": "tracer_route", "cell": cellule_du_siege(charger_seigneuries()[0], World.charger(0).carte), "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}).encode("utf-8")
+        cell_id = json.loads(intention)["cell"]
         plan_avant = requete_service(port, f"/plan?cell={cell_id}")[2]
         reponse = requete_service(port, "/intention", "POST", intention)[1]
         assert reponse == {"acceptee": True, "appliquee_au_tick": 3}
@@ -4218,7 +4218,7 @@ def test_service_ia_ordre(monkeypatch):
     from sim.intentions import recevoir_intention
     with _service_ia_en_processus() as (s, port):
         from sim import engine
-        from sim.seigneuries import charger_seigneuries
+        from sim.seigneuries import charger_seigneuries, cellule_du_siege
         terre = charger_seigneuries()[0].id
         corps = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
         assert requete_service(port, "/intention", "POST", corps)[0] == HTTPStatus.OK
@@ -4237,7 +4237,7 @@ def test_service_ia_ordre(monkeypatch):
         verifier(evenements)
         for faux in (evenements[1:] + evenements[:1], [('ia', False, s.world, s.releve)] + evenements[1:]):
             with pytest.raises(AssertionError): verifier(faux)
-        route = dict(type='tracer_route', cell=min(s.world.cells), points=[[0, 0], [40, 0]], largeur_m=4)
+        route = dict(type='tracer_route', maison=s.world.maison_du_joueur, cell=cellule_du_siege(charger_seigneuries()[0], s.world.carte), points=[[0, 0], [40, 0]], largeur_m=4)
         assert requete_service(port, '/intention', 'POST', json.dumps(route).encode())[0] == HTTPStatus.OK
         joueur = list(s.world.intentions_en_attente)
         def deposer(w, r):
@@ -4266,7 +4266,8 @@ def test_service_ia_refus(monkeypatch, capsys, erreur):
     from sim.intentions import IntentionRefusee, recevoir_intention
     erreur = ValueError if erreur == 'donnee' else IntentionRefusee
     with _service_ia_en_processus() as (s, port):
-        route = dict(type='tracer_route', cell=min(s.world.cells), points=[[0, 0], [40, 0]], largeur_m=4)
+        cid = min(s.world.cells)
+        route = dict(type='tracer_route', maison=s.world.cells[cid].lieux[0].maitre, cell=cid, points=[[0, 0], [40, 0]], largeur_m=4)
         recevoir_intention(s.world, route)
         file = list(s.world.intentions_en_attente)
         chemins = ['/monde', '/ia', f"/plan?cell={route['cell']}"]

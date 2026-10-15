@@ -1963,6 +1963,13 @@ ont la même empreinte. Les médianes varient entre les passages.
 
 ## Les intentions du joueur
 
+Les trois constructions exigent `maison`, identifiant texte de `World.maisons`.
+Après les validations existantes, avant l'attente, la garde relit le maître actuel du rang 0 de `World.cells[cell].lieux`.
+Maison mal formée/inconnue, cellule, bourg ou maître absent, maître inconnu : refus nommé sans mutation.
+Une autre maison connue reçoit exactement « ce lieu n'est pas à toi : <maître> ».
+Sous `verrou_tick`, HTTP exige un départ appliqué, copie le JSON et impose `maison_du_joueur` avant le dépôt journalisé ; refus 400 sans tick ni publication.
+Le dépôt commun et `--gestes` exigent une maison explicite, même sans départ. Le tick ne revérifie pas le droit ; le plan ne stocke aucune propriété.
+
 `ouvrir_grenier` accepte exactement `{"type": "ouvrir_grenier", "maison": <id du registre>, "kg": <quantité>}`.
 Tout champ manquant ou inconnu, y compris `foyers`, est refusé. Les refus
 suivants lèvent `IntentionRefusee`, dans cet ordre, sans changer l'attente,
@@ -2026,13 +2033,13 @@ et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
 
-Une route se dépose avec les quatre champs obligatoires `{"type": "tracer_route", "cell": X,
+Une route se dépose avec les cinq champs obligatoires `{"type": "tracer_route", "maison": M, "cell": X,
 "points": [[x, y], …], "largeur_m": L}` et les champs facultatifs `foyers` et `porte_cell_id`.
 `foyers` vaut 1 par défaut : entier ≥ 1, sans booléen et sans borne haute.
 Sinon `IntentionRefusee("foyers invalide : attendu un entier ≥ 1, reçu <repr>")`
 est levée avant toute mise en attente. Tout autre champ ou champ obligatoire
 absent est refusé. `cell` est un entier présent dans `World.plans`, sans booléen ;
-toute cellule de la carte convient. La construction d'une `Rue` vérifie
+le bourg doit être tenu par la maison déposante. La construction d'une `Rue` vérifie
 points et largeur selon le contrat du plan ; un `PlanInvalide` devient
 `IntentionRefusee("route invalide : <raison>")`. Le dépôt accepté est un
 `TraceRoute(cell_id, points, largeur_m, foyers, porte_cell_id)` gelé, aux points copiés en tuples.
@@ -2053,9 +2060,9 @@ cellule, sans aléa. Mêmes
 gestes et même graine donnent le même monde ; sans geste, les plans restent
 vides et l'empreinte reste celle d'avant.
 
-Une parcelle se dépose avec `{"type": "decouper_parcelle", "cell": X,
+Une parcelle se dépose avec `{"type": "decouper_parcelle", "maison": M, "cell": X,
 "rue": 0, "segment": 0, "debut_m": 5, "facade_m": 10, "profondeur_m": 20,
-"cote": "gauche"}`. Ces huit champs sont obligatoires ; un absent donne
+"cote": "gauche"}`. Ces neuf champs sont obligatoires ; un absent donne
 « champ manquant : X », un champ supplémentaire « champ inconnu : X ».
 Seul `foyers` est facultatif, avec la même validation que pour la route.
 Les refus lèvent `IntentionRefusee`, avant toute attente et sans effet,
@@ -2100,7 +2107,7 @@ identifiant maximum des parcelles (ou −1) plus 1, `en_chantier=True`,
 Rues et bâtiments sont repris tels quels. Sans geste, aucune parcelle
 n'entre en chantier et le monde reste identique à l'octet près.
 
-Un bâtiment se dépose avec `{"type": "poser_batiment", "cell": X,
+Un bâtiment se dépose avec `{"type": "poser_batiment", "maison": M, "cell": X,
 "parcelle": 0, "nature": "maison"}` ; `foyers` vaut 1 par défaut.
 Les champs obligatoires vivent dans un seul dictionnaire par type ; un absent
 ou un champ inconnu donne « champ manquant : X » ou « champ inconnu : X ».
@@ -2538,6 +2545,7 @@ les métiers suivent une seule fois le solde au prorata, sans partage général 
 ## Les décisions et les gestes de l'IA
 
 `sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia` : population et faim du rang 0 positives, quelle que soit la cause. Dette, stock vide ou faim des champs ne suffisent pas.
+Le JSON porte la maison qui décide (`grande-<id>` ou `identifiant_de_seigneurie`). Un bourg tenu par une autre maison connue ne produit aucune proposition et ne consomme aucun budget ; maître absent ou inconnu : refus nommé avant tout dépôt.
 Hors carte : aucun geste. Cellule, plan, bourg ou faim absent/non calculé : refus nommé avant tout dépôt.
 Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des entrées du relevé, refus compris. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
 L'exclusion compare l'identifiant du registre : le numéro d'un `ChoixDepart` en attente est converti par `identifiant_de_seigneurie`, comme celui des lignes de seigneurie.
@@ -2632,7 +2640,7 @@ et forme du bourg dans la cellule, les autres effets locaux des rues achevées, 
 gestes de bâtiment autres que la pose (démolir, déplacer, agrandir),
 et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
 son coût en journées, les bras pris aux champs et son achèvement sont de
-niveau 2. La restriction à la capitale, les bornes et les doublons restent
+niveau 2. Le droit de bâtir dépend du maître actuel du bourg, de niveau 2. La restriction à la seule capitale, les bornes et les doublons restent
 de niveau 3, non simulés. Le découpage d'une parcelle, son coût et son
 achèvement sont de niveau 2. Ses chevauchements avec d'autres parcelles,
 une rue ou l'extérieur du bourg, sa propriété, son prix et son cadastre
