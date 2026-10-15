@@ -90,6 +90,9 @@ class GitHubASec(GitHub):
     def fermer_pr(self, numero, commentaire):
         _dire(f"fermer la PR #{numero}")
 
+    def rejouer_les_echecs(self, run):
+        _dire(f"rejouer les travaux en échec du run {run}")
+
     def lancer_workflow(self, workflow, reference, champs):
         _dire(f"lancer {workflow} sur {reference} : {champs}")
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 import json
 import re
 import unicodedata
@@ -497,6 +498,59 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
     if essais >= max_essais:
         return Action("bloquer", f"relecture « CORRIGER » après {essais - 1} correction(s)")
     return Action("corriger_relecture", "relecture « CORRIGER »", essai=essais)
+
+
+# Le travail de la CI qui chronomètre le moteur (`pytest -m chronometre`). Au
+# bord de son budget sur les runners partagés, il rougit sans que le lot y
+# soit pour rien ; un codeur qui ne touche pas `jeu/` n'y peut rien. Les 14 et
+# 15 octobre 2026, #625 (du C# seul) a gâché deux fois ses deux corrections
+# sur ce rouge, puis s'est bloqué. Le pilote rejoue le travail une fois avant
+# d'appeler le codeur, sans compter d'essai (marque « rejeu » sur la PR).
+TRAVAIL_CHRONOMETRE = "chronometre"
+ETAT_REJEU = "rejeu"
+# Un rejeu qui n'a rien rendu au bout de ce temps rend la main au codeur.
+HEURES_REJEU = 2
+
+
+def _instant(texte: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(texte.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str, fichiers: Iterable[str],
+                         liste: list[dict], *, role_codeur: str = "codeur",
+                         heures_depuis_rejeu: float | None = None) -> str:
+    """Ce que fait le pilote d'une CI rouge avant d'appeler le codeur.
+
+    `travaux` : ceux du workflow de `chronometre` (`github.travaux`), dont
+    `agregat`, le travail qui les attend tous. « rejouer » : seul
+    `chronometre` est rouge, le lot (`fichiers`) ne touche pas `jeu/`, le run
+    est fini, et rien n'a été rejoué depuis le dernier passage du codeur.
+    « attendre » : ce run, ou le rejeu, tourne encore ; un rouge d'avant le
+    rejeu est périmé. « » : le codeur corrige."""
+    passages = [i for i, m in enumerate(liste) if m.get("role") == role_codeur
+                and m.get("etat") in ("fait", "echec", "reponse")]
+    depuis = depuis_reprise(liste[passages[-1] + 1:] if passages else liste)
+    rejeu = next((m for m in reversed(depuis) if m.get("role") == "pilote" and m.get("etat") == ETAT_REJEU), None)
+    if rejeu is not None:
+        if heures_depuis_rejeu is not None and heures_depuis_rejeu > HEURES_REJEU:
+            return ""
+        quand = _instant(rejeu.get("quand") or "")
+
+        def perime(t: dict[str, str]) -> bool:
+            parti = _instant(t["date"])
+            return quand is not None and (parti is None or parti < quand)
+
+        en_cours = any(t["etat"] == "attente" or (t["etat"] == "rouge" and perime(t)) for t in travaux.values())
+        return "attendre" if en_cours else ""
+    rouges = {n for n, t in travaux.items() if t["etat"] == "rouge" and n != agregat}
+    if rouges != {TRAVAIL_CHRONOMETRE} or any(f.startswith("jeu/") for f in fichiers):
+        return ""
+    if agregat not in travaux or any(t["etat"] == "attente" for t in travaux.values()):
+        return "attendre"
+    return "rejouer"
 
 
 # La question que le chef pose au propriétaire, quand un lot demande une

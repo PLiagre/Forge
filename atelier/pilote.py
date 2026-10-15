@@ -31,7 +31,7 @@ from typing import Callable
 from . import agents as agents_mod
 from . import captures, lfs, lots, prompts, traces
 from .depot import Depot, DepotErreur
-from .github import GitHub, GitHubErreur, etat_des_controles
+from .github import AGREGATS, GitHub, GitHubErreur, etat_des_controles, travaux as travaux_du_workflow
 from .lots import Lot, marque
 from .projet import MACHINES, Projet
 from .verrous import AucunVerrou
@@ -46,6 +46,7 @@ _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
 _MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
+_RUN = re.compile(r"/actions/runs/(\d+)/")
 SECTIONS_BRIEF = ("## But", "## Le joueur", "## Règle du monde", "## Périmètre", "## Conditions de succès",
                   "## Hors périmètre")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Codex, Cursor)"
@@ -509,6 +510,8 @@ class Pilote:
             derniere = next((m.get("action") for m in reversed(liste)
                              if m.get("role") == role and m.get("etat") == "envoye"), None)
             action = lots.Action(derniere or "coder", action.raison, action.essai)
+        if action.nom == "corriger_ci" and self._rejouer_le_chronometre(lot, pr, branche, liste, role):
+            return False
         if action.nom in ("coder", "corriger_ci", "corriger_relecture"):
             if lot.machine == "pc":
                 self._envoyer_pc(lot, pr, branche, action)
@@ -524,6 +527,46 @@ class Pilote:
             return self._chef(lot, lot.jalon_titre or "", courant)
         self.noter(lot.numero, "action inconnue", action.nom)
         return False
+
+    def _rejouer_le_chronometre(self, lot: Lot, pr: dict, branche: str, liste: list[dict], role: str) -> bool:
+        """Un rouge du seul travail `chronometre`, sur un lot qui ne touche
+        pas `jeu/` : le pilote le rejoue une fois avant d'appeler le codeur,
+        sans compter d'essai (`lots.rejeu_du_chronometre`). La branche reçoit
+        la base si elle a bougé, une marge regagnée sur le moteur peut-être ;
+        sinon le travail rouge se rejoue. Vrai quand le codeur n'a pas à passer."""
+        numero_pr, tete = pr["number"], pr.get("headRefOid") or ""
+        agregat = "tests"  # le contrôle exigé qui attend `chronometre`
+        travaux = travaux_du_workflow(pr, AGREGATS[agregat])
+        quoi = lots.rejeu_du_chronometre(travaux, agregat, self.gh.fichiers_de_pr(numero_pr), liste,
+                                         role_codeur=role,
+                                         heures_depuis_rejeu=self._heures_depuis(liste, "pilote", lots.ETAT_REJEU))
+        if quoi == "attendre":
+            self.noter(lot.numero, "attendre_ci", f"PR #{numero_pr} — `{lots.TRAVAIL_CHRONOMETRE}` rouge seul : "
+                                                  "rejoué quand son run sera fini, sans appeler le codeur")
+            return True
+        if quoi != "rejouer":
+            return False
+        chemin = self.depot.preparer(lot.numero, branche)
+        en_retard = self.depot.en_retard(chemin)
+        conflits = self.depot.fusionner_base(chemin) if en_retard else []
+        if en_retard and not conflits:
+            self.depot.pousser(chemin, branche)
+            geste = f"la branche reçoit `{self.projet.branche_base}`, qui a bougé depuis : la CI repart"
+        else:
+            if conflits:
+                self.depot.git_code("merge", "--abort", cwd=chemin)
+            run = _RUN.search(travaux[lots.TRAVAIL_CHRONOMETRE]["adresse"])
+            if run is None:
+                return False
+            self.gh.rejouer_les_echecs(int(run.group(1)))
+            geste = f"le travail est rejoué (run {run.group(1)})"
+        quand = self.maintenant().isoformat(timespec="seconds")
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : seul `{lots.TRAVAIL_CHRONOMETRE}` est rouge, et ce lot ne "
+                                        f"touche pas `jeu/` : le codeur n'y peut rien. Une fois, {geste}, sans "
+                                        "compter d'essai. S'il rougit encore, le codeur corrige.\n\n"
+                                        f"{marque(role='pilote', etat=lots.ETAT_REJEU, sha=tete, quand=quand)}")
+        self.noter(lot.numero, f"{lots.TRAVAIL_CHRONOMETRE} rejoué", f"PR #{numero_pr} — {geste}")
+        return True
 
     def _heures_depuis(self, liste: list[dict], role: str, etat: str) -> float | None:
         """Les heures écoulées depuis la dernière marque `etat` de ce rôle."""
