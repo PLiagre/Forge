@@ -45,6 +45,8 @@ namespace Forge.Interface
         {
             if (toile != null) return;
             carte = GetComponent<CarteDessinee>(); horloge = GetComponent<HorlogeDeCarte>(); fiche = GetComponent<FicheDeCellule>();
+            var prototype = GetComponent<ReperesDeDepart>();
+            if (prototype != null) { prototype.enabled = false; prototype.Arreter(); }
             Partie = Partie ?? LecturePartie.Locale(carte.port);
             foreach (var ancien in GetComponentsInChildren<Canvas>()) ancien.gameObject.SetActive(false);
             if (carte.camera != null) carte.camera.rect = new Rect(0, 0, .67f, 1);
@@ -165,7 +167,7 @@ namespace Forge.Interface
                 + "\n" + candidate.Habitants + " habitants dans la cellule du siège"
                 + "\nSuzerain : " + (candidate.Suzerain?.Nom ?? "aucun");
             var recu = Partie.Recu;
-            if (recu != null) apercu.text = recu.Acceptee ? "Choix reçu pour le tick " + recu.AppliqueeAuTick + ".\nReprenez le temps si le monde est en pause."
+            if (recu != null) apercu.text = recu.Acceptee ? "Choix reçu au tick " + recu.AppliqueeAuTick + ".\nReprenez le temps pour son application au prochain tick."
                 : recu.Presente ? "Demande refusée : " + recu.Erreur : "Envoi non confirmé : " + recu.Absence;
         }
 

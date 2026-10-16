@@ -12,11 +12,19 @@ namespace Forge.Interface.Tests
         CabinetDeCarte cabinet;
         [SetUp] public void Ouvrir()
         {
-            racine = new GameObject("Carte de contrôle", typeof(CarteDessinee), typeof(HorlogeDeCarte), typeof(FicheDeCellule));
+            racine = new GameObject("Carte de contrôle", typeof(CarteDessinee), typeof(HorlogeDeCarte), typeof(FicheDeCellule), typeof(ReperesDeDepart));
             cabinet = racine.AddComponent<CabinetDeCarte>();
             cabinet.Construire();
         }
         [TearDown] public void Fermer() => Object.DestroyImmediate(racine);
+
+        [Test] public void LeChoixDirectDuPrototypeEstArrete()
+        {
+            var prototype = racine.GetComponent<ReperesDeDepart>();
+            Assert.That(prototype.enabled, Is.False);
+            prototype.Choisir(Vector2.zero);
+            Assert.That(prototype.ChoixEnVol, Is.False);
+        }
 
         [Test] public void LesDeuxDossiersRestentOuvertsEtLesPanneauxArretentLesClics()
         {
