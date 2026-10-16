@@ -1046,3 +1046,172 @@ def test_releve_chantiers_purete():
     copie = copy.deepcopy(mondes[0]); rue = copie.plans[cid].rues[0]
     copie.plans[cid].rues[0] = replace(rue, travail_requis=rue.travail_requis + 1, travail_fourni=rue.travail_fourni + 1)
     with pytest.raises(AssertionError): assert etat(copie, aleas[0]) == etat(mondes[0], aleas[0])
+
+
+def _autoconstruction(n=1, personnes=None):
+    from sim.plan import Parcelle
+    monde = _atelier(k.SURFACE_M2_PAR_FOYER_LOGE, personnes={"artisans": n * k.TAILLE_FOYER} if personnes is None else personnes)
+    contour = monde.plans[0].parcelles[0].contour
+    monde.plans[0] = Plan(parcelles=[Parcelle(i, contour) for i in reversed(range(n))]); monde.greniers['atelier'] = {}
+    return monde
+
+
+def test_autoconstruction_dix(monkeypatch):
+    from sim import chantiers, logement
+    from sim.plan import aire_du_contour
+    def jouer():
+        monde = _autoconstruction(10); observations = []; requis = chantiers.travail_requis_de_batiment(monde.plans[0].parcelles[0].contour)
+        for jour in range(10 + requis):
+            chantiers.avancer_chantiers(monde); maisons = monde.plans[0].batiments
+            assert [b.parcelle for b in maisons] == list(range(min(jour + 1, 10)))
+            capacite = sum(max(1, int(aire_du_contour(b.emprise) // k.SURFACE_M2_PAR_FOYER_LOGE)) for b in maisons if not b.en_chantier)
+            assert logement.logement_de(monde.cells[0], monde.plans[0])['capacite'] == capacite
+            observations.append(len(maisons))
+        assert len(maisons) == 10 and all(b.travail_fourni == b.travail_requis for b in maisons)
+        assert lire_habitants_par_metier(monde.cells[0]) == {'artisans': 10 * k.TAILLE_FOYER}
+        assert logement.logement_de(monde.cells[0], monde.plans[0]) == dict(capacite=10, loges=10, sans_logis=0)
+        return observations
+    def verifier(observations):
+        assert len(observations) >= 10 and observations[:10] == list(range(1, 11))
+    verifier(jouer())
+    with pytest.raises(AssertionError): verifier([0] * 10)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(chantiers, '_ouvrir_maisons', lambda plan, *a: plan)
+        with pytest.raises(AssertionError): verifier(jouer())
+
+
+def test_autoconstruction_limites(monkeypatch):
+    from sim import chantiers
+    from sim.plan import Batiment
+    def jouer(cas, limite=1):
+        monde = _autoconstruction(2); plan, cell = monde.plans[0], monde.cells[0]; contour = plan.parcelles[0].contour
+        if cas == 'vide': plan.parcelles.clear()
+        if cas in ('occupe', 'promis', 'loge'):
+            plan.batiments = [Batiment(i, i, 'four' if cas == 'occupe' else 'maison', contour, cas != 'loge', 1, 10 if cas != 'loge' else 0) for i in range(2)]
+        if cas == 'promis': plan.batiments = [replace(plan.batiments[0], emprise=[(x * 2, y) for x, y in contour])]
+        if cas == 'preparation': plan.parcelles = [replace(p, en_chantier=True, foyers=1, travail_requis=1) for p in plan.parcelles]
+        if cas in ('artisans', 'metiers'): cell.habitants_par_metier = {'paysans': cell.population} if cas == 'artisans' else None
+        if cas == 'bourg': cell.lieux.clear()
+        if cas == 'maitre': cell.lieux[0].maitre = None
+        if cas == 'incomplet': cell.population = 1
+        if cas == 'deux': monde.cells[1] = copy.deepcopy(cell); monde.cells[1].cell_id = 1; monde.plans[1] = copy.deepcopy(plan)
+        avant = sum(len(p.batiments) for p in monde.plans.values()); chantiers.avancer_chantiers(monde)
+        ouvertures = sum(len(p.batiments) for p in monde.plans.values()) - avant
+        assert ouvertures == (2 if cas == 'deux' else min(limite, 2) if cas in ('libre', 'incomplet') else 0)
+        if cas == 'libre':
+            chantiers.avancer_chantiers(monde); chantiers.avancer_chantiers(monde)
+            assert len(monde.plans[0].batiments) == min(2, limite * 3)
+    for cas in ('vide', 'occupe', 'promis', 'loge', 'preparation', 'artisans', 'metiers', 'bourg', 'maitre', 'incomplet', 'deux', 'libre'): jouer(cas)
+    for limite in (0, 2):
+        with monkeypatch.context() as ctx:
+            ctx.setattr(k, 'MAISONS_OUVERTES_PAR_JOUR', limite); jouer('libre', limite)
+            from types import SimpleNamespace
+            ctx.setattr(chantiers, '_constantes', SimpleNamespace(**(vars(k) | {'MAISONS_OUVERTES_PAR_JOUR': 1})))
+            with pytest.raises(AssertionError): jouer('libre', limite)
+    monde = _autoconstruction(1, {'paysans': 1, 'artisans': 1}); monde.greniers['atelier'] = {'nourriture': k.SALAIRE_JOURNEE_KG}
+    monde.plans[0].parcelles[0] = replace(monde.plans[0].parcelles[0], en_chantier=True, foyers=1, travail_requis=1)
+    chantiers.avancer_chantiers(monde); assert not monde.plans[0].batiments
+    chantiers.avancer_chantiers(monde); assert len(monde.plans[0].batiments) == 1
+    ouvrir = chantiers._ouvrir_maisons
+    for cas in ('occupe', 'promis'):
+        def ignorer(plan, *args):
+            faux = copy.deepcopy(plan); faux.batiments.clear(); ajout = ouvrir(faux, *args).batiments
+            return Plan(parcelles=plan.parcelles, batiments=plan.batiments + [replace(b, identifiant=max(e.identifiant for e in plan.batiments) + 1 + i) for i, b in enumerate(ajout)])
+        with monkeypatch.context() as ctx:
+            ctx.setattr(chantiers, '_ouvrir_maisons', ignorer)
+            with pytest.raises(AssertionError): jouer(cas)
+
+
+def test_autoconstruction_journees(monkeypatch):
+    from sim import chantiers
+    def jouer(mixte=False):
+        monde = _autoconstruction(2, {'artisans': 1, 'paysans': k.TAILLE_FOYER} if mixte else {'artisans': 1}); cell = monde.cells[0]
+        if mixte:
+            monde.plans[0].rues = [Rue(0, [(0, 0), (1, 0)], 1, True, 1, 1)]; monde.greniers['atelier'] = {'nourriture': k.SALAIRE_JOURNEE_KG}
+        for jour in range(chantiers.travail_requis_de_batiment(monde.plans[0].parcelles[0].contour) + 1):
+            grenier = copy.deepcopy(monde.greniers); avant = monde.to_dict(); travail = sum(b.travail_fourni for b in monde.plans[0].batiments); envois = chantiers.avancer_chantiers(monde)
+            gain = sum(b.travail_fourni for b in monde.plans[0].batiments) - travail; metiers = lire_habitants_par_metier(cell)
+            bras = sum(v for cle, v in envois.items() if 'batiment' in cle); assert gain == bras == metiers.get(k.METIER_AUTOCONSTRUCTEURS, 0)
+            assert metiers.get('artisans', 0) + bras == 1 and sum(metiers.values()) == cell.population == sum(avant['cells']['0']['foyers'][m]['personnes'] for m in avant['cells']['0']['foyers'])
+            for cle, v in envois.items():
+                if 'batiment' in cle: assert v <= 1 and monde.chantiers_du_jour[cle] == dict(bras=v, grain_paye_kg=0, motif_arret=None if v else 'sans_bras')
+            salaire = envois.get((0, 0), 0) * k.SALAIRE_JOURNEE_KG
+            assert grenier['atelier'].get('nourriture', 0) - monde.greniers['atelier'].get('nourriture', 0) == salaire
+            assert cell.stocks == avant['cells']['0']['stocks'] | ({'nourriture': avant['cells']['0']['stocks'].get('nourriture', 0) + salaire} if salaire else {})
+            assert cell.lieux[0].stocks == avant['cells']['0']['lieux'][0]['stocks'] | ({'nourriture': avant['cells']['0']['lieux'][0]['stocks'].get('nourriture', 0) + salaire} if salaire else {})
+        assert not monde.plans[0].batiments[0].en_chantier and metiers.get('artisans') == 1
+    jouer(); jouer(True)
+    avancer = chantiers.avancer_chantiers
+    def salaire_illicite(monde):
+        envois = avancer(monde); monde.greniers['atelier']['nourriture'] = monde.greniers['atelier'].get('nourriture', 0) - sum(envois.values()) * k.SALAIRE_JOURNEE_KG; return envois
+    with monkeypatch.context() as ctx:
+        ctx.setattr(chantiers, 'avancer_chantiers', salaire_illicite)
+        with pytest.raises(AssertionError): jouer()
+    monde = _autoconstruction(); avancer(monde); monde.cells[0].population = 0
+    envois = avancer(monde); assert envois and not any(envois.values()) and lire_habitants_par_metier(monde.cells[0]) == {}
+    monde.cells[0].habitants_par_metier = None; avancer(monde); assert all(r['motif_arret'] == 'metiers_non_calcules' for r in monde.chantiers_du_jour.values())
+    monde = _autoconstruction(2); avancer(monde); avancer(monde); monde.cells[0].population = 1; monde.cells[0].habitants_par_metier = {'artisans': 1}
+    envois = avancer(monde); assert len(envois) == 2 and sum(envois.values()) == 1 and lire_habitants_par_metier(monde.cells[0]) == {k.METIER_AUTOCONSTRUCTEURS: 1}
+    servir = chantiers._servir
+    for faute in ('double', 'paysans'):
+        def corrompre(element, metiers, payables, autonome=False):
+            resultat, bras = servir(element, metiers, payables, autonome)
+            if autonome and bras:
+                source = k.METIER_AUTOCONSTRUCTEURS; metiers.pop(source); metiers['artisans' if faute == 'double' else 'paysans'] = metiers.get('artisans' if faute == 'double' else 'paysans', 0) + bras
+            return resultat, bras
+        with monkeypatch.context() as ctx:
+            ctx.setattr(chantiers, '_servir', corrompre)
+            with pytest.raises(AssertionError): jouer()
+
+
+def test_autoconstruction_tick(monkeypatch):
+    from sim import chantiers
+    def jouer():
+        mondes = [_autoconstruction() for _ in range(3)]; aleas = [random.Random(0) for _ in mondes]; observations = []
+        for i, monde in enumerate(mondes):
+            atelier = _atelier(k.SURFACE_M2_PAR_FOYER_LOGE).plans[0].batiments[0]; monde.plans[0].batiments = [replace(atelier, parcelle=1)]
+            monde.plans[0].parcelles.append(replace(monde.plans[0].parcelles[0], identifiant=1)); monde.cells[0].food_stock_kg = 100000; monde.cells[0].stocks['fer'] = 100000
+            if i == 2: monde.plans[0].parcelles = monde.plans[0].parcelles[1:]
+        fabrication = engine._apply_fabrication
+        def observer(cell):
+            metiers = lire_habitants_par_metier(cell); bras = metiers.get(k.METIER_AUTOCONSTRUCTEURS, 0)
+            if cell is mondes[0].cells[0]: observations.append(bras)
+            assert metiers.get('artisans', 0) == cell.population - bras
+            avant = cell.stocks['fer']; fabrication(cell)
+            assert avant - cell.stocks['fer'] == pytest.approx(k.fabrication_kg(avant)[0] + k.budget_artisanal_kg(metiers.get('artisans', 0)))
+        with monkeypatch.context() as ctx:
+            ctx.setattr(engine, '_apply_fabrication', observer)
+            for jour in range(chantiers.travail_requis_de_batiment(mondes[0].plans[0].parcelles[0].contour) + 1):
+                retours = [engine.tick(m, a, jour) for m, a in zip(mondes, aleas)]
+                assert mondes[0].to_dict() == mondes[1].to_dict() and retours[0] == retours[1] and aleas[0].getstate() == aleas[1].getstate() == aleas[2].getstate()
+        assert observations and observations[0] == 1 and observations[-1] == 0
+        assert len(mondes[0].plans[0].batiments) == 2 and not mondes[0].plans[0].batiments[-1].en_chantier and len(mondes[2].plans[0].batiments) == 1
+    jouer()
+    for nom, faux in (('_avancer_chantiers', lambda m: None), ('_affecter_artisans', lambda m: [setattr(c, 'habitants_par_metier', {'artisans': c.population}) for c in m.cells.values()])):
+        with monkeypatch.context() as ctx:
+            ctx.setattr(engine, nom, faux)
+            with pytest.raises(AssertionError): jouer()
+
+
+def test_autoconstruction_etat():
+    from sim import chantiers
+    from dataclasses import asdict
+    monde = _autoconstruction(); ordinaire = _atelier().plans[0].batiments[0]
+    ancien = asdict(ordinaire); ancien.pop('autoconstruction'); ancien['emprise'] = [list(p) for p in ordinaire.emprise]
+    assert Plan(parcelles=_atelier().plans[0].parcelles, batiments=[ordinaire]).to_dict()['batiments'][0] == ancien
+    for valeur in (1, 'oui', None):
+        with pytest.raises(PlanInvalide): replace(ordinaire, autoconstruction=valeur)
+    with pytest.raises(PlanInvalide): replace(ordinaire, autoconstruction=True)
+    chantiers.avancer_chantiers(monde); maison = monde.plans[0].batiments[0]
+    def verifier(b, document): assert b.autoconstruction is True and document['batiments'][0]['autoconstruction'] is True
+    verifier(maison, monde.plans[0].to_dict()); chantiers.avancer_chantiers(monde); verifier(monde.plans[0].batiments[0], monde.plans[0].to_dict())
+    with pytest.raises(AssertionError): verifier(replace(maison, autoconstruction=False), monde.plans[0].to_dict())
+    faux = monde.plans[0].to_dict(); faux['batiments'][0].pop('autoconstruction')
+    with pytest.raises(KeyError): verifier(maison, faux)
+
+
+def test_autoconstruction_documentation():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8').split('## Le chantier et ses bras\n')[1].split('\n## ')[0]
+    def verifier(texte): assert 'autoconstruction' in texte and 'sans salaire' in texte
+    verifier(texte)
+    with pytest.raises(AssertionError): verifier(texte.replace('sans salaire', ''))
