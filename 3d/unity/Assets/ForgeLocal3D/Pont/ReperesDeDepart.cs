@@ -14,7 +14,6 @@ namespace Forge.Pont {
     // servie à la pose ; rien n'est relu ni calculé. Hors de tout repère, la fiche se cache.
     // Lot #613 : un clic sur un repère dépose au service le choix de sa terre (`choisir_depart`), hors du fil principal ; le
     // panneau en haut au centre dit le reçu tel que le service le rend : son tick, ou sa raison de refus. Unity ne juge rien.
-    // Lot #614 : maison publiée, puis un disque par lieu tenu, les départs s'effacent et la vue se centre sur le siège.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     [RequireComponent(typeof(CarteDessinee))]
     public sealed class ReperesDeDepart : MonoBehaviour {
@@ -114,7 +113,7 @@ namespace Forge.Pont {
                 if (domaine.IsFaulted) { string e = domaine.Exception.GetBaseException().Message; domaine = null; Dire("domaine : " + e); prochaineDomaine = maintenant + PERIODE_RELECTURE_S; }
                 else { var lu = domaine.Result; domaine = null; Installer(lu, maintenant); }
             }
-            if (complet) { Descendre(maintenant); return; }
+            Descendre(maintenant); if (complet || domainePose) return; // la maison publiée, même si un départ étranger manque
             if (enCours != null || maintenant < prochaineLecture || carte.PositionSurLaCarte(default, 0f) == null) return;
             ClientDeparts d = departs; ClientMaison m = maisons; var deja = new HashSet<long>(poses);
             enCours = Task.Run(() => Lire(d, m, deja));
@@ -127,6 +126,7 @@ namespace Forge.Pont {
             return (lues, fiches);
         }
         private void Appliquer(Lecture<DepartsLus> lues, List<(FicheDeDepart fiche, Lecture<MaisonLue> maison)> fiches, double maintenant) {
+            if (domainePose) { if (racine != null) racine.gameObject.SetActive(false); return; }
             var manques = new StringBuilder();
             if (!lues.Presente) manques.Append('\n').Append(lues.Absence);
             else foreach (var (fiche, maison) in fiches) {
@@ -135,10 +135,8 @@ namespace Forge.Pont {
                 else manques.Append('\n').Append(fiche.Nom).Append(" : siège hors carte, ").Append(maison.Donnees.Absents["siege"]);
             }
             complet = manques.Length == 0;
-            if (domainePose) { if (racine != null) racine.gameObject.SetActive(false); return; }
             if (complet) Dire(""); else { Dire(MESSAGE_ABSENCE + manques); prochaineLecture = maintenant + PERIODE_RELECTURE_S; }
         }
-        // La maison publiée, puis une fois chaque cellule distincte de ses lieux. Aucun objet Unity ici.
         private void Descendre(double maintenant) {
             if (domainePose || domaine != null || maintenant < prochaineDomaine || carte.PositionSurLaCarte(default, 0f) == null) return;
             FicheDeCellule fiche = GetComponent<FicheDeCellule>(); string id = fiche != null ? fiche.MaisonDuJoueur : null; if (id == null) return;
@@ -166,12 +164,9 @@ namespace Forge.Pont {
             foreach (LieuTenu t in m.Lieux) {
                 LectureLieu cell = null; foreach (var c in lu.cellules) if (c.cell == t.CellId) { cell = c.lieu; break; }
                 string n = t.CellId.ToString(CultureInfo.InvariantCulture), r = t.Rang.ToString(CultureInfo.InvariantCulture);
-                if (cell == null || !cell.Presente) return cell != null ? cell.Absence : nom + " : cellule " + n + " sans réponse";
-                if (cell.Lieu.Lieux == null) return nom + " : " + cell.Lieu.AbsenceDesLieux;
+                if (cell == null || !cell.Presente || cell.Lieu.Lieux == null) return cell == null || !cell.Presente ? (cell != null ? cell.Absence : nom + " : cellule " + n + " sans réponse") : nom + " : " + cell.Lieu.AbsenceDesLieux;
                 LieuPlace p = null; foreach (LieuPlace x in cell.Lieu.Lieux) if (x.Rang == t.Rang) { p = x; break; }
-                if (p == null) return nom + " : rang " + r + " absent de la cellule " + n;
-                if (p.Position == null) return nom + " : point nul pour la cellule " + n + ", rang " + r;
-                if (p.Maitre != lu.id) return nom + " : maître contradictoire pour la cellule " + n + ", rang " + r;
+                if (p == null || p.Position == null || p.Maitre != lu.id) return p == null ? nom + " : rang " + r + " absent de la cellule " + n : p.Position == null ? nom + " : point nul pour la cellule " + n + ", rang " + r : nom + " : maître contradictoire pour la cellule " + n + ", rang " + r;
             }
             return null;
         }
@@ -179,10 +174,7 @@ namespace Forge.Pont {
             foreach (var c in cellules) if (c.cell == t.CellId) foreach (LieuPlace p in c.lieu.Lieu.Lieux) if (p.Rang == t.Rang) return p; return null;
         }
         private void PoserLieu(LieuTenu t, PointCarte point) {
-            if (matJoueur == null) {
-                Material d = GraphicsSettings.currentRenderPipeline.defaultMaterial;
-                matJoueur = new Material(d) { name = "Lieu du joueur", color = COULEUR_JOUEUR }; matBord = new Material(d) { name = "Bord du lieu", color = BORD_JOUEUR }; crees.Add(matJoueur); crees.Add(matBord);
-            }
+            if (matJoueur == null) { Material d = GraphicsSettings.currentRenderPipeline.defaultMaterial; matJoueur = new Material(d) { name = "Lieu du joueur", color = COULEUR_JOUEUR }; matBord = new Material(d) { name = "Bord du lieu", color = BORD_JOUEUR }; crees.Add(matJoueur); crees.Add(matBord); }
             if (lieuxRacine == null) { lieuxRacine = new GameObject(RACINE_LIEUX).transform; lieuxRacine.SetParent(transform, false); crees.Add(lieuxRacine.gameObject); }
             var lieu = new GameObject(NomDuLieu(t.CellId, t.Rang)).transform; lieu.SetParent(lieuxRacine, false); lieu.localPosition = carte.PositionSurLaCarte(point, HAUTEUR_LIEU).Value;
             Disque(lieu, "Bord", matBord, DIAMETRE_BORD_KM, -0.12f); Disque(lieu, "Disque", matJoueur, DIAMETRE_LIEU_KM, 0f);

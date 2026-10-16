@@ -8,9 +8,8 @@ using UnityEngine.UI;
 namespace Forge.Pont {
     // Lot #526 : le joueur survole une cellule et lit sa fiche. Puissance, maison et villes viennent de la carte servie
     // (`/carte`, déjà lue par CarteDessinee) ; habitants, faim et dette viennent de `/monde`, relu toutes les
-    // `PERIODE_LECTURE_S` hors du fil principal, avec la maison du joueur, nulle tant qu'elle n'est pas servie. La fiche dit
-    // le tick de cette lecture. Rien n'est calculé ici : une puissance ou une maison que le monde ne nomme pas se déclare,
-    // une faim non calculée (-1) aussi, un monde absent aussi.
+    // `PERIODE_LECTURE_S` hors du fil principal, avec la maison du joueur, nulle tant qu'elle n'est pas servie. La fiche dit le tick.
+    // Rien n'est calculé ici : une puissance ou une maison que le monde ne nomme pas se déclare, une faim non calculée (-1) aussi, un monde absent aussi.
     // Le survol vient de `SurvolDeCarte` (la souris) ou d'une épreuve ; hors de toute cellule, la fiche se cache.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     [RequireComponent(typeof(CarteDessinee))]
@@ -87,8 +86,7 @@ namespace Forge.Pont {
             if (Survolee != null) texte.text = Decrire(Survolee, VersMonde(monde));
         }
 
-        private static Lecture<MondeLu> VersMonde(Lecture<MondeAvecMaisonLu> lu) =>
-            lu == null ? null : lu.Presente ? Lecture<MondeLu>.De(lu.Donnees.Monde) : Lecture<MondeLu>.Absent(lu.Absence);
+        private static Lecture<MondeLu> VersMonde(Lecture<MondeAvecMaisonLu> lu) => lu == null ? null : lu.Presente ? Lecture<MondeLu>.De(lu.Donnees.Monde) : Lecture<MondeLu>.Absent(lu.Absence);
         private static string Entier(long v) => v.ToString(CultureInfo.InvariantCulture);
 
         // En bas à gauche de l'écran, sur la caméra de la carte.
