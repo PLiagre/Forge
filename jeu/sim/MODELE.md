@@ -2769,6 +2769,10 @@ L'année donne 7 → 7 dépôts acceptés. Ces mesures ponctuelles ne séparent 
 
 ## Le chantier et ses bras
 
+Les maisons en `autoconstruction` sont bâties sans salaire : aucun débit du grenier ni versement aux paniers ; la consommation ordinaire continue.
+Après le retour des bras, les foyers d'artisans sans logis, dernier incomplet compris, ouvrent au plus `MAISONS_OUVERTES_PAR_JOUR = 1` maison par bourg doté d'un maître, par identifiant de parcelle libre et déjà achevée. Les places promises par toute maison en chantier se déduisent du besoin avant l'affectation ; seules les maisons achevées logent réellement.
+Chaque maison autonome prend au plus une personne, artisan disponible, par jour restant. Le métier `autoconstructeurs` préserve son origine et empêche Ateliers de la réemployer ; seuls ses survivants présents reviennent aux artisans au début de Chantiers le lendemain, même après achèvement. Population et somme des métiers sont conservées. Le plan publie ce marqueur, conservé après travail, seulement pour ces maisons ; les poses manuelles gardent salaire et priorités.
+
 `World.chantiers_du_jour`, vide à l'ouverture et absent des sauvegardes, observe sans décider : chaque appel remplace le relevé, aux mêmes clés que les envois.
 Les bras sont comptés à l'affectation, les kilos au salaire effectivement débité. Un chantier achevé reste observé ce jour, puis disparaît ; plusieurs ticks ne gardent que le dernier.
 À zéro bras, la cause suit cette priorité au passage : `parcelle_en_chantier`, `metiers_non_calcules`, `sans_bras`, `payeur_absent`, `sans_grain`. Avec du travail, elle vaut `null`.
@@ -2822,8 +2826,7 @@ ne laisse son bâtiment prendre des bras que le tick suivant. Cette attente
 concerne sa parcelle, pas les autres bâtiments de la cellule.
 Le plan est reconstruit par `Plan(rues=…, parcelles=…, batiments=…)`, en mots-clés,
 seulement si une rue, une parcelle ou un bâtiment reçoit du travail ; sinon
-il reste le même objet. Sans geste, aucun bâtiment n'entre en chantier et
-le monde reste identique à l'octet près.
+il reste le même objet. Une ouverture autonome reconstruit aussi le plan ; sans candidat ni chantier, aucune écriture nouvelle.
 
 Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel.
 Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock / salaire)` borne les bras avant tout travail.

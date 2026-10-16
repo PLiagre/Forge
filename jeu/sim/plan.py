@@ -104,9 +104,12 @@ class Batiment:
     foyers: int = 0
     travail_requis: int = 0
     travail_fourni: int = 0
+    autoconstruction: bool = False
 
     def __post_init__(self):
         _chantier(self, "bâtiment")
+        if not isinstance(self.autoconstruction, bool) or (self.autoconstruction and self.nature != "maison"):
+            raise PlanInvalide("bâtiment.autoconstruction : booléen réservé aux maisons")
         _identifiant(self.parcelle, "bâtiment.parcelle")
         if not isinstance(self.nature, str) or not self.nature.strip():
             raise PlanInvalide("bâtiment.nature : texte non vide attendu")
@@ -157,6 +160,8 @@ class Plan:
             document[nom] = []
             for element in elements:
                 entree = asdict(element)
+                if nom == "batiments" and not entree["autoconstruction"]:
+                    del entree["autoconstruction"]
                 if nom == "rues" and entree["porte_cell_id"] is None:
                     del entree["porte_cell_id"]
                 for champ in ("points", "contour", "emprise"):
