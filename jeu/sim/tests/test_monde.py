@@ -4651,3 +4651,66 @@ def test_cellule_legere_ne_copie_pas_les_champs_ecartes(monkeypatch):
     assert service._serialiser(document) == service._serialiser(attendu)
     document['stocks']['fer'] += 1
     assert cellule.stocks['fer'] == canonique['stocks']['fer']
+
+
+def test_plan_chantiers_du_jour(monkeypatch):
+    from sim import chantiers, constants as k
+    from sim.service import ServeurMonde
+    from sim.plan import Plan, Rue
+    from sim.tests.test_chantiers import _epreuve_salaire, _attendu_chantiers
+    salaire = 3.123456789; avancer = chantiers.avancer_chantiers
+    def course():
+        monkeypatch.setattr(k, 'SALAIRE_JOURNEE_KG', salaire)
+        serveur = ServeurMonde(('127.0.0.1', 0), 0, 0); monde = serveur.world
+        cid = next(c for c, cell in sorted(monde.cells.items()) if any(l.rang == 0 and l.maitre for l in cell.lieux))
+        autre = next(c for c in monde.cells if c != cid); mesures = []
+        maitre = next(l.maitre for l in monde.cells[cid].lieux if l.rang == 0)
+        monde.plans[cid] = _epreuve_salaire().plans[1]; monde.greniers[maitre]['nourriture'] = 1000
+        etrangere, payeur = next((c, l.maitre) for c, cell in sorted(monde.cells.items()) for l in cell.lieux if c not in (cid, autre) and l.rang == 0 and l.maitre and l.maitre != maitre)
+        monde.plans[etrangere] = Plan(rues=[Rue(0, [(0, 0), (1, 0)], 1, True, 1, 100)])
+        monde.greniers[payeur]['nourriture'] = 1000
+        def mesurer(world):
+            avant = world.to_dict(); envois = avancer(world)
+            motifs = {cle: 'sans_grain' for cle, bras in envois.items() if not bras}
+            attendu = _attendu_chantiers(avant, world, envois, k.SALAIRE_JOURNEE_KG, motifs) if envois else {}
+            liste = [dict(nature='rue' if len(cle) == 2 else cle[1], identifiant=cle[-1], **v) for cle, v in attendu.items() if cle[0] == cid]
+            assert sum(v['grain_paye_kg'] for v in liste) == pytest.approx(avant['greniers'][maitre]['nourriture'] - world.greniers[maitre]['nourriture'])
+            mesures.append(liste); return envois
+        monkeypatch.setattr(chantiers, 'avancer_chantiers', mesurer)
+        fil = threading.Thread(target=serveur.serve_forever, daemon=True); fil.start()
+        port = serveur.server_address[1]; chemin = f'/plan?cell={cid}'
+        def verifier(document, attendu):
+            assert document['cell_id'] == cid and document.get('chantiers_du_jour') == attendu
+            for ligne in attendu:
+                assert set(ligne) == {'nature', 'identifiant', 'bras', 'grain_paye_kg', 'motif_arret'}
+        try:
+            assert 'chantiers_du_jour' not in requete_service(port, chemin)[1]
+            assert 'chantiers_du_jour' not in requete_service(port, f'/plan?cell={autre}')[1]
+            requete_service(port, '/tick?n=1', 'POST'); document, octets = requete_service(port, chemin)[1:]
+            verifier(document, mesures[-1]); assert [v['nature'] for v in mesures[-1]] == ['rue', 'parcelle', 'batiment']
+            assert {v['identifiant'] for v in mesures[-1]} == {0} and all(v['bras'] > 0 for v in mesures[-1])
+            assert document['tick'] == 1 and document['date'] == monde.date_simulation
+            ancien = serveur.etat_publie; avant = copy.deepcopy(monde.to_dict()); alea = serveur.rng.getstate()
+            monkeypatch.setattr(k, 'SALAIRE_JOURNEE_KG', 7)
+            assert serveur._construire_etat(0, -1).plans[cid] == octets
+            assert monde.to_dict() == avant and serveur.rng.getstate() == alea
+            assert 'chantiers_du_jour' not in requete_service(port, f'/plan?cell={autre}')[1]
+            monde.chantiers_du_jour.clear()
+            with serveur.verrou_tick: assert requete_service(port, chemin)[2] == octets
+            monde.greniers[maitre]['nourriture'] = 0; requete_service(port, '/tick?n=1', 'POST')
+            arret = requete_service(port, chemin)[1]; verifier(arret, mesures[-1])
+            assert mesures[-1] == [dict(nature='batiment', identifiant=0, bras=0, grain_paye_kg=0, motif_arret='sans_grain')]
+            with pytest.raises(AssertionError): verifier(arret, document['chantiers_du_jour'])
+            with pytest.raises(AssertionError): verifier(arret, requete_service(port, f'/plan?cell={etrangere}')[1]['chantiers_du_jour'])
+            assert ancien.plans[cid] == octets
+            monde.greniers[maitre]['nourriture'] = 1000; requete_service(port, '/tick?n=1', 'POST')
+            acheve = requete_service(port, chemin)[1]; verifier(acheve, mesures[-1])
+            assert mesures[-1][0]['bras'] > 0 and not acheve['batiments'][0]['en_chantier']
+            monde.plans[cid] = _epreuve_salaire().plans[1]; requete_service(port, '/tick?n=2', 'POST')
+            dernier, fin = requete_service(port, chemin)[1:]; verifier(dernier, mesures[-1])
+            assert dernier['tick'] == 5 and dernier['date'] == monde.date_simulation
+            requete_service(port, '/tick?n=1', 'POST'); assert 'chantiers_du_jour' not in requete_service(port, chemin)[1]
+            return octets, fin
+        finally:
+            serveur.shutdown(); serveur.server_close()
+    assert course() == course()

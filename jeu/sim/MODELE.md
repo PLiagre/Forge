@@ -2580,6 +2580,10 @@ déclare `planche.ia = false`. `--sans-chronique` évite ce rejeu sans IA.
 
 ## Le plan du bourg
 
+`/plan?cell=X` ajoute `chantiers_du_jour` seulement si la cellule a été observée au dernier jour joué.
+La liste porte exactement `nature`, `identifiant`, `bras`, `grain_paye_kg`, `motif_arret`, triés rue/parcelle/bâtiment puis identifiant ; les kilos ne sont pas arrondis.
+Le tick et la date désignent l'état après ce jour. Ces octets sont figés dans `EtatPublie`, lisibles pendant le tick ; ni `Plan.to_dict`, ni `base`, ni `/monde` ne portent ce relevé.
+
 Chaque cellule possède un plan du lieu (`cell_id`, 0), le bourg, dans
 `World.plans` : un dictionnaire `cell_id → Plan`. Aucun `bourg_id`, `ville_id`
 ou numéro de plan n'est ajouté. Le bourg reste une vue dérivée de la
@@ -2755,6 +2759,10 @@ Dépôt de la route repliée de la preuve de récolte : 0,000093 → 0,003941. L
 L'année donne 7 → 7 dépôts acceptés. Ces mesures ponctuelles ne séparent pas la charge des autres tests du coût de l'IA ; le tick ralentit de moins de 10 %.
 
 ## Le chantier et ses bras
+
+`World.chantiers_du_jour`, vide à l'ouverture et absent des sauvegardes, observe sans décider : chaque appel remplace le relevé, aux mêmes clés que les envois.
+Les bras sont comptés à l'affectation, les kilos au salaire effectivement débité. Un chantier achevé reste observé ce jour, puis disparaît ; plusieurs ticks ne gardent que le dernier.
+À zéro bras, la cause suit cette priorité au passage : `parcelle_en_chantier`, `metiers_non_calcules`, `sans_bras`, `payeur_absent`, `sans_grain`. Avec du travail, elle vaut `null`.
 
 Règle de **niveau 2**, plausible, jamais sourcée : le déblai, le nivellement
 et les fossés d’une route en terre battue demandent

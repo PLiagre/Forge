@@ -273,10 +273,20 @@ class ServeurMonde(ThreadingHTTPServer):
         if self.world.maison_du_joueur is not None:
             document["maison_du_joueur"] = self.world.maison_du_joueur
         monde = _serialiser(document)
+        chantiers = {}
+        natures = ("rue", "parcelle", "batiment")
+        for cle, observation in self.world.chantiers_du_jour.items():
+            cell_id, *categorie, identifiant = cle
+            nature = categorie[0] if categorie else "rue"
+            chantiers.setdefault(cell_id, []).append(
+                {"nature": nature, "identifiant": identifiant, **observation})
+        for observations in chantiers.values():
+            observations.sort(key=lambda e: (natures.index(e["nature"]), e["identifiant"]))
         plans = {
             cell_id: _serialiser(
                 plan.to_dict()
                 | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
+                | ({"chantiers_du_jour": chantiers[cell_id]} if cell_id in chantiers else {})
             )
             for cell_id, plan in sorted(self.world.plans.items())
         }
