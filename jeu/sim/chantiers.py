@@ -44,6 +44,7 @@ def _servir(element, metiers, payables):
 def avancer_chantiers(world):
     """Retour aux champs, rues, parcelles puis bâtiments prêts, par identifiant."""
     envois = {}
+    world.chantiers_du_jour = {}
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
         avant = lire_habitants_par_metier(cell)
@@ -62,11 +63,20 @@ def avancer_chantiers(world):
             listes[nom] = []
             for element in sorted(getattr(plan, nom), key=lambda element: element.identifiant):
                 if element.en_chantier:
-                    if nom == "batiments" and element.parcelle in parcelles_en_chantier:
+                    attend = nom == "batiments" and element.parcelle in parcelles_en_chantier
+                    motif = ("parcelle_en_chantier" if attend else
+                             "metiers_non_calcules" if metiers is None else
+                             "sans_bras" if not metiers.get(paysans, 0) else
+                             "payeur_absent" if grenier is None else "sans_grain")
+                    if attend:
                         personnes = 0
                     else:
                         element, personnes = _servir(element, metiers, payables - journees)
                     envois[(cell_id, *cle, element.identifiant)] = personnes
+                    world.chantiers_du_jour[(cell_id, *cle, element.identifiant)] = {
+                        "bras": personnes, "grain_paye_kg": personnes * salaire,
+                        "motif_arret": None if personnes else motif,
+                    }
                     journees += personnes
                 listes[nom].append(element)
         if metiers is not None and metiers != avant:
