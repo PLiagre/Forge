@@ -16,7 +16,7 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | Navigation clavier et retour ; double ouverture échoue | 210 | à faire |
 | UI-05 | Départ : lire une terre et confirmer sa maison | 02, 04 | Fiche servie puis attente/application ; double dépôt échoue | 270 | à faire |
 | UI-06 | Cadre de carte : lire le territoire sans le masquer | 01, 03, 05 | Sélection et légende à 1080p ; clic à travers panneau échoue | 260 | à faire |
-| UI-07 | Calques : distinguer relief, maîtres et habitants | 06 | Légende liée aux données ; cellule absente ou liste vide échoue | 260 | à faire |
+| UI-07 | Calques : distinguer relief, maîtres et habitants | 06a | Puissances/habitants : deux rouges puis 46 verts, 596 cellules réelles ; relief absent déclaré ; [preuve](CALQUES.md) | 190 | en cours |
 | UI-08 | Lieu : reconnaître habitants, stocks et maître | 08a, 06a | Trois rouges puis 33 verts ; vrai service, lieux au même tick et défilement sans zoom de carte ; [preuve](TERRITOIRES.md) | 190 | en cours |
 | UI-09 | Maison : situer siège, terres et suzerain | 08 | Maison sur/hors carte ; siège inventé ou absence masquée échoue | 240 | à faire |
 | UI-10 | Prélèvement : régler la part avec un reçu | 09 | Saisie puis reçu puis état ; effet optimiste avant tick échoue | 240 | à faire |
