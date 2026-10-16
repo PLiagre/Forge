@@ -2619,10 +2619,12 @@ import time
 
 
 @contextmanager
-def lancer_service(seed: int, jours_par_seconde: float = 0):
+def lancer_service(seed: int, jours_par_seconde: float = 0, amorcage=""):
     """Lance le vrai module HTTP, livre son port, puis l'arrête dans tous les cas."""
+    commande = [sys.executable, "-m", "sim.service", "--seed", str(seed), "--port", "0", "--jours-par-seconde", str(jours_par_seconde)]
+    if amorcage: commande = [sys.executable, '-c', amorcage + "import runpy; runpy.run_module('sim.service', run_name='__main__')", *commande[3:]]
     processus = subprocess.Popen(
-        [sys.executable, "-m", "sim.service", "--seed", str(seed), "--port", "0", "--jours-par-seconde", str(jours_par_seconde)],
+        commande,
         cwd=_REPO,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -4054,7 +4056,8 @@ def test_service_logement():
         assert b'"logement"' not in requete_service(port, "/monde")[2]
         autre = next(c for c in monde.cells if c != cid)
         assert "logement" not in requete_service(port, f"/lieu?cell={autre}")[1]
-    with lancer_service(0) as port:
+    from sim.tests.test_intentions import _amorcage
+    with lancer_service(0, amorcage=_amorcage(cid)) as port:
         def deposer(geste):
             statut, recu, _ = requete_service(port, "/intention", "POST", json.dumps(geste).encode())
             assert statut is HTTPStatus.OK and recu["acceptee"]

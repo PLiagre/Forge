@@ -1772,6 +1772,8 @@ n'est pas nul. Greniers vides et cumul nul laissent les octets antérieurs.
 moisissure. **Niveau 3**, pas simulé : la capacité du grenier et la
 dégradation des marchandises autres que la nourriture.
 
+Chantiers débite aussi ce grenier après ses pertes : le maître actuel du bourg paie les journées en grain, versé dans le panier du bourg (voir « Le chantier et ses bras »).
+
 **L'ouvrir.** `ouvrir_grenier` retire la quantité choisie à l'étape Intentions,
 avant la perte des greniers. Les lieux tenus viennent de l'index des routes,
 sans relire le registre ni leur maître. `sim.lieux.partager` répartit les kilos
@@ -2783,7 +2785,7 @@ Les foyers du chantier ne fixent pas cet emploi ; mineurs et ouvriers restent en
 redeviennent d’abord `paysans`, puis les rues en chantier, par identifiant,
 après elles les parcelles en chantier, puis les bâtiments en chantier, chacun
 par identifiant, prennent le minimum des bras disponibles,
-de `foyers × TAILLE_FOYER` et du travail restant. Ces paysans deviennent
+de `foyers × TAILLE_FOYER`, du travail restant et des journées payables. Ces paysans deviennent
 ouvriers ; chaque personne envoyée ajoute exactement une journée fournie.
 La rue, la parcelle ou le bâtiment s’achève au requis : `en_chantier` devient faux.
 La porte survit aux reconstructions par `dataclasses.replace` ; le commerce,
@@ -2806,6 +2808,23 @@ seulement si une rue, une parcelle ou un bâtiment reçoit du travail ; sinon
 il reste le même objet. Sans geste, aucun bâtiment n'entre en chantier et
 le monde reste identique à l'octet près.
 
+Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel.
+Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock / salaire)` borne les bras avant tout travail.
+Sans lieux, bourg, maître ou grenier déclaré, aucun salaire ; une nourriture absente vaut zéro. Les cellules se partagent la réserve courante dans leur ordre. Les journées réellement fournies débitent exactement leur salaire et le versent au seul panier du bourg et au total cellulaire, deux représentations du même stock ; la reprise intérieure conserve cette destination.
+Les métiers restent ceux de la cellule ; rattacher collectivement ces ouvriers au bourg est une convention de niveau 2, sans déplacement individuel. Pertes du grenier avant paiement, récolte et consommation après ; le prélèvement arrivé ensuite finance les jours suivants. Aucun convoi ni perte de salaire ici ; matériaux et argent restent hors simulation.
+
+Mesure #641 : `python3 pc/epreuve_jalon4.py --sortie /tmp/forge-641-j4-{avant,apres}` (deux appels), graine 0, dix ticks, Zab à 0 puis gestes à 2, 3, 5 ; maison et cellule dérivées de `depart_biskra`.
+
+| mesure | avant | après |
+|---|---|---|
+| route ; parcelle ; bâtiment (journées fournies/requises) | 40/80 ; 20/20 ; 15/400 | 40/80 ; 20/20 ; 10/400 |
+| salaire cumulé ; grenier final (kg) | 0 ; 311,51790706477567 | 210 ; 101,98375196817031 |
+| SHA-256 `monde-service.json` et `monde-rejoue.json` | 5d36f7552ede792621ff1199242535aa0bf9deca761b8aac8434e9dc16ac0039 | 3538394f432f810340efa6a1244b260b21f01b77db79559dd7af4a7cc2efb8eb |
+| SHA-256 `monde-sans-gestes.json` | bdce0bb1a329e179dce66a2f736868273a7ff41c9fbecddca17f1297e3de8ed2 | bdce0bb1a329e179dce66a2f736868273a7ff41c9fbecddca17f1297e3de8ed2 |
+Seule Biskra change face au témoin ; la différence des réserves finales inclut les pertes journalières et ne mesure pas le salaire.
+Année sans geste (simulation : 39,08 s avant, 44,18 s après) : depuis `jeu/`, `python3 -m forge --ticks 365 --seed 0 --sortie /tmp/forge-641-annee-avant`, puis même commande vers `/tmp/forge-641-annee-apres` ; durée simulée 365 jours.
+`sha256sum /tmp/forge-641-annee-{avant,apres}/monde.json` donne deux fois `954dafd53519fbf19033dac4a98c52dda0e9e328f435f58bf6ccbe323e4edb5b`.
+
 La récolte du même tick lit les paysans restés aux champs. Les naissances,
 morts et départs suivent le prorata des métiers, ouvriers compris ; le retour
 du tick suivant remet tous les bras en commun. Le jour de l’achèvement, les
@@ -2816,7 +2835,7 @@ bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
 Une cellule est immense et le chantier ne coûte de récolte que s’il retire
 presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
-sexe, nourriture propre, outils, matériaux, saison et salaire restent de
+sexe, nourriture propre, outils, matériaux, saison et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.
 

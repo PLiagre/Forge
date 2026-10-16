@@ -31,6 +31,7 @@ def preuve(tmp_path_factory):
         "choisir_depart", "tracer_route", "decouper_parcelle", "poser_batiment"]
     assert [e["intention"]["maison"] for e in journal[1:]] == [maison] * 3
     assert all(json.loads(octets)["maison_du_joueur"] == maison for octets in mondes)
+    assert all((ouvrages := json.loads(mondes[0])['plans'][str(cellule)][nom]) and all(e['travail_fourni'] > 0 for e in ouvrages) for nom in ('rues', 'parcelles', 'batiments'))
     bilan = epreuve.juger(*mondes, journal, 10)
     assert bilan["cellules_modifiees"] == bilan["plans_modifies"] == [str(cellule)]
     assert bilan["cellules_controlees"] == len(json.loads(mondes[0])["cells"])

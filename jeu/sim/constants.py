@@ -265,6 +265,7 @@ SURFACE_M2_PAR_FOYER_LOGE = 40  # Logement des artisans, niveau 2.
 SURFACE_M2_PAR_FOYER_ARTISAN = 40  # Emploi par emprise, niveau 2.
 FABRICATION_KG_PAR_ARTISAN_PAR_TICK = 5  # Matière façonnée par personne, niveau 2.
 
+SALAIRE_JOURNEE_KG = 3  # Niveau 2, plausible : grain par personne et journée de chantier.
 # Déblai, nivellement et fossés d'une route en terre battue ; niveau 2.
 TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0.5
 DEBIT_ROUTE_KG_PAR_M_PAR_TICK = 5000.0 * TICK_DURATION_DAYS
