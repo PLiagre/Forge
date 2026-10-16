@@ -20,6 +20,10 @@
 - UI-10a, PR #670 : modèle de confirmation, quatre rouges puis 37 verts ; [preuve](ORDRES.md). Territoires #669 fusionnés, captures LFS distantes vérifiées. Formulaires déjà testés et poussés sur `direct/interface-commandes` ; publier leur PR après fusion de #670.
 ## Décisions et prochaine action
 
+- Reprise du 17 octobre : territoires #669, confirmations #670, calques #673 et voisins #674 fusionnés. Comptes #671 et menu #672 rebasés ; formulaires UI-10/UI-11 prêts à publier après retrait de leur dépendance déjà fusionnée.
+- Menu et aide réalisés sur `direct/interface-menu` : Échap, Tabulation, retour de focus et silence ; deux rouges puis 44 verts, capture réelle regardée. [Preuve](MENU.md). Aperçu Windows actualisé dans `.atelier/apercu-cabinet/` avec commandes, comptes, menu, calques et voisins : 49 tests verts, 596 cellules et arrêt du service vérifiés. Toute l’interface n’est pas encore terminée.
+- Prochaine action précise : publier les formulaires, terminer la preuve visuelle du plan du bourg puis poursuivre les outils de ville. Les écrans sans contrat de simulation seront construits dans une démonstration identifiée, conformément à BESOINS-SIM.md. Aucune nouvelle décision artistique à demander.
+
 - Source visuelle confirmée : `docs/direction-artistique/`. Les originaux de ce worktree sont des pointeurs LFS ; les images ont été lues dans `D:/Forge/docs/direction-artistique/`, sans modifier ces originaux.
 - Choix validés : papier clair sur cadre sombre ; ornements discrets et sceaux sur les engagements ; plusieurs dossiers visibles simultanément. Ce dernier choix remplace la proposition initiale d’un dossier unique pour permettre la comparaison.
 - Contrats examinés : lieux, maisons, flux, horloge et intentions du pont. Les fonctions J6–J9 sont planifiées sous réserve de leurs contrats, pas déclarées disponibles.
@@ -29,5 +33,4 @@
 - Écran : worktree `.atelier/direct/interface-ecran`, depuis master avec le raccordement #633 ; 26 tests verts et parcours du vrai service (choix, reprise/pause, zoom, glissé, clic droit, panneaux). [Lancement et captures](PARTIE.md). Ancien choix direct arrêté au profit de la confirmation du cabinet.
 - Prochaine action : après fusion de #666 et #667, poursuivre avec les dossiers de lieu. Aperçu Windows vérifié : 596 cellules, souris disponible, arrêt du service à la fermeture ; 40 tests carte/interface verts. UI-03 conserve ses preuves complémentaires de réponses retardées.
 - Aucune question artistique ouverte ; fontes candidates à vérifier avant intégration, police Unity de secours explicitement provisoire pour la première galerie.
-
 
