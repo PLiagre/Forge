@@ -19,6 +19,42 @@ from sim.tests.test_monde import (
 from sim.world import World
 
 
+def _financer(monde, cid, kg=1_000_000):
+    bourg = next(l for l in monde.cells[cid].lieux if l.rang == 0)
+    assert bourg.maitre is not None and bourg.maitre in monde.greniers
+    monde.greniers[bourg.maitre]['nourriture'] = kg
+
+def _verser_salaire(monde, cid, jours):
+    from sim import constants as k
+    from sim.model import copier_panier, ecrire_stock_marchandise
+    bourg = next(l for l in monde.cells[cid].lieux if l.rang == 0)
+    kg = jours * k.SALAIRE_JOURNEE_KG
+    monde.greniers[bourg.maitre]['nourriture'] -= kg
+    for entite in (bourg, monde.cells[cid]):
+        ecrire_stock_marchandise(entite, 'nourriture', copier_panier(entite).get('nourriture', 0) + kg)
+
+def _temoin_salaire(sonde, temoin, cid, calendrier):
+    affecter = engine._affecter_artisans
+    def appliquer(monde):
+        if monde is temoin: _verser_salaire(monde, cid, calendrier[monde.ticks_ecoules])
+        return affecter(monde)
+    sonde.setattr(engine, '_affecter_artisans', appliquer)
+
+def _amorcage(cid, calendrier=None):
+    return f"""from sim.world import World
+from sim.tests.test_intentions import _financer, _verser_salaire
+from sim import engine
+charger = World.charger
+def amorcer(*a, **kw):
+    monde = charger(*a, **kw); _financer(monde, {cid}); return monde
+World.charger = staticmethod(amorcer)
+affecter = engine._affecter_artisans
+def appliquer(monde):
+    if {calendrier!r} is not None and not monde.plans[{cid}].rues: _verser_salaire(monde, {cid}, {calendrier!r}[monde.ticks_ecoules])
+    return affecter(monde)
+engine._affecter_artisans = appliquer
+"""
+
 def _id(nom):
     return next(s.id for s in charger_seigneuries() if s.nom == nom)
 
@@ -272,6 +308,7 @@ def test_route_appliquee_en_tete_et_dans_l_ordre(monkeypatch):
 
     monde = World.charger(0)
     a = _route_reference(monde)
+    _financer(monde, a["cell"])
     b = a | {"points": [[0, 1], [40, 1]], "largeur_m": 2}
     avant = monde.to_dict()
     attentes = [recevoir_intention(monde, geste) for geste in (a, b)]
@@ -316,7 +353,7 @@ def test_service_route_recu_refus_et_rejeu():
     plans, mondes = [], []
     refus_observes = 0
     for avec_route in (True, True, False):
-        with lancer_service(0) as port:
+        with lancer_service(0, amorcage=_amorcage(route["cell"], [0, k.TAILLE_FOYER])) as port:
             _depart_applique(port)
             avant = requete_service(port, "/monde")[2]
             plan_avant = requete_service(port, chemin)[2]
@@ -388,6 +425,8 @@ def test_ligne_de_commande_gestes_et_refus(tmp_path):
                     "--monde-json", str(sortie), "--snapshot-json", str(snapshot)]
         if avec_gestes:
             commande += ["--gestes", str(fichier)]
+        programme = _amorcage(route['cell'], [5, 5, 5, 10]) + "import runpy; runpy.run_module('sim', run_name='__main__')"
+        commande = [sys.executable, '-c', programme, *commande[3:]]
         return subprocess.run(commande, cwd=tmp_path, env=environnement,
                               capture_output=True, text=True)
 
@@ -404,6 +443,7 @@ def test_ligne_de_commande_gestes_et_refus(tmp_path):
     assert all(rue["en_chantier"] is True for rue in rues)
     assert jouer([], avec_gestes=False).returncode == 0
     temoin = json.loads(sortie.read_bytes())
+    assert (monde["greniers"], monde["pertes_kg"]) == (temoin["greniers"], temoin["pertes_kg"])
     assert temoin["plans"] and temoin["cells"]
     assert temoin["cells"].keys() == monde["cells"].keys()
     for cle, cell in monde["cells"].items():
@@ -639,7 +679,7 @@ def test_service_parcelle_plan_et_journees():
 
     reference = _parcelle_reference(World.charger(0), 10103)
     c = reference["cell"]
-    with lancer_service(0) as port:
+    with lancer_service(0, amorcage=_amorcage(c)) as port:
         _depart_applique(port)
         assert _poster(port, _route_reference(World.charger(0), 10103))[0] == HTTPStatus.OK
         requete_service(port, "/tick?n=1", "POST")
@@ -822,6 +862,7 @@ def test_batiment_tick_rejeu_et_temoin(monkeypatch):
         mondes = [World.charger(0) for _ in range(3)]
         aleas = [random.Random(0) for _ in mondes]
         for i, monde in enumerate(mondes):
+            _financer(monde, c)
             monde.plans[c] = Plan(rues=[Rue(0, route["points"], 4)],
                                   parcelles=[Parcelle(0, contour, True, 1, 4 * k.TAILLE_FOYER, 0)])
             if i < 2:

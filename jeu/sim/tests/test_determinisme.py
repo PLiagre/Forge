@@ -520,11 +520,13 @@ def test_gestes_routes_deterministes_seule_la_cellule_du_chantier(monkeypatch):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim import constants as k
     from sim.intentions import recevoir_intention
-    from sim.tests.test_intentions import _route_reference
+    from sim.tests.test_intentions import _route_reference, _financer, _temoin_salaire
 
     mondes = [World.charger(0) for _ in range(4)]
     aleas = [random.Random(0) for _ in mondes]
     route = _route_reference(mondes[0])
+    for monde in mondes: _financer(monde, route['cell'])
+    _temoin_salaire(monkeypatch, mondes[2], route['cell'], [k.TAILLE_FOYER] * 3 + [2 * k.TAILLE_FOYER] * 7)
     for numero in range(10):
         for rang, (monde, alea) in enumerate(zip(mondes, aleas)):
             if numero in (0, 3) and rang != 2:
@@ -566,7 +568,14 @@ def test_gestes_routes_deterministes_seule_la_cellule_du_chantier(monkeypatch):
     for etat in (etats[0], etats[1], etats[3]):
         assert [rue["travail_fourni"] for rue in etat["plans"][str(route["cell"])]["rues"]] == [10 * k.TAILLE_FOYER, 7 * k.TAILLE_FOYER]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons", "greniers", "pertes_kg"}
+    stock, pertes = 1_000_000, 0
+    for jours in [k.TAILLE_FOYER] * 3 + [2 * k.TAILLE_FOYER] * 7:
+        perte = stock * (k.PERTE_GRENIER_PAR_AN * k.TICK_DURATION_DAYS / k.CALENDAR_DAYS_PER_YEAR)
+        pertes += perte; stock -= perte; stock -= jours * k.SALAIRE_JOURNEE_KG
+    payeur = next(l.maitre for l in mondes[2].cells[route['cell']].lieux if l.rang == 0)
+    for etat in etats:
+        assert etat['greniers'] == {payeur: {'nourriture': stock}} and etat['pertes_kg'] == pertes
     assert etats[2]["maisons"]
     for etat in etats:
         assert etat["maisons"] == etats[2]["maisons"]

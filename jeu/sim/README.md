@@ -80,7 +80,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/routes_interieures.py` | Route achevée vers un lieu de la cellule : elle quadruple le chemin de ce lieu vers le bourg |
 | `sim/ville1400.py` | Ville de 1400 dérivée des foyers du bourg : place, rues, ruelles, maisons individuelles jusqu'à 500 foyers puis îlots, sans effet sur le tick ; `/plan` sert la base |
 | `sim/ateliers.py` | Emploi des artisans par surface des scieries et fours achevés, pris aux champs |
-| `sim/chantiers.py` | Journées de route, parcelle et bâtiment, passage des paysans aux ouvriers puis retour aux champs |
+| `sim/chantiers.py` | Journées de route, parcelle et bâtiment payées en grain du grenier au bourg, paysans devenus ouvriers puis retour aux champs |
 | `sim/intentions.py` | Dépôt commun des choix de départ, routes, parcelles, bâtiments, parts et `ouvrir_grenier` ; refuse un geste sur une maison de 1400 avant mise en attente du tick |
 | `sim/world.py` | `World` — chargement depuis les artefacts G3, sérialisation |
 | `sim/convois.py` | Route de chaque lieu jusqu'au grenier de son maître, calculée une fois au chargement |
