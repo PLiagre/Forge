@@ -23,11 +23,13 @@ namespace Forge.Pont.Tests {
             (5, "Evrenosoğulları", 10337, "Giannitsa", 5367717.15, 2051967.94), (6, "Banou Mozni", 10103, "Biskra", 3926430.32, 1322273.47) };
         private int port; private volatile int statutDeparts, lenteurDeparts; private HttpListener ecoute; private Thread fil; private readonly List<string> recues = new List<string>();
         private readonly ConcurrentDictionary<string, (int statut, string corps)> maisons = new ConcurrentDictionary<string, (int, string)>();
+        private volatile int lenteurIntention; private readonly List<string> deposes = new List<string>(); // lot #613 : chaque corps de `POST /intention`
+        private readonly ConcurrentQueue<(int statut, string corps)> reponses = new ConcurrentQueue<(int, string)>(); // rendues dans l'ordre, 404 une fois vide
         private GameObject objet; private CarteDessinee carte; private ReperesDeDepart reperes;
         private static byte[] Fixture(string nom) => File.ReadAllBytes(Application.dataPath + "/ForgeLocal3D/Pont/Tests/" + nom);
         [SetUp] public void PortLibre() {
             var sonde = new TcpListener(IPAddress.Loopback, 0); sonde.Start(); port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop();
-            statutDeparts = 200; lenteurDeparts = 0; lock (recues) recues.Clear(); maisons.Clear(); foreach (var s in SIEGES) maisons["/maison?id=seigneurie-" + s.id] = (200, Fiche(s));
+            statutDeparts = 200; lenteurDeparts = lenteurIntention = 0; lock (recues) { recues.Clear(); deposes.Clear(); } while (reponses.TryDequeue(out _)) { } maisons.Clear(); foreach (var s in SIEGES) maisons["/maison?id=seigneurie-" + s.id] = (200, Fiche(s));
         }
         [TearDown] public void Fermer() { reperes?.Arreter(); carte?.Arreter(); if (objet != null) UnityEngine.Object.DestroyImmediate(objet); ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil) = (null, null); }
         private static string Fiche((long id, string maison, long cell, string siege, double x, double y) s) =>
@@ -40,7 +42,10 @@ namespace Forge.Pont.Tests {
             (fil = new Thread(() => {
                 try { while (true) {
                     HttpListenerContext ctx = auditeur.GetContext(); string ici = ctx.Request.Url.PathAndQuery; lock (recues) recues.Add(ici); if (ici == "/departs") Thread.Sleep(lenteurDeparts);
-                    var (statut, corps) = ici == "/carte" ? (200, carteServie) : ici == "/departs" ? (statutDeparts, statutDeparts == 200 ? departsServis : Encoding.UTF8.GetBytes("{\"erreur\":\"panne\"}"))
+                    string depose = ici == "/intention" ? new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd() : null;
+                    if (depose != null) { lock (recues) deposes.Add(depose); Thread.Sleep(lenteurIntention); }
+                    var (statut, corps) = depose != null ? (reponses.TryDequeue(out var r) ? (r.statut, Encoding.UTF8.GetBytes(r.corps)) : (404, Encoding.UTF8.GetBytes("{\"erreur\":\"aucune réponse prévue\"}")))
+                        : ici == "/carte" ? (200, carteServie) : ici == "/departs" ? (statutDeparts, statutDeparts == 200 ? departsServis : Encoding.UTF8.GetBytes("{\"erreur\":\"panne\"}"))
                         : maisons.TryGetValue(ici, out var m) ? (m.statut, Encoding.UTF8.GetBytes(m.corps)) : (404, Encoding.UTF8.GetBytes("{\"erreur\":\"maison inconnue\"}"));
                     ctx.Response.StatusCode = statut; ctx.Response.Close(corps, true);
                 } } catch (Exception) { }
@@ -158,6 +163,52 @@ namespace Forge.Pont.Tests {
                 var cibles = terre.GetComponentsInChildren<Component>(true).Select(c => c.GetType().GetProperty("raycastTarget")?.GetValue(c)).Where(v => v != null).ToList();
                 Assert.IsTrue(cibles.Count == 2 && cibles.All(v => (bool)v == false), cibles.Count + " graphiques, raycastTarget " + string.Join(", ", cibles));
             } finally { cellule.Arreter(); }
+        }
+        // Lot #613 — un clic sur un repère dépose le choix de sa terre ; l'écran dit le reçu du faux service tel quel.
+        private const string ZAB = "Émirat du Zab", CHOIX_MOREE = "{\"type\":\"choisir_depart\",\"seigneurie\":3}", CHOIX_ZAB = "{\"type\":\"choisir_depart\",\"seigneurie\":6}";
+        private string[] Deposes() { lock (recues) return deposes.ToArray(); }
+        private Vector2 Ecran(string nom) => carte.camera.WorldToScreenPoint(objet.transform.Find(RACINE + "/Repère " + nom).position);
+        private void Finir() {
+            var montre = Stopwatch.StartNew(); while (reperes.ChoixEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) { reperes.Pas(1); Thread.Sleep(10); }
+            Assert.IsFalse(reperes.ChoixEnVol, "le dépôt n'a pas fini");
+        }
+        private void Cliquer(string nom) { reperes.Choisir(Ecran(nom)); Finir(); }
+        private void Prets(params (int statut, string corps)[] file) { Servir(); Lues(out _); Poser(); Avancer(1); foreach (var r in file) reponses.Enqueue(r); }
+        [Test] public void Un_clic_depose_le_choix_de_sa_terre() {
+            Prets((200, "{\"acceptee\":true,\"appliquee_au_tick\":7}")); Cliquer(MOREE);
+            Assert.IsTrue(Recues("/intention") == 1 && Deposes().SequenceEqual(new[] { CHOIX_MOREE }), Recues("/intention") + " dépôts : " + string.Join(" ; ", Deposes()));
+            Assert.IsTrue(reperes.TerreDuChoix?.Nom == MOREE && reperes.RecuDuChoix?.AppliqueeAuTick == 7, reperes.TerreDuChoix?.Nom + " au tick " + reperes.RecuDuChoix?.AppliqueeAuTick);
+            Assert.AreEqual("Terre choisie : Despotat de Morée\nLe monde l'applique au tick suivant (après le tick 7).", reperes.ChoixAffiche);
+        }
+        [Test] public void Le_second_choix_affiche_le_refus_du_service() {
+            Prets((200, "{\"acceptee\":true,\"appliquee_au_tick\":3}"), (409, "{\"acceptee\":false,\"erreur\":\"départ déjà choisi : seigneurie-3\"}"),
+                (400, "{\"acceptee\":false,\"erreur\":\"raison du faux service\"}"));
+            Cliquer(MOREE); Cliquer(ZAB);
+            Assert.IsTrue(Deposes().SequenceEqual(new[] { CHOIX_MOREE, CHOIX_ZAB }), string.Join(" ; ", Deposes()));
+            Assert.IsTrue(reperes.TerreDuChoix?.Nom == ZAB && reperes.RecuDuChoix?.Statut == 409, reperes.TerreDuChoix?.Nom + ", statut " + reperes.RecuDuChoix?.Statut);
+            Assert.AreEqual("Choix refusé pour Émirat du Zab :\ndépart déjà choisi : seigneurie-3", reperes.ChoixAffiche);
+            // Contre-épreuve : une autre raison du service s'affiche aussi mot pour mot.
+            Cliquer(ZAB); Assert.IsTrue(Recues("/intention") == 3 && reperes.RecuDuChoix?.Statut == 400, Recues("/intention") + " dépôts, statut " + reperes.RecuDuChoix?.Statut);
+            Assert.AreEqual("Choix refusé pour Émirat du Zab :\nraison du faux service", reperes.ChoixAffiche);
+        }
+        [Test] public void Hors_d_un_repere_rien_et_sans_reponse_l_absence_se_dit() {
+            Prets(); reperes.Choisir(carte.camera.WorldToScreenPoint(objet.transform.TransformPoint(new Vector3(1e6f, 0, 1e6f)))); Finir();
+            Assert.IsTrue(Recues("/intention") == 0 && reperes.TerreDuChoix == null && reperes.ChoixAffiche == null, Recues("/intention") + " dépôts ; « " + reperes.ChoixAffiche + " »");
+            Cliquer(MOREE); RecuIntention recu = reperes.RecuDuChoix;
+            Assert.IsTrue(Recues("/intention") == 1 && recu != null && !recu.Presente && recu.Absence.StartsWith("intention : statut 404"), Recues("/intention") + " dépôts ; " + recu?.Absence);
+            Assert.AreEqual("Choix sans réponse pour Despotat de Morée :\n" + recu.Absence, reperes.ChoixAffiche);
+        }
+        [Test] public void Le_pas_n_attend_pas_le_choix() {
+            Prets((200, "{\"acceptee\":true,\"appliquee_au_tick\":3}")); lenteurIntention = LENTEUR_MS;
+            var montre = Stopwatch.StartNew(); reperes.Choisir(Ecran(MOREE)); reperes.Pas(1); montre.Stop();
+            Assert.Less(montre.ElapsedMilliseconds, DELAI_MAX_PAS_MS, "le clic ou le pas a attendu le service"); Assert.IsTrue(reperes.ChoixEnVol, "aucun dépôt en vol");
+            Assert.AreEqual("Choix envoyé au monde : Despotat de Morée", reperes.ChoixAffiche);
+            reperes.Choisir(Ecran(ZAB)); Finir();
+            Assert.IsTrue(Recues("/intention") == 1 && Deposes().SequenceEqual(new[] { CHOIX_MOREE }) && reperes.TerreDuChoix?.Nom == MOREE, Recues("/intention") + " dépôts : " + string.Join(" ; ", Deposes()));
+            RectTransform choix = objet.GetComponentsInChildren<RectTransform>(true).Single(t => t.name == "Choix de la terre"); Vector2 haut = new Vector2(0.5f, 1);
+            Assert.IsTrue(choix.anchorMin == haut && choix.anchorMax == haut && choix.pivot == haut, "choix ancré en " + choix.anchorMin + "–" + choix.anchorMax + ", pivot " + choix.pivot);
+            var cibles = choix.GetComponentsInChildren<Component>(true).Select(c => c.GetType().GetProperty("raycastTarget")?.GetValue(c)).Where(v => v != null).ToList();
+            Assert.IsTrue(cibles.Count == 2 && cibles.All(v => (bool)v == false), cibles.Count + " graphiques, raycastTarget " + string.Join(", ", cibles));
         }
     }
 }
