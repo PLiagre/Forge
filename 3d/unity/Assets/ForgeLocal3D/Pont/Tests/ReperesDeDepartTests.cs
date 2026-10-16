@@ -210,5 +210,13 @@ namespace Forge.Pont.Tests {
             var cibles = choix.GetComponentsInChildren<Component>(true).Select(c => c.GetType().GetProperty("raycastTarget")?.GetValue(c)).Where(v => v != null).ToList();
             Assert.IsTrue(cibles.Count == 2 && cibles.All(v => (bool)v == false), cibles.Count + " graphiques, raycastTarget " + string.Join(", ", cibles));
         }
+        // Un glissé qui dépasse le seuil puis revient au point d'appui n'est pas un clic : l'écart final seul ne suffit pas.
+        [Test] public void Un_glisse_qui_revient_au_depart_ne_choisit_pas() {
+            var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("ForgeLocal3D.SurvolDeCarte")).First(t => t != null);
+            object geste = Activator.CreateInstance(type.GetNestedType("GesteDeClic")); var noter = geste.GetType().GetMethod("Noter");
+            bool G(float x, bool a, bool r) => (bool)noter.Invoke(geste, new object[] { new Vector2(x, 0f), a, r });
+            Assert.IsFalse(G(0, true, false) || G(100, false, false) || G(0, false, true), "un détour de 100 px revenu au départ choisit encore");
+            Assert.IsTrue(G(0, true, true) && !G(0, true, false) && !G(7, false, true), "un clic au même point doit choisir, un relâché à 7 px non");
+        }
     }
 }

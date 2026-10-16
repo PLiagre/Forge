@@ -20,7 +20,7 @@ namespace Forge.Pont {
         public const string MESSAGE_ABSENCE = "terres de départ incomplètes";
         public const float PERIODE_RELECTURE_S = 2f, HAUTEUR_REPERE = 2f, DIAMETRE_REPERE_KM = 40f;
         public static readonly Color COULEUR_REPERE = Color.white; // saturation nulle et valeur pleine : aucune cellule ne la prend
-        private const float EPAISSEUR_REPERE_KM = 0.1f, ECART_PLAN = 0.2f, MARGE = 16f, TAILLE_CARACTERE = 25f; private const int TAILLE_NOM = 16, TAILLE_POLICE = 24, RETRAIT = 14;
+        private const float EPAISSEUR_REPERE_KM = 0.1f, ECART_PLAN = 0.2f, MARGE = 16f, TAILLE_CARACTERE = 25f, LARGEUR_FICHE = 380f; private const int TAILLE_NOM = 16, TAILLE_POLICE = 24, RETRAIT = 14;
         private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0); private static readonly Vector2 RESOLUTION_REFERENCE = new Vector2(1600, 900);
         private static readonly Color FOND = new Color(0.05f, 0.05f, 0.07f, 0.78f); // celui de FicheDeCellule
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
@@ -159,6 +159,8 @@ namespace Forge.Pont {
             // Le panneau du choix : la même fiche, ancrée en haut au centre.
             panneauChoix = Object.Instantiate(panneau, toile.transform, false); panneauChoix.name = "Choix de la terre"; texteChoix = panneauChoix.GetComponentInChildren<Text>(true);
             var haut = (RectTransform)panneauChoix.transform; haut.anchorMin = haut.anchorMax = haut.pivot = new Vector2(0.5f, 1); haut.anchoredPosition = new Vector2(0, -MARGE);
+            // Dépliée, la fiche couvre la Morée, le Kosovo et Giannitsa : elle reste dans la colonne de droite, sous l'horloge.
+            texteFiche.horizontalOverflow = HorizontalWrapMode.Wrap; texteFiche.gameObject.AddComponent<LayoutElement>().preferredWidth = LARGEUR_FICHE;
         }
         private void Dire(string message) { if (texte == null) return; texte.text = message; texte.gameObject.SetActive(message != ""); }
         private static void Detruire(Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
