@@ -1417,8 +1417,9 @@ def _apply_mortality(cell: Cell) -> None:
                 retrait = min(lieu.population, morts)
                 lieu.population -= retrait
                 retires += retrait
-        if retires:
-            _retirer_par_les_foyers(cell, retires)
+        # Transmettre aussi le zéro calculé, même si les fractions locales
+        # n'ont pas encore produit de décès entier.
+        _retirer_par_les_foyers(cell, retires)
         return
 
     remainder = cell.mortality_remainder if cell.mortality_remainder >= 0.0 else 0.0
