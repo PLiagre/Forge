@@ -69,6 +69,9 @@ namespace Forge.Interface
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer) };
             var dossier = SocleInterface.Panneau(toile.transform, "Votre maison", 1312, 124, 584, 536);
             maison = SocleInterface.Texte(dossier, "Lecture de la partie…", 24, 88, 536);
+            gameObject.AddComponent<CommandesMaison>().Initialiser(dossier,
+                () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null,
+                LectureDossier.Locale(carte.port), OrdreConfirme.Local(carte.port));
             choix = new GameObject("Maisons proposées", typeof(RectTransform)).transform;
             choix.SetParent(dossier, false);
             var rect = (RectTransform)choix;
