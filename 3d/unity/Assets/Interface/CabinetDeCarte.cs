@@ -84,6 +84,7 @@ namespace Forge.Interface
             gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
             var guide = SocleInterface.Panneau(toile.transform, "Parcourir le monde", 24, 924, 1238, 132);
             aide = SocleInterface.Texte(guide, "Glisser : déplacer · Molette : zoomer · Clic droit : conserver un territoire", 24, 88, 1190);
+            gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, guide, carte.port);
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             Afficher();
         }
