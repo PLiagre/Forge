@@ -152,3 +152,36 @@ que le monde ne répond pas). Verdicts du 9 octobre 2026 :
 [décalé](../../docs/mesures/527-epreuve-de-la-carte/verdict-decale.txt),
 [cellule retirée](../../docs/mesures/527-epreuve-de-la-carte/verdict-retiree.txt),
 [sans service](../../docs/mesures/527-epreuve-de-la-carte/verdict-sans-service.txt).
+
+## La session du choix de la terre
+
+Le joueur clique sur une terre de la carte de 1400, puis sur une autre, et le
+monde refuse le second choix (lot #651, moitié Unity de l'épreuve #615).
+Depuis la racine du dépôt :
+
+```bash
+Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveChoix.Jouer \
+      -forgeEpreuve <rapport.json> -forgeTerre N -forgeSecondeTerre M [-logFile <journal>]
+```
+
+Le service se lance à la main dans un second terminal, depuis `jeu/` :
+`py -m sim.service --seed 0 --jours-par-seconde 0` (port 8000, tick 0, en
+pause), et s'arrête après chaque essai. Unity ouvre `Forge_Carte` en Play,
+attend les six repères des terres de départ, lit `/departs`, clique comme le
+joueur (par `SurvolDeCarte`) sur le repère de la terre N, attend son reçu, puis
+clique aussitôt sur celui de M, avant tout tick : la session ne touche jamais
+`/tick` ni `/vitesse`. Un rapport relatif se lit depuis le dossier de lancement.
+
+Le rapport porte `terre`, `seconde_terre`, `reperes` (repères posés),
+`tick_avant` et `tick_apres` (le tick de `/departs` avant le premier clic et
+après le second reçu), `premier` et `second` (chaque reçu : `statut` 200, 400 ou
+409, ou −1 absent ; `tick` du dépôt accepté, −1 sinon ; `raison` du refus ou de
+l'absence), `premier_texte` et `second_texte` (le panneau du choix, tel
+qu'affiché) et `defaut`. **0** les deux reçus relevés, quels qu'ils soient ;
+**1** session impossible (`defaut` dit pourquoi ; le rapport est écrit) ; **2**
+arguments fautifs (aucun rapport). La session ne juge rien : le jugement est
+celui du script de #615, à venir, qui comparera au monde. Rapports du 16
+octobre 2026 :
+[normal](../../docs/mesures/651-session-choix-moree/rapport-normal.json),
+[départ déjà choisi](../../docs/mesures/651-session-choix-moree/rapport-deja-choisi.json),
+[sans service](../../docs/mesures/651-session-choix-moree/rapport-sans-service.json).

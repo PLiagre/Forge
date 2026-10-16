@@ -1,0 +1,20 @@
+{
+    "terre": 3,
+    "seconde_terre": 1,
+    "tick_avant": 0,
+    "tick_apres": 0,
+    "reperes": 6,
+    "premier": {
+        "statut": 409,
+        "tick": -1,
+        "raison": "départ déjà choisi : seigneurie-1"
+    },
+    "second": {
+        "statut": 409,
+        "tick": -1,
+        "raison": "départ déjà choisi : seigneurie-1"
+    },
+    "premier_texte": "Choix refusé pour Despotat de Morée :\ndépart déjà choisi : seigneurie-1",
+    "second_texte": "Choix refusé pour Duché de Bar :\ndépart déjà choisi : seigneurie-1",
+    "defaut": ""
+}
