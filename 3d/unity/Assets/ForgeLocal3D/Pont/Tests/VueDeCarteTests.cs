@@ -81,6 +81,14 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual(echelle, v.Echelle, "l'échelle change avec la fenêtre"); DansLaCarte(v, "zoomée puis 16:9");
         }
 
+        [Test] public void Le_centrage_demande_reste_dans_la_carte() {
+            var v = new VueDeCarte(BOITE, 16f / 9f); var voulu = new Vector2(400f, 200f);
+            v.Centrer(voulu, 200f); Assert.AreEqual(voulu, v.Centre); Assert.AreEqual(200f, v.Demi, TOLERANCE); DansLaCarte(v, "centrage décentré");
+            v.Centrer(new Vector2(BOITE.min.x, BOITE.min.z), 200f); DansLaCarte(v, "centrage près d'un bord");
+            Vector4 m = Montre(v); Assert.AreEqual(BOITE.min.x, m.x, TOLERANCE, "bord ouest"); Assert.AreEqual(BOITE.min.z, m.y, TOLERANCE, "bord sud");
+            Assert.AreNotEqual(new Vector2(BOITE.min.x, BOITE.min.z), v.Centre, "le centre demandé hors carte a été gardé");
+        }
+
         [Test] public void Le_jeu_s_ouvre_sur_la_carte_quand_on_le_demande() {
             Assert.IsTrue(OuvertureDeLaCarte.Demandee(new[] { "Forge.exe", "-forgeCell", "1175", OuvertureDeLaCarte.ARGUMENT }));
             Assert.IsFalse(OuvertureDeLaCarte.Demandee(new[] { "Forge.exe", "-forgeCell", "1175" }));
