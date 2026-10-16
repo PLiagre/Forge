@@ -136,6 +136,7 @@ class World:
                  attribution_villes=None):
         self.cells = cells
         self.plans = {cid: Plan() for cid in sorted(cells)}
+        self.chantiers_du_jour = {}  # Observation renouvelée, hors sauvegarde et décisions.
         self.adjacency = adjacency
         self.carte = carte or {}
         self.carte_meta = carte_meta or {}
