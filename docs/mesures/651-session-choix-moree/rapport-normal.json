@@ -1,0 +1,20 @@
+{
+    "terre": 3,
+    "seconde_terre": 1,
+    "tick_avant": 0,
+    "tick_apres": 0,
+    "reperes": 6,
+    "premier": {
+        "statut": 200,
+        "tick": 0,
+        "raison": ""
+    },
+    "second": {
+        "statut": 409,
+        "tick": -1,
+        "raison": "départ déjà choisi : seigneurie-3"
+    },
+    "premier_texte": "Terre choisie : Despotat de Morée\nLe monde l'applique au tick suivant (après le tick 0).",
+    "second_texte": "Choix refusé pour Duché de Bar :\ndépart déjà choisi : seigneurie-3",
+    "defaut": ""
+}

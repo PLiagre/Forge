@@ -1,0 +1,20 @@
+{
+    "terre": 3,
+    "seconde_terre": 1,
+    "tick_avant": -1,
+    "tick_apres": -1,
+    "reperes": 0,
+    "premier": {
+        "statut": -1,
+        "tick": -1,
+        "raison": ""
+    },
+    "second": {
+        "statut": -1,
+        "tick": -1,
+        "raison": ""
+    },
+    "premier_texte": "",
+    "second_texte": "",
+    "defaut": "repères : 0 posés sur 6 en 30 s, sans texte des repères ; la carte affiche « le monde ne répond pas\ncarte : service absent sur 127.0.0.1:8000 (Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée.\r\n"
+}
