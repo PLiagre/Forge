@@ -113,5 +113,51 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(carte.CellulesServies > 0 && Recues("/departs") == 0, carte.TexteAffiche);
             var montre = Stopwatch.StartNew(); reperes.Pas(1); montre.Stop(); Assert.Less(montre.ElapsedMilliseconds, DELAI_MAX_PAS_MS, "le pas a attendu le service"); Assert.IsTrue(reperes.LectureEnVol);
         }
+        // Lot #624 — la fiche d'une terre au survol de son repère, telle que le faux service la sert.
+        private const string FICHE_MOREE = "Despotat de Morée\nMaison : Paléologue\nSiège : Mistra, cellule 10340\nHabitants de la cellule : 80919 au tick 3\nSuzerain : Byzance\nVoisins :\n"
+            + "  cellule 10335, Byzance, 77525 habitants\n  cellule 10347, Byzance, 55393 habitants\nLieux tenus : 4";
+        private Transform Repere(FicheDeDepart f) => objet.transform.Find(RACINE + "/Repère " + f.Nom);
+        private MaisonLue Maison(long id) { using (var m = new ClientMaison(port, ClientDeparts.DelaiMinimal)) { var l = m.Lire("seigneurie-" + id); Assert.IsTrue(l.Presente, l.Absence); return l.Donnees; } }
+        [Test] public void Le_survol_d_un_repere_ouvre_la_fiche_servie_de_sa_terre() {
+            Servir(); IReadOnlyList<FicheDeDepart> fiches = Lues(out _); var lues = fiches.ToDictionary(f => f.Id, f => Maison(f.Id)); Poser(); Avancer(1); string zab = null;
+            Assert.IsTrue(fiches.Count == 6 && reperes.ReperesPoses == 6 && reperes.FicheAffichee == null, reperes.ReperesPoses + " repères ; fiche « " + reperes.FicheAffichee + " »");
+            foreach (FicheDeDepart f in fiches) {
+                Transform r = Repere(f); reperes.SurvolerPoint(r.position); string vu = reperes.FicheAffichee;
+                Assert.IsTrue(reperes.Survolee?.Id == f.Id && vu == ReperesDeDepart.Decrire(f, 3, lues[f.Id]), f.Nom + " : « " + vu + " »");
+                foreach (string attendu in new[] { f.Nom + "\n", "\nMaison : " + f.Maison + "\n", "\nSiège : " + f.Siege.Nom + ", cellule " + f.CellId + "\n", " " + f.Habitants + " au tick 3\n",
+                    "\nSuzerain : " + (f.Suzerain?.Nom ?? "aucun, le monde n'en nomme pas") + "\n", "\nLieux tenus : 4" }.Concat(f.Voisins.Select(v => "\n  cellule " + v.CellId + ", ")))
+                    StringAssert.Contains(attendu, vu, f.Nom);
+                reperes.Quitter(); reperes.Survoler(carte.camera.WorldToScreenPoint(r.position)); Assert.IsTrue(reperes.Survolee?.Id == f.Id && reperes.FicheAffichee == vu, f.Nom + " par l'écran : « " + reperes.FicheAffichee + " »");
+                if (f.Nom == MOREE) Assert.AreEqual(FICHE_MOREE, vu); if (f.Siege.Nom == "Biskra") zab = vu;
+            }
+            Assert.IsTrue(zab != null && zab != FICHE_MOREE && zab.Contains("\nSuzerain : Hafsides\n") && zab.Contains("\n  cellule 10087, aucune puissance nommée, 5509 habitants\n")
+                && zab.Split('\n').Count(l => l.StartsWith("  cellule ")) == 7, "Zab : « " + zab + " »");
+        }
+        [Test] public void La_fiche_compte_les_lieux_servis() {
+            const string demande = "/maison?id=seigneurie-3"; string deux = maisons[demande].corps.Replace(",{\"cell_id\":10340,\"rang\":2},{\"cell_id\":10340,\"rang\":3}", "");
+            Assert.AreNotEqual(maisons[demande].corps, deux); maisons[demande] = (200, deux);
+            Servir(); FicheDeDepart moree = Lues(out _).Single(f => f.Nom == MOREE); Poser(); Avancer(1);
+            reperes.SurvolerPoint(Repere(moree).position); StringAssert.EndsWith("\nLieux tenus : 2", reperes.FicheAffichee);
+        }
+        [Test] public void Hors_d_un_repere_la_fiche_se_cache() {
+            Servir(); FicheDeDepart moree = Lues(out _).Single(f => f.Nom == MOREE); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Avancer(1);
+            Vector3 centre = Repere(moree).localPosition; Vector3 Decale(float k) => objet.transform.TransformPoint(centre + new Vector3(k * ReperesDeDepart.DIAMETRE_REPERE_KM, 0, 0));
+            reperes.SurvolerPoint(Decale(0.45f)); Assert.IsTrue(reperes.Survolee?.Nom == MOREE && reperes.FicheAffichee != null && reperes.FicheAffichee.StartsWith(MOREE + "\n"), "à 0,45 diamètre : « " + reperes.FicheAffichee + " »");
+            reperes.SurvolerPoint(Decale(0.55f)); Assert.IsTrue(reperes.Survolee == null && reperes.FicheAffichee == null, "à 0,55 diamètre : « " + reperes.FicheAffichee + " »");
+            reperes.SurvolerPoint(Decale(0)); reperes.SurvolerPoint(new Vector3(1e6f, 0, 1e6f)); Assert.IsTrue(reperes.Survolee == null && reperes.FicheAffichee == null, "en mer : « " + reperes.FicheAffichee + " »");
+            reperes.SurvolerPoint(Decale(0)); Assert.IsNotNull(reperes.FicheAffichee); reperes.Quitter(); Assert.IsTrue(reperes.Survolee == null && reperes.FicheAffichee == null, "après Quitter : « " + reperes.FicheAffichee + " »");
+        }
+        [Test] public void La_fiche_de_la_terre_tient_le_coin_bas_droit() {
+            Servir(); Lues(out _); Poser(); var cellule = objet.AddComponent<FicheDeCellule>(); cellule.port = port; cellule.Demarrer();
+            try {
+                Avancer(1); RectTransform[] cadres = objet.GetComponentsInChildren<RectTransform>(true);
+                RectTransform terre = cadres.Single(t => t.name == "Fiche de la terre"), fiche = cadres.Single(t => t.name == "Fiche"), absences = cadres.Single(t => t.name == "Absences");
+                Assert.IsTrue(terre.anchorMin == Vector2.right && terre.anchorMax == Vector2.right && terre.pivot == Vector2.right, "fiche de la terre ancrée en " + terre.anchorMin + "–" + terre.anchorMax + ", pivot " + terre.pivot);
+                Assert.IsTrue(fiche.anchorMin == Vector2.zero && absences.anchorMin == Vector2.up && fiche.anchorMin != terre.anchorMin && absences.anchorMin != terre.anchorMin, fiche.anchorMin + " " + absences.anchorMin);
+                // UnityEngine.UI n'est pas référencé ici : raycastTarget se lit sur chaque graphique (l'image et le texte) par son nom.
+                var cibles = terre.GetComponentsInChildren<Component>(true).Select(c => c.GetType().GetProperty("raycastTarget")?.GetValue(c)).Where(v => v != null).ToList();
+                Assert.IsTrue(cibles.Count == 2 && cibles.All(v => (bool)v == false), cibles.Count + " graphiques, raycastTarget " + string.Join(", ", cibles));
+            } finally { cellule.Arreter(); }
+        }
     }
 }
