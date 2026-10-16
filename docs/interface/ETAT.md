@@ -9,6 +9,7 @@
 - Le propriétaire demande toute la suite. #666 et #667 fusionnés. UI-08a (`direct/interface-lecture-dossiers`) prépare les dossiers économiques ; quatre tests rouges puis trente verts. Les contrats avancés absents du service sont recensés dans [BESOINS-SIM.md](BESOINS-SIM.md), sans modification du moteur. Prochaine réalisation : dossier détaillé de territoire, comptes et commandes de maison, puis navigation et écrans avancés séparés de la partie réelle.
 
 - UI-01 et UI-02 livrés sur master (#630, #631). Raccordement [#633](https://github.com/PLiagre/Forge/pull/633) fusionné ; écran [#666](https://github.com/PLiagre/Forge/pull/666) et matériau du build [#667](https://github.com/PLiagre/Forge/pull/667) en fusion automatique sous réserve de CI verte.
+- UI-09 et UI-12, PR #671 : feuillet des terres, suzerain et flux, 42 tests verts et capture réelle regardée ; [preuve](COMPTES.md). #669 fusionné ; confirmations #670 et menu #672 en cours. Formulaires testés sur `direct/interface-commandes`.
 - Les 108 images du dossier confirmé par le propriétaire ont été regardées, en douze planches de neuf, avec une note par image dans DA.md ; réductions conservées dans `references/`.
 - [Cadrage #628](https://github.com/PLiagre/Forge/pull/628) et [socle #630](https://github.com/PLiagre/Forge/pull/630) fusionnés. La relance unique des tests chronométrés de #630 est verte, sans modification de seuil ; [preuve du socle](UI01.md).
 - UI-02 : douze nouveaux tests rouges puis verts, six tests du socle toujours verts ; capture Play regardée à 1920 × 1080, objet LFS distant retéléchargé et empreinte vérifiée. Quatre états avec cause explicite ; une donnée absente ne devient pas zéro. [Preuves et limites](UI02.md).
@@ -29,5 +30,4 @@
 - Écran : worktree `.atelier/direct/interface-ecran`, depuis master avec le raccordement #633 ; 26 tests verts et parcours du vrai service (choix, reprise/pause, zoom, glissé, clic droit, panneaux). [Lancement et captures](PARTIE.md). Ancien choix direct arrêté au profit de la confirmation du cabinet.
 - Prochaine action : après fusion de #666 et #667, poursuivre avec les dossiers de lieu. Aperçu Windows vérifié : 596 cellules, souris disponible, arrêt du service à la fermeture ; 40 tests carte/interface verts. UI-03 conserve ses preuves complémentaires de réponses retardées.
 - Aucune question artistique ouverte ; fontes candidates à vérifier avant intégration, police Unity de secours explicitement provisoire pour la première galerie.
-
 

@@ -18,10 +18,10 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-06 | Cadre de carte : lire le territoire sans le masquer | 01, 03, 05 | Sélection et légende à 1080p ; clic à travers panneau échoue | 260 | à faire |
 | UI-07 | Calques : distinguer relief, maîtres et habitants | 06a | Puissances/habitants : deux rouges puis 46 verts, 596 cellules réelles ; relief absent déclaré ; [preuve](CALQUES.md) | 190 | en cours |
 | UI-08 | Lieu : reconnaître habitants, stocks et maître | 08a, 06a | Trois rouges puis 33 verts ; vrai service, lieux au même tick et défilement sans zoom de carte ; [preuve](TERRITOIRES.md) | 190 | en cours |
-| UI-09 | Maison : situer siège, terres et suzerain | 08 | Maison sur/hors carte ; siège inventé ou absence masquée échoue | 240 | à faire |
+| UI-09 | Maison : situer siège, terres et suzerain | 08a | Trois rouges puis 42 verts et service réel ; [preuve](COMPTES.md) | 210 | en cours |
 | UI-10 | Prélèvement : régler la part avec un reçu | 09 | Saisie puis reçu puis état ; effet optimiste avant tick échoue | 240 | à faire |
 | UI-11 | Secours : ouvrir son grenier en connaissance du stock | 09 | Quantité, refus et attente ; deux clics ne doublent pas l’ordre | 240 | à faire |
-| UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours et manque explicite ; unité/personnes confondue échoue | 230 | à faire |
+| UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours, unités et absence explicites ; [preuve](COMPTES.md) | 210 | en cours |
 | UI-13 | Trajets : relier une charge à sa destination | 07, 12, contrat routes | Trajet fourni et absence ; trajet inventé ou quantité locale échoue | 260 | à faire |
 | UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Trois rouges puis 49 verts ; sept ordres réels, refus et raisons reçues ; [preuve](VOISINS.md) | 240 | en cours |
 | UI-15 | Passage en ville : retrouver sa capitale et revenir | 06, contrat transition J4 | Carte/ville/retour ; sélection perdue ou horloge locale échoue | 270 | à faire |
