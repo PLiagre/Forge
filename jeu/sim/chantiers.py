@@ -4,6 +4,7 @@ from dataclasses import replace
 import math
 
 import sim.constants as _constantes
+from sim.flux import jour_courant
 from sim.model import (ecrire_habitants_par_metier, lire_habitants_par_metier,
                        ecrire_stock_marchandise, contenus_des_paniers)
 from sim.plan import Plan, aire_du_contour
@@ -84,6 +85,9 @@ def avancer_chantiers(world):
         if journees:
             montant = journees * salaire
             grenier[nourriture] -= montant
+            jour = jour_courant(world)
+            if jour is not None:
+                jour.salaires[bourg.maitre] = jour.salaires.get(bourg.maitre, 0) + montant
             for entite in (bourg, cell):
                 stock = contenus_des_paniers((entite,), nourriture)[0]
                 ecrire_stock_marchandise(entite, nourriture, stock + montant)
