@@ -80,6 +80,26 @@ namespace Forge.Pont.Tests {
             for (int i = 1; i <= 20; i++) { carte.Pas(1 + 10 * i); Assert.IsFalse(carte.LectureEnVol); }
             Assert.IsTrue(Volatile.Read(ref requetes) == 1 && carte.CellulesPosees == servies && CellulesSousLaCarte == servies, CellulesSousLaCarte + " cellules");
         }
+        [Test] public void Le_materiau_de_carte_existe_sans_les_ressources_de_l_editeur() {
+            Servir(0, 200, Fixture);
+            Attendue(out int servies);
+            var global = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
+            var qualite = QualitySettings.renderPipeline;
+            try {
+                UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline = null;
+                QualitySettings.renderPipeline = null;
+                Poser();
+                Lire(1);
+                Assert.Greater(servies, 0);
+                Assert.AreEqual(servies, carte.CellulesPosees, carte.TexteAffiche);
+                Assert.AreEqual(servies, carte.CellulesServies);
+                foreach (var rendu in objet.GetComponentsInChildren<MeshRenderer>())
+                    Assert.IsNotNull(rendu.sharedMaterial.shader, rendu.name);
+            } finally {
+                UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline = global;
+                QualitySettings.renderPipeline = qualite;
+            }
+        }
         [Test] public void Sans_service_aucune_cellule_et_le_message() {
             Poser(); Lire(1);
             Absence("service absent sur 127.0.0.1:" + port);
