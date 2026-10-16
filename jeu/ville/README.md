@@ -180,8 +180,41 @@ l'absence), `premier_texte` et `second_texte` (le panneau du choix, tel
 qu'affiché) et `defaut`. **0** les deux reçus relevés, quels qu'ils soient ;
 **1** session impossible (`defaut` dit pourquoi ; le rapport est écrit) ; **2**
 arguments fautifs (aucun rapport). La session ne juge rien : le jugement est
-celui du script de #615, à venir, qui comparera au monde. Rapports du 16
-octobre 2026 :
+celui de [l'épreuve du choix](#lépreuve-du-choix), qui compare au monde.
+Rapports du 16 octobre 2026 :
 [normal](../../docs/mesures/651-session-choix-moree/rapport-normal.json),
 [départ déjà choisi](../../docs/mesures/651-session-choix-moree/rapport-deja-choisi.json),
 [sans service](../../docs/mesures/651-session-choix-moree/rapport-sans-service.json).
+
+## L'épreuve du choix
+
+Le joueur peut se fier à son geste (lot #652, épreuve #615) : la terre qu'il
+clique sur la carte de 1400 est celle que le monde retient, et le second choix
+est refusé pour la raison que le panneau lui affiche. Depuis la racine du dépôt,
+éditeur fermé :
+
+```bash
+py pc\epreuve_moree.py --sortie <dossier> [--terre N] [--seed S] [--unity CHEMIN]
+```
+
+Le script lance le service (graine S, en pause) et lit `/departs` ; il y trouve
+la Morée par son nom (« Despotat de Morée », jamais par son id), la terre
+cliquée (N, la Morée par défaut) et la seconde terre (la première servie d'un
+autre id). Il joue la [session du choix](#la-session-du-choix-de-la-terre)
+telle quelle, lit `/monde` avant le tick, pousse un tick et relit `/monde`.
+
+Le verdict, dans `verdict.txt`, juge contre la Morée servie et le monde, jamais
+contre la terre demandée : la session n'a pas fait avancer le monde ;
+`/monde` ne porte pas `maison_du_joueur` avant le tick ; le premier reçu est
+accepté au tick de `/departs` ; le second est refusé (409) par « départ déjà
+choisi : seigneurie-<id de la Morée> » ; le tick poussé est le suivant et la
+maison retenue après lui est la seigneurie de la Morée ; les deux textes du
+panneau sont ceux attendus, mot pour mot. **0** égalité, **1** écart, **2**
+épreuve impossible (Unity introuvable, port pris, référence illisible, session
+en erreur, rapport absent ou antérieur à l'essai, monde illisible après la
+session).
+
+La contre-épreuve `--terre 6` fait cliquer le Zab puis Bar : le monde retient
+`seigneurie-6`, le verdict sort **1**. Verdicts du 16 octobre 2026 :
+[normal](../../docs/mesures/615-epreuve-du-choix/verdict-normal.txt),
+[terre 6](../../docs/mesures/615-epreuve-du-choix/verdict-terre-6.txt).
