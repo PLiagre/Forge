@@ -47,11 +47,14 @@ def avancer_chantiers(world):
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
         avant = lire_habitants_par_metier(cell)
-        metiers = dict(avant) if avant != -1 else None
         paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
+        actifs = any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
+        # Un plan achevé ne demande que le retour des derniers ouvriers.
+        if not actifs and (avant == -1 or ouvriers not in avant):
+            continue
+        metiers = avant.copy() if avant != -1 else None
         if metiers is not None and ouvriers in metiers:
             metiers[paysans] = metiers.get(paysans, 0) + metiers.pop(ouvriers)
-        actifs = any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
         bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None) if actifs else None
         grenier = world.greniers.get(bourg.maitre) if bourg is not None and bourg.maitre is not None else None
         nourriture, salaire = _constantes.MARCHANDISE_NOURRITURE, _constantes.SALAIRE_JOURNEE_KG

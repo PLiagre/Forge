@@ -80,7 +80,9 @@ def ecrire_habitants_par_metier(cell: "Cell", metiers: dict[str, int]) -> None:
     """
     _foyers.valider_metiers(metiers)
     cell.habitants_par_metier = dict(metiers)
-    cell.population = sum(metiers.values())
+    # Les métiers viennent d'être validés et leur somme est la population :
+    # éviter de les valider et de les copier à nouveau via Cell.__setattr__.
+    object.__setattr__(cell, "population", sum(metiers.values()))
 
 
 def cellule_vers_dict(cell: "Cell") -> dict:

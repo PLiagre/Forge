@@ -1417,7 +1417,8 @@ def _apply_mortality(cell: Cell) -> None:
                 retrait = min(lieu.population, morts)
                 lieu.population -= retrait
                 retires += retrait
-        _retirer_par_les_foyers(cell, retires)
+        if retires:
+            _retirer_par_les_foyers(cell, retires)
         return
 
     remainder = cell.mortality_remainder if cell.mortality_remainder >= 0.0 else 0.0
@@ -1449,7 +1450,8 @@ def _apply_natalite(cell: Cell, penurie_kg: float) -> None:
                 lieu.natalite_remainder = brut - enfants
                 lieu.population += enfants
                 naissances += enfants
-        _ajouter_par_les_foyers(cell, naissances)
+        if naissances:
+            _ajouter_par_les_foyers(cell, naissances)
         return
 
     remainder = cell.natalite_remainder if cell.natalite_remainder >= 0.0 else 0.0
