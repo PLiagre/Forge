@@ -1,4 +1,4 @@
-# État de l’interface — 16 octobre 2026
+# État de l’interface — 17 octobre 2026
 
 ## Livré et en cours
 
@@ -14,6 +14,7 @@
 - Les PR de lots #627 et #511 ont été consultées : aucun fichier commun avec `docs/interface/`.
 - Contrôles : liens locaux et 108 empreintes d’originaux vérifiés, douze planches décodées et regardées, diff sans erreur d’espaces ; douze objets LFS retéléchargés du serveur et vérifiés. Aucun test Unity ou moteur exécuté pour cette documentation.
 
+- UI-10a, PR #670 : modèle de confirmation, quatre rouges puis 37 verts ; [preuve](ORDRES.md). Territoires #669 fusionnés, captures LFS distantes vérifiées. Formulaires déjà testés et poussés sur `direct/interface-commandes` ; publier leur PR après fusion de #670.
 ## Décisions et prochaine action
 
 - Source visuelle confirmée : `docs/direction-artistique/`. Les originaux de ce worktree sont des pointeurs LFS ; les images ont été lues dans `D:/Forge/docs/direction-artistique/`, sans modifier ces originaux.
@@ -25,3 +26,5 @@
 - Écran : worktree `.atelier/direct/interface-ecran`, depuis master avec le raccordement #633 ; 26 tests verts et parcours du vrai service (choix, reprise/pause, zoom, glissé, clic droit, panneaux). [Lancement et captures](PARTIE.md). Ancien choix direct arrêté au profit de la confirmation du cabinet.
 - Prochaine action : après fusion de #666 et #667, poursuivre avec les dossiers de lieu. Aperçu Windows vérifié : 596 cellules, souris disponible, arrêt du service à la fermeture ; 40 tests carte/interface verts. UI-03 conserve ses preuves complémentaires de réponses retardées.
 - Aucune question artistique ouverte ; fontes candidates à vérifier avant intégration, police Unity de secours explicitement provisoire pour la première galerie.
+
+
