@@ -19,7 +19,7 @@ namespace Forge.Pont {
     public sealed class ReperesDeDepart : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "terres de départ incomplètes";
         public const float PERIODE_RELECTURE_S = 2f, HAUTEUR_REPERE = 2f, DIAMETRE_REPERE_KM = 40f;
-        public const float HAUTEUR_LIEU = 0.8f, DIAMETRE_LIEU_KM = 10f, DIAMETRE_BORD_KM = 14f; // au-dessus des contours, sous les noms
+        public const float HAUTEUR_LIEU = 0.8f, DIAMETRE_LIEU_KM = 10f, DIAMETRE_BORD_KM = 14f, SOUS_LE_DISQUE = -0.12f; // au-dessus des contours, sous les noms ; le bord juste sous son disque
         public const string RACINE_LIEUX = "Lieux du joueur";
         public static readonly Color COULEUR_REPERE = Color.white; // saturation nulle et valeur pleine : aucune cellule ne la prend
         public static readonly Color COULEUR_JOUEUR = Color.white, BORD_JOUEUR = new Color(0.08f, 0.06f, 0.05f);
@@ -177,7 +177,7 @@ namespace Forge.Pont {
             if (matJoueur == null) { Material d = GraphicsSettings.currentRenderPipeline.defaultMaterial; matJoueur = new Material(d) { name = "Lieu du joueur", color = COULEUR_JOUEUR }; matBord = new Material(d) { name = "Bord du lieu", color = BORD_JOUEUR }; crees.Add(matJoueur); crees.Add(matBord); }
             if (lieuxRacine == null) { lieuxRacine = new GameObject(RACINE_LIEUX).transform; lieuxRacine.SetParent(transform, false); crees.Add(lieuxRacine.gameObject); }
             var lieu = new GameObject(NomDuLieu(t.CellId, t.Rang)).transform; lieu.SetParent(lieuxRacine, false); lieu.localPosition = carte.PositionSurLaCarte(point, HAUTEUR_LIEU).Value;
-            Disque(lieu, "Bord", matBord, DIAMETRE_BORD_KM, -0.12f); Disque(lieu, "Disque", matJoueur, DIAMETRE_LIEU_KM, 0f);
+            Disque(lieu, "Bord", matBord, DIAMETRE_BORD_KM, SOUS_LE_DISQUE); Disque(lieu, "Disque", matJoueur, DIAMETRE_LIEU_KM, 0f);
         }
         private void Disque(Transform parent, string nom, Material mat, float diametre, float haut) {
             GameObject o = GameObject.CreatePrimitive(PrimitiveType.Cylinder); o.name = nom; Detruire(o.GetComponent<Collider>()); o.GetComponent<MeshRenderer>().sharedMaterial = mat;

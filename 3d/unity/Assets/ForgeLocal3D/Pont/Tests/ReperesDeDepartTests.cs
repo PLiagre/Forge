@@ -41,7 +41,7 @@ namespace Forge.Pont.Tests {
             var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start();
             (fil = new Thread(() => {
                 try { while (true) {
-                    HttpListenerContext ctx = auditeur.GetContext(); string ici = ctx.Request.Url.PathAndQuery; lock (recues) recues.Add(ici); if (ici == "/departs" && lenteurDeparts > 0) { int ms = lenteurDeparts, st = statutDeparts; byte[] b = st == 200 ? departsServis : Encoding.UTF8.GetBytes("{\"erreur\":\"panne\"}"); new Thread(() => { try { Thread.Sleep(ms); ctx.Response.StatusCode = st; ctx.Response.Close(b, true); } catch (Exception) { } }) { IsBackground = true }.Start(); continue; } // la lenteur ne bloque pas les autres lectures
+                    HttpListenerContext ctx = auditeur.GetContext(); string ici = ctx.Request.Url.PathAndQuery; lock (recues) recues.Add(ici); if (ici == "/departs") Thread.Sleep(lenteurDeparts);
                     string depose = ici == "/intention" ? new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd() : null;
                     if (depose != null) { lock (recues) deposes.Add(depose); Thread.Sleep(lenteurIntention); }
                     var (statut, corps) = depose != null ? (reponses.TryDequeue(out var r) ? (r.statut, Encoding.UTF8.GetBytes(r.corps)) : (404, Encoding.UTF8.GetBytes("{\"erreur\":\"aucune réponse prévue\"}")))
@@ -236,9 +236,9 @@ namespace Forge.Pont.Tests {
         [Test] public void La_maison_publiee_descend_sur_le_siege_et_ses_lieux() {
             var s = SIEGES[2]; Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter();
             Jusqua(1, () => reperes.ReperesPoses == 6 && fiche.MondeLu != null && fiche.MaisonDuJoueur == null);
-            reponses.Enqueue((200, "{\"acceptee\":true,\"appliquee_au_tick\":4}")); Cliquer(MOREE);
-            Assert.IsTrue(reperes.RecuDuChoix.Acceptee && DepartsActifs() == 6 && carte.Vue.Echelle == 1f && DisquesActifs() == 0, reperes.TexteAffiche);
-            Publier(MAISON_MOREE); Jusqua(2, () => fiche.MaisonDuJoueur == MAISON_MOREE && DisquesActifs() == 4 && DepartsActifs() == 0);
+            reponses.Enqueue((200, "{\"acceptee\":true,\"appliquee_au_tick\":4}")); Cliquer(MOREE); double apres = 2 + 2 * ReperesDeDepart.PERIODE_RELECTURE_S; for (double t = 2; t <= apres; t++) { carte.Pas(t); fiche.Pas(t); reperes.Pas(t); Thread.Sleep(50); }
+            Assert.IsTrue(reperes.RecuDuChoix.Acceptee && DepartsActifs() == 6 && carte.Vue.Echelle == 1f && DisquesActifs() == 0 && Recues("/lieu?cell=" + CELLULE_MOREE) == 0 && Recues(DEMANDE_MOREE) == 1, Recues(DEMANDE_MOREE) + " lectures de la maison ; " + reperes.TexteAffiche);
+            Publier(MAISON_MOREE); Jusqua(apres + 1, () => fiche.MaisonDuJoueur == MAISON_MOREE && DisquesActifs() == 4 && DepartsActifs() == 0);
             Assert.AreEqual(1, Recues("/lieu?cell=" + CELLULE_MOREE), "la cellule"); Assert.AreEqual(2, Recues(DEMANDE_MOREE), "la maison publiée");
             Vector3 siege = carte.PositionSurLaCarte(new PointCarte(s.x, s.y), ReperesDeDepart.HAUTEUR_LIEU).Value; Vector3 cam = objet.transform.InverseTransformPoint(carte.camera.transform.position);
             Assert.IsTrue(carte.Vue.Echelle < 1f && carte.Vue.Centre == new Vector2(siege.x, siege.z) && carte.Vue.Demi >= VueDeCarte.DEMI_MIN_KM && Mathf.Abs(cam.x - siege.x) < 0.01f && Mathf.Abs(cam.z - siege.z) < 0.01f && Mathf.Abs(carte.camera.orthographicSize - carte.Vue.Demi) < 0.01f, carte.Vue.Centre + " demi " + carte.Vue.Demi + " caméra " + cam);
@@ -290,14 +290,16 @@ namespace Forge.Pont.Tests {
             for (int i = 0; i < 4; i++) { carte.Pas(5 + i); fiche.Pas(5 + i); reperes.Pas(5 + i); }
             Assert.AreEqual(glisse, carte.Vue.Centre); Assert.AreEqual(n, DisquesActifs());
         }
-        [Test] public void Une_maison_etrangere_absente_laisse_descendre_malgre_la_relecture() {
-            maisons["/maison?id=seigneurie-1"] = (404, "{\"erreur\":\"maison inconnue\"}"); Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter();
-            Jusqua(1, () => reperes.ReperesPoses == 5 && !reperes.LectureEnVol && fiche.MaisonDuJoueur == null);
-            lenteurDeparts = 4 * LENTEUR_MS; double t = 1 + ReperesDeDepart.PERIODE_RELECTURE_S; reperes.Pas(t); Assert.IsTrue(reperes.LectureEnVol && Recues("/maison?id=seigneurie-1") == 1, "la relecture n'est pas partie");
-            reponses.Enqueue((200, "{\"acceptee\":true,\"appliquee_au_tick\":4}")); Cliquer(MOREE); Assert.IsTrue(reperes.RecuDuChoix.Acceptee && DepartsActifs() == 5 && carte.Vue.Echelle == 1f, reperes.TexteAffiche);
-            Publier(MAISON_MOREE); Jusqua(t, () => DisquesActifs() == 4 && DepartsActifs() == 0 && carte.Vue.Echelle < 1f && reperes.LectureEnVol && Recues("/maison?id=seigneurie-1") == 1);
-            Vector2 centre = carte.Vue.Centre; string texte = reperes.TexteAffiche; Jusqua(t, () => !reperes.LectureEnVol && Recues("/maison?id=seigneurie-1") == 2); int n = Recues("/intention"); reperes.Survoler(Ecran(MOREE)); reperes.Choisir(Ecran(MOREE));
-            Assert.IsTrue(n == Recues("/intention") && reperes.Survolee == null && DisquesActifs() == 4 && DepartsActifs() == 0 && reperes.ReperesPoses == 5 && carte.Vue.Centre == centre && carte.Vue.Echelle < 1f && reperes.TexteAffiche == texte && texte != null && texte.Contains("Mistra") && !texte.Contains(ReperesDeDepart.MESSAGE_ABSENCE) && Recues(DEMANDE_MOREE) == 2 && Recues("/lieu?cell=" + CELLULE_MOREE) == 1, reperes.TexteAffiche);
+        // Bar manque : la maison publiée descend quand même, puis aucun `/departs` ne part ; une lecture en vol à la pose (posée ici, hors du faux service) ne repose rien.
+        [Test] public void Une_maison_etrangere_absente_laisse_descendre_sans_relire_les_departs() {
+            maisons["/maison?id=seigneurie-1"] = (404, "{\"erreur\":\"maison inconnue\"}"); Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter(); Lecture<DepartsLus> lus; using (var d = new ClientDeparts(port, ClientDeparts.DelaiMinimal)) lus = d.Lire(); var tenue = Lecture<MaisonLue>.De(Maison(3)); lock (recues) recues.Clear();
+            Jusqua(1, () => reperes.ReperesPoses == 5 && !reperes.LectureEnVol && fiche.MondeLu != null && fiche.MaisonDuJoueur == null);
+            var vol = new System.Threading.Tasks.TaskCompletionSource<(Lecture<DepartsLus>, List<(FicheDeDepart, Lecture<MaisonLue>)>)>(); typeof(ReperesDeDepart).GetField("enCours", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(reperes, vol.Task);
+            reponses.Enqueue((200, "{\"acceptee\":true,\"appliquee_au_tick\":4}")); Cliquer(MOREE); Publier(MAISON_MOREE);
+            Jusqua(2, () => DisquesActifs() == 4 && DepartsActifs() == 0 && carte.Vue.Echelle < 1f); Vector2 centre = carte.Vue.Centre; string texte = reperes.TexteAffiche;
+            Assert.IsTrue(reperes.LectureEnVol && texte != null && texte.Contains("Mistra") && !texte.Contains(ReperesDeDepart.MESSAGE_ABSENCE), "« " + texte + " »"); vol.SetResult((lus, lus.Donnees.Fiches.Select(f => (f, tenue)).ToList()));
+            for (int i = 1; i <= 4; i++) { double t = 2 + i * ReperesDeDepart.PERIODE_RELECTURE_S; carte.Pas(t); fiche.Pas(t); reperes.Pas(t); Thread.Sleep(50); reperes.Pas(t); } int n = Recues("/intention"); reperes.Survoler(Ecran(MOREE)); reperes.Choisir(Ecran(MOREE));
+            Assert.IsTrue(Recues("/departs") == 1 && Recues("/maison?id=seigneurie-1") == 1 && !reperes.LectureEnVol && reperes.ReperesPoses == 5 && DepartsActifs() == 0 && DisquesActifs() == 4 && reperes.Survolee == null && n == Recues("/intention") && carte.Vue.Centre == centre && carte.Vue.Echelle < 1f && reperes.TexteAffiche == texte, Recues("/departs") + " /departs, " + reperes.ReperesPoses + " repères ; « " + reperes.TexteAffiche + " »");
         }
     }
 }

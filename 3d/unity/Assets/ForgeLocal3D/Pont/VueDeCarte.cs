@@ -44,7 +44,7 @@ namespace Forge.Pont {
         // Le point de la carte (x, z) sous `ancre`.
         public Vector2 PointSous(Vector2 ancre) => Centre + Decalage(ancre);
 
-        public void Centrer(Vector2 centre, float demi) { Centre = centre; Echelle = DemiMax > 0f ? demi / DemiMax : 1f; Borner(); }
+        public void Centrer(Vector2 centre, float demi) { Centre = centre; Echelle = DemiMax > 0f ? demi / DemiMax : 1f; Borner(); } // `demi` demandée, puis les bornes
 
         public void Poser(Camera camera, Transform carte, float hauteur) {
             camera.transform.SetPositionAndRotation(carte.TransformPoint(new Vector3(Centre.x, hauteur, Centre.y)), Quaternion.Euler(90, 0, 0));
