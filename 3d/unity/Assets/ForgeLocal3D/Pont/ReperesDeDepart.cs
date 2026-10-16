@@ -12,20 +12,23 @@ namespace Forge.Pont {
     // ou un siège hors carte se dit en haut à gauche, sans repère, et la lecture repart pour ce qui manque.
     // Lot #624 : la souris sur un repère ouvre en bas à droite la fiche de sa terre, telle que `/departs` et `/maison` l'ont
     // servie à la pose ; rien n'est relu ni calculé. Hors de tout repère, la fiche se cache.
+    // Lot #613 : un clic sur un repère dépose au service le choix de sa terre (`choisir_depart`), hors du fil principal ; le
+    // panneau en haut au centre dit le reçu tel que le service le rend : son tick, ou sa raison de refus. Unity ne juge rien.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     [RequireComponent(typeof(CarteDessinee))]
     public sealed class ReperesDeDepart : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "terres de départ incomplètes";
         public const float PERIODE_RELECTURE_S = 2f, HAUTEUR_REPERE = 2f, DIAMETRE_REPERE_KM = 40f;
         public static readonly Color COULEUR_REPERE = Color.white; // saturation nulle et valeur pleine : aucune cellule ne la prend
-        private const float EPAISSEUR_REPERE_KM = 0.1f, ECART_PLAN = 0.2f, MARGE = 16f, TAILLE_CARACTERE = 25f; private const int TAILLE_NOM = 16, TAILLE_POLICE = 24, RETRAIT = 14;
+        private const float EPAISSEUR_REPERE_KM = 0.1f, ECART_PLAN = 0.2f, MARGE = 16f, TAILLE_CARACTERE = 25f, LARGEUR_FICHE = 380f; private const int TAILLE_NOM = 16, TAILLE_POLICE = 24, RETRAIT = 14;
         private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0); private static readonly Vector2 RESOLUTION_REFERENCE = new Vector2(1600, 900);
         private static readonly Color FOND = new Color(0.05f, 0.05f, 0.07f, 0.78f); // celui de FicheDeCellule
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
         private CarteDessinee carte; private ClientDeparts departs; private ClientMaison maisons;
         private Task<(Lecture<DepartsLus> departs, List<(FicheDeDepart fiche, Lecture<MaisonLue> maison)> maisons)> enCours;
         private double prochaineLecture; private bool complet; // toutes les fiches posées : plus aucune lecture ne part
-        private Transform racine; private Material materiau; private Text texte, texteFiche; private GameObject panneau;
+        private ClientIntention intentions; private Task<RecuIntention> depot; // le choix déposé, relevé par Pas
+        private Transform racine; private Material materiau; private Text texte, texteFiche, texteChoix; private GameObject panneau, panneauChoix;
         private readonly HashSet<long> poses = new HashSet<long>(); private readonly List<Object> crees = new List<Object>();
         private readonly List<(FicheDeDepart fiche, MaisonLue maison, long tick, Vector3 centre)> terres = new List<(FicheDeDepart, MaisonLue, long, Vector3)>();
 
@@ -34,6 +37,10 @@ namespace Forge.Pont {
         public FicheDeDepart Survolee { get; private set; }
         public string FicheAffichee => panneau != null && panneau.activeSelf ? texteFiche.text : null;
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
+        public bool ChoixEnVol => depot != null; // jusqu'au pas qui relève le reçu
+        public RecuIntention RecuDuChoix { get; private set; }
+        public FicheDeDepart TerreDuChoix { get; private set; }
+        public string ChoixAffiche => panneauChoix != null && panneauChoix.activeSelf ? texteChoix.text : null;
         private void Start() => Demarrer();
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         private void OnDestroy() => Arreter();
@@ -41,12 +48,28 @@ namespace Forge.Pont {
             carte = GetComponent<CarteDessinee>();
             if (carte.camera == null) { Debug.LogError("ReperesDeDepart : la carte n'a pas de caméra, les absences ne s'afficheraient pas", this); return; }
             Construire(); departs = new ClientDeparts(port, ClientDeparts.DelaiMinimal); maisons = new ClientMaison(port, ClientDeparts.DelaiMinimal);
+            intentions = new ClientIntention(port, ClientDeparts.DelaiMinimal);
         }
         public void Arreter() {
-            departs?.Dispose(); maisons?.Dispose(); departs = null; maisons = null; enCours = null;
+            departs?.Dispose(); maisons?.Dispose(); intentions?.Dispose(); departs = null; maisons = null; intentions = null; enCours = null; depot = null;
             foreach (Object o in crees) Detruire(o);
-            crees.Clear(); poses.Clear(); terres.Clear(); racine = null; materiau = null; texte = texteFiche = null; panneau = null; Survolee = null;
+            crees.Clear(); poses.Clear(); terres.Clear(); racine = null; materiau = null; texte = texteFiche = texteChoix = null; panneau = panneauChoix = null; Survolee = null;
+            RecuDuChoix = null; TerreDuChoix = null;
         }
+        // Le clic : la terre sous l'écran, s'il y en a une et qu'aucun choix n'est en vol, est déposée au service hors du fil principal.
+        public void Choisir(Vector2 ecran) {
+            Survoler(ecran); FicheDeDepart terre = Survolee;
+            if (terre == null || intentions == null || depot != null) return;
+            ClientIntention client = intentions; string corps = "{\"type\":\"choisir_depart\",\"seigneurie\":" + Entier(terre.Id) + "}";
+            TerreDuChoix = terre; RecuDuChoix = null; depot = Task.Run(() => client.Deposer(corps)); AfficherChoix();
+        }
+        // Le reçu dit tel quel : le tick qu'il nomme (jamais +1), la raison du refus ou la cause de l'absence, mot pour mot.
+        public static string DireLeChoix(FicheDeDepart fiche, RecuIntention recu) =>
+            recu == null ? "Choix envoyé au monde : " + fiche.Nom
+            : recu.Acceptee ? "Terre choisie : " + fiche.Nom + "\nLe monde l'applique au tick suivant (après le tick " + Entier(recu.AppliqueeAuTick.Value) + ")."
+            : recu.Presente ? "Choix refusé pour " + fiche.Nom + " :\n" + recu.Erreur
+            : "Choix sans réponse pour " + fiche.Nom + " :\n" + recu.Absence;
+        private void AfficherChoix() { if (panneauChoix == null) return; texteChoix.text = DireLeChoix(TerreDuChoix, RecuDuChoix); panneauChoix.SetActive(true); }
         // Le point de l'écran sous la souris, posé sur le plan des repères.
         public void Survoler(Vector2 ecran) {
             if (carte == null || carte.camera == null) return;
@@ -74,6 +97,9 @@ namespace Forge.Pont {
         }
         public void Pas(double maintenant) {
             if (departs == null) return;
+            if (depot != null && depot.IsCompleted) {
+                RecuDuChoix = depot.IsFaulted ? RecuIntention.Absente("intention : " + depot.Exception.GetBaseException().Message) : depot.Result; depot = null; AfficherChoix();
+            }
             if (enCours != null && enCours.IsCompleted) { var lu = enCours.Result; enCours = null; Appliquer(lu.departs, lu.maisons, maintenant); }
             if (complet || enCours != null || maintenant < prochaineLecture || carte.PositionSurLaCarte(default, 0f) == null) return;
             ClientDeparts d = departs; ClientMaison m = maisons; var deja = new HashSet<long>(poses);
@@ -111,7 +137,8 @@ namespace Forge.Pont {
             poses.Add(fiche.Id); terres.Add((fiche, maison, tick, repere.localPosition));
         }
         // En haut à gauche de l'écran, sur la caméra de la carte ; caché tant que rien ne manque. La fiche de la terre survolée
-        // en bas à droite : le bas à gauche est à la fiche de cellule, le haut à droite à l'horloge.
+        // en bas à droite : le bas à gauche est à la fiche de cellule, le haut à droite à l'horloge. Le choix de la terre en haut
+        // au centre, caché tant qu'aucun choix n'est envoyé.
         private void Construire() {
             var toile = new GameObject("Toile des repères", typeof(RectTransform)); toile.transform.SetParent(transform, false); crees.Add(toile);
             var canvas = toile.AddComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = carte.camera;
@@ -129,6 +156,11 @@ namespace Forge.Pont {
             texteFiche = new GameObject("Texte", typeof(RectTransform)).AddComponent<Text>(); texteFiche.transform.SetParent(panneau.transform, false);
             texteFiche.font = texte.font; texteFiche.fontSize = TAILLE_POLICE; texteFiche.color = Color.white; texteFiche.raycastTarget = false;
             texteFiche.horizontalOverflow = HorizontalWrapMode.Overflow; texteFiche.verticalOverflow = VerticalWrapMode.Overflow; panneau.SetActive(false);
+            // Le panneau du choix : la même fiche, ancrée en haut au centre.
+            panneauChoix = Object.Instantiate(panneau, toile.transform, false); panneauChoix.name = "Choix de la terre"; texteChoix = panneauChoix.GetComponentInChildren<Text>(true);
+            var haut = (RectTransform)panneauChoix.transform; haut.anchorMin = haut.anchorMax = haut.pivot = new Vector2(0.5f, 1); haut.anchoredPosition = new Vector2(0, -MARGE);
+            // Dépliée, la fiche couvre la Morée, le Kosovo et Giannitsa : elle reste dans la colonne de droite, sous l'horloge.
+            texteFiche.horizontalOverflow = HorizontalWrapMode.Wrap; texteFiche.gameObject.AddComponent<LayoutElement>().preferredWidth = LARGEUR_FICHE;
         }
         private void Dire(string message) { if (texte == null) return; texte.text = message; texte.gameObject.SetActive(message != ""); }
         private static void Detruire(Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
