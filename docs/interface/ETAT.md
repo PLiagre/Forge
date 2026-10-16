@@ -2,6 +2,8 @@
 
 ## Livré et en cours
 
+- Le propriétaire demande toute la suite. #666 et #667 fusionnés. UI-08a (`direct/interface-lecture-dossiers`) prépare les dossiers économiques ; quatre tests rouges puis trente verts. Les contrats avancés absents du service sont recensés dans [BESOINS-SIM.md](BESOINS-SIM.md), sans modification du moteur. Prochaine réalisation : dossier détaillé de territoire, comptes et commandes de maison, puis navigation et écrans avancés séparés de la partie réelle.
+
 - UI-01 et UI-02 livrés sur master (#630, #631). Raccordement [#633](https://github.com/PLiagre/Forge/pull/633) fusionné ; écran [#666](https://github.com/PLiagre/Forge/pull/666) et matériau du build [#667](https://github.com/PLiagre/Forge/pull/667) en fusion automatique sous réserve de CI verte.
 - Les 108 images du dossier confirmé par le propriétaire ont été regardées, en douze planches de neuf, avec une note par image dans DA.md ; réductions conservées dans `references/`.
 - [Cadrage #628](https://github.com/PLiagre/Forge/pull/628) et [socle #630](https://github.com/PLiagre/Forge/pull/630) fusionnés. La relance unique des tests chronométrés de #630 est verte, sans modification de seuil ; [preuve du socle](UI01.md).
