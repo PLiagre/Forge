@@ -935,3 +935,114 @@ def test_salaire_rythme():
     assert avancer_chantiers(monde) == {} and lire_habitants_par_metier(monde.cells[1]) == {'paysans': 30}
     vide = _epreuve_salaire(0); assert sum(avancer_chantiers(vide).values()) == 0
     with pytest.raises(AssertionError): assert vide.plans[1].rues[0].travail_fourni == vide.plans[1].rues[0].travail_requis
+
+
+def _attendu_chantiers(avant, monde, envois, salaire, motifs=None):
+    attendu = {}
+    for cid, plan in avant['plans'].items():
+        for nom, cle in (('rues', ()), ('parcelles', ('parcelle',)), ('batiments', ('batiment',))):
+            apres = {e.identifiant: e for e in getattr(monde.plans[int(cid)], nom)}
+            for element in plan[nom]:
+                if element['en_chantier']:
+                    identifiant = element['identifiant']; index = (int(cid), *cle, identifiant)
+                    bras = apres[identifiant].travail_fourni - element['travail_fourni']
+                    assert envois[index] == bras
+                    attendu[index] = dict(bras=bras, grain_paye_kg=bras * salaire,
+                                         motif_arret=(motifs or {}).get(index))
+    assert attendu and set(attendu) == set(envois)
+    return attendu
+
+
+def _verifier_chantiers(releve, attendu):
+    assert attendu and releve == attendu
+
+
+def test_releve_chantiers_comptes():
+    from sim.chantiers import avancer_chantiers
+    monde = _epreuve_salaire(); avant = monde.to_dict()
+    assert monde.chantiers_du_jour == {}
+    envois = avancer_chantiers(monde); _controler_salaire(avant, monde, envois)
+    attendu = _attendu_chantiers(avant, monde, envois, k.SALAIRE_JOURNEE_KG)
+    _verifier_chantiers(monde.chantiers_du_jour, attendu)
+    assert all(e['bras'] > 0 for e in attendu.values())
+    assert sum(e['grain_paye_kg'] for e in attendu.values()) == avant['greniers']['payeur']['nourriture'] - monde.greniers['payeur']['nourriture']
+    faux = copy.deepcopy(attendu); cles = list(faux); faux[cles[0]], faux[cles[1]] = faux[cles[1]], faux[cles[0]]
+    with pytest.raises(AssertionError): _verifier_chantiers(faux, attendu)
+    faux = copy.deepcopy(attendu); faux[cles[-1]]['grain_paye_kg'] += 1
+    with pytest.raises(AssertionError): _verifier_chantiers(faux, attendu)
+    with pytest.raises(AssertionError): _verifier_chantiers({}, {})
+
+
+@pytest.mark.parametrize('cas', ['parcelle', 'parcelle_sans_metiers', 'metiers', 'bras', 'bras_epuises', 'lieux', 'bourg', 'maitre', 'grenier', 'marchandise', 'grain', 'partage', 'salaire'])
+def test_releve_chantiers_arrets(cas):
+    from sim.chantiers import avancer_chantiers
+    monde = _epreuve_salaire(); cell = monde.cells[1]; motifs = {}
+    if cas.startswith('parcelle'): monde.plans[1].batiments[0] = replace(monde.plans[1].batiments[0], parcelle=0)
+    if cas == 'bras_epuises': cell.habitants_par_metier = {'paysans': 3}
+    if cas in ('metiers', 'bras', 'parcelle_sans_metiers'):
+        cell.habitants_par_metier = None if cas != 'bras' else {'mineurs': 30}
+        monde.greniers.clear()  # La cause métier précède celle du payeur.
+    if cas == 'lieux': cell.lieux = []
+    if cas == 'bourg': cell.lieux = cell.lieux[:1]
+    if cas == 'maitre': cell.lieux[1].maitre = None
+    if cas == 'grenier': monde.greniers.clear()
+    if cas == 'marchandise': monde.greniers['payeur'].pop('nourriture')
+    if cas in ('grain', 'salaire', 'partage'): monde.greniers['payeur']['nourriture'] = k.SALAIRE_JOURNEE_KG if cas == 'salaire' else (3 * k.SALAIRE_JOURNEE_KG if cas == 'partage' else 0)
+    if cas == 'partage': monde.plans[2] = Plan(rues=[Rue(0, [(0, 0), (1, 0)], 1, True, 1, 10)])
+    cause = {'metiers': 'metiers_non_calcules', 'parcelle_sans_metiers': 'metiers_non_calcules', 'bras': 'sans_bras', 'bras_epuises': 'sans_bras', 'lieux': 'payeur_absent', 'bourg': 'payeur_absent', 'maitre': 'payeur_absent', 'grenier': 'payeur_absent'}.get(cas, 'sans_grain')
+    avant = monde.to_dict(); envois = avancer_chantiers(monde)
+    motifs = {cle: cause for cle, bras in envois.items() if bras == 0}
+    if cas.startswith('parcelle'):
+        motifs[(1, 'batiment', 0)] = 'parcelle_en_chantier'
+        if cas == 'parcelle': assert not monde.plans[1].parcelles[0].en_chantier
+    attendu = _attendu_chantiers(avant, monde, envois, k.SALAIRE_JOURNEE_KG, motifs)
+    _verifier_chantiers(monde.chantiers_du_jour, attendu)
+    if cas == 'salaire': assert attendu[(1, 0)] == dict(bras=1, grain_paye_kg=k.SALAIRE_JOURNEE_KG, motif_arret=None)
+    for cle in motifs:
+        faux = copy.deepcopy(attendu); del faux[cle]
+        with pytest.raises(AssertionError): _verifier_chantiers(faux, attendu)
+        faux = copy.deepcopy(attendu); faux[cle]['motif_arret'] = 'autre'
+        with pytest.raises(AssertionError): _verifier_chantiers(faux, attendu)
+
+
+def test_releve_chantiers_jour(monkeypatch):
+    from sim.chantiers import avancer_chantiers
+    monde = _epreuve_salaire(1000); requis = 2 * k.TAILLE_FOYER + 1
+    monde.plans[1] = Plan(rues=[Rue(0, [(0, 0), (1, 0)], 1, True, 1, requis)])
+    precedent = None
+    for salaire in (3, 2, 4):
+        monkeypatch.setattr(k, 'SALAIRE_JOURNEE_KG', salaire); avant = monde.to_dict()
+        envois = avancer_chantiers(monde); attendu = _attendu_chantiers(avant, monde, envois, salaire)
+        _verifier_chantiers(monde.chantiers_du_jour, attendu)
+        if precedent:
+            with pytest.raises(AssertionError): _verifier_chantiers(precedent, attendu)
+            faux = copy.deepcopy(attendu); faux[(1, 0)]['bras'] = monde.plans[1].rues[0].travail_fourni
+            with pytest.raises(AssertionError): _verifier_chantiers(faux, attendu)
+        precedent = monde.chantiers_du_jour
+    assert precedent[(1, 0)]['bras'] == 1 and precedent[(1, 0)]['grain_paye_kg'] == 4
+    assert avancer_chantiers(monde) == {} and monde.chantiers_du_jour == {}
+    assert lire_habitants_par_metier(monde.cells[1]) == {'paysans': 30}
+    monde = _epreuve_salaire(2 * k.TAILLE_FOYER * 4)
+    monde.plans[1] = Plan(rues=[Rue(0, [(0, 0), (1, 0)], 1, True, 1, requis)])
+    for _ in range(3):
+        avant = monde.to_dict(); envois = avancer_chantiers(monde)
+        motifs = {cle: 'sans_grain' for cle, bras in envois.items() if not bras}
+        _verifier_chantiers(monde.chantiers_du_jour, _attendu_chantiers(avant, monde, envois, 4, motifs))
+    assert monde.chantiers_du_jour[(1, 0)] == dict(bras=0, grain_paye_kg=0, motif_arret='sans_grain')
+
+
+def test_releve_chantiers_purete():
+    mondes = [World.charger(0) for _ in range(2)]; aleas = [random.Random(0) for _ in mondes]
+    cid = next(c for c, cell in sorted(mondes[0].cells.items()) if any(l.rang == 0 and l.maitre for l in cell.lieux))
+    for monde in mondes:
+        monde.plans[cid] = _epreuve_salaire().plans[1]
+        for grenier in monde.greniers.values(): grenier['nourriture'] = 1000
+    def etat(monde, alea): return monde.to_dict(), monde.stocks_mer, alea.getstate()
+    for faux in ({}, {(cid, 0): dict(bras=999, grain_paye_kg=-1, motif_arret='faux')}, {}):
+        mondes[1].chantiers_du_jour = faux
+        assert engine.tick(mondes[0], aleas[0]) == engine.tick(mondes[1], aleas[1])
+        assert etat(mondes[0], aleas[0]) == etat(mondes[1], aleas[1])
+        assert mondes[0].chantiers_du_jour == mondes[1].chantiers_du_jour
+    copie = copy.deepcopy(mondes[0]); rue = copie.plans[cid].rues[0]
+    copie.plans[cid].rues[0] = replace(rue, travail_requis=rue.travail_requis + 1, travail_fourni=rue.travail_fourni + 1)
+    with pytest.raises(AssertionError): assert etat(copie, aleas[0]) == etat(mondes[0], aleas[0])
