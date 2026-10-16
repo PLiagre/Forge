@@ -1,4 +1,4 @@
-# Lots d’interface — UI-01 livré, UI-02 en cours
+# Lots d’interface — premier écran connecté en cours
 
 Validation de DA.md requise avant UI-01. Chaque ligne = une branche `direct/interface-<sujet>` depuis `origin/master`, une PR de moins de 300 lignes ajoutées + supprimées, tests, métadonnées et suivi inclus. Les tailles sont des budgets prévisionnels ; découper davantage avant de dépasser, jamais comprimer le code pour tenir. Les dépendances Jn désignent les contrats effectivement livrés de CAP.md, pas seulement leur numéro de jalon.
 Zone : `3d/unity/Assets/Interface/` et `docs/interface/`. Réutiliser `ForgeLocal3D/Pont` par adaptation ; tout raccord indispensable hors zone doit être précisément justifié dans sa PR. Aucun changement de `jeu/sim/`. UI-01 reste une galerie isolée ; aucun remplacement silencieux des scènes existantes.
@@ -6,10 +6,10 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 
 | Lot | Titre et gain joueur | Dépend de | Capture + test pouvant échouer | Budget | État |
 |---|---|---|---|---|---|
-| UI-05a | Préparer l’écran demandé : lire la maison et déposer un choix confirmé par le monde | 02 | Quatre rouges puis vingt-deux verts ; double dépôt, coupure et confirmation ; [preuve](PARTIE.md) | 230 | en cours |
-| UI-06a | Écran intégré : parcourir la carte, choisir sa maison, régler le temps, garder un territoire ouvert | 05a, pont existant | Capture du vrai service et parcours complet ; clic sur dossier ne déplace pas la carte | 290 | en cours |
+| UI-05a | Préparer l’écran demandé : lire la maison et déposer un choix confirmé par le monde | 02 | Quatre rouges puis vingt-deux verts ; [preuve](PARTIE.md), PR #633 fusionnée | 170 | livré |
+| UI-06a | Écran intégré : parcourir la carte, choisir sa maison, régler le temps, garder un territoire ouvert | 05a, pont existant | 26 tests verts ; capture et parcours réel du service, gestes de souris et panneaux ; [preuve](PARTIE.md), PR #666 ; matériau compilé #667 | 290 | en cours |
 | UI-01 | Socle : préparer une lecture cohérente ; thème, texte, bouton, panneaux simultanés et galerie minimale | DA validée | Six tests verts et capture Play regardée ; [preuve](UI01.md), PR #630 fusionnée | 299 | livré |
-| UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Douze tests rouges puis verts, six régressions vertes ; `null` reste absent, zéro reste mesuré ; [capture et preuve](UI02.md), PR #631 | 242 | en cours |
+| UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Douze tests rouges puis verts, six régressions vertes ; `null` reste absent, zéro reste mesuré ; [capture et preuve](UI02.md), PR #631 fusionnée | 242 | livré |
 | UI-03 | Horloge : suspendre et reprendre le monde | 02 | Pause/vitesse reçues ; réponse retardée ne doit pas inverser l’état | 240 | à faire |
 | UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | Navigation clavier et retour ; double ouverture échoue | 210 | à faire |
 | UI-05 | Départ : lire une terre et confirmer sa maison | 02, 04 | Fiche servie puis attente/application ; double dépôt échoue | 270 | à faire |
