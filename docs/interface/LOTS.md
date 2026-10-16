@@ -6,6 +6,7 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 
 | Lot | Titre et gain joueur | Dépend de | Capture + test pouvant échouer | Budget | État |
 |---|---|---|---|---|---|
+| UI-10a | Préparer prélèvement et secours : confirmer une seule fois, lire le reçu sans effet optimiste | 08a | Quatre rouges puis 37 verts ; double clic, refus, panne, saisie française ; [preuve](ORDRES.md) | 170 | en cours |
 | UI-08a | Préparer les dossiers économiques : conserver le bon territoire et le tick de sa réponse | 06a | Quatre rouges puis trente verts ; ancienne réponse et absence refusées ; [preuve](LECTURE-DOSSIERS.md) | 220 | en cours |
 | UI-05a | Préparer l’écran demandé : lire la maison et déposer un choix confirmé par le monde | 02 | Quatre rouges puis vingt-deux verts ; [preuve](PARTIE.md), PR #633 fusionnée | 170 | livré |
 | UI-06a | Écran intégré : parcourir la carte, choisir sa maison, régler le temps, garder un territoire ouvert | 05a, pont existant | 26 tests verts ; capture et parcours réel du service, gestes de souris et panneaux ; [preuve](PARTIE.md), PR #666 ; matériau compilé #667 | 290 | en cours |
@@ -47,3 +48,4 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-36 | Parcours complet : garder une interface cohérente du départ au bilan | 01–35 | Captures du parcours réel ; fixture vide, service absent ou reçu ignoré échoue | 280 | à faire |
 
 Avant chaque PR : consulter les PR `head:lot/` et leurs fichiers ; prévenir seulement d’un chevauchement ; actualiser `origin/master`, rebaser avant poussée, puis `gh pr merge --auto --squash`. Contrôler les objets LFS sur le serveur après poussée. Mettre ETAT.md à jour ; ne pas confondre plan livré et capacité jouable.
+
