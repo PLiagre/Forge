@@ -88,6 +88,8 @@ namespace Forge.Interface
             aide = SocleInterface.Texte(guide, "Glisser : déplacer · Molette : zoomer · Clic droit : conserver un territoire", 24, 88, 1190);
             gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, guide, carte.port);
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
+            gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
+                () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port);
             Afficher();
         }
 
