@@ -27,6 +27,7 @@ class MatiereMaisons:
     greniers: dict
     flux: dict
     personnes: dict
+    salaires: dict
 
 
 def matiere_des_maisons(monde, noms, places) -> MatiereMaisons:
@@ -44,7 +45,10 @@ def matiere_des_maisons(monde, noms, places) -> MatiereMaisons:
     noms_routes = getattr(routes, 'noms', ())
     sommes = [[0] * len(noms_routes) for _ in _CHAMPS_FLUX]
     personnes = {m.id: [0, 0] for m in registre}
+    salaires = {}
     for jour in _jours_de_fenetre(monde):
+        for identifiant, kilos in jour.salaires.items():
+            salaires[identifiant] = salaires.get(identifiant, 0) + kilos
         for total, champ in zip(sommes, _VECTEURS_FLUX):
             for indice, kilos in enumerate(getattr(jour, champ)):
                 total[indice] += kilos
@@ -62,6 +66,7 @@ def matiere_des_maisons(monde, noms, places) -> MatiereMaisons:
         parts=dict(monde.parts),
         greniers={identifiant: dict(panier) for identifiant, panier in monde.greniers.items()},
         flux=flux, personnes={identifiant: tuple(nombres) for identifiant, nombres in personnes.items()},
+        salaires=salaires,
     )
 
 
@@ -100,7 +105,7 @@ def document_de_maison(matiere, identifiant) -> dict:
         'part': matiere.parts.get(identifiant), 'grenier': None if grenier is None else dict(grenier),
         'flux_30j': dict(zip(_CHAMPS_FLUX, matiere.flux[identifiant])) | {
             'partis_personnes': partis, 'arrives_personnes': arrives,
-        },
+        } | ({'salaires_payes_kg': matiere.salaires[identifiant]} if identifiant in matiere.salaires else {}),
         'absents': absents, 'tick': matiere.tick, 'date': dict(matiere.date),
     }
 

@@ -23,6 +23,10 @@ Un arrêt garde deux zéros et sa cause ; un achèvement garde son paiement ce j
 `GET /maisons` liste toutes les maisons ; `GET /maison?id=X` sert leur siège,
 leurs lieux, leur part, leur grenier et leurs flux sur trente jours (kilos et
 personnes). Un identifiant inconnu reçoit 404 ; les absences sont déclarées.
+`flux_30j.salaires_payes_kg` apparaît seulement si la maison a payé des salaires
+de chantier dans la fenêtre : kilos réellement débités, sans arrondi. Son absence
+signifie aucun paiement enregistré dans cette fenêtre depuis l'ouverture, sans
+mesure des jours antérieurs au démarrage ; le champ disparaît à expiration.
 
 `python3 -m sim.service --ia` fait jouer les maisons avant chaque tick, sous le
 même verrou que le joueur. `GET /ia` rend le tick, la date, le relevé des dépôts

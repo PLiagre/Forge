@@ -19,6 +19,7 @@ class JourDeFlux:
     recoltes: dict | None = None
     partis: dict = field(default_factory=dict)
     arrives: dict = field(default_factory=dict)
+    salaires: dict = field(default_factory=dict)
 
 
 @dataclass
