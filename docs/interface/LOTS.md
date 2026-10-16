@@ -19,8 +19,8 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-07 | Calques : distinguer relief, maîtres et habitants | 06a | Puissances/habitants : deux rouges puis 46 verts, 596 cellules réelles ; relief absent déclaré ; [preuve](CALQUES.md) | 190 | en cours |
 | UI-08 | Lieu : reconnaître habitants, stocks et maître | 08a, 06a | Trois rouges puis 33 verts ; vrai service, lieux au même tick et défilement sans zoom de carte ; [preuve](TERRITOIRES.md) | 190 | en cours |
 | UI-09 | Maison : situer siège, terres et suzerain | 08 | Maison sur/hors carte ; siège inventé ou absence masquée échoue | 240 | à faire |
-| UI-10 | Prélèvement : régler la part avec un reçu | 09 | Saisie puis reçu puis état ; effet optimiste avant tick échoue | 240 | à faire |
-| UI-11 | Secours : ouvrir son grenier en connaissance du stock | 09 | Quantité, refus et attente ; deux clics ne doublent pas l’ordre | 240 | à faire |
+| UI-10 | Prélèvement : régler la part avec un reçu | 10a | 39 tests verts et service réel : 3 % pendant la pause, 20 % après tick ; [preuve](COMMANDES.md) | 240 | en cours |
+| UI-11 | Secours : ouvrir son grenier en connaissance du stock | 10a | Refus du service et cause visible, confirmation unique ; [preuve](COMMANDES.md) | 240 | en cours |
 | UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours et manque explicite ; unité/personnes confondue échoue | 230 | à faire |
 | UI-13 | Trajets : relier une charge à sa destination | 07, 12, contrat routes | Trajet fourni et absence ; trajet inventé ou quantité locale échoue | 260 | à faire |
 | UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Trois rouges puis 49 verts ; sept ordres réels, refus et raisons reçues ; [preuve](VOISINS.md) | 240 | en cours |
