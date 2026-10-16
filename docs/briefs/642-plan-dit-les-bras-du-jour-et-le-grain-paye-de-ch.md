@@ -1,0 +1,47 @@
+# Lot #642 — /plan dit les bras du jour et le grain payé de chaque chantier
+Jalon : J4 · Machine : vps · Taille prévue : 280 lignes
+
+## But
+Le service donne pour chaque chantier du dernier jour joué ses bras réellement employés, le grain effectivement payé et, sans travail, la cause de son arrêt.
+
+## Le joueur
+Il voit ce que chaque chantier lui coûte, et pourquoi il s'arrête. Il peut comparer les bras et les kilos consacrés à sa route, sa parcelle ou son bâtiment avant de poursuivre ses constructions. Ce relevé prépare le panneau #419 et l'arbitrage de J4 entre champs et chantiers, chaque journée étant payée au grenier ; le panneau en 3D reste un autre lot.
+
+Dépend de : #641, livré sur la base `dcc425a`. Le paiement, les métiers, les lieux, leurs maîtres et les greniers existent déjà ; aucune livraison encore attendue de J3 n'est nécessaire. Ce lot provient de la découpe de #413.
+
+## Règle du monde
+Sans objet pour les règles : c'est un relevé d'observation de la règle de niveau 2 déjà décrite dans `jeu/sim/MODELE.md`, « Le chantier et ses bras ». Il suit le précédent de « Les flux sur trente jours » : le moteur produit les observations, aucune règle ne les lit. Documenter aussi le contrat dans « Le plan du bourg ».
+
+- Initialiser `World.chantiers_du_jour` à un dictionnaire vide, hors de `to_dict`, des sauvegardes et de toute décision. À chaque appel d'`avancer_chantiers`, remplacer entièrement ce relevé, sans accumulation ni état de module. Conserver le retour `envois` et ses clés exactes. Le moteur fournit déjà cet appel au service comme au rejeu ; aucune nouvelle étape ni lecture du plan dans `engine.py`.
+- Pour chaque élément en chantier au début de l'étape, garder une observation, même à zéro, indexée par les mêmes clés que les envois. Compter `bras` au moment de l'affectation et `grain_paye_kg` avec le salaire effectivement utilisé pour le débit de #641. Aucun calcul à partir des ouvriers survivants en fin de tick, de la baisse journalière du grenier ou du tarif relu lors d'un GET : consommation, pertes et prélèvement interviennent ailleurs.
+- Ajouter `motif_arret`, nul si des bras ont travaillé. À zéro bras, relever les conditions existantes au passage du chantier, dans cet ordre : `parcelle_en_chantier` si le bâtiment attend ; `metiers_non_calcules` ; `sans_bras` si aucun paysan ne reste ; `payeur_absent` si le bourg, son maître ou son grenier manque ; sinon `sans_grain` si aucune journée n'est payable dans la réserve courante. Cette priorité décrit un arrêt, elle ne change ni les gardes ni l'ordre des affectations. Un stock alimentaire absent d'un grenier présent vaut zéro, comme dans #641. Une absence de métiers n'est pas présentée comme zéro paysan mesuré.
+- Dans `/plan?cell=X`, ajouter à la racine `chantiers_du_jour`, uniquement si cette cellule a des observations. C'est une liste triée par nature dans l'ordre rue/parcelle/bâtiment, puis par identifiant. Chaque entrée porte exactement `nature` (`rue`, `parcelle`, `batiment`), `identifiant`, `bras`, `grain_paye_kg`, `motif_arret`. `cell_id` reste fourni par l'enveloppe ; les identifiants locaux des trois natures peuvent coïncider. Les kilos ne sont pas arrondis.
+- Le `tick` et la `date` de l'enveloppe désignent l'état après le dernier jour joué. À l'ouverture, aucun jour n'a été mesuré ; sans entrée, aucune observation pour cette cellule, jamais un salaire nul inventé. Un chantier achevé ce jour garde son dernier paiement ; dès l'étape suivante, il disparaît du relevé. Un chantier arrêté reste présent avec deux zéros et sa cause. Après plusieurs ticks demandés d'un coup, seul le dernier jour est publié.
+- Sérialiser ce relevé dans `_construire_etat`, avec les autres octets figés de `EtatPublie`. Les lectures restent pures et accessibles pendant le calcul du tick ; un ancien état publié conserve ses octets. Ne modifier ni `Plan.to_dict`, ni les objets de `rues`, `parcelles`, `batiments`, ni `base`, ni `/monde`. Documenter l'absence du champ et les unités dans le README.
+
+## Périmètre
+jeu/sim/world.py
+jeu/sim/chantiers.py
+jeu/sim/service.py
+jeu/sim/MODELE.md
+jeu/sim/README.md
+jeu/sim/tests/test_chantiers.py
+jeu/sim/tests/test_monde.py
+
+## Conditions de succès
+Commandes depuis la racine. Ajouter les cas aux fichiers qui portent déjà les invariants, sans modifier leurs assertions existantes. Faire rougir les nouveaux cas sur la base avant de coder. Budget total, brief compris : environ 280 lignes, strictement moins de 300 ; réutiliser les aides d'épreuve, sans reformatage général.
+
+SC1 — **Comptes par chantier.** `python3 -m pytest jeu/sim/tests/test_chantiers.py -q -k releve_chantiers_comptes`. Partir de l'épreuve de salaire existante : rue, parcelle et bâtiment prêt portent le même identifiant local et reçoivent chacun des bras strictement positifs. Dériver les références de leurs différences de travail avant/après, les recouper avec les envois et le relevé ; sur des stocks entiers, la somme des kilos publiés égale exactement le débit du grenier et le versement au bourg. Vérifier chaque nature, pas seulement la somme. Contre-épreuves : permuter deux affectations différentes en conservant leur total, puis fausser un paiement ; le même vérificateur doit rejeter chaque relevé. Un échantillon vide échoue.
+
+SC2 — **Arrêts observés au bon moment.** `python3 -m pytest jeu/sim/tests/test_chantiers.py -q -k releve_chantiers_arrets`. Ajouter des cas pour chaque motif, dont une parcelle qui s'achève ce jour mais retient encore son bâtiment, un grenier partagé épuisé par le chantier ou la cellule précédente, des métiers inconnus et l'absence déclarée du payeur. Chaque chantier actif possède son entrée, y compris à zéro ; les causes se fondent sur l'état lors de son passage. Contre-épreuve : avec les mêmes bras et le même chantier, fournir exactement un salaire fait travailler une journée et supprime `sans_grain` ; supprimer illicitement l'entrée à zéro ou remplacer une cause par une autre fait échouer le contrôle.
+
+SC3 — **Le jour, sans cumul.** `python3 -m pytest jeu/sim/tests/test_chantiers.py -q -k releve_chantiers_jour`. Suivre une route jusqu'à son dernier jour incomplet, puis un jour sans chantier ; vérifier ses bras et son paiement du dernier jour, puis le relevé vide et le retour aux champs. Vérifier aussi deux jours de travail puis un arrêt : aucun paiement précédent ne subsiste. Modifier le salaire entre deux appels change seulement le nouveau relevé, selon le tarif de chacun. Contre-épreuves : réinjecter l'ancien relevé ou substituer le travail cumulé aux bras du jour ; le même contrôle échoue.
+
+SC4 — **Contrat HTTP et publication figée.** `python3 -m pytest jeu/sim/tests/test_monde.py -q -k plan_chantiers_du_jour`. Par le vrai service HTTP, publier une épreuve financée avec plusieurs natures et identifiants locaux identiques ; comparer les observations aux différences de travail de la journée et au débit mesuré pendant Chantiers, avant les autres étapes. Exiger les champs exacts, l'ordre, les unités, tick et date ; couvrir une lecture initiale, une cellule sans chantier, l'arrêt, l'achèvement et un POST de plusieurs ticks. Deux parties identiques donnent les mêmes octets. Après publication, changer la constante de salaire ne change aucun octet du relevé déjà mesuré, même lors d'une nouvelle construction d'état sans tick. Lire sous `verrou_tick` reste possible ; un ancien `EtatPublie` conserve ses observations après le tick suivant. Contre-épreuves : fournir au vérificateur un relevé d'une autre cellule ou du jour précédent doit échouer ; une réponse bâtie depuis le monde mutable au GET est détectée par l'immuabilité de la publication.
+
+SC5 — **Observation sans effet sur la simulation.** `python3 -m pytest jeu/sim/tests/test_chantiers.py -q -k releve_chantiers_purete`. Jouer deux mondes financés identiques avec les mêmes générateurs ; avant chaque tick, effacer ou falsifier le relevé de l'un. Les retours du tick, `to_dict`, stocks maritimes et états d'aléa restent exactement égaux, et le relevé du nouveau jour est identique. Sa publication ne modifie ni le monde ni l'aléa. Contre-épreuve : ajouter une journée de travail dans une copie du monde fait échouer cette égalité ; la comparaison ne doit donc pas ignorer le travail réel.
+
+SC6 — **Invariants conservés.** `python3 -m pytest jeu -q`. Garder notamment les égalités exactes de `test_plan_service_vide_date_tick_et_octets_deterministes`, des listes de `test_service_route_recu_refus_et_rejeu` et `test_service_parcelle_plan_et_journees`, ainsi que `test_plan_service_publie_le_monde_et_ne_bloque_pas_la_lecture`. Le champ conditionnel à la racine permet de toutes les conserver. Les comptes de salaire #641, les empreintes du monde et le rejeu J4 restent valides. Contre-épreuve : les mutations existantes de travail, de salaire, de cellule étrangère et de rejeu continuent d'être rejetées ; aucune exclusion de champ, neutralisation du paiement ou mise à jour de référence pour faire passer le lot.
+
+## Hors périmètre
+Le panneau #419, Unity, Blender et les captures PC ; les cumuls et flux de salaire sur trente jours ; `/lieu`, `/maison` et les autres vues ; tout nouveau salaire, financement initial, matériau, transport ou règle de moisson ; les priorités choisies par le joueur. Aucun changement des intentions, des droits, des greniers, du rythme des chantiers ni de l'ordre du tick. Tout chemin absent du périmètre est interdit, notamment `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`, `CLAUDE.md` et `CAP.md`.
