@@ -1,8 +1,8 @@
-# État de l’interface — 15 octobre 2026
+# État de l’interface — 16 octobre 2026
 
 ## Livré et en cours
 
-- UI-01 livré sur master ; UI-02 réalisé et vérifié sur `direct/interface-etats`, [PR #631](https://github.com/PLiagre/Forge/pull/631) en fusion automatique sous réserve de CI verte.
+- UI-01 et UI-02 livrés sur master (#630, #631). Premier écran connecté réalisé sur `direct/interface-ecran` ; raccordement dans [#633](https://github.com/PLiagre/Forge/pull/633), écran en cours de publication.
 - Les 108 images du dossier confirmé par le propriétaire ont été regardées, en douze planches de neuf, avec une note par image dans DA.md ; réductions conservées dans `references/`.
 - [Cadrage #628](https://github.com/PLiagre/Forge/pull/628) et [socle #630](https://github.com/PLiagre/Forge/pull/630) fusionnés. La relance unique des tests chronométrés de #630 est verte, sans modification de seuil ; [preuve du socle](UI01.md).
 - UI-02 : douze nouveaux tests rouges puis verts, six tests du socle toujours verts ; capture Play regardée à 1920 × 1080, objet LFS distant retéléchargé et empreinte vérifiée. Quatre états avec cause explicite ; une donnée absente ne devient pas zéro. [Preuves et limites](UI02.md).
@@ -18,5 +18,6 @@
 - UI-01 : branche `direct/interface-socle` depuis `origin/master`, worktree frère `.atelier/direct/interface-socle` ; thème, composants et deux dossiers simultanés dans une galerie isolée.
 - UI-02 : worktree `.atelier/direct/interface-etats`, branche partie de `origin/master`, rebasée sur le socle fusionné `116975a`. Aucun fichier commun avec les lots #627 et #511 ; aucune modification de la simulation.
 - UI-02 fusionné (#631). Le propriétaire demande maintenant l’écran de partie concret : carte, maison, temps et dossiers, sans nouvelle galerie. [Découpage et contrat](PARTIE.md).
-- En cours : `direct/interface-partie` dans `.atelier/direct/interface-partie`, raccordement de maison éprouvé (quatre rouges, vingt-deux verts). Prochaine action : écran intégré sur la carte existante, puis capture et parcours avec le vrai service local.
+- Écran : worktree `.atelier/direct/interface-ecran`, depuis master avec le raccordement #633 ; 26 tests verts et parcours du vrai service (choix, reprise/pause, zoom, glissé, clic droit, panneaux). [Lancement et captures](PARTIE.md). Ancien choix direct arrêté au profit de la confirmation du cabinet.
+- Prochaine action : laisser les contrôles autoriser les fusions, marquer UI-05a/UI-06a livrés, puis poursuivre depuis master avec les dossiers de lieu. Les commandes de temps existantes sont intégrées ; le lot UI-03 conserve ses preuves complémentaires de réponses retardées.
 - Aucune question artistique ouverte ; fontes candidates à vérifier avant intégration, police Unity de secours explicitement provisoire pour la première galerie.
