@@ -147,5 +147,166 @@ namespace Forge.Pont.Tests
                 foreach (string id in new string[] { null, "", " ", "\t" }) Assert.AreEqual(typeof(ArgumentException), Assert.Throws<ArgumentException>(() => c.Lire(id)).GetType());
             Assert.AreEqual(0, Recues().Length);
         }
+        const string Complet = "{\"id\":\"seigneurie-temoin\",\"nom\":\"Maison d'Épreuve\",\"siege\":{\"cell_id\":9922,\"rang\":1,\"nom\":\"Le Siège\",\"point\":{\"x_m\":4276473.25,\"y_m\":1135517.5}},\"lieux\":[{\"cell_id\":9922,\"rang\":1},{\"cell_id\":10417,\"rang\":0}],\"absents\":{},\"suzerain\":\"grande-temoin\",\"part\":0.25,\"grenier\":{\"nourriture\":1234.5,\"bois\":0},\"flux_30j\":{\"preleve_kg\":812.25,\"recu_kg\":790.5,\"du_envoye_kg\":81.0,\"mange_en_route_kg\":21.75,\"rendu_kg\":19.25,\"partis_personnes\":7,\"arrives_personnes\":2,\"salaires_payes_kg\":40.5}}";
+        static string MuterComplet(string ancien, string nouveau)
+        {
+            int i = Complet.IndexOf(ancien, StringComparison.Ordinal);
+            Assert.IsTrue(i >= 0 && Complet.LastIndexOf(ancien, StringComparison.Ordinal) == i, ancien);
+            string mute = Complet.Substring(0, i) + nouveau + Complet.Substring(i + ancien.Length);
+            Assert.AreNotEqual(Sig(LecteurJson.LireObjet(Complet)), Sig(LecteurJson.LireObjet(mute)), ancien);
+            return mute;
+        }
+        static void AbsenteComptes(Lecture<ComptesDeMaison> l, params string[] attendus)
+        { Assert.IsTrue(!l.Presente && l.Donnees == null && !string.IsNullOrEmpty(l.Absence)); StringAssert.StartsWith("maison : ", l.Absence); foreach (string a in attendus) StringAssert.Contains(a, l.Absence); }
+        static void FluxEgal(FluxDeMaison f, double preleve, double recu, double du, double mange, double rendu, long partis, long arrives, double? salaires)
+        { Assert.IsTrue(f.PreleveKg == preleve && f.RecuKg == recu && f.DuEnvoyeKg == du && f.MangeEnRouteKg == mange && f.RenduKg == rendu && f.PartisPersonnes == partis && f.ArrivesPersonnes == arrives && f.SalairesPayesKg == salaires, preleve.ToString(CultureInfo.InvariantCulture)); }
+        static void Meme(MaisonLue a, MaisonLue b)
+        {
+            Assert.IsTrue(a.Id == b.Id && a.Nom == b.Nom && a.Siege.CellId == b.Siege.CellId && a.Siege.Rang == b.Siege.Rang && a.Siege.Nom == b.Siege.Nom && a.Siege.Position.Value.X == b.Siege.Position.Value.X && a.Siege.Position.Value.Y == b.Siege.Position.Value.Y && a.Lieux.Count == b.Lieux.Count && a.Absents.Count == b.Absents.Count, a.Nom);
+            for (int i = 0; i < a.Lieux.Count; i++) Assert.IsTrue(a.Lieux[i].CellId == b.Lieux[i].CellId && a.Lieux[i].Rang == b.Lieux[i].Rang, "lieu " + i);
+            foreach (var e in a.Absents) Assert.AreEqual(e.Value, b.Absents[e.Key]);
+        }
+        [Test] public void LesComptesCompletsSontRelusPuisRemplaces()
+        {
+            string autre = Complet.Replace("\"suzerain\":\"grande-temoin\"", "\"suzerain\":\"petite-temoin\"").Replace("\"part\":0.25", "\"part\":1").Replace("\"nourriture\":1234.5", "\"nourriture\":9.5").Replace("\"bois\":0", "\"bois\":4").Replace("\"preleve_kg\":812.25", "\"preleve_kg\":1").Replace("\"recu_kg\":790.5", "\"recu_kg\":2").Replace("\"du_envoye_kg\":81.0", "\"du_envoye_kg\":3").Replace("\"mange_en_route_kg\":21.75", "\"mange_en_route_kg\":4").Replace("\"rendu_kg\":19.25", "\"rendu_kg\":5").Replace("\"partis_personnes\":7", "\"partis_personnes\":11").Replace("\"arrives_personnes\":2", "\"arrives_personnes\":13").Replace("\"salaires_payes_kg\":40.5", "\"salaires_payes_kg\":0.5");
+            Servir((200, Complet), (200, Complet), (200, autre));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+            {
+                var fiche = c.Lire(Id); var a = c.LireComptes(Id); var b = c.LireComptes(Id);
+                Assert.IsTrue(fiche.Presente && a.Presente && a.Absence == null && b.Presente && b.Absence == null, a.Absence ?? b.Absence);
+                Meme(fiche.Donnees, a.Donnees.Maison);
+                Assert.IsTrue(a.Donnees.Suzerain == "grande-temoin" && a.Donnees.Part == 0.25 && a.Donnees.Grenier.Count == 2 && a.Donnees.Grenier["nourriture"] == 1234.5 && a.Donnees.Grenier["bois"] == 0, a.Donnees.Suzerain);
+                FluxEgal(a.Donnees.Flux, 812.25, 790.5, 81, 21.75, 19.25, 7, 2, 40.5);
+                Assert.IsTrue(b.Donnees.Suzerain == "petite-temoin" && b.Donnees.Part == 1 && b.Donnees.Grenier["nourriture"] == 9.5 && b.Donnees.Grenier["bois"] == 4 && b.Donnees.Part != a.Donnees.Part, b.Absence);
+                FluxEgal(b.Donnees.Flux, 1, 2, 3, 4, 5, 11, 13, 0.5);
+                Assert.Throws<NotSupportedException>(() => ((IDictionary<string, double>)a.Donnees.Grenier).Add("sel", 1));
+            }
+            CollectionAssert.AreEqual(new[] { "GET /maison?id=seigneurie-temoin", "GET /maison?id=seigneurie-temoin", "GET /maison?id=seigneurie-temoin" }, Recues());
+        }
+        [Test] public void UnSuzerainNulEstUneRacineSansRaison()
+        {
+            Servir((200, Complet.Replace("\"suzerain\":\"grande-temoin\"", "\"suzerain\":null")));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) { var l = c.LireComptes(Id); Assert.IsTrue(l.Presente && l.Donnees.Suzerain == null && l.Donnees.Maison.Absents.Count == 0 && l.Donnees.Part == 0.25, l.Absence); }
+        }
+        [Test] public void UnePartNulleGardeSaRaison()
+        {
+            const string raison = "  part absente  ";
+            Servir((200, Complet.Replace("\"part\":0.25", "\"part\":null").Replace("\"absents\":{}", "\"absents\":{\"part\":\"" + raison + "\"}")));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) { var l = c.LireComptes(Id); Assert.IsTrue(l.Presente && l.Donnees.Part == null && l.Donnees.Maison.Absents["part"] == raison, l.Absence); }
+        }
+        [Test] public void UnGrenierNulGardeSaRaison()
+        {
+            const string raison = "  grenier absent  ";
+            Servir((200, Complet.Replace("\"grenier\":{\"nourriture\":1234.5,\"bois\":0}", "\"grenier\":null").Replace("\"absents\":{}", "\"absents\":{\"grenier\":\"" + raison + "\"}")));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) { var l = c.LireComptes(Id); Assert.IsTrue(l.Presente && l.Donnees.Grenier == null && l.Donnees.Maison.Absents["grenier"] == raison, l.Absence); }
+        }
+        [Test] public void UnGrenierVideEstUneMesure()
+        {
+            Servir((200, Complet.Replace("\"grenier\":{\"nourriture\":1234.5,\"bois\":0}", "\"grenier\":{}")));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) { var l = c.LireComptes(Id); Assert.IsTrue(l.Presente && l.Donnees.Grenier != null && l.Donnees.Grenier.Count == 0 && !l.Donnees.Maison.Absents.ContainsKey("grenier"), l.Absence); }
+        }
+        [Test] public void UnePartEtDesFluxAZeroRestentDesMesures()
+        {
+            string corps = Complet.Replace("\"part\":0.25", "\"part\":0").Replace("\"preleve_kg\":812.25", "\"preleve_kg\":0").Replace("\"recu_kg\":790.5", "\"recu_kg\":0").Replace("\"du_envoye_kg\":81.0", "\"du_envoye_kg\":0").Replace("\"mange_en_route_kg\":21.75", "\"mange_en_route_kg\":0").Replace("\"rendu_kg\":19.25", "\"rendu_kg\":0").Replace("\"partis_personnes\":7", "\"partis_personnes\":0").Replace("\"arrives_personnes\":2", "\"arrives_personnes\":0");
+            Servir((200, corps));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) { var l = c.LireComptes(Id); Assert.IsTrue(l.Presente && l.Donnees.Part == 0 && l.Donnees.Maison.Absents.Count == 0, l.Absence); FluxEgal(l.Donnees.Flux, 0, 0, 0, 0, 0, 0, 0, 40.5); }
+        }
+        [Test] public void UnSalaireAbsentNEstPasUnSalaireNul()
+        {
+            Servir((200, Complet.Replace(",\"salaires_payes_kg\":40.5", "")), (200, Complet.Replace("\"salaires_payes_kg\":40.5", "\"salaires_payes_kg\":0")));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+            { var a = c.LireComptes(Id); var z = c.LireComptes(Id); Assert.IsTrue(a.Presente && a.Donnees.Flux.SalairesPayesKg == null && a.Donnees.Flux.PreleveKg == 812.25, a.Absence); Assert.IsTrue(z.Presente && z.Donnees.Flux.SalairesPayesKg == 0, z.Absence); }
+        }
+        [TestCase("\"part\":0.25", "\"part\":null", "clé absents.part")] [TestCase("\"grenier\":{\"nourriture\":1234.5,\"bois\":0}", "\"grenier\":null", "clé absents.grenier")]
+        [TestCase("\"absents\":{},\"suzerain\":\"grande-temoin\",\"part\":0.25", "\"absents\":{\"part\":\" \"},\"suzerain\":\"grande-temoin\",\"part\":null", "clé absents.part")] [TestCase("\"absents\":{}", "\"absents\":{\"part\":\"en trop\"}", "clé absents.part")]
+        [TestCase("\"absents\":{}", "\"absents\":{\"grenier\":\"en trop\"}", "clé absents.grenier")]
+        [TestCase(",\"suzerain\":\"grande-temoin\"", "", "clé absente : suzerain")] [TestCase(",\"part\":0.25", "", "clé absente : part")]
+        [TestCase(",\"grenier\":{\"nourriture\":1234.5,\"bois\":0}", "", "clé absente : grenier")]
+        [TestCase(",\"flux_30j\":{\"preleve_kg\":812.25,\"recu_kg\":790.5,\"du_envoye_kg\":81.0,\"mange_en_route_kg\":21.75,\"rendu_kg\":19.25,\"partis_personnes\":7,\"arrives_personnes\":2,\"salaires_payes_kg\":40.5}", "", "clé absente : flux_30j")]
+        [TestCase("\"preleve_kg\":812.25,", "", "clé absente : flux_30j.preleve_kg")] [TestCase(",\"recu_kg\":790.5", "", "clé absente : flux_30j.recu_kg")]
+        [TestCase(",\"du_envoye_kg\":81.0", "", "clé absente : flux_30j.du_envoye_kg")] [TestCase(",\"mange_en_route_kg\":21.75", "", "clé absente : flux_30j.mange_en_route_kg")]
+        [TestCase(",\"rendu_kg\":19.25", "", "clé absente : flux_30j.rendu_kg")] [TestCase(",\"partis_personnes\":7", "", "clé absente : flux_30j.partis_personnes")]
+        [TestCase(",\"arrives_personnes\":2", "", "clé absente : flux_30j.arrives_personnes")]
+        [TestCase("\"suzerain\":\"grande-temoin\"", "\"suzerain\":\" \"", "clé suzerain")] [TestCase("\"suzerain\":\"grande-temoin\"", "\"suzerain\":7", "clé suzerain")]
+        [TestCase("\"part\":0.25", "\"part\":-0.1", "clé part")] [TestCase("\"part\":0.25", "\"part\":1.1", "clé part")]
+        [TestCase("\"part\":0.25", "\"part\":\"quart\"", "clé part")] [TestCase("\"part\":0.25", "\"part\":true", "clé part")]
+        [TestCase("\"grenier\":{\"nourriture\":1234.5,\"bois\":0}", "\"grenier\":[]", "clé grenier")] [TestCase("\"nourriture\":1234.5", "\" \":1234.5", "clé grenier")]
+        [TestCase("\"nourriture\":1234.5", "\"nourriture\":-1", "grenier.nourriture")] [TestCase("\"nourriture\":1234.5", "\"nourriture\":\"sac\"", "grenier.nourriture")]
+        [TestCase("\"flux_30j\":{\"preleve_kg\":812.25,\"recu_kg\":790.5,\"du_envoye_kg\":81.0,\"mange_en_route_kg\":21.75,\"rendu_kg\":19.25,\"partis_personnes\":7,\"arrives_personnes\":2,\"salaires_payes_kg\":40.5}", "\"flux_30j\":[]", "clé flux_30j")]
+        [TestCase("\"flux_30j\":{\"preleve_kg\":812.25,\"recu_kg\":790.5,\"du_envoye_kg\":81.0,\"mange_en_route_kg\":21.75,\"rendu_kg\":19.25,\"partis_personnes\":7,\"arrives_personnes\":2,\"salaires_payes_kg\":40.5}", "\"flux_30j\":null", "clé flux_30j")]
+        [TestCase("\"preleve_kg\":812.25", "\"preleve_kg\":-1", "flux_30j.preleve_kg")] [TestCase("\"preleve_kg\":812.25", "\"preleve_kg\":null", "flux_30j.preleve_kg")]
+        [TestCase("\"recu_kg\":790.5", "\"recu_kg\":-1", "flux_30j.recu_kg")] [TestCase("\"recu_kg\":790.5", "\"recu_kg\":null", "flux_30j.recu_kg")]
+        [TestCase("\"du_envoye_kg\":81.0", "\"du_envoye_kg\":-1", "flux_30j.du_envoye_kg")] [TestCase("\"du_envoye_kg\":81.0", "\"du_envoye_kg\":null", "flux_30j.du_envoye_kg")]
+        [TestCase("\"mange_en_route_kg\":21.75", "\"mange_en_route_kg\":-1", "flux_30j.mange_en_route_kg")] [TestCase("\"mange_en_route_kg\":21.75", "\"mange_en_route_kg\":null", "flux_30j.mange_en_route_kg")]
+        [TestCase("\"rendu_kg\":19.25", "\"rendu_kg\":-1", "flux_30j.rendu_kg")] [TestCase("\"rendu_kg\":19.25", "\"rendu_kg\":null", "flux_30j.rendu_kg")]
+        [TestCase("\"partis_personnes\":7", "\"partis_personnes\":-1", "flux_30j.partis_personnes")] [TestCase("\"partis_personnes\":7", "\"partis_personnes\":1.5", "flux_30j.partis_personnes")]
+        [TestCase("\"partis_personnes\":7", "\"partis_personnes\":9007199254740992", "flux_30j.partis_personnes")]
+        [TestCase("\"arrives_personnes\":2", "\"arrives_personnes\":-1", "flux_30j.arrives_personnes")] [TestCase("\"arrives_personnes\":2", "\"arrives_personnes\":1.5", "flux_30j.arrives_personnes")]
+        [TestCase("\"arrives_personnes\":2", "\"arrives_personnes\":9007199254740992", "flux_30j.arrives_personnes")]
+        [TestCase("\"salaires_payes_kg\":40.5", "\"salaires_payes_kg\":-1", "flux_30j.salaires_payes_kg")] [TestCase("\"salaires_payes_kg\":40.5", "\"salaires_payes_kg\":null", "flux_30j.salaires_payes_kg")]
+        public void UneFauteDeComptesEstNommeeASonChemin(string ancien, string nouveau, string chemin)
+        { Servir((200, MuterComplet(ancien, nouveau))); using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) AbsenteComptes(c.LireComptes(Id), chemin); }
+        [Test] public void UnCompteNonRepresentableEstInvalide()
+        {
+            int i = Complet.IndexOf("812.25", StringComparison.Ordinal);
+            string infini = Complet.Substring(0, i) + "1e309" + Complet.Substring(i + "812.25".Length);
+            Assert.AreNotEqual(Complet, infini); Assert.Throws<ErreurJson>(() => LecteurJson.LireObjet(infini));
+            Servir((200, infini));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) AbsenteComptes(c.LireComptes(Id), "JSON invalide");
+        }
+        [Test] public void UneFauteDeComptesLaisseLireEtLesClesInconnuesPassent()
+        {
+            string faute = MuterComplet("\"part\":0.25", "\"part\":2");
+            string inconnu = Complet.Replace("\"salaires_payes_kg\":40.5}", "\"salaires_payes_kg\":40.5,\"note\":1}");
+            inconnu = inconnu.Insert(inconnu.Length - 1, ",\"sorte\":\"seigneurie\",\"tick\":5,\"date\":{\"annee\":1400}");
+            LecteurJson.LireObjet(inconnu);
+            Servir((200, faute), (200, faute), (200, inconnu));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+            {
+                var l = c.Lire(Id); Assert.IsTrue(l.Presente && l.Donnees.Id == Id && l.Donnees.Nom == "Maison d'Épreuve" && l.Donnees.Lieux.Count == 2, l.Absence);
+                AbsenteComptes(c.LireComptes(Id), "clé part");
+                var a = c.LireComptes(Id); Assert.IsTrue(a.Presente && a.Donnees.Part == 0.25 && a.Donnees.Flux.SalairesPayesKg == 40.5 && a.Donnees.Suzerain == "grande-temoin", a.Absence);
+            }
+        }
+        [Test] public void UnePanneDeComptesNeRendPasLAncienneFiche()
+        {
+            const string e404 = "{\"erreur\":\"maison inconnue\"}", e500 = "{\"erreur\":\"casse\"}", e302 = "{\"vers\":\"ailleurs\"}";
+            Servir((200, Complet), (404, e404), (500, e500), (302, e302));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+            { Assert.IsTrue(c.LireComptes(Id).Presente); AbsenteComptes(c.LireComptes(Id), "404", e404); AbsenteComptes(c.LireComptes(Id), "500", e500); AbsenteComptes(c.LireComptes(Id), "302", e302); }
+            Assert.AreEqual(4, Recues().Length); foreach (string r in Recues()) StringAssert.DoesNotContain("ailleurs", r);
+        }
+        [Test] public void UnServiceAbsentOuMuetNeRendPasLesComptes()
+        {
+            Servir((200, Complet));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5))) { Assert.IsTrue(c.LireComptes(Id).Presente); Fermer(); AbsenteComptes(c.LireComptes(Id), "service absent", "127.0.0.1:" + port); }
+            Servir((Muet, Complet)); var chrono = Stopwatch.StartNew();
+            using (var c = new ClientMaison(port, TimeSpan.FromMilliseconds(300))) AbsenteComptes(c.LireComptes(Id), "délai dépassé", "300");
+            Assert.GreaterOrEqual(chrono.ElapsedMilliseconds, 250);
+        }
+        [Test] public void LeTemoinSansComptesResteLisibleParLire()
+        {
+            Servir((200, Temoin), (200, Temoin));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+            { AbsenteComptes(c.LireComptes(Id), "clé absente : suzerain"); var l = c.Lire(Id); Assert.IsTrue(l.Presente && l.Donnees.Nom == "Maison d'Épreuve" && l.Donnees.Lieux.Count == 2, l.Absence); }
+        }
+        [Test] public void UnIdentifiantVideNeDemandePasLesComptes()
+        {
+            Servir((200, Complet));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+                foreach (string id in new string[] { null, "", " ", "\t" }) Assert.AreEqual(typeof(ArgumentException), Assert.Throws<ArgumentException>(() => c.LireComptes(id)).GetType());
+            Assert.AreEqual(0, Recues().Length);
+        }
+        [Test] public void UnIdentifiantReserveArriveEncodePourLesComptes()
+        {
+            const string bizarre = "é /?&=+#";
+            Servir((200, Complet.Replace(Id, bizarre)));
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+            { var l = c.LireComptes(bizarre); Assert.IsTrue(l.Presente && l.Donnees.Maison.Id == bizarre && l.Donnees.Suzerain == "grande-temoin" && l.Donnees.Part == 0.25, l.Absence); }
+            Assert.AreEqual(1, Recues().Length); StringAssert.StartsWith("GET /maison?id=", Recues()[0]);
+            string valeur = Recues()[0].Substring("GET /maison?id=".Length);
+            Assert.AreEqual(bizarre, Uri.UnescapeDataString(valeur), valeur);
+            Assert.IsTrue(valeur.IndexOfAny(new[] { ' ', '/', '?', '&', '=', '+', '#', 'é' }) < 0, valeur);
+        }
     }
 }
