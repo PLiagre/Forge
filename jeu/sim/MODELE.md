@@ -1927,6 +1927,11 @@ grenier : elle perd la consommation des charretiers et les arrivées, reçoit
 les récoltes et le dû réexpédié. Le dû reçu par le suzerain est une arrivée
 ordinaire, soumise à son propre dû s'il en a un.
 
+`JourDeFlux.salaires` cumule par identifiant de maison le même montant qu'au débit
+effectif de Chantiers, une seule fois, pour le maître actuel du bourg, même sans
+registre des maisons ni route. Un changement de maître ne réattribue pas le passé ;
+le tarif n'est jamais relu pour publier. Cette observation partage la même fenêtre.
+
 Le jour garde les références des parts et récoltes lues par le prélèvement,
 fraîches à chaque tick. Le prélevé d'un lieu se relit avec le même produit
 part × récolte ; on n'alloue aucun tableau supplémentaire par lieu. Les
@@ -2267,6 +2272,10 @@ dans le même ordre que `flux_de_maison`, sans arrondi. Sans route, les cinq
 zéros sont une mesure. Les départs et arrivées somment les mouvements des
 lieux actuellement tenus : `partis_personnes` et `arrives_personnes` comptent
 des personnes, jamais des foyers. Aucun tick ne lit cette vue.
+La même passe copie les salaires dans `MatiereMaisons.salaires` : la fiche ajoute
+`flux_30j.salaires_payes_kg`, sans arrondi, seulement pour un payeur dans la fenêtre.
+L'absence signifie aucun salaire enregistré depuis l'ouverture dans cette fenêtre,
+sans prétendre mesurer avant le démarrage ; après expiration, le champ disparaît.
 
 Les octets des fiches et de la liste sont produits à leur première lecture,
 puis conservés dans `EtatPublie.octets_maisons`, initialement vide. Le verrou

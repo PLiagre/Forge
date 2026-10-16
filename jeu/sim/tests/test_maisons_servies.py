@@ -517,3 +517,63 @@ def test_mesure_matiere_et_publication(capsys):
         with capsys.disabled():
             print(f'Médianes au tick 35 (ms) : {mesures}')
         assert not serveur.etat_publie.octets_maisons
+
+
+def test_maison_salaires(monkeypatch):
+    from sim import chantiers, constants as c, snapshot_export
+    from sim.tests.test_flux import _payer_et_mesurer, _epreuve_salaire, _verifier_salaires
+
+    with _service_local() as (serveur, port):
+        _preparer(serveur, port, jours=1)
+        monde = serveur.world; joueur = monde.maison_du_joueur
+        suzerain = next(m.suzerain for m in monde.maisons if m.id == joueur)
+        assert 'salaires_payes_kg' not in _lire(port, _route(joueur))[0]['flux_30j']
+        for maison in (joueur, suzerain):
+            cid = next(cid for cid, cell in monde.cells.items() if any(l.rang == 0 and l.maitre == maison for l in cell.lieux))
+            plan = _epreuve_salaire().plans[1]
+            monde.plans[cid] = plan if maison == joueur else replace(plan, parcelles=[], batiments=[])
+            monde.greniers[maison]['nourriture'] = 1000
+        releves = {}
+        def mesurer(m):
+            releves[m.ticks_ecoules] = _payer_et_mesurer(m)
+        monkeypatch.setattr(chantiers, 'avancer_chantiers', mesurer)
+        monkeypatch.setattr(c, 'SALAIRE_JOURNEE_KG', 3.123456789)
+        def verifier(fiche, maison, tick, date):
+            attendu = sum(v.get(maison, 0) for t, v in releves.items() if t >= tick - c.FENETRE_FLUX_TICKS)
+            assert fiche['id'] == maison and fiche['tick'] == tick and fiche['date'] == date
+            _verifier_salaires({maison: fiche['flux_30j'].get('salaires_payes_kg')}, {maison: attendu})
+        _lire(port, '/tick?n=1', 'POST')
+        etat = serveur.etat_publie; tick, date = monde.ticks_ecoules, monde.date_simulation
+        anciens_flux = copy.deepcopy(monde.flux)
+        assert etat.octets_maisons == {}
+        attendus = {m: document_de_maison(etat.maisons, m) for m in (joueur, suzerain)}
+        assert snapshot_export._maisons_du_joueur(monde, serveur._noms, serveur._places_des_lieux()) == {
+            'maison': attendus[joueur], 'suzerain': attendus[suzerain]}
+        for jour in monde.flux.jours.values(): jour.salaires[joueur] = 9999
+        monkeypatch.setattr(c, 'SALAIRE_JOURNEE_KG', 7)
+        with ThreadPoolExecutor(max_workers=1) as lecteur:
+            with serveur.verrou_tick:
+                fiche = lecteur.submit(_lire, port, _route(joueur)).result(timeout=5)[0]
+        verifier(fiche, joueur, tick, date)
+        assert fiche == attendus[joueur]
+        for maison in (joueur, suzerain):
+            verifier(_lire(port, _route(maison))[0], maison, tick, date)
+            assert {k: attendus[maison]['flux_30j'][k] for k in CHAMPS_KG} == flux_de_maison(monde, maison)
+        faux_mutable = document_de_maison(matiere_des_maisons(monde, serveur._noms, serveur._places_des_lieux()), joueur)
+        for salaire in (None, fiche['flux_30j']['salaires_payes_kg'] + 1,
+                        attendus[suzerain]['flux_30j']['salaires_payes_kg']):
+            faux = copy.deepcopy(fiche)
+            if salaire is None: faux['flux_30j'].pop('salaires_payes_kg')
+            else: faux['flux_30j']['salaires_payes_kg'] = salaire
+            with pytest.raises(AssertionError): verifier(faux, joueur, tick, date)
+        with pytest.raises(AssertionError): verifier(faux_mutable, joueur, tick, date)
+        monde.flux = anciens_flux; monde.greniers[joueur]['nourriture'] = 0
+        _lire(port, '/tick?n=1', 'POST')
+        assert releves[monde.ticks_ecoules - 1] == {}
+        verifier(_lire(port, _route(joueur))[0], joueur, monde.ticks_ecoules, monde.date_simulation)
+        monde.greniers[joueur]['nourriture'] = 1000
+        _lire(port, '/tick?n=2', 'POST')
+        verifier(_lire(port, _route(joueur))[0], joueur, monde.ticks_ecoules, monde.date_simulation)
+        assert document_de_maison(etat.maisons, joueur) == fiche
+        _lire(port, '/tick?n=30', 'POST')
+        assert 'salaires_payes_kg' not in _lire(port, _route(joueur))[0]['flux_30j']

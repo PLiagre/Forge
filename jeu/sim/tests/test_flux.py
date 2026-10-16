@@ -15,6 +15,9 @@ from sim.convois import TableRoutes
 from sim.intentions import recevoir_intention, IntentionRefusee
 from sim.tests.test_commerce import _cellule_bourg
 from sim.world import World
+from sim.chantiers import avancer_chantiers
+from sim.maisons_servies import matiere_des_maisons
+from sim.tests.test_chantiers import _epreuve_salaire
 
 
 @pytest.fixture(scope='module')
@@ -377,3 +380,121 @@ def test_flux_des_lieux_documentation():
     texte = (Path(__file__).parents[1] / 'MODELE.md').read_text()
     section = texte.split('## Les flux sur trente jours')[1].split('\n## ')[0]
     assert 'flux_des_lieux' in section
+
+
+def _payer_et_mesurer(monde):
+    """Isole le débit de Chantiers et le recoupe avec travail et versement."""
+    avant = copy.deepcopy(monde.to_dict())
+    envois = avancer_chantiers(monde)
+    apres = monde.to_dict()
+    sommes = {}
+    for cid, cell in sorted(monde.cells.items()):
+        jours = sum(n for cle, n in envois.items() if cle[0] == cid)
+        travaux = lambda p: sum(e['travail_fourni'] for nom in ('rues', 'parcelles', 'batiments') for e in p[nom])
+        assert jours == travaux(apres['plans'][str(cid)]) - travaux(avant['plans'][str(cid)])
+        if not jours:
+            continue
+        bourg = next(l for l in cell.lieux if l.rang == 0)
+        montant = jours * c.SALAIRE_JOURNEE_KG
+        stock = next(l['stocks']['nourriture'] for l in avant['cells'][str(cid)]['lieux'] if l['rang'] == 0)
+        assert bourg.stocks['nourriture'] - stock == pytest.approx(montant)
+        sommes[bourg.maitre] = sommes.get(bourg.maitre, 0) + montant
+    for payeur, montant in sommes.items():
+        assert avant['greniers'][payeur]['nourriture'] - monde.greniers[payeur]['nourriture'] == pytest.approx(montant)
+    return sommes
+
+
+def _salaires(monde):
+    return matiere_des_maisons(monde, {}, {}).salaires
+
+
+def _verifier_salaires(observe, attendu):
+    assert any(kg > 0 for kg in attendu.values())
+    assert observe == attendu
+
+
+def test_salaires_comptes(monkeypatch):
+    monkeypatch.setattr(c, 'SALAIRE_JOURNEE_KG', 3.123456789)
+    monde = _epreuve_salaire(1000)
+    monde.cells[3] = copy.deepcopy(monde.cells[2]); monde.cells[3].cell_id = 3
+    monde.cells[3].lieux[1].maitre = 'autre'
+    for cid in (2, 3): monde.plans[cid] = copy.deepcopy(monde.plans[1])
+    assert not monde.maisons and not monde.routes_des_lieux
+    premier = _payer_et_mesurer(monde)
+    _verifier_salaires(_salaires(monde), premier)
+    monde.ticks_ecoules = 1
+    monde.cells[1].lieux[1].maitre = 'autre'
+    second = _payer_et_mesurer(monde)
+    assert all(0 < second[m] < premier[m] for m in premier)
+    attendu = {m: premier[m] + second[m] for m in premier}
+    _verifier_salaires(_salaires(monde), attendu)
+    for faux in ({'autre': sum(attendu.values())}, {m: 2 * n for m, n in attendu.items()},
+                 {m: n / c.SALAIRE_JOURNEE_KG for m, n in attendu.items()}, {}):
+        with pytest.raises(AssertionError): _verifier_salaires(faux, attendu)
+    with pytest.raises(AssertionError): _verifier_salaires({}, {})
+    sans = _epreuve_salaire(); sans.flux = None
+    reference = _epreuve_salaire()
+    assert avancer_chantiers(sans) == avancer_chantiers(reference)
+    assert sans.to_dict() == reference.to_dict()
+
+
+def test_salaires_fenetre(monkeypatch):
+    monde = _epreuve_salaire(1000)
+    premier = _payer_et_mesurer(monde)
+    monde.ticks_ecoules = 1; monde.greniers['payeur']['nourriture'] = 0
+    assert _payer_et_mesurer(monde) == {}
+    monkeypatch.setattr(c, 'SALAIRE_JOURNEE_KG', 3.123456789)
+    monde.ticks_ecoules = 2; monde.greniers['payeur']['nourriture'] = 1000
+    second = _payer_et_mesurer(monde)
+    total = {'payeur': premier['payeur'] + second['payeur']}
+    monkeypatch.setattr(c, 'SALAIRE_JOURNEE_KG', 7)
+    monde.ticks_ecoules = 3
+    assert _payer_et_mesurer(monde) == {}  # Le dernier jour incomplet a achevé le bâtiment.
+    monde.ticks_ecoules = 30
+    _verifier_salaires(_salaires(monde), total)
+    with pytest.raises(AssertionError): _verifier_salaires(second, total)
+    travail = sum(e.travail_fourni for p in monde.plans.values() for nom in ('rues', 'parcelles', 'batiments') for e in getattr(p, nom))
+    with pytest.raises(AssertionError): _verifier_salaires({'payeur': travail * c.SALAIRE_JOURNEE_KG}, total)
+    monde.ticks_ecoules = 31
+    _verifier_salaires(_salaires(monde), second)
+    with pytest.raises(AssertionError): _verifier_salaires(total, second)
+    with monkeypatch.context() as patch:
+        patch.setattr(c, 'FENETRE_FLUX_TICKS', 31)
+        _verifier_salaires(_salaires(monde), total)
+    monde.ticks_ecoules = 32
+    _verifier_salaires(_salaires(monde), second)
+    monde.ticks_ecoules = 33
+    assert _salaires(monde) == {}
+
+
+def _comparer_mondes_salaires(a, b, ra, rb):
+    assert a.to_dict() == b.to_dict()
+    assert a.stocks_mer == b.stocks_mer
+    assert ra.getstate() == rb.getstate()
+
+
+def test_salaires_neutralite():
+    a = _epreuve_salaire(1000); a.stocks_mer = {'fer': 7}
+    for cell in a.cells.values():
+        cell.lieux = [next(l for l in cell.lieux if l.rang == 0)]
+        cell.lieux[0].population = cell.population; cell.lieux[0].stocks = dict(cell.stocks)
+    b = copy.deepcopy(a); ra, rb = random.Random(0), random.Random(0)
+    for numero in range(5):
+        assert engine.tick(a, ra) == engine.tick(b, rb)
+        _comparer_mondes_salaires(a, b, ra, rb)
+        assert _salaires(a)['payeur'] > 0
+        avant, alea, memoire = copy.deepcopy(a.to_dict()), ra.getstate(), copy.deepcopy(a.flux)
+        matiere_des_maisons(a, {}, {})
+        assert (a.to_dict(), ra.getstate(), a.flux) == (avant, alea, memoire)
+        assert 'salaires' not in json.dumps(a.to_dict()) and 'flux' not in a.to_dict()
+        for jour in b.flux.jours.values(): jour.salaires.clear()
+        if numero % 2: jour_courant(b).salaires['payeur'] = 1e9
+    from dataclasses import replace
+    for alteration in ('grain', 'travail', 'mer'):
+        faux = copy.deepcopy(b)
+        if alteration == 'grain': faux.greniers['payeur']['nourriture'] += 1
+        if alteration == 'mer': faux.stocks_mer['fer'] += 1
+        if alteration == 'travail':
+            plan = faux.plans[1]; rue = plan.rues[0]
+            faux.plans[1] = replace(plan, rues=[replace(rue, travail_fourni=rue.travail_fourni - 1, en_chantier=True)])
+        with pytest.raises(AssertionError): _comparer_mondes_salaires(a, faux, ra, rb)
