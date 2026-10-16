@@ -6,7 +6,7 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 
 | Lot | Titre et gain joueur | Dépend de | Capture + test pouvant échouer | Budget | État |
 |---|---|---|---|---|---|
-| UI-05a | Préparer l’écran demandé : lire la maison et déposer un choix confirmé par le monde | 02 | Quatre rouges puis vingt-deux verts ; [preuve](PARTIE.md), PR #633 | 170 | en cours |
+| UI-05a | Préparer l’écran demandé : lire la maison et déposer un choix confirmé par le monde | 02 | Quatre rouges puis vingt-deux verts ; [preuve](PARTIE.md), PR #633 fusionnée | 170 | livré |
 | UI-06a | Écran intégré : parcourir la carte, choisir sa maison, régler le temps, garder un territoire ouvert | 05a, pont existant | 26 tests verts ; capture et parcours réel du service, gestes de souris et panneaux ; [preuve](PARTIE.md) | 295 | en cours |
 | UI-01 | Socle : préparer une lecture cohérente ; thème, texte, bouton, panneaux simultanés et galerie minimale | DA validée | Six tests verts et capture Play regardée ; [preuve](UI01.md), PR #630 fusionnée | 299 | livré |
 | UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Douze tests rouges puis verts, six régressions vertes ; `null` reste absent, zéro reste mesuré ; [capture et preuve](UI02.md), PR #631 fusionnée | 242 | livré |
