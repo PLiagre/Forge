@@ -1215,3 +1215,10 @@ def test_autoconstruction_documentation():
     def verifier(texte): assert 'autoconstruction' in texte and 'sans salaire' in texte
     verifier(texte)
     with pytest.raises(AssertionError): verifier(texte.replace('sans salaire', ''))
+
+
+def test_autoconstruction_sans_terrain_sans_calcul_logement(monkeypatch):
+    from sim import chantiers
+    monde = _atelier(personnes={'artisans': k.TAILLE_FOYER}); plan = monde.plans[0]
+    monkeypatch.setattr(chantiers, 'ranger_en_foyers', lambda *a: pytest.fail('calcul du logement sans parcelle libre'))
+    assert chantiers.avancer_chantiers(monde) == {} and monde.plans[0] is plan

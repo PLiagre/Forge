@@ -29,20 +29,21 @@ def travail_requis_de_batiment(emprise):
 
 def _ouvrir_maisons(plan, metiers, bourg):
     """Réserve les places avant l'affectation, parcelles prêtes seulement."""
-    if metiers is None or bourg is None or bourg.maitre is None:
+    if metiers is None or bourg is None or bourg.maitre is None or not metiers.get(_constantes.METIER_ARTISANS, 0):
+        return plan
+    occupees = {b.parcelle for b in plan.batiments}
+    libres = [p for p in plan.parcelles if not p.en_chantier and p.identifiant not in occupees]
+    if not libres or _constantes.MAISONS_OUVERTES_PAR_JOUR <= 0:
         return plan
     besoin = ranger_en_foyers(metiers.get(_constantes.METIER_ARTISANS, 0)).nombre - sum(
         max(1, int(aire_du_contour(b.emprise) // _constantes.SURFACE_M2_PAR_FOYER_LOGE))
         for b in plan.batiments if b.nature == "maison")
-    occupees = {b.parcelle for b in plan.batiments}
     maisons = list(plan.batiments)
     identifiant = max((b.identifiant for b in maisons), default=-1) + 1
     restantes = _constantes.MAISONS_OUVERTES_PAR_JOUR
-    for parcelle in sorted(plan.parcelles, key=lambda p: p.identifiant):
+    for parcelle in sorted(libres, key=lambda p: p.identifiant):
         if besoin <= 0 or restantes <= 0:
             break
-        if parcelle.en_chantier or parcelle.identifiant in occupees:
-            continue
         maisons.append(Batiment(identifiant, parcelle.identifiant, "maison", parcelle.contour,
                                 True, 1, travail_requis_de_batiment(parcelle.contour), autoconstruction=True))
         besoin -= max(1, int(aire_du_contour(parcelle.contour) // _constantes.SURFACE_M2_PAR_FOYER_LOGE))
@@ -86,6 +87,11 @@ def avancer_chantiers(world):
             metiers[artisans] = metiers.get(artisans, 0) + metiers.pop(familiaux)
         bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None)
         plan = _ouvrir_maisons(plan, metiers, bourg)
+        # Les bras reviennent même si le dernier chantier est achevé.
+        if not any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom)):
+            if metiers is not None and metiers != avant:
+                ecrire_habitants_par_metier(cell, metiers)
+            continue
         grenier = world.greniers.get(bourg.maitre) if bourg is not None and bourg.maitre is not None else None
         nourriture, salaire = _constantes.MARCHANDISE_NOURRITURE, _constantes.SALAIRE_JOURNEE_KG
         payables = math.floor(grenier.get(nourriture, 0) / salaire) if grenier is not None else 0
