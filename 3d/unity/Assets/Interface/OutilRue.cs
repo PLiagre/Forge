@@ -81,7 +81,7 @@ namespace Forge.Interface
             try
             {
                 Ordre.Preparer(OrdreRue.Creer(maisonCible, cible, points.ToArray(), largeur.text, foyers.text),
-                    "Territoire " + cible + " · " + points.Count + " points · largeur " + largeur.text + " m · Foyers mobilisés : " + foyers.text + ". Coût calculé par le monde.");
+                    "Pointillés : tracé préparé · Territoire " + cible + " · " + points.Count + " points · largeur " + largeur.text + " m · Foyers : " + foyers.text + ". Coût calculé par le monde.");
                 erreur = null;
             }
             catch (Exception e) { erreur = e.Message; }
@@ -104,7 +104,7 @@ namespace Forge.Interface
             message.text = recu != null ? !recu.Presente ? "Reçu inconnu : " + recu.Absence + ". Vérifiez le plan avant toute nouvelle demande."
                 : recu.Acceptee ? "Rue reçue pour le territoire " + cible + ", application annoncée au tick " + recu.AppliqueeAuTick + ". Relisez le plan ; ce reçu ne signifie pas chantier terminé."
                 : "Rue refusée : " + recu.Erreur
-                : Ordre.EnCours ? "Envoi du tracé en cours…" : erreur ?? Ordre.Resume ?? "Cliquez sur le plan pour placer les points : " + points.Count + ". Le trait rouge est un brouillon. Relisez avant de confirmer.";
+                : Ordre.EnCours ? "Envoi du tracé en cours…" : erreur ?? Ordre.Resume ?? "Cliquez sur le plan pour placer les points : " + points.Count + ". Les pointillés sont votre brouillon. Relisez avant de confirmer.";
         }
         void OnDisable()
         {

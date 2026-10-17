@@ -28,10 +28,10 @@ namespace Forge.Interface
             if (plan == null) return;
             float echelle = PixelsParMetre;
             Vector2 centre = (plan.Minimum + plan.Maximum) / 2;
-            var esquisse = new PlanBourg.Trace { Points = brouillon, Nature = "chantier", Fermee = false, Largeur = 2 / echelle };
+            var esquisse = new PlanBourg.Trace { Points = brouillon, Nature = "brouillon", Fermee = false, Largeur = 2 / echelle };
             foreach (var trace in plan.Traces.Concat(new[] { esquisse }))
             {
-                string jeton = trace.Nature == "chantier" ? "alerte" : trace.Nature == "rue" ? "accent"
+                string jeton = trace.Nature == "chantier" || trace.Nature == "brouillon" ? "alerte" : trace.Nature == "rue" ? "accent"
                     : trace.Nature == "place" || trace.Nature == "parcelle" ? "or" : "encre";
                 Color teinte = SocleInterface.Couleur(jeton);
                 int segments = trace.Points.Length - (trace.Fermee ? 0 : 1);
@@ -43,11 +43,17 @@ namespace Forge.Interface
                     if (delta.sqrMagnitude == 0) continue;
                     float largeur = trace.Fermee ? 2 : Mathf.Max(1, trace.Largeur * echelle);
                     Vector2 normale = new Vector2(-delta.y, delta.x).normalized * largeur / 2;
-                    int debut = dessin.currentVertCount;
-                    foreach (var point in new[] { a - normale, a + normale, b + normale, b - normale })
-                        dessin.AddVert(point, teinte, Vector2.zero);
-                    dessin.AddTriangle(debut, debut + 1, debut + 2);
-                    dessin.AddTriangle(debut, debut + 2, debut + 3);
+                    int traits = trace.Nature == "brouillon" ? Mathf.CeilToInt(delta.magnitude / 12) : 1;
+                    for (int t = 0; t < traits; t++)
+                    {
+                        Vector2 gauche = Vector2.Lerp(a, b, (float)t / traits);
+                        Vector2 droite = Vector2.Lerp(a, b, (t + (trace.Nature == "brouillon" ? .6f : 1)) / traits);
+                        int debut = dessin.currentVertCount;
+                        foreach (var point in new[] { gauche - normale, gauche + normale, droite + normale, droite - normale })
+                            dessin.AddVert(point, teinte, Vector2.zero);
+                        dessin.AddTriangle(debut, debut + 1, debut + 2);
+                        dessin.AddTriangle(debut, debut + 2, debut + 3);
+                    }
                 }
             }
         }
