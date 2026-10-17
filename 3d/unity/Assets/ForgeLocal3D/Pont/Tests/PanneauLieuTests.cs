@@ -388,5 +388,160 @@ namespace Forge.Pont.Tests
             Assert.IsFalse(panneau.ObjetFoyers.activeSelf);
             StringAssert.StartsWith("lieu illisible : ", panneau.TexteAffiche);
         }
+
+        // Lot #686 — Ouvrir choisit la cellule lue : avant le démarrage, ou en cours de jeu
+        // sans jamais laisser un chiffre de l'ancienne.
+        private const long AUTRE = 42;
+        private const int LENTEUR_OUVERTURE_MS = 500;
+        private const int PAS_OUVERTURE_MS = 10;
+        private const string REFUS = "Cellule -3 invalide";
+
+        private static string DocumentAutre(Etat e)
+        {
+            string brut = Document(e);
+            string autre = brut.Replace("\"cell_id\":" + Entier(CELL) + ",", "\"cell_id\":" + Entier(AUTRE) + ",");
+            Assert.AreNotEqual(brut, autre, "le cell_id du document n'a pas été remplacé");
+            return autre;
+        }
+
+        // Comme Poser, mais Ouvrir passe avant Demarrer.
+        private void PoserOuvert(long cellule, params string[] arguments)
+        {
+            objet = new GameObject("Panneau du test");
+            var camera = new GameObject("Caméra du test").AddComponent<Camera>();
+            camera.transform.SetParent(objet.transform, false);
+            panneau = objet.AddComponent<PanneauLieu>();
+            panneau.port = port;
+            panneau.camera = camera;
+            panneau.Ouvrir(cellule);
+            panneau.Demarrer(SansArgument.Concat(arguments).ToArray());
+        }
+
+        private static double[] PremiereLigne(string texte) => Relire(texte.Split('\n')[0], "Cellule ", " · tick ", "");
+
+        private bool AttendreRequetes(int n)
+        {
+            var montre = Stopwatch.StartNew();
+            while (Volatile.Read(ref requetes) < n && montre.ElapsedMilliseconds < ATTENTE_LECTURE_MS) Thread.Sleep(10);
+            return Volatile.Read(ref requetes) >= n;
+        }
+
+        [TestCase("")]
+        [TestCase("-forgeCell 7")]
+        public void Avant_le_demarrage_Ouvrir_choisit_la_cellule_lue(string ligne)
+        {
+            Servir(0, Ok(DocumentAutre(Tick12)));
+            PoserOuvert(AUTRE, ligne.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+
+            string texte = Lire();
+
+            Assert.AreEqual("/lieu?cell=42", derniereRequete);
+            CollectionAssert.AreEqual(new double[] { AUTRE, Tick12.Tick }, PremiereLigne(texte));
+        }
+
+        [Test]
+        public void Apres_le_demarrage_Ouvrir_efface_l_ancien_affichage_et_lit_tout_de_suite()
+        {
+            Servir(0, Ok(AvecFoyers(Tick12, FoyersMesures)), Ok(DocumentAutre(Tick12)));
+            Poser();
+            string attente = panneau.TexteAffiche;
+            Verifier(Lire(), Tick12);
+            Assert.IsTrue(panneau.ObjetFoyers.activeSelf, "les foyers de 1175 devaient être visibles");
+            int reconstructions = panneau.Reconstructions;
+            int vues = Volatile.Read(ref requetes);
+
+            panneau.Ouvrir(AUTRE);
+
+            Assert.AreEqual(attente, panneau.TexteAffiche, "l'ancien affichage est resté");
+            Assert.AreEqual("", panneau.TexteFoyers);
+            Assert.IsFalse(panneau.ObjetFoyers.activeSelf);
+            Assert.IsTrue(AttendreRequetes(vues + 1), "Ouvrir n'a pas lancé la lecture sans attendre un pas");
+            Assert.AreEqual("/lieu?cell=42", derniereRequete);
+
+            string texte = Lire();
+
+            CollectionAssert.AreEqual(new double[] { AUTRE, Tick12.Tick }, PremiereLigne(texte));
+            Assert.AreEqual(reconstructions + 1, panneau.Reconstructions);
+        }
+
+        [Test]
+        public void Une_lecture_de_l_ancienne_cellule_ne_s_affiche_jamais()
+        {
+            Servir(LENTEUR_OUVERTURE_MS, Ok(Document(Tick12)), Ok(DocumentAutre(Tick13)));
+            Poser();
+            panneau.Pas(1);
+            Assert.IsTrue(panneau.LectureEnVol, "la lecture de 1175 devait être partie");
+
+            panneau.Ouvrir(AUTRE);
+
+            double maintenant = 1;
+            var montre = Stopwatch.StartNew();
+            while (!panneau.TexteAffiche.StartsWith("Cellule " + Entier(AUTRE), StringComparison.Ordinal) && montre.ElapsedMilliseconds < ATTENTE_LECTURE_MS)
+            {
+                Thread.Sleep(PAS_OUVERTURE_MS);
+                maintenant += PAS_OUVERTURE_MS / 1000.0;
+                panneau.Pas(maintenant);
+                StringAssert.DoesNotContain("Cellule " + Entier(CELL), panneau.TexteAffiche);
+            }
+            CollectionAssert.AreEqual(new double[] { AUTRE, Tick13.Tick }, PremiereLigne(panneau.TexteAffiche));
+        }
+
+        [Test]
+        public void Avant_le_demarrage_une_cellule_negative_est_refusee()
+        {
+            Servir(0, Ok(Document(Tick12)));
+            PoserOuvert(-3);
+
+            string texte = Lire();
+
+            StringAssert.StartsWith(REFUS, texte);
+            SansNombre(texte);
+            Assert.AreEqual(0, Volatile.Read(ref requetes), "le service a été interrogé malgré une cellule refusée");
+        }
+
+        [Test]
+        public void Apres_le_demarrage_une_cellule_negative_est_refusee_jusqu_au_prochain_Ouvrir()
+        {
+            Servir(0, Ok(AvecFoyers(Tick12, FoyersMesures)), Ok(DocumentAutre(Tick12)));
+            Poser();
+            Verifier(Lire(), Tick12);
+
+            panneau.Ouvrir(-3);
+
+            StringAssert.StartsWith(REFUS, panneau.TexteAffiche);
+            Assert.AreEqual("", panneau.TexteFoyers);
+            Assert.IsFalse(panneau.ObjetFoyers.activeSelf);
+            int vues = Volatile.Read(ref requetes);
+            double debut = horloge;
+            for (int k = 0; k < 20; k++)
+            {
+                horloge += 0.3;
+                panneau.Pas(horloge);
+                Thread.Sleep(PAS_OUVERTURE_MS);
+            }
+            Assert.Greater(horloge - debut, 5);
+            Assert.AreEqual(vues, Volatile.Read(ref requetes), "le service a été interrogé après le refus");
+            StringAssert.StartsWith(REFUS, panneau.TexteAffiche);
+
+            panneau.Ouvrir(AUTRE);
+
+            CollectionAssert.AreEqual(new double[] { AUTRE, Tick12.Tick }, PremiereLigne(Lire()));
+        }
+
+        [Test]
+        public void Un_forgeCell_refuse_se_rattrape_par_Ouvrir()
+        {
+            Servir(0, Ok(DocumentAutre(Tick12)));
+            Poser("-forgeCell", "abc");
+            StringAssert.StartsWith("-forgeCell", panneau.TexteAffiche);
+            StringAssert.Contains("abc", panneau.TexteAffiche);
+
+            panneau.Ouvrir(AUTRE);
+            string texte = Lire();
+
+            Assert.AreEqual(1, Volatile.Read(ref requetes));
+            Assert.AreEqual("/lieu?cell=42", derniereRequete);
+            CollectionAssert.AreEqual(new double[] { AUTRE, Tick12.Tick }, PremiereLigne(texte));
+        }
     }
 }
