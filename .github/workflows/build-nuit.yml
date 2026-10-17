@@ -22,6 +22,10 @@ permissions:
 
 jobs:
   build:
+    # Le PC en pause pour la chaîne (variable PC_ACTIF = non, voir
+    # docs/WORKFLOW.md) ne construit pas la nuit. Un lancement à la main
+    # part toujours : c'est un geste du propriétaire.
+    if: ${{ vars.PC_ACTIF != 'non' || github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Windows, unity]
     timeout-minutes: 120
     steps:

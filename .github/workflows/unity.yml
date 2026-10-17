@@ -35,6 +35,10 @@ concurrency:
 
 jobs:
   unity:
+    # Le PC en pause pour la chaîne (variable PC_ACTIF = non, voir
+    # docs/WORKFLOW.md) ne compile pas sur une poussée. Un lancement à la
+    # main part toujours : c'est un geste du propriétaire.
+    if: ${{ vars.PC_ACTIF != 'non' || github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Windows, unity]
     # Le premier import d'un espace de travail neuf est long ; les
     # suivants repartent du `Library/` conservé.

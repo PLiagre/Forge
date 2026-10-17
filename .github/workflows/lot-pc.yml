@@ -69,3 +69,33 @@ jobs:
           $env:PYTHONPATH = $atelier
           py -m atelier --projet $atelier pc --depot-local D:\Forge --issue $env:ISSUE --branche $env:BRANCHE `
             --pr $env:PR --essai $env:ESSAI --action $env:ACTION --vendor D:\Forge\3d\unity\Assets\Vendor
+
+  # Un passage qui tombe hors de Python (runner coupé, PC en veille, processus
+  # tué, PowerShell qui casse avant `atelier pc`) ne laisse aucune marque : le
+  # pilote attendait 24 h avant de renvoyer. Ce travail répond à sa place par
+  # une attente, renvoyée dans l'heure ; un envoi qui a déjà sa réponse la
+  # garde. Un travail à part, pas une étape de `lot` : le 16 octobre 2026
+  # (run 38864468926), le runner avait perdu GitHub, et une étape de `lot`
+  # n'aurait jamais tourné. Celui-ci attend en file le retour du runner.
+  # Pas de GITHUB_TOKEN (il ne lit que le code) : le `gh` de la session du
+  # propriétaire, comme `atelier pc`.
+  repondre:
+    needs: lot
+    if: ${{ always() && needs.lot.result != 'success' }}
+    runs-on: [self-hosted, Windows, unity]
+    timeout-minutes: 10
+    steps:
+      - name: L'attente, sur la PR du lot
+        shell: powershell
+        # La raison passe par l'environnement : PowerShell 5.1 peut lire le
+        # script en ANSI, et abîmer ses accents.
+        env:
+          PR: ${{ inputs.pr }}
+          RAISON: "le passage du PC est tombé sans répondre (travail `lot` : ${{ needs.lot.result }}, ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Le code de la chaîne tel que `lot` l'a laissé : pas de fetch, il a
+          # peut-être cassé là.
+          $atelier = 'D:\Forge\.atelier\pilote-pc'
+          $env:PYTHONPATH = $atelier
+          py -m atelier --projet $atelier marquer-attente --pr $env:PR --raison $env:RAISON

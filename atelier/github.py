@@ -23,6 +23,12 @@ CONTROLES_EXIGES = ("tests", "gitleaks")
 # l'a pas su.
 AGREGATS = {"tests": "tests"}
 
+# La variable d'Actions du dépôt qui met le PC en pause pour la chaîne : « non »
+# l'arrête, tout le reste (absente comprise) la laisse travailler. Le
+# propriétaire la bascule dans GitHub (Settings → Secrets and variables →
+# Actions → Variables) ou par la fenêtre `pc\Disponibilite.cmd`.
+VARIABLE_PC = "PC_ACTIF"
+
 Executeur = Callable[[list[str], str | None], tuple[int, str, str]]
 
 
@@ -170,6 +176,28 @@ class GitHub:
 
     def fermer_pr(self, numero: int, commentaire: str) -> None:
         self.gh("pr", "close", str(numero), "-R", self.depot, "--comment", commentaire)
+
+    # --------------------------------------------------------- variables
+    def variable(self, nom: str) -> str | None:
+        """La valeur d'une variable d'Actions du dépôt, `None` si elle n'existe pas."""
+        try:
+            lue = self.json("api", f"repos/{self.depot}/actions/variables/{nom}")
+        except GitHubErreur as e:
+            if "404" in str(e) or "Not Found" in str(e):
+                return None
+            raise
+        return lue.get("value") if isinstance(lue, dict) else None
+
+    def pc_actif(self) -> bool:
+        """Le PC travaille-t-il pour la chaîne ? Oui, sauf si `PC_ACTIF` vaut
+        « non ». Une variable illisible (jeton sans droit de lecture, GitHub
+        qui ne répond pas) ne met jamais le PC en pause : la pause se pose,
+        elle ne s'invente pas."""
+        try:
+            valeur = self.variable(VARIABLE_PC)
+        except GitHubErreur:
+            return True
+        return (valeur or "").strip().lower() != "non"
 
     # --------------------------------------------------------------- CI
     def dernier_run(self, workflow: str, branche: str) -> dict | None:
