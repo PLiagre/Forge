@@ -17,6 +17,8 @@ namespace Forge.Interface
         DocumentDuMonde affiche;
         long cellule = -1;
         double prochaine;
+        public long Cellule => cellule;
+        public DocumentDuMonde Document => affiche;
         public void Initialiser(Transform toile, Transform territoire, int port, Func<CelluleDeCarte> selection)
         {
             this.selection = selection; lecture = LectureDossier.Locale(port);
@@ -31,6 +33,7 @@ namespace Forge.Interface
             rect.anchoredPosition = new Vector2(24, -136); rect.sizeDelta = new Vector2(1190, 510);
             dessin = surface.GetComponent<DessinBourg>(); dessin.raycastTarget = false;
             legende = SocleInterface.Texte(cadre, "", 24, 660, 1190);
+            cadre.gameObject.AddComponent<OutilRue>().Initialiser(this, dessin, legende, port);
             cadre.gameObject.SetActive(false);
         }
         static Button Bouton(Transform parent, string nom, float x, float y, float largeur, Action action)
@@ -58,7 +61,7 @@ namespace Forge.Interface
                 dessin.Afficher(plan); affiche = lecture.Document;
                 etat.text = "Territoire " + cellule + " · tick " + plan.Tick + " · Nord en haut · Consultation du plan";
                 legende.text = "Bleu : rues · Encre : maisons · Or : place et parcelles · Rouge : chantiers\nLargeur du cadre : "
-                    + (1190 / dessin.PixelsParMetre).ToString("0.#", CultureInfo.GetCultureInfo("fr-FR")) + " m · Aucun outil de construction actif";
+                    + (1190 / dessin.PixelsParMetre).ToString("0.#", CultureInfo.GetCultureInfo("fr-FR")) + " m · Consultation ; tracé sur vos terres seulement";
             }
             catch (Exception e) { dessin.Afficher(null); affiche = null; legende.text = ""; etat.text = "Plan indisponible : " + e.Message; }
         }
