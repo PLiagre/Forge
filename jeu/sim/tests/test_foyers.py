@@ -602,6 +602,8 @@ def _km2_cultives_reference(cell, carte):
 def _recolter_reference(cell, carte, moyenne):
     rendement = random.Random(0).uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
     ecrire_stock_marchandise(cell, "nourriture", 0.0)
+    for lieu in cell.lieux:
+        ecrire_stock_marchandise(lieu, "nourriture", 0.0)
     if moyenne:
         pleine = engine._production_du_tick_kg_saison_moyenne(cell, rendement, carte)
         engine._apply_production_saison_moyenne(cell, random.Random(0), carte)
@@ -613,36 +615,64 @@ def _recolter_reference(cell, carte, moyenne):
 
 
 @pytest.mark.parametrize("moyenne", [False, True])
-def test_recolte_bras(monkeypatch, moyenne):
+@pytest.mark.parametrize("avec_releve", [False, True])
+def test_recolte_bras(monkeypatch, moyenne, avec_releve):
+    from sim.lieux import surfaces_des_lieux
     monde = World.charger(0)
     cell = max((c for c in monde.cells.values() if monde.carte[c.cell_id].get("gisements")),
                key=lambda c: _km2_cultives_reference(c, monde.carte))
-    requis = _km2_cultives_reference(cell, monde.carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
-    assert requis > 3
+    surfaces = surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    saison = _saison_reference(cell, monde.carte, None if moyenne else 0)
+    requis = []
+    for surface in surfaces:
+        copie = copy.copy(cell)
+        copie.area_km2 = surface
+        requis.append(_km2_cultives_reference(copie, monde.carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * saison)
+    assert min(requis) > 3
 
     def recolte(paysans, mineurs=0):
         ecrire_habitants_par_metier(cell, {m: n for m, n in
-                                         (("paysans", paysans), ("mineurs", mineurs)) if n})
-        return _recolter_reference(cell, monde.carte, moyenne)
+            (("paysans", sum(paysans)), ("mineurs", mineurs)) if n})
+        for lieu, n in zip(cell.lieux, paysans):
+            lieu.population = n + (mineurs if lieu.rang == 0 else 0)
+            ecrire_stock_marchandise(lieu, 'nourriture', 0.)
+        releve = {} if avec_releve else None
+        rendement = random.Random(0).uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+        ecrire_stock_marchandise(cell, 'nourriture', 0.)
+        if moyenne:
+            pleine = engine._production_du_tick_kg_saison_moyenne(cell, rendement, monde.carte)
+            engine._apply_production_saison_moyenne(cell, random.Random(0), monde.carte, releve)
+        else:
+            pleine = engine.production_du_tick_kg(cell, rendement, monde.carte, 0)
+            engine._apply_production(cell, random.Random(0), monde.carte, 0, releve)
+        attendu = [pleine * s / cell.area_km2 * min(1, n / r)
+                   for s, n, r in zip(surfaces, paysans, requis)]
+        if avec_releve:
+            assert releve[cell.cell_id] == pytest.approx(attendu, rel=1e-12)
+        assert [lire_stock_marchandise(l, 'nourriture') for l in cell.lieux] == pytest.approx(attendu, rel=1e-12)
+        return pleine, cell.food_stock_kg, [lire_stock_marchandise(l, 'nourriture') for l in cell.lieux]
 
-    for paysans in (math.ceil(requis), math.ceil(10 * requis)):
-        pleine, produite = recolte(paysans)
+    for multiplicateur in (1, 10):
+        pleine, produite, _ = recolte([math.ceil(multiplicateur * r) for r in requis])
         assert produite == pleine > 0
 
     def controler_manque():
         productions = []
         for k in (1, 2):
-            paysans = math.floor(requis) - k
-            pleine, produite = recolte(paysans)
-            assert math.isclose(produite, pleine * paysans / requis, rel_tol=1e-12)
+            paysans = [math.floor(r) - k for r in requis]
+            pleine, produite, _ = recolte(paysans)
+            attendu = sum(pleine * s / cell.area_km2 * n / r
+                          for s, n, r in zip(surfaces, paysans, requis))
+            assert math.isclose(produite, attendu, rel_tol=1e-12)
             productions.append(produite)
-        assert math.isclose(productions[0] - productions[1], pleine / requis, rel_tol=1e-12)
-        assert recolte(math.floor(requis) - 2, 1)[1] < productions[0]
+        perte = sum(pleine * s / cell.area_km2 / r for s, r in zip(surfaces, requis))
+        assert math.isclose(productions[0] - productions[1], perte, rel_tol=1e-12)
+        assert recolte([math.floor(r) - 2 for r in requis], 1)[1] < productions[0]
 
     def controler_mineurs():
-        paysans = math.floor(requis) - 2
-        assert recolte(paysans, 1)[1] == recolte(paysans)[1]
-        assert recolte(paysans, math.ceil(requis))[1] == recolte(paysans)[1]
+        paysans = [math.floor(r) - 2 for r in requis]
+        assert recolte(paysans, 1)[1:] == recolte(paysans)[1:]
+        assert recolte(paysans, math.ceil(sum(requis)))[1:] == recolte(paysans)[1:]
 
     controler_manque()
     controler_mineurs()
@@ -651,8 +681,11 @@ def test_recolte_bras(monkeypatch, moyenne):
         with pytest.raises(AssertionError):
             controler_manque()
     with monkeypatch.context() as ctx:
-        ctx.setattr(foyers, "facteur_bras", lambda metiers, km2: min(
-            1.0, sum(metiers.values()) / (km2 * _constantes.BRAS_AUX_CHAMPS_PAR_KM2)))
+        ctx.setattr(foyers, "facteur_bras", lambda metiers, km2, saison=1: min(
+            1.0, sum(metiers.values()) / (km2 * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * saison)))
+        # Réintroduit les mineurs dans le compte du bourg.
+        _alterer_fonction(ctx, engine, '_facteurs_bras_des_lieux',
+                          'lieu.population - non_paysans', 'lieu.population')
         with pytest.raises(AssertionError):
             controler_mineurs()
 
@@ -671,54 +704,101 @@ def test_recolte_sans_metiers(monkeypatch, cartee, moyenne):
 
     controler_nue()
     ecrire_habitants_par_metier(origine, {})
+    for lieu in origine.lieux:
+        lieu.population = 0
     assert origine.population == 0
     assert _recolter_reference(origine, carte, moyenne)[1] == 0.0
     ecrire_habitants_par_metier(origine, {"mineurs": 50})
+    for lieu in origine.lieux:
+        lieu.population = 50 if lieu.rang == 0 else 0
     assert _recolter_reference(origine, carte, moyenne)[1] == 0.0
     assert foyers.facteur_bras({}, 0.0) == 1.0
     vrai_facteur = foyers.facteur_bras
     with monkeypatch.context() as ctx:
-        ctx.setattr(foyers, "facteur_bras", lambda metiers, km2:
-                    vrai_facteur({} if metiers == -1 else metiers, km2))
+        ctx.setattr(foyers, "facteur_bras", lambda metiers, km2, saison=1:
+                    vrai_facteur({} if metiers == -1 else metiers, km2, saison))
         with pytest.raises(AssertionError):
             controler_nue()
 
 
+# Témoins mesurés sur la base avant #705, graine 0, garde commerciale seule
+# anticipée en mémoire. Chaque facteur cellulaire de l'année valait exactement 1.
+_TEMOINS_AVANT_705 = {
+    False: (36381936, 31198366764.55457,
+            'ab0a71e1caad9e88712fdc3154287eac8cc9967e90c538e26abcc2f741730898'),
+    True: (35745201, 31200079589.784046,
+           '9dbeaa7f94e4201755e6e93d657acb4efc1bd6361b0509f095c001e5faaaa918'),
+}
+
+
 @pytest.mark.parametrize("numerote", [False, True])
 def test_bras_suffisent_un_an(monkeypatch, numerote):
-    vrai_facteur = foyers.facteur_bras
-    valeurs, rapports = [], []
+    production, moyenne = engine._apply_production, engine._apply_production_saison_moyenne
+    facteurs = engine._facteurs_bras_des_lieux
 
-    def enregistrer(metiers, km2):
-        facteur = vrai_facteur(metiers, km2)
-        valeurs.append(facteur)
-        requis = km2 * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
-        if metiers != -1 and requis > 0:
-            rapports.append(metiers.get("paysans", 0) / requis)
-        return facteur
+    def jouer(temoin=False):
+        monde, rng = World.charger(0), random.Random(0)
+        total, observations = [0.], [0, 0, 0]
+        effectif_attendu = sum(len(c.lieux) for c in monde.cells.values()) * 365
+        def enregistrer(c, carte, saison):
+            valeurs = facteurs(c, carte, saison)
+            observations[0] += len(valeurs)
+            observations[1] += sum(f < 1 for f in valeurs)
+            if saison > 1:
+                observations[2] += sum(f < 1 for f in valeurs)
+            return valeurs
+        def relever(c, alea, carte=None, jour=None, recoltes=None):
+            avant = c.food_stock_kg
+            if temoin:
+                _production_avant_lot(c, alea, carte, jour, recoltes)
+            else:
+                production(c, alea, carte, jour, recoltes)
+            total[0] += c.food_stock_kg - avant
+        def relever_moyenne(c, alea, carte, recoltes=None):
+            avant = c.food_stock_kg
+            if temoin:
+                _production_avant_lot(c, alea, carte, recoltes=recoltes, moyenne=True)
+            else:
+                moyenne(c, alea, carte, recoltes)
+            total[0] += c.food_stock_kg - avant
+        with monkeypatch.context() as ctx:
+            ctx.setattr(engine, '_facteurs_bras_des_lieux', enregistrer)
+            ctx.setattr(engine, '_apply_production', relever)
+            ctx.setattr(engine, '_apply_production_saison_moyenne', relever_moyenne)
+            for i in range(365):
+                tick(monde, rng, **({'numero_tick': i} if numerote else {}))
+                if (i + 1) % 120 == 0:
+                    print(f'numéroté={numerote} témoin={temoin} ticks={i + 1}', flush=True)
+        population = sum(c.population for c in monde.cells.values())
+        if not temoin:
+            assert observations[0] == effectif_attendu > 0
+            if numerote:
+                assert observations[2] > 0
+        print(f'numéroté={numerote} témoin={temoin} population={population} '
+              f'récolte={total[0]:.6f} observations={observations}', flush=True)
+        return monde, population, total[0], observations
 
-    def jouer(n):
-        valeurs.clear()
-        rapports.clear()
-        monde = World.charger(0)
-        rng = random.Random(0)
-        for i in range(n):
-            tick(monde, rng, **({"numero_tick": i} if numerote else {}))
-        assert len(valeurs) >= max(596, len(monde.cells)) * n
-        assert len(rapports) == len(valeurs)
-        return monde
+    monde_temoin, pop_temoin, kg_temoin, _ = jouer(temoin=True)
+    population_base, recolte_base, empreinte_base = _TEMOINS_AVANT_705[numerote]
+    assert pop_temoin == population_base
+    assert kg_temoin == pytest.approx(recolte_base, rel=1e-12)
+    assert hashlib.sha256(json.dumps(monde_temoin.to_dict(), sort_keys=True).encode()).hexdigest() == empreinte_base
 
-    monkeypatch.setattr(foyers, "facteur_bras", enregistrer)
-    jouer(365)
-    assert all(v == 1.0 for v in valeurs)
-    print(f"numéroté={numerote} appels={len(valeurs)} rapport_minimum={min(rapports):.6f}")
-    nominal = _octets_sans_foyers(jouer(30))
+    def controler(population, recolte, observations):
+        assert observations[0] > 0
+        assert abs(population / pop_temoin - 1) <= .01
+        assert abs(recolte / kg_temoin - 1) <= .03
+    _, population, recolte, observations = jouer()
+    controler(population, recolte, observations)
+    with pytest.raises(AssertionError):
+        controler(population, recolte, [0, 0, 0])
     with monkeypatch.context() as ctx:
-        ctx.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2",
+        ctx.setattr(_constantes, 'BRAS_AUX_CHAMPS_PAR_KM2',
                     _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * 100)
-        altere = _octets_sans_foyers(jouer(30))
-        assert any(v < 1.0 for v in valeurs)
-        assert altere != nominal
+        _, population, recolte, observations = jouer()
+        assert observations[1] > 0
+        with pytest.raises(AssertionError):
+            controler(population, recolte, observations)
 
 
 def test_documentation_bras(monkeypatch):
@@ -729,12 +809,18 @@ def test_documentation_bras(monkeypatch):
         texte = chemin.read_text(encoding="utf-8")
         section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
         for attendu in ("BRAS_AUX_CHAMPS_PAR_KM2", "km² cultivés", "niveau 2",
-                        "Le tick ne lit les métiers que pour la récolte"):
+                        "Le tick ne lit les métiers que pour la récolte",
+                        "lieu par lieu", "facteur_de_saison", "max(0, population_du_bourg",
+                        "6,2", "médiane", "lieux cultivables"):
             assert attendu in section
+        assert "sans facteur saisonnier" not in section
+        assert "BRAS_AUX_CHAMPS_PAR_KM2 = 0,1" not in texte
         reste = texte.split("## Ce que le moteur ne fait pas encore\n", 1)[1].split("\n## ", 1)[0]
         assert "aucun nombre du tick ne les lit" not in " ".join(reste.split())
 
-    for ancien, nouveau in (("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
+    for ancien, nouveau in (("facteur_de_saison", "saison retirée"),
+                            ("6,2", "0,1"),
+                            ("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
                             ("Le tick ne lit les métiers que pour la récolte",
                              "Le tick ne lit pas les métiers")):
         def texte_altere(path, *args, **kwargs):
@@ -854,3 +940,289 @@ def test_logement_documentation():
         controler(avant + "## Les foyers par métier\n" + section.replace("sans_logis", "absent") + "\n## " + apres)
     assert "La maison achevée reste sans effet" not in texte.split("## Le plan du bourg\n", 1)[1].split("\n## ", 1)[0]
     assert "sim/logement.py" in (dossier / "README.md").read_text(encoding="utf-8")
+
+
+def _saison_reference(cell, carte, jour):
+    if not carte:
+        return 1.0
+    climat = carte[cell.cell_id]['climat']
+    ete, hiver = (climat['duree_jour_solstice_ete_h'],
+                  climat['duree_jour_solstice_hiver_h'])
+    if jour is None:
+        return _constantes.facteur_saison_moyen_annuel(ete, hiver)
+    return _constantes.facteur_saison(_constantes.duree_jour_h(jour, ete, hiver))
+
+
+def _parts_reference(cell, carte, jour):
+    from sim.lieux import surfaces_des_lieux
+    surfaces = surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    metiers = lire_habitants_par_metier(cell)
+    non_paysans = sum(n for m, n in metiers.items() if m != 'paysans') if metiers != -1 else 0
+    saison = _saison_reference(cell, carte, jour)
+    facteurs = []
+    for lieu in cell.lieux:
+        surface = surfaces[lieu.rang]
+        # Même ordre des facteurs que la surface cultivée, sans prorata arrondi.
+        temoin = copy.copy(cell)
+        temoin.area_km2 = surface
+        besoin = _km2_cultives_reference(temoin, carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * saison
+        paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
+        facteurs.append(1.0 if metiers == -1 or besoin == 0 else min(1.0, paysans / besoin))
+    return surfaces, facteurs
+
+
+def _alterer_fonction(monkeypatch, module, nom, ancien, nouveau):
+    """Contre-épreuve sur le moteur en mémoire, sans toucher sa source."""
+    import inspect
+    source = inspect.getsource(getattr(module, nom))
+    assert ancien in source
+    espace = dict(module.__dict__)
+    exec(compile(source.replace(ancien, nouveau), '<contre-épreuve>', 'exec'), espace)
+    monkeypatch.setattr(module, nom, espace[nom])
+
+
+def test_bras_par_lieu_saison(monkeypatch):
+    from sim.lieux import surfaces_des_lieux
+    monde = World.charger(0)
+    cell = copy.deepcopy(max(monde.cells.values(), key=lambda c: len(c.lieux)))
+    surfaces = surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    janvier, juillet = 0, 181
+    pic = _saison_reference(cell, monde.carte, juillet)
+    assert pic > 1
+    populations = []
+    for rang, surface in enumerate(surfaces):
+        temoin = copy.copy(cell)
+        temoin.area_km2 = surface
+        seuil = _km2_cultives_reference(temoin, monde.carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+        populations.append(math.ceil(seuil * ((1 + pic) / 2 if rang == 0 else pic * 2)))
+    ecrire_habitants_par_metier(cell, {'paysans': sum(populations)})
+    for lieu, n in zip(cell.lieux, populations):
+        lieu.population = n
+
+    def controler():
+        resultats = []
+        for jour in (janvier, juillet):
+            copie, releve = copy.deepcopy(cell), {}
+            avant = [max(0, lire_stock_marchandise(l, 'nourriture')) for l in copie.lieux]
+            rendement = random.Random(0).uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+            pleine = engine.production_du_tick_kg(copie, rendement, monde.carte, jour)
+            _, facteurs = _parts_reference(copie, monde.carte, jour)
+            engine._apply_production(copie, random.Random(0), monde.carte, jour, releve)
+            attendu = [pleine * s / copie.area_km2 * f for s, f in zip(surfaces, facteurs)]
+            assert all(q > 0 for q in attendu)
+            assert releve[copie.cell_id] == pytest.approx(attendu, rel=1e-12)
+            assert [lire_stock_marchandise(l, 'nourriture') - q for l, q in zip(copie.lieux, avant)] == pytest.approx(attendu)
+            resultats.append(facteurs)
+        assert resultats[0][0] == 1 and 0 < resultats[1][0] < 1
+        assert resultats[0][1] == resultats[1][1] == 1
+    controler()
+    for ancien, nouveau in (
+        ('km2_cultives * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * saison', 'km2_cultives * _constantes.BRAS_AUX_CHAMPS_PAR_KM2'),
+    ):
+        with monkeypatch.context() as ctx:
+            _alterer_fonction(ctx, foyers, 'facteur_bras', ancien, nouveau)
+            with pytest.raises(AssertionError):
+                controler()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(engine, '_facteurs_bras_des_lieux', lambda c, carte, saison:
+                    [engine._facteur_bras_pour_cellule(c, carte, saison)] * len(c.lieux))
+        with pytest.raises(AssertionError):
+            controler()
+
+
+def test_calibrage_bras(monkeypatch):
+    import statistics
+    monde, rapports = World.charger(0), []
+    from sim.lieux import surfaces_des_lieux
+    for cell in monde.cells.values():
+        surfaces = surfaces_des_lieux(cell.cell_id, cell.area_km2)
+        pic = max(_saison_reference(cell, monde.carte, j) for j in range(365))
+        metiers = lire_habitants_par_metier(cell)
+        non_paysans = sum(n for m, n in metiers.items() if m != 'paysans')
+        for lieu in cell.lieux:
+            temoin = copy.copy(cell)
+            temoin.area_km2 = surfaces[lieu.rang]
+            besoin = _km2_cultives_reference(temoin, monde.carte) * pic
+            if besoin > 0:
+                paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
+                rapports.append(paysans / besoin)
+    def controler():
+        assert rapports
+        assert abs(_constantes.BRAS_AUX_CHAMPS_PAR_KM2 / statistics.median(rapports) - 1) < .01
+    controler()
+    print(f'lieux_cultivables={len(rapports)} médiane={statistics.median(rapports):.9f}')
+    with monkeypatch.context() as ctx:
+        ctx.setattr(_constantes, 'BRAS_AUX_CHAMPS_PAR_KM2', .1)
+        with pytest.raises(AssertionError):
+            controler()
+    rapports.clear()
+    with pytest.raises(AssertionError):
+        controler()
+
+
+def _production_avant_lot(cell, rng, carte=None, jour=None, recoltes=None, moyenne=False):
+    """Ordre des opérations de la base avant #705, lorsque les bras suffisent."""
+    from sim.lieux import surfaces_des_lieux
+    rendement = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+    if moyenne:
+        recolte = engine._production_du_tick_kg_saison_moyenne(cell, rendement, carte)
+    elif carte:
+        recolte = engine.production_du_tick_kg(cell, rendement, carte, jour)
+    else:
+        recolte = engine.production_kg(cell, rendement)
+    recolte *= 1.0
+    nom = _constantes.MARCHANDISE_NOURRITURE
+    stock = lire_stock_marchandise(cell, nom)
+    ecrire_stock_marchandise(cell, nom, (stock if stock >= 0 else 0.0) + recolte)
+    if cell.lieux:
+        quantites = None if recoltes is None else [0.0] * len(cell.lieux)
+        if quantites is not None:
+            recoltes[cell.cell_id] = quantites
+        if len(cell.lieux) == 1:
+            if quantites is not None:
+                quantites[0] = recolte
+            ecrire_stock_marchandise(cell.lieux[0], nom, lire_stock_marchandise(cell, nom))
+            return
+        surfaces = surfaces_des_lieux(cell.cell_id, cell.area_km2)
+        for lieu in cell.lieux:
+            stock = max(0.0, lire_stock_marchandise(lieu, nom))
+            kg = recolte * surfaces[lieu.rang] / cell.area_km2
+            ecrire_stock_marchandise(lieu, nom, stock + kg)
+            if quantites is not None:
+                quantites[lieu.rang] = kg
+
+
+@pytest.mark.parametrize('moyenne', [False, True])
+@pytest.mark.parametrize('avec_releve', [False, True])
+def test_bras_tous_suffisants_octets(monkeypatch, moyenne, avec_releve):
+    monde = World.charger(0)
+    # Tous les lieux sont pourvus, y compris les bourgs miniers.
+    for cell in monde.cells.values():
+        ecrire_habitants_par_metier(cell, {'paysans': 10**9})
+        from sim.lieux import partager, surfaces_des_lieux
+        for lieu, n in zip(cell.lieux, partager(cell.population, surfaces_des_lieux(cell.cell_id, cell.area_km2))):
+            lieu.population = n
+    temoin = copy.deepcopy(monde)
+    aleas = [random.Random(0), random.Random(0)]
+    releves = [{}, {}] if avec_releve else [None, None]
+    for cid, cell in monde.cells.items():
+        if moyenne:
+            engine._apply_production_saison_moyenne(cell, aleas[0], monde.carte, releves[0])
+        else:
+            engine._apply_production(cell, aleas[0], monde.carte, 181, releves[0])
+        _production_avant_lot(temoin.cells[cid], aleas[1], temoin.carte, 181, releves[1], moyenne)
+    def photo(m, releve, rng):
+        return json.dumps((m.to_dict(), releve, rng.getstate()), sort_keys=True).encode()
+    def controler(a, b):
+        assert a == b
+    nominal = photo(monde, releves[0], aleas[0])
+    reference = photo(temoin, releves[1], aleas[1])
+    controler(nominal, reference)
+    lieu = next(iter(temoin.cells.values())).lieux[-1]
+    lieu.stocks['nourriture'] += 1
+    for faux in (photo(temoin, releves[1], aleas[1]), reference + b' '):
+        with pytest.raises(AssertionError):
+            controler(nominal, faux)
+
+
+@pytest.mark.parametrize('sans_carte,sans_lieux', [(False, False), (True, False), (True, True)])
+def test_paysans_du_bourg(monkeypatch, sans_carte, sans_lieux):
+    from sim.lieux import surfaces_des_lieux
+    monde = World.charger(0)
+    origine = max(monde.cells.values(), key=lambda c: len(c.lieux))
+    carte = None if sans_carte else monde.carte
+    def controler():
+        productions = []
+        for non_paysans in (0, 1000, 2000):
+            cell = copy.deepcopy(origine)
+            if sans_lieux:
+                cell.lieux = []
+            populations = [1000] * len(cell.lieux)
+            total = sum(populations) if populations else 3000
+            ecrire_habitants_par_metier(cell, {m: n for m, n in (
+                ('paysans', total - non_paysans), ('ouvriers', non_paysans // 2),
+                ('artisans', non_paysans - non_paysans // 2)) if n})
+            for lieu, n in zip(cell.lieux, populations):
+                lieu.population = n
+                ecrire_stock_marchandise(lieu, 'nourriture', 0.)
+            ecrire_stock_marchandise(cell, 'nourriture', 0.)
+            rendement = random.Random(0).uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+            pleine = (engine.production_du_tick_kg(cell, rendement, carte, 181)
+                      if carte else engine.production_kg(cell, rendement))
+            releve = {}
+            engine._apply_production(cell, random.Random(0), carte, 181, releve)
+            if cell.lieux:
+                surfaces, facteurs = _parts_reference(cell, carte, 181)
+                attendu = [pleine * s / cell.area_km2 * f for s, f in zip(surfaces, facteurs)]
+                assert releve[cell.cell_id] == pytest.approx(attendu, abs=1e-10)
+                assert min(releve[cell.cell_id]) >= 0
+                assert cell.food_stock_kg == pytest.approx(sum(attendu))
+                productions.append(releve[cell.cell_id])
+            else:
+                besoin = _km2_cultives_reference(cell, carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * _saison_reference(cell, carte, 181)
+                assert cell.food_stock_kg == pytest.approx(pleine * min(1, (total - non_paysans) / besoin))
+        if not sans_lieux:
+            assert productions[0][0] > 0
+            assert productions[1][0] == productions[2][0] == 0
+            assert productions[0][1:] == productions[1][1:] == productions[2][1:]
+            assert sum(productions[2][1:]) > 0
+    controler()
+    if not sans_lieux:
+        for ancien, nouveau in (('max(0, lieu.population - non_paysans)', 'lieu.population - non_paysans'),
+                                ('if lieu.rang == 0 else lieu.population', 'if True else lieu.population')):
+            with monkeypatch.context() as ctx:
+                _alterer_fonction(ctx, engine, '_facteurs_bras_des_lieux', ancien, nouveau)
+                with pytest.raises(AssertionError):
+                    controler()
+
+
+@pytest.mark.parametrize('cartee', [False, True])
+def test_paysans_du_bourg_lieu_unique(cartee):
+    monde = World.charger(0)
+    cell = copy.deepcopy(next(c for c in monde.cells.values() if len(c.lieux) == 1))
+    carte = monde.carte if cartee else None
+    ecrire_habitants_par_metier(cell, {'paysans': 1, 'artisans': 99})
+    cell.lieux[0].population = cell.population
+    cell.stocks['nourriture'] = cell.lieux[0].stocks['nourriture'] = 0.
+    releve = {}
+    rendement = random.Random(0).uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+    pleine = engine.production_du_tick_kg(cell, rendement, carte, 181) if carte else engine.production_kg(cell, rendement)
+    besoin = _km2_cultives_reference(cell, carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * _saison_reference(cell, carte, 181)
+    assert besoin > 1
+    engine._apply_production(cell, random.Random(0), carte, 181, releve)
+    assert cell.food_stock_kg == releve[cell.cell_id][0] == pleine * (1 / besoin)
+    assert cell.lieux[0].stocks['nourriture'] == cell.food_stock_kg
+
+
+def test_recolte_sans_metiers_avec_lieux():
+    monde = World.charger(0)
+    cell = max(monde.cells.values(), key=lambda c: len(c.lieux))
+    cell.habitants_par_metier = None
+    releve = {}
+    rendement = random.Random(0).uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+    pleine = engine.production_du_tick_kg(cell, rendement, monde.carte, 181)
+    avant = cell.food_stock_kg
+    engine._apply_production(cell, random.Random(0), monde.carte, 181, releve)
+    assert cell.food_stock_kg == avant + pleine
+    assert sum(releve[cell.cell_id]) == pytest.approx(pleine)
+
+
+def test_bras_par_lieu_saison_rangs_inverses():
+    monde = World.charger(0)
+    origine = max(monde.cells.values(), key=lambda c: len(c.lieux))
+    reference = None
+    for inverser in (False, True):
+        cell = copy.deepcopy(origine)
+        ecrire_habitants_par_metier(cell, {'paysans': len(cell.lieux)})
+        for lieu in cell.lieux:
+            lieu.population = 1
+        if inverser:
+            cell.lieux.reverse()
+        releve = {}
+        engine._apply_production(cell, random.Random(0), monde.carte, 181, releve)
+        photo = (cell.food_stock_kg, releve,
+                 sorted((l.rang, l.stocks) for l in cell.lieux))
+        if reference is None:
+            reference = photo
+        else:
+            assert photo == reference

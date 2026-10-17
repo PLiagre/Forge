@@ -3403,3 +3403,33 @@ def test_departs_tick_modele():
     for ancien, nouveau in (('15. **Départs**', '15. **Autre étape**'),
             (f'TAUX_DE_DEPART = {c.TAUX_DE_DEPART:g}', 'TAUX_DE_DEPART = 9')):
         with pytest.raises(AssertionError): controler(texte.replace(ancien, nouveau))
+
+
+@pytest.mark.parametrize('capacites_ailleurs', [False, True])
+def test_sortir_par_bourg_sans_chemin(monkeypatch, capacites_ailleurs):
+    import copy
+    import math
+    from sim import engine
+    from sim.model import ecrire_stock_marchandise
+    def montage():
+        cell = _cellule_bourg(8992, [10, 20, 30], [100., 200., 300.])
+        quantite = math.nextafter(90., math.inf)
+        assert quantite > 100. - 10
+        ecrire_stock_marchandise(cell, 'nourriture', cell.food_stock_kg - quantite)
+        return cell, quantite
+    def controler():
+        cell, quantite = montage()
+        chemins = {8993: {1: 123.}} if capacites_ailleurs else {}
+        avant = copy.deepcopy(chemins)
+        engine._sortir_par_bourg(cell, 'nourriture', quantite, chemins, 1.)
+        assert _paniers_bourg(cell)[1:] == [200., 300.]
+        assert _paniers_bourg(cell)[0] == cell.food_stock_kg - 500.
+        assert sum(_paniers_bourg(cell)) == cell.food_stock_kg
+        assert chemins == avant
+    controler()
+    from sim.tests.test_foyers import _alterer_fonction
+    with monkeypatch.context() as ctx:
+        _alterer_fonction(ctx, engine, '_sortir_par_bourg',
+                          'manque <= 0 or cell.cell_id not in chemins', 'manque <= 0')
+        with pytest.raises(KeyError):
+            controler()

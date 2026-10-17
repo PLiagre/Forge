@@ -499,18 +499,34 @@ paysans.
 **Le tick ne lit les métiers que pour la récolte et pour le chantier**.
 Ateliers lit aussi les métiers pour affecter les artisans ; Fabrication les lit pour leur budget de matière.
 Le métier `ouvriers` reçoit les paysans envoyés aux chantiers pour ce tick.
-Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × facteur_agricole`
-(sans carte : `area_km2`), sans facteur saisonnier. Ils demandent
-`km² cultivés × BRAS_AUX_CHAMPS_PAR_KM2` bras. Le facteur de bras vaut
-`min(1, paysans / bras_requis)` ; les mineurs ne comptent pas et la part
-minière reste appliquée. Sous le seuil, chaque paysan retiré enlève sa part
-de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
+Les km² cultivés sont dérivés **lieu par lieu** : surface du lieu multipliée,
+dans cet ordre, par relief, eau et part agricole (sans carte : sa surface).
+Le besoin vaut `km² cultivés × BRAS_AUX_CHAMPS_PAR_KM2 × facteur_de_saison`.
+Ce facteur est exactement celui de la production : jour numéroté, moyenne
+annuelle sans numéro, ou 1 sans saison. Il module le besoin et la récolte
+potentielle, sans être appliqué deux fois au rendement.
+Au rang supérieur à zéro, tous les habitants sont paysans. Au bourg,
+`max(0, population_du_bourg − non_paysans_de_la_cellule)` donne les paysans :
+mineurs, ouvriers, artisans et tout autre métier non paysan en sont exclus.
+Le facteur de bras est `min(1, paysans_du_lieu / bras_requis)` ; sans lieux,
+il utilise les paysans déclarés de la cellule. Un lieu unique suit la règle
+du bourg. Les ouvriers du jour réduisent donc les seuls bras du bourg,
+sans transfert depuis les hameaux et sans métier stocké par lieu.
 Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
+Si tous les facteurs valent 1, le total brut et l'ordre historique du partage
+restent identiques à l'octet. Sinon les paniers et le relevé du prélèvement
+portent la récolte réelle ; le résidu numérique est corrigé au bourg.
 La règle est de **niveau 2**, plausible, jamais sourcée.
-`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` est choisie basse pour que le monde mesuré
-ne bouge pas : sur 365 ticks, graine 0, le minimum de paysans par km² cultivé
-vaut 0,291 sans numéro de tick et 0,248 avec. Ce n'est pas une densité agricole
-réaliste ; elle sera revue quand un geste retirera des bras aux champs.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` est relue à chaque appel. Calibrage sur
+`World.charger(0)` : médiane mesurée de 6,204260778 sur 6 619 lieux cultivables.
+Pour reproduire depuis `jeu/` :
+`python3 -m pytest sim/tests/test_foyers.py -k calibrage_bras -q -s`.
+Le contrôle dérive les surfaces de chaque lieu, les paysans selon la règle
+ci-dessus et le maximum de sa saison sur les 365 jours, puis prend la médiane
+de `paysans / (km² cultivés × maximum saisonnier)` pour les besoins positifs.
+Il imprime l'effectif et la médiane, refuse un relevé vide et exige une
+constante à moins de 1 % de cette médiane ; aucun compteur n'est figé.
+Le lieu médian dispose ainsi tout juste des bras nécessaires au pic.
 En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
 peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
@@ -617,7 +633,7 @@ food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
                 × facteur_eau(pluie_mm_par_an + crue_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
-                × facteur_agricole(1 − part minière) × facteur_bras
+                × facteur_agricole(1 − part minière)
 ```
 
 Le relief, l'eau, la saison et la part minière sont lus dans la carte. Une
@@ -634,8 +650,10 @@ rendement moyen. À bras suffisants, le plafond suit donc ce que le monde
 produit vraiment, et c'est ce qui l'a fait suivre tout seul le
 jour où le relief, puis la saison, ont modulé le rendement.
 
-Le facteur de bras s'applique uniquement aux deux maillons de production du
-tick. Le plafond de survie et la production moyenne restent la récolte à bras
+La formule donne la récolte potentielle à bras suffisants. Chaque lieu en
+reçoit sa part de surface, puis applique son facteur de bras avec le même
+facteur de saison (voir « Les foyers par métier »). Cette réduction concerne
+uniquement les deux maillons de production du tick. Le plafond de survie et la production moyenne restent la récolte à bras
 suffisants : le facteur ne peut que l'abaisser, donc le plafond reste une borne
 supérieure. L'amorçage ne dépend pas des métiers et ne forme pas de cercle.
 
@@ -2849,10 +2867,10 @@ ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
 bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 `/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
 
-L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
-Une cellule est immense et le chantier ne coûte de récolte que s’il retire
-presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
-sexe, nourriture propre, outils, matériaux, saison et salaires différenciés restent de
+Le chantier retire ses bras aux seuls champs du bourg. Leur besoin suit la
+saison agricole, avec `BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` (voir « Les foyers par
+métier ») ; les autres lieux gardent leurs paysans et leur récolte. Âge et
+sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.
 

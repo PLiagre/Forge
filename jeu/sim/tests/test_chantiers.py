@@ -187,16 +187,35 @@ def test_tick_depart_avant_recolte_et_retour(monkeypatch):
 def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
     production = engine._apply_production
     initial = World.charger(0)
-    geste = _route_reference(initial)
+    from sim.lieux import surfaces_des_lieux
+    # Un bourg cultivable avec assez de marge pour un petit chantier en janvier.
+    def marge(cid):
+        c = initial.cells[cid]
+        non_paysans = sum(n for m, n in lire_habitants_par_metier(c).items() if m != k.METIER_PAYSANS)
+        surface = surfaces_des_lieux(cid, c.area_km2)[0]
+        km2 = (surface * engine._facteur_relief_pour_cellule(c, initial.carte)
+               * engine._facteur_eau_pour_cellule(c, initial.carte)
+               * engine._facteur_agricole(c, initial.carte))
+        saisons = [engine._facteur_saison_pour_cellule(c, initial.carte, k.jour_de_tick(i)) for i in range(30)]
+        paysans = max(0, c.lieux[0].population - non_paysans)
+        return paysans - km2 * k.BRAS_AUX_CHAMPS_PAR_KM2 * max(saisons)
+    candidats = [cid for cid in initial.plans if len(initial.cells[cid].lieux) > 1]
+    assert candidats
+    geste = _route_reference(initial, min((cid for cid in candidats if marge(cid) > k.TAILLE_FOYER),
+                                         key=lambda cid: initial.cells[cid].lieux[0].population))
     cell = initial.cells[geste["cell"]]
-    paysans = lire_habitants_par_metier(cell)[k.METIER_PAYSANS]
-    km2 = (cell.area_km2 * engine._facteur_relief_pour_cellule(cell, initial.carte)
+    non_paysans = sum(n for m, n in lire_habitants_par_metier(cell).items() if m != k.METIER_PAYSANS)
+    paysans = max(0, cell.lieux[0].population - non_paysans)
+    surface = surfaces_des_lieux(cell.cell_id, cell.area_km2)[0]
+    km2 = (surface * engine._facteur_relief_pour_cellule(cell, initial.carte)
            * engine._facteur_eau_pour_cellule(cell, initial.carte)
            * engine._facteur_agricole(cell, initial.carte))
-    requis = km2 * k.BRAS_AUX_CHAMPS_PAR_KM2
+    besoins = [km2 * k.BRAS_AUX_CHAMPS_PAR_KM2 * engine._facteur_saison_pour_cellule(
+        cell, initial.carte, k.jour_de_tick(i)) for i in range(30)]
     moyen = (paysans - 1) // k.TAILLE_FOYER
     gros = 2 * math.ceil(paysans / k.TAILLE_FOYER)
-    assert 0 < paysans - moyen * k.TAILLE_FOYER < requis
+    assert paysans - k.TAILLE_FOYER >= max(besoins)
+    assert 0 < paysans - moyen * k.TAILLE_FOYER < min(besoins)
     ticks = 30
     # Même travail, replié dans la place : les bandes peuvent se recroiser.
     travail = (ticks + 1) * gros * k.TAILLE_FOYER
@@ -210,7 +229,8 @@ def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
         longueur -= distance
         if longueur > 0:
             distance = min(1, longueur)
-            points.append([points[-1][0], points[-1][1] + distance])
+            vertical = 1 if points[-1][1] < limite else -1
+            points.append([points[-1][0], points[-1][1] + vertical * distance])
             longueur -= distance
         sens *= -1
     def dans_place(trace):
@@ -231,10 +251,22 @@ def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
                 recevoir_intention(monde, geste | {"foyers": nombre})
 
             def relever(cell, *a, **kw):
-                avant = cell.food_stock_kg
                 production(cell, *a, **kw)
                 if cell is cible:
-                    mesures.append(cell.food_stock_kg - avant)
+                    releve = kw.get('recoltes', a[3] if len(a) > 3 else None)
+                    parts = releve[cell.cell_id]
+                    assert sum(parts[1:]) > 0
+                    non_paysans = sum(n for m, n in lire_habitants_par_metier(cell).items() if m != k.METIER_PAYSANS)
+                    bras = max(0, cell.lieux[0].population - non_paysans)
+                    jour = kw.get('jour', a[2] if len(a) > 2 else None)
+                    besoin = km2 * k.BRAS_AUX_CHAMPS_PAR_KM2 * engine._facteur_saison_pour_cellule(cell, monde.carte, jour)
+                    if nombre in (None, 1):
+                        assert bras >= besoin
+                    elif nombre == moyen:
+                        assert 0 < bras < besoin
+                    else:
+                        assert bras == 0
+                    mesures.append(parts[0])
 
             with monkeypatch.context() as sonde:
                 sonde.setattr(engine, "_apply_production", relever)
