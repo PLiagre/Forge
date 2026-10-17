@@ -4,6 +4,7 @@ Audit du service local le 16 octobre 2026 : lectures `/monde`, `/carte`, `/depar
 
 | Écran | Contrat proposé et raison | Absence et refus à préserver |
 |---|---|---|
+| Ville 3D | Correspondance explicite entre cell_id, kit régional disponible et scène ; conserver le même monde et la même horloge pendant la transition | Kit absent : garder le plan consultable ; ne pas représenter Bar-le-Duc avec une ville désertique attribuée arbitrairement |
 | Personnage et famille | `/dynastie` : tick, personnes identifiées, parentés, chef, héritier, qualités servies ; décider d’un mariage ou d’une éducation | Personne inconnue ; héritier inconnu distinct de l’absence d’héritier ; aucun portrait fictif attribué à un personnage réel |
 | Diplomatie | `/relations` : tick, interlocuteurs, revendications, offres, termes et échéances ; intentions de proposition et d’acceptation validées par le monde | Action interdite, offre expirée, interlocuteur absent |
 | Armée | `/armees` : tick, identifiants, cell_id, effectifs, vivres en kg, destination ; intentions lever/marcher/ravitailler | Effectif non calculé distinct de zéro ; destination interdite |

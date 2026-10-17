@@ -2,6 +2,8 @@
 
 ## Livré et en cours
 
+- Reprise du 17 octobre : #669, #670, #673 et #674 fusionnés. #671 (comptes) et #672 (menu) rebasés ; formulaires publiés dans #676. UI-15a sur `direct/interface-plan-bourg` : quatre rouges puis 53 verts ; plans réels de Bar et Milan regardés, retour et sélection vérifiés. [Preuve et limites](BOURG.md). Aperçu Windows antérieur au plan vérifié avec commandes, comptes, menu, calques et voisins. Suite : intégrer le plan à l’aperçu, puis outils du bourg ; ville 3D et écrans avancés restent ouverts.
+
 - UI-14 réalisé sur `direct/interface-voisins` : journal réel des autres maisons, causes et refus, sans interpréter un reçu comme un achèvement. Trois rouges puis 49 verts ; sept ordres au tick 62, captures regardées et défilement vérifié. [Preuve](VOISINS.md). Les PR #670–673 attendent la CI ; les commandes visibles sont préparées et attendent #670. Prochaine étape : actualiser l’aperçu puis consulter le plan du bourg sans charger un kit 3D qui ne correspond pas à sa terre.
 
 - UI-08 réalisé sur `direct/interface-territoires` : habitants, maîtres, réserves et flux par lieu, tous au tick reçu ; molette contenue dans le dossier. Trois rouges puis 33 verts ; captures du vrai service regardées. [Preuve](TERRITOIRES.md). Publication après le lecteur #668 ; en parallèle, préparation des ordres de prélèvement et de secours.
