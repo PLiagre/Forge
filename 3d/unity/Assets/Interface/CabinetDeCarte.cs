@@ -82,6 +82,7 @@ namespace Forge.Interface
             territoire = SocleInterface.Texte(lieu, "Clic droit sur une terre pour garder son dossier ouvert.", 24, 88, 536);
             territoire.rectTransform.sizeDelta = new Vector2(536, 260);
             gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
+            gameObject.AddComponent<DossierBourg>().Initialiser(toile.transform, lieu, carte.port, () => retenue);
             var guide = SocleInterface.Panneau(toile.transform, "Parcourir le monde", 24, 872, 1238, 184);
             gameObject.AddComponent<CalquesCarte>().Initialiser(carte, guide,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
