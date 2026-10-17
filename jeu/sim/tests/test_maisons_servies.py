@@ -19,6 +19,7 @@ from sim.noms import noms_depuis_monde
 from sim.seigneuries import charger_seigneuries
 from sim.tests.test_carte_servie import _service_local
 from sim.tests.test_monde import requete_service
+from sim.tests.test_monde import lancer_service
 
 
 CHAMPS_KG = ('preleve_kg', 'recu_kg', 'du_envoye_kg', 'mange_en_route_kg', 'rendu_kg')
@@ -577,3 +578,18 @@ def test_maison_salaires(monkeypatch):
         assert document_de_maison(etat.maisons, joueur) == fiche
         _lire(port, '/tick?n=30', 'POST')
         assert 'salaires_payes_kg' not in _lire(port, _route(joueur))[0]['flux_30j']
+
+
+def test_fiches_figees_du_pont():
+    """Lot #679 SC1 — les fiches figées que relit l'aiguillage du pont sont celles du service, graine 0, tick 0."""
+    dossier = Path(__file__).resolve().parents[3] / '3d/unity/Assets/ForgeLocal3D/Pont/Tests'
+    ids = {s.nom: f'seigneurie-{s.id}' for s in charger_seigneuries()}
+    figees = {ids[nom]: ((dossier / f'maison-{court}-graine0-tick0.json').read_bytes(), siege)
+              for nom, court, siege in (('Émirat du Zab', 'zab', 10103), ('Duché de Bar', 'bar', 10430))}
+    for identifiant, (octets, siege) in figees.items():
+        assert json.loads(octets)['id'] == identifiant and json.loads(octets)['siege']['cell_id'] == siege
+    with lancer_service(0) as port:
+        for identifiant, (octets, _) in figees.items():
+            assert requete_service(port, _route(identifiant))[::2] == (200, octets), identifiant
+        assert requete_service(port, '/tick?n=1', 'POST')[0] == 200
+        assert requete_service(port, _route(ids['Émirat du Zab']))[2] != figees[ids['Émirat du Zab']][0]
