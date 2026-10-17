@@ -246,6 +246,21 @@ namespace Forge.Pont.Tests
             Assert.AreEqual("plaine", cellules[2].Relief);
         }
 
+        // Contre-épreuve : les reliefs de CARTE_TROIS et de la fixture n'ont pas d'espace en bord,
+        // donc un Trim() y resterait vert. Le texte servi ici doit revenir exactement, espaces compris.
+        [Test]
+        public void UnReliefEntoureDEspacesEstConserveTelQuel()
+        {
+            LectureCarte lecture = Lire(RemplacerUneFois(CARTE_TROIS, "\"relief\":\"montagne\"", "\"relief\":\" montagne \""));
+
+            Assert.IsTrue(lecture.Presente && lecture.Absence == null, lecture.Absence);
+            IReadOnlyList<CelluleDeCarte> cellules = lecture.Carte.Cellules;
+            Assert.IsTrue(cellules[1].CellId == 10196);
+            Assert.AreEqual(" montagne ", cellules[1].Relief);
+            Assert.AreEqual("plaine", cellules[0].Relief);
+            Assert.AreEqual("plaine", cellules[2].Relief);
+        }
+
         // Comptes mesurés sur la fixture (seed 0), écrits en dur : le lecteur ne fournit jamais ses propres attentes.
         [Test]
         public void LeReliefDeLaCarteServieEstReluSurToutesSesCellules()
