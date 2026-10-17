@@ -1914,7 +1914,9 @@ les arêtes pour une marchandise sans consommation, donc sans besoin ni flux.
 
 ## Les flux sur trente jours
 
-Le monde garde une mémoire d'observation : aucune règle ne la lit. La
+Le monde garde une mémoire d'observation : aucune règle du tick ne la lit ;
+seule la décision de part de l'IA, hors du tick, relit départs, arrivées et
+lieux affamés, comme le joueur relit `/maison`. La
 fenêtre `FENETRE_FLUX_TICKS` vaut trente jours, à un jour par tick ; elle
 est relue à chaque appel. `World.flux` part vide au chargement, reste hors
 de `to_dict` et ne se sauvegarde pas. Le registre n'ajoute aucune étape au tick.
@@ -1939,6 +1941,12 @@ départs de famine et de mieux-vivre sont comptés en personnes brutes par
 `(cell_id, rang)`, y compris à l'intérieur d'une cellule. Un lieu peut envoyer
 et recevoir le même jour : les deux mouvements restent visibles. Les cellules
 sans lieux, les naissances, les morts et le commerce ne sont pas comptés.
+`JourDeFlux.affames` garde les `(cell_id, rang)` dont la population et
+`duree_faim_ticks` sont positives une fois la cellule passée par la
+consommation, la faim, la mortalité et la natalité, et seulement si la
+pénurie du tick est positive. `noter_affames` fait comme `noter_personnes` :
+un appel vide ne crée aucun jour, un monde sans registre ne note rien.
+`affames` reste hors de `to_dict`.
 
 `flux_de_maison` et `flux_de_lieu` filtrent les jours de tick supérieur ou
 égal à `ticks_ecoules − FENETRE_FLUX_TICKS`. Ainsi, après trente ticks, le
@@ -2564,7 +2572,22 @@ Paramètres relus dans `constants.py`. `jouer_ia` décide tout avant le premier 
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
 déposés dans les trente premiers jours, refus ignorés, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
 Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
-Niveau 3 : efficacité alimentaire, richesse, autres gestes, personnes, et les départs (la raison porte −1 : le monde ne les compte pas). Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
+Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. La raison d'une route porte des départs à −1 : ce geste ne les compte pas. La part, elle, compte les départs. Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
+
+Une fois par mois, une maison qui tient des lieux règle sa part. C'est de
+niveau 2, plausible, jamais sourcé. Le jour est `crc32` de sa clé modulo
+`FENETRE_FLUX_TICKS` ; la fenêtre des flux doit être pleine, sinon elle se
+tait. Elle lit en une passe les départs, les arrivées et les lieux `affames`
+de toute sa terre. Une perte nette d'au moins `TAILLE_FOYER` (départs moins
+arrivées), ou un lieu affamé, baisse la part de `IA_PAS_DE_PART`. Sinon, si
+le grenier est sous la réserve — `RESERVE_VOULUE_JOURS` et
+`RESERVE_VOULUE_PART_DES_HABITANTS` pour une part des habitants, plus les
+salaires encore dus sur les chantiers des bourgs qu'elle tient — elle la
+monte d'autant, sans dépasser `PART_MAXIMALE`. La raison se nomme
+`part_sur_projets_et_gens`. Le geste est `fixer_part`, déposé par
+`recevoir_intention`, comme une route. Le budget des routes ne compte que
+les `tracer_route` : une part déposée dans l'année ne bloque pas le tracé.
+Mesure du prototype, graine 0 : environ 2 ms par maison qui décide.
 
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,

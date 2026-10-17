@@ -1758,6 +1758,15 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         _apply_commerce(world, total_transported)
 
     penuries: dict[int, float] = {}
+    affames = set()
+
+    def recueillir_affames(cell, penurie_kg):
+        # Seulement là où la pénurie est positive : ailleurs la faim locale est remise à zéro.
+        if penurie_kg > 0:
+            for lieu in cell.lieux:
+                if lieu.population > 0 and lieu.duree_faim_ticks > 0:
+                    affames.add((cell.cell_id, lieu.rang))
+
     if facteurs_routes:
         for cell in world.cells.values():
             facteurs = facteurs_routes.get(cell.cell_id)
@@ -1769,6 +1778,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
             _update_hunger(cell, penurie_kg)
             _apply_mortality(cell)
             _apply_natalite(cell, penurie_kg)
+            recueillir_affames(cell, penurie_kg)
     else:
         for cell in world.cells.values():
             penurie_kg = _apply_consumption(cell, carte)
@@ -1776,7 +1786,9 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
             _update_hunger(cell, penurie_kg)
             _apply_mortality(cell)
             _apply_natalite(cell, penurie_kg)
+            recueillir_affames(cell, penurie_kg)
 
+    _flux.noter_affames(world, affames)
     _apply_migration(world, penuries)
 
     departs.appliquer_departs(world)
