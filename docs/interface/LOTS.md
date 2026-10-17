@@ -24,7 +24,8 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours et manque explicite ; unité/personnes confondue échoue | 230 | à faire |
 | UI-13 | Trajets : relier une charge à sa destination | 07, 12, contrat routes | Trajet fourni et absence ; trajet inventé ou quantité locale échoue | 260 | à faire |
 | UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Trois rouges puis 49 verts ; sept ordres réels, refus et raisons reçues ; [preuve](VOISINS.md) | 240 | en cours |
-| UI-15 | Passage en ville : retrouver sa capitale et revenir | 06, contrat transition J4 | Carte/ville/retour ; sélection perdue ou horloge locale échoue | 270 | à faire |
+| UI-15a | Plan du bourg : consulter ses formes et revenir à la carte | 08, `/plan` | Quatre rouges puis 53 verts ; Bar et Milan reçus, retour sans perte de sélection ; [preuve](BOURG.md) | 280 | en cours |
+| UI-15 | Passage en ville 3D : retrouver sa capitale et revenir | 15a, contrat transition J4 | Carte/ville/retour ; sélection perdue ou horloge locale échoue | 270 | à faire |
 | UI-16 | Dossier du bourg : inspecter sans construire ailleurs | 08, 15 | Capitale, autre terre, kit absent ; outil actif sans droit échoue | 220 | à faire |
 | UI-17 | Route : tracer et annuler une intention | 16 | Aperçu visuel et reçu ; annulation qui envoie un ordre échoue | 260 | à faire |
 | UI-18 | Parcelle et atelier : préparer la construction | 17 | Outil choisi, cible, refus ; double intention sur un clic échoue | 275 | à faire |
