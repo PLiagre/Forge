@@ -303,6 +303,12 @@ Ce que fait une route (`unity/Assets/ForgeLocal3D/Desert/DesertRoads.cs`) :
 Les paramètres vivent dans `routes.py` et passent à Unity par `gestes.json` ;
 Unity ne les recopie pas.
 
+Le relief applique un facteur par classe : plaine et marais ×1, colline ×1,15,
+montagne et haute montagne ×1,3. `relever` relève autour d'un pivot égal au niveau
+d'eau de la guelta, avec un fondu de 400 à 500 m du centre (distance de Tchebychev).
+Le bord reste intact. La route de l'épreuve `--sur-une-maison` est cherchée sur
+cette grille relevée au relief servi pour la cellule.
+
 **Unity ne se juge pas.** `routes.py` écrit le jeu de gestes, Unity pose les
 routes, mesure et exporte ses grilles. Python rejoue ensuite chaque route, dans
 l'ordre, depuis `hauteurs.f32` et sur l'axe qu'Unity a échantillonné, puis
@@ -310,7 +316,7 @@ compare. Sous `sorties/ville/<implantation>/routes/` :
 
 | fichier | contenu |
 |---|---|
-| `gestes.json` | paramètres, et cinq familles de gestes vérifiées sur la grille : anciennes rues du plan, plaine neuve (à plus de 20 m de toute rue), flanc de dune (20 à 40 % en travers), trop raide en long (plus de 30 % sur 10 m), trop raide en travers (plus de 60 % sur 10 m) |
+| `gestes.json` | paramètres du profil et du relief, et cinq familles de gestes vérifiées sur la grille : anciennes rues du plan, plaine neuve (à plus de 20 m de toute rue), flanc de dune (20 à 40 % en travers), trop raide en long (plus de 30 % sur 10 m), trop raide en travers (plus de 60 % sur 10 m) |
 | `unity-routes.json` | décisions, axes, hauteurs rendue et physique sous l'axe, marche, empreintes, clic, captures |
 | `jugement.json` | le verdict, ses mesures et ses contre-épreuves |
 | `captures/` | plaine, bord de près, flanc de dune, refus à l'écran |
