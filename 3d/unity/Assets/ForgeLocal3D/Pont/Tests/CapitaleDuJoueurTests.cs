@@ -91,5 +91,86 @@ namespace Forge.Pont.Tests
                 Assert.Throws<ArgumentOutOfRangeException>(() => AiguillageDeCapitale.Lire(port, d));
             Assert.AreEqual(0, Recues().Length);
         }
+        // Lot #687 — la ville sait sur quelle cellule s'ouvrir : -forgeCarte, puis -forgeCell, puis l'éditeur, enfin l'aiguillage.
+        int appels;
+        Func<Lecture<CapitaleAOuvrir>> Compteur() { appels = 0; return () => { appels++; return AiguillageDeCapitale.Lire(port, TimeSpan.FromSeconds(5)); }; }
+        // Le service sert le Zab : une décision prise sur les arguments ou l'éditeur ne doit rien lui demander.
+        Lecture<OuvertureDecidee> SansRequete(string ligne, bool editeur)
+        {
+            Servir((200, Monde(Id(Zab))), (200, Zab));
+            var d = OuvertureDeLaCapitale.Decider(ligne.Split(' '), editeur, Compteur());
+            Assert.AreEqual(0, appels, ligne); CollectionAssert.IsEmpty(Recues(), ligne); Assert.IsNotNull(d, ligne); return d;
+        }
+        static void OuverteEnVille(Lecture<OuvertureDecidee> d, long cellule)
+        {
+            Assert.IsTrue(d.Presente && d.Absence == null, d.Absence);
+            Assert.IsTrue(d.Donnees.Mode == ModeDOuverture.Ville && d.Donnees.Cellule == cellule && d.Donnees.Scene == null, d.Donnees.Mode + " " + d.Donnees.Cellule + " " + d.Donnees.Scene);
+        }
+        static void SansOuverture(Lecture<OuvertureDecidee> d, string prefixe, string attendu)
+        { Assert.IsTrue(!d.Presente && d.Donnees == null && !string.IsNullOrEmpty(d.Absence), "une ouverture de remplacement : " + d.Donnees?.Mode + " " + d.Donnees?.Cellule); StringAssert.StartsWith(prefixe, d.Absence); StringAssert.Contains(attendu, d.Absence); }
+        [TestCase("Forge.exe -forgeCell 42", false, 42L)]
+        [TestCase("Forge.exe -forgeCell 42", true, 42L)]
+        [TestCase("Forge.exe", true, 1175L)]
+        public void LesArgumentsEtLEditeurOuvrentLaVilleSansRequete(string ligne, bool editeur, long cellule)
+        {
+            OuverteEnVille(SansRequete(ligne, editeur), cellule);
+            Assert.IsTrue(typeof(OuvertureDecidee).GetProperties().All(p => !p.CanWrite));
+        }
+        [TestCase("Forge.exe -forgeCell")]
+        [TestCase("Forge.exe -forgeCell abc")]
+        [TestCase("Forge.exe -forgeCell -3")]
+        public void UneCelluleFautiveResteUneAbsenceSansRequete(string ligne)
+        {
+            string[] arguments = ligne.Split(' ');
+            PanneauLieu.LireCellule(arguments, PanneauLieu.CELLULE_PAR_DEFAUT, out string attendue);
+            Assert.IsFalse(string.IsNullOrEmpty(attendue), ligne);
+            var d = SansRequete(ligne, false);
+            SansOuverture(d, PanneauLieu.ARGUMENT_CELLULE, attendue);
+            Assert.AreEqual(attendue, d.Absence);
+            if (arguments.Length == 3) StringAssert.Contains("« " + arguments[2] + " »", d.Absence);
+        }
+        [TestCase("Forge.exe -forgeCell 1175 -forgeCarte", false)]
+        [TestCase("Forge.exe -forgeCarte -forgeCell abc", true)]
+        public void LaCarteDemandeePasseAvantLaCellule(string ligne, bool editeur)
+        {
+            var d = SansRequete(ligne, editeur);
+            Assert.IsTrue(d.Presente && d.Absence == null, d.Absence);
+            Assert.IsTrue(d.Donnees.Mode == ModeDOuverture.LaisseeALaCarte && d.Donnees.Cellule == null && d.Donnees.Scene == null, d.Donnees.Mode + " " + d.Donnees.Cellule);
+        }
+        [Test] public void SansArgumentsNiAiguillageRienNePart()
+        {
+            Servir((200, Monde(Id(Zab))), (200, Zab));
+            var compteur = Compteur();
+            Assert.Throws<ArgumentNullException>(() => OuvertureDeLaCapitale.Decider(null, false, compteur));
+            Assert.Throws<ArgumentNullException>(() => OuvertureDeLaCapitale.Decider(null, true, compteur));
+            Assert.Throws<ArgumentNullException>(() => OuvertureDeLaCapitale.Decider(new[] { "Forge.exe" }, false, null));
+            Assert.AreEqual(0, appels); CollectionAssert.IsEmpty(Recues());
+        }
+        // Le jeu bâti, sans argument : la décision suit l'aiguillage, branché sur le faux service.
+        static Lecture<OuvertureDecidee> Batie(Func<Lecture<CapitaleAOuvrir>> aiguillage) => OuvertureDeLaCapitale.Decider(new[] { "Forge.exe" }, false, aiguillage);
+        Lecture<OuvertureDecidee> BatieServie(string maisonDuJoueur, (int, string) maison)
+        { Servir((200, Monde(maisonDuJoueur)), maison); var d = Batie(Compteur()); Assert.AreEqual(1, appels); return d; }
+        static void ALaCarte(Lecture<OuvertureDecidee> d)
+        {
+            Assert.IsTrue(d.Presente && d.Absence == null, d.Absence);
+            Assert.IsTrue(d.Donnees.Mode == ModeDOuverture.Carte && d.Donnees.Scene == OuvertureDeLaCarte.SCENE && d.Donnees.Cellule == null, d.Donnees.Mode + " " + d.Donnees.Cellule + " " + d.Donnees.Scene);
+        }
+        [Test] public void LeJeuBatiOuvreLeZabASonSiege()
+        {
+            string zab = Id(Zab); OuverteEnVille(BatieServie(zab, (200, Zab)), 10103);
+            CollectionAssert.AreEqual(new[] { "GET /monde", "GET /maison?id=" + zab }, Recues());
+        }
+        [Test] public void LeJeuBatiSuitLeSiegeServi() => OuverteEnVille(BatieServie(Id(Zab), (200, Remplacer(Zab, "\"siege\":{\"cell_id\":10103", "\"siege\":{\"cell_id\":10104"))), 10104);
+        [Test] public void LeJeuBatiEnvoieBarALaCarte() { ALaCarte(BatieServie(Id(Bar), (200, Bar))); CollectionAssert.AreEqual(new[] { "GET /monde" }, Recues()); }
+        [Test] public void LeJeuBatiSansMaisonVaALaCarte() { ALaCarte(BatieServie(null, (200, Zab))); CollectionAssert.AreEqual(new[] { "GET /monde" }, Recues()); }
+        [Test] public void LeJeuBatiSansServiceNOuvreRien() { var d = Batie(Compteur()); Assert.AreEqual(1, appels); SansOuverture(d, "monde : ", "monde : service absent"); }
+        [Test] public void LeJeuBatiAvecUneFicheEnPanneNOuvreRien() => SansOuverture(BatieServie(Id(Zab), (500, "{\"erreur\":\"casse\"}")), "maison : ", "maison : statut 500");
+        [Test] public void LAbsenceDeLAiguillagePasseMotPourMot()
+        {
+            int vus = 0;
+            var d = Batie(() => { vus++; return Lecture<CapitaleAOuvrir>.Absent("cause témoin 687"); });
+            Assert.AreEqual(1, vus); SansOuverture(d, "cause témoin 687", "cause témoin 687"); Assert.AreEqual("cause témoin 687", d.Absence);
+            Assert.Throws<InvalidOperationException>(() => Batie(() => null));
+        }
     }
 }
