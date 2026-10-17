@@ -203,6 +203,13 @@ namespace Forge.Pont.Tests
         [TestCase("\"villes\":[]},{\"cell_id\":10417", "\"villes\":null},{\"cell_id\":10417", "cells[1].villes", "un tableau attendu")]
         [TestCase("\"population\":23000,", "\"population\":23000.5,", "cells[2].villes[1].population", "un entier")]
         [TestCase("\"x_m\":3860893.43,", "", "cells[2].villes[1].x_m", "clé absente")]
+        // Lot #695 — un relief présent doit être un texte non vide ; le chemin porte l'indice de la cellule fautive.
+        [TestCase("\"relief\":\"montagne\"", "\"relief\":3", "cells[1].relief", "un texte non vide attendu, reçu Double")]
+        [TestCase("\"relief\":\"montagne\"", "\"relief\":null", "cells[1].relief", "reçu null")]
+        [TestCase("\"relief\":\"montagne\"", "\"relief\":\"\"", "cells[1].relief", "un texte non vide")]
+        [TestCase("\"relief\":\"montagne\"", "\"relief\":true", "cells[1].relief", "un texte non vide")]
+        [TestCase("\"relief\":\"montagne\"", "\"relief\":[\"montagne\"]", "cells[1].relief", "un texte non vide")]
+        [TestCase("\"nom\":\"France\"},\"relief\":\"plaine\"", "\"nom\":\"France\"},\"relief\":{}", "cells[2].relief", "un texte non vide")]
         public void UneCarteFautiveEstRefuseeEnNommantSonChemin(string ancien, string nouveau, string chemin, string precision) =>
             Absente(Lire(RemplacerUneFois(CARTE_TROIS, ancien, nouveau)), chemin, precision);
 
@@ -223,6 +230,81 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentNullException>(() => new CelluleDeCarte(1, new PolygoneDeCarte[0], null, null, null));
             Assert.Throws<ArgumentNullException>(() => new VilleDeCarte(null, 1, new PointCarte(0, 0)));
             Assert.Throws<ArgumentException>(() => LectureCarte.Absent(""));
+        }
+
+        // Lot #695 — le relief de chaque cellule, relu tel que servi.
+        [Test]
+        public void LeReliefDeChaqueCelluleEstRelu()
+        {
+            LectureCarte lecture = Lire(CARTE_TROIS);
+
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            IReadOnlyList<CelluleDeCarte> cellules = lecture.Carte.Cellules;
+            Assert.IsTrue(cellules[0].CellId == 10134 && cellules[1].CellId == 10196 && cellules[2].CellId == 10417);
+            Assert.AreEqual("plaine", cellules[0].Relief);
+            Assert.AreEqual("montagne", cellules[1].Relief);
+            Assert.AreEqual("plaine", cellules[2].Relief);
+        }
+
+        // Contre-épreuve : les reliefs de CARTE_TROIS et de la fixture n'ont pas d'espace en bord,
+        // donc un Trim() y resterait vert. Le texte servi ici doit revenir exactement, espaces compris.
+        [Test]
+        public void UnReliefEntoureDEspacesEstConserveTelQuel()
+        {
+            LectureCarte lecture = Lire(RemplacerUneFois(CARTE_TROIS, "\"relief\":\"montagne\"", "\"relief\":\" montagne \""));
+
+            Assert.IsTrue(lecture.Presente && lecture.Absence == null, lecture.Absence);
+            IReadOnlyList<CelluleDeCarte> cellules = lecture.Carte.Cellules;
+            Assert.IsTrue(cellules[1].CellId == 10196);
+            Assert.AreEqual(" montagne ", cellules[1].Relief);
+            Assert.AreEqual("plaine", cellules[0].Relief);
+            Assert.AreEqual("plaine", cellules[2].Relief);
+        }
+
+        // Comptes mesurés sur la fixture (seed 0), écrits en dur : le lecteur ne fournit jamais ses propres attentes.
+        [Test]
+        public void LeReliefDeLaCarteServieEstReluSurToutesSesCellules()
+        {
+            LectureCarte lecture = Lire(System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json", Encoding.UTF8));
+
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            Assert.AreEqual(596, lecture.Carte.Cellules.Count);
+            var parClasse = new Dictionary<string, int>();
+            string biskra = null, cellule1175 = null;
+            foreach (CelluleDeCarte cellule in lecture.Carte.Cellules)
+            {
+                Assert.IsNotNull(cellule.Relief, "relief nul pour " + cellule.CellId);
+                parClasse[cellule.Relief] = parClasse.TryGetValue(cellule.Relief, out int n) ? n + 1 : 1;
+                if (cellule.CellId == 10103) biskra = cellule.Relief;
+                if (cellule.CellId == 1175) cellule1175 = cellule.Relief;
+            }
+            var attendu = new Dictionary<string, int> { { "plaine", 322 }, { "colline", 162 }, { "montagne", 77 }, { "marais", 20 }, { "haute_montagne", 15 } };
+            CollectionAssert.AreEquivalent(attendu, parClasse);
+            Assert.AreEqual("montagne", biskra);
+            Assert.AreEqual("plaine", cellule1175);
+        }
+
+        [Test]
+        public void UnReliefAbsentDonneUnReliefNul()
+        {
+            LectureCarte lecture = Lire(RemplacerUneFois(CARTE_TROIS, "\"relief\":\"montagne\",", ""));
+
+            Assert.IsTrue(lecture.Presente && lecture.Absence == null, lecture.Absence);
+            IReadOnlyList<CelluleDeCarte> cellules = lecture.Carte.Cellules;
+            Assert.AreEqual(3, cellules.Count);
+            Assert.IsNull(cellules[1].Relief);
+            Assert.AreEqual("plaine", cellules[0].Relief);
+            Assert.AreEqual("plaine", cellules[2].Relief);
+            Cellule10196(cellules[1]);
+        }
+
+        [Test]
+        public void UneCelluleSeFabriqueAvecOuSansRelief()
+        {
+            var points = new[] { new PointCarte(0, 0), new PointCarte(1, 0), new PointCarte(1, 1), new PointCarte(0, 0) };
+            var polygones = new[] { new PolygoneDeCarte(points, new IList<PointCarte>[0]) };
+            Assert.IsNull(new CelluleDeCarte(1, polygones, null, null, new VilleDeCarte[0]).Relief);
+            Assert.AreEqual("colline", new CelluleDeCarte(1, polygones, null, null, new VilleDeCarte[0], "colline").Relief);
         }
     }
 }
