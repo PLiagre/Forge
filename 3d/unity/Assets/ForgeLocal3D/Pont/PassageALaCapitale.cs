@@ -47,7 +47,7 @@ namespace Forge.Pont {
         public void Pas(double maintenant) {
             if (toile == null || SceneDemandee != null) return;
             if (enCours != null && enCours.IsCompleted) { var fini = enCours; enCours = null; Appliquer(fini); }
-            if (enCours != null || SceneDemandee != null || maintenant < prochaineLecture) return;
+            if (enCours != null || SceneDemandee != null) return;
             prochaineLecture = maintenant + PERIODE_LECTURE_S;
             int p = port; enCours = Task.Run(() => AiguillageDeCapitale.Lire(p, DELAI));
         }

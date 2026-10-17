@@ -19,12 +19,12 @@ namespace Forge.Pont.Tests
     {
         const int ATTENTE_MS = 10000;
         int port; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
-        string maisonServie; int delaiMs; // l'état du faux service, remis à chaque cas : NUnit garde l'instance
+        string maisonServie; int delaiMs; bool enPanne; // l'état du faux service, remis à chaque cas : NUnit garde l'instance
         GameObject objet; Camera cam; PassageALaCapitale passage; readonly List<string> chargees = new List<string>(); bool vuVisible;
         [SetUp] public void PortLibre()
         {
             var s = new TcpListener(IPAddress.Loopback, 0); s.Start(); port = ((IPEndPoint)s.LocalEndpoint).Port; s.Stop();
-            lock (recues) { recues.Clear(); maisonServie = null; delaiMs = 0; } chargees.Clear(); vuVisible = false;
+            lock (recues) { recues.Clear(); maisonServie = null; delaiMs = 0; enPanne = false; } chargees.Clear(); vuVisible = false;
         }
         [TearDown] public void Fermer()
         {
@@ -36,11 +36,11 @@ namespace Forge.Pont.Tests
             // Les fiches sont lues ici : Application.dataPath n'est pas lisible hors du fil principal.
             string zab = Fige("zab"), bar = Fige("bar"), idBar = Id(bar);
             var a = ecoute = new HttpListener(); a.Prefixes.Add("http://127.0.0.1:" + port + "/"); a.Start();
-            (fil = new Thread(() => { try { while (true) { var c = a.GetContext(); string url = c.Request.RawUrl; string maison; int delai;
-                lock (recues) { recues.Add(c.Request.HttpMethod + " " + url); maison = maisonServie; delai = delaiMs; }
+            (fil = new Thread(() => { try { while (true) { var c = a.GetContext(); string url = c.Request.RawUrl; string maison; int delai; bool panne;
+                lock (recues) { recues.Add(c.Request.HttpMethod + " " + url); maison = maisonServie; delai = delaiMs; panne = enPanne; }
                 if (delai > 0) Thread.Sleep(delai);
                 string fiche = maison == idBar ? bar : zab;
-                (int st, string tx) = url.StartsWith("/maison?id=", StringComparison.Ordinal) ? (200, fiche) : url == "/monde" ? (200, Monde(maison)) : (404, "{}");
+                (int st, string tx) = url.StartsWith("/maison?id=", StringComparison.Ordinal) ? (200, fiche) : url != "/monde" ? (404, "{}") : panne ? (500, "{\"erreur\":\"panne\"}") : (200, Monde(maison));
                 c.Response.StatusCode = st; c.Response.Close(Encoding.UTF8.GetBytes(tx), true); } } catch (Exception) { } }) { IsBackground = true }).Start();
         }
         void Servir(string maison) { lock (recues) maisonServie = maison; }
@@ -58,22 +58,29 @@ namespace Forge.Pont.Tests
         // Quelques pas, chacun après la fin de la lecture en vol, puis un dernier qui applique la lecture finie sans en lancer.
         void Pas(ref double instant, int tours)
         {
-            var montre = Stopwatch.StartNew();
             for (int tour = 0; tour < tours; tour++)
             {
-                passage.Pas(instant); vuVisible |= passage.PanneauVisible; instant += PassageALaCapitale.PERIODE_LECTURE_S;
-                while (passage.RequeteEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5);
+                passage.Pas(instant); vuVisible |= passage.PanneauVisible; instant += PassageALaCapitale.PERIODE_LECTURE_S; Attendre();
             }
-            Assert.IsFalse(passage.RequeteEnVol, "la lecture n'a pas fini"); passage.Pas(instant - PassageALaCapitale.PERIODE_LECTURE_S / 2); vuVisible |= passage.PanneauVisible;
+            passage.Pas(instant - PassageALaCapitale.PERIODE_LECTURE_S / 2); vuVisible |= passage.PanneauVisible;
+        }
+        void Attendre()
+        {
+            var montre = Stopwatch.StartNew(); while (passage.RequeteEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5);
+            Assert.IsFalse(passage.RequeteEnVol, "la lecture n'a pas fini");
         }
         [Test] public void LeZabConfirmeOuvreLeKsarUneSeuleFois()
         {
             string scene = TerresAvecKit.Scenes[Zab];
             Servir(); Poser(); double t = 1; Pas(ref t, 2);
             CollectionAssert.IsEmpty(chargees, "la ville s'est ouverte avant la confirmation");
+            // Le compte est relevé dans la demande même : une lecture lancée pendant ce pas arriverait après lui.
+            int lus = -1; bool enVol = true;
+            passage.ChargerScene = nom => { chargees.Add(nom); lus = Mondes(); enVol = passage.RequeteEnVol; };
             Servir(Zab); Pas(ref t, 4);
             CollectionAssert.AreEqual(new[] { scene }, chargees); Assert.AreEqual(scene, passage.SceneDemandee);
-            int lus = Mondes(); Pas(ref t, 4);
+            Assert.IsFalse(enVol, "une lecture était en vol à la demande");
+            Pas(ref t, 4); Thread.Sleep(200); // le temps qu'une lecture lâchée sans suivi atteigne le service
             CollectionAssert.AreEqual(new[] { scene }, chargees, "la scène est rechargée");
             Assert.AreEqual(lus, Mondes(), "une lecture est partie après la demande : " + string.Join(", ", Recues()));
             Assert.IsFalse(vuVisible, "le panneau s'est montré pour une terre qui a un kit");
@@ -127,6 +134,24 @@ namespace Forge.Pont.Tests
             CollectionAssert.IsEmpty(chargees, "une absence a été prise pour un départ"); Assert.IsNull(passage.Absence);
             Assert.GreaterOrEqual(Mondes(), 1, "le service revenu n'a pas été lu");
         }
+        [Test] public void UneAbsenceGardeLeDepartVu()
+        {
+            string scene = TerresAvecKit.Scenes[Zab];
+            Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            lock (recues) enPanne = true; Pas(ref t, 2);
+            StringAssert.StartsWith("monde : ", passage.Absence); StringAssert.Contains("statut 500", passage.Absence); CollectionAssert.IsEmpty(chargees);
+            lock (recues) { maisonServie = Zab; enPanne = false; } Pas(ref t, 4); // sans lecture Depart entre la panne et le Zab
+            CollectionAssert.AreEqual(new[] { scene }, chargees, "l'absence a désarmé le départ vu"); Assert.AreEqual(scene, passage.SceneDemandee);
+        }
+        [Test] public void UneAbsenceLaisseLePanneauMontre()
+        {
+            Servir(Bar); Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            Assert.IsTrue(passage.PanneauVisible);
+            lock (recues) enPanne = true; Pas(ref t, 3);
+            StringAssert.StartsWith("monde : ", passage.Absence); StringAssert.Contains("statut 500", passage.Absence);
+            Assert.IsTrue(passage.PanneauVisible, "une absence a caché le panneau"); Assert.AreEqual(PassageALaCapitale.MESSAGE_SANS_KIT, passage.TexteAffiche);
+            CollectionAssert.IsEmpty(chargees);
+        }
         [Test] public void UneLectureLenteNeBloquePasLesPas()
         {
             lock (recues) delaiMs = 500; Servir(); Poser();
@@ -134,8 +159,20 @@ namespace Forge.Pont.Tests
             for (int i = 0; i < 10; i++) passage.Pas(1 + i * PassageALaCapitale.PERIODE_LECTURE_S);
             long ecoule = montre.ElapsedMilliseconds;
             Assert.Less(ecoule, 200, "les pas attendent la lecture");
-            montre.Restart(); while (passage.RequeteEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5);
+            Attendre();
             Assert.AreEqual(1, Mondes(), string.Join(", ", Recues()));
+        }
+        [Test] public void UneLectureRapideAttendSaPeriode()
+        {
+            const double DEBUT = 1, ECHEANCE = DEBUT + PassageALaCapitale.PERIODE_LECTURE_S;
+            Servir(); Poser();
+            passage.Pas(DEBUT); Attendre(); Assert.AreEqual(1, Mondes());
+            // La lecture est finie bien avant la seconde : les pas qui la précèdent l'appliquent sans en relancer.
+            foreach (double avant in new[] { DEBUT, DEBUT + 0.25, DEBUT + 0.5, ECHEANCE - 0.001 })
+            { passage.Pas(avant); Assert.IsFalse(passage.RequeteEnVol, "une lecture est repartie à " + avant); }
+            Thread.Sleep(200); Assert.AreEqual(1, Mondes(), "une lecture est partie avant l'échéance : " + string.Join(", ", Recues()));
+            passage.Pas(ECHEANCE); Attendre(); Assert.AreEqual(2, Mondes(), "aucune lecture à l'échéance");
+            passage.Pas(ECHEANCE + 0.5); Thread.Sleep(200); Assert.AreEqual(2, Mondes(), "une lecture est partie avant la seconde échéance");
         }
         [Test] public void SansCameraRienNePart()
         {
