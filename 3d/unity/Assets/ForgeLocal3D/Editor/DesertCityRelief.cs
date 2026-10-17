@@ -11,7 +11,7 @@ namespace ForgeLocal3D
 {
     public static class DesertCityRelief
     {
-        const int Attendu = 21, N = 513; const float Bas = -8f, Haut = 40f; const string Id = "ksar_des_sept_puits";
+        const int Attendu = 22, N = 513; const float Bas = -8f, Haut = 40f; const string Id = "ksar_des_sept_puits";
         public static void Verifier()
         {
             Svc svc = null; int code = 1;
@@ -37,9 +37,13 @@ namespace ForgeLocal3D
             double Cle(string cle) { int i = json.IndexOf("\"" + cle + "\"", StringComparison.Ordinal), a = json.IndexOf(':', i) + 1; while (json[a] <= ' ') a++; int b = a; while ("0123456789+-.eE".IndexOf(json[b]) >= 0) b++; return double.Parse(json.Substring(a, b - a), CultureInfo.InvariantCulture); }
             Cas(p.pivot < 0, "pivot " + p.pivot.ToString("R", CultureInfo.InvariantCulture));
             bool absent = false; try { DesertRoads.ControlerRelief(json.Replace("\"relief_nul\":", "\"relief_nul_omis\":"), p); } catch (InvalidOperationException e) { absent = e.Message.Contains("relief_nul"); }
+            string hors = json.Replace("\"pivot\":", "\"hors\":"); hors = hors.Insert(hors.IndexOf('{') + 1, "\"pivot\":7,");
+            var fp = JsonUtility.FromJson<DesertRoads.Gestes>(hors).parametres; bool pivotHors = false; string assetAvant = DesertRoads.Empreintes(td).Tout;
+            try { DesertRoads.ControlerRelief(hors, fp); routes.AppliquerRelief(fp.relief_montagne, "montagne"); routes.Preparer(fp, 1); } catch (InvalidOperationException e) { pivotHors = e.Message.Contains("pivot"); }
             Cas(absent, "paramètre absent");
+            Cas(pivotHors && fp.pivot == 0 && terrain.terrainData == td && DesertRoads.Empreintes(td).Tout == assetAvant, "pivot hors paramètres");
             Cas(routes.FacteurRelief == 1, "facteur initial");
-            string assetAvant = DesertRoads.Empreintes(td).Tout; routes.AppliquerRelief(2, "essai"); bool jete = false;
+            routes.AppliquerRelief(2, "essai"); bool jete = false;
             try { routes.Preparer(new DesertRoads.Parametres { relief_plein = p.relief_plein, relief_nul = -1, pivot = p.pivot }, 1); } catch (InvalidOperationException) { jete = true; }
             Cas(jete && terrain.terrainData == td && DesertRoads.Empreintes(td).Tout == assetAvant, "invalide, terrain intact");
             routes.AppliquerRelief(1, null); p.pivot = Bas + td.GetHeights(ip, ip, 1, 1)[0, 0] * Haut;
@@ -70,22 +74,22 @@ namespace ForgeLocal3D
             int cartes = svc.Cartes; Cas(!outil.Ouvrir(-1L) && svc.Cartes == cartes && outil.Message.Contains("invalide") && outil.TickOuverture == -1, "invalide " + outil.Message);
             bool Refus(string mode, string extrait)
             {
-                service.Mode = mode; outil.Lancer(new[] { "Forge.exe", "-forgeCell", "7" }, false, null);
-                string avant = routes.Empreintes().Tout; int n = outil.Ouverture.Count;
+                service.Mode = mode; outil.Lancer(new[] { "Forge.exe", "-forgeCell", "7" }, false, null); string avant = routes.Empreintes().Tout; int n = outil.Ouverture.Count;
                 return !outil.Ouvrir() && outil.TickOuverture == -1 && routes.Empreintes().Tout == avant && outil.Ouverture.Count == n && outil.Message.Contains("7") && outil.Message.Contains(extrait);
             }
             Cas(Refus("erreur", "carte"), "carte " + outil.Message); Cas(Refus("absent", "absente"), "absente " + outil.Message);
             Cas(Refus("omis", "relief absent"), "omis " + outil.Message); Cas(Refus("desert", "desert"), "desert " + outil.Message);
+            int iy = centre - 40; float normC = baseH[iy, centre]; double AttC(string classe){double f=Cle("relief_"+classe),piv=Cle("pivot"),ef=1+(f-1)*Math.Clamp((Cle("relief_nul")-Math.Abs(moitie-iy*pas))/(Cle("relief_nul")-Cle("relief_plein")),0,1);return ef==1?normC:(piv+(Bas+normC*Haut-piv)*ef-Bas)/Haut;}
             svc.Mode = "ok"; svc.Cartes = 0; outil.Lancer(new[] { "Forge.exe", "-forgeCell", "7" }, false, null);
-            bool premiere = outil.Ouvrir(); float hMont = Lu(centre, centre); bool deuxieme = outil.Ouvrir(); bool rafrai = outil.Rafraichir();
+            bool premiere = outil.Ouvrir(); float hMont = Lu(centre, iy); bool deuxieme = outil.Ouvrir(); bool rafrai = outil.Rafraichir();
             var mesh = GameObject.Find("Panneau des routes")?.GetComponent<TextMesh>();
-            Cas(premiere && deuxieme && rafrai && svc.Cartes == 1 && mesh != null && mesh.text.Contains("Relief : montagne") && !outil.Message.Contains("Relief :"), "une lecture " + svc.Cartes);
-            Cas(outil.Ouvrir(8) && svc.Cartes == 1 && mesh.text.Contains("Relief : colline") && Lu(centre, centre) != hMont, "autre relief");
+            Cas(premiere && deuxieme && rafrai && svc.Cartes == 1 && mesh != null && mesh.text.Contains("Relief : montagne") && !outil.Message.Contains("Relief :") && Math.Abs(hMont - AttC("montagne")) <= tol, "une lecture " + svc.Cartes);
+            Cas(outil.Ouvrir(8) && svc.Cartes == 1 && mesh.text.Contains("Relief : colline") && Math.Abs(Lu(centre, iy) - AttC("colline")) <= tol, "autre relief");
             outil.Lancer(new[] { "Forge.exe", "-forgeCell", "7" }, false, null);
             Cas(outil.Ouvrir() && svc.Cartes == 2 && mesh.text.Contains("Relief : montagne"), "nouveau Lancer " + svc.Cartes);
-            string empreinte = routes.Empreintes().Tout; var g = DesertRoads.Lire(Id); routes.Preparer(g.parametres, g.graine);
+            string empreinte = routes.Empreintes().Tout; var g = DesertRoads.Lire(Id); routes.AppliquerRelief(g.parametres.relief_montagne, "montagne"); routes.Preparer(g.parametres, g.graine);
             var pose = routes.Poser(new DesertRoads.Geste { id = "direct", revetement = "terre", largeur = 4, x = new[] { 0d, 40d }, y = new[] { 0d, 0d } });
-            Cas(outil.Ouverture.Exists(e => e.resultat.acceptee) && pose.acceptee && routes.Empreintes().Tout == empreinte, "rue " + (pose.acceptee ? "posée" : pose.motif + " " + pose.message));
+            Cas(outil.Ouverture.Exists(e => e.resultat.acceptee) && pose.acceptee && Math.Abs(g.parametres.relief_montagne - Cle("relief_montagne")) < 1e-9 && Math.Abs(Lu(centre, iy) - AttC("montagne")) <= tol && routes.Empreintes().Tout == empreinte, "rue " + (pose.acceptee ? "posée" : pose.motif + " " + pose.message));
             long cell = outil.Cellule, tick = outil.TickOuverture; int dessins = outil.Ouverture.Count, avantCartes = svc.Cartes; string garde = routes.Empreintes().Tout;
             outil.Annuler(); bool conserve = !outil.Ouvrir(99) && outil.Cellule == cell && outil.TickOuverture == tick && outil.Ouverture.Count == dessins && routes.Empreintes().Tout == garde && svc.Cartes == avantCartes;
             Cas(mesh.text.Contains("Relief : montagne") && !outil.Message.Contains("Relief :") && conserve, "conserve " + outil.Message);
@@ -93,13 +97,8 @@ namespace ForgeLocal3D
         }
         sealed class Svc : IDisposable
         {
-            public int Cartes; public volatile string Mode = "ok";
-            readonly HttpListener http = new HttpListener();
-            public Svc()
-            {
-                http.Prefixes.Add("http://127.0.0.1:8000/"); http.Start();
-                new Thread(() => { while (http.IsListening) { HttpListenerContext c; try { c = http.GetContext(); } catch { return; } Repondre(c); } }) { IsBackground = true }.Start();
-            }
+            public int Cartes; public volatile string Mode = "ok"; readonly HttpListener http = new HttpListener();
+            public Svc(){http.Prefixes.Add("http://127.0.0.1:8000/");http.Start();new Thread(()=>{while(http.IsListening){HttpListenerContext c;try{c=http.GetContext();}catch{return;}Repondre(c);}}){IsBackground=true}.Start();}
             void Repondre(HttpListenerContext c)
             {
                 bool carte = c.Request.Url.AbsolutePath == "/carte"; if (carte) Interlocked.Increment(ref Cartes);

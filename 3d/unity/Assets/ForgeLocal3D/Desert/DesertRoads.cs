@@ -61,13 +61,14 @@ namespace ForgeLocal3D
             return g;
         }
 
-        // Huit clés de #696 : une absente ou invalide se déclare. Un pivot négatif reste valide.
+        // Huit clés dans l'objet parametres : une à la racine ne compte pas. Un pivot négatif reste valide.
         public static void ControlerRelief(string json,Parametres p)
         {
-            foreach(var k in new[]{"relief_plaine","relief_marais","relief_colline","relief_montagne","relief_haute_montagne","relief_plein","relief_nul","pivot"})
-                if(json.IndexOf("\""+k+"\"",StringComparison.Ordinal)<0)throw new InvalidOperationException("Paramètre absent : "+k);
-            if(!(p.relief_plaine>0&&p.relief_marais>0&&p.relief_colline>0&&p.relief_montagne>0&&p.relief_haute_montagne>0&&p.relief_nul>p.relief_plein&&!double.IsNaN(p.pivot)&&!double.IsInfinity(p.pivot)))
-                throw new InvalidOperationException("Paramètres de relief invalides");
+            int a=json.IndexOf("\"parametres\"",StringComparison.Ordinal),o=a<0?-1:json.IndexOf('{',a),d=0,b=o;
+            for(;b>=0&&b<json.Length&&(d>0||b==o);b++)if(json[b]=='{')d++;else if(json[b]=='}')d--;
+            var bloc=o<0||d!=0?"":json.Substring(o,b-o);
+            foreach(var k in new[]{"relief_plaine","relief_marais","relief_colline","relief_montagne","relief_haute_montagne","relief_plein","relief_nul","pivot"})if(!bloc.Contains("\""+k+"\""))throw new InvalidOperationException("Paramètre absent : "+k);
+            if(!(p.relief_plaine>0&&p.relief_marais>0&&p.relief_colline>0&&p.relief_montagne>0&&p.relief_haute_montagne>0&&p.relief_nul>p.relief_plein&&!double.IsNaN(p.pivot)&&!double.IsInfinity(p.pivot)))throw new InvalidOperationException("Paramètres de relief invalides");
         }
 
         // Traduit une classe servie en facteur. Inconnue ou absente : aucun repli, le facteur en place ne change pas.
