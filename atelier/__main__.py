@@ -7,6 +7,8 @@
     journal    le journal du matin, dans sa propre issue « Journal du JJ/MM/AAAA »
     boussole   la comparaison de la semaine avec CAP.md
     pc         le côté PC d'un lot « machine : pc » (appelé par lot-pc.yml)
+    marquer-attente
+               la réponse d'un passage du PC tombé sans répondre (lot-pc.yml)
     traces     ce qui fait rougir les contrôles d'une PR
 """
 
@@ -160,6 +162,14 @@ def _cmd_pc(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_marquer_attente(args: argparse.Namespace) -> int:
+    from . import pc
+    projet = charger(_racine(args))
+    print(pc.repondre_au_silence(projet, GitHub(projet.depot), Depot(projet.racine, projet.branche_base),
+                                 pr=args.pr, raison=args.raison))
+    return 0
+
+
 def _cmd_traces(args: argparse.Namespace) -> int:
     code, texte = traces.rapport(args.pr, args.lignes, args.depot)
     print(texte)
@@ -193,6 +203,10 @@ def main(argv: list[str] | None = None) -> int:
     pc.add_argument("--action", default="coder")
     pc.add_argument("--vendor", help="les packs de l'Asset Store à relier (D:\\Forge\\3d\\unity\\Assets\\Vendor)")
     pc.set_defaults(f=_cmd_pc)
+    attente = sous.add_parser("marquer-attente", help="la réponse d'un passage du PC tombé sans répondre")
+    attente.add_argument("--pr", type=int, required=True)
+    attente.add_argument("--raison", required=True)
+    attente.set_defaults(f=_cmd_marquer_attente)
     tr = sous.add_parser("traces", help="ce qui fait rougir les contrôles d'une PR")
     tr.add_argument("--pr", type=int, required=True)
     tr.add_argument("--lignes", type=int, default=60)

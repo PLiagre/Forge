@@ -177,3 +177,17 @@ def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, branche:
             pass
         raise
     return pilote.lignes
+
+
+def repondre_au_silence(projet: Projet, gh: GitHub, depot: Depot, *, pr: int, raison: str) -> str:
+    """Un passage tombé hors de Python (runner coupé, PC en veille, processus
+    tué, PowerShell qui casse avant `travailler`) ne laisse aucune marque, et
+    le VPS attendrait un jour : lot-pc.yml répond à sa place par une attente.
+
+    Seul un envoi resté sans réponse en reçoit une : ce qui casse en Python,
+    `travailler` le marque lui-même, et une réponse déjà écrite se garde."""
+    codeur = [m for m in lots.marques(gh.pr(pr).get("comments") or []) if m.get("role") == "codeur_3d"]
+    if not codeur or codeur[-1].get("etat") != "envoye":
+        return f"RIEN — la PR #{pr} n'attend pas le PC ({codeur[-1].get('etat') if codeur else 'aucun envoi'})"
+    Pilote(projet, gh, depot).marquer_attente(pr, "codeur_3d", raison)
+    return f"attente marquée sur la PR #{pr}"
