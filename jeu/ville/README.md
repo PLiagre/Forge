@@ -11,7 +11,7 @@ se lit, se versionne et se teste sans ouvrir Unity.
 | `Schemas/forgehistory-city-mode-v1.schema.json` | le schéma filaire, JSON Schema 2020-12 |
 | `Schemas/forgehistory-city-mode-v1.examples.json` | cinq exemples cohérents |
 | `UNITY_RENDER_DEPENDENCY_MATRIX.md` | ce que le rendu exige de chaque côté |
-| `cellule_du_desert.py` | la cellule par défaut du lanceur `pc\Jouer.cmd`, dérivée de la carte |
+| `cellule_du_desert.py` | la cellule par défaut des épreuves, dérivée de la carte |
 
 ## La règle qui tient tout
 
@@ -41,11 +41,18 @@ lieu publié ne porte ni `cell_id` recopié ni `lieu_id`.
 
 Le bloc frère `noms` publie `lieux` (`rang`, `nom`) et `maisons`, dictionnaire par identifiant de `maitre` avec `nom` et `prenom_chef` (`null` si historique). Il égale celui de la photographie ; les lectures HTTP utilisent les octets figés.
 
-## La cellule par défaut du lanceur
+## La cellule par défaut des épreuves
 
-`pc\Jouer.cmd` démarre le service de `sim/`, puis ouvre le jeu avec
-`-forgeCell <cell_id>`. Sans autre indication, ce `cell_id` est calculé par
-`cellule_du_desert.py` :
+`pc\Jouer.cmd` démarre le service de `sim/`, puis le jeu. Il ne passe
+`-forgeCell <cell_id>` qu'avec `--cellule <cell_id>`. Sans cette option, le jeu
+lit la maison du joueur au service : il ouvre sa capitale si sa terre a un kit,
+sinon la carte de 1400 ; une donnée absente est dite par le jeu (lot #688).
+Chaque lancement démarre un service neuf, sans choix : il ouvre donc la carte,
+où le joueur choisit sa terre. L'entrée dans la capitale depuis la carte vient
+avec les lots #681 et #410.
+
+Les épreuves `pc/epreuve_jalon1.py` et `pc/epreuve_carte.py` gardent leur cellule
+par défaut, calculée par `cellule_du_desert.py` :
 
 - **la règle** : la cellule dont `climat.insolation_annuelle_mj_m2` est la plus
   forte ; à égalité, le plus petit `cell_id` ;

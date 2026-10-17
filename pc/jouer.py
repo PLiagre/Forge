@@ -1,9 +1,10 @@
-"""Le lanceur du jeu : démarre le service de sim/, puis le jeu sur une cellule.
+"""Le lanceur du jeu : démarre le service de sim/, puis le jeu.
 
     py pc\\jouer.py [--port P] [--cellule C] [--carte] -- <commande du jeu…>
 
-Sans `--cellule`, la cellule est la plus ensoleillée de la carte
-(jeu/ville/cellule_du_desert.py). Avec `--carte`, le jeu s'ouvre sur la carte
+Sans `--cellule`, aucune cellule n'est imposée : le jeu lit la maison du joueur,
+ouvre sa capitale ou la carte, ou dit l'absence (lot #688).
+Avec `--carte`, le jeu s'ouvre sur la carte
 de 1400 (`-forgeCarte`, lot #524) au lieu de la ville. Le service s'arrête
 quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
 """
@@ -31,6 +32,7 @@ sys.path.insert(0, str(JEU_PY))
 from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
 
 REGLE = JEU_PY / "ville" / "cellule_du_desert.py"
+AUCUNE_CELLULE = "aucune cellule imposée : le jeu lit la maison du joueur"
 ARGUMENT_CARTE = "-forgeCarte"  # celui d'OuvertureDeLaCarte.cs
 DELAI_SERVICE_PRET_S = 60
 DELAI_ARRET_S = 5
@@ -146,8 +148,8 @@ def main(argv: list[str]) -> int:
     if not commande:
         parser.error("commande du jeu absente : attendu « -- <commande du jeu…> »")
 
-    cellule = _regle().charger_et_choisir() if args.cellule is None else args.cellule
-    print(f"cellule {cellule}", flush=True)
+    cellule = args.cellule
+    print(AUCUNE_CELLULE if cellule is None else f"cellule {cellule}", flush=True)
 
     if not Path(commande[0]).exists() and shutil.which(commande[0]) is None:
         print(
@@ -182,11 +184,13 @@ def main(argv: list[str]) -> int:
         try:
             _attendre_pret(service, attendue, stderr)
             print(attendue, flush=True)
-            _verifier_lieu(args.port, cellule, stderr)
+            if cellule is not None:
+                _verifier_lieu(args.port, cellule, stderr)
+                commande += ["-forgeCell", str(cellule)]
         except RuntimeError as exc:
             print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
             return 1
-        code = subprocess.call(commande + ["-forgeCell", str(cellule)] + ([ARGUMENT_CARTE] if args.carte else []))
+        code = subprocess.call(commande + ([ARGUMENT_CARTE] if args.carte else []))
         print(f"jeu fermé (code {code})", flush=True)
         return code
     finally:
