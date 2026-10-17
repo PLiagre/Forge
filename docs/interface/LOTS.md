@@ -6,25 +6,25 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 
 | Lot | Titre et gain joueur | Dépend de | Capture + test pouvant échouer | Budget | État |
 |---|---|---|---|---|---|
-| UI-10a | Préparer prélèvement et secours : confirmer une seule fois, lire le reçu sans effet optimiste | 08a | Quatre rouges puis 37 verts ; double clic, refus, panne, saisie française ; [preuve](ORDRES.md) | 170 | en cours |
-| UI-08a | Préparer les dossiers économiques : conserver le bon territoire et le tick de sa réponse | 06a | Quatre rouges puis trente verts ; ancienne réponse et absence refusées ; [preuve](LECTURE-DOSSIERS.md) | 220 | en cours |
+| UI-10a | Préparer prélèvement et secours : confirmer une seule fois, lire le reçu sans effet optimiste | 08a | Quatre rouges puis 37 verts ; double clic, refus, panne, saisie française ; [preuve](ORDRES.md) | 170 | livré |
+| UI-08a | Préparer les dossiers économiques : conserver le bon territoire et le tick de sa réponse | 06a | Quatre rouges puis trente verts ; ancienne réponse et absence refusées ; [preuve](LECTURE-DOSSIERS.md) | 220 | livré |
 | UI-05a | Préparer l’écran demandé : lire la maison et déposer un choix confirmé par le monde | 02 | Quatre rouges puis vingt-deux verts ; [preuve](PARTIE.md), PR #633 fusionnée | 170 | livré |
-| UI-06a | Écran intégré : parcourir la carte, choisir sa maison, régler le temps, garder un territoire ouvert | 05a, pont existant | 26 tests verts ; capture et parcours réel du service, gestes de souris et panneaux ; [preuve](PARTIE.md), PR #666 ; matériau compilé #667 | 290 | en cours |
+| UI-06a | Écran intégré : parcourir la carte, choisir sa maison, régler le temps, garder un territoire ouvert | 05a, pont existant | 26 tests verts ; capture et parcours réel du service, gestes de souris et panneaux ; [preuve](PARTIE.md), PR #666 ; matériau compilé #667 | 290 | livré |
 | UI-01 | Socle : préparer une lecture cohérente ; thème, texte, bouton, panneaux simultanés et galerie minimale | DA validée | Six tests verts et capture Play regardée ; [preuve](UI01.md), PR #630 fusionnée | 299 | livré |
 | UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Douze tests rouges puis verts, six régressions vertes ; `null` reste absent, zéro reste mesuré ; [capture et preuve](UI02.md), PR #631 fusionnée | 242 | livré |
 | UI-03 | Horloge : suspendre et reprendre le monde | 02 | Pause/vitesse reçues ; réponse retardée ne doit pas inverser l’état | 240 | à faire |
-| UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | 44 tests verts, Échap/Tabulation et retour au territoire joués ; [preuve](MENU.md) | 190 | en cours |
+| UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | 44 tests verts, Échap/Tabulation et retour au territoire joués ; [preuve](MENU.md) | 190 | livré |
 | UI-05 | Départ : lire une terre et confirmer sa maison | 02, 04 | Fiche servie puis attente/application ; double dépôt échoue | 270 | à faire |
 | UI-06 | Cadre de carte : lire le territoire sans le masquer | 01, 03, 05 | Sélection et légende à 1080p ; clic à travers panneau échoue | 260 | à faire |
 | UI-07 | Calques : distinguer relief, maîtres et habitants | 06a | Puissances/habitants : deux rouges puis 46 verts, 596 cellules réelles ; relief absent déclaré ; [preuve](CALQUES.md) | 190 | en cours |
-| UI-08 | Lieu : reconnaître habitants, stocks et maître | 08a, 06a | Trois rouges puis 33 verts ; vrai service, lieux au même tick et défilement sans zoom de carte ; [preuve](TERRITOIRES.md) | 190 | en cours |
-| UI-09 | Maison : situer siège, terres et suzerain | 08a | Trois rouges puis 42 verts et service réel ; [preuve](COMPTES.md) | 210 | en cours |
+| UI-08 | Lieu : reconnaître habitants, stocks et maître | 08a, 06a | Trois rouges puis 33 verts ; vrai service, lieux au même tick et défilement sans zoom de carte ; [preuve](TERRITOIRES.md) | 190 | livré |
+| UI-09 | Maison : situer siège, terres et suzerain | 08a | Trois rouges puis 42 verts et service réel ; [preuve](COMPTES.md) | 210 | livré |
 | UI-10 | Prélèvement : régler la part avec un reçu | 10a | 39 tests verts et service réel : 3 % pendant la pause, 20 % après tick ; [preuve](COMMANDES.md) | 240 | en cours |
 | UI-11 | Secours : ouvrir son grenier en connaissance du stock | 10a | Refus du service et cause visible, confirmation unique ; [preuve](COMMANDES.md) | 240 | en cours |
-| UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours, unités et absence explicites ; [preuve](COMPTES.md) | 210 | en cours |
+| UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours, unités et absence explicites ; [preuve](COMPTES.md) | 210 | livré |
 | UI-13 | Trajets : relier une charge à sa destination | 07, 12, contrat routes | Trajet fourni et absence ; trajet inventé ou quantité locale échoue | 260 | à faire |
-| UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Trois rouges puis 49 verts ; sept ordres réels, refus et raisons reçues ; [preuve](VOISINS.md) | 240 | en cours |
-| UI-15a | Plan du bourg : consulter ses formes et revenir à la carte | 08, `/plan` | Quatre rouges puis 53 verts ; Bar et Milan reçus, retour sans perte de sélection ; [preuve](BOURG.md) | 280 | en cours |
+| UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Trois rouges puis 49 verts ; sept ordres réels, refus et raisons reçues ; [preuve](VOISINS.md) | 240 | livré |
+| UI-15a | Plan du bourg : consulter ses formes et revenir à la carte | 08, `/plan` | Quatre rouges puis 53 verts ; Bar et Milan reçus, retour sans perte de sélection ; [preuve](BOURG.md) | 280 | livré |
 | UI-15 | Passage en ville 3D : retrouver sa capitale et revenir | 15a, contrat transition J4 | Carte/ville/retour ; sélection perdue ou horloge locale échoue | 270 | à faire |
 | UI-16 | Dossier du bourg : inspecter sans construire ailleurs | 08, 15 | Capitale, autre terre, kit absent ; outil actif sans droit échoue | 220 | à faire |
 | UI-17 | Route : tracer et annuler une intention | 16 | Aperçu visuel et reçu ; annulation qui envoie un ordre échoue | 260 | à faire |
