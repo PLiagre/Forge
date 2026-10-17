@@ -219,6 +219,14 @@ namespace Forge.Pont.Tests
                     notes.Add("sans carte : la scène a reçu un passage");
             } catch (Exception e) { notes.Add("sans carte : " + e.Message); }
             for (IEnumerator d = Decharger(scene); d.MoveNext();) yield return null;
+            // Deux scènes chargées ensemble : la carte de la scène voisine n'appartient pas à Forge_Carte.
+            (Scene voisine, GameObject etrangere) = SceneDe("Voisine", true); (scene, carte) = SceneDe(OuvertureDeLaCarte.SCENE, true);
+            try { PassageALaCapitale.AuChargement(scene, LoadSceneMode.Additive);
+                if (carte.GetComponent<PassageALaCapitale>() == null) notes.Add("scène voisine : la carte de Forge_Carte n'a pas reçu de passage");
+                if (etrangere.GetComponent<PassageALaCapitale>() != null) notes.Add("scène voisine : une carte d'une autre scène chargée a reçu un passage");
+            } catch (Exception e) { notes.Add("scène voisine : " + e.Message); }
+            for (IEnumerator d = Decharger(scene); d.MoveNext();) yield return null;
+            for (IEnumerator d = Decharger(voisine); d.MoveNext();) yield return null;
             if (notes.Count > 0) Assert.Fail(string.Join(" | ", notes));
             yield return new ExitPlayMode();
         }

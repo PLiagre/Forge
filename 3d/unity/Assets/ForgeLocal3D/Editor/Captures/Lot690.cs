@@ -19,7 +19,6 @@ namespace ForgeLocal3D.Captures
         const string TERRE = "Duché de Bar", SANS_TICK = "-forge690SansTick", MESSAGE = PassageALaCapitale.MESSAGE_SANS_KIT;
         const double ATTENTE_S = 30;
         const int IMAGES_DE_POSE = 10;
-        static readonly Rect VIEWPORT = new Rect(0f, 0f, .67f, 1f);
         static bool Drapeau() => Environment.GetCommandLineArgs().Contains(SANS_TICK);
 
         [ScenarioDeCapture(690, "bar-sans-kit")]
@@ -86,11 +85,14 @@ namespace ForgeLocal3D.Captures
                 || SceneManager.GetActiveScene().name != OuvertureDeLaCarte.SCENE || carte.GetComponents<PassageALaCapitale>().Length != 1)
                 throw new InvalidOperationException("message attendu mais absent : « " + (passage.TexteAffiche ?? "(aucun)") + " », panneau " + (passage.PanneauVisible ? "visible" : "caché")
                     + ", toiles " + (toile == null ? 0 : 1) + ", scène " + SceneManager.GetActiveScene().name + (observations == null ? "" : " ; " + observations));
+            float distance = toile.planeDistance; Rect vue = carte.camera.rect; // le viewport posé par le cabinet
             Lot549.Photographier(camera, carte);
             if (toile.worldCamera != carte.camera) throw new InvalidOperationException("la toile du passage n'est plus liée à la caméra de la carte");
-            float distance = toile.planeDistance; toile.worldCamera = camera; Text texte = toile.GetComponentInChildren<Text>(true);
-            if (toile.renderMode != RenderMode.ScreenSpaceCamera || toile.planeDistance != distance || camera.rect != VIEWPORT || carte.camera.rect != VIEWPORT)
-                throw new InvalidOperationException("toile " + toile.renderMode + " distance " + toile.planeDistance + " (gardée " + distance + "), viewport " + camera.rect + " / " + carte.camera.rect);
+            toile.worldCamera = camera; Text texte = toile.GetComponentInChildren<Text>(true);
+            // La toile garde sa distance ; elle doit tomber entre les plans de la caméra reçue, qui garde le viewport du cabinet.
+            if (toile.renderMode != RenderMode.ScreenSpaceCamera || toile.planeDistance != distance || distance <= camera.nearClipPlane || distance >= camera.farClipPlane
+                || vue.width >= 1f || camera.rect != vue)
+                throw new InvalidOperationException("toile " + toile.renderMode + " distance " + toile.planeDistance + " (plans " + camera.nearClipPlane + "–" + camera.farClipPlane + "), viewport " + camera.rect + " / cabinet " + vue);
             if (toile.worldCamera != camera || !camera.enabled || !toile.gameObject.activeInHierarchy || texte.text != MESSAGE)
                 throw new InvalidOperationException("la toile n'est pas active sur la caméra de la photo");
             DansLeChamp(camera, texte);
