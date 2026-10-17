@@ -450,9 +450,10 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
     max_essais = 1 + corrections_max
 
     # Un envoi au PC attend sa réponse ; sans réponse en un jour, on renvoie.
-    envois = sum(1 for m in codeurs if m.get("etat") == "envoye")
-    reponses = sum(1 for m in codeurs if m.get("etat") in REPONSES_PC)
-    if envois > reponses:
+    # Seul le dernier envoi attend : une relance remplace l'envoi resté muet.
+    # Le 17 octobre 2026, #654 attendait encore après le retour du PC : le
+    # passage du 16 avait cassé sans marque, deux envois pour une réponse.
+    if codeurs and codeurs[-1].get("etat") == "envoye":
         if heures_depuis_envoi_pc is not None and heures_depuis_envoi_pc > HEURES_SILENCE_PC:
             return Action("relancer_pc", "le PC n'a pas répondu en 24 h", essai=essais)
         return Action("attendre_pc", "le travail est parti sur le PC")

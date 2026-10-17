@@ -132,6 +132,20 @@ def test_une_attente_du_pc_ne_brule_pas_d_essai_et_se_renvoie_apres_une_heure():
                            heures_depuis_envoi_pc=0.1, heures_depuis_attente_pc=1.2).nom == "attendre_pc"
 
 
+def test_une_relance_remplace_l_envoi_reste_sans_reponse():
+    # #654, 17 octobre 2026 : le passage du 16 a cassé sans marque, le pilote
+    # a relancé au bout d'un jour, et le PC a répondu à la relance.
+    muet = [ENVOI, ENVOI]
+    assert action_suivante(_pr(), "vert", muet, corrections_max=2, role_codeur="codeur_3d",
+                           heures_depuis_envoi_pc=2).nom == "attendre_pc"
+    retour = dict(FAIT, role="codeur_3d")
+    assert action_suivante(_pr(), "attente", muet + [retour], corrections_max=2, role_codeur="codeur_3d",
+                           heures_depuis_envoi_pc=2).nom == "attendre_ci"
+    action = action_suivante(_pr(), "vert", muet + [retour], corrections_max=2, role_codeur="codeur_3d",
+                             heures_depuis_envoi_pc=30)
+    assert action.nom == "relire"
+
+
 def test_une_reprise_remet_les_compteurs_a_zero():
     reprise = {"role": "pilote", "etat": "reprise"}
     trois_echecs = [ENVOI, ECHEC_PC] * 3
