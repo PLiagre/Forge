@@ -14,7 +14,7 @@ namespace Forge.Pont {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
         public const float HAUTEUR_CONTOUR = 0.5f, LARGEUR_CONTOUR = 4f, HAUTEUR_NOM = 1f, HAUTEUR_CAMERA = 1000f;
-        private const string SANS_MATERIAU = "carte non dessinée : le pipeline de rendu n'a pas de matériau par défaut";
+        private const string SANS_MATERIAU = "carte non dessinée : matériau Forge/Carte absent";
         private const float ECART_PLAN = 0.2f, PROCHE = 1f, LOINTAIN = 2000f; private const int TAILLE_POLICE = 24;
         private const int TAILLE_NOM = 16; private const float TAILLE_CARACTERE = 25f; // une ligne de nom : environ 40 km, dessinée près de sa taille à l'écran
         private static readonly Color MER = new Color(0.08f, 0.16f, 0.3f), BORD = new Color(0.1f, 0.08f, 0.06f); private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
@@ -86,7 +86,9 @@ namespace Forge.Pont {
         private void Poser(CarteLue lue, CarteMaillee carte) {
             close = true;
             RenderPipelineAsset pipeline = GraphicsSettings.currentRenderPipeline;
-            Material defaut = pipeline != null ? pipeline.defaultMaterial : null;
+            // Le matériau par défaut du pipeline peut n'exister que dans l'éditeur.
+            Material defaut = Resources.Load<Material>("Forge/Carte");
+            if (defaut == null && pipeline != null) defaut = pipeline.defaultMaterial;
             if (defaut == null) { Dire(SANS_MATERIAU); return; }
             racine = new GameObject("Cellules de la carte").transform; racine.SetParent(transform, false);
             var materiaux = new Dictionary<Color, Material>(); // un par couleur, jamais par rang

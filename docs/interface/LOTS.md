@@ -1,4 +1,4 @@
-# Lots d’interface — UI-01 livré, UI-02 en cours
+# Lots d’interface — premier écran connecté en cours
 
 Validation de DA.md requise avant UI-01. Chaque ligne = une branche `direct/interface-<sujet>` depuis `origin/master`, une PR de moins de 300 lignes ajoutées + supprimées, tests, métadonnées et suivi inclus. Les tailles sont des budgets prévisionnels ; découper davantage avant de dépasser, jamais comprimer le code pour tenir. Les dépendances Jn désignent les contrats effectivement livrés de CAP.md, pas seulement leur numéro de jalon.
 Zone : `3d/unity/Assets/Interface/` et `docs/interface/`. Réutiliser `ForgeLocal3D/Pont` par adaptation ; tout raccord indispensable hors zone doit être précisément justifié dans sa PR. Aucun changement de `jeu/sim/`. UI-01 reste une galerie isolée ; aucun remplacement silencieux des scènes existantes.
@@ -6,20 +6,24 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 
 | Lot | Titre et gain joueur | Dépend de | Capture + test pouvant échouer | Budget | État |
 |---|---|---|---|---|---|
+| UI-10a | Préparer prélèvement et secours : confirmer une seule fois, lire le reçu sans effet optimiste | 08a | Quatre rouges puis 37 verts ; double clic, refus, panne, saisie française ; [preuve](ORDRES.md) | 170 | en cours |
+| UI-08a | Préparer les dossiers économiques : conserver le bon territoire et le tick de sa réponse | 06a | Quatre rouges puis trente verts ; ancienne réponse et absence refusées ; [preuve](LECTURE-DOSSIERS.md) | 220 | en cours |
+| UI-05a | Préparer l’écran demandé : lire la maison et déposer un choix confirmé par le monde | 02 | Quatre rouges puis vingt-deux verts ; [preuve](PARTIE.md), PR #633 fusionnée | 170 | livré |
+| UI-06a | Écran intégré : parcourir la carte, choisir sa maison, régler le temps, garder un territoire ouvert | 05a, pont existant | 26 tests verts ; capture et parcours réel du service, gestes de souris et panneaux ; [preuve](PARTIE.md), PR #666 ; matériau compilé #667 | 290 | en cours |
 | UI-01 | Socle : préparer une lecture cohérente ; thème, texte, bouton, panneaux simultanés et galerie minimale | DA validée | Six tests verts et capture Play regardée ; [preuve](UI01.md), PR #630 fusionnée | 299 | livré |
-| UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Douze tests rouges puis verts, six régressions vertes ; `null` reste absent, zéro reste mesuré ; [capture et preuve](UI02.md), PR #631 | 242 | en cours |
+| UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Douze tests rouges puis verts, six régressions vertes ; `null` reste absent, zéro reste mesuré ; [capture et preuve](UI02.md), PR #631 fusionnée | 242 | livré |
 | UI-03 | Horloge : suspendre et reprendre le monde | 02 | Pause/vitesse reçues ; réponse retardée ne doit pas inverser l’état | 240 | à faire |
 | UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | Navigation clavier et retour ; double ouverture échoue | 210 | à faire |
 | UI-05 | Départ : lire une terre et confirmer sa maison | 02, 04 | Fiche servie puis attente/application ; double dépôt échoue | 270 | à faire |
 | UI-06 | Cadre de carte : lire le territoire sans le masquer | 01, 03, 05 | Sélection et légende à 1080p ; clic à travers panneau échoue | 260 | à faire |
-| UI-07 | Calques : distinguer relief, maîtres et habitants | 06 | Légende liée aux données ; cellule absente ou liste vide échoue | 260 | à faire |
-| UI-08 | Lieu : reconnaître habitants, stocks et maître | 02, 06 | Deux rangs d’une même cellule ; mélange de rangs/ticks échoue | 250 | à faire |
+| UI-07 | Calques : distinguer relief, maîtres et habitants | 06a | Puissances/habitants : deux rouges puis 46 verts, 596 cellules réelles ; relief absent déclaré ; [preuve](CALQUES.md) | 190 | en cours |
+| UI-08 | Lieu : reconnaître habitants, stocks et maître | 08a, 06a | Trois rouges puis 33 verts ; vrai service, lieux au même tick et défilement sans zoom de carte ; [preuve](TERRITOIRES.md) | 190 | en cours |
 | UI-09 | Maison : situer siège, terres et suzerain | 08 | Maison sur/hors carte ; siège inventé ou absence masquée échoue | 240 | à faire |
 | UI-10 | Prélèvement : régler la part avec un reçu | 09 | Saisie puis reçu puis état ; effet optimiste avant tick échoue | 240 | à faire |
 | UI-11 | Secours : ouvrir son grenier en connaissance du stock | 09 | Quantité, refus et attente ; deux clics ne doublent pas l’ordre | 240 | à faire |
 | UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours et manque explicite ; unité/personnes confondue échoue | 230 | à faire |
 | UI-13 | Trajets : relier une charge à sa destination | 07, 12, contrat routes | Trajet fourni et absence ; trajet inventé ou quantité locale échoue | 260 | à faire |
-| UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Fil daté avec refus ; raison inventée ou doublon échoue | 240 | à faire |
+| UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Trois rouges puis 49 verts ; sept ordres réels, refus et raisons reçues ; [preuve](VOISINS.md) | 240 | en cours |
 | UI-15 | Passage en ville : retrouver sa capitale et revenir | 06, contrat transition J4 | Carte/ville/retour ; sélection perdue ou horloge locale échoue | 270 | à faire |
 | UI-16 | Dossier du bourg : inspecter sans construire ailleurs | 08, 15 | Capitale, autre terre, kit absent ; outil actif sans droit échoue | 220 | à faire |
 | UI-17 | Route : tracer et annuler une intention | 16 | Aperçu visuel et reçu ; annulation qui envoie un ordre échoue | 260 | à faire |
@@ -44,3 +48,4 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-36 | Parcours complet : garder une interface cohérente du départ au bilan | 01–35 | Captures du parcours réel ; fixture vide, service absent ou reçu ignoré échoue | 280 | à faire |
 
 Avant chaque PR : consulter les PR `head:lot/` et leurs fichiers ; prévenir seulement d’un chevauchement ; actualiser `origin/master`, rebaser avant poussée, puis `gh pr merge --auto --squash`. Contrôler les objets LFS sur le serveur après poussée. Mettre ETAT.md à jour ; ne pas confondre plan livré et capacité jouable.
+

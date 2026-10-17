@@ -1,6 +1,6 @@
 {
     "name": "Forge.Interface.Tests",
-    "references": ["Forge.Interface", "UnityEngine.UI"],
+    "references": ["Forge.Interface", "UnityEngine.UI", "Forge.Pont"],
     "includePlatforms": ["Editor"],
     "optionalUnityReferences": ["TestAssemblies"]
 }
