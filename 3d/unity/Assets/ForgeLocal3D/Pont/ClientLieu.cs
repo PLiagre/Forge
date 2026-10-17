@@ -11,13 +11,27 @@ namespace Forge.Pont
 {
     public enum EtatFoyers { Absents, NonCalcules, Servis }
 
+    // Ce qui a circulé dans un lieu sur trente jours, tel que `sim/` l'écrit : des kilos et des
+    // personnes brutes dans chaque sens, jamais un solde ni des foyers. Rien n'est recalculé ici.
+    public sealed class FluxDeLieu
+    {
+        public double PreleveKg { get; }
+        public long PartisPersonnes { get; }
+        public long ArrivesPersonnes { get; }
+        public FluxDeLieu(double preleveKg, long partisPersonnes, long arrivesPersonnes) { PreleveKg = preleveKg; PartisPersonnes = partisPersonnes; ArrivesPersonnes = arrivesPersonnes; }
+    }
+
     // Rang, position en mètres EPSG:3035 et maître. Null est déclaré : ni origine ni maître inventé.
+    // `Flux` null : `AbsenceDesFlux` nomme la cause ; trois zéros servis sont des mesures.
     public sealed class LieuPlace
     {
         public long Rang { get; }
         public PointCarte? Position { get; }
         public string Maitre { get; }
-        public LieuPlace(long rang, PointCarte? position, string maitre) { Rang = rang; Position = position; Maitre = maitre; }
+        public FluxDeLieu Flux { get; }
+        public string AbsenceDesFlux { get; }
+        public LieuPlace(long rang, PointCarte? position, string maitre, FluxDeLieu flux = null, string absenceDesFlux = null)
+        { Rang = rang; Position = position; Maitre = maitre; Flux = flux; AbsenceDesFlux = absenceDesFlux; }
     }
 
     public sealed class Logement
@@ -212,9 +226,23 @@ namespace Forge.Pont
                 var entree = tableau[i] as Dictionary<string, object> ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(tableau[i]));
                 long rang = Entier(entree, "rang", chemin + ".rang", 0, long.MaxValue);
                 if (!rangs.Add(rang)) throw new CleRefusee("clé " + chemin + ".rang : " + rang.ToString(CultureInfo.InvariantCulture) + " déjà lu");
-                liste.Add(new LieuPlace(rang, Point(entree, chemin), Maitre(entree, chemin)));
+                liste.Add(new LieuPlace(rang, Point(entree, chemin), Maitre(entree, chemin), Flux(entree, chemin, out string absenceDesFlux), absenceDesFlux));
             }
             return liste;
+        }
+
+        // `flux_30j` absent ou null : pas de flux et la cause nommée. Un bloc présent porte ses trois clés,
+        // sinon tout le lieu est refusé : aucun triplet partiel, aucune clé manquante lue comme zéro.
+        private static FluxDeLieu Flux(Dictionary<string, object> entree, string chemin, out string absence)
+        {
+            string c = chemin + ".flux_30j", kg = c + ".preleve_kg";            if (!entree.TryGetValue("flux_30j", out object brut)) { absence = "clé absente : " + c; return null; }
+            if (brut == null) { absence = "clé " + c + " : null déclaré, flux non fournis"; return null; }
+            absence = null;
+            var flux = brut as Dictionary<string, object> ?? throw new CleRefusee("clé " + c + " : un objet ou null attendu, reçu " + Decrire(brut));
+            double preleve = Nombre(Valeur(flux, "preleve_kg", kg), kg);
+            if (double.IsNaN(preleve) || double.IsInfinity(preleve) || preleve < 0)
+                throw new CleRefusee("clé " + kg + " : un nombre fini ≥ 0 attendu, reçu " + preleve.ToString("R", CultureInfo.InvariantCulture));
+            return new FluxDeLieu(preleve, Entier(flux, "partis_personnes", c + ".partis_personnes", 0, long.MaxValue), Entier(flux, "arrives_personnes", c + ".arrives_personnes", 0, long.MaxValue));
         }
 
         private static PointCarte? Point(Dictionary<string, object> entree, string chemin)
