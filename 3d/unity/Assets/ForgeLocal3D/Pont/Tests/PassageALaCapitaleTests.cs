@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -9,6 +10,7 @@ using System.Text;
 using System.Threading;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 namespace Forge.Pont.Tests
@@ -183,6 +185,63 @@ namespace Forge.Pont.Tests
             for (int i = 0; i < 5; i++) { passage.Pas(1 + i * PassageALaCapitale.PERIODE_LECTURE_S); Assert.IsFalse(passage.RequeteEnVol); }
             Thread.Sleep(100);
             CollectionAssert.IsEmpty(Recues()); CollectionAssert.IsEmpty(chargees); Assert.IsFalse(passage.PanneauVisible);
+        }
+        // Lot #690 — le rappel de chargement, sur des scènes temporaires jamais enregistrées. CreateScene n'existe qu'en jeu.
+        [UnityTest] public IEnumerator LeChargementPoseLePassageSurLaSeuleCarte()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene);
+            yield return new EnterPlayMode();
+            var notes = new List<string>(); const int PORT = 4242;
+            (Scene scene, GameObject carte) = SceneDe(OuvertureDeLaCarte.SCENE, true);
+            try {
+                carte.GetComponent<CarteDessinee>().port = PORT; PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single);
+                PassageALaCapitale pose = carte.GetComponent<PassageALaCapitale>();
+                if (pose == null) notes.Add("carte : la carte n'a pas reçu de passage");
+                else if (pose.port != PORT) notes.Add("carte : le passage n'a pas le port de la carte");
+                else { PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single); PassageALaCapitale[] tous = carte.GetComponents<PassageALaCapitale>();
+                    if (tous.Length != 1 || !ReferenceEquals(pose, tous[0]) || tous[0].port != PORT) notes.Add("carte : un second chargement a créé ou remplacé le passage"); }
+            } catch (Exception e) { notes.Add("carte : " + e.Message); }
+            for (IEnumerator d = Decharger(scene); d.MoveNext();) yield return null;
+            (scene, carte) = SceneDe(OuvertureDeLaCarte.SCENE, true);
+            try { PassageALaCapitale deja = carte.AddComponent<PassageALaCapitale>(); deja.port = 7; carte.GetComponent<CarteDessinee>().port = 9999;
+                PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single); PassageALaCapitale[] gardes = carte.GetComponents<PassageALaCapitale>();
+                if (gardes.Length != 1 || !ReferenceEquals(deja, gardes[0]) || deja.port != 7) notes.Add("déjà présent : le passage n'a pas été conservé");
+            } catch (Exception e) { notes.Add("déjà présent : " + e.Message); }
+            for (IEnumerator d = Decharger(scene); d.MoveNext();) yield return null;
+            (scene, carte) = SceneDe("AutreTerre", true);
+            try { PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single);
+                if (carte.GetComponent<PassageALaCapitale>() != null) notes.Add("autre scène : une carte hors Forge_Carte a reçu un passage");
+            } catch (Exception e) { notes.Add("autre scène : " + e.Message); }
+            for (IEnumerator d = Decharger(scene); d.MoveNext();) yield return null;
+            GameObject objet; (scene, objet) = SceneDe(OuvertureDeLaCarte.SCENE, false);
+            try { PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single);
+                if (objet.GetComponent<PassageALaCapitale>() != null || scene.GetRootGameObjects().Any(o => o.GetComponentInChildren<PassageALaCapitale>(true) != null))
+                    notes.Add("sans carte : la scène a reçu un passage");
+            } catch (Exception e) { notes.Add("sans carte : " + e.Message); }
+            for (IEnumerator d = Decharger(scene); d.MoveNext();) yield return null;
+            // Deux scènes chargées ensemble : la carte de la scène voisine n'appartient pas à Forge_Carte.
+            (Scene voisine, GameObject etrangere) = SceneDe("Voisine", true); (scene, carte) = SceneDe(OuvertureDeLaCarte.SCENE, true);
+            try { PassageALaCapitale.AuChargement(scene, LoadSceneMode.Additive);
+                if (carte.GetComponent<PassageALaCapitale>() == null) notes.Add("scène voisine : la carte de Forge_Carte n'a pas reçu de passage");
+                if (etrangere.GetComponent<PassageALaCapitale>() != null) notes.Add("scène voisine : une carte d'une autre scène chargée a reçu un passage");
+            } catch (Exception e) { notes.Add("scène voisine : " + e.Message); }
+            for (IEnumerator d = Decharger(scene); d.MoveNext();) yield return null;
+            for (IEnumerator d = Decharger(voisine); d.MoveNext();) yield return null;
+            if (notes.Count > 0) Assert.Fail(string.Join(" | ", notes));
+            yield return new ExitPlayMode();
+        }
+        static IEnumerator Decharger(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded) yield break;
+            foreach (GameObject racine in scene.GetRootGameObjects()) racine.SetActive(false);
+            for (int i = 0; i < SceneManager.sceneCount; i++) { Scene autre = SceneManager.GetSceneAt(i); if (autre != scene && autre.isLoaded) { SceneManager.SetActiveScene(autre); break; } }
+            AsyncOperation op = SceneManager.UnloadSceneAsync(scene); while (op != null && !op.isDone) yield return null;
+        }
+        static (Scene, GameObject) SceneDe(string nom, bool avecCarte)
+        {
+            Scene scene = SceneManager.CreateScene(nom); var objet = new GameObject(avecCarte ? "Carte temporaire" : "Sans carte");
+            SceneManager.MoveGameObjectToScene(objet, scene); if (avecCarte) objet.AddComponent<CarteDessinee>(); SceneManager.SetActiveScene(scene);
+            return (scene, objet);
         }
     }
 }
