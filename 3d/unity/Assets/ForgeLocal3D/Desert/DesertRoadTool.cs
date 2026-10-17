@@ -61,6 +61,7 @@ namespace ForgeLocal3D
         public string EmpreinteBatiments=>batiments?.Empreinte??"";
         DesertBatiments batiments;string erreurBatiments;
         ClientIntention depot;ClientPlan plan;string erreurCellule;
+        LectureCarte carte;bool carteLue;string reliefOuvert;
         // Les rues déjà essayées dans la session, posées ou refusées : aucune n'est posée deux fois, ni réessayée.
         readonly HashSet<long> essayees=new();
         RecuIntention enAttente;double prochaineLecture;
@@ -111,6 +112,7 @@ namespace ForgeLocal3D
         // Le panneau peut manquer (la scène de l'oued n'en a pas).
         public Lecture<OuvertureDecidee> Lancer(string[] arguments,bool editeur,PanneauLieu panneau)
         {
+            carteLue=false;carte=null;
             var decision=OuvertureDeLaCapitale.Decider(arguments,editeur,()=>AiguillageDeCapitale.Lire(Port,DelaiAiguillage));
             var mode=decision.Presente?decision.Donnees.Mode:(ModeDOuverture?)null;
             if(mode==ModeDOuverture.Ville)
@@ -141,6 +143,7 @@ namespace ForgeLocal3D
                 string etat="Terre battue, "+largeur.ToString("0.#")+" m"+(points.Count>0?" · "+points.Count+" point(s)":"");
                 panneau.text=texte==Aide?etat+"\n"+Aide:texte+"\n"+etat;
             }
+            if(reliefOuvert!=null)panneau.text+="\nRelief : "+reliefOuvert;
             halo.text=panneau.text;
             Placer();
         }
@@ -293,12 +296,8 @@ namespace ForgeLocal3D
         // paramètres des routes manquent : l'absence est affichée, jamais devinée.
         public bool Ouvrir()
         {
-            Ouverture.Clear();essayees.Clear();TickOuverture=-1;
             if(erreurCellule!=null){Afficher(erreurCellule);return false;}
-            var lu=plan.Lire(Cellule);
-            if(!lu.Presente){Afficher("Pas de plan à l'ouverture : "+lu.Absence);return false;}
-            if(!LireParametres(out var parametres))return false;
-            DessinerOuverture(lu.Plan,parametres);
+            if(!PreparerOuverture(Cellule,"Pas de plan à l'ouverture : ",false))return false;
             return true;
         }
 
@@ -310,14 +309,26 @@ namespace ForgeLocal3D
             string c=cellule.ToString(CultureInfo.InvariantCulture);
             if(cellule<0){Afficher("Cellule "+c+" invalide : un cell_id entier positif ou nul attendu.");return false;}
             plan??=new ClientPlan(Port,Delai);depot??=new ClientIntention(Port,Delai);
+            if(!PreparerOuverture(cellule,"Pas de plan pour la cellule "+c+" : ",true))return false;
+            return true;
+        }
+
+        // Carte, relief, plan et paramètres avant la remise à zéro : un refus garde la ville précédente.
+        bool PreparerOuverture(long cellule,string prefixePlan,bool changer)
+        {
+            string c=cellule.ToString(CultureInfo.InvariantCulture);
+            if(!carteLue){using(var client=new ClientCarte(Port,ClientCarte.DelaiMinimal))carte=client.Lire();carteLue=true;}
+            if(carte==null||!carte.Presente){Afficher("Cellule "+c+" : carte indisponible : "+(carte==null?"lecture absente":carte.Absence));return false;}
+            var cell=carte.Carte.Cellules.FirstOrDefault(x=>x.CellId==cellule);
+            if(cell==null){Afficher("Cellule "+c+" absente de la carte.");return false;}
+            if(string.IsNullOrEmpty(cell.Relief)){Afficher("Cellule "+c+" : relief absent.");return false;}
             var lu=plan.Lire(cellule);
-            if(!lu.Presente){Afficher("Pas de plan pour la cellule "+c+" : "+lu.Absence);return false;}
+            if(!lu.Presente){Afficher(prefixePlan+lu.Absence);return false;}
             if(!LireParametres(out var parametres))return false;
-            // La cellule change : rien de l'ancienne ne la suit.
-            Cellule=cellule;erreurCellule=null;
-            points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;
-            Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;
+            if(!roads.ResoudreRelief(parametres.parametres,cell.Relief,out var facteur,out var cause)){Afficher("Cellule "+c+" : "+cause);return false;}
+            if(changer){Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;}
             Ouverture.Clear();essayees.Clear();TickOuverture=-1;
+            roads.AppliquerRelief(facteur,cell.Relief);reliefOuvert=cell.Relief;
             DessinerOuverture(lu.Plan,parametres);
             return true;
         }
