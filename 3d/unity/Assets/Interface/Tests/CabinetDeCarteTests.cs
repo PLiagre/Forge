@@ -26,6 +26,20 @@ namespace Forge.Interface.Tests
             Assert.That(prototype.ChoixEnVol, Is.False);
         }
 
+        [Test] public void LaCommandeDesChantiersNeRecouvreAucuneCommandeVoisine()
+        {
+            var chantier = racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Chantiers");
+            var cadre = chantier.GetComponent<RectTransform>();
+            var zone = new Rect(cadre.anchoredPosition + cadre.rect.position, cadre.rect.size);
+            foreach (var autre in chantier.transform.parent.GetComponentsInChildren<Button>(true))
+            {
+                if (autre == chantier || autre.transform.parent != chantier.transform.parent) continue;
+                var rect = autre.GetComponent<RectTransform>();
+                Assert.That(zone.Overlaps(new Rect(rect.anchoredPosition + rect.rect.position, rect.rect.size)),
+                    Is.False, "Commande masquée : " + autre.name);
+            }
+        }
+
         [Test] public void LesDeuxDossiersRestentOuvertsEtLesPanneauxArretentLesClics()
         {
             foreach (var nom in new[] { "Votre maison", "Territoire conservé" })
