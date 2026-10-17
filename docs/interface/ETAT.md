@@ -11,7 +11,7 @@
 ## En cours
 
 - Tracé de rue : PR #708, rebasée après #676. Quatre contre-épreuves rouges puis 57 tests d’interface verts ; annulation sans dépôt, double confirmation unique et effet seulement au tick vérifiés. La suite d’intégration avec les nouveaux contrats de capitale passe 101 tests le 17 octobre.
-- Dossier des chantiers : `direct/interface-chantiers`, travail accompli, grain payé et motifs d’arrêt reçus. Six contre-épreuves rouges puis 102 tests verts ; parcours réel aux ticks 69/70 et trois captures regardées après correction du bouton masqué. [Preuve](CHANTIERS.md). L’aperçu Windows précédent ne contient pas encore ce dossier.
+- Dossier des chantiers : PR #713, `direct/interface-chantiers`, travail accompli, grain payé et motifs d’arrêt reçus. Six contre-épreuves rouges puis 102 tests verts ; parcours réel aux ticks 69/70 et trois captures regardées après correction du bouton masqué. [Preuve](CHANTIERS.md). Objets LFS distants vérifiés ; fusion automatique demandée. L’aperçu Windows précédent ne contient pas encore ce dossier.
 - Aperçu local : `.atelier/apercu-cabinet/Jouer.cmd`, compilé le 17 octobre avec tous ces écrans et le tracé `2f69245f`. Lancement réel : 596 cellules, souris active, arrêt du service à la fermeture. Il reste un aperçu de carte et de plan, avec les fontes et les couleurs politiques provisoires.
 
 ## Prochaine étape
