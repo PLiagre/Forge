@@ -83,5 +83,26 @@ namespace Forge.Pont {
         }
 
         private static void Detruire(UnityEngine.Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
+
+        // Lot #690 : à l'ouverture de la carte, le passage manquant se pose sur chaque CarteDessinee, avec son port.
+        // Un second avis ne crée rien. Une autre scène n'est pas touchée. Le Start prend ensuite la caméra.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Installer()
+        {
+            SceneManager.sceneLoaded -= AuChargement;
+            SceneManager.sceneLoaded += AuChargement;
+            AuChargement(SceneManager.GetActiveScene(), LoadSceneMode.Single);
+        }
+
+        public static void AuChargement(Scene scene, LoadSceneMode mode)
+        {
+            if (!scene.IsValid() || scene.name != OuvertureDeLaCarte.SCENE) return;
+            foreach (CarteDessinee carte in UnityEngine.Object.FindObjectsByType<CarteDessinee>(FindObjectsSortMode.None))
+            {
+                if (carte.gameObject.scene != scene || carte.GetComponent<PassageALaCapitale>() != null) continue;
+                PassageALaCapitale passage = carte.gameObject.AddComponent<PassageALaCapitale>();
+                passage.port = carte.port;
+            }
+        }
     }
 }
