@@ -282,3 +282,84 @@ def test_un_defaut_de_session_se_nomme_dans_le_verdict(tmp_path):
         jouer["defauts"] = defauts; statuts = {nom: ["non exécuté", "x"] for nom in epreuve.STATUTS}
         assert epreuve.juger_essai(args, tmp_path, statuts, "k", rapports, un, un, b"j", b"j") == 1
         assert statuts["relancement"][0] == "violé" and ("maison de 1400" in statuts["relancement"][1]) is nomme
+
+# Lot #696 : le kit relève le terrain autour de l'eau, avant de chercher la route.
+def test_relever_conserve_le_pivot_et_fond_au_bord():
+    import numpy as np
+    routes = epreuve.module_routes(); n = routes.terrain.RESOLUTION
+    h = np.random.default_rng(696).uniform(-5, 30, (n, n)); avant = h.copy()
+    P = dict(routes.PARAMETRES, pivot=routes.pivot(1433)); pivot = P["pivot"]
+    for classe in ("plaine", "marais"):
+        relevee = routes.relever(h, classe, P)
+        assert np.array_equal(relevee, h) and not np.shares_memory(relevee, h)
+    for classe, facteur in (("montagne", 1.3), ("haute_montagne", 1.3), ("colline", 1.15)):
+        relevee = routes.relever(h, classe, P)
+        assert relevee[1024, 1024] == pytest.approx(pivot + (h[1024, 1024] - pivot) * facteur, abs=1e-9, rel=0)
+    relevee = routes.relever(h, "montagne", P)
+    assert relevee[1024, 124] == pytest.approx(pivot + (h[1024, 124] - pivot) * 1.15, abs=1e-9, rel=0)
+    axe = routes.terrain.TAILLE / 2 - np.arange(n) * P["pas"]
+    bord = np.maximum(np.abs(axe[:, None]), np.abs(axe[None, :])) >= P["relief_nul"]
+    assert np.array_equal(relevee[bord], h[bord])
+    eau = np.full_like(h, pivot)
+    assert np.array_equal(routes.relever(eau, "montagne", P), eau)
+    assert np.array_equal(h, avant)
+    with pytest.raises(ValueError, match="classe de relief inconnue : desert"):
+        routes.relever(h, "desert", P)
+
+def test_gestes_verses_reproduits_par_le_generateur(tmp_path, monkeypatch):
+    routes = epreuve.module_routes()
+    attendus = dict(relief_plaine=1.0, relief_marais=1.0, relief_colline=1.15,
+                    relief_montagne=1.3, relief_haute_montagne=1.3, relief_plein=400.0, relief_nul=500.0)
+    assert "pivot" not in routes.PARAMETRES
+    facteurs = [v for k, v in routes.PARAMETRES.items() if k.startswith("relief_") and k not in ("relief_plein", "relief_nul")]
+    assert facteurs and max(facteurs) <= 1.39
+    assert {k: routes.PARAMETRES[k] for k in attendus} == attendus
+    sources = routes.terrain.SORTIES
+    monkeypatch.setattr(routes, "grille", lambda _ident: None)
+    monkeypatch.setattr(routes.terrain, "SORTIES", tmp_path)
+    for ident in ("ksar_des_sept_puits", "oued_des_vents"):
+        octets = (sources / ident / "routes/gestes.json").read_bytes(); gestes = json.loads(octets)
+        terrain = json.loads((sources / ident / "terrain.json").read_bytes())
+        assert gestes["parametres"]["pivot"] == routes.pivot(gestes["graine"]) == terrain["guelta"]["z"]
+        assert list(gestes["parametres"]) == [*routes.PARAMETRES, "pivot"]
+        for fonction, famille in (("anciennes", "ancienne"), ("plaine", "plaine"), ("flanc", "flanc"), ("raide_long", "raide_long"), ("raide_travers", "raide_travers")):
+            selection = [g for g in gestes["routes"] if g["famille"] == famille]
+            monkeypatch.setattr(routes, fonction, lambda *_a, resultat=selection if famille == "ancienne" else selection[0]: resultat)
+        routes.ecrire_gestes(ident, gestes["graine"])
+        assert (tmp_path / ident / "routes/gestes.json").read_bytes() == octets
+
+@pytest.mark.parametrize("cas", ("servi", "colline"))
+def test_sur_une_maison_cherche_sur_le_relief_servi(tmp_path, monkeypatch, grilles, cas):
+    import numpy as np
+    routes = epreuve.module_routes(); dossier = tmp_path / "preuve"; dossier.mkdir()
+    classes, appels = [], []; http, relever = epreuve.http, routes.relever
+    def lire(chemin, document=None):
+        reponse = http(chemin, document)
+        if chemin == "/carte" and cas == "colline":
+            carte = json.loads(reponse)
+            next(c for c in carte["cells"] if c["cell_id"] == epreuve.depart_biskra()[2])["relief"] = "colline"
+            return epreuve.serialiser(carte)
+        return reponse
+    def noter(h, classe, P):
+        classes.append(classe); return relever(h, classe, P)
+    monkeypatch.setattr(epreuve, "http", lire); monkeypatch.setattr(routes, "relever", noter)
+    monkeypatch.setattr(epreuve, "route_sur_une_maison", lambda _base, h, _largeur, P: appels.append((h, P)))
+    monkeypatch.setattr(epreuve, "charger_aides", lambda: _aides(tmp_path, dossier, grilles["raide"]))
+    monkeypatch.setattr(epreuve, "verifier_prealables", lambda a: None)
+    monkeypatch.setattr(epreuve, "preparer_sessions", lambda a, _l: dossier)
+    monkeypatch.setattr(epreuve, "appeler_unity", lambda *_a: pytest.fail("Unity ne doit pas être appelé"))
+    sortie = tmp_path / "sortie"
+    assert epreuve.main(["--avec-unity", "--sortie", str(sortie), "--sur-une-maison"]) == 2; port_libre()
+    assert "aucune route sur une maison" in (sortie / "verdict.txt").read_text(encoding="utf-8")
+    classe = "montagne" if cas == "servi" else "colline"
+    assert classes == [classe] and len(appels) == 1
+    h, P = appels[0]; attendu = dict(routes.PARAMETRES, pivot=routes.pivot(0))
+    assert P == attendu and np.array_equal(h, relever(grilles["raide"], classe, attendu))
+    assert not np.array_equal(h, grilles["raide"])
+
+def test_sur_une_maison_refuse_une_cellule_absente_de_la_carte(tmp_path, monkeypatch):
+    dossier = tmp_path / "preuve"; dossier.mkdir()
+    aides = _aides(tmp_path, dossier, None)
+    monkeypatch.setattr(epreuve, "http", lambda chemin: epreuve.serialiser({"cells": []} if chemin == "/carte" else {"base": {}}))
+    with pytest.raises(OSError, match="cellule 10103 absente de /carte"):
+        epreuve.poser_route_sur_une_maison(aides, dossier, 10103)

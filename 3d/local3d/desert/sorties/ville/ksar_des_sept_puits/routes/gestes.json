@@ -9,7 +9,15 @@
   "talus_max": 15.0,
   "bruit_bord": 0.6,
   "fondu_bord": 0.75,
-  "arrondi": 0.01
+  "arrondi": 0.01,
+  "relief_plaine": 1.0,
+  "relief_marais": 1.0,
+  "relief_colline": 1.15,
+  "relief_montagne": 1.3,
+  "relief_haute_montagne": 1.3,
+  "relief_plein": 400.0,
+  "relief_nul": 500.0,
+  "pivot": -0.6375000000000002
  },
  "routes": [
   {
