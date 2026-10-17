@@ -4,23 +4,28 @@ from dataclasses import dataclass
 import math
 
 import sim.constants as _constantes
+from sim import flux as _flux
+import sim.ville1400 as _ville1400
 from sim.chantiers import travail_requis_de_batiment, travail_requis_de_parcelle, travail_requis_de_route
 from sim.plan import Batiment, Parcelle, Plan, PlanInvalide, Rue
 from sim.puissances import PuissanceInvalide
+from sim.lieux import partager
 from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie
 
 TYPE_CHOISIR_DEPART = "choisir_depart"
 TYPE_FIXER_PART = "fixer_part"
+TYPE_OUVRIR_GRENIER = "ouvrir_grenier"
 TYPE_TRACER_ROUTE = "tracer_route"
 TYPE_DECOUPER_PARCELLE = "decouper_parcelle"
 TYPE_POSER_BATIMENT = "poser_batiment"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
+    TYPE_OUVRIR_GRENIER: ("type", "maison", "kg"),
     TYPE_FIXER_PART: ("type", "maison", "part"),
-    TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m"),
-    TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote"),
-    TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature"),
+    TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m", "maison"),
+    TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote", "maison"),
+    TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature", "maison"),
 }
 
 
@@ -43,6 +48,67 @@ class FixerPart:
 
     def appliquer(self, monde):
         monde.parts[self.maison] = self.part
+
+
+def _lieux_de_la_maison(monde, maison, indice=None):
+    """Relit l'index des routes, dans l'ordre de la table, sans registre."""
+    routes = monde.routes_des_lieux
+    if indice is None:
+        indice = routes.noms.index(maison)
+    return [(cid, rang, jours) for cid, rang, maitre_idx, jours in
+            zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours)
+            if maitre_idx == indice]
+
+
+def _poids_des_lieux(monde, entrees):
+    lieux = [monde.cells[cid].lieux[rang] for cid, rang, _ in entrees]
+    dettes = [lieu.dette_alimentaire_kg for lieu in lieux]
+    return dettes if any(dettes) else [lieu.population for lieu in lieux]
+
+
+@dataclass(frozen=True)
+class OuvrirGrenier:
+    maison: str
+    kg: int | float
+
+    def appliquer(self, monde):
+        nourriture = _constantes.MARCHANDISE_NOURRITURE
+        panier = monde.greniers[self.maison]
+        panier[nourriture] = panier.get(nourriture, 0.0) - self.kg
+        indice = monde.routes_des_lieux.noms.index(self.maison)
+        entrees = _lieux_de_la_maison(monde, self.maison, indice)
+        parts = partager(self.kg, _poids_des_lieux(monde, entrees))
+        jour = _flux.jour_courant(monde)
+        if jour is not None:
+            jour.rendu[indice] += self.kg
+        for (cid, rang, jours), part in zip(entrees, parts):
+            if part:
+                arrivee = monde.ticks_ecoules + jours - 1
+                charges = monde.secours.setdefault(arrivee, {})
+                cle = (cid, rang)
+                charges[cle] = charges.get(cle, 0.0) + part
+
+
+def _ouvrir_grenier(monde, intention):
+    maison, kg = intention["maison"], intention["kg"]
+    if not isinstance(maison, str) or not any(m.id == maison for m in monde.maisons):
+        raise IntentionRefusee(f"maison inconnue ou mal formée : {maison!r}")
+    if maison not in getattr(monde.routes_des_lieux, "noms", ()):
+        raise IntentionRefusee(f"maison sans lieu : {maison}")
+    if (isinstance(kg, bool) or not isinstance(kg, (int, float))
+            or (isinstance(kg, float) and not math.isfinite(kg)) or kg <= 0):
+        raise IntentionRefusee(f"kg invalide : {kg!r}")
+    reste = monde.greniers[maison].get(_constantes.MARCHANDISE_NOURRITURE, 0.0)
+    for precedent in monde.intentions_en_attente:
+        if isinstance(precedent, OuvrirGrenier) and precedent.maison == maison:
+            reste -= precedent.kg
+    if kg > reste:
+        raise IntentionRefusee(f"grenier insuffisant : {kg} kg demandés, {reste} kg disponibles")
+    if not any(_poids_des_lieux(monde, _lieux_de_la_maison(monde, maison))):
+        raise IntentionRefusee(f"lieux sans dette ni habitants : {maison}")
+    geste = OuvrirGrenier(maison, kg)
+    monde.intentions_en_attente.append(geste)
+    return geste
 
 
 def _fixer_part(monde, intention):
@@ -138,6 +204,29 @@ def _cellule(monde, intention):
     return cell_id
 
 
+def maitre_du_bourg(monde, cell_id):
+    """Relit le maître actuel, sans déduire un droit de la puissance."""
+    cellule = monde.cells.get(cell_id)
+    if cellule is None:
+        raise IntentionRefusee(f"cellule absente : {cell_id}")
+    bourg = next((lieu for lieu in cellule.lieux if lieu.rang == 0), None)
+    if bourg is None:
+        raise IntentionRefusee(f"bourg absent : {cell_id}")
+    maitre = bourg.maitre
+    if not isinstance(maitre, str) or not any(m.id == maitre for m in monde.maisons):
+        raise IntentionRefusee(f"maître absent ou inconnu : {maitre!r}")
+    return maitre
+
+
+def _verifier_terres(monde, intention):
+    maison = intention["maison"]
+    if not isinstance(maison, str) or not any(m.id == maison for m in monde.maisons):
+        raise IntentionRefusee(f"maison inconnue ou mal formée : {maison!r}")
+    maitre = maitre_du_bourg(monde, intention["cell"])
+    if maison != maitre:
+        raise IntentionRefusee(f"ce lieu n'est pas à toi : {maitre}")
+
+
 def _decoupe_parcelle(monde, intention):
     cell_id = _cellule(monde, intention)
     identifiant = intention["rue"]
@@ -194,6 +283,23 @@ def _pose_batiment(monde, intention):
     return PoseBatiment(cell_id, identifiant, nature, _foyers(intention))
 
 
+def verifier_base(monde, cell_id, points=None, largeur_m=None, contour=None):
+    """Garde commune du dépôt et de l'IA, sans cache ni écriture au monde."""
+    if monde.populations_bourg_amorcage is None:
+        return
+    try:
+        base = _ville1400.base_de_cellule(monde, cell_id)
+    except _ville1400.BaseAbsente as exc:
+        raise IntentionRefusee(str(exc)) from exc
+    emprises = [contour] if contour is not None else [
+        _ville1400.emprise_de_rue((a, b), largeur_m)
+        for a, b in zip(points, points[1:]) if a != b]
+    rang = _ville1400.maison_touchee(base, emprises)
+    if rang is not None:
+        foyers = base["maisons"][rang]["foyers"]
+        raise IntentionRefusee(f"cellule {cell_id} : maison de 1400 {rang} ({foyers} foyers) touchée")
+
+
 def recevoir_intention(monde, intention):
     """Point d'entrée commun : seuls les types connus peuvent être déposés."""
     type_intention = intention.get("type") if isinstance(intention, dict) else None
@@ -208,17 +314,25 @@ def recevoir_intention(monde, intention):
         if champ not in intention:
             raise IntentionRefusee(f"champ manquant : {champ}")
     for champ in intention:
-        if (champ not in champs and not (type_intention != TYPE_FIXER_PART and champ == "foyers")
+        if (champ not in champs and not (type_intention in (
+                TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT) and champ == "foyers")
                 and not (type_intention == TYPE_TRACER_ROUTE and champ == "porte_cell_id")):
             raise IntentionRefusee(f"champ inconnu : {champ}")
     if type_intention == TYPE_FIXER_PART:
         return _fixer_part(monde, intention)
+    if type_intention == TYPE_OUVRIR_GRENIER:
+        return _ouvrir_grenier(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
+        contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)
+        verifier_base(monde, pose.cell_id, contour=contour)
+        _verifier_terres(monde, intention)
         monde.intentions_en_attente.append(pose)
         return pose
     if type_intention == TYPE_DECOUPER_PARCELLE:
         decoupe = _decoupe_parcelle(monde, intention)
+        verifier_base(monde, decoupe.cell_id, contour=decoupe.contour)
+        _verifier_terres(monde, intention)
         monde.intentions_en_attente.append(decoupe)
         return decoupe
     foyers = _foyers(intention)
@@ -235,6 +349,8 @@ def recevoir_intention(monde, intention):
                 or (edge["b"] == cell_id and edge["a"] == porte) for edge in monde.adjacency)):
         raise IntentionRefusee(f"porte_cell_id : voisine terrestre attendue, reçu {porte!r}")
     route = TraceRoute(cell_id, tuple(tuple(point) for point in rue.points), rue.largeur_m, foyers, porte)
+    verifier_base(monde, cell_id, points=route.points, largeur_m=route.largeur_m)
+    _verifier_terres(monde, intention)
     monde.intentions_en_attente.append(route)
     return route
 

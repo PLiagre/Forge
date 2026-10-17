@@ -20,15 +20,20 @@ from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
-from sim.intentions import IntentionRefusee, TYPE_FIXER_PART, recevoir_intention
+from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
+from sim.maisons_servies import (
+    MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
+)
 from sim.noms import noms_depuis_monde
-from sim.model import cellule_vers_dict, lire_habitants_par_metier
+from sim.flux import flux_des_lieux
+from sim.model import copier_panier, lire_habitants_par_metier
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
+from sim.ville1400 import BaseAbsente, base_de_cellule
 
 
 DEFAULT_SERVICE_SEED = DEFAULT_CLI_SEED
@@ -53,10 +58,11 @@ def _serialiser(document: dict) -> bytes:
 
 def _cellule_legere(cellule) -> dict:
     """Extrait exactement l'état cellulaire partagé avec la photographie."""
-    etat = cellule_vers_dict(cellule)
+    # Lire les seuls champs publiés évite de copier les lieux puis de les jeter.
     return _round_tree(
-        {"cell_id": etat["cell_id"]}
-        | {champ: etat[champ] for champ in _CHAMPS_ETAT}
+        {"cell_id": cellule.cell_id}
+        | {champ: copier_panier(cellule) if champ == "stocks" else getattr(cellule, champ)
+           for champ in _CHAMPS_ETAT}
     )
 
 
@@ -113,7 +119,7 @@ def _vitesse_cli(recue: str) -> float:
 
 @dataclass(frozen=True)
 class EtatPublie:
-    """Photographie complète qu'aucun écrivain ne modifie après publication."""
+    """Photographie du tick ; plans et maisons se complètent à la première lecture."""
 
     monde: bytes
     lieux: dict[int, bytes]
@@ -123,6 +129,8 @@ class EtatPublie:
     jours_par_seconde: float
     duree_dernier_tick_ms: float
     ia: bytes | None
+    maisons: MatiereMaisons
+    octets_maisons: dict[str | None, bytes]
 
 
 class ErreurIA(RuntimeError):
@@ -148,6 +156,9 @@ class ServeurMonde(ThreadingHTTPServer):
         self.releve = []
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
+        self.verrou_base = threading.Lock()
+        self.verrou_maisons = threading.Lock()
+        self._bases = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
         self.condition_vitesse = threading.Condition()
@@ -176,6 +187,17 @@ class ServeurMonde(ThreadingHTTPServer):
                     self._carte_figee = (_serialiser(document), vue, seigneuries, table, maisons)
         return self._carte_figee
 
+    def octets_plan(self, etat, cell_id):
+        """Assemble les octets figés de la base et ceux du plan publié."""
+        with self.verrou_base:
+            if cell_id not in self._bases:
+                self._bases[cell_id] = b'{"base":' + _serialiser(base_de_cellule(self.world, cell_id)) + b','
+            octets = etat.plans[cell_id]
+            if not octets.startswith(b'{"base":'):
+                octets = self._bases[cell_id] + octets[1:]
+                etat.plans[cell_id] = octets
+            return octets
+
     def document_departs(self):
         """Lit les fiches actuelles et leur date sous le même verrou que les intentions."""
         _, vue, seigneuries, table, maisons = self.carte_figee()
@@ -187,6 +209,15 @@ class ServeurMonde(ThreadingHTTPServer):
                     s.id, self.world, seigneuries, table, maisons, vue=vue,
                 ))) for s in sorted(seigneuries, key=lambda s: s.id)],
             }
+
+    def octets_de_maison(self, etat, identifiant=None):
+        """Sérialise une fiche ou la liste une fois par état, sans attendre le tick."""
+        with self.verrou_maisons:
+            if identifiant not in etat.octets_maisons:
+                document = (liste_des_maisons(etat.maisons) if identifiant is None
+                            else document_de_maison(etat.maisons, identifiant))
+                etat.octets_maisons[identifiant] = _serialiser(document)
+            return etat.octets_maisons[identifiant]
 
     def _places_des_lieux(self) -> dict:
         """Les places des lieux (#393), recalculées seulement quand le maître d'un bourg change : c'est
@@ -209,6 +240,7 @@ class ServeurMonde(ThreadingHTTPServer):
         signature = self._signature_noms()
         if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world); self._empreinte_noms = signature
         noms = self._noms
+        flux = flux_des_lieux(self.world)
         numero_tick = self.world.ticks_ecoules
         date = self.world.date_simulation
         places = self._places_des_lieux()
@@ -223,7 +255,7 @@ class ServeurMonde(ThreadingHTTPServer):
                     "foyers": _foyers_du_lieu(self.world.cells[cellule["cell_id"]]),
                     "lieux": lieux_en_photographie(
                         cellule["cell_id"], self.world.cells[cellule["cell_id"]],
-                        places[cellule["cell_id"]],
+                        places[cellule["cell_id"]], noms[cellule["cell_id"]], flux[cellule["cell_id"]],
                     ),
                     "noms": noms[cellule["cell_id"]],
                     "tick": numero_tick,
@@ -241,17 +273,31 @@ class ServeurMonde(ThreadingHTTPServer):
         if self.world.maison_du_joueur is not None:
             document["maison_du_joueur"] = self.world.maison_du_joueur
         monde = _serialiser(document)
+        chantiers = {}
+        natures = ("rue", "parcelle", "batiment")
+        for cle, observation in self.world.chantiers_du_jour.items():
+            cell_id, *categorie, identifiant = cle
+            nature = categorie[0] if categorie else "rue"
+            chantiers.setdefault(cell_id, []).append(
+                {"nature": nature, "identifiant": identifiant, **observation})
+        for observations in chantiers.values():
+            observations.sort(key=lambda e: (natures.index(e["nature"]), e["identifiant"]))
         plans = {
             cell_id: _serialiser(
                 plan.to_dict()
                 | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
+                | ({"chantiers_du_jour": chantiers[cell_id]} if cell_id in chantiers else {})
             )
             for cell_id, plan in sorted(self.world.plans.items())
         }
+        with self.verrou_base:
+            plans = {cid: self._bases.get(cid, b"{") + octets[1:] for cid, octets in plans.items()}
         return EtatPublie(
             monde=monde,
             lieux=lieux,
             plans=plans,
+            maisons=matiere_des_maisons(self.world, noms, places),
+            octets_maisons={},
             tick=numero_tick,
             date=date,
             jours_par_seconde=jours_par_seconde,
@@ -393,6 +439,23 @@ class RequetesMonde(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         cible = urlsplit(self.path)
         etat = self.server.etat_publie
+        if cible.path in ("/maisons", "/maison"):
+            identifiant = None
+            if cible.path == "/maison":
+                valeurs = parse_qs(cible.query, keep_blank_values=True).get("id")
+                recue = None if valeurs is None else valeurs if len(valeurs) != 1 else valeurs[0]
+                if not isinstance(recue, str) or not recue:
+                    self._refuser(HTTPStatus.BAD_REQUEST,
+                                  f"paramètre id invalide : reçu {recue!r}, attendu un identifiant de maison")
+                    return
+                identifiant = recue
+            try:
+                corps = self.server.octets_de_maison(etat, identifiant)
+            except MaisonInconnue:
+                self._refuser(HTTPStatus.NOT_FOUND, f"maison inconnue : reçu {identifiant!r}")
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
+            return
         if cible.path in ("/carte", "/departs"):
             try:
                 corps = (self.server.carte_figee()[0] if cible.path == "/carte"
@@ -422,6 +485,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
                     f"cell inconnu : reçu {cell_id!r}",
                 )
                 return
+            if cible.path == "/plan":
+                try:
+                    lieu = self.server.octets_plan(etat, cell_id)
+                except BaseAbsente as exc:
+                    self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                    return
             self._repondre_octets(HTTPStatus.OK, lieu)
             return
         if cible.path == "/monde":
@@ -490,12 +559,23 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 return
             try:
                 with self.server.verrou_tick:
+                    if intention.get("type") == TYPE_OUVRIR_GRENIER:
+                        joueur = self.server.world.maison_du_joueur
+                        if joueur is None:
+                            raise IntentionRefusee("départ non appliqué : choisir une terre avant d'ouvrir le grenier")
+                        if intention.get("maison") != joueur:
+                            raise IntentionRefusee("maison interdite : seule la maison du joueur peut ouvrir son grenier")
                     if intention.get("type") == TYPE_FIXER_PART:
                         joueur = self.server.world.maison_du_joueur
                         if joueur is None:
                             raise IntentionRefusee("départ non appliqué : choisir une terre avant de fixer la part")
                         if intention.get("maison") != joueur:
                             raise IntentionRefusee("maison interdite : seule la maison du joueur peut fixer sa part")
+                    if intention.get("type") in (TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT):
+                        joueur = self.server.world.maison_du_joueur
+                        if joueur is None:
+                            raise IntentionRefusee("départ non appliqué : choisir une terre avant de bâtir")
+                        intention = dict(intention, maison=joueur)
                     recevoir_intention(self.server.world, intention)
                     etat = self.server.etat_publie
             except IntentionRefusee as exc:

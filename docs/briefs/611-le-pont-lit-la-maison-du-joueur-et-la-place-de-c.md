@@ -1,0 +1,51 @@
+# Lot #611 — Le pont lit la maison du joueur et la place de chaque lieu
+Jalon : J3 · Machine : pc · Taille prévue : 285 lignes
+
+## But
+Unity sait relire la maison choisie par le joueur et, pour chaque lieu servi, son rang, sa position et son maître, sans inventer les données absentes.
+
+## Le joueur
+Lot de fond découpé de #404 : « la lecture de `/monde` prend la maison du joueur (absente avant le choix) ainsi que la position et le maître de chaque lieu, sans faire rougir les tests actuels ». Il prépare le choix de sa terre et la reconnaissance de ses quatre lieux parmi ceux des voisins, pour décider ensuite combien leur prendre en J3. La suite visible de #404 utilisera ces lectures pour montrer sa maison et situer les lieux de son domaine ; #405 portera les gestes de gouvernement. Le joueur pourra comprendre quelle terre est la sienne et de quels habitants il dépend ; ce lot seul ne change aucun écran.
+
+## Règle du monde
+Sans objet : lecture de vue, sans modification du monde. Références : `jeu/sim/MODELE.md`, « Les intentions du joueur », « Les maisons du monde » et « Les lieux d'une cellule, vue dérivée », notamment « Ce que porte un lieu ». `/monde` porte `maison_du_joueur` seulement après application du choix au tick ; il ne contient pas les lieux. Leurs champs `rang`, `point` et `maitre` viennent de `/lieu?cell=X`, déjà servis. Le point est une vue dérivée de `sim/places.py`, jamais une coordonnée recalculée par Unity ; fidélité héritée : niveau 1 pour les sièges connus, niveau 2 pour les placements plausibles. L'identité reste le couple (cellule de la réponse, rang), sans seconde clé spatiale.
+
+Dépend de : #521 (lecture du monde), #393 (places servies) et #391 (maîtres servis), présents dans ce chantier. `PointCarte` existe déjà ; #610 reste inchangé. Aucun autre lot à attendre.
+
+## Périmètre
+3d/unity/Assets/ForgeLocal3D/Pont/ClientMonde.cs
+3d/unity/Assets/ForgeLocal3D/Pont/ClientLieu.cs
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/ClientMondeHorlogeTests.cs
+3d/unity/Assets/ForgeLocal3D/Pont/Tests/ClientLieuTests.cs
+docs/briefs/611-le-pont-lit-la-maison-du-joueur-et-la-place-de-c.md
+
+Tout autre chemin est interdit. Ajouter les cas dans les deux fichiers qui portent déjà ces lectures, en réutilisant leurs faux services et témoins. Aucun test, témoin, nom, seuil ou assertion existant ne change ; seules des méthodes et des données de test supplémentaires sont autorisées.
+
+La compatibilité est explicite : `ClientMondeHorlogeTests.LeMondeServiEstReluExactementPuisRelu` exige encore une lecture présente avec `maison_du_joueur:27`, champ jusque-là ignoré. Conserver le contrat de `ClientMonde.Lire()` ; ajouter `LireAvecMaison()`, même unique `GET /monde`, qui rend `Lecture<MondeAvecMaisonLu>`. Ce nouveau type immuable expose `MondeLu Monde` et `string MaisonDuJoueur`. Réutiliser le lecteur du monde existant, puis lire strictement la maison : clé absente → null, état avant choix ; clé présente → texte non vide hors espaces conservé exactement. Null explicite, nombre, booléen, objet ou texte blanc refusent toute cette nouvelle lecture avec le chemin `maison_du_joueur`. Aucun remplacement de 27 par une maison, aucun assouplissement du lecteur historique. Les futurs écrans de #404 appelleront la nouvelle méthode.
+
+Dans `ClientLieu.cs`, ajouter le type immuable `LieuPlace` : `long Rang`, `PointCarte? Position`, `string Maitre`, sans `CellId` recopié. Ajouter à `Lieu` une liste `IReadOnlyList<LieuPlace> Lieux` copiée en lecture seule et `string AbsenceDesLieux`. Conserver les appels de constructeur existants par un paramètre optionnel final. `ClientLieu.Lire(cellId)` lit désormais le tableau `lieux` s'il est présent : ordre conservé, rangs entiers ≥ 0 sous 2^53 et distincts ; chaque entrée exige les clés `rang`, `point`, `maitre`. Un point est null déclaré ou un objet contenant deux nombres finis `x_m`, `y_m`, relus exactement en mètres EPSG:3035 ; un maître est null déclaré ou un texte non vide hors espaces. Ignorer les autres champs, dont latitude, longitude, nom, stocks et flux des sous-lieux.
+
+Une clé `lieux` absente reste compatible avec les anciennes réponses : `Lieux=null`, `AbsenceDesLieux` nomme cette clé absente. Un tableau présent, même vide, donne une liste et aucune raison ; `lieux:null` est fautif. Null dans `point` ou `maitre` signifie absence déclarée de cette donnée, jamais origine ou maître deviné. Toute entrée mal formée refuse la réponse entière via `LectureLieu.Absent`, avec préfixe habituel et chemin précis, même au second lieu. Réutiliser les aides locales ; ne changer ni HTTP, ni les validations des champs antérieurs, ni `ServiceLocal`.
+
+## Conditions de succès
+SC1 — Rouge d'abord, puis preuve PC. Depuis la racine, avec Unity 6000.0.43f1 du projet, exécuter en PowerShell, sans `-quit` :
+```powershell
+Unity.exe -batchmode -nographics -projectPath 3d/unity -runTests -testPlatform EditMode -assemblyNames Forge.Pont.Tests -testResults "$env:TEMP\lot611.xml" -logFile "$env:TEMP\lot611.log"
+```
+Attendre la fin : sortie 0, XML sans échec, nouveaux cas des deux classes effectivement exécutés, aucun ignoré. Avant l'implémentation, constater leur échec ; une sélection vide ne prouve rien. Conserver le relevé des cas existants avant le lot et vérifier qu'ils restent tous présents et verts. Contre-épreuve : remplacer provisoirement une position lue par `(0,0)` fait rougir SC3 ; restaurer rend le vert.
+
+SC2 — Maison absente puis choisie, sans cache ni requête supplémentaire. Commande : Unity de SC1. Ajouter les cas à `ClientMondeHorlogeTests` avec ses aides existantes : trois réponses successives sur le même client, le témoin `MONDE` sans maison, puis le même avec `maison_du_joueur:"seigneurie-1"`, puis sans maison à nouveau. Vérifier les trois états exacts et tous les champs de `MondeLu`, deux cellules incluses ; chaque appel fait seulement `GET /monde`, sans paramètres ni corps. Ajouter des cas paramétrés pour maison nulle, numérique (dont 27), booléenne, objet, vide et blanche : `LireAvecMaison()` rend données nulles et absence préfixée `monde : ` avec le chemin et la cause. Une panne après succès ne conserve aucune maison ; couvrir au moins un 500 avec son corps. Contre-épreuve : rendre toujours null, convertir 27 en texte ou garder le premier choix fait échouer ces cas ; le test historique avec 27 via `Lire()` reste vert sans modification.
+
+SC3 — Chaque lieu est relu, sans confondre rang et cellule. Commande : Unity de SC1. Ajouter à `ClientLieuTests` une lecture de la fixture existante `lieu-graine0-tick3.json` : liste attendue non vide, même longueur que le tableau lu directement avec `LecteurJson`, égalité exacte de chaque rang, maître, `x_m`, `y_m`, dans l'ordre. Les attentes ne viennent pas du nouveau lecteur. Vérifier que l'échantillon contient plusieurs maîtres et au moins une position non nulle. Vérifier que modifier la liste exposée échoue ; copier une liste fournie au constructeur doit isoler le résultat des modifications de l'appelant. Relire une réponse modifiée par le même client avec un point et un maître distincts : les nouvelles valeurs sont rendues. Contre-épreuves : omettre le dernier lieu, donner le maître du bourg à tous ou inverser les coordonnées fait rougir ces comparaisons.
+
+SC4 — Les absences restent distinctes des mesures. Commande : Unity de SC1. Ajouter des témoins minimaux construits depuis la fixture, sans modifier son fichier : retirer seulement `lieux`, servir `lieux:[]`, puis un lieu avec `point:null` et `maitre:null`. Vérifier respectivement la liste nulle avec raison, la liste vide sans raison, et les deux champs nuls dans une liste présente. Un point `(0,0)` avec un maître textuel reste une mesure valide, conservée exactement. Contre-épreuve : remplacer un tableau absent par `[]`, un point nul par l'origine ou un maître nul par celui du joueur fait échouer les cas correspondants.
+
+SC5 — Une faute refuse tout le lieu en nommant son chemin. Commande : Unity de SC1. Cas paramétrés ajoutés à `ClientLieuTests` : `lieux` nul ou objet ; entrée non objet ; retrait de chacune des clés `rang`, `point`, `maitre`, `point.x_m`, `point.y_m` au second lieu ; rang négatif, fractionnaire, booléen, ≥ 2^53 ou répété ; point non objet ; coordonnée textuelle ; maître numérique ou blanc. Exiger `Presente=false`, `Lieu=null`, cause non vide avec cellule et chemin fautif. Chaque mutation vérifie qu'elle a changé le témoin à l'endroit voulu et reste un JSON valide. Une coordonnée `1e309` rend « JSON invalide » via le lecteur existant. Contre-épreuve : restaurer chaque témoin rétablit la lecture ; remplacer une clé requise absente par une valeur par défaut fait rougir son cas.
+
+SC6 — Contrats conservés et diff borné. Commandes : Unity de SC1 et `py -m pytest jeu/sim/tests/test_intentions.py -q -k test_service_refus_et_choix` sur le PC (`python3` sur Linux), puis `git diff --check`, `git diff --name-only` et `git diff --numstat`, en comptant aussi les fichiers neufs. Le test Python existant vérifie le vrai service : maison absente avant choix et tant qu'il attend, chaîne du registre après le tick. Aucun test existant ne doit rougir du lot ; aucun contrat Python ne change. Moins de 300 lignes ajoutées et supprimées, brief compris ; budget : 90 de production, 130 de tests ajoutés, 65 de brief. Contre-épreuves : exposer le choix avant le tick fait échouer le test Python ; une modification d'un cas existant, un chemin supplémentaire ou un total ≥ 300 refuse la livraison.
+
+## Hors périmètre
+Service Python, modèle et règles du monde ; enrichissement de `/monde` avec les lieux ; modification des tests existants, fixtures ou aides partagées ; autres clients et assemblages. Aucun choix envoyé, requête `/maison`, rapprochement automatique de réponses de ticks différents, cache, boucle de rafraîchissement, recherche de propriétaire, projection, dessin ou panneau. Les lectures gardent leur tick propre ; l'intégration visible et la coordination des lectures restent à #404, les parts et le grenier à #405.
+
+## Photo
+sans objet : ce lot d'outil ajoute des lectures de données sans les brancher à une scène et ne change rien de ce qu'on voit à l'écran. La suite visible de #404 portera le scénario de capture Unity montrant la maison choisie et ses lieux.

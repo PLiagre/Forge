@@ -6,6 +6,7 @@ using System.Text;
 using Forge.Pont;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace ForgeLocal3D
 {
@@ -27,6 +28,9 @@ namespace ForgeLocal3D
     // de l'outil n'atteint jamais le monde ; celui du monde s'affiche avec sa raison. Échap ramène aux routes.
     // Lot 377 : 1, 2, 3 passent en mode bâtiment (maison, scierie, four). Un clic sur une parcelle forme la pose
     // (PoseDeBatiment) et dépose `poser_batiment` au monde ; Attendre dessine la pièce au tick suivant.
+    // Lot 584 : Ouvrir(cellule) ouvre la ville d'une autre cellule, celle des lectures et des dépôts suivants, sur le
+    // même service local ; rien de l'ancienne cellule (points, mode, reçu, dépôt en attente, relevés de pose) ne la suit.
+    // Lot 688 : au lancement, Lancer applique la décision de #687 : la cellule du siège du joueur, la carte de 1400, ou l'absence.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -73,6 +77,9 @@ namespace ForgeLocal3D
         const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · Échap : annuler";
         const double PeriodeLecture=.25;
         static readonly TimeSpan Delai=TimeSpan.FromSeconds(1);
+        // Lot 688 : l'aiguillage du lancement lit /monde puis /maison ; les gestes gardent leur délai.
+        static readonly TimeSpan DelaiAiguillage=TimeSpan.FromSeconds(5);
+        const string CarteOuverte="La carte de 1400 s'ouvre : aucune capitale à ouvrir ici.";
 
         void Awake()
         {
@@ -86,9 +93,8 @@ namespace ForgeLocal3D
             panneau=Texte("Panneau des routes",view.transform,new Color(.12f,.06f,.03f));
             // Un halo clair derrière le texte : il reste lisible sur le sable comme dans l'ombre.
             halo=Texte("Halo",panneau.transform,new Color(1f,.95f,.84f,.9f));
-            Cellule=PanneauLieu.LireCellule(Environment.GetCommandLineArgs(),PanneauLieu.CELLULE_PAR_DEFAUT,out erreurCellule);
             Port=PanneauLieu.DEFAULT_SERVICE_PORT;
-            if(erreurCellule==null){depot=new ClientIntention(Port,Delai);plan=new ClientPlan(Port,Delai);}
+            Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>());
             // Sans matériau, aucune parcelle n'est jamais dessinée : le panneau le dit.
             try{parcelles=new DesertParcelles(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurParcelles=e.Message;}
@@ -98,6 +104,28 @@ namespace ForgeLocal3D
             Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
         }
         void Start()=>Ouvrir();
+
+        // Lot 688 : applique la décision du lancement (OuvertureDeLaCapitale, #687), puis la rend. En ville, la cellule est
+        // celle des lectures et des dépôts, et le panneau du lieu la suit ; aucun plan n'est lu ici, Ouvrir() le dessine.
+        // Sinon, aucune cellule : l'absence garde sa cause mot pour mot, et le panneau du lieu s'éteint sans rien lire.
+        // Le panneau peut manquer (la scène de l'oued n'en a pas).
+        public Lecture<OuvertureDecidee> Lancer(string[] arguments,bool editeur,PanneauLieu panneau)
+        {
+            var decision=OuvertureDeLaCapitale.Decider(arguments,editeur,()=>AiguillageDeCapitale.Lire(Port,DelaiAiguillage));
+            var mode=decision.Presente?decision.Donnees.Mode:(ModeDOuverture?)null;
+            if(mode==ModeDOuverture.Ville)
+            {
+                Cellule=decision.Donnees.Cellule.Value;erreurCellule=null;
+                plan??=new ClientPlan(Port,Delai);depot??=new ClientIntention(Port,Delai);
+                if(panneau)panneau.Ouvrir(Cellule);
+                return decision;
+            }
+            Cellule=-1;erreurCellule=mode==null?decision.Absence:CarteOuverte;
+            if(panneau)panneau.enabled=false;
+            // LaisseeALaCarte : OuvertureDeLaCarte change déjà de scène.
+            if(mode==ModeDOuverture.Carte)SceneManager.LoadScene(decision.Donnees.Scene);
+            return decision;
+        }
         void OnDestroy(){depot?.Dispose();plan?.Dispose();depot=null;plan=null;}
         void Afficher(string texte)
         {
@@ -269,15 +297,44 @@ namespace ForgeLocal3D
             if(erreurCellule!=null){Afficher(erreurCellule);return false;}
             var lu=plan.Lire(Cellule);
             if(!lu.Presente){Afficher("Pas de plan à l'ouverture : "+lu.Absence);return false;}
-            DesertRoads.Gestes parametres;
-            try{parametres=DesertRoads.Lire(roads.implantation);}
-            catch(InvalidOperationException e){Afficher(e.Message);return false;}
+            if(!LireParametres(out var parametres))return false;
+            DessinerOuverture(lu.Plan,parametres);
+            return true;
+        }
+
+        // Lot 584 : la ville d'une autre cellule, sur une copie vierge du terrain, par le dessin d'Ouvrir(). Le port reste
+        // celui du service local. Faux, sans rien changer ni dessiner, si la cellule est invalide, son plan absent ou les
+        // paramètres des routes manquants : l'absence est affichée, jamais remplacée par un plan de secours.
+        public bool Ouvrir(long cellule)
+        {
+            string c=cellule.ToString(CultureInfo.InvariantCulture);
+            if(cellule<0){Afficher("Cellule "+c+" invalide : un cell_id entier positif ou nul attendu.");return false;}
+            plan??=new ClientPlan(Port,Delai);depot??=new ClientIntention(Port,Delai);
+            var lu=plan.Lire(cellule);
+            if(!lu.Presente){Afficher("Pas de plan pour la cellule "+c+" : "+lu.Absence);return false;}
+            if(!LireParametres(out var parametres))return false;
+            // La cellule change : rien de l'ancienne ne la suit.
+            Cellule=cellule;erreurCellule=null;
+            points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;
+            Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;
+            Ouverture.Clear();essayees.Clear();TickOuverture=-1;
+            DessinerOuverture(lu.Plan,parametres);
+            return true;
+        }
+
+        bool LireParametres(out DesertRoads.Gestes parametres)
+        {
+            try{parametres=DesertRoads.Lire(roads.implantation);return true;}
+            catch(InvalidOperationException e){parametres=null;Afficher(e.Message);return false;}
+        }
+
+        void DessinerOuverture(PlanLu lu,DesertRoads.Gestes parametres)
+        {
             roads.Preparer(parametres.parametres,parametres.graine);
-            Ouverture.AddRange(Dessiner(lu.Plan));TickOuverture=lu.Plan.Tick;
+            Ouverture.AddRange(Dessiner(lu));TickOuverture=lu.Tick;
             // Les parcelles après les rues : leur sol est celui de la copie où les rues sont posées.
             Afficher(Bilan("Plan du tick "+TickOuverture.ToString(CultureInfo.InvariantCulture)+" : "+Ouverture.Count(e=>e.resultat.acceptee)+" rue(s) posée(s).",Ouverture)
-                +"\n"+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
-            return true;
+                +"\n"+DessinerParcelles(lu)+"\n"+DessinerBatiments(lu));
         }
 
         // Lot 362 : relit le plan et redessine ses parcelles, sans toucher aux rues. Faux, parcelles

@@ -1,0 +1,12 @@
+invariant violé
+commande : py pc/epreuve_jalon4.py --avec-unity --sortie C:\Users\liagr\AppData\Local\Temp\forge-583-maison --sur-une-maison
+date : 2026-10-11T23:28:40+02:00
+révision : 7ad0e3b57c59b58aca8eee8656281f4e70b0e2d0 5b3f9831b9f22e9cb8ab433ebeb7e07ea2526cc6
+unity : 6000.0.43f1
+code : 1
+égalité du monde : non exécuté — contrôle non exécuté
+relancement : violé — jouer : 3 défaut(s) : jouer, tick 1, la route : la route consigne refusé(e) par le monde : Le monde refuse la route : cellule 10103 : maison de 1400 0 (1 foyers) touchée ; jouer, tick 1 : gestes [] au lieu de [tracer_route, decouper_parcelle, poser_batiment] ; jouer, tick -1 : la ville n'a pas été relevée ; relance : 1 défaut(s) : relance, tick 1 : la session jouer n'a pas de ville relevée à comparer ; le normal exige 11 ticks ; tick des rapports différent du monde servi
+sans geste : non exécuté — contrôle non exécuté
+foyers : non exécuté — contrôle non exécuté
+gestes : non exécuté — contrôle non exécuté
+motif : relancement — jouer : 3 défaut(s) : jouer, tick 1, la route : la route consigne refusé(e) par le monde : Le monde refuse la route : cellule 10103 : maison de 1400 0 (1 foyers) touchée ; jouer, tick 1 : gestes [] au lieu de [tracer_route, decouper_parcelle, poser_batiment] ; jouer, tick -1 : la ville n'a pas été relevée ; relance : 1 défaut(s) : relance, tick 1 : la session jouer n'a pas de ville relevée à comparer ; le normal exige 11 ticks ; tick des rapports différent du monde servi

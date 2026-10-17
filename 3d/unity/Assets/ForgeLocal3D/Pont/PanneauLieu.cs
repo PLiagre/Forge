@@ -11,6 +11,7 @@ namespace Forge.Pont
     // Le panneau du lieu : il montre ce que le service local de `sim/` dit d'une
     // cellule, et ne calcule aucun nombre. La lecture part hors du fil principal ;
     // son résultat s'applique dans Update. Une absence remplace les nombres.
+    // Lot 686 : Ouvrir(cellule) choisit la cellule lue, avant le démarrage ou en cours de jeu.
     public sealed class PanneauLieu : MonoBehaviour
     {
         public const float PERIODE_LECTURE_S = 0.25f;
@@ -44,6 +45,8 @@ namespace Forge.Pont
         private bool dejaLu;
         private long tickAffiche;
         private string absenceAffichee;
+        private long? celluleChoisie;
+        private bool periodeARecaler;
 
         public string TexteAffiche => texte != null ? texte.text : null;
         public string TexteFoyers => texteFoyers != null ? texteFoyers.text : null;
@@ -80,14 +83,44 @@ namespace Forge.Pont
                 return;
             }
             Construire();
-            celluleLue = LireCellule(arguments, cellule, out string erreur);
+            // Une cellule choisie par Ouvrir passe avant le défaut et -forgeCell : l'appelant a décidé.
+            string erreur = null;
+            if (!celluleChoisie.HasValue) celluleLue = LireCellule(arguments, cellule, out erreur);
+            else if ((celluleLue = celluleChoisie.Value) < 0) erreur = Refus(celluleLue);
             if (erreur != null)
             {
                 texte.text = erreur;
                 return;
             }
-            texte.text = MARQUE_SERVICE_ABSENT + " : en attente de " + Adresse();
+            texte.text = Attente();
             client = new ClientLieu(port, DELAI_LECTURE);
+        }
+
+        // Avant le démarrage, retient la cellule ; après, efface l'affichage de l'ancienne,
+        // abandonne sa lecture en vol et lit tout de suite la nouvelle. Une cellule négative
+        // est refusée et plus rien ne se lit jusqu'au prochain Ouvrir valable.
+        public void Ouvrir(long nouvelle)
+        {
+            if (texte == null)
+            {
+                celluleChoisie = nouvelle;
+                return;
+            }
+            enCours = null; // le résultat d'une lecture abandonnée n'est jamais appliqué
+            dejaLu = false; // même tick, autre cellule : Appliquer doit tout refaire
+            texteFoyers.text = "";
+            texteFoyers.gameObject.SetActive(false);
+            if (nouvelle < 0)
+            {
+                texte.text = Refus(nouvelle);
+                Arreter();
+                return;
+            }
+            celluleLue = nouvelle;
+            texte.text = Attente();
+            client ??= new ClientLieu(port, DELAI_LECTURE);
+            periodeARecaler = true;
+            Lancer();
         }
 
         public void Arreter()
@@ -99,6 +132,9 @@ namespace Forge.Pont
         // Ce qu'Update fait à chaque image : appliquer une lecture finie, en lancer une autre à l'heure.
         public void Pas(double maintenant)
         {
+            // Ouvrir a lancé une lecture sans connaître l'heure : la période part du pas suivant.
+            if (periodeARecaler) prochaineLecture = maintenant + PERIODE_LECTURE_S;
+            periodeARecaler = false;
             if (enCours != null && enCours.IsCompleted)
             {
                 Appliquer(enCours.Result);
@@ -106,6 +142,11 @@ namespace Forge.Pont
             }
             if (client == null || enCours != null || maintenant < prochaineLecture) return;
             prochaineLecture = maintenant + PERIODE_LECTURE_S;
+            Lancer();
+        }
+
+        private void Lancer()
+        {
             ClientLieu lecteur = client;
             long cell = celluleLue;
             enCours = Task.Run(() => lecteur.Lire(cell));
@@ -125,6 +166,8 @@ namespace Forge.Pont
         }
 
         private string Adresse() => HOTE + ":" + port.ToString(CultureInfo.InvariantCulture);
+        private string Attente() => MARQUE_SERVICE_ABSENT + " : en attente de " + Adresse();
+        private static string Refus(long c) => "Cellule " + Entier(c) + " invalide : un cell_id entier positif ou nul attendu.";
 
         // Le client ouvre sa cause par « lieu <cell_id> : », puis la nomme. Seules ses deux
         // causes réseau (service absent, délai dépassé) disent le service absent : on les lit

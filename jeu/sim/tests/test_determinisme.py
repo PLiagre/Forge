@@ -481,7 +481,8 @@ def test_plan_absent_de_l_arbre_du_moteur():
     assert len(lectures("world.plans")) == 1
 
 
-def test_depart_deterministe_sans_effet_sur_les_cellules():
+def test_depart_deterministe_sans_effet_sur_les_cellules(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.intentions import deposer_intention
     from sim.seigneuries import charger_seigneuries
 
@@ -515,14 +516,17 @@ def test_depart_deterministe_sans_effet_sur_les_cellules():
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
 
 
-def test_gestes_routes_deterministes_seule_la_cellule_du_chantier():
+def test_gestes_routes_deterministes_seule_la_cellule_du_chantier(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim import constants as k
     from sim.intentions import recevoir_intention
-    from sim.tests.test_intentions import _route_reference
+    from sim.tests.test_intentions import _route_reference, _financer, _temoin_salaire
 
     mondes = [World.charger(0) for _ in range(4)]
     aleas = [random.Random(0) for _ in mondes]
     route = _route_reference(mondes[0])
+    for monde in mondes: _financer(monde, route['cell'])
+    _temoin_salaire(monkeypatch, mondes[2], route['cell'], [k.TAILLE_FOYER] * 3 + [2 * k.TAILLE_FOYER] * 7)
     for numero in range(10):
         for rang, (monde, alea) in enumerate(zip(mondes, aleas)):
             if numero in (0, 3) and rang != 2:
@@ -564,7 +568,14 @@ def test_gestes_routes_deterministes_seule_la_cellule_du_chantier():
     for etat in (etats[0], etats[1], etats[3]):
         assert [rue["travail_fourni"] for rue in etat["plans"][str(route["cell"])]["rues"]] == [10 * k.TAILLE_FOYER, 7 * k.TAILLE_FOYER]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons", "greniers", "pertes_kg"}
+    stock, pertes = 1_000_000, 0
+    for jours in [k.TAILLE_FOYER] * 3 + [2 * k.TAILLE_FOYER] * 7:
+        perte = stock * (k.PERTE_GRENIER_PAR_AN * k.TICK_DURATION_DAYS / k.CALENDAR_DAYS_PER_YEAR)
+        pertes += perte; stock -= perte; stock -= jours * k.SALAIRE_JOURNEE_KG
+    payeur = next(l.maitre for l in mondes[2].cells[route['cell']].lieux if l.rang == 0)
+    for etat in etats:
+        assert etat['greniers'] == {payeur: {'nourriture': stock}} and etat['pertes_kg'] == pertes
     assert etats[2]["maisons"]
     for etat in etats:
         assert etat["maisons"] == etats[2]["maisons"]
@@ -796,6 +807,7 @@ def _comparer_registre_bit_pres(points, reference):
 
 @pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (0, 42), (42, 0), (42, 42)))
 def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import math
     from sim import world as etat_monde, maitres
     from sim.model import lire_stock_marchandise, ecrire_stock_marchandise
@@ -896,6 +908,7 @@ def _garder_siege(plein, vide, maison):
 @pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (42, 42)))
 def test_grenier_bit_pres(monkeypatch, graine_monde, graine_tick):
     """SC5 — greniers vides invisibles ; un grenier plein ne nourrit pas le siège."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import math
     import sim.constants as constantes
     from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
@@ -996,7 +1009,8 @@ _PART_BASE = {
     (42, 3): ("820ecffc379ada12d00b9072725a37ad5d2ecdb844e5de9d60f1d33800fb6dc2", "04fe962477d55fb6355a4c3dfa68a8bf0a4e3c703ae725fa0273c4090eac41ed"),
 }
 
-def test_part_bit_pres():
+def test_part_bit_pres(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import math
     def empreintes(monde, rng, retours):
         assert monde.cells and all(c.lieux for c in monde.cells.values())
@@ -1017,3 +1031,108 @@ def test_part_bit_pres():
     cellule = next(c for c in monde.cells.values() if c.stocks); nom = next(iter(cellule.stocks))
     cellule.stocks[nom] = math.nextafter(cellule.stocks[nom], math.inf)
     with pytest.raises(AssertionError): verifier(mesures | {(42, 3): empreintes(monde, rng, retours)})
+
+
+# Monde avec prélèvement : JSON public et état physique sans aucun arrondi.
+_PRELEVEMENT_BASE = {
+    (0, 1): ("f69f805152a647719bfcb8342bd542e305b0ebcf2bf66100fbeec6faeb589f3a", "9cb3bfca3a04d0ff21a661b8e870a0628703688222ab11df667c480553c58a61"),
+    (0, 3): ("e409fdb3c914c88cf5280508e9438bd9eddd3a032d3ba517d064f10c37e33c50", "4dee9df19b859119da9843c3bef94b251d540ae13f8f017cd8b043550fc04afb"),
+    (0, 20): ("75b6e35087f28b739e0b2daaa092138b2bb6f1583e2fa7f5f876e6952e6174f6", "e13023d248ad411c14db92e5ed13940c2cd4db49b07172800825e158906d45c8"),
+    (42, 1): ("efa9482a4fbcfb721ceacac0e1d374df0fb6c10435b6af56c097d39f13e0a288", "3841bd38e36a16e9a085b1e156e57d94c09c98658c513033cbc68252d616d46c"),
+    (42, 3): ("800653b7e03f311c081dd0bf53eadc56cdb6b31855a11210ff9b075101f5c230", "c2efbd9e9f06bb090bc2fe54d8e0909d8000e89f8d18ab25aad2b656035ecf82"),
+    (42, 20): ("15e666ef1f9ed3cbfc3f5fe4b22bf19cbcd737ffe519e88e4b797d1f874ffc43", "a166b1456bee8b03c8af9b45b54514bb12878eacf64335dab4fcc0314d9e5a74"),
+}
+
+
+def _empreintes_prelevement(monde, rng, retours):
+    assert monde.cells and all(cell.lieux for cell in monde.cells.values())
+    greniers = [(nom, sorted(panier.items())) for nom, panier in sorted(monde.greniers.items())]
+    convois = [(arrivee, groupe.facteur, groupe.total, groupe.charges)
+               for arrivee, groupe in sorted(monde.convois.items())]
+    physique = ([dataclasses.asdict(cell) for cell in monde.cells.values()],
+                monde.stocks_mer, rng.getstate(), retours, greniers, convois,
+                monde.mange_convois_kg, monde.pertes_kg)
+    return tuple(hashlib.sha256(octets).hexdigest() for octets in (
+        json.dumps(monde.to_dict(), sort_keys=True).encode(), pickle.dumps(physique)))
+
+
+def _verifier_prelevement(observe):
+    assert observe and observe == _PRELEVEMENT_BASE
+
+
+def test_prelevement_bit_pres(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_DUE_AU_SUZERAIN", 0)
+    import math
+    from sim import constants as c
+    mesures = {}
+    for seed in (0, 42):
+        monde, rng, retours = World.charger(seed), random.Random(seed), []
+        for numero in range(20):
+            retours.append(engine.tick(monde, rng, numero))
+            point = numero + 1
+            if point in (1, 3, 20):
+                mesures[seed, point] = _empreintes_prelevement(monde, rng, retours)
+                print(f'point={(seed, point)}, empreintes={mesures[seed, point]}')
+                document = monde.to_dict()
+                if point == 1:
+                    assert document['convois'] and not any(monde.greniers.values())
+                    # Les départs n'ont pas encore mangé : un cumul nul reste omis.
+                    assert monde.mange_convois_kg == 0 and 'mange_convois_kg' not in document
+                if point == 3:
+                    assert document['greniers']
+                    assert document['mange_convois_kg'] == monde.mange_convois_kg > 0
+    _verifier_prelevement(mesures)
+    with pytest.raises(AssertionError):
+        _verifier_prelevement({})
+    with pytest.raises(AssertionError):
+        _verifier_prelevement({k: v for k, v in mesures.items() if k != (42, 20)})
+    panier = next(p for p in monde.greniers.values() if p.get(c.MARCHANDISE_NOURRITURE, 0) > 0)
+    panier[c.MARCHANDISE_NOURRITURE] = math.nextafter(panier[c.MARCHANDISE_NOURRITURE], math.inf)
+    with pytest.raises(AssertionError):
+        _verifier_prelevement(mesures | {(42, 20): _empreintes_prelevement(monde, rng, retours)})
+    communs = mesures.keys() & _PART_BASE.keys()
+    assert communs
+    for point in sorted(communs):
+        assert all(a != b for a, b in zip(_PRELEVEMENT_BASE[point], _PART_BASE[point]))
+    print(f'points figés={len(mesures)}, points comparés sans prélèvement={len(communs)}')
+
+
+# Monde avec dû : capturé une fois, JSON public et état physique sans arrondi.
+_DU_BASE = {
+    (0, 3): ('65cb5bae6ec41debb8004311ea9eb0c867095d193cb55a4d7b2aa5b3de7b36c6', '0e9cc71e314f90cd0bbafe2b9114eca281eb4205fd7f33873890f0fb1c543c3b'),
+    (0, 20): ('c42f5df2567547d9d47414b70fd8f680f1f3779ad24d9cc49ba64544df6707fe', '87c839ae5ccf5035d923c33641c4fc72e0e3f954b4929093a2a91d0ab4b1ae44'),
+    (42, 3): ('7c4ed5367d59bee237d61a2f671cad34fa00dd29ea0af34df5462253bb4b219e', '4b502432b65d64be6a23eacd030552a6284147a428acabe2c9b66e96d37973cb'),
+    (42, 20): ('4ea06e0cb55f55b1a25938955c7e41eb0928dc0b39066f0e17849f3be6e3495e', '6f645c01c8683a431300a5a4f9f9c9bc422e962843deb88b5f4eacd3a7dcdbbd'),
+}
+
+
+def test_du_au_suzerain_bit_pres():
+    import math
+    from sim import constants as c
+    mesures = {}
+    for seed in (0, 42):
+        monde, rng, retours = World.charger(seed), random.Random(seed), []
+        for numero in range(20):
+            retours.append(engine.tick(monde, rng, numero))
+            point = numero + 1
+            if point in (1, 3, 20):
+                mesures[seed, point] = _empreintes_prelevement(monde, rng, retours)
+                print(f'point={(seed, point)}, empreintes avec dû={mesures[seed, point]}')
+    reference = {k: v for k, v in _PRELEVEMENT_BASE.items() if k[1] == 1} | _DU_BASE
+    def verifier(observe):
+        assert observe and observe == reference
+    verifier(mesures)
+    for point, empreintes in mesures.items():
+        if point[1] == 1:
+            assert empreintes == _PRELEVEMENT_BASE[point]
+        else:
+            assert all(a != b for a, b in zip(empreintes, _PRELEVEMENT_BASE[point]))
+    with pytest.raises(AssertionError): verifier({})
+    with pytest.raises(AssertionError): verifier({k: v for k, v in mesures.items() if k != (42, 20)})
+    valois = next(m.suzerain for m in monde.maisons if m.id == 'seigneurie-1')
+    panier = monde.greniers[valois]
+    assert panier[c.MARCHANDISE_NOURRITURE] > 0
+    panier[c.MARCHANDISE_NOURRITURE] = math.nextafter(panier[c.MARCHANDISE_NOURRITURE], math.inf)
+    with pytest.raises(AssertionError):
+        verifier(mesures | {(42, 20): _empreintes_prelevement(monde, rng, retours)})
+    print(f'points figés avec dû={len(_DU_BASE)}, points inchangés={len(reference) - len(_DU_BASE)}')

@@ -8,6 +8,7 @@ cet ordre — l'ordre est la mécanique, pas une convention :
     _apply_fabrication → les matières premières deviennent de l'objet
     _apply_extraction  → les gisements rendent des kg dans le panier
     _apply_production  → la nourriture pousse, avec variabilité rng
+    prelevement.prelever → la part récoltée voyage et arrive au grenier
     _apply_commerce    → les marchandises circulent entre cellules voisines
     _apply_consumption → on mange ; ce qui manque devient une dette en kg
     _update_hunger     → la faim suit la pénurie du tick, pas le stock restant
@@ -28,9 +29,11 @@ import random
 from collections import defaultdict
 
 from sim import constants as _constantes
+from sim import flux as _flux
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
+from sim import prelevement, departs
 import sim.routes_interieures as routes
 from sim import plan as _plan
 from sim.model import (
@@ -403,17 +406,25 @@ def _facteur_bras_pour_cellule(cell: Cell, carte: dict | None) -> float:
     return foyers.facteur_bras(lire_habitants_par_metier(cell), km2_cultives)
 
 
-def _produire_sur_les_lieux(cell: Cell, recolte: float) -> None:
+def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:
     """La récolte pousse sur chaque surface, indépendamment des habitants."""
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    quantites = None if recoltes is None else [0.0] * len(cell.lieux)
+    if quantites is not None:
+        recoltes[cell.cell_id] = quantites
     if len(cell.lieux) == 1:
-        ecrire_stock_marchandise(cell.lieux[0], _constantes.MARCHANDISE_NOURRITURE,
-                                lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE))
+        if quantites is not None:
+            quantites[0] = recolte
+        ecrire_stock_marchandise(cell.lieux[0], nourriture,
+                                lire_stock_marchandise(cell, nourriture))
         return
     surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
     for lieu in cell.lieux:
-        stock = max(0.0, lire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE))
-        ecrire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE,
-                                stock + recolte * surfaces[lieu.rang] / cell.area_km2)
+        stock = max(0.0, lire_stock_marchandise(lieu, nourriture))
+        kg = recolte * surfaces[lieu.rang] / cell.area_km2
+        ecrire_stock_marchandise(lieu, nourriture, stock + kg)
+        if quantites is not None:
+            quantites[lieu.rang] = kg
 
 
 def _apply_production(
@@ -421,6 +432,7 @@ def _apply_production(
     rng: random.Random,
     carte: dict | None = None,
     jour: int | None = None,
+    recoltes=None,
 ) -> None:
     """
     Maillon 1 — Production.
@@ -438,11 +450,14 @@ def _apply_production(
     current = current if current >= 0 else 0.0
     ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)
     if cell.lieux:
-        _produire_sur_les_lieux(cell, food_produced)
+        if recoltes is None:
+            _produire_sur_les_lieux(cell, food_produced)
+        else:
+            _produire_sur_les_lieux(cell, food_produced, recoltes)
 
 
 def _apply_production_saison_moyenne(
-    cell: Cell, rng: random.Random, carte: dict
+    cell: Cell, rng: random.Random, carte: dict, recoltes=None
 ) -> None:
     """
     Production avec le facteur saisonnier moyen annuel.
@@ -458,7 +473,10 @@ def _apply_production_saison_moyenne(
     current = current if current >= 0 else 0.0
     ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)
     if cell.lieux:
-        _produire_sur_les_lieux(cell, food_produced)
+        if recoltes is None:
+            _produire_sur_les_lieux(cell, food_produced)
+        else:
+            _produire_sur_les_lieux(cell, food_produced, recoltes)
 
 
 def _cle_arête(a_id: int, b_id: int) -> tuple[int, int]:
@@ -917,6 +935,10 @@ def _apply_commerce(
         return
 
     consommation_unitaire = _constantes.consommation_kg_par_habitant_par_tick(marchandise)
+    # Sans consommation, aucun besoin ni flux maritime : inutile de parcourir
+    # toutes les arêtes pour les minerais et objets qui restent dans leur panier.
+    if consommation_unitaire == 0.0:
+        return
     # Le commerce maritime ne porte que les marchandises consommées : les autres
     # n'ont ni besoin côté mer ni rôle d'expédition dans la couche 1.
     maritime_actif = (
@@ -994,8 +1016,9 @@ def _apply_commerce(
 
         surplus_a = _surplus(a_id)
         surplus_b = _surplus(b_id)
-        need_a = _need(a_id)
-        need_b = _need(b_id)
+        # Les besoins du snapshot sont déjà calculés, avant tous les transferts.
+        need_a = snapshot_needs[a_id]
+        need_b = snapshot_needs[b_id]
 
         if surplus_a > 0 and need_b > 0:
             demand = min(need_b, cap_arête)
@@ -1394,6 +1417,8 @@ def _apply_mortality(cell: Cell) -> None:
                 retrait = min(lieu.population, morts)
                 lieu.population -= retrait
                 retires += retrait
+        # Transmettre aussi le zéro calculé, même si les fractions locales
+        # n'ont pas encore produit de décès entier.
         _retirer_par_les_foyers(cell, retires)
         return
 
@@ -1426,7 +1451,8 @@ def _apply_natalite(cell: Cell, penurie_kg: float) -> None:
                 lieu.natalite_remainder = brut - enfants
                 lieu.population += enfants
                 naissances += enfants
-        _ajouter_par_les_foyers(cell, naissances)
+        if naissances:
+            _ajouter_par_les_foyers(cell, naissances)
         return
 
     remainder = cell.natalite_remainder if cell.natalite_remainder >= 0.0 else 0.0
@@ -1569,22 +1595,29 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         sorties[src] += nb
         entrees[dest] += nb
 
+    partis, arrives = {}, {}
     for cid, cell in world.cells.items():
         delta = entrees.get(cid, 0) - sorties.get(cid, 0)
         if cell.lieux:
             if delta > 0:
                 next(lieu for lieu in cell.lieux if lieu.rang == 0).population += delta
+                arrives[(cid, 0)] = delta
             elif delta < 0:
                 affames = {lieu.rang: lieu.population
                            for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
                            if lieu.population > 0 and lieu.duree_faim_ticks > 0}
                 retraits = dict(zip(affames, _lieux.partager(-delta, affames.values())))
                 for lieu in cell.lieux:
-                    lieu.population -= retraits.get(lieu.rang, 0)
+                    retrait = retraits.get(lieu.rang, 0)
+                    lieu.population -= retrait
+                    if retrait:
+                        partis[(cid, lieu.rang)] = retrait
         if delta > 0:
             _ajouter_par_les_foyers(cell, delta)
         elif delta < 0:
             _retirer_par_les_foyers(cell, -delta)
+
+    _flux.noter_personnes(world, partis, arrives)
 
 
 def _valider_numero_tick(world, numero_tick: int | None) -> None:
@@ -1671,13 +1704,16 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         5. Fabrication (_apply_fabrication)  — pour chaque cellule
         6. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
         7. Production  (_apply_production)   — pour chaque cellule
-        8. Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
-        9. Consommation (_apply_consumption) — pour chaque cellule
-        10. Faim        (_update_hunger)      — pour chaque cellule
-        11. Mortalité   (_apply_mortality)    — pour chaque cellule
-        12. Natalité   (_apply_natalite)     — pour chaque cellule
-        13. Migration  (_apply_migration)    — sur le monde entier (snapshot)
-        14. Compteur   (_avancer_compteur_ticks) — après tous les maillons
+        8. Prélèvement (prelevement.prelever) — perte, arrivée puis départ de la récolte
+        9. Chemins intérieurs (_remplir_chemins_interieurs) — capacités avec les routes achevées
+           Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
+        10. Consommation (_apply_consumption) — pour chaque cellule
+        11. Faim        (_update_hunger)      — pour chaque cellule
+        12. Mortalité   (_apply_mortality)    — pour chaque cellule
+        13. Natalité   (_apply_natalite)     — pour chaque cellule
+        14. Migration  (_apply_migration)    — sur le monde entier (snapshot)
+        15. Départs    (departs.appliquer_departs) — mieux-vivre sur une nouvelle photo
+        16. Compteur   (_avancer_compteur_ticks) — après tous les maillons
 
     rng : instance de random.Random initialisée par l'appelant —
           jamais d'aléa global non contrôlé.
@@ -1700,17 +1736,19 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     if carte is not None:
         for cell in world.cells.values():
             _apply_extraction(cell, carte)
+    recoltes = {}
     if carte is None:
         for cell in world.cells.values():
-            _apply_production(cell, rng, carte)
+            _apply_production(cell, rng, carte, None, recoltes)
     elif numero_tick is None:
         for cell in world.cells.values():
-            _apply_production_saison_moyenne(cell, rng, carte)
+            _apply_production_saison_moyenne(cell, rng, carte, recoltes)
     else:
         jour = _constantes.jour_de_tick(numero_tick)
         for cell in world.cells.values():
-            _apply_production(cell, rng, carte, jour=jour)
+            _apply_production(cell, rng, carte, jour=jour, recoltes=recoltes)
 
+    prelevement.prelever(world, recoltes)
     facteurs_routes = routes.facteurs_des_routes(world)
     if facteurs_routes:
         chemins = {}
@@ -1741,5 +1779,6 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
 
     _apply_migration(world, penuries)
 
+    departs.appliquer_departs(world)
     _avancer_compteur_ticks(world)
     return total_transported[0]

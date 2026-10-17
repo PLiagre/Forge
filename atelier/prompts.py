@@ -148,7 +148,7 @@ def codeur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
 Le brief `{chemin_brief}` est ta source d'instruction, avec les décisions du propriétaire s'il y en a plus bas : lis-le en entier, puis `AGENTS.md`.
 - N'écris que dans les fichiers que sa section « Périmètre » autorise, ou qu'une décision du propriétaire autorise. Jamais dans : {_interdits(projet)}.
 - Ne modifie aucun test existant pour le faire passer ; ajoute tes cas.
-- Lance les tests qui couvrent ce que tu touches : tes fichiers de test, ceux des modules que tu changes, `jeu/sim/tests/test_no_hardcoded.py`, `jeu/sim/tests/test_write_coverage.py` et les commandes des conditions de succès, sauf celle de la suite entière (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q`) : ils sont verts avant que tu rendes la main. Jamais la suite entière : elle dépasse ton délai, et la CI la joue après la poussée ; une CI rouge te revient.
+- Lance les tests qui couvrent ce que tu touches : les tests que tu ajoutes ou changes (filtre `-k`, par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -k ouverture -q`), `jeu/sim/tests/test_no_hardcoded.py`, `jeu/sim/tests/test_write_coverage.py` et les commandes des conditions de succès, sauf celle de la suite entière : ils sont verts avant que tu rendes la main. Jamais un fichier de test existant en entier, ni la suite entière : certains prennent 15 à 45 minutes et dépassent ton délai ; la CI les joue après la poussée, et une CI rouge te revient.
 - {_FRONTIERE}
 - Écris en français : commentaires, messages, compte rendu.
 
@@ -174,8 +174,21 @@ def correction_relecture(revue: str) -> str:
 
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
               url: str, sha: str, rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
-              lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = ()) -> str:
-    comptes_rendus = (f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
+              lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = (),
+              master_rouge: str | None = None) -> str:
+    """`master_rouge` : la réparation de master par le mécanicien, sans issue
+    ni brief ; c'est ce que dit sa PR. Jusqu'au 15 octobre 2026, le relecteur
+    recevait un brief `docs/briefs/<n° de la PR>-….md` qui n'existe pas."""
+    if master_rouge is None:
+        reference = f"Le brief `{chemin_brief}` est la référence."
+    else:
+        base = projet.branche_base
+        reference = (f"Ce n'est pas un lot : c'est la réparation de `{base}` par le mécanicien, sans issue ni brief. "
+                     f"La référence est la CI rouge de `{base}`, que cette réparation doit rendre verte en corrigeant "
+                     "la cause, jamais en changeant un test ; sa PR dit :\n"
+                     f"-----\n{master_rouge.strip()[:4000] or '(rien)'}\n-----\n"
+                     "Là où la liste ci-dessous parle du brief, lis : le diff ne touche que ce que demande cette cause.")
+    comptes_rendus =(f"\nCe que le codeur dit avoir fait (ses comptes rendus sur la PR, cités tels quels ; "
                       f"ce sont des affirmations à vérifier, pas des preuves) :\n-----\n{rapports.strip()[:8000]}\n-----\n"
                       if rapports.strip() else "")
     lfs = ""
@@ -190,7 +203,7 @@ def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
     return f"""Tu es le relecteur de Forge. Tu n'as pas écrit ce code et tu ne le modifies pas.
 
 Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce dossier est cette révision.
-Le brief `{chemin_brief}` est la référence. Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte : elle a joué la suite entière. Tu peux rejouer un fichier de test (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q -k …`) pour vérifier une affirmation, jamais la suite entière : elle dépasse ton délai.
+{reference} Le diff du lot : `git diff origin/{projet.branche_base}...HEAD`. La CI (tests et gitleaks) est verte : elle a joué la suite entière. Tu peux rejouer un fichier de test (par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -q -k …`) pour vérifier une affirmation, jamais la suite entière : elle dépasse ton délai.
 {comptes_rendus}{lfs}
 Vérifie, du plus grave au plus léger :
 1. Le diff reste dans le Périmètre du brief, élargi par les décisions du propriétaire s'il y en a plus bas, et rien ne touche {_interdits(projet)}.
@@ -260,6 +273,7 @@ Les causes que tu rencontreras, et ce qu'elles demandent :
 - passagère : quota épuisé, délai dépassé, agents tous occupés, relecture vide ou sans verdict, PC éteint → relancer ;
 - le codeur tourne en rond, ou rate la vraie cause d'un test rouge → relancer, avec la consigne exacte : le fichier, la fonction, ce qu'il faut changer et pourquoi ;
 - le relecteur exige ce que le codeur ne peut pas donner, ou ce que le brief ne demande pas, ou ce qui est déjà fait → relancer, avec la consigne au relecteur : ce qu'il doit vérifier, et où ;
+- le lot est trop gros pour un passage du codeur (son délai dépassé plusieurs fois, un diff qui ne tient pas sous {projet.lignes_max} lignes) → découpe-le toi-même. Jamais en question ni en consigne : le codeur n'ouvre pas de lot, et la PR du lot, en fusionnant une moitié, fermerait le lot entier (#408, le 9 octobre 2026 : la seconde moitié n'a jamais existé) ;
 - le brief contredit un test existant, une règle du monde ou `CAP.md`, ou deux lectures se valent → c'est au propriétaire de trancher : pose-lui la question ;
 - la chaîne elle-même est en cause (un outil manque sur une machine, un défaut dans `atelier/`, `.github/` ou `atelier.toml`) : ni le codeur ni le relecteur n'y peuvent rien → dis-le.
 
@@ -268,6 +282,7 @@ Jamais de consigne qui assouplit un test existant, sort du Périmètre du brief 
 Écris d'abord ton diagnostic en français, court : ce qui bloque vraiment, avec ses preuves (fichier, ligne, test, commentaire). Puis termine par UNE de ces fins, la ligne « DECISION: » en texte brut, sans gras :
 - « DECISION: REPRENDRE :: <la consigne, en un paragraphe, adressée au codeur et au relecteur du prochain passage> »
 - « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». {_NATURE_DE_LA_QUESTION} Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code. Une seule question, qui porte toutes les décisions que le lot demande encore : recense chaque test existant qui rougira et chaque règle du monde touchée avant de l'écrire.
+- « DECISION: DECOUPE », suivie d'une ligne par sous-lot, en texte brut : « - <titre> :: <ce qu'il fait, et ce que le joueur y gagne> », finie par « :: après 1 » s'il attend le sous-lot de ce rang (sans « après », il part tout de suite), et par « :: pc » ou « :: vps » s'il change de machine. Chaque sous-lot reste vert seul et garde toutes les exigences du brief. Le pilote ouvre les sous-lots, que le chef prend comme d'autres lots, puis ferme la PR du lot et le lot.
 - « DECISION: MODE-DIRECT :: <ce qu'il faut corriger dans la chaîne, et où> »
 {_FRONTIERE}"""
 

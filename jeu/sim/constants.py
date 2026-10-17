@@ -70,6 +70,9 @@ def fabrication_kg(stock_brut_kg: float) -> tuple[float, float]:
 # Toutes les constantes temporelles ci-dessous sont dérivées de cette valeur.
 TICK_DURATION_DAYS = 1
 
+# Fenêtre de lecture : trente jours à un jour par tick, pas une règle du monde.
+FENETRE_FLUX_TICKS = 30
+
 # --- Production alimentaire ---
 
 # Rendement agricole paramétrique : kilogrammes de nourriture produits
@@ -262,6 +265,7 @@ SURFACE_M2_PAR_FOYER_LOGE = 40  # Logement des artisans, niveau 2.
 SURFACE_M2_PAR_FOYER_ARTISAN = 40  # Emploi par emprise, niveau 2.
 FABRICATION_KG_PAR_ARTISAN_PAR_TICK = 5  # Matière façonnée par personne, niveau 2.
 
+SALAIRE_JOURNEE_KG = 3  # Niveau 2, plausible : grain par personne et journée de chantier.
 # Déblai, nivellement et fossés d'une route en terre battue ; niveau 2.
 TRAVAIL_ROUTE_JOURNEES_PAR_M2 = 0.5
 DEBIT_ROUTE_KG_PAR_M_PAR_TICK = 5000.0 * TICK_DURATION_DAYS
@@ -563,6 +567,14 @@ N_BOUND_MORT = math.ceil(1.0 / MAX_DEATH_RATE_PER_TICK)
 # Niveau 2 : ordre de grandeur plausible, jamais sourcé (voir MODELE.md).
 FRACTION_MIGRANTE_PAR_TICK = 0.01
 
+# --- Départs vers un lieu mieux nourri ---
+# Niveau 2 : écart strict de réserve et tranche du taux, en jours.
+ECART_DE_DEPART_JOURS = 30
+# Niveau 2 : part quotidienne des habitants qui part par tranche entière.
+TAUX_DE_DEPART = 0.002
+# Niveau 2 : part maximale des habitants qui peut partir chaque jour.
+PLAFOND_DE_DEPART = 0.01
+
 # --- Entrée en ligne de commande (python -m sim) ---
 # Un an calendaire de ticks, dérivé de la base de temps unique : jamais un
 # second littéral de durée. TICK_DURATION_DAYS vaut 1 aujourd'hui.
@@ -597,8 +609,12 @@ def date_de_tick(ticks_ecoules: int) -> dict[str, int]:
 DEFAULT_CLI_TICKS = CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 DEFAULT_CLI_SEED = 0
 
-# Part du seigneur : fractions plausibles de niveau 2, sans prélèvement ici.
-PART_COUTUMIERE = 0.10
+# Part du seigneur : niveau 2 ; 0,03 : −0,96 % en un an, 0,04 : −1,39 %, graine 0, convois compris.
+PART_COUTUMIERE = 0.03
+# Niveau 2, plausible : cette part de chaque arrivage repart au suzerain.
+PART_DUE_AU_SUZERAIN = 0.10
+# Niveau 2, plausible : charretiers et bêtes mangent cette part de la charge par jour.
+PERTE_CONVOI_PAR_JOUR = 0.01
 PART_MAXIMALE = 0.6
 
 # Vitesse d'un char à bœufs chargé, sur chemin de terre.

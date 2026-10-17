@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
-from sim.intentions import ChoixDepart, IntentionRefusee, TYPE_TRACER_ROUTE, recevoir_intention
+from sim.intentions import ChoixDepart, IntentionRefusee, TYPE_TRACER_ROUTE, recevoir_intention, verifier_base, maitre_du_bourg
 from sim.model import contenus_des_paniers
 from sim.seigneuries import identifiant_de_seigneurie
 
@@ -61,12 +61,22 @@ def decider_intentions(monde, releve):
                   else 'faim' if isinstance(faim, bool) or not isinstance(faim, int) or faim < 0 else None)
         if donnee is not None:
             raise ValueError(f'maison {maison.sorte} {maison.id} ({maison.nom}) : {donnee} absente ou non calculée')
+        cle = _cle_du_grenier(maison)
+        if maitre_du_bourg(monde, maison.cell_id) != cle:
+            continue
         if bourg.population > 0 and faim > 0 and (maison.sorte, maison.id) not in actives:
             y = _constantes.IA_LARGEUR_ROUTE_M * len(plan.rues)
+            try:
+                verifier_base(monde, maison.cell_id, points=[[0, y], [_constantes.IA_LONGUEUR_ROUTE_M, y]],
+                              largeur_m=_constantes.IA_LARGEUR_ROUTE_M)
+            except IntentionRefusee as refus:
+                if refus.__cause__ is not None:
+                    raise
+                continue
             propositions.append({
                 'maison': {'sorte': maison.sorte, 'id': maison.id},
                 'intention': {
-                    'type': TYPE_TRACER_ROUTE, 'cell': maison.cell_id,
+                    'type': TYPE_TRACER_ROUTE, 'cell': maison.cell_id, 'maison': cle,
                     'points': [[0, y], [_constantes.IA_LONGUEUR_ROUTE_M, y]],
                     'largeur_m': _constantes.IA_LARGEUR_ROUTE_M, 'foyers': _constantes.IA_FOYERS_ROUTE},
                 'raison': _raison_de_la_route(monde, maison, cellule, bourg, plan)})

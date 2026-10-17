@@ -31,7 +31,7 @@ from typing import Callable
 from . import agents as agents_mod
 from . import captures, lfs, lots, prompts, traces
 from .depot import Depot, DepotErreur
-from .github import VARIABLE_PC, GitHub, GitHubErreur, etat_des_controles
+from .github import AGREGATS, VARIABLE_PC, GitHub, GitHubErreur, etat_des_controles, travaux as travaux_du_workflow
 from .lots import Lot, marque
 from .projet import MACHINES, Projet
 from .verrous import AucunVerrou
@@ -40,12 +40,13 @@ _DECISION = re.compile(r"^\s*DECISION:\s*(BRIEF|REFUS|QUESTION|DECOUPE|MODE-DIRE
 # Le dépanneur écrit en Markdown : le 1er octobre 2026, sa décision sur #235
 # est restée illisible. Sa ligne se lit en gras, citée ou en code, et sa
 # consigne peut suivre sur les lignes d'après.
-_DECISION_DEPANNEUR = re.compile(r"^[ \t>*_`]*DECISION\s*:[ \t*_`]*(REPRENDRE|QUESTION|MODE-DIRECT)\b[ \t*_`]*"
+_DECISION_DEPANNEUR = re.compile(r"^[ \t>*_`]*DECISION\s*:[ \t*_`]*(REPRENDRE|QUESTION|MODE-DIRECT|DECOUPE)\b[ \t*_`]*"
                                  r"(?:::[ \t]*(.*))?$", re.M)
 _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)\**\s*$", re.M)
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
 _MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
+_RUN = re.compile(r"/actions/runs/(\d+)/")
 SECTIONS_BRIEF = ("## But", "## Le joueur", "## Règle du monde", "## Périmètre", "## Conditions de succès",
                   "## Hors périmètre")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Codex, Cursor)"
@@ -123,6 +124,7 @@ class Pilote:
         self.journal = journal or Path.home() / ".atelier" / "journal.jsonl"
         self.lignes: list[str] = []
         self.lfs_telechargeur = lfs_telechargeur
+        self.invoques = 0  # les agents appelés par ce pilote, tous tours confondus
 
     # ----------------------------------------------------------- journal
     def noter(self, lot: int | str, action: str, detail: str = "", agent: str | None = None) -> None:
@@ -138,6 +140,7 @@ class Pilote:
 
     def _invoquer(self, role: str, prompt: str, chemin: Path, *, lot: int | str,
                   exclure=frozenset()) -> agents_mod.Resultat:
+        self.invoques += 1
         res = agents_mod.invoquer(self.projet.poste(role), prompt, chemin, self.projet.delai(role),
                                   exclure=exclure, executeur=self.executeur_agents,
                                   place=lambda outil: self.verrous.place(f"outil-{outil}",
@@ -178,7 +181,17 @@ class Pilote:
                 self._lacher_lot(lot.numero)
 
         if not agent_parti:
-            agent_parti = self._master_rouge()
+            avant = self.invoques
+            try:
+                agent_parti = self._master_rouge()
+            except (GitHubErreur, DepotErreur) as e:
+                # Une réparation en panne se dit et n'arrête que ce tour-ci si
+                # son mécanicien a déjà travaillé ; sinon les lots continuent,
+                # et le tour suivant la retente avant eux. Le 15 octobre 2026,
+                # une DepotErreur ici a fait planter chaque tour pendant 15 h,
+                # sans une ligne lisible, et plus aucun lot n'est parti.
+                self.noter("master", "erreur", str(e))
+                agent_parti = self.invoques > avant
         if not agent_parti:
             agent_parti = self._depanner_un_lot(vue)
         if not agent_parti and vue.courant is not None:
@@ -516,6 +529,8 @@ class Pilote:
             derniere = next((m.get("action") for m in reversed(liste)
                              if m.get("role") == role and m.get("etat") == "envoye"), None)
             action = lots.Action(derniere or "coder", action.raison, action.essai)
+        if action.nom == "corriger_ci" and self._rejouer_le_chronometre(lot, pr, branche, liste, role):
+            return False
         if action.nom in ("coder", "corriger_ci", "corriger_relecture"):
             if lot.machine == "pc":
                 if not self.gh.pc_actif():
@@ -537,6 +552,46 @@ class Pilote:
             return self._chef(lot, lot.jalon_titre or "", courant)
         self.noter(lot.numero, "action inconnue", action.nom)
         return False
+
+    def _rejouer_le_chronometre(self, lot: Lot, pr: dict, branche: str, liste: list[dict], role: str) -> bool:
+        """Un rouge du seul travail `chronometre`, sur un lot qui ne touche
+        pas `jeu/` : le pilote le rejoue une fois avant d'appeler le codeur,
+        sans compter d'essai (`lots.rejeu_du_chronometre`). La branche reçoit
+        la base si elle a bougé, une marge regagnée sur le moteur peut-être ;
+        sinon le travail rouge se rejoue. Vrai quand le codeur n'a pas à passer."""
+        numero_pr, tete = pr["number"], pr.get("headRefOid") or ""
+        agregat = "tests"  # le contrôle exigé qui attend `chronometre`
+        travaux = travaux_du_workflow(pr, AGREGATS[agregat])
+        quoi = lots.rejeu_du_chronometre(travaux, agregat, self.gh.fichiers_de_pr(numero_pr), liste,
+                                         role_codeur=role,
+                                         heures_depuis_rejeu=self._heures_depuis(liste, "pilote", lots.ETAT_REJEU))
+        if quoi == "attendre":
+            self.noter(lot.numero, "attendre_ci", f"PR #{numero_pr} — `{lots.TRAVAIL_CHRONOMETRE}` rouge seul : "
+                                                  "rejoué quand son run sera fini, sans appeler le codeur")
+            return True
+        if quoi != "rejouer":
+            return False
+        chemin = self.depot.preparer(lot.numero, branche)
+        en_retard = self.depot.en_retard(chemin)
+        conflits = self.depot.fusionner_base(chemin) if en_retard else []
+        if en_retard and not conflits:
+            self.depot.pousser(chemin, branche)
+            geste = f"la branche reçoit `{self.projet.branche_base}`, qui a bougé depuis : la CI repart"
+        else:
+            if conflits:
+                self.depot.git_code("merge", "--abort", cwd=chemin)
+            run = _RUN.search(travaux[lots.TRAVAIL_CHRONOMETRE]["adresse"])
+            if run is None:
+                return False
+            self.gh.rejouer_les_echecs(int(run.group(1)))
+            geste = f"le travail est rejoué (run {run.group(1)})"
+        quand = self.maintenant().isoformat(timespec="seconds")
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : seul `{lots.TRAVAIL_CHRONOMETRE}` est rouge, et ce lot ne "
+                                        f"touche pas `jeu/` : le codeur n'y peut rien. Une fois, {geste}, sans "
+                                        "compter d'essai. S'il rougit encore, le codeur corrige.\n\n"
+                                        f"{marque(role='pilote', etat=lots.ETAT_REJEU, sha=tete, quand=quand)}")
+        self.noter(lot.numero, f"{lots.TRAVAIL_CHRONOMETRE} rejoué", f"PR #{numero_pr} — {geste}")
+        return True
 
     def _heures_depuis(self, liste: list[dict], role: str, etat: str) -> float | None:
         """Les heures écoulées depuis la dernière marque `etat` de ce rôle."""
@@ -582,7 +637,7 @@ class Pilote:
             self._bloquer(lot.numero, f"question au propriétaire : {question.texte}", question=question)
             return True
         if res.reussi and decision == "DECOUPE":
-            return self._decouper(lot, res, titre_jalon)
+            return self._decouper(lot, res.texte[res.texte.rfind("DECISION: DECOUPE"):], res.agent, titre_jalon)
         raison = ""
         brief = Path(chemin) / chemin_brief
         if not res.reussi:
@@ -628,9 +683,13 @@ class Pilote:
         self.noter(lot.numero, "brief écrit", f"PR #{numero_pr}", str(res.agent))
         return True
 
-    def _decouper(self, lot: Lot, res: agents_mod.Resultat, titre_jalon: str) -> bool:
-        apres = res.texte[res.texte.rfind("DECISION: DECOUPE"):]
-        sous = [lots.sous_lot(titre, quoi, lot.machine) for titre, quoi in _SOUS_LOT.findall(apres)]
+    def _decouper(self, lot: Lot, lignes: str, agent, titre_jalon: str, *, role: str = "chef",
+                  pr: dict | None = None, diagnostic: str = "") -> bool:
+        """Ouvre les sous-lots que disent les `lignes` de découpe et ferme le
+        lot. Le chef découpe avant le brief ; le dépanneur (`role`), un lot
+        bloqué : sa PR (`pr`) se ferme aussi, sinon elle fermerait le lot
+        entier en fusionnant une moitié (#408, le 9 octobre 2026)."""
+        sous = [lots.sous_lot(titre, quoi, lot.machine) for titre, quoi in _SOUS_LOT.findall(lignes)]
         raison = "" if sous else "découpe illisible"
         rangs: list[tuple[int, ...]] = []
         if sous:
@@ -639,11 +698,17 @@ class Pilote:
                     sous, preuve_en_dernier=lots.jalon_a_decouper_par(lot) is not None)
             except ValueError as e:
                 raison = f"découpe illisible : {e}"
+        qui = "dépanneur" if role == lots.PAR_DEPANNEUR else role
         if raison:
-            self.gh.commenter_issue(lot.numero, f"🤖 **chef** : {raison}, aucun sous-lot créé.\n\n"
-                                    f"{marque(role='chef', etat='echec', raison=raison)}")
-            self.noter(lot.numero, "chef en échec", raison, str(res.agent))
+            # Une découpe illisible du dépanneur vaut décision illisible : le
+            # lot attend le propriétaire.
+            self.gh.commenter_issue(lot.numero, f"🤖 **{qui}** : {raison}, aucun sous-lot créé.\n\n"
+                                    f"{marque(role=role, etat='echec', raison=raison)}")
+            self.noter(lot.numero, f"{qui} en échec", raison, str(agent))
             return True
+        # Le chef d'un sous-lot du dépanneur relit le brief d'avant la découpe.
+        brief = (f" Le brief d'avant la découpe : `git show origin/{lot.branche(self.projet.prefixe_branche)}:"
+                 f"{lot.brief(self.projet.dossier_briefs)}`." if pr is not None else "")
         crees: list[int] = []
         for s, attend in zip(sous, rangs):
             etiquettes = ["lot", "pret"] + ([lots.ETIQUETTE_PC] if s.machine == "pc" else [])
@@ -651,14 +716,19 @@ class Pilote:
             # rien dire) : un morceau bloqué retient ceux qui s'appuient sur
             # lui, et les autres avancent en même temps.
             suite = ("\n\nDépend de : " + ", ".join(f"#{crees[k - 1]}" for k in attend)) if attend else ""
-            n = self.gh.creer_issue(s.titre, f"{s.quoi}\n\nDécoupé du lot #{lot.numero} par le chef.{suite}",
+            n = self.gh.creer_issue(s.titre, f"{s.quoi}\n\nDécoupé du lot #{lot.numero} par le {qui}.{brief}{suite}",
                                     etiquettes, titre_jalon or None)
             crees.append(n)
         liste = ", ".join(f"#{n}" for n in crees)
         pourquoi = "jalon découpé" if lots.jalon_a_decouper_par(lot) else "trop gros pour un lot, découpé"
-        self.gh.fermer_issue(lot.numero, f"🤖 **chef** ({res.agent}) : {pourquoi} en {liste}.",
+        details = (f"\n\n<details><summary>Le diagnostic du dépanneur</summary>\n\n{diagnostic}\n\n</details>"
+                   if diagnostic else "")
+        self.gh.fermer_issue(lot.numero, f"🤖 **{qui}** ({agent}) : {pourquoi} en {liste}.{details}",
                              abandon=True)
-        self.noter(lot.numero, "découpé", liste, str(res.agent))
+        if pr is not None:
+            self.gh.fermer_pr(pr["number"], f"Fermée par le pilote : le {qui} a découpé le lot #{lot.numero} en "
+                                            f"{liste}. La branche garde le travail d'avant la découpe.")
+        self.noter(lot.numero, "découpé", liste, str(agent))
         return True
 
     # ------------------------------------------------------------- coder
@@ -694,7 +764,12 @@ class Pilote:
             if marquer_attente:
                 self.marquer_attente(numero_pr, role, f"aucun agent n'a pu répondre : {essais}")
             return True
-        if not res.reussi:
+        # Un codeur coupé par son délai a souvent fini son code : la CI le juge
+        # et le passage suivant reprend la branche (#398, coupé trois fois le
+        # 12 octobre 2026 avec un code vert). Le travail part, marqué inachevé.
+        inacheve = (not res.reussi and res.code == 124
+                    and any(not self.projet.interdit(f) for f in self.depot.changements(chemin)))
+        if not res.reussi and not inacheve:
             self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) a échoué (code {res.code}).\n\n"
                                             f"Essais : {essais}\n\n"
                                             f"```\n{_extrait(res.texte, 40)}\n```\n\n"
@@ -721,13 +796,15 @@ class Pilote:
         quoi = "code" if action.essai == 0 else f"correction {action.essai}"
         if poste == "renfort":
             quoi += ", en renfort (dernier passage avant blocage)"
+        if inacheve:
+            quoi += ", inachevé (délai dépassé)"
         sha = self.depot.enregistrer(chemin, f"Lot #{lot.numero} — {quoi}\n\nÉcrit par {res.agent}.")
         self.depot.pousser(chemin, branche)
         if pr.get("isDraft"):
             self.gh.pr_prete(numero_pr)
         retires = ("\n\n⚠️ Changements retirés, hors de portée d'un lot : "
                    + ", ".join(f"`{f}`" for f in interdits)) if interdits else ""
-        vu = (photographe or self._photographier)(chemin, lot, sha)
+        vu = Photos() if inacheve else (photographe or self._photographier)(chemin, lot, sha)
         photos = "".join(f"\n\n📷 ![capture du lot #{lot.numero}]({url})" for url in vu.urls)
         note = f"\n\n{vu.note}" if vu.note else ""
         # Un agent cite ses fichiers par leur chemin sur la machine du lot :
@@ -736,7 +813,7 @@ class Pilote:
         self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) — {quoi}, révision `{sha[:7]}`.\n\n"
                                         f"{_extrait(texte)}{retires}{note}{photos}\n\n"
                                         + marque(role=role, etat="fait", essai=passage, agent=str(res.agent), sha=sha,
-                                                 **vu.marque))
+                                                 **vu.marque, **({"inacheve": True} if inacheve else {})))
         self.noter(lot.numero, f"{role} : {quoi}", f"PR #{numero_pr}", str(res.agent))
         return True
 
@@ -785,14 +862,20 @@ class Pilote:
         return ""
 
     # ------------------------------------------------------------- relire
-    def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict]) -> bool:
+    def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict], *,
+                chantier: str | int | None = None, master_rouge: str | None = None) -> bool:
+        """`master_rouge` : ce que dit la PR du mécanicien de master, qui n'a
+        ni issue ni brief ; le relecteur juge alors contre la CI rouge."""
         numero_pr, tete = pr["number"], pr["headRefOid"]
         echecs = [m for m in lots.depuis_reprise(liste)
                   if m.get("role") == "relecteur" and m.get("etat") == "echec" and m.get("sha") == tete]
         if len(echecs) >= 2:
             self._bloquer(lot.numero, "le relecteur a échoué deux fois sur la même révision", numero_pr)
             return False
-        chemin = self.depot.preparer(lot.numero, branche)
+        # La branche du mécanicien vit déjà dans son chantier : git refuse de
+        # l'extraire dans un second (le 15 octobre 2026, le pilote a planté là
+        # à chaque tour, et plus aucun lot n'est parti).
+        chemin = self.depot.preparer(lot.numero if chantier is None else chantier, branche)
         # Un lot Unity dont la photo ne montre rien de lui ne se relit pas : le
         # pilote le renvoie au codeur, comme une revue « CORRIGER ».
         dernier = next((m for m in reversed(liste) if m.get("role") == "codeur_3d" and m.get("etat") == "fait"
@@ -818,7 +901,7 @@ class Pilote:
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
                                    url=pr.get("url", ""), sha=tete, rapports=rapports,
                                    lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
-                                   consigne=consigne, decisions=decisions)
+                                   consigne=consigne, decisions=decisions, master_rouge=master_rouge)
         res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
         if res.personne:
             self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
@@ -920,10 +1003,10 @@ class Pilote:
             if secours.agent is not None:
                 res = secours
         trouvees = list(_DECISION_DEPANNEUR.finditer(res.texte)) if res.reussi else []
-        decision, motif, diagnostic = "", "", _extrait(res.texte, 40)
+        decision, motif, diagnostic, apres = "", "", _extrait(res.texte, 40), ""
         if trouvees:
             m = trouvees[-1]
-            decision = m.group(1)
+            decision, apres = m.group(1), res.texte[m.end():]
             # La consigne suit « :: », ou les lignes d'après quand il passe à la ligne.
             motif = (m.group(2) or "").strip().strip("*_` ") or res.texte[m.end():].strip()[:3000]
             diagnostic = _extrait(res.texte[:m.start()], 40)
@@ -942,6 +1025,9 @@ class Pilote:
             question = lots.question_du_chef(res.texte, motif or "")
             self._bloquer(lot.numero, f"question au propriétaire : {question.texte}", numero_pr,
                           question=question, par=lots.PAR_DEPANNEUR, diagnostic=diagnostic)
+        elif decision == "DECOUPE":
+            self._decouper(lot, apres, res.agent, lot.jalon_titre or "", role=lots.PAR_DEPANNEUR, pr=pr,
+                           diagnostic=diagnostic)
         elif decision == "MODE-DIRECT" and motif.strip():
             self._bloquer(lot.numero, f"la chaîne est en cause, mode direct : {motif.strip()}", numero_pr,
                           par=lots.PAR_DEPANNEUR, diagnostic=diagnostic)
@@ -1162,7 +1248,8 @@ class Pilote:
         faux = Lot(numero=pr["number"], titre=pr.get("title", "master rouge"), corps="", etiquettes=(),
                    jalon=None, jalon_titre=None)
         if action.nom == "relire":
-            return self._relire(faux, pr, pr["headRefName"], liste)
+            return self._relire(faux, pr, pr["headRefName"], liste, chantier="meca",
+                                master_rouge=(pr.get("body") or "").replace(SIGNATURE, ""))
         if action.nom == "fusionner":
             self.gh.fusion_auto(pr["number"], pr.get("headRefOid"))
             self.noter("master", "fusion automatique demandée", f"PR #{pr['number']}")

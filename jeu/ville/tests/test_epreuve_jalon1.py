@@ -67,10 +67,13 @@ def cellule():
 def photos(tmp_path_factory):
     dossier = tmp_path_factory.mktemp("photos")
     lues = {}
+    # Ces photographies prouvent le monde d'avant le prélèvement (lot #573).
+    code = ('import sim.constants as c; c.PART_COUTUMIERE = 0; '
+            'import runpy; runpy.run_module("sim", run_name="__main__", alter_sys=True)')
     for tick in (TICK_AVANT, TICK_APRES):
         chemin = dossier / f"photo-tick-{tick}.json"
         subprocess.run(
-            [sys.executable, "-m", "sim", "--ticks", str(tick), "--seed", str(GRAINE), "--snapshot-json", str(chemin)],
+            [sys.executable, "-c", code, "--ticks", str(tick), "--seed", str(GRAINE), "--snapshot-json", str(chemin)],
             cwd=JEU, check=True, capture_output=True,
         )
         lues[tick] = json.loads(chemin.read_text(encoding="utf-8"))

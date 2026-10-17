@@ -205,6 +205,14 @@ class GitHub:
                          "--limit", "1", "--json", "status,conclusion,headSha,databaseId,url,event") or []
         return runs[0] if runs else None
 
+    def rejouer_les_echecs(self, run: int) -> None:
+        """Rejoue les travaux en échec d'un run fini, et ceux qui les attendent."""
+        self.gh("run", "rerun", str(run), "-R", self.depot, "--failed")
+
+    def fichiers_de_pr(self, numero: int) -> list[str]:
+        return [f["path"] for f in (self.json("pr", "view", str(numero), "-R", self.depot, "--json", "files")
+                                    or {}).get("files") or []]
+
     def lancer_workflow(self, workflow: str, reference: str, champs: dict[str, str]) -> None:
         argv = ["workflow", "run", workflow, "-R", self.depot, "--ref", reference]
         for cle, valeur in champs.items():
@@ -212,16 +220,11 @@ class GitHub:
         self.gh(*argv)
 
 
-def etat_des_controles(pr: dict, exiges: Iterable[str] = CONTROLES_EXIGES,
-                       agregats: dict[str, str] = AGREGATS) -> tuple[str, dict[str, str]]:
-    """`attente`, `vert` ou `rouge`, sur la révision courante de la PR.
-
-    Un contrôle exigé absent retient (attente), il ne passe pas ; un travail
-    rouge du workflow qu'il agrège le rend rouge sans attendre les autres.
-    """
-    vus: dict[str, str] = {}
-    dates: dict[str, str] = {}
-    workflows: dict[str, str] = {}
+def _controles(pr: dict) -> dict[str, dict[str, str]]:
+    """Chaque contrôle de la révision courante de la PR, à son dernier
+    passage : son état (`attente`, `vert`, `rouge`), la date où il est parti,
+    son workflow et l'adresse de son travail."""
+    vus: dict[str, dict[str, str]] = {}
     for c in pr.get("statusCheckRollup") or []:
         nom = c.get("name") or c.get("context") or ""
         if c.get("__typename") == "StatusContext":
@@ -233,9 +236,28 @@ def etat_des_controles(pr: dict, exiges: Iterable[str] = CONTROLES_EXIGES,
         # Un même nom revient quand un travail est rejoué : c'est le passage
         # le plus récent qui dit l'état, pas le premier ni le pire.
         date = c.get("startedAt") or c.get("completedAt") or ""
-        if nom not in vus or date >= dates[nom]:
-            vus[nom], dates[nom] = etat, date
-            workflows[nom] = c.get("workflowName") or ""
+        if nom not in vus or date >= vus[nom]["date"]:
+            vus[nom] = {"etat": etat, "date": date, "workflow": c.get("workflowName") or "",
+                        "adresse": c.get("detailsUrl") or ""}
+    return vus
+
+
+def travaux(pr: dict, workflow: str) -> dict[str, dict[str, str]]:
+    """Les travaux d'un workflow sur la révision courante de la PR, comme
+    `_controles` les décrit."""
+    return {nom: c for nom, c in _controles(pr).items() if c["workflow"] == workflow}
+
+
+def etat_des_controles(pr: dict, exiges: Iterable[str] = CONTROLES_EXIGES,
+                       agregats: dict[str, str] = AGREGATS) -> tuple[str, dict[str, str]]:
+    """`attente`, `vert` ou `rouge`, sur la révision courante de la PR.
+
+    Un contrôle exigé absent retient (attente), il ne passe pas ; un travail
+    rouge du workflow qu'il agrège le rend rouge sans attendre les autres.
+    """
+    controles = _controles(pr)
+    vus = {nom: c["etat"] for nom, c in controles.items()}
+    workflows = {nom: c["workflow"] for nom, c in controles.items()}
     exiges = list(exiges)
     etats = [vus.get(nom, "attente") for nom in exiges]
     agreges = {agregats[nom] for nom in exiges if nom in agregats}

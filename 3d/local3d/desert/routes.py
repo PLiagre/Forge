@@ -34,7 +34,16 @@ PARAMETRES = {
     'bruit_bord': 0.6,         # m : amplitude du bruit qui rend le bord peint irrégulier
     'fondu_bord': 0.75,        # m : largeur du fondu de la peinture au bord
     'arrondi': 0.01,           # m : les points du joueur sont arrondis au centimètre
+    'relief_plaine': 1.0,      # facteur des hauteurs autour du pivot en plaine
+    'relief_marais': 1.0,      # facteur des hauteurs autour du pivot en marais
+    'relief_colline': 1.15,    # facteur des hauteurs autour du pivot en colline
+    'relief_montagne': 1.3,    # facteur des hauteurs autour du pivot en montagne
+    'relief_haute_montagne': 1.3,  # facteur des hauteurs autour du pivot en haute montagne
+    'relief_plein': 400.0,     # m : distance de Tchebychev au centre, facteur plein jusque-là
+    'relief_nul': 500.0,       # m : au-delà, terrain d'origine et raccord à l'horizon intacts
 }
+# Boîte du kit : −11 à 42 m ; graine 1433 : −4,11 à 30 m. Plafond ×1,39 autour
+# de l'eau ; ×1,3 donne un maximum relevé de 39,19 m (mesuré par le lot #683).
 TOLERANCE_PROFIL = 0.03        # m : écart toléré entre le terrain sous l'axe et le profil (brief, SC2)
 ECART_POINTS = 0.02           # m : l'axe passe par les points du joueur (corde de 0,5 m sur une courbe douce : quelques mm)
 ECART_CAPTURE = 6              # écart moyen des pixels sous lequel une capture est uniforme (comme la V0)
@@ -63,6 +72,25 @@ def grille(ident):
     if not chemin.exists():
         raise RuntimeError(ident + ' : ' + str(chemin) + ' absent — lancer d’abord py 3d/local3d/atelier_desert.py terrain')
     return np.fromfile(chemin, dtype='<f4').reshape(n, n).astype(float)
+
+
+def pivot(seed):
+    """Le niveau d'eau de la guelta : le rivage reste fixe pendant le relèvement."""
+    return float(paysage.plan(seed)['pool']['position'][2])
+
+
+def relever(h, classe, P):
+    """Une nouvelle grille relevée autour de l'eau, fondue vers le bord du terrain."""
+    try:
+        F = P['relief_' + classe]
+    except KeyError:
+        raise ValueError('classe de relief inconnue : ' + classe) from None
+    x = terrain.TAILLE / 2 - np.arange(h.shape[1]) * P['pas']
+    y = terrain.TAILLE / 2 - np.arange(h.shape[0]) * P['pas']
+    d = np.maximum(np.abs(x[None, :]), np.abs(y[:, None]))
+    w = np.clip((P['relief_nul'] - d) / (P['relief_nul'] - P['relief_plein']), 0, 1)
+    f = 1 + (F - 1) * w
+    return np.where(f == 1, h, P['pivot'] + (h - P['pivot']) * f)
 
 
 def hauteur(h, x, y):
@@ -424,6 +452,7 @@ def raide_travers(h, seed, P):
 def ecrire_gestes(ident, seed):
     h = grille(ident); P = dict(PARAMETRES)
     routes = anciennes(h, seed, P) + [plaine(h, seed, P), flanc(h, seed, P), raide_long(h, seed, P), raide_travers(h, seed, P)]
+    P['pivot'] = pivot(seed)
     donnees = {'implantation': ident, 'graine': seed, 'parametres': P, 'routes': routes}
     fautes = juger_gestes(donnees)
     if fautes:

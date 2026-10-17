@@ -2619,10 +2619,12 @@ import time
 
 
 @contextmanager
-def lancer_service(seed: int, jours_par_seconde: float = 0):
+def lancer_service(seed: int, jours_par_seconde: float = 0, amorcage=""):
     """Lance le vrai module HTTP, livre son port, puis l'arrête dans tous les cas."""
+    commande = [sys.executable, "-m", "sim.service", "--seed", str(seed), "--port", "0", "--jours-par-seconde", str(jours_par_seconde)]
+    if amorcage: commande = [sys.executable, '-c', amorcage + "import runpy; runpy.run_module('sim.service', run_name='__main__')", *commande[3:]]
     processus = subprocess.Popen(
-        [sys.executable, "-m", "sim.service", "--seed", str(seed), "--port", "0", "--jours-par-seconde", str(jours_par_seconde)],
+        commande,
         cwd=_REPO,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -2780,15 +2782,15 @@ def test_service_monde_est_leger_et_intention_ne_mute_rien():
             lieu = requete_service(port, f"/lieu?cell={cellule['cell_id']}")[1]
             assert lieu["population"] == cellule["population"]
 
-        from sim.seigneuries import charger_seigneuries
+        from sim.seigneuries import charger_seigneuries, cellule_du_siege
         terre = charger_seigneuries()[0].id
         choix = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
         assert requete_service(port, "/intention", "POST", choix)[1] == {
             "acceptee": True, "appliquee_au_tick": 2}
         assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 3
         octets_avant = requete_service(port, "/monde")[2]
-        intention = json.dumps({"type": "tracer_route", "cell": min(c["cell_id"] for c in monde["cells"]), "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}).encode("utf-8")
-        cell_id = min(c["cell_id"] for c in monde["cells"])
+        intention = json.dumps({"type": "tracer_route", "cell": cellule_du_siege(charger_seigneuries()[0], World.charger(0).carte), "points": [[0, 0], [40, 0], [40, 25]], "largeur_m": 4}).encode("utf-8")
+        cell_id = json.loads(intention)["cell"]
         plan_avant = requete_service(port, f"/plan?cell={cell_id}")[2]
         reponse = requete_service(port, "/intention", "POST", intention)[1]
         assert reponse == {"acceptee": True, "appliquee_au_tick": 3}
@@ -3028,15 +3030,16 @@ def test_horloge_cli_refuse_vitesse_negative_et_accepte_decimale():
         assert document["jours_par_seconde"] == 2.5
 
 
-def test_service_reponse_figee_du_pont_est_celle_du_service():
+def test_service_reponse_figee_du_pont_est_celle_du_service(monkeypatch):
     """Lot #185 SC1 — le fichier figé que relit Unity est la réponse `/lieu` du service."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     fige = (
         _REPO.parent
         / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
         / "lieu-graine0-tick3.json"
     ).read_bytes()
     assert len(json.loads(fige.decode("utf-8"))["stocks"]) >= 2
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         assert requete_service(port, "/tick?n=3", "POST")[1]["tick"] == 3
         monde = requete_service(port, "/monde")[1]
         candidates = sorted(
@@ -3055,13 +3058,14 @@ def test_service_reponse_figee_du_pont_est_celle_du_service():
         assert requete_service(port, chemin)[2] != fige
 
 
-def test_service_reponse_figee_du_pont_tick4_est_celle_du_service():
+def test_service_reponse_figee_du_pont_tick4_est_celle_du_service(monkeypatch):
     """Lot #186 SC1 — le fichier figé du tick 4 est la réponse `/lieu` du service, décalée d'un tick."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     dossier = _REPO.parent / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
     fige3 = (dossier / "lieu-graine0-tick3.json").read_bytes()
     fige4 = (dossier / "lieu-graine0-tick4.json").read_bytes()
     cell_id = json.loads(fige3.decode("utf-8"))["cell_id"]
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         assert requete_service(port, "/tick?n=4", "POST")[1]["tick"] == 4
         chemin = f"/lieu?cell={cell_id}"
         statut, lieu, octets = requete_service(port, chemin)
@@ -3100,6 +3104,9 @@ def test_plan_vide_par_cellule_et_empreinte_sensible():
 
 
 def test_plan_service_vide_date_tick_et_octets_deterministes():
+    from sim.ville1400 import base_de_cellule
+    from sim.service import _serialiser
+    monde_base = World.charger(0)
     def course():
         with lancer_service(0) as port:
             cellules = requete_service(port, "/monde")[1]["cells"]
@@ -3110,12 +3117,16 @@ def test_plan_service_vide_date_tick_et_octets_deterministes():
             assert statut == HTTPStatus.OK
             assert plan == {"cell_id": cid, "rang": 0, "tick": 0,
                             "date": requete_service(port, "/horloge")[1]["date"],
-                            "rues": [], "parcelles": [], "batiments": []}
+                            "rues": [], "parcelles": [], "batiments": [],
+                            "base": json.loads(json.dumps(base_de_cellule(monde_base, cid)))}
+            assert avant == _serialiser(plan)
             requete_service(port, "/tick?n=2", "POST")
             statut, apres, octets = requete_service(port, chemin)
             assert statut == HTTPStatus.OK and apres["tick"] == 2
             assert apres["date"] == requete_service(port, "/horloge")[1]["date"]
             assert apres["rues"] == apres["parcelles"] == apres["batiments"] == []
+            assert apres["base"] == plan["base"]
+            assert octets == _serialiser(apres)
             return avant, octets
 
     assert course() == course()
@@ -3376,6 +3387,13 @@ def test_photographie_1400_terre():
     sans = _photographie_1400(jumeau, 1)[1]
     assert sans.pop("terre_choisie") is None
     doc.pop("terre_choisie")
+    assert "maisons_du_joueur" not in sans
+    with pytest.raises(AssertionError):
+        assert doc.copy() == sans
+    maisons = doc.pop("maisons_du_joueur")
+    assert maisons["maison"]["id"] == f"seigneurie-{bar.id}"
+    suzerain = next(m.suzerain for m in monde.maisons if m.id == maisons["maison"]["id"])
+    assert suzerain is not None and maisons["suzerain"]["id"] == suzerain
     assert doc == sans
     monde.maison_du_joueur = f"seigneurie-{moree.id}"
     with pytest.raises(AssertionError):
@@ -3490,7 +3508,7 @@ def test_service_lieu_documente_dans_le_modele():
 
 
 # --- Lot 237 : /lieu sert les lieux de la cellule ---
-_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2"}  # le point : lot #393
+_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2", "nom", "flux_30j"}  # le point : lot #393
 
 
 def _verifier_lieux_contre_photo(lieu: dict, cellule: dict, nombre_attendu: int) -> None:
@@ -3788,7 +3806,8 @@ def test_ia_mesure_reelle(tmp_path):
     with pytest.raises(AssertionError): verifier(faux)
 
 
-def test_ia_raisons_egalent_le_monde():
+def test_ia_raisons_egalent_le_monde(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     releve = _verifier_raisons(70)
     assert [entree['tick'] for entree in releve] == [25, 36, 39, 61, 64, 69]
     assert releve and all(entree['raison']['champs_nourriture_kg'] for entree in releve)
@@ -4037,7 +4056,8 @@ def test_service_logement():
         assert b'"logement"' not in requete_service(port, "/monde")[2]
         autre = next(c for c in monde.cells if c != cid)
         assert "logement" not in requete_service(port, f"/lieu?cell={autre}")[1]
-    with lancer_service(0) as port:
+    from sim.tests.test_intentions import _amorcage
+    with lancer_service(0, amorcage=_amorcage(cid)) as port:
         def deposer(geste):
             statut, recu, _ = requete_service(port, "/intention", "POST", json.dumps(geste).encode())
             assert statut is HTTPStatus.OK and recu["acceptee"]
@@ -4067,6 +4087,7 @@ def test_service_logement():
 
 
 def test_logement_sans_geste(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim import service
     from sim.tests.test_foyers import _plan_logement
     with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
@@ -4123,6 +4144,19 @@ def test_logement_monde_inchange(monkeypatch):
     monkeypatch.setattr(logement, "logement_de", retirer)
     with pytest.raises(AssertionError):
         controler()
+
+
+@contextmanager
+def _lancer_service_sans_part(seed, jours_par_seconde=0):
+    """Pose la part nulle dans le fils, avant le chargement de son monde."""
+    original = subprocess.Popen
+    code = ('import sim.constants as c; c.PART_COUTUMIERE = 0; '
+            'import runpy; runpy.run_module("sim.service", run_name="__main__", alter_sys=True)')
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(subprocess, "Popen", lambda args, **kw:
+                      original([args[0], "-c", code, *args[3:]], **kw))
+        with lancer_service(seed, jours_par_seconde) as port:
+            yield port
 
 
 @contextmanager
@@ -4187,7 +4221,7 @@ def test_service_ia_ordre(monkeypatch):
     from sim.intentions import recevoir_intention
     with _service_ia_en_processus() as (s, port):
         from sim import engine
-        from sim.seigneuries import charger_seigneuries
+        from sim.seigneuries import charger_seigneuries, cellule_du_siege
         terre = charger_seigneuries()[0].id
         corps = json.dumps({"type": "choisir_depart", "seigneurie": terre}).encode()
         assert requete_service(port, "/intention", "POST", corps)[0] == HTTPStatus.OK
@@ -4206,7 +4240,7 @@ def test_service_ia_ordre(monkeypatch):
         verifier(evenements)
         for faux in (evenements[1:] + evenements[:1], [('ia', False, s.world, s.releve)] + evenements[1:]):
             with pytest.raises(AssertionError): verifier(faux)
-        route = dict(type='tracer_route', cell=min(s.world.cells), points=[[0, 0], [40, 0]], largeur_m=4)
+        route = dict(type='tracer_route', maison=s.world.maison_du_joueur, cell=cellule_du_siege(charger_seigneuries()[0], s.world.carte), points=[[0, 0], [40, 0]], largeur_m=4)
         assert requete_service(port, '/intention', 'POST', json.dumps(route).encode())[0] == HTTPStatus.OK
         joueur = list(s.world.intentions_en_attente)
         def deposer(w, r):
@@ -4235,7 +4269,8 @@ def test_service_ia_refus(monkeypatch, capsys, erreur):
     from sim.intentions import IntentionRefusee, recevoir_intention
     erreur = ValueError if erreur == 'donnee' else IntentionRefusee
     with _service_ia_en_processus() as (s, port):
-        route = dict(type='tracer_route', cell=min(s.world.cells), points=[[0, 0], [40, 0]], largeur_m=4)
+        cid = min(s.world.cells)
+        route = dict(type='tracer_route', maison=s.world.cells[cid].lieux[0].maitre, cell=cid, points=[[0, 0], [40, 0]], largeur_m=4)
         recevoir_intention(s.world, route)
         file = list(s.world.intentions_en_attente)
         chemins = ['/monde', '/ia', f"/plan?cell={route['cell']}"]
@@ -4261,7 +4296,8 @@ def test_service_ia_refus(monkeypatch, capsys, erreur):
         assert 'ia : route refusée' in capsys.readouterr().err
 
 
-def test_service_ia_sans():
+def test_service_ia_sans(monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     # Empreintes de la base, graine 0 : cellule minimale 1175 et témoin du pont 9922.
     empreintes = {
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
@@ -4277,18 +4313,23 @@ def test_service_ia_sans():
         0: [anterieures[0][0], '1d293e8904ca32aa6b72e29762b42c1c9862459dce1691599f57ce6468df97db', '05d131f47e10eb27753d019491ec5f3649d79c7a9195a9f80dff5293545af30d'],
         4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
     }
+    completes = {0: ['de57685962dc181ca490b37b0c18db936195fccd6a486239d2b53da6d19e3839', '71a6d72148d243323966706fc8188fd07521c01a756fa8d426c7eb5a1b1e797e'], 4: ['d54ebee7e0061cbade94f4652f8508fd99d8e916acecbddd0ba377560f12c1ee', '53d9b66066656082e80288d965baf5717c3081a2e1b1b3e4a0e73382b52d719c']}
     from sim.service import _serialiser
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         for t, attendues in empreintes.items():
             if t: requete_service(port, '/tick?n=4', 'POST')
             for chemin, attendue in zip(['/monde', '/lieu?cell=1175', '/lieu?cell=9922'], attendues):
                 octets = requete_service(port, chemin)[2]
                 reponse = json.loads(octets)
                 if chemin != '/monde':
+                    assert _sha(octets) == completes[t][0 if '1175' in chemin else 1]
+                    for lieu in reponse['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
                     for lieu in reponse['lieux']: lieu.pop('point')  # le point vient du lot #393
                 assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c16d0b6f5d5699793286ab480344207940c01dc55f4630fcffb84e09fac66e18', 'd8cabad69d78b46f227e1db6d5b7e1238767de836b14c2f5998bc9d59ab87f92'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '32c0fa20e892cc305f9eac5a41dedc4f9b35c834925160a8e8319cc19f66a7bf', 'ea965093c5d6ad8b169b8558dc7a57d7e826e46247d0fe02e3e2dafdabc28ecd']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
                 if chemin != '/monde':
-                    document = json.loads(octets); assert document.pop('noms'); octets = _serialiser(document)
+                    document = json.loads(octets); assert document.pop('noms')
+                    for lieu in document['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
+                    octets = _serialiser(document)
                 assert hashlib.sha256(octets).hexdigest() == attendue
                 faux = json.loads(octets); faux['ia'] = []
                 from sim.service import _serialiser
@@ -4344,8 +4385,9 @@ def test_service_ia_raison():
 
 
 @pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
-def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
+def test_service_reponse_figee_places_et_anciens_champs(tick, avant, monkeypatch):
     """Lot #393 — chaque lieu du fichier figé porte son point, dans sa cellule ; sans les points, c'est la réponse d'avant."""
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.service import _serialiser
     from sim.villes import point_dans_geometrie
     fige = (_REPO.parent / f"3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json").read_bytes()
@@ -4356,6 +4398,7 @@ def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
         assert set(lieu["point"]) == {"x_m", "y_m", "latitude", "longitude"}
         assert point_dans_geometrie(lieu["point"]["x_m"], lieu["point"]["y_m"], geometrie)
     prive = copy.deepcopy(document); assert prive.pop("noms")
+    for lieu in prive["lieux"]: lieu.pop("nom"); lieu.pop("flux_30j")
     for lieu in prive["lieux"]: lieu.pop("point")
     assert _sha(_serialiser(prive)) == avant
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
@@ -4363,20 +4406,22 @@ def test_service_reponse_figee_places_et_anciens_champs(tick, avant):
 
 
 @pytest.mark.parametrize("tick,ancienne", [(3, "e53288c4a92a82002f98645c7f760bf50ccb8ffac765d121e949bde90978b352"), (4, "e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83")])
-def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne):
+def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne, monkeypatch):
+    monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.service import _serialiser
     dossier = _REPO.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
     fige = (dossier / f"lieu-graine0-tick{tick}.json").read_bytes()
     document = json.loads(fige)
     assert document["lieux"] and all(isinstance(l["maitre"], str) and l["maitre"] for l in document["lieux"])
     prive = copy.deepcopy(document); assert prive.pop("noms")
+    for lieu in prive["lieux"]: lieu.pop("nom"); lieu.pop("flux_30j")
     for lieu in prive["lieux"]: lieu.pop("point")  # le point vient du lot #393
     assert _sha(_serialiser(prive)) == {3: 'bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e', 4: '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'}[tick]
     for lieu in prive["lieux"]: lieu.pop("maitre")
     assert _sha(_serialiser(prive)) == ancienne
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
     with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == ancienne
-    with lancer_service(0) as port:
+    with _lancer_service_sans_part(0) as port:
         assert requete_service(port, f"/tick?n={tick}", "POST")[1]["tick"] == tick
         servi = requete_service(port, f"/lieu?cell={document['cell_id']}")[2]
         assert fige == servi
@@ -4444,3 +4489,228 @@ def test_noms_publication_et_documentation():
         appel = re.search(r'AreEqual\(([^;]+), maisons\.Keys\.ToArray\(\)\)', texte); ids = re.findall(r'"([^"]+)"', re.search(r'maitresAttendus = new\[\] \{ ([^}]+) \}', texte).group(1)); expr = appel.group(1) if appel else ''; ordre = sorted(ids) if 'StringComparer.Ordinal' in expr else (re.findall(r'"([^"]+)"', expr) or ids); assert appel and ordre == list(json.loads((_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json').read_bytes())['noms']['maisons']) and all(t in texte for t in ('nomsLieux[rang]', 'maisons[(string)unLieu["maitre"]]', 'nomLieu["nom"]', 'maison["prenom_chef"]'))
     texte = (_REPO.parent / '3d/unity/Assets/ForgeLocal3D/Pont/Tests/LecteurJsonTests.cs').read_text(); lecteur(texte)
     pytest.raises(AssertionError, lecteur, texte.replace('"noms"', '"privé"')); pytest.raises(AssertionError, lecteur, texte.replace('.OrderBy(m => m, StringComparer.Ordinal)', ''))
+
+
+def test_plan_service_base_constante_et_calculee_une_fois(monkeypatch):
+    from sim import ville1400 as v
+    from sim.service import ServeurMonde, _serialiser
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever, daemon=True)
+    fil.start()
+    try:
+        port, cid = serveur.server_address[1], 10103
+        reference = json.loads(json.dumps(v.base_de_cellule(serveur.world, cid)))
+        calcul, appels = v.base_d_une_population, []
+        def compter(*a):
+            appels.append(a)
+            return calcul(*a)
+        monkeypatch.setattr(v, 'base_d_une_population', compter)
+        chemin = f'/plan?cell={cid}'
+        def verifier():
+            statut, plan, octets = requete_service(port, chemin)
+            assert statut == HTTPStatus.OK and plan.get('base') == reference
+            assert octets == _serialiser(plan)
+        verifier()
+        for _ in range(3):
+            requete_service(port, '/tick?n=1', 'POST')
+            verifier()
+        assert len(appels) == 1
+        requete_service(port, '/tick?n=362', 'POST')
+        verifier()
+        assert serveur.world.ticks_ecoules == 365 and len(appels) == 1
+        with monkeypatch.context() as sonde:
+            sonde.setattr(serveur, 'octets_plan', lambda etat, cellule: _serialiser(
+                {k: val for k, val in json.loads(etat.plans[cellule]).items() if k != 'base'}))
+            with pytest.raises(AssertionError):
+                verifier()
+        print(f'calculs_base={len(appels)}, ticks={serveur.world.ticks_ecoules}')
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+        fil.join(timeout=5)
+
+
+@pytest.mark.chronometre
+def test_departs_budget_comparaison(monkeypatch):
+    import random
+    import statistics
+    import time
+    from sim import engine, departs
+    from sim.service import BUDGET_TICK_MS
+    base, partir = World.charger(0), departs.appliquer_departs
+    def mesurer(fonction):
+        monde, rng, etapes, ticks = copy.deepcopy(base), random.Random(0), [], []
+        def observer(m):
+            debut = time.perf_counter(); resultat = fonction(m)
+            etapes.append((time.perf_counter() - debut) * 1000); return resultat
+        with monkeypatch.context() as ctx:
+            ctx.setattr(departs, 'appliquer_departs', observer)
+            for numero in range(25):
+                debut = time.perf_counter(); engine.tick(monde, rng, numero)
+                if numero >= 5: ticks.append((time.perf_counter() - debut) * 1000)
+        assert len(ticks) == len(etapes[5:]) == 20
+        return ticks, etapes[5:]
+    actif, etapes = mesurer(partir); sans, absence = mesurer(lambda m: 0)
+    for nom, valeurs in (('actif', actif), ('sans départs', sans), ('étape', etapes), ('appel vide', absence)):
+        print(f'{nom} : n={len(valeurs)}, médiane={statistics.median(valeurs):.3f} ms, maximum={max(valeurs):.3f} ms')
+    print(f'écart des médianes={statistics.median(actif) - statistics.median(sans):.3f} ms')
+    def controler(valeurs): assert statistics.median(valeurs) < BUDGET_TICK_MS
+    controler(actif)
+    def lent(m):
+        time.sleep(BUDGET_TICK_MS / 1000); return partir(m)
+    with pytest.raises(AssertionError): controler(mesurer(lent)[0])
+
+
+
+def test_flux_des_lieux_publication_et_passe_unique(monkeypatch):
+    from sim import flux, service, snapshot_export
+    from sim.engine import tick
+    with service.ServeurMonde(('127.0.0.1', 0), 0, 0) as serveur:
+        for _ in range(35): tick(serveur.world, serveur.rng)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        photo = build_snapshot_document(serveur.world, 0, 35)
+        def verifier(etat):
+            partis, arrives = [], []
+            for cellule in photo['cells']:
+                cid = cellule['cell_id']; lieux = json.loads(etat.lieux[cid])['lieux']
+                assert lieux == cellule['lieux'] and lieux
+                for l in lieux:
+                    assert isinstance(l['nom'], str) and l['nom'] and l['nom'] == cellule['noms']['lieux'][l['rang']]['nom']
+                    f = l['flux_30j']; assert set(f) == {'preleve_kg', 'partis_personnes', 'arrives_personnes'}
+                    partis.append(f['partis_personnes']); arrives.append(f['arrives_personnes'])
+                    route = serveur.world.routes_des_lieux.par_cellule.get(cid)
+                    if route and route[0][l['rang']] >= 0: assert f['preleve_kg'] > 0
+            assert any(partis) and any(arrives)
+        verifier(serveur.etat_publie)
+        faux = copy.deepcopy(serveur.etat_publie)
+        cid = next(c['cell_id'] for c in photo['cells'] if len(c['lieux']) > 1)
+        document = json.loads(faux.lieux[cid]); a, b = document['lieux'][:2]
+        a['nom'], b['nom'] = b['nom'], a['nom']; faux.lieux[cid] = service._serialiser(document)
+        with pytest.raises(AssertionError): verifier(faux)
+        lire = service.lieux_en_photographie
+        with monkeypatch.context() as ctx:
+            ctx.setattr(service, 'lieux_en_photographie', lambda cid, cell, places=None, noms=None, flux=None: lire(cid, cell, places, noms, None))
+            with pytest.raises(AssertionError): verifier(serveur._construire_etat(0, -1))
+        appels = []
+        def compter(m):
+            appels.append(m); assert len(appels) == 1; return flux.flux_des_lieux(m)
+        def interdit(*a): pytest.fail('flux_de_lieu appelé pendant une publication')
+        for module in (flux, service, snapshot_export): monkeypatch.setattr(module, 'flux_de_lieu', interdit, raising=False)
+        monkeypatch.setattr(service, 'flux_des_lieux', compter)
+        monkeypatch.setattr(snapshot_export, 'flux_des_lieux', compter)
+        def une_passe():
+            appels.clear(); serveur._construire_etat(0, -1); assert len(appels) == 1
+            appels.clear(); build_snapshot_document(serveur.world, 0, 35); assert len(appels) == 1
+        une_passe()
+        monkeypatch.setattr(service, 'flux_des_lieux', lambda m: {cid: compter(m)[cid] for cid in m.cells})
+        with pytest.raises(AssertionError): une_passe()
+
+
+@pytest.mark.parametrize('tick,ancienne', [(3, '55748f4bab604cd482274db8af1185601410518af2013a64b777631b70cddb31'), (4, '42da176f1b979cce1172b8c13e0c01e6749f3fb00ba2a372e94b383d1a7a7fd7')])
+def test_service_reponse_figee_flux_et_origine(tick, ancienne):
+    from sim.service import _serialiser
+    document = json.loads((_REPO.parent / f'3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json').read_bytes())
+    assert document['lieux'] and all(l['nom'] and l['flux_30j'] is not None for l in document['lieux'])
+    prive = copy.deepcopy(document)
+    for lieu in prive['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
+    def verifier(d): assert _sha(_serialiser(d)) == ancienne
+    verifier(prive)
+    for champ, valeur in (('population', prive['lieux'][0]['population'] + 1), ('nom', document['lieux'][0]['nom'])):
+        faux = copy.deepcopy(prive); faux['lieux'][0][champ] = valeur
+        with pytest.raises(AssertionError): verifier(faux)
+
+
+def test_service_flux_documente_parmi_les_champs_servis():
+    def verifier(texte):
+        paragraphe = texte.split('Le service les publie.', 1)[1].split('\n\n', 1)[0]
+        champs = paragraphe.split('chacun avec exactement', 1)[1].split('.', 1)[0]
+        assert all(c in champs for c in ('`nom`', '`flux_30j`'))
+    texte = (_REPO / 'sim/MODELE.md').read_text(); verifier(texte)
+    with pytest.raises(AssertionError): verifier(texte.replace('`flux_30j`', 'les flux'))
+
+
+def test_cellule_legere_ne_copie_pas_les_champs_ecartes(monkeypatch):
+    from sim import model, service
+    from sim.tests.test_commerce import _cellule_bourg
+
+    cellule = _cellule_bourg(1, [5000, 2500], [350000., 0.])
+    cellule.stocks['fer'] = 1.23456789
+    cellule.food_deficit_kg = 0.123456789
+    canonique = model.cellule_vers_dict(cellule)
+    attendu = service._round_tree({
+        champ: canonique[champ]
+        for champ in ('cell_id', 'population', 'stocks', 'hunger_ticks', 'food_deficit_kg')
+    })
+
+    def copie_interdite(*args):
+        pytest.fail('la cellule légère copie aussi les lieux qui seront écartés')
+
+    monkeypatch.setattr(model, 'asdict', copie_interdite)
+    document = service._cellule_legere(cellule)
+    assert document == attendu
+    assert service._serialiser(document) == service._serialiser(attendu)
+    document['stocks']['fer'] += 1
+    assert cellule.stocks['fer'] == canonique['stocks']['fer']
+
+
+def test_plan_chantiers_du_jour(monkeypatch):
+    from sim import chantiers, constants as k
+    from sim.service import ServeurMonde
+    from sim.plan import Plan, Rue
+    from sim.tests.test_chantiers import _epreuve_salaire, _attendu_chantiers
+    salaire = 3.123456789; avancer = chantiers.avancer_chantiers
+    def course():
+        monkeypatch.setattr(k, 'SALAIRE_JOURNEE_KG', salaire)
+        serveur = ServeurMonde(('127.0.0.1', 0), 0, 0); monde = serveur.world
+        cid = next(c for c, cell in sorted(monde.cells.items()) if any(l.rang == 0 and l.maitre for l in cell.lieux))
+        autre = next(c for c in monde.cells if c != cid); mesures = []
+        maitre = next(l.maitre for l in monde.cells[cid].lieux if l.rang == 0)
+        monde.plans[cid] = _epreuve_salaire().plans[1]; monde.greniers[maitre]['nourriture'] = 1000
+        etrangere, payeur = next((c, l.maitre) for c, cell in sorted(monde.cells.items()) for l in cell.lieux if c not in (cid, autre) and l.rang == 0 and l.maitre and l.maitre != maitre)
+        monde.plans[etrangere] = Plan(rues=[Rue(0, [(0, 0), (1, 0)], 1, True, 1, 100)])
+        monde.greniers[payeur]['nourriture'] = 1000
+        def mesurer(world):
+            avant = world.to_dict(); envois = avancer(world)
+            motifs = {cle: 'sans_grain' for cle, bras in envois.items() if not bras}
+            attendu = _attendu_chantiers(avant, world, envois, k.SALAIRE_JOURNEE_KG, motifs) if envois else {}
+            liste = [dict(nature='rue' if len(cle) == 2 else cle[1], identifiant=cle[-1], **v) for cle, v in attendu.items() if cle[0] == cid]
+            assert sum(v['grain_paye_kg'] for v in liste) == pytest.approx(avant['greniers'][maitre]['nourriture'] - world.greniers[maitre]['nourriture'])
+            mesures.append(liste); return envois
+        monkeypatch.setattr(chantiers, 'avancer_chantiers', mesurer)
+        fil = threading.Thread(target=serveur.serve_forever, daemon=True); fil.start()
+        port = serveur.server_address[1]; chemin = f'/plan?cell={cid}'
+        def verifier(document, attendu):
+            assert document['cell_id'] == cid and document.get('chantiers_du_jour') == attendu
+            for ligne in attendu:
+                assert set(ligne) == {'nature', 'identifiant', 'bras', 'grain_paye_kg', 'motif_arret'}
+        try:
+            assert 'chantiers_du_jour' not in requete_service(port, chemin)[1]
+            assert 'chantiers_du_jour' not in requete_service(port, f'/plan?cell={autre}')[1]
+            requete_service(port, '/tick?n=1', 'POST'); document, octets = requete_service(port, chemin)[1:]
+            verifier(document, mesures[-1]); assert [v['nature'] for v in mesures[-1]] == ['rue', 'parcelle', 'batiment']
+            assert {v['identifiant'] for v in mesures[-1]} == {0} and all(v['bras'] > 0 for v in mesures[-1])
+            assert document['tick'] == 1 and document['date'] == monde.date_simulation
+            ancien = serveur.etat_publie; avant = copy.deepcopy(monde.to_dict()); alea = serveur.rng.getstate()
+            monkeypatch.setattr(k, 'SALAIRE_JOURNEE_KG', 7)
+            assert serveur._construire_etat(0, -1).plans[cid] == octets
+            assert monde.to_dict() == avant and serveur.rng.getstate() == alea
+            assert 'chantiers_du_jour' not in requete_service(port, f'/plan?cell={autre}')[1]
+            monde.chantiers_du_jour.clear()
+            with serveur.verrou_tick: assert requete_service(port, chemin)[2] == octets
+            monde.greniers[maitre]['nourriture'] = 0; requete_service(port, '/tick?n=1', 'POST')
+            arret = requete_service(port, chemin)[1]; verifier(arret, mesures[-1])
+            assert mesures[-1] == [dict(nature='batiment', identifiant=0, bras=0, grain_paye_kg=0, motif_arret='sans_grain')]
+            with pytest.raises(AssertionError): verifier(arret, document['chantiers_du_jour'])
+            with pytest.raises(AssertionError): verifier(arret, requete_service(port, f'/plan?cell={etrangere}')[1]['chantiers_du_jour'])
+            assert ancien.plans[cid] == octets
+            monde.greniers[maitre]['nourriture'] = 1000; requete_service(port, '/tick?n=1', 'POST')
+            acheve = requete_service(port, chemin)[1]; verifier(acheve, mesures[-1])
+            assert mesures[-1][0]['bras'] > 0 and not acheve['batiments'][0]['en_chantier']
+            monde.plans[cid] = _epreuve_salaire().plans[1]; requete_service(port, '/tick?n=2', 'POST')
+            dernier, fin = requete_service(port, chemin)[1:]; verifier(dernier, mesures[-1])
+            assert dernier['tick'] == 5 and dernier['date'] == monde.date_simulation
+            requete_service(port, '/tick?n=1', 'POST'); assert 'chantiers_du_jour' not in requete_service(port, chemin)[1]
+            return octets, fin
+        finally:
+            serveur.shutdown(); serveur.server_close()
+    assert course() == course()

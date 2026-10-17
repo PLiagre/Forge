@@ -1,0 +1,11 @@
+preuve valide
+commande : py pc/epreuve_jalon4.py --avec-unity --sortie C:\Users\liagr\AppData\Local\Temp\forge-583-normal
+date : 2026-10-11T23:21:57+02:00
+révision : 7ad0e3b57c59b58aca8eee8656281f4e70b0e2d0 5b3f9831b9f22e9cb8ab433ebeb7e07ea2526cc6
+unity : 6000.0.43f1
+code : 0
+égalité du monde : tenu — octets égaux sur 11 ticks
+relancement : tenu — mêmes identifiants, états, pièces et empreintes
+sans geste : tenu — plan vide au tick 0, témoin sans geste au tick 11
+foyers : tenu — 596 cellules, personnes conservées
+gestes : tenu — journal identique aux reçus, ticks 1, 2 et 3

@@ -49,34 +49,39 @@ part. À chaque tick, dans cet ordre :
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
    pluie suffisante.
-8. **Chemins intérieurs** (`_remplir_chemins_interieurs`) — seulement si une
-   route achevée sans porte atteint un lieu, initialise les capacités par rang
-   avec les facteurs des routes, pour le commerce du même tick.
-   **Commerce** (`_apply_commerce`) — les cellules en surplus livrent leurs
-   voisines en manque, sur les arêtes d'adjacence. Un kilogramme ne traverse
+8. **Prélèvement** (`prelevement.prelever`) — perte des charges en route,
+   arrivée au grenier, puis départ de la part de la récolte fraîche.
+9. **Commerce** — prépare d'abord les **chemins intérieurs**
+   (`_remplir_chemins_interieurs`) : seulement si une route achevée sans porte
+   atteint un lieu, initialise les capacités par rang avec les facteurs des
+   routes, pour le commerce du même tick. Le commerce (`_apply_commerce`) fait
+   ensuite circuler les surplus vers les voisines en manque, sur les arêtes
+   d'adjacence. Un kilogramme ne traverse
    qu'une arête par tick et ne nourrit qu'une fois. Toute marchandise du panier
    circule, pas seulement la nourriture. Une route achevée avec porte augmente
    le plafond de sa frontière dès ce tick. Arrivées et départs passent par le
    bourg (rang 0) ; les chemins des champs gardent leur ration et un plafond
    partagé entre destinataires et marchandises, de niveau 2.
-9. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+10. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
    bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
    Sinon, un surplus rembourse la dette, jamais plus vite que le surplus lui-même.
-10. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
+11. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-11. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
+12. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
     avec son report de fraction pour ne pas devenir immortel par arrondi ;
     sans lieux, le calcul reste cellulaire.
-12. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
+13. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
     des habitants, avec son report local ; sans lieux, le calcul reste cellulaire.
-13. **Migration** (`_apply_migration`) — seuls les habitants des lieux affamés
+14. **Migration** (`_apply_migration`) — seuls les habitants des lieux affamés
     partent vers les voisines dont il reste de la nourriture après consommation.
     Accueil au rang 0, report migratoire cellulaire, métiers au prorata : niveau 2.
     Personne n'emporte de kilogrammes ni d'états locaux (niveau 3).
-14. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
+15. **Départs** (`departs.appliquer_departs`) — mieux-vivre sur une photo après
+    la migration de famine ; foyers entiers, soldes simultanés, aucun bagage.
+16. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
 
@@ -897,12 +902,15 @@ restent cellulaires.
 
 ---
 
-## La migration de famine
+## Les départs
 
-Dernier maillon du tick, joué sur le monde entier après que tout le reste est
-résolu. **Aucun kilogramme ne bouge avec les partants.**
+Deux étapes successives, chacune sur sa photo. **Aucun kilogramme ne bouge avec les partants.**
 
-### Qui part
+### La famine
+
+Après mortalité et natalité, la migration de famine garde les règles ci-dessous.
+
+#### Qui part
 
 Après mortalité et natalité, seuls les lieux vivants dont `duree_faim_ticks > 0`
 fournissent des partants. La population source est la somme de leurs habitants :
@@ -924,7 +932,7 @@ Les départs se prélèvent à proportion des habitants de ces seuls lieux,
 en entiers par plus forts restes, égalités par rang croissant. Aucun lieu
 ne perd plus que sa population. Le report migratoire reste cellulaire.
 
-### Où l'on va
+#### Où l'on va
 
 Tous les arrivants rejoignent le bourg, au rang 0. Vers les cellules voisines d'adjacence **dont il reste de la nourriture après
 consommation**, pondérées par ce reste.
@@ -944,7 +952,7 @@ La répartition entre destinations est proportionnelle aux poids, en parts
 entières, le reliquat allant aux plus fortes fractions, les égalités départagées
 par `cell_id` croissant. Personne ne se perd dans l'arrondi.
 
-### L'atomicité
+#### L'atomicité de la famine
 
 Deux règles, qui font que la migration est un déplacement et non une diffusion :
 
@@ -963,6 +971,37 @@ dans une cellule sans métier, ils sont paysans. `_ajouter_par_les_foyers` ou
 Aucun kilo, dette, faim ni report de mortalité ou natalité ne voyage.
 Départs et accueil sont de niveau 2, plausibles, jamais sourcés ; délais,
 bagages et métiers propres aux lieux ne sont pas simulés (niveau 3).
+
+### Le mieux-vivre
+
+Après la famine, `departs.appliquer_departs` photographie les lieux habités.
+La réserve nette en jours vaut (nourriture moins dette) / ration des habitants ;
+la ration journalière dérive de la consommation et de `TICK_DURATION_DAYS`.
+L'écart doit être strictement supérieur à `ECART_DE_DEPART_JOURS = 30`.
+Par tranche entière de 30 jours, `TAUX_DE_DEPART = 0.002` donne la part quotidienne,
+plafonnée par `PLAFOND_DE_DEPART = 0.01` ; les foyers entiers s'arrondissent vers le bas.
+Destination : meilleur autre lieu habité de la cellule, sinon meilleur bourg habité
+voisin ; égalités par `(cell_id, rang)`. Les soldes s'appliquent simultanément,
+avec métiers au prorata entre cellules. Un lieu peut envoyer et recevoir sur sa photo :
+les interdictions de renvoi et de double traversée ci-dessus concernent seulement la famine.
+Ni kilo, dette, faim ni report ne voyage ; aucun maître ni taux de prélèvement n'est lu.
+Lieux vides et cellules sans lieux ne participent pas. Aucun aléa ni partage général
+après les mouvements. Niveau 2 : plausible, jamais sourcé ; délais, bagages et
+métiers propres aux lieux : niveau 3, non simulés.
+
+**Preuve annuelle à Bar.** Deux copies du même `World.charger(0)`, graine 0,
+avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
+`seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
+fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
+- part 0,1 : 0 foyers internes, 70 foyers hors domaine ;
+- part 0,6 : 0 foyers internes, 850 foyers hors domaine.
+Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
+en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
+avec sources et destinations. Les mouvements internes restent séparés ;
+les arrivées ne retranchent rien aux sorties d'un lieu qui envoie aussi.
+À chaque étape, leur somme concorde avec le retour mondial et leurs deltas
+avec les populations, sans faire voyager stocks, dette, faim ou reports.
+Cette mesure est de niveau 2, plausible, jamais sourcée.
 
 ---
 
@@ -1733,6 +1772,15 @@ n'est pas nul. Greniers vides et cumul nul laissent les octets antérieurs.
 moisissure. **Niveau 3**, pas simulé : la capacité du grenier et la
 dégradation des marchandises autres que la nourriture.
 
+Chantiers débite aussi ce grenier après ses pertes : le maître actuel du bourg paie les journées en grain, versé dans le panier du bourg (voir « Le chantier et ses bras »).
+
+**L'ouvrir.** `ouvrir_grenier` retire la quantité choisie à l'étape Intentions,
+avant la perte des greniers. Les lieux tenus viennent de l'index des routes,
+sans relire le registre ni leur maître. `sim.lieux.partager` répartit les kilos
+par dette alimentaire, sinon par habitants lorsque toutes les dettes sont nulles.
+Chaque part non nulle prend la même route vers son lieu. Niveau 2, plausible,
+jamais sourcé : la règle de répartition ; aucune constante nouvelle.
+
 ## Le prélèvement
 
 Au chargement, une fois les maîtres attribués et les fiches plausibles
@@ -1744,7 +1792,8 @@ au moins égal à 1. Un lieu sans maître n'entre pas dans la table. Un maître
 absent de `World.maisons`, ou dont le siège est hors carte (`cell_id` is
 None), lève `RouteInvalide` en nommant le couple du lieu. Un `World(...)`
 d'épreuve porte `{}`. La table n'entre pas dans `to_dict` : les octets du
-monde ne changent pas. Le tick ne la lit pas et ne la recalcule pas.
+monde au chargement ne changent pas. Le moteur ne la recalcule pas ;
+`sim/prelevement.py` lit son index par cellule et `OuvrirGrenier` ses entrées pendant le tick.
 
 `jours = max(1, ceil(distance / VITESSE_CONVOI_KM_PAR_JOUR))`.
 `VITESSE_CONVOI_KM_PAR_JOUR` est la vitesse d'un char à bœufs chargé sur
@@ -1764,10 +1813,191 @@ compris, niveau 2.
 Temps mesuré du chargement sur srv1914711 (AMD EPYC 9354P) :
 `places_du_monde` 0,35 s, la table 0,011 s, `World.charger` 1,93 s.
 
+Après Production et avant Commerce, l'étape Prélèvement relit `World.parts`
+(la coutume `PART_COUTUMIERE` vaut 0,03, niveau 2). Elle entame
+chaque groupe en route de `PERTE_CONVOI_PAR_JOUR` (0,01, niveau 2), cumule
+les kilos mangés par les charretiers et bêtes dans `mange_convois_kg`, puis
+verse les arrivées du tick dans le grenier. Elle retire enfin la part de la
+récolte fraîche de chaque lieu tenu, et la même somme de sa cellule, jamais
+une part du stock ancien. La production recueille les récoltes par surface,
+sans second calcul. Maître et jours viennent de la table, sans lire le
+registre ni le maître du lieu ; la part se relit une fois par maison et tick.
+Une part ou récolte nulle n'écrit rien, un monde sans routes ne prélève rien.
+
+Les secours vivent dans `World.secours` : arrivée → charges par lieu
+(`cell_id`, `rang`), vide au chargement et en épreuve. Un secours part au début
+du tick `t`, avant Production. À Prélèvement, avant les arrivées, chaque charge
+garde `1 − PERTE_CONVOI_PAR_JOUR` ; le mangé rejoint `mange_convois_kg`.
+Il arrive au tick `t + jours − 1`, après exactement `jours` pertes, pour
+`part × (1 − PERTE_CONVOI_PAR_JOUR)^jours`. Un lieu à un jour le mange dès le
+tick de l'ouverture. L'arrivée ajoute la nourriture au lieu et à sa cellule,
+par `lire/ecrire_stock_marchandise`, puis commerce et consommation la traitent
+comme le reste du panier. Le grain suit le lieu même si son maître change.
+Sans secours, aucun parcours supplémentaire. `to_dict()` publie seulement
+les secours non vides : liste `[cell_id, rang, arrivee, kg]` triée, kilos courants
+sans arrondi ; sans geste, les octets et les empreintes restent identiques.
+
+**Calibration de la part coutumière.** Référence historique avec `TAUX_DE_DEPART = 0`,
+sans mieux-vivre : elle ne mesure pas le monde désormais complet. Sur la graine 0, `World.charger(0)`
+joue 365 ticks numérotés de 0 à 364 avec `random.Random(0)` ; toutes les
+maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`.
+`habitants(p)` est la somme des populations des cellules après cette année.
+La perte `1 − habitants(p) / habitants(0)` se mesure contre le même monde
+sans prélèvement au même jour, car le monde grandit pendant l'année.
+Convois compris, la part 0,03 coûte 0,96 % des habitants, la part 0,04
+en coûte 1,39 %. `PART_COUTUMIERE` est la plus haute part au centième qui
+coûte au plus 1 % : sa perte reste sous ce seuil et celle de
+`round(PART_COUTUMIERE + 0.01, 2)` le dépasse. Prendre plus coûte davantage.
+C'est une règle plausible de niveau 2, jamais sourcée : la coutume ne vide
+pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
+Tout changement de production, de faim ou de départs exige de remesurer.
+
+**Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
+numérotés de 0 à 364 et `random.Random(0)`, garde le mieux-vivre actif,
+avec `TAUX_DE_DEPART = 0.002` et toutes les constantes livrées. Naissances,
+morts, commerce, famine et convois restent actifs ; toutes les maisons ont
+la même part. La référence est cette année active à part nulle, avec un cache
+séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
+- part 0,00 : 36090320 habitants ; perte 0,000000 % ; 195804 foyers déplacés.
+- part 0,03 : 35745201 habitants ; perte 0,956265 % ; 181882 foyers déplacés.
+- part 0,04 : 35593562 habitants ; perte 1,376430 % ; 179334 foyers déplacés.
+- part 0,10 : 34033348 habitants ; perte 5,699512 % ; 169818 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,956265 % ≤ 1 % < perte(0,04) = 1,376430 %.
+Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
+Les départs sont les sorties brutes du monde, en foyers entiers, observées
+à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
+
+`World.convois` regroupe les charges par tick d'arrivée, avec une liste dense
+par maison et un facteur commun de perte : aucune allocation par lieu.
+Un départ au tick t arrive à t + jours après exactement jours pertes :
+le grenier reçoit `prélevé × (1 − PERTE_CONVOI_PAR_JOUR)^jours`.
+La perte du grenier ne commence qu'au tick suivant son arrivée.
+`to_dict()` publie seulement les charges en route, triées par arrivée puis
+maison, et le cumul mangé non nul ; à part nulle, les octets restent ceux
+d'avant. Minerai, objets, capacité et pillage des convois : niveau 3, non simulés.
+
+**Le dû au suzerain.** `PART_DUE_AU_SUZERAIN = 0,10`, niveau 2,
+plausible, jamais sourcé : la coutume fait repartir un dixième de chaque
+arrivage de prélèvement vers le grenier du suzerain. Le vassal garde
+l'entrée moins ce dû. Le dû part le même tick, dans `World.convois`, et
+subit exactement `jours` pertes de `PERTE_CONVOI_PAR_JOUR`, ajoutées à
+`mange_convois_kg`. Le suzerain lui-même vassal paie à son tour sa part.
+`to_dict()` montre cette charge sous le nom du suzerain destinataire.
+Les secours, les achats et les greniers remplis à la main ne paient pas de dû.
+L'hommage en hommes, en argent et en service : niveau 3, pas simulé.
+
+`World.dus_des_vassaux` est calculée une fois, juste après les routes des
+lieux, avec les mêmes places et le même calcul des jours : distance des
+places dans une cellule, sinon plus court chemin terrestre depuis le siège
+du suzerain, ou `JOURS_DE_MER` sans chemin, au moins un jour.
+`routes` associe chaque vassal routé au suzerain et aux jours ; `retenus`
+porte la raison `hors_carte` du suzerain hors carte : ce dû reste chez le
+vassal. `par_indice`, alignée sur les noms des routes des lieux, donne
+l'indice du suzerain et les jours, ou `None`. Un suzerain inconnu, ou sur
+carte mais absent des noms, lève `RouteInvalide` en nommant le vassal.
+Un `World(...)` d'épreuve porte une table vide ; cette table reste hors de
+`to_dict()`. Le prélèvement ne consulte que `par_indice` et la constante,
+jamais le registre. Le dû passe entre greniers : lieux, cellules et
+calibration restent identiques.
+
+Temps de l'étape mesuré sur srv1914711 (AMD EPYC 9354P), graine 0,
+20 ticks après 5 de chauffe, sans autre test en parallèle : médiane 4,79 ms,
+moyenne 4,95 ms (avant correction des accès aux paniers : 3,71 ms et 3,96 ms ;
+prototype : 3,3 ms).
+Après correction des accès aux paniers, test chronométré joué seul :
+médiane du tick 77,44 ms, sous 100 ms ; la base avait donné 90 à 93 ms.
+Les départs ajoutent leur total une seule fois
+par groupe. La production et le prélèvement lisent et écrivent les paniers
+par les fonctions de `model.py` ;
+le commerce réutilise les besoins du snapshot et ne parcourt pas
+les arêtes pour une marchandise sans consommation, donc sans besoin ni flux.
+
+## Les flux sur trente jours
+
+Le monde garde une mémoire d'observation : aucune règle ne la lit. La
+fenêtre `FENETRE_FLUX_TICKS` vaut trente jours, à un jour par tick ; elle
+est relue à chaque appel. `World.flux` part vide au chargement, reste hors
+de `to_dict` et ne se sauvegarde pas. Le registre n'ajoute aucune étape au tick.
+
+Chaque jour porte cinq vecteurs par maison, alignés sur les noms de la table
+des routes : le prélevé des lieux, le reçu au grenier après dû, le dû envoyé
+au suzerain, le mangé en route (convois et secours), et le rendu quand la
+maison ouvre son grenier. `en_route` garde la charge courante vers chaque
+grenier : elle perd la consommation des charretiers et les arrivées, reçoit
+les récoltes et le dû réexpédié. Le dû reçu par le suzerain est une arrivée
+ordinaire, soumise à son propre dû s'il en a un.
+
+`JourDeFlux.salaires` cumule par identifiant de maison le même montant qu'au débit
+effectif de Chantiers, une seule fois, pour le maître actuel du bourg, même sans
+registre des maisons ni route. Un changement de maître ne réattribue pas le passé ;
+le tarif n'est jamais relu pour publier. Cette observation partage la même fenêtre.
+
+Le jour garde les références des parts et récoltes lues par le prélèvement,
+fraîches à chaque tick. Le prélevé d'un lieu se relit avec le même produit
+part × récolte ; on n'alloue aucun tableau supplémentaire par lieu. Les
+départs de famine et de mieux-vivre sont comptés en personnes brutes par
+`(cell_id, rang)`, y compris à l'intérieur d'une cellule. Un lieu peut envoyer
+et recevoir le même jour : les deux mouvements restent visibles. Les cellules
+sans lieux, les naissances, les morts et le commerce ne sont pas comptés.
+
+`flux_de_maison` et `flux_de_lieu` filtrent les jours de tick supérieur ou
+égal à `ticks_ecoules − FENETRE_FLUX_TICKS`. Ainsi, après trente ticks, le
+jour 0 compte encore ; après trente et un, il ne compte plus. À la création
+d'un jour, les jours antérieurs à `ticks_ecoules + 1 − FENETRE_FLUX_TICKS`
+sont retirés. Une maison connue sans route rend cinq zéros mesurés ; une
+maison ou un lieu inconnu est refusé. Les lecteurs servent les preuves et
+le service ; `flux_des_lieux` sert `/lieu` et la photographie en une passe,
+dans le même ordre des jours que `flux_de_lieu`. Aucun module de règles ne les appelle.
+
+Le prélèvement accumule les kilos dans une liste locale, sans garde ni
+écriture `array` par lieu ; les vecteurs sont convertis une fois par appel.
+Les fonctions d'accès au stock sont gardées en variables locales. Les
+références des récoltes et des parts restent celles lues par le prélèvement.
+
+Médianes sur srv1914711, graine 0, cinq ticks de chauffe puis ticks 5 à 24,
+le 14/10/2026, monde réel chargé puis copié :
+
+| Comparaison | Tick | Prélèvement |
+|---|---:|---:|
+| Avant le lot, première comparaison en mémoire | 107,68 ms | 7,04 ms |
+| Registre initial, même comparaison | 119,96 ms | 10,13 ms |
+| Avant le lot (`5d984aa`), nouvelle comparaison en processus séparés | 110,21 ms | 7,42 ms |
+| Registre avec variables locales et sans garde par lieu, même séance | 114,35 ms | 9,51 ms |
+
+Chaque processus de la seconde comparaison importe ses propres fichiers,
+puis joue seul les mêmes vingt ticks mesurés ; leurs `to_dict()` finaux
+ont la même empreinte. Les médianes varient entre les passages.
+
 ## Les intentions du joueur
 
+Les trois constructions exigent `maison`, identifiant texte de `World.maisons`.
+Après les validations existantes, avant l'attente, la garde relit le maître actuel du rang 0 de `World.cells[cell].lieux`.
+Maison mal formée/inconnue, cellule, bourg ou maître absent, maître inconnu : refus nommé sans mutation.
+Une autre maison connue reçoit exactement « ce lieu n'est pas à toi : <maître> ».
+Sous `verrou_tick`, HTTP exige un départ appliqué, copie le JSON et impose `maison_du_joueur` avant le dépôt journalisé ; refus 400 sans tick ni publication.
+Le dépôt commun et `--gestes` exigent une maison explicite, même sans départ. Le tick ne revérifie pas le droit ; le plan ne stocke aucune propriété.
+
+`ouvrir_grenier` accepte exactement `{"type": "ouvrir_grenier", "maison": <id du registre>, "kg": <quantité>}`.
+Tout champ manquant ou inconnu, y compris `foyers`, est refusé. Les refus
+suivants lèvent `IntentionRefusee`, dans cet ordre, sans changer l'attente,
+les greniers ni `to_dict()` :
+
+- « maison inconnue ou mal formée : <repr> » si l'identifiant n'est pas une chaîne ou une fiche du registre ;
+- « maison sans lieu : <id> » si elle est absente de `routes_des_lieux.noms` ;
+- « kg invalide : <repr> » pour un booléen, une valeur non numérique, non finie ou ≤ 0 ;
+- « grenier insuffisant : <kg> kg demandés, <reste> kg disponibles » : du panier alimentaire sont retirées une par une, dans l'ordre, les ouvertures déjà en attente de cette maison ;
+- « lieux sans dette ni habitants : <id> » si tous les poids sont nuls.
+
+Un `OuvrirGrenier(maison, kg)` gelé rejoint la fin de l'attente ; deux ouvertures
+s'additionnent, sans remplacement. À l'application, le retrait garde la clé
+alimentaire, à `0.0` si tout est parti, puis les parts non nulles sont mises en
+route. Sous `verrou_tick`, le service exige le départ appliqué (« départ non
+appliqué : choisir une terre avant d'ouvrir le grenier »), puis la maison du joueur
+(« maison interdite : seule la maison du joueur peut ouvrir son grenier »).
+Le dépôt commun et `--gestes` acceptent toute maison connue, chemin commun de l'IA.
+
 `fixer_part` accepte exactement `{"type": "fixer_part", "maison": <id du registre>, "part": <fraction>}`.
-Niveau 2, plausible : `PART_COUTUMIERE = 0.10`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
+Niveau 2, plausible : `PART_COUTUMIERE = 0.03`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
 Le geste copié et gelé remplace à sa position celui de la même maison après validation.
 Après la garde du tick, il écrit seulement `World.parts`, sans lecture du registre ni prélèvement ; l'étape existante vide l'attente, dans le même ordre qu'avant.
 Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le dépôt commun accepte toute maison connue ; `--gestes` garde ce chemin et sa chronologie.
@@ -1776,7 +2006,7 @@ Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le
 `POST /intention`, `python3 -m sim --gestes` et des routes déposées par l'IA.
 La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `tracer_route` dépose une route, `decouper_parcelle` une parcelle,
-`poser_batiment` un bâtiment, `fixer_part` une part ; tout autre type lève
+`poser_batiment` un bâtiment, `fixer_part` une part, `ouvrir_grenier` une ouverture ; tout autre type lève
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
@@ -1801,8 +2031,8 @@ numéro et avant la fabrication : elle appelle chaque intention par
 `ChoixDepart.appliquer` pose `maison_du_joueur = identifiant_de_seigneurie(self.identifiant)`
 sans consulter le registre : la validation appartient au dépôt, jamais au tick.
 Un numéro invalide laisse donc les intentions en attente.
-Cette étape ignore les mondes d'épreuve, ne tire aucun aléa et ne lit ni
-n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
+Cette étape ignore les mondes sans attente et ne tire aucun aléa.
+Le choix de départ ne lit ni n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
 
 `maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
 et `/monde` portent cette clé et l'identifiant du registre `seigneurie-<n>` ; sans choix, la clé est absente
@@ -1810,13 +2040,13 @@ et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
 
-Une route se dépose avec les quatre champs obligatoires `{"type": "tracer_route", "cell": X,
+Une route se dépose avec les cinq champs obligatoires `{"type": "tracer_route", "maison": M, "cell": X,
 "points": [[x, y], …], "largeur_m": L}` et les champs facultatifs `foyers` et `porte_cell_id`.
 `foyers` vaut 1 par défaut : entier ≥ 1, sans booléen et sans borne haute.
 Sinon `IntentionRefusee("foyers invalide : attendu un entier ≥ 1, reçu <repr>")`
 est levée avant toute mise en attente. Tout autre champ ou champ obligatoire
 absent est refusé. `cell` est un entier présent dans `World.plans`, sans booléen ;
-toute cellule de la carte convient. La construction d'une `Rue` vérifie
+le bourg doit être tenu par la maison déposante. La construction d'une `Rue` vérifie
 points et largeur selon le contrat du plan ; un `PlanInvalide` devient
 `IntentionRefusee("route invalide : <raison>")`. Le dépôt accepté est un
 `TraceRoute(cell_id, points, largeur_m, foyers, porte_cell_id)` gelé, aux points copiés en tuples.
@@ -1837,9 +2067,9 @@ cellule, sans aléa. Mêmes
 gestes et même graine donnent le même monde ; sans geste, les plans restent
 vides et l'empreinte reste celle d'avant.
 
-Une parcelle se dépose avec `{"type": "decouper_parcelle", "cell": X,
+Une parcelle se dépose avec `{"type": "decouper_parcelle", "maison": M, "cell": X,
 "rue": 0, "segment": 0, "debut_m": 5, "facade_m": 10, "profondeur_m": 20,
-"cote": "gauche"}`. Ces huit champs sont obligatoires ; un absent donne
+"cote": "gauche"}`. Ces neuf champs sont obligatoires ; un absent donne
 « champ manquant : X », un champ supplémentaire « champ inconnu : X ».
 Seul `foyers` est facultatif, avec la même validation que pour la route.
 Les refus lèvent `IntentionRefusee`, avant toute attente et sans effet,
@@ -1884,7 +2114,7 @@ identifiant maximum des parcelles (ou −1) plus 1, `en_chantier=True`,
 Rues et bâtiments sont repris tels quels. Sans geste, aucune parcelle
 n'entre en chantier et le monde reste identique à l'octet près.
 
-Un bâtiment se dépose avec `{"type": "poser_batiment", "cell": X,
+Un bâtiment se dépose avec `{"type": "poser_batiment", "maison": M, "cell": X,
 "parcelle": 0, "nature": "maison"}` ; `foyers` vaut 1 par défaut.
 Les champs obligatoires vivent dans un seul dictionnaire par type ; un absent
 ou un champ inconnu donne « champ manquant : X » ou « champ inconnu : X ».
@@ -1934,12 +2164,13 @@ avant le premier tick. Un refus rend le code 2 sur stderr, sans simulation
 ni `resume.json`. Avec `--ticks 0`, la commande refuse : « l'intention
 s'applique au tick suivant ». Le compte rendu écrit dans
 `resume.json["simulation"]["maison_du_joueur"]` l'identifiant du registre seulement après un choix appliqué ; la
-photographie porte `terre_choisie`, `null` sans choix ; c'est sa seule différence.
+photographie porte `terre_choisie`, `null` sans choix, et `maisons_du_joueur`,
+absente sans choix, avec les fiches du joueur et de son suzerain.
 
 **Niveau 1 :** les six terres et leurs attributions héritées, sans changement.
 **Niveau 2 :** aucun ajout. **Niveau 3, pas simulé ici :** les lieux du joueur,
-la part qu'il prélève, son dû au suzerain, et les personnes. Le grenier existe
-déjà, voir « Le grenier d'une maison » ; l'ouvrir à ses lieux n'est pas simulé.
+la part qu'il prélève et les personnes. Le grenier existe
+déjà, voir « Le grenier d'une maison » ; `ouvrir_grenier` le rend à ses lieux.
 Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
 
@@ -1961,6 +2192,14 @@ reste entier, avec siège, source, cellule, habitants, production,
 suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
 dans l'ordre de la fiche. Un identifiant mal formé lève `SnapshotExportError`
 « seigneurie inconnue », sans modifier le monde. **Le tick ne la lit pas.**
+
+Après `terre_choisie`, `maisons_du_joueur` porte `maison` et `suzerain` :
+les deux fiches de `document_de_maison`, tirées d'une seule matière avec
+les noms et places déjà calculés, sans arrondi, exactement comme `/maison`.
+Une racine porte `suzerain: null`. Sans choix, la clé est absente et aucune
+matière de maisons n'est calculée. Une maison absente du registre lève
+`SnapshotExportError` « maison inconnue », avec son identifiant ; le refus
+« seigneurie inconnue » reste prioritaire pour un choix mal formé.
 
 `build_snapshot_document` et `export_snapshot` acceptent `releve_ia=None` :
 aucun calcul de maisons IA ni nouvelle clé, mêmes octets et même version.
@@ -2015,6 +2254,48 @@ calcul supplémentaire à chaque tick. Une erreur de construction rend
 villes avec leurs sources. **Niveau 2, plausible :** simplification à 1 km,
 approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
 frontières réelles, comme dans la photographie.
+
+## Les maisons servies, vue dérivée
+
+`GET /maisons` donne le registre complet trié par identifiant : nom, sorte,
+suzerain, siège (`cell_id`, `rang`, ou `null` hors carte) et nombre de lieux
+tenus. `GET /maison?id=X` donne sa fiche : identité, siège nommé et point
+identique à `/lieu`, couples des lieux tenus triés, part, panier du grenier,
+`flux_30j`, `absents`, tick et date. Un identifiant inconnu reçoit `404` ;
+un paramètre absent, vide ou répété reçoit `400`, sans modifier le monde.
+La photographie réutilise `document_de_maison` pour le joueur et son suzerain.
+
+`MatiereMaisons`, dataclass gelée de `sim/maisons_servies.py`, copie les parts,
+chaque panier et les sommes des flux à la publication dans `EtatPublie`.
+Les cinq kilos sont accumulés en une passe sur les jours de la fenêtre,
+dans le même ordre que `flux_de_maison`, sans arrondi. Sans route, les cinq
+zéros sont une mesure. Les départs et arrivées somment les mouvements des
+lieux actuellement tenus : `partis_personnes` et `arrives_personnes` comptent
+des personnes, jamais des foyers. Aucun tick ne lit cette vue.
+La même passe copie les salaires dans `MatiereMaisons.salaires` : la fiche ajoute
+`flux_30j.salaires_payes_kg`, sans arrondi, seulement pour un payeur dans la fenêtre.
+L'absence signifie aucun salaire enregistré depuis l'ouverture dans cette fenêtre,
+sans prétendre mesurer avant le démarrage ; après expiration, le champ disparaît.
+
+Les octets des fiches et de la liste sont produits à leur première lecture,
+puis conservés dans `EtatPublie.octets_maisons`, initialement vide. Le verrou
+propre `verrou_maisons` protège ce cache ; une lecture ne prend jamais le
+verrou du tick. Une modification du monde vivant ne change donc pas une
+fiche du tick déjà publié, même avant sa première lecture.
+
+Un siège hors carte porte le nom du registre, des coordonnées nulles et sa
+raison `hors_carte` dans `absents["siege"]`. Un nom plausible manquant, une
+part ou un grenier absent valent `null`, avec une raison dans `absents` ;
+celle du nom précise la cellule. Un panier vide et zéro lieu restent des
+mesures. Les noms historiques viennent du registre (**niveau 1**) ; ceux
+des maisons plausibles viennent du bloc de noms de leur cellule (**niveau 2**,
+plausibles, jamais sourcés).
+
+Mesures sur srv1914711 au tick 35, graine 0, premier départ, part 0,25,
+médianes de neuf appels en pause : avant le lot, matière non construite
+(aucun coût), `_construire_etat` **103,22 ms** ; après le lot,
+`matiere_des_maisons` **33,31 ms**, `_construire_etat` **135,85 ms**.
+`test_mesure_matiere_et_publication` (marque `chronometre`) reproduit ces mesures.
 
 ## Les lieux d'une cellule, vue dérivée
 
@@ -2099,9 +2380,14 @@ la sérialisation canonique de l'empreinte, sans ajout à la photographie ni à 
 ne sont pas simulés (niveau 3).
 
 Le service les publie. `GET /lieu?cell=X` porte `lieux`, rangés par rang,
-chacun avec exactement `rang`, `surface_km2`, `population`, `stocks` et `maitre`.
+chacun avec exactement `rang`, `surface_km2`, `population`, `stocks`, `maitre`,
+`point`, `nom` et `flux_30j`.
 `maitre` est l’identifiant de maison stocké, ou `None` déclaré pour un état
-manuel, sans maison devinée. Ils sont lus par `lieux_en_photographie`, la
+manuel, sans maison devinée. `nom` reprend l'entrée de même `rang` du bloc
+`noms` déjà publié. `flux_30j` vient de `flux_des_lieux` : `preleve_kg` (toujours
+un flottant), `partis_personnes` et `arrives_personnes`, sur trente jours,
+sans arrondi. Sans noms ou flux fournis, ces champs déclarent `None` ; sans
+registre, les flux fournis valent zéro. Ils sont lus par `lieux_en_photographie`, la
 fonction même qui remplit les lieux de la photographie, **sans arrondi** : la somme de leurs paniers égale le
 panier du monde au bit près, pas le panier arrondi en tête de la réponse.
 Ces octets sont construits dans `EtatPublie`, avec la photographie du tick,
@@ -2270,6 +2556,7 @@ les métiers suivent une seule fois le solde au prorata, sans partage général 
 ## Les décisions et les gestes de l'IA
 
 `sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia` : population et faim du rang 0 positives, quelle que soit la cause. Dette, stock vide ou faim des champs ne suffisent pas.
+Le JSON porte la maison qui décide (`grande-<id>` ou `identifiant_de_seigneurie`). Un bourg tenu par une autre maison connue ne produit aucune proposition et ne consomme aucun budget ; maître absent ou inconnu : refus nommé avant tout dépôt.
 Hors carte : aucun geste. Cellule, plan, bourg ou faim absent/non calculé : refus nommé avant tout dépôt.
 Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des entrées du relevé, refus compris. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
 L'exclusion compare l'identifiant du registre : le numéro d'un `ChoixDepart` en attente est converti par `identifiant_de_seigneurie`, comme celui des lignes de seigneurie.
@@ -2301,6 +2588,10 @@ La planche rejoue séparément sans intentions ; avec `--ia`, son compte rendu
 déclare `planche.ia = false`. `--sans-chronique` évite ce rejeu sans IA.
 
 ## Le plan du bourg
+
+`/plan?cell=X` ajoute `chantiers_du_jour` seulement si la cellule a été observée au dernier jour joué.
+La liste porte exactement `nature`, `identifiant`, `bras`, `grain_paye_kg`, `motif_arret`, triés rue/parcelle/bâtiment puis identifiant ; les kilos ne sont pas arrondis.
+Le tick et la date désignent l'état après ce jour. Ces octets sont figés dans `EtatPublie`, lisibles pendant le tick ; ni `Plan.to_dict`, ni `base`, ni `/monde` ne portent ce relevé.
 
 Chaque cellule possède un plan du lieu (`cell_id`, 0), le bourg, dans
 `World.plans` : un dictionnaire `cell_id → Plan`. Aucun `bourg_id`, `ville_id`
@@ -2350,7 +2641,7 @@ y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
 des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
-`parcelles` et `batiments`. Les octets sont construits dans `EtatPublie` avec
+`parcelles`, `batiments` et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
 la photographie du tick : une lecture n'attend pas son calcul et ne consulte
 pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
 inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
@@ -2364,7 +2655,7 @@ et forme du bourg dans la cellule, les autres effets locaux des rues achevées, 
 gestes de bâtiment autres que la pose (démolir, déplacer, agrandir),
 et croisements des tracés. Le tracé d'une route est de niveau 2, plausible ;
 son coût en journées, les bras pris aux champs et son achèvement sont de
-niveau 2. La restriction à la capitale, les bornes et les doublons restent
+niveau 2. Le droit de bâtir dépend du maître actuel du bourg, de niveau 2. La restriction à la seule capitale, les bornes et les doublons restent
 de niveau 3, non simulés. Le découpage d'une parcelle, son coût et son
 achèvement sont de niveau 2. Ses chevauchements avec d'autres parcelles,
 une rue ou l'extérieur du bourg, sa propriété, son prix et son cadastre
@@ -2382,10 +2673,13 @@ pour chaque cellule, la population du lieu de rang 0 juste après
 `_seed_population` tire sa variation au fil des cellules ; sans la garder,
 rien ne se recalcule à l'identique. L'attribut est posé comme
 `attribution_villes` : hors de `to_dict`, jamais lu par le tick, ni par
-Intentions, Chantiers, Ateliers, le logement, le service ou les empreintes.
+Chantiers, Ateliers, le logement ou les empreintes. Intentions la lit pour le
+refus des gestes, et le service la sert dans `/plan`.
 Un `World` construit à la main le porte à `None`. `base_de_cellule` lève
 alors `BaseAbsente`, qui nomme la cause et la cellule : la base est
-déclarée absente, jamais devinée.
+déclarée absente, jamais devinée. Dans ce monde sans amorçage, le dépôt
+accepte les gestes sans contrôle des maisons de base. Toute autre absence
+(cellule inconnue ou centroïde absent) devient un refus `IntentionRefusee`.
 
 `sim/ville1400.py` est une vue pure. `base_de_cellule(monde, cell_id)` lit
 cette population, les arêtes `land-land` et les centroïdes
@@ -2393,6 +2687,19 @@ cette population, les arêtes `land-land` et les centroïdes
 sans centroïde lève `BaseAbsente` : l'angle ne se devine pas.
 `base_d_une_population(population, directions)` calcule sans monde.
 `directions` est la liste des voisines `(cell_id ou None, angle en radians)`.
+
+Rien ne se pose sur une maison de 1400 : route, parcelle et bâtiment sont
+refusés avant toute mise en attente, en nommant son rang, ses foyers et la
+cellule. Les voisines sont trouvées par grille ; un bord partagé ou un
+recouvrement au plus égal à `TOLERANCE_CHEVAUCHEMENT_M` ne compte pas.
+Un segment nul n'a pas de bande. La place libre reçoit les premiers gestes.
+L'IA éprouve sa route par la même garde avant de proposer, sans écrire au
+monde ni tirer d'aléa. Le dépôt ne garde aucun cache dans le monde.
+Le service calcule et sérialise la base une fois par cellule à sa première
+lecture, sous un verrou distinct du tick, puis assemble ses octets figés
+avec ceux des gestes. Le tick ne calcule ni ne sérialise de maison de base.
+Restent de niveau 3 : découper le long d'une rue de base, démolir ou déplacer
+une maison de 1400, y loger quelqu'un, croiser une rue de base.
 
 Le repère est celui du plan : x vers l'est, y vers le nord, mètres, origine
 au centre du bourg. Le nombre de foyers est `ranger_en_foyers(population).nombre`,
@@ -2454,7 +2761,17 @@ Mesures avant et après le lot #565, sur la même machine, graine 0 : les
 596 bases passent de 85,198 s à 7,462 s ; Paris (10322), de 0,820 s à
 0,051 s. Aucun seuil de temps ne conditionne les tests.
 
+Mesures #566, même machine, graine 0, avant → après (secondes, CPU partagé avec les tests ciblés) :
+`jouer_ia`, moyenne sur 365 ticks : 0,278226 → 0,450941 ; tick du service : 0,171034 → 0,175798 (+2,8 %).
+Démarrage jusqu'au premier `/monde` : 3,251089 → 4,205791 ; Paris, première lecture de `/plan` : 0,001157 → 0,057330 ; seconde : 0,001443 → 0,009289.
+Dépôt de la route repliée de la preuve de récolte : 0,000093 → 0,003941. La première lecture paie le calcul et la sérialisation de la base ; le dépôt paie son contrôle ; aucun seuil dans les tests.
+L'année donne 7 → 7 dépôts acceptés. Ces mesures ponctuelles ne séparent pas la charge des autres tests du coût de l'IA ; le tick ralentit de moins de 10 %.
+
 ## Le chantier et ses bras
+
+`World.chantiers_du_jour`, vide à l'ouverture et absent des sauvegardes, observe sans décider : chaque appel remplace le relevé, aux mêmes clés que les envois.
+Les bras sont comptés à l'affectation, les kilos au salaire effectivement débité. Un chantier achevé reste observé ce jour, puis disparaît ; plusieurs ticks ne gardent que le dernier.
+À zéro bras, la cause suit cette priorité au passage : `parcelle_en_chantier`, `metiers_non_calcules`, `sans_bras`, `payeur_absent`, `sans_grain`. Avec du travail, elle vaut `null`.
 
 Règle de **niveau 2**, plausible, jamais sourcée : le déblai, le nivellement
 et les fossés d’une route en terre battue demandent
@@ -2485,7 +2802,7 @@ Les foyers du chantier ne fixent pas cet emploi ; mineurs et ouvriers restent en
 redeviennent d’abord `paysans`, puis les rues en chantier, par identifiant,
 après elles les parcelles en chantier, puis les bâtiments en chantier, chacun
 par identifiant, prennent le minimum des bras disponibles,
-de `foyers × TAILLE_FOYER` et du travail restant. Ces paysans deviennent
+de `foyers × TAILLE_FOYER`, du travail restant et des journées payables. Ces paysans deviennent
 ouvriers ; chaque personne envoyée ajoute exactement une journée fournie.
 La rue, la parcelle ou le bâtiment s’achève au requis : `en_chantier` devient faux.
 La porte survit aux reconstructions par `dataclasses.replace` ; le commerce,
@@ -2508,6 +2825,23 @@ seulement si une rue, une parcelle ou un bâtiment reçoit du travail ; sinon
 il reste le même objet. Sans geste, aucun bâtiment n'entre en chantier et
 le monde reste identique à l'octet près.
 
+Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel.
+Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock / salaire)` borne les bras avant tout travail.
+Sans lieux, bourg, maître ou grenier déclaré, aucun salaire ; une nourriture absente vaut zéro. Les cellules se partagent la réserve courante dans leur ordre. Les journées réellement fournies débitent exactement leur salaire et le versent au seul panier du bourg et au total cellulaire, deux représentations du même stock ; la reprise intérieure conserve cette destination.
+Les métiers restent ceux de la cellule ; rattacher collectivement ces ouvriers au bourg est une convention de niveau 2, sans déplacement individuel. Pertes du grenier avant paiement, récolte et consommation après ; le prélèvement arrivé ensuite finance les jours suivants. Aucun convoi ni perte de salaire ici ; matériaux et argent restent hors simulation.
+
+Mesure #641 : `python3 pc/epreuve_jalon4.py --sortie /tmp/forge-641-j4-{avant,apres}` (deux appels), graine 0, dix ticks, Zab à 0 puis gestes à 2, 3, 5 ; maison et cellule dérivées de `depart_biskra`.
+
+| mesure | avant | après |
+|---|---|---|
+| route ; parcelle ; bâtiment (journées fournies/requises) | 40/80 ; 20/20 ; 15/400 | 40/80 ; 20/20 ; 10/400 |
+| salaire cumulé ; grenier final (kg) | 0 ; 311,51790706477567 | 210 ; 101,98375196817031 |
+| SHA-256 `monde-service.json` et `monde-rejoue.json` | 5d36f7552ede792621ff1199242535aa0bf9deca761b8aac8434e9dc16ac0039 | 3538394f432f810340efa6a1244b260b21f01b77db79559dd7af4a7cc2efb8eb |
+| SHA-256 `monde-sans-gestes.json` | bdce0bb1a329e179dce66a2f736868273a7ff41c9fbecddca17f1297e3de8ed2 | bdce0bb1a329e179dce66a2f736868273a7ff41c9fbecddca17f1297e3de8ed2 |
+Seule Biskra change face au témoin ; la différence des réserves finales inclut les pertes journalières et ne mesure pas le salaire.
+Année sans geste (simulation : 39,08 s avant, 44,18 s après) : depuis `jeu/`, `python3 -m forge --ticks 365 --seed 0 --sortie /tmp/forge-641-annee-avant`, puis même commande vers `/tmp/forge-641-annee-apres` ; durée simulée 365 jours.
+`sha256sum /tmp/forge-641-annee-{avant,apres}/monde.json` donne deux fois `954dafd53519fbf19033dac4a98c52dda0e9e328f435f58bf6ccbe323e4edb5b`.
+
 La récolte du même tick lit les paysans restés aux champs. Les naissances,
 morts et départs suivent le prorata des métiers, ouvriers compris ; le retour
 du tick suivant remet tous les bras en commun. Le jour de l’achèvement, les
@@ -2518,7 +2852,7 @@ bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
 Une cellule est immense et le chantier ne coûte de récolte que s’il retire
 presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
-sexe, nourriture propre, outils, matériaux, saison et salaire restent de
+sexe, nourriture propre, outils, matériaux, saison et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.
 

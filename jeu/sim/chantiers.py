@@ -4,7 +4,9 @@ from dataclasses import replace
 import math
 
 import sim.constants as _constantes
-from sim.model import ecrire_habitants_par_metier, lire_habitants_par_metier
+from sim.flux import jour_courant
+from sim.model import (ecrire_habitants_par_metier, lire_habitants_par_metier,
+                       ecrire_stock_marchandise, contenus_des_paniers)
 from sim.plan import Plan, aire_du_contour
 
 
@@ -24,11 +26,11 @@ def travail_requis_de_batiment(emprise):
     return max(1, math.ceil(aire_du_contour(emprise) * _constantes.TRAVAIL_BATIMENT_JOURNEES_PAR_M2))
 
 
-def _servir(element, metiers):
+def _servir(element, metiers, payables):
     """Prend les bras restants et compte une journée par personne envoyée."""
     paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
     personnes = 0 if metiers is None else min(
-        element.foyers * _constantes.TAILLE_FOYER,
+        payables, element.foyers * _constantes.TAILLE_FOYER,
         element.travail_requis - element.travail_fourni, metiers.get(paysans, 0))
     if personnes:
         metiers[paysans] -= personnes
@@ -43,29 +45,55 @@ def _servir(element, metiers):
 def avancer_chantiers(world):
     """Retour aux champs, rues, parcelles puis bâtiments prêts, par identifiant."""
     envois = {}
+    world.chantiers_du_jour = {}
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
         avant = lire_habitants_par_metier(cell)
-        metiers = dict(avant) if avant != -1 else None
         paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
+        actifs = any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
+        # Un plan achevé ne demande que le retour des derniers ouvriers.
+        if not actifs and (avant == -1 or ouvriers not in avant):
+            continue
+        metiers = avant.copy() if avant != -1 else None
         if metiers is not None and ouvriers in metiers:
             metiers[paysans] = metiers.get(paysans, 0) + metiers.pop(ouvriers)
-        listes, travail_apporte = {}, False
+        bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None) if actifs else None
+        grenier = world.greniers.get(bourg.maitre) if bourg is not None and bourg.maitre is not None else None
+        nourriture, salaire = _constantes.MARCHANDISE_NOURRITURE, _constantes.SALAIRE_JOURNEE_KG
+        payables = math.floor(grenier.get(nourriture, 0) / salaire) if grenier is not None else 0
+        listes, journees = {}, 0
         parcelles_en_chantier = {p.identifiant for p in plan.parcelles if p.en_chantier}
         for nom, cle in (("rues", ()), ("parcelles", ("parcelle",)), ("batiments", ("batiment",))):
             listes[nom] = []
             for element in sorted(getattr(plan, nom), key=lambda element: element.identifiant):
                 if element.en_chantier:
-                    if nom == "batiments" and element.parcelle in parcelles_en_chantier:
+                    attend = nom == "batiments" and element.parcelle in parcelles_en_chantier
+                    motif = ("parcelle_en_chantier" if attend else
+                             "metiers_non_calcules" if metiers is None else
+                             "sans_bras" if not metiers.get(paysans, 0) else
+                             "payeur_absent" if grenier is None else "sans_grain")
+                    if attend:
                         personnes = 0
                     else:
-                        element, personnes = _servir(element, metiers)
+                        element, personnes = _servir(element, metiers, payables - journees)
                     envois[(cell_id, *cle, element.identifiant)] = personnes
-                    travail_apporte = travail_apporte or personnes > 0
+                    world.chantiers_du_jour[(cell_id, *cle, element.identifiant)] = {
+                        "bras": personnes, "grain_paye_kg": personnes * salaire,
+                        "motif_arret": None if personnes else motif,
+                    }
+                    journees += personnes
                 listes[nom].append(element)
         if metiers is not None and metiers != avant:
             ecrire_habitants_par_metier(cell, metiers)
-        if travail_apporte:
+        if journees:
+            montant = journees * salaire
+            grenier[nourriture] -= montant
+            jour = jour_courant(world)
+            if jour is not None:
+                jour.salaires[bourg.maitre] = jour.salaires.get(bourg.maitre, 0) + montant
+            for entite in (bourg, cell):
+                stock = contenus_des_paniers((entite,), nourriture)[0]
+                ecrire_stock_marchandise(entite, nourriture, stock + montant)
             world.plans[cell_id] = Plan(rues=listes["rues"], parcelles=listes["parcelles"],
                                        batiments=listes["batiments"])
     return envois
