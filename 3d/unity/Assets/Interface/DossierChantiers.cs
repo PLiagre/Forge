@@ -17,18 +17,18 @@ namespace Forge.Interface
         long cellule = -1;
         double prochaine;
 
-        public void Initialiser(Transform toile, Transform guide, int port, Func<CelluleDeCarte> selection)
+        public void Initialiser(Transform toile, Transform plan, int port, Func<CelluleDeCarte> selection)
         {
             this.selection = selection;
             lecture = LectureDossier.Locale(port);
             feuillet = gameObject.AddComponent<Feuillet>();
             feuillet.Initialiser(toile, "Les chantiers du bourg");
-            bouton = SocleInterface.Commande(guide, "Chantiers", 638, 24, () =>
+            bouton = SocleInterface.Commande(plan, "Chantiers", 420, 20, () =>
             {
                 if (feuillet.Ouvert) feuillet.Fermer(); else feuillet.Ouvrir();
             });
-            bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(220, 44);
-            bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(220, 44);
+            bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(200, 44);
+            bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(200, 44);
         }
 
         void LateUpdate()
@@ -94,7 +94,8 @@ namespace Forge.Interface
                         throw new ArgumentException("État du chantier incohérent");
                     string nom = nature == "rue" ? "Rue" : nature == "parcelle" ? "Parcelle" : "Bâtiment";
                     texte.AppendLine("\n" + nom + " " + id + " · " + (actif ? "En chantier" : "Achevé"));
-                    texte.AppendLine(fourni + " / " + requis + " journées de travail · " + foyers + " foyers mobilisés");
+                    texte.AppendLine(fourni + " / " + requis + " journées de travail · " + foyers
+                        + (foyers == 1 ? " foyer affecté" : " foyers affectés"));
                     string cle = nature + "/" + id;
                     if (journal.TryGetValue(cle, out var jour))
                     {
