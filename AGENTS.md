@@ -57,7 +57,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   fois au plus par lot ; elle ne rend jamais un test moins exigeant.
 - **Un lot `pc` n'avance que quand le PC est allumé** : un PC en veille garde
   le travail en file ; ses agents qui ne peuvent pas répondre le disent sur la
-  PR (attente, renvoyée dans l'heure, sans compter d'essai).
+  PR (attente, renvoyée dans l'heure, sans compter d'essai). Le propriétaire
+  peut le mettre en pause : variable `PC_ACTIF` = `non` (fenêtre
+  `pc\Disponibilite.cmd`, ou GitHub → Variables) ; ce n'est pas une panne.
 - **Les jalons suivent CAP.md** : chaque section « ## Jalon n — Titre » est
   un milestone, que le pilote crée ou renomme seul. Les lots de chaque jalon
   sont écrits sous sa section, en mode direct ; un jalon qu'on aurait laissé
