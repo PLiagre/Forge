@@ -29,7 +29,8 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-16 | Dossier du bourg : inspecter sans construire ailleurs | 08, 15 | Capitale, autre terre, kit absent ; outil actif sans droit échoue | 220 | à faire |
 | UI-17 | Route : tracer et annuler une intention | 16 | Aperçu visuel et reçu ; annulation qui envoie un ordre échoue | 260 | à faire |
 | UI-18 | Parcelle et atelier : préparer la construction | 17 | Outil choisi, cible, refus ; double intention sur un clic échoue | 275 | à faire |
-| UI-19 | Chantier : lire effort, coût et enceinte | 16, J4 coûts/enceinte | Fiche reçue ; coût absent transformé en gratuit échoue | 250 | à faire |
+| UI-19a | Chantier : suivre travail, grain payé et motifs d’arrêt | 15a, `/plan` | Six rouges puis 102 verts ; Bar/Milan, avancement au tick, capture et commandes sans recouvrement ; [preuve](CHANTIERS.md) | 280 | en cours |
+| UI-19 | Chantier et enceinte : compléter les engagements de construction | 19a, 16, J4 enceinte | Fiche reçue ; coût absent transformé en gratuit échoue | 250 | à faire |
 | UI-20 | Personnage : reconnaître chef, traits et ambitions | 09, J6 personnes | Portrait et identité reçue ; trait absent inventé échoue | 250 | à faire |
 | UI-21 | Famille : lire parenté et héritier désigné | 20, J6 succession | Arbre et partage fourni ; héritier choisi localement échoue | 275 | à faire |
 | UI-22 | Choix dynastiques : proposer mariage, éducation, loi | 20, 21, intentions J6 | Formulaire commun et reçus ; option non autorisée échoue | 280 | à faire |
