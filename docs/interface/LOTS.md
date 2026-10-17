@@ -13,7 +13,7 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-01 | Socle : préparer une lecture cohérente ; thème, texte, bouton, panneaux simultanés et galerie minimale | DA validée | Six tests verts et capture Play regardée ; [preuve](UI01.md), PR #630 fusionnée | 299 | livré |
 | UI-02 | États de lecture : reconnaître attente, absence, refus et panne | 01 | Douze tests rouges puis verts, six régressions vertes ; `null` reste absent, zéro reste mesuré ; [capture et preuve](UI02.md), PR #631 fusionnée | 242 | livré |
 | UI-03 | Horloge : suspendre et reprendre le monde | 02 | Pause/vitesse reçues ; réponse retardée ne doit pas inverser l’état | 240 | à faire |
-| UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | Navigation clavier et retour ; double ouverture échoue | 210 | à faire |
+| UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | 44 tests verts, Échap/Tabulation et retour au territoire joués ; [preuve](MENU.md) | 190 | en cours |
 | UI-05 | Départ : lire une terre et confirmer sa maison | 02, 04 | Fiche servie puis attente/application ; double dépôt échoue | 270 | à faire |
 | UI-06 | Cadre de carte : lire le territoire sans le masquer | 01, 03, 05 | Sélection et légende à 1080p ; clic à travers panneau échoue | 260 | à faire |
 | UI-07 | Calques : distinguer relief, maîtres et habitants | 06a | Puissances/habitants : deux rouges puis 46 verts, 596 cellules réelles ; relief absent déclaré ; [preuve](CALQUES.md) | 190 | en cours |
@@ -43,7 +43,7 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-31 | Décisions : lire les arbitrages groupés et leurs échéances | 02, contrat file | Vide/urgence/file longue ; un acquittement requis par lieu échoue | 260 | à faire |
 | UI-32 | Délégation : donner une consigne durable | 09, 31, contrats J9 | Domaine et consigne ; écriture directe du monde échoue | 260 | à faire |
 | UI-33 | Lisibilité : agrandir, réduire le mouvement, naviguer au clavier | 01, 06 | 720p/1080p à 100/150 % ; texte coupé ou focus perdu échoue | 260 | à faire |
-| UI-34 | Aide et son : comprendre les gestes, régler le volume | 04, 33 | Aide contextuelle et silence ; information uniquement sonore échoue | 210 | à faire |
+| UI-34 | Aide et son : comprendre les gestes, régler le volume | 04 | Aide du cabinet et silence vérifiés ; aide des futurs écrans à compléter ; [preuve](MENU.md) | 190 | en cours |
 | UI-35 | Bilan : comprendre défaite, héritage et siècle | 21, 30, contrats J6/J9 | Fin reçue et chronique ; défaite déduite d’une panne échoue | 250 | à faire |
 | UI-36 | Parcours complet : garder une interface cohérente du départ au bilan | 01–35 | Captures du parcours réel ; fixture vide, service absent ou reçu ignoré échoue | 280 | à faire |
 
