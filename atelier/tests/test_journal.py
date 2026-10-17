@@ -419,6 +419,17 @@ def test_le_journal_dit_quel_agent_refuse_l_appel(tmp_path):
     assert journal._a_faire([], [], tmp_path / "veille.txt", []) == ["- rien"]
 
 
+def test_le_journal_rappelle_que_le_pc_est_en_pause(projet, gh):
+    # Une pause oubliée ferait croire que la chaîne est cassée : le journal
+    # la met sous « à faire », avec le geste qui la lève.
+    _preparer(gh)
+    assert "PC_ACTIF" not in journal.faits(gh, projet, MAINTENANT).split("À FAIRE PAR LE PROPRIÉTAIRE")[1]
+    gh.variables_["PC_ACTIF"] = "non"
+    a_faire = journal.faits(gh, projet, MAINTENANT).split("À FAIRE PAR LE PROPRIÉTAIRE")[1]
+    assert "le PC est en pause pour la chaîne (variable PC_ACTIF = non)" in a_faire
+    assert "Disponibilite.cmd" in a_faire
+
+
 def test_le_journal_pose_la_question_du_chef(projet, gh):
     _preparer(gh)
     gh.ajouter_issue(13, "Les grandes villes", ("lot", "bloque"))

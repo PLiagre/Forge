@@ -3,13 +3,16 @@ et ce que les workflows du PC donnent au service qui le fait tourner."""
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import re
 
 import pytest
 
-from atelier import pc
+from atelier import lots, pc
 from atelier.depot import DepotErreur
 from atelier.lots import marque, marques
+from atelier.pilote import Pilote
 
 from conftest import RACINE, Agents
 
@@ -81,6 +84,75 @@ def test_le_pc_qui_casse_avant_l_agent_marque_l_attente(projet, gh, depot):
     derniere = marques(gh.prs_[174]["comments"])[-1]
     assert derniere["etat"] == "attente"
     assert "un verrou traîne" in gh.prs_[174]["comments"][-1]["body"]
+
+
+def _marquer_attente(projet, gh, monkeypatch, raison="le passage du PC est tombé"):
+    from atelier import __main__ as cli
+    monkeypatch.setattr(cli, "GitHub", lambda depot: gh)
+    return cli.main(["--projet", str(projet.racine), "marquer-attente", "--pr", "174", "--raison", raison])
+
+
+def test_un_passage_tombe_hors_de_python_est_renvoye_dans_l_heure(projet, gh, depot, monkeypatch):
+    # Le 16 octobre 2026, le runner du PC a perdu GitHub au milieu de #654
+    # (run 38864468926) : aucune marque, et toute la file PC de J3 a attendu
+    # 24 h. lot-pc.yml répond alors à la place du passage tombé.
+    envoi = datetime.now(timezone.utc) - timedelta(minutes=20)
+    gh.ajouter_issue(118, "Le contrat ville parle en cell_id", ("lot", "en-cours", "pc"))
+    gh.ajouter_pr(174, BRANCHE, brouillon=True, commentaires=[
+        marque(role="codeur_3d", etat="envoye", essai=1, action="coder", quand=envoi.isoformat(timespec="seconds"))])
+    assert _marquer_attente(projet, gh, monkeypatch, "le runner a perdu GitHub (failure)") == 0
+    liste = marques(gh.prs_[174]["comments"])
+    assert (liste[-1]["role"], liste[-1]["etat"]) == ("codeur_3d", "attente") and liste[-1]["quand"]
+    assert "le runner a perdu GitHub (failure)" in gh.prs_[174]["comments"][-1]["body"]
+
+    attente = datetime.fromisoformat(liste[-1]["quand"])
+
+    def action(marques_, heures_apres_l_attente):
+        plus_tard = Pilote(projet, gh, depot, maintenant=lambda: attente + timedelta(hours=heures_apres_l_attente))
+        return lots.action_suivante(gh.prs_[174], "vert", marques_, corrections_max=2, role_codeur="codeur_3d",
+                                    heures_depuis_envoi_pc=plus_tard._heures_depuis(marques_, "codeur_3d", "envoye"),
+                                    heures_depuis_attente_pc=plus_tard._heures_depuis(marques_, "codeur_3d", "attente")).nom
+
+    avant, apres = lots.HEURES_ATTENTE_PC - 0.1, lots.HEURES_ATTENTE_PC + 0.1
+    assert action(liste, avant) == "attendre_pc"
+    assert action(liste, apres) == "coder", "renvoyé au bout d'une heure, sans compter d'essai"
+    # Sans la marque, le pilote attendait le silence de 24 h.
+    assert action(liste[:-1], apres) == "attendre_pc"
+    assert action(liste[:-1], lots.HEURES_SILENCE_PC) == "relancer_pc"
+
+
+@pytest.mark.parametrize("reponse", ["attente", "fait", "echec"])
+def test_le_workflow_ne_repond_pas_par_dessus_le_pc(projet, gh, monkeypatch, capsys, reponse):
+    # Ce qui casse en Python, `travailler` le marque lui-même ; un passage
+    # qui a répondu puis cassé garde sa réponse.
+    _lot_pc(gh)
+    gh.prs_[174]["comments"].append({"body": marque(role="codeur_3d", etat=reponse,
+                                                    quand="2026-09-28T07:58:00+00:00")})
+    assert _marquer_attente(projet, gh, monkeypatch) == 0
+    assert len(gh.prs_[174]["comments"]) == 2
+    assert capsys.readouterr().out.startswith("RIEN")
+
+
+def _travaux(workflow: str) -> dict[str, str]:
+    """Les travaux d'un workflow, nom → bloc de texte (la CI de la chaîne n'a pas PyYAML)."""
+    texte = (RACINE / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+    blocs = re.split(r"^  ([\w-]+):\n", texte.split("\njobs:\n", 1)[1], flags=re.M)
+    return dict(zip(blocs[1::2], blocs[2::2]))
+
+
+def test_lot_pc_repond_quand_le_passage_tombe_hors_de_python():
+    # Le run 38864468926 : « The self-hosted runner lost communication with
+    # the server ». Une étape du travail `lot` ne tourne pas quand le runner
+    # est tombé ; un travail à part attend son retour, puis répond.
+    travaux = _travaux("lot-pc.yml")
+    repondre = [bloc for nom, bloc in travaux.items() if "marquer-attente" in bloc]
+    assert len(repondre) == 1 and "marquer-attente" not in travaux["lot"]
+    bloc = repondre[0]
+    assert re.search(r"^    needs: lot$", bloc, re.M)
+    assert "if: ${{ always() && needs.lot.result != 'success' }}" in bloc, "échec, annulation et délai dépassé"
+    assert "runs-on: [self-hosted, Windows, unity]" in bloc, "le gh de la session du propriétaire"
+    assert re.search(r"marquer-attente --pr \$env:PR\b", bloc) and "PR: ${{ inputs.pr }}" in bloc
+    assert "secrets." not in bloc and "GH_TOKEN" not in bloc
 
 
 def test_les_workflows_du_pc_mettent_les_agents_au_path():

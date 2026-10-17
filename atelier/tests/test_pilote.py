@@ -502,6 +502,83 @@ def test_un_lot_pc_part_sur_le_pc_sans_agent_local(projet, gh, depot, tmp_path):
 ENVOI_PC = marque(role="codeur_3d", etat="envoye", essai=1, quand="2026-09-27T13:40:10+00:00")
 ECHEC_127 = marque(role="codeur_3d", etat="echec", essai=1, agent="cursor/opus-high")
 
+def test_un_pc_en_pause_ne_recoit_aucun_travail_et_ne_compte_pas_d_essai(projet, gh, depot, tmp_path):
+    # La variable PC_ACTIF = « non » : le propriétaire a besoin de son PC.
+    _en_cours(gh, etiquettes=("lot", "en-cours", "pc"))
+    gh.variables_["PC_ACTIF"] = "non"
+    agents = Agents()
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not _gestes(gh, "lancer_workflow")
+    assert gh.prs_[50]["comments"] == []
+    assert any("PC en pause" in l and "coder" in l for l in lignes)
+    # À la reprise, le même lot part au tour suivant.
+    gh.variables_["PC_ACTIF"] = "oui"
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "lancer_workflow")[0][2]["action"] == "coder"
+
+
+@pytest.mark.parametrize("valeur", [None, "oui", "", "Oui", "peut-être"])
+def test_seul_non_met_le_pc_en_pause(projet, gh, depot, tmp_path, valeur):
+    if valeur is not None:
+        gh.variables_["PC_ACTIF"] = valeur
+    _en_cours(gh, etiquettes=("lot", "en-cours", "pc"))
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert _gestes(gh, "lancer_workflow")
+
+
+def test_un_pc_en_pause_laisse_le_vps_prendre_le_lot_suivant(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Le panneau affiche le lieu", ("lot", "pret", "pc"))
+    gh.ajouter_issue(11, "Le service lit un lieu", ("lot", "pret"))
+    gh.variables_["PC_ACTIF"] = "NON"
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/11-le-service-lit-un-lieu.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[-1][1] == "lot/11-le-service-lit-un-lieu"
+    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
+
+
+def test_un_pc_en_pause_ne_fait_pas_reprendre_un_lot_pc(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "pret", "pc"))
+    gh.ajouter_pr(50, BRANCHE, commentaires=[ENVOI_PC, ECHEC_127])
+    gh.variables_["PC_ACTIF"] = "non"
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert not any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
+    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]] and not _gestes(gh, "lancer_workflow")
+    gh.variables_["PC_ACTIF"] = "oui"
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
+
+
+def _gh_qui_repond(reponses):
+    """Un vrai GitHub dont `gh` rend ce qu'on lui dicte, par commande."""
+    from atelier.github import GitHub
+
+    appels = []
+
+    def executeur(argv, entree):
+        appels.append(argv)
+        return reponses(argv)
+
+    return GitHub("moi/essai", executeur), appels
+
+
+def test_la_variable_se_lit_par_l_api_et_une_variable_absente_est_none():
+    gh, appels = _gh_qui_repond(lambda argv: (0, json.dumps({"name": "PC_ACTIF", "value": "non"}), ""))
+    assert gh.variable("PC_ACTIF") == "non" and not gh.pc_actif()
+    assert appels[0][:3] == ["gh", "api", "repos/moi/essai/actions/variables/PC_ACTIF"]
+    absent, _ = _gh_qui_repond(lambda argv: (1, "", "gh: Not Found (HTTP 404)"))
+    assert absent.variable("PC_ACTIF") is None and absent.pc_actif()
+
+
+def test_une_variable_illisible_ne_met_jamais_le_pc_en_pause():
+    # Un jeton sans le droit de lire les variables (403) ou GitHub qui ne
+    # répond pas : la chaîne continue comme avant l'interrupteur.
+    from atelier.github import GitHubErreur
+
+    gh, _ = _gh_qui_repond(lambda argv: (1, "", "gh: Resource not accessible by personal access token (HTTP 403)"))
+    with pytest.raises(GitHubErreur):
+        gh.variable("PC_ACTIF")
+    assert gh.pc_actif()
+
 
 def test_un_lot_pret_dont_la_pr_est_ouverte_est_repris_sans_le_chef(projet, gh, depot, tmp_path):
     # Le lot #118 : trois 127 l'ont bloqué, le propriétaire le remet « pret ».
