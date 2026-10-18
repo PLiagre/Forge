@@ -355,10 +355,11 @@ def _matieres_premieres_du_panier(cell: Cell) -> list[str]:
     return sorted(m for m in panier if m not in (nourriture, objet))
 
 
-def _apply_fabrication(cell: Cell) -> None:
+def _apply_fabrication(cell: Cell) -> bool:
     """
     Maillon 0 — Façonnage des matières premières en objet, sur le panier
     d'ouverture de tick (avant extraction du jour).
+    Renvoie True lorsque les paniers locaux sont déjà accordés.
     """
     objet = _constantes.MARCHANDISE_OBJET
     matieres = _matieres_premieres_du_panier(cell)
@@ -376,7 +377,7 @@ def _apply_fabrication(cell: Cell) -> None:
     budget = _constantes.budget_artisanal_kg(metiers.get(_constantes.METIER_ARTISANS, 0) if metiers != -1 else 0)
     if budget <= 0:
         _lieux.accorder_fabrication(cell)
-        return
+        return True
     for marchandise in matieres:
         stock = lire_stock_marchandise(cell, marchandise)
         if budget <= 0 or stock <= 0:
@@ -386,6 +387,7 @@ def _apply_fabrication(cell: Cell) -> None:
         ecrire_stock_marchandise(cell, objet, max(0.0, lire_stock_marchandise(cell, objet)) + produit)
         budget -= consomme
     _lieux.accorder_fabrication(cell)
+    return True
 
 def _apply_extraction(cell: Cell, carte: dict) -> None:
     """Maillon 0 — Extraction minière depuis la carte vers le panier de la cellule."""
@@ -412,19 +414,96 @@ def _facteur_bras_pour_cellule(cell: Cell, carte: dict | None, saison=1.0) -> fl
                               _surfaces_cultivees(cell, carte, [cell.area_km2])[0], saison)
 
 
+# Surfaces déjà dérivées pour la cellule dont on partage la récolte.
+# Évite un second découpage quand tous les bras suffisent. Remis à vide
+# sitôt relu, pour ne pas servir à la cellule suivante.
+_surfaces_pour_partage: tuple | None = None
+_cellule_du_partage: int | None = None
+
+
+def _multiplicateurs_au_plus_un() -> bool:
+    """Vrai quand relief, eau et part agricole ne peuvent pas dépasser 1.
+
+    On relit les tables, pas une copie : un régime qui les relève perd
+    ce raccourci et repasse par le calcul exact.
+    """
+    if max(_constantes.facteurs_production_par_relief().values()) > 1:
+        return False
+    if _constantes.facteur_eau(0.0) > 1:
+        return False
+    richesse = _constantes.facteurs_richesse_extraction()
+    if any(valeur < 0 for valeur in richesse.values()):
+        return False
+    if not richesse:
+        return True
+    nom = next(iter(richesse))
+    return _constantes.part_miniere_de(
+        [{"ressource": "sonde", "richesse": nom}], richesse) >= 0
+
+
+def _cultivees_bourg_hameau(cell: Cell, carte: dict | None, surfaces) -> tuple:
+    """Surface cultivée du bourg et d'un hameau : relief, puis eau, puis part."""
+    if not carte:
+        return surfaces[0], surfaces[-1]
+    relief = _facteur_relief_pour_cellule(cell, carte)
+    eau = _facteur_eau_pour_cellule(cell, carte)
+    agricole = _facteur_agricole(cell, carte)
+    return (surfaces[0] * relief * eau * agricole,
+            surfaces[-1] * relief * eau * agricole)
+
+
 def _facteurs_bras_des_lieux(cell: Cell, carte: dict | None, saison: float) -> list:
     """Les métiers non paysans restent au bourg ; aucun métier local stocké."""
+    global _surfaces_pour_partage, _cellule_du_partage
     metiers = lire_habitants_par_metier(cell)
-    non_paysans = (sum(n for m, n in metiers.items() if m != _constantes.METIER_PAYSANS)
-                  if metiers != -1 else 0)
+    lieux = cell.lieux
+    nombre = len(lieux)
+    if metiers == -1:
+        _surfaces_pour_partage = None
+        return [1.0] * nombre
+    non_paysans = sum(metiers.values()) - metiers.get(_constantes.METIER_PAYSANS, 0)
     surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
-    cultivees = _surfaces_cultivees(cell, carte, surfaces)
-    facteurs = []
-    for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang):
+    _surfaces_pour_partage = surfaces
+    _cellule_du_partage = cell.cell_id
+    # Le découpage donne la même surface à chaque hameau. Le plus pauvre
+    # d'entre eux, et le bourg, décident pour tous tant que les multiplicateurs
+    # restent au plus 1 : la surface brute majore alors les km² cultivés.
+    paysans_bourg = 0
+    min_hameau = None
+    for lieu in lieux:
         paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
-        locaux = -1 if metiers == -1 else {_constantes.METIER_PAYSANS: paysans}
-        facteurs.append(foyers.facteur_bras(
-            locaux, cultivees[lieu.rang], saison))
+        if lieu.rang == 0:
+            paysans_bourg = paysans
+        elif min_hameau is None or paysans < min_hameau:
+            min_hameau = paysans
+    bras_positifs = foyers.besoin_de_bras(1.0, 1.0) >= 0
+    if (bras_positifs and _multiplicateurs_au_plus_un()
+            and paysans_bourg > foyers.besoin_de_bras(surfaces[0], saison)
+            and (min_hameau is None or min_hameau > foyers.besoin_de_bras(surfaces[-1], saison))):
+        return [1.0] * nombre
+    cultivee_bourg, cultivee_hameau = _cultivees_bourg_hameau(cell, carte, surfaces)
+    requis_bourg = foyers.besoin_de_bras(cultivee_bourg, saison)
+    requis_hameau = foyers.besoin_de_bras(cultivee_hameau, saison)
+    facteurs = [1.0] * nombre
+    # Même population de hameau, même champ : un seul appel à la formule.
+    calcules = {}
+    for lieu in lieux:
+        paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
+        if lieu.rang == 0:
+            cultivee, requis = cultivee_bourg, requis_bourg
+            facteur = None
+        else:
+            cultivee, requis = cultivee_hameau, requis_hameau
+            facteur = calcules.get(paysans)
+        if facteur is None:
+            if bras_positifs and (requis == 0 or paysans > requis):
+                facteur = 1.0
+            else:
+                facteur = foyers.facteur_bras(
+                    {_constantes.METIER_PAYSANS: paysans}, cultivee, saison)
+            if lieu.rang != 0:
+                calcules[paysans] = facteur
+        facteurs[lieu.rang] = facteur
     return facteurs
 
 
@@ -434,8 +513,11 @@ def _ajouter_recolte(cell: Cell, recolte: float, carte, saison: float, recoltes)
     facteurs = _facteurs_bras_des_lieux(cell, carte, saison) if cell.lieux else []
     current = lire_stock_marchandise(cell, nourriture)
     current = current if current >= 0 else 0.0
-    if facteurs and any(facteur != 1.0 for facteur in facteurs):
-        surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    if facteurs and min(facteurs) != 1.0:
+        if _cellule_du_partage == cell.cell_id and _surfaces_pour_partage is not None:
+            surfaces = _surfaces_pour_partage
+        else:
+            surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)
         quantites = ([recolte * facteurs[0]] if len(lieux) == 1 else
                      [recolte * surfaces[lieu.rang] / cell.area_km2 * facteur
@@ -464,19 +546,32 @@ def _ajouter_recolte(cell: Cell, recolte: float, carte, saison: float, recoltes)
 def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:
     """Partage historique exact, lorsque tous les lieux ont leurs bras."""
     nourriture = _constantes.MARCHANDISE_NOURRITURE
+    global _surfaces_pour_partage, _cellule_du_partage
     quantites = None if recoltes is None else [0.0] * len(cell.lieux)
     if quantites is not None:
         recoltes[cell.cell_id] = quantites
     if len(cell.lieux) == 1:
+        _surfaces_pour_partage = None
+        _cellule_du_partage = None
         if quantites is not None:
             quantites[0] = recolte
         ecrire_stock_marchandise(cell.lieux[0], nourriture,
                                 lire_stock_marchandise(cell, nourriture))
         return
-    surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
-    for lieu in cell.lieux:
-        stock = max(0.0, lire_stock_marchandise(lieu, nourriture))
-        kg = recolte * surfaces[lieu.rang] / cell.area_km2
+    if _cellule_du_partage == cell.cell_id and _surfaces_pour_partage is not None:
+        surfaces = _surfaces_pour_partage
+    else:
+        surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    _surfaces_pour_partage = None
+    _cellule_du_partage = None
+    # Le découpage donne une surface au bourg et la même à chaque hameau.
+    # Calculer chaque part une seule fois, avec les opérations historiques.
+    part_bourg = recolte * surfaces[0] / cell.area_km2
+    part_hameau = recolte * surfaces[-1] / cell.area_km2
+    stocks = contenus_des_paniers(cell.lieux, nourriture)
+    for lieu, stock in zip(cell.lieux, stocks):
+        stock = stock if stock >= 0 else 0.0
+        kg = part_bourg if lieu.rang == 0 else part_hameau
         ecrire_stock_marchandise(lieu, nourriture, stock + kg)
         if quantites is not None:
             quantites[lieu.rang] = kg
@@ -496,11 +591,13 @@ def _apply_production(
     Traite la sentinelle -1 comme un stock initial nul.
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+    saison = _facteur_saison_pour_cellule(cell, carte, jour) if carte and jour is not None else 1.0
     if carte:
-        food_produced = production_du_tick_kg(cell, yield_factor, carte, jour=jour)
+        # Le même facteur sert au rendement et aux bras : le dériver une fois,
+        # en gardant la multiplication saisonnière en dernier.
+        food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
     else:
         food_produced = production_kg(cell, yield_factor)
-    saison = _facteur_saison_pour_cellule(cell, carte, jour) if carte and jour is not None else 1.0
     _ajouter_recolte(cell, food_produced, carte, saison, recoltes)
 
 
@@ -515,9 +612,9 @@ def _apply_production_saison_moyenne(
     récolte potentielle et le besoin de bras de chaque lieu.
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
-    food_produced = _production_du_tick_kg_saison_moyenne(cell, yield_factor, carte)
     ete_h, hiver_h = _lire_solstices(cell, carte)
     saison = _constantes.facteur_saison_moyen_annuel(ete_h, hiver_h)
+    food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
     _ajouter_recolte(cell, food_produced, carte, saison, recoltes)
 
 
@@ -1772,8 +1869,8 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         _lieux.repartir_sur_les_lieux(cell)
     total_transported = [0.0]
     for cell in world.cells.values():
-        _apply_fabrication(cell)
-        _lieux.accorder_fabrication(cell)
+        if not _apply_fabrication(cell):
+            _lieux.accorder_fabrication(cell)
     carte = world.carte if getattr(world, "carte", None) else None
     if carte is not None:
         for cell in world.cells.values():
