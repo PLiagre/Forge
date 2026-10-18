@@ -220,11 +220,28 @@ ville, −1 sans ville), `panneau_lieu` (la première ligne du panneau du lieu),
 soit ; **1** session impossible (`defaut` dit pourquoi ; le rapport est écrit) ;
 **2** arguments fautifs (aucun rapport). Le rapport écrit, Unity sort du Play et
 laisse 12 s aux lectures de la carte avant de rendre son code : sans service, il
-pendait sinon à sa fermeture. La session ne juge rien : le jugement
-sera celui de `pc/epreuve_capitale.py` (à venir, #684), qui compare au siège
-servi par `/maison`. Rapports du 18 octobre 2026 :
+pendait sinon à sa fermeture. La session ne juge rien : le jugement est
+celui de [l'épreuve de la capitale](#lépreuve-de-la-capitale). Rapports du 18 octobre 2026 :
 [le Zab](../../docs/mesures/702-session-capitale/rapport-zab.json),
 [Bar](../../docs/mesures/702-session-capitale/rapport-bar.json).
+
+## L'épreuve de la capitale
+
+Le joueur se fie au passage (lot #703, épreuve #684). Depuis la racine, éditeur fermé :
+
+```bash
+py pc\epreuve_capitale.py --sortie <dossier> [--seed S] [--unity CHEMIN]
+```
+
+Un service neuf par terre, trouvée par son nom. Unity seul pousse le tick ;
+Python ne poste ni intention, ni tick, ni vitesse, et n'envoie à Unity que
+l'id de la terre. La cellule attendue est `siege.cell_id` de
+`GET /maison?id=seigneurie-<id>`. **0** égalité, **1** écart, **2** épreuve
+impossible. Contre-épreuve sans PC :
+`python3 -m pytest jeu/ville/tests/test_epreuve_capitale.py -q -k contre_epreuve -s`.
+Verdicts du 18 octobre 2026 :
+[normal](../../docs/mesures/703-epreuve-capitale/verdict-normal.txt),
+[jugement d'une copie, pas une mesure PC](../../docs/mesures/703-epreuve-capitale/verdict-contre-epreuve.txt).
 
 ## L'épreuve du choix
 

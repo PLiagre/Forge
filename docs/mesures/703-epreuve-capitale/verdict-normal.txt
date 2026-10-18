@@ -1,0 +1,33 @@
+commande : py pc\epreuve_capitale.py --sortie $env:TEMP\lot703-normal
+date : 2026-10-18, PC (i7-13700K), Unity 6000.0.43f1, révision bac0a31d + l'épreuve non commitée
+code de sortie : 0
+
+ÉGALITÉ
+code 0
+graine 0
+Émirat du Zab : id 6
+maison seigneurie-6 · siège 10103 (Biskra) au tick 1
+terre : 6 · attendu 6 · égal
+tick avant : 'monde 0 · session 0 · choix 0' · attendu 'monde 0 · session 0 · choix 0' · égal
+maison avant : None · attendu None · égal
+reçu : '200 au tick 0 «»' · attendu '200 au tick 0 «»' · égal
+tick après : 'session 1 · monde 1 · maison 1' · attendu 'session 1 · monde 1 · maison 1' · égal
+maison retenue : 'seigneurie-6' · attendu 'seigneurie-6' · égal
+scène : 'Forge_Desert_Ville_ksar_des_sept_puits' · attendu 'Forge_Desert_Ville_ksar_des_sept_puits' · égal
+cellule : 10103 · attendu 10103 · égal
+ouverture : 1 · attendu 1 · égal
+panneau : 'Cellule 10103 · tick 1' · attendu 'Cellule 10103 · tick 1' · égal
+message : '' · attendu '' · égal
+Duché de Bar : id 1
+maison seigneurie-1 · siège 10430 (Bar-le-Duc) au tick 1
+terre : 1 · attendu 1 · égal
+tick avant : 'monde 0 · session 0 · choix 0' · attendu 'monde 0 · session 0 · choix 0' · égal
+maison avant : None · attendu None · égal
+reçu : '200 au tick 0 «»' · attendu '200 au tick 0 «»' · égal
+tick après : 'session 1 · monde 1 · maison 1' · attendu 'session 1 · monde 1 · maison 1' · égal
+maison retenue : 'seigneurie-1' · attendu 'seigneurie-1' · égal
+scène : 'Forge_Carte' · attendu 'Forge_Carte' · égal
+cellule : -1 · attendu -1 · égal
+ouverture : -1 · attendu -1 · égal
+panneau : '' · attendu '' · égal
+message : 'Pas encore de kit pour cette terre' · attendu 'Pas encore de kit pour cette terre' · égal
