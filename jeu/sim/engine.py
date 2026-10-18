@@ -1014,17 +1014,18 @@ def _apply_commerce(
         else:
             cap_arête = _capacite_transport_arete_kg(world, a_id, b_id)
 
-        surplus_a = _surplus(a_id)
-        surplus_b = _surplus(b_id)
         # Les besoins du snapshot sont déjà calculés, avant tous les transferts.
         need_a = snapshot_needs[a_id]
         need_b = snapshot_needs[b_id]
 
-        if surplus_a > 0 and need_b > 0:
+        # Une offre ne sert que si l'autre bout manque de cette marchandise.
+        # Ne pas parcourir les lieux des sources sans demande terrestre ;
+        # les expéditions maritimes liront leurs offres dans leur propre passe.
+        if need_b > 0 and _surplus(a_id) > 0:
             demand = min(need_b, cap_arête)
             by_source[a_id].append((b_id, demand, cle))
 
-        elif surplus_b > 0 and need_a > 0:
+        elif need_a > 0 and _surplus(b_id) > 0:
             demand = min(need_a, cap_arête)
             by_source[b_id].append((a_id, demand, cle))
 
@@ -1218,11 +1219,15 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
                                       for rang, manque in enumerate(manques[1:], start=1))
             pot, restes[0] = restes[0], 0.0
             for rang in range(1, len(lieux)):
+                if pot >= demande:
+                    break
                 envoi = min(restes[rang], plafonds[rang], max(0.0, demande - pot))
                 restes[rang] -= envoi
                 pot += envoi
             couverte, surplus = pot >= demande, max(0.0, pot - demande)
             for rang in range(len(lieux)):
+                if manques[rang] == 0:
+                    continue
                 servi = min(manques[rang], manques[rang] if rang == 0 else plafonds[rang])
                 if not couverte:
                     servi = min(servi, pot)
@@ -1233,11 +1238,15 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
             demande = manques[0] + sum(min(manque, capacite) for manque in manques[1:])
             pot, restes[0] = restes[0], 0.0
             for rang in range(1, len(lieux)):
+                if pot >= demande:
+                    break
                 envoi = min(restes[rang], capacite, max(0.0, demande - pot))
                 restes[rang] -= envoi
                 pot += envoi
             couverte, surplus = pot >= demande, max(0.0, pot - demande)
             for rang in range(len(lieux)):
+                if manques[rang] == 0:
+                    continue
                 servi = min(manques[rang], manques[rang] if rang == 0 else capacite)
                 if not couverte:
                     servi = min(servi, pot)
