@@ -1,0 +1,16 @@
+{
+    "terre": 6,
+    "tick_avant": 0,
+    "tick_apres": 1,
+    "cellule": 10103,
+    "tick_ouverture": 1,
+    "choix": {
+        "statut": 200,
+        "tick": 0,
+        "raison": ""
+    },
+    "scene_active": "Forge_Desert_Ville_ksar_des_sept_puits",
+    "panneau_lieu": "Cellule 10103 · tick 1",
+    "message_passage": "",
+    "defaut": ""
+}

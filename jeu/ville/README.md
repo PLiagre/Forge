@@ -193,6 +193,39 @@ Rapports du 16 octobre 2026 :
 [départ déjà choisi](../../docs/mesures/651-session-choix-moree/rapport-deja-choisi.json),
 [sans service](../../docs/mesures/651-session-choix-moree/rapport-sans-service.json).
 
+## La session de l'épreuve de la capitale
+
+Le joueur choisit sa terre dans le cabinet de la carte et, au tick suivant,
+passe à sa ville ou lit « Pas encore de kit pour cette terre » (lot #702,
+moitié Unity de l'épreuve #684). Depuis la racine du dépôt :
+
+```bash
+Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveCapitale.Jouer \
+      -forgeEpreuve <rapport.json> -forgeTerre N [-logFile <journal>]
+```
+
+Le service se lance à la main comme pour la session du choix (`py -m
+sim.service --seed 0 --jours-par-seconde 0` depuis `jeu/`), neuf pour chaque
+essai. Unity ouvre `Forge_Carte` en Play, attend que le cabinet ait lu le monde
+et les départs, choisit la terre N, laisse le passage voir le départ, pousse un
+seul `POST /tick?n=1` (jamais `/vitesse`), puis relève ce que le passage fait :
+la ville qu'il charge lui-même, comme dans le jeu, ou son message. Rien n'est
+remplacé dans le chargement.
+
+Le rapport porte `terre`, `tick_avant` et `tick_apres` (le tick du monde avant
+le choix et après le passage), `choix` (le reçu, comme dans la session du
+choix), `scene_active`, `cellule` et `tick_ouverture` (lus sur l'outil de la
+ville, −1 sans ville), `panneau_lieu` (la première ligne du panneau du lieu),
+`message_passage` et `defaut`. **0** une ville ou un message relevé, quel qu'il
+soit ; **1** session impossible (`defaut` dit pourquoi ; le rapport est écrit) ;
+**2** arguments fautifs (aucun rapport). Le rapport écrit, Unity sort du Play et
+laisse 12 s aux lectures de la carte avant de rendre son code : sans service, il
+pendait sinon à sa fermeture. La session ne juge rien : le jugement
+sera celui de `pc/epreuve_capitale.py` (à venir, #684), qui compare au siège
+servi par `/maison`. Rapports du 18 octobre 2026 :
+[le Zab](../../docs/mesures/702-session-capitale/rapport-zab.json),
+[Bar](../../docs/mesures/702-session-capitale/rapport-bar.json).
+
 ## L'épreuve du choix
 
 Le joueur peut se fier à son geste (lot #652, épreuve #615) : la terre qu'il
