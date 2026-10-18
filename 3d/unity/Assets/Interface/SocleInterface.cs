@@ -47,13 +47,16 @@ namespace Forge.Interface
             return texte;
         }
 
-        public static RectTransform Panneau(Transform parent, string nom, float x, float y, float largeur, float hauteur)
+        public static RectTransform Panneau(Transform parent, string nom, float x, float y, float largeur, float hauteur, bool sombre = false)
         {
             var cadre = Cadre(parent, nom, x, y, largeur, hauteur);
-            cadre.gameObject.AddComponent<Image>().color = Couleur("papier");
-            cadre.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(6, -6);
+            MatieresCabinet.Habiller(cadre.gameObject.AddComponent<Image>(), sombre);
+            var ombre = cadre.gameObject.AddComponent<Shadow>();
+            ombre.effectDistance = new Vector2(4, -6);
+            ombre.effectColor = new Color(0, 0, 0, .35f);
             Cadre(cadre, "Filet", Espacement, 70, largeur - 2 * Espacement, 1).gameObject.AddComponent<Image>().color = Couleur("or");
-            Texte(cadre, nom, Espacement, Espacement, largeur - 2 * Espacement, Titre);
+            var titre = Texte(cadre, nom, Espacement, Espacement, largeur - 2 * Espacement, Titre);
+            if (sombre) titre.color = Couleur("papier");
             return cadre;
         }
 
@@ -61,13 +64,15 @@ namespace Forge.Interface
         {
             var cadre = Cadre(parent, nom, x, y, 340, HauteurCommande);
             var image = cadre.gameObject.AddComponent<Image>();
+            MatieresCabinet.Habiller(image, bouton: true);
             var bouton = cadre.gameObject.AddComponent<Button>();
             bouton.targetGraphic = image;
             var couleurs = bouton.colors;
-            couleurs.normalColor = Couleur("accent");
-            couleurs.highlightedColor = Couleur("secondaire");
-            couleurs.selectedColor = couleurs.pressedColor = Couleur("alerte");
-            couleurs.disabledColor = Couleur("secondaire");
+            couleurs.normalColor = Couleur("secondaire");
+            couleurs.highlightedColor = Couleur("accent");
+            couleurs.selectedColor = Couleur("accent");
+            couleurs.pressedColor = Couleur("fond");
+            couleurs.disabledColor = new Color(.40f, .38f, .34f, .65f);
             couleurs.fadeDuration = 0;
             bouton.colors = couleurs;
             bouton.interactable = active;
