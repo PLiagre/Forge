@@ -567,9 +567,12 @@ def test_cellule_depend_du_contenu_des_lieux(monkeypatch):
         raise AssertionError("aucun écart sans chemin après déplacement des non-paysans")
     verifier_ecart()
     original = engine._apply_consumption
-    monkeypatch.setattr(engine, "_apply_consumption", lambda cellule, carte=None: original(cellule))
-    with pytest.raises(AssertionError):
-        verifier_ecart()
+    from sim import foyers
+    with monkeypatch.context() as sonde:
+        sonde.setattr(engine, "_apply_consumption", lambda cellule, carte=None: original(cellule))
+        sonde.setattr(foyers, "facteur_bras", lambda metiers, km2: 1.0)
+        with pytest.raises(AssertionError, match="aucun écart"):
+            verifier_ecart()
 
 
 def test_photographie_et_empreinte_portent_les_lieux():
