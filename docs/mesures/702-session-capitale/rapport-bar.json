@@ -1,0 +1,16 @@
+{
+    "terre": 1,
+    "tick_avant": 0,
+    "tick_apres": 1,
+    "cellule": -1,
+    "tick_ouverture": -1,
+    "choix": {
+        "statut": 200,
+        "tick": 0,
+        "raison": ""
+    },
+    "scene_active": "Forge_Carte",
+    "panneau_lieu": "",
+    "message_passage": "Pas encore de kit pour cette terre",
+    "defaut": ""
+}
