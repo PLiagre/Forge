@@ -481,7 +481,7 @@ def _apply_production_saison_moyenne(
 
 def _cle_arête(a_id: int, b_id: int) -> tuple[int, int]:
     """Clé non orientée d'une arête d'adjacence."""
-    return (min(a_id, b_id), max(a_id, b_id))
+    return (a_id, b_id) if a_id <= b_id else (b_id, a_id)
 
 
 def _facteur_transport_pour_cellule(cell_id: int, carte: dict) -> float:
@@ -553,7 +553,7 @@ def _capacite_base_arete_kg(world, a_id: int, b_id: int, index=None) -> float:
     )
 
 
-def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None) -> float:
+def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None, facteurs=None) -> float:
     """
     Capacité de transport d'une arête terrestre entre deux cellules du monde.
 
@@ -569,8 +569,15 @@ def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None) -> flo
     if not carte:
         return base
     try:
-        fa = _facteur_transport_pour_cellule(a_id, carte)
-        fb = _facteur_transport_pour_cellule(b_id, carte)
+        if facteurs is None:
+            fa = _facteur_transport_pour_cellule(a_id, carte)
+            fb = _facteur_transport_pour_cellule(b_id, carte)
+        else:
+            # Le relief est commun aux arêtes d'une cellule pendant ce maillon.
+            for cid in (a_id, b_id):
+                if cid not in facteurs:
+                    facteurs[cid] = _facteur_transport_pour_cellule(cid, carte)
+            fa, fb = facteurs[a_id], facteurs[b_id]
     except ReliefInvalideError as e:
         raise ReliefInvalideError(
             f"arête ({a_id},{b_id}) : {e}"
@@ -583,13 +590,14 @@ def _initialiser_capacite_aretes(world) -> dict[tuple[int, int], float]:
     """Capacité restante par arête au début du maillon commerce."""
     capacite: dict[tuple[int, int], float] = {}
     index = _index_aretes(world)
+    facteurs = {}
     for edge in world.adjacency:
         a_id = edge["a"]
         b_id = edge["b"]
         if a_id not in world.cells or b_id not in world.cells:
             continue
         cle = _cle_arête(a_id, b_id)
-        capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id, index)
+        capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id, index, facteurs)
     return capacite
 
 
@@ -1509,9 +1517,12 @@ def _repartir_habitants_proportionnellement(
 
 
 def _voisins_avec_surplus(
-    world, source_id: int, surplus_par_cellule: dict[int, float]
+    world, source_id: int, surplus_par_cellule: dict[int, float], voisins=None
 ) -> dict[int, float]:
     """Voisines d'adjacence dont le surplus du tick est strictement positif."""
+    if voisins is not None:
+        return {voisin: surplus_par_cellule[voisin] for voisin in voisins.get(source_id, ())
+                if surplus_par_cellule.get(voisin, 0.0) > 0.0}
     destinations: dict[int, float] = {}
     for edge in world.adjacency:
         a_id = edge["a"]
@@ -1546,10 +1557,13 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
     """
     # Valider le bassin avant même de modifier un report de fraction.
     cotieres = {cid for cid, _, _ in _aretes_maritimes_du_monde(world)}
-    reliees_par_terre = set()
+    voisins = defaultdict(dict)
     for edge in world.adjacency:
         if edge["a"] in world.cells and edge["b"] in world.cells:
-            reliees_par_terre.update((edge["a"], edge["b"]))
+            a, b = edge["a"], edge["b"]
+            # Le dictionnaire dédouble les arêtes et conserve leur ordre.
+            voisins[a][b] = None
+            voisins[b][a] = None
 
     snapshot_pop = {cid: cell.population for cid, cell in world.cells.items()}
     snapshot_stock = {
@@ -1580,8 +1594,8 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         if partants <= 0:
             continue
 
-        destinations = _voisins_avec_surplus(world, cid, surplus_par_cellule)
-        if cid not in reliees_par_terre and cid in cotieres:
+        destinations = _voisins_avec_surplus(world, cid, surplus_par_cellule, voisins)
+        if cid not in voisins and cid in cotieres:
             destinations = {
                 voisin: surplus_par_cellule[voisin]
                 for voisin in sorted(cotieres)

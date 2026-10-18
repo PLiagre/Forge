@@ -40,9 +40,7 @@ def lire_stock_marchandise(cell: "Cell", marchandise: str) -> float:
     Une marchandise absente du panier rend la sentinelle -1.0 (« non calculé »).
     Une marchandise présente à zéro se lit 0.0 (règle 8).
     """
-    if marchandise not in cell.stocks:
-        return -1.0
-    return cell.stocks[marchandise]
+    return cell.stocks.get(marchandise, -1.0)
 
 
 def ecrire_stock_marchandise(cell: "Cell", marchandise: str, quantite_kg: float) -> None:

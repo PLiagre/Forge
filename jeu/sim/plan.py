@@ -169,6 +169,9 @@ class Plan:
 def apport_routes_arete_kg(monde, a_id, b_id):
     """Somme stable des largeurs achevées vers l'autre bout, sans cache."""
     plans = getattr(monde, "plans", {})
+    plan_a, plan_b = plans.get(a_id), plans.get(b_id)
+    if (plan_a is None or not plan_a.rues) and (plan_b is None or not plan_b.rues):
+        return 0.0
     largeurs = sum(rue.largeur_m
                    for origine, porte in sorted(((a_id, b_id), (b_id, a_id)))
                    if origine in plans

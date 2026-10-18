@@ -9,17 +9,15 @@ from sim import flux as _flux
 from sim.model import lire_stock_marchandise
 
 
-def _meilleur(candidat, actuel, photo):
+def _meilleur(candidat, actuel):
     """Plus forte réserve, puis plus petit couple (cell_id, rang)."""
     if candidat is None:
         return actuel
     if actuel is None:
         return candidat
-    _, _, reserve_candidat = photo[candidat]
-    _, _, reserve_actuel = photo[actuel]
-    if reserve_candidat > reserve_actuel:
+    if candidat[-1] > actuel[-1]:
         return candidat
-    if reserve_candidat == reserve_actuel and candidat < actuel:
+    if candidat[-1] == actuel[-1] and candidat[:2] < actuel[:2]:
         return candidat
     return actuel
 
@@ -31,35 +29,34 @@ def appliquer_departs(world) -> int:
               / _constantes.TICK_DURATION_DAYS)
     photo = {}
     premiers, seconds, bourgs = {}, {}, {}
-    lieux_par_cellule, reserves_minimales = {}, {}
-    # Chaque lieu habité fournit une seule lecture du panier.
+    reserves_minimales = {}
+    # Un vecteur par cellule : pas de clé, tuple ou dictionnaire par lieu.
+    # Les références aux lieux restent valides jusqu'à l'application des soldes.
     for cid, cell in world.cells.items():
-        cles = []
+        reserves = []
         premier = second = None
-        reserve_premier = reserve_second = None
         reserve_minimale = None
-        for lieu in cell.lieux:
+        for indice, lieu in enumerate(cell.lieux):
             population = lieu.population
             if population <= 0:
+                reserves.append(None)
                 continue
-            stock = max(0, lire_stock_marchandise(lieu, nourriture))
+            stock = lire_stock_marchandise(lieu, nourriture)
+            stock = stock if stock > 0 else 0
             reserve = (stock - lieu.dette_alimentaire_kg) / (population * ration)
-            cle = (cid, lieu.rang)
-            photo[cle] = (lieu, population, reserve)
-            cles.append(cle)
+            reserves.append(reserve)
             if reserve_minimale is None or reserve < reserve_minimale:
                 reserve_minimale = reserve
-            if (premier is None or reserve > reserve_premier
-                    or (reserve == reserve_premier and cle < premier)):
-                second, premier = premier, cle
-                reserve_second, reserve_premier = reserve_premier, reserve
-            elif (second is None or reserve > reserve_second
-                    or (reserve == reserve_second and cle < second)):
-                second, reserve_second = cle, reserve
+            if (premier is None or reserve > premier[-1]
+                    or (reserve == premier[-1] and lieu.rang < premier[1])):
+                second, premier = premier, (cid, lieu.rang, indice, reserve)
+            elif (second is None or reserve > second[-1]
+                    or (reserve == second[-1] and lieu.rang < second[1])):
+                second = (cid, lieu.rang, indice, reserve)
             if lieu.rang == 0:
-                bourgs[cid] = cle
-        if cles:
-            lieux_par_cellule[cid] = cles
+                bourgs[cid] = (cid, lieu.rang, indice, reserve)
+        if premier is not None:
+            photo[cid] = (cell.lieux, reserves)
             reserves_minimales[cid] = reserve_minimale
             premiers[cid], seconds[cid] = premier, second
 
@@ -69,47 +66,52 @@ def appliquer_departs(world) -> int:
         if a not in world.cells or b not in world.cells:
             continue
         for cid, voisin in ((a, b), (b, a)):
-            voisins[cid] = _meilleur(bourgs.get(voisin), voisins.get(cid), photo)
+            voisins[cid] = _meilleur(bourgs.get(voisin), voisins.get(cid))
 
-    deltas_lieux, deltas_cellules = defaultdict(int), defaultdict(int)
+    deltas_cellules = defaultdict(int)
     total = 0
     partis, arrives = defaultdict(int), defaultdict(int)
-    # Si même la meilleure destination ne dépasse pas le lieu le moins
-    # nourri, aucun habitant de cette cellule ne peut partir sur cette photo.
-    candidats = []
-    for cid, cles in lieux_par_cellule.items():
-        meilleur = _meilleur(premiers[cid], voisins.get(cid), photo)
-        if photo[meilleur][-1] > reserves_minimales[cid] + _constantes.ECART_DE_DEPART_JOURS:
-            candidats.extend(cles)
-    # Les destinations et les effectifs restent ceux de la photo.
-    for cle in candidats:
-        _, population, reserve = photo[cle]
-        cid, _ = cle
-        destination = seconds.get(cid) if premiers[cid] == cle else premiers[cid]
-        seuil = reserve + _constantes.ECART_DE_DEPART_JOURS
-        if destination is None or not photo[destination][-1] > seuil:
-            destination = voisins.get(cid)
-        if destination is None or not photo[destination][-1] > seuil:
+    mouvements = {}
+    for cid, (lieux, reserves) in photo.items():
+        premier, second, voisin = premiers[cid], seconds[cid], voisins.get(cid)
+        meilleur = _meilleur(premier, voisin)
+        # Si même la meilleure destination ne dépasse pas le lieu le moins
+        # nourri, aucun habitant de cette cellule ne peut partir sur cette photo.
+        if not meilleur[-1] > reserves_minimales[cid] + _constantes.ECART_DE_DEPART_JOURS:
             continue
-        ecart = photo[destination][-1] - reserve
-        tranches = floor(ecart / _constantes.ECART_DE_DEPART_JOURS)
-        part = (min(_constantes.TAUX_DE_DEPART * tranches, _constantes.PLAFOND_DE_DEPART)
-                * _constantes.TICK_DURATION_DAYS)
-        partants = floor(population * part / _constantes.TAILLE_FOYER) * _constantes.TAILLE_FOYER
-        if partants:
+        for indice, reserve in enumerate(reserves):
+            if reserve is None:
+                continue
+            destination = second if premier[2] == indice else premier
+            seuil = reserve + _constantes.ECART_DE_DEPART_JOURS
+            if destination is None or not destination[-1] > seuil:
+                destination = voisin
+            if destination is None or not destination[-1] > seuil:
+                continue
+            ecart = destination[-1] - reserve
+            tranches = floor(ecart / _constantes.ECART_DE_DEPART_JOURS)
+            part = (min(_constantes.TAUX_DE_DEPART * tranches, _constantes.PLAFOND_DE_DEPART)
+                    * _constantes.TICK_DURATION_DAYS)
+            partants = floor(lieux[indice].population * part / _constantes.TAILLE_FOYER) * _constantes.TAILLE_FOYER
+            if not partants:
+                continue
+            cle = (cid, lieux[indice].rang)
+            cible_id, cible_rang, cible_indice, _ = destination
+            destination = (cible_id, cible_rang)
             partis[cle] += partants
             arrives[destination] += partants
-        deltas_lieux[cle] -= partants
-        deltas_lieux[destination] += partants
-        cible_id, _ = destination
-        if cible_id != cid:
-            deltas_cellules[cid] -= partants
-            deltas_cellules[cible_id] += partants
-        total += partants
+            # Seuls les lieux touchés ont besoin d'un solde indexé.
+            for cellule, position, delta in ((cid, indice, -partants),
+                                            (cible_id, cible_indice, partants)):
+                mouvements[(cellule, position)] = mouvements.get((cellule, position), 0) + delta
+            if cible_id != cid:
+                deltas_cellules[cid] -= partants
+                deltas_cellules[cible_id] += partants
+            total += partants
 
-    for cle, delta in deltas_lieux.items():
-        lieu, population, _ = photo[cle]
-        lieu.population = population + delta
+    for (cid, indice), delta in mouvements.items():
+        lieux, _ = photo[cid]
+        lieux[indice].population += delta
     # Les métiers suivent le solde extérieur une seule fois par cellule.
     for cid in sorted(deltas_cellules):
         delta = deltas_cellules[cid]

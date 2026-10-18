@@ -83,19 +83,24 @@ def partager(total, poids) -> list:
             raise LieuxInvalides("total ou poids absent, négatif, booléen ou non fini")
     # Les flottants sont des rapports d'entiers à dénominateur puissance
     # de deux : un dénominateur commun rend les restes exacts, sans arrondi.
-    rapports = [poids.as_integer_ratio() for poids in poids]
-    dénominateur = max((rapport[1] for rapport in rapports), default=1)
-    poids_exacts = [numérateur * (dénominateur // diviseur) for numérateur, diviseur in rapports]
-    somme = sum(poids_exacts)
+    # Les lieux de même surface ont souvent les mêmes poids. Convertir et
+    # diviser chaque poids distinct une fois conserve les rapports exacts.
+    rapports = {valeur: valeur.as_integer_ratio() for valeur in dict.fromkeys(poids)}
+    dénominateur = max((rapport[1] for rapport in rapports.values()), default=1)
+    poids_exacts = {valeur: numérateur * (dénominateur // diviseur)
+                    for valeur, (numérateur, diviseur) in rapports.items()}
+    somme = sum(poids_exacts[valeur] for valeur in poids)
     if somme <= 0:
         raise LieuxInvalides("somme des poids nulle")
     numérateur_total, diviseur_total = total.as_integer_ratio()
     diviseur = diviseur_total * somme
-    divisions = [divmod(numérateur_total * poids, diviseur) for poids in poids_exacts]
-    parts = [part for part, reste in divisions]
+    divisions = {valeur: divmod(numérateur_total * exact, diviseur)
+                 for valeur, exact in poids_exacts.items()}
+    parts = [divisions[valeur][0] for valeur in poids]
     unités = max(0, min(len(parts), math.floor(total) - sum(parts)))
     if unités:
-        ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
+        # Le tri stable garde les petits rangs en tête à reste égal.
+        ordre = sorted(range(len(parts)), key=lambda rang: divisions[poids[rang]][1], reverse=True)
         for rang in ordre[:unités]:
             parts[rang] += 1
     parts[0] = total - sum(parts[1:])
