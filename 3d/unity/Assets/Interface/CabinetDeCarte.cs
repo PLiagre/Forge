@@ -61,9 +61,10 @@ namespace Forge.Interface
             fond.SetParent(toile.transform, false);
             fond.anchorMin = new Vector2(.67f, 0); fond.anchorMax = Vector2.one;
             fond.offsetMin = fond.offsetMax = Vector2.zero;
-            fond.GetComponent<Image>().color = SocleInterface.Couleur("fond");
-            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 100);
+            MatieresCabinet.Habiller(fond.GetComponent<Image>(), true);
+            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 100, true);
             date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 760);
+            date.color = SocleInterface.Couleur("papier");
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer),
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer) };
@@ -80,7 +81,7 @@ namespace Forge.Interface
             apercu.rectTransform.sizeDelta = new Vector2(536, 100);
             confirmer = Bouton(dossier, "Choisir cette maison", 24, 468, 536,
                 () => { if (candidate != null) _ = Partie.Choisir(candidate.Id); });
-            var couleurs = confirmer.colors; couleurs.normalColor = SocleInterface.Couleur("alerte"); confirmer.colors = couleurs;
+            MatieresCabinet.Engagement(confirmer);
             var lieu = SocleInterface.Panneau(toile.transform, "Territoire conservé", 1312, 684, 584, 372);
             territoire = SocleInterface.Texte(lieu, "Clic droit sur une terre pour garder son dossier ouvert.", 24, 88, 536);
             territoire.rectTransform.sizeDelta = new Vector2(536, 260);

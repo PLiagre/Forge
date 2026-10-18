@@ -43,7 +43,7 @@ namespace Forge.Interface
             { if (Ordre.Recommencer()) { points.Clear(); erreur = null; Mode(false); } });
             message = SocleInterface.Texte(commandes, "", 0, 56, 1190);
             confirmer = Bouton(commandes, "Confirmer la rue", 650, 116, 240, () => { if (MemeContexte()) _ = Ordre.Confirmer(); });
-            var couleurs = confirmer.colors; couleurs.normalColor = SocleInterface.Couleur("alerte"); confirmer.colors = couleurs;
+            MatieresCabinet.Engagement(confirmer);
             dessin.Pointer = p =>
             {
                 if (!edition || !MemeContexte() || Ordre.Brouillon != null || Ordre.EnCours || Ordre.Recu != null) return;

@@ -46,7 +46,7 @@ namespace Forge.Interface
             message = SocleInterface.Texte(racine, "", 0, 184, 536);
             message.rectTransform.sizeDelta = new Vector2(536, 80);
             confirmer = Bouton("Confirmer l’ordre", 276, 268, () => { if (disponible) _ = Ordre.Confirmer(); });
-            var couleurs = confirmer.colors; couleurs.normalColor = SocleInterface.Couleur("alerte"); confirmer.colors = couleurs;
+            MatieresCabinet.Engagement(confirmer);
             retour = Bouton("Annuler / Retour", 0, 268, () => { Ordre.Recommencer(); cible = null; erreur = null; });
             foreach (var texte in racine.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             Afficher();
