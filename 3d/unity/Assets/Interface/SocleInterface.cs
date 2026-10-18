@@ -39,7 +39,8 @@ namespace Forge.Interface
         public static Text Texte(Transform parent, string contenu, float x, float y, float largeur, int taille = Corps)
         {
             var texte = Cadre(parent, contenu, x, y, largeur, taille * 3).gameObject.AddComponent<Text>();
-            texte.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            texte.font = Resources.Load<Font>(taille >= Titre
+                ? "Forge/Polices/NotoSerif-Regular" : "Forge/Polices/NotoSans-Regular");
             texte.text = contenu;
             texte.fontSize = taille;
             texte.color = Couleur("encre");
@@ -47,13 +48,16 @@ namespace Forge.Interface
             return texte;
         }
 
-        public static RectTransform Panneau(Transform parent, string nom, float x, float y, float largeur, float hauteur)
+        public static RectTransform Panneau(Transform parent, string nom, float x, float y, float largeur, float hauteur, bool sombre = false)
         {
             var cadre = Cadre(parent, nom, x, y, largeur, hauteur);
-            cadre.gameObject.AddComponent<Image>().color = Couleur("papier");
-            cadre.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(6, -6);
+            MatieresCabinet.Habiller(cadre.gameObject.AddComponent<Image>(), sombre);
+            var ombre = cadre.gameObject.AddComponent<Shadow>();
+            ombre.effectDistance = new Vector2(4, -6);
+            ombre.effectColor = new Color(0, 0, 0, .35f);
             Cadre(cadre, "Filet", Espacement, 70, largeur - 2 * Espacement, 1).gameObject.AddComponent<Image>().color = Couleur("or");
-            Texte(cadre, nom, Espacement, Espacement, largeur - 2 * Espacement, Titre);
+            var titre = Texte(cadre, nom, Espacement, Espacement, largeur - 2 * Espacement, Titre);
+            if (sombre) titre.color = Couleur("papier");
             return cadre;
         }
 
@@ -61,13 +65,15 @@ namespace Forge.Interface
         {
             var cadre = Cadre(parent, nom, x, y, 340, HauteurCommande);
             var image = cadre.gameObject.AddComponent<Image>();
+            MatieresCabinet.Habiller(image, bouton: true);
             var bouton = cadre.gameObject.AddComponent<Button>();
             bouton.targetGraphic = image;
             var couleurs = bouton.colors;
-            couleurs.normalColor = Couleur("accent");
-            couleurs.highlightedColor = Couleur("secondaire");
-            couleurs.selectedColor = couleurs.pressedColor = Couleur("alerte");
-            couleurs.disabledColor = Couleur("secondaire");
+            couleurs.normalColor = Couleur("secondaire");
+            couleurs.highlightedColor = Couleur("accent");
+            couleurs.selectedColor = Couleur("accent");
+            couleurs.pressedColor = Couleur("fond");
+            couleurs.disabledColor = new Color(.40f, .38f, .34f, .65f);
             couleurs.fadeDuration = 0;
             bouton.colors = couleurs;
             bouton.interactable = active;
@@ -121,7 +127,7 @@ namespace Forge.Interface
             evenements.GetComponent<EventSystem>().firstSelectedGameObject = focus.gameObject;
             evenements.GetComponent<EventSystem>().SetSelectedGameObject(focus.gameObject);
             Texte(fond, "Démonstration visuelle — aucune partie chargée", 96, 924, 1200).color = Couleur("papier");
-            Texte(fond, "UI-01  ·  Police Unity provisoire  ·  Aucun chiffre de simulation", 96, 966, 1500).color = Couleur("or");
+            Texte(fond, "UI-01  ·  Noto Serif & Noto Sans  ·  Aucun chiffre de simulation", 96, 966, 1500).color = Couleur("or");
             return racine;
         }
 
