@@ -42,7 +42,7 @@ namespace ForgeLocal3D
 
         static EpreuveChoix() { EditorApplication.update += Tick; }
 
-        static string Argument(string nom)
+        internal static string Argument(string nom)
         {
             var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, nom);
             return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
@@ -50,7 +50,7 @@ namespace ForgeLocal3D
 
         // Unity se place dans le projet : un rapport relatif se lit depuis le dossier où la commande a été lancée, que
         // `-projectPath` relatif permet de retrouver (`3d/unity` depuis la racine du dépôt). Sinon, le dossier du projet.
-        static string DossierDeLancement()
+        internal static string DossierDeLancement()
         {
             string projet = Directory.GetCurrentDirectory(), dossier = projet, p = Argument("-projectPath");
             if (string.IsNullOrEmpty(p) || Path.IsPathRooted(p)) return projet;
@@ -63,7 +63,7 @@ namespace ForgeLocal3D
         }
 
         // Un entier ≥ 1 en culture invariante, sans signe ni espace ; sinon null et la raison.
-        static long? Terre(string nom, out string erreur)
+        internal static long? Terre(string nom, out string erreur)
         {
             string brut = Argument(nom); erreur = null;
             if (brut == null) { erreur = nom + " <id de terre> manque"; return null; }
@@ -160,7 +160,7 @@ namespace ForgeLocal3D
         }
 
         // Le reçu tel que le service l'a rendu : accepté au tick qu'il nomme, refusé avec sa raison, ou absent avec sa cause.
-        static Recu Relever(RecuIntention r) =>
+        internal static Recu Relever(RecuIntention r) =>
             r == null ? new Recu { raison = "aucun reçu relevé" }
             : r.Acceptee ? new Recu { statut = ACCEPTE, tick = r.AppliqueeAuTick.Value, raison = "" }
             : r.Presente ? new Recu { statut = r.Statut.Value, tick = -1, raison = r.Erreur }
