@@ -79,9 +79,10 @@ def appliquer_departs(world) -> int:
         # nourri, aucun habitant de cette cellule ne peut partir sur cette photo.
         if not meilleur[-1] > reserves_minimales[cid] + _constantes.ECART_DE_DEPART_JOURS:
             continue
-        for indice, reserve in enumerate(reserves):
-            if reserve is None:
-                continue
+        # La clé du lieu source accompagne chaque décision, sans index global.
+        sources = (((cid, lieux[indice].rang), indice, reserve)
+                   for indice, reserve in enumerate(reserves) if reserve is not None)
+        for cle, indice, reserve in sources:
             destination = second if premier[2] == indice else premier
             seuil = reserve + _constantes.ECART_DE_DEPART_JOURS
             if destination is None or not destination[-1] > seuil:
@@ -95,7 +96,6 @@ def appliquer_departs(world) -> int:
             partants = floor(lieux[indice].population * part / _constantes.TAILLE_FOYER) * _constantes.TAILLE_FOYER
             if not partants:
                 continue
-            cle = (cid, lieux[indice].rang)
             cible_id, cible_rang, cible_indice, _ = destination
             destination = (cible_id, cible_rang)
             partis[cle] += partants
