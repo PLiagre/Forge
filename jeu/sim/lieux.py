@@ -198,9 +198,10 @@ def accorder_marchandise(cellule, marchandise) -> None:
         ecrire_stock_marchandise(lieu, marchandise, part)
 
 
-def corriger_residu_au_bourg(cellule, marchandise) -> None:
+def corriger_residu_au_bourg(cellule, marchandise, lieux=None) -> None:
     """Corrige la soustraction flottante sans repondérer les lieux."""
-    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+    if lieux is None:
+        lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
     total = lire_stock_marchandise(cellule, marchandise)
     autres = sum(contenus_des_paniers(lieux[1:], marchandise))
     ecrire_stock_marchandise(lieux[0], marchandise, total - autres)

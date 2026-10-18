@@ -825,12 +825,11 @@ def _appliquer_flux_maritimes(
 def _entrer_au_bourg(cell: Cell, marchandise: str, quantite: float) -> None:
     """L'arrivée reste dans le panier du rang zéro."""
     if cell.lieux:
-        bourg = next(lieu for lieu in cell.lieux if lieu.rang == 0)
         for lieu in cell.lieux:
             if lire_stock_marchandise(lieu, marchandise) < 0:
                 ecrire_stock_marchandise(lieu, marchandise, 0.0)
-        ecrire_stock_marchandise(bourg, marchandise,
-                                max(0.0, lire_stock_marchandise(bourg, marchandise)) + quantite)
+        # Le total cellulaire inclut déjà l'arrivée ; la correction pose
+        # directement le stock final du bourg, sans écriture intermédiaire.
         _lieux.corriger_residu_au_bourg(cell, marchandise)
 
 
@@ -852,8 +851,7 @@ def _sortir_par_bourg(cell: Cell, marchandise: str, quantite: float,
         chemins[cell.cell_id][lieu.rang] -= apport
         local += apport
         manque -= apport
-    ecrire_stock_marchandise(bourg, marchandise, local - quantite)
-    _lieux.corriger_residu_au_bourg(cell, marchandise)
+    _lieux.corriger_residu_au_bourg(cell, marchandise, lieux)
 
 
 def _marchandises_du_monde(world) -> list[str]:
@@ -964,6 +962,7 @@ def _apply_commerce(
         return snapshot_pop[cid] * consommation_unitaire
 
     offres = {}
+    demandes_par_source = {}
 
     def _surplus(cid: int) -> float:
         if cid not in offres:
@@ -971,6 +970,17 @@ def _apply_commerce(
             cell = world.cells[cid]
             if surplus > 0 and cell.lieux:
                 lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)
+                local = max(0.0, lire_stock_marchandise(lieux[0], marchandise)
+                            - lieux[0].population * consommation_unitaire)
+                demande = demandes_par_source.get(cid, 0.0)
+                if maritime_actif:
+                    demande += ctx_maritime["capacite_quai_restante"].get(cid, 0.0)
+                # Si le bourg couvre déjà tous les envois possibles, les
+                # champs ne seront pas sollicités. Cette offre suffit aussi
+                # au quai après déduction des expéditions terrestres.
+                if local >= min(surplus, demande):
+                    offres[cid] = min(surplus, local)
+                    return offres[cid]
                 locaux = [max(0.0, stock - lieu.population * consommation_unitaire)
                           for lieu, stock in zip(lieux, contenus_des_paniers(lieux, marchandise))]
                 if len(lieux) > 1 and locaux[0] < surplus:
@@ -1029,20 +1039,20 @@ def _apply_commerce(
         # Une offre ne sert que si l'autre bout manque de cette marchandise.
         # Ne pas parcourir les lieux des sources sans demande terrestre ;
         # les expéditions maritimes liront leurs offres dans leur propre passe.
-        if need_b > 0 and _surplus(a_id) > 0:
+        if need_b > 0 and snapshot_stock[a_id] > _tick_consumption(a_id):
             demand = min(need_b, cap_arête)
             by_source[a_id].append((b_id, demand, cle))
 
-        elif need_a > 0 and _surplus(b_id) > 0:
+        elif need_a > 0 and snapshot_stock[b_id] > _tick_consumption(b_id):
             demand = min(need_a, cap_arête)
             by_source[b_id].append((a_id, demand, cle))
 
     transfers: list[tuple[int, int, float, tuple[int, int]]] = []
-
     for source_id in sorted(by_source.keys()):
         requests = sorted(by_source[source_id], key=lambda r: r[0])
-        avail = _surplus(source_id)
         total_req = sum(d for _, d, _ in requests)
+        demandes_par_source[source_id] = total_req
+        avail = _surplus(source_id)
 
         for receiver_id, demand, cle in requests:
             if total_req <= avail:
@@ -1088,8 +1098,14 @@ def _apply_commerce(
         outgoing_terre: dict[int, float] = defaultdict(float)
         for src_id, _, qty, _ in final_transfers:
             outgoing_terre[src_id] += qty
+        carte = getattr(world, "carte", None) or {}
+        exclure = _cellules_declarant_gisements(carte)
         surplus_apres: dict[int, float] = {}
-        for cid in world.cells:
+        # Seuls les ports autorisés à expédier liront ces offres. Calculer
+        # celles de l'intérieur parcourait leurs lieux sans aucun transport.
+        for cid in ctx_maritime["cellules_cotieres"]:
+            if cid in exclure or ctx_maritime["capacite_quai_restante"].get(cid, 0.0) <= 0.0:
+                continue
             surplus_apres[cid] = max(
                 0.0, _surplus(cid) - outgoing_terre.get(cid, 0.0),
             )
@@ -1098,8 +1114,6 @@ def _apply_commerce(
             cap_apres_debark[cid] = max(
                 0.0, cap_apres_debark.get(cid, 0.0) - qty,
             )
-        carte = getattr(world, "carte", None) or {}
-        exclure = _cellules_declarant_gisements(carte)
         expedition_brute = _planifier_expedition(
             surplus_apres,
             cap_apres_debark,
@@ -1754,7 +1768,6 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     total_transported = [0.0]
     for cell in world.cells.values():
         _apply_fabrication(cell)
-        _lieux.accorder_fabrication(cell)
     carte = world.carte if getattr(world, "carte", None) else None
     if carte is not None:
         for cell in world.cells.values():
