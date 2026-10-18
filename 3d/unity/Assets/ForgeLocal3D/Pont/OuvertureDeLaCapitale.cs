@@ -12,14 +12,19 @@ namespace Forge.Pont
         internal static OuvertureDecidee ALaCarte() => new OuvertureDecidee(ModeDOuverture.Carte, null, OuvertureDeLaCarte.SCENE);
         internal static OuvertureDecidee LaisseeALaCarte() => new OuvertureDecidee(ModeDOuverture.LaisseeALaCarte, null, null);
     }
-    // Décision pure : tout vient des trois paramètres. Dans l'ordre : -forgeCarte, -forgeCell, l'éditeur (le ksar de 1175),
+    // Décision pure : tout vient des paramètres. Dans l'ordre : la remise (#701), -forgeCarte, -forgeCell, l'éditeur (le ksar de 1175),
     // enfin l'aiguillage de #679, consulté une seule fois. Une absence garde sa cause : jamais une cellule de remplacement.
     public static class OuvertureDeLaCapitale
     {
         public static Lecture<OuvertureDecidee> Decider(string[] arguments, bool editeur, Func<Lecture<CapitaleAOuvrir>> aiguillage)
+            => Decider(arguments, editeur, null, aiguillage);
+        // Lot #701 : la cellule remise par le passage de la carte (PassageALaCapitale) passe avant tout, sans lire l'aiguillage.
+        public static Lecture<OuvertureDecidee> Decider(string[] arguments, bool editeur, long? remise, Func<Lecture<CapitaleAOuvrir>> aiguillage)
         {
             if (arguments == null) throw new ArgumentNullException(nameof(arguments));
             if (aiguillage == null) throw new ArgumentNullException(nameof(aiguillage));
+            if (remise < 0) throw new ArgumentOutOfRangeException(nameof(remise), remise, "un cell_id entier positif ou nul attendu");
+            if (remise != null) return Lecture<OuvertureDecidee>.De(OuvertureDecidee.EnVille(remise.Value));
             if (OuvertureDeLaCarte.Demandee(arguments)) return Lecture<OuvertureDecidee>.De(OuvertureDecidee.LaisseeALaCarte());
             if (Array.IndexOf(arguments, PanneauLieu.ARGUMENT_CELLULE) >= 0)
             {

@@ -104,9 +104,9 @@ namespace ForgeLocal3D.Captures
             Debug.Log("CAPTURE_690 tick " + tick + " avant, " + apres + " après, terre " + fiche.Nom + ", maison " + maison + ", scène " + SceneManager.GetActiveScene().name);
         }
 
-        static bool LecturePrete(LecturePartie p) => p != null && !p.Occupee && p.Monde != null && p.Monde.Presente && p.Monde.Donnees.MaisonDuJoueur == null
+        internal static bool LecturePrete(LecturePartie p) => p != null && !p.Occupee && p.Monde != null && p.Monde.Presente && p.Monde.Donnees.MaisonDuJoueur == null
             && p.Departs != null && p.Departs.Presente && p.Departs.Donnees.Fiches.Count > 0 && p.PeutChoisir;
-        static string Dire(LecturePartie p) => p == null ? "partie absente" : p.Occupee ? "lecture en cours" : p.Monde == null ? "monde non lu"
+        internal static string Dire(LecturePartie p) => p == null ? "partie absente" : p.Occupee ? "lecture en cours" : p.Monde == null ? "monde non lu"
             : !p.Monde.Presente ? "monde absent : " + p.Monde.Absence : p.Monde.Donnees.MaisonDuJoueur != null ? "maison déjà « " + p.Monde.Donnees.MaisonDuJoueur + " »"
             : p.Departs == null || !p.Departs.Presente ? "départs absents : " + (p.Departs == null ? "non lus" : p.Departs.Absence)
             : p.Departs.Donnees.Fiches.Count == 0 ? "liste vide" : p.PeutChoisir ? "prête" : "choix impossible";
@@ -117,7 +117,7 @@ namespace ForgeLocal3D.Captures
                 && p.Maison != null && p.Maison.Presente && p.Maison.Donnees.Id == p.Monde.Donnees.MaisonDuJoueur
                 && passage.TexteAffiche == MESSAGE && passage.PanneauVisible && passage.SceneDemandee == null && !passage.RequeteEnVol;
         }
-        static void ExigerMonde(Lecture<MondeAvecMaisonLu> lu, long tick, string maison, string moment)
+        internal static void ExigerMonde(Lecture<MondeAvecMaisonLu> lu, long tick, string maison, string moment)
         {
             if (lu == null || !lu.Presente) throw new InvalidOperationException(moment + " : /monde absent : " + (lu == null ? "aucune lecture" : lu.Absence));
             if (lu.Donnees.Monde.Tick != tick || lu.Donnees.MaisonDuJoueur != maison)
@@ -129,20 +129,20 @@ namespace ForgeLocal3D.Captures
                 .Where(c => c.worldCamera == ancienne && c.GetComponentInChildren<Text>(true) is Text t && t.text == MESSAGE).ToArray();
             return toiles.Length == 1 ? toiles[0] : null;
         }
-        static void DansLeChamp(Camera camera, Text texte)
+        internal static void DansLeChamp(Camera camera, Text texte)
         {
             var coins = new Vector3[4]; texte.rectTransform.GetWorldCorners(coins); string hors = null;
             for (int i = 0; i < 4; i++) { Vector3 v = camera.WorldToViewportPoint(coins[i]); if (v.z <= 0f || v.x < -0.01f || v.x > 1.01f || v.y < -0.01f || v.y > 1.01f) hors = (hors ?? "") + " coin " + i + " " + v.ToString("F3"); }
             if (hors != null) throw new InvalidOperationException("texte hors champ :" + hors);
         }
-        static Task<Lecture<MondeAvecMaisonLu>> LireMonde(int port) => Task.Run(() => { using (var c = new ClientMonde(port, TimeSpan.FromSeconds(ATTENTE_S))) return c.LireAvecMaison(); });
-        static Task<(int statut, string corps)> PousserTick(int port) => Task.Run(() => {
+        internal static Task<Lecture<MondeAvecMaisonLu>> LireMonde(int port) => Task.Run(() => { using (var c = new ClientMonde(port, TimeSpan.FromSeconds(ATTENTE_S))) return c.LireAvecMaison(); });
+        internal static Task<(int statut, string corps)> PousserTick(int port) => Task.Run(() => {
             using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(ATTENTE_S) }) using (var contenu = new ByteArrayContent(new byte[0]))
             using (var reponse = http.PostAsync("http://127.0.0.1:" + port + "/tick?n=1", contenu).GetAwaiter().GetResult())
                 return ((int)reponse.StatusCode, reponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()); });
-        static IEnumerator Jusqua(Func<bool> fini, Func<string> sinon)
+        internal static IEnumerator Jusqua(Func<bool> fini, Func<string> sinon)
         { double fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S; while (!fini()) { if (Time.realtimeSinceStartupAsDouble > fin) throw new InvalidOperationException(sinon() + " en " + ATTENTE_S + " s"); yield return null; } }
-        static IEnumerator Attendre(Task tache, string cause)
+        internal static IEnumerator Attendre(Task tache, string cause)
         {
             for (var e = Jusqua(() => tache.IsCompleted, () => cause); e.MoveNext();) yield return null;
             if (tache.IsFaulted || tache.IsCanceled) throw new InvalidOperationException(cause + " : " + (tache.Exception == null ? tache.Status.ToString() : tache.Exception.GetBaseException().Message));

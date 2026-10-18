@@ -172,5 +172,30 @@ namespace Forge.Pont.Tests
             Assert.AreEqual(1, vus); SansOuverture(d, "cause témoin 687", "cause témoin 687"); Assert.AreEqual("cause témoin 687", d.Absence);
             Assert.Throws<InvalidOperationException>(() => Batie(() => null));
         }
+        // Lot #701 — la cellule remise par le passage de la carte passe avant -forgeCarte, -forgeCell et l'éditeur, sans requête.
+        Lecture<OuvertureDecidee> RemiseSansRequete(string ligne, bool editeur, long? remise)
+        {
+            PassageALaCapitale.PrendreCelluleRemise(string.Empty);
+            Servir((200, Monde(Id(Zab))), (200, Zab));
+            var d = OuvertureDeLaCapitale.Decider(ligne.Split(' '), editeur, remise, Compteur());
+            Assert.AreEqual(0, appels, ligne); CollectionAssert.IsEmpty(Recues(), ligne); Assert.IsNotNull(d, ligne); return d;
+        }
+        [TestCase("Forge.exe", true)]
+        [TestCase("Forge.exe -forgeCell 42", false)]
+        [TestCase("Forge.exe -forgeCarte", false)]
+        public void LaRemisePasseAvantTout(string ligne, bool editeur) => OuverteEnVille(RemiseSansRequete(ligne, editeur, 10104), 10104);
+        [Test] public void SansRemiseLEditeurGardeLeKsar()
+        {
+            OuverteEnVille(RemiseSansRequete("Forge.exe", true, null), 1175);
+            OuverteEnVille(OuvertureDeLaCapitale.Decider(new[] { "Forge.exe" }, true, Compteur()), 1175);
+            Assert.AreEqual(0, appels); CollectionAssert.IsEmpty(Recues());
+        }
+        [Test] public void UneRemiseNegativeEstRefuseeSansRequete()
+        {
+            PassageALaCapitale.PrendreCelluleRemise(string.Empty);
+            Servir((200, Monde(Id(Zab))), (200, Zab)); var compteur = Compteur();
+            Assert.Throws<ArgumentOutOfRangeException>(() => OuvertureDeLaCapitale.Decider(new[] { "Forge.exe" }, false, -1, compteur));
+            Assert.AreEqual(0, appels); CollectionAssert.IsEmpty(Recues());
+        }
     }
 }
