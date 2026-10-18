@@ -1164,6 +1164,8 @@ pendant ce commerce : seuls les kilogrammes effectivement expédiés le consomme
 Une quantité inaccessible reste chez sa source et ne compte pas comme transportée.
 Capacité nulle : seul le surplus du bourg peut sortir ; un lieu unique ne
 calcule aucun chemin. Sans lieux, le calcul cellulaire reste inchangé.
+Un chemin que le commerce n'a pas ouvert ce tick compte comme une capacité
+nulle, et le résidu d'arrondi d'un envoi est pris au bourg.
 
 Arrivées terrestres et débarquements vont au panier du bourg, au rang 0 ;
 départs terrestres et expéditions le quittent. Le bassin maritime est lu sur

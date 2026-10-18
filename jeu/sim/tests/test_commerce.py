@@ -2695,6 +2695,54 @@ def _paniers_bourg(cellule, nom=MARCHANDISE_NOURRITURE):
     return contenus_des_paniers(sorted(cellule.lieux, key=lambda l: l.rang), nom)
 
 
+@pytest.mark.parametrize('chemins', [{}, {8993: {1: 123.}}])
+def test_sortir_par_bourg_sans_chemin(chemins):
+    import math
+    from copy import deepcopy
+    from sim import engine
+    cellule = _cellule_bourg(8992, [10, 20, 30], [100., 200., 300.])
+    envoi = math.nextafter(90., math.inf)
+    assert envoi > 90.
+    cellule.food_stock_kg -= envoi  # Débit déjà effectué par l'appelant.
+    avant = deepcopy(chemins)
+    engine._sortir_par_bourg(cellule, MARCHANDISE_NOURRITURE, envoi, chemins, 1.)
+    paniers = _paniers_bourg(cellule)
+    assert paniers[1:] == [200., 300.]
+    assert paniers[0] == cellule.food_stock_kg - 500.
+    assert sum(paniers) == cellule.food_stock_kg
+    assert chemins == avant
+
+
+def _alterer_fonction(monkeypatch, module, nom, avant, apres):
+    """Recompile une mutation vérifiée dans l'espace du module, en mémoire."""
+    import inspect
+    fonction = getattr(module, nom)
+    source = inspect.getsource(fonction)
+    assert avant in source
+    espace = vars(module).copy()
+    exec(compile(source.replace(avant, apres), inspect.getfile(fonction), 'exec'), espace)
+    monkeypatch.setattr(module, nom, espace[nom])
+
+
+@pytest.mark.parametrize('chemins', [{}, {8993: {1: 123.}}])
+@pytest.mark.parametrize('mutation', ['lecture_non_gardee', 'capacite_infinie'])
+def test_sortir_par_bourg_sans_chemin_contre_epreuves(chemins, mutation, monkeypatch):
+    from copy import deepcopy
+    from sim import engine
+    if mutation == 'lecture_non_gardee':
+        avant = 'if manque <= 0 or cell.cell_id not in chemins:'
+        apres = 'if manque <= 0:'
+        erreur = KeyError
+    else:
+        avant = '    for lieu in lieux[1:]:'
+        apres = ("    chemins.setdefault(cell.cell_id, {lieu.rang: float('inf') for lieu in lieux[1:]})\n"
+                 + avant)
+        erreur = AssertionError
+    _alterer_fonction(monkeypatch, engine, '_sortir_par_bourg', avant, apres)
+    with pytest.raises(erreur):
+        test_sortir_par_bourg_sans_chemin(deepcopy(chemins))
+
+
 def _conserver_bourg(monde):
     from fractions import Fraction
     from sim.model import copier_panier

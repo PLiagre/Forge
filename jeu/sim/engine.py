@@ -836,7 +836,7 @@ def _sortir_par_bourg(cell: Cell, marchandise: str, quantite: float,
     local = max(0.0, lire_stock_marchandise(bourg, marchandise))
     manque = max(0.0, quantite - max(0.0, local - bourg.population * ration))
     for lieu in lieux[1:]:
-        if manque <= 0:
+        if manque <= 0 or cell.cell_id not in chemins:
             break
         stock = max(0.0, lire_stock_marchandise(lieu, marchandise))
         apport = min(manque, max(0.0, stock - lieu.population * ration), chemins[cell.cell_id][lieu.rang])
