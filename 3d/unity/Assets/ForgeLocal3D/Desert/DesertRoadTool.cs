@@ -95,7 +95,8 @@ namespace ForgeLocal3D
             // Un halo clair derrière le texte : il reste lisible sur le sable comme dans l'ombre.
             halo=Texte("Halo",panneau.transform,new Color(1f,.95f,.84f,.9f));
             Port=PanneauLieu.DEFAULT_SERVICE_PORT;
-            Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>());
+            // Lot 701 : une ville ouverte depuis la carte prend la cellule que le passage a remise à sa scène.
+            Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>(),PassageALaCapitale.PrendreCelluleRemise(gameObject.scene.name));
             // Sans matériau, aucune parcelle n'est jamais dessinée : le panneau le dit.
             try{parcelles=new DesertParcelles(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurParcelles=e.Message;}
@@ -110,10 +111,10 @@ namespace ForgeLocal3D
         // celle des lectures et des dépôts, et le panneau du lieu la suit ; aucun plan n'est lu ici, Ouvrir() le dessine.
         // Sinon, aucune cellule : l'absence garde sa cause mot pour mot, et le panneau du lieu s'éteint sans rien lire.
         // Le panneau peut manquer (la scène de l'oued n'en a pas).
-        public Lecture<OuvertureDecidee> Lancer(string[] arguments,bool editeur,PanneauLieu panneau)
+        public Lecture<OuvertureDecidee> Lancer(string[] arguments,bool editeur,PanneauLieu panneau,long? remise=null)
         {
             carteLue=false;carte=null;
-            var decision=OuvertureDeLaCapitale.Decider(arguments,editeur,()=>AiguillageDeCapitale.Lire(Port,DelaiAiguillage));
+            var decision=OuvertureDeLaCapitale.Decider(arguments,editeur,remise,()=>AiguillageDeCapitale.Lire(Port,DelaiAiguillage));
             var mode=decision.Presente?decision.Donnees.Mode:(ModeDOuverture?)null;
             if(mode==ModeDOuverture.Ville)
             {

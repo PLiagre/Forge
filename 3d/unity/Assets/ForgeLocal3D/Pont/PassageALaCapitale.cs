@@ -60,7 +60,7 @@ namespace Forge.Pont {
             var capitale = lecture.Donnees;
             toile.SetActive(capitale.Destination == DestinationDeCapitale.PasDeKit);
             if (capitale.Destination == DestinationDeCapitale.Depart) departVu = true;
-            else if (capitale.Destination == DestinationDeCapitale.Ville && departVu) { SceneDemandee = capitale.Scene; ChargerScene(capitale.Scene); }
+            else if (capitale.Destination == DestinationDeCapitale.Ville && departVu) { SceneDemandee = capitale.Scene; (sceneRemise, celluleRemise) = (capitale.Scene, capitale.Cellule); ChargerScene(capitale.Scene); }
         }
 
         // Une toile sans parent : CabinetDeCarte cache toutes celles de l'objet de la carte, pas celle-ci.
@@ -80,6 +80,16 @@ namespace Forge.Pont {
             texte.alignment = TextAnchor.MiddleLeft; texte.horizontalOverflow = HorizontalWrapMode.Wrap; texte.verticalOverflow = VerticalWrapMode.Truncate;
             texte.text = MESSAGE_SANS_KIT;
             toile.SetActive(false);
+        }
+
+        // Lot #701 : la cellule du siège, lue dans /maison par l'aiguillage, retenue juste avant le chargement pour la
+        // seule scène demandée. Une prise l'efface, que la scène corresponde ou non : une seule ville en profite.
+        private static string sceneRemise; private static long? celluleRemise;
+        public static long? PrendreCelluleRemise(string scene)
+        {
+            long? cellule = scene == sceneRemise ? celluleRemise : null;
+            (sceneRemise, celluleRemise) = (null, null);
+            return cellule;
         }
 
         private static void Detruire(UnityEngine.Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }

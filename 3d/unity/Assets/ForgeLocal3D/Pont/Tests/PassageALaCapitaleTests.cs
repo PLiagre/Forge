@@ -186,6 +186,34 @@ namespace Forge.Pont.Tests
             Thread.Sleep(100);
             CollectionAssert.IsEmpty(Recues()); CollectionAssert.IsEmpty(chargees); Assert.IsFalse(passage.PanneauVisible);
         }
+        // Lot #701 — la remise : le siège lu dans /maison, retenu pour la scène demandée, pris une seule fois.
+        static long SiegeDuZab => (long)(double)((Dictionary<string, object>)LecteurJson.LireObjet(Fige("zab"))["siege"])["cell_id"];
+        [Test] public void LeZabConfirmeRemetSonSiegeUneSeuleFois()
+        {
+            PassageALaCapitale.PrendreCelluleRemise(string.Empty); long? remise = null, seconde = -1;
+            Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            passage.ChargerScene = nom => { chargees.Add(nom); remise = PassageALaCapitale.PrendreCelluleRemise(nom); seconde = PassageALaCapitale.PrendreCelluleRemise(nom); };
+            Servir(Zab); Pas(ref t, 4);
+            CollectionAssert.AreEqual(new[] { TerresAvecKit.Scenes[Zab] }, chargees);
+            Assert.AreEqual(SiegeDuZab, remise, "la remise ne porte pas le siège servi"); Assert.IsNull(seconde, "la remise sert deux fois");
+        }
+        [Test] public void UneAutreSceneNePrendRienEtEfface()
+        {
+            PassageALaCapitale.PrendreCelluleRemise(string.Empty); long? autre = -1, apres = -1;
+            Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            passage.ChargerScene = nom => { chargees.Add(nom); autre = PassageALaCapitale.PrendreCelluleRemise("AutreTerre"); apres = PassageALaCapitale.PrendreCelluleRemise(nom); };
+            Servir(Zab); Pas(ref t, 4);
+            Assert.AreEqual(1, chargees.Count); Assert.IsNull(autre, "une autre scène a pris la remise"); Assert.IsNull(apres, "la prise d'une autre scène n'a pas effacé la remise");
+        }
+        [TestCase("bar")] [TestCase("zab-deja")] [TestCase("absence")]
+        public void SansConfirmationVueRienNEstRemis(string cas)
+        {
+            PassageALaCapitale.PrendreCelluleRemise(string.Empty); double t = 1;
+            if (cas == "bar") { Servir(); Poser(); Pas(ref t, 2); Servir(Bar); Pas(ref t, 3); }
+            else if (cas == "zab-deja") { Servir(Zab); Servir(); Poser(); Pas(ref t, 5); }
+            else { Poser(); Pas(ref t, 3); }
+            CollectionAssert.IsEmpty(chargees, cas); Assert.IsNull(PassageALaCapitale.PrendreCelluleRemise(TerresAvecKit.Scenes[Zab]), cas);
+        }
         // Lot #690 — le rappel de chargement, sur des scènes temporaires jamais enregistrées. CreateScene n'existe qu'en jeu.
         [UnityTest] public IEnumerator LeChargementPoseLePassageSurLaSeuleCarte()
         {
