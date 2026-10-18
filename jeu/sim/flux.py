@@ -20,6 +20,7 @@ class JourDeFlux:
     partis: dict = field(default_factory=dict)
     arrives: dict = field(default_factory=dict)
     salaires: dict = field(default_factory=dict)
+    affames: set = field(default_factory=set)
 
 
 @dataclass
@@ -61,6 +62,16 @@ def noter_personnes(monde, partis, arrives):
     for source, cible in ((partis, jour.partis), (arrives, jour.arrives)):
         for cle, personnes in source.items():
             cible[cle] = cible.get(cle, 0) + personnes
+
+
+def noter_affames(monde, lieux):
+    """Note les lieux affamés du jour ; un appel vide ne crée aucun jour."""
+    if not lieux:
+        return
+    jour = jour_courant(monde)
+    if jour is None:
+        return
+    jour.affames.update(lieux)
 
 
 def _jours_de_fenetre(monde):

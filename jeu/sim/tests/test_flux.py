@@ -498,3 +498,34 @@ def test_salaires_neutralite():
             plan = faux.plans[1]; rue = plan.rues[0]
             faux.plans[1] = replace(plan, rues=[replace(rue, travail_fourni=rue.travail_fourni - 1, en_chantier=True)])
         with pytest.raises(AssertionError): _comparer_mondes_salaires(a, faux, ra, rb)
+
+
+def test_flux_affames_notes(monde, monkeypatch):
+    petit = _petit()
+    assert not petit.flux.jours
+    flux.noter_affames(petit, set())
+    assert not petit.flux.jours
+    fortune = SimpleNamespace()
+    flux.noter_affames(fortune, {(1, 0)})
+    assert getattr(fortune, 'flux', None) is None
+    m, rng = copy.deepcopy(monde), random.Random(0)
+
+    def attendu(monde):
+        return {(cid, lieu.rang) for cid, cell in monde.cells.items() for lieu in cell.lieux
+                if lieu.population > 0 and lieu.duree_faim_ticks > 0}
+
+    def controler(monde):
+        t = monde.ticks_ecoules - 1
+        assert monde.flux.jours[t].affames == attendu(monde)
+
+    vu = False
+    while not vu:
+        engine.tick(m, rng, m.ticks_ecoules)
+        controler(m)
+        vu = bool(attendu(m))
+    assert vu and 'affames' not in json.dumps(m.to_dict())
+    with monkeypatch.context() as ctx:
+        ctx.setattr(flux, 'noter_affames', lambda *args: None)
+        engine.tick(m, rng, m.ticks_ecoules)
+        with pytest.raises(AssertionError):
+            controler(m)

@@ -1377,19 +1377,157 @@ def test_ia_base_route_avant_depot(cid, monkeypatch):
     recevoir_intention(monde, propositions[0]['intention'])
 
 
-def test_an_ia_sans_refus(monkeypatch):
+def _lire_raison_part(monde, cle):
+    """Relit la raison de part sans appeler sim/ia.py. None si la maison n'a aucun lieu."""
+    from sim import constants as k
+    lieux = [(cid, lieu) for cid, cell in monde.cells.items() for lieu in cell.lieux if lieu.maitre == cle]
+    if not lieux:
+        return None
+    habitants = sum(lieu.population for _, lieu in lieux)
+    t = monde.ticks_ecoules
+    partis = arrives = 0
+    affames = set()
+    cles = {(cid, lieu.rang) for cid, lieu in lieux}
+    for tick in range(t - k.FENETRE_FLUX_TICKS, t):
+        jour = monde.flux.jours[tick]
+        for c in cles:
+            partis += jour.partis.get(c, 0)
+            arrives += jour.arrives.get(c, 0)
+            if c in jour.affames:
+                affames.add(c)
+    nourriture = k.MARCHANDISE_NOURRITURE
+    grenier = monde.greniers[cle].get(nourriture, 0)
+    journees = 0
+    vus = set()
+    for cid, lieu in lieux:
+        if lieu.rang != 0 or cid in vus:
+            continue
+        vus.add(cid)
+        plan = monde.plans[cid]
+        for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
+            if ouvrage.en_chantier:
+                journees += ouvrage.travail_requis - ouvrage.travail_fourni
+    salaires = journees * k.SALAIRE_JOURNEE_KG
+    reserve_gens = (k.consommation_kg_par_habitant_par_tick(nourriture)
+                    * (k.RESERVE_VOULUE_JOURS / k.TICK_DURATION_DAYS)
+                    * habitants * k.RESERVE_VOULUE_PART_DES_HABITANTS)
+    return {
+        'regle': 'part_sur_projets_et_gens', 'part': monde.parts[cle],
+        'habitants': habitants, 'partis': partis, 'arrives': arrives,
+        'lieux_affames': len(affames), 'grenier_nourriture_kg': grenier,
+        'reserve_gens_kg': reserve_gens, 'salaires_a_venir_kg': salaires,
+        'reserve_voulue_kg': reserve_gens + salaires,
+    }
+
+
+def _nouvelle_part(raison):
+    from sim import constants as k
+    part = raison['part']
+    if raison['partis'] - raison['arrives'] >= k.TAILLE_FOYER or raison['lieux_affames'] > 0:
+        return max(0, round(part - k.IA_PAS_DE_PART, k.DECIMALES_PART))
+    if raison['grenier_nourriture_kg'] < raison['reserve_voulue_kg']:
+        return min(k.PART_MAXIMALE, round(part + k.IA_PAS_DE_PART, k.DECIMALES_PART))
+    return part
+
+
+def _controler_parts(releve, lectures, captures, monde):
+    from sim import constants as k
+    entrees = [e for e in releve if e['intention']['type'] == 'fixer_part']
+    assert entrees and all('refus' not in e for e in releve)
+    assert [c for c in captures if c['type'] == 'fixer_part'] == [e['intention'] for e in entrees]
+    baisse_nette = hausse = False
+    vues = {}
+    for entree in entrees:
+        cle = entree['intention']['maison']
+        raison = entree['raison']
+        assert raison == lectures[entree['tick']][cle]
+        nouvelle = _nouvelle_part(raison)
+        assert entree['intention']['part'] == nouvelle != raison['part']
+        assert 0 <= nouvelle <= k.PART_MAXIMALE
+        perte = raison['partis'] - raison['arrives'] >= k.TAILLE_FOYER
+        faim = raison['lieux_affames'] > 0
+        if nouvelle < raison['part']:
+            assert perte or faim
+        else:
+            assert not perte and not faim and raison['grenier_nourriture_kg'] < raison['reserve_voulue_kg']
+        baisse_nette = baisse_nette or (nouvelle < raison['part'] and perte and not faim)
+        hausse = hausse or nouvelle > raison['part']
+        vues[(entree['tick'], cle)] = entree
+    for tick, raisons in lectures.items():
+        for cle, raison in raisons.items():
+            if (tick, cle) not in vues:
+                assert _nouvelle_part(raison) == raison['part']
+    assert baisse_nette and hausse
+    attendu = {m.id: k.PART_COUTUMIERE for m in monde.maisons}
+    for entree in entrees:
+        attendu[entree['intention']['maison']] = entree['intention']['part']
+    assert monde.parts == attendu
+
+
+@pytest.fixture(scope='module')
+def monde_ia_30():
+    monde = World.charger(0)
+    alea = random.Random(0)
+    for _ in range(30):
+        engine.tick(monde, alea, monde.ticks_ecoules)
+    return monde
+
+
+@pytest.fixture(scope='module')
+def annee_ia():
+    import zlib
+    from sim import ia, constants as k
+    from sim.capitales import maisons_de_l_ia
+    from sim.seigneuries import identifiant_de_seigneurie
+    monde, alea, releve, captures, lectures = World.charger(0), random.Random(0), [], [], {}
+    fiches = []
+    for maison in maisons_de_l_ia(monde):
+        if maison.hors_carte is not None:
+            continue
+        cle = f'grande-{maison.id}' if maison.sorte == 'grande maison' else identifiant_de_seigneurie(maison.id)
+        fiches.append((maison, cle))
+    original = ia.recevoir_intention
+
+    def capter(m, intention):
+        captures.append(deepcopy(intention))
+        return original(m, intention)
+
+    with pytest.MonkeyPatch.context() as ctx:
+        ctx.setattr(ia, 'recevoir_intention', capter)
+        for i in range(365):
+            t = monde.ticks_ecoules
+            lectures[t] = {}
+            jours = getattr(getattr(monde, 'flux', None), 'jours', None)
+            pleine = jours is not None and all(tick in jours for tick in range(t - k.FENETRE_FLUX_TICKS, t))
+            if pleine:
+                choix = monde.maison_du_joueur
+                noms = monde.routes_des_lieux.noms
+                for maison, cle in fiches:
+                    if maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix:
+                        continue
+                    if t % k.FENETRE_FLUX_TICKS != zlib.crc32(cle.encode('utf-8')) % k.FENETRE_FLUX_TICKS:
+                        continue
+                    if cle not in noms:
+                        continue
+                    raison = _lire_raison_part(monde, cle)
+                    if raison is not None:
+                        lectures[t][cle] = raison
+            ia.jouer_ia(monde, releve)
+            engine.tick(monde, alea, i)
+    return monde, releve, captures, lectures
+
+
+def test_an_ia_sans_refus(annee_ia, monkeypatch):
     from sim import ia
     from sim.plan import Rue
-    monde, alea, releve = World.charger(0), random.Random(0), []
-    for i in range(365):
-        ia.jouer_ia(monde, releve)
-        engine.tick(monde, alea, i)
+    monde, releve, _captures, _lectures = annee_ia
     acceptes = sum('refus' not in e for e in releve)
     print(f'depots_ia_acceptes={acceptes}, refus={len(releve)-acceptes}', flush=True)
     assert acceptes > 0 and all('refus' not in e for e in releve)
     from sim import ville1400 as v
     bande = v.emprise_de_rue([[0, 52], [40, 52]], 4)
-    entree = next((e for e in releve if any(v.se_chevauchent(bande, m['emprise']) for m in
+    entree = next((e for e in releve if e['intention']['type'] == 'tracer_route' and any(
+                   v.se_chevauchent(bande, m['emprise']) for m in
                    v.base_de_cellule(monde, e['intention']['cell'])['maisons'])), None)
     assert entree is not None, 'échantillon vide : aucun dépôt touché après treize rues'
     contre = World.charger(0)
@@ -1694,7 +1832,11 @@ def test_terres_ia(monkeypatch):
             identite = ('grande-' if e['maison']['sorte'] == 'grande maison' else 'seigneurie-') + str(e['maison']['id'])
             assert e['intention']['maison'] == identite
     def recevoir(m, intention):
-        assert intention['maison'] == next(l.maitre for l in m.cells[intention['cell']].lieux if l.rang == 0)
+        if 'cell' in intention:
+            assert intention['maison'] == next(l.maitre for l in m.cells[intention['cell']].lieux if l.rang == 0)
+        else:
+            assert intention['type'] == 'fixer_part'
+            assert any(lieu.maitre == intention['maison'] for cell in m.cells.values() for lieu in cell.lieux)
         depots.append(deepcopy(intention)); return original(m, intention)
     monkeypatch.setattr(ia, 'recevoir_intention', recevoir); alea = random.Random(0)
     for i in range(365):
@@ -1722,3 +1864,178 @@ def test_terres_gestes(tmp_path):
             else: faux[rang]['intention']['maison'] = maison
             resultat = jouer(faux)
             assert resultat.returncode == 2 and f'entrée {rang+1}' in resultat.stderr and not sortie.exists()
+
+
+def test_ia_part_jour_et_fenetre(monde_ia_30):
+    import zlib
+    from sim import ia, constants as k
+    monde = deepcopy(monde_ia_30)
+    assert monde.ticks_ecoules == k.FENETRE_FLUX_TICKS
+    assert set(range(k.FENETRE_FLUX_TICKS)) <= set(monde.flux.jours)
+    propositions = _ia_pure(ia.decider_intentions, monde, [])
+    parts = [p for p in propositions if p['intention']['type'] == 'fixer_part']
+    assert parts
+    for proposition in parts:
+        cle = proposition['intention']['maison']
+        assert zlib.crc32(cle.encode('utf-8')) % k.FENETRE_FLUX_TICKS == 0
+    copie = deepcopy(monde)
+    del copie.flux.jours[29]
+    apres = [p for p in _ia_pure(ia.decider_intentions, copie, []) if p['intention']['type'] == 'fixer_part']
+    assert apres == []
+    with pytest.raises(AssertionError):
+        assert apres
+
+
+def test_ia_budget_routes_seules():
+    from sim import constants as k
+    ia, monde, maisons = _ia_monde()
+    maison = maisons[0]
+    couple = (maison.sorte, maison.id)
+    cle = ia._cle_du_grenier(maison)
+    annee = k.date_de_tick(monde.ticks_ecoules)['annee']
+
+    def routes(releve):
+        return [p for p in ia.decider_intentions(monde, releve)
+                if p['intention']['type'] == 'tracer_route'
+                and (p['maison']['sorte'], p['maison']['id']) == couple]
+
+    assert routes([])
+    part = {'tick': monde.ticks_ecoules, 'maison': {'sorte': maison.sorte, 'id': maison.id},
+            'intention': {'type': 'fixer_part', 'maison': cle, 'part': k.PART_COUTUMIERE}, 'raison': {}}
+    assert routes([part])
+    route = {'tick': monde.ticks_ecoules, 'maison': {'sorte': maison.sorte, 'id': maison.id},
+             'intention': {'type': 'tracer_route', 'maison': cle, 'cell': maison.cell_id,
+                           'points': [[0, 0], [1, 0]], 'largeur_m': 4}, 'raison': {}}
+    assert routes([route]) == []
+
+    def compte_tout(releve):
+        return {(e['maison']['sorte'], e['maison']['id']) for e in releve
+                if k.date_de_tick(e['tick'])['annee'] == annee}
+
+    assert couple in compte_tout([part])
+    with pytest.raises(AssertionError):
+        assert not routes([part])
+
+
+def test_ia_part_biskra_batit():
+    from sim import __main__ as cli, ia, constants as k
+    gestes = json.loads((Path(__file__).parents[1] / 'gestes-exemple.json').read_text())
+    _, monde = cli._simulate(46, 0, gestes=gestes)
+
+    def parts_de(m):
+        return [p for p in ia.decider_intentions(m, [])
+                if p['intention']['type'] == 'fixer_part' and p['intention']['maison'] == 'seigneurie-6']
+
+    propositions = parts_de(monde)
+    assert len(propositions) == 1
+    proposition = propositions[0]
+    attendue = round(k.PART_COUTUMIERE + k.IA_PAS_DE_PART, k.DECIMALES_PART)
+    assert proposition['intention']['part'] == attendue
+    raison = proposition['raison']
+    assert raison['part'] == k.PART_COUTUMIERE
+    assert raison['salaires_a_venir_kg'] > 0 and raison['lieux_affames'] == 0
+    assert raison['partis'] - raison['arrives'] < k.TAILLE_FOYER
+    copie = deepcopy(monde)
+    copie.greniers['seigneurie-6'][k.MARCHANDISE_NOURRITURE] = raison['reserve_gens_kg'] + 1
+    encore = parts_de(copie)
+    assert encore and encore[0]['intention']['part'] == attendue
+    _, sans = cli._simulate(46, 0)
+    lecture = _lire_raison_part(sans, 'seigneurie-6')
+    assert lecture
+    sans.greniers['seigneurie-6'][k.MARCHANDISE_NOURRITURE] = lecture['reserve_gens_kg'] + 1
+    assert parts_de(sans) == []
+    bloque = deepcopy(monde)
+    bloque.greniers['seigneurie-6'][k.MARCHANDISE_NOURRITURE] = raison['reserve_voulue_kg']
+    with pytest.raises(AssertionError):
+        assert parts_de(bloque)
+    releve = []
+    ia.jouer_ia(monde, releve)
+    engine.tick(monde, random.Random(0), monde.ticks_ecoules)
+    assert monde.parts['seigneurie-6'] == attendue
+
+
+def test_ia_part_sur_un_an(annee_ia):
+    monde, releve, captures, lectures = annee_ia
+    assert any(lectures.values())
+    _controler_parts(releve, lectures, captures, monde)
+    faux = deepcopy(releve)
+    entree = next(e for e in faux if e['intention']['type'] == 'fixer_part')
+    entree['raison']['partis'] += 1
+    with pytest.raises(AssertionError):
+        _controler_parts(faux, lectures, captures, monde)
+    baisse = next(e for e in releve if e['intention']['type'] == 'fixer_part' and e['intention']['part'] < e['raison']['part'])
+    retournee = deepcopy(releve)
+    cible = next(e for e in retournee if e['tick'] == baisse['tick'] and e['intention']['type'] == 'fixer_part'
+                 and e['intention']['maison'] == baisse['intention']['maison'])
+    cible['intention'] = dict(cible['intention'], part=round(cible['raison']['part'] + cible['raison']['part'], 9))
+    captures_hausse = deepcopy(captures)
+    for rang, geste in enumerate(captures_hausse):
+        if geste['type'] == 'fixer_part' and geste['maison'] == baisse['intention']['maison'] and geste['part'] == baisse['intention']['part']:
+            captures_hausse[rang] = dict(geste, part=cible['intention']['part'])
+            break
+    with pytest.raises(AssertionError):
+        _controler_parts(retournee, lectures, captures_hausse, monde)
+    with pytest.raises(AssertionError):
+        _controler_parts([], lectures, captures, monde)
+
+
+def _controle_chemin_unique(monde, jouer):
+    from sim import ia
+    copie = deepcopy(monde)
+    vues = []
+
+    def greffier(m, intention):
+        vues.append(deepcopy(intention))
+
+    avant = deepcopy(copie.__dict__)
+    original = ia.recevoir_intention
+    ia.recevoir_intention = greffier
+    try:
+        releve = []
+        jouer(copie, releve)
+    finally:
+        ia.recevoir_intention = original
+    assert copie.__dict__ == avant
+    assert vues == [e['intention'] for e in releve]
+    assert any(i['type'] == 'fixer_part' for i in vues)
+
+
+def test_ia_part_chemin_unique(monde_ia_30):
+    from sim import ia
+    _controle_chemin_unique(deepcopy(monde_ia_30), ia.jouer_ia)
+    copie = deepcopy(monde_ia_30)
+    releve = []
+    ia.jouer_ia(copie, releve)
+    engine.tick(copie, random.Random(0), copie.ticks_ecoules)
+    decidees = [e for e in releve if e['intention']['type'] == 'fixer_part' and 'refus' not in e]
+    assert decidees
+    for entree in decidees:
+        assert copie.parts[entree['intention']['maison']] == entree['intention']['part']
+
+    def tricher(monde, releve):
+        for proposition in ia.decider_intentions(monde, releve):
+            intention = proposition['intention']
+            if intention['type'] == 'fixer_part':
+                monde.parts[intention['maison']] = intention['part']
+            releve.append({'tick': monde.ticks_ecoules, **proposition})
+
+    with pytest.raises(AssertionError):
+        _controle_chemin_unique(deepcopy(monde_ia_30), tricher)
+
+
+def test_ia_part_documentation():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
+    titre = "## Les décisions et les gestes de l'IA"
+
+    def controler(document):
+        section = document.split(titre)[1].split('\n## ')[0]
+        for mot in ('part_sur_projets_et_gens', 'RESERVE_VOULUE_JOURS',
+                    'RESERVE_VOULUE_PART_DES_HABITANTS', 'IA_PAS_DE_PART', 'TAILLE_FOYER',
+                    'affames', 'crc32', 'niveau 2', 'ms'):
+            assert mot in section
+
+    controler(texte)
+    avant, apres = texte.split(titre)
+    prive = avant + '\n## ' + apres.split('\n## ', 1)[1]
+    with pytest.raises((AssertionError, IndexError)):
+        controler(prive)

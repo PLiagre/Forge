@@ -3732,8 +3732,9 @@ def _lire_raison_monde(monde, maison):
 
 
 def _controler_raisons(lectures, releve):
-    assert releve
-    for entree in releve:
+    routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
+    assert routes
+    for entree in routes:
         assert 'raison' in entree
         couple = (entree['maison']['sorte'], entree['maison']['id'])
         assert entree['raison'] == lectures[entree['tick']][couple]
@@ -3761,6 +3762,7 @@ def _verifier_raisons(ticks):
     finally:
         cli.tick = reel
     releve = resume['ia']['releve']
+    assert releve and all(entree['intention']['type'] in ('tracer_route', 'fixer_part') for entree in releve)
     _controler_raisons(lectures, releve)
     _verifier_raisons.lectures = lectures
     return releve
@@ -3790,10 +3792,17 @@ def test_ia_mesure_reelle(tmp_path):
     resume, _ = _ia_cli(tmp_path, ticks=31, options=['--ia'])
     releve = resume['ia']['releve']
     capitales = {(m.sorte, m.id): m.cell_id for m in ia.maisons_de_l_ia(World.charger(0)) if m.cell_id is not None}
+    def cle_de(e):
+        return ('grande-' if e['maison']['sorte'] == 'grande maison' else 'seigneurie-') + str(e['maison']['id'])
     def verifier(entrees):
         assert entrees
-        for e in entrees:
+        routes = [e for e in entrees if e['intention']['type'] == 'tracer_route']
+        parts = [e for e in entrees if e['intention']['type'] == 'fixer_part']
+        assert routes and parts
+        for e in routes:
             assert 0 <= e['tick'] < 31 and e['intention']['cell'] == capitales[(e['maison']['sorte'], e['maison']['id'])]
+        for e in parts:
+            assert e['tick'] == 30 and e['intention']['maison'] == cle_de(e) and 'cell' not in e['intention']
     verifier(releve)
     compte = len({(e['maison']['sorte'], e['maison']['id']) for e in releve if e['tick'] * k.TICK_DURATION_DAYS < 30})
     assert 0 < compte <= len(capitales) and resume['ia']['maisons_actives_30j'] == compte
@@ -3804,13 +3813,17 @@ def test_ia_mesure_reelle(tmp_path):
     faux = copy.deepcopy(releve)
     faux[0]['intention']['cell'] = -1
     with pytest.raises(AssertionError): verifier(faux)
+    tardive = copy.deepcopy(next(e for e in releve if e['intention']['type'] == 'fixer_part'))
+    tardive['tick'] = 29
+    with pytest.raises(AssertionError): verifier(releve + [tardive])
 
 
 def test_ia_raisons_egalent_le_monde(monkeypatch):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     releve = _verifier_raisons(70)
-    assert [entree['tick'] for entree in releve] == [25, 36, 39, 61, 64, 69]
-    assert releve and all(entree['raison']['champs_nourriture_kg'] for entree in releve)
+    routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
+    assert [entree['tick'] for entree in routes] == [25, 37, 39, 61, 64, 69]
+    assert routes and all(entree['raison']['champs_nourriture_kg'] for entree in routes)
     lectures = _verifier_raisons.lectures
     copie = copy.deepcopy(releve)
     couple = (copie[0]['maison']['sorte'], copie[0]['maison']['id'])
@@ -3827,6 +3840,10 @@ def test_ia_raisons_egalent_le_monde(monkeypatch):
         _controler_raisons(lectures, copie)
     with pytest.raises(AssertionError):
         _controler_raisons(lectures, [])
+    seulement = [entree for entree in releve if entree['intention']['type'] == 'fixer_part']
+    assert seulement
+    with pytest.raises(AssertionError):
+        _controler_raisons(lectures, seulement)
 
 
 def test_ia_option_explicitement(tmp_path, monkeypatch):

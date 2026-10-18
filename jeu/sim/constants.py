@@ -630,6 +630,14 @@ IA_LONGUEUR_ROUTE_M = 40
 IA_LARGEUR_ROUTE_M = 4
 IA_FOYERS_ROUTE = 1
 IA_DUREE_MESURE_JOURS = 30
+# Niveau 2 : pas dont une maison de l'IA rapproche ou éloigne sa part, une fois par mois.
+IA_PAS_DE_PART = 0.05
+# Niveau 2 : jours de nourriture visés au grenier, pour une part des habitants.
+RESERVE_VOULUE_JOURS = 30
+# Niveau 2 : part des habitants que cette réserve est censée couvrir.
+RESERVE_VOULUE_PART_DES_HABITANTS = 0.1
+# Niveau 2 : neuvièmes, pour que l'addition binaire du pas reste la fraction dite.
+DECIMALES_PART = 9
 
 # --- Snapshot cellulaire ---
 # Photographie cellulaire déterministe ; le suffixe numéroté permet une
