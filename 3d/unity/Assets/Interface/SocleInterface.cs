@@ -39,7 +39,8 @@ namespace Forge.Interface
         public static Text Texte(Transform parent, string contenu, float x, float y, float largeur, int taille = Corps)
         {
             var texte = Cadre(parent, contenu, x, y, largeur, taille * 3).gameObject.AddComponent<Text>();
-            texte.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            texte.font = Resources.Load<Font>(taille >= Titre
+                ? "Forge/Polices/NotoSerif-Regular" : "Forge/Polices/NotoSans-Regular");
             texte.text = contenu;
             texte.fontSize = taille;
             texte.color = Couleur("encre");
@@ -121,7 +122,7 @@ namespace Forge.Interface
             evenements.GetComponent<EventSystem>().firstSelectedGameObject = focus.gameObject;
             evenements.GetComponent<EventSystem>().SetSelectedGameObject(focus.gameObject);
             Texte(fond, "Démonstration visuelle — aucune partie chargée", 96, 924, 1200).color = Couleur("papier");
-            Texte(fond, "UI-01  ·  Police Unity provisoire  ·  Aucun chiffre de simulation", 96, 966, 1500).color = Couleur("or");
+            Texte(fond, "UI-01  ·  Noto Serif & Noto Sans  ·  Aucun chiffre de simulation", 96, 966, 1500).color = Couleur("or");
             return racine;
         }
 

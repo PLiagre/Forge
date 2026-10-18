@@ -42,6 +42,21 @@ namespace Forge.Interface.Tests
             return bouton;
         }
 
+        [Test] public void LesPolicesEmbarqueesDistinguentTitresEtLecture()
+        {
+            var textes = galerie.GetComponentsInChildren<Text>();
+            var titre = textes.First(t => t.fontSize == SocleInterface.Titre);
+            var corps = textes.First(t => t.fontSize == SocleInterface.Corps);
+            Assert.That(titre.font.name, Is.EqualTo("NotoSerif-Regular"));
+            Assert.That(corps.font.name, Is.EqualTo("NotoSans-Regular"));
+            foreach (var police in new[] { titre.font, corps.font })
+            {
+                police.RequestCharactersInTexture("ÉÀÇœéèêùî0123456789", 18);
+                foreach (char lettre in "ÉÀÇœéèêùî0123456789")
+                    Assert.That(police.HasCharacter(lettre), Is.True, lettre.ToString());
+            }
+        }
+
         [Test] public void LeThemeRefuseUnJetonInconnu()
         {
             Assert.Throws<ArgumentException>(() => SocleInterface.Couleur("inconnue"));
