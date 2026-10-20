@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -10,13 +11,16 @@ namespace Forge.Pont {
     public enum VueDuJeu { Ville, Carte }
 
     // Lot #728 : la vitesse du monde dans chaque vue, en jours par seconde, lue dans `Resources/ReglagesDesVues.json`, que
-    // le lanceur Python lit aussi. Aucune valeur de repli : un réglage absent, faux ou nul lève en nommant sa clé.
+    // le lanceur Python lit aussi. Aucune valeur de repli : un réglage absent, faux ou nul lève en nommant sa clé ; un nombre
+    // hors du double (1e309), que le lecteur refuse sans la connaître, la prend dans la dernière clé écrite avant l'erreur.
     public sealed class ReglagesDesVues {
         public const string RESSOURCE = "ReglagesDesVues";
         public double VitesseVille { get; } public double VitesseCarte { get; }
         private ReglagesDesVues(double ville, double carte) { VitesseVille = ville; VitesseCarte = carte; }
         public double Vitesse(VueDuJeu vue) => vue == VueDuJeu.Ville ? VitesseVille : VitesseCarte;
-        public static ReglagesDesVues Lire(string json) { var r = LecteurJson.LireObjet(json); return new ReglagesDesVues(Positive(r, "VITESSE_VILLE"), Positive(r, "VITESSE_CARTE")); }
+        public static ReglagesDesVues Lire(string json) { Dictionary<string, object> r; try { r = LecteurJson.LireObjet(json); }
+            catch (ErreurJson e) { throw new FormatException("réglage " + Fautif(json.Substring(0, Math.Min(e.Position, json.Length))) + " illisible : " + e.Message, e); } return new ReglagesDesVues(Positive(r, "VITESSE_VILLE"), Positive(r, "VITESSE_CARTE")); }
+        private static string Fautif(string avant) => avant.LastIndexOf("\"VITESSE_VILLE\"", StringComparison.Ordinal) > avant.LastIndexOf("\"VITESSE_CARTE\"", StringComparison.Ordinal) ? "VITESSE_VILLE" : avant.Contains("\"VITESSE_CARTE\"") ? "VITESSE_CARTE" : "(aucune clé lue)";
         public static ReglagesDesVues Charger() { var t = Resources.Load<TextAsset>(RESSOURCE); return t != null ? Lire(t.text) : throw new InvalidOperationException("ressource " + RESSOURCE + " absente de Resources"); }
         // Une vitesse de vue nulle mettrait le monde en pause en changeant de vue : refusée, comme une négative ou non finie.
         private static double Positive(Dictionary<string, object> racine, string cle) {
@@ -36,12 +40,12 @@ namespace Forge.Pont {
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
         public Action<string> ChargerScene { get; set; } = nom => SceneManager.LoadScene(nom);
         private double? debut, charge; private string scene; private double vitesse;
-        private Task<(double? posee, string absence)> enCours; private GameObject toile; private Image noir;
+        private Task<(double? posee, string absence)> enCours; private CancellationTokenSource arret; private GameObject toile; private Image noir;
         public float Opacite { get; private set; } public bool EnCours => debut != null;
         public bool RequeteEnVol => enCours != null && !enCours.IsCompleted;
         public string SceneChargee { get; private set; } // null avant le chargement
         public double? VitessePosee { get; private set; } // la vitesse que le service rend au POST ; null sans POST
-        public string Absence { get; private set; } // la cause d'une horloge manquée ; null si elle est lue (même en pause)
+        public string Absence { get; private set; } // pourquoi aucune vitesse n'est posée (horloge manquée, monde en pause) ; null sinon
         private void Update() { Pas(Time.realtimeSinceStartupAsDouble); if (SceneChargee != null && !EnCours) Destroy(gameObject); }
         private void OnDestroy() => Arreter();
         public static TransitionDeVue Lancer(string scene, VueDuJeu vue, int port) {
@@ -55,7 +59,8 @@ namespace Forge.Pont {
             (this.scene, debut, charge, SceneChargee, VitessePosee, Absence, Opacite) = (scene, maintenant, null, null, null, null, 0);
             if (toile == null) Construire(); Montrer(); return true;
         }
-        public void Arreter() { enCours = null; debut = null; Opacite = 0; if (toile != null) toile.SetActive(false); }
+        // La requête en vol est abandonnée : son client fermé, elle ne pose plus de vitesse sur la vue d'une transition suivante.
+        public void Arreter() { arret?.Cancel(); (arret, enCours, debut, Opacite) = (null, null, null, 0); if (toile != null) toile.SetActive(false); }
         public void Pas(double maintenant) {
             if (debut == null) return; if (enCours != null && enCours.IsCompleted) { var fini = enCours; enCours = null; Appliquer(fini); }
             if (charge == null) {
@@ -67,9 +72,10 @@ namespace Forge.Pont {
         }
         // Lit l'horloge, et ne pose la vitesse que si le monde avance. Un client de 2 s par transition, disposé.
         private void Regler() {
-            int p = port; double v = vitesse;
-            enCours = Task.Run<(double? posee, string absence)>(() => { using (var client = new ClientHorloge(p, DELAI)) {
-                var lue = client.Lire(); if (!lue.Presente) return (null, lue.Absence); if (lue.Donnees.JoursParSeconde <= 0) return (null, null);
+            int p = port; double v = vitesse; CancellationToken arrete = (arret = new CancellationTokenSource()).Token;
+            enCours = Task.Run<(double? posee, string absence)>(() => { using (var client = new ClientHorloge(p, DELAI)) using (arrete.Register(client.Dispose)) {
+                var lue = client.Lire(); if (!lue.Presente) return (null, lue.Absence); if (lue.Donnees.JoursParSeconde <= 0) return (null, "horloge : monde en pause, vitesse laissée à 0");
+                if (arrete.IsCancellationRequested) return (null, "horloge : transition arrêtée, vitesse non envoyée");
                 var reglee = client.Regler(v); if (!reglee.Presente) return (null, reglee.Absence);
                 return (reglee.Donnees.JoursParSeconde, null);
             } });

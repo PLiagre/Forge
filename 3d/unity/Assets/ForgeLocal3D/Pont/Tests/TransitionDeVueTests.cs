@@ -17,20 +17,22 @@ namespace Forge.Pont.Tests {
         private const int ATTENTE_MS = 10000; private const double PAS_S = 0.1;
         private int port; private HttpListener ecoute; private Thread fil; private GameObject objet; private TransitionDeVue transition;
         private readonly List<string> recues = new List<string>(), chargees = new List<string>();
-        private double vitesse; private bool panne; private int delaiMs, recuesAuChargement; // remis à chaque cas : NUnit garde l'instance
+        private double vitesse; private bool panne; private int delaiMs, recuesAuChargement; private ManualResetEventSlim retenue; // remis à chaque cas : NUnit garde l'instance
         [SetUp] public void PortLibre() {
-            var sonde = new TcpListener(IPAddress.Loopback, 0); sonde.Start(); port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop(); lock (recues) { recues.Clear(); vitesse = 2.5; panne = false; delaiMs = 0; } chargees.Clear(); recuesAuChargement = -1; }
+            var sonde = new TcpListener(IPAddress.Loopback, 0); sonde.Start(); port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop(); lock (recues) { recues.Clear(); vitesse = 2.5; panne = false; delaiMs = 0; } chargees.Clear(); recuesAuChargement = -1; retenue = new ManualResetEventSlim(true); }
         [TearDown] public void Fermer() {
-            transition?.Arreter(); if (objet != null) UnityEngine.Object.DestroyImmediate(objet); ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil, transition) = (null, null, null); }
+            transition?.Arreter(); if (objet != null) UnityEngine.Object.DestroyImmediate(objet); retenue.Set(); ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil, transition) = (null, null, null); }
+        // `retenue` fermée, le faux service note la requête puis ne répond qu'à son ouverture ; un client parti en route n'arrête pas le service.
         private void Servir() {
-            var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start();
+            var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start(); var porte = retenue;
             (fil = new Thread(() => { try { while (true) {
                 HttpListenerContext ctx = auditeur.GetContext(); bool enPanne; int delai; string corps; lock (recues) {
                     recues.Add(ctx.Request.HttpMethod + " " + ctx.Request.Url.PathAndQuery); (enPanne, delai) = (panne, delaiMs);
                     if (ctx.Request.HttpMethod == "POST" && ctx.Request.Url.AbsolutePath == "/vitesse") vitesse = double.Parse(ctx.Request.QueryString["jours_par_seconde"], CultureInfo.InvariantCulture);
                     corps = "{\"tick\":5,\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"jours_par_seconde\":" + vitesse.ToString("R", CultureInfo.InvariantCulture) + "}";
                 }
-                if (delai > 0) Thread.Sleep(delai); ctx.Response.StatusCode = enPanne ? 500 : 200; ctx.Response.Close(Encoding.UTF8.GetBytes(enPanne ? "{\"erreur\":\"panne\"}" : corps), true);
+                if (delai > 0) Thread.Sleep(delai); porte.Wait(ATTENTE_MS);
+                try { ctx.Response.StatusCode = enPanne ? 500 : 200; ctx.Response.Close(Encoding.UTF8.GetBytes(enPanne ? "{\"erreur\":\"panne\"}" : corps), true); } catch (Exception) { }
             } } catch (Exception) { } }) { IsBackground = true }).Start();
         }
         private void Commencer(string scene = "Desert_City", VueDuJeu vue = VueDuJeu.Ville) {
@@ -38,6 +40,7 @@ namespace Forge.Pont.Tests {
             transition.ChargerScene = nom => { chargees.Add(nom); recuesAuChargement = Recues().Length; }; Assert.IsTrue(transition.Commencer(scene, vue, 1));
         }
         private string[] Recues() { lock (recues) return recues.ToArray(); }
+        private void AttendreRecues(int n) { var montre = Stopwatch.StartNew(); while (Recues().Length < n && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5); Assert.AreEqual(n, Recues().Length, "requêtes reçues"); }
         private double VitesseServie() { lock (recues) return vitesse; } private Canvas Toile() => objet.GetComponentInChildren<Canvas>(true);
         // Des pas tous les dixièmes de seconde, chacun après la fin de la requête en vol, jusqu'à la fin de la transition.
         private List<float> Derouler(double debut = 1) { var opacites = new List<float>(); var montre = Stopwatch.StartNew();
@@ -54,6 +57,7 @@ namespace Forge.Pont.Tests {
         }
         [TestCase("{\"VITESSE_CARTE\": 6}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": \"6\"}", "VITESSE_CARTE")]
         [TestCase("{\"VITESSE_VILLE\": 0, \"VITESSE_CARTE\": 6}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": -1}", "VITESSE_CARTE")]
+        [TestCase("{\"VITESSE_VILLE\":0.1,\"VITESSE_CARTE\":1e309}", "VITESSE_CARTE")] [TestCase("{\"VITESSE_VILLE\":1e309,\"VITESSE_CARTE\":6}", "VITESSE_VILLE")]
         public void Un_reglage_absent_faux_ou_qui_met_en_pause_est_refuse(string json, string cle) =>
             StringAssert.Contains(cle, Assert.Catch<Exception>(() => ReglagesDesVues.Lire(json)).Message);
         [TestCase("Desert_City", VueDuJeu.Ville, "0.1")] [TestCase(OuvertureDeLaCarte.SCENE, VueDuJeu.Carte, "6")]
@@ -70,7 +74,7 @@ namespace Forge.Pont.Tests {
         [Test] public void Un_monde_en_pause_reste_en_pause() {
             lock (recues) vitesse = 0; Servir(); Commencer(); Derouler();
             CollectionAssert.AreEqual(new[] { "Desert_City" }, chargees); CollectionAssert.AreEqual(new[] { "GET /horloge" }, Recues());
-            Assert.AreEqual(0, VitesseServie()); Assert.IsNull(transition.VitessePosee); }
+            Assert.AreEqual(0, VitesseServie()); Assert.IsNull(transition.VitessePosee); StringAssert.StartsWith("horloge : ", transition.Absence, "la pause n'est pas dite"); }
         [TestCase(false)] [TestCase(true)]
         public void Une_absence_ne_bloque_ni_le_passage_ni_l_image(bool enPanne) {
             if (enPanne) { lock (recues) panne = true; Servir(); }
@@ -81,6 +85,16 @@ namespace Forge.Pont.Tests {
             lock (recues) delaiMs = 500; Servir(); Commencer();
             var montre = Stopwatch.StartNew(); for (int i = 0; i < 10; i++) transition.Pas(1 + i * PAS_S); montre.Stop();
             Assert.That(montre.ElapsedMilliseconds, Is.LessThan(200), "les pas attendent le service"); CollectionAssert.AreEqual(new[] { "Desert_City" }, chargees);
+        }
+        [Test] public void L_image_revient_pendant_que_le_service_fait_attendre() {
+            retenue.Reset(); Servir(); Commencer(); transition.Pas(1.5); AttendreRecues(1); transition.Pas(1.5 + TransitionDeVue.DUREE_FONDU_S + 0.05);
+            Assert.AreEqual(0, transition.Opacite, "le noir attend la réponse"); Assert.IsTrue(transition.RequeteEnVol && transition.EnCours, "la transition finit avant sa requête");
+            retenue.Set(); Derouler(2); CollectionAssert.AreEqual(new[] { "GET /horloge", "POST /vitesse?jours_par_seconde=0.1" }, Recues());
+        }
+        [Test] public void Une_transition_arretee_n_envoie_plus_sa_vitesse() {
+            retenue.Reset(); Servir(); Commencer(); transition.Pas(1.5); AttendreRecues(1); transition.Arreter();
+            Assert.IsTrue(transition.Commencer(OuvertureDeLaCarte.SCENE, VueDuJeu.Carte, 3)); retenue.Set(); Derouler(3); Thread.Sleep(300); // le temps qu'aurait l'ancienne tâche
+            CollectionAssert.AreEqual(new[] { "GET /horloge", "GET /horloge", "POST /vitesse?jours_par_seconde=6" }, Recues()); Assert.AreEqual(6, VitesseServie());
         }
         [Test] public void Le_noir_couvre_tout_l_ecran_et_se_cache_au_repos() {
             Commencer(); transition.Pas(1.2); Canvas toile = Toile(); Image noir = toile.GetComponentInChildren<Image>(true);
