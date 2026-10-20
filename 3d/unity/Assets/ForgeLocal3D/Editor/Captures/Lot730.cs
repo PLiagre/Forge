@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace ForgeLocal3D.Captures {
@@ -89,10 +90,23 @@ namespace ForgeLocal3D.Captures {
             var temps = carte.GetComponent<CommandesDuTemps>(); if (temps != null) temps.automatique = true;
             var parcours = carte.GetComponent<ParcoursDeCarte>(); if (parcours != null) parcours.automatique = true;
             var survol = carte.GetComponent<SurvolDeCarte>(); if (survol != null) survol.automatique = true;
-            Lot549.Photographier(camera, carte);
+            Lot549.Photographier(camera, carte); Cabinet(camera, carte);
             for (int i = 0; i < IMAGES; i++) yield return null;
             if (horloge.Lue == null || !Meme(horloge.Lue.JoursParSeconde, carteV) || horloge.TexteAffiche != HorlogeDeCarte.Decrire(horloge.Lue))
                 throw new InvalidOperationException("après la pose, l'horloge dit « " + horloge.TexteAffiche + " »");
+            Text date = carte.transform.Find("Cabinet").GetComponentsInChildren<Text>().FirstOrDefault(t => t.text == horloge.TexteAffiche)
+                ?? throw new InvalidOperationException("le bandeau du cabinet ne montre pas « " + horloge.TexteAffiche + " »");
+            Lot690.DansLeChamp(camera, date);
+        }
+
+        // Le cabinet réserve à la carte les deux tiers gauches et dessine ses dossiers, dont la date, en overlay : la photo
+        // d'une seule caméra ne les voit pas. La caméra photographiée prend toute l'image, décalée vers l'est pour garder la
+        // carte à sa place, et la toile du cabinet se dessine sur elle.
+        static void Cabinet(Camera camera, CarteDessinee carte) {
+            Canvas toile = carte.transform.Find("Cabinet")?.GetComponent<Canvas>() ?? throw new InvalidOperationException("la carte n'a pas de cabinet");
+            float largeur = camera.rect.width; camera.rect = new Rect(0, 0, 1, 1);
+            camera.transform.position += camera.transform.right * (1 - largeur) * camera.orthographicSize * camera.aspect;
+            toile.renderMode = RenderMode.ScreenSpaceCamera; toile.worldCamera = camera; toile.planeDistance = camera.nearClipPlane + 0.2f;
         }
 
         // En batch, la vue de jeu n'a pas le focus : les événements clavier restent dans l'éditeur.
