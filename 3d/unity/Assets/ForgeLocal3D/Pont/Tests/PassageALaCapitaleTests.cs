@@ -271,5 +271,50 @@ namespace Forge.Pont.Tests
             SceneManager.MoveGameObjectToScene(objet, scene); if (avecCarte) objet.AddComponent<CarteDessinee>(); SceneManager.SetActiveScene(scene);
             return (scene, objet);
         }
+        // Lot #729 — un double-clic sur le siège lu descend comme la confirmation, une seule fois ; rien d'autre ne descend.
+        static long SiegeDe(string terre) => (long)(double)((Dictionary<string, object>)LecteurJson.LireObjet(Fige(terre))["siege"])["cell_id"];
+        [Test] public void UnDoubleClicSurLeSiegeDescendUneSeuleFois()
+        {
+            PassageALaCapitale.PrendreCelluleRemise(string.Empty); string scene = TerresAvecKit.Scenes[Zab];
+            Servir(Zab); Servir(); Poser(); double t = 1; Pas(ref t, 3);
+            Assert.AreEqual(SiegeDuZab, passage.SiegeLu, "le siège lu n'est pas celui de la fiche"); CollectionAssert.IsEmpty(chargees);
+            Assert.IsFalse(passage.Cliquer(SiegeDuZab, t), "un clic seul descend");
+            Assert.IsTrue(passage.Cliquer(SiegeDuZab, t + 0.2), "le double-clic sur le siège ne descend pas");
+            CollectionAssert.AreEqual(new[] { scene }, chargees); Assert.AreEqual(scene, passage.SceneDemandee);
+            Assert.AreEqual(SiegeDuZab, PassageALaCapitale.PrendreCelluleRemise(scene), "la remise ne porte pas le siège");
+            int lus = Mondes(); Pas(ref t, 3); Thread.Sleep(200); // le temps qu'une lecture lâchée sans suivi atteigne le service
+            Assert.AreEqual(lus, Mondes(), "une lecture est partie après la descente : " + string.Join(", ", Recues()));
+            bool troisieme = passage.Cliquer(SiegeDuZab, t), quatrieme = passage.Cliquer(SiegeDuZab, t + 0.2);
+            Assert.IsFalse(troisieme || quatrieme, "un second double-clic a rendu true"); CollectionAssert.AreEqual(new[] { scene }, chargees, "la scène est rechargée");
+        }
+        [TestCase("un-clic")] [TestCase("lent")] [TestCase("autre-cellule")] [TestCase("bar")] [TestCase("depart")] [TestCase("absence")]
+        public void RienDAutreNeDescend(string cas)
+        {
+            PassageALaCapitale.PrendreCelluleRemise(string.Empty); double t = 1; bool zab = cas == "un-clic" || cas == "lent" || cas == "autre-cellule";
+            if (cas != "absence") { Servir(zab ? Zab : cas == "bar" ? Bar : null); Servir(); }
+            Poser(); Pas(ref t, 3);
+            Assert.AreEqual(zab ? SiegeDuZab : (long?)null, passage.SiegeLu, cas + " : siège lu");
+            long siege = SiegeDe(cas == "bar" ? "bar" : "zab");
+            bool descendu = passage.Cliquer(siege, t);
+            if (cas != "un-clic") descendu |= passage.Cliquer(cas == "autre-cellule" ? siege + 1 : siege, t + (cas == "lent" ? PassageALaCapitale.DELAI_DOUBLE_CLIC_S + 0.01 : 0.2));
+            Assert.IsFalse(descendu, cas + " : un clic a rendu true"); CollectionAssert.IsEmpty(chargees, cas); Assert.IsNull(passage.SceneDemandee, cas);
+            Assert.IsNull(PassageALaCapitale.PrendreCelluleRemise(TerresAvecKit.Scenes[Zab]), cas + " : une remise est faite");
+        }
+        [TestCase("confirmation")] [TestCase("double-clic")]
+        public void ParDefautLePassagePrendLaTransition(string cas)
+        {
+            string scene = TerresAvecKit.Scenes[Zab]; double t = 1;
+            if (cas == "double-clic") Servir(Zab); Servir(); Poser(); passage.ChargerScene = null;
+            if (cas == "confirmation") { Pas(ref t, 2); Servir(Zab); Pas(ref t, 4); }
+            else { Pas(ref t, 3); passage.Cliquer(SiegeDuZab, t); Assert.IsTrue(passage.Cliquer(SiegeDuZab, t + 0.2), "le double-clic ne descend pas"); }
+            TransitionDeVue[] transitions = UnityEngine.Object.FindObjectsByType<TransitionDeVue>(FindObjectsSortMode.None);
+            try {
+                Assert.AreEqual(1, transitions.Length, cas + " : transitions dans la scène"); TransitionDeVue transition = transitions[0];
+                Assert.IsTrue(transition.EnCours, cas); Assert.AreEqual(port, transition.port, cas + " : port"); Assert.IsNull(transition.SceneChargee, cas); Assert.AreEqual(scene, passage.SceneDemandee, cas);
+                var vues = new List<string>(); transition.ChargerScene = nom => vues.Add(nom);
+                transition.Pas(Time.realtimeSinceStartupAsDouble + TransitionDeVue.DUREE_FONDU_S + 0.1);
+                CollectionAssert.AreEqual(new[] { scene }, vues, cas + " : scène chargée par la transition");
+            } finally { foreach (TransitionDeVue transition in transitions) { transition.Arreter(); UnityEngine.Object.DestroyImmediate(transition.gameObject); } }
+        }
     }
 }
