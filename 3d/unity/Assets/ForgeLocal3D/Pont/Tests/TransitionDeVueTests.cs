@@ -20,8 +20,7 @@ namespace Forge.Pont.Tests {
         private double vitesse; private bool panne; private int delaiMs, recuesAuChargement; private ManualResetEventSlim retenue; // remis à chaque cas : NUnit garde l'instance
         [SetUp] public void PortLibre() {
             var sonde = new TcpListener(IPAddress.Loopback, 0); sonde.Start(); port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop(); lock (recues) { recues.Clear(); vitesse = 2.5; panne = false; delaiMs = 0; } chargees.Clear(); recuesAuChargement = -1; retenue = new ManualResetEventSlim(true); }
-        [TearDown] public void Fermer() {
-            transition?.Arreter(); if (objet != null) UnityEngine.Object.DestroyImmediate(objet); retenue.Set(); ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil, transition) = (null, null, null); }
+        [TearDown] public void Fermer() { transition?.Arreter(); if (objet != null) UnityEngine.Object.DestroyImmediate(objet); retenue.Set(); ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil, transition) = (null, null, null); }
         // `retenue` fermée, le faux service note la requête puis ne répond qu'à son ouverture ; un client parti en route n'arrête pas le service.
         private void Servir() {
             var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start(); var porte = retenue;
@@ -37,8 +36,7 @@ namespace Forge.Pont.Tests {
         }
         private void Commencer(string scene = "Desert_City", VueDuJeu vue = VueDuJeu.Ville) {
             objet = new GameObject("Transition du test"); transition = objet.AddComponent<TransitionDeVue>(); transition.port = port;
-            transition.ChargerScene = nom => { chargees.Add(nom); recuesAuChargement = Recues().Length; }; Assert.IsTrue(transition.Commencer(scene, vue, 1));
-        }
+            transition.ChargerScene = nom => { chargees.Add(nom); recuesAuChargement = Recues().Length; }; Assert.IsTrue(transition.Commencer(scene, vue, 1)); }
         private string[] Recues() { lock (recues) return recues.ToArray(); }
         private void AttendreRecues(int n) { var montre = Stopwatch.StartNew(); while (Recues().Length < n && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5); Assert.AreEqual(n, Recues().Length, "requêtes reçues"); }
         private double VitesseServie() { lock (recues) return vitesse; } private Canvas Toile() => objet.GetComponentInChildren<Canvas>(true);
@@ -47,14 +45,11 @@ namespace Forge.Pont.Tests {
             for (int i = 0; i < 100 && transition.EnCours; i++) {
                 transition.Pas(debut + i * PAS_S); opacites.Add(transition.Opacite);
                 if (transition.EnCours) Assert.IsTrue(Toile().gameObject.activeSelf, "le noir est caché pendant la transition");
-                while (transition.RequeteEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5);
-            }
-            Assert.IsFalse(transition.EnCours, "la transition n'a pas fini"); return opacites;
-        }
+                while (transition.RequeteEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5); }
+            Assert.IsFalse(transition.EnCours, "la transition n'a pas fini"); return opacites; }
         [Test] public void Les_reglages_donnent_une_annee_d_une_heure_en_ville_et_d_une_minute_sur_la_carte() {
             var r = ReglagesDesVues.Charger(); Assert.AreEqual(0.1, r.VitesseVille); Assert.AreEqual(6, r.VitesseCarte); Assert.AreEqual(0.1, r.Vitesse(VueDuJeu.Ville)); Assert.AreEqual(6, r.Vitesse(VueDuJeu.Carte));
-            Assert.That(365 / r.VitesseVille / 60, Is.InRange(50, 70), "une année en ville, en minutes"); Assert.That(365 / r.VitesseCarte, Is.InRange(50, 70), "une année sur la carte, en secondes");
-        }
+            Assert.That(365 / r.VitesseVille / 60, Is.InRange(50, 70), "une année en ville, en minutes"); Assert.That(365 / r.VitesseCarte, Is.InRange(50, 70), "une année sur la carte, en secondes"); }
         [TestCase("{\"VITESSE_CARTE\": 6}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": \"6\"}", "VITESSE_CARTE")]
         [TestCase("{\"VITESSE_VILLE\": 0, \"VITESSE_CARTE\": 6}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": -1}", "VITESSE_CARTE")]
         [TestCase("{\"VITESSE_VILLE\":0.1,\"VITESSE_CARTE\":1e309}", "VITESSE_CARTE")] [TestCase("{\"VITESSE_VILLE\":1e309,\"VITESSE_CARTE\":6}", "VITESSE_VILLE")]
@@ -69,8 +64,7 @@ namespace Forge.Pont.Tests {
             CollectionAssert.AreEqual(new[] { scene }, chargees); Assert.AreEqual(0, recuesAuChargement, "une requête est partie avant le chargement");
             CollectionAssert.AreEqual(new[] { "GET /horloge", "POST /vitesse?jours_par_seconde=" + texte }, Recues());
             Assert.AreEqual(ReglagesDesVues.Charger().Vitesse(vue), VitesseServie()); Assert.AreEqual(ReglagesDesVues.Charger().Vitesse(vue), transition.VitessePosee);
-            Assert.AreEqual(scene, transition.SceneChargee); Assert.IsNull(transition.Absence);
-        }
+            Assert.AreEqual(scene, transition.SceneChargee); Assert.IsNull(transition.Absence); }
         [Test] public void Un_monde_en_pause_reste_en_pause() {
             lock (recues) vitesse = 0; Servir(); Commencer(); Derouler();
             CollectionAssert.AreEqual(new[] { "Desert_City" }, chargees); CollectionAssert.AreEqual(new[] { "GET /horloge" }, Recues());
@@ -79,32 +73,26 @@ namespace Forge.Pont.Tests {
         public void Une_absence_ne_bloque_ni_le_passage_ni_l_image(bool enPanne) {
             if (enPanne) { lock (recues) panne = true; Servir(); }
             Commencer(); Derouler(); Assert.AreEqual(0, transition.Opacite); CollectionAssert.AreEqual(new[] { "Desert_City" }, chargees); StringAssert.StartsWith("horloge : ", transition.Absence);
-            Assert.IsFalse(Array.Exists(Recues(), r => r.StartsWith("POST", StringComparison.Ordinal)), "un réglage est parti sans horloge lue"); Assert.IsNull(transition.VitessePosee); Assert.IsFalse(Toile().gameObject.activeSelf, "le noir reste affiché au repos");
-        }
+            Assert.IsFalse(Array.Exists(Recues(), r => r.StartsWith("POST", StringComparison.Ordinal)), "un réglage est parti sans horloge lue"); Assert.IsNull(transition.VitessePosee); Assert.IsFalse(Toile().gameObject.activeSelf, "le noir reste affiché au repos"); }
         [Test] public void Un_service_lent_ne_retient_pas_l_image() {
             lock (recues) delaiMs = 500; Servir(); Commencer();
             var montre = Stopwatch.StartNew(); for (int i = 0; i < 10; i++) transition.Pas(1 + i * PAS_S); montre.Stop();
-            Assert.That(montre.ElapsedMilliseconds, Is.LessThan(200), "les pas attendent le service"); CollectionAssert.AreEqual(new[] { "Desert_City" }, chargees);
-        }
+            Assert.That(montre.ElapsedMilliseconds, Is.LessThan(200), "les pas attendent le service"); CollectionAssert.AreEqual(new[] { "Desert_City" }, chargees); }
         [Test] public void L_image_revient_pendant_que_le_service_fait_attendre() {
             retenue.Reset(); Servir(); Commencer(); transition.Pas(1.5); AttendreRecues(1); transition.Pas(1.5 + TransitionDeVue.DUREE_FONDU_S + 0.05);
             Assert.AreEqual(0, transition.Opacite, "le noir attend la réponse"); Assert.IsTrue(transition.RequeteEnVol && transition.EnCours, "la transition finit avant sa requête");
-            retenue.Set(); Derouler(2); CollectionAssert.AreEqual(new[] { "GET /horloge", "POST /vitesse?jours_par_seconde=0.1" }, Recues());
-        }
+            retenue.Set(); Derouler(2); CollectionAssert.AreEqual(new[] { "GET /horloge", "POST /vitesse?jours_par_seconde=0.1" }, Recues()); }
         [Test] public void Une_transition_arretee_n_envoie_plus_sa_vitesse() {
             retenue.Reset(); Servir(); Commencer(); transition.Pas(1.5); AttendreRecues(1); transition.Arreter();
             Assert.IsTrue(transition.Commencer(OuvertureDeLaCarte.SCENE, VueDuJeu.Carte, 3)); retenue.Set(); Derouler(3); Thread.Sleep(300); // le temps qu'aurait l'ancienne tâche
-            CollectionAssert.AreEqual(new[] { "GET /horloge", "GET /horloge", "POST /vitesse?jours_par_seconde=6" }, Recues()); Assert.AreEqual(6, VitesseServie());
-        }
+            CollectionAssert.AreEqual(new[] { "GET /horloge", "GET /horloge", "POST /vitesse?jours_par_seconde=6" }, Recues()); Assert.AreEqual(6, VitesseServie()); }
         [Test] public void Le_noir_couvre_tout_l_ecran_et_se_cache_au_repos() {
             Commencer(); transition.Pas(1.2); Canvas toile = Toile(); Image noir = toile.GetComponentInChildren<Image>(true);
             Assert.AreEqual(RenderMode.ScreenSpaceOverlay, toile.renderMode); Assert.AreEqual(32767, toile.sortingOrder); Assert.IsTrue(toile.gameObject.activeSelf); Assert.IsTrue(noir.raycastTarget, "le noir laisse passer les clics");
             Assert.AreEqual(0, noir.color.r); Assert.AreEqual(transition.Opacite, noir.color.a, 1e-6); Assert.That(transition.Opacite, Is.InRange(0.01f, 0.99f));
-            Derouler(1.3); Assert.IsFalse(toile.gameObject.activeSelf, "le noir reste affiché au repos");
-        }
+            Derouler(1.3); Assert.IsFalse(toile.gameObject.activeSelf, "le noir reste affiché au repos"); }
         [Test] public void Lancer_cree_l_objet_et_refuse_une_seconde_transition() {
             var lancee = TransitionDeVue.Lancer("Desert_City", VueDuJeu.Carte, port); objet = lancee.gameObject; Assert.AreEqual("Transition de vue", objet.name); Assert.IsTrue(lancee.EnCours); Assert.IsNull(lancee.SceneChargee);
-            Assert.IsNull(TransitionDeVue.Lancer("Desert_City", VueDuJeu.Ville, port), "une seconde transition a été lancée"); lancee.Arreter(); Assert.IsFalse(lancee.EnCours);
-        }
+            Assert.IsNull(TransitionDeVue.Lancer("Desert_City", VueDuJeu.Ville, port), "une seconde transition a été lancée"); lancee.Arreter(); Assert.IsFalse(lancee.EnCours); }
     }
 }
