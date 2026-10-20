@@ -94,5 +94,47 @@ namespace Forge.Pont.Tests {
         [Test] public void Lancer_cree_l_objet_et_refuse_une_seconde_transition() {
             var lancee = TransitionDeVue.Lancer("Desert_City", VueDuJeu.Carte, port); objet = lancee.gameObject; Assert.AreEqual("Transition de vue", objet.name); Assert.IsTrue(lancee.EnCours); Assert.IsNull(lancee.SceneChargee);
             Assert.IsNull(TransitionDeVue.Lancer("Desert_City", VueDuJeu.Ville, port), "une seconde transition a été lancée"); lancee.Arreter(); Assert.IsFalse(lancee.EnCours); }
+        // Lot #730 — C revient à la carte, Espace suspend ou reprend. Les vitesses attendues viennent de la ressource.
+        static string Poste(double v) => "POST /vitesse?jours_par_seconde=" + v.ToString("R", CultureInfo.InvariantCulture);
+        void Attendre(CommandesDeVille c) { var m = Stopwatch.StartNew(); while (c.RequeteEnVol && m.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5); Assert.IsFalse(c.RequeteEnVol, "requête encore en vol"); }
+        void Brancher(TransitionDeVue lancee) { objet = lancee.gameObject; transition = lancee; lancee.ChargerScene = nom => { chargees.Add(nom); recuesAuChargement = Recues().Length; }; }
+        [Test] public void Le_retour_lance_une_seule_transition_vers_la_carte_avec_fondu_puis_la_vitesse_de_la_carte() {
+            Servir(); var c = new CommandesDeVille(port); double debut = Time.realtimeSinceStartupAsDouble; var lancee = c.Retour(); Brancher(lancee);
+            Assert.AreEqual(port, lancee.port); Assert.IsNull(c.Retour(), "une seconde transition pendant le fondu");
+            var opacites = Derouler(debut); Assert.That(opacites.IndexOf(1f), Is.GreaterThan(0), "pas de fondu"); Assert.AreEqual(0, opacites[opacites.Count - 1]);
+            double carte = ReglagesDesVues.Charger().VitesseCarte; CollectionAssert.AreEqual(new[] { OuvertureDeLaCarte.SCENE }, chargees);
+            CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(carte) }, Recues()); Assert.AreEqual(carte, VitesseServie()); Assert.AreEqual(carte, lancee.VitessePosee); }
+        [Test] public void Le_retour_depuis_la_pause_charge_la_carte_sans_poster_de_vitesse() {
+            lock (recues) vitesse = 0; Servir(); var c = new CommandesDeVille(port); double debut = Time.realtimeSinceStartupAsDouble; Brancher(c.Retour()); Derouler(debut);
+            CollectionAssert.AreEqual(new[] { OuvertureDeLaCarte.SCENE }, chargees); CollectionAssert.AreEqual(new[] { "GET /horloge" }, Recues());
+            Assert.AreEqual(0, VitesseServie()); Assert.IsNull(transition.VitessePosee); }
+        [Test] public void Espace_met_en_pause_puis_reprend_a_la_vitesse_de_la_ville() {
+            Servir(); double depart; lock (recues) depart = vitesse; var r = ReglagesDesVues.Charger();
+            Assert.That(depart, Is.GreaterThan(0)); Assert.AreNotEqual(r.VitesseVille, depart); Assert.AreNotEqual(r.VitesseCarte, depart);
+            var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); Attendre(c); AttendreRecues(2);
+            CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(0) }, Recues()); Assert.AreEqual(0, VitesseServie());
+            Assert.IsTrue(c.Basculer()); Attendre(c); AttendreRecues(4);
+            CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(0), "GET /horloge", Poste(r.VitesseVille) }, Recues()); Assert.AreEqual(r.VitesseVille, VitesseServie()); Assert.AreEqual(r.VitesseVille, c.VitessePosee); }
+        [Test] public void Une_ville_deja_en_pause_reprend_a_la_vitesse_de_la_ville() {
+            lock (recues) vitesse = 0; Servir(); var r = ReglagesDesVues.Charger(); Assert.AreNotEqual(1, r.VitesseVille, "la ressource ne doit pas être le repli à 1");
+            var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); Attendre(c); AttendreRecues(2);
+            CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(r.VitesseVille) }, Recues()); Assert.AreEqual(r.VitesseVille, VitesseServie()); Assert.AreEqual(r.VitesseVille, c.VitessePosee); }
+        [TestCase(false)] [TestCase(true)]
+        public void Une_horloge_absente_ou_en_erreur_interdit_la_pause(bool enPanne) {
+            if (enPanne) { lock (recues) panne = true; Servir(); }
+            var c = new CommandesDeVille(port); var montre = Stopwatch.StartNew(); bool parti = c.Basculer(); montre.Stop();
+            Assert.IsTrue(parti); Assert.That(montre.ElapsedMilliseconds, Is.LessThan(200), "l'appel attend le réseau"); Attendre(c);
+            StringAssert.StartsWith("horloge : ", c.Absence); Assert.IsNull(c.VitessePosee);
+            Assert.IsFalse(Array.Exists(Recues(), x => x.StartsWith("POST", StringComparison.Ordinal)), "un POST est parti sans horloge lue"); }
+        [Test] public void Un_service_retenu_ne_bloque_pas_et_les_pauses_ne_se_chevauchent_pas() {
+            retenue.Reset(); Servir(); var c = new CommandesDeVille(port); var montre = Stopwatch.StartNew(); bool parti = c.Basculer(); montre.Stop();
+            Assert.IsTrue(parti); Assert.That(montre.ElapsedMilliseconds, Is.LessThan(200), "l'appel attend le service");
+            Assert.IsFalse(c.Basculer(), "une seconde pause part pendant la première"); AttendreRecues(1); Thread.Sleep(100);
+            Assert.AreEqual(1, Recues().Length, "les pauses se chevauchent"); retenue.Set(); Attendre(c); AttendreRecues(2); Assert.AreEqual(0, VitesseServie()); }
+        [Test] public void Une_pause_en_vol_n_ecrase_pas_la_vitesse_de_la_carte() {
+            retenue.Reset(); Servir(); var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); AttendreRecues(1);
+            double debut = Time.realtimeSinceStartupAsDouble; var lancee = c.Retour(); Brancher(lancee); retenue.Set(); Derouler(debut); Thread.Sleep(300);
+            double carte = ReglagesDesVues.Charger().VitesseCarte; CollectionAssert.AreEqual(new[] { OuvertureDeLaCarte.SCENE }, chargees);
+            CollectionAssert.AreEqual(new[] { "GET /horloge", "GET /horloge", Poste(carte) }, Recues()); Assert.AreEqual(carte, VitesseServie()); }
     }
 }
