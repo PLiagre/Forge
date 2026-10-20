@@ -66,3 +66,27 @@ Contre-épreuve : un lanceur qui retombe sur 1 j/s rend 0 et rougit.
 - Poser la vitesse en jeu : le double-clic sur le siège (sous-lot 2 de #410), la touche C et la pause en ville (sous-lot 3). La session et le verdict de l'épreuve (sous-lots 5 et 6).
 - Les épreuves et captures : elles démarrent leur propre service en pause (`--jours-par-seconde 0`) et restent ce qu'elles sont.
 - Une option du lanceur pour choisir une autre vitesse.
+
+## Vérification du codeur
+
+La vitesse d'ouverture est lue et contrôlée avant de lancer le service, puis
+transmise par `--jours-par-seconde`. Les réglages partagés et le défaut du
+service restent intacts. Aucune assertion existante n'a été retirée.
+
+Depuis la racine, les commandes suivantes ont réussi :
+
+```bash
+python3 -m pytest jeu/ville/tests/test_lanceur_jouer.py -k vitesse -q
+# 17 réussis ; les mêmes 17 cas échouaient avant la modification du lanceur.
+python3 -m pytest jeu/ville/tests/test_lanceur_jouer.py -k 'chemin_nominal or cellule or carte_ouvre or jeu_plante or pas_de_build or port_deja_pris or le_meme_port' -q
+# 12 réussis.
+python3 -m pytest jeu/ville/tests/test_cellule_du_desert.py jeu/ville/tests/test_epreuve_carte.py jeu/ville/tests/test_epreuve_moree.py jeu/ville/tests/test_epreuve_capitale.py jeu/ville/tests/test_epreuve_jalon4.py -k 'le_numero_n_est_pas_ecrit or introuvable or orchestre or un_refus_http or est_egale or sont_egaux' -q
+# 16 réussis.
+python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q
+# 8 réussis.
+```
+
+La suite entière `ville/tests/` n'a pas été lancée, conformément à la consigne
+du lot donnée au codeur. `git diff --check` est propre ; le diff contre
+`origin/master` ne contient que les trois fichiers du périmètre, sans fichier
+non suivi.

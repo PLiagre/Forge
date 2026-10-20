@@ -7,6 +7,8 @@ ouvre sa capitale ou la carte, ou dit l'absence (lot #688).
 Avec `--carte`, le jeu s'ouvre sur la carte
 de 1400 (`-forgeCarte`, lot #524) au lieu de la ville. Le service s'arrête
 quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
+La vitesse d'ouverture vient du fichier de réglages partagé avec Unity : celle
+de la carte, ou celle de la ville si `--cellule` est donné sans `--carte`.
 """
 from __future__ import annotations
 
@@ -14,6 +16,8 @@ import argparse
 import collections
 import http.client
 import importlib.util
+import json
+import math
 import os
 import queue
 import shutil
@@ -27,7 +31,9 @@ import urllib.request
 from http import HTTPStatus
 from pathlib import Path
 
-JEU_PY = Path(__file__).resolve().parents[1] / "jeu"
+RACINE = Path(__file__).resolve().parents[1]
+JEU_PY = RACINE / "jeu"
+REGLAGES = RACINE / "3d/unity/Assets/ForgeLocal3D/Pont/Resources/ReglagesDesVues.json"
 sys.path.insert(0, str(JEU_PY))
 from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
 
@@ -40,6 +46,21 @@ DELAI_CONNEXION_S = 1
 DELAI_REQUETE_S = 10
 LIGNES_STDERR_GARDEES = 20
 FIN_DE_FLUX = None
+
+
+def _vitesse(carte: bool, cellule: int | None) -> tuple[str, float]:
+    vue = "ville" if cellule is not None and not carte else "carte"
+    cle = f"VITESSE_{vue.upper()}"
+    try:
+        valeur = json.loads(REGLAGES.read_text(encoding="utf-8"))[cle]
+        if isinstance(valeur, bool) or not isinstance(valeur, (int, float)):
+            raise ValueError("un nombre est attendu")
+        vitesse = float(valeur)
+        if not math.isfinite(vitesse) or vitesse <= 0:
+            raise ValueError("un nombre fini strictement positif est attendu")
+    except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
+        raise RuntimeError(f"{REGLAGES} : {cle} invalide ({exc})") from exc
+    return vue, vitesse
 
 
 def _regle():
@@ -167,10 +188,18 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
+    try:
+        vue, vitesse = _vitesse(args.carte, cellule)
+    except RuntimeError as exc:
+        print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
+        return 1
+    print(f"vitesse de la {vue} : {vitesse} jours par seconde", flush=True)
+
     attendue = f"service prêt sur {SERVICE_HOST}:{args.port}"
     stderr: collections.deque = collections.deque(maxlen=LIGNES_STDERR_GARDEES)
     service = subprocess.Popen(
-        [sys.executable, "-m", "sim.service", "--port", str(args.port)],
+        [sys.executable, "-m", "sim.service", "--port", str(args.port),
+         "--jours-par-seconde", repr(vitesse)],
         cwd=JEU_PY,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
