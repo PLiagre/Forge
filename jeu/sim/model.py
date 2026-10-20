@@ -40,6 +40,11 @@ def lire_stock_marchandise(cell: "Cell", marchandise: str) -> float:
     Une marchandise absente du panier rend la sentinelle -1.0 (« non calculé »).
     Une marchandise présente à zéro se lit 0.0 (règle 8).
     """
+    return cell.stocks.get(marchandise, -1.0)
+
+
+def _lire_stock_par_presence(cell, marchandise):
+    """Chemin historique à deux recherches, pour comparer la lecture directe."""
     if marchandise not in cell.stocks:
         return -1.0
     return cell.stocks[marchandise]
@@ -58,6 +63,17 @@ def copier_panier(entite: "Cell | EtatDeLieu") -> dict[str, float]:
 def contenus_des_paniers(entites, marchandise: str) -> list[float]:
     """Lit les poids d'une répartition ; une clé absente y pèse zéro."""
     return [entite.stocks.get(marchandise, 0) for entite in entites]
+
+
+def lieux_deja_accordes(cell, lieux) -> bool:
+    """Reconnaît la reprise sans effet, sans copier ni réécrire les paniers."""
+    if sum(lieu.population for lieu in lieux) != cell.population:
+        return False
+    cles = cell.stocks.keys()
+    if any(lieu.stocks.keys() != cles for lieu in lieux):
+        return False
+    return all(sum(lieu.stocks[nom] for lieu in lieux) == total
+               for nom, total in cell.stocks.items())
 
 
 def remplacer_panier(entite: "Cell | EtatDeLieu", panier: dict[str, float]) -> None:
