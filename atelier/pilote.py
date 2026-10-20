@@ -554,16 +554,15 @@ class Pilote:
         return False
 
     def _rejouer_le_chronometre(self, lot: Lot, pr: dict, branche: str, liste: list[dict], role: str) -> bool:
-        """Un rouge du seul travail `chronometre`, sur un lot qui ne touche
-        pas `jeu/` : le pilote le rejoue une fois avant d'appeler le codeur,
-        sans compter d'essai (`lots.rejeu_du_chronometre`). La branche reçoit
+        """Un rouge du seul travail `chronometre` : le pilote le rejoue une
+        fois avant d'appeler le codeur, sans compter d'essai
+        (`lots.rejeu_du_chronometre`). La branche reçoit
         la base si elle a bougé, une marge regagnée sur le moteur peut-être ;
         sinon le travail rouge se rejoue. Vrai quand le codeur n'a pas à passer."""
         numero_pr, tete = pr["number"], pr.get("headRefOid") or ""
         agregat = "tests"  # le contrôle exigé qui attend `chronometre`
         travaux = travaux_du_workflow(pr, AGREGATS[agregat])
-        quoi = lots.rejeu_du_chronometre(travaux, agregat, self.gh.fichiers_de_pr(numero_pr), liste,
-                                         role_codeur=role,
+        quoi = lots.rejeu_du_chronometre(travaux, agregat, liste, role_codeur=role,
                                          heures_depuis_rejeu=self._heures_depuis(liste, "pilote", lots.ETAT_REJEU))
         if quoi == "attendre":
             self.noter(lot.numero, "attendre_ci", f"PR #{numero_pr} — `{lots.TRAVAIL_CHRONOMETRE}` rouge seul : "
@@ -586,8 +585,8 @@ class Pilote:
             self.gh.rejouer_les_echecs(int(run.group(1)))
             geste = f"le travail est rejoué (run {run.group(1)})"
         quand = self.maintenant().isoformat(timespec="seconds")
-        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : seul `{lots.TRAVAIL_CHRONOMETRE}` est rouge, et ce lot ne "
-                                        f"touche pas `jeu/` : le codeur n'y peut rien. Une fois, {geste}, sans "
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : seul `{lots.TRAVAIL_CHRONOMETRE}` est rouge, et son budget "
+                                        f"est au bord du bruit des runners. Une fois, {geste}, sans "
                                         "compter d'essai. S'il rougit encore, le codeur corrige.\n\n"
                                         f"{marque(role='pilote', etat=lots.ETAT_REJEU, sha=tete, quand=quand)}")
         self.noter(lot.numero, f"{lots.TRAVAIL_CHRONOMETRE} rejoué", f"PR #{numero_pr} — {geste}")

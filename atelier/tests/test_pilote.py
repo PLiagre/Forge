@@ -1215,14 +1215,22 @@ def test_un_rouge_du_chronometre_remet_la_branche_sur_une_base_qui_a_bouge(proje
     assert "la branche reçoit `master`" in gh.prs_[50]["comments"][-1]["body"]
 
 
-def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_va_au_codeur(projet, gh, depot, tmp_path):
+def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_se_rejoue_aussi(projet, gh, depot, tmp_path):
+    """Le 16 octobre 2026, #414 (du moteur) s'est bloqué sur des médianes de
+    110 ms qu'un tick de master à 98 ms expliquait seul : le codeur n'y pouvait
+    rien non plus. Le rejeu passe d'abord, le codeur ensuite."""
     _en_cours(gh, commentaires=[FAIT_CODEX])
     gh.fichiers_[50] = ["jeu/sim/monde.py"]
     _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
         *VERTS)
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 77)]
+    gh.prs_[50]["statusCheckRollup"] += [_travail("chronometre", "FAILURE", "08:05"),
+                                         _travail("tests", "FAILURE", "08:20")]
     codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
     _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert codeur.outils() == ["codex"] and not _gestes(gh, "rejouer_les_echecs")
+    assert codeur.outils() == ["codex"] and len(_gestes(gh, "rejouer_les_echecs")) == 1
 
 
 def test_une_tranche_annulee_compte_parmi_les_rouges():
