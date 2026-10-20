@@ -297,6 +297,7 @@ namespace Forge.Pont.Tests
             long siege = SiegeDe(cas == "bar" ? "bar" : "zab");
             bool descendu = passage.Cliquer(siege, t);
             if (cas != "un-clic") descendu |= passage.Cliquer(cas == "autre-cellule" ? siege + 1 : siege, t + (cas == "lent" ? PassageALaCapitale.DELAI_DOUBLE_CLIC_S + 0.01 : 0.2));
+            if (cas == "autre-cellule") descendu |= passage.Cliquer(siege + 1, t + 1) | passage.Cliquer(siege + 1, t + 1.2); // deux clics sur la même cellule, hors du siège
             Assert.IsFalse(descendu, cas + " : un clic a rendu true"); CollectionAssert.IsEmpty(chargees, cas); Assert.IsNull(passage.SceneDemandee, cas);
             Assert.IsNull(PassageALaCapitale.PrendreCelluleRemise(TerresAvecKit.Scenes[Zab]), cas + " : une remise est faite");
         }

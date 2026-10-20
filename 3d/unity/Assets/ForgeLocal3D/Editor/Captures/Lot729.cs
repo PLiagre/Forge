@@ -77,14 +77,17 @@ namespace ForgeLocal3D.Captures
             Vector3 local = carte.PositionSurLaCarte(position, ReperesDeDepart.HAUTEUR_LIEU).Value; point = carte.transform.TransformPoint(local);
             carte.Vue.Zoomer(CRANS, carte.camera.WorldToViewportPoint(point)); carte.Vue.Centrer(new Vector2(local.x, local.z), carte.Vue.Demi);
             yield return null; // la carte se recadre sur sa vue
-            // La carte ne nomme que les villes de `villes-1400.json`, où Biskra manque : la photo la montre par sa cellule, au centre.
             Vector3 vu = carte.camera.WorldToViewportPoint(point); CelluleDeCarte centre = carte.CelluleSous(point);
             if (vu.x < 0.3f || vu.x > 0.7f || vu.y < 0.3f || vu.y > 0.7f || centre?.CellId != siege) // la borne sud de la carte peut retenir la vue
                 throw new InvalidOperationException("étape 3 : siège au point " + vu.ToString("F3") + " du cadre, sur la cellule " + centre?.CellId + " : attendu " + N(siege) + " au centre");
+            string hors = null; Vector3 vuNom = Vector3.back; // « Biskra » lisible au centre : le mot dans le cadre, pas la cellule seule
+            foreach (TextMesh m in Object.FindObjectsByType<TextMesh>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)) if ((m.text ?? "").Contains(SIEGE)) { Vector3 p = carte.camera.WorldToViewportPoint(m.transform.position); if (p.z > 0f && p.x >= 0.3f && p.x <= 0.7f && p.y >= 0.3f && p.y <= 0.7f) vuNom = p; else hors = m.text; }
+            foreach (Text t in Object.FindObjectsByType<Text>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)) if ((t.text ?? "").Contains(SIEGE)) { Vector3 p = carte.camera.WorldToViewportPoint(t.rectTransform.position); if (p.z > 0f && p.x >= 0.3f && p.x <= 0.7f && p.y >= 0.3f && p.y <= 0.7f) vuNom = p; else hors = t.text; }
+            if (vuNom.z <= 0f) throw new InvalidOperationException("étape 3 : « " + SIEGE + " » n'est pas lisible au centre" + (hors == null ? " : aucun texte ne porte ce nom" : " : « " + hors.Split('\n').First(l => l.Contains(SIEGE)) + " » est hors du centre"));
             Lot549.Photographier(camera, carte);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             if (passage.SceneDemandee != null) throw new InvalidOperationException("étape 3 : pendant la pose, le passage demande « " + passage.SceneDemandee + " »");
-            Debug.Log("CAPTURE_729 siège " + N(siege) + " (" + SIEGE + ") lu par le passage, " + id + " au tick " + N(tick) + ", aucune scène demandée, " + SIEGE + " au point " + vu.ToString("F3"));
+            Debug.Log("CAPTURE_729 siège " + N(siege) + " (" + SIEGE + ") lu par le passage, " + id + " au tick " + N(tick) + ", aucune scène demandée, " + SIEGE + " lisible au point " + vuNom.ToString("F3"));
         }
 
         [ScenarioDeCapture(729, "2-biskra-apres-la-transition")]
