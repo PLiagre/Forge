@@ -6,6 +6,19 @@ namespace Forge.Interface.Tests
 {
     public sealed class CalquesCarteTests
     {
+        [Test] public void LesPigmentsGardentLesFamillesPolitiquesSansCouleursVives()
+        {
+            var rouge = CalquesCarte.Pigment(UnityEngine.Color.red);
+            var bleu = CalquesCarte.Pigment(UnityEngine.Color.blue);
+            Assert.That(rouge.r, Is.GreaterThan(rouge.b));
+            Assert.That(bleu.b, Is.GreaterThan(bleu.r));
+            foreach (var pigment in new[] { rouge, bleu, CalquesCarte.Pigment(UnityEngine.Color.green) })
+            {
+                UnityEngine.Color.RGBToHSV(pigment, out _, out float saturation, out float valeur);
+                Assert.That(saturation, Is.LessThan(.45f));
+                Assert.That(valeur, Is.InRange(.5f, .7f));
+            }
+        }
         static MondeLu Monde(params CelluleDuMonde[] cellules) => new MondeLu(8, new DateDuMonde(1400, 9), cellules.Length, cellules);
         [Test] public void La_legende_et_les_teintes_derivent_des_populations_recues()
         {

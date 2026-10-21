@@ -93,6 +93,7 @@ namespace Forge.Interface
             texte.rectTransform.sizeDelta = cadre.sizeDelta;
             texte.alignment = TextAnchor.MiddleCenter;
             texte.color = Couleur("papier");
+            EmblemeCommande.Poser(bouton, nom);
             return bouton;
         }
 
