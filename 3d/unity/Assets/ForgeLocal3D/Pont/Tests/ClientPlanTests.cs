@@ -563,6 +563,34 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(b.Maisons.Max(m => m.Emprise.Max(q => Math.Max(Math.Abs(q.X), Math.Abs(q.Y)))) == 69.186409, "plus grande coordonnée");
         }
 
+        // Lot #736 — les 33 maisons de Biskra regardent l'arête de façade mesurée sur le générateur.
+        [Test]
+        public void LaBaseDeBiskraSePoseFaceASesRues()
+        {
+            Servir(200, System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/ForgeLocal3D/Pont/Tests/plan-biskra-graine0-tick0.json"));
+            LecturePlan lecture = Lire(10103);
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            PoseDesMaisons pose = MaisonsDeLaBase.Poser(lecture.Plan.Base);
+            Assert.IsTrue(pose.Presente && pose.Cases.Count == 33, pose.Absence);
+            const string aretes = "133113313111313313113313131331313";
+            for (int k = 0; k < 33; k++)
+            {
+                CaseDeMaison c = pose.Cases[k];
+                var e = lecture.Plan.Base.Maisons[k].Emprise;
+                int a = aretes[k] - '0';
+                var t = new[] { e[a], e[(a + 1) % 4], e[(a + 2) % 4], e[(a + 3) % 4] };
+                Assert.IsTrue(c.Maison == k && c.Indice == 0);
+                Assert.AreEqual(5, c.LargeurM, 1e-5);
+                Assert.AreEqual(8, c.ProfondeurM, 1e-5);
+                Assert.AreEqual((e[0].X + e[1].X + e[2].X + e[3].X) / 4, c.CentreX, 1e-5);
+                Assert.AreEqual((e[0].Y + e[1].Y + e[2].Y + e[3].Y) / 4, c.CentreY, 1e-5);
+                Assert.AreEqual(LectureDuBatiment.Poser(new BatimentDuPlan(k, 0, "maison", t, false, 0, 0)).LacetDegres, c.LacetDegres, 1e-5);
+            }
+            CaseDeMaison c0 = pose.Cases[0], c32 = pose.Cases[32];
+            Assert.AreEqual(-52.762008, c0.CentreX, 1e-5); Assert.AreEqual(-6.266451, c0.CentreY, 1e-5); Assert.AreEqual(181.886541, c0.LacetDegres, 1e-5);
+            Assert.AreEqual(-62.2654, c32.CentreX, 1e-5); Assert.AreEqual(-53.500643, c32.CentreY, 1e-5); Assert.AreEqual(313.737296, c32.LacetDegres, 1e-5);
+        }
+
         [Test]
         public void UnPlanSansBaseEstLuEtDeclareLaBaseAbsente()
         {
