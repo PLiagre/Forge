@@ -3,6 +3,7 @@
     py pc\\epreuve_part.py --sortie D [--part-forte P] [--part-faible P] [--unity CHEMIN]
 """
 import argparse
+import http.client
 import importlib.util
 import json
 import math
@@ -134,6 +135,7 @@ def _essai(unity: Path, sortie: Path, cote: str, part: int):
         monde, corps = json.loads(_lire("/monde")), _lire(f"/maison?id=seigneurie-{fiche['id']}")
         if not isinstance(monde, dict) or type(monde.get("tick")) is not int: raise ValueError("/monde : tick absent ou non entier")
         if type(monde.get("maison_du_joueur")) is not str: raise ValueError("/monde : maison_du_joueur absente ou non texte")
+        _valider(lu, corps, part)  # une donnée requise absente est impossible ici, où le côté est connu
         return departs, fiche, lu, monde, corps
     finally:
         _arreter(service)
@@ -169,7 +171,7 @@ def main(argv: list[str]) -> int:
     for cote in ESSAIS:
         try:
             essais[cote] = _essai(unity, sortie, cote, parts[cote])
-        except (RuntimeError, OSError, ValueError) as exc:
+        except (RuntimeError, OSError, ValueError, http.client.HTTPException) as exc:  # IncompleteRead n'est pas une OSError
             return _ecrire(sortie, IMPOSSIBLE, entete + [f"essai {cote} : {exc}"])
     (departs, fiche, *_), seconde = essais["forte"], essais["faible"]
     lignes = [f"départs faible : Morée id {seconde[1]['id']} · attendu id {fiche['id']}, départs identiques · {'égal' if seconde[0] == departs else 'ÉCART'}"]

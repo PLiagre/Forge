@@ -1,7 +1,7 @@
 """Rapports bâtis en mémoire au format #659 ; ce ne sont pas des mesures PC."""
 import copy
 import importlib.util
-import io, os, time, urllib.error, urllib.request
+import http.client, io, os, time, urllib.error, urllib.request
 import json
 from pathlib import Path
 
@@ -139,7 +139,7 @@ def _harnais(monkeypatch, epreuve, tmp_path, base, plan, ident=913):
         if s is not None: assert s == e["vivant"]; e["vivant"] = None; e["log"].append(("arrêt", s))
     def lire(chemin):
         c = plan[e["vivant"]]; e["log"].append(("GET", chemin))
-        if c.get("http") == chemin: raise urllib.error.URLError("lecture HTTP impossible")
+        if c.get("http") == chemin: raise c.get("panne", urllib.error.URLError("lecture HTTP impossible"))
         if chemin == "/departs":
             d = copy.deepcopy(base[2]); d["departs"].reverse(); m = next(f for f in d["departs"] if f["nom"] == epreuve.MOREE); m["id"] = ident
             return json.dumps(d | {"departs": [f for f in d["departs"] if f is not m or c.get("moree") != "absente"] + [m] * (c.get("moree") == "double")})
@@ -149,7 +149,7 @@ def _harnais(monkeypatch, epreuve, tmp_path, base, plan, ident=913):
         assert cmd[1] == "-batchmode" and cmd[2::2] == "-projectPath -executeMethod -forgeEpreuve -forgeTerre -forgePart -logFile".split() and len(cmd) == 14, cmd
         c, e["part"], rapport = plan[e["vivant"]], int(cmd[11]), Path(cmd[7])
         assert cmd[5] == "ForgeLocal3D.EpreuvePart.Jouer"; e["log"].append(("unity", rapport.name, cmd[9], cmd[11], Path(cmd[13]).name))
-        if c.get("rapport", True): rapport.write_text(c.get("texte") or json.dumps(_rapport(e["part"], corps.get(e["part"], corps[10])) | {"terre": ident}), encoding="utf-8")
+        if c.get("rapport", True): rapport.write_text(c.get("texte") or json.dumps({k: v for k, v in (_rapport(e["part"], corps.get(e["part"], corps[10])) | {"terre": ident}).items() if k != c.get("sans")}), encoding="utf-8")
         if c.get("vieux"): os.utime(rapport, (time.time() - 3600,) * 2)
         return c.get("code", 0)
     sortie.mkdir(parents=True); exe = tmp_path / "Unity.exe"; exe.write_bytes(b"")
@@ -173,6 +173,7 @@ def test_main_deux_sessions_jugees(epreuve, base, tmp_path, monkeypatch, capsys,
 @pytest.mark.parametrize("panne,cause", [({"code": 4}, "Unity a rendu 4"), ({"rapport": False}, "rapport absent"), ({"vieux": True}, "antérieur"),
     ({"texte": "pas du json"}, "illisible"), ({"texte": "{}"}, "vide"), ({"http": "/maison?id=seigneurie-913"}, "lecture HTTP impossible"),
     ({"monde": {"tick": True, "maison_du_joueur": "seigneurie-913"}}, "tick"), ({"monde": {"tick": 31}}, "maison_du_joueur"),
+    ({"http": "/monde", "panne": http.client.IncompleteRead(b"{")}, "IncompleteRead"), ({"sans": "panneau"}, "champ absent ou illisible : panneau"),
     ({"moree": "absente"}, "Morée"), ({"moree": "double"}, "Morée")])
 @pytest.mark.parametrize("cote", [0, 1])
 def test_main_impossible_nomme_cause_et_cote(epreuve, base, tmp_path, monkeypatch, panne, cause, cote):
