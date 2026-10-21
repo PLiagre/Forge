@@ -39,19 +39,13 @@ namespace ForgeLocal3D
         internal static List<(Vector3[] s,int[] t,Vector2[] uv)> Releve(Transform r)=>r.Cast<Transform>().Select(c=>{var m=c.GetComponent<MeshFilter>().sharedMesh;return (m.vertices.Select(c.TransformPoint).ToArray(),m.triangles,m.uv);}).ToList();
         // Écart ruban − sol au centre et aux milieux d'arête de chaque triangle. Aucun ruban, ou un ruban sans triangle, ne se mesure pas :
         // NaN, qui n'est ni dans la fenêtre (Dans) ni hors d'elle (Sorti), si bien qu'un échantillon vide échoue des deux côtés.
-        internal static (float min,float max) Ecart(List<(Vector3[] s,int[] t,Vector2[] uv)> rel,Terrain t)
-        {
-            float lo=1e9f,hi=-1e9f;if(rel.Count==0||rel.Any(r=>r.t.Length<3))return (float.NaN,float.NaN);
+        internal static (float min,float max) Ecart(List<(Vector3[] s,int[] t,Vector2[] uv)> rel,Terrain t){float lo=1e9f,hi=-1e9f;if(rel.Count==0||rel.Any(r=>r.t.Length<3))return (float.NaN,float.NaN);
             foreach(var (s,tr,_) in rel)for(int k=0;k<tr.Length;k+=3){Vector3 a=s[tr[k]],b=s[tr[k+1]],c=s[tr[k+2]];
-                foreach(var q in new[]{(a+b+c)/3,(a+b)/2,(b+c)/2,(c+a)/2}){float e=q.y-t.SampleHeight(q)-t.transform.position.y;lo=Mathf.Min(lo,e);hi=Mathf.Max(hi,e);}}
-            return (lo,hi);
-        }
+                foreach(var q in new[]{(a+b+c)/3,(a+b)/2,(b+c)/2,(c+a)/2}){float e=q.y-t.SampleHeight(q)-t.transform.position.y;lo=Mathf.Min(lo,e);hi=Mathf.Max(hi,e);}}return (lo,hi);}
         internal static bool Dans((float min,float max) e)=>e.min>=.01f&&e.max<=.15f;internal static bool Sorti((float min,float max) e)=>e.min<.01f||e.max>.15f;
         // Demi-largeur à 0,01 m près, et longueur dessinée le long de l'axe, à un pas près.
-        static void Axe(List<(Vector3[] s,int[] t,Vector2[] uv)> rel,int i,double ax,double ay,double ux,double uy,double w,double longueur)
-        {
-            double lo=1e9,hi=-1e9,large=0;foreach(var v in rel[i].s){double px=-v.x-ax,py=-v.z-ay,a=px*ux+py*uy;lo=Math.Min(lo,a);hi=Math.Max(hi,a);large=Math.Max(large,Math.Abs(px*uy-py*ux));}
-            Cas(Math.Abs(large-w/2)<.01&&Math.Abs(hi-lo-longueur)<=DesertRues1400.Pas,"rue "+i+" : demi-largeur "+large.ToString("F3")+", longueur "+(hi-lo).ToString("F2")+" sur "+longueur.ToString("F2"));
-        }
+        static void Axe(List<(Vector3[] s,int[] t,Vector2[] uv)> rel,int i,double ax,double ay,double ux,double uy,double w,double longueur){double lo=1e9,hi=-1e9,large=0;
+            foreach(var v in rel[i].s){double px=-v.x-ax,py=-v.z-ay,a=px*ux+py*uy;lo=Math.Min(lo,a);hi=Math.Max(hi,a);large=Math.Max(large,Math.Abs(px*uy-py*ux));}
+            Cas(Math.Abs(large-w/2)<.01&&Math.Abs(hi-lo-longueur)<=DesertRues1400.Pas,"rue "+i+" : demi-largeur "+large.ToString("F3")+", longueur "+(hi-lo).ToString("F2")+" sur "+longueur.ToString("F2"));}
     }
 }
