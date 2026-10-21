@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.UI;
 namespace ForgeLocal3D.Captures
 {
-    // Lot 657 : Mistra, prélèvement à 60 %, puis trente ticks au plus. `-forge657RetirerLieu` retire un disque attendu.
+    // Lot 657 : Mistra, prélèvement à 60 %, puis trente ticks (au plus si la chaîne part du tick 30). `-forge657RetirerLieu` retire un disque attendu.
     static class Lot657
     {
         const string SIEGE = "Mistra", RETIRER = "-forge657RetirerLieu", CONFIRMER = "Confirmer l\u2019ordre"; const int IMAGES = 10, TICKS = 30;
@@ -39,11 +39,11 @@ namespace ForgeLocal3D.Captures
             if (Math.Abs(curseur.value - 60f) > 0.01f || saisie == null || saisie.text != "60") throw Echec("curseur " + curseur.value);
             Bouton("Préparer").onClick.Invoke(); yield return null; Bouton(CONFIRMER).onClick.Invoke();
             for (var e = Lot690.Jusqua(() => commandes.Ordre.Recu != null && commandes.Ordre.Recu.Acceptee, () => "reçu « " + Ligne(commandes.MessageAffiche) + " »"); e.MoveNext();) yield return null;
-            // Un tick à la fois, trente au plus, jusqu'aux trois états : lancée par la chaîne (tick 30), 10340 n'a plus d'autre maître sans perte nette dès le tick 53.
-            long apres = commandes.Ordre.Recu.AppliqueeAuTick.Value; List<Pt> pts = null; int pousses = 0;
-            for (; pousses < TICKS && (pts == null || Manque(pts) != null); pousses++) { var un1 = Lot690.PousserTick(port); for (var e = Lot690.Attendre(un1, "tick"); e.MoveNext();) yield return null; if (un1.Result.statut != 200) throw Echec("tick " + un1.Result.corps);
-                long t = ++apres; var lu = Task.Run(() => Lire(port, maison, t)); for (var e = Lot690.Attendre(lu, "référence"); e.MoveNext();) yield return null; pts = lu.Result; }
-            if (pts.Count == 0) throw Echec("aucun lieu servi"); if (Manque(pts) != null) throw Echec(Manque(pts) + " après " + pousses + " ticks");
+            // Lancement nominal (tick 0) : trente ticks pleins, lecture et contrôle au tick 31. Lancée par la chaîne (tick 30), arrêt aux trois états : 10340 n'a plus d'autre maître sans perte nette dès le tick 53.
+            long apres = commandes.Ordre.Recu.AppliqueeAuTick.Value; List<Pt> pts = null; int pousses = 0; bool nominal = tick == 0;
+            for (; pousses < TICKS && (nominal || pts == null || Manque(pts) != null); pousses++) { var un1 = Lot690.PousserTick(port); for (var e = Lot690.Attendre(un1, "tick"); e.MoveNext();) yield return null; if (un1.Result.statut != 200) throw Echec("tick " + un1.Result.corps);
+                long t = ++apres; if (nominal && pousses < TICKS - 1) continue; var lu = Task.Run(() => Lire(port, maison, t)); for (var e = Lot690.Attendre(lu, "référence"); e.MoveNext();) yield return null; pts = lu.Result; }
+            if (nominal && apres != TICKS + 1) throw Echec("relecture au tick " + N(apres) + ", attendu " + N(TICKS + 1)); if (pts.Count == 0) throw Echec("aucun lieu servi"); if (Manque(pts) != null) throw Echec(Manque(pts) + " après " + pousses + " ticks");
             for (var e = Lot690.Jusqua(() => Pret(vue, pts, apres), () => "légende « " + Ligne(vue.TexteLegende) + " » disques " + Disques()); e.MoveNext();) yield return null;
             Cadrer(pts); yield return null; Lot549.Photographier(camera, carte); camera.rect = new Rect(0f, 0f, 1f, 1f);
             var canvas = toile.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = camera.nearClipPlane + 0.2f;
