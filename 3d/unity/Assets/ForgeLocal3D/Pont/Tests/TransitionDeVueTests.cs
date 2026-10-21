@@ -145,5 +145,15 @@ namespace Forge.Pont.Tests {
             lock (recues) tardifMs = 1000; Servir(); var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); AttendreRecues(1); Thread.Sleep(200); var lancee = Revenir(c);
             CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(0), "GET /horloge" }, Recues(), "une réponse tardive remet la carte à 0");
             Assert.AreEqual(0, VitesseServie()); Assert.AreEqual(0, c.VitessePosee); Assert.IsNull(lancee.VitessePosee); }
+        [Test] public void Un_post_de_pause_plus_lent_que_le_delai_reseau_est_applique_avant_le_retour() {
+            lock (recues) tardifMs = 3000; Servir(); var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); AttendreRecues(1); Thread.Sleep(200); var lancee = Revenir(c);
+            Assert.AreEqual(2, recuesAuChargement, "la transition part avant l'application du POST");
+            CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(0), "GET /horloge" }, Recues(), "un POST expiré remet la carte à 0");
+            Assert.AreEqual(0, VitesseServie()); Assert.AreEqual(0, c.VitessePosee); Assert.IsNull(lancee.VitessePosee); }
+        [Test] public void Espace_apres_le_retour_n_envoie_rien() {
+            lock (recues) tardifMs = 1000; Servir(); var c = new CommandesDeVille(port); double debut = Time.realtimeSinceStartupAsDouble; var lancee = c.Retour(); Brancher(lancee);
+            Assert.IsFalse(c.Basculer(), "Espace part après le retour"); Derouler(debut); Thread.Sleep(1500);
+            double carte = ReglagesDesVues.Charger().VitesseCarte; CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(carte) }, Recues(), "un POST 0 est reçu");
+            Assert.AreEqual(carte, VitesseServie()); Assert.AreEqual(carte, lancee.VitessePosee); }
     }
 }
