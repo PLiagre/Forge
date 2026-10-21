@@ -18,6 +18,7 @@ namespace Forge.Interface
         public Func<long, LectureLieu> Lecteur; public Text Legende { get; private set; }
         public string TexteLegende => Legende != null ? Legende.text : null;
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
+        public event Action<string, IReadOnlyList<(long cell, LectureLieu lieu)>> Applique; // #658 : la maison et la réponse appliquée ; maison nulle quand l'ancien domaine est vidé
         CarteDessinee carte; CabinetDeCarte cabinet; Transform racine; Material bord; Image fond;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
         readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
@@ -37,7 +38,7 @@ namespace Forge.Interface
         public static Color CouleurDuMaitre(string id) { uint h = 2166136261u; for (int i = 0; i < id.Length; i++) { h ^= id[i]; h *= 16777619u; } return Color.HSVToRGB(TEINTE_MIN + ETENDUE_TEINTE * (h % PAS_DE_TEINTE) / PAS_DE_TEINTE, SATURATION, VALEUR); }
         public void Pas(double t)
         {
-            string id = Maison(); if (id != peinte) { Vider(); peinte = id; if (Legende != null) Afficher(ENTETE); }
+            string id = Maison(); if (id != peinte) { Vider(); peinte = id; if (Legende != null) Afficher(ENTETE); Applique?.Invoke(null, null); }
             if (vol != null && vol.IsCompleted) { var fini = vol; vol = null; if (id != null && !fini.IsFaulted && fini.Result.Maison == id) Appliquer(fini.Result); }
             if (vol != null || id == null || t < prochaine || carte == null || carte.PositionSurLaCarte(default, 0f) == null) return;
             var cells = Cellules(); var lire = Lecteur ?? Lire; prochaine = t + PERIODE_S; string maison = id;
@@ -65,7 +66,7 @@ namespace Forge.Interface
                 }
             }
             if (racine != null) for (int i = racine.childCount - 1; i >= 0; i--) { var e = racine.GetChild(i); if (!garder.Contains(e.name)) Detruire(e.gameObject); }
-            Afficher(sb.ToString());
+            Afficher(sb.ToString()); Applique?.Invoke(p.Maison, p.Cellules);
         }
         void Poser(string couple, Vector3 local, Color couleur, HashSet<string> garder)
         {
