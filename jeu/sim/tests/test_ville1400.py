@@ -686,8 +686,9 @@ def _lisible_par_le_pont(base, cell_id):
     """Les exigences de `ClientPlan` (Unity) sur `base` : une base qu'il refuserait refuse tout le plan."""
     nombre = lambda v: type(v) in (int, float) and math.isfinite(v)  # noqa: E731
     def points(liste, minimum):
-        assert len(liste) >= minimum and all(len(p) == 2 and all(map(nombre, p)) for p in liste), "points"
-    assert base["cell_id"] == cell_id, "cell_id"
+        assert type(liste) is list and len(liste) >= minimum and all(type(p) is list and len(p) == 2 and all(map(nombre, p)) for p in liste), "points"
+    assert type(base) is dict and nombre(base["cell_id"]) and base["cell_id"] == cell_id, "cell_id"
+    assert all(type(base[cle]) is list and all(type(o) is dict for o in base[cle]) for cle in ("rues", "maisons")), "rues ou maisons : un tableau d'objets"
     points(base["place"], 3)
     for rue in base["rues"]:
         points(rue["points"], 2)
@@ -695,15 +696,15 @@ def _lisible_par_le_pont(base, cell_id):
         assert type(rue["sorte"]) is str and rue["sorte"].strip(), "sorte"
     for maison in base["maisons"]:
         points(maison["emprise"], 3)
-        assert nombre(maison["foyers"]) and maison["foyers"] % 1 == 0 and maison["foyers"] >= 1, "foyers"
+        assert nombre(maison["foyers"]) and maison["foyers"] % 1 == 0 and 1 <= maison["foyers"] < 2**53, "foyers"  # `Entier` refuse dès 2^53
 
 
 def test_pont_bases_lisibles(campagne):
     assert len(campagne.bases) == len(campagne.monde.cells) > 0 and any(b["maisons"] for b in campagne.bases.values()), "échantillon vide"
     for cell_id, base in campagne.bases.items():
         _lisible_par_le_pont(json.loads(json.dumps(base)), cell_id)
-    for liste, cle in (("rues", "largeur_m"), ("maisons", "foyers")):
+    for liste, cle, valeur in (("rues", "largeur_m", 0), ("maisons", "foyers", 0), ("maisons", "foyers", 2**53), ("rues", None, {}), ("maisons", None, {})):
         alt = copy.deepcopy(campagne.bases[10103])
-        alt[liste][0][cle] = 0
-        with pytest.raises(AssertionError, match=cle):
+        (alt[liste][0] if cle else alt)[cle or liste] = valeur
+        with pytest.raises(AssertionError, match=cle or liste):
             _lisible_par_le_pont(alt, 10103)
