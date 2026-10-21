@@ -396,18 +396,55 @@ def _apply_extraction(cell: Cell, carte: dict) -> None:
         _lieux.accorder_marchandise(cell, ressource)
 
 
-def _facteur_bras_pour_cellule(cell: Cell, carte: dict | None) -> float:
-    """Surface travaillée hors saison ; seuls les paysans apportent des bras."""
+def _verser_recolte(cell, recolte, carte, saison, recoltes):
+    """Besoin commun, manque local ; le partage historique survit à bras suffisants."""
     km2_cultives = cell.area_km2
     if carte:
         km2_cultives *= _facteur_relief_pour_cellule(cell, carte)
         km2_cultives *= _facteur_eau_pour_cellule(cell, carte)
         km2_cultives *= _facteur_agricole(cell, carte)
-    return foyers.facteur_bras(lire_habitants_par_metier(cell), km2_cultives)
+    km2_cultives *= saison
+    metiers = lire_habitants_par_metier(cell)
+    facteur = foyers.facteur_bras(metiers, km2_cultives)
+    parts = None
+    if cell.lieux and metiers != -1 and km2_cultives > 0:
+        surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+        cultives_par_km2 = km2_cultives / cell.area_km2
+        besoin_par_km2 = foyers.besoin_bras(cultives_par_km2)
+        non_paysans = cell.population - metiers.get(_constantes.METIER_PAYSANS, 0)
+        for lieu in cell.lieux:
+            paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
+            if paysans < surfaces[lieu.rang] * besoin_par_km2:
+                locaux = dict(metiers) if lieu.rang == 0 else {}
+                locaux[_constantes.METIER_PAYSANS] = paysans
+                local = foyers.facteur_bras(locaux, surfaces[lieu.rang] * cultives_par_km2)
+                if local < 1:
+                    if parts is None:
+                        parts = [recolte * surface / cell.area_km2 for surface in surfaces]
+                    parts[lieu.rang] *= local
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    if not cell.lieux:
+        recolte *= facteur
+    avant = max(0.0, lire_stock_marchandise(cell, nourriture))
+    stocks = [max(0.0, lire_stock_marchandise(l, nourriture)) for l in cell.lieux] if parts is not None else None
+    produite = recolte if parts is None else sum(parts)
+    ecrire_stock_marchandise(cell, nourriture, avant + produite)
+    if cell.lieux:
+        if recoltes is None:
+            _produire_sur_les_lieux(cell, produite)
+        else:
+            _produire_sur_les_lieux(cell, produite, recoltes)
+        if parts is not None:
+            parts[0] = produite - sum(parts[1:])
+            for lieu, stock in zip(cell.lieux, stocks):
+                ecrire_stock_marchandise(lieu, nourriture, stock + parts[lieu.rang])
+            _lieux.corriger_residu_au_bourg(cell, nourriture)
+            if recoltes is not None:
+                recoltes[cell.cell_id] = parts
 
 
 def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:
-    """La récolte pousse sur chaque surface, indépendamment des habitants."""
+    """Partage à bras suffisants ; le manque local est appliqué par l’appelant."""
     nourriture = _constantes.MARCHANDISE_NOURRITURE
     quantites = None if recoltes is None else [0.0] * len(cell.lieux)
     if quantites is not None:
@@ -441,19 +478,12 @@ def _apply_production(
     Traite la sentinelle -1 comme un stock initial nul.
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+    saison = _facteur_saison_pour_cellule(cell, carte, jour) if carte and jour is not None else 1.0
     if carte:
-        food_produced = production_du_tick_kg(cell, yield_factor, carte, jour=jour)
+        food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
     else:
         food_produced = production_kg(cell, yield_factor)
-    food_produced *= _facteur_bras_pour_cellule(cell, carte)
-    current = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
-    current = current if current >= 0 else 0.0
-    ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)
-    if cell.lieux:
-        if recoltes is None:
-            _produire_sur_les_lieux(cell, food_produced)
-        else:
-            _produire_sur_les_lieux(cell, food_produced, recoltes)
+    _verser_recolte(cell, food_produced, carte, saison, recoltes)
 
 
 def _apply_production_saison_moyenne(
@@ -467,16 +497,9 @@ def _apply_production_saison_moyenne(
     et reproduit l'ancien régime de production.
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
-    food_produced = _production_du_tick_kg_saison_moyenne(cell, yield_factor, carte)
-    food_produced *= _facteur_bras_pour_cellule(cell, carte)
-    current = lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE)
-    current = current if current >= 0 else 0.0
-    ecrire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE, current + food_produced)
-    if cell.lieux:
-        if recoltes is None:
-            _produire_sur_les_lieux(cell, food_produced)
-        else:
-            _produire_sur_les_lieux(cell, food_produced, recoltes)
+    saison = _constantes.facteur_saison_moyen_annuel(*_lire_solstices(cell, carte))
+    food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
+    _verser_recolte(cell, food_produced, carte, saison, recoltes)
 
 
 def _cle_arête(a_id: int, b_id: int, *, raccourci=True) -> tuple[int, int]:
