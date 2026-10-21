@@ -261,6 +261,17 @@ aucun rapport. Le jugement sera celui de `pc/epreuve_ville1400.py`, à venir. Ra
 jouer [10103](../../docs/mesures/739-session-ville1400/jouer-10103.json), [1175](../../docs/mesures/739-session-ville1400/jouer-1175.json), [1232](../../docs/mesures/739-session-ville1400/jouer-1232.json), [10337](../../docs/mesures/739-session-ville1400/jouer-10337.json) ;
 relance [10103](../../docs/mesures/739-session-ville1400/relance-10103.json), [1175](../../docs/mesures/739-session-ville1400/relance-1175.json), [1232](../../docs/mesures/739-session-ville1400/relance-1232.json), [10337](../../docs/mesures/739-session-ville1400/relance-10337.json).
 
+## La session de l'épreuve de la transition
+
+Le joueur va de la carte à Biskra par un double-clic et revient par C (lot #732, moitié Unity de l'épreuve qui suivra #410).
+Préparation, service neuf à chaque essai : `py -m sim.service --seed 0 --jours-par-seconde 0` depuis `jeu/`, la terre au siège Biskra
+choisie par `POST /intention`, puis `POST /tick?n=1` ; en marche seulement, `POST /vitesse` à `VITESSE_CARTE`. Puis, éditeur fermé :
+`Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveTransition.Jouer -forgeEpreuve <rapport.json> [-logFile <journal>]`.
+La session ne choisit rien, ne pousse ni tick ni vitesse : elle lit `/horloge` une fois dans `carte_avant`, `ville_apres`, `ville_avant`
+(une seconde plus tard) et `carte_apres` (`tick`, `jours_par_seconde`, `scene`), et `cellule` sur l'outil de la ville. **0** les quatre
+lectures et l'aller-retour finis, quoi qu'ils valent ; **1** session impossible (`defaut` dit l'étape et la cause, −1 aux relevés non
+faits) ; **2** arguments fautifs, aucun rapport. Rapports du 21 octobre 2026 : [en marche](../../docs/mesures/732-session-transition/rapport-marche.json), [en pause](../../docs/mesures/732-session-transition/rapport-pause.json).
+
 ## L'épreuve du choix
 
 Le joueur peut se fier à son geste (lot #652, épreuve #615) : la terre qu'il

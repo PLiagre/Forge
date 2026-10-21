@@ -1,0 +1,9 @@
+Lot #732, PC Windows 11 (Unity 6000.0.43f1), révision edb9a729 + EpreuveTransition.cs, 21/10/2026. S = Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveTransition.Jouer -forgeEpreuve <rapport> -logFile %TEMP%\lot732.log
+ROUGE avant le code, 22:50 : S -> 1, « executeMethod class 'EpreuveTransition' could not be found », aucun rapport.
+SC1 mesure, 22:56, préparation en marche (Biskra, tick 1, POST /vitesse 6) : S -> 0 ; ticks 35/37/37/39, vitesses 6/0.1/0.1/6 ; contrôle SC1 -> 0. Copies : une vitesse changée -> 1, ville_avant retirée -> 1.
+SC2 mesure, 22:57, préparation en pause : S -> 0 ; ticks 1/1/1/1, vitesses 0/0/0/0 ; contrôle SC2 -> 0. Copie avec -1 au lieu d'un 0 -> 1.
+SC3 MUTÉE, 22:53, client.Regler(v) -> client.Lire() dans TransitionDeVue.Regler, en marche : S -> 0, défaut vide, vitesses 6/6/6/6 ; contrôle SC1 -> 1. Fichier restauré aussitôt (git diff vide) ; rapport muté non versé.
+SC4 mesure, 22:55, service arrêté : S -> 1 en 56 s, défaut « 2. carte et maison : carte de 0 cellules posées sur -1 (« le monde ne répond pas… »)… en 30 s », relevés à -1 ; contrôle SC4 -> 0, copie à quatre zéros -> 1. Sans -forgeEpreuve -> 2 ; -forgeEpreuve -logFile <journal> -> 2 ; aucun rapport neuf.
+SC5 mesure, 22:59 : -runTests EditMode Forge.Pont.Tests -> 0, 732 cas, 732 passés, 0 échec (TransitionDeVueTests 28, PassageALaCapitaleTests 25) ; py pc\epreuve_capitale.py --sortie %TEMP%\lot732-capitale -> 0.
+Les contrôles py -c ont été joués depuis bash : PowerShell 5.1 retire les guillemets doubles d'un argument natif (NameError: utf), sans rapport avec la session.
+SC1 et SC2 rejoués sur le code final (message de défaut de l'étape 2 précisé après le premier SC4) ; les rapports versés sont ces derniers, compactés sans changer un champ.
