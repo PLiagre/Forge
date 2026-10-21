@@ -150,8 +150,14 @@ namespace ForgeLocal3D
                 yield return null;
             }
             r.ordre = EpreuveChoix.Relever(commandes.Ordre.Recu); r.message_ordre = commandes.MessageAffiche ?? "";
-            r.ticks_part = 0; Task<(int faits, string echec)> boucle = Task.Run(() => Pousser(port, TICKS));
-            for (var e = Lot690.Attendre(boucle, "trente ticks"); e.MoveNext();) yield return null;
+            // Une absence n'est pas un refus : 400 ou 409 poursuivent les trente ticks ; la réponse HTTP manquante se déclare.
+            if (commandes.Ordre.Recu != null && !commandes.Ordre.Recu.Presente) { r.defaut = commandes.Ordre.Recu.Absence; yield break; }
+            // Chaque confirmation publie le compteur. Le rapport n'est écrit qu'une fois les envois arrêtés.
+            var stop = new System.Threading.CancellationTokenSource();
+            r.ticks_part = 0; var boucle = Task.Run(() => Pousser(port, TICKS, r, stop.Token));
+            for (double fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S * TICKS; !boucle.IsCompleted && Time.realtimeSinceStartupAsDouble <= fin;) yield return null;
+            stop.Cancel(); while (!boucle.IsCompleted) yield return null; stop.Dispose();
+            if (boucle.IsFaulted) throw new InvalidOperationException("trente ticks : " + (boucle.Exception == null ? boucle.Status.ToString() : boucle.Exception.GetBaseException().Message));
             r.ticks_part = boucle.Result.faits;
             if (boucle.Result.echec != null) throw new InvalidOperationException(boucle.Result.echec);
             Task<Lecture<MondeAvecMaisonLu>> fini = Lot690.LireMonde(port);
@@ -181,12 +187,13 @@ namespace ForgeLocal3D
             Text[] t = racine.GetComponentsInChildren<Text>(true);
             return t.FirstOrDefault(x => x.name == "Lecture des réserves\u2026") ?? t.FirstOrDefault(x => x.text != null && x.text.StartsWith("Prélèvement :"));
         }
-        // Un 200 dont le corps nomme un tick confirme l'exécution. Les autres s'arrêtent, sans les compter.
-        static (int faits, string echec) Pousser(int port, int nombre)
+        // Un 200 dont le corps nomme un tick confirme l'exécution et publie le compteur. L'arrêt empêche l'envoi suivant.
+        static (int faits, string echec) Pousser(int port, int nombre, Rapport r, System.Threading.CancellationToken stop)
         {
             int faits = 0;
             for (int i = 0; i < nombre; i++)
             {
+                if (stop.IsCancellationRequested) return (faits, "envois arrêtés après " + faits + " ticks confirmés");
                 try
                 {
                     var rep = Lot690.PousserTick(port).GetAwaiter().GetResult();
@@ -194,7 +201,7 @@ namespace ForgeLocal3D
                         return (faits, "POST /tick?n=1 a rendu " + rep.statut + " : " + rep.corps);
                 }
                 catch (Exception e) { return (faits, "POST /tick?n=1 : " + e.GetBaseException().Message); }
-                faits++;
+                r.ticks_part = ++faits;
             }
             return (faits, null);
         }
