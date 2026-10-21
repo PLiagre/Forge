@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Forge.Interface;
 using Forge.Pont;
@@ -11,10 +10,10 @@ using UnityEngine;
 using UnityEngine.UI;
 namespace ForgeLocal3D.Captures
 {
-    // Lot 657 : Mistra, prélèvement à 60 %, trente ticks. `-forge657RetirerLieu` retire un disque attendu.
+    // Lot 657 : Mistra, prélèvement à 60 %, puis trente ticks au plus. `-forge657RetirerLieu` retire un disque attendu.
     static class Lot657
     {
-        const string SIEGE = "Mistra", RETIRER = "-forge657RetirerLieu", CONFIRMER = "Confirmer l\u2019ordre"; const int IMAGES = 10;
+        const string SIEGE = "Mistra", RETIRER = "-forge657RetirerLieu", CONFIRMER = "Confirmer l\u2019ordre"; const int IMAGES = 10, TICKS = 30;
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         static CarteDessinee carte; static Transform toile, racine; static CommandesMaison commandes; static string maison; static int port;
         static string N(long v) => v.ToString(Inv); static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
@@ -40,10 +39,11 @@ namespace ForgeLocal3D.Captures
             if (Math.Abs(curseur.value - 60f) > 0.01f || saisie == null || saisie.text != "60") throw Echec("curseur " + curseur.value);
             Bouton("Préparer").onClick.Invoke(); yield return null; Bouton(CONFIRMER).onClick.Invoke();
             for (var e = Lot690.Jusqua(() => commandes.Ordre.Recu != null && commandes.Ordre.Recu.Acceptee, () => "reçu « " + Ligne(commandes.MessageAffiche) + " »"); e.MoveNext();) yield return null;
-            long apres = commandes.Ordre.Recu.AppliqueeAuTick.Value + 30; var trente = Pousser(port, 30); for (var e = Lot690.Attendre(trente, "trente ticks"); e.MoveNext();) yield return null;
-            if (trente.Result.statut != 200) throw Echec("trente ticks " + trente.Result.statut + " " + trente.Result.corps);
-            var lu = Task.Run(() => Lire(port, maison, apres)); for (var e = Lot690.Attendre(lu, "référence"); e.MoveNext();) yield return null;
-            var pts = lu.Result; if (pts.Count == 0) throw Echec("aucun lieu servi");
+            // Un tick à la fois, trente au plus, jusqu'aux trois états : lancée par la chaîne (tick 30), 10340 n'a plus d'autre maître sans perte nette dès le tick 53.
+            long apres = commandes.Ordre.Recu.AppliqueeAuTick.Value; List<Pt> pts = null; int pousses = 0;
+            for (; pousses < TICKS && (pts == null || Manque(pts) != null); pousses++) { var un1 = Lot690.PousserTick(port); for (var e = Lot690.Attendre(un1, "tick"); e.MoveNext();) yield return null; if (un1.Result.statut != 200) throw Echec("tick " + un1.Result.corps);
+                long t = ++apres; var lu = Task.Run(() => Lire(port, maison, t)); for (var e = Lot690.Attendre(lu, "référence"); e.MoveNext();) yield return null; pts = lu.Result; }
+            if (pts.Count == 0) throw Echec("aucun lieu servi"); if (Manque(pts) != null) throw Echec(Manque(pts) + " après " + pousses + " ticks");
             for (var e = Lot690.Jusqua(() => Pret(vue, pts, apres), () => "légende « " + Ligne(vue.TexteLegende) + " » disques " + Disques()); e.MoveNext();) yield return null;
             Cadrer(pts); yield return null; Lot549.Photographier(camera, carte); camera.rect = new Rect(0f, 0f, 1f, 1f);
             var canvas = toile.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = camera.nearClipPlane + 0.2f;
@@ -64,9 +64,7 @@ namespace ForgeLocal3D.Captures
         }
         static void Controler(Camera camera, List<Pt> pts, long tick)
         {
-            bool blanc = false, rouge = false, autre = false;
-            foreach (var p in pts) { string couple = N(p.Cell) + "-" + N(p.Rang); var disque = Disque(p.Cell, p.Rang); var rendu = disque != null ? disque.GetComponent<MeshRenderer>() : null; if (disque == null || !disque.gameObject.activeInHierarchy || rendu == null || !rendu.enabled) throw Echec("couple manquant " + couple); Vector3 attendu = carte.transform.TransformPoint(carte.PositionSurLaCarte(new PointCarte(p.X, p.Y), ReperesDeDepart.HAUTEUR_LIEU).Value); Color couleur = p.Rouge ? LieuxDeCarte.ROUGE : p.Maitre == maison ? ReperesDeDepart.COULEUR_JOUEUR : LieuxDeCarte.CouleurDuMaitre(p.Maitre); if ((disque.position - attendu).sqrMagnitude > 1e-4f || !((Color32)rendu.sharedMaterial.color).Equals((Color32)couleur)) throw Echec("couple " + couple + " mal placé ou mal coloré"); string panneau = SousPanneau(camera, disque.position); if (panneau != null) throw Echec("couple " + couple + " " + panneau); if (p.Rouge) rouge = true; else if (p.Maitre == maison) blanc = true; else autre = true; }
-            if (!blanc || !rouge || !autre) throw Echec("états manquants : blanc " + blanc + ", rouge " + rouge + ", autre maître " + autre);
+            foreach (var p in pts) { string couple = N(p.Cell) + "-" + N(p.Rang); var disque = Disque(p.Cell, p.Rang); var rendu = disque != null ? disque.GetComponent<MeshRenderer>() : null; if (disque == null || !disque.gameObject.activeInHierarchy || rendu == null || !rendu.enabled) throw Echec("couple manquant " + couple); Vector3 attendu = carte.transform.TransformPoint(carte.PositionSurLaCarte(new PointCarte(p.X, p.Y), ReperesDeDepart.HAUTEUR_LIEU).Value); Color couleur = p.Rouge ? LieuxDeCarte.ROUGE : p.Maitre == maison ? ReperesDeDepart.COULEUR_JOUEUR : LieuxDeCarte.CouleurDuMaitre(p.Maitre); if ((disque.position - attendu).sqrMagnitude > 1e-4f || !((Color32)rendu.sharedMaterial.color).Equals((Color32)couleur)) throw Echec("couple " + couple + " mal placé ou mal coloré"); string panneau = SousPanneau(camera, disque.position); if (panneau != null) throw Echec("couple " + couple + " " + panneau); }
             if (Disques() != pts.Count) throw Echec("disques " + Disques() + " pour " + pts.Count);
             var legende = toile.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.name == "Légende des lieux");
             if (legende == null || !legende.text.Contains(LieuxDeCarte.ENTETE) || legende.text.Contains("même instant") || legende.preferredHeight > legende.rectTransform.rect.height + 1f) throw Echec("légende « " + Ligne(legende != null ? legende.text : null) + " »");
@@ -81,6 +79,7 @@ namespace ForgeLocal3D.Captures
             foreach (var image in toile.GetComponentsInChildren<Image>(false)) { if (!image.raycastTarget || !image.gameObject.activeInHierarchy) continue; var coins = new Vector3[4]; image.rectTransform.GetWorldCorners(coins); float x0 = 1f, x1 = 0f, y0 = 1f, y1 = 0f; for (int i = 0; i < 4; i++) { Vector3 p = camera.WorldToViewportPoint(coins[i]); x0 = Mathf.Min(x0, p.x); x1 = Mathf.Max(x1, p.x); y0 = Mathf.Min(y0, p.y); y1 = Mathf.Max(y1, p.y); } if (v.x >= x0 && v.x <= x1 && v.y >= y0 && v.y <= y1) return "sous « " + image.name + " »"; }
             return null;
         }
+        static string Manque(List<Pt> pts) { bool b = pts.Any(p => !p.Rouge && p.Maitre == maison), r = pts.Any(p => p.Rouge), a = pts.Any(p => !p.Rouge && p.Maitre != maison); return b && r && a ? null : "états manquants : blanc " + b + ", rouge " + r + ", autre maître " + a; }
         static List<Pt> Lire(int port, string id, long tick)
         {
             using (var monde = new ClientMonde(port, TimeSpan.FromSeconds(20))) using (var maisons = new ClientMaison(port, ClientDeparts.DelaiMinimal)) using (var lieux = new ClientLieu(port, TimeSpan.FromSeconds(20)))
@@ -99,6 +98,5 @@ namespace ForgeLocal3D.Captures
         static Transform Disque(long cell, long rang) => carte.transform.Find(LieuxDeCarte.RACINE + "/" + ReperesDeDepart.NomDuLieu(cell, rang) + "/Disque");
         static int Disques() { var r = carte.transform.Find(LieuxDeCarte.RACINE); if (r == null) return 0; int n = 0; foreach (Transform e in r) { var d = e.Find("Disque"); if (d != null && d.gameObject.activeInHierarchy) n++; } return n; }
         static Button Bouton(string nom) { var t = racine.GetComponentsInChildren<Button>(true).Where(b => b.name == nom).ToArray(); if (t.Length != 1) throw Echec(t.Length + " boutons « " + nom + " »"); return t[0]; }
-        static Task<(int statut, string corps)> Pousser(int port, int n) => Task.Run(() => { using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(25) }) using (var contenu = new ByteArrayContent(new byte[0])) using (var reponse = http.PostAsync("http://127.0.0.1:" + port.ToString(Inv) + "/tick?n=" + n.ToString(Inv), contenu).GetAwaiter().GetResult()) return ((int)reponse.StatusCode, reponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()); });
     }
 }
