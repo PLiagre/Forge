@@ -64,6 +64,8 @@ namespace ForgeLocal3D
         // Lot 737 : les maisons de la base, jamais mêlées aux bâtiments de geste.
         DesertMaisons1400 maisons;
         public DesertMaisons1400 Maisons=>maisons;
+        // Lot 738 : les rues de la base en rubans posés sur le sable, redessinés avec les maisons, juste avant elles.
+        DesertRues1400 rues1400;public DesertRues1400 Rues1400=>rues1400;
         public int PiecesAvantMaisons{get;private set;}=-1;
         public string EmpreinteAvantMaisons{get;private set;}="";
         ClientIntention depot;ClientPlan plan;string erreurCellule;
@@ -111,7 +113,7 @@ namespace ForgeLocal3D
             // Sans kit, aucun bâtiment n'est jamais dessiné : le panneau le dit.
             try{batiments=new DesertBatiments(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurBatiments=e.Message;}
-            maisons=new DesertMaisons1400(transform,roads.terrain);
+            rues1400=new DesertRues1400(transform,roads.terrain,roads.terreBattue);maisons=new DesertMaisons1400(transform,roads.terrain);
             Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
         }
         void Start()=>Ouvrir();
@@ -389,7 +391,7 @@ namespace ForgeLocal3D
             Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments));
             PiecesAvantMaisons=batiments.Racine.childCount;EmpreinteAvantMaisons=batiments.Empreinte;
             return string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
-                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)))+"\n"+maisons.Dessiner(lu.Base);
+                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)))+"\n"+rues1400.Dessiner(lu.Base)+"\n"+maisons.Dessiner(lu.Base);
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux

@@ -35,11 +35,15 @@ namespace ForgeLocal3D.Captures
             var outil=Object.FindFirstObjectByType<DesertRoadTool>()??throw new InvalidOperationException("pas d'outil");
             var ville=camera.GetComponent<DesertCityCamera>()??throw new InvalidOperationException("pas de caméra de ville");
             ville.automatique=true;if(ville.Marcheur)ville.Marcheur.automatic=true;var plan=Lot362.Lire(outil.Port,outil.Cellule);
+            var (rue,mil)=RueBordee(plan);for(var e=AHauteurDHomme(camera,outil,ville,rue,mil);e.MoveNext();)yield return e.Current;}
+        internal static (RueDeBase rue,Vector2 mil) RueBordee(PlanLu plan){
             RueDeBase rue=null;float mieux=1e9f;Vector2 mil=default;
             foreach(var r in plan.Base.Rues){var a=r.Points[0];var b=r.Points[r.Points.Count-1];var m=new Vector2((float)((a.X+b.X)*.5),(float)((a.Y+b.Y)*.5));float dist=1e9f;
                 foreach(var h in plan.Base.Maisons){float cx=0,cy=0;foreach(var p in h.Emprise){cx+=(float)p.X;cy+=(float)p.Y;}dist=Mathf.Min(dist,Vector2.Distance(m,new Vector2(cx/h.Emprise.Count,cy/h.Emprise.Count)));}
                 if(dist>4f&&dist<mieux){mieux=dist;rue=r;mil=m;}}
             if(rue==null)throw new InvalidOperationException("aucune rue bordée de maisons");
+            return (rue,mil);}
+        internal static IEnumerator AHauteurDHomme(Camera camera,DesertRoadTool outil,DesertCityCamera ville,RueDeBase rue,Vector2 mil){
             var p0=rue.Points[0];var p1=rue.Points[rue.Points.Count-1];
             bool vers0=p0.X*p0.X+p0.Y*p0.Y<=p1.X*p1.X+p1.Y*p1.Y;float dx=(float)(vers0?p1.X-p0.X:p0.X-p1.X),dy=(float)(vers0?p1.Y-p0.Y:p0.Y-p1.Y);ville.Poser(new Vector3(-mil.x,0,-mil.y),Mathf.Atan2(dx,dy)*Mathf.Rad2Deg,12f,14f);ville.Descendre();
             for(int i=0;i<6;i++)yield return null;outil.Placer();int vues=0;
