@@ -243,6 +243,13 @@ Verdicts du 18 octobre 2026 :
 [normal](../../docs/mesures/703-epreuve-capitale/verdict-normal.txt),
 [jugement d'une copie, pas une mesure PC](../../docs/mesures/703-epreuve-capitale/verdict-contre-epreuve.txt).
 
+## L'épreuve de la part
+
+Le joueur se fie à sa part et à son grenier (lot #764, épreuve #660). Éditeur fermé, port 8000 libre, depuis la racine :
+`py pc\epreuve_part.py --sortie <dossier> [--part-forte P] [--part-faible P] [--unity CHEMIN]` (entiers de 0 à 60, défauts 50 et 10).
+Deux services neufs en pause, graine 0, l'un après l'autre : forte puis faible, la Morée trouvée par son nom. Unity (`ForgeLocal3D.EpreuvePart.Jouer`) joue le curseur, la confirmation et les trente ticks ; Python lit seulement `/monde` et le corps brut de `/maison` avant d'arrêter le service, puis le [juge de #763](../../pc/epreuve_part.py) compare. **0** égalité, **1** écart, **2** épreuve impossible (Unity absent, port pris, part illisible, session, rapport ou lecture en panne ; l'essai est nommé).
+Contre-épreuve : `--part-forte 10` rend **1**, seul `grenier` en écart. Verdicts PC du 22 octobre 2026 : [normal](../../docs/mesures/660-epreuve-part/verdict-normal.txt), [contre-épreuve](../../docs/mesures/660-epreuve-part/verdict-contre-epreuve.txt).
+
 ## La session de l'épreuve de la ville de 1400
 
 Unity ouvre quatre villes de 1400 comme le joueur et relève, maison par maison, ce qu'il a posé (lot #739, moitié Unity
