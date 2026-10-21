@@ -83,6 +83,44 @@ namespace Forge.Pont
         }
     }
 
+    // La ville de 1400 que sert `sim/ville1400.py` : `Sorte` non bornée, une maison d'îlot a plusieurs foyers, zéro maison est une mesure.
+    public sealed class RueDeBase
+    {
+        public IReadOnlyList<PointLocal> Points { get; }
+        public double LargeurM { get; }
+        public string Sorte { get; }
+        public RueDeBase(IList<PointLocal> points, double largeurM, string sorte)
+        {
+            Points = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(points ?? throw new ArgumentNullException(nameof(points))));
+            LargeurM = largeurM;
+            Sorte = sorte ?? throw new ArgumentNullException(nameof(sorte));
+        }
+    }
+
+    public sealed class MaisonDeBase
+    {
+        public IReadOnlyList<PointLocal> Emprise { get; }
+        public long Foyers { get; }
+        public MaisonDeBase(IList<PointLocal> emprise, long foyers)
+        {
+            Emprise = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(emprise ?? throw new ArgumentNullException(nameof(emprise))));
+            Foyers = foyers;
+        }
+    }
+
+    public sealed class BaseDuPlan
+    {
+        public IReadOnlyList<PointLocal> Place { get; }
+        public IReadOnlyList<RueDeBase> Rues { get; }
+        public IReadOnlyList<MaisonDeBase> Maisons { get; }
+        public BaseDuPlan(IList<PointLocal> place, IList<RueDeBase> rues, IList<MaisonDeBase> maisons)
+        {
+            Place = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(place ?? throw new ArgumentNullException(nameof(place))));
+            Rues = new ReadOnlyCollection<RueDeBase>(new List<RueDeBase>(rues ?? throw new ArgumentNullException(nameof(rues))));
+            Maisons = new ReadOnlyCollection<MaisonDeBase>(new List<MaisonDeBase>(maisons ?? throw new ArgumentNullException(nameof(maisons))));
+        }
+    }
+
     // Le plan d'une cellule à un tick. Une liste vide (aucune rue, parcelle ou bâtiment encore)
     // est une mesure, jamais une absence.
     public sealed class PlanLu
@@ -92,8 +130,9 @@ namespace Forge.Pont
         public IReadOnlyList<RueDuPlan> Rues { get; }
         public IReadOnlyList<ParcelleDuPlan> Parcelles { get; }
         public IReadOnlyList<BatimentDuPlan> Batiments { get; }
+        public BaseDuPlan Base { get; } // null : le service ne sert pas de ville de 1400, aucune n'est inventée.
 
-        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments)
+        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments, BaseDuPlan @base = null)
         {
             if (rues == null) throw new ArgumentNullException(nameof(rues));
             if (parcelles == null) throw new ArgumentNullException(nameof(parcelles));
@@ -103,6 +142,7 @@ namespace Forge.Pont
             Rues = new ReadOnlyCollection<RueDuPlan>(new List<RueDuPlan>(rues));
             Parcelles = new ReadOnlyCollection<ParcelleDuPlan>(new List<ParcelleDuPlan>(parcelles));
             Batiments = new ReadOnlyCollection<BatimentDuPlan>(new List<BatimentDuPlan>(batiments));
+            Base = @base;
         }
     }
 
@@ -211,7 +251,7 @@ namespace Forge.Pont
                 for (int i = 0; i < brutsBatiments.Count; i++)
                     batiments.Add(Batiment(brutsBatiments[i], "batiments[" + i.ToString(CultureInfo.InvariantCulture) + "]", identifiantsParcelles));
 
-                return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments));
+                return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments, objet.TryGetValue("base", out object brute) ? Base(brute, relu) : null));
             }
             catch (CleRefusee refus)
             {
@@ -292,12 +332,45 @@ namespace Forge.Pont
             return new BatimentDuPlan(identifiant, parcelle, nature, emprise, enChantier, requis, fourni);
         }
 
+        // La ville de 1400 sous `base`, relue dans l'ordre servi (sans `vers_cell_id`) ; mal formée, elle refuse le plan.
+        private static BaseDuPlan Base(object valeur, long cellId)
+        {
+            var @base = Objet(valeur, "base");
+            long relu = Entier(Valeur(@base, "cell_id", "base.cell_id"), "base.cell_id", long.MinValue);
+            if (relu != cellId) throw new CleRefusee("clé base.cell_id : " + relu + " dans le plan de cell_id " + cellId);
+            List<object> brutes = Tableau(Valeur(@base, "rues", "base.rues"), "base.rues");
+            var rues = new List<RueDeBase>(brutes.Count);
+            for (int i = 0; i < brutes.Count; i++)
+            {
+                string chemin = "base.rues[" + i.ToString(CultureInfo.InvariantCulture) + "]";
+                var rue = Objet(brutes[i], chemin);
+                double largeur = Nombre(Valeur(rue, "largeur_m", chemin + ".largeur_m"), chemin + ".largeur_m");
+                if (!(largeur > 0)) throw new CleRefusee("clé " + chemin + ".largeur_m : une largeur > 0 attendue, reçu " + largeur.ToString("R", CultureInfo.InvariantCulture));
+                object sorte = Valeur(rue, "sorte", chemin + ".sorte");
+                if (!(sorte is string texte) || string.IsNullOrWhiteSpace(texte)) throw new CleRefusee("clé " + chemin + ".sorte : un texte non vide attendu, reçu " + Decrire(sorte));
+                rues.Add(new RueDeBase(Contour(rue, "points", chemin + ".points", 2), largeur, texte));
+            }
+            brutes = Tableau(Valeur(@base, "maisons", "base.maisons"), "base.maisons");
+            var maisons = new List<MaisonDeBase>(brutes.Count);
+            for (int i = 0; i < brutes.Count; i++)
+            {
+                string chemin = "base.maisons[" + i.ToString(CultureInfo.InvariantCulture) + "]";
+                var maison = Objet(brutes[i], chemin);
+                long foyers = Entier(Valeur(maison, "foyers", chemin + ".foyers"), chemin + ".foyers", long.MinValue);
+                if (foyers < 1) throw new CleRefusee("clé " + chemin + ".foyers : au moins 1 foyer attendu, reçu " + foyers);
+                maisons.Add(new MaisonDeBase(Contour(maison, "emprise", chemin + ".emprise"), foyers));
+            }
+            return new BaseDuPlan(Contour(@base, "place", "base.place"), rues, maisons);
+        }
+
+        private static Dictionary<string, object> Objet(object valeur, string chemin) => valeur as Dictionary<string, object> ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(valeur));
+
         // Le contour d'une parcelle ou l'emprise d'un bâtiment : au moins 3 points de exactement 2 nombres.
-        private static List<PointLocal> Contour(Dictionary<string, object> objet, string cle, string chemin)
+        private static List<PointLocal> Contour(Dictionary<string, object> objet, string cle, string chemin, int minimum = 3)
         {
             List<object> brut = Tableau(Valeur(objet, cle, chemin), chemin);
-            if (brut.Count < 3)
-                throw new CleRefusee("clé " + chemin + " : au moins 3 points attendus, reçu " + brut.Count);
+            if (brut.Count < minimum)
+                throw new CleRefusee("clé " + chemin + " : au moins " + minimum + " points attendus, reçu " + brut.Count);
             var points = new List<PointLocal>(brut.Count);
             for (int j = 0; j < brut.Count; j++)
             {
