@@ -40,7 +40,7 @@ namespace Forge.Interface
             var garder = new HashSet<string> { DU }; var sb = new StringBuilder(); var h = cabinet != null && cabinet.Partie != null ? cabinet.Partie.Maison : null;
             var siege = maison != null && h != null && h.Presente && h.Donnees.Id == maison ? h.Donnees.Siege : null; Vector3? cible = siege != null && siege.Position is PointCarte ps ? carte.PositionSurLaCarte(ps, HAUTEUR) : null;
             if (maison != null && cible == null) sb.Append("\nAucune flèche vers le siège : ").Append(siege == null ? "maison non lue" : "siège hors carte" + Raison(h.Donnees));
-            else if (maison != null) foreach (var (cell, lu) in lus) if (lu.Presente && lu.Lieu.Lieux != null) foreach (var l in lu.Lieu.Lieux)
+            else if (maison != null) foreach (var (cell, lu) in lus) if (!lu.Presente || lu.Lieu.Lieux == null) sb.Append("\nAucune flèche de la cellule ").Append(cell.ToString(Inv)).Append(" : ").Append(lu.Presente ? lu.Lieu.AbsenceDesLieux : lu.Absence); else foreach (var l in lu.Lieu.Lieux)
             {
                 if (l.Maitre != maison) continue; string c = cell.ToString(Inv) + "-" + l.Rang.ToString(Inv);
                 if (cell == siege.CellId && l.Rang == siege.Rang) { sb.Append('\n').Append(siege.Nom).Append(" : ").Append(l.Flux != null ? Kg(l.Flux.PreleveKg) + " prélevés sur place, sans flèche" : l.AbsenceDesFlux); continue; }

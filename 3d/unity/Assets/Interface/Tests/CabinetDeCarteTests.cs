@@ -110,6 +110,7 @@ namespace Forge.Interface.Tests
                 Assert.That(t, Does.Contain(FlechesDeCarte.ENTETE).And.Contain("\nSiège : " + FlechesDeCarte.Kg(1234.4) + " prélevés sur place, sans flèche").And.Contain("\nLieu 10-1 → Siège : " + FlechesDeCarte.Kg(a)).And.Contain("\nLieu 20-0 → Siège : " + FlechesDeCarte.Kg(b)).And.Not.Contain("10-2"));
             }
             Servir(Lu(0, null)); Assert.That(Fleches(), Is.Empty); Assert.That(fleches.TexteLegende, Does.Contain("\nLieu 10-1 → Siège : 0 kg").And.Contain("\nLieu 20-0 → Siège : flux non fournis"));
+            Servir(Lu(100000, new FluxDeLieu(1, 0, 0))); Assert.That(Fleches(), Has.Length.EqualTo(2)); Servir(cell => cell == 10 ? LectureLieu.Absent("refus témoin") : LectureLieu.De(new Lieu(20, 5, 1400, 1, 1, new Dictionary<string, double>(), 0, 0, absenceDesLieux: "lieux non servis"))); Assert.That(Fleches(), Is.Empty); Assert.That(fleches.TexteLegende, Does.Contain("\nAucune flèche de la cellule 10 : refus témoin").And.Contain("\nAucune flèche de la cellule 20 : lieux non servis").And.Not.Contain("Lieu 10-1").And.Not.Contain("Lieu 20-0"));
             Servir(Lu(100000, new FluxDeLieu(1, 0, 0))); Assert.That(Fleches(), Has.Length.EqualTo(2)); Publier(C, new LieuTenu(10, 0)); lieux.Pas(horloge); Assert.That(Fleches(), Is.Empty); Assert.That(fleches.TexteLegende, Does.Not.Contain("Lieu 10-1"));
         }
         [Test] public void LeDuPartVersLeSiegeDuSuzerain()

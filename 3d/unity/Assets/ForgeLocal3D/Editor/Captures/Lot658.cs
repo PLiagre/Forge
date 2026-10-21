@@ -13,10 +13,10 @@ namespace ForgeLocal3D.Captures
     // Lot 658 : Mistra, prélèvement à 60 %, trente ticks, le feuillet ouvert ; les flèches contrôlées contre des lectures indépendantes. `-forge658RetirerDu` éteint la vraie flèche du dû.
     static class Lot658
     {
-        const string SIEGE = "Mistra", RETIRER = "-forge658RetirerDu", CONFIRMER = "Confirmer l’ordre", FEUILLET = "Terres et comptes"; const int IMAGES = 10, TICKS = 30; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
-        static readonly CultureInfo Inv = CultureInfo.InvariantCulture, Fr = CultureInfo.GetCultureInfo("fr-FR");
-        static CarteDessinee carte; static Transform toile, racine; static string N(long v) => v.ToString(Inv); static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
-        static InvalidOperationException Echec(string c) => new InvalidOperationException(c);
+        const string SIEGE = "Mistra", RETIRER = "-forge658RetirerDu", TICKS_ARG = "-forgeTicks",CONFIRMER = "Confirmer l’ordre", FEUILLET = "Terres et comptes"; const int IMAGES = 10, TICKS = 30; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
+        static CarteDessinee carte; static Transform toile, racine; static string N(long v) => v.ToString(Inv); static readonly CultureInfo Inv = CultureInfo.InvariantCulture, Fr = CultureInfo.GetCultureInfo("fr-FR"); static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
+        static InvalidOperationException Echec(string c) => new InvalidOperationException(c); // Le parcours part du tick demandé au service : `-forgeTicks` (0 dans SC5), sinon le défaut de `ForgeCapture` (30), que le pilote du PC laisse.
+        static long Depart() { var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, TICKS_ARG); return i >= 0 && i + 1 < a.Length ? long.Parse(a[i + 1], Inv) : 30; }
         sealed class Attendu { public string Haut; public PointCarte Siege, PHaut; public double Preleve, Du, SurPlace = -1; public List<long> Cells = new List<long>(); public List<(string couple, PointCarte p, double kg)> Lieux = new List<(string, PointCarte, double)>(); }
         [ScenarioDeCapture(658, "fleches-du-siege")] static IEnumerator FlechesDuSiege(Camera camera)
         {
@@ -26,7 +26,7 @@ namespace ForgeLocal3D.Captures
             toile = carte.transform.Find("Cabinet"); var commandes = carte.GetComponent<CommandesMaison>(); racine = toile != null ? toile.Find("Votre maison/Commandes de maison") : null; if (racine == null || commandes == null) throw Echec("commandes introuvables");
             for (var e = Lot690.Jusqua(() => Lot690.LecturePrete(cabinet.Partie), () => Lot690.Dire(cabinet.Partie)); e.MoveNext();) yield return null;
             var partie = cabinet.Partie; var mistra = partie.Departs.Donnees.Fiches.Where(f => f.Siege.Nom == SIEGE).ToArray(); if (mistra.Length != 1) throw Echec(mistra.Length + " départs " + SIEGE);
-            long tick = partie.Monde.Donnees.Monde.Tick; var choix = partie.Choisir(mistra[0].Id); for (var e = Lot690.Attendre(choix, "choix"); e.MoveNext();) yield return null;
+            long tick = partie.Monde.Donnees.Monde.Tick, depart = Depart(); if (tick != depart) throw Echec("tick initial " + N(tick) + ", attendu " + N(depart) + " (" + TICKS_ARG + ")"); var choix = partie.Choisir(mistra[0].Id); for (var e = Lot690.Attendre(choix, "choix"); e.MoveNext();) yield return null;
             if (partie.Recu == null || !partie.Recu.Acceptee || partie.Recu.AppliqueeAuTick != tick) throw Echec("reçu du choix refusé");
             var un = Lot690.PousserTick(port); for (var e = Lot690.Attendre(un, "tick"); e.MoveNext();) yield return null; if (un.Result.statut != 200) throw Echec("tick " + un.Result.corps);
             for (var e = Lot690.Jusqua(() => Bouton("Prélèvement").interactable && partie.Maison?.Presente == true && partie.Maison.Donnees.Siege.Nom == SIEGE && partie.Monde.Donnees.MaisonDuJoueur == partie.Maison.Donnees.Id && partie.Monde.Donnees.Monde.Tick == tick + 1, () => "maison « " + (partie.Maison?.Absence ?? "") + " »"); e.MoveNext();) yield return null;
@@ -34,7 +34,7 @@ namespace ForgeLocal3D.Captures
             var curseur = racine.GetComponentInChildren<Slider>(true); if (curseur == null || !curseur.gameObject.activeInHierarchy) throw Echec("curseur invisible");
             curseur.value = 60; yield return null; if (Math.Abs(curseur.value - 60f) > 0.01f) throw Echec("curseur " + curseur.value); Bouton("Préparer").onClick.Invoke(); yield return null; Bouton(CONFIRMER).onClick.Invoke();
             for (var e = Lot690.Jusqua(() => commandes.Ordre.Recu != null && commandes.Ordre.Recu.Acceptee, () => "reçu « " + Ligne(commandes.MessageAffiche) + " »"); e.MoveNext();) yield return null;
-            long fin = commandes.Ordre.Recu.AppliqueeAuTick.Value + TICKS; var trente = Task.Run(() => { for (int i = 0; i < TICKS; i++) { var r = Lot690.PousserTick(port).Result; if (r.statut != 200) return r; } return (200, ""); });
+            long fin = commandes.Ordre.Recu.AppliqueeAuTick.Value + TICKS; if (fin != depart + 1 + TICKS) throw Echec("ordre reçu au tick " + N(fin - TICKS) + ", attendu " + N(depart + 1)); var trente = Task.Run(() => { for (int i = 0; i < TICKS; i++) { var r = Lot690.PousserTick(port).Result; if (r.statut != 200) return r; } return (200, ""); });
             for (var e = Lot690.Attendre(trente, "trente ticks"); e.MoveNext();) yield return null; if (trente.Result.Item1 != 200) throw Echec("tick " + trente.Result.Item2);
             var bouton = toile.GetComponentsInChildren<Button>(true).Where(b => b.name == FEUILLET).ToArray(); if (bouton.Length != 1 || !bouton[0].interactable) throw Echec(bouton.Length + " boutons « " + FEUILLET + " »"); bouton[0].onClick.Invoke();
             var lu = Task.Run(() => Lire(port, maison, fin)); for (var e = Lot690.Attendre(lu, "lectures indépendantes"); e.MoveNext();) yield return null; var at = lu.Result;
@@ -46,7 +46,7 @@ namespace ForgeLocal3D.Captures
             yield return null; Canvas.ForceUpdateCanvases(); Cadrer(camera, at); yield return null; var mesures = Controler(camera, at);
             if (Environment.GetCommandLineArgs().Contains(RETIRER)) { var du = carte.transform.Find(FlechesDeCarte.RACINE + "/" + FlechesDeCarte.DU); if (du != null) du.gameObject.SetActive(false); }
             for (int i = 0; i < IMAGES; i++) yield return null; mesures = Controler(camera, at);
-            Debug.Log("CAPTURE_658 maison " + maison + ", tick " + N(fin) + ", " + mesures + ", sur place " + at.SurPlace.ToString("0", Inv) + " kg");
+            Debug.Log("CAPTURE_658 maison " + maison + ", départ au tick " + N(depart) + ", tick " + N(fin) + ", " + mesures + ", sur place " + at.SurPlace.ToString("0", Inv) + " kg");
         }
         static Vector3 Monde(PointCarte p) => carte.transform.TransformPoint(carte.PositionSurLaCarte(p, FlechesDeCarte.HAUTEUR).Value);
         // Le siège et ses lieux dans la bande libre entre le feuillet, les dossiers, les légendes et le bandeau, avec une marge.
