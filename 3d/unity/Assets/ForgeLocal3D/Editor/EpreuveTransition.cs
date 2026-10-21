@@ -45,7 +45,9 @@ namespace ForgeLocal3D
         {
             string chemin = EpreuveChoix.Argument(RAPPORT);
             if (string.IsNullOrEmpty(chemin) || chemin.StartsWith("-")) { Debug.LogError("EPREUVE_TRANSITION : " + RAPPORT + " <rapport.json> manque"); EditorApplication.Exit(2); return; }
-            string complet = Path.GetFullPath(Path.Combine(EpreuveChoix.DossierDeLancement(), chemin));
+            string complet; // un chemin que Windows refuse (« C:\<invalide>\… ») est un argument fautif, dit au journal
+            try { complet = Path.GetFullPath(Path.Combine(EpreuveChoix.DossierDeLancement(), chemin)); }
+            catch (Exception e) { Debug.LogError("EPREUVE_TRANSITION : " + RAPPORT + " « " + chemin + " » n'est pas un chemin : " + e.Message); EditorApplication.Exit(2); return; }
             try { string dossier = Path.GetDirectoryName(complet); if (!string.IsNullOrEmpty(dossier)) Directory.CreateDirectory(dossier); }
             catch (Exception e) { Debug.LogError("EPREUVE_TRANSITION : dossier du rapport : " + e.Message); EditorApplication.Exit(1); return; }
             SessionState.SetString(CleRapport, complet);
