@@ -126,8 +126,9 @@ namespace Forge.Pont {
         public static void AuChargement(Scene scene, LoadSceneMode mode) {
             if (!scene.IsValid() || scene.name != OuvertureDeLaCarte.SCENE) return;
             foreach (CarteDessinee carte in UnityEngine.Object.FindObjectsByType<CarteDessinee>(FindObjectsSortMode.None)) {
-                if (carte.gameObject.scene != scene || carte.GetComponent<PassageALaCapitale>() != null) continue;
-                carte.gameObject.AddComponent<PassageALaCapitale>().port = carte.port;
+                if (carte.gameObject.scene != scene) continue;
+                if (carte.GetComponent<ReperesDeDepart.NomDuSiege>() == null) carte.gameObject.AddComponent<ReperesDeDepart.NomDuSiege>(); // #729 : le nom du siège, que le cabinet n'arrête pas
+                if (carte.GetComponent<PassageALaCapitale>() == null) carte.gameObject.AddComponent<PassageALaCapitale>().port = carte.port;
             }
         }
     }

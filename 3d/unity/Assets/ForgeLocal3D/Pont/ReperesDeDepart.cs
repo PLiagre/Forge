@@ -152,7 +152,6 @@ namespace Forge.Pont {
             MaisonLue maison = lu.fiche.Donnees; Vector3 siege = carte.PositionSurLaCarte(maison.Siege.Position.Value, HAUTEUR_LIEU).Value;
             float rayon = DIAMETRE_BORD_KM / 2f, etendue = 0f, aspect = Mathf.Max(carte.Vue != null ? carte.Vue.Aspect : 1f, 1e-4f);
             foreach (LieuTenu t in maison.Lieux) { LieuPlace p = Trouve(lu.cellules, t); PoserLieu(t, p.Position.Value); Vector3 v = carte.PositionSurLaCarte(p.Position.Value, HAUTEUR_LIEU).Value; etendue = Mathf.Max(etendue, Mathf.Abs(v.z - siege.z) + rayon, (Mathf.Abs(v.x - siege.x) + rayon) / aspect); }
-            NommerSiege(maison.Siege.Nom, maison.Siege.Position.Value);
             if (racine != null) racine.gameObject.SetActive(false); Survolee = null; if (panneau != null) panneau.SetActive(false); if (panneauChoix != null) panneauChoix.SetActive(false);
             if (carte.Vue != null) { carte.Vue.Centrer(new Vector2(siege.x, siege.z), Mathf.Max(VueDeCarte.DEMI_MIN_KM, etendue * VueDeCarte.MARGE)); carte.Vue.Poser(carte.camera, transform, CarteDessinee.HAUTEUR_CAMERA); }
             domainePose = true; Dire(maison.Nom + "\nSiège : " + maison.Siege.Nom + "\nLieux servis : " + maison.Lieux.Count.ToString(CultureInfo.InvariantCulture));
@@ -180,12 +179,25 @@ namespace Forge.Pont {
             var lieu = new GameObject(NomDuLieu(t.CellId, t.Rang)).transform; lieu.SetParent(lieuxRacine, false); lieu.localPosition = carte.PositionSurLaCarte(point, HAUTEUR_LIEU).Value;
             Disque(lieu, "Bord", matBord, DIAMETRE_BORD_KM, SOUS_LE_DISQUE); Disque(lieu, "Disque", matJoueur, DIAMETRE_LIEU_KM, 0f);
         }
-        // Lot #729 : le nom du siège tel que `/maison` le sert, centré juste au nord de son disque, à la hauteur des noms de ville.
-        private void NommerSiege(string nom, PointCarte point) {
-            if (string.IsNullOrEmpty(nom) || lieuxRacine == null) return;
-            Font police = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); var t = new GameObject(NOM_DU_SIEGE).AddComponent<TextMesh>(); t.transform.SetParent(lieuxRacine, false);
-            t.transform.SetLocalPositionAndRotation(carte.PositionSurLaCarte(point, CarteDessinee.HAUTEUR_NOM).Value + new Vector3(0, 0, DIAMETRE_BORD_KM / 2), VERS_LE_BAS);
-            t.font = police; t.GetComponent<MeshRenderer>().sharedMaterial = police.material; t.fontSize = TAILLE_NOM; t.characterSize = TAILLE_CARACTERE / 2; t.anchor = TextAnchor.MiddleCenter; t.color = Color.black; t.text = nom;
+        // Lot #729 : le nom du siège du joueur tel que `/maison` le sert, centré juste au nord de son disque, à la hauteur des noms
+        // de ville. Le cabinet arrête ce prototype, pas ce composant, que #690 pose sur la carte avec le passage. Une fiche servie suffit.
+        public sealed class NomDuSiege : MonoBehaviour {
+            public const float PERIODE_S = 1f;
+            private Task<Lecture<MaisonLue>> enCours; private double prochaine; private bool servie;
+            public TextMesh Nom { get; private set; }
+            private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
+            public void Pas(double maintenant) {
+                var carte = GetComponent<CarteDessinee>(); if (servie || carte == null || carte.PositionSurLaCarte(default, 0f) == null) return;
+                if (enCours != null && enCours.IsCompleted) { Lecture<MaisonLue> lu = enCours.IsFaulted ? null : enCours.Result; enCours = null; servie = lu != null && lu.Presente; if (servie) Nommer(carte, lu.Donnees.Siege); }
+                string id = TryGetComponent(out FicheDeCellule fiche) ? fiche.MaisonDuJoueur : null; if (servie || enCours != null || id == null || maintenant < prochaine) return;
+                int port = carte.port; prochaine = maintenant + PERIODE_S; enCours = Task.Run(() => { using (var c = new ClientMaison(port, ClientDeparts.DelaiMinimal)) return c.Lire(id); });
+            }
+            private void Nommer(CarteDessinee carte, SiegeDeMaison siege) {
+                if (string.IsNullOrEmpty(siege.Nom) || !(siege.Position is PointCarte point)) return;
+                Font police = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); TextMesh t = Nom = new GameObject(NOM_DU_SIEGE).AddComponent<TextMesh>(); t.transform.SetParent(transform, false);
+                t.transform.SetLocalPositionAndRotation(carte.PositionSurLaCarte(point, CarteDessinee.HAUTEUR_NOM).Value + new Vector3(0, 0, DIAMETRE_BORD_KM / 2), VERS_LE_BAS);
+                t.font = police; t.GetComponent<MeshRenderer>().sharedMaterial = police.material; t.fontSize = TAILLE_NOM; t.characterSize = TAILLE_CARACTERE / 2; t.anchor = TextAnchor.MiddleCenter; t.color = Color.black; t.text = siege.Nom;
+            }
         }
         private void Disque(Transform parent, string nom, Material mat, float diametre, float haut) {
             GameObject o = GameObject.CreatePrimitive(PrimitiveType.Cylinder); o.name = nom; Detruire(o.GetComponent<Collider>()); o.GetComponent<MeshRenderer>().sharedMaterial = mat;

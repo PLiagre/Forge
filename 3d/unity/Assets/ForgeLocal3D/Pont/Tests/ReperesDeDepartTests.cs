@@ -301,16 +301,18 @@ namespace Forge.Pont.Tests {
             for (int i = 1; i <= 4; i++) { double t = 2 + i * ReperesDeDepart.PERIODE_RELECTURE_S; carte.Pas(t); fiche.Pas(t); reperes.Pas(t); Thread.Sleep(50); reperes.Pas(t); } int n = Recues("/intention"); reperes.Survoler(Ecran(MOREE)); reperes.Choisir(Ecran(MOREE));
             Assert.IsTrue(Recues("/departs") == 1 && Recues("/maison?id=seigneurie-1") == 1 && !reperes.LectureEnVol && reperes.ReperesPoses == 5 && DepartsActifs() == 0 && DisquesActifs() == 4 && reperes.Survolee == null && n == Recues("/intention") && carte.Vue.Centre == centre && carte.Vue.Echelle < 1f && reperes.TexteAffiche == texte, Recues("/departs") + " /departs, " + reperes.ReperesPoses + " repères ; « " + reperes.TexteAffiche + " »");
         }
-        // Lot #729 — la maison publiée nomme son siège sur la carte, du nom que `/maison` sert, juste au nord de son disque ; rien avant.
-        private TextMesh NomDuSiege() => objet.transform.Find(ReperesDeDepart.RACINE_LIEUX + "/" + ReperesDeDepart.NOM_DU_SIEGE)?.GetComponent<TextMesh>();
+        // Lot #729 — le prototype arrêté comme le fait le cabinet, la maison publiée nomme quand même son siège sur la carte, du nom
+        // que `/maison` sert, juste au nord de son disque, d'une seule lecture ; rien avant, et le choix direct reste arrêté.
         [TestCase("Mistra")] [TestCase("Mistra servie au test")]
-        public void La_maison_publiee_nomme_son_siege_du_nom_servi(string servi) {
-            var s = SIEGES[2]; maisons[DEMANDE_MOREE] = (200, maisons[DEMANDE_MOREE].corps.Replace("\"nom\":\"Mistra\"", "\"nom\":\"" + servi + "\"")); Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter();
-            Jusqua(1, () => reperes.ReperesPoses == 6 && fiche.MondeLu != null && fiche.MaisonDuJoueur == null); Assert.IsNull(NomDuSiege(), "un siège nommé avant la maison publiée");
-            Publier(MAISON_MOREE); Jusqua(2, () => DisquesActifs() == 4 && DepartsActifs() == 0); TextMesh nom = NomDuSiege();
-            Vector3 siege = carte.PositionSurLaCarte(new PointCarte(s.x, s.y), CarteDessinee.HAUTEUR_NOM).Value + new Vector3(0, 0, ReperesDeDepart.DIAMETRE_BORD_KM / 2); Vector3 vue = nom != null ? carte.camera.WorldToViewportPoint(nom.transform.position) : Vector3.zero;
-            Assert.IsTrue(nom != null && nom.text == servi && nom.gameObject.activeInHierarchy && nom.color == Color.black && nom.anchor == TextAnchor.MiddleCenter && Egal(nom.transform.localPosition, siege) && vue.x > 0f && vue.x < 1f && vue.y > 0f && vue.y < 1f, "nom « " + nom?.text + " » en " + nom?.transform.localPosition.ToString("R") + ", vu en " + vue);
-            Assert.AreEqual(1, objet.GetComponentsInChildren<TextMesh>(true).Count(t => t.text == servi), "le siège n'a pas un seul nom");
+        public void Le_prototype_arrete_la_maison_publiee_nomme_son_siege(string servi) {
+            var s = SIEGES[2]; maisons[DEMANDE_MOREE] = (200, maisons[DEMANDE_MOREE].corps.Replace("\"nom\":\"Mistra\"", "\"nom\":\"" + servi + "\"")); Publier(null); Monter();
+            reperes.enabled = false; reperes.Arreter(); var nommeur = objet.AddComponent<ReperesDeDepart.NomDuSiege>(); // CabinetDeCarte.Construire, puis #690
+            Jusqua(1, () => { nommeur.Pas(1); return fiche.MondeLu != null && carte.CellulesServies >= 0; }); Assert.IsTrue(nommeur.Nom == null && Recues(DEMANDE_MOREE) == 0, "un siège nommé avant la maison publiée");
+            Publier(MAISON_MOREE); Jusqua(2, () => { nommeur.Pas(2); return nommeur.Nom != null; }); for (int t = 3; t < 7; t++) { fiche.Pas(t); nommeur.Pas(t); Thread.Sleep(50); } reperes.Choisir(Vector2.zero);
+            TextMesh nom = objet.transform.Find(ReperesDeDepart.NOM_DU_SIEGE)?.GetComponent<TextMesh>(); Vector3 vue = nom != null ? carte.camera.WorldToViewportPoint(nom.transform.position) : Vector3.zero;
+            Vector3 siege = carte.PositionSurLaCarte(new PointCarte(s.x, s.y), CarteDessinee.HAUTEUR_NOM).Value + new Vector3(0, 0, ReperesDeDepart.DIAMETRE_BORD_KM / 2);
+            Assert.IsTrue(nom == nommeur.Nom && nom.text == servi && nom.gameObject.activeInHierarchy && nom.color == Color.black && nom.anchor == TextAnchor.MiddleCenter && Egal(nom.transform.localPosition, siege) && vue.x > 0f && vue.x < 1f && vue.y > 0f && vue.y < 1f, "nom « " + nom?.text + " » en " + nom?.transform.localPosition.ToString("R") + ", vu en " + vue);
+            Assert.IsTrue(objet.GetComponentsInChildren<TextMesh>(true).Count(t => t.text == servi) == 1 && Recues(DEMANDE_MOREE) == 1 && !reperes.enabled && !reperes.ChoixEnVol && Recues("/intention") == 0 && DisquesActifs() == 0, Recues(DEMANDE_MOREE) + " lectures de la maison");
         }
     }
 }
