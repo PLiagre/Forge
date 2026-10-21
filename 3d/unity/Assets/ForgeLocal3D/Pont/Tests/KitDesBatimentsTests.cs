@@ -111,6 +111,24 @@ namespace Forge.Pont.Tests
             }
         }
 
+        // Lot 737 : les six maisons de terre, dans l'ordre des prefabs, sans repli.
+        [Test]
+        public void LesSixMaisonsDePiseSontOrdonneesSansRepli()
+        {
+            var kit = KitDesBatiments.Charger();
+            Assert.That(kit, Is.Not.Null);
+            for (int i = -1; i <= 6; i++)
+            {
+                var p = kit.Maison(i); string n = "maison_pise_" + i;
+                if (i < 0 || i > 5) { Assert.That(p.Presente, Is.False); Assert.That(p.Prefab, Is.Null); Assert.That(p.Absence, Is.EqualTo("indice invalide : " + i)); }
+                else { Assert.That(p.Presente, Is.True, p.Absence); Assert.That(p.Prefab.name, Is.EqualTo(n)); Assert.That(AssetDatabase.GetAssetPath(p.Prefab), Is.EqualTo("Assets/ForgeLocal3D/Desert/Prefabs/" + n + ".prefab")); }
+            }
+            var v = ScriptableObject.CreateInstance<KitDesBatiments>();
+            v.maisonsPise = new[] { kit.Maison(0).Prefab, null, null, null, null, null };
+            try { var a = v.Maison(1); Assert.That(a.Presente, Is.False); Assert.That(a.Prefab, Is.Null); Assert.That(a.Absence, Is.EqualTo("référence absente : maison_pise_1")); Assert.That(v.Maison(0).Prefab, Is.SameAs(kit.Maison(0).Prefab)); }
+            finally { Object.DestroyImmediate(v); }
+        }
+
         // ---- L'étape -----------------------------------------------------------------------------
 
         [TestCase(true, 300, 0, EtapeDuBatiment.Piquets)]
