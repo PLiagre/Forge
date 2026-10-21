@@ -1,0 +1,9 @@
+Lot #733, copies jugées en mémoire, PAS des mesures PC. 22/10/2026, révision 3da6e4b2 + pc/epreuve_transition.py. Commande : py -m pytest jeu/ville/tests/test_epreuve_transition.py -q -k contre_epreuve -s -> pytest 0, 6 passés : chaque copie est jugée 1, comme exigé.
+Exemple : rapport-marche.json de #732, seule carte_avant.jours_par_seconde mise à 1 (ticks 35/37/37/39) -> juge 0. Réglages lus : VITESSE_VILLE 0.1, VITESSE_CARTE 6.
+vitesses à 1 : ticks [35, 37, 37, 39] -> juge 1, écarts ['ville_apres vitesse', 'ville_avant vitesse', 'carte_apres vitesse']
+retour à VITESSE_VILLE : ticks [35, 37, 37, 39] -> juge 1, écarts ['carte_apres vitesse']
+arrivée en ville figée : ticks [35, 35, 37, 39] -> juge 1, écarts ['descente']
+retour figé : ticks [35, 37, 37, 37] -> juge 1, écarts ['retour']
+quatre ticks figés : ticks [37, 37, 37, 37] -> juge 1, écarts ['descente', 'retour']
+chronologie inversée : ticks [39, 37, 37, 35] -> juge 1, écarts ['descente', 'retour']
+Juges mutés un à un puis restaurés (fichier identique) : vitesse initiale ignorée, tick exigé en ville, descente ou retour retiré, premier et dernier tick seuls, constantes 0,1/6, références tirées du rapport, champ absent ou −1 acceptés, service à 0 j/s, service non arrêté -> pytest du fichier rouge à chaque fois (1 à 13 cas en échec sur 35) ; sans le script, 35 erreurs.

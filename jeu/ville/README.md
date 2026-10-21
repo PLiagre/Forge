@@ -279,6 +279,13 @@ La session ne choisit rien, ne pousse ni tick ni vitesse : elle lit `/horloge` u
 lectures et l'aller-retour finis, quoi qu'ils valent ; **1** session impossible (`defaut` dit l'étape et la cause, −1 aux relevés non
 faits) ; **2** arguments fautifs, aucun rapport. Rapports du 21 octobre 2026 : [en marche](../../docs/mesures/732-session-transition/rapport-marche.json), [en pause](../../docs/mesures/732-session-transition/rapport-pause.json).
 
+## L'épreuve de la transition
+
+Le joueur se fie à l'aller-retour entre la carte et sa capitale (lot #733). Éditeur fermé, port 8000 libre, depuis la racine :
+`py pc\epreuve_transition.py --sortie <dossier> [--seed S] [--unity CHEMIN]`. Un service neuf **à 1 j/s** ; le Zab, trouvé par son nom, est choisi par `POST /intention`, seule requête qui change le monde, et le jour naturel suivant l'applique (30 s au plus). Le siège attendu est `siege.cell_id` de `/maison`. Unity joue la session #732 sans rien d'attendu ; le juge exige les vitesses 1, `VITESSE_VILLE`, `VITESSE_VILLE`, `VITESSE_CARTE` lues dans `ReglagesDesVues.json`, les scènes carte, ville, ville, carte, et deux inégalités : **`ville_apres.tick > carte_avant.tick`** et **`carte_apres.tick > ville_avant.tick`** (les deux lectures en ville peuvent être égales).
+**0** égalité, **1** écart, **2** épreuve impossible (défaut, −1, champ absent, réglage, port, Unity, rapport ou HTTP en panne). Contre-épreuves sans PC : `python3 -m pytest jeu/ville/tests/test_epreuve_transition.py -q -k contre_epreuve -s`.
+Verdicts du 22 octobre 2026 : [normal](../../docs/mesures/733-epreuve-transition/verdict-normal.txt) et son [rapport](../../docs/mesures/733-epreuve-transition/rapport-normal.json), [copies jugées, pas des mesures PC](../../docs/mesures/733-epreuve-transition/verdict-contre-epreuves.txt).
+
 ## L'épreuve du choix
 
 Le joueur peut se fier à son geste (lot #652, épreuve #615) : la terre qu'il
