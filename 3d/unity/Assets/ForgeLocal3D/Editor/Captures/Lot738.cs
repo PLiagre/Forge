@@ -6,8 +6,8 @@ namespace ForgeLocal3D.Captures
     static class Lot738
     {
         static DesertRoadTool outil;static DesertCityCamera ville;static int rang=-1;static long seigneurie=-1;static Exception Faux(string m)=>new InvalidOperationException(m);
-        // Au moins trois sommets du ruban devant la caméra, dans la moitié basse de l'image.
-        static void Devant(Camera c,int i){int n=DesertRues1400Preuve.Releve(outil.Rues1400.Racine)[i].s.Count(v=>{var p=c.WorldToViewportPoint(v);return p.z>c.nearClipPlane&&p.x>0f&&p.x<1f&&p.y>0f&&p.y<.5f;});if(n<3)throw Faux(n+" sommet(s) du ruban "+i+" en bas de l'image");}
+        // Au moins trois sommets de triangles du ruban devant la caméra, dans la moitié basse de l'image : un ruban sans face n'en a aucun.
+        static void Devant(Camera c,int i){var r=DesertRues1400Preuve.Releve(outil.Rues1400.Racine)[i];int n=r.t.Distinct().Select(k=>r.s[k]).Count(v=>{var p=c.WorldToViewportPoint(v);return p.z>c.nearClipPlane&&p.x>0f&&p.x<1f&&p.y>0f&&p.y<.5f;});if(n<3)throw Faux(n+" sommet(s) du ruban "+i+" en bas de l'image");}
         [ScenarioDeCapture(738,"01-biskra-de-haut")]
         static IEnumerator DeHaut(Camera camera)
         {
@@ -22,7 +22,8 @@ namespace ForgeLocal3D.Captures
             // Le terrain ouvert est celui d'une copie vierge, calculée comme DesertCityRelance ; puis la ville est rouverte.
             string emp=roads.Empreintes().Tout,rubans=r.Empreinte;var g=DesertRoads.Lire(roads.implantation);roads.Preparer(g.parametres,g.graine);
             if(roads.Empreintes().Tout!=emp)throw Faux("le sable n'est pas vierge après l'ouverture ("+outil.Ouverture.Count+" rue(s) de geste)");if(!outil.Ouvrir(cellule)||roads.Empreintes().Tout!=emp||r.Empreinte!=rubans)throw Faux("réouverture : "+outil.Message.Replace("\n"," | "));
-            r.Dessiner(Lot362.Lire(outil.Port,cellule).Base);if(roads.Empreintes().Tout!=emp||r.Empreinte!=rubans||r.Racine.childCount!=7)throw Faux("second dessin : "+r.Racine.childCount+" rubans");
+            r.Dessiner(Lot362.Lire(outil.Port,cellule).Base);var ec=DesertRues1400Preuve.Ecart(DesertRues1400Preuve.Releve(r.Racine),roads.terrain);
+            if(roads.Empreintes().Tout!=emp||r.Empreinte!=rubans||r.Racine.childCount!=7||!DesertRues1400Preuve.Dans(ec))throw Faux("second dessin : "+r.Racine.childCount+" rubans, ruban − sol "+ec);
             camera.aspect=1600f/900f;const float incl=68f,cap=40f;var inv=Quaternion.Inverse(Quaternion.Euler(incl,cap,0));float tv=Mathf.Tan(camera.fieldOfView*.5f*Mathf.Deg2Rad),th=tv*camera.aspect,d=40f;
             foreach(var p in DesertRues1400Preuve.Releve(r.Racine).SelectMany(x=>x.s).Concat(outil.Maisons.Racine.Cast<Transform>().Select(e=>e.position+Vector3.up*6f))){var q=inv*p;d=Mathf.Max(d,Mathf.Abs(q.x)/(th*.7f)-q.z,q.y/(tv*.62f)-q.z,-q.y/(tv*.42f)-q.z);}
             ville.Poser(Vector3.zero,cap,incl,d);for(int i=0;i<8;i++)yield return null;outil.Placer();
@@ -45,7 +46,7 @@ namespace ForgeLocal3D.Captures
             var avant=DesertRues1400Preuve.Releve(outil.Rues1400.Racine);Lot362.Tick(outil.Port);if(!outil.Attendre())throw Faux("après le tick, aucun plan relu : "+outil.Message);
             float bouge=avant[choisi].s.Max(v=>Mathf.Abs(t.SampleHeight(v)+t.transform.position.y+DesertRues1400.AuDessus-v.y));var apres=DesertRues1400Preuve.Releve(outil.Rues1400.Racine);
             var vieux=DesertRues1400Preuve.Ecart(avant,t);var neuf=DesertRues1400Preuve.Ecart(apres,t);string bilan="rang "+choisi+" : sol bougé de "+bouge.ToString("F3")+" m, anciens "+vieux+", neufs "+neuf+", "+apres.Count+" rubans, "+outil.Maisons.Posees+" maisons";
-            if(bouge<=.10f||DesertRues1400Preuve.Dans(vieux)||!DesertRues1400Preuve.Dans(neuf)||apres.Count!=7||outil.Maisons.Posees!=33||!outil.Posees.Any(p=>p.resultat.acceptee))throw Faux(bilan+" : "+outil.Message.Replace("\n"," | "));
+            if(bouge<=.10f||!DesertRues1400Preuve.Sorti(vieux)||!DesertRues1400Preuve.Dans(neuf)||apres.Count!=7||outil.Maisons.Posees!=33||!outil.Posees.Any(p=>p.resultat.acceptee))throw Faux(bilan+" : "+outil.Message.Replace("\n"," | "));
             Debug.Log("CAPTURE_738 "+bilan);var w=rues[choisi].Points;var mil=new Vector2((float)((w[0].X+w[w.Count-1].X)*.5),(float)((w[0].Y+w[w.Count-1].Y)*.5));
             for(var e=Lot737.AHauteurDHomme(camera,outil,ville,rues[choisi],mil);e.MoveNext();)yield return e.Current;Devant(camera,choisi);outil.Placer();
         }
