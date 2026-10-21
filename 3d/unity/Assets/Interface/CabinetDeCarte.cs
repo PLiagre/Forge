@@ -96,6 +96,7 @@ namespace Forge.Interface
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port);
+            gameObject.AddComponent<LieuxDeCarte>().Installer(toile.transform);
             Afficher();
         }
 
