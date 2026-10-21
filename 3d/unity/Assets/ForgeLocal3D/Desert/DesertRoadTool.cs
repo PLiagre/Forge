@@ -61,6 +61,11 @@ namespace ForgeLocal3D
         public Transform RacineBatiments=>batiments?.Racine;
         public string EmpreinteBatiments=>batiments?.Empreinte??"";
         DesertBatiments batiments;string erreurBatiments;
+        // Lot 737 : les maisons de la base, jamais mêlées aux bâtiments de geste.
+        DesertMaisons1400 maisons;
+        public DesertMaisons1400 Maisons=>maisons;
+        public int PiecesAvantMaisons{get;private set;}=-1;
+        public string EmpreinteAvantMaisons{get;private set;}="";
         ClientIntention depot;ClientPlan plan;string erreurCellule;
         LectureCarte carte;bool carteLue;string reliefOuvert;
         // Les rues déjà essayées dans la session, posées ou refusées : aucune n'est posée deux fois, ni réessayée.
@@ -106,6 +111,7 @@ namespace ForgeLocal3D
             // Sans kit, aucun bâtiment n'est jamais dessiné : le panneau le dit.
             try{batiments=new DesertBatiments(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurBatiments=e.Message;}
+            maisons=new DesertMaisons1400(transform,roads.terrain);
             Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
         }
         void Start()=>Ouvrir();
@@ -381,8 +387,9 @@ namespace ForgeLocal3D
         {
             if(batiments==null)return erreurBatiments;
             Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments));
+            PiecesAvantMaisons=batiments.Racine.childCount;EmpreinteAvantMaisons=batiments.Empreinte;
             return string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
-                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)));
+                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)))+"\n"+maisons.Dessiner(lu.Base);
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux
