@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -514,6 +515,101 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentNullException>(() => new PlanLu(1, 0, null, parcelles, batiments));
             Assert.Throws<ArgumentNullException>(() => new PlanLu(1, 0, rues, null, batiments));
             Assert.Throws<ArgumentNullException>(() => new PlanLu(1, 0, rues, parcelles, null));
+        }
+
+        // Lot #735 — la ville de 1400 servie sous `base`, en tête et dans l'ordre de clés du service.
+        private static readonly string PLAN_BASE = "{\"base\":{\"cell_id\":9922,\"maisons\":[{\"emprise\":[[10,10],[15,10],[15,18],[10,18]],\"foyers\":1},{\"emprise\":[[-30,5],[-20,5],[-20,25],[-30,25]],\"foyers\":12}],\"place\":[[-5,-5],[5,-5],[5,5],[-5,5]],\"rues\":[{\"largeur_m\":6,\"points\":[[5,0.5],[60,2.25]],\"sorte\":\"principale\",\"vers_cell_id\":9923},{\"largeur_m\":3.5,\"points\":[[0,5],[-2.5,40]],\"sorte\":\"ruelle\"}]}," + PLAN_DEUX_RUES.Substring(1);
+
+        [Test]
+        public void UneBaseServieEstRelueExactement()
+        {
+            Servir(200, PLAN_BASE);
+            LecturePlan lecture = Lire(CellFigee);
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            BaseDuPlan b = lecture.Plan.Base;
+            Points(b.Place, -5, -5, 5, -5, 5, 5, -5, 5);
+            Assert.IsTrue(b.Rues.Count == 2 && b.Maisons.Count == 2, b.Rues.Count + " rues, " + b.Maisons.Count + " maisons");
+            Points(b.Rues[0].Points, 5, 0.5, 60, 2.25);
+            Assert.IsTrue(b.Rues[0].LargeurM == 6.0 && b.Rues[0].Sorte == "principale");
+            Points(b.Rues[1].Points, 0, 5, -2.5, 40);
+            Assert.IsTrue(b.Rues[1].LargeurM == 3.5 && b.Rues[1].Sorte == "ruelle");
+            Points(b.Maisons[0].Emprise, 10, 10, 15, 10, 15, 18, 10, 18);
+            Points(b.Maisons[1].Emprise, -30, 5, -20, 5, -20, 25, -30, 25);
+            Assert.IsTrue(b.Maisons[0].Foyers == 1 && b.Maisons[1].Foyers == 12, "foyers 1 puis 12 attendus");
+            PlanLu p = lecture.Plan;
+            Assert.IsTrue(p.CellId == 9922 && p.Tick == 5 && p.Rues.Count == 2 && p.Parcelles.Count == 0 && p.Batiments.Count == 0);
+            Points(p.Rues[0].Points, 0, 0, 40, 0, 40, 25);
+            Points(p.Rues[1].Points, -12.5, 7.25, 0, 0);
+            Assert.IsTrue(p.Rues[0].Identifiant == 0 && p.Rues[0].LargeurM == 4.0 && p.Rues[0].EnChantier && p.Rues[1].Identifiant == 3 && p.Rues[1].LargeurM == 2.5 && !p.Rues[1].EnChantier);
+        }
+
+        [Test]
+        public void LaBaseDeBiskraServieEstRelue()
+        {
+            Servir(200, System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/ForgeLocal3D/Pont/Tests/plan-biskra-graine0-tick0.json"));
+            LecturePlan lecture = Lire(10103);
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            PlanLu p = lecture.Plan;
+            Assert.IsTrue(p.Tick == 0 && p.Rues.Count == 0 && p.Parcelles.Count == 0 && p.Batiments.Count == 0);
+            BaseDuPlan b = p.Base;
+            Points(b.Place, -50, -50, 50, -50, 50, 50, -50, 50);
+            Assert.IsTrue(b.Rues.Count == 7 && b.Maisons.Count == 33, b.Rues.Count + " rues, " + b.Maisons.Count + " maisons");
+            foreach (RueDeBase rue in b.Rues) Assert.IsTrue(rue.Sorte == "principale" && rue.LargeurM == 6.0, rue.Sorte + " de " + rue.LargeurM + " m");
+            Points(b.Rues[0].Points, 50.0, 11.428924, 64.622855, 14.771394);
+            Points(b.Rues[6].Points, 50.0, -26.353112, 63.269689, -33.347063);
+            Point(b.Maisons[0].Emprise[0], -55.392334, -10.181982);
+            Point(b.Maisons[32].Emprise[2], -63.427086, -48.928937);
+            Assert.IsTrue(b.Maisons.Sum(m => m.Foyers) == 33, b.Maisons.Sum(m => m.Foyers) + " foyers");
+            Assert.IsTrue(b.Maisons.Max(m => m.Emprise.Max(q => Math.Max(Math.Abs(q.X), Math.Abs(q.Y)))) == 69.186409, "plus grande coordonnée");
+        }
+
+        [Test]
+        public void UnPlanSansBaseEstLuEtDeclareLaBaseAbsente()
+        {
+            Servir(200, PLAN_BOURG);
+            LecturePlan lecture = Lire(CellFigee);
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            Assert.IsNull(lecture.Plan.Base, "une base non servie se déclare absente, jamais inventée");
+            VerifierBourg(lecture.Plan);
+        }
+
+        [TestCase("\"base\":{\"cell_id\":9922,", "\"base\":7,\"x\":{\"cell_id\":9922,", "base", "un objet attendu")]
+        [TestCase("\"cell_id\":9922,\"maisons\"", "\"cell_id\":9923,\"maisons\"", "base.cell_id", "9923")]
+        [TestCase("\"place\":[", "\"lieu\":[", "clé absente : base.place", "base.place")]
+        [TestCase("\"place\":[[-5,-5],[5,-5],[5,5],[-5,5]]", "\"place\":[[-5,-5],[5,-5]]", "base.place", "au moins 3 points")]
+        [TestCase("\"rues\":[{\"largeur_m\":6", "\"voies\":[{\"largeur_m\":6", "clé absente : base.rues", "base.rues")]
+        [TestCase("\"points\":[[0,5],[-2.5,40]]", "\"points\":[[0,5]]", "base.rues[1].points", "au moins 2 points")]
+        [TestCase("\"largeur_m\":3.5", "\"largeur_m\":0", "base.rues[1].largeur_m", "> 0")]
+        [TestCase(",\"sorte\":\"ruelle\"", "", "base.rues[1].sorte", "clé absente")]
+        [TestCase("\"sorte\":\"ruelle\"", "\"sorte\":\"\"", "base.rues[1].sorte", "un texte non vide")]
+        [TestCase("\"sorte\":\"ruelle\"", "\"sorte\":3", "base.rues[1].sorte", "un texte non vide")]
+        [TestCase("\"maisons\":[{", "\"maisons\":[7,{", "base.maisons[0]", "un objet attendu")]
+        [TestCase("\"maisons\":[{", "\"logis\":[{", "clé absente : base.maisons", "base.maisons")]
+        [TestCase("[[-30,5],", "[[-30,5,0],", "base.maisons[1].emprise[0]", "exactement 2 nombres")]
+        [TestCase("\"foyers\":12", "\"foyers\":0", "base.maisons[1].foyers", "au moins 1 foyer")]
+        [TestCase("\"foyers\":12", "\"foyers\":1.5", "base.maisons[1].foyers", "un entier")]
+        [TestCase(",\"foyers\":12", "", "base.maisons[1].foyers", "clé absente")]
+        public void UneBaseMalFormeeRefuseLePlan(string ancien, string nouveau, string chemin, string precision)
+        {
+            Servir(200, RemplacerUneFois(PLAN_BASE, ancien, nouveau));
+            LecturePlan lecture = Absence(CellFigee);
+            StringAssert.Contains(chemin, lecture.Absence);
+            StringAssert.Contains(precision, lecture.Absence);
+        }
+
+        [Test]
+        public void UneBaseNeSeFabriquePasSansListe()
+        {
+            var points = new[] { new PointLocal(0, 0), new PointLocal(1, 0), new PointLocal(1, 1) };
+            Assert.IsNull(new PlanLu(1, 0, new RueDuPlan[0], new ParcelleDuPlan[0], new BatimentDuPlan[0]).Base);
+            var b = new BaseDuPlan(points, new RueDeBase[0], new MaisonDeBase[0]);
+            Assert.AreSame(b, new PlanLu(1, 0, new RueDuPlan[0], new ParcelleDuPlan[0], new BatimentDuPlan[0], b).Base);
+            Assert.Throws<ArgumentNullException>(() => new RueDeBase(null, 6, "ruelle"));
+            Assert.Throws<ArgumentNullException>(() => new RueDeBase(points, 6, null));
+            Assert.Throws<ArgumentNullException>(() => new MaisonDeBase(null, 1));
+            Assert.Throws<ArgumentNullException>(() => new BaseDuPlan(null, new RueDeBase[0], new MaisonDeBase[0]));
+            Assert.Throws<ArgumentNullException>(() => new BaseDuPlan(points, null, new MaisonDeBase[0]));
+            Assert.Throws<ArgumentNullException>(() => new BaseDuPlan(points, new RueDeBase[0], null));
         }
     }
 }
