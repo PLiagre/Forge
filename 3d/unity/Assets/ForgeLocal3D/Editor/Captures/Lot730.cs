@@ -13,90 +13,60 @@ using Object = UnityEngine.Object;
 namespace ForgeLocal3D.Captures {
     // Lot 730 : Espace suspend ou reprend la ville, C revient à la carte par le vrai fondu.
     // Les touches passent par le système d'entrée ; `automatique` les ignore. La capture a déjà son service, en pause.
+    // Chaque attente passe par `Lot690.Jusqua`, bornée, et lève en disant ce qui manque.
     static class Lot730 {
-        const double ATTENTE_S = 20, IMMOBILE_S = 1;
-        const int IMAGES = 8;
         const string CARTE = "C : carte", PAUSE = "Espace : pause / reprendre";
         static Frappe frappe;
 
         [ScenarioDeCapture(730, "01-ville-et-aide")]
         static IEnumerator VilleEtAide(Camera camera) {
-            DesertRoadTool outil = Outil(); DesertCityCamera ville = camera.GetComponent<DesertCityCamera>() ?? Object.FindFirstObjectByType<DesertCityCamera>() ?? throw new InvalidOperationException("pas de caméra de ville");
-            int port = outil.Port; double reprise = ReglagesDesVues.Charger().VitesseVille;
-            ville.VueEnsemble(); camera.aspect = Lot549.FORME; outil.Placer();
-            outil.automatique = true;
-            for (var e = Touche(Key.Space, 6); e.MoveNext();) yield return null;
-            for (var e = Touche(Key.C, 6); e.MoveNext();) yield return null;
-            for (var e = Secondes(IMMOBILE_S); e.MoveNext();) yield return null;
+            DesertRoadTool outil = Outil(); int port = outil.Port; HorlogeLue lue = null, avant = null;
+            DesertCityCamera ville = camera.GetComponent<DesertCityCamera>() ?? Object.FindFirstObjectByType<DesertCityCamera>() ?? throw new InvalidOperationException("pas de caméra de ville");
+            ville.VueEnsemble(); camera.aspect = Lot549.FORME; outil.Placer(); outil.automatique = true;
+            foreach (Key touche in new[] { Key.Space, Key.C }) for (var e = Touche(touche, null); e.MoveNext();) yield return null;
+            for (var e = Secondes(1); e.MoveNext();) yield return null;
             if (Object.FindFirstObjectByType<TransitionDeVue>() != null) throw new InvalidOperationException("automatique : C a lancé une transition");
-            Lecture<HorlogeLue> ignoree = null; for (var e = Lire(port, l => ignoree = l, "horloge ignorée"); e.MoveNext();) yield return null;
-            if (ignoree.Donnees.JoursParSeconde != 0) throw new InvalidOperationException("automatique : Espace a quitté la pause (" + ignoree.Donnees.JoursParSeconde + ")");
-            outil.automatique = false;
-            Exiger(Panneau(camera), "route");
-            if (!outil.Rafraichir()) throw new InvalidOperationException("rafraîchissement refusé : " + Panneau(camera));
-            Exiger(Panneau(camera), "route après rafraîchissement");
-            outil.EntrerParcelle(); Exiger(Panneau(camera), "parcelle");
-            outil.EntrerBatiment(PoseDeBatiment.Natures[0]); Exiger(Panneau(camera), "bâtiment");
-            outil.Annuler(); Exiger(Panneau(camera), "retour route");
-            for (var e = JusquaVitesse(Key.Space, port, reprise, "reprise"); e.MoveNext();) yield return null;
-            for (var e = JusquaVitesse(Key.Space, port, 0, "pause"); e.MoveNext();) yield return null;
-            Lecture<HorlogeLue> avant = null; for (var e = Lire(port, l => avant = l, "tick en pause"); e.MoveNext();) yield return null;
-            for (var e = Secondes(IMMOBILE_S); e.MoveNext();) yield return null;
-            Lecture<HorlogeLue> apres = null; for (var e = Lire(port, l => apres = l, "second tick en pause"); e.MoveNext();) yield return null;
-            if (apres.Donnees.Tick != avant.Donnees.Tick || apres.Donnees.JoursParSeconde != 0)
-                throw new InvalidOperationException("en pause, le tick passe de " + avant.Donnees.Tick + " à " + apres.Donnees.Tick + " (" + apres.Donnees.JoursParSeconde + ")");
+            for (var e = Servie(port, h => (lue = h) != null, "horloge ignorée"); e.MoveNext();) yield return null;
+            if (lue.JoursParSeconde != 0) throw new InvalidOperationException("automatique : Espace a quitté la pause (" + lue.JoursParSeconde + ")");
+            outil.automatique = false; Exiger(camera, "route");
+            if (!outil.Rafraichir()) throw new InvalidOperationException("rafraîchissement refusé : " + Panneau(camera).text);
+            Exiger(camera, "route après rafraîchissement");
+            outil.EntrerParcelle(); Exiger(camera, "parcelle");
+            outil.EntrerBatiment(PoseDeBatiment.Natures[0]); Exiger(camera, "bâtiment");
+            outil.Annuler(); Exiger(camera, "retour route");
+            for (var e = Touche(Key.Space, Servie(port, h => Meme(h.JoursParSeconde, ReglagesDesVues.Charger().VitesseVille), "reprise")); e.MoveNext();) yield return null;
+            for (var e = Touche(Key.Space, Servie(port, h => h.JoursParSeconde == 0 && (avant = h) != null, "pause")); e.MoveNext();) yield return null;
+            for (var e = Secondes(1); e.MoveNext();) yield return null;
+            for (var e = Servie(port, h => (lue = h) != null, "second tick en pause"); e.MoveNext();) yield return null;
+            if (lue.Tick != avant.Tick || lue.JoursParSeconde != 0) throw new InvalidOperationException("en pause, le tick passe de " + avant.Tick + " à " + lue.Tick + " (" + lue.JoursParSeconde + ")");
             ville.VueEnsemble(); camera.aspect = Lot549.FORME; outil.Placer();
-            for (int i = 0; i < IMAGES; i++) yield return null;
-            Lisible(camera, PanneauMesh(camera));
+            for (int i = 0; i < 8; i++) yield return null;
+            Lisible(camera, Panneau(camera));
         }
 
         [ScenarioDeCapture(730, "02-carte-apres-retour")]
         static IEnumerator CarteApresRetour(Camera camera) {
-            DesertRoadTool outil = Outil(); int port = outil.Port;
-            double carteV = ReglagesDesVues.Charger().VitesseCarte, villeV = ReglagesDesVues.Charger().VitesseVille;
-            for (var e = JusquaVitesse(Key.Space, port, villeV, "reprise avant le retour"); e.MoveNext();) yield return null;
+            int port = Outil().Port; var reglages = ReglagesDesVues.Charger(); TransitionDeVue transition = null; AsyncOperation chargement = null; string demandee = null;
+            for (var e = Touche(Key.Space, Servie(port, h => Meme(h.JoursParSeconde, reglages.VitesseVille), "reprise avant le retour")); e.MoveNext();) yield return null;
             Armer(Key.C);
-            TransitionDeVue transition = null; double fin = Time.realtimeSinceStartupAsDouble + 5;
-            while ((transition = Object.FindFirstObjectByType<TransitionDeVue>()) == null) {
-                if (Time.realtimeSinceStartupAsDouble > fin) throw new InvalidOperationException("C n'a pas lancé de transition");
-                yield return null;
-            }
+            for (var e = Lot690.Jusqua(() => (transition = Object.FindFirstObjectByType<TransitionDeVue>()) != null, () => "C n'a pas lancé de transition"); e.MoveNext();) yield return null;
             if (transition.SceneChargee != null) throw new InvalidOperationException("la scène a chargé avant le branchement du fondu");
-            AsyncOperation chargement = null; string demandee = null;
             transition.ChargerScene = nom => { demandee = nom; chargement = SceneManager.LoadSceneAsync(nom, LoadSceneMode.Additive) ?? throw new InvalidOperationException("« " + nom + " » ne se charge pas"); };
             Armer(null);
-            fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S;
-            while (chargement == null || !chargement.isDone || (transition != null && transition.EnCours)) {
-                if (Time.realtimeSinceStartupAsDouble > fin) throw new InvalidOperationException("fondu ou chargement inachevé : « " + demandee + " »");
-                yield return null;
-            }
+            for (var e = Lot690.Jusqua(() => chargement != null && chargement.isDone && (transition == null || !transition.EnCours), () => "fondu ou chargement inachevé : « " + demandee + " »"); e.MoveNext();) yield return null;
             if (demandee != OuvertureDeLaCarte.SCENE) throw new InvalidOperationException("C a demandé « " + demandee + " »");
             Scene scene = SceneManager.GetSceneByName(demandee); SceneManager.SetActiveScene(scene); Ecarter(camera);
             CarteDessinee[] cartes = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<CarteDessinee>(true)).ToArray();
-            if (cartes.Length != 1) throw new InvalidOperationException(cartes.Length + " cartes dans " + demandee);
-            CarteDessinee carte = cartes[0];
-            fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S;
-            while (carte.CellulesPosees != carte.CellulesServies || carte.CellulesPosees <= 0) {
-                if (Time.realtimeSinceStartupAsDouble > fin) throw new InvalidOperationException(carte.CellulesPosees + " cellules posées pour " + carte.CellulesServies + " servies");
-                yield return null;
-            }
+            CarteDessinee carte = cartes.Length == 1 ? cartes[0] : throw new InvalidOperationException(cartes.Length + " cartes dans " + demandee);
+            for (var e = Lot690.Jusqua(() => carte.CellulesPosees == carte.CellulesServies && carte.CellulesPosees > 0, () => carte.CellulesPosees + " cellules posées pour " + carte.CellulesServies + " servies"); e.MoveNext();) yield return null;
             HorlogeDeCarte horloge = carte.GetComponent<HorlogeDeCarte>() ?? throw new InvalidOperationException("la carte n'a pas d'horloge");
-            Lecture<HorlogeLue> servie = null; fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S;
-            while (servie == null || !servie.Presente || !Meme(servie.Donnees.JoursParSeconde, carteV) || horloge.Lue == null || !Meme(horloge.Lue.JoursParSeconde, servie.Donnees.JoursParSeconde) || horloge.TexteAffiche != HorlogeDeCarte.Decrire(horloge.Lue)) {
-                if (Time.realtimeSinceStartupAsDouble > fin) throw new InvalidOperationException("horloge « " + horloge.TexteAffiche + " », service " + (servie != null && servie.Presente ? servie.Donnees.JoursParSeconde.ToString() : servie?.Absence ?? "non lu"));
-                for (var e = Lire(port, l => servie = l, "horloge de la carte"); e.MoveNext();) yield return null;
-                yield return null;
-            }
-            var temps = carte.GetComponent<CommandesDuTemps>(); if (temps != null) temps.automatique = true;
-            var parcours = carte.GetComponent<ParcoursDeCarte>(); if (parcours != null) parcours.automatique = true;
-            var survol = carte.GetComponent<SurvolDeCarte>(); if (survol != null) survol.automatique = true;
+            for (var e = Servie(port, h => Meme(h.JoursParSeconde, reglages.VitesseCarte) && Affiche(horloge, h.JoursParSeconde), "horloge de la carte"); e.MoveNext();) yield return null;
+            carte.GetComponent<CommandesDuTemps>().automatique = carte.GetComponent<ParcoursDeCarte>().automatique = carte.GetComponent<SurvolDeCarte>().automatique = true;
             Lot549.Photographier(camera, carte); Cabinet(camera, carte);
-            for (int i = 0; i < IMAGES; i++) yield return null;
-            if (horloge.Lue == null || !Meme(horloge.Lue.JoursParSeconde, carteV) || horloge.TexteAffiche != HorlogeDeCarte.Decrire(horloge.Lue))
-                throw new InvalidOperationException("après la pose, l'horloge dit « " + horloge.TexteAffiche + " »");
-            Text date = carte.transform.Find("Cabinet").GetComponentsInChildren<Text>().FirstOrDefault(t => t.text == horloge.TexteAffiche)
-                ?? throw new InvalidOperationException("le bandeau du cabinet ne montre pas « " + horloge.TexteAffiche + " »");
-            Lot690.DansLeChamp(camera, date);
+            for (int i = 0; i < 8; i++) yield return null;
+            if (!Affiche(horloge, reglages.VitesseCarte)) throw new InvalidOperationException("après la pose, l'horloge dit « " + horloge.TexteAffiche + " »");
+            Lot690.DansLeChamp(camera, carte.transform.Find("Cabinet").GetComponentsInChildren<Text>().FirstOrDefault(t => t.text == horloge.TexteAffiche)
+                ?? throw new InvalidOperationException("le bandeau du cabinet ne montre pas « " + horloge.TexteAffiche + " »"));
         }
 
         // Le cabinet réserve à la carte les deux tiers gauches et dessine ses dossiers, dont la date, en overlay : la photo
@@ -111,58 +81,40 @@ namespace ForgeLocal3D.Captures {
 
         // En batch, la vue de jeu n'a pas le focus : les événements clavier restent dans l'éditeur.
         // La frappe est donc écrite dans l'état du joueur, au début de Update, avant l'outil.
-        static void Armer(Key? touche) {
-            if (frappe == null) frappe = new GameObject("Frappe").AddComponent<Frappe>();
-            Frappe.tenue = touche; Frappe.armee = true;
+        static void Armer(Key? touche) { if (frappe == null) frappe = new GameObject("Frappe").AddComponent<Frappe>(); (Frappe.tenue, Frappe.armee) = (touche, true); }
+        // La touche reste enfoncée jusqu'à la fin de `pendant` (six images sans attente), puis se relâche.
+        static IEnumerator Touche(Key touche, IEnumerator pendant) {
+            Armer(touche); for (int i = 0; i < 6; i++) yield return null;
+            while (pendant != null && pendant.MoveNext()) yield return null;
+            Armer(null); yield return null; }
+        // Lit /horloge hors du fil principal, une lecture à la fois, jusqu'à une réponse que `voulue` accepte.
+        static IEnumerator Servie(int port, Func<HorlogeLue, bool> voulue, string quoi) {
+            Task<Lecture<HorlogeLue>> t = null;
+            return Lot690.Jusqua(() => {
+                if (t != null && t.IsCompleted && t.Result.Presente && voulue(t.Result.Donnees)) return true;
+                if (t == null || t.IsCompleted) t = Task.Run(() => { using (var c = new ClientHorloge(port, TimeSpan.FromSeconds(5))) return c.Lire(); });
+                return false;
+            }, () => quoi + " : " + (t == null || !t.IsCompleted ? "lecture en cours" : t.Result.Presente ? "vitesse " + t.Result.Donnees.JoursParSeconde : t.Result.Absence));
         }
+        static bool Affiche(HorlogeDeCarte h, double v) => h.Lue != null && Meme(h.Lue.JoursParSeconde, v) && h.TexteAffiche == HorlogeDeCarte.Decrire(h.Lue);
         static bool Meme(double a, double b) => Math.Abs(a - b) < 1e-6;
         static DesertRoadTool Outil() => Object.FindFirstObjectByType<DesertRoadTool>() ?? throw new InvalidOperationException("pas d'outil des routes");
-        static IEnumerator Touche(Key touche, int images) {
-            Armer(touche);
-            for (int i = 0; i < images; i++) yield return null;
-            Armer(null);
-            yield return null;
-        }
-        static IEnumerator JusquaVitesse(Key touche, int port, double vitesse, string quoi) {
-            Armer(touche);
-            double fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S; Lecture<HorlogeLue> lue = null;
-            while (lue == null || !Meme(lue.Donnees.JoursParSeconde, vitesse)) {
-                if (Time.realtimeSinceStartupAsDouble > fin) throw new InvalidOperationException(quoi + " : vitesse " + (lue == null ? "inconnue" : lue.Donnees.JoursParSeconde.ToString(System.Globalization.CultureInfo.InvariantCulture)) + ", attendue " + vitesse.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                for (var e = Lire(port, l => lue = l, quoi); e.MoveNext();) yield return null;
-                yield return null;
-            }
-            Armer(null);
-            yield return null;
-        }
-        static IEnumerator Lire(int port, Action<Lecture<HorlogeLue>> noter, string quoi) {
-            Task<Lecture<HorlogeLue>> tache = Task.Run(() => { using (var c = new ClientHorloge(port, TimeSpan.FromSeconds(5))) return c.Lire(); });
-            for (var e = Lot690.Attendre(tache, quoi); e.MoveNext();) yield return null;
-            if (!tache.Result.Presente) throw new InvalidOperationException(quoi + " : " + tache.Result.Absence);
-            noter(tache.Result);
-        }
-        static IEnumerator Secondes(double s) { for (double fin = Time.realtimeSinceStartupAsDouble + s; Time.realtimeSinceStartupAsDouble < fin;) yield return null; }
-        static TextMesh PanneauMesh(Camera camera) {
-            foreach (TextMesh t in camera.GetComponentsInChildren<TextMesh>(true)) if (t.name == "Panneau des routes") return t;
-            throw new InvalidOperationException("panneau des routes absent");
-        }
-        static string Panneau(Camera camera) => PanneauMesh(camera).text;
-        static void Exiger(string texte, string mode) {
-            if (!texte.Contains(CARTE) || !texte.Contains(PAUSE)) throw new InvalidOperationException(mode + " : « " + texte.Replace("\n", " | ") + " »");
-        }
+        static IEnumerator Secondes(double s) { double fin = Time.realtimeSinceStartupAsDouble + s; return Lot690.Jusqua(() => Time.realtimeSinceStartupAsDouble >= fin, () => "attente"); }
+        static TextMesh Panneau(Camera camera) => camera.GetComponentsInChildren<TextMesh>(true).FirstOrDefault(t => t.name == "Panneau des routes") ?? throw new InvalidOperationException("panneau des routes absent");
+        static void Exiger(Camera camera, string mode) { string texte = Panneau(camera).text;
+            if (!texte.Contains(CARTE) || !texte.Contains(PAUSE)) throw new InvalidOperationException(mode + " : « " + texte.Replace("\n", " | ") + " »"); }
         static void Lisible(Camera camera, TextMesh texte) {
-            var r = texte.GetComponent<MeshRenderer>(); Bounds b = r.localBounds; Transform tr = texte.transform;
-            Vector3 c = b.center, e = b.extents; string hors = null;
-            Vector3[] coins = { new Vector3(c.x - e.x, c.y - e.y, c.z), new Vector3(c.x + e.x, c.y - e.y, c.z), new Vector3(c.x - e.x, c.y + e.y, c.z), new Vector3(c.x + e.x, c.y + e.y, c.z) };
-            foreach (Vector3 coin in coins) {
-                Vector3 v = camera.WorldToViewportPoint(tr.TransformPoint(coin));
-                if (v.z <= 0f || v.x < -0.01f || v.x > 1.01f || v.y < -0.01f || v.y > 1.01f) hors = (hors ?? "") + " " + v.ToString("F3");
+            Bounds b = texte.GetComponent<MeshRenderer>().localBounds; string hors = null;
+            foreach (float x in new[] { -1f, 1f }) foreach (float y in new[] { -1f, 1f }) {
+                Vector3 v = camera.WorldToViewportPoint(texte.transform.TransformPoint(b.center + Vector3.Scale(b.extents, new Vector3(x, y, 0))));
+                if (v.z <= 0f || v.x < -0.01f || v.x > 1.01f || v.y < -0.01f || v.y > 1.01f) hors += " " + v.ToString("F3");
             }
             if (hors != null) throw new InvalidOperationException("aide coupée" + hors + " : « " + texte.text.Replace("\n", " | ") + " »");
         }
+        // Le désert de côté, comme `Lot549.Ecarter` : hors du chemin de la caméra tout s'éteint ; ce qui la reprendrait aussi.
         static void Ecarter(Camera camera) {
             foreach (GameObject racine in camera.gameObject.scene.GetRootGameObjects()) Ecarter(racine.transform, camera.transform);
-            var ville = camera.GetComponent<DesertCityCamera>(); if (ville != null) ville.enabled = false;
-            var visite = camera.GetComponent<VillageV2Visit>(); if (visite != null) visite.enabled = false;
+            foreach (Behaviour b in new Behaviour[] { camera.GetComponent<DesertCityCamera>(), camera.GetComponent<VillageV2Visit>() }) if (b != null) b.enabled = false;
         }
         static void Ecarter(Transform t, Transform camera) {
             if (t == camera) { foreach (Transform enfant in t) enfant.gameObject.SetActive(false); return; }
@@ -175,16 +127,9 @@ namespace ForgeLocal3D.Captures {
     // Avant DesertRoadTool : la touche est dans l'état dynamique, visible par wasPressedThisFrame.
     [DefaultExecutionOrder(-10000)]
     sealed class Frappe : MonoBehaviour {
-        public static Key? tenue;
-        public static bool armee;
+        public static Key? tenue; public static bool armee;
         void Update() {
-            if (!armee) return;
-            Keyboard k = Keyboard.current;
-            if (k == null || !k.added) k = InputSystem.AddDevice<Keyboard>();
-            if (!k.enabled) InputSystem.EnableDevice(k);
-            k.MakeCurrent();
-            InputState.Change(k, tenue is Key t ? new KeyboardState(t) : new KeyboardState(), InputUpdateType.Dynamic);
-            armee = false;
-        }
+            if (!armee) return; Keyboard k = Keyboard.current; if (k == null || !k.added) k = InputSystem.AddDevice<Keyboard>(); if (!k.enabled) InputSystem.EnableDevice(k);
+            k.MakeCurrent(); InputState.Change(k, tenue is Key t ? new KeyboardState(t) : new KeyboardState(), InputUpdateType.Dynamic); armee = false; }
     }
 }

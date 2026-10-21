@@ -17,21 +17,23 @@ namespace Forge.Pont.Tests {
         private const int ATTENTE_MS = 10000; private const double PAS_S = 0.1;
         private int port; private HttpListener ecoute; private Thread fil; private GameObject objet; private TransitionDeVue transition;
         private readonly List<string> recues = new List<string>(), chargees = new List<string>();
-        private double vitesse; private bool panne; private int delaiMs, recuesAuChargement; private ManualResetEventSlim retenue; // remis à chaque cas : NUnit garde l'instance
+        private double vitesse; private bool panne; private int delaiMs, tardifMs, recuesAuChargement; private ManualResetEventSlim retenue; // remis à chaque cas : NUnit garde l'instance
         [SetUp] public void PortLibre() {
-            var sonde = new TcpListener(IPAddress.Loopback, 0); sonde.Start(); port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop(); lock (recues) { recues.Clear(); vitesse = 2.5; panne = false; delaiMs = 0; } chargees.Clear(); recuesAuChargement = -1; retenue = new ManualResetEventSlim(true); }
+            var sonde = new TcpListener(IPAddress.Loopback, 0); sonde.Start(); port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop(); lock (recues) { recues.Clear(); vitesse = 2.5; panne = false; delaiMs = tardifMs = 0; } chargees.Clear(); recuesAuChargement = -1; retenue = new ManualResetEventSlim(true); }
         [TearDown] public void Fermer() { transition?.Arreter(); if (objet != null) UnityEngine.Object.DestroyImmediate(objet); retenue.Set(); ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil, transition) = (null, null, null); }
         // `retenue` fermée, le faux service note la requête puis ne répond qu'à son ouverture ; un client parti en route n'arrête pas le service.
         private void Servir() {
             var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start(); var porte = retenue;
-            (fil = new Thread(() => { try { while (true) {
-                HttpListenerContext ctx = auditeur.GetContext(); bool enPanne; int delai; string corps; lock (recues) {
+            void Traiter(HttpListenerContext ctx) { bool enPanne; int delai; string corps; lock (recues) {
                     recues.Add(ctx.Request.HttpMethod + " " + ctx.Request.Url.PathAndQuery); (enPanne, delai) = (panne, delaiMs);
                     if (ctx.Request.HttpMethod == "POST" && ctx.Request.Url.AbsolutePath == "/vitesse") vitesse = double.Parse(ctx.Request.QueryString["jours_par_seconde"], CultureInfo.InvariantCulture);
                     corps = "{\"tick\":5,\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"jours_par_seconde\":" + vitesse.ToString("R", CultureInfo.InvariantCulture) + "}";
                 }
                 if (delai > 0) Thread.Sleep(delai); porte.Wait(ATTENTE_MS);
-                try { ctx.Response.StatusCode = enPanne ? 500 : 200; ctx.Response.Close(Encoding.UTF8.GetBytes(enPanne ? "{\"erreur\":\"panne\"}" : corps), true); } catch (Exception) { }
+                try { ctx.Response.StatusCode = enPanne ? 500 : 200; ctx.Response.Close(Encoding.UTF8.GetBytes(enPanne ? "{\"erreur\":\"panne\"}" : corps), true); } catch (Exception) { } }
+            // Lot #730 — `tardifMs` : le prochain POST n'est noté et appliqué qu'après ce délai, pendant que le service répond aux autres.
+            (fil = new Thread(() => { try { while (true) { HttpListenerContext ctx = auditeur.GetContext(); int tardif; lock (recues) { tardif = ctx.Request.HttpMethod == "POST" ? tardifMs : 0; if (tardif > 0) tardifMs = 0; }
+                if (tardif > 0) new Thread(() => { try { Thread.Sleep(tardif); Traiter(ctx); } catch (Exception) { } }) { IsBackground = true }.Start(); else Traiter(ctx);
             } } catch (Exception) { } }) { IsBackground = true }).Start();
         }
         private void Commencer(string scene = "Desert_City", VueDuJeu vue = VueDuJeu.Ville) {
@@ -131,10 +133,17 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(parti); Assert.That(montre.ElapsedMilliseconds, Is.LessThan(200), "l'appel attend le service");
             Assert.IsFalse(c.Basculer(), "une seconde pause part pendant la première"); AttendreRecues(1); Thread.Sleep(100);
             Assert.AreEqual(1, Recues().Length, "les pauses se chevauchent"); retenue.Set(); Attendre(c); AttendreRecues(2); Assert.AreEqual(0, VitesseServie()); }
-        [Test] public void Une_pause_en_vol_n_ecrase_pas_la_vitesse_de_la_carte() {
-            retenue.Reset(); Servir(); var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); AttendreRecues(1);
-            double debut = Time.realtimeSinceStartupAsDouble; var lancee = c.Retour(); Brancher(lancee); retenue.Set(); Derouler(debut); Thread.Sleep(300);
-            double carte = ReglagesDesVues.Charger().VitesseCarte; CollectionAssert.AreEqual(new[] { OuvertureDeLaCarte.SCENE }, chargees);
+        // C pendant une pause en vol ne lance rien : la pause finit (lecture annulée, POST parti servi), puis C redemandé part.
+        TransitionDeVue Revenir(CommandesDeVille c) {
+            Assert.IsNull(c.Retour(), "le retour part pendant la pause"); Assert.IsTrue(c.RetourDemande); Attendre(c); retenue.Set();
+            double debut = Time.realtimeSinceStartupAsDouble; var lancee = c.Retour(); Assert.IsFalse(c.RetourDemande); Brancher(lancee); Derouler(debut); Thread.Sleep(300); return lancee; }
+        [Test] public void Une_lecture_en_vol_est_annulee_avant_le_retour() {
+            retenue.Reset(); Servir(); var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); AttendreRecues(1); Revenir(c);
+            double carte = ReglagesDesVues.Charger().VitesseCarte; CollectionAssert.AreEqual(new[] { OuvertureDeLaCarte.SCENE }, chargees); StringAssert.StartsWith("horloge : ", c.Absence);
             CollectionAssert.AreEqual(new[] { "GET /horloge", "GET /horloge", Poste(carte) }, Recues()); Assert.AreEqual(carte, VitesseServie()); }
+        [Test] public void Un_post_de_pause_deja_parti_est_applique_avant_le_retour() {
+            lock (recues) tardifMs = 1000; Servir(); var c = new CommandesDeVille(port); Assert.IsTrue(c.Basculer()); AttendreRecues(1); Thread.Sleep(200); var lancee = Revenir(c);
+            CollectionAssert.AreEqual(new[] { "GET /horloge", Poste(0), "GET /horloge" }, Recues(), "une réponse tardive remet la carte à 0");
+            Assert.AreEqual(0, VitesseServie()); Assert.AreEqual(0, c.VitessePosee); Assert.IsNull(lancee.VitessePosee); }
     }
 }

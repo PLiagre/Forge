@@ -180,7 +180,7 @@ namespace ForgeLocal3D
             if(k.digit3Key.wasPressedThisFrame||k.numpad3Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[2]);
             if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(!ModeBatiment)Valider();}
             if(k.escapeKey.wasPressedThisFrame)Annuler();
-            if(k.cKey.wasPressedThisFrame)commandes.Retour();
+            if(k.cKey.wasPressedThisFrame||commandes.RetourDemande)commandes.Retour();
             if(k.spaceKey.wasPressedThisFrame)commandes.Basculer();
         }
         void LateUpdate()=>Placer();
