@@ -81,9 +81,9 @@ FENETRE_FLUX_TICKS = 30
 # TICK_DURATION_DAYS (voir MODELE.md).
 FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = 18.0 * TICK_DURATION_DAYS
 
-# Bras par km² cultivé, niveau 2 : valeur basse pour préserver l'année mesurée.
-# À revoir quand un geste retirera des paysans aux champs.
-BRAS_AUX_CHAMPS_PAR_KM2 = 0.1
+# Bras par km² cultivé, niveau 2 : calibrés sur le lieu médian au pic annuel
+# de sa saison agricole (voir MODELE.md, lot #720).
+BRAS_AUX_CHAMPS_PAR_KM2 = 6.2
 
 
 # --- Eau dans le rendement (fidélité niveau 2) ---

@@ -136,7 +136,8 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   ne sont pas consommés.
 - **répartir le travail.** Les habitants ont un métier : mineur, paysan, ouvrier ou artisan.
   Naissances, morts et départs suivent les métiers ; récolte, chantiers, ateliers et fabrication les lisent. Les chantiers font passer les paysans à ouvriers, les ateliers à artisans
-  et retour ; la part minière retire déjà des bras aux champs.
+  et retour ; la part minière retire déjà des bras aux champs. La moisson demande les bras de chaque lieu,
+  avec un besoin qui suit la saison agricole ; âge, sexe, outils et bêtes de trait restent non simulés.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Une route se bâtit à la journée ; achevée avec porte, elle
   augmente la capacité de transport terrestre ; ponts et ports restent non simulés.
@@ -510,7 +511,18 @@ Sans lieux, besoin saisonnier et paysans se calculent sur la cellule. Sous le se
 de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
 Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
 La règle est de **niveau 2**, plausible, jamais sourcée.
-`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure, relue à chaque appel. Sans emprunter les bras voisins, le manque local change le monde annuel, même sans chantier ; à bras suffisants, les octets restent exacts.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` est relue à chaque appel, relevée de 0,1 à 6,2 par le lot #720.
+Calibrage reproductible sur `World.charger(0)` : pour chaque lieu aux métiers calculés,
+on divise ses paysans par ses km² cultivés multipliés par le maximum annuel du facteur
+de saison de sa cellule (jours 0 à 364). Les km² suivent l'ordre surface du lieu × relief × eau × part agricole.
+Au bourg, on retire les non-paysans de la cellule à sa population, plancher zéro ;
+ailleurs, tous les habitants sont paysans. On garde les dénominateurs strictement positifs.
+La médiane mesurée est 6,204260778 sur 6 619 lieux cultivables ; elle ne se fige pas dans un test.
+À 6,2, la moitié des lieux manquent de bras à la moisson, aucun en janvier,
+et 35 sur le chemin à saison moyenne. Sans chantier, sur un an numéroté,
+la population finale baisse de 0,56 % et la récolte annuelle de 2,47 % face à 0,1,
+sous les bornes de 1 % et 3 %. Sans emprunter les bras voisins, le manque local
+change donc le monde annuel ; à bras suffisants, les octets restent exacts.
 En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
 peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
@@ -635,7 +647,8 @@ produit vraiment, et c'est ce qui l'a fait suivre tout seul le
 jour où le relief, puis la saison, ont modulé le rendement.
 
 Le facteur de bras local multiplie chaque part de surface dans les deux maillons de production du
-tick. Le plafond de survie et la production moyenne restent la récolte à bras
+tick. Il suit la saison : la moisson manque de bras dans les lieux les plus sollicités.
+Le plafond de survie et la production moyenne restent la récolte à bras
 suffisants : le facteur ne peut que l'abaisser, donc le plafond reste une borne
 supérieure. L'amorçage ne dépend pas des métiers et ne forme pas de cercle.
 
@@ -2874,7 +2887,8 @@ ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
 bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 `/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
 
-La petite constante `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure : l’échelle du lieu et la saison font porter le manque de bras du chantier sur la récolte du bourg,
+La constante `BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` donne son poids à la moisson :
+l’échelle du lieu et la saison font porter le manque de bras du chantier sur la récolte du bourg,
 même quand les champs voisins ont assez de paysans. Âge et
 sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
