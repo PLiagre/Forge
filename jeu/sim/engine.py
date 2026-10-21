@@ -398,18 +398,18 @@ def _apply_extraction(cell: Cell, carte: dict) -> None:
 
 def _verser_recolte(cell, recolte, carte, saison, recoltes):
     """Besoin commun, manque local ; le partage historique survit à bras suffisants."""
-    km2 = cell.area_km2
+    km2_cultives = cell.area_km2
     if carte:
-        km2 *= _facteur_relief_pour_cellule(cell, carte)
-        km2 *= _facteur_eau_pour_cellule(cell, carte)
-        km2 *= _facteur_agricole(cell, carte)
-    km2 *= saison
+        km2_cultives *= _facteur_relief_pour_cellule(cell, carte)
+        km2_cultives *= _facteur_eau_pour_cellule(cell, carte)
+        km2_cultives *= _facteur_agricole(cell, carte)
+    km2_cultives *= saison
     metiers = lire_habitants_par_metier(cell)
-    facteur = foyers.facteur_bras(metiers, km2)
+    facteur = foyers.facteur_bras(metiers, km2_cultives)
     parts = None
-    if cell.lieux and metiers != -1 and km2 > 0:
+    if cell.lieux and metiers != -1 and km2_cultives > 0:
         surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
-        cultives_par_km2 = km2 / cell.area_km2
+        cultives_par_km2 = km2_cultives / cell.area_km2
         besoin_par_km2 = foyers.besoin_bras(cultives_par_km2)
         non_paysans = cell.population - metiers.get(_constantes.METIER_PAYSANS, 0)
         for lieu in cell.lieux:
@@ -478,11 +478,11 @@ def _apply_production(
     Traite la sentinelle -1 comme un stock initial nul.
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
+    saison = _facteur_saison_pour_cellule(cell, carte, jour) if carte and jour is not None else 1.0
     if carte:
-        food_produced = production_du_tick_kg(cell, yield_factor, carte, jour=jour)
+        food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
     else:
         food_produced = production_kg(cell, yield_factor)
-    saison = _facteur_saison_pour_cellule(cell, carte, jour) if carte and jour is not None else 1.0
     _verser_recolte(cell, food_produced, carte, saison, recoltes)
 
 
@@ -497,8 +497,8 @@ def _apply_production_saison_moyenne(
     et reproduit l'ancien régime de production.
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
-    food_produced = _production_du_tick_kg_saison_moyenne(cell, yield_factor, carte)
     saison = _constantes.facteur_saison_moyen_annuel(*_lire_solstices(cell, carte))
+    food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
     _verser_recolte(cell, food_produced, carte, saison, recoltes)
 
 

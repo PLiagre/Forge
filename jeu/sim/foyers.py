@@ -10,6 +10,7 @@ class FoyersInvalides(ValueError):
 
 
 def besoin_bras(km2_cultives):
+    """Bras demandés par une surface cultivée ; la constante est relue à chaque appel."""
     return km2_cultives * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
 
 

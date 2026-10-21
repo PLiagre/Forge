@@ -497,6 +497,8 @@ def _jouer(n_ticks):
 def test_bit(monkeypatch):
     import sim.engine as engine
 
+    # Isoler la réversibilité démographique : la récolte réelle lit désormais les métiers.
+    monkeypatch.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2", 0.0)
     def retirer_comme_avant(cell, n):
         cell.population = cell.population - n
 
@@ -618,13 +620,14 @@ def test_recolte_bras(monkeypatch, moyenne):
     monde = World.charger(0)
     cell = max((c for c in monde.cells.values() if monde.carte[c.cell_id].get("gisements")),
                key=lambda c: _km2_cultives_reference(c, monde.carte))
+    requis = _km2_cultives_reference(cell, monde.carte) * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+    assert requis > 3
     surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
     climat = monde.carte[cell.cell_id]["climat"]
     ete, hiver = (climat[n] for n in ("duree_jour_solstice_ete_h", "duree_jour_solstice_hiver_h"))
     saison = (_constantes.facteur_saison_moyen_annuel(ete, hiver) if moyenne else
               _constantes.facteur_saison(_constantes.duree_jour_h(0, ete, hiver)))
-    besoins = [s / cell.area_km2 * _km2_cultives_reference(cell, monde.carte)
-               * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * saison for s in surfaces]
+    besoins = [s / cell.area_km2 * requis * saison for s in surfaces]
     assert len(besoins) > 1 and min(besoins) > 3 and (moyenne or saison != 1)
     pleine, _ = _recolter_reference(cell, monde.carte, moyenne)
 
@@ -656,9 +659,12 @@ def test_recolte_bras(monkeypatch, moyenne):
                     assert lieu.stocks == pytest.approx({"nourriture": stock + part, "minerai": 7.0}, rel=1e-12, abs=1e-9)
                 assert sum(l.stocks["nourriture"] for l in cell.lieux) == pytest.approx(cell.food_stock_kg, rel=1e-12, abs=1e-9)
     controler_manque()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(foyers, "facteur_bras", lambda *a: 1.0)
+        with pytest.raises(AssertionError):
+            controler_manque()
     vrai = foyers.facteur_bras
-    fautes = (lambda m, km2: 1.0,
-                 lambda m, km2: vrai({"paysans": sum(m.values())}, km2),
+    fautes = (lambda m, km2: vrai({"paysans": sum(m.values())}, km2),
                  lambda m, km2: vrai({"paysans": max(0, m.get("paysans", 0) - (0 if "mineurs" in m else math.ceil(max(besoins))))}, km2),
                  lambda m, km2: vrai(m, km2 / saison))
     for faux in fautes if not math.isclose(saison, 1) else fautes[:-1]:
@@ -737,7 +743,12 @@ def test_bras_suffisent_un_an(monkeypatch, numerote):
 
     monkeypatch.setattr(foyers, "facteur_bras", enregistrer)
     jouer(365)
-    assert all(v == 1.0 for v in valeurs)
+    def controler(facteurs):
+        assert facteurs == [min(1.0, r) for r in rapports]
+        assert any(v < 1.0 for v in facteurs) and any(v == 1.0 for v in facteurs)
+    controler(valeurs)
+    with pytest.raises(AssertionError):
+        controler([1.0] * len(valeurs))
     print(f"numéroté={numerote} appels={len(valeurs)} rapport_minimum={min(rapports):.6f}")
     nominal = _octets_sans_foyers(jouer(30))
     with monkeypatch.context() as ctx:

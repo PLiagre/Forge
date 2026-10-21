@@ -502,17 +502,15 @@ Le métier `ouvriers` reçoit les paysans envoyés aux chantiers pour ce tick.
 Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × facteur_agricole`
 (sans carte : `area_km2`). Chaque surface du lieu demande
 `km² cultivés du lieu × BRAS_AUX_CHAMPS_PAR_KM2 × facteur de saison` bras.
-La saison est celle du jour explicite (jour 0 compris), la moyenne annuelle
-pour le chemin moyen, et 1 sans carte ou sans saison dans la production. Le facteur de bras vaut
+La saison est celle du jour explicite (jour 0 compris), la moyenne annuelle pour le chemin moyen,
+et 1 sans carte ou sans saison dans la production. Le facteur de bras vaut
 `min(1, paysans / bras_requis)` ; les mineurs ne comptent pas et la part
-minière reste appliquée. Les paysans du lieu sont ses habitants ; au bourg seul,
-on retire les non-paysans cellulaires (mineurs, artisans, ouvriers), avec un plancher à zéro.
+minière reste appliquée. Les paysans du lieu sont ses habitants ; au bourg seul, on retire les non-paysans cellulaires (mineurs, artisans, ouvriers), avec un plancher à zéro.
 Sans lieux, besoin saisonnier et paysans se calculent sur la cellule. Sous le seuil, chaque paysan retiré enlève sa part
 de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
 Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
 La règle est de **niveau 2**, plausible, jamais sourcée.
-`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure, relue à chaque appel ; le manque
-local réduit seulement la part du lieu, sans emprunter les bras voisins.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure, relue à chaque appel. Sans emprunter les bras voisins, le manque local change le monde annuel, même sans chantier ; à bras suffisants, les octets restent exacts.
 En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
 peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
@@ -995,8 +993,8 @@ métiers propres aux lieux : niveau 3, non simulés.
 avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
 fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
-- part 0,1 : 0 foyers internes, 70 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 850 foyers hors domaine.
+- part 0,1 : 0 foyers internes, 72 foyers hors domaine ;
+- part 0,6 : 0 foyers internes, 851 foyers hors domaine.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -1862,11 +1860,11 @@ avec `TAUX_DE_DEPART = 0.002` et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
-- part 0,00 : 36090320 habitants ; perte 0,000000 % ; 195804 foyers déplacés.
-- part 0,03 : 35745201 habitants ; perte 0,956265 % ; 181882 foyers déplacés.
-- part 0,04 : 35593562 habitants ; perte 1,376430 % ; 179334 foyers déplacés.
-- part 0,10 : 34033348 habitants ; perte 5,699512 % ; 169818 foyers déplacés.
-Calibration tenue : perte(0,03) = 0,956265 % ≤ 1 % < perte(0,04) = 1,376430 %.
+- part 0,00 : 36090297 habitants ; perte 0,000000 % ; 195574 foyers déplacés.
+- part 0,03 : 35745056 habitants ; perte 0,956603 % ; 181882 foyers déplacés.
+- part 0,04 : 35593416 habitants ; perte 1,376772 % ; 179228 foyers déplacés.
+- part 0,10 : 34033021 habitants ; perte 5,700358 % ; 169499 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,956603 % ≤ 1 % < perte(0,04) = 1,376772 %.
 Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
@@ -2478,10 +2476,8 @@ panier reste non négatif. Le remboursement de dette conserve ses kilos réels.
 Restent de niveau 3, non simulés : délai, pertes en route, bras des porteurs,
 tracé des chemins et intégration des villes nommées dans le bourg.
 
-**Avec carte et lieux.** Chaque lieu reçoit `récolte × surface / area_km2 × facteur_bras_du_lieu`.
-Paniers, total cellulaire et relevé du prélèvement portent la récolte réelle ;
-le résidu flottant revient au bourg, sans redistribuer les parts. À bras suffisants,
-les écritures et le total cellulaire historiques restent exacts. La reprise
+**Avec carte et lieux.** Chaque lieu reçoit `récolte × surface / area_km2 × facteur_bras_du_lieu` ; paniers, total cellulaire et relevé du prélèvement portent la récolte réelle.
+Le résidu flottant revient au bourg sans redistribuer les parts ; à bras suffisants, écritures et total cellulaire historiques restent exacts. La reprise
 des seules écritures extérieures précède la fabrication ; ses paniers se
 répartissent à proportion du contenu actuel, ou par surface si tous sont vides.
 Le commerce dépose la nourriture importée au bourg, sans partage préalable. Chaque lieu mange dans son panier
@@ -2878,8 +2874,7 @@ ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
 bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 `/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
 
-La petite constante `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure : l’échelle du lieu
-et la saison font porter le manque de bras du chantier sur la récolte du bourg,
+La petite constante `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure : l’échelle du lieu et la saison font porter le manque de bras du chantier sur la récolte du bourg,
 même quand les champs voisins ont assez de paysans. Âge et
 sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
