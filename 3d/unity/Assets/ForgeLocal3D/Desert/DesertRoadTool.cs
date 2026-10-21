@@ -31,6 +31,7 @@ namespace ForgeLocal3D
     // Lot 584 : Ouvrir(cellule) ouvre la ville d'une autre cellule, celle des lectures et des dépôts suivants, sur le
     // même service local ; rien de l'ancienne cellule (points, mode, reçu, dépôt en attente, relevés de pose) ne la suit.
     // Lot 688 : au lancement, Lancer applique la décision de #687 : la cellule du siège du joueur, la carte de 1400, ou l'absence.
+    // Lot 730 : C revient à la carte, Espace suspend ou reprend. Le clavier reste ici ; le pont n'en a pas.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -60,6 +61,13 @@ namespace ForgeLocal3D
         public Transform RacineBatiments=>batiments?.Racine;
         public string EmpreinteBatiments=>batiments?.Empreinte??"";
         DesertBatiments batiments;string erreurBatiments;
+        // Lot 737 : les maisons de la base, jamais mêlées aux bâtiments de geste.
+        DesertMaisons1400 maisons;
+        public DesertMaisons1400 Maisons=>maisons;
+        // Lot 738 : les rues de la base en rubans posés sur le sable, redessinés avec les maisons, juste avant elles.
+        DesertRues1400 rues1400;public DesertRues1400 Rues1400=>rues1400;
+        public int PiecesAvantMaisons{get;private set;}=-1;
+        public string EmpreinteAvantMaisons{get;private set;}="";
         ClientIntention depot;ClientPlan plan;string erreurCellule;
         LectureCarte carte;bool carteLue;string reliefOuvert;
         // Les rues déjà essayées dans la session, posées ou refusées : aucune n'est posée deux fois, ni réessayée.
@@ -73,9 +81,11 @@ namespace ForgeLocal3D
         public string NatureBatiment{get;private set;}
         public bool ModeBatiment=>NatureBatiment!=null;
         public BatimentPose Pose{get;private set;}
+        CommandesDeVille commandes;
         const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment";
         const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
         const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · Échap : annuler";
+        const string Gestes="C : carte · Espace : pause / reprendre";
         const double PeriodeLecture=.25;
         static readonly TimeSpan Delai=TimeSpan.FromSeconds(1);
         // Lot 688 : l'aiguillage du lancement lit /monde puis /maison ; les gestes gardent leur délai.
@@ -94,7 +104,7 @@ namespace ForgeLocal3D
             panneau=Texte("Panneau des routes",view.transform,new Color(.12f,.06f,.03f));
             // Un halo clair derrière le texte : il reste lisible sur le sable comme dans l'ombre.
             halo=Texte("Halo",panneau.transform,new Color(1f,.95f,.84f,.9f));
-            Port=PanneauLieu.DEFAULT_SERVICE_PORT;
+            Port=PanneauLieu.DEFAULT_SERVICE_PORT;commandes=new CommandesDeVille(Port);
             // Lot 701 : une ville ouverte depuis la carte prend la cellule que le passage a remise à sa scène.
             Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>(),PassageALaCapitale.PrendreCelluleRemise(gameObject.scene.name));
             // Sans matériau, aucune parcelle n'est jamais dessinée : le panneau le dit.
@@ -103,6 +113,7 @@ namespace ForgeLocal3D
             // Sans kit, aucun bâtiment n'est jamais dessiné : le panneau le dit.
             try{batiments=new DesertBatiments(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurBatiments=e.Message;}
+            rues1400=new DesertRues1400(transform,roads.terrain,roads.terreBattue);maisons=new DesertMaisons1400(transform,roads.terrain);
             Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
         }
         void Start()=>Ouvrir();
@@ -145,6 +156,7 @@ namespace ForgeLocal3D
                 panneau.text=texte==Aide?etat+"\n"+Aide:texte+"\n"+etat;
             }
             if(reliefOuvert!=null)panneau.text+="\nRelief : "+reliefOuvert;
+            panneau.text+="\n"+Gestes;
             halo.text=panneau.text;
             Placer();
         }
@@ -176,6 +188,8 @@ namespace ForgeLocal3D
             if(k.digit3Key.wasPressedThisFrame||k.numpad3Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[2]);
             if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(!ModeBatiment)Valider();}
             if(k.escapeKey.wasPressedThisFrame)Annuler();
+            if(k.cKey.wasPressedThisFrame||commandes.RetourDemande)commandes.Retour();
+            if(k.spaceKey.wasPressedThisFrame)commandes.Basculer();
         }
         void LateUpdate()=>Placer();
 
@@ -375,8 +389,9 @@ namespace ForgeLocal3D
         {
             if(batiments==null)return erreurBatiments;
             Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments));
+            PiecesAvantMaisons=batiments.Racine.childCount;EmpreinteAvantMaisons=batiments.Empreinte;
             return string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
-                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)));
+                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)))+"\n"+rues1400.Dessiner(lu.Base)+"\n"+maisons.Dessiner(lu.Base);
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux

@@ -243,6 +243,24 @@ Verdicts du 18 octobre 2026 :
 [normal](../../docs/mesures/703-epreuve-capitale/verdict-normal.txt),
 [jugement d'une copie, pas une mesure PC](../../docs/mesures/703-epreuve-capitale/verdict-contre-epreuve.txt).
 
+## La session de l'épreuve de la ville de 1400
+
+Unity ouvre quatre villes de 1400 comme le joueur et relève, maison par maison, ce qu'il a posé (lot #739, moitié Unity
+de #412). Éditeur fermé, depuis la racine : `Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveVille1400.Jouer
+-forgeEpreuve <dossier> [-forgeSauter | -forgeAjouter] [-logFile <journal>]` ; `Relancer` prend les mêmes arguments, seuls le
+champ `session` (« jouer », « relance ») et le nom des fichiers changent. Le service se lance à la main depuis `jeu/`
+(`py -m sim.service --seed 0 --jours-par-seconde 0`), **neuf avant chaque session**. Les cellules sont, dans l'ordre, 10103,
+1175, 1232 et 10337 (Biskra, le ksar de l'éditeur, 493 maisons seules, 28 îlots). `-forgeSauter` détruit la première maison
+posée, `-forgeAjouter` la double à +10 m. Chaque cellule écrit `<dossier>/<session>-<cellule>.json` sur une ligne : `session`,
+`contre_epreuve`, `cellule`, `tick`, `foyers`, `posees`, `absence`, `refus`, `rues_dessinees`, `empreinte_rues`, `duree_dessin_ms`,
+`images` et `image_ms` (300 images, une mesure, pas la preuve des 60 images/s), `maisons`, `empreinte` et `defaut`. Une maison est
+la ligne `"<rang> <indice> <variante> <x> <y> <sol> <lacet>"` (rang et indice de son nom, variante du kit ou −1, centre de sa
+boîte dans le repère du plan, y de sa base, lacet ; en `F2`) ; `empreinte` est le SHA-256 des lignes, chacune suivie de `\n`.
+Codes : **0** aucun défaut ; **1** un défaut (sans service par exemple ; les rapports sont écrits) ; **2** arguments fautifs,
+aucun rapport. Le jugement sera celui de `pc/epreuve_ville1400.py`, à venir. Rapports du 21 octobre 2026 :
+jouer [10103](../../docs/mesures/739-session-ville1400/jouer-10103.json), [1175](../../docs/mesures/739-session-ville1400/jouer-1175.json), [1232](../../docs/mesures/739-session-ville1400/jouer-1232.json), [10337](../../docs/mesures/739-session-ville1400/jouer-10337.json) ;
+relance [10103](../../docs/mesures/739-session-ville1400/relance-10103.json), [1175](../../docs/mesures/739-session-ville1400/relance-1175.json), [1232](../../docs/mesures/739-session-ville1400/relance-1232.json), [10337](../../docs/mesures/739-session-ville1400/relance-10337.json).
+
 ## L'épreuve du choix
 
 Le joueur peut se fier à son geste (lot #652, épreuve #615) : la terre qu'il
