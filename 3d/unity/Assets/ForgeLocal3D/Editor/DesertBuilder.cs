@@ -11,6 +11,7 @@ namespace ForgeLocal3D
 {
     // Le ksar du désert : même chaîne que la citadelle (catalogue, prefabs à trois LOD,
     // manifeste Blender, marche), avec son ciel, sa lumière et son vent de sable.
+    // Le ksar figé Forge_Desert_ksar_des_sept_puits.unity est le décor d'épreuve du kit ; la capitale jouée lit le service dans Forge_Desert_Ville_ksar_des_sept_puits.unity.
     public static class DesertBuilder
     {
         public const string Root="Assets/ForgeLocal3D/Desert";

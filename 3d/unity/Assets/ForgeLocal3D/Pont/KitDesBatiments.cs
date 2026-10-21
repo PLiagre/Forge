@@ -40,9 +40,19 @@ namespace Forge.Pont
         public const string Ressource = "KitDesBatiments";
 
         public PiecesDUneNature[] natures = new PiecesDUneNature[0];
+        // Lot 737 : maison_pise_0 … maison_pise_5, dans cet ordre. Un trou n'est jamais comblé par une autre.
+        public GameObject[] maisonsPise = new GameObject[0];
 
         // Nul si l'asset manque.
         public static KitDesBatiments Charger() => Resources.Load<KitDesBatiments>(Ressource);
+
+        public PieceDuKit Maison(int indice)
+        {
+            if (maisonsPise == null || indice < 0 || indice >= 6 || indice >= maisonsPise.Length)
+                return PieceDuKit.Absente("indice invalide : " + indice);
+            GameObject prefab = maisonsPise[indice];
+            return prefab != null ? PieceDuKit.De(prefab) : PieceDuKit.Absente("référence absente : maison_pise_" + indice);
+        }
 
         public PieceDuKit Piece(string nature, EtapeDuBatiment etape)
         {

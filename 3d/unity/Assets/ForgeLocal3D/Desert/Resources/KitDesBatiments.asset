@@ -25,3 +25,10 @@ MonoBehaviour:
     piquets: {fileID: 8525422234860915443, guid: a9a830a624ed67c46b98d3629df51fca, type: 3}
     murs: {fileID: 7111400619667868090, guid: fb7d386753565a04dadc08b0f65054ed, type: 3}
     fini: {fileID: 4583928087612599342, guid: a4d96dbbf41d1e64ca4442f83ec9e7cb, type: 3}
+  maisonsPise:
+  - {fileID: 6017052373620483911, guid: 450a5528a7bc7334a83dcc57c20c1d6e, type: 3}
+  - {fileID: 3134519004614666981, guid: 417d2e12db9d85b45a3cc142c9d82c6f, type: 3}
+  - {fileID: 2319660096192958305, guid: 51403978b89f0e945a7e8e604d25a99e, type: 3}
+  - {fileID: 8123229782324001132, guid: 52dec4f732e3f1d47b4932ceedadf78f, type: 3}
+  - {fileID: 1369963811776404518, guid: f1236a3176308e8498c064be1fc0cfc7, type: 3}
+  - {fileID: 7715306991544786164, guid: a59a7b2c9831b624caa622f28c4cdbad, type: 3}

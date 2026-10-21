@@ -1431,3 +1431,84 @@ def test_photographie_lit_les_surfaces_sans_recreer_les_lieux(monkeypatch):
     monkeypatch.setattr(_constantes, 'SURFACE_KM2_PAR_LIEU', surface)
     cellule.lieux = cellule.lieux[:1]
     assert [l['surface_km2'] for l in lieux_en_photographie(1, cellule)] == [surface]
+
+
+def test_raccourci_745_reprise(monkeypatch):
+    import random
+    from sim import engine, lieux
+    from sim.model import ecrire_stock_marchandise, copier_panier
+    monde, rng = World.charger(0), random.Random(0)
+    for numero in range(5):
+        engine.tick(monde, rng, numero_tick=numero)
+
+    def controler(cellule):
+        rapide, ancien = copy.deepcopy(cellule), copy.deepcopy(cellule)
+        lieux.repartir_sur_les_lieux(rapide)
+        lieux.repartir_sur_les_lieux(ancien, raccourci=False)
+        assert dataclasses.asdict(rapide) == dataclasses.asdict(ancien)
+        for a, b in zip(rapide.lieux, ancien.lieux):
+            assert list(copier_panier(a).items()) == list(copier_panier(b).items())
+        return ancien
+
+    for cellule in monde.cells.values():
+        cellule.lieux.reverse()
+        controler(cellule)
+        cellule.population += 1
+        controler(cellule)
+    cellule = next(c for c in monde.cells.values() if len(c.lieux) > 1)
+    ecrire_stock_marchandise(cellule.lieux[0], 'preuve_745', 0.0)
+    attendu = controler(cellule)
+    # Une somme alignée ne suffit pas : l'ancienne reprise enlève cette clé.
+    monkeypatch.setattr(lieux, 'lieux_deja_accordes', lambda *a: True)
+    fautif = copy.deepcopy(cellule)
+    lieux.repartir_sur_les_lieux(fautif)
+    with pytest.raises(AssertionError):
+        assert dataclasses.asdict(fautif) == dataclasses.asdict(attendu)
+    assert len(monde.cells) > 0
+    print(f'cellules comparées={len(monde.cells)}, reprises={2 * len(monde.cells) + 1}, clé parasite détectée')
+
+
+def test_raccourci_745_partager():
+    import random
+    from sim import engine, lieux
+    from sim.model import contenus_des_paniers
+    monde, rng = World.charger(0), random.Random(0)
+    for numero in range(5):
+        engine.tick(monde, rng, numero_tick=numero)
+    cas = 0
+    for cellule in monde.cells.values():
+        etats = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+        surfaces = lieux.surfaces_des_lieux(cellule.cell_id, cellule.area_km2)
+        poids = ([l.population for l in etats], contenus_des_paniers(etats, 'nourriture'),
+                 [l.dette_alimentaire_kg for l in etats])
+        for total, valeurs in zip((cellule.population, max(0., cellule.food_stock_kg),
+                                   max(0., cellule.food_deficit_kg)), poids):
+            valeurs = valeurs if any(valeurs) else surfaces
+            assert lieux.partager(total, valeurs) == lieux.partager(total, valeurs, raccourci=False)
+            cas += 1
+    # Des poids seulement voisins ne doivent jamais être regroupés.
+    a, b = [1., math.nextafter(1., math.inf)], [1., 1.]
+    with pytest.raises(AssertionError):
+        assert lieux.partager(1, a) == lieux.partager(1, b)
+    assert cas == 3 * len(monde.cells) > 0
+    print(f'partages exacts comparés={cas}, regroupement arrondi détecté')
+
+
+def test_raccourci_745_lecture_stock():
+    import random
+    from sim import engine, model
+    monde, rng = World.charger(0), random.Random(0)
+    for numero in range(5):
+        engine.tick(monde, rng, numero_tick=numero)
+    cas = 0
+    for cellule in monde.cells.values():
+        for entite in (cellule, *cellule.lieux):
+            for nom in (*model.copier_panier(entite), '_absente_745'):
+                ancien = model._lire_stock_par_presence(entite, nom)
+                rapide = model.lire_stock_marchandise(entite, nom)
+                assert rapide == ancien and type(rapide) is type(ancien)
+                cas += 1
+    with pytest.raises(AssertionError):
+        assert model.lire_stock_marchandise(cellule, '_absente_745') == 0.0
+    assert cas > 0
+    print(f'lectures comparées={cas}, absence confondue avec zéro détectée')

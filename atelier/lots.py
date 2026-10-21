@@ -503,10 +503,12 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
 
 # Le travail de la CI qui chronomètre le moteur (`pytest -m chronometre`). Au
 # bord de son budget sur les runners partagés, il rougit sans que le lot y
-# soit pour rien ; un codeur qui ne touche pas `jeu/` n'y peut rien. Les 14 et
-# 15 octobre 2026, #625 (du C# seul) a gâché deux fois ses deux corrections
-# sur ce rouge, puis s'est bloqué. Le pilote rejoue le travail une fois avant
-# d'appeler le codeur, sans compter d'essai (marque « rejeu » sur la PR).
+# soit pour rien. Les 14 et 15 octobre 2026, #625 (du C# seul) a gâché deux
+# fois ses deux corrections sur ce rouge, puis s'est bloqué. Le pilote rejoue
+# le travail une fois avant d'appeler le codeur, sans compter d'essai (marque
+# « rejeu » sur la PR). Un lot qui touche `jeu/` se rejoue aussi : le 16
+# octobre, #414 s'est bloqué sur des médianes de 110 ms qu'un tick de master à
+# 98 ms et des mesures à 179 ms expliquaient seuls.
 TRAVAIL_CHRONOMETRE = "chronometre"
 ETAT_REJEU = "rejeu"
 # Un rejeu qui n'a rien rendu au bout de ce temps rend la main au codeur.
@@ -520,15 +522,15 @@ def _instant(texte: str) -> datetime | None:
         return None
 
 
-def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str, fichiers: Iterable[str],
+def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str,
                          liste: list[dict], *, role_codeur: str = "codeur",
                          heures_depuis_rejeu: float | None = None) -> str:
     """Ce que fait le pilote d'une CI rouge avant d'appeler le codeur.
 
     `travaux` : ceux du workflow de `chronometre` (`github.travaux`), dont
     `agregat`, le travail qui les attend tous. « rejouer » : seul
-    `chronometre` est rouge, le lot (`fichiers`) ne touche pas `jeu/`, le run
-    est fini, et rien n'a été rejoué depuis le dernier passage du codeur.
+    `chronometre` est rouge, le run est fini, et rien n'a été rejoué depuis
+    le dernier passage du codeur.
     « attendre » : ce run, ou le rejeu, tourne encore ; un rouge d'avant le
     rejeu est périmé. « » : le codeur corrige."""
     passages = [i for i, m in enumerate(liste) if m.get("role") == role_codeur
@@ -547,7 +549,7 @@ def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str, fichi
         en_cours = any(t["etat"] == "attente" or (t["etat"] == "rouge" and perime(t)) for t in travaux.values())
         return "attendre" if en_cours else ""
     rouges = {n for n, t in travaux.items() if t["etat"] == "rouge" and n != agregat}
-    if rouges != {TRAVAIL_CHRONOMETRE} or any(f.startswith("jeu/") for f in fichiers):
+    if rouges != {TRAVAIL_CHRONOMETRE}:
         return ""
     if agregat not in travaux or any(t["etat"] == "attente" for t in travaux.values()):
         return "attendre"

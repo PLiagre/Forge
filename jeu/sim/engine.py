@@ -502,8 +502,10 @@ def _apply_production_saison_moyenne(
     _verser_recolte(cell, food_produced, carte, saison, recoltes)
 
 
-def _cle_arête(a_id: int, b_id: int) -> tuple[int, int]:
+def _cle_arête(a_id: int, b_id: int, *, raccourci=True) -> tuple[int, int]:
     """Clé non orientée d'une arête d'adjacence."""
+    if raccourci:
+        return (a_id, b_id) if a_id <= b_id else (b_id, a_id)
     return (min(a_id, b_id), max(a_id, b_id))
 
 
@@ -604,15 +606,43 @@ def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None) -> flo
 
 def _initialiser_capacite_aretes(world) -> dict[tuple[int, int], float]:
     """Capacité restante par arête au début du maillon commerce."""
+    return _capacites_aretes(world, _index_aretes(world))
+
+
+def _capacites_aretes(world, index=None) -> dict[tuple[int, int], float]:
+    """Partage les facteurs de relief du tick ; sans index, chemin historique."""
     capacite: dict[tuple[int, int], float] = {}
-    index = _index_aretes(world)
+    facteurs = {}
+    carte = getattr(world, "carte", None)
+    plans = getattr(world, "plans", {})
+    avec_rues = {cid for cid, plan in plans.items() if plan.rues}
     for edge in world.adjacency:
         a_id = edge["a"]
         b_id = edge["b"]
         if a_id not in world.cells or b_id not in world.cells:
             continue
         cle = _cle_arête(a_id, b_id)
-        capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id, index)
+        if index is None:
+            capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id)
+            continue
+        if cle in capacite:
+            continue
+        base = _capacite_base_arete_kg(world, a_id, b_id, index)
+        if a_id in avec_rues or b_id in avec_rues:
+            apport = _plan.apport_routes_arete_kg(world, a_id, b_id)
+            if apport:
+                base += apport
+        if base == 0.0:
+            base = 0.0
+        elif carte:
+            try:
+                for cid in (a_id, b_id):
+                    if cid not in facteurs:
+                        facteurs[cid] = _facteur_transport_pour_cellule(cid, carte)
+            except ReliefInvalideError as e:
+                raise ReliefInvalideError(f"arête ({a_id},{b_id}) : {e}") from e
+            base *= min(facteurs[a_id], facteurs[b_id])
+        capacite[cle] = base
     return capacite
 
 
@@ -696,7 +726,7 @@ def _capacite_quai_cellule_kg(
     return total
 
 
-def _initialiser_contexte_maritime(world) -> dict:
+def _initialiser_contexte_maritime(world, aretes=None) -> dict:
     """
     Contexte partagé entre toutes les marchandises d'un tick maritime.
 
@@ -705,7 +735,8 @@ def _initialiser_contexte_maritime(world) -> dict:
     """
     from sim.world import lire_stock_mer
 
-    aretes = _aretes_maritimes_du_monde(world)
+    if aretes is None:
+        aretes = _aretes_maritimes_du_monde(world)
     par_cellule: dict[int, list[tuple[int, int, dict]]] = defaultdict(list)
     for cell_id, noeud, edge in aretes:
         par_cellule[cell_id].append((cell_id, noeud, edge))
@@ -913,6 +944,7 @@ def _apply_commerce(
     ctx_maritime: dict | None = None,
     chemins: dict | None = None,
     facteurs: dict | None = None,
+    limiter_offres_maritimes: bool = True,
 ) -> None:
     """
     Maillon 2 — Commerce inter-cellules.
@@ -950,10 +982,12 @@ def _apply_commerce(
         if getattr(world, "stocks_mer", None) is not None:
             aretes = _aretes_maritimes_du_monde(world)
             if aretes:
-                ctx = _initialiser_contexte_maritime(world)
+                ctx = _initialiser_contexte_maritime(world, aretes)
+        options = {} if limiter_offres_maritimes else {"limiter_offres_maritimes": False}
         for nom in _marchandises_du_monde(world):
             _apply_commerce(
                 world, total_transported, nom, capacite_restante, ctx, chemins, facteurs,
+                **options,
             )
         return
 
@@ -1037,17 +1071,18 @@ def _apply_commerce(
         else:
             cap_arête = _capacite_transport_arete_kg(world, a_id, b_id)
 
-        surplus_a = _surplus(a_id)
-        surplus_b = _surplus(b_id)
         # Les besoins du snapshot sont déjà calculés, avant tous les transferts.
         need_a = snapshot_needs[a_id]
         need_b = snapshot_needs[b_id]
 
-        if surplus_a > 0 and need_b > 0:
+        # Une offre ne sert que si l'autre bout manque de cette marchandise.
+        # Ne pas parcourir les lieux des sources sans demande terrestre ;
+        # les expéditions maritimes liront leurs offres dans leur propre passe.
+        if need_b > 0 and _surplus(a_id) > 0:
             demand = min(need_b, cap_arête)
             by_source[a_id].append((b_id, demand, cle))
 
-        elif surplus_b > 0 and need_a > 0:
+        elif need_a > 0 and _surplus(b_id) > 0:
             demand = min(need_a, cap_arête)
             by_source[b_id].append((a_id, demand, cle))
 
@@ -1103,7 +1138,10 @@ def _apply_commerce(
         for src_id, _, qty, _ in final_transfers:
             outgoing_terre[src_id] += qty
         surplus_apres: dict[int, float] = {}
-        for cid in world.cells:
+        # Seuls les ports peuvent expédier ; les offres terrestres nécessaires
+        # ont déjà été lues lors de la collecte des demandes.
+        offrantes = ctx_maritime["cellules_cotieres"] if limiter_offres_maritimes else world.cells
+        for cid in offrantes:
             surplus_apres[cid] = max(
                 0.0, _surplus(cid) - outgoing_terre.get(cid, 0.0),
             )
@@ -1241,11 +1279,15 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
                                       for rang, manque in enumerate(manques[1:], start=1))
             pot, restes[0] = restes[0], 0.0
             for rang in range(1, len(lieux)):
+                if pot >= demande:
+                    break
                 envoi = min(restes[rang], plafonds[rang], max(0.0, demande - pot))
                 restes[rang] -= envoi
                 pot += envoi
             couverte, surplus = pot >= demande, max(0.0, pot - demande)
             for rang in range(len(lieux)):
+                if manques[rang] == 0:
+                    continue
                 servi = min(manques[rang], manques[rang] if rang == 0 else plafonds[rang])
                 if not couverte:
                     servi = min(servi, pot)
@@ -1256,11 +1298,15 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
             demande = manques[0] + sum(min(manque, capacite) for manque in manques[1:])
             pot, restes[0] = restes[0], 0.0
             for rang in range(1, len(lieux)):
+                if pot >= demande:
+                    break
                 envoi = min(restes[rang], capacite, max(0.0, demande - pot))
                 restes[rang] -= envoi
                 pot += envoi
             couverte, surplus = pot >= demande, max(0.0, pot - demande)
             for rang in range(len(lieux)):
+                if manques[rang] == 0:
+                    continue
                 servi = min(manques[rang], manques[rang] if rang == 0 else capacite)
                 if not couverte:
                     servi = min(servi, pot)
@@ -1523,10 +1569,16 @@ def _repartir_habitants_proportionnellement(
 
 
 def _voisins_avec_surplus(
-    world, source_id: int, surplus_par_cellule: dict[int, float]
+    world, source_id: int, surplus_par_cellule: dict[int, float], voisines=None
 ) -> dict[int, float]:
     """Voisines d'adjacence dont le surplus du tick est strictement positif."""
     destinations: dict[int, float] = {}
+    if voisines is not None:
+        for voisin in voisines.get(source_id, ()):
+            surplus = surplus_par_cellule.get(voisin, 0.0)
+            if surplus > 0.0:
+                destinations[voisin] = surplus
+        return destinations
     for edge in world.adjacency:
         a_id = edge["a"]
         b_id = edge["b"]
@@ -1542,6 +1594,18 @@ def _voisins_avec_surplus(
         if surplus > 0.0:
             destinations[voisin] = surplus
     return destinations
+
+
+def _voisines_terrestres(world):
+    """Ordre des arêtes et doublons conservés ; table recréée pour ce maillon."""
+    voisines = defaultdict(list)
+    for edge in world.adjacency:
+        a, b = edge["a"], edge["b"]
+        if a in world.cells and b in world.cells:
+            voisines[a].append(b)
+            if a != b:
+                voisines[b].append(a)
+    return voisines
 
 
 def _apply_migration(world, penuries: dict[int, float]) -> None:
@@ -1560,10 +1624,7 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
     """
     # Valider le bassin avant même de modifier un report de fraction.
     cotieres = {cid for cid, _, _ in _aretes_maritimes_du_monde(world)}
-    reliees_par_terre = set()
-    for edge in world.adjacency:
-        if edge["a"] in world.cells and edge["b"] in world.cells:
-            reliees_par_terre.update((edge["a"], edge["b"]))
+    voisines = _voisines_terrestres(world)
 
     snapshot_pop = {cid: cell.population for cid, cell in world.cells.items()}
     snapshot_stock = {
@@ -1594,8 +1655,8 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
         if partants <= 0:
             continue
 
-        destinations = _voisins_avec_surplus(world, cid, surplus_par_cellule)
-        if cid not in reliees_par_terre and cid in cotieres:
+        destinations = _voisins_avec_surplus(world, cid, surplus_par_cellule, voisines)
+        if cid not in voisines and cid in cotieres:
             destinations = {
                 voisin: surplus_par_cellule[voisin]
                 for voisin in sorted(cotieres)
