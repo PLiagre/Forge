@@ -65,27 +65,32 @@ namespace Forge.Interface.Tests
             var parent = new GameObject("preuve", typeof(RectTransform));
             try
             {
-                int appels = 0; long? tick = 7; bool panne = false;
+                int appels = 0; long? publie = 7; long servi = 7; bool panne = false;
                 var lecture = new LectureDossier(_ =>
                 {
                     appels++;
                     if (panne) throw new InvalidOperationException("service en panne");
-                    return System.Threading.Tasks.Task.FromResult(new DocumentDuMonde(Complet.Replace("\"tick\":7", "\"tick\":" + tick)));
+                    // Le tick servi reste un entier : l'horloge publiée peut être inconnue sans casser le document.
+                    return System.Threading.Tasks.Task.FromResult(new DocumentDuMonde(Complet.Replace("\"tick\":7", "\"tick\":" + servi.ToString(System.Globalization.CultureInfo.InvariantCulture))));
                 });
                 var suzerain = new LectureDossier(_ => throw new InvalidOperationException("aucun suzerain"));
                 var dossier = parent.AddComponent<DossierMaison>();
-                dossier.Initialiser(parent.transform, () => "bar", lecture, suzerain, () => tick);
+                dossier.Initialiser(parent.transform, () => "bar", lecture, suzerain, () => publie);
                 dossier.Pas(0); Assert.AreEqual(0, appels, "feuillet fermé");
                 parent.GetComponentsInChildren<UnityEngine.UI.Button>(true).Single(b => b.name == "Terres et comptes").onClick.Invoke();
                 dossier.Pas(0); Assert.AreEqual(1, appels); StringAssert.Contains("tick 7", dossier.TexteAffiche);
                 dossier.Pas(0); dossier.Pas(10); Assert.AreEqual(1, appels, "même tick");
-                tick = 8; dossier.Pas(10); Assert.AreEqual(2, appels); StringAssert.Contains("tick 8", dossier.TexteAffiche);
-                tick = 9; panne = true;
+                publie = 8; servi = 8; dossier.Pas(10); Assert.AreEqual(2, appels); StringAssert.Contains("tick 8", dossier.TexteAffiche);
+                publie = 9; panne = true;
                 dossier.Pas(20); Assert.AreEqual(3, appels); StringAssert.Contains("service en panne", dossier.TexteAffiche);
                 dossier.Pas(21); Assert.AreEqual(3, appels, "après un échec");
                 dossier.Pas(22.1); Assert.AreEqual(4, appels);
-                tick = null; panne = false;
-                dossier.Pas(24.2); Assert.AreEqual(5, appels); dossier.Pas(25); Assert.AreEqual(5, appels, "tick inconnu");
+                publie = null; panne = false; servi = 9;
+                dossier.Pas(24.2); Assert.AreEqual(5, appels);
+                Assert.IsNull(lecture.Erreur, "horloge inconnue");
+                Assert.IsNotNull(lecture.Document); Assert.AreEqual(9L, lecture.Document.Tick);
+                StringAssert.Contains("tick 9", dossier.TexteAffiche);
+                dossier.Pas(25); Assert.AreEqual(5, appels, "tick inconnu");
                 dossier.Pas(26.3); Assert.AreEqual(6, appels);
             }
             finally { UnityEngine.Object.DestroyImmediate(parent); }
