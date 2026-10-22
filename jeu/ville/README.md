@@ -264,9 +264,13 @@ posée, `-forgeAjouter` la double à +10 m. Chaque cellule écrit `<dossier>/<se
 la ligne `"<rang> <indice> <variante> <x> <y> <sol> <lacet>"` (rang et indice de son nom, variante du kit ou −1, centre de sa
 boîte dans le repère du plan, y de sa base, lacet ; en `F2`) ; `empreinte` est le SHA-256 des lignes, chacune suivie de `\n`.
 Codes : **0** aucun défaut ; **1** un défaut (sans service par exemple ; les rapports sont écrits) ; **2** arguments fautifs,
-aucun rapport. Le jugement sera celui de `pc/epreuve_ville1400.py`, à venir. Rapports du 21 octobre 2026 :
+aucun rapport. Le jugement est celui de [l'épreuve de la ville de 1400](#lépreuve-de-la-ville-de-1400). Rapports du 21 octobre 2026 :
 jouer [10103](../../docs/mesures/739-session-ville1400/jouer-10103.json), [1175](../../docs/mesures/739-session-ville1400/jouer-1175.json), [1232](../../docs/mesures/739-session-ville1400/jouer-1232.json), [10337](../../docs/mesures/739-session-ville1400/jouer-10337.json) ;
 relance [10103](../../docs/mesures/739-session-ville1400/relance-10103.json), [1175](../../docs/mesures/739-session-ville1400/relance-1175.json), [1232](../../docs/mesures/739-session-ville1400/relance-1232.json), [10337](../../docs/mesures/739-session-ville1400/relance-10337.json).
+
+## L'épreuve de la ville de 1400
+
+Le joueur se fie à sa capitale : relancé, le jeu redessine la même Biskra d'après le monde (lot #740). Éditeur fermé, port 8000 libre, depuis la racine : `py pc\epreuve_ville1400.py --sortie <dossier> [--seed S] [--unity CHEMIN] [--sauter | --ajouter]`. Deux services neufs de même graine, en pause, l'un après l'autre : Unity joue `Jouer` puis `Relancer`, Python lit les quatre `/plan` avant d'arrêter chaque service, sans rien envoyer qui change le monde. Le juge dérive de `plan.base.maisons` un couple (rang, indice) par foyer : partition exacte, variante `(rang + indice) % 6`, centre dans l'emprise (0,05 m), empreinte recalculée, relance égale. Les refus (`Maison <rang> indice <indice> : <raison>`) sont comptés et affichés à part, jamais comme maisons posées ; Biskra n'en accepte aucun. Durée du dessin en ms et images/s, sans seuil. **0** égalité, **1** écart (couple manquant, doublon, inconnu, variante, hors emprise, empreinte, relance), **2** épreuve impossible (Unity absent ou non nul, port pris, service jamais prêt, HTTP, rapport absent ou ancien, champ absent, −1, défaut, absence, temps nul) : une panne ne prouve aucun rouge. Contre-épreuves : `--sauter` (une maison détruite) et `--ajouter` (une maison doublée) rendent **1** par les comparaisons de maisons, jamais par le drapeau. Sans PC : `python3 -m pytest jeu/ville/tests/test_epreuve_ville1400.py -q`. Verdicts PC : [normal](../../docs/mesures/740-epreuve-ville1400/verdict-normal.txt), [sauter](../../docs/mesures/740-epreuve-ville1400/verdict-sauter.txt), [ajouter](../../docs/mesures/740-epreuve-ville1400/verdict-ajouter.txt).
 
 ## La session de l'épreuve de la transition
 
