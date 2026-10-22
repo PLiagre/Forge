@@ -1770,7 +1770,7 @@ FAMILLE_1400 = [('isabeau', 'Isabeau de Bavière', '1370', 'vers'),
 # id : maison, nom, naissance, précision, père, mère, page, présence.
 FAMILLES_801 = {
  'marie-bohun': (1, 'Marie de Bohun', '1369/1370', 'vers', None, None, 'Mary_de_Bohun', 'decedee'),
- 'henri-monmouth': (1, 'Henri de Monmouth', '1386-09-16', 'jour', 'grande-1', 'marie-bohun', 'Henry_V_of_England', 'vivante'),
+ 'henri-monmouth': (1, 'Henri de Monmouth', '1386 ou 1387', 'intervalle', 'grande-1', 'marie-bohun', 'Henry_V_of_England', 'vivante'),
  'thomas-lancastre': (1, 'Thomas de Lancastre', '1387', 'annee', 'grande-1', 'marie-bohun', 'Thomas_of_Lancaster,_Duke_of_Clarence', 'vivante'),
  'jean-lancastre': (1, 'Jean de Lancastre', '1389-06-20', 'jour', 'grande-1', 'marie-bohun', 'John_of_Lancaster,_Duke_of_Bedford', 'vivante'),
  'humphrey-lancastre': (1, 'Humphrey de Lancastre', '1390-10-03', 'jour', 'grande-1', 'marie-bohun', 'Humphrey,_Duke_of_Gloucester', 'vivante'),
@@ -1817,9 +1817,38 @@ FAMILLES_801 = {
  'gabriele-maria': (10, 'Gabriele Maria Visconti', '1385 ou 1386', 'intervalle', 'grande-10', 'agnese-mantegazza', 'Gabriele_Maria_Visconti', 'vivante')}
 COUPLES_801 = {2: 'annabella', 4: 'philippa-lancastre', 5: 'catherine-lancastre', 6: 'maria-luna', 7: 'eleonore-castille', 9: 'sophie-baviere', 10: 'caterina-visconti'}
 PAGES_801 = dict(zip((1, 2, 4, 5, 6, 7, 8, 9, 10), ('Henry_IV_of_England', 'Robert_III_of_Scotland', 'John_I_of_Portugal', 'Henry_III_of_Castile', 'Martin_of_Aragon', 'Charles_III_of_Navarre', 'Muhammad_VII_of_Granada', 'Wenceslaus_IV_of_Bohemia', 'Gian_Galeazzo_Visconti')))
+NOMS_CHEFS_801 = {1: 'Henri IV de Lancastre', 2: 'Robert III Stuart', 4: "Jean Ier d'Aviz",
+                  5: 'Henri III de Trastamare', 6: 'Martin Ier de Barcelone', 7: "Charles III d'Évreux",
+                  8: 'Abu Abdallah Muhammad VII ibn Yusuf', 9: 'Venceslas IV de Luxembourg', 10: 'Jean Galéas Visconti'}
+
+
+def _faits_parentes_historiques(familles, liens):
+    noms = {'personne-' + i: f[1] for i, f in FAMILLES_801.items()}
+    noms.update({'personne-grande-' + str(m): nom for m, nom in NOMS_CHEFS_801.items()})
+    for f in familles + liens:
+        if f['id'] not in noms: continue
+        for champ in ('pere', 'mere', 'conjoints'):
+            references = f[champ] if champ == 'conjoints' else [f[champ]] if f[champ] else []
+            for reference in references:
+                source = f['sources'][champ]
+                assert isinstance(source, dict) and isinstance(source.get('fait'), str)
+                assert reference in noms and noms[reference] in source['fait'] and 'personne-' not in source['fait']
+
+
+@pytest.mark.parametrize('table', ['familles', 'liens'])
+def test_familles_historiques_faits_parentes(table):
+    document = _personnages()
+    _faits_parentes_historiques(document['familles'], document['liens'])
+    for i, f in enumerate(document[table]):
+        if f['id'] not in {'personne-' + i for i in FAMILLES_801} | {'personne-grande-' + str(m) for m in MAISONS_801}: continue
+        for champ in ('pere', 'mere', 'conjoints'):
+            if not f[champ]: continue
+            copie = _alterer_personnages(document, (table, i, 'sources', champ, 'fait'), str(f[champ]))
+            with pytest.raises(AssertionError): _faits_parentes_historiques(copie['familles'], copie['liens'])
 
 
 def _familles_historiques(familles, liens):
+    _faits_parentes_historiques(familles, liens)
     assert len(FAMILLE_1400) == 8 and len(familles) == len(FAMILLE_1400) + len(FAMILLES_801)
     assert {f['id'] for f in familles} == {'personne-' + i for i in [*(i for i, *_ in FAMILLE_1400), *FAMILLES_801]}
     fiches = {f['id']: f for f in familles + liens}
@@ -1835,6 +1864,7 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], f['presence']) == (nom, 'grande-' + str(m), _naissance_famille(date, precision), 'personne-' + pere if pere else None, 'personne-' + mere if mere else None, presence)
     assert {f['id'] for f in liens} == {'personne-grande-3', 'personne-grande-28'} | {'personne-grande-' + str(m) for m in PAGES_801}
+    assert len(liens) == 2 + len(PAGES_801)
     for i, f in fiches.items():
         assert f['conjoints'] == ([couples[i]] if i in couples else [])
         for champ in ('identite', 'naissance', 'pere', 'mere', 'conjoints', 'presence'):
@@ -1855,14 +1885,32 @@ def _familles_historiques(familles, liens):
     assert not any(f['pere'] == 'personne-grande-28' or f['mere'] == 'personne-grande-28' for f in familles)
 
 
+def _familles_historiques_monde(monde):
+    chefs = {'personne-' + m.id for m in monde.maisons}
+    _familles_historiques([f for f in monde.personnages if f['id'] not in chefs],
+                         [f for f in monde.personnages if f['id'] in chefs and any(k in f for k in ('pere', 'mere', 'conjoints'))])
+
+
+@pytest.mark.parametrize('champ,valeur', [('pere', 'personne-grande-1'), ('mere', 'personne-marie-bohun'), ('conjoints', ['personne-isabelle'])])
+def test_familles_historiques_monde_lien_supplementaire(champ, valeur):
+    monde = World.charger(0)
+    _familles_historiques_monde(monde)
+    copie = copy.copy(monde)
+    copie.personnages = copy.deepcopy(monde.personnages)
+    next(f for f in copie.personnages if f['id'] == 'personne-grande-11')[champ] = valeur
+    with pytest.raises(AssertionError): _familles_historiques_monde(copie)
+
+
 def test_familles_historiques():
     document, monde = _personnages(), World.charger(0)
     _familles_historiques(document.get('familles', []), document.get('liens', []))
-    _familles_historiques([f for f in monde.personnages if f['id'] not in {'personne-' + m.id for m in monde.maisons}],
-                         [f for f in monde.personnages if f['id'] in {'personne-grande-3', 'personne-grande-28'} | {'personne-grande-' + str(m) for m in PAGES_801}])
+    _familles_historiques_monde(monde)
     mutations = [(('familles',), []), (('familles', next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-charles'), 'naissance', 'valeur'), '1392-02-07'),
                  (('familles', next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-charles'), 'mere'), 'personne-jeanne'), (('familles', next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-charles'), 'sources', 'mere'), None),
                  (('familles', 0, 'sources', 'presence'), None)]
+    henri = next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-henri-monmouth')
+    mutations += [(('familles', henri, 'naissance'), _naissance_famille(date, precision))
+                  for date, precision in [('1386-09-16', 'jour'), ('1386', 'annee'), ('1387', 'annee')]]
     mutations += [(('familles',), [f for f in document['familles'] if f['id'] != 'personne-' + i]) for i in [*(i for i, *_ in FAMILLE_1400), *FAMILLES_801]]
     for i, date in [('charles-1386', '1386-09-25'), ('jeanne-1388', '1388-06-14'), ('catherine', '1401-10-27'),
                     ('charles-1403', '1403-02-22'), ('philippe', '1407-11-10'), ('anne-bretagne', '1409-01-01')]:
@@ -2008,7 +2056,9 @@ def test_familles_historiques_neuf_maisons():
         copie['familles'].append(dict(copy.deepcopy(copie['familles'][0]), id='personne-' + identifiant, maison='grande-' + str(maison), naissance=_naissance_famille(date)))
         with pytest.raises(AssertionError): _familles_historiques(copie['familles'], copie['liens'])
     copie = copy.deepcopy(document)
-    next(l for l in copie['liens'] if l['id'] == 'personne-grande-1')['conjoints'] = ['personne-isabeau']
-    next(f for f in copie['familles'] if f['id'] == 'personne-isabeau')['conjoints'].append('personne-grande-1')
+    next(l for l in copie['liens'] if l['id'] == 'personne-grande-1')['conjoints'] = ['personne-jeanne-navarre']
+    copie['familles'].append({'id': 'personne-jeanne-navarre', 'nom': 'Jeanne de Navarre', 'maison': 'grande-1',
+                             'naissance': None, 'pere': None, 'mere': None,
+                             'conjoints': ['personne-grande-1'], 'presence': 'vivante'})
     assert _controler_famille(copie['familles'] + [{**c, **l} for l in copie['liens'] for c in copie['chefs'] if 'personne-' + c['maison'] == l['id']])
     with pytest.raises(AssertionError): _familles_historiques(copie['familles'], copie['liens'])
