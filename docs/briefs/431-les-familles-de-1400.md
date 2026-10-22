@@ -44,7 +44,7 @@ Vieillissement, naissances pendant la partie, mortalité, choix légal de l'hér
 La décision A est applicable, mais ne résout pas la taille du lot. Le catalogue
 contient 30 grandes maisons et 6 seigneuries, dont 3 identités absentes à
 conserver, ainsi que 10 institutions. Le module actuel compte 98 lignes et les
-preuves existantes des personnes 270 lignes. Ce sont des mesures de la base,
+preuves existantes des personnes 266 lignes. Ce sont des mesures de la base,
 pas la taille d'une implémentation achevée.
 
 Estimation du changement lisible : 120–160 lignes pour le schéma, les dates et
@@ -58,7 +58,8 @@ Découpe recommandée, à reprendre par le chef en conservant toutes les exigenc
 1. Validateur des liens et des bornes chronologiques, exercé sur des familles
    d'épreuve non vides ; refus et limites de SC2, rouge avant implémentation.
 2. Catalogue familial sourcé des 36 maisons et seigneuries, schéma fermé et
-   couverture complète ; décision A et preuves historiques de SC1 et SC3.
+   couverture complète ; décision A et attentes historiques de SC3. SC1 reste
+   à valider après la construction dans le monde, à l'étape 3.
 3. Construction des familles attestées dans le monde, comparaison complète,
    réutilisation des personnes existantes et copie profonde ; SC1 et SC5.
 4. Génération plausible paramétrée et déterministe, hypothèses séparées des
