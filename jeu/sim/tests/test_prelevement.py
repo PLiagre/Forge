@@ -285,15 +285,20 @@ def test_arrivee_commune_de_departs_d_ages_differents(monkeypatch):
 from functools import cache
 
 
-@cache
 def _habitants_apres_un_an(part):
-    """Une année par part et par processus, sur le même monde neuf."""
+    return _habitants_apres_un_an_calibres(part, c.BRAS_AUX_CHAMPS_PAR_KM2)
+
+
+@cache
+def _habitants_apres_un_an_calibres(part, bras):
+    """Une année par part et calibrage, sans mélanger les deux références."""
+    assert bras == c.BRAS_AUX_CHAMPS_PAR_KM2
     monde, rng = World.charger(0), random.Random(0)
     monde.parts = dict.fromkeys(monde.parts, part)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
         engine.tick(monde, rng, numero)
     habitants = sum(cell.population for cell in monde.cells.values())
-    print(f'part={part:.2f}, habitants après un an={habitants}')
+    print(f'bras={bras}, part={part:.2f}, habitants après un an={habitants}', flush=True)
     return habitants
 
 
@@ -348,12 +353,21 @@ def _verifier_modele_calibration(section, habitants):
     assert 'provisoirement' not in section
 
 
-def test_modele_calibration_de_la_part_coutumiere(monkeypatch):
+@pytest.mark.parametrize("bras", [0.1, 6.2], ids=["historique", "calibre"])
+def test_modele_calibration_de_la_part_coutumiere(monkeypatch, bras):
+    monkeypatch.setattr(c, "BRAS_AUX_CHAMPS_PAR_KM2", bras)
     monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())
+    marqueur = '**Calibration de la part coutumière à 6,2, sans départs.**'
+    historique, calibree = section.split(marqueur, 1)
+    section = historique if bras == 0.1 else marqueur + calibree.split('**Mesures avec départs actifs.**', 1)[0]
     _verifier_modele_calibration(section, habitants)
+    _verifier_calibration(part, habitants)
+    if bras == 6.2:
+        for population in habitants.values():
+            assert str(population) in section
     coutume = f'{part:.2f}'.replace('.', ',')
     autre = f'{round(part - 0.01, 2):.2f}'.replace('.', ',')
     with pytest.raises(AssertionError):

@@ -797,7 +797,6 @@ def test_bras_suffisent_un_an(monkeypatch, numerote):
     # Un seul témoin annuel par chemin ; vérifié sur la base à 0,1 avant calibrage.
     with monkeypatch.context() as ctx:
         ctx.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2", 0.1)
-        ctx.setattr(foyers, "facteur_bras", lambda *a: 1.0)
         temoin = jouer()
     assert all(v > 0 for v in temoin)
     monkeypatch.setattr(foyers, "facteur_bras", enregistrer)

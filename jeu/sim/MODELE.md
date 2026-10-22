@@ -1870,7 +1870,8 @@ Sans secours, aucun parcours supplémentaire. `to_dict()` publie seulement
 les secours non vides : liste `[cell_id, rang, arrivee, kg]` triée, kilos courants
 sans arrondi ; sans geste, les octets et les empreintes restent identiques.
 
-**Calibration de la part coutumière.** Référence historique avec `TAUX_DE_DEPART = 0`,
+**Calibration de la part coutumière.** Référence historique avec les bras à 0,1
+et `TAUX_DE_DEPART = 0`,
 sans mieux-vivre : elle ne mesure pas le monde désormais complet. Sur la graine 0, `World.charger(0)`
 joue 365 ticks numérotés de 0 à 364 avec `random.Random(0)` ; toutes les
 maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`.
@@ -1884,6 +1885,13 @@ coûte au plus 1 % : sa perte reste sous ce seuil et celle de
 C'est une règle plausible de niveau 2, jamais sourcée : la coutume ne vide
 pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
 Tout changement de production, de faim ou de départs exige de remesurer.
+
+**Calibration de la part coutumière à 6,2, sans départs.** Le même protocole
+(graine 0, 365 ticks numérotés, `random.Random(0)`, `TAUX_DE_DEPART = 0`)
+garde les bras du lot #720 à 6,2. À part nulle, il reste 35898086 habitants ;
+la part 0,03 en laisse 35546994 (perte 0,98 %), la part 0,04 en laisse
+35404525 (perte 1,37 %). La borne de 1 % reste tenue pour 0,03 et
+dépassée pour 0,04. Ces mesures sont de niveau 2, plausibles, jamais sourcées.
 
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
 numérotés de 0 à 364 et `random.Random(0)`, garde le mieux-vivre actif,
