@@ -20,8 +20,9 @@ namespace ForgeLocal3D
 {
     // La photo d'un lot, prise par la chaîne en batch sur le PC :
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
-    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L]
-    // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N) : le panneau du lieu
+    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L] [-forgeServiceEpreuve]
+    // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N ; `--epreuve` avec
+    // -forgeServiceEpreuve, sinon rien ne change) : le panneau du lieu
     // montre alors les vrais chiffres. La scène du désert se construit à l'exécution (terrain, ville) :
     // on entre en Play, on laisse passer quelques images, on attend que le panneau ait lu le service,
     // on photographie la caméra de la scène (le plan fixe), on écrit le texte du panneau, puis on
@@ -53,6 +54,10 @@ namespace ForgeLocal3D
         const int CODE_PORT_PRIS = 3;
         const string PANNEAU = "Panneau du lieu";
         const string PANNEAU_EN_ATTENTE = "service absent : en attente";
+
+        public const string SERVICE_EPREUVE = "-forgeServiceEpreuve";
+        // Le dossier de -forgeCaptures, où un scénario écrit aussi son rapport.
+        public static string DossierDesCaptures => SessionState.GetString(Dossier, ".");
 
         static int images, derniere = -1;
         static double debutPanneau = -1;
@@ -170,7 +175,8 @@ namespace ForgeLocal3D
             try
             {
                 string python = Interpreteur();
-                var info = new ProcessStartInfo(python, "-m sim.service --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0")
+                string epreuve = Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE) ? " --epreuve" : "";
+                var info = new ProcessStartInfo(python, "-m sim.service --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0" + epreuve)
                 {
                     WorkingDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "jeu")),
                     UseShellExecute = false, CreateNoWindow = true,
@@ -204,7 +210,7 @@ namespace ForgeLocal3D
                 }
                 if (ticks >= 1)
                     PousserLesTicks(ticks);
-                Debug.Log("CAPTURE_SERVICE graine " + graine + " tick " + ticks + " pid " + service.Id);
+                Debug.Log("CAPTURE_SERVICE graine " + graine + " tick " + ticks + " pid " + service.Id + epreuve);
             }
             catch (Exception e)
             {
