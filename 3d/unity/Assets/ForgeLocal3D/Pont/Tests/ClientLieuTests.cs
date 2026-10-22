@@ -624,5 +624,42 @@ namespace Forge.Pont.Tests
             foreach (Lieu lu in lus)
                 Assert.IsTrue(lu.Lieux[0].Flux.PreleveKg == 1234.56789 && lu.Lieux[0].Flux.PartisPersonnes == 7 && lu.Lieux[0].Flux.ArrivesPersonnes == 2, "le premier lieu ne change pas");
         }
+
+        // Lot #783 — témoin : le fichier tick3 dont `lieux` est remplacé ; `population` null retire la clé.
+        private static string AvecLieux(params string[] places)
+        { string texte = TexteFige("lieu-graine0-tick3.json"); int crochet = texte.IndexOf("\"lieux\":[", StringComparison.Ordinal) + 8; return texte.Substring(0, crochet) + "[" + string.Join(",", places) + "]" + texte.Substring(FinDelimitee(texte, crochet)); }
+
+        private static string Place(long rang, string population) => "{\"rang\":" + rang + ",\"point\":null,\"maitre\":null" + (population == null ? "" : ",\"population\":" + population) + "}";
+
+        [Test] public void ChaqueLieuGardeSaPopulationEtLeBourgSeTrouveParSonRang()
+        {
+            string corps = AvecLieux(Place(2, "9007199254740991"), Place(0, "4321"), Place(1, "0"), Place(3, null));
+            var racine = LecteurJson.LireObjet(corps); var bruts = (List<object>)racine["lieux"];
+            Assert.IsTrue((double)((Dictionary<string, object>)bruts[1])["rang"] == 0 && (double)racine["population"] == 109741 && !((Dictionary<string, object>)bruts[3]).ContainsKey("population"));
+            Lieu lieu = Servi(corps);
+            long?[] attendues = { 9007199254740991L, 4321, 0, null };
+            for (int i = 0; i < attendues.Length; i++)
+                Assert.IsTrue(lieu.Lieux[i].Population == attendues[i] && (lieu.Lieux[i].AbsenceDePopulation == null) == (attendues[i] != null), "population du lieu " + i);
+            StringAssert.Contains("lieux[3].population", lieu.Lieux[3].AbsenceDePopulation);
+            Assert.IsTrue(lieu.Bourg.Rang == 0 && lieu.Bourg.Population == 4321 && lieu.Population == 109741, "le bourg est le rang 0, pas la cellule ni la première entrée");
+            Fermer(); Lieu sansBourg = Servi(AvecLieux(Place(1, "5"), Place(2, "6")));
+            Assert.IsTrue(sansBourg.Bourg == null && sansBourg.Lieux[0].Population == 5 && sansBourg.Lieux[1].Population == 6);
+            Fermer(); Lieu muet = Servi(AvecLieux(Place(1, "5"), Place(0, null)));
+            Assert.IsTrue(muet.Bourg.Population == null && muet.Bourg.AbsenceDePopulation.Contains("lieux[1].population") && muet.Population == 109741);
+            Fermer(); Lieu vide = Servi(AvecLieux());
+            Assert.IsTrue(vide.Lieux.Count == 0 && vide.Bourg == null && vide.AbsenceDesLieux == null);
+            LieuPlace ancienne = new LieuPlace(0, null, null);
+            Assert.IsTrue(ancienne.Population == null && ancienne.AbsenceDePopulation != null, "un ancien constructeur ne fabrique pas de zéro");
+        }
+
+        [TestCase("null")] [TestCase("-1")] [TestCase("1.5")] [TestCase("true")] [TestCase("\"4321\"")] [TestCase("9007199254740992")]
+        public void UnePopulationDeLieuFautiveRefuseToutLeLieu(string valeur)
+        {
+            string corps = AvecLieux(Place(2, "40"), Place(0, valeur));
+            var second = (Dictionary<string, object>)((List<object>)LecteurJson.LireObjet(corps)["lieux"])[1];
+            Assert.IsTrue(second.ContainsKey("population") && Equals(LecteurJson.LireObjet("{\"v\":" + valeur + "}")["v"], second["population"]), "la mutation touche lieux[1].population");
+            Servir(200, corps);
+            StringAssert.Contains("clé lieux[1].population :", Absence(CellFigee).Absence);
+        }
     }
 }
