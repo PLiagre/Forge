@@ -4731,3 +4731,205 @@ def test_plan_chantiers_du_jour(monkeypatch):
         finally:
             serveur.shutdown(); serveur.server_close()
     assert course() == course()
+
+
+# --- Lot 775 : la faim propre au bourg, publiée sans relire le monde ---
+
+
+def _preparer_bourg_service(serveur, situation='bourg_affame'):
+    from sim import constants as k, engine
+    cellule = next(c for c in serveur.world.cells.values()
+                   if len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+    bourg = next(l for l in cellule.lieux if l.rang == 0)
+    champ = next(l for l in cellule.lieux if l.rang != 0)
+    for lieu in cellule.lieux:
+        lieu.dette_alimentaire_kg = 0
+        lieu.duree_faim_ticks = 0
+        lieu.stocks[k.MARCHANDISE_NOURRITURE] = (
+            lieu.population * k.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK)
+    bourg.stocks['fer'] = 1.23456789
+    champ.stocks['fer'] = 17
+    if situation == 'bourg_affame':
+        bourg.stocks[k.MARCHANDISE_NOURRITURE] = 0
+        champ.stocks[k.MARCHANDISE_NOURRITURE] += cellule.population
+    elif situation == 'champ_affame':
+        champ.stocks[k.MARCHANDISE_NOURRITURE] = 0
+        bourg.stocks[k.MARCHANDISE_NOURRITURE] += cellule.population
+    else:
+        assert situation == 'ration_complete'
+    cellule.stocks = {m: sum(l.stocks.get(m, 0) for l in cellule.lieux)
+                      for m in set().union(*(l.stocks for l in cellule.lieux))}
+    cellule.food_deficit_kg = 0
+    cellule.hunger_ticks = 6
+    penurie = engine._apply_consumption(
+        cellule, serveur.world.carte, facteurs={l.rang: 0 for l in cellule.lieux if l.rang})
+    engine._update_hunger(cellule, penurie)
+    assert bourg.population > 0 and champ.population > 0
+    return cellule, bourg, champ
+
+
+def _reference_bourg_service(bourg, tick):
+    return dict(rang=bourg.rang, population=bourg.population,
+                stocks=copy.deepcopy(bourg.stocks), duree_faim_ticks=bourg.duree_faim_ticks,
+                tick=tick)
+
+
+def _verifier_bourg_service(document, reference):
+    assert 'bourg' in document, 'bloc bourg absent de la réponse étendue'
+    assert document['bourg'] == reference
+    assert document['tick'] == reference['tick']
+
+
+@pytest.mark.parametrize('situation', ['bourg_affame', 'champ_affame', 'ration_complete'])
+def test_service_bourg_faim(situation):
+    from sim.constants import MARCHANDISE_NOURRITURE
+    with _service_ia_en_processus(False) as (serveur, port):
+        cellule, bourg, champ = _preparer_bourg_service(serveur, situation)
+        if situation == 'bourg_affame':
+            assert bourg.duree_faim_ticks > 0 and champ.duree_faim_ticks == 0
+            assert champ.stocks[MARCHANDISE_NOURRITURE] > 0
+            assert bourg.stocks != cellule.stocks
+        elif situation == 'champ_affame':
+            assert champ.duree_faim_ticks > 0 and cellule.hunger_ticks > 0
+            assert bourg.duree_faim_ticks == 0
+        else:
+            assert bourg.stocks[MARCHANDISE_NOURRITURE] == 0
+            assert bourg.duree_faim_ticks == 0
+        reference = _reference_bourg_service(bourg, serveur.world.ticks_ecoules)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        statut, document, _ = requete_service(port, f'/lieu?cell={cellule.cell_id}&bourg=1')
+        assert statut == HTTPStatus.OK
+        _verifier_bourg_service(document, reference)
+        assert document['bourg']['stocks']['fer'] == 1.23456789
+        faux = copy.deepcopy(document)
+        if situation == 'bourg_affame':
+            faux['bourg']['stocks'] = copy.deepcopy(cellule.stocks)
+        else:
+            faux['bourg']['duree_faim_ticks'] = (
+                cellule.hunger_ticks if situation == 'champ_affame' else 1)
+        with pytest.raises(AssertionError):
+            _verifier_bourg_service(faux, reference)
+
+
+def test_service_bourg_publication():
+    with _service_ia_en_processus(False) as (serveur, port):
+        cellule, bourg, champ = _preparer_bourg_service(serveur)
+        assert 0 < bourg.duree_faim_ticks != cellule.hunger_ticks
+        cellule.lieux.reverse()
+        assert cellule.lieux[0].rang != 0
+        reference = _reference_bourg_service(bourg, serveur.world.ticks_ecoules)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        chemin = f'/lieu?cell={cellule.cell_id}&bourg=1'
+        statut, document, avant = requete_service(port, chemin)
+        assert statut == HTTPStatus.OK
+        _verifier_bourg_service(document, reference)
+        bourg.duree_faim_ticks += 1
+        bourg.stocks['fer'] += 1
+        cellule.stocks['fer'] += 1
+        assert requete_service(port, chemin)[2] == avant
+        serveur.world.ticks_ecoules += 1
+        reference = _reference_bourg_service(bourg, serveur.world.ticks_ecoules)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        statut, document, apres = requete_service(port, chemin)
+        assert statut == HTTPStatus.OK and apres != avant
+        _verifier_bourg_service(document, reference)
+        for cle, valeur in (('tick', reference['tick'] - 1), ('stocks', champ.stocks)):
+            faux = copy.deepcopy(document)
+            faux['bourg'][cle] = valeur
+            with pytest.raises(AssertionError):
+                _verifier_bourg_service(faux, reference)
+
+
+@pytest.mark.parametrize('cause', ['rang absent', 'rang dupliqué', 'faim absente',
+                                   'faim nulle', 'faim négative', 'faim fractionnaire',
+                                   'faim booléenne', 'faim textuelle'])
+def test_service_bourg_refus_construction(cause):
+    from types import SimpleNamespace
+    with _service_ia_en_processus(False) as (serveur, _):
+        cellule, bourg, _ = _preparer_bourg_service(serveur, 'ration_complete')
+        ancien = serveur.etat_publie = serveur._construire_etat(0, -1)
+        if cause == 'rang absent':
+            cellule.lieux.remove(bourg)
+        elif cause == 'rang dupliqué':
+            cellule.lieux.append(copy.deepcopy(bourg))
+        elif cause == 'faim absente':
+            donnees = vars(bourg).copy()
+            del donnees['duree_faim_ticks']
+            cellule.lieux[cellule.lieux.index(bourg)] = SimpleNamespace(**donnees)
+        else:
+            bourg.duree_faim_ticks = {'faim nulle': None, 'faim négative': -1,
+                                     'faim fractionnaire': 0.5, 'faim booléenne': True,
+                                     'faim textuelle': '0'}[cause]
+        with pytest.raises(SnapshotExportError) as refus:
+            serveur._construire_etat(0, -1)
+        assert f'cell_id={cellule.cell_id}' in str(refus.value)
+        assert ('rang 0' if cause.startswith('rang') else 'duree_faim_ticks') in str(refus.value)
+        assert ('absent' if cause.endswith('absent') else
+                'dupliqué' if cause.endswith('dupliqué') else 'invalide') in str(refus.value)
+        assert serveur.etat_publie is ancien
+
+
+def test_service_bourg_refus_http():
+    from sim.intentions import recevoir_intention
+    with _service_ia_en_processus(False) as (serveur, port):
+        cellule, bourg, _ = _preparer_bourg_service(serveur, 'ration_complete')
+        assert bourg.duree_faim_ticks == 0
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        recevoir_intention(serveur.world, dict(
+            type='tracer_route', maison=bourg.maitre, cell=cellule.cell_id,
+            points=[[0, 0], [40, 0]], largeur_m=4))
+        chemin = f'/lieu?cell={cellule.cell_id}'
+        chemins = ('/monde', chemin, chemin + '&bourg=1')
+        avant = [requete_service(port, c)[2] for c in chemins]
+        tick = serveur.world.ticks_ecoules
+        intentions = copy.deepcopy(serveur.world.intentions_en_attente)
+        assert intentions
+        inconnu = max(serveur.world.cells) + 1
+        for requete, statut in [*( (chemin + '&' + p, HTTPStatus.BAD_REQUEST)
+                                  for p in ('bourg=', 'bourg', 'bourg=1&bourg=1', 'bourg=0', 'bourg=2', 'bourg=01')),
+                                (f'/lieu?cell={inconnu}&bourg=1', HTTPStatus.NOT_FOUND),
+                                ('/lieu?bourg=1', HTTPStatus.BAD_REQUEST)]:
+            assert requete_service(port, requete)[0] == statut
+        assert serveur.world.ticks_ecoules == tick
+        assert serveur.world.intentions_en_attente == intentions
+        assert [requete_service(port, c)[2] for c in chemins] == avant
+        statut, document, _ = requete_service(port, chemins[-1])
+        assert statut == HTTPStatus.OK
+        _verifier_bourg_service(document, _reference_bourg_service(bourg, tick))
+
+
+def _verifier_compatibilite_bourg_service(document, ordinaire):
+    sans_bourg = copy.deepcopy(document)
+    sans_bourg.pop('bourg')
+    assert sans_bourg == ordinaire
+
+
+def test_service_bourg_compatibilite():
+    with _service_ia_en_processus(False) as (serveur, port):
+        cellule, bourg, _ = _preparer_bourg_service(serveur)
+        chemin = f'/lieu?cell={cellule.cell_id}'
+        publications = []
+        for _ in range(2):
+            serveur.etat_publie = serveur._construire_etat(0, -1)
+            monde = requete_service(port, '/monde')[2]
+            ordinaire = requete_service(port, chemin)
+            statut, etendu, octets = requete_service(port, chemin + '&bourg=1')
+            assert statut == HTTPStatus.OK
+            _verifier_bourg_service(etendu, _reference_bourg_service(bourg, serveur.world.ticks_ecoules))
+            _verifier_compatibilite_bourg_service(etendu, ordinaire[1])
+            assert requete_service(port, chemin)[2] == ordinaire[2]
+            assert requete_service(port, '/monde')[2] == monde
+            with pytest.raises(AssertionError):
+                assert dict(ordinaire[1], bourg=etendu['bourg']) == ordinaire[1]
+            for supprimer in (False, True):
+                faux = copy.deepcopy(etendu)
+                if supprimer:
+                    del faux['population']
+                else:
+                    faux['population'] += 1
+                with pytest.raises(AssertionError):
+                    _verifier_compatibilite_bourg_service(faux, ordinaire[1])
+            publications.append(octets)
+            serveur.world.ticks_ecoules += 1
+            bourg.duree_faim_ticks += 1
+        assert publications[0] != publications[1]

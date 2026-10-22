@@ -2412,6 +2412,22 @@ ne porte aucun `cell_id` recopié ni `lieu_id` : son identité est le couple
 découpage lèvent `SnapshotExportError` : le service ne publie jamais une
 liste inventée. `/monde` reste léger et ne les porte pas.
 
+`GET /lieu?cell=X&bourg=1` ajoute le bloc `bourg` : exactement `rang`,
+`population`, `stocks`, `duree_faim_ticks` et `tick`. Il lit le rang 0,
+quelle que soit sa position dans la liste, et conserve toutes ses marchandises
+sans arrondi. Son tick est celui de la réponse. Sa faim locale mesure le manque
+après consommation et transport intérieur ; ni le panier restant, ni la dette,
+ni la faim cellulaire ne la remplacent. Une ration complète peut laisser un
+panier alimentaire vide avec une faim mesurée à zéro.
+Les deux variantes sont préparées dans le même appel à `_construire_etat`,
+dans `EtatPublie` ; HTTP choisit leurs octets sans relire le monde mutable.
+Un rang 0 absent ou dupliqué, ou une `duree_faim_ticks` absente, négative ou
+non entière, lève `SnapshotExportError` avec la cellule et la cause.
+Seule la valeur unique `bourg=1` active l'extension ; une valeur vide, répétée
+ou différente rend HTTP 400 sans mutation. Sans paramètre, les octets restent
+identiques. La faim locale devient ainsi accessible par cette extension du
+service ; la photographie reste inchangée, sans ce bloc supplémentaire.
+
 ### L'identité d'un lieu, et ce qui la change
 
 Un lieu se retrouve par son couple (`cell_id`, `rang`) avec `lieu_du_monde`,
