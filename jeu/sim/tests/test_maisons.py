@@ -1306,3 +1306,183 @@ def test_part_etat(monkeypatch):
     monkeypatch.setattr(k, "PART_COUTUMIERE", 0.17)
     charge = World.charger(0)
     assert charge.parts == dict.fromkeys(ids, 0.17) and "parts" not in charge.to_dict()
+
+
+PERSONNAGES = TABLE.with_name("personnages-1400.json")
+
+
+def _personnages(chemin=PERSONNAGES):
+    return json.loads(chemin.read_text(encoding="utf-8"))
+
+
+def _personnages_couverture(document, references, vue):
+    puissances, capitales, seigneuries = references
+    categories = [{f"grande-{c['maison']}" for c in capitales["capitales"]},
+                  {f"institution-{p['id']}" for p in puissances["puissances"] if "maison" not in p},
+                  {f"seigneurie-{s['id']}" for s in seigneuries["seigneuries"]}]
+    assert all(categories)
+    attendus = set.union(*categories)
+    lignes = [c["maison"] for c in document["chefs"]]
+    assert lignes and lignes == sorted(set(lignes))
+    assert set(lignes) == attendus == {m.id for m in vue}
+    hors_carte = {m.id for m in vue if m.cell_id is None}
+    assert hors_carte and hors_carte <= set(lignes)
+    assert {m.id for m in vue if m.nom == "Paléologue"} == {"grande-15", "seigneurie-3"}
+
+
+def test_personnages_couverture(registre, tmp_path):
+    _, references, charger, _ = registre
+    vue, document = charger(), _personnages()
+    _personnages_couverture(document, references, vue)
+    with pytest.raises(FileNotFoundError):
+        _personnages(tmp_path / "absent.json")
+    retraits = [next(m.id for m in vue if m.sorte == s) for s in
+                ("grande maison", "institution", "seigneurie")]
+    retraits += [m.id for m in vue if m.cell_id is None] + ["seigneurie-3"]
+    listes = [[], document["chefs"] * 2, list(reversed(document["chefs"]))]
+    listes += [[c for c in document["chefs"] if c["maison"] != i] for i in retraits]
+    for inconnu in ("inconnue-1", "plausible-1"):
+        copie = copy.deepcopy(document["chefs"])
+        copie[0]["maison"] = inconnu
+        listes.append(sorted(copie, key=lambda c: c["maison"]))
+    for lignes in listes:
+        with pytest.raises(AssertionError):
+            _personnages_couverture({"chefs": lignes}, references, vue)
+    reference_augmente = copy.deepcopy(references)
+    reference_augmente[1]["capitales"].append({"maison": 999})
+    with pytest.raises(AssertionError):
+        _personnages_couverture(document, reference_augmente, vue)
+
+
+def _personnages_sources(document):
+    import datetime
+    import re
+    from urllib.parse import urlsplit
+    def texte(valeur):
+        assert isinstance(valeur, str) and valeur.strip()
+    assert set(document) == {"date", "fidelite", "chefs"}
+    assert document["date"] == "1400-01-01"
+    texte(document["fidelite"])
+    assert isinstance(document["chefs"], list) and document["chefs"]
+    for fiche in document["chefs"]:
+        assert set(fiche) == {"maison", "nom", "naissance", "sources", "lacunes"}
+        texte(fiche["maison"])
+        assert set(fiche["sources"]) == set(fiche["lacunes"]) == {"identite", "naissance"}
+        assert fiche["nom"] is not None or fiche["naissance"] is None
+        for champ, donnee in (("identite", fiche["nom"]), ("naissance", fiche["naissance"])):
+            source, lacune = fiche["sources"][champ], fiche["lacunes"][champ]
+            if donnee is None:
+                assert source is None
+                texte(lacune)
+                continue
+            assert lacune is None and isinstance(source, dict) and set(source) == {"url", "fait"}
+            texte(source["fait"])
+            texte(source["url"])
+            url = urlsplit(source["url"])
+            assert url.scheme in {"http", "https"} and url.hostname and not re.search(r"\s", source["url"])
+            if champ == "identite":
+                texte(donnee)
+                continue
+            assert isinstance(donnee, dict) and set(donnee) == {"valeur", "precision"}
+            valeur, precision = donnee["valeur"], donnee["precision"]
+            texte(valeur)
+            assert precision in {"jour", "mois", "annee", "vers", "intervalle"}
+            if precision in {"jour", "mois", "annee"}:
+                suffixe = {"jour": "", "mois": "-01", "annee": "-01-01"}[precision]
+                motif = {"jour": r"[0-9]{4}-[0-9]{2}-[0-9]{2}", "mois": r"[0-9]{4}-[0-9]{2}", "annee": r"[0-9]{4}"}[precision]
+                assert re.fullmatch(motif, valeur)
+                assert datetime.date.fromisoformat(valeur + suffixe) <= datetime.date(1400, 1, 1)
+
+
+def _alterer_personnages(document, chemin, valeur):
+    copie = copy.deepcopy(document)
+    cible = copie
+    for cle in chemin[:-1]:
+        cible = cible[cle]
+    if valeur == "SUPPRIMER":
+        del cible[chemin[-1]]
+    else:
+        cible[chemin[-1]] = valeur
+    return copie
+
+
+def test_personnages_sources():
+    document = _personnages()
+    _personnages_sources(document)
+    alterations = [(('date',), '1400-01-02'), (('fidelite',), ' '), (('chefs',), []),
+                   (('chefs', 0, 'nom'), ' '), (('chefs', 0, 'maison'), 'SUPPRIMER'),
+                   (('chefs', 0, 'sources', 'identite'), {}),
+                   (('chefs', 0, 'sources', 'identite', 'fait'), ' '),
+                   (('chefs', 0, 'sources', 'identite', 'url'), 'ftp://exemple.org'),
+                   (('chefs', 0, 'sources', 'identite', 'url'), 'https:///absente'),
+                   (('chefs', 0, 'sources', 'naissance'), None),
+                   (('chefs', 0, 'sources', 'naissance'), 'SUPPRIMER'),
+                   (('chefs', 0, 'nom'), None),
+                   (('chefs', 0, 'lacunes', 'identite'), 'Motif indu pour une identité connue'),
+                   (('chefs', 0, 'naissance', 'precision'), 'seconde'),
+                   (('chefs', 0, 'naissance'), {'valeur': '1367-02-30', 'precision': 'jour'}),
+                   (('chefs', 0, 'naissance'), {'valeur': '1400-01-02', 'precision': 'jour'}),
+                   (('chefs', 0, 'naissance'), {'valeur': '1400-13', 'precision': 'mois'}),
+                   (('chefs', 0, 'naissance'), {'valeur': '1401', 'precision': 'annee'})]
+    manquantes = [(i, champ) for i, c in enumerate(document['chefs']) for champ in ('identite', 'naissance') if c['sources'][champ] is None]
+    assert manquantes
+    alterations += [(('chefs', i, 'lacunes', champ), ' ') for i, champ in manquantes]
+    for chemin, valeur in alterations:
+        with pytest.raises((AssertionError, ValueError, KeyError)):
+            _personnages_sources(_alterer_personnages(document, chemin, valeur))
+    # Une approximation et un intervalle restent textuels, sans conversion en date.
+    assert any(c['naissance'] and c['naissance']['precision'] == 'intervalle' for c in document['chefs'])
+    assert any(c['naissance'] and c['naissance']['precision'] == 'vers' for c in document['chefs'])
+
+
+def _personnages_attestes(document):
+    fiches = {c['maison']: c for c in document['chefs']}
+    # Attentes tirées des pages consultées, indépendantes du document produit.
+    temoins = {'seigneurie-1': ('Robert Ier de Bar', 'Robert_Ier_de_Bar', '1354'),
+               'seigneurie-2': ('Eberhard III de Wurtemberg', 'sfz35480.html', '1392'),
+               'seigneurie-3': ('Théodore Ier Paléologue', 'Despotate_of_the_Morea', '1383'),
+               'seigneurie-4': ('Đurađ Vuković Branković', '%C4%90ura%C4%91_Brankovi%C4%87', '1396'),
+               'seigneurie-5': ('Gazi Evrenos Bey', 'evrenosogullari', 'Bayezid'),
+               'grande-15': ('Manuel II Paléologue', 'Manuel_II_Palaiologos', '1391'),
+               'grande-8': ('Abu Abdallah Muhammad VII ibn Yusuf', 'Muhammad_VII_of_Granada', '1392'),
+               'institution-13': ('Antonio Venier', 'Antonio_Venier', '1382'),
+               'grande-9': ('Venceslas IV de Luxembourg', 'Wenceslaus_IV_of_Bohemia', 'Prague'),
+               'grande-29': ('Robert III de Wittelsbach', 'Rupert_of_Germany', 'Heidelberg')}
+    for identifiant, (nom, page, fait) in temoins.items():
+        fiche = fiches[identifiant]
+        assert fiche['nom'] == nom
+        assert page in fiche['sources']['identite']['url'] and fait in fiche['sources']['identite']['fait']
+    naissances = {'seigneurie-1': ('1344-11-08', 'jour', 'Robert_Ier_de_Bar'),
+                  'grande-15': ('1350-06-27', 'jour', 'Manuel_II_Palaiologos'),
+                  'grande-1': ('c. April 1367', 'vers', 'Henry_IV_of_England'),
+                  'grande-13': ('1381 or 1382', 'intervalle', 'Eric_of_Pomerania')}
+    for identifiant, (valeur, precision, page) in naissances.items():
+        assert fiches[identifiant]['naissance'] == {'valeur': valeur, 'precision': precision}
+        assert page in fiches[identifiant]['sources']['naissance']['url']
+        assert fiches[identifiant]['sources']['naissance']['fait'].strip()
+    for identifiant in ('grande-21', 'grande-24', 'institution-12', 'institution-15', 'institution-31', 'institution-32', 'seigneurie-6'):
+        assert fiches[identifiant]['nom'] is None and fiches[identifiant]['lacunes']['identite'].strip()
+    for identifiant in ('grande-18', 'grande-20', 'institution-16', 'seigneurie-5', 'seigneurie-6'):
+        assert fiches[identifiant]['naissance'] is None and fiches[identifiant]['lacunes']['naissance'].strip()
+
+
+def test_personnages_attestes():
+    document = _personnages()
+    _personnages_attestes(document)
+    indices = {c['maison']: i for i, c in enumerate(document['chefs'])}
+    alterations = []
+    for identifiant, champ, valeur in [('grande-15', 'nom', 'Théodore Ier Paléologue'),
+                                     ('seigneurie-3', 'nom', 'Manuel II Paléologue'),
+                                     ('seigneurie-1', 'naissance', {'valeur': '1344-11-09', 'precision': 'jour'}),
+                                     ('grande-1', 'naissance', {'valeur': '1367-04-01', 'precision': 'jour'}),
+                                     ('grande-13', 'naissance', {'valeur': '1381', 'precision': 'annee'})]:
+        alterations.append(_alterer_personnages(document, ('chefs', indices[identifiant], champ), valeur))
+    for champ in ('nom', 'naissance'):
+        copie = copy.deepcopy(document)
+        for fiche in copie['chefs']:
+            fiche[champ] = None
+        alterations.append(copie)
+    alterations.append(_alterer_personnages(document, ('chefs', indices['seigneurie-6'], 'lacunes', 'identite'), ''))
+    for copie in alterations:
+        with pytest.raises(AssertionError):
+            _personnages_attestes(copie)
