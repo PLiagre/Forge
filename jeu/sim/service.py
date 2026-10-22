@@ -453,7 +453,7 @@ class ServeurMonde(ThreadingHTTPServer):
                 intervalle = 1 / vitesse
                 prochaine = echeance + intervalle
                 maintenant = time.monotonic()
-                echeance = max(prochaine, maintenant)
+                echeance = prochaine if prochaine > maintenant else maintenant + intervalle
 
     def server_close(self) -> None:
         """Réveille le fil démon afin qu'il puisse finir proprement."""
