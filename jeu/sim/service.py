@@ -424,10 +424,7 @@ class ServeurMonde(ThreadingHTTPServer):
                 intervalle = 1 / vitesse
                 prochaine = echeance + intervalle
                 maintenant = time.monotonic()
-                # Un tick trop long a déjà consommé son intervalle. Repartir
-                # aussitôt, sans accumuler les échéances manquées ni ajouter
-                # un intervalle d'attente au temps de calcul.
-                echeance = max(prochaine, maintenant)
+                echeance = prochaine if prochaine > maintenant else maintenant + intervalle
 
     def server_close(self) -> None:
         """Réveille le fil démon afin qu'il puisse finir proprement."""
