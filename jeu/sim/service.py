@@ -285,9 +285,11 @@ class ServeurMonde(ThreadingHTTPServer):
             for cellule in cellules
         }
         lieux = {cid: _serialiser(document) for cid, document in documents_lieux.items()}
+        # « bourg » est la première clé dans l'ordre canonique : réutiliser
+        # les octets du lieu évite de sérialiser deux fois tout son document.
         lieux_avec_bourg = {
-            cid: _serialiser(document | {"bourg": bourgs[cid]})
-            for cid, document in documents_lieux.items()
+            cid: b'{"bourg":' + _serialiser(bourgs[cid]) + b"," + octets[1:]
+            for cid, octets in lieux.items()
         }
         document = {
             "tick": numero_tick,
@@ -422,7 +424,10 @@ class ServeurMonde(ThreadingHTTPServer):
                 intervalle = 1 / vitesse
                 prochaine = echeance + intervalle
                 maintenant = time.monotonic()
-                echeance = prochaine if prochaine > maintenant else maintenant + intervalle
+                # Un tick trop long a déjà consommé son intervalle. Repartir
+                # aussitôt, sans accumuler les échéances manquées ni ajouter
+                # un intervalle d'attente au temps de calcul.
+                echeance = max(prochaine, maintenant)
 
     def server_close(self) -> None:
         """Réveille le fil démon afin qu'il puisse finir proprement."""
