@@ -98,6 +98,7 @@ namespace Forge.Pont
                 if (i > 0 && identifiant <= batiments[i - 1].Identifiant) throw Ecart(chemin + ".identifiant", "plus de " + Texte(batiments[i - 1].Identifiant) + " (ordre strictement croissant)", identifiant);
                 long capacite = ServiceLocal.Entier(maison, chemin + ".capacite", 1), loge = ServiceLocal.Entier(maison, chemin + ".loges", -1);
                 if ((loge == -1) != nonCalcules || loge > capacite) throw Ecart(chemin + ".loges", nonCalcules ? "-1 (métiers non calculés)" : "un entier de 0 à " + Texte(capacite), loge);
+                if (capacites > 9007199254740991L - capacite) throw Ecart(chemin + ".capacite", "une capacité qui garde la somme des maisons sous 2^53", capacite);
                 batiments.Add((identifiant, capacite, loge)); capacites += capacite; loges += loge;
             }
             if (logement != null && capacites != logement.Capacite) throw Ecart("logement.capacite", Texte(capacites) + " (somme des maisons)", logement.Capacite);

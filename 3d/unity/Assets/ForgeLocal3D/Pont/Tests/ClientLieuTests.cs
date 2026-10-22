@@ -735,7 +735,7 @@ namespace Forge.Pont.Tests
         {
             foreach (string c in new[] { "cell_id", "tick", "date", "date.annee", "date.jour_de_l_annee", "bourg", "bourg.rang", "bourg.population", "bourg.stocks", "bourg.duree_faim_ticks", "bourg.tick" })
                 yield return new TestCaseData(true, c, "retrait");
-            foreach (string c in new[] { "cell_id", "rang", "tick", "date", "date.annee", "base", "base[1].rang", "base[1].foyers", "batiments", "batiments[1].identifiant", "batiments[1].capacite", "batiments[1].loges", "logement", "logement.capacite", "logement.loges", "logement.sans_logis" })
+            foreach (string c in new[] { "cell_id", "rang", "tick", "date", "date.annee", "date.jour_de_l_annee", "base", "base[1].rang", "base[1].foyers", "batiments", "batiments[1].identifiant", "batiments[1].capacite", "batiments[1].loges", "logement", "logement.capacite", "logement.loges", "logement.sans_logis" })
                 yield return new TestCaseData(false, c, "retrait");
             object[][] alterations = { new object[] { true, "cell_id", 9923d }, new object[] { true, "bourg.rang", 1d }, new object[] { true, "bourg.tick", 16d }, new object[] { true, "bourg.stocks.fer", -0.5 }, new object[] { true, "bourg.stocks.sel_futur", null },
                 new object[] { true, "bourg.population", -1d }, new object[] { true, "tick", 17.5 }, new object[] { true, "bourg.duree_faim_ticks", 9007199254740992d }, new object[] { true, "bourg.stocks", "x" }, new object[] { true, "date.jour_de_l_annee", 0d },
@@ -761,6 +761,11 @@ namespace Forge.Pont.Tests
             }
         }
 
+        [Test] public void DesCapacitesDontLaSommeDeborderaitVers1SontRefusees() // 2 048 × (2^53−1) + 2 049 = 2^64 + 1, soit 1 en long
+        {
+            string corps = Occupation(maisons: string.Join(",", Enumerable.Range(1, 2049).Select(i => "{\"capacite\":" + (i < 2049 ? "9007199254740991" : "2049") + ",\"identifiant\":" + i + ",\"loges\":0}")), logement: "{\"capacite\":1,\"loges\":0,\"sans_logis\":0}");
+            Repondre(_ => (200, corps)); Absente(Vie(c => c.LireOccupation(CellFigee)), "clé batiments[1].capacite :", "sous 2^53");
+        }
         [Test] public void ChaquePublicationGardeSonJourEtChaqueEchecSaCause()
         {
             (int, string)? bourg = (200, Bourg()), occupation = (200, Occupation()); bool muet = false;
