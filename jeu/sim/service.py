@@ -15,6 +15,7 @@ import time
 from urllib.parse import parse_qs, urlsplit
 
 from sim.carte_servie import document_carte
+from sim import constants as _constantes
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
 from sim.foyers import ranger_en_foyers
@@ -31,6 +32,7 @@ from sim.model import copier_panier, lire_habitants_par_metier
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
+from sim.plan import aire_du_contour
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
 from sim.ville1400 import BaseAbsente, base_de_cellule
@@ -142,6 +144,7 @@ class EtatPublie:
     lieux: dict[int, bytes]
     lieux_avec_bourg: dict[int, bytes]
     plans: dict[int, bytes]
+    occupations: dict[int, bytes]
     tick: int
     date: dict[str, int]
     jours_par_seconde: float
@@ -177,6 +180,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self.verrou_base = threading.Lock()
         self.verrou_maisons = threading.Lock()
         self._bases = {}
+        self._occupations_base = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
         self.condition_vitesse = threading.Condition()
@@ -208,13 +212,26 @@ class ServeurMonde(ThreadingHTTPServer):
     def octets_plan(self, etat, cell_id):
         """Assemble les octets figés de la base et ceux du plan publié."""
         with self.verrou_base:
-            if cell_id not in self._bases:
-                self._bases[cell_id] = b'{"base":' + _serialiser(base_de_cellule(self.world, cell_id)) + b','
+            self._preparer_base(cell_id)
             octets = etat.plans[cell_id]
             if not octets.startswith(b'{"base":'):
                 octets = self._bases[cell_id] + octets[1:]
                 etat.plans[cell_id] = octets
             return octets
+
+    def _preparer_base(self, cell_id):
+        """Prépare les deux lectures immuables sous verrou_base, sans doubler le calcul."""
+        if cell_id not in self._bases:
+            base = base_de_cellule(self.world, cell_id)
+            occupation = [dict(rang=i, foyers=m["foyers"]) for i, m in enumerate(base["maisons"])]
+            self._bases[cell_id] = b'{"base":' + _serialiser(base) + b','
+            self._occupations_base[cell_id] = b'{"base":' + _serialiser(occupation) + b','
+
+    def octets_occupation(self, etat, cell_id):
+        """Assemble la base immuable et les comptes copiés à la publication."""
+        with self.verrou_base:
+            self._preparer_base(cell_id)
+            return self._occupations_base[cell_id] + etat.occupations[cell_id][1:]
 
     def document_departs(self):
         """Lit les fiches actuelles et leur date sous le même verrou que les intentions."""
@@ -317,11 +334,28 @@ class ServeurMonde(ThreadingHTTPServer):
         }
         with self.verrou_base:
             plans = {cid: self._bases.get(cid, b"{") + octets[1:] for cid, octets in plans.items()}
+        occupations = {}
+        for cid, plan in sorted(self.world.plans.items()):
+            logement = documents_lieux[cid].get("logement")
+            reste = logement["loges"] if logement is not None else 0
+            batiments = []
+            for b in sorted(plan.batiments, key=lambda b: b.identifiant):
+                if b.nature != "maison" or b.en_chantier:
+                    continue
+                capacite = max(1, int(aire_du_contour(b.emprise) // _constantes.SURFACE_M2_PAR_FOYER_LOGE))
+                loges = -1 if reste == -1 else min(capacite, reste)
+                batiments.append(dict(identifiant=b.identifiant, capacite=capacite, loges=loges))
+                if reste != -1:
+                    reste -= loges
+            occupations[cid] = _serialiser(dict(
+                cell_id=cid, rang=0, tick=numero_tick, date=date,
+                batiments=batiments, logement=logement))
         return EtatPublie(
             monde=monde,
             lieux=lieux,
             lieux_avec_bourg=lieux_avec_bourg,
             plans=plans,
+            occupations=occupations,
             maisons=matiere_des_maisons(self.world, noms, places),
             octets_maisons={},
             tick=numero_tick,
@@ -497,13 +531,14 @@ class RequetesMonde(BaseHTTPRequestHandler):
             else:
                 self._repondre_octets(HTTPStatus.OK, etat.ia)
             return
-        if cible.path in ("/lieu", "/plan"):
+        if cible.path in ("/lieu", "/plan", "/occupation"):
             try:
                 cell_id = _parametre_entier(cible.query, "cell")
             except ValueError as exc:
                 self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                 return
-            documents = etat.plans if cible.path == "/plan" else etat.lieux
+            documents = (etat.occupations if cible.path == "/occupation" else
+                         etat.plans if cible.path == "/plan" else etat.lieux)
             if cible.path == "/lieu":
                 bourg = parse_qs(cible.query, keep_blank_values=True).get("bourg")
                 if bourg is not None:
@@ -519,9 +554,10 @@ class RequetesMonde(BaseHTTPRequestHandler):
                     f"cell inconnu : reçu {cell_id!r}",
                 )
                 return
-            if cible.path == "/plan":
+            if cible.path in ("/plan", "/occupation"):
                 try:
-                    lieu = self.server.octets_plan(etat, cell_id)
+                    lecture = self.server.octets_plan if cible.path == "/plan" else self.server.octets_occupation
+                    lieu = lecture(etat, cell_id)
                 except BaseAbsente as exc:
                     self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
                     return
