@@ -89,5 +89,16 @@ namespace Forge.Pont.Tests
             e.enabled = true; Voir(g, c, plein, 0); Assert.That(Lire(e, 50), Is.True, e.Cause); Voir(g, c, plein, .5);
             var etal = e.gameObject; Object.DestroyImmediate(e); Voir(g, c, plein, 0); Assert.That(etal != null && g != null && c != null, Is.True); Voir(tg, tc, Vector3.one, .3);
         }
+
+        // Deux étals visibles : configurer le premier avec la garniture du second est refusé sans la masquer, la réduire ni la rétablir.
+        [Test]
+        public void UneGarnitureEtrangereResteIntacte780()
+        {
+            var e = Etal("nourriture", Vector3.one, out var g, out var c); var t = Etal("bois", Vector3.one, out var tg, out var tc);
+            Assert.That(Lire(e, 50), Is.True, e.Cause); Assert.That(t.Appliquer(Bourg(Stocks(80)), Plan()), Is.True); Voir(tg, tc, Vector3.one, .3);
+            e.Configurer(5, "nourriture", 100, tg); Voir(tg, tc, Vector3.one, .3); Voir(g, c, Vector3.one, 0); Assert.That(g.localScale, Is.EqualTo(Vector3.one), "l'ancienne rendue à son plein");
+            Assert.That(Lire(e, 50), Is.False); Assert.That(e.Cause, Does.Contain("hors de l'étal")); Voir(tg, tc, Vector3.one, .3);
+            e.Configurer(5, "nourriture", 100, g); Voir(tg, tc, Vector3.one, .3); Assert.That(Lire(e, 50), Is.True, e.Cause); Voir(g, c, Vector3.one, .5); Object.DestroyImmediate(e); Voir(tg, tc, Vector3.one, .3); Assert.That(t.Cause, Is.Null);
+        }
     }
 }

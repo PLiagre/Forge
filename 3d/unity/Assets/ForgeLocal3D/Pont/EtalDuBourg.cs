@@ -12,17 +12,19 @@ namespace Forge.Pont
     [ExecuteAlways]
     public sealed class EtalDuBourg : MonoBehaviour
     {
-        private Transform garniture; private Vector3 plein; private long cellId;
+        private Transform garniture; private Vector3 plein; private long cellId; private bool propre; // propre : enfant de l'étal à la configuration.
         public Transform Garniture => garniture; public Vector3 Plein => plein;
         public string Marchandise { get; private set; } public double ReferenceKg { get; private set; }
         public string Cause { get; private set; } = "aucune lecture"; // null : lectures concordantes, garniture appliquée, zéro compris.
         public double Rapport { get; private set; } = -1; // -1 : non calculé ; 0 est une mesure.
 
         // L'échelle du plein est prise ici, une fois par garniture : reconfigurer la même ne la relit pas déjà réduite.
+        // L'ancienne garniture propre est masquée et rendue à son plein ; une garniture étrangère est mémorisée pour être refusée, jamais touchée.
         public void Configurer(long cellId, string marchandise, double referenceKg, Transform garniture)
         {
             Masquer("aucune lecture");
-            if (garniture != this.garniture) { if (this.garniture != null) this.garniture.localScale = plein; plein = garniture != null ? garniture.localScale : Vector3.zero; }
+            if (garniture != this.garniture) { if (propre && this.garniture != null) this.garniture.localScale = plein;
+                propre = garniture != null && garniture != transform && garniture.IsChildOf(transform); plein = garniture != null ? garniture.localScale : Vector3.zero; }
             this.cellId = cellId; Marchandise = marchandise; ReferenceKg = referenceKg; this.garniture = garniture; Masquer("aucune lecture");
         }
 
@@ -40,7 +42,7 @@ namespace Forge.Pont
             kg = double.NaN; if (!isActiveAndEnabled) return "composant désactivé";
             if (string.IsNullOrWhiteSpace(Marchandise)) return "marchandise vide : un étal désigne sa clé";
             if (!(ReferenceKg > 0) || double.IsInfinity(ReferenceKg)) return "référence invalide : " + ReferenceKg.ToString(CultureInfo.InvariantCulture) + " kg (positive et finie attendue)";
-            if (garniture == null || garniture == transform || !garniture.IsChildOf(transform)) return "garniture absente ou hors de l'étal";
+            if (!propre || garniture == null || !garniture.IsChildOf(transform)) return "garniture absente ou hors de l'étal";
             if (!garniture.GetComponentsInChildren<MeshRenderer>(true).Any(r => r.TryGetComponent(out MeshFilter f) && f.sharedMesh != null))
                 return "garniture sans géométrie : un MeshRenderer et son maillage attendus";
             if (plan == null || !plan.Presente) return "plan absent : " + (plan?.Absence ?? "non fourni");
@@ -59,7 +61,7 @@ namespace Forge.Pont
         private void Masquer(string cause) { Cause = cause; Rapport = -1; Montrer(false); }
         private void Montrer(bool visible)
         {
-            if (garniture == null || garniture == transform) return; // L'étal entier n'est jamais masqué.
+            if (!propre || garniture == null) return; // Ni l'étal entier ni la garniture d'un autre ne sont jamais masqués.
             foreach (var r in garniture.GetComponentsInChildren<Renderer>(true)) r.enabled = visible;
         }
         private void OnDisable() => Masquer("composant désactivé"); private void OnDestroy() => Masquer("composant détruit");
