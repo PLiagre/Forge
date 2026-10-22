@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from sim.carte_servie import document_carte
 from sim import constants as _constantes
+from sim import engine
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
 from sim.foyers import ranger_en_foyers
@@ -28,7 +29,8 @@ from sim.maisons_servies import (
 )
 from sim.noms import noms_depuis_monde
 from sim.flux import flux_des_lieux
-from sim.model import copier_panier, lire_habitants_par_metier
+from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
+from sim.lieux import surfaces_des_lieux
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
@@ -111,6 +113,28 @@ def _parametre_entier(requete: str, nom: str, minimum: int | None = None) -> int
     return valeur
 
 
+def _valider_epreuve(cellule) -> None:
+    """Refuse un montage incomplet avant le moindre retrait artificiel."""
+    bourg = _bourg_du_lieu(cellule, 0)
+    lieux = cellule.lieux
+    nombre = len(surfaces_des_lieux(cellule.cell_id, cellule.area_km2))
+    if (any(type(l.rang) is not int for l in lieux)
+            or sorted(l.rang for l in lieux) != list(range(nombre))
+            or type(bourg["population"]) is not int or bourg["population"] <= 0):
+        raise ValueError("lieux invalides ou bourg inhabité")
+    entites = [cellule, *lieux]
+    nourriture = [lire_stock_marchandise(e, _constantes.MARCHANDISE_NOURRITURE) for e in entites]
+    dettes = [cellule.food_deficit_kg, *(l.dette_alimentaire_kg for l in lieux)]
+    if any(type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in [*nourriture, *dettes]):
+        raise ValueError("nourriture ou dette alimentaire absente ou invalide")
+    if (any(type(e.population) is not int or e.population < 0 for e in entites)
+            or sum(l.population for l in lieux) != cellule.population
+            or sum(nourriture[1:]) != nourriture[0]
+            or type(cellule.hunger_ticks) is not int or cellule.hunger_ticks < 0
+            or any(type(l.duree_faim_ticks) is not int or l.duree_faim_ticks < 0 for l in lieux)):
+        raise ValueError("population, réserves ou faim des lieux incohérentes")
+
+
 def _lire_vitesse(recue) -> float:
     """Refuse toute vitesse absente, non numérique, infinie ou négative."""
     try:
@@ -169,11 +193,13 @@ class ServeurMonde(ThreadingHTTPServer):
         seed: int,
         jours_par_seconde: float,
         ia: bool = False,
+        epreuve: bool = False,
     ):
         super().__init__(adresse, RequetesMonde)
         self.world = World.charger(rng_seed=seed)
         self.rng = random.Random(seed)
         self.ia = ia
+        self.epreuve = epreuve
         self.releve = []
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
@@ -570,6 +596,34 @@ class RequetesMonde(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         cible = urlsplit(self.path)
+        if cible.path == "/epreuve/vider-panier" and self.server.epreuve:
+            with self.server.verrou_tick, self.server.condition_vitesse:
+                etat = self.server.etat_publie
+                if etat.jours_par_seconde != 0:
+                    self._refuser(HTTPStatus.CONFLICT, "l'horloge doit être à l'arrêt")
+                    return
+                try:
+                    cell_id = _parametre_entier(cible.query, "cell")
+                    cellule = self.server.world.cells.get(cell_id)
+                    if cellule is None:
+                        self._refuser(HTTPStatus.NOT_FOUND, f"cell inconnue : {cell_id}")
+                        return
+                    _valider_epreuve(cellule)
+                except (ValueError, SnapshotExportError) as exc:
+                    self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                except (TypeError, AttributeError, OverflowError):
+                    self._refuser(HTTPStatus.BAD_REQUEST, "données des lieux ou alimentaires absentes ou invalides")
+                    return
+                # Montage jetable : vider aussi les champs empêche leur secours immédiat.
+                for entite in [cellule, *cellule.lieux]:
+                    ecrire_stock_marchandise(entite, _constantes.MARCHANDISE_NOURRITURE, 0)
+                penurie = engine._apply_consumption(cellule, self.server.world.carte)
+                engine._update_hunger(cellule, penurie)
+                self.server.etat_publie = self.server._construire_etat(
+                    etat.jours_par_seconde, etat.duree_dernier_tick_ms)
+                self._repondre(HTTPStatus.OK, dict(cell_id=cell_id, tick=self.server.etat_publie.tick))
+            return
         if cible.path == "/tick":
             try:
                 nombre = _parametre_entier(cible.query, "n", minimum=1)
@@ -664,6 +718,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--seed", type=int, default=DEFAULT_SERVICE_SEED)
     parser.add_argument("--port", type=int, default=DEFAULT_SERVICE_PORT)
     parser.add_argument("--ia", action="store_true")
+    parser.add_argument("--epreuve", action="store_true", help="monde d'épreuve jetable en mémoire")
     parser.add_argument(
         "--jours-par-seconde",
         type=_vitesse_cli,
@@ -675,6 +730,7 @@ def main(argv: list[str] | None = None) -> None:
         args.seed,
         args.jours_par_seconde,
         ia=args.ia,
+        epreuve=args.epreuve,
     )
     port_reel = serveur.server_address[1]
     print(f"service prêt sur {SERVICE_HOST}:{port_reel}", flush=True)
