@@ -28,7 +28,7 @@ def texte(valeur):
 def valider_catalogue(document, maisons):
     """Valide aussi les références hors carte ; aucune interprétation historique."""
     try:
-        exiger(set(document) == {'date', 'fidelite', 'chefs', 'familles', 'liens'})
+        exiger(set(document) == {'date', 'fidelite', 'chefs', 'familles', 'liens', 'etats'})
         exiger(document['date'] == _DATE_ATTENDUE and texte(document['fidelite']))
         lignes = document['chefs']
         exiger(isinstance(lignes, list) and bool(lignes))
@@ -41,23 +41,22 @@ def valider_catalogue(document, maisons):
             champs = {'identite', 'naissance'} if ajout else set()
             champs |= {'pere', 'mere', 'conjoints', 'presence'} if familial else set()
             cles = {'sources', 'lacunes'} | ({'maison', 'nom', 'naissance'} if ajout else set())
-            exiger(set(c) == cles | ({'id', 'pere', 'mere', 'conjoints'} if familial else set()))
+            exiger(set(c) == cles | ({'id', 'pere', 'mere', 'conjoints', 'presence'} if familial else set()))
             if ajout:
                 exiger(c['maison'] in {m.id for m in maisons} and texte(c['maison']))
                 exiger(c['nom'] is not None or c['naissance'] is None)
-                if familial: exiger(texte(c['nom']) and c['naissance'] is not None)
+                if familial: exiger(texte(c['nom']))
+            if familial: exiger(c['presence'] in {'vivante', 'decedee', 'indeterminee'})
             exiger(set(c['sources']) == set(c['lacunes']) == champs)
             for champ in champs:
-                valeur = c['nom'] if champ == 'identite' else True if champ == 'presence' else c[champ]
+                valeur = c['nom'] if champ == 'identite' else None if champ == 'presence' and c[champ] == 'indeterminee' else c[champ]
                 valeur = None if valeur == [] else valeur
                 source, lacune = c['sources'][champ], c['lacunes'][champ]
                 if valeur is None:
                     exiger(source is None and texte(lacune))
                     continue
-                exiger(lacune is None and isinstance(source, dict) and set(source) == {'url', 'fait'})
-                exiger(texte(source['fait']) and texte(source['url']))
-                url = urlsplit(source['url'])
-                exiger(url.scheme in {'http', 'https'} and url.hostname and not re.search(r'\s', source['url']))
+                exiger(lacune is None)
+                _source(source)
                 if champ != 'naissance':
                     if champ == 'identite': exiger(texte(valeur))
                     continue
@@ -72,7 +71,7 @@ def valider_catalogue(document, maisons):
     except (KeyError, TypeError, ValueError) as erreur:
         raise ValueError(f'personnages : catalogue invalide : {erreur}') from erreur
     return copy.deepcopy({**document, **{t: sorted(document[t], key=lambda c: c[cle])
-                                       for t, cle in (('chefs', 'maison'), ('familles', 'id'), ('liens', 'id'))}})
+                                       for t, cle in (('chefs', 'maison'), ('familles', 'id'), ('liens', 'id'), ('etats', 'maison'))}})
 
 
 def charger_catalogue(maisons, chemin=None):
@@ -115,6 +114,7 @@ def construire_personnages(monde):
 
 
 def _controler_liens(personnes):
+    exiger(all(p.get('presence') == 'vivante' for p in personnes if p.get('conjoints')))
     # Les valeurs neutres servent au contrôle ; elles n'attestent aucune absence.
     return valider_liens_familiaux([{'pere': None, 'mere': None, 'conjoints': [], **p} for p in personnes])
 
@@ -127,11 +127,46 @@ def _avec_familles(personnes, catalogue):
     for lien in liens:
         exiger(lien['id'] in chefs)
         p = chefs[lien['id']]
-        for champ in ('pere', 'mere', 'conjoints'): p[champ] = copy.deepcopy(lien[champ])
+        for champ in ('pere', 'mere', 'conjoints', 'presence'): p[champ] = copy.deepcopy(lien[champ])
         for champ in ('sources', 'lacunes'): p[champ].update(copy.deepcopy(lien[champ]))
     personnes += [dict(copy.deepcopy(f), origine='historique') for f in catalogue['familles']]
     _controler_liens(personnes)
+    _etats(catalogue['etats'], personnes, chefs)
     return sorted(personnes, key=lambda p: p['id'])
+
+
+def _source(source):
+    exiger(isinstance(source, dict) and set(source) == {'url', 'fait'})
+    exiger(texte(source['fait']) and texte(source['url']))
+    url = urlsplit(source['url'])
+    exiger(url.scheme in {'http', 'https'} and url.hostname and not re.search(r'\s', source['url']))
+
+
+def _etats(etats, personnes, chefs):
+    """Couverture déclarée, contrôlée sur toutes les personnes résolues."""
+    exiger(isinstance(etats, list) and bool(etats))
+    exiger(len({e['maison'] for e in etats}) == len(etats))
+    for e in etats:
+        exiger(set(e) == {'maison', 'conjoints', 'enfants', 'sources', 'lacunes', 'exclusions'})
+        chef = chefs.get('personne-' + e['maison'])
+        exiger(chef is not None and set(e['sources']) == set(e['lacunes']) == {'conjoints', 'enfants'})
+        for k, valeurs in (('conjoints', {'union', 'veuvage', 'lacune'}), ('enfants', {'documentes', 'absence_attestee', 'lacune'})):
+            exiger(e[k] in valeurs)
+            if e[k] == 'lacune': exiger(e['sources'][k] is None and texte(e['lacunes'][k]))
+            else:
+                exiger(e['lacunes'][k] is None)
+                _source(e['sources'][k])
+        exiger(isinstance(e['exclusions'], dict))
+        for nom, x in e['exclusions'].items():
+            exiger(texte(nom) and set(x) == {'motif', 'sources'} and texte(x['motif']))
+            exiger(isinstance(x['sources'], list) and bool(x['sources']))
+            for source in x['sources']: _source(source)
+        conjoints = chef.get('conjoints', [])
+        if e['conjoints'] == 'union': exiger(bool(conjoints))
+        if e['conjoints'] == 'veuvage': exiger(not conjoints)
+        enfants = any(chef['id'] in (p.get('pere'), p.get('mere')) for p in personnes)
+        if e['enfants'] != 'lacune': exiger(enfants == (e['enfants'] == 'documentes'))
+        chef['etat_familial'] = copy.deepcopy(e)
 
 
 def _bornes_naissance(naissance):
