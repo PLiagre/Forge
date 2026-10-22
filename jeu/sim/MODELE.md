@@ -1701,7 +1701,7 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 `data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée.
 Chaque valeur présente possède sa source (`url`, `fait`) ; chaque valeur `null` possède exactement son motif dans `lacunes`. Une identité non établie interdit d’attribuer une naissance. Les approximations et intervalles gardent la formulation de la source ; aucune année ne devient un 1er janvier certain. Saraï et Tlemcen gardent leur succession indécidable au jour de départ ; le chef du Zab reste non sourcé.
 Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges.
-Cette table préparatoire n’a aucun lecteur de production : `World`, tick, noms, service et vues restent inchangés. Personnes vivantes, familles, vieillissement et succession restent de **niveau 3**, non simulés ici.
+`sim/personnages.py` lit et valide cette table au chargement du monde ; les personnes sont décrites ci-dessous.
 
 `World.parts` conserve séparément la fraction commune aux lieux de chaque maison, institutions et plausibles comprises, sans changer les huit champs gelés. Après attribution, chaque identifiant reçoit la coutume ; sans registre, `{}`. `to_dict()` omet la coutume et publie les autres parts triées sans arrondi (zéro compris), dans un dictionnaire indépendant ; sans différence, il omet `parts`.
 
@@ -1750,6 +1750,12 @@ par `id`, sans rappeler le lecteur ou une vue. Aucun champ n'est ajouté à `Cel
 le siège reste (`cell_id`, `rang`). Le tick ne consulte jamais le registre :
 sans geste, ses octets restent identiques pour toute graine et tout tick, tandis
 que le monde évolue. Les anciennes vues et la sélection de l'IA gardent leur contrat.
+
+## Les personnes
+
+Après les maîtres et leurs références aux suzerains, `World.charger` construit `personnages` (tuple trié par identifiant) et `chefs` (un lien par maison). L'identifiant initial `personne-<maison>` appartient à la personne, jamais automatiquement à son successeur. Aucun emplacement n'est ajouté : le siège reste celui de la maison.
+Les identités, naissances, précisions, sources et lacunes historiques restent de **niveau 1**, sans interprétation. Une identité absente garde un lien nul motivé ; un titulaire institutionnel ne crée aucune dynastie. Chaque maison plausible reçoit le prénom et le nom de la vue existante (**niveau 2**), sans naissance ni source inventées et sans tirage aléatoire.
+Un monde manuel garde `personnages=()` et `chefs={}`. `to_dict()` copie toujours ces deux ajouts en profondeur, sans lecteur ni constructeur. Le tick ne les consulte pas : habitants, économie et générateur restent indépendants. Familles, âge calculé, vieillissement, mort et succession restent de **niveau 3**, non simulés.
 
 ## Le grenier d'une maison
 
