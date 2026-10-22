@@ -329,7 +329,7 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     if ticks == 30:
         normal, _ = _simuler(ticks, 0, tmp_path / 'normal.json')
         def controler(octets):
-            assert hashlib.sha256(octets).hexdigest() == 'e2bb64846d4f1a63c23510c446a5f16cc6655b4c44006660c646725571aa7af4'
+            assert hashlib.sha256(octets).hexdigest() == '0877f8ce0d41a3ba6a8a4d9bec8780232ba122e336afb403501afeecadb55613'
         controler(normal.read_bytes())
         with pytest.raises(AssertionError):
             controler(normal.read_bytes() + b' ')

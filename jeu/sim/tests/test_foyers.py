@@ -1123,6 +1123,36 @@ def test_non_paysans_ne_vident_que_le_bourg(monkeypatch):
     controler()
 
 
+@pytest.mark.parametrize("avec_releve", [False, True])
+def test_recolte_preserve_petit_stock_sans_bras(avec_releve):
+    from sim import lieux
+
+    monde = World.charger(0)
+    cell = monde.cells[10405]
+    surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    assert len(cell.lieux) == len(surfaces) > 1
+    climat = monde.carte[cell.cell_id]["climat"]
+    saison = _constantes.facteur_saison(_constantes.duree_jour_h(
+        195, climat["duree_jour_solstice_ete_h"], climat["duree_jour_solstice_hiver_h"]))
+    besoins = [s / cell.area_km2 * _km2_cultives_reference(cell, monde.carte)
+               * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * saison for s in surfaces]
+    populations = [5] + [math.ceil(10 * b) for b in besoins[1:]]
+    stocks = [0.1] + [1e9] * (len(cell.lieux) - 1)
+    ecrire_habitants_par_metier(cell, {"ouvriers": populations[0], "paysans": sum(populations[1:])})
+    for lieu, population, stock in zip(cell.lieux, populations, stocks):
+        lieu.population = population
+        ecrire_stock_marchandise(lieu, "nourriture", stock)
+    ecrire_stock_marchandise(cell, "nourriture", sum(stocks))
+    releve = {} if avec_releve else None
+    engine._apply_production(cell, random.Random(0), monde.carte, 195, releve)
+    # Sans paysans au bourg, sa réserve reste intacte malgré les grands stocks voisins.
+    assert lire_stock_marchandise(cell.lieux[0], "nourriture") == stocks[0]
+    assert all(lire_stock_marchandise(l, "nourriture") > s for l, s in zip(cell.lieux[1:], stocks[1:]))
+    assert cell.food_stock_kg == sum(lire_stock_marchandise(l, "nourriture") for l in cell.lieux)
+    if avec_releve:
+        assert releve[cell.cell_id][0] == 0.0
+
+
 @pytest.mark.parametrize("jour", [0, 195, None], ids=["janvier", "juillet", "moyenne"])
 @pytest.mark.parametrize("avec_releve", [False, True])
 def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
