@@ -2441,6 +2441,14 @@ ou différente rend HTTP 400 sans mutation. Sans paramètre, les octets restent
 identiques. La faim locale devient ainsi accessible par cette extension du
 service ; la photographie reste inchangée, sans ce bloc supplémentaire.
 
+Depuis `jeu/`, `python3 -m sim.service --epreuve --port 0 --jours-par-seconde 0 --seed 0`
+charge un monde jetable en mémoire, sans lecture ni écriture de partie sauvegardée ; l'option et l'argument `ServeurMonde(..., epreuve=True)` sont désactivés par défaut.
+Seul ce mode accepte `POST /epreuve/vider-panier?cell=X` : horloge arrêtée, cellule connue, lieux valides et unique bourg habité ; sinon il refuse avant mutation.
+Le montage retire artificiellement la nourriture de tous les lieux, champs compris, et du total cellulaire, en conservant autres marchandises et greniers.
+Il applique la consommation puis la faim existantes et republie ensemble les routes servies.
+Ni tick complet ni avance du temps ou de l'aléa : le tick désigne cet état préparé.
+Ce geste d'épreuve n'est jamais une intention ; le panier se lit par `/lieu?cell=X&bourg=1`.
+
 ### L'identité d'un lieu, et ce qui la change
 
 Un lieu se retrouve par son couple (`cell_id`, `rang`) avec `lieu_du_monde`,

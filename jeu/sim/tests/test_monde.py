@@ -5128,3 +5128,188 @@ def test_service_occupation_compatibilite():
             if ajout: faux['occupation'] = doc
             else: faux['logement']['loges'] += sum(b['foyers'] for b in doc['base'])
             pytest.raises(AssertionError, _verifier_occupation_service, [avant[0], _serialiser(faux), *avant[2:]], avant)
+
+
+@contextmanager
+def _service_epreuve(**options):
+    from sim.service import ServeurMonde
+    serveur = ServeurMonde(('127.0.0.1', 0), 0, 0, **options)
+    fil = threading.Thread(target=serveur.serve_forever, daemon=True)
+    fil.start()
+    try:
+        yield serveur, serveur.server_address[1]
+    finally:
+        serveur.shutdown(); serveur.server_close(); fil.join(timeout=5)
+
+
+def _memoire_epreuve(serveur):
+    import pickle
+    return pickle.dumps(serveur.world), serveur.rng.getstate(), pickle.dumps(serveur.etat_publie)
+
+
+def _verifier_epreuve(document, reference, tick):
+    from sim.constants import MARCHANDISE_NOURRITURE
+    bourg = next(l for l in reference.lieux if l.rang == 0)
+    _verifier_bourg_service(document, _reference_bourg_service(bourg, tick))
+    assert document['bourg']['duree_faim_ticks'] > 0
+    assert document['bourg']['stocks'][MARCHANDISE_NOURRITURE] == 0
+    assert [l['stocks'] for l in document['lieux']] == [l.stocks for l in sorted(reference.lieux, key=lambda l: l.rang)]
+    assert {nom: sum(l['stocks'][nom] for l in document['lieux']) for nom in reference.stocks} == reference.stocks
+
+
+def test_service_epreuve_reserve(monkeypatch):
+    with _service_epreuve() as (serveur, port):
+        cid = next(c.cell_id for c in serveur.world.cells.values() if c.population > 0)
+        from sim.intentions import recevoir_intention
+        recevoir_intention(serveur.world, dict(type='choisir_depart', seigneurie=serveur.document_departs()['departs'][0]['id']))
+        avant = _memoire_epreuve(serveur)
+        for chemin in (f'/epreuve/vider-panier?cell={cid}', '/epreuve/vider-panier?cell='):
+            assert requete_service(port, chemin, 'POST')[0] == HTTPStatus.NOT_FOUND
+            assert _memoire_epreuve(serveur) == avant
+    original = subprocess.Popen
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess, 'Popen', lambda args, **kw: original([*args, '--epreuve'], **kw))
+        with lancer_service(0) as port:
+            departs = requete_service(port, '/departs')[1]['departs']
+            cid = next(d['cell_id'] for d in departs if d['siege']['nom'] == 'Biskra')
+            assert requete_service(port, f'/epreuve/vider-panier?cell={cid}', 'POST')[:2] == (HTTPStatus.OK, dict(cell_id=cid, tick=0))
+            assert requete_service(port, f'/lieu?cell={cid}&bourg=1')[1]['bourg']['duree_faim_ticks'] > 0
+            corps = json.dumps(dict(type='vider_panier', cell=cid)).encode()
+            assert requete_service(port, '/intention', 'POST', corps)[0] == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.parametrize('autre', [False, True])
+def test_service_epreuve_panier(autre, monkeypatch):
+    import pickle
+    from pc.epreuve_jalon4 import depart_biskra
+    from sim import constants as k, engine
+    from sim.model import ecrire_stock_marchandise
+    with _service_epreuve(epreuve=True) as (serveur, port):
+        depart, _, biskra = depart_biskra()
+        assert next(d['cell_id'] for d in requete_service(port, '/departs')[1]['departs'] if d['id'] == depart) == biskra
+        cellule = (next(c for c in serveur.world.cells.values() if c.cell_id != biskra and len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+                   if autre else serveur.world.cells[biskra])
+        bourg = next(l for l in cellule.lieux if l.rang == 0)
+        assert bourg.population > 0 and len(cellule.lieux) > 1
+        for lieu in cellule.lieux:
+            ecrire_stock_marchandise(lieu, 'fer', 1.23456789 if lieu.rang == 0 else 0)
+        ecrire_stock_marchandise(cellule, 'fer', sum(l.stocks.get('fer', 0) for l in cellule.lieux))
+        serveur.world.greniers[bourg.maitre] = {k.MARCHANDISE_NOURRITURE: 123.456}
+        from sim.intentions import recevoir_intention
+        recevoir_intention(serveur.world, dict(type='tracer_route', maison=bourg.maitre, cell=cellule.cell_id, points=[[0, 0], [40, 0]], largeur_m=4))
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        chemin = f'/lieu?cell={cellule.cell_id}&bourg=1'
+        ancien = requete_service(port, chemin)[1]
+        reference = copy.deepcopy(serveur.world); attendue = reference.cells[cellule.cell_id]
+        lieux_avant = copy.deepcopy(cellule.lieux)
+        assert sum(l.stocks[k.MARCHANDISE_NOURRITURE] for l in lieux_avant) > 0
+        for entite in [attendue, *attendue.lieux]:
+            ecrire_stock_marchandise(entite, k.MARCHANDISE_NOURRITURE, 0)
+        engine._update_hunger(attendue, engine._apply_consumption(attendue, reference.carte))
+        tick, alea = reference.ticks_ecoules, serveur.rng.getstate()
+        for neutralisee in (True, False):
+            with monkeypatch.context() as patch:
+                if neutralisee: patch.setattr(engine, '_apply_consumption', lambda *a: 0)
+                assert requete_service(port, f'/epreuve/vider-panier?cell={cellule.cell_id}', 'POST')[:2] == (HTTPStatus.OK, dict(cell_id=cellule.cell_id, tick=tick))
+            statut, document, _ = requete_service(port, chemin)
+            assert statut == HTTPStatus.OK
+            if neutralisee:
+                with pytest.raises(AssertionError): _verifier_epreuve(document, attendue, tick)
+            else:
+                _verifier_epreuve(document, attendue, tick)
+        assert [l.population for l in cellule.lieux] == [l.population for l in lieux_avant]
+        assert all(l.duree_faim_ticks > avant.duree_faim_ticks for l, avant in zip(cellule.lieux, lieux_avant))
+        assert serveur.rng.getstate() == alea
+        assert pickle.dumps(serveur.world) == pickle.dumps(reference)
+        with pytest.raises(AssertionError): _verifier_epreuve(ancien, attendue, tick)
+        faux = copy.deepcopy(document); faux['bourg']['duree_faim_ticks'] = 0
+        with pytest.raises(AssertionError): _verifier_epreuve(faux, attendue, tick)
+        faux = copy.deepcopy(document); del faux['bourg']['stocks']['fer']
+        with pytest.raises(AssertionError): _verifier_epreuve(faux, attendue, tick)
+
+
+def test_service_epreuve_refus(monkeypatch):
+    from dataclasses import replace
+    from sim import service, constants as k
+    monkeypatch.setattr(service.ServeurMonde, '_faire_avancer_horloge', lambda self: None)
+    with _service_epreuve(epreuve=True) as (serveur, port):
+        cellule = next(c for c in serveur.world.cells.values() if len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+        cid = cellule.cell_id
+        from sim.intentions import recevoir_intention
+        recevoir_intention(serveur.world, dict(type='choisir_depart', seigneurie=serveur.document_departs()['departs'][0]['id']))
+        original = copy.deepcopy(cellule)
+        refus = [('', 400), ('?cell=', 400), ('?cell=1&cell=1', 400), ('?cell=x', 400),
+                 (f'?cell={max(serveur.world.cells) + 1}', 404)]
+        causes = ['bourg absent', 'bourg dupliqué', 'bourg vide', 'lieux absents', 'rang invalide', 'surface invalide', 'population invalide', 'faim invalide', 'dette invalide', 'horloge']
+        causes += ['lieux nuls', 'panier nul', 'population textuelle', 'faim cellulaire invalide', 'réserves incohérentes']
+        causes += [(cible, valeur) for cible in ('cellule', 'bourg', 'champ') for valeur in (None, -1, True, '0', float('nan'), float('inf'))]
+        for cause in [None, *causes]:
+            cellule = serveur.world.cells[cid] = copy.deepcopy(original)
+            bourg = next(l for l in cellule.lieux if l.rang == 0)
+            if cause == 'bourg absent': cellule.lieux.remove(bourg)
+            elif cause == 'bourg dupliqué': cellule.lieux.append(copy.deepcopy(bourg))
+            elif cause == 'bourg vide': bourg.population = 0
+            elif cause == 'lieux absents': cellule.lieux = []
+            elif cause == 'lieux nuls': cellule.lieux = None
+            elif cause == 'panier nul': bourg.stocks = None
+            elif cause == 'population textuelle': bourg.population = '0'
+            elif cause == 'faim cellulaire invalide': cellule.hunger_ticks = None
+            elif cause == 'réserves incohérentes': bourg.stocks[k.MARCHANDISE_NOURRITURE] += 1
+            elif cause == 'rang invalide': cellule.lieux[-1].rang = -1
+            elif cause == 'surface invalide': cellule.area_km2 = None
+            elif cause == 'population invalide': bourg.population = -1
+            elif cause == 'faim invalide': bourg.duree_faim_ticks = None
+            elif cause == 'dette invalide': bourg.dette_alimentaire_kg = None
+            elif isinstance(cause, tuple):
+                cible, valeur = cause
+                entite = cellule if cible == 'cellule' else bourg if cible == 'bourg' else cellule.lieux[-1]
+                if valeur is None: del entite.stocks[k.MARCHANDISE_NOURRITURE]
+                else: entite.stocks[k.MARCHANDISE_NOURRITURE] = valeur
+            serveur.etat_publie = replace(serveur.etat_publie, jours_par_seconde=1 if cause == 'horloge' else 0)
+            avant = _memoire_epreuve(serveur)
+            for suffixe, code in (refus if cause is None else [(f'?cell={cid}', 409 if cause == 'horloge' else 400)]):
+                assert requete_service(port, '/epreuve/vider-panier' + suffixe, 'POST')[0] == code
+                assert _memoire_epreuve(serveur) == avant
+        serveur.world.cells[cid] = copy.deepcopy(original)
+        serveur.etat_publie = replace(serveur.etat_publie, jours_par_seconde=0)
+        assert requete_service(port, f'/epreuve/vider-panier?cell={cid}', 'POST')[0] == HTTPStatus.OK
+        assert serveur.world.cells[cid].food_stock_kg == 0 < original.food_stock_kg
+
+
+def test_service_epreuve_publication(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    courses = []
+    with _service_epreuve() as (ordinaire, port_ordinaire):
+        for _ in range(2):
+            with _service_epreuve(epreuve=True) as (serveur, port):
+                cid = next(c.cell_id for c in serveur.world.cells.values() if len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+                chemins = ('/monde', f'/lieu?cell={cid}', f'/lieu?cell={cid}&bourg=1', f'/plan?cell={cid}', f'/occupation?cell={cid}')
+                routes = (*chemins, '/carte', '/departs', '/maisons', '/horloge', '/ia')
+                avant = [requete_service(port, c)[2] for c in routes]
+                assert avant == [requete_service(port_ordinaire, c)[2] for c in routes]
+                entree, sortie = threading.Event(), threading.Event()
+                construire = serveur._construire_etat
+                def construction_suspendue(*args):
+                    entree.set()
+                    assert sortie.wait(timeout=10), 'publication non libérée'
+                    return construire(*args)
+                with monkeypatch.context() as patch, ThreadPoolExecutor() as pool:
+                    patch.setattr(serveur, '_construire_etat', construction_suspendue)
+                    commande = pool.submit(requete_service, port, f'/epreuve/vider-panier?cell={cid}', 'POST')
+                    try:
+                        assert entree.wait(timeout=10), 'retrait non commencé'
+                        assert [requete_service(port, c)[2] for c in chemins] == avant[:len(chemins)]
+                    finally:
+                        sortie.set()
+                    assert commande.result(timeout=10)[0] == HTTPStatus.OK
+                apres = [requete_service(port, c) for c in chemins]
+                tick = serveur.world.ticks_ecoules
+                for statut, document, octets in apres:
+                    assert statut == HTTPStatus.OK and document['tick'] == tick
+                reference = serveur.world.cells[cid]
+                _verifier_epreuve(apres[2][1], reference, tick)
+                assert requete_service(port, chemins[2])[2] == apres[2][2]
+                for faux in (json.loads(avant[2]), dict(apres[2][1], tick=tick + 1)):
+                    with pytest.raises(AssertionError): _verifier_epreuve(faux, reference, tick)
+                courses.append([octets for _, _, octets in apres])
+        assert courses[0] == courses[1]
