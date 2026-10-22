@@ -327,6 +327,8 @@ def test_amorcage_conserve_habitants_et_panier(monkeypatch):
 
 
 def test_metiers_lus_a_l_amorcage(monkeypatch):
+    # Témoin historique : les deux répartitions ont assez de bras à 0,1.
+    monkeypatch.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2", 0.1)
     import sim.lieux as lieux_module
     import sim.world as monde_module
     from sim.model import ecrire_habitants_par_metier
@@ -386,6 +388,57 @@ def test_metiers_lus_a_l_amorcage(monkeypatch):
         jouer(monde, paysan, 1)
     assert appels > 0
     print("ticks_comparés=30, réamorçage_pendant_tick_vu=1")
+
+
+def test_metiers_lus_a_l_amorcage_bras_calibres(monkeypatch):
+    from sim import engine, foyers, lieux, world
+    from sim.model import ecrire_habitants_par_metier
+
+    monde, paysan = World.charger(0), World.charger(0)
+    for cellule in paysan.cells.values():
+        ecrire_habitants_par_metier(cellule, {_constantes.METIER_PAYSANS: cellule.population}
+                                   if cellule.population else {})
+    assert monde.cells and monde.cells.keys() == paysan.cells.keys()
+    assert all(a.lieux == paysan.cells[cid].lieux for cid, a in monde.cells.items())
+
+    def interdit(*args):
+        pytest.fail("réamorçage des lieux pendant un tick")
+
+    monkeypatch.setattr(lieux, "amorcer_lieux", interdit)
+    monkeypatch.setattr(world, "amorcer_lieux", interdit)
+    vrai_facteur = foyers.facteur_bras
+    facteurs, attendus = [], []
+
+    def observer(metiers, km2):
+        facteur = vrai_facteur(metiers, km2)
+        besoin = km2 * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+        attendu = (1.0 if metiers == -1 or besoin == 0 else
+                   min(1.0, metiers.get(_constantes.METIER_PAYSANS, 0) / besoin))
+        facteurs.append(facteur)
+        attendus.append(attendu)
+        return facteur
+
+    def controler(releve):
+        assert releve, "relevé de bras vide"
+        assert releve == attendus
+        assert any(f < 1 for f in releve)
+
+    monkeypatch.setattr(foyers, "facteur_bras", observer)
+    aleas = [random.Random(0), random.Random(0)]
+    for numero in range(30):
+        for m, rng in zip((monde, paysan), aleas):
+            engine.tick(m, rng, numero_tick=numero)
+            assert _controle_conservation(m) == len(m.cells)
+    controler(facteurs)
+    with pytest.raises(AssertionError, match="relevé de bras vide"):
+        controler([])
+    with pytest.raises(AssertionError):
+        controler([1.0] * len(facteurs))
+    differences = [cid for cid, cellule in monde.cells.items()
+                   if cellule.food_stock_kg != paysan.cells[cid].food_stock_kg]
+    assert differences, "les métiers doivent peser sur la récolte à 6,2"
+    print(f"ticks sans réamorçage=30, facteurs contrôlés={len(facteurs)}, "
+          f"cellules aux stocks différents={len(differences)}")
 
 
 def test_amorcage_documente():

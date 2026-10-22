@@ -3818,11 +3818,18 @@ def test_ia_mesure_reelle(tmp_path):
     with pytest.raises(AssertionError): verifier(releve + [tardive])
 
 
-def test_ia_raisons_egalent_le_monde(monkeypatch):
+@pytest.mark.parametrize("bras", [0.1, 6.2], ids=["historique", "calibre"])
+def test_ia_raisons_egalent_le_monde(monkeypatch, bras):
+    monkeypatch.setattr("sim.constants.BRAS_AUX_CHAMPS_PAR_KM2", bras)
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     releve = _verifier_raisons(70)
     routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
-    assert [entree['tick'] for entree in routes] == [25, 37, 39, 61, 64, 69]
+    dates = [entree['tick'] for entree in routes]
+    print(f'bras={bras}, dates des routes={dates}', flush=True)
+    if bras == 0.1:
+        assert [entree['tick'] for entree in routes] == [25, 37, 39, 61, 64, 69]
+    else:
+        assert dates == [25, 37, 39, 63, 64, 69]
     assert routes and all(entree['raison']['champs_nourriture_kg'] for entree in routes)
     lectures = _verifier_raisons.lectures
     copie = copy.deepcopy(releve)
