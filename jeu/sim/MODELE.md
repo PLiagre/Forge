@@ -1010,7 +1010,7 @@ avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
 fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
 - part 0,1 : 0 foyers internes, 74 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 252 foyers hors domaine.
+- part 0,6 : 0 foyers internes, 253 foyers hors domaine.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -1904,11 +1904,11 @@ et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
-- part 0,00 : 35904490 habitants ; perte 0,000000 % ; 154264 foyers déplacés.
-- part 0,03 : 35554458 habitants ; perte 0,974898 % ; 132529 foyers déplacés.
-- part 0,04 : 35416683 habitants ; perte 1,358624 % ; 126346 foyers déplacés.
-- part 0,10 : 33692399 habitants ; perte 6,161043 % ; 78362 foyers déplacés.
-Calibration tenue : perte(0,03) = 0,974898 % ≤ 1 % < perte(0,04) = 1,358624 %.
+- part 0,00 : 35905313 habitants ; perte 0,000000 % ; 154259 foyers déplacés.
+- part 0,03 : 35554619 habitants ; perte 0,976719 % ; 132541 foyers déplacés.
+- part 0,04 : 35416781 habitants ; perte 1,360612 % ; 126269 foyers déplacés.
+- part 0,10 : 33692103 habitants ; perte 6,164018 % ; 78191 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,976719 % ≤ 1 % < perte(0,04) = 1,360612 %.
 Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
