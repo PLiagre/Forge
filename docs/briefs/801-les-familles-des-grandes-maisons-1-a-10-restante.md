@@ -42,3 +42,7 @@ SC6 — `git diff --check` réussit et, une fois le nouveau brief pris en compte
 
 ## Hors périmètre
 Autres familles hors des neuf maisons, hormis références indispensables et réutilisation des personnes existantes ; aucune généalogie exhaustive des ancêtres, petits-enfants ou conjoints des enfants. Génération plausible, vieillissement, naissances et morts en partie, succession, partage, mariage proposé, dot, alliance, éducation, traits et ambitions. Aucun changement des habitants, de l'économie, des terres ou du tick ; aucun service, vue, Unity ou Blender. Aucun changement de `test_determinisme.py` ni assouplissement des tests existants. Tout autre chemin est interdit en écriture.
+
+## Constat du codeur — découpe demandée (SC6)
+Le travail intégré dépasse le plafond de 299 lignes, brief compris ; aucune maison, source, lacune ou contre-épreuve n'a été retirée pour le réduire. La première preuve historique a échoué sur les états absents avant l'ajout des données. Les neuf états, 46 nouvelles fiches et leurs preuves restent disponibles dans le chantier pour la découpe, sans commit ni poussée.
+Découpe technique recommandée en trois lots intégrés : (1) Angleterre et Écosse avec le schéma des présences/états et ses preuves ; (2) Portugal, Castille et Aragon après (1) ; (3) Navarre, Grenade, Bohême et Milan après (1). Chaque lot reprend ses recherches, données, construction et preuves historiques, de sérialisation et de neutralité ; les attentes de #800 et les neuf maisons restent intégralement conservées dans l'ensemble.
