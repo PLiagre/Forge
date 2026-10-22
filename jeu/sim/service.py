@@ -77,6 +77,23 @@ def _foyers_du_lieu(cellule) -> dict | int:
     }
 
 
+def _bourg_du_lieu(cellule, numero_tick: int) -> dict:
+    """Copie le rang 0 et sa faim mesurée, sans déduction ni arrondi."""
+    bourgs = [lieu for lieu in cellule.lieux if lieu.rang == 0]
+    if len(bourgs) != 1:
+        cause = "absent" if not bourgs else "dupliqué"
+        raise SnapshotExportError(f"cell_id={cellule.cell_id} : rang 0 {cause}")
+    bourg = bourgs[0]
+    faim = getattr(bourg, "duree_faim_ticks", None)
+    if type(faim) is not int or faim < 0:
+        raise SnapshotExportError(
+            f"cell_id={cellule.cell_id} : duree_faim_ticks invalide : reçu {faim!r}, "
+            "attendu un entier ≥ 0"
+        )
+    return {"rang": bourg.rang, "population": bourg.population,
+            "stocks": copier_panier(bourg), "duree_faim_ticks": faim, "tick": numero_tick}
+
+
 def _parametre_entier(requete: str, nom: str, minimum: int | None = None) -> int:
     """Lit un entier obligatoire sans inventer une valeur absente ou invalide."""
     valeurs = parse_qs(requete, keep_blank_values=True).get(nom)
@@ -123,6 +140,7 @@ class EtatPublie:
 
     monde: bytes
     lieux: dict[int, bytes]
+    lieux_avec_bourg: dict[int, bytes]
     plans: dict[int, bytes]
     tick: int
     date: dict[str, int]
@@ -233,6 +251,9 @@ class ServeurMonde(ThreadingHTTPServer):
         duree_dernier_tick_ms: float,
     ) -> EtatPublie:
         """Construit tous les octets d'une photographie avant sa substitution."""
+        numero_tick = self.world.ticks_ecoules
+        bourgs = {cid: _bourg_du_lieu(cellule, numero_tick)
+                  for cid, cellule in sorted(self.world.cells.items())}
         cellules = [
             _cellule_legere(self.world.cells[cell_id])
             for cell_id in sorted(self.world.cells)
@@ -241,12 +262,11 @@ class ServeurMonde(ThreadingHTTPServer):
         if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world); self._empreinte_noms = signature
         noms = self._noms
         flux = flux_des_lieux(self.world)
-        numero_tick = self.world.ticks_ecoules
         date = self.world.date_simulation
         places = self._places_des_lieux()
         # Les lieux s'ajoutent après l'arrondi, comme dans la photographie, par la même fonction.
-        lieux = {
-            cellule["cell_id"]: _serialiser(
+        documents_lieux = {
+            cellule["cell_id"]: (
                 cellule
                 | ({"logement": logement} if (logement := logement_de(
                     self.world.cells[cellule["cell_id"]], self.world.plans[cellule["cell_id"]]
@@ -263,6 +283,11 @@ class ServeurMonde(ThreadingHTTPServer):
                 }
             )
             for cellule in cellules
+        }
+        lieux = {cid: _serialiser(document) for cid, document in documents_lieux.items()}
+        lieux_avec_bourg = {
+            cid: _serialiser(document | {"bourg": bourgs[cid]})
+            for cid, document in documents_lieux.items()
         }
         document = {
             "tick": numero_tick,
@@ -295,6 +320,7 @@ class ServeurMonde(ThreadingHTTPServer):
         return EtatPublie(
             monde=monde,
             lieux=lieux,
+            lieux_avec_bourg=lieux_avec_bourg,
             plans=plans,
             maisons=matiere_des_maisons(self.world, noms, places),
             octets_maisons={},
@@ -478,6 +504,14 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                 return
             documents = etat.plans if cible.path == "/plan" else etat.lieux
+            if cible.path == "/lieu":
+                bourg = parse_qs(cible.query, keep_blank_values=True).get("bourg")
+                if bourg is not None:
+                    if bourg != ["1"]:
+                        self._refuser(HTTPStatus.BAD_REQUEST,
+                                      f"paramètre bourg invalide : reçu {bourg!r}, attendu une seule valeur 1")
+                        return
+                    documents = etat.lieux_avec_bourg
             lieu = documents.get(cell_id)
             if lieu is None:
                 self._refuser(
