@@ -1695,6 +1695,11 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ## Les maisons du monde
 
+`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée.
+Chaque valeur présente possède sa source (`url`, `fait`) ; chaque valeur `null` possède exactement son motif dans `lacunes`. Une identité non établie interdit d’attribuer une naissance. Les approximations et intervalles gardent la formulation de la source ; aucune année ne devient un 1er janvier certain. Saraï et Tlemcen gardent leur succession indécidable au jour de départ ; le chef du Zab reste non sourcé.
+Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges.
+Cette table préparatoire n’a aucun lecteur de production : `World`, tick, noms, service et vues restent inchangés. Personnes vivantes, familles, vieillissement et succession restent de **niveau 3**, non simulés ici.
+
 `World.parts` conserve séparément la fraction commune aux lieux de chaque maison, institutions et plausibles comprises, sans changer les huit champs gelés. Après attribution, chaque identifiant reçoit la coutume ; sans registre, `{}`. `to_dict()` omet la coutume et publie les autres parts triées sans arrondi (zéro compris), dans un dictionnaire indépendant ; sans différence, il omet `parts`.
 
 `sim/registre_maisons.py` charge les trois tables `data/puissances-1400.json`, `data/capitales-1400.json` et `data/seigneuries-1400.json` avec la carte en argument ; des chemins alternatifs permettent les contre-épreuves. Le tuple stable de fiches gelées héritant de `_NoBadSpatialField` comprend toutes les maisons, y compris celle du joueur, sans fusionner les branches homonymes. Chaque fiche porte `id`, `nom`, `sorte`, `suzerain`, `siege` (nom), `cell_id`, `rang` et `hors_carte`.
