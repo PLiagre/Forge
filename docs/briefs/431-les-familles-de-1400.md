@@ -57,16 +57,27 @@ Découpe recommandée, à reprendre par le chef en conservant toutes les exigenc
 
 1. Validateur des liens et des bornes chronologiques, exercé sur des familles
    d'épreuve non vides ; refus et limites de SC2, rouge avant implémentation.
-2. Catalogue familial sourcé des 36 maisons et seigneuries, schéma fermé et
-   couverture complète ; décision A et attentes historiques de SC3. SC1 reste
-   à valider après la construction dans le monde, à l'étape 3.
-3. Construction des familles attestées dans le monde, comparaison complète,
-   réutilisation des personnes existantes et copie profonde ; SC1 et SC5.
+2. Recherche documentaire pour les 36 maisons et seigneuries : faits, sources,
+   présences au départ et lacunes motivées, avec les attentes indépendantes
+   nécessaires à SC3. Consigner cette préparation dans le brief, sans modifier
+   le catalogue de production, son schéma, le constructeur ni les trois tests
+   de la décision A. Cette étape ne réalise pas encore SC3.
+3. Livrer ensemble le catalogue familial de production, son schéma fermé et
+   la construction des familles attestées dans le monde : réutilisation des
+   personnes existantes, comparaison complète et copie profonde. Appliquer
+   dans cette même étape la décision A aux trois tests concernés, en conservant
+   tous les contrôles des chefs et en ajoutant ceux des familles ; SC1, SC3 et
+   SC5, avec leurs contre-épreuves. Aucune clé familiale de production ne doit
+   précéder sa construction et sa vérification complète dans le monde.
 4. Génération plausible paramétrée et déterministe, hypothèses séparées des
    faits historiques ; SC4 et toutes les preuves d'intégration SC1 à SC5.
 
 Chaque étape dépend de la précédente ; son brief doit maintenir les tests
 antérieurs au vert, sans annoncer une capacité encore non intégrée.
+Le chef doit vérifier le plafond de 300 lignes pour chaque lot issu de cette
+découpe ; si l'étape 3 le dépasse encore, il doit la redécouper en incréments
+intégrés, chacun réunissant données de production, construction et preuves.
+Séparer ces trois éléments ou réduire les maisons et les contrôles est exclu.
 
 Premier témoin consulté pour SC3 : la section
 [Marriage and issue de Charles VI](https://en.wikipedia.org/wiki/Charles_VI_of_France#Marriage_and_issue)
@@ -83,3 +94,7 @@ en 1403 et Philippe né en 1407 sont postérieurs au départ.
 
 Le code, le catalogue et les tests restent inchangés en attente de cette
 découpe ; cette note ne vaut pas réalisation des conditions SC1 à SC5.
+Les constats 1 à 4 de la revue restent donc des travaux à réaliser : les
+familles, leurs preuves et leur documentation dans MODELE.md sont absentes.
+La section « Le joueur » décrit la cible du lot complet, pas la capacité
+livrée par cette correction de la demande de découpe (constat 5).
