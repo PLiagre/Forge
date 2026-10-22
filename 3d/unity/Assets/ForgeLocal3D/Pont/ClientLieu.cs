@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -23,6 +24,7 @@ namespace Forge.Pont
 
     // Rang, position en mètres EPSG:3035 et maître. Null est déclaré : ni origine ni maître inventé.
     // `Flux` null : `AbsenceDesFlux` nomme la cause ; trois zéros servis sont des mesures.
+    // `Population` est celle du lieu seul, jamais le total de la cellule ; null, `AbsenceDePopulation` nomme la cause.
     public sealed class LieuPlace
     {
         public long Rang { get; }
@@ -30,8 +32,10 @@ namespace Forge.Pont
         public string Maitre { get; }
         public FluxDeLieu Flux { get; }
         public string AbsenceDesFlux { get; }
-        public LieuPlace(long rang, PointCarte? position, string maitre, FluxDeLieu flux = null, string absenceDesFlux = null)
-        { Rang = rang; Position = position; Maitre = maitre; Flux = flux; AbsenceDesFlux = absenceDesFlux; }
+        public long? Population { get; }
+        public string AbsenceDePopulation { get; }
+        public LieuPlace(long rang, PointCarte? position, string maitre, FluxDeLieu flux = null, string absenceDesFlux = null, long? population = null, string absenceDePopulation = null)
+        { Rang = rang; Position = position; Maitre = maitre; Flux = flux; AbsenceDesFlux = absenceDesFlux; Population = population; AbsenceDePopulation = population == null ? absenceDePopulation ?? "population non fournie" : null; }
     }
 
     public sealed class Logement
@@ -59,6 +63,8 @@ namespace Forge.Pont
         public Logement Logement { get; }
         public IReadOnlyList<LieuPlace> Lieux { get; }
         public string AbsenceDesLieux { get; }
+        // Le bourg est le lieu de rang 0, où qu'il soit dans la liste ; sans lui, null, sans repli.
+        public LieuPlace Bourg => Lieux?.FirstOrDefault(place => place.Rang == 0);
 
         public Lieu(long cellId, long tick, int annee, int jourDeLAnnee, long population,
             IDictionary<string, double> stocks, long hungerTicks, double foodDeficitKg, EtatFoyers etatFoyers = EtatFoyers.Absents, IDictionary<string, (long Foyers, long Personnes)> foyers = null, Logement logement = null, IEnumerable<LieuPlace> lieux = null, string absenceDesLieux = null)
@@ -226,7 +232,9 @@ namespace Forge.Pont
                 var entree = tableau[i] as Dictionary<string, object> ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(tableau[i]));
                 long rang = Entier(entree, "rang", chemin + ".rang", 0, long.MaxValue);
                 if (!rangs.Add(rang)) throw new CleRefusee("clé " + chemin + ".rang : " + rang.ToString(CultureInfo.InvariantCulture) + " déjà lu");
-                liste.Add(new LieuPlace(rang, Point(entree, chemin), Maitre(entree, chemin), Flux(entree, chemin, out string absenceDesFlux), absenceDesFlux));
+                // Population absente : déclarée ; présente, un entier ≥ 0 ou tout le lieu est refusé (null compris).
+                long? population = entree.ContainsKey("population") ? Entier(entree, "population", chemin + ".population", 0, long.MaxValue) : (long?)null;
+                liste.Add(new LieuPlace(rang, Point(entree, chemin), Maitre(entree, chemin), Flux(entree, chemin, out string absenceDesFlux), absenceDesFlux, population, "clé absente : " + chemin + ".population"));
             }
             return liste;
         }

@@ -534,6 +534,9 @@ Une maison finie loge `max(1, int(aire_du_contour(emprise) // SURFACE_M2_PAR_FOY
 Métiers non calculés : capacité calculée, les deux autres champs à `-1`.
 `/lieu` publie `logement` seulement si le plan porte un bâtiment, avec `foyers` et `lieux` au même tick.
 Le logement ne lit les métiers que dans la photographie, sans stockage ni effet sur le tick.
+`GET /occupation?cell=X` publie exactement `cell_id`, `rang` (0), `tick`, `date`, `base`, `batiments` et `logement` (copie de `/lieu`, ou `null` si absent).
+`batiments` contient les seules maisons achevées, par `identifiant` croissant : `capacite` comme ci-dessus, `loges` au minimum de cette capacité et du total publié restant (0 pour une maison vide, -1 sans métiers calculés).
+Ces comptes sont copiés dans `EtatPublie` à la publication, sans lecture du monde mutable à la requête ; le tri est une convention de présentation, sans attribution de familles dans le monde.
 Âge, sexe, parenté, logement des autres métiers et sort des sans-logis (froid, départ, santé) restent de niveau 3, non simulés.
 
 `GET /lieu?cell=X` porte `foyers` : par métier, trié par nom, ses
@@ -1708,6 +1711,11 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ## Les maisons du monde
 
+`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée.
+Chaque valeur présente possède sa source (`url`, `fait`) ; chaque valeur `null` possède exactement son motif dans `lacunes`. Une identité non établie interdit d’attribuer une naissance. Les approximations et intervalles gardent la formulation de la source ; aucune année ne devient un 1er janvier certain. Saraï et Tlemcen gardent leur succession indécidable au jour de départ ; le chef du Zab reste non sourcé.
+Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges.
+`sim/personnages.py` lit et valide cette table au chargement du monde ; les personnes sont décrites ci-dessous.
+
 `World.parts` conserve séparément la fraction commune aux lieux de chaque maison, institutions et plausibles comprises, sans changer les huit champs gelés. Après attribution, chaque identifiant reçoit la coutume ; sans registre, `{}`. `to_dict()` omet la coutume et publie les autres parts triées sans arrondi (zéro compris), dans un dictionnaire indépendant ; sans différence, il omet `parts`.
 
 `sim/registre_maisons.py` charge les trois tables `data/puissances-1400.json`, `data/capitales-1400.json` et `data/seigneuries-1400.json` avec la carte en argument ; des chemins alternatifs permettent les contre-épreuves. Le tuple stable de fiches gelées héritant de `_NoBadSpatialField` comprend toutes les maisons, y compris celle du joueur, sans fusionner les branches homonymes. Chaque fiche porte `id`, `nom`, `sorte`, `suzerain`, `siege` (nom), `cell_id`, `rang` et `hors_carte`.
@@ -1755,6 +1763,16 @@ par `id`, sans rappeler le lecteur ou une vue. Aucun champ n'est ajouté à `Cel
 le siège reste (`cell_id`, `rang`). Le tick ne consulte jamais le registre :
 sans geste, ses octets restent identiques pour toute graine et tout tick, tandis
 que le monde évolue. Les anciennes vues et la sélection de l'IA gardent leur contrat.
+
+## Les personnes
+
+Après les maîtres et leurs références aux suzerains, `World.charger` construit `personnages` (tuple trié par identifiant) et `chefs` (un lien par maison). L'identifiant initial `personne-<maison>` appartient à la personne, jamais automatiquement à son successeur. Aucun emplacement n'est ajouté : le siège reste celui de la maison.
+Les identités, naissances, précisions, sources et lacunes historiques restent de **niveau 1**, sans interprétation. Une identité absente garde un lien nul motivé ; un titulaire institutionnel ne crée aucune dynastie. Chaque maison plausible reçoit le prénom et le nom de la vue existante (**niveau 2**), sans naissance ni source inventées et sans tirage aléatoire.
+Un monde manuel garde `personnages=()` et `chefs={}`. `to_dict()` copie toujours ces deux ajouts en profondeur, sans lecteur ni constructeur. Le tick ne les consulte pas : habitants, économie et générateur restent indépendants. Autres familles, âge calculé, vieillissement, mort et succession restent de **niveau 3**, non simulés.
+
+Le catalogue fermé conserve intégralement `chefs` et ajoute `familles` (huit fiches) et `liens` (compléments aux deux chefs réutilisés). **Niveau 1**, France (`grande-3`) et Bretagne (`grande-28`) seulement : Isabeau de Bavière, Isabelle, Jeanne, Charles, Marie, Michelle, Louis et Jean de France. Les sept enfants ont pour parents Charles VI (`personne-grande-3`) et Isabeau ; Jeanne (`personne-jeanne`) reste une seule personne, épouse de Jean V (`personne-grande-28`). Les deux mariages sont réciproques ; aucun enfant de Jean V n'est né au départ (le premier naît en 1409).
+Chaque identité, naissance, parenté livrée et présence initiale porte une source `url`/`fait`. Les décès cités justifient la sélection de 1400, sans programmer de mort. Les relations non étudiées sont des lacunes motivées, jamais des absences attestées ; les autres chefs gardent leurs faits et lacunes.
+Le même `valider_liens_familiaux` contrôle le catalogue résolu, la construction et `valider_personnages`, sans mutation ni hasard. **Niveau 2** : enfant strictement postérieur aux parents, mère de 15 à 45 ans révolus inclus. Isabeau reste née **vers 1370** : sept antériorités paternelles vérifiées, sept antériorités maternelles et sept âges maternels indéterminés, avec motif faute de bornes exploitables. Aucun âge exact ni règle d'âge au mariage n'est ajouté.
 
 ## Le grenier d'une maison
 
@@ -2420,6 +2438,30 @@ ne porte aucun `cell_id` recopié ni `lieu_id` : son identité est le couple
 découpage lèvent `SnapshotExportError` : le service ne publie jamais une
 liste inventée. `/monde` reste léger et ne les porte pas.
 
+`GET /lieu?cell=X&bourg=1` ajoute le bloc `bourg` : exactement `rang`,
+`population`, `stocks`, `duree_faim_ticks` et `tick`. Il lit le rang 0,
+quelle que soit sa position dans la liste, et conserve toutes ses marchandises
+sans arrondi. Son tick est celui de la réponse. Sa faim locale mesure le manque
+après consommation et transport intérieur ; ni le panier restant, ni la dette,
+ni la faim cellulaire ne la remplacent. Une ration complète peut laisser un
+panier alimentaire vide avec une faim mesurée à zéro.
+Les deux variantes sont préparées dans le même appel à `_construire_etat`,
+dans `EtatPublie` ; HTTP choisit leurs octets sans relire le monde mutable.
+Un rang 0 absent ou dupliqué, ou une `duree_faim_ticks` absente, négative ou
+non entière, lève `SnapshotExportError` avec la cellule et la cause.
+Seule la valeur unique `bourg=1` active l'extension ; une valeur vide, répétée
+ou différente rend HTTP 400 sans mutation. Sans paramètre, les octets restent
+identiques. La faim locale devient ainsi accessible par cette extension du
+service ; la photographie reste inchangée, sans ce bloc supplémentaire.
+
+Depuis `jeu/`, `python3 -m sim.service --epreuve --port 0 --jours-par-seconde 0 --seed 0`
+charge un monde jetable en mémoire, sans lecture ni écriture de partie sauvegardée ; l'option et l'argument `ServeurMonde(..., epreuve=True)` sont désactivés par défaut.
+Seul ce mode accepte `POST /epreuve/vider-panier?cell=X` : horloge arrêtée, cellule connue, lieux valides et unique bourg habité ; sinon il refuse avant mutation.
+Le montage retire artificiellement la nourriture de tous les lieux, champs compris, et du total cellulaire, en conservant autres marchandises et greniers.
+Il applique la consommation puis la faim existantes et republie ensemble les routes servies.
+Ni tick complet ni avance du temps ou de l'aléa : le tick désigne cet état préparé.
+Ce geste d'épreuve n'est jamais une intention ; le panier se lit par `/lieu?cell=X&bourg=1`.
+
 ### L'identité d'un lieu, et ce qui la change
 
 Un lieu se retrouve par son couple (`cell_id`, `rang`) avec `lieu_du_monde`,
@@ -2736,6 +2778,8 @@ monde ni tirer d'aléa. Le dépôt ne garde aucun cache dans le monde.
 Le service calcule et sérialise la base une fois par cellule à sa première
 lecture, sous un verrou distinct du tick, puis assemble ses octets figés
 avec ceux des gestes. Le tick ne calcule ni ne sérialise de maison de base.
+Le même cache prépare `occupation.base` : `{rang, foyers}` dans l'ordre de `base.maisons`. Toutes les places initiales sont habitées (réponse A de #411), dernier foyer incomplet compris, sans réaffectation selon la population courante ni changement du logement ou des sans-logis.
+`/occupation` refuse un `cell` absent, vide, répété ou non entier (400), inconnu (404), et une base absente par `BaseAbsente`, avec cellule et cause (500). Une cellule valide sans habitants peut publier des listes vides et des zéros mesurés.
 Restent de niveau 3 : découper le long d'une rue de base, démolir ou déplacer
 une maison de 1400, y loger quelqu'un, croiser une rue de base.
 

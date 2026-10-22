@@ -1,0 +1,4 @@
+ÉCART — code de sortie 1 · py pc\epreuve_ville1400.py --sortie "$env:TEMP\lot740-sauter" --sauter · 22/10/2026 · PC « Pe » · Unity 6000.0.43f1 · révision adc13596 · graine 0 · -forgeSauter transmis à Jouer seul
+Jouer, chaque cellule : posées + refus 32/33 (10103), 65/66 (1175), 492/493 (1232), 540/541 (10337) · couple manquant [(0, 0)] · 0 refus
+Relance : 33, 66, 493, 541 posées sur autant de foyers, aucun écart propre. Écarts de relance : posees, maisons (ligne « 0 0 … » absente de jouer), empreinte
+Le rouge vient des couples manquants et de la relance, pas du drapeau : aucune variante, emprise ou empreinte recalculée en écart.

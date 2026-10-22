@@ -1,0 +1,6 @@
+ÉGALITÉ — code de sortie 0 · py pc\epreuve_ville1400.py --sortie "$env:TEMP\lot740-normal" · 22/10/2026 · PC « Pe » · Unity 6000.0.43f1 · révision adc13596 · graine 0 · aucun drapeau
+cellule : foyers du plan · posées jouer/relance · refus · dessin ms jouer/relance · images/s sur 300 images
+10103 (Biskra) : 33 · 33/33 · 0 · 649.9/645.6 · 4065.5/3932.4
+1175 : 66 · 66/66 · 0 · 834.6/783.7 · 4066.6/3108.4 ; 1232 : 493 · 493/493 · 0 · 914.9/811.5 · 3695.6/3668.4
+10337 : 541 · 541/541 · 0 · 1175.0/1086.5 · 4178.8/4125.2
+Huit observations : couples, variantes, emprises et empreintes égales ; références, tick, foyers, posees, refus, maisons, empreinte, rues_dessinees, empreinte_rues égaux entre jouer et relance.
