@@ -302,8 +302,9 @@ class ServeurMonde(ThreadingHTTPServer):
             for cellule in cellules
         }
         lieux = {cid: _serialiser(document) for cid, document in documents_lieux.items()}
+        # « bourg » est la première clé canonique ; réutiliser le lieu évite de le sérialiser deux fois.
         lieux_avec_bourg = {
-            cid: _serialiser(document | {"bourg": bourgs[cid]})
+            cid: b'{"bourg":' + _serialiser(bourgs[cid]) + b',' + lieux[cid][1:]
             for cid, document in documents_lieux.items()
         }
         document = {
@@ -339,16 +340,12 @@ class ServeurMonde(ThreadingHTTPServer):
             logement = documents_lieux[cid].get("logement")
             reste = logement["loges"] if logement is not None else 0
             batiments = []
-            for b in sorted(plan.batiments, key=lambda b: b.identifiant):
-                if b.nature != "maison" or b.en_chantier:
-                    continue
+            for b in sorted((b for b in plan.batiments if b.nature == "maison" and not b.en_chantier), key=lambda b: b.identifiant):
                 capacite = max(1, int(aire_du_contour(b.emprise) // _constantes.SURFACE_M2_PAR_FOYER_LOGE))
                 loges = -1 if reste == -1 else min(capacite, reste)
                 batiments.append(dict(identifiant=b.identifiant, capacite=capacite, loges=loges))
-                if reste != -1:
-                    reste -= loges
-            occupations[cid] = _serialiser(dict(
-                cell_id=cid, rang=0, tick=numero_tick, date=date,
+                reste = -1 if reste == -1 else reste - loges
+            occupations[cid] = _serialiser(dict(cell_id=cid, rang=0, tick=numero_tick, date=date,
                 batiments=batiments, logement=logement))
         return EtatPublie(
             monde=monde,
@@ -456,7 +453,7 @@ class ServeurMonde(ThreadingHTTPServer):
                 intervalle = 1 / vitesse
                 prochaine = echeance + intervalle
                 maintenant = time.monotonic()
-                echeance = prochaine if prochaine > maintenant else maintenant + intervalle
+                echeance = max(prochaine, maintenant)
 
     def server_close(self) -> None:
         """Réveille le fil démon afin qu'il puisse finir proprement."""
@@ -537,8 +534,7 @@ class RequetesMonde(BaseHTTPRequestHandler):
             except ValueError as exc:
                 self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                 return
-            documents = (etat.occupations if cible.path == "/occupation" else
-                         etat.plans if cible.path == "/plan" else etat.lieux)
+            documents = etat.lieux if cible.path == "/lieu" else etat.plans
             if cible.path == "/lieu":
                 bourg = parse_qs(cible.query, keep_blank_values=True).get("bourg")
                 if bourg is not None:
