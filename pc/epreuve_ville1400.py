@@ -26,8 +26,8 @@ def _plan(plan, c, s):
         e = m.get("emprise") if _objet(m) else None
         if not _objet(m) or type(m.get("foyers")) is not int or m["foyers"] < 1: raise ValueError(f"{nom} : maison {i}, foyers absents ou < 1")
         if type(e) is not list or len(e) < 3 or not all(type(p) is list and len(p) == 2 and all(map(_nombre, p)) for p in e): raise ValueError(f"{nom} : maison {i}, emprise illisible")
-        croix = [_croix(e[k], e[(k + 1) % len(e)], e[(k + 2) % len(e)]) for k in range(len(e))]
-        if not (all(x > 0 for x in croix) or all(x < 0 for x in croix)): raise ValueError(f"{nom} : maison {i}, emprise non convexe ou dégénérée")
+        tours = [math.atan2(_croix(a, b, c), (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1])) for a, b, c in zip(e, e[1:] + e[:1], e[2:] + e[:2])]  # angles strictement d'un même sens et un seul tour : un pentagramme en fait deux
+        if not (all(0 < t < math.pi for t in tours) or all(-math.pi < t < 0 for t in tours)) or abs(sum(tours)) > 3 * math.pi: raise ValueError(f"{nom} : maison {i}, emprise non convexe ou dégénérée")
 
 def _maison(ligne, nom):
     v = ligne.split(" ")
@@ -44,7 +44,7 @@ def _rapport(r, c, s):
     if (cle := next((c for c in ("defaut", "absence") if r[c]), None)): raise ValueError(f"{nom} : {'défaut de session' if cle == 'defaut' else 'absence déclarée'} : {r[cle]}")
     if (cle := next((c for c in ("cellule", "tick", "foyers", "posees", "rues_dessinees") if r[c] < 0), None)): raise ValueError(f"{nom} : {cle} non mesuré : {r[cle]}")
     if r["images"] <= 0 or r["duree_dessin_ms"] <= 0 or r["image_ms"] <= 0: raise ValueError(f"{nom} : temps non mesuré : dessin {r['duree_dessin_ms']} ms, {r['images']} images à {r['image_ms']} ms")
-    if not re.fullmatch(r"[0-9a-f]{64}", r["empreinte"]): raise ValueError(f"{nom} : empreinte illisible : {r['empreinte']!r}")
+    if (cle := next((k for k in ("empreinte", "empreinte_rues") if not re.fullmatch(r"[0-9a-f]{64}", r[k])), None)): raise ValueError(f"{nom} : {cle} illisible : {r[cle]!r}")
     refus = [(int(m[1]), int(m[2]), m[3]) if (m := _REFUS.fullmatch(t)) else None for t in r["refus"]]
     if None in refus: raise ValueError(f"{nom} : refus illisible : {r['refus'][refus.index(None)]!r}")
     return [_maison(l, nom) for l in r["maisons"]], refus

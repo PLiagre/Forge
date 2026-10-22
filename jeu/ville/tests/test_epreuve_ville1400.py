@@ -1,5 +1,5 @@
 """Juge et lanceur de l'épreuve de la ville de 1400 (#740). Les huit rapports #739 sont relus tels quels, mutés en mémoire seulement : ce ne sont pas des mesures PC."""
-import copy, hashlib, importlib.util, io, json, os, re, time, urllib.request
+import copy, hashlib, importlib.util, io, json, math, os, re, time, urllib.request
 from pathlib import Path
 import pytest
 RACINE = Path(__file__).resolve().parents[3]
@@ -48,9 +48,9 @@ def _refus(e, c, quoi="hors du terrain", retirer=True, double=False):
     ("emprise d'une référence", lambda e: [m.__setitem__("emprise", [[x + 30, y] for x, y in m["emprise"]]) for p in (e["pj"], e["pr"]) for m in p[1232]["base"]["maisons"][:1]], 1, "1232/relance hors emprise"),
     ("foyers = îlots", lambda e: [e[s][10337].update(foyers=len(e["pj"][10337]["base"]["maisons"])) for s in ("jouer", "relance")], 1, "10337/jouer foyers"),
     ("refus hors Biskra", lambda e: _refus(e, 1175), 0, "refus 1 — Maison "), ("refus à Biskra", lambda e: _refus(e, 10103), 1, "10103/jouer refus à Biskra"),
-    ("refus en double", lambda e: _refus(e, 1175, double=True), 1, "1175/jouer doublons"), ("refus sans raison", lambda e: _refus(e, 1175, quoi=""), 2, "refus illisible"),
-    ("refus hors ensemble", lambda e: [e[s][1175].update(refus=["Maison 999 indice 0 : hors du terrain"]) for s in ("jouer", "relance")], 1, "1175/jouer couples inconnus"),
-    ("refus d'une maison présente", lambda e: _refus(e, 1175, retirer=False), 1, "1175/jouer doublons")])
+    ("refus en double", lambda e: _refus(e, 1175, double=True), 1, "1175/jouer doublons"), ("refus sans raison", lambda e: _refus(e, 1175, quoi=""), 2, "refus illisible"), ("refus hors ensemble", lambda e: [e[s][1175].update(refus=["Maison 999 indice 0 : hors du terrain"]) for s in ("jouer", "relance")], 1, "1175/jouer couples inconnus"),
+    ("refus d'une maison présente", lambda e: _refus(e, 1175, retirer=False), 1, "1175/jouer doublons"), *((f"empreinte des rues {v!r} des deux côtés", lambda e, v=v: [e[s][1232].update(empreinte_rues=v) for s in ("jouer", "relance")], 2, "empreinte_rues illisible") for v in ("", "pas une empreinte")),
+    ("emprise en pentagramme", lambda e: [m.update(emprise=[[m["emprise"][0][0] + 1e3 * math.cos(.8 * math.pi * k), m["emprise"][0][1] + 1e3 * math.sin(.8 * math.pi * k)] for k in range(5)]) for p in (e["pj"], e["pr"]) for m in p[1232]["base"]["maisons"][:1]], 2, "emprise non convexe")])
 def test_plan_reference_et_refus(epreuve, plans, nom, changer, code, cause):
     vu, lignes, ecarts = juge(epreuve, plans, changer); print(f"{nom} : {vu} {ecarts}")
     assert vu == code and (cause in ecarts or cause in "\n".join(lignes)) and (code != 0 or not ecarts), lignes
