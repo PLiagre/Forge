@@ -38,3 +38,47 @@ SC5 — `python3 -m pytest jeu/sim/tests/test_maisons.py jeu/sim/tests/test_dete
 
 ## Hors périmètre
 Vieillissement, naissances pendant la partie, mortalité, choix légal de l'héritier, partage, mariage proposé, dot, alliance, éducation, traits, ambitions, service et interface Unity. Ni généalogie exhaustive avant 1400, ni personnes futures imposées par l'histoire, ni modification des habitants pour financer les personnages. Aucun nouveau champ de premier niveau du monde, aucun changement de règle économique, aucun assouplissement des contre-épreuves existantes. Si le diff complet ne tient pas sous 300 lignes, demander une découpe ; ne pas retirer des maisons ou des contrôles pour le faire tenir.
+
+## Demande technique de découpe — codeur, 22 octobre 2026
+
+La décision A est applicable, mais ne résout pas la taille du lot. Le catalogue
+contient 30 grandes maisons et 6 seigneuries, dont 3 identités absentes à
+conserver, ainsi que 10 institutions. Le module actuel compte 98 lignes et les
+preuves existantes des personnes 270 lignes. Ce sont des mesures de la base,
+pas la taille d'une implémentation achevée.
+
+Estimation du changement lisible : 120–160 lignes pour le schéma, les dates et
+les liens ; 140–200 pour les familles et leurs sources ; 100–140 pour les
+nouvelles preuves ; 30–50 pour la génération, les adaptations et la notice.
+Soit 390–550 lignes ajoutées ou modifiées, hors suppressions. Cette estimation
+dépasse le plafond ; aucune maison ni contre-épreuve ne doit être sacrifiée.
+
+Découpe recommandée, à reprendre par le chef en conservant toutes les exigences :
+
+1. Validateur des liens et des bornes chronologiques, exercé sur des familles
+   d'épreuve non vides ; refus et limites de SC2, rouge avant implémentation.
+2. Catalogue familial sourcé des 36 maisons et seigneuries, schéma fermé et
+   couverture complète ; décision A et preuves historiques de SC1 et SC3.
+3. Construction des familles attestées dans le monde, comparaison complète,
+   réutilisation des personnes existantes et copie profonde ; SC1 et SC5.
+4. Génération plausible paramétrée et déterministe, hypothèses séparées des
+   faits historiques ; SC4 et toutes les preuves d'intégration SC1 à SC5.
+
+Chaque étape dépend de la précédente ; son brief doit maintenir les tests
+antérieurs au vert, sans annoncer une capacité encore non intégrée.
+
+Premier témoin consulté pour SC3 : la section
+[Marriage and issue de Charles VI](https://en.wikipedia.org/wiki/Charles_VI_of_France#Marriage_and_issue)
+donne sept enfants vivants au départ : Isabelle (1389-11-09), Jeanne
+(1391-01-24), Charles (1392-02-06), Marie (1393-08-22), Michelle
+(1395-01-11), Louis (1397-01-22) et Jean (1398-08-31). Leur mère,
+[Isabeau de Bavière](https://en.wikipedia.org/wiki/Isabeau_of_Bavaria), est née
+vers 1370 : conserver cette approximation, sans inventer de jour ni prétendre
+avoir vérifié un âge exact. Jeanne est aussi l'épouse du chef déjà présent
+`personne-grande-28` ; elle doit avoir une seule identité dans le catalogue.
+Le tableau permet les contre-épreuves de présence : Charles né en 1386 et
+Jeanne née en 1388 sont morts avant 1400 ; Catherine née en 1401, Charles né
+en 1403 et Philippe né en 1407 sont postérieurs au départ.
+
+Le code, le catalogue et les tests restent inchangés en attente de cette
+découpe ; cette note ne vaut pas réalisation des conditions SC1 à SC5.
