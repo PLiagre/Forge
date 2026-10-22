@@ -52,15 +52,16 @@ def test_ecart_ou_impossible(epreuve, chemin, valeur, code, cause):
     assert vu == code and cause in " ".join(lignes) and (code == 1 or len(lignes) == 1), lignes
 def _harnais(monkeypatch, epreuve, tmp_path, plan):
     """Processus, HTTP et Unity en mémoire : le câblage de `main`, pas une exécution PC. Le Zab y prend l'id 913."""
-    e, sortie = {"services": [], "http": [], "unity": []}, tmp_path / "sortie"
+    e, sortie = {"services": [], "http": [], "unity": [], "horloge": 0}, tmp_path / "sortie"
     class Service:
         def __init__(s, cmd, **k):
             e["services"].append(s); s.cmd, s.code, s.stderr = cmd, None, io.StringIO("")
             s.stdout = io.StringIO("" if plan.get("muet") else "service prêt sur 127.0.0.1:8000\n")
         poll = wait = lambda s, timeout=None: s.code
         def terminate(s): s.code = 0
-    def http(methode, chemin, corps=None):
-        e["http"].append((methode, chemin, corps))
+    def http(methode, chemin, corps=None, delai=None):  # « lent » : chaque /monde avance l'horloge ; « sourd » : la réponse ignore la borne
+        e["http"].append((methode, chemin, corps)); e["horloge"] += (lent := plan.get("lent", 0) * (chemin == "/monde"))
+        if lent > (delai if delai and not plan.get("sourd") else lent): raise TimeoutError("timed out")
         if plan.get("http") == chemin: raise urllib.error.URLError("lecture impossible")
         d = copy.deepcopy(DEPARTS); d["departs"].reverse(); z = next(f for f in d["departs"] if f["nom"] == epreuve.CAPITALE.ZAB); z["id"] = 913
         if chemin == "/departs": return d | {"departs": d["departs"] + [z] * (plan.get("zab") == "double")}
@@ -73,7 +74,7 @@ def _harnais(monkeypatch, epreuve, tmp_path, plan):
         if plan.get("vieux"): os.utime(rapport, (time.time() - 3600,) * 2)
         return plan.get("code", 0)
     sortie.mkdir(); exe = tmp_path / "Unity.exe"; exe.write_bytes(b""); (sortie / "verdict.txt").write_text("ÉGALITÉ\ncode 0\nancien\n", encoding="utf-8")
-    for cible, nom, faux in ((epreuve.subprocess, "Popen", Service), (epreuve, "_http", http), (epreuve.JALON1, "_unity", unity), (epreuve, "PAS_S", 0), (epreuve, "ATTENTE_CHOIX_S", .2),
+    for cible, nom, faux in ((epreuve.subprocess, "Popen", Service), (epreuve, "_http", http), (epreuve.JALON1, "_unity", unity), (epreuve, "PAS_S", 0), (epreuve, "ATTENTE_CHOIX_S", .2), (time, "monotonic", lambda m=time.monotonic: m() + e["horloge"]),
                              (epreuve.JOUER, "_repond", lambda _p: plan.get("port", False)), (urllib.request, "urlopen", lambda *a, **k: pytest.fail("accès réseau réel"))): monkeypatch.setattr(cible, nom, faux)
     code = epreuve.main(["--sortie", str(sortie), "--unity", str(exe if plan.get("exe", True) else tmp_path / "absent.exe")])
     assert all(s.code is not None for s in e["services"]), "un service reste ouvert"
@@ -89,7 +90,7 @@ def test_main_juge_une_session(epreuve, tmp_path, monkeypatch, plan, attendu):
     assert [c[1:2] + c[2::2] for c in e["unity"]] == [["-batchmode", "-projectPath", "-executeMethod", "-forgeEpreuve", "-logFile"]] and e["unity"][0][5] == epreuve.METHODE
 @pytest.mark.parametrize("plan,cause", [({"port": True}, "répond déjà"), ({"exe": False}, "Unity absent"), ({"code": 3}, "Unity a rendu 3"),
     ({"rapport": False}, "rapport absent"), ({"vieux": True}, "antérieur"), ({"texte": "pas du json"}, "rapport invalide"), ({"texte": "{}"}, "rapport absent ou vide"), ({"zab": "double"}, "2 trouvée(s)"),
-    ({"accepte": False}, "choix refusé"), ({"jamais": True}, "choix jamais appliqué"), ({"siege": None}, "siège nul"), ({"muet": True}, "avant d'être prêt"), ({"http": "/maison?id=seigneurie-913"}, "lecture impossible")])
+    ({"accepte": False}, "choix refusé"), ({"jamais": True}, "choix jamais appliqué"), ({"lent": .15}, "timed out"), ({"lent": .15, "sourd": True}, "dernière lecture maison_du_joueur 'seigneurie-913'"), ({"siege": None}, "siège nul"), ({"muet": True}, "avant d'être prêt"), ({"http": "/maison?id=seigneurie-913"}, "lecture impossible")])
 def test_main_impossible(epreuve, tmp_path, monkeypatch, plan, cause):
     code, e, verdict = _harnais(monkeypatch, epreuve, tmp_path, plan)
     assert code == 2 and verdict.startswith("ÉPREUVE IMPOSSIBLE") and cause in verdict and "ancien" not in verdict and " · égal" not in verdict, verdict

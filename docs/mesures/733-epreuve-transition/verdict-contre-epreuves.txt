@@ -6,4 +6,4 @@ arrivée en ville figée : ticks [35, 35, 37, 39] -> juge 1, écarts ['descente'
 retour figé : ticks [35, 37, 37, 37] -> juge 1, écarts ['retour']
 quatre ticks figés : ticks [37, 37, 37, 37] -> juge 1, écarts ['descente', 'retour']
 chronologie inversée : ticks [39, 37, 37, 35] -> juge 1, écarts ['descente', 'retour']
-Juges mutés un à un puis restaurés (fichier identique) : vitesse initiale ignorée, tick exigé en ville, descente ou retour retiré, premier et dernier tick seuls, constantes 0,1/6, références tirées du rapport, champ absent ou −1 acceptés, service à 0 j/s, service non arrêté -> pytest du fichier rouge à chaque fois (1 à 13 cas en échec sur 35) ; sans le script, 35 erreurs.
+Juges mutés un à un puis restaurés (fichier identique) : vitesse initiale ignorée, tick exigé en ville, descente ou retour retiré, premier et dernier tick seuls, constantes 0,1/6, références tirées du rapport, champ absent ou −1 acceptés, service à 0 j/s, service non arrêté -> pytest du fichier rouge à chaque fois (1 à 13 cas en échec sur 35) ; attente du choix non bornée (script afcebf3b) -> 2 cas lents en échec sur 37 ; sans le script, 37 erreurs.

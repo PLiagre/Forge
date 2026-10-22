@@ -48,13 +48,13 @@ def juger(rapport, reglages, siege) -> tuple[int, list[str]]:
     lignes = [f"{nom} : {vu} · attendu {attendu} · {'égal' if egal else 'ÉCART'}" for nom, vu, attendu, egal in comparaisons]
     return (EGALITE if all(c[3] for c in comparaisons) else ECART), lignes
 
-def _http(methode, chemin, corps=None):
-    """Une requête bornée ; un refus HTTP se dit avec son statut et son corps."""
+def _http(methode, chemin, corps=None, delai=JOUER.DELAI_REQUETE_S):
+    """Une requête bornée à `delai` secondes ; un refus HTTP se dit avec son statut et son corps, une panne avec son délai."""
     demande = urllib.request.Request(f"http://{HOTE}:{PORT}{chemin}", data=None if corps is None else json.dumps(corps).encode("utf-8"), method=methode, headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(demande, timeout=JOUER.DELAI_REQUETE_S) as reponse: return json.loads(reponse.read())
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"{methode} {chemin} : HTTP {exc.code} « {exc.read().decode('utf-8', 'replace')} »") from None
+        with urllib.request.urlopen(demande, timeout=delai) as reponse: return json.loads(reponse.read())
+    except urllib.error.HTTPError as exc: raise RuntimeError(f"{methode} {chemin} : HTTP {exc.code} « {exc.read().decode('utf-8', 'replace')} »") from None
+    except OSError as exc: raise RuntimeError(f"{methode} {chemin} : {exc} (requête bornée à {delai:.3g} s)") from None
 
 def _ouvrir(graine, garde):
     """Le service neuf à DEPART j/s, gardé dès sa création : l'appelant l'arrête même s'il ne devient jamais prêt."""
@@ -66,11 +66,12 @@ def _ouvrir(graine, garde):
     JOUER._attendre_pret(service, f"service prêt sur {HOTE}:{PORT}", stderr)
 
 def _attendre_choix(maison):
-    """Le jour naturel suivant applique le choix : lectures espacées de `/monde`, ATTENTE_CHOIX_S au plus."""
-    echeance = time.monotonic() + ATTENTE_CHOIX_S
-    while (vue := (m.get("maison_du_joueur") if _objet(m := _http("GET", "/monde")) else None)) != maison:
-        if time.monotonic() >= echeance: raise RuntimeError(f"choix jamais appliqué : maison_du_joueur {vue!r} après {ATTENTE_CHOIX_S} s, attendu {maison}")
+    """Le jour naturel suivant applique le choix : lectures espacées de `/monde`, chacune bornée au temps restant ; aucune réponse n'est acceptée après ATTENTE_CHOIX_S."""
+    echeance, vue = time.monotonic() + ATTENTE_CHOIX_S, None
+    while (reste := echeance - time.monotonic()) > 0:
+        if (vue := (m.get("maison_du_joueur") if _objet(m := _http("GET", "/monde", delai=min(reste, JOUER.DELAI_REQUETE_S))) else None)) == maison and time.monotonic() < echeance: return
         time.sleep(PAS_S)
+    raise RuntimeError(f"choix jamais appliqué dans les {ATTENTE_CHOIX_S} s : dernière lecture maison_du_joueur {vue!r}, attendu {maison}")
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="La vitesse suit-elle la vue et l'horloge avance-t-elle à chaque transition ?")
@@ -93,8 +94,7 @@ def main(argv: list[str]) -> int:
         siege = _siege(_http("GET", f"/maison?id=seigneurie-{fiche['id']}"), fiche)
         entete.append(f"{CAPITALE.ZAB} : id {fiche['id']} · siège de référence {siege}")
         debut = time.time()
-        code = JALON1._unity([str(unity), "-batchmode", "-projectPath", str(CAPITALE.PROJET), "-executeMethod", METHODE, "-forgeEpreuve", str(rapport), "-logFile", str(journal)])
-        if code != 0: raise RuntimeError(f"Unity a rendu {code}")
+        if (code := JALON1._unity([str(unity), "-batchmode", "-projectPath", str(CAPITALE.PROJET), "-executeMethod", METHODE, "-forgeEpreuve", str(rapport), "-logFile", str(journal)])) != 0: raise RuntimeError(f"Unity a rendu {code}")
         if not rapport.is_file() or rapport.stat().st_mtime + JALON1.MARGE_HORODATAGE_S < debut: raise RuntimeError(f"rapport absent ou antérieur à cet essai : {rapport.name}")
         try: lu = json.loads(rapport.read_text(encoding="utf-8"))
         except ValueError as exc: raise RuntimeError(f"rapport invalide : {exc}") from None

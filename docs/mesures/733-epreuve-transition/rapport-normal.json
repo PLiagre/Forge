@@ -1,6 +1,6 @@
 {"cellule": 10103,
  "carte_avant": {"tick": 13, "jours_par_seconde": 1.0, "scene": "Forge_Carte"},
- "ville_apres": {"tick": 14, "jours_par_seconde": 0.1, "scene": "Forge_Desert_Ville_ksar_des_sept_puits"},
- "ville_avant": {"tick": 14, "jours_par_seconde": 0.1, "scene": "Forge_Desert_Ville_ksar_des_sept_puits"},
- "carte_apres": {"tick": 16, "jours_par_seconde": 6.0, "scene": "Forge_Carte"},
+ "ville_apres": {"tick": 15, "jours_par_seconde": 0.1, "scene": "Forge_Desert_Ville_ksar_des_sept_puits"},
+ "ville_avant": {"tick": 15, "jours_par_seconde": 0.1, "scene": "Forge_Desert_Ville_ksar_des_sept_puits"},
+ "carte_apres": {"tick": 17, "jours_par_seconde": 6.0, "scene": "Forge_Carte"},
  "defaut": ""}
