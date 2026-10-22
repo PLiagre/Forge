@@ -994,7 +994,7 @@ def test_grenier_serialisation():
     monde = World.charger(0)
     assert all(p == {} for p in monde.greniers.values()) and monde.pertes_kg == 0.0
     _verifier_grenier_serialise(monde.to_dict(), monde)
-    assert set(monde.to_dict()) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert set(monde.to_dict()) == {"cells", "plans", "ticks_ecoules", "maisons", "personnages", "chefs"}
     nourriture = constantes.MARCHANDISE_NOURRITURE
     choisis = [m for m in monde.maisons if m.cell_id in monde.cells][:2]
     assert len(choisis) == 2

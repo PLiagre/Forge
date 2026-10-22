@@ -507,7 +507,7 @@ def test_depart_deterministe_sans_effet_sur_les_cellules(monkeypatch):
         assert copie["cells"] == etats[0]["cells"]
     assert etats[0] == etats[1] and empreintes[0] == empreintes[1]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[-1]) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert set(etats[-1]) == {"cells", "plans", "ticks_ecoules", "maisons", "personnages", "chefs"}
     assert etats[-1]["maisons"]
     for etat in etats:
         assert etat["maisons"] == etats[-1]["maisons"]
@@ -568,7 +568,7 @@ def test_gestes_routes_deterministes_seule_la_cellule_du_chantier(monkeypatch):
     for etat in (etats[0], etats[1], etats[3]):
         assert [rue["travail_fourni"] for rue in etat["plans"][str(route["cell"])]["rues"]] == [10 * k.TAILLE_FOYER, 7 * k.TAILLE_FOYER]
     assert all(alea.getstate() == aleas[0].getstate() for alea in aleas)
-    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons", "greniers", "pertes_kg"}
+    assert set(etats[2]) == {"cells", "plans", "ticks_ecoules", "maisons", "greniers", "pertes_kg", "personnages", "chefs"}
     stock, pertes = 1_000_000, 0
     for jours in [k.TAILLE_FOYER] * 3 + [2 * k.TAILLE_FOYER] * 7:
         perte = stock * (k.PERTE_GRENIER_PAR_AN * k.TICK_DURATION_DAYS / k.CALENDAR_DAYS_PER_YEAR)
