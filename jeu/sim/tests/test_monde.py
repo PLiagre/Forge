@@ -4939,20 +4939,16 @@ def _preparer_occupation_service(serveur, personnes=11, forme='maisons'):
     from sim import constants as k
     from sim.plan import Batiment, Parcelle, Plan
     cid = min(serveur.world.cells)
-    cell = serveur.world.cells[cid]
-    cell.habitants_par_metier = None if personnes is None else ({k.METIER_ARTISANS: personnes} if personnes else {})
-    contours = [[(0, 0), (n * k.SURFACE_M2_PAR_FOYER_LOGE, 0),
-                 (n * k.SURFACE_M2_PAR_FOYER_LOGE, 1), (0, 1)] for n in (1, 3, 5, 7, 9)]
+    serveur.world.cells[cid].habitants_par_metier = None if personnes is None else ({k.METIER_ARTISANS: personnes} if personnes else {})
+    surface = k.SURFACE_M2_PAR_FOYER_LOGE
+    contours = [[(0, 0), (n * surface, 0), (n * surface, 1), (0, 1)] for n in (1, 3, 5, 7, 9)]
     plan = Plan(parcelles=[Parcelle(i, c) for i, c in enumerate(contours)], batiments=[
         Batiment(i, i, 'scierie' if i == 4 else 'maison', c,
                  **(dict(en_chantier=True, foyers=1, travail_requis=1) if i == 3 else {}))
-        for i, c in enumerate(contours)])
-    plan.batiments.reverse()
-    if forme != 'maisons':
-        plan.batiments = [] if forme == 'vide' else [b for b in plan.batiments if b.nature == 'scierie']
+        for i, c in reversed(list(enumerate(contours)))])
+    if forme != 'maisons': plan.batiments = [] if forme == 'vide' else [b for b in plan.batiments if b.nature == 'scierie']
     serveur.world.plans[cid] = plan
     return cid
-
 
 def _lire_occupation_service(port, cid):
     from sim.service import _serialiser
@@ -4963,10 +4959,21 @@ def _lire_occupation_service(port, cid):
     assert octets == _serialiser(doc)
     return doc
 
-
 def _verifier_occupation_service(document, reference):
     assert document == reference
 
+def _reference_occupation_service(plan, personnes):
+    from sim import constants as k
+    from sim.plan import aire_du_contour
+    maisons = sorted((b for b in plan['batiments'] if b['nature'] == 'maison' and not b['en_chantier']), key=lambda b: b['identifiant'])
+    capacites = [max(1, int(aire_du_contour(b['emprise']) // k.SURFACE_M2_PAR_FOYER_LOGE)) for b in maisons]
+    demande = -1 if personnes is None else (personnes + k.TAILLE_FOYER - 1) // k.TAILLE_FOYER
+    attendus = [dict(identifiant=b['identifiant'], capacite=c,
+                     loges=-1 if demande == -1 else max(0, min(c, demande - sum(capacites[:i]))))
+                for i, (b, c) in enumerate(zip(maisons, capacites))]
+    logement = (dict(capacite=sum(capacites), loges=-1 if demande == -1 else min(demande, sum(capacites)),
+                     sans_logis=-1 if demande == -1 else max(0, demande - sum(capacites))) if plan['batiments'] else None)
+    return maisons, capacites, demande, attendus, logement
 
 @pytest.mark.parametrize('grand', [False, True])
 def test_service_occupation_base(grand):
@@ -4978,22 +4985,18 @@ def test_service_occupation_base(grand):
         maisons = requete_service(port, f'/plan?cell={cid}')[1]['base']['maisons']
         attendu = [dict(rang=i, foyers=m['foyers']) for i, m in enumerate(maisons)]
         assert maisons and sum(m['foyers'] for m in attendu) == (population + k.TAILLE_FOYER - 1) // k.TAILLE_FOYER
-        if grand:
-            assert any(m['foyers'] > 1 for m in maisons)
+        if grand: assert any(m['foyers'] > 1 for m in maisons)
         doc = _lire_occupation_service(port, cid)
         reference = dict(doc, base=attendu)
         _verifier_occupation_service(doc, reference)
         cellule = serveur.world.cells[cid]
-        cellule.population = 0
-        next(l for l in cellule.lieux if l.rang == 0).population = 0
+        cellule.population = next(l for l in cellule.lieux if l.rang == 0).population = 0
         serveur.etat_publie = serveur._construire_etat(0, -1)
         _verifier_occupation_service(_lire_occupation_service(port, cid), reference)
         alterations = [attendu[:-1], []]
-        if grand:
-            alterations.append([dict(m, foyers=1) for m in attendu])
+        if grand: alterations.append([dict(m, foyers=1) for m in attendu])
         for faux in alterations:
             pytest.raises(AssertionError, _verifier_occupation_service, dict(doc, base=faux), reference)
-
 
 @pytest.mark.parametrize('personnes,forme,constante', [
     (0, 'maisons', None), (11, 'maisons', None), (51, 'maisons', None),
@@ -5011,17 +5014,7 @@ def test_service_occupation_batiments(personnes, forme, constante, monkeypatch):
         serveur.etat_publie = serveur._construire_etat(0, -1)
         plan = requete_service(port, f'/plan?cell={cid}')[1]
         lieu = requete_service(port, f'/lieu?cell={cid}')[1]
-        maisons = sorted((b for b in plan['batiments'] if b['nature'] == 'maison' and not b['en_chantier']), key=lambda b: b['identifiant'])
-        capacites = [max(1, int(aire_du_contour(b['emprise']) // k.SURFACE_M2_PAR_FOYER_LOGE)) for b in maisons]
-        demande = -1 if personnes is None else (personnes + k.TAILLE_FOYER - 1) // k.TAILLE_FOYER
-        reste, attendus = demande, []
-        for b, capacite in zip(maisons, capacites):
-            loges = -1 if demande == -1 else min(capacite, reste)
-            attendus.append(dict(identifiant=b['identifiant'], capacite=capacite, loges=loges))
-            if demande != -1:
-                reste -= loges
-        logement = (dict(capacite=sum(capacites), loges=-1 if demande == -1 else demande - reste,
-                         sans_logis=reste) if plan['batiments'] else None)
+        maisons, capacites, demande, attendus, logement = _reference_occupation_service(plan, personnes)
         doc = _lire_occupation_service(port, cid)
         reference = dict(doc, batiments=attendus, logement=logement)
         _verifier_occupation_service(doc, reference)
@@ -5030,12 +5023,10 @@ def test_service_occupation_batiments(personnes, forme, constante, monkeypatch):
             assert len(maisons) == 3 and len(set(capacites)) == 3
             assert sum(b['capacite'] for b in doc['batiments']) == logement['capacite']
             assert all(b['loges'] == -1 if demande == -1 else 0 <= b['loges'] <= b['capacite'] for b in doc['batiments'])
-            if demande != -1:
-                assert sum(b['loges'] for b in doc['batiments']) == logement['loges']
+            if demande != -1: assert sum(b['loges'] for b in doc['batiments']) == logement['loges']
             if personnes == 11 and not constante:
                 assert 0 < attendus[1]['loges'] < attendus[1]['capacite'] and attendus[2]['loges'] == 0
-            if personnes == 51:
-                assert logement['sans_logis'] > 0 and personnes % k.TAILLE_FOYER
+            if personnes == 51: assert logement['sans_logis'] > 0 and personnes % k.TAILLE_FOYER
             if constante:
                 initiales = [max(1, int(aire_du_contour(b['emprise']) // surface_initiale)) for b in maisons]
                 assert (demande != (personnes + taille_initiale - 1) // taille_initiale if constante == 'TAILLE_FOYER' else capacites != initiales)
@@ -5051,11 +5042,8 @@ def test_service_occupation_batiments(personnes, forme, constante, monkeypatch):
                 faux['logement']['sans_logis'] -= 1
             pytest.raises(AssertionError, _verifier_occupation_service, faux, reference)
 
-
 def test_service_occupation_publication(monkeypatch):
-    from sim import constants as k
-    from sim.plan import aire_du_contour
-    from sim import ville1400 as v
+    from sim import constants as k, ville1400 as v
     calcul, appels, courses = v.base_d_une_population, [], []
     def compter(*args):
         appels.append(args)
@@ -5066,21 +5054,13 @@ def test_service_occupation_publication(monkeypatch):
             cid = _preparer_occupation_service(serveur)
             serveur.etat_publie = serveur._construire_etat(0, -1)
             assert len(appels) == course
-            plan = copy.deepcopy(serveur.world.plans[cid])
+            plan = serveur.world.plans[cid].to_dict()
             personnes = serveur.world.cells[cid].habitants_par_metier[k.METIER_ARTISANS]
-            demande = (personnes + k.TAILLE_FOYER - 1) // k.TAILLE_FOYER
-            reste, attendus = demande, []
-            for b in sorted(plan.batiments, key=lambda b: b.identifiant):
-                if b.nature == 'maison' and not b.en_chantier:
-                    capacite = max(1, int(aire_du_contour(b.emprise) // k.SURFACE_M2_PAR_FOYER_LOGE))
-                    loges = min(capacite, reste)
-                    attendus.append(dict(identifiant=b.identifiant, capacite=capacite, loges=loges))
-                    reste -= loges
+            _, _, _, attendus, logement = _reference_occupation_service(plan, personnes)
             _preparer_occupation_service(serveur, 51, 'atelier')
             ancien = _lire_occupation_service(port, cid)
-            assert ancien['batiments'] == attendus and attendus
-            assert ancien['logement'] == dict(capacite=sum(b['capacite'] for b in attendus), loges=demande - reste, sans_logis=reste)
-            assert requete_service(port, f'/plan?cell={cid}')[1]['batiments'] == plan.to_dict()['batiments']
+            assert attendus and (ancien['batiments'], ancien['logement']) == (attendus, logement)
+            assert requete_service(port, f'/plan?cell={cid}')[1]['batiments'] == plan['batiments']
             serveur.world.ticks_ecoules += 1
             serveur.etat_publie = serveur._construire_etat(0, -1)
             nouveau = _lire_occupation_service(port, cid)
@@ -5093,7 +5073,6 @@ def test_service_occupation_publication(monkeypatch):
             assert len(appels) == course + 1
             courses.append(requete_service(port, f'/occupation?cell={cid}')[2])
     assert courses[0] == courses[1]
-
 
 def test_service_occupation_refus():
     from sim.service import _serialiser
@@ -5115,14 +5094,12 @@ def test_service_occupation_refus():
         serveur.world.populations_bourg_amorcage = None
         statut, erreur, _ = requete_service(port, f'/occupation?cell={cid}')
         def verifier_refus(statut, doc):
-            assert statut == HTTPStatus.INTERNAL_SERVER_ERROR
-            assert str(cid) in doc['erreur'] and 'populations_bourg_amorcage' in doc['erreur']
+            assert statut == HTTPStatus.INTERNAL_SERVER_ERROR and str(cid) in doc['erreur'] and 'populations_bourg_amorcage' in doc['erreur']
         verifier_refus(statut, erreur)
         pytest.raises(AssertionError, verifier_refus, HTTPStatus.OK, dict(base=[]))
         serveur.world.populations_bourg_amorcage = populations
         assert _lire_occupation_service(port, cid)['base']
-        assert etat() == avant
-        assert [requete_service(port, c)[2] for c in chemins] == octets
+        assert etat() == avant and [requete_service(port, c)[2] for c in chemins] == octets
         cellule = serveur.world.cells[cid]
         cellule.population += 1
         with pytest.raises(AssertionError): assert etat() == avant
@@ -5137,7 +5114,6 @@ def test_service_occupation_refus():
         assert doc['base'] == doc['batiments'] == [] and doc['logement'] is None
         assert _lire_occupation_service(port, cid)['logement'] == dict(capacite=0, loges=0, sans_logis=0)
 
-
 def test_service_occupation_compatibilite():
     from sim.service import _serialiser
     with _service_ia_en_processus(False) as (serveur, port):
@@ -5146,11 +5122,9 @@ def test_service_occupation_compatibilite():
         chemins = ['/monde', f'/lieu?cell={cid}', f'/lieu?cell={cid}&bourg=1', f'/plan?cell={cid}']
         avant = [requete_service(port, c)[2] for c in chemins]
         doc = _lire_occupation_service(port, cid)
-        def verifier(octets):
-            assert octets == avant
-        verifier([requete_service(port, c)[2] for c in chemins])
+        _verifier_occupation_service([requete_service(port, c)[2] for c in chemins], avant)
         for ajout in (True, False):
             faux = json.loads(avant[1])
             if ajout: faux['occupation'] = doc
             else: faux['logement']['loges'] += sum(b['foyers'] for b in doc['base'])
-            pytest.raises(AssertionError, verifier, [avant[0], _serialiser(faux), *avant[2:]])
+            pytest.raises(AssertionError, _verifier_occupation_service, [avant[0], _serialiser(faux), *avant[2:]], avant)

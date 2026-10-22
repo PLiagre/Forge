@@ -522,14 +522,9 @@ Une maison finie loge `max(1, int(aire_du_contour(emprise) // SURFACE_M2_PAR_FOY
 Métiers non calculés : capacité calculée, les deux autres champs à `-1`.
 `/lieu` publie `logement` seulement si le plan porte un bâtiment, avec `foyers` et `lieux` au même tick.
 Le logement ne lit les métiers que dans la photographie, sans stockage ni effet sur le tick.
-`GET /occupation?cell=X` publie exactement `cell_id`, `rang` (0), `tick`, `date`,
-`base`, `batiments` et `logement`. Ce dernier recopie `/lieu`, ou vaut `null` s'il est absent.
-Les seules maisons achevées figurent dans `batiments`, par `identifiant` croissant,
-avec leur `capacite` calculée comme ci-dessus et leurs `loges` : chacune prend le
-minimum de sa capacité et du total publié restant. Les maisons vides restent à 0 ;
-sans métiers calculés, chaque maison publie `loges: -1`. Ces comptes sont copiés
-dans `EtatPublie` pendant la publication, sans lecture du monde mutable à la requête.
-Ce tri est une convention de présentation, sans attribution de familles dans le monde.
+`GET /occupation?cell=X` publie exactement `cell_id`, `rang` (0), `tick`, `date`, `base`, `batiments` et `logement` (copie de `/lieu`, ou `null` si absent).
+`batiments` contient les seules maisons achevées, par `identifiant` croissant : `capacite` comme ci-dessus, `loges` au minimum de cette capacité et du total publié restant (0 pour une maison vide, -1 sans métiers calculés).
+Ces comptes sont copiés dans `EtatPublie` à la publication, sans lecture du monde mutable à la requête ; le tri est une convention de présentation, sans attribution de familles dans le monde.
 Âge, sexe, parenté, logement des autres métiers et sort des sans-logis (froid, départ, santé) restent de niveau 3, non simulés.
 
 `GET /lieu?cell=X` porte `foyers` : par métier, trié par nom, ses
@@ -2752,13 +2747,8 @@ monde ni tirer d'aléa. Le dépôt ne garde aucun cache dans le monde.
 Le service calcule et sérialise la base une fois par cellule à sa première
 lecture, sous un verrou distinct du tick, puis assemble ses octets figés
 avec ceux des gestes. Le tick ne calcule ni ne sérialise de maison de base.
-Le même cache prépare `occupation.base` : `{rang, foyers}` pour chaque maison ou
-îlot, dans l'ordre de `base.maisons`. Toutes les places initiales sont habitées
-(réponse A de #411), dernier foyer incomplet compris, sans réaffectation selon la
-population courante. Ces foyers ne changent ni le logement ni ses sans-logis.
-`/occupation` refuse un `cell` absent, vide, répété ou non entier (400), une cellule
-inconnue (404), et une base absente par `BaseAbsente`, avec cellule et cause (500).
-Une cellule valide sans habitants peut publier des listes vides et des zéros mesurés.
+Le même cache prépare `occupation.base` : `{rang, foyers}` dans l'ordre de `base.maisons`. Toutes les places initiales sont habitées (réponse A de #411), dernier foyer incomplet compris, sans réaffectation selon la population courante ni changement du logement ou des sans-logis.
+`/occupation` refuse un `cell` absent, vide, répété ou non entier (400), inconnu (404), et une base absente par `BaseAbsente`, avec cellule et cause (500). Une cellule valide sans habitants peut publier des listes vides et des zéros mesurés.
 Restent de niveau 3 : découper le long d'une rue de base, démolir ou déplacer
 une maison de 1400, y loger quelqu'un, croiser une rue de base.
 
