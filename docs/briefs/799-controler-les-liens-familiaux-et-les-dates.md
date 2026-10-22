@@ -1,0 +1,40 @@
+# Lot #799 — Contrôler les liens familiaux et les dates
+Jalon : J6 · Machine : vps · Taille prévue : 285 lignes
+
+## But
+Le monde saura contrôler des liens familiaux et leurs dates avant d'accueillir les familles destinées aux mariages de J6.
+
+## Le joueur
+Préparer des familles cohérentes pour les futurs mariages : ce lot de fond protège le choix d'une alliance contre les personnes dupliquées, les parentés impossibles et les âges inventés. Il prépare le geste de #438, proposer un mariage, et l'arbre familial visible de #446. Il livre un contrôle éprouvé sur des familles non vides, pas encore une famille jouable : l'intégration du catalogue issue de la découpe de #431 fournira les personnes réelles. Aucun mariage, héritier ou nouvel écran n'est annoncé comme disponible ici.
+
+## Règle du monde
+Dépend de : #430, présent sur la base (`personnages.py`, catalogue des chefs, `World.personnages` et `World.chefs`). Ce premier morceau de #431 n'attend aucune livraison future de J4 ou J5. Il réalise le contrôle SC2 de l'ancien brief sur des familles d'épreuve ; son application aux familles de production appartient à leur intégration ultérieure.
+
+Découle de « Les personnes » et « Les maisons du monde » de `jeu/sim/MODELE.md` : l'identifiant appartient à une personne, les faits connus gardent leurs sources et leur précision, les absences sont déclarées. Niveau 1 : préserver les naissances historiques et leurs lacunes. Niveau 2 : contrôle de vraisemblance maternelle, de 15 à 45 ans révolus inclus ; les familles fictives des tests ne sont pas des faits historiques. Niveau 3 inchangé en production : familles, vieillissement, naissances et succession ne sont pas encore simulés. MODELE.md reste inchangé dans ce lot de contrôle isolé.
+
+Ajouter dans `personnages.py` un validateur public pur des liens familiaux, réutilisable lors de l'intégration. Son contrat est explicite dans sa docstring et ses tests : fiches identifiées, naissance au format existant, père et mère référencés ou absents explicitement, collection de conjoints. Il refuse par `ValueError` les identifiants vides ou dupliqués, toute référence inconnue, tout lien vers soi, un même parent dans les deux rôles, les conjoints dupliqués ou non réciproques, et tout cycle de filiation. Deux homonymes peuvent avoir des identifiants distincts. Ne pas imposer ici la monogamie ni exiger que les deux parents soient mariés ; aucune nouvelle règle de mariage.
+
+L'enfant doit naître strictement après chacun de ses parents. La mère doit avoir atteint son quinzième anniversaire et ne pas avoir atteint son quarante-sixième. Le contrôle porte sur les dates calendaires, pas sur une différence d'années ni une division par 365. Une date au jour donne une borne exacte ; un mois ou une année donne l'intervalle calendaire entier, jamais son seul premier jour. Les textes `vers` et `intervalle` restent conservés tels quels, sans leur inventer de bornes ; une naissance absente reste absente.
+
+Pour chaque contrainte chronologique, refuser une impossibilité certaine d'après les bornes disponibles ; déclarer vérifié seulement si toutes les dates compatibles la respectent. Sinon, rendre un résultat indéterminé avec les personnes concernées et son motif, y compris quand aucune borne n'est exploitable. Le bilan retourné distingue les contrôles vérifiés des non calculables : accepter une donnée incertaine ne prouve pas son âge. Les contraintes structurelles restent contrôlées même sans dates. Le validateur ne modifie aucune fiche et ne consomme aucun hasard.
+
+Le schéma fermé du catalogue, son lecteur, le constructeur et le contrat actuel de `valider_personnages` restent compatibles avec tous les contrôles existants. Ne pas contourner leur comparaison complète pour y faire passer des familles d'épreuve. Le nouveau contrôle est appelé directement sur celles-ci ; aucune clé familiale n'entre dans le catalogue ou le monde de production.
+
+## Périmètre
+jeu/sim/personnages.py
+jeu/sim/tests/test_maisons.py
+docs/briefs/799-controler-les-liens-familiaux-et-les-dates.md
+
+## Conditions de succès
+SC1 — Avant l'implémentation, ajouter les cas `familles_liens` dans `test_maisons.py`, puis lancer depuis la racine `python3 -m pytest jeu/sim/tests/test_maisons.py -q -k familles_liens` et constater leur rouge pour la capacité manquante ; conserver ce résultat dans le compte rendu remis au pilote. La même commande passe après implémentation. Contre-épreuve : aucune sélection vide, aucun test ignoré, ni seule erreur de collecte ne vaut preuve ; les tests doivent exercer le validateur réel et des refus observables, pas un contrôleur écrit seulement dans les tests.
+
+SC2 — `python3 -m pytest jeu/sim/tests/test_maisons.py -q -k familles_liens_structure` exerce une famille non vide, avec deux parents, un enfant et des conjoints réciproques, puis chaque altération isolée sur une copie. Éprouver le même validateur sur des fiches lues depuis un JSON temporaire et sur leurs équivalents en mémoire, sans passer par le lecteur fermé de production. Contre-épreuves : famille témoin vidée, identifiant vide ou dupliqué, père, mère ou conjoint inconnu, auto-parenté, auto-conjoint, parent identique dans les deux rôles, conjoint dupliqué et réciprocité rompue échouent. Un cycle sur plusieurs générations doit être refusé même avec naissances inconnues, pour que la chronologie ne masque pas l'absence de contrôle des cycles. Des homonymes distincts et une filiation sans mariage sont acceptés.
+
+SC3 — `python3 -m pytest jeu/sim/tests/test_maisons.py -q -k familles_liens_dates` accepte les mères de 15 et 45 ans révolus et refuse celles de 14 et 46 ans ; tester aussi la veille et le jour des anniversaires qui bornent cette plage. Contre-épreuves : enfant né avant son père, avant sa mère ou le même jour qu'un parent refusé ; différence d'années trompeuse, date invalide et bornes chronologiques impossibles détectées. Les témoins valides restent non vides et possèdent des âges effectivement vérifiés.
+
+SC4 — `python3 -m pytest jeu/sim/tests/test_maisons.py -q -k familles_liens_precisions` contrôle les jours, mois et années, dont un mois de février bissextile, et distingue intervalle entièrement admissible, entièrement impossible et chevauchant une limite. Vérifier aussi `vers`, `intervalle` textuel et naissance absente : valeurs conservées, résultat indéterminé motivé, aucun âge déclaré vérifié. Contre-épreuves : remplacer une année par son premier janvier, ignorer sa borne supérieure, annoncer vérifié un chevauchement ou compter une naissance inconnue comme un âge contrôlé font échouer les attentes indépendantes. Comparer les fiches avant et après chaque appel pour détecter toute normalisation ou mutation cachée.
+
+SC5 — `python3 -m pytest jeu/sim/tests/test_maisons.py jeu/sim/tests/test_determinisme.py -q` passe sans réécrire ni assouplir les tests existants. Conserver notamment couverture, sources, faits attestés, comparaison complète des personnes et chefs, copie profonde et neutralité du tick. Contre-épreuves conservées : chef retiré ou dupliqué, naissance ou source altérée, lacune vidée, copie partagée et lecture des personnes au tick restent détectées. `git diff --exit-code -- jeu/data/personnages-1400.json jeu/sim/MODELE.md` réussit ; sa contre-épreuve est toute modification de ces fichiers. Le diff complet, brief compris, reste strictement sous 300 lignes ajoutées et supprimées, mesurées par `git diff --numstat` après prise en compte du nouveau fichier par le pilote ; dépasser ce plafond impose une découpe, jamais la suppression d'un cas.
+
+## Hors périmètre
+Catalogue familial de production, recherche historique, génération de familles plausibles, modification du schéma fermé ou des attentes existantes des chefs, intégration des familles dans `World`, sérialisation familiale et réalisation des SC1, SC3, SC4 et SC5 de l'ancien lot #431. Aucun mariage proposé, règle d'alliance, désignation d'héritier, vieillissement, naissance en partie, mortalité, succession, changement économique ou démographique. Aucun service, interface ou travail Unity/Blender. Tout chemin absent du périmètre est interdit en écriture.
