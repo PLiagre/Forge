@@ -1131,6 +1131,8 @@ def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
 
     monde = World.charger(0)
     plusieurs = controles = 0
+    # À 6,2 le partage d'avant n'est identique que là où les bras suffisent vraiment.
+    retenus = set()
     for cell in monde.cells.values():
         surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         climat = monde.carte[cell.cell_id]["climat"]
@@ -1140,13 +1142,30 @@ def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
         metiers = lire_habitants_par_metier(cell)
         assert metiers != -1 and len(cell.lieux) == len(surfaces) > 0
         non_paysans = cell.population - metiers.get("paysans", 0)
+        km2 = cell.area_km2
+        km2 *= engine._facteur_relief_pour_cellule(cell, monde.carte)
+        km2 *= engine._facteur_eau_pour_cellule(cell, monde.carte)
+        km2 *= engine._facteur_agricole(cell, monde.carte)
+        km2 *= saison
+        besoin_par_km2 = foyers.besoin_bras(km2 / cell.area_km2)
+        pourvus = []
         for lieu, surface in zip(cell.lieux, surfaces):
             paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
             besoin = surface / cell.area_km2 * _km2_cultives_reference(cell, monde.carte) * saison * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+            if paysans < besoin or paysans < surfaces[lieu.rang] * besoin_par_km2:
+                pourvus = None
+                break
+            pourvus.append((paysans, besoin))
+        if pourvus is None:
+            continue
+        for paysans, besoin in pourvus:
             assert paysans >= besoin
             controles += 1
+        retenus.add(cell.cell_id)
         plusieurs += len(cell.lieux) > 1
-    assert controles >= len(monde.cells) > 0 and plusieurs > 0
+    assert retenus and controles >= len(monde.cells) > 0 and plusieurs > 0
+    print(f"partage ancien, jour={jour} : {controles} lieux pourvus, "
+          f"{len(retenus)} cellules, {plusieurs} à plusieurs lieux", flush=True)
     partager = engine._produire_sur_les_lieux
 
     # Corps historiques de c126e40^, sans le facteur de bras alors égal à 1.
@@ -1185,6 +1204,8 @@ def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
         rng_actuel, rng_ancien = random.Random(0), random.Random(0)
         releve_actuel, releve_ancien = ({} if avec_releve else None for _ in range(2))
         for cid, cell in actuel.cells.items():
+            if cid not in retenus:
+                continue
             if jour is None:
                 engine._apply_production_saison_moyenne(cell, rng_actuel, actuel.carte, releve_actuel)
                 ancienne_moyenne(ancien.cells[cid], rng_ancien, ancien.carte, releve_ancien)
