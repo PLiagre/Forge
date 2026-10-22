@@ -19,21 +19,36 @@ namespace Forge.Pont
     }
 
     // Une rue telle que `sim/` la tient : rien n'est calculé ni borné ici.
+    // `PorteCellId` null : aucune porte commerciale déclarée, jamais déduite des points.
     public sealed class RueDuPlan
     {
         public long Identifiant { get; }
         public IReadOnlyList<PointLocal> Points { get; }
         public double LargeurM { get; }
         public bool EnChantier { get; }
+        public long? PorteCellId { get; }
 
-        public RueDuPlan(long identifiant, IList<PointLocal> points, double largeurM, bool enChantier)
+        public RueDuPlan(long identifiant, IList<PointLocal> points, double largeurM, bool enChantier, long? porteCellId = null)
         {
             if (points == null) throw new ArgumentNullException(nameof(points));
             Identifiant = identifiant;
             Points = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(points));
             LargeurM = largeurM;
             EnChantier = enChantier;
+            PorteCellId = porteCellId;
         }
+    }
+
+    // Une observation du dernier jour joué, relue telle quelle : `MotifArret` null quand le chantier a travaillé.
+    public sealed class ChantierDuJour
+    {
+        public string Nature { get; }
+        public long Identifiant { get; }
+        public long Bras { get; }
+        public double GrainPayeKg { get; }
+        public string MotifArret { get; }
+        public ChantierDuJour(string nature, long identifiant, long bras, double grainPayeKg, string motifArret)
+        { Nature = nature ?? throw new ArgumentNullException(nameof(nature)); Identifiant = identifiant; Bras = bras; GrainPayeKg = grainPayeKg; MotifArret = motifArret; }
     }
 
     // Une parcelle telle que `sim/` la tient : contour en mètres locaux, chantier et travail relus tels quels.
@@ -89,11 +104,13 @@ namespace Forge.Pont
         public IReadOnlyList<PointLocal> Points { get; }
         public double LargeurM { get; }
         public string Sorte { get; }
-        public RueDeBase(IList<PointLocal> points, double largeurM, string sorte)
+        public long? VersCellId { get; } // null : aucun débouché déclaré vers une autre cellule.
+        public RueDeBase(IList<PointLocal> points, double largeurM, string sorte, long? versCellId = null)
         {
             Points = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(points ?? throw new ArgumentNullException(nameof(points))));
             LargeurM = largeurM;
             Sorte = sorte ?? throw new ArgumentNullException(nameof(sorte));
+            VersCellId = versCellId;
         }
     }
 
@@ -131,9 +148,14 @@ namespace Forge.Pont
         public IReadOnlyList<ParcelleDuPlan> Parcelles { get; }
         public IReadOnlyList<BatimentDuPlan> Batiments { get; }
         public BaseDuPlan Base { get; } // null : le service ne sert pas de ville de 1400, aucune n'est inventée.
+        // Null : aucun relevé du dernier jour, `AbsenceDesChantiersDuJour` nomme la cause ; une liste vide est une mesure.
+        public IReadOnlyList<ChantierDuJour> ChantiersDuJour { get; }
+        public string AbsenceDesChantiersDuJour { get; }
 
-        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments, BaseDuPlan @base = null)
+        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments, BaseDuPlan @base = null, IList<ChantierDuJour> chantiersDuJour = null, string absenceDesChantiersDuJour = null)
         {
+            ChantiersDuJour = chantiersDuJour == null ? null : new ReadOnlyCollection<ChantierDuJour>(new List<ChantierDuJour>(chantiersDuJour));
+            AbsenceDesChantiersDuJour = chantiersDuJour == null ? absenceDesChantiersDuJour ?? "relevé du jour non fourni" : null;
             if (rues == null) throw new ArgumentNullException(nameof(rues));
             if (parcelles == null) throw new ArgumentNullException(nameof(parcelles));
             if (batiments == null) throw new ArgumentNullException(nameof(batiments));
@@ -251,7 +273,8 @@ namespace Forge.Pont
                 for (int i = 0; i < brutsBatiments.Count; i++)
                     batiments.Add(Batiment(brutsBatiments[i], "batiments[" + i.ToString(CultureInfo.InvariantCulture) + "]", identifiantsParcelles));
 
-                return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments, objet.TryGetValue("base", out object brute) ? Base(brute, relu) : null));
+                List<ChantierDuJour> chantiers = objet.TryGetValue("chantiers_du_jour", out object releve) ? ChantiersDuJour(releve) : null;
+                return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments, objet.TryGetValue("base", out object brute) ? Base(brute, relu) : null, chantiers, "clé absente : chantiers_du_jour"));
             }
             catch (CleRefusee refus)
             {
@@ -290,7 +313,36 @@ namespace Forge.Pont
             if (!(chantier is bool enChantier))
                 throw new CleRefusee("clé " + cheminChantier + " : un booléen attendu, reçu " + Decrire(chantier));
 
-            return new RueDuPlan(identifiant, points, largeur, enChantier);
+            return new RueDuPlan(identifiant, points, largeur, enChantier, Cellule(rue, "porte_cell_id", chemin));
+        }
+
+        // Une cellule visée, facultative : clé absente ou null, aucune ; sinon un entier ≥ 0 exact, ou le plan est refusé.
+        private static long? Cellule(Dictionary<string, object> objet, string cle, string chemin) =>
+            objet.TryGetValue(cle, out object valeur) && valeur != null ? Entier(valeur, chemin + "." + cle, 0) : (long?)null;
+
+        // Le relevé du dernier jour, copié dans l'ordre servi : aucun tri, aucun filtre, aucun recalcul.
+        private static List<ChantierDuJour> ChantiersDuJour(object valeur)
+        {
+            List<object> brutes = Tableau(valeur, "chantiers_du_jour");
+            var chantiers = new List<ChantierDuJour>(brutes.Count);
+            for (int i = 0; i < brutes.Count; i++)
+            {
+                string chemin = "chantiers_du_jour[" + i.ToString(CultureInfo.InvariantCulture) + "]";
+                var chantier = Objet(brutes[i], chemin);
+                object nature = Valeur(chantier, "nature", chemin + ".nature");
+                if (!(nature is string texte) || (texte != "rue" && texte != "parcelle" && texte != "batiment"))
+                    throw new CleRefusee("clé " + chemin + ".nature : rue, parcelle ou batiment attendu, reçu " + Decrire(nature));
+                long identifiant = Entier(Valeur(chantier, "identifiant", chemin + ".identifiant"), chemin + ".identifiant", 0);
+                long bras = Entier(Valeur(chantier, "bras", chemin + ".bras"), chemin + ".bras", 0);
+                double kg = Nombre(Valeur(chantier, "grain_paye_kg", chemin + ".grain_paye_kg"), chemin + ".grain_paye_kg");
+                if (double.IsNaN(kg) || double.IsInfinity(kg) || kg < 0)
+                    throw new CleRefusee("clé " + chemin + ".grain_paye_kg : un nombre fini ≥ 0 attendu, reçu " + kg.ToString("R", CultureInfo.InvariantCulture));
+                object motif = Valeur(chantier, "motif_arret", chemin + ".motif_arret");
+                if (motif != null && (!(motif is string raison) || string.IsNullOrWhiteSpace(raison)))
+                    throw new CleRefusee("clé " + chemin + ".motif_arret : un texte non vide ou null attendu, reçu " + Decrire(motif));
+                chantiers.Add(new ChantierDuJour(texte, identifiant, bras, kg, (string)motif));
+            }
+            return chantiers;
         }
 
         private sealed class CleRefusee : Exception
@@ -332,7 +384,7 @@ namespace Forge.Pont
             return new BatimentDuPlan(identifiant, parcelle, nature, emprise, enChantier, requis, fourni);
         }
 
-        // La ville de 1400 sous `base`, relue dans l'ordre servi (sans `vers_cell_id`) ; mal formée, elle refuse le plan.
+        // La ville de 1400 sous `base`, relue dans l'ordre servi, `vers_cell_id` compris ; mal formée, elle refuse le plan.
         private static BaseDuPlan Base(object valeur, long cellId)
         {
             var @base = Objet(valeur, "base");
@@ -348,7 +400,7 @@ namespace Forge.Pont
                 if (!(largeur > 0)) throw new CleRefusee("clé " + chemin + ".largeur_m : une largeur > 0 attendue, reçu " + largeur.ToString("R", CultureInfo.InvariantCulture));
                 object sorte = Valeur(rue, "sorte", chemin + ".sorte");
                 if (!(sorte is string texte) || string.IsNullOrWhiteSpace(texte)) throw new CleRefusee("clé " + chemin + ".sorte : un texte non vide attendu, reçu " + Decrire(sorte));
-                rues.Add(new RueDeBase(Contour(rue, "points", chemin + ".points", 2), largeur, texte));
+                rues.Add(new RueDeBase(Contour(rue, "points", chemin + ".points", 2), largeur, texte, Cellule(rue, "vers_cell_id", chemin)));
             }
             brutes = Tableau(Valeur(@base, "maisons", "base.maisons"), "base.maisons");
             var maisons = new List<MaisonDeBase>(brutes.Count);
