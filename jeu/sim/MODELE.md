@@ -1892,9 +1892,9 @@ Tout changement de production, de faim ou de départs exige de remesurer.
 
 **Calibration de la part coutumière à 6,2, sans départs.** Le même protocole
 (graine 0, 365 ticks numérotés, `random.Random(0)`, `TAUX_DE_DEPART = 0`)
-garde les bras du lot #720 à 6,2. À part nulle, il reste 35898086 habitants ;
-la part 0,03 en laisse 35546994 (perte 0,98 %), la part 0,04 en laisse
-35404525 (perte 1,37 %). La borne de 1 % reste tenue pour 0,03 et
+garde les bras du lot #720 à 6,2. À part nulle, il reste 35898495 habitants ;
+la part 0,03 en laisse 35546850 (perte 0,98 %), la part 0,04 en laisse
+35404646 (perte 1,38 %). La borne de 1 % reste tenue pour 0,03 et
 dépassée pour 0,04. Ces mesures sont de niveau 2, plausibles, jamais sourcées.
 
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
