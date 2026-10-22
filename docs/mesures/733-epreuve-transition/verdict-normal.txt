@@ -1,0 +1,18 @@
+Lot #733, mesure PC : py pc\epreuve_transition.py --sortie "$env:TEMP\lot733-normal" -> $LASTEXITCODE 0, 22/10/2026 02:01:33–02:02:06, PC Windows 11 Pro, Unity 6000.0.43f1, révision afcebf3b + attente du choix bornée (correction), une session #732.
+ÉGALITÉ
+code 0
+graine 0 · départ 1 j/s
+réglages ReglagesDesVues.json : VITESSE_VILLE 0.1 · VITESSE_CARTE 6
+Émirat du Zab : id 6 · siège de référence 10103
+cellule : 10103 · attendu siège 10103 · égal
+carte_avant scène : 'Forge_Carte' · attendu 'Forge_Carte' · égal
+carte_avant vitesse : 1.0 j/s · attendu 1 j/s · égal
+ville_apres scène : 'Forge_Desert_Ville_ksar_des_sept_puits' · attendu 'Forge_Desert_Ville_ksar_des_sept_puits' · égal
+ville_apres vitesse : 0.1 j/s · attendu 0.1 j/s · égal
+ville_avant scène : 'Forge_Desert_Ville_ksar_des_sept_puits' · attendu 'Forge_Desert_Ville_ksar_des_sept_puits' · égal
+ville_avant vitesse : 0.1 j/s · attendu 0.1 j/s · égal
+carte_apres scène : 'Forge_Carte' · attendu 'Forge_Carte' · égal
+carte_apres vitesse : 6.0 j/s · attendu 6 j/s · égal
+descente : ticks 13 → 15 · attendu ville_apres > carte_avant · égal
+en ville : ticks 15 → 15 · attendu ville_avant ≥ ville_apres · égal
+retour : ticks 15 → 17 · attendu carte_apres > ville_avant · égal
