@@ -7,7 +7,7 @@ namespace ForgeLocal3D
     // un comptoir temporaire, sur la place, reçoit les denrées (EtalDuBourg, #780), référence : la nourriture initiale lue.
     // 01 relève la place nourrie à 19,6 h ; 02 vide le panier une seule fois (POST /epreuve/vider-panier), relit les trois routes et
     // réapplique aux mêmes objets. -forgeGarderEtalPlein saute la seule seconde application de l'étal : l'anomalie est relevée, pas cachée.
-    // Rapport : `vie-bourg.json` du dossier des captures, réécrit à chaque étape ; son défaut reste nommé tant que la session n'a pas fini.
+    // Rapport : `vie-bourg.json` du dossier des captures, réécrit à chaque étape ; son défaut reste nommé jusqu'à la trace CAPTURE_SCENARIO_OK de 02.
     public static class EpreuveVieDuBourg
     {
         public const double Heure=19.6;public const string GarderEtalPlein="-forgeGarderEtalPlein";const string Siege="Biskra",Vivres="nourriture";
@@ -22,14 +22,15 @@ namespace ForgeLocal3D
 
         public static IEnumerator Nourrie(Camera camera)=>Derouler(PlaceNourrie(camera));
         public static IEnumerator Affamee(Camera camera)=>Derouler(PlaceAffamee(camera));
-        // Toute exception nomme son étape dans le rapport, puis fait échouer la capture.
+        // Toute exception nomme son étape dans le rapport, puis fait échouer la capture. Photo : la capture de 02 (même appel de Capture) réussit le rapport par sa trace OK, ou y inscrit son erreur.
         static IEnumerator Derouler(IEnumerator corps)
         {while(true){bool suite;try{suite=corps.MoveNext();}catch(Exception e){Ecrire(etape+" : "+e.GetBaseException().Message);throw;}if(!suite)yield break;yield return null;}}
         static void Etape(string nom){etape=nom;Ecrire("session interrompue pendant : "+nom);}
+        static void Photo(string m,string pile,LogType t){bool ok=m.StartsWith("CAPTURE_SCENARIO_OK ")&&m.Contains("--02-place-affamee.png");if(!ok&&(t==LogType.Log||t==LogType.Warning))return;Application.logMessageReceived-=Photo;Ecrire(ok?null:etape+" : "+m.Split('\n')[0]);}
 
         static IEnumerator PlaceNourrie(Camera camera)
         {
-            etats.Clear();ids.Clear();soir.Clear();cellule=-1;cadrage=null;temoin=null;etal=null;if(racine)Object.Destroy(racine.gameObject);Etape("ouverture de "+Siege);
+            Application.logMessageReceived-=Photo;etats.Clear();ids.Clear();soir.Clear();cellule=-1;cadrage=null;temoin=null;etal=null;if(racine)Object.Destroy(racine.gameObject);Etape("ouverture de "+Siege);
             outil=Object.FindFirstObjectByType<DesertRoadTool>()??throw Faux("pas d'outil des routes");var ville=camera.GetComponent<DesertCityCamera>()??throw Faux("pas de caméra de ville");
             var lieu=Object.FindFirstObjectByType<PanneauLieu>()??throw Faux("pas de panneau du lieu");var env=Object.FindFirstObjectByType<DesertEnvironment>()??throw Faux("pas de DesertEnvironment");
             // VillageV2Visit reprend la caméra à chaque image : sans ça, les deux photos ne cadrent plus la place.
@@ -64,7 +65,7 @@ namespace ForgeLocal3D
             if(Matrice(camera)!=cadrage)throw Faux("cadrage changé depuis la place nourrie");
             Champ(camera,Contre);Relever("affamee",l.b.Donnees,camera);
             if(Contre)Debug.Log("CAPTURE_781 contre-épreuve "+GarderEtalPlein+" : "+Visibles(camera)+" garniture(s) alimentaire(s) visible(s) au panier vide");
-            Ecrire(null);
+            Etape("photo de la place affamée");Application.logMessageReceived+=Photo;
         }
 
         static Task<(LecturePlan p,Lecture<BourgLu> b,Lecture<OccupationLue> o)> Lire(int port)
@@ -138,7 +139,6 @@ namespace ForgeLocal3D
         static Renderer Bloc(PrimitiveType t,Transform parent,string nom,Vector3 pos,Vector3 taille,string matiere)
         {
             var g=GameObject.CreatePrimitive(t);g.name=nom;g.transform.SetParent(parent,false);g.transform.localPosition=pos;g.transform.localScale=taille;var r=g.GetComponent<Renderer>();
-            if(nom!="denrée")Object.DestroyImmediate(g.GetComponent<Collider>()); // Seules les denrées arrêtent le rayon qui prouve qu'on les voit.
             r.sharedMaterial=AssetDatabase.LoadAssetAtPath<Material>("Assets/ForgeLocal3D/Desert/Materials/"+matiere+".mat")??throw Faux("matériau "+matiere+" absent du projet");return r;
         }
         static Vector2 Proche(Vector2 a,Vector2 b,Vector2 p){var ab=b-a;return a+ab*Mathf.Clamp01(Vector2.Dot(p-a,ab)/Mathf.Max(ab.sqrMagnitude,1e-6f));}
@@ -149,11 +149,11 @@ namespace ForgeLocal3D
         static void Champ(Camera camera,bool garnie)
         {
             Physics.SyncTransforms();var o=camera.transform.position;bool Dans(Vector3 p){var v=camera.WorldToViewportPoint(p);return v.z>0f&&v.x>.02f&&v.x<.98f&&v.y>.02f&&v.y<.98f;}
-            bool Libre(Vector3 p,Transform de)=>!Physics.Raycast(o,p-o,out var h,Vector3.Distance(o,p)-.05f)||h.transform.IsChildOf(de);
+            bool Libre(Vector3 p,params Transform[] de)=>!Physics.Raycast(o,p-o,out var h,Vector3.Distance(o,p)-.05f)||de.Any(x=>h.transform.IsChildOf(x));
             var mb=temoin.GetComponentsInChildren<MeshRenderer>().Select(r=>r.bounds).Aggregate((a,x)=>{a.Encapsulate(x);return a;});var toit=new Vector3(mb.center.x,mb.max.y,mb.center.z);
             var f=temoin.Fumee.transform.position;var lampe=temoin.Lampe.transform.position;var cb=comptoir.bounds;
             string bilan=temoin.name+" : toit "+camera.WorldToViewportPoint(toit).ToString("F2")+", fumée "+camera.WorldToViewportPoint(f).ToString("F2")+", lampe "+camera.WorldToViewportPoint(lampe).ToString("F2")+", comptoir "+camera.WorldToViewportPoint(cb.center).ToString("F2");
-            if(!Dans(toit)||!Dans(mb.center)||!Dans(f)||!Dans(f+Vector3.up*1.5f)||!Dans(lampe)||!Dans(cb.min)||!Dans(cb.max)||!comptoir.enabled||!Libre(toit,temoin.transform)||!Libre(cb.center+Vector3.up*cb.extents.y,etal.transform))
+            if(!Dans(toit)||!Dans(mb.center)||!Dans(f)||!Dans(f+Vector3.up*1.5f)||!Dans(lampe)||!Dans(cb.min)||!Dans(cb.max)||!comptoir.enabled||!Libre(toit,temoin.transform)||!Libre(cb.center+Vector3.up*cb.extents.y,comptoir.transform,etal.Garniture))
                 throw Faux("hors du champ ou caché, "+bilan);
             if(garnie)
             {
@@ -163,8 +163,8 @@ namespace ForgeLocal3D
             Debug.Log("CAPTURE_781 "+bilan);
         }
 
-        // Les mesures se prennent sur les objets de la session, jamais sur ce qu'on attend : -1 non calculé, 0 est une mesure.
-        static bool Montre(Renderer r,Camera c)=>r.enabled&&r.gameObject.activeInHierarchy&&r.bounds.size.y>1e-4f&&GeometryUtility.TestPlanesAABB(GeometryUtility.CalculateFrustumPlanes(c),r.bounds);
+        // Les mesures se prennent sur les objets de la session, jamais sur ce qu'on attend : -1 non calculé, 0 est une mesure. Montré : actif, haut, dans le champ, et touché le premier par un rayon de la caméra (auvent, poteaux, maisons ont leurs colliders).
+        static bool Montre(Renderer r,Camera c){Physics.SyncTransforms();var o=c.transform.position;var b=r.bounds;return r.enabled&&r.gameObject.activeInHierarchy&&b.size.y>1e-4f&&GeometryUtility.TestPlanesAABB(GeometryUtility.CalculateFrustumPlanes(c),b)&&new[]{b.center,new Vector3(b.center.x,b.max.y-.02f,b.center.z)}.Any(p=>Physics.Raycast(o,p-o,out var h,Vector3.Distance(o,p)+.5f)&&h.transform==r.transform);}
         static int Visibles(Camera c)=>racine.GetComponentsInChildren<EtalDuBourg>().Where(e=>e.Marchandise==Vivres&&e.Garniture).SelectMany(e=>e.Garniture.GetComponentsInChildren<Renderer>(true)).Count(r=>Montre(r,c));
         static float Haut(Transform g)
         {

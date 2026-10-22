@@ -22,7 +22,7 @@ namespace ForgeLocal3D
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
     //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L] [-forgeServiceEpreuve]
     // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N ; `--epreuve` avec
-    // -forgeServiceEpreuve, sinon rien ne change) : le panneau du lieu
+    // -forgeServiceEpreuve ou pour un lot marqué [Capture.ServiceEpreuve], sinon rien ne change) : le panneau du lieu
     // montre alors les vrais chiffres. La scène du désert se construit à l'exécution (terrain, ville) :
     // on entre en Play, on laisse passer quelques images, on attend que le panneau ait lu le service,
     // on photographie la caméra de la scène (le plan fixe), on écrit le texte du panneau, puis on
@@ -56,6 +56,7 @@ namespace ForgeLocal3D
         const string PANNEAU_EN_ATTENTE = "service absent : en attente";
 
         public const string SERVICE_EPREUVE = "-forgeServiceEpreuve";
+        [AttributeUsage(AttributeTargets.Class)] public sealed class ServiceEpreuveAttribute : Attribute { } // la chaîne (pc.py) ne passe pas le drapeau
         // Le dossier de -forgeCaptures, où un scénario écrit aussi son rapport.
         public static string DossierDesCaptures => SessionState.GetString(Dossier, ".");
 
@@ -175,7 +176,7 @@ namespace ForgeLocal3D
             try
             {
                 string python = Interpreteur();
-                string epreuve = Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE) ? " --epreuve" : "";
+                string epreuve = Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE) || TypeCache.GetMethodsWithAttribute<ScenarioDeCaptureAttribute>().Any(m => m.GetCustomAttribute<ScenarioDeCaptureAttribute>().Lot == SessionState.GetInt(Lot, -1) && m.DeclaringType.IsDefined(typeof(ServiceEpreuveAttribute), false)) ? " --epreuve" : "";
                 var info = new ProcessStartInfo(python, "-m sim.service --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0" + epreuve)
                 {
                     WorkingDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "jeu")),
