@@ -1578,3 +1578,140 @@ def test_personnes_serialisation(monkeypatch):
     document['personnages'][0]['sources']['identite']['fait'] = 'Altéré'
     document['chefs']['seigneurie-6']['lacune'] = 'Altérée'
     assert _octets_registre(monde.to_dict()) == original
+
+
+def _naissance_famille(valeur, precision='jour'):
+    return None if valeur is None else {'valeur': valeur, 'precision': precision}
+
+
+def _famille_liens():
+    return [{'id': i, 'nom': 'Homonyme', 'naissance': _naissance_famille(n),
+             'pere': 'p' if i == 'e' else None, 'mere': 'm' if i == 'e' else None,
+             'conjoints': conjoints}
+            for i, n, conjoints in [('p', '1350-01-01', ['m']),
+                                    ('m', '1360-06-15', ['p']), ('e', '1380-06-15', [])]]
+
+
+def _controler_famille(fiches):
+    from sim.personnages import valider_liens_familiaux
+    import random
+    avant, hasard = copy.deepcopy(fiches), random.getstate()
+    try:
+        return valider_liens_familiaux(fiches)
+    finally:
+        assert fiches == avant
+        assert random.getstate() == hasard
+
+
+@pytest.mark.parametrize('json_lu', [False, True])
+@pytest.mark.parametrize('chemin,valeur', [
+    ((), []), ((0, 'id'), ''), ((0, 'id'), ' '), ((0, 'id'), 'e'),
+    ((2, 'pere'), 'inconnu'), ((2, 'mere'), 'inconnue'), ((0, 'conjoints'), ['inconnu']),
+    ((2, 'pere'), 'e'), ((2, 'mere'), 'e'), ((0, 'conjoints'), ['p']),
+    ((2, 'mere'), 'p'), ((0, 'conjoints'), ['m', 'm']), ((1, 'conjoints'), []),
+    ((2, 'pere'), 'SUPPRIMER'), ((2, 'mere'), 'SUPPRIMER'),
+    ((2, 'naissance'), 'SUPPRIMER'), ((2, 'conjoints'), 'SUPPRIMER'),
+    ((0, 'conjoints'), 'm'), ((2, 'pere'), ''),
+])
+def test_familles_liens_structure_refus(tmp_path, json_lu, chemin, valeur):
+    def lire(fiches):
+        return json.loads(_ecrire(tmp_path, fiches).read_text()) if json_lu else fiches
+    famille = _famille_liens()
+    bilan = _controler_famille(lire(famille))
+    assert len(bilan['verifies']) == 3 and bilan['indetermines'] == []
+    alteree = _alterer_personnages(famille, chemin, valeur) if chemin else valeur
+    with pytest.raises(ValueError): _controler_famille(lire(alteree))
+
+
+def test_familles_liens_structure_cycles_et_libertes():
+    famille = _famille_liens()
+    for fiche in famille:
+        fiche['naissance'], fiche['conjoints'] = None, []
+    assert len(_controler_famille(famille)['indetermines']) == 3
+    famille[0]['pere'], famille[1]['pere'] = 'm', 'e'
+    with pytest.raises(ValueError, match='cycle'): _controler_famille(famille)
+    famille = _famille_liens()
+    famille.append({**copy.deepcopy(famille[1]), 'id': 'autre'})
+    famille[0]['conjoints'].append('autre')
+    assert len(_controler_famille(famille)['verifies']) == 3
+
+
+@pytest.mark.parametrize('date,acceptee', [
+    ('1374-06-15', False), ('1375-06-14', False), ('1375-06-15', True),
+    ('1405-06-15', True), ('1406-06-14', True), ('1406-06-15', False),
+])
+def test_familles_liens_dates_anniversaires(date, acceptee):
+    famille = _famille_liens()
+    famille[2]['naissance'] = _naissance_famille(date)
+    if acceptee:
+        bilan = _controler_famille(famille)
+        assert bilan['indetermines'] == [] and len(bilan['verifies']) == 3
+        assert {'contrainte': 'age_maternel', 'personnes': ('m', 'e')} in bilan['verifies']
+    else:
+        with pytest.raises(ValueError): _controler_famille(famille)
+
+
+@pytest.mark.parametrize('index,date', [
+    (0, '1380-06-15'), (0, '1380-06-16'), (1, '1380-06-15'), (1, '1380-06-16'),
+    (2, '1380-02-30'), (2, '1380-13-01'), (2, '1380-2-01'),
+])
+def test_familles_liens_dates_refus(index, date):
+    famille = _famille_liens()
+    famille[index]['naissance'] = _naissance_famille(date)
+    with pytest.raises(ValueError): _controler_famille(famille)
+
+
+@pytest.mark.parametrize('mere,pm,enfant,pe,attendu', [
+    ('1360', 'annee', '1380', 'annee', 'verifies'),
+    ('1360', 'annee', '1375', 'annee', 'indetermines'),
+    ('1360', 'annee', '1374', 'annee', 'refus'),
+    ('1360', 'annee', '1405', 'annee', 'verifies'),
+    ('1360', 'annee', '1406', 'annee', 'indetermines'),
+    ('1360', 'annee', '1407', 'annee', 'refus'),
+    ('1360-06', 'mois', '1375-06', 'mois', 'indetermines'),
+    ('1360-06', 'mois', '1375-07', 'mois', 'verifies'),
+    ('1360-06', 'mois', '1375-05', 'mois', 'refus'),
+    ('1360-02', 'mois', '1375-02-28', 'jour', 'indetermines'),
+    ('1360-02', 'mois', '1375-03-01', 'jour', 'verifies'),
+    ('1360-02-29', 'jour', '1375-02-28', 'jour', 'refus'),
+    ('1360-02-29', 'jour', '1375-03-01', 'jour', 'verifies'),
+    ('1360-02-29', 'jour', '1406-02-28', 'jour', 'verifies'),
+    ('1360-02-29', 'jour', '1406-03-01', 'jour', 'refus'),
+    ('vers 1360', 'vers', '1380', 'annee', 'indetermines'),
+    ('1359 ou 1360', 'intervalle', '1380', 'annee', 'indetermines'),
+    (None, 'jour', '1380', 'annee', 'indetermines'),
+    ('1360', 'annee', None, 'jour', 'indetermines'),
+    ('1360', 'annee', 'vers 1380', 'vers', 'indetermines'),
+    ('1360', 'annee', '1379 ou 1380', 'intervalle', 'indetermines'),
+])
+def test_familles_liens_precisions_ages(mere, pm, enfant, pe, attendu):
+    famille = _famille_liens()
+    famille[1]['naissance'], famille[2]['naissance'] = (
+        _naissance_famille(mere, pm), _naissance_famille(enfant, pe))
+    if attendu == 'refus':
+        with pytest.raises(ValueError): _controler_famille(famille)
+        return
+    bilan = _controler_famille(famille)
+    ages = [c for c in bilan[attendu] if c['contrainte'] == 'age_maternel']
+    assert len(ages) == 1 and ages[0]['personnes'] == ('m', 'e')
+    contraire = 'verifies' if attendu == 'indetermines' else 'indetermines'
+    assert not any(c['contrainte'] == 'age_maternel' for c in bilan[contraire])
+    assert all(c['motif'].strip() and len(c['personnes']) == 2 for c in bilan['indetermines'])
+
+
+@pytest.mark.parametrize('pere,enfant,attendu', [
+    ('1380', '1380', 'indetermines'), ('1380', '1381', 'verifies'),
+    ('1381', '1380', 'refus'), ('1380-02', '1380-02-29', 'indetermines'),
+    ('1380-02', '1380-03-01', 'verifies'), ('1380-02', '1380-01-31', 'refus'),
+])
+def test_familles_liens_precisions_anteriorite(pere, enfant, attendu):
+    famille = _famille_liens()
+    for index, valeur in ((0, pere), (2, enfant)):
+        precision = {4: 'annee', 7: 'mois', 10: 'jour'}[len(valeur)]
+        famille[index]['naissance'] = _naissance_famille(valeur, precision)
+    if attendu == 'refus':
+        with pytest.raises(ValueError): _controler_famille(famille)
+    else:
+        bilan = _controler_famille(famille)
+        assert any(c['contrainte'] == 'anteriorite' and c['personnes'] == ('p', 'e')
+                   for c in bilan[attendu])
