@@ -783,7 +783,7 @@ def test_tick_bit_pres_sur_une_annee(monkeypatch):
 
 
 def _point_registre_bit_pres(monde, alea, retour):
-    document = monde.to_dict()
+    document = _sans_personnes(monde)
     document.pop("maisons")
     for cellule in document["cells"].values():
         for lieu in cellule["lieux"]:
@@ -817,6 +817,7 @@ def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
     normal = World.charger(graine_monde, copy.deepcopy(carte))
     with monkeypatch.context() as contexte:
         contexte.setattr(etat_monde, "charger_registre_maisons", lambda carte: ())
+        contexte.setattr(etat_monde, 'construire_personnages', lambda monde: ((), {}))
         contexte.setattr(maitres, "attribuer_maitres", lambda monde: ({}, ()))
         temoin = World.charger(graine_monde, copy.deepcopy(carte))
     assert normal is not temoin and normal.maisons and temoin.maisons == ()
@@ -1015,7 +1016,7 @@ def test_part_bit_pres(monkeypatch):
     def empreintes(monde, rng, retours):
         assert monde.cells and all(c.lieux for c in monde.cells.values())
         return tuple(hashlib.sha256(b).hexdigest() for b in (
-            json.dumps(monde.to_dict(), sort_keys=True).encode(),
+            json.dumps(_sans_personnes(monde), sort_keys=True).encode(),
             pickle.dumps(([dataclasses.asdict(c) for c in monde.cells.values()], monde.stocks_mer, rng.getstate(), retours))))
     mesures = {}
     for seed in (0, 42):
@@ -1053,7 +1054,7 @@ def _empreintes_prelevement(monde, rng, retours):
                 monde.stocks_mer, rng.getstate(), retours, greniers, convois,
                 monde.mange_convois_kg, monde.pertes_kg)
     return tuple(hashlib.sha256(octets).hexdigest() for octets in (
-        json.dumps(monde.to_dict(), sort_keys=True).encode(), pickle.dumps(physique)))
+        json.dumps(_sans_personnes(monde), sort_keys=True).encode(), pickle.dumps(physique)))
 
 
 def _verifier_prelevement(observe):
@@ -1136,3 +1137,37 @@ def test_du_au_suzerain_bit_pres():
     with pytest.raises(AssertionError):
         verifier(mesures | {(42, 20): _empreintes_prelevement(monde, rng, retours)})
     print(f'points figés avec dû={len(_DU_BASE)}, points inchangés={len(reference) - len(_DU_BASE)}')
+
+
+def _sans_personnes(monde):
+    document = monde.to_dict()
+    for cle in ('personnages', 'chefs'):
+        document.pop(cle)
+    return document
+
+
+@pytest.mark.parametrize('graine', (0, 42))
+def test_personnes_neutres(monkeypatch, graine):
+    from sim import personnages as p, world as w
+    monde = World.charger(graine)
+    temoin = copy.deepcopy(monde)
+    temoin.personnages, temoin.chefs = (), {}
+    initial = copy.deepcopy((monde.personnages, monde.chefs))
+    aleas = [random.Random(graine), random.Random(graine)]
+    original = World.__getattribute__
+    def intercepter(self, nom):
+        if nom in ('personnages', 'chefs'):
+            raise RuntimeError('personnes consultées au tick')
+        return original(self, nom)
+    def refuser(*a): raise RuntimeError('personnes consultées au tick')
+    for numero in range(3):
+        with monkeypatch.context() as garde:
+            garde.setattr(World, '__getattribute__', intercepter)
+            for module, nom in ((p, 'charger_catalogue'), (p, 'construire_personnages'), (w, 'construire_personnages')):
+                garde.setattr(module, nom, refuser)
+                with pytest.raises(RuntimeError): getattr(module, nom)(monde)
+            for nom in ('personnages', 'chefs'):
+                with pytest.raises(RuntimeError): getattr(monde, nom)
+            retours = [engine.tick(m, rng, numero) for m, rng in zip((monde, temoin), aleas)]
+        assert (monde.personnages, monde.chefs, temoin.personnages, temoin.chefs) == (*initial, (), {})
+        assert _empreintes_prelevement(monde, aleas[0], retours[0]) == _empreintes_prelevement(temoin, aleas[1], retours[1])

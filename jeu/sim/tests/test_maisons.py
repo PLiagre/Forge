@@ -763,6 +763,7 @@ def test_registre_world(registre, monkeypatch):
     retraits += [m for m in attendu if m.nom in homonymes]
     faux = [tuple(m for m in attendu if m.id != retiree.id) for retiree in retraits]
     faux += [(), (dataclasses.replace(attendu[0], nom="Altérée"),) + attendu[1:]]
+    monkeypatch.setattr(etat_monde, 'construire_personnages', lambda monde: ((), {}))
     for resultat in faux:
         monkeypatch.setattr(etat_monde, "charger_registre_maisons", lambda carte: resultat)
         with pytest.raises(AssertionError):
@@ -1486,3 +1487,94 @@ def test_personnages_attestes():
     for copie in alterations:
         with pytest.raises(AssertionError):
             _personnages_attestes(copie)
+
+
+def test_personnes_catalogue(registre, tmp_path, monkeypatch):
+    from sim import personnages as p
+    monde, references, charger, _ = registre
+    document, vue = _personnages(), charger()
+    chemin = tmp_path / 'personnes.json'
+    def lire(copie):
+        chemin.write_text(json.dumps(copie), encoding='utf-8')
+        return p.charger_catalogue(vue, chemin)
+    assert lire(document) == document['chefs']
+    # Rejouer toutes les mutations de sources de #771 contre le lecteur réel.
+    monkeypatch.setattr(sys.modules[__name__], '_personnages_sources', lire)
+    test_personnages_sources()
+    for maison in vue:
+        with pytest.raises(ValueError):
+            lire({**document, 'chefs': [c for c in document['chefs'] if c['maison'] != maison.id]})
+    for lignes in (document['chefs'] * 2, [{**document['chefs'][0], 'maison': i} for i in ('inconnue', 'plausible-1')]):
+        with pytest.raises(ValueError): lire({**document, 'chefs': lignes})
+    with pytest.raises(ValueError): p.charger_catalogue(vue + (dataclasses.replace(vue[0], id='grande-999'),))
+    for contenu in ('{', '{}', 'null'):
+        chemin.write_text(contenu, encoding='utf-8')
+        with pytest.raises(ValueError): p.charger_catalogue(vue, chemin)
+    with pytest.raises(ValueError): p.charger_catalogue(vue, tmp_path / 'absent')
+    monkeypatch.setattr(p, 'CHEMIN', chemin)
+    with pytest.raises(ValueError): World.charger(0)
+
+
+def test_personnes_chefs():
+    from sim import personnages as p
+    from sim.noms import noms_depuis_monde
+    monde, document = World.charger(0), _personnages()
+    historiques = {c['maison']: c for c in document['chefs']}
+    noms = {i: f for v in noms_depuis_monde(monde).values() for i, f in v['maisons'].items()}
+    def preuve(personnes, chefs):
+        assert personnes and set(chefs) == {m.id for m in monde.maisons}
+        attendu = [{**c, 'id': 'personne-' + c['maison'], 'origine': 'historique'} for c in historiques.values() if c['nom']]
+        attendu += [{'id': 'personne-' + m.id, 'maison': m.id, 'origine': 'plausible',
+                     'nom': noms[m.id]['prenom_chef'] + ' ' + noms[m.id]['nom'], 'naissance': None,
+                     'sources': {'identite': None, 'naissance': None},
+                     'lacunes': {'identite': None, 'naissance': 'Naissance inconnue du chef plausible.'}}
+                    for m in monde.maisons if m.sorte == 'plausible']
+        assert list(personnes) == sorted(attendu, key=lambda c: c['id'])
+        p.valider_personnages(personnes, chefs, monde.maisons, list(historiques.values()), noms)
+    preuve(monde.personnages, monde.chefs)
+    assert all(any(m.sorte == s and monde.chefs[m.id]['personnage'] for m in monde.maisons) for s in ('institution', 'plausible', 'seigneurie'))
+    assert any(m.cell_id is None and monde.chefs[m.id]['personnage'] for m in monde.maisons)
+    for c in historiques.values():
+        assert monde.chefs[c['maison']] == {'personnage': 'personne-' + c['maison'] if c['nom'] else None, 'lacune': c['lacunes']['identite']}
+    for chemin, valeur in ((('personnages',), monde.personnages[1:]), (('personnages', 0, 'id'), 'invalide'),
+                           (('personnages', 0, 'maison'), 'inconnue'), (('personnages', 0, 'nom'), 'Altéré'),
+                           (('personnages', 0, 'naissance'), {'valeur': '1367', 'precision': 'annee'}),
+                           (('chefs', 'seigneurie-6', 'lacune'), ''),
+                           *[(('chefs', c['maison'], 'personnage'), monde.personnages[0]['id']) for c in historiques.values() if c['maison'] != monde.personnages[0]['maison']],
+                           (('chefs', 'institution-12'), 'SUPPRIMER'), (('personnages',), monde.personnages * 2)):
+        copie = _alterer_personnages({'personnages': list(monde.personnages), 'chefs': monde.chefs}, chemin, valeur)
+        with pytest.raises((AssertionError, ValueError)): preuve(copie['personnages'], copie['chefs'])
+        with pytest.raises(ValueError): p.valider_personnages(copie['personnages'], copie['chefs'], monde.maisons, document['chefs'], noms)
+
+
+def test_personnes_serialisation(monkeypatch):
+    from sim import personnages as p
+    appels = []
+    lecteur = p.charger_catalogue
+    monkeypatch.setattr(p, 'charger_catalogue', lambda *a: appels.append(a) or lecteur(*a))
+    monde = World.charger(0)
+    assert World({}, []).personnages == () and World({}, []).chefs == {}
+    document, original = monde.to_dict(), _octets_registre(monde.to_dict())
+    assert len(appels) == 1
+    assert World.charger(42).personnages == monde.personnages
+    catalogue = _personnages()
+    monkeypatch.setattr(p, 'charger_catalogue', lambda *a: list(reversed(catalogue['chefs'])))
+    carte = World.lire_carte()
+    monkeypatch.setattr(etat_monde, 'charger_registre_maisons', lambda c: tuple(reversed(charger_registre_maisons(c))))
+    assert _octets_registre(World.charger(0, carte).to_dict()) == original
+    carte['cellules'].reverse()
+    permute = World.charger(0, carte).to_dict()
+    assert _octets_registre(permute) == original
+    def refuser(*a): raise RuntimeError('lecture interdite')
+    for module, nom in ((p, 'charger_catalogue'), (p, 'construire_personnages'), (etat_monde, 'construire_personnages')):
+        monkeypatch.setattr(module, nom, refuser)
+    for chemin, valeur in ((('personnages',), []), (('chefs',), {}), (('personnages', 0, 'nom'), 'Altéré'),
+                           (('personnages', 0, 'naissance', 'valeur'), 'inconnue'),
+                           (('personnages', 0, 'sources', 'identite', 'fait'), 'Altéré'), (('chefs', 'seigneurie-6', 'lacune'), 'Altérée')):
+        copie = copy.copy(monde)
+        altere = _alterer_personnages(document, chemin, valeur)
+        copie.personnages, copie.chefs = tuple(altere['personnages']), altere['chefs']
+        assert _octets_registre(copie.to_dict()) == _octets_registre(altere) != original
+    document['personnages'][0]['sources']['identite']['fait'] = 'Altéré'
+    document['chefs']['seigneurie-6']['lacune'] = 'Altérée'
+    assert _octets_registre(monde.to_dict()) == original
