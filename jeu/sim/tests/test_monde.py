@@ -5156,7 +5156,6 @@ def _verifier_epreuve(document, reference, tick):
     assert [l['stocks'] for l in document['lieux']] == [l.stocks for l in sorted(reference.lieux, key=lambda l: l.rang)]
     assert {nom: sum(l['stocks'][nom] for l in document['lieux']) for nom in reference.stocks} == reference.stocks
 
-
 def test_service_epreuve_reserve(monkeypatch):
     with _service_epreuve() as (serveur, port):
         cid = next(c.cell_id for c in serveur.world.cells.values() if c.population > 0)
@@ -5181,6 +5180,7 @@ def test_service_epreuve_reserve(monkeypatch):
 @pytest.mark.parametrize('autre', [False, True])
 def test_service_epreuve_panier(autre, monkeypatch):
     import pickle
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[3]))
     from pc.epreuve_jalon4 import depart_biskra
     from sim import constants as k, engine
     from sim.model import ecrire_stock_marchandise
