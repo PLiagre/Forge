@@ -556,6 +556,29 @@ def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str,
     return "rejouer"
 
 
+# Un rouge que la base de la PR portait déjà n'est pas au lot. Le 22 octobre
+# 2026, #785 (du Blender seul) a usé ses deux corrections sur le rouge
+# `chronometre` de master, rouge depuis #772 : deux réponses sans changement,
+# puis bloqué, alors que le mécanicien réparait master le même matin.
+ETAT_BASE_ROUGE = "base_rouge"
+
+
+def rouge_de_la_base(rouges: set[str], base: dict[str, str], master: dict[str, str]) -> str:
+    """Ce que fait le pilote d'une CI rouge dont la base est peut-être en cause.
+
+    `rouges` : les travaux rouges de la PR, sans l'agrégat ; `base` et
+    `master` : l'état des travaux du commit d'où part la PR et de la tête de
+    master (`github.travaux_du_commit`). « » : un des rouges est au lot, le
+    codeur corrige. « attendre » : master porte encore ce rouge, ou n'a pas
+    fini de le jouer ; le mécanicien de master répare, le lot ne compte pas
+    d'essai. « fusionner » : master l'a guéri depuis, la branche le reçoit."""
+    if not rouges or not rouges <= {n for n, e in base.items() if e == "rouge"}:
+        return ""
+    if any(master.get(n) != "vert" for n in rouges):
+        return "attendre"
+    return "fusionner"
+
+
 # La question que le chef pose au propriétaire, quand un lot demande une
 # décision que lui seul peut prendre (un test ou une règle du monde à
 # changer) : « DECISION: QUESTION :: <la question> », une ligne par réponse
