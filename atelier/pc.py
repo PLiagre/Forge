@@ -56,10 +56,11 @@ def lier_vendor(chantier: Path, source: Path) -> None:
 
 
 def compiler_et_photographier(chantier: Path, sortie: Path, *, delai: int = 1800,
-                              lot: int | None = None) -> tuple[bool, list[Path], str]:
+                              lot: int | None = None, drapeaux: tuple[str, ...] = ()) -> tuple[bool, list[Path], str]:
     """Unity en batch : le projet compile-t-il, et que montre la scène ? Le
     plan fixe d'abord, puis une photo par scénario de capture du `lot`
-    (`<scène>--<nom>.png`, voir `ScenarioDeCapture.cs`).
+    (`<scène>--<nom>.png`, voir `ScenarioDeCapture.cs`). `drapeaux` : ceux
+    que le brief donne à sa capture (`sessions_de_capture`).
 
     Sans `-nographics` : une caméra doit rendre. Le runner tourne sous la
     session du propriétaire, là où vivent le GPU et la licence Unity.
@@ -70,7 +71,7 @@ def compiler_et_photographier(chantier: Path, sortie: Path, *, delai: int = 1800
     # Pas de `-quit` : la capture entre en Play, et c'est elle qui rend la main.
     argv = [str(unity_de(projet)), "-batchmode", "-projectPath", str(projet),
             "-executeMethod", METHODE_CAPTURE, "-logFile", str(journal), "-forgeCaptures", str(sortie),
-            *(["-forgeLot", str(lot)] if lot is not None else [])]
+            *(["-forgeLot", str(lot)] if lot is not None else []), *drapeaux]
     try:
         fini = subprocess.run(argv, capture_output=True, text=True, timeout=delai)
         code = fini.returncode
@@ -81,6 +82,68 @@ def compiler_et_photographier(chantier: Path, sortie: Path, *, delai: int = 1800
     images = sorted(sortie.glob("*.png"))
     fin = "\n".join((erreurs or texte.splitlines())[-30:])
     return code == 0 and not erreurs, images, fin
+
+
+# La capture que le brief écrit, la chaîne la rejoue telle quelle. Jusqu'au
+# 22 octobre 2026, le PC photographiait sans les drapeaux du brief : graine
+# et tick par défaut (#624, #657), et sans `-forgeServiceEpreuve`, #781 a
+# échoué à sa seconde photo puis s'est bloqué, sa contre-épreuve jamais jouée.
+_TABLEAU = re.compile(r"\$(\w+)\s*=\s*@\(([^)]*)\)")
+_JETON = re.compile(r"'([^']*)'|\"([^\"]*)\"|([^\s'\"]+)")
+# Ce que la chaîne donne elle-même à chaque session.
+_DRAPEAUX_DE_LA_CHAINE = ("-forgeLot", "-forgeCaptures")
+# La photo et deux contre-épreuves au plus : chaque session coûte un Unity.
+SESSIONS_MAX = 3
+
+
+def _drapeaux(jetons: list[str]) -> dict[str, str | None]:
+    """Les drapeaux `-forge…` d'une commande, et la valeur qui suit chacun."""
+    vus: dict[str, str | None] = {}
+    for i, jeton in enumerate(jetons):
+        if jeton.startswith("-forge"):
+            suivant = jetons[i + 1] if i + 1 < len(jetons) else None
+            vus[jeton] = suivant if suivant is not None and not suivant.startswith("-") else None
+    return vus
+
+
+def sessions_de_capture(brief: str, lot: int) -> list[tuple[str, ...]]:
+    """Les sessions de capture que le brief écrit pour ce lot : chaque
+    commande de `ForgeLocal3D.Capture.Photographier` qui passe `-forgeLot
+    <lot>`, directe ou par un tableau PowerShell (`$commun = @(…)`, puis
+    `@commun`), donne ses autres drapeaux `-forge…`. La première session,
+    celle qui en a le moins, est la photo ; les suivantes, ses
+    contre-épreuves. Une valeur que le brief laisse à remplir (`$dossier`,
+    `<cellule>`) ne se rejoue pas : sa commande est écartée. Vide : le brief
+    n'écrit aucune capture, le PC photographie comme avant."""
+    tableaux: dict[str, list[str]] = {}
+    commandes: list[list[str]] = []
+    for ligne in brief.splitlines():
+        for morceau in re.findall(r"`([^`]+)`", ligne) or [ligne]:
+            tableau = _TABLEAU.search(morceau)
+            if tableau:
+                jetons = [a or b for a, b in re.findall(r"'([^']*)'|\"([^\"]*)\"", tableau.group(2))]
+                if METHODE_CAPTURE in jetons:
+                    tableaux[tableau.group(1)] = jetons
+                    commandes.append(jetons)
+                continue
+            jetons = []
+            for a, b, c in _JETON.findall(morceau):
+                jeton = a or b or c
+                jetons += tableaux.get(jeton[1:], [jeton]) if jeton.startswith("@") else [jeton]
+            if METHODE_CAPTURE in jetons:
+                commandes.append(jetons)
+    sessions: list[tuple[str, ...]] = []
+    for jetons in commandes:
+        vus = _drapeaux(jetons)
+        if vus.get("-forgeLot") != str(lot):
+            continue
+        gardes = {d: v for d, v in vus.items() if d not in _DRAPEAUX_DE_LA_CHAINE}
+        if any(v is not None and v[:1] in "$<" for v in gardes.values()):
+            continue
+        session = tuple(j for d, v in gardes.items() for j in ((d,) if v is None else (d, v)))
+        if session not in sessions:
+            sessions.append(session)
+    return sorted(sessions, key=len)[:SESSIONS_MAX]
 
 
 # La part des pixels qui doivent avoir changé depuis le plan fixe pour qu'une
@@ -116,30 +179,80 @@ def _photo_du_lot(images: list[Path]) -> tuple[str, str]:
                                + ", après le plan fixe.")
 
 
-def regarder_avec_unity(chantier: Path, numero: int, sha: str, date: str, *, unity, publier) -> Photos:
+_TRACE = re.compile(r"^CAPTURE_\w+.*$", re.M)
+# Ce qu'une session joint au compte rendu : le relecteur, sur le VPS, n'a
+# que ces lignes pour juger une session qu'il ne peut pas rejouer.
+TRACES_MAX, RAPPORT_MAX = 20, 12000
+
+
+def _ce_qu_elle_a_ecrit(dossier: Path) -> str:
+    """Les traces `CAPTURE_…` du journal d'Unity et les rapports `.json` des
+    scénarios d'une session, repliés sous un `<details>`."""
+    journal = dossier / "unity.log"
+    traces = _TRACE.findall(journal.read_text(encoding="utf-8", errors="replace")) if journal.exists() else []
+    blocs = []
+    if traces:
+        blocs.append("Traces d'Unity :\n\n```\n" + "\n".join(traces[-TRACES_MAX:]) + "\n```")
+    for rapport in sorted(dossier.glob("*.json")):
+        texte = rapport.read_text(encoding="utf-8-sig", errors="replace")
+        coupe = f"\n… coupé à {RAPPORT_MAX} caractères sur {len(texte)}" if len(texte) > RAPPORT_MAX else ""
+        blocs.append(f"`{rapport.name}` :\n\n```json\n{texte[:RAPPORT_MAX]}{coupe}\n```")
+    if not blocs:
+        return ""
+    return "\n\n<details><summary>Ce que la session a écrit</summary>\n\n" + "\n\n".join(blocs) + "\n\n</details>"
+
+
+def _en_ligne(drapeaux: tuple[str, ...]) -> str:
+    return "`" + " ".join(drapeaux) + "`"
+
+
+def regarder_avec_unity(chantier: Path, numero: int, sha: str, date: str, *, unity, publier,
+                        brief: str = "") -> Photos:
     """Unity sur la révision poussée : compile-t-il, et que montre la scène ?
+    La photo se prend comme le brief l'écrit, puis chaque contre-épreuve
+    qu'il écrit se joue dans un dossier neuf (`sessions_de_capture`).
     Une panne d'Unity ne perd jamais le travail du codeur : elle se dit."""
+    sessions = sessions_de_capture(brief, numero) or [()]
     with tempfile.TemporaryDirectory(prefix="unity-") as tmp:
-        try:
-            ok, images, fin = unity(chantier, Path(tmp), lot=numero)
-        except Exception as e:  # noqa: BLE001
-            return Photos(note=f"⚠️ **Unity** n'a pas tourné sur le PC : {e}", marque={"unity": "absent"})
-        photo, sur_la_photo = _photo_du_lot(images)
+        jouees = []
+        for n, drapeaux in enumerate(sessions):
+            dossier = Path(tmp) / f"session-{n}"
+            try:
+                ok, images, fin = unity(chantier, dossier, lot=numero, drapeaux=drapeaux)
+            except Exception as e:  # noqa: BLE001
+                if n == 0:
+                    return Photos(note=f"⚠️ **Unity** n'a pas tourné sur le PC : {e}", marque={"unity": "absent"})
+                ok, images, fin = False, [], f"{type(e).__name__}: {e}"
+            jouees.append((drapeaux, ok, images, fin, _ce_qu_elle_a_ecrit(dossier)))
+        photo, sur_la_photo = _photo_du_lot(jouees[0][2])
         nommees = []
-        for i, image in enumerate(images):
-            nom = Path(tmp) / f"lot-{numero}-{sha[:7]}-{i}-{image.name}"
-            image.rename(nom)
-            nommees.append(nom)
+        for n, (_, _, images, _, _) in enumerate(jouees):
+            for i, image in enumerate(images):
+                nom = Path(tmp) / (f"lot-{numero}-{sha[:7]}-{i}-{image.name}" if n == 0
+                                   else f"lot-{numero}-{sha[:7]}-contre{n}-{i}-{image.name}")
+                image.rename(nom)
+                nommees.append(nom)
         try:
             urls = publier(nommees, date) if nommees else []
         except Exception:  # noqa: BLE001 — une capture manquée ne retient pas le lot
             urls = []
+    drapeaux, ok, _, fin, ecrit = jouees[0]
+    capture = f"\n\n🎬 **Capture** : {_en_ligne(drapeaux)}, comme l'écrit le brief." if drapeaux else ""
+    contres = "".join(
+        f"\n\n🔁 **Contre-épreuve** {_en_ligne(d)} : Unity "
+        + ("a fini la session (sortie 0)" if bon else f"n'a pas fini la session :\n\n```\n{dernier}\n```")
+        + f", {len(images)} image(s).{texte}"
+        for d, bon, images, dernier, texte in jouees[1:])
     if ok:
         return Photos(urls=urls, marque={"unity": "vert", "photo": photo},
                       note="✅ **Unity** compile cette révision sur le PC" + ("." if urls else ", sans rendre d'image.")
-                           + f"\n\n{sur_la_photo}")
+                           + f"\n\n{sur_la_photo}{capture}{ecrit}{contres}")
+    # Un scénario qui échoue après la compilation n'est pas une erreur de
+    # compilation : le 22 octobre 2026, le 404 nommé de #781 se lisait ainsi.
+    quoi = ("ne compile pas cette révision sur le PC" if re.search(r"error CS\d+", fin)
+            else "compile cette révision sur le PC, mais la capture n'a pas abouti")
     return Photos(urls=urls, marque={"unity": "rouge"},
-                  note=f"⚠️ **Unity** ne compile pas cette révision sur le PC, ou n'a pas rendu :\n\n```\n{fin}\n```")
+                  note=f"⚠️ **Unity** {quoi} :\n\n```\n{fin}\n```{capture}{ecrit}{contres}")
 
 
 def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, branche: str, pr: int,
@@ -155,8 +268,10 @@ def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, branche:
 
     def photographe(chemin: Path, lot: Lot, sha: str) -> Photos:
         carte = pilote._photographier(chemin, lot, sha)
+        brief = chemin / lot.brief(projet.dossier_briefs)
         vu = regarder_avec_unity(chemin, lot.numero, sha, date, unity=unity,
-                                 publier=lambda fichiers, jour: publier(depot, gh.depot, fichiers, jour))
+                                 publier=lambda fichiers, jour: publier(depot, gh.depot, fichiers, jour),
+                                 brief=brief.read_text(encoding="utf-8") if brief.is_file() else "")
         return Photos(urls=vu.urls + carte.urls, note=vu.note, marque=vu.marque)
 
     try:
