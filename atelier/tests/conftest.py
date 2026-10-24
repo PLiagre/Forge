@@ -66,6 +66,7 @@ class FauxGitHub(GitHub):
     tetes_fusionnees: list = field(default_factory=list)
     variables_: dict[str, str] = field(default_factory=dict)
     fichiers_: dict[int, list[str]] = field(default_factory=dict)
+    travaux_: dict[str, dict[str, str]] = field(default_factory=dict)
     suivant: int = 100
 
     def __post_init__(self):
@@ -200,6 +201,13 @@ class FauxGitHub(GitHub):
 
     def dernier_run(self, workflow, branche):
         return {"status": "completed", "conclusion": "success", "databaseId": 1, "url": "https://x/run/1"}
+
+    def base_de_fusion(self, base, tete):
+        return "c" * 40
+
+    def travaux_du_commit(self, reference):
+        """Sans `travaux_`, la base n'a aucun rouge : le codeur corrige."""
+        return self.travaux_.get(reference, {})
 
     def lancer_workflow(self, workflow, reference, champs):
         self.gestes.append(("lancer_workflow", workflow, dict(champs)))
