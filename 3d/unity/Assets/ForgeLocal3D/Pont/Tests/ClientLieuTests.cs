@@ -661,5 +661,133 @@ namespace Forge.Pont.Tests
             Servir(200, corps);
             StringAssert.Contains("clé lieux[1].population :", Absence(CellFigee).Absence);
         }
+
+        // Lot #778 — un faux service qui note chaque demande et répond selon elle ; null ne répond jamais.
+        private readonly List<string> demandes = new List<string>();
+        private void Repondre(Func<string, (int Statut, string Corps)?> reponse)
+        {
+            demandes.Clear(); ecoute = new HttpListener(); ecoute.Prefixes.Add("http://127.0.0.1:" + port + "/"); ecoute.Start(); var auditeur = ecoute;
+            fil = new Thread(() => { while (true) {
+                HttpListenerContext c; try { c = auditeur.GetContext(); } catch (Exception) { return; }
+                lock (demandes) demandes.Add(c.Request.Url.PathAndQuery);
+                var r = reponse(c.Request.Url.PathAndQuery); if (r == null) continue;
+                byte[] octets = Encoding.UTF8.GetBytes(r.Value.Corps); c.Response.StatusCode = r.Value.Statut;
+                if (r.Value.Statut == 302) c.Response.RedirectLocation = "http://127.0.0.1:" + port + "/ailleurs";
+                c.Response.ContentLength64 = octets.Length; c.Response.OutputStream.Write(octets, 0, octets.Length); c.Response.OutputStream.Close(); } }) { IsBackground = true };
+            fil.Start();
+        }
+        // Témoins : le bloc local diffère toujours des chiffres cellulaires (faim, population, panier).
+        private static string Bourg(string stocks = "\"fer\":0.0,\"nourriture\":12.345678901,\"sel_futur\":0.75", long faim = 3, long faimCellule = 0, long tick = 17) =>
+            "{\"bourg\":{\"duree_faim_ticks\":" + faim + ",\"population\":4321,\"rang\":0,\"stocks\":{" + stocks + "},\"tick\":" + tick + "},\"cell_id\":9922,\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + (tick + 1)
+            + "},\"hunger_ticks\":" + faimCellule + ",\"lieux\":[],\"population\":109741,\"stocks\":{\"fer\":625.868635,\"nourriture\":1092551.560271},\"tick\":" + tick + "}";
+        private const string Maisons = "{\"capacite\":4,\"identifiant\":2,\"loges\":4},{\"capacite\":3,\"identifiant\":5,\"loges\":1},{\"capacite\":2,\"identifiant\":9,\"loges\":0}";
+        private static string Occupation(string ilots = "{\"foyers\":3,\"rang\":0},{\"foyers\":1,\"rang\":1}", string maisons = Maisons, string logement = "{\"capacite\":9,\"loges\":5,\"sans_logis\":0}", long tick = 17) =>
+            "{\"base\":[" + ilots + "],\"batiments\":[" + maisons + "],\"cell_id\":9922,\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + (tick + 1) + "},\"logement\":" + logement + ",\"rang\":0,\"tick\":" + tick + "}";
+        private static T Lue<T>(Lecture<T> lecture) where T : class { Assert.IsTrue(lecture.Presente && lecture.Absence == null, lecture.Absence); return lecture.Donnees; }
+        private static void Absente<T>(Lecture<T> lecture, params string[] morceaux) where T : class
+        { Assert.IsTrue(!lecture.Presente && lecture.Donnees == null && lecture.Absence.Contains("9922"), lecture.Absence); foreach (string m in morceaux) StringAssert.Contains(m, lecture.Absence); }
+        private Lecture<T> Vie<T>(Func<ClientVieDuBourg, Lecture<T>> lire) where T : class { using (var client = new ClientVieDuBourg(port, Delai)) return lire(client); }
+
+        [TestCase("\"fer\":0.0,\"nourriture\":12.345678901,\"sel_futur\":0.75", 3, 0)] [TestCase("\"fer\":0.0,\"nourriture\":12.345678901,\"sel_futur\":0.75", 0, 5)]
+        [TestCase("\"fer\":0.0,\"nourriture\":0.0", 0, 0)] [TestCase("\"nourriture\":12.345678901,\"sel_futur\":0.75", 3, 0)]
+        public void LeBourgEstReluExactement(string stocks, long faim, long faimCellule)
+        {
+            string corps = Bourg(stocks, faim, faimCellule); Repondre(_ => (200, corps));
+            BourgLu b = Lue(Vie(c => c.LireBourg(CellFigee)));
+            var attendus = (Dictionary<string, object>)((Dictionary<string, object>)LecteurJson.LireObjet(corps)["bourg"])["stocks"];
+            CollectionAssert.AreEqual(new[] { "/lieu?cell=9922&bourg=1" }, demandes);
+            Assert.IsTrue(b.CellId == 9922 && b.Rang == 0 && b.Tick == 17 && b.TickLocal == 17 && b.Date.Annee == 1400 && b.Date.JourDeLAnnee == 18 && b.Population == 4321 && b.DureeFaimTicks == faim);
+            CollectionAssert.AreEquivalent(attendus.Keys, b.Stocks.Keys);
+            foreach (var m in attendus) Assert.IsTrue(b.Stocks[m.Key] == (double)m.Value, m.Key);
+            Assert.IsTrue(b.Stocks.ContainsKey("fer") == stocks.Contains("fer"), "une marchandise retirée reste absente");
+            Assert.Throws<NotSupportedException>(() => ((IDictionary<string, double>)b.Stocks).Add("x", 1));
+        }
+
+        [TestCase("temoin", "0:3 1:1|2/4/4 5/3/1 9/2/0|9/5/0")] [TestCase("null", "0:3 1:1||null")]
+        [TestCase("non-calcules", "0:3 1:1|2/4/-1 5/3/-1 9/2/-1|9/-1/-1")] [TestCase("vide", "||0/0/0")]
+        public void LesMaisonsGardentLeursComptesServis(string cas, string attendu)
+        {
+            string corps = cas == "temoin" ? Occupation() : cas == "null" ? Occupation(maisons: "", logement: "null") : cas == "vide" ? Occupation("", "", "{\"capacite\":0,\"loges\":0,\"sans_logis\":0}")
+                : Occupation(maisons: Maisons.Replace("\"loges\":4", "\"loges\":-1").Replace("\"loges\":1", "\"loges\":-1").Replace("\"loges\":0", "\"loges\":-1"), logement: "{\"capacite\":9,\"loges\":-1,\"sans_logis\":-1}");
+            Repondre(_ => (200, corps));
+            OccupationLue o = Lue(Vie(c => c.LireOccupation(CellFigee)));
+            CollectionAssert.AreEqual(new[] { "/occupation?cell=9922" }, demandes);
+            Assert.IsTrue(o.CellId == 9922 && o.Rang == 0 && o.Tick == 17 && o.Date.JourDeLAnnee == 18);
+            string lu = string.Join(" ", o.Base.Select(i => i.Rang + ":" + i.Foyers)) + "|" + string.Join(" ", o.Batiments.Select(m => m.Identifiant + "/" + m.Capacite + "/" + m.Loges))
+                + "|" + (o.Logement == null ? "null" : o.Logement.Capacite + "/" + o.Logement.Loges + "/" + o.Logement.SansLogis);
+            Assert.AreEqual(attendu, lu);
+            Assert.AreEqual(cas == "null" || cas == "non-calcules", o.RaisonDuLogement != null, o.RaisonDuLogement);
+            Assert.Throws<NotSupportedException>(() => ((IList<(long, long)>)o.Base).Add((9, 9)));
+        }
+
+        private static string Json(object v) => v == null ? "null" : v is bool b ? (b ? "true" : "false") : v is double d ? d.ToString("R", CultureInfo.InvariantCulture) : v is string s ? "\"" + s + "\""
+            : v is List<object> l ? "[" + string.Join(",", l.Select(Json)) + "]" : "{" + string.Join(",", ((Dictionary<string, object>)v).Select(p => "\"" + p.Key + "\":" + Json(p.Value))) + "}";
+        // `chemin` : clés séparées par des points, `[i]` pour un indice ; "retrait" retire la clé. Le corps rendu reste un JSON valide et diffère du témoin.
+        private static string Muter(string temoin, string chemin, object valeur)
+        {
+            var racine = LecteurJson.LireObjet(temoin); object parent = racine; string[] pas = chemin.Replace("[", ".[").Split('.'); string fin = pas[pas.Length - 1];
+            for (int i = 0; i < pas.Length - 1; i++) parent = pas[i].StartsWith("[") ? ((List<object>)parent)[int.Parse(pas[i].Trim('[', ']'))] : ((Dictionary<string, object>)parent)[pas[i]];
+            if (fin.StartsWith("[")) ((List<object>)parent)[int.Parse(fin.Trim('[', ']'))] = valeur;
+            else if (Equals(valeur, "retrait")) Assert.IsTrue(((Dictionary<string, object>)parent).Remove(fin), chemin); else ((Dictionary<string, object>)parent)[fin] = valeur;
+            string corps = Json(racine); Assert.AreNotEqual(Json(LecteurJson.LireObjet(temoin)), corps, chemin); LecteurJson.LireObjet(corps); return corps;
+        }
+        private static IEnumerable<TestCaseData> FautesDeVie()
+        {
+            foreach (string c in new[] { "cell_id", "tick", "date", "date.annee", "date.jour_de_l_annee", "bourg", "bourg.rang", "bourg.population", "bourg.stocks", "bourg.duree_faim_ticks", "bourg.tick" })
+                yield return new TestCaseData(true, c, "retrait");
+            foreach (string c in new[] { "cell_id", "rang", "tick", "date", "date.annee", "date.jour_de_l_annee", "base", "base[1].rang", "base[1].foyers", "batiments", "batiments[1].identifiant", "batiments[1].capacite", "batiments[1].loges", "logement", "logement.capacite", "logement.loges", "logement.sans_logis" })
+                yield return new TestCaseData(false, c, "retrait");
+            object[][] alterations = { new object[] { true, "cell_id", 9923d }, new object[] { true, "bourg.rang", 1d }, new object[] { true, "bourg.tick", 16d }, new object[] { true, "bourg.stocks.fer", -0.5 }, new object[] { true, "bourg.stocks.sel_futur", null },
+                new object[] { true, "bourg.population", -1d }, new object[] { true, "tick", 17.5 }, new object[] { true, "bourg.duree_faim_ticks", 9007199254740992d }, new object[] { true, "bourg.stocks", "x" }, new object[] { true, "date.jour_de_l_annee", 0d },
+                new object[] { false, "cell_id", 9921d }, new object[] { false, "rang", 1d }, new object[] { false, "tick", -1d }, new object[] { false, "base", true }, new object[] { false, "base[1].rang", 0d }, new object[] { false, "base[1].rang", 2d },
+                new object[] { false, "base[0].foyers", 0d }, new object[] { false, "batiments[0]", "x" }, new object[] { false, "batiments[1].identifiant", 2d }, new object[] { false, "batiments[0].capacite", 9007199254740992d },
+                new object[] { false, "batiments[2].capacite", 1.5 }, new object[] { false, "batiments[2].loges", 3d }, new object[] { false, "batiments[1].loges", -1d }, new object[] { false, "logement.sans_logis", -1d },
+                new object[] { false, "logement.loges", 6d }, new object[] { false, "logement.capacite", 10d }, new object[] { false, "logement", null }, new object[] { false, "logement", "x" } };
+            foreach (object[] a in alterations) yield return new TestCaseData(a);
+            yield return new TestCaseData(true, "json", null); yield return new TestCaseData(false, "json", null);
+        }
+        [TestCaseSource(nameof(FautesDeVie))]
+        public void ChaqueFauteDuBourgNommeSonCheminSansResultatPartiel(bool bourg, string chemin, object valeur)
+        {
+            string temoin = bourg ? Bourg() : Occupation(), corps = chemin == "json" ? Remplacer(temoin, "\"jour_de_l_annee\":18", "\"jour_de_l_annee\":1e309") : Muter(temoin, chemin, valeur), servi = corps;
+            if (chemin == "json") Assert.Throws<ErreurJson>(() => LecteurJson.LireObjet(corps));
+            string attendu = chemin == "json" ? "JSON invalide" : Equals(valeur, "retrait") ? "clé absente : " + chemin : "clé " + chemin + " :";
+            Repondre(_ => (200, servi));
+            using (var client = new ClientVieDuBourg(port, Delai))
+            {
+                if (bourg) Absente(client.LireBourg(CellFigee), attendu); else Absente(client.LireOccupation(CellFigee), attendu);
+                servi = temoin;
+                Assert.IsTrue(bourg ? Lue(client.LireBourg(CellFigee)).Stocks["fer"] == 0.0 : Lue(client.LireOccupation(CellFigee)).Batiments[2].Loges == 0, "le témoin intact passe");
+            }
+        }
+
+        [Test] public void DesCapacitesDontLaSommeDeborderaitVers1SontRefusees() // 2 048 × (2^53−1) + 2 049 = 2^64 + 1, soit 1 en long
+        {
+            string corps = Occupation(maisons: string.Join(",", Enumerable.Range(1, 2049).Select(i => "{\"capacite\":" + (i < 2049 ? "9007199254740991" : "2049") + ",\"identifiant\":" + i + ",\"loges\":0}")), logement: "{\"capacite\":1,\"loges\":0,\"sans_logis\":0}");
+            Repondre(_ => (200, corps)); Absente(Vie(c => c.LireOccupation(CellFigee)), "clé batiments[1].capacite :", "sous 2^53");
+        }
+        [Test] public void ChaquePublicationGardeSonJourEtChaqueEchecSaCause()
+        {
+            (int, string)? bourg = (200, Bourg()), occupation = (200, Occupation()); bool muet = false;
+            Repondre(d => muet ? null : d.StartsWith("/lieu") ? bourg : occupation);
+            using (var client = new ClientVieDuBourg(port, TimeSpan.FromMilliseconds(500)))
+            {
+                BourgLu b1 = Lue(client.LireBourg(CellFigee)); OccupationLue o1 = Lue(client.LireOccupation(CellFigee));
+                bourg = (200, Bourg("\"nourriture\":2.5", 4, 0, 30)); occupation = (200, Occupation(maisons: Maisons.Replace("\"loges\":1", "\"loges\":3"), logement: "{\"capacite\":9,\"loges\":7,\"sans_logis\":2}", tick: 31));
+                BourgLu b2 = Lue(client.LireBourg(CellFigee)); OccupationLue o2 = Lue(client.LireOccupation(CellFigee));
+                Assert.IsTrue(b1.Tick == 17 && b1.Stocks.Count == 3 && b1.DureeFaimTicks == 3 && o1.Tick == 17 && o1.Logement.Loges == 5 && o1.Batiments[1].Loges == 1, "la première lecture garde ses valeurs");
+                Assert.IsTrue(b2.Tick == 30 && b2.TickLocal == 30 && b2.Date.JourDeLAnnee == 31 && b2.DureeFaimTicks == 4 && b2.Stocks.Count == 1 && b2.Stocks["nourriture"] == 2.5);
+                Assert.IsTrue(o2.Tick == 31 && o2.Date.JourDeLAnnee == 32 && o2.Logement.Loges == 7 && o2.Logement.SansLogis == 2 && o2.Batiments[1].Loges == 3, "chaque route garde son propre tick");
+                foreach (var (statut, corps, cause) in new[] { (404, "{\"erreur\":\"inconnu\"}", "statut 404"), (500, "{\"erreur\":\"panne du tick\"}", "panne du tick"), (302, "", "statut 302") })
+                { bourg = occupation = (statut, corps); Absente(client.LireBourg(CellFigee), "bourg", cause); Absente(client.LireOccupation(CellFigee), "occupation", cause); }
+                bourg = (200, Bourg()); occupation = (200, Occupation());
+                Assert.IsTrue(Lue(client.LireBourg(CellFigee)).Tick == 17 && Lue(client.LireOccupation(CellFigee)).Logement.Loges == 5, "un succès se relit après un échec");
+                muet = true;
+                Absente(client.LireBourg(CellFigee), "délai dépassé"); Absente(client.LireOccupation(CellFigee), "délai dépassé");
+            }
+            Assert.IsFalse(demandes.Contains("/ailleurs"), "le 302 n'est pas suivi");
+            Fermer();
+            Absente(Vie(c => c.LireBourg(CellFigee)), "service absent"); Absente(Vie(c => c.LireOccupation(CellFigee)), "service absent");
+        }
     }
 }

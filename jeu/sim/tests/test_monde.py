@@ -4933,3 +4933,383 @@ def test_service_bourg_compatibilite():
             serveur.world.ticks_ecoules += 1
             bourg.duree_faim_ticks += 1
         assert publications[0] != publications[1]
+
+
+def _preparer_occupation_service(serveur, personnes=11, forme='maisons'):
+    from sim import constants as k
+    from sim.plan import Batiment, Parcelle, Plan
+    cid = min(serveur.world.cells)
+    serveur.world.cells[cid].habitants_par_metier = None if personnes is None else ({k.METIER_ARTISANS: personnes} if personnes else {})
+    surface = k.SURFACE_M2_PAR_FOYER_LOGE
+    contours = [[(0, 0), (n * surface, 0), (n * surface, 1), (0, 1)] for n in (1, 3, 5, 7, 9)]
+    plan = Plan(parcelles=[Parcelle(i, c) for i, c in enumerate(contours)], batiments=[
+        Batiment(i, i, 'scierie' if i == 4 else 'maison', c,
+                 **(dict(en_chantier=True, foyers=1, travail_requis=1) if i == 3 else {}))
+        for i, c in reversed(list(enumerate(contours)))])
+    if forme != 'maisons': plan.batiments = [] if forme == 'vide' else [b for b in plan.batiments if b.nature == 'scierie']
+    serveur.world.plans[cid] = plan
+    return cid
+
+def _lire_occupation_service(port, cid):
+    from sim.service import _serialiser
+    statut, doc, octets = requete_service(port, f'/occupation?cell={cid}')
+    assert statut == HTTPStatus.OK
+    assert set(doc) == {'cell_id', 'rang', 'tick', 'date', 'base', 'batiments', 'logement'}
+    assert doc['cell_id'] == cid and doc['rang'] == 0
+    assert octets == _serialiser(doc)
+    return doc
+
+def _verifier_occupation_service(document, reference):
+    assert document == reference
+
+def _reference_occupation_service(plan, personnes):
+    from sim import constants as k
+    from sim.plan import aire_du_contour
+    maisons = sorted((b for b in plan['batiments'] if b['nature'] == 'maison' and not b['en_chantier']), key=lambda b: b['identifiant'])
+    capacites = [max(1, int(aire_du_contour(b['emprise']) // k.SURFACE_M2_PAR_FOYER_LOGE)) for b in maisons]
+    demande = -1 if personnes is None else (personnes + k.TAILLE_FOYER - 1) // k.TAILLE_FOYER
+    attendus = [dict(identifiant=b['identifiant'], capacite=c,
+                     loges=-1 if demande == -1 else max(0, min(c, demande - sum(capacites[:i]))))
+                for i, (b, c) in enumerate(zip(maisons, capacites))]
+    logement = (dict(capacite=sum(capacites), loges=-1 if demande == -1 else min(demande, sum(capacites)),
+                     sans_logis=-1 if demande == -1 else max(0, demande - sum(capacites))) if plan['batiments'] else None)
+    return maisons, capacites, demande, attendus, logement
+
+@pytest.mark.parametrize('grand', [False, True])
+def test_service_occupation_base(grand):
+    from sim import constants as k
+    with _service_ia_en_processus(False) as (serveur, port):
+        cid = min(serveur.world.cells)
+        population = (k.FOYERS_SANS_ILOTS + 2 if grand else 2) * k.TAILLE_FOYER + 1
+        serveur.world.populations_bourg_amorcage[cid] = population
+        maisons = requete_service(port, f'/plan?cell={cid}')[1]['base']['maisons']
+        attendu = [dict(rang=i, foyers=m['foyers']) for i, m in enumerate(maisons)]
+        assert maisons and sum(m['foyers'] for m in attendu) == (population + k.TAILLE_FOYER - 1) // k.TAILLE_FOYER
+        if grand: assert any(m['foyers'] > 1 for m in maisons)
+        doc = _lire_occupation_service(port, cid)
+        reference = dict(doc, base=attendu)
+        _verifier_occupation_service(doc, reference)
+        cellule = serveur.world.cells[cid]
+        cellule.population = next(l for l in cellule.lieux if l.rang == 0).population = 0
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        _verifier_occupation_service(_lire_occupation_service(port, cid), reference)
+        alterations = [attendu[:-1], []]
+        if grand: alterations.append([dict(m, foyers=1) for m in attendu])
+        for faux in alterations:
+            pytest.raises(AssertionError, _verifier_occupation_service, dict(doc, base=faux), reference)
+
+@pytest.mark.parametrize('personnes,forme,constante', [
+    (0, 'maisons', None), (11, 'maisons', None), (51, 'maisons', None),
+    (None, 'maisons', None), (0, 'vide', None), (0, 'atelier', None),
+    (11, 'maisons', 'TAILLE_FOYER'), (11, 'maisons', 'SURFACE_M2_PAR_FOYER_LOGE')])
+def test_service_occupation_batiments(personnes, forme, constante, monkeypatch):
+    from sim import constants as k
+    from sim.plan import aire_du_contour
+    taille_initiale, surface_initiale = k.TAILLE_FOYER, k.SURFACE_M2_PAR_FOYER_LOGE
+    with _service_ia_en_processus(False) as (serveur, port):
+        cid = _preparer_occupation_service(serveur, personnes, forme)
+        if constante:
+            valeur = getattr(k, constante)
+            monkeypatch.setattr(k, constante, valeur // 2 if constante == 'SURFACE_M2_PAR_FOYER_LOGE' else valeur * 2)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        plan = requete_service(port, f'/plan?cell={cid}')[1]
+        lieu = requete_service(port, f'/lieu?cell={cid}')[1]
+        maisons, capacites, demande, attendus, logement = _reference_occupation_service(plan, personnes)
+        doc = _lire_occupation_service(port, cid)
+        reference = dict(doc, batiments=attendus, logement=logement)
+        _verifier_occupation_service(doc, reference)
+        assert doc['logement'] == lieu.get('logement') and doc['tick'] == lieu['tick'] == plan['tick']
+        if forme == 'maisons':
+            assert len(maisons) == 3 and len(set(capacites)) == 3
+            assert sum(b['capacite'] for b in doc['batiments']) == logement['capacite']
+            assert all(b['loges'] == -1 if demande == -1 else 0 <= b['loges'] <= b['capacite'] for b in doc['batiments'])
+            if demande != -1: assert sum(b['loges'] for b in doc['batiments']) == logement['loges']
+            if personnes == 11 and not constante:
+                assert 0 < attendus[1]['loges'] < attendus[1]['capacite'] and attendus[2]['loges'] == 0
+            if personnes == 51: assert logement['sans_logis'] > 0 and personnes % k.TAILLE_FOYER
+            if constante:
+                initiales = [max(1, int(aire_du_contour(b['emprise']) // surface_initiale)) for b in maisons]
+                assert (demande != (personnes + taille_initiale - 1) // taille_initiale if constante == 'TAILLE_FOYER' else capacites != initiales)
+            faux = copy.deepcopy(doc)
+            faux['batiments'].append(dict(identifiant=3, capacite=7, loges=0))
+            pytest.raises(AssertionError, _verifier_occupation_service, faux, reference)
+            faux = copy.deepcopy(doc)
+            if demande == -1:
+                for b in faux['batiments']: b['loges'] = 0
+            elif personnes == 11:
+                faux['batiments'][0]['loges'], faux['batiments'][-1]['loges'] = faux['batiments'][-1]['loges'], faux['batiments'][0]['loges']
+            else:
+                faux['logement']['sans_logis'] -= 1
+            pytest.raises(AssertionError, _verifier_occupation_service, faux, reference)
+
+def test_service_occupation_publication(monkeypatch):
+    from sim import constants as k, ville1400 as v
+    calcul, appels, courses = v.base_d_une_population, [], []
+    def compter(*args):
+        appels.append(args)
+        return calcul(*args)
+    monkeypatch.setattr(v, 'base_d_une_population', compter)
+    for course in range(2):
+        with _service_ia_en_processus(False) as (serveur, port):
+            cid = _preparer_occupation_service(serveur)
+            serveur.etat_publie = serveur._construire_etat(0, -1)
+            assert len(appels) == course
+            plan = serveur.world.plans[cid].to_dict()
+            personnes = serveur.world.cells[cid].habitants_par_metier[k.METIER_ARTISANS]
+            _, _, _, attendus, logement = _reference_occupation_service(plan, personnes)
+            _preparer_occupation_service(serveur, 51, 'atelier')
+            ancien = _lire_occupation_service(port, cid)
+            assert attendus and (ancien['batiments'], ancien['logement']) == (attendus, logement)
+            assert requete_service(port, f'/plan?cell={cid}')[1]['batiments'] == plan['batiments']
+            serveur.world.ticks_ecoules += 1
+            serveur.etat_publie = serveur._construire_etat(0, -1)
+            nouveau = _lire_occupation_service(port, cid)
+            assert nouveau['batiments'] != ancien['batiments']
+            for route in ('plan', 'lieu'):
+                doc = requete_service(port, f'/{route}?cell={cid}')[1]
+                assert (doc['tick'], doc['date']) == (nouveau['tick'], nouveau['date'])
+            for faux, reference in ((dict(ancien, tick=nouveau['tick']), ancien), (dict(ancien, batiments=nouveau['batiments']), ancien), (dict(nouveau, tick=ancien['tick']), nouveau)):
+                pytest.raises(AssertionError, _verifier_occupation_service, faux, reference)
+            assert len(appels) == course + 1
+            courses.append(requete_service(port, f'/occupation?cell={cid}')[2])
+    assert courses[0] == courses[1]
+
+def test_service_occupation_refus():
+    from sim.service import _serialiser
+    with _service_ia_en_processus(False) as (serveur, port):
+        cid = _preparer_occupation_service(serveur)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        serveur.world.intentions_en_attente.append(dict(type='tracer_route', cell=cid))
+        autre = next(c for c in serveur.world.cells if c != cid)
+        chemins = ['/monde', f'/lieu?cell={cid}', f'/lieu?cell={cid}&bourg=1', f'/plan?cell={autre}']
+        octets = [requete_service(port, c)[2] for c in chemins]
+        def etat():
+            return (_serialiser(serveur.world.to_dict()), serveur.rng.getstate(), copy.deepcopy(serveur.world.intentions_en_attente))
+        avant = etat()
+        for suffixe in ('', '?cell=', '?cell=abc', f'?cell={cid}&cell={cid}', f'?cell={max(serveur.world.cells) + 1}'):
+            statut, erreur, _ = requete_service(port, '/occupation' + suffixe)
+            assert statut == (HTTPStatus.NOT_FOUND if suffixe.endswith(str(max(serveur.world.cells) + 1)) else HTTPStatus.BAD_REQUEST)
+            assert 'cell' in erreur['erreur']
+        populations = serveur.world.populations_bourg_amorcage
+        serveur.world.populations_bourg_amorcage = None
+        statut, erreur, _ = requete_service(port, f'/occupation?cell={cid}')
+        def verifier_refus(statut, doc):
+            assert statut == HTTPStatus.INTERNAL_SERVER_ERROR and str(cid) in doc['erreur'] and 'populations_bourg_amorcage' in doc['erreur']
+        verifier_refus(statut, erreur)
+        pytest.raises(AssertionError, verifier_refus, HTTPStatus.OK, dict(base=[]))
+        serveur.world.populations_bourg_amorcage = populations
+        assert _lire_occupation_service(port, cid)['base']
+        assert etat() == avant and [requete_service(port, c)[2] for c in chemins] == octets
+        cellule = serveur.world.cells[cid]
+        cellule.population += 1
+        with pytest.raises(AssertionError): assert etat() == avant
+        cid = _preparer_occupation_service(serveur, 0, 'atelier')
+        vide = next(c for c in serveur.world.cells if c not in (cid, autre))
+        serveur.world.populations_bourg_amorcage[vide] = 0
+        serveur.world.cells[vide].population = 0
+        for lieu in serveur.world.cells[vide].lieux: lieu.population = 0
+        serveur.world.cells[vide].habitants_par_metier = {}
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        doc = _lire_occupation_service(port, vide)
+        assert doc['base'] == doc['batiments'] == [] and doc['logement'] is None
+        assert _lire_occupation_service(port, cid)['logement'] == dict(capacite=0, loges=0, sans_logis=0)
+
+def test_service_occupation_compatibilite():
+    from sim.service import _serialiser
+    with _service_ia_en_processus(False) as (serveur, port):
+        cid = _preparer_occupation_service(serveur)
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        chemins = ['/monde', f'/lieu?cell={cid}', f'/lieu?cell={cid}&bourg=1', f'/plan?cell={cid}']
+        avant = [requete_service(port, c)[2] for c in chemins]
+        doc = _lire_occupation_service(port, cid)
+        _verifier_occupation_service([requete_service(port, c)[2] for c in chemins], avant)
+        for ajout in (True, False):
+            faux = json.loads(avant[1])
+            if ajout: faux['occupation'] = doc
+            else: faux['logement']['loges'] += sum(b['foyers'] for b in doc['base'])
+            pytest.raises(AssertionError, _verifier_occupation_service, [avant[0], _serialiser(faux), *avant[2:]], avant)
+
+
+@contextmanager
+def _service_epreuve(**options):
+    from sim.service import ServeurMonde
+    serveur = ServeurMonde(('127.0.0.1', 0), 0, 0, **options)
+    fil = threading.Thread(target=serveur.serve_forever, daemon=True)
+    fil.start()
+    try:
+        yield serveur, serveur.server_address[1]
+    finally:
+        serveur.shutdown(); serveur.server_close(); fil.join(timeout=5)
+
+
+def _memoire_epreuve(serveur):
+    import pickle
+    return pickle.dumps(serveur.world), serveur.rng.getstate(), pickle.dumps(serveur.etat_publie)
+
+
+def _verifier_epreuve(document, reference, tick):
+    from sim.constants import MARCHANDISE_NOURRITURE
+    bourg = next(l for l in reference.lieux if l.rang == 0)
+    _verifier_bourg_service(document, _reference_bourg_service(bourg, tick))
+    assert document['bourg']['duree_faim_ticks'] > 0
+    assert document['bourg']['stocks'][MARCHANDISE_NOURRITURE] == 0
+    assert [l['stocks'] for l in document['lieux']] == [l.stocks for l in sorted(reference.lieux, key=lambda l: l.rang)]
+    assert {nom: sum(l['stocks'][nom] for l in document['lieux']) for nom in reference.stocks} == reference.stocks
+
+def test_service_epreuve_reserve(monkeypatch):
+    with _service_epreuve() as (serveur, port):
+        cid = next(c.cell_id for c in serveur.world.cells.values() if c.population > 0)
+        from sim.intentions import recevoir_intention
+        recevoir_intention(serveur.world, dict(type='choisir_depart', seigneurie=serveur.document_departs()['departs'][0]['id']))
+        avant = _memoire_epreuve(serveur)
+        for chemin in (f'/epreuve/vider-panier?cell={cid}', '/epreuve/vider-panier?cell='):
+            assert requete_service(port, chemin, 'POST')[0] == HTTPStatus.NOT_FOUND
+            assert _memoire_epreuve(serveur) == avant
+    original = subprocess.Popen
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess, 'Popen', lambda args, **kw: original([*args, '--epreuve'], **kw))
+        with lancer_service(0) as port:
+            departs = requete_service(port, '/departs')[1]['departs']
+            cid = next(d['cell_id'] for d in departs if d['siege']['nom'] == 'Biskra')
+            assert requete_service(port, f'/epreuve/vider-panier?cell={cid}', 'POST')[:2] == (HTTPStatus.OK, dict(cell_id=cid, tick=0))
+            assert requete_service(port, f'/lieu?cell={cid}&bourg=1')[1]['bourg']['duree_faim_ticks'] > 0
+            corps = json.dumps(dict(type='vider_panier', cell=cid)).encode()
+            assert requete_service(port, '/intention', 'POST', corps)[0] == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.parametrize('autre', [False, True])
+def test_service_epreuve_panier(autre, monkeypatch):
+    import pickle
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[3]))
+    from pc.epreuve_jalon4 import depart_biskra
+    from sim import constants as k, engine
+    from sim.model import ecrire_stock_marchandise
+    with _service_epreuve(epreuve=True) as (serveur, port):
+        depart, _, biskra = depart_biskra()
+        assert next(d['cell_id'] for d in requete_service(port, '/departs')[1]['departs'] if d['id'] == depart) == biskra
+        cellule = (next(c for c in serveur.world.cells.values() if c.cell_id != biskra and len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+                   if autre else serveur.world.cells[biskra])
+        bourg = next(l for l in cellule.lieux if l.rang == 0)
+        assert bourg.population > 0 and len(cellule.lieux) > 1
+        for lieu in cellule.lieux:
+            ecrire_stock_marchandise(lieu, 'fer', 1.23456789 if lieu.rang == 0 else 0)
+        ecrire_stock_marchandise(cellule, 'fer', sum(l.stocks.get('fer', 0) for l in cellule.lieux))
+        serveur.world.greniers[bourg.maitre] = {k.MARCHANDISE_NOURRITURE: 123.456}
+        from sim.intentions import recevoir_intention
+        recevoir_intention(serveur.world, dict(type='tracer_route', maison=bourg.maitre, cell=cellule.cell_id, points=[[0, 0], [40, 0]], largeur_m=4))
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        chemin = f'/lieu?cell={cellule.cell_id}&bourg=1'
+        ancien = requete_service(port, chemin)[1]
+        reference = copy.deepcopy(serveur.world); attendue = reference.cells[cellule.cell_id]
+        lieux_avant = copy.deepcopy(cellule.lieux)
+        assert sum(l.stocks[k.MARCHANDISE_NOURRITURE] for l in lieux_avant) > 0
+        for entite in [attendue, *attendue.lieux]:
+            ecrire_stock_marchandise(entite, k.MARCHANDISE_NOURRITURE, 0)
+        engine._update_hunger(attendue, engine._apply_consumption(attendue, reference.carte))
+        tick, alea = reference.ticks_ecoules, serveur.rng.getstate()
+        for neutralisee in (True, False):
+            with monkeypatch.context() as patch:
+                if neutralisee: patch.setattr(engine, '_apply_consumption', lambda *a: 0)
+                assert requete_service(port, f'/epreuve/vider-panier?cell={cellule.cell_id}', 'POST')[:2] == (HTTPStatus.OK, dict(cell_id=cellule.cell_id, tick=tick))
+            statut, document, _ = requete_service(port, chemin)
+            assert statut == HTTPStatus.OK
+            if neutralisee:
+                with pytest.raises(AssertionError): _verifier_epreuve(document, attendue, tick)
+            else:
+                _verifier_epreuve(document, attendue, tick)
+        assert [l.population for l in cellule.lieux] == [l.population for l in lieux_avant]
+        assert all(l.duree_faim_ticks > avant.duree_faim_ticks for l, avant in zip(cellule.lieux, lieux_avant))
+        assert serveur.rng.getstate() == alea
+        assert pickle.dumps(serveur.world) == pickle.dumps(reference)
+        with pytest.raises(AssertionError): _verifier_epreuve(ancien, attendue, tick)
+        faux = copy.deepcopy(document); faux['bourg']['duree_faim_ticks'] = 0
+        with pytest.raises(AssertionError): _verifier_epreuve(faux, attendue, tick)
+        faux = copy.deepcopy(document); del faux['bourg']['stocks']['fer']
+        with pytest.raises(AssertionError): _verifier_epreuve(faux, attendue, tick)
+
+
+def test_service_epreuve_refus(monkeypatch):
+    from dataclasses import replace
+    from sim import service, constants as k
+    monkeypatch.setattr(service.ServeurMonde, '_faire_avancer_horloge', lambda self: None)
+    with _service_epreuve(epreuve=True) as (serveur, port):
+        cellule = next(c for c in serveur.world.cells.values() if len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+        cid = cellule.cell_id
+        from sim.intentions import recevoir_intention
+        recevoir_intention(serveur.world, dict(type='choisir_depart', seigneurie=serveur.document_departs()['departs'][0]['id']))
+        original = copy.deepcopy(cellule)
+        refus = [('', 400), ('?cell=', 400), ('?cell=1&cell=1', 400), ('?cell=x', 400),
+                 (f'?cell={max(serveur.world.cells) + 1}', 404)]
+        causes = ['bourg absent', 'bourg dupliqué', 'bourg vide', 'lieux absents', 'rang invalide', 'surface invalide', 'population invalide', 'faim invalide', 'dette invalide', 'horloge']
+        causes += ['lieux nuls', 'panier nul', 'population textuelle', 'faim cellulaire invalide', 'réserves incohérentes']
+        causes += [(cible, valeur) for cible in ('cellule', 'bourg', 'champ') for valeur in (None, -1, True, '0', float('nan'), float('inf'))]
+        for cause in [None, *causes]:
+            cellule = serveur.world.cells[cid] = copy.deepcopy(original)
+            bourg = next(l for l in cellule.lieux if l.rang == 0)
+            if cause == 'bourg absent': cellule.lieux.remove(bourg)
+            elif cause == 'bourg dupliqué': cellule.lieux.append(copy.deepcopy(bourg))
+            elif cause == 'bourg vide': bourg.population = 0
+            elif cause == 'lieux absents': cellule.lieux = []
+            elif cause == 'lieux nuls': cellule.lieux = None
+            elif cause == 'panier nul': bourg.stocks = None
+            elif cause == 'population textuelle': bourg.population = '0'
+            elif cause == 'faim cellulaire invalide': cellule.hunger_ticks = None
+            elif cause == 'réserves incohérentes': bourg.stocks[k.MARCHANDISE_NOURRITURE] += 1
+            elif cause == 'rang invalide': cellule.lieux[-1].rang = -1
+            elif cause == 'surface invalide': cellule.area_km2 = None
+            elif cause == 'population invalide': bourg.population = -1
+            elif cause == 'faim invalide': bourg.duree_faim_ticks = None
+            elif cause == 'dette invalide': bourg.dette_alimentaire_kg = None
+            elif isinstance(cause, tuple):
+                cible, valeur = cause
+                entite = cellule if cible == 'cellule' else bourg if cible == 'bourg' else cellule.lieux[-1]
+                if valeur is None: del entite.stocks[k.MARCHANDISE_NOURRITURE]
+                else: entite.stocks[k.MARCHANDISE_NOURRITURE] = valeur
+            serveur.etat_publie = replace(serveur.etat_publie, jours_par_seconde=1 if cause == 'horloge' else 0)
+            avant = _memoire_epreuve(serveur)
+            for suffixe, code in (refus if cause is None else [(f'?cell={cid}', 409 if cause == 'horloge' else 400)]):
+                assert requete_service(port, '/epreuve/vider-panier' + suffixe, 'POST')[0] == code
+                assert _memoire_epreuve(serveur) == avant
+        serveur.world.cells[cid] = copy.deepcopy(original)
+        serveur.etat_publie = replace(serveur.etat_publie, jours_par_seconde=0)
+        assert requete_service(port, f'/epreuve/vider-panier?cell={cid}', 'POST')[0] == HTTPStatus.OK
+        assert serveur.world.cells[cid].food_stock_kg == 0 < original.food_stock_kg
+
+
+def test_service_epreuve_publication(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    courses = []
+    with _service_epreuve() as (ordinaire, port_ordinaire):
+        for _ in range(2):
+            with _service_epreuve(epreuve=True) as (serveur, port):
+                cid = next(c.cell_id for c in serveur.world.cells.values() if len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+                chemins = ('/monde', f'/lieu?cell={cid}', f'/lieu?cell={cid}&bourg=1', f'/plan?cell={cid}', f'/occupation?cell={cid}')
+                routes = (*chemins, '/carte', '/departs', '/maisons', '/horloge', '/ia')
+                avant = [requete_service(port, c)[2] for c in routes]
+                assert avant == [requete_service(port_ordinaire, c)[2] for c in routes]
+                entree, sortie = threading.Event(), threading.Event()
+                construire = serveur._construire_etat
+                def construction_suspendue(*args):
+                    entree.set()
+                    assert sortie.wait(timeout=10), 'publication non libérée'
+                    return construire(*args)
+                with monkeypatch.context() as patch, ThreadPoolExecutor() as pool:
+                    patch.setattr(serveur, '_construire_etat', construction_suspendue)
+                    commande = pool.submit(requete_service, port, f'/epreuve/vider-panier?cell={cid}', 'POST')
+                    try:
+                        assert entree.wait(timeout=10), 'retrait non commencé'
+                        assert [requete_service(port, c)[2] for c in chemins] == avant[:len(chemins)]
+                    finally:
+                        sortie.set()
+                    assert commande.result(timeout=10)[0] == HTTPStatus.OK
+                apres = [requete_service(port, c) for c in chemins]
+                tick = serveur.world.ticks_ecoules
+                for statut, document, octets in apres:
+                    assert statut == HTTPStatus.OK and document['tick'] == tick
+                reference = serveur.world.cells[cid]
+                _verifier_epreuve(apres[2][1], reference, tick)
+                assert requete_service(port, chemins[2])[2] == apres[2][2]
+                for faux in (json.loads(avant[2]), dict(apres[2][1], tick=tick + 1)):
+                    with pytest.raises(AssertionError): _verifier_epreuve(faux, reference, tick)
+                courses.append([octets for _, _, octets in apres])
+        assert courses[0] == courses[1]

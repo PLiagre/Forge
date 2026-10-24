@@ -15,6 +15,8 @@ import time
 from urllib.parse import parse_qs, urlsplit
 
 from sim.carte_servie import document_carte
+from sim import constants as _constantes
+from sim import engine
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
 from sim.foyers import ranger_en_foyers
@@ -27,10 +29,12 @@ from sim.maisons_servies import (
 )
 from sim.noms import noms_depuis_monde
 from sim.flux import flux_des_lieux
-from sim.model import copier_panier, lire_habitants_par_metier
+from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
+from sim.lieux import surfaces_des_lieux
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
+from sim.plan import aire_du_contour
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
 from sim.ville1400 import BaseAbsente, base_de_cellule
@@ -109,6 +113,28 @@ def _parametre_entier(requete: str, nom: str, minimum: int | None = None) -> int
     return valeur
 
 
+def _valider_epreuve(cellule) -> None:
+    """Refuse un montage incomplet avant le moindre retrait artificiel."""
+    bourg = _bourg_du_lieu(cellule, 0)
+    lieux = cellule.lieux
+    nombre = len(surfaces_des_lieux(cellule.cell_id, cellule.area_km2))
+    if (any(type(l.rang) is not int for l in lieux)
+            or sorted(l.rang for l in lieux) != list(range(nombre))
+            or type(bourg["population"]) is not int or bourg["population"] <= 0):
+        raise ValueError("lieux invalides ou bourg inhabité")
+    entites = [cellule, *lieux]
+    nourriture = [lire_stock_marchandise(e, _constantes.MARCHANDISE_NOURRITURE) for e in entites]
+    dettes = [cellule.food_deficit_kg, *(l.dette_alimentaire_kg for l in lieux)]
+    if any(type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in [*nourriture, *dettes]):
+        raise ValueError("nourriture ou dette alimentaire absente ou invalide")
+    if (any(type(e.population) is not int or e.population < 0 for e in entites)
+            or sum(l.population for l in lieux) != cellule.population
+            or sum(nourriture[1:]) != nourriture[0]
+            or type(cellule.hunger_ticks) is not int or cellule.hunger_ticks < 0
+            or any(type(l.duree_faim_ticks) is not int or l.duree_faim_ticks < 0 for l in lieux)):
+        raise ValueError("population, réserves ou faim des lieux incohérentes")
+
+
 def _lire_vitesse(recue) -> float:
     """Refuse toute vitesse absente, non numérique, infinie ou négative."""
     try:
@@ -142,6 +168,7 @@ class EtatPublie:
     lieux: dict[int, bytes]
     lieux_avec_bourg: dict[int, bytes]
     plans: dict[int, bytes]
+    occupations: dict[int, bytes]
     tick: int
     date: dict[str, int]
     jours_par_seconde: float
@@ -166,17 +193,20 @@ class ServeurMonde(ThreadingHTTPServer):
         seed: int,
         jours_par_seconde: float,
         ia: bool = False,
+        epreuve: bool = False,
     ):
         super().__init__(adresse, RequetesMonde)
         self.world = World.charger(rng_seed=seed)
         self.rng = random.Random(seed)
         self.ia = ia
+        self.epreuve = epreuve
         self.releve = []
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
         self.verrou_base = threading.Lock()
         self.verrou_maisons = threading.Lock()
         self._bases = {}
+        self._occupations_base = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
         self.condition_vitesse = threading.Condition()
@@ -208,13 +238,26 @@ class ServeurMonde(ThreadingHTTPServer):
     def octets_plan(self, etat, cell_id):
         """Assemble les octets figés de la base et ceux du plan publié."""
         with self.verrou_base:
-            if cell_id not in self._bases:
-                self._bases[cell_id] = b'{"base":' + _serialiser(base_de_cellule(self.world, cell_id)) + b','
+            self._preparer_base(cell_id)
             octets = etat.plans[cell_id]
             if not octets.startswith(b'{"base":'):
                 octets = self._bases[cell_id] + octets[1:]
                 etat.plans[cell_id] = octets
             return octets
+
+    def _preparer_base(self, cell_id):
+        """Prépare les deux lectures immuables sous verrou_base, sans doubler le calcul."""
+        if cell_id not in self._bases:
+            base = base_de_cellule(self.world, cell_id)
+            occupation = [dict(rang=i, foyers=m["foyers"]) for i, m in enumerate(base["maisons"])]
+            self._bases[cell_id] = b'{"base":' + _serialiser(base) + b','
+            self._occupations_base[cell_id] = b'{"base":' + _serialiser(occupation) + b','
+
+    def octets_occupation(self, etat, cell_id):
+        """Assemble la base immuable et les comptes copiés à la publication."""
+        with self.verrou_base:
+            self._preparer_base(cell_id)
+            return self._occupations_base[cell_id] + etat.occupations[cell_id][1:]
 
     def document_departs(self):
         """Lit les fiches actuelles et leur date sous le même verrou que les intentions."""
@@ -285,9 +328,11 @@ class ServeurMonde(ThreadingHTTPServer):
             for cellule in cellules
         }
         lieux = {cid: _serialiser(document) for cid, document in documents_lieux.items()}
+        # « bourg » est la première clé dans l'ordre canonique : réutiliser
+        # les octets du lieu évite de sérialiser deux fois tout son document.
         lieux_avec_bourg = {
-            cid: _serialiser(document | {"bourg": bourgs[cid]})
-            for cid, document in documents_lieux.items()
+            cid: b'{"bourg":' + _serialiser(bourgs[cid]) + b"," + octets[1:]
+            for cid, octets in lieux.items()
         }
         document = {
             "tick": numero_tick,
@@ -317,11 +362,24 @@ class ServeurMonde(ThreadingHTTPServer):
         }
         with self.verrou_base:
             plans = {cid: self._bases.get(cid, b"{") + octets[1:] for cid, octets in plans.items()}
+        occupations = {}
+        for cid, plan in sorted(self.world.plans.items()):
+            logement = documents_lieux[cid].get("logement")
+            reste = logement["loges"] if logement is not None else 0
+            batiments = []
+            for b in sorted((b for b in plan.batiments if b.nature == "maison" and not b.en_chantier), key=lambda b: b.identifiant):
+                capacite = max(1, int(aire_du_contour(b.emprise) // _constantes.SURFACE_M2_PAR_FOYER_LOGE))
+                loges = -1 if reste == -1 else min(capacite, reste)
+                batiments.append(dict(identifiant=b.identifiant, capacite=capacite, loges=loges))
+                reste = -1 if reste == -1 else reste - loges
+            occupations[cid] = _serialiser(dict(cell_id=cid, rang=0, tick=numero_tick, date=date,
+                batiments=batiments, logement=logement))
         return EtatPublie(
             monde=monde,
             lieux=lieux,
             lieux_avec_bourg=lieux_avec_bourg,
             plans=plans,
+            occupations=occupations,
             maisons=matiere_des_maisons(self.world, noms, places),
             octets_maisons={},
             tick=numero_tick,
@@ -497,13 +555,13 @@ class RequetesMonde(BaseHTTPRequestHandler):
             else:
                 self._repondre_octets(HTTPStatus.OK, etat.ia)
             return
-        if cible.path in ("/lieu", "/plan"):
+        if cible.path in ("/lieu", "/plan", "/occupation"):
             try:
                 cell_id = _parametre_entier(cible.query, "cell")
             except ValueError as exc:
                 self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                 return
-            documents = etat.plans if cible.path == "/plan" else etat.lieux
+            documents = etat.lieux if cible.path == "/lieu" else etat.plans
             if cible.path == "/lieu":
                 bourg = parse_qs(cible.query, keep_blank_values=True).get("bourg")
                 if bourg is not None:
@@ -519,9 +577,10 @@ class RequetesMonde(BaseHTTPRequestHandler):
                     f"cell inconnu : reçu {cell_id!r}",
                 )
                 return
-            if cible.path == "/plan":
+            if cible.path in ("/plan", "/occupation"):
                 try:
-                    lieu = self.server.octets_plan(etat, cell_id)
+                    lecture = self.server.octets_plan if cible.path == "/plan" else self.server.octets_occupation
+                    lieu = lecture(etat, cell_id)
                 except BaseAbsente as exc:
                     self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
                     return
@@ -537,6 +596,34 @@ class RequetesMonde(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         cible = urlsplit(self.path)
+        if cible.path == "/epreuve/vider-panier" and self.server.epreuve:
+            with self.server.verrou_tick, self.server.condition_vitesse:
+                etat = self.server.etat_publie
+                if etat.jours_par_seconde != 0:
+                    self._refuser(HTTPStatus.CONFLICT, "l'horloge doit être à l'arrêt")
+                    return
+                try:
+                    cell_id = _parametre_entier(cible.query, "cell")
+                    cellule = self.server.world.cells.get(cell_id)
+                    if cellule is None:
+                        self._refuser(HTTPStatus.NOT_FOUND, f"cell inconnue : {cell_id}")
+                        return
+                    _valider_epreuve(cellule)
+                except (ValueError, SnapshotExportError) as exc:
+                    self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                except (TypeError, AttributeError, OverflowError):
+                    self._refuser(HTTPStatus.BAD_REQUEST, "données des lieux ou alimentaires absentes ou invalides")
+                    return
+                # Montage jetable : vider aussi les champs empêche leur secours immédiat.
+                for entite in [cellule, *cellule.lieux]:
+                    ecrire_stock_marchandise(entite, _constantes.MARCHANDISE_NOURRITURE, 0)
+                penurie = engine._apply_consumption(cellule, self.server.world.carte)
+                engine._update_hunger(cellule, penurie)
+                self.server.etat_publie = self.server._construire_etat(
+                    etat.jours_par_seconde, etat.duree_dernier_tick_ms)
+                self._repondre(HTTPStatus.OK, dict(cell_id=cell_id, tick=self.server.etat_publie.tick))
+            return
         if cible.path == "/tick":
             try:
                 nombre = _parametre_entier(cible.query, "n", minimum=1)
@@ -631,6 +718,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--seed", type=int, default=DEFAULT_SERVICE_SEED)
     parser.add_argument("--port", type=int, default=DEFAULT_SERVICE_PORT)
     parser.add_argument("--ia", action="store_true")
+    parser.add_argument("--epreuve", action="store_true", help="monde d'épreuve jetable en mémoire")
     parser.add_argument(
         "--jours-par-seconde",
         type=_vitesse_cli,
@@ -642,6 +730,7 @@ def main(argv: list[str] | None = None) -> None:
         args.seed,
         args.jours_par_seconde,
         ia=args.ia,
+        epreuve=args.epreuve,
     )
     port_reel = serveur.server_address[1]
     print(f"service prêt sur {SERVICE_HOST}:{port_reel}", flush=True)
