@@ -529,7 +529,8 @@ class Pilote:
             derniere = next((m.get("action") for m in reversed(liste)
                              if m.get("role") == role and m.get("etat") == "envoye"), None)
             action = lots.Action(derniere or "coder", action.raison, action.essai)
-        if action.nom == "corriger_ci" and self._rejouer_le_chronometre(lot, pr, branche, liste, role):
+        if action.nom == "corriger_ci" and (self._attendre_la_base(lot, pr, branche, liste)
+                                            or self._rejouer_le_chronometre(lot, pr, branche, liste, role)):
             return False
         if action.nom in ("coder", "corriger_ci", "corriger_relecture"):
             if lot.machine == "pc":
@@ -552,6 +553,51 @@ class Pilote:
             return self._chef(lot, lot.jalon_titre or "", courant)
         self.noter(lot.numero, "action inconnue", action.nom)
         return False
+
+    def _attendre_la_base(self, lot: Lot, pr: dict, branche: str, liste: list[dict]) -> bool:
+        """Une CI rouge sur les seuls travaux que la base de la PR avait déjà
+        rouges (`lots.rouge_de_la_base`) : le codeur n'y peut rien. Tant que
+        master les porte, le lot attend son mécanicien, sans compter d'essai,
+        et la PR le dit une fois ; dès que master les a guéris, la branche le
+        reçoit et la CI repart. Vrai quand le codeur n'a pas à passer."""
+        numero_pr, tete = pr["number"], pr.get("headRefOid") or ""
+        agregat = "tests"
+        travaux = travaux_du_workflow(pr, AGREGATS[agregat])
+        rouges = {n for n, t in travaux.items() if t["etat"] == "rouge" and n != agregat}
+        if not rouges or not tete:
+            return False
+        base = self.projet.branche_base
+        try:
+            depart = self.gh.base_de_fusion(base, tete)
+            quoi = lots.rouge_de_la_base(rouges, self.gh.travaux_du_commit(depart), self.gh.travaux_du_commit(base))
+        except GitHubErreur as e:
+            # Une base illisible ne retient pas le lot : le codeur corrige, comme avant.
+            self.noter(lot.numero, "base illisible", str(e))
+            return False
+        if not quoi:
+            return False
+        noms = ", ".join(f"`{n}`" for n in sorted(rouges))
+        if quoi == "attendre":
+            dit = any(m.get("role") == "pilote" and m.get("etat") == lots.ETAT_BASE_ROUGE and m.get("sha") == tete
+                      for m in liste)
+            if not dit:
+                self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : {noms} déjà rouge sur `{base}` (`{depart[:7]}`), "
+                                                "d'où part cette PR : le lot n'y est pour rien. Il attend que "
+                                                f"`{base}` soit réparé, sans compter d'essai, puis la branche le "
+                                                "recevra.\n\n"
+                                                f"{marque(role='pilote', etat=lots.ETAT_BASE_ROUGE, sha=tete)}")
+            self.noter(lot.numero, "attendre_base", f"PR #{numero_pr} — {noms} rouge sur `{base}` aussi")
+            return True
+        chemin = self.depot.preparer(lot.numero, branche)
+        if self.depot.fusionner_base(chemin):
+            self.depot.git_code("merge", "--abort", cwd=chemin)
+            return False
+        self.depot.pousser(chemin, branche)
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : {noms} était rouge sur `{base}` (`{depart[:7]}`), d'où "
+                                        f"partait cette PR, et `{base}` l'a réparé depuis : la branche le reçoit, "
+                                        "la CI repart, sans compter d'essai.")
+        self.noter(lot.numero, "base fusionnée", f"PR #{numero_pr} — {noms} réparé sur `{base}`")
+        return True
 
     def _rejouer_le_chronometre(self, lot: Lot, pr: dict, branche: str, liste: list[dict], role: str) -> bool:
         """Un rouge du seul travail `chronometre` : le pilote le rejoue une
