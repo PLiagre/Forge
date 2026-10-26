@@ -55,6 +55,7 @@ journées, les rues passant en premier. `foyers` vaut 1 par défaut. Le reçu ac
 est `{"acceptee": true, "appliquee_au_tick": T}`. Un type inconnu, un corps
 ou un geste mal formés rendent 400 ; un second choix rend 409. Le reçu
 refusé est `{"acceptee": false, "erreur": "<raison>"}`, sans effet sur le monde.
+Les foyers d'artisans sans logis bâtissent aussi leurs maisons sur les parcelles libres achevées du bourg doté d'un maître : une ouverture par jour, places des maisons en chantier déjà réservées. L'autoconstruction prend un artisan par maison, sans salaire ni transfert de grain ; ces bras reviennent aux artisans le lendemain et restent indisponibles aux ateliers ce jour. Seules les maisons finies logent ; la pose manuelle reste salariée.
 `--gestes` rejoue une liste `[{"tick": T, "intention": {…}}, …]` avant chaque
 tick indiqué ; `--monde-json` écrit le monde final en JSON canonique.
 
