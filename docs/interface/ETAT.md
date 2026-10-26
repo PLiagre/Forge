@@ -1,21 +1,23 @@
-# État de l’interface — 15 octobre 2026
+# État de l’interface — 17 octobre 2026
 
-## Livré et en cours
+## Livré
 
-- UI-01 livré sur master ; UI-02 réalisé et vérifié sur `direct/interface-etats`, [PR #631](https://github.com/PLiagre/Forge/pull/631) en fusion automatique sous réserve de CI verte.
-- Les 108 images du dossier confirmé par le propriétaire ont été regardées, en douze planches de neuf, avec une note par image dans DA.md ; réductions conservées dans `references/`.
-- [Cadrage #628](https://github.com/PLiagre/Forge/pull/628) et [socle #630](https://github.com/PLiagre/Forge/pull/630) fusionnés. La relance unique des tests chronométrés de #630 est verte, sans modification de seuil ; [preuve du socle](UI01.md).
-- UI-02 : douze nouveaux tests rouges puis verts, six tests du socle toujours verts ; capture Play regardée à 1920 × 1080, objet LFS distant retéléchargé et empreinte vérifiée. Quatre états avec cause explicite ; une donnée absente ne devient pas zéro. [Preuves et limites](UI02.md).
-- Worktree isolé : `C:/Users/liagr/.codex/worktrees/8c29/Forge/.atelier/direct/interface-cadrage`. Le checkout principal reste intact.
-- Les PR de lots #627 et #511 ont été consultées : aucun fichier commun avec `docs/interface/`.
-- Contrôles : liens locaux et 108 empreintes d’originaux vérifiés, douze planches décodées et regardées, diff sans erreur d’espaces ; douze objets LFS retéléchargés du serveur et vérifiés. Aucun test Unity ou moteur exécuté pour cette documentation.
+- Direction artistique validée : papier clair sur cadre sombre, ornements discrets, plusieurs dossiers simultanés. Les 108 références ont été regardées ; [DA](DA.md).
+- Socle et états de lecture (#630–631), choix confirmé de maison (#633), cabinet de carte et matériau compilé (#666–667).
+- Lecture fiable et dossiers de territoire (#668–669), confirmation unique des intentions (#670), terres et comptes (#671), menu, aide et navigation clavier (#672).
+- Calques puissances/habitants (#673), journal réel des autres maisons (#674), plan consultable du bourg avec retour à la carte (#677).
+- Prélèvement et secours (#676), avec confirmation et reçu du monde ; [preuve](COMMANDES.md).
 
-## Décisions et prochaine action
+## En cours
 
-- Source visuelle confirmée : `docs/direction-artistique/`. Les originaux de ce worktree sont des pointeurs LFS ; les images ont été lues dans `D:/Forge/docs/direction-artistique/`, sans modifier ces originaux.
-- Choix validés : papier clair sur cadre sombre ; ornements discrets et sceaux sur les engagements ; plusieurs dossiers visibles simultanément. Ce dernier choix remplace la proposition initiale d’un dossier unique pour permettre la comparaison.
-- Contrats examinés : lieux, maisons, flux, horloge et intentions du pont. Les fonctions J6–J9 sont planifiées sous réserve de leurs contrats, pas déclarées disponibles.
-- UI-01 : branche `direct/interface-socle` depuis `origin/master`, worktree frère `.atelier/direct/interface-socle` ; thème, composants et deux dossiers simultanés dans une galerie isolée.
-- UI-02 : worktree `.atelier/direct/interface-etats`, branche partie de `origin/master`, rebasée sur le socle fusionné `116975a`. Aucun fichier commun avec les lots #627 et #511 ; aucune modification de la simulation.
-- Prochaine action : attendre la CI et la fusion de UI-02, le marquer livré, puis UI-03 (horloge : pause/vitesse reçues et réponses retardées) depuis `origin/master`. Galeries isolées, police Unity provisoire et aucune donnée du monde branchée.
-- Aucune question artistique ouverte ; fontes candidates à vérifier avant intégration, police Unity de secours explicitement provisoire pour la première galerie.
+- Tracé de rue : PR #708, rebasée après #676. Quatre contre-épreuves rouges puis 57 tests d’interface verts ; annulation sans dépôt, double confirmation unique et effet seulement au tick vérifiés. La suite d’intégration avec les nouveaux contrats de capitale passe 101 tests le 17 octobre.
+- Dossier des chantiers : `direct/interface-chantiers`, travail accompli, grain payé et motifs d’arrêt reçus. Parcours réel réussi ; correction du recouvrement d’une commande découvert sur les captures avant publication.
+- Aperçu local : `.atelier/apercu-cabinet/Jouer.cmd`, compilé le 17 octobre avec tous ces écrans et le tracé `2f69245f`. Lancement réel : 596 cellules, souris active, arrêt du service à la fermeture. Il reste un aperçu de carte et de plan, avec les fontes et les couleurs politiques provisoires.
+
+## Prochaine étape
+
+1. Terminer la correction visuelle des chantiers, publier leurs preuves et vérifier les fusions.
+2. Les lots #685–700 ont livré la correspondance capitale/kit, le choix de cellule et le passage depuis la carte. Examiner leur intégration au cabinet ; le kit actuellement déclaré concerne le Zab, pas Bar-le-Duc.
+3. Continuer les parcelles, bâtiments et dossiers de chantiers. Puis préparer les écrans dynastiques, diplomatiques, militaires et les autres contrats absents dans une démonstration explicitement séparée, comme demandé dans [BESOINS-SIM.md](BESOINS-SIM.md).
+
+Le relief, les trajets détaillés, les interfaces avancées, la typographie et les contrôles de lisibilité à toutes les tailles restent ouverts. Toute l’interface n’est pas terminée. Aucune nouvelle décision artistique n’est attendue du propriétaire ; aucun changement de la simulation dans ces branches.

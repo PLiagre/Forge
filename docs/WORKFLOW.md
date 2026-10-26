@@ -43,10 +43,10 @@ pas le lot. Les lots du PC n'ont pas de renfort (Codex n'y écrit pas, Claude
 Opus y code déjà).
 
 Un rouge du seul travail `chronometre` (les tests qui chronomètrent le moteur,
-au bord de leur budget sur les runners partagés), sur un lot qui ne touche pas
-`jeu/`, ne part pas au codeur : il n'y peut rien. Le pilote attend la fin du
-run, puis le rejoue une fois, sans compter d'essai : la branche reçoit master
-s'il a bougé, sinon le travail rouge se rejoue (`gh run rerun --failed`). Le
+au bord de leur budget sur les runners partagés) ne part pas d'abord au codeur,
+même quand le lot touche `jeu/` : le bruit des runners suffit à le rougir. Le
+pilote attend la fin du run, puis le rejoue une fois, sans compter d'essai :
+la branche reçoit master s'il a bougé, sinon le travail rouge se rejoue (`gh run rerun --failed`). Le
 codeur ne corrige que s'il rougit encore.
 
 Le **mécanicien** (Codex, gpt-6.1-sol, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
@@ -390,6 +390,23 @@ renvoie le même travail. Sous Windows, les agents livrés en `.cmd`
 `cmd.exe` : le prompt y serait coupé et interprété. Prouver les agents du PC
 là où ils tournent : `gh workflow run sonde-pc.yml -R PLiagre/Forge`.
 
+**Mettre le PC en pause pour la chaîne.** La variable d'Actions `PC_ACTIF`
+du dépôt est l'interrupteur : sur `non`, le pilote ne prend aucun lot `pc`
+neuf, n'en reprend aucun et n'envoie rien au PC (le lot attend, sans compter
+d'essai ni écrire sur sa PR) ; le build de nuit et Unity sur une poussée se
+sautent d'eux-mêmes. Le VPS continue. Absente, vide ou sur autre chose que
+`non`, elle laisse le PC travailler ; une variable que le pilote ne peut pas
+lire ne le met jamais en pause. Un lancement à la main (`workflow_dispatch`)
+part toujours. Elle se bascule dans GitHub (Settings → Secrets and variables →
+Actions → Variables, du téléphone aussi) ou par la fenêtre
+[`pc\Disponibilite.cmd`](../pc/Disponibilite.cmd), qui montre aussi la charge
+du processeur, le travail du runner, le **mode discret** (Python, Unity et
+Blender en priorité basse : le PC reste fluide sous des tests lancés à la
+main) et l'arrêt du service `pc-forge` (élévation Windows ; il interrompt un
+travail en cours). La pause n'arrête pas un travail déjà parti : le
+*Cancel workflow* de l'onglet Actions le fait. Le journal du matin la rappelle
+sous « à faire ».
+
 ## Les captures et le journal
 
 Un lot qui touche `jeu/` est photographié par `python3 -m forge` (la carte du
@@ -447,5 +464,6 @@ Regarder : `atelier-boucle etat`. Installer : [atelier/crons/README.md](../ateli
 | issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, le chef a refusé, ou il pose une question | lire la raison (ou la question) en commentaire ; corriger en mode direct s'il le faut ; puis répondre d'un commentaire sur l'issue (reprise, ci-dessus) |
 | « attente » répétée au journal | quotas épuisés, session expirée, ou outil qui ne démarre pas (la raison de chaque agent est écrite) | `python3 -m atelier veille`, puis `claude setup-token` si c'est la session Claude |
 | un lot `pc` n'avance pas | le PC est éteint ou en veille, ou ses agents attendent (marque d'attente sur la PR) | allumer le PC ; `gh workflow run sonde-pc.yml` |
+| un lot `pc` attend « PC en pause » | la variable `PC_ACTIF` vaut `non` | la remettre sur `oui` (fenêtre `pc\Disponibilite.cmd`, ou GitHub → Variables) |
 | rien ne bouge | profil `arret`, copie principale hors de master, ou un jalon courant que CAP.md ne décrit pas (le pilote ne découpe que ce que CAP.md décrit) | `atelier-boucle etat` ; ajouter la section du jalon à CAP.md, ou des lots |
 | master rouge | le mécanicien ouvre une PR `meca/…` ; s'il ne peut pas, le journal le dit | mode direct |

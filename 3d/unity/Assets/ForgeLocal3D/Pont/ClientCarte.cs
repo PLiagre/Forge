@@ -47,6 +47,7 @@ namespace Forge.Pont
     }
 
     // Une cellule de la carte de 1400. `Puissance` ou `Maison` nulle est une mesure : le service a servi `null`.
+    // `Relief` est la classe servie telle quelle (« plaine », « montagne »…) ; nul, il dit « relief non servi ».
     public sealed class CelluleDeCarte
     {
         public long CellId { get; }
@@ -54,13 +55,15 @@ namespace Forge.Pont
         public IdentiteDeCarte Puissance { get; }
         public IdentiteDeCarte Maison { get; }
         public IReadOnlyList<VilleDeCarte> Villes { get; }
-        public CelluleDeCarte(long cellId, IEnumerable<PolygoneDeCarte> contour, IdentiteDeCarte puissance, IdentiteDeCarte maison, IEnumerable<VilleDeCarte> villes)
+        public string Relief { get; }
+        public CelluleDeCarte(long cellId, IEnumerable<PolygoneDeCarte> contour, IdentiteDeCarte puissance, IdentiteDeCarte maison, IEnumerable<VilleDeCarte> villes, string relief = null)
         {
             CellId = cellId;
             Contour = ClientCarte.Copier(contour, nameof(contour));
             Puissance = puissance;
             Maison = maison;
             Villes = ClientCarte.Copier(villes, nameof(villes));
+            Relief = relief;
         }
     }
 
@@ -166,7 +169,8 @@ namespace Forge.Pont
                 return new PolygoneDeCarte(anneaux[0], anneaux.Skip(1));
             });
             List<VilleDeCarte> villes = Liste(Valeur(cellule, chemin + ".villes"), chemin + ".villes", 0, Ville);
-            return new CelluleDeCarte(cellId, polygones, Identite(cellule, chemin + ".puissance"), Identite(cellule, chemin + ".maison"), villes);
+            string relief = TexteFacultatif(cellule, chemin + ".relief");
+            return new CelluleDeCarte(cellId, polygones, Identite(cellule, chemin + ".puissance"), Identite(cellule, chemin + ".maison"), villes, relief);
         }
 
         // Un anneau : au moins 4 points de exactement 2 nombres, le dernier égal au premier.
@@ -221,6 +225,10 @@ namespace Forge.Pont
             object brute = Valeur(objet, chemin);
             return brute is string texte && !string.IsNullOrWhiteSpace(texte) ? texte : throw Refus(chemin, "un texte non vide", brute);
         }
+
+        // Une clé absente rend `null` ; présente, elle doit porter un texte non vide, gardé tel quel (`null` servi est refusé).
+        private static string TexteFacultatif(Dictionary<string, object> objet, string chemin) =>
+            objet.ContainsKey(chemin.Substring(chemin.LastIndexOf('.') + 1)) ? Texte(objet, chemin) : null;
 
         private static double Nombre(object valeur, string chemin) => valeur is double nombre ? nombre : throw Refus(chemin, "un nombre", valeur);
 

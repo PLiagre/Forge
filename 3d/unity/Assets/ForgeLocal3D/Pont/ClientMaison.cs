@@ -27,6 +27,31 @@ namespace Forge.Pont
             Absents = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(absents ?? throw new ArgumentNullException(nameof(absents))));
         }
     }
+    // Les sept flux ordinaires sont des mesures ; salaires absent : aucun salaire dans la fenêtre, pas zéro.
+    public sealed class FluxDeMaison
+    {
+        public double PreleveKg { get; } public double RecuKg { get; } public double DuEnvoyeKg { get; }
+        public double MangeEnRouteKg { get; } public double RenduKg { get; }
+        public long PartisPersonnes { get; } public long ArrivesPersonnes { get; } public double? SalairesPayesKg { get; }
+        public FluxDeMaison(double preleveKg, double recuKg, double duEnvoyeKg, double mangeEnRouteKg, double renduKg,
+            long partisPersonnes, long arrivesPersonnes, double? salairesPayesKg)
+        {
+            PreleveKg = preleveKg; RecuKg = recuKg; DuEnvoyeKg = duEnvoyeKg; MangeEnRouteKg = mangeEnRouteKg; RenduKg = renduKg;
+            PartisPersonnes = partisPersonnes; ArrivesPersonnes = arrivesPersonnes; SalairesPayesKg = salairesPayesKg;
+        }
+    }
+    // Suzerain nul : racine, sans raison. Part ou grenier nul : raison dans Maison.Absents. Grenier {} : mesure.
+    public sealed class ComptesDeMaison
+    {
+        public MaisonLue Maison { get; } public string Suzerain { get; } public double? Part { get; }
+        public IReadOnlyDictionary<string, double> Grenier { get; } public FluxDeMaison Flux { get; }
+        public ComptesDeMaison(MaisonLue maison, string suzerain, double? part, IDictionary<string, double> grenier, FluxDeMaison flux)
+        {
+            Maison = maison ?? throw new ArgumentNullException(nameof(maison));
+            Suzerain = suzerain; Part = part; Flux = flux ?? throw new ArgumentNullException(nameof(flux));
+            Grenier = grenier == null ? null : new ReadOnlyDictionary<string, double>(new Dictionary<string, double>(grenier));
+        }
+    }
     // GET /maison?id= sur 127.0.0.1. Une faute refuse toute la fiche. sorte, part, grenier, flux ne sont pas lus.
     public sealed class ClientMaison : IDisposable
     {
@@ -37,6 +62,12 @@ namespace Forge.Pont
         {
             if (string.IsNullOrWhiteSpace(identifiant)) throw new ArgumentException("un identifiant de maison non vide attendu", nameof(identifiant));
             return service.Demander(HttpMethod.Get, "/maison?id=" + Uri.EscapeDataString(identifiant), racine => Fiche(racine, identifiant));
+        }
+        // Même requête que Lire. Les quatre champs sont lus après la fiche ; une faute refuse toute la réponse.
+        public Lecture<ComptesDeMaison> LireComptes(string identifiant)
+        {
+            if (string.IsNullOrWhiteSpace(identifiant)) throw new ArgumentException("un identifiant de maison non vide attendu", nameof(identifiant));
+            return service.Demander(HttpMethod.Get, "/maison?id=" + Uri.EscapeDataString(identifiant), racine => Comptes(racine, identifiant));
         }
         static MaisonLue Fiche(Dictionary<string, object> racine, string demande)
         {
@@ -91,5 +122,45 @@ namespace Forge.Pont
         { object brut = ServiceLocal.Valeur(objet, chemin); return brut is string texte && !string.IsNullOrWhiteSpace(texte) ? texte : throw ServiceLocal.Refus(chemin, "un texte non vide", brut); }
         static string TexteOuNul(Dictionary<string, object> objet, string chemin)
         { object brut = ServiceLocal.Valeur(objet, chemin); if (brut == null) return null; return brut is string texte && !string.IsNullOrWhiteSpace(texte) ? texte : throw ServiceLocal.Refus(chemin, "un texte non vide ou null", brut); }
+        static ComptesDeMaison Comptes(Dictionary<string, object> racine, string demande)
+        {
+            MaisonLue maison = Fiche(racine, demande); var absents = maison.Absents;
+            return new ComptesDeMaison(maison, TexteOuNul(racine, "suzerain"), Part(racine, absents), Grenier(racine, absents), Flux(racine));
+        }
+        static double? Part(Dictionary<string, object> racine, IReadOnlyDictionary<string, string> absents)
+        {
+            object brut = ServiceLocal.Valeur(racine, "part"); bool raison = absents.ContainsKey("part");
+            if (brut == null) { if (!raison) throw new ServiceLocal.Refusee("clé absents.part : raison absente pour une part nulle"); return null; }
+            if (raison) throw new ServiceLocal.Refusee("clé absents.part : raison sur une part présente");
+            double n = ServiceLocal.Nombre(brut, "part");
+            if (n < 0 || n > 1) throw ServiceLocal.Refus("part", "un nombre fini entre 0 et 1 ou null", brut);
+            return n;
+        }
+        static Dictionary<string, double> Grenier(Dictionary<string, object> racine, IReadOnlyDictionary<string, string> absents)
+        {
+            object brut = ServiceLocal.Valeur(racine, "grenier"); bool raison = absents.ContainsKey("grenier");
+            if (brut == null) { if (!raison) throw new ServiceLocal.Refusee("clé absents.grenier : raison absente pour un grenier nul"); return null; }
+            if (raison) throw new ServiceLocal.Refusee("clé absents.grenier : raison sur un grenier présent");
+            var objet = brut as Dictionary<string, object> ?? throw ServiceLocal.Refus("grenier", "un objet ou null", brut);
+            var panier = new Dictionary<string, double>(objet.Count);
+            foreach (var e in objet)
+            {
+                if (string.IsNullOrWhiteSpace(e.Key)) throw new ServiceLocal.Refusee("clé grenier : clé de marchandise vide");
+                string chemin = "grenier." + e.Key; double kg = ServiceLocal.Nombre(e.Value, chemin);
+                if (kg < 0) throw ServiceLocal.Refus(chemin, "un nombre fini ≥ 0", e.Value);
+                panier.Add(e.Key, kg);
+            }
+            return panier;
+        }
+        static FluxDeMaison Flux(Dictionary<string, object> racine)
+        {
+            var flux = Objet(racine, "flux_30j"); double? salaires = null;
+            if (flux.TryGetValue("salaires_payes_kg", out object brut)) salaires = Kilo(brut, "flux_30j.salaires_payes_kg");
+            return new FluxDeMaison(Kilo(flux, "preleve_kg"), Kilo(flux, "recu_kg"), Kilo(flux, "du_envoye_kg"), Kilo(flux, "mange_en_route_kg"), Kilo(flux, "rendu_kg"),
+                ServiceLocal.Entier(flux, "flux_30j.partis_personnes", 0), ServiceLocal.Entier(flux, "flux_30j.arrives_personnes", 0), salaires);
+        }
+        static double Kilo(Dictionary<string, object> flux, string cle) => Kilo(ServiceLocal.Valeur(flux, "flux_30j." + cle), "flux_30j." + cle);
+        static double Kilo(object brut, string chemin)
+        { double n = ServiceLocal.Nombre(brut, chemin); if (n < 0) throw ServiceLocal.Refus(chemin, "un nombre fini ≥ 0", brut); return n; }
     }
 }

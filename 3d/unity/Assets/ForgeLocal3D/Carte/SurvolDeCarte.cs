@@ -35,7 +35,12 @@ namespace ForgeLocal3D
             else { fiche.Quitter(); if (reperes != null) reperes.Quitter(); }
         }
 
-        public void Cliquer(Vector2 position) { if (Libre(position) && reperes != null) reperes.Choisir(position); }
+        // Lot #729 : le clic passe aussi, avec la cellule dessous, au passage à la capitale posé après l'Awake (#690) : un double-clic sur le siège descend.
+        public void Cliquer(Vector2 position) {
+            if (!Libre(position)) return;
+            if (reperes != null) reperes.Choisir(position);
+            fiche.Survoler(position); if (TryGetComponent(out PassageALaCapitale passage)) passage.Cliquer(fiche.Survolee?.CellId, Time.realtimeSinceStartupAsDouble);
+        }
 
         // Dans la fenêtre, et pas sur un panneau.
         static bool Libre(Vector2 position) => position.x >= 0 && position.y >= 0 && position.x < Screen.width && position.y < Screen.height

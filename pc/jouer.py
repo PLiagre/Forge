@@ -1,11 +1,14 @@
-"""Le lanceur du jeu : démarre le service de sim/, puis le jeu sur une cellule.
+"""Le lanceur du jeu : démarre le service de sim/, puis le jeu.
 
     py pc\\jouer.py [--port P] [--cellule C] [--carte] -- <commande du jeu…>
 
-Sans `--cellule`, la cellule est la plus ensoleillée de la carte
-(jeu/ville/cellule_du_desert.py). Avec `--carte`, le jeu s'ouvre sur la carte
+Sans `--cellule`, aucune cellule n'est imposée : le jeu lit la maison du joueur,
+ouvre sa capitale ou la carte, ou dit l'absence (lot #688).
+Avec `--carte`, le jeu s'ouvre sur la carte
 de 1400 (`-forgeCarte`, lot #524) au lieu de la ville. Le service s'arrête
 quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
+La vitesse d'ouverture vient du fichier de réglages partagé avec Unity : celle
+de la carte, ou celle de la ville si `--cellule` est donné sans `--carte`.
 """
 from __future__ import annotations
 
@@ -13,6 +16,8 @@ import argparse
 import collections
 import http.client
 import importlib.util
+import json
+import math
 import os
 import queue
 import shutil
@@ -26,11 +31,14 @@ import urllib.request
 from http import HTTPStatus
 from pathlib import Path
 
-JEU_PY = Path(__file__).resolve().parents[1] / "jeu"
+RACINE = Path(__file__).resolve().parents[1]
+JEU_PY = RACINE / "jeu"
+REGLAGES = RACINE / "3d/unity/Assets/ForgeLocal3D/Pont/Resources/ReglagesDesVues.json"
 sys.path.insert(0, str(JEU_PY))
 from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
 
 REGLE = JEU_PY / "ville" / "cellule_du_desert.py"
+AUCUNE_CELLULE = "aucune cellule imposée : le jeu lit la maison du joueur"
 ARGUMENT_CARTE = "-forgeCarte"  # celui d'OuvertureDeLaCarte.cs
 DELAI_SERVICE_PRET_S = 60
 DELAI_ARRET_S = 5
@@ -38,6 +46,21 @@ DELAI_CONNEXION_S = 1
 DELAI_REQUETE_S = 10
 LIGNES_STDERR_GARDEES = 20
 FIN_DE_FLUX = None
+
+
+def _vitesse(carte: bool, cellule: int | None) -> tuple[str, float]:
+    vue = "ville" if cellule is not None and not carte else "carte"
+    cle = f"VITESSE_{vue.upper()}"
+    try:
+        valeur = json.loads(REGLAGES.read_text(encoding="utf-8"))[cle]
+        if isinstance(valeur, bool) or not isinstance(valeur, (int, float)):
+            raise ValueError("un nombre est attendu")
+        vitesse = float(valeur)
+        if not math.isfinite(vitesse) or vitesse <= 0:
+            raise ValueError("un nombre fini strictement positif est attendu")
+    except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
+        raise RuntimeError(f"{REGLAGES} : {cle} invalide ({exc})") from exc
+    return vue, vitesse
 
 
 def _regle():
@@ -146,8 +169,8 @@ def main(argv: list[str]) -> int:
     if not commande:
         parser.error("commande du jeu absente : attendu « -- <commande du jeu…> »")
 
-    cellule = _regle().charger_et_choisir() if args.cellule is None else args.cellule
-    print(f"cellule {cellule}", flush=True)
+    cellule = args.cellule
+    print(AUCUNE_CELLULE if cellule is None else f"cellule {cellule}", flush=True)
 
     if not Path(commande[0]).exists() and shutil.which(commande[0]) is None:
         print(
@@ -165,10 +188,18 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
+    try:
+        vue, vitesse = _vitesse(args.carte, cellule)
+    except RuntimeError as exc:
+        print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
+        return 1
+    print(f"vitesse de la {vue} : {vitesse} jours par seconde", flush=True)
+
     attendue = f"service prêt sur {SERVICE_HOST}:{args.port}"
     stderr: collections.deque = collections.deque(maxlen=LIGNES_STDERR_GARDEES)
     service = subprocess.Popen(
-        [sys.executable, "-m", "sim.service", "--port", str(args.port)],
+        [sys.executable, "-m", "sim.service", "--port", str(args.port),
+         "--jours-par-seconde", repr(vitesse)],
         cwd=JEU_PY,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -182,11 +213,13 @@ def main(argv: list[str]) -> int:
         try:
             _attendre_pret(service, attendue, stderr)
             print(attendue, flush=True)
-            _verifier_lieu(args.port, cellule, stderr)
+            if cellule is not None:
+                _verifier_lieu(args.port, cellule, stderr)
+                commande += ["-forgeCell", str(cellule)]
         except RuntimeError as exc:
             print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
             return 1
-        code = subprocess.call(commande + ["-forgeCell", str(cellule)] + ([ARGUMENT_CARTE] if args.carte else []))
+        code = subprocess.call(commande + ([ARGUMENT_CARTE] if args.carte else []))
         print(f"jeu fermé (code {code})", flush=True)
         return code
     finally:

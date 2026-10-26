@@ -218,5 +218,101 @@ namespace Forge.Pont.Tests {
             Assert.IsFalse(G(0, true, false) || G(100, false, false) || G(0, false, true), "un détour de 100 px revenu au départ choisit encore");
             Assert.IsTrue(G(0, true, true) && !G(0, true, false) && !G(7, false, true), "un clic au même point doit choisir, un relâché à 7 px non");
         }
+        // Lot #614 — la maison publiée descend au siège et pose un disque par lieu tenu. Le faux service inchangé sert aussi `/monde` et `/lieu`.
+        private const long CELLULE_MOREE = 10340; private const string MAISON_MOREE = "seigneurie-3", DEMANDE_MOREE = "/maison?id=seigneurie-3";
+        private FicheDeCellule fiche;
+        private void Publier(string maison) => maisons["/monde"] = (200, "{\"tick\":4,\"date\":{\"annee\":1400,\"jour_de_l_annee\":4},\"cell_count\":1,\"cells\":[{\"cell_id\":10340,\"population\":1,\"hunger_ticks\":0,\"food_deficit_kg\":0}]" + (maison == null ? "}" : ",\"maison_du_joueur\":\"" + maison + "\"}"));
+        private void ServirLieu(string corps) => maisons["/lieu?cell=" + CELLULE_MOREE] = (200, corps);
+        private (long rang, double x, double y, string maitre)[] Quatre() { var s = SIEGES[2]; return new[] { (0L, s.x, s.y, MAISON_MOREE), (1L, s.x + 20000d, s.y, MAISON_MOREE), (2L, s.x, s.y + 22000d, MAISON_MOREE), (3L, s.x - 18000d, s.y - 16000d, MAISON_MOREE) }; }
+        private (long rang, double x, double y, string maitre)[] AvecVoisin() { var s = SIEGES[2]; return Quatre().Concat(new[] { (4L, s.x + 90000d, s.y, "seigneurie-9") }).ToArray(); }
+        private static string CorpsLieu(params (long rang, double x, double y, string maitre)[] pts) {
+            string un((long rang, double x, double y, string maitre) p) => "{\"rang\":" + p.rang.ToString(CultureInfo.InvariantCulture) + ",\"point\":" + (double.IsNaN(p.x) ? "null" : "{\"x_m\":" + p.x.ToString("R", CultureInfo.InvariantCulture) + ",\"y_m\":" + p.y.ToString("R", CultureInfo.InvariantCulture) + "}") + ",\"maitre\":" + (p.maitre == null ? "null" : "\"" + p.maitre + "\"") + "}";
+            return "{\"cell_id\":10340,\"tick\":4,\"date\":{\"annee\":1400,\"jour_de_l_annee\":4},\"population\":1,\"stocks\":{},\"hunger_ticks\":0,\"food_deficit_kg\":0,\"lieux\":[" + string.Join(",", pts.Select(un)) + "]}"; }
+        private void Monter() { Servir(); Lues(out _); Poser(); carte.camera.aspect = 16f / 9f; fiche = objet.AddComponent<FicheDeCellule>(); fiche.port = port; fiche.Demarrer(); }
+        private void Jusqua(double t, Func<bool> fini) { var montre = Stopwatch.StartNew(); do { carte.Pas(t); fiche.Pas(t); reperes.Pas(t); Thread.Sleep(10); } while (!fini() && montre.ElapsedMilliseconds < ATTENTE_MS); Assert.IsTrue(fini(), "« " + reperes.TexteAffiche + " » maison « " + fiche.MaisonDuJoueur + " »"); }
+        private int DisquesActifs() => objet.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Disque" && t.parent != null && t.parent.name.StartsWith("Lieu ") && t.gameObject.activeInHierarchy);
+        private int DepartsActifs() { Transform r = objet.transform.Find(RACINE); return r == null ? 0 : r.Cast<Transform>().Count(c => c.gameObject.activeInHierarchy); }
+        private Transform LieuPose(long rang) => objet.transform.Find(ReperesDeDepart.RACINE_LIEUX + "/" + ReperesDeDepart.NomDuLieu(CELLULE_MOREE, rang));
+        [Test] public void La_maison_publiee_descend_sur_le_siege_et_ses_lieux() {
+            var s = SIEGES[2]; Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter();
+            Jusqua(1, () => reperes.ReperesPoses == 6 && fiche.MondeLu != null && fiche.MaisonDuJoueur == null);
+            reponses.Enqueue((200, "{\"acceptee\":true,\"appliquee_au_tick\":4}")); Cliquer(MOREE); double apres = 2 + 2 * ReperesDeDepart.PERIODE_RELECTURE_S; for (double t = 2; t <= apres; t++) { carte.Pas(t); fiche.Pas(t); reperes.Pas(t); Thread.Sleep(50); }
+            Assert.IsTrue(reperes.RecuDuChoix.Acceptee && DepartsActifs() == 6 && carte.Vue.Echelle == 1f && DisquesActifs() == 0 && Recues("/lieu?cell=" + CELLULE_MOREE) == 0 && Recues(DEMANDE_MOREE) == 1, Recues(DEMANDE_MOREE) + " lectures de la maison ; " + reperes.TexteAffiche);
+            Publier(MAISON_MOREE); Jusqua(apres + 1, () => fiche.MaisonDuJoueur == MAISON_MOREE && DisquesActifs() == 4 && DepartsActifs() == 0);
+            Assert.AreEqual(1, Recues("/lieu?cell=" + CELLULE_MOREE), "la cellule"); Assert.AreEqual(2, Recues(DEMANDE_MOREE), "la maison publiée");
+            Vector3 siege = carte.PositionSurLaCarte(new PointCarte(s.x, s.y), ReperesDeDepart.HAUTEUR_LIEU).Value; Vector3 cam = objet.transform.InverseTransformPoint(carte.camera.transform.position);
+            Assert.IsTrue(carte.Vue.Echelle < 1f && carte.Vue.Centre == new Vector2(siege.x, siege.z) && carte.Vue.Demi >= VueDeCarte.DEMI_MIN_KM && Mathf.Abs(cam.x - siege.x) < 0.01f && Mathf.Abs(cam.z - siege.z) < 0.01f && Mathf.Abs(carte.camera.orthographicSize - carte.Vue.Demi) < 0.01f, carte.Vue.Centre + " demi " + carte.Vue.Demi + " caméra " + cam);
+            foreach (var p in Quatre()) { Transform lieu = LieuPose(p.rang); Vector3 attendu = carte.PositionSurLaCarte(new PointCarte(p.x, p.y), ReperesDeDepart.HAUTEUR_LIEU).Value; Vector3 vue = lieu != null ? carte.camera.WorldToViewportPoint(lieu.position) : Vector3.zero; Assert.IsTrue(lieu != null && Egal(lieu.localPosition, attendu) && lieu.Find("Disque").gameObject.activeInHierarchy && vue.x >= 0f && vue.x <= 1f && vue.y >= 0f && vue.y <= 1f, "rang " + p.rang + " " + vue); }
+            Assert.IsNull(LieuPose(4), "le voisin a un disque");
+            StringAssert.Contains(s.maison, reperes.TexteAffiche); StringAssert.Contains(s.siege, reperes.TexteAffiche); StringAssert.Contains("\nLieux servis : 4", reperes.TexteAffiche);
+            Assert.IsTrue(reperes.RecuDuChoix.Acceptee && reperes.ChoixAffiche == null && reperes.FicheAffichee == null, reperes.ChoixAffiche);
+        }
+        [Test] public void Trois_lieux_tenus_posent_trois_disques() {
+            Publier(MAISON_MOREE); ServirLieu(CorpsLieu(AvecVoisin()));
+            string trois = maisons[DEMANDE_MOREE].corps.Replace(",{\"cell_id\":10340,\"rang\":3}", ""); Assert.AreNotEqual(maisons[DEMANDE_MOREE].corps, trois); maisons[DEMANDE_MOREE] = (200, trois);
+            Monter(); Jusqua(1, () => DisquesActifs() == 3 && DepartsActifs() == 0);
+            Assert.IsTrue(LieuPose(0) != null && LieuPose(1) != null && LieuPose(2) != null && LieuPose(3) == null, "quatre disques figés");
+        }
+        [TestCase("404", "statut 404")] [TestCase("siege", "siège sans cellule sur la carte servie")] [TestCase("point", "point nul")]
+        [TestCase("rang", "rang 3 absent")] [TestCase("maitre", "maître contradictoire")] [TestCase("vide", "aucun lieu tenu")]
+        public void Une_absence_de_domaine_nomme_sa_cause_puis_reprend(string cas, string attendu) {
+            const string raison = "siège sans cellule sur la carte servie"; string vraie = maisons[DEMANDE_MOREE].corps; var pts = AvecVoisin();
+            if (cas == "point") pts[3] = (3L, double.NaN, 0d, MAISON_MOREE);
+            if (cas == "rang") pts = pts.Where(p => p.rang != 3).ToArray();
+            if (cas == "maitre") pts[3] = (pts[3].rang, pts[3].x, pts[3].y, "seigneurie-9");
+            Publier(null); ServirLieu(CorpsLieu(pts)); Monter();
+            Jusqua(1, () => reperes.ReperesPoses == 6 && fiche.MondeLu != null && fiche.MaisonDuJoueur == null);
+            if (cas == "404") maisons[DEMANDE_MOREE] = (404, "{\"erreur\":\"maison inconnue\"}");
+            if (cas == "siege") maisons[DEMANDE_MOREE] = (200, "{\"id\":\"seigneurie-3\",\"nom\":\"Paléologue\",\"siege\":{\"cell_id\":null,\"rang\":null,\"nom\":\"Mistra\",\"point\":null},\"lieux\":[],\"absents\":{\"siege\":\"" + raison + "\"}}");
+            if (cas == "vide") maisons[DEMANDE_MOREE] = (200, vraie.Replace("\"lieux\":[{\"cell_id\":10340,\"rang\":0},{\"cell_id\":10340,\"rang\":1},{\"cell_id\":10340,\"rang\":2},{\"cell_id\":10340,\"rang\":3}]", "\"lieux\":[]"));
+            Vector2 centre = carte.Vue.Centre; float echelle = carte.Vue.Echelle, taille = carte.camera.orthographicSize; Publier(MAISON_MOREE);
+            Jusqua(2, () => reperes.TexteAffiche != null && DisquesActifs() == 0 && DepartsActifs() == 6 && carte.Vue.Echelle == echelle && carte.Vue.Centre == centre);
+            StringAssert.Contains(attendu, reperes.TexteAffiche); Assert.AreEqual(taille, carte.camera.orthographicSize);
+            maisons[DEMANDE_MOREE] = (200, vraie); ServirLieu(CorpsLieu(AvecVoisin()));
+            Jusqua(2 + ReperesDeDepart.PERIODE_RELECTURE_S, () => DisquesActifs() == 4 && DepartsActifs() == 0);
+            StringAssert.DoesNotContain(attendu, reperes.TexteAffiche); StringAssert.Contains("Mistra", reperes.TexteAffiche); StringAssert.Contains("\nLieux servis : 4", reperes.TexteAffiche);
+        }
+        [Test] public void Le_domaine_rendu_garde_la_vue_que_le_joueur_glisse() {
+            Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter();
+            Jusqua(1, () => reperes.ReperesPoses == 6 && fiche.MondeLu != null);
+            MeshRenderer[] cellules = objet.transform.Find("Cellules de la carte").GetComponentsInChildren<MeshRenderer>();
+            var avant = cellules.Select(m => (m, m.sharedMaterial, m.sharedMaterial.color)).ToArray(); Publier(MAISON_MOREE);
+            Jusqua(2, () => DisquesActifs() == 4 && DepartsActifs() == 0);
+            foreach (var (m, mat, col) in avant) Assert.IsTrue(m.sharedMaterial == mat && m.sharedMaterial.color == col, m.name);
+            Material joueur = null;
+            for (long r = 0; r < 4; r++) { Transform lieu = LieuPose(r); var disque = lieu.Find("Disque").GetComponent<MeshRenderer>(); var bord = lieu.Find("Bord").GetComponent<MeshRenderer>(); if (joueur == null) joueur = disque.sharedMaterial; Assert.IsTrue(disque.sharedMaterial == joueur && ((Color32)disque.sharedMaterial.color).Equals((Color32)ReperesDeDepart.COULEUR_JOUEUR) && bord.sharedMaterial.color.maxColorComponent < 0.25f && bord.gameObject.activeInHierarchy && disque.GetComponent<Collider>() == null, "rang " + r); }
+            CelluleDeCarte sous = carte.CelluleSous(LieuPose(0).position);
+            Assert.AreNotEqual((Color32)cellules.Single(m => m.name == "Cellule " + sous.CellId).sharedMaterial.color, (Color32)joueur.color);
+            int depots = Recues("/intention"); reperes.Survoler(Ecran(MOREE)); reperes.Choisir(Ecran(MOREE));
+            Assert.IsTrue(reperes.Survolee == null && reperes.FicheAffichee == null && Recues("/intention") == depots, Recues("/intention") + " dépôts");
+            Vector2 avantGlisse = carte.Vue.Centre; carte.Vue.Glisser(new Vector2(40f, -30f), 900f); Vector2 glisse = carte.Vue.Centre;
+            Assert.AreNotEqual(avantGlisse, glisse); int n = DisquesActifs();
+            for (int i = 0; i < 4; i++) { carte.Pas(5 + i); fiche.Pas(5 + i); reperes.Pas(5 + i); }
+            Assert.AreEqual(glisse, carte.Vue.Centre); Assert.AreEqual(n, DisquesActifs());
+        }
+        // Bar manque : la maison publiée descend quand même, puis aucun `/departs` ne part ; une lecture en vol à la pose (posée ici, hors du faux service) ne repose rien.
+        [Test] public void Une_maison_etrangere_absente_laisse_descendre_sans_relire_les_departs() {
+            maisons["/maison?id=seigneurie-1"] = (404, "{\"erreur\":\"maison inconnue\"}"); Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter(); Lecture<DepartsLus> lus; using (var d = new ClientDeparts(port, ClientDeparts.DelaiMinimal)) lus = d.Lire(); var tenue = Lecture<MaisonLue>.De(Maison(3)); lock (recues) recues.Clear();
+            Jusqua(1, () => reperes.ReperesPoses == 5 && !reperes.LectureEnVol && fiche.MondeLu != null && fiche.MaisonDuJoueur == null);
+            var vol = new System.Threading.Tasks.TaskCompletionSource<(Lecture<DepartsLus>, List<(FicheDeDepart, Lecture<MaisonLue>)>)>(); typeof(ReperesDeDepart).GetField("enCours", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(reperes, vol.Task);
+            reponses.Enqueue((200, "{\"acceptee\":true,\"appliquee_au_tick\":4}")); Cliquer(MOREE); Publier(MAISON_MOREE);
+            Jusqua(2, () => DisquesActifs() == 4 && DepartsActifs() == 0 && carte.Vue.Echelle < 1f); Vector2 centre = carte.Vue.Centre; string texte = reperes.TexteAffiche;
+            Assert.IsTrue(reperes.LectureEnVol && texte != null && texte.Contains("Mistra") && !texte.Contains(ReperesDeDepart.MESSAGE_ABSENCE), "« " + texte + " »"); vol.SetResult((lus, lus.Donnees.Fiches.Select(f => (f, tenue)).ToList()));
+            for (int i = 1; i <= 4; i++) { double t = 2 + i * ReperesDeDepart.PERIODE_RELECTURE_S; carte.Pas(t); fiche.Pas(t); reperes.Pas(t); Thread.Sleep(50); reperes.Pas(t); } int n = Recues("/intention"); reperes.Survoler(Ecran(MOREE)); reperes.Choisir(Ecran(MOREE));
+            Assert.IsTrue(Recues("/departs") == 1 && Recues("/maison?id=seigneurie-1") == 1 && !reperes.LectureEnVol && reperes.ReperesPoses == 5 && DepartsActifs() == 0 && DisquesActifs() == 4 && reperes.Survolee == null && n == Recues("/intention") && carte.Vue.Centre == centre && carte.Vue.Echelle < 1f && reperes.TexteAffiche == texte, Recues("/departs") + " /departs, " + reperes.ReperesPoses + " repères ; « " + reperes.TexteAffiche + " »");
+        }
+        // Lot #729 — le prototype arrêté comme le fait le cabinet, la maison publiée nomme quand même son siège sur la carte, du nom
+        // que `/maison` sert, juste au nord de son disque, d'une seule lecture ; rien avant, et le choix direct reste arrêté.
+        [TestCase("Mistra")] [TestCase("Mistra servie au test")]
+        public void Le_prototype_arrete_la_maison_publiee_nomme_son_siege(string servi) {
+            var s = SIEGES[2]; maisons[DEMANDE_MOREE] = (200, maisons[DEMANDE_MOREE].corps.Replace("\"nom\":\"Mistra\"", "\"nom\":\"" + servi + "\"")); Publier(null); Monter();
+            reperes.enabled = false; reperes.Arreter(); var nommeur = objet.AddComponent<ReperesDeDepart.NomDuSiege>(); // CabinetDeCarte.Construire, puis #690
+            Jusqua(1, () => { nommeur.Pas(1); return fiche.MondeLu != null && carte.CellulesServies >= 0; }); Assert.IsTrue(nommeur.Nom == null && Recues(DEMANDE_MOREE) == 0, "un siège nommé avant la maison publiée");
+            Publier(MAISON_MOREE); Jusqua(2, () => { nommeur.Pas(2); return nommeur.Nom != null; }); for (int t = 3; t < 7; t++) { fiche.Pas(t); nommeur.Pas(t); Thread.Sleep(50); } reperes.Choisir(Vector2.zero);
+            TextMesh nom = objet.transform.Find(ReperesDeDepart.NOM_DU_SIEGE)?.GetComponent<TextMesh>(); Vector3 vue = nom != null ? carte.camera.WorldToViewportPoint(nom.transform.position) : Vector3.zero;
+            Vector3 siege = carte.PositionSurLaCarte(new PointCarte(s.x, s.y), CarteDessinee.HAUTEUR_NOM).Value + new Vector3(0, 0, ReperesDeDepart.DIAMETRE_BORD_KM / 2);
+            Assert.IsTrue(nom == nommeur.Nom && nom.text == servi && nom.gameObject.activeInHierarchy && nom.color == Color.black && nom.anchor == TextAnchor.MiddleCenter && Egal(nom.transform.localPosition, siege) && vue.x > 0f && vue.x < 1f && vue.y > 0f && vue.y < 1f, "nom « " + nom?.text + " » en " + nom?.transform.localPosition.ToString("R") + ", vu en " + vue);
+            Assert.IsTrue(objet.GetComponentsInChildren<TextMesh>(true).Count(t => t.text == servi) == 1 && Recues(DEMANDE_MOREE) == 1 && !reperes.enabled && !reperes.ChoixEnVol && Recues("/intention") == 0 && DisquesActifs() == 0, Recues(DEMANDE_MOREE) + " lectures de la maison");
+        }
     }
 }

@@ -23,6 +23,12 @@ CONTROLES_EXIGES = ("tests", "gitleaks")
 # l'a pas su.
 AGREGATS = {"tests": "tests"}
 
+# La variable d'Actions du dépôt qui met le PC en pause pour la chaîne : « non »
+# l'arrête, tout le reste (absente comprise) la laisse travailler. Le
+# propriétaire la bascule dans GitHub (Settings → Secrets and variables →
+# Actions → Variables) ou par la fenêtre `pc\Disponibilite.cmd`.
+VARIABLE_PC = "PC_ACTIF"
+
 Executeur = Callable[[list[str], str | None], tuple[int, str, str]]
 
 
@@ -171,6 +177,28 @@ class GitHub:
     def fermer_pr(self, numero: int, commentaire: str) -> None:
         self.gh("pr", "close", str(numero), "-R", self.depot, "--comment", commentaire)
 
+    # --------------------------------------------------------- variables
+    def variable(self, nom: str) -> str | None:
+        """La valeur d'une variable d'Actions du dépôt, `None` si elle n'existe pas."""
+        try:
+            lue = self.json("api", f"repos/{self.depot}/actions/variables/{nom}")
+        except GitHubErreur as e:
+            if "404" in str(e) or "Not Found" in str(e):
+                return None
+            raise
+        return lue.get("value") if isinstance(lue, dict) else None
+
+    def pc_actif(self) -> bool:
+        """Le PC travaille-t-il pour la chaîne ? Oui, sauf si `PC_ACTIF` vaut
+        « non ». Une variable illisible (jeton sans droit de lecture, GitHub
+        qui ne répond pas) ne met jamais le PC en pause : la pause se pose,
+        elle ne s'invente pas."""
+        try:
+            valeur = self.variable(VARIABLE_PC)
+        except GitHubErreur:
+            return True
+        return (valeur or "").strip().lower() != "non"
+
     # --------------------------------------------------------------- CI
     def dernier_run(self, workflow: str, branche: str) -> dict | None:
         runs = self.json("run", "list", "-R", self.depot, "--workflow", workflow, "--branch", branche,
@@ -180,6 +208,33 @@ class GitHub:
     def rejouer_les_echecs(self, run: int) -> None:
         """Rejoue les travaux en échec d'un run fini, et ceux qui les attendent."""
         self.gh("run", "rerun", str(run), "-R", self.depot, "--failed")
+
+    def base_de_fusion(self, base: str, tete: str) -> str:
+        """Le commit de `base` d'où part la révision `tete`."""
+        return self.gh("api", f"repos/{self.depot}/compare/{base}...{tete}", "--jq",
+                       ".merge_base_commit.sha").strip()
+
+    def travaux_du_commit(self, reference: str) -> dict[str, str]:
+        """L'état de chaque travail de CI d'un commit (ou de la tête d'une
+        branche) : vert, rouge ou attente. Un travail rejoué se lit à son
+        passage le plus récent ; un travail annulé n'a rien dit, il n'est
+        pas rouge."""
+        bruts = self.json("api", f"repos/{self.depot}/commits/{reference}/check-runs?per_page=100", "--jq",
+                          "[.check_runs[] | {name, status, conclusion, started_at}]") or []
+        vus: dict[str, tuple[str, str]] = {}
+        for c in bruts:
+            if c.get("status") != "completed":
+                etat = "attente"
+            elif c.get("conclusion") in ("failure", "timed_out"):
+                etat = "rouge"
+            elif c.get("conclusion") in ("success", "neutral", "skipped"):
+                etat = "vert"
+            else:
+                continue
+            date = c.get("started_at") or ""
+            if c["name"] not in vus or date >= vus[c["name"]][1]:
+                vus[c["name"]] = (etat, date)
+        return {nom: etat for nom, (etat, _) in vus.items()}
 
     def fichiers_de_pr(self, numero: int) -> list[str]:
         return [f["path"] for f in (self.json("pr", "view", str(numero), "-R", self.depot, "--json", "files")

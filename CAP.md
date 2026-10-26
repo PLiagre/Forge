@@ -368,8 +368,13 @@ le monde fait échouer le contrôle.
 
 **Dans le monde** : les maisons de l'IA, grandes et petites, décident avec des
 raisons de monde — la faim de leurs gens, les départs, leur grenier, leurs
-chantiers — une fois par mois chacune, et chaque geste porte sa raison. À
-partir d'ici, chaque jalon qui ajoute un geste le donne aussi à l'IA.
+chantiers — une fois par mois chacune, et chaque geste porte sa raison. Une
+exception, le secours : une maison dont un lieu a faim depuis plus de sept
+jours ouvre son grenier le jour même, pour la dette de ses lieux affamés, sans
+descendre sous la moitié de sa réserve voulue (#424) ; ses gens n'attendent pas
+son jour de décision. Le réglage de sa part reste mensuel (décidé le 24
+octobre 2026, #425). À partir d'ici, chaque jalon qui ajoute un geste le donne
+aussi à l'IA.
 
 **Déjà livré** : les maisons de l'IA et leurs capitales, leur dépôt par le
 chemin du joueur, l'IA dans la forge et dans le service (#319, #320, #321,

@@ -185,10 +185,13 @@ def test_tick_depart_avant_recolte_et_retour(monkeypatch):
 
 
 def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
+    # Isoler le coût des bras : une naissance changerait les effectifs au jour 16.
+    monkeypatch.setattr(engine, "_apply_natalite", lambda cell, penurie_kg: None)
     production = engine._apply_production
     initial = World.charger(0)
-    geste = _route_reference(initial)
+    geste = _route_reference(initial, cell=1175)
     cell = initial.cells[geste["cell"]]
+    assert cell.cell_id == 1175 and len(cell.lieux) == 1
     paysans = lire_habitants_par_metier(cell)[k.METIER_PAYSANS]
     km2 = (cell.area_km2 * engine._facteur_relief_pour_cellule(cell, initial.carte)
            * engine._facteur_eau_pour_cellule(cell, initial.carte)
@@ -196,7 +199,7 @@ def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
     requis = km2 * k.BRAS_AUX_CHAMPS_PAR_KM2
     moyen = (paysans - 1) // k.TAILLE_FOYER
     gros = 2 * math.ceil(paysans / k.TAILLE_FOYER)
-    assert 0 < paysans - moyen * k.TAILLE_FOYER < requis
+    assert paysans - moyen * k.TAILLE_FOYER == 2
     ticks = 30
     # Même travail, replié dans la place : les bandes peuvent se recroiser.
     travail = (ticks + 1) * gros * k.TAILLE_FOYER
@@ -231,10 +234,21 @@ def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
                 recevoir_intention(monde, geste | {"foyers": nombre})
 
             def relever(cell, *a, **kw):
-                avant = cell.food_stock_kg
+                if cell is cible:
+                    etat_alea = a[0].getstate()
                 production(cell, *a, **kw)
                 if cell is cible:
-                    mesures.append(cell.food_stock_kg - avant)
+                    jour = kw["jour"]
+                    besoin = requis * engine._facteur_saison_pour_cellule(cell, monde.carte, jour)
+                    restants = lire_habitants_par_metier(cell).get(k.METIER_PAYSANS, 0)
+                    if nombre == moyen:
+                        assert restants == 2 < besoin
+                    tirage = random.Random(); tirage.setstate(etat_alea)
+                    rendement = tirage.uniform(k.RNG_YIELD_LOW, k.RNG_YIELD_HIGH)
+                    pleine = engine.production_du_tick_kg(cell, rendement, monde.carte, jour)
+                    observe = kw["recoltes"][cell.cell_id][0]
+                    assert observe == pytest.approx(pleine * min(1, restants / besoin), rel=1e-12)
+                    mesures.append(observe)
 
             with monkeypatch.context() as sonde:
                 sonde.setattr(engine, "_apply_production", relever)

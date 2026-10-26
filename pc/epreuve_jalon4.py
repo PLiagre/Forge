@@ -188,11 +188,14 @@ def ecrire_route(dossier, points, largeur):
     consigne["route"] = {"x": [p[0] for p in points], "y": [p[1] for p in points], "largeur": largeur}
     chemin.write_text(json.dumps(consigne), encoding="utf-8")
 def poser_route_sur_une_maison(aides, dossier, cellule):
-    """--sur-une-maison : la base servie de Biskra, la largeur et les paramètres de la route plaine du jeu de gestes."""
+    """--sur-une-maison : sur la grille relevée au relief que /carte sert pour la cellule."""
     base = json.loads(http(f"/plan?cell={cellule}"))["base"]; ident = aides["disposition"]["id"]
+    relief = next((c["relief"] for c in json.loads(http("/carte"))["cells"] if c["cell_id"] == cellule), None)
+    if relief is None: raise OSError(f"cellule {cellule} absente de /carte")
     gestes = json.loads((aides["sorties"] / ident / "routes" / "gestes.json").read_text(encoding="utf-8"))
     plaine = next(g for g in gestes["routes"] if g["famille"] == "plaine")
-    points = route_sur_une_maison(base, aides["grille"](ident), plaine["largeur"], gestes["parametres"])
+    routes = module_routes(); P = dict(gestes["parametres"], pivot=routes.pivot(aides["disposition"]["seed"]))
+    points = route_sur_une_maison(base, routes.relever(aides["grille"](ident), relief, P), plaine["largeur"], P)
     if points is None: raise OSError("aucune route sur une maison que le relief accepte")
     ecrire_route(dossier, points, plaine["largeur"])
 def charger_aides():

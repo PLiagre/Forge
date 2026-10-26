@@ -1,6 +1,6 @@
 """pc/jouer.py démarre le service, lance le jeu, puis arrête le service (lot #120, SC2).
 
-Le jeu est un faux jeu écrit ici : il lit `-forgeCell`, interroge le service,
+Le jeu est un faux jeu écrit ici : il lit `-forgeCell` s'il est reçu, interroge le service,
 écrit ce qu'il a reçu dans un fichier, et sort avec le code demandé.
 """
 
@@ -23,7 +23,6 @@ NIVEAUX_JUSQU_A_JEU = 2  # tests/ → ville/ → jeu/
 JEU = Path(__file__).resolve().parents[NIVEAUX_JUSQU_A_JEU]
 RACINE = JEU.parent
 LANCEUR = RACINE / "pc" / "jouer.py"
-REGLE = JEU / "ville" / "cellule_du_desert.py"
 PANNEAU = RACINE / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "PanneauLieu.cs"
 HOTE = "127.0.0.1"
 CELLULE_DU_PANNEAU = 1175
@@ -65,10 +64,12 @@ import json, sys, time, urllib.error, urllib.request
 
 _, sortie, code, port, *_ = sys.argv
 code, port = int(code), int(port)
-cellule = sys.argv[sys.argv.index("-forgeCell") + 1]
+cellule = sys.argv[sys.argv.index("-forgeCell") + 1] if "-forgeCell" in sys.argv else None
 base = f"http://127.0.0.1:{port}"
+lu = "/lieu" if cellule is not None else "/monde"
+chemin = f"/lieu?cell={cellule}" if cellule is not None else lu
 try:
-    with urllib.request.urlopen(f"{base}/lieu?cell={cellule}") as r:
+    with urllib.request.urlopen(f"{base}{chemin}") as r:
         statut, lieu = r.status, json.loads(r.read())
 except urllib.error.HTTPError as exc:
     statut, lieu = exc.code, {}
@@ -76,10 +77,12 @@ ticks = []
 for attente in (0, ECART):
     time.sleep(attente)
     with urllib.request.urlopen(f"{base}/horloge") as r:
-        ticks.append(json.loads(r.read())["tick"])
+        ticks.append((horloge := json.loads(r.read()))["tick"])
 with open(sortie, "w", encoding="utf-8") as f:
     json.dump({"forgeCell": cellule, "statut": statut, "cell_id": lieu.get("cell_id"),
+               "lu": lu, "maison_du_joueur": lieu.get("maison_du_joueur"),
                "ticks": ticks, "refuse_pendant": port_refuse(port),
+               "jours_par_seconde": horloge["jours_par_seconde"],
                "forgeCarte": "-forgeCarte" in sys.argv}, f)
 sys.exit(code)
 '''.replace("ECART", repr(ECART_ENTRE_HORLOGES_S))
@@ -121,22 +124,88 @@ def _commande_du_faux_jeu(faux_jeu, sortie, code, port):
     return [sys.executable, str(faux_jeu), str(sortie), str(code), str(port)]
 
 
+@pytest.mark.parametrize("carte, ville", [(False, False), (True, False), (False, True), (True, True)])
+def test_vitesse_de_la_vue_d_ouverture(faux_jeu, tmp_path, carte, ville):
+    jouer = _charger("jouer", LANCEUR)
+    reglages = json.loads(jouer.REGLAGES.read_text(encoding="utf-8"))
+    vue = "ville" if ville and not carte else "carte"
+    vitesse = reglages[f"VITESSE_{vue.upper()}"]
+    options = (["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []) + (["--carte"] if carte else [])
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port), *options)
+    assert port_refuse(port)
+    assert code == 0, texte
+    recu = json.loads(sortie.read_text(encoding="utf-8"))
+    assert recu["jours_par_seconde"] == vitesse
+    assert f"vitesse de la {vue} : {float(vitesse)} jours par seconde" in texte
+    if vue == "carte":
+        assert recu["ticks"][1] > recu["ticks"][0]
+        assert 50 < 365 / vitesse < 70
+
+
+@pytest.mark.parametrize("ville", [False, True])
+def test_vitesse_lue_dans_le_fichier_remplace(faux_jeu, tmp_path, monkeypatch, ville):
+    jouer = _charger("jouer", LANCEUR)
+    reglages = tmp_path / "reglages.json"
+    valeurs = {"VITESSE_VILLE": 0.25, "VITESSE_CARTE": 4}
+    reglages.write_text(json.dumps(valeurs), encoding="utf-8")
+    monkeypatch.setattr(jouer, "REGLAGES", reglages, raising=False)
+    options = ["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code = jouer.main(["--port", str(port), *options, "--",
+                       *_commande_du_faux_jeu(faux_jeu, sortie, 0, port)])
+    assert port_refuse(port)
+    assert code == 0
+    recu = json.loads(sortie.read_text(encoding="utf-8"))
+    assert recu["jours_par_seconde"] == valeurs["VITESSE_VILLE" if ville else "VITESSE_CARTE"]
+
+
+@pytest.mark.parametrize("contenu, ville", [
+    (None, False), ('{"VITESSE_CARTE":', False), ("{}", False),
+    ('{"VITESSE_CARTE": "6"}', False), ('{"VITESSE_CARTE": true}', False),
+    ('{"VITESSE_CARTE": 0}', False), ('{"VITESSE_CARTE": -1}', False),
+    ('{"VITESSE_CARTE": NaN}', False), ('{"VITESSE_CARTE": Infinity}', False),
+    ('{"VITESSE_VILLE": 0}', True), ("[]", False),
+])
+def test_vitesse_invalide_ne_lance_rien(faux_jeu, tmp_path, monkeypatch, capsys, contenu, ville):
+    jouer = _charger("jouer", LANCEUR)
+    reglages = tmp_path / "reglages.json"
+    if contenu is not None:
+        reglages.write_text(contenu, encoding="utf-8")
+    monkeypatch.setattr(jouer, "REGLAGES", reglages, raising=False)
+    options = ["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code = jouer.main(["--port", str(port), *options, "--",
+                       *_commande_du_faux_jeu(faux_jeu, sortie, 0, port)])
+    capture = capsys.readouterr()
+    assert port_refuse(port)
+    assert code == 1
+    assert "le jeu n'est pas lancé" in capture.err
+    assert str(reglages) in capture.err
+    assert ("VITESSE_VILLE" if ville else "VITESSE_CARTE") in capture.err
+    assert "service prêt" not in capture.out
+    assert "service arrêté" not in capture.out
+    assert not sortie.exists()
+
+
 def test_chemin_nominal(faux_jeu, tmp_path):
     port, sortie = _port_libre(), tmp_path / "recu.json"
     code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port))
     assert code == 0, texte
     assert port_refuse(port), f"le service répond encore sur {port} après la sortie du lanceur"
     recu = json.loads(sortie.read_text(encoding="utf-8"))
-    attendue = _charger("cellule_du_desert", REGLE).charger_et_choisir()
-    assert recu["forgeCell"] == str(attendue)
+    assert recu["forgeCell"] is None, f"-forgeCell reçu sans --cellule : {recu['forgeCell']!r}"
+    assert recu["lu"] == "/monde"
     assert recu["statut"] == HTTPStatus.OK
-    assert recu["cell_id"] == attendue
+    assert recu["maison_du_joueur"] is None
     premier, second = recu["ticks"]
     assert second > premier, f"l'horloge ne tourne pas : {recu['ticks']}"
     # Contre-épreuve : le même contrôle, appliqué pendant le jeu, dit « répond ».
     assert recu["refuse_pendant"] is False
-    for ligne in (f"cellule {attendue}", f"service prêt sur {HOTE}:{port}", "jeu fermé (code 0)", "service arrêté"):
+    jouer = _charger("jouer", LANCEUR)
+    for ligne in (jouer.AUCUNE_CELLULE, f"service prêt sur {HOTE}:{port}", "jeu fermé (code 0)", "service arrêté"):
         assert ligne in texte
+    assert re.search(r"^cellule \d+$", texte, re.MULTILINE) is None
 
 
 def test_carte_ouvre_le_jeu_sur_la_carte(faux_jeu, tmp_path):
@@ -147,8 +216,39 @@ def test_carte_ouvre_le_jeu_sur_la_carte(faux_jeu, tmp_path):
         assert code == 0, texte
         recu = json.loads(sortie.read_text(encoding="utf-8"))
         assert recu["forgeCarte"] is attendu, f"options {options} : {recu}"
+        assert recu["forgeCell"] is None
         assert recu["statut"] == HTTPStatus.OK
         assert port_refuse(port)
+
+
+@pytest.mark.parametrize("options, cellules", [((), []), (("--cellule", "1175"), [1175])],
+                         ids=["sans_option", "cellule_demandee"])
+def test_seule_la_cellule_demandee_est_verifiee(faux_jeu, tmp_path, monkeypatch, options, cellules):
+    jouer = _charger("jouer", LANCEUR)
+    appels_regle, verifiees = [], []
+    verifier_lieu = jouer._verifier_lieu
+
+    def regle_interdite():
+        appels_regle.append(True)
+        raise AssertionError("_regle appelée par le lanceur")
+
+    def relever_lieu(port, cellule, stderr):
+        verifiees.append(cellule)
+        return verifier_lieu(port, cellule, stderr)
+
+    monkeypatch.setattr(jouer, "_regle", regle_interdite)
+    monkeypatch.setattr(jouer, "_verifier_lieu", relever_lieu)
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    try:
+        code = jouer.main(["--port", str(port), *options, "--",
+                           *_commande_du_faux_jeu(faux_jeu, sortie, 0, port)])
+    finally:
+        assert port_refuse(port)
+    assert code == 0
+    assert appels_regle == []
+    assert verifiees == cellules
+    recu = json.loads(sortie.read_text(encoding="utf-8"))
+    assert recu["forgeCell"] == (str(cellules[0]) if cellules else None)
 
 
 def test_le_jeu_plante(faux_jeu, tmp_path):

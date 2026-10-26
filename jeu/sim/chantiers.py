@@ -77,15 +77,32 @@ def avancer_chantiers(world):
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
         avant = lire_habitants_par_metier(cell)
-        metiers = dict(avant) if avant != -1 else None
         paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
+        actifs = any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
+        familiaux = _constantes.METIER_AUTOCONSTRUCTEURS
+        ouvre_maisons = (
+            avant != -1
+            and avant.get(_constantes.METIER_ARTISANS, 0)
+            and _constantes.MAISONS_OUVERTES_PAR_JOUR > 0
+        )
+        # Un plan achevé ne demande que le retour des derniers ouvriers, sauf autoconstruction ou maisons.
+        if not actifs and (
+            avant == -1
+            or (
+                ouvriers not in avant
+                and not avant.get(familiaux, 0)
+                and not ouvre_maisons
+            )
+        ):
+            continue
+        metiers = avant.copy() if avant != -1 else None
         if metiers is not None and ouvriers in metiers:
             metiers[paysans] = metiers.get(paysans, 0) + metiers.pop(ouvriers)
-        familiaux = _constantes.METIER_AUTOCONSTRUCTEURS
         if metiers is not None and familiaux in metiers:
             artisans = _constantes.METIER_ARTISANS
             metiers[artisans] = metiers.get(artisans, 0) + metiers.pop(familiaux)
-        bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None)
+        besoin_bourg = actifs or ouvre_maisons
+        bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None) if besoin_bourg else None
         plan = _ouvrir_maisons(plan, metiers, bourg)
         # Les bras reviennent même si le dernier chantier est achevé.
         if not any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom)):

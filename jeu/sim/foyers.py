@@ -9,9 +9,14 @@ class FoyersInvalides(ValueError):
     """Un compte, une taille ou une déclaration de métiers est incohérent."""
 
 
+def besoin_bras(km2_cultives):
+    """Bras demandés par une surface cultivée ; la constante est relue à chaque appel."""
+    return km2_cultives * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+
+
 def facteur_bras(metiers, km2_cultives):
     """Part de récolte permise par les paysans ; métiers non calculés inchangés."""
-    requis = km2_cultives * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+    requis = besoin_bras(km2_cultives)
     if metiers == -1 or requis == 0:
         return 1.0
     return min(1.0, metiers.get(_constantes.METIER_PAYSANS, 0) / requis)

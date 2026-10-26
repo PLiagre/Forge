@@ -1,0 +1,6 @@
+{"cellule": 10103,
+ "carte_avant": {"tick": 1, "jours_par_seconde": 0.0, "scene": "Forge_Carte"},
+ "ville_apres": {"tick": 1, "jours_par_seconde": 0.0, "scene": "Forge_Desert_Ville_ksar_des_sept_puits"},
+ "ville_avant": {"tick": 1, "jours_par_seconde": 0.0, "scene": "Forge_Desert_Ville_ksar_des_sept_puits"},
+ "carte_apres": {"tick": 1, "jours_par_seconde": 0.0, "scene": "Forge_Carte"},
+ "defaut": ""}

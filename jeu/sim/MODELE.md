@@ -500,17 +500,17 @@ paysans.
 Ateliers lit aussi les métiers pour affecter les artisans ; Fabrication les lit pour leur budget de matière.
 Le métier `ouvriers` reçoit les paysans envoyés aux chantiers pour ce tick.
 Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × facteur_agricole`
-(sans carte : `area_km2`), sans facteur saisonnier. Ils demandent
-`km² cultivés × BRAS_AUX_CHAMPS_PAR_KM2` bras. Le facteur de bras vaut
+(sans carte : `area_km2`). Chaque surface du lieu demande
+`km² cultivés du lieu × BRAS_AUX_CHAMPS_PAR_KM2 × facteur de saison` bras.
+La saison est celle du jour explicite (jour 0 compris), la moyenne annuelle pour le chemin moyen,
+et 1 sans carte ou sans saison dans la production. Le facteur de bras vaut
 `min(1, paysans / bras_requis)` ; les mineurs ne comptent pas et la part
-minière reste appliquée. Sous le seuil, chaque paysan retiré enlève sa part
+minière reste appliquée. Les paysans du lieu sont ses habitants ; au bourg seul, on retire les non-paysans cellulaires (mineurs, artisans, ouvriers), avec un plancher à zéro.
+Sans lieux, besoin saisonnier et paysans se calculent sur la cellule. Sous le seuil, chaque paysan retiré enlève sa part
 de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
 Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
 La règle est de **niveau 2**, plausible, jamais sourcée.
-`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` est choisie basse pour que le monde mesuré
-ne bouge pas : sur 365 ticks, graine 0, le minimum de paysans par km² cultivé
-vaut 0,291 sans numéro de tick et 0,248 avec. Ce n'est pas une densité agricole
-réaliste ; elle sera revue quand un geste retirera des bras aux champs.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure, relue à chaque appel. Sans emprunter les bras voisins, le manque local change le monde annuel, même sans chantier ; à bras suffisants, les octets restent exacts.
 En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
 peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
@@ -522,6 +522,9 @@ Une maison finie loge `max(1, int(aire_du_contour(emprise) // SURFACE_M2_PAR_FOY
 Métiers non calculés : capacité calculée, les deux autres champs à `-1`.
 `/lieu` publie `logement` seulement si le plan porte un bâtiment, avec `foyers` et `lieux` au même tick.
 Le logement ne lit les métiers que dans la photographie, sans stockage ni effet sur le tick.
+`GET /occupation?cell=X` publie exactement `cell_id`, `rang` (0), `tick`, `date`, `base`, `batiments` et `logement` (copie de `/lieu`, ou `null` si absent).
+`batiments` contient les seules maisons achevées, par `identifiant` croissant : `capacite` comme ci-dessus, `loges` au minimum de cette capacité et du total publié restant (0 pour une maison vide, -1 sans métiers calculés).
+Ces comptes sont copiés dans `EtatPublie` à la publication, sans lecture du monde mutable à la requête ; le tri est une convention de présentation, sans attribution de familles dans le monde.
 Âge, sexe, parenté, logement des autres métiers et sort des sans-logis (froid, départ, santé) restent de niveau 3, non simulés.
 
 `GET /lieu?cell=X` porte `foyers` : par métier, trié par nom, ses
@@ -617,7 +620,7 @@ food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
                 × facteur_eau(pluie_mm_par_an + crue_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
-                × facteur_agricole(1 − part minière) × facteur_bras
+                × facteur_agricole(1 − part minière)  # potentiel à bras suffisants
 ```
 
 Le relief, l'eau, la saison et la part minière sont lus dans la carte. Une
@@ -634,7 +637,7 @@ rendement moyen. À bras suffisants, le plafond suit donc ce que le monde
 produit vraiment, et c'est ce qui l'a fait suivre tout seul le
 jour où le relief, puis la saison, ont modulé le rendement.
 
-Le facteur de bras s'applique uniquement aux deux maillons de production du
+Le facteur de bras local multiplie chaque part de surface dans les deux maillons de production du
 tick. Le plafond de survie et la production moyenne restent la récolte à bras
 suffisants : le facteur ne peut que l'abaisser, donc le plafond reste une borne
 supérieure. L'amorçage ne dépend pas des métiers et ne forme pas de cercle.
@@ -993,8 +996,8 @@ métiers propres aux lieux : niveau 3, non simulés.
 avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
 fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
-- part 0,1 : 0 foyers internes, 70 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 850 foyers hors domaine.
+- part 0,1 : 0 foyers internes, 72 foyers hors domaine ;
+- part 0,6 : 0 foyers internes, 851 foyers hors domaine.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -1164,6 +1167,8 @@ pendant ce commerce : seuls les kilogrammes effectivement expédiés le consomme
 Une quantité inaccessible reste chez sa source et ne compte pas comme transportée.
 Capacité nulle : seul le surplus du bourg peut sortir ; un lieu unique ne
 calcule aucun chemin. Sans lieux, le calcul cellulaire reste inchangé.
+Un chemin que le commerce n'a pas ouvert ce tick compte comme une capacité
+nulle, et le résidu d'arrondi d'un envoi est pris au bourg.
 
 Arrivées terrestres et débarquements vont au panier du bourg, au rang 0 ;
 départs terrestres et expéditions le quittent. Le bassin maritime est lu sur
@@ -1693,6 +1698,11 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ## Les maisons du monde
 
+`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée.
+Chaque valeur présente possède sa source (`url`, `fait`) ; chaque valeur `null` possède exactement son motif dans `lacunes`. Une identité non établie interdit d’attribuer une naissance. Les approximations et intervalles gardent la formulation de la source ; aucune année ne devient un 1er janvier certain. Saraï et Tlemcen gardent leur succession indécidable au jour de départ ; le chef du Zab reste non sourcé.
+Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges.
+`sim/personnages.py` lit et valide cette table au chargement du monde ; les personnes sont décrites ci-dessous.
+
 `World.parts` conserve séparément la fraction commune aux lieux de chaque maison, institutions et plausibles comprises, sans changer les huit champs gelés. Après attribution, chaque identifiant reçoit la coutume ; sans registre, `{}`. `to_dict()` omet la coutume et publie les autres parts triées sans arrondi (zéro compris), dans un dictionnaire indépendant ; sans différence, il omet `parts`.
 
 `sim/registre_maisons.py` charge les trois tables `data/puissances-1400.json`, `data/capitales-1400.json` et `data/seigneuries-1400.json` avec la carte en argument ; des chemins alternatifs permettent les contre-épreuves. Le tuple stable de fiches gelées héritant de `_NoBadSpatialField` comprend toutes les maisons, y compris celle du joueur, sans fusionner les branches homonymes. Chaque fiche porte `id`, `nom`, `sorte`, `suzerain`, `siege` (nom), `cell_id`, `rang` et `hors_carte`.
@@ -1740,6 +1750,32 @@ par `id`, sans rappeler le lecteur ou une vue. Aucun champ n'est ajouté à `Cel
 le siège reste (`cell_id`, `rang`). Le tick ne consulte jamais le registre :
 sans geste, ses octets restent identiques pour toute graine et tout tick, tandis
 que le monde évolue. Les anciennes vues et la sélection de l'IA gardent leur contrat.
+
+## Les personnes
+
+Après les maîtres et leurs références aux suzerains, `World.charger` construit `personnages` (tuple trié par identifiant) et `chefs` (un lien par maison). L'identifiant initial `personne-<maison>` appartient à la personne, jamais automatiquement à son successeur. Aucun emplacement n'est ajouté : le siège reste celui de la maison.
+Les identités, naissances, précisions, sources et lacunes historiques restent de **niveau 1**, sans interprétation. Une identité absente garde un lien nul motivé ; un titulaire institutionnel ne crée aucune dynastie. Chaque maison plausible reçoit le prénom et le nom de la vue existante (**niveau 2**), sans naissance ni source inventées et sans tirage aléatoire.
+Un monde manuel garde `personnages=()` et `chefs={}`. `to_dict()` copie toujours ces deux ajouts en profondeur, sans lecteur ni constructeur. Le tick ne les consulte pas : habitants, économie et générateur restent indépendants. Autres familles, âge calculé, vieillissement, mort et succession restent de **niveau 3**, non simulés.
+
+Le catalogue fermé conserve intégralement `chefs` et ajoute `familles` (cinquante-cinq fiches), `liens` (compléments aux quinze chefs réutilisés) et `etats` (quinze états, triés par maison). **Niveau 1**, France (`grande-3`), Bretagne (`grande-28`) et Bohême (`grande-9`) : Isabeau de Bavière, Isabelle, Jeanne, Charles, Marie, Michelle, Louis et Jean de France. Les sept enfants ont pour parents Charles VI (`personne-grande-3`) et Isabeau ; Jeanne (`personne-jeanne`) reste une seule personne, épouse de Jean V (`personne-grande-28`). Sophie de Bavière (`personne-sophie-baviere`), née en 1376 (précision `annee`), épouse Venceslas depuis le 2 mai 1389. Les trois mariages sont réciproques ; aucun enfant de Jean V n'est né au départ (le premier naît en 1409).
+Angleterre (`grande-1`) : Henri IV est veuf de Marie de Bohun (vers 1369/1370, morte le 4 juin 1394), mère référencée décédée sans conjoint actif. Leurs six enfants vivants sont Henri de Monmouth, Thomas, Jean et Humphrey de Lancastre, Blanche et Philippa d’Angleterre. Monmouth conserve exactement `1386 ou 1387`, précision `intervalle` ; les saisons et approximations des autres naissances restent déclarées. Jeanne de Navarre n’est pas épouse active avant le 7 février 1403 ; Edmund Leborde, né en 1401, est exclu du départ.
+Écosse (`grande-2`) : Robert III et Annabella Drummond (vers 1350) sont conjoints réciproques. Marguerite, Élisabeth (vers 1372/1373, divergence sourcée), David, Marie et Jacques Stuart sont leurs enfants vivants ; Jean Stuart d’Ardgowan est fils hors mariage de Robert III, mère inconnue motivée. Robert Stuart (mort après ou vers 1393), Egidia (1417 ou « morte jeune », naissance inconnue) et Jacques de Kilbride (sans dates) restent exclus des vivants : présences indéterminées, contradictions et limites des notices conservées, sans nier leurs filiations ni affirmer une mort avant 1400. Les deux états déclarent les enfants documentés ; les conjoints des enfants non intégrés restent des lacunes, sans preuve de célibat.
+Portugal (`grande-4`) : Jean Ier et Philippa de Lancastre (31 mars 1360) sont conjoints réciproques depuis le 2 février 1387. Leurs cinq enfants vivants sont Afonso (30 juillet 1390), Édouard (31 octobre 1391), Pierre (9 décembre 1392), Henri (4 mars 1394) et Isabelle (21 février 1397). Afonso vit encore : sa mort du 22 décembre 1400 ne sélectionne pas le départ. La notice portugaise diverge au 31 juillet dans son récit ; le 30 du tableau paternel et de l’infobox est retenu, divergence conservée dans la source.
+Afonso de Bragance (10 août 1377) et Béatrice (vers 1380) sont les enfants hors mariage de Jean Ier et d’Inês Pires (vers 1350), jamais de Philippa. Inês reste mère référencée de présence `indeterminee`, sans conjoint actif : le tableau paternel donne « 1400 ? », son lien anglais manque de notice, la notice française dit seulement après 1390. Blanche, morte le 6 mars 1389, Jean, né le 13 janvier 1400, et Ferdinand, né en 1402, sont explicitement exclus.
+Castille (`grande-5`) : Henri III et Catherine de Lancastre sont conjoints réciproques depuis 1388, sans enfant au départ (`absence_attestee`). Marie (1401), Catherine (1403) et Jean (1405) restent exclus, sans naissance programmée. Catherine conserve `1372-06-06 ou 1373-03-31`, précision `intervalle` : la note et l’infobox divergent, aucun jour choisi.
+Aragon (`grande-6`) : Martin d’Aragon et Maria de Luna (vers 1358, approximation conservée malgré l’infobox) sont conjoints réciproques depuis le 13 juin 1372. Martin de Sicile, leur fils vivant, conserve `vers 1374/1376`, précision `vers` ; la notice individuelle donne l’approximation omise au tableau paternel. Jacques, Jean et Marguerite sont exclus : morts jeunes dans les notices des parents, Martin seul fils vivant dès 1391, sans jour de décès inventé. Marguerite de Prades n’est épouse active qu’en 1409. Les notices divergent sur 1390/1391 pour l’union sicilienne, non intégrée ; les conjoints des enfants et parents des conjoints restent des lacunes motivées, sans preuve de célibat.
+Navarre (`grande-7`) : Charles III et Éléonore de Castille (vers 1363) restent mariés depuis 1375 malgré la séparation et le retour de 1395. Jeanne (Foix, 1382), Marie (1383 ou 1384), Blanche (1385 ou 1386), Béatrice (1386 ou 1392), Isabelle (1395 ou 1396) et Charles (1397) sont leurs six enfants établis vivants. Les jumelles de 1386 pourraient être Blanche et Béatrice : hypothèse, aucune troisième fille inventée. Lancelot (avril 1386, jour approximatif au BOE) est fils de María Miguel de Esparza ; Godofre (1384 ou 1394) est fils de Teresa. Ces deux mères restent de naissance inconnue et présence `indeterminee`, sans conjoint actif. Jeanne (Zúñiga, vers 1380) a une mère inconnue ; elle reste distincte de Jeanne (Foix), de Jeanne de France et de la future épouse d’Henri IV.
+Louis (1399 ou 1402) et Marguerite (dates contradictoires autour du départ) sont exclus des vivants sans décès certain avant 1400. La jumelle non identifiée, Jeanne (Beaumont, future en 1419), Francés (cité en 1418, naissance inconnue) et Pascual (paiement à sa mère en 1395, survie inconnue) ont chacun une exclusion motivée avec les pages examinées, dont le BOE 438. Une mention postérieure ne prouve pas la vie au départ.
+Grenade (`grande-8`) : Muhammad VII conserve `conjoints=lacune` et `enfants=lacune`, sources nulles. Sa notice et celle de Yusuf III (enfants évoqués après 1408) n’établissent ni identités ni naissances en 1400. Ces inconnues font partie de la couverture ; elles n’attestent ni célibat, ni veuvage, ni absence d’enfant.
+Milan (`grande-10`) : Jean Galéas et Caterina Visconti (1361) sont conjoints réciproques depuis le 2 octobre 1380. Valentine (1371) est fille d’Isabelle de Valois (Vertus, 1er octobre 1348), mère référencée décédée en 1372 ou 1373 sans conjoint actif. Gian Maria (7 septembre 1388) et Filippo Maria (septembre 1392, jours 3/23 non départagés) ont pour mère Caterina ; Gabriele Maria (1385 ou 1386, contradiction entre année et âge narratif) est fils d’Agnese Mantegazza. Agnese reste de naissance inconnue, présence indéterminée et sans conjoint actif. Les trois fils morts d’Isabelle, la fille de Caterina morte le 9 juillet 1385 et Antonio (fils naturel mort enfant en 1391, distingué de ses homonymes) sont exclus. Navarre et Milan portent `union` et enfants `documentes` ; aucun mariage futur ou héritier imposé.
+Naples (`grande-11`) : Ladislas reste sans conjoint actif. Costanza Chiaramonte est exclue après l’annulation établie (1392 dans la notice anglaise, 1393 chez Treccani) ; Marie de Lusignan est future (1403 contre arrivée et noces en 1402), comme Marie d’Enghien. Le projet avec la fille de Bayezid ne devient jamais une union. `conjoints=lacune` déclare la limite du schéma sans catégorie d’annulation, sans veuvage fictif. Rinaldo/Reynold et Marie de Durazzo, enfants hors mariage sans dates ni mères établies, sont exclus des vivants pour présence indéterminée ; `enfants=lacune`, sans confondre mariages sans enfant et descendance totale.
+Savoie (`grande-12`) : une seule Marie de Bourgogne (`personne-marie-bourgogne`), née en 1386, précision `annee` ; septembre reste probable. Amédée VIII et Marie sont conjoints réciproques, état `union` : contrat de 1386, procuration du 30 octobre 1393, rencontre en 1401 et arrivée en 1403 restent distincts. Les décès divergents de Marie (1422/1428) prouvent sa présence au départ sans programmer sa mort. Les neuf enfants sont exclus individuellement comme futurs : Marguerite I (1405), Antoine I (1407), Antoine II (1408), Marie (1411), Amédée (1412), Louis (1413), Bonne (1415), Philippe (1417/1422), Marguerite II (1420). La notice française signale deux enfants supplémentaires chez FMG, inaccessible (403) : recherche non aboutie, aucune identité ni date inventée ; `enfants=lacune`, sans absence exhaustive attestée.
+Kalmar (`grande-13`) : Éric garde `conjoints=lacune` par limite du schéma sans catégorie de célibat. Négociations de 1402, mariage avec Philippa le 26 octobre 1406 et union avec Cecilia après 1430 sont sourcés et exclus du départ. Philippa garde son identité anglaise et ses parents, sans nouveau conjoint. Le fils mort-né de la fin de sa vie est futur, jamais vivant en 1400 ; les notices n’excluent pas exhaustivement d’autres enfants antérieurs : `enfants=lacune`.
+Pologne (`grande-14`) : Jagellon porte `veuvage` depuis la mort de Jadwiga le 17 juillet 1399 et `absence_attestee` d’enfant vivant : Élisabeth Bonifacia, née le 22 juin, est morte le 13 juillet 1399. Les deux exclusions conservent leur existence ; Anne de Cilli (1402), Élisabeth de Pilica (1417), Sophie de Holszany (1422) et les enfants Jadwiga (1408), Ladislas (1424), Casimir (1426), Casimir André (1427) sont futurs. Aucun événement imposé. Ces recherches n’ajoutent aucune filiation : bilan chronologique inchangé, trente-cinq vérifiés et quatre-vingt-un indéterminés. Parents des conjoints et relations non intégrées restent des lacunes de périmètre.
+Les présences explicites sont `vivante`, `decedee` ou `indeterminee` ; seules les personnes vivantes ont des conjoints actifs. Une naissance familiale inconnue reste nulle, avec source nulle et lacune motivée.
+Les états distinguent `union`, `veuvage`, `lacune`, et, pour les enfants, `documentes`, `absence_attestee`, `lacune`. France : enfants documentés ; Bretagne et Bohême : absence sourcée au départ. Jeanne de Bavière, morte le 31 décembre 1386, est explicitement exclue du mariage actif. Une table vide ne prouve rien ; une présence indéterminée précise les pages examinées et leur limite. Chaque état est copié en profondeur dans `etat_familial` du chef.
+Chaque identité, naissance connue, état attesté, exclusion, parenté livrée et présence initiale porte une source `url`/`fait`. Les décès cités justifient la sélection de 1400, sans programmer de mort. Les relations non étudiées sont des lacunes motivées, jamais des absences attestées ; les autres chefs gardent leurs faits et lacunes.
+Le même `valider_liens_familiaux` contrôle le catalogue résolu, la construction et `valider_personnages`, sans mutation ni hasard. **Niveau 2** : enfant strictement postérieur aux parents, mère de 15 à 45 ans révolus inclus. Isabeau reste née **vers 1370** : sept antériorités paternelles vérifiées, sept antériorités maternelles et sept âges maternels indéterminés, avec motif faute de bornes exploitables. Les filiations anglaises et écossaises ajoutent trente-quatre contrôles indéterminés, soit quarante-huit avec les quatorze français. Les filiations ibériques ajoutent six antériorités paternelles et dix contrôles maternels vérifiés, puis huit indéterminés (Béatrice, Inês et Martin de Sicile) : bilan avant Navarre et Milan de vingt-trois vérifiés et cinquante-six indéterminés ; aucune approximation ne donne de borne exploitable. Navarre et Milan ajoutent treize antériorités paternelles et vingt-quatre contrôles maternels : douze vérifiés et vingt-cinq indéterminés, soit trente-cinq vérifiés et quatre-vingt-un indéterminés au total. Les six antériorités paternelles vérifiées concernent Jeanne (Foix), Charles, Lancelot, Valentine, Gian Maria et Filippo ; les six vérifications maternelles concernent Valentine, Gian Maria et Filippo. Aucun âge exact ni règle d'âge au mariage n'est ajouté.
 
 ## Le grenier d'une maison
 
@@ -1858,11 +1894,11 @@ avec `TAUX_DE_DEPART = 0.002` et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
-- part 0,00 : 36090320 habitants ; perte 0,000000 % ; 195804 foyers déplacés.
-- part 0,03 : 35745201 habitants ; perte 0,956265 % ; 181882 foyers déplacés.
-- part 0,04 : 35593562 habitants ; perte 1,376430 % ; 179334 foyers déplacés.
-- part 0,10 : 34033348 habitants ; perte 5,699512 % ; 169818 foyers déplacés.
-Calibration tenue : perte(0,03) = 0,956265 % ≤ 1 % < perte(0,04) = 1,376430 %.
+- part 0,00 : 36090297 habitants ; perte 0,000000 % ; 195574 foyers déplacés.
+- part 0,03 : 35745056 habitants ; perte 0,956603 % ; 181882 foyers déplacés.
+- part 0,04 : 35593416 habitants ; perte 1,376772 % ; 179228 foyers déplacés.
+- part 0,10 : 34033021 habitants ; perte 5,700358 % ; 169499 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,956603 % ≤ 1 % < perte(0,04) = 1,376772 %.
 Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
@@ -1914,7 +1950,9 @@ les arêtes pour une marchandise sans consommation, donc sans besoin ni flux.
 
 ## Les flux sur trente jours
 
-Le monde garde une mémoire d'observation : aucune règle ne la lit. La
+Le monde garde une mémoire d'observation : aucune règle du tick ne la lit ;
+seule la décision de part de l'IA, hors du tick, relit départs, arrivées et
+lieux affamés, comme le joueur relit `/maison`. La
 fenêtre `FENETRE_FLUX_TICKS` vaut trente jours, à un jour par tick ; elle
 est relue à chaque appel. `World.flux` part vide au chargement, reste hors
 de `to_dict` et ne se sauvegarde pas. Le registre n'ajoute aucune étape au tick.
@@ -1939,6 +1977,12 @@ départs de famine et de mieux-vivre sont comptés en personnes brutes par
 `(cell_id, rang)`, y compris à l'intérieur d'une cellule. Un lieu peut envoyer
 et recevoir le même jour : les deux mouvements restent visibles. Les cellules
 sans lieux, les naissances, les morts et le commerce ne sont pas comptés.
+`JourDeFlux.affames` garde les `(cell_id, rang)` dont la population et
+`duree_faim_ticks` sont positives une fois la cellule passée par la
+consommation, la faim, la mortalité et la natalité, et seulement si la
+pénurie du tick est positive. `noter_affames` fait comme `noter_personnes` :
+un appel vide ne crée aucun jour, un monde sans registre ne note rien.
+`affames` reste hors de `to_dict`.
 
 `flux_de_maison` et `flux_de_lieu` filtrent les jours de tick supérieur ou
 égal à `ticks_ecoules − FENETRE_FLUX_TICKS`. Ainsi, après trente ticks, le
@@ -2397,6 +2441,30 @@ ne porte aucun `cell_id` recopié ni `lieu_id` : son identité est le couple
 découpage lèvent `SnapshotExportError` : le service ne publie jamais une
 liste inventée. `/monde` reste léger et ne les porte pas.
 
+`GET /lieu?cell=X&bourg=1` ajoute le bloc `bourg` : exactement `rang`,
+`population`, `stocks`, `duree_faim_ticks` et `tick`. Il lit le rang 0,
+quelle que soit sa position dans la liste, et conserve toutes ses marchandises
+sans arrondi. Son tick est celui de la réponse. Sa faim locale mesure le manque
+après consommation et transport intérieur ; ni le panier restant, ni la dette,
+ni la faim cellulaire ne la remplacent. Une ration complète peut laisser un
+panier alimentaire vide avec une faim mesurée à zéro.
+Les deux variantes sont préparées dans le même appel à `_construire_etat`,
+dans `EtatPublie` ; HTTP choisit leurs octets sans relire le monde mutable.
+Un rang 0 absent ou dupliqué, ou une `duree_faim_ticks` absente, négative ou
+non entière, lève `SnapshotExportError` avec la cellule et la cause.
+Seule la valeur unique `bourg=1` active l'extension ; une valeur vide, répétée
+ou différente rend HTTP 400 sans mutation. Sans paramètre, les octets restent
+identiques. La faim locale devient ainsi accessible par cette extension du
+service ; la photographie reste inchangée, sans ce bloc supplémentaire.
+
+Depuis `jeu/`, `python3 -m sim.service --epreuve --port 0 --jours-par-seconde 0 --seed 0`
+charge un monde jetable en mémoire, sans lecture ni écriture de partie sauvegardée ; l'option et l'argument `ServeurMonde(..., epreuve=True)` sont désactivés par défaut.
+Seul ce mode accepte `POST /epreuve/vider-panier?cell=X` : horloge arrêtée, cellule connue, lieux valides et unique bourg habité ; sinon il refuse avant mutation.
+Le montage retire artificiellement la nourriture de tous les lieux, champs compris, et du total cellulaire, en conservant autres marchandises et greniers.
+Il applique la consommation puis la faim existantes et republie ensemble les routes servies.
+Ni tick complet ni avance du temps ou de l'aléa : le tick désigne cet état préparé.
+Ce geste d'épreuve n'est jamais une intention ; le panier se lit par `/lieu?cell=X&bourg=1`.
+
 ### L'identité d'un lieu, et ce qui la change
 
 Un lieu se retrouve par son couple (`cell_id`, `rang`) avec `lieu_du_monde`,
@@ -2466,8 +2534,8 @@ panier reste non négatif. Le remboursement de dette conserve ses kilos réels.
 Restent de niveau 3, non simulés : délai, pertes en route, bras des porteurs,
 tracé des chemins et intégration des villes nommées dans le bourg.
 
-**Avec carte et lieux.** Chaque lieu reçoit `récolte × surface / area_km2`, dans
-les deux chemins de production, sans changer la récolte cellulaire. La reprise
+**Avec carte et lieux.** Chaque lieu reçoit `récolte × surface / area_km2 × facteur_bras_du_lieu` ; paniers, total cellulaire et relevé du prélèvement portent la récolte réelle.
+Le résidu flottant revient au bourg sans redistribuer les parts ; à bras suffisants, écritures et total cellulaire historiques restent exacts. La reprise
 des seules écritures extérieures précède la fabrication ; ses paniers se
 répartissent à proportion du contenu actuel, ou par surface si tous sont vides.
 Le commerce dépose la nourriture importée au bourg, sans partage préalable. Chaque lieu mange dans son panier
@@ -2564,7 +2632,22 @@ Paramètres relus dans `constants.py`. `jouer_ia` décide tout avant le premier 
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
 déposés dans les trente premiers jours, refus ignorés, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
 Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
-Niveau 3 : efficacité alimentaire, richesse, autres gestes, personnes, et les départs (la raison porte −1 : le monde ne les compte pas). Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
+Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. La raison d'une route porte des départs à −1 : ce geste ne les compte pas. La part, elle, compte les départs. Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
+
+Une fois par mois, une maison qui tient des lieux règle sa part. C'est de
+niveau 2, plausible, jamais sourcé. Le jour est `crc32` de sa clé modulo
+`FENETRE_FLUX_TICKS` ; la fenêtre des flux doit être pleine, sinon elle se
+tait. Elle lit en une passe les départs, les arrivées et les lieux `affames`
+de toute sa terre. Une perte nette d'au moins `TAILLE_FOYER` (départs moins
+arrivées), ou un lieu affamé, baisse la part de `IA_PAS_DE_PART`. Sinon, si
+le grenier est sous la réserve — `RESERVE_VOULUE_JOURS` et
+`RESERVE_VOULUE_PART_DES_HABITANTS` pour une part des habitants, plus les
+salaires encore dus sur les chantiers des bourgs qu'elle tient — elle la
+monte d'autant, sans dépasser `PART_MAXIMALE`. La raison se nomme
+`part_sur_projets_et_gens`. Le geste est `fixer_part`, déposé par
+`recevoir_intention`, comme une route. Le budget des routes ne compte que
+les `tracer_route` : une part déposée dans l'année ne bloque pas le tracé.
+Mesure du prototype, graine 0 : environ 2 ms par maison qui décide.
 
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
@@ -2698,6 +2781,8 @@ monde ni tirer d'aléa. Le dépôt ne garde aucun cache dans le monde.
 Le service calcule et sérialise la base une fois par cellule à sa première
 lecture, sous un verrou distinct du tick, puis assemble ses octets figés
 avec ceux des gestes. Le tick ne calcule ni ne sérialise de maison de base.
+Le même cache prépare `occupation.base` : `{rang, foyers}` dans l'ordre de `base.maisons`. Toutes les places initiales sont habitées (réponse A de #411), dernier foyer incomplet compris, sans réaffectation selon la population courante ni changement du logement ou des sans-logis.
+`/occupation` refuse un `cell` absent, vide, répété ou non entier (400), inconnu (404), et une base absente par `BaseAbsente`, avec cellule et cause (500). Une cellule valide sans habitants peut publier des listes vides et des zéros mesurés.
 Restent de niveau 3 : découper le long d'une rue de base, démolir ou déplacer
 une maison de 1400, y loger quelqu'un, croiser une rue de base.
 
@@ -2852,10 +2937,9 @@ ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
 bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 `/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
 
-L’effet sur la récolte est faible : `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` reste.
-Une cellule est immense et le chantier ne coûte de récolte que s’il retire
-presque tous ses paysans ; les lieux de J3 changeront cette échelle. Âge et
-sexe, nourriture propre, outils, matériaux, saison et salaires différenciés restent de
+La petite constante `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure : l’échelle du lieu et la saison font porter le manque de bras du chantier sur la récolte du bourg,
+même quand les champs voisins ont assez de paysans. Âge et
+sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.
 

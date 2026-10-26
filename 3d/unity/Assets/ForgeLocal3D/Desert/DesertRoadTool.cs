@@ -6,6 +6,7 @@ using System.Text;
 using Forge.Pont;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace ForgeLocal3D
 {
@@ -29,6 +30,8 @@ namespace ForgeLocal3D
     // (PoseDeBatiment) et dépose `poser_batiment` au monde ; Attendre dessine la pièce au tick suivant.
     // Lot 584 : Ouvrir(cellule) ouvre la ville d'une autre cellule, celle des lectures et des dépôts suivants, sur le
     // même service local ; rien de l'ancienne cellule (points, mode, reçu, dépôt en attente, relevés de pose) ne la suit.
+    // Lot 688 : au lancement, Lancer applique la décision de #687 : la cellule du siège du joueur, la carte de 1400, ou l'absence.
+    // Lot 730 : C revient à la carte, Espace suspend ou reprend. Le clavier reste ici ; le pont n'en a pas.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -58,7 +61,15 @@ namespace ForgeLocal3D
         public Transform RacineBatiments=>batiments?.Racine;
         public string EmpreinteBatiments=>batiments?.Empreinte??"";
         DesertBatiments batiments;string erreurBatiments;
+        // Lot 737 : les maisons de la base, jamais mêlées aux bâtiments de geste.
+        DesertMaisons1400 maisons;
+        public DesertMaisons1400 Maisons=>maisons;
+        // Lot 738 : les rues de la base en rubans posés sur le sable, redessinés avec les maisons, juste avant elles.
+        DesertRues1400 rues1400;public DesertRues1400 Rues1400=>rues1400;
+        public int PiecesAvantMaisons{get;private set;}=-1;
+        public string EmpreinteAvantMaisons{get;private set;}="";
         ClientIntention depot;ClientPlan plan;string erreurCellule;
+        LectureCarte carte;bool carteLue;string reliefOuvert;
         // Les rues déjà essayées dans la session, posées ou refusées : aucune n'est posée deux fois, ni réessayée.
         readonly HashSet<long> essayees=new();
         RecuIntention enAttente;double prochaineLecture;
@@ -70,11 +81,16 @@ namespace ForgeLocal3D
         public string NatureBatiment{get;private set;}
         public bool ModeBatiment=>NatureBatiment!=null;
         public BatimentPose Pose{get;private set;}
+        CommandesDeVille commandes;
         const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment";
         const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
         const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · Échap : annuler";
+        const string Gestes="C : carte · Espace : pause / reprendre";
         const double PeriodeLecture=.25;
         static readonly TimeSpan Delai=TimeSpan.FromSeconds(1);
+        // Lot 688 : l'aiguillage du lancement lit /monde puis /maison ; les gestes gardent leur délai.
+        static readonly TimeSpan DelaiAiguillage=TimeSpan.FromSeconds(5);
+        const string CarteOuverte="La carte de 1400 s'ouvre : aucune capitale à ouvrir ici.";
 
         void Awake()
         {
@@ -88,18 +104,42 @@ namespace ForgeLocal3D
             panneau=Texte("Panneau des routes",view.transform,new Color(.12f,.06f,.03f));
             // Un halo clair derrière le texte : il reste lisible sur le sable comme dans l'ombre.
             halo=Texte("Halo",panneau.transform,new Color(1f,.95f,.84f,.9f));
-            Cellule=PanneauLieu.LireCellule(Environment.GetCommandLineArgs(),PanneauLieu.CELLULE_PAR_DEFAUT,out erreurCellule);
-            Port=PanneauLieu.DEFAULT_SERVICE_PORT;
-            if(erreurCellule==null){depot=new ClientIntention(Port,Delai);plan=new ClientPlan(Port,Delai);}
+            Port=PanneauLieu.DEFAULT_SERVICE_PORT;commandes=new CommandesDeVille(Port);
+            // Lot 701 : une ville ouverte depuis la carte prend la cellule que le passage a remise à sa scène.
+            Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>(),PassageALaCapitale.PrendreCelluleRemise(gameObject.scene.name));
             // Sans matériau, aucune parcelle n'est jamais dessinée : le panneau le dit.
             try{parcelles=new DesertParcelles(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurParcelles=e.Message;}
             // Sans kit, aucun bâtiment n'est jamais dessiné : le panneau le dit.
             try{batiments=new DesertBatiments(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurBatiments=e.Message;}
+            rues1400=new DesertRues1400(transform,roads.terrain,roads.terreBattue);maisons=new DesertMaisons1400(transform,roads.terrain);
             Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
         }
         void Start()=>Ouvrir();
+
+        // Lot 688 : applique la décision du lancement (OuvertureDeLaCapitale, #687), puis la rend. En ville, la cellule est
+        // celle des lectures et des dépôts, et le panneau du lieu la suit ; aucun plan n'est lu ici, Ouvrir() le dessine.
+        // Sinon, aucune cellule : l'absence garde sa cause mot pour mot, et le panneau du lieu s'éteint sans rien lire.
+        // Le panneau peut manquer (la scène de l'oued n'en a pas).
+        public Lecture<OuvertureDecidee> Lancer(string[] arguments,bool editeur,PanneauLieu panneau,long? remise=null)
+        {
+            carteLue=false;carte=null;
+            var decision=OuvertureDeLaCapitale.Decider(arguments,editeur,remise,()=>AiguillageDeCapitale.Lire(Port,DelaiAiguillage));
+            var mode=decision.Presente?decision.Donnees.Mode:(ModeDOuverture?)null;
+            if(mode==ModeDOuverture.Ville)
+            {
+                Cellule=decision.Donnees.Cellule.Value;erreurCellule=null;
+                plan??=new ClientPlan(Port,Delai);depot??=new ClientIntention(Port,Delai);
+                if(panneau)panneau.Ouvrir(Cellule);
+                return decision;
+            }
+            Cellule=-1;erreurCellule=mode==null?decision.Absence:CarteOuverte;
+            if(panneau)panneau.enabled=false;
+            // LaisseeALaCarte : OuvertureDeLaCarte change déjà de scène.
+            if(mode==ModeDOuverture.Carte)SceneManager.LoadScene(decision.Donnees.Scene);
+            return decision;
+        }
         void OnDestroy(){depot?.Dispose();plan?.Dispose();depot=null;plan=null;}
         void Afficher(string texte)
         {
@@ -115,6 +155,8 @@ namespace ForgeLocal3D
                 string etat="Terre battue, "+largeur.ToString("0.#")+" m"+(points.Count>0?" · "+points.Count+" point(s)":"");
                 panneau.text=texte==Aide?etat+"\n"+Aide:texte+"\n"+etat;
             }
+            if(reliefOuvert!=null)panneau.text+="\nRelief : "+reliefOuvert;
+            panneau.text+="\n"+Gestes;
             halo.text=panneau.text;
             Placer();
         }
@@ -146,6 +188,8 @@ namespace ForgeLocal3D
             if(k.digit3Key.wasPressedThisFrame||k.numpad3Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[2]);
             if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(!ModeBatiment)Valider();}
             if(k.escapeKey.wasPressedThisFrame)Annuler();
+            if(k.cKey.wasPressedThisFrame||commandes.RetourDemande)commandes.Retour();
+            if(k.spaceKey.wasPressedThisFrame)commandes.Basculer();
         }
         void LateUpdate()=>Placer();
 
@@ -267,12 +311,8 @@ namespace ForgeLocal3D
         // paramètres des routes manquent : l'absence est affichée, jamais devinée.
         public bool Ouvrir()
         {
-            Ouverture.Clear();essayees.Clear();TickOuverture=-1;
             if(erreurCellule!=null){Afficher(erreurCellule);return false;}
-            var lu=plan.Lire(Cellule);
-            if(!lu.Presente){Afficher("Pas de plan à l'ouverture : "+lu.Absence);return false;}
-            if(!LireParametres(out var parametres))return false;
-            DessinerOuverture(lu.Plan,parametres);
+            if(!PreparerOuverture(Cellule,"Pas de plan à l'ouverture : ",false))return false;
             return true;
         }
 
@@ -284,14 +324,26 @@ namespace ForgeLocal3D
             string c=cellule.ToString(CultureInfo.InvariantCulture);
             if(cellule<0){Afficher("Cellule "+c+" invalide : un cell_id entier positif ou nul attendu.");return false;}
             plan??=new ClientPlan(Port,Delai);depot??=new ClientIntention(Port,Delai);
+            if(!PreparerOuverture(cellule,"Pas de plan pour la cellule "+c+" : ",true))return false;
+            return true;
+        }
+
+        // Carte, relief, plan et paramètres avant la remise à zéro : un refus garde la ville précédente.
+        bool PreparerOuverture(long cellule,string prefixePlan,bool changer)
+        {
+            string c=cellule.ToString(CultureInfo.InvariantCulture);
+            if(!carteLue){using(var client=new ClientCarte(Port,ClientCarte.DelaiMinimal))carte=client.Lire();carteLue=true;}
+            if(carte==null||!carte.Presente){Afficher("Cellule "+c+" : carte indisponible : "+(carte==null?"lecture absente":carte.Absence));return false;}
+            var cell=carte.Carte.Cellules.FirstOrDefault(x=>x.CellId==cellule);
+            if(cell==null){Afficher("Cellule "+c+" absente de la carte.");return false;}
+            if(string.IsNullOrEmpty(cell.Relief)){Afficher("Cellule "+c+" : relief absent.");return false;}
             var lu=plan.Lire(cellule);
-            if(!lu.Presente){Afficher("Pas de plan pour la cellule "+c+" : "+lu.Absence);return false;}
+            if(!lu.Presente){Afficher(prefixePlan+lu.Absence);return false;}
             if(!LireParametres(out var parametres))return false;
-            // La cellule change : rien de l'ancienne ne la suit.
-            Cellule=cellule;erreurCellule=null;
-            points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;
-            Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;
+            if(!roads.ResoudreRelief(parametres.parametres,cell.Relief,out var facteur,out var cause)){Afficher("Cellule "+c+" : "+cause);return false;}
+            if(changer){Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;}
             Ouverture.Clear();essayees.Clear();TickOuverture=-1;
+            roads.AppliquerRelief(facteur,cell.Relief);reliefOuvert=cell.Relief;
             DessinerOuverture(lu.Plan,parametres);
             return true;
         }
@@ -337,8 +389,9 @@ namespace ForgeLocal3D
         {
             if(batiments==null)return erreurBatiments;
             Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments));
+            PiecesAvantMaisons=batiments.Racine.childCount;EmpreinteAvantMaisons=batiments.Empreinte;
             return string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
-                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)));
+                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)))+"\n"+rues1400.Dessiner(lu.Base)+"\n"+maisons.Dessiner(lu.Base);
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux

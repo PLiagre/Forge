@@ -502,6 +502,83 @@ def test_un_lot_pc_part_sur_le_pc_sans_agent_local(projet, gh, depot, tmp_path):
 ENVOI_PC = marque(role="codeur_3d", etat="envoye", essai=1, quand="2026-09-27T13:40:10+00:00")
 ECHEC_127 = marque(role="codeur_3d", etat="echec", essai=1, agent="cursor/opus-high")
 
+def test_un_pc_en_pause_ne_recoit_aucun_travail_et_ne_compte_pas_d_essai(projet, gh, depot, tmp_path):
+    # La variable PC_ACTIF = « non » : le propriétaire a besoin de son PC.
+    _en_cours(gh, etiquettes=("lot", "en-cours", "pc"))
+    gh.variables_["PC_ACTIF"] = "non"
+    agents = Agents()
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.appels == [] and not _gestes(gh, "lancer_workflow")
+    assert gh.prs_[50]["comments"] == []
+    assert any("PC en pause" in l and "coder" in l for l in lignes)
+    # À la reprise, le même lot part au tour suivant.
+    gh.variables_["PC_ACTIF"] = "oui"
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "lancer_workflow")[0][2]["action"] == "coder"
+
+
+@pytest.mark.parametrize("valeur", [None, "oui", "", "Oui", "peut-être"])
+def test_seul_non_met_le_pc_en_pause(projet, gh, depot, tmp_path, valeur):
+    if valeur is not None:
+        gh.variables_["PC_ACTIF"] = valeur
+    _en_cours(gh, etiquettes=("lot", "en-cours", "pc"))
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert _gestes(gh, "lancer_workflow")
+
+
+def test_un_pc_en_pause_laisse_le_vps_prendre_le_lot_suivant(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Le panneau affiche le lieu", ("lot", "pret", "pc"))
+    gh.ajouter_issue(11, "Le service lit un lieu", ("lot", "pret"))
+    gh.variables_["PC_ACTIF"] = "NON"
+    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/11-le-service-lit-un-lieu.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert _gestes(gh, "creer_pr")[-1][1] == "lot/11-le-service-lit-un-lieu"
+    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
+
+
+def test_un_pc_en_pause_ne_fait_pas_reprendre_un_lot_pc(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "pret", "pc"))
+    gh.ajouter_pr(50, BRANCHE, commentaires=[ENVOI_PC, ECHEC_127])
+    gh.variables_["PC_ACTIF"] = "non"
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert not any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
+    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]] and not _gestes(gh, "lancer_workflow")
+    gh.variables_["PC_ACTIF"] = "oui"
+    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
+    assert any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
+
+
+def _gh_qui_repond(reponses):
+    """Un vrai GitHub dont `gh` rend ce qu'on lui dicte, par commande."""
+    from atelier.github import GitHub
+
+    appels = []
+
+    def executeur(argv, entree):
+        appels.append(argv)
+        return reponses(argv)
+
+    return GitHub("moi/essai", executeur), appels
+
+
+def test_la_variable_se_lit_par_l_api_et_une_variable_absente_est_none():
+    gh, appels = _gh_qui_repond(lambda argv: (0, json.dumps({"name": "PC_ACTIF", "value": "non"}), ""))
+    assert gh.variable("PC_ACTIF") == "non" and not gh.pc_actif()
+    assert appels[0][:3] == ["gh", "api", "repos/moi/essai/actions/variables/PC_ACTIF"]
+    absent, _ = _gh_qui_repond(lambda argv: (1, "", "gh: Not Found (HTTP 404)"))
+    assert absent.variable("PC_ACTIF") is None and absent.pc_actif()
+
+
+def test_une_variable_illisible_ne_met_jamais_le_pc_en_pause():
+    # Un jeton sans le droit de lire les variables (403) ou GitHub qui ne
+    # répond pas : la chaîne continue comme avant l'interrupteur.
+    from atelier.github import GitHubErreur
+
+    gh, _ = _gh_qui_repond(lambda argv: (1, "", "gh: Resource not accessible by personal access token (HTTP 403)"))
+    with pytest.raises(GitHubErreur):
+        gh.variable("PC_ACTIF")
+    assert gh.pc_actif()
+
 
 def test_un_lot_pret_dont_la_pr_est_ouverte_est_repris_sans_le_chef(projet, gh, depot, tmp_path):
     # Le lot #118 : trois 127 l'ont bloqué, le propriétaire le remet « pret ».
@@ -1138,14 +1215,95 @@ def test_un_rouge_du_chronometre_remet_la_branche_sur_une_base_qui_a_bouge(proje
     assert "la branche reçoit `master`" in gh.prs_[50]["comments"][-1]["body"]
 
 
-def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_va_au_codeur(projet, gh, depot, tmp_path):
+def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_se_rejoue_aussi(projet, gh, depot, tmp_path):
+    """Le 16 octobre 2026, #414 (du moteur) s'est bloqué sur des médianes de
+    110 ms qu'un tick de master à 98 ms expliquait seul : le codeur n'y pouvait
+    rien non plus. Le rejeu passe d'abord, le codeur ensuite."""
     _en_cours(gh, commentaires=[FAIT_CODEX])
     gh.fichiers_[50] = ["jeu/sim/monde.py"]
     _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
         *VERTS)
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 77)]
+    gh.prs_[50]["statusCheckRollup"] += [_travail("chronometre", "FAILURE", "08:05"),
+                                         _travail("tests", "FAILURE", "08:20")]
     codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
     _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert codeur.outils() == ["codex"] and not _gestes(gh, "rejouer_les_echecs")
+    assert codeur.outils() == ["codex"] and len(_gestes(gh, "rejouer_les_echecs")) == 1
+
+
+FAIT_PC = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
+
+
+def test_un_rouge_que_master_porte_encore_attend_sans_user_d_essai(projet, gh, depot, tmp_path):
+    """Le 22 octobre 2026, #785 (du Blender seul, sur le PC) a usé ses deux
+    corrections sur le rouge `chronometre` de master, puis s'est bloqué : le
+    PC lui répondait deux fois « rien à changer ». Le lot attend master."""
+    _en_cours(gh, commentaires=[FAIT_PC], etiquettes=("lot", "en-cours", "pc"))
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    gh.travaux_ = {"c" * 40: {"chronometre": "rouge", "sim (3)": "vert", "tests": "rouge"},
+                   "master": {"chronometre": "rouge", "tests": "rouge"}}
+    rien = Agents()
+    for _ in range(2):
+        lignes = _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and not _gestes(gh, "lancer_workflow") and not _gestes(gh, "rejouer_les_echecs")
+    assert any("attendre_base" in l and "`chronometre`" in l for l in lignes)
+    dits = [m for m in marques(gh.prs_[50]["comments"]) if m.get("etat") == "base_rouge"]
+    assert dits == [{"role": "pilote", "etat": "base_rouge", "sha": "a" * 40}], "la PR le dit une fois"
+    # Master a fini de jouer le même rouge sans l'avoir guéri : le lot attend encore.
+    gh.travaux_["master"] = {"chronometre": "attente"}
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and not _gestes(gh, "lancer_workflow")
+
+
+def test_un_rouge_que_master_a_gueri_remet_la_branche_sur_master(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=[FAIT_PC], etiquettes=("lot", "en-cours", "pc"))
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    gh.travaux_ = {"c" * 40: {"chronometre": "rouge"}, "master": {"chronometre": "vert", "build": "rouge"}}
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and not _gestes(gh, "lancer_workflow")
+    assert ("pousser", BRANCHE) in depot.gestes and not _gestes(gh, "rejouer_les_echecs")
+    assert "la branche le reçoit" in gh.prs_[50]["comments"][-1]["body"]
+
+
+def test_un_rouge_que_la_base_n_avait_pas_va_au_codeur(projet, gh, depot, tmp_path):
+    """La base rouge sur un autre travail ne couvre pas celui du lot."""
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    _ci(gh, ("chronometre", "SUCCESS", "07:00"), ("sim (3)", "FAILURE", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    gh.travaux_ = {"c" * 40: {"chronometre": "rouge", "sim (3)": "vert"}, "master": {"chronometre": "rouge"}}
+    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, codeur, tmp_path).tour()
+    assert codeur.outils() == ["codex"]
+    assert not [m for m in marques(gh.prs_[50]["comments"]) if m.get("etat") == "base_rouge"]
+
+
+def test_le_rouge_de_la_base():
+    from atelier.lots import rouge_de_la_base
+    rouge = {"chronometre": "rouge", "sim (1)": "vert"}
+    assert rouge_de_la_base({"chronometre"}, rouge, rouge) == "attendre"
+    assert rouge_de_la_base({"chronometre"}, rouge, {"chronometre": "vert"}) == "fusionner"
+    assert rouge_de_la_base({"chronometre"}, rouge, {}) == "attendre", "master sans mesure n'a rien guéri"
+    assert rouge_de_la_base({"chronometre", "sim (1)"}, rouge, {"chronometre": "vert"}) == ""
+    assert rouge_de_la_base(set(), rouge, rouge) == ""
+    assert rouge_de_la_base({"chronometre"}, {}, rouge) == "", "une base sans mesure ne prouve rien"
+
+
+def test_les_travaux_d_un_commit_se_lisent_a_leur_dernier_passage():
+    from atelier.github import GitHub
+    bruts = [{"name": "chronometre", "status": "completed", "conclusion": "failure", "started_at": "2026-10-22T04:00:00Z"},
+             {"name": "chronometre", "status": "completed", "conclusion": "success", "started_at": "2026-10-22T05:00:00Z"},
+             {"name": "sim (1)", "status": "completed", "conclusion": "timed_out", "started_at": "2026-10-22T04:00:00Z"},
+             {"name": "sim (2)", "status": "in_progress", "conclusion": None, "started_at": "2026-10-22T04:00:00Z"},
+             {"name": "forge", "status": "completed", "conclusion": "cancelled", "started_at": "2026-10-22T04:00:00Z"}]
+    vus = []
+    gh = GitHub("moi/essai", executeur=lambda argv, entree: (vus.append(argv), (0, json.dumps(bruts), ""))[1])
+    assert gh.travaux_du_commit("master") == {"chronometre": "vert", "sim (1)": "rouge", "sim (2)": "attente"}
+    assert vus[0][:3] == ["gh", "api", "repos/moi/essai/commits/master/check-runs?per_page=100"]
 
 
 def test_une_tranche_annulee_compte_parmi_les_rouges():

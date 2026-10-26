@@ -2695,6 +2695,54 @@ def _paniers_bourg(cellule, nom=MARCHANDISE_NOURRITURE):
     return contenus_des_paniers(sorted(cellule.lieux, key=lambda l: l.rang), nom)
 
 
+@pytest.mark.parametrize('chemins', [{}, {8993: {1: 123.}}])
+def test_sortir_par_bourg_sans_chemin(chemins):
+    import math
+    from copy import deepcopy
+    from sim import engine
+    cellule = _cellule_bourg(8992, [10, 20, 30], [100., 200., 300.])
+    envoi = math.nextafter(90., math.inf)
+    assert envoi > 90.
+    cellule.food_stock_kg -= envoi  # Débit déjà effectué par l'appelant.
+    avant = deepcopy(chemins)
+    engine._sortir_par_bourg(cellule, MARCHANDISE_NOURRITURE, envoi, chemins, 1.)
+    paniers = _paniers_bourg(cellule)
+    assert paniers[1:] == [200., 300.]
+    assert paniers[0] == cellule.food_stock_kg - 500.
+    assert sum(paniers) == cellule.food_stock_kg
+    assert chemins == avant
+
+
+def _alterer_fonction(monkeypatch, module, nom, avant, apres):
+    """Recompile une mutation vérifiée dans l'espace du module, en mémoire."""
+    import inspect
+    fonction = getattr(module, nom)
+    source = inspect.getsource(fonction)
+    assert avant in source
+    espace = vars(module).copy()
+    exec(compile(source.replace(avant, apres), inspect.getfile(fonction), 'exec'), espace)
+    monkeypatch.setattr(module, nom, espace[nom])
+
+
+@pytest.mark.parametrize('chemins', [{}, {8993: {1: 123.}}])
+@pytest.mark.parametrize('mutation', ['lecture_non_gardee', 'capacite_infinie'])
+def test_sortir_par_bourg_sans_chemin_contre_epreuves(chemins, mutation, monkeypatch):
+    from copy import deepcopy
+    from sim import engine
+    if mutation == 'lecture_non_gardee':
+        avant = 'if manque <= 0 or cell.cell_id not in chemins:'
+        apres = 'if manque <= 0:'
+        erreur = KeyError
+    else:
+        avant = '    for lieu in lieux[1:]:'
+        apres = ("    chemins.setdefault(cell.cell_id, {lieu.rang: float('inf') for lieu in lieux[1:]})\n"
+                 + avant)
+        erreur = AssertionError
+    _alterer_fonction(monkeypatch, engine, '_sortir_par_bourg', avant, apres)
+    with pytest.raises(erreur):
+        test_sortir_par_bourg_sans_chemin(deepcopy(chemins))
+
+
 def _conserver_bourg(monde):
     from fractions import Fraction
     from sim.model import copier_panier
@@ -3403,3 +3451,147 @@ def test_departs_tick_modele():
     for ancien, nouveau in (('15. **Départs**', '15. **Autre étape**'),
             (f'TAUX_DE_DEPART = {c.TAUX_DE_DEPART:g}', 'TAUX_DE_DEPART = 9')):
         with pytest.raises(AssertionError): controler(texte.replace(ancien, nouveau))
+
+
+def _monde_apres_chauffe_745():
+    monde, rng = World.charger(0), random.Random(0)
+    for numero in range(5):
+        tick(monde, rng, numero_tick=numero)
+    return monde
+
+
+def test_raccourci_745_voisines(monkeypatch):
+    from copy import deepcopy
+    from sim import engine
+    monde = _monde_apres_chauffe_745()
+    surplus = {cid: engine._surplus_nourriture_tick(cell.population, cell.food_stock_kg)
+               for cid, cell in monde.cells.items()}
+
+    def controler(table):
+        for cid in monde.cells:
+            attendu = engine._voisins_avec_surplus(monde, cid, surplus)
+            assert list(engine._voisins_avec_surplus(monde, cid, surplus, table).items()) == list(attendu.items())
+
+    table = engine._voisines_terrestres(monde)
+    controler(table)
+    surplus = {cid: float(rang % 3 - 1) for rang, cid in enumerate(monde.cells)}
+    controler(table)
+    # Tous positifs ensuite, pour rendre chaque voisine ajoutée observable.
+    surplus = {cid: float(rang + 1) for rang, cid in enumerate(monde.cells)}
+    controler(table)
+    a = next(iter(monde.cells))
+    b = next(cid for cid in monde.cells if cid != a and cid not in table[a])
+    monde.adjacency.extend([{'a': a, 'b': b}, {'a': b, 'b': a}, {'a': a, 'b': a}])
+    with pytest.raises(AssertionError):
+        controler(table)  # Une table conservée au tick suivant ment.
+    controler(engine._voisines_terrestres(monde))
+    rapide, ancien = deepcopy(monde), deepcopy(monde)
+    engine._apply_migration(rapide, {})
+    voisins = engine._voisins_avec_surplus
+    monkeypatch.setattr(engine, '_voisins_avec_surplus',
+                        lambda monde, cid, surplus, table=None: voisins(monde, cid, surplus))
+    engine._apply_migration(ancien, {})
+    assert rapide.to_dict() == ancien.to_dict()
+    print(f'cellules comparées={len(monde.cells)} ; doublons, boucle et table périmée contrôlés')
+    assert len(monde.cells) > 0
+
+
+def test_raccourci_745_capacites(monkeypatch):
+    from sim import engine, constants as k
+    monde = _monde_apres_chauffe_745()
+
+    def controler():
+        index = engine._index_aretes(monde)
+        for edge in monde.adjacency:
+            assert engine._arete_adjacence(monde, edge['a'], edge['b'], index) is engine._arete_adjacence(monde, edge['a'], edge['b'])
+        attendu = engine._capacites_aretes(monde)
+        resultat = engine._initialiser_capacite_aretes(monde)
+        assert list(resultat.items()) == list(attendu.items())
+        assert [v.hex() for v in resultat.values()] == [v.hex() for v in attendu.values()]
+        assert len(resultat) > 0
+        return resultat
+
+    avant = controler()
+    edge = next(e for e in monde.adjacency if e['a'] in monde.cells and e['b'] in monde.cells)
+    a, b = edge['a'], edge['b']
+    monde.adjacency.append({'a': b, 'b': a, 'shared_length_m': 0.0})
+    monde.plans[a].rues.append(_rue_route(porte=b))
+    monkeypatch.setattr(k, 'FACTEUR_TRANSPORT_PLAINE', k.FACTEUR_TRANSPORT_PLAINE / 2)
+    apres = controler()
+    with pytest.raises(AssertionError):
+        assert list(avant.items()) == list(apres.items())
+    # Le repli nul, même entier ou signé, rend le flottant +0.0 historique.
+    monde.adjacency = [{'a': a, 'b': b}]
+    monde.plans[a].rues.clear()
+    for nul in (0, -0.0):
+        monkeypatch.setattr(k, 'TRADE_CAPACITY_KG_PER_EDGE_PER_TICK', nul)
+        controler()
+    print(f'arêtes comparées={len(apres)} ; première entrée, routes et constantes relues')
+
+
+def test_raccourci_745_offres_maritimes(monkeypatch):
+    from copy import deepcopy
+    from sim import engine
+    from sim.model import copier_panier
+    monde = _monde_apres_chauffe_745()
+    rapide, ancien = deepcopy(monde), deepcopy(monde)
+    totaux = [[0.0], [0.0]]
+    engine._apply_commerce(rapide, totaux[0])
+    engine._apply_commerce(ancien, totaux[1], limiter_offres_maritimes=False)
+
+    def controler(resultat):
+        assert resultat.to_dict() == ancien.to_dict()
+        assert resultat.stocks_mer == ancien.stocks_mer
+        for cid, cell in resultat.cells.items():
+            reference = ancien.cells[cid]
+            for lieu, autre in zip([cell, *cell.lieux], [reference, *reference.lieux]):
+                assert list(copier_panier(lieu).items()) == list(copier_panier(autre).items())
+
+    controler(rapide)
+    assert totaux[0] == totaux[1]
+    # Oublier une offre côtière doit être détecté par la même comparaison.
+    planifier = engine._planifier_expedition
+    monkeypatch.setattr(engine, '_planifier_expedition', lambda *a, **kw: {})
+    fautif = deepcopy(monde)
+    engine._apply_commerce(fautif, [0.0])
+    with pytest.raises(AssertionError):
+        controler(fautif)
+    monkeypatch.setattr(engine, '_planifier_expedition', planifier)
+    print(f'cellules et paniers comparés={len(monde.cells)} ; offre côtière oubliée détectée')
+    assert len(monde.cells) > 0
+
+
+def test_raccourci_745_cles():
+    from sim import engine
+    monde = _monde_apres_chauffe_745()
+    for edge in monde.adjacency:
+        for a, b in ((edge['a'], edge['b']), (edge['b'], edge['a'])):
+            assert engine._cle_arête(a, b) == engine._cle_arête(a, b, raccourci=False)
+    a, b = sorted((monde.adjacency[0]['a'], monde.adjacency[0]['b']))
+    assert a != b
+    with pytest.raises(AssertionError):
+        assert engine._cle_arête(a, b) == (b, a)
+    assert monde.adjacency
+    print(f'clés comparées={2 * len(monde.adjacency)}, orientation fautive détectée')
+
+
+def test_raccourci_745_contexte_maritime():
+    from sim import engine, constants as k
+    monde = _monde_apres_chauffe_745()
+    aretes = engine._aretes_maritimes_du_monde(monde)
+    ancien = engine._initialiser_contexte_maritime(monde)
+    rapide = engine._initialiser_contexte_maritime(monde, aretes)
+    assert rapide == ancien and list(rapide) == list(ancien)
+    assert list(rapide['aretes_par_cellule']) == list(ancien['aretes_par_cellule'])
+    for cid, entrees in rapide['aretes_par_cellule'].items():
+        for a, b in zip(entrees, ancien['aretes_par_cellule'][cid]):
+            assert a == b and a[2] is b[2]
+    nouvelle = dict(aretes[0][2])
+    nouvelle['shared_length_m'] += k.METRES_PAR_KM
+    monde.adjacency.append(nouvelle)
+    frais = engine._initialiser_contexte_maritime(monde)
+    with pytest.raises(AssertionError):
+        assert engine._initialiser_contexte_maritime(monde, aretes) == frais
+    assert engine._initialiser_contexte_maritime(monde, engine._aretes_maritimes_du_monde(monde)) == frais
+    assert len(aretes) > 0
+    print(f'arêtes maritimes comparées={len(aretes)}, façade ajoutée détectée')

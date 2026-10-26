@@ -1,0 +1,4 @@
+ÉCART — code de sortie 1 · py pc\epreuve_ville1400.py --sortie "$env:TEMP\lot740-ajouter" --ajouter · 22/10/2026 · PC « Pe » · Unity 6000.0.43f1 · révision adc13596 · graine 0 · -forgeAjouter transmis à Jouer seul
+Jouer : posées + refus 34/33 (10103), 67/66 (1175), 494/493 (1232), 542/541 (10337) · doublon [(0, 0)] · 0 refus. Hors emprise (copie à +10 m) : 10103 (0, 0, -62.76, -6.27), 1175 et 1232 (0, 0, 42.5, -8.0) ; 10337 : la copie reste dans son îlot
+Relance : 33, 66, 493, 541 posées sur autant de foyers. Écarts de relance : posees, maisons (la ligne de la copie), empreinte
+Le rouge vient des couples dupliqués et de la relance, pas du drapeau.

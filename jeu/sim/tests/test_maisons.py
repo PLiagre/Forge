@@ -763,6 +763,7 @@ def test_registre_world(registre, monkeypatch):
     retraits += [m for m in attendu if m.nom in homonymes]
     faux = [tuple(m for m in attendu if m.id != retiree.id) for retiree in retraits]
     faux += [(), (dataclasses.replace(attendu[0], nom="Altérée"),) + attendu[1:]]
+    monkeypatch.setattr(etat_monde, 'construire_personnages', lambda monde: ((), {}))
     for resultat in faux:
         monkeypatch.setattr(etat_monde, "charger_registre_maisons", lambda carte: resultat)
         with pytest.raises(AssertionError):
@@ -993,7 +994,7 @@ def test_grenier_serialisation():
     monde = World.charger(0)
     assert all(p == {} for p in monde.greniers.values()) and monde.pertes_kg == 0.0
     _verifier_grenier_serialise(monde.to_dict(), monde)
-    assert set(monde.to_dict()) == {"cells", "plans", "ticks_ecoules", "maisons"}
+    assert set(monde.to_dict()) == {"cells", "plans", "ticks_ecoules", "maisons", "personnages", "chefs"}
     nourriture = constantes.MARCHANDISE_NOURRITURE
     choisis = [m for m in monde.maisons if m.cell_id in monde.cells][:2]
     assert len(choisis) == 2
@@ -1306,3 +1307,1236 @@ def test_part_etat(monkeypatch):
     monkeypatch.setattr(k, "PART_COUTUMIERE", 0.17)
     charge = World.charger(0)
     assert charge.parts == dict.fromkeys(ids, 0.17) and "parts" not in charge.to_dict()
+
+
+PERSONNAGES = TABLE.with_name("personnages-1400.json")
+
+
+def _personnages(chemin=PERSONNAGES):
+    return json.loads(chemin.read_text(encoding="utf-8"))
+
+
+def _personnages_couverture(document, references, vue):
+    puissances, capitales, seigneuries = references
+    categories = [{f"grande-{c['maison']}" for c in capitales["capitales"]},
+                  {f"institution-{p['id']}" for p in puissances["puissances"] if "maison" not in p},
+                  {f"seigneurie-{s['id']}" for s in seigneuries["seigneuries"]}]
+    assert all(categories)
+    attendus = set.union(*categories)
+    lignes = [c["maison"] for c in document["chefs"]]
+    assert lignes and lignes == sorted(set(lignes))
+    assert set(lignes) == attendus == {m.id for m in vue}
+    hors_carte = {m.id for m in vue if m.cell_id is None}
+    assert hors_carte and hors_carte <= set(lignes)
+    assert {m.id for m in vue if m.nom == "Paléologue"} == {"grande-15", "seigneurie-3"}
+
+
+def test_personnages_couverture(registre, tmp_path):
+    _, references, charger, _ = registre
+    vue, document = charger(), _personnages()
+    _personnages_couverture(document, references, vue)
+    with pytest.raises(FileNotFoundError):
+        _personnages(tmp_path / "absent.json")
+    retraits = [next(m.id for m in vue if m.sorte == s) for s in
+                ("grande maison", "institution", "seigneurie")]
+    retraits += [m.id for m in vue if m.cell_id is None] + ["seigneurie-3"]
+    listes = [[], document["chefs"] * 2, list(reversed(document["chefs"]))]
+    listes += [[c for c in document["chefs"] if c["maison"] != i] for i in retraits]
+    for inconnu in ("inconnue-1", "plausible-1"):
+        copie = copy.deepcopy(document["chefs"])
+        copie[0]["maison"] = inconnu
+        listes.append(sorted(copie, key=lambda c: c["maison"]))
+    for lignes in listes:
+        with pytest.raises(AssertionError):
+            _personnages_couverture({"chefs": lignes}, references, vue)
+    reference_augmente = copy.deepcopy(references)
+    reference_augmente[1]["capitales"].append({"maison": 999})
+    with pytest.raises(AssertionError):
+        _personnages_couverture(document, reference_augmente, vue)
+
+
+def _personnages_sources(document):
+    import datetime
+    import re
+    from urllib.parse import urlsplit
+    def texte(valeur):
+        assert isinstance(valeur, str) and valeur.strip()
+    assert set(document) == {"date", "fidelite", "chefs", "familles", "liens", "etats"}
+    assert document["date"] == "1400-01-01"
+    texte(document["fidelite"])
+    assert isinstance(document["chefs"], list) and document["chefs"]
+    for table in ('familles', 'liens'): assert isinstance(document[table], list) and document[table]
+    for table, fiche in ((t, f) for t in ('chefs', 'familles', 'liens') for f in document[t]):
+        familial, ajout = table != 'chefs', table != 'liens'
+        champs = ({'identite', 'naissance'} if ajout else set()) | ({'pere', 'mere', 'conjoints', 'presence'} if familial else set())
+        assert set(fiche) == {'sources', 'lacunes'} | ({'maison', 'nom', 'naissance'} if ajout else set()) | ({'id', 'pere', 'mere', 'conjoints', 'presence'} if familial else set())
+        if ajout: texte(fiche['maison'])
+        assert set(fiche["sources"]) == set(fiche["lacunes"]) == champs
+        if ajout: assert fiche['nom'] is not None or fiche['naissance'] is None
+        for champ in champs:
+            donnee = fiche['nom'] if champ == 'identite' else None if champ == 'presence' and fiche[champ] == 'indeterminee' else fiche[champ]
+            if donnee == []: donnee = None
+            source, lacune = fiche["sources"][champ], fiche["lacunes"][champ]
+            if donnee is None:
+                assert source is None
+                texte(lacune)
+                continue
+            assert lacune is None and isinstance(source, dict) and set(source) == {"url", "fait"}
+            texte(source["fait"])
+            texte(source["url"])
+            url = urlsplit(source["url"])
+            assert url.scheme in {"http", "https"} and url.hostname and not re.search(r"\s", source["url"])
+            if champ != 'naissance':
+                if champ == 'identite': texte(donnee)
+                continue
+            assert isinstance(donnee, dict) and set(donnee) == {"valeur", "precision"}
+            valeur, precision = donnee["valeur"], donnee["precision"]
+            texte(valeur)
+            assert precision in {"jour", "mois", "annee", "vers", "intervalle"}
+            if precision in {"jour", "mois", "annee"}:
+                suffixe = {"jour": "", "mois": "-01", "annee": "-01-01"}[precision]
+                motif = {"jour": r"[0-9]{4}-[0-9]{2}-[0-9]{2}", "mois": r"[0-9]{4}-[0-9]{2}", "annee": r"[0-9]{4}"}[precision]
+                assert re.fullmatch(motif, valeur)
+                assert datetime.date.fromisoformat(valeur + suffixe) <= datetime.date(1400, 1, 1)
+
+
+def _alterer_personnages(document, chemin, valeur):
+    copie = copy.deepcopy(document)
+    cible = copie
+    for cle in chemin[:-1]:
+        cible = cible[cle]
+    if valeur == "SUPPRIMER":
+        del cible[chemin[-1]]
+    else:
+        cible[chemin[-1]] = valeur
+    return copie
+
+
+def test_personnages_sources():
+    document = _personnages()
+    _personnages_sources(document)
+    alterations = [(('date',), '1400-01-02'), (('fidelite',), ' '), (('chefs',), []),
+                   (('chefs', 0, 'nom'), ' '), (('chefs', 0, 'maison'), 'SUPPRIMER'),
+                   (('chefs', 0, 'sources', 'identite'), {}),
+                   (('chefs', 0, 'sources', 'identite', 'fait'), ' '),
+                   (('chefs', 0, 'sources', 'identite', 'url'), 'ftp://exemple.org'),
+                   (('chefs', 0, 'sources', 'identite', 'url'), 'https:///absente'),
+                   (('chefs', 0, 'sources', 'naissance'), None),
+                   (('chefs', 0, 'sources', 'naissance'), 'SUPPRIMER'),
+                   (('chefs', 0, 'nom'), None),
+                   (('chefs', 0, 'lacunes', 'identite'), 'Motif indu pour une identité connue'),
+                   (('chefs', 0, 'naissance', 'precision'), 'seconde'),
+                   (('chefs', 0, 'naissance'), {'valeur': '1367-02-30', 'precision': 'jour'}),
+                   (('chefs', 0, 'naissance'), {'valeur': '1400-01-02', 'precision': 'jour'}),
+                   (('chefs', 0, 'naissance'), {'valeur': '1400-13', 'precision': 'mois'}),
+                   (('chefs', 0, 'naissance'), {'valeur': '1401', 'precision': 'annee'})]
+    manquantes = [(i, champ) for i, c in enumerate(document['chefs']) for champ in ('identite', 'naissance') if c['sources'][champ] is None]
+    assert manquantes
+    alterations += [(('chefs', i, 'lacunes', champ), ' ') for i, champ in manquantes]
+    alterations += [((t, 0, k), 'SUPPRIMER') for t in ('familles', 'liens') for k in document[t][0]]
+    alterations += [((t, 0, 'inconnu'), True) for t in ('chefs', 'familles', 'liens')]
+    alterations += [((t, i, 'lacunes', k), '') for t in ('familles', 'liens') for i, f in enumerate(document[t]) for k, v in f['lacunes'].items() if v]
+    alterations += [((t, i, 'sources', k), {}) for t in ('familles', 'liens') for i, f in enumerate(document[t]) for k in f['sources']]
+    for chemin, valeur in alterations:
+        with pytest.raises((AssertionError, ValueError, KeyError)):
+            _personnages_sources(_alterer_personnages(document, chemin, valeur))
+    _familles_historiques(document['familles'], document['liens'])
+    # Une approximation et un intervalle restent textuels, sans conversion en date.
+    assert any(c['naissance'] and c['naissance']['precision'] == 'intervalle' for c in document['chefs'])
+    assert any(c['naissance'] and c['naissance']['precision'] == 'vers' for c in document['chefs'])
+
+
+def _personnages_attestes(document):
+    fiches = {c['maison']: c for c in document['chefs']}
+    # Attentes tirées des pages consultées, indépendantes du document produit.
+    temoins = {'seigneurie-1': ('Robert Ier de Bar', 'Robert_Ier_de_Bar', '1354'),
+               'seigneurie-2': ('Eberhard III de Wurtemberg', 'sfz35480.html', '1392'),
+               'seigneurie-3': ('Théodore Ier Paléologue', 'Despotate_of_the_Morea', '1383'),
+               'seigneurie-4': ('Đurađ Vuković Branković', '%C4%90ura%C4%91_Brankovi%C4%87', '1396'),
+               'seigneurie-5': ('Gazi Evrenos Bey', 'evrenosogullari', 'Bayezid'),
+               'grande-15': ('Manuel II Paléologue', 'Manuel_II_Palaiologos', '1391'),
+               'grande-8': ('Abu Abdallah Muhammad VII ibn Yusuf', 'Muhammad_VII_of_Granada', '1392'),
+               'institution-13': ('Antonio Venier', 'Antonio_Venier', '1382'),
+               'grande-9': ('Venceslas IV de Luxembourg', 'Wenceslaus_IV_of_Bohemia', 'Prague'),
+               'grande-29': ('Robert III de Wittelsbach', 'Rupert_of_Germany', 'Heidelberg')}
+    for identifiant, (nom, page, fait) in temoins.items():
+        fiche = fiches[identifiant]
+        assert fiche['nom'] == nom
+        assert page in fiche['sources']['identite']['url'] and fait in fiche['sources']['identite']['fait']
+    naissances = {'seigneurie-1': ('1344-11-08', 'jour', 'Robert_Ier_de_Bar'),
+                  'grande-15': ('1350-06-27', 'jour', 'Manuel_II_Palaiologos'),
+                  'grande-1': ('c. April 1367', 'vers', 'Henry_IV_of_England'),
+                  'grande-13': ('1381 or 1382', 'intervalle', 'Eric_of_Pomerania')}
+    for identifiant, (valeur, precision, page) in naissances.items():
+        assert fiches[identifiant]['naissance'] == {'valeur': valeur, 'precision': precision}
+        assert page in fiches[identifiant]['sources']['naissance']['url']
+        assert fiches[identifiant]['sources']['naissance']['fait'].strip()
+    for identifiant in ('grande-21', 'grande-24', 'institution-12', 'institution-15', 'institution-31', 'institution-32', 'seigneurie-6'):
+        assert fiches[identifiant]['nom'] is None and fiches[identifiant]['lacunes']['identite'].strip()
+    for identifiant in ('grande-18', 'grande-20', 'institution-16', 'seigneurie-5', 'seigneurie-6'):
+        assert fiches[identifiant]['naissance'] is None and fiches[identifiant]['lacunes']['naissance'].strip()
+
+
+def test_personnages_attestes():
+    document = _personnages()
+    _personnages_attestes(document)
+    indices = {c['maison']: i for i, c in enumerate(document['chefs'])}
+    alterations = []
+    for identifiant, champ, valeur in [('grande-15', 'nom', 'Théodore Ier Paléologue'),
+                                     ('seigneurie-3', 'nom', 'Manuel II Paléologue'),
+                                     ('seigneurie-1', 'naissance', {'valeur': '1344-11-09', 'precision': 'jour'}),
+                                     ('grande-1', 'naissance', {'valeur': '1367-04-01', 'precision': 'jour'}),
+                                     ('grande-13', 'naissance', {'valeur': '1381', 'precision': 'annee'})]:
+        alterations.append(_alterer_personnages(document, ('chefs', indices[identifiant], champ), valeur))
+    for champ in ('nom', 'naissance'):
+        copie = copy.deepcopy(document)
+        for fiche in copie['chefs']:
+            fiche[champ] = None
+        alterations.append(copie)
+    alterations.append(_alterer_personnages(document, ('chefs', indices['seigneurie-6'], 'lacunes', 'identite'), ''))
+    for copie in alterations:
+        with pytest.raises(AssertionError):
+            _personnages_attestes(copie)
+
+
+def test_personnes_catalogue(registre, tmp_path, monkeypatch):
+    from sim import personnages as p
+    monde, references, charger, _ = registre
+    document, vue = _personnages(), charger()
+    chemin = tmp_path / 'personnes.json'
+    def lire(copie):
+        chemin.write_text(json.dumps(copie), encoding='utf-8')
+        return p.charger_catalogue(vue, chemin)
+    assert lire(document) == document
+    # Rejouer toutes les mutations de sources de #771 contre le lecteur réel.
+    monkeypatch.setattr(sys.modules[__name__], '_personnages_sources', lire)
+    test_personnages_sources()
+    for maison in vue:
+        with pytest.raises(ValueError):
+            lire({**document, 'chefs': [c for c in document['chefs'] if c['maison'] != maison.id]})
+    for lignes in (document['chefs'] * 2, [{**document['chefs'][0], 'maison': i} for i in ('inconnue', 'plausible-1')]):
+        with pytest.raises(ValueError): lire({**document, 'chefs': lignes})
+    with pytest.raises(ValueError): p.charger_catalogue(vue + (dataclasses.replace(vue[0], id='grande-999'),))
+    for contenu in ('{', '{}', 'null'):
+        chemin.write_text(contenu, encoding='utf-8')
+        with pytest.raises(ValueError): p.charger_catalogue(vue, chemin)
+    with pytest.raises(ValueError): p.charger_catalogue(vue, tmp_path / 'absent')
+    monkeypatch.setattr(p, 'CHEMIN', chemin)
+    with pytest.raises(ValueError): World.charger(0)
+
+
+def test_personnes_chefs():
+    from sim import personnages as p
+    from sim.noms import noms_depuis_monde
+    monde, document = World.charger(0), _personnages()
+    historiques = {c['maison']: c for c in document['chefs']}
+    noms = {i: f for v in noms_depuis_monde(monde).values() for i, f in v['maisons'].items()}
+    def preuve(personnes, chefs):
+        assert personnes and set(chefs) == {m.id for m in monde.maisons}
+        attendu = [{**c, 'id': 'personne-' + c['maison'], 'origine': 'historique'} for c in historiques.values() if c['nom']]
+        attendu += [{'id': 'personne-' + m.id, 'maison': m.id, 'origine': 'plausible',
+                     'nom': noms[m.id]['prenom_chef'] + ' ' + noms[m.id]['nom'], 'naissance': None,
+                     'sources': {'identite': None, 'naissance': None},
+                     'lacunes': {'identite': None, 'naissance': 'Naissance inconnue du chef plausible.'}}
+                    for m in monde.maisons if m.sorte == 'plausible']
+        for lien in document['liens']:
+            f = next(c for c in attendu if c['id'] == lien['id'])
+            f.update({k: copy.deepcopy(lien[k]) for k in ('pere', 'mere', 'conjoints', 'presence')})
+            for k in ('sources', 'lacunes'): f[k] = {**f[k], **lien[k]}
+        for e in document['etats']: next(f for f in attendu if f['id'] == 'personne-' + e['maison'])['etat_familial'] = copy.deepcopy(e)
+        attendu += [dict(f, origine='historique') for f in document['familles']]
+        assert list(personnes) == sorted(attendu, key=lambda c: c['id'])
+        p.valider_personnages(personnes, chefs, monde.maisons, document, noms)
+    preuve(monde.personnages, monde.chefs)
+    assert all(any(m.sorte == s and monde.chefs[m.id]['personnage'] for m in monde.maisons) for s in ('institution', 'plausible', 'seigneurie'))
+    assert any(m.cell_id is None and monde.chefs[m.id]['personnage'] for m in monde.maisons)
+    for c in historiques.values():
+        assert monde.chefs[c['maison']] == {'personnage': 'personne-' + c['maison'] if c['nom'] else None, 'lacune': c['lacunes']['identite']}
+    for chemin, valeur in ((('personnages',), monde.personnages[1:]), (('personnages', 0, 'id'), 'invalide'),
+                           (('personnages', 0, 'maison'), 'inconnue'), (('personnages', 0, 'nom'), 'Altéré'),
+                           (('personnages', 0, 'naissance'), {'valeur': '1367', 'precision': 'annee'}),
+                           (('chefs', 'seigneurie-6', 'lacune'), ''),
+                           *[(('chefs', c['maison'], 'personnage'), monde.personnages[0]['id']) for c in historiques.values() if c['maison'] != monde.personnages[0]['maison']],
+                           (('chefs', 'institution-12'), 'SUPPRIMER'), (('personnages',), monde.personnages * 2)):
+        copie = _alterer_personnages({'personnages': list(monde.personnages), 'chefs': monde.chefs}, chemin, valeur)
+        with pytest.raises((AssertionError, ValueError)): preuve(copie['personnages'], copie['chefs'])
+        with pytest.raises(ValueError): p.valider_personnages(copie['personnages'], copie['chefs'], monde.maisons, document, noms)
+
+
+@pytest.mark.parametrize('graine', [0, 42])
+def test_personnes_serialisation(monkeypatch, graine):
+    from sim import personnages as p
+    appels = []
+    lecteur = p.charger_catalogue
+    monkeypatch.setattr(p, 'charger_catalogue', lambda *a: appels.append(a) or lecteur(*a))
+    monde = World.charger(graine)
+    assert World({}, []).personnages == () and World({}, []).chefs == {}
+    document, original = monde.to_dict(), _octets_registre(monde.to_dict())
+    assert len(appels) == 1
+    assert World.charger(42).personnages == monde.personnages
+    catalogue = _personnages()
+    monkeypatch.setattr(p, 'charger_catalogue', lambda *a: {**catalogue, **{t: list(reversed(catalogue[t])) for t in ('chefs', 'familles', 'liens', 'etats')}})
+    carte = World.lire_carte()
+    monkeypatch.setattr(etat_monde, 'charger_registre_maisons', lambda c: tuple(reversed(charger_registre_maisons(c))))
+    assert _octets_registre(World.charger(graine, carte).to_dict()) == original
+    carte['cellules'].reverse()
+    permute = World.charger(graine, carte).to_dict()
+    assert _octets_registre(permute) == original
+    def refuser(*a): raise RuntimeError('lecture interdite')
+    for module, nom in ((p, 'charger_catalogue'), (p, 'construire_personnages'), (etat_monde, 'construire_personnages')):
+        monkeypatch.setattr(module, nom, refuser)
+    boheme = next(i for i, f in enumerate(document['personnages']) if f['id'] == 'personne-grande-9')
+    chemins = [('presence',), ('lacunes', 'pere'), ('etat_familial', 'enfants'), ('etat_familial', 'sources', 'enfants', 'fait'), ('etat_familial', 'lacunes', 'enfants'), ('etat_familial', 'exclusions'), ('etat_familial', 'exclusions', 'Jeanne de Bavière', 'sources', 0, 'fait')]
+    famille = next(i for i, f in enumerate(document['personnages']) if f['id'] == 'personne-jeanne')
+    def alterer(objet):
+        for k, v in (objet.items() if isinstance(objet, dict) else enumerate(objet)):
+            if k == 'id': continue
+            if isinstance(v, (dict, list)) and v: alterer(v)
+            else: objet[k] = 'Altéré'
+    def alterer_iles(d):
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14')): alterer(f)
+    assert document['personnages'] == list(monde.personnages)
+    altere = copy.deepcopy(document); alterer_iles(altere)
+    copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
+    assert _octets_registre(copie.to_dict()) == _octets_registre(altere) != original
+    for chemin, valeur in (*[(('personnages', boheme, *k), 'Altéré') for k in chemins], (('personnages', famille, 'mere'), 'autre'), (('personnages', famille, 'conjoints'), []),
+                           (('personnages', famille, 'sources', 'presence', 'fait'), 'Altéré'), (('personnages',), []), (('chefs',), {}), (('personnages', 0, 'nom'), 'Altéré'),
+                           (('personnages', 0, 'naissance', 'valeur'), 'inconnue'),
+                           (('personnages', 0, 'sources', 'identite', 'fait'), 'Altéré'), (('chefs', 'seigneurie-6', 'lacune'), 'Altérée')):
+        copie = copy.copy(monde)
+        altere = _alterer_personnages(document, chemin, valeur)
+        copie.personnages, copie.chefs = tuple(altere['personnages']), altere['chefs']
+        assert _octets_registre(copie.to_dict()) == _octets_registre(altere) != original
+    alterer_iles(document)
+    for k in sorted(chemins, key=len, reverse=True):
+        cible = document['personnages'][boheme]
+        for cle in k[:-1]: cible = cible[cle]
+        cible[k[-1]] = 'Altéré'
+    document['personnages'][famille]['mere'] = 'autre'
+    document['personnages'][famille]['conjoints'].append('autre')
+    document['personnages'][famille]['sources']['presence']['fait'] = 'Altéré'
+    document['personnages'][0]['sources']['identite']['fait'] = 'Altéré'
+    document['chefs']['seigneurie-6']['lacune'] = 'Altérée'
+    assert _octets_registre(monde.to_dict()) == original
+
+
+def _naissance_famille(valeur, precision='jour'):
+    return None if valeur is None else {'valeur': valeur, 'precision': precision}
+
+
+def _famille_liens():
+    return [{'id': i, 'nom': 'Homonyme', 'naissance': _naissance_famille(n),
+             'pere': 'p' if i == 'e' else None, 'mere': 'm' if i == 'e' else None,
+             'conjoints': conjoints}
+            for i, n, conjoints in [('p', '1350-01-01', ['m']),
+                                    ('m', '1360-06-15', ['p']), ('e', '1380-06-15', [])]]
+
+
+def _controler_famille(fiches):
+    from sim.personnages import valider_liens_familiaux
+    import random
+    avant, hasard = copy.deepcopy(fiches), random.getstate()
+    try:
+        return valider_liens_familiaux(fiches)
+    finally:
+        assert fiches == avant
+        assert random.getstate() == hasard
+
+
+@pytest.mark.parametrize('json_lu', [False, True])
+@pytest.mark.parametrize('chemin,valeur', [
+    ((), []), ((0, 'id'), ''), ((0, 'id'), ' '), ((0, 'id'), 'e'),
+    ((2, 'pere'), 'inconnu'), ((2, 'mere'), 'inconnue'), ((0, 'conjoints'), ['inconnu']),
+    ((2, 'pere'), 'e'), ((2, 'mere'), 'e'), ((0, 'conjoints'), ['p']),
+    ((2, 'mere'), 'p'), ((0, 'conjoints'), ['m', 'm']), ((1, 'conjoints'), []),
+    ((2, 'pere'), 'SUPPRIMER'), ((2, 'mere'), 'SUPPRIMER'),
+    ((2, 'naissance'), 'SUPPRIMER'), ((2, 'conjoints'), 'SUPPRIMER'),
+    ((0, 'conjoints'), 'm'), ((2, 'pere'), ''),
+])
+def test_familles_liens_structure_refus(tmp_path, json_lu, chemin, valeur):
+    def lire(fiches):
+        return json.loads(_ecrire(tmp_path, fiches).read_text()) if json_lu else fiches
+    famille = _famille_liens()
+    bilan = _controler_famille(lire(famille))
+    assert len(bilan['verifies']) == 3 and bilan['indetermines'] == []
+    alteree = _alterer_personnages(famille, chemin, valeur) if chemin else valeur
+    with pytest.raises(ValueError): _controler_famille(lire(alteree))
+
+
+def test_familles_liens_structure_cycles_et_libertes():
+    famille = _famille_liens()
+    for fiche in famille:
+        fiche['naissance'], fiche['conjoints'] = None, []
+    assert len(_controler_famille(famille)['indetermines']) == 3
+    famille[0]['pere'], famille[1]['pere'] = 'm', 'e'
+    with pytest.raises(ValueError, match='cycle'): _controler_famille(famille)
+    famille = _famille_liens()
+    famille.append({**copy.deepcopy(famille[1]), 'id': 'autre'})
+    famille[0]['conjoints'].append('autre')
+    assert len(_controler_famille(famille)['verifies']) == 3
+
+
+@pytest.mark.parametrize('date,acceptee', [
+    ('1374-06-15', False), ('1375-06-14', False), ('1375-06-15', True),
+    ('1405-06-15', True), ('1406-06-14', True), ('1406-06-15', False),
+])
+def test_familles_liens_dates_anniversaires(date, acceptee):
+    famille = _famille_liens()
+    famille[2]['naissance'] = _naissance_famille(date)
+    if acceptee:
+        bilan = _controler_famille(famille)
+        assert bilan['indetermines'] == [] and len(bilan['verifies']) == 3
+        assert {'contrainte': 'age_maternel', 'personnes': ('m', 'e')} in bilan['verifies']
+    else:
+        with pytest.raises(ValueError): _controler_famille(famille)
+
+
+@pytest.mark.parametrize('index,date', [
+    (0, '1380-06-15'), (0, '1380-06-16'), (1, '1380-06-15'), (1, '1380-06-16'),
+    (2, '1380-02-30'), (2, '1380-13-01'), (2, '1380-2-01'),
+])
+def test_familles_liens_dates_refus(index, date):
+    famille = _famille_liens()
+    famille[index]['naissance'] = _naissance_famille(date)
+    with pytest.raises(ValueError): _controler_famille(famille)
+
+
+@pytest.mark.parametrize('mere,pm,enfant,pe,attendu', [
+    ('1360', 'annee', '1380', 'annee', 'verifies'),
+    ('1360', 'annee', '1375', 'annee', 'indetermines'),
+    ('1360', 'annee', '1374', 'annee', 'refus'),
+    ('1360', 'annee', '1405', 'annee', 'verifies'),
+    ('1360', 'annee', '1406', 'annee', 'indetermines'),
+    ('1360', 'annee', '1407', 'annee', 'refus'),
+    ('1360-06', 'mois', '1375-06', 'mois', 'indetermines'),
+    ('1360-06', 'mois', '1375-07', 'mois', 'verifies'),
+    ('1360-06', 'mois', '1375-05', 'mois', 'refus'),
+    ('1360-02', 'mois', '1375-02-28', 'jour', 'indetermines'),
+    ('1360-02', 'mois', '1375-03-01', 'jour', 'verifies'),
+    ('1360-02-29', 'jour', '1375-02-28', 'jour', 'refus'),
+    ('1360-02-29', 'jour', '1375-03-01', 'jour', 'verifies'),
+    ('1360-02-29', 'jour', '1406-02-28', 'jour', 'verifies'),
+    ('1360-02-29', 'jour', '1406-03-01', 'jour', 'refus'),
+    ('vers 1360', 'vers', '1380', 'annee', 'indetermines'),
+    ('1359 ou 1360', 'intervalle', '1380', 'annee', 'indetermines'),
+    (None, 'jour', '1380', 'annee', 'indetermines'),
+    ('1360', 'annee', None, 'jour', 'indetermines'),
+    ('1360', 'annee', 'vers 1380', 'vers', 'indetermines'),
+    ('1360', 'annee', '1379 ou 1380', 'intervalle', 'indetermines'),
+])
+def test_familles_liens_precisions_ages(mere, pm, enfant, pe, attendu):
+    famille = _famille_liens()
+    famille[1]['naissance'], famille[2]['naissance'] = (
+        _naissance_famille(mere, pm), _naissance_famille(enfant, pe))
+    if attendu == 'refus':
+        with pytest.raises(ValueError): _controler_famille(famille)
+        return
+    bilan = _controler_famille(famille)
+    ages = [c for c in bilan[attendu] if c['contrainte'] == 'age_maternel']
+    assert len(ages) == 1 and ages[0]['personnes'] == ('m', 'e')
+    contraire = 'verifies' if attendu == 'indetermines' else 'indetermines'
+    assert not any(c['contrainte'] == 'age_maternel' for c in bilan[contraire])
+    assert all(c['motif'].strip() and len(c['personnes']) == 2 for c in bilan['indetermines'])
+
+
+@pytest.mark.parametrize('pere,enfant,attendu', [
+    ('1380', '1380', 'indetermines'), ('1380', '1381', 'verifies'),
+    ('1381', '1380', 'refus'), ('1380-02', '1380-02-29', 'indetermines'),
+    ('1380-02', '1380-03-01', 'verifies'), ('1380-02', '1380-01-31', 'refus'),
+])
+def test_familles_liens_precisions_anteriorite(pere, enfant, attendu):
+    famille = _famille_liens()
+    for index, valeur in ((0, pere), (2, enfant)):
+        precision = {4: 'annee', 7: 'mois', 10: 'jour'}[len(valeur)]
+        famille[index]['naissance'] = _naissance_famille(valeur, precision)
+    if attendu == 'refus':
+        with pytest.raises(ValueError): _controler_famille(famille)
+    else:
+        bilan = _controler_famille(famille)
+        assert any(c['contrainte'] == 'anteriorite' and c['personnes'] == ('p', 'e')
+                   for c in bilan[attendu])
+
+
+FAMILLE_1400 = [('isabeau', 'Isabeau de Bavière', '1370', 'vers'),
+                ('isabelle', 'Isabelle de France', '1389-11-09', 'jour'),
+                ('jeanne', 'Jeanne de France', '1391-01-24', 'jour'),
+                ('charles', 'Charles de France', '1392-02-06', 'jour'),
+                ('marie', 'Marie de France', '1393-08-22', 'jour'),
+                ('michelle', 'Michelle de France', '1395-01-11', 'jour'),
+                ('louis', 'Louis de France', '1397-01-22', 'jour'),
+                ('jean', 'Jean de France', '1398-08-31', 'jour')]
+
+
+# Notices individuelles et tableaux des parents consultés le 22 octobre 2026.
+ILES_1400 = [('marie-bohun', 'Marie de Bohun', 'vers 1369/1370', 'vers', 'Mary_de_Bohun', '1394-06-04'),
+             ('henri-monmouth', 'Henri de Monmouth', '1386 ou 1387', 'intervalle', 'Henry_V_of_England#Birth_and_family', '1422'),
+             ('thomas-lancastre', 'Thomas de Lancastre', 'automne 1387', 'intervalle', 'Thomas_of_Lancaster,_Duke_of_Clarence', '1421'),
+             ('jean-lancastre', 'Jean de Lancastre', '1389-06-20', 'jour', 'John_of_Lancaster,_Duke_of_Bedford', '1435'),
+             ('humphrey-lancastre', 'Humphrey de Lancastre', '1390-10-03', 'jour', 'Humphrey,_Duke_of_Gloucester', '1447'),
+             ('blanche-angleterre', 'Blanche d’Angleterre', 'printemps 1392', 'intervalle', 'Blanche_of_England', '1409'),
+             ('philippa-angleterre', 'Philippa d’Angleterre', 'milieu de 1394', 'intervalle', 'Philippa_of_England', '1430'),
+             ('annabella', 'Annabella Drummond', 'vers 1350', 'vers', 'Annabella_Drummond', '1401'),
+             ('marguerite-stuart', 'Marguerite Stuart', 'vers 1370', 'vers', 'Margaret_Stewart,_Duchess_of_Touraine', '1450'),
+             ('elisabeth-stuart', 'Élisabeth Stuart', 'vers 1372/1373', 'vers', 'Annabella_Drummond#Issue', '1411'),
+             ('david-stuart', 'David Stuart', '1378-10-24', 'jour', 'David_Stewart,_Duke_of_Rothesay', '1402'),
+             ('marie-stuart', 'Marie Stuart', 'vers 1380', 'vers', 'Mary_Stewart_(daughter_of_Robert_III)', '1460'),
+             ('jacques-stuart', 'Jacques Stuart', '1394-07', 'mois', 'James_I_of_Scotland', '1437'),
+             ('jean-ardgowan', 'Jean Stuart d’Ardgowan', '1364', 'annee', 'Robert_III_of_Scotland#Family_and_issue', '1412')]
+
+
+def _iles_historiques(fiches):
+    for rang, (i, nom, date, precision, page, fin) in enumerate(ILES_1400):
+        f = fiches['personne-' + i]
+        assert set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance', 'presence', 'pere', 'mere', 'conjoints'}
+        chef = 'personne-grande-' + ('1' if rang < 7 else '2')
+        parents = (None, None) if i in ('marie-bohun', 'annabella') else (chef, None if i == 'jean-ardgowan' else 'personne-' + ('marie-bohun' if rang < 7 else 'annabella'))
+        assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere']) == (nom, chef[9:], _naissance_famille(date, precision), *parents)
+        assert f['presence'] == ('decedee' if i == 'marie-bohun' else 'vivante')
+        assert f['conjoints'] == ([chef] if i == 'annabella' else [])
+        for k in ('identite', 'naissance', 'presence', 'pere', 'mere', 'conjoints'):
+            source, lacune = f['sources'][k], f['lacunes'][k]
+            if k in ('identite', 'naissance', 'presence') or f[k]:
+                attendu = page if k in ('identite', 'naissance', 'presence') else ('Henry_IV_of_England#Marriages_and_issue' if rang < 7 else 'Robert_III_of_Scotland#Family_and_issue')
+                assert source and source['url'] == 'https://en.wikipedia.org/wiki/' + attendu and nom in source['fait'] and lacune is None
+                if k == 'naissance': assert all(v in source['fait'] for v in date.replace(' ou ', '/').split('/'))
+                if k == 'presence': assert fin in source['fait']
+                if k in ('pere', 'mere', 'conjoints'): assert ('Henri IV' if rang < 7 else 'Robert III') in source['fait']
+                if k == 'mere': assert ('Marie de Bohun' if rang < 7 else 'Annabella Drummond') in source['fait']
+            else:
+                assert source is None and lacune and ('aucune absence attestée' in lacune or 'inconnue' in lacune or '1394-06-04' in lacune)
+    for i, conjoint in [('1', []), ('2', ['personne-annabella'])]:
+        f = fiches['personne-grande-' + i]
+        assert {'pere', 'mere', 'conjoints', 'presence'} <= f['sources'].keys() & f['lacunes'].keys()
+        for k in ('conjoints', 'presence'):
+            if f['sources'][k]: assert f['sources'][k]['url'] == 'https://en.wikipedia.org/wiki/' + ('Henry_IV_of_England#Marriages_and_issue' if i == '1' else 'Robert_III_of_Scotland#Family_and_issue')
+        assert (f['pere'], f['mere'], f['conjoints'], f['presence']) == (None, None, conjoint, 'vivante')
+        assert f['sources']['presence'] and ('Henri IV' if i == '1' else 'Robert III') in f['sources']['presence']['fait'] and f['lacunes']['presence'] is None
+        for k in ('pere', 'mere'): assert f['sources'][k] is None and 'aucune absence attestée' in f['lacunes'][k]
+        if i == '1': assert f['sources']['conjoints'] is None and '1394-06-04' in f['lacunes']['conjoints']
+        else: assert f['sources']['conjoints'] and 'Annabella Drummond' in f['sources']['conjoints']['fait'] and f['lacunes']['conjoints'] is None
+
+
+# Notices individuelles et tableaux ibériques consultés le 22 octobre 2026.
+IBERIE_1400 = [('philippa-lancastre', 'Philippa de Lancastre', '1360-03-31', 'jour', 'Philippa_of_Lancaster', '1415', '4', None),
+               ('afonso-portugal', 'Afonso de Portugal', '1390-07-30', 'jour', 'John_I_of_Portugal#Marriage_and_descendants', '1400-12-22', '4', 'philippa-lancastre'),
+               ('edouard-portugal', 'Édouard de Portugal', '1391-10-31', 'jour', 'Edward,_King_of_Portugal', '1438', '4', 'philippa-lancastre'),
+               ('pierre-portugal', 'Pierre de Portugal', '1392-12-09', 'jour', 'Peter,_Duke_of_Coimbra', '1449', '4', 'philippa-lancastre'),
+               ('henri-portugal', 'Henri de Portugal', '1394-03-04', 'jour', 'Henry_the_Navigator', '1460', '4', 'philippa-lancastre'),
+               ('isabelle-portugal', 'Isabelle de Portugal', '1397-02-21', 'jour', 'Isabella_of_Portugal,_Duchess_of_Burgundy', '1471', '4', 'philippa-lancastre'),
+               ('ines-pires', 'Inês Pires', 'vers 1350', 'vers', 'John_I_of_Portugal#Marriage_and_descendants', '1400 ?', '4', None),
+               ('afonso-bragance', 'Afonso de Bragance', '1377-08-10', 'jour', 'Afonso_I,_Duke_of_Braganza', '1461', '4', 'ines-pires'),
+               ('beatrice-portugal', 'Béatrice de Portugal', 'vers 1380', 'vers', 'Beatrice,_Countess_of_Arundel', '1439', '4', 'ines-pires'),
+               ('catherine-lancastre', 'Catherine de Lancastre', '1372-06-06 ou 1373-03-31', 'intervalle', 'Catherine_of_Lancaster#Notes', '1418', '5', None),
+               ('maria-luna', 'Maria de Luna', 'vers 1358', 'vers', 'Maria_de_Luna', '1406', '6', None),
+               ('martin-sicile', 'Martin de Sicile', 'vers 1374/1376', 'vers', 'Martin_I_of_Sicily', '1409', '6', 'maria-luna')]
+IBERIE_CHEFS = {
+    '4': ('Jean Ier', 'John_I_of_Portugal#Marriage_and_descendants', 'philippa-lancastre', '2 février 1387', '1433'),
+    '5': ('Henri III', 'Henry_III_of_Castile#Marriage_and_issue', 'catherine-lancastre', '1388', '1406'),
+    '6': ('Martin d’Aragon', 'Martin_of_Aragon', 'maria-luna', '13 juin 1372', '1410')}
+IBERIE_EXCLUSIONS = {
+    '4': {'Blanche de Portugal': ('1389-03-06',), 'Jean de Portugal': ('1400-01-13',), 'Ferdinand de Portugal': ('1402',)},
+    '5': {'Marie de Castille': ('1401',), 'Catherine de Castille': ('1403',), 'Jean de Castille': ('1405',)},
+    '6': {'Jacques d’Aragon': ('1378', 'mort jeune', '1391'), 'Jean d’Aragon': ('1380', 'mort jeune', '1391'),
+          'Marguerite d’Aragon': ('1384/1388', 'morte jeune', '1391'), 'Marguerite de Prades': ('1409',)}}
+
+
+def _iberie_historiques(fiches):
+    noms = {i: nom for i, nom, *_ in IBERIE_1400}
+    for i, nom, date, precision, page, fin, maison, mere in IBERIE_1400:
+        f = fiches['personne-' + i]; chef, lien, epouse, union, _ = IBERIE_CHEFS[maison]
+        assert set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance', 'presence', 'pere', 'mere', 'conjoints'}
+        assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], f['conjoints'], f['presence']) == (
+            nom, 'grande-' + maison, _naissance_famille(date, precision),
+            'personne-grande-' + maison if mere else None, 'personne-' + mere if mere else None,
+            ['personne-grande-' + maison] if i == epouse else [], 'indeterminee' if i == 'ines-pires' else 'vivante')
+        for k in f['sources']:
+            source, lacune = f['sources'][k], f['lacunes'][k]
+            if k == 'presence' and i == 'ines-pires':
+                assert source is None and all(v in lacune for v in ('https://en.wikipedia.org/wiki/Inês_Pires', '1400 ?', 'indéterminée')); continue
+            if k in ('identite', 'naissance', 'presence') or f[k]:
+                assert source and source['url'] == 'https://en.wikipedia.org/wiki/' + (page if k in ('identite', 'naissance', 'presence') else lien) and nom in source['fait'] and lacune is None
+                if k == 'naissance': assert all(v in source['fait'] for v in date.replace(' ou ', '/').split('/'))
+                if k == 'presence': assert fin in source['fait']
+                justifications = {'maria-luna': ('c. 1358', 'approximation'), 'martin-sicile': ('c. 1374/1376', 'approximation'),
+                                  'catherine-lancastre': ('note', 'infobox', 'non départagées')}
+                if k == 'naissance' and i in justifications: assert all(v in source['fait'] for v in justifications[i])
+                if k in ('pere', 'mere'): assert chef in source['fait'] and noms[mere] in source['fait']
+                if k == 'conjoints': assert chef in source['fait'] and union in source['fait']
+            else: assert source is None and 'aucune absence attestée' in lacune
+    for maison, (nom, page, epouse, union, fin) in IBERIE_CHEFS.items():
+        f = fiches['personne-grande-' + maison]
+        assert {'pere', 'mere', 'conjoints', 'presence'} <= f['sources'].keys() & f['lacunes'].keys()
+        assert (f['pere'], f['mere'], f['conjoints'], f['presence']) == (None, None, ['personne-' + epouse], 'vivante')
+        for k in ('pere', 'mere'): assert f['sources'][k] is None and 'aucune absence attestée' in f['lacunes'][k]
+        for k in ('conjoints', 'presence'):
+            source = f['sources'][k]
+            assert source and source['url'] == 'https://en.wikipedia.org/wiki/' + page and nom in source['fait'] and f['lacunes'][k] is None
+            assert all(v in source['fait'] for v in ((noms[epouse], union) if k == 'conjoints' else (fin,)))
+
+
+def _etats_iberie(e):
+    maison = e['maison'][7:]; nom, page, epouse, union, _ = IBERIE_CHEFS[maison]
+    assert (e['conjoints'], e['enfants'], e['lacunes']) == ('union', 'absence_attestee' if maison == '5' else 'documentes', {'conjoints': None, 'enfants': None})
+    assert set(e['sources']) == {'conjoints', 'enfants'}
+    for k, source in e['sources'].items():
+        assert source and source['url'] == 'https://en.wikipedia.org/wiki/' + page and nom in source['fait']
+        attendus = ([union, next(n for i, n, *_ in IBERIE_1400 if i == epouse)] if k == 'conjoints' else
+                    [n for _, n, _, _, _, _, m, mere in IBERIE_1400 if m == maison and mere] if maison != '5' else
+                    ['1401', '1403', '1405', 'aucun enfant'])
+        assert all(v in source['fait'] for v in attendus)
+    assert set(e['exclusions']) == set(IBERIE_EXCLUSIONS[maison])
+    for nom, faits in IBERIE_EXCLUSIONS[maison].items():
+        x = e['exclusions'][nom]
+        assert nom in x['motif'] and all(v in x['motif'] for v in faits) and x['sources']
+        assert all(s['url'] in {'https://en.wikipedia.org/wiki/' + page, 'https://en.wikipedia.org/wiki/Maria_de_Luna'} and nom in s['fait'] for s in x['sources'])
+        assert all(any(v in source['fait'] for source in x['sources']) for v in faits)
+        assert {source['url'] for source in x['sources']} == {'https://en.wikipedia.org/wiki/' + page} | (
+            {'https://en.wikipedia.org/wiki/Maria_de_Luna'} if maison == '6' and nom != 'Marguerite de Prades' else set())
+
+
+def _familles_historiques(familles, liens):
+    famille = FAMILLE_1400 + [('sophie-baviere', 'Sophie de Bavière', '1376', 'annee')]
+    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 1 == 55
+    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-marie-bourgogne'}
+    fiches = {f['id']: f for f in familles + liens}
+    couples = {'personne-isabeau': 'personne-grande-3', 'personne-jeanne': 'personne-grande-28', 'personne-sophie-baviere': 'personne-grande-9'}
+    couples.update({v: k for k, v in list(couples.items())})
+    for i, nom, date, precision in famille:
+        f = fiches['personne-' + i]
+        assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
+        assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
+    assert len(liens) == 15 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14')}
+    _iles_historiques(fiches)
+    _iberie_historiques(fiches)
+    _fin_historiques(fiches)
+    _voisins_historiques(fiches)
+    for i, f in fiches.items():
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')}: continue
+        assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
+        assert f['presence'] == 'vivante'
+        if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
+        assert f['conjoints'] == ([couples[i]] if i in couples else [])
+        for champ in ('identite', 'naissance', 'pere', 'mere', 'conjoints', 'presence'):
+            if champ in ('identite', 'naissance') and 'nom' not in f: continue
+            source = f['sources'][champ]
+            if champ in ('identite', 'naissance', 'presence') or f.get(champ):
+                assert source and source['fait'].strip()
+                if champ in ('pere', 'mere'): assert f['nom'] in source['fait'] and 'Charles VI' in source['fait'] and 'Isabeau' in source['fait']
+                page = 'Charles_VI_of_France#Marriage_and_issue'
+                if i == 'personne-isabeau' and champ in ('naissance', 'conjoints'): page = 'Isabeau_of_Bavaria'
+                if i == 'personne-jeanne' and champ == 'conjoints': page = 'Joan_of_France,_Duchess_of_Brittany'
+                if i == 'personne-sophie-baviere': page = 'Sophia_of_Bavaria'
+                if i == 'personne-grande-9': page = 'Wenceslaus_IV_of_Bohemia#Personal_life'
+                if i == 'personne-grande-28': page = 'John_V_of_Brittany#Family'
+                if i.startswith('personne-grande-') and champ in ('identite', 'naissance'): continue
+                assert source['url'] == 'https://en.wikipedia.org/wiki/' + page
+                assert f['lacunes'][champ] is None
+            else: assert source is None and 'aucune absence attestée' in f['lacunes'][champ]
+    assert not any(f['pere'] == 'personne-grande-28' or f['mere'] == 'personne-grande-28' for f in familles)
+
+
+def test_familles_historiques():
+    document, monde = _personnages(), World.charger(0)
+    r = {f.get('id', f.get('maison')): i for t in ('familles', 'liens', 'etats') for i, f in enumerate(document[t])}
+    _familles_historiques(document.get('familles', []), document.get('liens', []))
+    _familles_historiques([f for f in monde.personnages if f['id'] != 'personne-' + f['maison']],
+                         [f for f in monde.personnages if f['id'] == 'personne-' + f['maison'] and {'pere', 'mere', 'conjoints', 'presence', 'etat_familial'} & f.keys()])
+    mutations = [(('familles',), []), (('familles', r['personne-charles'], 'naissance', 'valeur'), '1392-02-07'),
+                 (('familles', r['personne-charles'], 'mere'), 'personne-jeanne'), (('familles', r['personne-charles'], 'sources', 'mere'), None),
+                 (('familles', r['personne-charles'], 'sources', 'presence'), None)]
+    mutations += [(('familles',), [f for f in document['familles'] if f['id'] != 'personne-' + i]) for i, *_ in FAMILLE_1400 + [('sophie-baviere',)] + ILES_1400 + IBERIE_1400 + FIN_1400 + [('marie-bourgogne',)]]
+    for i, date in [('charles-1386', '1386-09-25'), ('jeanne-1388', '1388-06-14'), ('catherine', '1401-10-27'),
+                    ('charles-1403', '1403-02-22'), ('philippe', '1407-11-10'), ('anne-bretagne', '1409-01-01')]:
+        ajout = dict(copy.deepcopy(document['familles'][r['personne-charles']]), id='personne-' + i, naissance=_naissance_famille(date))
+        if i == 'anne-bretagne': ajout['pere'] = 'personne-grande-28'
+        mutations.append((('familles',), document['familles'] + [ajout]))
+    double = copy.deepcopy(document)
+    double['familles'].append(dict(copy.deepcopy(next(f for f in double['familles'] if f['id'] == 'personne-jeanne')), id='personne-jeanne-bis'))
+    next(f for f in double['liens'] if f['id'] == 'personne-grande-28')['conjoints'].append('personne-jeanne-bis')
+    assert _controler_famille(double['familles'] + [{**c, **l} for l in double['liens'] for c in document['chefs'] if 'personne-' + c['maison'] == l['id']])
+    mutations.append((('familles',), double['familles']))
+    for chemin, valeur in mutations:
+        copie = _alterer_personnages(document, chemin, valeur)
+        with pytest.raises(AssertionError): _familles_historiques(copie['familles'], copie['liens'])
+
+
+def test_familles_integration(tmp_path, monkeypatch):
+    from sim import personnages as p
+    from sim.noms import noms_depuis_monde
+    document, monde = _personnages(), World.charger(0)
+    r = {f.get('id', f.get('maison')): i for t in ('familles', 'liens', 'etats') for i, f in enumerate(document[t])}
+    noms = {i: f for v in noms_depuis_monde(monde).values() for i, f in v['maisons'].items()}
+    chemin = tmp_path / 'familles.json'
+    monkeypatch.setattr(p, 'CHEMIN', chemin)
+    def lire(d):
+        chemin.write_text(json.dumps(d), encoding='utf-8')
+        return p.charger_catalogue(monde.maisons, chemin)
+    assert lire(document) == document and World.charger(0).personnages == monde.personnages
+    reelles = [f for f in monde.personnages if 'pere' in f]
+    bilan = _controler_famille(reelles)
+    assert len(bilan['verifies']) == 35 and len(bilan['indetermines']) == 81
+    parents = [('grande-3', 'isabeau', i) for i, *_ in FAMILLE_1400[1:]] + [('grande-1', 'marie-bohun', i) for i, *_ in ILES_1400[1:7]] + [('grande-2', 'annabella', i) for i, *_ in ILES_1400[8:13]] + [('grande-2', None, 'jean-ardgowan')]
+    verifies = {('anteriorite', ('personne-grande-3', 'personne-' + i)) for i, *_ in FAMILLE_1400[1:]}
+    parents += [('grande-' + m, mere, i) for i, _, _, _, _, _, m, mere in IBERIE_1400 if mere]
+    verifies |= {('anteriorite', ('personne-grande-4', 'personne-' + i)) for i in ('afonso-portugal', 'edouard-portugal', 'pierre-portugal', 'henri-portugal', 'isabelle-portugal', 'afonso-bragance')} | {(k, ('personne-philippa-lancastre', 'personne-' + i)) for i in ('afonso-portugal', 'edouard-portugal', 'pierre-portugal', 'henri-portugal', 'isabelle-portugal') for k in ('anteriorite', 'age_maternel')}
+    parents += [('grande-' + m, mere, i) for i, _, _, _, _, _, m, mere in FIN_1400 if i in FIN_ENFANTS]
+    verifies |= {('anteriorite', ('personne-grande-' + m, 'personne-' + i)) for i, m in [('jeanne-foix', '7'), ('charles-navarre', '7'), ('lancelot-navarre', '7'), ('valentine-visconti', '10'), ('gian-maria', '10'), ('filippo-maria', '10')]} | {(k, ('personne-' + m, 'personne-' + i)) for m, i in [('isabelle-vertus', 'valentine-visconti'), ('caterina-visconti', 'gian-maria'), ('caterina-visconti', 'filippo-maria')] for k in ('anteriorite', 'age_maternel')}
+    controles = {('anteriorite', ('personne-' + p, 'personne-' + e)) for p, m, e in parents} | {(k, ('personne-' + m, 'personne-' + e)) for p, m, e in parents if m for k in ('anteriorite', 'age_maternel')}
+    assert {(c['contrainte'], c['personnes']) for c in bilan['verifies']} == verifies
+    assert {(c['contrainte'], c['personnes']) for c in bilan['indetermines']} == controles - verifies
+    assert all(c['motif'] == 'Naissance absente ou sans bornes exploitables.' for c in bilan['indetermines'])
+    ages = [c for c in bilan['indetermines'] if c['contrainte'] == 'age_maternel']
+    assert {c['personnes'] for c in ages if c['personnes'][0] == 'personne-isabeau'} == {('personne-isabeau', 'personne-' + i) for i, *_ in FAMILLE_1400[1:]}
+    assert all(c['motif'].strip() for c in ages) and not any(c['contrainte'] == 'age_maternel' and c['personnes'][0] in ('personne-isabeau', 'personne-marie-bohun', 'personne-annabella') for c in bilan['verifies'])
+    enfant = next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-charles')
+    mere = next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-isabeau')
+    mutations = [(('familles', enfant, 'pere'), 'inconnu'), (('familles', enfant, 'pere'), 'personne-charles'),
+                 (('familles', enfant, 'mere'), 'personne-grande-3'), (('liens', r['personne-grande-28'], 'conjoints'), ['personne-jeanne'] * 2),
+                 (('liens', r['personne-grande-28'], 'conjoints'), []), (('familles', enfant, 'naissance'), _naissance_famille('1368-12-03')),
+                 (('familles', enfant, 'naissance'), _naissance_famille('1368-12-02'))]
+    copies = [_alterer_personnages(document, k, v) for k, v in mutations]
+    cycle = copy.deepcopy(document)
+    cycle['familles'][mere]['pere'] = 'personne-charles'
+    cycle['familles'][mere]['sources']['pere'], cycle['familles'][mere]['lacunes']['pere'] = document['familles'][enfant]['sources']['pere'], None
+    for f in cycle['familles']: f['naissance'] = {'valeur': 'inconnue', 'precision': 'vers'}
+    copies.append(cycle)
+    for age in (14, 15, 45, 46):
+        d = copy.deepcopy(document)
+        d['familles'][mere]['naissance'] = _naissance_famille(f'{1389-age}-11-09')
+        for f in d['familles']:
+            if f['mere'] == 'personne-isabeau': f['naissance'] = _naissance_famille('1389-11-09')
+        if age in (14, 46): copies.append(d)
+        else:
+            assert lire(d)
+            construit = World.charger(0)
+            p.valider_personnages(construit.personnages, construit.chefs, construit.maisons, d, noms)
+    for d in copies:
+        personnes = copy.deepcopy(list(monde.personnages))
+        for f in d['familles'] + d['liens']:
+            cible = next(c for c in personnes if c['id'] == f['id'])
+            cible.update({k: f[k] for k in ('naissance', 'pere', 'mere', 'conjoints') if k in f})
+        with pytest.raises(ValueError): lire(d)
+        with pytest.raises(ValueError): World.charger(0)
+        with pytest.raises(ValueError): _controler_famille([f for f in personnes if 'pere' in f])
+        with pytest.raises(ValueError): p.valider_personnages(personnes, monde.chefs, monde.maisons, document, noms)
+    lire(document)
+    def sentinelle(*a): raise RuntimeError('validateur familial appelé')
+    monkeypatch.setattr(p, 'valider_liens_familiaux', sentinelle)
+    for appel in (lambda: lire(document), lambda: World.charger(0)):
+        with pytest.raises(RuntimeError, match='validateur familial appelé'): appel()
+    monkeypatch.setattr(p, 'charger_catalogue', lambda *a: document)
+    with pytest.raises(RuntimeError, match='validateur familial appelé'): p.construire_personnages(monde)
+    monkeypatch.setattr(p, '_avec_familles', lambda *a: list(monde.personnages))
+    with pytest.raises(RuntimeError, match='validateur familial appelé'):
+        p.valider_personnages(monde.personnages, monde.chefs, monde.maisons, document, noms)
+
+
+def _etats_historiques(etats):
+    assert len(etats) == 15 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14')}
+    for e in etats:
+        if e['maison'][7:] in VOISINS_CHEFS:
+            _etats_voisins(e); continue
+        if e['maison'] in ('grande-7', 'grande-8', 'grande-10'):
+            _etats_fin(e); continue
+        if e['maison'] in ('grande-4', 'grande-5', 'grande-6'):
+            _etats_iberie(e); continue
+        if e['maison'] in ('grande-1', 'grande-2'):
+            _etats_iles(e); continue
+        assert e['conjoints'] == 'union' and e['enfants'] == ('documentes' if e['maison'] == 'grande-3' else 'absence_attestee')
+        assert e['lacunes'] == {'conjoints': None, 'enfants': None}
+        assert set(e['sources']) == {'conjoints', 'enfants'} and all(s and s['url'] == 'https://en.wikipedia.org/wiki/' + {'grande-3': 'Charles_VI_of_France#Marriage_and_issue', 'grande-28': 'John_V_of_Brittany#Family', 'grande-9': 'Wenceslaus_IV_of_Bohemia#Personal_life'}[e['maison']] and s['fait'].strip() for s in e['sources'].values())
+        assert set(e['exclusions']) == ({'Jeanne de Bavière'} if e['maison'] == 'grande-9' else set())
+        if e['exclusions']:
+            x = e['exclusions']['Jeanne de Bavière']
+            assert '1386-12-31' in x['motif'] and x['sources'] and all(s['fait'].strip() for s in x['sources'])
+
+
+def test_familles_historiques_etats():
+    d, monde = _personnages(), World.charger(0)
+    r = {f.get('id', f.get('maison')): i for t in ('familles', 'liens', 'etats') for i, f in enumerate(d[t])}
+    _etats_historiques(d.get('etats', []))
+    _etats_historiques([f['etat_familial'] for f in monde.personnages if 'etat_familial' in f])
+    mutations = [(('etats',), d['etats'][:i] + d['etats'][i+1:]) for i in range(len(d['etats']))]
+    sophie = next(i for i, f in enumerate(d['familles']) if f['id'] == 'personne-sophie-baviere')
+    mutations += [(('familles',), [f for f in d['familles'] if f['id'] != 'personne-sophie-baviere']), (('familles',), d['familles'] + [d['familles'][sophie]])]
+    mutations += [(('familles', sophie, k), v) for k, v in [('naissance', _naissance_famille('1376-01-01')), ('naissance', _naissance_famille('1377', 'annee')), ('conjoints', []), ('presence', 'decedee'), ('pere', 'personne-grande-9')]]
+    mutations += [(('etats', r['grande-9'], k), v) for k, v in [('exclusions', {}), ('sources', {}), ('enfants', 'lacune')]]
+    mutations += [(('etats', r['grande-9'], 'exclusions', 'Jeanne de Bavière', 'sources'), [])]
+    mutations += [(('familles',), d['familles'] + [dict(d['familles'][sophie], id='personne-jeanne-baviere', nom='Jeanne de Bavière')])]
+    for chemin, valeur in mutations:
+        c = _alterer_personnages(d, chemin, valeur)
+        with pytest.raises(AssertionError):
+            _familles_historiques(c['familles'], c['liens'])
+            _etats_historiques(c['etats'])
+    for k in ('pere', 'mere', 'conjoints'):
+        personnes = copy.deepcopy(list(monde.personnages))
+        next(f for f in personnes if f['id'] == 'personne-grande-15')[k] = 'personne-grande-9'
+        with pytest.raises(AssertionError): _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']], [f for f in personnes if f['id'] == 'personne-' + f['maison'] and {'pere', 'mere', 'conjoints'} & f.keys()])
+
+
+def test_familles_etats(tmp_path, monkeypatch):
+    from sim import personnages as p
+    from sim.noms import noms_depuis_monde
+    d, monde = _personnages(), World.charger(0)
+    r = {f.get('id', f.get('maison')): i for t in ('familles', 'liens', 'etats') for i, f in enumerate(d[t])}
+    noms = {i: f for v in noms_depuis_monde(monde).values() for i, f in v['maisons'].items()}
+    lecteur = p.charger_catalogue
+    def lire(c):
+        return lecteur(monde.maisons, _ecrire(tmp_path, c))
+    assert lire(d) == d
+    mutations = [(('etats',), []), (('etats',), d['etats'] * 2)]
+    mutations += [(('etats', r['grande-28'], k), 'SUPPRIMER') for k in d['etats'][r['grande-28']]] + [(('etats', r['grande-28'], 'inconnu'), True)]
+    mutations += [(('etats', r['grande-28'], k), v) for k, v in [('maison', 'inconnue'), ('maison', 'seigneurie-6'), ('conjoints', 'celibat'), ('enfants', 'inconnus'), ('enfants', 'documentes'), ('conjoints', 'veuvage')]]
+    mutations += [(('etats', r['grande-28'], 'sources', k), v) for k in ('conjoints', 'enfants') for v in (None, {}, {'url': 'ftp://exemple.org', 'fait': 'fait'})]
+    mutations += [(('etats', r['grande-9'], 'exclusions', 'Jeanne de Bavière', k), v) for k, v in [('motif', ''), ('sources', []), ('sources', [{}])]]
+    mutations += [(('familles', r['personne-charles'], 'presence'), 'absente'), (('liens', r['personne-grande-28'], 'presence'), 'indeterminee'), (('familles', r['personne-jeanne'], 'presence'), 'decedee'), (('familles', r['personne-charles'], 'naissance'), None)]
+    for table, index in [('liens', r['personne-grande-9']), ('familles', r['personne-sophie-baviere'])]:
+        mutations += [((table, index, 'conjoints'), []), ((table, index, 'presence'), 'decedee')]
+    mutations += [(('etats', r['grande-3'], 'enfants'), 'absence_attestee')]
+    copies = [_alterer_personnages(d, k, v) for k, v in mutations]
+    # L'enfant contradictoire est déjà chef : aucune recherche limitée aux familles.
+    c = copy.deepcopy(d)
+    c['liens'][r['personne-grande-28']]['pere'], c['liens'][r['personne-grande-28']]['sources']['pere'], c['liens'][r['personne-grande-28']]['lacunes']['pere'] = 'personne-grande-9', d['liens'][r['personne-grande-9']]['sources']['presence'], None
+    copies.append(c)
+    for presence in ('decedee', 'indeterminee'):
+        c = copy.deepcopy(d)
+        c['familles'][r['personne-sophie-baviere']]['presence'] = presence
+        if presence == 'indeterminee': c['familles'][r['personne-sophie-baviere']]['sources']['presence'], c['familles'][r['personne-sophie-baviere']]['lacunes']['presence'] = None, 'Page Sophie examinée : présence non établie sur cette copie.'
+        copies.append(c)
+    c = copy.deepcopy(d)
+    for f in (c['familles'][r['personne-sophie-baviere']], c['liens'][r['personne-grande-9']]): f['conjoints'], f['sources']['conjoints'], f['lacunes']['conjoints'] = [], None, 'Union non intégrée sur cette copie.'
+    copies.append(c)
+    for c in copies:
+        with pytest.raises(ValueError): lire(c)
+        monkeypatch.setattr(p, 'CHEMIN', _ecrire(tmp_path, c))
+        with pytest.raises(ValueError): p.construire_personnages(monde)
+    # Copies non vides : inconnues explicites, présence décédée, veuvage et parent conservé.
+    inconnu = copy.deepcopy(d)
+    f = inconnu['familles'][r['personne-charles']]
+    f['naissance'], f['sources']['naissance'], f['lacunes']['naissance'] = None, None, 'Naissance non établie dans la page Charles VI examinée.'
+    lacunaire = copy.deepcopy(inconnu)
+    f = lacunaire['familles'][r['personne-charles']]
+    f['presence'], f['sources']['presence'], f['lacunes']['presence'] = 'indeterminee', None, 'Page Charles VI examinée ; présence au départ non établie sur cette copie.'
+    for k in ('conjoints', 'enfants'):
+        lacunaire['etats'][r['grande-28']][k], lacunaire['etats'][r['grande-28']]['sources'][k], lacunaire['etats'][r['grande-28']]['lacunes'][k] = 'lacune', None, 'Couverture non étudiée sur cette copie.'
+    veuf = copy.deepcopy(d)
+    veuf['familles'][r['personne-isabeau']]['presence'] = 'decedee'
+    for f in (veuf['familles'][r['personne-isabeau']], veuf['liens'][r['personne-grande-3']]):
+        f['conjoints'], f['sources']['conjoints'], f['lacunes']['conjoints'] = [], None, 'Union terminée sur cette copie.'
+    veuf['etats'][r['grande-3']]['conjoints'] = 'veuvage'
+    for c in (inconnu, lacunaire, veuf):
+        assert lire(c) == c
+        monkeypatch.setattr(p, 'charger_catalogue', lambda *a: c)
+        avant = copy.deepcopy(c)
+        personnes, chefs = p.construire_personnages(monde)
+        assert c == avant
+        p.valider_personnages(personnes, chefs, monde.maisons, c, noms)
+        copie = copy.copy(monde)
+        copie.personnages, copie.chefs = personnes, chefs
+        assert copie.to_dict()['personnages'] == list(personnes)
+        if c is inconnu:
+            assert next(f for f in copie.to_dict()['personnages'] if f['id'] == 'personne-charles')['naissance'] is None
+            assert any('personne-charles' in x['personnes'] and x['motif'] for x in p._controler_liens(personnes)['indetermines'])
+        for i, f in enumerate(personnes):
+            if 'presence' not in f: continue
+            for k in ('presence', 'etat_familial', 'lacunes', 'sources', 'naissance'):
+                if k not in f: continue
+                alterees = copy.deepcopy(list(personnes)); alterees[i][k] = 'Altéré'
+                with pytest.raises(ValueError): p.valider_personnages(alterees, chefs, monde.maisons, c, noms)
+    for c, chemin, valeur in [(inconnu, ('familles', r['personne-charles'], 'lacunes', 'naissance'), ''), (inconnu, ('familles', r['personne-charles'], 'sources', 'naissance'), d['familles'][r['personne-charles']]['sources']['naissance']), (lacunaire, ('familles', r['personne-charles'], 'lacunes', 'presence'), ''), (lacunaire, ('etats', r['grande-28'], 'lacunes', 'enfants'), '')]:
+        with pytest.raises(ValueError): p.valider_catalogue(_alterer_personnages(c, chemin, valeur), monde.maisons)
+
+
+def _etats_iles(e):
+    anglais = e['maison'] == 'grande-1'
+    assert (e['conjoints'], e['enfants'], e['lacunes']) == ('veuvage' if anglais else 'union', 'documentes', {'conjoints': None, 'enfants': None})
+    assert set(e['sources']) == {'conjoints', 'enfants'}
+    for source in e['sources'].values():
+        assert source['url'] == 'https://en.wikipedia.org/wiki/' + ('Henry_IV_of_England#Marriages_and_issue' if anglais else 'Robert_III_of_Scotland#Family_and_issue')
+        assert ('Henri IV' if anglais else 'Robert III') in source['fait']
+    attendus = {'Jeanne de Navarre': ('1403-02-07', 'Henry_IV_of_England'), 'Edmund Leborde': ('1401', 'Henry_IV_of_England')} if anglais else {'Robert Stuart': ('1393', 'Annabella_Drummond'), 'Egidia Stuart': ('1417', 'p10533.htm'), 'Jacques de Kilbride': ('sans dates', 'p10533.htm')}
+    assert set(e['exclusions']) == set(attendus)
+    for nom, (repere, page) in attendus.items():
+        x = e['exclusions'][nom]
+        assert nom in x['motif'] and repere in x['motif'] and 'départ' in x['motif']
+        assert x['sources'] and all(s['url'].startswith('https://') and s['fait'].strip() for s in x['sources'])
+        assert any(page in s['url'] for s in x['sources'])
+        if not anglais:
+            assert 'indéterminée' in x['motif'] and 'Robert III' in x['motif']
+            assert len(x['sources']) >= 2 and any('Robert_III_of_Scotland' in s['url'] for s in x['sources'])
+            if nom == 'Robert Stuart': assert all(v in ' '.join(s['fait'] for s in x['sources']) for v in ('après 1393', 'vers 1393'))
+            if nom == 'Egidia Stuart': assert all(v in ' '.join(s['fait'] for s in x['sources']) for v in ('1417', 'morte jeune', 'naissance'))
+
+
+def test_familles_historiques_iles():
+    d = _personnages()
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    for t, preuve in [('familles', lambda c: _familles_historiques(c['familles'], c['liens'])), ('liens', lambda c: _familles_historiques(c['familles'], c['liens'])), ('etats', lambda c: _etats_historiques(c['etats']))]:
+        mutations = []
+        for i, f in enumerate(d[t]):
+            mutations += [((t, i, k), v) for k, v in ([('sources', {}), ('lacunes', {}), ('presence', 'decedee')] if t != 'etats' else [('sources', {}), ('enfants', 'lacune'), ('conjoints', 'lacune')])]
+            if t != 'etats':
+                mutations += [((t, i, 'mere'), 'personne-annabella'), ((t, i, 'conjoints'), ['personne-grande-1'])]
+                mutations += [((t, i, 'sources', k), None) for k, v in f['sources'].items() if v]
+                if f['id'] == 'personne-henri-monmouth': mutations += [((t, i, 'sources', 'naissance', 'fait'), 'Henri de Monmouth : naissance 1386 probable.')]
+                mutations += [((t, i, 'sources', k, 'fait'), 'Parenté documentée.') for k in ('pere', 'mere') if f['sources'][k]]
+                mutations += [((t, i, 'lacunes', k), 'Absence attestée.') for k, v in f['lacunes'].items() if v]
+            else:
+                for nom in f['exclusions']:
+                    mutations += [((t, i, 'exclusions', nom), 'SUPPRIMER')]
+                    mutations += [((t, i, 'exclusions', nom, k), v) for k, v in [('motif', ''), ('sources', [])]]
+        for chemin, valeur in mutations:
+            if chemin[-1] == 'presence' and d[t][chemin[1]]['presence'] == valeur: valeur = 'vivante'
+            if t == 'etats' and chemin[-1] in ('enfants', 'conjoints') and d[t][chemin[1]][chemin[-1]] == valeur: valeur = 'absence_attestee' if chemin[-1] == 'enfants' else 'veuvage'
+            if chemin[-1] == 'mere' and d[t][chemin[1]]['mere'] == valeur: valeur = 'personne-marie-bohun'
+            with pytest.raises(AssertionError): preuve(_alterer_personnages(d, chemin, valeur))
+    monmouth = next(i for i, f in enumerate(d['familles']) if f['id'] == 'personne-henri-monmouth')
+    for date, precision in [('1386', 'annee'), ('1387', 'annee'), ('1386-09-16', 'jour'), ('1386', 'intervalle'), ('1387', 'intervalle')]:
+        c = _alterer_personnages(d, ('familles', monmouth, 'naissance'), _naissance_famille(date, precision))
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens'])
+    for nom in ('Edmund Leborde', 'Robert Stuart', 'Egidia Stuart', 'Jacques de Kilbride', 'Jeanne de Navarre'):
+        c = copy.deepcopy(d); f = copy.deepcopy(next(f for f in c['familles'] if f['id'] == 'personne-jean-ardgowan'))
+        f.update(id='personne-intruse', nom=nom)
+        if nom == 'Jeanne de Navarre':
+            f.update(maison='grande-1', pere=None, mere=None, conjoints=['personne-grande-1'])
+            next(l for l in c['liens'] if l['id'] == 'personne-grande-1')['conjoints'] = [f['id']]
+            next(e for e in c['etats'] if e['maison'] == 'grande-1')['conjoints'] = 'union'
+            for enfant in c['familles']:
+                if enfant['pere'] == 'personne-grande-1': enfant['mere'] = f['id']
+        c['familles'].append(f)
+        assert _controler_famille(c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']])
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens'])
+    for enfant in ILES_1400[1:7]:
+        c = copy.deepcopy(d); next(f for f in c['familles'] if f['id'] == 'personne-' + enfant[0])['mere'] = 'personne-jeanne'
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens'])
+
+
+def test_familles_historiques_iberie():
+    d = _personnages()
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    def preuve(c): _familles_historiques(c['familles'], c['liens'])
+    def resoudre(c):
+        return _controler_famille(c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']])
+    r = {f['id'][9:]: i for i, f in enumerate(d['familles'])}
+    mutations = [(('familles', r['afonso-portugal'], 'presence'), 'decedee'), (('familles', r['ines-pires'], 'presence'), 'vivante'), (('familles', r['ines-pires'], 'presence'), 'decedee')]
+    mutations += [(('familles', r[i], 'mere'), 'personne-philippa-lancastre') for i in ('afonso-bragance', 'beatrice-portugal')]
+    for i, dates in [('catherine-lancastre', [('1372-06-06', 'jour'), ('1373-03-31', 'jour'), ('1372-06-06', 'intervalle'), ('1373-03-31', 'intervalle')]), ('martin-sicile', [('1374', 'annee'), ('1376', 'annee'), ('1374-01-01', 'jour'), ('1374/1376', 'vers')]), ('maria-luna', [('1358', 'annee'), ('1358', 'vers')])]:
+        mutations += [(('familles', r[i], 'naissance'), _naissance_famille(date, precision)) for date, precision in dates]
+        mutations += [(('familles', r[i], 'sources', 'naissance', 'fait'), v) for v in ('Naissance connue.', next(n + ' : naissance ' + date for ident, n, date, *_ in IBERIE_1400 if ident == i))]
+    mutations += [(('familles',), d['familles'] + [d['familles'][r[i]]]) for i, *_ in IBERIE_1400]
+    mutations += [(('liens',), d['liens'][:i] + d['liens'][i+1:]) for i in range(len(d['liens']))]
+    mutations += [(('liens',), d['liens'] + [d['liens'][i]]) for i in range(len(d['liens']))]
+    for chemin, valeur in mutations:
+        with pytest.raises(AssertionError): preuve(_alterer_personnages(d, chemin, valeur))
+    c = copy.deepcopy(d); c['familles'].pop(r['afonso-portugal'])
+    assert resoudre(c)
+    with pytest.raises(AssertionError): preuve(c)  # Les deux Afonso ne se fusionnent pas.
+    for nom, modele in [('Jean de Portugal', 'afonso-portugal'), ('Blanche de Portugal', 'afonso-portugal'), ('Ferdinand de Portugal', 'afonso-portugal'), ('Marie de Castille', 'afonso-portugal'), ('Catherine de Castille', 'afonso-portugal'), ('Jean de Castille', 'afonso-portugal'), ('Jacques d’Aragon', 'martin-sicile'), ('Jean d’Aragon', 'martin-sicile'), ('Marguerite d’Aragon', 'martin-sicile'), ('Marguerite de Prades', 'maria-luna')]:
+        c = copy.deepcopy(d); f = dict(copy.deepcopy(c['familles'][r[modele]]), id='personne-intruse', nom=nom)
+        if 'Castille' in nom: f.update(maison='grande-5', pere='personne-grande-5', mere='personne-catherine-lancastre')
+        if nom == 'Marguerite de Prades': next(l for l in c['liens'] if l['id'] == 'personne-grande-6')['conjoints'].append(f['id'])
+        c['familles'].append(f)
+        assert resoudre(c)
+        with pytest.raises(AssertionError): preuve(c)
+    c = copy.deepcopy(d); f = c['familles'][r['ines-pires']]
+    f.update(presence='vivante', conjoints=['personne-grande-4'])
+    next(l for l in c['liens'] if l['id'] == 'personne-grande-4')['conjoints'].append(f['id'])
+    assert resoudre(c)
+    with pytest.raises(AssertionError): preuve(c)
+    aragon = next(i for i, e in enumerate(d['etats']) if e['maison'] == 'grande-6')
+    for nom in ('Jacques d’Aragon', 'Jean d’Aragon', 'Marguerite d’Aragon'):
+        for source in range(2):
+            c = copy.deepcopy(d); c['etats'][aragon]['exclusions'][nom]['sources'].pop(source)
+            with pytest.raises(AssertionError): _etats_historiques(c['etats'])
+    for t in ([], d['etats'] + [d['etats'][0]]):
+        with pytest.raises(AssertionError): _etats_historiques(t)
+
+
+# Relevés indépendants : notices des parents, BOE 436–438, Auñamendi et Germán de Pamplona.
+WIKI_FIN = 'https://en.wikipedia.org/wiki/'
+BOE_FIN = 'https://www.boe.es/biblioteca_juridica/abrir_pdf.php?id=PUB-DH-2021-233'
+JUMELLES_FIN = 'https://dialnet.unirioja.es/descarga/articulo/2240758.pdf'
+LEBREL_FIN = 'https://www.lebrelblanco.com/old/anexos/a0177.htm'
+LANCELOT_FIN = 'https://aunamendi.eusko-ikaskuntza.eus/en/lancelot-de-navarra/ar-84786/'
+AGNESE_FIN = 'https://www.treccani.it/enciclopedia/mantegazza/'
+FIN_1400 = [
+    ('eleonore-castille', 'Éléonore de Castille', 'vers 1363', 'vers', 'Eleanor_of_Castile,_Queen_of_Navarre', '1415/1416', '7', None),
+    ('jeanne-foix', 'Jeanne de Navarre (Foix)', '1382', 'annee', 'Charles_III_of_Navarre#Issue', '1413', '7', 'eleonore-castille'),
+    ('marie-navarre', 'Marie de Navarre', '1383 ou 1384', 'intervalle', 'Charles_III_of_Navarre#Issue', '1406', '7', 'eleonore-castille'),
+    ('blanche-navarre', 'Blanche de Navarre', '1385 ou 1386', 'intervalle', 'Charles_III_of_Navarre#Issue', '1441', '7', 'eleonore-castille'),
+    ('beatrice-navarre', 'Béatrice de Navarre', '1386 ou 1392', 'intervalle', 'Charles_III_of_Navarre#Issue', '1407/1412', '7', 'eleonore-castille'),
+    ('isabelle-navarre', 'Isabelle de Navarre', '1395 ou 1396', 'intervalle', 'Charles_III_of_Navarre#Issue', '1435', '7', 'eleonore-castille'),
+    ('charles-navarre', 'Charles de Navarre', '1397', 'annee', 'Charles_III_of_Navarre#Issue', '1402', '7', 'eleonore-castille'),
+    ('lancelot-navarre', 'Lancelot de Navarre', '1386-04', 'mois', LANCELOT_FIN, '1420', '7', 'maria-esparza'),
+    ('godofre-navarre', 'Godofre de Navarre', '1384 ou 1394', 'intervalle', BOE_FIN, '1439', '7', 'teresa-navarre'),
+    ('jeanne-zuniga', 'Jeanne de Navarre (Zúñiga)', 'vers 1380', 'vers', BOE_FIN, '1414', '7', None),
+    ('maria-esparza', 'María Miguel de Esparza', None, None, LANCELOT_FIN, None, '7', None),
+    ('teresa-navarre', 'Teresa', None, None, BOE_FIN, None, '7', None),
+    ('caterina-visconti', 'Caterina Visconti', '1361', 'annee', 'Caterina_Visconti', '1404', '10', None),
+    ('isabelle-vertus', 'Isabelle de Valois (Vertus)', '1348-10-01', 'jour', 'Isabella,_Countess_of_Vertus', '1372/1373', '10', None),
+    ('valentine-visconti', 'Valentine Visconti', '1371', 'annee', 'Valentina_Visconti,_Duchess_of_Orléans', '1408', '10', 'isabelle-vertus'),
+    ('gian-maria', 'Gian Maria Visconti', '1388-09-07', 'jour', 'Caterina_Visconti', '1412', '10', 'caterina-visconti'),
+    ('filippo-maria', 'Filippo Maria Visconti', '1392-09', 'mois', 'Caterina_Visconti', '1447', '10', 'caterina-visconti'),
+    ('gabriele-maria', 'Gabriele Maria Visconti', '1385 ou 1386', 'intervalle', 'Gabriele_Maria_Visconti', '1408', '10', 'agnese-mantegazza'),
+    ('agnese-mantegazza', 'Agnese Mantegazza', None, None, AGNESE_FIN, None, '10', None)]
+FIN_ENFANTS = {i for i, _, _, _, _, _, _, mere in FIN_1400 if mere} | {'jeanne-zuniga'}
+FIN_CHEFS = {'7': ('Charles III', 'Charles_III_of_Navarre#Issue', 'eleonore-castille', '1375', '1425'),
+             '8': ('Muhammad VII', 'Muhammad_VII_of_Granada', None, None, '1408'),
+             '10': ('Jean Galéas', 'Gian_Galeazzo_Visconti#Marriage_and_issue', 'caterina-visconti', '1380-10-02', '1402')}
+FIN_DIVERGENCES = {'eleonore-castille': ('1363', 'approximation'), 'marie-navarre': ('1383', '1384'),
+    'blanche-navarre': ('1385', '1386', JUMELLES_FIN, 'hypothèse'), 'beatrice-navarre': ('1386', '1392', JUMELLES_FIN, 'hypothèse'),
+    'isabelle-navarre': ('1395', '1396', JUMELLES_FIN), 'lancelot-navarre': ('avril 1386', 'circa 15', BOE_FIN, 'approximation'),
+    'godofre-navarre': ('1384', '1394', LEBREL_FIN), 'jeanne-zuniga': ('1380', 'approximation'),
+    'filippo-maria': ('3', '23', '1392', WIKI_FIN + 'Gian_Galeazzo_Visconti#Marriage_and_issue'),
+    'gabriele-maria': ('1385', '1386', 'seize ans', '1402', 'indéterminée')}
+FIN_EXCLUSIONS = {
+    '7': {'Louis de Navarre': (BOE_FIN, WIKI_FIN + 'Charles_III_of_Navarre#Issue', '1399', '1402', 'indéterminée'),
+          'Marguerite de Navarre': (LEBREL_FIN, BOE_FIN, JUMELLES_FIN, '1390', '1402', '1403', 'indéterminée'),
+          'Jumelle non identifiée': (WIKI_FIN + 'Charles_III_of_Navarre#Issue', JUMELLES_FIN, 'morte jeune', 'hypothèse'),
+          'Jeanne de Navarre (Beaumont)': (BOE_FIN, LEBREL_FIN, '438', '1419', 'future'),
+          'Francés de Navarre': (BOE_FIN, LEBREL_FIN, '438', '1418', '1421', 'naissance inconnue', 'indéterminée'),
+          'Pascual de Navarre': (LEBREL_FIN, '1395', 'indéterminée')},
+    '8': {}, '10': {'Gian Galeazzo, fils d’Isabelle': (WIKI_FIN + 'Gian_Galeazzo_Visconti#Marriage_and_issue', '1376'),
+          'Azzone Visconti': (WIKI_FIN + 'Gian_Galeazzo_Visconti#Marriage_and_issue', '1381'),
+          'Carlo Visconti': (WIKI_FIN + 'Gian_Galeazzo_Visconti#Marriage_and_issue', '1374'),
+          'Fille de Caterina': (WIKI_FIN + 'Caterina_Visconti', '1385-07-09'),
+          'Antonio Visconti': ('https://it.wikipedia.org/wiki/Antonio_Visconti', WIKI_FIN + 'Gian_Galeazzo_Visconti', '1391', 'homonymes')}}
+
+
+def _fin_historiques(fiches):
+    noms = {i: nom for i, nom, *_ in FIN_1400}
+    for i, nom, date, precision, page, fin, maison, mere in FIN_1400:
+        f = fiches['personne-' + i]; chef, lien, epouse, union, _ = FIN_CHEFS[maison]
+        assert set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance', 'presence', 'pere', 'mere', 'conjoints'}
+        assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], f['conjoints'], f['presence']) == (nom, 'grande-' + maison, _naissance_famille(date, precision), 'personne-grande-' + maison if i in FIN_ENFANTS else None, 'personne-' + mere if mere else None, ['personne-grande-' + maison] if i == epouse else [], 'indeterminee' if fin is None else 'decedee' if i == 'isabelle-vertus' else 'vivante')
+        for k in f['sources']:
+            source, lacune = f['sources'][k], f['lacunes'][k]
+            if (k == 'presence' and fin is None) or (k == 'naissance' and date is None):
+                assert source is None and lacune and page in lacune and nom in lacune and ('indéterminée' if k == 'presence' else 'inconnue') in lacune
+                if k == 'presence': assert 'ne départagent ni vie ni décès' in lacune and all(url in lacune for url in ((BOE_FIN, LEBREL_FIN) if i == 'teresa-navarre' else (page,)))
+                continue
+            if k in ('identite', 'naissance', 'presence') or f[k]:
+                url = (page if page.startswith('https:') else WIKI_FIN + page) if k in ('identite', 'naissance', 'presence') else (BOE_FIN if i in ('godofre-navarre', 'jeanne-zuniga') else LANCELOT_FIN if i == 'lancelot-navarre' else WIKI_FIN + 'Gabriele_Maria_Visconti' if i == 'gabriele-maria' else WIKI_FIN + lien)
+                assert source and source['url'] == url
+                assert nom in source['fait'] and lacune is None
+                if k == 'naissance': assert all(v in source['fait'] for v in FIN_DIVERGENCES.get(i, (date,)))
+                if k == 'presence': assert all(v in source['fait'] for v in fin.split('/'))
+                if k in ('pere', 'mere'): assert chef in source['fait'] and (noms[mere] if mere else 'mère inconnue') in source['fait']
+                if k == 'conjoints': assert chef in source['fait'] and union in source['fait']
+                if k == 'presence' and i == 'isabelle-vertus': assert WIKI_FIN + 'Caterina_Visconti' in source['fait']
+            else: assert source is None and lacune and ('inconnue' in lacune if i == 'jeanne-zuniga' and k == 'mere' else 'aucune absence attestée' in lacune)
+    for maison, (nom, page, epouse, union, fin) in FIN_CHEFS.items():
+        f = fiches['personne-grande-' + maison]
+        assert {'pere', 'mere', 'conjoints', 'presence'} <= f['sources'].keys() & f['lacunes'].keys()
+        assert (f['pere'], f['mere'], f['conjoints'], f['presence']) == (None, None, ['personne-' + epouse] if epouse else [], 'vivante')
+        for k in ('pere', 'mere', 'conjoints', 'presence'):
+            source, lacune = f['sources'][k], f['lacunes'][k]
+            if k == 'presence' or (k == 'conjoints' and epouse):
+                assert source and source['url'] == WIKI_FIN + page and lacune is None and nom in source['fait'] and all(v in source['fait'] for v in ((union, noms[epouse]) if k == 'conjoints' else (fin,)))
+            else: assert source is None and lacune and 'aucune absence attestée' in lacune
+
+
+def _etats_fin(e):
+    maison = e['maison'][7:]; nom, page, epouse, union, _ = FIN_CHEFS[maison]
+    assert set(e['sources']) == set(e['lacunes']) == {'conjoints', 'enfants'}
+    assert (e['conjoints'], e['enfants']) == (('lacune', 'lacune') if maison == '8' else ('union', 'documentes'))
+    for k in ('conjoints', 'enfants'):
+        if maison == '8':
+            assert e['sources'][k] is None and e['lacunes'][k] and all(v in e['lacunes'][k] for v in (WIKI_FIN + page, WIKI_FIN + 'Yusuf_III_of_Granada', '1408', '1400', 'identités', 'naissances')); continue
+        assert e['lacunes'][k] is None and e['sources'][k] and e['sources'][k]['url'] == WIKI_FIN + page
+        assert nom in e['sources'][k]['fait']
+        assert all(v in e['sources'][k]['fait'] for v in ([union, next(n for i, n, *_ in FIN_1400 if i == epouse)] if k == 'conjoints' else [n for i, n, _, _, _, _, m, _ in FIN_1400 if m == maison and i in FIN_ENFANTS]))
+    assert set(e['exclusions']) == set(FIN_EXCLUSIONS[maison])
+    for nom, reperes in FIN_EXCLUSIONS[maison].items():
+        x = e['exclusions'][nom]; pages = {v for v in reperes if v.startswith('https:')}
+        assert x['sources'] and {s['url'] for s in x['sources']} == pages and nom in x['motif'] and all(v in x['motif'] for v in reperes if v not in pages)
+        assert all(nom in s['fait'] and s['fait'].strip() for s in x['sources'])
+        assert all(any(v in s['fait'] for s in x['sources']) for v in reperes if v not in pages)
+
+
+def test_familles_historiques_fin():
+    d = _personnages(); _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    def preuve(c): _familles_historiques(c['familles'], c['liens'])
+    for t in ('familles', 'liens'):
+        for j, f in enumerate(d[t]):
+            if f['id'] not in {'personne-' + i for i, *_ in FIN_1400} | {'personne-grande-' + m for m in FIN_CHEFS}: continue
+            mutations = [((t, j, 'nom'), 'Homonyme')] if t == 'familles' else []
+            if t == 'familles': mutations += [((t,), d[t] + [f]), ((t, j, 'naissance'), _naissance_famille('1385'))]
+            mutations += [((t, j, 'sources', k, 'fait'), 'Fait sans personnes ni divergence.') for k, v in f['sources'].items() if v]
+            mutations += [((t, j, 'lacunes', k), '') for k, v in f['lacunes'].items() if v]
+            mutations += [((t, j, 'lacunes', k), v.replace(url, '')) for k, v in f['lacunes'].items() if v for url in (BOE_FIN, LEBREL_FIN, LANCELOT_FIN, AGNESE_FIN) if url in v and k in ('presence', 'naissance')]
+            for chemin, valeur in mutations:
+                with pytest.raises(AssertionError): preuve(_alterer_personnages(d, chemin, valeur))
+    r = {f['id'][9:]: j for j, f in enumerate(d['familles'])}
+    for i, mere in [('lancelot-navarre', 'eleonore-castille'), ('godofre-navarre', 'eleonore-castille'), ('jeanne-zuniga', 'maria-esparza'), ('valentine-visconti', 'caterina-visconti'), ('gabriele-maria', 'caterina-visconti')]:
+        with pytest.raises(AssertionError): preuve(_alterer_personnages(d, ('familles', r[i], 'mere'), 'personne-' + mere))
+    for i, _, date, precision, *_ in FIN_1400:
+        if i not in FIN_DIVERGENCES: continue
+        for repere in FIN_DIVERGENCES[i]:
+            c = _alterer_personnages(d, ('familles', r[i], 'sources', 'naissance', 'fait'), d['familles'][r[i]]['sources']['naissance']['fait'].replace(repere, 'inconnu'))
+            with pytest.raises(AssertionError): preuve(c)
+        for valeur in date.replace(' ou ', '/').split('/'):
+            if precision == 'mois': valeur += '-03'
+            with pytest.raises(AssertionError): preuve(_alterer_personnages(d, ('familles', r[i], 'naissance'), _naissance_famille(valeur, 'jour' if len(valeur) == 10 else 'annee')))
+    for i in ('jeanne-foix', 'jeanne-zuniga'):
+        c = copy.deepcopy(d); c['familles'].pop(r[i])
+        with pytest.raises(AssertionError): preuve(c)
+    for role in ('pere', 'conjoints'):
+        c = copy.deepcopy(d); f = dict(copy.deepcopy(c['familles'][r['jeanne-zuniga']]), id='personne-inventee', maison='grande-8', pere=None)
+        f[role] = 'personne-grande-8' if role == 'pere' else ['personne-grande-8']
+        if role == 'conjoints': next(l for l in c['liens'] if l['id'] == 'personne-grande-8')['conjoints'] = [f['id']]
+        c['familles'].append(f)
+        assert _controler_famille(c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']])
+        with pytest.raises(AssertionError): preuve(c)
+    for i in ('maria-esparza', 'teresa-navarre', 'agnese-mantegazza', 'isabelle-vertus'):
+        c = copy.deepcopy(d); f = c['familles'][r[i]]; chef = 'personne-grande-' + ('7' if i in ('maria-esparza', 'teresa-navarre') else '10')
+        f.update(presence='vivante', conjoints=[chef]); next(l for l in c['liens'] if l['id'] == chef)['conjoints'].append(f['id'])
+        assert _controler_famille(c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']])
+        with pytest.raises(AssertionError): preuve(c)
+    for maison in FIN_CHEFS:
+        j = next(j for j, e in enumerate(d['etats']) if e['maison'] == 'grande-' + maison)
+        for nom, x in d['etats'][j]['exclusions'].items():
+            for chemin, valeur in [(('exclusions', nom), 'SUPPRIMER'), (('exclusions', nom, 'motif'), ''), *[(('exclusions', nom, 'sources'), x['sources'][:a] + x['sources'][a+1:]) for a in range(len(x['sources']))]]:
+                with pytest.raises(AssertionError): _etats_historiques(_alterer_personnages(d, ('etats', j, *chemin), valeur)['etats'])
+            c = copy.deepcopy(d); f = dict(copy.deepcopy(c['familles'][r['charles-navarre' if maison == '7' else 'gian-maria']]), id='personne-intruse', nom=nom); c['familles'].append(f)
+            assert _controler_famille(c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']])
+            with pytest.raises(AssertionError): preuve(c)
+        if maison == '8':
+            for k in ('conjoints', 'enfants'):
+                for chemin, valeur in [((k,), 'veuvage' if k == 'conjoints' else 'absence_attestee'), (('lacunes', k), ''), *[(('lacunes', k), d['etats'][j]['lacunes'][k].replace(WIKI_FIN + page, '')) for page in ('Muhammad_VII_of_Granada', 'Yusuf_III_of_Granada')]]:
+                    with pytest.raises(AssertionError): _etats_historiques(_alterer_personnages(d, ('etats', j, *chemin), valeur)['etats'])
+
+
+# Notices examinées le 22 octobre 2026 ; attentes indépendantes du catalogue.
+NAPLES = 'https://en.wikipedia.org/wiki/Ladislaus_of_Naples#Marriages_and_issue'
+TRECCANI = "https://www.treccani.it/enciclopedia/ladislao-d-angio-durazzo-re-di-sicilia_(Dizionario-Biografico)/"
+MARIE_SAVOIE = 'https://en.wikipedia.org/wiki/Mary_of_Burgundy,_Duchess_of_Savoy'
+AMEDEE = 'https://fr.wikipedia.org/wiki/Am%C3%A9d%C3%A9e_VIII#Mariage_et_enfants'
+FMG_SAVOIE = 'https://fmg.ac/Projects/MedLands/SAVOY.htm'
+ERIC = 'https://en.wikipedia.org/wiki/Erik_of_Pomerania#Marriage'
+PHILIPPA = 'https://en.wikipedia.org/wiki/Philippa_of_England'
+JAGELLON = 'https://en.wikipedia.org/wiki/W%C5%82adys%C5%82aw_II_Jagie%C5%82%C5%82o'
+FAMILLE_JAGELLON = 'https://en.wikipedia.org/wiki/Family_of_Jogaila'
+VOISINS_CHEFS = {'11': ('Ladislas', NAPLES, '1414', None), '12': ('Amédée VIII', AMEDEE, '1451', 'marie-bourgogne'),
+                 '13': ('Éric', ERIC, '1459', None), '14': ('Ladislas II Jagellon', JAGELLON, '1434', None)}
+UNION_SAVOIE = ('Amédée VIII', 'Marie de Bourgogne', '1386', '1393-10-30', 'procuration', '1401', '1403', AMEDEE)
+VOISINS_LACUNES = {('11', 'conjoints'): (NAPLES, TRECCANI, 'Costanza', 'annulée', '1392', '1393', '1402', '1403', '1406', 'schéma', 'veuvage'),
+    ('11', 'enfants'): (NAPLES, TRECCANI, 'Rinaldo', 'Marie de Durazzo', 'hors mariage', 'présence indéterminée', 'dates', 'mères', 'aucune absence attestée'),
+    ('12', 'enfants'): (MARIE_SAVOIE, AMEDEE, FMG_SAVOIE, 'deux enfants', '403', 'non aboutie', 'aucune absence attestée'),
+    ('13', 'conjoints'): (ERIC, 'Philippa', 'Cecilia', '1402', '1406-10-26', '1430', 'schéma', 'célibat'),
+    ('13', 'enfants'): (ERIC, PHILIPPA, 'mort-né', '1430', 'antérieurs', 'aucune absence attestée')}
+VOISINS_EXCLUSIONS = {
+    '11': {'Costanza Chiaramonte': (NAPLES, TRECCANI, '1392', '1393', 'annulée'),
+        'Marie de Lusignan': (NAPLES, TRECCANI, '1402', '1403', 'future'), 'Marie d’Enghien': (NAPLES, '1406', 'future'),
+        'Fille de Bayezid': (NAPLES, TRECCANI, '1393', 'projet', 'jamais réalisée'),
+        'Rinaldo de Durazzo': (NAPLES, 'Reynold', 'hors mariage', 'présence indéterminée', 'dates', 'mère'),
+        'Marie de Durazzo': (NAPLES, 'hors mariage', 'présence indéterminée', 'dates', 'mère')},
+    '12': {nom: (MARIE_SAVOIE, AMEDEE, *dates, 'future') for nom, dates in [
+        ('Marguerite I de Savoie', ('1405',)), ('Antoine I de Savoie', ('1407',)), ('Antoine II de Savoie', ('1408',)),
+        ('Marie de Savoie', ('1411',)), ('Amédée de Savoie', ('1412',)), ('Louis de Savoie', ('1413',)),
+        ('Bonne de Savoie', ('1415',)), ('Philippe de Savoie', ('1417', '1422')), ('Marguerite II de Savoie', ('1420',))]},
+    '13': {'Philippa d’Angleterre': (ERIC, '1402', '1406-10-26', 'future'), 'Cecilia': (ERIC, '1430', 'future'),
+        'Fils mort-né de Philippa': (PHILIPPA, '1430', 'future', 'mort-né')},
+    '14': {'Jadwiga de Pologne': (FAMILLE_JAGELLON, JAGELLON, '1399-07-17', 'décédée'),
+        'Élisabeth Bonifacia': (FAMILLE_JAGELLON, JAGELLON, '1399-06-22', '1399-07-13', 'décédée'),
+        **{nom: (FAMILLE_JAGELLON, JAGELLON, date, 'future') for nom, date in [('Anne de Cilli', '1402'),
+            ('Élisabeth de Pilica', '1417'), ('Sophie de Holszany', '1422'), ('Jadwiga Jagellon', '1408'),
+            ('Ladislas III', '1424'), ('Casimir', '1426'), ('Casimir André', '1427')]}}}
+
+
+def _reperes_voisins(texte, reperes):
+    assert texte and all(v in texte for v in reperes)
+
+
+def _voisins_historiques(fiches):
+    for i, nom, page, fin, epouse in [('marie-bourgogne', 'Marie de Bourgogne', MARIE_SAVOIE, '1422/1428', 'grande-12')] + [
+            ('grande-' + m, *v) for m, v in VOISINS_CHEFS.items()]:
+        f = fiches['personne-' + i]
+        if i == 'marie-bourgogne':
+            assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-12', _naissance_famille('1386', 'annee'))
+        assert (f['pere'], f['mere'], f['conjoints'], f['presence']) == (None, None, ['personne-' + epouse] if epouse else [], 'vivante')
+        champs = {'pere', 'mere', 'conjoints', 'presence'} | ({'identite', 'naissance'} if i == 'marie-bourgogne' else set())
+        assert set(f['sources']) == set(f['lacunes']) == champs | ({'identite', 'naissance'} if 'nom' in f else set())
+        for k in champs:
+            source, lacune = f['sources'][k], f['lacunes'][k]
+            if k in ('identite', 'naissance', 'presence') or (k == 'conjoints' and epouse):
+                assert source and source['url'] == page and lacune is None
+                _reperes_voisins(source['fait'], (nom,))
+                if k == 'naissance': _reperes_voisins(source['fait'], ('1386', 'septembre', 'probable'))
+                if k == 'presence': _reperes_voisins(source['fait'], tuple(fin.split('/')))
+                if k == 'conjoints': _reperes_voisins(source['fait'], UNION_SAVOIE)
+            else:
+                assert source is None
+                _reperes_voisins(lacune, VOISINS_LACUNES.get((i[7:], k), (nom, 'périmètre', 'aucune absence attestée')))
+
+
+def _etats_voisins(e):
+    m = e['maison'][7:]; nom, page, _, _ = VOISINS_CHEFS[m]
+    assert (e['conjoints'], e['enfants']) == {'11': ('lacune', 'lacune'), '12': ('union', 'lacune'),
+        '13': ('lacune', 'lacune'), '14': ('veuvage', 'absence_attestee')}[m]
+    assert set(e['sources']) == set(e['lacunes']) == {'conjoints', 'enfants'}
+    for k in ('conjoints', 'enfants'):
+        if (m, k) in VOISINS_LACUNES:
+            assert e['sources'][k] is None
+            _reperes_voisins(e['lacunes'][k], (nom, *VOISINS_LACUNES[m, k]))
+        else:
+            assert e['lacunes'][k] is None and e['sources'][k] and e['sources'][k]['url'] == page
+            _reperes_voisins(e['sources'][k]['fait'], UNION_SAVOIE if m == '12' else (nom, FAMILLE_JAGELLON, 'Jadwiga', '1399-07-17') + (() if k == 'conjoints' else ('Élisabeth Bonifacia', '1399-06-22', '1399-07-13', '1402', '1408', '1424', '1426', '1427')))
+    assert set(e['exclusions']) == set(VOISINS_EXCLUSIONS[m])
+    for nom, reperes in VOISINS_EXCLUSIONS[m].items():
+        x = e['exclusions'][nom]; pages = {v for v in reperes if v.startswith('https:')}
+        faits = tuple(v for v in reperes if v not in pages)
+        assert x['sources'] and {s['url'] for s in x['sources']} == pages
+        _reperes_voisins(x['motif'], (nom, *faits))
+        assert all(nom in s['fait'] for s in x['sources'])
+        assert all(any(v in s['fait'] for s in x['sources']) for v in faits)
+        for source in x['sources']:
+            dates = {'Costanza Chiaramonte': {NAPLES: '1392', TRECCANI: '1393'}, 'Marie de Lusignan': {NAPLES: '1403', TRECCANI: '1402'}, 'Philippe de Savoie': {AMEDEE: '1417', MARIE_SAVOIE: '1422'}}
+            if nom in dates: assert dates[nom][source['url']] in source['fait']
+
+
+def test_familles_historiques_voisins():
+    d = _personnages()
+    def preuve(c): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    preuve(d)
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', 'personne-' + f.get('maison', '')) not in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS}: continue
+            mutations = [((t,), []), ((t,), d[t][:j] + d[t][j+1:]), ((t,), d[t] + [f])]
+            if t != 'etats':
+                mutations += [((t, j, k), v) for k, v in [('pere', 'personne-grande-9'), ('mere', 'personne-grande-9'), ('conjoints', [] if f['conjoints'] else ['personne-philippa-angleterre']), ('presence', 'decedee')]]
+                if t == 'familles': mutations += [((t, j, k), v) for k, v in [('nom', 'Homonyme'), ('maison', 'grande-11'), ('naissance', _naissance_famille('1386-09', 'mois'))]]
+            for k, v in f['sources'].items():
+                if v:
+                    mutations += [((t, j, 'sources', k), None), ((t, j, 'sources', k, 'url'), 'https://exemple.org'), ((t, j, 'sources', k, 'fait'), 'Fait perdu')]
+                    reperes = UNION_SAVOIE if k == 'conjoints' and f.get('conjoints') in ('union', ['personne-marie-bourgogne'], ['personne-grande-12']) else ('1422', '1428') if k == 'presence' and f.get('id') == 'personne-marie-bourgogne' else ()
+                    mutations += [((t, j, 'sources', k, 'fait'), v['fait'].replace(r, 'inconnu')) for r in reperes]
+            maison = f.get('maison', f.get('id', '')[9:])[7:]
+            for k, v in f['lacunes'].items():
+                if v: mutations += [((t, j, 'lacunes', k), ''), *[((t, j, 'lacunes', k), v.replace(r, 'inconnu')) for r in VOISINS_LACUNES.get((maison, k), ())]]
+            if t == 'etats':
+                mutations += [((t, j, k), v) for k, v in [('conjoints', 'veuvage' if f['conjoints'] != 'veuvage' else 'union'), ('enfants', 'absence_attestee' if f['enfants'] == 'lacune' else 'lacune')]]
+                for nom, x in f['exclusions'].items():
+                    mutations += [((t, j, 'exclusions', nom), 'SUPPRIMER'), ((t, j, 'exclusions', nom, 'motif'), ''), *[((t, j, 'exclusions', nom, 'sources'), x['sources'][:a] + x['sources'][a+1:]) for a in range(len(x['sources']))]]
+                    for a, source in enumerate(x['sources']):
+                        mutations += [((t, j, 'exclusions', nom, 'sources', a, 'fait'), 'Fait perdu'), ((t, j, 'exclusions', nom, 'sources', a, 'url'), 'https://exemple.org')]
+                    for r in VOISINS_EXCLUSIONS[f['maison'][7:]][nom]:
+                        if not r.startswith('https:'): mutations += [((t, j, 'exclusions', nom, 'motif'), x['motif'].replace(r, 'inconnu'))]
+            for chemin, valeur in mutations:
+                with pytest.raises(AssertionError): preuve(_alterer_personnages(d, chemin, valeur))
+    # Chaque intrus a des liens résolus : l'échec vient bien des attentes historiques.
+    for m, exclusions in VOISINS_EXCLUSIONS.items():
+        for nom in [*exclusions, 'Héritier inventé']:
+            c = copy.deepcopy(d); modele = next(f for f in c['familles'] if f['id'] == 'personne-marie-bourgogne')
+            ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, maison='grande-' + m, pere=None, mere=None, conjoints=[])
+            c['familles'].append(ajout)
+            for role in ('pere', 'conjoints'):
+                ajout[role] = 'personne-grande-' + m if role == 'pere' else ['personne-grande-' + m]
+                if role == 'conjoints': next(f for f in c['liens'] if f['id'] == 'personne-grande-' + m)['conjoints'].append(ajout['id'])
+                assert _controler_famille(c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']])
+                with pytest.raises(AssertionError): preuve(c)
+                ajout['pere'] = None
+    c = copy.deepcopy(d)
+    next(f for f in c['familles'] if f['id'] == 'personne-philippa-angleterre')['conjoints'] = ['personne-grande-13']
+    next(f for f in c['liens'] if f['id'] == 'personne-grande-13')['conjoints'] = ['personne-philippa-angleterre']
+    with pytest.raises(AssertionError): preuve(c)

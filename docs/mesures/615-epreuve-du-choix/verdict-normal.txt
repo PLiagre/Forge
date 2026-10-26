@@ -1,0 +1,17 @@
+commande : py pc\epreuve_moree.py --sortie <dossier>
+date : 2026-10-16, PC (i7-13700K), Unity 6000.0.43f1, révision 453c165 + l'épreuve non commitée
+code de sortie : 0
+
+ÉGALITÉ
+graine 0
+Morée servie : id 3 (Despotat de Morée)
+terre cliquée par Unity : id 3 (Despotat de Morée)
+seconde terre : id 1 (Duché de Bar)
+tick de la session : avant 0 · après 0 · /departs 0 · égal
+maison avant le tick : /monde None · attendu None · égal
+premier reçu : 200 au tick 0 «  » · attendu 200 au tick 0 « » · égal
+second reçu : 409 « départ déjà choisi : seigneurie-3 » · attendu 409 « départ déjà choisi : seigneurie-3 » · égal
+tick après la poussée : /monde 1 · attendu 1 · égal
+maison après le tick : /monde 'seigneurie-3' · attendu 'seigneurie-3' · égal
+premier texte : "Terre choisie : Despotat de Morée\nLe monde l'applique au tick suivant (après le tick 0)." · attendu "Terre choisie : Despotat de Morée\nLe monde l'applique au tick suivant (après le tick 0)." · égal
+second texte : 'Choix refusé pour Duché de Bar :\ndépart déjà choisi : seigneurie-3' · attendu 'Choix refusé pour Duché de Bar :\ndépart déjà choisi : seigneurie-3' · égal
