@@ -400,9 +400,9 @@ fait poser les gestes (#251, #253, #254, #256, #257, #259, #263, #266, #269,
 14. #416 Le joueur trace l'enceinte de sa capitale
 15. #417 L'enceinte se dessine, et ses portes s'ouvrent sur les rues · pc
 16. #418 Une route vers les champs nourrit mieux le bourg
-17. #849 Le cabinet prend sa langue : la pierre, le bois brûlé et le registre · pc
-18. #850 La carte et ses dossiers parlent la langue du cabinet · pc
-19. #851 La capitale et ses outils parlent la langue du cabinet · pc
+17. #849 Le cabinet prend sa langue : la pierre, le bois brûlé et le registre · pc · *en réserve*
+18. #850 La carte et ses dossiers parlent la langue du cabinet · pc · *en réserve*
+19. #851 La capitale et ses outils parlent la langue du cabinet · pc · *en réserve*
 20. #419 Le panneau de la capitale dit ce que coûte un chantier · pc
 21. #420 La ville fume, garnit ses étals et s'éclaire, d'après le monde · pc
 22. #421 Les gens du bourg circulent dans les rues · pc
@@ -416,6 +416,11 @@ jalon l'était avant le 7 octobre ; #508 étend cette preuve à tout le jalon.
 bras au chantier ou aux champs, payés au grenier. Le joueur doit lire le
 prix d'un chantier, l'état de son grenier et le refus d'un geste dans le
 même registre, sur la carte comme dans sa ville.
+
+*En réserve depuis le 28 octobre 2026* : en jouant le build du jour, le
+propriétaire a trouvé la prise en main de la carte peu intuitive. Les gestes
+et la lecture de la carte se repensent d'abord ; #849, #850 et #851 repartent
+ensuite, leur brief ajusté. D'ici là, #419 les attend.
 
 - **Le cabinet prend sa langue** — #849. *Le joueur* : partout, il
   reconnaît d'un coup d'œil ce qu'il peut faire, ce qu'il a choisi, ce qui
