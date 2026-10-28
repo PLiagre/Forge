@@ -10,86 +10,145 @@
 > Réécrit le 29 septembre 2026, après un entretien avec le propriétaire. Il
 > réunit l'ancienne vision du moteur et `OBJECTIF.md`, qui disaient la même
 > chose en deux endroits et avaient commencé à se contredire.
+>
+> Révisé le 28 octobre 2026 : le jeu prend **Europa Universalis IV** pour
+> modèle de jeu. Le monde tourne seul ; le joueur prend la tête d'un pays et
+> le fait évoluer depuis la carte (décisions 24 à 33, en fin de fichier).
 
 ## En un paragraphe
 
-On incarne une petite dynastie réelle de 1400 — catholique, orthodoxe ou
-musulmane, n'importe où entre l'Irlande et l'Égypte. On bâtit à la main, en
-3D, la ville de sa cour ; on gouverne ses autres terres sur la carte, par des
-lois, des impôts et des consignes. La terre se gagne et se perd par la guerre,
-l'héritage, le mariage, l'argent et la révolte ; ses batailles, on les mène
-soi-même ou on les confie à un général. Chaque héritier a sa personnalité et
-ses ambitions, et la loi de succession peut coûter des terres. En face, des
-dynasties, des républiques et une Église jouées par l'IA, avec exactement les
-mêmes outils. L'histoire allume ses étincelles à leur date — l'imprimerie, la
-Réforme, les Grandes Découvertes, la vapeur —, mais qui en profite, qui a faim
-et qui règne se décide dans une économie physique où chaque kilo et chaque
-pièce d'argent ont une origine. On perd quand on n'a plus de terre. La partie
-va de 1400 à 1900.
+Le monde de 1400 **tourne seul** : chaque maison, chaque république et
+l'Église y prélèvent, nourrissent, bâtissent, se marient et se font la guerre,
+et on peut le regarder vivre un siècle sans y toucher. On y entre en prenant
+la tête d'un **pays réel de 1400** — un royaume, un duché, un émirat ou un
+petit comté, catholique, orthodoxe ou musulman, n'importe où entre l'Irlande
+et l'Égypte —, et on le **fait évoluer depuis la carte**, à la manière
+d'Europa Universalis IV : le temps file, on le met en pause, on décide.
+Impôts et greniers, chantiers dans ses provinces, armées et guerres, alliances
+et mariages, lois, monnaie et dette : chaque geste est une intention que le
+monde applique, et ce sont les gestes mêmes de l'IA. La dynastie qui règne sur
+le pays a ses héritiers, leurs personnalités et sa loi de succession, qui peut
+coûter des terres. Sa capitale peut s'ouvrir en 3D, pour la voir vivre et la
+bâtir à la main. L'histoire allume ses étincelles à leur date — l'imprimerie,
+la Réforme, les Grandes Découvertes, la vapeur —, mais qui en profite, qui a
+faim et qui règne se décide dans une économie physique où chaque kilo et
+chaque pièce d'argent ont une origine. On perd quand le pays n'a plus de
+terre. La partie va de 1400 à 1900.
 
 ## Ce qui n'existe nulle part ailleurs
 
-Chacun des jeux qui nous servent de repère existe déjà. Ce qui n'existe pas,
-c'est **le passage de l'un à l'autre dans un seul monde** :
+On joue comme dans Europa Universalis IV : la carte, le temps qui file, un pays
+qu'on fait grandir. Ce qui n'existe pas, c'est **un Europa Universalis dont le
+monde est simulé**, et qui tourne sans le joueur :
 
-- la ville qu'on bâtit en 3D est un lieu du monde que la carte gouverne, et
-  **le terrain du siège** le jour où on vient la prendre : on défend les murs
-  qu'on a tracés, dans les rues qu'on a ouvertes ;
-- la bataille se livre avec les hommes de ses foyers, et ses morts manquent
-  ensuite aux champs ;
+- sous la carte, des gens : une famine vide une vallée parce que ses gens ont
+  faim et partent, pas parce qu'un modificateur le dit ;
+- l'armée est faite des hommes de ses foyers ; ses morts manquent ensuite aux
+  champs ;
 - sa dette, sa monnaie et ses routes pèsent sur les prix du voisin, et
   inversement ;
-- l'IA n'a aucun privilège : elle joue avec les mêmes gestes que le joueur.
+- l'IA n'a aucun privilège : elle joue avec les mêmes gestes que le joueur, et
+  le monde vit tout aussi bien quand personne ne joue ;
+- la capitale qu'on ouvre en 3D est un lieu du monde que la carte gouverne :
+  on peut y descendre et la bâtir à la main.
 
 | repère | ce qu'on lui prend | ce qu'on refuse |
 |---|---|---|
-| Manor Lords | la capitale bâtie à la main, dense et vivante | bâtir toutes ses villes à la main |
+| **Europa Universalis IV** — le modèle de jeu | la carte comme écran principal, le temps continu avec pause et vitesses, un pays qu'on fait évoluer, la diplomatie, la guerre sur la carte, le mode observateur | les points de monarque, les modificateurs (« +10 % ») à la place des causes, les événements à choix qui posent une issue |
 | Crusader Kings | la dynastie, les personnalités, la succession | les mille petites actions sans portée, surtout en fin de partie |
-| Europa Universalis | la carte, les royaumes, la diplomatie | les modificateurs (« +10 % ») à la place des causes |
 | Victoria | l'économie, les prix, l'industrie | des mécaniques codées comme des règles de jeu |
-| Total War | la bataille tactique en temps réel | la même bataille rejouée tour après tour |
+| Manor Lords | la capitale qu'on peut ouvrir et bâtir à la main, dense et vivante | en faire le cœur du jeu ; bâtir toutes ses villes à la main |
+| Total War | à l'horizon : la bataille regardée et menée en 3D, sur le même moteur | une bataille calculée à part du monde ; la même bataille rejouée tour après tour |
 
-## Le joueur : une dynastie
+## Le monde tourne seul
 
-- **Le départ.** Un petit seigneur réel de 1400, choisi n'importe où sur la
-  carte. Les grandes maisons, les républiques et l'Église sont jouées par
-  l'IA : on vit toujours l'ascension depuis le bas.
+- **Il n'attend pas le joueur.** Dès le premier jour, chaque maison, chaque
+  république et l'Église décident avec des raisons de monde — la faim de
+  leurs gens, leur grenier, leurs chantiers, leurs voisins —, par les gestes
+  du joueur. Le monde qu'on regarde est le même qu'on joue.
+- **Le mode observateur.** On peut lancer la partie sans prendre de pays et
+  laisser filer les années. C'est la preuve que le monde vit, et la meilleure
+  façon de choisir où entrer.
+- **Ce qui dit qu'il vit.** Un siècle sans joueur garde une Europe
+  vraisemblable : les régions denses de 1400 restent denses, le désert reste
+  vide, la population suit l'histoire dans les grandes lignes, aucune maison
+  ne reste sans décider ; famines, chantiers, mariages et guerres arrivent par
+  leurs causes. Mesuré le 28 octobre 2026, ce n'était pas le cas : sans
+  réserve de soudure, Paris perdait 99 % de ses habitants avant avril 1400.
+- **Le joueur entre dans ce monde-là.** Prendre la tête d'un pays ne change
+  aucune règle : seule change la main qui décide.
+
+## Le joueur : un pays et sa dynastie
+
+- **Le départ.** N'importe quel pays réel de 1400 qui tient de la terre, du
+  royaume au petit seigneur, choisi sur la carte. Les six terres de départ
+  restent les départs conseillés, petits, pour vivre l'ascension depuis le
+  bas. Les républiques et l'Église restent jouées par l'IA.
+- **Faire évoluer le pays.** Le joueur gouverne depuis la carte : il fixe ce
+  qu'il prend, ouvre ses greniers, bâtit dans ses provinces, lève et mène ses
+  armées, s'allie, marie, déclare la guerre et fait la paix, frappe monnaie,
+  emprunte, passe des lois. Ses gestes sont en petit nombre et de grande
+  portée (principe 6) ; « Les gestes d'un pays », plus bas, les range.
 - **Des personnalités.** Chaque membre de la dynastie a des traits, des
   compétences, une éducation, une santé, des ambitions. Un cadet peut
   comploter, un frère se révolter, un fils mal éduqué gouverner mal. Eux
   aussi raisonnent en monde : un complot naît d'une ambition et d'une
   occasion, pas d'un pourcentage.
-- **En personne.** Le chef de la dynastie marche dans sa ville, mène ses
-  troupes, et peut mourir au combat.
+- **En personne.** Le chef de la dynastie mène ses troupes et peut mourir au
+  combat ; quand on ouvre sa capitale en 3D, il marche dans ses rues.
 - **La succession.** À sa mort, on joue l'héritier que désigne la loi de
   succession (l'aîné, le partage entre les fils…). Un partage peut coûter
   des terres ; changer la loi est un geste de jeu.
-- **La défaite** : il ne reste plus de terre.
+- **La défaite** : le pays n'a plus de terre.
 - **Le but.** Rien n'est imposé. Chaque héritier porte ses ambitions
   (devenir duc, roi, unifier un royaume), et les accomplir s'écrit dans la
   chronique de la dynastie ; un score de dynastie (prestige, terres,
   richesse, sur cinq siècles) permet de comparer deux parties. Qui veut
   jouer sans but le peut.
 
-## Deux échelles, trois vues, une horloge
+## La carte, et la capitale en 3D
 
-- **Sa capitale, on la bâtit.** C'est la seule ville qu'on construit à la
-  main : tracer les rues, découper les parcelles, poser les ateliers et les
-  murs. **Le reste, on le gouverne** : les autres domaines grandissent par
+- **La carte est le jeu.** Comme dans Europa Universalis IV, on joue sur la
+  carte : les pays, leurs provinces, leurs lieux, les armées, les flux. Tout
+  geste de pays se fait depuis elle, et le panneau du pays y dit ce qu'il
+  possède, ce qu'il récolte, ce qu'il doit et ce qui menace.
+- **La capitale en 3D est une vue, pas un passage obligé.** On peut y
+  descendre d'un geste, la voir vivre — fumées, étals, passants — et y tracer
+  à la main rues, parcelles et murs. Rien ne s'y fait qui ne puisse aussi se
+  commander depuis la carte : un bâtiment se pose dans une province, et le
+  plan du monde lui trouve sa parcelle. Les autres domaines grandissent par
   leurs habitants, sous les lois, les impôts et les consignes du joueur.
-  Les deux phrases que le dépôt portait sans les accorder — « le joueur crée
-  des conditions » et « le joueur pose les bâtiments » — sont vraies toutes
-  les deux, l'une pour le reste, l'autre pour la capitale.
-- **Trois vues du même monde** : la carte (l'Europe, les royaumes, ses
-  terres), la ville (ses terres en 3D : sa capitale, et ses autres domaines à
-  inspecter) et le champ de bataille. On passe de l'une à l'autre par une
-  transition. Les villes étrangères restent sur la carte ; une ville conquise
-  s'ouvre en 3D, donc toute ville doit pouvoir se dessiner à partir de ce que
-  le monde contient — son plan est une donnée du moteur, pas d'Unity.
-- **Une seule horloge, dont la vitesse suit la vue.** Un tick est un jour.
-  En ville le temps ralentit tout seul (une année ≈ une heure) ; sur la
-  carte il accélère (une année ≈ une minute) ; pendant une bataille jouée, le
-  monde s'arrête.
+  Toute ville doit pouvoir se dessiner à partir de ce que le monde contient —
+  son plan est une donnée du moteur, pas d'Unity.
+- **La bataille se suit sur la carte.** Elle se calcule dans le monde (« La
+  guerre », plus bas) ; la regarder et la mener en 3D est un horizon.
+- **Une seule horloge, que le joueur règle.** Un tick est un jour. Sur la
+  carte, le joueur met en pause ou choisit l'une des cinq vitesses ; la plus
+  rapide est bornée par le budget du tick (51 ms mesurés le 28 octobre 2026,
+  une vingtaine de jours par seconde). En ville le temps ralentit tout seul.
+  Le monde ne s'arrête que quand le joueur le met en pause.
+- **Le monde dit ce qui arrive.** Un fil de nouvelles et des alertes — une
+  famine, un grenier vide, un voisin qui bâtit, une guerre déclarée — mènent
+  au lieu où cela se passe. Ce sont des lectures du monde : jamais un
+  événement à choix qui poserait une issue ou un modificateur.
+
+## Les gestes d'un pays
+
+Le joueur ne clique pas sur chaque lieu : il décide pour son pays, et le monde
+fait le reste. Un geste coûte **ce que le monde porte** — du grain, des
+pièces, des hommes, du temps, la fidélité de ses vassaux —, jamais des points
+abstraits : pas de points de monarque, pas d'idées en « +10 % ».
+
+| domaine | gestes | jalon de CAP.md |
+|---|---|---|
+| la terre et ses gens | fixer la part qu'on prend (l'impôt), ouvrir un grenier | J3, livré |
+| bâtir | tracer une route, poser un bâtiment dans une province ; en 3D, la parcelle à la main | J4 en 3D, J6 depuis la carte |
+| la cour | marier, éduquer, changer la loi de succession | J6 |
+| la guerre et les alliés | revendiquer, lever, marcher, assiéger, livrer bataille, faire la paix ; s'allier, appeler ses alliés | J7 |
+| l'argent | frapper, emprunter, mettre en gage, dévaluer, acheter une terre | J8 |
+| le gouvernement | inféoder, nommer des intendants, passer une loi | J9 |
+
+Chaque geste existe aussi pour l'IA, par le même chemin (principe 4).
 
 ## La terre, cœur du jeu
 
@@ -131,21 +190,25 @@ Tout tourne autour d'une question : **qui tient quel lieu**.
 
 - **Les soldats sont des habitants.** Ils quittent leur foyer, mangent en
   marchant, meurent ou reviennent ; leurs morts manquent ensuite aux champs.
-- **Les batailles tactiques sont obligatoires** : toute bataille est une vraie
-  bataille, sur un vrai terrain, et le joueur choisit — il la mène, ou il la
-  confie à un général. Le **même moteur de bataille** la calcule alors sans
-  image, plus vite que le temps réel ; les batailles entre IA passent par lui
-  aussi. Il n'y a pas de second calcul, « abstrait », à côté.
+- **La guerre se joue sur la carte**, comme dans Europa Universalis IV : les
+  armées marchent de lieu en lieu, mangent, se rencontrent. Le joueur choisit
+  où marcher, quand livrer bataille et quand traiter ; ses généraux
+  commandent sur le terrain.
+- **Un seul moteur de bataille, dans `sim/`.** Une bataille dure des jours ;
+  elle se calcule avec les hommes, leurs vivres, leur chef et le terrain du
+  lieu, et rend au monde ses morts, ses blessés et ses fuyards. Les batailles
+  entre IA passent par le même. Il n'y a pas de second calcul à côté.
 - **Une bataille a un enjeu** : une grande bataille peut trancher une guerre
   et ouvrir une conquête.
-- **Les sièges se jouent grandeur nature** : remparts, brèches, combats de
-  rue. Quand on assiège sa capitale, c'est la ville qu'on a bâtie qui est le
-  terrain.
-- **Autant d'hommes que possible** sur un PC de jeu courant. Les batailles
-  changent en cinq siècles — des piques et des arbalètes aux lignes, à
-  l'artillerie et aux fusils — et leur taille avec elles.
+- **Le siège affame la place** : ses murs et son grenier décident de combien
+  de temps elle tient.
+- **À l'horizon, la bataille en 3D.** La regarder et la mener soi-même, le
+  siège grandeur nature dans la ville qu'on a bâtie, autant d'hommes que
+  possible sur un PC de jeu courant :
   [Citadelle-Guerre](../3d/archives/citadelle-guerre/README.md) (5 000 à
-  10 000 hommes, sièges, combats de rue) en est la base.
+  10 000 hommes, sièges, combats de rue) en reste la base. Ce jour-là, la 3D
+  rejoue le moteur de `sim/` et ses ordres sont des intentions : elle n'ajoute
+  pas un second moteur.
 
 ## Le monde réel
 
@@ -161,6 +224,8 @@ Tout tourne autour d'une question : **qui tient quel lieu**.
   populations de 1400. C'est vrai dans les grandes lignes depuis le jalon 2
   de [CAP.md](../CAP.md) : l'aridité, le Nil, les puissances, les grandes
   maisons et les villes de 1400 sont dans le monde, et le désert est vide.
+  C'est vrai **au premier jour** ; que cela tienne quand le monde tourne seul
+  est la preuve du jalon 5.
 - **Les rails de l'histoire.** L'histoire allume ses étincelles à leur date
   et à leur lieu : l'imprimerie à Mayence, les thèses de Luther, les voyages
   vers l'Amérique, les épidémies, la vapeur. Elle n'impose jamais une
@@ -180,9 +245,10 @@ chacun, dans le même ordre ; ici, leur raison.
    `jeu/sim/`. La carte, la ville, le tableau, la chronique ne sont que des
    façons de le regarder : ils n'ont aucune donnée à eux et ne décident
    jamais un nombre. Jamais deux bases, jamais une copie « pour
-   l'affichage ». La bataille tactique n'est pas une vue : c'est une couche
-   de cette simulation, qui reçoit du monde ses hommes et son terrain, lui
-   rend ses morts, ses blessés et ses fuyards, et ne garde rien pour elle.
+   l'affichage ». La bataille n'est pas une vue : c'est une couche de cette
+   simulation, dans `sim/`, qui reçoit du monde ses hommes et son terrain,
+   lui rend ses morts, ses blessés et ses fuyards, et ne garde rien pour
+   elle ; une bataille en 3D, le jour où elle existera, la regarde.
 2. **Le monde raisonne en monde.** Interdit : « si famine alors +20 % de
    criminalité ». Exigé : ils ont faim, ils cherchent, certains volent. Cela
    vaut pour les personnages et pour l'IA. Test à chaque proposition :
@@ -234,8 +300,12 @@ chefs de guerre — sont les seules personnes suivies une à une.
 Pas le nombre de fonctionnalités : ce que le monde fait naître seul. Les
 moments qu'on veut vivre :
 
+- laisser tourner le monde de 1400 un siècle sans joueur, et y lire une
+  histoire plausible qui n'était écrite nulle part ;
+- prendre un petit pays et le voir devenir grand — ou disparaître — par ses
+  propres décisions ;
 - une grande bataille qui tranche une guerre et ouvre une conquête ;
-- la défense de sa citadelle, grandeur nature, dans la ville qu'on a bâtie ;
+- le siège de sa capitale, que ses murs et son grenier tiennent ou non ;
 - un plan économique sur des décennies — inflation, dette à rembourser,
   commerce ou industrie — qui fait la fortune de la dynastie, ou sa ruine ;
 - une famine qui vide une vallée, une route qui enrichit un col, une guerre
@@ -254,6 +324,9 @@ tour.
 | la religion et la technique | les rails en allument les étincelles ; leur diffusion reste à écrire |
 | combien de lieux dans une cellule | un lieu pour 1 000 km² aujourd'hui (6 619 lieux) ; une terre de départ en tient quatre, un seigneur plausible trois (niveau 2, CAP.md, jalon 3) ; à revoir contre le budget du tick |
 | la capitale peut-elle changer de ville | rien n'est décidé |
+| quels pays sont jouables | tous ceux qui tiennent de la terre, vassaux compris (décision 26) ; reste à dire si un vassal joué peut refuser l'hommage dès le départ |
+| quand la bataille et le siège en 3D reviennent | après le premier siècle (décision 29) ; Citadelle-Guerre attend dans les archives |
+| des décisions de cour, à la manière des événements | le fil des nouvelles ne pose aucun choix (décision 31) ; une décision proposée au joueur devrait naître d'une cause du monde et rester un geste ordinaire |
 
 ## Les décisions du 29 septembre 2026
 
@@ -293,3 +366,23 @@ vraiment (CAP.md, « Le constat qui commande »).
 | 21 | une sixième terre de départ en pays de terre crue, l'émirat du Zab (Biskra, sous les Hafsides) : le kit du désert est sa capitale dès le jalon 4 ; les kits des autres terres suivent, Balkans et Morée d'abord, puis l'Ouest | un nouveau kit avant toute capitale ; un désert qui ne serait la terre de personne |
 | 22 | la carte du joueur vit dans Unity, avec la ville et la bataille : les trois vues dans un seul jeu ; les vues de Python restent des outils et des captures du journal | une carte dans le navigateur ; une carte en image seulement |
 | 23 | l'ordre des neuf jalons du 29 septembre est gardé ; la ville vivante entre au jalon 4, la bataille détaillée au jalon 7 | douze jalons (#344) ; une tranche verticale de chaque pilier |
+
+## Les décisions du 28 octobre 2026
+
+Prises par le propriétaire : « il faut commencer à penser gameplay ; la
+simulation tourne seule, avec un monde vivant, et le joueur fait évoluer le
+pays ; on vise Europa Universalis IV ». Elles priment sur les décisions
+antérieures qu'elles nomment.
+
+| # | décision | ce qu'elle a écarté |
+|---|---|---|
+| 24 | Europa Universalis IV est le modèle de jeu : la carte, le temps continu avec pause et vitesses, un pays qu'on fait évoluer, la diplomatie et la guerre sur la carte | un jeu centré sur la capitale bâtie à la main |
+| 25 | le monde tourne seul, et un mode observateur le montre : un siècle sans joueur reste vivant et vraisemblable, et sa preuve peut échouer | un monde qui attend le joueur ; un monde qui ne vit que là où il regarde |
+| 26 | on prend la tête de n'importe quel pays réel de 1400 qui tient de la terre, du royaume au petit seigneur ; les six terres de départ restent les départs conseillés (remplace la décision 2 sur ce point) | le seul petit seigneur |
+| 27 | la carte est le jeu ; la capitale en 3D est une vue où l'on peut bâtir à la main, jamais un passage obligé : tout geste de la 3D se commande aussi depuis la carte (précise la décision 5) | la capitale comme cœur du jeu ; un geste qu'on ne ferait qu'en 3D |
+| 28 | le joueur règle l'horloge sur la carte : pause et cinq vitesses ; la ville ralentit (remplace la décision 6 sur la vitesse) | une vitesse imposée par la vue |
+| 29 | les batailles se calculent dans `sim/`, par un seul moteur, et se suivent sur la carte ; les mener en 3D et le siège grandeur nature passent à l'horizon (remplace la décision 15) | une bataille tactique obligatoire avant le premier siècle ; deux moteurs de bataille |
+| 30 | un geste coûte ce que le monde porte : grain, pièces, hommes, temps, fidélité | les points de monarque ; les idées nationales en « +10 % » |
+| 31 | le monde parle par un fil de nouvelles et des alertes qui mènent au lieu | les événements scriptés à choix, qui posent une issue ou un modificateur |
+| 32 | les kits 3D des autres terres et la ville conquise en 3D passent à l'horizon (précise la décision 7) | toutes les terres de départ en 3D au premier siècle |
+| 33 | les jalons gardent leurs numéros et changent de contenu : J5 le monde vivant, J6 le pays et sa dynastie, J7 la guerre sur la carte ; J8 et J9 restent (remplace la décision 23 pour la suite) | renuméroter les jalons et déplacer leurs issues |
