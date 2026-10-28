@@ -38,9 +38,7 @@ namespace ForgeLocal3D
         public const string Revetement="terre";public double largeur=4;
         // Piloté par le contrôle : ni souris ni clavier, et Attendre appelé par lui.
         public bool automatique;
-        // Lot 788 : maillage et matériau VAT de #786, référencés par les deux scènes de ville.
-        public Mesh maillageCivil;public Material materiauCivil;
-        PassantsDeLaVille passants;
+        public Mesh maillageCivil;public Material materiauCivil;PassantsDeLaVille passants; // VAT de #786, les deux scènes de ville.
         readonly List<(double x,double y)> points=new();
         public (double x,double y)[] Derniers{get;private set;}=new (double,double)[0];
         public string Message{get;private set;}="";
