@@ -17,10 +17,10 @@ from conftest import RACINE, Agents
 def test_le_branchement_du_depot_nomme_chaque_role():
     projet = charger(RACINE)
     assert projet.depot == "PLiagre/Forge"
-    assert str(projet.poste("codeur").principal) == "codex/gpt-6.1-sol@high"
+    assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
     assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
     assert [str(a) for a in projet.poste("relecteur").agents] == [
-        "claude/claude-opus-5-5@high", "codex/gpt-6.1-sol@high", "cursor/grok-4.7-high@high"]
+        "claude/claude-opus-5-5@high", "cursor/grok-4.7-high@high", "cursor/gpt-5.6-sol-high@high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -237,9 +237,10 @@ def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_p
 
 def test_le_chef_et_la_boussole_ont_un_secours_hors_de_claude_code():
     # Un quota de Claude Code arrêtait net le chef et la boussole : Claude
-    # Code en premier, et un secours d'un autre harnais.
+    # Code en premier, et un secours d'un autre harnais. Le dépanneur aussi :
+    # la session Claude du VPS a expiré le 21 octobre 2026.
     projet = charger(RACINE)
-    for role in ("chef", "boussole"):
+    for role in ("chef", "boussole", "depanneur"):
         poste = projet.poste(role)
         assert poste.principal.outil == "claude", role
         assert any(a.outil != "claude" for a in poste.secours), role
@@ -264,7 +265,7 @@ def test_chaque_agent_du_depot_dit_son_harnais_son_modele_et_son_effort():
         for agent in poste.agents:
             assert agent.effort, f"{poste.role} : {agent} ne dit pas son effort"
     table = table_des_roles(projet)
-    for mot in ("Claude Code", "Codex CLI", "Cursor (cursor-agent)", "claude-opus-5-5", "high"):
+    for mot in ("Claude Code", "Cursor (cursor-agent)", "claude-opus-5-5", "claude-sonnet-5-5", "high"):
         assert mot in table
 
 
@@ -298,45 +299,48 @@ def _relecteurs_restants(poste_relecteur, famille_auteur):
     return [a for a in poste_relecteur.agents if a.famille != famille_auteur]
 
 
-def test_claude_juge_et_ne_code_que_les_lots_du_pc():
-    # Le plafond de Claude Code (29 septembre 2026) se garde pour le chef et
-    # la relecture : le codeur du VPS n'est pas un Claude. Les lots du PC, peu
-    # nombreux et chers quand ils ratent, ont Claude en tête (choix du
-    # propriétaire, 29 septembre 2026) ; chaque codeur a un secours d'une
-    # autre famille, qu'un quota de Claude n'arrête pas.
+def test_sonnet_code_le_vps_et_opus_juge():
+    # L'abonnement ChatGPT est coupé : Sonnet code les lots du VPS (choix du
+    # propriétaire, 28 octobre 2026). Les lots du PC, peu nombreux et chers
+    # quand ils ratent, ont Opus en tête (29 septembre 2026) ; chaque codeur
+    # a un secours d'une autre famille, qu'un quota de Claude n'arrête pas.
     projet = charger(RACINE)
-    assert projet.poste("codeur").principal.famille != "claude"
-    assert projet.poste("codeur_3d").principal.famille == "claude"
+    assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
+    assert str(projet.poste("codeur_3d").principal) == "claude/claude-opus-5-5@high"
     for role in ("codeur", "codeur_3d"):
         poste = projet.poste(role)
         assert any(a.famille != "claude" for a in poste.secours), role
     assert projet.poste("relecteur").principal.famille == "claude"
 
 
-def test_un_seul_modele_gpt_gpt_6_1_sol():
-    # Le choix du propriétaire (30 septembre 2026) : GPT-6.1 Sol remplace
-    # GPT-5.6 Sol, GPT-6 Sol et GPT-6 Astra, partout où Codex sert.
+def test_plus_aucun_role_ne_passe_par_codex():
+    # L'abonnement ChatGPT est coupé : depuis le 26 octobre 2026, Codex
+    # refuse GPT-6.1 Sol (« not supported when using Codex with a ChatGPT
+    # account »). La famille GPT ne sert plus que par Cursor.
     projet = charger(RACINE)
-    modeles = {a.modele for poste in projet.postes.values() for a in poste.agents if a.outil == "codex"}
-    assert modeles == {"gpt-6.1-sol"}
+    assert projet.postes and not [f"{poste.role} : {a}" for poste in projet.postes.values()
+                                  for a in poste.agents if a.outil == "codex"]
+    assert {a.outil for a in projet.poste("relecteur").agents if a.famille == "gpt"} == {"cursor"}
 
 
-def test_le_renfort_est_gpt_6_1_sol_puis_grok():
-    # Le dernier passage d'un lot du VPS : GPT-6.1 Sol, puis grok s'il ne
-    # répond pas ; jamais un Claude, dont la famille relit le lot.
+def test_le_renfort_est_sonnet_puis_grok():
+    # Le dernier passage d'un lot du VPS : Sonnet, puis grok s'il ne répond
+    # pas. Le renfort est de la famille du codeur : son passage n'écarte
+    # aucun relecteur de plus.
     projet = charger(RACINE)
     renfort = projet.poste("renfort")
-    assert str(renfort.principal) == "codex/gpt-6.1-sol@high" and not renfort.lecture_seule
-    assert all(a.famille != "claude" for a in renfort.agents)
+    assert str(renfort.principal) == "claude/claude-sonnet-5-5@high" and not renfort.lecture_seule
+    assert renfort.principal.famille == projet.poste("codeur").principal.famille
+    assert any(a.famille != "claude" for a in renfort.secours)
 
 
-def test_chaque_lot_du_vps_peut_coder_avec_codex():
-    # Choix du propriétaire (30 septembre 2026) : Codex en tient autant que
-    # le VPS a de lots, grok ne code que sur quota ou panne ; deux lots, un
-    # par processeur du VPS.
+def test_chaque_lot_du_vps_peut_coder_avec_sonnet():
+    # Claude tient un codeur par lot du VPS, et il lui reste une place pour
+    # juger : grok ne code que sur quota ou panne ; deux lots, un par
+    # processeur du VPS (28 octobre 2026).
     projet = charger(RACINE)
     assert projet.capacite("vps") == 2
-    assert projet.plafond("codex") >= projet.capacite("vps")
+    assert projet.plafond("claude") > projet.capacite("vps")
 
 
 def test_un_lot_a_toujours_deux_relecteurs_possibles():
@@ -394,7 +398,7 @@ def test_le_parallelisme_se_lit_et_une_faute_se_refuse(projet, tmp_path):
 def test_le_depot_fait_avancer_plusieurs_lots_du_vps_et_plafonne_ses_outils():
     projet = charger(RACINE)
     assert projet.capacite("vps") >= 2 and projet.capacite("pc") == 1
-    for outil in ("claude", "codex", "cursor"):
+    for outil in {a.outil for poste in projet.postes.values() for a in poste.agents}:
         assert projet.plafond(outil), outil
 
 
@@ -471,16 +475,14 @@ def test_un_harnais_qui_refuse_l_appel_passe_la_main_sans_bruler_d_essai(projet,
     assert "refuse l'appel" in res.essais[0]
 
 
-def test_un_codex_trop_ancien_pour_gpt_6_1_code_avec_grok(tmp_path):
-    # Sur la vraie ligne du codeur : un Codex qui ne connaît pas GPT-6.1 Sol
-    # refuse l'appel (Codex 0.151 a refusé GPT-6 ainsi, le 29 septembre
-    # 2026) ; grok code, et aucun essai n'est brûlé.
-    refus = ('ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":'
-             '"The \'gpt-6.1-sol\' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}')
+def test_une_session_claude_perdue_fait_coder_grok(tmp_path):
+    # Sur la vraie ligne du codeur : la session Claude du VPS a expiré le
+    # 21 octobre 2026 ; grok code, et aucun essai n'est brûlé.
+    refus = "Failed to authenticate: OAuth session expired and could not be refreshed"
     agents = Agents((1, refus), (0, "fait"))
     res = A.invoquer(charger(RACINE).poste("codeur"), "code", tmp_path, 10, executeur=agents)
     assert res.reussi and str(res.agent) == "cursor/grok-4.7-high@high"
-    assert "codex/gpt-6.1-sol@high : refuse l'appel" in res.essais[0]
+    assert "claude/claude-sonnet-5-5@high : session expirée" in res.essais[0]
 
 
 def test_un_effort_inconnu_que_claude_code_ignore_n_est_pas_un_refus():
