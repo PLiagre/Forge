@@ -400,27 +400,63 @@ fait poser les gestes (#251, #253, #254, #256, #257, #259, #263, #266, #269,
 14. #416 Le joueur trace l'enceinte de sa capitale
 15. #417 L'enceinte se dessine, et ses portes s'ouvrent sur les rues · pc
 16. #418 Une route vers les champs nourrit mieux le bourg
-17. #849 Le cabinet prend sa langue : la pierre, le bois brûlé et le registre · pc · *en réserve*
-18. #850 La carte et ses dossiers parlent la langue du cabinet · pc · *en réserve*
-19. #851 La capitale et ses outils parlent la langue du cabinet · pc · *en réserve*
-20. #419 Le panneau de la capitale dit ce que coûte un chantier · pc
-21. #420 La ville fume, garnit ses étals et s'éclaire, d'après le monde · pc
-22. #421 Les gens du bourg circulent dans les rues · pc
-23. #422 La capitale dense tient 60 images par seconde · pc
-24. #508 La preuve complète du jalon 4 : la capitale du joueur, payée, murée et vivante · pc
+17. #855 Un clic gauche choisit une terre et ouvre sa fiche · pc
+18. #856 La fiche parle en noms, pas en identifiants · pc
+19. #857 L'infobulle au curseur : ce que je survole, ce que fait ce bouton · pc
+20. #858 Les modes de carte : Puissances, Habitants, Flux, une légende à la fois · pc
+21. #859 Une seule barre en haut : ma maison, la date, le temps, mon grenier · pc
+22. #860 Le jeu s'ouvre en pause et dit quoi faire · pc
+23. #849 Le cabinet prend sa langue : la pierre, le bois brûlé et le registre · pc
+24. #850 La carte et ses dossiers parlent la langue du cabinet · pc
+25. #851 La capitale et ses outils parlent la langue du cabinet · pc
+26. #419 Le panneau de la capitale dit ce que coûte un chantier · pc
+27. #420 La ville fume, garnit ses étals et s'éclaire, d'après le monde · pc
+28. #421 Les gens du bourg circulent dans les rues · pc
+29. #422 La capitale dense tient 60 images par seconde · pc
+30. #508 La preuve complète du jalon 4 : la capitale du joueur, payée, murée et vivante · pc
 
 Les quatre premiers prouvent la capitale bâtie par intentions telle que le
 jalon l'était avant le 7 octobre ; #508 étend cette preuve à tout le jalon.
+
+**La prise en main de la carte dans ce jalon.** Décidée le 28 octobre 2026
+par le propriétaire, après avoir joué le build du jour : la carte ne se
+prenait pas en main — le clic gauche déplaçait, le clic droit choisissait, les
+dossiers parlaient en identifiants, rien ne disait quoi faire. Elle suit le
+modèle d'EU4 (#844) et sert la décision du jalon : le joueur doit trouver sa
+capitale, lire son grenier et sa part, et descendre dans sa ville sans
+chercher. Aucun de ces lots ne change un nombre du monde.
+
+- **Un clic gauche choisit une terre** — #855. Un clic court garde la terre
+  et ouvre son dossier ; glisser déplace ; Échap ferme le dossier, puis
+  ouvre le menu ; le clic droit est libéré pour les ordres. *Preuve* : un
+  glisser qui change la terre gardée échoue. *Dépend de* : rien d'ouvert.
+- **La fiche parle en noms** — #856. Des noms de terres, de lieux et de
+  maisons, la date au lieu du tick, des unités. *Preuve* : un dossier qui
+  affiche un identifiant (« Cellule », « rang », « 10340-1 ») échoue, une
+  valeur retirée aussi. *Dépend de* : rien d'ouvert.
+- **L'infobulle au curseur** — #857. Le socle pose l'infobulle : ce que le
+  joueur survole, ce que fait une commande. *Preuve* : une commande sans
+  phrase échoue ; l'infobulle reste entière à 1280 × 720. *Dépend de* : rien
+  d'ouvert.
+- **Les modes de carte** — #858. Puissances, Habitants, Flux en icônes en bas
+  à droite ; une légende à la fois, à place fixe. *Preuve* : une légende qui
+  recouvre un dossier échoue — elle échoue aujourd'hui. *Dépend de* : #857.
+- **Une seule barre en haut** — #859. Sa maison, la date, le temps, son
+  grenier et sa part ; ses dossiers en icônes ; le panneau « Parcourir le
+  monde » disparaît. Les lots de l'observateur (jalon 5) et du panneau du
+  pays (jalon 6) la remplissent. *Preuve* : une barre lue un tick plus tôt
+  échoue. *Dépend de* : #857, #858.
+- **Le jeu s'ouvre en pause et dit quoi faire** — #860. Revient sur #731 :
+  le monde attend le joueur ; une ligne de la barre dit le prochain geste.
+  *Preuve* : un jeu qui s'ouvre en marche échoue. *Dépend de* : #859.
 
 **La langue visuelle dans ce jalon.** Elle sert la décision du jalon : des
 bras au chantier ou aux champs, payés au grenier. Le joueur doit lire le
 prix d'un chantier, l'état de son grenier et le refus d'un geste dans le
 même registre, sur la carte comme dans sa ville.
 
-*En réserve depuis le 28 octobre 2026* : en jouant le build du jour, le
-propriétaire a trouvé la prise en main de la carte peu intuitive. Les gestes
-et la lecture de la carte se repensent d'abord ; #849, #850 et #851 repartent
-ensuite, leur brief ajusté. D'ici là, #419 les attend.
+La langue habille une interface qui se prend en main : #849, #850 et #851
+partent après les six lots de la prise en main de la carte, ci-dessus.
 
 - **Le cabinet prend sa langue** — #849. *Le joueur* : partout, il
   reconnaît d'un coup d'œil ce qu'il peut faire, ce qu'il a choisi, ce qui
@@ -597,7 +633,7 @@ seul » : son issue doit attendre les lots 5, 6, 9 et 11.
   facultatif. *Preuve* : une session Unity en observateur avance de N jours
   et le service dit le même tick que la photographie ; en pause, le tick ne
   bouge pas (contre-épreuve : une pause qui laisse filer un tick échoue).
-  *Dépend de* : le lot de la carte (#850). *Photo* : la carte en
+  *Dépend de* : la barre (#859). *Photo* : la carte en
   observateur, en vitesse la plus rapide, avec le fil des nouvelles.
 - **Le siècle sans joueur, mesuré** — *à créer*. *Le joueur* : il sait, chaque
   semaine, si le monde tient un siècle seul. *Ce que ça fait* : la même
@@ -723,8 +759,8 @@ La preuve #448 s'étend au pays : son issue doit attendre les lots 1 à 4.
   et le fil des nouvelles, dans la langue du cabinet. *Preuve* : au même
   tick, le panneau est égal à la photographie (contre-épreuve : un service
   décalé d'un tick échoue) ; une alerte cliquée centre la carte sur son
-  lieu. *Dépend de* : le lot du pays, le fil des nouvelles (jalon 5), le lot
-  de la carte (#850). *Photo* : le bandeau d'un royaume et celui d'un
+  lieu. *Dépend de* : le lot du pays, le fil des nouvelles (jalon 5), la barre
+  (#859). *Photo* : le bandeau d'un royaume et celui d'un
   petit seigneur, chacun avec une alerte.
 
 **La langue visuelle dans ce jalon.** Elle sert les décisions du mariage, de
