@@ -11,7 +11,7 @@ namespace Forge.Interface
         public void Initialiser(Transform parent, string titre)
         {
             if (cadre != null) return;
-            cadre = SocleInterface.Panneau(parent, titre, 24, 124, 740, 760);
+            cadre = SocleInterface.Panneau(parent, titre, 24, 124, 740, 732);
             var fermer = SocleInterface.Commande(cadre, "Fermer", 588, 20, Fermer);
             fermer.GetComponent<RectTransform>().sizeDelta = new Vector2(128, 44);
             fermer.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(128, 44);
@@ -20,7 +20,7 @@ namespace Forge.Interface
             rect.SetParent(cadre, false);
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
             rect.anchoredPosition = new Vector2(24, -88);
-            rect.sizeDelta = new Vector2(692, 648);
+            rect.sizeDelta = new Vector2(692, 620);
             fenetre.GetComponent<Image>().color = Color.clear;
             contenu = SocleInterface.Texte(rect, "Lecture en attente…", 0, 0, 692);
             contenu.supportRichText = false;
@@ -37,7 +37,7 @@ namespace Forge.Interface
         {
             if (contenu.text == texte) return;
             contenu.text = texte;
-            contenu.rectTransform.sizeDelta = new Vector2(692, Mathf.Max(648, contenu.preferredHeight));
+            contenu.rectTransform.sizeDelta = new Vector2(692, Mathf.Max(620, contenu.preferredHeight));
         }
     }
 }
