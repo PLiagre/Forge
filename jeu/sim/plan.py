@@ -38,11 +38,12 @@ def _points(points, minimum, champ):
             _nombre_fini(coordonnee, champ)
 
 
-def _chantier(element, nature):
+def _chantier(element, nature, *, avec_identifiant=True):
     """Valide l’état, les foyers et le compte des journées d’un chantier."""
     if not isinstance(element.en_chantier, bool):
         raise PlanInvalide(f"{nature}.en_chantier : booléen attendu")
-    _identifiant(element.identifiant, f"{nature}.identifiant")
+    if avec_identifiant:
+        _identifiant(element.identifiant, f"{nature}.identifiant")
     for champ in ("foyers", "travail_requis", "travail_fourni"):
         _identifiant(getattr(element, champ), f"{nature}.{champ}")
     if element.travail_fourni > element.travail_requis:
@@ -116,19 +117,44 @@ class Batiment:
         _points(self.emprise, _constantes.POINTS_MIN_CONTOUR, "bâtiment.emprise")
 
 
+@dataclass(frozen=True)
+class Enceinte:
+    """Unique contour du bourg ; pas d'identifiant, le plan n'en porte qu'une."""
+
+    contour: list[tuple[float, float]]
+    en_chantier: bool = False
+    foyers: int = 0
+    travail_requis: int = 0
+    travail_fourni: int = 0
+
+    def __post_init__(self):
+        _chantier(self, "enceinte", avec_identifiant=False)
+        _points(self.contour, _constantes.POINTS_MIN_CONTOUR, "enceinte.contour")
+
+
 @dataclass
 class Plan:
-    """Trois listes triées ; son unique clé spatiale appartient à World.plans."""
+    """Trois listes triées et au plus une enceinte ; la clé spatiale est celle de World.plans."""
 
     rues: list[Rue] = field(default_factory=list)
     parcelles: list[Parcelle] = field(default_factory=list)
     batiments: list[Batiment] = field(default_factory=list)
+    enceinte: Enceinte | None = None
 
     def __post_init__(self):
         listes = self._listes_validees()
         self.rues = listes["rues"]
         self.parcelles = listes["parcelles"]
         self.batiments = listes["batiments"]
+        self.enceinte = self._enceinte_validee()
+
+    def _enceinte_validee(self):
+        if self.enceinte is None:
+            return None
+        if not isinstance(self.enceinte, Enceinte):
+            raise PlanInvalide(f"enceinte : Enceinte attendue, reçu {self.enceinte!r}")
+        self.enceinte.__post_init__()
+        return self.enceinte
 
     def _listes_validees(self):
         listes = {}
@@ -168,6 +194,11 @@ class Plan:
                     if champ in entree:
                         entree[champ] = [list(point) for point in entree[champ]]
                 document[nom].append(entree)
+        enceinte = self._enceinte_validee()
+        if enceinte is not None:
+            entree = asdict(enceinte)
+            entree["contour"] = [list(point) for point in entree["contour"]]
+            document["enceinte"] = entree
         return document
 
 

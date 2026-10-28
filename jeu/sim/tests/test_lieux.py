@@ -993,6 +993,47 @@ def test_plan_accepte_des_metres_locaux_sans_borne_inventee():
     assert document["batiments"][0]["emprise"][0] == [-100, -100]
 
 
+def test_enceinte_absente_puis_canonique():
+    from sim.plan import Enceinte, Plan, PlanInvalide
+
+    vide = Plan()
+    assert vide.enceinte is None and "enceinte" not in vide.to_dict()
+    assert vide.to_dict() == {"rues": [], "parcelles": [], "batiments": []}
+    triangle = [(0, 0), (3, 0), (0, 4)]
+    enceinte = Enceinte(triangle, en_chantier=True, foyers=1, travail_requis=12, travail_fourni=0)
+    assert len(enceinte.contour) >= _constantes.POINTS_MIN_CONTOUR
+    assert enceinte.en_chantier == (enceinte.travail_fourni < enceinte.travail_requis)
+    assert enceinte.foyers >= 1 and enceinte.travail_fourni <= enceinte.travail_requis
+    ancienne = Enceinte(triangle)
+    assert (ancienne.en_chantier, ancienne.foyers, ancienne.travail_requis, ancienne.travail_fourni) == (
+        False, 0, 0, 0)
+    document = Plan(enceinte=enceinte).to_dict()
+    assert document["enceinte"] == {
+        "contour": [[0, 0], [3, 0], [0, 4]],
+        "en_chantier": True, "foyers": 1, "travail_requis": 12, "travail_fourni": 0}
+    document["enceinte"]["contour"][0][0] = 999
+    assert Plan(enceinte=enceinte).to_dict()["enceinte"]["contour"][0] == [0, 0]
+    with pytest.raises(PlanInvalide, match="enceinte"):
+        Plan(enceinte=[triangle])
+
+
+@pytest.mark.parametrize("champs,message", [
+    ({"contour": [(0, 0), (1, 0)]}, "points"),
+    ({"contour": [(float("nan"), 0), (1, 0), (0, 1)]}, "fini"),
+    ({"foyers": True}, "invalide"),
+    ({"travail_fourni": 2}, "dépasse"),
+    ({"en_chantier": False}, "contredit"),
+    ({"foyers": 0}, "sans foyer"),
+])
+def test_enceinte_refuse_contour_ou_chantier(champs, message):
+    from sim.plan import Enceinte, PlanInvalide
+
+    base = {"contour": [(0, 0), (1, 0), (0, 1)], "en_chantier": True,
+            "foyers": 1, "travail_requis": 1, "travail_fourni": 0}
+    with pytest.raises(PlanInvalide, match=message):
+        Enceinte(**(base | champs))
+
+
 def _controle_dette_et_faim_des_lieux(monde):
     mixtes = 0
     assert monde.cells
