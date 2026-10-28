@@ -13,7 +13,7 @@ namespace ForgeLocal3D
         public const double Heure=19.6;public const string GarderEtalPlein="-forgeGarderEtalPlein";const string Siege="Biskra",Vivres="nourriture";
         const float Recul=3.5f;const int Images=60,ImagesMax=600;static readonly TimeSpan Delai=TimeSpan.FromSeconds(10);
         static readonly Dictionary<EffetsDeMaison,(long rang,long indice)> ids=new();static readonly Dictionary<EffetsDeMaison,float> soir=new();static readonly List<string> etats=new();
-        static DesertRoadTool outil;static EffetsDeMaison temoin;static EtalDuBourg etal;static Renderer comptoir;static Transform racine;static long cellule=-1;static string etape="aucune",cadrage;
+        static DesertRoadTool outil;static PanneauLieu panneau;static EffetsDeMaison temoin;static EtalDuBourg etal;static Renderer comptoir;static Transform racine;static long cellule=-1;static string etape="aucune",cadrage;
         static Vector3 visePose;static float capPose,incPose=22f,distPose;static Material ciel;
         // Apply écrit dans l'asset du ciel : on retire la marque avant la fermeture, le fichier du projet ne bouge pas.
         static EpreuveVieDuBourg(){EditorApplication.quitting+=()=>{if(ciel)EditorUtility.ClearDirty(ciel);};}
@@ -32,14 +32,14 @@ namespace ForgeLocal3D
         {
             Application.logMessageReceived-=Photo;etats.Clear();ids.Clear();soir.Clear();cellule=-1;cadrage=null;temoin=null;etal=null;if(racine)Object.Destroy(racine.gameObject);Etape("ouverture de "+Siege);
             outil=Object.FindFirstObjectByType<DesertRoadTool>()??throw Faux("pas d'outil des routes");var ville=camera.GetComponent<DesertCityCamera>()??throw Faux("pas de caméra de ville");
-            var lieu=Object.FindFirstObjectByType<PanneauLieu>()??throw Faux("pas de panneau du lieu");var env=Object.FindFirstObjectByType<DesertEnvironment>()??throw Faux("pas de DesertEnvironment");
+            panneau=Object.FindFirstObjectByType<PanneauLieu>()??throw Faux("pas de panneau du lieu");var env=Object.FindFirstObjectByType<DesertEnvironment>()??throw Faux("pas de DesertEnvironment");
             // VillageV2Visit reprend la caméra à chaque image : sans ça, les deux photos ne cadrent plus la place.
             var visite=camera.GetComponent<VillageV2Visit>();if(visite)visite.enabled=false;
             outil.automatique=ville.automatique=true;if(ville.Marcheur)ville.Marcheur.automatic=true;env.showPanel=false;int port=outil.Port;
             var departs=Task.Run(()=>{using(var d=new ClientDeparts(port,ClientDeparts.DelaiMinimal))return d.Lire();});while(!departs.IsCompleted)yield return null;
             if(!departs.Result.Presente)throw Faux(departs.Result.Absence);
             var zab=departs.Result.Donnees.Fiches.Where(f=>f.Siege.Nom==Siege).ToArray();if(zab.Length!=1)throw Faux(zab.Length+" départ(s) au siège "+Siege);
-            cellule=zab[0].CellId;if(!outil.Ouvrir(cellule))throw Faux(outil.Message);lieu.Ouvrir(cellule);
+            cellule=zab[0].CellId;if(!outil.Ouvrir(cellule))throw Faux(outil.Message);panneau.Ouvrir(cellule);
             Etape("première lecture");var t=Lire(port);while(!t.IsCompleted)yield return null;var l=Verifier(t.Result,true,-1);
             Etape("montage");Monter(l.p.Plan,l.b.Donnees.Stocks[Vivres],camera);env.hour=(float)Heure;env.Apply();Appliquer(l,true);Cadrer(camera);
             // Les particules se forment ; toutes les maisons habitées fument au panier garni.
@@ -59,7 +59,7 @@ namespace ForgeLocal3D
             // #777 republie sans avancer le tick : les trois routes sont relues même au même numéro.
             Etape("seconde lecture");var t=Lire(port);while(!t.IsCompleted)yield return null;var l=Verifier(t.Result,false,Cle("tick"));
             var env=Object.FindFirstObjectByType<DesertEnvironment>()??throw Faux("pas de DesertEnvironment");env.hour=(float)Heure;env.Apply();
-            Appliquer(l,!Contre);Cadrer(camera);for(int i=0;i<Images;i++)yield return null;
+            panneau.Ouvrir(cellule);Appliquer(l,!Contre);Cadrer(camera);for(int i=0;i<ImagesMax&&(i<Images||!AfficheLeRetrait());i++)yield return null;if(!AfficheLeRetrait())throw Faux("panneau encore nourri : "+panneau.TexteAffiche);
             Etape("relevé de la place affamée");Cadrer(camera);
             foreach(var e in ids.Keys)if(e.Fumee.isEmitting||e.Fumee.particleCount>0||!e.Lampe.isActiveAndEnabled||e.Lampe.intensity!=soir[e])throw Faux(e.name+" : "+e.Fumee.particleCount+" particule(s), lampe "+e.Lampe.intensity+" au lieu de "+soir[e]);
             if(Matrice(camera)!=cadrage)throw Faux("cadrage changé depuis la place nourrie");
@@ -67,6 +67,7 @@ namespace ForgeLocal3D
             if(Contre)Debug.Log("CAPTURE_781 contre-épreuve "+GarderEtalPlein+" : "+Visibles(camera)+" garniture(s) alimentaire(s) visible(s) au panier vide");
             Etape("photo de la place affamée");Application.logMessageReceived+=Photo;
         }
+        static bool AfficheLeRetrait(){var t=panneau!=null?panneau.TexteAffiche:null;return t!=null&&t.Contains("\nNourriture : 0 kg\n")&&t.Contains("\nFaim : ")&&!t.Contains("\nFaim : 0 ticks");}
 
         static Task<(LecturePlan p,Lecture<BourgLu> b,Lecture<OccupationLue> o)> Lire(int port)
         {long c=cellule;return Task.Run(()=>{using(var plan=new ClientPlan(port,Delai))using(var vie=new ClientVieDuBourg(port,Delai))return (plan.Lire(c),vie.LireBourg(c),vie.LireOccupation(c));});}
