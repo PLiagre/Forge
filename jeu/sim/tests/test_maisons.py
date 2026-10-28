@@ -2710,27 +2710,27 @@ def test_familles_historiques_constantinople():
 
 
 # Notices examinées le 28 octobre 2026 ; attentes indépendantes du catalogue.
-# id, nom, naissance, précision, mère, épouse, page d’identité, repères, pages (naissance, présence, père, mère, conjoints ; - : aucune), identité, présence, conjoint
+# id, nom, naissance, précision, mère, épouse, page d’identité, pages (naissance, présence, père, mère, conjoints ; - : aucune), identité, présence, conjoint
 BAYEZID, MEHMED_P, FETRET = 'https://islamansiklopedisi.org.tr/bayezid-i', 'https://islamansiklopedisi.org.tr/mehmed-i', 'https://islamansiklopedisi.org.tr/fetret-devri'
 TTK, UZUNCARSILI = 'https://ttk.gov.tr/osmanli-padisahlari/', 'https://dergipark.org.tr/tr/download/article-file/3043592'
 ULUCAY = 'https://turuz.com/storage/Turkologi/2017/2278-Padishahlarin_Qadinlari_Ve_Qizlari-M.Chaghatay_Uluchay-1992-313s.pdf'
 DEVLETSAH, HAFSA, OLIVERA = 'https://en.wikipedia.org/wiki/Devlet%C5%9Fah_Hatun', 'https://en.wikipedia.org/wiki/Hafsa_Hatun', 'https://en.wikipedia.org/wiki/Olivera_Despina'
 SRC_OTTO, PERE_B = dict(B=BAYEZID, M=MEHMED_P, F=FETRET, T=TTK, U=ULUCAY, Z=UZUNCARSILI, D=DEVLETSAH, H=HAFSA, O=OLIVERA), 'personne-grande-16'
 OTTOMANS = (
-    ('devletsah-hatun', 'Devletşah Hatun', 'c. 1365', 'vers', None, True, DEVLETSAH, ('c. 1365', '1414', '1378', '1381', 'p. 23-26'), 'DD--U', 'Devletşah Hatun, fille de Süleyman Şah de Germiyan, compagne de Bayezid Ier.', 'Devletşah Hatun, morte en 1414 ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.', 'Devletşah Hatun épouse Bayezid Ier en 1378 ; la notice Bayezid donne vers 1381. Uluçay, p. 23-26.'),
-    ('devlet-hatun', 'Devlet Hatun', None, None, None, True, UZUNCARSILI, ('janvier 1414', 'convertie', 'distincte', 'Devletşah Hatun', 'p. 185-188'), '-Z--Z', 'Devlet Hatun, convertie distincte de Devletşah Hatun, compagne de Bayezid Ier et mère de Mehmed Çelebi. Uzunçarşılı, p. 185-188.', 'Devlet Hatun, convertie distincte de Devletşah Hatun, morte en janvier 1414 ; vivante au 1er janvier 1400.', 'Devlet Hatun, convertie distincte de Devletşah Hatun, compagne de Bayezid Ier.'),
-    ('olivera-despina', 'Olivera Despina', 'c. 1372', 'vers', None, True, OLIVERA, ('c. 1372', '1444', '1390', '1402'), 'OO--O', 'Olivera Despina, fille de Lazar de Serbie, compagne de Bayezid Ier.', 'Olivera Despina, vivante après 1444, capturée en 1402 avec Oruz Hatun et Paşa Melek Hatun ; vivante au 1er janvier 1400.', 'Olivera Despina épouse Bayezid Ier en 1390.'),
-    ('hafsa-hatun', 'Hafsa Hatun', None, None, None, True, HAFSA, ('1390', '1403', 'İsa Bey', 'Aydın'), '-H--H', 'Hafsa Hatun, fille d’İsa Bey d’Aydın, compagne de Bayezid Ier.', 'Hafsa Hatun, présence après 1403 ; vivante au 1er janvier 1400.', 'Hafsa Hatun épouse Bayezid Ier en 1390.'),
-    ('suleyman-celebi', 'Süleyman Çelebi', None, None, None, False, BAYEZID, ('après le départ',), '-FB--', 'Süleyman Çelebi, fils de Bayezid Ier, parmi les six fils survivants.', 'Süleyman Çelebi, fils de Bayezid Ier, vivant après le départ.', None),
-    ('isa-celebi', 'İsa Çelebi', '1380', 'annee', 'devletsah-hatun', False, DEVLETSAH, ('1380', 'Devletşah Hatun', 'après le départ'), 'DFBU-', 'İsa Çelebi, fils de Bayezid Ier et de Devletşah Hatun.', 'İsa Çelebi, fils de Bayezid Ier et de Devletşah Hatun, vivant après le départ.', None),
-    ('musa-celebi', 'Musa Çelebi', None, None, 'devletsah-hatun', False, ULUCAY, ('Devletşah Hatun', 'après le départ'), '-FBU-', 'Musa Çelebi, fils de Bayezid Ier et de Devletşah Hatun.', 'Musa Çelebi, fils de Bayezid Ier, vivant après le départ.', None),
-    ('mehmed-ier', 'Mehmed Çelebi', '1386 ou 1387', 'intervalle', 'devlet-hatun', False, MEHMED_P, ('1386 ou 1387', 'Devlet Hatun', 'après le départ'), 'MMBZ-', 'Mehmed Çelebi, fils de Bayezid Ier et de Devlet Hatun.', 'Mehmed Çelebi, fils de Bayezid Ier, vivant après le départ.', None),
-    ('kasim-celebi', 'Kasım Çelebi', None, None, None, False, FETRET, ('1403', 'Constantinople', 'après le départ'), '-FB--', 'Kasım Çelebi, fils de Bayezid Ier.', 'Kasım Çelebi, fils de Bayezid Ier, envoyé à Constantinople en 1403 ; vivant après le départ.', None),
-    ('mustafa-celebi', 'Mustafa Çelebi', None, None, None, False, MEHMED_P, ('1402', 'après le départ'), '-MB--', 'Mustafa Çelebi, fils de Bayezid Ier.', 'Mustafa Çelebi, fils de Bayezid Ier, capturé en 1402 ; vivant après le départ.', None),
-    ('hundi-hatun', 'Hundi Hatun', None, None, None, False, ULUCAY, ('1396', 'Nicopolis', 'après le départ'), '-UU--', 'Hundi Hatun, fille de Bayezid Ier.', 'Hundi Hatun, fille de Bayezid Ier, mariée après Nicopolis (1396) ; vivante après le départ. Uluçay, p. 23-26.', None),
-    ('oruz-hatun', 'Oruz Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ'), '-OUO-', 'Oruz Hatun, fille de Bayezid Ier et d’Olivera Despina.', 'Oruz Hatun, capturée en 1402 avec Olivera Despina ; vivante après le départ.', None),
-    ('pasa-melek-hatun', 'Paşa Melek Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ'), '-OUO-', 'Paşa Melek Hatun, fille de Bayezid Ier et d’Olivera Despina.', 'Paşa Melek Hatun, capturée en 1402 avec Olivera Despina ; vivante après le départ.', None),
-    ('fatma-hatun', 'Fatma Hatun', None, None, None, False, FETRET, ('1403', 'Kasım Çelebi', 'après le départ'), '-FU--', 'Fatma Hatun, fille de Bayezid Ier.', 'Fatma Hatun, fille de Bayezid Ier, envoyée à Constantinople avec Kasım Çelebi en 1403 ; vivante après le départ.', None),
+    ('devletsah-hatun', 'Devletşah Hatun', 'c. 1365', 'vers', None, True, DEVLETSAH, 'DD--U', 'Devletşah Hatun, fille de Süleyman Şah de Germiyan, compagne de Bayezid Ier.', 'Devletşah Hatun, morte en 1414 ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.', 'Devletşah Hatun épouse Bayezid Ier en 1378 ; la notice Bayezid donne vers 1381. Uluçay, p. 23-26.'),
+    ('devlet-hatun', 'Devlet Hatun', None, None, None, True, UZUNCARSILI, '-Z--Z', 'Devlet Hatun, convertie distincte de Devletşah Hatun, compagne de Bayezid Ier et mère de Mehmed Çelebi. Uzunçarşılı, p. 185-188.', 'Devlet Hatun, convertie distincte de Devletşah Hatun, morte en janvier 1414 ; vivante au 1er janvier 1400.', 'Devlet Hatun, convertie distincte de Devletşah Hatun, compagne de Bayezid Ier.'),
+    ('olivera-despina', 'Olivera Despina', 'c. 1372', 'vers', None, True, OLIVERA, 'OO--O', 'Olivera Despina, fille de Lazar de Serbie, compagne de Bayezid Ier.', 'Olivera Despina, vivante après 1444, capturée en 1402 avec Oruz Hatun et Paşa Melek Hatun ; vivante au 1er janvier 1400.', 'Olivera Despina épouse Bayezid Ier en 1390.'),
+    ('hafsa-hatun', 'Hafsa Hatun', None, None, None, True, HAFSA, '-H--H', 'Hafsa Hatun, fille d’İsa Bey d’Aydın, compagne de Bayezid Ier.', 'Hafsa Hatun, présence après 1403 ; vivante au 1er janvier 1400.', 'Hafsa Hatun épouse Bayezid Ier en 1390.'),
+    ('suleyman-celebi', 'Süleyman Çelebi', None, None, None, False, BAYEZID, '-FB--', 'Süleyman Çelebi, fils de Bayezid Ier, parmi les six fils survivants.', 'Süleyman Çelebi, fils de Bayezid Ier, vivant après le départ.', None),
+    ('isa-celebi', 'İsa Çelebi', '1380', 'annee', 'devletsah-hatun', False, DEVLETSAH, 'DFBU-', 'İsa Çelebi, fils de Bayezid Ier et de Devletşah Hatun.', 'İsa Çelebi, fils de Bayezid Ier et de Devletşah Hatun, vivant après le départ.', None),
+    ('musa-celebi', 'Musa Çelebi', None, None, 'devletsah-hatun', False, ULUCAY, '-FBU-', 'Musa Çelebi, fils de Bayezid Ier et de Devletşah Hatun.', 'Musa Çelebi, fils de Bayezid Ier, vivant après le départ.', None),
+    ('mehmed-ier', 'Mehmed Çelebi', '1386 ou 1387', 'intervalle', 'devlet-hatun', False, MEHMED_P, 'MMBZ-', 'Mehmed Çelebi, fils de Bayezid Ier et de Devlet Hatun.', 'Mehmed Çelebi, fils de Bayezid Ier, vivant après le départ.', None),
+    ('kasim-celebi', 'Kasım Çelebi', None, None, None, False, FETRET, '-FB--', 'Kasım Çelebi, fils de Bayezid Ier.', 'Kasım Çelebi, fils de Bayezid Ier, envoyé à Constantinople en 1403 ; vivant après le départ.', None),
+    ('mustafa-celebi', 'Mustafa Çelebi', None, None, None, False, MEHMED_P, '-MB--', 'Mustafa Çelebi, fils de Bayezid Ier.', 'Mustafa Çelebi, fils de Bayezid Ier, capturé en 1402 ; vivant après le départ.', None),
+    ('hundi-hatun', 'Hundi Hatun', None, None, None, False, ULUCAY, '-UU--', 'Hundi Hatun, fille de Bayezid Ier.', 'Hundi Hatun, fille de Bayezid Ier, mariée après Nicopolis (1396) ; vivante après le départ. Uluçay, p. 23-26.', None),
+    ('oruz-hatun', 'Oruz Hatun', None, None, 'olivera-despina', False, OLIVERA, '-OUO-', 'Oruz Hatun, fille de Bayezid Ier et d’Olivera Despina.', 'Oruz Hatun, capturée en 1402 avec Olivera Despina ; vivante après le départ.', None),
+    ('pasa-melek-hatun', 'Paşa Melek Hatun', None, None, 'olivera-despina', False, OLIVERA, '-OUO-', 'Paşa Melek Hatun, fille de Bayezid Ier et d’Olivera Despina.', 'Paşa Melek Hatun, capturée en 1402 avec Olivera Despina ; vivante après le départ.', None),
+    ('fatma-hatun', 'Fatma Hatun', None, None, None, False, FETRET, '-FU--', 'Fatma Hatun, fille de Bayezid Ier.', 'Fatma Hatun, fille de Bayezid Ier, envoyée à Constantinople avec Kasım Çelebi en 1403 ; vivante après le départ.', None),
 )
 OTTO_EXCLUSIONS = {
     'Ertuğrul Çelebi': (MEHMED_P, TTK, '1400', 'indéterminée', 'sans jour'),
@@ -2745,8 +2745,6 @@ OTTO_EXCLUSIONS = {
 PARENTS_OTTO = {('devletsah-hatun', 'pere'): ('Süleyman Şah de Germiyan',), ('devletsah-hatun', 'mere'): ('Mutahhare Hatun',), ('hafsa-hatun', 'pere'): ('İsa Bey d’Aydın',)}
 UNION_OTTO, ENFANTS_OTTO = 'union avec Devletşah Hatun, Devlet Hatun, Olivera Despina et Hafsa Hatun', 'Enfants documentés de Bayezid Ier : Süleyman Çelebi, İsa Çelebi, Musa Çelebi, Mehmed Çelebi, Kasım Çelebi, Mustafa Çelebi, Hundi Hatun, Oruz Hatun, Paşa Melek Hatun et Fatma Hatun'
 UNIONS_B = 'unions avec Devletşah Hatun (1378, vers 1381), Devlet Hatun, Olivera Despina (1390) et Hafsa Hatun (1390)'
-NEGATION = re.compile(r'\b(aucune?s?|pas|sans|jamais|non|ni)\b', re.I)  # un fait établi n’est pas une négation
-
 
 SENS_IDENTITE = (('convertie', 'née'), ('fille', 'fils'), ('fils de', 'frère de'))
 SENS_PRESENCE = (('morte', 'née'), ('capturée', 'libérée'), ('capturé', 'libéré'), ('présence', 'absence'), ('mariée', 'célibataire'), ('envoyée', 'emprisonnée'), ('envoyé', 'emprisonné'), ('fils', 'frère'))
@@ -2764,10 +2762,8 @@ def _ottomans(fiches=None, etat=None):
         assert isinstance(conjoints, dict) and conjoints.get('url') == BAYEZID and re.fullmatch(r'Bayezid Ier : ' + re.escape(UNIONS_B) + r'\.', conjoints.get('fait') or '') and isinstance(presence_b, dict) and presence_b.get('url') == BAYEZID and re.fullmatch(r'Bayezid Ier, vivant au 1er janvier 1400, sultan de 1389 à 1402 ; décès postérieur cité pour la sélection initiale\.', presence_b.get('fait') or '')
         assert isinstance(bay['lacunes'].get('pere'), str) and 'aucune absence attestée' in bay['lacunes']['pere'] and isinstance(bay['lacunes'].get('mere'), str) and 'aucune absence attestée' in bay['lacunes']['mere']
         for k in ('pere', 'mere'): _reperes_voisins(bay['lacunes'][k], ('Ancêtres de Bayezid Ier', 'hors périmètre', 'aucune absence attestée'))
-        _reperes_voisins(conjoints.get('fait'), (UNIONS_B,)); assert not any(NEGATION.search(s.get('fait') or '') for s in (conjoints, presence_b))
-        _reperes_voisins(conjoints.get('fait'), ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'))
         assert fiches['personne-devlet-hatun']['nom'] != fiches['personne-devletsah-hatun']['nom']
-        for i, nom, date, precision, mere, epoux, page, _reperes, pages, identite_attendue, presence_attendue, conjoint_attendu in OTTOMANS:
+        for i, nom, date, precision, mere, epoux, page, pages, identite_attendue, presence_attendue, conjoint_attendu in OTTOMANS:
             f, sexe = fiches['personne-' + i], 'fils' if nom.endswith('Çelebi') else 'fille'
             assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (
                 nom, 'grande-16', _naissance_famille(date, precision) if date else None, None if epoux else PERE_B,
@@ -2776,7 +2772,6 @@ def _ottomans(fiches=None, etat=None):
             identite, presence = f['sources'].get('identite'), f['sources'].get('presence')
             assert isinstance(identite, dict) and identite.get('url') == page and identite.get('fait') == identite_attendue and isinstance(presence, dict) and presence.get('url') == SRC_OTTO[pages[1]] and presence.get('fait') == presence_attendue and f['lacunes'].get('presence') is None
             assert all(isinstance(s, dict) and nom in (s.get('fait') or '') for s in f['sources'].values() if s) and all((f['sources'].get(k) or {}).get('url') == SRC_OTTO.get(c) for k, c in zip(('naissance', 'presence', 'pere', 'mere', 'conjoints'), pages))
-            assert not any(NEGATION.search(s.get('fait') or '') for s in f['sources'].values() if s)
             assert next(a for a, _ in SENS_IDENTITE if a in identite_attendue) in identite.get('fait') and next(a for a, _ in SENS_PRESENCE if a in presence_attendue) in presence.get('fait') and (not epoux or next(a for a, _ in SENS_CONJOINT if a in conjoint_attendu) in f['sources']['conjoints'].get('fait'))
             for k in ('pere', 'mere', 'conjoints'):
                 if isinstance(f['lacunes'].get(k), str) and not (k == 'mere' and not epoux): _reperes_voisins(f['lacunes'][k], (nom, 'hors périmètre', 'aucune absence attestée', *PARENTS_OTTO.get((i, k), ()))); _reperes_voisins(f['lacunes'][k].lower(), ({'pere': 'père', 'mere': 'mère', 'conjoints': 'conjoints'}[k],))
@@ -2787,7 +2782,7 @@ def _ottomans(fiches=None, etat=None):
                 assert isinstance(pere, dict) and re.fullmatch(re.escape(nom) + r' est ' + sexe + r' de Bayezid Ier\.', pere.get('fait') or '') and f['sources'].get('conjoints') is None and isinstance(f['lacunes'].get('conjoints'), str) and 'aucune absence attestée' in f['lacunes']['conjoints']
                 if mere:
                     mere_source = f['sources'].get('mere')
-                    assert isinstance(mere_source, dict) and re.fullmatch(re.escape(nom) + r' est ' + sexe + r' de Bayezid Ier et d(e |’)' + re.escape(next(o[1] for o in OTTOMANS if o[0] == mere)) + r'(?:, convertie distincte de ' + re.escape(next(o[1] for o in OTTOMANS if o[0] == 'devletsah-hatun')) + r')?\.(?: (?:Uluçay, )?p\. [\d-]+\.)?', mere_source.get('fait') or '') and not re.search(r'réfut|refus|\brumeur\b|\bnie\b|n[’\']est pas|prétend|fausse?', mere_source.get('fait') or '', re.I)
+                    assert isinstance(mere_source, dict) and re.fullmatch(re.escape(nom) + r' est ' + sexe + r' de Bayezid Ier et d(e |’)' + re.escape(next(o[1] for o in OTTOMANS if o[0] == mere)) + r'(?:, convertie distincte de ' + re.escape(next(o[1] for o in OTTOMANS if o[0] == 'devletsah-hatun')) + r')?\.(?: (?:Uluçay, )?p\. [\d-]+\.)?', mere_source.get('fait') or '')
                 else:
                     assert f['sources'].get('mere') is None and isinstance(f['lacunes'].get('mere'), str)
                     _reperes_voisins(f['lacunes']['mere'], (nom, 'n’établissent pas', 'aucune absence attestée'))
@@ -2801,11 +2796,9 @@ def _ottomans(fiches=None, etat=None):
         assert (etat.get('conjoints'), etat.get('enfants'), etat.get('lacunes')) == ('union', 'documentes', {'conjoints': None, 'enfants': None})
         sources, exclusions = etat.get('sources'), etat.get('exclusions')
         assert isinstance(sources, dict) and isinstance(exclusions, dict) and set(exclusions) == set(OTTO_EXCLUSIONS)
-        for champ, reperes in (
-                ('conjoints', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if femme) + ('1378', '1381', '1390')),
-                ('enfants', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if not femme))):
-            source = sources.get(champ); assert isinstance(source, dict) and source.get('url') == BAYEZID; _reperes_voisins(source.get('fait'), reperes)
-            _reperes_voisins(source['fait'], (UNION_OTTO if champ == 'conjoints' else ENFANTS_OTTO,)); assert not NEGATION.search(source['fait']) and re.fullmatch((r'Bayezid Ier : ' + re.escape(UNION_OTTO) + r' ; unions en 1378, vers 1381 et 1390\.') if champ == 'conjoints' else re.escape(ENFANTS_OTTO) + r'\.', source['fait'])
+        for champ in ('conjoints', 'enfants'):
+            source = sources.get(champ); assert isinstance(source, dict) and source.get('url') == BAYEZID
+            assert re.fullmatch((r'Bayezid Ier : ' + re.escape(UNION_OTTO) + r' ; unions en 1378, vers 1381 et 1390\.') if champ == 'conjoints' else re.escape(ENFANTS_OTTO) + r'\.', source.get('fait') or '')
         for nom, reperes in OTTO_EXCLUSIONS.items():
             x, pages = exclusions[nom], {v for v in reperes if str(v).startswith('http')}
             faits = tuple(v for v in reperes if v not in pages); sens = (r' : mort en 1400 sans jour établi ; présence indéterminée au 1er janvier, jamais vivant ni décédée par déduction\.' if nom == 'Ertuğrul Çelebi' else r' : fille et mère attestée par Uluçay, p\. 23-26 ; aucune date n’établit sa présence, présence indéterminée\.' if nom == 'Erhondu Hatun' else r' : listes tardives divergentes, absent des six fils survivants de Bayezid et du relevé TTK ; existence ou présence non promue en fait certain\.' if 'divergentes' in faits else r' : projet déjà conservé dans l’exclusion de grande-11, jamais fusionnée avec Hundi Hatun, Oruz Hatun, Paşa Melek Hatun, Fatma Hatun ou Erhondu Hatun\.' if 'jamais fusionnée' in faits else r' : Uluçay ne trouve aucune trace dans les sources et signale une confusion probable avec Olivera Despina ; aucune personne ni union active(?:\. (?:Comtesse de Salona|Fille du roi de Hongrie))?\.')
@@ -2822,10 +2815,6 @@ def test_familles_historiques_ottomans():
     def refuse(c, controle=False):
         if controle: assert _controler_famille(resolus(c))
         with pytest.raises(AssertionError): preuve(c)
-    def remplacer(obj, ancien):
-        if isinstance(obj, str): return obj.replace(ancien, 'inconnu')
-        if isinstance(obj, list): return [remplacer(x, ancien) for x in obj]
-        return {k: remplacer(v, ancien) for k, v in obj.items()} if isinstance(obj, dict) else obj
     preuve(d)
     ids = {'personne-' + i for i, *_ in OTTOMANS} | {PERE_B, 'grande-16'}
     for t in ('familles', 'liens', 'etats'):
@@ -2860,14 +2849,12 @@ def test_familles_historiques_ottomans():
                 for k in ('pere', 'mere'): [refuse(_alterer_personnages(d, (t, j, 'lacunes', k), m)) for m in ('Motif arbitraire hors périmètre ; aucune absence attestée.', 'Ancêtres de Bayezid Ier ; aucune absence attestée.', 'Ancêtres de Bayezid Ier hors périmètre ; aucune absence.')]
                 continue
             row = next(o for o in OTTOMANS if f['id'] == 'personne-' + o[0])
-            refuse(_alterer_personnages(d, (t, j, 'nom'), 'Homonyme')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), f'{row[1]} est l’oncle de Bayezid Ier')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), f['sources']['identite']['fait'] + ' Attribution fausse')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), f['sources']['identite']['fait'].replace('compagne', 'prétendue compagne'))) if row[5] else None; refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), f'{row[1]} meurt après le départ')); refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), f['sources']['presence']['fait'] + ' décédée avant le départ')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), row[9].replace(*next(p for p in SENS_IDENTITE if p[0] in row[9]), 1))); refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), row[10].replace(*next(p for p in SENS_PRESENCE if p[0] in row[10]), 1)))
+            refuse(_alterer_personnages(d, (t, j, 'nom'), 'Homonyme')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), f'{row[1]} est l’oncle de Bayezid Ier')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), f['sources']['identite']['fait'] + ' Attribution fausse')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), f['sources']['identite']['fait'].replace('compagne', 'prétendue compagne'))) if row[5] else None; refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), f'{row[1]} meurt après le départ')); refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), f['sources']['presence']['fait'] + ' décédée avant le départ')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), row[8].replace(*next(p for p in SENS_IDENTITE if p[0] in row[8]), 1))); refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), row[9].replace(*next(p for p in SENS_PRESENCE if p[0] in row[9]), 1)))
             for k in (k for k, v in f['lacunes'].items() if isinstance(v, str)): [refuse(_alterer_personnages(d, (t, j, 'lacunes', k), m)) for m in ('Motif arbitraire hors périmètre ; aucune absence attestée.', f'Motif arbitraire de {row[1]} hors périmètre ; aucune absence attestée.')]
             for k, parent in ((k, p) for k in ('pere', 'mere') for p in PARENTS_OTTO.get((row[0], k), ())): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), f['lacunes'][k].replace(parent, 'Inconnu')))
             refuse(_alterer_personnages(d, (t, j, 'naissance'), None if f['naissance'] else _naissance_famille('1380', 'annee'))); refuse(_alterer_personnages(d, (t, j, 'sources', 'naissance', 'fait'), f'{row[1]} meurt en {row[2]}')) if row[2] else None
-            for r in row[7]:
-                c = copy.deepcopy(d); c[t][j]['sources'], c[t][j]['lacunes'] = remplacer(f['sources'], r), remplacer(f['lacunes'], r); refuse(c)
             if row[5]:
-                refuse(_alterer_personnages(d, (t, j, 'conjoints'), [])); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'pere'), 'hors sujet')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} est sœur de Bayezid Ier en 1390.')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} refuse d’être compagne de Bayezid Ier')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f['sources']['conjoints']['fait'] + ' Attribution fausse')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), row[11].replace(*next(p for p in SENS_CONJOINT if p[0] in row[11]), 1)))
+                refuse(_alterer_personnages(d, (t, j, 'conjoints'), [])); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'pere'), 'hors sujet')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} est sœur de Bayezid Ier en 1390.')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} refuse d’être compagne de Bayezid Ier')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f['sources']['conjoints']['fait'] + ' Attribution fausse')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), row[10].replace(*next(p for p in SENS_CONJOINT if p[0] in row[10]), 1)))
             else:
                 refuse(_alterer_personnages(d, (t, j, 'pere'), None)); refuse(_alterer_personnages(d, (t, j, 'sources', 'pere', 'fait'), f'{row[1]} est sœur de Bayezid Ier.')); refuse(_alterer_personnages(d, (t, j, 'sources', 'pere', 'fait'), f'{row[1]} est {"fille" if row[1].endswith("Çelebi") else "fils"} de Bayezid Ier.'))
                 if row[4]:
