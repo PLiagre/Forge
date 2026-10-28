@@ -397,12 +397,12 @@ def _apply_extraction(cell: Cell, carte: dict) -> None:
         _lieux.accorder_marchandise(cell, ressource)
 
 
-def _paysans_restes_au_lieu(cell, lieu, metiers):
+def _paysans_restes_au_lieu(cell, lieu, metiers, compter_ouvriers=True):
     """Retire du lieu ses ouvriers du jour ; le reliquat sans origine reste au bourg."""
-    compte = lire_ouvriers_du_jour(lieu)
+    compte = lire_ouvriers_du_jour(lieu) if compter_ouvriers else 0
     if lieu.rang != 0:
         return max(0, lieu.population - compte)
-    localises = sum(lire_ouvriers_du_jour(autre) for autre in cell.lieux)
+    localises = sum(lire_ouvriers_du_jour(autre) for autre in cell.lieux) if compter_ouvriers else 0
     reliquat = metiers.get(_constantes.METIER_OUVRIERS, 0) - localises
     if reliquat < 0:
         reliquat = 0
@@ -411,8 +411,29 @@ def _paysans_restes_au_lieu(cell, lieu, metiers):
     return max(0, lieu.population - autres - compte - reliquat)
 
 
-def _verser_recolte(cell, recolte, carte, saison, recoltes):
-    """Besoin commun, manque local ; le partage historique survit à bras suffisants."""
+def _metiers_bras_rendus(cell, metiers):
+    """Métier où les ouvriers des chantiers du jour sont redevenus paysans."""
+    if metiers == -1:
+        return metiers
+    localises = sum(lire_ouvriers_du_jour(lieu) for lieu in cell.lieux)
+    if not localises:
+        return metiers
+    temoin = dict(metiers)
+    ouvriers = _constantes.METIER_OUVRIERS
+    compte = temoin.get(ouvriers, 0)
+    rendus = compte if compte < localises else localises
+    reste = compte - rendus
+    if reste:
+        temoin[ouvriers] = reste
+    elif ouvriers in temoin:
+        del temoin[ouvriers]
+    paysans = _constantes.METIER_PAYSANS
+    temoin[paysans] = temoin.get(paysans, 0) + rendus
+    return temoin
+
+
+def _calculer_parts(cell, recolte, carte, saison, compter_ouvriers=True):
+    """Parts de récolte par lieu, sans écriture. Les bras rendus ne retirent rien."""
     km2_cultives = cell.area_km2
     if carte:
         km2_cultives *= _facteur_relief_pour_cellule(cell, carte)
@@ -420,6 +441,8 @@ def _verser_recolte(cell, recolte, carte, saison, recoltes):
         km2_cultives *= _facteur_agricole(cell, carte)
     km2_cultives *= saison
     metiers = lire_habitants_par_metier(cell)
+    if not compter_ouvriers:
+        metiers = _metiers_bras_rendus(cell, metiers)
     facteur = foyers.facteur_bras(metiers, km2_cultives)
     parts = None
     if cell.lieux and metiers != -1 and km2_cultives > 0:
@@ -427,7 +450,7 @@ def _verser_recolte(cell, recolte, carte, saison, recoltes):
         cultives_par_km2 = km2_cultives / cell.area_km2
         besoin_par_km2 = foyers.besoin_bras(cultives_par_km2)
         for lieu in cell.lieux:
-            paysans = _paysans_restes_au_lieu(cell, lieu, metiers)
+            paysans = _paysans_restes_au_lieu(cell, lieu, metiers, compter_ouvriers)
             if paysans < surfaces[lieu.rang] * besoin_par_km2:
                 locaux = dict(metiers) if lieu.rang == 0 else {}
                 locaux[_constantes.METIER_PAYSANS] = paysans
@@ -436,9 +459,67 @@ def _verser_recolte(cell, recolte, carte, saison, recoltes):
                     if parts is None:
                         parts = [recolte * surface / cell.area_km2 for surface in surfaces]
                     parts[lieu.rang] *= local
-    nourriture = _constantes.MARCHANDISE_NOURRITURE
     if not cell.lieux:
         recolte *= facteur
+    return recolte, parts
+
+
+def _kg_de_recolte(cell, recolte, parts):
+    """Kilogrammes par rang, tels que le prélèvement les lit, sans les écrire."""
+    if not cell.lieux:
+        return []
+    if parts is not None and len(cell.lieux) > 1:
+        return list(parts)
+    produite = recolte if parts is None else sum(parts)
+    if len(cell.lieux) == 1:
+        return [produite]
+    surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    kilogrammes = [0.0] * len(cell.lieux)
+    for lieu in cell.lieux:
+        kilogrammes[lieu.rang] = produite * surfaces[lieu.rang] / cell.area_km2
+    return kilogrammes
+
+
+def _ordre_de_chantier(cle):
+    natures = ("rue", "parcelle", "batiment")
+    nature = cle[1] if isinstance(cle[1], str) else natures[0]
+    return (natures.index(nature), cle[-1])
+
+
+def _repartir_la_perte(ecart, prises):
+    """Prorata des bras ; le dernier chantier du lieu garde le reliquat flottant."""
+    if ecart <= 0 or not prises:
+        return {}
+    cles = sorted(prises, key=_ordre_de_chantier)
+    total = sum(prises[cle] for cle in cles)
+    if not total:
+        return {}
+    parts = [ecart * prises[cle] / total for cle in cles]
+    parts[-1] = ecart - math.fsum(parts[:-1])
+    return {cle: part for cle, part in zip(cles, parts) if part > 0}
+
+
+def _noter_recolte_perdue(monde, cell, recolte, carte, saison):
+    """Mesure, au rendement déjà tiré, la récolte perdue par chaque chantier."""
+    origines = getattr(monde, "origines_des_chantiers", None)
+    pertes = getattr(monde, "recolte_perdue_par_chantier", None)
+    if not origines or pertes is None:
+        return
+    du_lieu = {cle: bras for cle, bras in origines.items() if cle[0] == cell.cell_id}
+    if not du_lieu:
+        return
+    actuel = _kg_de_recolte(cell, *_calculer_parts(cell, recolte, carte, saison, True))
+    temoin = _kg_de_recolte(cell, *_calculer_parts(cell, recolte, carte, saison, False))
+    for rang, (kg_actuel, kg_temoin) in enumerate(zip(actuel, temoin)):
+        prises = {cle: bras[rang] for cle, bras in du_lieu.items() if bras.get(rang, 0)}
+        for cle, part in _repartir_la_perte(kg_temoin - kg_actuel, prises).items():
+            pertes[cle] = pertes.get(cle, 0.0) + part
+
+
+def _verser_recolte(cell, recolte, carte, saison, recoltes):
+    """Besoin commun, manque local ; le partage historique survit à bras suffisants."""
+    recolte, parts = _calculer_parts(cell, recolte, carte, saison)
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
     avant = max(0.0, lire_stock_marchandise(cell, nourriture))
     stocks = [max(0.0, lire_stock_marchandise(l, nourriture)) for l in cell.lieux] if parts is not None else None
     produite = recolte if parts is None else sum(parts)
@@ -484,6 +565,7 @@ def _apply_production(
     carte: dict | None = None,
     jour: int | None = None,
     recoltes=None,
+    monde=None,
 ) -> None:
     """
     Maillon 1 — Production.
@@ -498,10 +580,11 @@ def _apply_production(
     else:
         food_produced = production_kg(cell, yield_factor)
     _verser_recolte(cell, food_produced, carte, saison, recoltes)
+    _noter_recolte_perdue(monde, cell, food_produced, carte, saison)
 
 
 def _apply_production_saison_moyenne(
-    cell: Cell, rng: random.Random, carte: dict, recoltes=None
+    cell: Cell, rng: random.Random, carte: dict, recoltes=None, monde=None,
 ) -> None:
     """
     Production avec le facteur saisonnier moyen annuel.
@@ -514,6 +597,7 @@ def _apply_production_saison_moyenne(
     saison = _constantes.facteur_saison_moyen_annuel(*_lire_solstices(cell, carte))
     food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
     _verser_recolte(cell, food_produced, carte, saison, recoltes)
+    _noter_recolte_perdue(monde, cell, food_produced, carte, saison)
 
 
 def _cle_arête(a_id: int, b_id: int, *, raccourci=True) -> tuple[int, int]:
@@ -1837,14 +1921,14 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     recoltes = {}
     if carte is None:
         for cell in world.cells.values():
-            _apply_production(cell, rng, carte, None, recoltes)
+            _apply_production(cell, rng, carte, None, recoltes, world)
     elif numero_tick is None:
         for cell in world.cells.values():
-            _apply_production_saison_moyenne(cell, rng, carte, recoltes)
+            _apply_production_saison_moyenne(cell, rng, carte, recoltes, world)
     else:
         jour = _constantes.jour_de_tick(numero_tick)
         for cell in world.cells.values():
-            _apply_production(cell, rng, carte, jour=jour, recoltes=recoltes)
+            _apply_production(cell, rng, carte, jour=jour, recoltes=recoltes, monde=world)
 
     prelevement.prelever(world, recoltes)
     facteurs_routes = routes.facteurs_des_routes(world)

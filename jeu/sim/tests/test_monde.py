@@ -4803,7 +4803,108 @@ def test_plan_chantiers_du_jour(monkeypatch):
     assert course() == course()
 
 
-# --- Lot 775 : la faim propre au bourg, publiée sans relire le monde ---
+def test_plan_recolte_perdue_par_chantier(monkeypatch):
+    import random
+    from sim import engine
+    from sim.model import ecrire_ouvriers_du_jour
+    from sim.service import ServeurMonde
+    from sim.tests.test_chantiers import (
+        _cellule_a_plusieurs_lieux, _JOURNEES, _deposer_chantiers_de_recolte,
+        _ecarts_de_recolte, _ordre_de_cle, _parts_du_prorata,
+    )
+    from sim import constants as k
+    production = engine._apply_production
+
+    def course():
+        serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+        monde = serveur.world
+        cid = _cellule_a_plusieurs_lieux(monde, _JOURNEES)[0].cell_id
+        autre = next(c for c in monde.cells if c != cid)
+        fil = threading.Thread(target=serveur.serve_forever, daemon=True)
+        fil.start()
+        port = serveur.server_address[1]
+        chemin = f"/plan?cell={cid}"
+        capture = {}
+
+        def relever(cible, rng, *args, **kwargs):
+            if cible.cell_id == cid and "cell" not in capture:
+                capture["etat"] = rng.getstate()
+                capture["cell"] = copy.deepcopy(cible)
+            production(cible, rng, *args, **kwargs)
+            if cible.cell_id == cid and "parts" not in capture:
+                capture["parts"] = list(kwargs["recoltes"][cid])
+
+        monkeypatch.setattr(engine, "_apply_production", relever)
+        try:
+            assert "recolte_perdue_par_chantier" not in requete_service(port, chemin)[1]
+            assert "recolte_perdue_par_chantier" not in requete_service(port, f"/plan?cell={autre}")[1]
+            _, juillet = _deposer_chantiers_de_recolte(monde)
+            monde.ticks_ecoules = juillet
+            requete_service(port, "/tick?n=1", "POST")
+            document, octets = requete_service(port, chemin)[1:]
+            origines = {cle: dict(bras) for cle, bras in monde.origines_des_chantiers.items() if cle[0] == cid}
+            ecarts, actuel = _ecarts_de_recolte(
+                capture["cell"], capture["etat"], monde.carte, k.jour_de_tick(juillet))
+            assert actuel == capture["parts"] and origines
+            couts = _parts_du_prorata(origines, ecarts)
+            pertes = []
+            for cle in sorted(couts, key=_ordre_de_cle):
+                nature = cle[1] if isinstance(cle[1], str) else "rue"
+                pertes.append({"nature": nature, "identifiant": cle[-1], "recolte_perdue_kg": couts[cle]})
+
+            def verifier(doc, attendu):
+                assert doc["cell_id"] == cid
+                lignes = doc["recolte_perdue_par_chantier"]
+                assert lignes and lignes == attendu
+                assert lignes == sorted(lignes, key=lambda e: (("rue", "parcelle", "batiment").index(e["nature"]), e["identifiant"]))
+                for ligne in lignes:
+                    assert set(ligne) == {"nature", "identifiant", "recolte_perdue_kg"}
+                    assert ligne["recolte_perdue_kg"] > 0
+                    assert ligne["recolte_perdue_kg"] == couts[
+                        (cid, ligne["identifiant"]) if ligne["nature"] == "rue"
+                        else (cid, ligne["nature"], ligne["identifiant"])]
+                for ligne in doc["chantiers_du_jour"]:
+                    assert set(ligne) == {"nature", "identifiant", "bras", "grain_paye_kg", "motif_arret"}
+
+            verifier(document, pertes)
+            assert document["tick"] == monde.ticks_ecoules and document["date"] == monde.date_simulation
+            assert "recolte_perdue_par_chantier" not in requete_service(port, f"/plan?cell={autre}")[1]
+            for lieu in monde.cells[cid].lieux:
+                ecrire_ouvriers_du_jour(lieu, 0)
+            assert serveur._construire_etat(0, -1).plans[cid] == octets
+            monde.recolte_perdue_par_chantier.clear()
+            with serveur.verrou_tick:
+                assert requete_service(port, chemin)[2] == octets
+            zero = copy.deepcopy(document)
+            zero["recolte_perdue_par_chantier"] = [{**pertes[0], "recolte_perdue_kg": 0}]
+            with pytest.raises(AssertionError):
+                verifier(zero, pertes)
+            ajoute = copy.deepcopy(document)
+            ajoute["chantiers_du_jour"][0]["recolte_perdue_kg"] = pertes[0]["recolte_perdue_kg"]
+            with pytest.raises(AssertionError):
+                verifier(ajoute, pertes)
+            etrangere = requete_service(port, f"/plan?cell={autre}")[1]
+            with pytest.raises(AssertionError):
+                verifier(etrangere, pertes)
+            frais = random.Random(1).getstate()
+            ecarts_frais, _ = _ecarts_de_recolte(capture["cell"], frais, monde.carte, k.jour_de_tick(juillet))
+            couts_frais = _parts_du_prorata(origines, ecarts_frais)
+            assert couts_frais != couts
+            recalcule = copy.deepcopy(document)
+            recalcule["recolte_perdue_par_chantier"] = [
+                {**ligne, "recolte_perdue_kg": couts_frais.get(
+                    (cid, ligne["identifiant"]) if ligne["nature"] == "rue"
+                    else (cid, ligne["nature"], ligne["identifiant"]), 0)}
+                for ligne in pertes
+            ]
+            with pytest.raises(AssertionError):
+                verifier(recalcule, pertes)
+            return octets
+        finally:
+            serveur.shutdown()
+            serveur.server_close()
+
+    assert course() == course()
 
 
 def _preparer_bourg_service(serveur, situation='bourg_affame'):

@@ -1637,3 +1637,212 @@ def test_documentation_bras_des_lieux(monkeypatch):
                           if path.name == "MODELE.md" else lire(path, *a, **kw))
             with pytest.raises(AssertionError):
                 controler()
+
+
+def _ordre_de_cle(cle):
+    natures = ("rue", "parcelle", "batiment")
+    nature = cle[1] if isinstance(cle[1], str) else natures[0]
+    return (natures.index(nature), cle[-1])
+
+
+def _rendre_bras_de_chantier(cell):
+    metiers = lire_habitants_par_metier(cell)
+    localises = sum(lire_ouvriers_du_jour(lieu) for lieu in cell.lieux)
+    for lieu in cell.lieux:
+        ecrire_ouvriers_du_jour(lieu, 0)
+    if metiers == -1 or not localises:
+        return
+    ouvriers = metiers.get(k.METIER_OUVRIERS, 0)
+    rendus = ouvriers if ouvriers < localises else localises
+    metiers = dict(metiers)
+    reste = ouvriers - rendus
+    if reste:
+        metiers[k.METIER_OUVRIERS] = reste
+    else:
+        metiers.pop(k.METIER_OUVRIERS, None)
+    metiers[k.METIER_PAYSANS] = metiers.get(k.METIER_PAYSANS, 0) + rendus
+    ecrire_habitants_par_metier(cell, metiers)
+
+
+def _ecarts_de_recolte(cell, etat, carte, jour):
+    """Écart par lieu au rendement capturé, avant prélèvement."""
+    def mesurer(cible):
+        tirage = random.Random()
+        tirage.setstate(etat)
+        releve = {}
+        engine._apply_production(cible, tirage, carte, jour, releve)
+        return releve[cible.cell_id]
+
+    actuel = mesurer(copy.deepcopy(cell))
+    temoin = copy.deepcopy(cell)
+    _rendre_bras_de_chantier(temoin)
+    rendu = mesurer(temoin)
+    return {rang: rendu[rang] - actuel[rang] for rang in range(len(actuel))}, actuel
+
+
+def _parts_du_prorata(origines, ecarts):
+    attendu = {}
+    for rang, ecart in ecarts.items():
+        if ecart <= 0:
+            continue
+        prises = {cle: bras[rang] for cle, bras in origines.items() if bras.get(rang, 0)}
+        if not prises:
+            continue
+        cles = sorted(prises, key=_ordre_de_cle)
+        total = sum(prises[cle] for cle in cles)
+        parts = [ecart * prises[cle] / total for cle in cles]
+        parts[-1] = ecart - math.fsum(parts[:-1])
+        for cle, part in zip(cles, parts):
+            if part > 0:
+                attendu[cle] = attendu.get(cle, 0.0) + part
+    return attendu
+
+
+def _verifier_recolte_perdue(couts, origines, ecarts):
+    assert origines and any(any(bras.values()) for bras in origines.values()), "échantillon vide"
+    assert any(ecart > 0 for ecart in ecarts.values()), "échantillon vide"
+    attendu = _parts_du_prorata(origines, ecarts)
+    assert attendu, "échantillon vide"
+    assert couts == attendu
+    assert sum(couts.values()) > 0
+    assert math.fsum(couts.values()) == math.fsum(ecart for ecart in ecarts.values() if ecart > 0)
+
+
+def _deposer_chantiers_de_recolte(monde):
+    """Deux chantiers ordinaires, par les intentions, qui débordent sur deux lieux."""
+    cell, _, juillet = _cellule_a_plusieurs_lieux(monde, _JOURNEES)
+    cid = cell.cell_id
+    dispo, memes, _ = _lecture_bras(cell)
+    assert dispo and len(memes) >= 2, "échantillon vide"
+    points, largeur = _trace(_JOURNEES)
+    maitre = next(lieu.maitre for lieu in cell.lieux if lieu.rang == 0)
+    recevoir_intention(monde, {
+        "type": "tracer_route", "cell": cid, "maison": maitre,
+        "points": points, "largeur_m": largeur, "foyers": max(1, dispo // k.TAILLE_FOYER),
+    })
+    recevoir_intention(monde, {
+        "type": "tracer_route", "cell": cid, "maison": maitre,
+        "points": [[-40, 48], [40, 48]], "largeur_m": 1, "foyers": 1,
+    })
+    engine._appliquer_intentions(monde)
+    recevoir_intention(monde, {
+        "type": "decouper_parcelle", "cell": cid, "maison": maitre, "rue": 0, "segment": 0,
+        "debut_m": 0, "facade_m": 8, "profondeur_m": 8, "cote": "gauche", "foyers": 1,
+    })
+    _financer(monde, cid)
+    return cid, juillet
+
+
+def test_recolte_perdue_par_chantier(monkeypatch):
+    import json
+    from sim.snapshot_export import build_snapshot_document
+
+    def jouer(mesurer=True, capturer=False):
+        monde = World.charger(0)
+        cid, juillet = _deposer_chantiers_de_recolte(monde)
+        monde.ticks_ecoules = juillet
+        capture = {}
+        production = engine._apply_production
+
+        def relever(cible, rng, *args, **kwargs):
+            if cible.cell_id == cid and "cell" not in capture:
+                capture["etat"] = rng.getstate()
+                capture["cell"] = copy.deepcopy(cible)
+            production(cible, rng, *args, **kwargs)
+            if cible.cell_id == cid and "parts" not in capture:
+                capture["parts"] = list(kwargs["recoltes"][cid])
+
+        with monkeypatch.context() as sonde:
+            if capturer:
+                sonde.setattr(engine, "_apply_production", relever)
+            if not mesurer:
+                sonde.setattr(engine, "_noter_recolte_perdue", lambda *a, **kw: None)
+            engine.tick(monde, random.Random(0), juillet)
+        return monde, cid, juillet, capture
+
+    monde, cid, juillet, capture = jouer(capturer=True)
+    assert capture["cell"] and capture["parts"], "échantillon vide"
+    origines = {cle: dict(bras) for cle, bras in monde.origines_des_chantiers.items() if cle[0] == cid}
+    couts = {cle: kg for cle, kg in monde.recolte_perdue_par_chantier.items() if cle[0] == cid and kg > 0}
+    rangs = {rang for bras in origines.values() for rang, nombre in bras.items() if nombre}
+    assert len(origines) >= 2 and len(rangs) >= 2, "échantillon vide"
+    assert all(set(observation) == {"bras", "grain_paye_kg", "motif_arret"}
+               for observation in monde.chantiers_du_jour.values())
+    for cle in origines:
+        if isinstance(cle[1], str) and cle[1] == "batiment":
+            batiment = next(b for b in monde.plans[cle[0]].batiments if b.identifiant == cle[-1])
+            assert not batiment.autoconstruction
+    ecarts, actuel = _ecarts_de_recolte(
+        capture["cell"], capture["etat"], monde.carte, k.jour_de_tick(juillet))
+    assert actuel == capture["parts"]
+    _verifier_recolte_perdue(couts, origines, ecarts)
+    cles = sorted(origines, key=_ordre_de_cle)
+    assert origines[cles[0]] != origines[cles[1]]
+    echangees = dict(origines)
+    echangees[cles[0]], echangees[cles[1]] = origines[cles[1]], origines[cles[0]]
+    with pytest.raises(AssertionError):
+        _verifier_recolte_perdue(couts, echangees, ecarts)
+    with pytest.raises(AssertionError):
+        _verifier_recolte_perdue({cles[0]: sum(ecart for ecart in ecarts.values() if ecart > 0)}, origines, ecarts)
+    frais = random.Random(1).getstate()
+    ecarts_frais, _ = _ecarts_de_recolte(capture["cell"], frais, monde.carte, k.jour_de_tick(juillet))
+    assert ecarts_frais != ecarts
+    with pytest.raises(AssertionError):
+        _verifier_recolte_perdue(couts, origines, ecarts_frais)
+    salaire = {cle: monde.chantiers_du_jour[cle]["grain_paye_kg"] for cle in origines}
+    with pytest.raises(AssertionError):
+        _verifier_recolte_perdue(salaire, origines, ecarts)
+    with pytest.raises(AssertionError):
+        _verifier_recolte_perdue({cle: 0 for cle in origines}, origines, ecarts)
+    with pytest.raises(AssertionError, match="échantillon vide"):
+        _verifier_recolte_perdue({}, {}, {})
+
+    def octets(partie, cellule):
+        lignes = []
+        for cle, kg in sorted(
+            ((c, v) for c, v in partie.recolte_perdue_par_chantier.items() if c[0] == cellule and v > 0),
+            key=lambda item: _ordre_de_cle(item[0]),
+        ):
+            nature = cle[1] if isinstance(cle[1], str) else "rue"
+            lignes.append({"nature": nature, "identifiant": cle[-1], "recolte_perdue_kg": kg})
+        return json.dumps(lignes, sort_keys=True, separators=(",", ":")).encode()
+
+    premiere = octets(monde, cid)
+    autre, autre_cid, _, _ = jouer()
+    assert autre_cid == cid and octets(autre, cid) == premiere and autre.to_dict() == monde.to_dict()
+    sans_mesure, _, _, _ = jouer(mesurer=False)
+    assert not sans_mesure.recolte_perdue_par_chantier
+    assert sans_mesure.to_dict() == monde.to_dict()
+    sauve = json.dumps(monde.to_dict())
+    photo = json.dumps(build_snapshot_document(monde, 0, monde.ticks_ecoules))
+    for texte in (sauve, photo):
+        assert "recolte_perdue_par_chantier" not in texte
+        assert "origines_des_chantiers" not in texte
+    faux = json.loads(sauve)
+    faux["recolte_perdue_par_chantier"] = json.loads(premiere)
+    with pytest.raises(AssertionError):
+        assert "recolte_perdue_par_chantier" not in json.dumps(faux)
+
+
+def test_recolte_perdue_par_chantier_documentee(monkeypatch):
+    lire = Path.read_text
+    dossier = Path(engine.__file__).parent
+    phrases = ("recolte_perdue_par_chantier", "recolte_perdue_kg", "kilogramme",
+               "au prorata des bras", "absent")
+
+    def controler():
+        texte = (dossier / "MODELE.md").read_text(encoding="utf-8")
+        plan = texte.split("## Le plan du bourg\n", 1)[1].split("\n## ", 1)[0]
+        chantier = texte.split("## Le chantier et ses bras\n", 1)[1].split("\n## ", 1)[0]
+        readme = (dossier / "README.md").read_text(encoding="utf-8")
+        assert "recolte_perdue_par_chantier" in readme.split("`/plan` ajoute `chantiers_du_jour`", 1)[1]
+        for extrait in (plan, chantier, readme):
+            assert all(phrase in extrait for phrase in phrases)
+
+    controler()
+    for phrase in ("recolte_perdue_par_chantier", "au prorata des bras", "kilogramme"):
+        with monkeypatch.context() as sonde:
+            sonde.setattr(Path, "read_text", lambda path, *a, **kw: lire(path, *a, **kw).replace(phrase, "retiré")
+                          if path.name in ("MODELE.md", "README.md") else lire(path, *a, **kw))
+            with pytest.raises(AssertionError):
+                controler()

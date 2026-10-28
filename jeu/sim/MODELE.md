@@ -2717,6 +2717,7 @@ déclare `planche.ia = false`. `--sans-chronique` évite ce rejeu sans IA.
 `/plan?cell=X` ajoute `chantiers_du_jour` seulement si la cellule a été observée au dernier jour joué.
 La liste porte exactement `nature`, `identifiant`, `bras`, `grain_paye_kg`, `motif_arret`, triés rue/parcelle/bâtiment puis identifiant ; les kilos ne sont pas arrondis.
 Le tick et la date désignent l'état après ce jour. Ces octets sont figés dans `EtatPublie`, lisibles pendant le tick ; ni `Plan.to_dict`, ni `base`, ni `/monde` ne portent ce relevé.
+`/plan?cell=X` ajoute `recolte_perdue_par_chantier` seulement si au moins un coût est strictement positif. La liste, triée rue, parcelle, bâtiment puis identifiant, porte exactement `nature`, `identifiant` et `recolte_perdue_kg` : des kilogrammes, sans arrondi. Le champ est absent sinon, notamment pour une autoconstruction, un chantier sans bras ou un coût nul. L'écart de chaque lieu est partagé au prorata des bras pris dans ce lieu. Le relevé est celui du dernier jour, figé avec le tick et la date, et ne se recalcule pas à la lecture.
 
 Chaque cellule possède un plan du lieu (`cell_id`, 0), le bourg, dans
 `World.plans` : un dictionnaire `cell_id → Plan`. Aucun `bourg_id`, `ville_id`
@@ -2984,6 +2985,8 @@ Les chantiers ordinaires prennent leurs paysans du bourg, puis des autres lieux 
 sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.
+
+Pour chaque chantier ordinaire, le nombre de bras pris à chaque lieu reste une observation renouvelée, absente des sauvegardes et sans effet sur le travail, le salaire ou la récolte. À la production, sans nouveau tirage ni second tick, on mesure l'écart entre la récolte des bras restés aux champs et la même récolte au même rendement, avant prélèvement, si tous les bras des chantiers du jour étaient rendus à leur lieu. Cet écart est partagé au prorata des bras pris dans le lieu ; la somme des parts égale exactement l'écart mesuré, le dernier chantier du lieu recevant le reliquat flottant. Des bras encore excédentaires ne créent aucun coût. Le résultat publié est `recolte_perdue_par_chantier`, en kilogrammes (`recolte_perdue_kg`), sans arrondi. Une autoconstruction, un chantier sans bras ou un coût nul n'ajoute aucune ligne ; le champ est alors absent.
 
 ---
 

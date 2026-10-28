@@ -19,6 +19,7 @@ le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide, puis ses chantiers prennent des bras aux champs.
 `/plan` ajoute `chantiers_du_jour` uniquement si la cellule a des observations du dernier jour joué : liste triée rue/parcelle/bâtiment puis identifiant, avec `nature`, `identifiant`, `bras` (personnes affectées ce jour), `grain_paye_kg` (kilogrammes effectivement payés, sans arrondi), `motif_arret` (`null` si travail).
+`/plan` ajoute `recolte_perdue_par_chantier` seulement si un coût est strictement positif : liste triée rue/parcelle/bâtiment puis identifiant, avec `nature`, `identifiant` et `recolte_perdue_kg` (kilogrammes, sans arrondi). Le champ est absent pour une autoconstruction, un chantier sans bras ou un coût nul. Le partage se fait par lieu, au prorata des bras pris ; la somme égale l'écart mesuré. Le relevé est figé avec le tick et la date et ne se recalcule pas à la lecture.
 Un arrêt garde deux zéros et sa cause ; un achèvement garde son paiement ce jour puis disparaît. À l'ouverture ou sans observation, le champ est absent : aucun salaire nul n'est inventé. Le tick et la date sont ceux de fin de journée ; plusieurs ticks ne publient que le dernier. Les lectures servent des octets figés, sans recalcul du salaire.
 `GET /maisons` liste toutes les maisons ; `GET /maison?id=X` sert leur siège,
 leurs lieux, leur part, leur grenier et leurs flux sur trente jours (kilos et
