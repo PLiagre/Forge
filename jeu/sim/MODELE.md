@@ -2979,9 +2979,8 @@ ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
 bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 `/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
 
-La constante `BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` donne son poids à la moisson :
-l’échelle du lieu et la saison font porter le manque de bras du chantier sur la récolte du bourg,
-même quand les champs voisins ont assez de paysans. Âge et
+La constante `BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` donne son poids à la moisson.
+Les chantiers ordinaires prennent leurs paysans du bourg, puis des autres lieux du même maître, par rang croissant. Un lieu d'un autre maître ne fournit aucun bras. Chaque personne envoyée augmente le compte journalier `ouvriers_du_jour` de son lieu d'origine. Ce compte est remis à zéro au début de Chantiers, après le retour des ouvriers de la veille ; il n'est ni un métier ni une population, et il n'entre pas dans la sauvegarde. À la récolte du même tick, chaque lieu retranche ses ouvriers du jour de ses paysans avant le facteur de saison. Les mineurs et les artisans restent retranchés du seul bourg, ainsi que le reliquat d'ouvriers cellulaires sans origine journalière. La perte de récolte est celle du lieu qui a prêté ses bras. Âge et
 sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
 spécialisés et une priorité choisie par le joueur entre chantiers.

@@ -128,7 +128,8 @@ def cellule_vers_dict(cell: "Cell") -> dict:
         "migration_remainder": cell.migration_remainder,
         "stocks": dict(cell.stocks),
         "lieux": [
-            {**asdict(lieu), "maitre": lieu.maitre}
+            {cle: valeur for cle, valeur in {**asdict(lieu), "maitre": lieu.maitre}.items()
+             if cle != "ouvriers_du_jour"}
             for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
         ],
     }
@@ -151,6 +152,19 @@ class EtatDeLieu(_NoBadSpatialField):
 def ecrire_maitre(etatdelieu: EtatDeLieu, maitre: str | None) -> None:
     """Pose le maître déclaré, sans inventer de maison en cas d'absence."""
     etatdelieu.maitre = maitre
+
+
+def lire_ouvriers_du_jour(lieu) -> int:
+    """Bras pris ce jour sur le lieu ; zéro tant que le compte n'est pas posé."""
+    return getattr(lieu, "ouvriers_du_jour", 0)
+
+
+def ecrire_ouvriers_du_jour(lieu, nombre: int) -> None:
+    """Mémorise le compte du jour, et l'oublie à zéro pour ne rien sérialiser."""
+    if nombre:
+        lieu.ouvriers_du_jour = nombre
+    elif hasattr(lieu, "ouvriers_du_jour"):
+        del lieu.ouvriers_du_jour
 
 
 def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float], *,
