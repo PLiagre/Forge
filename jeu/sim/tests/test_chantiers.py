@@ -1846,3 +1846,40 @@ def test_recolte_perdue_par_chantier_documentee(monkeypatch):
                           if path.name in ("MODELE.md", "README.md") else lire(path, *a, **kw))
             with pytest.raises(AssertionError):
                 controler()
+
+
+def test_enceinte_requis_boucle_et_constante(monkeypatch):
+    from sim import chantiers
+    from sim.plan import aire_du_contour
+
+    triangle = [(0, 0), (3, 0), (0, 4)]
+    cotes = [math.dist(a, b) for a, b in zip(triangle, (*triangle[1:], triangle[0]))]
+    assert len(cotes) == 3 and aire_du_contour(triangle) > 0 and sum(cotes) == 12
+    assert k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M == 30
+    nominal = max(1, math.ceil(sum(cotes) * k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M))
+    assert chantiers.travail_requis_de_enceinte(triangle) == nominal
+    with pytest.raises(AssertionError):
+        assert chantiers.travail_requis_de_enceinte(triangle) == max(
+            1, math.ceil(sum(cotes[:-1]) * k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M))
+    monkeypatch.setattr(k, "TRAVAIL_ENCEINTE_JOURNEES_PAR_M", k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M * 2)
+    assert chantiers.travail_requis_de_enceinte(triangle) == max(
+        1, math.ceil(sum(cotes) * k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M)) != nominal
+
+
+def test_enceinte_survit_aux_deux_reconstructions():
+    from sim import chantiers
+    from sim.plan import Enceinte
+
+    triangle = [(0, 0), (3, 0), (0, 4)]
+    temoin = Enceinte(triangle, en_chantier=True, foyers=1, travail_requis=9, travail_fourni=1)
+    monde = _autoconstruction(1)
+    plan = replace(monde.plans[0], enceinte=temoin)
+    bourg = next(lieu for lieu in monde.cells[0].lieux if lieu.rang == 0)
+    ouvert = chantiers._ouvrir_maisons(plan, dict(lire_habitants_par_metier(monde.cells[0])), bourg)
+    assert ouvert is not plan and ouvert.batiments and ouvert.enceinte is temoin
+    monde = _epreuve_salaire()
+    monde.plans[1] = replace(monde.plans[1], enceinte=temoin)
+    avant = monde.plans[1]
+    chantiers.avancer_chantiers(monde)
+    assert monde.plans[1] is not avant and monde.plans[1].enceinte is temoin
+    assert monde.plans[1].rues[0].travail_fourni > avant.rues[0].travail_fourni

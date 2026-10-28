@@ -28,6 +28,12 @@ def travail_requis_de_batiment(emprise):
     return max(1, math.ceil(aire_du_contour(emprise) * _constantes.TRAVAIL_BATIMENT_JOURNEES_PAR_M2))
 
 
+def travail_requis_de_enceinte(contour):
+    """Périmètre bouclé, dernier point relié au premier, converti en journées."""
+    longueur = sum(math.dist(a, b) for a, b in zip(contour, (*contour[1:], contour[0])))
+    return max(1, math.ceil(longueur * _constantes.TRAVAIL_ENCEINTE_JOURNEES_PAR_M))
+
+
 def _ouvrir_maisons(plan, metiers, bourg):
     """Réserve les places avant l'affectation, parcelles prêtes seulement."""
     if metiers is None or bourg is None or bourg.maitre is None or not metiers.get(_constantes.METIER_ARTISANS, 0):
@@ -50,7 +56,8 @@ def _ouvrir_maisons(plan, metiers, bourg):
         besoin -= max(1, int(aire_du_contour(parcelle.contour) // _constantes.SURFACE_M2_PAR_FOYER_LOGE))
         identifiant += 1
         restantes -= 1
-    return Plan(rues=plan.rues, parcelles=plan.parcelles, batiments=maisons) if maisons != plan.batiments else plan
+    return Plan(rues=plan.rues, parcelles=plan.parcelles, batiments=maisons,
+                enceinte=plan.enceinte) if maisons != plan.batiments else plan
 
 
 def _servir(element, metiers, payables, autonome=False):
@@ -226,5 +233,5 @@ def avancer_chantiers(world):
                 ecrire_stock_marchandise(entite, nourriture, stock + montant)
         if plan is not world.plans[cell_id] or any(listes[nom] != getattr(plan, nom) for nom in listes):
             world.plans[cell_id] = Plan(rues=listes["rues"], parcelles=listes["parcelles"],
-                                       batiments=listes["batiments"])
+                                       batiments=listes["batiments"], enceinte=plan.enceinte)
     return envois
