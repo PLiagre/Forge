@@ -7,6 +7,7 @@ amorce la population de chaque cellule avec un rng_seed déterministe.
 """
 
 import dataclasses
+import copy
 import json
 import pathlib
 import random
@@ -38,6 +39,7 @@ from sim.pluie import (
     pluie_par_cellule,
 )
 from sim.registre_maisons import charger_registre_maisons
+from sim.personnages import construire_personnages
 from sim.villes import attribuer_villes, charger_villes
 
 # Racine du dépôt : deux niveaux au-dessus du paquet sim/
@@ -148,6 +150,8 @@ class World:
         self.intentions_en_attente = []
         self.maison_du_joueur = None
         self.maisons = ()
+        self.personnages = ()
+        self.chefs = {}
         self.greniers = {}
         self.parts = {}
         self.pertes_kg = 0.0
@@ -221,7 +225,7 @@ class World:
         if carte_doc is None:
             carte_doc = cls.lire_carte()
 
-        raw_cells = carte_doc["cellules"]
+        raw_cells = sorted(carte_doc["cellules"], key=lambda cellule: cellule["cell_id"])
         raw_adjacency = carte_doc["adjacence"]
         carte = {int(raw["cell_id"]): raw for raw in raw_cells}
         carte_meta = {cle: valeur for cle, valeur in carte_doc.items()
@@ -306,6 +310,7 @@ class World:
                     f"registre chargé : vassal {maison.id}, "
                     f"suzerain {maison.suzerain!r} inconnu"
                 )
+        monde.personnages, monde.chefs = construire_personnages(monde)
         # Une fois, après les maîtres : le prélèvement lit cet index sans recalcul.
         from sim.convois import routes_des_lieux, dus_des_vassaux
         from sim.places import places_du_monde
@@ -337,6 +342,8 @@ class World:
             "ticks_ecoules": self.ticks_ecoules,
             "maisons": [dataclasses.asdict(maison)
                         for maison in sorted(self.maisons, key=lambda m: m.id)],
+            "personnages": copy.deepcopy(sorted(self.personnages, key=lambda p: p['id'])),
+            "chefs": copy.deepcopy(dict(sorted(self.chefs.items()))),
         }
         if self.maison_du_joueur is not None:
             document["maison_du_joueur"] = self.maison_du_joueur

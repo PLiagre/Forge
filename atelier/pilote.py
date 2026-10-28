@@ -125,6 +125,7 @@ class Pilote:
         self.lignes: list[str] = []
         self.lfs_telechargeur = lfs_telechargeur
         self.invoques = 0  # les agents appelés par ce pilote, tous tours confondus
+        self.attentes = 0  # ceux de ces appels où personne n'a pu répondre
 
     # ----------------------------------------------------------- journal
     def noter(self, lot: int | str, action: str, detail: str = "", agent: str | None = None) -> None:
@@ -145,6 +146,8 @@ class Pilote:
                                   exclure=exclure, executeur=self.executeur_agents,
                                   place=lambda outil: self.verrous.place(f"outil-{outil}",
                                                                          self.projet.plafond(outil)))
+        if res.attente:
+            self.attentes += 1
         # Un secours a répondu : pourquoi les précédents ne l'ont pas fait
         # entre au journal, sinon un quota ou une session perdue ne se voit
         # nulle part (le chef de #184, le 28 septembre 2026).
@@ -174,7 +177,7 @@ class Pilote:
                 lot = Lot.de(self.gh.issue(lot.numero))
                 if lot.etat != "en-cours":
                     continue
-                agent_parti = self._avancer(lot, vue.jalons, vue.courant)
+                agent_parti = self._a_fait_partir(lambda: self._avancer(lot, vue.jalons, vue.courant))
             except (GitHubErreur, DepotErreur) as e:
                 self.noter(lot.numero, "erreur", str(e))
             finally:
@@ -193,7 +196,7 @@ class Pilote:
                 self.noter("master", "erreur", str(e))
                 agent_parti = self.invoques > avant
         if not agent_parti:
-            agent_parti = self._depanner_un_lot(vue)
+            agent_parti = self._a_fait_partir(lambda: self._depanner_un_lot(vue))
         if not agent_parti and vue.courant is not None:
             self._prendre_le_suivant(vue)
         with self.verrous.tenir("decider"):
@@ -201,6 +204,18 @@ class Pilote:
         if not self.lignes:
             self.lignes.append("RIEN")
         return self.lignes
+
+    def _a_fait_partir(self, pas) -> bool:
+        """Le pas a-t-il fait partir un agent ? Un pas dont chaque appel n'a
+        trouvé personne (quota, session perdue, outil plein) n'a fait
+        qu'attendre : il ne retient pas le tour. Du 26 au 28 octobre 2026,
+        #720 attendait son relecteur, Claude (la session du VPS avait
+        expiré) : chaque tour s'arrêtait sur lui, et ni le dépanneur ni un lot
+        neuf n'étaient même essayés."""
+        invoques, attentes = self.invoques, self.attentes
+        parti = pas()
+        appels = self.invoques - invoques
+        return parti and not (appels and appels == self.attentes - attentes)
 
     def _ranger_le_monde(self) -> "_Vue":
         """Ce que le tour sait du monde, rangé : les jalons suivent CAP.md, les
@@ -529,7 +544,8 @@ class Pilote:
             derniere = next((m.get("action") for m in reversed(liste)
                              if m.get("role") == role and m.get("etat") == "envoye"), None)
             action = lots.Action(derniere or "coder", action.raison, action.essai)
-        if action.nom == "corriger_ci" and self._rejouer_le_chronometre(lot, pr, branche, liste, role):
+        if action.nom == "corriger_ci" and (self._attendre_la_base(lot, pr, branche, liste)
+                                            or self._rejouer_le_chronometre(lot, pr, branche, liste, role)):
             return False
         if action.nom in ("coder", "corriger_ci", "corriger_relecture"):
             if lot.machine == "pc":
@@ -553,17 +569,61 @@ class Pilote:
         self.noter(lot.numero, "action inconnue", action.nom)
         return False
 
+    def _attendre_la_base(self, lot: Lot, pr: dict, branche: str, liste: list[dict]) -> bool:
+        """Une CI rouge sur les seuls travaux que la base de la PR avait déjà
+        rouges (`lots.rouge_de_la_base`) : le codeur n'y peut rien. Tant que
+        master les porte, le lot attend son mécanicien, sans compter d'essai,
+        et la PR le dit une fois ; dès que master les a guéris, la branche le
+        reçoit et la CI repart. Vrai quand le codeur n'a pas à passer."""
+        numero_pr, tete = pr["number"], pr.get("headRefOid") or ""
+        agregat = "tests"
+        travaux = travaux_du_workflow(pr, AGREGATS[agregat])
+        rouges = {n for n, t in travaux.items() if t["etat"] == "rouge" and n != agregat}
+        if not rouges or not tete:
+            return False
+        base = self.projet.branche_base
+        try:
+            depart = self.gh.base_de_fusion(base, tete)
+            quoi = lots.rouge_de_la_base(rouges, self.gh.travaux_du_commit(depart), self.gh.travaux_du_commit(base))
+        except GitHubErreur as e:
+            # Une base illisible ne retient pas le lot : le codeur corrige, comme avant.
+            self.noter(lot.numero, "base illisible", str(e))
+            return False
+        if not quoi:
+            return False
+        noms = ", ".join(f"`{n}`" for n in sorted(rouges))
+        if quoi == "attendre":
+            dit = any(m.get("role") == "pilote" and m.get("etat") == lots.ETAT_BASE_ROUGE and m.get("sha") == tete
+                      for m in liste)
+            if not dit:
+                self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : {noms} déjà rouge sur `{base}` (`{depart[:7]}`), "
+                                                "d'où part cette PR : le lot n'y est pour rien. Il attend que "
+                                                f"`{base}` soit réparé, sans compter d'essai, puis la branche le "
+                                                "recevra.\n\n"
+                                                f"{marque(role='pilote', etat=lots.ETAT_BASE_ROUGE, sha=tete)}")
+            self.noter(lot.numero, "attendre_base", f"PR #{numero_pr} — {noms} rouge sur `{base}` aussi")
+            return True
+        chemin = self.depot.preparer(lot.numero, branche)
+        if self.depot.fusionner_base(chemin):
+            self.depot.git_code("merge", "--abort", cwd=chemin)
+            return False
+        self.depot.pousser(chemin, branche)
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : {noms} était rouge sur `{base}` (`{depart[:7]}`), d'où "
+                                        f"partait cette PR, et `{base}` l'a réparé depuis : la branche le reçoit, "
+                                        "la CI repart, sans compter d'essai.")
+        self.noter(lot.numero, "base fusionnée", f"PR #{numero_pr} — {noms} réparé sur `{base}`")
+        return True
+
     def _rejouer_le_chronometre(self, lot: Lot, pr: dict, branche: str, liste: list[dict], role: str) -> bool:
-        """Un rouge du seul travail `chronometre`, sur un lot qui ne touche
-        pas `jeu/` : le pilote le rejoue une fois avant d'appeler le codeur,
-        sans compter d'essai (`lots.rejeu_du_chronometre`). La branche reçoit
+        """Un rouge du seul travail `chronometre` : le pilote le rejoue une
+        fois avant d'appeler le codeur, sans compter d'essai
+        (`lots.rejeu_du_chronometre`). La branche reçoit
         la base si elle a bougé, une marge regagnée sur le moteur peut-être ;
         sinon le travail rouge se rejoue. Vrai quand le codeur n'a pas à passer."""
         numero_pr, tete = pr["number"], pr.get("headRefOid") or ""
         agregat = "tests"  # le contrôle exigé qui attend `chronometre`
         travaux = travaux_du_workflow(pr, AGREGATS[agregat])
-        quoi = lots.rejeu_du_chronometre(travaux, agregat, self.gh.fichiers_de_pr(numero_pr), liste,
-                                         role_codeur=role,
+        quoi = lots.rejeu_du_chronometre(travaux, agregat, liste, role_codeur=role,
                                          heures_depuis_rejeu=self._heures_depuis(liste, "pilote", lots.ETAT_REJEU))
         if quoi == "attendre":
             self.noter(lot.numero, "attendre_ci", f"PR #{numero_pr} — `{lots.TRAVAIL_CHRONOMETRE}` rouge seul : "
@@ -586,8 +646,8 @@ class Pilote:
             self.gh.rejouer_les_echecs(int(run.group(1)))
             geste = f"le travail est rejoué (run {run.group(1)})"
         quand = self.maintenant().isoformat(timespec="seconds")
-        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : seul `{lots.TRAVAIL_CHRONOMETRE}` est rouge, et ce lot ne "
-                                        f"touche pas `jeu/` : le codeur n'y peut rien. Une fois, {geste}, sans "
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : seul `{lots.TRAVAIL_CHRONOMETRE}` est rouge, et son budget "
+                                        f"est au bord du bruit des runners. Une fois, {geste}, sans "
                                         "compter d'essai. S'il rougit encore, le codeur corrige.\n\n"
                                         f"{marque(role='pilote', etat=lots.ETAT_REJEU, sha=tete, quand=quand)}")
         self.noter(lot.numero, f"{lots.TRAVAIL_CHRONOMETRE} rejoué", f"PR #{numero_pr} — {geste}")

@@ -98,6 +98,40 @@ le propriétaire ou à sa demande. La découpe automatique d'un jalon
 ([docs/WORKFLOW.md](docs/WORKFLOW.md)) ne sert plus qu'à un jalon qu'on aurait
 laissé sans lot.
 
+## La langue visuelle
+
+Décidée le 28 octobre 2026 par le propriétaire : l'interface devient
+**sombre, gothique et médiévale** — la pierre, le bois brûlé, le métal patiné,
+des accents de rouge profond, de cuivre et d'or vieilli, la hiérarchie d'un
+registre de pouvoir. L'atmosphère de Warhammer Fantasy en est l'ambiance,
+rien de plus : ni ses logos, ni ses signes reconnaissables, ni ses assets. Les
+jetons, les états et les interdits sont dans
+[docs/interface/DA.md](docs/interface/DA.md), « Révision du 28 octobre 2026 ».
+
+- **Un socle, puis ses écrans.** La langue vit à un seul endroit
+  (`SocleInterface`, `MatieresCabinet` : jetons, matières, cadres, états,
+  infobulle) ; un écran la reçoit, il ne la redessine pas.
+- **Elle sert un geste.** Un lot qui l'applique nomme la décision de son
+  jalon qu'elle rend plus lisible. Il ne retire aucune information ni aucun
+  geste, et ne change aucun nombre : la vue lit `sim/` et n'ajoute aucune
+  règle au monde.
+- **Sa preuve peut échouer** : le contraste des jetons calculé (4,5:1 pour
+  un texte, 3:1 pour un trait qui porte un état) ; chaque état
+  reconnaissable sans sa couleur ; aucun écran qui pose une couleur ou une
+  police hors du socle ; les textes affichés au même tick identiques avant
+  et après le lot. Et des **captures des vrais écrans**, branchés au vrai
+  service, en 1920 × 1080 et 1280 × 720, regardées à l'œil et comparées à la
+  galerie du socle : une capture de galerie ne prouve pas un écran. Les
+  tests existants du socle (le papier `#E8DDC9`, les polices Noto) restent
+  verts sans retouche.
+- **Ses lots** : trois lots à créer au jalon 4 posent le socle et
+  l'appliquent à la carte et à la capitale ; les écrans Unity déjà écrits
+  des jalons 4 à 9 la reçoivent dans leur brief ; un lot à créer au jalon 9
+  vérifie le siècle entier. Un lot « à créer » n'a pas encore d'issue : il
+  faut la lui ouvrir (formulaire « Demander un lot »), puis l'inscrire ici
+  avec son numéro, et ajouter ce numéro à la ligne « Dépend de » des issues
+  qui l'attendent.
+
 ## L'échelle
 
 | # | jalon | le joueur | l'écran |
@@ -336,14 +370,76 @@ fait poser les gestes (#251, #253, #254, #256, #257, #259, #263, #266, #269,
 14. #416 Le joueur trace l'enceinte de sa capitale
 15. #417 L'enceinte se dessine, et ses portes s'ouvrent sur les rues · pc
 16. #418 Une route vers les champs nourrit mieux le bourg
-17. #419 Le panneau de la capitale dit ce que coûte un chantier · pc
-18. #420 La ville fume, garnit ses étals et s'éclaire, d'après le monde · pc
-19. #421 Les gens du bourg circulent dans les rues · pc
-20. #422 La capitale dense tient 60 images par seconde · pc
-21. #508 La preuve complète du jalon 4 : la capitale du joueur, payée, murée et vivante · pc
+17. *(lot à créer)* Le cabinet prend sa langue : la pierre, le bois brûlé et le registre · pc
+18. *(lot à créer)* La carte et ses dossiers parlent la langue du cabinet · pc
+19. *(lot à créer)* La capitale et ses outils parlent la langue du cabinet · pc
+20. #419 Le panneau de la capitale dit ce que coûte un chantier · pc
+21. #420 La ville fume, garnit ses étals et s'éclaire, d'après le monde · pc
+22. #421 Les gens du bourg circulent dans les rues · pc
+23. #422 La capitale dense tient 60 images par seconde · pc
+24. #508 La preuve complète du jalon 4 : la capitale du joueur, payée, murée et vivante · pc
 
 Les quatre premiers prouvent la capitale bâtie par intentions telle que le
 jalon l'était avant le 7 octobre ; #508 étend cette preuve à tout le jalon.
+
+**La langue visuelle dans ce jalon.** Elle sert la décision du jalon : des
+bras au chantier ou aux champs, payés au grenier. Le joueur doit lire le
+prix d'un chantier, l'état de son grenier et le refus d'un geste dans le
+même registre, sur la carte comme dans sa ville.
+
+- **Le cabinet prend sa langue** — *à créer*. *Le joueur* : partout, il
+  reconnaît d'un coup d'œil ce qu'il peut faire, ce qu'il a choisi, ce qui
+  attend le monde et ce qui presse ; c'est le registre où il lira le prix
+  d'un chantier (#419). Lot de fond du geste « paie au grenier ». *Ce que ça
+  fait* : les sept jetons de la révision du 28 octobre à côté des huit
+  existants, les matières pierre, bois brûlé et métal générées sans l'aléa du
+  monde, la rubrique, la ligne de compte, le séparateur, le sceau,
+  l'infobulle et les neuf états ; la galerie du socle les montre tous. Aucun
+  écran n'est encore touché. *Preuve* : contraste calculé de chaque paire
+  déclarée (contre-épreuve : l'or vieilli déclaré en texte sur papier
+  échoue) ; chaque état diffère d'un autre par un mot, un signe ou un trait
+  (contre-épreuve : un état réduit à sa teinte échoue) ; l'infobulle d'un
+  objet au coin de l'écran reste entière à 1280 × 720 ; les tests du socle
+  existants passent sans retouche ; captures de la galerie aux deux
+  définitions, regardées. *Dépend de* : rien d'ouvert (UI-01, UI-02 et les
+  polices sont livrés). *Photo* : la galerie, les neuf états côte à côte.
+- **La carte et ses dossiers** — *à créer*. *Le joueur* : avant de descendre
+  dans sa capitale, il compare côte à côte son grenier, sa part et les lieux
+  qu'il garde ; le lieu survolé, le lieu gardé et sa propre maison ne se
+  confondent ni entre eux ni avec une alerte, et une infobulle nomme ce
+  qu'il survole avec les valeurs servies. *Ce que ça fait* : le bandeau
+  (maison, date, pause, vitesse), le choix de la terre, les dossiers du
+  territoire, de la maison, des flux et des voisins, la part et le grenier,
+  les calques, les légendes et le menu reçoivent le socle ; les couleurs
+  écrites dans les écrans passent en jetons ; les couleurs des maisons
+  restent celles du service. *Preuve* : aucune couleur ni police posée hors
+  du socle dans l'interface de la carte — elle échoue aujourd'hui :
+  `LieuxDeCarte` pose son propre rouge ; au même tick,
+  graine 0, la liste des textes de chaque dossier est la même avant et après
+  (contre-épreuve : un libellé ou un nombre retiré échoue) ; captures du vrai
+  cabinet sur le vrai service — choix de la terre avec sa fiche au survol,
+  partie en pause avec deux dossiers ouverts, part confirmée puis reçue,
+  refus — aux deux définitions, regardées. *Dépend de* : le lot du cabinet.
+  *Photo* : la carte de 1400, la maison du joueur, deux dossiers ouverts et
+  une infobulle.
+- **La capitale et ses outils** — *à créer*. *Le joueur* : dans sa ville, il
+  trace une route, découpe une parcelle ou pose un atelier en voyant l'outil
+  actif, la parcelle survolée et le refus « pas sur vos terres » (#408) dans
+  le même registre que la carte, et revient à la carte sans changer de
+  langue. *Ce que ça fait* : le panneau de la capitale, les outils de rue, de
+  parcelle et de bâtiment, le passage carte ↔ ville et le dossier des
+  chantiers reçoivent le socle ; les marques posées sur le terrain (survol,
+  sélection, refus) prennent ses jetons. *Preuve* : la même garde contre les
+  couleurs hors du socle et la même égalité des textes ; captures à Biskra
+  sur le vrai service — outil de route actif, parcelle survolée, refus hors
+  de ses terres, retour à la carte —, regardées. *Dépend de* : le lot du
+  cabinet. *Photo* : Biskra, l'outil de parcelle actif et son refus.
+- **#419** reçoit la langue : le coût d'un chantier se lit en lignes de
+  compte (journées, bras pris aux champs, grain payé, récolte perdue, jours
+  restants) avec leur unité et leur tick ; un coût qui dépasse le grenier
+  est une alerte avec son mot ; un nombre absent garde l'état d'absence. Sa
+  photo, regardée, compare le panneau à la galerie. Son issue doit attendre
+  le lot de la capitale.
 
 ## Jalon 5 — Les autres
 
@@ -368,8 +464,13 @@ le monde fait échouer le contrôle.
 
 **Dans le monde** : les maisons de l'IA, grandes et petites, décident avec des
 raisons de monde — la faim de leurs gens, les départs, leur grenier, leurs
-chantiers — une fois par mois chacune, et chaque geste porte sa raison. À
-partir d'ici, chaque jalon qui ajoute un geste le donne aussi à l'IA.
+chantiers — une fois par mois chacune, et chaque geste porte sa raison. Une
+exception, le secours : une maison dont un lieu a faim depuis plus de sept
+jours ouvre son grenier le jour même, pour la dette de ses lieux affamés, sans
+descendre sous la moitié de sa réserve voulue (#424) ; ses gens n'attendent pas
+son jour de décision. Le réglage de sa part reste mensuel (décidé le 24
+octobre 2026, #425). À partir d'ici, chaque jalon qui ajoute un geste le donne
+aussi à l'IA.
 
 **Déjà livré** : les maisons de l'IA et leurs capitales, leur dépôt par le
 chemin du joueur, l'IA dans la forge et dans le service (#319, #320, #321,
@@ -386,6 +487,16 @@ chemin du joueur, l'IA dans la forge et dans le service (#319, #320, #321,
 7. #428 Le service et la photographie montrent les voisins et leurs raisons
 8. #429 La carte de Unity montre les voisins et ce qu'ils font · pc
 9. #324 La preuve du jalon 5
+
+**La langue visuelle dans ce jalon.** #429 la reçoit, pour la décision de
+s'en méfier ou de s'en servir : une capitale voisine porte une marque
+distincte de celle du joueur et de la sélection ; sa part et son grenier
+viennent dans l'infobulle du socle, avec leur tick ; les foyers qui
+arrivent et ceux qui partent se distinguent par le sens et le signe de leur
+flèche, pas par la couleur seule ; le fil des gestes de l'IA s'écrit en
+registre — date, maison, geste, et sa raison en note. Sa photo et une
+capture du fil long à 1280 × 720, regardées, montrent qu'aucune raison n'est
+coupée. Son issue doit attendre le lot de la carte (jalon 4).
 
 ## Jalon 6 — La dynastie
 
@@ -432,6 +543,20 @@ maisons de l'IA ont leurs personnes, sous les mêmes règles.
 17. #446 L'arbre de la dynastie dans Unity · pc
 18. #447 À la mort du chef, la carte montre l'héritier et le partage · pc
 19. #448 La preuve du jalon 6
+
+**La langue visuelle dans ce jalon.** Elle sert les décisions du mariage, de
+l'éducation et de la loi. Dans #446, l'arbre est une généalogie de registre :
+des portraits dans des cadres sobres, des filets de métal pour les liens,
+l'héritier désigné par son mot et par l'or vieilli ; éduquer, proposer un
+mariage ou changer la loi sont des commandes du socle, scellées quand elles
+engagent, avec l'attente, le reçu et la raison du refus de l'autre maison.
+Dans #447, la mort du chef s'annonce dans le bandeau d'alerte ; les lieux
+qui changent de maison ont leur légende avant et après, sur les couleurs
+servies ; la défaite, quand le service la déclare, est une page du registre,
+pas un écran à part. Photos regardées : l'arbre et la fiche de l'héritier,
+une capture de l'arbre d'une grande famille à 1280 × 720 sans nom coupé, la
+carte d'un partage. L'issue de #446 doit attendre le lot de la carte
+(jalon 4) ; #447 l'attend par #446.
 
 ## Jalon 7 — La guerre
 
@@ -489,6 +614,21 @@ et dans les villes du plan. Le chef de la dynastie peut mourir au combat.
 20. #469 La colonne sur la carte · pc
 21. #470 La preuve du jalon 7 · pc
 
+**La langue visuelle dans ce jalon.** Elle sert la décision de lever, de
+marcher et de risquer la bataille. Dans #460, « mener ou confier » est une
+décision scellée du socle, qui dit ce que le monde a envoyé (les deux
+armées, leurs hommes, le terrain) sans rien en déduire ; en bataille, les
+commandes restent basses et le terrain dégagé, la sélection d'une troupe a
+le trait et le nom du socle, et le bilan des pertes se lit en lignes de
+compte, tel que la bataille le rend au monde. Les commandes du siège (#464)
+sont celles de #460. Dans #469, la colonne, son chemin, les lieux vidés par
+le fourrage et les places assiégées portent les marques du socle sur la
+carte, et le panneau de guerre ses états, avec les refus et les raisons de
+l'autre camp. Photos regardées : le choix « mener ou confier », la bataille
+menée avec une troupe sélectionnée, la colonne en marche. L'issue de #460
+doit attendre le lot du cabinet (jalon 4), celle de #469 le lot de la
+carte.
+
 ## Jalon 8 — L'argent
 
 **Le joueur** frappe monnaie, emprunte pour acheter une terre, met un lieu en
@@ -536,6 +676,18 @@ décide, et les républiques marchandes trouvent ici leurs outils.
 17. #487 La carte des prix, le trésor et la dette dans Unity · pc
 18. #488 La preuve du jalon 8
 
+**La langue visuelle dans ce jalon.** #487 la reçoit, pour la décision de
+s'endetter, de dévaluer ou d'attendre. Le calque des prix a sa propre
+échelle de données, nommée et graduée dans sa légende avec la marchandise,
+l'unité et le tick ; le rouge profond n'y désigne jamais un prix, il reste
+à l'alerte. Le trésor est un livre de comptes : lignes de compte en
+chiffres alignés, chaque dette avec son créancier, son gage et son
+échéance, et l'échéance proche en alerte avec son mot ; frapper, emprunter
+et acheter une terre sont des engagements scellés. Photos regardées : la
+carte des prix du blé pendant une famine, le trésor avec une dette, et ce
+trésor à 1280 × 720 sans chiffre coupé. Son issue doit attendre le lot de
+la carte (jalon 4).
+
 ## Jalon 9 — Le premier siècle
 
 **Le joueur** joue de 1400 à 1500 d'un seul trait, sans changer de jeu :
@@ -581,7 +733,26 @@ Morée, puis l'Ouest — et le jeu qui se lance seul. La première partie compl�
 16. #504 Une ville conquise s'ouvre en 3D avec le kit de sa terre · pc
 17. #505 Le jeu se lance sans l'atelier · pc
 18. #506 Un siècle se joue dans le jeu, du menu à la chronique · pc
-19. #507 La preuve du jalon 9
+19. *(lot à créer)* Le siècle se lit dans une seule langue · pc
+20. #507 La preuve du jalon 9
+
+**La langue visuelle dans ce jalon.** Le menu, la sauvegarde (#490) et
+l'écran de fin (#506) prennent la langue du socle : la chronique et le score
+sont des pages du registre. Un lot la vérifie sur le siècle entier :
+
+- **Le siècle se lit dans une seule langue** — *à créer*. *Le joueur* : du
+  menu à l'écran de fin, il lit un état, une alerte, une sélection et un
+  engagement de la même façon sur chaque écran — départ, carte, ville,
+  bataille, dynastie, trésor, chronique, fin — et aucun ne lui cache ce
+  qu'il voyait au jalon précédent. Il sert le geste du jalon : jouer cent ans
+  sans changer de jeu. *Ce que ça fait* : la garde contre les couleurs et
+  les polices hors du socle s'étend à toute l'interface, et les écarts
+  trouvés sont corrigés. *Preuve* : cette garde sur tous les écrans
+  (contre-épreuve : un écran qui pose sa couleur échoue) ; le contraste des
+  jetons à 100 et 150 % ; une planche des captures du parcours réel de #506,
+  chaque écran en 1920 × 1080 et 1280 × 720, regardée écran par écran et
+  comparée à la galerie du socle. *Dépend de* : #506. *Photo* : la planche
+  du parcours.
 
 ---
 

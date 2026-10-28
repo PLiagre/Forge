@@ -47,6 +47,8 @@ s'appelle aussi `cell_id` et vaut `-1` tant qu'il n'est pas posé ; la
 validation le refuse. Le lieu, subdivision de la cellule, viendra au jalon 3
 avec une identité **dérivée** de `cell_id`, jamais une seconde clé.
 
+Le ksar figé `Forge_Desert_ksar_des_sept_puits.unity` est le décor d'épreuve du kit. La capitale jouée lit le service dans la scène `Forge_Desert_Ville_ksar_des_sept_puits.unity`.
+
 ## Les tests
 
 Unity n'est pas sur une VM Linux. Les tests EditMode réels passent par un

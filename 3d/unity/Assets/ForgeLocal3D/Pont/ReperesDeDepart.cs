@@ -20,7 +20,7 @@ namespace Forge.Pont {
         public const string MESSAGE_ABSENCE = "terres de départ incomplètes";
         public const float PERIODE_RELECTURE_S = 2f, HAUTEUR_REPERE = 2f, DIAMETRE_REPERE_KM = 40f;
         public const float HAUTEUR_LIEU = 0.8f, DIAMETRE_LIEU_KM = 10f, DIAMETRE_BORD_KM = 14f, SOUS_LE_DISQUE = -0.12f; // au-dessus des contours, sous les noms ; le bord juste sous son disque
-        public const string RACINE_LIEUX = "Lieux du joueur";
+        public const string RACINE_LIEUX = "Lieux du joueur", NOM_DU_SIEGE = "Nom du siège";
         public static readonly Color COULEUR_REPERE = Color.white; // saturation nulle et valeur pleine : aucune cellule ne la prend
         public static readonly Color COULEUR_JOUEUR = Color.white, BORD_JOUEUR = new Color(0.08f, 0.06f, 0.05f);
         public static string NomDuLieu(long cell, long rang) => "Lieu " + cell.ToString(CultureInfo.InvariantCulture) + "-" + rang.ToString(CultureInfo.InvariantCulture);
@@ -178,6 +178,26 @@ namespace Forge.Pont {
             if (lieuxRacine == null) { lieuxRacine = new GameObject(RACINE_LIEUX).transform; lieuxRacine.SetParent(transform, false); crees.Add(lieuxRacine.gameObject); }
             var lieu = new GameObject(NomDuLieu(t.CellId, t.Rang)).transform; lieu.SetParent(lieuxRacine, false); lieu.localPosition = carte.PositionSurLaCarte(point, HAUTEUR_LIEU).Value;
             Disque(lieu, "Bord", matBord, DIAMETRE_BORD_KM, SOUS_LE_DISQUE); Disque(lieu, "Disque", matJoueur, DIAMETRE_LIEU_KM, 0f);
+        }
+        // Lot #729 : le nom du siège du joueur tel que `/maison` le sert, centré juste au nord de son disque, à la hauteur des noms
+        // de ville. Le cabinet arrête ce prototype, pas ce composant, que #690 pose sur la carte avec le passage. Une fiche servie suffit.
+        public sealed class NomDuSiege : MonoBehaviour {
+            public const float PERIODE_S = 1f;
+            private Task<Lecture<MaisonLue>> enCours; private double prochaine; private bool servie;
+            public TextMesh Nom { get; private set; }
+            private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
+            public void Pas(double maintenant) {
+                var carte = GetComponent<CarteDessinee>(); if (servie || carte == null || carte.PositionSurLaCarte(default, 0f) == null) return;
+                if (enCours != null && enCours.IsCompleted) { Lecture<MaisonLue> lu = enCours.IsFaulted ? null : enCours.Result; enCours = null; servie = lu != null && lu.Presente; if (servie) Nommer(carte, lu.Donnees.Siege); }
+                string id = TryGetComponent(out FicheDeCellule fiche) ? fiche.MaisonDuJoueur : null; if (servie || enCours != null || id == null || maintenant < prochaine) return;
+                int port = carte.port; prochaine = maintenant + PERIODE_S; enCours = Task.Run(() => { using (var c = new ClientMaison(port, ClientDeparts.DelaiMinimal)) return c.Lire(id); });
+            }
+            private void Nommer(CarteDessinee carte, SiegeDeMaison siege) {
+                if (string.IsNullOrEmpty(siege.Nom) || !(siege.Position is PointCarte point)) return;
+                Font police = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); TextMesh t = Nom = new GameObject(NOM_DU_SIEGE).AddComponent<TextMesh>(); t.transform.SetParent(transform, false);
+                t.transform.SetLocalPositionAndRotation(carte.PositionSurLaCarte(point, CarteDessinee.HAUTEUR_NOM).Value + new Vector3(0, 0, DIAMETRE_BORD_KM / 2), VERS_LE_BAS);
+                t.font = police; t.GetComponent<MeshRenderer>().sharedMaterial = police.material; t.fontSize = TAILLE_NOM; t.characterSize = TAILLE_CARACTERE / 2; t.anchor = TextAnchor.MiddleCenter; t.color = Color.black; t.text = siege.Nom;
+            }
         }
         private void Disque(Transform parent, string nom, Material mat, float diametre, float haut) {
             GameObject o = GameObject.CreatePrimitive(PrimitiveType.Cylinder); o.name = nom; Detruire(o.GetComponent<Collider>()); o.GetComponent<MeshRenderer>().sharedMaterial = mat;

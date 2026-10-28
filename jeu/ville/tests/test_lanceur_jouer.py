@@ -77,11 +77,12 @@ ticks = []
 for attente in (0, ECART):
     time.sleep(attente)
     with urllib.request.urlopen(f"{base}/horloge") as r:
-        ticks.append(json.loads(r.read())["tick"])
+        ticks.append((horloge := json.loads(r.read()))["tick"])
 with open(sortie, "w", encoding="utf-8") as f:
     json.dump({"forgeCell": cellule, "statut": statut, "cell_id": lieu.get("cell_id"),
                "lu": lu, "maison_du_joueur": lieu.get("maison_du_joueur"),
                "ticks": ticks, "refuse_pendant": port_refuse(port),
+               "jours_par_seconde": horloge["jours_par_seconde"],
                "forgeCarte": "-forgeCarte" in sys.argv}, f)
 sys.exit(code)
 '''.replace("ECART", repr(ECART_ENTRE_HORLOGES_S))
@@ -121,6 +122,70 @@ def _jouer(port, commande, *options):
 
 def _commande_du_faux_jeu(faux_jeu, sortie, code, port):
     return [sys.executable, str(faux_jeu), str(sortie), str(code), str(port)]
+
+
+@pytest.mark.parametrize("carte, ville", [(False, False), (True, False), (False, True), (True, True)])
+def test_vitesse_de_la_vue_d_ouverture(faux_jeu, tmp_path, carte, ville):
+    jouer = _charger("jouer", LANCEUR)
+    reglages = json.loads(jouer.REGLAGES.read_text(encoding="utf-8"))
+    vue = "ville" if ville and not carte else "carte"
+    vitesse = reglages[f"VITESSE_{vue.upper()}"]
+    options = (["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []) + (["--carte"] if carte else [])
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port), *options)
+    assert port_refuse(port)
+    assert code == 0, texte
+    recu = json.loads(sortie.read_text(encoding="utf-8"))
+    assert recu["jours_par_seconde"] == vitesse
+    assert f"vitesse de la {vue} : {float(vitesse)} jours par seconde" in texte
+    if vue == "carte":
+        assert recu["ticks"][1] > recu["ticks"][0]
+        assert 50 < 365 / vitesse < 70
+
+
+@pytest.mark.parametrize("ville", [False, True])
+def test_vitesse_lue_dans_le_fichier_remplace(faux_jeu, tmp_path, monkeypatch, ville):
+    jouer = _charger("jouer", LANCEUR)
+    reglages = tmp_path / "reglages.json"
+    valeurs = {"VITESSE_VILLE": 0.25, "VITESSE_CARTE": 4}
+    reglages.write_text(json.dumps(valeurs), encoding="utf-8")
+    monkeypatch.setattr(jouer, "REGLAGES", reglages, raising=False)
+    options = ["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code = jouer.main(["--port", str(port), *options, "--",
+                       *_commande_du_faux_jeu(faux_jeu, sortie, 0, port)])
+    assert port_refuse(port)
+    assert code == 0
+    recu = json.loads(sortie.read_text(encoding="utf-8"))
+    assert recu["jours_par_seconde"] == valeurs["VITESSE_VILLE" if ville else "VITESSE_CARTE"]
+
+
+@pytest.mark.parametrize("contenu, ville", [
+    (None, False), ('{"VITESSE_CARTE":', False), ("{}", False),
+    ('{"VITESSE_CARTE": "6"}', False), ('{"VITESSE_CARTE": true}', False),
+    ('{"VITESSE_CARTE": 0}', False), ('{"VITESSE_CARTE": -1}', False),
+    ('{"VITESSE_CARTE": NaN}', False), ('{"VITESSE_CARTE": Infinity}', False),
+    ('{"VITESSE_VILLE": 0}', True), ("[]", False),
+])
+def test_vitesse_invalide_ne_lance_rien(faux_jeu, tmp_path, monkeypatch, capsys, contenu, ville):
+    jouer = _charger("jouer", LANCEUR)
+    reglages = tmp_path / "reglages.json"
+    if contenu is not None:
+        reglages.write_text(contenu, encoding="utf-8")
+    monkeypatch.setattr(jouer, "REGLAGES", reglages, raising=False)
+    options = ["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code = jouer.main(["--port", str(port), *options, "--",
+                       *_commande_du_faux_jeu(faux_jeu, sortie, 0, port)])
+    capture = capsys.readouterr()
+    assert port_refuse(port)
+    assert code == 1
+    assert "le jeu n'est pas lancé" in capture.err
+    assert str(reglages) in capture.err
+    assert ("VITESSE_VILLE" if ville else "VITESSE_CARTE") in capture.err
+    assert "service prêt" not in capture.out
+    assert "service arrêté" not in capture.out
+    assert not sortie.exists()
 
 
 def test_chemin_nominal(faux_jeu, tmp_path):

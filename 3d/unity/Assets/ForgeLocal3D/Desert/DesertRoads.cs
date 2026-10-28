@@ -23,7 +23,7 @@ namespace ForgeLocal3D
     [RequireComponent(typeof(SplineContainer))]
     public sealed class DesertRoads : MonoBehaviour
     {
-        [Serializable] public class Parametres { public double pas=-1,fenetre=-1,pente_max=-1,talus=-1,talus_max=-1,bruit_bord=-1,fondu_bord=-1,arrondi=-1; }
+        [Serializable] public class Parametres { public double pas=-1,fenetre=-1,pente_max=-1,talus=-1,talus_max=-1,bruit_bord=-1,fondu_bord=-1,arrondi=-1,relief_plaine=-1,relief_marais=-1,relief_colline=-1,relief_montagne=-1,relief_haute_montagne=-1,relief_plein=-1,relief_nul=-1,pivot; }
         [Serializable] public class Geste { public string id,famille,revetement;public double largeur;public double[] x,y; }
         [Serializable] public class Gestes { public string implantation;public int graine;public Parametres parametres;public Geste[] routes; }
         public sealed class Resultat
@@ -39,6 +39,9 @@ namespace ForgeLocal3D
         TerrainData original;
         public TerrainData Copie{get;private set;}
         public Parametres Actuels{get;private set;}
+        public double FacteurRelief{get;private set;}=1;
+        public string ClasseRelief{get;private set;}
+        public TerrainData Original=>original;
         int seed,n,m,dn,couches;double @base,hauteur,taille,pas;
         float[,] heights;
 
@@ -49,22 +52,59 @@ namespace ForgeLocal3D
         {
             string path=CheminGestes(id);
             if(!File.Exists(path))throw new InvalidOperationException("Paramètres des routes absents ("+path+") : lancer py local3d/atelier_desert.py routes");
-            var g=JsonUtility.FromJson<Gestes>(File.ReadAllText(path));
+            string texte=File.ReadAllText(path);
+            var g=JsonUtility.FromJson<Gestes>(texte);
             var p=g?.parametres;
             if(p==null||p.pas<=0||p.fenetre<=0||p.pente_max<=0||p.talus<=0||p.talus_max<=0||p.bruit_bord<0||p.fondu_bord<=0||p.arrondi<=0)
                 throw new InvalidOperationException("Paramètres des routes incomplets : "+path);
+            ControlerRelief(texte,p);
             return g;
         }
+
+        // Huit clés dans l'objet parametres : une à la racine ne compte pas. Un pivot négatif reste valide.
+        public static void ControlerRelief(string json,Parametres p)
+        {
+            int a=json.IndexOf("\"parametres\"",StringComparison.Ordinal),o=a<0?-1:json.IndexOf('{',a),d=0,b=o;
+            for(;b>=0&&b<json.Length&&(d>0||b==o);b++)if(json[b]=='{')d++;else if(json[b]=='}')d--;
+            var bloc=o<0||d!=0?"":json.Substring(o,b-o);
+            foreach(var k in new[]{"relief_plaine","relief_marais","relief_colline","relief_montagne","relief_haute_montagne","relief_plein","relief_nul","pivot"})if(!bloc.Contains("\""+k+"\""))throw new InvalidOperationException("Paramètre absent : "+k);
+            if(!(p.relief_plaine>0&&p.relief_marais>0&&p.relief_colline>0&&p.relief_montagne>0&&p.relief_haute_montagne>0&&p.relief_nul>p.relief_plein&&!double.IsNaN(p.pivot)&&!double.IsInfinity(p.pivot)))throw new InvalidOperationException("Paramètres de relief invalides");
+        }
+
+        // Traduit une classe servie en facteur. Inconnue ou absente : aucun repli, le facteur en place ne change pas.
+        public bool ResoudreRelief(Parametres p,string classe,out double facteur,out string cause)
+        {
+            facteur=1;cause=null;
+            if(string.IsNullOrEmpty(classe)){cause="relief absent";return false;}
+            string[] noms={"plaine","marais","colline","montagne","haute_montagne"};
+            double[] valeurs={p.relief_plaine,p.relief_marais,p.relief_colline,p.relief_montagne,p.relief_haute_montagne};
+            int i=Array.IndexOf(noms,classe);
+            if(i<0||!(valeurs[i]>0)||double.IsInfinity(valeurs[i])){cause="relief inconnu : "+classe;return false;}
+            facteur=valeurs[i];return true;
+        }
+        public void AppliquerRelief(double facteur,string classe){FacteurRelief=facteur;ClasseRelief=classe;}
 
         // ---------- La copie du terrain ----------
 
         public void Preparer(Parametres p,int graineDuBord)
         {
+            if(FacteurRelief!=1&&!(p!=null&&p.relief_nul>p.relief_plein&&!double.IsNaN(p.pivot)&&!double.IsInfinity(p.pivot)))
+                throw new InvalidOperationException("Paramètres de relief invalides");
             if(!original)original=terrain.terrainData;
             if(Copie)Destroy(Copie);
             Actuels=p;seed=graineDuBord;
             var o=original;n=o.heightmapResolution;taille=o.size.x;hauteur=o.size.y;@base=terrain.transform.position.y;pas=taille/(n-1);
             heights=o.GetHeights(0,0,n,n);
+            // routes.relever, relu sur l'original : f == 1 garde la hauteur normalisée.
+            if(FacteurRelief!=1)
+            {
+                double F=FacteurRelief,piv=p.pivot,den=p.relief_nul-p.relief_plein,moitie=taille/2;
+                for(int j=0;j<n;j++)for(int i=0;i<n;i++)
+                {
+                    double f=1+(F-1)*Math.Clamp((p.relief_nul-Math.Max(Math.Abs(moitie-i*pas),Math.Abs(moitie-j*pas)))/den,0,1);
+                    if(f!=1){double m=@base+heights[j,i]*hauteur;heights[j,i]=(float)((piv+(m-piv)*f-@base)/hauteur);}
+                }
+            }
             var c=new TerrainData{name=o.name+" — routes"};
             c.heightmapResolution=n;c.size=o.size;c.SetHeights(0,0,heights);
             m=o.alphamapResolution;var a0=o.GetAlphamaps(0,0,m,m);int k0=a0.GetLength(2);

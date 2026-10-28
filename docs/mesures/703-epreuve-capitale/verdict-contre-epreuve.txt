@@ -1,0 +1,21 @@
+commande : py -m pytest jeu/ville/tests/test_epreuve_capitale.py -q -k contre_epreuve -s
+date : 2026-10-18, révision bac0a31d + l'épreuve non commitée
+transformation : copie en mémoire de docs/mesures/702-session-capitale/rapport-zab.json, cellule = 1175, panneau_lieu = « Cellule 1175 · tick 1 ». Le rapport source n'est pas modifié. Ce n'est pas une mesure PC.
+code pytest : 0
+code du jugement : 1
+
+transformation : rapport-zab.json copié en mémoire, cellule = 1175, panneau = « Cellule 1175 · tick 1 »
+code du jugement : 1
+terre : 6 · attendu 6 · égal
+tick avant : 'monde 0 · session 0 · choix 0' · attendu 'monde 0 · session 0 · choix 0' · égal
+maison avant : None · attendu None · égal
+reçu : '200 au tick 0 «»' · attendu '200 au tick 0 «»' · égal
+tick après : 'session 1 · monde 1 · maison 1' · attendu 'session 1 · monde 1 · maison 1' · égal
+maison retenue : 'seigneurie-6' · attendu 'seigneurie-6' · égal
+scène : 'Forge_Desert_Ville_ksar_des_sept_puits' · attendu 'Forge_Desert_Ville_ksar_des_sept_puits' · égal
+cellule : 1175 · attendu 10103 · ÉCART
+ouverture : 1 · attendu 1 · égal
+panneau : 'Cellule 1175 · tick 1' · attendu 'Cellule 10103 · tick 1' · ÉCART
+message : '' · attendu '' · égal
+.
+1 passed, 36 deselected in 0.09s

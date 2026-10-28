@@ -480,6 +480,37 @@ def test_un_seul_agent_par_tour(projet, gh, depot, tmp_path):
     assert len(agents.appels) == 1 and gh.prs_[51]["comments"] == []
 
 
+SESSION_PERDUE = (1, "Failed to authenticate: OAuth session expired and could not be refreshed")
+
+
+def test_un_lot_qui_attend_son_relecteur_ne_retient_pas_les_autres(projet, gh, depot, tmp_path):
+    # Du 26 au 28 octobre 2026, #720 attendait Claude, son seul relecteur
+    # possible (session du VPS expirée) : chaque tour s'arrêtait sur lui.
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    gh.ajouter_issue(11, "Le panneau affiche le lieu", ("lot", "en-cours"))
+    gh.ajouter_pr(51, "lot/11-le-panneau-affiche-le-lieu", ci="vert")
+    agents = Agents(SESSION_PERDUE, (0, "Fait.", {"jeu/sim/service.py": "code"}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude", "codex"]
+    assert any(l.startswith("#10 attente") for l in lignes)
+    assert marques(gh.prs_[51]["comments"])[-1]["role"] == "codeur"
+
+
+def test_un_lot_qui_attend_laisse_le_chef_prendre_le_suivant(projet, gh, depot, tmp_path):
+    # Le VPS a une place libre : le relecteur de #10 ne répond pas, le chef
+    # prend #12 dans le même tour (son secours écrit le brief).
+    projet = _parallele(projet)
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    gh.ajouter_issue(12, "Le service lit un lieu")
+    brief = BRIEF_BON.replace("Lot #10", "Lot #12")
+    agents = Agents(SESSION_PERDUE, SESSION_PERDUE,
+                    (0, "Brief écrit.\nDECISION: BRIEF", {"docs/briefs/12-le-service-lit-un-lieu.md": brief}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude", "claude", "codex"]
+    assert any(l.startswith("#10 attente") for l in lignes)
+    assert ("etiqueter", 12, ("en-cours",), ("pret",)) in gh.gestes
+
+
 def test_un_lot_fusionne_est_livre(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "en-cours"), etat="CLOSED")
     pr = gh.ajouter_pr(50, BRANCHE, etat="MERGED")
@@ -1215,14 +1246,95 @@ def test_un_rouge_du_chronometre_remet_la_branche_sur_une_base_qui_a_bouge(proje
     assert "la branche reçoit `master`" in gh.prs_[50]["comments"][-1]["body"]
 
 
-def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_va_au_codeur(projet, gh, depot, tmp_path):
+def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_se_rejoue_aussi(projet, gh, depot, tmp_path):
+    """Le 16 octobre 2026, #414 (du moteur) s'est bloqué sur des médianes de
+    110 ms qu'un tick de master à 98 ms expliquait seul : le codeur n'y pouvait
+    rien non plus. Le rejeu passe d'abord, le codeur ensuite."""
     _en_cours(gh, commentaires=[FAIT_CODEX])
     gh.fichiers_[50] = ["jeu/sim/monde.py"]
     _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
         *VERTS)
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 77)]
+    gh.prs_[50]["statusCheckRollup"] += [_travail("chronometre", "FAILURE", "08:05"),
+                                         _travail("tests", "FAILURE", "08:20")]
     codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
     _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert codeur.outils() == ["codex"] and not _gestes(gh, "rejouer_les_echecs")
+    assert codeur.outils() == ["codex"] and len(_gestes(gh, "rejouer_les_echecs")) == 1
+
+
+FAIT_PC = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
+
+
+def test_un_rouge_que_master_porte_encore_attend_sans_user_d_essai(projet, gh, depot, tmp_path):
+    """Le 22 octobre 2026, #785 (du Blender seul, sur le PC) a usé ses deux
+    corrections sur le rouge `chronometre` de master, puis s'est bloqué : le
+    PC lui répondait deux fois « rien à changer ». Le lot attend master."""
+    _en_cours(gh, commentaires=[FAIT_PC], etiquettes=("lot", "en-cours", "pc"))
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    gh.travaux_ = {"c" * 40: {"chronometre": "rouge", "sim (3)": "vert", "tests": "rouge"},
+                   "master": {"chronometre": "rouge", "tests": "rouge"}}
+    rien = Agents()
+    for _ in range(2):
+        lignes = _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and not _gestes(gh, "lancer_workflow") and not _gestes(gh, "rejouer_les_echecs")
+    assert any("attendre_base" in l and "`chronometre`" in l for l in lignes)
+    dits = [m for m in marques(gh.prs_[50]["comments"]) if m.get("etat") == "base_rouge"]
+    assert dits == [{"role": "pilote", "etat": "base_rouge", "sha": "a" * 40}], "la PR le dit une fois"
+    # Master a fini de jouer le même rouge sans l'avoir guéri : le lot attend encore.
+    gh.travaux_["master"] = {"chronometre": "attente"}
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and not _gestes(gh, "lancer_workflow")
+
+
+def test_un_rouge_que_master_a_gueri_remet_la_branche_sur_master(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=[FAIT_PC], etiquettes=("lot", "en-cours", "pc"))
+    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    gh.travaux_ = {"c" * 40: {"chronometre": "rouge"}, "master": {"chronometre": "vert", "build": "rouge"}}
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and not _gestes(gh, "lancer_workflow")
+    assert ("pousser", BRANCHE) in depot.gestes and not _gestes(gh, "rejouer_les_echecs")
+    assert "la branche le reçoit" in gh.prs_[50]["comments"][-1]["body"]
+
+
+def test_un_rouge_que_la_base_n_avait_pas_va_au_codeur(projet, gh, depot, tmp_path):
+    """La base rouge sur un autre travail ne couvre pas celui du lot."""
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    _ci(gh, ("chronometre", "SUCCESS", "07:00"), ("sim (3)", "FAILURE", "07:00"), ("tests", "FAILURE", "07:30"),
+        *VERTS)
+    gh.travaux_ = {"c" * 40: {"chronometre": "rouge", "sim (3)": "vert"}, "master": {"chronometre": "rouge"}}
+    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, codeur, tmp_path).tour()
+    assert codeur.outils() == ["codex"]
+    assert not [m for m in marques(gh.prs_[50]["comments"]) if m.get("etat") == "base_rouge"]
+
+
+def test_le_rouge_de_la_base():
+    from atelier.lots import rouge_de_la_base
+    rouge = {"chronometre": "rouge", "sim (1)": "vert"}
+    assert rouge_de_la_base({"chronometre"}, rouge, rouge) == "attendre"
+    assert rouge_de_la_base({"chronometre"}, rouge, {"chronometre": "vert"}) == "fusionner"
+    assert rouge_de_la_base({"chronometre"}, rouge, {}) == "attendre", "master sans mesure n'a rien guéri"
+    assert rouge_de_la_base({"chronometre", "sim (1)"}, rouge, {"chronometre": "vert"}) == ""
+    assert rouge_de_la_base(set(), rouge, rouge) == ""
+    assert rouge_de_la_base({"chronometre"}, {}, rouge) == "", "une base sans mesure ne prouve rien"
+
+
+def test_les_travaux_d_un_commit_se_lisent_a_leur_dernier_passage():
+    from atelier.github import GitHub
+    bruts = [{"name": "chronometre", "status": "completed", "conclusion": "failure", "started_at": "2026-10-22T04:00:00Z"},
+             {"name": "chronometre", "status": "completed", "conclusion": "success", "started_at": "2026-10-22T05:00:00Z"},
+             {"name": "sim (1)", "status": "completed", "conclusion": "timed_out", "started_at": "2026-10-22T04:00:00Z"},
+             {"name": "sim (2)", "status": "in_progress", "conclusion": None, "started_at": "2026-10-22T04:00:00Z"},
+             {"name": "forge", "status": "completed", "conclusion": "cancelled", "started_at": "2026-10-22T04:00:00Z"}]
+    vus = []
+    gh = GitHub("moi/essai", executeur=lambda argv, entree: (vus.append(argv), (0, json.dumps(bruts), ""))[1])
+    assert gh.travaux_du_commit("master") == {"chronometre": "vert", "sim (1)": "rouge", "sim (2)": "attente"}
+    assert vus[0][:3] == ["gh", "api", "repos/moi/essai/commits/master/check-runs?per_page=100"]
 
 
 def test_une_tranche_annulee_compte_parmi_les_rouges():

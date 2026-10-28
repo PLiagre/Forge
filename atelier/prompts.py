@@ -26,7 +26,10 @@ _SECTION_PHOTO = (
     "(`3d/unity/Assets/ForgeLocal3D/Editor/Captures/Lot<numéro>.cs`, à mettre au Périmètre) pose ce que le "
     "lot ajoute ou joue son geste, et place la caméra pour qu'on le voie. « sans objet : <raison> » "
     "seulement si le lot ne change rien de ce qu'on voit à l'écran (Blender seul, outil) ; sinon le pilote "
-    "refuse le lot.\n"
+    "refuse le lot. Le PC rejoue les commandes de `ForgeLocal3D.Capture.Photographier` que le brief écrit "
+    "avec `-forgeLot <numéro>`, et leurs drapeaux `-forge…` : celle qui en a le moins donne la photo, chaque "
+    "autre se joue comme contre-épreuve dans un dossier neuf, ses images et ses rapports `.json` joints au "
+    "compte rendu. Écris-y chaque valeur en entier : un `$dossier` ou un `<…>` ne se rejoue pas.\n"
 )
 _PHOTO_DU_CODEUR = (
     "\n\nLOT UNITY : SA PHOTO. Le PC photographie d'abord le plan fixe de la scène du désert, qui ne montre "

@@ -285,15 +285,20 @@ def test_arrivee_commune_de_departs_d_ages_differents(monkeypatch):
 from functools import cache
 
 
-@cache
 def _habitants_apres_un_an(part):
-    """Une année par part et par processus, sur le même monde neuf."""
+    return _habitants_apres_un_an_calibres(part, c.BRAS_AUX_CHAMPS_PAR_KM2)
+
+
+@cache
+def _habitants_apres_un_an_calibres(part, bras):
+    """Une année par part et calibrage, sans mélanger les deux références."""
+    assert bras == c.BRAS_AUX_CHAMPS_PAR_KM2
     monde, rng = World.charger(0), random.Random(0)
     monde.parts = dict.fromkeys(monde.parts, part)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
         engine.tick(monde, rng, numero)
     habitants = sum(cell.population for cell in monde.cells.values())
-    print(f'part={part:.2f}, habitants après un an={habitants}')
+    print(f'bras={bras}, part={part:.2f}, habitants après un an={habitants}', flush=True)
     return habitants
 
 
@@ -348,12 +353,21 @@ def _verifier_modele_calibration(section, habitants):
     assert 'provisoirement' not in section
 
 
-def test_modele_calibration_de_la_part_coutumiere(monkeypatch):
+@pytest.mark.parametrize("bras", [0.1, 6.2], ids=["historique", "calibre"])
+def test_modele_calibration_de_la_part_coutumiere(monkeypatch, bras):
+    monkeypatch.setattr(c, "BRAS_AUX_CHAMPS_PAR_KM2", bras)
     monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())
+    marqueur = '**Calibration de la part coutumière à 6,2, sans départs.**'
+    historique, calibree = section.split(marqueur, 1)
+    section = historique if bras == 0.1 else marqueur + calibree.split('**Mesures avec départs actifs.**', 1)[0]
     _verifier_modele_calibration(section, habitants)
+    _verifier_calibration(part, habitants)
+    if bras == 6.2:
+        for population in habitants.values():
+            assert str(population) in section
     coutume = f'{part:.2f}'.replace('.', ',')
     autre = f'{round(part - 0.01, 2):.2f}'.replace('.', ',')
     with pytest.raises(AssertionError):
@@ -941,3 +955,172 @@ def test_ouverture_suit_le_lieu_et_octets(monde, monkeypatch):
     with monkeypatch.context() as garde:
         garde.setattr(prelevement, '_livrer_secours', mauvais_maitre)
         with pytest.raises(AssertionError): verifier()
+
+
+# Lot 406 : mesurer les représentations stockées et chaque destination annuelle.
+def _jalon3_reference(m):
+    from sim.lieux import lieux_depuis_monde
+    from sim.maitres import attribuer_maitres, valider_attribution
+    from sim.registre_maisons import charger_registre_maisons
+    base = copy.copy(m)
+    base.maisons = charger_registre_maisons(m.carte)
+    maitres, plausibles = attribuer_maitres(base)
+    valider_attribution(base, maitres, plausibles)
+    assert len({maison.id for maison in m.maisons}) == len(m.maisons)
+    assert {maison.id for maison in m.maisons} == {maison.id for maison in base.maisons + plausibles}
+    return maitres, lieux_depuis_monde(m)
+
+
+def _jalon3_lieux(m, reference):
+    maitres, vue = reference
+    assert m.cells and m.cells.keys() == vue.keys(), 'cellules absentes'
+    couples = []
+    for cid, cell in m.cells.items():
+        assert cell.lieux and [l.rang for l in cell.lieux] == [l.rang for l in vue[cid]]
+        assert sum(l.surface_km2 for l in vue[cid]) == cell.area_km2
+        assert sum(l.population for l in cell.lieux) == cell.population
+        for lieu in cell.lieux:
+            couples.append((cid, lieu.rang))
+            assert lieu.maitre == maitres[cid, lieu.rang]
+            assert lieu.stocks.keys() == cell.stocks.keys(), 'absence de marchandise différente'
+        for nom, kg in cell.stocks.items():
+            assert sum(l.stocks[nom] for l in cell.lieux) == pytest.approx(kg, rel=1e-12, abs=1e-8)
+    assert len(couples) == len(set(couples)) and set(couples) == maitres.keys()
+    return len(couples)
+
+
+def test_jalon3_lieux(monde):
+    reference = _jalon3_reference(monde)
+    for defaut in ('absent', 'inconnu', 'retire', 'doublon', 'personne', 'kilo', 'marchandise', 'vide'):
+        m = copy.deepcopy(monde)
+        cell = next(iter(m.cells.values()))
+        lieu = cell.lieux[0]
+        if defaut == 'absent': lieu.maitre = None
+        elif defaut == 'inconnu': lieu.maitre = 'maison-inconnue'
+        elif defaut == 'retire': cell.lieux.pop()
+        elif defaut == 'doublon': cell.lieux.append(copy.deepcopy(lieu))
+        elif defaut == 'personne': lieu.population += 1
+        elif defaut == 'kilo': lieu.stocks[c.MARCHANDISE_NOURRITURE] += 1
+        elif defaut == 'marchandise': lieu.stocks['absence-non-declaree'] = 0
+        else: m.cells.clear()
+        with pytest.raises(AssertionError): _jalon3_lieux(m, reference)
+        print(f'Rouge lieux : {defaut} refusé')
+    print(f'cellules contrôlées={len(monde.cells)}, lieux contrôlés={_jalon3_lieux(monde, reference)}')
+
+
+def _jalon3_annee(monde, monkeypatch, etape):
+    m = copy.deepcopy(monde)
+    reference = _jalon3_reference(m)
+    lieux = [(cid, rang, r.jours) for (cid, rang), r in m.routes_des_lieux.items() if r.maitre == BAR]
+    suzerain, trajet = m.dus_des_vassaux.routes[BAR]
+    assert lieux and len(lieux) == c.LIEUX_DE_LA_SEIGNEURIE
+    assert suzerain not in m.dus_des_vassaux.routes
+    m.parts = dict.fromkeys(m.parts, 0.0); m.parts[BAR] = 0.6
+    assert not m.convois and _greniers(m) == m.mange_convois_kg == m.pertes_kg == 0
+    bruts, retenus, dus, recus = (defaultdict(float) for _ in range(4))
+    charges, entrees = [], Counter()
+    garde, part = 1 - c.PERTE_CONVOI_PAR_JOUR, c.PART_DUE_AU_SUZERAIN
+    preleve = 0.0
+    def observer(w, recoltes):
+        nonlocal preleve
+        t = w.ticks_ecoules
+        avant, stocks = _total(w), _stocks(w)
+        paniers = {(cid, rang): _food(w.cells[cid].lieux[rang].stocks) for cid, rang, _ in lieux}
+        greniers = {nom: _food(panier) for nom, panier in w.greniers.items()}
+        etape(w, recoltes)
+        assert _total(w) == pytest.approx(avant, rel=1e-12), 'conservation à l’étape'
+        apres = _stocks(w)
+        _egalite(stocks, apres)
+        debits = {cle: kg - _food(w.cells[cle[0]].lieux[cle[1]].stocks) for cle, kg in paniers.items()}
+        assert sum(debits.values()) == pytest.approx(sum(stocks[cid][0] - apres[cid][0] for cid in stocks), rel=1e-12, abs=1e-8)
+        for cid, rang, jours in lieux:
+            kg = debits[cid, rang]
+            assert kg >= 0
+            preleve += kg
+            arrivee = t + jours
+            brut = kg * garde**jours
+            bruts[arrivee] += brut
+            retenus[arrivee] += brut * (1 - part)
+            dus[arrivee] += brut * part
+            recus[arrivee + trajet] += brut * part * garde**trajet
+            if kg: charges.append((BAR, t, arrivee, kg))
+        if dus[t]: charges.append((suzerain, t, t + trajet, dus[t]))
+        for nom, panier in w.greniers.items():
+            entree = _food(panier) - greniers[nom]
+            attendu = retenus[t] if nom == BAR else recus[t] if nom == suzerain else 0
+            assert entree == pytest.approx(attendu, rel=1e-12, abs=1e-8), f'entrée {nom}, tick {t}'
+            entrees[nom] += entree
+    _jalon3_lieux(m, reference)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(prelevement, 'prelever', observer)
+        rng = random.Random(0)
+        for t in range(365):
+            engine.tick(m, rng, t)
+            _jalon3_lieux(m, reference)
+    en_route = [(nom, fin, kg * garde**(364 - debut)) for nom, debut, fin, kg in charges if fin > 364]
+    assert en_route, 'charges dépassant le dernier tick absentes'
+    assert _route(m) == pytest.approx(sum(kg for _, _, kg in en_route), rel=1e-12, abs=1e-8)
+    for nom in (BAR, suzerain):
+        assert sum(kg for n, _, kg in prelevement.charges_en_route(m) if n == nom) == pytest.approx(sum(kg for n, _, kg in en_route if n == nom), rel=1e-12, abs=1e-8)
+    assert preleve == pytest.approx(_route(m) + _greniers(m) + m.mange_convois_kg + m.pertes_kg, rel=1e-12)
+    assert all(kg > 0 for kg in (preleve, entrees[BAR], entrees[suzerain], m.mange_convois_kg, m.pertes_kg))
+    print(f'cellules={len(m.cells)}, lieux={len(reference[0])}, ticks={m.ticks_ecoules}, prélevé={preleve}, '
+          f'brut à Bar={sum(bruts[t] for t in range(365))}, retenu à Bar={entrees[BAR]}, '
+          f'dû envoyé={sum(dus[t] for t in range(365))}, reçu par {suzerain}={entrees[suzerain]}, '
+          f'transit={_route(m)} ({len(en_route)} charges), mangé={m.mange_convois_kg}, pertes greniers={m.pertes_kg}, stock final={_greniers(m)}')
+
+
+def test_jalon3_destination_annuelle(monde, monkeypatch):
+    original = prelevement.prelever
+    suzerain, _ = monde.dus_des_vassaux.routes[BAR]
+    for defaut in ('restitution', 'du_double', 'mauvais_grenier'):
+        def alterer(w, recoltes):
+            stocks = {cid: (dict(cell.stocks), [dict(l.stocks) for l in cell.lieux]) for cid, cell in w.cells.items()}
+            arrives = sum(kg for nom, t, kg in prelevement.charges_en_route(w) if nom == BAR and t == w.ticks_ecoules)
+            avant = _food(w.greniers[suzerain])
+            original(w, recoltes)
+            if defaut == 'restitution':
+                for cid, (panier, lieux) in stocks.items():
+                    w.cells[cid].stocks = panier
+                    for lieu, panier in zip(w.cells[cid].lieux, lieux): lieu.stocks = panier
+            elif defaut == 'du_double':
+                w.greniers[BAR][c.MARCHANDISE_NOURRITURE] = _food(w.greniers[BAR]) + arrives * (1 - c.PERTE_CONVOI_PAR_JOUR) * c.PART_DUE_AU_SUZERAIN
+            else:
+                entree = _food(w.greniers[suzerain]) - avant
+                w.greniers[suzerain][c.MARCHANDISE_NOURRITURE] = avant
+                w.greniers[BAR][c.MARCHANDISE_NOURRITURE] = _food(w.greniers[BAR]) + entree
+        with pytest.raises(AssertionError, match='conservation à l’étape|entrée'):
+            _jalon3_annee(monde, monkeypatch, alterer)
+        print(f'Rouge comptable : {defaut} refusé', flush=True)
+    _jalon3_annee(monde, monkeypatch, original)
+
+
+@pytest.mark.parametrize('defaut,code', [('aucun', 0), ('vide', 1), ('absent', 1), ('ignore', 1), ('echec', 1), ('ancienne_image', 1), ('impossible', 2)])
+def test_jalon3_lanceur(tmp_path, monkeypatch, capsys, defaut, code):
+    import epreuve_jalon3 as preuve
+    import xml.etree.ElementTree as ET
+    from types import SimpleNamespace
+    sortie = tmp_path / 'sortie'
+    capture = sortie / 'capture'
+    capture.mkdir(parents=True)
+    for nom in ('carte.png', 'monde.json', 'resume.json'): (capture / nom).write_text('ancienne')
+    def executer(commande, **options):
+        assert commande[0] == preuve.sys.executable and options['cwd'] == preuve.Path(preuve.__file__).parent
+        if defaut == 'impossible': raise OSError('interpréteur indisponible')
+        if commande[2] == 'pytest':
+            racine = ET.Element('testsuites')
+            for fichier, noms in preuve.CAS.items():
+                for nom in noms:
+                    ET.SubElement(racine, 'testcase', classname=fichier.removesuffix('.py').replace('/', '.'), name=f'test_{nom}')
+            if defaut == 'vide': racine.clear()
+            elif defaut == 'absent': racine.remove(next(cas for cas in racine if '[' in cas.get('name')))
+            elif defaut in ('ignore', 'echec'): ET.SubElement(racine[0], 'skipped' if defaut == 'ignore' else 'failure')
+            ET.ElementTree(racine).write(sortie / 'controles.xml')
+        elif defaut != 'ancienne_image':
+            for nom in ('carte.png', 'monde.json', 'resume.json'): (capture / nom).write_text('neuve')
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(preuve.subprocess, 'run', executer)
+    monkeypatch.setattr('sys.argv', ['epreuve_jalon3', '--sortie', str(sortie)])
+    assert preuve.main() == code
+    sortie_console = capsys.readouterr()
+    assert ('J3 prouvé' in sortie_console.out + (sortie / 'preuve.txt').read_text()) == (code == 0)

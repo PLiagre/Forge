@@ -9,6 +9,7 @@ namespace Forge.Pont {
     // confirme une terre qui a un kit, il charge sa scène, une seule fois, et ne lit plus rien. Une terre sans kit le dit
     // dans un panneau. La ville ne s'ouvre que sur une confirmation vue : une lecture `Depart`, puis une lecture `Ville` ;
     // une terre déjà confirmée à l'ouverture laisse le joueur sur la carte. Une absence n'arme, ne montre ni ne cache rien.
+    // Lot #729 : un double-clic sur le siège lu descend aussi ; par défaut, la scène se charge par le fondu de TransitionDeVue.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     public sealed class PassageALaCapitale : MonoBehaviour {
         public const float PERIODE_LECTURE_S = 1;
@@ -21,7 +22,7 @@ namespace Forge.Pont {
 
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
         public new Camera camera; // vide : celle de la CarteDessinee du même objet
-        public Action<string> ChargerScene { get; set; } = nom => SceneManager.LoadScene(nom);
+        public Action<string> ChargerScene { get; set; } // vide : TransitionDeVue.Lancer vers la ville, avec le port du passage (#729)
 
         private Task<Lecture<CapitaleAOuvrir>> enCours; private double prochaineLecture; private bool departVu;
         private GameObject toile; private Text texte;
@@ -31,6 +32,19 @@ namespace Forge.Pont {
         public bool PanneauVisible => toile != null && toile.activeSelf;
         public string TexteAffiche => PanneauVisible ? texte.text : null;
         public string SceneDemandee { get; private set; } // null tant que rien n'est chargé
+        // Lot #729 : la cellule du siège de la dernière lecture servie qui rend `Ville` ; nulle après `Depart` ou `PasDeKit`.
+        public long? SiegeLu { get; private set; }
+        public const double DELAI_DOUBLE_CLIC_S = 0.5;
+        private string villeLue; private long? premierClic; private double instantDuClic;
+
+        // Lot #729 : le second de deux clics sur la même cellule, à `DELAI_DOUBLE_CLIC_S` au plus, descend s'il tombe sur le
+        // siège lu et que rien n'est demandé. Le clic qui ferme un double-clic n'en ouvre pas un autre.
+        public bool Cliquer(long? cellule, double maintenant) {
+            bool double_ = cellule != null && cellule == premierClic && maintenant - instantDuClic <= DELAI_DOUBLE_CLIC_S;
+            premierClic = double_ ? null : cellule; instantDuClic = maintenant;
+            if (!double_ || cellule != SiegeLu || SceneDemandee != null) return false;
+            Descendre(villeLue, cellule); return true;
+        }
 
         private void Start() { var carte = GetComponent<CarteDessinee>(); Demarrer(camera != null ? camera : carte != null ? carte.camera : null); }
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
@@ -59,8 +73,15 @@ namespace Forge.Pont {
             Absence = null;
             var capitale = lecture.Donnees;
             toile.SetActive(capitale.Destination == DestinationDeCapitale.PasDeKit);
+            bool ville = capitale.Destination == DestinationDeCapitale.Ville; SiegeLu = ville ? capitale.Cellule : null; villeLue = ville ? capitale.Scene : null;
             if (capitale.Destination == DestinationDeCapitale.Depart) departVu = true;
-            else if (capitale.Destination == DestinationDeCapitale.Ville && departVu) { SceneDemandee = capitale.Scene; ChargerScene(capitale.Scene); }
+            else if (ville && departVu) Descendre(capitale.Scene, capitale.Cellule);
+        }
+
+        // La remise de #701, puis le chargement : celui qu'on a donné, sinon le fondu au noir de #728 vers la vue de la ville.
+        private void Descendre(string scene, long? cellule) {
+            SceneDemandee = scene; (sceneRemise, celluleRemise) = (scene, cellule);
+            if (ChargerScene != null) ChargerScene(scene); else TransitionDeVue.Lancer(scene, VueDuJeu.Ville, port);
         }
 
         // Une toile sans parent : CabinetDeCarte cache toutes celles de l'objet de la carte, pas celle-ci.
@@ -82,6 +103,16 @@ namespace Forge.Pont {
             toile.SetActive(false);
         }
 
+        // Lot #701 : la cellule du siège, lue dans /maison par l'aiguillage, retenue juste avant le chargement pour la
+        // seule scène demandée. Une prise l'efface, que la scène corresponde ou non : une seule ville en profite.
+        private static string sceneRemise; private static long? celluleRemise;
+        public static long? PrendreCelluleRemise(string scene)
+        {
+            long? cellule = scene == sceneRemise ? celluleRemise : null;
+            (sceneRemise, celluleRemise) = (null, null);
+            return cellule;
+        }
+
         private static void Detruire(UnityEngine.Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
 
         // Lot #690 : à l'ouverture de la carte, le passage manquant se pose sur chaque CarteDessinee, avec son port.
@@ -95,8 +126,9 @@ namespace Forge.Pont {
         public static void AuChargement(Scene scene, LoadSceneMode mode) {
             if (!scene.IsValid() || scene.name != OuvertureDeLaCarte.SCENE) return;
             foreach (CarteDessinee carte in UnityEngine.Object.FindObjectsByType<CarteDessinee>(FindObjectsSortMode.None)) {
-                if (carte.gameObject.scene != scene || carte.GetComponent<PassageALaCapitale>() != null) continue;
-                carte.gameObject.AddComponent<PassageALaCapitale>().port = carte.port;
+                if (carte.gameObject.scene != scene) continue;
+                if (carte.GetComponent<ReperesDeDepart.NomDuSiege>() == null) carte.gameObject.AddComponent<ReperesDeDepart.NomDuSiege>(); // #729 : le nom du siège, que le cabinet n'arrête pas
+                if (carte.GetComponent<PassageALaCapitale>() == null) carte.gameObject.AddComponent<PassageALaCapitale>().port = carte.port;
             }
         }
     }

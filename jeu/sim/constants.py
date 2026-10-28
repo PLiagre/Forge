@@ -81,9 +81,9 @@ FENETRE_FLUX_TICKS = 30
 # TICK_DURATION_DAYS (voir MODELE.md).
 FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = 18.0 * TICK_DURATION_DAYS
 
-# Bras par km² cultivé, niveau 2 : valeur basse pour préserver l'année mesurée.
-# À revoir quand un geste retirera des paysans aux champs.
-BRAS_AUX_CHAMPS_PAR_KM2 = 0.1
+# Bras par km² cultivé, niveau 2 : calibrés sur le lieu médian au pic annuel
+# de sa saison agricole (voir MODELE.md, lot #720).
+BRAS_AUX_CHAMPS_PAR_KM2 = 6.2
 
 
 # --- Eau dans le rendement (fidélité niveau 2) ---
@@ -261,6 +261,8 @@ METIER_MINEURS = "mineurs"
 METIER_PAYSANS = "paysans"
 METIER_OUVRIERS = "ouvriers"
 METIER_ARTISANS = "artisans"
+METIER_AUTOCONSTRUCTEURS = "autoconstructeurs"
+MAISONS_OUVERTES_PAR_JOUR = 1  # Par bourg, niveau 2.
 SURFACE_M2_PAR_FOYER_LOGE = 40  # Logement des artisans, niveau 2.
 SURFACE_M2_PAR_FOYER_ARTISAN = 40  # Emploi par emprise, niveau 2.
 FABRICATION_KG_PAR_ARTISAN_PAR_TICK = 5  # Matière façonnée par personne, niveau 2.

@@ -8,6 +8,7 @@ from sim.model import (
     _NoBadSpatialField, contenus_des_paniers, copier_panier,
     creer_etat_de_lieu, lire_habitants_par_metier, remplacer_panier,
     lire_stock_marchandise, ecrire_stock_marchandise,
+    lieux_deja_accordes,
 )
 
 
@@ -74,12 +75,15 @@ def lieux_depuis_monde(world) -> dict:
     })
 
 
-def partager(total, poids) -> list:
+def partager(total, poids, *, raccourci=True) -> list:
     """Plus fort reste ; les fractions de kilogramme restent au rang zéro."""
     poids = list(poids)
     for valeur in [total, *poids]:
-        if (isinstance(valeur, bool) or not isinstance(valeur, (int, float))
-                or (isinstance(valeur, float) and not math.isfinite(valeur)) or valeur < 0):
+        if isinstance(valeur, float):
+            invalide = not math.isfinite(valeur) or valeur < 0
+        else:
+            invalide = isinstance(valeur, bool) or not isinstance(valeur, int) or valeur < 0
+        if invalide:
             raise LieuxInvalides("total ou poids absent, négatif, booléen ou non fini")
     # Les flottants sont des rapports d'entiers à dénominateur puissance
     # de deux : un dénominateur commun rend les restes exacts, sans arrondi.
@@ -95,7 +99,11 @@ def partager(total, poids) -> list:
     parts = [part for part, reste in divisions]
     unités = max(0, min(len(parts), math.floor(total) - sum(parts)))
     if unités:
-        ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
+        if raccourci:
+            # Le tri stable conserve le rang croissant en cas de reste égal.
+            ordre = sorted(range(len(parts)), key=lambda rang: divisions[rang][1], reverse=True)
+        else:
+            ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
         for rang in ordre[:unités]:
             parts[rang] += 1
     parts[0] = total - sum(parts[1:])
@@ -137,7 +145,7 @@ def amorcer_lieux(cellule) -> list:
             for rang, population in enumerate(populations)]
 
 
-def repartir_sur_les_lieux(cellule) -> None:
+def repartir_sur_les_lieux(cellule, *, raccourci=True) -> None:
     """Aligne habitants et paniers à proportion de leur contenu actuel."""
     if not cellule.lieux:
         return
@@ -146,6 +154,8 @@ def repartir_sur_les_lieux(cellule) -> None:
         remplacer_panier(cellule.lieux[0], copier_panier(cellule))
         return
     lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+    if raccourci and lieux_deja_accordes(cellule, lieux):
+        return
     populations = partager_si_necessaire(cellule, cellule.population, [lieu.population for lieu in lieux])
     paniers = {nom: partager_si_necessaire(cellule, total, contenus_des_paniers(lieux, nom))
                for nom, total in copier_panier(cellule).items()}

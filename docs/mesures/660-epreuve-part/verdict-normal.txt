@@ -1,0 +1,32 @@
+commande : py pc\epreuve_part.py --sortie "$env:TEMP\lot764-normal"
+date : 2026-10-22 00:07:38 (heure du PC, au lancement)
+code de sortie : 0
+ÉGALITÉ
+code 0
+graine 0 · part forte 50 % · part faible 10 %
+départs faible : Morée id 3 · attendu id 3, départs identiques · égal
+forte · monde : tick 31, seigneurie-3 · attendu tick 31, seigneurie-3 · égal
+faible · monde : tick 31, seigneurie-3 · attendu tick 31, seigneurie-3 · égal
+forte · terre : 3 · attendu 3 · égal
+forte · demande : (50, 50) · attendu (50, 50) · égal
+forte · choix : 200 au tick 0 «» · attendu 200 au tick 0 «» · égal
+forte · ordre : 200 au tick 1 «» · attendu 200 au tick 1 «» · égal
+forte · ticks : (0, 1, 31, 30) · attendu (0, 1, 31, 30) · égal
+forte · intention : {"type":"fixer_part","maison":"seigneurie-3","part":0.5} · attendu fixer_part seigneurie-3 0.5 · égal
+forte · maison : ('seigneurie-3', 'seigneurie-3', 31) · attendu ('seigneurie-3', 'seigneurie-3', 31) · égal
+forte · part relue : 0.5 · attendu 0.5 · égal
+forte · corps : statut 200, longueurs 658/658 · attendu statut 200, corps identiques · égal
+forte · panneau part : Prélèvement : 50 % · tick 31 · attendu 50.0 % · tick 31 · égal
+forte · panneau grenier : ['Grenier : nourriture : 570982,18 kg'] · attendu {'nourriture': 570982.179398794} · égal
+faible · terre : 3 · attendu 3 · égal
+faible · demande : (10, 10) · attendu (10, 10) · égal
+faible · choix : 200 au tick 0 «» · attendu 200 au tick 0 «» · égal
+faible · ordre : 200 au tick 1 «» · attendu 200 au tick 1 «» · égal
+faible · ticks : (0, 1, 31, 30) · attendu (0, 1, 31, 30) · égal
+faible · intention : {"type":"fixer_part","maison":"seigneurie-3","part":0.1} · attendu fixer_part seigneurie-3 0.1 · égal
+faible · maison : ('seigneurie-3', 'seigneurie-3', 31) · attendu ('seigneurie-3', 'seigneurie-3', 31) · égal
+faible · part relue : 0.1 · attendu 0.1 · égal
+faible · corps : statut 200, longueurs 660/660 · attendu statut 200, corps identiques · égal
+faible · panneau part : Prélèvement : 10 % · tick 31 · attendu 10.0 % · tick 31 · égal
+faible · panneau grenier : ['Grenier : nourriture : 115486,44 kg'] · attendu {'nourriture': 115486.43624743563} · égal
+grenier : forte 570982.18 kg · faible 115486.44 kg · attendu forte > faible · égal

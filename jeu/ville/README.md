@@ -193,6 +193,103 @@ Rapports du 16 octobre 2026 :
 [départ déjà choisi](../../docs/mesures/651-session-choix-moree/rapport-deja-choisi.json),
 [sans service](../../docs/mesures/651-session-choix-moree/rapport-sans-service.json).
 
+## La session de l'épreuve de la capitale
+
+Le joueur choisit sa terre dans le cabinet de la carte et, au tick suivant,
+passe à sa ville ou lit « Pas encore de kit pour cette terre » (lot #702,
+moitié Unity de l'épreuve #684). Depuis la racine du dépôt :
+
+```bash
+Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveCapitale.Jouer \
+      -forgeEpreuve <rapport.json> -forgeTerre N [-logFile <journal>]
+```
+
+Le service se lance à la main comme pour la session du choix (`py -m
+sim.service --seed 0 --jours-par-seconde 0` depuis `jeu/`), neuf pour chaque
+essai. Unity ouvre `Forge_Carte` en Play, attend que le cabinet ait lu le monde
+et les départs, choisit la terre N, laisse le passage voir le départ, pousse un
+seul `POST /tick?n=1` (jamais `/vitesse`), puis relève ce que le passage fait :
+la ville qu'il charge lui-même, comme dans le jeu, ou son message. Rien n'est
+remplacé dans le chargement.
+
+Le rapport porte `terre`, `tick_avant` et `tick_apres` (le tick du monde avant
+le choix et après le passage), `choix` (le reçu, comme dans la session du
+choix), `scene_active`, `cellule` et `tick_ouverture` (lus sur l'outil de la
+ville, −1 sans ville), `panneau_lieu` (la première ligne du panneau du lieu),
+`message_passage` et `defaut`. **0** une ville ou un message relevé, quel qu'il
+soit ; **1** session impossible (`defaut` dit pourquoi ; le rapport est écrit) ;
+**2** arguments fautifs (aucun rapport). Le rapport écrit, Unity sort du Play et
+laisse 12 s aux lectures de la carte avant de rendre son code : sans service, il
+pendait sinon à sa fermeture. La session ne juge rien : le jugement est
+celui de [l'épreuve de la capitale](#lépreuve-de-la-capitale). Rapports du 18 octobre 2026 :
+[le Zab](../../docs/mesures/702-session-capitale/rapport-zab.json),
+[Bar](../../docs/mesures/702-session-capitale/rapport-bar.json).
+
+## L'épreuve de la capitale
+
+Le joueur se fie au passage (lot #703, épreuve #684). Depuis la racine, éditeur fermé :
+
+```bash
+py pc\epreuve_capitale.py --sortie <dossier> [--seed S] [--unity CHEMIN]
+```
+
+Un service neuf par terre, trouvée par son nom. Unity seul pousse le tick ;
+Python ne poste ni intention, ni tick, ni vitesse, et n'envoie à Unity que
+l'id de la terre. La cellule attendue est `siege.cell_id` de
+`GET /maison?id=seigneurie-<id>`. **0** égalité, **1** écart, **2** épreuve
+impossible. Contre-épreuve sans PC :
+`python3 -m pytest jeu/ville/tests/test_epreuve_capitale.py -q -k contre_epreuve -s`.
+Verdicts du 18 octobre 2026 :
+[normal](../../docs/mesures/703-epreuve-capitale/verdict-normal.txt),
+[jugement d'une copie, pas une mesure PC](../../docs/mesures/703-epreuve-capitale/verdict-contre-epreuve.txt).
+
+## L'épreuve de la part
+
+Le joueur se fie à sa part et à son grenier (lot #764, épreuve #660). Éditeur fermé, port 8000 libre, depuis la racine :
+`py pc\epreuve_part.py --sortie <dossier> [--part-forte P] [--part-faible P] [--unity CHEMIN]` (entiers de 0 à 60, défauts 50 et 10).
+Deux services neufs en pause, graine 0, l'un après l'autre : forte puis faible, la Morée trouvée par son nom. Unity (`ForgeLocal3D.EpreuvePart.Jouer`) joue le curseur, la confirmation et les trente ticks ; Python lit seulement `/monde` et le corps brut de `/maison` avant d'arrêter le service, puis le [juge de #763](../../pc/epreuve_part.py) compare. **0** égalité, **1** écart, **2** épreuve impossible (Unity absent, port pris, part illisible, session, rapport ou lecture en panne ; l'essai est nommé).
+Contre-épreuve : `--part-forte 10` rend **1**, seul `grenier` en écart. Verdicts PC du 22 octobre 2026 : [normal](../../docs/mesures/660-epreuve-part/verdict-normal.txt), [contre-épreuve](../../docs/mesures/660-epreuve-part/verdict-contre-epreuve.txt).
+
+## La session de l'épreuve de la ville de 1400
+
+Unity ouvre quatre villes de 1400 comme le joueur et relève, maison par maison, ce qu'il a posé (lot #739, moitié Unity
+de #412). Éditeur fermé, depuis la racine : `Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveVille1400.Jouer
+-forgeEpreuve <dossier> [-forgeSauter | -forgeAjouter] [-logFile <journal>]` ; `Relancer` prend les mêmes arguments, seuls le
+champ `session` (« jouer », « relance ») et le nom des fichiers changent. Le service se lance à la main depuis `jeu/`
+(`py -m sim.service --seed 0 --jours-par-seconde 0`), **neuf avant chaque session**. Les cellules sont, dans l'ordre, 10103,
+1175, 1232 et 10337 (Biskra, le ksar de l'éditeur, 493 maisons seules, 28 îlots). `-forgeSauter` détruit la première maison
+posée, `-forgeAjouter` la double à +10 m. Chaque cellule écrit `<dossier>/<session>-<cellule>.json` sur une ligne : `session`,
+`contre_epreuve`, `cellule`, `tick`, `foyers`, `posees`, `absence`, `refus`, `rues_dessinees`, `empreinte_rues`, `duree_dessin_ms`,
+`images` et `image_ms` (300 images, une mesure, pas la preuve des 60 images/s), `maisons`, `empreinte` et `defaut`. Une maison est
+la ligne `"<rang> <indice> <variante> <x> <y> <sol> <lacet>"` (rang et indice de son nom, variante du kit ou −1, centre de sa
+boîte dans le repère du plan, y de sa base, lacet ; en `F2`) ; `empreinte` est le SHA-256 des lignes, chacune suivie de `\n`.
+Codes : **0** aucun défaut ; **1** un défaut (sans service par exemple ; les rapports sont écrits) ; **2** arguments fautifs,
+aucun rapport. Le jugement est celui de [l'épreuve de la ville de 1400](#lépreuve-de-la-ville-de-1400). Rapports du 21 octobre 2026 :
+jouer [10103](../../docs/mesures/739-session-ville1400/jouer-10103.json), [1175](../../docs/mesures/739-session-ville1400/jouer-1175.json), [1232](../../docs/mesures/739-session-ville1400/jouer-1232.json), [10337](../../docs/mesures/739-session-ville1400/jouer-10337.json) ;
+relance [10103](../../docs/mesures/739-session-ville1400/relance-10103.json), [1175](../../docs/mesures/739-session-ville1400/relance-1175.json), [1232](../../docs/mesures/739-session-ville1400/relance-1232.json), [10337](../../docs/mesures/739-session-ville1400/relance-10337.json).
+
+## L'épreuve de la ville de 1400
+
+Le joueur se fie à sa capitale : relancé, le jeu redessine la même Biskra d'après le monde (lot #740). Éditeur fermé, port 8000 libre, depuis la racine : `py pc\epreuve_ville1400.py --sortie <dossier> [--seed S] [--unity CHEMIN] [--sauter | --ajouter]`. Deux services neufs de même graine, en pause, l'un après l'autre : Unity joue `Jouer` puis `Relancer`, Python lit les quatre `/plan` avant d'arrêter chaque service, sans rien envoyer qui change le monde. Le juge dérive de `plan.base.maisons` un couple (rang, indice) par foyer : partition exacte, variante `(rang + indice) % 6`, centre dans l'emprise (0,05 m), empreinte recalculée, relance égale. Les refus (`Maison <rang> indice <indice> : <raison>`) sont comptés et affichés à part, jamais comme maisons posées ; Biskra n'en accepte aucun. Durée du dessin en ms et images/s, sans seuil. **0** égalité, **1** écart (couple manquant, doublon, inconnu, variante, hors emprise, empreinte, relance), **2** épreuve impossible (Unity absent ou non nul, port pris, service jamais prêt, HTTP, rapport absent ou ancien, champ absent, −1, défaut, absence, temps nul) : une panne ne prouve aucun rouge. Contre-épreuves : `--sauter` (une maison détruite) et `--ajouter` (une maison doublée) rendent **1** par les comparaisons de maisons, jamais par le drapeau. Sans PC : `python3 -m pytest jeu/ville/tests/test_epreuve_ville1400.py -q`. Verdicts PC : [normal](../../docs/mesures/740-epreuve-ville1400/verdict-normal.txt), [sauter](../../docs/mesures/740-epreuve-ville1400/verdict-sauter.txt), [ajouter](../../docs/mesures/740-epreuve-ville1400/verdict-ajouter.txt).
+
+## La session de l'épreuve de la transition
+
+Le joueur va de la carte à Biskra par un double-clic et revient par C (lot #732, moitié Unity de l'épreuve qui suivra #410).
+Préparation, service neuf à chaque essai : `py -m sim.service --seed 0 --jours-par-seconde 0` depuis `jeu/`, la terre au siège Biskra
+choisie par `POST /intention`, puis `POST /tick?n=1` ; en marche seulement, `POST /vitesse` à `VITESSE_CARTE`. Puis, éditeur fermé :
+`Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveTransition.Jouer -forgeEpreuve <rapport.json> [-logFile <journal>]`.
+La session ne choisit rien, ne pousse ni tick ni vitesse : elle lit `/horloge` une fois dans `carte_avant`, `ville_apres`, `ville_avant`
+(une seconde plus tard) et `carte_apres` (`tick`, `jours_par_seconde`, `scene`), et `cellule` sur l'outil de la ville. **0** les quatre
+lectures et l'aller-retour finis, quoi qu'ils valent ; **1** session impossible (`defaut` dit l'étape et la cause, −1 aux relevés non
+faits) ; **2** arguments fautifs, aucun rapport. Rapports du 21 octobre 2026 : [en marche](../../docs/mesures/732-session-transition/rapport-marche.json), [en pause](../../docs/mesures/732-session-transition/rapport-pause.json).
+
+## L'épreuve de la transition
+
+Le joueur se fie à l'aller-retour entre la carte et sa capitale (lot #733). Éditeur fermé, port 8000 libre, depuis la racine :
+`py pc\epreuve_transition.py --sortie <dossier> [--seed S] [--unity CHEMIN]`. Un service neuf **à 1 j/s** ; le Zab, trouvé par son nom, est choisi par `POST /intention`, seule requête qui change le monde, et le jour naturel suivant l'applique (30 s au plus). Le siège attendu est `siege.cell_id` de `/maison`. Unity joue la session #732 sans rien d'attendu ; le juge exige les vitesses 1, `VITESSE_VILLE`, `VITESSE_VILLE`, `VITESSE_CARTE` lues dans `ReglagesDesVues.json`, les scènes carte, ville, ville, carte, et deux inégalités : **`ville_apres.tick > carte_avant.tick`** et **`carte_apres.tick > ville_avant.tick`** (les deux lectures en ville peuvent être égales).
+**0** égalité, **1** écart, **2** épreuve impossible (défaut, −1, champ absent, réglage, port, Unity, rapport ou HTTP en panne). Contre-épreuves sans PC : `python3 -m pytest jeu/ville/tests/test_epreuve_transition.py -q -k contre_epreuve -s`.
+Verdicts du 22 octobre 2026 : [normal](../../docs/mesures/733-epreuve-transition/verdict-normal.txt) et son [rapport](../../docs/mesures/733-epreuve-transition/rapport-normal.json), [copies jugées, pas des mesures PC](../../docs/mesures/733-epreuve-transition/verdict-contre-epreuves.txt).
+
 ## L'épreuve du choix
 
 Le joueur peut se fier à son geste (lot #652, épreuve #615) : la terre qu'il

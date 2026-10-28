@@ -209,6 +209,33 @@ class GitHub:
         """Rejoue les travaux en échec d'un run fini, et ceux qui les attendent."""
         self.gh("run", "rerun", str(run), "-R", self.depot, "--failed")
 
+    def base_de_fusion(self, base: str, tete: str) -> str:
+        """Le commit de `base` d'où part la révision `tete`."""
+        return self.gh("api", f"repos/{self.depot}/compare/{base}...{tete}", "--jq",
+                       ".merge_base_commit.sha").strip()
+
+    def travaux_du_commit(self, reference: str) -> dict[str, str]:
+        """L'état de chaque travail de CI d'un commit (ou de la tête d'une
+        branche) : vert, rouge ou attente. Un travail rejoué se lit à son
+        passage le plus récent ; un travail annulé n'a rien dit, il n'est
+        pas rouge."""
+        bruts = self.json("api", f"repos/{self.depot}/commits/{reference}/check-runs?per_page=100", "--jq",
+                          "[.check_runs[] | {name, status, conclusion, started_at}]") or []
+        vus: dict[str, tuple[str, str]] = {}
+        for c in bruts:
+            if c.get("status") != "completed":
+                etat = "attente"
+            elif c.get("conclusion") in ("failure", "timed_out"):
+                etat = "rouge"
+            elif c.get("conclusion") in ("success", "neutral", "skipped"):
+                etat = "vert"
+            else:
+                continue
+            date = c.get("started_at") or ""
+            if c["name"] not in vus or date >= vus[c["name"]][1]:
+                vus[c["name"]] = (etat, date)
+        return {nom: etat for nom, (etat, _) in vus.items()}
+
     def fichiers_de_pr(self, numero: int) -> list[str]:
         return [f["path"] for f in (self.json("pr", "view", str(numero), "-R", self.depot, "--json", "files")
                                     or {}).get("files") or []]
