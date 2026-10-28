@@ -139,6 +139,9 @@ def avancer_chantiers(world):
     world.chantiers_du_jour = {}
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
+        # Le compte de la veille s'efface avant toute sortie, métiers calculés ou non.
+        for lieu in cell.lieux:
+            ecrire_ouvriers_du_jour(lieu, 0)
         avant = lire_habitants_par_metier(cell)
         paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
         actifs = any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
@@ -164,9 +167,6 @@ def avancer_chantiers(world):
         if metiers is not None and familiaux in metiers:
             artisans = _constantes.METIER_ARTISANS
             metiers[artisans] = metiers.get(artisans, 0) + metiers.pop(familiaux)
-        if metiers is not None:
-            for lieu in cell.lieux:
-                ecrire_ouvriers_du_jour(lieu, 0)
         besoin_bourg = actifs or ouvre_maisons
         bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None) if besoin_bourg else None
         plan = _ouvrir_maisons(plan, metiers, bourg)

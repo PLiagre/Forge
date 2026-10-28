@@ -1417,6 +1417,44 @@ def test_bras_par_lieu_ordre_et_retour():
     assert not monde.plans[cell.cell_id].rues[-1].en_chantier
 
 
+def test_compte_perime_sans_chantier_ni_ouvrier():
+    """Sans chantier ni ouvrier, un compte de la veille revient à zéro et juillet ne perd plus de récolte."""
+    from sim import chantiers
+
+    monde = World.charger(0)
+    cell, _, juillet = _cellule_a_plusieurs_lieux(monde, _JOURNEES)
+    assert _mois_de(juillet) == 7
+    plan = monde.plans[cell.cell_id]
+    assert not any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
+    metiers = lire_habitants_par_metier(cell)
+    assert metiers != -1 and k.METIER_OUVRIERS not in metiers
+    assert not metiers.get(k.METIER_ARTISANS, 0) and not metiers.get(k.METIER_AUTOCONSTRUCTEURS, 0)
+    lieu = next(candidat for candidat in cell.lieux if candidat.rang == 0)
+    temoin = sum(_produire(copy.deepcopy(cell), monde.carte, juillet))
+    assert temoin > 0
+    ecrire_ouvriers_du_jour(lieu, k.TAILLE_FOYER)
+    assert lire_ouvriers_du_jour(lieu) == k.TAILLE_FOYER
+    rognee = sum(_produire(copy.deepcopy(cell), monde.carte, juillet))
+    assert temoin > rognee
+
+    def retabli(recolte, comptes):
+        assert comptes and all(compte == 0 for compte in comptes)
+        assert recolte == pytest.approx(temoin)
+        assert recolte > rognee
+
+    envois = chantiers.avancer_chantiers(monde)
+    assert cell.cell_id not in {cle[0] for cle in envois}
+    comptes = [lire_ouvriers_du_jour(candidat) for candidat in cell.lieux]
+    retabli(sum(_produire(cell, monde.carte, juillet)), comptes)
+    with pytest.raises(AssertionError):
+        retabli(rognee, [k.TAILLE_FOYER])
+    cell.habitants_par_metier = None
+    ecrire_ouvriers_du_jour(lieu, k.TAILLE_FOYER)
+    chantiers.avancer_chantiers(monde)
+    assert lire_habitants_par_metier(cell) == -1
+    assert all(lire_ouvriers_du_jour(candidat) == 0 for candidat in cell.lieux)
+
+
 def test_chantier_janvier_juillet(monkeypatch):
     base = World.charger(0)
     cell, janvier, juillet = _cellule_a_plusieurs_lieux(base, _JOURNEES)
