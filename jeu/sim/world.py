@@ -139,6 +139,8 @@ class World:
         self.cells = cells
         self.plans = {cid: Plan() for cid in sorted(cells)}
         self.chantiers_du_jour = {}  # Observation renouvelée, hors sauvegarde et décisions.
+        self.origines_des_chantiers = {}  # Bras pris par lieu, renouvelés, hors sauvegarde.
+        self.recolte_perdue_par_chantier = {}  # Kilogrammes du jour, hors sauvegarde.
         self.adjacency = adjacency
         self.carte = carte or {}
         self.carte_meta = carte_meta or {}

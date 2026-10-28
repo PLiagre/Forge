@@ -442,7 +442,10 @@ même registre, sur la carte comme dans sa ville.
   territoire, de la maison, des flux et des voisins, la part et le grenier,
   les calques, les légendes et le menu reçoivent le socle ; les couleurs
   écrites dans les écrans passent en jetons ; les couleurs des maisons
-  restent celles du service. *Preuve* : aucune couleur ni police posée hors
+  gardent la teinte du service, en pigment mat du socle (DA.md) ; les
+  légendes des lieux (#657) et des flèches (#658) se rangent sans passer
+  sous un feuillet ouvert — celle des lieux dépasse aujourd'hui, coupée,
+  au-dessus du feuillet de gauche. *Preuve* : aucune couleur ni police posée hors
   du socle dans l'interface de la carte — elle échoue aujourd'hui :
   `LieuxDeCarte` pose son propre rouge ; au même tick,
   graine 0, la liste des textes de chaque dossier est la même avant et après

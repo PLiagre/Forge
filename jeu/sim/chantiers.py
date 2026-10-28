@@ -121,7 +121,7 @@ def _puiser(element, metiers, payables, cell, reserves):
         metiers[ouvriers] = metiers.get(ouvriers, 0) + personnes
         fourni = element.travail_fourni + personnes
         element = replace(element, travail_fourni=fourni, en_chantier=fourni < element.travail_requis)
-    return element, personnes
+    return element, personnes, {lieu.rang: peut for lieu, peut in prises}
 
 
 def _bras_admissibles(metiers, origine, autonome, cell, reserves):
@@ -137,6 +137,8 @@ def avancer_chantiers(world):
     """Retour aux champs, rues, parcelles puis bâtiments prêts, par identifiant."""
     envois = {}
     world.chantiers_du_jour = {}
+    world.origines_des_chantiers = {}
+    world.recolte_perdue_par_chantier = {}
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
         # Le compte de la veille s'efface avant toute sortie, métiers calculés ou non.
@@ -193,17 +195,22 @@ def avancer_chantiers(world):
                              "metiers_non_calcules" if metiers is None else
                              "sans_bras" if not admissibles or autonome else
                              "payeur_absent" if grenier is None else "sans_grain")
+                    origines = {}
                     if attend:
                         personnes = 0
                     elif autonome or metiers is None or not reserves:
                         element, personnes = _servir(element, metiers, 1 if autonome else payables - journees, autonome)
                     else:
-                        element, personnes = _puiser(element, metiers, payables - journees, cell, reserves)
-                    envois[(cell_id, *cle, element.identifiant)] = personnes
-                    world.chantiers_du_jour[(cell_id, *cle, element.identifiant)] = {
+                        element, personnes, origines = _puiser(
+                            element, metiers, payables - journees, cell, reserves)
+                    cle_chantier = (cell_id, *cle, element.identifiant)
+                    envois[cle_chantier] = personnes
+                    world.chantiers_du_jour[cle_chantier] = {
                         "bras": personnes, "grain_paye_kg": 0 if autonome else personnes * salaire,
                         "motif_arret": None if personnes else motif,
                     }
+                    if origines and not autonome:
+                        world.origines_des_chantiers[cle_chantier] = origines
                     journees += 0 if autonome else personnes
                 listes[nom].append(element)
         if metiers is not None and metiers != avant:

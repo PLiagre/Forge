@@ -40,6 +40,8 @@ namespace Forge.Interface
         Func<MondeLu> monde;
         Func<CelluleDeCarte> selection;
         Dictionary<long, MeshRenderer> rendus;
+        TextMesh[] noms;
+        readonly List<Rect> etiquettes = new List<Rect>();
         Text legende;
         MondeLu precedent;
         long? territoirePrecedent;
@@ -61,6 +63,7 @@ namespace Forge.Interface
         void LateUpdate()
         {
             if (legende == null || carte.CellulesPosees == 0) return;
+            EspacerLesNoms();
             var lu = monde(); long? retenu = selection()?.CellId;
             if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent) return;
             changement = false; precedent = lu; territoirePrecedent = retenu;
@@ -71,6 +74,15 @@ namespace Forge.Interface
                     var racine = carte.transform.Find("Cellules de la carte");
                     rendus = racine.GetComponentsInChildren<MeshRenderer>().ToDictionary(
                         r => long.Parse(r.name.Substring("Cellule ".Length), CultureInfo.InvariantCulture));
+                    carte.camera.backgroundColor = SocleInterface.Couleur("mer");
+                    var police = SocleInterface.Police(titre: true);
+                    noms = carte.GetComponentsInChildren<TextMesh>().OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
+                    foreach (var nom in noms)
+                    {
+                        nom.font = police; nom.fontSize = 16;
+                        nom.GetComponent<MeshRenderer>().sharedMaterial = police.material;
+                        nom.color = SocleInterface.Couleur("encre");
+                    }
                 }
                 RepartitionHabitants repartition = habitants ? new RepartitionHabitants(lu) : null;
                 if (habitants && rendus.Count != lu.Cellules.Count) throw new ArgumentException("Carte et populations ne couvrent pas les mêmes territoires");
@@ -79,10 +91,10 @@ namespace Forge.Interface
                 foreach (var paire in rendus)
                 {
                     paire.Value.SetPropertyBlock(null);
-                    if (!habitants && paire.Key != retenu) continue;
                     var bloc = new MaterialPropertyBlock();
                     bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
-                        : Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * repartition.Position(paire.Key))).linear);
+                        : habitants ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * repartition.Position(paire.Key))
+                        : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
                     paire.Value.SetPropertyBlock(bloc);
                 }
                 legende.text = (habitants ? repartition.Legende : "Puissances de la carte de 1400 · Relief non transmis")
@@ -93,11 +105,30 @@ namespace Forge.Interface
                 if (rendus != null) foreach (var paire in rendus)
                 {
                     paire.Value.SetPropertyBlock(null);
-                    if (paire.Key != retenu) continue;
-                    var bloc = new MaterialPropertyBlock(); bloc.SetColor("_BaseColor", SocleInterface.Couleur("alerte").linear);
+                    var bloc = new MaterialPropertyBlock();
+                    bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
+                        : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
                     paire.Value.SetPropertyBlock(bloc);
                 }
                 legende.text = "Calque indisponible : " + e.Message + ". Couleurs des puissances conservées.";
+            }
+        }
+
+        void EspacerLesNoms()
+        {
+            if (noms == null) return;
+            etiquettes.Clear();
+            foreach (var nom in noms)
+            {
+                var rendu = nom.GetComponent<MeshRenderer>();
+                var bounds = rendu.bounds;
+                var a = carte.camera.WorldToScreenPoint(bounds.min);
+                var b = carte.camera.WorldToScreenPoint(bounds.max);
+                var rect = Rect.MinMaxRect(Mathf.Min(a.x, b.x) - 3, Mathf.Min(a.y, b.y) - 2,
+                    Mathf.Max(a.x, b.x) + 3, Mathf.Max(a.y, b.y) + 2);
+                bool visible = carte.camera.pixelRect.Contains(rect.center) && !etiquettes.Any(r => r.Overlaps(rect));
+                rendu.enabled = visible;
+                if (visible) etiquettes.Add(rect);
             }
         }
     }

@@ -54,7 +54,9 @@ Les huit jetons du 14 octobre sont gardés tels quels. Le socle en ajoute sept ;
 | or-vieilli | `#B49A61` (= `or`) | Sélection et focus sur fond sombre ; jamais un texte sur papier | sur `pierre` : 6,3:1 ; sur `papier` : 2,0:1, refusé |
 | vert-de-gris | `#5E8C7A` | Confirmation sur fond sombre, avec son libellé | sur `pierre` : 4,5:1 |
 
-Seuils, vérifiés par le contrôle du socle : **4,5:1** pour tout texte, **3:1** pour un trait ou un signe qui porte un état. Les couleurs des maisons et des calques sont des données servies : le thème ne les change pas, il les encadre.
+Seuils, vérifiés par le contrôle du socle : **4,5:1** pour tout texte, **3:1** pour un trait ou un signe qui porte un état. Les couleurs des maisons et des calques sont des données servies : le thème garde leur teinte et ne les remplace jamais par un jeton ; il les présente en pigment mat (ci-dessous) et les encadre.
+
+**Le pigment d’atlas** (décidé le 28 octobre par le propriétaire, sur la passe du 21 octobre, [ATLAS.md](ATLAS.md)) : sur la carte, la couleur servie d’une maison garde sa teinte à moins de 15° près ; sa saturation passe à 38 %, sa valeur entre 0,53 et 0,61, puis 16 % de `papier` la patine. Une seule fonction le fait, `SocleInterface.Pigment`, et son test échoue si un pigment change de teinte. La mer est le jeton du socle `mer` (`#384A4D`), hors des sept ajoutés plus haut : c’est le fond de la carte, pas un état.
 
 ### La hiérarchie d’un registre
 
