@@ -1594,7 +1594,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15')): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16')): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1896,8 +1896,8 @@ def _etats_iberie(e):
 
 def _familles_historiques(familles, liens):
     famille = FAMILLE_1400 + [('sophie-baviere', 'Sophie de Bavière', '1376', 'annee')]
-    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 == 58
-    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'}
+    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) == 72
+    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'}
     fiches = {f['id']: f for f in familles + liens}
     couples = {'personne-isabeau': 'personne-grande-3', 'personne-jeanne': 'personne-grande-28', 'personne-sophie-baviere': 'personne-grande-9'}
     couples.update({v: k for k, v in list(couples.items())})
@@ -1905,14 +1905,15 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 16 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15')}
+    assert len(liens) == 17 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16')}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
     _voisins_historiques(fiches)
     _constantinople(fiches)
+    _ottomans(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii')}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -1975,7 +1976,6 @@ def test_familles_integration(tmp_path, monkeypatch):
     assert lire(document) == document and World.charger(0).personnages == monde.personnages
     reelles = [f for f in monde.personnages if 'pere' in f]
     bilan = _controler_famille(reelles)
-    assert len(bilan['verifies']) == 36 and len(bilan['indetermines']) == 86
     parents = [('grande-3', 'isabeau', i) for i, *_ in FAMILLE_1400[1:]] + [('grande-1', 'marie-bohun', i) for i, *_ in ILES_1400[1:7]] + [('grande-2', 'annabella', i) for i, *_ in ILES_1400[8:13]] + [('grande-2', None, 'jean-ardgowan')]
     verifies = {('anteriorite', ('personne-grande-3', 'personne-' + i)) for i, *_ in FAMILLE_1400[1:]}
     parents += [('grande-' + m, mere, i) for i, _, _, _, _, _, m, mere in IBERIE_1400 if mere]
@@ -1984,6 +1984,11 @@ def test_familles_integration(tmp_path, monkeypatch):
     verifies |= {('anteriorite', ('personne-grande-' + m, 'personne-' + i)) for i, m in [('jeanne-foix', '7'), ('charles-navarre', '7'), ('lancelot-navarre', '7'), ('valentine-visconti', '10'), ('gian-maria', '10'), ('filippo-maria', '10')]} | {(k, ('personne-' + m, 'personne-' + i)) for m, i in [('isabelle-vertus', 'valentine-visconti'), ('caterina-visconti', 'gian-maria'), ('caterina-visconti', 'filippo-maria')] for k in ('anteriorite', 'age_maternel')}
     parents += [('grande-15', 'helena-dragas', 'jean-viii'), ('grande-15', 'helena-dragas', 'theodore-ii')]
     verifies |= {('anteriorite', ('personne-grande-15', 'personne-jean-viii'))}
+    parents += [('grande-16', m, i) for i, _, _, _, m, epoux, *_ in OTTOMANS if not epoux]
+    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux]
+    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m]
+    assert len(paternels) == 10 and len(maternites) == 5
+    assert len(bilan['verifies']) == 36 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 106
     controles = {('anteriorite', ('personne-' + p, 'personne-' + e)) for p, m, e in parents} | {(k, ('personne-' + m, 'personne-' + e)) for p, m, e in parents if m for k in ('anteriorite', 'age_maternel')}
     assert {(c['contrainte'], c['personnes']) for c in bilan['verifies']} == verifies
     assert {(c['contrainte'], c['personnes']) for c in bilan['indetermines']} == controles - verifies
@@ -2037,8 +2042,10 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 16 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15')}
+    assert len(etats) == 17 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16')}
     for e in etats:
+        if e['maison'] == 'grande-16':
+            _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
             _constantinople(etat=e); continue
         if e['maison'][7:] in VOISINS_CHEFS:
@@ -2699,3 +2706,164 @@ def test_familles_historiques_constantinople():
     c['familles'].append(dict(copy.deepcopy(next(x for x in c['familles'] if x['id'] == 'personne-helena-dragas')), id='personne-jean-v', nom='Jean V Paléologue', naissance=_naissance_famille('1332-06-18'), pere=None, mere=None, conjoints=[]))
     next(x for x in c['liens'] if x['id'] == 'personne-grande-15')['pere'] = 'personne-jean-v'
     lier(c, id='personne-seigneurie-3', pere='personne-jean-v')
+
+
+# Notices examinées le 28 octobre 2026 ; attentes indépendantes du catalogue.
+# id, nom, naissance, précision, mère, épouse, page d’identité, repères
+BAYEZID, MEHMED_P, FETRET = 'https://islamansiklopedisi.org.tr/bayezid-i', 'https://islamansiklopedisi.org.tr/mehmed-i', 'https://islamansiklopedisi.org.tr/fetret-devri'
+TTK, UZUNCARSILI = 'https://ttk.gov.tr/osmanli-padisahlari/', 'https://dergipark.org.tr/tr/download/article-file/3043592'
+ULUCAY = 'https://turuz.com/storage/Turkologi/2017/2278-Padishahlarin_Qadinlari_Ve_Qizlari-M.Chaghatay_Uluchay-1992-313s.pdf'
+DEVLETSAH, HAFSA, OLIVERA = 'https://en.wikipedia.org/wiki/Devlet%C5%9Fah_Hatun', 'https://en.wikipedia.org/wiki/Hafsa_Hatun', 'https://en.wikipedia.org/wiki/Olivera_Despina'
+PAGES_OTTO, PERE_B = {BAYEZID, MEHMED_P, FETRET, TTK, ULUCAY, UZUNCARSILI, DEVLETSAH, HAFSA, OLIVERA}, 'personne-grande-16'
+OTTOMANS = (
+    ('devletsah-hatun', 'Devletşah Hatun', 'c. 1365', 'vers', None, True, DEVLETSAH, ('c. 1365', '1414', '1378', '1381', 'p. 23-26')),
+    ('devlet-hatun', 'Devlet Hatun', None, None, None, True, UZUNCARSILI, ('janvier 1414', 'convertie', 'distincte', 'Devletşah Hatun', 'p. 185-188')),
+    ('olivera-despina', 'Olivera Despina', 'c. 1372', 'vers', None, True, OLIVERA, ('c. 1372', '1444', '1390', '1402')),
+    ('hafsa-hatun', 'Hafsa Hatun', None, None, None, True, HAFSA, ('1390', '1403', 'İsa Bey', 'Aydın')),
+    ('suleyman-celebi', 'Süleyman Çelebi', None, None, None, False, BAYEZID, ('après le départ',)),
+    ('isa-celebi', 'İsa Çelebi', '1380', 'annee', 'devletsah-hatun', False, DEVLETSAH, ('1380', 'Devletşah Hatun', 'après le départ')),
+    ('musa-celebi', 'Musa Çelebi', None, None, 'devletsah-hatun', False, ULUCAY, ('Devletşah Hatun', 'après le départ')),
+    ('mehmed-ier', 'Mehmed Çelebi', '1386 ou 1387', 'intervalle', 'devlet-hatun', False, MEHMED_P, ('1386 ou 1387', 'Devlet Hatun', 'après le départ')),
+    ('kasim-celebi', 'Kasım Çelebi', None, None, None, False, FETRET, ('1403', 'Constantinople', 'après le départ')),
+    ('mustafa-celebi', 'Mustafa Çelebi', None, None, None, False, MEHMED_P, ('1402', 'après le départ')),
+    ('hundi-hatun', 'Hundi Hatun', None, None, None, False, ULUCAY, ('1396', 'Nicopolis', 'après le départ')),
+    ('oruz-hatun', 'Oruz Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ')),
+    ('pasa-melek-hatun', 'Paşa Melek Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ')),
+    ('fatma-hatun', 'Fatma Hatun', None, None, None, False, FETRET, ('1403', 'Kasım Çelebi', 'après le départ')),
+)
+OTTO_EXCLUSIONS = {
+    'Ertuğrul Çelebi': (MEHMED_P, TTK, '1400', 'indéterminée', 'sans jour'),
+    'Erhondu Hatun': (ULUCAY, 'fille', 'mère', 'indéterminée', 'p. 23-26'),
+    **{n: (BAYEZID, TTK, 'divergentes', 'six fils survivants', 'relevé') for n in ('Yusuf Çelebi', 'Hasan Çelebi', 'Ömer Çelebi', 'Korkud Çelebi', 'İbrahim Çelebi')},
+    'Fille non nommée proposée à Ladislas': (NAPLES, TRECCANI, 'grande-11', 'jamais fusionnée', 'Hundi Hatun', 'Oruz Hatun', 'Paşa Melek Hatun', 'Fatma Hatun', 'Erhondu Hatun'),
+    **{n: (ULUCAY, 'aucune trace', 'confusion', 'Olivera Despina', *s) for n, s in (
+        ('Fülane', ()), ('Fille non nommée de Jean V', ('Jean V',)), ('Maria Fadrique', ('Salona',)), ('Angelina', ()), ('Maria', ('Hongrie',)))},
+}
+
+
+def _texte_otto(f):
+    lacunes = f.get('lacunes') if isinstance(f.get('lacunes'), dict) else {}
+    return ' '.join(m for k, s in f.get('sources', {}).items() if isinstance(m := (s.get('fait') if isinstance(s, dict) else lacunes.get(k) or ''), str))
+
+
+def _ottomans(fiches=None, etat=None):
+    if fiches is not None:
+        assert {'personne-' + i for i, *_ in OTTOMANS} <= set(fiches) and PERE_B in fiches
+        bay, epouses = fiches[PERE_B], tuple('personne-' + i for i, _, _, _, _, epoux, *_ in OTTOMANS if epoux)
+        assert set(bay['sources']) == set(bay['lacunes']) == {'pere', 'mere', 'conjoints', 'presence'} | ({'identite', 'naissance'} if 'nom' in bay else set())
+        assert (bay['pere'], bay['mere'], tuple(bay['conjoints']), bay['presence']) == (None, None, epouses, 'vivante')
+        conjoints, presence_b = bay['sources'].get('conjoints'), bay['sources'].get('presence')
+        assert bay['sources'].get('pere') is None and bay['sources'].get('mere') is None and bay['lacunes'].get('conjoints') is None and bay['lacunes'].get('presence') is None
+        assert isinstance(conjoints, dict) and conjoints.get('url') == BAYEZID and 'Bayezid Ier' in (conjoints.get('fait') or '') and isinstance(presence_b, dict) and presence_b.get('url') == BAYEZID and 'Bayezid Ier' in (presence_b.get('fait') or '')
+        assert isinstance(bay['lacunes'].get('pere'), str) and 'aucune absence attestée' in bay['lacunes']['pere'] and isinstance(bay['lacunes'].get('mere'), str) and 'aucune absence attestée' in bay['lacunes']['mere']
+        _reperes_voisins(conjoints.get('fait'), ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'))
+        assert fiches['personne-devlet-hatun']['nom'] != fiches['personne-devletsah-hatun']['nom']
+        for i, nom, date, precision, mere, epoux, page, reperes in OTTOMANS:
+            f = fiches['personne-' + i]
+            assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (
+                nom, 'grande-16', _naissance_famille(date, precision) if date else None, None if epoux else PERE_B,
+                'personne-' + mere if mere else None, (PERE_B,) if epoux else (), 'vivante')
+            assert set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance', 'pere', 'mere', 'conjoints', 'presence'}
+            identite, presence = f['sources'].get('identite'), f['sources'].get('presence')
+            assert isinstance(identite, dict) and identite.get('url') == page and nom in (identite.get('fait') or '') and isinstance(presence, dict) and presence.get('url') in PAGES_OTTO and nom in (presence.get('fait') or '') and f['lacunes'].get('presence') is None
+            assert all(isinstance(s, dict) and s.get('url') in PAGES_OTTO and nom in (s.get('fait') or '') for s in f['sources'].values() if s)
+            _reperes_voisins(_texte_otto(f), (nom, *reperes))
+            if epoux:
+                assert f['sources'].get('pere') is None and f['sources'].get('mere') is None and isinstance(f['sources'].get('conjoints'), dict) and f['lacunes'].get('conjoints') is None and isinstance(f['lacunes'].get('pere'), str) and 'aucune absence attestée' in f['lacunes']['pere'] and isinstance(f['lacunes'].get('mere'), str) and 'aucune absence attestée' in f['lacunes']['mere']
+            else:
+                pere = f['sources'].get('pere')
+                assert isinstance(pere, dict) and 'Bayezid Ier' in (pere.get('fait') or '') and f['sources'].get('conjoints') is None and isinstance(f['lacunes'].get('conjoints'), str) and 'aucune absence attestée' in f['lacunes']['conjoints']
+                if mere:
+                    mere_source = f['sources'].get('mere')
+                    assert isinstance(mere_source, dict) and fiches['personne-' + mere]['nom'] in (mere_source.get('fait') or '')
+                else:
+                    assert f['sources'].get('mere') is None and isinstance(f['lacunes'].get('mere'), str)
+                    _reperes_voisins(f['lacunes']['mere'], (nom, 'n’établissent pas', 'aucune absence attestée'))
+            if date:
+                naissance = f['sources'].get('naissance')
+                assert isinstance(naissance, dict) and date in (naissance.get('fait') or '') and f['lacunes'].get('naissance') is None
+            else:
+                assert f['sources'].get('naissance') is None and isinstance(f['lacunes'].get('naissance'), str) and 'naissance inconnue' in f['lacunes']['naissance']
+    if etat is not None:
+        assert (etat.get('conjoints'), etat.get('enfants'), etat.get('lacunes')) == ('union', 'documentes', {'conjoints': None, 'enfants': None})
+        sources, exclusions = etat.get('sources'), etat.get('exclusions')
+        assert isinstance(sources, dict) and isinstance(exclusions, dict) and set(exclusions) == set(OTTO_EXCLUSIONS)
+        for champ, reperes in (
+                ('conjoints', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if femme) + ('1378', '1381', '1390')),
+                ('enfants', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if not femme))):
+            source = sources.get(champ); assert isinstance(source, dict) and source.get('url') == BAYEZID; _reperes_voisins(source.get('fait'), reperes)
+        for nom, reperes in OTTO_EXCLUSIONS.items():
+            x, pages = exclusions[nom], {v for v in reperes if str(v).startswith('http')}
+            faits = tuple(v for v in reperes if v not in pages)
+            assert x.get('sources') and {s.get('url') for s in x['sources']} == pages and all(nom in (s.get('fait') or '') for s in x['sources']) and all(any(v in (s.get('fait') or '') for s in x['sources']) for v in faits)
+            _reperes_voisins(x.get('motif'), (nom, *faits))
+
+
+def test_familles_historiques_ottomans():
+    d = _personnages()
+    def preuve(c):
+        _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False):
+        if controle: assert _controler_famille(resolus(c))
+        with pytest.raises(AssertionError): preuve(c)
+    def remplacer(obj, ancien):
+        if isinstance(obj, str): return obj.replace(ancien, 'inconnu')
+        if isinstance(obj, list): return [remplacer(x, ancien) for x in obj]
+        return {k: remplacer(v, ancien) for k, v in obj.items()} if isinstance(obj, dict) else obj
+    preuve(d)
+    ids = {'personne-' + i for i, *_ in OTTOMANS} | {PERE_B, 'grande-16'}
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', f.get('maison')) not in ids: continue
+            refuse(_alterer_personnages(d, (t,), d[t][:j] + d[t][j+1:]))
+            refuse(_alterer_personnages(d, (t,), d[t] + [copy.deepcopy(f)]))
+            if t == 'etats':
+                for valeur in ('absence_attestee', 'lacune'): refuse(_alterer_personnages(d, (t, j, 'enfants'), valeur))
+                for champ in ('conjoints', 'enfants'):
+                    texte = f['sources'][champ]['fait']
+                    refuse(_alterer_personnages(d, (t, j, 'sources', champ), None)); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Fait perdu'))
+                    for r in (('1378', '1381', '1390') if champ == 'conjoints' else ()):
+                        refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), texte.replace(r, 'inconnu')))
+                for nom, reperes in OTTO_EXCLUSIONS.items():
+                    x = f['exclusions'][nom]
+                    refuse(_alterer_personnages(d, (t, j, 'exclusions', nom), 'SUPPRIMER')); refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'motif'), ''))
+                    for r in reperes:
+                        if not str(r).startswith('http'): refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'motif'), x['motif'].replace(r, 'inconnu')))
+                    for a in range(len(x['sources'])): refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'sources'), x['sources'][:a] + x['sources'][a+1:]))
+                continue
+            refuse(_alterer_personnages(d, (t, j, 'presence'), 'decedee'))
+            for champ, source in ((k, s) for k, s in f['sources'].items() if s):
+                refuse(_alterer_personnages(d, (t, j, 'sources', champ), None)); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'url'), 'https://exemple.org')); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Fait perdu'))
+            if t == 'liens':
+                refuse(_alterer_personnages(d, (t, j, 'conjoints'), f['conjoints'][:1])); refuse(_alterer_personnages(d, (t, j, 'pere'), 'personne-grande-15'))
+                texte = f['sources']['conjoints']['fait']
+                for r in ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'):
+                    refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace(r, 'inconnu')))
+                continue
+            row = next(o for o in OTTOMANS if f['id'] == 'personne-' + o[0])
+            refuse(_alterer_personnages(d, (t, j, 'nom'), 'Homonyme'))
+            refuse(_alterer_personnages(d, (t, j, 'naissance'), None if f['naissance'] else _naissance_famille('1380', 'annee')))
+            for r in row[7]:
+                c = copy.deepcopy(d); c[t][j]['sources'], c[t][j]['lacunes'] = remplacer(f['sources'], r), remplacer(f['lacunes'], r); refuse(c)
+            if row[5]:
+                refuse(_alterer_personnages(d, (t, j, 'conjoints'), [])); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'pere'), 'hors sujet'))
+            else:
+                refuse(_alterer_personnages(d, (t, j, 'pere'), None))
+                if row[4]:
+                    refuse(_alterer_personnages(d, (t, j, 'mere'), None)); refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-olivera-despina' if row[4] != 'olivera-despina' else 'personne-devletsah-hatun'))
+                else:
+                    refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-devletsah-hatun')); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'mere'), f['lacunes']['mere'].replace('n’établissent pas', 'inconnu')))
+    c = copy.deepcopy(d); next(x for x in c['familles'] if x['id'] == 'personne-devlet-hatun')['nom'] = 'Devletşah Hatun'; refuse(c)
+    c = copy.deepcopy(d); next(x for x in c['familles'] if x['id'] == 'personne-mehmed-ier')['mere'] = 'personne-devletsah-hatun'; refuse(c)
+    modele = next(f for f in d['familles'] if f['id'] == 'personne-marie-bourgogne')
+    for nom, presence in [(n, 'vivante') for n in (*OTTO_EXCLUSIONS, 'Héritier inventé')] + [(n, 'decedee') for n in ('Ertuğrul Çelebi', 'Erhondu Hatun')]:
+        for role in ('pere', 'conjoints'):
+            c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, maison='grande-16', presence=presence, pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+            if role == 'pere': ajout['pere'] = PERE_B
+            else: ajout['conjoints'] = [PERE_B]; next(x for x in c['liens'] if x['id'] == PERE_B)['conjoints'].append(ajout['id'])
+            refuse(c, controle=True)
+    for nom in ('Hundi Hatun', 'Oruz Hatun', 'Paşa Melek Hatun', 'Fatma Hatun', 'Erhondu Hatun'):
+        c = copy.deepcopy(d); exc = next(x for x in c['etats'] if x['maison'] == 'grande-16')['exclusions']
+        exc[nom] = exc.pop('Fille non nommée proposée à Ladislas'); refuse(c)
