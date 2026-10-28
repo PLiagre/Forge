@@ -3180,6 +3180,49 @@ def test_plan_service_publie_le_monde_et_ne_bloque_pas_la_lecture():
         fil.join(timeout=5)
 
 
+def test_plan_service_publie_enceinte_si_presente():
+    from dataclasses import replace
+    from sim.plan import Enceinte
+    from sim.service import ServeurMonde
+
+    triangle = [(0, 0), (3, 0), (0, 4)]
+    canon = {"contour": [[0, 0], [3, 0], [0, 4]], "en_chantier": True,
+             "foyers": 1, "travail_requis": 12, "travail_fourni": 0}
+    vide_attendu = {"rues": [], "parcelles": [], "batiments": []}
+
+    def verifier(document, avec):
+        if avec:
+            assert document.get("enceinte") == canon
+        else:
+            assert document == vide_attendu and "enceinte" not in document
+
+    serveur = ServeurMonde(("127.0.0.1", 0), seed=0, jours_par_seconde=0)
+    try:
+        cid = min(serveur.world.cells)
+        for plan in serveur.world.plans.values():
+            verifier(plan.to_dict(), False)
+        assert "enceinte" not in json.loads(serveur.etat_publie.plans[cid])
+        empreinte = json.dumps(serveur.world.to_dict(), sort_keys=True)
+        serveur.world.plans[cid] = replace(
+            serveur.world.plans[cid],
+            enceinte=Enceinte(triangle, en_chantier=True, foyers=1, travail_requis=12, travail_fourni=0))
+        plein = serveur.world.plans[cid].to_dict()
+        verifier(plein, True)
+        assert json.dumps(serveur.world.to_dict(), sort_keys=True) != empreinte
+        etat = serveur._construire_etat(0, -1)
+        reponse = json.loads(etat.plans[cid])
+        autre = next(c for c in serveur.world.cells if c != cid)
+        assert reponse["enceinte"] == canon and "enceinte" not in json.loads(etat.plans[autre])
+        with pytest.raises(AssertionError):
+            verifier({**vide_attendu, "enceinte": None}, False)
+        with pytest.raises(AssertionError):
+            verifier({**vide_attendu, "trace": []}, False)
+        with pytest.raises(AssertionError):
+            verifier({cle: valeur for cle, valeur in plein.items() if cle != "enceinte"}, True)
+    finally:
+        serveur.server_close()
+
+
 # --- Lot 212 : la photographie porte les vues de 1400 ---
 from sim.maisons import charger_maisons, maisons_depuis_monde
 from sim.puissances import charger_table, puissances_depuis_monde, PuissanceInvalide

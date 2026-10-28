@@ -278,6 +278,9 @@ TRAVAIL_PARCELLE_JOURNEES_PAR_M2 = 0.1
 # Fondations, murs de pisé, charpente et couverture par m² d’emprise ; niveau 2.
 TRAVAIL_BATIMENT_JOURNEES_PAR_M2 = 2
 
+# Levée, fondation et parement d'une enceinte, par mètre de périmètre ; niveau 2.
+TRAVAIL_ENCEINTE_JOURNEES_PAR_M = 30
+
 # Plafond : une cellule ne devient jamais entièrement minière. Invariant,
 # pas un réglage de confort — sans lui une cellule chargée de gisements
 # majeurs verrait toute sa population descendre à la mine.

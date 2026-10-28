@@ -146,6 +146,7 @@ class TraceRoute:
                   porte_cell_id=self.porte_cell_id)
         monde.plans[self.cell_id] = Plan(
             rues=[*plan.rues, rue], parcelles=plan.parcelles, batiments=plan.batiments,
+            enceinte=plan.enceinte,
         )
 
 
@@ -166,6 +167,7 @@ class DecoupeParcelle:
                             travail_requis=travail_requis_de_parcelle(self.facade_m, self.profondeur_m))
         monde.plans[self.cell_id] = Plan(
             rues=plan.rues, parcelles=[*plan.parcelles, parcelle], batiments=plan.batiments,
+            enceinte=plan.enceinte,
         )
 
 
@@ -187,6 +189,7 @@ class PoseBatiment:
                             travail_requis=travail_requis_de_batiment(emprise))
         monde.plans[self.cell_id] = Plan(
             rues=plan.rues, parcelles=plan.parcelles, batiments=[*plan.batiments, batiment],
+            enceinte=plan.enceinte,
         )
 
 

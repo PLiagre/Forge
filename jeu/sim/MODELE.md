@@ -2727,7 +2727,7 @@ population ; seuls ses tracés sont stockés. Un monde chargé ou construit
 directement reçoit un plan vide par cellule, sans tirage ni choix de capitale.
 
 `sim/plan.py` contient trois listes triées par `identifiant`, entier non
-négatif et unique dans sa liste :
+négatif et unique dans sa liste, et au plus une enceinte :
 
 - `rues` : `identifiant`, `points` (au moins `POINTS_MIN_RUE = 2`),
   `largeur_m` finie et strictement positive, `en_chantier` booléen (faux par
@@ -2753,6 +2753,17 @@ négatif et unique dans sa liste :
   en chantier. Un bâtiment ancien reste valide ; le geste `poser_batiment`
   n'accepte que maison, scierie ou four.
 
+Une enceinte, ou aucune : jamais une liste ni un second identifiant spatial.
+Son `contour` compte au moins `POINTS_MIN_CONTOUR` points locaux finis.
+`en_chantier`, `foyers`, `travail_requis` et `travail_fourni` suivent le
+contrat d'une rue. `Plan.to_dict()` omet la clé `enceinte` quand elle est
+absente, et la publie sinon, contour en listes et champs de chantier.
+Le travail requis vaut `max(1, ceil(périmètre bouclé ×
+TRAVAIL_ENCEINTE_JOURNEES_PAR_M))`. `TRAVAIL_ENCEINTE_JOURNEES_PAR_M = 30`
+est de niveau 2 et relue au calcul ; le périmètre referme le contour, du
+dernier point au premier. Intentions et Chantiers reconstruisent le plan
+en conservant cette enceinte, sans la recalculer.
+
 Chaque point est un couple `(x, y)` de nombres finis, sans booléen ni texte.
 Le repère est local au bourg : x vers l'est, y vers le nord, en mètres,
 origine au centre du bourg. `PlanInvalide` nomme la donnée manquante ou
@@ -2768,7 +2779,7 @@ y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
 des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
-`parcelles`, `batiments` et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
+`parcelles`, `batiments`, `enceinte` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
 la photographie du tick : une lecture n'attend pas son calcul et ne consulte
 pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
 inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
@@ -2790,6 +2801,8 @@ restent de niveau 3. Aucun bâtiment ni flux ne découle encore de son achèveme
 La pose d'un bâtiment, son emprise égale au contour de sa parcelle, son coût
 et son achèvement sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
 l'orientation, l'étage et les matériaux restent de niveau 3. La maison achevée loge des artisans, sans effet sur le tick ; scierie et four emploient des artisans, de niveau 2.
+La forme de l'enceinte et son coût en journées sont de niveau 2. Les portes,
+les matériaux, l'effet défensif et le siège restent de niveau 3.
 
 ### Le plan de base
 
@@ -2881,7 +2894,7 @@ jamais par toutes les paires. Le contrat de ces deux fonctions vaut pour
 des polygones convexes.
 
 Restent de **niveau 3**, non simulés : position et forme du bourg dans la
-cellule, relief, rivière, côte, enceinte, église, marché, étages, densité
+cellule, relief, rivière, côte, dessin d'enceinte de la base, église, marché, étages, densité
 qui varie, rues courbes, maisons des hameaux (rangs > 0), rues vides qu'on
 rognerait ; la forme intérieure d'un îlot (cour, maisons mitoyennes,
 passages) et des îlots dans une ville de 500 foyers ou moins.
