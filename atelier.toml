@@ -47,15 +47,18 @@ prefixe_branche = "lot/"
 # route ; si aucun ne répond, le lot attend, il n'échoue pas.
 # Changer de modèle ou d'effort, c'est changer une ligne.
 [agents]
-# Un seul modèle GPT, partout où Codex sert : GPT-6.1 Sol (`gpt-6.1-sol`,
-# sorti le 29 septembre 2026). Il remplace GPT-5.6 Sol, GPT-6 Sol et GPT-6
-# Astra (choix du propriétaire, 30 septembre 2026).
-# Le chef écrit le brief, dont tout dépend : Claude Opus ; GPT-6.1 Sol en
-# secours.
-chef        = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high"
-# GPT-6.1 Sol code les lots du VPS ; grok en secours. Un Codex trop ancien
-# refuse le modèle, et ce refus passe la main au suivant sans brûler d'essai.
-codeur      = "codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
+# Plus de Codex : l'abonnement ChatGPT est coupé, et depuis le 26 octobre
+# 2026 Codex refuse GPT-6.1 Sol (« not supported when using Codex with a
+# ChatGPT account »). Partout où il servait, Claude Sonnet 5.5 par Claude
+# Code le remplace (choix du propriétaire, 28 octobre 2026).
+# Le chef, le dépanneur et la boussole gardent un secours hors de Claude
+# Code : une session Claude perdue (expirée le 21 octobre 2026) les arrêtait
+# net. GPT-5.6 Sol y sert par Cursor, sur l'abonnement de Cursor.
+# Le chef écrit le brief, dont tout dépend : Claude Opus ; Sonnet, puis
+# GPT-5.6 Sol en secours.
+chef        = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high | cursor/gpt-5.6-sol-high@high"
+# Sonnet code les lots du VPS ; grok en secours.
+codeur      = "claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 # Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
 # en tête (choix du propriétaire, 29 septembre 2026 : le temps du PC est
 # rare, un passage raté y coûte cher), cursor grok en secours. Pas codex :
@@ -65,32 +68,35 @@ codeur      = "codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
 codeur_3d   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high"
 # Le dernier passage du codeur d'un lot du VPS avant blocage (la
 # 2e correction). La marque reste celle du codeur : le passage compte, et
-# la famille qui a écrit (GPT) ne relit pas. Les lots du PC n'ont pas de
+# la famille qui a écrit (Claude) ne relit pas. Les lots du PC n'ont pas de
 # renfort.
-renfort     = "codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
+renfort     = "claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 # Le modèle qui écrit ne relit jamais : la FAMILLE de modèle qui a écrit le
 # lot est écartée, et le suivant de la ligne relit. Quelle que soit la
 # famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
 # pas un lot sans relecteur (#186 a attendu une cinquantaine de tours le
-# 28 septembre, Claude écarté et codex à court de quota).
-relecteur   = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high | cursor/grok-4.7-high@high"
-# CI rouge sur master, conflits d'une branche de lot, dépendances : GPT-6.1
-# Sol en effort moyen, travail mécanique ; composer en secours.
-mecanicien  = "codex/gpt-6.1-sol@medium | cursor/composer-2.5@defaut"
+# 28 septembre, Claude écarté et codex à court de quota). Sans Codex, la
+# famille GPT relit par Cursor, sur son propre abonnement : le code de
+# Sonnet a ainsi grok et GPT-5.6 Sol pour le relire.
+relecteur   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high | cursor/gpt-5.6-sol-high@high"
+# CI rouge sur master, conflits d'une branche de lot, dépendances : Sonnet
+# en effort moyen, travail mécanique ; composer en secours.
+mecanicien  = "claude/claude-sonnet-5-5@medium | cursor/composer-2.5@defaut"
 # Un lot vient d'être bloqué (essais épuisés, CI rouge, relecture
 # « CORRIGER ») : le dépanneur lit tout, en lecture seule, et décide avant le
 # propriétaire. Il relance le lot avec une consigne (quota, délai, revue vide,
 # codeur qui tourne en rond, relecteur qui exige l'impossible), pose la
 # question au propriétaire (le brief contredit un test existant ou la règle
 # du monde), ou dit que la chaîne est en cause (mode direct). Diagnostiquer
-# demande du jugement : Claude Opus en tête, GPT-6.1 Sol en secours.
-depanneur   = "claude/claude-opus-5-5@high | codex/gpt-6.1-sol@high"
+# demande du jugement : Claude Opus en tête, Sonnet puis GPT-5.6 Sol en
+# secours.
+depanneur   = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high | cursor/gpt-5.6-sol-high@high"
 # Journal du matin, en lecture seule (cursor --mode ask) : grok est le
 # modèle qui invente le moins (Artificial Analysis Omniscience).
 chroniqueur = "cursor/grok-4.7-high@high"
 # Comparaison hebdomadaire avec CAP.md, en lecture seule : un appel par
 # semaine, à fort enjeu.
-boussole    = "claude/claude-opus-5-5@xhigh | codex/gpt-6.1-sol@high"
+boussole    = "claude/claude-opus-5-5@xhigh | claude/claude-sonnet-5-5@high | cursor/gpt-5.6-sol-high@high"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
@@ -105,12 +111,12 @@ pc = 1
 
 # Combien d'agents d'un même outil tournent ensemble : un abonnement ne se
 # vide pas en une heure. Un outil à son plafond passe la main au secours de
-# la ligne, comme un quota. Codex en tient autant que le VPS a de lots :
-# chaque lot du VPS code avec GPT-6.1 Sol (choix du propriétaire,
-# 30 septembre 2026). Si personne n'est libre, le lot attend.
+# la ligne, comme un quota. Claude reprend les deux places de Codex : chaque
+# lot du VPS code avec Sonnet pendant que le chef, le relecteur ou le
+# dépanneur travaillent (28 octobre 2026). Si personne n'est libre, le lot
+# attend.
 [outils]
-claude = 2
-codex = 2
+claude = 4
 cursor = 3
 
 # Le temps qu'un agent a pour rendre la main, en secondes.
