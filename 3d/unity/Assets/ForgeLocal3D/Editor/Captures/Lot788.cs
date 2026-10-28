@@ -49,14 +49,14 @@ namespace ForgeLocal3D.Captures
             if (!vide)
             {
                 if (!garder) throw Faux("bourg vide non appliqué : pose " + foule.NombrePose + ", " + foule.Cause);
-                var gens = Fenetre(garde); Cadrer(ville, camera, gens); for (int i = 0; i < 4; i++) yield return null;
+                var gens = Fenetre(garde, out var voieG); Cadrer(ville, camera, gens, voieG); for (int i = 0; i < 4; i++) yield return null;
                 Ecrire(rapport, cell, lieu.Lieu.Tick, plan.Plan.Tick, foule, avant, Decrire(foule.Racine), Trajets(avant), Visibles(camera, garde), Decrire(garde));
                 CitadelPlayCheck.Capture(camera, png, 1600, 900); throw Faux("anciens encore présents : " + garde.childCount);
             }
             long tick2 = lieu.Lieu.Tick + 2; foule.Presenter(LectureLieu.De(Copier(lieu.Lieu, tick2, false)), LecturePlan.De(Copier(plan.Plan, tick2)));
             yield return null;
             if (foule.Cause != null || foule.TickApplique != tick2 || foule.NombrePose < 3) throw Faux("foule non rétablie : " + foule.Cause);
-            Balance(foule, proj, plan); var fenetre = Fenetre(foule.Racine); Cadrer(ville, camera, fenetre);
+            Balance(foule, proj, plan); var fenetre = Fenetre(foule.Racine, out var voie); Cadrer(ville, camera, fenetre, voie);
             var p0 = fenetre.Select(g => g.transform.position).ToArray(); var f0 = fenetre.Select(Phase).ToArray(); float t0 = Time.unscaledTime;
             while (Time.unscaledTime - t0 < .35f) yield return null;
             int bouge = 0, change = 0; for (int i = 0; i < fenetre.Count; i++) { if ((fenetre[i].transform.position - p0[i]).sqrMagnitude > .0025f) bouge++; if (Mathf.Abs(Phase(fenetre[i]) - f0[i]) > .01f) change++; }
@@ -91,19 +91,32 @@ namespace ForgeLocal3D.Captures
         static List<string> Decrire(Transform racine) { var l = new List<string>(); if (!racine) return l; for (int i = 0; i < racine.childCount; i++) { var t = racine.GetChild(i); l.Add(t.name + "#" + t.GetInstanceID().ToString(CultureInfo.InvariantCulture)); } return l; }
         static IEnumerable<string> Trajets(IEnumerable<string> noms) => noms.Select(n => { var p = n.Split('|'); return p.Length > 1 ? p[1].Split('#')[0] : n; }).Distinct().OrderBy(s => s, StringComparer.Ordinal);
 
-        static List<Renderer> Fenetre(Transform racine)
+        static List<Renderer> Fenetre(Transform racine, out List<Vector3> voie)
         {
             var par = new Dictionary<string, List<Renderer>>();
             for (int i = 0; i < racine.childCount; i++) { var t = racine.GetChild(i); var r = t.GetComponent<Renderer>(); if (!r) continue; var p = t.name.Split('|'); string cle = p.Length > 1 ? p[1] : t.name; if (!par.TryGetValue(cle, out var liste)) par[cle] = liste = new List<Renderer>(); liste.Add(r); }
-            var meilleur = par.Values.OrderByDescending(l => l.Count).FirstOrDefault() ?? throw Faux("aucun passant"); if (meilleur.Count < 3) throw Faux("aucune rue avec trois passants");
-            var axe = meilleur[meilleur.Count - 1].transform.position - meilleur[0].transform.position; axe.y = 0f; var ord = meilleur.OrderBy(r => Vector3.Dot(r.transform.position, axe)).ToList(); int n = Mathf.Min(5, ord.Count); return ord.GetRange((ord.Count - n) / 2, n);
+            var rues = GameObject.Find("Rues de 1400")?.transform ?? throw Faux("rues de 1400 absentes"); string clef = null; Transform ruban = null; float court = 1e9f;
+            foreach (var kv in par) { if (kv.Value.Count < 3) continue; Transform m = null; int meilleurs = 2; float taille = 1e9f; foreach (Transform e in rues) { var rd = e.GetComponent<Renderer>(); if (!rd) continue; int n = 0; foreach (var g in kv.Value) if ((rd.bounds.ClosestPoint(g.transform.position) - g.transform.position).sqrMagnitude < 16f) n++; if (n < 3) continue; float L = rd.bounds.size.magnitude; if (n > meilleurs || (n == meilleurs && L < taille)) { meilleurs = n; m = e; taille = L; } } if (m && taille < court) { court = taille; clef = kv.Key; ruban = m; } }
+            voie = Contour(ruban ?? throw Faux("aucune rue avec trois passants")); return par[clef];
         }
-        static void Cadrer(DesertCityCamera ville, Camera camera, List<Renderer> gens)
+        // Les deux bouts du ruban, et l'ouverture sur la place : la chaussée ne sort plus du cadre.
+        static List<Vector3> Contour(Transform rue)
         {
-            camera.aspect = 1600f / 900f; Vector3 centre = Vector3.zero; foreach (var g in gens) centre += g.transform.position; centre /= gens.Count;
-            Vector3 dir = gens[gens.Count - 1].transform.position - gens[0].transform.position; dir.y = 0f; if (dir.sqrMagnitude < .25f) dir = Vector3.forward; dir.Normalize();
-            float cap = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg + 8f; bool ok = false; for (float dist = 10f; dist <= 70f && !ok; dist += 5f) { ville.Poser(centre, cap, 18f, dist); ok = Entiers(camera, gens); }
-            if (!ok) throw Faux("civils hors champ");
+            var vs = rue.GetComponent<MeshFilter>().sharedMesh.vertices; var v = new List<Vector3>(); int pas = Mathf.Max(1, vs.Length / 28);
+            Vector3 o = rue.TransformPoint(vs[0]), dir = rue.TransformPoint(vs[vs.Length - 1]) - o; dir.y = 0f; if (dir.sqrMagnitude < 1f) dir = Vector3.right; dir.Normalize(); var lateral = Vector3.Cross(Vector3.up, dir);
+            float mn = 1e9f, mx = -1e9f; for (int i = 0; i < vs.Length; i++) { float t = Vector3.Dot(rue.TransformPoint(vs[i]) - o, dir); if (t < mn) mn = t; if (t > mx) mx = t; }
+            Vector3 loG = o, loD = o, hiG = o, hiD = o; float sg = 1e9f, sd = -1e9f, tg = 1e9f, td = -1e9f;
+            for (int i = 0; i < vs.Length; i++) { var p = rue.TransformPoint(vs[i]); if (i % pas == 0) v.Add(p); float t = Vector3.Dot(p - o, dir), s = Vector3.Dot(p - o, lateral); if (t < mn + 1.2f) { if (s < sg) { sg = s; loG = p; } if (s > sd) { sd = s; loD = p; } } if (t > mx - 1.2f) { if (s < tg) { tg = s; hiG = p; } if (s > td) { td = s; hiD = p; } } }
+            v.Add(loG); v.Add(loD); v.Add(hiG); v.Add(hiD); Vector3 pres = (loG + loD) * .5f, loin = (hiG + hiD) * .5f; if (pres.x * pres.x + pres.z * pres.z > loin.x * loin.x + loin.z * loin.z) { var tmp = pres; pres = loin; loin = tmp; }
+            Vector3 axe = loin - pres; axe.y = 0f; if (axe.sqrMagnitude < .25f) axe = dir; else axe.Normalize(); Vector3 lat = Vector3.Cross(Vector3.up, axe); lat = (lat.sqrMagnitude < 1e-4f ? lateral : lat.normalized) * 5f;
+            Vector3 bouche = pres - axe * 8f, bout = loin + axe * 4f; v.Insert(0, bout); v.Insert(0, bouche); v.Add(bouche + lat); v.Add(bouche - lat); return v;
+        }
+        static void Cadrer(DesertCityCamera ville, Camera camera, List<Renderer> gens, List<Vector3> voie)
+        {
+            camera.aspect = 1600f / 900f; Vector3 centre = (voie[0] + voie[1]) * .5f; Vector3 dir = voie[1] - voie[0]; dir.y = 0f; if (dir.sqrMagnitude < .25f) dir = Vector3.forward; dir.Normalize();
+            float cap0 = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg; bool ok = false;
+            for (float dist = 20f; dist <= 56f && !ok; dist += 3f) for (float cote = 12f; cote <= 30f && !ok; cote += 9f) for (int signe = -1; signe <= 1 && !ok; signe += 2) for (float inc = 18f; inc <= 28f && !ok; inc += 5f) { ville.Poser(centre, cap0 + signe * cote, inc, dist); ok = Entiers(camera, gens) && voie.All(p => { var v = camera.WorldToViewportPoint(p + Vector3.up * .12f); return v.z > 0f && v.x >= .08f && v.x <= .92f && v.y >= .14f && v.y <= .88f; }); }
+            if (!ok) throw Faux("rue hors champ");
         }
         static bool Entiers(Camera c, List<Renderer> gens)
         { foreach (var r in gens) { var b = r.bounds; var e = b.extents; var o = b.center; for (int i = 0; i < 8; i++) { var p = o + Vector3.Scale(e, new Vector3((i & 1) * 2 - 1, ((i >> 1) & 1) * 2 - 1, ((i >> 2) & 1) * 2 - 1)); var v = c.WorldToViewportPoint(p); if (v.z <= 0f || v.x < .03f || v.x > .97f || v.y < .03f || v.y > .97f) return false; } } return true; }
