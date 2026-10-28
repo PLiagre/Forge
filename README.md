@@ -3,14 +3,15 @@
 **Un jeu de grande stratégie sur l'Europe réelle, de 1400 à 1900, bâti sur une
 seule simulation.**
 
-On incarne une petite dynastie réelle de 1400. On bâtit à la main, en 3D, la
-ville de sa cour ; on gouverne le reste de ses terres sur la carte ; on mène
-ses batailles sur le terrain, ou on les confie à un général. La terre se gagne
-et se perd par la guerre, l'héritage, le mariage, l'argent et la révolte,
-contre des dynasties que joue une IA qui a exactement les mêmes outils. On
-perd quand on n'a plus de terre. Ce qui n'existe nulle part ailleurs, c'est le
-passage de la rue au continent et au champ de bataille, dans **un seul
-monde**.
+On joue comme dans Europa Universalis IV : le monde de 1400 tourne seul, et on
+prend la tête d'un pays réel — du royaume au petit seigneur — qu'on fait
+évoluer depuis la carte, le temps filant ou en pause. La terre se gagne et se
+perd par la guerre, l'héritage, le mariage, l'argent et la révolte, contre des
+dynasties que joue une IA qui a exactement les mêmes outils. Sa capitale peut
+s'ouvrir en 3D, pour la voir vivre et la bâtir à la main. On perd quand le
+pays n'a plus de terre. Ce qui n'existe nulle part ailleurs, c'est un Europa
+Universalis dont le monde est simulé — des gens, des kilos, des causes, et
+pas un modificateur — dans **un seul monde**.
 
 | pour savoir | lire |
 |---|---|
