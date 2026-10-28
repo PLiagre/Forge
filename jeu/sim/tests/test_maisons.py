@@ -4,6 +4,7 @@ import copy
 import dataclasses
 import json
 import pathlib
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -2741,6 +2742,12 @@ OTTO_EXCLUSIONS = {
 }
 
 
+PARENTS_OTTO = {('devletsah-hatun', 'pere'): ('Süleyman Şah de Germiyan',), ('devletsah-hatun', 'mere'): ('Mutahhare Hatun',), ('hafsa-hatun', 'pere'): ('İsa Bey d’Aydın',)}
+UNION_OTTO, ENFANTS_OTTO = 'union avec Devletşah Hatun, Devlet Hatun, Olivera Despina et Hafsa Hatun', 'Enfants documentés de Bayezid Ier : Süleyman Çelebi, İsa Çelebi, Musa Çelebi, Mehmed Çelebi, Kasım Çelebi, Mustafa Çelebi, Hundi Hatun, Oruz Hatun, Paşa Melek Hatun et Fatma Hatun'
+UNIONS_B = 'unions avec Devletşah Hatun (1378, vers 1381), Devlet Hatun, Olivera Despina (1390) et Hafsa Hatun (1390)'
+NEGATION = re.compile(r'\b(aucune?s?|pas|sans|jamais|non|ni)\b', re.I)  # un fait établi n’est pas une négation
+
+
 def _texte_otto(f):
     lacunes = f.get('lacunes') if isinstance(f.get('lacunes'), dict) else {}
     return ' '.join(m for k, s in f.get('sources', {}).items() if isinstance(m := (s.get('fait') if isinstance(s, dict) else lacunes.get(k) or ''), str))
@@ -2756,6 +2763,8 @@ def _ottomans(fiches=None, etat=None):
         assert bay['sources'].get('pere') is None and bay['sources'].get('mere') is None and bay['lacunes'].get('conjoints') is None and bay['lacunes'].get('presence') is None
         assert isinstance(conjoints, dict) and conjoints.get('url') == BAYEZID and 'Bayezid Ier' in (conjoints.get('fait') or '') and isinstance(presence_b, dict) and presence_b.get('url') == BAYEZID and 'Bayezid Ier' in (presence_b.get('fait') or '')
         assert isinstance(bay['lacunes'].get('pere'), str) and 'aucune absence attestée' in bay['lacunes']['pere'] and isinstance(bay['lacunes'].get('mere'), str) and 'aucune absence attestée' in bay['lacunes']['mere']
+        for k in ('pere', 'mere'): _reperes_voisins(bay['lacunes'][k], ('Ancêtres de Bayezid Ier', 'hors périmètre', 'aucune absence attestée'))
+        _reperes_voisins(conjoints.get('fait'), (UNIONS_B,)); assert not any(NEGATION.search(s.get('fait') or '') for s in (conjoints, presence_b))
         _reperes_voisins(conjoints.get('fait'), ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'))
         assert fiches['personne-devlet-hatun']['nom'] != fiches['personne-devletsah-hatun']['nom']
         for i, nom, date, precision, mere, epoux, page, reperes in OTTOMANS:
@@ -2767,7 +2776,10 @@ def _ottomans(fiches=None, etat=None):
             identite, presence = f['sources'].get('identite'), f['sources'].get('presence')
             assert isinstance(identite, dict) and identite.get('url') == page and nom in (identite.get('fait') or '') and isinstance(presence, dict) and presence.get('url') in PAGES_OTTO and nom in (presence.get('fait') or '') and f['lacunes'].get('presence') is None
             assert all(isinstance(s, dict) and s.get('url') in PAGES_OTTO and nom in (s.get('fait') or '') for s in f['sources'].values() if s)
+            assert not any(NEGATION.search(s.get('fait') or '') for s in f['sources'].values() if s)
             _reperes_voisins(_texte_otto(f), (nom, *reperes))
+            for k in ('pere', 'mere', 'conjoints'):
+                if isinstance(f['lacunes'].get(k), str) and not (k == 'mere' and not epoux): _reperes_voisins(f['lacunes'][k], ('hors périmètre', 'aucune absence attestée', *PARENTS_OTTO.get((i, k), ())))
             if epoux:
                 assert f['sources'].get('pere') is None and f['sources'].get('mere') is None and isinstance(f['sources'].get('conjoints'), dict) and f['lacunes'].get('conjoints') is None and isinstance(f['lacunes'].get('pere'), str) and 'aucune absence attestée' in f['lacunes']['pere'] and isinstance(f['lacunes'].get('mere'), str) and 'aucune absence attestée' in f['lacunes']['mere']
             else:
@@ -2779,6 +2791,7 @@ def _ottomans(fiches=None, etat=None):
                 else:
                     assert f['sources'].get('mere') is None and isinstance(f['lacunes'].get('mere'), str)
                     _reperes_voisins(f['lacunes']['mere'], (nom, 'n’établissent pas', 'aucune absence attestée'))
+                    _reperes_voisins(f['lacunes']['mere'], ('Les pages examinées n’établissent pas la mère de', 'aucune mère inventée'))
             if date:
                 naissance = f['sources'].get('naissance')
                 assert isinstance(naissance, dict) and date in (naissance.get('fait') or '') and f['lacunes'].get('naissance') is None
@@ -2792,6 +2805,7 @@ def _ottomans(fiches=None, etat=None):
                 ('conjoints', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if femme) + ('1378', '1381', '1390')),
                 ('enfants', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if not femme))):
             source = sources.get(champ); assert isinstance(source, dict) and source.get('url') == BAYEZID; _reperes_voisins(source.get('fait'), reperes)
+            _reperes_voisins(source['fait'], (UNION_OTTO if champ == 'conjoints' else ENFANTS_OTTO,)); assert not NEGATION.search(source['fait'])
         for nom, reperes in OTTO_EXCLUSIONS.items():
             x, pages = exclusions[nom], {v for v in reperes if str(v).startswith('http')}
             faits = tuple(v for v in reperes if v not in pages)
@@ -2824,6 +2838,7 @@ def test_familles_historiques_ottomans():
                 for champ in ('conjoints', 'enfants'):
                     texte = f['sources'][champ]['fait']
                     refuse(_alterer_personnages(d, (t, j, 'sources', champ), None)); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Fait perdu'))
+                    refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), texte.replace(*(('union avec', 'aucune union avec') if champ == 'conjoints' else ('Enfants documentés', 'Aucun enfant documenté')))))
                     for r in (('1378', '1381', '1390') if champ == 'conjoints' else ()):
                         refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), texte.replace(r, 'inconnu')))
                 for nom, reperes in OTTO_EXCLUSIONS.items():
@@ -2841,9 +2856,13 @@ def test_familles_historiques_ottomans():
                 texte = f['sources']['conjoints']['fait']
                 for r in ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'):
                     refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace(r, 'inconnu')))
+                refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace('unions avec', 'aucune union avec')))
+                for k in ('pere', 'mere'): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), 'Motif arbitraire ; aucune absence attestée.'))
                 continue
             row = next(o for o in OTTOMANS if f['id'] == 'personne-' + o[0])
             refuse(_alterer_personnages(d, (t, j, 'nom'), 'Homonyme'))
+            for k in (k for k, v in f['lacunes'].items() if isinstance(v, str)): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), 'Motif arbitraire ; aucune absence attestée.'))
+            for k, parent in ((k, p) for k in ('pere', 'mere') for p in PARENTS_OTTO.get((row[0], k), ())): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), f['lacunes'][k].replace(parent, 'Inconnu')))
             refuse(_alterer_personnages(d, (t, j, 'naissance'), None if f['naissance'] else _naissance_famille('1380', 'annee')))
             for r in row[7]:
                 c = copy.deepcopy(d); c[t][j]['sources'], c[t][j]['lacunes'] = remplacer(f['sources'], r), remplacer(f['lacunes'], r); refuse(c)
