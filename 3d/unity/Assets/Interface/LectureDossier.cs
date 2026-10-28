@@ -10,10 +10,18 @@ namespace Forge.Interface
     {
         public long Tick { get; }
         public Dictionary<string, object> Champs { get; }
+        // La date servie ; nulle seulement quand la clé `date` est absente, jamais pour une date fausse.
+        public long? Annee { get; }
+        public long? JourDeLAnnee { get; }
         public DocumentDuMonde(string json)
         {
             Champs = LecteurJson.LireObjet(json);
             Tick = Entier(Champs, "tick");
+            if (!Champs.ContainsKey("date")) return;
+            var date = Objet(Champs, "date");
+            long annee = Entier(date, "annee"), jour = Entier(date, "jour_de_l_annee");
+            if (annee < 1 || jour < 1 || jour > 366) throw new ArgumentException("Date hors bornes : année " + annee + ", jour " + jour);
+            Annee = annee; JourDeLAnnee = jour;
         }
         public static object Valeur(Dictionary<string, object> objet, string cle)
         {

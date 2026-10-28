@@ -25,6 +25,7 @@ namespace Forge.Pont
     // Rang, position en mètres EPSG:3035 et maître. Null est déclaré : ni origine ni maître inventé.
     // `Flux` null : `AbsenceDesFlux` nomme la cause ; trois zéros servis sont des mesures.
     // `Population` est celle du lieu seul, jamais le total de la cellule ; null, `AbsenceDePopulation` nomme la cause.
+    // `Nom` est le nom servi, à l'octet ; null, `AbsenceDuNom` nomme la cause : ni rang, ni cellule, ni maître à sa place.
     public sealed class LieuPlace
     {
         public long Rang { get; }
@@ -34,8 +35,13 @@ namespace Forge.Pont
         public string AbsenceDesFlux { get; }
         public long? Population { get; }
         public string AbsenceDePopulation { get; }
-        public LieuPlace(long rang, PointCarte? position, string maitre, FluxDeLieu flux = null, string absenceDesFlux = null, long? population = null, string absenceDePopulation = null)
-        { Rang = rang; Position = position; Maitre = maitre; Flux = flux; AbsenceDesFlux = absenceDesFlux; Population = population; AbsenceDePopulation = population == null ? absenceDePopulation ?? "population non fournie" : null; }
+        public string Nom { get; }
+        public string AbsenceDuNom { get; }
+        public LieuPlace(long rang, PointCarte? position, string maitre, FluxDeLieu flux = null, string absenceDesFlux = null, long? population = null, string absenceDePopulation = null, string nom = null, string absenceDuNom = null)
+        {
+            Rang = rang; Position = position; Maitre = maitre; Flux = flux; AbsenceDesFlux = absenceDesFlux; Population = population; AbsenceDePopulation = population == null ? absenceDePopulation ?? "population non fournie" : null;
+            Nom = nom; AbsenceDuNom = nom == null ? absenceDuNom ?? "nom non fourni" : null;
+        }
     }
 
     public sealed class Logement
@@ -234,9 +240,21 @@ namespace Forge.Pont
                 if (!rangs.Add(rang)) throw new CleRefusee("clé " + chemin + ".rang : " + rang.ToString(CultureInfo.InvariantCulture) + " déjà lu");
                 // Population absente : déclarée ; présente, un entier ≥ 0 ou tout le lieu est refusé (null compris).
                 long? population = entree.ContainsKey("population") ? Entier(entree, "population", chemin + ".population", 0, long.MaxValue) : (long?)null;
-                liste.Add(new LieuPlace(rang, Point(entree, chemin), Maitre(entree, chemin), Flux(entree, chemin, out string absenceDesFlux), absenceDesFlux, population, "clé absente : " + chemin + ".population"));
+                liste.Add(new LieuPlace(rang, Point(entree, chemin), Maitre(entree, chemin), Flux(entree, chemin, out string absenceDesFlux), absenceDesFlux, population, "clé absente : " + chemin + ".population",
+                    Nom(entree, chemin, out string absenceDuNom), absenceDuNom));
             }
             return liste;
+        }
+
+        // `nom` absent ou null : déclaré, sans repli. Présent, un texte non blanc, sinon tout le lieu est refusé.
+        private static string Nom(Dictionary<string, object> entree, string chemin, out string absence)
+        {
+            string c = chemin + ".nom";
+            if (!entree.TryGetValue("nom", out object brut)) { absence = "clé absente : " + c; return null; }
+            if (brut == null) { absence = "clé " + c + " : null déclaré, nom non fourni"; return null; }
+            absence = null;
+            return brut is string texte && !string.IsNullOrWhiteSpace(texte) ? texte
+                : throw new CleRefusee("clé " + c + " : un texte non blanc ou null attendu, reçu " + Decrire(brut));
         }
 
         // `flux_30j` absent ou null : pas de flux et la cause nommée. Un bloc présent porte ses trois clés,
