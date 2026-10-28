@@ -16,7 +16,7 @@
 > d'état : le pourcentage d'un jalon se dérive de ses issues, jamais d'une
 > estimation écrite à la main.
 
-## Le constat qui commande (7 octobre 2026)
+## Le constat qui commande (7 et 28 octobre 2026)
 
 **Le 27 septembre**, le constat était technique : le jeu était deux mondes qui
 ne se parlaient pas, `sim/` (Python, 596 cellules, vivant) et quatorze scènes
@@ -55,6 +55,31 @@ réécrire tous leurs lots :
   trois vues de la vision, dans un seul jeu ;
 - la proposition à douze jalons (#344) n'est pas retenue ; ce qu'elle voulait
   — une ville vivante, une bataille détaillée — entre dans les jalons 4 et 7.
+
+**Le 28 octobre**, le propriétaire a pris **Europa Universalis IV** pour modèle
+de jeu ([docs/VISION.md](docs/VISION.md), décisions 24 à 33) : la simulation
+tourne seule, avec un monde vivant, et le joueur fait évoluer son pays depuis
+la carte. Le rapport d'avancement du même jour montrait pourquoi il le fallait :
+
+- **le monde ne tient pas seul.** Sa réserve de départ couvre cinq jours
+  (trente pour une ville) et la production d'hiver ne suit pas : Paris passe
+  de 275 000 habitants à 2 858 avant le 90e jour de 1400 (graine 0, sans
+  joueur, mesuré avec et sans migration). La Flandre, Milan et Le Caire
+  perdent de 75 à 90 %, l'Est grossit, et l'Europe de 1400 du jalon 2
+  n'existe qu'au premier jour ;
+- **le joueur gouverne quatre lieux, pas un pays**, et ses gestes de
+  bâtisseur n'existent qu'en 3D, à Biskra ;
+- **l'IA n'a que deux gestes**, sa part et ses routes ;
+- **la bataille tactique en 3D et les kits des autres terres** occupaient le
+  PC pour des écrans qu'Europa Universalis ne demande pas.
+
+Les jalons **gardent leurs numéros**, parce que le pilote lie un milestone à
+son numéro, et leurs issues restent où elles sont. Le jalon 4 se termine tel
+qu'il est écrit. Le jalon 5 devient **le monde vivant**, le jalon 6 **le pays
+et sa dynastie**, et le jalon 7 fait **la guerre sur la carte**. La bataille et
+le siège en 3D, et les kits des autres terres, passent à l'horizon. Les lots
+nouveaux sont écrits sous leur jalon, *à créer* : il faut leur ouvrir une issue
+(formulaire « Demander un lot »), puis inscrire son numéro ici.
 
 ## La règle d'un jalon
 
@@ -140,11 +165,11 @@ jetons, les états et les interdits sont dans
 | 2 | **Le monde de 1400** — atteint | choisit sa terre de départ sur la carte de 1400 | les royaumes, les villes et les densités de 1400 |
 | 3 | **Le lieu et son maître** | fixe la part qu'il prend sur ses lieux, ouvre son grenier | sa carte dans Unity : ses lieux et ceux des voisins, les flux vers son siège et son suzerain, les lieux qui se vident |
 | 4 | **La capitale** | entre dans sa capitale, trace routes, parcelles et murs, pose ses ateliers, paie au grenier | sa ville de 1400 en 3D, qui grandit, se mure et vit d'après le monde |
-| 5 | **Les autres** | regarde ses voisins prélever, nourrir et bâtir comme lui | ses voisins sur la carte : leurs parts, leurs greniers, leurs gestes et leurs raisons |
-| 6 | **La dynastie** | marie, éduque, meurt, hérite | l'arbre de la dynastie ; à la mort du chef, l'héritier et le partage sur la carte |
-| 7 | **La guerre** | lève, marche, assiège, livre bataille — menée ou confiée —, fait la paix | la colonne sur la carte, la bataille et le siège en 3D dans sa propre ville, la terre qui change de main |
+| 5 | **Le monde vivant** | lance le monde sans pays ou avec le sien, règle la vitesse, et regarde toutes les maisons prélever, nourrir et bâtir seules | la carte qui tourne seule : pause et cinq vitesses, le fil des nouvelles, les voisins et leurs raisons ; une Europe de 1400 encore vraie après dix ans |
+| 6 | **Le pays et sa dynastie** | prend n'importe quel pays de 1400 et le gouverne depuis la carte ; marie, éduque, meurt, hérite | le panneau du pays et ses alertes, ses provinces et leurs bâtiments ; l'arbre de la dynastie, l'héritier et le partage |
+| 7 | **La guerre** | s'allie, lève, marche, assiège, livre bataille et fait la paix, sur la carte | la colonne et la bataille sur la carte, le siège qui affame, la terre qui change de main |
 | 8 | **L'argent** | frappe, emprunte, dévalue, achète une terre | les prix lieu par lieu, son trésor et sa dette, l'inflation |
-| 9 | **Le premier siècle** | joue de 1400 à 1500 sans changer de jeu, et délègue ce qui se répète | la chronique d'un siècle, la carte de 1500, le score ; toutes les terres en 3D |
+| 9 | **Le premier siècle** | joue de 1400 à 1500 sans changer de jeu, et délègue ce qui se répète | la chronique d'un siècle, la carte de 1500, le score |
 
 ---
 
@@ -315,8 +340,13 @@ et leur faim (#125, #126, #234, #235, #237, #238, #331, #332, #333, #342).
 monde, pas un décor —, y marche, trace des routes vers ses champs ou vers le
 marché, découpe des parcelles où ses gens bâtissent leurs maisons, pose ses
 ateliers, trace son enceinte, et passe de la carte à sa ville d'un geste. Au
-Zab, la sixième terre de départ, c'est Biskra ; les autres terres attendent
-leur kit (jalon 9) et se gouvernent depuis la carte.
+Zab, la sixième terre de départ, c'est Biskra ; les autres terres se
+gouvernent depuis la carte, et leurs kits sont à l'horizon.
+
+Depuis le 28 octobre, la capitale en 3D est **une vue du pays**, pas le cœur
+du jeu (VISION.md, décision 27). Ce jalon se termine avec les lots écrits
+ci-dessous, sans lot nouveau ; poser un bâtiment depuis la carte arrive au
+jalon 6.
 
 **La décision** : des bras au chantier, c'est moins de bras aux champs — et à
 la moisson, de la récolte perdue ; chaque journée se paie en grain pris au
@@ -444,28 +474,47 @@ même registre, sur la carte comme dans sa ville.
   photo, regardée, compare le panneau à la galerie. Son issue doit attendre
   le lot de la capitale.
 
-## Jalon 5 — Les autres
+## Jalon 5 — Le monde vivant
 
-**Le joueur** regarde ses voisins faire comme lui : régler leur part, ouvrir
-leur grenier, bâtir leurs capitales, tracer leurs routes et leurs murs — par
-les mêmes gestes, pour des raisons qu'ils disent.
+**Le joueur** lance la partie sans prendre de pays — le mode observateur — ou
+avec le sien. Il met en pause, choisit l'une des cinq vitesses et laisse filer
+les années. Sur la carte, toutes les maisons prélèvent, ouvrent leur grenier,
+bâtissent leurs capitales et tracent leurs routes, par les gestes du joueur et
+pour des raisons qu'elles disent ; un fil de nouvelles dit ce qui arrive et
+mène au lieu. L'Europe qu'il retrouve après dix ans est encore celle de 1400 :
+la Flandre et l'Italie du Nord pleines, le désert vide.
 
-**La décision** : s'en méfier ou s'en servir ; un voisin qui prend trop fait
-fuir ses gens vers les terres du joueur, un voisin mieux nourri attire les
-siens.
+**La décision** : quel pays prendre, et quand y entrer, après l'avoir vu vivre ;
+puis s'en méfier ou s'en servir — un voisin qui prend trop fait fuir ses gens
+vers les terres du joueur, un voisin mieux nourri attire les siens.
 
-**L'écran** : sur la carte, les capitales voisines qui grandissent, leurs
-parts, leurs greniers, les foyers qui vont et viennent entre eux et le
-joueur ; le fil de leurs gestes, avec leurs raisons ; au journal, ce que
-chaque maison de l'IA a fait, geste par geste.
+**L'écran** : la carte dans Unity qui tourne seule, avec la pause et les cinq
+vitesses ; les capitales voisines qui grandissent, leurs parts, leurs
+greniers, les foyers qui vont et viennent ; le fil des nouvelles et des gestes
+de l'IA, avec leurs raisons ; au journal, la carte d'un monde laissé dix ans
+sans joueur, à côté de celle de 1400.
 
 **La preuve** : l'IA n'a qu'un chemin vers le monde, celui des intentions du
 joueur, et un contrôle le vérifie ; une intention de l'IA et la même intention
 du joueur donnent le même monde ; un voisin qui prend trop envoie des foyers
-chez le joueur (direction). Contre-épreuve : une IA qui écrit directement dans
-le monde fait échouer le contrôle.
+chez le joueur (direction). **Le monde tient seul** : sans aucun geste du
+joueur, l'IA active, graine 0, après un an et après dix ans, les régions denses
+de la table de référence du jalon 2 restent au-dessus de la médiane et le
+désert au-dessous ; la population totale reste dans la fourchette d'une table
+de référence sourcée pour 1400-1410 (niveau 1, ordre de grandeur) ; chaque
+maison de l'IA a déposé au moins un geste par an. Contre-épreuves : une IA qui
+écrit directement dans le monde fait échouer le contrôle ; un monde sans
+soudure — la réserve de cinq jours d'aujourd'hui — fait échouer la tenue (elle
+échoue aujourd'hui : Paris perd 99 % de ses habitants avant le 90e jour) ; une
+IA muette la fait échouer aussi.
 
-**Dans le monde** : les maisons de l'IA, grandes et petites, décident avec des
+**Dans le monde** : la **soudure** — au 1er janvier 1400, les greniers des
+foyers portent ce qui reste de la récolte de 1399, de quoi aller jusqu'à la
+moisson moins ce qui se perd (niveau 1 en ordre de grandeur, niveau 2 pour la
+répartition) ; c'est un stock réel, qui se mange, se perd et s'échange, pas un
+plancher de survie. Le **fil des nouvelles**, lu dans le monde (une famine qui
+commence, un grenier ouvert, un chantier fini, des foyers qui partent), qui ne
+décide rien. Les maisons de l'IA, grandes et petites, décident avec des
 raisons de monde — la faim de leurs gens, les départs, leur grenier, leurs
 chantiers — une fois par mois chacune, et chaque geste porte sa raison. Une
 exception, le secours : une maison dont un lieu a faim depuis plus de sept
@@ -485,11 +534,73 @@ chemin du joueur, l'IA dans la forge et dans le service (#319, #320, #321,
 2. #423 Chaque geste de l'IA dit sa raison
 3. #424 L'IA règle sa part sur ses projets et sur ses gens
 4. #425 L'IA ouvre son grenier quand ses gens ont faim
-5. #426 L'IA bâtit sa capitale quand son grenier le permet
-6. #427 Les petits seigneurs jouent aussi, chacun à son tour
-7. #428 Le service et la photographie montrent les voisins et leurs raisons
-8. #429 La carte de Unity montre les voisins et ce qu'ils font · pc
-9. #324 La preuve du jalon 5
+5. *(lot à créer)* La soudure de 1400 : les greniers du 1er janvier portent la récolte de 1399
+6. *(lot à créer)* L'Europe de 1400 tient dix ans sans joueur
+7. #426 L'IA bâtit sa capitale quand son grenier le permet
+8. #427 Les petits seigneurs jouent aussi, chacun à son tour
+9. *(lot à créer)* Le monde dit ce qui arrive : le fil des nouvelles
+10. #428 Le service et la photographie montrent les voisins et leurs raisons
+11. *(lot à créer)* Le jeu se lance en observateur, avec la pause et cinq vitesses · pc
+12. #429 La carte de Unity montre les voisins et ce qu'ils font · pc
+13. *(lot à créer)* Le siècle sans joueur, mesuré chaque semaine au journal
+14. #324 La preuve du jalon 5
+
+La preuve #324 et son brief (PR #511, ouverte) s'étendent à « le monde tient
+seul » : son issue doit attendre les lots 5, 6, 9 et 11.
+
+- **La soudure de 1400** — *à créer*. *Le joueur* : il lance 1400 et retrouve
+  au printemps la Flandre, Paris et le delta du Nil encore pleins ; une
+  famine qui arrive a une cause qu'il peut lire, pas l'hiver de tous. Lot de
+  fond du geste « regarder le monde vivre ». *Ce que ça fait* : le stock
+  alimentaire initial (`MODELE.md`, « Stock alimentaire initial ») devient
+  la part de la récolte de 1399 qui reste au 1er janvier, dérivée de la
+  production moyenne de la cellule et du rang du jour jusqu'à la moisson ;
+  `INITIAL_FOOD_RESERVE_TICKS` et `RESERVE_VILLES_TICKS` sont remplacées, et
+  le stock se perd comme un grenier. Niveau 1 en ordre de grandeur, niveau 2
+  pour la répartition. *Preuve* : graine 0, sans joueur, au 365e jour, la
+  table de référence du jalon 2 tient encore (régions denses au-dessus de la
+  médiane, désert au-dessous) et aucune cellule de la table ne perd plus de
+  la moitié de ses habitants par la faim (contre-épreuve : la réserve de
+  cinq jours la fait échouer, sur Paris dès le 90e jour). Un test existant ne
+  s'assouplit pas : s'il supposait la réserve de cinq jours, le lot le dit
+  et ajoute ses cas. *Dépend de* : rien d'ouvert.
+- **L'Europe de 1400 tient dix ans sans joueur** — *à créer*. *Le joueur* :
+  il peut laisser filer dix ans en observateur et choisir son pays dans une
+  Europe qui ressemble encore à la sienne. *Ce que ça fait* : une épreuve
+  `sim/` qui joue 3 650 ticks avec l'IA et sans geste du joueur, et mesure à
+  un an et à dix ans la table du jalon 2, la population totale contre une
+  table de référence sourcée pour 1400-1410 (niveau 1), et les gestes de
+  chaque maison de l'IA. Elle ne corrige rien : elle dit ce qui ne tient
+  pas. *Preuve* : elle échoue sans la soudure ; elle échoue si l'IA est
+  muette ; un échantillon vide (aucune maison de l'IA) échoue. *Dépend de* :
+  la soudure.
+- **Le monde dit ce qui arrive** — *à créer*. *Le joueur* : sans chercher, il
+  apprend qu'une famine commence dans tel lieu, qu'un voisin ouvre son
+  grenier ou finit un chantier, et une nouvelle le mène au lieu. *Ce que ça
+  fait* : le service sert un fil de nouvelles daté, chacune avec son lieu
+  (`cell_id`, rang), sa maison et sa cause lue dans le monde (faim qui
+  commence, grenier ouvert, chantier achevé, départs) ; la photographie le
+  porte. Une nouvelle ne décide rien et n'a aucun choix. *Preuve* : chaque
+  nouvelle renvoie à un changement mesurable du monde au même tick
+  (contre-épreuve : une nouvelle sans changement, ou un changement de la
+  liste sans nouvelle, échoue). *Dépend de* : #428.
+- **Le jeu se lance en observateur** — *à créer* · pc. *Le joueur* : il ouvre
+  la carte sans choisir de pays, met en pause, passe d'une vitesse à l'autre
+  et voit le monde vivre ; il peut prendre un pays quand il veut. *Ce que ça
+  fait* : le bandeau de la carte porte la pause et cinq vitesses, la plus
+  rapide bornée par le budget du tick ; le choix de la terre devient
+  facultatif. *Preuve* : une session Unity en observateur avance de N jours
+  et le service dit le même tick que la photographie ; en pause, le tick ne
+  bouge pas (contre-épreuve : une pause qui laisse filer un tick échoue).
+  *Dépend de* : le lot de la carte (jalon 4). *Photo* : la carte en
+  observateur, en vitesse la plus rapide, avec le fil des nouvelles.
+- **Le siècle sans joueur, mesuré** — *à créer*. *Le joueur* : il sait, chaque
+  semaine, si le monde tient un siècle seul. *Ce que ça fait* : la même
+  épreuve sur 36 500 ticks, jouée sur le VPS hors de la CI, qui écrit les
+  cartes de 1410, 1450 et 1500 et le temps du tick ; la brancher au journal
+  touche `atelier/` et se fait en mode direct. *Preuve* :
+  celle de l'épreuve des dix ans, prolongée ; elle peut échouer et le dit au
+  journal. *Dépend de* : l'épreuve des dix ans.
 
 **La langue visuelle dans ce jalon.** #429 la reçoit, pour la décision de
 s'en méfier ou de s'en servir : une capitale voisine porte une marque
@@ -501,24 +612,41 @@ registre — date, maison, geste, et sa raison en note. Sa photo et une
 capture du fil long à 1280 × 720, regardées, montrent qu'aucune raison n'est
 coupée. Son issue doit attendre le lot de la carte (jalon 4).
 
-## Jalon 6 — La dynastie
+## Jalon 6 — Le pays et sa dynastie
 
-**Le joueur** est un personnage : il vieillit, se marie, a des enfants qu'il
-éduque, et meurt. Il joue ensuite l'héritier que désigne la loi de succession.
+**Le joueur** prend la tête de n'importe quel pays de 1400 — un royaume, un
+duché, un émirat ou un petit seigneur — et le gouverne depuis la carte, comme
+dans Europa Universalis IV. Le panneau du pays lui dit ses terres, ses gens,
+sa récolte, ses greniers, ses chantiers et ce qui menace ; il fixe la part
+qu'il prend sur tout le pays, ouvre ses greniers et pose ses bâtiments dans
+ses provinces sans descendre en 3D. Son pays a une dynastie : le chef vieillit,
+se marie, a des enfants qu'il éduque, et meurt ; le joueur continue avec
+l'héritier que désigne la loi de succession.
 
-**La décision** : quel mariage (une alliance, une dot, un héritage possible) ;
-quelle éducation ; changer la loi de succession, à un prix, ou risquer le
-partage.
+**La décision** : où va le grain de l'année — aux chantiers de quelle
+province, au grenier, ou laissé aux gens ; quel mariage (une alliance, une
+dot, un héritage possible) ; quelle éducation ; changer la loi de succession,
+à un prix, ou risquer le partage.
 
-**L'écran** : l'arbre de la dynastie, les traits et les ambitions de chacun ;
-à la mort du chef, l'héritier et le partage des terres sur la carte.
+**L'écran** : le panneau du pays et ses alertes ; la carte de ses provinces et
+de leurs bâtiments ; l'arbre de la dynastie, les traits et les ambitions de
+chacun ; à la mort du chef, l'héritier et le partage des terres sur la carte.
 
-**La preuve** : un partage répartit les lieux sans en perdre ni en créer ; un
-héritage par mariage fait passer un lieu d'une maison à l'autre ; une dynastie
-sans terre est une défaite, déclarée au tick où elle survient. Contre-épreuve :
-un partage qui perd un lieu, ou une défaite jamais déclarée, doivent échouer.
+**La preuve** : un royaume et un petit seigneur, pris dans le registre des
+maisons, se choisissent et donnent chacun un panneau égal à la photographie
+au même tick ; un bâtiment posé depuis la carte et le même posé en 3D donnent
+le même monde ; un partage répartit les lieux sans en perdre ni en créer ; un
+héritage par mariage fait passer un lieu d'une maison à l'autre ; un pays sans
+terre est une défaite, déclarée au tick où elle survient. Contre-épreuve : un
+panneau qui compte un lieu d'un autre maître, un bâtiment de la carte que la
+3D ne retrouve pas, un partage qui perd un lieu, ou une défaite jamais
+déclarée, doivent échouer.
 
-**Dans le monde** : les premières personnes suivies une à une — les chefs des
+**Dans le monde** : le **pays** — une maison, ses lieux et ses vassaux, dérivé
+du registre et des maîtres des lieux, jamais une seconde clé spatiale ; poser
+un bâtiment dans une province, où l'intention dit le bourg et la nature, et le
+plan choisit la parcelle libre le long d'une rue (règle déterministe,
+niveau 2). Les premières personnes suivies une à une — les chefs des
 maisons de 1400 et leurs familles, réels quand on les sait —, qui vieillissent,
 naissent et meurent ; leurs traits, leurs compétences, leurs ambitions, qui
 raisonnent en monde ; les lois de succession, le partage, l'héritage par les
@@ -527,25 +655,72 @@ maisons de l'IA ont leurs personnes, sous les mêmes règles.
 
 **Les lots**, dans l'ordre où ils partent :
 
-1. #430 Le monde porte des personnes : les chefs des maisons de 1400
-2. #431 Les familles de 1400
-3. #432 On vieillit et on meurt
-4. #433 Les couples ont des enfants
-5. #434 Chaque personne a ses traits et ses compétences
-6. #435 La loi de succession désigne l'héritier
-7. #436 À la mort du chef, les terres passent selon la loi
-8. #437 Une terre peut passer par une femme
-9. #438 Le joueur propose un mariage, et l'autre maison le pèse
-10. #439 Le joueur éduque ses enfants
-11. #440 Le joueur change sa loi de succession, à un prix
-12. #441 Républiques et Église ont leurs règles
-13. #442 Le joueur joue l'héritier, et une dynastie sans terre perd
-14. #443 Chaque héritier a ses ambitions
-15. #444 L'IA marie, éduque et choisit ses lois avec des raisons de monde
-16. #445 Le service et la photographie portent les dynasties
-17. #446 L'arbre de la dynastie dans Unity · pc
-18. #447 À la mort du chef, la carte montre l'héritier et le partage · pc
-19. #448 La preuve du jalon 6
+1. *(lot à créer)* Le pays se lit d'un seul tenant : ses lieux, ses vassaux et son suzerain
+2. *(lot à créer)* Le joueur prend la tête de n'importe quel pays de 1400
+3. *(lot à créer)* Le joueur pose un bâtiment dans une province, et le plan lui trouve sa parcelle
+4. *(lot à créer)* Le panneau du pays et ses alertes dans Unity · pc
+5. #430 Le monde porte des personnes : les chefs des maisons de 1400
+6. #431 Les familles de 1400, et leurs découpes (#803 à #806, #824 à #826)
+7. #432 On vieillit et on meurt
+8. #433 Les couples ont des enfants
+9. #434 Chaque personne a ses traits et ses compétences
+10. #435 La loi de succession désigne l'héritier
+11. #436 À la mort du chef, les terres passent selon la loi
+12. #437 Une terre peut passer par une femme
+13. #438 Le joueur propose un mariage, et l'autre maison le pèse
+14. #439 Le joueur éduque ses enfants
+15. #440 Le joueur change sa loi de succession, à un prix
+16. #441 Républiques et Église ont leurs règles
+17. #442 Le joueur joue l'héritier, et une dynastie sans terre perd
+18. #443 Chaque héritier a ses ambitions
+19. #444 L'IA marie, éduque et choisit ses lois avec des raisons de monde
+20. #445 Le service et la photographie portent les dynasties
+21. #446 L'arbre de la dynastie dans Unity · pc
+22. #447 À la mort du chef, la carte montre l'héritier et le partage · pc
+23. #448 La preuve du jalon 6
+
+La preuve #448 s'étend au pays : son issue doit attendre les lots 1 à 4.
+
+- **Le pays se lit d'un seul tenant** — *à créer*. *Le joueur* : il voit son
+  pays comme un tout — combien de lieux, de gens, de grain, de chantiers,
+  quels vassaux et quel suzerain — au lieu de quatre lieux autour d'un siège.
+  Lot de fond du geste « gouverner depuis la carte ». *Ce que ça fait* : une
+  vue dérivée `pays(maison)` dans `sim/` — ses lieux (ceux qu'elle tient,
+  puis ceux de ses vassaux), sa population, sa récolte sur trente jours, ses
+  greniers, ses chantiers, son suzerain — et `/pays` au service ; rien ne se
+  stocke. *Preuve* : les lieux de tous les pays sans suzerain font tous les
+  lieux tenus du monde, sans doublon (contre-épreuve : un vassal compté deux
+  fois échoue) ; les totaux d'un pays égalent la somme de ses lieux dans la
+  photographie. *Dépend de* : rien d'ouvert.
+- **Le joueur prend la tête de n'importe quel pays de 1400** — *à créer*.
+  *Le joueur* : sur la carte de 1400, il clique un royaume, un duché ou un
+  petit seigneur et le joue ; les six terres de départ restent proposées en
+  tête. *Ce que ça fait* : l'intention de départ accepte toute maison du
+  registre qui tient au moins un lieu, hors républiques et Église ; la
+  maison choisie cesse d'être jouée par l'IA, au même tick. *Preuve* : un
+  royaume et un petit seigneur se choisissent, et l'IA ne dépose plus rien
+  pour eux (contre-épreuve : une maison sans lieu, une république ou
+  l'Église sont refusées avec leur raison). *Dépend de* : le lot du pays.
+- **Le joueur pose un bâtiment dans une province** — *à créer*. *Le joueur* :
+  depuis la carte, il choisit un bourg de son pays et ce qu'il y bâtit ; le
+  chantier part comme s'il l'avait posé en 3D, et le prix se lit pareil.
+  *Ce que ça fait* : une intention « bâtir dans un bourg » (bourg, nature,
+  maison) ; le plan choisit la parcelle libre le long d'une rue, ou en
+  découpe une, par une règle déterministe ; ensuite tout passe par le chemin
+  de `poser_batiment`. *Preuve* : même graine et mêmes gestes, même monde ;
+  le même bâtiment posé en 3D sur la parcelle choisie donne le même monde
+  (contre-épreuve : un bourg plein refuse avec sa raison, et un bourg qu'on
+  ne tient pas aussi, #408). *Dépend de* : rien d'ouvert.
+- **Le panneau du pays et ses alertes dans Unity** — *à créer* · pc. *Le
+  joueur* : en haut de la carte, il lit d'un coup d'œil date, vitesse, gens,
+  récolte, greniers et chantiers de son pays ; une alerte (famine, grenier
+  vide, départs) le mène au lieu. *Ce que ça fait* : le bandeau lit `/pays`
+  et le fil des nouvelles, dans la langue du cabinet. *Preuve* : au même
+  tick, le panneau est égal à la photographie (contre-épreuve : un service
+  décalé d'un tick échoue) ; une alerte cliquée centre la carte sur son
+  lieu. *Dépend de* : le lot du pays, le fil des nouvelles (jalon 5), le lot
+  de la carte (jalon 4). *Photo* : le bandeau d'un royaume et celui d'un
+  petit seigneur, chacun avec une alerte.
 
 **La langue visuelle dans ce jalon.** Elle sert les décisions du mariage, de
 l'éducation et de la loi. Dans #446, l'arbre est une généalogie de registre :
@@ -563,74 +738,101 @@ carte d'un partage. L'issue de #446 doit attendre le lot de la carte
 
 ## Jalon 7 — La guerre
 
-**Le joueur** déclare la guerre pour des lieux qu'il revendique, lève des
-hommes dans ses foyers, les fait marcher et les nourrit, assiège un lieu ou
-livre bataille — qu'il mène lui-même en 3D, ou qu'il confie à un général —,
-défend sa capitale dans les murs qu'il a tracés, et signe la paix.
+**Le joueur** déclare la guerre pour des lieux qu'il revendique, appelle ses
+alliés, lève des hommes dans ses foyers, les fait marcher sur la carte et les
+nourrit, assiège un lieu ou livre bataille — que son général commande, et que
+le moteur de `sim/` calcule jour après jour —, et signe la paix. Comme dans
+Europa Universalis IV, la guerre se joue sur la carte.
 
 **La décision** : lever des hommes, c'est vider des champs ; marcher vite en
-vivant sur le pays, ou lentement avec ses vivres ; risquer une bataille — et sa
-propre vie — pour trancher la guerre, ou assiéger et attendre ; céder un lieu
-pour avoir la paix.
+vivant sur le pays, ou lentement avec ses vivres ; risquer une bataille — et la
+vie du chef de sa dynastie — pour trancher la guerre, ou assiéger et attendre ;
+s'allier, c'est être appelé à son tour ; céder un lieu pour avoir la paix.
 
 **L'écran** : la colonne sur la carte, ce qu'elle mange dans les lieux
-traversés, le creux qu'elle laisse ; le champ de bataille en 3D, sur le
-terrain du lieu ; le siège d'une ville, et de la sienne, en 3D ; la terre qui
+traversés, le creux qu'elle laisse ; la bataille sur la carte, jour après
+jour, ses forces et ses pertes ; le siège qui affame la place ; la terre qui
 change de main à la paix.
 
 **La preuve** : les soldats sont des habitants (ils quittent leur foyer et y
 reviennent, ou meurent) ; une colonne qui ne mange pas meurt de faim ; les
-morts manquent ensuite aux champs. Une bataille déléguée passe par le même
-moteur qu'une bataille jouée : mêmes armées, même terrain, mêmes ordres et même
-graine donnent la même issue, avec ou sans image. Le siège de la capitale se
-livre dans la ville que le joueur a bâtie. Contre-épreuve : une bataille dont
-les pertes ne reviennent pas au monde doit échouer.
+morts manquent ensuite aux champs. Une bataille se calcule dans `sim/` : mêmes
+armées, même terrain et même graine donnent la même issue ; une bataille de
+l'IA et une bataille du joueur passent par la même fonction ; ses pertes
+reviennent au monde. Contre-épreuve : une bataille dont les pertes ne
+reviennent pas au monde, ou dont l'issue ne dépend ni des hommes, ni des
+vivres, ni du terrain, doit échouer.
 
-**Dans le monde** : la guerre entre maisons, la levée, la marche, les vivres,
-le siège, la paix qui cède des terres, la révolte qui naît de la faim et
-d'une occasion. Le monde prépare chaque bataille (ses armées, son terrain) et
-en reçoit les pertes ; il ne la calcule jamais lui-même. Citadelle-Guerre sort
-des archives : son moteur de foule porte la bataille, sur le terrain du monde
-et dans les villes du plan. Le chef de la dynastie peut mourir au combat.
+**Dans le monde** : la guerre et l'alliance entre maisons, la levée, la
+marche, les vivres, la bataille — les hommes, leurs vivres, leur chef et le
+terrain du lieu (relief, rivière, murs), constantes de niveau 2 —, le siège,
+la paix qui cède des terres, la révolte qui naît de la faim et d'une occasion.
+Le chef de la dynastie peut mourir au combat. Citadelle-Guerre reste dans les
+archives ; le contrat de bataille (#456) est ce qu'une bataille en 3D lira le
+jour où elle reviendra (horizon).
 
 **Les lots**, dans l'ordre où ils partent :
 
 1. #449 La guerre se déclare entre maisons
-2. #450 Le joueur lève des hommes dans ses foyers
-3. #451 L'armée marche de lieu en lieu
-4. #452 L'armée mange ce qu'elle porte et ce qu'elle prend
-5. #453 Les soldats rentrent chez eux, ou n'en reviennent pas
-6. #454 Le siège affame la place
-7. #455 La paix cède des terres
-8. #456 Le contrat de bataille : le monde envoie ses armées et son terrain, et reçoit ses pertes
-9. #457 Citadelle-Guerre sort des archives et lit le contrat · pc
-10. #458 Le terrain de la bataille vient du monde · pc
-11. #459 La bataille se joue sans image, à l'identique · pc
-12. #460 Le joueur mène sa bataille, ou la confie à un général · pc
-13. #461 Un général commande la bataille qu'on lui confie · pc
-14. #462 Le chef de la dynastie peut mourir au combat
-15. #463 L'artillerie ouvre une brèche dans les murs du plan · pc
-16. #464 Le siège se livre dans la ville bâtie · pc
-17. #465 Une révolte naît de la faim et d'une occasion
-18. #466 L'IA fait la guerre avec des raisons de monde
-19. #468 Le service et la photographie portent les guerres et les armées
-20. #469 La colonne sur la carte · pc
-21. #470 La preuve du jalon 7 · pc
+2. *(lot à créer)* Le joueur s'allie, et l'allié appelé pèse sa réponse
+3. #450 Le joueur lève des hommes dans ses foyers
+4. #451 L'armée marche de lieu en lieu
+5. #452 L'armée mange ce qu'elle porte et ce qu'elle prend
+6. #453 Les soldats rentrent chez eux, ou n'en reviennent pas
+7. #454 Le siège affame la place
+8. #455 La paix cède des terres
+9. #456 Le contrat de bataille : le monde envoie ses armées et son terrain, et reçoit ses pertes
+10. *(lot à créer)* La bataille se calcule dans `sim/`, jour après jour
+11. #462 Le chef de la dynastie peut mourir au combat
+12. #465 Une révolte naît de la faim et d'une occasion
+13. #466 L'IA fait la guerre avec des raisons de monde
+14. #468 Le service et la photographie portent les guerres et les armées
+15. #469 La colonne sur la carte · pc
+16. *(lot à créer)* La bataille et le siège se suivent sur la carte · pc
+17. #470 La preuve du jalon 7 · pc
+
+**Passent à l'horizon** (décision 29), avec l'étiquette `reserve` à poser sur
+leurs issues : #457 Citadelle-Guerre sort des archives, #458 le terrain de la
+bataille 3D, #459 la bataille 3D sans image, #460 mener ou confier en 3D, #461
+le général en 3D, #463 la brèche, #464 le siège dans la ville bâtie. La preuve
+#470 ne les attend plus.
+
+- **Le joueur s'allie** — *à créer*. *Le joueur* : il propose une alliance à
+  un voisin, qui la pèse ; à la guerre, il appelle ses alliés et voit qui
+  vient et pourquoi. *Ce que ça fait* : deux intentions (proposer une
+  alliance, appeler ses alliés) ; l'autre maison répond avec des raisons de
+  monde — un ennemi commun, la distance, ses propres greniers et ses hommes —,
+  par le chemin de l'IA. *Preuve* : une alliance acceptée et une refusée,
+  chacune avec sa raison ; l'allié qui vient lève de vrais hommes
+  (contre-épreuve : un allié qui vient sans lever personne échoue). *Dépend
+  de* : #449.
+- **La bataille se calcule dans `sim/`** — *à créer*. *Le joueur* : quand deux
+  armées se rencontrent, la bataille dure des jours ; le nombre, les vivres,
+  le chef et le terrain décident, et il peut retirer son armée avant la fin.
+  *Ce que ça fait* : un moteur de bataille dans `sim/`, appelé au tick pour
+  chaque rencontre, qui lit le contrat (#456) et rend ses pertes ; constantes
+  de niveau 2, déclarées dans `MODELE.md`. *Preuve* : même contrat, même
+  graine, même issue ; plus d'hommes ou de vivres déplacent l'issue en leur
+  faveur (direction, pas valeur) ; les pertes reviennent aux foyers
+  (contre-épreuve : un moteur qui tire l'issue au sort sans lire les armées
+  échoue). *Dépend de* : #456.
+- **La bataille et le siège se suivent sur la carte** — *à créer* · pc. *Le
+  joueur* : sur la carte, il voit la bataille en cours, ses forces et ses
+  pertes jour après jour, et le siège qui affame la place. *Ce que ça fait* :
+  la carte lit les batailles et les sièges du service. *Preuve* : au même
+  tick, les forces affichées sont égales à la photographie (contre-épreuve :
+  un service décalé d'un tick échoue). *Dépend de* : #468, #469. *Photo* :
+  une bataille au troisième jour et un siège.
 
 **La langue visuelle dans ce jalon.** Elle sert la décision de lever, de
-marcher et de risquer la bataille. Dans #460, « mener ou confier » est une
-décision scellée du socle, qui dit ce que le monde a envoyé (les deux
-armées, leurs hommes, le terrain) sans rien en déduire ; en bataille, les
-commandes restent basses et le terrain dégagé, la sélection d'une troupe a
-le trait et le nom du socle, et le bilan des pertes se lit en lignes de
-compte, tel que la bataille le rend au monde. Les commandes du siège (#464)
-sont celles de #460. Dans #469, la colonne, son chemin, les lieux vidés par
-le fourrage et les places assiégées portent les marques du socle sur la
-carte, et le panneau de guerre ses états, avec les refus et les raisons de
-l'autre camp. Photos regardées : le choix « mener ou confier », la bataille
-menée avec une troupe sélectionnée, la colonne en marche. L'issue de #460
-doit attendre le lot du cabinet (jalon 4), celle de #469 le lot de la
-carte.
+marcher et de risquer la bataille. Dans #469 et le lot de la bataille sur la
+carte, la colonne, son chemin, les lieux vidés par le fourrage, les
+batailles et les places assiégées portent les marques du socle sur la
+carte ; le panneau de guerre a ses états, avec les refus et les raisons de
+l'autre camp ; le bilan des pertes se lit en lignes de compte, tel que la
+bataille le rend au monde. Photos regardées : la colonne en marche, une
+bataille sur la carte et son bilan. L'issue de #469 doit attendre le lot de
+la carte (jalon 4).
 
 ## Jalon 8 — L'argent
 
@@ -696,7 +898,7 @@ la carte (jalon 4).
 **Le joueur** joue de 1400 à 1500 d'un seul trait, sans changer de jeu :
 plusieurs générations, des guerres, des mariages, des dettes. Il sauve et
 reprend sa partie ; il confie ce qui se répète à des intendants, à des vassaux
-et à des lois ; toutes les terres de départ ont leur capitale en 3D.
+et à des lois.
 
 **La décision** : toutes celles des jalons précédents, à l'échelle d'un
 siècle ; et ce qu'on garde pour soi, ce qu'on délègue.
@@ -713,8 +915,8 @@ doit la faire échouer.
 
 **Dans le monde** : la sauvegarde, les intendants, le fief, les premières lois
 (le geste passe de « où je pose la scierie » à « quelle loi je passe »), la
-chronique, la carte de 1500, le score ; les kits des autres terres — Balkans et
-Morée, puis l'Ouest — et le jeu qui se lance seul. La première partie complète.
+chronique, la carte de 1500, le score ; le jeu qui se lance seul. La première
+partie complète.
 
 **Les lots**, dans l'ordre où ils partent :
 
@@ -729,15 +931,14 @@ Morée, puis l'Ouest — et le jeu qui se lance seul. La première partie compl�
 9. #497 Le siècle tient le budget du tick
 10. #498 Les agrégations restent conservatives sur cent ans
 11. #499 Les gestes du joueur ne grandissent pas avec son royaume
-12. #500 Le kit de pierre et de tuile des Balkans et de Morée · pc
-13. #501 Les capitales des Balkans et de Morée s'ouvrent en 3D · pc
-14. #502 Le kit de colombage et de pierre de l'Ouest · pc
-15. #503 Les capitales de l'Ouest s'ouvrent en 3D · pc
-16. #504 Une ville conquise s'ouvre en 3D avec le kit de sa terre · pc
-17. #505 Le jeu se lance sans l'atelier · pc
-18. #506 Un siècle se joue dans le jeu, du menu à la chronique · pc
-19. *(lot à créer)* Le siècle se lit dans une seule langue · pc
-20. #507 La preuve du jalon 9
+12. #505 Le jeu se lance sans l'atelier · pc
+13. #506 Un siècle se joue dans le jeu, du menu à la chronique · pc
+14. *(lot à créer)* Le siècle se lit dans une seule langue · pc
+15. #507 La preuve du jalon 9
+
+**Passent à l'horizon** (décision 32), avec l'étiquette `reserve` à poser sur
+leurs issues : #500 et #501, le kit et les capitales des Balkans et de Morée ;
+#502 et #503, ceux de l'Ouest ; #504, la ville conquise en 3D.
 
 **La langue visuelle dans ce jalon.** Le menu, la sauvegarde (#490) et
 l'écran de fin (#506) prennent la langue du socle : la chronique et le score
@@ -772,6 +973,13 @@ atteint, avec ce qu'on aura appris.
 - **Les religions, les cultures, les techniques** et leur diffusion.
 - **L'industrie** : la vapeur, les usines, le rail, l'économie de 1900 ; la
   carte, la ville et la bataille, sur la même horloge, jusqu'en 1900.
+- **La bataille et le siège en 3D** : les regarder et les mener soi-même,
+  le siège grandeur nature dans la ville qu'on a bâtie, sur le moteur de
+  `sim/` et son contrat ; Citadelle-Guerre en est la base (#457 à #461,
+  #463, #464).
+- **Les capitales des autres terres en 3D** : les kits des Balkans et de
+  Morée, puis de l'Ouest, et la ville conquise qui s'ouvre avec le kit de sa
+  terre (#500 à #504).
 - **Les batailles de 1900** : lignes, artillerie, fusils, autant d'hommes que
   la machine en tient ; les batailles navales, si on les retient.
 - **Le monde entier**, sur une nouvelle carte.
@@ -793,5 +1001,5 @@ lot, le reformule contre `sim/` avec sa phrase du joueur, et le range chez lui.
   direct. Un lot de la chaîne ne touche jamais `atelier/` ni `.github/`.
 - **Les prototypes 3D** qui ne portent pas le jalon courant dorment dans
   `3d/archives/`, intacts. Ils en ressortent quand un jalon les demande :
-  Citadelle-Guerre au jalon 7 (#457).
+  Citadelle-Guerre avec la bataille en 3D, à l'horizon (#457).
 - **Une vue** ne décide jamais un nombre : elle lit `sim/`.

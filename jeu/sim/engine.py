@@ -44,6 +44,7 @@ from sim.model import (
     ecrire_habitants_par_metier,
     ecrire_stock_marchandise,
     lire_habitants_par_metier,
+    lire_ouvriers_du_jour,
     lire_stock_marchandise,
 )
 
@@ -396,6 +397,20 @@ def _apply_extraction(cell: Cell, carte: dict) -> None:
         _lieux.accorder_marchandise(cell, ressource)
 
 
+def _paysans_restes_au_lieu(cell, lieu, metiers):
+    """Retire du lieu ses ouvriers du jour ; le reliquat sans origine reste au bourg."""
+    compte = lire_ouvriers_du_jour(lieu)
+    if lieu.rang != 0:
+        return max(0, lieu.population - compte)
+    localises = sum(lire_ouvriers_du_jour(autre) for autre in cell.lieux)
+    reliquat = metiers.get(_constantes.METIER_OUVRIERS, 0) - localises
+    if reliquat < 0:
+        reliquat = 0
+    autres = sum(nombre for nom, nombre in metiers.items()
+                 if nom != _constantes.METIER_PAYSANS and nom != _constantes.METIER_OUVRIERS)
+    return max(0, lieu.population - autres - compte - reliquat)
+
+
 def _verser_recolte(cell, recolte, carte, saison, recoltes):
     """Besoin commun, manque local ; le partage historique survit à bras suffisants."""
     km2_cultives = cell.area_km2
@@ -411,9 +426,8 @@ def _verser_recolte(cell, recolte, carte, saison, recoltes):
         surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         cultives_par_km2 = km2_cultives / cell.area_km2
         besoin_par_km2 = foyers.besoin_bras(cultives_par_km2)
-        non_paysans = cell.population - metiers.get(_constantes.METIER_PAYSANS, 0)
         for lieu in cell.lieux:
-            paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
+            paysans = _paysans_restes_au_lieu(cell, lieu, metiers)
             if paysans < surfaces[lieu.rang] * besoin_par_km2:
                 locaux = dict(metiers) if lieu.rang == 0 else {}
                 locaux[_constantes.METIER_PAYSANS] = paysans
