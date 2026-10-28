@@ -6,8 +6,8 @@ import math
 import sim.constants as _constantes
 from sim import flux as _flux
 import sim.ville1400 as _ville1400
-from sim.chantiers import travail_requis_de_batiment, travail_requis_de_parcelle, travail_requis_de_route
-from sim.plan import Batiment, Parcelle, Plan, PlanInvalide, Rue
+from sim.chantiers import travail_requis_de_batiment, travail_requis_de_enceinte, travail_requis_de_parcelle, travail_requis_de_route
+from sim.plan import Batiment, Enceinte, Parcelle, Plan, PlanInvalide, Rue, _points
 from sim.puissances import PuissanceInvalide
 from sim.lieux import partager
 from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie
@@ -18,6 +18,7 @@ TYPE_OUVRIR_GRENIER = "ouvrir_grenier"
 TYPE_TRACER_ROUTE = "tracer_route"
 TYPE_DECOUPER_PARCELLE = "decouper_parcelle"
 TYPE_POSER_BATIMENT = "poser_batiment"
+TYPE_TRACER_ENCEINTE = "tracer_enceinte"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
@@ -26,6 +27,7 @@ CHAMPS_OBLIGATOIRES = {
     TYPE_TRACER_ROUTE: ("type", "cell", "points", "largeur_m", "maison"),
     TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote", "maison"),
     TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature", "maison"),
+    TYPE_TRACER_ENCEINTE: ("type", "cell", "points", "maison"),
 }
 
 
@@ -193,6 +195,17 @@ class PoseBatiment:
         )
 
 
+@dataclass(frozen=True)
+class TracerEnceinte:
+    cell_id: int
+    points: tuple[tuple[float, float], ...]
+    foyers: int = 1
+    def appliquer(self, monde):
+        plan = monde.plans[self.cell_id]
+        monde.plans[self.cell_id] = Plan(rues=plan.rues, parcelles=plan.parcelles, batiments=plan.batiments,
+            enceinte=Enceinte(self.points, True, self.foyers, travail_requis_de_enceinte(self.points), 0))
+
+
 def _foyers(intention):
     foyers = intention.get("foyers", 1)
     if isinstance(foyers, bool) or not isinstance(foyers, int) or foyers < 1:
@@ -286,6 +299,53 @@ def _pose_batiment(monde, intention):
     return PoseBatiment(cell_id, identifiant, nature, _foyers(intention))
 
 
+def _cotes(points): return tuple((points[i], points[(i + 1) % len(points)]) for i in range(len(points)))
+def _produit(a, b, c): return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+def _sur(a, b, p): return min(a[0], b[0]) <= p[0] <= max(a[0], b[0]) and min(a[1], b[1]) <= p[1] <= max(a[1], b[1])
+def _touche(a, b, c, d):
+    o1, o2, o3, o4 = _produit(a, b, c), _produit(a, b, d), _produit(c, d, a), _produit(c, d, b)
+    return any(o == 0 and _sur(p, q, r) for o, p, q, r in ((o1, a, b, c), (o2, a, b, d), (o3, c, d, a), (o4, c, d, b))) or o1 * o2 < 0 and o3 * o4 < 0
+def _se_croise(points):
+    cotes, n = _cotes(points), len(points)
+    return any(_touche(*cotes[i], *cotes[j]) for i in range(n) for j in range(i + 1, n) if min((i - j) % n, (j - i) % n) > 1)
+def _dans(point, polygone, strict):
+    if any(_produit(a, b, point) == 0 and _sur(a, b, point) for a, b in _cotes(polygone)):
+        return not strict
+    x, y, dedans = point[0], point[1], False
+    for a, b in _cotes(polygone):
+        if (a[1] > y) != (b[1] > y) and x < a[0] + (y - a[1]) * (b[0] - a[0]) / (b[1] - a[1]):
+            dedans = not dedans
+    return dedans
+def _emprises(points, largeur): return [_ville1400.emprise_de_rue((a, b), largeur) for a, b in _cotes(points) if a != b]
+def _tracer_enceinte(monde, intention):
+    foyers, cell_id, points = _foyers(intention), _cellule(monde, intention), intention["points"]
+    try:
+        _points(points, _constantes.POINTS_MIN_CONTOUR, "enceinte.contour")
+    except PlanInvalide as exc:
+        raise IntentionRefusee(str(exc)) from exc
+    if _se_croise(points):
+        raise IntentionRefusee("enceinte : contour qui se croise")
+    try:
+        base = _ville1400.base_de_cellule(monde, cell_id)
+    except _ville1400.BaseAbsente as exc:
+        raise IntentionRefusee(str(exc)) from exc
+    place, cotes = base["place"], _cotes(points)
+    if (any(_dans(p, place, False) or _dans(q, place, False) or any(_touche(p, q, a, b) for a, b in _cotes(place))
+            for p, q in cotes) or not all(_dans(sommet, points, True) for sommet in place)):
+        raise IntentionRefusee("enceinte : place de 1400 non entourée")
+    rang = _ville1400.maison_touchee(base, _emprises(points, _constantes.ASSISE_ENCEINTE_M))
+    if rang is not None:
+        raise IntentionRefusee(f"cellule {cell_id} : maison de 1400 {rang} ({base['maisons'][rang]['foyers']} foyers) touchée")
+    _verifier_terres(monde, intention)
+    if monde.plans[cell_id].enceinte is not None:
+        raise IntentionRefusee("enceinte déjà tracée")
+    if any(isinstance(geste, TracerEnceinte) and geste.cell_id == cell_id for geste in monde.intentions_en_attente):
+        raise IntentionRefusee("enceinte déjà promise")
+    geste = TracerEnceinte(cell_id, tuple(tuple(point) for point in points), foyers)
+    monde.intentions_en_attente.append(geste)
+    return geste
+
+
 def verifier_base(monde, cell_id, points=None, largeur_m=None, contour=None):
     """Garde commune du dépôt et de l'IA, sans cache ni écriture au monde."""
     if monde.populations_bourg_amorcage is None:
@@ -318,7 +378,8 @@ def recevoir_intention(monde, intention):
             raise IntentionRefusee(f"champ manquant : {champ}")
     for champ in intention:
         if (champ not in champs and not (type_intention in (
-                TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT) and champ == "foyers")
+                TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT,
+                TYPE_TRACER_ENCEINTE) and champ == "foyers")
                 and not (type_intention == TYPE_TRACER_ROUTE and champ == "porte_cell_id")):
             raise IntentionRefusee(f"champ inconnu : {champ}")
     if type_intention == TYPE_FIXER_PART:
@@ -338,6 +399,8 @@ def recevoir_intention(monde, intention):
         _verifier_terres(monde, intention)
         monde.intentions_en_attente.append(decoupe)
         return decoupe
+    if type_intention == TYPE_TRACER_ENCEINTE:
+        return _tracer_enceinte(monde, intention)
     foyers = _foyers(intention)
     cell_id = _cellule(monde, intention)
     try:

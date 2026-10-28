@@ -280,6 +280,7 @@ TRAVAIL_BATIMENT_JOURNEES_PAR_M2 = 2
 
 # Levée, fondation et parement d'une enceinte, par mètre de périmètre ; niveau 2.
 TRAVAIL_ENCEINTE_JOURNEES_PAR_M = 30
+ASSISE_ENCEINTE_M = 6  # Largeur totale au sol du mur, niveau 2, relue au contrôle.
 
 # Plafond : une cellule ne devient jamais entièrement minière. Invariant,
 # pas un réglage de confort — sans lui une cellule chargée de gisements
