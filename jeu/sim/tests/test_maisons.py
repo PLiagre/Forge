@@ -2761,40 +2761,40 @@ def _ottomans(fiches=None, etat=None):
         assert (bay['pere'], bay['mere'], tuple(bay['conjoints']), bay['presence']) == (None, None, epouses, 'vivante')
         conjoints, presence_b = bay['sources'].get('conjoints'), bay['sources'].get('presence')
         assert bay['sources'].get('pere') is None and bay['sources'].get('mere') is None and bay['lacunes'].get('conjoints') is None and bay['lacunes'].get('presence') is None
-        assert isinstance(conjoints, dict) and conjoints.get('url') == BAYEZID and 'Bayezid Ier' in (conjoints.get('fait') or '') and isinstance(presence_b, dict) and presence_b.get('url') == BAYEZID and 'Bayezid Ier' in (presence_b.get('fait') or '')
+        assert isinstance(conjoints, dict) and conjoints.get('url') == BAYEZID and re.fullmatch(r'Bayezid Ier : ' + re.escape(UNIONS_B) + r'\.', conjoints.get('fait') or '') and isinstance(presence_b, dict) and presence_b.get('url') == BAYEZID and re.fullmatch(r'Bayezid Ier, vivant au 1er janvier 1400, sultan de 1389 à 1402 ; décès postérieur cité pour la sélection initiale\.', presence_b.get('fait') or '')
         assert isinstance(bay['lacunes'].get('pere'), str) and 'aucune absence attestée' in bay['lacunes']['pere'] and isinstance(bay['lacunes'].get('mere'), str) and 'aucune absence attestée' in bay['lacunes']['mere']
         for k in ('pere', 'mere'): _reperes_voisins(bay['lacunes'][k], ('Ancêtres de Bayezid Ier', 'hors périmètre', 'aucune absence attestée'))
         _reperes_voisins(conjoints.get('fait'), (UNIONS_B,)); assert not any(NEGATION.search(s.get('fait') or '') for s in (conjoints, presence_b))
         _reperes_voisins(conjoints.get('fait'), ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'))
         assert fiches['personne-devlet-hatun']['nom'] != fiches['personne-devletsah-hatun']['nom']
         for i, nom, date, precision, mere, epoux, page, reperes, pages in OTTOMANS:
-            f = fiches['personne-' + i]
+            f, sexe = fiches['personne-' + i], 'fils' if nom.endswith('Çelebi') else 'fille'
             assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (
                 nom, 'grande-16', _naissance_famille(date, precision) if date else None, None if epoux else PERE_B,
                 'personne-' + mere if mere else None, (PERE_B,) if epoux else (), 'vivante')
             assert set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance', 'pere', 'mere', 'conjoints', 'presence'}
             identite, presence = f['sources'].get('identite'), f['sources'].get('presence')
-            assert isinstance(identite, dict) and identite.get('url') == page and nom in (identite.get('fait') or '') and isinstance(presence, dict) and presence.get('url') in SRC_OTTO.values() and nom in (presence.get('fait') or '') and f['lacunes'].get('presence') is None
+            assert isinstance(identite, dict) and identite.get('url') == page and re.match(re.escape(nom) + (r', .+compagne de Bayezid Ier' if epoux else r', ' + sexe + r' de Bayezid Ier' + (r' et d(e |’)' + re.escape(next(o[1] for o in OTTOMANS if o[0] == mere)) + r'\b' if mere else r'\b')), identite.get('fait') or '') and not re.search(r'\b(oncle|tante|sœur|frère|refus\w*|réfut|nie)\b', identite.get('fait') or '') and isinstance(presence, dict) and presence.get('url') in SRC_OTTO.values() and re.match(re.escape(nom) + r', .*(?:' + ('vivante au 1er janvier 1400' if epoux else 'vivante? après le départ') + r')', presence.get('fait') or '') and not re.search(r'\bmeurt\b|\bnie\b|mort(?:e)? au 1er janvier 1400', presence.get('fait') or '') and f['lacunes'].get('presence') is None
             assert all(isinstance(s, dict) and nom in (s.get('fait') or '') for s in f['sources'].values() if s) and all((f['sources'].get(k) or {}).get('url') == SRC_OTTO.get(c) for k, c in zip(('naissance', 'presence', 'pere', 'mere', 'conjoints'), pages))
             assert not any(NEGATION.search(s.get('fait') or '') for s in f['sources'].values() if s)
             _reperes_voisins(_texte_otto(f), (nom, *reperes))
             for k in ('pere', 'mere', 'conjoints'):
                 if isinstance(f['lacunes'].get(k), str) and not (k == 'mere' and not epoux): _reperes_voisins(f['lacunes'][k], (nom, 'hors périmètre', 'aucune absence attestée', *PARENTS_OTTO.get((i, k), ()))); _reperes_voisins(f['lacunes'][k].lower(), ({'pere': 'père', 'mere': 'mère', 'conjoints': 'conjoints'}[k],))
             if epoux:
-                assert f['sources'].get('pere') is None and f['sources'].get('mere') is None and isinstance(f['sources'].get('conjoints'), dict) and re.match(re.escape(nom) + r'.*(épouse|compagne de) Bayezid Ier', f['sources']['conjoints'].get('fait') or '') and f['lacunes'].get('conjoints') is None and isinstance(f['lacunes'].get('pere'), str) and 'aucune absence attestée' in f['lacunes']['pere'] and isinstance(f['lacunes'].get('mere'), str) and 'aucune absence attestée' in f['lacunes']['mere']
+                assert f['sources'].get('pere') is None and f['sources'].get('mere') is None and isinstance(f['sources'].get('conjoints'), dict) and re.match(re.escape(nom) + r'(?: épouse Bayezid Ier|, [^.]*, compagne de Bayezid Ier)', f['sources']['conjoints'].get('fait') or '') and not re.search(r'\b(?:refus|nie)\b', f['sources']['conjoints'].get('fait') or '', re.I) and f['lacunes'].get('conjoints') is None and isinstance(f['lacunes'].get('pere'), str) and 'aucune absence attestée' in f['lacunes']['pere'] and isinstance(f['lacunes'].get('mere'), str) and 'aucune absence attestée' in f['lacunes']['mere']
             else:
                 pere = f['sources'].get('pere')
-                assert isinstance(pere, dict) and re.fullmatch(re.escape(nom) + r' est (fils|fille) de Bayezid Ier\.', pere.get('fait') or '') and f['sources'].get('conjoints') is None and isinstance(f['lacunes'].get('conjoints'), str) and 'aucune absence attestée' in f['lacunes']['conjoints']
+                assert isinstance(pere, dict) and re.fullmatch(re.escape(nom) + r' est ' + sexe + r' de Bayezid Ier\.', pere.get('fait') or '') and f['sources'].get('conjoints') is None and isinstance(f['lacunes'].get('conjoints'), str) and 'aucune absence attestée' in f['lacunes']['conjoints']
                 if mere:
                     mere_source = f['sources'].get('mere')
-                    assert isinstance(mere_source, dict) and re.match(re.escape(nom) + r' est (fils|fille) de Bayezid Ier et d(e |’)' + re.escape(next(o[1] for o in OTTOMANS if o[0] == mere)), mere_source.get('fait') or '')
+                    assert isinstance(mere_source, dict) and re.match(re.escape(nom) + r' est ' + sexe + r' de Bayezid Ier et d(e |’)' + re.escape(next(o[1] for o in OTTOMANS if o[0] == mere)) + r'\b', mere_source.get('fait') or '') and not re.search(r'réfut|refus|\brumeur\b|\bnie\b|n[’\']est pas', mere_source.get('fait') or '', re.I)
                 else:
                     assert f['sources'].get('mere') is None and isinstance(f['lacunes'].get('mere'), str)
                     _reperes_voisins(f['lacunes']['mere'], (nom, 'n’établissent pas', 'aucune absence attestée'))
                     _reperes_voisins(f['lacunes']['mere'], ('Les pages examinées n’établissent pas la mère de', 'aucune mère inventée'))
             if date:
                 naissance = f['sources'].get('naissance')
-                assert isinstance(naissance, dict) and date in (naissance.get('fait') or '') and f['lacunes'].get('naissance') is None
+                assert isinstance(naissance, dict) and re.fullmatch(re.escape(nom) + r' : naissance ' + re.escape(date) + r'\.', naissance.get('fait') or '') and f['lacunes'].get('naissance') is None
             else:
                 assert f['sources'].get('naissance') is None and isinstance(f['lacunes'].get('naissance'), str) and 'naissance inconnue' in f['lacunes']['naissance']
     if etat is not None:
@@ -2805,11 +2805,11 @@ def _ottomans(fiches=None, etat=None):
                 ('conjoints', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if femme) + ('1378', '1381', '1390')),
                 ('enfants', tuple(nom for _, nom, _, _, _, femme, *_ in OTTOMANS if not femme))):
             source = sources.get(champ); assert isinstance(source, dict) and source.get('url') == BAYEZID; _reperes_voisins(source.get('fait'), reperes)
-            _reperes_voisins(source['fait'], (UNION_OTTO if champ == 'conjoints' else ENFANTS_OTTO,)); assert not NEGATION.search(source['fait'])
+            _reperes_voisins(source['fait'], (UNION_OTTO if champ == 'conjoints' else ENFANTS_OTTO,)); assert not NEGATION.search(source['fait']) and re.fullmatch((r'Bayezid Ier : ' + re.escape(UNION_OTTO) + r' ; unions en 1378, vers 1381 et 1390\.') if champ == 'conjoints' else re.escape(ENFANTS_OTTO) + r'\.', source['fait'])
         for nom, reperes in OTTO_EXCLUSIONS.items():
             x, pages = exclusions[nom], {v for v in reperes if str(v).startswith('http')}
-            faits = tuple(v for v in reperes if v not in pages)
-            assert x.get('sources') and {s.get('url') for s in x['sources']} == pages and all(nom in (s.get('fait') or '') for s in x['sources']) and all(any(v in (s.get('fait') or '') for s in x['sources']) for v in faits)
+            faits = tuple(v for v in reperes if v not in pages); sens = (r' : mort en 1400 sans jour établi ; présence indéterminée au 1er janvier, jamais vivant\b' if nom == 'Ertuğrul Çelebi' else r' : fille et mère attestée\b.*aucune date n’établit sa présence' if nom == 'Erhondu Hatun' else r' : listes tardives divergentes, absent des six fils survivants\b.*non promue en fait certain' if 'divergentes' in faits else r' : projet déjà conservé dans l’exclusion de grande-11, jamais fusionnée avec\b' if 'jamais fusionnée' in faits else r' : Uluçay ne trouve aucune trace dans les sources et signale une confusion probable avec Olivera Despina ; aucune personne ni union active')
+            assert x.get('sources') and {s.get('url') for s in x['sources']} == pages and all(nom in (s.get('fait') or '') and re.match(re.escape(nom) + sens, s.get('fait') or '') for s in x['sources']) and all(any(v in (s.get('fait') or '') for s in x['sources']) for v in faits) and re.match(re.escape(nom) + sens, x.get('motif') or '')
             _reperes_voisins(x.get('motif'), (nom, *faits))
 
 
@@ -2837,13 +2837,13 @@ def test_familles_historiques_ottomans():
                 for valeur in ('absence_attestee', 'lacune'): refuse(_alterer_personnages(d, (t, j, 'enfants'), valeur))
                 for champ in ('conjoints', 'enfants'):
                     texte = f['sources'][champ]['fait']
-                    refuse(_alterer_personnages(d, (t, j, 'sources', champ), None)); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Fait perdu'))
+                    refuse(_alterer_personnages(d, (t, j, 'sources', champ), None)); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Fait perdu')); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Rumeur : ' + texte))
                     refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), texte.replace(*(('union avec', 'aucune union avec') if champ == 'conjoints' else ('Enfants documentés', 'Aucun enfant documenté')))))
                     for r in (('1378', '1381', '1390') if champ == 'conjoints' else ()):
                         refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), texte.replace(r, 'inconnu')))
                 for nom, reperes in OTTO_EXCLUSIONS.items():
                     x = f['exclusions'][nom]
-                    refuse(_alterer_personnages(d, (t, j, 'exclusions', nom), 'SUPPRIMER')); refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'motif'), ''))
+                    refuse(_alterer_personnages(d, (t, j, 'exclusions', nom), 'SUPPRIMER')); refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'motif'), '')); refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'sources', 0, 'fait'), f'{nom} est vivant en 1400 ; présence indéterminée, sans jour de décès')) if nom == 'Ertuğrul Çelebi' else None
                     for r in reperes:
                         if not str(r).startswith('http'): refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'motif'), x['motif'].replace(r, 'inconnu')))
                     for a in range(len(x['sources'])): refuse(_alterer_personnages(d, (t, j, 'exclusions', nom, 'sources'), x['sources'][:a] + x['sources'][a+1:]))
@@ -2856,22 +2856,22 @@ def test_familles_historiques_ottomans():
                 texte = f['sources']['conjoints']['fait']
                 for r in ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'):
                     refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace(r, 'inconnu')))
-                refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace('unions avec', 'aucune union avec')))
+                refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace('unions avec', 'aucune union avec'))); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), 'Bayezid Ier nie ses ' + UNIONS_B)); refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), 'Bayezid Ier, mort au 1er janvier 1400.'))
                 for k in ('pere', 'mere'): [refuse(_alterer_personnages(d, (t, j, 'lacunes', k), m)) for m in ('Motif arbitraire hors périmètre ; aucune absence attestée.', 'Ancêtres de Bayezid Ier ; aucune absence attestée.', 'Ancêtres de Bayezid Ier hors périmètre ; aucune absence.')]
                 continue
             row = next(o for o in OTTOMANS if f['id'] == 'personne-' + o[0])
-            refuse(_alterer_personnages(d, (t, j, 'nom'), 'Homonyme'))
+            refuse(_alterer_personnages(d, (t, j, 'nom'), 'Homonyme')); refuse(_alterer_personnages(d, (t, j, 'sources', 'identite', 'fait'), f'{row[1]} est l’oncle de Bayezid Ier')); refuse(_alterer_personnages(d, (t, j, 'sources', 'presence', 'fait'), f'{row[1]} meurt après le départ'))
             for k in (k for k, v in f['lacunes'].items() if isinstance(v, str)): [refuse(_alterer_personnages(d, (t, j, 'lacunes', k), m)) for m in ('Motif arbitraire hors périmètre ; aucune absence attestée.', f'Motif arbitraire de {row[1]} hors périmètre ; aucune absence attestée.')]
             for k, parent in ((k, p) for k in ('pere', 'mere') for p in PARENTS_OTTO.get((row[0], k), ())): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), f['lacunes'][k].replace(parent, 'Inconnu')))
-            refuse(_alterer_personnages(d, (t, j, 'naissance'), None if f['naissance'] else _naissance_famille('1380', 'annee')))
+            refuse(_alterer_personnages(d, (t, j, 'naissance'), None if f['naissance'] else _naissance_famille('1380', 'annee'))); refuse(_alterer_personnages(d, (t, j, 'sources', 'naissance', 'fait'), f'{row[1]} meurt en {row[2]}')) if row[2] else None
             for r in row[7]:
                 c = copy.deepcopy(d); c[t][j]['sources'], c[t][j]['lacunes'] = remplacer(f['sources'], r), remplacer(f['lacunes'], r); refuse(c)
             if row[5]:
-                refuse(_alterer_personnages(d, (t, j, 'conjoints'), [])); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'pere'), 'hors sujet')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} est sœur de Bayezid Ier en 1390.'))
+                refuse(_alterer_personnages(d, (t, j, 'conjoints'), [])); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'pere'), 'hors sujet')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} est sœur de Bayezid Ier en 1390.')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} refuse d’être compagne de Bayezid Ier'))
             else:
-                refuse(_alterer_personnages(d, (t, j, 'pere'), None)); refuse(_alterer_personnages(d, (t, j, 'sources', 'pere', 'fait'), f'{row[1]} est sœur de Bayezid Ier.'))
+                refuse(_alterer_personnages(d, (t, j, 'pere'), None)); refuse(_alterer_personnages(d, (t, j, 'sources', 'pere', 'fait'), f'{row[1]} est sœur de Bayezid Ier.')); refuse(_alterer_personnages(d, (t, j, 'sources', 'pere', 'fait'), f'{row[1]} est {"fille" if row[1].endswith("Çelebi") else "fils"} de Bayezid Ier.'))
                 if row[4]:
-                    refuse(_alterer_personnages(d, (t, j, 'mere'), None)); refuse(_alterer_personnages(d, (t, j, 'sources', 'mere', 'fait'), f'{row[1]} est sœur de Bayezid Ier et de {next(o[1] for o in OTTOMANS if o[0] == row[4])}.')); refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-olivera-despina' if row[4] != 'olivera-despina' else 'personne-devletsah-hatun'))
+                    refuse(_alterer_personnages(d, (t, j, 'mere'), None)); refuse(_alterer_personnages(d, (t, j, 'sources', 'mere', 'fait'), f'{row[1]} est sœur de Bayezid Ier et de {next(o[1] for o in OTTOMANS if o[0] == row[4])}.')); refuse(_alterer_personnages(d, (t, j, 'sources', 'mere', 'fait'), f['sources']['mere']['fait'] + ' attribution réfutée')); refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-olivera-despina' if row[4] != 'olivera-despina' else 'personne-devletsah-hatun'))
                 else:
                     refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-devletsah-hatun')); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'mere'), f['lacunes']['mere'].replace('n’établissent pas', 'inconnu')))
     c = copy.deepcopy(d); next(x for x in c['familles'] if x['id'] == 'personne-devlet-hatun')['nom'] = 'Devletşah Hatun'; refuse(c)
