@@ -2710,27 +2710,27 @@ def test_familles_historiques_constantinople():
 
 
 # Notices examinées le 28 octobre 2026 ; attentes indépendantes du catalogue.
-# id, nom, naissance, précision, mère, épouse, page d’identité, repères
+# id, nom, naissance, précision, mère, épouse, page d’identité, repères, pages (naissance, présence, père, mère, conjoints ; - : aucune)
 BAYEZID, MEHMED_P, FETRET = 'https://islamansiklopedisi.org.tr/bayezid-i', 'https://islamansiklopedisi.org.tr/mehmed-i', 'https://islamansiklopedisi.org.tr/fetret-devri'
 TTK, UZUNCARSILI = 'https://ttk.gov.tr/osmanli-padisahlari/', 'https://dergipark.org.tr/tr/download/article-file/3043592'
 ULUCAY = 'https://turuz.com/storage/Turkologi/2017/2278-Padishahlarin_Qadinlari_Ve_Qizlari-M.Chaghatay_Uluchay-1992-313s.pdf'
 DEVLETSAH, HAFSA, OLIVERA = 'https://en.wikipedia.org/wiki/Devlet%C5%9Fah_Hatun', 'https://en.wikipedia.org/wiki/Hafsa_Hatun', 'https://en.wikipedia.org/wiki/Olivera_Despina'
-PAGES_OTTO, PERE_B = {BAYEZID, MEHMED_P, FETRET, TTK, ULUCAY, UZUNCARSILI, DEVLETSAH, HAFSA, OLIVERA}, 'personne-grande-16'
+SRC_OTTO, PERE_B = dict(B=BAYEZID, M=MEHMED_P, F=FETRET, T=TTK, U=ULUCAY, Z=UZUNCARSILI, D=DEVLETSAH, H=HAFSA, O=OLIVERA), 'personne-grande-16'
 OTTOMANS = (
-    ('devletsah-hatun', 'Devletşah Hatun', 'c. 1365', 'vers', None, True, DEVLETSAH, ('c. 1365', '1414', '1378', '1381', 'p. 23-26')),
-    ('devlet-hatun', 'Devlet Hatun', None, None, None, True, UZUNCARSILI, ('janvier 1414', 'convertie', 'distincte', 'Devletşah Hatun', 'p. 185-188')),
-    ('olivera-despina', 'Olivera Despina', 'c. 1372', 'vers', None, True, OLIVERA, ('c. 1372', '1444', '1390', '1402')),
-    ('hafsa-hatun', 'Hafsa Hatun', None, None, None, True, HAFSA, ('1390', '1403', 'İsa Bey', 'Aydın')),
-    ('suleyman-celebi', 'Süleyman Çelebi', None, None, None, False, BAYEZID, ('après le départ',)),
-    ('isa-celebi', 'İsa Çelebi', '1380', 'annee', 'devletsah-hatun', False, DEVLETSAH, ('1380', 'Devletşah Hatun', 'après le départ')),
-    ('musa-celebi', 'Musa Çelebi', None, None, 'devletsah-hatun', False, ULUCAY, ('Devletşah Hatun', 'après le départ')),
-    ('mehmed-ier', 'Mehmed Çelebi', '1386 ou 1387', 'intervalle', 'devlet-hatun', False, MEHMED_P, ('1386 ou 1387', 'Devlet Hatun', 'après le départ')),
-    ('kasim-celebi', 'Kasım Çelebi', None, None, None, False, FETRET, ('1403', 'Constantinople', 'après le départ')),
-    ('mustafa-celebi', 'Mustafa Çelebi', None, None, None, False, MEHMED_P, ('1402', 'après le départ')),
-    ('hundi-hatun', 'Hundi Hatun', None, None, None, False, ULUCAY, ('1396', 'Nicopolis', 'après le départ')),
-    ('oruz-hatun', 'Oruz Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ')),
-    ('pasa-melek-hatun', 'Paşa Melek Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ')),
-    ('fatma-hatun', 'Fatma Hatun', None, None, None, False, FETRET, ('1403', 'Kasım Çelebi', 'après le départ')),
+    ('devletsah-hatun', 'Devletşah Hatun', 'c. 1365', 'vers', None, True, DEVLETSAH, ('c. 1365', '1414', '1378', '1381', 'p. 23-26'), 'DD--U'),
+    ('devlet-hatun', 'Devlet Hatun', None, None, None, True, UZUNCARSILI, ('janvier 1414', 'convertie', 'distincte', 'Devletşah Hatun', 'p. 185-188'), '-Z--Z'),
+    ('olivera-despina', 'Olivera Despina', 'c. 1372', 'vers', None, True, OLIVERA, ('c. 1372', '1444', '1390', '1402'), 'OO--O'),
+    ('hafsa-hatun', 'Hafsa Hatun', None, None, None, True, HAFSA, ('1390', '1403', 'İsa Bey', 'Aydın'), '-H--H'),
+    ('suleyman-celebi', 'Süleyman Çelebi', None, None, None, False, BAYEZID, ('après le départ',), '-FB--'),
+    ('isa-celebi', 'İsa Çelebi', '1380', 'annee', 'devletsah-hatun', False, DEVLETSAH, ('1380', 'Devletşah Hatun', 'après le départ'), 'DFBU-'),
+    ('musa-celebi', 'Musa Çelebi', None, None, 'devletsah-hatun', False, ULUCAY, ('Devletşah Hatun', 'après le départ'), '-FBU-'),
+    ('mehmed-ier', 'Mehmed Çelebi', '1386 ou 1387', 'intervalle', 'devlet-hatun', False, MEHMED_P, ('1386 ou 1387', 'Devlet Hatun', 'après le départ'), 'MMBZ-'),
+    ('kasim-celebi', 'Kasım Çelebi', None, None, None, False, FETRET, ('1403', 'Constantinople', 'après le départ'), '-FB--'),
+    ('mustafa-celebi', 'Mustafa Çelebi', None, None, None, False, MEHMED_P, ('1402', 'après le départ'), '-MB--'),
+    ('hundi-hatun', 'Hundi Hatun', None, None, None, False, ULUCAY, ('1396', 'Nicopolis', 'après le départ'), '-UU--'),
+    ('oruz-hatun', 'Oruz Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ'), '-OUO-'),
+    ('pasa-melek-hatun', 'Paşa Melek Hatun', None, None, 'olivera-despina', False, OLIVERA, ('Olivera Despina', '1402', 'après le départ'), '-OUO-'),
+    ('fatma-hatun', 'Fatma Hatun', None, None, None, False, FETRET, ('1403', 'Kasım Çelebi', 'après le départ'), '-FU--'),
 )
 OTTO_EXCLUSIONS = {
     'Ertuğrul Çelebi': (MEHMED_P, TTK, '1400', 'indéterminée', 'sans jour'),
@@ -2767,19 +2767,19 @@ def _ottomans(fiches=None, etat=None):
         _reperes_voisins(conjoints.get('fait'), (UNIONS_B,)); assert not any(NEGATION.search(s.get('fait') or '') for s in (conjoints, presence_b))
         _reperes_voisins(conjoints.get('fait'), ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'))
         assert fiches['personne-devlet-hatun']['nom'] != fiches['personne-devletsah-hatun']['nom']
-        for i, nom, date, precision, mere, epoux, page, reperes in OTTOMANS:
+        for i, nom, date, precision, mere, epoux, page, reperes, pages in OTTOMANS:
             f = fiches['personne-' + i]
             assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (
                 nom, 'grande-16', _naissance_famille(date, precision) if date else None, None if epoux else PERE_B,
                 'personne-' + mere if mere else None, (PERE_B,) if epoux else (), 'vivante')
             assert set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance', 'pere', 'mere', 'conjoints', 'presence'}
             identite, presence = f['sources'].get('identite'), f['sources'].get('presence')
-            assert isinstance(identite, dict) and identite.get('url') == page and nom in (identite.get('fait') or '') and isinstance(presence, dict) and presence.get('url') in PAGES_OTTO and nom in (presence.get('fait') or '') and f['lacunes'].get('presence') is None
-            assert all(isinstance(s, dict) and s.get('url') in PAGES_OTTO and nom in (s.get('fait') or '') for s in f['sources'].values() if s)
+            assert isinstance(identite, dict) and identite.get('url') == page and nom in (identite.get('fait') or '') and isinstance(presence, dict) and presence.get('url') in SRC_OTTO.values() and nom in (presence.get('fait') or '') and f['lacunes'].get('presence') is None
+            assert all(isinstance(s, dict) and nom in (s.get('fait') or '') for s in f['sources'].values() if s) and all((f['sources'].get(k) or {}).get('url') == SRC_OTTO.get(c) for k, c in zip(('naissance', 'presence', 'pere', 'mere', 'conjoints'), pages))
             assert not any(NEGATION.search(s.get('fait') or '') for s in f['sources'].values() if s)
             _reperes_voisins(_texte_otto(f), (nom, *reperes))
             for k in ('pere', 'mere', 'conjoints'):
-                if isinstance(f['lacunes'].get(k), str) and not (k == 'mere' and not epoux): _reperes_voisins(f['lacunes'][k], ('hors périmètre', 'aucune absence attestée', *PARENTS_OTTO.get((i, k), ())))
+                if isinstance(f['lacunes'].get(k), str) and not (k == 'mere' and not epoux): _reperes_voisins(f['lacunes'][k], (nom, 'hors périmètre', 'aucune absence attestée', *PARENTS_OTTO.get((i, k), ()))); _reperes_voisins(f['lacunes'][k].lower(), ({'pere': 'père', 'mere': 'mère', 'conjoints': 'conjoints'}[k],))
             if epoux:
                 assert f['sources'].get('pere') is None and f['sources'].get('mere') is None and isinstance(f['sources'].get('conjoints'), dict) and f['lacunes'].get('conjoints') is None and isinstance(f['lacunes'].get('pere'), str) and 'aucune absence attestée' in f['lacunes']['pere'] and isinstance(f['lacunes'].get('mere'), str) and 'aucune absence attestée' in f['lacunes']['mere']
             else:
@@ -2850,18 +2850,18 @@ def test_familles_historiques_ottomans():
                 continue
             refuse(_alterer_personnages(d, (t, j, 'presence'), 'decedee'))
             for champ, source in ((k, s) for k, s in f['sources'].items() if s):
-                refuse(_alterer_personnages(d, (t, j, 'sources', champ), None)); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'url'), 'https://exemple.org')); refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Fait perdu'))
+                refuse(_alterer_personnages(d, (t, j, 'sources', champ), None)); [refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'url'), u)) for u in ('https://exemple.org', BAYEZID if source['url'] != BAYEZID else FETRET)]; refuse(_alterer_personnages(d, (t, j, 'sources', champ, 'fait'), 'Fait perdu'))
             if t == 'liens':
                 refuse(_alterer_personnages(d, (t, j, 'conjoints'), f['conjoints'][:1])); refuse(_alterer_personnages(d, (t, j, 'pere'), 'personne-grande-15'))
                 texte = f['sources']['conjoints']['fait']
                 for r in ('1378', '1381', '1390', 'Devletşah Hatun', 'Devlet Hatun', 'Olivera Despina', 'Hafsa Hatun'):
                     refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace(r, 'inconnu')))
                 refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), texte.replace('unions avec', 'aucune union avec')))
-                for k in ('pere', 'mere'): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), 'Motif arbitraire ; aucune absence attestée.'))
+                for k in ('pere', 'mere'): [refuse(_alterer_personnages(d, (t, j, 'lacunes', k), m)) for m in ('Motif arbitraire hors périmètre ; aucune absence attestée.', 'Ancêtres de Bayezid Ier ; aucune absence attestée.', 'Ancêtres de Bayezid Ier hors périmètre ; aucune absence.')]
                 continue
             row = next(o for o in OTTOMANS if f['id'] == 'personne-' + o[0])
             refuse(_alterer_personnages(d, (t, j, 'nom'), 'Homonyme'))
-            for k in (k for k, v in f['lacunes'].items() if isinstance(v, str)): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), 'Motif arbitraire ; aucune absence attestée.'))
+            for k in (k for k, v in f['lacunes'].items() if isinstance(v, str)): [refuse(_alterer_personnages(d, (t, j, 'lacunes', k), m)) for m in ('Motif arbitraire hors périmètre ; aucune absence attestée.', f'Motif arbitraire de {row[1]} hors périmètre ; aucune absence attestée.')]
             for k, parent in ((k, p) for k in ('pere', 'mere') for p in PARENTS_OTTO.get((row[0], k), ())): refuse(_alterer_personnages(d, (t, j, 'lacunes', k), f['lacunes'][k].replace(parent, 'Inconnu')))
             refuse(_alterer_personnages(d, (t, j, 'naissance'), None if f['naissance'] else _naissance_famille('1380', 'annee')))
             for r in row[7]:
