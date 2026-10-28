@@ -149,9 +149,9 @@ jetons, les états et les interdits sont dans
   galerie du socle : une capture de galerie ne prouve pas un écran. Les
   tests existants du socle (le papier `#E8DDC9`, les polices Noto) restent
   verts sans retouche.
-- **Ses lots** : trois lots à créer au jalon 4 posent le socle et
+- **Ses lots** : trois lots au jalon 4 (#849, #850, #851) posent le socle et
   l'appliquent à la carte et à la capitale ; les écrans Unity déjà écrits
-  des jalons 4 à 9 la reçoivent dans leur brief ; un lot à créer au jalon 9
+  des jalons 4 à 9 la reçoivent dans leur brief ; un lot au jalon 9 (#852)
   vérifie le siècle entier. Un lot « à créer » n'a pas encore d'issue : il
   faut la lui ouvrir (formulaire « Demander un lot »), puis l'inscrire ici
   avec son numéro, et ajouter ce numéro à la ligne « Dépend de » des issues
@@ -400,24 +400,65 @@ fait poser les gestes (#251, #253, #254, #256, #257, #259, #263, #266, #269,
 14. #416 Le joueur trace l'enceinte de sa capitale
 15. #417 L'enceinte se dessine, et ses portes s'ouvrent sur les rues · pc
 16. #418 Une route vers les champs nourrit mieux le bourg
-17. *(lot à créer)* Le cabinet prend sa langue : la pierre, le bois brûlé et le registre · pc
-18. *(lot à créer)* La carte et ses dossiers parlent la langue du cabinet · pc
-19. *(lot à créer)* La capitale et ses outils parlent la langue du cabinet · pc
-20. #419 Le panneau de la capitale dit ce que coûte un chantier · pc
-21. #420 La ville fume, garnit ses étals et s'éclaire, d'après le monde · pc
-22. #421 Les gens du bourg circulent dans les rues · pc
-23. #422 La capitale dense tient 60 images par seconde · pc
-24. #508 La preuve complète du jalon 4 : la capitale du joueur, payée, murée et vivante · pc
+17. #855 Un clic gauche choisit une terre et ouvre sa fiche · pc
+18. #856 La fiche parle en noms, pas en identifiants · pc
+19. #857 L'infobulle au curseur : ce que je survole, ce que fait ce bouton · pc
+20. #858 Les modes de carte : Puissances, Habitants, Flux, une légende à la fois · pc
+21. #859 Une seule barre en haut : ma maison, la date, le temps, mon grenier · pc
+22. #860 Le jeu s'ouvre en pause et dit quoi faire · pc
+23. #849 Le cabinet prend sa langue : la pierre, le bois brûlé et le registre · pc
+24. #850 La carte et ses dossiers parlent la langue du cabinet · pc
+25. #851 La capitale et ses outils parlent la langue du cabinet · pc
+26. #419 Le panneau de la capitale dit ce que coûte un chantier · pc
+27. #420 La ville fume, garnit ses étals et s'éclaire, d'après le monde · pc
+28. #421 Les gens du bourg circulent dans les rues · pc
+29. #422 La capitale dense tient 60 images par seconde · pc
+30. #508 La preuve complète du jalon 4 : la capitale du joueur, payée, murée et vivante · pc
 
 Les quatre premiers prouvent la capitale bâtie par intentions telle que le
 jalon l'était avant le 7 octobre ; #508 étend cette preuve à tout le jalon.
+
+**La prise en main de la carte dans ce jalon.** Décidée le 28 octobre 2026
+par le propriétaire, après avoir joué le build du jour : la carte ne se
+prenait pas en main — le clic gauche déplaçait, le clic droit choisissait, les
+dossiers parlaient en identifiants, rien ne disait quoi faire. Elle suit le
+modèle d'EU4 (#844) et sert la décision du jalon : le joueur doit trouver sa
+capitale, lire son grenier et sa part, et descendre dans sa ville sans
+chercher. Aucun de ces lots ne change un nombre du monde.
+
+- **Un clic gauche choisit une terre** — #855. Un clic court garde la terre
+  et ouvre son dossier ; glisser déplace ; Échap ferme le dossier, puis
+  ouvre le menu ; le clic droit est libéré pour les ordres. *Preuve* : un
+  glisser qui change la terre gardée échoue. *Dépend de* : rien d'ouvert.
+- **La fiche parle en noms** — #856. Des noms de terres, de lieux et de
+  maisons, la date au lieu du tick, des unités. *Preuve* : un dossier qui
+  affiche un identifiant (« Cellule », « rang », « 10340-1 ») échoue, une
+  valeur retirée aussi. *Dépend de* : rien d'ouvert.
+- **L'infobulle au curseur** — #857. Le socle pose l'infobulle : ce que le
+  joueur survole, ce que fait une commande. *Preuve* : une commande sans
+  phrase échoue ; l'infobulle reste entière à 1280 × 720. *Dépend de* : rien
+  d'ouvert.
+- **Les modes de carte** — #858. Puissances, Habitants, Flux en icônes en bas
+  à droite ; une légende à la fois, à place fixe. *Preuve* : une légende qui
+  recouvre un dossier échoue — elle échoue aujourd'hui. *Dépend de* : #857.
+- **Une seule barre en haut** — #859. Sa maison, la date, le temps, son
+  grenier et sa part ; ses dossiers en icônes ; le panneau « Parcourir le
+  monde » disparaît. Les lots de l'observateur (jalon 5) et du panneau du
+  pays (jalon 6) la remplissent. *Preuve* : une barre lue un tick plus tôt
+  échoue. *Dépend de* : #857, #858.
+- **Le jeu s'ouvre en pause et dit quoi faire** — #860. Revient sur #731 :
+  le monde attend le joueur ; une ligne de la barre dit le prochain geste.
+  *Preuve* : un jeu qui s'ouvre en marche échoue. *Dépend de* : #859.
 
 **La langue visuelle dans ce jalon.** Elle sert la décision du jalon : des
 bras au chantier ou aux champs, payés au grenier. Le joueur doit lire le
 prix d'un chantier, l'état de son grenier et le refus d'un geste dans le
 même registre, sur la carte comme dans sa ville.
 
-- **Le cabinet prend sa langue** — *à créer*. *Le joueur* : partout, il
+La langue habille une interface qui se prend en main : #849, #850 et #851
+partent après les six lots de la prise en main de la carte, ci-dessus.
+
+- **Le cabinet prend sa langue** — #849. *Le joueur* : partout, il
   reconnaît d'un coup d'œil ce qu'il peut faire, ce qu'il a choisi, ce qui
   attend le monde et ce qui presse ; c'est le registre où il lira le prix
   d'un chantier (#419). Lot de fond du geste « paie au grenier ». *Ce que ça
@@ -431,9 +472,9 @@ même registre, sur la carte comme dans sa ville.
   (contre-épreuve : un état réduit à sa teinte échoue) ; l'infobulle d'un
   objet au coin de l'écran reste entière à 1280 × 720 ; les tests du socle
   existants passent sans retouche ; captures de la galerie aux deux
-  définitions, regardées. *Dépend de* : rien d'ouvert (UI-01, UI-02 et les
-  polices sont livrés). *Photo* : la galerie, les neuf états côte à côte.
-- **La carte et ses dossiers** — *à créer*. *Le joueur* : avant de descendre
+  définitions, regardées. *Dépend de* : #848, le verrou de la passe atlas (#842) ; UI-01, UI-02 et les
+  polices sont livrés. *Photo* : la galerie, les neuf états côte à côte.
+- **La carte et ses dossiers** — #850. *Le joueur* : avant de descendre
   dans sa capitale, il compare côte à côte son grenier, sa part et les lieux
   qu'il garde ; le lieu survolé, le lieu gardé et sa propre maison ne se
   confondent ni entre eux ni avec une alerte, et une infobulle nomme ce
@@ -452,10 +493,10 @@ même registre, sur la carte comme dans sa ville.
   (contre-épreuve : un libellé ou un nombre retiré échoue) ; captures du vrai
   cabinet sur le vrai service — choix de la terre avec sa fiche au survol,
   partie en pause avec deux dossiers ouverts, part confirmée puis reçue,
-  refus — aux deux définitions, regardées. *Dépend de* : le lot du cabinet.
+  refus — aux deux définitions, regardées. *Dépend de* : le lot du cabinet (#849).
   *Photo* : la carte de 1400, la maison du joueur, deux dossiers ouverts et
   une infobulle.
-- **La capitale et ses outils** — *à créer*. *Le joueur* : dans sa ville, il
+- **La capitale et ses outils** — #851. *Le joueur* : dans sa ville, il
   trace une route, découpe une parcelle ou pose un atelier en voyant l'outil
   actif, la parcelle survolée et le refus « pas sur vos terres » (#408) dans
   le même registre que la carte, et revient à la carte sans changer de
@@ -466,13 +507,13 @@ même registre, sur la carte comme dans sa ville.
   couleurs hors du socle et la même égalité des textes ; captures à Biskra
   sur le vrai service — outil de route actif, parcelle survolée, refus hors
   de ses terres, retour à la carte —, regardées. *Dépend de* : le lot du
-  cabinet. *Photo* : Biskra, l'outil de parcelle actif et son refus.
+  cabinet (#849). *Photo* : Biskra, l'outil de parcelle actif et son refus.
 - **#419** reçoit la langue : le coût d'un chantier se lit en lignes de
   compte (journées, bras pris aux champs, grain payé, récolte perdue, jours
   restants) avec leur unité et leur tick ; un coût qui dépasse le grenier
   est une alerte avec son mot ; un nombre absent garde l'état d'absence. Sa
   photo, regardée, compare le panneau à la galerie. Son issue doit attendre
-  le lot de la capitale.
+  le lot de la capitale (#851).
 
 ## Jalon 5 — Le monde vivant
 
@@ -592,7 +633,7 @@ seul » : son issue doit attendre les lots 5, 6, 9 et 11.
   facultatif. *Preuve* : une session Unity en observateur avance de N jours
   et le service dit le même tick que la photographie ; en pause, le tick ne
   bouge pas (contre-épreuve : une pause qui laisse filer un tick échoue).
-  *Dépend de* : le lot de la carte (jalon 4). *Photo* : la carte en
+  *Dépend de* : la barre (#859). *Photo* : la carte en
   observateur, en vitesse la plus rapide, avec le fil des nouvelles.
 - **Le siècle sans joueur, mesuré** — *à créer*. *Le joueur* : il sait, chaque
   semaine, si le monde tient un siècle seul. *Ce que ça fait* : la même
@@ -610,7 +651,7 @@ arrivent et ceux qui partent se distinguent par le sens et le signe de leur
 flèche, pas par la couleur seule ; le fil des gestes de l'IA s'écrit en
 registre — date, maison, geste, et sa raison en note. Sa photo et une
 capture du fil long à 1280 × 720, regardées, montrent qu'aucune raison n'est
-coupée. Son issue doit attendre le lot de la carte (jalon 4).
+coupée. Son issue doit attendre le lot de la carte (#850).
 
 ## Jalon 6 — Le pays et sa dynastie
 
@@ -718,8 +759,8 @@ La preuve #448 s'étend au pays : son issue doit attendre les lots 1 à 4.
   et le fil des nouvelles, dans la langue du cabinet. *Preuve* : au même
   tick, le panneau est égal à la photographie (contre-épreuve : un service
   décalé d'un tick échoue) ; une alerte cliquée centre la carte sur son
-  lieu. *Dépend de* : le lot du pays, le fil des nouvelles (jalon 5), le lot
-  de la carte (jalon 4). *Photo* : le bandeau d'un royaume et celui d'un
+  lieu. *Dépend de* : le lot du pays, le fil des nouvelles (jalon 5), la barre
+  (#859). *Photo* : le bandeau d'un royaume et celui d'un
   petit seigneur, chacun avec une alerte.
 
 **La langue visuelle dans ce jalon.** Elle sert les décisions du mariage, de
@@ -734,7 +775,7 @@ servies ; la défaite, quand le service la déclare, est une page du registre,
 pas un écran à part. Photos regardées : l'arbre et la fiche de l'héritier,
 une capture de l'arbre d'une grande famille à 1280 × 720 sans nom coupé, la
 carte d'un partage. L'issue de #446 doit attendre le lot de la carte
-(jalon 4) ; #447 l'attend par #446.
+(#850) ; #447 l'attend par #446.
 
 ## Jalon 7 — La guerre
 
@@ -832,7 +873,7 @@ carte ; le panneau de guerre a ses états, avec les refus et les raisons de
 l'autre camp ; le bilan des pertes se lit en lignes de compte, tel que la
 bataille le rend au monde. Photos regardées : la colonne en marche, une
 bataille sur la carte et son bilan. L'issue de #469 doit attendre le lot de
-la carte (jalon 4).
+la carte (#850).
 
 ## Jalon 8 — L'argent
 
@@ -891,7 +932,7 @@ chiffres alignés, chaque dette avec son créancier, son gage et son
 et acheter une terre sont des engagements scellés. Photos regardées : la
 carte des prix du blé pendant une famine, le trésor avec une dette, et ce
 trésor à 1280 × 720 sans chiffre coupé. Son issue doit attendre le lot de
-la carte (jalon 4).
+la carte (#850).
 
 ## Jalon 9 — Le premier siècle
 
@@ -933,7 +974,7 @@ partie complète.
 11. #499 Les gestes du joueur ne grandissent pas avec son royaume
 12. #505 Le jeu se lance sans l'atelier · pc
 13. #506 Un siècle se joue dans le jeu, du menu à la chronique · pc
-14. *(lot à créer)* Le siècle se lit dans une seule langue · pc
+14. #852 Le siècle se lit dans une seule langue · pc
 15. #507 La preuve du jalon 9
 
 **Passent à l'horizon** (décision 32), avec l'étiquette `reserve` à poser sur
@@ -944,7 +985,7 @@ leurs issues : #500 et #501, le kit et les capitales des Balkans et de Morée ;
 l'écran de fin (#506) prennent la langue du socle : la chronique et le score
 sont des pages du registre. Un lot la vérifie sur le siècle entier :
 
-- **Le siècle se lit dans une seule langue** — *à créer*. *Le joueur* : du
+- **Le siècle se lit dans une seule langue** — #852. *Le joueur* : du
   menu à l'écran de fin, il lit un état, une alerte, une sélection et un
   engagement de la même façon sur chaque écran — départ, carte, ville,
   bataille, dynastie, trésor, chronique, fin — et aucun ne lui cache ce
