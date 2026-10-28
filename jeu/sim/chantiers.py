@@ -7,7 +7,8 @@ import sim.constants as _constantes
 from sim.flux import jour_courant
 from sim.foyers import ranger_en_foyers
 from sim.model import (ecrire_habitants_par_metier, lire_habitants_par_metier,
-                       ecrire_stock_marchandise, contenus_des_paniers)
+                       ecrire_stock_marchandise, contenus_des_paniers,
+                       ecrire_ouvriers_du_jour, lire_ouvriers_du_jour)
 from sim.plan import Batiment, Plan, aire_du_contour
 
 
@@ -70,6 +71,68 @@ def _servir(element, metiers, payables, autonome=False):
     return element, personnes
 
 
+def _reserves(cell, bourg):
+    """Bourg, puis les autres lieux du même maître, par rang croissant."""
+    if bourg is None or bourg.maitre is None:
+        return []
+    return [bourg, *sorted(
+        (lieu for lieu in cell.lieux if lieu.rang != 0 and lieu.maitre == bourg.maitre),
+        key=lambda lieu: lieu.rang)]
+
+
+def _disponible(lieu, cell, metiers):
+    """Paysans encore prenables : au bourg, hors des métiers non agricoles."""
+    if lieu.rang != 0:
+        return max(0, lieu.population - lire_ouvriers_du_jour(lieu))
+    ailleurs = sum(lire_ouvriers_du_jour(autre) for autre in cell.lieux if autre.rang != 0)
+    ici = metiers.get(_constantes.METIER_OUVRIERS, 0) - ailleurs
+    if ici < 0:
+        ici = 0
+    autres = sum(nombre for nom, nombre in metiers.items()
+                 if nom != _constantes.METIER_PAYSANS and nom != _constantes.METIER_OUVRIERS)
+    # Un montage direct peut laisser des paysans cellulaires hors des lieux :
+    # ils restent au bourg, comme les métiers non agricoles.
+    hors_lieux = cell.population - sum(autre.population for autre in cell.lieux)
+    if hors_lieux < 0:
+        hors_lieux = 0
+    return max(0, lieu.population + hors_lieux - autres - ici)
+
+
+def _puiser(element, metiers, payables, cell, reserves):
+    """Prend au bourg puis aux lieux admissibles, et note chaque origine."""
+    paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
+    quota = min(payables, element.foyers * _constantes.TAILLE_FOYER,
+                element.travail_requis - element.travail_fourni, metiers.get(paysans, 0))
+    prises, reste = [], quota
+    for lieu in reserves:
+        if reste <= 0:
+            break
+        peut = min(reste, _disponible(lieu, cell, metiers))
+        if peut:
+            prises.append((lieu, peut))
+            reste -= peut
+    personnes = quota - reste
+    if personnes:
+        for lieu, peut in prises:
+            ecrire_ouvriers_du_jour(lieu, lire_ouvriers_du_jour(lieu) + peut)
+        metiers[paysans] -= personnes
+        if metiers[paysans] == 0:
+            del metiers[paysans]
+        metiers[ouvriers] = metiers.get(ouvriers, 0) + personnes
+        fourni = element.travail_fourni + personnes
+        element = replace(element, travail_fourni=fourni, en_chantier=fourni < element.travail_requis)
+    return element, personnes
+
+
+def _bras_admissibles(metiers, origine, autonome, cell, reserves):
+    if metiers is None:
+        return 0
+    stock = metiers.get(origine, 0)
+    if autonome or not reserves:
+        return stock
+    return min(stock, sum(_disponible(lieu, cell, metiers) for lieu in reserves))
+
+
 def avancer_chantiers(world):
     """Retour aux champs, rues, parcelles puis bâtiments prêts, par identifiant."""
     envois = {}
@@ -101,6 +164,9 @@ def avancer_chantiers(world):
         if metiers is not None and familiaux in metiers:
             artisans = _constantes.METIER_ARTISANS
             metiers[artisans] = metiers.get(artisans, 0) + metiers.pop(familiaux)
+        if metiers is not None:
+            for lieu in cell.lieux:
+                ecrire_ouvriers_du_jour(lieu, 0)
         besoin_bourg = actifs or ouvre_maisons
         bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None) if besoin_bourg else None
         plan = _ouvrir_maisons(plan, metiers, bourg)
@@ -112,6 +178,7 @@ def avancer_chantiers(world):
         grenier = world.greniers.get(bourg.maitre) if bourg is not None and bourg.maitre is not None else None
         nourriture, salaire = _constantes.MARCHANDISE_NOURRITURE, _constantes.SALAIRE_JOURNEE_KG
         payables = math.floor(grenier.get(nourriture, 0) / salaire) if grenier is not None else 0
+        reserves = _reserves(cell, bourg) if metiers is not None else []
         listes, journees = {}, 0
         parcelles_en_chantier = {p.identifiant for p in plan.parcelles if p.en_chantier}
         for nom, cle in (("rues", ()), ("parcelles", ("parcelle",)), ("batiments", ("batiment",))):
@@ -121,14 +188,17 @@ def avancer_chantiers(world):
                     autonome = nom == "batiments" and element.autoconstruction
                     origine = _constantes.METIER_ARTISANS if autonome else paysans
                     attend = nom == "batiments" and element.parcelle in parcelles_en_chantier
+                    admissibles = _bras_admissibles(metiers, origine, autonome, cell, reserves)
                     motif = ("parcelle_en_chantier" if attend else
                              "metiers_non_calcules" if metiers is None else
-                             "sans_bras" if not metiers.get(origine, 0) or autonome else
+                             "sans_bras" if not admissibles or autonome else
                              "payeur_absent" if grenier is None else "sans_grain")
                     if attend:
                         personnes = 0
-                    else:
+                    elif autonome or metiers is None or not reserves:
                         element, personnes = _servir(element, metiers, 1 if autonome else payables - journees, autonome)
+                    else:
+                        element, personnes = _puiser(element, metiers, payables - journees, cell, reserves)
                     envois[(cell_id, *cle, element.identifiant)] = personnes
                     world.chantiers_du_jour[(cell_id, *cle, element.identifiant)] = {
                         "bras": personnes, "grain_paye_kg": 0 if autonome else personnes * salaire,

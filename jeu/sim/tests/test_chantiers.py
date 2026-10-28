@@ -10,7 +10,9 @@ import pytest
 
 from sim import constants as k, engine, foyers
 from sim.intentions import recevoir_intention
-from sim.model import lire_habitants_par_metier
+from sim.model import (cellule_vers_dict, ecrire_habitants_par_metier,
+                       ecrire_ouvriers_du_jour, lire_habitants_par_metier,
+                       lire_ouvriers_du_jour)
 from sim.plan import Plan, PlanInvalide, Rue
 from sim.tests.test_intentions import _route_reference, _financer, _temoin_salaire
 from sim.world import World
@@ -1236,3 +1238,364 @@ def test_autoconstruction_sans_terrain_sans_calcul_logement(monkeypatch):
     monde = _atelier(personnes={'artisans': k.TAILLE_FOYER}); plan = monde.plans[0]
     monkeypatch.setattr(chantiers, 'ranger_en_foyers', lambda *a: pytest.fail('calcul du logement sans parcelle libre'))
     assert chantiers.avancer_chantiers(monde) == {} and monde.plans[0] is plan
+
+
+_JOURNEES = 2000
+_MOIS = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+
+def _mois_de(numero):
+    jour = k.date_de_tick(numero)["jour_de_l_annee"]
+    for indice, longueur in enumerate(_MOIS, 1):
+        if jour <= longueur:
+            return indice
+        jour -= longueur
+    raise AssertionError(f"jour hors année : {numero}")
+
+
+def _km2_cultives(cell, carte):
+    raw = carte[cell.cell_id]
+    relief = k.facteurs_production_par_relief()[raw["relief"]]
+    eau = k.facteur_eau(raw["pluie_mm_par_an"] + raw["crue_mm_par_an"])
+    agricole = 1 - k.part_miniere_de(raw.get("gisements"), k.facteurs_richesse_extraction())
+    return cell.area_km2 * relief * eau * agricole
+
+
+def _lecture_bras(cell):
+    """Paysans du bourg, puis lieux du même maître, et lieux d'un autre maître."""
+    metiers = lire_habitants_par_metier(cell)
+    if metiers == -1:
+        return None
+    bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None)
+    if bourg is None or bourg.maitre is None:
+        return None
+    autres = sum(n for nom, n in metiers.items() if nom != k.METIER_PAYSANS)
+    dispo = max(0, bourg.population - autres)
+    memes = sorted((lieu for lieu in cell.lieux if lieu.rang != 0 and lieu.maitre == bourg.maitre),
+                   key=lambda lieu: lieu.rang)
+    etrangers = [lieu for lieu in cell.lieux if lieu.rang != 0 and lieu.maitre != bourg.maitre]
+    return dispo, memes, etrangers
+
+
+def _marge_bourg(cell, carte, numero, retrait):
+    lecture = _lecture_bras(cell)
+    if lecture is None:
+        return None
+    dispo, _, _ = lecture
+    saison = engine._facteur_saison_pour_cellule(cell, carte, k.jour_de_tick(numero))
+    besoin = (_km2_cultives(cell, carte) * _surface_bourg(cell) / cell.area_km2
+              * k.BRAS_AUX_CHAMPS_PAR_KM2 * saison)
+    return dispo - retrait - besoin
+
+
+def _surface_bourg(cell):
+    from sim.lieux import surfaces_des_lieux
+    return surfaces_des_lieux(cell.cell_id, cell.area_km2)[0]
+
+
+def _cellule_a_plusieurs_lieux(monde, journees):
+    janvier = next(n for n in range(k.CALENDAR_DAYS_PER_YEAR) if _mois_de(n) == 1 and n > 0)
+    juillet = next(n for n in range(k.CALENDAR_DAYS_PER_YEAR) if _mois_de(n) == 7)
+    retenues = []
+    for cell in monde.cells.values():
+        lecture = _lecture_bras(cell)
+        if lecture is None:
+            continue
+        dispo, memes, etrangers = lecture
+        if len(memes) < 2 or not etrangers or not (0 < dispo < journees <= dispo + memes[0].population):
+            continue
+        marge_hiver = _marge_bourg(cell, monde.carte, janvier, k.TAILLE_FOYER)
+        marge_ete = _marge_bourg(cell, monde.carte, juillet, k.TAILLE_FOYER)
+        if marge_hiver is None or marge_hiver < 0 or marge_ete is None or marge_ete >= 0:
+            continue
+        retenues.append(cell)
+    assert retenues, "échantillon vide"
+    return min(retenues, key=lambda cell: cell.cell_id), janvier, juillet
+
+
+def _trace(journees):
+    largeur = k.DEMI_COTE_PLACE_1400_M / 5
+    limite = k.DEMI_COTE_PLACE_1400_M - largeur / 2
+    longueur = journees / (k.TRAVAIL_ROUTE_JOURNEES_PAR_M2 * largeur)
+    points, sens, reste = [[-limite, -limite + largeur / 2]], 1, longueur
+    while reste > 0:
+        distance = min(2 * limite, reste)
+        points.append([points[-1][0] + sens * distance, points[-1][1]])
+        reste -= distance
+        if reste > 0:
+            pas = min(1, reste)
+            points.append([points[-1][0], points[-1][1] + pas])
+            reste -= pas
+        sens *= -1
+    return points, largeur
+
+
+def _poser_route(monde, cell, foyers):
+    bourg = next(lieu for lieu in cell.lieux if lieu.rang == 0)
+    points, largeur = _trace(_JOURNEES)
+    recevoir_intention(monde, {
+        "type": "tracer_route", "cell": cell.cell_id, "maison": bourg.maitre,
+        "points": points, "largeur_m": largeur, "foyers": foyers,
+    })
+    engine._appliquer_intentions(monde)
+    rue = monde.plans[cell.cell_id].rues[-1]
+    assert rue.travail_requis == _JOURNEES, "route dont le requis n'est pas 2000"
+    return rue
+
+
+def _verifier_bras_par_lieu(comptes, dispo, memes, etrangers, baisse, hausse, travail, requis):
+    assert requis == _JOURNEES, "route dont le requis n'est pas 2000"
+    assert dispo and memes and etrangers and comptes, "échantillon vide"
+    assert comptes.get(0) == dispo
+    assert comptes.get(memes[0]) == requis - dispo
+    assert all(comptes.get(rang, 0) == 0 for rang in memes[1:])
+    assert all(comptes.get(rang, 0) == 0 for rang in etrangers)
+    assert sum(comptes.values()) == baisse == hausse == travail == requis
+
+
+def test_bras_par_lieu_ordre_et_retour():
+    from sim import chantiers
+
+    monde = World.charger(0)
+    cell, _, _ = _cellule_a_plusieurs_lieux(monde, _JOURNEES)
+    lecture = _lecture_bras(cell)
+    assert lecture, "échantillon vide"
+    dispo, memes, etrangers = lecture
+    foyers = _JOURNEES // k.TAILLE_FOYER
+    assert foyers * k.TAILLE_FOYER == _JOURNEES
+    _financer(monde, cell.cell_id)
+    metiers = lire_habitants_par_metier(cell)
+    paysans, ouvriers = metiers[k.METIER_PAYSANS], metiers.get(k.METIER_OUVRIERS, 0)
+    rue = _poser_route(monde, cell, foyers)
+    assert chantiers.avancer_chantiers(monde)[(cell.cell_id, rue.identifiant)] == _JOURNEES
+    rue = monde.plans[cell.cell_id].rues[-1]
+    comptes = {lieu.rang: lire_ouvriers_du_jour(lieu) for lieu in cell.lieux}
+    apres = lire_habitants_par_metier(cell)
+    baisse = paysans - apres.get(k.METIER_PAYSANS, 0)
+    hausse = apres.get(k.METIER_OUVRIERS, 0) - ouvriers
+    _verifier_bras_par_lieu(comptes, dispo, [lieu.rang for lieu in memes],
+                            [lieu.rang for lieu in etrangers], baisse, hausse,
+                            rue.travail_fourni, rue.travail_requis)
+    assert not rue.en_chantier
+    inverse = {0: comptes[memes[0].rang], memes[0].rang: comptes[0]}
+    inverse.update({rang: 0 for rang in comptes if rang not in inverse})
+    with pytest.raises(AssertionError):
+        _verifier_bras_par_lieu(inverse, dispo, [lieu.rang for lieu in memes],
+                                [lieu.rang for lieu in etrangers], baisse, hausse,
+                                rue.travail_fourni, rue.travail_requis)
+    chez_l_autre = dict(comptes)
+    chez_l_autre[etrangers[0].rang] = 1
+    chez_l_autre[memes[0].rang] -= 1
+    with pytest.raises(AssertionError):
+        _verifier_bras_par_lieu(chez_l_autre, dispo, [lieu.rang for lieu in memes],
+                                [lieu.rang for lieu in etrangers], baisse, hausse,
+                                rue.travail_fourni, rue.travail_requis)
+    cumule = dict(comptes)
+    cumule[0] += dispo
+    with pytest.raises(AssertionError):
+        _verifier_bras_par_lieu(cumule, dispo, [lieu.rang for lieu in memes],
+                                [lieu.rang for lieu in etrangers], baisse, hausse,
+                                rue.travail_fourni, rue.travail_requis)
+    with pytest.raises(AssertionError):
+        _verifier_bras_par_lieu({0: _JOURNEES}, dispo, [lieu.rang for lieu in memes],
+                                [lieu.rang for lieu in etrangers], baisse, hausse,
+                                rue.travail_fourni, rue.travail_requis)
+    with pytest.raises(AssertionError):
+        _verifier_bras_par_lieu(comptes, dispo, [lieu.rang for lieu in memes],
+                                [lieu.rang for lieu in etrangers], baisse, hausse,
+                                rue.travail_fourni + 1, rue.travail_requis)
+    with pytest.raises(AssertionError, match="échantillon vide"):
+        _verifier_bras_par_lieu({}, dispo, [], [lieu.rang for lieu in etrangers],
+                                baisse, hausse, rue.travail_fourni, rue.travail_requis)
+    with pytest.raises(AssertionError, match="n'est pas 2000"):
+        _verifier_bras_par_lieu(comptes, dispo, [lieu.rang for lieu in memes],
+                                [lieu.rang for lieu in etrangers], baisse, hausse,
+                                rue.travail_fourni, rue.travail_requis - 1)
+    assert chantiers.avancer_chantiers(monde).get((cell.cell_id, rue.identifiant), 0) == 0
+    assert all(lire_ouvriers_du_jour(lieu) == 0 for lieu in cell.lieux)
+    assert lire_habitants_par_metier(cell).get(k.METIER_OUVRIERS, 0) == 0
+    assert not monde.plans[cell.cell_id].rues[-1].en_chantier
+
+
+def test_chantier_janvier_juillet(monkeypatch):
+    base = World.charger(0)
+    cell, janvier, juillet = _cellule_a_plusieurs_lieux(base, _JOURNEES)
+    assert _mois_de(janvier) == 1 and _mois_de(juillet) == 7
+    assert janvier > 0 and juillet > 0
+    points, largeur = _trace(_JOURNEES)
+    bourg = next(lieu for lieu in cell.lieux if lieu.rang == 0)
+    geste = {"type": "tracer_route", "cell": cell.cell_id, "maison": bourg.maitre,
+             "points": points, "largeur_m": largeur, "foyers": 1}
+    rangs = [0] + [lieu.rang for lieu in _lecture_bras(cell)[1]]
+    cid = cell.cell_id
+
+    def jouer(sans_saison=False):
+        courses = []
+        for numero in (janvier, juillet):
+            for avec in (False, True):
+                monde = copy.deepcopy(base)
+                monde.ticks_ecoules = numero
+                assert _mois_de(monde.ticks_ecoules) == _mois_de(numero)
+                if avec:
+                    recevoir_intention(monde, geste)
+                _financer(monde, cid)
+                capture = {}
+                production = engine._apply_production
+
+                def relever(cible, rng, *args, **kwargs):
+                    if cible.cell_id == cid:
+                        capture["tirage"] = rng.getstate()
+                    production(cible, rng, *args, **kwargs)
+                    if cible.cell_id == cid:
+                        capture["parts"] = list(kwargs["recoltes"][cid])
+
+                with monkeypatch.context() as sonde:
+                    if sans_saison:
+                        origine = foyers.besoin_bras
+                        saison = engine._facteur_saison_pour_cellule(
+                            monde.cells[cid], monde.carte, k.jour_de_tick(numero))
+                        assert saison > 0
+
+                        def besoin(km2, origine=origine, saison=saison):
+                            return origine(km2 / saison)
+
+                        sonde.setattr(foyers, "besoin_bras", besoin)
+                    sonde.setattr(engine, "_apply_production", relever)
+                    engine.tick(monde, random.Random(0), numero)
+                parts = capture["parts"]
+                assert parts and sum(parts[rang] for rang in rangs) > 0
+                comptes = {lieu.rang: lire_ouvriers_du_jour(lieu) for lieu in monde.cells[cid].lieux}
+                rue = monde.plans[cid].rues[-1] if avec else None
+                fourni = 0 if rue is None else rue.travail_fourni
+                if avec:
+                    assert fourni == k.TAILLE_FOYER
+                    assert sum(comptes.values()) == fourni == comptes.get(0)
+                else:
+                    assert fourni == 0 and sum(comptes.values()) == 0
+                courses.append((sum(parts[rang] for rang in rangs), capture["tirage"], fourni))
+        return courses
+
+    def controler(courses):
+        assert len(courses) == 4 and len({tirage for _, tirage, _ in courses}) == 1
+        janvier_temoin, janvier_chantier, juillet_temoin, juillet_chantier = courses
+        assert janvier_temoin[0] - janvier_chantier[0] == 0
+        assert juillet_temoin[0] - juillet_chantier[0] > 0
+        assert janvier_chantier[2] == juillet_chantier[2] == k.TAILLE_FOYER
+
+    controler(jouer())
+    with pytest.raises(AssertionError):
+        controler(jouer(True))
+
+
+def _besoins_de(cell, carte, numero):
+    from sim.lieux import surfaces_des_lieux
+    surfaces = surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    saison = engine._facteur_saison_pour_cellule(cell, carte, k.jour_de_tick(numero))
+    echelle = _km2_cultives(cell, carte) / cell.area_km2 * k.BRAS_AUX_CHAMPS_PAR_KM2 * saison
+    return surfaces, [surface * echelle for surface in surfaces]
+
+
+def _parts_attendues(cell, carte, numero, paysans):
+    surfaces, besoins = _besoins_de(cell, carte, numero)
+    rendement = random.Random(0).uniform(k.RNG_YIELD_LOW, k.RNG_YIELD_HIGH)
+    pleine = engine.production_du_tick_kg(cell, rendement, carte, k.jour_de_tick(numero))
+    return [pleine * surface / cell.area_km2 * min(1, nombre / besoin)
+            for surface, nombre, besoin in zip(surfaces, paysans, besoins)]
+
+
+def _produire(cell, carte, numero):
+    releve = {}
+    engine._apply_production(cell, random.Random(0), carte, k.jour_de_tick(numero), releve)
+    return releve[cell.cell_id]
+
+
+def test_ouvriers_non_localises_et_compte(monkeypatch):
+    monde = World.charger(0)
+    source = max((cell for cell in monde.cells.values() if len(cell.lieux) >= 3),
+                 key=lambda cell: cell.area_km2)
+    _, besoins = _besoins_de(source, monde.carte, 0)
+    assert len(besoins) >= 3 and min(besoins[:3]) > 30
+    ouvriers, artisans = 3, 2
+    populations = [4] + [30] * (len(source.lieux) - 1)
+    paysans = sum(populations) - ouvriers - artisans
+    assert paysans > 0
+
+    def monter(localiser):
+        cell = copy.deepcopy(source)
+        lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)
+        assert [lieu.rang for lieu in lieux] == list(range(len(lieux)))
+        for lieu, population in zip(lieux, populations):
+            lieu.population = population
+        ecrire_habitants_par_metier(cell, {
+            k.METIER_PAYSANS: paysans, k.METIER_OUVRIERS: ouvriers, k.METIER_ARTISANS: artisans})
+        if localiser:
+            ecrire_ouvriers_du_jour(lieux[1], ouvriers)
+        return cell
+
+    ancien = _produire(monter(False), monde.carte, 0)
+    local = _produire(monter(True), monde.carte, 0)
+    bourg_ancien = [max(0, populations[0] - ouvriers - artisans)] + populations[1:]
+    bourg_local = [max(0, populations[0] - artisans), populations[1] - ouvriers, *populations[2:]]
+    assert ancien == pytest.approx(_parts_attendues(source, monde.carte, 0, bourg_ancien), rel=1e-12)
+    assert local == pytest.approx(_parts_attendues(source, monde.carte, 0, bourg_local), rel=1e-12)
+    assert local[1] < ancien[1] and local[2] == pytest.approx(ancien[2], rel=1e-12)
+    assert local[0] > ancien[0]
+    with pytest.raises(AssertionError):
+        assert local == pytest.approx(_parts_attendues(source, monde.carte, 0, bourg_ancien), rel=1e-12)
+    partout = [max(0, population - ouvriers) for population in bourg_local]
+    with pytest.raises(AssertionError):
+        assert local == pytest.approx(_parts_attendues(source, monde.carte, 0, partout), rel=1e-12)
+    disponible = [populations[0] - artisans, *populations[1:]]
+    with pytest.raises(AssertionError):
+        assert ancien == pytest.approx(_parts_attendues(source, monde.carte, 0, disponible), rel=1e-12)
+
+    from sim import chantiers as module_chantiers
+    cellule, _, _ = _cellule_a_plusieurs_lieux(monde, _JOURNEES)
+    cid = cellule.cell_id
+    _financer(monde, cid)
+    _poser_route(monde, cellule, 1)
+    copie = {}
+    avancer = module_chantiers.avancer_chantiers
+
+    def pendant(world):
+        resultat = avancer(world)
+        if any(lire_ouvriers_du_jour(lieu) for lieu in world.cells[cid].lieux):
+            copie["monde"] = copy.deepcopy(world)
+        return resultat
+
+    with monkeypatch.context() as sonde:
+        sonde.setattr(engine, "_avancer_chantiers", pendant)
+        engine.tick(monde, random.Random(0), 0)
+    assert copie["monde"]
+    vivants = {lieu.rang: lire_ouvriers_du_jour(lieu) for lieu in copie["monde"].cells[cid].lieux}
+    assert sum(vivants.values()) == k.TAILLE_FOYER > 0
+    assert vivants == {lieu.rang: lire_ouvriers_du_jour(lieu) for lieu in monde.cells[cid].lieux}
+
+    def publie_rien(document):
+        lieux = [lieu for cellule in document["cells"].values() for lieu in cellule["lieux"]]
+        assert lieux and all("ouvriers_du_jour" not in lieu for lieu in lieux)
+
+    publie_rien(monde.to_dict())
+    publie_rien({"cells": {str(cid): cellule_vers_dict(monde.cells[cid])}})
+    faux = copy.deepcopy(monde.to_dict())
+    faux["cells"][str(cid)]["lieux"][0]["ouvriers_du_jour"] = k.TAILLE_FOYER
+    with pytest.raises(AssertionError):
+        publie_rien(faux)
+
+
+def test_documentation_bras_des_lieux(monkeypatch):
+    lire = Path.read_text
+
+    def controler():
+        texte = (Path(engine.__file__).parent / "MODELE.md").read_text(encoding="utf-8")
+        section = texte.split("## Le chantier et ses bras\n", 1)[1].split("\n## ", 1)[0]
+        for attendu in ("du bourg, puis", "par rang croissant", "autre maître", "facteur de saison"):
+            assert attendu in section
+
+    controler()
+    for attendu in ("du bourg, puis", "par rang croissant", "autre maître", "facteur de saison"):
+        with monkeypatch.context() as sonde:
+            sonde.setattr(Path, "read_text", lambda path, *a, **kw: lire(path, *a, **kw).replace(attendu, "retiré")
+                          if path.name == "MODELE.md" else lire(path, *a, **kw))
+            with pytest.raises(AssertionError):
+                controler()
