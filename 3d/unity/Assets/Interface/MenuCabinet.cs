@@ -24,7 +24,7 @@ namespace Forge.Interface
             panneau = SocleInterface.Panneau(toile, "Menu du cabinet", 24, 124, 740, 732);
             retour = SocleInterface.Commande(panneau, "Revenir au jeu", 24, 88, Fermer);
             var aide = SocleInterface.Texte(panneau,
-                "PARCOURIR\nGlisser avec le bouton du milieu : déplacer la carte.\nMolette sur la carte : zoomer.\nClic droit sur une terre : conserver son dossier.\nMolette dans un dossier : faire défiler son contenu.\n\nDÉCIDER\nChoisissez une maison, puis confirmez votre choix.\nUn ordre reçu attend le prochain tick du monde.\nPause et Reprendre restent dans le bandeau.\n\nCLAVIER\nTabulation ou flèches : parcourir les commandes.\nEntrée : activer la commande sélectionnée.\nÉchap : ouvrir ou fermer ce menu.", 24, 156, 692);
+                "PARCOURIR\nClic gauche sur une terre : la choisir et ouvrir son dossier.\nGlisser avec le bouton gauche ou du milieu : déplacer la carte.\nDouble-clic sur votre siège : entrer dans votre ville.\nMolette : zoomer sur la carte, faire défiler un dossier.\n\nDÉCIDER\nChoisissez une maison, puis confirmez votre choix.\nUn ordre reçu attend le prochain tick du monde.\nPause et Reprendre restent dans le bandeau.\n\nCLAVIER\nTabulation ou flèches : parcourir les commandes.\nEntrée : activer la commande sélectionnée.\nÉchap : fermer le dossier, puis ouvrir ou fermer ce menu.", 24, 156, 692);
             aide.rectTransform.sizeDelta = new Vector2(692, 410);
             var libelle = SocleInterface.Texte(panneau, "Volume du jeu", 24, 578, 692);
             var piste = new GameObject("Volume", typeof(RectTransform), typeof(Image), typeof(Slider));
@@ -55,7 +55,7 @@ namespace Forge.Interface
             if (Keyboard.current?.escapeKey.wasPressedThisFrame != true) return;
             var selection = EventSystem.current?.currentSelectedGameObject;
             if (selection != null && selection.TryGetComponent<InputField>(out var champ) && champ.isFocused) return;
-            Basculer();
+            Echap();
         }
         public void Parcourir(bool inverse)
         {
@@ -68,6 +68,9 @@ namespace Forge.Interface
             EventSystem.current.SetSelectedGameObject(choix[suivant].gameObject);
         }
         void Basculer() { if (Ouvert) Fermer(); else Ouvrir(); }
+        // Lot #855 : Échap ferme d'abord ce que `AvantDOuvrir` referme (le dossier de la terre gardée), puis ouvre ou ferme le menu.
+        public Func<bool> AvantDOuvrir;
+        public void Echap() { if (Ouvert) Fermer(); else if (AvantDOuvrir?.Invoke() != true) Ouvrir(); }
         public void Ouvrir()
         {
             if (Ouvert) return;

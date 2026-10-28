@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Forge.Pont;
 using UnityEngine;
@@ -11,7 +12,11 @@ namespace Forge.Interface
     [DefaultExecutionOrder(100)]
     public sealed class CabinetDeCarte : MonoBehaviour
     {
+        public const float SEUIL_CLIC_PX = 6f;
+        public const string AIDE = "Clic : choisir une terre · Glisser : déplacer · Molette : zoomer · Échap : fermer";
+        const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
+        public CelluleDeCarte Retenue => retenue;
         CarteDessinee carte;
         HorlogeDeCarte horloge;
         FicheDeCellule fiche;
@@ -25,6 +30,7 @@ namespace Forge.Interface
         FicheDeDepart candidate;
         string liste;
         double prochaineLecture;
+        Vector2? depart; bool eloigne;
 
         void Start() => Construire();
         void Update()
@@ -35,9 +41,10 @@ namespace Forge.Interface
                 prochaineLecture = Time.realtimeSinceStartupAsDouble + 1;
                 _ = Partie.Actualiser();
             }
-            if (Mouse.current?.rightButton.wasPressedThisFrame == true
-                && carte.camera != null && carte.camera.pixelRect.Contains(Mouse.current.position.ReadValue())
-                && EventSystem.current?.IsPointerOverGameObject() != true) Garder(fiche.Survolee);
+            var souris = Mouse.current; Vector2 ici = souris?.position.ReadValue() ?? Vector2.zero;
+            bool appui = souris?.leftButton.wasPressedThisFrame == true, relache = souris?.leftButton.wasReleasedThisFrame == true, hors = (appui || relache) && HorsCarte(ici);
+            if (relache && !hors) fiche.Survoler(ici);
+            Noter(ici, appui, relache, hors, relache && !hors ? fiche.Survolee : null);
             Afficher();
         }
 
@@ -83,15 +90,15 @@ namespace Forge.Interface
                 () => { if (candidate != null) _ = Partie.Choisir(candidate.Id); });
             MatieresCabinet.Engagement(confirmer);
             var lieu = SocleInterface.Panneau(toile.transform, "Territoire conservé", 1312, 684, 584, 372);
-            territoire = SocleInterface.Texte(lieu, "Clic droit sur une terre pour garder son dossier ouvert.", 24, 88, 536);
+            territoire = SocleInterface.Texte(lieu, INVITATION, 24, 88, 536);
             territoire.rectTransform.sizeDelta = new Vector2(536, 260);
             gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
             gameObject.AddComponent<DossierBourg>().Initialiser(toile.transform, lieu, carte.port, () => retenue);
             var guide = SocleInterface.Panneau(toile.transform, "Parcourir le monde", 24, 872, 1238, 184);
             gameObject.AddComponent<CalquesCarte>().Initialiser(carte, guide,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
-            gameObject.AddComponent<MenuCabinet>().Initialiser(toile.transform);
-            aide = SocleInterface.Texte(guide, "Glisser : déplacer · Molette : zoomer · Clic droit : conserver un territoire", 24, 88, 1190);
+            var menu = gameObject.AddComponent<MenuCabinet>(); menu.Initialiser(toile.transform); menu.AvantDOuvrir = Relacher;
+            aide = SocleInterface.Texte(guide, AIDE, 24, 88, 1190);
             gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, guide, carte.port);
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
@@ -108,6 +115,30 @@ namespace Forge.Interface
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(largeur, SocleInterface.HauteurCommande);
             bouton.GetComponentInChildren<Text>().supportRichText = false;
             return bouton;
+        }
+
+        // Lot #855 : un clic gauche court garde la terre ; s'écarter de plus de SEUIL_CLIC_PX (celui du survol, pour que ce clic compte aussi au double-clic) en fait un glisser.
+        public bool Noter(Vector2 ici, bool appui, bool relache, bool horsCarte, CelluleDeCarte sous)
+        {
+            if (appui) { depart = horsCarte ? (Vector2?)null : ici; eloigne = false; }
+            if (depart is Vector2 d && (ici - d).magnitude > SEUIL_CLIC_PX) eloigne = true;
+            bool clic = relache && depart != null && !eloigne && !horsCarte && sous != null;
+            if (relache) depart = null;
+            if (clic) Garder(sous);
+            return clic;
+        }
+        public bool HorsCarte(Vector2 ecran) // hors de la vue de la carte, ou sur un graphique de l'interface, au point donné
+        {
+            if (carte.camera == null || !carte.camera.pixelRect.Contains(ecran)) return true;
+            var touches = new List<RaycastResult>();
+            if (EventSystem.current != null) EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = ecran }, touches);
+            return touches.Count > 0;
+        }
+        public bool Relacher()
+        {
+            if (retenue == null) return false;
+            if (territoireTeinte != null) territoireTeinte.SetPropertyBlock(null);
+            territoireTeinte = null; retenue = null; return true;
         }
 
         public void Garder(CelluleDeCarte cellule)
@@ -129,13 +160,14 @@ namespace Forge.Interface
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
             if (carte.CellulesServies < 0) aide.text = carte.TexteAffiche ?? "La carte se prépare…";
-            else aide.text = "Glisser : déplacer · Molette : zoomer · Clic droit : conserver un territoire";
+            else aide.text = AIDE;
             if (retenue != null)
             {
                 var monde = Partie.Monde;
                 territoire.text = FicheDeCellule.Decrire(retenue, monde == null ? null : monde.Presente
                     ? Lecture<MondeLu>.De(monde.Donnees.Monde) : Lecture<MondeLu>.Absent(monde.Absence));
             }
+            else territoire.text = INVITATION;
             AfficherMaison();
         }
 
