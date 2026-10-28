@@ -16,14 +16,15 @@ Contrôle du 28 octobre, code de la passe atlas : 1016 tests Unity verts (92 d�
 
 ## Défauts connus
 
-- La légende des lieux (#657) passe sous le feuillet ouvert à gauche et sa première ligne dépasse, coupée ([capture](preuves/atlas-reprise-feuillet-e23b34bc.png)). Confié au lot « La carte et ses dossiers ».
-- `LieuxDeCarte` et `FlechesDeCarte` posent encore leurs couleurs hors du socle (rouge, orange, violet) ; même lot.
+- La légende des lieux (#657) passe sous le feuillet ouvert à gauche et sa première ligne dépasse, coupée ([capture](preuves/atlas-reprise-feuillet-e23b34bc.png)). Confié aux modes de carte (#858).
+- `LieuxDeCarte` et `FlechesDeCarte` posent encore leurs couleurs hors du socle (rouge, orange, violet) ; confié à #850.
 - L’aperçu Windows compilé par Codex (17 et 21 octobre, hors du dépôt) ne contient ni les chantiers ni les lots de la chaîne : le jeu se lance par `pc\jouer.py --carte`.
 
 ## Prochaine étape
 
-1. Les lots de la langue visuelle (CAP.md, jalon 4) : le cabinet, puis la carte et ses dossiers, puis la capitale et ses outils ; au jalon 9, le siècle dans une seule langue.
-2. Les parcelles, bâtiments et l’enceinte depuis le plan du bourg ; le coût d’un chantier (#419).
-3. Les écrans dynastiques, diplomatiques, militaires et les autres contrats absents, dans une démonstration explicitement séparée, comme demandé dans [BESOINS-SIM.md](BESOINS-SIM.md).
+1. La prise en main de la carte, sur le modèle d'EU4 (CAP.md, jalon 4, #855–#860) : le clic gauche choisit, les fiches parlent en noms, l'infobulle, les modes de carte, une seule barre en haut, l'ouverture en pause. Le propriétaire a joué le build du 28 octobre : la carte ne se prenait pas en main.
+2. Puis la langue visuelle : le cabinet (#849), la carte et ses dossiers (#850), la capitale et ses outils (#851) ; au jalon 9, le siècle dans une seule langue (#852).
+3. Les parcelles, bâtiments et l’enceinte depuis le plan du bourg ; le coût d’un chantier (#419).
+4. Les écrans dynastiques, diplomatiques, militaires et les autres contrats absents, dans une démonstration explicitement séparée, comme demandé dans [BESOINS-SIM.md](BESOINS-SIM.md).
 
 Le relief, les trajets détaillés et les contrôles de lisibilité à toutes les tailles restent ouverts. Toute l’interface n’est pas terminée. Aucun changement de la simulation dans ces branches.

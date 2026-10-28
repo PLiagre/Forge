@@ -290,6 +290,15 @@ Le joueur se fie à l'aller-retour entre la carte et sa capitale (lot #733). Éd
 **0** égalité, **1** écart, **2** épreuve impossible (défaut, −1, champ absent, réglage, port, Unity, rapport ou HTTP en panne). Contre-épreuves sans PC : `python3 -m pytest jeu/ville/tests/test_epreuve_transition.py -q -k contre_epreuve -s`.
 Verdicts du 22 octobre 2026 : [normal](../../docs/mesures/733-epreuve-transition/verdict-normal.txt) et son [rapport](../../docs/mesures/733-epreuve-transition/rapport-normal.json), [copies jugées, pas des mesures PC](../../docs/mesures/733-epreuve-transition/verdict-contre-epreuves.txt).
 
+## L'épreuve de la vie du bourg
+
+Le joueur lit sur la place de Biskra si son bourg mange (lot #782, contre-épreuve de J4). Éditeur fermé, port 8000 libre, depuis la racine : `py pc\epreuve_vie_bourg.py --sortie <dossier> [--seed S] [--unity CHEMIN] [--garder-etal-plein]`.
+Unity joue la session #781 : `Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeLot 781 -forgeSeed S -forgeTicks 0 -forgeServiceEpreuve -forgeCaptures <dossier> -logFile <dossier>\unity.log [-forgeGarderEtalPlein]`, qui écrit `vie-bourg.json` et les images `*--01-place-nourrie.png`, `*--02-place-affamee.png`.
+Puis un service neuf `py -m sim.service --epreuve --seed S --jours-par-seconde 0` (déterministe, #777) sert la référence : l'unique départ au siège Biskra (`/departs`), `/lieu?cell=X&bourg=1` et `/occupation?cell=X`, le seul `POST /epreuve/vider-panier?cell=X` qui change le monde, puis les deux mêmes lectures.
+Le juge compare, aux états nourri puis affamé : cellule, `tick` et `tick_local`, population, nourriture (égalité exacte) et faim du bourg ; un couple (rang, indice) par foyer de la base ; fumées N/N puis 0/N ; lampes actives, d'intensité égale aux deux états ; l'étal garni à la nourriture servie, puis sans garniture visible (« étal plein en famine ») ; causes vides, même caméra, 19,6 h.
+**0** égalité, **1** écart, **2** épreuve impossible (Unity absent ou non nul, port pris, image ou rapport absent ou ancien, champ absent, −1, défaut, échantillon vide, référence inutilisable) : une panne ne prouve aucun rouge, et le drapeau `contre_epreuve` n'est qu'affiché. Sans PC : `python3 -m pytest jeu/ville/tests/test_epreuve_vie_bourg.py -q`.
+Mesures PC du 28 octobre 2026 : [verdict normal](../../docs/mesures/782-epreuve-vie-bourg/verdict-normal.txt) et son [rapport](../../docs/mesures/782-epreuve-vie-bourg/rapport-normal.json), [verdict de l'étal plein](../../docs/mesures/782-epreuve-vie-bourg/verdict-contre.txt) et son [rapport](../../docs/mesures/782-epreuve-vie-bourg/rapport-contre.json).
+
 ## L'épreuve du choix
 
 Le joueur peut se fier à son geste (lot #652, épreuve #615) : la terre qu'il
