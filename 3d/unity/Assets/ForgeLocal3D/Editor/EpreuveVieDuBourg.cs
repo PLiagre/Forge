@@ -109,9 +109,9 @@ namespace ForgeLocal3D
                 var m=t[0];var centre=new Vector2(-(float)c.CentreX,-(float)c.CentreY);
                 if(t.Length>1||Vector2.Distance(centre,new Vector2(m.position.x,m.position.z))>c.LargeurM+c.ProfondeurM)throw Faux(nom+" : "+t.Length+" pièce(s), ou loin de sa case");
                 if(!DesertMaisons1400.Boite(m.gameObject,out var lb))throw Faux(nom+" : mesure absente");
-                // La fumée au-dessus du toit, dense comme #779 pour se lire au crépuscule ; la lampe devant la façade (+Z de la pièce).
+                // La fumée au-dessus du toit, panache serré (pas un voile sur la façade) pour se lire au crépuscule ; la lampe devant la façade (+Z de la pièce).
                 var f=AlpineBuilder.Smoke(new float[3],fumee,m,ids.Count);f.transform.position=m.TransformPoint(new Vector3(lb.center.x,lb.max.y,lb.center.z))+Vector3.up*.3f;
-                var fm=f.main;fm.startSize=new ParticleSystem.MinMaxCurve(1.1f,1.8f);fm.startColor=new Color(.62f,.6f,.57f);fm.maxParticles=320;fm.scalingMode=ParticleSystemScalingMode.Local;fm.cullingMode=ParticleSystemCullingMode.AlwaysSimulate;var fe=f.emission;fe.rateOverTime=40;
+                var fm=f.main;fm.startSize=new ParticleSystem.MinMaxCurve(.55f,.9f);fm.startColor=new Color(.62f,.6f,.57f);fm.maxParticles=320;fm.scalingMode=ParticleSystemScalingMode.Local;fm.cullingMode=ParticleSystemCullingMode.AlwaysSimulate;var fe=f.emission;fe.rateOverTime=40;
                 var l=new GameObject("Lampe").AddComponent<Light>();l.transform.SetParent(m,false);l.transform.position=m.TransformPoint(new Vector3(lb.center.x,lb.min.y,lb.max.z))+m.forward*.9f+Vector3.up*1.8f;
                 l.type=LightType.Point;l.color=new Color(1f,.62f,.28f);l.range=11f;l.intensity=8f;
                 var e=m.gameObject.AddComponent<EffetsDeMaison>();e.PourLaBase(f,l,cellule,c.Maison,c.Indice);ids.Add(e,(c.Maison,c.Indice));
