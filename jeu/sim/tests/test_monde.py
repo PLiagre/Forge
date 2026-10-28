@@ -3740,11 +3740,39 @@ def _controler_raisons(lectures, releve):
         assert entree['raison'] == lectures[entree['tick']][couple]
 
 
+def _cle_de_maison(maison):
+    from sim.seigneuries import identifiant_de_seigneurie
+    if maison.sorte == 'grande maison':
+        return f'grande-{maison.id}'
+    if maison.sorte == 'seigneurie':
+        return identifiant_de_seigneurie(maison.id)
+    return None
+
+
+def _controler_secours(releve, raisons):
+    """Chaque ouverture égale la lecture du monde, sans sim/ia.py."""
+    from sim import constants as k
+    ouvertures = [e for e in releve if e['intention']['type'] == 'ouvrir_grenier' and 'refus' not in e]
+    assert ouvertures
+    for entree in ouvertures:
+        cle = entree['intention']['maison']
+        assert raisons.get(entree['tick'], {}).get(cle) == entree['raison']
+        raison = entree['raison']
+        assert raison['regle'] == 'secours_apres_faim'
+        disponible = raison['grenier_nourriture_kg'] - raison['plancher_kg']
+        dette = raison['dette_affamee_kg']
+        assert disponible > 0 and entree['intention']['kg'] == (disponible if disponible < dette else dette)
+        assert raison['lieux'] == sorted(raison['lieux'], key=lambda lieu: (lieu['cell_id'], lieu['rang']))
+        assert all(lieu['duree_faim_ticks'] * k.TICK_DURATION_DAYS > k.FAIM_AVANT_SECOURS_JOURS
+                   and lieu['dette_alimentaire_kg'] > 0 for lieu in raison['lieux'])
+
+
 def _verifier_raisons(ticks):
     """Joue la graine 0 et exige que chaque raison égale le monde à son tick."""
     from sim import __main__ as cli
     from sim.capitales import maisons_de_l_ia
-    lectures, maisons = {}, None
+    from sim.tests.test_intentions import _lecture_secours
+    lectures, lectures_secours, maisons = {}, {}, None
     reel = cli.tick
 
     def enveloppe(monde, rng, numero):
@@ -3754,6 +3782,12 @@ def _verifier_raisons(ticks):
                             if m.hors_carte is None and m.cell_id is not None)
         assert maisons
         lectures[numero] = {(m.sorte, m.id): _lire_raison_monde(monde, m) for m in maisons}
+        lectures_secours[numero] = {}
+        for maison in maisons:
+            cle = _cle_de_maison(maison)
+            lecture = None if cle is None else _lecture_secours(monde, cle)
+            if lecture is not None:
+                lectures_secours[numero][cle] = lecture['raison']
         return reel(monde, rng, numero)
 
     cli.tick = enveloppe
@@ -3762,9 +3796,11 @@ def _verifier_raisons(ticks):
     finally:
         cli.tick = reel
     releve = resume['ia']['releve']
-    assert releve and all(entree['intention']['type'] in ('tracer_route', 'fixer_part') for entree in releve)
+    assert releve and all(
+        entree['intention']['type'] in ('tracer_route', 'fixer_part', 'ouvrir_grenier') for entree in releve)
     _controler_raisons(lectures, releve)
     _verifier_raisons.lectures = lectures
+    _verifier_raisons.secours = lectures_secours
     return releve
 
 
@@ -3844,6 +3880,33 @@ def test_ia_raisons_egalent_le_monde(monkeypatch):
     assert seulement
     with pytest.raises(AssertionError):
         _controler_raisons(lectures, seulement)
+    for entree in (e for e in releve if e['intention']['type'] == 'ouvrir_grenier'):
+        assert _verifier_raisons.secours[entree['tick']][entree['intention']['maison']] == entree['raison']
+    from sim import ia
+    from sim.tests.test_intentions import _monde_de_secours, _lecture_secours
+    epreuve, cle, maison = _monde_de_secours()
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
+    lecture = _lecture_secours(epreuve, cle)
+    assert lecture
+    secours_releve = []
+    ia.jouer_ia(epreuve, secours_releve)
+    raisons = {epreuve.ticks_ecoules: {cle: lecture['raison']}}
+    _controler_secours(secours_releve, raisons)
+    for champ in ('dette_affamee_kg', 'plancher_kg'):
+        faux = copy.deepcopy(secours_releve)
+        faux[0]['raison'][champ] += 1
+        with pytest.raises(AssertionError):
+            _controler_secours(faux, raisons)
+    faux = copy.deepcopy(secours_releve)
+    faux[0]['intention']['maison'] = 'seigneurie-9'
+    with pytest.raises(AssertionError):
+        _controler_secours(faux, raisons)
+    faux = copy.deepcopy(secours_releve)
+    faux[0]['raison']['lieux'][0]['duree_faim_ticks'] += 1
+    with pytest.raises(AssertionError):
+        _controler_secours(faux, raisons)
+    with pytest.raises(AssertionError):
+        _controler_secours([e for e in secours_releve if e['intention']['type'] != 'ouvrir_grenier'], raisons)
 
 
 def test_ia_option_explicitement(tmp_path, monkeypatch):

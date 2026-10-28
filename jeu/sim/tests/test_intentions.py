@@ -1828,15 +1828,19 @@ def test_terres_ia(monkeypatch):
     original = ia.recevoir_intention
     def verifier(entrees):
         assert entrees and len({e['maison']['id'] for e in entrees}) > 0
+        assert {'tracer_route', 'fixer_part', 'ouvrir_grenier'} <= {e['intention']['type'] for e in entrees}
         for e in entrees:
             identite = ('grande-' if e['maison']['sorte'] == 'grande maison' else 'seigneurie-') + str(e['maison']['id'])
             assert e['intention']['maison'] == identite
     def recevoir(m, intention):
-        if 'cell' in intention:
+        if intention['type'] == 'tracer_route':
             assert intention['maison'] == next(l.maitre for l in m.cells[intention['cell']].lieux if l.rang == 0)
-        else:
-            assert intention['type'] == 'fixer_part'
+        elif intention['type'] == 'fixer_part':
             assert any(lieu.maitre == intention['maison'] for cell in m.cells.values() for lieu in cell.lieux)
+        elif intention['type'] == 'ouvrir_grenier':
+            assert any(lieu.maitre == intention['maison'] for cell in m.cells.values() for lieu in cell.lieux)
+        else:
+            raise AssertionError(intention['type'])
         depots.append(deepcopy(intention)); return original(m, intention)
     monkeypatch.setattr(ia, 'recevoir_intention', recevoir); alea = random.Random(0)
     for i in range(365):
@@ -1979,7 +1983,7 @@ def test_ia_part_sur_un_an(annee_ia):
         _controler_parts([], lectures, captures, monde)
 
 
-def _controle_chemin_unique(monde, jouer):
+def _controle_chemin_unique(monde, jouer, type_present='fixer_part'):
     from sim import ia
     copie = deepcopy(monde)
     vues = []
@@ -1997,7 +2001,7 @@ def _controle_chemin_unique(monde, jouer):
         ia.recevoir_intention = original
     assert copie.__dict__ == avant
     assert vues == [e['intention'] for e in releve]
-    assert any(i['type'] == 'fixer_part' for i in vues)
+    assert any(i['type'] == type_present for i in vues)
 
 
 def test_ia_part_chemin_unique(monde_ia_30):
@@ -2039,3 +2043,248 @@ def test_ia_part_documentation():
     prive = avant + '\n## ' + apres.split('\n## ', 1)[1]
     with pytest.raises((AssertionError, IndexError)):
         controler(prive)
+
+
+def _lecture_secours(monde, cle):
+    """Réserve, plancher et lieux à secourir, relus sans sim/ia.py."""
+    from sim import constants as k
+    routes = getattr(monde, 'routes_des_lieux', None)
+    noms = getattr(routes, 'noms', ())
+    if cle not in noms:
+        return None
+    indice = noms.index(cle)
+    lieux = [(cid, rang, jours) for cid, rang, maitre, jours in
+             zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours) if maitre == indice]
+    if not lieux:
+        return None
+    seuil, jour = k.FAIM_AVANT_SECOURS_JOURS, k.TICK_DURATION_DAYS
+    affames, habitants, bourgs = [], 0, []
+    for cid, rang, _jours in lieux:
+        lieu = monde.cells[cid].lieux[rang]
+        habitants += lieu.population
+        if rang == 0 and cid not in bourgs:
+            bourgs.append(cid)
+        if lieu.duree_faim_ticks * jour > seuil and lieu.dette_alimentaire_kg > 0:
+            affames.append({
+                'cell_id': cid, 'rang': rang,
+                'duree_faim_ticks': lieu.duree_faim_ticks,
+                'dette_alimentaire_kg': lieu.dette_alimentaire_kg,
+            })
+    if not affames:
+        return None
+    affames.sort(key=lambda ligne: (ligne['cell_id'], ligne['rang']))
+    panier = monde.greniers.get(cle)
+    if panier is None:
+        return None
+    nourriture = k.MARCHANDISE_NOURRITURE
+    grenier = panier.get(nourriture, 0)
+    journees = 0
+    for cid in bourgs:
+        plan = monde.plans[cid]
+        for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
+            if ouvrage.en_chantier:
+                journees += ouvrage.travail_requis - ouvrage.travail_fourni
+    salaires = journees * k.SALAIRE_JOURNEE_KG
+    reserve = (k.consommation_kg_par_habitant_par_tick(nourriture)
+               * (k.RESERVE_VOULUE_JOURS / k.TICK_DURATION_DAYS)
+               * habitants * k.RESERVE_VOULUE_PART_DES_HABITANTS) + salaires
+    plancher = reserve * k.PLANCHER_PART_DE_LA_RESERVE
+    disponible = grenier - plancher
+    if disponible <= 0:
+        return None
+    dette = sum(ligne['dette_alimentaire_kg'] for ligne in affames)
+    if dette <= 0:
+        return None
+    return {
+        'kg': min(disponible, dette),
+        'raison': {
+            'regle': 'secours_apres_faim', 'lieux': affames,
+            'grenier_nourriture_kg': grenier, 'reserve_voulue_kg': reserve,
+            'plancher_kg': plancher, 'dette_affamee_kg': dette,
+        },
+    }
+
+
+def _monde_de_secours():
+    """Une maison, trois lieux, un grenier entre le plancher et la réserve."""
+    from sim import constants as k
+    from sim.capitales import MaisonDeLIA
+    from sim.convois import TableRoutes
+    from sim.model import Cell, EtatDeLieu
+    from sim.plan import Plan, Rue
+    from sim.registre_maisons import MaisonDuMonde
+    cle, nourriture = 'seigneurie-1', k.MARCHANDISE_NOURRITURE
+    bourg = EtatDeLieu(0, 40, {nourriture: 0.0}, dette_alimentaire_kg=0.0, duree_faim_ticks=0, maitre=cle)
+    champ = EtatDeLieu(1, 10, {nourriture: 0.0}, dette_alimentaire_kg=400.0, duree_faim_ticks=8, maitre=cle)
+    loin = EtatDeLieu(0, 20, {nourriture: 0.0}, dette_alimentaire_kg=900.0, duree_faim_ticks=8, maitre=cle)
+    juste = EtatDeLieu(0, 6, {nourriture: 0.0}, dette_alimentaire_kg=250.0,
+                       duree_faim_ticks=k.FAIM_AVANT_SECOURS_JOURS, maitre=cle)
+
+    def cellule(cid, population, deficit, lieux, surface):
+        return Cell(cid, surface, population, food_stock_kg=0.0, hunger_ticks=0, food_deficit_kg=deficit,
+                    mortality_remainder=0.0, natalite_remainder=0.0, migration_remainder=0.0, lieux=lieux)
+
+    surface = k.SURFACE_KM2_PAR_LIEU
+    monde = World({
+        1: cellule(1, 50, 400.0, [bourg, champ], surface * 2),
+        2: cellule(2, 20, 900.0, [loin], surface),
+        3: cellule(3, 6, 250.0, [juste], surface),
+    }, [])
+    monde.plans[1] = Plan(rues=[Rue(0, [(0.0, 0.0), (1.0, 0.0)], 4.0, True, 1, 5, 1)])
+    monde.routes_des_lieux = TableRoutes([
+        (3, 0, cle, 1, 0, 4), (2, 0, cle, 1, 0, 3), (1, 1, cle, 1, 0, 2), (1, 0, cle, 1, 0, 1),
+    ])
+    monde.maisons = (MaisonDuMonde(cle, 'Bar', 'seigneurie', None, 'Bar', 1, 0, None),)
+    monde.parts = {cle: k.PART_COUTUMIERE}
+    fiche = {'relief': 'plaine', 'pluie_mm_par_an': 400, 'crue_mm_par_an': 0,
+             'climat': {'duree_jour_solstice_ete_h': 14.0, 'duree_jour_solstice_hiver_h': 10.0}}
+    monde.carte = {cid: dict(fiche) for cid in monde.cells}
+    habitants, journees = 40 + 10 + 20 + 6, 5 - 1
+    reserve = (k.consommation_kg_par_habitant_par_tick(nourriture)
+               * (k.RESERVE_VOULUE_JOURS / k.TICK_DURATION_DAYS)
+               * habitants * k.RESERVE_VOULUE_PART_DES_HABITANTS) + journees * k.SALAIRE_JOURNEE_KG
+    plancher = reserve * k.PLANCHER_PART_DE_LA_RESERVE
+    surplus = min(400.0 + 900.0, plancher) / 4
+    assert surplus > 0 and plancher + surplus < reserve
+    monde.greniers = {cle: {nourriture: plancher + surplus}}
+    maison = MaisonDeLIA('seigneurie', 1, 'Bar', 'Bar', 1, None, 'épreuve')
+    return monde, cle, maison
+
+
+def test_ia_grenier_decision(monkeypatch):
+    import zlib
+    from sim import ia, constants as k
+    from sim.capitales import MaisonDeLIA
+    from sim.flux import JourDeFlux
+    from sim.plan import Plan
+    monde, cle, maison = _monde_de_secours()
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
+
+    def ouvertures(m):
+        return [p for p in _ia_pure(ia.decider_intentions, m, []) if p['intention']['type'] == 'ouvrir_grenier']
+
+    def verifier(m):
+        props = ouvertures(m)
+        assert len(props) == 1
+        attendu = _lecture_secours(m, cle)
+        assert attendu and props[0]['raison'] == attendu['raison']
+        assert props[0]['intention'] == {'type': 'ouvrir_grenier', 'maison': cle, 'kg': attendu['kg']}
+        fenetre = k.FENETRE_FLUX_TICKS
+        assert not all(tick in m.flux.jours for tick in range(m.ticks_ecoules - fenetre, m.ticks_ecoules))
+        return props[0]
+
+    proposition = verifier(monde)
+    raison = proposition['raison']
+    assert [(lieu['cell_id'], lieu['rang']) for lieu in raison['lieux']] == [(1, 1), (2, 0)]
+    assert raison['dette_affamee_kg'] > proposition['intention']['kg'] == raison['grenier_nourriture_kg'] - raison['plancher_kg']
+    lendemain = deepcopy(monde)
+    lendemain.ticks_ecoules += 1
+    assert verifier(lendemain)['intention']['kg'] == proposition['intention']['kg']
+    menue = deepcopy(monde)
+    for cid, rang in ((1, 1), (2, 0)):
+        menue.cells[cid].lieux[rang].dette_alimentaire_kg = 1
+    assert ouvertures(menue)[0]['intention']['kg'] == _lecture_secours(menue, cle)['kg'] == 2
+    nu = deepcopy(monde)
+    nu.plans[1] = Plan()
+    sans_salaire = _lecture_secours(nu, cle)
+    assert sans_salaire['raison']['reserve_voulue_kg'] < raison['reserve_voulue_kg']
+    with pytest.raises(AssertionError):
+        assert raison['reserve_voulue_kg'] == sans_salaire['raison']['reserve_voulue_kg']
+        assert raison['plancher_kg'] == sans_salaire['raison']['plancher_kg']
+    with pytest.raises(AssertionError):
+        assert any(lieu['duree_faim_ticks'] * k.TICK_DURATION_DAYS <= k.FAIM_AVANT_SECOURS_JOURS for lieu in raison['lieux'])
+    with pytest.raises(AssertionError):
+        assert proposition['intention']['kg'] == raison['dette_affamee_kg']
+    with pytest.raises(AssertionError):
+        assert proposition['intention']['kg'] > raison['grenier_nourriture_kg'] - raison['plancher_kg']
+    for preparation in (
+        lambda m: [setattr(m.cells[cid].lieux[rang], 'duree_faim_ticks', k.FAIM_AVANT_SECOURS_JOURS) for cid, rang in ((1, 1), (2, 0))],
+        lambda m: [setattr(m.cells[cid].lieux[rang], 'dette_alimentaire_kg', 0) for cid, rang in ((1, 1), (2, 0))],
+        lambda m: m.greniers[cle].__setitem__(k.MARCHANDISE_NOURRITURE, raison['plancher_kg']),
+        lambda m: m.greniers[cle].__setitem__(k.MARCHANDISE_NOURRITURE, raison['plancher_kg'] - 1),
+    ):
+        copie = deepcopy(monde)
+        preparation(copie)
+        assert ouvertures(copie) == []
+    joueur = deepcopy(monde)
+    joueur.maison_du_joueur = cle
+    assert ouvertures(joueur) == []
+    hors = MaisonDeLIA('seigneurie', 1, 'Bar', 'Bar', None, 'hors carte', 'épreuve')
+    sans = MaisonDeLIA('seigneurie', 9, 'Sans terre', 'X', 1, None, 'épreuve')
+    for isolee in (hors, sans):
+        monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=isolee: (maison,))
+        assert ouvertures(monde) == []
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
+    assert [p['intention']['type'] for p in ia.decider_intentions(monde, [])] == ['ouvrir_grenier']
+    mois = deepcopy(monde)
+    mois.cells[1].lieux[0].duree_faim_ticks = 1
+    fenetre = k.FENETRE_FLUX_TICKS
+    jour = zlib.crc32(cle.encode('utf-8')) % fenetre
+    mois.ticks_ecoules = fenetre + jour
+    for tick in range(mois.ticks_ecoules - fenetre, mois.ticks_ecoules):
+        mois.flux.jours[tick] = JourDeFlux(tick)
+    types = [p['intention']['type'] for p in ia.decider_intentions(mois, [])]
+    assert types == ['tracer_route', 'ouvrir_grenier', 'fixer_part']
+    part = next(p for p in ia.decider_intentions(mois, []) if p['intention']['type'] == 'fixer_part')
+    assert part['raison'] == _lire_raison_part(mois, cle)
+    assert part['intention']['part'] == _nouvelle_part(part['raison']) != part['raison']['part']
+    del mois.flux.jours[mois.ticks_ecoules - 1]
+    assert [p['intention']['type'] for p in ia.decider_intentions(mois, [])] == ['tracer_route', 'ouvrir_grenier']
+
+
+def test_ia_grenier_chemin_unique(monkeypatch):
+    from sim import ia, constants as k
+    monde, cle, maison = _monde_de_secours()
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
+    _controle_chemin_unique(deepcopy(monde), ia.jouer_ia, 'ouvrir_grenier')
+    nourriture = k.MARCHANDISE_NOURRITURE
+    copie, temoin = deepcopy(monde), deepcopy(monde)
+    avant = copie.greniers[cle][nourriture]
+    ia.jouer_ia(copie, [])
+    engine.tick(copie, random.Random(0), copie.ticks_ecoules)
+    engine.tick(temoin, random.Random(0), temoin.ticks_ecoules)
+    assert copie.secours and not temoin.secours
+    assert copie.greniers[cle][nourriture] < avant
+    assert copie.greniers[cle][nourriture] < temoin.greniers[cle][nourriture]
+
+    def truquer(toucher):
+        def jouer(monde, releve):
+            for proposition in ia.decider_intentions(monde, releve):
+                toucher(monde, proposition)
+                releve.append({'tick': monde.ticks_ecoules, **proposition})
+        return jouer
+
+    def debiter(monde, proposition):
+        intention = proposition['intention']
+        if intention['type'] == 'ouvrir_grenier':
+            monde.greniers[intention['maison']][nourriture] -= intention['kg']
+
+    def inscrire(monde, proposition):
+        intention = proposition['intention']
+        if intention['type'] == 'ouvrir_grenier':
+            monde.secours.setdefault(monde.ticks_ecoules, {})[(1, 0)] = intention['kg']
+
+    for geste in (debiter, inscrire):
+        with pytest.raises(AssertionError):
+            _controle_chemin_unique(deepcopy(monde), truquer(geste), 'ouvrir_grenier')
+
+
+def test_ia_grenier_documentation():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
+    titre = "## Les décisions et les gestes de l'IA"
+    termes = ('FAIM_AVANT_SECOURS_JOURS', 'strictement', 'calcul partagé',
+              'plancher', 'secours_apres_faim', 'recevoir_intention')
+
+    def controler(document):
+        section = document.split(titre)[1].split('\n## ')[0]
+        for mot in termes:
+            assert mot in section
+
+    controler(texte)
+    avant, apres = texte.split(titre)
+    prive = avant + '\n## ' + apres.split('\n## ', 1)[1]
+    with pytest.raises((AssertionError, IndexError)):
+        controler(prive)
+    for mot in termes:
+        with pytest.raises(AssertionError):
+            controler(texte.replace(mot, ''))

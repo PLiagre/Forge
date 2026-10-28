@@ -5,8 +5,9 @@ import zlib
 import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
 from sim.intentions import (
-    ChoixDepart, IntentionRefusee, TYPE_FIXER_PART, TYPE_TRACER_ROUTE,
-    _lieux_de_la_maison, recevoir_intention, verifier_base, maitre_du_bourg,
+    ChoixDepart, IntentionRefusee, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER,
+    TYPE_TRACER_ROUTE, _lieux_de_la_maison, recevoir_intention, verifier_base,
+    maitre_du_bourg,
 )
 from sim.model import contenus_des_paniers
 from sim.seigneuries import identifiant_de_seigneurie
@@ -62,16 +63,37 @@ def _jour_de_la_part(cle, t):
     return t % fenetre == zlib.crc32(cle.encode('utf-8')) % fenetre
 
 
-def _lire_part(monde, cle, lieux):
-    """Habitants, mouvements et faim des lieux, en une passe par jour."""
+def _reserve_voulue(monde, lieux):
+    """Habitants, salaires dus et réserve, sans la fenêtre des flux."""
     habitants = 0
-    cles = []
     bourgs = []
     for cid, rang, _jours in lieux:
         habitants += monde.cells[cid].lieux[rang].population
-        cles.append((cid, rang))
         if rang == 0 and cid not in bourgs:
             bourgs.append(cid)
+    journees = 0
+    for cid in bourgs:
+        plan = monde.plans[cid]
+        for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
+            if ouvrage.en_chantier:
+                journees += ouvrage.travail_requis - ouvrage.travail_fourni
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    salaires = journees * _constantes.SALAIRE_JOURNEE_KG
+    reserve_gens = (
+        _constantes.consommation_kg_par_habitant_par_tick(nourriture)
+        * (_constantes.RESERVE_VOULUE_JOURS / _constantes.TICK_DURATION_DAYS)
+        * habitants * _constantes.RESERVE_VOULUE_PART_DES_HABITANTS)
+    return {
+        'habitants': habitants,
+        'reserve_gens_kg': reserve_gens,
+        'salaires_a_venir_kg': salaires,
+        'reserve_voulue_kg': reserve_gens + salaires,
+    }
+
+
+def _lire_part(monde, cle, lieux):
+    """Habitants, mouvements et faim des lieux, en une passe par jour."""
+    cles = [(cid, rang) for cid, rang, _jours in lieux]
     partis, arrives, affames = 0, 0, set()
     t = monde.ticks_ecoules
     for tick in range(t - _constantes.FENETRE_FLUX_TICKS, t):
@@ -81,24 +103,67 @@ def _lire_part(monde, cle, lieux):
             arrives += jour.arrives.get(cle_lieu, 0)
             if cle_lieu in jour.affames:
                 affames.add(cle_lieu)
-    journees = 0
-    for cid in bourgs:
-        plan = monde.plans[cid]
-        for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
-            if ouvrage.en_chantier:
-                journees += ouvrage.travail_requis - ouvrage.travail_fourni
     nourriture = _constantes.MARCHANDISE_NOURRITURE
     grenier = monde.greniers[cle].get(nourriture, 0)
-    salaires = journees * _constantes.SALAIRE_JOURNEE_KG
-    reserve_gens = (
-        _constantes.consommation_kg_par_habitant_par_tick(nourriture)
-        * (_constantes.RESERVE_VOULUE_JOURS / _constantes.TICK_DURATION_DAYS)
-        * habitants * _constantes.RESERVE_VOULUE_PART_DES_HABITANTS)
+    reserve = _reserve_voulue(monde, lieux)
     return {
-        'habitants': habitants, 'partis': partis, 'arrives': arrives,
+        'habitants': reserve['habitants'], 'partis': partis, 'arrives': arrives,
         'lieux_affames': len(affames), 'grenier_nourriture_kg': grenier,
-        'reserve_gens_kg': reserve_gens, 'salaires_a_venir_kg': salaires,
-        'reserve_voulue_kg': reserve_gens + salaires,
+        'reserve_gens_kg': reserve['reserve_gens_kg'],
+        'salaires_a_venir_kg': reserve['salaires_a_venir_kg'],
+        'reserve_voulue_kg': reserve['reserve_voulue_kg'],
+    }
+
+
+def _proposition_de_secours(monde, maison, cle):
+    """Ouvre le grenier pour les lieux affamés, sans descendre sous le plancher."""
+    noms = getattr(getattr(monde, 'routes_des_lieux', None), 'noms', ())
+    if not isinstance(cle, str) or cle not in noms:
+        return None
+    lieux = _lieux_de_la_maison(monde, cle)
+    if not lieux:
+        return None
+    seuil = _constantes.FAIM_AVANT_SECOURS_JOURS
+    duree = _constantes.TICK_DURATION_DAYS
+    affames = []
+    for cid, rang, _jours in lieux:
+        lieu = monde.cells[cid].lieux[rang]
+        if lieu.duree_faim_ticks * duree > seuil and lieu.dette_alimentaire_kg > 0:
+            affames.append({
+                'cell_id': cid,
+                'rang': rang,
+                'duree_faim_ticks': lieu.duree_faim_ticks,
+                'dette_alimentaire_kg': lieu.dette_alimentaire_kg,
+            })
+    if not affames:
+        return None
+    affames.sort(key=lambda ligne: (ligne['cell_id'], ligne['rang']))
+    panier = monde.greniers.get(cle)
+    if panier is None:
+        return None
+    grenier = panier.get(_constantes.MARCHANDISE_NOURRITURE, 0)
+    reserve = _reserve_voulue(monde, lieux)['reserve_voulue_kg']
+    plancher = reserve * _constantes.PLANCHER_PART_DE_LA_RESERVE
+    disponible = grenier - plancher
+    if disponible <= 0:
+        return None
+    dette = 0
+    for ligne in affames:
+        dette += ligne['dette_alimentaire_kg']
+    if dette <= 0:
+        return None
+    kg = min(disponible, dette)
+    return {
+        'maison': {'sorte': maison.sorte, 'id': maison.id},
+        'intention': {'type': TYPE_OUVRIR_GRENIER, 'maison': cle, 'kg': kg},
+        'raison': {
+            'regle': 'secours_apres_faim',
+            'lieux': affames,
+            'grenier_nourriture_kg': grenier,
+            'reserve_voulue_kg': reserve,
+            'plancher_kg': plancher,
+            'dette_affamee_kg': dette,
+        },
     }
 
 
@@ -167,6 +232,9 @@ def decider_intentions(monde, releve):
                         'points': [[0, y], [_constantes.IA_LONGUEUR_ROUTE_M, y]],
                         'largeur_m': _constantes.IA_LARGEUR_ROUTE_M, 'foyers': _constantes.IA_FOYERS_ROUTE},
                     'raison': _raison_de_la_route(monde, maison, cellule, bourg, plan)})
+        secours = _proposition_de_secours(monde, maison, cle)
+        if secours is not None:
+            propositions.append(secours)
         if pleine and isinstance(cle, str) and _jour_de_la_part(cle, t):
             proposition = _proposition_de_part(monde, maison, cle)
             if proposition is not None:

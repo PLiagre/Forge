@@ -2649,6 +2649,25 @@ monte d'autant, sans dépasser `PART_MAXIMALE`. La raison se nomme
 les `tracer_route` : une part déposée dans l'année ne bloque pas le tracé.
 Mesure du prototype, graine 0 : environ 2 ms par maison qui décide.
 
+Chaque jour, sans attendre le mois ni une fenêtre de flux pleine, une maison
+qui tient des lieux secourt ceux qui ont faim depuis strictement plus de
+`FAIM_AVANT_SECOURS_JOURS` jours (`duree_faim_ticks` × `TICK_DURATION_DAYS`)
+et qui portent une dette alimentaire. Le calcul partagé de la réserve voulue
+est celui de la part : `RESERVE_VOULUE_JOURS` de nourriture pour
+`RESERVE_VOULUE_PART_DES_HABITANTS` des habitants, plus les salaires encore
+dus sur les chantiers des bourgs tenus. Le plancher en est la moitié
+(`PLANCHER_PART_DE_LA_RESERVE`). Elle ouvre au plus l'excédent au-dessus du
+plancher, et au plus la dette des seuls lieux à secourir. La raison se nomme
+`secours_apres_faim` et porte, sans arrondi, la liste triée `lieux`
+(`cell_id`, `rang`, `duree_faim_ticks`, `dette_alimentaire_kg`),
+`grenier_nourriture_kg`, `reserve_voulue_kg`, `plancher_kg` et
+`dette_affamee_kg`. Le geste est `ouvrir_grenier`, déposé par
+`recevoir_intention`, après la route du jour et avant l'éventuelle part
+mensuelle. À sept jours juste, à dette nulle, au plancher exact, sans lieu,
+hors carte ou pour la maison du joueur, elle se tait. Aucun budget annuel ou
+mensuel ne l'empêche de rouvrir le lendemain. Niveau 2, plausible, jamais
+sourcé. Le réglage de la part, lui, reste mensuel.
+
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
 manuel ou cadencé ; les intentions du joueur déjà reçues précèdent les dépôts IA.

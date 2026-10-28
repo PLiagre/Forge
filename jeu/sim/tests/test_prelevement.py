@@ -1110,3 +1110,62 @@ def test_jalon3_lanceur(tmp_path, monkeypatch, capsys, defaut, code):
     assert preuve.main() == code
     sortie_console = capsys.readouterr()
     assert ('J3 prouvé' in sortie_console.out + (sortie / 'preuve.txt').read_text()) == (code == 0)
+
+
+def test_ia_ouverture_baisse_dette(monkeypatch):
+    from sim import ia, engine
+    from sim.intentions import OuvrirGrenier
+    from sim.tests.test_intentions import _monde_de_secours
+    monkeypatch.setattr(c, 'RNG_YIELD_LOW', 0)
+    monkeypatch.setattr(c, 'RNG_YIELD_HIGH', 0)
+    monde, cle, maison = _monde_de_secours()
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
+    routes = monde.routes_des_lieux
+    indice = routes.noms.index(cle)
+    endettes = [(cid, rang, jours) for cid, rang, maitre, jours in
+                zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours)
+                if maitre == indice and monde.cells[cid].lieux[rang].dette_alimentaire_kg > 0]
+    assert endettes
+    delai = max(jours for _, _, jours in endettes)
+    premier = min(jours for _, _, jours in endettes)
+    assert premier > 1
+
+    def dettes(m):
+        return sum(m.cells[cid].lieux[rang].dette_alimentaire_kg
+                   for cid, rang, maitre, _jours in
+                   zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours) if maitre == indice)
+
+    def verifier():
+        avec, sans = copy.deepcopy(monde), copy.deepcopy(monde)
+        releve = []
+        ia.jouer_ia(avec, releve)
+        acceptes = [e for e in releve if e['intention']['type'] == 'ouvrir_grenier' and 'refus' not in e]
+        assert len(acceptes) == 1
+        plancher = acceptes[0]['raison']['plancher_kg']
+        original = engine._appliquer_intentions
+        def appliquer(m):
+            ouvert = any(isinstance(geste, OuvrirGrenier) and geste.maison == cle for geste in m.intentions_en_attente)
+            original(m)
+            if ouvert:
+                assert m.greniers[cle][c.MARCHANDISE_NOURRITURE] >= plancher
+        engine._appliquer_intentions = appliquer
+        try:
+            generateurs = (random.Random(0), random.Random(0))
+            for numero in range(delai):
+                for cible, generateur in zip((avec, sans), generateurs):
+                    engine.tick(cible, generateur, cible.ticks_ecoules)
+                if numero + 1 < premier:
+                    assert dettes(avec) == dettes(sans)
+            assert dettes(avec) < dettes(sans)
+        finally:
+            engine._appliquer_intentions = original
+
+    verifier()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(ia, 'recevoir_intention', lambda m, i: None)
+        with pytest.raises(AssertionError):
+            verifier()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(prelevement, '_livrer_secours', lambda w, charges: None)
+        with pytest.raises(AssertionError):
+            verifier()
