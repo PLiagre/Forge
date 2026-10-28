@@ -16,7 +16,7 @@ namespace Forge.Interface
         {
             { "fond", "#211E1A" }, { "papier", "#E8DDC9" }, { "encre", "#302820" },
             { "secondaire", "#625548" }, { "accent", "#345261" }, { "alerte", "#8B342E" },
-            { "or", "#B49A61" }, { "accord", "#405444" }
+            { "or", "#B49A61" }, { "accord", "#405444" }, { "mer", "#384A4D" }
         };
 
         public static Color Couleur(string nom)
@@ -25,6 +25,17 @@ namespace Forge.Interface
             ColorUtility.TryParseHtmlString(hex, out var couleur);
             return couleur;
         }
+
+        // Pigments d'atlas : la teinte politique reste celle reçue, seule sa présentation change.
+        public static Color Pigment(Color couleur)
+        {
+            Color.RGBToHSV(couleur, out float teinte, out float saturation, out float valeur);
+            return Color.Lerp(Color.HSVToRGB(teinte, saturation * .38f, .53f + valeur * .08f),
+                Couleur("papier"), .16f);
+        }
+
+        public static Font Police(bool titre) =>
+            Resources.Load<Font>(titre ? "Forge/Polices/NotoSerif-Regular" : "Forge/Polices/NotoSans-Regular");
 
         static RectTransform Cadre(Transform parent, string nom, float x, float y, float largeur, float hauteur)
         {
@@ -39,8 +50,7 @@ namespace Forge.Interface
         public static Text Texte(Transform parent, string contenu, float x, float y, float largeur, int taille = Corps)
         {
             var texte = Cadre(parent, contenu, x, y, largeur, taille * 3).gameObject.AddComponent<Text>();
-            texte.font = Resources.Load<Font>(taille >= Titre
-                ? "Forge/Polices/NotoSerif-Regular" : "Forge/Polices/NotoSans-Regular");
+            texte.font = Police(taille >= Titre);
             texte.text = contenu;
             texte.fontSize = taille;
             texte.color = Couleur("encre");

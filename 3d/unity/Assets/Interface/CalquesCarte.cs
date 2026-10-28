@@ -47,13 +47,6 @@ namespace Forge.Interface
         long? territoirePrecedent;
         bool habitants, changement = true;
         public bool Habitants => habitants;
-        // Pigments d'atlas : la teinte politique reste celle reçue, seule sa présentation change.
-        public static Color Pigment(Color couleur)
-        {
-            Color.RGBToHSV(couleur, out float teinte, out float saturation, out float valeur);
-            return Color.Lerp(Color.HSVToRGB(teinte, saturation * .38f, .53f + valeur * .08f),
-                SocleInterface.Couleur("papier"), .16f);
-        }
         public void Initialiser(CarteDessinee carte, Transform guide, Func<MondeLu> monde, Func<CelluleDeCarte> selection)
         {
             this.carte = carte; this.monde = monde; this.selection = selection;
@@ -81,8 +74,8 @@ namespace Forge.Interface
                     var racine = carte.transform.Find("Cellules de la carte");
                     rendus = racine.GetComponentsInChildren<MeshRenderer>().ToDictionary(
                         r => long.Parse(r.name.Substring("Cellule ".Length), CultureInfo.InvariantCulture));
-                    carte.camera.backgroundColor = new Color(.22f, .29f, .30f);
-                    var police = Resources.Load<Font>("Forge/Polices/NotoSerif-Regular");
+                    carte.camera.backgroundColor = SocleInterface.Couleur("mer");
+                    var police = SocleInterface.Police(titre: true);
                     noms = carte.GetComponentsInChildren<TextMesh>().OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
                     foreach (var nom in noms)
                     {
@@ -101,7 +94,7 @@ namespace Forge.Interface
                     var bloc = new MaterialPropertyBlock();
                     bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
                         : habitants ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * repartition.Position(paire.Key))
-                        : Pigment(paire.Value.sharedMaterial.color)).linear);
+                        : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
                     paire.Value.SetPropertyBlock(bloc);
                 }
                 legende.text = (habitants ? repartition.Legende : "Puissances de la carte de 1400 · Relief non transmis")
@@ -114,7 +107,7 @@ namespace Forge.Interface
                     paire.Value.SetPropertyBlock(null);
                     var bloc = new MaterialPropertyBlock();
                     bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
-                        : Pigment(paire.Value.sharedMaterial.color)).linear);
+                        : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
                     paire.Value.SetPropertyBlock(bloc);
                 }
                 legende.text = "Calque indisponible : " + e.Message + ". Couleurs des puissances conservées.";
