@@ -2288,3 +2288,35 @@ def test_ia_grenier_documentation():
     for mot in termes:
         with pytest.raises(AssertionError):
             controler(texte.replace(mot, ''))
+
+
+def test_enceinte_survit_aux_trois_gestes():
+    from types import SimpleNamespace
+    from sim.model import Cell, EtatDeLieu
+    from sim.plan import Enceinte
+
+    triangle = [(0, 0), (30, 0), (0, 40)]
+    temoin = Enceinte(triangle, en_chantier=True, foyers=2, travail_requis=40, travail_fourni=5)
+    compteurs = (temoin.en_chantier, temoin.foyers, temoin.travail_requis, temoin.travail_fourni)
+    monde = World({0: Cell(0, 1, 10)}, [])
+    monde.cells[0].lieux = [EtatDeLieu(0, 10, {}, maitre="atelier")]
+    monde.maisons = (SimpleNamespace(id="atelier"),)
+    monde.plans[0] = replace(monde.plans[0], enceinte=temoin)
+    geste = {"cell": 0, "maison": "atelier"}
+
+    def appliquer(intention):
+        recevoir_intention(monde, intention)
+        engine._appliquer_intentions(monde)
+        assert monde.plans[0].enceinte is temoin
+        assert (temoin.en_chantier, temoin.foyers, temoin.travail_requis, temoin.travail_fourni) == compteurs
+
+    appliquer({"type": "tracer_route", "points": [[0, 0], [40, 0]], "largeur_m": 4, **geste})
+    rue = monde.plans[0].rues[0]
+    assert (rue.identifiant, rue.en_chantier, rue.points, rue.largeur_m) == (0, True, ((0.0, 0.0), (40.0, 0.0)), 4.0)
+    appliquer({"type": "decouper_parcelle", "rue": 0, "segment": 0, "debut_m": 5,
+               "facade_m": 10, "profondeur_m": 20, "cote": "gauche", **geste})
+    parcelle = monde.plans[0].parcelles[0]
+    assert parcelle.en_chantier and parcelle.identifiant == 0 and monde.plans[0].rues[0] is rue
+    appliquer({"type": "poser_batiment", "parcelle": 0, "nature": "maison", **geste})
+    assert monde.plans[0].batiments[0].nature == "maison" and monde.plans[0].batiments[0].en_chantier
+    assert monde.plans[0].parcelles[0] is parcelle and monde.plans[0].rues[0] is rue
