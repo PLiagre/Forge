@@ -33,6 +33,7 @@ namespace Forge.Interface
             rect.anchoredPosition = new Vector2(24, -136); rect.sizeDelta = new Vector2(1190, 510);
             dessin = surface.GetComponent<DessinBourg>(); dessin.raycastTarget = false;
             legende = SocleInterface.Texte(cadre, "", 24, 660, 1190);
+            gameObject.AddComponent<DossierChantiers>().Initialiser(toile, cadre, port, selection);
             cadre.gameObject.AddComponent<OutilRue>().Initialiser(this, dessin, legende, port);
             cadre.gameObject.SetActive(false);
         }

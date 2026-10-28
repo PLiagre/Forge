@@ -638,6 +638,10 @@ IA_PAS_DE_PART = 0.05
 RESERVE_VOULUE_JOURS = 30
 # Niveau 2 : part des habitants que cette réserve est censée couvrir.
 RESERVE_VOULUE_PART_DES_HABITANTS = 0.1
+# Niveau 2 : le secours quotidien s'arrête à cette part de la réserve voulue.
+PLANCHER_PART_DE_LA_RESERVE = 0.5
+# Niveau 2 : jours de faim strictement dépassés avant qu'une maison ouvre son grenier.
+FAIM_AVANT_SECOURS_JOURS = 7
 # Niveau 2 : neuvièmes, pour que l'addition binaire du pas reste la fraction dite.
 DECIMALES_PART = 9
 
