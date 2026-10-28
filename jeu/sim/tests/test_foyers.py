@@ -6,6 +6,7 @@ import json
 import math
 import pathlib
 import random
+import statistics
 
 import pytest
 
@@ -717,10 +718,55 @@ def test_recolte_sans_metiers_limites(avec_lieu, monkeypatch):
     assert _recolter_reference(cell, None, False)[1] == pleine > 0
 
 
+def test_calibrage_bras(monkeypatch):
+    from sim import lieux
+
+    monde = World.charger(0)
+    rapports = []
+    for cell in monde.cells.values():
+        metiers = lire_habitants_par_metier(cell)
+        if metiers == -1:
+            continue
+        raw = monde.carte[cell.cell_id]
+        climat = raw["climat"]
+        ete, hiver = (climat[n] for n in (
+            "duree_jour_solstice_ete_h", "duree_jour_solstice_hiver_h"))
+        maximum = max(_constantes.facteur_saison(_constantes.duree_jour_h(j, ete, hiver))
+                      for j in range(365))
+        relief = _constantes.facteurs_production_par_relief()[raw["relief"]]
+        eau = _constantes.facteur_eau(raw["pluie_mm_par_an"] + raw["crue_mm_par_an"])
+        agricole = 1 - _constantes.part_miniere_de(
+            raw.get("gisements"), _constantes.facteurs_richesse_extraction())
+        surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+        non_paysans = cell.population - metiers.get("paysans", 0)
+        for lieu in cell.lieux:
+            denominateur = surfaces[lieu.rang] * relief * eau * agricole * maximum
+            if denominateur > 0:
+                paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
+                rapports.append(paysans / denominateur)
+
+    def controler(releve):
+        assert releve, "relevé de calibrage vide"
+        mediane = statistics.median(releve)
+        assert abs(_constantes.BRAS_AUX_CHAMPS_PAR_KM2 / mediane - 1) < 0.01, "calibrage hors médiane"
+        return mediane
+
+    mediane = controler(rapports)
+    print(f"médiane={mediane:.9f} lieux_cultivables={len(rapports)}")
+    with pytest.raises(AssertionError, match="relevé de calibrage vide"):
+        controler([])
+    with monkeypatch.context() as ctx:
+        ctx.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2", 0.1)
+        with pytest.raises(AssertionError, match="calibrage hors médiane"):
+            controler(rapports)
+
+
 @pytest.mark.parametrize("numerote", [False, True])
 def test_bras_suffisent_un_an(monkeypatch, numerote):
-    vrai_facteur = foyers.facteur_bras
+    borne_population, borne_recolte = 0.01, 0.03
+    vrai_facteur, prelever = foyers.facteur_bras, engine.prelevement.prelever
     valeurs, rapports = [], []
+    recolte = 0.0
 
     def enregistrer(metiers, km2):
         facteur = vrai_facteur(metiers, km2)
@@ -730,33 +776,63 @@ def test_bras_suffisent_un_an(monkeypatch, numerote):
             rapports.append(metiers.get("paysans", 0) / requis)
         return facteur
 
-    def jouer(n):
+    def compter_recolte(monde, recoltes):
+        # Ajouts de production par lieu, avant prélèvement et consommation.
+        nonlocal recolte
+        recolte += sum(sum(parts) for parts in recoltes.values())
+        return prelever(monde, recoltes)
+
+    def jouer():
+        nonlocal recolte
         valeurs.clear()
         rapports.clear()
+        recolte = 0.0
         monde = World.charger(0)
         rng = random.Random(0)
-        for i in range(n):
+        for i in range(365):
             tick(monde, rng, **({"numero_tick": i} if numerote else {}))
-        assert len(valeurs) >= max(596, len(monde.cells)) * n
-        assert len(rapports) == len(valeurs)
-        return monde
+        return sum(c.population for c in monde.cells.values()), recolte
 
-    monkeypatch.setattr(foyers, "facteur_bras", enregistrer)
-    jouer(365)
-    def controler(facteurs):
-        assert facteurs == [min(1.0, r) for r in rapports]
-        assert any(v < 1.0 for v in facteurs) and any(v == 1.0 for v in facteurs)
-    controler(valeurs)
-    with pytest.raises(AssertionError):
-        controler([1.0] * len(valeurs))
-    print(f"numéroté={numerote} appels={len(valeurs)} rapport_minimum={min(rapports):.6f}")
-    nominal = _octets_sans_foyers(jouer(30))
+    monkeypatch.setattr(engine.prelevement, "prelever", compter_recolte)
+    # Un seul témoin annuel par chemin ; vérifié sur la base à 0,1 avant calibrage.
     with monkeypatch.context() as ctx:
-        ctx.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2",
-                    _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * 100)
-        altere = _octets_sans_foyers(jouer(30))
-        assert any(v < 1.0 for v in valeurs)
-        assert altere != nominal
+        ctx.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2", 0.1)
+        temoin = jouer()
+    assert all(v > 0 for v in temoin)
+    monkeypatch.setattr(foyers, "facteur_bras", enregistrer)
+    nominal = jouer()
+    assert len(valeurs) >= max(596, len(World.charger(0).cells)) * 365
+    assert len(rapports) == len(valeurs)
+
+    def controler(facteurs, ratios):
+        assert facteurs, "relevé de facteurs vide"
+        assert facteurs == [min(1.0, r) for r in ratios]
+        if numerote:
+            assert any(v < 1.0 for v in facteurs) and any(v == 1.0 for v in facteurs)
+
+    def comparer(mesures):
+        ecart_population, ecart_recolte = (abs(v / t - 1) for v, t in zip(mesures, temoin))
+        assert ecart_population <= borne_population, "écart de population"
+        assert ecart_recolte <= borne_recolte, "écart de récolte"
+
+    controler(valeurs, rapports)
+    with pytest.raises(AssertionError, match="relevé de facteurs vide"):
+        controler([], [])
+    with pytest.raises(AssertionError):
+        controler([1.0] * len(valeurs), rapports)
+    comparer(nominal)
+    print(f"numéroté={numerote} appels={len(valeurs)} rapport_minimum={min(rapports):.6f} "
+          f"écart_population={nominal[0] / temoin[0] - 1:.6%} "
+          f"écart_récolte={nominal[1] / temoin[1] - 1:.6%}")
+    if numerote:
+        with monkeypatch.context() as ctx:
+            ctx.setattr(_constantes, "BRAS_AUX_CHAMPS_PAR_KM2",
+                        _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * 100)
+            altere = jouer()
+            with pytest.raises(AssertionError, match="écart de (population|récolte)"):
+                comparer(altere)
+            print(f"besoins ×100 : écart_population={altere[0] / temoin[0] - 1:.6%} "
+                  f"écart_récolte={altere[1] / temoin[1] - 1:.6%}")
 
 
 def test_documentation_bras(monkeypatch):
@@ -767,12 +843,15 @@ def test_documentation_bras(monkeypatch):
         texte = chemin.read_text(encoding="utf-8")
         section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
         for attendu in ("BRAS_AUX_CHAMPS_PAR_KM2", "km² cultivés", "niveau 2", "du lieu", "saison", "0,1",
-                        "Le tick ne lit les métiers que pour la récolte"):
+                        "Le tick ne lit les métiers que pour la récolte", "6,2", "médiane", "maximum annuel"):
             assert attendu in section
         reste = texte.split("## Ce que le moteur ne fait pas encore\n", 1)[1].split("\n## ", 1)[0]
         assert "aucun nombre du tick ne les lit" not in " ".join(reste.split())
+        assert "BRAS_AUX_CHAMPS_PAR_KM2 = 0,1" not in texte
+        travail = reste.split("**répartir le travail.**", 1)[1].split("\n- ", 1)[0]
+        assert "moisson" in travail
 
-    for ancien, nouveau in (("saison", "période"), ("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
+    for ancien, nouveau in (("6,2", "valeur retirée"), ("saison", "période"), ("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
                             ("Le tick ne lit les métiers que pour la récolte",
                              "Le tick ne lit pas les métiers")):
         def texte_altere(path, *args, **kwargs):
@@ -785,6 +864,12 @@ def test_documentation_bras(monkeypatch):
             ctx.setattr(pathlib.Path, "read_text", texte_altere)
             with pytest.raises(AssertionError):
                 controler()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(pathlib.Path, "read_text", lambda path, *a, **kw:
+                    lire(path, *a, **kw).replace("## Le chantier et ses bras\n",
+                    "## Le chantier et ses bras\nBRAS_AUX_CHAMPS_PAR_KM2 = 0,1\n"))
+        with pytest.raises(AssertionError):
+            controler()
     controler()
 
 
@@ -1038,6 +1123,36 @@ def test_non_paysans_ne_vident_que_le_bourg(monkeypatch):
     controler()
 
 
+@pytest.mark.parametrize("avec_releve", [False, True])
+def test_recolte_preserve_petit_stock_sans_bras(avec_releve):
+    from sim import lieux
+
+    monde = World.charger(0)
+    cell = monde.cells[10405]
+    surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    assert len(cell.lieux) == len(surfaces) > 1
+    climat = monde.carte[cell.cell_id]["climat"]
+    saison = _constantes.facteur_saison(_constantes.duree_jour_h(
+        195, climat["duree_jour_solstice_ete_h"], climat["duree_jour_solstice_hiver_h"]))
+    besoins = [s / cell.area_km2 * _km2_cultives_reference(cell, monde.carte)
+               * _constantes.BRAS_AUX_CHAMPS_PAR_KM2 * saison for s in surfaces]
+    populations = [5] + [math.ceil(10 * b) for b in besoins[1:]]
+    stocks = [0.1] + [1e9] * (len(cell.lieux) - 1)
+    ecrire_habitants_par_metier(cell, {"ouvriers": populations[0], "paysans": sum(populations[1:])})
+    for lieu, population, stock in zip(cell.lieux, populations, stocks):
+        lieu.population = population
+        ecrire_stock_marchandise(lieu, "nourriture", stock)
+    ecrire_stock_marchandise(cell, "nourriture", sum(stocks))
+    releve = {} if avec_releve else None
+    engine._apply_production(cell, random.Random(0), monde.carte, 195, releve)
+    # Sans paysans au bourg, sa réserve reste intacte malgré les grands stocks voisins.
+    assert lire_stock_marchandise(cell.lieux[0], "nourriture") == stocks[0]
+    assert all(lire_stock_marchandise(l, "nourriture") > s for l, s in zip(cell.lieux[1:], stocks[1:]))
+    assert cell.food_stock_kg == sum(lire_stock_marchandise(l, "nourriture") for l in cell.lieux)
+    if avec_releve:
+        assert releve[cell.cell_id][0] == 0.0
+
+
 @pytest.mark.parametrize("jour", [0, 195, None], ids=["janvier", "juillet", "moyenne"])
 @pytest.mark.parametrize("avec_releve", [False, True])
 def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
@@ -1045,6 +1160,8 @@ def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
 
     monde = World.charger(0)
     plusieurs = controles = 0
+    # À 6,2 le partage d'avant n'est identique que là où les bras suffisent vraiment.
+    retenus = set()
     for cell in monde.cells.values():
         surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         climat = monde.carte[cell.cell_id]["climat"]
@@ -1054,13 +1171,30 @@ def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
         metiers = lire_habitants_par_metier(cell)
         assert metiers != -1 and len(cell.lieux) == len(surfaces) > 0
         non_paysans = cell.population - metiers.get("paysans", 0)
+        km2 = cell.area_km2
+        km2 *= engine._facteur_relief_pour_cellule(cell, monde.carte)
+        km2 *= engine._facteur_eau_pour_cellule(cell, monde.carte)
+        km2 *= engine._facteur_agricole(cell, monde.carte)
+        km2 *= saison
+        besoin_par_km2 = foyers.besoin_bras(km2 / cell.area_km2)
+        pourvus = []
         for lieu, surface in zip(cell.lieux, surfaces):
             paysans = max(0, lieu.population - non_paysans) if lieu.rang == 0 else lieu.population
             besoin = surface / cell.area_km2 * _km2_cultives_reference(cell, monde.carte) * saison * _constantes.BRAS_AUX_CHAMPS_PAR_KM2
+            if paysans < besoin or paysans < surfaces[lieu.rang] * besoin_par_km2:
+                pourvus = None
+                break
+            pourvus.append((paysans, besoin))
+        if pourvus is None:
+            continue
+        for paysans, besoin in pourvus:
             assert paysans >= besoin
             controles += 1
+        retenus.add(cell.cell_id)
         plusieurs += len(cell.lieux) > 1
-    assert controles >= len(monde.cells) > 0 and plusieurs > 0
+    assert retenus and controles >= len(monde.cells) > 0 and plusieurs > 0
+    print(f"partage ancien, jour={jour} : {controles} lieux pourvus, "
+          f"{len(retenus)} cellules, {plusieurs} à plusieurs lieux", flush=True)
     partager = engine._produire_sur_les_lieux
 
     # Corps historiques de c126e40^, sans le facteur de bras alors égal à 1.
@@ -1099,6 +1233,8 @@ def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
         rng_actuel, rng_ancien = random.Random(0), random.Random(0)
         releve_actuel, releve_ancien = ({} if avec_releve else None for _ in range(2))
         for cid, cell in actuel.cells.items():
+            if cid not in retenus:
+                continue
             if jour is None:
                 engine._apply_production_saison_moyenne(cell, rng_actuel, actuel.carte, releve_actuel)
                 ancienne_moyenne(ancien.cells[cid], rng_ancien, ancien.carte, releve_ancien)

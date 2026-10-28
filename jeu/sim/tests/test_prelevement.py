@@ -285,15 +285,20 @@ def test_arrivee_commune_de_departs_d_ages_differents(monkeypatch):
 from functools import cache
 
 
-@cache
 def _habitants_apres_un_an(part):
-    """Une année par part et par processus, sur le même monde neuf."""
+    return _habitants_apres_un_an_calibres(part, c.BRAS_AUX_CHAMPS_PAR_KM2)
+
+
+@cache
+def _habitants_apres_un_an_calibres(part, bras):
+    """Une année par part et calibrage, sans mélanger les deux références."""
+    assert bras == c.BRAS_AUX_CHAMPS_PAR_KM2
     monde, rng = World.charger(0), random.Random(0)
     monde.parts = dict.fromkeys(monde.parts, part)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
         engine.tick(monde, rng, numero)
     habitants = sum(cell.population for cell in monde.cells.values())
-    print(f'part={part:.2f}, habitants après un an={habitants}')
+    print(f'bras={bras}, part={part:.2f}, habitants après un an={habitants}', flush=True)
     return habitants
 
 
@@ -348,12 +353,21 @@ def _verifier_modele_calibration(section, habitants):
     assert 'provisoirement' not in section
 
 
-def test_modele_calibration_de_la_part_coutumiere(monkeypatch):
+@pytest.mark.parametrize("bras", [0.1, 6.2], ids=["historique", "calibre"])
+def test_modele_calibration_de_la_part_coutumiere(monkeypatch, bras):
+    monkeypatch.setattr(c, "BRAS_AUX_CHAMPS_PAR_KM2", bras)
     monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())
+    marqueur = '**Calibration de la part coutumière à 6,2, sans départs.**'
+    historique, calibree = section.split(marqueur, 1)
+    section = historique if bras == 0.1 else marqueur + calibree.split('**Mesures avec départs actifs.**', 1)[0]
     _verifier_modele_calibration(section, habitants)
+    _verifier_calibration(part, habitants)
+    if bras == 6.2:
+        for population in habitants.values():
+            assert str(population) in section
     coutume = f'{part:.2f}'.replace('.', ',')
     autre = f'{round(part - 0.01, 2):.2f}'.replace('.', ',')
     with pytest.raises(AssertionError):
@@ -1110,3 +1124,62 @@ def test_jalon3_lanceur(tmp_path, monkeypatch, capsys, defaut, code):
     assert preuve.main() == code
     sortie_console = capsys.readouterr()
     assert ('J3 prouvé' in sortie_console.out + (sortie / 'preuve.txt').read_text()) == (code == 0)
+
+
+def test_ia_ouverture_baisse_dette(monkeypatch):
+    from sim import ia, engine
+    from sim.intentions import OuvrirGrenier
+    from sim.tests.test_intentions import _monde_de_secours
+    monkeypatch.setattr(c, 'RNG_YIELD_LOW', 0)
+    monkeypatch.setattr(c, 'RNG_YIELD_HIGH', 0)
+    monde, cle, maison = _monde_de_secours()
+    monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
+    routes = monde.routes_des_lieux
+    indice = routes.noms.index(cle)
+    endettes = [(cid, rang, jours) for cid, rang, maitre, jours in
+                zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours)
+                if maitre == indice and monde.cells[cid].lieux[rang].dette_alimentaire_kg > 0]
+    assert endettes
+    delai = max(jours for _, _, jours in endettes)
+    premier = min(jours for _, _, jours in endettes)
+    assert premier > 1
+
+    def dettes(m):
+        return sum(m.cells[cid].lieux[rang].dette_alimentaire_kg
+                   for cid, rang, maitre, _jours in
+                   zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours) if maitre == indice)
+
+    def verifier():
+        avec, sans = copy.deepcopy(monde), copy.deepcopy(monde)
+        releve = []
+        ia.jouer_ia(avec, releve)
+        acceptes = [e for e in releve if e['intention']['type'] == 'ouvrir_grenier' and 'refus' not in e]
+        assert len(acceptes) == 1
+        plancher = acceptes[0]['raison']['plancher_kg']
+        original = engine._appliquer_intentions
+        def appliquer(m):
+            ouvert = any(isinstance(geste, OuvrirGrenier) and geste.maison == cle for geste in m.intentions_en_attente)
+            original(m)
+            if ouvert:
+                assert m.greniers[cle][c.MARCHANDISE_NOURRITURE] >= plancher
+        engine._appliquer_intentions = appliquer
+        try:
+            generateurs = (random.Random(0), random.Random(0))
+            for numero in range(delai):
+                for cible, generateur in zip((avec, sans), generateurs):
+                    engine.tick(cible, generateur, cible.ticks_ecoules)
+                if numero + 1 < premier:
+                    assert dettes(avec) == dettes(sans)
+            assert dettes(avec) < dettes(sans)
+        finally:
+            engine._appliquer_intentions = original
+
+    verifier()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(ia, 'recevoir_intention', lambda m, i: None)
+        with pytest.raises(AssertionError):
+            verifier()
+    with monkeypatch.context() as ctx:
+        ctx.setattr(prelevement, '_livrer_secours', lambda w, charges: None)
+        with pytest.raises(AssertionError):
+            verifier()

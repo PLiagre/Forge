@@ -4,7 +4,8 @@ Audit du service local le 16 octobre 2026 : lectures `/monde`, `/carte`, `/depar
 
 | Écran | Contrat proposé et raison | Absence et refus à préserver |
 |---|---|---|
-| Ville 3D | Correspondance explicite entre cell_id, kit régional disponible et scène ; conserver le même monde et la même horloge pendant la transition | Kit absent : garder le plan consultable ; ne pas représenter Bar-le-Duc avec une ville désertique attribuée arbitrairement |
+| Ville 3D | Correspondance livrée dans #685–700 : `TerresAvecKit`, siège lu par `/maison`, passage depuis la carte ; intégration du parcours complet encore à vérifier | Seul le Zab possède un kit déclaré ; pour les autres terres, garder le plan consultable |
+| Enceinte | Forme, état et engagements de construction servis par le monde ; les journées et paiements des rues/parcelles/bâtiments sont déjà lus par UI-19a | Une défense absente ne devient pas un rempart local ni un coût nul |
 | Personnage et famille | `/dynastie` : tick, personnes identifiées, parentés, chef, héritier, qualités servies ; décider d’un mariage ou d’une éducation | Personne inconnue ; héritier inconnu distinct de l’absence d’héritier ; aucun portrait fictif attribué à un personnage réel |
 | Diplomatie | `/relations` : tick, interlocuteurs, revendications, offres, termes et échéances ; intentions de proposition et d’acceptation validées par le monde | Action interdite, offre expirée, interlocuteur absent |
 | Armée | `/armees` : tick, identifiants, cell_id, effectifs, vivres en kg, destination ; intentions lever/marcher/ravitailler | Effectif non calculé distinct de zéro ; destination interdite |

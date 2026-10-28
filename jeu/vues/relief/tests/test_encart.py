@@ -8,6 +8,9 @@ from vues.relief import encart as vue
 
 @pytest.fixture(scope='module')
 def photographies():
+    return photographier_bar()
+
+def photographier_bar():
     bar = next(t.id for t in charger_seigneuries() if t.nom == 'Duché de Bar')
     documents = []
     for part in (.6, .1):
@@ -16,6 +19,15 @@ def photographies():
         _, monde = _simulate(30, 0, gestes)
         documents.append(build_snapshot_document(monde, 0, 30))
     return documents
+
+@pytest.fixture(scope='module', params=[True, False], ids=['historique-0,1', 'calibre-6,2'])
+def photographies_pixels_bar(request):
+    if not request.param:
+        return request.getfixturevalue('photographies'), False
+    from sim import constants
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(constants, 'BRAS_AUX_CHAMPS_PAR_KM2', 0.1)
+        return photographier_bar(), True
 
 def zone(d):
     ids = {d['terre_choisie']['cell_id']} | {v['cell_id'] for v in d['terre_choisie']['voisins']}
@@ -188,7 +200,8 @@ def sections(d, image):
         mesures.append(np.maximum(0, image[p[:, 1], p[:, 0], :3].astype(int)-base[p[:, 1], p[:, 0], :3]).sum())
     return np.array(mesures)
 
-def test_encart_pixels_bar(photographies, tmp_path):
+def test_encart_pixels_bar(photographies_pixels_bar, tmp_path):
+    photographies, historique = photographies_pixels_bar
     resultats = [vue.dessiner_encart(d, largeur=900) for d in photographies]; images = [i for i, _ in resultats]
     def comparer_pixels(a, b): assert np.all(sections(photographies[0], a) > sections(photographies[1], b))
     comparer_pixels(*images)
@@ -205,16 +218,39 @@ def test_encart_pixels_bar(photographies, tmp_path):
         r = resultats[0 if d is photographies[0] else 1][1]; assert r['compteurs'] == e['compteurs'] and r['cercles_dessines'] == len(attendus) and r['fleches_dessinees'] == len(e['fleches'])
         base, _ = vue.dessiner_encart(nul(d), largeur=900)
         yy, xx = np.indices(index.shape)
+        if not historique:
+            # Les pointes fines restent visibles entre le point et son anneau.
+            # Exclure seulement les pixels réellement recouverts, pour tous les lieux.
+            occultations = Image.new('L', (900, len(index)))
+            dessin = ImageDraw.Draw(occultations)
+            for l in e['lieux']:
+                x, y = point(l); dessin.ellipse((x-3, y-3, x+3, y+3), fill=255)
+            for c in e['cercles']:
+                x, y = point(c); dessin.ellipse((x-8, y-8, x+8, y+8), outline=255, width=2)
         for f in e['fleches'][:-1]:
             a, b = point(f['source']), point(f['destination']); u = (b-a)/np.linalg.norm(b-a); w = f['epaisseur_px']
             z = (b[0]-xx)*u[0]+(b[1]-yy)*u[1]; n = abs((b[0]-xx)*u[1]-(b[1]-yy)*u[0]); longueur = max(6,2*w)
             triangle = Image.new('L', (900,len(index))); v = np.array([-u[1],u[0]])*max(3,w); fond = b-longueur*u
             ImageDraw.Draw(triangle).polygon([tuple(b),tuple(fond+v),tuple(fond-v)], fill=255)
-            masque = (np.array(triangle)>0)&(n>w/2+.6)&(np.hypot(xx-b[0],yy-b[1])>(8.8 if e['cercles'] else 4)); assert masque.any()
+            if historique:
+                masque = (np.array(triangle)>0)&(n>w/2+.6)&(np.hypot(xx-b[0],yy-b[1])>(8.8 if e['cercles'] else 4)); assert masque.any()
+            else:
+                masque = (np.array(triangle)>0)&(n>w/2+.6)&(np.array(occultations)==0); assert masque.any()
             def pointe(i): assert np.all((i[:len(index),:,:3].astype(int)-base[:len(index),:,:3])[masque].sum(axis=1) > 0)
-            pointe(image); alterer(image, pointe, lambda i: i[:len(index)].__setitem__(masque, base[:len(index)][masque]))
+            pointe(image)
+            image_pointe = image
+            if not historique:
+                # Au siège les flèches convergent : isoler chacune à ses vrais kilos
+                # empêche une autre flèche de masquer une pointe effacée ou inversée.
+                seule = nul(d)
+                lieu = next(l for c in zone(seule) for l in c['lieux']
+                            if (c['cell_id'], l['rang']) == (f['source']['cell_id'], f['source']['rang']))
+                lieu['flux_30j']['preleve_kg'] = f['kg']
+                image_pointe, _ = vue.dessiner_encart(seule, largeur=900)
+                pointe(image_pointe)
+            alterer(image_pointe, pointe, lambda i: i[:len(index)].__setitem__(masque, base[:len(index)][masque]))
             x, y = b.astype(int); boite = (slice(y-12,y+13), slice(x-12,x+13))
-            alterer(image, pointe, lambda i: i.__setitem__(boite, np.flip(i[boite], axis=(0,1))))
+            alterer(image_pointe, pointe, lambda i: i.__setitem__(boite, np.flip(i[boite], axis=(0,1))))
         alterer(image, controle, lambda i: i.__setitem__((0, 0), COULEUR_CHOIX))
         if e['cercles']:
             c = e['cercles'][0]; x, y = point(c).astype(int)

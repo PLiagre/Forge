@@ -136,7 +136,8 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   ne sont pas consommés.
 - **répartir le travail.** Les habitants ont un métier : mineur, paysan, ouvrier ou artisan.
   Naissances, morts et départs suivent les métiers ; récolte, chantiers, ateliers et fabrication les lisent. Les chantiers font passer les paysans à ouvriers, les ateliers à artisans
-  et retour ; la part minière retire déjà des bras aux champs.
+  et retour ; la part minière retire déjà des bras aux champs. La moisson demande les bras de chaque lieu,
+  avec un besoin qui suit la saison agricole ; âge, sexe, outils et bêtes de trait restent non simulés.
 - **naviguer.** Voir « La mer : la façade que le moteur ne lit pas ».
 - **investir.** Une route se bâtit à la journée ; achevée avec porte, elle
   augmente la capacité de transport terrestre ; ponts et ports restent non simulés.
@@ -510,7 +511,18 @@ Sans lieux, besoin saisonnier et paysans se calculent sur la cellule. Sous le se
 de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
 Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
 La règle est de **niveau 2**, plausible, jamais sourcée.
-`BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure, relue à chaque appel. Sans emprunter les bras voisins, le manque local change le monde annuel, même sans chantier ; à bras suffisants, les octets restent exacts.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` est relue à chaque appel, relevée de 0,1 à 6,2 par le lot #720.
+Calibrage reproductible sur `World.charger(0)` : pour chaque lieu aux métiers calculés,
+on divise ses paysans par ses km² cultivés multipliés par le maximum annuel du facteur
+de saison de sa cellule (jours 0 à 364). Les km² suivent l'ordre surface du lieu × relief × eau × part agricole.
+Au bourg, on retire les non-paysans de la cellule à sa population, plancher zéro ;
+ailleurs, tous les habitants sont paysans. On garde les dénominateurs strictement positifs.
+La médiane mesurée est 6,204260778 sur 6 619 lieux cultivables ; elle ne se fige pas dans un test.
+À 6,2, la moitié des lieux manquent de bras à la moisson, aucun en janvier,
+et 35 sur le chemin à saison moyenne. Sans chantier, sur un an numéroté,
+la population finale baisse de 0,56 % et la récolte annuelle de 2,47 % face à 0,1,
+sous les bornes de 1 % et 3 %. Sans emprunter les bras voisins, le manque local
+change donc le monde annuel ; à bras suffisants, les octets restent exacts.
 En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
 peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
@@ -638,7 +650,8 @@ produit vraiment, et c'est ce qui l'a fait suivre tout seul le
 jour où le relief, puis la saison, ont modulé le rendement.
 
 Le facteur de bras local multiplie chaque part de surface dans les deux maillons de production du
-tick. Le plafond de survie et la production moyenne restent la récolte à bras
+tick. Il suit la saison : la moisson manque de bras dans les lieux les plus sollicités.
+Le plafond de survie et la production moyenne restent la récolte à bras
 suffisants : le facteur ne peut que l'abaisser, donc le plafond reste une borne
 supérieure. L'amorçage ne dépend pas des métiers et ne forme pas de cercle.
 
@@ -996,8 +1009,8 @@ métiers propres aux lieux : niveau 3, non simulés.
 avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
 fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
-- part 0,1 : 0 foyers internes, 72 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 851 foyers hors domaine.
+- part 0,1 : 0 foyers internes, 74 foyers hors domaine ;
+- part 0,6 : 0 foyers internes, 253 foyers hors domaine.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -1757,13 +1770,26 @@ Après les maîtres et leurs références aux suzerains, `World.charger` constru
 Les identités, naissances, précisions, sources et lacunes historiques restent de **niveau 1**, sans interprétation. Une identité absente garde un lien nul motivé ; un titulaire institutionnel ne crée aucune dynastie. Chaque maison plausible reçoit le prénom et le nom de la vue existante (**niveau 2**), sans naissance ni source inventées et sans tirage aléatoire.
 Un monde manuel garde `personnages=()` et `chefs={}`. `to_dict()` copie toujours ces deux ajouts en profondeur, sans lecteur ni constructeur. Le tick ne les consulte pas : habitants, économie et générateur restent indépendants. Autres familles, âge calculé, vieillissement, mort et succession restent de **niveau 3**, non simulés.
 
-Le catalogue fermé conserve intégralement `chefs` et ajoute `familles` (vingt-trois fiches), `liens` (compléments aux cinq chefs réutilisés) et `etats` (cinq états, triés par maison). **Niveau 1**, France (`grande-3`), Bretagne (`grande-28`) et Bohême (`grande-9`) : Isabeau de Bavière, Isabelle, Jeanne, Charles, Marie, Michelle, Louis et Jean de France. Les sept enfants ont pour parents Charles VI (`personne-grande-3`) et Isabeau ; Jeanne (`personne-jeanne`) reste une seule personne, épouse de Jean V (`personne-grande-28`). Sophie de Bavière (`personne-sophie-baviere`), née en 1376 (précision `annee`), épouse Venceslas depuis le 2 mai 1389. Les trois mariages sont réciproques ; aucun enfant de Jean V n'est né au départ (le premier naît en 1409).
+Le catalogue fermé conserve intégralement `chefs` et ajoute `familles` (cinquante-huit fiches), `liens` (compléments aux seize chefs réutilisés) et `etats` (seize états, triés par maison). **Niveau 1**, France (`grande-3`), Bretagne (`grande-28`) et Bohême (`grande-9`) : Isabeau de Bavière, Isabelle, Jeanne, Charles, Marie, Michelle, Louis et Jean de France. Les sept enfants ont pour parents Charles VI (`personne-grande-3`) et Isabeau ; Jeanne (`personne-jeanne`) reste une seule personne, épouse de Jean V (`personne-grande-28`). Sophie de Bavière (`personne-sophie-baviere`), née en 1376 (précision `annee`), épouse Venceslas depuis le 2 mai 1389. Les trois mariages sont réciproques ; aucun enfant de Jean V n'est né au départ (le premier naît en 1409).
 Angleterre (`grande-1`) : Henri IV est veuf de Marie de Bohun (vers 1369/1370, morte le 4 juin 1394), mère référencée décédée sans conjoint actif. Leurs six enfants vivants sont Henri de Monmouth, Thomas, Jean et Humphrey de Lancastre, Blanche et Philippa d’Angleterre. Monmouth conserve exactement `1386 ou 1387`, précision `intervalle` ; les saisons et approximations des autres naissances restent déclarées. Jeanne de Navarre n’est pas épouse active avant le 7 février 1403 ; Edmund Leborde, né en 1401, est exclu du départ.
 Écosse (`grande-2`) : Robert III et Annabella Drummond (vers 1350) sont conjoints réciproques. Marguerite, Élisabeth (vers 1372/1373, divergence sourcée), David, Marie et Jacques Stuart sont leurs enfants vivants ; Jean Stuart d’Ardgowan est fils hors mariage de Robert III, mère inconnue motivée. Robert Stuart (mort après ou vers 1393), Egidia (1417 ou « morte jeune », naissance inconnue) et Jacques de Kilbride (sans dates) restent exclus des vivants : présences indéterminées, contradictions et limites des notices conservées, sans nier leurs filiations ni affirmer une mort avant 1400. Les deux états déclarent les enfants documentés ; les conjoints des enfants non intégrés restent des lacunes, sans preuve de célibat.
+Portugal (`grande-4`) : Jean Ier et Philippa de Lancastre (31 mars 1360) sont conjoints réciproques depuis le 2 février 1387. Leurs cinq enfants vivants sont Afonso (30 juillet 1390), Édouard (31 octobre 1391), Pierre (9 décembre 1392), Henri (4 mars 1394) et Isabelle (21 février 1397). Afonso vit encore : sa mort du 22 décembre 1400 ne sélectionne pas le départ. La notice portugaise diverge au 31 juillet dans son récit ; le 30 du tableau paternel et de l’infobox est retenu, divergence conservée dans la source.
+Afonso de Bragance (10 août 1377) et Béatrice (vers 1380) sont les enfants hors mariage de Jean Ier et d’Inês Pires (vers 1350), jamais de Philippa. Inês reste mère référencée de présence `indeterminee`, sans conjoint actif : le tableau paternel donne « 1400 ? », son lien anglais manque de notice, la notice française dit seulement après 1390. Blanche, morte le 6 mars 1389, Jean, né le 13 janvier 1400, et Ferdinand, né en 1402, sont explicitement exclus.
+Castille (`grande-5`) : Henri III et Catherine de Lancastre sont conjoints réciproques depuis 1388, sans enfant au départ (`absence_attestee`). Marie (1401), Catherine (1403) et Jean (1405) restent exclus, sans naissance programmée. Catherine conserve `1372-06-06 ou 1373-03-31`, précision `intervalle` : la note et l’infobox divergent, aucun jour choisi.
+Aragon (`grande-6`) : Martin d’Aragon et Maria de Luna (vers 1358, approximation conservée malgré l’infobox) sont conjoints réciproques depuis le 13 juin 1372. Martin de Sicile, leur fils vivant, conserve `vers 1374/1376`, précision `vers` ; la notice individuelle donne l’approximation omise au tableau paternel. Jacques, Jean et Marguerite sont exclus : morts jeunes dans les notices des parents, Martin seul fils vivant dès 1391, sans jour de décès inventé. Marguerite de Prades n’est épouse active qu’en 1409. Les notices divergent sur 1390/1391 pour l’union sicilienne, non intégrée ; les conjoints des enfants et parents des conjoints restent des lacunes motivées, sans preuve de célibat.
+Navarre (`grande-7`) : Charles III et Éléonore de Castille (vers 1363) restent mariés depuis 1375 malgré la séparation et le retour de 1395. Jeanne (Foix, 1382), Marie (1383 ou 1384), Blanche (1385 ou 1386), Béatrice (1386 ou 1392), Isabelle (1395 ou 1396) et Charles (1397) sont leurs six enfants établis vivants. Les jumelles de 1386 pourraient être Blanche et Béatrice : hypothèse, aucune troisième fille inventée. Lancelot (avril 1386, jour approximatif au BOE) est fils de María Miguel de Esparza ; Godofre (1384 ou 1394) est fils de Teresa. Ces deux mères restent de naissance inconnue et présence `indeterminee`, sans conjoint actif. Jeanne (Zúñiga, vers 1380) a une mère inconnue ; elle reste distincte de Jeanne (Foix), de Jeanne de France et de la future épouse d’Henri IV.
+Louis (1399 ou 1402) et Marguerite (dates contradictoires autour du départ) sont exclus des vivants sans décès certain avant 1400. La jumelle non identifiée, Jeanne (Beaumont, future en 1419), Francés (cité en 1418, naissance inconnue) et Pascual (paiement à sa mère en 1395, survie inconnue) ont chacun une exclusion motivée avec les pages examinées, dont le BOE 438. Une mention postérieure ne prouve pas la vie au départ.
+Grenade (`grande-8`) : Muhammad VII conserve `conjoints=lacune` et `enfants=lacune`, sources nulles. Sa notice et celle de Yusuf III (enfants évoqués après 1408) n’établissent ni identités ni naissances en 1400. Ces inconnues font partie de la couverture ; elles n’attestent ni célibat, ni veuvage, ni absence d’enfant.
+Milan (`grande-10`) : Jean Galéas et Caterina Visconti (1361) sont conjoints réciproques depuis le 2 octobre 1380. Valentine (1371) est fille d’Isabelle de Valois (Vertus, 1er octobre 1348), mère référencée décédée en 1372 ou 1373 sans conjoint actif. Gian Maria (7 septembre 1388) et Filippo Maria (septembre 1392, jours 3/23 non départagés) ont pour mère Caterina ; Gabriele Maria (1385 ou 1386, contradiction entre année et âge narratif) est fils d’Agnese Mantegazza. Agnese reste de naissance inconnue, présence indéterminée et sans conjoint actif. Les trois fils morts d’Isabelle, la fille de Caterina morte le 9 juillet 1385 et Antonio (fils naturel mort enfant en 1391, distingué de ses homonymes) sont exclus. Navarre et Milan portent `union` et enfants `documentes` ; aucun mariage futur ou héritier imposé.
+Naples (`grande-11`) : Ladislas reste sans conjoint actif. Costanza Chiaramonte est exclue après l’annulation établie (1392 dans la notice anglaise, 1393 chez Treccani) ; Marie de Lusignan est future (1403 contre arrivée et noces en 1402), comme Marie d’Enghien. Le projet avec la fille de Bayezid ne devient jamais une union. `conjoints=lacune` déclare la limite du schéma sans catégorie d’annulation, sans veuvage fictif. Rinaldo/Reynold et Marie de Durazzo, enfants hors mariage sans dates ni mères établies, sont exclus des vivants pour présence indéterminée ; `enfants=lacune`, sans confondre mariages sans enfant et descendance totale.
+Savoie (`grande-12`) : une seule Marie de Bourgogne (`personne-marie-bourgogne`), née en 1386, précision `annee` ; septembre reste probable. Amédée VIII et Marie sont conjoints réciproques, état `union` : contrat de 1386, procuration du 30 octobre 1393, rencontre en 1401 et arrivée en 1403 restent distincts. Les décès divergents de Marie (1422/1428) prouvent sa présence au départ sans programmer sa mort. Les neuf enfants sont exclus individuellement comme futurs : Marguerite I (1405), Antoine I (1407), Antoine II (1408), Marie (1411), Amédée (1412), Louis (1413), Bonne (1415), Philippe (1417/1422), Marguerite II (1420). La notice française signale deux enfants supplémentaires chez FMG, inaccessible (403) : recherche non aboutie, aucune identité ni date inventée ; `enfants=lacune`, sans absence exhaustive attestée.
+Kalmar (`grande-13`) : Éric garde `conjoints=lacune` par limite du schéma sans catégorie de célibat. Négociations de 1402, mariage avec Philippa le 26 octobre 1406 et union avec Cecilia après 1430 sont sourcés et exclus du départ. Philippa garde son identité anglaise et ses parents, sans nouveau conjoint. Le fils mort-né de la fin de sa vie est futur, jamais vivant en 1400 ; les notices n’excluent pas exhaustivement d’autres enfants antérieurs : `enfants=lacune`.
+Pologne (`grande-14`) : Jagellon porte `veuvage` depuis la mort de Jadwiga le 17 juillet 1399 et `absence_attestee` d’enfant vivant : Élisabeth Bonifacia, née le 22 juin, est morte le 13 juillet 1399. Les deux exclusions conservent leur existence ; Anne de Cilli (1402), Élisabeth de Pilica (1417), Sophie de Holszany (1422) et les enfants Jadwiga (1408), Ladislas (1424), Casimir (1426), Casimir André (1427) sont futurs. Aucun événement imposé. Ces recherches n’ajoutent aucune filiation : bilan chronologique inchangé, trente-cinq vérifiés et quatre-vingt-un indéterminés. Parents des conjoints et relations non intégrées restent des lacunes de périmètre.
+Constantinople (`grande-15`) : Manuel II et Hélène Dragaš (`personne-helena-dragas`, vers 1372) sont conjoints réciproques depuis le 10 février 1392, couronnement le lendemain ; l’état est `union`. Jean VIII (18 décembre 1392) et Théodore II (vers 1396) sont leurs enfants vivants, état `documentes`, dans l’ordre de Sphrantzès. Théodore II reste distinct de Théodore Ier (`seigneurie-3`), qui ne reçoit aucun lien et n’en perd aucun. Les parents de Manuel (Jean V, Hélène Cantacuzène), Constantin Dragaš, la mère non nommée d’Hélène et la fratrie restent des lacunes de périmètre, jamais des absences attestées. Neuf exclusions gardent l’existence et les divergences : Constantin l’aîné, Andronic et deux filles non nommées sont de présence indéterminée (morts seulement bornées entre 1400 et 1402, à Monemvasia pour l’aîné) ; la prétendue Zampia, fille de Manuel, est une filiation réfutée (Ganchou : fille naturelle non nommée de Jean V, demi-sœur de Manuel) ; Constantin XI (1404-02-08 contre 1405), Michel, Démétrios et Thomas sont futurs. Aucune présence `decedee` n’est déduite, aucun événement n’est programmé. Le bilan passe à trente-six vérifiés et quatre-vingt-six indéterminés : seule l’antériorité Manuel (1350-06-27) → Jean VIII (1392-12-18) est vérifiée ; Manuel → Théodore II et les quatre contrôles d’Hélène restent indéterminés.
 Les présences explicites sont `vivante`, `decedee` ou `indeterminee` ; seules les personnes vivantes ont des conjoints actifs. Une naissance familiale inconnue reste nulle, avec source nulle et lacune motivée.
 Les états distinguent `union`, `veuvage`, `lacune`, et, pour les enfants, `documentes`, `absence_attestee`, `lacune`. France : enfants documentés ; Bretagne et Bohême : absence sourcée au départ. Jeanne de Bavière, morte le 31 décembre 1386, est explicitement exclue du mariage actif. Une table vide ne prouve rien ; une présence indéterminée précise les pages examinées et leur limite. Chaque état est copié en profondeur dans `etat_familial` du chef.
 Chaque identité, naissance connue, état attesté, exclusion, parenté livrée et présence initiale porte une source `url`/`fait`. Les décès cités justifient la sélection de 1400, sans programmer de mort. Les relations non étudiées sont des lacunes motivées, jamais des absences attestées ; les autres chefs gardent leurs faits et lacunes.
-Le même `valider_liens_familiaux` contrôle le catalogue résolu, la construction et `valider_personnages`, sans mutation ni hasard. **Niveau 2** : enfant strictement postérieur aux parents, mère de 15 à 45 ans révolus inclus. Isabeau reste née **vers 1370** : sept antériorités paternelles vérifiées, sept antériorités maternelles et sept âges maternels indéterminés, avec motif faute de bornes exploitables. Les nouvelles filiations ajoutent trente-quatre contrôles indéterminés, soit quarante-huit avec les quatorze français ; les approximations des parents ne donnent aucune borne exploitable. Aucun âge exact ni règle d'âge au mariage n'est ajouté.
+Le même `valider_liens_familiaux` contrôle le catalogue résolu, la construction et `valider_personnages`, sans mutation ni hasard. **Niveau 2** : enfant strictement postérieur aux parents, mère de 15 à 45 ans révolus inclus. Isabeau reste née **vers 1370** : sept antériorités paternelles vérifiées, sept antériorités maternelles et sept âges maternels indéterminés, avec motif faute de bornes exploitables. Les filiations anglaises et écossaises ajoutent trente-quatre contrôles indéterminés, soit quarante-huit avec les quatorze français. Les filiations ibériques ajoutent six antériorités paternelles et dix contrôles maternels vérifiés, puis huit indéterminés (Béatrice, Inês et Martin de Sicile) : bilan avant Navarre et Milan de vingt-trois vérifiés et cinquante-six indéterminés ; aucune approximation ne donne de borne exploitable. Navarre et Milan ajoutent treize antériorités paternelles et vingt-quatre contrôles maternels : douze vérifiés et vingt-cinq indéterminés, soit trente-cinq vérifiés et quatre-vingt-un indéterminés avant Constantinople. Les six antériorités paternelles vérifiées concernent Jeanne (Foix), Charles, Lancelot, Valentine, Gian Maria et Filippo ; les six vérifications maternelles concernent Valentine, Gian Maria et Filippo. Aucun âge exact ni règle d'âge au mariage n'est ajouté.
 
 ## Le grenier d'une maison
 
@@ -1861,7 +1887,8 @@ Sans secours, aucun parcours supplémentaire. `to_dict()` publie seulement
 les secours non vides : liste `[cell_id, rang, arrivee, kg]` triée, kilos courants
 sans arrondi ; sans geste, les octets et les empreintes restent identiques.
 
-**Calibration de la part coutumière.** Référence historique avec `TAUX_DE_DEPART = 0`,
+**Calibration de la part coutumière.** Référence historique avec les bras à 0,1
+et `TAUX_DE_DEPART = 0`,
 sans mieux-vivre : elle ne mesure pas le monde désormais complet. Sur la graine 0, `World.charger(0)`
 joue 365 ticks numérotés de 0 à 364 avec `random.Random(0)` ; toutes les
 maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`.
@@ -1876,17 +1903,25 @@ C'est une règle plausible de niveau 2, jamais sourcée : la coutume ne vide
 pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
 Tout changement de production, de faim ou de départs exige de remesurer.
 
+**Calibration de la part coutumière à 6,2, sans départs.** Le même protocole
+(graine 0, 365 ticks numérotés, `random.Random(0)`, `TAUX_DE_DEPART = 0`)
+garde les bras du lot #720 à 6,2. À part nulle, il reste 35898495 habitants ;
+la part 0,03 en laisse 35546850 (perte 0,98 %), la part 0,04 en laisse
+35404646 (perte 1,38 %). La borne de 1 % reste tenue pour 0,03 et
+dépassée pour 0,04. Ces mesures sont de niveau 2, plausibles, jamais sourcées.
+
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
 numérotés de 0 à 364 et `random.Random(0)`, garde le mieux-vivre actif,
-avec `TAUX_DE_DEPART = 0.002` et toutes les constantes livrées. Naissances,
+avec `TAUX_DE_DEPART = 0.002`, les bras calibrés à 6,2 (lot #720)
+et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
-- part 0,00 : 36090297 habitants ; perte 0,000000 % ; 195574 foyers déplacés.
-- part 0,03 : 35745056 habitants ; perte 0,956603 % ; 181882 foyers déplacés.
-- part 0,04 : 35593416 habitants ; perte 1,376772 % ; 179228 foyers déplacés.
-- part 0,10 : 34033021 habitants ; perte 5,700358 % ; 169499 foyers déplacés.
-Calibration tenue : perte(0,03) = 0,956603 % ≤ 1 % < perte(0,04) = 1,376772 %.
+- part 0,00 : 35905313 habitants ; perte 0,000000 % ; 154259 foyers déplacés.
+- part 0,03 : 35554619 habitants ; perte 0,976719 % ; 132541 foyers déplacés.
+- part 0,04 : 35416781 habitants ; perte 1,360612 % ; 126269 foyers déplacés.
+- part 0,10 : 33692103 habitants ; perte 6,164018 % ; 78191 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,976719 % ≤ 1 % < perte(0,04) = 1,360612 %.
 Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
@@ -2637,6 +2672,25 @@ monte d'autant, sans dépasser `PART_MAXIMALE`. La raison se nomme
 les `tracer_route` : une part déposée dans l'année ne bloque pas le tracé.
 Mesure du prototype, graine 0 : environ 2 ms par maison qui décide.
 
+Chaque jour, sans attendre le mois ni une fenêtre de flux pleine, une maison
+qui tient des lieux secourt ceux qui ont faim depuis strictement plus de
+`FAIM_AVANT_SECOURS_JOURS` jours (`duree_faim_ticks` × `TICK_DURATION_DAYS`)
+et qui portent une dette alimentaire. Le calcul partagé de la réserve voulue
+est celui de la part : `RESERVE_VOULUE_JOURS` de nourriture pour
+`RESERVE_VOULUE_PART_DES_HABITANTS` des habitants, plus les salaires encore
+dus sur les chantiers des bourgs tenus. Le plancher en est la moitié
+(`PLANCHER_PART_DE_LA_RESERVE`). Elle ouvre au plus l'excédent au-dessus du
+plancher, et au plus la dette des seuls lieux à secourir. La raison se nomme
+`secours_apres_faim` et porte, sans arrondi, la liste triée `lieux`
+(`cell_id`, `rang`, `duree_faim_ticks`, `dette_alimentaire_kg`),
+`grenier_nourriture_kg`, `reserve_voulue_kg`, `plancher_kg` et
+`dette_affamee_kg`. Le geste est `ouvrir_grenier`, déposé par
+`recevoir_intention`, après la route du jour et avant l'éventuelle part
+mensuelle. À sept jours juste, à dette nulle, au plancher exact, sans lieu,
+hors carte ou pour la maison du joueur, elle se tait. Aucun budget annuel ou
+mensuel ne l'empêche de rouvrir le lendemain. Niveau 2, plausible, jamais
+sourcé. Le réglage de la part, lui, reste mensuel.
+
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
 manuel ou cadencé ; les intentions du joueur déjà reçues précèdent les dépôts IA.
@@ -2842,6 +2896,10 @@ L'année donne 7 → 7 dépôts acceptés. Ces mesures ponctuelles ne séparent 
 
 ## Le chantier et ses bras
 
+Les maisons en `autoconstruction` sont bâties sans salaire : aucun débit du grenier ni versement aux paniers ; la consommation ordinaire continue.
+Après le retour des bras, les foyers d'artisans sans logis, dernier incomplet compris, ouvrent au plus `MAISONS_OUVERTES_PAR_JOUR = 1` maison par bourg doté d'un maître, par identifiant de parcelle libre et déjà achevée. Les places promises par toute maison en chantier se déduisent du besoin avant l'affectation ; seules les maisons achevées logent réellement.
+Chaque maison autonome prend au plus une personne, artisan disponible, par jour restant. Le métier `autoconstructeurs` préserve son origine et empêche Ateliers de la réemployer ; seuls ses survivants présents reviennent aux artisans au début de Chantiers le lendemain, même après achèvement. Population et somme des métiers sont conservées. Le plan publie ce marqueur, conservé après travail, seulement pour ces maisons ; les poses manuelles gardent salaire et priorités.
+
 `World.chantiers_du_jour`, vide à l'ouverture et absent des sauvegardes, observe sans décider : chaque appel remplace le relevé, aux mêmes clés que les envois.
 Les bras sont comptés à l'affectation, les kilos au salaire effectivement débité. Un chantier achevé reste observé ce jour, puis disparaît ; plusieurs ticks ne gardent que le dernier.
 À zéro bras, la cause suit cette priorité au passage : `parcelle_en_chantier`, `metiers_non_calcules`, `sans_bras`, `payeur_absent`, `sans_grain`. Avec du travail, elle vaut `null`.
@@ -2895,8 +2953,7 @@ ne laisse son bâtiment prendre des bras que le tick suivant. Cette attente
 concerne sa parcelle, pas les autres bâtiments de la cellule.
 Le plan est reconstruit par `Plan(rues=…, parcelles=…, batiments=…)`, en mots-clés,
 seulement si une rue, une parcelle ou un bâtiment reçoit du travail ; sinon
-il reste le même objet. Sans geste, aucun bâtiment n'entre en chantier et
-le monde reste identique à l'octet près.
+il reste le même objet. Une ouverture autonome reconstruit aussi le plan ; sans candidat ni chantier, aucune écriture nouvelle.
 
 Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel.
 Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock / salaire)` borne les bras avant tout travail.
@@ -2922,7 +2979,8 @@ ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
 bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 `/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
 
-La petite constante `BRAS_AUX_CHAMPS_PAR_KM2 = 0,1` demeure : l’échelle du lieu et la saison font porter le manque de bras du chantier sur la récolte du bourg,
+La constante `BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` donne son poids à la moisson :
+l’échelle du lieu et la saison font porter le manque de bras du chantier sur la récolte du bourg,
 même quand les champs voisins ont assez de paysans. Âge et
 sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
