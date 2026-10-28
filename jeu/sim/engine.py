@@ -430,17 +430,17 @@ def _verser_recolte(cell, recolte, carte, saison, recoltes):
     produite = recolte if parts is None else sum(parts)
     ecrire_stock_marchandise(cell, nourriture, avant + produite)
     if cell.lieux:
-        if recoltes is None:
+        if parts is not None and len(cell.lieux) > 1:
+            # Verser chaque part directement : la déduire des grands totaux
+            # voisins ferait perdre de la précision au petit stock du bourg.
+            for lieu, stock in zip(cell.lieux, stocks):
+                ecrire_stock_marchandise(lieu, nourriture, stock + parts[lieu.rang])
+            if recoltes is not None:
+                recoltes[cell.cell_id] = parts
+        elif recoltes is None:
             _produire_sur_les_lieux(cell, produite)
         else:
             _produire_sur_les_lieux(cell, produite, recoltes)
-        if parts is not None:
-            parts[0] = produite - sum(parts[1:])
-            for lieu, stock in zip(cell.lieux, stocks):
-                ecrire_stock_marchandise(lieu, nourriture, stock + parts[lieu.rang])
-            _lieux.corriger_residu_au_bourg(cell, nourriture)
-            if recoltes is not None:
-                recoltes[cell.cell_id] = parts
 
 
 def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:

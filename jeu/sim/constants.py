@@ -81,9 +81,9 @@ FENETRE_FLUX_TICKS = 30
 # TICK_DURATION_DAYS (voir MODELE.md).
 FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = 18.0 * TICK_DURATION_DAYS
 
-# Bras par km² cultivé, niveau 2 : valeur basse pour préserver l'année mesurée.
-# À revoir quand un geste retirera des paysans aux champs.
-BRAS_AUX_CHAMPS_PAR_KM2 = 0.1
+# Bras par km² cultivé, niveau 2 : calibrés sur le lieu médian au pic annuel
+# de sa saison agricole (voir MODELE.md, lot #720).
+BRAS_AUX_CHAMPS_PAR_KM2 = 6.2
 
 
 # --- Eau dans le rendement (fidélité niveau 2) ---
@@ -638,6 +638,10 @@ IA_PAS_DE_PART = 0.05
 RESERVE_VOULUE_JOURS = 30
 # Niveau 2 : part des habitants que cette réserve est censée couvrir.
 RESERVE_VOULUE_PART_DES_HABITANTS = 0.1
+# Niveau 2 : le secours quotidien s'arrête à cette part de la réserve voulue.
+PLANCHER_PART_DE_LA_RESERVE = 0.5
+# Niveau 2 : jours de faim strictement dépassés avant qu'une maison ouvre son grenier.
+FAIM_AVANT_SECOURS_JOURS = 7
 # Niveau 2 : neuvièmes, pour que l'addition binaire du pas reste la fraction dite.
 DECIMALES_PART = 9
 

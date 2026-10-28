@@ -1,5 +1,7 @@
 # Direction artistique de l’interface — validée le 14 octobre 2026
 
+Révisée le 28 octobre 2026 : le cadre passe à la pierre, au bois brûlé et au métal patiné ; voir « [Révision du 28 octobre 2026](#révision-du-28-octobre-2026--pierre-bois-brûlé-registre) ». Ce qui n’y est pas changé reste valide.
+
 Lecture du 14 octobre 2026 : les 108 PNG de `docs/direction-artistique/`, examinés dans les douze planches réduites ci-dessous. Dossier confirmé par le propriétaire. Concepts de niveau 2, sans valeur de source historique ni de capture du jeu ; les scènes après 1500 nourrissent les matières, pas le périmètre du premier siècle.
 
 ## Cinq principes
@@ -29,6 +31,64 @@ Les panneaux évoquent des feuillets posés : papier peu grainé, filet fin, omb
 Icônes : silhouettes simples de sac, route, maison, arbre familial, bannière et livre, toujours nommées. Les blasons du corpus enseignent le contraste et la silhouette ; ils ne sont ni une police d’icônes ni les armoiries historiques du jeu. Alpha des originaux héraldiques à reprendre avant réemploi (réserve du catalogue).
 Transitions : glissement court et fondu de 160 ms proposés, désactivables ; ouverture sans animation en mouvement réduit. Sons suggérés : froissement sec, bois posé, cire pressée ; volume séparé et aucune information donnée seulement par le son. Textes : « Ouvrir le grenier », « Ordre reçu », « Le monde ne répond pas » ; cause concrète, unités, aucune fausse certitude.
 Interdits : tableur permanent, fenêtres génériques empilées, néon, dorure omniprésente, texture sous petit texte, couleur seule pour distinguer un état, portrait fictif présenté comme historique, nombre remplacé par zéro quand la donnée manque.
+
+## Révision du 28 octobre 2026 — pierre, bois brûlé, registre
+
+Demandée par le propriétaire : une interface **sombre, gothique et médiévale**, dans l’atmosphère d’un monde de fer et de pierre à la manière de Warhammer Fantasy. Cette référence donne une ambiance, rien d’autre : aucun de ses logos, de ses signes reconnaissables, de ses lettrages ni de ses assets n’entre dans Forge. Les lots qui la portent sont écrits dans [CAP.md](../../CAP.md), « La langue visuelle ».
+
+**Ce qui reste.** Les cinq principes ci-dessus ; la carte plein cadre et les dossiers simultanés ; la lecture sur papier clair (`papier` reste `#E8DDC9`, et Noto Serif / Noto Sans restent les polices : les tests du socle les vérifient) ; corps 18 px, titres 28 px, commandes 44 px ; aucune lettre brisée pour lire une décision, un nom de lieu ou un nombre ; jamais la couleur seule pour dire un état.
+
+**Ce qui change.** Le cadre autour des feuillets n’est plus un brun uni : c’est la **pierre** sombre pour le fond et le bandeau, le **bois brûlé** pour les tranches et les commandes, le **métal patiné** pour les ferrures, les séparateurs et les coins. Le papier devient un **registre** : rubriques, lignes de compte, notes en marge, sceau. Les accents chauds — rouge profond, cuivre, or vieilli — restent rares : un écran en porte peu, et chacun a un rôle.
+
+### Jetons ajoutés
+
+Les huit jetons du 14 octobre sont gardés tels quels. Le socle en ajoute sept ; un écran n’en invente aucun.
+
+| Jeton | Hex | Rôle | Contraste mesuré |
+|---|---|---|---|
+| pierre | `#1C1B19` | Fond, bandeau haut, cadre de la carte | `papier` dessus : 12,8:1 |
+| bois-brule | `#2B211B` | Tranche des feuillets, commande au repos | `papier` dessus : 11,7:1 |
+| metal | `#3E3B33` | Ferrures, coins, séparateurs, commande inactive | `papier` dessus : 8,3:1 |
+| sang | `#7A1E19` | Rubrique, alerte, refus, cire d’un engagement | sur `papier` : 7,7:1 |
+| cuivre | `#A8683C` | Survol, filet de l’infobulle ; jamais un texte | sur `pierre` : 3,9:1 (trait seul) |
+| or-vieilli | `#B49A61` (= `or`) | Sélection et focus sur fond sombre ; jamais un texte sur papier | sur `pierre` : 6,3:1 ; sur `papier` : 2,0:1, refusé |
+| vert-de-gris | `#5E8C7A` | Confirmation sur fond sombre, avec son libellé | sur `pierre` : 4,5:1 |
+
+Seuils, vérifiés par le contrôle du socle : **4,5:1** pour tout texte, **3:1** pour un trait ou un signe qui porte un état. Les couleurs des maisons et des calques sont des données servies : le thème ne les change pas, il les encadre.
+
+### La hiérarchie d’un registre
+
+- **La rubrique** : le titre d’un dossier, Noto Serif en capitales espacées, en `sang` sur papier ou en `papier` sur pierre ; un filet double de `metal` dessous.
+- **La ligne de compte** : le libellé à gauche, le nombre servi à droite en chiffres alignés, son unité, et la date du tick reçu en pied de feuillet. Absence, attente et lecture périmée gardent leurs états d’UI-02.
+- **La note en marge** : la cause, la raison d’une maison, la source ; `secondaire`, plus petite, jamais seule porteuse d’un nombre.
+- **Le sceau** : la cire `sang` marque un engagement (part, grenier, mariage, guerre, emprunt) et lui seul ; il ne décore pas.
+- **Les séparateurs** : un filet de métal, un losange au centre au plus ; pas de rinceaux, pas de chaînes, pas de pointes autour des boutons.
+
+### Les états, une seule fois pour tous les écrans
+
+| État | Matière et trait | Ce qui le dit sans couleur |
+|---|---|---|
+| repos | bois brûlé, filet de métal | — |
+| survol | filet `cuivre` | infobulle après un court délai |
+| focus clavier | double filet `or-vieilli` | contour visible au clavier |
+| sélection | filet `or-vieilli` épais, marque sur la carte | le nom de la sélection écrit dans le bandeau ou le dossier |
+| inactif | `metal`, texte atténué gardant 4,5:1 | la raison de l’inactivité, au survol |
+| attente | filet pointillé | « En attente du monde » |
+| reçu / appliqué | `vert-de-gris` sur pierre | « Ordre reçu », puis l’effet publié |
+| refus / panne | `sang` | mot, signe et cause d’UI-02 |
+| alerte | bandeau `sang` sur pierre | mot et signe ; elle ne clignote pas |
+
+**L’infobulle** est un petit feuillet de papier au filet de cuivre : le nom de ce qu’on survole, ses valeurs servies avec leur unité et leur tick. Elle ne cache jamais l’objet qu’elle décrit, reste entière dans l’écran à 1280 × 720, et n’apporte aucun nombre qu’un dossier ne puisse montrer.
+
+**Sur la carte**, le cadre reste sur les bords : la terre garde au moins deux tiers de la largeur. Le survol d’un lieu est un trait de cuivre, sa sélection un trait d’or vieilli et son nom ; la maison du joueur porte sa marque ; une alerte (un lieu qui a faim, une place assiégée) est en `sang` avec son signe. Aucune de ces marques ne recouvre la couleur servie du maître.
+
+### Interdits ajoutés
+
+Crânes, aigles bicéphales, comètes, marteaux ou épées en emblème, lettrages qui imitent le logo d’une licence ; pointes, chaînes et rivets autour de chaque commande ; parchemin brûlé ou taché sous le texte ; noir pur ; rouge à tout faire ; sang, flammes ou fumées animées dans l’interface ; tout fichier, police ou motif d’une licence tierce. Les matières se génèrent dans le dépôt, sans l’aléa du monde, comme celles du 18 octobre ([MATIERES.md](MATIERES.md)).
+
+### Références du corpus
+
+`06_production/forge_1450.png` (un seul foyer chaud dans la pierre et le fer), `08_institutions/justice_1420.png` (le rouge du pouvoir, les bannières), `08_institutions/traite_1700.png` (les sceaux d’un engagement), `08_institutions/imprimerie_1600.png` (l’encre sur papier mat), `07_transports/grenier_1500.png` (le bois sombre), `05_chateaux/chateau_1450.png` et `10_batailles/siege_1450.png` (la masse de pierre, la gravité sans ornement).
 
 ## Lecture image par image
 
