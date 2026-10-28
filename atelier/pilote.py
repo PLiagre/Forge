@@ -125,6 +125,7 @@ class Pilote:
         self.lignes: list[str] = []
         self.lfs_telechargeur = lfs_telechargeur
         self.invoques = 0  # les agents appelés par ce pilote, tous tours confondus
+        self.attentes = 0  # ceux de ces appels où personne n'a pu répondre
 
     # ----------------------------------------------------------- journal
     def noter(self, lot: int | str, action: str, detail: str = "", agent: str | None = None) -> None:
@@ -145,6 +146,8 @@ class Pilote:
                                   exclure=exclure, executeur=self.executeur_agents,
                                   place=lambda outil: self.verrous.place(f"outil-{outil}",
                                                                          self.projet.plafond(outil)))
+        if res.attente:
+            self.attentes += 1
         # Un secours a répondu : pourquoi les précédents ne l'ont pas fait
         # entre au journal, sinon un quota ou une session perdue ne se voit
         # nulle part (le chef de #184, le 28 septembre 2026).
@@ -174,7 +177,7 @@ class Pilote:
                 lot = Lot.de(self.gh.issue(lot.numero))
                 if lot.etat != "en-cours":
                     continue
-                agent_parti = self._avancer(lot, vue.jalons, vue.courant)
+                agent_parti = self._a_fait_partir(lambda: self._avancer(lot, vue.jalons, vue.courant))
             except (GitHubErreur, DepotErreur) as e:
                 self.noter(lot.numero, "erreur", str(e))
             finally:
@@ -193,7 +196,7 @@ class Pilote:
                 self.noter("master", "erreur", str(e))
                 agent_parti = self.invoques > avant
         if not agent_parti:
-            agent_parti = self._depanner_un_lot(vue)
+            agent_parti = self._a_fait_partir(lambda: self._depanner_un_lot(vue))
         if not agent_parti and vue.courant is not None:
             self._prendre_le_suivant(vue)
         with self.verrous.tenir("decider"):
@@ -201,6 +204,18 @@ class Pilote:
         if not self.lignes:
             self.lignes.append("RIEN")
         return self.lignes
+
+    def _a_fait_partir(self, pas) -> bool:
+        """Le pas a-t-il fait partir un agent ? Un pas dont chaque appel n'a
+        trouvé personne (quota, session perdue, outil plein) n'a fait
+        qu'attendre : il ne retient pas le tour. Du 26 au 28 octobre 2026,
+        #720 attendait son relecteur, Claude (la session du VPS avait
+        expiré) : chaque tour s'arrêtait sur lui, et ni le dépanneur ni un lot
+        neuf n'étaient même essayés."""
+        invoques, attentes = self.invoques, self.attentes
+        parti = pas()
+        appels = self.invoques - invoques
+        return parti and not (appels and appels == self.attentes - attentes)
 
     def _ranger_le_monde(self) -> "_Vue":
         """Ce que le tour sait du monde, rangé : les jalons suivent CAP.md, les

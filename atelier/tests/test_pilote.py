@@ -480,6 +480,37 @@ def test_un_seul_agent_par_tour(projet, gh, depot, tmp_path):
     assert len(agents.appels) == 1 and gh.prs_[51]["comments"] == []
 
 
+SESSION_PERDUE = (1, "Failed to authenticate: OAuth session expired and could not be refreshed")
+
+
+def test_un_lot_qui_attend_son_relecteur_ne_retient_pas_les_autres(projet, gh, depot, tmp_path):
+    # Du 26 au 28 octobre 2026, #720 attendait Claude, son seul relecteur
+    # possible (session du VPS expirée) : chaque tour s'arrêtait sur lui.
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    gh.ajouter_issue(11, "Le panneau affiche le lieu", ("lot", "en-cours"))
+    gh.ajouter_pr(51, "lot/11-le-panneau-affiche-le-lieu", ci="vert")
+    agents = Agents(SESSION_PERDUE, (0, "Fait.", {"jeu/sim/service.py": "code"}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude", "codex"]
+    assert any(l.startswith("#10 attente") for l in lignes)
+    assert marques(gh.prs_[51]["comments"])[-1]["role"] == "codeur"
+
+
+def test_un_lot_qui_attend_laisse_le_chef_prendre_le_suivant(projet, gh, depot, tmp_path):
+    # Le VPS a une place libre : le relecteur de #10 ne répond pas, le chef
+    # prend #12 dans le même tour (son secours écrit le brief).
+    projet = _parallele(projet)
+    _en_cours(gh, commentaires=[FAIT_CODEX])
+    gh.ajouter_issue(12, "Le service lit un lieu")
+    brief = BRIEF_BON.replace("Lot #10", "Lot #12")
+    agents = Agents(SESSION_PERDUE, SESSION_PERDUE,
+                    (0, "Brief écrit.\nDECISION: BRIEF", {"docs/briefs/12-le-service-lit-un-lieu.md": brief}))
+    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
+    assert agents.outils() == ["claude", "claude", "codex"]
+    assert any(l.startswith("#10 attente") for l in lignes)
+    assert ("etiqueter", 12, ("en-cours",), ("pret",)) in gh.gestes
+
+
 def test_un_lot_fusionne_est_livre(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "en-cours"), etat="CLOSED")
     pr = gh.ajouter_pr(50, BRANCHE, etat="MERGED")
