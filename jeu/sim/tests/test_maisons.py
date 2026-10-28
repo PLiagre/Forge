@@ -2781,13 +2781,13 @@ def _ottomans(fiches=None, etat=None):
             for k in ('pere', 'mere', 'conjoints'):
                 if isinstance(f['lacunes'].get(k), str) and not (k == 'mere' and not epoux): _reperes_voisins(f['lacunes'][k], (nom, 'hors périmètre', 'aucune absence attestée', *PARENTS_OTTO.get((i, k), ()))); _reperes_voisins(f['lacunes'][k].lower(), ({'pere': 'père', 'mere': 'mère', 'conjoints': 'conjoints'}[k],))
             if epoux:
-                assert f['sources'].get('pere') is None and f['sources'].get('mere') is None and isinstance(f['sources'].get('conjoints'), dict) and f['lacunes'].get('conjoints') is None and isinstance(f['lacunes'].get('pere'), str) and 'aucune absence attestée' in f['lacunes']['pere'] and isinstance(f['lacunes'].get('mere'), str) and 'aucune absence attestée' in f['lacunes']['mere']
+                assert f['sources'].get('pere') is None and f['sources'].get('mere') is None and isinstance(f['sources'].get('conjoints'), dict) and re.match(re.escape(nom) + r'.*(épouse|compagne de) Bayezid Ier', f['sources']['conjoints'].get('fait') or '') and f['lacunes'].get('conjoints') is None and isinstance(f['lacunes'].get('pere'), str) and 'aucune absence attestée' in f['lacunes']['pere'] and isinstance(f['lacunes'].get('mere'), str) and 'aucune absence attestée' in f['lacunes']['mere']
             else:
                 pere = f['sources'].get('pere')
-                assert isinstance(pere, dict) and 'Bayezid Ier' in (pere.get('fait') or '') and f['sources'].get('conjoints') is None and isinstance(f['lacunes'].get('conjoints'), str) and 'aucune absence attestée' in f['lacunes']['conjoints']
+                assert isinstance(pere, dict) and re.fullmatch(re.escape(nom) + r' est (fils|fille) de Bayezid Ier\.', pere.get('fait') or '') and f['sources'].get('conjoints') is None and isinstance(f['lacunes'].get('conjoints'), str) and 'aucune absence attestée' in f['lacunes']['conjoints']
                 if mere:
                     mere_source = f['sources'].get('mere')
-                    assert isinstance(mere_source, dict) and fiches['personne-' + mere]['nom'] in (mere_source.get('fait') or '')
+                    assert isinstance(mere_source, dict) and re.match(re.escape(nom) + r' est (fils|fille) de Bayezid Ier et d(e |’)' + re.escape(next(o[1] for o in OTTOMANS if o[0] == mere)), mere_source.get('fait') or '')
                 else:
                     assert f['sources'].get('mere') is None and isinstance(f['lacunes'].get('mere'), str)
                     _reperes_voisins(f['lacunes']['mere'], (nom, 'n’établissent pas', 'aucune absence attestée'))
@@ -2867,11 +2867,11 @@ def test_familles_historiques_ottomans():
             for r in row[7]:
                 c = copy.deepcopy(d); c[t][j]['sources'], c[t][j]['lacunes'] = remplacer(f['sources'], r), remplacer(f['lacunes'], r); refuse(c)
             if row[5]:
-                refuse(_alterer_personnages(d, (t, j, 'conjoints'), [])); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'pere'), 'hors sujet'))
+                refuse(_alterer_personnages(d, (t, j, 'conjoints'), [])); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'pere'), 'hors sujet')); refuse(_alterer_personnages(d, (t, j, 'sources', 'conjoints', 'fait'), f'{row[1]} est sœur de Bayezid Ier en 1390.'))
             else:
-                refuse(_alterer_personnages(d, (t, j, 'pere'), None))
+                refuse(_alterer_personnages(d, (t, j, 'pere'), None)); refuse(_alterer_personnages(d, (t, j, 'sources', 'pere', 'fait'), f'{row[1]} est sœur de Bayezid Ier.'))
                 if row[4]:
-                    refuse(_alterer_personnages(d, (t, j, 'mere'), None)); refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-olivera-despina' if row[4] != 'olivera-despina' else 'personne-devletsah-hatun'))
+                    refuse(_alterer_personnages(d, (t, j, 'mere'), None)); refuse(_alterer_personnages(d, (t, j, 'sources', 'mere', 'fait'), f'{row[1]} est sœur de Bayezid Ier et de {next(o[1] for o in OTTOMANS if o[0] == row[4])}.')); refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-olivera-despina' if row[4] != 'olivera-despina' else 'personne-devletsah-hatun'))
                 else:
                     refuse(_alterer_personnages(d, (t, j, 'mere'), 'personne-devletsah-hatun')); refuse(_alterer_personnages(d, (t, j, 'lacunes', 'mere'), f['lacunes']['mere'].replace('n’établissent pas', 'inconnu')))
     c = copy.deepcopy(d); next(x for x in c['familles'] if x['id'] == 'personne-devlet-hatun')['nom'] = 'Devletşah Hatun'; refuse(c)
