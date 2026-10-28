@@ -38,6 +38,9 @@ namespace ForgeLocal3D
         public const string Revetement="terre";public double largeur=4;
         // Piloté par le contrôle : ni souris ni clavier, et Attendre appelé par lui.
         public bool automatique;
+        // Lot 788 : maillage et matériau VAT de #786, référencés par les deux scènes de ville.
+        public Mesh maillageCivil;public Material materiauCivil;
+        PassantsDeLaVille passants;
         readonly List<(double x,double y)> points=new();
         public (double x,double y)[] Derniers{get;private set;}=new (double,double)[0];
         public string Message{get;private set;}="";
@@ -114,6 +117,7 @@ namespace ForgeLocal3D
             try{batiments=new DesertBatiments(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurBatiments=e.Message;}
             rues1400=new DesertRues1400(transform,roads.terrain,roads.terreBattue);maisons=new DesertMaisons1400(transform,roads.terrain);
+            passants=gameObject.AddComponent<PassantsDeLaVille>();passants.Brancher(maillageCivil,materiauCivil,roads.terrain,this);
             Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
         }
         void Start()=>Ouvrir();
@@ -341,7 +345,7 @@ namespace ForgeLocal3D
             if(!lu.Presente){Afficher(prefixePlan+lu.Absence);return false;}
             if(!LireParametres(out var parametres))return false;
             if(!roads.ResoudreRelief(parametres.parametres,cell.Relief,out var facteur,out var cause)){Afficher("Cellule "+c+" : "+cause);return false;}
-            if(changer){Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;}
+            if(changer){if(cellule!=Cellule)passants?.Retirer();Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;}
             Ouverture.Clear();essayees.Clear();TickOuverture=-1;
             roads.AppliquerRelief(facteur,cell.Relief);reliefOuvert=cell.Relief;
             DessinerOuverture(lu.Plan,parametres);

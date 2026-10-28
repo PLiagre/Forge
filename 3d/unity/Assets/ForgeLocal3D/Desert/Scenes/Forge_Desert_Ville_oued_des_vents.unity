@@ -511,6 +511,8 @@ MonoBehaviour:
   revetement: terre
   largeur: 4
   automatique: 0
+  maillageCivil: {fileID: -6971062484143976605, guid: 43f43922d494485a8ef2ddb5de73ad9a, type: 3}
+  materiauCivil: {fileID: 824252400571020364, guid: 43f43922d494485a8ef2ddb5de73ad9a, type: 3}
 --- !u!114 &1042995868
 MonoBehaviour:
   m_ObjectHideFlags: 0
