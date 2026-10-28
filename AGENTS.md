@@ -1,8 +1,9 @@
 # AGENTS.md — les règles, en une page
 
-Forge est un jeu de grande stratégie : une petite dynastie réelle de 1400,
-de sa capitale à l'État, contre une IA qui a ses outils, dans **une seule
-simulation** ([docs/VISION.md](docs/VISION.md)). L'ordre dans lequel on le
+Forge est un jeu de grande stratégie à la manière d'Europa Universalis IV : un
+monde de 1400 qui tourne seul, et un pays réel qu'on y fait évoluer depuis la
+carte, contre une IA qui a ses outils, dans **une seule simulation**
+([docs/VISION.md](docs/VISION.md)). L'ordre dans lequel on le
 construit : [CAP.md](CAP.md). Tout s'écrit en **français clair**.
 
 ## 1. Le mode direct — le propriétaire est là
@@ -96,9 +97,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
 Leur raison est dans [docs/VISION.md](docs/VISION.md), dans le même ordre.
 
 1. **Une seule simulation** : `jeu/sim/`. Les vues (tableau, chronique,
-   relief, Unity) lisent ; elles ne décident jamais un nombre. La bataille
-   tactique n'est pas une vue : elle reçoit du monde ses hommes et son
-   terrain, et lui rend ses pertes.
+ relief, Unity) lisent ; elles ne décident jamais un nombre. La bataille
+ n'est pas une vue : elle se calcule dans `sim/` avec les hommes et le
+ terrain du monde, et lui rend ses pertes.
 2. **Le monde raisonne en monde.** Interdit : « si famine alors +20 % de
    criminalité ». Exigé : ils ont faim, ils cherchent, certains volent. Les
    personnages et l'IA aussi.
