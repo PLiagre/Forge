@@ -289,7 +289,13 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     from sim.snapshot_export import serialize_snapshot
     monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: pytest.fail('IA sans option'))
     ancienne = {0: '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9', 30: '4775cd7c576c32b4b647b8bd9f82061ac1216b5c658969afd254fdcf081cf694'}[ticks]
-    chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
+    if ticks == 30:
+        # Réponse A (#705) : toutes les empreintes historiques sur le même témoin.
+        with monkeypatch.context() as ctx:
+            ctx.setattr('sim.foyers.facteur_bras', lambda *a: 1.0)
+            chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
+    else:
+        chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
     # Lot #393 : chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
     assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '10c8ddc27e5d95d54ab40f3abaef247cea004896d2f015c9a5c543d377b26bf3', 30: 'b2d3dc6df84e60c512bb12346e5d0ea96e43fb3dd14e54ea797129f28cf6435b'}[ticks]
@@ -320,6 +326,13 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     autre = next(m.id for m in World.charger(0).maisons if m.id != photo['cells'][0]['lieux'][0]['maitre'])
     photo['cells'][0]['lieux'][0]['maitre'] = autre
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(photo)).hexdigest() == empreinte
+    if ticks == 30:
+        normal, _ = _simuler(ticks, 0, tmp_path / 'normal.json')
+        def controler(octets):
+            assert hashlib.sha256(octets).hexdigest() == '0877f8ce0d41a3ba6a8a4d9bec8780232ba122e336afb403501afeecadb55613'
+        controler(normal.read_bytes())
+        with pytest.raises(AssertionError):
+            controler(normal.read_bytes() + b' ')
 
 
 @pytest.mark.parametrize('cas', ['inconnu', 'double', 'sans_tick', 'donnee', 'position', 'intention', 'export', 'export_io'])
