@@ -21,20 +21,20 @@ namespace Forge.Interface
             var ouvrir = SocleInterface.Commande(toile, "Menu", 330, 20, Basculer);
             ouvrir.GetComponent<RectTransform>().sizeDelta = new Vector2(120, 44);
             ouvrir.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(120, 44);
-            panneau = SocleInterface.Panneau(toile, "Menu du cabinet", 24, 124, 740, 760);
+            panneau = SocleInterface.Panneau(toile, "Menu du cabinet", 24, 124, 740, 732);
             retour = SocleInterface.Commande(panneau, "Revenir au jeu", 24, 88, Fermer);
             var aide = SocleInterface.Texte(panneau,
                 "PARCOURIR\nGlisser avec le bouton du milieu : déplacer la carte.\nMolette sur la carte : zoomer.\nClic droit sur une terre : conserver son dossier.\nMolette dans un dossier : faire défiler son contenu.\n\nDÉCIDER\nChoisissez une maison, puis confirmez votre choix.\nUn ordre reçu attend le prochain tick du monde.\nPause et Reprendre restent dans le bandeau.\n\nCLAVIER\nTabulation ou flèches : parcourir les commandes.\nEntrée : activer la commande sélectionnée.\nÉchap : ouvrir ou fermer ce menu.", 24, 156, 692);
-            aide.rectTransform.sizeDelta = new Vector2(692, 370);
-            var libelle = SocleInterface.Texte(panneau, "Volume du jeu", 24, 544, 692);
+            aide.rectTransform.sizeDelta = new Vector2(692, 410);
+            var libelle = SocleInterface.Texte(panneau, "Volume du jeu", 24, 578, 692);
             var piste = new GameObject("Volume", typeof(RectTransform), typeof(Image), typeof(Slider));
             var rect = piste.GetComponent<RectTransform>(); rect.SetParent(panneau, false);
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
-            rect.anchoredPosition = new Vector2(24, -584); rect.sizeDelta = new Vector2(692, 44);
+            rect.anchoredPosition = new Vector2(24, -614); rect.sizeDelta = new Vector2(692, 36);
             piste.GetComponent<Image>().color = SocleInterface.Couleur("secondaire");
             var curseur = new GameObject("Curseur", typeof(RectTransform), typeof(Image)).GetComponent<RectTransform>();
             curseur.SetParent(rect, false); curseur.sizeDelta = new Vector2(16, 44);
-            curseur.GetComponent<Image>().color = SocleInterface.Couleur("papier");
+            curseur.GetComponent<Image>().color = SocleInterface.Couleur("or");
             var volume = piste.GetComponent<Slider>(); volume.handleRect = curseur;
             volume.targetGraphic = curseur.GetComponent<Image>(); volume.minValue = 0; volume.maxValue = 1;
             volume.SetValueWithoutNotify(AudioListener.volume);

@@ -15,21 +15,22 @@ Preuve commune : test rouge avant implémentation ; fixture non vide, capture Un
 | UI-03 | Horloge : suspendre et reprendre le monde | 02 | Pause/vitesse reçues ; réponse retardée ne doit pas inverser l’état | 240 | à faire |
 | UI-04 | Menu : entrer et revenir sans perdre le contexte | 01 | 44 tests verts, Échap/Tabulation et retour au territoire joués ; [preuve](MENU.md) | 190 | livré |
 | UI-05 | Départ : lire une terre et confirmer sa maison | 02, 04 | Fiche servie puis attente/application ; double dépôt échoue | 270 | à faire |
+| UI-06b | Carte apaisée : lire les puissances en pigments mats, les noms sans chevauchement et les commandes à leur signe | 06a, 07 | Pigment qui garde la teinte servie (rouge si repeint), 1016 verts ; captures du vrai cabinet regardées ; [preuve](ATLAS.md) | 160 | livré |
 | UI-06 | Cadre de carte : lire le territoire sans le masquer | 01, 03, 05 | Sélection et légende à 1080p ; clic à travers panneau échoue | 260 | à faire |
 | UI-07 | Calques : distinguer relief, maîtres et habitants | 06a | Puissances/habitants : deux rouges puis 46 verts, 596 cellules réelles ; relief absent déclaré ; [preuve](CALQUES.md) | 190 | en cours |
 | UI-08 | Lieu : reconnaître habitants, stocks et maître | 08a, 06a | Trois rouges puis 33 verts ; vrai service, lieux au même tick et défilement sans zoom de carte ; [preuve](TERRITOIRES.md) | 190 | livré |
 | UI-09 | Maison : situer siège, terres et suzerain | 08a | Trois rouges puis 42 verts et service réel ; [preuve](COMPTES.md) | 210 | livré |
-| UI-10 | Prélèvement : régler la part avec un reçu | 10a | 39 tests verts et service réel : 3 % pendant la pause, 20 % après tick ; [preuve](COMMANDES.md) | 240 | en cours |
-| UI-11 | Secours : ouvrir son grenier en connaissance du stock | 10a | Refus du service et cause visible, confirmation unique ; [preuve](COMMANDES.md) | 240 | en cours |
+| UI-10 | Prélèvement : régler la part avec un reçu | 10a | 39 tests verts et service réel : 3 % pendant la pause, 20 % après tick ; [preuve](COMMANDES.md) ; curseur de part par la chaîne (#759) | 240 | livré |
+| UI-11 | Secours : ouvrir son grenier en connaissance du stock | 10a | Refus du service et cause visible, confirmation unique ; [preuve](COMMANDES.md) ; bouton du grenier par la chaîne (#759) | 240 | livré |
 | UI-12 | Flux : lire prélevé, reçu, pertes et période | 09 | Données 30 jours, unités et absence explicites ; [preuve](COMPTES.md) | 210 | livré |
 | UI-13 | Trajets : relier une charge à sa destination | 07, 12, contrat routes | Trajet fourni et absence ; trajet inventé ou quantité locale échoue | 260 | à faire |
 | UI-14 | Voisins : lire leurs gestes et raisons | 09, `/ia` | Trois rouges puis 49 verts ; sept ordres réels, refus et raisons reçues ; [preuve](VOISINS.md) | 240 | livré |
 | UI-15a | Plan du bourg : consulter ses formes et revenir à la carte | 08, `/plan` | Quatre rouges puis 53 verts ; Bar et Milan reçus, retour sans perte de sélection ; [preuve](BOURG.md) | 280 | livré |
-| UI-15 | Passage en ville 3D : retrouver sa capitale et revenir | 15a, contrat transition J4 | Carte/ville/retour ; sélection perdue ou horloge locale échoue | 270 | à faire |
+| UI-15 | Passage en ville 3D : retrouver sa capitale et revenir | 15a, contrat transition J4 | Carte/ville/retour ; sélection perdue ou horloge locale échoue ; la chaîne a livré le double-clic sur le siège et le retour (#748, #749), sélection gardée au retour à vérifier | 270 | en cours |
 | UI-16 | Dossier du bourg : inspecter sans construire ailleurs | 08, 15 | Capitale, autre terre, kit absent ; outil actif sans droit échoue | 220 | à faire |
-| UI-17 | Route : tracer et annuler une intention | 15a, droit du maître du bourg | Quatre rouges puis 57 verts ; annulation, double confirmation unique et attente du tick jouées ; [preuve](RUE.md) | 280 | en cours |
+| UI-17 | Route : tracer et annuler une intention | 15a, droit du maître du bourg | Quatre rouges puis 57 verts ; annulation, double confirmation unique et attente du tick jouées ; [preuve](RUE.md), PR #708 | 280 | livré |
 | UI-18 | Parcelle et atelier : préparer la construction | 17 | Outil choisi, cible, refus ; double intention sur un clic échoue | 275 | à faire |
-| UI-19a | Chantier : suivre travail, grain payé et motifs d’arrêt | 15a, `/plan` | Six rouges puis 102 verts ; Bar/Milan, avancement au tick, capture et commandes sans recouvrement ; [preuve](CHANTIERS.md) | 280 | en cours |
+| UI-19a | Chantier : suivre travail, grain payé et motifs d’arrêt | 15a, `/plan` | Six rouges puis 102 verts ; Bar/Milan, avancement au tick, capture et commandes sans recouvrement ; [preuve](CHANTIERS.md), PR #713 | 280 | livré |
 | UI-19 | Chantier et enceinte : compléter les engagements de construction | 19a, 16, J4 enceinte | Fiche reçue ; coût absent transformé en gratuit échoue | 250 | à faire |
 | UI-20 | Personnage : reconnaître chef, traits et ambitions | 09, J6 personnes | Portrait et identité reçue ; trait absent inventé échoue | 250 | à faire |
 | UI-21 | Famille : lire parenté et héritier désigné | 20, J6 succession | Arbre et partage fourni ; héritier choisi localement échoue | 275 | à faire |
