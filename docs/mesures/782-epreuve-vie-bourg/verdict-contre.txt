@@ -1,0 +1,7 @@
+ÉCART
+code 1
+graine 0 · drapeau transmis à la session : -forgeGarderEtalPlein
+Biskra servie : cellule 10103 · drapeau contre_epreuve du rapport : True (affiché, jamais jugé)
+nourrie : tick 0 (local 0) · 165 habitants · 1652 kg · faim 0 · 33 maisons · fumées 33/33 · étal garni, 3 garniture(s) visible(s) — servi : tick 0 · 165 habitants · 1652.0 kg · faim 0 · 33 foyers
+affamee : tick 0 (local 0) · 165 habitants · 0 kg · faim 1 · 33 maisons · fumées 0/33 · étal garni, 3 garniture(s) visible(s) — servi : tick 0 · 165 habitants · 0.0 kg · faim 1 · 33 foyers
+affamee étal : étal plein en famine : 3 garniture(s) visible(s), étal nourriture visible, référence [1652] kg · attendu 0 garniture visible, étal nourriture caché, nourriture servie 0.0 kg · ÉCART
