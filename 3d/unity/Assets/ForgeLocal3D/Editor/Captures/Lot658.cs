@@ -14,10 +14,10 @@ namespace ForgeLocal3D.Captures
     static class Lot658
     {
         const string SIEGE = "Mistra", RETIRER = "-forge658RetirerDu", TICKS_ARG = "-forgeTicks",CONFIRMER = "Confirmer l’ordre", FEUILLET = "Terres et comptes"; const int IMAGES = 10, TICKS = 30; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
-        static CarteDessinee carte; static Transform toile, racine; static string N(long v) => v.ToString(Inv); static readonly CultureInfo Inv = CultureInfo.InvariantCulture, Fr = CultureInfo.GetCultureInfo("fr-FR"); static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
+        static CarteDessinee carte; static Transform toile, racine; static string N(long v) => v.ToString(Inv); static readonly CultureInfo Inv = CultureInfo.InvariantCulture; static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
         static InvalidOperationException Echec(string c) => new InvalidOperationException(c); // Le parcours part du tick demandé au service : `-forgeTicks` (0 dans SC5), sinon le défaut de `ForgeCapture` (30), que le pilote du PC laisse.
         static long Depart() { var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, TICKS_ARG); return i >= 0 && i + 1 < a.Length ? long.Parse(a[i + 1], Inv) : 30; }
-        sealed class Attendu { public string Haut; public PointCarte Siege, PHaut; public double Preleve, Du, SurPlace = -1; public List<long> Cells = new List<long>(); public List<(string couple, PointCarte p, double kg)> Lieux = new List<(string, PointCarte, double)>(); }
+        sealed class Attendu { public string Haut; public PointCarte Siege, PHaut; public double Preleve, Du, SurPlace = -1; public DateDuMonde Date; public List<long> Cells = new List<long>(); public List<(string couple, PointCarte p, double kg)> Lieux = new List<(string, PointCarte, double)>(); }
         [ScenarioDeCapture(658, "fleches-du-siege")] static IEnumerator FlechesDuSiege(Camera camera)
         {
             var ouverte = new Lot549.CarteOuverte(); for (var e = Lot549.Ouvrir(camera, ouverte); e.MoveNext();) yield return null;
@@ -39,7 +39,7 @@ namespace ForgeLocal3D.Captures
             var bouton = toile.GetComponentsInChildren<Button>(true).Where(b => b.name == FEUILLET).ToArray(); if (bouton.Length != 1 || !bouton[0].interactable) throw Echec(bouton.Length + " boutons « " + FEUILLET + " »"); bouton[0].onClick.Invoke();
             var lu = Task.Run(() => Lire(port, maison, fin)); for (var e = Lot690.Attendre(lu, "lectures indépendantes"); e.MoveNext();) yield return null; var at = lu.Result;
             string[] lignes = at.Lieux.Select(l => "\nLieu " + l.couple + " → " + SIEGE + " : " + FlechesDeCarte.Kg(l.kg)).Concat(new[] { "\n" + SIEGE + " : " + FlechesDeCarte.Kg(at.SurPlace) + " prélevés sur place", "\n" + SIEGE + " → " + at.Haut + " : " + FlechesDeCarte.Kg(at.Du) + " de dû" }).ToArray();
-            string[] feuillet = { " · tick " + N(fin) + Environment.NewLine, "Prélevé : " + at.Preleve.ToString("0.##", Fr) + " kg" + Environment.NewLine, "Dû envoyé : " + at.Du.ToString("0.##", Fr) + " kg" + Environment.NewLine };
+            string[] feuillet = { " · " + TexteDuMonde.Date(at.Date) + Environment.NewLine, "Prélevé : " + TexteDuMonde.Masse(at.Preleve) + Environment.NewLine, "Dû envoyé : " + TexteDuMonde.Masse(at.Du) + Environment.NewLine };
             for (var e = Lot690.Jusqua(() => vue.TexteLegende != null && lignes.All(vue.TexteLegende.Contains) && disques.TexteLegende != null && at.Cells.All(c => disques.TexteLegende.Contains("\nCellule " + N(c) + " au tick " + N(fin))) && dossier.TexteAffiche != null && feuillet.All(dossier.TexteAffiche.Contains),
                 () => "flèches « " + Ligne(vue.TexteLegende) + " » feuillet « " + Ligne(dossier.TexteAffiche) + " » attendu « " + Ligne(string.Join("", lignes)) + " »"); e.MoveNext();) yield return null;
             Lot549.Photographier(camera, carte); camera.rect = new Rect(0f, 0f, 1f, 1f); var canvas = toile.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = camera.nearClipPlane + 0.2f;
@@ -86,9 +86,9 @@ namespace ForgeLocal3D.Captures
         {
             using (var monde = new ClientMonde(port, TimeSpan.FromSeconds(20))) using (var maisons = new ClientMaison(port, TimeSpan.FromSeconds(20))) using (var lieux = new ClientLieu(port, TimeSpan.FromSeconds(20)))
             {
-                Lot690.ExigerMonde(monde.LireAvecMaison(), tick, id, "lecture indépendante"); var j = maisons.LireComptes(id); if (!j.Presente || j.Donnees.Maison.Siege.Nom != SIEGE || j.Donnees.Maison.Siege.Position == null || j.Donnees.Suzerain == null) throw Echec("comptes " + (j.Absence ?? "sans siège sur carte ou sans suzerain"));
+                var servi = monde.LireAvecMaison(); Lot690.ExigerMonde(servi, tick, id, "lecture indépendante"); var j = maisons.LireComptes(id); if (!j.Presente || j.Donnees.Maison.Siege.Nom != SIEGE || j.Donnees.Maison.Siege.Position == null || j.Donnees.Suzerain == null) throw Echec("comptes " + (j.Absence ?? "sans siège sur carte ou sans suzerain"));
                 var s = maisons.LireComptes(j.Donnees.Suzerain); if (!s.Presente || s.Donnees.Maison.Siege.Position == null) throw Echec("suzerain " + j.Donnees.Suzerain + " : " + (s.Absence ?? "siège hors carte"));
-                var siege = j.Donnees.Maison.Siege; var at = new Attendu { Siege = siege.Position.Value, Haut = s.Donnees.Maison.Siege.Nom, PHaut = s.Donnees.Maison.Siege.Position.Value, Preleve = j.Donnees.Flux.PreleveKg, Du = j.Donnees.Flux.DuEnvoyeKg };
+                var siege = j.Donnees.Maison.Siege; var at = new Attendu { Siege = siege.Position.Value, Haut = s.Donnees.Maison.Siege.Nom, PHaut = s.Donnees.Maison.Siege.Position.Value, Preleve = j.Donnees.Flux.PreleveKg, Du = j.Donnees.Flux.DuEnvoyeKg, Date = servi.Donnees.Monde.Date };
                 foreach (var t in j.Donnees.Maison.Lieux) if (!at.Cells.Contains(t.CellId)) at.Cells.Add(t.CellId);
                 foreach (long cell in at.Cells)
                 {
