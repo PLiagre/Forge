@@ -789,5 +789,93 @@ namespace Forge.Pont.Tests
             Fermer();
             Absente(Vie(c => c.LireBourg(CellFigee)), "service absent"); Absente(Vie(c => c.LireOccupation(CellFigee)), "service absent");
         }
+
+        // Lot #871 — le nom servi de chaque lieu ; la mutation vise l'entrée lieux[1], jamais le bloc `noms` qui la répète.
+        private const string NomDuSecond = "\"plausible-9922-0\",\"nom\":\"Övre dal\"";
+        private static Dictionary<string, object> Second(string corps) => (Dictionary<string, object>)((List<object>)LecteurJson.LireObjet(corps)["lieux"])[1];
+        private static Lieu Terre(long cell, string nom, string absence = null) =>
+            new Lieu(cell, 1, 1400, 1, 1, new Dictionary<string, double>(), 0, 0, lieux: new[] { new LieuPlace(1, null, null, nom: "autre"), new LieuPlace(0, null, null, nom: nom, absenceDuNom: absence) });
+        private static void Attendre(NomsDesTerres noms) => Assert.IsTrue(SpinWait.SpinUntil(() => !noms.LectureEnVol, 10000), "la lecture finit");
+
+        [Test] public void ChaqueLieuPorteSonNomServi()
+        {
+            string texte = TexteFige("lieu-graine0-tick3.json");
+            var attendus = (List<object>)LecteurJson.LireObjet(texte)["lieux"];
+            Lieu lieu = Servi(texte);
+            Assert.IsTrue(attendus.Count > 1 && lieu.Lieux.Count == attendus.Count, "échantillon de lieux");
+            for (int i = 0; i < attendus.Count; i++)
+                Assert.IsTrue(lieu.Lieux[i].Nom == (string)((Dictionary<string, object>)attendus[i])["nom"] && lieu.Lieux[i].AbsenceDuNom == null, "nom du lieu " + i);
+            Assert.AreEqual("Övre vik", lieu.Lieux[0].Nom); Assert.AreEqual("Övre dal", lieu.Lieux[1].Nom);
+            Fermer(); Lieu change = Servi(Remplacer(texte, NomDuSecond, "\"plausible-9922-0\",\"nom\":\"Mistra\""));
+            Assert.IsTrue(change.Lieux[1].Nom == "Mistra" && change.Lieux[0].Nom == "Övre vik", "seul le second lieu change de nom");
+        }
+
+        [TestCase("retrait", "absente")] [TestCase("null", "null déclaré")]
+        public void UnNomAbsentOuNulResteNulAvecSaRaison(string cas, string cause)
+        {
+            string corps = Remplacer(TexteFige("lieu-graine0-tick3.json"), NomDuSecond, "\"plausible-9922-0\"" + (cas == "retrait" ? "" : ",\"nom\":null"));
+            var second = Second(corps);
+            Assert.IsTrue(cas == "retrait" ? !second.ContainsKey("nom") : second.ContainsKey("nom") && second["nom"] == null, "la mutation touche lieux[1].nom");
+            LieuPlace lu = Servi(corps).Lieux[1];
+            Assert.IsNull(lu.Nom, "ni le rang, ni la cellule, ni le maître ne remplacent un nom absent");
+            StringAssert.Contains("lieux[1].nom", lu.AbsenceDuNom); StringAssert.Contains(cause, lu.AbsenceDuNom);
+            Assert.IsTrue(lu.Rang == (long)(double)second["rang"] && lu.Maitre == (string)second["maitre"] && lu.Population == (long)(double)second["population"], "le reste du lieu est lu");
+        }
+
+        [TestCase("nombre", "27")] [TestCase("blanc", "\" \"")] [TestCase("booléen", "true")]
+        public void UnNomMalFormeRefuseToutLeLieu(string cas, string valeur)
+        {
+            string corps = Remplacer(TexteFige("lieu-graine0-tick3.json"), NomDuSecond, "\"plausible-9922-0\",\"nom\":" + valeur);
+            Assert.IsTrue(Equals(LecteurJson.LireObjet("{\"v\":" + valeur + "}")["v"], Second(corps)["nom"]), "la mutation touche lieux[1].nom : " + cas);
+            Servir(200, corps);
+            StringAssert.Contains("clé lieux[1].nom :", Absence(CellFigee).Absence);
+        }
+
+        [Test] public void LesNomsDesTerresViennentDuService()
+        {
+            Servir(200, TexteFige("lieu-graine0-tick3.json"));
+            var noms = NomsDesTerres.Local(port);
+            Assert.IsNull(noms.Bourg(CellFigee, 0)); StringAssert.Contains("en cours", noms.Raison(CellFigee, 0));
+            Attendre(noms);
+            Assert.AreEqual("Övre vik", noms.Bourg(CellFigee, 0.1)); Assert.AreEqual("Övre dal", noms.Nom(CellFigee, 1, 0.1));
+            Assert.IsNull(noms.Raison(CellFigee, 0));
+            Assert.IsNull(noms.Nom(CellFigee, 999, 0.1)); Assert.AreEqual("aucun lieu de ce rang dans la terre", noms.Raison(CellFigee, 999));
+            Fermer();
+            Assert.AreEqual("Övre vik", noms.Bourg(CellFigee, 5)); Assert.IsFalse(noms.LectureEnVol, "un nom lu ne se relit pas");
+        }
+
+        [Test] public void UneSeuleLectureALaFoisHorsDuFilPrincipal()
+        {
+            var appels = new List<(long Cell, int Fil)>(); var premiere = new ManualResetEventSlim(false); var seconde = new ManualResetEventSlim(false); int test = Thread.CurrentThread.ManagedThreadId;
+            var noms = new NomsDesTerres(cell => { lock (appels) appels.Add((cell, Thread.CurrentThread.ManagedThreadId)); (cell == 1 ? premiere : seconde).Wait(10000); return LectureLieu.De(Terre(cell, "terre-" + cell)); });
+            Assert.IsNull(noms.Bourg(1, 0)); Assert.IsNull(noms.Bourg(2, 0)); Assert.IsNull(noms.Bourg(1, 0));
+            Assert.IsTrue(SpinWait.SpinUntil(() => { lock (appels) return appels.Count > 0; }, 10000), "la lecture part");
+            Thread.Sleep(200);
+            lock (appels) Assert.IsTrue(appels.Count == 1 && appels[0].Cell == 1 && appels[0].Fil != test, "une seule lecture, celle de la cellule 1, hors du fil du test");
+            Assert.IsTrue(noms.LectureEnVol);
+            premiere.Set(); Attendre(noms);
+            Assert.IsNull(noms.Bourg(2, 0.5)); Assert.IsTrue(noms.LectureEnVol, "la cellule 2 part une fois la 1 finie");
+            Assert.AreEqual("terre-1", noms.Bourg(1, 0.5));
+            seconde.Set(); Attendre(noms); Assert.AreEqual("terre-2", noms.Bourg(2, 0.6));
+            lock (appels) CollectionAssert.AreEqual(new long[] { 1, 2 }, appels.Select(a => a.Cell).ToArray());
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void UnEchecSeRetenteDeuxSecondesPlusTard(bool leve)
+        {
+            int appels = 0; var porte = new ManualResetEventSlim(false);
+            var noms = new NomsDesTerres(cell => { int n = Interlocked.Increment(ref appels); if (n > 1) porte.Wait(10000); return n > 1 ? LectureLieu.De(Terre(cell, "Biskra")) : leve ? throw new InvalidOperationException("panne") : LectureLieu.Absent("service coupé"); });
+            Assert.IsNull(noms.Bourg(1, 10)); Attendre(noms);
+            Assert.IsNull(noms.Bourg(1, 10)); StringAssert.Contains(leve ? "panne" : "service coupé", noms.Raison(1, 0));
+            Assert.IsNull(noms.Bourg(1, 11.99)); Assert.IsTrue(appels == 1 && !noms.LectureEnVol, "aucune relance avant deux secondes");
+            Assert.IsNull(noms.Bourg(1, 12)); Assert.IsTrue(noms.LectureEnVol, "la relance part à deux secondes"); porte.Set(); Attendre(noms);
+            Assert.AreEqual("Biskra", noms.Bourg(1, 12.1)); Assert.IsTrue(appels == 2 && noms.Raison(1, 0) == null);
+            int lectures = 0;
+            var muets = new NomsDesTerres(cell => { Interlocked.Increment(ref lectures); return LectureLieu.De(Terre(cell, null, "clé lieux[1].nom : null déclaré, nom non fourni")); });
+            Assert.IsNull(muets.Bourg(3, 0)); Attendre(muets);
+            Assert.IsNull(muets.Bourg(3, 0.1)); Assert.IsNull(muets.Bourg(3, 5)); StringAssert.Contains("null déclaré", muets.Raison(3, 0));
+            Assert.IsTrue(lectures == 1 && !muets.LectureEnVol, "un nom nul lu ne se relit plus");
+            Assert.Throws<ArgumentNullException>(() => new NomsDesTerres(null));
+        }
     }
 }
