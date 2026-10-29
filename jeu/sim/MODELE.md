@@ -2780,6 +2780,8 @@ son plan ; Intentions, Chantiers, Ateliers et Commerce le lisent via leurs modul
 y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
 des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
+Les lignes `chantiers_du_jour` et `recolte_perdue_par_chantier` de `/plan` suivent l'ordre rue/parcelle/bâtiment/enceinte, puis l'identifiant : la ligne `{"nature": "enceinte", "identifiant": 0, …}`, clé `(cell_id, "enceinte", 0)`, vient après les bâtiments.
+
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
 `parcelles`, `batiments`, `enceinte` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
 la photographie du tick : une lecture n'attend pas son calcul et ne consulte
@@ -2972,6 +2974,8 @@ Le plan est reconstruit par `Plan(rues=…, parcelles=…, batiments=…)`, en m
 seulement si une rue, une parcelle ou un bâtiment reçoit du travail ; sinon
 il reste le même objet. Une ouverture autonome reconstruit aussi le plan ; sans candidat ni chantier, aucune écriture nouvelle.
 
+L'enceinte tracée (niveau 2, aucune constante nouvelle) est servie en dernier, après les bâtiments, sur le même compte de journées payables : clé `(cell_id, "enceinte", 0)`, l'identifiant `0` n'étant qu'un nom d'observation, jamais stocké sur l'`Enceinte`. Elle prend le minimum des bras admissibles, de `foyers × TAILLE_FOYER`, du travail restant et des journées payables, au bourg puis aux autres lieux du même maître par rang croissant ; un lieu d'un autre maître ne donne rien. À zéro bras, le motif suit la priorité ci-dessus sans `parcelle_en_chantier`, l'entrée existe et l'enceinte reste le même objet. Au requis, `en_chantier` devient faux, l'entrée est observée ce jour puis disparaît, et les ouvriers reviennent aux champs le lendemain. Une enceinte seule en chantier rend le plan actif ; le plan est reconstruit, enceinte servie comprise, si une liste ou l'enceinte a reçu du travail. Matériaux, portes, hauteur, entretien, effet défensif et priorité choisie par le joueur restent de niveau 3, non simulés. Une ouverture autonome reconstruit aussi le plan ; sans candidat ni chantier, aucune écriture nouvelle.
+
 Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel.
 Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock / salaire)` borne les bras avant tout travail.
 Sans lieux, bourg, maître ou grenier déclaré, aucun salaire ; une nourriture absente vaut zéro. Les cellules se partagent la réserve courante dans leur ordre. Les journées réellement fournies débitent exactement leur salaire et le versent au seul panier du bourg et au total cellulaire, deux représentations du même stock ; la reprise intérieure conserve cette destination.
@@ -3003,6 +3007,7 @@ niveau 3, comme les effets locaux des rues achevées autres que le chemin vers u
 spécialisés et une priorité choisie par le joueur entre chantiers.
 
 Pour chaque chantier ordinaire, le nombre de bras pris à chaque lieu reste une observation renouvelée, absente des sauvegardes et sans effet sur le travail, le salaire ou la récolte. À la production, sans nouveau tirage ni second tick, on mesure l'écart entre la récolte des bras restés aux champs et la même récolte au même rendement, avant prélèvement, si tous les bras des chantiers du jour étaient rendus à leur lieu. Cet écart est partagé au prorata des bras pris dans le lieu ; la somme des parts égale exactement l'écart mesuré, le dernier chantier du lieu recevant le reliquat flottant. Des bras encore excédentaires ne créent aucun coût. Le résultat publié est `recolte_perdue_par_chantier`, en kilogrammes (`recolte_perdue_kg`), sans arrondi. Une autoconstruction, un chantier sans bras ou un coût nul n'ajoute aucune ligne ; le champ est alors absent.
+L'ordre des chantiers, pour ce prorata comme pour `/plan`, est rue/parcelle/bâtiment/enceinte, puis l'identifiant : `recolte_perdue_par_chantier` porte la ligne `enceinte` après les bâtiments.
 
 ---
 

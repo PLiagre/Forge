@@ -345,7 +345,7 @@ class ServeurMonde(ThreadingHTTPServer):
         monde = _serialiser(document)
         chantiers = {}
         pertes = {}
-        natures = ("rue", "parcelle", "batiment")
+        natures = ("rue", "parcelle", "batiment", "enceinte")
         for cle, observation in self.world.chantiers_du_jour.items():
             cell_id, *categorie, identifiant = cle
             nature = categorie[0] if categorie else "rue"
