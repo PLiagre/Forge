@@ -2073,7 +2073,7 @@ Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le
 `POST /intention`, `python3 -m sim --gestes` et des routes déposées par l'IA.
 La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `tracer_route` dépose une route, `decouper_parcelle` une parcelle,
-`poser_batiment` un bâtiment, `fixer_part` une part, `ouvrir_grenier` une ouverture ; tout autre type lève
+`poser_batiment` un bâtiment, `tracer_enceinte` une enceinte, `fixer_part` une part, `ouvrir_grenier` une ouverture ; tout autre type lève
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
@@ -2206,6 +2206,8 @@ bâtiment (ou −1) plus un, la parcelle, la nature et les foyers du dépôt,
 `en_chantier=True`, zéro journée fournie et le requis calculé à l'application
 par `travail_requis_de_batiment(emprise)`. Le nouveau `Plan` reprend rues et
 parcelles telles quelles, sans écrire de cellule.
+
+`{"type": "tracer_enceinte", "maison": M, "cell": C, "points": [[x, y], …]}` gèle un `TracerEnceinte` ; `foyers` vaut 1. Refus : « enceinte : contour qui se croise », « enceinte : place de 1400 non entourée », « enceinte déjà tracée », « enceinte déjà promise ». `ASSISE_ENCEINTE_M` (6 m) est relue au contrôle, fermeture comprise. L'enceinte n'entre au plan qu'au tick suivant, en chantier, coût relu.
 
 Le service dépose tout objet JSON sous `verrou_tick`. Il répond 200 avec
 `{"acceptee": true, "appliquee_au_tick": <tick publié>}`, 400 pour une intention
@@ -2762,6 +2764,7 @@ TRAVAIL_ENCEINTE_JOURNEES_PAR_M))`. `TRAVAIL_ENCEINTE_JOURNEES_PAR_M = 30`
 est de niveau 2 et relue au calcul ; le périmètre referme le contour, du
 dernier point au premier. Intentions et Chantiers reconstruisent le plan
 en conservant cette enceinte, sans la recalculer.
+`{"type": "tracer_enceinte", "maison": M, "cell": C, "points": [[x, y], …]}` n'écrit l'enceinte qu'au tick suivant. Refus : « enceinte : contour qui se croise », « enceinte : place de 1400 non entourée », « enceinte déjà tracée », « enceinte déjà promise ». Assise `ASSISE_ENCEINTE_M` = 6 m.
 
 Chaque point est un couple `(x, y)` de nombres finis, sans booléen ni texte.
 Le repère est local au bourg : x vers l'est, y vers le nord, en mètres,

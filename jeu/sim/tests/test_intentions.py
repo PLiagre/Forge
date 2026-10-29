@@ -2320,3 +2320,178 @@ def test_enceinte_survit_aux_trois_gestes():
     appliquer({"type": "poser_batiment", "parcelle": 0, "nature": "maison", **geste})
     assert monde.plans[0].batiments[0].nature == "maison" and monde.plans[0].batiments[0].en_chantier
     assert monde.plans[0].parcelles[0] is parcelle and monde.plans[0].rues[0] is rue
+
+
+def _carre(cote):
+    return [[-cote, -cote], [cote, -cote], [cote, cote], [-cote, cote]]
+
+
+def _geste_enceinte(monde, cid, points, **extra):
+    return {"type": "tracer_enceinte", "cell": cid, "points": points,
+            "maison": next(l.maitre for l in monde.cells[cid].lieux if l.rang == 0), **extra}
+
+def test_enceinte_depot():
+    from sim.intentions import IntentionRefusee, TracerEnceinte, recevoir_intention
+    from sim.plan import Enceinte
+    monde = World.charger(0); assert monde.plans and monde.populations_bourg_amorcage
+    cid, carre = 10103, _carre(2000); geste = _geste_enceinte(monde, cid, carre); cas = []
+    def refuser(intention, mot):
+        avant, file = monde.to_dict(), list(monde.intentions_en_attente)
+        with pytest.raises(IntentionRefusee, match=mot): recevoir_intention(monde, intention)
+        assert monde.to_dict() == avant and monde.intentions_en_attente == file; cas.append(mot)
+    for champ in ("type", "maison", "cell", "points"):
+        retire = dict(geste); del retire[champ]; refuser(retire, "type" if champ == "type" else f"champ manquant : {champ}")
+    refuser(geste | {"surprise": 1}, "champ inconnu"); refuser(geste | {"points": [[0, 0], [1, 0]]}, "au moins")
+    refuser(geste | {"points": [[float("nan"), 0], [1, 0], [0, 1]]}, "nombre fini")
+    refuser(geste | {"foyers": 0}, "foyers"); refuser(geste | {"foyers": True}, "foyers")
+    refuser(geste | {"points": [[0, 0], [1, 1], [0, 1], [1, 0]]}, "contour qui se croise"); refuser(geste | {"points": [[0, 0], [4, 0], [2, 0], [2, 2]]}, "contour qui se croise")
+    refuser(geste | {"points": [[-200, -200], [200, -200], [200, 0], [-200, 0]]}, "place de 1400 non entourée")
+    refuser(geste | {"points": [[200, 200], [300, 200], [250, 300]]}, "place de 1400 non entourée")
+    population = monde.populations_bourg_amorcage.pop(cid)
+    try: refuser(geste, "inconnue du monde amorcé")
+    finally: monde.populations_bourg_amorcage[cid] = population
+    refuser(geste | {"cell": 10322}, "ce lieu n'est pas à toi : grande-3")
+    plan = monde.plans[cid]; monde.plans[cid] = replace(plan, enceinte=Enceinte(carre, True, 1, 1, 0))
+    try: refuser(geste, "enceinte déjà tracée")
+    finally: monde.plans[cid] = plan
+    assert cas; avant = monde.to_dict(); recu = recevoir_intention(monde, geste); geste["points"][0][0] = 0
+    assert isinstance(recu, TracerEnceinte) and recu.points[0] == (-2000, -2000) and recu.foyers == 1
+    assert monde.plans[cid] is plan and plan.enceinte is None and monde.to_dict() == avant
+    with pytest.raises(FrozenInstanceError): recu.foyers = 2
+    refuser(dict(geste, points=[list(p) for p in carre]), "enceinte déjà promise")
+    assert monde.intentions_en_attente == [recu]
+
+def test_enceinte_assise(monkeypatch):
+    from sim import constants as k
+    from sim import ville1400 as v
+    import sim.intentions as intentions
+    from sim.intentions import IntentionRefusee, recevoir_intention
+    monde = World.charger(0); assert k.ASSISE_ENCEINTE_M == 6 and monde.populations_bourg_amorcage
+    def bande(points, largeur, fermer):
+        cotes = list(zip(points, points[1:] + (points[:1] if fermer else [])))
+        return [v.emprise_de_rue(c, largeur) for c in cotes]
+    for cid in (10103, 10322):
+        base = v.base_de_cellule(monde, cid); assert base["maisons"]
+        xs = [p[0] for m in base["maisons"] for p in m["emprise"]]
+        ys = [p[1] for m in base["maisons"] for p in m["emprise"]]
+        porte, gauche = max(max(map(abs, xs)), max(map(abs, ys))) + 100, min(xs) - 2
+        canon = [(gauche, porte), (porte, porte), (porte, -porte), (gauche, -porte)]
+        maison = next(l.maitre for l in monde.cells[cid].lieux if l.rang == 0)
+        for debut in range(len(canon)):
+            points = canon[debut:] + canon[:debut]
+            rang = v.maison_touchee(base, bande(points, k.ASSISE_ENCEINTE_M, True))
+            ouvert = v.maison_touchee(base, bande(points, k.ASSISE_ENCEINTE_M, False))
+            assert rang is not None and (ouvert is None) == (debut == 0)
+            avant = monde.to_dict()
+            with pytest.raises(IntentionRefusee) as erreur:
+                recevoir_intention(monde, {"type": "tracer_enceinte", "maison": maison, "cell": cid, "points": points})
+            assert str(erreur.value) == f"cellule {cid} : maison de 1400 {rang} ({base['maisons'][rang]['foyers']} foyers) touchée"
+            assert monde.to_dict() == avant and not monde.intentions_en_attente
+        clair = _geste_enceinte(monde, cid, _carre(porte))
+        assert recevoir_intention(monde, clair).cell_id == cid and monde.plans[cid].enceinte is None
+        monde.intentions_en_attente.clear()
+        with monkeypatch.context() as sonde:
+            sonde.setattr(k, "ASSISE_ENCEINTE_M", 1)
+            assert recevoir_intention(monde, {"type": "tracer_enceinte", "maison": maison, "cell": cid, "points": [list(p) for p in canon]})
+            monde.intentions_en_attente.clear()
+        with monkeypatch.context() as sonde:
+            sonde.setattr(intentions, "_emprises", lambda points, largeur: bande(points, largeur, False))
+            assert recevoir_intention(monde, {"type": "tracer_enceinte", "maison": maison, "cell": cid, "points": [list(p) for p in canon]})
+            monde.intentions_en_attente.clear()
+    nu = World(cells=monde.cells, adjacency=list(monde.adjacency))
+    nu.maisons, nu.plans, nu.carte = monde.maisons, monde.plans, monde.carte
+    with pytest.raises(IntentionRefusee, match="amorçage"): recevoir_intention(nu, _geste_enceinte(monde, 10103, _carre(2000)))
+    assert not nu.intentions_en_attente and nu.populations_bourg_amorcage is None
+
+def test_enceinte_tick(monkeypatch):
+    import math
+    from sim import constants as k
+    from sim.chantiers import travail_requis_de_enceinte
+    from sim.intentions import recevoir_intention
+    from sim.tests.test_lieux import _construire_plan, _donnees_plan
+    monde, cid, points = World.charger(0), 10103, _carre(2000)
+    monde.plans[cid] = _construire_plan(_donnees_plan())
+    plan = monde.plans[cid]
+    rues, parcelles, batiments = plan.rues, plan.parcelles, plan.batiments
+    assert rues and parcelles and batiments
+    recevoir_intention(monde, _geste_enceinte(monde, cid, points, foyers=2))
+    assert monde.plans[cid] is plan and plan.enceinte is None
+    ancien = k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M
+    monkeypatch.setattr(k, "TRAVAIL_ENCEINTE_JOURNEES_PAR_M", ancien * 2)
+    engine.tick(monde, random.Random(0), 0)
+    enceinte, contour = monde.plans[cid].enceinte, tuple(tuple(p) for p in points)
+    ferme = sum(math.dist(a, b) for a, b in zip(contour, contour[1:] + contour[:1]))
+    ouvert = sum(math.dist(a, b) for a, b in zip(contour, contour[1:]))
+    assert (enceinte.en_chantier, enceinte.foyers, enceinte.travail_fourni, tuple(tuple(p) for p in enceinte.contour)) == (True, 2, 0, contour)
+    assert enceinte.travail_requis == travail_requis_de_enceinte(contour) == max(1, math.ceil(ferme * k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M))
+    assert enceinte.travail_requis not in (max(1, math.ceil(ouvert * k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M)), max(1, math.ceil(ferme * ancien)))
+    for attendu, obtenu in ((rues, monde.plans[cid].rues), (parcelles, monde.plans[cid].parcelles), (batiments, monde.plans[cid].batiments)):
+        assert len(obtenu) == len(attendu) > 0 and all(a is b for a, b in zip(attendu, obtenu))
+    with pytest.raises(AssertionError): assert enceinte.en_chantier is False or not rues or plan.enceinte is not None
+
+def test_enceinte_service(monkeypatch):
+    from sim import service
+    from sim.tests.test_monde import _service_ia_en_processus
+    journal, original = [], service.recevoir_intention
+    def recevoir(monde, intention):
+        assert serveur.verrou_tick.locked()
+        resultat = original(monde, intention); journal.append(deepcopy(intention)); return resultat
+    monkeypatch.setattr(service, "recevoir_intention", recevoir)
+    carre, biskra, paris = _carre(2000), 10103, 10322
+    with _service_ia_en_processus(ia=False) as (serveur, port):
+        geste = {"type": "tracer_enceinte", "cell": biskra, "points": carre}
+        def fige():
+            plans = [requete_service(port, f"/plan?cell={c}")[2] for c in (biskra, paris)]
+            return (serveur.world.ticks_ecoules, serveur.etat_publie, *plans,
+                    list(serveur.world.intentions_en_attente), list(serveur.releve), list(journal))
+        fige()
+        def refuser(intention, motif):
+            avant = fige(); statut, recu, _ = _poster(port, intention)
+            assert statut == HTTPStatus.BAD_REQUEST and motif in recu["erreur"] and fige() == avant
+        refuser(geste, "départ non appliqué")
+        _poster(port, {"type": "choisir_depart", "seigneurie": _id("Émirat du Zab")})
+        refuser(geste, "départ non appliqué")
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 1
+        refuser(geste | {"cell": paris}, "ce lieu n'est pas à toi : grande-3")
+        for identite in (None, "grande-3"):
+            avant = requete_service(port, f"/plan?cell={biskra}")[2]
+            assert b'"enceinte"' not in avant
+            assert _poster(port, dict(geste) if identite is None else geste | {"maison": identite})[:2] == (HTTPStatus.OK, {"acceptee": True, "appliquee_au_tick": 1})
+            assert journal[-1]["maison"] == "seigneurie-6" and requete_service(port, f"/plan?cell={biskra}")[2] == avant
+            serveur.world.intentions_en_attente.clear()
+        assert _poster(port, geste)[0] == HTTPStatus.OK
+        requete_service(port, "/tick?n=1", "POST")
+        enceinte = requete_service(port, f"/plan?cell={biskra}")[1]["enceinte"]
+        assert (enceinte["contour"], enceinte["en_chantier"], enceinte["foyers"], enceinte["travail_fourni"]) == (carre, True, 1, 0)
+
+def test_enceinte_cli(tmp_path):
+    import subprocess, sys
+    carre = _carre(2000)
+    geste = {"type": "tracer_enceinte", "maison": "seigneurie-6", "cell": 10103, "points": carre}
+    fichier, sortie = tmp_path / "gestes.json", tmp_path / "monde.json"
+    def jouer(intention):
+        sortie.unlink(missing_ok=True)
+        fichier.write_text(json.dumps([{"tick": 0, "intention": intention}]))
+        return subprocess.run([sys.executable, "-m", "sim", "--ticks", "1", "--seed", "0", "--gestes", str(fichier), "--monde-json", str(sortie)],
+                              cwd=Path(__file__).parents[2], capture_output=True, text=True)
+    octets = []
+    for _ in range(2):
+        resultat = jouer(geste); assert resultat.returncode == 0, resultat.stderr; octets.append(sortie.read_bytes())
+    assert octets[0] == octets[1]
+    enceinte = json.loads(octets[0])["plans"]["10103"]["enceinte"]
+    assert enceinte["contour"] == carre and enceinte["en_chantier"] and enceinte["travail_fourni"] == 0
+    sans = dict(geste); del sans["maison"]
+    for intention in (sans, geste | {"points": [[0, 0], [1, 1], [0, 1], [1, 0]]}):
+        assert jouer(intention).returncode == 2 and not sortie.exists()
+
+def test_enceinte_documentation(monkeypatch):
+    sim = Path(__file__).resolve().parents[1]
+    termes = ('{"type": "tracer_enceinte"', "enceinte : contour qui se croise", "enceinte : place de 1400 non entourée",
+              "enceinte déjà tracée", "enceinte déjà promise", "ASSISE_ENCEINTE_M", "au tick suivant")
+    def textes():
+        modele = (sim / "MODELE.md").read_text(encoding="utf-8")
+        return [modele.split("## " + t, 1)[1].split("\n## ", 1)[0] for t in ("Les intentions du joueur", "Le plan du bourg")] + [(sim / "README.md").read_text(encoding="utf-8")]
+    assert all(terme in texte for texte in textes() for terme in termes)
+    lire = Path.read_text
+    monkeypatch.setattr(Path, "read_text", lambda chemin, *a, **k: lire(chemin, *a, **k).replace(termes[0], "retiré"))
+    with pytest.raises(AssertionError): assert all(terme in texte for texte in textes() for terme in termes)
