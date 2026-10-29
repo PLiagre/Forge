@@ -53,5 +53,21 @@ namespace Forge.Interface.Tests
             Assert.AreEqual(9, lecture.Document.Tick);
             StringAssert.Contains("ancien", lecture.Erreur);
         }
+        // Lot #871 — la date que le monde a servie, lue telle quelle ; absente, elle reste nulle.
+        [Test] public void La_date_servie_est_lue_et_son_absence_reste_nulle()
+        {
+            var doc = new DocumentDuMonde("{\"tick\":7,\"date\":{\"annee\":1400,\"jour_de_l_annee\":8}}");
+            Assert.IsTrue(doc.Annee == 1400 && doc.JourDeLAnnee == 8);
+            string chemin = System.IO.Path.Combine(UnityEngine.Application.dataPath, "ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json");
+            var servi = new DocumentDuMonde(System.IO.File.ReadAllText(chemin));
+            Assert.IsTrue(servi.Tick == 3 && servi.Annee == 1400 && servi.JourDeLAnnee == 4, chemin);
+            var sans = new DocumentDuMonde("{\"tick\":7}");
+            Assert.IsTrue(sans.Annee == null && sans.JourDeLAnnee == null, "une date absente n'est ni 0 ni 1400");
+            var bornes = new DocumentDuMonde("{\"tick\":7,\"date\":{\"annee\":1,\"jour_de_l_annee\":366}}");
+            Assert.IsTrue(bornes.Annee == 1 && bornes.JourDeLAnnee == 366);
+            foreach (string date in new[] { "null", "{\"annee\":1400}", "{\"annee\":1400,\"jour_de_l_annee\":0}", "{\"annee\":1400,\"jour_de_l_annee\":367}",
+                "{\"annee\":1400,\"jour_de_l_annee\":1.5}", "{\"annee\":0,\"jour_de_l_annee\":8}", "\"1400\"" })
+                Assert.Throws<ArgumentException>(() => new DocumentDuMonde("{\"tick\":7,\"date\":" + date + "}"), date);
+        }
     }
 }

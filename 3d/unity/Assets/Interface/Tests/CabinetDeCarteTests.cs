@@ -4,6 +4,7 @@ using System.Linq;
 using Forge.Pont;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Forge.Interface.Tests
@@ -159,5 +160,82 @@ namespace Forge.Interface.Tests
         static LieuPlace Place(long rang, double x, double y, string maitre, long partis, long arrives) => new LieuPlace(rang, new PointCarte(x, y), maitre, new FluxDeLieu(0, partis, arrives));
         MeshRenderer Rendu(long cell, long rang) { var t = racine.transform.Find(LieuxDeCarte.RACINE + "/" + ReperesDeDepart.NomDuLieu(cell, rang) + "/Disque"); return t != null && t.gameObject.activeInHierarchy ? t.GetComponent<MeshRenderer>() : null; }
         int Disques() { var r = racine.transform.Find(LieuxDeCarte.RACINE); if (r == null) return 0; int n = 0; foreach (Transform e in r) { var d = e.Find("Disque"); if (d != null && d.gameObject.activeInHierarchy) n++; } return n; }
+        // Lot #855 : un clic gauche court garde la terre, un glisser ne choisit rien, Échap ferme le dossier avant d'ouvrir le menu.
+        static readonly Vector2 O = new Vector2(400, 300);
+        static CelluleDeCarte Terre(long id, string ville) => new CelluleDeCarte(id, new PolygoneDeCarte[0], new IdentiteDeCarte(1, "Puissance test"), null, new[] { new VilleDeCarte(ville, 12, new PointCarte(0, 0)) });
+        MeshRenderer Teinte(long id) { var r = new GameObject("Cellule " + id).AddComponent<MeshRenderer>(); r.transform.SetParent(racine.transform, false); return r; }
+        bool Geste(CelluleDeCarte sous, params Vector2[] chemin) { bool garde = cabinet.Noter(chemin[0], true, false, false, sous); for (int i = 1; i < chemin.Length; i++) garde |= cabinet.Noter(chemin[i], false, i == chemin.Length - 1, false, sous); return garde; }
+        string Territoire() => racine.GetComponentsInChildren<Text>(true).Single(t => t.transform.parent.name == "Lecture du territoire").text;
+        [Test] public void UnClicSansMouvementGardeLaTerre()
+        {
+            var teinte = Teinte(7); var sept = Terre(7, "Ville test");
+            Assert.That(Geste(sept, O, O), Is.True); Assert.That(cabinet.Retenue, Is.SameAs(sept)); cabinet.Afficher(); Assert.That(Territoire(), Does.Contain("Ville test"));
+            cabinet.Relacher(); Assert.That(cabinet.Noter(O, true, true, false, sept) && cabinet.Retenue == sept, Is.True, "appui et relâché dans la même image");
+            cabinet.Relacher(); Assert.That(Geste(sept, O, O + new Vector2(6, 0)) && cabinet.Retenue == sept, Is.True, "relâché à 6 px");
+            Assert.That(teinte.HasPropertyBlock(), Is.True);
+        }
+        [Test] public void UnGlisserNeChangePasLaTerreGardee()
+        {
+            var sept = Terre(7, "Ville test"); var neuf = Terre(9, "Ville neuve"); Assert.That(Geste(sept, O, O), Is.True);
+            foreach (var chemin in new[] { new[] { O, O + new Vector2(40, 0), O + new Vector2(40, 0) }, new[] { O, O + new Vector2(100, 0), O }, new[] { O, O + new Vector2(7, 0) } })
+                Assert.That(!Geste(neuf, chemin) && cabinet.Retenue == sept, Is.True, "glisser par " + string.Join(" → ", chemin.Select(p => p.ToString())));
+        }
+        [Test] public void UnClicSurUnPanneauNeTraversePas()
+        {
+            var sept = Terre(7, "Ville test");
+            Assert.That(cabinet.Noter(O, true, false, true, sept) | cabinet.Noter(O, false, true, false, sept), Is.False, "appui sur un panneau");
+            Assert.That(cabinet.Noter(O, true, false, false, sept) | cabinet.Noter(O, false, true, true, sept), Is.False, "relâché sur un panneau");
+            Assert.That(cabinet.Noter(O, false, true, false, sept), Is.False, "relâché sans appui");
+            Assert.That(cabinet.Retenue, Is.Null); Assert.That(cabinet.HorsCarte(O), Is.True, "sans caméra, tout est hors de la carte");
+        }
+        [Test] public void EchapFermeLeDossierAvantDOuvrirLeMenu()
+        {
+            var teinte = Teinte(7); var menu = racine.GetComponent<MenuCabinet>(); Assert.That(Geste(Terre(7, "Ville test"), O, O) && !menu.Ouvert, Is.True); cabinet.Afficher();
+            menu.Echap(); cabinet.Afficher();
+            Assert.That(cabinet.Retenue == null && !menu.Ouvert && !teinte.HasPropertyBlock(), Is.True, "le premier Échap ferme le dossier, pas plus");
+            Assert.That(Territoire(), Does.Contain("Clic gauche sur une terre pour ouvrir son dossier.").And.Not.Contain("Ville test"));
+            menu.Echap(); Assert.That(menu.Ouvert, Is.True); menu.Echap(); Assert.That(menu.Ouvert, Is.False);
+            menu.Echap(); Assert.That(menu.Ouvert, Is.True, "sans terre gardée, Échap ouvre le menu"); menu.Fermer();
+        }
+        [Test] public void LesAidesDisentLesNouveauxGestes()
+        {
+            Assert.That(CabinetDeCarte.AIDE, Does.Contain("Clic").And.Contain("Glisser").And.Contain("Échap").And.Not.Contain("Clic droit").And.Not.Contain("\n"));
+            var aide = racine.GetComponentsInChildren<Text>(true).Single(t => t.name == CabinetDeCarte.AIDE); aide.text = CabinetDeCarte.AIDE;
+            Assert.That(aide.preferredWidth, Is.LessThanOrEqualTo(aide.rectTransform.rect.width)); Assert.That(aide.rectTransform.rect.width, Is.EqualTo(1190f));
+            var menu = racine.GetComponentsInChildren<Text>(true).Single(t => t.transform.parent.name == "Menu du cabinet" && t.rectTransform.sizeDelta.y == 410f);
+            Assert.That(menu.text, Does.Contain("Clic gauche").And.Contain("Double-clic").And.Contain("Échap").And.Not.Contain("Clic droit"));
+            Assert.That(menu.preferredHeight, Is.LessThanOrEqualTo(menu.rectTransform.rect.height));
+            Assert.That(System.IO.File.ReadAllText("Assets/Interface/CabinetDeCarte.cs"), Does.Not.Contain("rightButton").And.Not.Contain("PassageALaCapitale"));
+            var survol = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("ForgeLocal3D.SurvolDeCarte")).First(t => t != null);
+            Assert.That(CabinetDeCarte.SEUIL_CLIC_PX, Is.EqualTo((float)survol.GetField("SEUIL_CLIC_PX").GetValue(null)));
+        }
+        // Lot #873 : « Votre maison » parle en noms et en dates ; le tick ne va qu'au journal.
+        const string APERCU = "Consultez une maison avant de vous engager."; Text Nomme(string nom) => racine.GetComponentsInChildren<Text>(true).Single(t => t.name == nom);
+        string Propre(string nom) { string t = Nomme(nom).text; Assert.That(TexteDuMonde.Interdit(t, "10340") ?? TexteDuMonde.SansUnite(t), Is.Null, t); return t; }
+        [Test] public void LaMaisonDuJoueurDitSonNomSonSiegeSesLieuxEtLaDate()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); cabinet.Afficher(); Assert.That(Propre("Lecture de la partie…"), Is.EqualTo("Maison\nSiège : Siège\n3 lieux tenus · relevé au jour 1 de 1400"));
+            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(Propre("Lecture de la partie…"), Does.EndWith("\n1 lieu tenu · relevé au jour 1 de 1400"));
+        }
+        void Proposer()
+        {
+            partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), null)));
+            Poser(partie, "Departs", Lecture<DepartsLus>.De(new DepartsLus(1, new DateDuMonde(1400, 1), new[] { new FicheDeDepart(42, "Despotat témoin", "Maison témoin", new SiegeDeDepart("Mistra", 0, 0), 10340, 12345, null, new VoisinDeDepart[0]) })));
+            cabinet.Afficher(); racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Maison témoin").onClick.Invoke(); cabinet.Afficher();
+        }
+        [Test] public void LApercuDuChoixDitLesHabitantsAutourDuSiege()
+        {
+            Proposer(); Assert.That(Propre(APERCU), Is.EqualTo("Despotat témoin · Mistra\n12 345 habitants autour de Mistra\nSuzerain : aucun")); Assert.That(TexteDuMonde.Interdit(Nomme(APERCU).text, "10340", "42"), Is.Null);
+        }
+        [Test] public void LeRecuNEstDateQuAuTickDeLHorloge()
+        {
+            Proposer(); Poser(partie, "Recu", RecuIntention.AccepteeAu(7)); LogAssert.Expect(LogType.Log, "CabinetDeCarte : choix reçu au tick 7");
+            string Lu(HorlogeLue lue) { Poser(racine.GetComponent<HorlogeDeCarte>(), "Lue", lue); cabinet.Afficher(); Assert.That(Nomme(APERCU).text, Does.Not.Contain("tick 7")); return Propre(APERCU); }
+            Assert.That(Lu(null), Is.EqualTo("Choix reçu ; le monde l'applique au jour suivant."));
+            Assert.That(Lu(new HorlogeLue(7, new DateDuMonde(1400, 8), 0)), Is.EqualTo("Choix reçu le jour 8 de 1400.\nReprenez le temps : le monde l'appliquera au jour suivant."));
+            Assert.That(Lu(new HorlogeLue(8, new DateDuMonde(1400, 9), 0)), Is.EqualTo("Choix reçu ; le monde l'applique au jour suivant.").And.Not.Contain("jour 9").And.Not.Contain("jour 8"));
+            Poser(partie, "Recu", RecuIntention.Refusee(409, "maison 10340 déjà prise")); Assert.That(Lu(null), Is.EqualTo("Demande refusée : déclaré absent par le monde"));
+            Poser(partie, "Recu", RecuIntention.Absente("service coupé")); Assert.That(Lu(null), Is.EqualTo("Envoi non confirmé : service coupé"));
+        }
     }
 }

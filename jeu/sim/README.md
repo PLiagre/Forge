@@ -40,6 +40,7 @@ La durée publiée inclut l'IA ; les autres routes gardent leur forme.
 `{"type": "decouper_parcelle", "cell": X, "rue": 0, "segment": 0,
 "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}`
 ou `{"type": "poser_batiment", "cell": X, "parcelle": 0, "nature": "maison"}`.
+`{"type": "tracer_enceinte", "cell": C, "points": [[x, y], …]}` suit les mêmes règles : refus « enceinte : contour qui se croise », « enceinte : place de 1400 non entourée », « enceinte déjà tracée », « enceinte déjà promise » ; assise `ASSISE_ENCEINTE_M` ; entrée au plan au tick suivant.
 Les trois constructions exigent un bourg tenu par la maison déposante : sinon « ce lieu n'est pas à toi : <maître> ».
 HTTP exige un départ appliqué et impose sa maison au JSON copié, même si le client en fournit une autre.
 Avec `--gestes`, chaque construction exige `maison`, identifiant explicite du registre, même sans départ choisi ; l'exemple construit à Biskra pour `seigneurie-6`.
