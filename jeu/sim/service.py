@@ -35,6 +35,7 @@ from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
 from sim.plan import aire_du_contour
+from sim.portes import controler_portes, portes_de_l_enceinte
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
 from sim.ville1400 import BaseAbsente, base_de_cellule
@@ -206,6 +207,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self.verrou_base = threading.Lock()
         self.verrou_maisons = threading.Lock()
         self._bases = {}
+        self._rues_de_base = {}
         self._occupations_base = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
@@ -250,8 +252,10 @@ class ServeurMonde(ThreadingHTTPServer):
         if cell_id not in self._bases:
             base = base_de_cellule(self.world, cell_id)
             occupation = [dict(rang=i, foyers=m["foyers"]) for i, m in enumerate(base["maisons"])]
+            self._rues_de_base[cell_id] = base["rues"]
             self._bases[cell_id] = b'{"base":' + _serialiser(base) + b','
             self._occupations_base[cell_id] = b'{"base":' + _serialiser(occupation) + b','
+        return self._rues_de_base[cell_id]
 
     def octets_occupation(self, etat, cell_id):
         """Assemble la base immuable et les comptes copiés à la publication."""
@@ -362,9 +366,18 @@ class ServeurMonde(ThreadingHTTPServer):
             observations.sort(key=lambda e: (natures.index(e["nature"]), e["identifiant"]))
         for lignes in pertes.values():
             lignes.sort(key=lambda e: (natures.index(e["nature"]), e["identifiant"]))
+        with self.verrou_base:
+            rues_de_base = {cid: self._preparer_base(cid) for cid, plan in sorted(self.world.plans.items())
+                            if plan.enceinte is not None}
+        portes = {}
+        for cell_id, rues in rues_de_base.items():
+            plan = self.world.plans[cell_id]
+            portes[cell_id] = portes_de_l_enceinte(plan.enceinte.contour, plan.rues, rues)
+            controler_portes(plan.enceinte.contour, portes[cell_id], plan.rues, rues)
         plans = {
             cell_id: _serialiser(
                 plan.to_dict()
+                | ({"portes": portes[cell_id]} if cell_id in portes else {})
                 | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
                 | ({"chantiers_du_jour": chantiers[cell_id]} if cell_id in chantiers else {})
                 | ({"recolte_perdue_par_chantier": pertes[cell_id]} if cell_id in pertes else {})
