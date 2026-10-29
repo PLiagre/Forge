@@ -77,12 +77,15 @@ namespace Forge.Pont.Tests {
 
         [Test] public void Le_panneau_dit_l_horloge_servie_et_rien_d_autre() {
             Servir(); Poser(); double t = 1; Pas(ref t);
-            Assert.AreEqual("Jour 6 de 1400 · tick 5\n2.5 jours par seconde", horloge.TexteAffiche);
+            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", horloge.TexteAffiche);
+            Assert.AreEqual(5L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
             // Un service qui saute des jours et des ticks : le panneau recopie, il ne compte pas.
             lock (recues) { tick = 7; jour = 100; vitesse = 1; } Pas(ref t);
-            Assert.AreEqual("Jour 100 de 1400 · tick 7\n1 jour par seconde", horloge.TexteAffiche);
+            Assert.AreEqual("Jour 100 de 1400\n1 jour par seconde", horloge.TexteAffiche);
+            Assert.AreEqual(7L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
             lock (recues) vitesse = 0; Pas(ref t);
-            Assert.AreEqual("Jour 100 de 1400 · tick 7\nEn pause", horloge.TexteAffiche);
+            Assert.AreEqual("Jour 100 de 1400\nEn pause", horloge.TexteAffiche);
+            Assert.AreEqual(7L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
             Assert.IsTrue(Array.TrueForAll(Recues(), r => r == "GET /horloge"), "le panneau a réglé l'horloge sans qu'on le lui demande : " + string.Join(", ", Recues()));
         }
 
@@ -111,7 +114,20 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(Array.Exists(Recues(), r => r == "GET /horloge"), "le service en panne n'a pas été lu");
             Assert.IsFalse(Array.Exists(Recues(), r => r.StartsWith("POST", StringComparison.Ordinal)), "un réglage est parti sans horloge connue : " + string.Join(", ", Recues()));
             lock (recues) panne = false; Pas(ref t);
-            Assert.AreEqual("Jour 6 de 1400 · tick 5\n2.5 jours par seconde", horloge.TexteAffiche, "le service revenu n'est pas relu");
+            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", horloge.TexteAffiche, "le service revenu n'est pas relu");
+            Assert.AreEqual(5L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
+        }
+
+        // Lot #883 : la date est celle servie, jamais tirée du tick, et le tick ne s'écrit pas.
+        [Test] public void La_date_ne_dit_jamais_le_tick() {
+            string a = HorlogeDeCarte.Decrire(new HorlogeLue(5, new DateDuMonde(1400, 6), 2.5));
+            string b = HorlogeDeCarte.Decrire(new HorlogeLue(9999, new DateDuMonde(1400, 6), 2.5));
+            string c = HorlogeDeCarte.Decrire(new HorlogeLue(30, new DateDuMonde(1401, 365), 0));
+            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", a);
+            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", b);
+            Assert.AreEqual("Jour 365 de 1401\nEn pause", c);
+            foreach (string texte in new[] { a, b, c }) { Assert.IsNull(TexteDuMonde.Interdit(texte), texte); StringAssert.DoesNotContain("9999", texte); }
+            Assert.AreEqual("tick", TexteDuMonde.Interdit("Jour 6 de 1400 · tick 5\n2.5 jours par seconde"), "le juge ne mord pas");
         }
 
         [Test] public void Le_panneau_est_sur_la_camera_avec_trois_boutons() {

@@ -16,11 +16,12 @@ namespace ForgeLocal3D.Captures
         const double ATTENTE_S = 20, IMMOBILE_S = 1.5;
         const int IMAGES_DE_POSE = 10;
         static HorlogeDeCarte horloge;
+        internal static HorlogeDeCarte Horloge => horloge; // pour Lot883, qui photographie le bandeau du cabinet sur la même horloge
 
         static string N(double v) => v.ToString("R", CultureInfo.InvariantCulture);
 
         [ScenarioDeCapture(525, "horloge-en-marche")]
-        static IEnumerator EnMarche(Camera camera)
+        internal static IEnumerator EnMarche(Camera camera)
         {
             horloge = null;
             var ouverte = new Lot549.CarteOuverte();
@@ -31,6 +32,7 @@ namespace ForgeLocal3D.Captures
             for (var e = Attendre(h, () => h.Lue != null, "une horloge servie"); e.MoveNext();) yield return null;
             if (h.Lue.JoursParSeconde != 0) throw new InvalidOperationException("la capture lance le monde en pause, l'horloge dit " + N(h.Lue.JoursParSeconde));
             if (h.TexteAffiche != HorlogeDeCarte.Decrire(h.Lue)) throw new InvalidOperationException("le panneau dit « " + h.TexteAffiche + " »");
+            SansMotInterdit(h.TexteAffiche);
 
             h.Accelerer();
             for (var e = Attendre(h, () => h.Lue.JoursParSeconde == HorlogeDeCarte.PALIERS[0], "le premier palier"); e.MoveNext();) yield return null;
@@ -40,6 +42,7 @@ namespace ForgeLocal3D.Captures
             long depart = h.Lue.Tick;
             for (var e = Attendre(h, () => h.Lue.Tick >= depart + 2, "deux ticks de plus que " + depart); e.MoveNext();) yield return null;
             if (h.TexteAffiche != HorlogeDeCarte.Decrire(h.Lue)) throw new InvalidOperationException("le panneau dit « " + h.TexteAffiche + " »");
+            SansMotInterdit(h.TexteAffiche);
 
             Lot549.Photographier(camera, carte);
             horloge = h;
@@ -48,7 +51,7 @@ namespace ForgeLocal3D.Captures
         }
 
         [ScenarioDeCapture(525, "horloge-en-pause")]
-        static IEnumerator EnPause(Camera camera)
+        internal static IEnumerator EnPause(Camera camera)
         {
             var h = horloge ?? throw new InvalidOperationException("l'horloge n'a pas été mise en marche : « horloge-en-marche » passe avant");
             h.Basculer();
@@ -62,8 +65,16 @@ namespace ForgeLocal3D.Captures
             }
             if (h.TexteAffiche != HorlogeDeCarte.Decrire(h.Lue) || !h.TexteAffiche.EndsWith("En pause", StringComparison.Ordinal))
                 throw new InvalidOperationException("le panneau ne dit pas la pause : « " + h.TexteAffiche + " »");
+            SansMotInterdit(h.TexteAffiche);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             Debug.Log("CAPTURE_525 en pause : " + h.TexteAffiche.Replace("\n", " | "));
+        }
+
+        // Lot #883 : le panneau dit la date et la vitesse, jamais un mot de la machine (« tick »…).
+        static void SansMotInterdit(string texte)
+        {
+            string mot = TexteDuMonde.Interdit(texte);
+            if (mot != null) throw new InvalidOperationException("mot interdit « " + mot + " » dans l'horloge : « " + texte + " »");
         }
 
         static IEnumerator Attendre(HorlogeDeCarte h, Func<bool> condition, string quoi)
