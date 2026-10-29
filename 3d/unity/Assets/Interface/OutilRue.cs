@@ -33,16 +33,16 @@ namespace Forge.Interface
             {
                 if (!Permis()) return;
                 cible = dossier.Cellule; maisonCible = Maison; erreur = null; Mode(true);
-            });
+            }, "Commence le tracé d'une rue sur le plan, sur vos terres seulement.");
             commandes = new GameObject("Préparer une rue", typeof(RectTransform)).transform; commandes.SetParent(transform, false);
             var cadre = (RectTransform)commandes; cadre.anchorMin = cadre.anchorMax = cadre.pivot = new Vector2(0, 1);
             cadre.anchoredPosition = new Vector2(24, -528);
             largeur = Saisie("Largeur (m)", 0, "6"); foyers = Saisie("Foyers", 310, "1");
-            preparer = Bouton(commandes, "Relire le tracé", 650, 0, 240, Preparer);
+            preparer = Bouton(commandes, "Relire le tracé", 650, 0, 240, Preparer, "Prépare la rue tracée, sans l'envoyer ; le monde en calculera le coût.");
             annuler = Bouton(commandes, "Annuler / Retour", 926, 0, 264, () =>
-            { if (Ordre.Recommencer()) { points.Clear(); erreur = null; Mode(false); } });
+            { if (Ordre.Recommencer()) { points.Clear(); erreur = null; Mode(false); } }, "Abandonne le tracé et revient au plan ; rien n'est envoyé.");
             message = SocleInterface.Texte(commandes, "", 0, 56, 1190);
-            confirmer = Bouton(commandes, "Confirmer la rue", 650, 116, 240, () => { if (MemeContexte()) _ = Ordre.Confirmer(); });
+            confirmer = Bouton(commandes, "Confirmer la rue", 650, 116, 240, () => { if (MemeContexte()) _ = Ordre.Confirmer(); }, "Envoie la rue au monde ; il l'applique au jour suivant.");
             MatieresCabinet.Engagement(confirmer);
             dessin.Pointer = p =>
             {
@@ -61,9 +61,9 @@ namespace Forge.Interface
             saisie.textComponent = SocleInterface.Texte(champ, "", 8, 10, 114); saisie.text = valeur;
             return saisie;
         }
-        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, Action action)
+        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, Action action, string phrase)
         {
-            var bouton = SocleInterface.Commande(parent, nom, x, y, action);
+            var bouton = SocleInterface.Commande(parent, nom, x, y, action, phrase: phrase);
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(largeur, 44);
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(largeur, 44);
             return bouton;

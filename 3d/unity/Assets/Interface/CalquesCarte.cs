@@ -50,13 +50,14 @@ namespace Forge.Interface
         public void Initialiser(CarteDessinee carte, Transform guide, Func<MondeLu> monde, Func<CelluleDeCarte> selection)
         {
             this.carte = carte; this.monde = monde; this.selection = selection;
-            Bouton(guide, "Puissances", 650, false); Bouton(guide, "Habitants", 928, true);
+            Bouton(guide, "Puissances", 650, false, "Colore la carte selon la maison qui tient chaque terre.");
+            Bouton(guide, "Habitants", 928, true, "Colore la carte selon le nombre d'habitants de chaque terre.");
             legende = SocleInterface.Texte(guide, "Les calques attendent la carte…", 24, 128, 1190);
             legende.rectTransform.sizeDelta = new Vector2(1190, 44); legende.supportRichText = false;
         }
-        void Bouton(Transform guide, string titre, float x, bool afficherHabitants)
+        void Bouton(Transform guide, string titre, float x, bool afficherHabitants, string phrase)
         {
-            var b = SocleInterface.Commande(guide, titre, x, 24, () => { habitants = afficherHabitants; changement = true; });
+            var b = SocleInterface.Commande(guide, titre, x, 24, () => { habitants = afficherHabitants; changement = true; }, phrase: phrase);
             b.GetComponent<RectTransform>().sizeDelta = new Vector2(260, 44);
             b.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(260, 44);
         }

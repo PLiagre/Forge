@@ -20,7 +20,7 @@ namespace Forge.Interface
             var bouton = SocleInterface.Commande(guide, "Autres maisons", 374, 24, () =>
             {
                 if (feuillet.Ouvert) feuillet.Fermer(); else feuillet.Ouvrir();
-            });
+            }, phrase: "Ouvre ou ferme le journal des ordres des autres maisons.");
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(240, 44);
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(240, 44);
         }

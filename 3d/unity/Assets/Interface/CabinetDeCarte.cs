@@ -73,9 +73,9 @@ namespace Forge.Interface
             var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 100, true);
             date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 760);
             date.color = SocleInterface.Couleur("papier");
-            temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir),
-                Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer),
-                Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer) };
+            temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
+                Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
+                Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer, "Passe le temps du monde à la vitesse supérieure.") };
             var dossier = SocleInterface.Panneau(toile.transform, "Votre maison", 1312, 124, 584, 536);
             maison = SocleInterface.Texte(dossier, "Lecture de la partie…", 24, 88, 536);
             gameObject.AddComponent<CommandesMaison>().Initialiser(dossier,
@@ -88,7 +88,7 @@ namespace Forge.Interface
             apercu = SocleInterface.Texte(dossier, "Consultez une maison avant de vous engager.", 24, 336, 536);
             apercu.rectTransform.sizeDelta = new Vector2(536, 100);
             confirmer = Bouton(dossier, "Choisir cette maison", 24, 468, 536,
-                () => { if (candidate != null) _ = Partie.Choisir(candidate.Id); });
+                () => { if (candidate != null) _ = Partie.Choisir(candidate.Id); }, "Envoie au monde le choix de la maison consultée ; il l'applique au jour suivant.");
             MatieresCabinet.Engagement(confirmer);
             var lieu = SocleInterface.Panneau(toile.transform, "Territoire conservé", 1312, 684, 584, 372);
             territoire = SocleInterface.Texte(lieu, INVITATION, 24, 88, 536);
@@ -109,13 +109,22 @@ namespace Forge.Interface
             Afficher();
         }
 
-        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, UnityEngine.Events.UnityAction action)
+        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, UnityEngine.Events.UnityAction action, string phrase)
         {
-            var bouton = SocleInterface.Commande(parent, nom, x, y, () => action());
+            var bouton = SocleInterface.Commande(parent, nom, x, y, () => action(), phrase: phrase);
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(largeur, SocleInterface.HauteurCommande);
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(largeur, SocleInterface.HauteurCommande);
             bouton.GetComponentInChildren<Text>().supportRichText = false;
             return bouton;
+        }
+
+        // Lot #879 : les commandes de la toile, cachées comprises, qui ne disent pas ce qu'elles font ; une phrase qui répète le nom ne dit rien.
+        public static string[] CommandesSansPhrase(Transform toile)
+        {
+            var boutons = toile.GetComponentsInChildren<Button>(true);
+            if (boutons.Length == 0) throw new System.ArgumentException("aucune commande dans le cabinet");
+            return boutons.Where(b => { var i = b.GetComponent<Infobulle>(); return i == null || string.IsNullOrWhiteSpace(i.Phrase) || i.Phrase == b.name; }) // == d'Unity : pas de « is », qui voit le faux null de l'éditeur
+                .Select(b => b.name).ToArray();
         }
 
         // Lot #855 : un clic gauche court garde la terre ; s'écarter de plus de SEUIL_CLIC_PX (celui du survol, pour que ce clic compte aussi au double-clic) en fait un glisser.
@@ -205,7 +214,7 @@ namespace Forge.Interface
                 int i = 0;
                 foreach (var f in departs.Donnees.Fiches)
                 {
-                    Bouton(choix, f.Maison, 24 + i % 2 * 276, 168 + i / 2 * 52, 260, () => candidate = f);
+                    Bouton(choix, f.Maison, 24 + i % 2 * 276, 168 + i / 2 * 52, 260, () => candidate = f, "Montre l'aperçu de cette maison, sans rien envoyer au monde.");
                     i++;
                 }
             }
