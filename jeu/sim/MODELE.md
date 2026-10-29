@@ -2489,6 +2489,10 @@ Le montage retire artificiellement la nourriture de tous les lieux, champs compr
 Il applique la consommation puis la faim existantes et republie ensemble les routes servies.
 Ni tick complet ni avance du temps ou de l'aléa : le tick désigne cet état préparé.
 Ce geste d'épreuve n'est jamais une intention ; le panier se lit par `/lieu?cell=X&bourg=1`.
+Le même mode accepte `POST /epreuve/vider-bourg?cell=X`, sous les mêmes verrous et avec les mêmes refus avant mutation, plus un refus (400) pour une cellule sans autre lieu que le bourg.
+Les habitants du rang 0 se partagent entre les rangs 1 à n−1 par `partager` selon leurs surfaces (plus fort reste, reliquat au rang 1) ; le bourg passe à 0.
+Rien d'autre ne bouge : population et métiers de la cellule, paniers, dettes, faims, greniers, plans, intentions, aléa et tick. Ce n'est pas une migration : les flux sur 30 jours ne comptent ni départ ni arrivée.
+`EtatPublie` est republié, le tick désigne cet état préparé. Ce geste n'est jamais une intention ; il éprouve que les passants de la capitale suivent le monde.
 
 ### L'identité d'un lieu, et ce qui la change
 

@@ -30,7 +30,7 @@ from sim.maisons_servies import (
 from sim.noms import noms_depuis_monde
 from sim.flux import flux_des_lieux
 from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
-from sim.lieux import surfaces_des_lieux
+from sim.lieux import partager, surfaces_des_lieux
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
@@ -620,7 +620,8 @@ class RequetesMonde(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         cible = urlsplit(self.path)
-        if cible.path == "/epreuve/vider-panier" and self.server.epreuve:
+        if cible.path in ("/epreuve/vider-panier", "/epreuve/vider-bourg") and self.server.epreuve:
+            vider_bourg = cible.path == "/epreuve/vider-bourg"
             with self.server.verrou_tick, self.server.condition_vitesse:
                 etat = self.server.etat_publie
                 if etat.jours_par_seconde != 0:
@@ -633,17 +634,28 @@ class RequetesMonde(BaseHTTPRequestHandler):
                         self._refuser(HTTPStatus.NOT_FOUND, f"cell inconnue : {cell_id}")
                         return
                     _valider_epreuve(cellule)
+                    if vider_bourg:
+                        if len(cellule.lieux) == 1:
+                            raise ValueError("cellule à un seul lieu : aucun autre lieu pour le bourg")
+                        lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+                        parts = partager(lieux[0].population, surfaces_des_lieux(cell_id, cellule.area_km2)[1:])
                 except (ValueError, SnapshotExportError) as exc:
                     self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                     return
                 except (TypeError, AttributeError, OverflowError):
                     self._refuser(HTTPStatus.BAD_REQUEST, "données des lieux ou alimentaires absentes ou invalides")
                     return
-                # Montage jetable : vider aussi les champs empêche leur secours immédiat.
-                for entite in [cellule, *cellule.lieux]:
-                    ecrire_stock_marchandise(entite, _constantes.MARCHANDISE_NOURRITURE, 0)
-                penurie = engine._apply_consumption(cellule, self.server.world.carte)
-                engine._update_hunger(cellule, penurie)
+                if vider_bourg:
+                    # Ni migration ni flux : seules les populations des lieux changent.
+                    lieux[0].population = 0
+                    for lieu, part in zip(lieux[1:], parts):
+                        lieu.population += part
+                else:
+                    # Montage jetable : vider aussi les champs empêche leur secours immédiat.
+                    for entite in [cellule, *cellule.lieux]:
+                        ecrire_stock_marchandise(entite, _constantes.MARCHANDISE_NOURRITURE, 0)
+                    penurie = engine._apply_consumption(cellule, self.server.world.carte)
+                    engine._update_hunger(cellule, penurie)
                 self.server.etat_publie = self.server._construire_etat(
                     etat.jours_par_seconde, etat.duree_dernier_tick_ms)
                 self._repondre(HTTPStatus.OK, dict(cell_id=cell_id, tick=self.server.etat_publie.tick))
