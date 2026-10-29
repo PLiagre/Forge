@@ -5529,10 +5529,23 @@ def test_service_epreuve_publication(monkeypatch):
         assert courses[0] == courses[1]
 
 
+def _depart_biskra():
+    """Terre, maison et cellule de Biskra, même quand pytest part de jeu/ (la CI)."""
+    racine = str(Path(__file__).resolve().parents[3])
+    ajoute = racine not in sys.path
+    if ajoute:
+        sys.path.insert(0, racine)
+    try:
+        from pc.epreuve_jalon4 import depart_biskra
+        return depart_biskra()
+    finally:
+        if ajoute:
+            sys.path.remove(racine)
+
+
 def _cellule_vider_bourg(serveur, autre=False):
     """Biskra (départ vérifié dans /departs) ou une autre cellule à plusieurs lieux et bourg habité."""
-    from pc.epreuve_jalon4 import depart_biskra
-    depart, _, biskra = depart_biskra()
+    depart, _, biskra = _depart_biskra()
     assert next(d['cell_id'] for d in requete_service(serveur.server_address[1], '/departs')[1]['departs'] if d['id'] == depart) == biskra
     if not autre: return serveur.world.cells[biskra]
     return next(c for c in serveur.world.cells.values() if c.cell_id != biskra and len(c.lieux) > 2 and next(l for l in c.lieux if l.rang == 0).population > 0)
@@ -5663,8 +5676,7 @@ def test_service_vider_bourg_tick():
     for _ in range(2):
         with _service_epreuve(epreuve=True) as (serveur, port):
             cellule = _cellule_vider_bourg(serveur); cid = cellule.cell_id
-            from pc.epreuve_jalon4 import depart_biskra
-            recevoir_intention(serveur.world, dict(type='choisir_depart', seigneurie=depart_biskra()[0]))
+            recevoir_intention(serveur.world, dict(type='choisir_depart', seigneurie=_depart_biskra()[0]))
             bourg = next(l for l in cellule.lieux if l.rang == 0)
             for decalage in (0, 8, 16):
                 recevoir_intention(serveur.world, dict(type='tracer_route', maison=bourg.maitre, cell=cid, points=[[0, decalage], [40, decalage]], largeur_m=4))
