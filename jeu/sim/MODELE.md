@@ -2783,7 +2783,7 @@ des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans g
 Les lignes `chantiers_du_jour` et `recolte_perdue_par_chantier` de `/plan` suivent l'ordre rue/parcelle/bâtiment/enceinte, puis l'identifiant : la ligne `{"nature": "enceinte", "identifiant": 0, …}`, clé `(cell_id, "enceinte", 0)`, vient après les bâtiments.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
-`parcelles`, `batiments`, `enceinte` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
+`parcelles`, `batiments`, `enceinte` et ses `portes` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
 la photographie du tick : une lecture n'attend pas son calcul et ne consulte
 pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
 inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
@@ -2805,8 +2805,23 @@ restent de niveau 3. Aucun bâtiment ni flux ne découle encore de son achèveme
 La pose d'un bâtiment, son emprise égale au contour de sa parcelle, son coût
 et son achèvement sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
 l'orientation, l'étage et les matériaux restent de niveau 3. La maison achevée loge des artisans, sans effet sur le tick ; scierie et four emploient des artisans, de niveau 2.
-La forme de l'enceinte et son coût en journées sont de niveau 2. Les portes,
-les matériaux, l'effet défensif et le siège restent de niveau 3.
+La forme de l'enceinte et son coût en journées sont de niveau 2. La position
+des portes, croisements du contour avec les rues du plan et de la base, est de
+niveau 2 ; passage, péage, matériaux, effet défensif et siège restent de niveau 3.
+
+Les `portes` d'une enceinte sont ses croisements avec les rues, jamais stockées :
+`sim/portes.py`, module pur, croise chaque côté du contour, côté de fermeture
+compris, avec chaque segment de l'axe des rues du plan (en chantier ou achevées)
+et de `base`. Deux segments qui se rencontrent en un point, extrémités comprises,
+donnent une porte `{point, rue ("plan" ou "base"), identifiant, largeur_m}` ;
+parallèles ou alignés, aucune ; un sommet posé sur le mur n'en double pas. Le point
+est arrondi à `SNAPSHOT_FLOAT_DECIMALS`, l'identifiant est celui de la rue du plan
+ou le rang dans `base.rues`. Tri : côté, distance au début du côté, `rue`,
+identifiant. `controler_portes` lève `PorteSansRue`, en nommant la porte, si sa
+source ou son identifiant est inconnu, ou son point à plus de
+`TOLERANCE_CHEVAUCHEMENT_M` de son axe ou du contour. Seul le service les calcule
+et les contrôle : `/plan` les publie à la clé `portes` à côté de `enceinte`, sans
+clé pour un plan sans enceinte.
 
 ### Le plan de base
 
