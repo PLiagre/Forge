@@ -7,6 +7,7 @@ using UnityEngine.UI;
 namespace Forge.Pont {
     // Lot #525 : la date du monde sur la carte, et l'horloge que le joueur règle. Le panneau relit `/horloge` toutes les
     // `PERIODE_LECTURE_S` : la date, le tick et la vitesse sont ceux que le service rend, jamais avancés ni calculés ici.
+    // Lot #883 : le tick est lu (`Lue.Tick`, pour ceux qui datent un reçu) mais jamais affiché ; le panneau dit la date et la vitesse.
     // Le joueur met en pause, relance, accélère ou ralentit (les boutons du panneau, ou Espace, + et − par
     // `CommandesDuTemps`) ; la vitesse part au service (`POST /vitesse`), et le panneau affiche celle qu'il rend. Une
     // requête à la fois, hors du fil principal ; une vitesse demandée pendant une lecture part juste après. Sans service,
@@ -76,7 +77,7 @@ namespace Forge.Pont {
         }
 
         public static string Decrire(HorlogeLue h) =>
-            "Jour " + Entier(h.Date.JourDeLAnnee) + " de " + Entier(h.Date.Annee) + " · tick " + Entier(h.Tick) + "\n"
+            "Jour " + Entier(h.Date.JourDeLAnnee) + " de " + Entier(h.Date.Annee) + "\n"
             + (h.JoursParSeconde == 0 ? "En pause" : Nombre(h.JoursParSeconde) + (h.JoursParSeconde >= 2 ? " jours" : " jour") + " par seconde");
 
         private void Demander(double joursParSeconde) => vitesseDemandee = joursParSeconde;
