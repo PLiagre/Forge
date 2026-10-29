@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 import copy
+import inspect
 import math
 from pathlib import Path
 import random
@@ -9,6 +10,7 @@ import random
 import pytest
 
 from sim import constants as k, engine, foyers
+from sim.chantiers import avancer_chantiers
 from sim.intentions import recevoir_intention
 from sim.model import (cellule_vers_dict, ecrire_habitants_par_metier,
                        ecrire_ouvriers_du_jour, lire_habitants_par_metier,
@@ -1640,7 +1642,7 @@ def test_documentation_bras_des_lieux(monkeypatch):
 
 
 def _ordre_de_cle(cle):
-    natures = ("rue", "parcelle", "batiment")
+    natures = ("rue", "parcelle", "batiment", "enceinte")
     nature = cle[1] if isinstance(cle[1], str) else natures[0]
     return (natures.index(nature), cle[-1])
 
@@ -1883,3 +1885,215 @@ def test_enceinte_survit_aux_deux_reconstructions():
     chantiers.avancer_chantiers(monde)
     assert monde.plans[1] is not avant and monde.plans[1].enceinte is temoin
     assert monde.plans[1].rues[0].travail_fourni > avant.rues[0].travail_fourni
+
+
+_TRIANGLE = [(0, 0), (1, 0), (0, 1)]
+
+
+def _monde_enceinte(stock=1000, enceinte=(2, 40, 0), travaux=True, lieux=None, metiers=None):
+    from sim.model import Cell, EtatDeLieu
+    from sim.plan import Batiment, Enceinte, Parcelle
+    lieux = lieux or [EtatDeLieu(0, 100, {'nourriture': 100}, maitre='payeur')]
+    monde = World({1: Cell(1, 1, sum(l.population for l in lieux), stocks={'nourriture': 100},
+        habitants_par_metier=metiers or {'paysans': sum(l.population for l in lieux)}, lieux=lieux)}, [])
+    monde.greniers = {'payeur': {'nourriture': stock}} if stock is not None else {}
+    foyers, requis, fourni = enceinte
+    monde.plans[1] = Plan(enceinte=Enceinte(_TRIANGLE, True, foyers, requis, fourni),
+        **(dict(rues=[Rue(0, [(0, 0), (1, 0)], 1, True, 1, 3)], parcelles=[Parcelle(0, _TRIANGLE, True, 1, 2), Parcelle(1, _TRIANGLE)],
+                batiments=[Batiment(0, 1, 'maison', _TRIANGLE, True, 1, 8)]) if travaux else {}))
+    return monde
+
+
+def _verifier_enceinte_servie(avant, monde, envois, bras):
+    cle, apres = (1, 'enceinte', 0), monde.to_dict()
+    assert envois[cle] == monde.chantiers_du_jour[cle]['bras'] == bras
+    assert monde.chantiers_du_jour[cle]['grain_paye_kg'] == bras * k.SALAIRE_JOURNEE_KG
+    kg = sum(v['bras'] for v in monde.chantiers_du_jour.values()) * k.SALAIRE_JOURNEE_KG
+    assert avant['greniers']['payeur']['nourriture'] - apres['greniers']['payeur']['nourriture'] == kg
+    for entite in (lambda d: d['cells']['1'], lambda d: d['cells']['1']['lieux'][0]):
+        assert entite(apres)['stocks']['nourriture'] - entite(avant)['stocks']['nourriture'] == kg
+
+
+def test_enceinte_servie():
+    from sim.model import lire_habitants_par_metier
+    monde = _monde_enceinte(); avant = monde.to_dict()
+    envois = avancer_chantiers(monde)
+    assert list(envois) == [(1, 0), (1, 'parcelle', 0), (1, 'batiment', 0), (1, 'enceinte', 0)]
+    assert [envois[c] for c in envois] == [3, 2, 5, min(2 * k.TAILLE_FOYER, 40, 1000 // 3, 90)] == [3, 2, 5, 10]
+    _verifier_enceinte_servie(avant, monde, envois, 10)
+    assert lire_habitants_par_metier(monde.cells[1]) == {'paysans': 80, 'ouvriers': 20}
+    with pytest.raises(AssertionError):
+        _verifier_enceinte_servie(avant, monde, {**envois, (1, 'enceinte', 0): 9}, 10)
+    sans_salaire = _monde_enceinte(); avancer_chantiers(sans_salaire)
+    sans_salaire.greniers['payeur']['nourriture'] = 1000
+    with pytest.raises(AssertionError):
+        _verifier_enceinte_servie(avant, sans_salaire, envois, 10)
+    # Grain pour les seules journées des trois premières œuvres : l'enceinte reste, même objet, à zéro bras.
+    monde = _monde_enceinte(stock=10 * k.SALAIRE_JOURNEE_KG); avant = monde.plans[1].enceinte
+    envois, cle = avancer_chantiers(monde), (1, 'enceinte', 0)
+    assert envois == {(1, 0): 3, (1, 'parcelle', 0): 2, (1, 'batiment', 0): 5, cle: 0}
+    assert monde.chantiers_du_jour[cle] == {'bras': 0, 'grain_paye_kg': 0, 'motif_arret': 'sans_grain'}
+    assert monde.plans[1].enceinte is avant and monde.plans[1].batiments[0].travail_fourni == 5
+    for nom, monde, motif in (('grenier', _monde_enceinte(stock=None, travaux=False), 'payeur_absent'),
+                              ('metiers', _monde_enceinte(travaux=False), 'metiers_non_calcules'),
+                              ('paysans', _monde_enceinte(travaux=False, metiers={k.METIER_ARTISANS: 100}), 'sans_bras')):
+        if nom == 'metiers':
+            monde.cells[1].habitants_par_metier = None
+        avant = monde.plans[1]
+        assert avancer_chantiers(monde) == {cle: 0} and monde.plans[1] is avant
+        assert monde.chantiers_du_jour[cle]['motif_arret'] == motif
+
+
+def test_enceinte_bras(monkeypatch):
+    from sim import chantiers
+    from sim.model import EtatDeLieu, lire_ouvriers_du_jour
+
+    def jouer():
+        # Lieux en désordre : le rang 1 appartient à un autre maître ; 15 bras demandés, 26 disponibles.
+        lieux = [EtatDeLieu(3, 10, {}, maitre='payeur'), EtatDeLieu(0, 6, {'nourriture': 100}, maitre='payeur'),
+                 EtatDeLieu(1, 10, {}, maitre='autre'), EtatDeLieu(2, 10, {}, maitre='payeur')]
+        monde = _monde_enceinte(enceinte=(3, 100, 0), travaux=False, lieux=lieux)
+        envois = avancer_chantiers(monde); cle = (1, 'enceinte', 0)
+        return monde, envois.get(cle), monde.origines_des_chantiers.get(cle), {l.rang: lire_ouvriers_du_jour(l) for l in monde.cells[1].lieux}
+
+    monde, bras, origines, ouvriers = jouer()
+    assert bras == 15 and origines == {0: 6, 2: 9} and ouvriers == {0: 6, 1: 0, 2: 9, 3: 0}
+    ancien = chantiers._reserves
+    pour_pris = lambda cell, bourg: ancien(cell, bourg)[:1] + ancien(cell, bourg)[1:][::-1]
+    pour_etranger = lambda cell, bourg: [bourg, *sorted((l for l in cell.lieux if l.rang), key=lambda l: l.rang)]
+    for faux in (pour_pris, pour_etranger):
+        with monkeypatch.context() as sonde:
+            sonde.setattr(chantiers, '_reserves', faux)
+            assert jouer()[2] != origines
+    with monkeypatch.context() as sonde:  # l'enceinte seule doit rendre le plan actif
+        sonde.setattr(chantiers, '_plan_actif', lambda plan: any(e.en_chantier for e in plan.rues))
+        assert jouer()[1:3] == (None, None)
+
+
+def test_enceinte_achevee():
+    from sim.model import lire_habitants_par_metier
+    monde = _monde_enceinte(enceinte=(1, 5, 3), travaux=False)
+    population, cle, envois = monde.cells[1].population, (1, 'enceinte', 0), avancer_chantiers(monde)
+    enceinte, metiers = monde.plans[1].enceinte, lire_habitants_par_metier(monde.cells[1])
+
+    def controler(envois, enceinte, metiers, observation):
+        assert envois[cle] == 2 and enceinte.travail_fourni == enceinte.travail_requis and not enceinte.en_chantier
+        assert (cle in monde.chantiers_du_jour) is observation and sum(metiers.values()) == population == monde.cells[1].population
+
+    controler(envois, enceinte, metiers, True)
+    assert metiers == {'paysans': 98, 'ouvriers': 2}
+    with pytest.raises(AssertionError):
+        controler({**envois, cle: 5}, enceinte, metiers, True)
+    ouverte = copy.copy(enceinte); object.__setattr__(ouverte, 'en_chantier', True)
+    with pytest.raises(AssertionError):
+        controler(envois, ouverte, metiers, True)
+    avant = monde.plans[1]
+    assert cle not in avancer_chantiers(monde) and cle not in monde.chantiers_du_jour
+    assert monde.plans[1] is avant and lire_habitants_par_metier(monde.cells[1]) == {'paysans': 100}
+    with pytest.raises(AssertionError):
+        controler(envois, enceinte, metiers, True)
+
+
+def _jouer_enceinte(monde, janvier=False, enceinte=True, foyers=2):
+    """Monde de la récolte perdue, enceinte en plus, un tick ; rend la cellule, le tick et la capture."""
+    from sim.plan import Enceinte
+    cid, juillet = _deposer_chantiers_de_recolte(monde)
+    numero = next(n for n in range(1, k.CALENDAR_DAYS_PER_YEAR) if _mois_de(n) == 1) if janvier else juillet
+    if enceinte:
+        monde.plans[cid] = replace(monde.plans[cid], enceinte=Enceinte(_TRIANGLE, True, foyers, 10 ** 6, 0))
+    monde.ticks_ecoules, capture, production = numero, {}, engine._apply_production
+
+    def relever(cible, rng, *args, **kwargs):
+        if cible.cell_id == cid and not capture:
+            capture.update(etat=rng.getstate(), cell=copy.deepcopy(cible))
+        production(cible, rng, *args, **kwargs)
+
+    engine._apply_production = relever
+    try:
+        engine.tick(monde, random.Random(0), numero)
+    finally:
+        engine._apply_production = production
+    return cid, numero, capture
+
+
+def test_enceinte_recolte(monkeypatch):
+    monde = World.charger(0)
+    cid, juillet, capture = _jouer_enceinte(monde)
+    cle = (cid, 'enceinte', 0)
+    origines = {c: dict(b) for c, b in monde.origines_des_chantiers.items() if c[0] == cid}
+    couts = {c: kg for c, kg in monde.recolte_perdue_par_chantier.items() if c[0] == cid and kg > 0}
+    assert cle in origines and any(origines[cle].values()), "échantillon vide"
+    assert couts[cle] > 0 and sorted(couts, key=_ordre_de_cle)[-1] == cle
+    ecarts, _ = _ecarts_de_recolte(capture["cell"], capture["etat"], monde.carte, k.jour_de_tick(juillet))
+
+    def verifier(couts, origines):
+        attendu = _parts_du_prorata(origines, ecarts)
+        assert attendu and couts == attendu
+        assert sum(couts.values()) == pytest.approx(sum(e for e in ecarts.values() if e > 0))
+
+    verifier(couts, origines)
+    salaire = {c: monde.chantiers_du_jour[c]["grain_paye_kg"] for c in origines}
+    with pytest.raises(AssertionError):
+        verifier(salaire, origines)
+    autre = next(c for c in origines if c != cle and origines[c] != origines[cle])
+    echangees = {**origines, cle: origines[autre], autre: origines[cle]}
+    with pytest.raises(AssertionError):
+        verifier(couts, echangees)
+    with monkeypatch.context() as sonde:
+        sonde.setattr(engine, '_ordre_de_chantier', lambda c: ("rue", "parcelle", "batiment").index(c[1] if isinstance(c[1], str) else "rue"))
+        with pytest.raises(ValueError):
+            _jouer_enceinte(World.charger(0))
+    hiver = World.charger(0)
+    _jouer_enceinte(hiver, janvier=True)
+    assert not hiver.recolte_perdue_par_chantier.get(cle)
+
+
+def test_enceinte_plan_servi():
+    import json, textwrap, types
+    from sim import service
+    from sim.service import ServeurMonde
+
+    serveurs = [ServeurMonde(('127.0.0.1', 0), 0, 0) for _ in range(2)]
+    try:
+        avec, sans = serveurs
+        cid, _, _ = _jouer_enceinte(avec.world)
+        _jouer_enceinte(sans.world, enceinte=False)
+        etat = avec._construire_etat(0, -1)
+        document = json.loads(avec.octets_plan(etat, cid))
+        ligne, perdue = document['chantiers_du_jour'][-1], document['recolte_perdue_par_chantier'][-1]
+        assert (ligne['nature'], ligne['identifiant'], perdue['nature'], perdue['identifiant']) == ('enceinte', 0) * 2
+        assert set(ligne) == {'nature', 'identifiant', 'bras', 'grain_paye_kg', 'motif_arret'}
+        assert set(perdue) == {'nature', 'identifiant', 'recolte_perdue_kg'}
+        autre = next(c for c in avec.world.cells if c != cid)
+        assert avec.octets_plan(etat, autre) == sans.octets_plan(sans._construire_etat(0, -1), autre)
+        source = textwrap.dedent(inspect.getsource(ServeurMonde._construire_etat))
+        espace = dict(vars(service))
+        exec(source.replace('"batiment", "enceinte")', '"batiment")'), espace)
+        with pytest.raises(ValueError):
+            types.MethodType(espace['_construire_etat'], avec)(0, -1)
+    finally:
+        for serveur in serveurs:
+            serveur.server_close()
+
+
+def test_enceinte_documentee(monkeypatch):
+    lire = Path.read_text
+    dossier = Path(engine.__file__).parent
+    termes = ('(cell_id, "enceinte", 0)', "après les bâtiments", "rue/parcelle/bâtiment/enceinte")
+
+    def controler():
+        texte = (dossier / "MODELE.md").read_text(encoding="utf-8")
+        plan = texte.split("## Le plan du bourg\n", 1)[1].split("\n## ", 1)[0]
+        chantier = texte.split("## Le chantier et ses bras\n", 1)[1].split("\n## ", 1)[0]
+        readme = (dossier / "README.md").read_text(encoding="utf-8")
+        assert "après elles les parcelles en chantier, puis les bâtiments en chantier" in chantier
+        for extrait in (plan, chantier, readme):
+            assert all(terme in extrait for terme in termes)
+
+    controler()
+    for terme in termes:
+        with monkeypatch.context() as sonde:
+            sonde.setattr(Path, "read_text", lambda path, *a, **kw: lire(path, *a, **kw).replace(terme, "retiré")
+                          if path.name in ("MODELE.md", "README.md") else lire(path, *a, **kw))
+            with pytest.raises(AssertionError):
+                controler()
