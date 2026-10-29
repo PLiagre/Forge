@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
+import json
 import os
 from pathlib import Path
 import re
@@ -246,7 +247,7 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
         # Cursor n'a pas d'option d'effort : il est dans le nom du modèle
         # (`grok-4.7-high`), vérifié au chargement (projet.lire_agent).
         commande = [agent.binaire, "-p", prompt, "--model", agent.modele,
-                    "--output-format", "text", "--trust"]
+                    "--output-format", "json", "--trust"]
         commande += ["--mode", "ask"] if lecture_seule else ["--force"]
         return commande
     raise ValueError(f"outil inconnu : {agent.outil}")
@@ -297,6 +298,20 @@ def executer(commande: list[str], cwd: Path, env: dict[str, str], delai: int) ->
     return fini.returncode, fini.stdout, fini.stderr
 
 
+def reponse_finale_cursor(sortie: str) -> str:
+    """Le texte final de `cursor-agent --output-format json` : le champ
+    `result` de son objet de fin. Une sortie qui n'est pas ce JSON (ancienne
+    version, texte brut) reste telle quelle."""
+    for ligne in reversed(sortie.strip().splitlines()):
+        try:
+            objet = json.loads(ligne)
+        except ValueError:
+            continue
+        if isinstance(objet, dict) and objet.get("type") == "result":
+            return str(objet.get("result") or "")
+    return sortie
+
+
 def _appeler(agent: Agent, poste: Poste, prompt: str, cwd: Path, delai: int,
              executeur: Executeur) -> tuple[int, str, str, str]:
     """Un appel d'un agent : son code, sa sortie, son erreur, et son texte."""
@@ -310,6 +325,8 @@ def _appeler(agent: Agent, poste: Poste, prompt: str, cwd: Path, delai: int,
         texte = out
         if sortie is not None and sortie.exists():
             texte = sortie.read_text(encoding="utf-8", errors="replace")
+        elif agent.outil == "cursor":
+            texte = reponse_finale_cursor(out)
     finally:
         if sortie is not None:
             shutil.rmtree(sortie.parent, ignore_errors=True)

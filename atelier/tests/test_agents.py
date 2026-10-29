@@ -500,3 +500,23 @@ def test_un_test_rouge_de_l_agent_n_est_pas_un_appel_refuse():
     # « unrecognized arguments » ; c'est l'échec de l'agent, pas du harnais.
     sortie = "E   SystemExit: 2\nusage: forge [-h]\nforge: error: unrecognized arguments: --vite\n1 failed"
     assert A.cause_de_refus(1, sortie) is None
+
+
+def test_cursor_rend_son_texte_final_par_le_json_pas_par_la_sortie_brute(projet, tmp_path):
+    # #862 et #788 : deux relectures « CORRIGER » de cursor/gpt sont tombées
+    # en « verdict illisible » parce que la sortie texte n'était pas sa réponse
+    # finale. Le JSON la porte dans `result`, seule.
+    from atelier.pilote import _VERDICT
+
+    assert A.argv(Agent("cursor", "gpt-5.6-sol-high"), "x", lecture_seule=True)[
+        A.argv(Agent("cursor", "gpt-5.6-sol-high"), "x", lecture_seule=True).index("--output-format") + 1] == "json"
+    revue = "- jeu/sim/intentions.py:336 plante avec ±1e308.\n\nVERDICT: CORRIGER"
+    sortie = ('{"type":"result","subtype":"success","is_error":false,"result":'
+              + __import__("json").dumps(revue) + ',"session_id":"s"}\n')
+    assert A.reponse_finale_cursor(sortie) == revue
+    assert _VERDICT.findall(A.reponse_finale_cursor(sortie)) == ["CORRIGER"]
+    assert A.reponse_finale_cursor("VERDICT: ACCEPTE") == "VERDICT: ACCEPTE"  # texte brut : inchangé
+    agent = Agent("cursor", "gpt-5.6-sol-high")
+    code, out, _, texte = A._appeler(agent, projet.poste("relecteur"), "relis", tmp_path, 10,
+                                     lambda *_: (0, sortie, ""))
+    assert code == 0 and out == sortie and texte == revue
