@@ -33,8 +33,8 @@ namespace Forge.Interface
             rect.anchoredPosition = new Vector2(24, -200);
             comptes = SocleInterface.Texte(racine, "Lecture des réserves…", 0, 0, 536);
             comptes.rectTransform.sizeDelta = new Vector2(536, 56);
-            part = Bouton("Prélèvement", 0, 60, () => Ouvrir(false));
-            secours = Bouton("Ouvrir le grenier", 276, 60, () => Ouvrir(true));
+            part = Bouton("Prélèvement", 0, 60, () => Ouvrir(false), "Prépare un nouveau prélèvement sur vos lieux, en pour cent, sans l'envoyer.");
+            secours = Bouton("Ouvrir le grenier", 276, 60, () => Ouvrir(true), "Prépare l'ouverture de votre grenier, en kilos de grain, sans l'envoyer.");
             curseur = CurseurDePart(racine);
             legende = SocleInterface.Texte(racine, "0 %", 420, 108, 116);
             legende.alignment = TextAnchor.MiddleLeft;
@@ -51,18 +51,18 @@ namespace Forge.Interface
             saisie.characterLimit = 18;
             saisie.navigation = new Navigation { mode = Navigation.Mode.Automatic };
             champ.sizeDelta = new Vector2(260, 44);
-            preparer = Bouton("Préparer", 276, 144, Preparer);
+            preparer = Bouton("Préparer", 276, 144, Preparer, "Relit la valeur saisie et prépare l'ordre, sans l'envoyer.");
             message = SocleInterface.Texte(racine, "", 0, 192, 536);
             message.rectTransform.sizeDelta = new Vector2(536, 88);
-            confirmer = Bouton("Confirmer l’ordre", 276, 284, () => { if (disponible) _ = Ordre.Confirmer(); });
+            confirmer = Bouton("Confirmer l’ordre", 276, 284, () => { if (disponible) _ = Ordre.Confirmer(); }, "Envoie l'ordre préparé au monde ; il l'applique au jour suivant.");
             MatieresCabinet.Engagement(confirmer);
-            retour = Bouton("Annuler / Retour", 0, 284, () => { Ordre.Recommencer(); cible = null; erreur = null; });
+            retour = Bouton("Annuler / Retour", 0, 284, () => { Ordre.Recommencer(); cible = null; erreur = null; }, "Abandonne l'ordre en préparation ; rien n'est envoyé.");
             foreach (var texte in racine.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             Afficher();
         }
-        Button Bouton(string nom, float x, float y, Action action)
+        Button Bouton(string nom, float x, float y, Action action, string phrase)
         {
-            var b = SocleInterface.Commande(racine, nom, x, y, action);
+            var b = SocleInterface.Commande(racine, nom, x, y, action, phrase: phrase);
             b.GetComponent<RectTransform>().sizeDelta = new Vector2(260, 44);
             b.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(260, 44);
             return b;

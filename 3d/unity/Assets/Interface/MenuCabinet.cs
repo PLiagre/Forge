@@ -18,11 +18,11 @@ namespace Forge.Interface
         {
             if (panneau != null) return;
             this.toile = toile;
-            var ouvrir = SocleInterface.Commande(toile, "Menu", 330, 20, Basculer);
+            var ouvrir = SocleInterface.Commande(toile, "Menu", 330, 20, Basculer, phrase: "Ouvre ou ferme le menu : les gestes, le clavier, le volume.");
             ouvrir.GetComponent<RectTransform>().sizeDelta = new Vector2(120, 44);
             ouvrir.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(120, 44);
             panneau = SocleInterface.Panneau(toile, "Menu du cabinet", 24, 124, 740, 732);
-            retour = SocleInterface.Commande(panneau, "Revenir au jeu", 24, 88, Fermer);
+            retour = SocleInterface.Commande(panneau, "Revenir au jeu", 24, 88, Fermer, phrase: "Ferme le menu et rend la main à la carte.");
             var aide = SocleInterface.Texte(panneau,
                 "PARCOURIR\nClic gauche sur une terre : la choisir et ouvrir son dossier.\nGlisser avec le bouton gauche ou du milieu : déplacer la carte.\nDouble-clic sur votre siège : entrer dans votre ville.\nMolette : zoomer sur la carte, faire défiler un dossier.\n\nDÉCIDER\nChoisissez une maison, puis confirmez votre choix.\nUn ordre reçu attend le prochain tick du monde.\nPause et Reprendre restent dans le bandeau.\n\nCLAVIER\nTabulation ou flèches : parcourir les commandes.\nEntrée : activer la commande sélectionnée.\nÉchap : fermer le dossier, puis ouvrir ou fermer ce menu.", 24, 156, 692);
             aide.rectTransform.sizeDelta = new Vector2(692, 410);

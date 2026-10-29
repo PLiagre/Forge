@@ -26,7 +26,7 @@ namespace Forge.Interface
             bouton = SocleInterface.Commande(plan, "Chantiers", 420, 20, () =>
             {
                 if (feuillet.Ouvert) feuillet.Fermer(); else feuillet.Ouvrir();
-            });
+            }, phrase: "Ouvre ou ferme les chantiers du bourg et ce qu'ils ont coûté.");
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(200, 44);
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(200, 44);
         }

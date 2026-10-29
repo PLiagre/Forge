@@ -24,8 +24,8 @@ namespace Forge.Interface
             this.selection = selection; lecture = LectureDossier.Locale(port);
             cadre = SocleInterface.Panneau(toile, "Plan du bourg", 24, 124, 1238, 732);
             ouvrir = Bouton(territoire, "Plan du bourg", 372, 20, 188, () =>
-            { cadre.SetAsLastSibling(); cadre.gameObject.SetActive(true); });
-            Bouton(cadre, "Revenir à la carte", 1000, 20, 214, () => cadre.gameObject.SetActive(false));
+            { cadre.SetAsLastSibling(); cadre.gameObject.SetActive(true); }, "Ouvre le plan du bourg de la terre conservée.");
+            Bouton(cadre, "Revenir à la carte", 1000, 20, 214, () => cadre.gameObject.SetActive(false), "Ferme le plan du bourg et revient à la carte.");
             etat = SocleInterface.Texte(cadre, "Sélectionnez un territoire sur la carte.", 24, 88, 1190);
             var surface = new GameObject("Tracé du bourg", typeof(RectTransform), typeof(DessinBourg));
             var rect = surface.GetComponent<RectTransform>(); rect.SetParent(cadre, false);
@@ -37,9 +37,9 @@ namespace Forge.Interface
             cadre.gameObject.AddComponent<OutilRue>().Initialiser(this, dessin, legende, port);
             cadre.gameObject.SetActive(false);
         }
-        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, Action action)
+        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, Action action, string phrase)
         {
-            var bouton = SocleInterface.Commande(parent, nom, x, y, action);
+            var bouton = SocleInterface.Commande(parent, nom, x, y, action, phrase: phrase);
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(largeur, 44);
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(largeur, 44);
             return bouton;

@@ -237,5 +237,46 @@ namespace Forge.Interface.Tests
             Poser(partie, "Recu", RecuIntention.Refusee(409, "maison 10340 déjà prise")); Assert.That(Lu(null), Is.EqualTo("Demande refusée : déclaré absent par le monde"));
             Poser(partie, "Recu", RecuIntention.Absente("service coupé")); Assert.That(Lu(null), Is.EqualTo("Envoi non confirmé : service coupé"));
         }
+        // Lot #879 : chaque commande du cabinet déclare sa phrase, et le cabinet la montre au survol.
+        [Test] public void ChaqueCommandeDuCabinetDitCeQuElleFait()
+        {
+            Proposer(); Transform toile = racine.transform.Find("Cabinet"); Button[] boutons = toile.GetComponentsInChildren<Button>(true);
+            var attendues = new[] { "Ralentir", "Pause / Reprendre", "Accélérer", "Choisir cette maison", "Maison témoin", "Prélèvement", "Ouvrir le grenier", "Préparer", "Confirmer l’ordre",
+                "Annuler / Retour", "Annuler / Retour", "Menu", "Revenir au jeu", "Puissances", "Habitants", "Autres maisons", "Plan du bourg", "Revenir à la carte", "Chantiers",
+                "Tracer une rue", "Relire le tracé", "Confirmer la rue", "Terres et comptes", "Fermer", "Fermer", "Fermer" };
+            Assert.That(attendues.Length == 26 && attendues.Distinct().Count() == 23, Is.True);
+            foreach (var nom in attendues.GroupBy(n => n)) Assert.That(boutons.Count(b => b.name == nom.Key), Is.GreaterThanOrEqualTo(nom.Count()), "commande absente du cabinet : " + nom.Key);
+            Assert.That(boutons.Length, Is.GreaterThanOrEqualTo(26));
+            string[] sans = CabinetDeCarte.CommandesSansPhrase(toile); Assert.That(sans, Is.Empty, "commandes sans phrase : " + string.Join(", ", sans));
+            Assert.That(boutons.Single(b => b.name == "Confirmer l’ordre").GetComponent<Infobulle>().Phrase, Is.EqualTo("Envoie l'ordre préparé au monde ; il l'applique au jour suivant."));
+            SocleInterface.Commande(toile, "Témoin sans phrase", 0, 0, null); Assert.That(CabinetDeCarte.CommandesSansPhrase(toile), Is.EqualTo(new[] { "Témoin sans phrase" }));
+            SocleInterface.Commande(toile, "Témoin muet", 0, 0, null, true, "Témoin muet"); Assert.That(CabinetDeCarte.CommandesSansPhrase(toile), Is.EqualTo(new[] { "Témoin sans phrase", "Témoin muet" }));
+            var vide = new GameObject("Toile vide"); try { Assert.Throws<ArgumentException>(() => CabinetDeCarte.CommandesSansPhrase(vide.transform)); } finally { Object.DestroyImmediate(vide); }
+        }
+        [Test] public void LeCabinetMontreLaPhraseDuBoutonSurvole()
+        {
+            Proposer(); Transform toile = racine.transform.Find("Cabinet"); Canvas canvas = toile.GetComponent<Canvas>(); Canvas.ForceUpdateCanvases(); // la toile prend l'écran, comme dans SocleInterfaceTests
+            Button[] actifs = toile.GetComponentsInChildren<Button>().Where(b => b.gameObject.activeInHierarchy).ToArray(); var coins = new Vector3[4];
+            foreach (var nom in new[] { "Ralentir", "Pause / Reprendre", "Accélérer", "Menu", "Terres et comptes", "Maison témoin", "Choisir cette maison", "Plan du bourg", "Puissances", "Habitants", "Autres maisons" })
+                Assert.That(actifs.Any(b => b.name == nom), Is.True, "commande active absente : " + nom);
+            RectTransform[] Feuillets() => toile.GetComponentsInChildren<RectTransform>().Where(t => t.name == "Infobulle").ToArray();
+            Vector2 Centre(Button b) { ((RectTransform)b.transform).GetWorldCorners(coins); return RectTransformUtility.WorldToScreenPoint(null, (coins[0] + coins[2]) / 2); }
+            void Survoler(Button b, Vector2 point) => UnityEngine.EventSystems.ExecuteEvents.Execute(b.gameObject, new UnityEngine.EventSystems.PointerEventData(null) { position = point }, UnityEngine.EventSystems.ExecuteEvents.pointerEnterHandler);
+            foreach (var bouton in actifs)
+            {
+                Vector2 point = Centre(bouton); Survoler(bouton, point); RectTransform[] feuillets = Feuillets();
+                Assert.That(feuillets.Length, Is.EqualTo(1), bouton.name + " ne montre pas un seul feuillet");
+                Assert.That(feuillets[0].GetComponentInChildren<Text>().text, Is.EqualTo(bouton.GetComponent<Infobulle>().Phrase), bouton.name);
+                feuillets[0].GetWorldCorners(coins); Rect ecran = canvas.pixelRect;
+                foreach (var c in coins.Select(c => RectTransformUtility.WorldToScreenPoint(null, c)))
+                    Assert.That(c.x >= ecran.xMin - .5f && c.x <= ecran.xMax + .5f && c.y >= ecran.yMin - .5f && c.y <= ecran.yMax + .5f, Is.True, bouton.name + " : coin " + c + " hors de " + ecran);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(bouton.gameObject, new UnityEngine.EventSystems.PointerEventData(null) { position = point }, UnityEngine.EventSystems.ExecuteEvents.pointerExitHandler);
+                Assert.That(Feuillets(), Is.Empty, bouton.name + " : le feuillet reste après la sortie");
+            }
+            Assert.That(racine.GetComponentsInChildren<Canvas>(true).Length, Is.EqualTo(1));
+            Assert.That(toile.Find("Infobulle").GetComponentsInChildren<Graphic>(true).Where(g => g.raycastTarget).Select(g => g.name), Is.Empty);
+            Button muet = actifs.Single(b => b.name == "Menu"); Object.DestroyImmediate(muet.GetComponent<Infobulle>());
+            Survoler(muet, Centre(muet)); Assert.That(Feuillets(), Is.Empty, "un bouton sans Infobulle montre un feuillet");
+        }
     }
 }
