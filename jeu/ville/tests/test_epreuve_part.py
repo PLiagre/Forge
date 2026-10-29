@@ -1,5 +1,6 @@
 """Rapports bâtis en mémoire au format #659 ; ce ne sont pas des mesures PC."""
 import copy
+import functools
 import importlib.util
 import http.client, io, os, time, urllib.error, urllib.request
 import json
@@ -11,13 +12,18 @@ RACINE = Path(__file__).resolve().parents[3]
 MESURES = RACINE / "docs/mesures/763-juge-part"
 
 
+@functools.cache
+def _juge():
+    spec = importlib.util.spec_from_file_location("epreuve_part_rapport", RACINE / "pc/epreuve_part.py"); module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module); return module
+
 def _rapport(p, corps):
     m = json.loads(corps)
-    panier = " · ".join(f"{k} : {v:.2f}".rstrip("0").rstrip(".").replace(".", ",") + " kg" for k, v in sorted(m["grenier"].items()))
+    panier = " · ".join(f"{k} : {_juge()._masse(v)}" for k, v in sorted(m["grenier"].items()))
     return dict(terre=3, part_demandee_pct=p, curseur_pct=p, maison=m["id"], tick_avant=0, tick_apres_choix=1, tick_apres=31, ticks_part=30,
                 choix=dict(statut=200, tick=0, raison=""), ordre=dict(statut=200, tick=1, raison=""),
                 intention_json=json.dumps(dict(type="fixer_part", maison=m["id"], part=p / 100)), message_ordre="", defaut="",
-                panneau=f"Prélèvement : {100 * m['part']:g} % · tick {m['tick']}\nGrenier : {panier or 'vide'}".replace(".", ","),
+                panneau=f"Prélèvement : {100 * m['part']:g}".replace(".", ",") + f" % · relevé au jour {m['date']['jour_de_l_annee']} de {m['date']['annee']}\nGrenier : {panier or 'vide'}",
                 maison_statut=200, maison_json=corps)
 
 
@@ -46,6 +52,11 @@ def _verifier(epreuve, base, noms=()):
     assert all(l.endswith((" · égal", " · ÉCART")) for l in lignes)
     return lignes
 
+def test_masse(epreuve):
+    table = [(0, "0 kg"), (12.5, "12,5 kg"), (999.5, "999,5 kg"), (999.996, "1,00 t"), (1000, "1,00 t"), (1234.5, "1,23 t"), (9996, "10,0 t"),
+             (41712, "41,7 t"), (99960, "100 t"), (123456, "123 t"), (5631000, "5 631 t"), (570982.179398794, "571 t"), (115486.43624743563, "115 t")]
+    assert [(kg, epreuve._masse(kg)) for kg, _ in table] == table
+
 def test_corps_mesures(base):
     for corps, part, kg in zip(base[3:5], (.5, .1), (570982.179398794, 115486.43624743563)):
         m = json.loads(corps)
@@ -53,8 +64,8 @@ def test_corps_mesures(base):
 
 
 def test_rapports_et_contre_epreuve(epreuve, base):
-    assert base[0]["panneau"] == "Prélèvement : 50 % · tick 31\nGrenier : nourriture : 570982,18 kg"
-    assert base[1]["panneau"] == "Prélèvement : 10 % · tick 31\nGrenier : nourriture : 115486,44 kg"
+    assert base[0]["panneau"] == "Prélèvement : 50 % · relevé au jour 32 de 1400\nGrenier : nourriture : 571 t"
+    assert base[1]["panneau"] == "Prélèvement : 10 % · relevé au jour 32 de 1400\nGrenier : nourriture : 115 t"
     lignes = _verifier(epreuve, base)
     assert "570982.18" in lignes[-1] and "115486.44" in lignes[-1]
     base[0], base[3], base[5] = copy.deepcopy(base[1]), base[4], 10
@@ -62,8 +73,9 @@ def test_rapports_et_contre_epreuve(epreuve, base):
 
 
 @pytest.mark.parametrize("champ,valeur,nom", [
-    ("panneau", "51 %", "panneau part"), ("panneau", "570982,20", "panneau grenier"),
-    ("panneau", "570982,19", "panneau grenier"), ("panneau", "tick 32", "panneau part"),
+    ("panneau", "51 %", "panneau part"), ("panneau", "572 t", "panneau grenier"),
+    ("panneau", "570 t", "panneau grenier"), ("panneau", "570982,18 kg", "panneau grenier"), ("panneau", "jour 33 de 1400", "panneau part"),
+    ("panneau", "jour 32 de 1401", "panneau part"),
     ("corps", " ", "corps"), ("ordre", 2, "ordre"), ("ticks_part", 29, "ticks"), ("intention_json", "{}", "intention"),
     ("intention_json", '{"type":"fixer_part","maison":"seigneurie-3","part":0.4}', "intention"),
     ("intention_json", "illisible", "intention"), ("curseur_pct", 40, "demande"), ("choix", 409, "choix"),
@@ -72,7 +84,7 @@ def test_rapports_et_contre_epreuve(epreuve, base):
 def test_ecart(epreuve, base, champ, valeur, nom):
     r = base[0]
     if champ == "panneau":
-        r[champ] = r[champ].replace("50 %", valeur) if "%" in valeur else r[champ].replace("570982,18", valeur) if valeur[0].isdigit() else r[champ].replace("tick 31", valeur) if valeur.startswith("tick") else valeur
+        r[champ] = r[champ].replace("50 %", valeur) if "%" in valeur else r[champ].replace("571 t", valeur) if valeur[0].isdigit() else r[champ].replace("jour 32 de 1400", valeur) if valeur.startswith("jour") else valeur
     elif champ == "part":
         base[3] = json.dumps(json.loads(base[3]) | {"part": valeur}); r["maison_json"] = base[3]; r["panneau"] = r["panneau"].replace("50 %", "49 %")
     elif champ == "corps": r["maison_json"] += valeur
@@ -81,7 +93,7 @@ def test_ecart(epreuve, base, champ, valeur, nom):
     _verifier(epreuve, base, tuple("forte · " + n for n in nom.split("|")))
 
 
-@pytest.mark.parametrize("cas,cause", [("vide", "rapport"), ("absent", "panneau"), ("defaut", "session interrompue"), ("bool", "ticks_part"), ("fiche", "Morée"), ("double", "Morée"), ("tick", "tick"), ("json", "relu"), ("grenier", "grenier"), ("nul", "grenier"), ("inf", "grenier"), ("part", "pourcentage")])
+@pytest.mark.parametrize("cas,cause", [("vide", "rapport"), ("absent", "panneau"), ("defaut", "session interrompue"), ("bool", "ticks_part"), ("fiche", "Morée"), ("double", "Morée"), ("tick", "tick"), ("json", "relu"), ("grenier", "grenier"), ("nul", "grenier"), ("inf", "grenier"), ("part", "pourcentage"), ("date", "date"), ("jour", "date")])
 @pytest.mark.parametrize("cote", [0, 1])
 def test_impossible(epreuve, base, cas, cause, cote):
     r, d, i = base[cote], base[2], cote + 3
@@ -96,7 +108,9 @@ def test_impossible(epreuve, base, cas, cause, cote):
     elif cas == "part": base[cote + 5] = 61
     else:
         m = json.loads(base[i])
-        if cas == "grenier": del m["grenier"]
+        if cas == "date": del m["date"]
+        elif cas == "jour": m["date"]["jour_de_l_annee"] = 0
+        elif cas == "grenier": del m["grenier"]
         else: m["grenier"] = None if cas == "nul" else {"nourriture": float("inf")}
         base[i] = "pas du json" if cas == "json" else json.dumps(m)
     base[1 - cote]["curseur_pct"] = 42
@@ -119,7 +133,7 @@ def test_references(epreuve, base, paniers):
         base[i + 3] = json.dumps(m); base[i] = _rapport(base[i + 5], base[i + 3]); base[i]["terre"] = 913
     _verifier(epreuve, base, ("grenier",))
     for texte in ("Grenier : bois : 2 kg", "Grenier : bois : 2 kg · bois : 2 kg"):
-        base[0]["panneau"] = "Prélèvement : 50 % · tick 31\n" + texte
+        base[0]["panneau"] = "Prélèvement : 50 % · relevé au jour 32 de 1400\n" + texte
         _verifier(epreuve, base, ("forte · panneau grenier", "grenier"))
 
 @pytest.mark.parametrize("cle", "terre part_demandee_pct curseur_pct maison tick_avant tick_apres_choix tick_apres ticks_part choix ordre intention_json message_ordre panneau maison_statut maison_json defaut".split())

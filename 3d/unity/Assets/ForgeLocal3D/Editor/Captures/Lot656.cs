@@ -14,12 +14,12 @@ namespace ForgeLocal3D.Captures
     {
         const string SIEGE = "Mistra", SANS = "-forge656SansConfirmation", NOURRITURE = "nourriture", CONFIRMER = "Confirmer l\u2019ordre"; const double ATTENTE_S = 15; const int IMAGES = 10;
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-        static CarteDessinee carte; static Transform toile, racine; static CommandesMaison commandes; static string maison; static int port; static long nRecu;
+        internal static CarteDessinee carte; internal static Transform toile, racine; internal static CommandesMaison commandes; internal static string maison; internal static int port; internal static long nRecu; internal static DateDuMonde dateRecu;
         static string N(long v) => v.ToString(Inv);
         static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
         static InvalidOperationException Echec(string c) => new InvalidOperationException(c);
 
-        [ScenarioDeCapture(656, "01-part-posee")] static IEnumerator PartPosee(Camera camera)
+        [ScenarioDeCapture(656, "01-part-posee")] internal static IEnumerator PartPosee(Camera camera)
         {
             var ouverte = new Lot549.CarteOuverte(); for (var e = Lot549.Ouvrir(camera, ouverte); e.MoveNext();) yield return null;
             carte = ouverte.Carte; port = carte.port;
@@ -34,7 +34,8 @@ namespace ForgeLocal3D.Captures
             long tick = partie.Monde.Donnees.Monde.Tick; var choix = partie.Choisir(mistra[0].Id); for (var e = Lot690.Attendre(choix, "choix"); e.MoveNext();) yield return null;
             if (partie.Recu == null || !partie.Recu.Acceptee || partie.Recu.AppliqueeAuTick != tick) throw Echec("reçu du choix refusé");
             var un = Lot690.PousserTick(port); for (var e = Lot690.Attendre(un, "tick"); e.MoveNext();) yield return null; if (un.Result.statut != 200) throw Echec("tick " + un.Result.statut + " " + un.Result.corps);
-            for (var e = Jusqua(() => Bouton("Prélèvement").interactable && partie.Maison?.Presente == true && partie.Maison.Donnees.Siege.Nom == SIEGE && partie.Monde.Donnees.MaisonDuJoueur == partie.Maison.Donnees.Id && Releve() != null, () => "comptes indisponibles : " + Ligne(Releve()?.text)); e.MoveNext();) yield return null;
+            for (var e = Jusqua(() => Bouton("Prélèvement").interactable && partie.Maison?.Presente == true && partie.Maison.Donnees.Siege.Nom == SIEGE && partie.Monde.Donnees.MaisonDuJoueur == partie.Maison.Donnees.Id && Releve() != null && horloge.Lue?.Tick == tick + 1, () => "comptes indisponibles : " + Ligne(Releve()?.text) + ", horloge " + (horloge.Lue == null ? "non lue" : "au tick " + N(horloge.Lue.Tick))); e.MoveNext();) yield return null;
+            dateRecu = horloge.Lue.Date; string recuDate = "Ordre reçu au " + TexteDuMonde.Date(dateRecu);
             maison = partie.Monde.Donnees.MaisonDuJoueur; var avant = Comptes(maison); for (var e = Lot690.Attendre(avant, "comptes"); e.MoveNext();) yield return null;
             if (!avant.Result.Presente || avant.Result.Donnees.Part == null || Math.Abs(avant.Result.Donnees.Part.Value - 0.25) <= 1e-7) throw Echec("part ancienne " + avant.Result.Donnees?.Part + " " + avant.Result.Absence);
             double ancienne = avant.Result.Donnees.Part.Value; Bouton("Prélèvement").onClick.Invoke(); yield return null;
@@ -42,13 +43,15 @@ namespace ForgeLocal3D.Captures
             curseur.value = 25; yield return null; var saisie = racine.GetComponentInChildren<InputField>(true);
             if (Math.Abs(curseur.value - 25f) > 0.01f || saisie == null || saisie.text != "25") throw Echec("curseur " + curseur.value + " saisie " + (saisie == null ? "" : saisie.text));
             Bouton("Préparer").onClick.Invoke(); yield return null; if (!Environment.GetCommandLineArgs().Contains(SANS)) Bouton(CONFIRMER).onClick.Invoke();
-            for (var e = Jusqua(() => commandes.Ordre.Recu != null && commandes.Ordre.Recu.Acceptee && commandes.MessageAffiche.Contains("après le tick " + commandes.Ordre.Recu.AppliqueeAuTick.Value.ToString(Inv)), () => "reçu absent, part " + ancienne.ToString(Inv) + " « " + Ligne(commandes.MessageAffiche) + " »"); e.MoveNext();) yield return null;
+            for (var e = Jusqua(() => commandes.Ordre.Recu != null && commandes.Ordre.Recu.Acceptee && commandes.MessageAffiche.Contains(recuDate), () => "reçu absent, part " + ancienne.ToString(Inv) + " « " + Ligne(commandes.MessageAffiche) + " »"); e.MoveNext();) yield return null;
             nRecu = commandes.Ordre.Recu.AppliqueeAuTick.Value; var pendant = Comptes(maison); var mondeP = Lot690.LireMonde(port); for (var e = Lot690.Attendre(Task.WhenAll(pendant, mondeP), "avant tick"); e.MoveNext();) yield return null;
             if (!pendant.Result.Presente || Math.Abs((pendant.Result.Donnees.Part ?? -1) - ancienne) > 1e-9) throw Echec("part changée avant le tick : " + pendant.Result.Donnees?.Part); Lot690.ExigerMonde(mondeP.Result, nRecu, maison, "avant l'application");
+            DateDuMonde dateP = mondeP.Result.Donnees.Monde.Date; if (dateP.Annee != dateRecu.Annee || dateP.JourDeLAnnee != dateRecu.JourDeLAnnee) throw Echec("reçu daté " + TexteDuMonde.Date(dateRecu) + ", monde au " + TexteDuMonde.Date(dateP));
             var deux = Lot690.PousserTick(port); for (var e = Lot690.Attendre(deux, "tick part"); e.MoveNext();) yield return null; if (deux.Result.statut != 200) throw Echec("second tick " + deux.Result.statut + " " + deux.Result.corps);
-            for (var e = Jusqua(() => { var r = Releve(); return r != null && r.text.Contains("25 %") && r.text.Contains("tick " + N(nRecu + 1)) && curseur.gameObject.activeInHierarchy && !curseur.interactable && Math.Abs(curseur.value - 25f) < 0.01f && commandes.MessageAffiche.Contains("après le tick " + N(nRecu)); }, () => "relevé « " + Ligne(Releve()?.text) + " » curseur " + curseur.value); e.MoveNext();) yield return null;
             var apres = Comptes(maison); var monde = Lot690.LireMonde(port); for (var e = Lot690.Attendre(Task.WhenAll(apres, monde), "après part"); e.MoveNext();) yield return null;
             Lot690.ExigerMonde(monde.Result, nRecu + 1, maison, "après la part"); if (!apres.Result.Presente || Math.Abs((apres.Result.Donnees.Part ?? -1) - 0.25) > 1e-7) throw Echec("part " + apres.Result.Donnees?.Part + " au tick " + N(nRecu + 1));
+            var grenier = apres.Result.Donnees.Grenier ?? throw Echec("grenier déclaré absent après la part"); string marque = "25 % · relevé au " + TexteDuMonde.Date(monde.Result.Donnees.Monde.Date) + "\n", panier = "Grenier : " + (grenier.Count == 0 ? "vide" : string.Join(" · ", grenier.OrderBy(p => p.Key).Select(p => p.Key + " : " + TexteDuMonde.Masse(p.Value))));
+            for (var e = Jusqua(() => { var r = Releve(); return horloge.Lue?.Tick == nRecu + 1 && r != null && r.text.Contains(marque) && r.text.Contains(panier) && curseur.gameObject.activeInHierarchy && !curseur.interactable && Math.Abs(curseur.value - 25f) < 0.01f && commandes.MessageAffiche.Contains(recuDate); }, () => "relevé « " + Ligne(Releve()?.text) + " » attendu « " + Ligne(marque + panier) + " » curseur " + curseur.value); e.MoveNext();) yield return null;
             Text legende = racine.GetComponentsInChildren<Text>(true).Single(t => t.text == "25 %"); Text message = Message(), releve = Releve(); string gardeMessage = message.text, gardeReleve = releve.text;
             for (var e = Poser(camera, message, releve, legende, Bouton("Prélèvement").GetComponentInChildren<Text>()); e.MoveNext();) yield return null; if (message.text != gardeMessage || releve.text != gardeReleve || !curseur.gameObject.activeInHierarchy || curseur.interactable) throw Echec("après la pose : « " + Ligne(message.text) + " »");
             Debug.Log("CAPTURE_656 maison " + maison + ", valeur 0.25, N reçu " + N(nRecu) + ", tick relu " + N(monde.Result.Donnees.Monde.Tick));
@@ -85,8 +88,8 @@ namespace ForgeLocal3D.Captures
         { for (double fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S; !fini();) { if (Time.realtimeSinceStartupAsDouble > fin) throw Echec(sinon() + " en " + ATTENTE_S.ToString(Inv) + " s"); yield return null; } }
         static Button Bouton(string nom)
         { var trouves = racine.GetComponentsInChildren<Button>(true).Where(b => b.name == nom).ToArray(); if (trouves.Length != 1) throw Echec(trouves.Length + " boutons « " + nom + " »"); return trouves[0]; }
-        static Text Releve() => racine.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.text != null && t.text.StartsWith("Prélèvement :"));
-        static Text Message() => racine.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.text == commandes.MessageAffiche) ?? throw Echec("message absent : « " + Ligne(commandes.MessageAffiche) + " »");
+        internal static Text Releve() => racine.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.text != null && t.text.StartsWith("Prélèvement :"));
+        internal static Text Message() => racine.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.text == commandes.MessageAffiche) ?? throw Echec("message absent : « " + Ligne(commandes.MessageAffiche) + " »");
         static Task<Lecture<ComptesDeMaison>> Comptes(string id) => Task.Run(() => { using (var c = new ClientMaison(port, TimeSpan.FromSeconds(ATTENTE_S))) return c.LireComptes(id); });
         static string Kilos(double stock)
         {
