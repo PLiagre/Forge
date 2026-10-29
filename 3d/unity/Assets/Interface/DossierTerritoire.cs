@@ -48,49 +48,55 @@ namespace Forge.Interface
                 prochaineLecture = Time.realtimeSinceStartupAsDouble + 2;
                 _ = lecture.Actualiser("/lieu?cell=" + choisie.CellId);
             }
-            try
-            {
-                texte.text = lecture.Erreur != null ? "Lecture indisponible : " + lecture.Erreur
-                    : lecture.Document == null ? "Cellule " + cellule + "\nLecture des lieux et des réserves…"
-                    : Decrire(lecture.Document, choisie.CellId);
-            }
-            catch (ArgumentException erreur) { texte.text = "Dossier incomplet : " + erreur.Message; }
+            texte.text = Texte(lecture.Erreur, lecture.Document, choisie.CellId);
             texte.rectTransform.sizeDelta = new Vector2(0, Mathf.Max(defilement.viewport.rect.height, texte.preferredHeight + 16));
         }
+        // Lot #873 : les trois états du dossier ; une raison qui montre la cellule ou un nombre nu se tait devant le joueur.
+        public const string ATTENTE = "Lecture de la terre, de ses lieux et de ses réserves…";
+        public static string Texte(string erreur, DocumentDuMonde document, long cellule)
+        {
+            string id = cellule.ToString(CultureInfo.InvariantCulture);
+            try { return erreur != null ? "Lecture indisponible : " + TexteDuMonde.Absence(erreur, id) : document == null ? ATTENTE : Decrire(document, cellule); }
+            catch (ArgumentException e) { return "Dossier incomplet : " + TexteDuMonde.Absence(e.Message, id); }
+        }
         static string Nombre(double n) => n.ToString("0.##", CultureInfo.GetCultureInfo("fr-FR"));
+        static string Personnes(long n, string fait) => TexteDuMonde.Nombre(n) + (n > 1 ? " personnes " + fait + "s" : " personne " + fait);
         public static string Decrire(DocumentDuMonde document, long cellule)
         {
             var racine = document.Champs;
             if (DocumentDuMonde.Entier(racine, "cell_id") != cellule) throw new ArgumentException("Territoire différent de la sélection");
             var lieux = DocumentDuMonde.Tableau(racine, "lieux");
             if (lieux.Count == 0) throw new ArgumentException("Aucun lieu transmis");
-            var texte = new StringBuilder("Cellule " + cellule + " · tick " + document.Tick + "\n");
-            texte.Append(DocumentDuMonde.Entier(racine, "population")).Append(" habitants dans le territoire\nMolette : parcourir les lieux\n");
+            if (document.Annee == null) throw new ArgumentException("Date non transmise");
+            var texte = new StringBuilder(); Dictionary<string, object> bourg = null; // l'en-tête nomme le bourg : il s'écrit après la liste
             var rangs = new HashSet<long>();
             foreach (var brut in lieux)
             {
                 var lieu = brut as Dictionary<string, object> ?? throw new ArgumentException("Lieu illisible");
                 long rang = DocumentDuMonde.Entier(lieu, "rang");
                 if (!rangs.Add(rang)) throw new ArgumentException("Rang de lieu répété");
+                if (rang == 0) bourg = lieu;
                 string nom = DocumentDuMonde.Valeur(lieu, "nom") as string ?? "Nom du lieu non transmis";
-                texte.Append("\n").Append(nom).Append(" · rang ").Append(rang).Append('\n');
-                texte.Append(DocumentDuMonde.Entier(lieu, "population")).Append(" habitants · ");
+                texte.Append("\n").Append(nom).Append('\n');
+                texte.Append(TexteDuMonde.Nombre(DocumentDuMonde.Entier(lieu, "population"))).Append(" habitants · ");
                 texte.Append(Nombre(DocumentDuMonde.Nombre(lieu, "surface_km2"))).Append(" km²\n");
                 texte.Append(Maitre(racine, lieu)).Append('\n');
                 var stocks = DocumentDuMonde.Objet(lieu, "stocks");
                 if (stocks.Count == 0) texte.Append("Réserves : panier vide\n");
                 foreach (var cle in stocks.Keys.OrderBy(c => c))
-                    texte.Append(cle).Append(" : ").Append(Nombre(DocumentDuMonde.Nombre(stocks, cle))).Append(" kg\n");
+                    texte.Append(cle).Append(" : ").Append(TexteDuMonde.Masse(DocumentDuMonde.Nombre(stocks, cle))).Append('\n');
                 var flux = DocumentDuMonde.Valeur(lieu, "flux_30j") as Dictionary<string, object>;
                 if (flux == null) texte.Append("Flux non transmis\n");
                 else
                 {
-                    texte.Append("Sur 30 jours : ").Append(Nombre(DocumentDuMonde.Nombre(flux, "preleve_kg"))).Append(" kg prélevés\n");
-                    texte.Append(DocumentDuMonde.Entier(flux, "partis_personnes")).Append(" départs · ")
-                        .Append(DocumentDuMonde.Entier(flux, "arrives_personnes")).Append(" arrivées\n");
+                    texte.Append("Sur 30 jours : ").Append(TexteDuMonde.Masse(DocumentDuMonde.Nombre(flux, "preleve_kg"))).Append(" prélevés\n");
+                    texte.Append(Personnes(DocumentDuMonde.Entier(flux, "partis_personnes"), "partie")).Append(" · ")
+                        .Append(Personnes(DocumentDuMonde.Entier(flux, "arrives_personnes"), "arrivée")).Append('\n');
                 }
             }
-            return texte.ToString();
+            if (bourg == null) throw new ArgumentException("Bourg absent de la terre");
+            return (DocumentDuMonde.Valeur(bourg, "nom") as string ?? "Nom du bourg non transmis") + " · " + Maitre(racine, bourg) + "\n" + TexteDuMonde.Date(new DateDuMonde(document.Annee.Value, document.JourDeLAnnee.Value))
+                + "\n" + TexteDuMonde.Nombre(DocumentDuMonde.Entier(racine, "population")) + " habitants dans le territoire\nMolette : parcourir les lieux\n" + texte;
         }
         static string Maitre(Dictionary<string, object> racine, Dictionary<string, object> lieu)
         {

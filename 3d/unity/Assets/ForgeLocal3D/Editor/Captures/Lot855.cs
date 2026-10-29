@@ -41,6 +41,7 @@ namespace ForgeLocal3D.Captures
             for (var e = Lot690.Attendre(lecture, "étape 2 : lecture /lieu?cell=" + N(cellule)); e.MoveNext();) yield return null;
             if (!lecture.Result.Presente || !(lecture.Result.Lieu.Bourg?.Position is PointCarte position))
                 throw Echec("étape 2 : /lieu?cell=" + N(cellule) + " sans point au rang 0 : " + (lecture.Result.Absence ?? lecture.Result.Lieu.AbsenceDesLieux ?? "rang 0 absent ou sans point"));
+            string bourg = lecture.Result.Lieu.Bourg.Nom ?? throw Echec("étape 2 : le rang 0 de la Morée n'a pas de nom servi : " + lecture.Result.Lieu.Bourg.AbsenceDuNom); // lot #873 : le dossier s'ouvre sur lui
             Vector3 local = carte.PositionSurLaCarte(position, ReperesDeDepart.HAUTEUR_LIEU) ?? throw Echec("étape 2 : la carte ne place pas le point du lieu"); Vector3 point = carte.transform.TransformPoint(local);
             carte.Vue.Zoomer(CRANS, carte.camera.WorldToViewportPoint(point)); carte.Vue.Centrer(new Vector2(local.x, local.z), carte.Vue.Demi);
             yield return null; // la carte se recadre
@@ -59,14 +60,14 @@ namespace ForgeLocal3D.Captures
             if (glisse || cabinet.Retenue != null) throw Echec("étape 4 : un glisser de " + PAS_PX + " px a gardé la cellule " + cabinet.Retenue?.CellId);
 
             Text texte = toile.Cast<Transform>().FirstOrDefault(t => t.name == DOSSIER)?.Find("Lecture du territoire")?.GetComponentInChildren<Text>(true) ?? throw Echec("étape 5 : le texte du dossier « " + DOSSIER + " » est introuvable");
-            bool glisser = Environment.GetCommandLineArgs().Contains(GLISSER), clic = false; string debut = "Cellule " + N(cellule) + " · tick ", ferme = null;
+            bool glisser = Environment.GetCommandLineArgs().Contains(GLISSER), clic = false; string debut = bourg + " · ", ferme = null; bool Dossier() => texte.text.StartsWith(debut, StringComparison.Ordinal) && texte.text.Split('\n').Length > 1 && texte.text.Split('\n')[1].StartsWith("jour", StringComparison.Ordinal);
             for (int fois = 0; fois < 2; fois++) // le clic, puis son retour après Échap pour la photo
             {
                 clic = Toucher(cabinet, P, glisser ? loin : P, moree);
                 if (cabinet.Retenue?.CellId != cellule) throw Echec("étape 5 : aucune terre gardée après le geste" + (glisser ? " (glisser de " + PAS_PX + " px, " + GLISSER + ")" : "") + " : retenue " + (cabinet.Retenue?.CellId.ToString() ?? "nulle") + ", attendu " + N(cellule));
                 MeshRenderer teinte = carte.GetComponentsInChildren<MeshRenderer>().FirstOrDefault(r => r.name == "Cellule " + N(cellule));
                 if (teinte == null || !teinte.HasPropertyBlock()) throw Echec("étape 5 : « Cellule " + N(cellule) + " » " + (teinte == null ? "introuvable" : "sans la teinte de la terre gardée"));
-                for (var e = Lot690.Jusqua(() => texte.text.StartsWith(debut, StringComparison.Ordinal), () => "étape 5 : le dossier dit « " + Ligne(texte.text) + " », attendu « " + debut + "… »"); e.MoveNext();) yield return null;
+                for (var e = Lot690.Jusqua(Dossier, () => "étape 5 : le dossier dit « " + Ligne(texte.text) + " », attendu « " + debut + "… » puis une ligne « jour … »"); e.MoveNext();) yield return null;
                 if (fois == 1) break;
                 menu.Echap();
                 if (cabinet.Retenue != null || menu.Ouvert || teinte.HasPropertyBlock()) throw Echec("étape 6 : le premier Échap laisse la cellule " + cabinet.Retenue?.CellId + ", menu " + (menu.Ouvert ? "ouvert" : "fermé"));
@@ -91,7 +92,7 @@ namespace ForgeLocal3D.Captures
                 if (vu.z <= 0 || vu.x < 0 || vu.x > 1 || vu.y < 0 || vu.y > 1) throw Echec("photo : le point de la Morée est hors champ " + vu.ToString("F3"));
             }
             Visible(); for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
-            if (cabinet.Retenue?.CellId != cellule || !texte.text.StartsWith(debut, StringComparison.Ordinal)) throw Echec("après la pose : retenue " + cabinet.Retenue?.CellId + ", dossier « " + Ligne(texte.text) + " »");
+            if (cabinet.Retenue?.CellId != cellule || !Dossier()) throw Echec("après la pose : retenue " + cabinet.Retenue?.CellId + ", dossier « " + Ligne(texte.text) + " »");
             Visible();
             Debug.Log("CAPTURE_855 Morée cellule " + N(cellule) + ", P " + Ecran(P) + ", Q " + Ecran(Q) + " ; étape 3 panneau " + (panneau ? "gardé" : "rien") + ", étape 4 glisser " + (glisse ? "gardé" : "rien")
                 + ", étape 5 clic " + (clic ? "gardé" : "rien") + ", étape 6 Échap ferme le dossier (« " + ferme + " »), puis ouvre et ferme le menu ; dossier « " + Ligne(texte.text) + " »");

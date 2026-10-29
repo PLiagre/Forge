@@ -28,6 +28,7 @@ namespace Forge.Interface
         CelluleDeCarte retenue;
         MeshRenderer territoireTeinte;
         FicheDeDepart candidate;
+        RecuIntention recuJournalise;
         string liste;
         double prochaineLecture;
         Vector2? depart; bool eloigne;
@@ -187,8 +188,8 @@ namespace Forge.Interface
             {
                 var lue = Partie.Maison;
                 if (lue == null || !lue.Presente) { EtatsLecture.Afficher(maison, EtatLecture.Absence, lue?.Absence ?? "Maison en attente"); return; }
-                maison.text = (lue.Donnees.Nom ?? lue.Donnees.Absents["nom"]) + "\nSiège : " + lue.Donnees.Siege.Nom
-                    + "\n" + lue.Donnees.Lieux.Count + " lieux tenus · relevé au tick " + monde.Donnees.Monde.Tick;
+                int tenus = lue.Donnees.Lieux.Count; maison.text = (lue.Donnees.Nom ?? TexteDuMonde.Absence(lue.Donnees.Absents["nom"])) + "\nSiège : " + lue.Donnees.Siege.Nom
+                    + "\n" + TexteDuMonde.Nombre(tenus) + (tenus == 1 ? " lieu tenu" : " lieux tenus") + " · relevé au " + TexteDuMonde.Date(monde.Donnees.Monde.Date);
                 maison.rectTransform.sizeDelta = new Vector2(536, 180);
                 maison.color = SocleInterface.Couleur("encre");
                 return;
@@ -210,11 +211,14 @@ namespace Forge.Interface
             }
             foreach (var bouton in choix.GetComponentsInChildren<Button>()) bouton.interactable = Partie.PeutChoisir;
             if (candidate != null) apercu.text = candidate.Nom + " · " + candidate.Siege.Nom
-                + "\n" + candidate.Habitants + " habitants dans la cellule du siège"
+                + "\n" + TexteDuMonde.Nombre(candidate.Habitants) + " habitants autour de " + candidate.Siege.Nom
                 + "\nSuzerain : " + (candidate.Suzerain?.Nom ?? "aucun");
             var recu = Partie.Recu;
-            if (recu != null) apercu.text = recu.Acceptee ? "Choix reçu au tick " + recu.AppliqueeAuTick + ".\nReprenez le temps pour son application au prochain tick."
-                : recu.Presente ? "Demande refusée : " + recu.Erreur : "Envoi non confirmé : " + recu.Absence;
+            if (recu == null) return; // lot #873 : le reçu n'est daté que si l'horloge lue est à son tick ; le tick ne va qu'au journal, une fois par reçu
+            if (recu.Acceptee && recu != recuJournalise) { recuJournalise = recu; Debug.Log("CabinetDeCarte : choix reçu au tick " + recu.AppliqueeAuTick); }
+            apercu.text = !recu.Acceptee ? (recu.Presente ? "Demande refusée : " + TexteDuMonde.Absence(recu.Erreur) : "Envoi non confirmé : " + TexteDuMonde.Absence(recu.Absence))
+                : horloge.Lue?.Tick == recu.AppliqueeAuTick ? "Choix reçu le " + TexteDuMonde.Date(horloge.Lue.Date) + ".\nReprenez le temps : le monde l'appliquera au jour suivant."
+                : "Choix reçu ; le monde l'applique au jour suivant.";
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

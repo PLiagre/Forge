@@ -4,6 +4,7 @@ using System.Linq;
 using Forge.Pont;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Forge.Interface.Tests
@@ -207,6 +208,34 @@ namespace Forge.Interface.Tests
             Assert.That(System.IO.File.ReadAllText("Assets/Interface/CabinetDeCarte.cs"), Does.Not.Contain("rightButton").And.Not.Contain("PassageALaCapitale"));
             var survol = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("ForgeLocal3D.SurvolDeCarte")).First(t => t != null);
             Assert.That(CabinetDeCarte.SEUIL_CLIC_PX, Is.EqualTo((float)survol.GetField("SEUIL_CLIC_PX").GetValue(null)));
+        }
+        // Lot #873 : « Votre maison » parle en noms et en dates ; le tick ne va qu'au journal.
+        const string APERCU = "Consultez une maison avant de vous engager."; Text Nomme(string nom) => racine.GetComponentsInChildren<Text>(true).Single(t => t.name == nom);
+        string Propre(string nom) { string t = Nomme(nom).text; Assert.That(TexteDuMonde.Interdit(t, "10340") ?? TexteDuMonde.SansUnite(t), Is.Null, t); return t; }
+        [Test] public void LaMaisonDuJoueurDitSonNomSonSiegeSesLieuxEtLaDate()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); cabinet.Afficher(); Assert.That(Propre("Lecture de la partie…"), Is.EqualTo("Maison\nSiège : Siège\n3 lieux tenus · relevé au jour 1 de 1400"));
+            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(Propre("Lecture de la partie…"), Does.EndWith("\n1 lieu tenu · relevé au jour 1 de 1400"));
+        }
+        void Proposer()
+        {
+            partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), null)));
+            Poser(partie, "Departs", Lecture<DepartsLus>.De(new DepartsLus(1, new DateDuMonde(1400, 1), new[] { new FicheDeDepart(42, "Despotat témoin", "Maison témoin", new SiegeDeDepart("Mistra", 0, 0), 10340, 12345, null, new VoisinDeDepart[0]) })));
+            cabinet.Afficher(); racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Maison témoin").onClick.Invoke(); cabinet.Afficher();
+        }
+        [Test] public void LApercuDuChoixDitLesHabitantsAutourDuSiege()
+        {
+            Proposer(); Assert.That(Propre(APERCU), Is.EqualTo("Despotat témoin · Mistra\n12 345 habitants autour de Mistra\nSuzerain : aucun")); Assert.That(TexteDuMonde.Interdit(Nomme(APERCU).text, "10340", "42"), Is.Null);
+        }
+        [Test] public void LeRecuNEstDateQuAuTickDeLHorloge()
+        {
+            Proposer(); Poser(partie, "Recu", RecuIntention.AccepteeAu(7)); LogAssert.Expect(LogType.Log, "CabinetDeCarte : choix reçu au tick 7");
+            string Lu(HorlogeLue lue) { Poser(racine.GetComponent<HorlogeDeCarte>(), "Lue", lue); cabinet.Afficher(); Assert.That(Nomme(APERCU).text, Does.Not.Contain("tick 7")); return Propre(APERCU); }
+            Assert.That(Lu(null), Is.EqualTo("Choix reçu ; le monde l'applique au jour suivant."));
+            Assert.That(Lu(new HorlogeLue(7, new DateDuMonde(1400, 8), 0)), Is.EqualTo("Choix reçu le jour 8 de 1400.\nReprenez le temps : le monde l'appliquera au jour suivant."));
+            Assert.That(Lu(new HorlogeLue(8, new DateDuMonde(1400, 9), 0)), Is.EqualTo("Choix reçu ; le monde l'applique au jour suivant.").And.Not.Contain("jour 9").And.Not.Contain("jour 8"));
+            Poser(partie, "Recu", RecuIntention.Refusee(409, "maison 10340 déjà prise")); Assert.That(Lu(null), Is.EqualTo("Demande refusée : déclaré absent par le monde"));
+            Poser(partie, "Recu", RecuIntention.Absente("service coupé")); Assert.That(Lu(null), Is.EqualTo("Envoi non confirmé : service coupé"));
         }
     }
 }
