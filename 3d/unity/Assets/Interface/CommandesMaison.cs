@@ -10,6 +10,7 @@ namespace Forge.Interface
     public sealed class CommandesMaison : MonoBehaviour
     {
         Func<string> maison;
+        Func<HorlogeLue> horloge;
         LectureDossier lecture;
         public OrdreConfirme Ordre { get; private set; }
         Transform racine;
@@ -18,14 +19,15 @@ namespace Forge.Interface
         Button part, secours, preparer, confirmer, retour;
         Slider curseur;
         Text legende;
-        string cible, erreur;
+        string cible, erreur, texteDuRecu; RecuIntention recuVu;
         bool grenier, disponible;
         double prochaine;
         public string MessageAffiche => message == null ? "" : message.text;
 
-        public void Initialiser(Transform parent, Func<string> maison, LectureDossier lecture, OrdreConfirme ordre)
+        public void Initialiser(Transform parent, Func<string> maison, LectureDossier lecture, OrdreConfirme ordre, Func<HorlogeLue> horloge = null)
         {
             this.maison = maison; this.lecture = lecture; Ordre = ordre;
+            this.horloge = horloge ?? (() => { var h = GetComponent<HorlogeDeCarte>(); return h != null ? h.Lue : null; });
             racine = new GameObject("Commandes de maison", typeof(RectTransform)).transform;
             racine.SetParent(parent, false);
             var rect = (RectTransform)racine;
@@ -123,10 +125,17 @@ namespace Forge.Interface
             retour.interactable = !Ordre.EnCours;
             message.text = erreur ?? (brouillon ? Ordre.Resume : formulaire ? (grenier ? "Quantité de grain en kg." : "Part prélevée en %." ) : "Préparez un ordre, puis confirmez son envoi.");
             if (Ordre.EnCours) message.text = "Envoi en cours. Attendez le reçu.";
-            if (recu) message.text = (string.IsNullOrEmpty(Ordre.Resume) ? "" : Ordre.Resume + "\n") + TexteDuRecu(Ordre.Recu);
+            if (!ReferenceEquals(Ordre.Recu, recuVu)) { recuVu = Ordre.Recu; texteDuRecu = recu ? TexteDuRecu(recuVu, horloge()) : null; } // écrit une fois : l'horloge qui avance ne le redate pas
+            if (recu) message.text = (string.IsNullOrEmpty(Ordre.Resume) ? "" : Ordre.Resume + "\n") + texteDuRecu;
         }
-        static string TexteDuRecu(RecuIntention recu) => recu.Acceptee ? "Ordre reçu. Le monde l'applique au tick suivant (après le tick " + recu.AppliqueeAuTick.Value.ToString(CultureInfo.InvariantCulture) + ")."
-            : recu.Presente ? "Refus : " + recu.Erreur : "Envoi non confirmé : " + recu.Absence + "\nVérifiez le monde avant tout nouvel ordre.";
+        // Daté seulement par une horloge lue au tick même où le monde a reçu l'ordre : pas de date plutôt qu'une fausse.
+        static string TexteDuRecu(RecuIntention recu, HorlogeLue lue)
+        {
+            if (!recu.Acceptee) return recu.Presente ? "Refus : " + recu.Erreur : "Envoi non confirmé : " + TexteDuMonde.Absence(recu.Absence) + "\nVérifiez le monde avant tout nouvel ordre.";
+            if (lue != null && lue.Tick == recu.AppliqueeAuTick) return "Ordre reçu au " + TexteDuMonde.Date(lue.Date) + ". Le monde l'applique au jour suivant.";
+            Debug.Log("CommandesMaison : ordre reçu après le tick " + recu.AppliqueeAuTick.Value.ToString(CultureInfo.InvariantCulture) + ", horloge " + (lue == null ? "non lue" : "lue au tick " + lue.Tick.ToString(CultureInfo.InvariantCulture)));
+            return "Ordre reçu. Le monde l'applique au jour suivant.";
+        }
         bool PartEntiere(out int pourcent)
         {
             pourcent = 0; var doc = lecture == null ? null : lecture.Document;
@@ -156,13 +165,14 @@ namespace Forge.Interface
         }
         public static string Decrire(DocumentDuMonde doc)
         {
+            if (doc.Annee == null) throw new ArgumentException("Date non transmise");
             var d = doc.Champs;
             var absents = DocumentDuMonde.Objet(d, "absents");
-            string part = DocumentDuMonde.Valeur(d, "part") == null ? DocumentDuMonde.Texte(absents, "part")
+            string part = DocumentDuMonde.Valeur(d, "part") == null ? TexteDuMonde.Absence(DocumentDuMonde.Texte(absents, "part"))
                 : (DocumentDuMonde.Nombre(d, "part") * 100).ToString("0.##", CultureInfo.GetCultureInfo("fr-FR")) + " %";
-            string reserves = DocumentDuMonde.Valeur(d, "grenier") == null ? DocumentDuMonde.Texte(absents, "grenier")
-                : string.Join(" · ", DocumentDuMonde.Objet(d, "grenier").OrderBy(p => p.Key).Select(p => p.Key + " : " + DocumentDuMonde.Nombre(DocumentDuMonde.Objet(d, "grenier"), p.Key).ToString("0.##", CultureInfo.GetCultureInfo("fr-FR")) + " kg"));
-            return "Prélèvement : " + part + " · tick " + doc.Tick + "\nGrenier : " + (reserves.Length == 0 ? "vide" : reserves);
+            string reserves = DocumentDuMonde.Valeur(d, "grenier") == null ? TexteDuMonde.Absence(DocumentDuMonde.Texte(absents, "grenier"))
+                : string.Join(" · ", DocumentDuMonde.Objet(d, "grenier").OrderBy(p => p.Key).Select(p => p.Key + " : " + TexteDuMonde.Masse(DocumentDuMonde.Nombre(DocumentDuMonde.Objet(d, "grenier"), p.Key))));
+            return "Prélèvement : " + part + " · relevé au " + TexteDuMonde.Date(new DateDuMonde(doc.Annee.Value, doc.JourDeLAnnee.Value)) + "\nGrenier : " + (reserves.Length == 0 ? "vide" : reserves);
         }
         void OnDestroy() => lecture?.Vider();
     }
