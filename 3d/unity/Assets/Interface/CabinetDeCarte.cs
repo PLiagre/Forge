@@ -106,6 +106,7 @@ namespace Forge.Interface
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port);
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer(toile.transform);
             gameObject.AddComponent<FlechesDeCarte>().Installer(toile.transform, lieux);
+            gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee);
             Afficher();
         }
 
@@ -165,6 +166,7 @@ namespace Forge.Interface
 
         public void Afficher()
         {
+            foreach (Transform enfant in transform) if (enfant.name != "Cabinet" && enfant.gameObject.activeSelf && enfant.GetComponent<Canvas>() != null) enfant.gameObject.SetActive(false);
             date.text = horloge.Absence != null ? "Date indisponible : le monde ne répond pas"
                 : horloge.Lue != null ? HorlogeDeCarte.Decrire(horloge.Lue) : "Date en attente du monde";
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;

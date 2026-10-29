@@ -278,5 +278,58 @@ namespace Forge.Interface.Tests
             Button muet = actifs.Single(b => b.name == "Menu"); Object.DestroyImmediate(muet.GetComponent<Infobulle>());
             Survoler(muet, Centre(muet)); Assert.That(Feuillets(), Is.Empty, "un bouton sans Infobulle montre un feuillet");
         }
+        // Lot #880 : l'infobulle d'une terre dit les trois premières lignes de sa fiche, et n'efface pas la phrase d'un bouton.
+        static DocumentDuMonde DocTerre(long cell, string nom, int tick = 8, int jour = 9) => new DocumentDuMonde("{\"tick\":" + tick + ",\"cell_id\":" + cell + ",\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + jour + "},\"population\":12345,\"noms\":{\"maisons\":{\"m-1\":{\"nom\":\"Maison témoin\"}}},\"lieux\":[{\"rang\":0,\"nom\":\"" + nom + "\",\"population\":12000,\"surface_km2\":12,\"maitre\":\"m-1\",\"stocks\":{\"nourriture\":1234.5},\"flux_30j\":null}]}");
+        static async System.Threading.Tasks.Task Fin(LectureDossier lecture) { for (int i = 0; i < 40 && lecture.EnCours; i++) await System.Threading.Tasks.Task.Yield(); Assert.That(lecture.EnCours, Is.False, lecture.Cle); }
+        async System.Threading.Tasks.Task<(InfobulleDeTerre bulle, CelluleDeCarte terre)> Montrer20()
+        {
+            var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; var terre = Terre(20, "Bourg témoin");
+            var porte = new System.Threading.Tasks.TaskCompletionSource<DocumentDuMonde>(); bulle.Lecture = new LectureDossier(_ => porte.Task);
+            bulle.Pas(O, terre, 0); porte.SetResult(DocTerre(20, "Bourg témoin")); await Fin(bulle.Lecture); bulle.Pas(O, terre, 0.5);
+            Assert.That(bulle.TexteAffiche, Does.StartWith("Bourg témoin · ")); return (bulle, terre);
+        }
+        [Test] public async System.Threading.Tasks.Task LInfobulleDUneTerreDitLesLignesDeSaFiche()
+        {
+            Assert.That(racine.GetComponents<InfobulleDeTerre>(), Has.Length.EqualTo(1)); cabinet.Construire(); Assert.That(racine.GetComponents<InfobulleDeTerre>(), Has.Length.EqualTo(1));
+            var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; var chemins = new System.Collections.Generic.List<string>(); var portes = new System.Collections.Generic.List<System.Threading.Tasks.TaskCompletionSource<DocumentDuMonde>>();
+            bulle.Lecture = new LectureDossier(chemin => { chemins.Add(chemin); var porte = new System.Threading.Tasks.TaskCompletionSource<DocumentDuMonde>(); portes.Add(porte); return porte.Task; });
+            var t10 = Terre(10, "Bourg dix"); var t20 = Terre(20, "Bourg témoin"); bulle.Pas(O, t10, 0);
+            Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10" })); Assert.That(bulle.TexteAffiche, Is.EqualTo(DossierTerritoire.ATTENTE));
+            bulle.Pas(O, t20, 0.1); Assert.That(chemins, Has.Count.EqualTo(1)); Assert.That(bulle.TexteAffiche, Is.EqualTo(DossierTerritoire.ATTENTE));
+            portes[0].SetResult(DocTerre(10, "Bourg dix")); await Fin(bulle.Lecture); bulle.Pas(O, t20, 0.2);
+            Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10", "/lieu?cell=20" })); Assert.That(bulle.TexteAffiche, Is.EqualTo(DossierTerritoire.ATTENTE)); Assert.That(bulle.TexteAffiche, Does.Not.Contain("Bourg dix").And.Not.Contain("Dossier incomplet"));
+            var doc20 = DocTerre(20, "Bourg témoin"); portes[1].SetResult(doc20); await Fin(bulle.Lecture); bulle.Pas(O, t20, 0.5);
+            string attendu = "Bourg témoin · Maison : Maison témoin\njour 9 de 1400\n" + TexteDuMonde.Nombre(12345) + " habitants dans le territoire"; string dossier = DossierTerritoire.Texte(null, doc20, 20);
+            Assert.That(bulle.TexteAffiche, Is.EqualTo(attendu)); Assert.That(bulle.TexteAffiche.Split('\n'), Is.EqualTo(dossier.Split('\n').Take(InfobulleDeTerre.LIGNES).ToArray()));
+            var toile = racine.transform.Find("Cabinet"); var feuillets = toile.GetComponentsInChildren<RectTransform>().Where(t => t.name == "Infobulle").ToArray();
+            Assert.That(feuillets.Length, Is.EqualTo(1)); Assert.That(feuillets[0].GetComponentInChildren<Text>().text, Is.EqualTo(attendu));
+            int n = chemins.Count; bulle.Pas(O, t20, 1); Assert.That(chemins, Has.Count.EqualTo(n)); bulle.Pas(O, t20, 2.3); Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10", "/lieu?cell=20", "/lieu?cell=20" }));
+            string ligne = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin", 9, 10), 20).Split('\n')[1]; Assert.That(ligne, Is.EqualTo("jour 10 de 1400")); Assert.That(ligne, Is.Not.EqualTo(dossier.Split('\n')[1]));
+        }
+        [Test] public async System.Threading.Tasks.Task LInfobulleDeLaTerreLaisseLaPhraseDUnBouton()
+        {
+            var (bulle, terre) = await Montrer20(); Transform toile = racine.transform.Find("Cabinet"); Canvas.ForceUpdateCanvases();
+            Button bouton = toile.GetComponentsInChildren<Button>().Single(b => b.name == "Pause / Reprendre"); var coins = new Vector3[4]; ((RectTransform)bouton.transform).GetWorldCorners(coins);
+            Vector2 centre = RectTransformUtility.WorldToScreenPoint(null, (coins[0] + coins[2]) / 2); string phrase = bouton.GetComponent<Infobulle>().Phrase;
+            UnityEngine.EventSystems.ExecuteEvents.Execute(bouton.gameObject, new UnityEngine.EventSystems.PointerEventData(null) { position = centre }, UnityEngine.EventSystems.ExecuteEvents.pointerEnterHandler);
+            bulle.Pas(centre, null, 1); RectTransform feuillet = toile.GetComponentsInChildren<RectTransform>().Single(t => t.name == "Infobulle");
+            Assert.That(feuillet.gameObject.activeInHierarchy && feuillet.GetComponentInChildren<Text>().text == phrase && bulle.TexteAffiche == null, Is.True, feuillet.GetComponentInChildren<Text>().text);
+            UnityEngine.EventSystems.ExecuteEvents.Execute(bouton.gameObject, new UnityEngine.EventSystems.PointerEventData(null) { position = centre }, UnityEngine.EventSystems.ExecuteEvents.pointerExitHandler);
+            Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False);
+            bulle.Pas(O, terre, 1); Assert.That(bulle.TexteAffiche, Does.StartWith("Bourg témoin · ")); bulle.Pas(O, null, 1);
+            Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False); Assert.That(racine.GetComponentsInChildren<Canvas>().Length, Is.EqualTo(1));
+        }
+        [Test] public void LaVieilleBoiteDeSurvolSEteintSousLeCabinet()
+        {
+            var camera = new GameObject("caméra neuve").AddComponent<Camera>();
+            try
+            {
+                racine.GetComponent<CarteDessinee>().camera = camera; var fiche = racine.GetComponent<FicheDeCellule>(); fiche.Demarrer();
+                var toile = racine.transform.Find("Toile de la fiche"); Assert.That(toile != null && toile.gameObject.activeInHierarchy, Is.True, "la fiche démarrée après le cabinet doit d'abord être active");
+                cabinet.Afficher(); Assert.That(toile.gameObject.activeInHierarchy, Is.False); var actives = racine.GetComponentsInChildren<Canvas>();
+                Assert.That(actives.Length == 1 && actives[0].name == "Cabinet", Is.True, string.Join(", ", actives.Select(c => c.name))); fiche.Arreter();
+            }
+            finally { Object.DestroyImmediate(camera.gameObject); }
+        }
     }
 }
