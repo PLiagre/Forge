@@ -20,9 +20,9 @@ namespace ForgeLocal3D
 {
     // La photo d'un lot, prise par la chaîne en batch sur le PC :
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
-    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L] [-forgeServiceEpreuve]
+    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L] [-forgeServiceEpreuve] [-forgeServiceIa]
     // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N ; `--epreuve` avec
-    // -forgeServiceEpreuve, sinon rien ne change) : le panneau du lieu
+    // -forgeServiceEpreuve, `--ia` avec -forgeServiceIa, sinon rien ne change) : le panneau du lieu
     // montre alors les vrais chiffres. La scène du désert se construit à l'exécution (terrain, ville) :
     // on entre en Play, on laisse passer quelques images, on attend que le panneau ait lu le service,
     // on photographie la caméra de la scène (le plan fixe), on écrit le texte du panneau, puis on
@@ -56,6 +56,7 @@ namespace ForgeLocal3D
         const string PANNEAU_EN_ATTENTE = "service absent : en attente";
 
         public const string SERVICE_EPREUVE = "-forgeServiceEpreuve";
+        public const string SERVICE_IA = "-forgeServiceIa";
         // Le dossier de -forgeCaptures, où un scénario écrit aussi son rapport.
         public static string DossierDesCaptures => SessionState.GetString(Dossier, ".");
 
@@ -176,6 +177,7 @@ namespace ForgeLocal3D
             {
                 string python = Interpreteur();
                 string epreuve = Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE) ? " --epreuve" : "";
+                if (Environment.GetCommandLineArgs().Contains(SERVICE_IA)) epreuve += " --ia";
                 var info = new ProcessStartInfo(python, "-m sim.service --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0" + epreuve)
                 {
                     WorkingDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "jeu")),
