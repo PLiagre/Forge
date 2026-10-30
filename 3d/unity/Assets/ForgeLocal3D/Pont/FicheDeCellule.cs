@@ -8,7 +8,9 @@ using UnityEngine.UI;
 namespace Forge.Pont {
     // Lot #526 : le joueur survole une cellule et lit sa fiche. Puissance, maison et villes viennent de la carte servie
     // (`/carte`, déjà lue par CarteDessinee) ; habitants, faim et dette viennent de `/monde`, relu toutes les
-    // `PERIODE_LECTURE_S` hors du fil principal, avec la maison du joueur, nulle tant qu'elle n'est pas servie. La fiche dit le tick.
+    // `PERIODE_LECTURE_S` hors du fil principal, avec la maison du joueur, nulle tant qu'elle n'est pas servie.
+    // Lot #929 : la fiche écrit le nom servi du bourg (`NomsDesTerres`, rang 0 de `/lieu`) et la date du monde, plus le tick ni l'identifiant ;
+    // le nom arrive après le survol, « Bourg en lecture » d'abord, et `Pas` réécrit la fiche quand il change.
     // Rien n'est calculé ici : une puissance ou une maison que le monde ne nomme pas se déclare, une faim non calculée (-1) aussi, un monde absent aussi.
     // Le survol vient de `SurvolDeCarte` (la souris) ou d'une épreuve ; hors de toute cellule, la fiche se cache.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
@@ -23,7 +25,7 @@ namespace Forge.Pont {
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
 
         private CarteDessinee carte; private ClientMonde client; private Task<Lecture<MondeAvecMaisonLu>> enCours; private double prochaineLecture;
-        private Lecture<MondeAvecMaisonLu> monde;
+        private Lecture<MondeAvecMaisonLu> monde; private NomsDesTerres noms; private double dernierPas;
         private GameObject toile, fond; private Text texte;
 
         public CelluleDeCarte Survolee { get; private set; }
@@ -32,6 +34,7 @@ namespace Forge.Pont {
         public string AbsenceDuMonde => monde != null && !monde.Presente ? monde.Absence : null; // null tant que rien n'est lu
         public string TexteAffiche => texte != null && fond.activeSelf ? texte.text : null;
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
+        public string NomDuBourg { get; private set; } // le nom passé à la dernière écriture
 
         private void Start() => Demarrer();
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
@@ -40,14 +43,16 @@ namespace Forge.Pont {
         public void Demarrer() {
             carte = GetComponent<CarteDessinee>();
             if (carte.camera == null) { Debug.LogError("FicheDeCellule : la carte n'a pas de caméra, la fiche ne s'affiche pas", this); return; }
-            Construire(); client = new ClientMonde(port, DELAI);
+            Construire(); client = new ClientMonde(port, DELAI); noms = NomsDesTerres.Local(port);
         }
 
-        public void Arreter() { client?.Dispose(); client = null; enCours = null; if (toile != null) { if (Application.isPlaying) Destroy(toile); else DestroyImmediate(toile); } toile = null; }
+        public void Arreter() { client?.Dispose(); client = null; enCours = null; noms = null; if (toile != null) { if (Application.isPlaying) Destroy(toile); else DestroyImmediate(toile); } toile = null; }
 
         public void Pas(double maintenant) {
             if (client == null) return;
+            dernierPas = maintenant;
             if (enCours != null && enCours.IsCompleted) { monde = enCours.Result; enCours = null; Afficher(); }
+            if (Survolee != null && noms != null && Bourg(maintenant) != NomDuBourg) Afficher(); // le nom est arrivé, ou a échoué
             if (enCours != null || maintenant < prochaineLecture) return;
             prochaineLecture = maintenant + PERIODE_LECTURE_S;
             ClientMonde c = client; enCours = Task.Run(() => c.LireAvecMaison());
@@ -107,8 +112,13 @@ namespace Forge.Pont {
         private void Afficher() {
             if (fond == null) return;
             fond.SetActive(Survolee != null);
-            if (Survolee != null) texte.text = Decrire(Survolee, VersMonde(monde));
+            if (Survolee == null || noms == null) return;
+            NomDuBourg = Bourg(dernierPas);
+            texte.text = Decrire(Survolee, VersMonde(monde), NomDuBourg);
         }
+
+        // Le nom servi, ou ce qui l'empêche : « nom en cours de lecture » avant qu'il arrive, la cause après un échec.
+        private string Bourg(double maintenant) => noms.Bourg(Survolee.CellId, maintenant) ?? noms.Raison(Survolee.CellId, 0);
 
         private static Lecture<MondeLu> VersMonde(Lecture<MondeAvecMaisonLu> lu) => lu == null ? null : lu.Presente ? Lecture<MondeLu>.De(lu.Donnees.Monde) : Lecture<MondeLu>.Absent(lu.Absence);
         private static string Entier(long v) => v.ToString(CultureInfo.InvariantCulture);
