@@ -233,3 +233,23 @@ def test_meme_monde(avec, sans, tmp_path):
     octets = bytearray(rejeu)
     octets[-2] ^= 1
     assert bytes(octets) != avec.octets
+
+
+def test_pont_plan_biskra_muree_fige():
+    """Les octets figés du pont sont ceux du service : Zab, un tick, la route et l'enceinte, deux ticks."""
+    from sim.seigneuries import charger_seigneuries
+    from sim.tests.test_carte_servie import _service_local
+    from sim.tests.test_monde import requete_service
+    fixture = (JEUX.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests/plan-biskra-enceinte-graine0-tick3.json").read_bytes()
+    fige = json.loads(fixture)
+    assert fige["portes"] == PORTES and fige["enceinte"]["en_chantier"] is True
+    assert [c["nature"] for c in fige["chantiers_du_jour"]] == ["rue", "enceinte"]
+    zab = next(s.id for s in charger_seigneuries() if s.nom == "Émirat du Zab")
+    with _service_local() as (_serveur, port):
+        deposer = lambda i: requete_service(port, "/intention", "POST", json.dumps(i).encode())[0]  # noqa: E731
+        plan = lambda: requete_service(port, "/plan?cell=10103")  # noqa: E731
+        tick = lambda n: requete_service(port, f"/tick?n={n}", "POST")  # noqa: E731
+        assert deposer({"type": "choisir_depart", "seigneurie": zab}) == 200 and tick(1)
+        assert not {"enceinte", "portes"} & set(plan()[1])
+        assert deposer(ROUTE) == deposer(ENCEINTE) == 200 and tick(2)
+        assert plan()[2] == fixture and tick(1) and plan()[2] != fixture
