@@ -32,38 +32,38 @@ dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
 
 # Une ligne par rôle : harnais/modèle@effort, puis des secours séparés par
-# « | ». Harnais : claude (Claude Code), codex (Codex CLI), cursor
-# (cursor-agent). L'effort est donné à chaque agent : Claude Code le reçoit
-# par `--effort` (low, medium, high, xhigh, max), Codex par
-# `model_reasoning_effort` (minimal, low, medium, high, xhigh) ; Cursor n'a
-# pas d'option, l'effort est dans le nom du modèle (`grok-4.7-high` s'écrit
-# `@high`), et `@defaut` dit qu'un modèle Cursor n'en propose pas.
+# « | ». Harnais : claude (Claude Code), cursor (cursor-agent). L'effort est
+# donné à chaque agent : Claude Code le reçoit par `--effort` (low, medium,
+# high, xhigh, max) ; Cursor n'a pas d'option, l'effort est dans le nom du
+# modèle (`grok-4.7-high` s'écrit `@high`), et `@defaut` dit qu'un modèle
+# Cursor n'en propose pas.
 #
 # Un modèle Claude ne passe que par Claude Code, jamais par Cursor : le
 # chargement le refuse (choix du propriétaire, 29 septembre 2026).
+# Plus aucun modèle d'OpenAI, par aucun harnais : l'abonnement ChatGPT est
+# coupé, Codex est retiré, et GPT ne passe plus par Cursor non plus ; le
+# chargement le refuse (choix du propriétaire, 30 octobre 2026).
+#
+# Trois familles servent : Claude (Claude Code, l'abonnement Claude), grok et
+# composer (Cursor). Sur l'abonnement Cursor, ce sont les deux modèles qui
+# répondent encore quand le quota des « modèles d'API » (Gemini, Kimi…) est
+# épuisé : mesuré le 30 octobre 2026, Gemini et Kimi refusés jusqu'au
+# 14 novembre, grok et composer servis.
 #
 # Un secours ne sert que si le précédent a épuisé son quota, perdu sa
 # session, ne démarre pas, refuse l'appel ou a déjà tous ses agents en
 # route ; si aucun ne répond, le lot attend, il n'échoue pas.
 # Changer de modèle ou d'effort, c'est changer une ligne.
 [agents]
-# Plus de Codex : l'abonnement ChatGPT est coupé, et depuis le 26 octobre
-# 2026 Codex refuse GPT-6.1 Sol (« not supported when using Codex with a
-# ChatGPT account »). Partout où il servait, Claude Sonnet 5.5 par Claude
-# Code le remplace (choix du propriétaire, 28 octobre 2026).
-# Le chef, le dépanneur et la boussole gardent un secours hors de Claude
-# Code : une session Claude perdue (expirée le 21 octobre 2026) les arrêtait
-# net. GPT-5.6 Sol y sert par Cursor, sur l'abonnement de Cursor.
-# Le chef écrit le brief, dont tout dépend : Claude Opus ; Sonnet, puis
-# GPT-5.6 Sol en secours.
-chef        = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high | cursor/gpt-5.6-sol-high@high"
+# Le chef écrit le brief, dont tout dépend : Claude Opus ; Sonnet en
+# secours, puis grok hors de Claude Code : une session Claude perdue
+# (expirée le 21 octobre 2026) l'arrêtait net.
+chef        = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 # Sonnet code les lots du VPS ; grok en secours.
 codeur      = "claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 # Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
 # en tête (choix du propriétaire, 29 septembre 2026 : le temps du PC est
-# rare, un passage raté y coûte cher), cursor grok en secours. Pas codex :
-# son bac à sable Windows ne démarre pas (« timed out connecting runner
-# pipe-in », lot #120, 29 septembre 2026) ; il répond, mais n'écrit rien.
+# rare, un passage raté y coûte cher), cursor grok en secours.
 # `gh workflow run sonde-pc.yml` prouve que chaque agent du PC écrit vraiment.
 codeur_3d   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high"
 # Le dernier passage du codeur d'un lot du VPS avant blocage (la
@@ -75,10 +75,10 @@ renfort     = "claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 # lot est écartée, et le suivant de la ligne relit. Quelle que soit la
 # famille qui a écrit, il en reste au moins deux agents : un quota ne laisse
 # pas un lot sans relecteur (#186 a attendu une cinquantaine de tours le
-# 28 septembre, Claude écarté et codex à court de quota). Sans Codex, la
-# famille GPT relit par Cursor, sur son propre abonnement : le code de
-# Sonnet a ainsi grok et GPT-5.6 Sol pour le relire.
-relecteur   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high | cursor/gpt-5.6-sol-high@high"
+# 28 septembre ; #825 plus de trois cents le 29 octobre). Trois familles :
+# le code de Claude se relit par grok puis composer, celui de grok par
+# Claude Opus puis composer.
+relecteur   = "claude/claude-opus-5-5@high | cursor/grok-4.7-high@high | cursor/composer-2.5@defaut"
 # CI rouge sur master, conflits d'une branche de lot, dépendances : Sonnet
 # en effort moyen, travail mécanique ; composer en secours.
 mecanicien  = "claude/claude-sonnet-5-5@medium | cursor/composer-2.5@defaut"
@@ -88,15 +88,14 @@ mecanicien  = "claude/claude-sonnet-5-5@medium | cursor/composer-2.5@defaut"
 # codeur qui tourne en rond, relecteur qui exige l'impossible), pose la
 # question au propriétaire (le brief contredit un test existant ou la règle
 # du monde), ou dit que la chaîne est en cause (mode direct). Diagnostiquer
-# demande du jugement : Claude Opus en tête, Sonnet puis GPT-5.6 Sol en
-# secours.
-depanneur   = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high | cursor/gpt-5.6-sol-high@high"
+# demande du jugement : Claude Opus en tête, Sonnet puis grok en secours.
+depanneur   = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 # Journal du matin, en lecture seule (cursor --mode ask) : grok est le
 # modèle qui invente le moins (Artificial Analysis Omniscience).
 chroniqueur = "cursor/grok-4.7-high@high"
 # Comparaison hebdomadaire avec CAP.md, en lecture seule : un appel par
 # semaine, à fort enjeu.
-boussole    = "claude/claude-opus-5-5@xhigh | claude/claude-sonnet-5-5@high | cursor/gpt-5.6-sol-high@high"
+boussole    = "claude/claude-opus-5-5@xhigh | claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
@@ -111,9 +110,9 @@ pc = 1
 
 # Combien d'agents d'un même outil tournent ensemble : un abonnement ne se
 # vide pas en une heure. Un outil à son plafond passe la main au secours de
-# la ligne, comme un quota. Claude reprend les deux places de Codex : chaque
-# lot du VPS code avec Sonnet pendant que le chef, le relecteur ou le
-# dépanneur travaillent (28 octobre 2026). Si personne n'est libre, le lot
+# la ligne, comme un quota. Claude a quatre places : chaque lot du VPS code
+# avec Sonnet pendant que le chef, le relecteur ou le dépanneur travaillent
+# (28 octobre 2026). Si personne n'est libre, le lot
 # attend.
 [outils]
 claude = 4

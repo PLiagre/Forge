@@ -49,7 +49,7 @@ _MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
 _RUN = re.compile(r"/actions/runs/(\d+)/")
 SECTIONS_BRIEF = ("## But", "## Le joueur", "## Règle du monde", "## Périmètre", "## Conditions de succès",
                   "## Hors périmètre")
-SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Codex, Cursor)"
+SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Cursor)"
 
 
 @dataclass
@@ -558,7 +558,7 @@ class Pilote:
                 self._envoyer_pc(lot, pr, branche, action)
                 return False
             # Le dernier passage avant blocage se fait par le renfort. Les
-            # lots du PC n'en ont pas : Codex n'y écrit pas, Claude y code déjà.
+            # lots du PC n'en ont pas : Claude Opus y code déjà.
             renfort = lots.passage_de_renfort(action.essai, self.projet.corrections_max)
             return self._coder(lot, pr, branche, action, liste, role="codeur", chantier=lot.numero,
                                poste="renfort" if renfort else None)
@@ -1057,7 +1057,7 @@ class Pilote:
         if res.agent is not None and not (res.reussi and _DECISION_DEPANNEUR.search(res.texte)):
             # Coupé par son délai, en erreur ou illisible, il n'a rien décidé :
             # son secours lit le lot à son tour. Le 7 octobre 2026, Claude a
-            # dépassé son délai sur #343 et #391, et codex n'a jamais été appelé.
+            # dépassé son délai sur #343 et #391, et son secours n'a jamais été appelé.
             secours = self._invoquer("depanneur", prompt, chemin, lot=lot.numero,
                                      exclure=frozenset({res.agent.famille}))
             if secours.agent is not None:

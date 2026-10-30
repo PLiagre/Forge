@@ -13,7 +13,7 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Claude Code, sonnet, high, puis Cursor, gpt-5.6-sol-high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Claude Code, sonnet, high, puis Cursor, grok-high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
@@ -23,11 +23,11 @@ la fusionne toute seule.
                     CI : tests + gitleaks ── rouge (dès le premier travail rouge) ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
                           │ vert
                           ▼
-                    RELECTEUR (Claude Code, opus, high ; puis Cursor grok-high, Cursor gpt-5.6-sol-high : jamais la famille qui a écrit)
+                    RELECTEUR (Claude Code, opus, high ; puis Cursor grok-high, Cursor composer-2.5 : jamais la famille qui a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
                                                                                      │
-                    DÉPANNEUR (Claude Code, opus, high ; secours Claude Code, sonnet, puis Cursor, gpt-5.6-sol-high) ◄─┘
+                    DÉPANNEUR (Claude Code, opus, high ; secours Claude Code, sonnet, puis Cursor, grok-high) ◄─┘
                      ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
                      ├─ QUESTION    ──► question au propriétaire
                      ├─ DECOUPE     ──► sous-lots ouverts ; le lot et sa PR se ferment
@@ -52,14 +52,13 @@ codeur ne corrige que s'il rougit encore.
 Le **mécanicien** (Claude Code, sonnet, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
 grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
-**boussole** (Claude Code, opus, xhigh ; secours Claude Code, sonnet, high, puis Cursor, gpt-5.6-sol-high) compare
+**boussole** (Claude Code, opus, xhigh ; secours Claude Code, sonnet, high, puis Cursor, grok-high) compare
 chaque lundi les lots livrés à CAP.md.
 
 **Chaque agent dit son harnais, son modèle et son effort** :
 `harnais/modèle@effort` dans [`atelier.toml`](../atelier.toml), et
 `python3 -m atelier agents` en fait la table. L'effort passe à chaque harnais
-par son chemin : `--effort` pour Claude Code (low, medium, high, xhigh, max),
-`model_reasoning_effort` pour Codex (minimal, low, medium, high, xhigh) ;
+par son chemin : `--effort` pour Claude Code (low, medium, high, xhigh, max) ;
 Cursor n'a pas d'option, l'effort est dans le nom du modèle
 (`grok-4.7-high` s'écrit `@high`, et `@defaut` dit qu'un modèle Cursor n'en
 propose pas). Un effort qu'un harnais ne connaît pas, ou qui ne correspond pas
@@ -71,23 +70,30 @@ de la chaîne nomme l'agent avec son effort (`claude/claude-sonnet-5-5@high`).
 harnais : c'est le choix du propriétaire, et le chargement de `atelier.toml`
 refuse la ligne qui en mettrait un.
 
+**Plus aucun modèle d'OpenAI**, par aucun harnais : l'abonnement ChatGPT est
+coupé, Codex est retiré de l'atelier, et GPT ne passe plus par Cursor non
+plus. Le chargement de `atelier.toml` refuse la ligne qui en remettrait un
+(choix du propriétaire, 30 octobre 2026).
+
 Le relecteur n'est jamais de la **famille de modèle** qui a écrit le lot
-(Claude, GPT, Grok, Composer ; elle se lit dans le nom du modèle) : il relit
+(Claude, Grok, Composer ; elle se lit dans le nom du modèle) : il relit
 avec l'agent suivant de sa ligne.
 
-**Claude écrit et juge, Cursor le relaie.** L'abonnement ChatGPT est coupé :
-depuis le 26 octobre 2026, Codex refuse GPT-6.1 Sol, et la chaîne ne
-l'appelle plus. Le code du VPS s'écrit avec Claude Sonnet 5.5 par Claude Code
-(choix du propriétaire, 28 octobre 2026), qui prend aussi le secours du chef,
-du dépanneur et de la boussole, et le travail du mécanicien ; Claude tient
-quatre agents à la fois. Le chef, le dépanneur et la boussole gardent un
-dernier secours hors de Claude Code, GPT-5.6 Sol par Cursor : la session
-Claude du VPS a expiré le 21 octobre 2026, et sans lui ils s'arrêtaient net. Le plafond de Claude Code a déjà été atteint le
+**Claude écrit et juge, Cursor le relaie.** Le code du VPS s'écrit avec
+Claude Sonnet 5.5 par Claude Code (choix du propriétaire, 28 octobre 2026),
+qui prend aussi le secours du chef, du dépanneur et de la boussole, et le
+travail du mécanicien ; Claude tient quatre agents à la fois. Le chef, le
+dépanneur et la boussole gardent un dernier secours hors de Claude Code,
+Cursor grok-high : la session Claude du VPS a expiré le 21 octobre 2026, et
+sans lui ils s'arrêtaient net. Sur l'abonnement Cursor, grok et composer
+répondent encore quand le quota des autres modèles (Gemini, Kimi…) est
+épuisé (mesuré le 30 octobre 2026) : ce sont les deux seuls que la chaîne y
+appelle. Le plafond de Claude Code a déjà été atteint le
 29 septembre 2026 : un quota épuisé passe la main à Cursor grok-high, sans
 brûler d'essai. Les lots du PC, peu nombreux et chers quand ils ratent, ont
 Claude Opus en tête et Cursor grok-high en secours : choix du propriétaire,
 29 septembre 2026. Le code de Claude se relit par Cursor grok-high, puis par
-GPT-5.6 Sol sur l'abonnement de Cursor. La ligne du relecteur laisse toujours
+Cursor composer-2.5 ; celui de grok, par Claude Opus puis composer. La ligne du relecteur laisse toujours
 au moins deux agents à un lot, quelle que soit la famille qui l'a écrit : un
 quota ne le laisse plus sans relecture.
 
@@ -323,7 +329,7 @@ Les réglages sont dans [`atelier.toml`](../atelier.toml) :
   runner). Un lot dont un autre tour écrit le brief compte déjà.
 - `[outils]` : combien d'agents de chaque outil tournent ensemble. Un outil
   plein passe la main au secours de sa ligne, comme un quota : le troisième
-  lot du VPS code avec cursor grok pendant que codex en tient deux. Si
+  lot du VPS code avec cursor grok quand Claude tient toutes ses places. Si
   personne n'est libre, le lot attend, sans compter d'essai.
 
 Deux lots qui touchent les mêmes fichiers finissent en conflit : le
@@ -387,7 +393,7 @@ toujours sur la PR : un compte rendu, ou une **attente** (aucun de ses agents
 n'a pu répondre, ou le passage a cassé avant) qui ne compte pas comme un essai
 et que le pilote renvoie au bout d'une heure. Sans réponse du tout en 24 h, il
 renvoie le même travail. Sous Windows, les agents livrés en `.cmd`
-(cursor-agent, codex par npm) sont lancés par leur `node.exe`, jamais par
+(cursor-agent, les shims npm) sont lancés par leur `node.exe`, jamais par
 `cmd.exe` : le prompt y serait coupé et interprété. Prouver les agents du PC
 là où ils tournent : `gh workflow run sonde-pc.yml -R PLiagre/Forge`.
 
