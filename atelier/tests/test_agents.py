@@ -228,12 +228,19 @@ def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_p
     assert "claude/opus : écarté" in res.essais[0]
 
 
-def test_le_chef_et_la_boussole_ont_un_secours_hors_de_claude_code():
-    # Un quota de Claude Code arrêtait net le chef et la boussole : Claude
-    # Code en premier, et un secours d'un autre harnais. Le dépanneur aussi :
-    # la session Claude du VPS a expiré le 21 octobre 2026.
+def test_seul_opus_ecrit_les_briefs():
+    # Choix du propriétaire (30 octobre 2026) : un brief ne s'écrit qu'avec
+    # Claude Opus 5.5. Opus à court de quota, le lot attend.
+    chef = charger(RACINE).poste("chef")
+    assert [str(a) for a in chef.agents] == ["claude/claude-opus-5-5@high"]
+
+
+def test_la_boussole_et_le_depanneur_ont_un_secours_hors_de_claude_code():
+    # Un quota de Claude Code arrêtait net la boussole : Claude Code en
+    # premier, et un secours d'un autre harnais. Le dépanneur aussi : la
+    # session Claude du VPS a expiré le 21 octobre 2026.
     projet = charger(RACINE)
-    for role in ("chef", "boussole", "depanneur"):
+    for role in ("boussole", "depanneur"):
         poste = projet.poste(role)
         assert poste.principal.outil == "claude", role
         assert any(a.outil != "claude" for a in poste.secours), role

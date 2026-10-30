@@ -13,7 +13,7 @@ la fusionne toute seule.
 ## Le schéma
 
 ```
- issue « lot »  ──►  CHEF (Claude Code, opus, high · secours Claude Code, sonnet, high, puis Cursor, grok-high) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
+ issue « lot »  ──►  CHEF (Claude Code, opus, high, seul : sans Opus, le lot attend) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
@@ -81,8 +81,10 @@ avec l'agent suivant de sa ligne.
 
 **Claude écrit et juge, Cursor le relaie.** Le code du VPS s'écrit avec
 Claude Sonnet 5.5 par Claude Code (choix du propriétaire, 28 octobre 2026),
-qui prend aussi le secours du chef, du dépanneur et de la boussole, et le
-travail du mécanicien ; Claude tient quatre agents à la fois. Le chef, le
+qui prend aussi le secours du dépanneur et de la boussole, et le travail du
+mécanicien ; Claude tient quatre agents à la fois. **Un brief ne s'écrit
+qu'avec Claude Opus 5.5** : le chef n'a pas de secours, et un lot dont Opus
+est à court de quota attend (choix du propriétaire, 30 octobre 2026). Le
 dépanneur et la boussole gardent un dernier secours hors de Claude Code,
 Cursor grok-high : la session Claude du VPS a expiré le 21 octobre 2026, et
 sans lui ils s'arrêtaient net. Sur l'abonnement Cursor, grok et composer
