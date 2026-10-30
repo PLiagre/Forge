@@ -1,6 +1,8 @@
 using System;
 using Forge.Pont;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Forge.Interface.Tests
 {
@@ -37,8 +39,8 @@ namespace Forge.Interface.Tests
             var repartition = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 0, -1, -1), new CelluleDuMonde(20, 90, -1, -1)));
             Assert.AreEqual(0, repartition.Minimum); Assert.AreEqual(90, repartition.Maximum);
             Assert.AreEqual(0, repartition.Position(10)); Assert.AreEqual(1, repartition.Position(20));
-            StringAssert.Contains("tick 8", repartition.Legende);
-            StringAssert.Contains("90", repartition.Legende);
+            StringAssert.Contains("jour 9 de 1400", repartition.Legende);
+            StringAssert.Contains("90 habitants (foncé)", repartition.Legende);
             StringAssert.Contains("échelle logarithmique", repartition.Legende);
             Assert.Throws<ArgumentException>(() => repartition.Position(30));
         }
@@ -50,6 +52,17 @@ namespace Forge.Interface.Tests
             Assert.Throws<ArgumentException>(() => new RepartitionHabitants(Monde(new CelluleDuMonde(10, -1, -1, -1))));
             Assert.Throws<ArgumentException>(() => new RepartitionHabitants(new MondeLu(0, new DateDuMonde(1400, 1), 2, new[] { cellule })));
             Assert.AreEqual(.5f, new RepartitionHabitants(Monde(cellule)).Position(10));
+        }
+        [Test] public void La_legende_des_habitants_dit_la_date_et_compte_en_habitants()
+        {
+            string legende = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 5631, -1, -1))).Legende;
+            Assert.AreEqual("5\u00A0631", TexteDuMonde.Nombre(5631));
+            Assert.AreEqual("Habitants : 1 habitant (clair) → 5\u00A0631 habitants (foncé) · échelle logarithmique · jour 9 de 1400", legende);
+            Assert.IsNull(TexteDuMonde.Interdit(legende), legende); Assert.IsNull(TexteDuMonde.SansUnite(legende), legende);
+            Assert.Catch<ArgumentException>(() => new RepartitionHabitants(new MondeLu(8, new DateDuMonde(1400, 0), 1, new[] { new CelluleDuMonde(10, 1, -1, -1) })));
+            LogAssert.Expect(LogType.Log, "TexteDuMonde : absence déclarée par le monde : Population absente du territoire 30");
+            Assert.AreEqual("Calque indisponible : déclaré absent par le monde. Couleurs des puissances conservées.", CalquesCarte.Indisponible("Population absente du territoire 30"));
+            Assert.AreEqual("Calque indisponible : Population des territoires incomplète. Couleurs des puissances conservées.", CalquesCarte.Indisponible("Population des territoires incomplète"));
         }
     }
 }

@@ -13,13 +13,14 @@ namespace Forge.Interface
         Feuillet feuillet;
         LectureDossier lecture;
         Func<CelluleDeCarte> selection;
+        Func<long, string> bourg;
         Button bouton;
         long cellule = -1;
         double prochaine;
 
-        public void Initialiser(Transform toile, Transform plan, int port, Func<CelluleDeCarte> selection)
+        public void Initialiser(Transform toile, Transform plan, int port, Func<CelluleDeCarte> selection, Func<long, string> bourg)
         {
-            this.selection = selection;
+            this.selection = selection; this.bourg = bourg;
             lecture = LectureDossier.Locale(port);
             feuillet = gameObject.AddComponent<Feuillet>();
             feuillet.Initialiser(toile, "Les chantiers du bourg");
@@ -51,20 +52,20 @@ namespace Forge.Interface
             try
             {
                 if (lecture.Erreur != null) throw new ArgumentException(lecture.Erreur);
-                feuillet.Ecrire(lecture.Document == null ? "Lecture des chantiers du territoire " + cellule + "…"
-                    : Decrire(lecture.Document, cellule));
+                feuillet.Ecrire(lecture.Document == null ? "Lecture des chantiers du bourg…"
+                    : Decrire(lecture.Document, cellule, bourg(cellule)));
             }
-            catch (Exception e) { feuillet.Ecrire("Chantiers indisponibles : " + e.Message); }
+            catch (Exception e) { feuillet.Ecrire("Chantiers indisponibles : " + TexteDuMonde.Absence(e.Message, cellule.ToString(CultureInfo.InvariantCulture))); }
         }
 
         static Dictionary<string, object> Objet(object brut) => brut as Dictionary<string, object>
             ?? throw new ArgumentException("Ouvrage ou relevé absent");
 
-        public static string Decrire(DocumentDuMonde document, long cellule)
+        public static string Decrire(DocumentDuMonde document, long cellule, string bourg)
         {
             if (DocumentDuMonde.Entier(document.Champs, "cell_id") != cellule)
                 throw new ArgumentException("Plan reçu pour un autre territoire");
-            var texte = new StringBuilder("Territoire " + cellule + " · tick " + document.Tick + "\n");
+            var texte = new StringBuilder(DossierBourg.Entete(bourg, document) + "\n");
             texte.AppendLine("Une journée de travail correspond au travail d’une personne pendant un jour.");
             texte.AppendLine("Coût en pièces : non renseigné · Date de fin : non renseignée");
             bool journalPresent = document.Champs.ContainsKey("chantiers_du_jour");
@@ -117,8 +118,7 @@ namespace Forge.Interface
             long bras = DocumentDuMonde.Entier(jour, "bras");
             double grain = DocumentDuMonde.Nombre(jour, "grain_paye_kg");
             if (grain < 0) throw new ArgumentException("Paiement de grain négatif");
-            string texte = "Ce jour : " + bras + " ouvriers · "
-                + grain.ToString("0.##", CultureInfo.GetCultureInfo("fr-FR")) + " kg de grain payés";
+            string texte = "Ce jour : " + bras + " ouvriers · " + TexteDuMonde.Masse(grain) + " de grain payés";
             object motif = DocumentDuMonde.Valeur(jour, "motif_arret");
             if (motif == null) return texte;
             if (!(motif is string raison)) throw new ArgumentException("Motif d’arrêt invalide");
