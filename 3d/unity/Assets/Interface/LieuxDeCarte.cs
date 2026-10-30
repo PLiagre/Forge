@@ -35,6 +35,10 @@ namespace Forge.Interface
         void Afficher(string texte) { Legende.text = texte; Legende.rectTransform.sizeDelta = new Vector2(1100, Mathf.Max(160f, Legende.preferredHeight + 8f)); fond.rectTransform.sizeDelta = new Vector2(Mathf.Min(1100f, Legende.preferredWidth) + 16f, Legende.preferredHeight + 8f); }
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void OnDestroy() { foreach (var o in crees) Detruire(o); crees.Clear(); }
+        // Lot #875 : une terre se nomme par son bourg (le rang 0 servi), un lieu par son nom servi ; l'absence se dit, jamais un numéro.
+        public static string Bourg(Lieu lieu) { var b = lieu.Bourg; return b?.Nom ?? "Bourg sans nom (" + TexteDuMonde.Absence(b == null ? "bourg non servi" : b.AbsenceDuNom, Cle(lieu)) + ")"; }
+        public static string Tenue(Lieu lieu, LieuPlace place) => place.Rang == 0 ? Bourg(lieu) : Bourg(lieu) + " · " + (place.Nom ?? "lieu sans nom (" + TexteDuMonde.Absence(place.AbsenceDuNom, Cle(lieu)) + ")");
+        static string Cle(Lieu lieu) => lieu.CellId.ToString(CultureInfo.InvariantCulture);
         public static Color CouleurDuMaitre(string id) { uint h = 2166136261u; for (int i = 0; i < id.Length; i++) { h ^= id[i]; h *= 16777619u; } return Color.HSVToRGB(TEINTE_MIN + ETENDUE_TEINTE * (h % PAS_DE_TEINTE) / PAS_DE_TEINTE, SATURATION, VALEUR); }
         public void Pas(double t)
         {
@@ -54,15 +58,15 @@ namespace Forge.Interface
             foreach (var (cell, lu) in p.Cellules)
             {
                 string c = cell.ToString(CultureInfo.InvariantCulture);
-                if (!lu.Presente || lu.Lieu.Lieux == null || lu.Lieu.Lieux.Count == 0) { sb.Append("\nCellule ").Append(c).Append(" : ").Append(!lu.Presente ? lu.Absence : lu.Lieu.Lieux == null ? lu.Lieu.AbsenceDesLieux : "liste vide"); continue; }
-                sb.Append("\nCellule ").Append(c).Append(" au tick ").Append(lu.Lieu.Tick.ToString(CultureInfo.InvariantCulture));
+                if (!lu.Presente || lu.Lieu.Lieux == null || lu.Lieu.Lieux.Count == 0) { sb.Append("\nTerre sans lieux lus : ").Append(TexteDuMonde.Absence(!lu.Presente ? lu.Absence : lu.Lieu.Lieux == null ? lu.Lieu.AbsenceDesLieux ?? "lieux non servis" : "liste vide", c)); continue; }
+                sb.Append('\n').Append(Bourg(lu.Lieu)).Append(" · relevé au ").Append(TexteDuMonde.Date(new DateDuMonde(lu.Lieu.Annee, lu.Lieu.JourDeLAnnee)));
                 foreach (var lieu in lu.Lieu.Lieux)
                 {
                     string r = lieu.Rang.ToString(CultureInfo.InvariantCulture); Vector3? pose = lieu.Position is PointCarte point ? carte.PositionSurLaCarte(point, ReperesDeDepart.HAUTEUR_LIEU) : null;
-                    if (pose == null || lieu.Maitre == null) { sb.Append("\nCellule ").Append(c).Append(", rang ").Append(r).Append(" : ").Append(lieu.Position == null || pose == null ? "point absent" : "maître absent"); continue; }
+                    if (pose == null || lieu.Maitre == null) { sb.Append('\n').Append(Tenue(lu.Lieu, lieu)).Append(pose == null ? " : point absent" : " : maître absent"); continue; }
                     bool rouge = lieu.Flux != null && lieu.Flux.PartisPersonnes > lieu.Flux.ArrivesPersonnes;
                     Poser(c + "-" + r, pose.Value, rouge ? ROUGE : lieu.Maitre == p.Maison ? ReperesDeDepart.COULEUR_JOUEUR : CouleurDuMaitre(lieu.Maitre), garder);
-                    if (lieu.Flux == null) sb.Append("\nCellule ").Append(c).Append(", rang ").Append(r).Append(" : ").Append(lieu.AbsenceDesFlux);
+                    if (lieu.Flux == null) sb.Append('\n').Append(Tenue(lu.Lieu, lieu)).Append(" : ").Append(TexteDuMonde.Absence(lieu.AbsenceDesFlux ?? "flux non servis", c));
                 }
             }
             if (racine != null) for (int i = racine.childCount - 1; i >= 0; i--) { var e = racine.GetChild(i); if (!garder.Contains(e.name)) Detruire(e.gameObject); }
