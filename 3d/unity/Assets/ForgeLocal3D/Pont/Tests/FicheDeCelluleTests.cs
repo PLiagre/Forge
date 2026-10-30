@@ -151,5 +151,81 @@ namespace Forge.Pont.Tests {
             StringAssert.Contains("\nHabitants et faim : " + CarteDessinee.MESSAGE_ABSENCE + " (", fiche.TexteAffiche);
             Assert.IsNull(fiche.MondeLu);
         }
+
+        // Lot #910 — la terre écrite en noms, sans service ni écran : une cellule fabriquée (puissance « Lorraine », maison nulle)
+        // et le monde de la fixture, construit ici aux mêmes valeurs. VIDE a faim et dette non calculées, MESUREE les a à zéro.
+        private const long VIDE = 1, MESUREE = 2;
+
+        private static CelluleDeCarte Terre(long cellId, params string[] villes) =>
+            new CelluleDeCarte(cellId, new PolygoneDeCarte[0], new IdentiteDeCarte(1, "Lorraine"), null, villes.Select(v => new VilleDeCarte(v, 0, new PointCarte(0, 0))));
+
+        private static Lecture<MondeLu> MondeServi(bool avecMetz = true) {
+            var cellules = new List<CelluleDuMonde> { new CelluleDuMonde(VIDE, 0, -1, -1), new CelluleDuMonde(MESUREE, 1, 0, 0) };
+            if (avecMetz) cellules.Insert(0, new CelluleDuMonde(METZ, 1234, 2, 12.5));
+            return Lecture<MondeLu>.De(new MondeLu(30, new DateDuMonde(1400, 31), cellules.Count, cellules));
+        }
+
+        private static void Juges(string texte) {
+            Assert.IsNull(TexteDuMonde.Interdit(texte), "mot interdit dans : " + texte);
+            Assert.IsNull(TexteDuMonde.SansUnite(texte), "nombre sans unité dans : " + texte);
+        }
+
+        [Test] public void LEnteteDitLeNomDuBourgOuSonAbsence() {
+            Lecture<MondeLu> lu = MondeServi(); CelluleDeCarte metz = Terre(METZ, "Metz");
+            string Entete(CelluleDeCarte c, string nom) => FicheDeCellule.Decrire(c, lu, nom).Split('\n')[0];
+            Assert.AreEqual("Övre vik · Metz", Entete(metz, "Övre vik"));
+            Assert.AreEqual("Metz · Thionville", Entete(Terre(METZ, "Metz", "Thionville"), "Metz"));
+            Assert.AreEqual("Metz", Entete(metz, "Metz"));
+            Assert.AreEqual("Bourg en lecture · Metz", Entete(metz, null));
+            Assert.AreEqual("Bourg en lecture · Metz", Entete(metz, NomsDesTerres.NomEnLecture));
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Log, "TexteDuMonde : absence déclarée par le monde : lieu 10437 : service coupé");
+            string sale = FicheDeCellule.Decrire(metz, lu, "lieu 10437 : service coupé");
+            Assert.AreEqual("déclaré absent par le monde · Metz", sale.Split('\n')[0]);
+            StringAssert.DoesNotContain("10437", sale);
+        }
+
+        [Test] public void LaFicheEnNomsDitLaDateLesJoursEtLaMasse() {
+            Lecture<MondeLu> lu = MondeServi();
+            string texte = FicheDeCellule.Decrire(Terre(METZ, "Metz"), lu, "Metz");
+            Assert.AreEqual(string.Join("\n", "Metz", "Puissance : Lorraine", "Maison : aucune, le monde n'en nomme pas",
+                "Habitants : " + TexteDuMonde.Nombre(1234) + " habitants · " + TexteDuMonde.Date(new DateDuMonde(1400, 31)),
+                "Faim : " + TexteDuMonde.Jours(2) + " de manque", "Dette de nourriture : " + TexteDuMonde.Masse(12.5)), texte);
+            StringAssert.Contains("2 jours de manque", texte); StringAssert.Contains("12,5 kg", texte); Juges(texte);
+
+            string vide = FicheDeCellule.Decrire(Terre(VIDE, "Metz"), lu, "Metz");
+            StringAssert.Contains("Habitants : 0 habitant · ", vide); StringAssert.Contains("Faim : non calculée", vide);
+            StringAssert.Contains("Dette de nourriture : non calculée", vide); Juges(vide);
+
+            string mesuree = FicheDeCellule.Decrire(Terre(MESUREE, "Metz"), lu, "Metz");
+            StringAssert.Contains("1 habitant · ", mesuree); StringAssert.Contains("Faim : 0 jour de manque", mesuree);
+            StringAssert.Contains("Dette de nourriture : 0 kg", mesuree); Juges(mesuree);
+        }
+
+        [Test] public void LesAbsencesNeDisentNiIdentifiantNiTick() {
+            CelluleDeCarte metz = Terre(METZ, "Metz");
+            string attente = FicheDeCellule.Decrire(metz, null, "Metz");
+            StringAssert.EndsWith("\nHabitants et faim : en attente du monde", attente); StringAssert.DoesNotContain("tick", attente);
+
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Log, "TexteDuMonde : absence déclarée par le monde : monde : cellule 10437 au tick 30");
+            string absent = FicheDeCellule.Decrire(metz, Lecture<MondeLu>.Absent("monde : cellule 10437 au tick 30"), "Metz");
+            Assert.AreEqual("Habitants et faim : déclaré absent par le monde", absent.Split('\n').Last());
+            foreach (string mot in new[] { "10437", "tick", "cellule" }) StringAssert.DoesNotContain(mot, absent);
+
+            string horsDuMonde = FicheDeCellule.Decrire(metz, MondeServi(avecMetz: false), "Metz");
+            Assert.AreEqual("Habitants et faim : absente du monde servi", horsDuMonde.Split('\n').Last());
+            foreach (string mot in new[] { "30", "tick", "10437" }) StringAssert.DoesNotContain(mot, horsDuMonde);
+
+            foreach (string texte in new[] { attente, absent, horsDuMonde }) Juges(texte);
+            Assert.IsNotNull(TexteDuMonde.Interdit("Habitants et faim : cellule absente du monde servi au tick 30"), "le juge laisse passer l'ancienne phrase");
+        }
+
+        [Test] public void LeNomEnLectureEstLaConstanteDeNomsDesTerres() {
+            Assert.AreEqual("nom en cours de lecture", NomsDesTerres.NomEnLecture);
+            var noms = new NomsDesTerres(_ => throw new InvalidOperationException("la raison a lu le service"));
+            Assert.AreEqual(NomsDesTerres.NomEnLecture, noms.Raison(METZ, 0));
+            Assert.IsFalse(noms.LectureEnVol, "la raison a lancé une lecture");
+            string source = File.ReadAllText(Application.dataPath + "/ForgeLocal3D/Pont/NomsDesTerres.cs");
+            Assert.AreEqual(1, source.Split(new[] { NomsDesTerres.NomEnLecture }, StringSplitOptions.None).Length - 1, "la phrase est recopiée dans NomsDesTerres.cs");
+        }
     }
 }

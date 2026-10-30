@@ -12,6 +12,7 @@ namespace Forge.Pont
     public sealed class NomsDesTerres
     {
         public const double ATTENTE_APRES_ECHEC_S = 2;
+        public const string NomEnLecture = "nom en cours de lecture";
         private readonly Func<long, LectureLieu> lire;
         private readonly Dictionary<long, Lieu> lus = new Dictionary<long, Lieu>();
         private readonly Dictionary<long, (string Cause, double Reprise)> echecs = new Dictionary<long, (string Cause, double Reprise)>();
@@ -48,7 +49,7 @@ namespace Forge.Pont
 
         public string Raison(long cellId, long rang)
         {
-            if (!lus.TryGetValue(cellId, out Lieu lieu)) return echecs.TryGetValue(cellId, out var echec) ? echec.Cause : "nom en cours de lecture";
+            if (!lus.TryGetValue(cellId, out Lieu lieu)) return echecs.TryGetValue(cellId, out var echec) ? echec.Cause : NomEnLecture;
             if (lieu.Lieux == null) return lieu.AbsenceDesLieux ?? "lieux non fournis";
             LieuPlace place = Place(lieu, rang);
             return place == null ? "aucun lieu de ce rang dans la terre" : place.AbsenceDuNom;
