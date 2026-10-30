@@ -781,6 +781,15 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(c[0].Bras == 5 && c[0].GrainPayeKg == 15 && c[1].Bras == 1 && c[1].GrainPayeKg == 3);
         }
 
+        [Test] // Lot #925 — le contour servi devient 4 tours et 64 pans, aux piquets tant que la moitié du travail manque.
+        public void LaBiskraMureeSeDecoupe()
+        {
+            LecturePlan lecture = LireBiskra(Fixture(MUREE)); Assert.IsTrue(lecture.Presente, lecture.Absence);
+            EnceinteDuPlan e = lecture.Plan.Enceinte; DecoupeDeLEnceinte d = PansDeLEnceinte.Decouper(e);
+            Assert.IsTrue(d.Presente && d.Pieces.Count == 68 && d.Pieces[17].Nature == NatureDePiece.Tour && d.Pieces[17].CentreX == 80 && d.Pieces[17].CentreY == -80, d.Absence + " " + d.Pieces.Count);
+            Assert.AreEqual(EtapeDuBatiment.Piquets, PansDeLEnceinte.Etape(e));
+        }
+
         [TestCase("\"enceinte\":{\"contour\"", "\"enceinte\":null,\"x\":{\"contour\"", "clé enceinte :", "un objet attendu")]
         [TestCase("[[-80,-80],[80,-80],[80,80],[-80,80]]", "[[-80,-80],[80,-80]]", "enceinte.contour", "au moins 3 points")]
         [TestCase("\"foyers\":2", "\"foyers\":1.5", "enceinte.foyers", "un entier")]
