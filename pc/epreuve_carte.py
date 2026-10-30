@@ -7,9 +7,11 @@ Le script lance le service de sim/ (graine S, en pause, poussé au tick N) et li
 `/monde` : c'est la référence. Avec `--decalage K`, il pousse ensuite le service de K ticks ;
 avec `--sans-service`, il l'arrête. Puis Unity ouvre la scène de la carte en Play
 (`ForgeLocal3D.EpreuveCarte.Jouer`) : la carte se pose, la cellule C est survolée, et un
-rapport dit les cellules posées et servies et le texte de la fiche. Le verdict compare, nombre
-par nombre : autant de cellules dessinées que `/carte` en sert ; la fiche égale `/carte`
-(villes, puissance, maison) et `/monde` au même tick (habitants, faim, dette).
+rapport dit les cellules posées et servies et le texte de la fiche. Le script lit trois fois le
+monde servi, avant tout décalage : `/carte`, `/monde` et `/lieu?cell=C` (le bourg est son lieu de
+rang 0 ; un `/lieu` d'une autre terre rend l'épreuve impossible). Le verdict compare, écrit par écrit :
+autant de cellules dessinées que `/carte` en sert ; la fiche, écrite en noms, égale `/carte` (villes,
+puissance, maison), `/lieu` (bourg) et `/monde` (habitants, date, faim, dette).
 `--retirer-une-cellule` fait retirer à Unity une cellule du dessin (contre-épreuve).
 Sortie : 0 égalité, 1 écart, 2 épreuve impossible.
 """
@@ -56,10 +58,8 @@ EGALITE, ECART, IMPOSSIBLE = 0, 1, 2
 # Les libellés de FicheDeCellule.Decrire, tels quels.
 AUCUNE = "aucune, le monde n'en nomme pas"
 NON_CALCULEE = "non calculée"
-_TETE = re.compile(r"Cellule (\d+)(?: · (.+))?")
-_HABITANTS = re.compile(r"Habitants : (\S+) au tick (\S+)")
-_FAIM = re.compile(r"Faim : (?:(\S+) ticks de manque|" + re.escape(NON_CALCULEE) + ")")
-_DETTE = re.compile(r"Dette de nourriture : (?:(\S+) kg|" + re.escape(NON_CALCULEE) + ")")
+EN_LECTURE = "Bourg en lecture"
+_HABITANTS = re.compile(r"Habitants : (-?\d{1,3}(?:\u00a0\d{3})*) (habitants?) · (jour \d+ de \d+)")
 
 
 def _illisible(texte: str, raison: str) -> ValueError:
@@ -67,30 +67,29 @@ def _illisible(texte: str, raison: str) -> ValueError:
 
 
 def lire_fiche(texte: str) -> dict:
-    """Le texte de la fiche → ses champs. Une absence (« Habitants et faim : … ») ou une ligne inconnue lève ValueError :
+    """Le texte de la fiche → ses écrits. Une absence (« Habitants et faim : … ») ou une ligne inconnue lève ValueError :
     une fiche qui ne dit pas le monde n'est jamais lue comme des zéros."""
     lignes = texte.split("\n")
     if len(lignes) != 6:
         raise _illisible(texte, f"{len(lignes)} ligne(s), il en faut 6")
-    tete = _TETE.fullmatch(lignes[0])
-    if not tete:
-        raise _illisible(texte, f"en-tête inconnu {lignes[0]!r}")
-    lu = {"cellule": int(tete[1]), "villes": tete[2].split(", ") if tete[2] else []}
+    bourg_lu, separateur, reste = lignes[0].partition(" · ")
+    if not bourg_lu or (separateur and not reste):
+        raise _illisible(texte, f"première ligne {lignes[0]!r}")
+    lu = {"bourg": None if bourg_lu == EN_LECTURE else bourg_lu, "villes": reste.split(", ") if reste else []}
     for ligne, champ in ((lignes[1], "puissance"), (lignes[2], "maison")):
         prefixe = f"{champ.capitalize()} : "
         if not ligne.startswith(prefixe):
             raise _illisible(texte, f"ligne {ligne!r} au lieu de {prefixe!r}")
         nom = ligne[len(prefixe):]
         lu[champ] = None if nom == AUCUNE else nom
-    habitants, faim, dette = _HABITANTS.fullmatch(lignes[3]), _FAIM.fullmatch(lignes[4]), _DETTE.fullmatch(lignes[5])
-    if not (habitants and faim and dette):
-        raise _illisible(texte, "habitants, faim ou dette absents")
-    try:
-        lu |= {"population": int(habitants[1]), "tick": int(habitants[2]),
-               "hunger_ticks": -1 if faim[1] is None else int(faim[1]),
-               "food_deficit_kg": -1.0 if dette[1] is None else float(dette[1])}
-    except ValueError:
-        raise _illisible(texte, "un nombre n'en est pas un") from None
+    habitants = _HABITANTS.fullmatch(lignes[3])
+    if not habitants:
+        raise _illisible(texte, f"ligne des habitants {lignes[3]!r}")
+    lu |= {"habitants": f"{habitants[1]} {habitants[2]}", "date": habitants[3]}
+    for ligne, champ, prefixe in ((lignes[4], "faim", "Faim : "), (lignes[5], "dette", "Dette de nourriture : ")):
+        if not ligne.startswith(prefixe):
+            raise _illisible(texte, f"ligne {ligne!r} au lieu de {prefixe!r}")
+        lu[champ] = ligne[len(prefixe):]
     return lu
 
 
@@ -172,20 +171,26 @@ def bourg(lieu: dict) -> str:
     return nom
 
 
-def references(carte: dict, monde: dict, cellule: int) -> dict:
-    """Ce que la fiche de `cellule` doit dire, tiré de `/carte` et de `/monde` tels que servis."""
+def references(carte: dict, monde: dict, lieu: dict, cellule: int) -> dict:
+    """Ce que la fiche de `cellule` doit dire, écrit par le juge d'après `/carte`, `/monde` et `/lieu` tels que servis."""
     servie = next((c for c in carte["cells"] if c["cell_id"] == cellule), None)
     vivante = next((c for c in monde["cells"] if c["cell_id"] == cellule), None)
     if servie is None or vivante is None:
         raise ValueError(f"cell_id {cellule} absent de " + ("/carte" if servie is None else "/monde"))
+    if lieu.get("cell_id") != cellule:
+        raise ValueError(f"/lieu sert la terre {lieu.get('cell_id')!r}, l'épreuve juge la terre {cellule}")
+    nom_du_bourg = bourg(lieu)
     nom = lambda identite: None if identite is None else identite["nom"]  # noqa: E731
-    return {"cellule": cellule, "villes": [v["nom"] for v in servie["villes"]], "puissance": nom(servie["puissance"]),
-            "maison": nom(servie["maison"]), "tick": monde["tick"],
-            **{champ: vivante[champ] for champ in ("population", "hunger_ticks", "food_deficit_kg")}}
+    population, faim, dette = vivante["population"], vivante["hunger_ticks"], vivante["food_deficit_kg"]
+    return {"bourg": nom_du_bourg, "villes": [v["nom"] for v in servie["villes"] if v["nom"] != nom_du_bourg],
+            "puissance": nom(servie["puissance"]), "maison": nom(servie["maison"]),
+            "habitants": nombre(population) + (" habitant" if population in (0, 1) else " habitants"),
+            "date": date(monde["date"]), "faim": NON_CALCULEE if faim == -1 else jours(faim) + " de manque",
+            "dette": NON_CALCULEE if dette < 0 else masse(dette)}
 
 
-def juger(rapport: dict, carte: dict, monde: dict, cellule: int) -> tuple[bool, list[str]]:
-    """(égalité, lignes du verdict) : les cellules, puis la fiche, champ par champ, les deux valeurs citées."""
+def juger(rapport: dict, carte: dict, monde: dict, lieu: dict, cellule: int) -> tuple[bool, list[str]]:
+    """(égalité, lignes du verdict) : les cellules, puis la fiche, écrit par écrit, les deux valeurs citées."""
     servies = len(carte["cells"])
     lignes = [f"cellules dessinées : carte {rapport['cellules_posees']} · /carte {servies}",
               f"cellules servies selon la carte : {rapport['cellules_servies']} · /carte {servies}"]
@@ -200,7 +205,7 @@ def juger(rapport: dict, carte: dict, monde: dict, cellule: int) -> tuple[bool, 
         fiche = lire_fiche(rapport["fiche"])
     except ValueError as exc:
         return False, lignes + [str(exc)]
-    attendu = references(carte, monde, cellule)
+    attendu = references(carte, monde, lieu, cellule)
     for champ, valeur in attendu.items():
         vu = fiche[champ]
         egal &= vu == valeur
@@ -275,8 +280,8 @@ def main(argv: list[str]) -> int:
             service = _lancer_service(args.seed)
             if args.ticks:
                 _requete("POST", f"/tick?n={args.ticks}")
-            carte, monde = _requete("GET", "/carte"), _requete("GET", "/monde")
-            references(carte, monde, cellule)
+            carte, monde, lieu = _requete("GET", "/carte"), _requete("GET", "/monde"), _requete("GET", f"/lieu?cell={cellule}")
+            references(carte, monde, lieu, cellule)
             if args.decalage:
                 _requete("POST", f"/tick?n={args.decalage}")
         except (RuntimeError, OSError, ValueError, urllib.error.URLError) as exc:
@@ -303,7 +308,7 @@ def main(argv: list[str]) -> int:
     entete = [f"graine {args.seed}", f"ticks {args.ticks} (référence), {args.ticks + args.decalage} (service lu par Unity)",
               f"cellule {cellule}", f"décalage {args.decalage}", f"cellule retirée {lu.get('retiree', -1)}",
               f"service {'arrêté avant Unity' if args.sans_service else 'ouvert'}"]
-    egal, corps = juger(lu, carte, monde, cellule)
+    egal, corps = juger(lu, carte, monde, lieu, cellule)
     texte = ["ÉGALITÉ" if egal else "ÉCART", *entete, *corps]
     verdict.write_text("\n".join(texte) + "\n", encoding="utf-8")
     print("\n".join(texte))
