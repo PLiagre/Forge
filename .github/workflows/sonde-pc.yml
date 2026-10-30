@@ -45,7 +45,6 @@ jobs:
           $veille = $LASTEXITCODE
           py -m atelier --projet $atelier sonde --role $env:ROLE
           $sonde = $LASTEXITCODE
-          # La veille échoue aussi sur ce que le PC n'utilise pas (codex) :
-          # c'est la sonde du rôle qui fait foi.
+          # C'est la sonde du rôle qui fait foi.
           Write-Output "veille : code $veille · sonde : code $sonde"
           exit $sonde

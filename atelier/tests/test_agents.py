@@ -9,7 +9,7 @@ import subprocess
 import pytest
 
 from atelier import agents as A
-from atelier.projet import Agent, ProjetIncomplet, charger, lire_agent, lire_poste, table_des_roles
+from atelier.projet import OUTILS, Agent, ProjetIncomplet, charger, lire_agent, lire_poste, table_des_roles
 
 from conftest import RACINE, Agents
 
@@ -20,7 +20,7 @@ def test_le_branchement_du_depot_nomme_chaque_role():
     assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
     assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
     assert [str(a) for a in projet.poste("relecteur").agents] == [
-        "claude/claude-opus-5-5@high", "cursor/grok-4.7-high@high", "cursor/gpt-5.6-sol-high@high"]
+        "claude/claude-opus-5-5@high", "cursor/grok-4.7-high@high", "cursor/composer-2.5@defaut"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -51,12 +51,6 @@ def test_argv_de_chaque_outil_en_ecriture_et_en_lecture():
     assert "acceptEdits" in claude and "Bash(git push:*)" in claude[claude.index("--disallowedTools") + 1]
     relit = A.argv(Agent("claude", "claude-opus-5-5"), "relis", lecture_seule=True, windows=False)
     assert "Edit" in relit[relit.index("--disallowedTools") + 1]
-    codex = A.argv(Agent("codex", "gpt-5.6-sol"), "fais", lecture_seule=False, sortie=Path("r.txt"))
-    assert codex[:4] == ["codex", "exec", "--model", "gpt-5.6-sol"] and "workspace-write" in codex
-    assert codex[-1] == "fais" and "--output-last-message" in codex
-    assert "sandbox_workspace_write.network_access=true" in codex
-    relit_codex = A.argv(Agent("codex", "gpt-5.6-sol"), "x", lecture_seule=True)
-    assert "read-only" in relit_codex and not any("network_access" in a for a in relit_codex)
     cursor = A.argv(Agent("cursor", "grok-4.7-high"), "x", lecture_seule=True)
     assert cursor[0] == "cursor-agent" and cursor[cursor.index("--mode") + 1] == "ask"
     assert "--force" in A.argv(Agent("cursor", "composer-2.5"), "x", lecture_seule=False)
@@ -72,7 +66,7 @@ def test_aucune_cle_api_et_le_jeton_claude_par_l_environnement(monkeypatch, tmp_
     env = A.environnement("claude")
     assert not any(cle in env for cle in A.CLES_API)
     assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "jeton-longue-duree"
-    assert "CLAUDE_CODE_OAUTH_TOKEN" not in A.environnement("codex")
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in A.environnement("cursor")
 
 
 @pytest.mark.parametrize("code,texte,cause", [
@@ -93,7 +87,7 @@ def test_un_quota_epuise_passe_au_secours(projet, tmp_path):
     agents = Agents((1, "You've hit your usage limit"), (0, "fait"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
     assert res.reussi and str(res.agent) == "cursor/grok"
-    assert agents.outils() == ["codex", "cursor-agent"]
+    assert agents.outils() == ["kimi", "grok"]
 
 
 def test_aucun_agent_ne_repond_le_lot_attend(projet, tmp_path):
@@ -106,18 +100,18 @@ def test_aucun_agent_ne_repond_le_lot_attend(projet, tmp_path):
 def test_un_binaire_introuvable_passe_au_secours_et_n_est_pas_un_echec(projet, tmp_path):
     # Mesuré le 27 septembre 2026 : trois « 127 binaire introuvable » ont
     # compté comme trois échecs du codeur et bloqué le lot #118.
-    agents = Agents((127, "binaire introuvable : codex"), (0, "fait"))
+    agents = Agents((127, "binaire introuvable : cursor-agent"), (0, "fait"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
     assert res.reussi and str(res.agent) == "cursor/grok"
     personne = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10,
-                          executeur=Agents((127, "binaire introuvable : codex"), (1, "429 Too Many Requests")))
+                          executeur=Agents((127, "binaire introuvable : cursor-agent"), (1, "429 Too Many Requests")))
     assert personne.attente and not personne.personne
 
 
 def test_les_essais_disent_pourquoi_chaque_agent_a_ete_ecarte(projet, tmp_path):
     agents = Agents((1, "Error: You've hit your usage limit · resets 5pm"), (2, "SyntaxError"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert "codex/sol : quota épuisé" in res.essais[0] and "usage limit" in res.essais[0]
+    assert "cursor/kimi : quota épuisé" in res.essais[0] and "usage limit" in res.essais[0]
     assert res.essais[1] == "cursor/grok : code 2"
 
 
@@ -170,16 +164,16 @@ def test_sous_windows_le_lancement_de_chaque_outil(tmp_path):
         commande, env = A.lancement(["cursor-agent", "-p", PROMPT_PIEGE], {"LOCALAPPDATA": str(tmp_path)},
                                     windows=True, chercher=chercher)
         assert commande == [str(derniere / "node.exe"), str(derniere / "index.js"), "-p", PROMPT_PIEGE]
-    # Le shim npm de codex : on lance son node et son .js, jamais le .cmd.
+    # Un shim npm : on lance son node et son .js, jamais le .cmd.
     npm = tmp_path / "npm"
-    script = npm / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
+    script = npm / "node_modules" / "outil" / "bin" / "outil.js"
     script.parent.mkdir(parents=True)
     script.write_text("", encoding="utf-8")
-    (npm / "codex.cmd").write_text(
+    (npm / "outil.cmd").write_text(
         '@ECHO off\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  '
-        '"%dp0%\\node_modules\\@openai\\codex\\bin\\codex.js" %*\r\n', encoding="utf-8")
-    trouve = {"codex": str(npm / "codex.cmd"), "node": r"C:\nodejs\node.exe"}
-    commande, _ = A.lancement(["codex", "exec", PROMPT_PIEGE], {}, windows=True, chercher=trouve.get)
+        '"%dp0%\\node_modules\\outil\\bin\\outil.js" %*\r\n', encoding="utf-8")
+    trouve = {"outil": str(npm / "outil.cmd"), "node": r"C:\nodejs\node.exe"}
+    commande, _ = A.lancement(["outil", "exec", PROMPT_PIEGE], {}, windows=True, chercher=trouve.get)
     assert commande == [r"C:\nodejs\node.exe", str(script), "exec", PROMPT_PIEGE]
     # Un vrai .exe se lance tel quel.
     commande, _ = A.lancement(["claude", "-p", "x"], {}, windows=True,
@@ -196,17 +190,17 @@ def test_sous_windows_le_lancement_de_chaque_outil(tmp_path):
 def test_un_echec_ordinaire_ne_passe_pas_au_secours(projet, tmp_path):
     agents = Agents((2, "SyntaxError: invalid syntax"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert not res.reussi and not res.attente and str(res.agent) == "codex/sol"
-    assert agents.outils() == ["codex"]
+    assert not res.reussi and not res.attente and str(res.agent) == "cursor/kimi"
+    assert agents.outils() == ["kimi"]
 
 
 def test_le_modele_qui_ecrit_ne_relit_jamais(projet, tmp_path):
     # `exclure` nomme des familles de modèles, pas des outils.
     agents = Agents((0, "VERDICT: ACCEPTE"))
     res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10, exclure=frozenset({"claude"}), executeur=agents)
-    assert str(res.agent) == "codex/sol" and agents.outils() == ["codex"]
+    assert str(res.agent) == "cursor/kimi" and agents.outils() == ["kimi"]
     personne = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
-                          exclure=frozenset({"claude", "gpt"}), executeur=Agents())
+                          exclure=frozenset({"claude", "kimi"}), executeur=Agents())
     assert personne.personne and not personne.attente
 
 
@@ -214,7 +208,6 @@ def test_le_modele_qui_ecrit_ne_relit_jamais(projet, tmp_path):
     ("claude/claude-opus-5-5", "claude"),
     ("cursor/claude-opus-5-5-high", "claude"),
     ("cursor/sonnet-5", "claude"),
-    ("codex/gpt-5.6-sol", "gpt"),
     ("cursor/gpt-5.6", "gpt"),
     ("cursor/grok-4.7-high", "grok"),
     ("cursor/composer-2.5", "composer"),
@@ -222,8 +215,8 @@ def test_le_modele_qui_ecrit_ne_relit_jamais(projet, tmp_path):
     ("cursor/kimi-k3", "kimi"),
 ])
 def test_la_famille_d_un_modele_ne_depend_pas_de_l_outil(agent, famille):
-    # Claude Code ne porte que des modèles Claude, Codex que des modèles
-    # d'OpenAI ; Cursor porte tout : sa famille se lit dans le nom du modèle.
+    # Claude Code ne porte que des modèles Claude ; Cursor porte tout : sa
+    # famille se lit dans le nom du modèle.
     assert lire_agent(agent).famille == famille
 
 
@@ -231,7 +224,7 @@ def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_p
     agents = Agents((0, "VERDICT: ACCEPTE"))
     res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
                      exclure=frozenset({lire_agent("cursor/opus-high").famille}), executeur=agents)
-    assert str(res.agent) == "codex/sol" and agents.outils() == ["codex"]
+    assert str(res.agent) == "cursor/kimi" and agents.outils() == ["kimi"]
     assert "claude/opus : écarté" in res.essais[0]
 
 
@@ -254,7 +247,7 @@ def test_claude_ne_passe_que_par_claude_code():
     for poste in projet.postes.values():
         for agent in poste.agents:
             assert agent.famille != "claude" or agent.outil == "claude", f"{poste.role} : {agent}"
-    for ligne in ("cursor/claude-opus-5-5-high@high", "claude/opus | cursor/opus-high", "codex/sonnet-4"):
+    for ligne in ("cursor/claude-opus-5-5-high@high", "claude/opus | cursor/opus-high", "cursor/sonnet-4"):
         with pytest.raises(ProjetIncomplet, match="ne passe que par Claude Code"):
             lire_poste("chef", ligne)
 
@@ -272,23 +265,20 @@ def test_chaque_agent_du_depot_dit_son_harnais_son_modele_et_son_effort():
 def test_l_effort_passe_a_chaque_harnais_par_son_chemin():
     claude = A.argv(lire_agent("claude/claude-opus-5-5@xhigh"), "x", lecture_seule=True)
     assert claude[claude.index("--effort") + 1] == "xhigh"
-    codex = A.argv(lire_agent("codex/gpt-5.6-sol@medium"), "x", lecture_seule=False)
-    assert codex[codex.index("-c") + 1] == 'model_reasoning_effort="medium"'
     cursor = A.argv(lire_agent("cursor/grok-4.7-high@high"), "x", lecture_seule=False)
     assert cursor[cursor.index("--model") + 1] == "grok-4.7-high" and "--effort" not in cursor
     # Sans effort, l'appel reste celui d'avant.
     assert "--effort" not in A.argv(lire_agent("claude/opus"), "x", lecture_seule=True)
-    assert not any("reasoning" in a for a in A.argv(lire_agent("codex/sol"), "x", lecture_seule=True))
 
 
 @pytest.mark.parametrize("texte,motif", [
-    ("claude/claude-opus-5-5@minimal", "ne connaît pas l'effort"),   # minimal est à codex
-    ("codex/gpt-5.6-sol@max", "ne connaît pas l'effort"),            # max est à Claude Code
+    ("claude/claude-opus-5-5@minimal", "ne connaît pas l'effort"),
+    ("cursor/grok-4.7-high@max", "ne connaît pas l'effort"),         # max est à Claude Code
     ("cursor/grok-4.7-high@xhigh", "dans le nom du modèle"),         # le nom dit high
     ("cursor/grok-4.7@high", "dans le nom du modèle"),               # le nom ne dit rien
     ("cursor/composer-2.5@high", "dans le nom du modèle"),
     ("cursor/grok-4.7-high@defaut", "dans le nom du modèle"),
-    ("codex/gpt-5.6-sol@", "illisible"),
+    ("cursor/grok-4.7-high@", "illisible"),
 ])
 def test_un_effort_que_le_harnais_ne_recoit_pas_se_refuse(texte, motif):
     with pytest.raises(ProjetIncomplet, match=motif):
@@ -313,14 +303,20 @@ def test_sonnet_code_le_vps_et_opus_juge():
     assert projet.poste("relecteur").principal.famille == "claude"
 
 
-def test_plus_aucun_role_ne_passe_par_codex():
-    # L'abonnement ChatGPT est coupé : depuis le 26 octobre 2026, Codex
-    # refuse GPT-6.1 Sol (« not supported when using Codex with a ChatGPT
-    # account »). La famille GPT ne sert plus que par Cursor.
+def test_plus_aucun_modele_d_openai_nulle_part():
+    # L'abonnement ChatGPT est coupé : plus de Codex, et plus de GPT par
+    # Cursor non plus (choix du propriétaire, 30 octobre 2026). Le dépôt n'en
+    # a aucun, l'atelier ne sait plus appeler Codex, et le chargement refuse
+    # la ligne qui remettrait un modèle d'OpenAI.
     projet = charger(RACINE)
     assert projet.postes and not [f"{poste.role} : {a}" for poste in projet.postes.values()
-                                  for a in poste.agents if a.outil == "codex"]
-    assert {a.outil for a in projet.poste("relecteur").agents if a.famille == "gpt"} == {"cursor"}
+                                  for a in poste.agents if a.famille == "gpt"]
+    assert "codex" not in OUTILS
+    for ligne in ("claude/opus | cursor/gpt-5.6-sol-high@high", "cursor/gpt-5.3-codex-high@high"):
+        with pytest.raises(ProjetIncomplet, match="OpenAI"):
+            lire_poste("chef", ligne)
+    with pytest.raises(ProjetIncomplet, match="outil inconnu"):
+        lire_agent("codex/gpt-5.6-sol@high")
 
 
 def test_le_renfort_est_sonnet_puis_grok():
@@ -346,7 +342,7 @@ def test_chaque_lot_du_vps_peut_coder_avec_sonnet():
 def test_un_lot_a_toujours_deux_relecteurs_possibles():
     # Quelle que soit la famille qui a écrit, au moins deux agents peuvent
     # relire : un quota ne laisse plus un lot sans relecture (#186, le
-    # 28 septembre 2026 : Claude écarté, codex à court de quota).
+    # 28 septembre 2026 : Claude écarté, le secours à court de quota).
     projet = charger(RACINE)
     relecteur = projet.poste("relecteur")
     auteurs = {a.famille for role in ("codeur", "codeur_3d", "mecanicien") for a in projet.poste(role).agents}
@@ -358,14 +354,14 @@ def test_un_lot_a_toujours_deux_relecteurs_possibles():
 def test_l_ancienne_ligne_du_relecteur_laissait_un_lot_sans_secours():
     # Contre-épreuve : la ligne d'avant ne laissait qu'un relecteur à un lot
     # écrit par Claude, et la même règle la refuse.
-    ancienne = lire_poste("relecteur", "claude/claude-opus-5-5 | codex/gpt-5.6-sol")
+    ancienne = lire_poste("relecteur", "claude/claude-opus-5-5 | cursor/grok-4.7-high")
     assert len(_relecteurs_restants(ancienne, "claude")) == 1
 
 
 def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):
     agents = Agents((1, "Error: You've hit your usage limit"), (0, "DECISION: BRIEF"))
     res = A.invoquer(projet.poste("chef"), "prépare", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "codex/sol"
+    assert res.reussi and str(res.agent) == "cursor/kimi"
 
 
 # Le parallélisme : combien de lots par machine, combien d'agents par outil.
@@ -378,17 +374,17 @@ def _toml_avec(projet, tmp_path, ajout):
 
 def test_sans_reglage_chaque_machine_tient_un_lot_et_aucun_outil_n_a_de_plafond(projet):
     assert projet.capacite("vps") == 1 and projet.capacite("pc") == 1
-    assert projet.plafond("codex") is None
+    assert projet.plafond("cursor") is None
 
 
 def test_le_parallelisme_se_lit_et_une_faute_se_refuse(projet, tmp_path):
     (tmp_path / "bon").mkdir()
-    lu = charger(_toml_avec(projet, tmp_path / "bon", "\n[machines]\nvps = 3\n\n[outils]\ncodex = 2\n"))
+    lu = charger(_toml_avec(projet, tmp_path / "bon", "\n[machines]\nvps = 3\n\n[outils]\ncursor = 2\n"))
     assert lu.capacite("vps") == 3 and lu.capacite("pc") == 1
-    assert lu.plafond("codex") == 2 and lu.plafond("claude") is None
-    assert "vps 3" in table_des_roles(lu) and "codex 2" in table_des_roles(lu)
+    assert lu.plafond("cursor") == 2 and lu.plafond("claude") is None
+    assert "vps 3" in table_des_roles(lu) and "cursor 2" in table_des_roles(lu)
     for ajout, motif in (("\n[machines]\nvps = 0\n", "vps"), ("\n[machines]\nmac = 2\n", "mac"),
-                         ("\n[outils]\ncodex = \"deux\"\n", "codex"), ("\n[outils]\ncopilot = 1\n", "copilot")):
+                         ("\n[outils]\ncursor = \"deux\"\n", "cursor"), ("\n[outils]\ncopilot = 1\n", "copilot")):
         dossier = tmp_path / motif
         dossier.mkdir(exist_ok=True)
         with pytest.raises(ProjetIncomplet, match=motif):
@@ -415,17 +411,18 @@ class _Places:
         return nullcontext(outil not in self.pleins)
 
 
-def test_un_outil_a_son_plafond_passe_la_main_a_son_secours(projet, tmp_path):
+def test_un_outil_a_son_plafond_passe_la_main_a_son_secours(tmp_path):
     agents = Agents((0, "fait"))
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents, place=_Places("codex"))
-    assert res.reussi and str(res.agent) == "cursor/grok" and agents.outils() == ["cursor-agent"]
-    assert "codex/sol : occupé" in res.essais[0]
+    poste = lire_poste("codeur", "cursor/kimi | claude/opus")
+    res = A.invoquer(poste, "code", tmp_path, 10, executeur=agents, place=_Places("cursor"))
+    assert res.reussi and str(res.agent) == "claude/opus" and agents.outils() == ["claude"]
+    assert "cursor/kimi : occupé" in res.essais[0]
 
 
 def test_tous_les_outils_occupes_le_lot_attend_sans_essai(projet, tmp_path):
     agents = Agents()
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents,
-                     place=_Places("codex", "cursor"))
+                     place=_Places("cursor"))
     assert res.attente and not res.personne and agents.appels == []
 
 
@@ -436,7 +433,7 @@ def test_la_sonde_exige_qu_un_agent_qui_ecrit_ecrive(projet):
     unique = type(codeur)(role="codeur", agents=codeur.agents[:1])
     ok, _ = A.sonder(unique, projet.racine, executeur=Agents((0, "OK", {A.FICHIER_SONDE: "OK"})))
     assert ok
-    # Contre-épreuve : le codex du PC du 29 septembre 2026, qui répond « OK »
+    # Contre-épreuve : l'agent du PC du 29 septembre 2026, qui répond « OK »
     # sans rien pouvoir écrire.
     ok, detail = A.sonder(unique, projet.racine, executeur=Agents((0, "OK")))
     assert not ok and "sans rien écrire" in detail
@@ -449,23 +446,12 @@ def test_la_sonde_d_un_agent_en_lecture_seule_ne_demande_qu_une_reponse(projet):
     assert not A.sonder(unique, projet.racine, executeur=Agents((0, "non")))[0]
 
 
-def test_codex_ne_code_pas_sur_le_pc():
-    # Son bac à sable Windows ne démarre pas : il répond, mais n'écrit rien.
-    assert all(a.outil != "codex" for a in charger(RACINE).poste("codeur_3d").agents)
-
-
 # Un harnais qui refuse l'appel : le réglage est en cause, pas l'agent.
 
 @pytest.mark.parametrize("sortie", [
     "error: unknown option '--effort'",                                         # un Claude Code trop ancien
     "Error loading config.toml: unknown variant `extreme`, expected one of `minimal`, `low`, `medium`, `high`",
-    "error: unexpected argument '--effort' found",                              # clap, côté Codex
-    # Un modèle que ce Codex ne sait pas appeler : Codex 0.151 sur le VPS, le
-    # 29 septembre 2026 ; les lots #220 et #224 y ont brûlé leurs trois essais.
-    'ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'gpt-6-sol\' '
-    'model is not supported when using Codex with a ChatGPT account."}}',
-    'ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'gpt-6-astra\' '
-    'model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}',
+    "error: unexpected argument '--effort' found",
 ])
 def test_un_harnais_qui_refuse_l_appel_passe_la_main_sans_bruler_d_essai(projet, tmp_path, sortie):
     assert A.cause_de_refus(2, sortie) == "appel"
@@ -503,20 +489,20 @@ def test_un_test_rouge_de_l_agent_n_est_pas_un_appel_refuse():
 
 
 def test_cursor_rend_son_texte_final_par_le_json_pas_par_la_sortie_brute(projet, tmp_path):
-    # #862 et #788 : deux relectures « CORRIGER » de cursor/gpt sont tombées
+    # #862 et #788 : deux relectures « CORRIGER » de Cursor sont tombées
     # en « verdict illisible » parce que la sortie texte n'était pas sa réponse
     # finale. Le JSON la porte dans `result`, seule.
     from atelier.pilote import _VERDICT
 
-    assert A.argv(Agent("cursor", "gpt-5.6-sol-high"), "x", lecture_seule=True)[
-        A.argv(Agent("cursor", "gpt-5.6-sol-high"), "x", lecture_seule=True).index("--output-format") + 1] == "json"
+    relit = A.argv(Agent("cursor", "grok-4.7-high"), "x", lecture_seule=True)
+    assert relit[relit.index("--output-format") + 1] == "json"
     revue = "- jeu/sim/intentions.py:336 plante avec ±1e308.\n\nVERDICT: CORRIGER"
     sortie = ('{"type":"result","subtype":"success","is_error":false,"result":'
               + __import__("json").dumps(revue) + ',"session_id":"s"}\n')
     assert A.reponse_finale_cursor(sortie) == revue
     assert _VERDICT.findall(A.reponse_finale_cursor(sortie)) == ["CORRIGER"]
     assert A.reponse_finale_cursor("VERDICT: ACCEPTE") == "VERDICT: ACCEPTE"  # texte brut : inchangé
-    agent = Agent("cursor", "gpt-5.6-sol-high")
+    agent = Agent("cursor", "grok-4.7-high")
     code, out, _, texte = A._appeler(agent, projet.poste("relecteur"), "relis", tmp_path, 10,
                                      lambda *_: (0, sortie, ""))
     assert code == 0 and out == sortie and texte == revue

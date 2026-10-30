@@ -1,6 +1,6 @@
 """Appeler un agent : la ligne de commande exacte, et le secours.
 
-Un agent est un outil (claude, codex, cursor) et un modèle. Ce module
+Un agent est un outil (claude, cursor) et un modèle. Ce module
 construit l'argv de chacun — le shell n'en compose aucune — et l'exécute
 dans le dossier du lot, sans clé d'API dans l'environnement : une clé fait
 basculer la facture de l'abonnement vers l'unité.
@@ -66,21 +66,16 @@ _AUTH = re.compile(
 
 # Un harnais qui refuse l'appel tel que la chaîne le construit : une option
 # qu'il ne connaît pas (un Claude Code trop ancien pour `--effort`), une
-# valeur de réglage qu'il refuse (Codex). C'est le réglage ou la version du
-# harnais qui est en cause, pas l'agent : on passe au secours sans brûler
-# d'essai. Les motifs sont ceux des harnais eux-mêmes (commander pour Claude
-# Code, clap et serde pour Codex), pas ceux qu'un test lancé par l'agent
-# écrirait (argparse dit « unrecognized »). Un effort inconnu, Claude Code
-# 2.1.284 ne le refuse pas : il l'ignore et prend le sien — c'est le
-# chargement de atelier.toml qui le refuse (projet.EFFORTS). Un modèle que
-# ce Codex ne sait pas appeler est aussi un refus d'appel, pas un échec : le
-# 29 septembre 2026, Codex 0.151 sur le VPS a refusé gpt-6-sol (« not
-# supported when using Codex with a ChatGPT account ») et gpt-6-astra
-# (« requires a newer version of Codex ») ; compté comme un échec du codeur,
-# ce refus a brûlé les trois essais des lots #220 et #224 sans que le
-# secours ne soit essayé.
-_APPEL = re.compile(r"error: unknown option '|error: unexpected argument '|unknown variant `|error loading config|"
-                    r"model is not supported when using codex|model requires a newer version of codex", re.I)
+# valeur de réglage qu'il refuse. C'est le réglage ou la version du harnais
+# qui est en cause, pas l'agent : on passe au secours sans brûler d'essai
+# (compté comme un échec du codeur, un tel refus a brûlé les trois essais des
+# lots #220 et #224 le 29 septembre 2026). Les motifs sont ceux des harnais
+# eux-mêmes (commander pour Claude Code), pas ceux qu'un test lancé par
+# l'agent écrirait (argparse dit « unrecognized »). Un effort inconnu, Claude
+# Code 2.1.284 ne le refuse pas : il l'ignore et prend le sien — c'est le
+# chargement de atelier.toml qui le refuse (projet.EFFORTS).
+_APPEL = re.compile(r"error: unknown option '|error: unexpected argument '|unknown variant `|error loading config",
+                    re.I)
 
 # Les codes d'un outil qui n'a pas démarré : introuvable (127) ou refusé par
 # le système (126). C'est une panne de la machine, pas un échec du codeur :
@@ -123,7 +118,7 @@ class Introuvable(RuntimeError):
 # Les versions de cursor-agent, comme les trie son `cursor-agent.ps1` :
 # AAAA.M.J-commit, ou AAAA.M.J-HH-MM-SS-commit.
 _VERSION_CURSOR = re.compile(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-(\d{2})-(\d{2})-(\d{2}))?-[a-f0-9]+$")
-# Le .js qu'un shim npm (`codex.cmd`) fait lancer par node.
+# Le .js qu'un shim npm (`<outil>.cmd`) fait lancer par node.
 _SHIM_NPM = re.compile(r'"%dp0%\\([^"%]+\.js)"')
 
 
@@ -150,7 +145,7 @@ def lancement(commande: list[str], env: dict[str, str], *, windows: bool | None 
     """L'argv et l'environnement qu'on donne à CreateProcess, sans cmd.exe.
 
     Sous Windows, CreateProcess n'ajoute que `.exe` : `cursor-agent.cmd` et
-    `codex.cmd` (npm) sont introuvables. Et les appeler quand même ferait
+    les shims npm (`<outil>.cmd`) sont introuvables. Et les appeler quand même ferait
     passer le prompt par cmd.exe, qui le coupe aux retours à la ligne et
     interprète `& | % ^` : une injection. On refait donc ici ce que font leurs
     scripts — lancer node.exe sur leur .js —, résolu à chaque appel : une
@@ -202,7 +197,7 @@ def environnement(outil: str) -> dict[str, str]:
 
 
 def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
-         sortie: Path | None = None, windows: bool | None = None) -> list[str]:
+         windows: bool | None = None) -> list[str]:
     """L'argv exact. Construit ici, exécuté par `invoquer`, jamais recomposé."""
     windows = sys.platform.startswith("win") if windows is None else windows
     if agent.outil == "claude":
@@ -229,20 +224,6 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
                 "--disallowedTools", ",".join(GESTES_DU_PILOTE),
             ]
         return commande
-    if agent.outil == "codex":
-        commande = [agent.binaire, "exec", "--model", agent.modele,
-                    "--sandbox", "read-only" if lecture_seule else "workspace-write",
-                    "--skip-git-repo-check", "--color", "never"]
-        if agent.effort:
-            commande += ["-c", f'model_reasoning_effort="{agent.effort}"']
-        if not lecture_seule:
-            # Le bac à sable coupe le réseau, jusqu'aux sockets locales : les
-            # tests du tableau et du service (127.0.0.1) y échouaient
-            # (PermissionError, mesuré le 27 septembre 2026 sur le lot #115).
-            commande += ["-c", "sandbox_workspace_write.network_access=true"]
-        if sortie is not None:
-            commande += ["--output-last-message", str(sortie)]
-        return commande + [prompt]
     if agent.outil == "cursor":
         # Cursor n'a pas d'option d'effort : il est dans le nom du modèle
         # (`grok-4.7-high`), vérifié au chargement (projet.lire_agent).
@@ -315,21 +296,9 @@ def reponse_finale_cursor(sortie: str) -> str:
 def _appeler(agent: Agent, poste: Poste, prompt: str, cwd: Path, delai: int,
              executeur: Executeur) -> tuple[int, str, str, str]:
     """Un appel d'un agent : son code, sa sortie, son erreur, et son texte."""
-    # La réponse finale de Codex s'écrit hors du dossier du lot : un
-    # fichier laissé dans le worktree finirait dans le commit.
-    sortie = Path(tempfile.mkdtemp(prefix="atelier-")) / "reponse.txt" if agent.outil == "codex" else None
-    try:
-        code, out, err = executeur(
-            argv(agent, prompt, lecture_seule=poste.lecture_seule, sortie=sortie),
-            Path(cwd), environnement(agent.outil), delai)
-        texte = out
-        if sortie is not None and sortie.exists():
-            texte = sortie.read_text(encoding="utf-8", errors="replace")
-        elif agent.outil == "cursor":
-            texte = reponse_finale_cursor(out)
-    finally:
-        if sortie is not None:
-            shutil.rmtree(sortie.parent, ignore_errors=True)
+    code, out, err = executeur(argv(agent, prompt, lecture_seule=poste.lecture_seule),
+                               Path(cwd), environnement(agent.outil), delai)
+    texte = reponse_finale_cursor(out) if agent.outil == "cursor" else out
     return code, out, err, texte
 
 
@@ -381,7 +350,7 @@ def sonder(poste: Poste, racine: Path, *, delai: int = 300,
     """Un agent répond-il, avec son modèle, en non interactif ? Et s'il écrit,
     écrit-il vraiment ? Un agent en lecture seule répond « OK » ; un agent qui
     écrit crée un fichier dans un dossier jetable, et la sonde le relit. Le
-    29 septembre 2026, codex a répondu « OK » à la sonde du PC, puis n'a rien
+    29 septembre 2026, un agent a répondu « OK » à la sonde du PC, puis n'a rien
     pu écrire sur le lot #120 (son bac à sable Windows ne démarrait pas) : le
     lot a brûlé son dernier essai. Rend (réussi, la ligne qui le dit)."""
     if poste.lecture_seule:

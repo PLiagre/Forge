@@ -159,8 +159,8 @@ COMPTE_RENDU = ("🤖 **codeur_3d** (claude/claude-opus-5-5) — code, révision
                 "## Compte rendu — lot #9\n\nLe contrat ne connaît plus que `cell_id` : Unity reçoit la clé du monde.\n\n"
                 "📷 ![capture du lot #9](https://raw.githubusercontent.com/moi/essai/journal/captures/b.png)\n\n"
                 + marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40))
-REVUE = ("## Relecture — ACCEPTE\n\nRévision `fffffff` · relu par codex/gpt-5.6-sol\n\nAucun constat bloquant.\n\n"
-         + marque(role="relecteur", verdict="ACCEPTE", sha="f" * 40, agent="codex/gpt-5.6-sol"))
+REVUE = ("## Relecture — ACCEPTE\n\nRévision `fffffff` · relu par cursor/kimi-k3-high\n\nAucun constat bloquant.\n\n"
+         + marque(role="relecteur", verdict="ACCEPTE", sha="f" * 40, agent="cursor/kimi-k3-high"))
 
 
 def _journee(gh, tmp_path):
@@ -187,7 +187,7 @@ def _journee(gh, tmp_path):
     local.write_text("".join(json.dumps({"quand": q, "lot": l, "action": a, "detail": d, "agent": None}) + "\n"
                              for q, l, a, d in evenements), encoding="utf-8")
     veille = tmp_path / "veille.txt"
-    veille.write_text("PASS  claude — 2.1.283\nFAIL  codex — absent du PATH\n", encoding="utf-8")
+    veille.write_text("PASS  claude — 2.1.283\nFAIL  cursor-agent — absent du PATH\n", encoding="utf-8")
     return local, veille
 
 
@@ -197,7 +197,7 @@ def test_les_faits_racontent_chaque_lot_livre(projet, gh, tmp_path):
     lots_livres, machine = texte.split("LA MACHINE")[0], texte.split("LA MACHINE")[1]
     # Ce que le lot change, dit par le codeur et jugé par le relecteur, pas seulement son titre.
     assert "Le contrat ne connaît plus que `cell_id`" in lots_livres
-    assert "ACCEPTE par codex/gpt-5.6-sol" in lots_livres and "1 passage" in lots_livres
+    assert "ACCEPTE par cursor/kimi-k3-high" in lots_livres and "1 passage" in lots_livres
     assert "![capture](https://raw.githubusercontent.com/moi/essai/journal/captures/b.png)" in lots_livres
     # Les changements de la machine ne se mêlent pas aux lots.
     assert "fusionnée tout de suite" not in lots_livres and "PR #48" in machine
@@ -220,7 +220,7 @@ def test_les_faits_disent_ce_que_le_proprietaire_doit_faire(projet, gh, tmp_path
     a_faire = texte.split("À FAIRE PAR LE PROPRIÉTAIRE")[1]
     assert "cursor-agent login" in a_faire and "PC" in a_faire
     assert "plafond de dépense" in a_faire
-    assert "codex — absent du PATH" in a_faire
+    assert "cursor-agent — absent du PATH" in a_faire
 
 
 def test_a_faire_lit_les_secours_du_vps_et_un_lot_du_pc_mis_de_cote(projet, gh, tmp_path):
@@ -242,16 +242,16 @@ def test_a_faire_lit_les_secours_du_vps_et_un_lot_du_pc_mis_de_cote(projet, gh, 
 
 def test_une_attente_dementie_par_une_reponse_plus_recente_ne_se_demande_plus(projet, gh, tmp_path):
     # Le 29 septembre 2026, le journal demandait de relever le plafond de
-    # Claude et disait Codex sans quota : Claude codait sur le PC depuis la
-    # veille, et Codex avait relu #186 à 23:31.
+    # Claude et disait Kimi sans quota : Claude codait sur le PC depuis la
+    # veille, et Kimi avait relu #186 à 23:31.
     local, veille = _journee(gh, tmp_path)
     reponse = ("🤖 **codeur_3d** (claude/claude-opus-5-5) — code.\n\n"
                + marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40))
     gh.prs_[50]["comments"].append({"body": reponse, "createdAt": "2026-09-28T03:10:00Z"})
     evenements = [("2026-09-28T02:30:00+00:00", 10, "attente", None,
                    "relecteur : claude/claude-opus-5-5 : écarté (sa famille, claude, a écrit ce lot) · "
-                   "codex/gpt-5.6-sol : quota épuisé (« usage limit · try again later »)"),
-                  ("2026-09-28T03:31:00+00:00", 10, "relecture CORRIGER", "codex/gpt-5.6-sol", "PR #50")]
+                   "cursor/kimi-k3-high : quota épuisé (« usage limit · try again later »)"),
+                  ("2026-09-28T03:31:00+00:00", 10, "relecture CORRIGER", "cursor/kimi-k3-high", "PR #50")]
     local.write_text("".join(json.dumps({"quand": q, "lot": l, "action": a, "agent": ag, "detail": d}) + "\n"
                              for q, l, a, ag, d in evenements), encoding="utf-8")
     texte = journal.faits(gh, projet, MAINTENANT, journal_local=local, veille=veille)
@@ -269,9 +269,9 @@ def test_une_attente_sans_reponse_plus_recente_reste_a_faire(projet, gh, tmp_pat
     reponse = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40)
     gh.prs_[50]["comments"].insert(0, {"body": reponse, "createdAt": "2026-09-28T01:00:00Z"})
     local.write_text(json.dumps({"quand": "2026-09-28T02:30:00+00:00", "lot": 10, "action": "relecture ACCEPTE",
-                                 "agent": "codex/gpt-5.6-sol", "detail": "PR #50"}) + "\n" +
+                                 "agent": "cursor/kimi-k3-high", "detail": "PR #50"}) + "\n" +
                      json.dumps({"quand": "2026-09-28T02:40:00+00:00", "lot": 10, "action": "attente", "agent": None,
-                                 "detail": "relecteur : codex/gpt-5.6-sol : quota épuisé (« usage limit »)"}) + "\n",
+                                 "detail": "relecteur : cursor/kimi-k3-high : quota épuisé (« usage limit »)"}) + "\n",
                      encoding="utf-8")
     texte = journal.faits(gh, projet, MAINTENANT, journal_local=local, veille=veille)
     assert "plafond de dépense" in texte.split("À FAIRE PAR LE PROPRIÉTAIRE")[1]
@@ -412,10 +412,10 @@ def test_chaque_journal_porte_la_photo_du_monde(projet, gh):
 
 
 def test_le_journal_dit_quel_agent_refuse_l_appel(tmp_path):
-    raisons = ["codeur : codex/gpt-5.6-sol@high : refuse l'appel (option, effort ou réglage) "
+    raisons = ["codeur : cursor/kimi-k3-high@high : refuse l'appel (option, effort ou réglage) "
                "(« error: unknown option '--effort' »)"]
     gestes = journal._a_faire(raisons, [], tmp_path / "veille.txt", [])
-    assert any("VPS : codex/gpt-5.6-sol@high refuse l'appel" in g and "atelier.toml" in g for g in gestes)
+    assert any("VPS : cursor/kimi-k3-high@high refuse l'appel" in g and "atelier.toml" in g for g in gestes)
     assert journal._a_faire([], [], tmp_path / "veille.txt", []) == ["- rien"]
 
 
