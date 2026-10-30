@@ -14,11 +14,12 @@ namespace ForgeLocal3D.Captures
     static class Lot658
     {
         const string SIEGE = "Mistra", RETIRER = "-forge658RetirerDu", TICKS_ARG = "-forgeTicks",CONFIRMER = "Confirmer l’ordre", FEUILLET = "Terres et comptes"; const int IMAGES = 10, TICKS = 30; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
-        static CarteDessinee carte; static Transform toile, racine; static string N(long v) => v.ToString(Inv); static readonly CultureInfo Inv = CultureInfo.InvariantCulture; static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
+        internal static CarteDessinee carte; internal static Transform toile; static Transform racine; static string N(long v) => v.ToString(Inv); static readonly CultureInfo Inv = CultureInfo.InvariantCulture; static string Ligne(string t) => t == null ? "(aucun)" : t.Replace("\r", "").Replace("\n", " | ");
         static InvalidOperationException Echec(string c) => new InvalidOperationException(c); // Le parcours part du tick demandé au service : `-forgeTicks` (0 dans SC5), sinon le défaut de `ForgeCapture` (30), que le pilote du PC laisse.
         static long Depart() { var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, TICKS_ARG); return i >= 0 && i + 1 < a.Length ? long.Parse(a[i + 1], Inv) : 30; }
-        sealed class Attendu { public string Haut; public PointCarte Siege, PHaut; public double Preleve, Du, SurPlace = -1; public DateDuMonde Date; public List<long> Cells = new List<long>(); public List<(string couple, PointCarte p, double kg)> Lieux = new List<(string, PointCarte, double)>(); }
-        [ScenarioDeCapture(658, "fleches-du-siege")] static IEnumerator FlechesDuSiege(Camera camera)
+        sealed class Attendu { public string Haut; public PointCarte Siege, PHaut; public double Preleve, Du, SurPlace = -1; public DateDuMonde Date; public List<long> Cells = new List<long>(); public List<(string couple, PointCarte p, double kg)> Lieux = new List<(string, PointCarte, double)>();
+            public Dictionary<string, string> Tenues = new Dictionary<string, string>(); public List<string> Terres = new List<string>(); } // lot #875 : la tenue de chaque lieu, la ligne de chaque terre
+        [ScenarioDeCapture(658, "fleches-du-siege")] internal static IEnumerator FlechesDuSiege(Camera camera)
         {
             var ouverte = new Lot549.CarteOuverte(); for (var e = Lot549.Ouvrir(camera, ouverte); e.MoveNext();) yield return null;
             carte = ouverte.Carte; int port = carte.port; var cabinet = carte.GetComponent<CabinetDeCarte>() ?? throw Echec("pas de cabinet"); if (carte.GetComponents<FlechesDeCarte>().Length != 1) throw Echec("vue des flèches absente ou multiple");
@@ -38,9 +39,9 @@ namespace ForgeLocal3D.Captures
             for (var e = Lot690.Attendre(trente, "trente ticks"); e.MoveNext();) yield return null; if (trente.Result.Item1 != 200) throw Echec("tick " + trente.Result.Item2);
             var bouton = toile.GetComponentsInChildren<Button>(true).Where(b => b.name == FEUILLET).ToArray(); if (bouton.Length != 1 || !bouton[0].interactable) throw Echec(bouton.Length + " boutons « " + FEUILLET + " »"); bouton[0].onClick.Invoke();
             var lu = Task.Run(() => Lire(port, maison, fin)); for (var e = Lot690.Attendre(lu, "lectures indépendantes"); e.MoveNext();) yield return null; var at = lu.Result;
-            string[] lignes = at.Lieux.Select(l => "\nLieu " + l.couple + " → " + SIEGE + " : " + FlechesDeCarte.Kg(l.kg)).Concat(new[] { "\n" + SIEGE + " : " + FlechesDeCarte.Kg(at.SurPlace) + " prélevés sur place", "\n" + SIEGE + " → " + at.Haut + " : " + FlechesDeCarte.Kg(at.Du) + " de dû" }).ToArray();
+            string[] lignes = at.Lieux.Select(l => "\n" + at.Tenues[l.couple] + " → " + SIEGE + " : " + TexteDuMonde.Masse(l.kg)).Concat(new[] { "\n" + SIEGE + " : " + TexteDuMonde.Masse(at.SurPlace) + " prélevés sur place", "\n" + SIEGE + " → " + at.Haut + " : " + TexteDuMonde.Masse(at.Du) + " de dû" }).ToArray();
             string[] feuillet = { " · " + TexteDuMonde.Date(at.Date) + Environment.NewLine, "Prélevé : " + TexteDuMonde.Masse(at.Preleve) + Environment.NewLine, "Dû envoyé : " + TexteDuMonde.Masse(at.Du) + Environment.NewLine };
-            for (var e = Lot690.Jusqua(() => vue.TexteLegende != null && lignes.All(vue.TexteLegende.Contains) && disques.TexteLegende != null && at.Cells.All(c => disques.TexteLegende.Contains("\nCellule " + N(c) + " au tick " + N(fin))) && dossier.TexteAffiche != null && feuillet.All(dossier.TexteAffiche.Contains),
+            for (var e = Lot690.Jusqua(() => vue.TexteLegende != null && lignes.All(vue.TexteLegende.Contains) && disques.TexteLegende != null && at.Terres.All(disques.TexteLegende.Contains) && dossier.TexteAffiche != null && feuillet.All(dossier.TexteAffiche.Contains),
                 () => "flèches « " + Ligne(vue.TexteLegende) + " » feuillet « " + Ligne(dossier.TexteAffiche) + " » attendu « " + Ligne(string.Join("", lignes)) + " »"); e.MoveNext();) yield return null;
             Lot549.Photographier(camera, carte); camera.rect = new Rect(0f, 0f, 1f, 1f); var canvas = toile.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = camera.nearClipPlane + 0.2f;
             yield return null; Canvas.ForceUpdateCanvases(); Cadrer(camera, at); yield return null; var mesures = Controler(camera, at);
@@ -93,7 +94,9 @@ namespace ForgeLocal3D.Captures
                 foreach (long cell in at.Cells)
                 {
                     var lu = lieux.Lire(cell); if (!lu.Presente || lu.Lieu.Lieux == null || lu.Lieu.Tick != tick) throw Echec("cellule " + N(cell) + " : " + (lu.Absence ?? lu.Lieu.AbsenceDesLieux ?? "tick " + N(lu.Lieu.Tick)));
-                    foreach (var l in lu.Lieu.Lieux) if (l.Maitre == id && l.Flux != null) { if (cell == siege.CellId && l.Rang == siege.Rang) at.SurPlace = l.Flux.PreleveKg; else if (l.Position is PointCarte p) at.Lieux.Add((N(cell) + "-" + N(l.Rang), p, l.Flux.PreleveKg)); }
+                    string bourg = lu.Lieu.Bourg?.Nom ?? throw Echec("bourg sans nom servi : cellule " + N(cell)); at.Terres.Add("\n" + bourg + " · relevé au " + TexteDuMonde.Date(new DateDuMonde(lu.Lieu.Annee, lu.Lieu.JourDeLAnnee)));
+                    foreach (var l in lu.Lieu.Lieux) if (l.Maitre == id && l.Flux != null) { if (cell == siege.CellId && l.Rang == siege.Rang) at.SurPlace = l.Flux.PreleveKg; else if (l.Position is PointCarte p) { string couple = N(cell) + "-" + N(l.Rang); at.Lieux.Add((couple, p, l.Flux.PreleveKg));
+                        at.Tenues[couple] = l.Rang == 0 ? bourg : bourg + " · " + (l.Nom ?? throw Echec("lieu sans nom servi : " + couple + " (" + l.AbsenceDuNom + ")")); } }
                 }
                 if (!at.Lieux.Any(l => l.kg > 0) || !(at.Du > 0) || at.SurPlace < 0) throw Echec("rien à montrer : " + at.Lieux.Count(l => l.kg > 0) + " lieux prélevés, dû " + at.Du.ToString(Inv) + ", sur place " + at.SurPlace.ToString(Inv));
                 return at;
