@@ -59,13 +59,14 @@ namespace Forge.Interface
             {
                 if (lecture.Erreur != null) throw new ArgumentException(lecture.Erreur);
                 if (lecture.Document == null) { etat.text = "Lecture du plan du bourg…"; return; }
+                string entete = Entete(Bourg(cellule), lecture.Document); // avant le dessin : un plan sans date n'est pas redessiné à chaque image
                 if (affiche != lecture.Document)
                 {
                     dessin.Afficher(new PlanBourg(lecture.Document, cellule)); affiche = lecture.Document;
                     legende.text = "Bleu : rues · Encre : maisons · Or : place et parcelles · Rouge : chantiers\nLargeur du cadre : "
                         + (1190 / dessin.PixelsParMetre).ToString("0.#", CultureInfo.GetCultureInfo("fr-FR")) + " m · Consultation ; tracé sur vos terres seulement";
                 }
-                etat.text = Entete(Bourg(cellule), lecture.Document) + " · Nord en haut · Consultation du plan"; // réécrit à chaque image : le nom lu après le plan remplace son absence
+                etat.text = entete + " · Nord en haut · Consultation du plan"; // réécrit à chaque image : le nom lu après le plan remplace son absence
             }
             catch (Exception e) { dessin.Afficher(null); affiche = null; legende.text = ""; etat.text = "Plan indisponible : " + TexteDuMonde.Absence(e.Message, cellule.ToString(CultureInfo.InvariantCulture)); }
         }
