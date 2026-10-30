@@ -161,6 +161,19 @@ def _vitesse_cli(recue: str) -> float:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
+def _travail_enceinte_cli(recue: str) -> float:
+    """Refuse tout nombre de journées par mètre qui n'est pas fini et > 0."""
+    try:
+        valeur = float(recue)
+    except ValueError:
+        valeur = math.nan
+    if not math.isfinite(valeur) or valeur <= 0:
+        raise argparse.ArgumentTypeError(
+            f"option travail-enceinte invalide : reçu {recue!r}, attendu un nombre fini > 0"
+        )
+    return valeur
+
+
 @dataclass(frozen=True)
 class EtatPublie:
     """Photographie du tick ; plans et maisons se complètent à la première lecture."""
@@ -760,7 +773,24 @@ def main(argv: list[str] | None = None) -> None:
         type=_vitesse_cli,
         default=DEFAULT_JOURS_PAR_SECONDE,
     )
-    args = parser.parse_args(argv)
+    parser.add_argument(
+        "--travail-enceinte",
+        type=_travail_enceinte_cli,
+        default=None,
+        metavar="J",
+        help="journées par mètre d'enceinte, réservé à --epreuve",
+    )
+    brut = sys.argv[1:] if argv is None else list(argv)
+    # argparse prendrait « -inf » pour une option : on colle la valeur à son option pour la nommer au refus.
+    for i in range(len(brut) - 1):
+        if brut[i] == "--travail-enceinte":
+            brut[i] = f"--travail-enceinte={brut.pop(i + 1)}"
+            break
+    args = parser.parse_args(brut)
+    if args.travail_enceinte is not None:
+        if not args.epreuve:
+            parser.error("--travail-enceinte n'existe qu'avec --epreuve")
+        _constantes.TRAVAIL_ENCEINTE_JOURNEES_PAR_M = args.travail_enceinte
     serveur = ServeurMonde(
         (SERVICE_HOST, args.port),
         args.seed,

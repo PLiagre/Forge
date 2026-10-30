@@ -2493,6 +2493,8 @@ Le même mode accepte `POST /epreuve/vider-bourg?cell=X`, sous les mêmes verrou
 Les habitants du rang 0 se partagent entre les rangs 1 à n−1 par `partager` selon leurs surfaces (plus fort reste, reliquat au rang 1) ; le bourg passe à 0.
 Rien d'autre ne bouge : population et métiers de la cellule, paniers, dettes, faims, greniers, plans, intentions, aléa et tick. Ce n'est pas une migration : les flux sur 30 jours ne comptent ni départ ni arrivée.
 `EtatPublie` est republié, le tick désigne cet état préparé. Ce geste n'est jamais une intention ; il éprouve que les passants de la capitale suivent le monde.
+Le mode accepte aussi `--travail-enceinte J`, qui remplace `TRAVAIL_ENCEINTE_JOURNEES_PAR_M` pour ce seul processus ; il est refusé sans `--epreuve`, ou si J n'est pas un nombre fini plus grand que 0.
+Aucune règle ne change, ni salaires, ni bras, ni ordre de service : le carré de ±80 de Biskra demande 7 journées à J = 0,01 au lieu de 19 200, et s'achève au tick 5.
 
 ### L'identité d'un lieu, et ce qui la change
 
