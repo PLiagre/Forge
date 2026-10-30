@@ -55,10 +55,10 @@ prefixe_branche = "lot/"
 # route ; si aucun ne répond, le lot attend, il n'échoue pas.
 # Changer de modèle ou d'effort, c'est changer une ligne.
 [agents]
-# Le chef écrit le brief, dont tout dépend : Claude Opus ; Sonnet en
-# secours, puis grok hors de Claude Code : une session Claude perdue
-# (expirée le 21 octobre 2026) l'arrêtait net.
-chef        = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
+# Le chef écrit le brief, dont tout dépend : Claude Opus 5.5 seul, sans
+# secours (choix du propriétaire, 30 octobre 2026). Opus à court de quota,
+# le lot attend qu'il revienne : aucun autre modèle n'écrit un brief.
+chef        = "claude/claude-opus-5-5@high"
 # Sonnet code les lots du VPS ; grok en secours.
 codeur      = "claude/claude-sonnet-5-5@high | cursor/grok-4.7-high@high"
 # Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
