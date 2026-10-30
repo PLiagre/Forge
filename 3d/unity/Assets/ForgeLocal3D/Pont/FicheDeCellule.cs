@@ -80,6 +80,30 @@ namespace Forge.Pont {
             return s.ToString();
         }
 
+        // Lot #910 — la même terre écrite en noms : le bourg déjà lu (`NomsDesTerres`, rang 0), la date servie, des jours et des masses.
+        // Ni identifiant ni tick, même dans une absence ; une faim ou une dette à -1 reste « non calculée », 0 est une mesure. Rien n'est lu ici.
+        public static string Decrire(CelluleDeCarte c, Lecture<MondeLu> monde, string nomDuBourg) {
+            string id = Entier(c.CellId);
+            string titre = nomDuBourg == null || nomDuBourg == NomsDesTerres.NomEnLecture ? "Bourg en lecture" : TexteDuMonde.Absence(nomDuBourg, id);
+            var s = new StringBuilder(titre); bool premiere = true;
+            foreach (VilleDeCarte v in c.Villes) {
+                if (titre == nomDuBourg && v.Nom == nomDuBourg) continue; // la ville qui porte le nom du bourg n'est pas répétée
+                s.Append(premiere ? " · " : ", ").Append(v.Nom); premiere = false;
+            }
+            s.Append("\nPuissance : ").Append(c.Puissance != null ? c.Puissance.Nom : "aucune, le monde n'en nomme pas");
+            s.Append("\nMaison : ").Append(c.Maison != null ? c.Maison.Nom : "aucune, le monde n'en nomme pas");
+            if (monde == null) return s.Append("\nHabitants et faim : en attente du monde").ToString();
+            if (!monde.Presente) return s.Append("\nHabitants et faim : ").Append(TexteDuMonde.Absence(monde.Absence, id)).ToString();
+            MondeLu m = monde.Donnees; CelluleDuMonde vivante = null;
+            foreach (CelluleDuMonde x in m.Cellules) if (x.CellId == c.CellId) { vivante = x; break; }
+            if (vivante == null) return s.Append("\nHabitants et faim : absente du monde servi").ToString();
+            s.Append("\nHabitants : ").Append(TexteDuMonde.Nombre(vivante.Population)).Append(vivante.Population == 0 || vivante.Population == 1 ? " habitant" : " habitants")
+                .Append(" · ").Append(TexteDuMonde.Date(m.Date));
+            s.Append("\nFaim : ").Append(vivante.HungerTicks < 0 ? "non calculée" : TexteDuMonde.Jours(vivante.HungerTicks) + " de manque");
+            s.Append("\nDette de nourriture : ").Append(vivante.FoodDeficitKg < 0 ? "non calculée" : TexteDuMonde.Masse(vivante.FoodDeficitKg));
+            return s.ToString();
+        }
+
         private void Afficher() {
             if (fond == null) return;
             fond.SetActive(Survolee != null);
