@@ -32,6 +32,7 @@ namespace ForgeLocal3D
     // même service local ; rien de l'ancienne cellule (points, mode, reçu, dépôt en attente, relevés de pose) ne la suit.
     // Lot 688 : au lancement, Lancer applique la décision de #687 : la cellule du siège du joueur, la carte de 1400, ou l'absence.
     // Lot 730 : C revient à la carte, Espace suspend ou reprend. Le clavier reste ici ; le pont n'en a pas.
+    // Lot 907 : après les maisons, l'enceinte du plan (DesertEnceinte), tours, pans et porte à l'étape du chantier.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -62,6 +63,8 @@ namespace ForgeLocal3D
         public Transform RacineBatiments=>batiments?.Racine;
         public string EmpreinteBatiments=>batiments?.Empreinte??"";
         DesertBatiments batiments;string erreurBatiments;
+        DesertEnceinte enceinte;string erreurEnceinte;
+        public DesertEnceinte Enceinte=>enceinte;
         // Lot 737 : les maisons de la base, jamais mêlées aux bâtiments de geste.
         DesertMaisons1400 maisons;
         public DesertMaisons1400 Maisons=>maisons;
@@ -114,6 +117,8 @@ namespace ForgeLocal3D
             // Sans kit, aucun bâtiment n'est jamais dessiné : le panneau le dit.
             try{batiments=new DesertBatiments(transform,roads.terrain);}
             catch(InvalidOperationException e){erreurBatiments=e.Message;}
+            try{enceinte=new DesertEnceinte(transform,roads.terrain,KitDesBatiments.Charger());}
+            catch(InvalidOperationException e){erreurEnceinte=e.Message;}
             rues1400=new DesertRues1400(transform,roads.terrain,roads.terreBattue);maisons=new DesertMaisons1400(transform,roads.terrain);
             passants=gameObject.AddComponent<PassantsDeLaVille>();passants.Brancher(maillageCivil,materiauCivil,roads.terrain,this);
             Afficher(erreurCellule??erreurParcelles??erreurBatiments??Aide);
@@ -392,8 +397,10 @@ namespace ForgeLocal3D
             if(batiments==null)return erreurBatiments;
             Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments));
             PiecesAvantMaisons=batiments.Racine.childCount;EmpreinteAvantMaisons=batiments.Empreinte;
-            return string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
+            string rendu=string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
                 .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)))+"\n"+rues1400.Dessiner(lu.Base)+"\n"+maisons.Dessiner(lu.Base);
+            string mur=enceinte!=null?enceinte.Dessiner(lu.Enceinte,lu.Portes):lu.Enceinte!=null?erreurEnceinte:"";
+            return string.IsNullOrEmpty(mur)?rendu:rendu+"\n"+mur;
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux
