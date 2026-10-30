@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq;
+using Forge.Pont;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -43,6 +44,19 @@ namespace Forge.Interface.Tests
                 volume.value = 0; Assert.AreEqual(0, AudioListener.volume);
             }
             finally { AudioListener.volume = ancien; Object.DestroyImmediate(parent); }
+        }
+        [Test] public void Le_menu_dit_le_prochain_jour_du_monde_sans_tick()
+        {
+            var parent = new GameObject("preuve", typeof(RectTransform));
+            try
+            {
+                var menu = parent.AddComponent<MenuCabinet>(); menu.Initialiser(parent.transform);
+                var panneau = parent.transform.Find("Menu du cabinet"); Assert.NotNull(panneau);
+                string texte = string.Join("\n", panneau.GetComponentsInChildren<Text>(true).Select(t => t.text));
+                StringAssert.Contains("Un ordre reçu attend le prochain jour du monde.", texte);
+                Assert.IsNull(TexteDuMonde.Interdit(texte), texte);
+            }
+            finally { Object.DestroyImmediate(parent); }
         }
     }
 }

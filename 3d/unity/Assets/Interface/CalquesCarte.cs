@@ -25,7 +25,8 @@ namespace Forge.Interface
                 populations.Add(cellule.CellId, cellule.Population);
             }
             Minimum = populations.Values.Min(); Maximum = populations.Values.Max();
-            Legende = "Habitants : " + Minimum + " (clair) → " + Maximum + " (foncé) · échelle logarithmique · tick " + monde.Tick;
+            string H(long n) => TexteDuMonde.Nombre(n) + (n < 2 ? " habitant" : " habitants");
+            Legende = "Habitants : " + H(Minimum) + " (clair) → " + H(Maximum) + " (foncé) · échelle logarithmique · " + TexteDuMonde.Date(monde.Date);
         }
         public float Position(long cellId)
         {
@@ -47,6 +48,7 @@ namespace Forge.Interface
         long? territoirePrecedent;
         bool habitants, changement = true;
         public bool Habitants => habitants;
+        public Text Legende => legende;
         public void Initialiser(CarteDessinee carte, Transform guide, Func<MondeLu> monde, Func<CelluleDeCarte> selection)
         {
             this.carte = carte; this.monde = monde; this.selection = selection;
@@ -96,7 +98,7 @@ namespace Forge.Interface
                     bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
                         : habitants ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * repartition.Position(paire.Key))
                         : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
-                    paire.Value.SetPropertyBlock(bloc);
+                    paire.Value.material.color = bloc.GetColor("_BaseColor").gamma;
                 }
                 legende.text = (habitants ? repartition.Legende : "Puissances de la carte de 1400 · Relief non transmis")
                     + " · Rouge : territoire conservé";
@@ -109,12 +111,13 @@ namespace Forge.Interface
                     var bloc = new MaterialPropertyBlock();
                     bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
                         : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
-                    paire.Value.SetPropertyBlock(bloc);
+                    paire.Value.material.color = bloc.GetColor("_BaseColor").gamma;
                 }
-                legende.text = "Calque indisponible : " + e.Message + ". Couleurs des puissances conservées.";
+                legende.text = Indisponible(e.Message);
             }
         }
 
+        public static string Indisponible(string raison) => "Calque indisponible : " + TexteDuMonde.Absence(raison) + ". Couleurs des puissances conservées.";
         void EspacerLesNoms()
         {
             if (noms == null) return;
