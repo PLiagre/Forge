@@ -33,6 +33,8 @@ namespace ForgeLocal3D
     // Lot 688 : au lancement, Lancer applique la décision de #687 : la cellule du siège du joueur, la carte de 1400, ou l'absence.
     // Lot 730 : C revient à la carte, Espace suspend ou reprend. Le clavier reste ici ; le pont n'en a pas.
     // Lot 907 : après les maisons, l'enceinte du plan (DesertEnceinte), tours, pans et porte à l'étape du chantier.
+    // Lot 908 : E passe en mode enceinte. Chaque clic pose un coin, un trait rouge fermé suit le tracé ; Entrée dépose
+    // `tracer_enceinte` au monde, seul juge, et Attendre dessine le mur au tick suivant. L'outil ne refuse que moins de trois coins.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -85,8 +87,12 @@ namespace ForgeLocal3D
         public string NatureBatiment{get;private set;}
         public bool ModeBatiment=>NatureBatiment!=null;
         public BatimentPose Pose{get;private set;}
+        // Lot 908 : le mode enceinte, et le tracé en cours (null sans matériau par défaut du pipeline).
+        public bool ModeEnceinte{get;private set;}public LineRenderer TraceEnceinte{get;private set;}
         CommandesDeVille commandes;
-        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment";
+        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment · E : enceinte";
+        const string AideEnceinte="Clic : poser un coin du mur · Entrée : déposer l'enceinte · Échap : annuler";
+        const string SansTrace="Pas de matériau par défaut du pipeline : le tracé de l'enceinte ne se voit pas.";
         const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
         const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · Échap : annuler";
         const string Gestes="C : carte · Espace : pause / reprendre";
@@ -108,6 +114,9 @@ namespace ForgeLocal3D
             panneau=Texte("Panneau des routes",view.transform,new Color(.12f,.06f,.03f));
             // Un halo clair derrière le texte : il reste lisible sur le sable comme dans l'ombre.
             halo=Texte("Halo",panneau.transform,new Color(1f,.95f,.84f,.9f));
+            var pipeline=UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;var defaut=pipeline?pipeline.defaultMaterial:null;
+            if(defaut){var go=new GameObject("Tracé de l'enceinte");go.transform.SetParent(transform,false);TraceEnceinte=go.AddComponent<LineRenderer>();TraceEnceinte.loop=true;
+                TraceEnceinte.widthMultiplier=1.5f;TraceEnceinte.material=new Material(defaut){name="Tracé de l'enceinte",color=new Color(.6f,.05f,.05f)};TraceEnceinte.positionCount=0;TraceEnceinte.enabled=false;}
             Port=PanneauLieu.DEFAULT_SERVICE_PORT;commandes=new CommandesDeVille(Port);
             // Lot 701 : une ville ouverte depuis la carte prend la cellule que le passage a remise à sa scène.
             Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>(),PassageALaCapitale.PrendreCelluleRemise(gameObject.scene.name));
@@ -157,6 +166,9 @@ namespace ForgeLocal3D
             // Lot 377 : de même en mode bâtiment.
             else if(ModeBatiment)
                 panneau.text=(texte==AideBatiment?"":texte+"\n")+"Bâtiment : "+NatureBatiment+" · un clic sur une parcelle\n"+AideBatiment;
+            // Lot 908 : de même en mode enceinte.
+            else if(ModeEnceinte)
+                panneau.text=(texte==AideEnceinte?"":texte+"\n")+"Enceinte · "+points.Count+" coin(s)\n"+AideEnceinte+(TraceEnceinte?"":"\n"+SansTrace);
             else
             {
                 string etat="Terre battue, "+largeur.ToString("0.#")+" m"+(points.Count>0?" · "+points.Count+" point(s)":"");
@@ -165,7 +177,16 @@ namespace ForgeLocal3D
             if(reliefOuvert!=null)panneau.text+="\nRelief : "+reliefOuvert;
             panneau.text+="\n"+Gestes;
             halo.text=panneau.text;
-            Placer();
+            Placer();Tracer();
+        }
+        // Lot 908 : le contour des coins, fermeture comprise, un sommet tous les 2 m à 1 m au-dessus du sol (repère (-x, sol, -y)).
+        void Tracer()
+        {
+            if(!TraceEnceinte)return;
+            var t=roads.terrain;var s=new List<Vector3>();
+            if(ModeEnceinte)for(int i=0;i<points.Count;i++){var (ax,ay)=points[i];var (bx,by)=points[(i+1)%points.Count];int n=Math.Max(1,(int)Math.Ceiling(Math.Sqrt((bx-ax)*(bx-ax)+(by-ay)*(by-ay))/2));
+                for(int k=0;k<n;k++){var v=new Vector3((float)-(ax+(bx-ax)*k/n),0,(float)-(ay+(by-ay)*k/n));v.y=t.SampleHeight(v)+t.transform.position.y+1;s.Add(v);}}
+            TraceEnceinte.loop=true;TraceEnceinte.positionCount=s.Count;TraceEnceinte.SetPositions(s.ToArray());TraceEnceinte.enabled=s.Count>0;
         }
         // En bas à gauche de l'image, à hauteur de lecture quelle que soit la focale.
         public void Placer()
@@ -193,7 +214,8 @@ namespace ForgeLocal3D
             if(k.digit1Key.wasPressedThisFrame||k.numpad1Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[0]);
             if(k.digit2Key.wasPressedThisFrame||k.numpad2Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[1]);
             if(k.digit3Key.wasPressedThisFrame||k.numpad3Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[2]);
-            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(!ModeBatiment)Valider();}
+            if(k.eKey.wasPressedThisFrame)EntrerEnceinte();
+            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(ModeEnceinte)ValiderEnceinte();else if(!ModeBatiment)Valider();}
             if(k.escapeKey.wasPressedThisFrame)Annuler();
             if(k.cKey.wasPressedThisFrame||commandes.RetourDemande)commandes.Retour();
             if(k.spaceKey.wasPressedThisFrame)commandes.Basculer();
@@ -207,15 +229,35 @@ namespace ForgeLocal3D
             // Lot 377 : en mode bâtiment, le point désigne la parcelle ; il ne s'ajoute pas aux points.
             if(ModeBatiment){var (x,y)=roads.PointExact(hit.point);PoserBatiment(x,y);return true;}
             if(ModeParcelle&&points.Count>=2){Afficher("Deux coins suffisent : Entrée pour déposer, Échap pour annuler.");return false;}
-            points.Add(roads.PointExact(hit.point));Afficher(ModeParcelle?AideParcelle:Aide);return true;
+            points.Add(roads.PointExact(hit.point));Afficher(ModeParcelle?AideParcelle:ModeEnceinte?AideEnceinte:Aide);return true;
         }
-        public void Annuler(){ModeParcelle=false;NatureBatiment=null;points.Clear();Recu=null;Afficher(Aide);}
+        public void Annuler(){ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;points.Clear();Recu=null;Afficher(Aide);}
 
         // Lot 375 : le mode parcelle, coins effacés. Échap (Annuler) ramène au mode route.
-        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;Afficher(AideParcelle);}
+        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;ModeEnceinte=false;Afficher(AideParcelle);}
 
         // Lot 377 : le mode bâtiment, pour la nature choisie. Elle n'est pas jugée ici : Calculer le fait au clic.
-        public void EntrerBatiment(string nature){points.Clear();Recu=null;Pose=null;ModeParcelle=false;NatureBatiment=nature;Afficher(AideBatiment);}
+        public void EntrerBatiment(string nature){points.Clear();Recu=null;Pose=null;ModeParcelle=false;ModeEnceinte=false;NatureBatiment=nature;Afficher(AideBatiment);}
+
+        // Lot 908 : le mode enceinte, coins effacés. Échap (Annuler) ramène au mode route.
+        public void EntrerEnceinte(){points.Clear();Recu=null;ModeParcelle=false;NatureBatiment=null;ModeEnceinte=true;Afficher(AideEnceinte);}
+
+        // Lot 908 : dépose le contour au monde, seul juge (croisement, place, terres). Rien n'est dessiné ici : Attendre
+        // dessine l'enceinte au tick suivant. Rend le reçu, null hors du mode enceinte, faute de coins ou de cellule.
+        public RecuIntention ValiderEnceinte()
+        {
+            if(!ModeEnceinte)return null;
+            if(points.Count<3){Afficher("Il faut au moins trois coins.");return null;}
+            Recu=null;Derniers=points.ToArray();points.Clear();
+            if(erreurCellule!=null){Afficher(erreurCellule);return null;}
+            Recu=depot.Deposer(IntentionEnceinte(Derniers));
+            if(Recu.Acceptee){enAttente=Recu;Afficher("Enceinte déposée au monde : elle se dessine au tick suivant (après le tick "+Recu.AppliqueeAuTick.Value.ToString(CultureInfo.InvariantCulture)+").");}
+            else Afficher(Recu.Presente?"Le monde refuse l'enceinte : "+Recu.Erreur:"Pas de reçu : "+Recu.Absence);
+            return Recu;
+        }
+        // Lot 908 : sans `maison` (le service met celle du joueur) ni `foyers` (1 par défaut).
+        public string IntentionEnceinte(IReadOnlyList<(double x,double y)> coins)=>"{\"type\":\"tracer_enceinte\",\"cell\":"+Cellule.ToString(CultureInfo.InvariantCulture)
+            +",\"points\":["+string.Join(",",coins.Select(c=>"["+c.x.ToString("R",CultureInfo.InvariantCulture)+","+c.y.ToString("R",CultureInfo.InvariantCulture)+"]"))+"]}";
 
         // Lot 375 : calcule la parcelle des deux coins, puis la dépose au monde, qui reste le seul juge.
         // Le terrain ne bouge pas ici : la parcelle se dessine dans Attendre, d'après le plan du tick suivant.
@@ -348,7 +390,7 @@ namespace ForgeLocal3D
             if(!lu.Presente){Afficher(prefixePlan+lu.Absence);return false;}
             if(!LireParametres(out var parametres))return false;
             if(!roads.ResoudreRelief(parametres.parametres,cell.Relief,out var facteur,out var cause)){Afficher("Cellule "+c+" : "+cause);return false;}
-            if(changer){if(cellule!=Cellule)passants?.Retirer();Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;}
+            if(changer){if(cellule!=Cellule)passants?.Retirer();Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;}
             Ouverture.Clear();essayees.Clear();TickOuverture=-1;
             roads.AppliquerRelief(facteur,cell.Relief);reliefOuvert=cell.Relief;
             DessinerOuverture(lu.Plan,parametres);
