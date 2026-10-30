@@ -5391,6 +5391,78 @@ def test_service_epreuve_reserve(monkeypatch):
             assert requete_service(port, '/intention', 'POST', corps)[0] == HTTPStatus.BAD_REQUEST
 
 
+@contextmanager
+def _service_avec(monkeypatch, *arguments):
+    """Lance le vrai service avec des arguments de plus, par Popen enveloppé."""
+    original = subprocess.Popen
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess, 'Popen', lambda args, **kw: original([*args, *arguments], **kw))
+        with lancer_service(0) as port:
+            yield port
+
+
+def _carre_de_biskra(port, ticks=5):
+    """Joue le carré de ±80 m de #908 et rend /plan et /lieu octets après chaque tick de 3 à `ticks`."""
+    biskra = next(d for d in requete_service(port, '/departs')[1]['departs'] if d['siege']['nom'] == 'Biskra')
+    cid = biskra['cell_id']
+
+    def deposer(intention, tick):
+        recu = requete_service(port, '/intention', 'POST', json.dumps(intention).encode())
+        assert recu[:2] == (HTTPStatus.OK, dict(acceptee=True, appliquee_au_tick=tick))
+    deposer(dict(type='choisir_depart', seigneurie=biskra['id']), 0)
+    assert requete_service(port, '/tick?n=1', 'POST')[1]['tick'] == 1
+    deposer(dict(type='tracer_route', cell=cid, points=[[-66, 2.2], [-120, 2.2]], largeur_m=4), 1)
+    assert requete_service(port, '/tick?n=1', 'POST')[1]['tick'] == 2
+    deposer(dict(type='tracer_enceinte', cell=cid, points=[[-80, -80], [80, -80], [80, 80], [-80, 80]]), 2)
+    suite = []
+    for tick in range(3, ticks + 1):
+        assert requete_service(port, '/tick?n=1', 'POST')[1]['tick'] == tick
+        assert requete_service(port, '/horloge')[1]['tick'] == tick
+        plan, lieu = (requete_service(port, f'/{nom}?cell={cid}') for nom in ('plan', 'lieu'))
+        assert plan[0] == lieu[0] == HTTPStatus.OK
+        suite.append((plan[1]['enceinte'], plan[2], lieu[2]))
+    return suite
+
+
+def test_service_travail_enceinte_refus(monkeypatch):
+    base = [sys.executable, '-m', 'sim.service', '--port', '0', '--jours-par-seconde', '0']
+    cas = [(['--travail-enceinte', '0.01'], 'epreuve')]
+    cas += [(['--epreuve', '--travail-enceinte', v], v) for v in ('0', '-1', 'nan', 'inf', '-inf', 'abc', '')]
+    for arguments, attendu in cas:
+        fini = subprocess.run([*base, *arguments], cwd=_REPO, capture_output=True, text=True, timeout=60)
+        assert fini.returncode != 0, arguments
+        assert 'service prêt' not in fini.stdout, arguments
+        assert 'travail-enceinte' in fini.stderr, arguments
+        assert attendu in fini.stderr or (attendu == '' and "''" in fini.stderr), arguments
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '1e-2') as port:
+        assert requete_service(port, '/horloge')[1]['tick'] == 0
+
+
+def test_service_travail_enceinte_carre(monkeypatch):
+    from sim import constants as k
+    assert k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M == 30
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '0.01') as port:
+        suite = _carre_de_biskra(port)
+    assert [(e['travail_requis'], e['travail_fourni'], e['foyers'], e['en_chantier']) for e, _, _ in suite] == [
+        (7, 1, 1, True), (7, 3, 1, True), (7, 7, 1, False)]
+    with _service_avec(monkeypatch, '--epreuve') as port:
+        enceinte = _carre_de_biskra(port)[-1][0]
+    assert enceinte['travail_requis'] == 19200 and enceinte['en_chantier'] is True
+    assert enceinte['travail_fourni'] < 19200
+    assert k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M == 30
+
+
+def test_service_travail_enceinte_neutre(monkeypatch):
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '30') as port:
+        reglee = _carre_de_biskra(port)
+    with _service_avec(monkeypatch, '--epreuve') as port:
+        seule = _carre_de_biskra(port)
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '0.01') as port:
+        courte = _carre_de_biskra(port)
+    assert [(p, l) for _, p, l in reglee] == [(p, l) for _, p, l in seule]
+    assert courte[-1][1] != seule[-1][1]
+
+
 @pytest.mark.parametrize('autre', [False, True])
 def test_service_epreuve_panier(autre, monkeypatch):
     import pickle
