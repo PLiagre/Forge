@@ -65,14 +65,15 @@ namespace Forge.Pont
             var couverts = new HashSet<(int, int)>(); var ouvertes = new List<PieceDeLEnceinte>();
             for (int p = 0; p < portes.Count; p++)
             {
-                PointLocal q = portes[p].Point; int cote = 0; double meilleure = double.PositiveInfinity, abscisse = 0;
+                PointLocal q = portes[p].Point; int cote = 0; double meilleure = double.NaN, abscisse = 0;
                 for (int i = 0; i < n; i++)
                 {
                     double t = Math.Max(0, Math.Min(lg[i], (q.X - c[i].X) * ux[i] + (q.Y - c[i].Y) * uy[i]));
                     double dx = q.X - c[i].X - ux[i] * t, dy = q.Y - c[i].Y - uy[i] * t, d = Math.Sqrt(dx * dx + dy * dy);
-                    if (d < meilleure) { meilleure = d; cote = i; abscisse = t; }
+                    // Le côté 0 donne la première distance : un point NaN la laisse NaN, aucune autre ne la bat.
+                    if (i == 0 || d < meilleure) { meilleure = d; cote = i; abscisse = t; }
                 }
-                // Écrite ainsi, la garde refuse aussi un point NaN, dont aucune distance ne bat l'infini.
+                // Écrite ainsi, la garde refuse aussi la distance NaN d'un point NaN ; `meilleure > TolerancePorteM` la laisserait passer.
                 if (!(meilleure <= TolerancePorteM)) return DecoupeDeLEnceinte.Absente("porte " + Nom(p) + " hors du mur");
                 double libre = lg[cote] - CoteTourM;
                 if (libre > 0)
