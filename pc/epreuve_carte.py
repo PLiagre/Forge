@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import decimal
 import importlib.util
 import json
 import os
@@ -27,6 +28,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from decimal import Decimal
 
 RACINE = Path(__file__).resolve().parents[1]
 
@@ -90,6 +92,84 @@ def lire_fiche(texte: str) -> dict:
     except ValueError:
         raise _illisible(texte, "un nombre n'en est pas un") from None
     return lu
+
+
+# Les mots du monde, recopiés de `TexteDuMonde.cs` (lot #870) : le juge écrit à l'octet comme le Pont. Les milliers se
+# séparent par U+00A0 posé à la main, jamais par la culture du système.
+NBSP = "\u00a0"
+# Les arrondis se font sur la valeur exacte du flottant (`Decimal(x)`), moitié vers le haut : jamais `round()`, qui va au pair.
+_CONTEXTE = decimal.Context(prec=400, rounding=decimal.ROUND_HALF_UP)
+
+
+def _entier(n) -> int:
+    if isinstance(n, bool) or not isinstance(n, int):
+        raise TypeError(f"un entier est attendu, pas {n!r}")
+    return n
+
+
+def nombre(n: int) -> str:
+    """`TexteDuMonde.Nombre` : groupes de trois chiffres séparés par NBSP, « - » devant."""
+    return f"{_entier(n):,}".replace(",", NBSP)
+
+
+def jours(n: int) -> str:
+    """`TexteDuMonde.Jours` : le nombre, puis « jour » jusqu'à 1 et « jours » au-delà."""
+    if _entier(n) < 0:
+        raise ValueError(f"durée négative : {n}")
+    return f"{nombre(n)} {'jours' if n > 1 else 'jour'}"
+
+
+def date(d: dict) -> str:
+    """`TexteDuMonde.Date`, pour la date telle que le service la sert : « jour J de A », l'année sans séparateur."""
+    try:
+        annee, jour = d["annee"], d["jour_de_l_annee"]
+    except (KeyError, TypeError):
+        raise ValueError(f"date illisible : {d!r}") from None
+    if any(isinstance(v, bool) or not isinstance(v, int) for v in (annee, jour)):
+        raise ValueError(f"date illisible : {d!r}")
+    if not 1 <= jour <= 366:
+        raise ValueError(f"jour de l'année hors de 1…366 : {jour}")
+    if annee < 1:
+        raise ValueError(f"année avant 1 : {annee}")
+    return f"jour {jour} de {annee}"
+
+
+def _arrondi(x: Decimal, chiffres: int) -> Decimal:
+    return x.quantize(Decimal(1).scaleb(-chiffres), rounding=decimal.ROUND_HALF_UP, context=_CONTEXTE)
+
+
+def masse(kg: float) -> str:
+    """`TexteDuMonde.Masse` : sous 1 000 kg (au centième) les kilos, au-delà des tonnes à trois chiffres utiles comptés après arrondi."""
+    if kg != kg or kg in (float("inf"), float("-inf")):
+        raise ValueError(f"masse non finie : {kg}")
+    v = abs(kg)
+    t = v / 1000  # en flottant d'abord, comme en C#
+    kilos = _arrondi(Decimal(v), 2)
+    if kilos < 1000:
+        ecrit = format(kilos, "f")
+        ecrit = (ecrit.rstrip("0").rstrip(".") if "." in ecrit else ecrit).replace(".", ",") + " kg"
+    elif _arrondi(Decimal(t), 2) < 10:
+        ecrit = format(_arrondi(Decimal(t), 2), "f").replace(".", ",") + " t"
+    elif _arrondi(Decimal(t), 1) < 100:
+        ecrit = format(_arrondi(Decimal(t), 1), "f").replace(".", ",") + " t"
+    else:
+        ecrit = nombre(int(_arrondi(Decimal(t), 0))) + " t"
+    return "-" + ecrit if kg < 0 and ecrit != "0 kg" else ecrit  # un reste négatif arrondi à zéro ne s'écrit pas « -0 kg »
+
+
+def bourg(lieu: dict) -> str:
+    """Le nom du bourg d'un `/lieu` servi, comme `ClientLieu` : le lieu de rang 0, où qu'il soit dans la liste, sans repli.
+    Le bloc `noms` n'est pas lu."""
+    lieux = lieu.get("lieux") if isinstance(lieu, dict) else None
+    if not isinstance(lieux, list):
+        raise ValueError(f"/lieu sans liste lieux, donc sans rang 0 : {lieux!r}")
+    bourgs = [l for l in lieux if isinstance(l, dict) and isinstance(l.get("rang"), int) and not isinstance(l["rang"], bool) and l["rang"] == 0]
+    if len(bourgs) != 1:
+        raise ValueError(f"/lieu avec {len(bourgs)} lieu(x) de rang 0, il en faut un")
+    nom = bourgs[0].get("nom")
+    if not isinstance(nom, str) or not nom.strip():
+        raise ValueError(f"/lieu : nom du rang 0 absent, nul ou blanc : {nom!r}")
+    return nom
 
 
 def references(carte: dict, monde: dict, cellule: int) -> dict:

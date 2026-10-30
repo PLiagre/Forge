@@ -152,3 +152,148 @@ def test_un_unity_introuvable_sort_a_2_en_le_nommant(epreuve, tmp_path, capsys):
     absent = tmp_path / "Unity.exe"
     assert epreuve.main(["--sortie", str(tmp_path / "sortie"), "--unity", str(absent)]) == epreuve.IMPOSSIBLE
     assert str(absent) in capsys.readouterr().err
+
+
+# Lot #911 — le juge écrit comme le clerc : les tables sont celles de TexteDuMondeTests.cs, à l'octet.
+NBSP = " "
+TEXTE_CS = PONT / "Tests" / "TexteDuMondeTests.cs"
+LIEU = PONT / "Tests" / "lieu-graine0-tick3.json"
+NOMBRES = [(5631, f"5{NBSP}631"), (-5631, f"-5{NBSP}631"), (1234567, f"1{NBSP}234{NBSP}567"), (12, "12")]
+JOURS = [(0, "0 jour"), (1, "1 jour"), (12, "12 jours"), (1234, f"1{NBSP}234 jours")]
+DATES = [((1400, 8), "jour 8 de 1400"), ((1401, 1), "jour 1 de 1401"), ((1400, 366), "jour 366 de 1400")]
+MASSES = [(0, "0 kg"), (12.5, "12,5 kg"), (999.5, "999,5 kg"), (999.996, "1,00 t"), (1000, "1,00 t"), (1234.5, "1,23 t"),
+          (9996, "10,0 t"), (41712, "41,7 t"), (99960, "100 t"), (123456, "123 t"), (5631000, f"5{NBSP}631 t"), (-1234.5, "-1,23 t")]
+
+
+def _date(annee, jour):
+    return {"annee": annee, "jour_de_l_annee": jour}
+
+
+@pytest.mark.parametrize("n, ecrit", NOMBRES)
+def test_nombre_groupe_par_trois_avec_une_espace_insecable(epreuve, n, ecrit):
+    assert epreuve.nombre(n) == ecrit
+
+
+@pytest.mark.parametrize("n", [True, 12.0, "12", None])
+def test_nombre_refuse_ce_qui_n_est_pas_un_entier(epreuve, n):
+    with pytest.raises(TypeError):
+        epreuve.nombre(n)
+
+
+@pytest.mark.parametrize("n, ecrit", JOURS)
+def test_jours_s_accordent(epreuve, n, ecrit):
+    assert epreuve.jours(n) == ecrit
+
+
+def test_jours_refuse_une_duree_negative(epreuve):
+    with pytest.raises(ValueError):
+        epreuve.jours(-1)
+
+
+@pytest.mark.parametrize("d, ecrit", DATES)
+def test_date_s_ecrit_en_jour_de_l_annee(epreuve, d, ecrit):
+    assert epreuve.date(_date(*d)) == ecrit
+
+
+@pytest.mark.parametrize("d", [_date(1400, 0), _date(1400, 367), _date(0, 8), {"jour_de_l_annee": 8}, {"annee": 1400},
+                               _date(1400.0, 8), _date(1400, "8"), _date(True, 8), _date(1400, None), {}])
+def test_date_refuse_ce_que_le_monde_ne_sert_pas(epreuve, d):
+    with pytest.raises(ValueError):
+        epreuve.date(d)
+
+
+@pytest.mark.parametrize("kg, ecrit", MASSES)
+def test_masse_est_celle_du_clerc(epreuve, kg, ecrit):
+    assert epreuve.masse(kg) == ecrit
+
+
+@pytest.mark.parametrize("kg, ecrit", [(0.125, "0,13 kg"), (1125, "1,13 t"), (10250, "10,3 t"), (100500, "101 t"), (-0.001, "0 kg")])
+def test_les_moities_montent(epreuve, kg, ecrit):
+    assert epreuve.masse(kg) == ecrit
+
+
+@pytest.mark.parametrize("kg", [float("nan"), float("inf"), float("-inf")])
+def test_masse_refuse_un_nombre_non_fini(epreuve, kg):
+    with pytest.raises(ValueError):
+        epreuve.masse(kg)
+
+
+def test_aucun_ecrit_ne_porte_d_espace_ordinaire_dans_un_nombre_ni_u202f(epreuve):
+    ecrits = [epreuve.nombre(n) for n, _ in NOMBRES] + [epreuve.masse(kg) for kg, _ in MASSES] + [epreuve.jours(n) for n, _ in JOURS]
+    assert all(" " not in e for e in ecrits)
+    assert all(" " not in e.split(" ")[0] for e in ecrits), "un nombre porte une espace ordinaire"
+
+
+def _ecrit_cs(ecrit):
+    return ecrit.replace(NBSP, '" + NBSP + "')
+
+
+def test_les_tables_du_juge_sont_celles_de_texte_du_monde_tests():
+    source = TEXTE_CS.read_text(encoding="utf-8")
+    manquants = []
+    for kg, ecrit in MASSES:
+        cas = f'({kg!r}, "{_ecrit_cs(ecrit)}")'
+        if cas not in source:
+            manquants.append(cas)
+    for n, ecrit in NOMBRES:
+        manquants += [c for c in [f'Assert.AreEqual("{_ecrit_cs(ecrit)}", TexteDuMonde.Nombre({n}))'] if c not in source]
+    for n, ecrit in JOURS:
+        manquants += [c for c in [f'Assert.AreEqual("{_ecrit_cs(ecrit)}", TexteDuMonde.Jours({n}))'] if c not in source]
+    for (annee, jour), ecrit in DATES:
+        manquants += [c for c in [f'Assert.AreEqual("{ecrit}", TexteDuMonde.Date(new DateDuMonde({annee}, {jour})))'] if c not in source]
+    assert not manquants, f"cas absents de TexteDuMondeTests.cs : {manquants}"
+
+
+@pytest.fixture
+def lieu():
+    return json.loads(LIEU.read_text(encoding="utf-8"))
+
+
+def test_le_bourg_est_le_lieu_de_rang_0(epreuve, lieu):
+    assert epreuve.bourg(lieu) == "Övre vik"
+    lieu["lieux"].reverse()
+    assert lieu["lieux"][0]["rang"] != 0
+    assert epreuve.bourg(lieu) == "Övre vik", "le rang compte, pas la place"
+
+
+def _sans_rang_0(lieu):
+    lieu["lieux"] = [l for l in lieu["lieux"] if l["rang"] != 0]
+
+
+def _deux_rangs_0(lieu):
+    lieu["lieux"][1]["rang"] = 0
+
+
+def _sans_cle(lieu):
+    del lieu["lieux"]
+
+
+def _pas_une_liste(lieu):
+    lieu["lieux"] = {"rang": 0}
+
+
+@pytest.mark.parametrize("abime", [_sans_rang_0, _deux_rangs_0, _sans_cle, _pas_une_liste])
+def test_un_bourg_introuvable_ou_double_est_dit(epreuve, lieu, abime):
+    abime(lieu)
+    with pytest.raises(ValueError, match="rang 0"):
+        epreuve.bourg(lieu)
+
+
+def _rang_0(lieu):
+    return next(l for l in lieu["lieux"] if l["rang"] == 0)
+
+
+@pytest.mark.parametrize("nom", ["<retire>", None, "", "  ", 12])
+def test_un_nom_de_bourg_absent_ou_blanc_est_dit(epreuve, lieu, nom):
+    if nom == "<retire>":
+        del _rang_0(lieu)["nom"]
+    else:
+        _rang_0(lieu)["nom"] = nom
+    with pytest.raises(ValueError, match="nom du rang 0"):
+        epreuve.bourg(lieu)
+
+
+def test_le_bourg_ne_modifie_pas_ce_qu_il_lit(epreuve, lieu):
+    avant = copy.deepcopy(lieu)
+    epreuve.bourg(lieu)
+    assert lieu == avant
