@@ -790,6 +790,19 @@ namespace Forge.Pont.Tests
             Assert.AreEqual(EtapeDuBatiment.Piquets, PansDeLEnceinte.Etape(e));
         }
 
+        [Test] // Lot #926 — la rue du joueur passe le mur ouest : le pan 7 du côté 3 s'ouvre sur une porte tournée dehors.
+        public void LaBiskraMureeOuvreSaPorte()
+        {
+            LecturePlan lecture = LireBiskra(Fixture(MUREE)); Assert.IsTrue(lecture.Presente, lecture.Absence); PlanLu p = lecture.Plan;
+            DecoupeDeLEnceinte d = PansDeLEnceinte.Decouper(p.Enceinte, p.Portes); IReadOnlyList<PieceDeLEnceinte> s = d.Pieces;
+            Assert.IsTrue(d.Presente && p.Portes.Count == 1 && s.Count == 67 + p.Portes.Count && s.Count(x => x.Nature == NatureDePiece.Tour) == 4 && s.Count(x => x.Nature == NatureDePiece.Pan) == 63
+                && s.Count(x => x.Nature == NatureDePiece.Porte) == p.Portes.Count, d.Absence + " " + s.Count);
+            PieceDeLEnceinte porte = s[67]; Assert.IsTrue(porte.Nature == NatureDePiece.Porte && porte.Cote == 3 && porte.Indice == 0, porte.Nature + " " + porte.Cote);
+            Assert.AreEqual(-80, porte.CentreX, 1e-9); Assert.AreEqual(2.2, porte.CentreY, 1e-9); Assert.AreEqual(77.8, porte.AbscisseM, 1e-9); Assert.AreEqual(4, porte.LongueurM, 1e-9); Assert.AreEqual(90, porte.LacetDegres, 1e-9);
+            Assert.IsTrue(!s.Any(x => x.Nature == NatureDePiece.Pan && x.Cote == 3 && x.Indice == 7) && s.Count(x => x.Nature == NatureDePiece.Pan && x.Cote == 3) == 15, "le pan 7 du côté 3 s'ouvre, et lui seul");
+            Assert.IsTrue(s[17].Nature == NatureDePiece.Tour && s[17].CentreX == 80 && s[17].CentreY == -80);
+        }
+
         [TestCase("\"enceinte\":{\"contour\"", "\"enceinte\":null,\"x\":{\"contour\"", "clé enceinte :", "un objet attendu")]
         [TestCase("[[-80,-80],[80,-80],[80,80],[-80,80]]", "[[-80,-80],[80,-80]]", "enceinte.contour", "au moins 3 points")]
         [TestCase("\"foyers\":2", "\"foyers\":1.5", "enceinte.foyers", "un entier")]

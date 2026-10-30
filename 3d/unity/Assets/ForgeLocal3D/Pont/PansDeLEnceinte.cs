@@ -7,9 +7,10 @@ namespace Forge.Pont
 {
     // Lot #925 — où poser chaque pièce du mur le long du contour servi, et quelle étape montrer.
     // Convention de la vue : rien ne retourne au monde. Longueurs du kit (`rempart_pise_10m`, `tour_ksar_0`).
-    public enum NatureDePiece { Tour, Pan }
+    public enum NatureDePiece { Tour, Pan, Porte }
     // `Cote` : le sommet i d'une tour, le côté `c[i] → c[(i+1) % n]` d'un pan. `Indice` (rang depuis `c[i]`) et
     // `AbscisseM` (du centre à `c[i]`) valent 0 pour une tour. Le lacet est celui de `LectureDuBatiment`, façade dehors.
+    // Lot #926 — une porte : son côté, son rang parmi les portes servies, son point projeté, la largeur servie, le lacet des pans.
     public sealed class PieceDeLEnceinte
     {
         public NatureDePiece Nature { get; } public int Cote { get; } public int Indice { get; }
@@ -31,9 +32,14 @@ namespace Forge.Pont
     public static class PansDeLEnceinte
     {
         public const double LongueurPanM = 10, CoteTourM = 7.2;
-        public static DecoupeDeLEnceinte Decouper(EnceinteDuPlan e)
+        // `TOLERANCE_CHEVAUCHEMENT_M` de `sim/constants.py` : `controler_portes` refuse une porte plus loin du contour.
+        public const double TolerancePorteM = 0.01;
+        public static DecoupeDeLEnceinte Decouper(EnceinteDuPlan e) => Decouper(e, new PorteDuPlan[0]);
+        public static DecoupeDeLEnceinte Decouper(EnceinteDuPlan e, IReadOnlyList<PorteDuPlan> portes)
         {
             if (e == null) throw new ArgumentNullException(nameof(e));
+            if (portes == null) throw new ArgumentNullException(nameof(portes));
+            foreach (PorteDuPlan porte in portes) if (porte == null) throw new ArgumentNullException(nameof(portes), "porte nulle");
             IReadOnlyList<PointLocal> c = e.Contour; int n = c.Count;
             for (int i = 0; i < n; i++)
                 if (!EstFini(c[i].X) || !EstFini(c[i].Y)) return DecoupeDeLEnceinte.Absente("point " + Nom(i) + " non fini");
@@ -55,6 +61,28 @@ namespace Forge.Pont
                 if (Math.Sqrt(bx * bx + by * by) < 1e-9) return DecoupeDeLEnceinte.Absente("sommet " + Nom(i) + " : demi-tour");
                 tours[i] = Lacet(bx, by);
             }
+            // Lot #926 — chaque porte va au premier côté le plus proche, s'y projette et retire le pan qu'elle couvre.
+            var couverts = new HashSet<(int, int)>(); var ouvertes = new List<PieceDeLEnceinte>();
+            for (int p = 0; p < portes.Count; p++)
+            {
+                PointLocal q = portes[p].Point; int cote = 0; double meilleure = double.PositiveInfinity, abscisse = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    double t = Math.Max(0, Math.Min(lg[i], (q.X - c[i].X) * ux[i] + (q.Y - c[i].Y) * uy[i]));
+                    double dx = q.X - c[i].X - ux[i] * t, dy = q.Y - c[i].Y - uy[i] * t, d = Math.Sqrt(dx * dx + dy * dy);
+                    if (d < meilleure) { meilleure = d; cote = i; abscisse = t; }
+                }
+                // Écrite ainsi, la garde refuse aussi un point NaN, dont aucune distance ne bat l'infini.
+                if (!(meilleure <= TolerancePorteM)) return DecoupeDeLEnceinte.Absente("porte " + Nom(p) + " hors du mur");
+                double libre = lg[cote] - CoteTourM;
+                if (libre > 0)
+                {
+                    int k = (int)Math.Ceiling(libre / LongueurPanM);
+                    couverts.Add((cote, Math.Max(0, Math.Min(k - 1, (int)Math.Floor((abscisse - CoteTourM / 2) / (libre / k))))));
+                }
+                ouvertes.Add(new PieceDeLEnceinte(NatureDePiece.Porte, cote, p, c[cote].X + ux[cote] * abscisse, c[cote].Y + uy[cote] * abscisse,
+                    abscisse, portes[p].LargeurM, Lacet(s * uy[cote], -s * ux[cote])));
+            }
             var pieces = new List<PieceDeLEnceinte>();
             for (int i = 0; i < n; i++)
             {
@@ -64,10 +92,12 @@ namespace Forge.Pont
                 int k = (int)Math.Ceiling(libre / LongueurPanM); double longueur = libre / k, lacet = Lacet(s * uy[i], -s * ux[i]);
                 for (int j = 0; j < k; j++)
                 {
+                    if (couverts.Contains((i, j))) continue;
                     double x = CoteTourM / 2 + (j + 0.5) * longueur;
                     pieces.Add(new PieceDeLEnceinte(NatureDePiece.Pan, i, j, c[i].X + ux[i] * x, c[i].Y + uy[i] * x, x, longueur, lacet));
                 }
             }
+            pieces.AddRange(ouvertes);
             return DecoupeDeLEnceinte.De(pieces);
         }
 
