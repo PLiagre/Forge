@@ -64,5 +64,18 @@ namespace Forge.Interface.Tests
             Assert.AreEqual("Calque indisponible : déclaré absent par le monde. Couleurs des puissances conservées.", CalquesCarte.Indisponible("Population absente du territoire 30"));
             Assert.AreEqual("Calque indisponible : Population des territoires incomplète. Couleurs des puissances conservées.", CalquesCarte.Indisponible("Population des territoires incomplète"));
         }
+        // Lot #943 : sous ses deux formes, la légende passe les juges du clerc ; l'ancienne, datée de 1400, en rougit.
+        [Test] public void La_legende_des_deux_calques_passe_les_juges_du_clerc()
+        {
+            var repartition = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 5631, -1, -1)));
+            foreach (string legende in new[] { CalquesCarte.LegendeDuCalque(null), CalquesCarte.LegendeDuCalque(repartition) })
+            {
+                Assert.IsNull(TexteDuMonde.Interdit(legende), legende);
+                Assert.IsNull(TexteDuMonde.SansUnite(legende), legende);
+            }
+            Assert.AreEqual("Puissances de la carte · Relief non transmis · Rouge : territoire conservé", CalquesCarte.LegendeDuCalque(null));
+            Assert.AreEqual("Habitants : 1 habitant (clair) → 5 631 habitants (foncé) · échelle logarithmique · jour 9 de 1400 · Rouge : territoire conservé", CalquesCarte.LegendeDuCalque(repartition));
+            Assert.AreEqual("1400", TexteDuMonde.SansUnite("Puissances de la carte de 1400 · Relief non transmis · Rouge : territoire conservé"));
+        }
     }
 }
