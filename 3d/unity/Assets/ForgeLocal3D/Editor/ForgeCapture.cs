@@ -21,8 +21,10 @@ namespace ForgeLocal3D
     // La photo d'un lot, prise par la chaîne en batch sur le PC :
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
     //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L] [-forgeServiceEpreuve] [-forgeServiceIa]
+    //         [-forgeTravailEnceinte J]
     // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N ; `--epreuve` avec
-    // -forgeServiceEpreuve, `--ia` avec -forgeServiceIa, sinon rien ne change) : le panneau du lieu
+    // -forgeServiceEpreuve, suivi de `--travail-enceinte J` avec -forgeTravailEnceinte, un nombre fini > 0
+    // qui exige -forgeServiceEpreuve ; `--ia` avec -forgeServiceIa, sinon rien ne change) : le panneau du lieu
     // montre alors les vrais chiffres. La scène du désert se construit à l'exécution (terrain, ville) :
     // on entre en Play, on laisse passer quelques images, on attend que le panneau ait lu le service,
     // on photographie la caméra de la scène (le plan fixe), on écrit le texte du panneau, puis on
@@ -57,6 +59,7 @@ namespace ForgeLocal3D
 
         public const string SERVICE_EPREUVE = "-forgeServiceEpreuve";
         public const string SERVICE_IA = "-forgeServiceIa";
+        public const string TRAVAIL_ENCEINTE = "-forgeTravailEnceinte";
         // Le dossier de -forgeCaptures, où un scénario écrit aussi son rapport.
         public static string DossierDesCaptures => SessionState.GetString(Dossier, ".");
 
@@ -113,6 +116,16 @@ namespace ForgeLocal3D
                 Sortir(CODE_REFUS);
                 return;
             }
+            string travail = null, v = Argument(TRAVAIL_ENCEINTE), refus = null;
+            if (Environment.GetCommandLineArgs().Contains(TRAVAIL_ENCEINTE))
+            {
+                if (v == null || !double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out double j) || double.IsNaN(j) || double.IsInfinity(j) || j <= 0)
+                    refus = "CAPTURE : " + TRAVAIL_ENCEINTE + " attend un nombre fini > 0, reçu " + (v == null ? "rien" : "« " + v + " »");
+                else if (!Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE))
+                    refus = "CAPTURE : " + TRAVAIL_ENCEINTE + " « " + v + " » demande " + SERVICE_EPREUVE + " : seul le service d'épreuve règle le travail de l'enceinte";
+                else travail = j.ToString("R", CultureInfo.InvariantCulture);
+            }
+            if (refus != null) { Debug.LogError(refus); Sortir(CODE_REFUS); return; }
             if (PortRepond())
             {
                 Debug.LogError("CAPTURE : quelque chose répond déjà sur " + HOTE_SERVICE + ":" + PORT_SERVICE
@@ -131,7 +144,7 @@ namespace ForgeLocal3D
             SessionState.SetString(Dossier, dossier);
             SessionState.SetString(Scene, scene);
             SessionState.SetInt(Lot, lot);
-            LancerService(graine, ticks, dossier);
+            LancerService(graine, ticks, dossier, travail);
             SessionState.SetBool(Flag, true);
             images = 0;
             debutPanneau = -1;
@@ -169,7 +182,7 @@ namespace ForgeLocal3D
 
         // Toute cause d'échec se dit, le service est tué s'il vit, et la capture continue :
         // le panneau dira lui-même « service absent ».
-        static void LancerService(int graine, int ticks, string dossier)
+        static void LancerService(int graine, int ticks, string dossier, string travail)
         {
             string attendue = "service prêt sur " + HOTE_SERVICE + ":" + PORT_SERVICE;
             var stderr = new ConcurrentQueue<string>();
@@ -177,6 +190,7 @@ namespace ForgeLocal3D
             {
                 string python = Interpreteur();
                 string epreuve = Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE) ? " --epreuve" : "";
+                if (travail != null) epreuve += " --travail-enceinte " + travail;
                 if (Environment.GetCommandLineArgs().Contains(SERVICE_IA)) epreuve += " --ia";
                 var info = new ProcessStartInfo(python, "-m sim.service --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0" + epreuve)
                 {
