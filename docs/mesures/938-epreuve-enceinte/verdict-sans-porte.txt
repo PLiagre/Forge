@@ -1,0 +1,11 @@
+ÉCART
+code 1
+graine 0 · J 0.01 · drapeau transmis à la session : -forge937SansPorte · référence : service d'épreuve
+Biskra servie : cellule 10103 · J 0.01 · 7 journées requises · drapeau contre_epreuve du rapport : forge937SansPorte (affiché, jamais jugé)
+tick 3 · fourni/requis vu 1/7, servi 1/7 · étape piquets · portes dessinées/servies 0/1
+tick 4 · fourni/requis vu 3/7, servi 3/7 · étape piquets · portes dessinées/servies 0/1
+tick 5 · fourni/requis vu 7/7, servi 7/7 · étape fini · portes dessinées/servies 0/1
+3 portes dessinées : 0 dessinée(s), servie(s) sans porte dessinée à 0.05 m : [(-80.0, 2.2)] · attendu 1, chaque servie à 0.05 m au plus d'une dessinée · ÉCART
+4 portes dessinées : 0 dessinée(s), servie(s) sans porte dessinée à 0.05 m : [(-80.0, 2.2)] · attendu 1, chaque servie à 0.05 m au plus d'une dessinée · ÉCART
+5 portes dessinées : 0 dessinée(s), servie(s) sans porte dessinée à 0.05 m : [(-80.0, 2.2)] · attendu 1, chaque servie à 0.05 m au plus d'une dessinée · ÉCART
+achevée au tick 5 · servi : 5
