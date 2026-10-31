@@ -19,6 +19,9 @@ namespace Forge.Pont.Tests {
         private int port; private HttpListener ecoute; private Thread fil; private volatile string monde; private volatile int statutMonde;
         private GameObject objet; private CarteDessinee carte; private FicheDeCellule fiche;
         private static byte[] Fixture => File.ReadAllBytes(Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json");
+        // Lot #929 : `/lieu` sert le lieu de la graine 0, son `cell_id` remplacé par la terre demandée : le bourg est « Övre vik » partout.
+        private const string BOURG = "Övre vik";
+        private static string LieuServi => File.ReadAllText(Application.dataPath + "/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json");
 
         [SetUp] public void PortLibre() {
             var sonde = new TcpListener(IPAddress.Loopback, 0); sonde.Start(); port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop();
@@ -37,10 +40,14 @@ namespace Forge.Pont.Tests {
 
         private void Servir() {
             monde = Monde(1);
-            byte[] carteServie = Fixture; var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start();
+            byte[] carteServie = Fixture; string lieuServi = LieuServi; var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start();
             (fil = new Thread(() => {
                 try { while (true) {
                     HttpListenerContext ctx = auditeur.GetContext(); bool estCarte = ctx.Request.Url.AbsolutePath == "/carte";
+                    if (ctx.Request.Url.AbsolutePath == "/lieu") {
+                        ctx.Response.StatusCode = 200;
+                        ctx.Response.Close(Encoding.UTF8.GetBytes(lieuServi.Replace("\"cell_id\":9922", "\"cell_id\":" + ctx.Request.QueryString["cell"])), true); continue;
+                    }
                     byte[] corps = estCarte ? carteServie : Encoding.UTF8.GetBytes(monde);
                     ctx.Response.StatusCode = estCarte ? 200 : statutMonde; ctx.Response.Close(corps, true);
                 } } catch (Exception) { }
@@ -60,6 +67,14 @@ namespace Forge.Pont.Tests {
             bool lus() => carte.CellulesServies > 0 && (fiche.MondeLu != null || fiche.AbsenceDuMonde != null);
             while (!lus() && montre.ElapsedMilliseconds < ATTENTE_MS) { carte.Pas(t); fiche.Pas(t); t += 0.5; Thread.Sleep(10); }
             Assert.IsTrue(lus(), "la carte ou le monde n'a pas été lu : " + carte.TexteAffiche);
+        }
+
+        // Lot #929 — le survol, puis des pas jusqu'à ce que le nom du bourg soit arrivé et écrit.
+        private void Nommee(Vector3 point) {
+            fiche.SurvolerPoint(point);
+            var montre = Stopwatch.StartNew(); double t = 1;
+            while (fiche.NomDuBourg != BOURG && montre.ElapsedMilliseconds < ATTENTE_MS) { fiche.Pas(t); t += 0.5; Thread.Sleep(10); }
+            Assert.AreEqual(BOURG, fiche.NomDuBourg, "le nom du bourg n'est pas arrivé : " + fiche.TexteAffiche);
         }
 
         // Le milieu du plus grand triangle de la cellule, en local : un point bien à elle. Les éclats d'un ou deux mètres
@@ -125,14 +140,17 @@ namespace Forge.Pont.Tests {
             CelluleDeCarte metz = lue.Cellules.First(c => c.CellId == METZ), deux = lue.Cellules.First(c => c.CellId == autre);
             Assert.IsTrue(metz.Villes.Any(v => v.Nom == "Metz") && metz.Maison == null && metz.Puissance != null, "la fixture a changé : Metz n'est plus le témoin d'une maison absente");
 
-            fiche.SurvolerPoint(DansLaCellule(maillee, METZ));
+            Nommee(DansLaCellule(maillee, METZ));
             Assert.AreEqual(METZ, fiche.Survolee?.CellId);
-            Assert.AreEqual("Cellule 10437 · Metz\nPuissance : " + metz.Puissance.Nom + "\nMaison : aucune, le monde n'en nomme pas\nHabitants : 1234 au tick 30\nFaim : 2 ticks de manque\nDette de nourriture : 12.5 kg", fiche.TexteAffiche);
+            Assert.AreEqual("Övre vik · Metz\nPuissance : " + metz.Puissance.Nom + "\nMaison : aucune, le monde n'en nomme pas\nHabitants : 1 234 habitants · jour 31 de 1400\nFaim : 2 jours de manque\nDette de nourriture : 12,5 kg", fiche.TexteAffiche);
+            Assert.IsNull(TexteDuMonde.Interdit(fiche.TexteAffiche, "10437"), fiche.TexteAffiche); Assert.IsNull(TexteDuMonde.SansUnite(fiche.TexteAffiche), fiche.TexteAffiche);
 
-            fiche.SurvolerPoint(DansLaCellule(maillee, autre));
-            StringAssert.Contains("\nPuissance : " + deux.Puissance.Nom + "\nMaison : " + deux.Maison.Nom + "\nHabitants : 0 au tick 30\nFaim : non calculée\nDette de nourriture : non calculée", fiche.TexteAffiche);
-            fiche.SurvolerPoint(DansLaCellule(maillee, absente));
-            StringAssert.EndsWith("\nHabitants et faim : cellule absente du monde servi au tick 30", fiche.TexteAffiche);
+            Nommee(DansLaCellule(maillee, autre));
+            StringAssert.StartsWith(BOURG, fiche.TexteAffiche);
+            StringAssert.Contains("\nPuissance : " + deux.Puissance.Nom + "\nMaison : " + deux.Maison.Nom + "\nHabitants : 0 habitant · jour 31 de 1400\nFaim : non calculée\nDette de nourriture : non calculée", fiche.TexteAffiche);
+            Nommee(DansLaCellule(maillee, absente));
+            StringAssert.EndsWith("\nHabitants et faim : absente du monde servi", fiche.TexteAffiche);
+            StringAssert.DoesNotContain(absente.ToString(System.Globalization.CultureInfo.InvariantCulture), fiche.TexteAffiche);
             Assert.AreEqual(absente, fiche.Survolee?.CellId);
         }
 
@@ -146,10 +164,31 @@ namespace Forge.Pont.Tests {
 
         [Test] public void Sans_monde_la_fiche_le_dit_et_garde_la_carte() {
             statutMonde = 500; Servir(); Poser();
-            fiche.SurvolerPoint(DansLaCellule(MaillageDeCarte.Mailler(Lue()), METZ));
-            StringAssert.StartsWith("Cellule 10437 · Metz\nPuissance : ", fiche.TexteAffiche);
-            StringAssert.Contains("\nHabitants et faim : " + CarteDessinee.MESSAGE_ABSENCE + " (", fiche.TexteAffiche);
+            Nommee(DansLaCellule(MaillageDeCarte.Mailler(Lue()), METZ));
+            StringAssert.StartsWith("Övre vik · Metz\nPuissance : ", fiche.TexteAffiche);
+            Assert.AreEqual("Habitants et faim : déclaré absent par le monde", fiche.TexteAffiche.Split('\n').Last());
             Assert.IsNull(fiche.MondeLu);
+            StringAssert.DoesNotContain("500", fiche.TexteAffiche); StringAssert.DoesNotContain("10437", fiche.TexteAffiche);
+        }
+
+        // Lot #929 — un seul survol : « Bourg en lecture » d'abord, puis la fiche se réécrit seule quand le nom arrive.
+        [Test] public void Le_nom_arrive_apres_le_survol_et_la_fiche_se_recrit() {
+            Servir(); Poser();
+            // Le temps ne passe plus : la lecture du monde en vol se termine, aucune autre ne part, et rien d'autre que le nom
+            // arrivé ne peut réécrire la fiche (une relecture du monde la réécrirait, et cacherait un `Pas` qui l'oublie).
+            const double t = 0; var montre = Stopwatch.StartNew();
+            while (fiche.LectureEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(10);
+            fiche.Pas(t); Assert.IsFalse(fiche.LectureEnVol, "une lecture du monde est encore en vol");
+            fiche.SurvolerPoint(DansLaCellule(MaillageDeCarte.Mailler(Lue()), METZ));
+            Assert.AreEqual(NomsDesTerres.NomEnLecture, fiche.NomDuBourg);
+            Assert.AreEqual("Bourg en lecture · Metz", fiche.TexteAffiche.Split('\n')[0]);
+            montre.Restart();
+            while (fiche.NomDuBourg != BOURG && montre.ElapsedMilliseconds < ATTENTE_MS) { fiche.Pas(t); Thread.Sleep(10); }
+            Assert.AreEqual(BOURG, fiche.NomDuBourg, "la fiche ne s'est pas réécrite : " + fiche.TexteAffiche);
+            string texte = fiche.TexteAffiche;
+            Assert.AreEqual("Övre vik · Metz", texte.Split('\n')[0]);
+            Assert.AreEqual(FicheDeCellule.Decrire(fiche.Survolee, Lecture<MondeLu>.De(fiche.MondeLu), BOURG), texte);
+            Assert.IsNull(TexteDuMonde.Interdit(texte, "10437"), texte); Assert.IsNull(TexteDuMonde.SansUnite(texte), texte);
         }
 
         // Lot #910 — la terre écrite en noms, sans service ni écran : une cellule fabriquée (puissance « Lorraine », maison nulle)
