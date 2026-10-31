@@ -100,8 +100,7 @@ namespace Forge.Interface
                         : habitants ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * repartition.Position(paire.Key))
                         : SocleInterface.Pigment(teintes[paire.Key].maison);
                 }
-                legende.text = (habitants ? repartition.Legende : "Puissances de la carte de 1400 · Relief non transmis")
-                    + " · Rouge : territoire conservé";
+                legende.text = LegendeDuCalque(repartition);
             }
             catch (Exception e)
             {
@@ -115,6 +114,10 @@ namespace Forge.Interface
         }
         void OnDestroy() { foreach (var t in teintes.Values) if (Application.isPlaying) Destroy(t.copie); else DestroyImmediate(t.copie); teintes.Clear(); }
 
+        // Lot #943 : sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater
+        // dirait qu'elles sont celles du jour servi. La légende des habitants garde sa date, celle du monde lu.
+        public static string LegendeDuCalque(RepartitionHabitants repartition) =>
+            (repartition == null ? "Puissances de la carte · Relief non transmis" : repartition.Legende) + " · Rouge : territoire conservé";
         public static string Indisponible(string raison) => "Calque indisponible : " + TexteDuMonde.Absence(raison) + ". Couleurs des puissances conservées.";
         void EspacerLesNoms()
         {
