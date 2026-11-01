@@ -2,7 +2,7 @@
 
 Ce qui est mesuré : le temps d'image de Biskra dense (cellule 10103, 600 maisons, 80 passants, un chantier de maison, soir à 19,6 h) sur quatre vues, avant toute optimisation. Le banc prend 300 images après 60 de chauffe, en 1920 × 1080, rendu vrai, sans vSync.
 
-Commande P, jouée depuis la racine le 01/11/2026, commit `36169e441a8034a0bcf5731420fd7b204afdfb9a` :
+Commande P, jouée depuis la racine le 01/11/2026, commit `f6d4d7df0034805a2e60cf600c6e735109a61e5e` :
 
 `& 'C:\Program Files\Unity\Hub\Editor\6000.0.43f1\Editor\Unity.exe' -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeLot 959 -forgeSeed 0 -forgeTicks 0 -forgeServiceEpreuve -forgeCaptures '3d/unity/Temp/lot959-photo' -logFile '3d/unity/Temp/lot959-photo.log'`
 
