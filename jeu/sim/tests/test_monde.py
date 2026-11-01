@@ -3883,11 +3883,36 @@ def test_ia_mesure_reelle(tmp_path):
         for e in parts:
             assert e['tick'] == 30 and e['intention']['maison'] == cle_de(e) and 'cell' not in e['intention']
     verifier(releve)
-    compte = len({(e['maison']['sorte'], e['maison']['id']) for e in releve if e['tick'] * k.TICK_DURATION_DAYS < 30})
-    assert 0 < compte <= len(capitales) and resume['ia']['maisons_actives_30j'] == compte
-    assert ia.maisons_actives_30j(29, releve) == -1
-    assert ia.maisons_actives_30j(31, releve * 2) == compte
-    assert ia.maisons_actives_30j(31, releve + [dict(releve[0], tick=30, maison={'sorte': 'tardive', 'id': -1})]) == compte
+    def ancienne(ticks_ecoules, entrees):
+        """Copie de la mesure d'avant le lot : les trente premiers jours."""
+        if ticks_ecoules * k.TICK_DURATION_DAYS < k.IA_DUREE_MESURE_JOURS:
+            return -1
+        return len({(e['maison']['sorte'], e['maison']['id']) for e in entrees
+                    if 'refus' not in e and 0 <= e['tick'] * k.TICK_DURATION_DAYS < k.IA_DUREE_MESURE_JOURS})
+    def controler_mesure(fonction, resume, releve):
+        ticks = 31
+        debut = ticks - k.IA_DUREE_MESURE_JOURS
+        compte = len({(e['maison']['sorte'], e['maison']['id']) for e in releve
+                      if 'refus' not in e and debut <= e['tick'] * k.TICK_DURATION_DAYS < ticks})
+        assert 0 < compte <= len(capitales)
+        assert resume['ia']['maisons_actives_30j'] == fonction(ticks, releve) == compte
+        assert fonction(29, releve) == -1
+        assert fonction(ticks, releve * 2) == compte
+        base = next(e for e in releve if 'refus' not in e)
+        def tardive(tick, **champs):
+            return dict(base, tick=tick, maison={'sorte': 'tardive', 'id': -1}, **champs)
+        assert fonction(ticks, releve + [tardive(30)]) == compte + 1
+        assert fonction(ticks, releve + [tardive(debut)]) == compte + 1
+        assert fonction(ticks, releve + [tardive(debut - 1)]) == compte
+        assert fonction(ticks, releve + [tardive(30, refus='refusé')]) == compte
+        tardives = [tardive(30), tardive(debut), tardive(debut - 1), tardive(30, refus='refusé')]
+        for entrees in (releve, releve + tardives):
+            assert fonction(k.IA_DUREE_MESURE_JOURS, entrees) == ancienne(k.IA_DUREE_MESURE_JOURS, entrees)
+        premiers = ancienne(ticks, releve)
+        print(f'glissante={compte}, trente premiers jours={premiers}', flush=True)
+        assert compte != premiers
+    controler_mesure(ia.maisons_actives_30j, resume, releve)
+    with pytest.raises(AssertionError): controler_mesure(ancienne, resume, releve)
     with pytest.raises(AssertionError): verifier([])
     faux = copy.deepcopy(releve)
     faux[0]['intention']['cell'] = -1
@@ -3963,16 +3988,16 @@ def test_ia_option_explicitement(tmp_path, monkeypatch):
     from sim import __main__ as cli
     from sim.engine import tick
     import random
-    resume, monde = cli._simulate(30, 0)
+    resume, monde = cli._simulate(31, 0)
     temoin = World.charger(0)
     rng = random.Random(0)
-    for _ in range(30): tick(temoin, rng, temoin.ticks_ecoules)
+    for _ in range(31): tick(temoin, rng, temoin.ticks_ecoules)
     assert monde.to_dict() == temoin.to_dict() and 'ia' not in resume
     def interdit(*args): raise AssertionError('IA appelée sans option')
     monkeypatch.setattr(cli, 'jouer_ia', interdit)
-    assert cli._simulate(30, 0)[0] == resume
+    assert cli._simulate(31, 0)[0] == resume
     assert _ia_cli(tmp_path, ticks=0, options=['--ia'])[0]['ia'] == {'releve': [], 'maisons_actives_30j': -1}
-    assert _ia_cli(tmp_path, options=['--ia'])[1] != json.dumps(temoin.to_dict(), sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+    assert _ia_cli(tmp_path, ticks=31, options=['--ia'])[1] != json.dumps(temoin.to_dict(), sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
 
 
 @pytest.mark.parametrize("stocks", [(2, 100), (100, 100), (2, 2), (0, 0)])
@@ -4316,15 +4341,15 @@ def _service_ia_en_processus(ia=True):
 def test_service_ia_egal_cli(tmp_path):
     from sim.constants import date_de_tick
     photo = tmp_path / 'ia-photo.json'
-    resume, brut = _ia_cli(tmp_path, options=['--ia', '--snapshot-json', str(photo)])
+    resume, brut = _ia_cli(tmp_path, ticks=31, options=['--ia', '--snapshot-json', str(photo)])
     monde = json.loads(brut)
     cellules = {int(cid): c for cid, c in monde['cells'].items()}
-    reference = dict(tick=30, date=date_de_tick(30), **resume['ia'])
+    reference = dict(tick=31, date=date_de_tick(31), **resume['ia'])
     assert reference['releve'] and reference['maisons_actives_30j'] > 0
-    ids = {e['intention']['cell'] for e in reference['releve']}
+    ids = {e['intention']['cell'] for e in reference['releve'] if 'cell' in e['intention']}
     assert ids
     with _lancer_service_ia() as port:
-        assert requete_service(port, '/tick?n=30', 'POST')[1]['tick'] == 30
+        assert requete_service(port, '/tick?n=31', 'POST')[1]['tick'] == 31
         obtenu = requete_service(port, '/ia')[1]
         assert obtenu == reference
         faux = copy.deepcopy(reference); faux['releve'][0]['tick'] += 1
@@ -4339,9 +4364,9 @@ def test_service_ia_egal_cli(tmp_path):
         photos = {c['cell_id']: c for c in json.loads(photo.read_bytes())['cells']}
         servis = requete_service(port, '/monde')[1]['cells']
         assert servis
-        for c in servis: _verifier_lieu_contre_photo(port, photos[c['cell_id']], 30)
+        for c in servis: _verifier_lieu_contre_photo(port, photos[c['cell_id']], 31)
     with lancer_service(0) as port:
-        requete_service(port, '/tick?n=30', 'POST')
+        requete_service(port, '/tick?n=31', 'POST')
         assert requete_service(port, '/ia')[0] == HTTPStatus.NOT_FOUND
         assert any((requete_service(port, f'/plan?cell={cid}')[1], requete_service(port, f'/lieu?cell={cid}')[1]) != attendus[cid] for cid in ids)
 
@@ -4501,7 +4526,7 @@ def test_service_ia_lecture(monkeypatch):
 
 def test_service_ia_raison():
     with _lancer_service_ia() as port:
-        assert requete_service(port, '/tick?n=30', 'POST')[1]['tick'] == 30
+        assert requete_service(port, '/tick?n=31', 'POST')[1]['tick'] == 31
         lu = requete_service(port, '/ia')[1]
 
         def verifier(document):

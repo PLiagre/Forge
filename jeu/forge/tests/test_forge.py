@@ -234,17 +234,17 @@ def test_forge_ia_boucle(tmp_path, monkeypatch):
     monkeypatch.setattr(ia, 'jouer_ia', jouer_sonde)
     monkeypatch.setattr(engine, 'tick', tick_sonde)
     monkeypatch.setattr(photo, 'export_snapshot', export_sonde)
-    _simuler(30, 0, tmp_path / 'ia.json', ia=True)
+    _simuler(31, 0, tmp_path / 'ia.json', ia=True)
     def ordre(e):
-        assert [x[0] for x in e] == ['ia', 'tick'] * 30
+        assert [x[0] for x in e] == ['ia', 'tick'] * 31
         assert all(x[1] is e[0][1] and x[2] is e[0][2] for x in e)
     ordre(evenements)
     with pytest.raises(AssertionError): ordre(evenements[::-1])
     temoin, releve, rng = World.charger(0), [], random.Random(0)
-    for _ in range(30): jouer(temoin, releve); tick(temoin, rng)
+    for _ in range(31): jouer(temoin, releve); tick(temoin, rng)
     assert releve and evenements[0][2] == releve and sorties[-1] == temoin.to_dict()
     monkeypatch.setattr(ia, 'jouer_ia', lambda *a: None)
-    _simuler(30, 0, tmp_path / 'muet.json', ia=True)
+    _simuler(31, 0, tmp_path / 'muet.json', ia=True)
     with pytest.raises(AssertionError): assert sorties[-1] == temoin.to_dict()
     monkeypatch.setattr(ia, 'jouer_ia', lambda *a: pytest.fail('IA avant le premier tick'))
     _simuler(0, 0, tmp_path / 'zero.json', ia=True)
@@ -254,7 +254,7 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
     import copy
     from sim.ia import maisons_actives_30j
     blocs, octets = [], []
-    for n, ticks in enumerate((30, 30, 0)):
+    for n, ticks in enumerate((31, 31, 0)):
         code, sortie = _jouer(tmp_path / str(n), '--ticks', str(ticks), '--ia', '--sans-chronique')
         assert code == 0 and all((sortie / f).stat().st_size > 0 for f in ('monde.json', 'resume.json', 'carte.png', 'tableau.svg'))
         photo = json.loads((sortie / 'monde.json').read_bytes())
