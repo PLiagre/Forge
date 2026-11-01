@@ -697,6 +697,14 @@ MAISONS_PAR_ILOT_MAX = 20
 # Façade limitée pour tenir entre deux ruelles sans allongement infini, niveau 2.
 MAISONS_EN_FACADE_ILOT = 5
 
+# Bourg de la ville d'épreuve, niveau 2 : épreuve de mesure de #422, réponse B du
+# propriétaire ; jamais lue par le monde.
+HABITANTS_BOURG_VILLE_DENSE = 800
+
+# Maisons d'un foyer de la ville d'épreuve, niveau 2 : épreuve de mesure de #422,
+# réponse B du propriétaire ; jamais lue par le monde.
+MAISONS_VILLE_DENSE = 600
+
 # Retrait du mur par rapport au bord de la chaussée, niveau 2.
 RECUL_MAISON_1400_M = 1
 
