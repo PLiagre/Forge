@@ -33,6 +33,7 @@ ajoute ses cas dans le fichier qui porte déjà l'invariant concerné.
 | `test_maisons_servies.py` | liste et fiches HTTP de toutes les maisons, flux exacts, noms, absences, refus, publication figée et cache à la demande ; contre-épreuves et médianes de publication |
 | `test_convois.py` | la table du dû au suzerain, ses retenues hors carte et la durée de route d'un lieu jusqu'au siège de son maître, calculée une fois et laissée hors du tick |
 | `test_epreuve_enceinte.py` | la preuve de bout en bout de l'enceinte du jalon 4 : gestes, salaires, achèvement, portes, même monde |
+| `test_programme_ia.py` | le programme de l'IA : la route vers le champ, ses conditions et sa raison, pure, avec contre-épreuves |
 
 ```bash
 py -m pytest sim/tests/ -q
