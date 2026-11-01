@@ -15,16 +15,18 @@ namespace ForgeLocal3D.Captures
         static double gx,gy,heure=-1;static string rapport,etape="aucune",drapeau="",chantierEtat,panierJson="{}",etalsJson="[]",machine;static bool monte,sansVille,sansEffets;
         static Exception Faux(string m)=>new InvalidOperationException(m);
 
-        [ScenarioDeCapture(959,"1-montage")]static IEnumerator Montage(Camera camera)=>Derouler(Monter(camera));
-        [ScenarioDeCapture(959,"2-survol")]static IEnumerator Survol(Camera camera)=>Derouler(Vue(camera,"survol"));
-        [ScenarioDeCapture(959,"3-rue")]static IEnumerator Rue(Camera camera)=>Derouler(Vue(camera,"rue"));
-        [ScenarioDeCapture(959,"4-place")]static IEnumerator Place(Camera camera)=>Derouler(Vue(camera,"place"));
-        [ScenarioDeCapture(959,"5-chantier")]static IEnumerator Chantier(Camera camera)=>Derouler(Vue(camera,"chantier"));
+        static EffetsAuLoin auLoin; // Lot 961 : monté après le relevé `fumees`/`lampes` du montage, qui compte donc 600 et 600.
+        [ScenarioDeCapture(959,"1-montage")]internal static IEnumerator Montage(Camera camera)=>Derouler(Monter(camera));
+        [ScenarioDeCapture(959,"2-survol")]internal static IEnumerator Survol(Camera camera)=>Derouler(Vue(camera,"survol"));
+        [ScenarioDeCapture(959,"3-rue")]internal static IEnumerator Rue(Camera camera)=>Derouler(Vue(camera,"rue"));
+        [ScenarioDeCapture(959,"4-place")]internal static IEnumerator Place(Camera camera)=>Derouler(Vue(camera,"place"));
+        [ScenarioDeCapture(959,"5-chantier")]internal static IEnumerator Chantier(Camera camera)=>Derouler(Vue(camera,"chantier"));
         static IEnumerator Derouler(IEnumerator corps)
         {while(true){bool suite;try{suite=corps.MoveNext();}catch(Exception e){if(rapport!=null)Ecrire(etape+" : "+e.GetBaseException().Message);throw;}if(!suite)yield break;yield return null;}}
 
         static IEnumerator Monter(Camera camera)
         {
+            if(auLoin)Object.DestroyImmediate(auLoin.gameObject);auLoin=null;
             vues.Clear();refus.Clear();effets.Clear();etals.Clear();comptoirs.Clear();monte=false;heure=-1;cellule=tick=bourgPop=chantierId=-1;
             maisonsPosees=foyers=passProj=passPoses=passScene=fumees=lampes=-1;panierJson="{}";etalsJson="[]";chantierEtat=null;piece=etiquette=null;machine=null;drapeau="";plan=null;
             etape="rapport";string chemin=Path.Combine(Capture.DossierDesCaptures,Rapport);if(File.Exists(chemin))throw Faux("rapport antérieur : "+chemin);rapport=chemin;
@@ -87,7 +89,7 @@ namespace ForgeLocal3D.Captures
             foreach(var e in etals)if(!e.Appliquer(bourgLu,lecturePlan)||e.Cause!=null)throw Faux(e.name+" : "+e.Cause);
             etape="particules";for(int i=0;i<600&&(i<60||effets.Any(e=>e.Fumee.particleCount==0));i++)yield return null;
             if(effets.Any(e=>!e.Fumee.isEmitting||e.Fumee.particleCount==0))throw Faux("fumée sans particule");
-            etape="relevé";ReleverEffets();var vise=Barycentre();villeCam.Poser(vise,180f,40f,DistanceSurvol(camera,vise,Centres()));monte=true;Ecrire("2-survol");
+            etape="relevé";ReleverEffets();auLoin=new GameObject("Effets au loin").AddComponent<EffetsAuLoin>();auLoin.Configurer(camera,effets);var vise=Barycentre();villeCam.Poser(vise,180f,40f,DistanceSurvol(camera,vise,Centres()));monte=true;Ecrire("2-survol");
         }
 
         static IEnumerator Vue(Camera camera,string nom)
@@ -105,7 +107,7 @@ namespace ForgeLocal3D.Captures
             }
             else if(nom=="place"){vise=sansEffets?Monde(gx,gy-12):viseEtals;cap=CapVers(Barycentre(),vise);inc=22f;dist=28f;}
             else{vise=BoiteDe(piece).center;cap=180f;inc=35f;dist=25f;}
-            camera.aspect=1600f/900f;villeCam.Poser(vise,cap,inc,dist);for(int i=0;i<10;i++)yield return null;string controles=Controles(camera);
+            camera.aspect=1600f/900f;villeCam.Poser(vise,cap,inc,dist);for(int i=0;i<10;i++)yield return null;string controles=Controles(camera)+",\"effets\":"+EffetsVus(camera);
             ReleveDuBanc releve=null;var mes=BancDuTempsDImage.Mesurer(camera,60,300,x=>releve=x,true);while(mes.MoveNext())yield return null;
             if(releve==null||releve.nombre!=300)throw Faux("le banc n'a pas rendu 300 images");
             string texte=nom+" · médiane "+F1(releve.mediane_ms)+" ms · P95 "+F1(releve.p95_ms)+" ms · max "+F1(releve.maximum_ms)+" ms";
@@ -196,6 +198,19 @@ namespace ForgeLocal3D.Captures
             float haut=camera.transform.position.y-(terrain.SampleHeight(camera.transform.position)+terrain.transform.position.y);
             return "\"maisons_dans_le_champ\":"+L(champ)+",\"maisons_dans_le_cone\":"+L(cone)+",\"passants_dans_le_cone\":"+L(pass)+",\"etals_dans_le_champ\":"+L(et)+",\"chantier_dans_le_champ\":"+(ch?"true":"false")+",\"hauteur_m\":"+N(haut);
         }
+        // Lot 961 : ce que la vue montre des effets, mesuré ici et non par le composant ; une distance sans objet vaut null.
+        static string EffetsVus(Camera camera)
+        {
+            var o=camera.transform.position;int la=0,fa=0,fp=0;double? laLoin=null,leProche=null,faLoin=null,fpProche=null;
+            foreach(var e in effets)
+            {
+                var l=e.Lampe;if(l&&l.intensity>0f){double d=Vector3.Distance(o,l.transform.position);if(l.enabled){la++;laLoin=Math.Max(laLoin??d,d);}else leProche=Math.Min(leProche??d,d);}
+                var f=e.Fumee;if(!f)continue;double df=Vector3.Distance(o,f.transform.position);
+                if(f.isPaused){fp++;fpProche=Math.Min(fpProche??df,df);}else if(f.isPlaying){fa++;faLoin=Math.Max(faLoin??df,df);}
+            }
+            string D(double? d)=>d.HasValue?N(d.Value):"null";
+            return "{\"lampes_allumees\":"+L(la)+",\"lampe_allumee_la_plus_loin_m\":"+D(laLoin)+",\"lampe_eteinte_la_plus_proche_m\":"+D(leProche)+",\"fumees_animees\":"+L(fa)+",\"fumees_en_pause\":"+L(fp)+",\"fumee_animee_la_plus_loin_m\":"+D(faLoin)+",\"fumee_en_pause_la_plus_proche_m\":"+D(fpProche)+"}";
+        }
         static void PoserEtiquette(Camera camera,string texte)
         {
             float z=1f,h=2f*z*Mathf.Tan(camera.fieldOfView*Mathf.Deg2Rad/2f),w=h*camera.aspect;var font=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")??throw Faux("police LegacyRuntime.ttf absente");
@@ -215,6 +230,7 @@ namespace ForgeLocal3D.Captures
             s.Append(",\"maisons_posees\":").Append(L(maisonsPosees)).Append(",\"foyers\":").Append(L(foyers)).Append(",\"refus\":[").Append(string.Join(",",refus.Select(Q))).Append("],\"passants_projetes\":").Append(L(passProj)).Append(",\"passants_poses\":").Append(L(passPoses)).Append(",\"passants_scene\":").Append(L(passScene));
             s.Append(",\"chantier\":").Append(chantierId<0?"null":"{\"identifiant\":"+L(chantierId)+",\"nature\":\"maison\",\"etat\":"+Q(chantierEtat)+"}");
             s.Append(",\"heure\":").Append(heure<0?"-1":N(heure)).Append(",\"fumees\":").Append(L(fumees)).Append(",\"lampes\":").Append(L(lampes)).Append(",\"etals\":").Append(etalsJson);
+            s.Append(",\"effets_au_loin\":").Append(!auLoin?"null":"{\"actif\":"+(auLoin.Actif?"true":"false")+",\"plafond\":"+L(EffetsAuLoin.PLAFOND_DES_LAMPES)+",\"distance_m\":"+N(EffetsAuLoin.DISTANCE_DES_FUMEES_M)+",\"effets\":"+L(auLoin.Effets)+",\"culling_automatique\":"+L(effets.Count(e=>e.Fumee&&e.Fumee.main.cullingMode==ParticleSystemCullingMode.Automatic))+"}");
             s.Append(",\"optimisations\":").Append(OptimisationsDeLaVille.Actives?"true":"false").Append(",\"machine\":").Append(machine).Append(",\"vues\":[").Append(string.Join(",",vues)).Append("]}");
             File.WriteAllText(rapport,s.ToString(),new UTF8Encoding(false));
         }
