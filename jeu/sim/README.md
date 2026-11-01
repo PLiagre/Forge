@@ -33,7 +33,7 @@ mesure des jours antérieurs au démarrage ; le champ disparaît à expiration.
 
 `python3 -m sim.service --ia` fait jouer les maisons avant chaque tick, sous le
 même verrou que le joueur. `GET /ia` rend le tick, la date, le relevé des dépôts
-et `maisons_actives_30j` (−1 avant trente jours) ; sans option, il rend 404.
+et `maisons_actives_30j` (maisons ayant déposé un geste accepté pendant les trente derniers jours ; −1 avant trente jours) ; sans option, il rend 404.
 Un refus IA annule ses dépôts : le tick manuel rend 500, l'horloge se met en pause.
 La durée publiée inclut l'IA ; les autres routes gardent leur forme.
 

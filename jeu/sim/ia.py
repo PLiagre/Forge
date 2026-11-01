@@ -254,9 +254,14 @@ def jouer_ia(monde, releve):
 
 
 def maisons_actives_30j(ticks_ecoules, releve):
-    """Compte les couples distincts déposés, refus exclus, de la première fenêtre."""
-    if ticks_ecoules * _constantes.TICK_DURATION_DAYS < _constantes.IA_DUREE_MESURE_JOURS:
+    """Compte les couples distincts déposés, refus exclus, pendant les trente derniers jours.
+
+    Les gestes sont notés avant le tick, avec le tick écoulé : après T jours, la fenêtre
+    couvre les ticks T − D à T − 1. À D jours, elle égale la première fenêtre."""
+    duree = _constantes.IA_DUREE_MESURE_JOURS
+    fin = ticks_ecoules * _constantes.TICK_DURATION_DAYS
+    if fin < duree:
         return -1
     return len({(e['maison']['sorte'], e['maison']['id']) for e in releve
                 if 'refus' not in e
-                and 0 <= e['tick'] * _constantes.TICK_DURATION_DAYS < _constantes.IA_DUREE_MESURE_JOURS})
+                and fin - duree <= e['tick'] * _constantes.TICK_DURATION_DAYS < fin})

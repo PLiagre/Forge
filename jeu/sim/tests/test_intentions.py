@@ -1120,9 +1120,22 @@ def test_ia_refus_compte_pour_l_annee(monkeypatch):
     avant_an = deepcopy(monde.__dict__)
     ia.jouer_ia(monde, releve)
     assert len(releve) == 2 * len(propositions) and monde.__dict__ == avant_an
-    assert ia.maisons_actives_30j(31, releve) == 0
-    acceptees = [dict(tick=0, **p) for p in propositions]
-    assert ia.maisons_actives_30j(31, acceptees) == len(couples) > 0
+    an = k.CALENDAR_DAYS_PER_YEAR
+
+    def ancienne(ticks_ecoules, entrees):
+        """Copie de la mesure d'avant le lot : les trente premiers jours."""
+        if ticks_ecoules * k.TICK_DURATION_DAYS < k.IA_DUREE_MESURE_JOURS:
+            return -1
+        return len({(e['maison']['sorte'], e['maison']['id']) for e in entrees
+                    if 'refus' not in e and 0 <= e['tick'] * k.TICK_DURATION_DAYS < k.IA_DUREE_MESURE_JOURS})
+
+    assert ia.maisons_actives_30j(an + 1, releve) == 0
+    acceptees = [dict(tick=an, **p) for p in propositions]
+    assert ia.maisons_actives_30j(an + 1, acceptees) == len(couples) > 0
+    vieilles = [dict(tick=0, **p) for p in propositions]
+    assert ia.maisons_actives_30j(an + 1, vieilles) == 0
+    assert ia.maisons_actives_30j(30, vieilles) == len(couples)
+    assert ancienne(an + 1, vieilles) == len(couples) != ia.maisons_actives_30j(an + 1, vieilles)
     with monkeypatch.context() as isole:
         test_ia_lecture_refus_avant_depot(isole, 'cellule')
 

@@ -1,6 +1,6 @@
 # Les autres maisons — UI-14
 
-Le joueur ouvre le journal des autres maisons depuis la carte : nom, territoire, ordre, raison et refus éventuel viennent de `/ia` et `/maisons`. Les deux ticks restent visibles. Un ordre reçu ne signifie pas un chantier achevé. La mesure d’activité porte sur les trente premiers jours, conformément au moteur.
+Le joueur ouvre le journal des autres maisons depuis la carte : nom, territoire, ordre, raison et refus éventuel viennent de `/ia` et `/maisons`. Les deux ticks restent visibles. Un ordre reçu ne signifie pas un chantier achevé. La mesure d’activité porte sur les trente derniers jours, conformément au moteur.
 
 Sans IA active, le dossier le dit. Un journal vide reste distinct d’une panne ; doublons, dates futures et raisons absentes refusent la lecture. Aucune décision ni intention n’est produite par ce dossier.
 
