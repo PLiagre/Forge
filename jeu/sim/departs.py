@@ -64,12 +64,22 @@ def appliquer_departs(world) -> int:
             premiers[cid], seconds[cid] = premier, second
 
     voisins = {}
+    reserves_voisins = {}
+    cellules = world.cells
     for edge in world.adjacency:
         a, b = edge['a'], edge['b']
-        if a not in world.cells or b not in world.cells:
+        if a not in cellules or b not in cellules:
             continue
         for cid, voisin in ((a, b), (b, a)):
-            voisins[cid] = _meilleur(bourgs.get(voisin), voisins.get(cid), photo)
+            candidat = bourgs.get(voisin)
+            if candidat is None:
+                continue
+            reserve = photo[candidat][2]
+            actuelle = reserves_voisins.get(cid)
+            if actuelle is None or reserve > actuelle or (
+                    reserve == actuelle and candidat < voisins[cid]):
+                voisins[cid] = candidat
+                reserves_voisins[cid] = reserve
 
     deltas_lieux, deltas_cellules = defaultdict(int), defaultdict(int)
     total = 0
