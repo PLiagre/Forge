@@ -2662,7 +2662,8 @@ Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) e
 L'exclusion compare l'identifiant du registre : le numéro d'un `ChoixDepart` en attente est converti par `identifiant_de_seigneurie`, comme celui des lignes de seigneurie.
 Paramètres relus dans `constants.py`. `jouer_ia` décide tout avant le premier dépôt et n'utilise que `recevoir_intention`, JSON du joueur intact. Chaque proposition porte une `raison` lue avant tout dépôt : `regle` (`route_si_bourg_affame`), `bourg` (`population`, `duree_faim_ticks`, `dette_alimentaire_kg`, `nourriture_kg`, sans arrondi), `champs_nourriture_kg` (rangs 1 à n, dans l'ordre, sans somme), `grenier_nourriture_kg` (panier du registre, `grande-<id>` ou `identifiant_de_seigneurie` ; −1 s'il manque ; une marchandise absente pèse zéro), `chantiers_en_cours` (`rues`, `parcelles`, `batiments`) et `departs` (−1). Une acceptation ajoute `{tick, maison, intention, raison}` ; `IntentionRefusee` ajoute la même entrée avec `refus` (le message), rien n'est déposé, la maison suivante joue. Une donnée absente reste levée avant tout dépôt. `python3 -m sim --ia` joue après les gestes scriptés,
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
-déposés dans les trente premiers jours, refus ignorés, dérivés des ticks et de `TICK_DURATION_DAYS` ; avant trente jours, −1, même à zéro tick.
+déposés pendant les trente derniers jours, refus ignorés, dérivés des ticks et de `TICK_DURATION_DAYS` : après `T` ticks, la fenêtre couvre les ticks `T − 30` à `T − 1`
+(les gestes sont notés avant le tick, avec le tick écoulé). Avant trente jours, −1, même à zéro tick. À 30 ticks, la fenêtre égale l'ancienne (ticks 0 à 29).
 Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
 Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. La raison d'une route porte des départs à −1 : ce geste ne les compte pas. La part, elle, compte les départs. Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
 
@@ -2708,7 +2709,7 @@ Une donnée absente remet file et relevé à leur longueur initiale, sans tick n
 à zéro, écrit la raison sur stderr et reste vivante.
 Un refus de dépôt (`IntentionRefusee`) n'arrête plus le tick : il est noté au relevé et la partie continue.
 `GET /ia` publie avec le monde `{tick, date, releve, maisons_actives_30j}`,
-sans arrondi ; la mesure vient de `maisons_actives_30j`, −1 avant trente jours.
+sans arrondi ; la mesure vient de `maisons_actives_30j` (trente derniers jours), −1 avant trente jours.
 Sans option, cette route rend 404 et demande `--ia` ; les autres routes gardent leur forme.
 La durée du tick inclut l'IA. Mesure sur la base, VPS, 06/10/2026, graine 0,
 30 ticks : médianes IA ≈ 275 ms, tick ≈ 91 ms, soit environ 2,7 jours/s au plus.
@@ -2717,7 +2718,7 @@ Le placement des capitales par polygone est recalculé ; la cadence par défaut 
 Cette absence sans option vaut aussi pour `python3 -m forge`. Avec `--ia`,
 son relevé neuf reste hors de `World` : après validation des départs déposés,
 `jouer_ia` précède chaque tick, premier compris ; zéro tick ne dépose rien.
-La photographie copie l'entrée entière du relevé, `raison` et `refus` compris. La mesure vient de `maisons_actives_30j` et des ticks écoulés.
+La photographie copie l'entrée entière du relevé, `raison` et `refus` compris. La mesure vient de `maisons_actives_30j` (trente derniers jours) et des ticks écoulés.
 La planche rejoue séparément sans intentions ; avec `--ia`, son compte rendu
 déclare `planche.ia = false`. `--sans-chronique` évite ce rejeu sans IA.
 
