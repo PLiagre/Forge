@@ -1595,7 +1595,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16')): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS)): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1897,8 +1897,8 @@ def _etats_iberie(e):
 
 def _familles_historiques(familles, liens):
     famille = FAMILLE_1400 + [('sophie-baviere', 'Sophie de Bavière', '1376', 'annee')]
-    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) == 72
-    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'}
+    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) == 77
+    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS}
     fiches = {f['id']: f for f in familles + liens}
     couples = {'personne-isabeau': 'personne-grande-3', 'personne-jeanne': 'personne-grande-28', 'personne-sophie-baviere': 'personne-grande-9'}
     couples.update({v: k for k, v in list(couples.items())})
@@ -1906,15 +1906,16 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 17 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16')}
+    assert len(liens) == 21 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20')}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
     _voisins_historiques(fiches)
     _constantinople(fiches)
     _ottomans(fiches)
+    _balkans(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -1986,10 +1987,11 @@ def test_familles_integration(tmp_path, monkeypatch):
     parents += [('grande-15', 'helena-dragas', 'jean-viii'), ('grande-15', 'helena-dragas', 'theodore-ii')]
     verifies |= {('anteriorite', ('personne-grande-15', 'personne-jean-viii'))}
     parents += [('grande-16', m, i) for i, _, _, _, m, epoux, *_ in OTTOMANS if not epoux]
-    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux]
-    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m]
-    assert len(paternels) == 10 and len(maternites) == 5
-    assert len(bilan['verifies']) == 36 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 106
+    parents += [('grande-19', mere and mere[len('personne-'):], i) for i, (_, _, _, pere, mere, *_) in BALKANS.items() if pere]
+    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]]
+    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]]
+    assert len(paternels) == 13 and len(maternites) == 6
+    assert len(bilan['verifies']) == 36 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 111
     controles = {('anteriorite', ('personne-' + p, 'personne-' + e)) for p, m, e in parents} | {(k, ('personne-' + m, 'personne-' + e)) for p, m, e in parents if m for k in ('anteriorite', 'age_maternel')}
     assert {(c['contrainte'], c['personnes']) for c in bilan['verifies']} == verifies
     assert {(c['contrainte'], c['personnes']) for c in bilan['indetermines']} == controles - verifies
@@ -2043,8 +2045,10 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 17 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16')}
+    assert len(etats) == 21 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20')}
+    assert {f'grande-{n}' for n in range(11, 21)} <= {e['maison'] for e in etats}
     for e in etats:
+        if e['maison'] in BALKANS_MAISONS: _balkans(etat=e); continue
         if e['maison'] == 'grande-16':
             _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
@@ -2083,7 +2087,7 @@ def test_familles_historiques_etats():
         with pytest.raises(AssertionError):
             _familles_historiques(c['familles'], c['liens'])
             _etats_historiques(c['etats'])
-    for maison in ('grande-15', 'grande-16'):
+    for maison in ('grande-15', 'grande-16', 'grande-19'):
         for k in ('pere', 'mere', 'conjoints'):
             personnes = copy.deepcopy(list(monde.personnages))
             next(f for f in personnes if f['id'] == 'personne-' + maison)[k] = 'personne-grande-9'
@@ -2886,3 +2890,180 @@ def test_familles_historiques_ottomans():
     for nom in ('Hundi Hatun', 'Oruz Hatun', 'Paşa Melek Hatun', 'Fatma Hatun', 'Erhondu Hatun'):
         c = copy.deepcopy(d); exc = next(x for x in c['etats'] if x['maison'] == 'grande-16')['exclusions']
         exc[nom] = exc.pop('Fille non nommée proposée à Ladislas'); refuse(c)
+
+
+# Notices examinées le 1er novembre 2026 ; attentes indépendantes du catalogue.
+WP = 'https://en.wikipedia.org/wiki/'
+B_STEFAN, B_OSTOJA, B_KUJAVA, B_VITACA, B_OSTOJIC, B_RADIVOJ, B_THOMAS, B_MIRCEA, B_TOLMAY, B_MIHAIL, B_VLAD, B_ALDEA, B_RADU, B_IUGA = (WP + p for p in (
+    'Stefan_Lazarevi%C4%87', 'Ostoja_of_Bosnia', 'Kujava_Radinovi%C4%87', 'Vita%C4%8Da', 'Stephen_Ostoji%C4%87_of_Bosnia', 'Radivoj_of_Bosnia', 'Thomas_of_Bosnia',
+    'Mircea_the_Elder', 'Maria_Tolmay', 'Michael_I_of_Wallachia', 'Vlad_II_Dracul', 'Alexander_I_Aldea', 'Radu_II_of_Wallachia', 'Iuga_of_Moldavia'))
+HORS, BALKANS_MAISONS = ('hors périmètre', 'aucune absence attestée'), ('grande-17', 'grande-18', 'grande-19', 'grande-20')
+MIRCEA_ID, OSTOJA_ID = 'personne-grande-19', 'personne-grande-18'
+# id : (nom, maison, naissance, père, mère, conjoints, sources {champ : (page, fait)}, repères des lacunes {champ : repères})
+BALKANS = {
+    'kujava-radinovic': ('Kujava Radinović', 'grande-18', None, None, None, (OSTOJA_ID,), {
+        'identite': (B_KUJAVA, 'Kujava Radinović, épouse d’Étienne Ostoja, reine de Bosnie.'),
+        'presence': (B_KUJAVA, 'Kujava Radinović, reine de 1399 à 1404 et de 1409 à 1415, encore active en 1422 ; vivante au 1er janvier 1400.'),
+        'conjoints': (B_KUJAVA, 'Kujava Radinović et Étienne Ostoja sont mariés en 1399 : la notice la dit reine dans une charte du 5 février 1399, alors que la notice Vitača dit qu’Ostoja appelle encore Vitača son épouse en février 1399 et qu’elle est répudiée en septembre ; divergence conservée.')},
+        {'naissance': ('Kujava Radinović', 'naissance inconnue'), 'pere': ('Kujava Radinović', 'père', *HORS), 'mere': ('Kujava Radinović', 'mère', *HORS)}),
+    'maria-tolmay': ('Maria Tolmay', 'grande-19', None, None, None, (MIRCEA_ID,), {
+        'identite': (B_TOLMAY, 'Maria Tolmay, épouse de Mircea l’Ancien ; le prénom Mara n’est qu’une reconstitution (Klara ou Anna possibles selon Hasan).'),
+        'presence': (B_TOLMAY, 'Maria Tolmay visite son domaine du lac Balaton en 1400 et meurt en 1420 ou 1427 (divergence conservée) ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'conjoints': (B_TOLMAY, 'Maria Tolmay et Mircea l’Ancien sont conjoints ; aucune date d’union n’est inventée.')},
+        {'naissance': ('Maria Tolmay', 'naissance inconnue'), 'pere': ('Maria Tolmay', 'père', *HORS), 'mere': ('Maria Tolmay', 'mère', *HORS)}),
+    'mihail-ier': ('Mihail Ier', 'grande-19', None, MIRCEA_ID, 'personne-maria-tolmay', (), {
+        'identite': (B_MIHAIL, 'Mihail Ier, fils de Mircea l’Ancien et de Maria Tolmay, seul fils légitime.'),
+        'presence': (B_MIHAIL, 'Mihail Ier, co-régent en 1391 et mort en 1420 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'pere': (B_MIHAIL, 'Mihail Ier est fils de Mircea l’Ancien et de Maria Tolmay.'), 'mere': (B_MIHAIL, 'Mihail Ier est fils de Mircea l’Ancien et de Maria Tolmay.')},
+        {'naissance': ('Mihail Ier', 'naissance inconnue'), 'conjoints': ('Mihail Ier', *HORS)}),
+    'vlad-dracul': ('Vlad II Dracul', 'grande-19', {'valeur': 'c. 1395', 'precision': 'vers'}, MIRCEA_ID, None, (), {
+        'identite': (B_VLAD, 'Vlad II Dracul, fils illégitime de Mircea l’Ancien.'),
+        'naissance': (B_VLAD, 'Vlad II Dracul : naissance c. 1395 ; le texte de la notice dit « avant 1395 », divergence conservée.'),
+        'presence': (B_VLAD, 'Vlad II Dracul, otage chez Sigismond en 1395 ou 1396 ; vivant au 1er janvier 1400.'),
+        'pere': (B_VLAD, 'Vlad II Dracul est fils illégitime de Mircea l’Ancien, père de « nombreux » fils illégitimes ; aucun autre n’est inventé.')},
+        {'mere': ('Vlad II Dracul', 'mère inconnue', 'aucune mère inventée', 'aucune absence attestée'), 'conjoints': ('Vlad II Dracul', *HORS)}),
+    'alexandru-aldea': ('Alexandru Ier Aldea', 'grande-19', {'valeur': '1397', 'precision': 'annee'}, MIRCEA_ID, None, (), {
+        'identite': (B_ALDEA, 'Alexandru Ier Aldea, fils de Mircea l’Ancien.'),
+        'naissance': (B_ALDEA, 'Alexandru Ier Aldea : naissance 1397.'),
+        'presence': (B_ALDEA, 'Alexandru Ier Aldea, né en 1397 et mort en 1436 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'pere': (B_ALDEA, 'Alexandru Ier Aldea est fils de Mircea l’Ancien.')},
+        {'mere': ('Alexandru Ier Aldea', 'n’établit pas sa mère', 'aucune mère inventée', 'aucune absence attestée'), 'conjoints': ('Alexandru', *HORS)}),
+}
+# chef : (conjoints, sources {champ : (page, fait)}, repères des lacunes)
+LIENS_B = {
+    'grande-17': ((), {'presence': (B_STEFAN, 'Stefan Lazarević, prince de Serbie de 1389 à 1402 puis despote ; en fonction et vivant au 1er janvier 1400.')},
+                  {'pere': ('Stefan Lazarević', 'parents et fratrie', *HORS), 'mere': ('Stefan Lazarević', 'parents et fratrie', *HORS),
+                   'conjoints': ('aucun conjoint actif', '12 septembre 1405', 'catégorie de célibat', 'aucun veuvage')}),
+    'grande-18': (('personne-kujava-radinovic',), {'conjoints': (B_OSTOJA, 'Étienne Ostoja et Kujava Radinović sont conjoints depuis 1399 ; Vitača, répudiée, n’est jamais conjointe active.'),
+                  'presence': (B_OSTOJA, 'Étienne Ostoja, roi de Bosnie en premier règne de 1398 à 1404 ; en fonction et vivant au 1er janvier 1400.')},
+                  {'pere': ('Étienne Ostoja', 'père', *HORS), 'mere': ('Étienne Ostoja', 'mère', *HORS)}),
+    'grande-19': (('personne-maria-tolmay',), {'conjoints': (B_MIRCEA, 'Mircea l’Ancien et Maria Tolmay sont conjoints ; aucune date d’union n’est inventée.'),
+                  'presence': (B_MIRCEA, 'Mircea l’Ancien, voïvode de Valachie de janvier 1397 à 1418 ; en fonction et vivant au 1er janvier 1400.')},
+                  {'pere': ('Mircea l’Ancien', 'père', *HORS), 'mere': ('Mircea l’Ancien', 'mère', *HORS)}),
+    'grande-20': ((), {'presence': (B_IUGA, 'Iuga, prince de Moldavie du 28 novembre 1399 au 19 juillet 1400 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.')},
+                  {'pere': ('Iuga of Moldavia', 'Roman Ier ou Georges Koriatovitch', 'aucune filiation intégrée', 'aucune absence attestée'), 'mere': ('Iuga de Moldavie', 'mère', *HORS),
+                   'conjoints': ('Iuga of Moldavia', 'aucun conjoint', 'ni célibat ni veuvage')}),
+}
+# maison : (conjoints, enfants, sources, repères des lacunes, exclusions {nom : ((page, fait), …)}) ; le motif réunit les faits
+ETATS_B = {
+    'grande-17': ('lacune', 'lacune', {}, {
+        'conjoints': ('Stefan Lazarević', B_STEFAN, 'Helena Gattilusio', '12 septembre 1405', 'aucun conjoint actif', 'catégorie de célibat', 'aucun veuvage'),
+        'enfants': ('Luttrell', B_STEFAN, '« apparemment »', 'jamais d’enfant', 'après 1405', 'aucune absence attestée')},
+        {'Helena Gattilusio': ((B_STEFAN, 'Helena Gattilusio : épouse future de Stefan Lazarević, mariage du 12 septembre 1405, exclue du départ ; aucun événement programmé.'),)}),
+    'grande-18': ('union', 'lacune', {'conjoints': (B_OSTOJA, 'Étienne Ostoja et Kujava Radinović sont mariés en 1399 ; état union. Divergence conservée : charte du 5 février 1399 (Kujava) contre Vitača encore appelée épouse en février 1399 puis répudiée en septembre.')},
+        {'enfants': ('Étienne Ostoja', B_VITACA, 'inconnu si Vitača eut des enfants', 'Stephen Ostojić', 'Radivoj', 'aucune absence attestée')}, {
+        'Vitača': ((B_VITACA, 'Vitača : épouse répudiée d’Étienne Ostoja en 1399, jamais conjointe active ; il l’appelle encore son épouse en février 1399.'), (B_KUJAVA, 'Vitača : Kujava Radinović est dite reine dans une charte du 5 février 1399 ; divergence conservée.')),
+        'Jelena Nelipčić': ((B_OSTOJA, 'Jelena Nelipčić : épouse future d’Étienne Ostoja en 1416 ou 1417, exclue du départ.'),),
+        'Stephen Ostojić': ((B_OSTOJIC, 'Stephen Ostojić : fils de Kujava Radinović, parents mariés en 1399, cité pour la première fois fin 1408 ; présence indéterminée au 1er janvier 1400.'),),
+        'Radivoj': ((B_RADIVOJ, 'Radivoj : bâtard d’Étienne Ostoja « très probablement né avant 1410 » ; présence indéterminée au 1er janvier 1400.'),),
+        'Thomas': ((B_THOMAS, 'Thomas : fils d’Étienne Ostoja né vers 1411, futur, exclu du départ.'),)}),
+    'grande-19': ('union', 'documentes', {
+        'conjoints': (B_MIRCEA, 'Mircea l’Ancien et Maria Tolmay sont conjoints ; état union, aucune date d’union inventée.'),
+        'enfants': (B_MIRCEA, 'Enfants documentés de Mircea l’Ancien : Mihail Ier, seul fils légitime, Vlad II Dracul et Alexandru Ier Aldea, fils illégitimes ; ' + B_VLAD + ' dit Mircea père de « nombreux » fils illégitimes, aucun autre n’est inventé.')}, {}, {
+        'Doamna Anca': ((B_MIRCEA, 'Doamna Anca : seconde épouse de Mircea nommée par l’infobox seule, sans date ni présence ; aucune conjointe active.'),),
+        'Radu II Praznaglava': ((B_RADU, 'Radu II Praznaglava : naissance inconnue selon la notice ; présence indéterminée au 1er janvier 1400.'),),
+        'Ana': ((B_MIRCEA, 'Ana : fille de Mircea l’Ancien citée par l’infobox, sans date ; présence indéterminée au 1er janvier 1400.'),),
+        'Arina': ((B_MIRCEA, 'Arina : fille de Mircea l’Ancien citée par l’infobox, sans date ; présence indéterminée au 1er janvier 1400.'),)}),
+    'grande-20': ('lacune', 'lacune', {}, {
+        'conjoints': ('Iuga de Moldavie', B_IUGA, 'aucun conjoint', 'Roman Ier ou Georges Koriatovitch', 'ni célibat ni veuvage'),
+        'enfants': ('Iuga de Moldavie', B_IUGA, 'aucun enfant', 'recherche limitée', 'aucune absence d’enfant attestée')}, {}),
+}
+BALKANS_DIVERGENCES = ('5 février 1399', 'février 1399', '1420 ou 1427', 'avant 1395', 'Roman Ier ou Georges Koriatovitch', 'Mara', 'Klara ou Anna', '12 septembre 1405', 'Luttrell', 'apparemment', 'ni célibat ni veuvage', 'aucun veuvage')
+CHEF_EXCLUSION = {n: m for m, (*_, x) in ETATS_B.items() for n in x}
+REPERES_B = {**{'personne-' + i: v[7] for i, v in BALKANS.items()}, **{'personne-' + m: v[2] for m, v in LIENS_B.items()}, **{m: v[3] for m, v in ETATS_B.items()}}
+
+
+def _lacunes_b(sources, lacunes, attendues, reperes):
+    assert set(sources) == set(lacunes) and set(attendues) | set(reperes) == set(sources) and not set(attendues) & set(reperes)
+    for champ in sources:
+        if champ in attendues: assert sources[champ] == dict(zip(('url', 'fait'), attendues[champ])) and lacunes[champ] is None
+        else: assert sources[champ] is None and isinstance(lacunes[champ], str) and all(r in lacunes[champ] for r in reperes[champ])
+
+
+def _balkans(fiches=None, etat=None):
+    try: _balkans_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche balkanique malformée : {erreur!r}') from erreur
+
+
+def _balkans_controle(fiches, etat):
+    if fiches is not None:
+        chefs = {'personne-' + m for m in BALKANS_MAISONS}
+        assert chefs | {'personne-' + i for i in BALKANS} | {'personne-olivera-despina'} <= set(fiches)
+        assert {i for i, f in fiches.items() if f.get('maison') in BALKANS_MAISONS and i not in chefs} == {'personne-' + i for i in BALKANS}
+        for m in chefs:
+            assert {i for i, f in fiches.items() if m in (f['pere'], f['mere']) or m in f['conjoints']} == {'personne-' + i for i, v in BALKANS.items() if m in v[3:6]} | {c for c in fiches[m]['conjoints']}
+        for i, (nom, maison, naissance, pere, mere, conjoints, sources, reperes) in BALKANS.items():
+            f = fiches['personne-' + i]
+            assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (nom, maison, naissance, pere, mere, conjoints, 'vivante')
+            _lacunes_b(f['sources'], f['lacunes'], sources, reperes)
+        for m, (conjoints, sources, reperes) in LIENS_B.items():
+            c = fiches['personne-' + m]
+            assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+            champs = ('pere', 'mere', 'conjoints', 'presence')
+            _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+        olivera = fiches['personne-olivera-despina']
+        assert (olivera['maison'], olivera['pere'], olivera['mere'], olivera['conjoints']) == ('grande-16', None, None, ['personne-grande-16'])
+        assert 'Lazar' in olivera['sources']['identite']['fait'] and not any(f['id'] != olivera['id'] and 'Olivera' in (f.get('nom') or '') for f in fiches.values())
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETATS_B[etat['maison']]
+        assert (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _feuilles(objet, chemin=()):
+    if isinstance(objet, dict):
+        for k, v in objet.items(): yield from _feuilles(v, chemin + (k,))
+    elif isinstance(objet, list) and objet:
+        for k, v in enumerate(objet): yield from _feuilles(v, chemin + (k,))
+    else: yield chemin
+
+
+def test_familles_historiques_balkans():
+    d = _personnages()
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False):
+        if controle: assert _controler_famille(resolus(c))
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    ids = {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | set(BALKANS_MAISONS)
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', f.get('maison')) not in ids: continue
+            altere((t,), d[t][:j] + d[t][j+1:]); altere((t,), d[t] + [copy.deepcopy(f)])
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                altere((t, j, *chemin), ['personne-grande-9'] if valeur == [] else 'Altéré')
+                if isinstance(valeur, str):
+                    for repere in BALKANS_DIVERGENCES:
+                        if repere in valeur: altere((t, j, *chemin), valeur.replace(repere, 'inconnu'))
+            for nom in f.get('exclusions', {}): altere((t, j, 'exclusions', nom), 'SUPPRIMER')
+            if t == 'etats':
+                for champ in (k for k in ('conjoints', 'enfants') if f[k] == 'lacune'):
+                    for etat in ('absence_attestee', 'union', 'veuvage'): altere((t, j, champ), etat)
+            for champ, liste in REPERES_B[f.get('id', f.get('maison'))].items():
+                for repere in liste: altere((t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu'))
+    olivera = next(f for f in d['familles'] if f['id'] == 'personne-olivera-despina')
+    altere(('familles',), d['familles'] + [dict(copy.deepcopy(olivera), id='personne-olivera-bis')])
+    altere(('familles',), d['familles'] + [dict(copy.deepcopy(olivera), nom='Olivera Lazarević', id='personne-olivera-lazarevic')])
+    for lien in ('pere', 'mere'):
+        refuse(_alterer_personnages(d, ('familles', d['familles'].index(olivera), lien), 'personne-grande-17'), controle=True)
+        refuse(_alterer_personnages(d, ('liens', [x['id'] for x in d['liens']].index('personne-grande-17'), lien), 'personne-olivera-despina'), controle=True)
+    for fiche, mere in [('mihail-ier', None), ('mihail-ier', 'personne-olivera-despina'), ('vlad-dracul', 'personne-maria-tolmay'), ('alexandru-aldea', 'personne-maria-tolmay')]:
+        c = copy.deepcopy(d); next(x for x in c['familles'] if x['id'] == 'personne-' + fiche)['mere'] = mere; refuse(c, controle=True)
+    modele = next(f for f in d['familles'] if f['id'] == 'personne-marie-bourgogne')
+    for nom, maison in CHEF_EXCLUSION.items():
+        for role in ('pere', 'conjoints'):
+            c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, maison=maison, presence='vivante', pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+            if role == 'pere': ajout['pere'] = 'personne-' + maison
+            else: ajout['conjoints'] = ['personne-' + maison]; next(x for x in c['liens'] if x['id'] == 'personne-' + maison)['conjoints'].append(ajout['id'])
+            assert _controler_famille(resolus(c))
+            with pytest.raises(AssertionError): _balkans({f['id']: f for f in c['familles'] + c['liens']})
+            refuse(c)
