@@ -38,7 +38,7 @@ from sim.plan import aire_du_contour
 from sim.portes import controler_portes, portes_de_l_enceinte
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
-from sim.ville1400 import BaseAbsente, base_de_cellule
+from sim.ville1400 import BaseAbsente, base_de_cellule, base_dense_de_cellule
 
 
 DEFAULT_SERVICE_SEED = DEFAULT_CLI_SEED
@@ -631,8 +631,66 @@ class RequetesMonde(BaseHTTPRequestHandler):
             return
         self._refuser(HTTPStatus.NOT_FOUND, f"chemin inconnu : reçu {cible.path!r}")
 
+    def _monter_ville_dense(self, cible) -> None:
+        """Porte le bourg à HABITANTS_BOURG_VILLE_DENSE et sert une base sans îlots (épreuve de #422)."""
+        serveur = self.server
+        with serveur.verrou_tick, serveur.condition_vitesse:
+            etat = serveur.etat_publie
+            if etat.jours_par_seconde != 0:
+                self._refuser(HTTPStatus.CONFLICT, "l'horloge doit être à l'arrêt")
+                return
+            habitants = _constantes.HABITANTS_BOURG_VILLE_DENSE
+            try:
+                cell_id = _parametre_entier(cible.query, "cell")
+                cellule = serveur.world.cells.get(cell_id)
+                if cellule is None:
+                    self._refuser(HTTPStatus.NOT_FOUND, f"cell inconnue : {cell_id}")
+                    return
+                _valider_epreuve(cellule)
+                if cellule.population < habitants:
+                    raise ValueError(
+                        f"cellule {cell_id} : {cellule.population} habitants, il en faut {habitants}")
+                if len(cellule.lieux) == 1:
+                    raise ValueError("cellule à un seul lieu : aucun autre lieu pour le bourg")
+                lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+                if lieux[0].population > habitants:
+                    raise ValueError(
+                        f"cellule {cell_id} : le bourg compte {lieux[0].population} habitants, "
+                        f"plus que {habitants}")
+                manque = habitants - lieux[0].population
+                autres = [lieu.population for lieu in lieux[1:]]
+                parts = partager(manque, autres) if manque else [0] * len(autres)
+            except (ValueError, SnapshotExportError) as exc:
+                self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
+                return
+            except (TypeError, AttributeError, OverflowError):
+                self._refuser(HTTPStatus.BAD_REQUEST, "données des lieux ou alimentaires absentes ou invalides")
+                return
+            # La base se calcule avant toute écriture : une absence se déclare sans rien changer.
+            try:
+                base = base_dense_de_cellule(serveur.world, cell_id, _constantes.MAISONS_VILLE_DENSE)
+            except BaseAbsente as exc:
+                self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
+            occupation = [dict(rang=i, foyers=m["foyers"]) for i, m in enumerate(base["maisons"])]
+            # Ni migration ni flux : seules les populations des lieux changent.
+            lieux[0].population = habitants
+            for lieu, part in zip(lieux[1:], parts):
+                lieu.population -= part
+            with serveur.verrou_base:
+                serveur._rues_de_base[cell_id] = base["rues"]
+                serveur._bases[cell_id] = b'{"base":' + _serialiser(base) + b','
+                serveur._occupations_base[cell_id] = b'{"base":' + _serialiser(occupation) + b','
+            # L'ancien état porte dans ses plans les octets de la base de 1400 : il ne se sert plus.
+            serveur.etat_publie = serveur._construire_etat(
+                etat.jours_par_seconde, etat.duree_dernier_tick_ms)
+            self._repondre(HTTPStatus.OK, dict(cell_id=cell_id, tick=serveur.etat_publie.tick))
+
     def do_POST(self) -> None:
         cible = urlsplit(self.path)
+        if cible.path == "/epreuve/ville-dense" and self.server.epreuve:
+            self._monter_ville_dense(cible)
+            return
         if cible.path in ("/epreuve/vider-panier", "/epreuve/vider-bourg") and self.server.epreuve:
             vider_bourg = cible.path == "/epreuve/vider-bourg"
             with self.server.verrou_tick, self.server.condition_vitesse:

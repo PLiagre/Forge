@@ -411,15 +411,12 @@ def _etendre(longueur, n_objets, obtenus, parametres):
     return suivante
 
 
-def base_d_une_population(population, directions):
-    """Place, rues, maisons ou îlots d'une population, sans lire le monde."""
-    parametres = _parametres()
-    n_foyers = ranger_en_foyers(population).nombre
-    groupes = _groupes(n_foyers, parametres)
+def _base_des_groupes(groupes, directions, parametres):
+    """Pose les groupes sur les voies triées, en allongeant les rues jusqu'au compte."""
     n_objets = sum(nombre for nombre, _foyers, _forme in groupes)
     forme = groupes[0][-1]
     dirs = _trier_directions(directions)
-    if n_foyers == 0:
+    if n_objets == 0:
         return _assembler(dirs, parametres.longueur_min, groupes, parametres)
     longueur = _longueur_initiale(n_objets, len(dirs), forme)
     while True:
@@ -428,6 +425,20 @@ def base_d_une_population(population, directions):
         if obtenus == n_objets:
             return base
         longueur = _etendre(longueur, n_objets, obtenus, forme)
+
+
+def base_d_une_population(population, directions):
+    """Place, rues, maisons ou îlots d'une population, sans lire le monde."""
+    parametres = _parametres()
+    n_foyers = ranger_en_foyers(population).nombre
+    groupes = _groupes(n_foyers, parametres)
+    return _base_des_groupes(groupes, directions, parametres)
+
+
+def base_sans_ilots(n_maisons, directions):
+    """Place, rues et `n_maisons` maisons d'un foyer, jamais d'îlots (épreuve de mesure)."""
+    parametres = _parametres()
+    return _base_des_groupes(((n_maisons, 1, parametres),), directions, parametres)
 
 
 def _centroide(monde, cell_id):
@@ -470,6 +481,13 @@ def base_de_cellule(monde, cell_id):
     if cell_id not in populations:
         raise BaseAbsente(f"cellule {cell_id} : inconnue du monde amorcé")
     base = base_d_une_population(populations[cell_id], _directions_terre(monde, cell_id))
+    base["cell_id"] = cell_id
+    return base
+
+
+def base_dense_de_cellule(monde, cell_id, n_maisons):
+    """Ville d'épreuve de la cellule : `n_maisons` maisons d'un foyer, sans îlots."""
+    base = base_sans_ilots(n_maisons, _directions_terre(monde, cell_id))
     base["cell_id"] = cell_id
     return base
 
