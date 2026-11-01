@@ -11,7 +11,9 @@ attendue.
 import copy
 
 # Lot 269 : les bâtiments finis qui ont leurs étapes de chantier, dans l'ordre du catalogue.
-CHANTIERS = ['maison_pise_0', 'scierie', 'four_pain_pise']
+# Lot 905 : puis les trois pièces de l'enceinte, dont le prefab existe déjà.
+ENCEINTE = ['rempart_pise_10m', 'tour_ksar_0', 'porte_ksar']
+CHANTIERS = ['maison_pise_0', 'scierie', 'four_pain_pise'] + ENCEINTE
 ETAPES = ('piquets', 'murs')
 
 
@@ -27,8 +29,10 @@ REFERENCES = [fini for fini in CHANTIERS if fini not in NOUVEAUX]
 # Plafonds de triangles par LOD (0, 1, 2).
 PLAFONDS = {'scierie': (2400, 1200, 400), 'four_pain_pise': (1600, 800, 300)}
 for _fini in CHANTIERS:
-    PLAFONDS['chantier_{}_piquets'.format(_fini)] = (400, 200, 80)
-    PLAFONDS['chantier_{}_murs'.format(_fini)] = (1200, 600, 240)
+    # Lot 905 : l'enceinte, plus longue et plus haute, a plus de piquets et une plus longue échelle.
+    _grand = _fini in ENCEINTE
+    PLAFONDS['chantier_{}_piquets'.format(_fini)] = (600, 400, 120) if _grand else (400, 200, 80)
+    PLAFONDS['chantier_{}_murs'.format(_fini)] = (1600, 800, 320) if _grand else (1200, 600, 240)
 TOLERANCE_ORIGINE = 0.01       # m : le point le plus bas du LOD0 est au sol à 1 cm près
 TOLERANCE_EMPRISE = 0.3        # m : chaque bord horizontal d'une étape, au bord du bâtiment fini
 HAUTEUR_PIQUETS_MAX = 1.2      # m
@@ -489,6 +493,38 @@ def contre_epreuves(entrees):
 
     e = copy.deepcopy(entrees); e['empreintes_apres']['3d/unity/Assets/Planche.unity'] = 'apparue'
     ce['scene_apparue'] = ('empreinte', e)
+
+    # Lot 905 : les étapes de l'enceinte.
+    e = copy.deepcopy(entrees); e['unity'] = dict(e['unity'] or {})
+    e['unity']['references'] = [m for m in e['unity'].get('references') or [] if m.get('id') != 'tour_ksar_0']
+    ce['tour_hors_references'] = ('echantillon', e)
+
+    e = copy.deepcopy(entrees)
+    for m in (e['unity'] or {}).get('modules') or []:
+        if m.get('id') == 'chantier_porte_ksar_murs':
+            for bord in ('z_min', 'z_max'):
+                if isinstance(m.get(bord), (int, float)):
+                    m[bord] += 2
+    ce['porte_decalee'] = ('emprise', e)
+
+    e = copy.deepcopy(entrees)
+    fini = next((m for m in (e['unity'] or {}).get('references') or [] if m.get('id') == 'rempart_pise_10m'), None)
+    for m in (e['unity'] or {}).get('modules') or []:
+        if m.get('id') == 'chantier_rempart_pise_10m_murs' and fini and isinstance(fini.get('y_max'), (int, float)):
+            m['y_max'] = .4 * fini['y_max']
+    ce['rempart_trop_bas'] = ('hauteur', e)
+
+    e = copy.deepcopy(entrees)
+    s = (e['catalogue_apres'].get('chantiers') or {}).get('porte_ksar')
+    if isinstance(s, list) and 'chantier_porte_ksar_piquets' in s:
+        s.remove('chantier_porte_ksar_piquets')
+    ce['porte_sans_piquets'] = ('suite', e)
+
+    e = copy.deepcopy(entrees)
+    pe = (e['unity'] or {}).get('planche')
+    if isinstance(pe, dict):
+        pe['cases'] = [c for c in pe.get('cases') or [] if c.get('id') != 'chantier_tour_ksar_0_murs']
+    ce['case_tour_absente'] = ('planche', e)
     return ce
 
 

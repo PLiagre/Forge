@@ -22,7 +22,7 @@ from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
-from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
+from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
@@ -30,11 +30,12 @@ from sim.maisons_servies import (
 from sim.noms import noms_depuis_monde
 from sim.flux import flux_des_lieux
 from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
-from sim.lieux import surfaces_des_lieux
+from sim.lieux import partager, surfaces_des_lieux
 from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, places_du_monde
 from sim.plan import aire_du_contour
+from sim.portes import controler_portes, portes_de_l_enceinte
 from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
 from sim.world import World
 from sim.ville1400 import BaseAbsente, base_de_cellule
@@ -160,6 +161,19 @@ def _vitesse_cli(recue: str) -> float:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
+def _travail_enceinte_cli(recue: str) -> float:
+    """Refuse tout nombre de journées par mètre qui n'est pas fini et > 0."""
+    try:
+        valeur = float(recue)
+    except ValueError:
+        valeur = math.nan
+    if not math.isfinite(valeur) or valeur <= 0:
+        raise argparse.ArgumentTypeError(
+            f"option travail-enceinte invalide : reçu {recue!r}, attendu un nombre fini > 0"
+        )
+    return valeur
+
+
 @dataclass(frozen=True)
 class EtatPublie:
     """Photographie du tick ; plans et maisons se complètent à la première lecture."""
@@ -206,6 +220,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self.verrou_base = threading.Lock()
         self.verrou_maisons = threading.Lock()
         self._bases = {}
+        self._rues_de_base = {}
         self._occupations_base = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
@@ -250,8 +265,10 @@ class ServeurMonde(ThreadingHTTPServer):
         if cell_id not in self._bases:
             base = base_de_cellule(self.world, cell_id)
             occupation = [dict(rang=i, foyers=m["foyers"]) for i, m in enumerate(base["maisons"])]
+            self._rues_de_base[cell_id] = base["rues"]
             self._bases[cell_id] = b'{"base":' + _serialiser(base) + b','
             self._occupations_base[cell_id] = b'{"base":' + _serialiser(occupation) + b','
+        return self._rues_de_base[cell_id]
 
     def octets_occupation(self, etat, cell_id):
         """Assemble la base immuable et les comptes copiés à la publication."""
@@ -345,7 +362,7 @@ class ServeurMonde(ThreadingHTTPServer):
         monde = _serialiser(document)
         chantiers = {}
         pertes = {}
-        natures = ("rue", "parcelle", "batiment")
+        natures = ("rue", "parcelle", "batiment", "enceinte")
         for cle, observation in self.world.chantiers_du_jour.items():
             cell_id, *categorie, identifiant = cle
             nature = categorie[0] if categorie else "rue"
@@ -362,9 +379,18 @@ class ServeurMonde(ThreadingHTTPServer):
             observations.sort(key=lambda e: (natures.index(e["nature"]), e["identifiant"]))
         for lignes in pertes.values():
             lignes.sort(key=lambda e: (natures.index(e["nature"]), e["identifiant"]))
+        with self.verrou_base:
+            rues_de_base = {cid: self._preparer_base(cid) for cid, plan in sorted(self.world.plans.items())
+                            if plan.enceinte is not None}
+        portes = {}
+        for cell_id, rues in rues_de_base.items():
+            plan = self.world.plans[cell_id]
+            portes[cell_id] = portes_de_l_enceinte(plan.enceinte.contour, plan.rues, rues)
+            controler_portes(plan.enceinte.contour, portes[cell_id], plan.rues, rues)
         plans = {
             cell_id: _serialiser(
                 plan.to_dict()
+                | ({"portes": portes[cell_id]} if cell_id in portes else {})
                 | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
                 | ({"chantiers_du_jour": chantiers[cell_id]} if cell_id in chantiers else {})
                 | ({"recolte_perdue_par_chantier": pertes[cell_id]} if cell_id in pertes else {})
@@ -607,7 +633,8 @@ class RequetesMonde(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         cible = urlsplit(self.path)
-        if cible.path == "/epreuve/vider-panier" and self.server.epreuve:
+        if cible.path in ("/epreuve/vider-panier", "/epreuve/vider-bourg") and self.server.epreuve:
+            vider_bourg = cible.path == "/epreuve/vider-bourg"
             with self.server.verrou_tick, self.server.condition_vitesse:
                 etat = self.server.etat_publie
                 if etat.jours_par_seconde != 0:
@@ -620,17 +647,28 @@ class RequetesMonde(BaseHTTPRequestHandler):
                         self._refuser(HTTPStatus.NOT_FOUND, f"cell inconnue : {cell_id}")
                         return
                     _valider_epreuve(cellule)
+                    if vider_bourg:
+                        if len(cellule.lieux) == 1:
+                            raise ValueError("cellule à un seul lieu : aucun autre lieu pour le bourg")
+                        lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+                        parts = partager(lieux[0].population, surfaces_des_lieux(cell_id, cellule.area_km2)[1:])
                 except (ValueError, SnapshotExportError) as exc:
                     self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
                     return
                 except (TypeError, AttributeError, OverflowError):
                     self._refuser(HTTPStatus.BAD_REQUEST, "données des lieux ou alimentaires absentes ou invalides")
                     return
-                # Montage jetable : vider aussi les champs empêche leur secours immédiat.
-                for entite in [cellule, *cellule.lieux]:
-                    ecrire_stock_marchandise(entite, _constantes.MARCHANDISE_NOURRITURE, 0)
-                penurie = engine._apply_consumption(cellule, self.server.world.carte)
-                engine._update_hunger(cellule, penurie)
+                if vider_bourg:
+                    # Ni migration ni flux : seules les populations des lieux changent.
+                    lieux[0].population = 0
+                    for lieu, part in zip(lieux[1:], parts):
+                        lieu.population += part
+                else:
+                    # Montage jetable : vider aussi les champs empêche leur secours immédiat.
+                    for entite in [cellule, *cellule.lieux]:
+                        ecrire_stock_marchandise(entite, _constantes.MARCHANDISE_NOURRITURE, 0)
+                    penurie = engine._apply_consumption(cellule, self.server.world.carte)
+                    engine._update_hunger(cellule, penurie)
                 self.server.etat_publie = self.server._construire_etat(
                     etat.jours_par_seconde, etat.duree_dernier_tick_ms)
                 self._repondre(HTTPStatus.OK, dict(cell_id=cell_id, tick=self.server.etat_publie.tick))
@@ -703,7 +741,7 @@ class RequetesMonde(BaseHTTPRequestHandler):
                             raise IntentionRefusee("départ non appliqué : choisir une terre avant de fixer la part")
                         if intention.get("maison") != joueur:
                             raise IntentionRefusee("maison interdite : seule la maison du joueur peut fixer sa part")
-                    if intention.get("type") in (TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT):
+                    if intention.get("type") in (TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE):
                         joueur = self.server.world.maison_du_joueur
                         if joueur is None:
                             raise IntentionRefusee("départ non appliqué : choisir une terre avant de bâtir")
@@ -735,7 +773,24 @@ def main(argv: list[str] | None = None) -> None:
         type=_vitesse_cli,
         default=DEFAULT_JOURS_PAR_SECONDE,
     )
-    args = parser.parse_args(argv)
+    parser.add_argument(
+        "--travail-enceinte",
+        type=_travail_enceinte_cli,
+        default=None,
+        metavar="J",
+        help="journées par mètre d'enceinte, réservé à --epreuve",
+    )
+    brut = sys.argv[1:] if argv is None else list(argv)
+    # argparse prendrait « -inf » pour une option : on colle la valeur à son option pour la nommer au refus.
+    for i in range(len(brut) - 1):
+        if brut[i] == "--travail-enceinte":
+            brut[i] = f"--travail-enceinte={brut.pop(i + 1)}"
+            break
+    args = parser.parse_args(brut)
+    if args.travail_enceinte is not None:
+        if not args.epreuve:
+            parser.error("--travail-enceinte n'existe qu'avec --epreuve")
+        _constantes.TRAVAIL_ENCEINTE_JOURNEES_PAR_M = args.travail_enceinte
     serveur = ServeurMonde(
         (SERVICE_HOST, args.port),
         args.seed,

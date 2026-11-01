@@ -310,9 +310,13 @@ def wall():
     return m
 
 
+# Lot 905 : la largeur du passage de la porte, que sa levée de chantier laisse libre.
+PORTE_PASSAGE = 4.4
+
+
 def gate():
     """Porte monumentale à arc outrepassé, encadrée d'un alfiz, entre deux tours."""
-    m = Mesh(); w = 4.4; ah = 7.2; top = 12.5; depth = 6
+    m = Mesh(); w = PORTE_PASSAGE; ah = 7.2; top = 12.5; depth = 6
     for sx in (-1, 1):
         frustum(m, sx * 5.0, 0, 0, (5.4, 7.2), (4.5, 6.4), top + 2, 'pise')
         frustum(m, sx * 5.0, 0, 0, (5.9, 7.7), (5.5, 7.3), 1.2, 'gres_ocre')
@@ -1223,6 +1227,64 @@ def chantier_murs(emprise, cotes):
     return m
 
 
+def chantier_trace(emprise):
+    """Lot 905 : l'implantation d'un ouvrage de l'enceinte. Les piquets et le cordeau du lot 269,
+    sur l'aire décapée et dressée dans le cordeau, avant la première levée : sans elle, des
+    piquets d'un mètre se perdent à l'échelle d'une tour de 16 m."""
+    x0, x1, y0, y1, _ = emprise; m = chantier_piquets(emprise); m.detail = 2
+    frustum(m, (x0 + x1) / 2, (y0 + y1) / 2, 0, (x1 - x0 - .1, y1 - y0 - .1), (x1 - x0 - .2, y1 - y0 - .2), .03, 'pise_clair')
+    return m
+
+
+def chantier_massif(emprise, passage=0.0):
+    """Lot 905 : la levée de pisé d'un ouvrage plein (rempart, tour, porte). Une assise de grès,
+    un massif monté à mi-hauteur du fini avec un léger fruit, juste en dedans des perches, et
+    une banche en tête : des planches sur les faces ±Y tenues par des montants. Une perche à
+    chaque coin, liée aux autres en tête, et une échelle contre la face +Y. Avec `passage`, deux
+    massifs de part et d'autre de x = 0 laissent libre une bande de `passage` m de large."""
+    x0, x1, y0, y1, h = emprise; m = Mesh(); r = .07
+    za = min(1.2, .2 * h); haut = .5 * h; perche = .65 * h
+    # L'assise s'arrête juste en dedans des perches ; le pisé, en retrait sur elle, se resserre en montant.
+    retrait = r + .05; ressaut = .25; fruit = .06 * (haut - za); yc = (y0 + y1) / 2; d = y1 - y0 - 2 * retrait
+    troncons = [(x0 + retrait, -passage / 2), (passage / 2, x1 - retrait)] if passage > 0 else [(x0 + retrait, x1 - retrait)]
+    tetes = []
+    for u, v in troncons:
+        cx = (u + v) / 2; w = v - u - 2 * ressaut; dm = d - 2 * ressaut
+        frustum(m, cx, yc, 0, (v - u, d), (v - u - .06, d - .06), za, 'gres_ocre')
+        frustum(m, cx, yc, za, (w, dm), (w - 2 * fruit, dm - 2 * fruit), haut - za, 'pise')
+        tetes.append((cx, w - 2 * fruit, dm - 2 * fruit))
+    coins = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    for x, y in coins:
+        m.cylinder((x, y, 0), (x, y, perche), r, r * .8, mat('stipe_palmier'), 6)
+    m.detail = 1
+    for (ax, ay), (bx, by) in zip(coins, coins[1:] + coins[:1]):
+        m.beam((ax, ay, perche - .15), (bx, by, perche - .15), .07, mat('stipe_palmier'))
+    # La banche de la levée en cours : deux planches par face, des montants, une clé en travers.
+    m.detail = 0
+    for cx, w, dt in tetes:
+        n = max(2, round(w / 1.5) + 1)
+        for s in (-1, 1):
+            for k in range(2):
+                m.box((cx, yc + s * (dt / 2 + .03), haut - .05 + k * .4), (w, .05, .38), mat('bois_sombre'))
+            for k in range(n):
+                m.box((cx - w / 2 + .1 + (w - .2) * k / (n - 1), yc + s * (dt / 2 + .09), haut + .1), (.08, .07, 1.2), mat('bois_palmier'))
+        for k in range(n):
+            m.box((cx - w / 2 + .1 + (w - .2) * k / (n - 1), yc, haut + .66), (.07, dt + .25, .07), mat('bois_palmier'))
+    # L'échelle, contre les montants de la face +Y du dernier massif, hors du passage ; son pied
+    # reste dans l'emprise, à 3 cm au-dessus du sol.
+    cx, w, dt = tetes[-1]; sommet = min(haut + .6, perche - .05)
+    pied = y1 - .04; tete = yc + dt / 2 + .16
+    montants = [((cx + s, pied, .03), (cx + s, tete, sommet)) for s in (-.22, .22)]
+    for bas, dessus in montants:
+        m.beam(bas, dessus, .06, mat('bois_sombre'))
+    (g0, g1), (d0, d1) = montants
+    for k in range(1, int(sommet / .32)):
+        t = k * .32 / sommet
+        m.beam(tuple(g0[i] + (g1[i] - g0[i]) * t for i in range(3)), tuple(d0[i] + (d1[i] - d0[i]) * t for i in range(3)), .04, mat('bois_sombre'))
+    m.detail = 2
+    return m
+
+
 def jobs(tex):
     global TEX; TEX = tex
     result = [(f'maison_pise_{i}', lambda j=i: house(j), 'batiment') for i in range(6)]
@@ -1248,4 +1310,8 @@ def jobs(tex):
     for fini, builder, cotes in (('maison_pise_0', lambda: house(0), tous), ('scierie', sawmill, ('+Y', '-X')), ('four_pain_pise', bread_oven, tous)):
         result += [(f'chantier_{fini}_piquets', lambda b=builder: chantier_piquets(emprise(b)), 'batiment'),
                    (f'chantier_{fini}_murs', lambda b=builder, c=cotes: chantier_murs(emprise(b), c), 'batiment')]
+    # Lot 905 : les étapes de l'enceinte, après celles du lot 269. La porte garde son passage libre.
+    for fini, builder, passage in (('rempart_pise_10m', wall, 0.0), ('tour_ksar_0', lambda: tower(0), 0.0), ('porte_ksar', gate, PORTE_PASSAGE)):
+        result += [(f'chantier_{fini}_piquets', lambda b=builder: chantier_trace(emprise(b)), 'batiment'),
+                   (f'chantier_{fini}_murs', lambda b=builder, p=passage: chantier_massif(emprise(b), p), 'batiment')]
     return result

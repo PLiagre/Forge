@@ -18,16 +18,17 @@ namespace ForgeLocal3D.Captures
         const string SIEGE = "Mistra", TERRE = "Despotat de Morée", FEUILLET = "Terres et comptes", SANS_TICK = "-forge655SansTick";
         const double ATTENTE_S = 30, ATTENTE_RELECTURE_S = 15;
         const int JOURS = 30, IMAGES_DE_POSE = 10;
+        internal static DossierMaison Dossier; internal static Text Texte; internal static ComptesDeMaison ComptesLus; internal static int Port;
         static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
         static string N(long v) => v.ToString(CultureInfo.InvariantCulture);
         static string Ligne(string texte) => texte == null ? "(aucun texte)" : texte.Replace("\r", "").Replace("\n", " | ");
         static InvalidOperationException Echec(string cause) => new InvalidOperationException(cause);
-        // Le feuillet dit ce tick et cette part, chacun sur sa ligne.
-        static bool Dit(string texte, long tick, string part) => texte != null && texte.Contains(" · tick " + N(tick) + Environment.NewLine)
+        // Le feuillet dit cette date servie et cette part, chacune sur sa ligne.
+        static bool Dit(string texte, DateDuMonde date, string part) => texte != null && texte.Contains(" · " + TexteDuMonde.Date(date) + Environment.NewLine)
             && texte.Contains("Prélèvement : " + part + " %" + Environment.NewLine);
 
         [ScenarioDeCapture(655, "mistra-terres-et-comptes")]
-        static IEnumerator MistraTerresEtComptes(Camera camera)
+        internal static IEnumerator MistraTerresEtComptes(Camera camera)
         {
             var ouverte = new Lot549.CarteOuverte();
             for (var e = Lot549.Ouvrir(camera, ouverte); e.MoveNext();) yield return null;
@@ -68,7 +69,7 @@ namespace ForgeLocal3D.Captures
             if (!coutume.Result.Presente || coutume.Result.Donnees.Part == null) throw Echec("comptes au tick " + N(tick + 1) + " : " + (coutume.Result.Absence ?? "part absente"));
             string partCoutumiere = (coutume.Result.Donnees.Part.Value * 100).ToString("0.##", Fr);
             if (partCoutumiere != "3") throw Echec("part coutumière servie " + partCoutumiere + " %, attendu 3 %");
-            for (var e = Lot690.Jusqua(() => Dit(dossier.TexteAffiche, tick + 1, partCoutumiere), () => "3 % au tick " + N(tick + 1) + " attendu, feuillet « " + Ligne(dossier.TexteAffiche) + " »"); e.MoveNext();) yield return null;
+            for (var e = Lot690.Jusqua(() => Dit(dossier.TexteAffiche, partie.Monde.Donnees.Monde.Date, partCoutumiere), () => "3 % au tick " + N(tick + 1) + " attendu, feuillet « " + Ligne(dossier.TexteAffiche) + " »"); e.MoveNext();) yield return null;
 
             var depot = Task.Run(() => { using (var c = new ClientIntention(port, TimeSpan.FromSeconds(ATTENTE_S))) return c.Deposer(OrdresMaison.Part(maison, "25")); });
             for (var e = Lot690.Attendre(depot, "dépôt de la part de 25 %"); e.MoveNext();) yield return null;
@@ -80,7 +81,7 @@ namespace ForgeLocal3D.Captures
                 if (trente.Result.statut != 200) throw Echec("POST /tick?n=" + JOURS + " a rendu " + trente.Result.statut + " : " + trente.Result.corps);
             }
             long fin = tick + 1 + JOURS; double echeance = Time.realtimeSinceStartupAsDouble + ATTENTE_RELECTURE_S;
-            while (!Dit(dossier.TexteAffiche, fin, "25")) // sans toucher au feuillet : il se relit seul
+            while (horloge.Lue?.Tick != fin || !Dit(dossier.TexteAffiche, horloge.Lue.Date, "25")) // sans toucher au feuillet : il se relit seul
             {
                 if (Time.realtimeSinceStartupAsDouble > echeance) throw Echec("25 % au tick " + N(fin) + " attendu en " + ATTENTE_RELECTURE_S + " s, feuillet « " + Ligne(dossier.TexteAffiche) + " »");
                 yield return null;
@@ -89,7 +90,7 @@ namespace ForgeLocal3D.Captures
             for (var e = Lot690.Attendre(Task.WhenAll(apres, monde), "lecture des comptes et du monde au tick " + N(fin)); e.MoveNext();) yield return null;
             Lot690.ExigerMonde(monde.Result, fin, maison, "après trente jours");
             if (!apres.Result.Presente || apres.Result.Donnees.Part != 0.25) throw Echec("comptes au tick " + N(fin) + " : part " + apres.Result.Donnees?.Part + " " + apres.Result.Absence + ", attendu 0,25");
-            string preleve = "Prélevé : " + apres.Result.Donnees.Flux.PreleveKg.ToString("0.##", Fr) + " kg";
+            string preleve = "Prélevé : " + TexteDuMonde.Masse(apres.Result.Donnees.Flux.PreleveKg);
             if (!dossier.TexteAffiche.Contains(preleve + Environment.NewLine)) throw Echec("« " + preleve + " » absent du feuillet « " + Ligne(dossier.TexteAffiche) + " »");
 
             // La photo : la caméra prend toute l'image, et la toile du cabinet (overlay, invisible de la caméra de capture) se dessine sur elle.
@@ -103,9 +104,10 @@ namespace ForgeLocal3D.Captures
             yield return null; Canvas.ForceUpdateCanvases();
             Lisible(camera, panneau, texte);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
-            if (!Dit(dossier.TexteAffiche, fin, "25") || texte.text != dossier.TexteAffiche || cabinet.Partie.Monde?.Donnees.MaisonDuJoueur != maison)
+            if (horloge.Lue?.Tick != fin || !Dit(dossier.TexteAffiche, horloge.Lue.Date, "25") || texte.text != dossier.TexteAffiche || cabinet.Partie.Monde?.Donnees.MaisonDuJoueur != maison)
                 throw Echec("après la pose : feuillet « " + Ligne(dossier.TexteAffiche) + " », maison « " + cabinet.Partie.Monde?.Donnees.MaisonDuJoueur + " »");
             Lisible(camera, panneau, texte);
+            Dossier = dossier; Texte = texte; ComptesLus = apres.Result.Donnees; Port = port;
             Debug.Log("CAPTURE_655 maison " + maison + " (" + SIEGE + "), ticks " + N(tick) + " → " + N(tick + 1) + " → " + N(fin) + ", part " + partCoutumiere + " % → 25 %, feuillet « " + Ligne(dossier.TexteAffiche) + " »");
         }
 

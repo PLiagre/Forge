@@ -48,20 +48,19 @@ _IMAGE = re.compile(r"!\[[^\]]*\]\((https://raw\.githubusercontent\.com/[^)]+)\)
 JOURNAL_LOCAL = Path.home() / ".atelier" / "journal.jsonl"
 VEILLE = Path.home() / ".atelier" / "veille.txt"
 # Une session à rouvrir, et le geste qui la rouvre.
-_SESSION = re.compile(r"\b(claude|codex|cursor)/[\w.@-]+ : session expirée ou absente")
+_SESSION = re.compile(r"\b(claude|cursor)/[\w.@-]+ : session expirée ou absente")
 GESTES_SESSION = {
     "claude": "claude setup-token, puis ranger le jeton dans ~/.atelier/claude.token (mode 600)",
-    "codex": "codex login",
     "cursor": "cursor-agent login",
 }
 _PLAFOND = re.compile(r"spend limit|plafond de dépense", re.I)
 # Un harnais qui refuse l'appel tel que la chaîne le construit (agents._APPEL).
-_APPEL_REFUSE = re.compile(r"\b((?:claude|codex|cursor)/[\w.@-]+) : refuse l'appel")
+_APPEL_REFUSE = re.compile(r"\b((?:claude|cursor)/[\w.@-]+) : refuse l'appel")
 # Une raison d'attente se coupe devant chaque agent qu'elle nomme : « chef :
 # claude/… : quota épuisé (…) · cursor/… : session expirée ». La citation de
 # l'erreur peut elle-même contenir « · » : on coupe devant l'agent, pas là.
-_DEVANT_AGENT = re.compile(r"(?=\b(?:claude|codex|cursor)/[\w.@-]+ : )")
-_AGENT = re.compile(r"\b(claude|codex|cursor)/[\w.@-]+ : ")
+_DEVANT_AGENT = re.compile(r"(?=\b(?:claude|cursor)/[\w.@-]+ : )")
+_AGENT = re.compile(r"\b(claude|cursor)/[\w.@-]+ : ")
 _ORIGINE = datetime.min.replace(tzinfo=timezone.utc)
 
 

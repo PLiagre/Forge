@@ -2074,7 +2074,7 @@ Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le
 `POST /intention`, `python3 -m sim --gestes` et des routes déposées par l'IA.
 La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `tracer_route` dépose une route, `decouper_parcelle` une parcelle,
-`poser_batiment` un bâtiment, `fixer_part` une part, `ouvrir_grenier` une ouverture ; tout autre type lève
+`poser_batiment` un bâtiment, `tracer_enceinte` une enceinte, `fixer_part` une part, `ouvrir_grenier` une ouverture ; tout autre type lève
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
@@ -2207,6 +2207,8 @@ bâtiment (ou −1) plus un, la parcelle, la nature et les foyers du dépôt,
 `en_chantier=True`, zéro journée fournie et le requis calculé à l'application
 par `travail_requis_de_batiment(emprise)`. Le nouveau `Plan` reprend rues et
 parcelles telles quelles, sans écrire de cellule.
+
+`{"type": "tracer_enceinte", "maison": M, "cell": C, "points": [[x, y], …]}` gèle un `TracerEnceinte` ; `foyers` vaut 1. Refus : « enceinte : contour qui se croise », « enceinte : place de 1400 non entourée », « enceinte déjà tracée », « enceinte déjà promise ». `ASSISE_ENCEINTE_M` (6 m) est relue au contrôle, fermeture comprise. L'enceinte n'entre au plan qu'au tick suivant, en chantier, coût relu.
 
 Le service dépose tout objet JSON sous `verrou_tick`. Il répond 200 avec
 `{"acceptee": true, "appliquee_au_tick": <tick publié>}`, 400 pour une intention
@@ -2488,6 +2490,12 @@ Le montage retire artificiellement la nourriture de tous les lieux, champs compr
 Il applique la consommation puis la faim existantes et republie ensemble les routes servies.
 Ni tick complet ni avance du temps ou de l'aléa : le tick désigne cet état préparé.
 Ce geste d'épreuve n'est jamais une intention ; le panier se lit par `/lieu?cell=X&bourg=1`.
+Le même mode accepte `POST /epreuve/vider-bourg?cell=X`, sous les mêmes verrous et avec les mêmes refus avant mutation, plus un refus (400) pour une cellule sans autre lieu que le bourg.
+Les habitants du rang 0 se partagent entre les rangs 1 à n−1 par `partager` selon leurs surfaces (plus fort reste, reliquat au rang 1) ; le bourg passe à 0.
+Rien d'autre ne bouge : population et métiers de la cellule, paniers, dettes, faims, greniers, plans, intentions, aléa et tick. Ce n'est pas une migration : les flux sur 30 jours ne comptent ni départ ni arrivée.
+`EtatPublie` est republié, le tick désigne cet état préparé. Ce geste n'est jamais une intention ; il éprouve que les passants de la capitale suivent le monde.
+Le mode accepte aussi `--travail-enceinte J`, qui remplace `TRAVAIL_ENCEINTE_JOURNEES_PAR_M` pour ce seul processus ; il est refusé sans `--epreuve`, ou si J n'est pas un nombre fini plus grand que 0.
+Aucune règle ne change, ni salaires, ni bras, ni ordre de service : le carré de ±80 de Biskra demande 7 journées à J = 0,01 au lieu de 19 200, et s'achève au tick 5.
 
 ### L'identité d'un lieu, et ce qui la change
 
@@ -2763,6 +2771,7 @@ TRAVAIL_ENCEINTE_JOURNEES_PAR_M))`. `TRAVAIL_ENCEINTE_JOURNEES_PAR_M = 30`
 est de niveau 2 et relue au calcul ; le périmètre referme le contour, du
 dernier point au premier. Intentions et Chantiers reconstruisent le plan
 en conservant cette enceinte, sans la recalculer.
+`{"type": "tracer_enceinte", "maison": M, "cell": C, "points": [[x, y], …]}` n'écrit l'enceinte qu'au tick suivant. Refus : « enceinte : contour qui se croise », « enceinte : place de 1400 non entourée », « enceinte déjà tracée », « enceinte déjà promise ». Assise `ASSISE_ENCEINTE_M` = 6 m.
 
 Chaque point est un couple `(x, y)` de nombres finis, sans booléen ni texte.
 Le repère est local au bourg : x vers l'est, y vers le nord, en mètres,
@@ -2778,8 +2787,10 @@ son plan ; Intentions, Chantiers, Ateliers et Commerce le lisent via leurs modul
 y ajoute une rue, une parcelle ou un bâtiment ; Chantiers compte le travail
 des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans geste, l'évolution reste identique au bit près.
 
+Les lignes `chantiers_du_jour` et `recolte_perdue_par_chantier` de `/plan` suivent l'ordre rue/parcelle/bâtiment/enceinte, puis l'identifiant : la ligne `{"nature": "enceinte", "identifiant": 0, …}`, clé `(cell_id, "enceinte", 0)`, vient après les bâtiments.
+
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
-`parcelles`, `batiments`, `enceinte` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
+`parcelles`, `batiments`, `enceinte` et ses `portes` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
 la photographie du tick : une lecture n'attend pas son calcul et ne consulte
 pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
 inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
@@ -2801,8 +2812,23 @@ restent de niveau 3. Aucun bâtiment ni flux ne découle encore de son achèveme
 La pose d'un bâtiment, son emprise égale au contour de sa parcelle, son coût
 et son achèvement sont de niveau 2. Une emprise plus petite, plusieurs bâtiments par parcelle,
 l'orientation, l'étage et les matériaux restent de niveau 3. La maison achevée loge des artisans, sans effet sur le tick ; scierie et four emploient des artisans, de niveau 2.
-La forme de l'enceinte et son coût en journées sont de niveau 2. Les portes,
-les matériaux, l'effet défensif et le siège restent de niveau 3.
+La forme de l'enceinte et son coût en journées sont de niveau 2. La position
+des portes, croisements du contour avec les rues du plan et de la base, est de
+niveau 2 ; passage, péage, matériaux, effet défensif et siège restent de niveau 3.
+
+Les `portes` d'une enceinte sont ses croisements avec les rues, jamais stockées :
+`sim/portes.py`, module pur, croise chaque côté du contour, côté de fermeture
+compris, avec chaque segment de l'axe des rues du plan (en chantier ou achevées)
+et de `base`. Deux segments qui se rencontrent en un point, extrémités comprises,
+donnent une porte `{point, rue ("plan" ou "base"), identifiant, largeur_m}` ;
+parallèles ou alignés, aucune ; un sommet posé sur le mur n'en double pas. Le point
+est arrondi à `SNAPSHOT_FLOAT_DECIMALS`, l'identifiant est celui de la rue du plan
+ou le rang dans `base.rues`. Tri : côté, distance au début du côté, `rue`,
+identifiant. `controler_portes` lève `PorteSansRue`, en nommant la porte, si sa
+source ou son identifiant est inconnu, ou son point à plus de
+`TOLERANCE_CHEVAUCHEMENT_M` de son axe ou du contour. Seul le service les calcule
+et les contrôle : `/plan` les publie à la clé `portes` à côté de `enceinte`, sans
+clé pour un plan sans enceinte.
 
 ### Le plan de base
 
@@ -2970,6 +2996,8 @@ Le plan est reconstruit par `Plan(rues=…, parcelles=…, batiments=…)`, en m
 seulement si une rue, une parcelle ou un bâtiment reçoit du travail ; sinon
 il reste le même objet. Une ouverture autonome reconstruit aussi le plan ; sans candidat ni chantier, aucune écriture nouvelle.
 
+L'enceinte tracée (niveau 2, aucune constante nouvelle) est servie en dernier, après les bâtiments, sur le même compte de journées payables : clé `(cell_id, "enceinte", 0)`, l'identifiant `0` n'étant qu'un nom d'observation, jamais stocké sur l'`Enceinte`. Elle prend le minimum des bras admissibles, de `foyers × TAILLE_FOYER`, du travail restant et des journées payables, au bourg puis aux autres lieux du même maître par rang croissant ; un lieu d'un autre maître ne donne rien. À zéro bras, le motif suit la priorité ci-dessus sans `parcelle_en_chantier`, l'entrée existe et l'enceinte reste le même objet. Au requis, `en_chantier` devient faux, l'entrée est observée ce jour puis disparaît, et les ouvriers reviennent aux champs le lendemain. Une enceinte seule en chantier rend le plan actif ; le plan est reconstruit, enceinte servie comprise, si une liste ou l'enceinte a reçu du travail. Matériaux, portes, hauteur, entretien, effet défensif et priorité choisie par le joueur restent de niveau 3, non simulés. Une ouverture autonome reconstruit aussi le plan ; sans candidat ni chantier, aucune écriture nouvelle.
+
 Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel.
 Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock / salaire)` borne les bras avant tout travail.
 Sans lieux, bourg, maître ou grenier déclaré, aucun salaire ; une nourriture absente vaut zéro. Les cellules se partagent la réserve courante dans leur ordre. Les journées réellement fournies débitent exactement leur salaire et le versent au seul panier du bourg et au total cellulaire, deux représentations du même stock ; la reprise intérieure conserve cette destination.
@@ -3001,6 +3029,7 @@ niveau 3, comme les effets locaux des rues achevées autres que le chemin vers u
 spécialisés et une priorité choisie par le joueur entre chantiers.
 
 Pour chaque chantier ordinaire, le nombre de bras pris à chaque lieu reste une observation renouvelée, absente des sauvegardes et sans effet sur le travail, le salaire ou la récolte. À la production, sans nouveau tirage ni second tick, on mesure l'écart entre la récolte des bras restés aux champs et la même récolte au même rendement, avant prélèvement, si tous les bras des chantiers du jour étaient rendus à leur lieu. Cet écart est partagé au prorata des bras pris dans le lieu ; la somme des parts égale exactement l'écart mesuré, le dernier chantier du lieu recevant le reliquat flottant. Des bras encore excédentaires ne créent aucun coût. Le résultat publié est `recolte_perdue_par_chantier`, en kilogrammes (`recolte_perdue_kg`), sans arrondi. Une autoconstruction, un chantier sans bras ou un coût nul n'ajoute aucune ligne ; le champ est alors absent.
+L'ordre des chantiers, pour ce prorata comme pour `/plan`, est rue/parcelle/bâtiment/enceinte, puis l'identifiant : `recolte_perdue_par_chantier` porte la ligne `enceinte` après les bâtiments.
 
 ---
 

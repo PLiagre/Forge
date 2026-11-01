@@ -138,6 +138,24 @@ namespace Forge.Pont
         }
     }
 
+    // L'enceinte telle que `sim/` la tient : contour bouclé en mètres locaux, chantier et travail relus tels quels.
+    public sealed class EnceinteDuPlan
+    {
+        public IReadOnlyList<PointLocal> Contour { get; }
+        public bool EnChantier { get; }
+        public long Foyers { get; } public long TravailRequis { get; } public long TravailFourni { get; }
+        public EnceinteDuPlan(IList<PointLocal> contour, bool enChantier, long foyers, long travailRequis, long travailFourni)
+        { Contour = new ReadOnlyCollection<PointLocal>(new List<PointLocal>(contour ?? throw new ArgumentNullException(nameof(contour)))); EnChantier = enChantier; Foyers = foyers; TravailRequis = travailRequis; TravailFourni = travailFourni; }
+    }
+
+    // Une porte de l'enceinte : `Rue` vaut "plan" (identifiant d'une rue du plan) ou "base" (rang dans `Base.Rues`).
+    public sealed class PorteDuPlan
+    {
+        public PointLocal Point { get; } public string Rue { get; } public long Identifiant { get; } public double LargeurM { get; }
+        public PorteDuPlan(PointLocal point, string rue, long identifiant, double largeurM)
+        { Point = point; Rue = rue ?? throw new ArgumentNullException(nameof(rue)); Identifiant = identifiant; LargeurM = largeurM; }
+    }
+
     // Le plan d'une cellule à un tick. Une liste vide (aucune rue, parcelle ou bâtiment encore)
     // est une mesure, jamais une absence.
     public sealed class PlanLu
@@ -151,9 +169,14 @@ namespace Forge.Pont
         // Null : aucun relevé du dernier jour, `AbsenceDesChantiersDuJour` nomme la cause ; une liste vide est une mesure.
         public IReadOnlyList<ChantierDuJour> ChantiersDuJour { get; }
         public string AbsenceDesChantiersDuJour { get; }
+        public EnceinteDuPlan Enceinte { get; } // null : aucune enceinte dans ce plan.
+        public IReadOnlyList<PorteDuPlan> Portes { get; } // vide sans enceinte.
 
-        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments, BaseDuPlan @base = null, IList<ChantierDuJour> chantiersDuJour = null, string absenceDesChantiersDuJour = null)
+        public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments, BaseDuPlan @base = null, IList<ChantierDuJour> chantiersDuJour = null, string absenceDesChantiersDuJour = null,
+            EnceinteDuPlan enceinte = null, IList<PorteDuPlan> portes = null)
         {
+            Enceinte = enceinte;
+            Portes = new ReadOnlyCollection<PorteDuPlan>(portes == null ? new List<PorteDuPlan>() : new List<PorteDuPlan>(portes));
             ChantiersDuJour = chantiersDuJour == null ? null : new ReadOnlyCollection<ChantierDuJour>(new List<ChantierDuJour>(chantiersDuJour));
             AbsenceDesChantiersDuJour = chantiersDuJour == null ? absenceDesChantiersDuJour ?? "relevé du jour non fourni" : null;
             if (rues == null) throw new ArgumentNullException(nameof(rues));
@@ -274,7 +297,12 @@ namespace Forge.Pont
                     batiments.Add(Batiment(brutsBatiments[i], "batiments[" + i.ToString(CultureInfo.InvariantCulture) + "]", identifiantsParcelles));
 
                 List<ChantierDuJour> chantiers = objet.TryGetValue("chantiers_du_jour", out object releve) ? ChantiersDuJour(releve) : null;
-                return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments, objet.TryGetValue("base", out object brute) ? Base(brute, relu) : null, chantiers, "clé absente : chantiers_du_jour"));
+                BaseDuPlan @base = objet.TryGetValue("base", out object brute) ? Base(brute, relu) : null;
+                // `portes` n'est publiée qu'avec une enceinte : l'une sans l'autre refuse le plan.
+                bool muree = objet.TryGetValue("enceinte", out object mur);
+                if (!muree && objet.ContainsKey("portes")) throw new CleRefusee("clé portes : des portes sans enceinte");
+                return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments, @base, chantiers, "clé absente : chantiers_du_jour",
+                    muree ? Enceinte(mur) : null, muree ? Portes(Valeur(objet, "portes", "portes"), rues, @base) : null));
             }
             catch (CleRefusee refus)
             {
@@ -330,8 +358,8 @@ namespace Forge.Pont
                 string chemin = "chantiers_du_jour[" + i.ToString(CultureInfo.InvariantCulture) + "]";
                 var chantier = Objet(brutes[i], chemin);
                 object nature = Valeur(chantier, "nature", chemin + ".nature");
-                if (!(nature is string texte) || (texte != "rue" && texte != "parcelle" && texte != "batiment"))
-                    throw new CleRefusee("clé " + chemin + ".nature : rue, parcelle ou batiment attendu, reçu " + Decrire(nature));
+                if (!(nature is string texte) || (texte != "rue" && texte != "parcelle" && texte != "batiment" && texte != "enceinte"))
+                    throw new CleRefusee("clé " + chemin + ".nature : rue, parcelle, batiment ou enceinte attendu, reçu " + Decrire(nature));
                 long identifiant = Entier(Valeur(chantier, "identifiant", chemin + ".identifiant"), chemin + ".identifiant", 0);
                 long bras = Entier(Valeur(chantier, "bras", chemin + ".bras"), chemin + ".bras", 0);
                 double kg = Nombre(Valeur(chantier, "grain_paye_kg", chemin + ".grain_paye_kg"), chemin + ".grain_paye_kg");
@@ -413,6 +441,37 @@ namespace Forge.Pont
                 maisons.Add(new MaisonDeBase(Contour(maison, "emprise", chemin + ".emprise"), foyers));
             }
             return new BaseDuPlan(Contour(@base, "place", "base.place"), rues, maisons);
+        }
+
+        private static EnceinteDuPlan Enceinte(object valeur)
+        {
+            var enceinte = Objet(valeur, "enceinte");
+            List<PointLocal> contour = Contour(enceinte, "contour", "enceinte.contour");
+            Chantier(enceinte, "enceinte", out bool enChantier, out long requis, out long fourni);
+            return new EnceinteDuPlan(contour, enChantier, Entier(Valeur(enceinte, "foyers", "enceinte.foyers"), "enceinte.foyers", 0), requis, fourni);
+        }
+
+        // Les portes dans l'ordre servi ; chacune nomme une rue lue dans ce plan, aucune géométrie recalculée.
+        private static List<PorteDuPlan> Portes(object valeur, List<RueDuPlan> rues, BaseDuPlan @base)
+        {
+            List<object> brutes = Tableau(valeur, "portes");
+            var portes = new List<PorteDuPlan>(brutes.Count);
+            for (int i = 0; i < brutes.Count; i++)
+            {
+                string chemin = "portes[" + i.ToString(CultureInfo.InvariantCulture) + "]";
+                var porte = Objet(brutes[i], chemin);
+                object point = Valeur(porte, "point", chemin + ".point"), rue = Valeur(porte, "rue", chemin + ".rue");
+                if (!(point is List<object> paire) || paire.Count != 2) throw new CleRefusee("clé " + chemin + ".point : un tableau de exactement 2 nombres attendu, reçu " + Decrire(point));
+                if (!(rue is string texte) || (texte != "plan" && texte != "base")) throw new CleRefusee("clé " + chemin + ".rue : plan ou base attendu, reçu " + Decrire(rue));
+                double largeur = Nombre(Valeur(porte, "largeur_m", chemin + ".largeur_m"), chemin + ".largeur_m");
+                if (!(largeur > 0)) throw new CleRefusee("clé " + chemin + ".largeur_m : une largeur > 0 attendue, reçu " + largeur.ToString("R", CultureInfo.InvariantCulture));
+                long identifiant = Entier(Valeur(porte, "identifiant", chemin + ".identifiant"), chemin + ".identifiant", 0);
+                // Une rue du plan, en chantier ou non ; ou un rang de `base.rues`, une base absente comptant zéro rue.
+                if (texte == "plan" ? !rues.Exists(r => r.Identifiant == identifiant) : identifiant >= (@base == null ? 0 : @base.Rues.Count))
+                    throw new CleRefusee("clé " + chemin + ".identifiant : aucune rue " + (texte == "plan" ? "" : "de base ") + identifiant + " dans ce plan");
+                portes.Add(new PorteDuPlan(new PointLocal(Nombre(paire[0], chemin + ".point"), Nombre(paire[1], chemin + ".point")), texte, identifiant, largeur));
+            }
+            return portes;
         }
 
         private static Dictionary<string, object> Objet(object valeur, string chemin) => valeur as Dictionary<string, object> ?? throw new CleRefusee("clé " + chemin + " : un objet attendu, reçu " + Decrire(valeur));

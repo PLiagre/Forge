@@ -123,6 +123,13 @@ fini (le prefab de `maison_pise_0`, déjà là, est seulement chargé : `referen
 de `selection.json`) ; `kit.juger` vérifie l'emprise, les hauteurs et la suite. La
 planche `sorties/diagnostic/kit_chantiers.png` montre les six étapes.
 
+Le lot 905 y ajoute les étapes de l'enceinte (`kit.ENCEINTE` : `rempart_pise_10m`,
+`tour_ksar_0`, `porte_ksar`), mesurées sur leur prefab existant comme références.
+Les piquets sont ceux du lot 269 ; la levée, `assets.chantier_massif`, monte un
+ouvrage plein : assise de grès, massif de pisé à mi-hauteur sous sa banche, une
+perche à chaque coin, une échelle contre la face +Y. Pour la porte, deux massifs
+laissent libre le passage de `assets.PORTE_PASSAGE` m, celui que lit `gate()`.
+
 Le lot 270 fait voir ce qu'Unity affichera : `sorties/diagnostic/kit_chantiers_unity.png`,
 une rangée par bâtiment de `kit.CHANTIERS` (maison, scierie, four), trois colonnes
 (piquets, murs, fini), rendue avec les prefabs et les matériaux d'Unity. Python

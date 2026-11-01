@@ -5391,6 +5391,78 @@ def test_service_epreuve_reserve(monkeypatch):
             assert requete_service(port, '/intention', 'POST', corps)[0] == HTTPStatus.BAD_REQUEST
 
 
+@contextmanager
+def _service_avec(monkeypatch, *arguments):
+    """Lance le vrai service avec des arguments de plus, par Popen enveloppé."""
+    original = subprocess.Popen
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess, 'Popen', lambda args, **kw: original([*args, *arguments], **kw))
+        with lancer_service(0) as port:
+            yield port
+
+
+def _carre_de_biskra(port, ticks=5):
+    """Joue le carré de ±80 m de #908 et rend /plan et /lieu octets après chaque tick de 3 à `ticks`."""
+    biskra = next(d for d in requete_service(port, '/departs')[1]['departs'] if d['siege']['nom'] == 'Biskra')
+    cid = biskra['cell_id']
+
+    def deposer(intention, tick):
+        recu = requete_service(port, '/intention', 'POST', json.dumps(intention).encode())
+        assert recu[:2] == (HTTPStatus.OK, dict(acceptee=True, appliquee_au_tick=tick))
+    deposer(dict(type='choisir_depart', seigneurie=biskra['id']), 0)
+    assert requete_service(port, '/tick?n=1', 'POST')[1]['tick'] == 1
+    deposer(dict(type='tracer_route', cell=cid, points=[[-66, 2.2], [-120, 2.2]], largeur_m=4), 1)
+    assert requete_service(port, '/tick?n=1', 'POST')[1]['tick'] == 2
+    deposer(dict(type='tracer_enceinte', cell=cid, points=[[-80, -80], [80, -80], [80, 80], [-80, 80]]), 2)
+    suite = []
+    for tick in range(3, ticks + 1):
+        assert requete_service(port, '/tick?n=1', 'POST')[1]['tick'] == tick
+        assert requete_service(port, '/horloge')[1]['tick'] == tick
+        plan, lieu = (requete_service(port, f'/{nom}?cell={cid}') for nom in ('plan', 'lieu'))
+        assert plan[0] == lieu[0] == HTTPStatus.OK
+        suite.append((plan[1]['enceinte'], plan[2], lieu[2]))
+    return suite
+
+
+def test_service_travail_enceinte_refus(monkeypatch):
+    base = [sys.executable, '-m', 'sim.service', '--port', '0', '--jours-par-seconde', '0']
+    cas = [(['--travail-enceinte', '0.01'], 'epreuve')]
+    cas += [(['--epreuve', '--travail-enceinte', v], v) for v in ('0', '-1', 'nan', 'inf', '-inf', 'abc', '')]
+    for arguments, attendu in cas:
+        fini = subprocess.run([*base, *arguments], cwd=_REPO, capture_output=True, text=True, timeout=60)
+        assert fini.returncode != 0, arguments
+        assert 'service prêt' not in fini.stdout, arguments
+        assert 'travail-enceinte' in fini.stderr, arguments
+        assert attendu in fini.stderr or (attendu == '' and "''" in fini.stderr), arguments
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '1e-2') as port:
+        assert requete_service(port, '/horloge')[1]['tick'] == 0
+
+
+def test_service_travail_enceinte_carre(monkeypatch):
+    from sim import constants as k
+    assert k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M == 30
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '0.01') as port:
+        suite = _carre_de_biskra(port)
+    assert [(e['travail_requis'], e['travail_fourni'], e['foyers'], e['en_chantier']) for e, _, _ in suite] == [
+        (7, 1, 1, True), (7, 3, 1, True), (7, 7, 1, False)]
+    with _service_avec(monkeypatch, '--epreuve') as port:
+        enceinte = _carre_de_biskra(port)[-1][0]
+    assert enceinte['travail_requis'] == 19200 and enceinte['en_chantier'] is True
+    assert enceinte['travail_fourni'] < 19200
+    assert k.TRAVAIL_ENCEINTE_JOURNEES_PAR_M == 30
+
+
+def test_service_travail_enceinte_neutre(monkeypatch):
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '30') as port:
+        reglee = _carre_de_biskra(port)
+    with _service_avec(monkeypatch, '--epreuve') as port:
+        seule = _carre_de_biskra(port)
+    with _service_avec(monkeypatch, '--epreuve', '--travail-enceinte', '0.01') as port:
+        courte = _carre_de_biskra(port)
+    assert [(p, l) for _, p, l in reglee] == [(p, l) for _, p, l in seule]
+    assert courte[-1][1] != seule[-1][1]
+
+
 @pytest.mark.parametrize('autre', [False, True])
 def test_service_epreuve_panier(autre, monkeypatch):
     import pickle
@@ -5527,3 +5599,165 @@ def test_service_epreuve_publication(monkeypatch):
                     with pytest.raises(AssertionError): _verifier_epreuve(faux, reference, tick)
                 courses.append([octets for _, _, octets in apres])
         assert courses[0] == courses[1]
+
+
+def _depart_biskra():
+    """Terre, maison et cellule de Biskra, même quand pytest part de jeu/ (la CI)."""
+    racine = str(Path(__file__).resolve().parents[3])
+    ajoute = racine not in sys.path
+    if ajoute:
+        sys.path.insert(0, racine)
+    try:
+        from pc.epreuve_jalon4 import depart_biskra
+        return depart_biskra()
+    finally:
+        if ajoute:
+            sys.path.remove(racine)
+
+
+def _cellule_vider_bourg(serveur, autre=False):
+    """Biskra (départ vérifié dans /departs) ou une autre cellule à plusieurs lieux et bourg habité."""
+    depart, _, biskra = _depart_biskra()
+    assert next(d['cell_id'] for d in requete_service(serveur.server_address[1], '/departs')[1]['departs'] if d['id'] == depart) == biskra
+    if not autre: return serveur.world.cells[biskra]
+    return next(c for c in serveur.world.cells.values() if c.cell_id != biskra and len(c.lieux) > 2 and next(l for l in c.lieux if l.rang == 0).population > 0)
+
+
+def _reference_vider_bourg(monde, cid):
+    """Copie profonde où seules les populations des lieux reçoivent le partage par surface."""
+    from sim.lieux import partager, surfaces_des_lieux
+    reference = copy.deepcopy(monde); cellule = reference.cells[cid]
+    lieux = sorted(cellule.lieux, key=lambda l: l.rang)
+    parts = partager(lieux[0].population, surfaces_des_lieux(cid, cellule.area_km2)[1:])
+    lieux[0].population = 0
+    for lieu, part in zip(lieux[1:], parts): lieu.population += part
+    return reference
+
+
+def _verifier_vider_bourg(serveur, reference, tick, alea):
+    import pickle
+    assert pickle.dumps(serveur.world) == pickle.dumps(reference)
+    assert serveur.world.ticks_ecoules == tick == reference.ticks_ecoules and serveur.rng.getstate() == alea
+
+
+def _lieu_sans_populations(document):
+    document = copy.deepcopy(document)
+    if 'bourg' in document: document['bourg']['population'] = None
+    for lieu in document['lieux']: lieu['population'] = None
+    return document
+
+
+def test_service_vider_bourg_reserve(monkeypatch):
+    with _service_epreuve() as (serveur, port):
+        cid = _cellule_vider_bourg(serveur).cell_id
+        avant = _memoire_epreuve(serveur)
+        for chemin in (f'/epreuve/vider-bourg?cell={cid}', '/epreuve/vider-bourg?cell='):
+            assert requete_service(port, chemin, 'POST')[0] == HTTPStatus.NOT_FOUND
+            assert _memoire_epreuve(serveur) == avant
+    original = subprocess.Popen
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess, 'Popen', lambda args, **kw: original([*args, '--epreuve'], **kw))
+        with lancer_service(0) as port:
+            departs = requete_service(port, '/departs')[1]['departs']
+            cid = next(d['cell_id'] for d in departs if d['siege']['nom'] == 'Biskra')
+            assert requete_service(port, f'/epreuve/vider-bourg?cell={cid}', 'POST')[:2] == (HTTPStatus.OK, dict(cell_id=cid, tick=0))
+            assert requete_service(port, f'/lieu?cell={cid}&bourg=1')[1]['bourg']['population'] == 0
+            corps = json.dumps(dict(type='vider_bourg', cell=cid)).encode()
+            assert requete_service(port, '/intention', 'POST', corps)[0] == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.parametrize('autre', [False, True])
+def test_service_vider_bourg_montage(autre):
+    from sim import constants as k
+    from sim.model import ecrire_stock_marchandise
+    with _service_epreuve(epreuve=True) as (serveur, port):
+        cellule = _cellule_vider_bourg(serveur, autre); cid = cellule.cell_id
+        bourg = next(l for l in cellule.lieux if l.rang == 0)
+        for lieu in cellule.lieux: ecrire_stock_marchandise(lieu, 'fer', 1.23456789 if lieu.rang == 0 else 0)
+        ecrire_stock_marchandise(cellule, 'fer', 1.23456789)
+        serveur.world.greniers[bourg.maitre] = {k.MARCHANDISE_NOURRITURE: 123.456}
+        serveur.etat_publie = serveur._construire_etat(0, -1)
+        anciens = [requete_service(port, f'/lieu?cell={cid}' + s)[1] for s in ('', '&bourg=1')]
+        reference = _reference_vider_bourg(serveur.world, cid)
+        habitants, population, tick, alea = bourg.population, cellule.population, serveur.world.ticks_ecoules, serveur.rng.getstate()
+        avant = [l.population for l in sorted(cellule.lieux, key=lambda l: l.rang)]
+        faux = []
+        for variante in range(5):
+            mal = copy.deepcopy(reference); c = mal.cells[cid]; lieux = sorted(c.lieux, key=lambda l: l.rang)
+            if variante == 0:
+                for lieu, ancienne in zip(lieux, avant): lieu.population = ancienne
+                lieux[1].population += habitants; lieux[0].population = 0
+            elif variante == 1: lieux[0].population = 1
+            elif variante == 2: c.population -= habitants
+            elif variante == 3: c.habitants_par_metier = {}
+            else: lieux[1].stocks = dict(lieux[0].stocks)
+            faux.append(mal)
+        assert requete_service(port, f'/epreuve/vider-bourg?cell={cid}', 'POST')[:2] == (HTTPStatus.OK, dict(cell_id=cid, tick=tick))
+        _verifier_vider_bourg(serveur, reference, tick, alea)
+        for mal in faux:
+            with pytest.raises(AssertionError): _verifier_vider_bourg(serveur, mal, tick, alea)
+        assert bourg.population == 0 and sum(l.population for l in cellule.lieux) == population == sum(avant)
+        gains = [l.population - a for l, a in zip(sorted(cellule.lieux, key=lambda l: l.rang), avant)][1:]
+        assert sum(gains) == habitants and max(gains) - min(gains) <= 1
+        if not autre: assert habitants == 165 and population == 3459 and set(gains) == {8, 9}
+        nouveaux = [requete_service(port, f'/lieu?cell={cid}' + s)[1] for s in ('', '&bourg=1')]
+        for ancien, nouveau in zip(anciens, nouveaux):
+            assert _lieu_sans_populations(ancien) == _lieu_sans_populations(nouveau) and nouveau['tick'] == tick
+        assert nouveaux[1]['bourg']['population'] == 0 and [l['population'] for l in nouveaux[1]['lieux']] == [l.population for l in sorted(cellule.lieux, key=lambda l: l.rang)]
+        assert anciens[1]['bourg']['population'] == habitants != nouveaux[1]['bourg']['population']
+        assert {requete_service(port, f'{c}?cell={cid}')[1]['tick'] for c in ('/plan', '/occupation')} == {tick}
+        assert requete_service(port, '/monde')[1]['tick'] == tick
+
+
+def test_service_vider_bourg_refus(monkeypatch):
+    from dataclasses import replace
+    from sim import service
+    monkeypatch.setattr(service.ServeurMonde, '_faire_avancer_horloge', lambda self: None)
+    with _service_epreuve(epreuve=True) as (serveur, port):
+        cellule = _cellule_vider_bourg(serveur, True); cid = cellule.cell_id
+        seule = next(c for c in serveur.world.cells.values() if c.population > 0 and len(c.lieux) == 1)
+        original = copy.deepcopy(cellule)
+        refus = [('', 400), ('?cell=', 400), ('?cell=1&cell=1', 400), ('?cell=x', 400), (f'?cell={max(serveur.world.cells) + 1}', 404)]
+        causes = ['bourg absent', 'bourg dupliqué', 'bourg vide', 'lieux absents', 'lieux nuls', 'rang invalide', 'population négative', 'population textuelle', 'horloge', 'un seul lieu']
+        for cause in [None, *causes]:
+            cellule = serveur.world.cells[cid] = copy.deepcopy(original); cible = cid
+            bourg = next(l for l in cellule.lieux if l.rang == 0)
+            if cause == 'bourg absent': cellule.lieux.remove(bourg)
+            elif cause == 'bourg dupliqué': cellule.lieux.append(copy.deepcopy(bourg))
+            elif cause == 'bourg vide': bourg.population = 0
+            elif cause == 'lieux absents': cellule.lieux = []
+            elif cause == 'lieux nuls': cellule.lieux = None
+            elif cause == 'rang invalide': cellule.lieux[-1].rang = -1
+            elif cause == 'population négative': bourg.population = -1
+            elif cause == 'population textuelle': bourg.population = '0'
+            elif cause == 'un seul lieu': cible = seule.cell_id
+            serveur.etat_publie = replace(serveur.etat_publie, jours_par_seconde=1 if cause == 'horloge' else 0)
+            avant = _memoire_epreuve(serveur)
+            for suffixe, code in (refus if cause is None else [(f'?cell={cible}', 409 if cause == 'horloge' else 400)]):
+                assert requete_service(port, '/epreuve/vider-bourg' + suffixe, 'POST')[0] == code
+                assert _memoire_epreuve(serveur) == avant
+        serveur.world.cells[cid] = copy.deepcopy(original)
+        serveur.etat_publie = replace(serveur.etat_publie, jours_par_seconde=0)
+        assert requete_service(port, f'/epreuve/vider-bourg?cell={cid}', 'POST')[0] == HTTPStatus.OK
+        assert next(l for l in serveur.world.cells[cid].lieux if l.rang == 0).population == 0
+
+
+def test_service_vider_bourg_tick():
+    from sim.intentions import recevoir_intention
+    octets = []
+    for _ in range(2):
+        with _service_epreuve(epreuve=True) as (serveur, port):
+            cellule = _cellule_vider_bourg(serveur); cid = cellule.cell_id
+            recevoir_intention(serveur.world, dict(type='choisir_depart', seigneurie=_depart_biskra()[0]))
+            bourg = next(l for l in cellule.lieux if l.rang == 0)
+            for decalage in (0, 8, 16):
+                recevoir_intention(serveur.world, dict(type='tracer_route', maison=bourg.maitre, cell=cid, points=[[0, decalage], [40, decalage]], largeur_m=4))
+            assert requete_service(port, '/tick?n=5', 'POST')[0] == HTTPStatus.OK
+            assert requete_service(port, f'/epreuve/vider-bourg?cell={cid}', 'POST')[:2] == (HTTPStatus.OK, dict(cell_id=cid, tick=5))
+            octets.append(requete_service(port, f'/lieu?cell={cid}&bourg=1')[2])
+            assert requete_service(port, '/tick?n=1', 'POST')[0] == HTTPStatus.OK
+            lieux = serveur.world.cells[cid].lieux
+            assert sum(l.population for l in lieux) == serveur.world.cells[cid].population
+            assert next(l for l in lieux if l.rang == 0).population == 0
+            with pytest.raises(AssertionError): assert sum(l.population + 1 for l in lieux) == serveur.world.cells[cid].population
+    assert octets[0] == octets[1]

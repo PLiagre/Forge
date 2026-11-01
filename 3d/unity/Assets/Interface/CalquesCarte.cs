@@ -25,7 +25,8 @@ namespace Forge.Interface
                 populations.Add(cellule.CellId, cellule.Population);
             }
             Minimum = populations.Values.Min(); Maximum = populations.Values.Max();
-            Legende = "Habitants : " + Minimum + " (clair) → " + Maximum + " (foncé) · échelle logarithmique · tick " + monde.Tick;
+            string H(long n) => TexteDuMonde.Nombre(n) + (n < 2 ? " habitant" : " habitants");
+            Legende = "Habitants : " + H(Minimum) + " (clair) → " + H(Maximum) + " (foncé) · échelle logarithmique · " + TexteDuMonde.Date(monde.Date);
         }
         public float Position(long cellId)
         {
@@ -40,6 +41,7 @@ namespace Forge.Interface
         Func<MondeLu> monde;
         Func<CelluleDeCarte> selection;
         Dictionary<long, MeshRenderer> rendus;
+        readonly Dictionary<long, (Material copie, Color maison)> teintes = new Dictionary<long, (Material, Color)>(); // couleur de la maison relevée une fois, jamais relue sur la copie teinte
         TextMesh[] noms;
         readonly List<Rect> etiquettes = new List<Rect>();
         Text legende;
@@ -47,16 +49,18 @@ namespace Forge.Interface
         long? territoirePrecedent;
         bool habitants, changement = true;
         public bool Habitants => habitants;
+        public Text Legende => legende;
         public void Initialiser(CarteDessinee carte, Transform guide, Func<MondeLu> monde, Func<CelluleDeCarte> selection)
         {
             this.carte = carte; this.monde = monde; this.selection = selection;
-            Bouton(guide, "Puissances", 650, false); Bouton(guide, "Habitants", 928, true);
+            Bouton(guide, "Puissances", 650, false, "Colore la carte selon la maison qui tient chaque terre.");
+            Bouton(guide, "Habitants", 928, true, "Colore la carte selon le nombre d'habitants de chaque terre.");
             legende = SocleInterface.Texte(guide, "Les calques attendent la carte…", 24, 128, 1190);
             legende.rectTransform.sizeDelta = new Vector2(1190, 44); legende.supportRichText = false;
         }
-        void Bouton(Transform guide, string titre, float x, bool afficherHabitants)
+        void Bouton(Transform guide, string titre, float x, bool afficherHabitants, string phrase)
         {
-            var b = SocleInterface.Commande(guide, titre, x, 24, () => { habitants = afficherHabitants; changement = true; });
+            var b = SocleInterface.Commande(guide, titre, x, 24, () => { habitants = afficherHabitants; changement = true; }, phrase: phrase);
             b.GetComponent<RectTransform>().sizeDelta = new Vector2(260, 44);
             b.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(260, 44);
         }
@@ -74,6 +78,7 @@ namespace Forge.Interface
                     var racine = carte.transform.Find("Cellules de la carte");
                     rendus = racine.GetComponentsInChildren<MeshRenderer>().ToDictionary(
                         r => long.Parse(r.name.Substring("Cellule ".Length), CultureInfo.InvariantCulture));
+                    foreach (var r in rendus) { teintes.Add(r.Key, (new Material(r.Value.sharedMaterial), r.Value.sharedMaterial.color)); r.Value.sharedMaterial = teintes[r.Key].copie; }
                     carte.camera.backgroundColor = SocleInterface.Couleur("mer");
                     var police = SocleInterface.Police(titre: true);
                     noms = carte.GetComponentsInChildren<TextMesh>().OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
@@ -91,29 +96,29 @@ namespace Forge.Interface
                 foreach (var paire in rendus)
                 {
                     paire.Value.SetPropertyBlock(null);
-                    var bloc = new MaterialPropertyBlock();
-                    bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
+                    teintes[paire.Key].copie.color = paire.Key == retenu ? SocleInterface.Couleur("alerte")
                         : habitants ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * repartition.Position(paire.Key))
-                        : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
-                    paire.Value.SetPropertyBlock(bloc);
+                        : SocleInterface.Pigment(teintes[paire.Key].maison);
                 }
-                legende.text = (habitants ? repartition.Legende : "Puissances de la carte de 1400 · Relief non transmis")
-                    + " · Rouge : territoire conservé";
+                legende.text = LegendeDuCalque(repartition);
             }
             catch (Exception e)
             {
                 if (rendus != null) foreach (var paire in rendus)
                 {
                     paire.Value.SetPropertyBlock(null);
-                    var bloc = new MaterialPropertyBlock();
-                    bloc.SetColor("_BaseColor", (paire.Key == retenu ? SocleInterface.Couleur("alerte")
-                        : SocleInterface.Pigment(paire.Value.sharedMaterial.color)).linear);
-                    paire.Value.SetPropertyBlock(bloc);
+                    if (teintes.TryGetValue(paire.Key, out var t)) t.copie.color = paire.Key == retenu ? SocleInterface.Couleur("alerte") : SocleInterface.Pigment(t.maison);
                 }
-                legende.text = "Calque indisponible : " + e.Message + ". Couleurs des puissances conservées.";
+                legende.text = Indisponible(e.Message);
             }
         }
+        void OnDestroy() { foreach (var t in teintes.Values) if (Application.isPlaying) Destroy(t.copie); else DestroyImmediate(t.copie); teintes.Clear(); }
 
+        // Lot #943 : sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater
+        // dirait qu'elles sont celles du jour servi. La légende des habitants garde sa date, celle du monde lu.
+        public static string LegendeDuCalque(RepartitionHabitants repartition) =>
+            (repartition == null ? "Puissances de la carte · Relief non transmis" : repartition.Legende) + " · Rouge : territoire conservé";
+        public static string Indisponible(string raison) => "Calque indisponible : " + TexteDuMonde.Absence(raison) + ". Couleurs des puissances conservées.";
         void EspacerLesNoms()
         {
             if (noms == null) return;

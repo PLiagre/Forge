@@ -140,8 +140,14 @@ def _bras_admissibles(metiers, origine, autonome, cell, reserves):
     return min(stock, sum(_disponible(lieu, cell, metiers) for lieu in reserves))
 
 
+def _plan_actif(plan):
+    """Vrai si une rue, une parcelle, un bâtiment ou l'enceinte est en chantier."""
+    return (any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
+            or (plan.enceinte is not None and plan.enceinte.en_chantier))
+
+
 def avancer_chantiers(world):
-    """Retour aux champs, rues, parcelles puis bâtiments prêts, par identifiant."""
+    """Retour aux champs, rues, parcelles, bâtiments prêts puis enceinte, par identifiant."""
     envois = {}
     world.chantiers_du_jour = {}
     world.origines_des_chantiers = {}
@@ -153,7 +159,7 @@ def avancer_chantiers(world):
             ecrire_ouvriers_du_jour(lieu, 0)
         avant = lire_habitants_par_metier(cell)
         paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
-        actifs = any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom))
+        actifs = _plan_actif(plan)
         familiaux = _constantes.METIER_AUTOCONSTRUCTEURS
         ouvre_maisons = (
             avant != -1
@@ -180,7 +186,7 @@ def avancer_chantiers(world):
         bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None) if besoin_bourg else None
         plan = _ouvrir_maisons(plan, metiers, bourg)
         # Les bras reviennent même si le dernier chantier est achevé.
-        if not any(e.en_chantier for nom in ("rues", "parcelles", "batiments") for e in getattr(plan, nom)):
+        if not _plan_actif(plan):
             if metiers is not None and metiers != avant:
                 ecrire_habitants_par_metier(cell, metiers)
             continue
@@ -190,9 +196,13 @@ def avancer_chantiers(world):
         reserves = _reserves(cell, bourg) if metiers is not None else []
         listes, journees = {}, 0
         parcelles_en_chantier = {p.identifiant for p in plan.parcelles if p.en_chantier}
-        for nom, cle in (("rues", ()), ("parcelles", ("parcelle",)), ("batiments", ("batiment",))):
+        for nom, cle in (("rues", ()), ("parcelles", ("parcelle",)), ("batiments", ("batiment",)),
+                         ("enceinte", ("enceinte",))):
             listes[nom] = []
-            for element in sorted(getattr(plan, nom), key=lambda element: element.identifiant):
+            # L'enceinte est unique : son identifiant 0 n'est qu'un nom d'observation.
+            elements = ([] if plan.enceinte is None else [plan.enceinte]) if nom == "enceinte" else sorted(
+                getattr(plan, nom), key=lambda element: element.identifiant)
+            for element in elements:
                 if element.en_chantier:
                     autonome = nom == "batiments" and element.autoconstruction
                     origine = _constantes.METIER_ARTISANS if autonome else paysans
@@ -210,7 +220,7 @@ def avancer_chantiers(world):
                     else:
                         element, personnes, origines = _puiser(
                             element, metiers, payables - journees, cell, reserves)
-                    cle_chantier = (cell_id, *cle, element.identifiant)
+                    cle_chantier = (cell_id, *cle, getattr(element, "identifiant", 0))
                     envois[cle_chantier] = personnes
                     world.chantiers_du_jour[cle_chantier] = {
                         "bras": personnes, "grain_paye_kg": 0 if autonome else personnes * salaire,
@@ -231,7 +241,9 @@ def avancer_chantiers(world):
             for entite in (bourg, cell):
                 stock = contenus_des_paniers((entite,), nourriture)[0]
                 ecrire_stock_marchandise(entite, nourriture, stock + montant)
-        if plan is not world.plans[cell_id] or any(listes[nom] != getattr(plan, nom) for nom in listes):
+        enceinte = listes["enceinte"][0] if listes["enceinte"] else plan.enceinte
+        if (plan is not world.plans[cell_id] or enceinte != plan.enceinte
+                or any(listes[nom] != getattr(plan, nom) for nom in ("rues", "parcelles", "batiments"))):
             world.plans[cell_id] = Plan(rues=listes["rues"], parcelles=listes["parcelles"],
-                                       batiments=listes["batiments"], enceinte=plan.enceinte)
+                                       batiments=listes["batiments"], enceinte=enceinte)
     return envois

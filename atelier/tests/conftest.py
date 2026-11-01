@@ -35,15 +35,15 @@ dossier_briefs = "docs/briefs"
 prefixe_branche = "lot/"
 
 [agents]
-chef        = "claude/opus | codex/sol"
-codeur      = "codex/sol | cursor/grok"
+chef        = "claude/opus | cursor/kimi"
+codeur      = "cursor/kimi | cursor/grok"
 codeur_3d   = "claude/opus | cursor/grok"
-renfort     = "codex/astra | codex/sol | cursor/grok"
-relecteur   = "claude/opus | codex/sol"
+renfort     = "cursor/kimi-k3 | cursor/kimi | cursor/grok"
+relecteur   = "claude/opus | cursor/kimi"
 mecanicien  = "cursor/composer"
-depanneur   = "claude/opus | codex/sol"
+depanneur   = "claude/opus | cursor/kimi"
 chroniqueur = "cursor/grok"
-boussole    = "claude/opus | codex/sol"
+boussole    = "claude/opus | cursor/kimi"
 """
 
 
@@ -304,4 +304,5 @@ class Agents:
         return code, texte, ""
 
     def outils(self):
-        return [a[0] for a in self.appels]
+        """Qui a été appelé : « claude », ou le modèle d'un agent Cursor."""
+        return ["claude" if a[0] == "claude" else a[a.index("--model") + 1] for a in self.appels]

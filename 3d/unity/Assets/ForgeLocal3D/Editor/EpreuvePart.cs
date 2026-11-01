@@ -163,7 +163,7 @@ namespace ForgeLocal3D
             Task<Lecture<MondeAvecMaisonLu>> fini = Lot690.LireMonde(port);
             for (var e = Lot690.Attendre(fini, "lecture /monde après la part"); e.MoveNext();) yield return null;
             if (fini.Result == null || !fini.Result.Presente) throw new InvalidOperationException("/monde après la part : " + (fini.Result == null ? "aucune lecture" : fini.Result.Absence));
-            r.tick_apres = fini.Result.Donnees.Monde.Tick; string marque = "tick " + N(r.tick_apres) + "\n"; Text releve = null;
+            r.tick_apres = fini.Result.Donnees.Monde.Tick; string marque = "relevé au " + TexteDuMonde.Date(fini.Result.Donnees.Monde.Date) + "\n"; Text releve = null;
             for (double fin = Time.realtimeSinceStartupAsDouble + 2 * PERIODE_COMPTES_S; Time.realtimeSinceStartupAsDouble < fin;)
             { releve = Releve(racine); if (releve != null && releve.text != null && releve.text.Contains(marque)) break; yield return null; }
             r.panneau = releve != null && releve.text != null ? releve.text : "";

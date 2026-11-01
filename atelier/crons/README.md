@@ -34,7 +34,7 @@ crontab qui appelait un ancien répartiteur.
 - **Claude Code** : `claude setup-token` rend un jeton longue durée ; le
   ranger dans `~/.atelier/claude.token`, mode 600. La chaîne le passe à
   `claude` par l'environnement, jamais par la ligne de commande.
-- **Codex, Cursor** : leurs sessions (`codex login`, `cursor-agent login`).
+- **Cursor** : sa session (`cursor-agent login`).
 - Aucune clé d'API : `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` et `CURSOR_API_KEY`
   sont retirées de l'environnement de chaque agent.
 

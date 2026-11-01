@@ -24,7 +24,7 @@ from . import agents as agents_mod
 from . import journal, traces
 from .depot import Depot
 from .github import GitHub
-from .projet import MACHINES, ProjetIncomplet, charger, table_des_roles
+from .projet import MACHINES, OUTILS, ProjetIncomplet, charger, table_des_roles
 
 
 def _racine(args: argparse.Namespace) -> Path:
@@ -52,7 +52,7 @@ def _cmd_veille(args: argparse.Namespace) -> int:
         dire(False, f"branchement — {e}")
         return 1
     for outil in sorted({a.outil for p in projet.postes.values() for a in p.agents}):
-        binaire = {"claude": "claude", "codex": "codex", "cursor": "cursor-agent"}[outil]
+        binaire = OUTILS[outil]
         # Lancé comme la chaîne le lance : sous Windows, un .cmd passe par son
         # node.exe, jamais par cmd.exe (`agents.lancement`).
         try:
@@ -184,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     sous.add_parser("agents", help="la table des rôles").set_defaults(f=_cmd_agents)
     sous.add_parser("veille", help="ce qui manque pour tourner").set_defaults(f=_cmd_veille)
     sonde = sous.add_parser("sonde", help="chaque agent répond-il avec son modèle ?")
-    sonde.add_argument("--outil", choices=["claude", "codex", "cursor"])
+    sonde.add_argument("--outil", choices=sorted(OUTILS))
     sonde.add_argument("--role", help="les seuls agents de ce rôle (codeur_3d sur le PC)")
     sonde.set_defaults(f=_cmd_sonde)
     tour = sous.add_parser("tour", help="un tour du pilote")

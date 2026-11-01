@@ -481,7 +481,7 @@ def _kg_de_recolte(cell, recolte, parts):
 
 
 def _ordre_de_chantier(cle):
-    natures = ("rue", "parcelle", "batiment")
+    natures = ("rue", "parcelle", "batiment", "enceinte")
     nature = cle[1] if isinstance(cle[1], str) else natures[0]
     return (natures.index(nature), cle[-1])
 

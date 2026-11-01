@@ -1,0 +1,7 @@
+ÉGALITÉ
+code 0
+graine 0 · drapeau transmis à la session : aucun
+Biskra servie : cellule 10103 · drapeau contre_epreuve du rapport : aucun (affiché, jamais jugé)
+chantier : tick 5 · bourg 165 · 16 passants vus {ouvriers 1, paysans 15} · 16 attendus {ouvriers 1, paysans 15} · ouvriers sur un chantier 1/1 — servi : tick 5 · bourg 165
+vide : tick 6 · bourg 0 · 0 passants vus {} · 0 attendus {} — servi : tick 6 · bourg 0
+comparés : cellule, ticks, bourg, nombre par métier, id, ouvriers au chantier, vidage, caméra · égal

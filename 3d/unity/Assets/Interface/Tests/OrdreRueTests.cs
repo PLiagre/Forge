@@ -1,6 +1,8 @@
 using System;
+using Forge.Pont;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Forge.Interface.Tests
 {
@@ -36,6 +38,18 @@ namespace Forge.Interface.Tests
             Assert.Throws<ArgumentException>(() => OrdreRue.Creer("bar", 12, points, "6", "0"));
             Assert.Throws<ArgumentException>(() => OrdreRue.Creer(null, 12, points, "6", "1"));
             Assert.Throws<ArgumentException>(() => OrdreRue.Creer("bar", 12, new[] { Vector2.zero, new Vector2(float.NaN, 0) }, "6", "1"));
+        }
+        [Test] public void Le_recu_et_le_resume_de_la_rue_nomment_le_bourg_sans_tick()
+        {
+            string resume = OutilRue.Resume("Mistra", 3, "6", "1");
+            Assert.AreEqual("Pointillés : tracé préparé · Mistra · 3 points · largeur 6 m · Foyers : 1. Coût calculé par le monde.", resume);
+            string recue = OutilRue.Message(RecuIntention.AccepteeAu(68), "Mistra", 10430);
+            Assert.AreEqual("Rue reçue pour Mistra, appliquée au jour suivant. Relisez le plan ; ce reçu ne signifie pas chantier terminé.", recue);
+            LogAssert.Expect(LogType.Log, "TexteDuMonde : absence déclarée par le monde : cellule 10430 hors de vos terres");
+            string refus = OutilRue.Message(RecuIntention.Refusee(409, "cellule 10430 hors de vos terres"), "Mistra", 10430); Assert.AreEqual("Rue refusée : déclaré absent par le monde", refus);
+            string court = OutilRue.Message(RecuIntention.Refusee(400, "tracé trop court"), "Mistra", 10430); Assert.AreEqual("Rue refusée : tracé trop court", court);
+            string absente = OutilRue.Message(RecuIntention.Absente("Connexion refusée"), "Mistra", 10430); Assert.AreEqual("Reçu inconnu : Connexion refusée. Vérifiez le plan avant toute nouvelle demande.", absente);
+            foreach (string texte in new[] { resume, recue, refus, court, absente }) Assert.IsNull(TexteDuMonde.Interdit(texte, "10430"), texte);
         }
     }
 }

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using Forge.Pont;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,16 +35,16 @@ namespace Forge.Interface
             {
                 if (!Permis()) return;
                 cible = dossier.Cellule; maisonCible = Maison; erreur = null; Mode(true);
-            });
+            }, "Commence le tracé d'une rue sur le plan, sur vos terres seulement.");
             commandes = new GameObject("Préparer une rue", typeof(RectTransform)).transform; commandes.SetParent(transform, false);
             var cadre = (RectTransform)commandes; cadre.anchorMin = cadre.anchorMax = cadre.pivot = new Vector2(0, 1);
             cadre.anchoredPosition = new Vector2(24, -528);
             largeur = Saisie("Largeur (m)", 0, "6"); foyers = Saisie("Foyers", 310, "1");
-            preparer = Bouton(commandes, "Relire le tracé", 650, 0, 240, Preparer);
+            preparer = Bouton(commandes, "Relire le tracé", 650, 0, 240, Preparer, "Prépare la rue tracée, sans l'envoyer ; le monde en calculera le coût.");
             annuler = Bouton(commandes, "Annuler / Retour", 926, 0, 264, () =>
-            { if (Ordre.Recommencer()) { points.Clear(); erreur = null; Mode(false); } });
+            { if (Ordre.Recommencer()) { points.Clear(); erreur = null; Mode(false); } }, "Abandonne le tracé et revient au plan ; rien n'est envoyé.");
             message = SocleInterface.Texte(commandes, "", 0, 56, 1190);
-            confirmer = Bouton(commandes, "Confirmer la rue", 650, 116, 240, () => { if (MemeContexte()) _ = Ordre.Confirmer(); });
+            confirmer = Bouton(commandes, "Confirmer la rue", 650, 116, 240, () => { if (MemeContexte()) _ = Ordre.Confirmer(); }, "Envoie la rue au monde ; il l'applique au jour suivant.");
             MatieresCabinet.Engagement(confirmer);
             dessin.Pointer = p =>
             {
@@ -61,9 +63,9 @@ namespace Forge.Interface
             saisie.textComponent = SocleInterface.Texte(champ, "", 8, 10, 114); saisie.text = valeur;
             return saisie;
         }
-        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, Action action)
+        static Button Bouton(Transform parent, string nom, float x, float y, float largeur, Action action, string phrase)
         {
-            var bouton = SocleInterface.Commande(parent, nom, x, y, action);
+            var bouton = SocleInterface.Commande(parent, nom, x, y, action, phrase: phrase);
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(largeur, 44);
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(largeur, 44);
             return bouton;
@@ -81,10 +83,10 @@ namespace Forge.Interface
             try
             {
                 Ordre.Preparer(OrdreRue.Creer(maisonCible, cible, points.ToArray(), largeur.text, foyers.text),
-                    "Pointillés : tracé préparé · Territoire " + cible + " · " + points.Count + " points · largeur " + largeur.text + " m · Foyers : " + foyers.text + ". Coût calculé par le monde.");
+                    Resume(dossier.Bourg(cible), points.Count, largeur.text, foyers.text));
                 erreur = null;
             }
-            catch (Exception e) { erreur = e.Message; }
+            catch (Exception e) { erreur = TexteDuMonde.Absence(e.Message, cible.ToString(CultureInfo.InvariantCulture)); }
         }
         void LateUpdate()
         {
@@ -101,10 +103,16 @@ namespace Forge.Interface
             confirmer.gameObject.SetActive(Ordre.Brouillon != null);
             confirmer.interactable = contexte && !Ordre.EnCours && Ordre.Recu == null;
             var recu = Ordre.Recu;
-            message.text = recu != null ? !recu.Presente ? "Reçu inconnu : " + recu.Absence + ". Vérifiez le plan avant toute nouvelle demande."
-                : recu.Acceptee ? "Rue reçue pour le territoire " + cible + ", application annoncée au tick " + recu.AppliqueeAuTick + ". Relisez le plan ; ce reçu ne signifie pas chantier terminé."
-                : "Rue refusée : " + recu.Erreur
+            message.text = recu != null ? Message(recu, dossier.Bourg(cible), cible)
                 : Ordre.EnCours ? "Envoi du tracé en cours…" : erreur ?? Ordre.Resume ?? "Cliquez sur le plan pour placer les points : " + points.Count + ". Les pointillés sont votre brouillon. Relisez avant de confirmer.";
+        }
+        public static string Resume(string bourg, int points, string largeur, string foyers) =>
+            "Pointillés : tracé préparé · " + bourg + " · " + points + " points · largeur " + largeur + " m · Foyers : " + foyers + ". Coût calculé par le monde.";
+        public static string Message(RecuIntention recu, string bourg, long cellule)
+        {
+            string c = cellule.ToString(CultureInfo.InvariantCulture);
+            if (!recu.Presente) return "Reçu inconnu : " + TexteDuMonde.Absence(recu.Absence, c) + ". Vérifiez le plan avant toute nouvelle demande.";
+            return recu.Acceptee ? "Rue reçue pour " + bourg + ", appliquée au jour suivant. Relisez le plan ; ce reçu ne signifie pas chantier terminé." : "Rue refusée : " + TexteDuMonde.Absence(recu.Erreur, c);
         }
         void OnDisable()
         {

@@ -3,6 +3,7 @@
     py pc\\epreuve_part.py --sortie D [--part-forte P] [--part-faible P] [--unity CHEMIN]
 """
 import argparse
+import decimal
 import http.client
 import importlib.util
 import json
@@ -48,20 +49,31 @@ def _valider(r, corps, p):
     if not _nombre(m.get("part")): raise ValueError("part relue absente ou non finie")
     if not isinstance(m.get("grenier"), dict) or any(not _nombre(v) or v < 0 for v in m["grenier"].values()):
         raise ValueError("grenier relu absent ou kilos invalides")
+    d = m.get("date")
+    if not isinstance(d, dict) or type(d.get("annee")) is not int or d["annee"] < 1 or type(d.get("jour_de_l_annee")) is not int or not 1 <= d["jour_de_l_annee"] <= 366: raise ValueError("date relue absente ou illisible")
     return m
 
 
+def _masse(kg):
+    """Recopie de `TexteDuMonde.Masse` pour kg ≥ 0 ; `AwayFromZero` sur la valeur exacte du flottant, les tonnes en flottant d'abord."""
+    r = lambda x, n: decimal.Decimal(x).quantize(decimal.Decimal(1).scaleb(-n), rounding=decimal.ROUND_HALF_UP)
+    kilos, t = r(kg, 2), kg / 1000
+    if kilos < 1000: return (f"{kilos:f}".rstrip("0").rstrip(".") or "0").replace(".", ",") + " kg"
+    if r(t, 2) < 10: return f"{r(t, 2):f}".replace(".", ",") + " t"
+    return f"{r(t, 1):f}".replace(".", ",") + " t" if r(t, 1) < 100 else f"{int(r(t, 0)):,}".replace(",", " ") + " t"
+
+
 def _panneau(texte, m):
-    tete = re.match(r"Prélèvement : (" + NOMBRE + r") % · tick ([0-9]+)(?:\n|$)", texte)
-    part = bool(tete and (tete[2].lstrip("0") or "0") == str(m["tick"]) and _proche(float(tete[1].replace(",", ".")), 100 * m["part"], .005))
+    tete = re.match(r"Prélèvement : (" + NOMBRE + r") % · relevé au jour ([0-9]+) de ([0-9]+)(?:\n|$)", texte)
+    part = bool(tete and (tete[2], tete[3]) == (str(m["date"]["jour_de_l_annee"]), str(m["date"]["annee"])) and _proche(float(tete[1].replace(",", ".")), 100 * m["part"], .005))
     lignes = re.findall(r"(?m)^Grenier : (.*)$", texte)
     if len(lignes) != 1: return part, False
     if not m["grenier"]: return part, lignes[0] == "vide"
-    morceaux = [re.fullmatch(r"(.+) : (" + NOMBRE + r") kg", s) for s in lignes[0].split(" · ")]
-    if not all(morceaux): return part, False
-    cles = [s[1] for s in morceaux]
+    morceaux = [s.split(" : ", 1) for s in lignes[0].split(" · ")]
+    if not all(len(s) == 2 for s in morceaux): return part, False
+    cles = [s[0] for s in morceaux]
     return part, len(cles) == len(set(cles)) and set(cles) == set(m["grenier"]) and all(
-        _proche(float(s[2].replace(",", ".")), m["grenier"][s[1]], .005) for s in morceaux)
+        ecrit == _masse(m["grenier"][cle]) for cle, ecrit in morceaux)
 
 
 def juger(forte, faible, departs, relu_forte, relu_faible, part_forte, part_faible) -> tuple[int, list[str]]:
@@ -94,7 +106,7 @@ def juger(forte, faible, departs, relu_forte, relu_faible, part_forte, part_faib
         ligne("part relue", m["part"], p / 100, _proche(m["part"], p / 100, 1e-9))
         ligne("corps", f"statut {r['maison_statut']}, longueurs {len(r['maison_json'])}/{len(corps)}", "statut 200, corps identiques", r["maison_statut"] == 200 and r["maison_json"] == corps)
         part, grenier = _panneau(r["panneau"], m)
-        ligne("panneau part", r["panneau"].split("\n")[0], f"{100 * m['part']} % · tick {m['tick']}", part)
+        ligne("panneau part", r["panneau"].split("\n")[0], f"{100 * m['part']} % · relevé au jour {m['date']['jour_de_l_annee']} de {m['date']['annee']}", part)
         ligne("panneau grenier", r["panneau"].split("\n")[1:], m["grenier"], grenier)
     a, b = (sum(m["grenier"].values()) for m in maisons)
     ajouter("grenier", f"forte {a:.2f} kg · faible {b:.2f} kg", "forte > faible", a > b)

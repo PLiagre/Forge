@@ -7,10 +7,19 @@
     "chantier_scierie_piquets",
     "chantier_scierie_murs",
     "chantier_four_pain_pise_piquets",
-    "chantier_four_pain_pise_murs"
+    "chantier_four_pain_pise_murs",
+    "chantier_rempart_pise_10m_piquets",
+    "chantier_rempart_pise_10m_murs",
+    "chantier_tour_ksar_0_piquets",
+    "chantier_tour_ksar_0_murs",
+    "chantier_porte_ksar_piquets",
+    "chantier_porte_ksar_murs"
   ],
   "references": [
-    "maison_pise_0"
+    "maison_pise_0",
+    "rempart_pise_10m",
+    "tour_ksar_0",
+    "porte_ksar"
   ],
   "planche": [
     {
@@ -35,6 +44,30 @@
         "chantier_four_pain_pise_piquets",
         "chantier_four_pain_pise_murs",
         "four_pain_pise"
+      ]
+    },
+    {
+      "fini": "rempart_pise_10m",
+      "etapes": [
+        "chantier_rempart_pise_10m_piquets",
+        "chantier_rempart_pise_10m_murs",
+        "rempart_pise_10m"
+      ]
+    },
+    {
+      "fini": "tour_ksar_0",
+      "etapes": [
+        "chantier_tour_ksar_0_piquets",
+        "chantier_tour_ksar_0_murs",
+        "tour_ksar_0"
+      ]
+    },
+    {
+      "fini": "porte_ksar",
+      "etapes": [
+        "chantier_porte_ksar_piquets",
+        "chantier_porte_ksar_murs",
+        "porte_ksar"
       ]
     }
   ]

@@ -48,23 +48,23 @@ def test_tenir_attend_son_tour_puis_renonce(tmp_path):
 
 def test_un_outil_n_a_que_ses_places(tmp_path):
     a, b, c = Verrous(tmp_path), Verrous(tmp_path), Verrous(tmp_path)
-    with a.place("outil-codex", 2) as premiere, b.place("outil-codex", 2) as seconde:
+    with a.place("outil-cursor", 2) as premiere, b.place("outil-cursor", 2) as seconde:
         assert premiere and seconde
-        assert a.pris_ailleurs("outil-codex-2") and b.pris_ailleurs("outil-codex-1")
-        with c.place("outil-codex", 2) as troisieme:
+        assert a.pris_ailleurs("outil-cursor-2") and b.pris_ailleurs("outil-cursor-1")
+        with c.place("outil-cursor", 2) as troisieme:
             assert not troisieme
         with c.place("outil-claude", 2) as autre_outil:
             assert autre_outil
-    with c.place("outil-codex", 2) as liberee:
+    with c.place("outil-cursor", 2) as liberee:
         assert liberee
-    with c.place("outil-codex", None) as sans_plafond:
+    with c.place("outil-cursor", None) as sans_plafond:
         assert sans_plafond
 
 
 def test_sans_verrou_tout_est_libre():
     rien = AucunVerrou()
     assert rien.prendre("lot-1") and not rien.pris_ailleurs("lot-1")
-    with rien.tenir("decider"), rien.place("outil-codex", 1) as libre:
+    with rien.tenir("decider"), rien.place("outil-cursor", 1) as libre:
         assert libre
 
 

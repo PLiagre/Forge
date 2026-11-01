@@ -15,9 +15,8 @@ namespace Forge.Interface
         public const string RACINE = "Flèches de la carte", DU = "Flèche du dû", ENTETE = "Orange : du lieu vers votre siège, ce qui en a été prélevé. Violet : de votre siège vers celui du suzerain, le dû envoyé. Sur trente jours ; 1 km de large pour 50 000 kg, plafond 8 km.";
         public const float KG_PAR_KM = 50000f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // entre les contours (0,5) et le bord des disques (0,63)
         public static readonly Color ORANGE = Color.HSVToRGB(0.08f, 0.9f, 0.95f), VIOLET = Color.HSVToRGB(0.8f, 0.9f, 0.7f);
-        static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR"), Inv = CultureInfo.InvariantCulture;
+        static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static float Epaisseur(double kg) => (float)Math.Min(EPAISSEUR_MAX_KM, kg / KG_PAR_KM);
-        public static string Kg(double kg) => kg.ToString("N0", Fr) + " kg";
         public Func<string, Lecture<ComptesDeMaison>> Lecteur; public Text Legende { get; private set; }
         public string TexteLegende => Legende != null ? Legende.text : null;
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
@@ -40,12 +39,12 @@ namespace Forge.Interface
             var garder = new HashSet<string> { DU }; var sb = new StringBuilder(); var h = cabinet != null && cabinet.Partie != null ? cabinet.Partie.Maison : null;
             var siege = maison != null && h != null && h.Presente && h.Donnees.Id == maison ? h.Donnees.Siege : null; Vector3? cible = siege != null && siege.Position is PointCarte ps ? carte.PositionSurLaCarte(ps, HAUTEUR) : null;
             if (maison != null && cible == null) sb.Append("\nAucune flèche vers le siège : ").Append(siege == null ? "maison non lue" : "siège hors carte" + Raison(h.Donnees));
-            else if (maison != null) foreach (var (cell, lu) in lus) if (!lu.Presente || lu.Lieu.Lieux == null) sb.Append("\nAucune flèche de la cellule ").Append(cell.ToString(Inv)).Append(" : ").Append(lu.Presente ? lu.Lieu.AbsenceDesLieux : lu.Absence); else foreach (var l in lu.Lieu.Lieux)
+            else if (maison != null) foreach (var (cell, lu) in lus) if (!lu.Presente || lu.Lieu.Lieux == null) sb.Append("\nAucune flèche d'une terre sans lieux lus : ").Append(TexteDuMonde.Absence(lu.Presente ? lu.Lieu.AbsenceDesLieux ?? "lieux non servis" : lu.Absence, cell.ToString(Inv))); else foreach (var l in lu.Lieu.Lieux)
             {
-                if (l.Maitre != maison) continue; string c = cell.ToString(Inv) + "-" + l.Rang.ToString(Inv);
-                if (cell == siege.CellId && l.Rang == siege.Rang) { sb.Append('\n').Append(siege.Nom).Append(" : ").Append(l.Flux != null ? Kg(l.Flux.PreleveKg) + " prélevés sur place, sans flèche" : l.AbsenceDesFlux); continue; }
-                Vector3? source = l.Position is PointCarte p ? carte.PositionSurLaCarte(p, HAUTEUR) : null; sb.Append("\nLieu ").Append(c).Append(" → ").Append(siege.Nom).Append(" : ");
-                if (l.Flux == null || source == null) sb.Append(l.Flux == null ? l.AbsenceDesFlux : "point absent"); else sb.Append(Kg(l.Flux.PreleveKg)).Append(Fleche("Flèche " + c, source.Value, cible.Value, l.Flux.PreleveKg, ORANGE, garder));
+                if (l.Maitre != maison) continue; string c = cell.ToString(Inv) + "-" + l.Rang.ToString(Inv), flux = l.Flux != null ? TexteDuMonde.Masse(l.Flux.PreleveKg) : TexteDuMonde.Absence(l.AbsenceDesFlux ?? "flux non servis", cell.ToString(Inv));
+                if (cell == siege.CellId && l.Rang == siege.Rang) { sb.Append('\n').Append(siege.Nom).Append(" : ").Append(flux).Append(l.Flux != null ? " prélevés sur place, sans flèche" : ""); continue; }
+                Vector3? source = l.Position is PointCarte p ? carte.PositionSurLaCarte(p, HAUTEUR) : null; sb.Append('\n').Append(LieuxDeCarte.Tenue(lu.Lieu, l)).Append(" → ").Append(siege.Nom).Append(" : ");
+                if (l.Flux == null || source == null) sb.Append(l.Flux == null ? flux : "point absent"); else sb.Append(flux).Append(Fleche("Flèche " + c, source.Value, cible.Value, l.Flux.PreleveKg, ORANGE, garder));
             }
             Retirer(n => !garder.Contains(n)); lignesLieux = sb.ToString(); if (Legende != null) Afficher();
         }
@@ -53,21 +52,21 @@ namespace Forge.Interface
         public void Pas(double t)
         {
             string id = Maison(); if (id != duDe) { duDe = id; Retirer(n => n == DU); ligneDu = ""; if (Legende != null) Afficher(); }
-            if (vol != null && vol.IsCompleted) { var fini = vol; vol = null; if (id != null && !fini.IsFaulted && fini.Result.maison == id) Du(fini.Result.joueur, fini.Result.suzerain); }
+            if (vol != null && vol.IsCompleted) { var fini = vol; vol = null; if (id != null && !fini.IsFaulted && fini.Result.maison == id) Du(id, fini.Result.joueur, fini.Result.suzerain); }
             if (vol != null || id == null || t < prochaine || carte == null || carte.PositionSurLaCarte(default, 0f) == null) return;
             var lire = Lecteur ?? Lire; prochaine = t + PERIODE_S; string maison = id;
             vol = Task.Run(() => { var j = SansFaute(lire, maison); return (maison, j, j.Presente && j.Donnees.Suzerain != null ? SansFaute(lire, j.Donnees.Suzerain) : null); });
         }
-        void Du(Lecture<ComptesDeMaison> j, Lecture<ComptesDeMaison> s)
+        void Du(string maison, Lecture<ComptesDeMaison> j, Lecture<ComptesDeMaison> s)
         {
             var garder = new HashSet<string>(); var siege = j.Presente ? j.Donnees.Maison.Siege : null; var haut = s != null && s.Presente ? s.Donnees.Maison.Siege : null; string cause = null;
             Vector3? a = siege?.Position is PointCarte pa ? carte.PositionSurLaCarte(pa, HAUTEUR) : null, b = haut?.Position is PointCarte pb ? carte.PositionSurLaCarte(pb, HAUTEUR) : null;
-            if (!j.Presente) cause = "lecture refusée : " + j.Absence; else if (j.Donnees.Suzerain == null) cause = "sans suzerain : aucun dû"; else if (!s.Presente) cause = "suzerain " + j.Donnees.Suzerain + " : " + s.Absence;
+            if (!j.Presente) cause = "lecture refusée : " + TexteDuMonde.Absence(j.Absence, maison); else if (j.Donnees.Suzerain == null) cause = "sans suzerain : aucun dû"; else if (!s.Presente) cause = "suzerain non lu : " + TexteDuMonde.Absence(s.Absence, j.Donnees.Suzerain);
             else if (a == null) cause = "votre siège hors carte" + Raison(j.Donnees.Maison); else if (b == null) cause = "siège du suzerain hors carte" + Raison(s.Donnees.Maison);
-            ligneDu = cause != null ? "\nDû au suzerain : " + cause : "\n" + siege.Nom + " → " + haut.Nom + " : " + Kg(j.Donnees.Flux.DuEnvoyeKg) + " de dû" + Fleche(DU, a.Value, b.Value, j.Donnees.Flux.DuEnvoyeKg, VIOLET, garder);
+            ligneDu = cause != null ? "\nDû au suzerain : " + cause : "\n" + siege.Nom + " → " + haut.Nom + " : " + TexteDuMonde.Masse(j.Donnees.Flux.DuEnvoyeKg) + " de dû" + Fleche(DU, a.Value, b.Value, j.Donnees.Flux.DuEnvoyeKg, VIOLET, garder);
             Retirer(n => n == DU && !garder.Contains(n)); if (Legende != null) Afficher();
         }
-        static string Raison(MaisonLue m) => m.Absents.TryGetValue("siege", out var r) ? " : " + r : "";
+        static string Raison(MaisonLue m) => m.Absents.TryGetValue("siege", out var r) ? " : " + TexteDuMonde.Absence(r, m.Id) : "";
         // Une hampe large de l'épaisseur, une pointe de deux épaisseurs sur trois de long (au plus la moitié de la flèche), d'un bord de disque à l'autre.
         string Fleche(string nom, Vector3 a, Vector3 b, double kg, Color couleur, HashSet<string> garder)
         {

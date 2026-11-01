@@ -1,0 +1,8 @@
+ÉCART
+code 1
+graine 0 · drapeau transmis à la session : -forge897GarderAnciens
+Biskra servie : cellule 10103 · drapeau contre_epreuve du rapport : forge897GarderAnciens (affiché, jamais jugé)
+chantier : tick 5 · bourg 165 · 16 passants vus {ouvriers 1, paysans 15} · 16 attendus {ouvriers 1, paysans 15} · ouvriers sur un chantier 1/1 — servi : tick 5 · bourg 165
+vide : tick 6 · bourg 0 · 16 passants vus {ouvriers 1, paysans 15} · 0 attendus {} — servi : tick 6 · bourg 0
+vide nombre : {ouvriers 1, paysans 15} · attendu {} · ÉCART
+vide anciens objets maintenus : [-48816, -48808, -48800, -48792, -48784, -48776, -48768, -48760, -48752, -48744, -48736, -48728, -48720, -48712, -48704, -48696] · attendu [] · ÉCART

@@ -8,10 +8,16 @@
   "chantier_scierie_piquets",
   "chantier_scierie_murs",
   "chantier_four_pain_pise_piquets",
-  "chantier_four_pain_pise_murs"
+  "chantier_four_pain_pise_murs",
+  "chantier_rempart_pise_10m_piquets",
+  "chantier_rempart_pise_10m_murs",
+  "chantier_tour_ksar_0_piquets",
+  "chantier_tour_ksar_0_murs",
+  "chantier_porte_ksar_piquets",
+  "chantier_porte_ksar_murs"
  ],
  "anciens_modules": 49,
- "empreintes": 170,
+ "empreintes": 171,
  "plafonds": {
   "scierie": [
    2400,
@@ -52,6 +58,36 @@
    1200,
    600,
    240
+  ],
+  "chantier_rempart_pise_10m_piquets": [
+   600,
+   400,
+   120
+  ],
+  "chantier_rempart_pise_10m_murs": [
+   1600,
+   800,
+   320
+  ],
+  "chantier_tour_ksar_0_piquets": [
+   600,
+   400,
+   120
+  ],
+  "chantier_tour_ksar_0_murs": [
+   1600,
+   800,
+   320
+  ],
+  "chantier_porte_ksar_piquets": [
+   600,
+   400,
+   120
+  ],
+  "chantier_porte_ksar_murs": [
+   1600,
+   800,
+   320
   ]
  },
  "modules": [
@@ -224,6 +260,132 @@
    "z_min": -1.2291998863220215,
    "z_max": 1.3962510824203491,
    "y_max": 1.4264918565750122
+  },
+  {
+   "id": "chantier_rempart_pise_10m_piquets",
+   "niveaux": 3,
+   "triangles": [
+    266,
+    202,
+    58
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise_clair"
+   ],
+   "x_min": -5.0847368240356445,
+   "x_max": 5.072846412658691,
+   "z_min": -1.6991727352142334,
+   "z_max": 1.7382997274398804,
+   "y_max": 1.0
+  },
+  {
+   "id": "chantier_rempart_pise_10m_murs",
+   "niveaux": 3,
+   "triangles": [
+    1292,
+    148,
+    100
+   ],
+   "y_min": -7.09405867382884e-11,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "gres_ocre",
+    "pise",
+    "stipe_palmier"
+   ],
+   "x_min": -5.098457336425781,
+   "x_max": 5.086566925048828,
+   "z_min": -1.71062171459198,
+   "z_max": 1.749748706817627,
+   "y_max": 7.13225793838501
+  },
+  {
+   "id": "chantier_tour_ksar_0_piquets",
+   "niveaux": 3,
+   "triangles": [
+    298,
+    202,
+    58
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise_clair"
+   ],
+   "x_min": -3.649172782897949,
+   "x_max": 3.649172782897949,
+   "z_min": -3.649172782897949,
+   "z_max": 3.649172782897949,
+   "y_max": 1.0
+  },
+  {
+   "id": "chantier_tour_ksar_0_murs",
+   "niveaux": 3,
+   "triangles": [
+    1216,
+    148,
+    100
+   ],
+   "y_min": -2.6775524020195007e-09,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "gres_ocre",
+    "pise",
+    "stipe_palmier"
+   ],
+   "x_min": -3.6574997901916504,
+   "x_max": 3.6574997901916504,
+   "z_min": -3.6606216430664062,
+   "z_max": 3.6606216430664062,
+   "y_max": 10.788212776184082
+  },
+  {
+   "id": "chantier_porte_ksar_piquets",
+   "niveaux": 3,
+   "triangles": [
+    382,
+    298,
+    58
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise_clair"
+   ],
+   "x_min": -7.999172687530518,
+   "x_max": 7.999172687530518,
+   "z_min": -3.899172782897949,
+   "z_max": 3.899172782897949,
+   "y_max": 1.0
+  },
+  {
+   "id": "chantier_porte_ksar_murs",
+   "niveaux": 3,
+   "triangles": [
+    1596,
+    168,
+    120
+   ],
+   "y_min": -5.704350769519806e-09,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "gres_ocre",
+    "pise",
+    "stipe_palmier"
+   ],
+   "x_min": -8.007499694824219,
+   "x_max": 8.007499694824219,
+   "z_min": -3.9106216430664062,
+   "z_max": 3.9106216430664062,
+   "y_max": 10.282536506652832
   }
  ],
  "references": [
@@ -253,6 +415,75 @@
    "z_min": -3.2201273441314697,
    "z_max": 3.569854497909546,
    "y_max": 4.746720790863037
+  },
+  {
+   "id": "rempart_pise_10m",
+   "niveaux": 3,
+   "triangles": [
+    580,
+    76,
+    76
+   ],
+   "y_min": -4.656612873077393e-10,
+   "materiaux": [
+    "bois_palmier",
+    "gres_ocre",
+    "pise"
+   ],
+   "x_min": -5.040956974029541,
+   "x_max": 5.028693199157715,
+   "z_min": -1.649999976158142,
+   "z_max": 1.689126968383789,
+   "y_max": 10.888448715209961
+  },
+  {
+   "id": "tour_ksar_0",
+   "niveaux": 3,
+   "triangles": [
+    4620,
+    2796,
+    252
+   ],
+   "y_min": -9.778887033462524e-09,
+   "materiaux": [
+    "baie_sombre",
+    "bois_palmier",
+    "gres_ocre",
+    "lumiere",
+    "pise",
+    "pise_clair"
+   ],
+   "x_min": -3.5999999046325684,
+   "x_max": 3.5999999046325684,
+   "z_min": -3.5999999046325684,
+   "z_max": 3.5999999046325684,
+   "y_max": 16.59724998474121
+  },
+  {
+   "id": "porte_ksar",
+   "niveaux": 3,
+   "triangles": [
+    2944,
+    1756,
+    860
+   ],
+   "y_min": -9.313225746154785e-09,
+   "materiaux": [
+    "bois_peint_vert",
+    "brique_crue",
+    "cuivre",
+    "gres_ocre",
+    "pierre_taille",
+    "pise",
+    "pise_clair",
+    "sol_dalle",
+    "zellige"
+   ],
+   "x_min": -7.949999809265137,
+   "x_max": 7.949999809265137,
+   "z_min": -3.8499999046325684,
+   "z_max": 3.8499999046325684,
+   "y_max": 15.819287300109863
   }
  ],
  "chantiers": {
@@ -270,10 +501,25 @@
    "chantier_four_pain_pise_piquets",
    "chantier_four_pain_pise_murs",
    "four_pain_pise"
+  ],
+  "rempart_pise_10m": [
+   "chantier_rempart_pise_10m_piquets",
+   "chantier_rempart_pise_10m_murs",
+   "rempart_pise_10m"
+  ],
+  "tour_ksar_0": [
+   "chantier_tour_ksar_0_piquets",
+   "chantier_tour_ksar_0_murs",
+   "tour_ksar_0"
+  ],
+  "porte_ksar": [
+   "chantier_porte_ksar_piquets",
+   "chantier_porte_ksar_murs",
+   "porte_ksar"
   ]
  },
  "ecart_image": 32.74342535475011,
- "ecart_chantiers": 11.98860879825522,
+ "ecart_chantiers": 10.509781958184341,
  "planche": [
   {
    "id": "chantier_maison_pise_0_piquets",
@@ -373,6 +619,105 @@
    "hauteur": 480,
    "renderers": 1,
    "ecart": 32.52578066284957
+  },
+  {
+   "id": "chantier_rempart_pise_10m_piquets",
+   "rangee": 3,
+   "colonne": 0,
+   "x": 0,
+   "y": 1440,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 11.978112664633962
+  },
+  {
+   "id": "chantier_rempart_pise_10m_murs",
+   "rangee": 3,
+   "colonne": 1,
+   "x": 640,
+   "y": 1440,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 35.25600846022926
+  },
+  {
+   "id": "rempart_pise_10m",
+   "rangee": 3,
+   "colonne": 2,
+   "x": 1280,
+   "y": 1440,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 39.66140162578186
+  },
+  {
+   "id": "chantier_tour_ksar_0_piquets",
+   "rangee": 4,
+   "colonne": 0,
+   "x": 0,
+   "y": 1920,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 10.850838908328749
+  },
+  {
+   "id": "chantier_tour_ksar_0_murs",
+   "rangee": 4,
+   "colonne": 1,
+   "x": 640,
+   "y": 1920,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 31.285714710331167
+  },
+  {
+   "id": "tour_ksar_0",
+   "rangee": 4,
+   "colonne": 2,
+   "x": 1280,
+   "y": 1920,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 37.44817093000656
+  },
+  {
+   "id": "chantier_porte_ksar_piquets",
+   "rangee": 5,
+   "colonne": 0,
+   "x": 0,
+   "y": 2400,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 12.923279879752513
+  },
+  {
+   "id": "chantier_porte_ksar_murs",
+   "rangee": 5,
+   "colonne": 1,
+   "x": 640,
+   "y": 2400,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 32.92416255220448
+  },
+  {
+   "id": "porte_ksar",
+   "rangee": 5,
+   "colonne": 2,
+   "x": 1280,
+   "y": 2400,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 41.55581302295675
   }
  ],
  "verification": {
@@ -532,6 +877,43 @@
    "attendue": "empreinte",
    "obtenues": [
     "empreinte"
+   ],
+   "rougit": true
+  },
+  "tour_hors_references": {
+   "attendue": "echantillon",
+   "obtenues": [
+    "echantillon",
+    "emprise",
+    "hauteur"
+   ],
+   "rougit": true
+  },
+  "porte_decalee": {
+   "attendue": "emprise",
+   "obtenues": [
+    "emprise"
+   ],
+   "rougit": true
+  },
+  "rempart_trop_bas": {
+   "attendue": "hauteur",
+   "obtenues": [
+    "hauteur"
+   ],
+   "rougit": true
+  },
+  "porte_sans_piquets": {
+   "attendue": "suite",
+   "obtenues": [
+    "suite"
+   ],
+   "rougit": true
+  },
+  "case_tour_absente": {
+   "attendue": "planche",
+   "obtenues": [
+    "planche"
    ],
    "rougit": true
   }

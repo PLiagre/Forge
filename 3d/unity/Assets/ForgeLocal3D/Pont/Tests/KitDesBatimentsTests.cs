@@ -111,6 +111,27 @@ namespace Forge.Pont.Tests
             }
         }
 
+        [TestCase("courtine", EtapeDuBatiment.Piquets, "chantier_rempart_pise_10m_piquets")]
+        [TestCase("courtine", EtapeDuBatiment.Murs, "chantier_rempart_pise_10m_murs")]
+        [TestCase("courtine", EtapeDuBatiment.Fini, "rempart_pise_10m")]
+        [TestCase("tour", EtapeDuBatiment.Piquets, "chantier_tour_ksar_0_piquets")]
+        [TestCase("tour", EtapeDuBatiment.Murs, "chantier_tour_ksar_0_murs")]
+        [TestCase("tour", EtapeDuBatiment.Fini, "tour_ksar_0")]
+        [TestCase("porte", EtapeDuBatiment.Piquets, "chantier_porte_ksar_piquets")]
+        [TestCase("porte", EtapeDuBatiment.Murs, "chantier_porte_ksar_murs")]
+        [TestCase("porte", EtapeDuBatiment.Fini, "porte_ksar")]
+        public void LesPiecesDeLEnceinteSeChargentHorsDeLEditeur(string nature, EtapeDuBatiment etape, string nom)
+        { var kit=KitDesBatiments.Charger(); Assert.That(kit,Is.Not.Null); var p=kit.Piece(nature,etape); Assert.That(p.Presente,Is.True,p.Absence); Assert.That(p.Prefab.name,Is.EqualTo(nom)); Assert.That(AssetDatabase.GetAssetPath(p.Prefab),Is.EqualTo("Assets/ForgeLocal3D/Desert/Prefabs/"+nom+".prefab")); }
+        [Test] public void UnePieceDeLEnceinteManquanteEstDeclaree()
+        {
+            var kit=Object.Instantiate(KitDesBatiments.Charger()); KitDesBatiments.PiecesDUneNature porte=null,tour=null;
+            foreach(var n in kit.natures){if(n.nature=="porte")porte=n;else if(n.nature=="tour")tour=n;}
+            var pq=porte.piquets;var mt=tour.murs;var murs=porte.murs;porte.murs=null;
+            try{var m=kit.Piece("porte",EtapeDuBatiment.Murs);Assert.That(m.Presente,Is.False);Assert.That(m.Prefab,Is.Null);Assert.That(m.Absence,Is.EqualTo("pièce manquante au kit : porte murs"));
+                Assert.That(kit.Piece("porte",EtapeDuBatiment.Piquets).Prefab,Is.SameAs(pq));Assert.That(kit.Piece("tour",EtapeDuBatiment.Murs).Prefab,Is.SameAs(mt));}
+            finally{porte.murs=murs;Object.DestroyImmediate(kit);}
+        }
+
         // Lot 737 : les six maisons de terre, dans l'ordre des prefabs, sans repli.
         [Test]
         public void LesSixMaisonsDePiseSontOrdonneesSansRepli()

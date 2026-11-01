@@ -71,8 +71,9 @@ namespace Forge.Interface
             return cadre;
         }
 
-        public static Button Commande(Transform parent, string nom, float x, float y, Action action, bool active = true)
+        public static Button Commande(Transform parent, string nom, float x, float y, Action action, bool active = true, string phrase = null)
         {
+            if (phrase != null && string.IsNullOrWhiteSpace(phrase)) throw new ArgumentException("phrase vide refusée : " + nom);
             var cadre = Cadre(parent, nom, x, y, 340, HauteurCommande);
             var image = cadre.gameObject.AddComponent<Image>();
             MatieresCabinet.Habiller(image, bouton: true);
@@ -104,6 +105,7 @@ namespace Forge.Interface
             texte.alignment = TextAnchor.MiddleCenter;
             texte.color = Couleur("papier");
             EmblemeCommande.Poser(bouton, nom);
+            if (phrase != null) cadre.gameObject.AddComponent<Infobulle>().phrase = phrase; // lot #878 : la commande dit ce qu'elle fait au survol
             return bouton;
         }
 
@@ -127,13 +129,15 @@ namespace Forge.Interface
             Texte(domaine, "Un territoire, des lieux, des habitants.", 24, 88, 900);
             Texte(domaine, "Les dossiers restent ouverts côte à côte pour éclairer vos choix.", 24, 132, 900);
             var retour = Texte(domaine, "Choisissez une commande pour éprouver le composant.", 24, 470, 900);
-            Commande(domaine, "Consulter le dossier", 24, 240, () => retour.text = "Le dossier reste ouvert. Aucun ordre envoyé au monde.");
-            Commande(domaine, "En attente du monde", 24, 320, null, false);
+            Commande(domaine, "Consulter le dossier", 24, 240, () => retour.text = "Le dossier reste ouvert. Aucun ordre envoyé au monde.",
+                phrase: "Ouvre le dossier sans rien envoyer au monde.");
+            Commande(domaine, "En attente du monde", 24, 320, null, false, "Indisponible : aucune partie chargée.");
             Texte(domaine, "Commande indisponible : aucune partie chargée.", 24, 380, 900);
             var conseil = Panneau(fond, "Le conseil", 1124, 242, 700, 610);
             Texte(conseil, "Décider peu, mais décider de ce qui compte.", 24, 88, 650);
             Texte(conseil, "Papier clair, encre sombre.\nUn accent de cire pour le focus.", 24, 150, 650);
-            var focus = Commande(conseil, "Parcourir au clavier", 24, 240, () => retour.text = "Le conseil et le domaine restent visibles ensemble.");
+            var focus = Commande(conseil, "Parcourir au clavier", 24, 240, () => retour.text = "Le conseil et le domaine restent visibles ensemble.",
+                phrase: "Passe d'une commande à l'autre avec les flèches ; Entrée agit.");
             Texte(conseil, "Flèches pour parcourir · Entrée pour agir", 24, 320, 650);
             evenements.GetComponent<EventSystem>().firstSelectedGameObject = focus.gameObject;
             evenements.GetComponent<EventSystem>().SetSelectedGameObject(focus.gameObject);

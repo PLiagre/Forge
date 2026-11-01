@@ -51,7 +51,7 @@ def _pr(**champs):
     return base
 
 
-FAIT = {"role": "codeur", "etat": "fait", "agent": "codex/sol", "sha": "tete"}
+FAIT = {"role": "codeur", "etat": "fait", "agent": "cursor/kimi", "sha": "tete"}
 
 
 @pytest.mark.parametrize("pr,ci,liste,attendu", [
@@ -182,10 +182,10 @@ def test_les_decoupes_imbriquees_retiennent_tous_leurs_ancetres():
 
 
 def test_les_auteurs_d_un_lot():
-    # Les familles de modèles qui ont écrit du code : codex/sol est d'OpenAI.
+    # Les familles de modèles qui ont écrit du code : cursor/kimi est d'OpenAI.
     liste = [FAIT, {"role": "codeur_3d", "etat": "fait", "agent": "claude/opus"},
              {"role": "codeur", "etat": "echec", "agent": "cursor/grok"}, {"role": "chef", "agent": "claude/x"}]
-    assert lots.auteurs(liste) == frozenset({"gpt", "claude"})
+    assert lots.auteurs(liste) == frozenset({"kimi", "claude"})
     # Le même modèle par un autre outil est le même auteur.
     assert lots.auteurs([{"role": "codeur_3d", "etat": "fait", "agent": "cursor/claude-opus-5-5-high"}]) == {"claude"}
 

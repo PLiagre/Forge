@@ -20,6 +20,8 @@ pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide, puis ses chantiers prennent des bras aux champs.
 `/plan` ajoute `chantiers_du_jour` uniquement si la cellule a des observations du dernier jour joué : liste triée rue/parcelle/bâtiment puis identifiant, avec `nature`, `identifiant`, `bras` (personnes affectées ce jour), `grain_paye_kg` (kilogrammes effectivement payés, sans arrondi), `motif_arret` (`null` si travail).
 `/plan` ajoute `recolte_perdue_par_chantier` seulement si un coût est strictement positif : liste triée rue/parcelle/bâtiment puis identifiant, avec `nature`, `identifiant` et `recolte_perdue_kg` (kilogrammes, sans arrondi). Le champ est absent pour une autoconstruction, un chantier sans bras ou un coût nul. Le partage se fait par lieu, au prorata des bras pris ; la somme égale l'écart mesuré. Le relevé est figé avec le tick et la date et ne se recalcule pas à la lecture.
+`/plan` ajoute `portes` à côté de `enceinte` quand elle existe : liste triée des croisements du mur avec les rues (`point`, `rue` "plan" ou "base", `identifiant`, `largeur_m`), calculée à la lecture et jamais stockée.
+L'enceinte tracée prend ses bras après les rues, les parcelles et les bâtiments (clé `(cell_id, "enceinte", 0)`) : `/plan` la publie après les bâtiments, ordre rue/parcelle/bâtiment/enceinte, avec les mêmes champs.
 Un arrêt garde deux zéros et sa cause ; un achèvement garde son paiement ce jour puis disparaît. À l'ouverture ou sans observation, le champ est absent : aucun salaire nul n'est inventé. Le tick et la date sont ceux de fin de journée ; plusieurs ticks ne publient que le dernier. Les lectures servent des octets figés, sans recalcul du salaire.
 `GET /maisons` liste toutes les maisons ; `GET /maison?id=X` sert leur siège,
 leurs lieux, leur part, leur grenier et leurs flux sur trente jours (kilos et
@@ -40,6 +42,7 @@ La durée publiée inclut l'IA ; les autres routes gardent leur forme.
 `{"type": "decouper_parcelle", "cell": X, "rue": 0, "segment": 0,
 "debut_m": 5, "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}`
 ou `{"type": "poser_batiment", "cell": X, "parcelle": 0, "nature": "maison"}`.
+`{"type": "tracer_enceinte", "cell": C, "points": [[x, y], …]}` suit les mêmes règles : refus « enceinte : contour qui se croise », « enceinte : place de 1400 non entourée », « enceinte déjà tracée », « enceinte déjà promise » ; assise `ASSISE_ENCEINTE_M` ; entrée au plan au tick suivant.
 Les trois constructions exigent un bourg tenu par la maison déposante : sinon « ce lieu n'est pas à toi : <maître> ».
 HTTP exige un départ appliqué et impose sa maison au JSON copié, même si le client en fournit une autre.
 Avec `--gestes`, chaque construction exige `maison`, identifiant explicite du registre, même sans départ choisi ; l'exemple construit à Biskra pour `seigneurie-6`.
@@ -85,6 +88,7 @@ constantes, limites — dans [`MODELE.md`](MODELE.md).
 | `sim/logement.py` | Places des maisons finies, artisans logés et sans logis, dérivés sans effet sur le tick |
 | `sim/foyers.py` | Foyers par métier : rangement réversible et répartition entière des habitants |
 | `sim/plan.py` | Plan du bourg : rues, parcelles et bâtiments validés, sérialisation triée |
+| `sim/portes.py` | Portes de l'enceinte : croisements de son contour avec les rues du plan et de la base, `PorteSansRue`, jamais stockées |
 | `sim/routes_interieures.py` | Route achevée vers un lieu de la cellule : elle quadruple le chemin de ce lieu vers le bourg |
 | `sim/ville1400.py` | Ville de 1400 dérivée des foyers du bourg : place, rues, ruelles, maisons individuelles jusqu'à 500 foyers puis îlots, sans effet sur le tick ; `/plan` sert la base |
 | `sim/ateliers.py` | Emploi des artisans par surface des scieries et fours achevés, pris aux champs |

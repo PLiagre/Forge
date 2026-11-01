@@ -1083,6 +1083,120 @@
         1.2291998863220215,
         1.4264918565750122
       ]
+    },
+    {
+      "id": "chantier_rempart_pise_10m_piquets",
+      "kind": "batiment",
+      "triangles": [
+        266,
+        202,
+        58
+      ],
+      "bounds_min": [
+        -5.072846412658691,
+        -1.7382997274398804,
+        0.0
+      ],
+      "bounds_max": [
+        5.0847368240356445,
+        1.6991727352142334,
+        1.0
+      ]
+    },
+    {
+      "id": "chantier_rempart_pise_10m_murs",
+      "kind": "batiment",
+      "triangles": [
+        1292,
+        148,
+        100
+      ],
+      "bounds_min": [
+        -5.086566925048828,
+        -1.749748706817627,
+        -7.09405867382884e-11
+      ],
+      "bounds_max": [
+        5.098457336425781,
+        1.71062171459198,
+        7.13225793838501
+      ]
+    },
+    {
+      "id": "chantier_tour_ksar_0_piquets",
+      "kind": "batiment",
+      "triangles": [
+        298,
+        202,
+        58
+      ],
+      "bounds_min": [
+        -3.649172782897949,
+        -3.649172782897949,
+        0.0
+      ],
+      "bounds_max": [
+        3.649172782897949,
+        3.649172782897949,
+        1.0
+      ]
+    },
+    {
+      "id": "chantier_tour_ksar_0_murs",
+      "kind": "batiment",
+      "triangles": [
+        1216,
+        148,
+        100
+      ],
+      "bounds_min": [
+        -3.6574997901916504,
+        -3.6606216430664062,
+        -2.6775524020195007e-09
+      ],
+      "bounds_max": [
+        3.6574997901916504,
+        3.6606216430664062,
+        10.788212776184082
+      ]
+    },
+    {
+      "id": "chantier_porte_ksar_piquets",
+      "kind": "batiment",
+      "triangles": [
+        382,
+        298,
+        58
+      ],
+      "bounds_min": [
+        -7.999172687530518,
+        -3.899172782897949,
+        0.0
+      ],
+      "bounds_max": [
+        7.999172687530518,
+        3.899172782897949,
+        1.0
+      ]
+    },
+    {
+      "id": "chantier_porte_ksar_murs",
+      "kind": "batiment",
+      "triangles": [
+        1596,
+        168,
+        120
+      ],
+      "bounds_min": [
+        -8.007499694824219,
+        -3.9106216430664062,
+        -5.704350769519806e-09
+      ],
+      "bounds_max": [
+        8.007499694824219,
+        3.9106216430664062,
+        10.282536506652832
+      ]
     }
   ],
   "materials": [
@@ -1642,6 +1756,21 @@
       "chantier_four_pain_pise_piquets",
       "chantier_four_pain_pise_murs",
       "four_pain_pise"
+    ],
+    "rempart_pise_10m": [
+      "chantier_rempart_pise_10m_piquets",
+      "chantier_rempart_pise_10m_murs",
+      "rempart_pise_10m"
+    ],
+    "tour_ksar_0": [
+      "chantier_tour_ksar_0_piquets",
+      "chantier_tour_ksar_0_murs",
+      "tour_ksar_0"
+    ],
+    "porte_ksar": [
+      "chantier_porte_ksar_piquets",
+      "chantier_porte_ksar_murs",
+      "porte_ksar"
     ]
   }
 }

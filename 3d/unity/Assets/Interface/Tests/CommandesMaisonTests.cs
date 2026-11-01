@@ -1,20 +1,22 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Forge.Pont;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Forge.Interface.Tests
 {
     public sealed class CommandesMaisonTests
     {
-        const string Document = "{\"tick\":9,\"id\":\"bar\",\"part\":0.2,\"grenier\":{\"grain\":12},\"absents\":{}}";
+        const string Document = "{\"tick\":9,\"id\":\"bar\",\"part\":0.2,\"grenier\":{\"grain\":12},\"absents\":{},\"date\":{\"annee\":1400,\"jour_de_l_annee\":10}}";
         [Test] public void Le_releve_garde_tick_unites_et_raison_d_absence()
         {
             string texte = CommandesMaison.Decrire(new DocumentDuMonde(Document));
-            StringAssert.Contains("20 %", texte); StringAssert.Contains("tick 9", texte); StringAssert.Contains("12 kg", texte);
+            StringAssert.Contains("20 %", texte); StringAssert.Contains("relevé au jour 10 de 1400", texte); StringAssert.Contains("12 kg", texte);
             string absent = Document.Replace("0.2", "null").Replace("\"absents\":{}", "\"absents\":{\"part\":\"non transmise\"}");
             StringAssert.Contains("non transmise", CommandesMaison.Decrire(new DocumentDuMonde(absent)));
             Assert.Throws<ArgumentException>(() => CommandesMaison.Decrire(new DocumentDuMonde(Document.Replace("0.2", "null"))));
@@ -46,10 +48,10 @@ namespace Forge.Interface.Tests
         }
         static Button B(GameObject p, string n) => p.GetComponentsInChildren<Button>(true).Single(b => b.name == n);
         static string Textes(GameObject p) => string.Join("\n", p.GetComponentsInChildren<Text>(true).Select(t => t.text));
-        static async Task<GameObject> Monter(Func<string, Task<RecuIntention>> envoyer, CommandesMaison[] vue, bool comptes)
+        static async Task<GameObject> Monter(Func<string, Task<RecuIntention>> envoyer, CommandesMaison[] vue, bool comptes, Func<HorlogeLue> horloge = null)
         {
             var parent = new GameObject("preuve-656", typeof(RectTransform)); var lecture = new LectureDossier(_ => Task.FromResult(new DocumentDuMonde(Document)));
-            vue[0] = parent.AddComponent<CommandesMaison>(); vue[0].Initialiser(parent.transform, () => "bar", lecture, new OrdreConfirme(envoyer));
+            vue[0] = parent.AddComponent<CommandesMaison>(); vue[0].Initialiser(parent.transform, () => "bar", lecture, new OrdreConfirme(envoyer), horloge);
             if (comptes) await lecture.Actualiser("/maison?id=bar"); vue[0].Afficher(); return parent;
         }
         static void Geste(GameObject p, CommandesMaison v, string bouton, string texte)
@@ -108,15 +110,45 @@ namespace Forge.Interface.Tests
         [Test] public async Task Le_panneau_dit_le_tick_recu_la_raison_ou_la_cause()
         {
             int etape = 0; var vue = new CommandesMaison[1]; const string Raison = "grenier insuffisant : 13.5 kg demandés, 12.0 kg disponibles";
-            var parent = await Monter(_ => { etape++; return Task.FromResult(etape == 1 ? RecuIntention.AccepteeAu(17) : etape == 2 ? RecuIntention.Refusee(400, Raison) : RecuIntention.Absente("coupure témoin")); }, vue, true);
+            var parent = await Monter(_ => { etape++; return Task.FromResult(etape == 1 ? RecuIntention.AccepteeAu(17) : etape == 2 ? RecuIntention.Refusee(400, Raison) : RecuIntention.Absente("coupure témoin")); }, vue, true, () => new HorlogeLue(17, new DateDuMonde(1400, 18), 0));
             try
             {
-                Geste(parent, vue[0], "Prélèvement", "25"); string textes = Textes(parent); StringAssert.Contains("après le tick 17", textes); StringAssert.DoesNotContain("après le tick 9", textes); StringAssert.DoesNotContain("après le tick 18", textes);
-                string releve = parent.GetComponentsInChildren<Text>(true).Select(t => t.text).Single(t => t.StartsWith("Prélèvement :")); StringAssert.Contains("20 %", releve); StringAssert.Contains("12 kg", releve); StringAssert.Contains("tick 9", releve);
+                Geste(parent, vue[0], "Prélèvement", "25"); string textes = Textes(parent); StringAssert.Contains("Ordre reçu au jour 18 de 1400. Le monde l'applique au jour suivant.", textes); StringAssert.DoesNotContain("reçu au jour 10 de 1400", textes); StringAssert.DoesNotContain("reçu au jour 19 de 1400", textes);
+                string releve = parent.GetComponentsInChildren<Text>(true).Select(t => t.text).Single(t => t.StartsWith("Prélèvement :")); StringAssert.Contains("20 %", releve); StringAssert.Contains("12 kg", releve); StringAssert.Contains("relevé au jour 10 de 1400", releve);
                 B(parent, "Annuler / Retour").onClick.Invoke(); vue[0].Afficher(); Geste(parent, vue[0], "Ouvrir le grenier", "13,5");
                 StringAssert.Contains("Refus : " + Raison, Textes(parent));
                 B(parent, "Annuler / Retour").onClick.Invoke(); vue[0].Afficher(); Geste(parent, vue[0], "Ouvrir le grenier", "1");
                 textes = Textes(parent); StringAssert.Contains("Envoi non confirmé : coupure témoin", textes); StringAssert.DoesNotContain("Refus", textes);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(parent); }
+        }
+        [Test] public void Le_releve_dit_la_date_et_les_tonnes_et_tait_les_identifiants()
+        {
+            const string Doc = "{\"tick\":31,\"id\":\"seigneurie-3\",\"part\":0.5,\"grenier\":{\"nourriture\":570982.179398794,\"bois\":0},\"absents\":{},\"date\":{\"annee\":1400,\"jour_de_l_annee\":32}}";
+            string texte = CommandesMaison.Decrire(new DocumentDuMonde(Doc));
+            Assert.AreEqual("Prélèvement : 50 % · relevé au jour 32 de 1400\nGrenier : bois : 0 kg · nourriture : 571 t", texte); Assert.IsNull(TexteDuMonde.Interdit(texte), texte); Assert.IsNull(TexteDuMonde.SansUnite(texte), texte);
+            Assert.AreEqual("Grenier : vide", CommandesMaison.Decrire(new DocumentDuMonde(Doc.Replace("{\"nourriture\":570982.179398794,\"bois\":0}", "{}"))).Split('\n')[1]);
+            string sansPart = Doc.Replace("\"part\":0.5", "\"part\":null").Replace("\"absents\":{}", "\"absents\":{\"part\":\"part absent pour la maison seigneurie-3\"}"); LogAssert.Expect(LogType.Log, new Regex("part absent pour la maison seigneurie-3"));
+            StringAssert.StartsWith("Prélèvement : déclaré absent par le monde · relevé au jour 32 de 1400", CommandesMaison.Decrire(new DocumentDuMonde(sansPart)));
+            string sansGrenier = Doc.Replace("{\"nourriture\":570982.179398794,\"bois\":0}", "null").Replace("\"absents\":{}", "\"absents\":{\"grenier\":\"grenier absent pour la maison bar\"}"); Assert.AreEqual("Grenier : grenier absent pour la maison bar", CommandesMaison.Decrire(new DocumentDuMonde(sansGrenier)).Split('\n')[1]);
+            StringAssert.Contains("Date", Assert.Throws<ArgumentException>(() => CommandesMaison.Decrire(new DocumentDuMonde(Doc.Replace(",\"date\":{\"annee\":1400,\"jour_de_l_annee\":32}", "")))).Message);
+        }
+        [Test] public async Task Le_recu_n_est_date_qu_a_l_horloge_du_meme_tick()
+        {
+            int envois = 0; HorlogeLue lue = null; var vue = new CommandesMaison[1]; const string Sans = "Ordre reçu. Le monde l'applique au jour suivant.";
+            var parent = await Monter(_ => Task.FromResult(++envois <= 3 ? RecuIntention.AccepteeAu(17) : RecuIntention.Absente("POST /intention : 127.0.0.1:8000 injoignable")), vue, true, () => lue);
+            void Propre() { string m = vue[0].MessageAffiche; Assert.IsNull(TexteDuMonde.Interdit(m), m); Assert.IsNull(TexteDuMonde.SansUnite(m), m); } void Retour() { B(parent, "Annuler / Retour").onClick.Invoke(); vue[0].Afficher(); }
+            try
+            {
+                foreach (var h in new[] { null, new HorlogeLue(16, new DateDuMonde(1400, 17), 0) }) // non lue, puis lue un tick trop tôt
+                {
+                    lue = h; LogAssert.Expect(LogType.Log, new Regex("après le tick 17")); Geste(parent, vue[0], "Prélèvement", "25");
+                    StringAssert.EndsWith(Sans, vue[0].MessageAffiche); StringAssert.DoesNotContain("reçu au", vue[0].MessageAffiche); Propre(); Retour();
+                }
+                lue = new HorlogeLue(17, new DateDuMonde(1400, 18), 0); Geste(parent, vue[0], "Prélèvement", "25"); StringAssert.Contains("Ordre reçu au jour 18 de 1400. Le monde l'applique au jour suivant.", vue[0].MessageAffiche); Propre();
+                string garde = vue[0].MessageAffiche; lue = new HorlogeLue(18, new DateDuMonde(1400, 19), 0); vue[0].Afficher(); Assert.AreEqual(garde, vue[0].MessageAffiche); Retour();
+                LogAssert.Expect(LogType.Log, new Regex("127.0.0.1:8000 injoignable")); Geste(parent, vue[0], "Prélèvement", "25");
+                StringAssert.Contains("Envoi non confirmé : déclaré absent par le monde\nVérifiez le monde", vue[0].MessageAffiche); Propre(); Assert.AreEqual(4, envois);
             }
             finally { UnityEngine.Object.DestroyImmediate(parent); }
         }

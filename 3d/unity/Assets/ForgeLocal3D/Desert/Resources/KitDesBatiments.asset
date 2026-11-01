@@ -25,6 +25,18 @@ MonoBehaviour:
     piquets: {fileID: 8525422234860915443, guid: a9a830a624ed67c46b98d3629df51fca, type: 3}
     murs: {fileID: 7111400619667868090, guid: fb7d386753565a04dadc08b0f65054ed, type: 3}
     fini: {fileID: 4583928087612599342, guid: a4d96dbbf41d1e64ca4442f83ec9e7cb, type: 3}
+  - nature: courtine
+    piquets: {fileID: 6117145514765731145, guid: 59bb6c64249513c46addebedf2c7f708, type: 3}
+    murs: {fileID: 1178702889233161302, guid: bb0c52abf49cff54b97899208f8992df, type: 3}
+    fini: {fileID: 5074625257306788448, guid: d9af4bd443ec6a74e971eed0053f3b80, type: 3}
+  - nature: tour
+    piquets: {fileID: 3848031140142883035, guid: 07a105d264931854985db8094cafad4b, type: 3}
+    murs: {fileID: 3268272965103138085, guid: 2204d50f4e3e215448e9760eb7e68f14, type: 3}
+    fini: {fileID: 1087357262357363423, guid: 818631bf944d2fd48a4b2c5b719a0e82, type: 3}
+  - nature: porte
+    piquets: {fileID: 6116653686722214395, guid: 1bafe8c9f9873f14997e8e44f805175f, type: 3}
+    murs: {fileID: 5018756185666416233, guid: 1476763e17138ac438fd3a3b3eee935a, type: 3}
+    fini: {fileID: 690524212583670692, guid: 94312954213e128409f37034466b8987, type: 3}
   maisonsPise:
   - {fileID: 6017052373620483911, guid: 450a5528a7bc7334a83dcc57c20c1d6e, type: 3}
   - {fileID: 3134519004614666981, guid: 417d2e12db9d85b45a3cc142c9d82c6f, type: 3}

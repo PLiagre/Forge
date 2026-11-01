@@ -754,5 +754,92 @@ namespace Forge.Pont.Tests
             var points = new[] { new PointLocal(0, 0), new PointLocal(1, 0) }; var ancien = new PlanLu(1, 0, new RueDuPlan[0], new ParcelleDuPlan[0], new BatimentDuPlan[0]);
             Assert.IsTrue(ancien.ChantiersDuJour == null && ancien.AbsenceDesChantiersDuJour != null && new RueDuPlan(0, points, 1, false).PorteCellId == null && new RueDeBase(points, 1, "ruelle").VersCellId == null);
         }
+
+        // Lot #904 — la Biskra murée en chantier que le service rend au tick 3 (`test_epreuve_enceinte.py`).
+        private static string Fixture(string nom) => System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/ForgeLocal3D/Pont/Tests/" + nom);
+        private const string MUREE = "plan-biskra-enceinte-graine0-tick3.json", PORTE = "\"identifiant\":0,\"largeur_m\":4,\"point\":[-80.0,2.2],\"rue\":\"plan\"";
+
+        private LecturePlan LireBiskra(string corps) { Fermer(); Servir(200, corps); return Lire(10103); }
+        private string RefusDeBiskra(string corps)
+        { LecturePlan l = LireBiskra(corps); Assert.IsTrue(!l.Presente && l.Plan == null && l.Absence.Contains("10103"), "une faute ne rend jamais de plan partiel"); return l.Absence; }
+
+        [Test]
+        public void LaBiskraMureeEnChantierEstRelue()
+        {
+            string texte = Fixture(MUREE); LecturePlan lecture = LireBiskra(texte);
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            PlanLu p = lecture.Plan; EnceinteDuPlan e = p.Enceinte; IReadOnlyList<ChantierDuJour> c = p.ChantiersDuJour;
+            Assert.IsTrue(p.Tick == 3 && p.Parcelles.Count == 0 && p.Batiments.Count == 0 && p.Base.Maisons.Count == 33 && p.Base.Rues.Count == 7 && p.Rues.Count == 1);
+            var servie = (Dictionary<string, object>)((List<object>)LecteurJson.LireObjet(texte)["rues"])[0];
+            Points(p.Rues[0].Points, -66, 2.2, -120, 2.2);
+            Assert.IsTrue(p.Rues[0].Identifiant == 0 && p.Rues[0].LargeurM == 4 && p.Rues[0].EnChantier && (double)servie["travail_fourni"] == 5 && (double)servie["travail_requis"] == 108);
+            Points(e.Contour, -80, -80, 80, -80, 80, 80, -80, 80);
+            Assert.IsTrue(e.EnChantier && e.Foyers == 2 && e.TravailFourni == 1 && e.TravailRequis == 19200 && p.Portes.Count == 1, p.Portes.Count + " portes");
+            Point(p.Portes[0].Point, -80, 2.2);
+            Assert.IsTrue(p.Portes[0].Rue == "plan" && p.Portes[0].Identifiant == 0 && p.Portes[0].LargeurM == 4);
+            Assert.IsTrue(c.Count == 2 && c[0].Nature == "rue" && c[1].Nature == "enceinte" && c.All(x => x.Identifiant == 0 && x.MotifArret == null), "le relevé dans l'ordre servi");
+            Assert.IsTrue(c[0].Bras == 5 && c[0].GrainPayeKg == 15 && c[1].Bras == 1 && c[1].GrainPayeKg == 3);
+        }
+
+        [Test] // Lot #925 — le contour servi devient 4 tours et 64 pans, aux piquets tant que la moitié du travail manque.
+        public void LaBiskraMureeSeDecoupe()
+        {
+            LecturePlan lecture = LireBiskra(Fixture(MUREE)); Assert.IsTrue(lecture.Presente, lecture.Absence);
+            EnceinteDuPlan e = lecture.Plan.Enceinte; DecoupeDeLEnceinte d = PansDeLEnceinte.Decouper(e);
+            Assert.IsTrue(d.Presente && d.Pieces.Count == 68 && d.Pieces[17].Nature == NatureDePiece.Tour && d.Pieces[17].CentreX == 80 && d.Pieces[17].CentreY == -80, d.Absence + " " + d.Pieces.Count);
+            Assert.AreEqual(EtapeDuBatiment.Piquets, PansDeLEnceinte.Etape(e));
+        }
+
+        [Test] // Lot #926 — la rue du joueur passe le mur ouest : le pan 7 du côté 3 s'ouvre sur une porte tournée dehors.
+        public void LaBiskraMureeOuvreSaPorte()
+        {
+            LecturePlan lecture = LireBiskra(Fixture(MUREE)); Assert.IsTrue(lecture.Presente, lecture.Absence); PlanLu p = lecture.Plan;
+            DecoupeDeLEnceinte d = PansDeLEnceinte.Decouper(p.Enceinte, p.Portes); IReadOnlyList<PieceDeLEnceinte> s = d.Pieces;
+            Assert.IsTrue(d.Presente && p.Portes.Count == 1 && s.Count == 67 + p.Portes.Count && s.Count(x => x.Nature == NatureDePiece.Tour) == 4 && s.Count(x => x.Nature == NatureDePiece.Pan) == 63
+                && s.Count(x => x.Nature == NatureDePiece.Porte) == p.Portes.Count, d.Absence + " " + s.Count);
+            PieceDeLEnceinte porte = s[67]; Assert.IsTrue(porte.Nature == NatureDePiece.Porte && porte.Cote == 3 && porte.Indice == 0, porte.Nature + " " + porte.Cote);
+            Assert.AreEqual(-80, porte.CentreX, 1e-9); Assert.AreEqual(2.2, porte.CentreY, 1e-9); Assert.AreEqual(77.8, porte.AbscisseM, 1e-9); Assert.AreEqual(4, porte.LongueurM, 1e-9); Assert.AreEqual(90, porte.LacetDegres, 1e-9);
+            Assert.IsTrue(!s.Any(x => x.Nature == NatureDePiece.Pan && x.Cote == 3 && x.Indice == 7) && s.Count(x => x.Nature == NatureDePiece.Pan && x.Cote == 3) == 15, "le pan 7 du côté 3 s'ouvre, et lui seul");
+            Assert.IsTrue(s[17].Nature == NatureDePiece.Tour && s[17].CentreX == 80 && s[17].CentreY == -80);
+        }
+
+        [TestCase("\"enceinte\":{\"contour\"", "\"enceinte\":null,\"x\":{\"contour\"", "clé enceinte :", "un objet attendu")]
+        [TestCase("[[-80,-80],[80,-80],[80,80],[-80,80]]", "[[-80,-80],[80,-80]]", "enceinte.contour", "au moins 3 points")]
+        [TestCase("\"foyers\":2", "\"foyers\":1.5", "enceinte.foyers", "un entier")]
+        [TestCase("\"travail_fourni\":1,\"travail_requis\":19200", "\"travail_fourni\":19201,\"travail_requis\":19200", "enceinte.travail_fourni", "dépasse")]
+        [TestCase("\"en_chantier\":true,\"foyers\":2", "\"en_chantier\":false,\"foyers\":2", "enceinte.en_chantier", "contredit")]
+        [TestCase(",\"portes\":[", ",\"portails\":[", "clé absente : portes", "portes")]
+        [TestCase("\"enceinte\":{\"contour\":[[-80,-80],[80,-80],[80,80],[-80,80]],\"en_chantier\":true,\"foyers\":2,\"travail_fourni\":1,\"travail_requis\":19200},", "", "clé portes", "sans enceinte")]
+        [TestCase("\"point\":[-80.0,2.2]", "\"point\":[-80.0]", "portes[0].point", "exactement 2 nombres")]
+        [TestCase("\"rue\":\"plan\"", "\"rue\":\"chemin\"", "portes[0].rue", "plan ou base")]
+        [TestCase("\"largeur_m\":4,\"point\"", "\"largeur_m\":0,\"point\"", "portes[0].largeur_m", "> 0")]
+        [TestCase(PORTE, "\"identifiant\":3,\"largeur_m\":4,\"point\":[-80.0,2.2],\"rue\":\"plan\"", "portes[0].identifiant", "aucune rue 3")]
+        [TestCase(PORTE, "\"identifiant\":7,\"largeur_m\":4,\"point\":[-80.0,2.2],\"rue\":\"base\"", "portes[0].identifiant", "aucune rue de base 7")]
+        [TestCase("\"nature\":\"enceinte\"", "\"nature\":\"mur\"", "chantiers_du_jour[1].nature", "enceinte attendu")]
+        public void UneEnceinteOuUnePorteMalFormeeRefuseLePlan(string ancien, string nouveau, string chemin, string precision)
+        {
+            string absence = RefusDeBiskra(RemplacerUneFois(Fixture(MUREE), ancien, nouveau));
+            StringAssert.Contains(chemin, absence); StringAssert.Contains(precision, absence);
+        }
+
+        [Test]
+        public void UnePorteDeBaseExigeLaBase()
+        {
+            string texte = RemplacerUneFois(Fixture(MUREE), PORTE, PORTE.Replace("\"plan\"", "\"base\"")); LecturePlan lecture = LireBiskra(texte);
+            Assert.IsTrue(lecture.Presente && lecture.Plan.Portes[0].Rue == "base" && lecture.Plan.Portes[0].Identifiant == 0, lecture.Absence);
+            StringAssert.Contains("aucune rue de base 0", RefusDeBiskra("{" + texte.Substring(texte.IndexOf("\"batiments\":", StringComparison.Ordinal))));
+        }
+
+        [Test]
+        public void UnPlanSansEnceinteNAPasDePorte()
+        {
+            foreach (var (corps, cell) in new[] { (PLAN_JOUR, CellFigee), (Fixture("plan-biskra-graine0-tick0.json"), 10103L) })
+            { Fermer(); Servir(200, corps); LecturePlan l = Lire(cell); Assert.IsTrue(l.Presente && l.Plan.Enceinte == null && l.Plan.Portes.Count == 0, l.Absence); }
+            var nu = new PlanLu(1, 0, new RueDuPlan[0], new ParcelleDuPlan[0], new BatimentDuPlan[0]);
+            Assert.IsTrue(nu.Enceinte == null && nu.Portes.Count == 0);
+            Assert.Throws<ArgumentNullException>(() => new EnceinteDuPlan(null, true, 2, 19200, 1));
+            Assert.Throws<ArgumentNullException>(() => new PorteDuPlan(new PointLocal(0, 0), null, 0, 4));
+            Assert.Throws<NotSupportedException>(() => ((IList<PorteDuPlan>)nu.Portes).Add(null));
+        }
     }
 }
