@@ -11,7 +11,18 @@ from sim.intentions import (
 from sim.model import contenus_des_paniers
 from sim.plan import Rue
 from sim.routes_interieures import _places_de, lieu_de_la_route
-from sim.ville1400 import _sortie
+
+
+def _sortie(angle, demi):
+    """Point du bord de la place carrée et sa direction.
+
+    Même construction que ``ville1400._sortie``. Ce module ne l'importe pas :
+    le plan de base n'admet comme importeurs que ville1400, intentions et service.
+    """
+    ux, uy = math.cos(angle), math.sin(angle)
+    portee = max(abs(ux), abs(uy))
+    distance = demi / portee
+    return (distance * ux, distance * uy), (ux, uy), (-uy, ux)
 
 
 def _ecarts_essayes():
