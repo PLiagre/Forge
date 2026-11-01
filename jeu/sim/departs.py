@@ -74,7 +74,7 @@ def appliquer_departs(world) -> int:
             candidat = bourgs.get(voisin)
             if candidat is None:
                 continue
-            reserve = photo[candidat][2]
+            reserve = photo[candidat][-1]
             actuelle = reserves_voisins.get(cid)
             if actuelle is None or reserve > actuelle or (
                     reserve == actuelle and candidat < voisins[cid]):
