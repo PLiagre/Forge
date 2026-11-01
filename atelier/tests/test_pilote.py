@@ -332,6 +332,27 @@ def test_le_relecteur_accepte_et_la_fusion_part(projet, gh, depot, tmp_path):
     assert gh.tetes_fusionnees == ["a" * 40]
 
 
+def test_un_verdict_que_cursor_colle_au_message_suivant_se_lit(projet, gh, depot, tmp_path):
+    # #825, 31 octobre 2026 : composer a rendu « VERDICT: ACCEPTE », puis un
+    # second message sur ses tests finis ; Cursor colle ses messages sans
+    # saut de ligne, et deux relectures sont tombées en « verdict illisible ».
+    from atelier.pilote import _VERDICT
+
+    colle = ("Aucun constat bloquant.\n\nVERDICT: ACCEPTELes tests SC4/SC5 lancés en arrière-plan sont finis : "
+             "**VERDICT: ACCEPTE** pour la révision `0ade725`.")
+    _en_cours(gh, commentaires=[FAIT_CODEUR])
+    _pilote(projet, gh, depot, Agents((0, colle)), tmp_path).tour()
+    revue = gh.prs_[50]["comments"][-1]["body"]
+    assert revue.startswith("## Relecture — ACCEPTE") and "Les tests SC4/SC5" in revue
+    assert ("fusion_auto", 50) in gh.gestes
+    assert _VERDICT.findall(colle) == ["ACCEPTE"]
+    assert _VERDICT.findall("Constat.\n**VERDICT: CORRIGER**Le codeur relance.") == ["CORRIGER"]
+    # Ce qui suit le verdict après une espace n'est pas une colle : une
+    # acceptation sous condition reste illisible.
+    assert _VERDICT.findall("VERDICT: ACCEPTE à condition de fusionner master") == []
+    assert _VERDICT.findall("VERDICT: ACCEPTE\n") == ["ACCEPTE"]
+
+
 def test_une_pr_deja_fusionnable_est_fusionnee_tout_de_suite_a_la_revision_relue():
     # Mesuré le 28 septembre 2026 sur la PR #174 (lot #118) : relue ACCEPTE,
     # tous ses contrôles verts, GitHub refuse d'armer l'auto-fusion (« clean
