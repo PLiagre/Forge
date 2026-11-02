@@ -77,5 +77,23 @@ namespace Forge.Interface.Tests
             Assert.AreEqual("Habitants : 1 habitant (clair) → 5 631 habitants (foncé) · échelle logarithmique · jour 9 de 1400 · Rouge : territoire conservé", CalquesCarte.LegendeDuCalque(repartition));
             Assert.AreEqual("1400", TexteDuMonde.SansUnite("Puissances de la carte de 1400 · Relief non transmis · Rouge : territoire conservé"));
         }
+        // Lot #963 : chaque mode a sa couleur, sa légende de trois lignes au plus et son détail ; la terre gardée reste rouge.
+        [Test] public void Chaque_mode_a_sa_couleur_et_sa_legende()
+        {
+            var modes = new[] { ModeDeCarte.Puissances, ModeDeCarte.Habitants, ModeDeCarte.Flux }; Color maison = new Color(.2f, .4f, .8f);
+            var teintes = Array.ConvertAll(modes, m => CalquesCarte.Teinte(m, false, maison, .5f)); Assert.That(teintes[0] != teintes[1] && teintes[1] != teintes[2] && teintes[0] != teintes[2], Is.True, string.Join(" / ", teintes));
+            foreach (var mode in modes) Assert.AreEqual(SocleInterface.Couleur("alerte"), CalquesCarte.Teinte(mode, true, maison, .5f), mode.ToString());
+            Assert.AreEqual(CalquesCarte.FLUX, CalquesCarte.LegendeDuMode(ModeDeCarte.Flux, null)); var repartition = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 5631, -1, -1)));
+            foreach (var mode in modes) foreach (string texte in new[] { CalquesCarte.LegendeDuMode(mode, repartition), CalquesCarte.DetailDuMode(mode) }) Assert.IsNull(TexteDuMonde.Interdit(texte) ?? TexteDuMonde.SansUnite(texte), texte);
+            var toile = new GameObject("Toile témoin", typeof(Canvas));
+            try
+            {
+                var calques = toile.AddComponent<CalquesCarte>(); calques.Initialiser(null, toile.transform, () => null, () => null);
+                var texte = SocleInterface.Texte(toile.transform, "", 0, 0, 470); const string QUATRE = "Première ligne\nDeuxième ligne\nTroisième ligne\nQuatrième ligne";
+                Assert.AreEqual(SocleInterface.Corps, texte.fontSize); Assert.AreEqual(4, CalquesCarte.Lignes(texte, QUATRE, 1f));
+                Assert.Throws<ArgumentException>(() => calques.Legender(QUATRE, CalquesCarte.DetailDuMode(ModeDeCarte.Puissances)));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(toile); }
+        }
     }
 }

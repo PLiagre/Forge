@@ -95,8 +95,8 @@ namespace Forge.Interface
             territoire.rectTransform.sizeDelta = new Vector2(536, 260);
             gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
             gameObject.AddComponent<DossierBourg>().Initialiser(toile.transform, lieu, carte.port, () => retenue);
-            var guide = SocleInterface.Panneau(toile.transform, "Parcourir le monde", 24, 872, 1238, 184);
-            gameObject.AddComponent<CalquesCarte>().Initialiser(carte, guide,
+            var guide = SocleInterface.Panneau(toile.transform, "Parcourir le monde", 24, 872, 740, 184);
+            gameObject.AddComponent<CalquesCarte>().Initialiser(carte, toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
             var menu = gameObject.AddComponent<MenuCabinet>(); menu.Initialiser(toile.transform); menu.AvantDOuvrir = Relacher;
             aide = SocleInterface.Texte(guide, AIDE, 24, 88, 1190);

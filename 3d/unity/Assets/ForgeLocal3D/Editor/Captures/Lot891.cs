@@ -23,7 +23,7 @@ namespace ForgeLocal3D.Captures {
             Vector3 vu = carte.camera.WorldToViewportPoint(point); if (!Zone(vu)) throw Echec("étape 2 : bourg en viewport " + vu.ToString("F3") + ", attendu x 0,68–0,98 et y 0,40–0,95");
             CelluleDeCarte moree = carte.CelluleSous(point); if (moree?.CellId != id) throw Echec("étape 2 : sous le bourg, la carte voit " + (moree == null ? "aucune cellule" : N(moree.CellId)) + ", attendu la Morée " + cellule); cabinet.Garder(moree);
             Button Bouton(string parent, string nomBouton) => toile.Find(parent)?.Find(nomBouton)?.GetComponent<Button>() ?? throw Echec("étape 3 : « " + parent + "/" + nomBouton + " » introuvable");
-            Bouton("Territoire conservé", "Plan du bourg").onClick.Invoke(); Bouton("Parcourir le monde", "Habitants").onClick.Invoke();
+            Bouton("Territoire conservé", "Plan du bourg").onClick.Invoke(); Bouton(CalquesCarte.BANDE, "Habitants").onClick.Invoke();
             string Titre() => dossier.Document?.Annee is long ? DossierBourg.Entete(nom, dossier.Document) + " · Nord en haut · Consultation du plan" : null;
             string Legende() { var m = cabinet.Partie.Monde; return m?.Presente == true ? new RepartitionHabitants(m.Donnees.Monde).Legende + " · Rouge : territoire conservé" : null; }
             for (var e = Lot690.Jusqua(() => dossier.Etat != null && dossier.Etat.text == Titre() && calques.Legende != null && calques.Legende.text == Legende(), () => "étape 4 : titre « " + Ligne(dossier.Etat?.text) + " » / « " + Ligne(Titre()) + " » ; légende « " + Ligne(calques.Legende?.text) + " » / « " + Ligne(Legende()) + " »"); e.MoveNext();) yield return null;
