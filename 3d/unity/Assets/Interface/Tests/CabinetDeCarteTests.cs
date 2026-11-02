@@ -356,5 +356,50 @@ namespace Forge.Interface.Tests
             }
             finally { Object.DestroyImmediate(camera.gameObject); }
         }
+        // Lot #963 : la bande des modes et sa légende, en bas à droite de la vue de la carte, ne passent sous aucun panneau.
+        static Rect Zone(RectTransform t, float k) // en unités d'écran, origine en haut à gauche, pour une toile de 1920 × k de large
+        {
+            Assert.That(t.anchorMin, Is.EqualTo(t.anchorMax), t.name + " : ancres étirées"); float x = t.anchorMin.x * 1920 + t.anchoredPosition.x - t.pivot.x * t.sizeDelta.x;
+            return new Rect(x * k, ((1 - t.anchorMin.y) * 1080 - t.anchoredPosition.y - (1 - t.pivot.y) * t.sizeDelta.y) * k, t.sizeDelta.x * k, t.sizeDelta.y * k);
+        }
+        static string Recouvert(Transform toile, Rect zone, float k) => toile.Cast<Transform>().Where(e => e.GetComponent<Image>() is Image i && i.raycastTarget
+            && !new[] { "Fond des dossiers", "Infobulle", CalquesCarte.BANDE, CalquesCarte.LEGENDE }.Contains(e.name)).FirstOrDefault(e => zone.Overlaps(Zone((RectTransform)e, k)))?.name;
+        [Test] public void La_bande_des_modes_et_sa_legende_restent_a_leur_place()
+        {
+            Transform toile = racine.transform.Find("Cabinet"); var bande = (RectTransform)toile.Find(CalquesCarte.BANDE); var fond = (RectTransform)toile.Find(CalquesCarte.LEGENDE); var guide = (RectTransform)toile.Find("Parcourir le monde");
+            foreach (var (nom, repere) in new[] { ("Puissances", "banniere"), ("Habitants", "foule"), ("Flux", "fleche") })
+            {
+                var bouton = bande.Find(nom)?.GetComponent<Button>(); Assert.That(bouton, Is.Not.Null, nom); string phrase = bouton.GetComponent<Infobulle>()?.Phrase;
+                Assert.That(!string.IsNullOrWhiteSpace(phrase) && phrase != nom && bouton.transform.Find("Repère " + repere) != null, Is.True, nom + " : phrase « " + phrase + " » ou repère absent");
+            }
+            Assert.That(guide.anchoredPosition == new Vector2(24, -872) && guide.sizeDelta == new Vector2(740, 184) && guide.Find("Puissances") == null && guide.Find("Habitants") == null, Is.True);
+            var calques = racine.GetComponent<CalquesCarte>(); var repartition = new RepartitionHabitants(new MondeLu(364, new DateDuMonde(1400, 365), 2, new[] { new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 275000, -1, -1) }));
+            foreach (var (texte, mode) in new[] { (CalquesCarte.LegendeDuCalque(null), ModeDeCarte.Puissances), (CalquesCarte.LegendeDuCalque(repartition), ModeDeCarte.Habitants), (CalquesCarte.FLUX, ModeDeCarte.Flux) })
+            {
+                string detail = CalquesCarte.DetailDuMode(mode); calques.Legender(texte, detail);
+                foreach (float echelle in new[] { 1f, 2f / 3f }) Assert.That(CalquesCarte.Lignes(calques.Legende, texte, echelle), Is.InRange(1, CalquesCarte.LIGNES_MAX), mode + " à l'échelle " + echelle);
+                Assert.That(calques.Legende.text == texte && fond.GetComponent<Infobulle>().Phrase == texte + "\n" + detail && calques.Legende.transform.parent == fond, Is.True, mode.ToString());
+                Assert.That(Zone(fond, 1).yMax, Is.EqualTo(1004f).Within(.01f), mode + " : le bas de la légende");
+                foreach (var (largeur, hauteur) in new[] { (1920f, 1080f), (1280f, 720f) }) foreach (var zone in new[] { bande, fond })
+                {
+                    Rect r = Zone(zone, largeur / 1920); string sous = Recouvert(toile, r, largeur / 1920); Assert.That(sous, Is.Null, zone.name + " recouvre « " + sous + " » en " + largeur + " × " + hauteur + " (" + mode + ")");
+                    Assert.That(r.xMin >= 0 && r.yMin >= 0 && r.xMax <= .67f * largeur && r.yMax <= hauteur, Is.True, zone.name + " " + r + " hors de sa place en " + largeur + " × " + hauteur);
+                }
+            }
+            Assert.That(fond.GetComponent<Image>().raycastTarget && bande.parent == toile && fond.parent == toile, Is.True);
+            Assert.That(new Rect(24, 872, 1238, 184).Overlaps(Zone(bande, 1)), Is.True, "contre-épreuve : un guide de 1238 de large recouvre la bande");
+            Assert.That(Recouvert(toile, new Rect(16, 104, 1100, 160), 1), Is.Not.Null, "contre-épreuve : l'ancienne légende des lieux recouvre un feuillet");
+            var aide = racine.GetComponentsInChildren<Text>(true).Single(t => t.name == CabinetDeCarte.AIDE); aide.text = CabinetDeCarte.AIDE; Assert.That(aide.preferredWidth, Is.LessThanOrEqualTo(740 - 2 * 24));
+        }
+        [Test] public void Changer_de_mode_ne_touche_ni_l_horloge_ni_les_lectures()
+        {
+            int appels = 0; partie = new LecturePartie(() => { appels++; return Lecture<MondeAvecMaisonLu>.Absent("lecture témoin"); }, _ => { appels++; return null; }, () => { appels++; return null; }, _ => { appels++; return null; }); cabinet.Partie = partie;
+            var monde = Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), null)); Poser(partie, "Monde", monde);
+            var horlogeDeCarte = racine.GetComponent<HorlogeDeCarte>(); var lue = new HorlogeLue(7, new DateDuMonde(1400, 8), 2); Poser(horlogeDeCarte, "Lue", lue);
+            var calques = racine.GetComponent<CalquesCarte>(); Transform bande = racine.transform.Find("Cabinet/" + CalquesCarte.BANDE);
+            foreach (var mode in new[] { ModeDeCarte.Flux, ModeDeCarte.Habitants, ModeDeCarte.Puissances }) { bande.Find(mode.ToString()).GetComponent<Button>().onClick.Invoke(); Assert.That(calques.Mode, Is.EqualTo(mode)); }
+            Assert.That(appels == 0 && !partie.Occupee && ReferenceEquals(partie.Monde, monde) && !horlogeDeCarte.RequeteEnVol && ReferenceEquals(horlogeDeCarte.Lue, lue), Is.True, appels + " lecture(s), occupée " + partie.Occupee);
+            _ = partie.Actualiser(); Assert.That(partie.Occupee, Is.True, "contre-épreuve : une lecture lancée occupe la partie");
+        }
     }
 }
