@@ -3792,6 +3792,110 @@ def _cle_de_maison(maison):
     return None
 
 
+def _reserve_lue(monde, cle):
+    """Réserve voulue d'une maison relue sur l'index des routes, sans sim/ia.py."""
+    from sim import constants as k
+    routes = monde.routes_des_lieux
+    indice = routes.noms.index(cle)
+    lieux = [(cid, rang) for cid, rang, maitre, _jours in
+             zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours) if maitre == indice]
+    habitants, bourgs = 0, []
+    for cid, rang in lieux:
+        habitants += monde.cells[cid].lieux[rang].population
+        if rang == 0 and cid not in bourgs:
+            bourgs.append(cid)
+    journees = 0
+    for cid in bourgs:
+        plan = monde.plans[cid]
+        for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
+            if ouvrage.en_chantier:
+                journees += ouvrage.travail_requis - ouvrage.travail_fourni
+    nourriture = k.MARCHANDISE_NOURRITURE
+    return (k.consommation_kg_par_habitant_par_tick(nourriture)
+            * (k.RESERVE_VOULUE_JOURS / k.TICK_DURATION_DAYS)
+            * habitants * k.RESERVE_VOULUE_PART_DES_HABITANTS) + journees * k.SALAIRE_JOURNEE_KG
+
+
+def _lire_route_vers_le_champ(monde, maison, intention):
+    """Raison de la route vers le champ, lue sur le monde au tick, sans sim/ia.py ni le programme."""
+    import math
+    from sim import constants as k
+    from sim.chantiers import travail_requis_de_route
+    from sim.model import contenus_des_paniers
+    from sim.routes_interieures import _places_de
+    cell_id = maison.cell_id
+    cle = _cle_de_maison(maison)
+    t = monde.ticks_ecoules
+    nourriture = k.MARCHANDISE_NOURRITURE
+    champs = sorted((lieu for lieu in monde.cells[cell_id].lieux if lieu.rang >= 1),
+                    key=lambda lieu: lieu.rang)
+    vivres = contenus_des_paniers(champs, nourriture)
+    plein = max(range(len(champs)), key=lambda i: (vivres[i], -champs[i].rang))
+    vise = champs[plein].rang
+    points = intention['points']
+    journees = travail_requis_de_route(points, intention['largeur_m'])
+    places = _places_de(monde, cell_id)
+    phi = math.degrees(math.atan2(places[vise].y_m - places[0].y_m, places[vise].x_m - places[0].x_m))
+    cap = math.degrees(math.atan2(points[1][1] - points[0][1], points[1][0] - points[0][0]))
+    return {
+        'regle': 'route_vers_le_champ',
+        'grenier_nourriture_kg': monde.greniers[cle].get(nourriture, 0),
+        'reserve_voulue_kg': _reserve_lue(monde, cle),
+        'journees': journees,
+        'cout_kg': journees * k.SALAIRE_JOURNEE_KG,
+        'faim_du_bourg_ticks': sum(1 for tick in range(t - k.FENETRE_FLUX_TICKS, t)
+                                   if (cell_id, 0) in monde.flux.jours[tick].affames),
+        'champs_nourriture_kg': vivres,
+        'champ_vise': vise,
+        'ecart_degres': round(math.remainder(cap - phi, 360)),
+    }
+
+
+def _controler_routes_vers_le_champ(lectures, propositions):
+    """Chaque proposition porte une raison qui égale la lecture du monde, à égalité exacte."""
+    assert propositions
+    for proposition in propositions:
+        assert 'raison' in proposition
+        couple = (proposition['maison']['sorte'], proposition['maison']['id'])
+        assert proposition['raison'] == lectures[couple]
+
+
+def _noms_sans_ia(fonction):
+    """Aucun nom global lu par la fonction (et ses codes imbriqués) ne vient de sim.ia ni du programme."""
+    import types
+    interdits = ('sim.ia', 'sim.programme_ia')
+    globales = fonction.__globals__
+    codes = [fonction.__code__]
+    while codes:
+        code = codes.pop()
+        codes += [c for c in code.co_consts if isinstance(c, types.CodeType)]
+        for nom in code.co_names:
+            assert nom not in interdits
+            if nom in globales:
+                objet = globales[nom]
+                assert not (isinstance(objet, types.ModuleType) and objet.__name__ in interdits)
+                assert getattr(objet, '__module__', None) not in interdits
+
+
+class _IaInterdite(Exception):
+    pass
+
+
+def _interdire_fonctions(monkeypatch, modules):
+    """Remplace chaque fonction définie dans ces modules par une fonction qui lève."""
+    import inspect
+
+    def interdite(*args, **kwargs):
+        raise _IaInterdite
+    compte = 0
+    for module in modules:
+        for nom, fonction in inspect.getmembers(module, inspect.isfunction):
+            if fonction.__module__ == module.__name__:
+                monkeypatch.setattr(module, nom, interdite)
+                compte += 1
+    return compte
+
+
 def _controler_secours(releve, raisons):
     """Chaque ouverture égale la lecture du monde, sans sim/ia.py."""
     from sim import constants as k
@@ -3982,6 +4086,156 @@ def test_ia_raisons_egalent_le_monde(monkeypatch, bras):
         _controler_secours(faux, raisons)
     with pytest.raises(AssertionError):
         _controler_secours([e for e in secours_releve if e['intention']['type'] != 'ouvrir_grenier'], raisons)
+
+
+def test_ia_route_vers_le_champ_relue(monkeypatch):
+    """Le juge relit la raison de la route vers le champ sur le monde seul, et la prend en faute."""
+    from sim import constants as k
+    from sim import ia, programme_ia
+    from sim.plan import Rue
+    from sim.tests.test_programme_ia import _affamer, _monter
+    nourriture = k.MARCHANDISE_NOURRITURE
+    monde, maisons = _monter()
+
+    def proposer(m, maison):
+        return programme_ia.proposer_route_vers_le_champ(m, maison, [])
+
+    def lire(m, proposition):
+        maison = next(x for x in maisons if (x.sorte, x.id) == (proposition['maison']['sorte'], proposition['maison']['id']))
+        return {(maison.sorte, maison.id): _lire_route_vers_le_champ(m, maison, proposition['intention'])}
+
+    propositions = [(maison, proposer(monde, maison)) for maison in maisons]
+    propositions = [(maison, p) for maison, p in propositions if p is not None]
+    assert propositions, 'aucune maison ne reçoit de route : échantillon vide'
+    M, reference = propositions[0]
+    lectures = {}
+    for maison, proposition in propositions:
+        lectures.update(lire(monde, proposition))
+    print(f'{len(maisons)} maisons montées, {len(propositions)} propositions comparées au juge', flush=True)
+
+    # SC1 : le juge égale le programme ; l'échantillon vide et la raison absente échouent.
+    _controler_routes_vers_le_champ(lectures, [p for _, p in propositions])
+    with pytest.raises(AssertionError):
+        _controler_routes_vers_le_champ(lectures, [])
+    sans_raison = {cle: valeur for cle, valeur in reference.items() if cle != 'raison'}
+    with pytest.raises(AssertionError):
+        _controler_routes_vers_le_champ(lectures, [sans_raison])
+
+    # SC2 : une raison faussée un champ à la fois échoue.
+    raison = reference['raison']
+    autres_rangs = [lieu.rang for lieu in monde.cells[M.cell_id].lieux if lieu.rang != raison['champ_vise']]
+    assert autres_rangs
+    faussees = {
+        'grenier': {'grenier_nourriture_kg': raison['grenier_nourriture_kg'] + 1},
+        'reserve': {'reserve_voulue_kg': raison['reserve_voulue_kg'] + 1},
+        'cout': {'cout_kg': raison['cout_kg'] + 1},
+        'faim': {'faim_du_bourg_ticks': raison['faim_du_bourg_ticks'] - 1},
+        'premier champ': {'champs_nourriture_kg': [raison['champs_nourriture_kg'][0] + 1,
+                                                    *raison['champs_nourriture_kg'][1:]]},
+        'champs sommés': {'champs_nourriture_kg': sum(raison['champs_nourriture_kg'])},
+        'journées': {'journees': raison['journees'] + 1},
+        'champ visé': {'champ_vise': autres_rangs[0]},
+        'écart': {'ecart_degres': raison['ecart_degres'] + k.IA_PAS_ECART_ROUTE_DEGRES},
+        'règle': {'regle': 'route_si_bourg_affame'},
+    }
+    for nom, changement in faussees.items():
+        fausse = {**copy.deepcopy(reference), 'raison': {**copy.deepcopy(raison), **changement}}
+        assert fausse['raison'] != raison, nom
+        with pytest.raises(AssertionError):
+            _controler_routes_vers_le_champ(lectures, [fausse])
+    for cle in raison:
+        fausse = copy.deepcopy(reference)
+        del fausse['raison'][cle]
+        with pytest.raises(AssertionError):
+            _controler_routes_vers_le_champ(lectures, [fausse])
+
+    # SC3 : le juge suit le monde, pas un montage figé.
+    def egaler(copie):
+        proposition = proposer(copie, M)
+        assert proposition is not None
+        lecture = lire(copie, proposition)
+        _controler_routes_vers_le_champ(lecture, [proposition])
+        return proposition, lecture[(M.sorte, M.id)]
+
+    t = monde.ticks_ecoules
+    bourg = monde.cells[M.cell_id].lieux[0]
+    copie = copy.deepcopy(monde)
+    _affamer(copie, M.cell_id, range(t - k.FENETRE_FLUX_TICKS, t, 4))
+    proposition, lecture = egaler(copie)
+    faim = lecture['faim_du_bourg_ticks']
+    print(f'(a) faim du bourg = {faim} jours sur {k.FENETRE_FLUX_TICKS}, duree_faim_ticks = {bourg.duree_faim_ticks}', flush=True)
+    assert faim != raison['faim_du_bourg_ticks'] and faim != bourg.duree_faim_ticks
+    lue_au_jour = {**lecture, 'faim_du_bourg_ticks': bourg.duree_faim_ticks}
+    assert lue_au_jour != proposition['raison']
+    with pytest.raises(AssertionError):
+        _controler_routes_vers_le_champ({(M.sorte, M.id): lue_au_jour}, [proposition])
+
+    journees = 10
+    cle = _cle_de_maison(M)
+    copie = copy.deepcopy(monde)
+    plan = copie.plans[M.cell_id]
+    plan.rues.append(Rue(
+        max((rue.identifiant for rue in plan.rues), default=-1) + 1,
+        [(0.0, 0.0), (20.0, 0.0)], k.IA_LARGEUR_ROUTE_M,
+        en_chantier=True, foyers=k.IA_FOYERS_ROUTE, travail_requis=journees, travail_fourni=0))
+    copie.greniers[cle] = {nourriture: copie.greniers[cle][nourriture] + journees * k.SALAIRE_JOURNEE_KG}
+    proposition, lecture = egaler(copie)
+    montee = lecture['reserve_voulue_kg'] - raison['reserve_voulue_kg']
+    print(f'(b) réserve montée de {montee} kg pour {journees} journées', flush=True)
+    assert montee == pytest.approx(journees * k.SALAIRE_JOURNEE_KG)
+    sans_salaires = {**lecture, 'reserve_voulue_kg': _reserve_lue(monde, cle)}
+    assert sans_salaires != proposition['raison']
+    with pytest.raises(AssertionError):
+        _controler_routes_vers_le_champ({(M.sorte, M.id): sans_salaires}, [proposition])
+
+    champs = sorted((lieu for lieu in monde.cells[M.cell_id].lieux if lieu.rang >= 1), key=lambda lieu: lieu.rang)
+    maximum = max(lieu.stocks[nourriture] for lieu in champs)
+    deplacee = None
+    for lieu in (lieu for lieu in champs if lieu.stocks[nourriture] < maximum):
+        copie = copy.deepcopy(monde)
+        copie.cells[M.cell_id].lieux[lieu.rang].stocks[nourriture] = maximum + 1
+        if proposer(copie, M) is not None:
+            deplacee = copie
+            break
+    assert deplacee is not None
+    proposition, lecture = egaler(deplacee)
+    print(f"(c) champ visé {raison['champ_vise']} -> {lecture['champ_vise']}", flush=True)
+    assert lecture['champ_vise'] != raison['champ_vise']
+    garde = {**lecture, 'champ_vise': raison['champ_vise']}
+    assert garde != proposition['raison']
+    with pytest.raises(AssertionError):
+        _controler_routes_vers_le_champ({(M.sorte, M.id): garde}, [proposition])
+
+    # SC4 : sans sim/ia.py ni le programme.
+    juge = (_lire_route_vers_le_champ, _reserve_lue)
+    for fonction in juge:
+        _noms_sans_ia(fonction)
+    faux = {}
+    exec('def lit_ia():\n    return ia._reserve_voulue', {'ia': ia}, faux)
+    with pytest.raises(AssertionError):
+        _noms_sans_ia(faux['lit_ia'])
+    exec('def lit_programme():\n    return programme_ia.proposer_route_vers_le_champ',
+         {'programme_ia': programme_ia}, faux)
+    with pytest.raises(AssertionError):
+        _noms_sans_ia(faux['lit_programme'])
+    with monkeypatch.context() as ctx:
+        patchees = _interdire_fonctions(ctx, (ia, programme_ia))
+        print(f'{patchees} fonctions de sim.ia et sim.programme_ia remplacées par des fonctions qui lèvent', flush=True)
+        assert patchees
+        relues = {}
+        for maison, proposition in propositions:
+            relues.update(lire(monde, proposition))
+        assert relues == lectures
+        _controler_routes_vers_le_champ(relues, [p for _, p in propositions])
+        with pytest.raises(_IaInterdite):
+            programme_ia.proposer_route_vers_le_champ(monde, M, [])
+
+        def juge_par_ia(m, maison, intention):
+            lecture = _lire_route_vers_le_champ(m, maison, intention)
+            lecture['reserve_voulue_kg'] = ia._reserve_voulue(m, [])['reserve_voulue_kg']
+            return lecture
+        with pytest.raises(_IaInterdite):
+            juge_par_ia(monde, M, reference['intention'])
 
 
 def test_ia_option_explicitement(tmp_path, monkeypatch):
