@@ -11,7 +11,8 @@ namespace Forge.Interface
         public static void Poser(Button bouton, string nom)
         {
             string motif = nom == "Terres et comptes" || nom == "Menu" ? "livre"
-                : nom == "Plan du bourg" ? "bourg" : nom == "Puissances" ? "banniere" : null;
+                : nom == "Plan du bourg" ? "bourg" : nom == "Puissances" ? "banniere"
+                : nom == "Habitants" ? "foule" : nom == "Flux" ? "fleche" : null;
             if (motif == null) return;
             var objet = new GameObject("Repère " + motif, typeof(RectTransform), typeof(EmblemeCommande));
             var rect = objet.GetComponent<RectTransform>(); rect.SetParent(bouton.transform, false);
@@ -39,6 +40,16 @@ namespace Forge.Interface
             {
                 Trait(dessin, -5, -8, 2, 16); Trait(dessin, -3, 1, 10, 6);
                 Trait(dessin, -7, -8, 6, 1);
+            }
+            else if (motif == "foule")
+            {
+                Trait(dessin, -8, -7, 4, 5); Trait(dessin, -2, -7, 4, 7); Trait(dessin, 4, -7, 4, 5);
+                Trait(dessin, -7, -1, 2, 2); Trait(dessin, -1, 2, 2, 3); Trait(dessin, 5, -1, 2, 2);
+            }
+            else if (motif == "fleche")
+            {
+                Trait(dessin, -8, -1, 11, 2); Trait(dessin, 3, -5, 2, 10);
+                Trait(dessin, 5, -3, 2, 6); Trait(dessin, 7, -1, 2, 2);
             }
         }
         void Trait(VertexHelper dessin, float x, float y, float largeur, float hauteur)
