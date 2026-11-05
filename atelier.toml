@@ -40,10 +40,9 @@ prefixe_branche = "lot/"
 # 2026, Cursor (grok, composer) le 5 novembre ; le chargement refuse tout
 # autre modèle (choix du propriétaire).
 #
-# Le modèle qui écrit ne relit jamais : chaque modèle Claude compte pour sa
-# propre famille. Le code de Sonnet se relit par Opus, celui d'Opus par
-# Sonnet. Un lot que les deux auraient écrit n'aurait plus de relecteur :
-# c'est pourquoi les codeurs n'ont pas de secours.
+# Qui fait quoi (choix du propriétaire, 5 novembre 2026) : Opus écrit les
+# briefs, ne code que les lots du PC (Unity, la 3D) et relit tous les lots,
+# même ceux qu'il a codés ; Sonnet code le reste et ne relit jamais.
 #
 # Un secours ne sert que si le précédent a épuisé son quota, perdu sa
 # session, ne démarre pas, refuse l'appel ou a déjà tous ses agents en
@@ -54,26 +53,22 @@ prefixe_branche = "lot/"
 # secours (choix du propriétaire, 30 octobre 2026). Opus à court de quota,
 # le lot attend qu'il revienne : aucun autre modèle n'écrit un brief.
 chef        = "claude/claude-opus-5-5@high"
-# Sonnet code les lots du VPS, sans secours : si Opus reprenait un lot que
-# Sonnet a commencé, personne ne pourrait plus le relire. Sonnet à court de
-# quota, le lot attend.
+# Sonnet code les lots du VPS, sans secours : Opus ne code que les lots du
+# PC. Sonnet à court de quota, le lot attend.
 codeur      = "claude/claude-sonnet-5-5@high"
 # Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
 # (choix du propriétaire, 29 septembre 2026 : le temps du PC est rare, un
-# passage raté y coûte cher), sans secours pour la même raison ; Sonnet les
-# relit.
+# passage raté y coûte cher), sans secours : Sonnet ne code pas la 3D.
 # `gh workflow run sonde-pc.yml` prouve que chaque agent du PC écrit vraiment.
 codeur_3d   = "claude/claude-opus-5-5@high"
 # Le dernier passage du codeur d'un lot du VPS avant blocage (la
-# 2e correction). Sa marque compte comme un passage du codeur : le modèle du
-# renfort a écrit le lot, il ne le relit pas. Sonnet, comme le codeur : avec
-# Opus, le lot n'aurait plus de relecteur. Les lots du PC n'ont pas de
-# renfort.
+# 2e correction). Sa marque compte comme un passage du codeur. Sonnet, comme
+# le codeur : Opus ne code que les lots du PC, qui n'ont pas de renfort.
 renfort     = "claude/claude-sonnet-5-5@high"
-# Le modèle qui a écrit le lot est écarté, et le suivant de la ligne relit :
-# Opus relit les lots du VPS (Sonnet), Sonnet ceux du PC (Opus). Opus à court
-# de quota, la relecture d'un lot du VPS attend qu'il revienne.
-relecteur   = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high"
+# Opus relit chaque lot, même un lot du PC qu'il a codé : c'est une autre
+# session, en lecture seule, qui n'a pas écrit le code. Sonnet ne relit
+# jamais, pas même en secours. Opus à court de quota, la relecture attend.
+relecteur   = "claude/claude-opus-5-5@high"
 # CI rouge sur master, conflits d'une branche de lot, dépendances : Sonnet
 # en effort moyen, travail mécanique ; Opus relit ses réparations de master.
 mecanicien  = "claude/claude-sonnet-5-5@medium"

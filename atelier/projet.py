@@ -34,13 +34,11 @@ _CLAUDE = re.compile(r"^(?:claude-)?(opus|sonnet|haiku|fable)\b", re.I)
 
 
 def famille_du_modele(modele: str) -> str:
-    """La famille d'un modèle, pour la relecture : le relecteur n'est jamais
-    de la famille qui a écrit, qui partage ses angles morts. Toute la chaîne
-    est Claude : chaque modèle Claude (opus, sonnet…) est sa propre famille,
-    sinon aucun lot n'aurait de relecteur — le code de Sonnet se relit par
-    Opus, celui d'Opus par Sonnet. Un autre nom (une marque d'avant le
-    5 novembre 2026 : `cursor/grok-4.7-high`) est sa propre famille, son
-    premier mot."""
+    """La famille d'un modèle : chaque modèle Claude (opus, sonnet…) est la
+    sienne. Le secours du dépanneur écarte la famille de l'agent qui vient
+    de lire sans rien décider (pilote._depanner) : si Opus et Sonnet étaient
+    une seule famille, Sonnet ne lirait jamais après Opus. Un autre nom est
+    sa propre famille : son premier mot."""
     m = _CLAUDE.match(modele.strip())
     if m:
         return m.group(1).lower()

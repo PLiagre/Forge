@@ -378,41 +378,29 @@ def test_une_autre_erreur_de_fusion_n_est_pas_masquee():
         GitHub("moi/essai", executeur=refus).fusion_auto(174, "f" * 40)
 
 
-def test_le_code_d_opus_est_relu_par_sonnet(projet, gh, depot, tmp_path):
-    fait_opus = marque(role="codeur", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
-    _en_cours(gh, commentaires=[fait_opus])
+def test_opus_relit_le_lot_du_pc_qu_il_a_code(projet, gh, depot, tmp_path):
+    # Choix du propriétaire (5 novembre 2026) : Opus relit Opus, Sonnet ne
+    # relit pas Opus. Le relecteur n'écarte plus l'auteur : le premier de sa
+    # ligne relit, dans sa propre session en lecture seule.
+    fait_opus = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
+    _en_cours(gh, commentaires=[fait_opus], etiquettes=("lot", "en-cours", "pc"))
     agents = Agents((0, "VERDICT: CORRIGER"))
     _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["sonnet"]
+    assert agents.outils() == ["opus"]
     assert not _gestes(gh, "fusion_auto")
 
 
-def test_le_code_de_sonnet_d_un_lot_du_pc_est_relu_par_opus(projet, gh, depot, tmp_path):
-    # L'exclusion se fait par modèle, quel que soit le nom qu'il porte dans
-    # la marque : claude/claude-sonnet-5-5@high et claude/sonnet sont un
-    # même auteur.
-    fait = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-sonnet-5-5@high", sha="a" * 40)
-    _en_cours(gh, commentaires=[fait], etiquettes=("lot", "en-cours", "pc"))
-    agents = Agents((0, "VERDICT: ACCEPTE"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus"]
-
-
-def test_un_lot_ecrit_par_opus_et_sonnet_n_a_plus_de_relecteur(projet, gh, depot, tmp_path):
-    # Tout est Claude depuis le 5 novembre 2026 : si Opus et Sonnet ont tous
-    # deux écrit le lot, aucun modèle de la ligne du relecteur ne peut le
-    # relire. Le lot se bloque et le dit, il n'attend pas un relecteur qui
-    # ne viendra pas.
+def test_un_lot_ecrit_par_opus_et_sonnet_se_relit_quand_meme(projet, gh, depot, tmp_path):
+    # Que l'un, l'autre ou les deux aient écrit, le lot se relit : il ne se
+    # bloque plus « aucun relecteur possible ».
     faits = [marque(role="codeur", etat="fait", essai=1, agent="claude/sonnet", sha="c" * 40),
              marque(role="relecteur", verdict="CORRIGER", sha="c" * 40, agent="claude/opus"),
              marque(role="codeur", etat="fait", essai=2, agent="claude/opus", sha="a" * 40)]
     _en_cours(gh, commentaires=faits)
-    agents = Agents()
+    agents = Agents((0, "VERDICT: ACCEPTE"))
     _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == []
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert any("aucun relecteur possible" in (c.get("body") or "")
-               for c in gh.issues_[10].get("comments", []) + gh.prs_[50]["comments"])
+    assert agents.outils() == ["opus"]
+    assert "bloque" not in [e["name"] for e in gh.issues_[10]["labels"]]
 
 
 def test_un_quota_claude_ne_retient_pas_le_chef(projet, gh, depot, tmp_path):
@@ -481,11 +469,9 @@ def test_la_derniere_correction_passe_au_renfort(projet, gh, depot, tmp_path):
     assert "Toujours faux" in _prompt(agents.appels[0])
     dernier = gh.prs_[50]["comments"][-1]["body"]
     assert "correction 2, en renfort" in dernier
-    # La marque reste celle du codeur : le passage compte, et Sonnet, qui a
-    # écrit le lot, ne le relira pas.
+    # La marque reste celle du codeur : le passage compte.
     m = marques([{"body": dernier}])[-1]
     assert (m["role"], m["essai"], m["agent"]) == ("codeur", 3, "claude/sonnet-renfort")
-    assert lots.auteurs(marques(gh.prs_[50]["comments"])) == {"sonnet"}
 
 
 def test_le_quota_du_renfort_epuise_rend_le_dernier_passage_au_codeur(projet, gh, depot, tmp_path):

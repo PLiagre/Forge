@@ -74,7 +74,7 @@ def _encore_vraies(raisons: list[tuple[datetime, str]], reponses: dict[str, date
     """Les agents qu'une raison dit empêchés, et qu'aucune réponse plus récente
     du même outil, sur la même machine, n'a démentis : le journal du 29
     septembre 2026 demandait encore de relever le plafond de Claude, qui codait
-    depuis la veille. Un agent écarté (sa famille a écrit le lot) n'est pas
+    depuis la veille. Un agent écarté de l'appel (sa famille est exclue) n'est pas
     empêché."""
     vraies = []
     for quand, texte in raisons:

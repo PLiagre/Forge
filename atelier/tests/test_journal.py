@@ -160,8 +160,8 @@ COMPTE_RENDU = ("🤖 **codeur_3d** (claude/claude-opus-5-5) — code, révision
                 "## Compte rendu — lot #9\n\nLe contrat ne connaît plus que `cell_id` : Unity reçoit la clé du monde.\n\n"
                 "📷 ![capture du lot #9](https://raw.githubusercontent.com/moi/essai/journal/captures/b.png)\n\n"
                 + marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40))
-REVUE = ("## Relecture — ACCEPTE\n\nRévision `fffffff` · relu par claude/claude-sonnet-5-5\n\nAucun constat bloquant.\n\n"
-         + marque(role="relecteur", verdict="ACCEPTE", sha="f" * 40, agent="claude/claude-sonnet-5-5"))
+REVUE = ("## Relecture — ACCEPTE\n\nRévision `fffffff` · relu par claude/claude-opus-5-5\n\nAucun constat bloquant.\n\n"
+         + marque(role="relecteur", verdict="ACCEPTE", sha="f" * 40, agent="claude/claude-opus-5-5"))
 
 
 def _journee(gh, tmp_path):
@@ -198,7 +198,7 @@ def test_les_faits_racontent_chaque_lot_livre(projet, gh, tmp_path):
     lots_livres, machine = texte.split("LA MACHINE")[0], texte.split("LA MACHINE")[1]
     # Ce que le lot change, dit par le codeur et jugé par le relecteur, pas seulement son titre.
     assert "Le contrat ne connaît plus que `cell_id`" in lots_livres
-    assert "ACCEPTE par claude/claude-sonnet-5-5" in lots_livres and "1 passage" in lots_livres
+    assert "ACCEPTE par claude/claude-opus-5-5" in lots_livres and "1 passage" in lots_livres
     assert "![capture](https://raw.githubusercontent.com/moi/essai/journal/captures/b.png)" in lots_livres
     # Les changements de la machine ne se mêlent pas aux lots.
     assert "fusionnée tout de suite" not in lots_livres and "PR #48" in machine
@@ -250,9 +250,9 @@ def test_une_attente_dementie_par_une_reponse_plus_recente_ne_se_demande_plus(pr
                + marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40))
     gh.prs_[50]["comments"].append({"body": reponse, "createdAt": "2026-09-28T03:10:00Z"})
     evenements = [("2026-09-28T02:30:00+00:00", 10, "attente", None,
-                   "relecteur : claude/claude-opus-5-5 : écarté (sa famille, opus, a écrit ce lot) · "
+                   "dépanneur : claude/claude-opus-5-5 : écarté (sa famille, opus, est exclue de cet appel) · "
                    "claude/claude-sonnet-5-5 : quota épuisé (« usage limit · try again later »)"),
-                  ("2026-09-28T03:31:00+00:00", 10, "relecture CORRIGER", "claude/claude-sonnet-5-5", "PR #50")]
+                  ("2026-09-28T03:31:00+00:00", 10, "relecture CORRIGER", "claude/claude-opus-5-5", "PR #50")]
     local.write_text("".join(json.dumps({"quand": q, "lot": l, "action": a, "agent": ag, "detail": d}) + "\n"
                              for q, l, a, ag, d in evenements), encoding="utf-8")
     texte = journal.faits(gh, projet, MAINTENANT, journal_local=local, veille=veille)
@@ -270,9 +270,9 @@ def test_une_attente_sans_reponse_plus_recente_reste_a_faire(projet, gh, tmp_pat
     reponse = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/claude-opus-5-5", sha="f" * 40)
     gh.prs_[50]["comments"].insert(0, {"body": reponse, "createdAt": "2026-09-28T01:00:00Z"})
     local.write_text(json.dumps({"quand": "2026-09-28T02:30:00+00:00", "lot": 10, "action": "relecture ACCEPTE",
-                                 "agent": "claude/claude-sonnet-5-5", "detail": "PR #50"}) + "\n" +
+                                 "agent": "claude/claude-opus-5-5", "detail": "PR #50"}) + "\n" +
                      json.dumps({"quand": "2026-09-28T02:40:00+00:00", "lot": 10, "action": "attente", "agent": None,
-                                 "detail": "relecteur : claude/claude-sonnet-5-5 : quota épuisé (« usage limit »)"}) + "\n",
+                                 "detail": "relecteur : claude/claude-opus-5-5 : quota épuisé (« usage limit »)"}) + "\n",
                      encoding="utf-8")
     texte = journal.faits(gh, projet, MAINTENANT, journal_local=local, veille=veille)
     assert "plafond de dépense" in texte.split("À FAIRE PAR LE PROPRIÉTAIRE")[1]

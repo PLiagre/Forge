@@ -7,7 +7,7 @@
 ## En une phrase
 
 Une issue devient une branche et une PR ; le chef l'explique, le codeur la
-code, la CI la teste, un relecteur qui ne l'a pas écrite la juge, et `ACCEPTE`
+code, la CI la teste, Claude Opus la relit dans sa propre session, et `ACCEPTE`
 la fusionne toute seule.
 
 ## Le schéma
@@ -23,7 +23,7 @@ la fusionne toute seule.
                     CI : tests + gitleaks ── rouge (dès le premier travail rouge) ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
                           │ vert
                           ▼
-                    RELECTEUR (Claude Code, opus, high ; puis sonnet, high : jamais le modèle qui a écrit)
+                    RELECTEUR (Claude Code, opus, high, seul : il relit aussi le code d'Opus ; Sonnet ne relit jamais)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
                                                                                      │
@@ -38,10 +38,8 @@ Le **renfort** (Claude Code, sonnet, high) fait
 le dernier passage du codeur d'un lot du VPS avant blocage : la 2e correction,
 avec `corrections_max = 2`. Deux passages n'ont pas suffi : il reprend avec
 la revue ou l'erreur de CI sous les yeux. Sa
-marque reste celle du codeur : le passage compte, et Sonnet, qui a écrit le
-lot, ne le relit pas. Le renfort est du modèle du codeur : avec Opus, le lot
-aurait été écrit par les deux, et personne ne pourrait plus le relire. Les
-lots du PC n'ont pas de renfort (Claude Opus y code déjà).
+marque reste celle du codeur : le passage compte. Le renfort est Sonnet,
+comme le codeur : Opus ne code que les lots du PC, qui n'ont pas de renfort.
 
 Un rouge du seul travail `chronometre` (les tests qui chronomètrent le moteur,
 au bord de leur budget sur les runners partagés) ne part pas d'abord au codeur,
@@ -71,24 +69,23 @@ L'atelier ne sait plus appeler que Claude Code, et le chargement de
 `atelier.toml` refuse tout modèle qui n'est pas de Claude (choix du
 propriétaire).
 
-Le relecteur n'est jamais le **modèle** qui a écrit le lot : chaque modèle
-Claude compte pour sa propre famille (opus, sonnet ; elle se lit dans le nom
-du modèle), et le relecteur relit avec l'agent suivant de sa ligne. Le code
-de Sonnet se relit par Opus, celui d'Opus par Sonnet. Un lot qu'Opus et
-Sonnet auraient écrit tous les deux n'a plus de relecteur et se bloque :
-c'est pourquoi le codeur, le codeur du PC, le renfort et le mécanicien n'ont
-pas de secours.
+**Qui code, qui relit** (choix du propriétaire, 5 novembre 2026). Sonnet
+code les lots du VPS (choix du propriétaire, 28 octobre 2026) et fait le
+travail du mécanicien et du renfort. **Opus ne code que les lots du PC**
+(Unity, la 3D), peu nombreux et chers quand ils ratent (29 septembre 2026).
+**Opus relit tous les lots**, même ceux qu'il a codés : le relecteur est une
+autre session, en lecture seule, qui n'a pas écrit le code. **Sonnet ne relit
+jamais**, pas même en secours : Opus à court de quota, la relecture attend.
+Aucun codeur n'a de secours : Sonnet ne code pas la 3D, Opus ne code pas les
+lots du VPS.
 
-**Sonnet code, Opus explique et juge.** Le code du VPS s'écrit avec Claude
-Sonnet 5.5 (choix du propriétaire, 28 octobre 2026), qui fait aussi le
-travail du mécanicien et le secours du dépanneur, du chroniqueur et de la
-boussole ; Claude tient quatre agents à la fois. **Un brief ne s'écrit
-qu'avec Claude Opus 5.5** : le chef n'a pas de secours, et un lot dont Opus
-est à court de quota attend (choix du propriétaire, 30 octobre 2026). Les
-lots du PC, peu nombreux et chers quand ils ratent, ont Claude Opus (choix du
-propriétaire, 29 septembre 2026), et Sonnet les relit. Sans autre harnais,
-un quota épuisé ou une session Claude perdue fait **attendre** le lot, sans
-brûler d'essai ; le journal du matin dit le geste qui la rouvre.
+**Un brief ne s'écrit qu'avec Claude Opus 5.5** : le chef n'a pas de secours,
+et un lot dont Opus est à court de quota attend (choix du propriétaire,
+30 octobre 2026). Sonnet fait le secours des rôles qui ne font que lire et
+conseiller : le dépanneur, le chroniqueur et la boussole ; Claude tient
+quatre agents à la fois. Sans autre harnais, un quota épuisé ou une session
+Claude perdue fait **attendre** le lot, sans brûler d'essai ; le journal du
+matin dit le geste qui la rouvre.
 
 ## Qui fait quoi
 
