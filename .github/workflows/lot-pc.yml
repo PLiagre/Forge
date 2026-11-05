@@ -59,9 +59,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           # Le service ne voit pas le PATH de la session : on y remet les agents
-          # (claude, cursor-agent). Les .cmd ne se lancent pas
+          # (claude). Les .cmd ne se lancent pas
           # tels quels : `atelier.agents.lancement` appelle leur node.exe.
-          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:LOCALAPPDATA\cursor-agent;$env:PATH"
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
           git -C D:\Forge fetch --quiet --prune origin
           $atelier = 'D:\Forge\.atelier\pilote-pc'
           if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }

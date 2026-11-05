@@ -22,48 +22,39 @@ class ProjetIncomplet(ValueError):
     """Un champ obligatoire manque ou se lit mal : on refuse, on n'invente pas."""
 
 
-# Les outils que l'atelier sait appeler, et le binaire de chacun.
-OUTILS = {"claude": "claude", "cursor": "cursor-agent"}
+# Les outils que l'atelier sait appeler, et le binaire de chacun. Claude Code
+# seul : l'abonnement Claude (Opus, Sonnet) est le seul qui reste au
+# propriétaire. Codex est retiré le 30 octobre 2026, Cursor (grok, composer)
+# le 5 novembre (choix du propriétaire).
+OUTILS = {"claude": "claude"}
 
-# La famille d'un modèle : qui l'a entraîné. Le relecteur n'est jamais de la
-# famille qui a écrit : du code écrit par cursor/claude-opus ne se relit pas
-# par claude/claude-opus, qui partage ses angles morts. Claude Code ne porte
-# que des modèles Claude ; Cursor porte tout, sa famille se lit dans le nom du
-# modèle. Un nom inconnu est sa propre famille (son premier mot).
-FAMILLE_DE_L_OUTIL = {"claude": "claude"}
-_FAMILLES = (
-    ("claude", re.compile(r"^(claude|opus|sonnet|haiku|fable)\b", re.I)),
-    ("gpt", re.compile(r"^(gpt|o\d|codex)\b", re.I)),
-    ("grok", re.compile(r"^grok\b", re.I)),
-    ("gemini", re.compile(r"^gemini\b", re.I)),
-    ("composer", re.compile(r"^composer\b", re.I)),
-)
+# Les modèles que la chaîne appelle : ceux de Claude, et rien d'autre (choix
+# du propriétaire, 5 novembre 2026). Le chargement refuse le reste.
+_CLAUDE = re.compile(r"^(?:claude-)?(opus|sonnet|haiku|fable)\b", re.I)
 
 
 def famille_du_modele(modele: str) -> str:
-    for nom, motif in _FAMILLES:
-        if motif.match(modele):
-            return nom
+    """La famille d'un modèle, pour la relecture : le relecteur n'est jamais
+    de la famille qui a écrit, qui partage ses angles morts. Toute la chaîne
+    est Claude : chaque modèle Claude (opus, sonnet…) est sa propre famille,
+    sinon aucun lot n'aurait de relecteur — le code de Sonnet se relit par
+    Opus, celui d'Opus par Sonnet. Un autre nom (une marque d'avant le
+    5 novembre 2026 : `cursor/grok-4.7-high`) est sa propre famille, son
+    premier mot."""
+    m = _CLAUDE.match(modele.strip())
+    if m:
+        return m.group(1).lower()
     return re.split(r"[-_.\s]", modele.strip().lower(), maxsplit=1)[0]
 
-# Les familles que la chaîne n'appelle plus. GPT : l'abonnement ChatGPT est
-# coupé, et plus rien d'OpenAI ne doit tourner, pas même par Cursor (choix
-# du propriétaire, 30 octobre 2026). Le chargement le refuse.
-FAMILLES_REFUSEES = {"gpt": "plus aucun modèle d'OpenAI (choix du propriétaire, 30 octobre 2026)"}
 
-# L'effort (la profondeur de raisonnement) que chaque harnais sait recevoir,
-# et comment : Claude Code par `--effort` (`claude --help`, 2.1.284) ;
-# Cursor n'a pas d'option, l'effort est dans
-# le nom du modèle (`grok-4.7-high`), et « defaut » dit qu'un modèle Cursor
-# n'en propose pas (composer). Un effort hors de cette liste se refuse : le
-# harnais le refuserait à chaque appel.
+# L'effort (la profondeur de raisonnement) que chaque harnais sait recevoir :
+# Claude Code par `--effort` (`claude --help`, 2.1.284). Un effort hors de
+# cette liste se refuse : Claude Code l'ignorerait à chaque appel.
 EFFORTS = {
     "claude": ("low", "medium", "high", "xhigh", "max"),
-    "cursor": ("low", "medium", "high", "xhigh", "defaut"),
 }
-_EFFORT_DANS_LE_NOM = re.compile(r"-(low|medium|high|xhigh)$")
 # Le nom lisible de chaque harnais, pour la table des rôles.
-HARNAIS = {"claude": "Claude Code", "cursor": "Cursor (cursor-agent)"}
+HARNAIS = {"claude": "Claude Code"}
 
 # Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents]. Le
 # renfort fait le dernier passage du codeur d'un lot du VPS avant blocage
@@ -82,8 +73,8 @@ MACHINES = ("vps", "pc")
 @dataclass(frozen=True)
 class Agent:
     """Un harnais (l'outil qui porte le modèle), un modèle, et l'effort qu'on
-    lui donne : `cursor/grok-4.7-high@high`. Sans effort, le harnais garde le
-    sien ; le dépôt en donne un à chaque agent (tests)."""
+    lui donne : `claude/claude-sonnet-5-5@high`. Sans effort, le harnais garde
+    le sien ; le dépôt en donne un à chaque agent (tests)."""
 
     outil: str
     modele: str
@@ -94,12 +85,7 @@ class Agent:
 
     @property
     def effort_lisible(self) -> str:
-        if self.effort is None:
-            return "non donné (celui du harnais)"
-        if self.outil == "cursor":
-            return ("aucun (Cursor n'en propose pas pour ce modèle)" if self.effort == "defaut"
-                    else f"{self.effort} (dans le nom du modèle)")
-        return self.effort
+        return self.effort or "non donné (celui du harnais)"
 
     @property
     def binaire(self) -> str:
@@ -107,7 +93,7 @@ class Agent:
 
     @property
     def famille(self) -> str:
-        return FAMILLE_DE_L_OUTIL.get(self.outil) or famille_du_modele(self.modele)
+        return famille_du_modele(self.modele)
 
 
 @dataclass(frozen=True)
@@ -185,35 +171,24 @@ def lire_agent(texte: str) -> Agent:
     if outil not in OUTILS:
         connus = ", ".join(sorted(OUTILS))
         raise ProjetIncomplet(f"outil inconnu : {outil!r} (connus : {connus})")
-    if effort:
-        if effort not in EFFORTS[outil]:
-            raise ProjetIncomplet(f"{morceau} : {HARNAIS[outil]} ne connaît pas l'effort {effort!r} "
-                                  f"(connus : {', '.join(EFFORTS[outil])})")
-        if outil == "cursor":
-            dans_le_nom = _EFFORT_DANS_LE_NOM.search(modele)
-            voulu = None if effort == "defaut" else effort
-            if (dans_le_nom.group(1) if dans_le_nom else None) != voulu:
-                raise ProjetIncomplet(
-                    f"{morceau} : Cursor n'a pas d'option d'effort, il est dans le nom du modèle "
-                    + (f"(« {modele} » n'en porte pas : « @defaut »)" if not dans_le_nom and voulu is None
-                       else f"(« {modele} » dit « {dans_le_nom.group(1) if dans_le_nom else 'rien'} »)"))
+    if effort and effort not in EFFORTS[outil]:
+        raise ProjetIncomplet(f"{morceau} : {HARNAIS[outil]} ne connaît pas l'effort {effort!r} "
+                              f"(connus : {', '.join(EFFORTS[outil])})")
     return Agent(outil=outil, modele=modele, effort=effort or None)
 
 
 def lire_poste(role: str, ligne: str) -> Poste:
     """`harnais/modèle@effort | secours | …` : l'ordre est celui des essais.
-    Un modèle Claude ne passe que par Claude Code, jamais par un autre
-    harnais : c'est le choix du propriétaire (29 septembre 2026). Une famille
-    refusée (FAMILLES_REFUSEES) ne passe par aucun."""
+    Un modèle qui n'est pas de Claude se refuse : plus de GPT depuis le
+    30 octobre 2026, plus de grok ni de composer depuis le 5 novembre (choix
+    du propriétaire)."""
     if not isinstance(ligne, str) or not ligne.strip():
         raise ProjetIncomplet(f"[agents].{role} est vide")
     agents = tuple(lire_agent(morceau) for morceau in ligne.split("|"))
     for agent in agents:
-        if agent.famille in FAMILLES_REFUSEES:
-            raise ProjetIncomplet(f"[agents].{role} : {agent} — {FAMILLES_REFUSEES[agent.famille]}")
-        if agent.outil != "claude" and famille_du_modele(agent.modele) == "claude":
-            raise ProjetIncomplet(f"[agents].{role} : {agent} — un modèle Claude ne passe que par Claude Code "
-                                  f"(harnais « claude »), jamais par {HARNAIS[agent.outil]}")
+        if not _CLAUDE.match(agent.modele.strip()):
+            raise ProjetIncomplet(f"[agents].{role} : {agent} — seuls les modèles Claude tournent (opus, sonnet…) : "
+                                  "l'abonnement Claude est le seul qui reste (choix du propriétaire, 5 novembre 2026)")
     return Poste(role=role, agents=agents)
 
 

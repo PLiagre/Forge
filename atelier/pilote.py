@@ -53,7 +53,7 @@ _MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
 _RUN = re.compile(r"/actions/runs/(\d+)/")
 SECTIONS_BRIEF = ("## But", "## Le joueur", "## Règle du monde", "## Périmètre", "## Conditions de succès",
                   "## Hors périmètre")
-SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code), Cursor)"
+SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code))"
 
 
 @dataclass

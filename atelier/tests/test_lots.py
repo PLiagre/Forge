@@ -51,7 +51,7 @@ def _pr(**champs):
     return base
 
 
-FAIT = {"role": "codeur", "etat": "fait", "agent": "cursor/kimi", "sha": "tete"}
+FAIT = {"role": "codeur", "etat": "fait", "agent": "claude/sonnet", "sha": "tete"}
 
 
 @pytest.mark.parametrize("pr,ci,liste,attendu", [
@@ -110,7 +110,7 @@ def test_un_envoi_au_pc_attend_son_retour_puis_se_relance():
 
 ENVOI = {"role": "codeur_3d", "etat": "envoye"}
 ATTENTE = {"role": "codeur_3d", "etat": "attente"}
-ECHEC_PC = {"role": "codeur_3d", "etat": "echec", "agent": "cursor/opus-high"}
+ECHEC_PC = {"role": "codeur_3d", "etat": "echec", "agent": "claude/opus"}
 
 
 def test_une_attente_du_pc_ne_brule_pas_d_essai_et_se_renvoie_apres_une_heure():
@@ -182,12 +182,16 @@ def test_les_decoupes_imbriquees_retiennent_tous_leurs_ancetres():
 
 
 def test_les_auteurs_d_un_lot():
-    # Les familles de modèles qui ont écrit du code : cursor/kimi est d'OpenAI.
+    # Les familles de modèles qui ont écrit du code : chaque modèle Claude est
+    # la sienne. Un échec n'a rien écrit, le chef n'écrit pas de code.
     liste = [FAIT, {"role": "codeur_3d", "etat": "fait", "agent": "claude/opus"},
-             {"role": "codeur", "etat": "echec", "agent": "cursor/grok"}, {"role": "chef", "agent": "claude/x"}]
-    assert lots.auteurs(liste) == frozenset({"kimi", "claude"})
-    # Le même modèle par un autre outil est le même auteur.
-    assert lots.auteurs([{"role": "codeur_3d", "etat": "fait", "agent": "cursor/claude-opus-5-5-high"}]) == {"claude"}
+             {"role": "codeur", "etat": "echec", "agent": "claude/haiku"}, {"role": "chef", "agent": "claude/x"}]
+    assert lots.auteurs(liste) == frozenset({"sonnet", "opus"})
+    # Le même modèle sous deux noms est le même auteur ; une marque d'avant le
+    # 5 novembre 2026 (Cursor) garde sa famille, qu'aucun relecteur n'a.
+    assert lots.auteurs([{"role": "codeur", "etat": "fait", "agent": "claude/claude-sonnet-5-5@high"},
+                         {"role": "codeur", "etat": "fait", "agent": "claude/sonnet"}]) == {"sonnet"}
+    assert lots.auteurs([{"role": "codeur", "etat": "fait", "agent": "cursor/grok-4.7-high@high"}]) == {"grok"}
 
 
 def _check(nom, status="COMPLETED", conclusion="SUCCESS", quand="2026-09-27T10:00:00Z", workflow=""):

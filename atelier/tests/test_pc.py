@@ -49,7 +49,7 @@ def test_le_pc_sans_agent_marque_l_attente_et_ne_lance_pas_unity(projet, gh, dep
     # 24 h avant de renvoyer. La marque d'attente ne compte pas comme essai.
     _lot_pc(gh)
     unity = _Unity()
-    agents = Agents((1, "You've hit your usage limit"), (127, "binaire introuvable : cursor-agent"))
+    agents = Agents((1, "You've hit your usage limit"), (127, "binaire introuvable : claude"))
     _travailler(projet, gh, depot, agents, unity)
     derniere = marques(gh.prs_[174]["comments"])[-1]
     assert (derniere["role"], derniere["etat"]) == ("codeur_3d", "attente") and derniere["quand"]
@@ -156,12 +156,13 @@ def test_lot_pc_repond_quand_le_passage_tombe_hors_de_python():
 
 
 def test_les_workflows_du_pc_mettent_les_agents_au_path():
-    # Le service ne voit pas le PATH de la session. cursor-agent vit dans
-    # %LOCALAPPDATA%\cursor-agent : absent du PATH, trois 127 le 27 septembre.
+    # Le service ne voit pas le PATH de la session : un agent absent du PATH,
+    # trois 127 le 27 septembre. Claude Code vit dans ~\.local\bin (son
+    # installateur) ou dans le dossier npm.
     for nom in ("lot-pc.yml", "sonde-pc.yml"):
         texte = (RACINE / ".github" / "workflows" / nom).read_text(encoding="utf-8")
         ligne = next(l for l in texte.splitlines() if "$env:PATH =" in l)
-        for dossier in (r"$env:USERPROFILE\.local\bin", r"$env:APPDATA\npm", r"$env:LOCALAPPDATA\cursor-agent"):
+        for dossier in (r"$env:USERPROFILE\.local\bin", r"$env:APPDATA\npm"):
             assert dossier in ligne, (nom, dossier)
 
 
