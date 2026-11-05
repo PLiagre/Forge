@@ -34,7 +34,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           # Le même PATH que lot-pc.yml : c'est lui qu'on éprouve.
-          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:LOCALAPPDATA\cursor-agent;$env:PATH"
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
           git -C D:\Forge fetch --quiet --prune origin
           $atelier = 'D:\Forge\.atelier\pilote-pc'
           if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }

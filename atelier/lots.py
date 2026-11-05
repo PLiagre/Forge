@@ -21,7 +21,7 @@ import json
 import re
 import unicodedata
 
-from .projet import FAMILLE_DE_L_OUTIL, famille_du_modele
+from .projet import famille_du_modele
 
 ETATS =("idee", "pret", "en-cours", "bloque", "livre")
 ETIQUETTE_PC = "pc"
@@ -765,7 +765,7 @@ def passage_de_renfort(essai: int, corrections_max: int) -> bool:
 def famille_de(agent: str) -> str:
     """La famille de modèle d'un agent écrit `outil/modèle` dans une marque."""
     outil, _, modele = agent.partition("/")
-    return FAMILLE_DE_L_OUTIL.get(outil) or (famille_du_modele(modele) if modele else outil)
+    return famille_du_modele(modele) if modele else outil
 
 
 def auteurs(liste: list[dict]) -> frozenset[str]:

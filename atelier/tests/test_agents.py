@@ -3,9 +3,6 @@ les clés retirées, le secours sur quota, le relecteur qui n'est pas l'auteur."
 
 from __future__ import annotations
 
-from pathlib import Path
-import subprocess
-
 import pytest
 
 from atelier import agents as A
@@ -20,7 +17,7 @@ def test_le_branchement_du_depot_nomme_chaque_role():
     assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
     assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
     assert [str(a) for a in projet.poste("relecteur").agents] == [
-        "claude/claude-opus-5-5@high", "cursor/grok-4.7-high@high", "cursor/composer-2.5@defaut"]
+        "claude/claude-opus-5-5@high", "claude/claude-sonnet-5-5@high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -45,15 +42,12 @@ def test_les_chemins_interdits_a_un_lot(projet):
     assert not projet.interdit("atelier.toml.bak")
 
 
-def test_argv_de_chaque_outil_en_ecriture_et_en_lecture():
+def test_argv_de_claude_en_ecriture_et_en_lecture():
     claude = A.argv(Agent("claude", "claude-opus-5-5"), "fais", lecture_seule=False, windows=False)
     assert claude[:6] == ["claude", "-p", "fais", "--model", "claude-opus-5-5", "--output-format"]
     assert "acceptEdits" in claude and "Bash(git push:*)" in claude[claude.index("--disallowedTools") + 1]
     relit = A.argv(Agent("claude", "claude-opus-5-5"), "relis", lecture_seule=True, windows=False)
     assert "Edit" in relit[relit.index("--disallowedTools") + 1]
-    cursor = A.argv(Agent("cursor", "grok-4.7-high"), "x", lecture_seule=True)
-    assert cursor[0] == "cursor-agent" and cursor[cursor.index("--mode") + 1] == "ask"
-    assert "--force" in A.argv(Agent("cursor", "composer-2.5"), "x", lecture_seule=False)
 
 
 def test_aucune_cle_api_et_le_jeton_claude_par_l_environnement(monkeypatch, tmp_path):
@@ -66,17 +60,18 @@ def test_aucune_cle_api_et_le_jeton_claude_par_l_environnement(monkeypatch, tmp_
     env = A.environnement("claude")
     assert not any(cle in env for cle in A.CLES_API)
     assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "jeton-longue-duree"
-    assert "CLAUDE_CODE_OAUTH_TOKEN" not in A.environnement("cursor")
 
 
 @pytest.mark.parametrize("code,texte,cause", [
     (0, "rate limit", None),
     (1, "Error: You've hit your usage limit. Try again later.", "quota"),
     (1, "429 Too Many Requests", "quota"),
+    (1, "ActionRequiredError: Increase limits for faster responses You're out of usage. Switch to Auto, "
+        "or ask your admin to increase your limit to continue.", "quota"),
     (1, "Invalid API key · Please run /login", "auth"),
     (1, "OAuth token has expired. Run claude setup-token", "auth"),
     (1, "AssertionError: capacité 3 != 4", None),
-    (127, "binaire introuvable : cursor-agent", "installation"),
+    (127, "binaire introuvable : claude", "installation"),
     (126, "ne démarre pas : [WinError 5] Accès refusé", "installation"),
 ])
 def test_quota_et_session_se_reconnaissent_a_la_fin_de_la_sortie(code, texte, cause):
@@ -86,8 +81,8 @@ def test_quota_et_session_se_reconnaissent_a_la_fin_de_la_sortie(code, texte, ca
 def test_un_quota_epuise_passe_au_secours(projet, tmp_path):
     agents = Agents((1, "You've hit your usage limit"), (0, "fait"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "cursor/grok"
-    assert agents.outils() == ["kimi", "grok"]
+    assert res.reussi and str(res.agent) == "claude/haiku"
+    assert agents.outils() == ["sonnet", "haiku"]
 
 
 def test_aucun_agent_ne_repond_le_lot_attend(projet, tmp_path):
@@ -100,70 +95,27 @@ def test_aucun_agent_ne_repond_le_lot_attend(projet, tmp_path):
 def test_un_binaire_introuvable_passe_au_secours_et_n_est_pas_un_echec(projet, tmp_path):
     # Mesuré le 27 septembre 2026 : trois « 127 binaire introuvable » ont
     # compté comme trois échecs du codeur et bloqué le lot #118.
-    agents = Agents((127, "binaire introuvable : cursor-agent"), (0, "fait"))
+    agents = Agents((127, "binaire introuvable : claude"), (0, "fait"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "cursor/grok"
+    assert res.reussi and str(res.agent) == "claude/haiku"
     personne = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10,
-                          executeur=Agents((127, "binaire introuvable : cursor-agent"), (1, "429 Too Many Requests")))
+                          executeur=Agents((127, "binaire introuvable : claude"), (1, "429 Too Many Requests")))
     assert personne.attente and not personne.personne
 
 
 def test_les_essais_disent_pourquoi_chaque_agent_a_ete_ecarte(projet, tmp_path):
     agents = Agents((1, "Error: You've hit your usage limit · resets 5pm"), (2, "SyntaxError"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert "cursor/kimi : quota épuisé" in res.essais[0] and "usage limit" in res.essais[0]
-    assert res.essais[1] == "cursor/grok : code 2"
-
-
-def _faux_cursor(racine: Path) -> Path:
-    """Une installation de cursor-agent comme celle du PC : un .cmd, un .ps1
-    et une version par dossier, chacune avec son node.exe."""
-    dossier = racine / "cursor-agent"
-    for version in ("2026.07.23-e383d2b", "2026.08.11-e8db854", "2026.08.9-0aa"):
-        (dossier / "versions" / version).mkdir(parents=True)
-        (dossier / "versions" / version / "node.exe").write_bytes(b"")
-        (dossier / "versions" / version / "index.js").write_text("", encoding="utf-8")
-    (dossier / "versions" / "pas-une-version").mkdir()
-    (dossier / "cursor-agent.cmd").write_text("@echo off\r\n", encoding="utf-8")
-    (dossier / "cursor-agent.ps1").write_text("", encoding="utf-8")
-    return dossier
+    assert "claude/sonnet : quota épuisé" in res.essais[0] and "usage limit" in res.essais[0]
+    assert res.essais[1] == "claude/haiku : code 2"
 
 
 PROMPT_PIEGE = "Ligne 1\nLigne 2 & del /q x | findstr y %PATH% ^ \"guillemets\""
 
 
-def test_sous_windows_cursor_agent_se_lance_par_son_node_sans_cmd_exe(monkeypatch, tmp_path):
-    # CreateProcess n'ajoute que « .exe » : « cursor-agent » est introuvable.
-    # Et appeler cursor-agent.cmd passerait le prompt par cmd.exe, qui coupe
-    # aux retours à la ligne et interprète & | % ^.
-    dossier = _faux_cursor(tmp_path)
-    derniere = dossier / "versions" / "2026.08.11-e8db854"
-    recu = {}
-
-    def faux_run(commande, **kw):
-        recu["argv"], recu["env"] = commande, kw["env"]
-        return subprocess.CompletedProcess(commande, 0, "OK", "")
-
-    monkeypatch.setattr(A.subprocess, "run", faux_run)
-    monkeypatch.setattr(A, "WINDOWS", True, raising=False)
-    env = {"PATH": "", "LOCALAPPDATA": str(tmp_path)}
-    code, _, _ = A.executer(A.argv(Agent("cursor", "claude-opus-5-5-high"), PROMPT_PIEGE, lecture_seule=False,
-                                   windows=True), tmp_path, env, 10)
-    assert code == 0
-    assert recu["argv"][:2] == [str(derniere / "node.exe"), str(derniere / "index.js")]
-    assert recu["argv"][2:5] == ["-p", PROMPT_PIEGE, "--model"]
-    assert recu["env"]["CURSOR_INVOKED_AS"] == "cursor-agent.cmd"
-
-
 def test_sous_windows_le_lancement_de_chaque_outil(tmp_path):
-    dossier = _faux_cursor(tmp_path)
-    derniere = dossier / "versions" / "2026.08.11-e8db854"
-    # Trouvé par le PATH (le .cmd), ou dans son dossier d'installation par défaut.
-    trouve = {"cursor-agent": str(dossier / "cursor-agent.cmd")}
-    for chercher in (trouve.get, lambda nom: None):
-        commande, env = A.lancement(["cursor-agent", "-p", PROMPT_PIEGE], {"LOCALAPPDATA": str(tmp_path)},
-                                    windows=True, chercher=chercher)
-        assert commande == [str(derniere / "node.exe"), str(derniere / "index.js"), "-p", PROMPT_PIEGE]
+    # CreateProcess n'ajoute que « .exe ». Et appeler un .cmd passerait le
+    # prompt par cmd.exe, qui coupe aux retours à la ligne et interprète & | % ^.
     # Un shim npm : on lance son node et son .js, jamais le .cmd.
     npm = tmp_path / "npm"
     script = npm / "node_modules" / "outil" / "bin" / "outil.js"
@@ -183,48 +135,49 @@ def test_sous_windows_le_lancement_de_chaque_outil(tmp_path):
     (tmp_path / "autre.cmd").write_text("@echo off\r\nautre %*\r\n", encoding="utf-8")
     with pytest.raises(A.Introuvable):
         A.lancement(["autre", PROMPT_PIEGE], {}, windows=True, chercher={"autre": str(tmp_path / "autre.cmd")}.get)
-    # Hors de Windows, rien ne change.
-    assert A.lancement(["cursor-agent", "-p", "x"], {}, windows=False)[0] == ["cursor-agent", "-p", "x"]
+    # Introuvable, il l'est aussi ; hors de Windows, rien ne change.
+    with pytest.raises(A.Introuvable):
+        A.lancement(["claude", "-p", "x"], {}, windows=True, chercher=lambda nom: None)
+    assert A.lancement(["claude", "-p", "x"], {}, windows=False)[0] == ["claude", "-p", "x"]
 
 
 def test_un_echec_ordinaire_ne_passe_pas_au_secours(projet, tmp_path):
     agents = Agents((2, "SyntaxError: invalid syntax"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert not res.reussi and not res.attente and str(res.agent) == "cursor/kimi"
-    assert agents.outils() == ["kimi"]
+    assert not res.reussi and not res.attente and str(res.agent) == "claude/sonnet"
+    assert agents.outils() == ["sonnet"]
 
 
 def test_le_modele_qui_ecrit_ne_relit_jamais(projet, tmp_path):
     # `exclure` nomme des familles de modèles, pas des outils.
     agents = Agents((0, "VERDICT: ACCEPTE"))
-    res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10, exclure=frozenset({"claude"}), executeur=agents)
-    assert str(res.agent) == "cursor/kimi" and agents.outils() == ["kimi"]
+    res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10, exclure=frozenset({"opus"}), executeur=agents)
+    assert str(res.agent) == "claude/sonnet" and agents.outils() == ["sonnet"]
     personne = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
-                          exclure=frozenset({"claude", "kimi"}), executeur=Agents())
+                          exclure=frozenset({"opus", "sonnet"}), executeur=Agents())
     assert personne.personne and not personne.attente
 
 
 @pytest.mark.parametrize("agent,famille", [
-    ("claude/claude-opus-5-5", "claude"),
-    ("cursor/claude-opus-5-5-high", "claude"),
-    ("cursor/sonnet-5", "claude"),
-    ("cursor/gpt-5.6", "gpt"),
-    ("cursor/grok-4.7-high", "grok"),
-    ("cursor/composer-2.5", "composer"),
-    ("cursor/gemini-3-pro", "gemini"),
-    ("cursor/kimi-k3", "kimi"),
+    ("claude/claude-opus-5-5", "opus"),
+    ("claude/opus", "opus"),
+    ("claude/claude-sonnet-5-5", "sonnet"),
+    ("claude/sonnet-renfort", "sonnet"),
+    ("claude/claude-haiku-5-5", "haiku"),
+    ("claude/claude-fable-5-1", "fable"),
 ])
-def test_la_famille_d_un_modele_ne_depend_pas_de_l_outil(agent, famille):
-    # Claude Code ne porte que des modèles Claude ; Cursor porte tout : sa
-    # famille se lit dans le nom du modèle.
+def test_chaque_modele_claude_est_sa_propre_famille(agent, famille):
+    # Toute la chaîne est Claude depuis le 5 novembre 2026 : si Claude était
+    # une seule famille, aucun lot n'aurait plus de relecteur. Opus relit
+    # Sonnet, Sonnet relit Opus.
     assert lire_agent(agent).famille == famille
 
 
-def test_du_code_ecrit_par_cursor_claude_n_est_pas_relu_par_claude(projet, tmp_path):
+def test_du_code_ecrit_par_opus_est_relu_par_sonnet(projet, tmp_path):
     agents = Agents((0, "VERDICT: ACCEPTE"))
     res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
-                     exclure=frozenset({lire_agent("cursor/opus-high").famille}), executeur=agents)
-    assert str(res.agent) == "cursor/kimi" and agents.outils() == ["kimi"]
+                     exclure=frozenset({lire_agent("claude/claude-opus-5-5@high").famille}), executeur=agents)
+    assert str(res.agent) == "claude/sonnet" and agents.outils() == ["sonnet"]
     assert "claude/opus : écarté" in res.essais[0]
 
 
@@ -235,28 +188,32 @@ def test_seul_opus_ecrit_les_briefs():
     assert [str(a) for a in chef.agents] == ["claude/claude-opus-5-5@high"]
 
 
-def test_la_boussole_et_le_depanneur_ont_un_secours_hors_de_claude_code():
-    # Un quota de Claude Code arrêtait net la boussole : Claude Code en
-    # premier, et un secours d'un autre harnais. Le dépanneur aussi : la
-    # session Claude du VPS a expiré le 21 octobre 2026.
+def test_les_roles_qui_lisent_ont_un_secours_d_un_autre_modele():
+    # Un quota d'Opus arrêtait net la boussole. Le secours du dépanneur lit le
+    # lot quand Opus n'a rien décidé, en écartant sa famille
+    # (pilote._depanner) : il doit être d'un autre modèle.
     projet = charger(RACINE)
-    for role in ("boussole", "depanneur"):
+    for role in ("boussole", "depanneur", "chroniqueur"):
         poste = projet.poste(role)
-        assert poste.principal.outil == "claude", role
-        assert any(a.outil != "claude" for a in poste.secours), role
+        assert str(poste.principal).startswith("claude/claude-opus-5-5@"), role
+        assert any(a.famille != poste.principal.famille for a in poste.secours), role
 
 
-def test_claude_ne_passe_que_par_claude_code():
-    # Le choix du propriétaire (29 septembre 2026) : jamais un modèle Claude
-    # porté par Cursor ou un autre harnais. Le dépôt n'en a aucun, et le
-    # chargement refuse la ligne qui en mettrait un.
+def test_plus_rien_que_claude():
+    # Le propriétaire n'a plus que l'abonnement Claude : plus de GPT ni de
+    # Codex (30 octobre 2026), plus de grok ni de composer par Cursor
+    # (5 novembre). Le dépôt n'appelle que Claude Code, l'atelier ne sait plus
+    # appeler un autre harnais, et le chargement refuse la ligne qui remettrait
+    # un autre modèle.
     projet = charger(RACINE)
-    for poste in projet.postes.values():
-        for agent in poste.agents:
-            assert agent.famille != "claude" or agent.outil == "claude", f"{poste.role} : {agent}"
-    for ligne in ("cursor/claude-opus-5-5-high@high", "claude/opus | cursor/opus-high", "cursor/sonnet-4"):
-        with pytest.raises(ProjetIncomplet, match="ne passe que par Claude Code"):
+    assert OUTILS == {"claude": "claude"}
+    assert projet.postes and all(a.outil == "claude" for poste in projet.postes.values() for a in poste.agents)
+    for ligne in ("claude/opus | claude/grok-4.7-high@high", "claude/gpt-5.6-sol@high", "claude/composer-2.5"):
+        with pytest.raises(ProjetIncomplet, match="seuls les modèles Claude"):
             lire_poste("chef", ligne)
+    for texte in ("cursor/grok-4.7-high@high", "cursor/claude-opus-5-5-high", "codex/gpt-5.6-sol@high"):
+        with pytest.raises(ProjetIncomplet, match="outil inconnu"):
+            lire_agent(texte)
 
 
 def test_chaque_agent_du_depot_dit_son_harnais_son_modele_et_son_effort():
@@ -265,110 +222,84 @@ def test_chaque_agent_du_depot_dit_son_harnais_son_modele_et_son_effort():
         for agent in poste.agents:
             assert agent.effort, f"{poste.role} : {agent} ne dit pas son effort"
     table = table_des_roles(projet)
-    for mot in ("Claude Code", "Cursor (cursor-agent)", "claude-opus-5-5", "claude-sonnet-5-5", "high"):
+    for mot in ("Claude Code", "claude-opus-5-5", "claude-sonnet-5-5", "high"):
         assert mot in table
 
 
-def test_l_effort_passe_a_chaque_harnais_par_son_chemin():
+def test_l_effort_passe_a_claude_code_par_son_option():
     claude = A.argv(lire_agent("claude/claude-opus-5-5@xhigh"), "x", lecture_seule=True)
     assert claude[claude.index("--effort") + 1] == "xhigh"
-    cursor = A.argv(lire_agent("cursor/grok-4.7-high@high"), "x", lecture_seule=False)
-    assert cursor[cursor.index("--model") + 1] == "grok-4.7-high" and "--effort" not in cursor
     # Sans effort, l'appel reste celui d'avant.
     assert "--effort" not in A.argv(lire_agent("claude/opus"), "x", lecture_seule=True)
 
 
 @pytest.mark.parametrize("texte,motif", [
     ("claude/claude-opus-5-5@minimal", "ne connaît pas l'effort"),
-    ("cursor/grok-4.7-high@max", "ne connaît pas l'effort"),         # max est à Claude Code
-    ("cursor/grok-4.7-high@xhigh", "dans le nom du modèle"),         # le nom dit high
-    ("cursor/grok-4.7@high", "dans le nom du modèle"),               # le nom ne dit rien
-    ("cursor/composer-2.5@high", "dans le nom du modèle"),
-    ("cursor/grok-4.7-high@defaut", "dans le nom du modèle"),
-    ("cursor/grok-4.7-high@", "illisible"),
+    ("claude/claude-sonnet-5-5@defaut", "ne connaît pas l'effort"),   # « defaut » était à Cursor
+    ("claude/claude-opus-5-5@", "illisible"),
 ])
 def test_un_effort_que_le_harnais_ne_recoit_pas_se_refuse(texte, motif):
     with pytest.raises(ProjetIncomplet, match=motif):
         lire_agent(texte)
 
 
-def _relecteurs_restants(poste_relecteur, famille_auteur):
-    return [a for a in poste_relecteur.agents if a.famille != famille_auteur]
+def _relecteurs_restants(poste_relecteur, auteurs):
+    return [str(a) for a in poste_relecteur.agents if a.famille not in auteurs]
 
 
-def test_sonnet_code_le_vps_et_opus_juge():
-    # L'abonnement ChatGPT est coupé : Sonnet code les lots du VPS (choix du
-    # propriétaire, 28 octobre 2026). Les lots du PC, peu nombreux et chers
-    # quand ils ratent, ont Opus en tête (29 septembre 2026) ; chaque codeur
-    # a un secours d'une autre famille, qu'un quota de Claude n'arrête pas.
+def test_sonnet_code_le_vps_opus_le_pc_et_chacun_relit_l_autre():
+    # Sonnet code les lots du VPS (28 octobre 2026), Opus ceux du PC, peu
+    # nombreux et chers quand ils ratent (29 septembre 2026). Sans autre
+    # famille que Claude, chacun relit le code de l'autre.
     projet = charger(RACINE)
-    assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
-    assert str(projet.poste("codeur_3d").principal) == "claude/claude-opus-5-5@high"
-    for role in ("codeur", "codeur_3d"):
-        poste = projet.poste(role)
-        assert any(a.famille != "claude" for a in poste.secours), role
-    assert projet.poste("relecteur").principal.famille == "claude"
+    assert [str(a) for a in projet.poste("codeur").agents] == ["claude/claude-sonnet-5-5@high"]
+    assert [str(a) for a in projet.poste("codeur_3d").agents] == ["claude/claude-opus-5-5@high"]
+    relecteur = projet.poste("relecteur")
+    assert _relecteurs_restants(relecteur, {"sonnet"}) == ["claude/claude-opus-5-5@high"]
+    assert _relecteurs_restants(relecteur, {"opus"}) == ["claude/claude-sonnet-5-5@high"]
 
 
-def test_plus_aucun_modele_d_openai_nulle_part():
-    # L'abonnement ChatGPT est coupé : plus de Codex, et plus de GPT par
-    # Cursor non plus (choix du propriétaire, 30 octobre 2026). Le dépôt n'en
-    # a aucun, l'atelier ne sait plus appeler Codex, et le chargement refuse
-    # la ligne qui remettrait un modèle d'OpenAI.
-    projet = charger(RACINE)
-    assert projet.postes and not [f"{poste.role} : {a}" for poste in projet.postes.values()
-                                  for a in poste.agents if a.famille == "gpt"]
-    assert "codex" not in OUTILS
-    for ligne in ("claude/opus | cursor/gpt-5.6-sol-high@high", "cursor/gpt-5.3-codex-high@high"):
-        with pytest.raises(ProjetIncomplet, match="OpenAI"):
-            lire_poste("chef", ligne)
-    with pytest.raises(ProjetIncomplet, match="outil inconnu"):
-        lire_agent("codex/gpt-5.6-sol@high")
-
-
-def test_le_renfort_est_sonnet_puis_grok():
-    # Le dernier passage d'un lot du VPS : Sonnet, puis grok s'il ne répond
-    # pas. Le renfort est de la famille du codeur : son passage n'écarte
-    # aucun relecteur de plus.
+def test_le_renfort_est_le_modele_du_codeur():
+    # Le dernier passage d'un lot du VPS compte comme un passage du codeur :
+    # un renfort d'un autre modèle ferait écrire le lot par les deux, et
+    # personne ne pourrait plus le relire.
     projet = charger(RACINE)
     renfort = projet.poste("renfort")
     assert str(renfort.principal) == "claude/claude-sonnet-5-5@high" and not renfort.lecture_seule
-    assert renfort.principal.famille == projet.poste("codeur").principal.famille
-    assert any(a.famille != "claude" for a in renfort.secours)
+    assert {a.famille for a in renfort.agents} == {a.famille for a in projet.poste("codeur").agents}
 
 
 def test_chaque_lot_du_vps_peut_coder_avec_sonnet():
     # Claude tient un codeur par lot du VPS, et il lui reste une place pour
-    # juger : grok ne code que sur quota ou panne ; deux lots, un par
-    # processeur du VPS (28 octobre 2026).
+    # juger ; deux lots, un par processeur du VPS (28 octobre 2026).
     projet = charger(RACINE)
     assert projet.capacite("vps") == 2
     assert projet.plafond("claude") > projet.capacite("vps")
 
 
-def test_un_lot_a_toujours_deux_relecteurs_possibles():
-    # Quelle que soit la famille qui a écrit, au moins deux agents peuvent
-    # relire : un quota ne laisse plus un lot sans relecture (#186, le
-    # 28 septembre 2026 : Claude écarté, le secours à court de quota).
+def test_aucun_lot_ne_reste_sans_relecteur_possible():
+    # Tout est Claude : un lot qu'Opus et Sonnet auraient écrit tous les deux
+    # se bloquerait, « aucun relecteur possible ». Quel que soit l'agent de sa
+    # ligne qui code un lot, un modèle qui ne l'a pas écrit peut le relire.
     projet = charger(RACINE)
     relecteur = projet.poste("relecteur")
-    auteurs = {a.famille for role in ("codeur", "codeur_3d", "mecanicien") for a in projet.poste(role).agents}
-    for famille in auteurs:
-        restants = _relecteurs_restants(relecteur, famille)
-        assert len(restants) >= 2, f"un lot écrit par {famille} n'a que {[str(a) for a in restants]}"
+    for roles in (("codeur", "renfort"), ("codeur_3d",), ("mecanicien",)):
+        auteurs = {a.famille for role in roles for a in projet.poste(role).agents}
+        assert _relecteurs_restants(relecteur, auteurs), f"un lot écrit par {sorted(auteurs)} n'a plus de relecteur"
 
 
-def test_l_ancienne_ligne_du_relecteur_laissait_un_lot_sans_secours():
-    # Contre-épreuve : la ligne d'avant ne laissait qu'un relecteur à un lot
-    # écrit par Claude, et la même règle la refuse.
-    ancienne = lire_poste("relecteur", "claude/claude-opus-5-5 | cursor/grok-4.7-high")
-    assert len(_relecteurs_restants(ancienne, "claude")) == 1
+def test_un_codeur_avec_opus_en_secours_laisserait_un_lot_sans_relecteur():
+    # Contre-épreuve : Sonnet code, Opus prend la correction sur un quota, et
+    # la même règle ne trouve plus personne pour relire.
+    relecteur = lire_poste("relecteur", "claude/claude-opus-5-5 | claude/claude-sonnet-5-5")
+    codeur = lire_poste("codeur", "claude/claude-sonnet-5-5 | claude/claude-opus-5-5")
+    assert _relecteurs_restants(relecteur, {a.famille for a in codeur.agents}) == []
 
 
 def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):
     agents = Agents((1, "Error: You've hit your usage limit"), (0, "DECISION: BRIEF"))
     res = A.invoquer(projet.poste("chef"), "prépare", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "cursor/kimi"
+    assert res.reussi and str(res.agent) == "claude/sonnet"
 
 
 # Le parallélisme : combien de lots par machine, combien d'agents par outil.
@@ -381,17 +312,18 @@ def _toml_avec(projet, tmp_path, ajout):
 
 def test_sans_reglage_chaque_machine_tient_un_lot_et_aucun_outil_n_a_de_plafond(projet):
     assert projet.capacite("vps") == 1 and projet.capacite("pc") == 1
-    assert projet.plafond("cursor") is None
+    assert projet.plafond("claude") is None
 
 
 def test_le_parallelisme_se_lit_et_une_faute_se_refuse(projet, tmp_path):
     (tmp_path / "bon").mkdir()
-    lu = charger(_toml_avec(projet, tmp_path / "bon", "\n[machines]\nvps = 3\n\n[outils]\ncursor = 2\n"))
+    lu = charger(_toml_avec(projet, tmp_path / "bon", "\n[machines]\nvps = 3\n\n[outils]\nclaude = 2\n"))
     assert lu.capacite("vps") == 3 and lu.capacite("pc") == 1
-    assert lu.plafond("cursor") == 2 and lu.plafond("claude") is None
-    assert "vps 3" in table_des_roles(lu) and "cursor 2" in table_des_roles(lu)
+    assert lu.plafond("claude") == 2
+    assert "vps 3" in table_des_roles(lu) and "claude 2" in table_des_roles(lu)
+    # Cursor n'est plus un outil : son plafond se refuse comme une faute de frappe.
     for ajout, motif in (("\n[machines]\nvps = 0\n", "vps"), ("\n[machines]\nmac = 2\n", "mac"),
-                         ("\n[outils]\ncursor = \"deux\"\n", "cursor"), ("\n[outils]\ncopilot = 1\n", "copilot")):
+                         ("\n[outils]\nclaude = \"deux\"\n", "claude"), ("\n[outils]\ncursor = 1\n", "cursor")):
         dossier = tmp_path / motif
         dossier.mkdir(exist_ok=True)
         with pytest.raises(ProjetIncomplet, match=motif):
@@ -418,19 +350,19 @@ class _Places:
         return nullcontext(outil not in self.pleins)
 
 
-def test_un_outil_a_son_plafond_passe_la_main_a_son_secours(tmp_path):
-    agents = Agents((0, "fait"))
-    poste = lire_poste("codeur", "cursor/kimi | claude/opus")
-    res = A.invoquer(poste, "code", tmp_path, 10, executeur=agents, place=_Places("cursor"))
-    assert res.reussi and str(res.agent) == "claude/opus" and agents.outils() == ["claude"]
-    assert "cursor/kimi : occupé" in res.essais[0]
-
-
-def test_tous_les_outils_occupes_le_lot_attend_sans_essai(projet, tmp_path):
+def test_claude_a_son_plafond_le_lot_attend_sans_essai(projet, tmp_path):
+    # Claude est le seul outil : ses places prises, aucun secours n'est libre.
     agents = Agents()
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents,
-                     place=_Places("cursor"))
+    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents, place=_Places("claude"))
     assert res.attente and not res.personne and agents.appels == []
+    assert res.essais and all("occupé (claude a déjà tous ses agents en route)" in e for e in res.essais)
+
+
+def test_une_place_libre_laisse_coder(projet, tmp_path):
+    agents = Agents((0, "fait"))
+    places = _Places()
+    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents, place=places)
+    assert res.reussi and str(res.agent) == "claude/sonnet" and places.demandees == ["claude"]
 
 
 # La sonde : un agent qui écrit doit vraiment écrire.
@@ -464,18 +396,18 @@ def test_un_harnais_qui_refuse_l_appel_passe_la_main_sans_bruler_d_essai(projet,
     assert A.cause_de_refus(2, sortie) == "appel"
     agents = Agents((2, sortie), (0, "fait"))
     res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "cursor/grok"
+    assert res.reussi and str(res.agent) == "claude/haiku"
     assert "refuse l'appel" in res.essais[0]
 
 
-def test_une_session_claude_perdue_fait_coder_grok(tmp_path):
+def test_une_session_claude_perdue_fait_attendre_le_lot(tmp_path):
     # Sur la vraie ligne du codeur : la session Claude du VPS a expiré le
-    # 21 octobre 2026 ; grok code, et aucun essai n'est brûlé.
+    # 21 octobre 2026. Sans autre harnais, le lot attend, et aucun essai
+    # n'est brûlé ; le journal demande de ranger un nouveau jeton.
     refus = "Failed to authenticate: OAuth session expired and could not be refreshed"
-    agents = Agents((1, refus), (0, "fait"))
-    res = A.invoquer(charger(RACINE).poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "cursor/grok-4.7-high@high"
-    assert "claude/claude-sonnet-5-5@high : session expirée" in res.essais[0]
+    res = A.invoquer(charger(RACINE).poste("codeur"), "code", tmp_path, 10, executeur=Agents((1, refus)))
+    assert res.attente and not res.reussi and not res.personne
+    assert res.essais and "claude/claude-sonnet-5-5@high : session expirée" in res.essais[0]
 
 
 def test_un_effort_inconnu_que_claude_code_ignore_n_est_pas_un_refus():
@@ -493,23 +425,3 @@ def test_un_test_rouge_de_l_agent_n_est_pas_un_appel_refuse():
     # « unrecognized arguments » ; c'est l'échec de l'agent, pas du harnais.
     sortie = "E   SystemExit: 2\nusage: forge [-h]\nforge: error: unrecognized arguments: --vite\n1 failed"
     assert A.cause_de_refus(1, sortie) is None
-
-
-def test_cursor_rend_son_texte_final_par_le_json_pas_par_la_sortie_brute(projet, tmp_path):
-    # #862 et #788 : deux relectures « CORRIGER » de Cursor sont tombées
-    # en « verdict illisible » parce que la sortie texte n'était pas sa réponse
-    # finale. Le JSON la porte dans `result`, seule.
-    from atelier.pilote import _VERDICT
-
-    relit = A.argv(Agent("cursor", "grok-4.7-high"), "x", lecture_seule=True)
-    assert relit[relit.index("--output-format") + 1] == "json"
-    revue = "- jeu/sim/intentions.py:336 plante avec ±1e308.\n\nVERDICT: CORRIGER"
-    sortie = ('{"type":"result","subtype":"success","is_error":false,"result":'
-              + __import__("json").dumps(revue) + ',"session_id":"s"}\n')
-    assert A.reponse_finale_cursor(sortie) == revue
-    assert _VERDICT.findall(A.reponse_finale_cursor(sortie)) == ["CORRIGER"]
-    assert A.reponse_finale_cursor("VERDICT: ACCEPTE") == "VERDICT: ACCEPTE"  # texte brut : inchangé
-    agent = Agent("cursor", "grok-4.7-high")
-    code, out, _, texte = A._appeler(agent, projet.poste("relecteur"), "relis", tmp_path, 10,
-                                     lambda *_: (0, sortie, ""))
-    assert code == 0 and out == sortie and texte == revue

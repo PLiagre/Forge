@@ -71,13 +71,12 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   **fenêtre de trois jalons**), qu'elle fait découper s'il n'a pas de plan.
   Une ligne de découpe sans « après » part tout de suite.
   Plusieurs tours tournent en même temps : le VPS fait avancer jusqu'à
-  `[machines].vps` lots à la fois, le PC un ; chaque outil a son plafond
-  d'agents simultanés (`[outils]`), et un outil plein passe la main à son
-  secours.
+  `[machines].vps` lots à la fois, le PC un ; Claude a un plafond d'agents
+  simultanés (`[outils]`), et quand il est plein, le lot attend.
   Le **chef** écrit le brief dans la branche `lot/<n>-<slug>` et ouvre la PR
   (moins de 300 lignes, sinon il découpe ; hors de son jalon, il refuse).
-  Le **codeur** code, la CI joue les tests, le **relecteur** — jamais la
-  famille de modèle qui a écrit, quel que soit l'outil — rend
+  Le **codeur** code, la CI joue les tests, le **relecteur** — jamais le
+  modèle qui a écrit : Opus relit Sonnet, Sonnet relit Opus — rend
   `ACCEPTE` (fusion automatique) ou `CORRIGER` (le codeur corrige, deux fois
   au plus, puis `bloque`). Sur le VPS, la dernière correction se fait par le
   **renfort** (Claude Sonnet 5.5).
@@ -87,8 +86,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   `AGENTS.md`, `CLAUDE.md`, `CAP.md` : le pilote retire ces changements.
 - Les rôles, leurs harnais, leurs modèles et leurs efforts :
   `python3 -m atelier agents`. Changer de modèle ou d'effort, c'est changer
-  une ligne de [`atelier.toml`](atelier.toml) (`harnais/modèle@effort`). Un
-  modèle Claude ne passe que par Claude Code : le chargement refuse le reste.
+  une ligne de [`atelier.toml`](atelier.toml) (`harnais/modèle@effort`).
+  **Plus rien que Claude** (Opus, Sonnet), par Claude Code : ni GPT, ni
+  grok, ni composer ; le chargement refuse le reste.
 - Chaque matin, le journal paraît dans sa propre issue, épinglée : « Journal
   du JJ/MM/AAAA » ; celle de la veille se ferme. Détail de la chaîne : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 

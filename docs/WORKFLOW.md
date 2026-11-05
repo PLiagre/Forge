@@ -17,30 +17,31 @@ la fusionne toute seule.
  (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
-                    CODEUR (Claude Code, sonnet, high · secours Cursor, grok-high)   — lot « pc » : Claude Code, opus, high sur le PC (secours Cursor, grok-high)
+                    CODEUR (Claude Code, sonnet, high, seul)   — lot « pc » : Claude Code, opus, high sur le PC, seul
                           │ le pilote commit, pousse, capture
                           ▼
                     CI : tests + gitleaks ── rouge (dès le premier travail rouge) ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
                           │ vert
                           ▼
-                    RELECTEUR (Claude Code, opus, high ; puis Cursor grok-high, Cursor composer-2.5 : jamais la famille qui a écrit)
+                    RELECTEUR (Claude Code, opus, high ; puis sonnet, high : jamais le modèle qui a écrit)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
                      └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
                                                                                      │
-                    DÉPANNEUR (Claude Code, opus, high ; secours Claude Code, sonnet, puis Cursor, grok-high) ◄─┘
+                    DÉPANNEUR (Claude Code, opus, high ; secours Claude Code, sonnet, high) ◄────────────┘
                      ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
                      ├─ QUESTION    ──► question au propriétaire
                      ├─ DECOUPE     ──► sous-lots ouverts ; le lot et sa PR se ferment
                      └─ MODE-DIRECT ──► reste « bloque » : la chaîne est à corriger
 ```
 
-Le **renfort** (Claude Code, sonnet, high ; puis Cursor grok-high) fait
+Le **renfort** (Claude Code, sonnet, high) fait
 le dernier passage du codeur d'un lot du VPS avant blocage : la 2e correction,
 avec `corrections_max = 2`. Deux passages n'ont pas suffi : il reprend avec
 la revue ou l'erreur de CI sous les yeux. Sa
-marque reste celle du codeur : le passage compte, et la famille Claude ne
-relit pas le lot. Les lots du PC n'ont pas de renfort (Claude Opus y code
-déjà).
+marque reste celle du codeur : le passage compte, et Sonnet, qui a écrit le
+lot, ne le relit pas. Le renfort est du modèle du codeur : avec Opus, le lot
+aurait été écrit par les deux, et personne ne pourrait plus le relire. Les
+lots du PC n'ont pas de renfort (Claude Opus y code déjà).
 
 Un rouge du seul travail `chronometre` (les tests qui chronomètrent le moteur,
 au bord de leur budget sur les runners partagés) ne part pas d'abord au codeur,
@@ -49,55 +50,45 @@ pilote attend la fin du run, puis le rejoue une fois, sans compter d'essai :
 la branche reçoit master s'il a bougé, sinon le travail rouge se rejoue (`gh run rerun --failed`). Le
 codeur ne corrige que s'il rougit encore.
 
-Le **mécanicien** (Claude Code, sonnet, medium ; secours Cursor, composer-2.5) répare master quand sa CI est rouge
-et résout les conflits d'une branche de lot. Le **chroniqueur** (Cursor,
-grok-4.7-high, en lecture seule) écrit le journal chaque matin ; la
-**boussole** (Claude Code, opus, xhigh ; secours Claude Code, sonnet, high, puis Cursor, grok-high) compare
-chaque lundi les lots livrés à CAP.md.
+Le **mécanicien** (Claude Code, sonnet, medium) répare master quand sa CI est rouge
+et résout les conflits d'une branche de lot. Le **chroniqueur** (Claude Code,
+opus, high ; secours sonnet, high ; en lecture seule) écrit le journal chaque
+matin ; la **boussole** (Claude Code, opus, xhigh ; secours sonnet, high)
+compare chaque lundi les lots livrés à CAP.md.
 
 **Chaque agent dit son harnais, son modèle et son effort** :
 `harnais/modèle@effort` dans [`atelier.toml`](../atelier.toml), et
-`python3 -m atelier agents` en fait la table. L'effort passe à chaque harnais
-par son chemin : `--effort` pour Claude Code (low, medium, high, xhigh, max) ;
-Cursor n'a pas d'option, l'effort est dans le nom du modèle
-(`grok-4.7-high` s'écrit `@high`, et `@defaut` dit qu'un modèle Cursor n'en
-propose pas). Un effort qu'un harnais ne connaît pas, ou qui ne correspond pas
-au nom d'un modèle Cursor, se refuse au chargement : Claude Code, lui,
-l'ignorerait sans rien dire (mesuré le 29 septembre 2026). Chaque commentaire
-de la chaîne nomme l'agent avec son effort (`claude/claude-sonnet-5-5@high`).
+`python3 -m atelier agents` en fait la table. Claude Code reçoit l'effort par
+`--effort` (low, medium, high, xhigh, max). Un effort qu'il ne connaît pas se
+refuse au chargement : Claude Code, lui, l'ignorerait sans rien dire (mesuré
+le 29 septembre 2026). Chaque commentaire de la chaîne nomme l'agent avec son
+effort (`claude/claude-sonnet-5-5@high`).
 
-**Claude ne passe que par Claude Code**, jamais par Cursor ni un autre
-harnais : c'est le choix du propriétaire, et le chargement de `atelier.toml`
-refuse la ligne qui en mettrait un.
+**Plus rien que Claude.** L'abonnement Claude (Opus, Sonnet) est le seul qui
+reste au propriétaire : GPT et Codex sont retirés le 30 octobre 2026, Cursor
+(grok, composer) le 5 novembre, quand son forfait était épuisé depuis le 2.
+L'atelier ne sait plus appeler que Claude Code, et le chargement de
+`atelier.toml` refuse tout modèle qui n'est pas de Claude (choix du
+propriétaire).
 
-**Plus aucun modèle d'OpenAI**, par aucun harnais : l'abonnement ChatGPT est
-coupé, Codex est retiré de l'atelier, et GPT ne passe plus par Cursor non
-plus. Le chargement de `atelier.toml` refuse la ligne qui en remettrait un
-(choix du propriétaire, 30 octobre 2026).
+Le relecteur n'est jamais le **modèle** qui a écrit le lot : chaque modèle
+Claude compte pour sa propre famille (opus, sonnet ; elle se lit dans le nom
+du modèle), et le relecteur relit avec l'agent suivant de sa ligne. Le code
+de Sonnet se relit par Opus, celui d'Opus par Sonnet. Un lot qu'Opus et
+Sonnet auraient écrit tous les deux n'a plus de relecteur et se bloque :
+c'est pourquoi le codeur, le codeur du PC, le renfort et le mécanicien n'ont
+pas de secours.
 
-Le relecteur n'est jamais de la **famille de modèle** qui a écrit le lot
-(Claude, Grok, Composer ; elle se lit dans le nom du modèle) : il relit
-avec l'agent suivant de sa ligne.
-
-**Claude écrit et juge, Cursor le relaie.** Le code du VPS s'écrit avec
-Claude Sonnet 5.5 par Claude Code (choix du propriétaire, 28 octobre 2026),
-qui prend aussi le secours du dépanneur et de la boussole, et le travail du
-mécanicien ; Claude tient quatre agents à la fois. **Un brief ne s'écrit
+**Sonnet code, Opus explique et juge.** Le code du VPS s'écrit avec Claude
+Sonnet 5.5 (choix du propriétaire, 28 octobre 2026), qui fait aussi le
+travail du mécanicien et le secours du dépanneur, du chroniqueur et de la
+boussole ; Claude tient quatre agents à la fois. **Un brief ne s'écrit
 qu'avec Claude Opus 5.5** : le chef n'a pas de secours, et un lot dont Opus
-est à court de quota attend (choix du propriétaire, 30 octobre 2026). Le
-dépanneur et la boussole gardent un dernier secours hors de Claude Code,
-Cursor grok-high : la session Claude du VPS a expiré le 21 octobre 2026, et
-sans lui ils s'arrêtaient net. Sur l'abonnement Cursor, grok et composer
-répondent encore quand le quota des autres modèles (Gemini, Kimi…) est
-épuisé (mesuré le 30 octobre 2026) : ce sont les deux seuls que la chaîne y
-appelle. Le plafond de Claude Code a déjà été atteint le
-29 septembre 2026 : un quota épuisé passe la main à Cursor grok-high, sans
-brûler d'essai. Les lots du PC, peu nombreux et chers quand ils ratent, ont
-Claude Opus en tête et Cursor grok-high en secours : choix du propriétaire,
-29 septembre 2026. Le code de Claude se relit par Cursor grok-high, puis par
-Cursor composer-2.5 ; celui de grok, par Claude Opus puis composer. La ligne du relecteur laisse toujours
-au moins deux agents à un lot, quelle que soit la famille qui l'a écrit : un
-quota ne le laisse plus sans relecture.
+est à court de quota attend (choix du propriétaire, 30 octobre 2026). Les
+lots du PC, peu nombreux et chers quand ils ratent, ont Claude Opus (choix du
+propriétaire, 29 septembre 2026), et Sonnet les relit. Sans autre harnais,
+un quota épuisé ou une session Claude perdue fait **attendre** le lot, sans
+brûler d'essai ; le journal du matin dit le geste qui la rouvre.
 
 ## Qui fait quoi
 
@@ -329,10 +320,9 @@ Les réglages sont dans [`atelier.toml`](../atelier.toml) :
 - `[machines]` : combien de lots chaque machine fait avancer en même temps
   (le VPS en tient plusieurs, chacun dans son worktree ; le PC n'a qu'un
   runner). Un lot dont un autre tour écrit le brief compte déjà.
-- `[outils]` : combien d'agents de chaque outil tournent ensemble. Un outil
-  plein passe la main au secours de sa ligne, comme un quota : le troisième
-  lot du VPS code avec cursor grok quand Claude tient toutes ses places. Si
-  personne n'est libre, le lot attend, sans compter d'essai.
+- `[outils]` : combien d'agents de chaque outil tournent ensemble. Claude
+  est le seul outil : quand il tient toutes ses places, le lot attend, sans
+  compter d'essai.
 
 Deux lots qui touchent les mêmes fichiers finissent en conflit : le
 mécanicien le résout. Le chef les fait s'attendre quand il le voit.
@@ -394,8 +384,8 @@ veille garde le travail en file chez GitHub ; il part au réveil. Le PC répond
 toujours sur la PR : un compte rendu, ou une **attente** (aucun de ses agents
 n'a pu répondre, ou le passage a cassé avant) qui ne compte pas comme un essai
 et que le pilote renvoie au bout d'une heure. Sans réponse du tout en 24 h, il
-renvoie le même travail. Sous Windows, les agents livrés en `.cmd`
-(cursor-agent, les shims npm) sont lancés par leur `node.exe`, jamais par
+renvoie le même travail. Sous Windows, un agent livré en `.cmd`
+(un shim npm) est lancé par son `node.exe`, jamais par
 `cmd.exe` : le prompt y serait coupé et interprété. Prouver les agents du PC
 là où ils tournent : `gh workflow run sonde-pc.yml -R PLiagre/Forge`.
 
