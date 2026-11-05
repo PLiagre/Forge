@@ -427,5 +427,35 @@ namespace Forge.Interface.Tests
             Assert.That(appels == 0 && !partie.Occupee && ReferenceEquals(partie.Monde, monde) && !horlogeDeCarte.RequeteEnVol && ReferenceEquals(horlogeDeCarte.Lue, lue), Is.True, appels + " lecture(s), occupée " + partie.Occupee);
             _ = partie.Actualiser(); Assert.That(partie.Occupee, Is.True, "contre-épreuve : une lecture lancée occupe la partie");
         }
+        // Lot #1001 : la barre du haut dit la maison, sa part et son grenier, lus aux comptes servis au tick du monde lu.
+        const string BARRE = "Lecture de la maison…", ATTENTE = "Comptes en attente du monde", SC1 = "Maison témoin · Prélèvement : 25 % · Grenier : bois : 0 kg · nourriture : 1,23 t";
+        static Lecture<ComptesDeMaison> ComptesBarre(string id, long? tick, double? part = 0.25, Dictionary<string, double> grenier = null) => Lecture<ComptesDeMaison>.De(new ComptesDeMaison(
+            new MaisonLue(id, "Maison témoin", new SiegeDeMaison(10, 0, "Siège", new PointCarte(1, 2)), new[] { new LieuTenu(10, 0) }, new Dictionary<string, string>()),
+            null, part, grenier ?? new Dictionary<string, double> { ["nourriture"] = 1234.5, ["bois"] = 0 }, new FluxDeMaison(0, 0, 0, 0, 0, 0, 0, null), tick));
+        string LaBarre(Lecture<ComptesDeMaison> comptes) { Poser(partie, "Comptes", comptes); cabinet.Afficher(); string t = Propre(BARRE); Assert.That(TexteDuMonde.Interdit(t, JOUEUR, B), Is.Null, t); return t; }
+        [Test] public void La_barre_egale_les_comptes_servis_au_meme_tick()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0)); Assert.That(LaBarre(ComptesBarre(JOUEUR, 1)), Is.EqualTo(SC1));
+            Text barre = Nomme(BARRE); RectTransform cadre = barre.rectTransform; Assert.That(barre.transform.parent.name, Is.EqualTo("FORGE · Le cabinet"));
+            Assert.That(barre.preferredWidth, Is.LessThanOrEqualTo(1872f)); Assert.That(barre.preferredHeight, Is.LessThanOrEqualTo(26f)); Assert.That(cadre.sizeDelta, Is.EqualTo(new Vector2(1872, 26)));
+            float bas = -cadre.anchoredPosition.y + cadre.sizeDelta.y; Assert.That(bas, Is.EqualTo(98f)); Assert.That(bas, Is.LessThanOrEqualTo(((RectTransform)barre.transform.parent).sizeDelta.y));
+            Assert.That(LaBarre(ComptesBarre(JOUEUR, 1, null, new Dictionary<string, double>())), Is.EqualTo("Maison témoin · Prélèvement : absent · Grenier : vide"));
+        }
+        [Test] public void Une_barre_lue_un_tick_plus_tot_echoue()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0));
+            foreach (var (comptes, etape) in new[] { (ComptesBarre(JOUEUR, 0), "tick 0"), (ComptesBarre(JOUEUR, null), "tick non servi"), (ComptesBarre(B, 1), "autre maison"), ((Lecture<ComptesDeMaison>)null, "sans comptes") })
+            { string t = LaBarre(comptes); Assert.That(t, Is.EqualTo(ATTENTE), etape); Assert.That(t, Does.Not.Contain("25 %").And.Not.Contain("1,23 t"), etape); }
+            Assert.That(LaBarre(ComptesBarre(JOUEUR, 1)), Is.EqualTo(SC1), "remis au tick du monde");
+            Assert.That(LaBarre(Lecture<ComptesDeMaison>.Absent("refus témoin")), Is.EqualTo("Comptes indisponibles : refus témoin"));
+        }
+        [Test] public void Sans_maison_la_barre_le_dit()
+        {
+            Proposer(); Assert.That(Propre(BARRE), Is.EqualTo("Aucune maison choisie"));
+            Poser(partie, "Comptes", ComptesBarre(JOUEUR, 1)); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo("Aucune maison choisie"), "des comptes sans maison du joueur ne s'affichent pas");
+            Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.Absent("service coupé")); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo("Maison indisponible : service coupé"));
+            Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo(BARRE));
+            Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet"), Is.EqualTo(3), "la barre n'est pas une commande");
+        }
     }
 }

@@ -21,7 +21,7 @@ namespace Forge.Interface
         HorlogeDeCarte horloge;
         FicheDeCellule fiche;
         GameObject toile;
-        Text date, maison, territoire, apercu, aide;
+        Text date, barre, maison, territoire, apercu, aide;
         Transform choix;
         Button confirmer;
         Button[] temps;
@@ -73,6 +73,8 @@ namespace Forge.Interface
             var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 100, true);
             date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 760);
             date.color = SocleInterface.Couleur("papier");
+            barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // lot #1001 : sous le filet, dans les 100 px du bandeau
+            barre.color = SocleInterface.Couleur("papier"); barre.rectTransform.sizeDelta = new Vector2(1872, 26);
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer, "Passe le temps du monde à la vitesse supérieure.") };
@@ -171,6 +173,7 @@ namespace Forge.Interface
                 : horloge.Lue != null ? HorlogeDeCarte.Decrire(horloge.Lue) : "Date en attente du monde";
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
+            barre.text = Barre(Partie.Monde, Partie.Comptes);
             if (carte.CellulesServies < 0) aide.text = carte.TexteAffiche ?? "La carte se prépare…";
             else aide.text = AIDE;
             if (retenue != null)
@@ -181,6 +184,20 @@ namespace Forge.Interface
             }
             else territoire.text = INVITATION;
             AfficherMaison();
+        }
+
+        // Lot #1001 : la barre ne montre que des comptes de la maison du joueur servis au tick du monde lu ; sinon elle attend, sans un nombre.
+        public static string Barre(Lecture<MondeAvecMaisonLu> monde, Lecture<ComptesDeMaison> comptes)
+        {
+            if (monde == null) return "Lecture de la maison…";
+            if (!monde.Presente) return "Maison indisponible : " + TexteDuMonde.Absence(monde.Absence);
+            string id = monde.Donnees.MaisonDuJoueur;
+            if (id == null) return "Aucune maison choisie";
+            if (comptes == null || comptes.Presente && (comptes.Donnees.Maison.Id != id || comptes.Donnees.Tick != monde.Donnees.Monde.Tick))
+                return "Comptes en attente du monde";
+            if (!comptes.Presente) return DossierMaison.Indisponible(comptes.Absence);
+            var lus = comptes.Donnees;
+            return (lus.Maison.Nom ?? TexteDuMonde.Absence(lus.Maison.Absents["nom"])) + " · " + DossierMaison.Prelevement(lus.Part) + " · " + DossierMaison.Grenier(lus.Grenier);
         }
 
         void AfficherMaison()

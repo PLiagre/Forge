@@ -75,18 +75,15 @@ namespace Forge.Interface
             if (lieux.Count == 0) throw new ArgumentException("Aucun lieu transmis pour cette maison");
             if (doc.Annee == null) throw new ArgumentException("Date non transmise");
             var absents = DocumentDuMonde.Objet(d, "absents");
-            var fr = CultureInfo.GetCultureInfo("fr-FR");
             var texte = new StringBuilder();
             var cellules = new List<string> { DocumentDuMonde.Entier(siege, "cell_id").ToString(CultureInfo.InvariantCulture) };
             texte.AppendLine((Absent(d, absents, "nom") ? "nom absent" : DocumentDuMonde.Texte(d, "nom")) + " · " + DocumentDuMonde.Texte(d, "sorte") + " · " + TexteDuMonde.Date(new DateDuMonde(doc.Annee.Value, doc.JourDeLAnnee.Value)));
             texte.AppendLine("Siège : " + DocumentDuMonde.Texte(siege, "nom"));
             texte.AppendLine("Suzerain : " + (DocumentDuMonde.Valeur(d, "suzerain") == null ? "aucun" : nomSuzerain ?? "nom non transmis"));
-            texte.AppendLine("Prélèvement : " + (!d.ContainsKey("part") ? "non transmis" : Absent(d, absents, "part") ? "absent"
-                : (Borne(DocumentDuMonde.Nombre(d, "part"), 1, "part") * 100).ToString("0.##", fr) + " %"));
+            texte.AppendLine(!d.ContainsKey("part") ? "Prélèvement : non transmis" : Prelevement(Absent(d, absents, "part") ? (double?)null : DocumentDuMonde.Nombre(d, "part")));
             var grenier = !d.ContainsKey("grenier") || Absent(d, absents, "grenier") ? null : DocumentDuMonde.Objet(d, "grenier");
-            var panier = grenier?.Keys.OrderBy(k => k, StringComparer.Ordinal)
-                .Select(k => k + " : " + TexteDuMonde.Masse(Borne(DocumentDuMonde.Nombre(grenier, k), double.MaxValue, k))).ToList();
-            texte.AppendLine("Grenier : " + (!d.ContainsKey("grenier") ? "non transmis" : panier == null ? "absent" : panier.Count == 0 ? "vide" : string.Join(" · ", panier)));
+            texte.AppendLine(!d.ContainsKey("grenier") ? "Grenier : non transmis"
+                : Grenier(grenier?.Keys.Select(k => new KeyValuePair<string, double>(k, DocumentDuMonde.Nombre(grenier, k)))));
             texte.AppendLine("\nTERRES TENUES");
             foreach (var brut in lieux)
             {
@@ -110,6 +107,15 @@ namespace Forge.Interface
             foreach (var a in absents.OrderBy(p => p.Key, StringComparer.Ordinal))
                 texte.AppendLine(a.Key + " : " + TexteDuMonde.Absence(a.Value as string ?? throw new ArgumentException("Raison non textuelle : " + a.Key), cellules.ToArray()));
             return texte.ToString();
+        }
+        // Lot #1001 : les deux lignes que le feuillet et la barre du cabinet écrivent de la même façon.
+        public static string Prelevement(double? part) => part == null ? "Prélèvement : absent"
+            : "Prélèvement : " + (Borne(part.Value, 1, "part") * 100).ToString("0.##", CultureInfo.GetCultureInfo("fr-FR")) + " %";
+        public static string Grenier(IEnumerable<KeyValuePair<string, double>> panier)
+        {
+            if (panier == null) return "Grenier : absent";
+            var lignes = panier.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + " : " + TexteDuMonde.Masse(Borne(p.Value, double.MaxValue, p.Key))).ToList();
+            return "Grenier : " + (lignes.Count == 0 ? "vide" : string.Join(" · ", lignes));
         }
         static string Personnes(long n) => TexteDuMonde.Nombre(n) + (n > 1 ? " personnes" : " personne");
         // Une valeur nulle n'est une absence que si le monde en donne la raison ; sinon le bilan est refusé.

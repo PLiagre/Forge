@@ -297,6 +297,28 @@ namespace Forge.Pont.Tests
                 foreach (string id in new string[] { null, "", " ", "\t" }) Assert.AreEqual(typeof(ArgumentException), Assert.Throws<ArgumentException>(() => c.LireComptes(id)).GetType());
             Assert.AreEqual(0, Recues().Length);
         }
+        // Lot #1001 : le tick servi avec les comptes est gardé ; absent, il reste nul ; mal formé, il refuse toute la réponse.
+        [Test] public void Le_tick_servi_est_garde_avec_les_comptes()
+        {
+            string avecTick = Complet.Insert(Complet.Length - 1, ",\"tick\":31");
+            string[] fautes = { "-1", "1.5", "\"jour\"", "null" };
+            var reponses = new List<(int, string)> { (200, avecTick), (200, Complet) };
+            foreach (string f in fautes) reponses.Add((200, Complet.Insert(Complet.Length - 1, ",\"tick\":" + f)));
+            Servir(reponses.ToArray());
+            using (var c = new ClientMaison(port, TimeSpan.FromSeconds(5)))
+            {
+                var a = c.LireComptes(Id); var b = c.LireComptes(Id);
+                Assert.IsTrue(a.Presente && b.Presente, a.Absence ?? b.Absence);
+                Assert.AreEqual(31L, a.Donnees.Tick); Assert.IsNull(b.Donnees.Tick, "tick non servi : jamais deviné");
+                foreach (var l in new[] { a, b })
+                {
+                    Assert.IsTrue(l.Donnees.Part == 0.25 && l.Donnees.Grenier.Count == 2 && l.Donnees.Grenier["nourriture"] == 1234.5 && l.Donnees.Grenier["bois"] == 0 && l.Donnees.Suzerain == "grande-temoin", l.Absence);
+                    FluxEgal(l.Donnees.Flux, 812.25, 790.5, 81, 21.75, 19.25, 7, 2, 40.5);
+                }
+                foreach (string f in fautes) AbsenteComptes(c.LireComptes(Id), "clé tick");
+            }
+            Assert.AreEqual(2 + fautes.Length, Recues().Length);
+        }
         [Test] public void UnIdentifiantReserveArriveEncodePourLesComptes()
         {
             const string bizarre = "é /?&=+#";
