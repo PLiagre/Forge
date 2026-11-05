@@ -21,12 +21,15 @@ namespace ForgeLocal3D.Captures
             var feuillet = Lot658.toile.Cast<Transform>().FirstOrDefault(t => t.name == "Terres et comptes" && t.GetComponentInChildren<ScrollRect>(true) != null) ?? throw Echec("feuillet « Terres et comptes » introuvable");
             (feuillet.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name == "Fermer") ?? throw Echec("feuillet sans « Fermer »")).onClick.Invoke();
             for (int i = 0; i < 5; i++) yield return null; if (feuillet.gameObject.activeInHierarchy) throw Echec("feuillet resté ouvert sur la légende des lieux");
-            // Dans la même image, sans yield : les deux textes tels que la photo les montre.
-            var textes = Lot658.toile != null ? Lot658.toile.GetComponentsInChildren<Text>(true) : throw Echec("toile du cabinet absente");
-            var legende = textes.FirstOrDefault(t => t.name == "Légende des lieux") ?? throw Echec("légende des lieux absente"); string lieux = legende.text; Lot690.DansLeChamp(camera, legende);
-            string cache = Lot658.toile.GetComponentsInChildren<Image>(false).Where(i => i.raycastTarget && Recouvre(camera, i.rectTransform, legende.rectTransform)).Select(i => i.name).FirstOrDefault();
+            // Lot #964 : les deux légendes sont l'infobulle de la légende du mode, en Flux puis en Puissances.
+            var calques = Lot658.carte.GetComponent<CalquesCarte>() ?? throw Echec("pas de CalquesCarte"); var legende = calques.Legende; var bulle = Lot658.toile.Find(CalquesCarte.LEGENDE)?.GetComponent<Infobulle>() ?? throw Echec("légende du mode sans infobulle");
+            if (calques.Mode != ModeDeCarte.Flux || legende.text != CalquesCarte.FLUX) throw Echec("légende du Flux « " + Ligne(legende.text) + " » en mode " + calques.Mode); string fleches = bulle.Phrase, puissances = CalquesCarte.LegendeDuMode(ModeDeCarte.Puissances, null, true);
+            (Lot658.toile.Find(CalquesCarte.BANDE)?.Find("Puissances")?.GetComponent<Button>() ?? throw Echec("bouton « Puissances » introuvable")).onClick.Invoke();
+            for (var e = Lot690.Jusqua(() => legende.text == puissances && bulle.Phrase != null && bulle.Phrase.Contains("· relevé au jour"), () => "légende des Puissances « " + Ligne(legende.text) + " », infobulle « " + Ligne(bulle.Phrase) + " »"); e.MoveNext();) yield return null;
+            // Dans la même image, sans yield : la légende telle que la photo la montre.
+            string lieux = bulle.Phrase; Lot690.DansLeChamp(camera, legende);
+            string cache = Lot658.toile.GetComponentsInChildren<Image>(false).Where(i => i.raycastTarget && i.name != CalquesCarte.LEGENDE && Recouvre(camera, i.rectTransform, legende.rectTransform)).Select(i => i.name).FirstOrDefault();
             if (cache != null) throw Echec("légende des lieux cachée sous « " + cache + " »");
-            string fleches = (textes.FirstOrDefault(t => t.name == "Légende des flèches") ?? throw Echec("légende des flèches absente")).text;
             if (Environment.GetCommandLineArgs().Contains(IDENTIFIANT))
             {
                 // La flèche du dû n'a pas de couple : le premier objet d'un lieu (« Flèche 10340-1 » donne « 10340-1 »).

@@ -41,7 +41,7 @@ namespace Forge.Interface
     {
         // Lot #963 : la bande des modes en bas à droite de la vue de la carte, sa légende juste au-dessus (unités de la toile, 1920 × 1080).
         public const string BANDE = "Modes de la carte", LEGENDE = "Légende du mode", COUPEE = "Calque indisponible : détail dans l'infobulle.";
-        public const string FLUX = "Flux : ce que vos lieux envoient à votre siège, et votre siège à son suzerain, sur trente jours · Rouge : territoire conservé";
+        public const string PUISSANCES = "Puissances de la carte · Rouge : territoire conservé", FLUX = "Orange : prélevé de chaque lieu vers votre siège · Violet : dû de votre siège à son suzerain · Sur trente jours · Rouge : territoire conservé";
         public const int LIGNES_MAX = 3; const float X = 776, LARGEUR = 486, BAS = 1004, MARGE = 4;
         CarteDessinee carte;
         Func<MondeLu> monde;
@@ -51,6 +51,7 @@ namespace Forge.Interface
         TextMesh[] noms;
         readonly List<Rect> etiquettes = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
+        LieuxDeCarte lieux; FlechesDeCarte fleches; string ecrite, detaillee; RepartitionHabitants repartie; // la légende et le détail du dernier passage sans faute ; nuls après une faute
         MondeLu precedent;
         long? territoirePrecedent;
         bool changement = true;
@@ -71,6 +72,7 @@ namespace Forge.Interface
             legende.color = SocleInterface.Couleur("papier"); legende.supportRichText = false; legende.horizontalOverflow = HorizontalWrapMode.Wrap; legende.verticalOverflow = VerticalWrapMode.Overflow;
             Legender(legende.text, DetailDuMode(Mode));
         }
+        public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches) { this.lieux = lieux; this.fleches = fleches; }
         void Bouton(Transform bande, ModeDeCarte mode, float x, string phrase)
         {
             var b = SocleInterface.Commande(bande, mode.ToString(), x, 0, () => { Mode = mode; changement = true; }, phrase: phrase); // un clic ne lit rien
@@ -85,6 +87,12 @@ namespace Forge.Interface
         public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Habitants ? "Plus une terre est foncée, plus elle compte d'habitants. L'échelle est logarithmique : chaque pas de teinte multiplie les habitants au lieu de les additionner, pour que les petites terres restent lisibles à côté des grandes."
             : mode == ModeDeCarte.Flux ? "Toutes les terres passent en papier pour laisser lire les flèches : chacune part d'un de vos lieux vers votre siège, ou de votre siège vers celui de son suzerain, et s'épaissit avec ce qui est envoyé."
             : "Chaque terre porte, en pigment d'atlas, la couleur de la maison qui la tient : deux terres de même teinte ont le même maître.") + " Le rouge marque la terre que vous gardez ouverte.";
+        public static string LegendeDuMode(ModeDeCarte mode, RepartitionHabitants repartition, bool lieuxPeints) =>
+            mode == ModeDeCarte.Puissances && lieuxPeints ? PUISSANCES + "\n" + LieuxDeCarte.ENTETE : LegendeDuMode(mode, repartition);
+        // Lot #964 : les lieux parlent dans la légende des Puissances, les flèches dans celle du Flux ; l'infobulle ne reprend que les relevés des lieux, leur en-tête est déjà dans la légende.
+        public static string DetailDuMode(ModeDeCarte mode, LieuxDeCarte lieux, FlechesDeCarte fleches) =>
+            mode == ModeDeCarte.Puissances && lieux != null && lieux.Peint ? DetailDuMode(mode) + " Relief non transmis." + lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length)
+            : mode == ModeDeCarte.Flux && fleches != null ? DetailDuMode(mode) + "\n" + fleches.TexteLegende : DetailDuMode(mode);
         // Les lignes que prendrait `contenu` dans `texte`, à sa largeur, la toile à l'échelle donnée ; à hauteur nulle, une troncature ne compterait rien.
         public static int Lignes(Text texte, string contenu, float echelle)
         {
@@ -107,8 +115,9 @@ namespace Forge.Interface
             if (legende == null || carte.CellulesPosees == 0) return;
             EspacerLesNoms();
             var lu = monde(); long? retenu = selection()?.CellId;
-            if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent) return;
-            changement = false; precedent = lu; territoirePrecedent = retenu;
+            // Lot #964 : les lieux et les flèches se lisent à leur rythme ; leur texte se récrit sans recolorer une terre. Après une faute, rien ne se récrit tant que rien ne bouge.
+            if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent) { if (ecrite != null) try { Recrire(repartie); } catch (ArgumentException) { changement = true; } return; }
+            changement = false; precedent = lu; territoirePrecedent = retenu; ecrite = null;
             try
             {
                 if (rendus == null)
@@ -137,10 +146,11 @@ namespace Forge.Interface
                     paire.Value.SetPropertyBlock(null);
                     teintes[paire.Key].copie.color = Teinte(mode, paire.Key == retenu, teintes[paire.Key].maison, repartition?.Position(paire.Key) ?? 0f);
                 }
-                Legender(LegendeDuMode(mode, repartition), DetailDuMode(mode));
+                Recrire(repartition); repartie = repartition;
             }
             catch (Exception e)
             {
+                ecrite = null;
                 if (rendus != null) foreach (var paire in rendus)
                 {
                     paire.Value.SetPropertyBlock(null);
@@ -151,6 +161,7 @@ namespace Forge.Interface
                 catch (ArgumentException) { Ecrire(COUPEE, raison + "\n" + detail); } // trop longue pour trois lignes : entière dans l'infobulle
             }
         }
+        void Recrire(RepartitionHabitants repartition) { string texte = LegendeDuMode(Mode, repartition, lieux != null && lieux.Peint), detail = DetailDuMode(Mode, lieux, fleches); if (texte != ecrite || detail != detaillee || Mathf.Abs(legende.preferredHeight - legende.rectTransform.sizeDelta.y) > 1f /* la toile peut changer d'échelle */) { Legender(texte, detail); ecrite = texte; detaillee = detail; } }
         void OnDestroy() { foreach (var t in teintes.Values) if (Application.isPlaying) Destroy(t.copie); else DestroyImmediate(t.copie); teintes.Clear(); }
 
         // Lot #943 : sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater

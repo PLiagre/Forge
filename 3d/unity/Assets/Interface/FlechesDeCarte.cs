@@ -17,21 +17,15 @@ namespace Forge.Interface
         public static readonly Color ORANGE = Color.HSVToRGB(0.08f, 0.9f, 0.95f), VIOLET = Color.HSVToRGB(0.8f, 0.9f, 0.7f);
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static float Epaisseur(double kg) => (float)Math.Min(EPAISSEUR_MAX_KM, kg / KG_PAR_KM);
-        public Func<string, Lecture<ComptesDeMaison>> Lecteur; public Text Legende { get; private set; }
-        public string TexteLegende => Legende != null ? Legende.text : null;
+        public Func<string, Lecture<ComptesDeMaison>> Lecteur;
+        public string TexteLegende => ENTETE + lignesLieux + ligneDu; // lot #964 : lu par l'infobulle de la légende du mode Flux, plus écrit sur la toile
+        public bool Visibles => calques != null && calques.Mode == ModeDeCarte.Flux; // calculées dans tous les modes, montrées en Flux seulement
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
-        CarteDessinee carte; CabinetDeCarte cabinet; LieuxDeCarte lieux; Transform racine; Image fond; string lignesLieux = "", ligneDu = "", duDe;
+        CarteDessinee carte; CabinetDeCarte cabinet; LieuxDeCarte lieux; CalquesCarte calques; Transform racine; string lignesLieux = "", ligneDu = "", duDe;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
         Task<(string maison, Lecture<ComptesDeMaison> joueur, Lecture<ComptesDeMaison> suzerain)> vol; double prochaine;
-        public void Installer(Transform toile, LieuxDeCarte vue)
-        {
-            carte = GetComponent<CarteDessinee>(); cabinet = GetComponent<CabinetDeCarte>(); lieux = vue; lieux.Applique += Lieux;
-            // Dans la bande de carte entre le feuillet (x ≤ 764) et le fond des dossiers (x ≥ 1286), posée sur « Parcourir le monde » (y ≥ 872) ; elle ne prend pas les clics.
-            fond = new GameObject("Fond des flèches", typeof(Image)).GetComponent<Image>(); var f = fond.rectTransform; f.SetParent(toile, false); f.anchorMin = f.anchorMax = f.pivot = Vector2.zero; f.anchoredPosition = new Vector2(776, 216); fond.raycastTarget = false; fond.color = SocleInterface.Couleur("fond") * new Color(1f, 1f, 1f, 0.72f);
-            Legende = SocleInterface.Texte(fond.transform, "Légende des flèches", 8, 4, 480, 16); Legende.alignment = TextAnchor.UpperLeft; Legende.horizontalOverflow = HorizontalWrapMode.Wrap; Legende.supportRichText = false; Legende.color = SocleInterface.Couleur("papier"); Afficher();
-        }
-        void Afficher() { Legende.text = ENTETE + lignesLieux + ligneDu; float h = Legende.preferredHeight; Legende.rectTransform.sizeDelta = new Vector2(480, h + 4f); fond.rectTransform.sizeDelta = new Vector2(496, h + 12f); }
-        void Update() { if (Legende != null && Mathf.Abs(Legende.preferredHeight + 4f - Legende.rectTransform.rect.height) > 1f) Afficher(); Pas(Time.realtimeSinceStartupAsDouble); } // la toile peut changer d'échelle
+        public void Installer(LieuxDeCarte vue) { carte = GetComponent<CarteDessinee>(); cabinet = GetComponent<CabinetDeCarte>(); calques = GetComponent<CalquesCarte>(); lieux = vue; lieux.Applique += Lieux; }
+        void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void OnDestroy() { if (lieux != null) lieux.Applique -= Lieux; Retirer(_ => true); if (racine != null) Detruire(racine.gameObject); foreach (var m in mats.Values) Detruire(m); mats.Clear(); }
         // Les flèches des lieux suivent la réponse que les disques viennent d'appliquer : même lecture, même tick.
         void Lieux(string maison, IReadOnlyList<(long cell, LectureLieu lieu)> lus)
@@ -46,12 +40,12 @@ namespace Forge.Interface
                 Vector3? source = l.Position is PointCarte p ? carte.PositionSurLaCarte(p, HAUTEUR) : null; sb.Append('\n').Append(LieuxDeCarte.Tenue(lu.Lieu, l)).Append(" → ").Append(siege.Nom).Append(" : ");
                 if (l.Flux == null || source == null) sb.Append(l.Flux == null ? flux : "point absent"); else sb.Append(flux).Append(Fleche("Flèche " + c, source.Value, cible.Value, l.Flux.PreleveKg, ORANGE, garder));
             }
-            Retirer(n => !garder.Contains(n)); lignesLieux = sb.ToString(); if (Legende != null) Afficher();
+            Retirer(n => !garder.Contains(n)); lignesLieux = sb.ToString();
         }
         // Le dû a sa propre lecture, hors du fil principal : les comptes du joueur, puis ceux de son suzerain pour son siège.
         public void Pas(double t)
         {
-            string id = Maison(); if (id != duDe) { duDe = id; Retirer(n => n == DU); ligneDu = ""; if (Legende != null) Afficher(); }
+            if (racine != null) racine.gameObject.SetActive(Visibles); string id = Maison(); if (id != duDe) { duDe = id; Retirer(n => n == DU); ligneDu = ""; }
             if (vol != null && vol.IsCompleted) { var fini = vol; vol = null; if (id != null && !fini.IsFaulted && fini.Result.maison == id) Du(id, fini.Result.joueur, fini.Result.suzerain); }
             if (vol != null || id == null || t < prochaine || carte == null || carte.PositionSurLaCarte(default, 0f) == null) return;
             var lire = Lecteur ?? Lire; prochaine = t + PERIODE_S; string maison = id;
@@ -64,14 +58,14 @@ namespace Forge.Interface
             if (!j.Presente) cause = "lecture refusée : " + TexteDuMonde.Absence(j.Absence, maison); else if (j.Donnees.Suzerain == null) cause = "sans suzerain : aucun dû"; else if (!s.Presente) cause = "suzerain non lu : " + TexteDuMonde.Absence(s.Absence, j.Donnees.Suzerain);
             else if (a == null) cause = "votre siège hors carte" + Raison(j.Donnees.Maison); else if (b == null) cause = "siège du suzerain hors carte" + Raison(s.Donnees.Maison);
             ligneDu = cause != null ? "\nDû au suzerain : " + cause : "\n" + siege.Nom + " → " + haut.Nom + " : " + TexteDuMonde.Masse(j.Donnees.Flux.DuEnvoyeKg) + " de dû" + Fleche(DU, a.Value, b.Value, j.Donnees.Flux.DuEnvoyeKg, VIOLET, garder);
-            Retirer(n => n == DU && !garder.Contains(n)); if (Legende != null) Afficher();
+            Retirer(n => n == DU && !garder.Contains(n));
         }
         static string Raison(MaisonLue m) => m.Absents.TryGetValue("siege", out var r) ? " : " + TexteDuMonde.Absence(r, m.Id) : "";
         // Une hampe large de l'épaisseur, une pointe de deux épaisseurs sur trois de long (au plus la moitié de la flèche), d'un bord de disque à l'autre.
         string Fleche(string nom, Vector3 a, Vector3 b, double kg, Color couleur, HashSet<string> garder)
         {
             float w = Epaisseur(kg), r = ReperesDeDepart.DIAMETRE_BORD_KM / 2f; if (Vector3.Distance(a, b) <= 2f * r) return " (les disques se touchent : pas de flèche)"; if (!(w > 0f)) return "";
-            if (racine == null) { racine = new GameObject(RACINE).transform; racine.SetParent(transform, false); }
+            if (racine == null) { racine = new GameObject(RACINE).transform; racine.SetParent(transform, false); racine.gameObject.SetActive(Visibles); }
             garder.Add(nom); var o = racine.Find(nom); if (o == null) { o = new GameObject(nom, typeof(MeshFilter), typeof(MeshRenderer)).transform; o.SetParent(racine, false); o.GetComponent<MeshFilter>().sharedMesh = new Mesh { name = nom }; }
             o.GetComponent<MeshRenderer>().sharedMaterial = Mat(couleur); Vector3 u = (b - a).normalized, p = new Vector3(u.z, 0f, -u.x) * (w / 2f), s = a + u * r, t = b - u * r, e = t - u * Mathf.Min(3f * w, Vector3.Distance(s, t) / 2f);
             var m = o.GetComponent<MeshFilter>().sharedMesh; m.Clear(); m.vertices = new[] { s - p, e - p, e + p, s + p, e - 2f * p, t, e + 2f * p }; m.triangles = new[] { 0, 1, 2, 0, 2, 3, 4, 5, 6 }; m.RecalculateNormals(); m.RecalculateBounds(); return "";

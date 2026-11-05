@@ -14,25 +14,17 @@ namespace Forge.Interface
     {
         public const string RACINE = "Lieux de la carte", ENTETE = "Blanc : vos lieux. Couleurs : autres maîtres. Rouge : départs supérieurs aux arrivées sur trente jours.";
         public const float PERIODE_S = 2f, EPAISSEUR_KM = 0.05f; public static readonly Color ROUGE = new Color(0.86f, 0.05f, 0.04f); // « alerte » (#8B342E) rend un rose terne sur la carte éclairée
-        const float TEINTE_MIN = 0.18f, ETENDUE_TEINTE = 0.5f, SATURATION = 0.7f, VALEUR = 0.75f, OPACITE_FOND = 0.72f; const uint PAS_DE_TEINTE = 500; // du jaune au bleu : ni blanc ni rouge
-        public Func<long, LectureLieu> Lecteur; public Text Legende { get; private set; }
-        public string TexteLegende => Legende != null ? Legende.text : null;
+        const float TEINTE_MIN = 0.18f, ETENDUE_TEINTE = 0.5f, SATURATION = 0.7f, VALEUR = 0.75f; const uint PAS_DE_TEINTE = 500; // du jaune au bleu : ni blanc ni rouge
+        public Func<long, LectureLieu> Lecteur;
+        public string TexteLegende { get; private set; } public bool Peint => peinte != null; // lot #964 : lus par la légende du mode Puissances et son infobulle ; peint, une maison du joueur est lue et ses lieux se peignent
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
         public event Action<string, IReadOnlyList<(long cell, LectureLieu lieu)>> Applique; // #658 : la maison et la réponse appliquée ; maison nulle quand l'ancien domaine est vidé
-        CarteDessinee carte; CabinetDeCarte cabinet; Transform racine; Material bord; Image fond;
+        CarteDessinee carte; CabinetDeCarte cabinet; Transform racine; Material bord;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
         readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
         Task<Paquet> vol; double prochaine; string peinte;
         sealed class Paquet { public string Maison; public List<(long cell, LectureLieu lieu)> Cellules; }
-        public void Installer(Transform toile)
-        {
-            carte = GetComponent<CarteDessinee>(); cabinet = GetComponent<CabinetDeCarte>();
-            // Un fond sombre translucide, à la taille du texte : lisible sur les terres claires, sans cacher les disques ni prendre les clics.
-            fond = new GameObject("Fond de la légende", typeof(Image)).GetComponent<Image>(); var f = fond.rectTransform; f.SetParent(toile, false); f.anchorMin = f.anchorMax = f.pivot = new Vector2(0, 1); f.anchoredPosition = new Vector2(16, -104); fond.raycastTarget = false; fond.color = SocleInterface.Couleur("fond") * new Color(1f, 1f, 1f, OPACITE_FOND);
-            Legende = SocleInterface.Texte(fond.transform, "Légende des lieux", 8, 4, 1100); Legende.alignment = TextAnchor.UpperLeft; Legende.horizontalOverflow = HorizontalWrapMode.Wrap;
-            Legende.supportRichText = false; Legende.color = SocleInterface.Couleur("papier"); Afficher(ENTETE);
-        }
-        void Afficher(string texte) { Legende.text = texte; Legende.rectTransform.sizeDelta = new Vector2(1100, Mathf.Max(160f, Legende.preferredHeight + 8f)); fond.rectTransform.sizeDelta = new Vector2(Mathf.Min(1100f, Legende.preferredWidth) + 16f, Legende.preferredHeight + 8f); }
+        public void Installer() { carte = GetComponent<CarteDessinee>(); cabinet = GetComponent<CabinetDeCarte>(); TexteLegende = ENTETE; }
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void OnDestroy() { foreach (var o in crees) Detruire(o); crees.Clear(); }
         // Lot #875 : une terre se nomme par son bourg (le rang 0 servi), un lieu par son nom servi ; l'absence se dit, jamais un numéro.
@@ -42,7 +34,7 @@ namespace Forge.Interface
         public static Color CouleurDuMaitre(string id) { uint h = 2166136261u; for (int i = 0; i < id.Length; i++) { h ^= id[i]; h *= 16777619u; } return Color.HSVToRGB(TEINTE_MIN + ETENDUE_TEINTE * (h % PAS_DE_TEINTE) / PAS_DE_TEINTE, SATURATION, VALEUR); }
         public void Pas(double t)
         {
-            string id = Maison(); if (id != peinte) { Vider(); peinte = id; if (Legende != null) Afficher(ENTETE); Applique?.Invoke(null, null); }
+            string id = Maison(); if (id != peinte) { Vider(); peinte = id; TexteLegende = ENTETE; Applique?.Invoke(null, null); }
             if (vol != null && vol.IsCompleted) { var fini = vol; vol = null; if (id != null && !fini.IsFaulted && fini.Result.Maison == id) Appliquer(fini.Result); }
             if (vol != null || id == null || t < prochaine || carte == null || carte.PositionSurLaCarte(default, 0f) == null) return;
             var cells = Cellules(); var lire = Lecteur ?? Lire; prochaine = t + PERIODE_S; string maison = id;
@@ -70,7 +62,7 @@ namespace Forge.Interface
                 }
             }
             if (racine != null) for (int i = racine.childCount - 1; i >= 0; i--) { var e = racine.GetChild(i); if (!garder.Contains(e.name)) Detruire(e.gameObject); }
-            Afficher(sb.ToString()); Applique?.Invoke(p.Maison, p.Cellules);
+            TexteLegende = sb.ToString(); Applique?.Invoke(p.Maison, p.Cellules);
         }
         void Poser(string couple, Vector3 local, Color couleur, HashSet<string> garder)
         {
