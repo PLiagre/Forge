@@ -34,6 +34,7 @@ ajoute ses cas dans le fichier qui porte déjà l'invariant concerné.
 | `test_convois.py` | la table du dû au suzerain, ses retenues hors carte et la durée de route d'un lieu jusqu'au siège de son maître, calculée une fois et laissée hors du tick |
 | `test_epreuve_enceinte.py` | la preuve de bout en bout de l'enceinte du jalon 4 : gestes, salaires, achèvement, portes, même monde |
 | `test_programme_ia.py` | le programme de l'IA : la route vers le champ, ses conditions et sa raison, pure, avec contre-épreuves |
+| `test_intentions.py` | le dépôt, le refus et le service des intentions ; les tests du dépôt, du choix, des copies, de la raison, du refus compté et de la base de l'IA sont joués avec l'ancienne règle et avec le programme branché par le test |
 
 ```bash
 py -m pytest sim/tests/ -q
