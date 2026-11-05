@@ -18,16 +18,17 @@ namespace Forge.Interface
         NomsDesTerres noms;
         double prochaine;
         public string TexteAffiche { get; private set; }
-        public void Initialiser(Transform toile, Func<string> maison, int port) => Initialiser(toile, maison,
-            LectureDossier.Locale(port), LectureDossier.Locale(port), () => GetComponent<HorlogeDeCarte>()?.Lue?.Tick, NomsDesTerres.Local(port));
-        public void Initialiser(Transform toile, Func<string> maison, LectureDossier lecture, LectureDossier suzerain, Func<long?> tick, NomsDesTerres noms)
+        public void Initialiser(Transform toile, Func<string> maison, int port, Transform barre = null) => Initialiser(toile, maison,
+            LectureDossier.Locale(port), LectureDossier.Locale(port), () => GetComponent<HorlogeDeCarte>()?.Lue?.Tick, NomsDesTerres.Local(port), barre);
+        // Lot #1002 : avec une barre, le bouton devient une icône de la barre du haut ; sans elle, il reste sur la toile reçue.
+        public void Initialiser(Transform toile, Func<string> maison, LectureDossier lecture, LectureDossier suzerain, Func<long?> tick, NomsDesTerres noms, Transform barre = null)
         {
             this.maison = maison; this.lecture = lecture; this.suzerain = suzerain; this.tick = tick; this.noms = noms;
             feuillet = gameObject.AddComponent<Feuillet>(); feuillet.Initialiser(toile, "Terres et comptes");
-            var bouton = SocleInterface.Commande(toile, "Terres et comptes", 1000, 20, () =>
-            {
-                if (feuillet.Ouvert) feuillet.Fermer(); else feuillet.Ouvrir();
-            }, phrase: "Ouvre ou ferme les terres et les comptes de votre maison.");
+            const string phrase = "Terres et comptes : ouvre ou ferme les terres et les comptes de votre maison.";
+            Action bascule = () => { if (feuillet.Ouvert) feuillet.Fermer(); else feuillet.Ouvrir(); };
+            if (barre != null) { EmblemeCommande.Icone(barre, "Terres et comptes", 0, bascule, phrase); return; }
+            var bouton = SocleInterface.Commande(toile, "Terres et comptes", 1000, 20, bascule, phrase: phrase);
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(260, 44);
             bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(260, 44);
         }

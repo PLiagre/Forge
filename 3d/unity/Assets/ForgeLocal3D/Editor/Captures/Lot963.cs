@@ -1,7 +1,7 @@
 using System; using System.Collections; using System.Globalization; using System.Linq;
 using Forge.Interface; using Forge.Pont; using UnityEngine; using UnityEngine.UI;
 namespace ForgeLocal3D.Captures {
-    // Lot 963 : la carte en mode Habitants, la bande des modes en bas à droite, sa légende au-dessus, « Les autres maisons » ouvert, les dossiers entiers, rien de caché.
+    // Lot 963 : la carte en mode Habitants, la bande des modes en bas à droite, sa légende au-dessus, « Les autres maisons » ouvert par son icône de la barre (#1002), les dossiers entiers, rien de caché.
     // Changer de mode ne relit rien et ne touche pas l'horloge : `-forge963Relire` lance une lecture juste après les clics, et la capture rougit.
     static class Lot963 {
         const string RELIRE = "-forge963Relire"; static InvalidOperationException Echec(string cause) => new InvalidOperationException(cause); static string Ligne(string t) => (t ?? "(aucun)").Replace("\r", "").Replace("\n", " | ");
@@ -12,7 +12,7 @@ namespace ForgeLocal3D.Captures {
             CalquesCarte calques = carte.GetComponent<CalquesCarte>() ?? throw Echec("étape 1 : le cabinet n'a pas de CalquesCarte"); (carte.GetComponent<SurvolDeCarte>() ?? throw Echec("étape 1 : la carte n'a pas de survol")).automatique = true; (carte.GetComponent<ParcoursDeCarte>() ?? throw Echec("étape 1 : la carte n'a pas de parcours")).automatique = true;
             Transform toile = carte.transform.Find("Cabinet"); if (toile == null || !toile.gameObject.activeInHierarchy) throw Echec("étape 1 : la toile du cabinet n'est pas active");
             for (var e = Lot690.Jusqua(() => Lot690.LecturePrete(cabinet.Partie), () => "étape 1 : " + Lot690.Dire(cabinet.Partie)); e.MoveNext();) yield return null;
-            Button Bouton(string parent, string nom) => toile.Find(parent)?.Find(nom)?.GetComponent<Button>() ?? throw Echec("« " + parent + "/" + nom + " » introuvable"); Bouton("Parcourir le monde", "Autres maisons").onClick.Invoke();
+            Button Bouton(string parent, string nom) => toile.Find(parent)?.Find(nom)?.GetComponent<Button>() ?? throw Echec("« " + parent + "/" + nom + " » introuvable"); Bouton("FORGE · Le cabinet/" + CabinetDeCarte.DOSSIERS, "Autres maisons").onClick.Invoke();
             for (var e = Lot690.Jusqua(() => !cabinet.Partie.Occupee && horloge.Lue != null, () => "étape 2 : partie " + Lot690.Dire(cabinet.Partie) + ", horloge " + (horloge.Lue == null ? "non lue" : "lue")); e.MoveNext();) yield return null;
             // Étape 3, dans une même image, sans yield : les clics des trois modes ne relisent rien et ne touchent pas l'horloge.
             HorlogeLue lue = horloge.Lue; long tick = lue.Tick; double vitesse = lue.JoursParSeconde; var monde = cabinet.Partie.Monde; bool occupee = cabinet.Partie.Occupee;

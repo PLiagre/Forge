@@ -13,7 +13,8 @@ namespace Forge.Interface
     public sealed class CabinetDeCarte : MonoBehaviour
     {
         public const float SEUIL_CLIC_PX = 6f;
-        public const string AIDE = "Clic : choisir une terre · Glisser : déplacer · Molette : zoomer · Échap : fermer";
+        public const string DOSSIERS = "Dossiers de la barre";
+        public const string AIDE ="Clic : choisir une terre · Glisser : déplacer · Molette : zoomer · Échap : fermer";
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;
@@ -71,7 +72,11 @@ namespace Forge.Interface
             fond.offsetMin = fond.offsetMax = Vector2.zero;
             MatieresCabinet.Habiller(fond.GetComponent<Image>(), true);
             var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 100, true);
-            date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 760);
+            // Lot #1002 : les icônes des dossiers, entre la date et les commandes du temps ; le bandeau garde ses trois boutons enfants directs.
+            var dossiers = new GameObject(DOSSIERS, typeof(RectTransform)).GetComponent<RectTransform>(); dossiers.SetParent(bandeau, false);
+            dossiers.anchorMin = dossiers.anchorMax = dossiers.pivot = new Vector2(0, 1);
+            dossiers.anchoredPosition = new Vector2(1112, -20); dossiers.sizeDelta = new Vector2(136, 44);
+            date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 600);
             date.color = SocleInterface.Couleur("papier");
             barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // lot #1001 : sous le filet, dans les 100 px du bandeau
             barre.color = SocleInterface.Couleur("papier"); barre.rectTransform.sizeDelta = new Vector2(1872, 26);
@@ -102,10 +107,10 @@ namespace Forge.Interface
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
             var menu = gameObject.AddComponent<MenuCabinet>(); menu.Initialiser(toile.transform); menu.AvantDOuvrir = Relacher;
             aide = SocleInterface.Texte(guide, AIDE, 24, 88, 1190);
-            gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, guide, carte.port);
+            gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, dossiers, carte.port);
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
-                () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port);
+                () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port, dossiers);
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux); GetComponent<CalquesCarte>().Brancher(lieux, fleches);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee);
