@@ -73,6 +73,8 @@ def test_aucune_cle_api_et_le_jeton_claude_par_l_environnement(monkeypatch, tmp_
     (0, "rate limit", None),
     (1, "Error: You've hit your usage limit. Try again later.", "quota"),
     (1, "429 Too Many Requests", "quota"),
+    (1, "ActionRequiredError: Increase limits for faster responses You're out of usage. Switch to Auto, "
+        "or ask your admin to increase your limit to continue.", "quota"),
     (1, "Invalid API key · Please run /login", "auth"),
     (1, "OAuth token has expired. Run claude setup-token", "auth"),
     (1, "AssertionError: capacité 3 != 4", None),

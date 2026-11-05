@@ -53,10 +53,12 @@ GESTES_DU_PILOTE = (
 )
 
 # Les signes d'un quota épuisé ou d'une session expirée, lus dans la fin de
-# la sortie d'un agent qui a rendu un code non nul.
+# la sortie d'un agent qui a rendu un code non nul. « Out of usage » est le
+# forfait Cursor épuisé : compté comme un échec le 2 novembre 2026, il a
+# brûlé les trois essais de #964 en deux minutes et bloqué #985 sans relecteur.
 _QUOTA = re.compile(
     r"rate.?limit|usage limit|quota|too many requests|\b429\b|limit reached|"
-    r"you'?ve hit your|out of credits|insufficient_quota|credit balance|"
+    r"you'?ve hit your|out of credits|out of usage|insufficient_quota|credit balance|"
     r"plan limit|overloaded", re.I)
 _AUTH = re.compile(
     r"unauthori[sz]ed|\b401\b|not logged in|log ?in required|please (log|sign) ?in|"
