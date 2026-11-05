@@ -21,7 +21,6 @@ import json
 import re
 import unicodedata
 
-from .projet import famille_du_modele
 
 ETATS =("idee", "pret", "en-cours", "bloque", "livre")
 ETIQUETTE_PC = "pc"
@@ -760,19 +759,6 @@ def passage_de_renfort(essai: int, corrections_max: int) -> bool:
     passages d'avant n'ont pas réussi. Sans correction permise, pas de
     renfort : le premier passage reste au codeur."""
     return corrections_max >= 1 and essai >= corrections_max
-
-
-def famille_de(agent: str) -> str:
-    """La famille de modèle d'un agent écrit `outil/modèle` dans une marque."""
-    outil, _, modele = agent.partition("/")
-    return famille_du_modele(modele) if modele else outil
-
-
-def auteurs(liste: list[dict]) -> frozenset[str]:
-    """Les familles de modèles qui ont écrit du code sur ce lot : aucun de
-    leurs modèles ne le relit, quel que soit l'outil qui le porte."""
-    return frozenset(famille_de(m["agent"]) for m in liste
-                     if m.get("role") in ROLES_CODEURS and m.get("etat") == "fait" and m.get("agent"))
 
 
 # La photo d'un lot Unity (`pc.regarder_avec_unity`) : « propre » quand un

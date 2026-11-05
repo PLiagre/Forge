@@ -75,8 +75,9 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   simultanés (`[outils]`), et quand il est plein, le lot attend.
   Le **chef** écrit le brief dans la branche `lot/<n>-<slug>` et ouvre la PR
   (moins de 300 lignes, sinon il découpe ; hors de son jalon, il refuse).
-  Le **codeur** code, la CI joue les tests, le **relecteur** — jamais le
-  modèle qui a écrit : Opus relit Sonnet, Sonnet relit Opus — rend
+  Le **codeur** — Sonnet, ou Opus pour un lot `pc` (Unity, la 3D) — code,
+  la CI joue les tests, le **relecteur** — toujours Opus, même pour un lot
+  qu'Opus a codé, et jamais Sonnet — rend
   `ACCEPTE` (fusion automatique) ou `CORRIGER` (le codeur corrige, deux fois
   au plus, puis `bloque`). Sur le VPS, la dernière correction se fait par le
   **renfort** (Claude Sonnet 5.5).

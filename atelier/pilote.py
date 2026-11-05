@@ -966,11 +966,10 @@ class Pilote:
                                    url=pr.get("url", ""), sha=tete, rapports=rapports,
                                    lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
                                    consigne=consigne, decisions=decisions, master_rouge=master_rouge)
-        res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero, exclure=lots.auteurs(liste))
-        if res.personne:
-            self._bloquer(lot.numero, "aucun relecteur possible : chaque famille de modèle du poste a écrit ce lot "
-                                      f"({' · '.join(res.essais)})", numero_pr)
-            return False
+        # Claude Opus relit tout lot, même celui qu'il a codé, dans sa propre
+        # session en lecture seule ; Sonnet ne relit jamais (choix du
+        # propriétaire, 5 novembre 2026). Personne n'est donc écarté.
+        res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero)
         if res.attente:
             self.noter(lot.numero, "attente", "relecteur : " + " · ".join(res.essais))
             return True

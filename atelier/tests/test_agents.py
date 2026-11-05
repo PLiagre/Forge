@@ -1,5 +1,5 @@
 """Les rôles, et comment on appelle un agent : la ligne de commande exacte,
-les clés retirées, le secours sur quota, le relecteur qui n'est pas l'auteur."""
+les clés retirées, le secours sur quota, qui code et qui relit."""
 
 from __future__ import annotations
 
@@ -16,8 +16,7 @@ def test_le_branchement_du_depot_nomme_chaque_role():
     assert projet.depot == "PLiagre/Forge"
     assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
     assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
-    assert [str(a) for a in projet.poste("relecteur").agents] == [
-        "claude/claude-opus-5-5@high", "claude/claude-sonnet-5-5@high"]
+    assert [str(a) for a in projet.poste("relecteur").agents] == ["claude/claude-opus-5-5@high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
     assert "codeur" in table_des_roles(projet)
 
@@ -148,12 +147,15 @@ def test_un_echec_ordinaire_ne_passe_pas_au_secours(projet, tmp_path):
     assert agents.outils() == ["sonnet"]
 
 
-def test_le_modele_qui_ecrit_ne_relit_jamais(projet, tmp_path):
-    # `exclure` nomme des familles de modèles, pas des outils.
-    agents = Agents((0, "VERDICT: ACCEPTE"))
-    res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10, exclure=frozenset({"opus"}), executeur=agents)
+def test_exclure_ecarte_une_famille_de_modele(projet, tmp_path):
+    # `exclure` nomme des familles de modèles, pas des outils : le secours du
+    # dépanneur n'est pas le modèle qui vient de lire sans rien décider.
+    agents = Agents((0, "DECISION: REPRENDRE :: relis SC6"))
+    exclure = frozenset({lire_agent("claude/claude-opus-5-5@high").famille})
+    res = A.invoquer(projet.poste("depanneur"), "lis", tmp_path, 10, exclure=exclure, executeur=agents)
     assert str(res.agent) == "claude/sonnet" and agents.outils() == ["sonnet"]
-    personne = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
+    assert "claude/opus : écarté" in res.essais[0]
+    personne = A.invoquer(projet.poste("depanneur"), "lis", tmp_path, 10,
                           exclure=frozenset({"opus", "sonnet"}), executeur=Agents())
     assert personne.personne and not personne.attente
 
@@ -168,17 +170,9 @@ def test_le_modele_qui_ecrit_ne_relit_jamais(projet, tmp_path):
 ])
 def test_chaque_modele_claude_est_sa_propre_famille(agent, famille):
     # Toute la chaîne est Claude depuis le 5 novembre 2026 : si Claude était
-    # une seule famille, aucun lot n'aurait plus de relecteur. Opus relit
-    # Sonnet, Sonnet relit Opus.
+    # une seule famille, le secours Sonnet du dépanneur ne lirait jamais
+    # après Opus.
     assert lire_agent(agent).famille == famille
-
-
-def test_du_code_ecrit_par_opus_est_relu_par_sonnet(projet, tmp_path):
-    agents = Agents((0, "VERDICT: ACCEPTE"))
-    res = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
-                     exclure=frozenset({lire_agent("claude/claude-opus-5-5@high").famille}), executeur=agents)
-    assert str(res.agent) == "claude/sonnet" and agents.outils() == ["sonnet"]
-    assert "claude/opus : écarté" in res.essais[0]
 
 
 def test_seul_opus_ecrit_les_briefs():
@@ -243,30 +237,23 @@ def test_un_effort_que_le_harnais_ne_recoit_pas_se_refuse(texte, motif):
         lire_agent(texte)
 
 
-def _relecteurs_restants(poste_relecteur, auteurs):
-    return [str(a) for a in poste_relecteur.agents if a.famille not in auteurs]
-
-
-def test_sonnet_code_le_vps_opus_le_pc_et_chacun_relit_l_autre():
-    # Sonnet code les lots du VPS (28 octobre 2026), Opus ceux du PC, peu
-    # nombreux et chers quand ils ratent (29 septembre 2026). Sans autre
-    # famille que Claude, chacun relit le code de l'autre.
+def test_opus_ne_code_que_les_lots_du_pc():
+    # Choix du propriétaire (5 novembre 2026) : Opus code les lots du PC
+    # (Unity, la 3D), et seulement eux ; Sonnet code tout le reste, sans
+    # secours d'Opus.
     projet = charger(RACINE)
-    assert [str(a) for a in projet.poste("codeur").agents] == ["claude/claude-sonnet-5-5@high"]
     assert [str(a) for a in projet.poste("codeur_3d").agents] == ["claude/claude-opus-5-5@high"]
-    relecteur = projet.poste("relecteur")
-    assert _relecteurs_restants(relecteur, {"sonnet"}) == ["claude/claude-opus-5-5@high"]
-    assert _relecteurs_restants(relecteur, {"opus"}) == ["claude/claude-sonnet-5-5@high"]
-
-
-def test_le_renfort_est_le_modele_du_codeur():
-    # Le dernier passage d'un lot du VPS compte comme un passage du codeur :
-    # un renfort d'un autre modèle ferait écrire le lot par les deux, et
-    # personne ne pourrait plus le relire.
-    projet = charger(RACINE)
+    for role in ("codeur", "renfort", "mecanicien"):
+        assert {a.famille for a in projet.poste(role).agents} == {"sonnet"}, role
     renfort = projet.poste("renfort")
     assert str(renfort.principal) == "claude/claude-sonnet-5-5@high" and not renfort.lecture_seule
-    assert {a.famille for a in renfort.agents} == {a.famille for a in projet.poste("codeur").agents}
+
+
+def test_opus_relit_tout_et_sonnet_ne_relit_jamais():
+    # Choix du propriétaire (5 novembre 2026) : Sonnet ne relit pas Opus,
+    # Opus relit Opus. Pas de secours Sonnet, même sur un quota d'Opus.
+    projet = charger(RACINE)
+    assert [str(a) for a in projet.poste("relecteur").agents] == ["claude/claude-opus-5-5@high"]
 
 
 def test_chaque_lot_du_vps_peut_coder_avec_sonnet():
@@ -275,25 +262,6 @@ def test_chaque_lot_du_vps_peut_coder_avec_sonnet():
     projet = charger(RACINE)
     assert projet.capacite("vps") == 2
     assert projet.plafond("claude") > projet.capacite("vps")
-
-
-def test_aucun_lot_ne_reste_sans_relecteur_possible():
-    # Tout est Claude : un lot qu'Opus et Sonnet auraient écrit tous les deux
-    # se bloquerait, « aucun relecteur possible ». Quel que soit l'agent de sa
-    # ligne qui code un lot, un modèle qui ne l'a pas écrit peut le relire.
-    projet = charger(RACINE)
-    relecteur = projet.poste("relecteur")
-    for roles in (("codeur", "renfort"), ("codeur_3d",), ("mecanicien",)):
-        auteurs = {a.famille for role in roles for a in projet.poste(role).agents}
-        assert _relecteurs_restants(relecteur, auteurs), f"un lot écrit par {sorted(auteurs)} n'a plus de relecteur"
-
-
-def test_un_codeur_avec_opus_en_secours_laisserait_un_lot_sans_relecteur():
-    # Contre-épreuve : Sonnet code, Opus prend la correction sur un quota, et
-    # la même règle ne trouve plus personne pour relire.
-    relecteur = lire_poste("relecteur", "claude/claude-opus-5-5 | claude/claude-sonnet-5-5")
-    codeur = lire_poste("codeur", "claude/claude-sonnet-5-5 | claude/claude-opus-5-5")
-    assert _relecteurs_restants(relecteur, {a.famille for a in codeur.agents}) == []
 
 
 def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):

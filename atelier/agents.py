@@ -246,8 +246,8 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
              place: Place | None = None) -> Resultat:
     """Essaie l'agent du poste, puis ses secours, dans l'ordre.
 
-    `exclure` retire des familles de modèles (`Agent.famille`) : le modèle
-    qui a écrit un lot ne le relit jamais, par quelque outil que ce soit.
+    `exclure` retire des familles de modèles (`Agent.famille`) : le secours
+    du dépanneur n'est pas le modèle qui vient de lire sans rien décider.
     On ne passe au secours que pour un quota, une session, un outil qui ne
     démarre pas, ou un outil à son plafond d'agents simultanés (`place`) ;
     un agent qui échoue pour une autre raison a répondu, et c'est son échec.
@@ -258,7 +258,7 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
     ecartes = 0
     for agent in poste.agents:
         if agent.famille in exclure:
-            essais.append(f"{agent} : écarté (sa famille, {agent.famille}, a écrit ce lot)")
+            essais.append(f"{agent} : écarté (sa famille, {agent.famille}, est exclue de cet appel)")
             ecartes += 1
             continue
         with (place(agent.outil) if place else nullcontext(True)) as libre:
