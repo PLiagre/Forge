@@ -895,14 +895,41 @@ def test_batiment_tick_rejeu_et_temoin(monkeypatch):
             assert monde.to_dict()["plans"] != temoin.to_dict()["plans"]
 
 
-def _ia_monde():
+_REGLES_IA = pytest.mark.parametrize('regle', ['ancienne', 'programme'])
+_REGLE_DES_ROUTES = {'ancienne': 'route_si_bourg_affame', 'programme': 'route_vers_le_champ'}
+
+
+def _ia_monde(patch=None, regle=None):
+    """Le montage du programme (faim du mois passé, greniers remplis), et la faim du bourg de l'ancienne règle."""
     from sim import ia
-    monde = World.charger(0)
-    maisons = tuple(m for m in ia.maisons_de_l_ia(monde) if m.hors_carte is None)
+    from sim.tests.test_programme_ia import _monter
+    monde, maisons = _monter()
+    maisons = tuple(maisons)
     assert maisons
     for maison in maisons:
         monde.cells[maison.cell_id].lieux[0].duree_faim_ticks = 1
+    if regle == 'programme':
+        from sim.tests.test_monde import _brancher_programme
+        _brancher_programme(patch)
+    if regle is not None:
+        regles = {p['raison']['regle'] for p in _routes_de(ia.decider_intentions(monde, []))}
+        assert regles == {_REGLE_DES_ROUTES[regle]}, regles
     return ia, monde, maisons
+
+
+def _mois_affame(monde, maisons, t):
+    """Porte le monde au tick t, les trente jours d'avant notés affamés pour chaque bourg."""
+    from sim import constants as k
+    from sim.flux import JourDeFlux
+    monde.ticks_ecoules = t
+    for tick in range(t - k.FENETRE_FLUX_TICKS, t):
+        monde.flux.jours[tick] = JourDeFlux(tick)
+        monde.flux.jours[tick].affames.update((m.cell_id, 0) for m in maisons)
+
+
+def _routes_de(propositions, couple=None):
+    return [p for p in propositions if p['intention']['type'] == 'tracer_route'
+            and (couple is None or (p['maison']['sorte'], p['maison']['id']) == couple)]
 
 
 def _ia_pure(decider, monde, releve):
@@ -914,18 +941,32 @@ def _ia_pure(decider, monde, releve):
     return propositions
 
 
-@pytest.mark.parametrize('faim,population,stock,attendu', [(1, 10, 0, True), (1, 10, 1000, True), (0, 10, 0, False), (1, 0, 1000, False)])
-def test_ia_lecture_locale(monkeypatch, faim, population, stock, attendu):
-    ia, monde, maisons = _ia_monde()
-    maison = maisons[0]
+@_REGLES_IA
+@pytest.mark.parametrize('faim,population,stock,attendu', [
+    (1, 10, 0, {'ancienne': True, 'programme': False}), (1, 10, 1000, {'ancienne': True, 'programme': True}),
+    (0, 10, 0, {'ancienne': False, 'programme': False}), (1, 0, 1000, {'ancienne': False, 'programme': True})])
+def test_ia_lecture_locale(monkeypatch, faim, population, stock, attendu, regle):
+    from sim.tests.test_programme_ia import _affamer
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
+    t = monde.ticks_ecoules
+    maison = next(m for m in maisons if _routes_de(ia.decider_intentions(monde, []), (m.sorte, m.id)))
     monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m: (maison, replace(maison, cell_id=None, hors_carte='hors carte')))
     bourg = monde.cells[maison.cell_id].lieux[0]
-    bourg.duree_faim_ticks, bourg.population, bourg.dette_alimentaire_kg = faim, population, 500
+
+    def affamer(jours):
+        bourg.duree_faim_ticks = jours
+        _affamer(monde, maison.cell_id, range(t - jours, t))
+
+    affamer(faim)
+    bourg.population, bourg.dette_alimentaire_kg = population, 500
     for lieu in monde.cells[maison.cell_id].lieux[1:]:
         lieu.stocks['nourriture'], lieu.duree_faim_ticks = stock, 1
-    assert bool(_ia_pure(ia.decider_intentions, monde, [])) == attendu
-    bourg.population, bourg.duree_faim_ticks = 10, 1 - faim
-    assert bool(_ia_pure(ia.decider_intentions, monde, [])) != bool(faim)
+    assert bool(_routes_de(_ia_pure(ia.decider_intentions, monde, []))) == attendu[regle]
+    bourg.population = 10
+    for lieu in monde.cells[maison.cell_id].lieux[1:]:
+        lieu.stocks['nourriture'] = 1000
+    affamer(1 - faim)
+    assert bool(_routes_de(_ia_pure(ia.decider_intentions, monde, []))) != bool(faim)
     def impur(m, r):
         bourg.stocks['nourriture'] += 1
         return []
@@ -948,11 +989,26 @@ def test_ia_lecture_refus_avant_depot(monkeypatch, donnee):
     assert monde.intentions_en_attente == []
 
 
-def test_ia_registre_choix(monkeypatch):
-    ia, _, maisons = _ia_monde()
+@_REGLES_IA
+def test_ia_registre_choix(monkeypatch, regle):
+    from sim.intentions import ChoixDepart
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
     # Éprouver aussi le filtre de décision sans l'exclusion préalable de la vue.
     monkeypatch.setattr(ia, "maisons_de_l_ia", lambda monde: maisons)
-    test_ia_budget_annuel_et_branches()
+    def couples():
+        return {(p['maison']['sorte'], p['maison']['id']) for p in _routes_de(ia.decider_intentions(monde, []))}
+    toutes = couples()
+    seigneuries = {('seigneurie', _id('Despotat de Morée')), ('seigneurie', _id('Duché de Bar'))}
+    assert toutes & seigneuries, 'aucune des deux seigneuries ne trace de route : le filtre ne mord pas'
+    for identifiant in (_id('Despotat de Morée'), _id('Duché de Bar')):
+        for attente in (False, True):
+            monde.maison_du_joueur = None if attente else f"seigneurie-{identifiant}"
+            monde.intentions_en_attente = [ChoixDepart(identifiant)] if attente else []
+            assert couples() == toutes - {('seigneurie', identifiant)}
+    monde.maison_du_joueur, monde.intentions_en_attente = None, []
+    assert couples() == toutes
+    if regle == 'ancienne':
+        test_ia_budget_annuel_et_branches()
 
 
 def test_ia_budget_annuel_et_branches():
@@ -982,56 +1038,71 @@ def test_ia_budget_annuel_et_branches():
     assert len(releve) == 2 * len(couples)
 
 
-def test_ia_depot_commun_et_copies(monkeypatch):
+@_REGLES_IA
+def test_ia_depot_commun_et_copies(monkeypatch, regle):
     from copy import deepcopy
+    from sim import constants as k
     from sim.intentions import recevoir_intention, IntentionRefusee
-    ia, monde, maisons = _ia_monde()
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
+    t = monde.ticks_ecoules
     propositions = ia.decider_intentions(monde, [])
+    route = propositions.index(_routes_de(propositions)[0])
     avant, captures, releve = deepcopy(monde.__dict__), [], []
     monkeypatch.setattr(ia, 'recevoir_intention', lambda m, i: captures.append(i))
     ia.jouer_ia(monde, releve)
     assert monde.__dict__ == avant and captures == [p['intention'] for p in propositions]
-    assert releve == [dict(tick=0, **p) for p in propositions]
-    captures[0]['points'][0][0] += 1
-    assert releve[0]['intention'] == propositions[0]['intention']
+    assert releve == [dict(tick=t, **p) for p in propositions]
+    captures[route]['points'][0][0] += 1
+    assert releve[route]['intention'] == propositions[route]['intention']
     def refuser(m, i): raise IntentionRefusee('refus sonde')
     monkeypatch.setattr(ia, 'recevoir_intention', refuser)
     refus = []
     ia.jouer_ia(monde, refus)
     assert monde.__dict__ == avant
-    assert refus == [dict(tick=0, refus='refus sonde', **p) for p in propositions]
+    assert refus == [dict(tick=t, refus='refus sonde', **p) for p in propositions]
     monkeypatch.setattr(ia, 'recevoir_intention', recevoir_intention)
     releve = []
     ia.jouer_ia(monde, releve)
     assert monde.cells == avant['cells'] and monde.plans == avant['plans']
     assert len(monde.intentions_en_attente) == len(propositions)
-    assert releve[0]['intention'] == {'type': 'tracer_route', 'maison': ia._cle_du_grenier(maisons[0]), 'cell': maisons[0].cell_id, 'points': [[0, 0], [40, 0]], 'largeur_m': 4, 'foyers': 1}
-    releve[0]['intention']['points'][0][0] += 1
-    assert monde.intentions_en_attente[0].points == tuple(map(tuple, propositions[0]['intention']['points']))
-    def ecrire_plan(m, i): m.plans.pop(i['cell'], None)
+    maison = next(m for m in maisons if (m.sorte, m.id) == (propositions[route]['maison']['sorte'], propositions[route]['maison']['id']))
+    intention = releve[route]['intention']
+    assert set(intention) == {'type', 'maison', 'cell', 'points', 'largeur_m', 'foyers'}
+    assert intention == propositions[route]['intention'] | {
+        'type': 'tracer_route', 'maison': ia._cle_du_grenier(maison), 'cell': maison.cell_id,
+        'largeur_m': k.IA_LARGEUR_ROUTE_M, 'foyers': k.IA_FOYERS_ROUTE}
+    if regle == 'ancienne':
+        assert intention['points'] == [[0, 0], [40, 0]]
+    releve[route]['intention']['points'][0][0] += 1
+    assert monde.intentions_en_attente[route].points == tuple(map(tuple, propositions[route]['intention']['points']))
+    def ecrire_plan(m, i): m.plans.pop(i.get('cell'), None)
     monkeypatch.setattr(ia, 'recevoir_intention', ecrire_plan)
     with pytest.raises(AssertionError):
         ia.jouer_ia(monde, [])
         assert monde.cells == avant['cells'] and monde.plans == avant['plans']
 
 
-def test_ia_raison_lue():
+@_REGLES_IA
+def test_ia_raison_lue(monkeypatch, regle):
     from copy import deepcopy
     from sim.plan import Parcelle, Rue
     from sim.seigneuries import identifiant_de_seigneurie
-    from sim.tests.test_monde import _lire_raison_monde
-    ia, monde, maisons = _ia_monde()
+    from sim.tests.test_monde import _lire_raison_monde, _lire_route_vers_le_champ
+    from sim.tests.test_programme_ia import _affamer
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
     maison = maisons[0]
+    t = monde.ticks_ecoules
     cellule = monde.cells[maison.cell_id]
     bourg = next(lieu for lieu in cellule.lieux if lieu.rang == 0)
     champs = sorted((lieu for lieu in cellule.lieux if lieu.rang >= 1), key=lambda lieu: lieu.rang)
     assert champs
     bourg.population, bourg.duree_faim_ticks = 20742, 12
+    _affamer(monde, maison.cell_id, range(t - 12, t))
     bourg.dette_alimentaire_kg, bourg.stocks['nourriture'] = 4203.3, 0.8
     for indice, champ in enumerate(champs, start=1):
         champ.stocks['nourriture'] = 1000.0 + indice
     cle = f'grande-{maison.id}' if maison.sorte == 'grande maison' else identifiant_de_seigneurie(maison.id)
-    monde.greniers[cle] = {'nourriture': 77.25}
+    monde.greniers[cle] = {'nourriture': 1_000_077.25}
     plan = monde.plans[maison.cell_id]
     rue = Rue(max((r.identifiant for r in plan.rues), default=-1) + 1, [(0, 0), (1, 0)], 4, True, 1, 1, 0)
     parcelle = Parcelle(max((p.identifiant for p in plan.parcelles), default=-1) + 1,
@@ -1040,55 +1111,72 @@ def test_ia_raison_lue():
     plan.parcelles.append(parcelle)
     couple = (maison.sorte, maison.id)
     propositions = _ia_pure(ia.decider_intentions, monde, [])
-    proposition = next(p for p in propositions if (p['maison']['sorte'], p['maison']['id']) == couple)
-    attendue = _lire_raison_monde(monde, maison)
+    proposition = _routes_de(propositions, couple)[0]
+
+    def lire():
+        if proposition['raison']['regle'] == 'route_vers_le_champ':
+            return _lire_route_vers_le_champ(monde, maison, proposition['intention'])
+        return _lire_raison_monde(monde, maison)
+
+    attendue = lire()
     assert proposition['raison'] == attendue
-    assert attendue['regle'] == 'route_si_bourg_affame' and attendue['departs'] == -1
-    assert attendue['bourg'] == {
-        'population': 20742, 'duree_faim_ticks': 12,
-        'dette_alimentaire_kg': 4203.3, 'nourriture_kg': 0.8}
+    assert attendue['regle'] == {'ancienne': 'route_si_bourg_affame', 'programme': 'route_vers_le_champ'}[regle]
     assert attendue['champs_nourriture_kg'] == [1000.0 + i for i in range(1, len(champs) + 1)]
-    assert attendue['grenier_nourriture_kg'] == 77.25
-    assert attendue['chantiers_en_cours']['rues'] == sum(r.en_chantier for r in plan.rues)
-    assert attendue['chantiers_en_cours']['parcelles'] == sum(p.en_chantier for p in plan.parcelles)
+    assert attendue['grenier_nourriture_kg'] == 1_000_077.25
+    if regle == 'ancienne':
+        assert attendue['departs'] == -1
+        assert attendue['bourg'] == {
+            'population': 20742, 'duree_faim_ticks': 12,
+            'dette_alimentaire_kg': 4203.3, 'nourriture_kg': 0.8}
+        assert attendue['chantiers_en_cours']['rues'] == sum(r.en_chantier for r in plan.rues)
+        assert attendue['chantiers_en_cours']['parcelles'] == sum(p.en_chantier for p in plan.parcelles)
+    else:
+        assert attendue['faim_du_bourg_ticks'] == 12 and attendue['champ_vise'] == champs[-1].rang
 
     def eprouver(muter, restaurer):
         muter()
-        assert proposition['raison'] != _lire_raison_monde(monde, maison)
+        assert proposition['raison'] != lire()
         restaurer()
-        assert proposition['raison'] == _lire_raison_monde(monde, maison)
+        assert proposition['raison'] == lire()
 
-    eprouver(lambda: setattr(bourg, 'duree_faim_ticks', 13), lambda: setattr(bourg, 'duree_faim_ticks', 12))
+    def faim(jours):
+        bourg.duree_faim_ticks = jours
+        _affamer(monde, maison.cell_id, range(t - jours, t))
+
+    eprouver(lambda: faim(13), lambda: faim(12))
     eprouver(lambda: champs[0].stocks.__setitem__('nourriture', 1),
              lambda: champs[0].stocks.__setitem__('nourriture', 1001.0))
     eprouver(lambda: monde.greniers[cle].__setitem__('nourriture', 1),
-             lambda: monde.greniers[cle].__setitem__('nourriture', 77.25))
+             lambda: monde.greniers[cle].__setitem__('nourriture', 1_000_077.25))
     eprouver(lambda: plan.rues.remove(rue), lambda: plan.rues.append(rue))
-    bourg.duree_faim_ticks = 0
+    faim(0)
     fausse = deepcopy(proposition['raison'])
-    fausse['bourg']['duree_faim_ticks'] = 12
     with pytest.raises(AssertionError):
-        assert fausse == _lire_raison_monde(monde, maison)
-    bourg.duree_faim_ticks = 12
+        assert fausse == lire()
+    faim(12)
     del monde.greniers[cle]
-    sans_panier = next(p['raison'] for p in ia.decider_intentions(monde, [])
-                       if (p['maison']['sorte'], p['maison']['id']) == couple)
-    assert sans_panier['grenier_nourriture_kg'] == -1
+    sans_panier = [p['raison'] for p in _routes_de(ia.decider_intentions(monde, []), couple)]
     monde.greniers[cle] = {'bois': 3}
-    sans_nourriture = next(p['raison'] for p in ia.decider_intentions(monde, [])
-                           if (p['maison']['sorte'], p['maison']['id']) == couple)
-    assert sans_nourriture['grenier_nourriture_kg'] == 0
+    sans_nourriture = [p['raison'] for p in _routes_de(ia.decider_intentions(monde, []), couple)]
+    if regle == 'ancienne':
+        assert sans_panier[0]['grenier_nourriture_kg'] == -1
+        assert sans_nourriture[0]['grenier_nourriture_kg'] == 0
+    else:
+        assert sans_panier == sans_nourriture == []
 
 
-def test_ia_refus_compte_pour_l_annee(monkeypatch):
+@_REGLES_IA
+def test_ia_refus_compte_pour_l_annee(monkeypatch, regle):
     from copy import deepcopy
     import sim.constants as k
     from sim.intentions import IntentionRefusee
-    ia, monde, maisons = _ia_monde()
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
     assert maisons
+    t = monde.ticks_ecoules
     propositions = ia.decider_intentions(monde, [])
-    assert propositions
+    assert _routes_de(propositions)
     couples = {(p['maison']['sorte'], p['maison']['id']) for p in propositions}
+    tracent = {(p['maison']['sorte'], p['maison']['id']) for p in _routes_de(propositions)}
 
     def refuser(m, i):
         raise IntentionRefusee('refus sonde')
@@ -1097,7 +1185,7 @@ def test_ia_refus_compte_pour_l_annee(monkeypatch):
     avant = deepcopy(monde.__dict__)
     releve = []
     ia.jouer_ia(monde, releve)
-    attendu = [dict(tick=0, refus='refus sonde', **p) for p in propositions]
+    attendu = [dict(tick=t, refus='refus sonde', **p) for p in propositions]
 
     def controle(etat, obtenu):
         assert obtenu and all('refus' in entree for entree in obtenu)
@@ -1111,16 +1199,18 @@ def test_ia_refus_compte_pour_l_annee(monkeypatch):
     with pytest.raises(AssertionError):
         controle(avant, [])
     avant_second = deepcopy(monde.__dict__)
-    assert ia.decider_intentions(monde, releve) == []
+    assert _routes_de(ia.decider_intentions(monde, releve)) == []
+    assert _routes_de(ia.decider_intentions(monde, [])) == _routes_de(propositions)
     ia.jouer_ia(monde, releve)
-    assert releve == attendu and monde.__dict__ == avant_second
-    monde.ticks_ecoules = k.CALENDAR_DAYS_PER_YEAR
-    prochaines = ia.decider_intentions(monde, releve)
-    assert {(p['maison']['sorte'], p['maison']['id']) for p in prochaines} == couples
-    avant_an = deepcopy(monde.__dict__)
-    ia.jouer_ia(monde, releve)
-    assert len(releve) == 2 * len(propositions) and monde.__dict__ == avant_an
+    assert _routes_de(releve) == _routes_de(attendu) and monde.__dict__ == avant_second
     an = k.CALENDAR_DAYS_PER_YEAR
+    _mois_affame(monde, maisons, an + k.FENETRE_FLUX_TICKS)
+    prochaines = ia.decider_intentions(monde, releve)
+    assert {(p['maison']['sorte'], p['maison']['id']) for p in _routes_de(prochaines)} == tracent
+    avant_an, deja = deepcopy(monde.__dict__), len(releve)
+    ia.jouer_ia(monde, releve)
+    assert releve[deja:] == [dict(tick=an + k.FENETRE_FLUX_TICKS, refus='refus sonde', **p) for p in prochaines]
+    assert monde.__dict__ == avant_an
 
     def ancienne(ticks_ecoules, entrees):
         """Copie de la mesure d'avant le lot : les trente premiers jours."""
@@ -1363,30 +1453,42 @@ def test_base_gestes_et_refus_purs(cid, monkeypatch):
     recevoir_intention(manuel, route)
 
 
-@pytest.mark.parametrize('cid', [10103, 10322])
-def test_ia_base_route_avant_depot(cid, monkeypatch):
+@_REGLES_IA
+@pytest.mark.parametrize('cid,champ_bloque,champ_libre', [(10103, 3, 2), (10322, 4, 1)])
+def test_ia_base_route_avant_depot(cid, champ_bloque, champ_libre, monkeypatch, regle):
     from copy import deepcopy
-    from sim import ia
-    from sim.capitales import maisons_de_l_ia
+    from sim import programme_ia
     from sim.intentions import recevoir_intention
     from sim.plan import Rue
-    monde = World.charger(0)
-    maison = next(m for m in maisons_de_l_ia(monde) if m.cell_id == cid)
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
+    maison = next(m for m in maisons if m.cell_id == cid)
     monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m: [maison])
-    monde.cells[cid].lieux[0].duree_faim_ticks = 1
+    monkeypatch.setattr(ia, '_proposition_de_part', lambda *a: None)  # la part de grande-3 tombe au jour 30
+
+    def viser(rang):
+        # Le champ le plus plein décide de la route du programme ; l'ancienne règle ne le lit pas.
+        for lieu in monde.cells[cid].lieux[1:]:
+            lieu.stocks['nourriture'] = 1000.0 if lieu.rang == rang else 1.0
+
+    viser(champ_bloque)
     monde.plans[cid].rues = [Rue(i, [(0, 0), (1, 0)], 4) for i in range(13)]
     avant = deepcopy(monde.__dict__)
-    assert ia.decider_intentions(monde, []) == [] and monde.__dict__ == avant
+    assert _routes_de(ia.decider_intentions(monde, [])) == [] and monde.__dict__ == avant
     with monkeypatch.context() as sonde:
-        sonde.setattr(ia, 'verifier_base', lambda *a, **kw: None)
-        propositions = ia.decider_intentions(monde, [])
-        assert propositions[0]['intention']['points'] == [[0, 52], [40, 52]]
+        for module in (ia, programme_ia):
+            sonde.setattr(module, 'verifier_base', lambda *a, **kw: None)
+        propositions = _routes_de(ia.decider_intentions(monde, []))
+        assert propositions
+        if regle == 'ancienne':
+            assert propositions[0]['intention']['points'] == [[0, 52], [40, 52]]
         releve = []
         ia.jouer_ia(monde, releve)
-        assert 'maison de 1400' in releve[0]['refus'] and monde.__dict__ == avant
+        assert 'maison de 1400' in _routes_de(releve)[0]['refus'] and monde.__dict__ == avant
     monde.plans[cid].rues.pop()
-    propositions = ia.decider_intentions(monde, [])
-    assert propositions[0]['intention']['points'] == [[0, 48], [40, 48]]
+    viser(champ_libre)
+    propositions = _routes_de(ia.decider_intentions(monde, []))
+    if regle == 'ancienne':
+        assert propositions[0]['intention']['points'] == [[0, 48], [40, 48]]
     recevoir_intention(monde, propositions[0]['intention'])
 
 
