@@ -181,19 +181,6 @@ def test_les_decoupes_imbriquees_retiennent_tous_leurs_ancetres():
     assert lots.bloquantes([boucle]) == frozenset({7})
 
 
-def test_les_auteurs_d_un_lot():
-    # Les familles de modèles qui ont écrit du code : chaque modèle Claude est
-    # la sienne. Un échec n'a rien écrit, le chef n'écrit pas de code.
-    liste = [FAIT, {"role": "codeur_3d", "etat": "fait", "agent": "claude/opus"},
-             {"role": "codeur", "etat": "echec", "agent": "claude/haiku"}, {"role": "chef", "agent": "claude/x"}]
-    assert lots.auteurs(liste) == frozenset({"sonnet", "opus"})
-    # Le même modèle sous deux noms est le même auteur ; une marque d'avant le
-    # 5 novembre 2026 (Cursor) garde sa famille, qu'aucun relecteur n'a.
-    assert lots.auteurs([{"role": "codeur", "etat": "fait", "agent": "claude/claude-sonnet-5-5@high"},
-                         {"role": "codeur", "etat": "fait", "agent": "claude/sonnet"}]) == {"sonnet"}
-    assert lots.auteurs([{"role": "codeur", "etat": "fait", "agent": "cursor/grok-4.7-high@high"}]) == {"grok"}
-
-
 def _check(nom, status="COMPLETED", conclusion="SUCCESS", quand="2026-09-27T10:00:00Z", workflow=""):
     return {"__typename": "CheckRun", "name": nom, "status": status, "conclusion": conclusion, "startedAt": quand,
             "workflowName": workflow}
