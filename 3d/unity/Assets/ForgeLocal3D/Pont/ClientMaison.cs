@@ -40,15 +40,15 @@ namespace Forge.Pont
             PartisPersonnes = partisPersonnes; ArrivesPersonnes = arrivesPersonnes; SalairesPayesKg = salairesPayesKg;
         }
     }
-    // Suzerain nul : racine, sans raison. Part ou grenier nul : raison dans Maison.Absents. Grenier {} : mesure.
+    // Suzerain nul : racine, sans raison. Part ou grenier nul : raison dans Maison.Absents. Grenier {} : mesure. Tick nul : tick non servi, jamais deviné.
     public sealed class ComptesDeMaison
     {
         public MaisonLue Maison { get; } public string Suzerain { get; } public double? Part { get; }
-        public IReadOnlyDictionary<string, double> Grenier { get; } public FluxDeMaison Flux { get; }
-        public ComptesDeMaison(MaisonLue maison, string suzerain, double? part, IDictionary<string, double> grenier, FluxDeMaison flux)
+        public IReadOnlyDictionary<string, double> Grenier { get; } public FluxDeMaison Flux { get; } public long? Tick { get; }
+        public ComptesDeMaison(MaisonLue maison, string suzerain, double? part, IDictionary<string, double> grenier, FluxDeMaison flux, long? tick = null)
         {
             Maison = maison ?? throw new ArgumentNullException(nameof(maison));
-            Suzerain = suzerain; Part = part; Flux = flux ?? throw new ArgumentNullException(nameof(flux));
+            Suzerain = suzerain; Part = part; Flux = flux ?? throw new ArgumentNullException(nameof(flux)); Tick = tick;
             Grenier = grenier == null ? null : new ReadOnlyDictionary<string, double>(new Dictionary<string, double>(grenier));
         }
     }
@@ -125,7 +125,8 @@ namespace Forge.Pont
         static ComptesDeMaison Comptes(Dictionary<string, object> racine, string demande)
         {
             MaisonLue maison = Fiche(racine, demande); var absents = maison.Absents;
-            return new ComptesDeMaison(maison, TexteOuNul(racine, "suzerain"), Part(racine, absents), Grenier(racine, absents), Flux(racine));
+            long? tick = racine.ContainsKey("tick") ? ServiceLocal.Entier(racine, "tick", 0) : (long?)null;
+            return new ComptesDeMaison(maison, TexteOuNul(racine, "suzerain"), Part(racine, absents), Grenier(racine, absents), Flux(racine), tick);
         }
         static double? Part(Dictionary<string, object> racine, IReadOnlyDictionary<string, string> absents)
         {

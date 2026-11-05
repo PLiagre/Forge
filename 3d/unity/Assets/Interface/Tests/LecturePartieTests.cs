@@ -76,5 +76,22 @@ namespace Forge.Interface.Tests
             finally { attente.Set(); await premiere; }
             Assert.That(appels, Is.EqualTo(1));
         }
+
+        // Lot #1001 : les comptes de la maison du joueur se lisent au même passage que le monde, jamais sans maison.
+        [Test] public async Task Les_comptes_se_lisent_avec_la_maison()
+        {
+            int appels = 0; string recu = null, retenue = null;
+            var lecture = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"),
+                id => { appels++; recu = id; return Lecture<ComptesDeMaison>.De(new ComptesDeMaison(Maison(id).Donnees, null, 0.25, new Dictionary<string, double>(), new FluxDeMaison(0, 0, 0, 0, 0, 0, 0, null), 3)); });
+            await lecture.Actualiser();
+            Assert.That(lecture.Comptes, Is.Null); Assert.That(appels, Is.Zero, "aucun compte lu sans maison");
+            retenue = "identifiant-servi";
+            await lecture.Actualiser();
+            Assert.That(appels, Is.EqualTo(1)); Assert.That(recu, Is.EqualTo(retenue));
+            Assert.That(lecture.Comptes.Donnees.Maison.Id, Is.EqualTo(retenue)); Assert.That(lecture.Maison.Donnees.Id, Is.EqualTo(retenue));
+            var sansLecteur = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"));
+            await sansLecteur.Actualiser();
+            Assert.That(sansLecteur.Maison.Donnees.Id, Is.EqualTo(retenue)); Assert.That(sansLecteur.Comptes, Is.Null);
+        }
     }
 }
