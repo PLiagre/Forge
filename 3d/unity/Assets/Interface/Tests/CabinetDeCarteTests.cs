@@ -165,6 +165,32 @@ namespace Forge.Interface.Tests
             LogAssert.Expect(LogType.Log, ABSENT + "maison grande-15 : délai dépassé");
             Du(id => id == JOUEUR ? Comptes(JOUEUR, new PointCarte(1, 2), HAUT) : Lecture<ComptesDeMaison>.Absent("maison grande-15 : délai dépassé")); Assert.That(fleches.TexteLegende, Does.Contain("\nDû au suzerain : suzerain non lu : déclaré absent par le monde")); Propre("suzerain");
         }
+        // Lot #964 : plus de légende flottante ; les lieux parlent dans la légende des Puissances, les flèches dans celle du Flux, leurs relevés dans l'infobulle.
+        static readonly string[] FLOTTANTES = { "Légende des lieux", "Fond de la légende", "Légende des flèches", "Fond des flèches" };
+        string Flottante() => racine.transform.Find("Cabinet").GetComponentsInChildren<Transform>(true).Select(t => t.name).FirstOrDefault(FLOTTANTES.Contains);
+        string Legende(CalquesCarte calques, string texte, string detail) { Assert.DoesNotThrow(() => calques.Legender(texte, detail)); foreach (float echelle in new[] { 1f, 2f / 3f }) Assert.That(CalquesCarte.Lignes(calques.Legende, texte, echelle), Is.InRange(1, CalquesCarte.LIGNES_MAX), "échelle " + echelle);
+            string bulle = racine.transform.Find("Cabinet/" + CalquesCarte.LEGENDE).GetComponent<Infobulle>().Phrase; Assert.That(bulle, Is.EqualTo(texte + "\n" + detail)); Assert.That(TexteDuMonde.Interdit(bulle, JOUEUR, B, C) ?? TexteDuMonde.SansUnite(bulle), Is.Null, bulle); return bulle; }
+        [Test] public void Les_lieux_parlent_dans_la_legende_des_Puissances()
+        {
+            Preparer(); fleches = racine.GetComponent<FlechesDeCarte>(); var calques = racine.GetComponent<CalquesCarte>(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); Servir(cell => Reponse(cell, 4, false)); Assert.That(Flottante(), Is.Null); Assert.That(lieux.Peint, Is.True);
+            string legende = CalquesCarte.LegendeDuMode(ModeDeCarte.Puissances, null, true), detail = CalquesCarte.DetailDuMode(ModeDeCarte.Puissances, lieux, fleches); Assert.That(legende, Is.EqualTo(CalquesCarte.PUISSANCES + "\n" + LieuxDeCarte.ENTETE));
+            Assert.That(detail, Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Puissances) + " Relief non transmis." + lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length)).And.Contain("\nAlba · relevé au jour 5 de 1400").And.Contain("\nDara · relevé au jour 5 de 1400"));
+            string bulle = Legende(calques, legende, detail); Assert.That(bulle.Split(new[] { LieuxDeCarte.ENTETE }, StringSplitOptions.None).Length, Is.EqualTo(2), "l'en-tête des lieux une seule fois : " + bulle);
+            Assert.That(CalquesCarte.LegendeDuMode(ModeDeCarte.Puissances, null, false), Is.EqualTo(CalquesCarte.LegendeDuCalque(null)), "contre-épreuve : sans lieux peints"); Assert.That(CalquesCarte.DetailDuMode(ModeDeCarte.Puissances, null, null), Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Puissances)), "contre-épreuve : sans vue des lieux");
+            Assert.Throws<ArgumentException>(() => calques.Legender(CalquesCarte.PUISSANCES + "\n" + FlechesDeCarte.ENTETE, detail), "contre-épreuve : l'en-tête des flèches ne tient pas dans la légende");
+        }
+        [Test] public void Les_fleches_ne_se_montrent_qu_en_mode_Flux()
+        {
+            Preparer(); fleches = racine.GetComponent<FlechesDeCarte>(); var calques = racine.GetComponent<CalquesCarte>(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); const double a = 100000, b = 218086;
+            fleches.Lecteur = _ => Lecture<ComptesDeMaison>.De(new ComptesDeMaison(new MaisonLue(JOUEUR, "Maison", new SiegeDeMaison(10, 0, "Siège", new PointCarte(1, 2)), new LieuTenu[0], new Dictionary<string, string>()), null, 0.6, null, new FluxDeMaison(0, 0, 0, 0, 0, 0, 0, null)));
+            Servir(cell => LectureLieu.De(cell == 10 ? Cellule(10, 5, new LieuPlace(0, new PointCarte(1, 2), JOUEUR, new FluxDeLieu(1234.4, 0, 0), nom: NomDe(10, 0)), new LieuPlace(1, new PointCarte(30001, 2), JOUEUR, new FluxDeLieu(a, 0, 0), nom: NomDe(10, 1)), new LieuPlace(2, new PointCarte(-29999, 2), B, new FluxDeLieu(90000, 0, 0), nom: NomDe(10, 2)))
+                : Cellule(20, 5, new LieuPlace(0, new PointCarte(1, 40002), JOUEUR, new FluxDeLieu(b, 0, 0), nom: NomDe(20, 0)))));
+            var noms = new[] { "Flèche 10-1", "Flèche 20-0" }; var tige = racine.transform.Find(FlechesDeCarte.RACINE); Transform bande = racine.transform.Find("Cabinet/" + CalquesCarte.BANDE); Assert.That(Fleches(), Is.EquivalentTo(noms)); Assert.That(tige.gameObject.activeSelf, Is.False, "le cabinet s'ouvre en Puissances : flèches cachées");
+            foreach (var (mode, visibles) in new[] { (ModeDeCarte.Flux, true), (ModeDeCarte.Habitants, false), (ModeDeCarte.Puissances, false), (ModeDeCarte.Flux, true) }) { bande.Find(mode.ToString()).GetComponent<Button>().onClick.Invoke(); fleches.Pas(horloge); Assert.That(tige.gameObject.activeSelf, Is.EqualTo(visibles), mode.ToString()); Assert.That(Fleches(), Is.EquivalentTo(noms), mode.ToString()); }
+            Assert.That(Flottante(), Is.Null); string detail = CalquesCarte.DetailDuMode(ModeDeCarte.Flux, lieux, fleches); Legende(calques, CalquesCarte.FLUX, detail);
+            Assert.That(detail, Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Flux) + "\n" + fleches.TexteLegende).And.Contain(FlechesDeCarte.ENTETE).And.Contain("\nAlba · Brivas → Siège : " + TexteDuMonde.Masse(100000)));
+            Assert.Throws<ArgumentException>(() => calques.Legender(FlechesDeCarte.ENTETE + " · Rouge : territoire conservé", detail), "contre-épreuve : l'en-tête entier des flèches ne tient pas dans la légende");
+        }
         void Du(Func<string, Lecture<ComptesDeMaison>> lire) { fleches.Lecteur = lire; fleches.Pas(horloge); var fin = DateTime.UtcNow.AddSeconds(5); while (fleches.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); Assert.That(fleches.LectureEnVol, Is.False); fleches.Pas(horloge); horloge += FlechesDeCarte.PERIODE_S; }
         string[] Fleches() { var r = racine.transform.Find(FlechesDeCarte.RACINE); return r == null ? new string[0] : r.Cast<Transform>().Select(e => e.name).ToArray(); }
         void Fleche(string nom, PointCarte depart, double kg, PointCarte? arrivee = null)

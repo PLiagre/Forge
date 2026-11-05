@@ -18,7 +18,7 @@ namespace ForgeLocal3D.Captures
         static string Gens(long n) => TexteDuMonde.Nombre(n) + (n > 1 ? " personnes" : " personne"); static string Gens(long n, string fait) => TexteDuMonde.Nombre(n) + (n > 1 ? " personnes " + fait + "s" : " personne " + fait);
         // Ce que le scénario a posé et lu à part ; Juger le lit sans rien attendre.
         static CabinetDeCarte cabinet; static FicheDeCellule fiche; static InfobulleDeTerre terre; static HorlogeDeCarte horloge; static Transform toile;
-        static long moree, fin; static string bourg, resume; static int juges, valeurs; static DocumentDuMonde doc; static Lieu lieu; static ComptesDeMaison joueur, suzerain; static List<Lieu> tenues; static MondeLu monde;
+        static long moree, fin; static string bourg, resume, notesLieux, notesFleches; static int juges, valeurs; static DocumentDuMonde doc; static Lieu lieu; static ComptesDeMaison joueur, suzerain; static List<Lieu> tenues; static MondeLu monde;
 
         [ScenarioDeCapture(944, "moree-et-ses-comptes")] static IEnumerator MoreeEtSesComptes(Camera camera)
         {
@@ -77,6 +77,10 @@ namespace ForgeLocal3D.Captures
             for (var e = Lot690.Attendre(lireTenues, "références : /lieu des terres tenues"); e.MoveNext();) yield return null;
             tenues = lireTenues.Result.Select(l => l.Presente ? l.Lieu : throw Echec("références : terre tenue absente : " + l.Absence)).ToList();
             if (lieu.Tick != fin || tenues.Any(t => t.Tick != fin)) throw Echec("références : ticks /lieu " + lieu.Tick + " et " + string.Join(", ", tenues.Select(t => t.Tick)) + ", attendu " + N(fin));
+            // Lot #964 : les légendes des flèches et des lieux sont l'infobulle de la légende du mode ; chacune se note dans son mode, la photo se prend en Puissances.
+            var infobulle = toile.Find(CalquesCarte.LEGENDE)?.GetComponent<Infobulle>() ?? throw Echec("références : la légende du mode n'a pas d'infobulle");
+            foreach (var (mode, attendues) in new[] { ("Flux", LignesDesFleches().ToArray()), ("Puissances", LignesDesLieux().ToArray()) }) { (toile.Find(CalquesCarte.BANDE)?.Find(mode)?.GetComponent<Button>() ?? throw Echec("références : bouton « " + mode + " » introuvable")).onClick.Invoke();
+                for (var e = Lot690.Jusqua(() => infobulle.Phrase != null && attendues.All(a => infobulle.Phrase.Contains("\n" + a)), () => "références : infobulle du mode " + mode + " « " + string.Join(" | ", Lignes(infobulle.Phrase)) + " »"); e.MoveNext();) yield return null; if (mode == "Flux") notesFleches = infobulle.Phrase; else notesLieux = infobulle.Phrase; }
             string cause = null;
             for (var e = Lot690.Jusqua(() => { try { Juger(false); return true; } catch (InvalidOperationException x) { cause = x.Message; return false; } }, () => "étape 6 : " + cause); e.MoveNext();)
             { fiche.Survoler(P); terre.Pas(P, fiche.Survolee, Time.realtimeSinceStartupAsDouble); yield return null; }
@@ -117,17 +121,17 @@ namespace ForgeLocal3D.Captures
             Text territoire = Actif(toile.Find(DOSSIER)?.Find("Lecture du territoire")?.GetComponentInChildren<Text>(true), DOSSIER), feuillet = Actif(Defilement()?.content?.GetComponent<Text>(), FEUILLET);
             Text votre = Actif(maison?.Cast<Transform>().Select(t => t.GetComponent<Text>()).FirstOrDefault(t => t != null && t.text.StartsWith(nom + "\nSiège : ", StringComparison.Ordinal)), MAISON);
             Text commandes = Actif(maison?.Find(COMMANDES)?.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.text.StartsWith("Prélèvement : ", StringComparison.Ordinal)), COMMANDES);
-            Text lieux = Actif(toile.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.name == LIEUX), LIEUX), fleches = Actif(toile.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.name == FLECHES), FLECHES);
+            string lieux = notesLieux ?? throw Echec("légende des lieux jamais notée"), fleches = notesFleches ?? throw Echec("légende des flèches jamais notée");
             Text bulle = infobulle ? Actif(toile.Find(INFOBULLE)?.GetComponentInChildren<Text>(true), INFOBULLE) : null;
             if (bulle != null && bulle.text != terre.TexteAffiche) throw Echec("l'infobulle montre « " + Ligne(bulle.text) + " », InfobulleDeTerre dit « " + Ligne(terre.TexteAffiche) + " »");
             string survol = fiche.TexteAffiche ?? throw Echec("texte « " + FICHE + " » absent : la fiche n'est pas affichée");
             if (drapeaux && Drapeau(IDENTIFIANT)) territoire.text += "\n" + N(moree) + "-1";
             if (drapeaux && Drapeau(SANS_VALEUR)) feuillet.text = string.Join("\n", Lignes(feuillet.text).Where(l => !l.StartsWith("Prélevé : ", StringComparison.Ordinal)));
-            var textes = new List<(string nom, string texte)> { (DOSSIER, territoire.text), (FEUILLET, feuillet.text), (MAISON, votre.text), (COMMANDES, commandes.text), (LIEUX, lieux.text), (FLECHES, fleches.text) };
+            var textes = new List<(string nom, string texte)> { (DOSSIER, territoire.text), (FEUILLET, feuillet.text), (MAISON, votre.text), (COMMANDES, commandes.text), (LIEUX, lieux), (FLECHES, fleches) };
             if (bulle != null) textes.Add((INFOBULLE, bulle.text));
             textes.Add((FICHE, survol));
             resume = string.Join(" ; ", textes.Select(t => t.nom + " « " + Ligne(t.texte) + " »"));
-            var nommes = new HashSet<Text> { territoire, feuillet, votre, commandes, lieux, fleches, bulle }; Text[] actifs = toile.GetComponentsInChildren<Text>(false);
+            var nommes = new HashSet<Text> { territoire, feuillet, votre, commandes, bulle }; Text[] actifs = toile.GetComponentsInChildren<Text>(false);
             if (actifs.Length < TEXTES_MIN) throw Echec("échantillon trop maigre : " + actifs.Length + " textes actifs dans le cabinet, attendu au moins " + TEXTES_MIN);
             textes.AddRange(actifs.Where(t => !nommes.Contains(t)).Select(t => (Chemin(t.transform), t.text)));
             foreach (var (ou, texte) in textes)
@@ -163,21 +167,22 @@ namespace ForgeLocal3D.Captures
             string part = joueur.Part is double pj ? (pj * 100).ToString("0.##", Fr) : null, grenier = joueur.Grenier == null ? null
                 : "Grenier : " + (joueur.Grenier.Count == 0 ? "vide" : string.Join(" · ", joueur.Grenier.OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => g.Key + " : " + TexteDuMonde.Masse(g.Value))));
             if (part != null) Lire(FEUILLET, f, "Prélèvement : " + part + " %"); if (grenier != null) Lire(FEUILLET, f, grenier);
-            string Tenue(long cell, long rang) { Lieu t = tenues.First(x => x.CellId == cell); string b = t.Bourg?.Nom ?? throw Echec("références : bourg sans nom servi");
-                return rang == 0 ? b : b + " · " + (t.Lieux?.FirstOrDefault(x => x.Rang == rang)?.Nom ?? throw Echec("références : lieu tenu sans nom servi")); }
             foreach (LieuTenu t in m.Lieux) Egale(FEUILLET, f, Tenue(t.CellId, t.Rang));
             foreach (var (cle, kg) in new[] { ("Prélevé", fx.PreleveKg), ("Reçu", fx.RecuKg), ("Dû envoyé", fx.DuEnvoyeKg), ("Consommé en route", fx.MangeEnRouteKg), ("Rendu", fx.RenduKg) }) Lire(FEUILLET, f, cle + " : " + TexteDuMonde.Masse(kg));
             Lire(FEUILLET, f, "Départs : " + Gens(fx.PartisPersonnes)); Lire(FEUILLET, f, "Arrivées : " + Gens(fx.ArrivesPersonnes)); if (fx.SalairesPayesKg is double paye) Lire(FEUILLET, f, "Salaires : " + TexteDuMonde.Masse(paye));
             Lire(MAISON, votre.text, nom); Lire(MAISON, votre.text, "Siège : " + m.Siege.Nom); Lire(MAISON, votre.text, TexteDuMonde.Nombre(m.Lieux.Count) + (m.Lieux.Count == 1 ? " lieu tenu" : " lieux tenus") + " · relevé au " + date);
             if (part != null) Lire(COMMANDES, commandes.text, "Prélèvement : " + part + " % · relevé au " + date); if (grenier != null) Lire(COMMANDES, commandes.text, grenier);
             // Les légendes : chaque terre tenue relevée au jour servi, chaque prélèvement vers le siège, le dû vers le suzerain.
-            foreach (Lieu t in tenues) Lire(LIEUX, lieux.text, Tenue(t.CellId, 0) + " · relevé au " + date);
-            foreach (LieuPlace l in lieu.Lieux.Where(x => x.Maitre == m.Id && x.Flux != null))
-                Lire(FLECHES, fleches.text, m.Siege.CellId == moree && m.Siege.Rang == l.Rang ? m.Siege.Nom + " : " + TexteDuMonde.Masse(l.Flux.PreleveKg) + " prélevés sur place"
-                    : Tenue(moree, l.Rang) + " → " + m.Siege.Nom + " : " + TexteDuMonde.Masse(l.Flux.PreleveKg));
-            if (suzerain != null) Lire(FLECHES, fleches.text, m.Siege.Nom + " → " + suzerain.Maison.Siege.Nom + " : " + TexteDuMonde.Masse(fx.DuEnvoyeKg) + " de dû");
+            foreach (string v in LignesDesLieux()) Lire(LIEUX, lieux, v);
+            foreach (string v in LignesDesFleches()) Lire(FLECHES, fleches, v);
             if (bulle != null) { if (Lignes(bulle.text).Length != InfobulleDeTerre.LIGNES) throw Echec("l'infobulle a " + Lignes(bulle.text).Length + " lignes, attendu " + InfobulleDeTerre.LIGNES); foreach (string v in entete) Lire(INFOBULLE, bulle.text, v); }
             Lot526.Juger(fiche, bourg); valeurs++;
         }
+        static string Tenue(long cell, long rang) { Lieu t = tenues.First(x => x.CellId == cell); string b = t.Bourg?.Nom ?? throw Echec("références : bourg sans nom servi");
+            return rang == 0 ? b : b + " · " + (t.Lieux?.FirstOrDefault(x => x.Rang == rang)?.Nom ?? throw Echec("références : lieu tenu sans nom servi")); }
+        // Les lignes que les légendes doivent porter : chaque terre tenue relevée au jour servi, chaque prélèvement vers le siège, le dû vers le suzerain.
+        static IEnumerable<string> LignesDesLieux() => tenues.Select(t => Tenue(t.CellId, 0) + " · relevé au " + TexteDuMonde.Date(monde.Date));
+        static IEnumerable<string> LignesDesFleches() { MaisonLue m = joueur.Maison; return lieu.Lieux.Where(x => x.Maitre == m.Id && x.Flux != null).Select(l => m.Siege.CellId == moree && m.Siege.Rang == l.Rang ? m.Siege.Nom + " : " + TexteDuMonde.Masse(l.Flux.PreleveKg) + " prélevés sur place"
+            : Tenue(moree, l.Rang) + " → " + m.Siege.Nom + " : " + TexteDuMonde.Masse(l.Flux.PreleveKg)).Concat(suzerain == null ? new string[0] : new[] { m.Siege.Nom + " → " + suzerain.Maison.Siege.Nom + " : " + TexteDuMonde.Masse(joueur.Flux.DuEnvoyeKg) + " de dû" }); }
     }
 }

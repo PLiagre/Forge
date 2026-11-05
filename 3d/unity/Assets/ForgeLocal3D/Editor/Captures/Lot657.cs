@@ -44,15 +44,17 @@ namespace ForgeLocal3D.Captures
             for (; pousses < TICKS && (nominal || pts == null || Manque(pts) != null); pousses++) { var un1 = Lot690.PousserTick(port); for (var e = Lot690.Attendre(un1, "tick"); e.MoveNext();) yield return null; if (un1.Result.statut != 200) throw Echec("tick " + un1.Result.corps);
                 long t = ++apres; if (nominal && pousses < TICKS - 1) continue; var lu = Task.Run(() => Lire(port, maison, t)); for (var e = Lot690.Attendre(lu, "référence"); e.MoveNext();) yield return null; (pts, terres) = lu.Result; }
             if (nominal && apres != TICKS + 1) throw Echec("relecture au tick " + N(apres) + ", attendu " + N(TICKS + 1)); if (pts.Count == 0) throw Echec("aucun lieu servi"); if (Manque(pts) != null) throw Echec(Manque(pts) + " après " + pousses + " ticks");
-            for (var e = Lot690.Jusqua(() => Pret(vue, pts, apres), () => "légende « " + Ligne(vue.TexteLegende) + " » disques " + Disques()); e.MoveNext();) yield return null;
+            (toile.Find(CalquesCarte.BANDE)?.Find("Puissances")?.GetComponent<Button>() ?? throw Echec("bouton « Puissances » introuvable")).onClick.Invoke(); // lot #964 : la légende des lieux est celle des Puissances, ses relevés son infobulle
+            for (var e = Lot690.Jusqua(() => Pret(pts, apres), () => "infobulle « " + Ligne(Bulle()) + " » disques " + Disques()); e.MoveNext();) yield return null;
             Cadrer(pts); yield return null; Lot549.Photographier(camera, carte); camera.rect = new Rect(0f, 0f, 1f, 1f);
             var canvas = toile.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = camera.nearClipPlane + 0.2f;
-            yield return null; Canvas.ForceUpdateCanvases(); Controler(camera, pts, apres);
+            yield return null; yield return null; Canvas.ForceUpdateCanvases(); Controler(camera, pts, apres); // deux images : la légende du mode se recale à la nouvelle échelle de la toile
             if (Environment.GetCommandLineArgs().Contains(RETIRER)) { var d = Disque(pts[0].Cell, pts[0].Rang); if (d != null) d.gameObject.SetActive(false); }
             for (int i = 0; i < IMAGES; i++) yield return null; Controler(camera, pts, apres);
             Debug.Log("CAPTURE_657 maison " + maison + ", ticks " + N(apres) + ", couples attendus " + pts.Count + ", observés " + Disques() + ", rouges " + pts.Count(p => p.Rouge) + " [" + string.Join(", ", pts.Where(p => p.Rouge).Select(p => N(p.Cell) + "-" + N(p.Rang) + " partis " + N(p.Partis) + " arrivées " + N(p.Arrives))) + "]");
         }
-        static bool Pret(LieuxDeCarte vue, List<Pt> pts, long tick) { string t = vue.TexteLegende; return t != null && Disques() == pts.Count && terres.All(t.Contains); }
+        static bool Pret(List<Pt> pts, long tick) { string t = Bulle(); return t != null && Disques() == pts.Count && terres.All(t.Contains); }
+        static string Bulle() => toile.Find(CalquesCarte.LEGENDE)?.GetComponent<Infobulle>()?.Phrase;
         static void Cadrer(List<Pt> pts)
         {
             if (carte.Vue == null) throw Echec("la carte n'a pas de vue");
@@ -66,11 +68,12 @@ namespace ForgeLocal3D.Captures
         {
             foreach (var p in pts) { string couple = N(p.Cell) + "-" + N(p.Rang); var disque = Disque(p.Cell, p.Rang); var rendu = disque != null ? disque.GetComponent<MeshRenderer>() : null; if (disque == null || !disque.gameObject.activeInHierarchy || rendu == null || !rendu.enabled) throw Echec("couple manquant " + couple); Vector3 attendu = carte.transform.TransformPoint(carte.PositionSurLaCarte(new PointCarte(p.X, p.Y), ReperesDeDepart.HAUTEUR_LIEU).Value); Color couleur = p.Rouge ? LieuxDeCarte.ROUGE : p.Maitre == maison ? ReperesDeDepart.COULEUR_JOUEUR : LieuxDeCarte.CouleurDuMaitre(p.Maitre); if ((disque.position - attendu).sqrMagnitude > 1e-4f || !((Color32)rendu.sharedMaterial.color).Equals((Color32)couleur)) throw Echec("couple " + couple + " mal placé ou mal coloré"); string panneau = SousPanneau(camera, disque.position); if (panneau != null) throw Echec("couple " + couple + " " + panneau); }
             if (Disques() != pts.Count) throw Echec("disques " + Disques() + " pour " + pts.Count);
-            var legende = toile.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.name == "Légende des lieux");
-            if (legende == null || !legende.text.Contains(LieuxDeCarte.ENTETE) || legende.text.Contains("même instant") || legende.preferredHeight > legende.rectTransform.rect.height + 1f) throw Echec("légende « " + Ligne(legende != null ? legende.text : null) + " »");
-            foreach (string terre in terres) if (!legende.text.Contains(terre)) throw Echec("terre absente « " + Ligne(terre) + " »");
-            string mot = TexteDuMonde.Interdit(legende.text, maison) ?? TexteDuMonde.SansUnite(legende.text); if (mot != null) throw Echec("légende des lieux : « " + mot + " » dans « " + Ligne(legende.text) + " »");
-            Lot690.DansLeChamp(camera, legende); var nom = carte.GetComponent<ReperesDeDepart.NomDuSiege>();
+            var legende = carte.GetComponent<CalquesCarte>()?.Legende; string attendue = CalquesCarte.LegendeDuMode(ModeDeCarte.Puissances, null, true);
+            if (legende == null || legende.text != attendue || legende.preferredHeight > legende.rectTransform.rect.height + 1f) throw Echec("légende « " + Ligne(legende != null ? legende.text : null) + " », attendu « " + Ligne(attendue) + " »");
+            Lot690.DansLeChamp(camera, legende); string bulle = Bulle() ?? "";
+            if (!bulle.Contains(LieuxDeCarte.ENTETE) || bulle.Contains("même instant")) throw Echec("infobulle de la légende « " + Ligne(bulle) + " »"); foreach (string terre in terres) if (!bulle.Contains(terre)) throw Echec("terre absente « " + Ligne(terre) + " »");
+            string mot = TexteDuMonde.Interdit(bulle, maison) ?? TexteDuMonde.SansUnite(bulle); if (mot != null) throw Echec("infobulle de la légende : « " + mot + " » dans « " + Ligne(bulle) + " »");
+            var nom = carte.GetComponent<ReperesDeDepart.NomDuSiege>();
             if (nom == null || nom.Nom == null || nom.Nom.text != SIEGE) throw Echec("siège non nommé");
             string hors = SousPanneau(camera, nom.Nom.GetComponent<Renderer>().bounds.center); if (hors != null) throw Echec("siège " + hors);
         }

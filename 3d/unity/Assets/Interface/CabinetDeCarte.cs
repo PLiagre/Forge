@@ -104,8 +104,8 @@ namespace Forge.Interface
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port);
-            var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer(toile.transform);
-            gameObject.AddComponent<FlechesDeCarte>().Installer(toile.transform, lieux);
+            var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
+            var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux); GetComponent<CalquesCarte>().Brancher(lieux, fleches);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee);
             Afficher();
         }
