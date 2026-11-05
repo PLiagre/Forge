@@ -1,6 +1,7 @@
 """Appeler un agent : la ligne de commande exacte, et le secours.
 
-Un agent est un outil (claude, cursor) et un modèle. Ce module
+Un agent est un outil (claude, le seul depuis le 5 novembre 2026) et un
+modèle. Ce module
 construit l'argv de chacun — le shell n'en compose aucune — et l'exécute
 dans le dossier du lot, sans clé d'API dans l'environnement : une clé fait
 basculer la facture de l'abonnement vers l'unité.
@@ -22,7 +23,6 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
-import json
 import os
 from pathlib import Path
 import re
@@ -117,41 +117,19 @@ class Introuvable(RuntimeError):
     """L'outil n'a pas de lancement sûr sur cette machine."""
 
 
-# Les versions de cursor-agent, comme les trie son `cursor-agent.ps1` :
-# AAAA.M.J-commit, ou AAAA.M.J-HH-MM-SS-commit.
-_VERSION_CURSOR = re.compile(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-(\d{2})-(\d{2})-(\d{2}))?-[a-f0-9]+$")
 # Le .js qu'un shim npm (`<outil>.cmd`) fait lancer par node.
 _SHIM_NPM = re.compile(r'"%dp0%\\([^"%]+\.js)"')
-
-
-def _cursor(dossier: Path) -> tuple[Path, Path] | None:
-    """node.exe et index.js de la version la plus récente, comme le fait
-    `cursor-agent.ps1` : dans son propre dossier s'il y a un node.exe, sinon
-    dans `versions\\<la plus récente>`."""
-    if (dossier / "node.exe").is_file() and (dossier / "index.js").is_file():
-        return dossier / "node.exe", dossier / "index.js"
-    versions = []
-    if (dossier / "versions").is_dir():
-        for d in (dossier / "versions").iterdir():
-            m = _VERSION_CURSOR.match(d.name)
-            if d.is_dir() and m:
-                versions.append((tuple(int(x or 0) for x in m.groups()), d.name, d))
-    for _, _, d in sorted(versions, reverse=True):
-        if (d / "node.exe").is_file() and (d / "index.js").is_file():
-            return d / "node.exe", d / "index.js"
-    return None
 
 
 def lancement(commande: list[str], env: dict[str, str], *, windows: bool | None = None,
               chercher: Callable[[str], str | None] | None = None) -> tuple[list[str], dict[str, str]]:
     """L'argv et l'environnement qu'on donne à CreateProcess, sans cmd.exe.
 
-    Sous Windows, CreateProcess n'ajoute que `.exe` : `cursor-agent.cmd` et
-    les shims npm (`<outil>.cmd`) sont introuvables. Et les appeler quand même ferait
+    Sous Windows, CreateProcess n'ajoute que `.exe` : les shims npm
+    (`<outil>.cmd`) sont introuvables. Et les appeler quand même ferait
     passer le prompt par cmd.exe, qui le coupe aux retours à la ligne et
-    interprète `& | % ^` : une injection. On refait donc ici ce que font leurs
-    scripts — lancer node.exe sur leur .js —, résolu à chaque appel : une
-    mise à jour de cursor-agent ajoute une version sans rien casser.
+    interprète `& | % ^` : une injection. On refait donc ici ce que fait le
+    shim — lancer node.exe sur son .js —, résolu à chaque appel.
     """
     windows = WINDOWS if windows is None else windows
     if not windows or not commande:
@@ -163,18 +141,6 @@ def lancement(commande: list[str], env: dict[str, str], *, windows: bool | None 
     chemin = Path(trouve) if trouve else None
     if chemin is not None and chemin.suffix.lower() in (".exe", ".com"):
         return [str(chemin), *reste], env
-    local = Path(env.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
-    if binaire == "cursor-agent":
-        # Hors du PATH (le service ne voit pas celui de la session), il est
-        # dans son dossier d'installation par défaut.
-        dossier = chemin.parent if chemin else local / "cursor-agent"
-        paire = _cursor(dossier)
-        if paire is None:
-            raise Introuvable(f"binaire introuvable : cursor-agent (aucune version lançable dans {dossier})")
-        nom = f"{chemin.stem}.cmd" if chemin and chemin.suffix.lower() == ".cmd" else "cursor-agent.cmd"
-        env = dict(env, CURSOR_INVOKED_AS=nom)
-        env.setdefault("NODE_COMPILE_CACHE", str(local / "cursor-compile-cache"))
-        return [str(paire[0]), str(paire[1]), *reste], env
     if chemin is None:
         raise Introuvable(f"binaire introuvable : {binaire}")
     if chemin.suffix.lower() == ".cmd":
@@ -226,13 +192,6 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
                 "--disallowedTools", ",".join(GESTES_DU_PILOTE),
             ]
         return commande
-    if agent.outil == "cursor":
-        # Cursor n'a pas d'option d'effort : il est dans le nom du modèle
-        # (`grok-4.7-high`), vérifié au chargement (projet.lire_agent).
-        commande = [agent.binaire, "-p", prompt, "--model", agent.modele,
-                    "--output-format", "json", "--trust"]
-        commande += ["--mode", "ask"] if lecture_seule else ["--force"]
-        return commande
     raise ValueError(f"outil inconnu : {agent.outil}")
 
 
@@ -281,29 +240,6 @@ def executer(commande: list[str], cwd: Path, env: dict[str, str], delai: int) ->
     return fini.returncode, fini.stdout, fini.stderr
 
 
-def reponse_finale_cursor(sortie: str) -> str:
-    """Le texte final de `cursor-agent --output-format json` : le champ
-    `result` de son objet de fin. Une sortie qui n'est pas ce JSON (ancienne
-    version, texte brut) reste telle quelle."""
-    for ligne in reversed(sortie.strip().splitlines()):
-        try:
-            objet = json.loads(ligne)
-        except ValueError:
-            continue
-        if isinstance(objet, dict) and objet.get("type") == "result":
-            return str(objet.get("result") or "")
-    return sortie
-
-
-def _appeler(agent: Agent, poste: Poste, prompt: str, cwd: Path, delai: int,
-             executeur: Executeur) -> tuple[int, str, str, str]:
-    """Un appel d'un agent : son code, sa sortie, son erreur, et son texte."""
-    code, out, err = executeur(argv(agent, prompt, lecture_seule=poste.lecture_seule),
-                               Path(cwd), environnement(agent.outil), delai)
-    texte = reponse_finale_cursor(out) if agent.outil == "cursor" else out
-    return code, out, err, texte
-
-
 def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
              exclure: frozenset[str] = frozenset(),
              executeur: Executeur = executer,
@@ -329,14 +265,15 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
             if not libre:
                 essais.append(f"{agent} : occupé ({agent.outil} a déjà tous ses agents en route)")
                 continue
-            code, out, err, texte = _appeler(agent, poste, prompt, cwd, delai, executeur)
+            code, out, err = executeur(argv(agent, prompt, lecture_seule=poste.lecture_seule),
+                                       Path(cwd), environnement(agent.outil), delai)
         cause = cause_de_refus(code, f"{out}\n{err}")
         if cause:
             pourquoi = derniere_ligne(f"{out}\n{err}")
             essais.append(f"{agent} : {LIBELLES[cause]}" + (f" (« {pourquoi} »)" if pourquoi else ""))
             continue
         essais.append(f"{agent} : code {code}")
-        return Resultat(agent=agent, code=code, texte=texte if code == 0 else f"{texte}\n{err}".strip(),
+        return Resultat(agent=agent, code=code, texte=out if code == 0 else f"{out}\n{err}".strip(),
                         essais=essais)
     tous_ecartes = ecartes == len(essais)
     return Resultat(agent=None, code=-1, texte="", attente=not tous_ecartes,
