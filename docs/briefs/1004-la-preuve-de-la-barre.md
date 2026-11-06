@@ -39,7 +39,7 @@ L'issue nomme le scénario `Lot859.cs`. Le pilote du PC ne rejoue que les comman
    - « Menu » est un seul bouton, actif, enfant direct de la toile, et sa phrase finit par `CabinetDeCarte.AIDE`.
 
    Un nom absent lève `commande « <nom> » perdue : 0 bouton dans la toile`. Un nom en double, ou hors de sa place, lève une erreur qui nomme l'écart.
-3. **Cadrer à 1280 × 720.** `camera.rect` plein, `targetTexture` neuve de 1280 × 720 × 24, `ResetAspect()`. La toile reste en `ScreenSpaceCamera` sur cette caméra, à `nearClipPlane + 0.2`. Puis `yield return null` et `Canvas.ForceUpdateCanvases()`. Avec `-forge1004Couper`, il pose ensuite `sizeDelta` (600, 26) sur la barre.
+3. **Cadrer à 1280 × 720.** `camera.rect` plein, `targetTexture` neuve de 1280 × 720 × 24, `ResetAspect()`. La toile reste en `ScreenSpaceCamera` sur cette caméra, à `nearClipPlane + 0.2`. Puis `yield return null` et `Canvas.ForceUpdateCanvases()`. Avec `-forge1004Couper`, il pose ensuite `sizeDelta` (600, 26) sur la barre. *Note du codeur : la barre de Mistra (« Paléologue · Prélèvement : 60 % · Grenier : nourriture : 642 t ») tient en moins de 600 px, et `COUPER` sortait 0 ; la largeur posée est donc min(600, la moitié de `preferredWidth`), qui la coupe quel que soit le grenier.*
 4. **Aucun dossier ne recouvre la barre, comme Lot1002.**
    - Il ouvre « Les autres maisons » par son icône et le menu par « Menu » (`onClick.Invoke()`), puis `yield return null` et `Canvas.ForceUpdateCanvases()`.
    - Avec `-forge1004Recouvrir`, il remonte lui-même le feuillet « Les autres maisons » à `anchoredPosition` (24, −60).
