@@ -34,7 +34,7 @@ namespace ForgeLocal3D.Captures {
             foreach (string zone in new[] { CalquesCarte.LEGENDE, CalquesCarte.BANDE }) {
                 Rect r = Ecran(camera, (RectTransform)(toile.Find(zone) ?? throw Echec("étape 6 : « " + zone + " » introuvable")));
                 if (r.xMin < -.5f || r.yMin < -.5f || r.xMax > image.xMax + .5f || r.yMax > image.yMax + .5f) throw Echec("étape 6 : « " + zone + " » hors de l'image : " + r + " dans " + image);
-                foreach (string panneau in new[] { "Les autres maisons", "Votre maison", "Territoire conservé", "FORGE · Le cabinet", "Parcourir le monde" }) {
+                foreach (string panneau in new[] { "Les autres maisons", "Votre maison", "Territoire conservé", "FORGE · Le cabinet", "Menu" }) {
                     var cadre = (RectTransform)(toile.Find(panneau) ?? throw Echec("étape 6 : « " + panneau + " » introuvable")); if (!cadre.gameObject.activeInHierarchy) throw Echec("étape 6 : « " + panneau + " » caché");
                     if (r.Overlaps(Ecran(camera, cadre))) throw Echec("étape 6 : « " + zone + " » recouvre « " + panneau + " »"); } }
             Debug.Log("CAPTURE_963 mode Habitants · légende « " + Ligne(legende) + " » · lignes " + lignes + " · tick " + lu.Tick.ToString(CultureInfo.InvariantCulture));
