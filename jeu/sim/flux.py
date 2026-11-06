@@ -21,6 +21,7 @@ class JourDeFlux:
     arrives: dict = field(default_factory=dict)
     salaires: dict = field(default_factory=dict)
     affames: set = field(default_factory=set)
+    commerce: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -72,6 +73,18 @@ def noter_affames(monde, lieux):
     if jour is None:
         return
     jour.affames.update(lieux)
+
+
+def noter_commerce(monde, transferts):
+    """Accumule les kilos passés d'une cellule à l'autre ; un appel vide ne crée aucun jour."""
+    if not transferts:
+        return
+    jour = jour_courant(monde)
+    if jour is None:
+        return
+    for source, receveur, kilos, _ in transferts:
+        cle = (source, receveur)
+        jour.commerce[cle] = jour.commerce.get(cle, 0.0) + kilos
 
 
 def _jours_de_fenetre(monde):
@@ -148,4 +161,25 @@ def flux_des_lieux(monde) -> dict:
     for cid, lignes in resultat.items():
         for mesure, kilos in zip(lignes, preleves[cid]):
             mesure['preleve_kg'] = kilos
+    return resultat
+
+
+def commerce_par_voisine(monde, cell_id) -> dict:
+    """Kilos envoyés et reçus avec chaque voisine terrestre, sur la fenêtre."""
+    if cell_id not in monde.cells:
+        raise ValueError(f'cellule inconnue : {cell_id}')
+    voisines = set()
+    for arete in monde.adjacency:
+        a, b = arete['a'], arete['b']
+        if a == b or a not in monde.cells or b not in monde.cells:
+            continue
+        if a == cell_id:
+            voisines.add(b)
+        elif b == cell_id:
+            voisines.add(a)
+    resultat = {voisine: {'envoye_kg': 0.0, 'recu_kg': 0.0} for voisine in sorted(voisines)}
+    for jour in _jours_de_fenetre(monde):
+        for voisine, mesure in resultat.items():
+            mesure['envoye_kg'] += jour.commerce.get((cell_id, voisine), 0.0)
+            mesure['recu_kg'] += jour.commerce.get((voisine, cell_id), 0.0)
     return resultat

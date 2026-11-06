@@ -14,6 +14,9 @@ from sim import flux
 from sim.convois import TableRoutes
 from sim.intentions import recevoir_intention, IntentionRefusee
 from sim.tests.test_commerce import _cellule_bourg
+from sim.tests.test_commerce import _NOEUD_MER
+from sim.model import lire_stock_marchandise, ecrire_stock_marchandise
+from sim.constants import MARCHANDISE_NOURRITURE
 from sim.world import World
 from sim.chantiers import avancer_chantiers
 from sim.maisons_servies import matiere_des_maisons
@@ -529,3 +532,193 @@ def test_flux_affames_notes(monde, monkeypatch):
         engine.tick(m, rng, m.ticks_ecoules)
         with pytest.raises(AssertionError):
             controler(m)
+
+
+def _monde_commerce(autonome=False):
+    """Quatre cellules : 1 en surplus, 2 et 3 en manque, 4 voisine de 3 seulement.
+
+    Le surplus de 1 couvre juste le manque de 2 et de 3 : la mer n'a rien à expédier.
+    Autonome, chaque cellule a exactement sa ration : rien ne passe nulle part.
+    """
+    populations = {1: 0, 2: 50, 3: 80, 4: 0}
+    ration = c.consommation_kg_par_habitant_par_tick(MARCHANDISE_NOURRITURE)
+    stocks = {cid: population * ration for cid, population in populations.items()}
+    if not autonome:
+        stocks = {**dict.fromkeys(populations, 0.), 1: sum(stocks.values())}
+    cellules = {cid: _cellule_bourg(cid, [populations[cid], 0], [stocks[cid], 0.])
+                for cid in populations}
+    aretes = [{'a': 1, 'b': 2}, {'a': 1, 'b': 3}, {'a': 3, 'b': 4},
+              {'a': 1, 'b': _NOEUD_MER, 'kind': 'land-sea', 'shared_length_m': 1000.0}]
+    return World(cellules, aretes)
+
+
+def _stocks(monde):
+    return {cid: lire_stock_marchandise(cell, MARCHANDISE_NOURRITURE)
+            for cid, cell in monde.cells.items()}
+
+
+def _controler_petit_monde(monde, avant, total):
+    apres = _stocks(monde)
+    hausse = {cid: apres[cid] - avant[cid] for cid in (2, 3)}
+    assert all(h > 0 for h in hausse.values())
+    vers_1 = flux.commerce_par_voisine(monde, 1)
+    assert list(vers_1) == [2, 3]
+    for cid in (2, 3):
+        assert vers_1[cid]['envoye_kg'] == pytest.approx(hausse[cid], rel=1e-12)
+        assert flux.commerce_par_voisine(monde, cid)[1]['recu_kg'] == vers_1[cid]['envoye_kg']
+    assert vers_1[2]['envoye_kg'] == flux.commerce_par_voisine(monde, 2)[1]['recu_kg']
+    assert total[0] > 0
+    envoye = sum(v['envoye_kg'] for cid in monde.cells
+                 for v in flux.commerce_par_voisine(monde, cid).values())
+    assert envoye == pytest.approx(total[0], rel=1e-12)
+    assert flux.commerce_par_voisine(monde, 4) == {3: {'envoye_kg': 0.0, 'recu_kg': 0.0}}
+    assert all(_NOEUD_MER not in flux.commerce_par_voisine(monde, cid) for cid in monde.cells)
+    with pytest.raises(ValueError):
+        flux.commerce_par_voisine(monde, 999)
+
+
+def test_commerce_par_voisine_petit_monde(monkeypatch):
+    def jouer():
+        monde = _monde_commerce()
+        avant, total = _stocks(monde), [0.]
+        engine._apply_commerce(monde, total)
+        return monde, avant, total
+
+    monde, avant, total = jouer()
+    _controler_petit_monde(monde, avant, total)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(flux, 'noter_commerce', lambda *args: None)
+        muet = jouer()
+        with pytest.raises(AssertionError):
+            _controler_petit_monde(*muet)
+    monde, avant, total = jouer()
+    jour = monde.flux.jours[monde.ticks_ecoules]
+    jour.commerce = {(b, a): kilos for (a, b), kilos in jour.commerce.items()}
+    with pytest.raises(AssertionError):
+        _controler_petit_monde(monde, avant, total)
+
+
+def test_commerce_absent_aucun_jour(monkeypatch):
+    monde = _monde_commerce(autonome=True)
+    avant = copy.deepcopy(monde.to_dict())
+    total = [0.]
+    engine._apply_commerce(monde, total)
+
+    def controler(m):
+        assert total[0] == 0
+        assert not m.flux.jours
+        assert m.to_dict() == avant
+    controler(monde)
+    flux.noter_commerce(monde, [])
+    controler(monde)
+    fortune = SimpleNamespace()
+    flux.noter_commerce(fortune, [(1, 2, 3.0, (1, 2))])
+    assert not hasattr(fortune, 'flux')
+
+    def trop_tot(m, transferts):
+        flux.jour_courant(m)
+        if not transferts:
+            return
+    with monkeypatch.context() as ctx:
+        ctx.setattr(flux, 'noter_commerce', trop_tot)
+        flux.noter_commerce(monde, [])
+        with pytest.raises(AssertionError):
+            controler(monde)
+
+
+def _jouer_mesurant_la_mer(monde, nombre, muet):
+    """Rend, par tick, (commerce terrestre rendu par tick, jour de flux) ; monde et rng avancent."""
+    rng, mesures = random.Random(0), []
+    ancien = engine._appliquer_flux_maritimes
+    part = [0.]
+
+    def enveloppe(world, marchandise, debark, expedition, quai, total, chemins):
+        avant = total[0]
+        ancien(world, marchandise, debark, expedition, quai, total, chemins)
+        part[0] += total[0] - avant
+
+    with pytest.MonkeyPatch.context() as ctx:
+        ctx.setattr(engine, '_appliquer_flux_maritimes', enveloppe)
+        if muet:
+            ctx.setattr(flux, 'noter_commerce', lambda *args: None)
+        for _ in range(nombre):
+            part[0] = 0.
+            t = monde.ticks_ecoules
+            rendu = engine.tick(monde, rng)
+            jour = monde.flux.jours.get(t)
+            mesures.append((rendu - part[0], copy.deepcopy(jour)))
+    return rng, mesures
+
+
+def test_commerce_par_voisine_monde_reel(monde, monkeypatch):
+    reel, muet = copy.deepcopy(monde), copy.deepcopy(monde)
+    rng_a, vus = _jouer_mesurant_la_mer(reel, 31, False)
+    rng_b, muets = _jouer_mesurant_la_mer(muet, 31, True)
+    cellules = set(reel.cells)
+    aretes = {(e['a'], e['b']) for e in reel.adjacency}
+    aretes |= {(b, a) for a, b in aretes}
+    sans_commerce = 0
+    for (terrestre, jour), (_, jour_muet) in zip(vus, muets):
+        commerce = jour.commerce if jour is not None else {}
+        assert sum(commerce.values()) == pytest.approx(terrestre, rel=1e-9, abs=1e-9)
+        for a, b in commerce:
+            assert a in cellules and b in cellules and (a, b) in aretes
+        if terrestre == 0:
+            sans_commerce += 1
+            assert commerce == {}
+            assert jour == jour_muet
+    print(f'ticks sans commerce terrestre : {sans_commerce}')
+    assert sans_commerce < len(vus)
+    assert any(terrestre > 0 for terrestre, _ in vus)
+    assert reel.to_dict() == muet.to_dict()
+    assert rng_a.getstate() == rng_b.getstate()
+    relevé = sum(v['envoye_kg'] for cid in reel.cells
+                 for v in flux.commerce_par_voisine(reel, cid).values())
+    assert relevé == pytest.approx(sum(t for t, _ in vus[1:]), rel=1e-9)
+
+    def bruit(m, transferts):
+        for _, receveur, _, _ in transferts:
+            ecrire_stock_marchandise(m.cells[receveur], MARCHANDISE_NOURRITURE,
+                                     lire_stock_marchandise(m.cells[receveur], MARCHANDISE_NOURRITURE) + 1e-9)
+    faux = copy.deepcopy(monde)
+    with monkeypatch.context() as ctx:
+        ctx.setattr(flux, 'noter_commerce', bruit)
+        _jouer_mesurant_la_mer(faux, 31, False)
+    assert faux.to_dict() != reel.to_dict()
+    sans = sum(sum(j.commerce.values()) for _, j in muets if j is not None)
+    assert sans == 0 and sum(t for t, _ in muets) > 0
+
+
+def test_commerce_par_voisine_fenetre(monkeypatch):
+    m = _monde_commerce()
+    t = 7
+    m.flux = Flux()
+    m.flux.jours[t] = flux.JourDeFlux(t, commerce={(1, 2): 5.0})
+    m.ticks_ecoules = t + c.FENETRE_FLUX_TICKS
+    assert flux.commerce_par_voisine(m, 1)[2]['envoye_kg'] == 5.0
+    m.ticks_ecoules = t + c.FENETRE_FLUX_TICKS + 1
+    assert flux.commerce_par_voisine(m, 1)[2]['envoye_kg'] == 0.0
+    with monkeypatch.context() as ctx:
+        ctx.setattr(flux, '_jours_de_fenetre', lambda monde: list(monde.flux.jours.values()))
+        assert flux.commerce_par_voisine(m, 1)[2]['envoye_kg'] == 5.0
+
+
+def test_commerce_par_voisine_documentation():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
+    titre, sous = '## Le commerce entre cellules', '### Le relevé par voisine'
+
+    def controler(document):
+        section = document.split(titre)[1].split('\n## ')[0]
+        soustexte = section.split(sous)[1].split('\n### ')[0]
+        assert all(mot in soustexte for mot in (
+            'commerce_par_voisine', 'noter_commerce', 'FENETRE_FLUX_TICKS', 'to_dict',
+            'envoye_kg', 'recu_kg', 'mer'))
+        flux_section = document.split('## Les flux sur trente jours')[1].split('\n## ')[0]
+        assert 'et le commerce ne sont pas comptés' not in flux_section
+        assert 'commerce_par_voisine' in flux_section
+    controler(texte)
+    prive = texte.replace(sous, '### Autre sous-section')
+    with pytest.raises((AssertionError, IndexError)):
+        controler(prive)
+    readme = (Path(__file__).parents[1] / 'README.md').read_text(encoding='utf-8')
+    assert 'voisine' in readme

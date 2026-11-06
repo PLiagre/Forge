@@ -1209,6 +1209,37 @@ consommation par habitant reste nulle hors nourriture. Il n'y a toujours ni
 métier ni prix. Le jour où quelque chose réclamera du fer dans une autre
 cellule, le transport suivra sans qu'on y touche.
 
+### Le relevé par voisine
+
+Le monde garde, pour chaque cellule, les kilos qu'elle a envoyés à chacune de
+ses voisines terrestres et reçus d'elle pendant les trente derniers jours. C'est
+une observation, comme les autres registres de « Les flux sur trente jours » :
+elle ne décide rien et ne change aucun nombre du monde. Elle n'a pas de niveau
+de fidélité à elle ; elle mesure exactement les kilos que le commerce, de niveau
+2, a déjà déplacés.
+
+`JourDeFlux.commerce` est un dictionnaire de clé `(source, receveur)`, deux
+`cell_id`, et de valeur les kilos. `noter_commerce(monde, transferts)`, dans
+`sim/flux.py`, l'accumule. `transferts` est la liste des envois que
+`_apply_commerce` vient d'appliquer ; elle est notée une fois par marchandise,
+après l'écriture des stocks. Seuls les kilos effectivement passés sont notés :
+un envoi écrêté à zéro n'y figure pas. Toutes les marchandises s'additionnent
+sous la même clé, comme le plafond d'arête qu'elles partagent. Un appel vide ne
+crée aucun jour, et un monde sans registre ne note rien.
+
+Les débarquements et expéditions par la mer ne sont pas relevés : ils passent
+par le bassin, pas par une voisine.
+
+`commerce_par_voisine(monde, cell_id)` relit le relevé. Une cellule inconnue
+est refusée (`ValueError`). Les voisines sont dérivées de `monde.adjacency` :
+l'autre bout de chaque arête dont les deux bouts sont des cellules du monde et
+différents, donc sans le nœud de mer. Chacune n'apparaît qu'une fois, clés
+triées par `cell_id`, et porte `envoye_kg` et `recu_kg`, sommes des jours de la
+fenêtre `FENETRE_FLUX_TICKS` (la même que les autres lecteurs). Une voisine sans
+échange rend deux zéros mesurés ; une cellule sans voisine rend `{}`. Les kilos
+échangés avec une voisine sont `envoye_kg + recu_kg`. Le registre reste hors de
+`to_dict`, ne se sauvegarde pas, et aucune règle du tick ne le lit.
+
 ---
 
 ## Le report de la fraction de mortalité
@@ -2004,7 +2035,9 @@ part × récolte ; on n'alloue aucun tableau supplémentaire par lieu. Les
 départs de famine et de mieux-vivre sont comptés en personnes brutes par
 `(cell_id, rang)`, y compris à l'intérieur d'une cellule. Un lieu peut envoyer
 et recevoir le même jour : les deux mouvements restent visibles. Les cellules
-sans lieux, les naissances, les morts et le commerce ne sont pas comptés.
+sans lieux, les naissances et les morts ne sont pas comptés ; le commerce
+terrestre l'est, par voisine, comme le dit « Le relevé par voisine » de
+« Le commerce entre cellules » (`commerce_par_voisine`).
 `JourDeFlux.affames` garde les `(cell_id, rang)` dont la population et
 `duree_faim_ticks` sont positives une fois la cellule passée par la
 consommation, la faim, la mortalité et la natalité, et seulement si la
