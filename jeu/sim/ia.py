@@ -6,10 +6,8 @@ import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
 from sim.intentions import (
     ChoixDepart, IntentionRefusee, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER,
-    TYPE_TRACER_ROUTE, _lieux_de_la_maison, recevoir_intention, verifier_base,
-    maitre_du_bourg,
+    _lieux_de_la_maison, recevoir_intention,
 )
-from sim.model import contenus_des_paniers
 from sim.seigneuries import identifiant_de_seigneurie
 
 
@@ -20,31 +18,6 @@ def _cle_du_grenier(maison):
     if maison.sorte == 'seigneurie':
         return identifiant_de_seigneurie(maison.id)
     return None
-
-
-def _raison_de_la_route(monde, maison, cellule, bourg, plan):
-    """Nombres lus avant le dépôt. Une marchandise absente pèse zéro."""
-    nourriture = _constantes.MARCHANDISE_NOURRITURE
-    champs = sorted((lieu for lieu in cellule.lieux if lieu.rang >= 1), key=lambda lieu: lieu.rang)
-    cle = _cle_du_grenier(maison)
-    panier = None if cle is None else monde.greniers.get(cle)
-    return {
-        'regle': 'route_si_bourg_affame',
-        'bourg': {
-            'population': bourg.population,
-            'duree_faim_ticks': bourg.duree_faim_ticks,
-            'dette_alimentaire_kg': bourg.dette_alimentaire_kg,
-            'nourriture_kg': contenus_des_paniers([bourg], nourriture)[0],
-        },
-        'champs_nourriture_kg': contenus_des_paniers(champs, nourriture),
-        'grenier_nourriture_kg': -1 if panier is None else panier.get(nourriture, 0),
-        'chantiers_en_cours': {
-            'rues': sum(1 for rue in plan.rues if rue.en_chantier),
-            'parcelles': sum(1 for parcelle in plan.parcelles if parcelle.en_chantier),
-            'batiments': sum(1 for batiment in plan.batiments if batiment.en_chantier),
-        },
-        'departs': -1,
-    }
 
 
 def _fenetre_pleine(monde):
@@ -195,10 +168,7 @@ def _proposition_de_part(monde, maison, cle):
 
 def decider_intentions(monde, releve):
     """Propose dans l'ordre des maisons, sans écrire ni tirer d'aléa."""
-    annee = _constantes.date_de_tick(monde.ticks_ecoules)['annee']
-    actives = {(e['maison']['sorte'], e['maison']['id']) for e in releve
-               if e['intention']['type'] == TYPE_TRACER_ROUTE
-               and _constantes.date_de_tick(e['tick'])['annee'] == annee}
+    from sim import programme_ia
     choix = monde.maison_du_joueur
     if choix is None:
         choix = next((identifiant_de_seigneurie(i.identifiant) for i in monde.intentions_en_attente if isinstance(i, ChoixDepart)), None)
@@ -216,22 +186,9 @@ def decider_intentions(monde, releve):
         if donnee is not None:
             raise ValueError(f'maison {maison.sorte} {maison.id} ({maison.nom}) : {donnee} absente ou non calculée')
         cle = _cle_du_grenier(maison)
-        if maitre_du_bourg(monde, maison.cell_id) == cle and bourg.population > 0 and faim > 0 and (maison.sorte, maison.id) not in actives:
-            y = _constantes.IA_LARGEUR_ROUTE_M * len(plan.rues)
-            try:
-                verifier_base(monde, maison.cell_id, points=[[0, y], [_constantes.IA_LONGUEUR_ROUTE_M, y]],
-                              largeur_m=_constantes.IA_LARGEUR_ROUTE_M)
-            except IntentionRefusee as refus:
-                if refus.__cause__ is not None:
-                    raise
-            else:
-                propositions.append({
-                    'maison': {'sorte': maison.sorte, 'id': maison.id},
-                    'intention': {
-                        'type': TYPE_TRACER_ROUTE, 'cell': maison.cell_id, 'maison': cle,
-                        'points': [[0, y], [_constantes.IA_LONGUEUR_ROUTE_M, y]],
-                        'largeur_m': _constantes.IA_LARGEUR_ROUTE_M, 'foyers': _constantes.IA_FOYERS_ROUTE},
-                    'raison': _raison_de_la_route(monde, maison, cellule, bourg, plan)})
+        route = programme_ia.proposer_route_vers_le_champ(monde, maison, releve)
+        if route is not None:
+            propositions.append(route)
         secours = _proposition_de_secours(monde, maison, cle)
         if secours is not None:
             propositions.append(secours)

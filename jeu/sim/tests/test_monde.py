@@ -3921,41 +3921,6 @@ def _controler_secours(releve, raisons):
 
 
 _JOURS_DU_PROGRAMME = 100  # la première route du programme tombe vers le jour 65 : l'horizon garde de la marge
-_AMORCAGE_PROGRAMME = "import pytest, sim.tests.test_monde as t; t._brancher_programme(pytest.MonkeyPatch()); "
-
-
-def _brancher_programme(patch):
-    """Fait proposer par le programme la route que `decider_intentions` proposait, sans toucher au reste.
-
-    Les autres propositions (secours, part) gardent leur ordre, maison par maison."""
-    from sim import ia, programme_ia
-    from sim.intentions import ChoixDepart
-    from sim.seigneuries import identifiant_de_seigneurie
-    reel = ia.decider_intentions
-
-    def decider(monde, releve):
-        propositions = reel(monde, releve)
-        restantes = {}
-        for proposition in propositions:
-            if proposition['intention']['type'] != 'tracer_route':
-                couple = (proposition['maison']['sorte'], proposition['maison']['id'])
-                restantes.setdefault(couple, []).append(proposition)
-        choix = monde.maison_du_joueur
-        if choix is None:
-            choix = next((identifiant_de_seigneurie(i.identifiant) for i in monde.intentions_en_attente
-                          if isinstance(i, ChoixDepart)), None)
-        sortie = []
-        for maison in ia.maisons_de_l_ia(monde):
-            if maison.hors_carte is not None or (
-                    maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix):
-                continue
-            route = programme_ia.proposer_route_vers_le_champ(monde, maison, releve)
-            if route is not None:
-                sortie.append(route)
-            sortie += restantes.pop((maison.sorte, maison.id), [])
-        assert not restantes, 'une proposition du secours ou de la part est perdue'
-        return sortie
-    patch.setattr(ia, 'decider_intentions', decider)
 
 
 def _verifier_raisons(ticks):
@@ -4027,9 +3992,9 @@ def _routes_du_releve(releve):
 
 @_REGLES
 def test_ia_rejeu_octets(tmp_path, regle):
-    jours, amorcage = _JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME
-    a, monde = _ia_cli(tmp_path, jours, options=['--ia'], amorcage=amorcage)
-    assert _ia_cli(tmp_path, jours, options=['--ia'], amorcage=amorcage) == (a, monde)
+    jours = _JOURS_DU_PROGRAMME
+    a, monde = _ia_cli(tmp_path, jours, options=['--ia'])
+    assert _ia_cli(tmp_path, jours, options=['--ia']) == (a, monde)
     routes = _routes_du_releve(a['ia']['releve'])
     dites = [e for e in routes if e['raison']['regle'] == 'route_vers_le_champ']
     assert dites and len(dites) == len(routes)
@@ -4048,8 +4013,8 @@ def test_ia_rejeu_octets(tmp_path, regle):
 @_REGLES
 def test_ia_mesure_reelle(tmp_path, regle):
     from sim import ia, constants as k
-    ticks, amorcage = _JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME
-    resume, _ = _ia_cli(tmp_path, ticks=ticks, options=['--ia'], amorcage=amorcage)
+    ticks = _JOURS_DU_PROGRAMME
+    resume, _ = _ia_cli(tmp_path, ticks=ticks, options=['--ia'])
     releve = resume['ia']['releve']
     capitales = {(m.sorte, m.id): m.cell_id for m in ia.maisons_de_l_ia(World.charger(0)) if m.cell_id is not None}
     def cle_de(e):
@@ -4110,9 +4075,7 @@ def test_ia_mesure_reelle(tmp_path, regle):
 def test_ia_raisons_egalent_le_monde(monkeypatch, bras, regle):
     from sim import constants as k
     monkeypatch.setattr("sim.constants.BRAS_AUX_CHAMPS_PAR_KM2", bras)
-    with pytest.MonkeyPatch.context() as branche:
-        _brancher_programme(branche)
-        releve = _verifier_raisons(_JOURS_DU_PROGRAMME)
+    releve = _verifier_raisons(_JOURS_DU_PROGRAMME)
     routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
     dates = [entree['tick'] for entree in routes]
     print(f'bras={bras}, règle={regle}, dates des routes={dates}', flush=True)
@@ -4692,9 +4655,9 @@ def _service_ia_en_processus(ia=True):
 @_REGLES
 def test_service_ia_egal_cli(tmp_path, regle):
     from sim.constants import date_de_tick
-    ticks, amorcage = _JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME
+    ticks = _JOURS_DU_PROGRAMME
     photo = tmp_path / 'ia-photo.json'
-    resume, brut = _ia_cli(tmp_path, ticks=ticks, options=['--ia', '--snapshot-json', str(photo)], amorcage=amorcage)
+    resume, brut = _ia_cli(tmp_path, ticks=ticks, options=['--ia', '--snapshot-json', str(photo)])
     monde = json.loads(brut)
     cellules = {int(cid): c for cid, c in monde['cells'].items()}
     reference = dict(tick=ticks, date=date_de_tick(ticks), **resume['ia'])
@@ -4704,7 +4667,7 @@ def test_service_ia_egal_cli(tmp_path, regle):
     print(f'{len(routes)} routes du programme en {ticks} jours', flush=True)
     ids = {e['intention']['cell'] for e in reference['releve'] if 'cell' in e['intention']}
     assert ids
-    with _lancer_service_ia(amorcage) as port:
+    with _lancer_service_ia() as port:
         assert requete_service(port, f'/tick?n={ticks}', 'POST')[1]['tick'] == ticks
         obtenu = requete_service(port, '/ia')[1]
         assert obtenu == reference
