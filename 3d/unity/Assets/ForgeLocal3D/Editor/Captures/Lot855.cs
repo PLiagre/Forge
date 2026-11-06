@@ -11,11 +11,11 @@ using UnityEngine.UI;
 namespace ForgeLocal3D.Captures
 {
     // Lot 855 : la Morée choisie d'un clic gauche sur la carte de 1400, son dossier « Territoire conservé » ouvert à droite. Avant, un clic sur
-    // « Parcourir le monde » et un glisser de 40 px ne gardent rien ; Échap ferme le dossier avant d'ouvrir le menu. Les gestes passent par
+    // la barre (bandeau et « Menu ») et un glisser de 40 px ne gardent rien ; Échap ferme le dossier avant d'ouvrir le menu. Les gestes passent par
     // `CabinetDeCarte.Noter` comme le fait son Update, sans image entre l'appui et le relâché. `-forge855Glisser` remplace le clic par le glisser : il rougit.
     static class Lot855
     {
-        const string SIEGE = "Mistra", TERRE = "Despotat de Morée", GUIDE = "Parcourir le monde", DOSSIER = "Territoire conservé", GLISSER = "-forge855Glisser";
+        const string SIEGE = "Mistra", TERRE = "Despotat de Morée", BANDEAU = "FORGE · Le cabinet", MENU = "Menu", DOSSIER = "Territoire conservé", GLISSER = "-forge855Glisser";
         const int IMAGES_DE_POSE = 10; const float CRANS = 12, PAS_PX = 40;
         static string N(long v) => v.ToString(CultureInfo.InvariantCulture); static string Ligne(string texte) => texte == null ? "(aucun texte)" : texte.Split('\n')[0];
         static InvalidOperationException Echec(string cause) => new InvalidOperationException(cause); static string Ecran(Vector2 p) => "(" + Mathf.RoundToInt(p.x) + ", " + Mathf.RoundToInt(p.y) + ")";
@@ -49,12 +49,15 @@ namespace ForgeLocal3D.Captures
             if (moree?.CellId != cellule || carte.CelluleSous(point)?.CellId != cellule) throw Echec("étape 2 : au point " + Ecran(P) + ", la carte voit la cellule " + moree?.CellId + ", attendu la Morée " + N(cellule));
             if (cabinet.HorsCarte(P)) throw Echec("étape 2 : le point de la Morée " + Ecran(P) + " est hors de la carte ou sous un panneau");
 
-            RectTransform guide = toile.Cast<Transform>().OfType<RectTransform>().SingleOrDefault(t => t.name == GUIDE) ?? throw Echec("étape 3 : panneau « " + GUIDE + " » introuvable");
-            var coins = new Vector3[4]; guide.GetWorldCorners(coins); Vector2 Q = RectTransformUtility.WorldToScreenPoint(null, (coins[0] + coins[2]) / 2);
-            if (!carte.camera.pixelRect.Contains(Q)) throw Echec("étape 3 : « " + GUIDE + " » en " + Ecran(Q) + " n'est pas au-dessus de la vue de la carte " + carte.camera.pixelRect);
-            if (!cabinet.HorsCarte(Q)) throw Echec("étape 3 : HorsCarte faux sur « " + GUIDE + " » en " + Ecran(Q) + " : le clic traverserait le panneau");
-            bool panneau = cabinet.Noter(Q, true, false, true, moree) | cabinet.Noter(Q, false, true, true, moree);
-            if (panneau || cabinet.Retenue != null) throw Echec("étape 3 : un clic sur « " + GUIDE + " » a gardé la cellule " + cabinet.Retenue?.CellId);
+            var coins = new Vector3[4]; Vector2 Centre(string nom) { (toile.Cast<Transform>().OfType<RectTransform>().SingleOrDefault(t => t.name == nom) ?? throw Echec("étape 3 : « " + nom + " » introuvable")).GetWorldCorners(coins); return RectTransformUtility.WorldToScreenPoint(null, (coins[0] + coins[2]) / 2); }
+            Vector2 Q = Centre(BANDEAU), M = Centre(MENU); bool panneau = false;
+            foreach (var (nom, ici) in new[] { (BANDEAU, Q), (MENU, M) }) // le bandeau, puis le Menu
+            {
+                if (!carte.camera.pixelRect.Contains(ici)) throw Echec("étape 3 : « " + nom + " » en " + Ecran(ici) + " n'est pas au-dessus de la vue de la carte " + carte.camera.pixelRect);
+                if (!cabinet.HorsCarte(ici)) throw Echec("étape 3 : HorsCarte faux sur « " + nom + " » en " + Ecran(ici) + " : le clic traverserait la barre");
+                panneau |= cabinet.Noter(ici, true, false, true, moree) | cabinet.Noter(ici, false, true, true, moree);
+                if (panneau || cabinet.Retenue != null) throw Echec("étape 3 : un clic sur « " + nom + " » a gardé la cellule " + cabinet.Retenue?.CellId);
+            }
 
             Vector2 loin = P + new Vector2(PAS_PX, 0); bool glisse = Toucher(cabinet, P, loin, moree);
             if (glisse || cabinet.Retenue != null) throw Echec("étape 4 : un glisser de " + PAS_PX + " px a gardé la cellule " + cabinet.Retenue?.CellId);
@@ -94,7 +97,7 @@ namespace ForgeLocal3D.Captures
             Visible(); for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             if (cabinet.Retenue?.CellId != cellule || !Dossier()) throw Echec("après la pose : retenue " + cabinet.Retenue?.CellId + ", dossier « " + Ligne(texte.text) + " »");
             Visible();
-            Debug.Log("CAPTURE_855 Morée cellule " + N(cellule) + ", P " + Ecran(P) + ", Q " + Ecran(Q) + " ; étape 3 panneau " + (panneau ? "gardé" : "rien") + ", étape 4 glisser " + (glisse ? "gardé" : "rien")
+            Debug.Log("CAPTURE_855 Morée cellule " + N(cellule) + ", P " + Ecran(P) + ", Q " + Ecran(Q) + ", M " + Ecran(M) + " ; étape 3 barre " + (panneau ? "gardé" : "rien") + ", étape 4 glisser " + (glisse ? "gardé" : "rien")
                 + ", étape 5 clic " + (clic ? "gardé" : "rien") + ", étape 6 Échap ferme le dossier (« " + ferme + " »), puis ouvre et ferme le menu ; dossier « " + Ligne(texte.text) + " »");
         }
     }

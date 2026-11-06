@@ -15,6 +15,7 @@ namespace Forge.Interface
         public const float SEUIL_CLIC_PX = 6f;
         public const string DOSSIERS = "Dossiers de la barre";
         public const string AIDE ="Clic : choisir une terre · Glisser : déplacer · Molette : zoomer · Échap : fermer";
+        public const string ETAT = "État de la carte";
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;
@@ -22,7 +23,7 @@ namespace Forge.Interface
         HorlogeDeCarte horloge;
         FicheDeCellule fiche;
         GameObject toile;
-        Text date, barre, maison, territoire, apercu, aide;
+        Text date, barre, maison, territoire, apercu, etat;
         Transform choix;
         Button confirmer;
         Button[] temps;
@@ -102,11 +103,13 @@ namespace Forge.Interface
             territoire.rectTransform.sizeDelta = new Vector2(536, 260);
             gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
             gameObject.AddComponent<DossierBourg>().Initialiser(toile.transform, lieu, carte.port, () => retenue);
-            var guide = SocleInterface.Panneau(toile.transform, "Parcourir le monde", 24, 872, 740, 184);
+            // Lot #1003 : plus de panneau en bas de la carte ; l'état de la carte s'écrit au centre de sa vue (0,67 × 1920 / 2, 540).
+            etat = SocleInterface.Texte(toile.transform, "La carte se prépare…", 343, 492, 600); etat.name = ETAT;
+            etat.rectTransform.sizeDelta = new Vector2(600, 96); etat.alignment = TextAnchor.MiddleCenter; etat.color = SocleInterface.Couleur("papier"); etat.raycastTarget = false;
             gameObject.AddComponent<CalquesCarte>().Initialiser(carte, toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
             var menu = gameObject.AddComponent<MenuCabinet>(); menu.Initialiser(toile.transform); menu.AvantDOuvrir = Relacher;
-            aide = SocleInterface.Texte(guide, AIDE, 24, 88, 1190);
+            var bulle = toile.transform.Find("Menu").GetComponent<Infobulle>(); bulle.phrase = bulle.Phrase + "\n" + AIDE; // les gestes de la carte, au survol du Menu
             gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, dossiers, carte.port);
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
@@ -179,8 +182,8 @@ namespace Forge.Interface
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
             barre.text = Barre(Partie.Monde, Partie.Comptes);
-            if (carte.CellulesServies < 0) aide.text = carte.TexteAffiche ?? "La carte se prépare…";
-            else aide.text = AIDE;
+            etat.gameObject.SetActive(carte.CellulesServies < 0);
+            if (carte.CellulesServies < 0) etat.text = carte.TexteAffiche ?? "La carte se prépare…";
             if (retenue != null)
             {
                 var monde = Partie.Monde;
