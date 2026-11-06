@@ -164,5 +164,6 @@ suite de tests (artefacts de preuve, non collectés par pytest).
 `sim/prelevement.py` retire la part de la récolte, fait voyager les charges, livre les greniers et les secours aux lieux.
 
 `sim/flux.py` observe trente jours de prélèvements, convois, secours et départs
-par maison et par lieu. Ce registre reste hors de `to_dict` et des règles ;
-ses lecteurs préparent les vues du jalon 3.
+par maison et par lieu, et les kilos que le commerce terrestre a envoyés et
+reçus par voisine (`commerce_par_voisine`). Ce registre reste hors de `to_dict`
+et des règles ; ses lecteurs préparent les vues du jalon 3.

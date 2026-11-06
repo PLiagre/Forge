@@ -1275,6 +1275,7 @@ def _apply_commerce(
         _entrer_au_bourg(receiver_cell, marchandise, transfer)
         total_transported[0] += transfer
         consomme_par_arête[cle] += transfer
+    _flux.noter_commerce(world, final_transfers)
 
     for cle, qty in consomme_par_arête.items():
         if cle in capacite_restante:
