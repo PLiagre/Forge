@@ -4018,7 +4018,7 @@ def _ia_cli(tmp_path, ticks=30, options=(), amorcage=""):
     return json.loads(proc.stdout), sortie.read_bytes()
 
 
-_REGLES = pytest.mark.parametrize('regle', ['ancienne', 'programme'])
+_REGLES = pytest.mark.parametrize('regle', ['programme'])
 
 
 def _routes_du_releve(releve):
@@ -4027,16 +4027,13 @@ def _routes_du_releve(releve):
 
 @_REGLES
 def test_ia_rejeu_octets(tmp_path, regle):
-    jours, amorcage = (30, '') if regle == 'ancienne' else (_JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME)
+    jours, amorcage = _JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME
     a, monde = _ia_cli(tmp_path, jours, options=['--ia'], amorcage=amorcage)
     assert _ia_cli(tmp_path, jours, options=['--ia'], amorcage=amorcage) == (a, monde)
     routes = _routes_du_releve(a['ia']['releve'])
     dites = [e for e in routes if e['raison']['regle'] == 'route_vers_le_champ']
-    if regle == 'ancienne':
-        assert routes and not dites
-    else:
-        assert dites and len(dites) == len(routes)
-        print(f'{len(dites)} routes du programme en {jours} jours, premier geste : {a["ia"]["releve"][0]["intention"]["type"]}', flush=True)
+    assert dites and len(dites) == len(routes)
+    print(f'{len(dites)} routes du programme en {jours} jours, premier geste : {a["ia"]["releve"][0]["intention"]["type"]}', flush=True)
     gestes = [{k: e[k] for k in ('tick', 'intention')} for e in a['ia']['releve']]
     assert gestes
     chemin = tmp_path / 'gestes.json'
@@ -4051,7 +4048,7 @@ def test_ia_rejeu_octets(tmp_path, regle):
 @_REGLES
 def test_ia_mesure_reelle(tmp_path, regle):
     from sim import ia, constants as k
-    ticks, amorcage = (31, '') if regle == 'ancienne' else (_JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME)
+    ticks, amorcage = _JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME
     resume, _ = _ia_cli(tmp_path, ticks=ticks, options=['--ia'], amorcage=amorcage)
     releve = resume['ia']['releve']
     capitales = {(m.sorte, m.id): m.cell_id for m in ia.maisons_de_l_ia(World.charger(0)) if m.cell_id is not None}
@@ -4113,83 +4110,52 @@ def test_ia_mesure_reelle(tmp_path, regle):
 def test_ia_raisons_egalent_le_monde(monkeypatch, bras, regle):
     from sim import constants as k
     monkeypatch.setattr("sim.constants.BRAS_AUX_CHAMPS_PAR_KM2", bras)
-    if regle == 'ancienne':
-        monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
-        releve = _verifier_raisons(70)
-    else:
-        with pytest.MonkeyPatch.context() as branche:
-            _brancher_programme(branche)
-            releve = _verifier_raisons(_JOURS_DU_PROGRAMME)
+    with pytest.MonkeyPatch.context() as branche:
+        _brancher_programme(branche)
+        releve = _verifier_raisons(_JOURS_DU_PROGRAMME)
     routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
     dates = [entree['tick'] for entree in routes]
     print(f'bras={bras}, règle={regle}, dates des routes={dates}', flush=True)
     lectures, champ = _verifier_raisons.lectures, _verifier_raisons.champ
-    if regle == 'ancienne':
-        if bras == 0.1:
-            assert [entree['tick'] for entree in routes] == [25, 37, 39, 61, 64, 69]
-        else:
-            assert dates == [25, 37, 39, 63, 64, 69]
-        assert routes and all(entree['raison']['champs_nourriture_kg'] for entree in routes)
-        assert not any(entree['raison']['regle'] == 'route_vers_le_champ' for entree in routes)
+    assert routes, 'aucune route du programme : échantillon vide'
+    assert all(entree['raison']['regle'] == 'route_vers_le_champ' for entree in routes)
+    assert all(tick >= k.FENETRE_FLUX_TICKS for tick in dates)
+    assert sum(len(jour) for jour in champ.values()) == len(routes)
+    _controler_raisons(lectures, releve, champ)
+    cellule = World.charger(0).cells[routes[0]['intention']['cell']]
+
+    def fausser(changer):
         copie = copy.deepcopy(releve)
-        couple = (copie[0]['maison']['sorte'], copie[0]['maison']['id'])
-        copie[0]['raison']['bourg']['duree_faim_ticks'] = lectures[copie[0]['tick']][couple]['bourg']['duree_faim_ticks'] + 1
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, copie)
-        copie = copy.deepcopy(releve)
-        copie[0]['raison']['champs_nourriture_kg'][0] += 1
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, copie)
-        copie = copy.deepcopy(releve)
-        del copie[0]['raison']
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, copie)
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, [])
-        seulement = [entree for entree in releve if entree['intention']['type'] == 'fixer_part']
-        assert seulement
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, seulement)
-    else:
-        assert routes, 'aucune route du programme : échantillon vide'
-        assert all(entree['raison']['regle'] == 'route_vers_le_champ' for entree in routes)
-        assert all(tick >= k.FENETRE_FLUX_TICKS for tick in dates)
-        assert sum(len(jour) for jour in champ.values()) == len(routes)
-        _controler_raisons(lectures, releve, champ)
-        cellule = World.charger(0).cells[routes[0]['intention']['cell']]
+        changer(next(e for e in copie if e['intention']['type'] == 'tracer_route')['raison'])
+        return copie
 
-        def fausser(changer):
-            copie = copy.deepcopy(releve)
-            changer(next(e for e in copie if e['intention']['type'] == 'tracer_route')['raison'])
-            return copie
+    def autre_rang(raison):
+        raison['champ_vise'] = next(l.rang for l in cellule.lieux if l.rang != raison['champ_vise'])
 
-        def autre_rang(raison):
-            raison['champ_vise'] = next(l.rang for l in cellule.lieux if l.rang != raison['champ_vise'])
+    def regle_ancienne(raison):
+        raison['regle'] = 'route_si_bourg_affame'
 
-        def regle_ancienne(raison):
-            raison['regle'] = 'route_si_bourg_affame'
+    def premier_champ(raison):
+        raison['champs_nourriture_kg'][0] += 1
 
-        def premier_champ(raison):
-            raison['champs_nourriture_kg'][0] += 1
+    def faim(raison):
+        raison['faim_du_bourg_ticks'] += 1
 
-        def faim(raison):
-            raison['faim_du_bourg_ticks'] += 1
-
-        for changer in (faim, premier_champ, autre_rang, regle_ancienne):
-            with pytest.raises(AssertionError):
-                _controler_raisons(lectures, fausser(changer), champ)
-        copie = copy.deepcopy(releve)
-        del next(e for e in copie if e['intention']['type'] == 'tracer_route')['raison']
+    for changer in (faim, premier_champ, autre_rang, regle_ancienne):
         with pytest.raises(AssertionError):
-            _controler_raisons(lectures, copie, champ)
-        seulement = [entree for entree in releve if entree['intention']['type'] == 'fixer_part']
-        assert seulement
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, seulement, champ)
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, releve)
-        with pytest.raises(AssertionError):
-            _controler_raisons(lectures, [], champ)
+            _controler_raisons(lectures, fausser(changer), champ)
+    copie = copy.deepcopy(releve)
+    del next(e for e in copie if e['intention']['type'] == 'tracer_route')['raison']
+    with pytest.raises(AssertionError):
+        _controler_raisons(lectures, copie, champ)
+    seulement = [entree for entree in releve if entree['intention']['type'] == 'fixer_part']
+    assert seulement
+    with pytest.raises(AssertionError):
+        _controler_raisons(lectures, seulement, champ)
+    with pytest.raises(AssertionError):
+        _controler_raisons(lectures, releve)
+    with pytest.raises(AssertionError):
+        _controler_raisons(lectures, [], champ)
     for entree in (e for e in releve if e['intention']['type'] == 'ouvrir_grenier'):
         assert _verifier_raisons.secours[entree['tick']][entree['intention']['maison']] == entree['raison']
     from sim import ia
@@ -4726,17 +4692,16 @@ def _service_ia_en_processus(ia=True):
 @_REGLES
 def test_service_ia_egal_cli(tmp_path, regle):
     from sim.constants import date_de_tick
-    ticks, amorcage = (31, '') if regle == 'ancienne' else (_JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME)
+    ticks, amorcage = _JOURS_DU_PROGRAMME, _AMORCAGE_PROGRAMME
     photo = tmp_path / 'ia-photo.json'
     resume, brut = _ia_cli(tmp_path, ticks=ticks, options=['--ia', '--snapshot-json', str(photo)], amorcage=amorcage)
     monde = json.loads(brut)
     cellules = {int(cid): c for cid, c in monde['cells'].items()}
     reference = dict(tick=ticks, date=date_de_tick(ticks), **resume['ia'])
     assert reference['releve'] and reference['maisons_actives_30j'] > 0
-    if regle == 'programme':
-        routes = _routes_du_releve(reference['releve'])
-        assert routes and any(e['raison']['regle'] == 'route_vers_le_champ' for e in routes)
-        print(f'{len(routes)} routes du programme en {ticks} jours', flush=True)
+    routes = _routes_du_releve(reference['releve'])
+    assert routes and any(e['raison']['regle'] == 'route_vers_le_champ' for e in routes)
+    print(f'{len(routes)} routes du programme en {ticks} jours', flush=True)
     ids = {e['intention']['cell'] for e in reference['releve'] if 'cell' in e['intention']}
     assert ids
     with _lancer_service_ia(amorcage) as port:
