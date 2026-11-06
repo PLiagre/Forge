@@ -4,7 +4,7 @@ namespace ForgeLocal3D.Captures {
     // Contre-épreuves : `-forge965DeuxLegendes` pose une copie de la légende en Flux, `-forge965Remonter` remonte la légende sur le feuillet, `-forge965Tick` pousse un tick avant les clics, `-forge965Muet` éteint le repère du Flux.
     static class Lot965 {
         const string DEUX = "-forge965DeuxLegendes", REMONTER = "-forge965Remonter", TICK = "-forge965Tick", MUET = "-forge965Muet", FEUILLET = "Terres et comptes", BULLE = "Infobulle";
-        static readonly string[] FLOTTANTES = { "Légende des lieux", "Légende des flèches", "Fond de la légende", "Fond des flèches" }, DOSSIERS = { "FORGE · Le cabinet", "Votre maison", "Territoire conservé", "Parcourir le monde" }, EXCLUS = { "Fond des dossiers", CalquesCarte.LEGENDE, CalquesCarte.BANDE };
+        static readonly string[] FLOTTANTES = { "Légende des lieux", "Légende des flèches", "Fond de la légende", "Fond des flèches" }, DOSSIERS = { "FORGE · Le cabinet", "Votre maison", "Territoire conservé", "Menu" }, EXCLUS = { "Fond des dossiers", CalquesCarte.LEGENDE, CalquesCarte.BANDE };
         const double STABLE_S = 2.5; // plus que la relecture du cabinet (1 s), des lieux et des flèches (2 s)
         static readonly Vector2 ANCIENNE = new Vector2(16, -104); // la place de l'ancienne légende des lieux, sur le feuillet
         static InvalidOperationException Echec(string cause) => new InvalidOperationException(cause); static string Ligne(string t) => (t ?? "(aucun)").Replace("\r", "").Replace("\n", " | ");

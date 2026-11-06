@@ -1,11 +1,11 @@
 using System; using System.Collections; using System.Globalization; using System.Linq; using System.Threading.Tasks;
 using Forge.Interface; using Forge.Pont; using UnityEngine; using UnityEngine.UI;
 namespace ForgeLocal3D.Captures {
-    // Lot 943 : la Morée gardée en rouge, en couleurs des puissances ; « Parcourir le monde » et la bande des modes (#963) entiers, la légende sans année seule.
+    // Lot 943 : la Morée gardée en rouge, en couleurs des puissances ; la barre (bandeau et « Menu ») et la bande des modes (#963) entières, la légende sans année seule.
     // Les deux légendes réellement affichées (habitants, puis puissances) passent `TexteDuMonde.Interdit` et `SansUnite`.
     // `-forge943Annee` remet l'ancienne légende « … de 1400 … » juste avant le dernier jugement : il rougit sur « 1400 ».
     static class Lot943 {
-        const string SIEGE = "Mistra", GUIDE = "Parcourir le monde", ANNEE = "-forge943Annee", ANCIENNE = "Puissances de la carte de 1400 · Relief non transmis · Rouge : territoire conservé";
+        const string SIEGE = "Mistra", ANNEE = "-forge943Annee", ANCIENNE = "Puissances de la carte de 1400 · Relief non transmis · Rouge : territoire conservé";
         const float VX = .36f, VY = .58f, DEMI_KM = 220f; // le bourg au-dessus du panneau (x ≤ 0,66 et y ≤ 0,20 de l'image)
         static string N(long v) => v.ToString(CultureInfo.InvariantCulture); static InvalidOperationException Echec(string cause) => new InvalidOperationException(cause);
         static string Ligne(string t) => (t ?? "(aucun)").Replace("\r", "").Replace("\n", " | "); static bool Zone(Vector3 v) => v.z > 0f && v.x >= .10f && v.x <= .62f && v.y >= .30f && v.y <= .88f;
@@ -43,7 +43,7 @@ namespace ForgeLocal3D.Captures {
             Exiger("étape 4", false); foreach (string cache in new[] { "Fond des dossiers", "Votre maison" }) { var p = toile.Find(cache) ?? throw Echec("étape 5 : « " + cache + " » introuvable"); p.gameObject.SetActive(false); }
             Lot549.Photographier(camera, carte); camera.rect = new Rect(0f, 0f, 1f, 1f); camera.aspect = Lot549.FORME; Canvas cab = toile.GetComponent<Canvas>(); cab.renderMode = RenderMode.ScreenSpaceCamera; cab.worldCamera = camera; cab.planeDistance = camera.nearClipPlane + 0.2f; yield return null; Canvas.ForceUpdateCanvases();
             void Visible(string moment) {
-                foreach (string panneau in new[] { GUIDE, CalquesCarte.BANDE }) {
+                foreach (string panneau in new[] { "FORGE · Le cabinet", "Menu", CalquesCarte.BANDE }) {
                     var cadre = (RectTransform)(toile.Find(panneau) ?? throw Echec(moment + " : « " + panneau + " » introuvable")); if (!cadre.gameObject.activeInHierarchy) throw Echec(moment + " : « " + panneau + " » caché");
                     var coins = new Vector3[4]; cadre.GetWorldCorners(coins); foreach (Vector3 v in coins.Select(camera.WorldToViewportPoint)) if (v.z <= 0f || v.x < -0.01f || v.x > 1.01f || v.y < -0.01f || v.y > 1.01f) throw Echec(moment + " : « " + panneau + " » coupé, coin " + v.ToString("F3")); }
                 foreach (string nomBouton in new[] { "Puissances", "Habitants" }) if (!Bouton(nomBouton).gameObject.activeInHierarchy) throw Echec(moment + " : bouton « " + nomBouton + " » caché");

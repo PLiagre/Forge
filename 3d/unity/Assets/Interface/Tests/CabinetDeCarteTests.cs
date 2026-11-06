@@ -251,8 +251,13 @@ namespace Forge.Interface.Tests
         [Test] public void LesAidesDisentLesNouveauxGestes()
         {
             Assert.That(CabinetDeCarte.AIDE, Does.Contain("Clic").And.Contain("Glisser").And.Contain("Échap").And.Not.Contain("Clic droit").And.Not.Contain("\n"));
-            var aide = racine.GetComponentsInChildren<Text>(true).Single(t => t.name == CabinetDeCarte.AIDE); aide.text = CabinetDeCarte.AIDE;
-            Assert.That(aide.preferredWidth, Is.LessThanOrEqualTo(aide.rectTransform.rect.width)); Assert.That(aide.rectTransform.rect.width, Is.EqualTo(1190f));
+            Assert.That(racine.GetComponentsInChildren<Text>(true).Where(t => t.text == CabinetDeCarte.AIDE).Select(t => t.name), Is.Empty, "l'aide s'écrit encore seule dans un texte");
+            Canvas toile = racine.transform.Find("Cabinet").GetComponent<Canvas>(); Canvas.ForceUpdateCanvases(); var bouton = (RectTransform)toile.transform.Find("Menu"); string phrase = bouton.GetComponent<Infobulle>().Phrase;
+            Assert.That(phrase, Does.StartWith("Ouvre ou ferme le menu").And.EndWith("\n" + CabinetDeCarte.AIDE));
+            var coins = new Vector3[4]; bouton.GetWorldCorners(coins); RectTransform feuillet = Infobulle.Montrer(toile, phrase, RectTransformUtility.WorldToScreenPoint(null, (coins[0] + coins[2]) / 2)); Text ecrit = feuillet.GetComponentInChildren<Text>();
+            Assert.That(ecrit.text, Is.EqualTo(phrase)); Assert.That(ecrit.preferredHeight, Is.LessThanOrEqualTo(ecrit.rectTransform.rect.height + .5f), "la phrase du Menu déborde de son infobulle");
+            Vector2 p = new Vector2(260, 692); Rect rendu = Infobulle.Placer(p, feuillet.sizeDelta * 2f / 3f, new Vector2(1280, 720)); // le centre du Menu en 1280 × 720
+            Assert.That(rendu.xMin >= 0 && rendu.yMin >= 0 && rendu.xMax <= 1280 && rendu.yMax <= 720 && !rendu.Contains(p), Is.True, "infobulle du Menu " + rendu + " en 1280 × 720");
             var menu = racine.GetComponentsInChildren<Text>(true).Single(t => t.transform.parent.name == "Menu du cabinet" && t.rectTransform.sizeDelta.y == 410f);
             Assert.That(menu.text, Does.Contain("Clic gauche").And.Contain("Double-clic").And.Contain("Échap").And.Not.Contain("Clic droit"));
             Assert.That(menu.preferredHeight, Is.LessThanOrEqualTo(menu.rectTransform.rect.height));
@@ -392,13 +397,15 @@ namespace Forge.Interface.Tests
             && !new[] { "Fond des dossiers", "Infobulle", CalquesCarte.BANDE, CalquesCarte.LEGENDE }.Contains(e.name)).FirstOrDefault(e => zone.Overlaps(Zone((RectTransform)e, k)))?.name;
         [Test] public void La_bande_des_modes_et_sa_legende_restent_a_leur_place()
         {
-            Transform toile = racine.transform.Find("Cabinet"); var bande = (RectTransform)toile.Find(CalquesCarte.BANDE); var fond = (RectTransform)toile.Find(CalquesCarte.LEGENDE); var guide = (RectTransform)toile.Find("Parcourir le monde");
+            Transform toile = racine.transform.Find("Cabinet"); var bande = (RectTransform)toile.Find(CalquesCarte.BANDE); var fond = (RectTransform)toile.Find(CalquesCarte.LEGENDE);
             foreach (var (nom, repere) in new[] { ("Puissances", "banniere"), ("Habitants", "foule"), ("Flux", "fleche") })
             {
                 var bouton = bande.Find(nom)?.GetComponent<Button>(); Assert.That(bouton, Is.Not.Null, nom); string phrase = bouton.GetComponent<Infobulle>()?.Phrase;
                 Assert.That(!string.IsNullOrWhiteSpace(phrase) && phrase != nom && bouton.transform.Find("Repère " + repere) != null, Is.True, nom + " : phrase « " + phrase + " » ou repère absent");
             }
-            Assert.That(guide.anchoredPosition == new Vector2(24, -872) && guide.sizeDelta == new Vector2(740, 184) && guide.Find("Puissances") == null && guide.Find("Habitants") == null, Is.True);
+            Assert.That(toile.Find("Parcourir le monde"), Is.Null, "le panneau « Parcourir le monde » est encore posé");
+            Button[] modes = toile.GetComponentsInChildren<Button>(true).Where(b => new[] { "Puissances", "Habitants", "Flux" }.Contains(b.name)).ToArray();
+            Assert.That(modes.Length == 3 && modes.Select(b => b.name).Distinct().Count() == 3 && modes.All(b => b.transform.parent == bande), Is.True, string.Join(", ", modes.Select(b => b.transform.parent.name + "/" + b.name)));
             var calques = racine.GetComponent<CalquesCarte>(); var repartition = new RepartitionHabitants(new MondeLu(364, new DateDuMonde(1400, 365), 2, new[] { new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 275000, -1, -1) }));
             foreach (var (texte, mode) in new[] { (CalquesCarte.LegendeDuCalque(null), ModeDeCarte.Puissances), (CalquesCarte.LegendeDuCalque(repartition), ModeDeCarte.Habitants), (CalquesCarte.FLUX, ModeDeCarte.Flux) })
             {
@@ -415,7 +422,9 @@ namespace Forge.Interface.Tests
             Assert.That(fond.GetComponent<Image>().raycastTarget && bande.parent == toile && fond.parent == toile, Is.True);
             Assert.That(new Rect(24, 872, 1238, 184).Overlaps(Zone(bande, 1)), Is.True, "contre-épreuve : un guide de 1238 de large recouvre la bande");
             Assert.That(Recouvert(toile, new Rect(16, 104, 1100, 160), 1), Is.Not.Null, "contre-épreuve : l'ancienne légende des lieux recouvre un feuillet");
-            var aide = racine.GetComponentsInChildren<Text>(true).Single(t => t.name == CabinetDeCarte.AIDE); aide.text = CabinetDeCarte.AIDE; Assert.That(aide.preferredWidth, Is.LessThanOrEqualTo(740 - 2 * 24));
+            var etat = racine.GetComponentsInChildren<Text>(true).Single(t => t.name == CabinetDeCarte.ETAT); Assert.That(etat.text, Is.EqualTo("La carte se prépare…")); Assert.That(etat.preferredWidth, Is.LessThanOrEqualTo(600f));
+            foreach (var (largeur, hauteur) in new[] { (1920f, 1080f), (1280f, 720f) }) { float k = largeur / 1920; Rect r = Zone(etat.rectTransform, k);
+                Assert.That(r.xMin >= 0 && r.yMin >= 0 && r.xMax <= .67f * largeur && r.yMax <= hauteur && !r.Overlaps(Zone(bande, k)) && !r.Overlaps(Zone(fond, k)), Is.True, "l'état " + r + " hors de la vue de la carte, ou sur la bande, en " + largeur + " × " + hauteur); }
         }
         [Test] public void Changer_de_mode_ne_touche_ni_l_horloge_ni_les_lectures()
         {
@@ -477,7 +486,8 @@ namespace Forge.Interface.Tests
                 icone.onClick.Invoke(); Assert.That(feuillet.activeSelf, Is.False, titres[i] + " reste ouvert au second clic");
             }
             foreach (var nom in new[] { "Terres et comptes", "Autres maisons" }) { Assert.That(toile.GetComponentsInChildren<Button>(true).Count(b => b.name == nom), Is.EqualTo(1), nom + " : un seul bouton dans la toile");
-                Assert.That(toile.Find("Parcourir le monde").GetComponentsInChildren<Button>(true).Any(b => b.name == nom), Is.False, nom + " reste dans le guide"); }
+                Assert.That(toile.Find("Parcourir le monde"), Is.Null, "le panneau « Parcourir le monde » est encore posé");
+                Assert.That(toile.GetComponentsInChildren<Button>(true).Where(b => b.name == nom).All(b => b.transform.parent == conteneur), Is.True, nom + " hors des dossiers de la barre"); }
             Assert.Throws<ArgumentException>(() => EmblemeCommande.Icone(conteneur, "Sans motif", 0, null, "témoin"));
         }
         [Test] public void Aucun_dossier_ne_recouvre_la_barre()
@@ -488,7 +498,8 @@ namespace Forge.Interface.Tests
             Assert.That(racine.GetComponent<MenuCabinet>().Ouvert && new[] { "Terres et comptes", "Les autres maisons" }.All(n => toile.Cast<Transform>().Any(t => t.name == n && t.gameObject.activeSelf && t.GetComponentInChildren<ScrollRect>(true) != null)), Is.True, "les deux feuillets et le menu doivent être ouverts");
             Rect barre = Monde(bandeau), reduite = Rect.MinMaxRect(barre.xMin + .5f, barre.yMin + .5f, barre.xMax - .5f, barre.yMax - .5f);
             var panneaux = toile.Cast<Transform>().Where(t => t != bandeau && t.Find("Filet") != null).Cast<RectTransform>().ToArray();
-            Assert.That(panneaux.Select(p => p.name), Is.SupersetOf(new[] { "Terres et comptes", "Les autres maisons", "Menu du cabinet", "Plan du bourg", "Votre maison", "Territoire conservé", "Parcourir le monde" }));
+            Assert.That(panneaux.Select(p => p.name), Is.SupersetOf(new[] { "Terres et comptes", "Les autres maisons", "Menu du cabinet", "Plan du bourg", "Votre maison", "Territoire conservé" }));
+            Assert.That(panneaux.Select(p => p.name), Has.None.EqualTo("Parcourir le monde"), "le panneau « Parcourir le monde » est encore posé");
             foreach (var p in panneaux) Assert.That(Monde(p).Overlaps(reduite), Is.False, "« " + p.name + " » recouvre la barre : " + Monde(p) + " sur " + barre);
             Rect icones = Monde(conteneur); var c = new Vector3[4]; conteneur.GetWorldCorners(c); var cadre = (RectTransform)toile;
             float bas = c.Max(v => cadre.rect.yMax - cadre.InverseTransformPoint(v).y);
@@ -497,6 +508,34 @@ namespace Forge.Interface.Tests
                 Assert.That(icones.Overlaps(Monde(voisin)), Is.False, "les icônes " + icones + " recouvrent « " + voisin.name + " » " + Monde(voisin));
             Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(600f));
             foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(600f), texte); }
+        }
+        // Lot #1003 : le panneau « Parcourir le monde » quitte le bas de la carte ; ses commandes restent à leur place, son aide passe au Menu, l'état de la carte au centre de sa vue.
+        [Test] public void Aucun_panneau_Parcourir_le_monde_ne_reste()
+        {
+            const string NOM = "Parcourir le monde"; Transform toile = racine.transform.Find("Cabinet");
+            Transform[] Restes() => racine.GetComponentsInChildren<Transform>(true).Where(t => t.name == NOM || t.TryGetComponent<Text>(out var texte) && texte.text.Contains(NOM)).ToArray();
+            Assert.That(Restes().Select(t => t.name), Is.Empty);
+            Assert.That(System.IO.File.ReadAllText("Assets/Interface/CabinetDeCarte.cs"), Does.Not.Contain(NOM));
+            Button[] boutons = toile.GetComponentsInChildren<Button>(true);
+            Button Seul(string nom) { Button[] trouves = boutons.Where(b => b.name == nom).ToArray(); Assert.That(trouves, Has.Length.EqualTo(1), nom + " : un seul bouton dans la toile"); return trouves[0]; }
+            Transform bande = toile.Find(CalquesCarte.BANDE), conteneur = toile.Find("FORGE · Le cabinet/" + CabinetDeCarte.DOSSIERS);
+            foreach (var nom in new[] { "Puissances", "Habitants", "Flux" }) Assert.That(Seul(nom).transform.parent, Is.SameAs(bande), nom + " hors de la bande des modes");
+            foreach (var nom in new[] { "Terres et comptes", "Autres maisons" }) Assert.That(Seul(nom).transform.parent, Is.SameAs(conteneur), nom + " hors des dossiers de la barre");
+            Button menu = Seul("Menu"); Assert.That(menu.transform.parent, Is.SameAs(toile), "le Menu n'est pas un enfant direct de la toile"); Assert.That(menu.GetComponent<Infobulle>().Phrase, Does.EndWith(CabinetDeCarte.AIDE));
+            Assert.That(toile.Find(CabinetDeCarte.ETAT)?.GetComponent<Text>(), Is.Not.Null, "l'état de la carte n'est pas un enfant direct de la toile");
+            var temoin = SocleInterface.Panneau(toile, NOM, 24, 872, 740, 184); // contre-épreuve : le panneau remis
+            try { Assert.That(Restes(), Does.Contain((Transform)temoin), "contre-épreuve : Restes() ne voit pas le panneau remis"); }
+            finally { Object.DestroyImmediate(temoin.gameObject); }
+            Assert.That(Restes(), Is.Empty);
+        }
+        [Test] public void L_etat_de_la_carte_parle_au_centre_de_sa_vue()
+        {
+            var dessinee = racine.GetComponent<CarteDessinee>(); Text etat = racine.transform.Find("Cabinet/" + CabinetDeCarte.ETAT).GetComponent<Text>();
+            Poser(dessinee, "CellulesServies", -1); cabinet.Afficher();
+            Assert.That(etat.gameObject.activeSelf && etat.text == "La carte se prépare…", Is.True, "carte non servie : « " + etat.text + " »");
+            Rect r = Zone(etat.rectTransform, 1); Assert.That(Vector2.Distance(r.center, new Vector2(.67f * 1920 / 2, 540)), Is.LessThanOrEqualTo(1f), "l'état " + r + " hors du centre de la vue"); Assert.That(etat.raycastTarget, Is.False); Assert.That(etat.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            Poser(dessinee, "CellulesServies", 12); cabinet.Afficher(); Assert.That(etat.gameObject.activeSelf, Is.False, "carte servie : l'état reste affiché");
+            Poser(dessinee, "CellulesServies", -1); cabinet.Afficher(); Assert.That(etat.gameObject.activeSelf, Is.True, "remise à −1 : l'état ne revient pas");
         }
     }
 }
