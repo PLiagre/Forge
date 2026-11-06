@@ -1089,7 +1089,7 @@ def test_ia_raison_lue(monkeypatch, regle):
     from copy import deepcopy
     from sim.plan import Parcelle, Rue
     from sim.seigneuries import identifiant_de_seigneurie
-    from sim.tests.test_monde import _lire_raison_monde, _lire_route_vers_le_champ
+    from sim.tests.test_monde import _lire_route_vers_le_champ
     from sim.tests.test_programme_ia import _affamer
     ia, monde, maisons = _ia_monde(monkeypatch, regle)
     maison = maisons[0]
@@ -1116,9 +1116,7 @@ def test_ia_raison_lue(monkeypatch, regle):
     proposition = _routes_de(propositions, couple)[0]
 
     def lire():
-        if proposition['raison']['regle'] == 'route_vers_le_champ':
-            return _lire_route_vers_le_champ(monde, maison, proposition['intention'])
-        return _lire_raison_monde(monde, maison)
+        return _lire_route_vers_le_champ(monde, maison, proposition['intention'])
 
     attendue = lire()
     assert proposition['raison'] == attendue
@@ -2178,7 +2176,10 @@ def test_ia_part_documentation():
 
 
 def test_ia_route_documentation():
-    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
+    import re
+    sim = Path(__file__).parents[1]
+    texte = (sim / 'MODELE.md').read_text(encoding='utf-8')
+    code = '\n'.join(fichier.read_text(encoding='utf-8') for fichier in sorted(sim.glob('*.py')))
     titre = "## Les décisions et les gestes de l'IA"
 
     def controler(document):
@@ -2187,16 +2188,19 @@ def test_ia_route_documentation():
                     'affames', 'IA_PAS_ECART_ROUTE_DEGRES', 'travail_requis_de_route',
                     'SALAIRE_JOURNEE_KG', 'reserve_voulue_kg'):
             assert mot in section
-        assert 'route_si_bourg_affame' not in section
+        mots = re.findall(r'\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b', section)
+        assert mots
+        for mot in mots:
+            assert mot in code, mot
 
     controler(texte)
     avant, apres = texte.split(titre)
     prive = avant + '\n## ' + apres.split('\n## ', 1)[1]
     with pytest.raises((AssertionError, IndexError)):
         controler(prive)
-    ancienne = avant + titre + '\nroute_si_bourg_affame' + apres
+    disparue = avant + titre + '\nregle_disparue' + apres
     with pytest.raises(AssertionError):
-        controler(ancienne)
+        controler(disparue)
 
 
 def _lecture_secours(monde, cle):

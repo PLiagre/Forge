@@ -3738,53 +3738,15 @@ def test_tick_sous_le_budget_du_service(monkeypatch):
     assert appels
 
 
-def _lire_raison_monde(monde, maison):
-    """Lit la raison sur le monde au tick, sans passer par sim/ia.py."""
-    from sim.constants import MARCHANDISE_NOURRITURE
-    from sim.model import contenus_des_paniers
-    from sim.seigneuries import identifiant_de_seigneurie
-    cellule = monde.cells[maison.cell_id]
-    bourg = next(lieu for lieu in cellule.lieux if lieu.rang == 0)
-    champs = sorted((lieu for lieu in cellule.lieux if lieu.rang >= 1), key=lambda lieu: lieu.rang)
-    plan = monde.plans[maison.cell_id]
-    if maison.sorte == 'grande maison':
-        cle = f'grande-{maison.id}'
-    elif maison.sorte == 'seigneurie':
-        cle = identifiant_de_seigneurie(maison.id)
-    else:
-        cle = None
-    panier = None if cle is None else monde.greniers.get(cle)
-    nourriture = MARCHANDISE_NOURRITURE
-    return {
-        'regle': 'route_si_bourg_affame',
-        'bourg': {
-            'population': bourg.population,
-            'duree_faim_ticks': bourg.duree_faim_ticks,
-            'dette_alimentaire_kg': bourg.dette_alimentaire_kg,
-            'nourriture_kg': contenus_des_paniers([bourg], nourriture)[0],
-        },
-        'champs_nourriture_kg': contenus_des_paniers(champs, nourriture),
-        'grenier_nourriture_kg': -1 if panier is None else panier.get(nourriture, 0),
-        'chantiers_en_cours': {
-            'rues': sum(1 for rue in plan.rues if rue.en_chantier),
-            'parcelles': sum(1 for parcelle in plan.parcelles if parcelle.en_chantier),
-            'batiments': sum(1 for batiment in plan.batiments if batiment.en_chantier),
-        },
-        'departs': -1,
-    }
-
-
-def _controler_raisons(lectures, releve, champ=None):
-    """Chaque raison de route égale la lecture de sa règle : `champ` pour la route vers le champ, `lectures` sinon."""
+def _controler_raisons(releve, champ):
+    """Chaque raison de route est celle de la route vers le champ et égale la lecture du monde à son tick."""
     routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
     assert routes
     for entree in routes:
         assert 'raison' in entree
+        assert entree['raison']['regle'] == 'route_vers_le_champ'
         couple = (entree['maison']['sorte'], entree['maison']['id'])
-        if entree['raison'].get('regle') == 'route_vers_le_champ':
-            lecture = (champ or {}).get(entree['tick'], {}).get(couple)
-        else:
-            lecture = lectures.get(entree['tick'], {}).get(couple)
+        lecture = champ.get(entree['tick'], {}).get(couple)
         assert lecture is not None
         assert entree['raison'] == lecture
 
@@ -3928,7 +3890,7 @@ def _verifier_raisons(ticks):
     from sim import __main__ as cli
     from sim.capitales import maisons_de_l_ia
     from sim.tests.test_intentions import _lecture_secours
-    lectures, lectures_secours, lectures_champ, maisons = {}, {}, {}, None
+    lectures_secours, lectures_champ, maisons = {}, {}, None
     reel, reel_ia = cli.tick, cli.jouer_ia
 
     def maisons_de(monde):
@@ -3951,7 +3913,6 @@ def _verifier_raisons(ticks):
 
     def enveloppe(monde, rng, numero):
         maisons = maisons_de(monde)
-        lectures[numero] = {(m.sorte, m.id): _lire_raison_monde(monde, m) for m in maisons}
         lectures_secours[numero] = {}
         for maison in maisons:
             cle = _cle_de_maison(maison)
@@ -3968,8 +3929,7 @@ def _verifier_raisons(ticks):
     releve = resume['ia']['releve']
     assert releve and all(
         entree['intention']['type'] in ('tracer_route', 'fixer_part', 'ouvrir_grenier') for entree in releve)
-    _controler_raisons(lectures, releve, lectures_champ)
-    _verifier_raisons.lectures = lectures
+    _controler_raisons(releve, lectures_champ)
     _verifier_raisons.secours = lectures_secours
     _verifier_raisons.champ = lectures_champ
     return releve
@@ -4079,12 +4039,12 @@ def test_ia_raisons_egalent_le_monde(monkeypatch, bras, regle):
     routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
     dates = [entree['tick'] for entree in routes]
     print(f'bras={bras}, règle={regle}, dates des routes={dates}', flush=True)
-    lectures, champ = _verifier_raisons.lectures, _verifier_raisons.champ
+    champ = _verifier_raisons.champ
     assert routes, 'aucune route du programme : échantillon vide'
     assert all(entree['raison']['regle'] == 'route_vers_le_champ' for entree in routes)
     assert all(tick >= k.FENETRE_FLUX_TICKS for tick in dates)
     assert sum(len(jour) for jour in champ.values()) == len(routes)
-    _controler_raisons(lectures, releve, champ)
+    _controler_raisons(releve, champ)
     cellule = World.charger(0).cells[routes[0]['intention']['cell']]
 
     def fausser(changer):
@@ -4095,8 +4055,8 @@ def test_ia_raisons_egalent_le_monde(monkeypatch, bras, regle):
     def autre_rang(raison):
         raison['champ_vise'] = next(l.rang for l in cellule.lieux if l.rang != raison['champ_vise'])
 
-    def regle_ancienne(raison):
-        raison['regle'] = 'route_si_bourg_affame'
+    def autre_regle(raison):
+        raison['regle'] = 'secours_apres_faim'
 
     def premier_champ(raison):
         raison['champs_nourriture_kg'][0] += 1
@@ -4104,21 +4064,21 @@ def test_ia_raisons_egalent_le_monde(monkeypatch, bras, regle):
     def faim(raison):
         raison['faim_du_bourg_ticks'] += 1
 
-    for changer in (faim, premier_champ, autre_rang, regle_ancienne):
+    for changer in (faim, premier_champ, autre_rang, autre_regle):
         with pytest.raises(AssertionError):
-            _controler_raisons(lectures, fausser(changer), champ)
+            _controler_raisons(fausser(changer), champ)
     copie = copy.deepcopy(releve)
     del next(e for e in copie if e['intention']['type'] == 'tracer_route')['raison']
     with pytest.raises(AssertionError):
-        _controler_raisons(lectures, copie, champ)
+        _controler_raisons(copie, champ)
     seulement = [entree for entree in releve if entree['intention']['type'] == 'fixer_part']
     assert seulement
     with pytest.raises(AssertionError):
-        _controler_raisons(lectures, seulement, champ)
+        _controler_raisons(seulement, champ)
     with pytest.raises(AssertionError):
-        _controler_raisons(lectures, releve)
+        _controler_raisons(releve, {})
     with pytest.raises(AssertionError):
-        _controler_raisons(lectures, [], champ)
+        _controler_raisons([], champ)
     for entree in (e for e in releve if e['intention']['type'] == 'ouvrir_grenier'):
         assert _verifier_raisons.secours[entree['tick']][entree['intention']['maison']] == entree['raison']
     from sim import ia
@@ -4196,7 +4156,7 @@ def test_ia_route_vers_le_champ_relue(monkeypatch):
         'journées': {'journees': raison['journees'] + 1},
         'champ visé': {'champ_vise': autres_rangs[0]},
         'écart': {'ecart_degres': raison['ecart_degres'] + k.IA_PAS_ECART_ROUTE_DEGRES},
-        'règle': {'regle': 'route_si_bourg_affame'},
+        'règle': {'regle': 'secours_apres_faim'},
     }
     for nom, changement in faussees.items():
         fausse = {**copy.deepcopy(reference), 'raison': {**copy.deepcopy(raison), **changement}}
@@ -4471,10 +4431,9 @@ def test_snapshot_ia_raison_et_refus():
     assert len(placees) >= 2
     a, b = placees[0], placees[1]
     raison = {
-        'regle': 'route_si_bourg_affame', 'departs': -1,
-        'bourg': {'population': a.id, 'duree_faim_ticks': 12, 'dette_alimentaire_kg': 4.5, 'nourriture_kg': 0.8},
-        'champs_nourriture_kg': [1.25, 2.5], 'grenier_nourriture_kg': 0,
-        'chantiers_en_cours': {'rues': 1, 'parcelles': 0, 'batiments': 0},
+        'regle': 'route_vers_le_champ', 'grenier_nourriture_kg': 0.8, 'reserve_voulue_kg': 1234.5678,
+        'journees': 3 + a.id, 'cout_kg': 17.25, 'faim_du_bourg_ticks': 12,
+        'champs_nourriture_kg': [1.25, 2.5], 'champ_vise': 1, 'ecart_degres': 7.5,
     }
     releve = [
         dict(tick=2, maison={'sorte': a.sorte, 'id': a.id}, intention={'points': [[0.1, 0]]}, raison=copy.deepcopy(raison)),
@@ -4848,14 +4807,31 @@ def test_service_ia_raison():
         assert requete_service(port, '/tick?n=31', 'POST')[1]['tick'] == 31
         lu = requete_service(port, '/ia')[1]
 
+        regle_du_geste = {'tracer_route': 'route_vers_le_champ', 'fixer_part': 'part_sur_projets_et_gens',
+                          'ouvrir_grenier': 'secours_apres_faim'}
+
         def verifier(document):
             assert document['releve'] and all('raison' in entree for entree in document['releve'])
+            for entree in document['releve']:
+                assert entree['raison']['regle'] == regle_du_geste[entree['intention']['type']]
 
         verifier(lu)
         faux = copy.deepcopy(lu)
         del faux['releve'][0]['raison']
         with pytest.raises(AssertionError):
             verifier(faux)
+
+        def route_avec(regle):
+            copie = copy.deepcopy(lu)
+            route = copy.deepcopy(copie['releve'][0])
+            route['intention']['type'] = 'tracer_route'
+            route['raison'] = {'regle': regle}
+            copie['releve'].append(route)
+            return copie
+
+        verifier(route_avec('route_vers_le_champ'))
+        with pytest.raises(AssertionError):
+            verifier(route_avec('part_sur_projets_et_gens'))
 
 
 @pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
