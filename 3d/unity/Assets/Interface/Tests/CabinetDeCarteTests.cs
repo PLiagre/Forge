@@ -457,5 +457,46 @@ namespace Forge.Interface.Tests
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo(BARRE));
             Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet"), Is.EqualTo(3), "la barre n'est pas une commande");
         }
+        // Lot #1002 : « Terres et comptes » et « Autres maisons » sont deux icônes de la barre du haut, chacune avec son motif et sa phrase ; leurs feuillets ne recouvrent jamais la barre.
+        static Rect Monde(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c.Min(v => v.x), c.Min(v => v.y), c.Max(v => v.x), c.Max(v => v.y)); }
+        [Test] public void Chaque_icone_de_la_barre_a_sa_phrase_et_son_motif()
+        {
+            Transform toile = racine.transform.Find("Cabinet"), conteneur = toile.Find("FORGE · Le cabinet/" + CabinetDeCarte.DOSSIERS); Assert.That(conteneur, Is.Not.Null, "dossiers de la barre introuvables");
+            Button[] icones = conteneur.GetComponentsInChildren<Button>(true).OrderBy(b => ((RectTransform)b.transform).anchoredPosition.x).ToArray();
+            Assert.That(icones.Select(b => b.name), Is.EqualTo(new[] { "Terres et comptes", "Autres maisons" }));
+            string[] titres = { "Terres et comptes", "Les autres maisons" }, motifs = { "coffre", "maisons" };
+            for (int i = 0; i < 2; i++)
+            {
+                Button icone = icones[i]; string phrase = icone.GetComponent<Infobulle>()?.Phrase, autre = icones[1 - i].GetComponent<Infobulle>()?.Phrase;
+                Assert.That(((RectTransform)icone.transform).sizeDelta, Is.EqualTo(new Vector2(56, 44)), icone.name);
+                Assert.That(icone.GetComponentsInChildren<Text>().Select(t => t.text), Is.Empty, icone.name + " écrit encore son nom");
+                Assert.That(icone.transform.Find("Repère " + motifs[i]) != null && icone.transform.Find("Repère livre") == null, Is.True, icone.name + " : motif absent, ou livre du Menu");
+                Assert.That(!string.IsNullOrWhiteSpace(phrase) && phrase != icone.name && phrase != autre && phrase.StartsWith(titres[i] + " : ", StringComparison.Ordinal), Is.True, icone.name + " : « " + phrase + " »");
+                var feuillet = toile.Cast<Transform>().Single(t => t.name == titres[i] && t.GetComponentInChildren<ScrollRect>(true) != null).gameObject;
+                Assert.That(feuillet.activeSelf, Is.False, titres[i] + " ouvert d'avance"); icone.onClick.Invoke(); Assert.That(feuillet.activeSelf, Is.True, titres[i] + " reste fermé au clic");
+                icone.onClick.Invoke(); Assert.That(feuillet.activeSelf, Is.False, titres[i] + " reste ouvert au second clic");
+            }
+            foreach (var nom in new[] { "Terres et comptes", "Autres maisons" }) { Assert.That(toile.GetComponentsInChildren<Button>(true).Count(b => b.name == nom), Is.EqualTo(1), nom + " : un seul bouton dans la toile");
+                Assert.That(toile.Find("Parcourir le monde").GetComponentsInChildren<Button>(true).Any(b => b.name == nom), Is.False, nom + " reste dans le guide"); }
+            Assert.Throws<ArgumentException>(() => EmblemeCommande.Icone(conteneur, "Sans motif", 0, null, "témoin"));
+        }
+        [Test] public void Aucun_dossier_ne_recouvre_la_barre()
+        {
+            Proposer(); Transform toile = racine.transform.Find("Cabinet"); var bandeau = (RectTransform)toile.Find("FORGE · Le cabinet"); var conteneur = (RectTransform)bandeau.Find(CabinetDeCarte.DOSSIERS);
+            foreach (var icone in conteneur.GetComponentsInChildren<Button>()) icone.onClick.Invoke();
+            Button Commande(string nom) => toile.GetComponentsInChildren<Button>(true).Single(b => b.name == nom); Commande("Menu").onClick.Invoke(); Canvas.ForceUpdateCanvases();
+            Assert.That(racine.GetComponent<MenuCabinet>().Ouvert && new[] { "Terres et comptes", "Les autres maisons" }.All(n => toile.Cast<Transform>().Any(t => t.name == n && t.gameObject.activeSelf && t.GetComponentInChildren<ScrollRect>(true) != null)), Is.True, "les deux feuillets et le menu doivent être ouverts");
+            Rect barre = Monde(bandeau), reduite = Rect.MinMaxRect(barre.xMin + .5f, barre.yMin + .5f, barre.xMax - .5f, barre.yMax - .5f);
+            var panneaux = toile.Cast<Transform>().Where(t => t != bandeau && t.Find("Filet") != null).Cast<RectTransform>().ToArray();
+            Assert.That(panneaux.Select(p => p.name), Is.SupersetOf(new[] { "Terres et comptes", "Les autres maisons", "Menu du cabinet", "Plan du bourg", "Votre maison", "Territoire conservé", "Parcourir le monde" }));
+            foreach (var p in panneaux) Assert.That(Monde(p).Overlaps(reduite), Is.False, "« " + p.name + " » recouvre la barre : " + Monde(p) + " sur " + barre);
+            Rect icones = Monde(conteneur); var c = new Vector3[4]; conteneur.GetWorldCorners(c); var cadre = (RectTransform)toile;
+            float bas = c.Max(v => cadre.rect.yMax - cadre.InverseTransformPoint(v).y);
+            Assert.That(barre.Contains(icones.min) && barre.Contains(icones.max) && bas <= 70, Is.True, "les icônes " + icones + " (bas " + bas + ") sortent du bandeau " + barre + " ou passent sous le filet");
+            foreach (var voisin in new[] { Nomme("Lecture de la date…").rectTransform, Nomme(BARRE).rectTransform }.Concat(new[] { "Menu", "Ralentir", "Pause / Reprendre", "Accélérer" }.Select(n => (RectTransform)Commande(n).transform)))
+                Assert.That(icones.Overlaps(Monde(voisin)), Is.False, "les icônes " + icones + " recouvrent « " + voisin.name + " » " + Monde(voisin));
+            Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(600f));
+            foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(600f), texte); }
+        }
     }
 }

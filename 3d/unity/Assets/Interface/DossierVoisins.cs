@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using Forge.Pont;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Forge.Interface
 {
@@ -15,16 +14,14 @@ namespace Forge.Interface
         NomsDesTerres noms;
         double prochaine;
         public string TexteAffiche { get; private set; }
-        public void Initialiser(Transform toile, Transform guide, int port)
+        public void Initialiser(Transform toile, Transform barre, int port)
         {
             gestes = LectureDossier.Locale(port); maisons = LectureDossier.Locale(port); noms = NomsDesTerres.Local(port);
             feuillet = gameObject.AddComponent<Feuillet>(); feuillet.Initialiser(toile, "Les autres maisons");
-            var bouton = SocleInterface.Commande(guide, "Autres maisons", 374, 24, () =>
+            EmblemeCommande.Icone(barre, "Autres maisons", 80, () =>
             {
                 if (feuillet.Ouvert) feuillet.Fermer(); else feuillet.Ouvrir();
-            }, phrase: "Ouvre ou ferme le journal des ordres des autres maisons.");
-            bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(240, 44);
-            bouton.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(240, 44);
+            }, "Les autres maisons : ouvre ou ferme le journal de leurs ordres.");
         }
         void Ecrire(string texte) { TexteAffiche = texte; feuillet.Ecrire(texte); }
         void LateUpdate()
