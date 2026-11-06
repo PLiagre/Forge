@@ -1008,34 +1008,61 @@ def test_ia_registre_choix(monkeypatch, regle):
     monde.maison_du_joueur, monde.intentions_en_attente = None, []
     assert couples() == toutes
     if regle == 'ancienne':
-        test_ia_budget_annuel_et_branches()
+        test_ia_budget_annuel_et_branches(monkeypatch, 'ancienne')
 
 
-def test_ia_budget_annuel_et_branches():
+@_REGLES_IA
+def test_ia_budget_annuel_et_branches(monkeypatch, regle):
     from copy import deepcopy
     from sim import constants as k
     from sim.intentions import ChoixDepart
-    ia, monde, maisons = _ia_monde()
+    from sim import ia
+    ancienne = ia.decider_intentions  # d'origine, avant le branchement du programme
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
     couples = {(m.sorte, m.id) for m in maisons}
     assert len([m for m in maisons if m.nom == 'Paléologue']) == 2
+    if regle == 'programme':
+        couples = {(p['maison']['sorte'], p['maison']['id']) for p in _routes_de(ia.decider_intentions(monde, []))}
+        assert ('seigneurie', _id('Duché de Bar')) in couples, "Bar ne trace pas : l'exclusion ne mord pas"
+    proposants = lambda: {(p['maison']['sorte'], p['maison']['id']) for p in (
+        ia.decider_intentions(monde, []) if regle == 'ancienne' else _routes_de(ia.decider_intentions(monde, [])))}
     for identifiant in (_id('Despotat de Morée'), _id('Duché de Bar')):
         for attente in (False, True):
             monde.maison_du_joueur = None if attente else f"seigneurie-{identifiant}"
             monde.intentions_en_attente = [ChoixDepart(identifiant)] if attente else []
-            assert {(p['maison']['sorte'], p['maison']['id']) for p in ia.decider_intentions(monde, [])} == couples - {('seigneurie', identifiant)}
+            assert proposants() == couples - {('seigneurie', identifiant)}
     monde.maison_du_joueur, monde.intentions_en_attente = None, []
     releve = []
-    for numero in (0, 0, 1, k.CALENDAR_DAYS_PER_YEAR - 1):
-        monde.ticks_ecoules = numero
+    if regle == 'ancienne':
+        for numero in (0, 0, 1, k.CALENDAR_DAYS_PER_YEAR - 1):
+            monde.ticks_ecoules = numero
+            ia.jouer_ia(monde, releve)
+        assert len(releve) == len(couples)
+        oubli = []
+        ia.jouer_ia(deepcopy(monde), oubli)  # Oublier l'année permet de redéposer.
+        with pytest.raises(AssertionError):
+            assert len(releve + oubli) <= len(couples)
+        monde.ticks_ecoules = k.CALENDAR_DAYS_PER_YEAR
         ia.jouer_ia(monde, releve)
-    assert len(releve) == len(couples)
+        assert len(releve) == 2 * len(couples)
+        return
+    # Le budget du programme est mensuel : une route par maison tous les trente jours, dans la même année.
+    t = monde.ticks_ecoules
+    assert len(couples) > 1
+    for numero in (t, t, t + 1, t + k.FENETRE_FLUX_TICKS - 1):
+        _mois_affame(monde, maisons, numero)
+        ia.jouer_ia(monde, releve)
+    assert len(_routes_de(releve)) == len(couples) and all('refus' not in e for e in releve)
     oubli = []
-    ia.jouer_ia(deepcopy(monde), oubli)  # Oublier l'année permet de redéposer.
+    ia.jouer_ia(deepcopy(monde), oubli)  # Oublier le relevé permet de redéposer.
     with pytest.raises(AssertionError):
-        assert len(releve + oubli) <= len(couples)
-    monde.ticks_ecoules = k.CALENDAR_DAYS_PER_YEAR
+        assert len(_routes_de(releve + oubli)) <= len(couples)
+    _mois_affame(monde, maisons, t + k.FENETRE_FLUX_TICKS)
+    assert k.date_de_tick(t)['annee'] == k.date_de_tick(monde.ticks_ecoules)['annee']
+    # Sur le même relevé, l'ancienne règle (une route par an) n'en propose plus aux maisons qui ont déjà tracé.
+    assert not [c for c in couples if _routes_de(ancienne(monde, releve), c)]
     ia.jouer_ia(monde, releve)
-    assert len(releve) == 2 * len(couples)
+    assert len(_routes_de(releve)) == 2 * len(couples) and all('refus' not in e for e in releve)
 
 
 @_REGLES_IA
@@ -1632,13 +1659,49 @@ def annee_ia():
     return monde, releve, captures, lectures
 
 
-def test_an_ia_sans_refus(annee_ia, monkeypatch):
+@pytest.fixture(scope='module')
+def annee_programme():
+    """La même année que `annee_ia`, la route vers le champ le plus plein branchée ; garde le maître du bourg à chaque dépôt."""
+    from sim import ia
+    from sim.tests.test_monde import _brancher_programme
+    monde, alea, releve, depots = World.charger(0), random.Random(0), [], []
+    original = ia.recevoir_intention
+
+    def capter(m, intention):
+        maitre = None
+        if intention['type'] == 'tracer_route':
+            maitre = next(l.maitre for l in m.cells[intention['cell']].lieux if l.rang == 0)
+        original(m, intention)
+        depots.append((deepcopy(intention), maitre))
+
+    with pytest.MonkeyPatch.context() as ctx:
+        ctx.setattr(ia, 'recevoir_intention', capter)
+        _brancher_programme(ctx)
+        for i in range(365):
+            ia.jouer_ia(monde, releve)
+            engine.tick(monde, alea, i)
+    return monde, releve, depots
+
+
+@_REGLES_IA
+def test_an_ia_sans_refus(request, monkeypatch, regle):
     from sim import ia
     from sim.plan import Rue
-    monde, releve, _captures, _lectures = annee_ia
+    monde, releve = request.getfixturevalue('annee_ia' if regle == 'ancienne' else 'annee_programme')[:2]
     acceptes = sum('refus' not in e for e in releve)
     print(f'depots_ia_acceptes={acceptes}, refus={len(releve)-acceptes}', flush=True)
     assert acceptes > 0 and all('refus' not in e for e in releve)
+    if regle == 'programme':
+        assert any(e['raison']['regle'] == 'route_vers_le_champ' for e in releve if e['intention']['type'] == 'tracer_route')
+        from sim import programme_ia
+        with pytest.MonkeyPatch.context() as sonde:
+            sonde.setattr(programme_ia, 'verifier_base', lambda *a, **kw: None)
+            ia, contre, _maisons = _ia_monde(sonde, 'programme')
+            faux = []
+            ia.jouer_ia(contre, faux)
+        assert any('touchée' in e.get('refus', '') and e['intention']['type'] == 'tracer_route'
+                   and e['raison']['regle'] == 'route_vers_le_champ' for e in faux), faux
+        return
     from sim import ville1400 as v
     bande = v.emprise_de_rue([[0, 52], [40, 52]], 4)
     entree = next((e for e in releve if e['intention']['type'] == 'tracer_route' and any(
@@ -1927,9 +1990,12 @@ def test_terres_service(fabrique, monkeypatch):
         assert _poster(port, geste)[0] == 200; requete_service(port, '/tick?n=1', 'POST')
         assert serveur.world.to_dict() != avant
 
-def test_terres_ia(monkeypatch):
+@_REGLES_IA
+def test_terres_ia(request, monkeypatch, regle):
     from sim import ia
-    ia, monde, maisons = _ia_monde(); maison = maisons[0]
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
+    maison = maisons[0] if regle == 'ancienne' else next(
+        m for m in maisons if _routes_de(ia.decider_intentions(monde, []), (m.sorte, m.id)))
     monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m: [maison])
     bourg = next(l for l in monde.cells[maison.cell_id].lieux if l.rang == 0)
     cle = ia._cle_du_grenier(maison); bourg.maitre = next(m.id for m in monde.maisons if m.id != cle)
@@ -1947,6 +2013,30 @@ def test_terres_ia(monkeypatch):
         for e in entrees:
             identite = ('grande-' if e['maison']['sorte'] == 'grande maison' else 'seigneurie-') + str(e['maison']['id'])
             assert e['intention']['maison'] == identite
+    def faux_de(entrees):
+        faux = deepcopy(entrees)
+        faux[0]['maison']['id'] = next(e['maison']['id'] for e in entrees if e['maison']['id'] != faux[0]['maison']['id'])
+        return faux
+    if regle == 'programme':
+        # L'année du programme est jouée une fois (`annee_programme`) : on la relit ici.
+        releve, depots = request.getfixturevalue('annee_programme')[1:]
+        routes = [e for e in releve if e['intention']['type'] == 'tracer_route']
+        assert routes and {e['raison']['regle'] for e in routes} == {'route_vers_le_champ'}
+        verifier(releve)
+        def controler_maitres(entrees):
+            assert [i for i, _ in entrees] == [e['intention'] for e in releve]
+            assert sum(i['type'] == 'tracer_route' for i, _ in entrees) == len(routes)
+            for intention, maitre in entrees:
+                if intention['type'] == 'tracer_route':
+                    assert intention['maison'] == maitre and maitre is not None
+        controler_maitres(depots)
+        changes = deepcopy(depots)
+        rang = next(i for i, (intention, _) in enumerate(changes) if intention['type'] == 'tracer_route')
+        changes[rang] = (changes[rang][0], 'inconnu')
+        with pytest.raises(AssertionError): controler_maitres(changes)
+        for entrees in ([], faux_de(releve)):
+            with pytest.raises(AssertionError): verifier(entrees)
+        return
     def recevoir(m, intention):
         if intention['type'] == 'tracer_route':
             assert intention['maison'] == next(l.maitre for l in m.cells[intention['cell']].lieux if l.rang == 0)
@@ -1961,8 +2051,7 @@ def test_terres_ia(monkeypatch):
     for i in range(365):
         ia.jouer_ia(monde, releve); engine.tick(monde, alea, i)
     verifier(releve); assert depots == [e['intention'] for e in releve]
-    faux = deepcopy(releve); faux[0]['maison']['id'] = next(e['maison']['id'] for e in releve if e['maison']['id'] != faux[0]['maison']['id'])
-    for entrees in ([], faux):
+    for entrees in ([], faux_de(releve)):
         with pytest.raises(AssertionError): verifier(entrees)
 
 def test_terres_gestes(tmp_path):
@@ -2005,13 +2094,16 @@ def test_ia_part_jour_et_fenetre(monde_ia_30):
         assert apres
 
 
-def test_ia_budget_routes_seules():
+@_REGLES_IA
+def test_ia_budget_routes_seules(monkeypatch, regle):
     from sim import constants as k
-    ia, monde, maisons = _ia_monde()
-    maison = maisons[0]
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
+    maison = maisons[0] if regle == 'ancienne' else next(
+        m for m in maisons if _routes_de(ia.decider_intentions(monde, []), (m.sorte, m.id)))
     couple = (maison.sorte, maison.id)
     cle = ia._cle_du_grenier(maison)
-    annee = k.date_de_tick(monde.ticks_ecoules)['annee']
+    t = monde.ticks_ecoules
+    annee = k.date_de_tick(t)['annee']
 
     def routes(releve):
         return [p for p in ia.decider_intentions(monde, releve)
@@ -2019,13 +2111,21 @@ def test_ia_budget_routes_seules():
                 and (p['maison']['sorte'], p['maison']['id']) == couple]
 
     assert routes([])
-    part = {'tick': monde.ticks_ecoules, 'maison': {'sorte': maison.sorte, 'id': maison.id},
+    part = {'tick': t, 'maison': {'sorte': maison.sorte, 'id': maison.id},
             'intention': {'type': 'fixer_part', 'maison': cle, 'part': k.PART_COUTUMIERE}, 'raison': {}}
     assert routes([part])
-    route = {'tick': monde.ticks_ecoules, 'maison': {'sorte': maison.sorte, 'id': maison.id},
-             'intention': {'type': 'tracer_route', 'maison': cle, 'cell': maison.cell_id,
-                           'points': [[0, 0], [1, 0]], 'largeur_m': 4}, 'raison': {}}
-    assert routes([route]) == []
+
+    def route_du(tick):
+        return {'tick': tick, 'maison': {'sorte': maison.sorte, 'id': maison.id},
+                'intention': {'type': 'tracer_route', 'maison': cle, 'cell': maison.cell_id,
+                              'points': [[0, 0], [1, 0]], 'largeur_m': 4}, 'raison': {}}
+
+    assert routes([route_du(t)]) == []
+    fenetre = k.FENETRE_FLUX_TICKS
+    assert k.date_de_tick(t - fenetre)['annee'] == annee
+    # Une route du mois dernier, de la même année : l'ancienne règle la compte encore, le programme non.
+    assert bool(routes([route_du(t - fenetre)])) == (regle == 'programme')
+    assert routes([route_du(t - fenetre + 1)]) == []
 
     def compte_tout(releve):
         return {(e['maison']['sorte'], e['maison']['id']) for e in releve
@@ -2266,14 +2366,18 @@ def _monde_de_secours():
     return monde, cle, maison
 
 
-def test_ia_grenier_decision(monkeypatch):
+@_REGLES_IA
+def test_ia_grenier_decision(monkeypatch, regle):
     import zlib
     from sim import ia, constants as k
     from sim.capitales import MaisonDeLIA
     from sim.flux import JourDeFlux
     from sim.plan import Plan
+    from sim.tests.test_monde import _brancher_programme
     monde, cle, maison = _monde_de_secours()
     monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
+    if regle == 'programme':
+        _brancher_programme(monkeypatch)
 
     def ouvertures(m):
         return [p for p in _ia_pure(ia.decider_intentions, m, []) if p['intention']['type'] == 'ouvrir_grenier']
@@ -2339,12 +2443,30 @@ def test_ia_grenier_decision(monkeypatch):
     for tick in range(mois.ticks_ecoules - fenetre, mois.ticks_ecoules):
         mois.flux.jours[tick] = JourDeFlux(tick)
     types = [p['intention']['type'] for p in ia.decider_intentions(mois, [])]
-    assert types == ['tracer_route', 'ouvrir_grenier', 'fixer_part']
+    assert types == {'ancienne': ['tracer_route', 'ouvrir_grenier', 'fixer_part'],
+                     'programme': ['ouvrir_grenier', 'fixer_part']}[regle]
     part = next(p for p in ia.decider_intentions(mois, []) if p['intention']['type'] == 'fixer_part')
     assert part['raison'] == _lire_raison_part(mois, cle)
     assert part['intention']['part'] == _nouvelle_part(part['raison']) != part['raison']['part']
     del mois.flux.jours[mois.ticks_ecoules - 1]
-    assert [p['intention']['type'] for p in ia.decider_intentions(mois, [])] == ['tracer_route', 'ouvrir_grenier']
+    assert [p['intention']['type'] for p in ia.decider_intentions(mois, [])] == {
+        'ancienne': ['tracer_route', 'ouvrir_grenier'], 'programme': ['ouvrir_grenier']}[regle]
+    # Le grenier de la route : sous l'ancienne règle un grenier vide trace encore, sous le programme il se tait.
+    monkeypatch.undo()
+    ia, reel, maisons = _ia_monde(monkeypatch, regle)
+    voisine = next(m for m in maisons if _routes_de(ia.decider_intentions(reel, []), (m.sorte, m.id)))
+    couple, nourriture = (voisine.sorte, voisine.id), k.MARCHANDISE_NOURRITURE
+    grenier = reel.greniers[ia._cle_du_grenier(voisine)]
+    raison = _routes_de(ia.decider_intentions(reel, []), couple)[0]['raison']
+    grenier[nourriture] = 0
+    assert bool(_routes_de(ia.decider_intentions(reel, []), couple)) == (regle == 'ancienne')
+    if regle == 'programme':
+        seuil = raison['reserve_voulue_kg'] + raison['cout_kg']
+        for kg in (raison['reserve_voulue_kg'] / 2, seuil):
+            grenier[nourriture] = kg
+            assert _routes_de(ia.decider_intentions(reel, []), couple) == []
+        grenier[nourriture] = seuil + 1
+        assert _routes_de(ia.decider_intentions(reel, []), couple)
 
 
 def test_ia_grenier_chemin_unique(monkeypatch):
