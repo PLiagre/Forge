@@ -47,5 +47,22 @@ namespace Forge.Interface.Tests
             StringAssert.Contains("Date", Assert.Throws<ArgumentException>(() => DossierVoisins.Decrire(sansDate, noms, Bourg)).Message);
             Assert.AreEqual("Journal indisponible : déclaré absent par le monde", DossierVoisins.Indisponible("Champ absent : cell 10466"));
         }
+        const string Champ = "{\"tick\":57,\"intention\":{\"type\":\"tracer_route\",\"maison\":\"grande-10\",\"cell\":10466},\"raison\":{\"regle\":\"route_vers_le_champ\",\"faim_du_bourg_ticks\":3,\"champs_nourriture_kg\":[0,455,1552,512],\"champ_vise\":3,\"journees\":80,\"cout_kg\":240,\"grenier_nourriture_kg\":702932.7,\"reserve_voulue_kg\":426720,\"ecart_degres\":0}}";
+        static readonly Func<long, long, string> Lieu = (c, r) => c == 10466 && r == 0 ? "Milan" : c == 10466 && r == 3 ? "Lambrate" : throw new ArgumentException("lieu inattendu : " + c + "/" + r);
+        [Test] public void La_route_vers_le_champ_dit_la_faim_le_champ_et_son_cout()
+        {
+            var noms = new DocumentDuMonde(Maisons);
+            string texte = DossierVoisins.Decrire(Document(Champ + "," + Geste), noms, Lieu);
+            foreach (string attendu in new[] { "Maison témoin · il y a 3 jours", "Faim du bourg : 3 jours sur le dernier mois.",
+                "Champ visé : Lambrate, 1,55 t de vivres, le plus plein des 4 lieux autour du bourg.",
+                "Coût : 80 jours de travail, 240 kg · Grenier : 703 t · Réserve voulue : 427 t.",
+                "Bourg affamé : 21 habitants, 1 jour de faim." }) StringAssert.Contains(attendu, texte);
+            StringAssert.DoesNotContain("Raison non interprétée", texte);
+            Assert.IsNull(TexteDuMonde.Interdit(texte, "10466"));
+            Assert.IsNull(TexteDuMonde.SansUnite(texte));
+            foreach (string faux in new[] { Champ.Replace("\"champ_vise\":3", "\"champ_vise\":0"), Champ.Replace("\"champ_vise\":3", "\"champ_vise\":5"), Champ.Replace("\"cout_kg\":240,", "") })
+                Assert.Throws<ArgumentException>(() => DossierVoisins.Decrire(Document(faux), noms, Lieu));
+            StringAssert.Contains("Nom du lieu non fourni", Assert.Throws<ArgumentException>(() => DossierVoisins.Decrire(Document(Champ), noms, Bourg)).Message);
+        }
     }
 }
