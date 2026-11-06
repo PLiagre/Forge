@@ -37,7 +37,7 @@ namespace Forge.Interface
             {
                 if (gestes.Erreur != null || maisons.Erreur != null) throw new ArgumentException(gestes.Erreur ?? maisons.Erreur);
                 if (gestes.Document == null || maisons.Document == null) { Ecrire("Lecture des autres maisons…"); return; }
-                Ecrire(Decrire(gestes.Document, maisons.Document, c => DossierMaison.NomDuLieu(noms, c, 0, maintenant)));
+                Ecrire(Decrire(gestes.Document, maisons.Document, (c, r) => DossierMaison.NomDuLieu(noms, c, r, maintenant)));
             }
             catch (Exception e)
             {
@@ -51,6 +51,12 @@ namespace Forge.Interface
         public static string Decrire(DocumentDuMonde document, DocumentDuMonde registre, Func<long, string> nomDuBourg)
         {
             if (nomDuBourg == null) throw new ArgumentNullException(nameof(nomDuBourg));
+            return Decrire(document, registre, (c, r) => r == 0 ? nomDuBourg(c) : throw new ArgumentException("Nom du lieu non fourni"));
+        }
+        // `nomDuLieu(terre, rang)` : le rang 0 est le bourg, les rangs ≥ 1 ses lieux.
+        public static string Decrire(DocumentDuMonde document, DocumentDuMonde registre, Func<long, long, string> nomDuLieu)
+        {
+            if (nomDuLieu == null) throw new ArgumentNullException(nameof(nomDuLieu));
             if (document.Annee == null) throw new ArgumentException("Date non transmise");
             var liste = DocumentDuMonde.Tableau(registre.Champs, "maisons");
             if (liste.Count == 0 || liste.Count != DocumentDuMonde.Entier(registre.Champs, "nombre"))
@@ -78,10 +84,12 @@ namespace Forge.Interface
                 long ecart = document.Tick - tick; // un tick dure un jour
                 texte.AppendLine("\n" + (noms.TryGetValue(id, out string nom) ? nom : "Maison absente du registre") + " · "
                     + (ecart == 0 ? "ce jour" : "il y a " + TexteDuMonde.Jours(ecart)));
-                texte.AppendLine(route ? "Tracer une route à " + nomDuBourg(cell) : "Ordre non interprété par cette vue");
+                texte.AppendLine(route ? "Tracer une route à " + nomDuLieu(cell, 0) : "Ordre non interprété par cette vue");
                 texte.AppendLine(e.ContainsKey("refus") ? "Refus : " + DocumentDuMonde.Texte(e, "refus") : "Ordre reçu. Achèvement non renseigné.");
                 var raison = DocumentDuMonde.Objet(e, "raison");
-                if (DocumentDuMonde.Texte(raison, "regle") != "route_si_bourg_affame")
+                string regle = DocumentDuMonde.Texte(raison, "regle");
+                if (regle == "route_vers_le_champ") { RouteVersLeChamp(texte, raison, route, cell, nomDuLieu); continue; }
+                if (regle != "route_si_bourg_affame")
                 { texte.AppendLine("Raison non interprétée par cette vue."); continue; }
                 var bourg = DocumentDuMonde.Objet(raison, "bourg");
                 long population = DocumentDuMonde.Entier(bourg, "population");
@@ -90,6 +98,22 @@ namespace Forge.Interface
                 texte.AppendLine("Dette alimentaire : " + Masse(bourg, "dette_alimentaire_kg") + " · Nourriture : " + Masse(bourg, "nourriture_kg"));
             }
             return texte.ToString();
+        }
+        // La raison de `proposer_route_vers_le_champ` (`jeu/sim/programme_ia.py`) : `champs_nourriture_kg` tient les vivres
+        // des lieux de rang ≥ 1 dans l'ordre des rangs, d'où le champ visé à l'indice `champ_vise − 1`.
+        static void RouteVersLeChamp(StringBuilder texte, Dictionary<string, object> raison, bool route, long cell, Func<long, long, string> nomDuLieu)
+        {
+            if (!route) throw new ArgumentException("Raison de route sur un ordre sans terre");
+            var champs = DocumentDuMonde.Tableau(raison, "champs_nourriture_kg");
+            long vise = DocumentDuMonde.Entier(raison, "champ_vise");
+            if (vise < 1 || vise > champs.Count) throw new ArgumentException("Champ visé hors des lieux de la terre");
+            if (!(champs[(int)vise - 1] is double vivres) || double.IsNaN(vivres) || double.IsInfinity(vivres))
+                throw new ArgumentException("Vivres du champ visé invalides");
+            texte.AppendLine("Faim du bourg : " + TexteDuMonde.Jours(DocumentDuMonde.Entier(raison, "faim_du_bourg_ticks")) + " sur le dernier mois.");
+            texte.AppendLine("Champ visé : " + nomDuLieu(cell, vise) + ", " + TexteDuMonde.Masse(vivres) + " de vivres, le plus plein des "
+                + TexteDuMonde.Nombre(champs.Count) + (champs.Count == 1 ? " lieu" : " lieux") + " autour du bourg.");
+            texte.AppendLine("Coût : " + TexteDuMonde.Jours(DocumentDuMonde.Entier(raison, "journees")) + " de travail, " + Masse(raison, "cout_kg")
+                + " · Grenier : " + Masse(raison, "grenier_nourriture_kg") + " · Réserve voulue : " + Masse(raison, "reserve_voulue_kg") + ".");
         }
         void OnDestroy() { gestes?.Vider(); maisons?.Vider(); }
     }
