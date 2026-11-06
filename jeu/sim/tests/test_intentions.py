@@ -900,7 +900,7 @@ _REGLE_DES_ROUTES = {'programme': 'route_vers_le_champ'}
 
 
 def _ia_monde(patch=None, regle=None):
-    """Le montage du programme (faim du mois passé, greniers remplis), et la faim du bourg de l'ancienne règle."""
+    """Le montage du programme : faim du mois passé, greniers remplis, faim du bourg."""
     from sim import ia
     from sim.tests.test_programme_ia import _monter
     monde, maisons = _monter()
@@ -908,9 +908,6 @@ def _ia_monde(patch=None, regle=None):
     assert maisons
     for maison in maisons:
         monde.cells[maison.cell_id].lieux[0].duree_faim_ticks = 1
-    if regle == 'programme':
-        from sim.tests.test_monde import _brancher_programme
-        _brancher_programme(patch)
     if regle is not None:
         regles = {p['raison']['regle'] for p in _routes_de(ia.decider_intentions(monde, []))}
         assert regles == {_REGLE_DES_ROUTES[regle]}, regles
@@ -1014,7 +1011,6 @@ def test_ia_budget_annuel_et_branches(monkeypatch, regle):
     from sim import constants as k
     from sim.intentions import ChoixDepart
     from sim import ia
-    ancienne = ia.decider_intentions  # d'origine, avant le branchement du programme
     ia, monde, maisons = _ia_monde(monkeypatch, regle)
     couples = {(m.sorte, m.id) for m in maisons}
     assert len([m for m in maisons if m.nom == 'Paléologue']) == 2
@@ -1042,8 +1038,6 @@ def test_ia_budget_annuel_et_branches(monkeypatch, regle):
         assert len(_routes_de(releve + oubli)) <= len(couples)
     _mois_affame(monde, maisons, t + k.FENETRE_FLUX_TICKS)
     assert k.date_de_tick(t)['annee'] == k.date_de_tick(monde.ticks_ecoules)['annee']
-    # Sur le même relevé, l'ancienne règle (une route par an) n'en propose plus aux maisons qui ont déjà tracé.
-    assert not [c for c in couples if _routes_de(ancienne(monde, releve), c)]
     ia.jouer_ia(monde, releve)
     assert len(_routes_de(releve)) == 2 * len(couples) and all('refus' not in e for e in releve)
 
@@ -1471,8 +1465,7 @@ def test_ia_base_route_avant_depot(cid, champ_bloque, champ_libre, monkeypatch, 
     avant = deepcopy(monde.__dict__)
     assert _routes_de(ia.decider_intentions(monde, [])) == [] and monde.__dict__ == avant
     with monkeypatch.context() as sonde:
-        for module in (ia, programme_ia):
-            sonde.setattr(module, 'verifier_base', lambda *a, **kw: None)
+        sonde.setattr(programme_ia, 'verifier_base', lambda *a, **kw: None)
         propositions = _routes_de(ia.decider_intentions(monde, []))
         assert propositions
         releve = []
@@ -1626,9 +1619,8 @@ def annee_ia():
 
 @pytest.fixture(scope='module')
 def annee_programme():
-    """La même année que `annee_ia`, la route vers le champ le plus plein branchée ; garde le maître du bourg à chaque dépôt."""
+    """La même année que `annee_ia`, la route vers le champ le plus plein décidée par le programme ; garde le maître du bourg à chaque dépôt."""
     from sim import ia
-    from sim.tests.test_monde import _brancher_programme
     monde, alea, releve, depots = World.charger(0), random.Random(0), [], []
     original = ia.recevoir_intention
 
@@ -1641,7 +1633,6 @@ def annee_programme():
 
     with pytest.MonkeyPatch.context() as ctx:
         ctx.setattr(ia, 'recevoir_intention', capter)
-        _brancher_programme(ctx)
         for i in range(365):
             ia.jouer_ia(monde, releve)
             engine.tick(monde, alea, i)
@@ -2186,6 +2177,28 @@ def test_ia_part_documentation():
         controler(prive)
 
 
+def test_ia_route_documentation():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
+    titre = "## Les décisions et les gestes de l'IA"
+
+    def controler(document):
+        section = document.split(titre)[1].split('\n## ')[0]
+        for mot in ('route_vers_le_champ', 'proposer_route_vers_le_champ', 'FENETRE_FLUX_TICKS',
+                    'affames', 'IA_PAS_ECART_ROUTE_DEGRES', 'travail_requis_de_route',
+                    'SALAIRE_JOURNEE_KG', 'reserve_voulue_kg'):
+            assert mot in section
+        assert 'route_si_bourg_affame' not in section
+
+    controler(texte)
+    avant, apres = texte.split(titre)
+    prive = avant + '\n## ' + apres.split('\n## ', 1)[1]
+    with pytest.raises((AssertionError, IndexError)):
+        controler(prive)
+    ancienne = avant + titre + '\nroute_si_bourg_affame' + apres
+    with pytest.raises(AssertionError):
+        controler(ancienne)
+
+
 def _lecture_secours(monde, cle):
     """Réserve, plancher et lieux à secourir, relus sans sim/ia.py."""
     from sim import constants as k
@@ -2299,10 +2312,8 @@ def test_ia_grenier_decision(monkeypatch, regle):
     from sim.capitales import MaisonDeLIA
     from sim.flux import JourDeFlux
     from sim.plan import Plan
-    from sim.tests.test_monde import _brancher_programme
     monde, cle, maison = _monde_de_secours()
     monkeypatch.setattr(ia, 'maisons_de_l_ia', lambda m, maison=maison: (maison,))
-    _brancher_programme(monkeypatch)
 
     def ouvertures(m):
         return [p for p in _ia_pure(ia.decider_intentions, m, []) if p['intention']['type'] == 'ouvrir_grenier']
@@ -2389,6 +2400,33 @@ def test_ia_grenier_decision(monkeypatch, regle):
         assert _routes_de(ia.decider_intentions(reel, []), couple) == []
     grenier[nourriture] = seuil + 1
     assert _routes_de(ia.decider_intentions(reel, []), couple)
+
+
+@_REGLES_IA
+def test_ia_ordre_route_secours_part(monkeypatch, regle):
+    from sim import constants as k
+    ia, monde, maisons = _ia_monde(monkeypatch, regle)
+    t = monde.ticks_ecoules
+    proposees = [m for m in maisons if _routes_de(ia.decider_intentions(monde, []), (m.sorte, m.id))]
+    voisine = next((m for m in proposees if ia._jour_de_la_part(ia._cle_du_grenier(m), t)), None)
+    assert voisine is not None, "aucune maison à route n'a son jour de part : échantillon vide"
+    cle = ia._cle_du_grenier(voisine)
+    bourg = monde.cells[voisine.cell_id].lieux[0]
+    bourg.duree_faim_ticks, bourg.dette_alimentaire_kg = k.FAIM_AVANT_SECOURS_JOURS + 1, 1000
+    if monde.parts[cle] == 0:
+        monde.parts[cle] = k.PART_COUTUMIERE
+    propositions = ia.decider_intentions(monde, [])
+    couple = (voisine.sorte, voisine.id)
+    types = [p['intention']['type'] for p in propositions if (p['maison']['sorte'], p['maison']['id']) == couple]
+    assert types == ['tracer_route', 'ouvrir_grenier', 'fixer_part']
+    ordre = [(m.sorte, m.id) for m in ia.maisons_de_l_ia(monde)]
+    vues = []
+    for proposition in propositions:
+        maison = (proposition['maison']['sorte'], proposition['maison']['id'])
+        if not vues or vues[-1] != maison:
+            vues.append(maison)
+    assert len(vues) == len(set(vues)), 'les propositions d\'une maison ne tiennent pas en un seul bloc'
+    assert vues == [c for c in ordre if c in vues]
 
 
 def test_ia_grenier_chemin_unique(monkeypatch):

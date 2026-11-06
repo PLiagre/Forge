@@ -2659,17 +2659,18 @@ les métiers suivent une seule fois le solde au prorata, sans partage général 
 
 ## Les décisions et les gestes de l'IA
 
-`sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia` : population et faim du rang 0 positives, quelle que soit la cause. Dette, stock vide ou faim des champs ne suffisent pas.
-Le JSON porte la maison qui décide (`grande-<id>` ou `identifiant_de_seigneurie`). Un bourg tenu par une autre maison connue ne produit aucune proposition et ne consomme aucun budget ; maître absent ou inconnu : refus nommé avant tout dépôt.
-Hors carte : aucun geste. Cellule, plan, bourg ou faim absent/non calculé : refus nommé avant tout dépôt.
-Départ choisi, même en attente : exclu. Une route par couple (`sorte`, `id`) et année de `date_de_tick`, budget dérivé des entrées du relevé, refus compris. Tracé `(0, y)` à `(40, y)`, largeur 4 m, un foyer ; `y = largeur × nombre de rues`.
+`sim/ia.py` décide sans écrire ni aléa, dans l'ordre de `maisons_de_l_ia`. Hors carte ou départ choisi (même en attente) : aucun geste. Les contrôles passent avant tout : cellule, plan, bourg (rang 0) ou faim (`duree_faim_ticks`) absent ou non calculé lève `ValueError` avant tout dépôt.
+La route vient du programme, `sim.programme_ia.proposer_route_vers_le_champ(monde, maison, releve)`, appelé par `decider_intentions`. Le JSON porte la maison qui décide (`grande-<id>` ou `identifiant_de_seigneurie`). Elle doit tenir le bourg (`maitre_du_bourg`) : un bourg tenu par une autre maison connue ne produit aucune proposition et ne consomme aucun budget ; maître absent ou inconnu : refus nommé avant tout dépôt.
+Budget mensuel, lu au relevé : une `tracer_route` de cette maison, acceptée ou refusée, de moins de `FENETRE_FLUX_TICKS` jours suffit à la faire taire. La fenêtre des flux doit être pleine. La faim est le nombre de jours, de t − 30 à t − 1, où le bourg est noté dans `flux.jours[…].affames` ; s'il est nul, rien. Le champ visé est le lieu de rang ≥ 1 qui porte le plus de nourriture, s'il en porte (le plus petit rang à égalité).
+Le tracé fait `IA_LONGUEUR_ROUTE_M` (40 m), en `IA_LARGEUR_ROUTE_M` (4 m), avec `IA_FOYERS_ROUTE` foyer. Il part du bord de la place carrée (`DEMI_COTE_PLACE_1400_M`) vers la place du champ, avec un écart de 0, ± `IA_PAS_ECART_ROUTE_DEGRES`, ± 2 pas… strictement sous `ANGLE_ROUTE_INTERIEURE_DEGRES` ; on garde le premier écart dont `lieu_de_la_route` vise ce champ et que `verifier_base` accepte. Son coût est `travail_requis_de_route` × `SALAIRE_JOURNEE_KG` : le grenier doit dépasser strictement la réserve voulue (celle de la part et du secours) plus ce coût.
+Toutes les propositions sont décidées avant le premier dépôt, route, puis secours du jour, puis part du mois, maison par maison.
 L'exclusion compare l'identifiant du registre : le numéro d'un `ChoixDepart` en attente est converti par `identifiant_de_seigneurie`, comme celui des lignes de seigneurie.
-Paramètres relus dans `constants.py`. `jouer_ia` décide tout avant le premier dépôt et n'utilise que `recevoir_intention`, JSON du joueur intact. Chaque proposition porte une `raison` lue avant tout dépôt : `regle` (`route_si_bourg_affame`), `bourg` (`population`, `duree_faim_ticks`, `dette_alimentaire_kg`, `nourriture_kg`, sans arrondi), `champs_nourriture_kg` (rangs 1 à n, dans l'ordre, sans somme), `grenier_nourriture_kg` (panier du registre, `grande-<id>` ou `identifiant_de_seigneurie` ; −1 s'il manque ; une marchandise absente pèse zéro), `chantiers_en_cours` (`rues`, `parcelles`, `batiments`) et `departs` (−1). Une acceptation ajoute `{tick, maison, intention, raison}` ; `IntentionRefusee` ajoute la même entrée avec `refus` (le message), rien n'est déposé, la maison suivante joue. Une donnée absente reste levée avant tout dépôt. `python3 -m sim --ia` joue après les gestes scriptés,
+Paramètres relus dans `constants.py`. `jouer_ia` décide tout avant le premier dépôt et n'utilise que `recevoir_intention`, JSON du joueur intact. Chaque proposition porte une `raison` lue avant tout dépôt : `regle` (`route_vers_le_champ` pour une route) ; celle d'une route porte `grenier_nourriture_kg`, `reserve_voulue_kg`, `journees`, `cout_kg`, `faim_du_bourg_ticks`, `champs_nourriture_kg`, `champ_vise` et `ecart_degres`, sans arrondi. Une acceptation ajoute `{tick, maison, intention, raison}` ; `IntentionRefusee` ajoute la même entrée avec `refus` (le message), rien n'est déposé, la maison suivante joue. Une donnée absente reste levée avant tout dépôt. `python3 -m sim --ia` joue après les gestes scriptés,
 avant chaque tick. Le relevé reste hors du monde ; seul ce mode ajoute `ia` : `releve` et `maisons_actives_30j`, couples distincts
 déposés pendant les trente derniers jours, refus ignorés, dérivés des ticks et de `TICK_DURATION_DAYS` : après `T` ticks, la fenêtre couvre les ticks `T − 30` à `T − 1`
 (les gestes sont notés avant le tick, avec le tick écoulé). Avant trente jours, −1, même à zéro tick. À 30 ticks, la fenêtre égale l'ancienne (ticks 0 à 29).
-Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim, borne, géométrie, coûts et bras retirés aux champs sans compensation.
-Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. La raison d'une route porte des départs à −1 : ce geste ne les compte pas. La part, elle, compte les départs. Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
+Niveau 1 : maisons et capitales inchangées. Niveau 2 : faim du mois, budget mensuel, géométrie, coût en grain et bras retirés aux champs sans compensation.
+Niveau 3 : efficacité alimentaire, richesse, autres gestes et personnes. La route ne lit pas les départs ; la part, elle, les compte. Tick économique inchangé ; sans option, aucune décision ni sortie IA, y compris dans le service.
 
 Une fois par mois, une maison qui tient des lieux règle sa part. C'est de
 niveau 2, plausible, jamais sourcé. Le jour est `crc32` de sa clé modulo
@@ -2683,7 +2684,7 @@ salaires encore dus sur les chantiers des bourgs qu'elle tient — elle la
 monte d'autant, sans dépasser `PART_MAXIMALE`. La raison se nomme
 `part_sur_projets_et_gens`. Le geste est `fixer_part`, déposé par
 `recevoir_intention`, comme une route. Le budget des routes ne compte que
-les `tracer_route` : une part déposée dans l'année ne bloque pas le tracé.
+les `tracer_route` : une part déposée dans le mois ne bloque pas le tracé.
 Mesure du prototype, graine 0 : environ 2 ms par maison qui décide.
 
 Chaque jour, sans attendre le mois ni une fenêtre de flux pleine, une maison
