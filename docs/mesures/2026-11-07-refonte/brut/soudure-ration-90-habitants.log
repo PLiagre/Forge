@@ -1,0 +1,3 @@
+ration-90-habitants t=90 europe=1.018 Paris=0.92 Milan=1.02 Florence=1.02 Gand=0.90 Bruges=0.90 Le Caire=1.02 Constantinople=1.02 Londres=1.02 echecs=0 faim>50%=0 pire=désert occidental égyptien/désert occidental:0.04 (34.9 s)
+ration-90-habitants t=180 europe=1.023 Paris=0.01 Milan=0.81 Florence=1.04 Gand=0.07 Bruges=0.07 Le Caire=0.76 Constantinople=1.03 Londres=1.04 echecs=2 faim>50%=2 pire=Paris:0.76 (70.7 s)
+ration-90-habitants t=365 europe=1.050 Paris=0.00 Milan=0.32 Florence=0.58 Gand=0.05 Bruges=0.05 Le Caire=0.50 Constantinople=1.07 Londres=1.08 echecs=3 faim>50%=5 pire=Paris:0.77 (148.1 s)

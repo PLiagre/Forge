@@ -1,0 +1,5 @@
+t=90 europe=0.967 Paris=0.009 Milan=0.010 Florence=0.096 Gand=0.093 Bruges=0.093 Le Caire=0.057 Constantinople=0.931 Londres=0.977 echecs=4 faim>50%=5 (25.3 s)
+t=365 europe=1.018 Paris=0.000 Milan=0.000 Florence=0.048 Gand=0.038 Bruges=0.038 Le Caire=0.035 Constantinople=0.976 Londres=1.034 echecs=4 faim>50%=6 (89.7 s)
+t=1825 europe=1.022 Paris=0.000 Milan=0.000 Florence=0.000 Gand=0.000 Bruges=0.000 Le Caire=0.000 Constantinople=0.844 Londres=0.766 echecs=4 faim>50%=9 (693.6 s)
+t=3650 europe=1.001 Paris=0.000 Milan=0.000 Florence=0.000 Gand=0.000 Bruges=0.000 Le Caire=0.000 Constantinople=0.772 Londres=0.434 echecs=4 faim>50%=45 (1814.0 s)
+FINI

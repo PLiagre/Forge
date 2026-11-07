@@ -689,8 +689,8 @@ un bâtiment dans une province, où l'intention dit le bourg et la nature, et le
 plan choisit la parcelle libre le long d'une rue (règle déterministe,
 niveau 2). Les premières personnes suivies une à une — les chefs des
 maisons de 1400 et leurs familles, réels quand on les sait —, qui vieillissent,
-naissent et meurent ; leurs traits, leurs compétences, leurs ambitions, qui
-raisonnent en monde ; les lois de succession, le partage, l'héritage par les
+naissent et meurent ; leurs traits, leurs compétences (d'où naissent les
+points du pays), leurs ambitions, qui décident sur le monde ; les lois de succession, le partage, l'héritage par les
 femmes ; les républiques et l'Église, qui élisent et ne se partagent pas. Les
 maisons de l'IA ont leurs personnes, sous les mêmes règles.
 
@@ -1009,8 +1009,9 @@ atteint, avec ce qu'on aura appris.
 - **Les rails de l'histoire** : l'imprimerie, la Réforme, les Grandes
   Découvertes, les épidémies, la vapeur — des étincelles à leur date, que le
   monde diffuse.
-- **L'État qui émerge** : la pyramide qui se centralise, les lois comme
-  contraintes sur des flux, jamais comme modificateurs.
+- **L'État qui émerge** : la pyramide qui se centralise ; les lois et les
+  idées posent leurs modificateurs sur les flux du monde (VISION.md,
+  décision 34), sans créer un kilo.
 - **Les religions, les cultures, les techniques** et leur diffusion.
 - **L'industrie** : la vapeur, les usines, le rail, l'économie de 1900 ; la
   carte, la ville et la bataille, sur la même horloge, jusqu'en 1900.

@@ -10,8 +10,10 @@ perd par la guerre, l'héritage, le mariage, l'argent et la révolte, contre des
 dynasties que joue une IA qui a exactement les mêmes outils. Sa capitale peut
 s'ouvrir en 3D, pour la voir vivre et la bâtir à la main. On perd quand le
 pays n'a plus de terre. Ce qui n'existe nulle part ailleurs, c'est un Europa
-Universalis dont le monde est simulé — des gens, des kilos, des causes, et
-pas un modificateur — dans **un seul monde**.
+Universalis dont le monde est simulé : des modificateurs partout, comme dans
+EU4, et des jauges du pays à nos noms, mais sous eux des gens, des kilos et
+des causes — un moulin à +10 % récolte vraiment 10 % de grain en plus, qui se
+transporte et se mange —, dans **un seul monde**.
 
 | pour savoir | lire |
 |---|---|

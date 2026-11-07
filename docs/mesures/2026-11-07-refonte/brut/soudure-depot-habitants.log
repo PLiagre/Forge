@@ -1,0 +1,3 @@
+depot-habitants t=90 europe=0.967 Paris=0.01 Milan=0.04 Florence=0.10 Gand=0.09 Bruges=0.09 Le Caire=0.06 Constantinople=0.93 Londres=0.98 echecs=4 faim>50%=5 pire=Italie du Nord/Milan:0.96 (42.9 s)
+depot-habitants t=180 europe=0.983 Paris=0.00 Milan=0.00 Florence=0.08 Gand=0.07 Bruges=0.07 Le Caire=0.04 Constantinople=0.95 Londres=1.00 echecs=4 faim>50%=5 pire=Italie du Nord/Milan:0.99 (79.4 s)
+depot-habitants t=365 europe=1.018 Paris=0.00 Milan=0.00 Florence=0.05 Gand=0.04 Bruges=0.04 Le Caire=0.03 Constantinople=0.98 Londres=1.03 echecs=4 faim>50%=6 pire=Italie du Nord/Milan:0.99 (153.8 s)

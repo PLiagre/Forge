@@ -1,0 +1,41 @@
+sans IA {'ticks_mesures': [30, 89], 'jouer_ia': {'mediane_ms': 0.0, 'min_ms': 0.0, 'max_ms': 0.0}, 'tick': {'mediane_ms': 43.52, 'min_ms': 39.72, 'max_ms': 65.5}, 'total': {'mediane_ms': 43.52, 'min_ms': 39.72, 'max_ms': 65.5}}
+avec IA {'ticks_mesures': [30, 89], 'jouer_ia': {'mediane_ms': 178.92, 'min_ms': 155.07, 'max_ms': 346.75}, 'tick': {'mediane_ms': 47.09, 'min_ms': 42.48, 'max_ms': 68.46}, 'total': {'mediane_ms': 229.69, 'min_ms': 200.71, 'max_ms': 390.2}}
+         21917541 function calls (21916699 primitive calls) in 11.064 seconds
+
+   Ordered by: internal time
+   List reduced from 421 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   503903    3.596    0.000    3.596    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:95(_dans_anneau)
+      180    0.891    0.005    0.891    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py:351(raw_decode)
+  3334268    0.400    0.000    0.400    0.000 {method 'get' of 'dict' objects}
+     1116    0.259    0.000    0.265    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\intentions.py:55(_lieux_de_la_maison)
+    15158    0.220    0.000    0.457    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\lieux.py:78(partager)
+    17880    0.209    0.000    0.906    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1344(_apply_consumption)
+       30    0.204    0.007    0.312    0.010 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\departs.py:27(appliquer_departs)
+  1829162    0.183    0.000    0.203    0.000 {built-in method builtins.max}
+       30    0.181    0.006    0.269    0.009 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\prelevement.py:48(prelever)
+   454523    0.180    0.000    3.779    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:109(point_dans_geometrie)
+   134711    0.171    0.000    0.237    0.000 {built-in method builtins.sorted}
+      900    0.160    0.000    3.227    0.004 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:75(cellule_de_capitale)
+   881796    0.144    0.000    0.251    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\model.py:36(lire_stock_marchandise)
+282518/282422    0.139    0.000    0.338    0.000 {built-in method builtins.sum}
+   341574    0.104    0.000    0.104    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:130(_projection)
+    11850    0.102    0.000    0.254    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:981(_sortir_par_bourg)
+   199722    0.090    0.000    0.261    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:400(_paysans_restes_au_lieu)
+   170787    0.090    0.000    0.220    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:143(_profondeur)
+    17944    0.087    0.000    0.528    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:435(_calculer_parts)
+    14894    0.086    0.000    0.184    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:541(_produire_sur_les_lieux)
+   923962    0.082    0.000    0.085    0.000 {built-in method builtins.min}
+       30    0.079    0.003    4.559    0.152 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1876(tick)
+    70652    0.079    0.000    0.551    0.000 {built-in method builtins.any}
+   829478    0.077    0.000    0.077    0.000 {method 'append' of 'list' objects}
+    17880    0.076    0.000    0.200    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1610(_apply_natalite)
+   905170    0.073    0.000    0.073    0.000 {built-in method builtins.isinstance}
+   850913    0.066    0.000    0.066    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\model.py:53(ecrire_stock_marchandise)
+   206830    0.066    0.000    0.066    0.000 {built-in method builtins.round}
+    42557    0.066    0.000    0.127    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\model.py:63(contenus_des_paniers)
+    35824    0.060    0.000    0.099    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:116(_facteur_eau_pour_cellule)
+
+
+

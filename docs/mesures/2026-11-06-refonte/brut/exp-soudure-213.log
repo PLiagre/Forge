@@ -1,0 +1,2 @@
+soudure-213 t=90 europe=1.018 Paris=0.97 Milan=1.02 Florence=1.02 Gand=0.96 Bruges=0.96 Le Caire=1.02 Constantinople=1.02 Londres=1.02 echecs=0 faim>50%=0 pire=Gand:0.02 (6.6 s)
+soudure-213 t=365 europe=1.073 Paris=0.50 Milan=1.05 Florence=1.08 Gand=0.15 Bruges=0.15 Le Caire=1.08 Constantinople=1.06 Londres=1.06 echecs=0 faim>50%=0 pire=Gand:0.45 (20.0 s)

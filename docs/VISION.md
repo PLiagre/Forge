@@ -14,6 +14,13 @@
 > Révisé le 28 octobre 2026 : le jeu prend **Europa Universalis IV** pour
 > modèle de jeu. Le monde tourne seul ; le joueur prend la tête d'un pays et
 > le fait évoluer depuis la carte (décisions 24 à 33, en fin de fichier).
+>
+> Révisé le 7 novembre 2026, d'après les décisions du 6 : **c'est un jeu**.
+> Les gestes du joueur jouent sur des métriques paramétrables — des
+> modificateurs partout, comme dans EU4, et quatre jauges du pays à nos noms —,
+> posés sur une économie qui reste physique (décisions 34 à 41, en fin de
+> fichier ; « Les modificateurs et les jauges », plus bas). Elles priment sur
+> les précédentes qu'elles contredisent.
 
 ## En un paragraphe
 
@@ -24,9 +31,15 @@ la tête d'un **pays réel de 1400** — un royaume, un duché, un émirat ou un
 petit comté, catholique, orthodoxe ou musulman, n'importe où entre l'Irlande
 et l'Égypte —, et on le **fait évoluer depuis la carte**, à la manière
 d'Europa Universalis IV : le temps file, on le met en pause, on décide.
-Impôts et greniers, chantiers dans ses provinces, armées et guerres, alliances
+Impôts et greniers, bâtiments dans ses provinces, armées et guerres, alliances
 et mariages, lois, monnaie et dette : chaque geste est une intention que le
-monde applique, et ce sont les gestes mêmes de l'IA. La dynastie qui règne sur
+monde applique, et ce sont les gestes mêmes de l'IA. Ses bâtiments, ses lois,
+ses conseillers et ce qui arrive au monde posent des **modificateurs** — « Moulin :
++10 % de grain récolté dans la province » —, que l'infobulle détaille ; ses
+quatre **jauges** (la Concorde, le Renom, le Droit, et les points de la Plume,
+du Sceau et de l'Épée) montent et baissent par les causes du monde et se
+dépensent en gestes. Tous ces chiffres se règlent dans des fichiers de
+données, comme les scripts d'EU4. La dynastie qui règne sur
 le pays a ses héritiers, leurs personnalités et sa loi de succession, qui peut
 coûter des terres. Sa capitale peut s'ouvrir en 3D, pour la voir vivre et la
 bâtir à la main. L'histoire allume ses étincelles à leur date — l'imprimerie,
@@ -38,23 +51,31 @@ terre. La partie va de 1400 à 1900.
 ## Ce qui n'existe nulle part ailleurs
 
 On joue comme dans Europa Universalis IV : la carte, le temps qui file, un pays
-qu'on fait grandir. Ce qui n'existe pas, c'est **un Europa Universalis dont le
-monde est simulé**, et qui tourne sans le joueur :
+qu'on fait grandir, des modificateurs qu'on empile et des jauges qu'on
+dépense. Ce qui n'existe pas, c'est **un Europa Universalis dont le monde est
+simulé**, et qui tourne sans le joueur :
 
-- sous la carte, des gens : une famine vide une vallée parce que ses gens ont
-  faim et partent, pas parce qu'un modificateur le dit ;
+- sous les modificateurs, des kilos : un moulin à +10 % récolte vraiment 10 %
+  de grain en plus, qui se transporte, se stocke et se mange ; un modificateur
+  change un taux du moteur, il ne crée jamais un kilo ni une pièce ;
+- sous la carte, des gens : une famine pose ses modificateurs, et elle vide
+  aussi une vallée parce que ses gens ont faim et partent ;
 - l'armée est faite des hommes de ses foyers ; ses morts manquent ensuite aux
   champs ;
 - sa dette, sa monnaie et ses routes pèsent sur les prix du voisin, et
   inversement ;
-- l'IA n'a aucun privilège : elle joue avec les mêmes gestes que le joueur, et
-  le monde vit tout aussi bien quand personne ne joue ;
+- l'IA n'a aucun privilège : elle joue avec les mêmes gestes, les mêmes
+  modificateurs et les mêmes jauges que le joueur, sans bonus caché, et le
+  monde vit tout aussi bien quand personne ne joue ;
+- les jauges du pays naissent de personnes : les points d'un souverain
+  viennent de ses compétences et de celles de son conseil, pas d'une note
+  fixe ;
 - la capitale qu'on ouvre en 3D est un lieu du monde que la carte gouverne :
   on peut y descendre et la bâtir à la main.
 
 | repère | ce qu'on lui prend | ce qu'on refuse |
 |---|---|---|
-| **Europa Universalis IV** — le modèle de jeu | la carte comme écran principal, le temps continu avec pause et vitesses, un pays qu'on fait évoluer, la diplomatie, la guerre sur la carte, le mode observateur | les points de monarque, les modificateurs (« +10 % ») à la place des causes, les événements à choix qui posent une issue |
+| **Europa Universalis IV** — le modèle de jeu | la carte comme écran principal, le temps continu avec pause et vitesses, un pays qu'on fait évoluer, la diplomatie, la guerre sur la carte, le mode observateur ; les modificateurs partout et leur infobulle détaillée ; la stabilité, le prestige, la légitimité et les points de monarque, sous nos noms (Concorde, Renom, Droit, Plume, Sceau, Épée) ; les bâtiments de province ; les événements à choix ; les chiffres dans des fichiers de données | un modificateur qui crée un kilo ou une pièce hors du moteur ; des points tirés d'une note fixe plutôt que des personnes ; un événement qui impose une issue ; un bonus caché de l'IA |
 | Crusader Kings | la dynastie, les personnalités, la succession | les mille petites actions sans portée, surtout en fin de partie |
 | Victoria | l'économie, les prix, l'industrie | des mécaniques codées comme des règles de jeu |
 | Manor Lords | la capitale qu'on peut ouvrir et bâtir à la main, dense et vivante | en faire le cœur du jeu ; bâtir toutes ses villes à la main |
@@ -75,6 +96,11 @@ monde est simulé**, et qui tourne sans le joueur :
   ne reste sans décider ; famines, chantiers, mariages et guerres arrivent par
   leurs causes. Mesuré le 28 octobre 2026, ce n'était pas le cas : sans
   réserve de soudure, Paris perdait 99 % de ses habitants avant avril 1400.
+  Remesuré le 7 novembre 2026 : Paris et Milan vides au bout d'un an, toutes
+  les grandes villes sauf Constantinople et Londres au bout de cinq
+  ([mesure](mesures/2026-11-07-refonte/RAPPORT.md)). La soudure tient la
+  première année ; les années suivantes demandent que l'arrière-pays nourrisse
+  ses villes.
 - **Le joueur entre dans ce monde-là.** Prendre la tête d'un pays ne change
   aucune règle : seule change la main qui décide.
 
@@ -91,9 +117,10 @@ monde est simulé**, et qui tourne sans le joueur :
   portée (principe 6) ; « Les gestes d'un pays », plus bas, les range.
 - **Des personnalités.** Chaque membre de la dynastie a des traits, des
   compétences, une éducation, une santé, des ambitions. Un cadet peut
-  comploter, un frère se révolter, un fils mal éduqué gouverner mal. Eux
-  aussi raisonnent en monde : un complot naît d'une ambition et d'une
-  occasion, pas d'un pourcentage.
+  comploter, un frère se révolter, un fils mal éduqué gouverner mal. Ses
+  compétences font les points du pays (« Les modificateurs et les jauges »,
+  plus bas) ; ses décisions lisent le monde : un complot naît d'une ambition
+  et d'une occasion.
 - **En personne.** Le chef de la dynastie mène ses troupes et peut mourir au
   combat ; quand on ouvre sa capitale en 3D, il marche dans ses rues.
 - **La succession.** À sa mort, on joue l'héritier que désigne la loi de
@@ -124,31 +151,81 @@ monde est simulé**, et qui tourne sans le joueur :
   guerre », plus bas) ; la regarder et la mener en 3D est un horizon.
 - **Une seule horloge, que le joueur règle.** Un tick est un jour. Sur la
   carte, le joueur met en pause ou choisit l'une des cinq vitesses ; la plus
-  rapide est bornée par le budget du tick (51 ms mesurés le 28 octobre 2026,
-  une vingtaine de jours par seconde). En ville le temps ralentit tout seul.
+  rapide est bornée par le budget du tick, 100 ms au plus avec l'IA
+  ([CAP.md](../CAP.md), jalon 1). En ville le temps ralentit tout seul.
   Le monde ne s'arrête que quand le joueur le met en pause.
 - **Le monde dit ce qui arrive.** Un fil de nouvelles et des alertes — une
   famine, un grenier vide, un voisin qui bâtit, une guerre déclarée — mènent
-  au lieu où cela se passe. Ce sont des lectures du monde : jamais un
-  événement à choix qui poserait une issue ou un modificateur.
+  au lieu où cela se passe ; ce sont des lectures du monde. Ce qui arrive
+  pose aussi ses modificateurs (une famine, une révolte, une épidémie, une
+  guerre), visibles dans l'infobulle de chaque lieu touché. Et certaines
+  causes du monde — une famine, une révolte, une succession contestée —
+  ouvrent un **événement à choix** : deux ou trois réponses, chacune pose des
+  modificateurs ou dépense une jauge, aucune n'impose une issue ; l'IA y
+  répond par le même chemin (décision 41).
 
 ## Les gestes d'un pays
 
 Le joueur ne clique pas sur chaque lieu : il décide pour son pays, et le monde
 fait le reste. Un geste coûte **ce que le monde porte** — du grain, des
-pièces, des hommes, du temps, la fidélité de ses vassaux —, jamais des points
-abstraits : pas de points de monarque, pas d'idées en « +10 % ».
+pièces, des hommes, du temps, la fidélité de ses vassaux — et, selon le
+geste, des points de ses jauges : la Plume pour administrer, le Sceau pour
+traiter, l'Épée pour combattre, ou un peu de sa Concorde, de son Renom, de son
+Droit. Ce qu'il bâtit, ce qu'il décrète et qui il nomme posent ensuite leurs
+modificateurs.
 
 | domaine | gestes | jalon de CAP.md |
 |---|---|---|
 | la terre et ses gens | fixer la part qu'on prend (l'impôt), ouvrir un grenier | J3, livré |
-| bâtir | tracer une route, poser un bâtiment dans une province ; en 3D, la parcelle à la main | J4 en 3D, J6 depuis la carte |
-| la cour | marier, éduquer, changer la loi de succession | J6 |
+| bâtir | poser un bâtiment dans une province, qui coûte du grain, des pièces, des bras et du temps et pose ses modificateurs ; tracer une route ; en 3D, la parcelle à la main | J6 depuis la carte, J4 en 3D |
+| les jauges | dépenser la Plume, le Sceau ou l'Épée pour un geste ; répondre à un événement à choix | J6 |
+| la cour | marier, éduquer, changer la loi de succession, nommer son conseil | J6 |
 | la guerre et les alliés | revendiquer, lever, marcher, assiéger, livrer bataille, faire la paix ; s'allier, appeler ses alliés | J7 |
 | l'argent | frapper, emprunter, mettre en gage, dévaluer, acheter une terre | J8 |
-| le gouvernement | inféoder, nommer des intendants, passer une loi | J9 |
+| le gouvernement | inféoder, nommer des intendants, passer une loi, choisir une idée | J9 |
 
-Chaque geste existe aussi pour l'IA, par le même chemin (principe 4).
+Chaque geste existe aussi pour l'IA, par le même chemin, avec les mêmes
+modificateurs et les mêmes jauges (principe 4).
+
+## Les modificateurs et les jauges
+
+Ce qui fait de Forge un jeu, et pas seulement une simulation qu'on regarde
+(décisions 34 à 38).
+
+- **Un modificateur** a un nom, une source, une cible, une grandeur du moteur,
+  une valeur et une durée : « Moulin de Saint-Denis : +10 % de grain récolté
+  dans la province, tant que le moulin tient ». La **source** dit qui le pose :
+  un bâtiment, une loi, une idée, un conseiller, un événement du monde
+  (famine, guerre, révolte, épidémie) ou une jauge du pays ; un modificateur
+  sans source n'existe pas. La **cible** est un pays, une province ou une
+  cellule, ou un lieu. La **grandeur** est un taux que le moteur lit déjà : la
+  récolte, le prélèvement, la natalité, la mortalité, les départs, le coût et
+  la durée d'un chantier, la levée, le commerce. La **durée** est un nombre de
+  jours, ou la vie de sa source.
+- **Ils s'additionnent.** Les modificateurs d'une même grandeur qui touchent
+  un lieu — le sien, ceux de sa cellule, de sa province et de son pays —
+  s'ajoutent, dans un ordre fixé, et l'infobulle en donne le détail ligne par
+  ligne, comme dans EU4 : « Récolte : +10 % moulin, −25 % famine ».
+- **L'économie reste physique dessous.** Un modificateur change un taux ; il ne
+  crée jamais un kilo ni une pièce hors du moteur. Le moulin à +10 % récolte
+  10 % de grain en plus, qui entre au grenier, voyage en convoi et se mange ;
+  rien ne s'ajoute à un stock sans passer par la récolte, le transport ou
+  l'échange (principe 3).
+- **Quatre jauges par pays, à notre façon.** La **Concorde** (de −3 à +3) dit
+  si le pays tient ensemble ; le **Renom**, ce qu'on dit de lui ; le **Droit**,
+  ce qui fonde son souverain ; trois réserves de points, la **Plume**
+  (administrer), le **Sceau** (traiter) et l'**Épée** (combattre), se
+  remplissent chaque mois des compétences du souverain et de son conseil — des
+  personnes du monde, pas une note fixe. Les jauges bougent par des causes du
+  monde (une famine fait baisser la Concorde, une victoire monte le Renom, une
+  succession contestée entame le Droit) et par les gestes qui les dépensent ;
+  chacune pose à son tour ses modificateurs (une Concorde basse fait partir
+  plus de foyers).
+- **Les chiffres vivent dans des fichiers de données**, sous `jeu/data/`,
+  lisibles et modifiables sans toucher au code, comme les scripts d'EU4 :
+  bâtiments, modificateurs, jauges, coûts. Le moteur et l'IA lisent les mêmes.
+- **L'IA a les mêmes**, et rien de plus : aucun modificateur réservé, aucune
+  jauge qui se remplisse plus vite pour elle.
 
 ## La terre, cœur du jeu
 
@@ -249,16 +326,29 @@ chacun, dans le même ordre ; ici, leur raison.
    simulation, dans `sim/`, qui reçoit du monde ses hommes et son terrain,
    lui rend ses morts, ses blessés et ses fuyards, et ne garde rien pour
    elle ; une bataille en 3D, le jour où elle existera, la regarde.
-2. **Le monde raisonne en monde.** Interdit : « si famine alors +20 % de
-   criminalité ». Exigé : ils ont faim, ils cherchent, certains volent. Cela
-   vaut pour les personnages et pour l'IA. Test à chaque proposition :
-   comportement émergent, ou règle codée en dur ?
+2. **Des modificateurs partout, sur un monde qui reste physique.** Comme
+   dans EU4, les bâtiments, les lois, les idées, les conseillers, les
+   événements du monde et les jauges du pays posent des modificateurs : un
+   nom, une source, une cible, une grandeur du moteur, une valeur, une durée.
+   Ils s'additionnent dans un ordre fixé et l'infobulle en donne le détail.
+   Un modificateur change un taux que le moteur lit ; il ne remplace jamais
+   la cause qu'il nomme (une famine pose ses modificateurs, et ses gens ont
+   toujours faim, cherchent et partent), et il ne crée jamais un kilo ni une
+   pièce. Ses valeurs vivent dans les fichiers de données. Les personnages et
+   l'IA décident sur le monde — la faim, le grenier, les voisins — et sur les
+   modificateurs qu'ils y lisent. Test à chaque proposition : quelle source,
+   quelle cible, quelle grandeur, et où va le kilo ? (Ce principe remplace,
+   depuis le 6 novembre 2026, « le monde raisonne en monde », qui interdisait
+   le « +20 % » : décision 34.)
 3. **L'économie est physique.** Tout kilo et toute pièce ont une origine, un
    transport, un stockage, une destination. Rien ne se téléporte ; une
-   rupture logistique produit seule ses conséquences.
+   rupture logistique produit seule ses conséquences. Un modificateur change
+   un taux du moteur, jamais un stock : le grain qu'il ajoute se récolte
+   (décision 35).
 4. **L'IA a les outils du joueur.** Tout geste du joueur est une intention
    déposée dans le monde (dans `jeu/sim/`, ou dans la bataille pour un ordre
-   de combat) ; l'IA dépose les mêmes, par le même chemin, sans bonus caché.
+   de combat) ; l'IA dépose les mêmes, par le même chemin, avec les mêmes
+   modificateurs et les mêmes jauges, sans bonus caché (décision 38).
    La 3D n'est que la façon humaine de formuler une intention : un geste de
    jeu qui n'existe qu'en 3D n'existe pas.
 5. **Les rails posent un fait, jamais une issue.** Une étincelle historique
@@ -326,7 +416,10 @@ tour.
 | la capitale peut-elle changer de ville | rien n'est décidé |
 | quels pays sont jouables | tous ceux qui tiennent de la terre, vassaux compris (décision 26) ; reste à dire si un vassal joué peut refuser l'hommage dès le départ |
 | quand la bataille et le siège en 3D reviennent | après le premier siècle (décision 29) ; Citadelle-Guerre attend dans les archives |
-| des décisions de cour, à la manière des événements | le fil des nouvelles ne pose aucun choix (décision 31) ; une décision proposée au joueur devrait naître d'une cause du monde et rester un geste ordinaire |
+| quels événements à choix, et lesquels d'abord | ils naissent d'une cause du monde et posent des modificateurs ou dépensent une jauge (décision 41) ; leur liste et leurs choix restent à écrire, dans les fichiers de données |
+| les valeurs des modificateurs et des bâtiments | niveau 2, dans `jeu/data/` ; un réel sourcé (un moulin de 1400, ce qu'il rendait) les remplace quand on le sait |
+| le conseil du souverain | ses points naissent du souverain et de son conseil (décision 36) ; en 1400, le conseil n'existe pas encore dans le monde : les conseillers sont des personnes à venir, et des sources de modificateurs |
+| les idées et les lois | des sources de modificateurs (décision 34) ; leur liste et leur prix restent à écrire (jalon 9) |
 
 ## Les décisions du 29 septembre 2026
 
@@ -382,7 +475,27 @@ antérieures qu'elles nomment.
 | 27 | la carte est le jeu ; la capitale en 3D est une vue où l'on peut bâtir à la main, jamais un passage obligé : tout geste de la 3D se commande aussi depuis la carte (précise la décision 5) | la capitale comme cœur du jeu ; un geste qu'on ne ferait qu'en 3D |
 | 28 | le joueur règle l'horloge sur la carte : pause et cinq vitesses ; la ville ralentit (remplace la décision 6 sur la vitesse) | une vitesse imposée par la vue |
 | 29 | les batailles se calculent dans `sim/`, par un seul moteur, et se suivent sur la carte ; les mener en 3D et le siège grandeur nature passent à l'horizon (remplace la décision 15) | une bataille tactique obligatoire avant le premier siècle ; deux moteurs de bataille |
-| 30 | un geste coûte ce que le monde porte : grain, pièces, hommes, temps, fidélité | les points de monarque ; les idées nationales en « +10 % » |
-| 31 | le monde parle par un fil de nouvelles et des alertes qui mènent au lieu | les événements scriptés à choix, qui posent une issue ou un modificateur |
+| 30 | un geste coûte ce que le monde porte : grain, pièces, hommes, temps, fidélité (**remplacée** par les décisions 34 et 36) | les points de monarque ; les idées nationales en « +10 % » |
+| 31 | le monde parle par un fil de nouvelles et des alertes qui mènent au lieu (**révisée** par les décisions 34 et 41 : le monde pose aussi des modificateurs, et certaines causes ouvrent un événement à choix) | les événements scriptés à choix, qui posent une issue ou un modificateur |
 | 32 | les kits 3D des autres terres et la ville conquise en 3D passent à l'horizon (précise la décision 7) | toutes les terres de départ en 3D au premier siècle |
 | 33 | les jalons gardent leurs numéros et changent de contenu : J5 le monde vivant, J6 le pays et sa dynastie, J7 la guerre sur la carte ; J8 et J9 restent (remplace la décision 23 pour la suite) | renuméroter les jalons et déplacer leurs issues |
+
+## Les décisions du 6 novembre 2026
+
+Prises par le propriétaire : « Forge se rapproche d'Europa Universalis IV. Le
+monde tourne seul comme une simulation, mais c'est un jeu : le joueur a des
+gestes, et ses gestes jouent sur des métriques paramétrables. » Elles priment
+sur toutes les précédentes qu'elles contredisent. Les décisions 39 à 41 sont
+ses réponses du 7 novembre, posées avec la refonte
+([mesures et réponses](mesures/2026-11-07-refonte/RAPPORT.md)).
+
+| # | décision | ce qu'elle a écarté |
+|---|---|---|
+| 34 | des modificateurs partout, comme dans EU4 : bâtiments, lois, idées, conseillers, événements du monde (famine, guerre, révolte, épidémie) et jauges du pays posent des modificateurs ; chacun a un nom, une source, une cible (pays, province ou cellule, lieu), une grandeur du moteur (récolte, prélèvement, natalité, mortalité, départs, coût et durée d'un chantier, levée, commerce…), une valeur et une durée ; ceux d'une même cible s'additionnent dans un ordre déterministe, et l'infobulle en donne le détail (remplace le principe 2 et la décision 30, révise la décision 31) | « le monde raisonne en monde », qui interdisait le « +10 % » ; un monde qui ne se règle par aucun chiffre lisible |
+| 35 | l'économie reste physique sous les modificateurs : un modificateur change un taux du moteur, il ne crée jamais un kilo ni une pièce hors du moteur ; un moulin à +10 % produit vraiment 10 % de grain en plus, qui se transporte, se stocke et se mange (le principe 3 tient) | un bonus qui s'ajoute au stock sans origine |
+| 36 | quatre jauges de pays, à notre façon : l'équivalent de la stabilité, du prestige, de la légitimité et des points de monarque d'EU4, sous nos noms ; les points naissent des compétences du souverain et de son conseil, des personnes réelles du jalon 6 ; les jauges bougent par des causes du monde et par des gestes qui les dépensent, et chacune pose ses modificateurs | les noms et les règles d'EU4 recopiés ; des points d'une note fixe |
+| 37 | les chiffres vivent dans des fichiers de données lisibles sous `jeu/data/` (bâtiments, modificateurs, jauges, coûts), qu'on modifie sans toucher au code, comme les scripts d'EU4 ; le moteur et l'IA lisent les mêmes ; le moteur reste sur la bibliothèque standard (`tomllib`) | des constantes du jeu dispersées dans le code |
+| 38 | l'IA a les mêmes modificateurs et les mêmes jauges, sans bonus caché (le principe 4 tient) | une IA qui triche pour tenir |
+| 39 | les jauges s'appellent la **Concorde** (de −3 à +3, la stabilité), le **Renom** (le prestige), le **Droit** (la légitimité), et trois réserves de points, la **Plume** (administrer), le **Sceau** (traiter) et l'**Épée** (combattre) ; les chefs de 1400 reçoivent tout de suite des compétences de gestion, de diplomatie et de guerre (de 0 à 10, niveau 2) pour que les points coulent dès 1400 ; #434 garde les traits, l'hérédité et l'éducation | des réserves vides jusqu'à la dynastie ; un pays sans réserves de points |
+| 40 | le jalon 4 se clôt : le socle et la carte dans la langue du cabinet (#849, #850) passent au jalon 6 avec la barre et le panneau du pays, le jeu qui s'ouvre en pause (#860) au jalon 5 avec l'observateur ; la langue de la capitale (#851), le prix d'un chantier dans son panneau (#419), la preuve complète du jalon (#508), les 60 images par seconde (#962) et les maisons regroupées (#960) vont à la Réserve | finir la capitale en 3D avant le pays |
+| 41 | des événements à choix, nés d'une cause du monde (une famine, une révolte, une succession contestée) : deux ou trois choix, chacun pose des modificateurs ou dépense une jauge, aucun n'impose une issue ; l'IA choisit par le même chemin ; un lot, après les jauges | un monde qui ne propose jamais de choix ; des événements scriptés qui imposent l'histoire |
