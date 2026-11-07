@@ -81,16 +81,34 @@
   `test_modificateurs.py` (21 cas, verts sous Windows). Sans pose : monde et
   photographie à 365 jours identiques à la PR 2 (`96f0ad5d…`, `b2befd1b…`).
 
-## Reste, dans l'ordre
+## Reste, dans l'ordre (arrêt sur quota, 7/11 au soir)
 
-1. PR 2 : pousser, CI, fusion.
-2. PR 3 : rebaser sur master après la PR 2, MODELE.md « Les modificateurs »,
-   suite entière (Windows puis WSL), PR.
-3. PR 4 : le pays et ses jauges (compétences des chefs de 1400, niveau 2).
-4. PR 5 : les bâtiments de province.
-5. PR 6 : la chaîne pour Claude seul.
-6. PR 7 : le cap, ses issues, J4 clos (décision 40), Réserve.
-7. Réarmer la chaîne (`gh variable delete PC_ACTIF`, `atelier-boucle jour`).
+État : PR 1 fusionnée (#1022) ; PR 2 (#1023) et PR 6 (#1024, la chaîne pour
+Claude seul) en fusion automatique. Branches de travail poussées sans PR :
+
+1. **PR 3** `direct/modificateurs` (worktree `.atelier/direct/refonte-modificateurs`) :
+   après la fusion de #1023, `git rebase --onto origin/master be630e69
+   direct/modificateurs`, suite entière (Windows puis WSL : `bash
+   /mnt/d/Forge/.atelier/wsl_autres.sh`), PR. 24 épreuves vertes ; sans pose,
+   monde et photographie à 365 jours = PR 2 (`96f0ad5d…`, `b2befd1b…`).
+2. **PR 4** `direct/pays-et-jauges` (`refonte-pays`), partie de `7c412e00` :
+   `git rebase --onto direct/modificateurs 7c412e00 direct/pays-et-jauges` ;
+   puis neutraliser les jauges (`sim.jauges.mettre_a_jour` → rien) dans
+   l'épreuve d'identité de `test_modificateurs.py` et dans les calibrages de
+   `test_prelevement.py` (`_habitants_apres_un_an_calibres`, `_course_departs`) ;
+   16 épreuves de `test_pays_et_jauges.py` vertes ; MODELE « Le pays et ses jauges » écrit.
+3. **PR 5** `direct/batiments-de-province` (`refonte-batiments`) : `data/batiments.toml`
+   et `sim/batiments.py` écrits ; le branchement (`scratchpad/brancher_batiments.py`)
+   n'est passé que pour `world.py` : le refaire après le rebase sur la PR 4
+   (tick après `_affecter_artisans`, intention `batir_dans_une_province`, IA, `/pays`),
+   puis les épreuves (refus avec raison, +10 % en vrais kilos, même graine même monde, IA).
+4. **PR 7** : CAP.md réécrit (J4 clos, décision 40 ; #849 #850 → J6 ; #860 → J5 ;
+   #851 #419 #508 #962 #960 → Réserve avec leur ligne ; lots de la refonte et
+   leurs issues « Demander un lot »), #434 récrit (compétences déjà là).
+5. **Réarmer la chaîne** seulement après la PR 7 : `gh variable delete PC_ACTIF
+   -R PLiagre/Forge`, puis `ssh hermes-boost 'cd ~/Forge && atelier/crons/atelier-boucle jour'`.
+6. Question du monde laissée au propriétaire : recalibrer la part coutumière
+   (3 %) sur un monde qui a sa soudure.
 
 ## Décisions techniques prises seul (et pourquoi)
 
