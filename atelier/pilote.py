@@ -561,11 +561,7 @@ class Pilote:
                     return False
                 self._envoyer_pc(lot, pr, branche, action)
                 return False
-            # Le dernier passage avant blocage se fait par le renfort. Les
-            # lots du PC n'en ont pas : Claude Opus y code déjà.
-            renfort = lots.passage_de_renfort(action.essai, self.projet.corrections_max)
-            return self._coder(lot, pr, branche, action, liste, role="codeur", chantier=lot.numero,
-                               poste="renfort" if renfort else None)
+            return self._coder(lot, pr, branche, action, liste, role="codeur", chantier=lot.numero)
         if action.nom == "relire":
             return self._relire(lot, pr, branche, liste)
         if action.nom == "chef":
@@ -858,8 +854,6 @@ class Pilote:
             self.noter(lot.numero, f"{role} sans changement", "", str(res.agent))
             return True
         quoi = "code" if action.essai == 0 else f"correction {action.essai}"
-        if poste == "renfort":
-            quoi += ", en renfort (dernier passage avant blocage)"
         if inacheve:
             quoi += ", inachevé (délai dépassé)"
         sha = self.depot.enregistrer(chemin, f"Lot #{lot.numero} — {quoi}\n\nÉcrit par {res.agent}.")
@@ -966,10 +960,11 @@ class Pilote:
                                    url=pr.get("url", ""), sha=tete, rapports=rapports,
                                    lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
                                    consigne=consigne, decisions=decisions, master_rouge=master_rouge)
-        # Claude Opus relit tout lot, même celui qu'il a codé, dans sa propre
-        # session en lecture seule ; Sonnet ne relit jamais (choix du
-        # propriétaire, 5 novembre 2026). Personne n'est donc écarté.
-        res = self._invoquer("relecteur", prompt, chemin, lot=lot.numero)
+        # Opus relit les lots qui touchent le moteur, Sonnet les autres, chacun
+        # dans sa propre session en lecture seule (refonte du 7 novembre 2026).
+        # La marque reste celle du relecteur : le verdict compte pareil.
+        res = self._invoquer(self.projet.relecteur_pour(self.depot.fichiers_du_lot(chemin)),
+                             prompt, chemin, lot=lot.numero)
         if res.attente:
             self.noter(lot.numero, "attente", "relecteur : " + " · ".join(res.essais))
             return True

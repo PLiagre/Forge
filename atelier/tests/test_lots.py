@@ -367,15 +367,6 @@ def test_une_dependance_qui_ne_precede_pas_se_refuse(ligne):
         lots.dependances_des_sous_lots(sous)
 
 
-def test_le_renfort_fait_le_dernier_passage_avant_blocage():
-    # corrections_max = 2 : le code (essai 0), la 1re correction (1), puis la
-    # 2e (2), la dernière, qui passe au renfort.
-    assert [lots.passage_de_renfort(e, 2) for e in (0, 1, 2)] == [False, False, True]
-    assert [lots.passage_de_renfort(e, 1) for e in (0, 1)] == [False, True]
-    # Sans correction permise, le seul passage reste au codeur.
-    assert not lots.passage_de_renfort(0, 0)
-
-
 def test_la_question_du_chef_se_lit_dans_sa_reponse():
     texte = ("DECISION: QUESTION :: Faut-il un grenier ?\n- A :: oui :: les villes maigrissent\n- B :: non\n"
              "RECOMMANDATION :: A :: garde l'histoire")

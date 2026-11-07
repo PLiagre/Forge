@@ -74,14 +74,17 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   Plusieurs tours tournent en même temps : le VPS fait avancer jusqu'à
   `[machines].vps` lots à la fois, le PC un ; Claude a un plafond d'agents
   simultanés (`[outils]`), et quand il est plein, le lot attend.
-  Le **chef** écrit le brief dans la branche `lot/<n>-<slug>` et ouvre la PR
-  (moins de 300 lignes, sinon il découpe ; hors de son jalon, il refuse).
-  Le **codeur** — Sonnet, ou Opus pour un lot `pc` (Unity, la 3D) — code,
-  la CI joue les tests, le **relecteur** — toujours Opus, même pour un lot
-  qu'Opus a codé, et jamais Sonnet — rend
+  Le **chef** (Opus) écrit le brief dans la branche `lot/<n>-<slug>` et ouvre
+  la PR. **Un lot a la taille d'une ligne du CAP** : un gain que le joueur
+  voit, et sa preuve dans la même PR, jusqu'à 1 500 lignes environ
+  (`lignes_max`) ; plus gros, il découpe en morceaux qui gardent chacun leur
+  phrase du joueur et leur preuve, jamais en un lot qui code et un lot qui
+  prouve ; hors de son jalon, il refuse.
+  Le **codeur** (Sonnet, lots `pc` compris) code, la CI joue les tests, le
+  **relecteur** — Opus pour un lot qui touche `jeu/sim/`, Sonnet pour les
+  autres, toujours dans une autre session, en lecture seule — rend
   `ACCEPTE` (fusion automatique) ou `CORRIGER` (le codeur corrige, deux fois
-  au plus, puis `bloque`). Sur le VPS, la dernière correction se fait par le
-  **renfort** (Claude Sonnet 5.5).
+  au plus, puis `bloque`).
 - **Les agents éditent des fichiers ou rendent un texte.** Commit, poussée,
   PR, commentaire, étiquette et fusion appartiennent au pilote.
 - **Un lot ne touche jamais** `atelier/`, `.github/`, `atelier.toml`,
@@ -89,8 +92,11 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
 - Les rôles, leurs harnais, leurs modèles et leurs efforts :
   `python3 -m atelier agents`. Changer de modèle ou d'effort, c'est changer
   une ligne de [`atelier.toml`](atelier.toml) (`harnais/modèle@effort`).
-  **Plus rien que Claude** (Opus, Sonnet), par Claude Code : ni GPT, ni
-  grok, ni composer ; le chargement refuse le reste.
+  **Plus rien que Claude** (Opus, Sonnet), par Claude Code, sur un seul
+  abonnement et une seule réserve de quota : Opus est réservé au brief et à la
+  relecture du moteur ; Sonnet code et fait le reste (dépanneur, mécanicien,
+  journal, boussole). Ni GPT, ni grok, ni composer : le chargement refuse le
+  reste.
 - Chaque matin, le journal paraît dans sa propre issue, épinglée : « Journal
   du JJ/MM/AAAA » ; celle de la veille se ferme. Détail de la chaîne : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 

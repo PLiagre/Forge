@@ -461,25 +461,37 @@ def test_la_premiere_correction_reste_au_codeur(projet, gh, depot, tmp_path):
     assert "renfort" not in gh.prs_[50]["comments"][-1]["body"]
 
 
-def test_la_derniere_correction_passe_au_renfort(projet, gh, depot, tmp_path):
+def test_la_derniere_correction_reste_au_codeur(projet, gh, depot, tmp_path):
+    # Le renfort est retiré (7 novembre 2026) : le dernier passage avant
+    # blocage est celui du codeur, qui a sous les yeux la revue d'avant.
     _en_cours(gh, commentaires=_deux_passages_corriges())
     agents = Agents((0, "Corrigé autrement.", {"jeu/sim/x.py": "juste"}))
     _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["sonnet-renfort"]
+    assert agents.outils() == ["sonnet"]
     assert "Toujours faux" in _prompt(agents.appels[0])
     dernier = gh.prs_[50]["comments"][-1]["body"]
-    assert "correction 2, en renfort" in dernier
-    # La marque reste celle du codeur : le passage compte.
+    assert "correction 2" in dernier and "renfort" not in dernier
     m = marques([{"body": dernier}])[-1]
-    assert (m["role"], m["essai"], m["agent"]) == ("codeur", 3, "claude/sonnet-renfort")
+    assert (m["role"], m["essai"], m["agent"]) == ("codeur", 3, "claude/sonnet")
 
 
-def test_le_quota_du_renfort_epuise_rend_le_dernier_passage_au_codeur(projet, gh, depot, tmp_path):
-    _en_cours(gh, commentaires=_deux_passages_corriges())
-    agents = Agents((1, "You've hit your usage limit"), (0, "Corrigé.", {"jeu/sim/x.py": "juste"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert [_modele(a) for a in agents.appels] == ["sonnet-renfort", "sonnet"]
-    assert marques(gh.prs_[50]["comments"])[-1]["agent"] == "claude/sonnet"
+def test_le_relecteur_du_moteur_relit_le_lot_qui_touche_jeu_sim(projet, gh, depot, tmp_path):
+    # Opus relit les lots du moteur, Sonnet les autres (refonte du 7 novembre 2026).
+    from dataclasses import replace
+    from atelier.projet import lire_poste
+    moteur = replace(projet, chemins_du_moteur=("jeu/sim/",),
+                     postes={**projet.postes, "relecteur": lire_poste("relecteur", "claude/sonnet"),
+                             "relecteur_moteur": lire_poste("relecteur_moteur", "claude/opus")})
+    for fichiers, attendu in ((["jeu/sim/engine.py", "docs/briefs/10.md"], "opus"),
+                              (["3d/unity/Assets/X.cs"], "sonnet")):
+        gh_lot = type(gh)()
+        _en_cours(gh_lot, commentaires=[FAIT_CODEUR])
+        depot.fichiers_du_lot = lambda chemin, f=fichiers: f
+        agents = Agents((0, "VERDICT: ACCEPTE"))
+        _pilote(moteur, gh_lot, depot, agents, tmp_path).tour()
+        assert agents.outils() == [attendu], fichiers
+        m = marques(gh_lot.prs_[50]["comments"])[-1]
+        assert (m["role"], m["verdict"], m["agent"]) == ("relecteur", "ACCEPTE", f"claude/{attendu}")
 
 
 def test_un_lot_du_pc_n_a_pas_de_renfort(projet, gh, depot, tmp_path):
