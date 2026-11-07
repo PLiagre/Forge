@@ -25,6 +25,7 @@ from sim.ia import jouer_ia, maisons_actives_30j
 from sim.modificateurs import document_des_modificateurs
 from sim.pays import PaysInconnu, pays
 from sim.jauges import avant_le_tick, document_des_jauges
+from sim.batiments import document_des_batiments
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
@@ -449,6 +450,8 @@ class ServeurMonde(ThreadingHTTPServer):
             if maison_id not in garde:
                 document = pays(self.world, maison_id)
                 document["jauges"] = document_des_jauges(self.world, maison_id)
+                cellules = {l["cell_id"] for l in document["lieux"] + document["lieux_des_vassaux"]}
+                document["batiments"] = document_des_batiments(self.world, cellules)
                 document["date"] = self.world.date_simulation
                 garde[maison_id] = _serialiser(document)
             return garde[maison_id]

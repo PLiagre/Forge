@@ -21,6 +21,7 @@ TYPE_DECOUPER_PARCELLE = "decouper_parcelle"
 TYPE_POSER_BATIMENT = "poser_batiment"
 TYPE_TRACER_ENCEINTE = "tracer_enceinte"
 TYPE_DEPENSER_JAUGE = "depenser_jauge"
+TYPE_BATIR_DANS_UNE_PROVINCE = "batir_dans_une_province"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
@@ -31,6 +32,7 @@ CHAMPS_OBLIGATOIRES = {
     TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature", "maison"),
     TYPE_TRACER_ENCEINTE: ("type", "cell", "points", "maison"),
     TYPE_DEPENSER_JAUGE: ("type", "maison", "geste"),
+    TYPE_BATIR_DANS_UNE_PROVINCE: ("type", "maison", "cell", "nature"),
 }
 
 
@@ -139,6 +141,34 @@ def _depenser_jauge(monde, intention):
     depense = DepenserJauge(maison, geste)
     monde.intentions_en_attente.append(depense)
     return depense
+
+
+@dataclass(frozen=True)
+class BatirDansUneProvince:
+    maison: str
+    cell_id: int
+    nature: str
+
+    def appliquer(self, monde):
+        """Ouvre le chantier du bâtiment (sim.batiments), au tick suivant le dépôt."""
+        from sim import batiments
+        batiments.poser(monde, self.maison, self.cell_id, self.nature)
+
+
+def _batir_dans_une_province(monde, intention):
+    """Un bâtiment depuis la carte : refusé avec sa raison s'il n'est pas sur ses terres ou pas payable."""
+    from sim import batiments
+    maison, cell_id, nature = intention["maison"], intention["cell"], intention["nature"]
+    if isinstance(cell_id, bool) or not isinstance(cell_id, int):
+        raise IntentionRefusee(f"cell invalide : entier attendu, reçu {cell_id!r}")
+    engages = tuple((i.cell_id, i.nature) for i in monde.intentions_en_attente
+                    if isinstance(i, BatirDansUneProvince) and i.maison == maison)
+    raison = batiments.verifier(monde, maison, cell_id, nature, batiments.charger_types(), engages)
+    if raison is not None:
+        raise IntentionRefusee(raison)
+    batir = BatirDansUneProvince(maison, cell_id, nature)
+    monde.intentions_en_attente.append(batir)
+    return batir
 
 
 def _fixer_part(monde, intention):
@@ -420,6 +450,8 @@ def recevoir_intention(monde, intention):
         return _ouvrir_grenier(monde, intention)
     if type_intention == TYPE_DEPENSER_JAUGE:
         return _depenser_jauge(monde, intention)
+    if type_intention == TYPE_BATIR_DANS_UNE_PROVINCE:
+        return _batir_dans_une_province(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
         contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)
