@@ -4,6 +4,7 @@ import zlib
 
 import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
+from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
     ChoixDepart, IntentionRefusee, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER,
     _lieux_de_la_maison, recevoir_intention,
@@ -44,14 +45,18 @@ def _reserve_voulue(monde, lieux):
         habitants += monde.cells[cid].lieux[rang].population
         if rang == 0 and cid not in bourgs:
             bourgs.append(cid)
-    journees = 0
+    par_bourg = {}
     for cid in bourgs:
         plan = monde.plans[cid]
         for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
             if ouvrage.en_chantier:
-                journees += ouvrage.travail_requis - ouvrage.travail_fourni
+                par_bourg[cid] = par_bourg.get(cid, 0) + ouvrage.travail_requis - ouvrage.travail_fourni
+    if getattr(monde, 'modificateurs', None):
+        # Le coût modifié du chantier, comme le paiera chaque bourg (décision 38).
+        salaires = sum(journees * salaire_journee_kg(monde, cid) for cid, journees in par_bourg.items())
+    else:
+        salaires = sum(par_bourg.values()) * _constantes.SALAIRE_JOURNEE_KG
     nourriture = _constantes.MARCHANDISE_NOURRITURE
-    salaires = journees * _constantes.SALAIRE_JOURNEE_KG
     reserve_gens = (
         _constantes.consommation_kg_par_habitant_par_tick(nourriture)
         * (_constantes.RESERVE_VOULUE_JOURS / _constantes.TICK_DURATION_DAYS)

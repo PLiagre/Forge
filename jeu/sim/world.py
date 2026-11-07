@@ -159,6 +159,10 @@ class World:
         secours : arrivée → charges courantes par lieu (cell_id, rang).
         mange_convois_kg : kilos consommés en route, cumul sans arrondi.
         flux : mémoire des circulations sur trente jours, hors de to_dict et des règles.
+        modificateurs : les poses du registre (`sim.modificateurs.Pose`), triées ;
+                     vide au chargement ; dans to_dict seulement s'il en reste.
+        facteurs_du_tick : grandeur → {(cell_id, rang) → facteur}, recalculé au début
+                     de chaque tick depuis les poses ; hors de to_dict, {} sans pose.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -192,6 +196,8 @@ class World:
         self.secours = {}
         self.mange_convois_kg = 0.0
         self.flux = Flux()
+        self.modificateurs = []
+        self.facteurs_du_tick = {}
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -397,4 +403,6 @@ class World:
                 for arrivee, charges in self.secours.items()
                 for (cid, rang), kg in charges.items()
             )
+        if self.modificateurs:
+            document["modificateurs"] = [pose.en_document() for pose in self.modificateurs]
         return document

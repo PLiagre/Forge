@@ -1,0 +1,73 @@
+# Les modificateurs du monde (docs/VISION.md, décisions 34, 35, 37 et 38).
+#
+# Un modificateur change un TAUX que le moteur lit déjà ; il ne crée jamais
+# un kilo ni une pièce. Posé sur une cible (un pays, une cellule ou un lieu),
+# il touche chaque lieu de la cible : pour une grandeur, le moteur multiplie
+# le taux d'un lieu par (1 + la somme des valeurs qui le touchent), dans un
+# ordre fixé, et l'infobulle en donne le détail ligne par ligne.
+#
+# Ce fichier se modifie sans toucher au code ; le moteur et l'IA lisent les
+# mêmes définitions (`jeu/sim/modificateurs.py`, MODELE.md « Les
+# modificateurs »). Les valeurs sont de niveau 2 : plausibles, jamais sourcées.
+
+# Ce qui peut poser un modificateur. Une pose sans l'une de ces sources est
+# refusée : un modificateur qui ne dit pas d'où il vient n'existe pas.
+sources = ["batiment", "loi", "idee", "conseiller", "evenement", "jauge"]
+
+# Les grandeurs du moteur. `lue = false` : le moteur ne la lit pas encore, un
+# modificateur posé dessus est refusé avec sa raison.
+[grandeurs.recolte]
+nom = "Récolte"
+dit = "le grain récolté sur le lieu, chaque jour (la production du tick)"
+lue = true
+
+[grandeurs.prelevement]
+nom = "Prélèvement"
+dit = "la part de la récolte du lieu que son maître prend, jamais plus que la récolte"
+lue = true
+
+[grandeurs.natalite]
+nom = "Natalité"
+dit = "les naissances d'un lieu nourri, sans dette"
+lue = true
+
+[grandeurs.mortalite]
+nom = "Mortalité"
+dit = "les morts de faim d'un lieu endetté, sous le plafond du moteur"
+lue = true
+
+[grandeurs.departs]
+nom = "Départs"
+dit = "la part des foyers d'un lieu qui partent vers un lieu mieux nourri"
+lue = true
+
+[grandeurs.cout_chantier]
+nom = "Coût d'un chantier"
+dit = "le grain payé au bourg pour une journée de chantier, pris au grenier du maître"
+lue = true
+
+[grandeurs.duree_chantier]
+nom = "Durée d'un chantier"
+dit = "les journées qu'un chantier demande, comptées quand il est posé"
+lue = true
+
+[grandeurs.commerce]
+nom = "Commerce"
+dit = "ce que les frontières terrestres d'une cellule portent, lu à son bourg"
+lue = true
+
+[grandeurs.levee]
+nom = "Levée"
+dit = "les hommes qu'un lieu peut lever"
+lue = false
+raison = "la levée arrive avec la guerre (jalon 7) : le moteur ne la lit pas encore"
+
+# Les définitions. `portee` : la sorte de cible qui la reçoit (pays, cellule
+# — la province, à l'échelle d'EU4 — ou lieu). `duree_jours` : 0 tant que sa
+# source tient, sinon le nombre de jours après lequel la pose expire.
+[modificateurs.moulin]
+nom = "Moulin"
+grandeur = "recolte"
+valeur = 0.10
+portee = "cellule"
+duree_jours = 0

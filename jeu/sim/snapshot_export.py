@@ -380,6 +380,11 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
         photographie['ia'] = ia
     if maisons_du_joueur is not None:
         photographie['maisons_du_joueur'] = maisons_du_joueur
+    if world.modificateurs:
+        # Le détail de l'infobulle, sans arrondi : sans pose, la clé est absente
+        # et la photographie garde ses octets.
+        from sim.modificateurs import document_des_modificateurs
+        photographie['modificateurs'] = document_des_modificateurs(world)
     return photographie
 
 
