@@ -498,13 +498,29 @@ PART_SOUTENABLE_AMORCEE = 0.8
 SEED_POPULATION_VARIATION_LOW = 0.9
 SEED_POPULATION_VARIATION_HIGH = 1.1
 
-# Nombre de ticks de consommation couverts par le stock alimentaire initial.
-# L'unité est le tick, pas le jour calendaire.
-INITIAL_FOOD_RESERVE_TICKS = 5
+# --- La soudure : ce qui reste de la récolte de 1399 au 1er janvier 1400 ---
 
-# Réserve initiale supplémentaire des cellules urbaines déficitaires :
-# proxy de niveau 2, environ un mois de manque, sans renouvellement automatique.
-RESERVE_VILLES_TICKS = 30
+# Rang, dans l'année calendaire, du jour où la moisson est rentrée : le
+# 1er août (rang 212), celle du blé en Europe du Nord et du Centre. Niveau 2,
+# plausible, jamais sourcé : la Méditerranée moissonne en juin et l'Égypte en
+# avril, une limite déclarée dans MODELE.md (« Stock alimentaire initial »).
+# Au 1er janvier, les greniers des foyers portent de quoi manger jusque-là :
+# 212 jours de ration, 58 % de ce que l'Europe mange en un an, soit l'ordre de
+# grandeur (niveau 1) des sept douzièmes d'une récolte rentrée en août.
+# Ce que cette valeur a remplacé (lot de la soudure, 7 novembre 2026) : une
+# réserve de cinq ticks, plus un mois du manque des villes, qui tombait en
+# février ; Paris était vide avant avril 1400 (docs/mesures/2026-11-07-refonte).
+JOUR_DE_LA_MOISSON = 212
+
+
+def jours_de_soudure(jour: int) -> int:
+    """
+    Jours de vivres que portent les greniers des foyers au rang `jour` de
+    l'année : ceux qui restent jusqu'à la moisson.
+
+    Relit JOUR_DE_LA_MOISSON et CALENDAR_DAYS_PER_YEAR à chaque appel.
+    """
+    return (JOUR_DE_LA_MOISSON - jour) % CALENDAR_DAYS_PER_YEAR
 
 # --- Récupération physique du déficit alimentaire ---
 

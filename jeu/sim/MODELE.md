@@ -581,31 +581,53 @@ panier.
 
 ## Stock alimentaire initial
 
+La **soudure** : au 1er janvier 1400, les greniers des foyers portent ce qui
+reste de la récolte de 1399, de quoi manger jusqu'à la moisson.
+
 ### Formule
 
 ```
-réserve_ordinaire = population_finale × ration × INITIAL_FOOD_RESERVE_TICKS
-manque_kg = max(0, population_finale - population_soutenable_de(cellule, carte)) × ration
-grenier_urbain = manque_kg × RESERVE_VILLES_TICKS  # seulement si la cellule porte une ville
-food_stock_kg = réserve_ordinaire + grenier_urbain
+ration_du_jour = FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK / TICK_DURATION_DAYS
+jours = jours_de_soudure(0)   # rang du 1er janvier ; (JOUR_DE_LA_MOISSON − 0) mod l'année = 212
+food_stock_kg = population_finale × ration_du_jour × jours
 ```
 
-Le stock ordinaire couvre cinq ticks de consommation normale, y compris dans
-les cellules urbaines. `RESERVE_VILLES_TICKS = 30` est fixé avant mesure :
-environ un mois de manque donne du temps aux échanges, sans promettre un an
-de survie. Le supplément n'existe que pour une cellule portant une ville et
-dépassant sa capacité locale. Son origine est une réserve antérieure à 1400,
-non une production du premier tick. Le commerce peut l'exporter ; rien ne la
-réapprovisionne automatiquement.
-Le total urbain est arrondi à la précision en kilogrammes de la photographie
-du monde (`SNAPSHOT_FLOAT_DECIMALS`), pour que le stock lu et le stock exporté
-portent exactement la même valeur ; les cellules sans ville gardent leur
-amorçage antérieur.
+La même formule vaut pour toute cellule, ville comprise : la ville a acheté
+son grain avant l'hiver, et sa soudure est la ration de ses habitants, pas la
+production de sa cellule. Chaque lieu garde le grain de ses foyers :
+`amorcer_lieux` partage d'abord les habitants, puis
+`_porter_la_soudure_dans_chaque_lieu` donne à chaque lieu la soudure de ses
+habitants, et à la cellule leur somme exacte. Partagée par surface, comme les
+autres paniers, la soudure donnait au bourg dense quelques semaines de vivres
+et à ses champs plus d'un an : ses foyers partaient vers le mieux-vivre dès le
+premier mois (mesuré le 7 novembre 2026 ; le total au bout d'un an ne change
+pas au point près, le chemin si). C'est un stock réel : il se mange, s'échange et se
+transporte comme tout grain ; il n'est pas un plancher de survie, et rien ne
+le renouvelle. La perte du grenier des foyers n'est pas simulée (niveau 3) :
+la soudure n'en retire rien ; le jour où elle le sera, elle portera de quoi la
+couvrir. Le stock vaut un nombre entier de kilogrammes (habitants × 2 × 212) :
+stock lu et stock exporté portent la même valeur, sans arrondi.
+
+**Niveau 1, en ordre de grandeur** : 14,8 Mt pour l'Europe, 58 % de ce
+qu'elle mange en un an, les sept douzièmes d'une récolte rentrée au 1er août.
+**Niveau 2** : la date de la moisson, une seule pour toute la carte (le blé de
+l'Europe du Nord et du Centre) — la Méditerranée moissonne en juin et
+l'Égypte en avril, une limite déclarée ; la répartition entre cellules et
+entre lieux, par habitants.
 
 Invariant d'amorçage : toutes les cellules mangent sans faim ni dette au
-premier tick ; celles sans ville restent en outre sous leur plafond local et
-conservent exactement leur réserve de cinq ticks. Après ce premier tick,
-aucune absence de famine n'est garantie.
+premier tick ; celles sans ville restent en outre sous leur plafond local.
+Après ce premier tick, aucune absence de famine n'est garantie.
+
+**Ce que la soudure tient, et ce qu'elle ne tient pas** (graine 0, sans
+joueur, IA active, `sim/tests/test_soudure.py`) : au 365e jour, aucune
+cellule de la table de référence du jalon 2 n'a perdu plus de la moitié de ses
+habitants par la faim (la pire, Gand et Bruges, 47 % ; Paris garde 51 % de ses
+habitants). La réserve de cinq jours d'avant faisait mourir de faim 89 % de
+Paris avant le 90e jour, et la contre-épreuve la rejoue. La soudure finie, les
+villes de 1400 retombent dans un manque que le commerce ne comble pas (Paris
+reçoit au plus 41 t par jour pour 417 t de manque) : la tenue sur dix ans est
+un autre lot du jalon 5. Mesures : `docs/mesures/2026-11-07-refonte/`.
 
 C'est la **seule** marchandise présente au panier d'une cellule à l'amorçage.
 Toutes les autres y entrent par l'extraction.
@@ -615,8 +637,7 @@ Toutes les autres y entrent par l'extraction.
 | Constante | Valeur | Unité | Justification |
 |---|---|---|---|
 | `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK` | 2.0 × TICK_DURATION_DAYS | kg/personne/tick | Ration journalière médiévale approx. 2 kg (céréales + substituts) × 1 jour/tick |
-| `INITIAL_FOOD_RESERVE_TICKS` | 5 | ticks | Réserve de subsistance de 5 jours — suffisante pour absorber 2–3 mauvaises journées consécutives sans mort immédiate, sans masquer le comportement de long terme |
-| `RESERVE_VILLES_TICKS` | 30 | ticks | Proxy de niveau 2 : un mois environ de manque local pour laisser agir les échanges |
+| `JOUR_DE_LA_MOISSON` | 212 | rang du jour dans l'année | Le 1er août : la moisson du blé rentrée en Europe du Nord et du Centre ; niveau 2. A remplacé, le 7 novembre 2026, `INITIAL_FOOD_RESERVE_TICKS = 5` et `RESERVE_VILLES_TICKS = 30` (cinq jours de ration, plus un mois du manque des villes) |
 
 ---
 
@@ -1707,9 +1728,11 @@ absents ou vides, coordonnée non finie ou booléenne, `hors_carte` présent
 mais vide. Le placement refuse aussi une géométrie absente ; la vue passe
 par `positions_du_monde` et refuse une position absente en nommant la cellule.
 
-`maisons_de_l_ia(monde, …)` de `sim/capitales.py` recalcule un tuple gelé :
-d'abord les grandes maisons triées par id, puis les seigneuries de départ
-triées par id, sauf celle dont `identifiant_de_seigneurie(s.id)` vaut
+`toutes_les_maisons_de_l_ia(monde, …)` de `sim/capitales.py` recalcule un
+tuple gelé : d'abord les grandes maisons triées par id, puis toutes les
+seigneuries de départ triées par id. Elle ne dépend que des tables de 1400 et
+de la carte, jamais du tick ni du joueur. `maisons_de_l_ia(monde, …)` en écarte
+la seigneurie dont `identifiant_de_seigneurie(s.id)` vaut
 `monde.maison_du_joueur`. Les ids des lignes restent entiers. Chaque ligne porte
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
@@ -2465,7 +2488,10 @@ entre tous les lieux, bourg compris : `parts = partager(P, surfaces)`.
 Le bourg (rang 0) reçoit `parts[0] + M`, chaque autre rang reçoit `parts[r]` :
 la somme retrouve exactement la population. Des métiers non calculés (`-1`,
 cellule construite sans métiers) déclarent tout le monde paysan,
-`P = population`. Chaque marchandise garde `partager(total, surfaces)`.
+`P = population`. Chaque marchandise garde `partager(total, surfaces)`, sauf
+la nourriture de l'amorçage dans le monde chargé : `World.charger` la remplace
+aussitôt par la soudure de chaque lieu, à proportion de ses habitants
+(« Stock alimentaire initial »).
 
 Avant fabrication, `repartir_sur_les_lieux` reprend les seules écritures
 extérieures faites sur la cellule hors du tick. Elle ne lit jamais les métiers et compare chaque somme au total actuel de
@@ -2751,7 +2777,21 @@ sans arrondi ; la mesure vient de `maisons_actives_30j` (trente derniers jours),
 Sans option, cette route rend 404 et demande `--ia` ; les autres routes gardent leur forme.
 La durée du tick inclut l'IA. Mesure sur la base, VPS, 06/10/2026, graine 0,
 30 ticks : médianes IA ≈ 275 ms, tick ≈ 91 ms, soit environ 2,7 jours/s au plus.
-Le placement des capitales par polygone est recalculé ; la cadence par défaut de 1 jour/s passe.
+
+**La liste des maisons de l'IA, une fois.** Le placement des capitales par
+polygone coûtait 170 ms des 218 de `jouer_ia` par tick (PC, 7 novembre 2026,
+`docs/mesures/2026-11-07-refonte`, section 2). Les trois boucles — le service,
+`python3 -m sim --ia` et `python3 -m forge --ia` — calculent donc
+`toutes_les_maisons_de_l_ia` une fois et la passent à `jouer_ia(monde, releve,
+maisons)` ; le service la refait seulement si le monde servi change d'objet.
+`decider_intentions` écarte à chaque tick la maison du joueur, ou celle qu'il
+vient de choisir. Sans liste, `jouer_ia` refait la vue, comme avant. Rien ne
+se garde dans le monde ni dans un module. Même graine, mêmes gestes, même
+monde octet pour octet (le test de la liste calculée une fois). Sur le
+PC, ticks 30 à 89 avec IA : 213 ms → 67 ms de médiane (`jouer_ia` 169 → 24 ms,
+le tick du monde 43 ms) ; les jours où une maison cherche sa route vers le
+champ, `verifier_base` recalcule la ville de 1400 à chaque écart essayé et le
+tick monte jusqu'à 235 ms.
 
 Cette absence sans option vaut aussi pour `python3 -m forge`. Avec `--ia`,
 son relevé neuf reste hors de `World` : après validation des départs déposés,

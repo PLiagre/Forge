@@ -13,6 +13,7 @@ from sim.places import CENTROIDE, TIRAGE, Place, places_de_cellule, places_du_mo
 from sim.plan import Plan, Rue
 from sim.routes_interieures import facteurs_des_routes, lieu_de_la_route, routes_vers_les_lieux
 from sim.world import World
+from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
 
 
 def _stock(cellule):
@@ -140,6 +141,8 @@ def test_identique_quand_chemins_suffisent(monkeypatch):
 
 def test_monde_ressent_la_distribution(monkeypatch):
     monkeypatch.setattr(constantes, "TAUX_DE_DEPART", 0)
+    # Un bourg qui manque dans les quatre premiers mois : le décor d'avant la soudure.
+    amorcer_comme_avant_la_soudure(monkeypatch)
     capacite = constantes.CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK
     source = World.charger(0)
     cellules_bourg = [cellule.cell_id for cellule in source.cells.values()
@@ -387,6 +390,8 @@ def test_consommation_par_lieu_sans_repartage_inutile(monkeypatch):
 
 
 def test_bourg_miniers_ont_faim(monkeypatch):
+    # Une famine dans les soixante premiers jours : le décor d'avant la soudure.
+    amorcer_comme_avant_la_soudure(monkeypatch)
     original = engine._apply_consumption
     def mesurer(capacite):
         monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", capacite)

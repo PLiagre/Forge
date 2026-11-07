@@ -384,3 +384,40 @@ sont retenues.
 | les événements à choix | oui, nés d'une cause du monde (une famine, une révolte, une succession contestée), deux ou trois choix qui posent des modificateurs ou dépensent une jauge, jamais une issue imposée ; l'IA choisit par le même chemin ; un lot, après les jauges |
 
 Elles entrent dans [docs/VISION.md](../../VISION.md) comme décisions 39 à 41.
+
+## 6. Après la soudure et la liste des maisons de l'IA (PR 2)
+
+```bash
+cd jeu
+py ../docs/mesures/2026-11-07-refonte/scripts/mesure_monde.py --ticks 3650 \
+   --jalons 90,365,1825,3650 --sortie ../docs/mesures/2026-11-07-refonte/brut/apres-monde-ia.json
+```
+
+Même boucle que la section 1 (graine 0, IA active, la liste des maisons de
+l'IA calculée une fois), sur la branche `direct/soudure-et-tick`.
+
+| | 90e jour | 365e jour | 1 825e jour | 3 650e jour |
+|---|---|---|---|---|
+| Europe | 101,8 % | 106,9 % | 106,5 % | **88,3 %** |
+| Paris | 96,8 % | **50,6 %** (avant : 0 %) | 22,6 % | 22,8 % |
+| Milan | 101,7 % | 105,0 % | 4,1 % | 4,2 % |
+| Florence | 101,8 % | 107,6 % | 0,8 % | 0,2 % |
+| Gand et Bruges | 95,8 % | 12,8 % | 0,3 % | 0 % |
+| Le Caire | 101,8 % | 70,3 % | 54,3 % | 53,1 % |
+| Constantinople | 101,8 % | 105,8 % | 86,9 % | 83,4 % |
+| Londres | 101,8 % | 106,2 % | 92,9 % | 60,5 % |
+| échecs à la table du jalon 2 | 0 | **0** | 2 | 2 |
+| cellules de la table mortes de faim à plus de moitié (sur 61) | 0 | **0** | 17 | 49 |
+| maisons de l'IA qui ont déposé un geste dans l'année (sur 36) | — | 34 | 11 | 16 |
+
+La première année tient : c'est la preuve de la PR 2. **Les suivantes non** :
+les villes retombent dans le manque, et à dix ans l'Europe a perdu 12 % de
+ses habitants (dans la mesure d'avant, elle gardait son total en vidant ses
+villes au profit des campagnes). L'IA se tait de plus en plus : 11 maisons sur
+36 déposent un geste dans la cinquième année. Deux lots du jalon 5 en
+découlent : l'arrière-pays qui nourrit ses villes (le commerce et sa
+capacité), et une IA qui garde des raisons d'agir quand ses greniers sont
+vides.
+
+Le tick, ticks 30 à 89 avec IA, sur le PC : **67 ms** de médiane (section 2),
+pour 213 ms avant.

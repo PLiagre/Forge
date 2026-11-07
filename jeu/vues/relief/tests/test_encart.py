@@ -11,13 +11,19 @@ def photographies():
     return photographier_bar()
 
 def photographier_bar():
+    # Prendre trop fait partir les foyers en un mois quand les greniers sont presque vides :
+    # le décor d'avant la soudure (sim/tests/amorcage_d_avant.py). Avec la soudure, sept mois
+    # de grain retiennent les foyers bien plus longtemps.
+    from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
     bar = next(t.id for t in charger_seigneuries() if t.nom == 'Duché de Bar')
     documents = []
-    for part in (.6, .1):
-        gestes = [{'tick': 0, 'intention': {'type': 'choisir_depart', 'seigneurie': bar}},
-                  {'tick': 1, 'intention': {'type': 'fixer_part', 'maison': f'seigneurie-{bar}', 'part': part}}]
-        _, monde = _simulate(30, 0, gestes)
-        documents.append(build_snapshot_document(monde, 0, 30))
+    with pytest.MonkeyPatch.context() as ctx:
+        amorcer_comme_avant_la_soudure(ctx)
+        for part in (.6, .1):
+            gestes = [{'tick': 0, 'intention': {'type': 'choisir_depart', 'seigneurie': bar}},
+                      {'tick': 1, 'intention': {'type': 'fixer_part', 'maison': f'seigneurie-{bar}', 'part': part}}]
+            _, monde = _simulate(30, 0, gestes)
+            documents.append(build_snapshot_document(monde, 0, 30))
     return documents
 
 @pytest.fixture(scope='module', params=[True, False], ids=['historique-0,1', 'calibre-6,2'])

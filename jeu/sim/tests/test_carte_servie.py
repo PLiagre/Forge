@@ -332,7 +332,10 @@ def test_departs_fige_du_pont():
     fige = (Path(__file__).resolve().parents[3] / "3d/unity/Assets/ForgeLocal3D/Pont/Tests/departs-graine0-tick3.json").read_bytes()
     document = json.loads(fige)
     assert document["departs"]
-    with lancer_service(0) as port:
+    # Réponse figée du pont : le monde de la graine 0 amorcé comme avant la soudure
+    # (sim/tests/amorcage_d_avant.py), que les tests C# relisent au chiffre près.
+    from sim.tests.amorcage_d_avant import PREAMBULE
+    with lancer_service(0, amorcage=PREAMBULE) as port:
         assert requete_service(port, "/tick?n=3", "POST")[0] == HTTPStatus.OK
         statut, _, octets = requete_service(port, "/departs")
         assert statut == HTTPStatus.OK and octets == fige == requete_service(port, "/departs")[2]

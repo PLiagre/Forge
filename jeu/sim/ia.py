@@ -166,8 +166,13 @@ def _proposition_de_part(monde, maison, cle):
     }
 
 
-def decider_intentions(monde, releve):
-    """Propose dans l'ordre des maisons, sans écrire ni tirer d'aléa."""
+def decider_intentions(monde, releve, maisons=None):
+    """Propose dans l'ordre des maisons, sans écrire ni tirer d'aléa.
+
+    `maisons` : la liste que la boucle de jeu a calculée une fois
+    (`capitales.toutes_les_maisons_de_l_ia`) ; sans elle, la vue est refaite.
+    La maison du joueur, ou celle qu'il vient de choisir, est écartée ici.
+    """
     from sim import programme_ia
     choix = monde.maison_du_joueur
     if choix is None:
@@ -175,7 +180,7 @@ def decider_intentions(monde, releve):
     pleine = _fenetre_pleine(monde)
     t = monde.ticks_ecoules
     propositions = []
-    for maison in maisons_de_l_ia(monde):
+    for maison in (maisons_de_l_ia(monde) if maisons is None else maisons):
         if maison.hors_carte is not None or (maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix):
             continue
         cellule, plan = monde.cells.get(maison.cell_id), monde.plans.get(maison.cell_id)
@@ -199,9 +204,9 @@ def decider_intentions(monde, releve):
     return propositions
 
 
-def jouer_ia(monde, releve):
+def jouer_ia(monde, releve, maisons=None):
     """Décide tout avant le premier dépôt ; note l'acceptation ou le refus."""
-    for proposition in decider_intentions(monde, releve):
+    for proposition in decider_intentions(monde, releve, maisons):
         try:
             recevoir_intention(monde, proposition['intention'])
         except IntentionRefusee as refus:

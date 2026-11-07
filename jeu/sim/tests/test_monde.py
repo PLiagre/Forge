@@ -1715,9 +1715,11 @@ def test_cellules_minieres_produisent_moins_et_portent_moins_de_monde():
     carte_doc = World.lire_carte()
     porteuses = _porteuses_de_la_carte(carte_doc)
     assert porteuses, "échantillon vide : aucune cellule porteuse"
-    # Après la réserve initiale, avant que la mortalité n'ait fini d'ajuster
-    # la ration : c'est là que la dette est une mesure, pas un équilibre.
-    horizon = _k.INITIAL_FOOD_RESERVE_TICKS + _k.N_BOUND_MORT
+    # L'horizon reste celui d'avant la soudure (cinq ticks de l'ancienne
+    # réserve, puis le temps que la mortalité ajuste la ration) : les
+    # assertions lisent la production et l'amorçage, que la réserve ne change
+    # pas ; la dette n'est qu'imprimée.
+    horizon = 5 + _k.N_BOUND_MORT
 
     def _jouer(sans_gisements: bool) -> tuple[float, float]:
         monde = World.charger(0)
@@ -3883,6 +3885,10 @@ def _controler_secours(releve, raisons):
 
 
 _JOURS_DU_PROGRAMME = 100  # la première route du programme tombe vers le jour 65 : l'horizon garde de la marge
+# Le programme répond à la faim du bourg ; avec la soudure, elle ne vient qu'après
+# l'été. Ses épreuves jouent donc le monde amorcé comme avant elle, où la faim vient
+# au premier mois (sim/tests/amorcage_d_avant.py) : elles éprouvent la réponse, pas la date.
+from sim.tests.amorcage_d_avant import PREAMBULE as _AMORCAGE_DU_PROGRAMME, amorcer_comme_avant_la_soudure
 
 
 def _verifier_raisons(ticks):
@@ -3901,9 +3907,9 @@ def _verifier_raisons(ticks):
         assert maisons
         return maisons
 
-    def enveloppe_ia(monde, releve):
+    def enveloppe_ia(monde, releve, maisons=None):
         deja = len(releve)
-        reel_ia(monde, releve)
+        reel_ia(monde, releve, maisons)
         for entree in releve[deja:]:
             if entree['intention']['type'] == 'tracer_route' and entree['raison']['regle'] == 'route_vers_le_champ':
                 couple = (entree['maison']['sorte'], entree['maison']['id'])
@@ -3953,8 +3959,8 @@ def _routes_du_releve(releve):
 @_REGLES
 def test_ia_rejeu_octets(tmp_path, regle):
     jours = _JOURS_DU_PROGRAMME
-    a, monde = _ia_cli(tmp_path, jours, options=['--ia'])
-    assert _ia_cli(tmp_path, jours, options=['--ia']) == (a, monde)
+    a, monde = _ia_cli(tmp_path, jours, options=['--ia'], amorcage=_AMORCAGE_DU_PROGRAMME)
+    assert _ia_cli(tmp_path, jours, options=['--ia'], amorcage=_AMORCAGE_DU_PROGRAMME) == (a, monde)
     routes = _routes_du_releve(a['ia']['releve'])
     dites = [e for e in routes if e['raison']['regle'] == 'route_vers_le_champ']
     assert dites and len(dites) == len(routes)
@@ -3963,18 +3969,18 @@ def test_ia_rejeu_octets(tmp_path, regle):
     assert gestes
     chemin = tmp_path / 'gestes.json'
     chemin.write_text(json.dumps(gestes))
-    assert _ia_cli(tmp_path, jours, options=['--gestes', str(chemin)])[1] == monde
+    assert _ia_cli(tmp_path, jours, options=['--gestes', str(chemin)], amorcage=_AMORCAGE_DU_PROGRAMME)[1] == monde
     premiere = next(g for g in gestes if g['intention']['type'] == 'tracer_route')
     premiere['intention']['points'][0][0] += 1
     chemin.write_text(json.dumps(gestes))
-    assert _ia_cli(tmp_path, jours, options=['--gestes', str(chemin)])[1] != monde
+    assert _ia_cli(tmp_path, jours, options=['--gestes', str(chemin)], amorcage=_AMORCAGE_DU_PROGRAMME)[1] != monde
 
 
 @_REGLES
 def test_ia_mesure_reelle(tmp_path, regle):
     from sim import ia, constants as k
     ticks = _JOURS_DU_PROGRAMME
-    resume, _ = _ia_cli(tmp_path, ticks=ticks, options=['--ia'])
+    resume, _ = _ia_cli(tmp_path, ticks=ticks, options=['--ia'], amorcage=_AMORCAGE_DU_PROGRAMME)
     releve = resume['ia']['releve']
     capitales = {(m.sorte, m.id): m.cell_id for m in ia.maisons_de_l_ia(World.charger(0)) if m.cell_id is not None}
     def cle_de(e):
@@ -4035,6 +4041,7 @@ def test_ia_mesure_reelle(tmp_path, regle):
 def test_ia_raisons_egalent_le_monde(monkeypatch, bras, regle):
     from sim import constants as k
     monkeypatch.setattr("sim.constants.BRAS_AUX_CHAMPS_PAR_KM2", bras)
+    amorcer_comme_avant_la_soudure(monkeypatch)
     releve = _verifier_raisons(_JOURS_DU_PROGRAMME)
     routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
     dates = [entree['tick'] for entree in routes]
@@ -4516,6 +4523,9 @@ def test_service_logement():
 
 def test_logement_sans_geste(monkeypatch):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
+    # La réponse figée du pont : le monde amorcé comme avant la soudure.
+    from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
+    amorcer_comme_avant_la_soudure(monkeypatch)
     from sim import service
     from sim.tests.test_foyers import _plan_logement
     with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
@@ -4576,9 +4586,15 @@ def test_logement_monde_inchange(monkeypatch):
 
 @contextmanager
 def _lancer_service_sans_part(seed, jours_par_seconde=0):
-    """Pose la part nulle dans le fils, avant le chargement de son monde."""
+    """Pose la part nulle dans le fils, avant le chargement de son monde.
+
+    Ses lecteurs comparent la réponse du service aux réponses figées du pont,
+    que les tests C# relisent au chiffre près : le fils amorce son monde comme
+    avant la soudure (sim/tests/amorcage_d_avant.py).
+    """
+    from sim.tests.amorcage_d_avant import PREAMBULE
     original = subprocess.Popen
-    code = ('import sim.constants as c; c.PART_COUTUMIERE = 0; '
+    code = (PREAMBULE + 'import sim.constants as c; c.PART_COUTUMIERE = 0; '
             'import runpy; runpy.run_module("sim.service", run_name="__main__", alter_sys=True)')
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(subprocess, "Popen", lambda args, **kw:
@@ -4616,7 +4632,8 @@ def test_service_ia_egal_cli(tmp_path, regle):
     from sim.constants import date_de_tick
     ticks = _JOURS_DU_PROGRAMME
     photo = tmp_path / 'ia-photo.json'
-    resume, brut = _ia_cli(tmp_path, ticks=ticks, options=['--ia', '--snapshot-json', str(photo)])
+    resume, brut = _ia_cli(tmp_path, ticks=ticks, options=['--ia', '--snapshot-json', str(photo)],
+                           amorcage=_AMORCAGE_DU_PROGRAMME)
     monde = json.loads(brut)
     cellules = {int(cid): c for cid, c in monde['cells'].items()}
     reference = dict(tick=ticks, date=date_de_tick(ticks), **resume['ia'])
@@ -4626,7 +4643,7 @@ def test_service_ia_egal_cli(tmp_path, regle):
     print(f'{len(routes)} routes du programme en {ticks} jours', flush=True)
     ids = {e['intention']['cell'] for e in reference['releve'] if 'cell' in e['intention']}
     assert ids
-    with _lancer_service_ia() as port:
+    with _lancer_service_ia(amorcage=_AMORCAGE_DU_PROGRAMME) as port:
         assert requete_service(port, f'/tick?n={ticks}', 'POST')[1]['tick'] == ticks
         obtenu = requete_service(port, '/ia')[1]
         assert obtenu == reference
@@ -4662,7 +4679,7 @@ def test_service_ia_ordre(monkeypatch):
             engine.tick(s.world, s.rng, s.world.ticks_ecoules)
         assert s.world.intentions_en_attente == [] and s.world.maison_du_joueur == identifiant_de_seigneurie(terre)
         evenements = []
-        def ia(w, r): evenements.append(('ia', s.verrou_tick.locked(), w, r))
+        def ia(w, r, maisons=None): evenements.append(('ia', s.verrou_tick.locked(), w, r))
         def tick(w, *a): evenements.append(('tick', s.verrou_tick.locked(), w, s.releve))
         monkeypatch.setattr(service, 'jouer_ia', ia)
         monkeypatch.setattr(service, 'tick', tick)
@@ -4676,7 +4693,7 @@ def test_service_ia_ordre(monkeypatch):
         route = dict(type='tracer_route', maison=s.world.maison_du_joueur, cell=cellule_du_siege(charger_seigneuries()[0], s.world.carte), points=[[0, 0], [40, 0]], largeur_m=4)
         assert requete_service(port, '/intention', 'POST', json.dumps(route).encode())[0] == HTTPStatus.OK
         joueur = list(s.world.intentions_en_attente)
-        def deposer(w, r):
+        def deposer(w, r, maisons=None):
             assert s.verrou_tick.locked() and w is s.world and r is s.releve
             recevoir_intention(w, dict(route, points=[[0, 4], [40, 4]]))
         monkeypatch.setattr(service, 'jouer_ia', deposer)
@@ -4708,7 +4725,7 @@ def test_service_ia_refus(monkeypatch, capsys, erreur):
         file = list(s.world.intentions_en_attente)
         chemins = ['/monde', '/ia', f"/plan?cell={route['cell']}"]
         avant = [requete_service(port, c)[2] for c in chemins]
-        def refuser(w, r):
+        def refuser(w, r, maisons=None):
             recevoir_intention(w, route)
             r.append(dict(tick=0, maison={'sorte': 'seigneurie', 'id': 0}, intention=route))
             raise erreur('route refusée')

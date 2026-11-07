@@ -30,12 +30,25 @@ from sim import engine  # noqa: E402
 from sim.ia import jouer_ia, maisons_actives_30j  # noqa: E402
 from sim.puissances import puissances_depuis_monde  # noqa: E402
 from sim.world import World  # noqa: E402
+try:  # la liste des maisons de l'IA, calculée une fois par la boucle (après la refonte)
+    from sim.capitales import toutes_les_maisons_de_l_ia  # noqa: E402
+except ImportError:  # le dépôt d'avant : jouer_ia refait la liste à chaque tick
+    toutes_les_maisons_de_l_ia = None
 from sim.tests.test_epreuve_jalon2 import (  # noqa: E402
     densite_region, epreuve, lire_reference, placer,
 )
 
 VILLES = ["Paris", "Milan", "Florence", "Gand", "Bruges", "Le Caire",
           "Constantinople", "Londres"]
+
+
+def _liste(monde):
+    """Les arguments de plus de jouer_ia : la liste des maisons, si le dépôt la connaît."""
+    if toutes_les_maisons_de_l_ia is None:
+        return ()
+    if getattr(monde, '_liste_mesure', None) is None:
+        monde._liste_mesure = toutes_les_maisons_de_l_ia(monde)
+    return (monde._liste_mesure,)
 
 
 def empreinte(monde) -> str:
@@ -166,7 +179,7 @@ def main(argv=None) -> int:
                 "commande": " ".join(sys.argv)}
     for _ in range(a.ticks):
         if not a.sans_ia:
-            jouer_ia(monde, gestes)
+            jouer_ia(monde, gestes, *_liste(monde))
         engine.tick(monde, rng, monde.ticks_ecoules)
         if monde.ticks_ecoules in jalons:
             r = releve(monde, depart, morts, ref_cellules, reference, gestes, t0)

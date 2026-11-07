@@ -17,8 +17,6 @@ from sim.flux import Flux
 from sim import foyers
 from sim.aggregation import PositionCelluleInconnue, charger_positions
 from sim.constants import (
-    FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK,
-    INITIAL_FOOD_RESERVE_TICKS,
     MARCHANDISE_NOURRITURE,
     PART_SOUTENABLE_AMORCEE,
     SEED_POPULATION_VARIATION_HIGH,
@@ -69,9 +67,39 @@ def _seed_population(soutenable: float, rng: random.Random) -> int:
 
 
 def _seed_food_stock(population: int) -> float:
-    """Stock alimentaire initial : INITIAL_FOOD_RESERVE_TICKS ticks de consommation."""
-    tick_need = population * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
-    return tick_need * INITIAL_FOOD_RESERVE_TICKS
+    """
+    La soudure : ce qui reste de la récolte de 1399 dans les greniers des
+    foyers au 1er janvier, de quoi manger jusqu'à la moisson.
+
+    `population × ration d'un jour × jours_de_soudure(rang du premier jour)`,
+    pour toute cellule, ville comprise : la ville a acheté son grain avant
+    l'hiver. Les constantes se relisent par leur module à chaque appel. Voir
+    sim/MODELE.md § « Stock alimentaire initial ».
+    """
+    ration_du_jour = (constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+                      / constantes.TICK_DURATION_DAYS)
+    # Le monde s'amorce au 1er janvier 1400 : le rang 0 de l'année.
+    jours = constantes.jours_de_soudure(0)
+    return population * ration_du_jour * jours
+
+
+def _porter_la_soudure_dans_chaque_lieu(cell: Cell) -> None:
+    """
+    Chaque lieu garde le grain de ses foyers : sa soudure suit ses habitants.
+
+    `amorcer_lieux` partage les paniers par surface ; pour la soudure, ce
+    partage donnait au bourg dense quelques semaines de vivres et à ses champs
+    plus d'un an, et les foyers du bourg partaient vers le mieux-vivre dès le
+    premier mois. Ici, chaque lieu reçoit la soudure de ses habitants ; la
+    cellule porte la somme exacte (des kilos entiers, sans arrondi).
+    """
+    total = 0.0
+    for lieu in cell.lieux:
+        kg = _seed_food_stock(lieu.population)
+        ecrire_stock_marchandise(lieu, MARCHANDISE_NOURRITURE, kg)
+        total += kg
+    if cell.lieux:
+        ecrire_stock_marchandise(cell, MARCHANDISE_NOURRITURE, total)
 
 
 def lire_stock_mer(world: "World", marchandise: str) -> float:
@@ -261,10 +289,6 @@ class World:
             pop = max(pop_rurale, populations_villes.get(cid, 0))
             metiers = foyers.metiers_d_amorcage(pop, raw.get("gisements") or [])
             stock = _seed_food_stock(pop)
-            if cid in populations_villes:
-                manque_kg = max(0.0, pop - soutenable) * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
-                stock = round(stock + manque_kg * constantes.RESERVE_VILLES_TICKS,
-                              constantes.SNAPSHOT_FLOAT_DECIMALS)
             cell = Cell(
                 cell_id=cid,
                 area_km2=area,
@@ -282,6 +306,7 @@ class World:
             )
             ecrire_stock_marchandise(cell, MARCHANDISE_NOURRITURE, stock)
             cell.lieux = amorcer_lieux(cell)
+            _porter_la_soudure_dans_chaque_lieu(cell)
             bourg = cell.lieux[0]
             if bourg.rang != 0:
                 raise ValueError(

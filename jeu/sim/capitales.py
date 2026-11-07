@@ -94,6 +94,22 @@ def maisons_de_l_ia(
     monde, capitales=None, maisons=None, seigneuries=None, positions=None,
 ) -> tuple[MaisonDeLIA, ...]:
     """Recalcule les grandes maisons, puis les départs que le joueur n'a pas pris."""
+    return tuple(m for m in toutes_les_maisons_de_l_ia(monde, capitales, maisons, seigneuries, positions)
+                 if not (m.sorte == "seigneurie"
+                         and identifiant_de_seigneurie(m.id) == monde.maison_du_joueur))
+
+
+def toutes_les_maisons_de_l_ia(
+    monde, capitales=None, maisons=None, seigneuries=None, positions=None,
+) -> tuple[MaisonDeLIA, ...]:
+    """
+    Les grandes maisons, puis tous les départs, celui du joueur compris.
+
+    Ne dépend que des tables de 1400 et de la carte, jamais du tick ni du
+    joueur : une boucle de jeu la calcule une fois et la donne à `jouer_ia`,
+    qui écarte la maison du joueur à chaque tick. La recalculer à chaque tick
+    coûtait 170 ms sur 218 (docs/mesures/2026-11-07-refonte, section 2).
+    """
     if positions is None:
         positions = charger_positions()
     positions_du_monde(monde, positions)
@@ -112,5 +128,5 @@ def maisons_de_l_ia(
     departs = tuple(MaisonDeLIA(
         "seigneurie", s.id, s.maison, s.siege.nom,
         cellule_du_siege(s, carte), None, s.source,
-    ) for s in sorted(seigneuries, key=lambda s: s.id) if identifiant_de_seigneurie(s.id) != monde.maison_du_joueur)
+    ) for s in sorted(seigneuries, key=lambda s: s.id))
     return grandes + departs

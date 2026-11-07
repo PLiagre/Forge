@@ -224,8 +224,8 @@ def test_forge_ia_boucle(tmp_path, monkeypatch):
     from sim.world import World
     jouer, tick, exporter = ia.jouer_ia, engine.tick, photo.export_snapshot
     evenements, sorties = [], []
-    def jouer_sonde(w, r):
-        evenements.append(('ia', w, r)); jouer(w, r)
+    def jouer_sonde(w, r, maisons=None):
+        evenements.append(('ia', w, r)); jouer(w, r, maisons)
     def tick_sonde(w, rng, *a):
         if evenements and w is evenements[0][1]: evenements.append(('tick', w, evenements[0][2]))
         return tick(w, rng, *a)
@@ -284,6 +284,10 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
 @pytest.mark.parametrize('ticks,empreinte', [(0, '9cc68c20e499efa3b00d66439d2e2d00b14f75289edd9fcafe9b9bf478097e64'), (30, 'afbe1a299ef841dff0c0d10a5e03f96be9cbe126b67912ce0ebc0dc830758278')])
 def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
+    # Les empreintes historiques de la photographie, couche après couche : le
+    # monde amorcé comme avant la soudure (sim/tests/amorcage_d_avant.py).
+    from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
+    amorcer_comme_avant_la_soudure(monkeypatch)
     import hashlib
     from forge.__main__ import _simuler
     from sim.snapshot_export import serialize_snapshot

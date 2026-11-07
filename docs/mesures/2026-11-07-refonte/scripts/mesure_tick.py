@@ -29,6 +29,19 @@ sys.path.insert(0, str(Path.cwd()))
 from sim import engine  # noqa: E402
 from sim.ia import jouer_ia  # noqa: E402
 from sim.world import World  # noqa: E402
+try:  # la liste des maisons de l'IA, calculée une fois par la boucle (après la refonte)
+    from sim.capitales import toutes_les_maisons_de_l_ia  # noqa: E402
+except ImportError:  # le dépôt d'avant : jouer_ia refait la liste à chaque tick
+    toutes_les_maisons_de_l_ia = None
+
+
+def _liste(monde):
+    """Les arguments de plus de jouer_ia : la liste des maisons, si le dépôt la connaît."""
+    if toutes_les_maisons_de_l_ia is None:
+        return ()
+    if getattr(monde, '_liste_mesure', None) is None:
+        monde._liste_mesure = toutes_les_maisons_de_l_ia(monde)
+    return (monde._liste_mesure,)
 
 
 def serie(ia: bool, chauffe: int, n: int, seed: int):
@@ -37,13 +50,13 @@ def serie(ia: bool, chauffe: int, n: int, seed: int):
     gestes: list = []
     for _ in range(chauffe):
         if ia:
-            jouer_ia(monde, gestes)
+            jouer_ia(monde, gestes, *_liste(monde))
         engine.tick(monde, rng, monde.ticks_ecoules)
     t_ia, t_tick, t_total = [], [], []
     for _ in range(n):
         a = time.perf_counter()
         if ia:
-            jouer_ia(monde, gestes)
+            jouer_ia(monde, gestes, *_liste(monde))
         b = time.perf_counter()
         engine.tick(monde, rng, monde.ticks_ecoules)
         c = time.perf_counter()
@@ -75,7 +88,7 @@ def main(argv=None) -> int:
     profil = cProfile.Profile()
     profil.enable()
     for _ in range(a.n_profil):
-        jouer_ia(monde, gestes)
+        jouer_ia(monde, gestes, *_liste(monde))
         engine.tick(monde, rng, monde.ticks_ecoules)
     profil.disable()
     textes = {}
