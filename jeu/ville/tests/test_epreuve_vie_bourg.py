@@ -12,7 +12,12 @@ def epreuve():
 @pytest.fixture(scope="module")
 def refs(epreuve):
     from sim.tests.test_monde import _service_epreuve
-    with _service_epreuve(epreuve=True) as (_serveur, port): return epreuve.references(port)
+    # Les rapports versés viennent d'une session Unity jouée sur le monde amorcé comme avant la
+    # soudure : la référence se relit sur ce même monde (sim/tests/amorcage_d_avant.py).
+    from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
+    with pytest.MonkeyPatch.context() as ctx:
+        amorcer_comme_avant_la_soudure(ctx)
+        with _service_epreuve(epreuve=True) as (_serveur, port): return epreuve.references(port)
 def juge(epreuve, refs, nom="normal", changer=lambda r, f: None):
     r, f = lu(nom), copy.deepcopy(refs); changer(r, f); avant = copy.deepcopy((r, f))
     code, lignes = epreuve.juger(r, f); assert (r, f) == avant, "le juge a modifié ses entrées"

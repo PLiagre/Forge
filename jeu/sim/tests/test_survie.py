@@ -632,15 +632,18 @@ def test_aucune_cellule_n_amorce_au_dessus_de_ce_qu_elle_nourrit():
     assert not affamees, f"faim ou dette au premier tick : {affamees[:1]}"
 
 
+def _soudure_kg(population):
+    """La soudure d'une cellule, recalculée ici depuis les constantes, pas lue sur le monde."""
+    jours = constantes.jours_de_soudure(0)
+    return population * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK / constantes.TICK_DURATION_DAYS * jours
+
+
 def _controle_stock_amorce(monde):
     urbaines = set(monde.attribution_villes.placees.values())
     assert monde.cells and urbaines
     for c in monde.cells.values():
         soutenable = population_soutenable_de(c, monde.carte)
-        ordinaire = c.population * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK * constantes.INITIAL_FOOD_RESERVE_TICKS
-        supplement = (max(0, c.population - soutenable) * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
-                      * constantes.RESERVE_VILLES_TICKS if c.cell_id in urbaines else 0)
-        assert c.food_stock_kg == pytest.approx(ordinaire + supplement)
+        assert c.food_stock_kg == pytest.approx(_soudure_kg(c.population), rel=0, abs=1e-6)
         if c.cell_id not in urbaines:
             assert c.population <= soutenable, (
                 f"plafond dépassé pour la cellule sans ville {c.cell_id}"
@@ -648,20 +651,33 @@ def _controle_stock_amorce(monde):
 
 
 def test_grenier_formule_et_contre_epreuves(monkeypatch):
+    """
+    La soudure (lot de la soudure, 7 novembre 2026) : chaque cellule, ville
+    comprise, part avec la ration de ses habitants jusqu'à la moisson.
+
+    Remplace les cas de l'ancienne formule (cinq ticks, plus un mois du manque
+    des villes) par des cas au moins aussi exigeants : la formule exacte sur
+    chaque cellule ; la constante relue (moissonner deux fois plus tôt divise
+    chaque stock par deux, exactement) ; la contre-épreuve d'un kilo de trop ;
+    le plafond des cellules sans ville ; les villes déficitaires qui ont faim
+    dès le premier tick sans leur grenier.
+    """
     monde = World.charger(rng_seed=0)
     _controle_stock_amorce(monde)
+    assert constantes.jours_de_soudure(0) == 212
     urbaines = set(monde.attribution_villes.placees.values())
     deficitaires = [c.cell_id for c in monde.cells.values()
                    if c.cell_id in urbaines and c.population > population_soutenable_de(c, monde.carte)]
     rurales = [c.cell_id for c in monde.cells.values() if c.cell_id not in urbaines]
     assert deficitaires and rurales
-    ancien = constantes.RESERVE_VILLES_TICKS
-    monkeypatch.setattr(constantes, "RESERVE_VILLES_TICKS", 2 * ancien)
-    double = World.charger(rng_seed=0)
+    ancien = constantes.JOUR_DE_LA_MOISSON
+    monkeypatch.setattr(constantes, "JOUR_DE_LA_MOISSON", ancien // 2)
+    moitie = World.charger(rng_seed=0)
     for cid, c in monde.cells.items():
-        base = c.population * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK * constantes.INITIAL_FOOD_RESERVE_TICKS
-        assert double.cells[cid].food_stock_kg - base == pytest.approx(2 * (c.food_stock_kg - base))
-    monkeypatch.setattr(constantes, "RESERVE_VILLES_TICKS", ancien)
+        assert moitie.cells[cid].population == c.population
+        assert moitie.cells[cid].food_stock_kg * 2 == pytest.approx(c.food_stock_kg, rel=0, abs=1e-6)
+    _controle_stock_amorce(moitie)
+    monkeypatch.setattr(constantes, "JOUR_DE_LA_MOISSON", ancien)
 
     monde.cells[rurales[0]].food_stock_kg += 1
     with pytest.raises(AssertionError):
@@ -672,11 +688,7 @@ def test_grenier_formule_et_contre_epreuves(monkeypatch):
     cellule.population = int(soutenable) + 1
     assert cellule.population > soutenable
     # Le stock suit la nouvelle population : seule l'assertion de plafond peut rougir.
-    cellule.food_stock_kg = (
-        cellule.population
-        * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
-        * constantes.INITIAL_FOOD_RESERVE_TICKS
-    )
+    cellule.food_stock_kg = _soudure_kg(cellule.population)
     with pytest.raises(AssertionError, match="plafond"):
         _controle_stock_amorce(monde)
 

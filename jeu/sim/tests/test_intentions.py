@@ -1617,9 +1617,18 @@ def annee_ia():
 
 @pytest.fixture(scope='module')
 def annee_programme():
-    """La même année que `annee_ia`, la route vers le champ le plus plein décidée par le programme ; garde le maître du bourg à chaque dépôt."""
+    """Une année du programme, la route vers le champ le plus plein ; garde le maître du bourg à chaque dépôt.
+
+    Le programme répond à la faim du bourg : l'année se joue sur le monde amorcé
+    comme avant la soudure, où la faim vient au premier mois
+    (sim/tests/amorcage_d_avant.py) ; elle éprouve la réponse, pas la date.
+    """
     from sim import ia
-    monde, alea, releve, depots = World.charger(0), random.Random(0), [], []
+    from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
+    with pytest.MonkeyPatch.context() as amorce:
+        amorcer_comme_avant_la_soudure(amorce)
+        monde = World.charger(0)
+    alea, releve, depots = random.Random(0), [], []
     original = ia.recevoir_intention
 
     def capter(m, intention):

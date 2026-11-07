@@ -55,11 +55,37 @@
   AGENTS.md §3, README, COHERENCE PH-01 à 03, deux phrases du CAP, consigne
   du relecteur dans `atelier/prompts.py`, et ce dossier de mesures).
 
+- PR 1 fusionnée (#1022, 7/11 13:21 UTC).
+- PR 2, `direct/soudure-et-tick` (worktree `.atelier/direct/refonte-soudure`) :
+  `JOUR_DE_LA_MOISSON = 212`, `jours_de_soudure`, soudure portée **par lieu à
+  proportion de ses habitants** (`_porter_la_soudure_dans_chaque_lieu`) — par
+  surface, le bourg dense partait vers ses champs dès le premier mois (vu par
+  `test_metiers_lus_a_l_amorcage`) ; `toutes_les_maisons_de_l_ia` +
+  `jouer_ia(monde, releve, maisons)` dans les trois boucles. Tests :
+  `test_soudure.py`, `test_maisons_de_l_ia_une_fois.py` ; 28 rouges traités :
+  empreintes de déterminisme recapturées (même code de mesure), contre-épreuve
+  du commerce à la résolution de la photographie, faux `jouer_ia` à trois
+  arguments, et **`sim/tests/amorcage_d_avant.py`** (l'amorçage d'avant, à
+  l'octet près) pour les réponses figées du pont (tests C# pinnés), les
+  calibrages documentés (part coutumière, départs) et les épreuves d'une
+  famine précoce (programme de l'IA, distribution intérieure).
+- Linux : WSL `Ubuntu-24.04`, venv `~/forge-venv` (pytest, xdist, numpy,
+  pillow) ; `/tmp` s'efface entre deux sessions WSL : écrire les journaux dans `~`.
+  Rouges propres à WSL (git de worktree) : `test_texte_master_*`,
+  `test_une_seule_definition_part_miniere`.
+- PR 3 commencée, `direct/modificateurs` (worktree
+  `.atelier/direct/refonte-modificateurs`, parti de la PR 2) : `sim/modificateurs.py`,
+  `data/modificateurs.toml`, branché sur récolte, prélèvement, natalité,
+  mortalité, départs, coût et durée des chantiers (IA comprise), commerce ;
+  `/modificateurs` au service, `modificateurs` à la photographie ;
+  `test_modificateurs.py` (21 cas, verts sous Windows). Sans pose : monde et
+  photographie à 365 jours identiques à la PR 2 (`96f0ad5d…`, `b2befd1b…`).
+
 ## Reste, dans l'ordre
 
-1. PR 2 : la soudure (212 jours) et le tick (liste des maisons de l'IA par
-   la boucle).
-2. PR 3 : le registre des modificateurs.
+1. PR 2 : pousser, CI, fusion.
+2. PR 3 : rebaser sur master après la PR 2, MODELE.md « Les modificateurs »,
+   suite entière (Windows puis WSL), PR.
 3. PR 4 : le pays et ses jauges (compétences des chefs de 1400, niveau 2).
 4. PR 5 : les bâtiments de province.
 5. PR 6 : la chaîne pour Claude seul.
@@ -68,10 +94,15 @@
 
 ## Décisions techniques prises seul (et pourquoi)
 
-- Soudure = 212 jours de ration des habitants de la cellule (jusqu'au
-  1er août), sans retrait de perte : le moteur ne fait pas pourrir le grain
-  des foyers (niveau 3) ; partage entre lieux inchangé (par surface), la
-  mesure ne voit aucune différence.
+- Soudure = 212 jours de ration des habitants (jusqu'au 1er août), sans
+  retrait de perte : le moteur ne fait pas pourrir le grain des foyers
+  (niveau 3) ; partagée entre lieux par habitants (le total d'un an est le
+  même qu'au partage par surface, le chemin non).
+- Les épreuves dont le décor est l'amorçage d'avant (contrats figés du pont,
+  calibrages cités au chiffre près, famine précoce) le gardent par
+  `amorcage_d_avant.py` plutôt que de réécrire des chiffres C# sans Unity ou
+  des calibrages sans décision : recalibrer la part coutumière sur la soudure
+  est une question du monde, laissée au propriétaire.
 - Tick : la boucle (service, forge, `python -m sim`) calcule une fois la
   liste des maisons de l'IA et la passe à `jouer_ia`. Pas de cache dans le
   monde ni dans un module : les tests exigent `monde.__dict__` inchangé
