@@ -3189,6 +3189,65 @@ porte sous `modificateurs` dès qu'une pose existe.
 à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
 (les bâtiments, les jauges et les événements le feront par leurs lots).
 
+## Le pays et ses jauges
+
+**Le pays d'un seul tenant** (`sim/pays.py`, CAP.md, jalon 6). Une vue
+dérivée, rien de stocké : `pays(monde, maison)` lit les lieux de la maison
+sur leur maître, ses vassaux à tous les degrés sur le registre (`suzerain`),
+puis les lieux de ces vassaux ; ses totaux — lieux, habitants (et ceux qu'elle
+tient elle-même), grain récolté sur ses lieux pendant la fenêtre des flux
+(trente jours), son grenier et ceux de ses vassaux, les ouvrages en chantier
+de ses bourgs — ; son suzerain. Un lieu n'appartient qu'au pays de son maître
+et à ceux de ses suzerains : les pays sans suzerain se partagent tous les lieux
+tenus du monde, chacun une fois. `GET /pays?maison=<id>` le sert, avec ses
+jauges, lu sous le verrou du tick et gardé jusqu'au tick suivant.
+
+**Les jauges** (`sim/jauges.py`, `data/jauges.toml`, VISION.md, décisions 36,
+38 et 39). Trois jauges — la **Concorde** (de −3 à +3, la stabilité), le
+**Renom** (de 0 à 100, le prestige), le **Droit** (de 0 à 100, la légitimité) —
+et trois réserves de points — la **Plume** (administrer), le **Sceau**
+(traiter), l'**Épée** (combattre). `World.jauges` garde l'état de chaque
+maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
+`jauges`.
+
+- **Les compétences.** Le chef de la maison (`World.chefs`) a une compétence
+  de gestion, de diplomatie et de guerre, de 0 à 10, dérivée de l'identifiant
+  de la personne (`zlib.crc32`), sans aléa du monde : stable, rien de stocké
+  (niveau 2, décision 39 ; #434 la remplacera par l'hérédité, l'âge,
+  l'éducation, et par une valeur sourcée quand on la sait). Une maison dont le
+  chef n'est pas connu n'a pas de compétence, et le dit (`absents`).
+- **Le mois.** Au premier tick de chaque mois (`ticks_ecoules` multiple de
+  `FENETRE_FLUX_TICKS`, le tout premier excepté), avant les intentions,
+  `mettre_a_jour` : chaque réserve reçoit la compétence de son domaine fois
+  son taux (0,5 point par point de compétence), jusqu'à son plafond ; un pays
+  dont plus de 10 % des lieux ont eu faim dans le mois perd un point de
+  Concorde ; chaque ouvrage achevé dans ses bourgs pendant le mois ajoute un
+  point de Renom, qui s'efface de 2 % par mois ; le Droit ne bouge pas encore
+  de lui-même (la succession contestée viendra avec #435 et #436).
+- **Les modificateurs.** Chaque jauge pose au pays, dans le registre des
+  modificateurs, sous la source `jauge:<jauge>:<maison>`, une valeur par point
+  d'écart à son neutre : Concorde → départs (−5 % par point : à −3, +15 % de
+  départs), Renom → commerce (+0,1 % par point), Droit → prélèvement (+0,2 %
+  par point au-dessus de 50). À son neutre, une jauge ne pose rien : avant le
+  premier mois, le monde est celui d'avant les jauges.
+- **Les gestes.** `depenser_jauge` (`maison`, `geste`) dépense les points d'un
+  geste des données et déplace sa jauge : « Affermir la concorde » (50 de
+  Plume, +1 Concorde), « Asseoir le droit » (30 de Sceau, +10 Droit). Le dépôt
+  refuse, avec sa raison, une maison inconnue, un geste inconnu, des points
+  insuffisants (en comptant les gestes déjà déposés pour le tick) ou une jauge
+  déjà à sa borne. Le geste s'applique à l'étape des intentions et repose les
+  modificateurs du pays au même tick.
+- **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont la
+  Concorde est sous son neutre et dont la Plume paie le geste dépose
+  « Affermir la concorde », par `recevoir_intention`, avec sa raison
+  (`concorde_sous_son_neutre`). Le joueur qui dépose la même intention obtient
+  le même monde (décision 38).
+
+**Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
+`data/jauges.toml`. **Niveau 3**, pas simulé : le conseil du souverain (ses
+points viendront aussi de ses conseillers), les causes du Renom par la guerre
+et du Droit par la succession.
+
 ## Le moteur sans état caché
 
 Les parts vivent dans `World.parts` : défaut relu par le module des constantes au chargement, plafond relu au dépôt ; l'application n'écrit que la part validée.

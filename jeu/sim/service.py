@@ -23,6 +23,8 @@ from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.modificateurs import document_des_modificateurs
+from sim.pays import PaysInconnu, pays
+from sim.jauges import document_des_jauges
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
@@ -221,6 +223,7 @@ class ServeurMonde(ThreadingHTTPServer):
         # (monde, liste) : la liste des maisons de l'IA, calculée une fois par
         # monde servi ; refaite si le monde servi change d'objet.
         self._maisons_ia = None
+        self._pays_du_tick = (None, {})
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
         self.verrou_base = threading.Lock()
@@ -436,6 +439,20 @@ class ServeurMonde(ThreadingHTTPServer):
             modificateurs=_serialiser(document_des_modificateurs(self.world) | {"date": date}),
         )
 
+    def octets_du_pays(self, maison_id):
+        """`/pays` : le pays et ses jauges au tick courant, gardés jusqu'au tick suivant."""
+        with self.verrou_tick:
+            tick = self.world.ticks_ecoules
+            if self._pays_du_tick[0] != tick:
+                self._pays_du_tick = (tick, {})
+            garde = self._pays_du_tick[1]
+            if maison_id not in garde:
+                document = pays(self.world, maison_id)
+                document["jauges"] = document_des_jauges(self.world, maison_id)
+                document["date"] = self.world.date_simulation
+                garde[maison_id] = _serialiser(document)
+            return garde[maison_id]
+
     def maisons_de_l_ia(self):
         """La liste des maisons de l'IA du monde servi, calculée une fois."""
         if self._maisons_ia is None or self._maisons_ia[0] is not self.world:
@@ -596,6 +613,22 @@ class RequetesMonde(BaseHTTPRequestHandler):
                          else _serialiser(self.server.document_departs()))
             except (ValueError, SnapshotExportError, PuissanceInvalide, SeigneurieInconnue) as exc:
                 self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
+            return
+        if cible.path == "/pays":
+            # Le pays d'un seul tenant et ses jauges, lus sur le monde sous le verrou du
+            # tick : au tick publié, jamais pendant qu'il se joue.
+            valeurs = parse_qs(cible.query, keep_blank_values=True).get("maison")
+            recue = None if valeurs is None else valeurs if len(valeurs) != 1 else valeurs[0]
+            if not isinstance(recue, str) or not recue:
+                self._refuser(HTTPStatus.BAD_REQUEST,
+                              f"paramètre maison invalide : reçu {recue!r}, attendu un identifiant de maison")
+                return
+            try:
+                corps = self.server.octets_du_pays(recue)
+            except PaysInconnu:
+                self._refuser(HTTPStatus.NOT_FOUND, f"maison inconnue : reçu {recue!r}")
                 return
             self._repondre_octets(HTTPStatus.OK, corps)
             return

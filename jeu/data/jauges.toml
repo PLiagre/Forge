@@ -1,0 +1,93 @@
+# Les quatre jauges du pays (docs/VISION.md, décisions 36, 38 et 39).
+#
+# L'équivalent de la stabilité, du prestige, de la légitimité et des points de
+# monarque d'EU4, à nos noms et à notre façon : les points naissent des
+# compétences du souverain (le conseil viendra avec les conseillers), les
+# jauges bougent par des causes du monde et par les gestes qui les dépensent,
+# et chacune pose ses modificateurs au pays (`data/modificateurs.toml`, même
+# registre). L'IA a les mêmes, sans bonus (décision 38).
+#
+# Ce fichier se modifie sans toucher au code (`jeu/sim/jauges.py`, MODELE.md
+# « Les jauges du pays »). Toutes les valeurs sont de niveau 2.
+
+# Les compétences d'une personne, de 0 à 10. En attendant #434 (traits,
+# hérédité, éducation), celles des chefs de 1400 se dérivent de leur
+# identifiant (décision 39) : plausibles, stables, jamais sourcées.
+[competences]
+domaines = ["gestion", "diplomatie", "guerre"]
+minimum = 0
+maximum = 10
+
+# Les jauges. `modificateurs` : ce qu'elles posent au pays, par point d'écart
+# à `neutre` (une valeur nulle ne pose rien).
+[jauges.concorde]
+nom = "Concorde"
+dit = "si le pays tient ensemble : la stabilité"
+minimum = -3
+maximum = 3
+depart = 0
+neutre = 0
+modificateurs = { departs = -0.05 }
+
+[jauges.renom]
+nom = "Renom"
+dit = "ce qu'on dit du pays et de sa dynastie : le prestige"
+minimum = 0
+maximum = 100
+depart = 0
+neutre = 0
+modificateurs = { commerce = 0.001 }
+
+[jauges.droit]
+nom = "Droit"
+dit = "ce qui fonde le souverain : la légitimité"
+minimum = 0
+maximum = 100
+depart = 50
+neutre = 50
+modificateurs = { prelevement = 0.002 }
+
+# Les trois réserves de points : elles se remplissent chaque mois de la
+# compétence du souverain dans leur domaine, jusqu'à leur plafond.
+[points.plume]
+nom = "Plume"
+dit = "administrer"
+domaine = "gestion"
+par_point_de_competence_par_mois = 0.5
+plafond = 999
+
+[points.sceau]
+nom = "Sceau"
+dit = "traiter"
+domaine = "diplomatie"
+par_point_de_competence_par_mois = 0.5
+plafond = 999
+
+[points.epee]
+nom = "Épée"
+dit = "combattre"
+domaine = "guerre"
+par_point_de_competence_par_mois = 0.5
+plafond = 999
+
+# Les causes du monde, lues une fois par mois sur les lieux que le pays tient.
+[causes]
+# Un mois où plus de cette part de ses lieux a eu faim : la Concorde perd un point.
+famine_part_des_lieux = 0.10
+famine_concorde = -1
+# Chaque ouvrage achevé dans ses bourgs pendant le mois (rue, parcelle,
+# bâtiment, enceinte) : du Renom ; et le Renom s'efface de cette part par mois.
+renom_par_ouvrage = 1
+renom_effacement_par_mois = 0.02
+
+# Les gestes qui dépensent les jauges : une intention « depenser_jauge »,
+# du joueur ou de l'IA, par le même chemin.
+[gestes.affermir_la_concorde]
+nom = "Affermir la concorde"
+cout = { plume = 50 }
+effet = { concorde = 1 }
+
+[gestes.asseoir_le_droit]
+nom = "Asseoir le droit"
+cout = { sceau = 30 }
+effet = { droit = 10 }
