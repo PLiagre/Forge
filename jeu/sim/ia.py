@@ -6,7 +6,7 @@ import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
-    ChoixDepart, IntentionRefusee, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER,
+    ChoixDepart, IntentionRefusee, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER,
     _lieux_de_la_maison, recevoir_intention,
 )
 from sim.seigneuries import identifiant_de_seigneurie
@@ -171,6 +171,26 @@ def _proposition_de_part(monde, maison, cle):
     }
 
 
+def _proposition_de_jauge(monde, maison, cle, regles):
+    """Affermit la concorde quand elle est sous son neutre et que la Plume la paie (sim.jauges)."""
+    from sim import jauges
+    geste = 'affermir_la_concorde'
+    if geste not in regles.gestes or 'concorde' not in regles.jauges:
+        return None
+    valeurs = jauges.etat(monde, cle, regles)
+    neutre = regles.jauges['concorde']['neutre']
+    if not valeurs['concorde'] < neutre:
+        return None
+    if jauges.verifier_geste(monde, cle, geste, regles) is not None:
+        return None
+    return {
+        'maison': {'sorte': maison.sorte, 'id': maison.id},
+        'intention': {'type': TYPE_DEPENSER_JAUGE, 'maison': cle, 'geste': geste},
+        'raison': {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'], 'neutre': neutre,
+                   'plume': valeurs['plume'], 'cout': dict(regles.gestes[geste]['cout'])},
+    }
+
+
 def decider_intentions(monde, releve, maisons=None):
     """Propose dans l'ordre des maisons, sans écrire ni tirer d'aléa.
 
@@ -185,6 +205,7 @@ def decider_intentions(monde, releve, maisons=None):
     pleine = _fenetre_pleine(monde)
     t = monde.ticks_ecoules
     propositions = []
+    regles = None
     for maison in (maisons_de_l_ia(monde) if maisons is None else maisons):
         if maison.hors_carte is not None or (maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix):
             continue
@@ -206,6 +227,13 @@ def decider_intentions(monde, releve, maisons=None):
             proposition = _proposition_de_part(monde, maison, cle)
             if proposition is not None:
                 propositions.append(proposition)
+            # Les jauges, le même jour du mois, par le même chemin que le joueur (décision 38).
+            if regles is None:
+                from sim import jauges
+                regles = jauges.charger_regles()
+            jauge = _proposition_de_jauge(monde, maison, cle, regles)
+            if jauge is not None:
+                propositions.append(jauge)
     return propositions
 
 

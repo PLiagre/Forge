@@ -20,6 +20,7 @@ TYPE_TRACER_ROUTE = "tracer_route"
 TYPE_DECOUPER_PARCELLE = "decouper_parcelle"
 TYPE_POSER_BATIMENT = "poser_batiment"
 TYPE_TRACER_ENCEINTE = "tracer_enceinte"
+TYPE_DEPENSER_JAUGE = "depenser_jauge"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
@@ -29,6 +30,7 @@ CHAMPS_OBLIGATOIRES = {
     TYPE_DECOUPER_PARCELLE: ("type", "cell", "rue", "segment", "debut_m", "facade_m", "profondeur_m", "cote", "maison"),
     TYPE_POSER_BATIMENT: ("type", "cell", "parcelle", "nature", "maison"),
     TYPE_TRACER_ENCEINTE: ("type", "cell", "points", "maison"),
+    TYPE_DEPENSER_JAUGE: ("type", "maison", "geste"),
 }
 
 
@@ -112,6 +114,31 @@ def _ouvrir_grenier(monde, intention):
     geste = OuvrirGrenier(maison, kg)
     monde.intentions_en_attente.append(geste)
     return geste
+
+
+@dataclass(frozen=True)
+class DepenserJauge:
+    maison: str
+    geste: str
+
+    def appliquer(self, monde):
+        """Dépense les points du geste et déplace sa jauge (sim.jauges), au tick suivant le dépôt."""
+        from sim import jauges
+        jauges.appliquer_geste(monde, self.maison, self.geste)
+
+
+def _depenser_jauge(monde, intention):
+    """Le geste qui dépense une jauge, refusé avec sa raison s'il n'est pas payable au dépôt."""
+    from sim import jauges
+    maison, geste = intention["maison"], intention["geste"]
+    engages = [i.geste for i in monde.intentions_en_attente
+               if isinstance(i, DepenserJauge) and i.maison == maison]
+    raison = jauges.verifier_geste(monde, maison, geste, jauges.charger_regles(), engages)
+    if raison is not None:
+        raise IntentionRefusee(raison)
+    depense = DepenserJauge(maison, geste)
+    monde.intentions_en_attente.append(depense)
+    return depense
 
 
 def _fixer_part(monde, intention):
@@ -391,6 +418,8 @@ def recevoir_intention(monde, intention):
         return _fixer_part(monde, intention)
     if type_intention == TYPE_OUVRIR_GRENIER:
         return _ouvrir_grenier(monde, intention)
+    if type_intention == TYPE_DEPENSER_JAUGE:
+        return _depenser_jauge(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
         contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)
