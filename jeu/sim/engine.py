@@ -30,6 +30,7 @@ from collections import defaultdict
 
 from sim import constants as _constantes
 from sim import flux as _flux
+from sim import modificateurs as _modificateurs
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
@@ -499,6 +500,24 @@ def _repartir_la_perte(ecart, prises):
     return {cle: part for cle, part in zip(cles, parts) if part > 0}
 
 
+def _facteurs_de_recolte(monde, cell):
+    """Le facteur de récolte de chaque lieu (registre des modificateurs), ou None s'ils valent tous 1."""
+    par_lieu = getattr(monde, "facteurs_du_tick", None) if monde is not None else None
+    par_lieu = par_lieu.get("recolte") if par_lieu else None
+    if not par_lieu or not cell.lieux:
+        return None
+    facteurs = [par_lieu.get((cell.cell_id, lieu.rang), 1.0) for lieu in cell.lieux]
+    return facteurs if any(f != 1.0 for f in facteurs) else None
+
+
+def _parts_modifiees(cell, recolte, parts, facteurs):
+    """Les parts de récolte par rang, chacune multipliée par le facteur de son lieu."""
+    if parts is None:
+        parts = [recolte * surface / cell.area_km2
+                 for surface in _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)]
+    return [part * f for part, f in zip(parts, facteurs)]
+
+
 def _noter_recolte_perdue(monde, cell, recolte, carte, saison):
     """Mesure, au rendement déjà tiré, la récolte perdue par chaque chantier."""
     origines = getattr(monde, "origines_des_chantiers", None)
@@ -510,15 +529,25 @@ def _noter_recolte_perdue(monde, cell, recolte, carte, saison):
         return
     actuel = _kg_de_recolte(cell, *_calculer_parts(cell, recolte, carte, saison, True))
     temoin = _kg_de_recolte(cell, *_calculer_parts(cell, recolte, carte, saison, False))
+    facteurs = _facteurs_de_recolte(monde, cell)
+    if facteurs is not None:
+        actuel = [kg * f for kg, f in zip(actuel, facteurs)]
+        temoin = [kg * f for kg, f in zip(temoin, facteurs)]
     for rang, (kg_actuel, kg_temoin) in enumerate(zip(actuel, temoin)):
         prises = {cle: bras[rang] for cle, bras in du_lieu.items() if bras.get(rang, 0)}
         for cle, part in _repartir_la_perte(kg_temoin - kg_actuel, prises).items():
             pertes[cle] = pertes.get(cle, 0.0) + part
 
 
-def _verser_recolte(cell, recolte, carte, saison, recoltes):
-    """Besoin commun, manque local ; le partage historique survit à bras suffisants."""
+def _verser_recolte(cell, recolte, carte, saison, recoltes, facteurs=None):
+    """Besoin commun, manque local ; le partage historique survit à bras suffisants.
+
+    `facteurs` : le facteur de récolte de chaque lieu (registre des modificateurs) ;
+    le grain en plus se récolte au lieu, puis voyage, se stocke et se mange.
+    """
     recolte, parts = _calculer_parts(cell, recolte, carte, saison)
+    if facteurs is not None:
+        parts = _parts_modifiees(cell, recolte, parts, facteurs)
     nourriture = _constantes.MARCHANDISE_NOURRITURE
     avant = max(0.0, lire_stock_marchandise(cell, nourriture))
     stocks = [max(0.0, lire_stock_marchandise(l, nourriture)) for l in cell.lieux] if parts is not None else None
@@ -579,7 +608,7 @@ def _apply_production(
         food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
     else:
         food_produced = production_kg(cell, yield_factor)
-    _verser_recolte(cell, food_produced, carte, saison, recoltes)
+    _verser_recolte(cell, food_produced, carte, saison, recoltes, _facteurs_de_recolte(monde, cell))
     _noter_recolte_perdue(monde, cell, food_produced, carte, saison)
 
 
@@ -596,7 +625,7 @@ def _apply_production_saison_moyenne(
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
     saison = _constantes.facteur_saison_moyen_annuel(*_lire_solstices(cell, carte))
     food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
-    _verser_recolte(cell, food_produced, carte, saison, recoltes)
+    _verser_recolte(cell, food_produced, carte, saison, recoltes, _facteurs_de_recolte(monde, cell))
     _noter_recolte_perdue(monde, cell, food_produced, carte, saison)
 
 
@@ -690,7 +719,7 @@ def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None) -> flo
         return 0.0
     carte = getattr(world, "carte", None)
     if not carte:
-        return base
+        return _capacite_modifiee(world, a_id, b_id, base)
     try:
         fa = _facteur_transport_pour_cellule(a_id, carte)
         fb = _facteur_transport_pour_cellule(b_id, carte)
@@ -699,7 +728,16 @@ def _capacite_transport_arete_kg(world, a_id: int, b_id: int, index=None) -> flo
             f"arête ({a_id},{b_id}) : {e}"
         ) from e
     facteur = min(fa, fb)
-    return base * facteur
+    return _capacite_modifiee(world, a_id, b_id, base * facteur)
+
+
+def _capacite_modifiee(world, a_id, b_id, capacite):
+    """Le commerce de chaque cellule (registre des modificateurs), lu à son bourg."""
+    par_bourg = getattr(world, "facteurs_du_tick", None)
+    par_bourg = par_bourg.get("commerce") if par_bourg else None
+    if not par_bourg:
+        return capacite
+    return capacite * par_bourg.get((a_id, 0), 1.0) * par_bourg.get((b_id, 0), 1.0)
 
 
 def _initialiser_capacite_aretes(world) -> dict[tuple[int, int], float]:
@@ -740,7 +778,7 @@ def _capacites_aretes(world, index=None) -> dict[tuple[int, int], float]:
             except ReliefInvalideError as e:
                 raise ReliefInvalideError(f"arête ({a_id},{b_id}) : {e}") from e
             base *= min(facteurs[a_id], facteurs[b_id])
-        capacite[cle] = base
+        capacite[cle] = _capacite_modifiee(world, a_id, b_id, base)
     return capacite
 
 
@@ -1549,7 +1587,7 @@ def _ajouter_par_les_foyers(cell: Cell, n: int) -> None:
     ecrire_habitants_par_metier(cell, foyers.ajouter(metiers, n))
 
 
-def _apply_mortality(cell: Cell) -> None:
+def _apply_mortality(cell: Cell, facteurs=None) -> None:
     """
     Maillon 5 — Mortalité.
 
@@ -1576,9 +1614,10 @@ def _apply_mortality(cell: Cell) -> None:
         retires = 0
         for lieu in cell.lieux:
             if lieu.population > 0 and lieu.dette_alimentaire_kg > 0:
-                taux = min(lieu.dette_alimentaire_kg / lieu.population
-                           * _constantes.HUNGER_DEATH_SCALE,
-                           _constantes.MAX_DEATH_RATE_PER_TICK)
+                taux = lieu.dette_alimentaire_kg / lieu.population * _constantes.HUNGER_DEATH_SCALE
+                if facteurs is not None:
+                    taux *= facteurs.get((cell.cell_id, lieu.rang), 1.0)
+                taux = min(taux, _constantes.MAX_DEATH_RATE_PER_TICK)
                 brut = lieu.population * taux + lieu.mortality_remainder
                 morts = int(brut)
                 lieu.mortality_remainder = brut - morts
@@ -1607,14 +1646,15 @@ def _apply_mortality(cell: Cell) -> None:
         cell.mortality_remainder = remainder
 
 
-def _apply_natalite(cell: Cell, penurie_kg: float) -> None:
+def _apply_natalite(cell: Cell, penurie_kg: float, facteurs=None) -> None:
     if cell.lieux:
         naissances = 0
         taux = _constantes.naissances_par_habitant_par_tick()
         for lieu in cell.lieux:
             if (lieu.population > 0 and lieu.duree_faim_ticks == 0
                     and lieu.dette_alimentaire_kg == 0):
-                brut = lieu.population * taux + lieu.natalite_remainder
+                taux_du_lieu = taux if facteurs is None else taux * facteurs.get((cell.cell_id, lieu.rang), 1.0)
+                brut = lieu.population * taux_du_lieu + lieu.natalite_remainder
                 enfants = int(brut)
                 lieu.natalite_remainder = brut - enfants
                 lieu.population += enfants
@@ -1905,10 +1945,14 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     pendant ce tick (kg).
     """
     _valider_numero_tick(world, numero_tick)
+    _modificateurs.expirer(world)
     _appliquer_intentions(world)
     _appliquer_pertes_greniers(world)
     _avancer_chantiers(world)
     _affecter_artisans(world)
+    world.facteurs_du_tick = _modificateurs.facteurs_du_monde(world)
+    mortalite = world.facteurs_du_tick.get("mortalite")
+    natalite = world.facteurs_du_tick.get("natalite")
     for cell in world.cells.values():
         _lieux.repartir_sur_les_lieux(cell)
     total_transported = [0.0]
@@ -1959,16 +2003,28 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
                 penurie_kg = _apply_consumption(cell, carte)
             penuries[cell.cell_id] = penurie_kg
             _update_hunger(cell, penurie_kg)
-            _apply_mortality(cell)
-            _apply_natalite(cell, penurie_kg)
+            if mortalite:
+                _apply_mortality(cell, mortalite)
+            else:
+                _apply_mortality(cell)
+            if natalite:
+                _apply_natalite(cell, penurie_kg, natalite)
+            else:
+                _apply_natalite(cell, penurie_kg)
             recueillir_affames(cell, penurie_kg)
     else:
         for cell in world.cells.values():
             penurie_kg = _apply_consumption(cell, carte)
             penuries[cell.cell_id] = penurie_kg
             _update_hunger(cell, penurie_kg)
-            _apply_mortality(cell)
-            _apply_natalite(cell, penurie_kg)
+            if mortalite:
+                _apply_mortality(cell, mortalite)
+            else:
+                _apply_mortality(cell)
+            if natalite:
+                _apply_natalite(cell, penurie_kg, natalite)
+            else:
+                _apply_natalite(cell, penurie_kg)
             recueillir_affames(cell, penurie_kg)
 
     _flux.noter_affames(world, affames)

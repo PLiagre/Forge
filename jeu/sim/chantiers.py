@@ -4,6 +4,7 @@ from dataclasses import replace
 import math
 
 import sim.constants as _constantes
+from sim import modificateurs as _modificateurs
 from sim.flux import jour_courant
 from sim.foyers import ranger_en_foyers
 from sim.model import (ecrire_habitants_par_metier, lire_habitants_par_metier,
@@ -32,6 +33,14 @@ def travail_requis_de_enceinte(contour):
     """Périmètre bouclé, dernier point relié au premier, converti en journées."""
     longueur = sum(math.dist(a, b) for a, b in zip(contour, (*contour[1:], contour[0])))
     return max(1, math.ceil(longueur * _constantes.TRAVAIL_ENCEINTE_JOURNEES_PAR_M))
+
+
+def salaire_journee_kg(monde, cell_id):
+    """Le grain d'une journée de chantier au bourg de `cell_id`, coût modifié compris."""
+    salaire = _constantes.SALAIRE_JOURNEE_KG
+    if not getattr(monde, "modificateurs", None):
+        return salaire
+    return salaire * _modificateurs.facteur(monde, "cout_chantier", cell_id, 0)
 
 
 def _ouvrir_maisons(plan, metiers, bourg):
@@ -191,7 +200,7 @@ def avancer_chantiers(world):
                 ecrire_habitants_par_metier(cell, metiers)
             continue
         grenier = world.greniers.get(bourg.maitre) if bourg is not None and bourg.maitre is not None else None
-        nourriture, salaire = _constantes.MARCHANDISE_NOURRITURE, _constantes.SALAIRE_JOURNEE_KG
+        nourriture, salaire = _constantes.MARCHANDISE_NOURRITURE, salaire_journee_kg(world, cell_id)
         payables = math.floor(grenier.get(nourriture, 0) / salaire) if grenier is not None else 0
         reserves = _reserves(cell, bourg) if metiers is not None else []
         listes, journees = {}, 0

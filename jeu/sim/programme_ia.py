@@ -3,7 +3,8 @@ import math
 
 import sim.constants as _constantes
 import sim.ia as _ia
-from sim.chantiers import travail_requis_de_route
+from sim import modificateurs as _modificateurs
+from sim.chantiers import salaire_journee_kg, travail_requis_de_route
 from sim.intentions import (
     IntentionRefusee, TYPE_TRACER_ROUTE, _lieux_de_la_maison, maitre_du_bourg,
     verifier_base,
@@ -115,8 +116,9 @@ def proposer_route_vers_le_champ(monde, maison, releve):
         return None
     points, ecart = trace
     largeur = _constantes.IA_LARGEUR_ROUTE_M
-    journees = travail_requis_de_route(points, largeur)
-    cout = journees * _constantes.SALAIRE_JOURNEE_KG
+    # Les mêmes modificateurs que le joueur : durée et coût du chantier (décision 38).
+    journees = _modificateurs.ajuster_journees(monde, cell_id, travail_requis_de_route(points, largeur))
+    cout = journees * salaire_journee_kg(monde, cell_id)
     if not grenier > reserve + cout:
         return None
     return {

@@ -6,6 +6,7 @@ import math
 import sim.constants as _constantes
 from sim import flux as _flux
 import sim.ville1400 as _ville1400
+from sim import modificateurs as _modificateurs
 from sim.chantiers import travail_requis_de_batiment, travail_requis_de_enceinte, travail_requis_de_parcelle, travail_requis_de_route
 from sim.plan import Batiment, Enceinte, Parcelle, Plan, PlanInvalide, Rue, _points
 from sim.puissances import PuissanceInvalide
@@ -144,7 +145,8 @@ class TraceRoute:
         identifiant = max((rue.identifiant for rue in plan.rues), default=-1) + 1
         rue = Rue(identifiant, self.points, self.largeur_m, en_chantier=True,
                   foyers=self.foyers,
-                  travail_requis=travail_requis_de_route(self.points, self.largeur_m),
+                  travail_requis=_modificateurs.ajuster_journees(
+                      monde, self.cell_id, travail_requis_de_route(self.points, self.largeur_m)),
                   porte_cell_id=self.porte_cell_id)
         monde.plans[self.cell_id] = Plan(
             rues=[*plan.rues, rue], parcelles=plan.parcelles, batiments=plan.batiments,
@@ -166,7 +168,8 @@ class DecoupeParcelle:
         identifiant = max((p.identifiant for p in plan.parcelles), default=-1) + 1
         parcelle = Parcelle(identifiant, self.contour, en_chantier=True,
                             foyers=self.foyers,
-                            travail_requis=travail_requis_de_parcelle(self.facade_m, self.profondeur_m))
+                            travail_requis=_modificateurs.ajuster_journees(
+                                monde, self.cell_id, travail_requis_de_parcelle(self.facade_m, self.profondeur_m)))
         monde.plans[self.cell_id] = Plan(
             rues=plan.rues, parcelles=[*plan.parcelles, parcelle], batiments=plan.batiments,
             enceinte=plan.enceinte,
@@ -188,7 +191,8 @@ class PoseBatiment:
         identifiant = max((b.identifiant for b in plan.batiments), default=-1) + 1
         batiment = Batiment(identifiant, self.parcelle, self.nature, emprise,
                             en_chantier=True, foyers=self.foyers,
-                            travail_requis=travail_requis_de_batiment(emprise))
+                            travail_requis=_modificateurs.ajuster_journees(
+                                monde, self.cell_id, travail_requis_de_batiment(emprise)))
         monde.plans[self.cell_id] = Plan(
             rues=plan.rues, parcelles=plan.parcelles, batiments=[*plan.batiments, batiment],
             enceinte=plan.enceinte,
@@ -203,7 +207,8 @@ class TracerEnceinte:
     def appliquer(self, monde):
         plan = monde.plans[self.cell_id]
         monde.plans[self.cell_id] = Plan(rues=plan.rues, parcelles=plan.parcelles, batiments=plan.batiments,
-            enceinte=Enceinte(self.points, True, self.foyers, travail_requis_de_enceinte(self.points), 0))
+            enceinte=Enceinte(self.points, True, self.foyers, _modificateurs.ajuster_journees(
+                monde, self.cell_id, travail_requis_de_enceinte(self.points)), 0))
 
 
 def _foyers(intention):

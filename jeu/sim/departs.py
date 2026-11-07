@@ -83,6 +83,9 @@ def appliquer_departs(world) -> int:
 
     deltas_lieux, deltas_cellules = defaultdict(int), defaultdict(int)
     total = 0
+    # Les départs de chaque lieu (registre des modificateurs) : sa part, multipliée
+    # par son facteur, jamais plus que tous ses habitants.
+    modifies = (getattr(world, 'facteurs_du_tick', None) or {}).get('departs')
     partis, arrives = defaultdict(int), defaultdict(int)
     # Si même la meilleure destination ne dépasse pas le lieu le moins
     # nourri, aucun habitant de cette cellule ne peut partir sur cette photo.
@@ -105,6 +108,8 @@ def appliquer_departs(world) -> int:
         tranches = floor(ecart / _constantes.ECART_DE_DEPART_JOURS)
         part = (min(_constantes.TAUX_DE_DEPART * tranches, _constantes.PLAFOND_DE_DEPART)
                 * _constantes.TICK_DURATION_DAYS)
+        if modifies:
+            part = min(1.0, part * modifies.get(cle, 1.0))
         partants = floor(population * part / _constantes.TAILLE_FOYER) * _constantes.TAILLE_FOYER
         if partants:
             partis[cle] += partants
