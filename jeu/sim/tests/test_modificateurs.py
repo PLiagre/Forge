@@ -204,7 +204,11 @@ def test_une_pose_datee_expire_et_une_source_se_retire(depart, donnees):
 
 # --- La preuve : sans pose, rien ne change ; avec, de vrais kilos ---------------
 
-def test_sans_modificateur_la_photographie_a_365_jours_est_celle_d_avant():
+def test_sans_modificateur_la_photographie_a_365_jours_est_celle_d_avant(monkeypatch):
+    # Sans pose d'aucune source : ni bâtiment, ni jauge du pays (sim/jauges.py
+    # pose les siennes chaque mois) ; le registre vide ne change pas un octet.
+    from sim import jauges
+    monkeypatch.setattr(jauges, "mois_ecoule", lambda monde: False)
     monde, rng = World.charger(0), random.Random(0)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
         engine.tick(monde, rng, numero)
