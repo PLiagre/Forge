@@ -2,8 +2,9 @@
 
 Forge est un jeu de grande stratégie à la manière d'Europa Universalis IV : un
 monde de 1400 qui tourne seul, et un pays réel qu'on y fait évoluer depuis la
-carte, contre une IA qui a ses outils, dans **une seule simulation**
-([docs/VISION.md](docs/VISION.md)). L'ordre dans lequel on le
+carte — ses gestes jouent sur des modificateurs et des jauges paramétrables,
+posés sur une économie physique —, contre une IA qui a ses outils, dans
+**une seule simulation** ([docs/VISION.md](docs/VISION.md)). L'ordre dans lequel on le
 construit : [CAP.md](CAP.md). Tout s'écrit en **français clair**.
 
 ## 1. Le mode direct — le propriétaire est là
@@ -101,14 +102,20 @@ Leur raison est dans [docs/VISION.md](docs/VISION.md), dans le même ordre.
  relief, Unity) lisent ; elles ne décident jamais un nombre. La bataille
  n'est pas une vue : elle se calcule dans `sim/` avec les hommes et le
  terrain du monde, et lui rend ses pertes.
-2. **Le monde raisonne en monde.** Interdit : « si famine alors +20 % de
-   criminalité ». Exigé : ils ont faim, ils cherchent, certains volent. Les
-   personnages et l'IA aussi.
+2. **Des modificateurs partout, sur un monde physique.** Comme dans EU4,
+   bâtiments, lois, idées, conseillers, événements du monde et jauges du pays
+   posent des modificateurs (nom, source, cible, grandeur du moteur, valeur,
+   durée), additionnés dans un ordre fixé et détaillés par l'infobulle. Un
+   modificateur change un taux ; il ne remplace pas la cause qu'il nomme et
+   ne crée jamais un kilo ni une pièce. Ses chiffres vivent dans `jeu/data/`.
+   Un modificateur sans source est refusé. (Remplace « le monde raisonne en
+   monde » depuis le 6 novembre 2026, décision 34.)
 3. **L'économie est physique.** Tout kilo et toute pièce ont une origine, un
-   transport, un stockage, une destination.
+   transport, un stockage, une destination ; un modificateur n'en crée aucun.
 4. **L'IA a les outils du joueur.** Tout geste est une intention déposée dans
    `sim/` (ou dans la bataille, pour un ordre de combat) ; l'IA passe par le
-   même chemin, sans bonus. Un geste de jeu qui n'existe qu'en 3D n'existe pas.
+   même chemin, avec les mêmes modificateurs et les mêmes jauges, sans bonus.
+   Un geste de jeu qui n'existe qu'en 3D n'existe pas.
 5. **Les rails posent un fait, jamais une issue.** Une étincelle historique
    arrive à sa date et à son lieu ; le monde décide de la suite.
 6. **Chaque décision pèse.** Les gestes demandés au joueur par année de jeu ne

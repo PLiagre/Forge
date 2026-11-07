@@ -212,7 +212,7 @@ Vérifie, du plus grave au plus léger :
 1. Le diff reste dans le Périmètre du brief, élargi par les décisions du propriétaire s'il y en a plus bas, et rien ne touche {_interdits(projet)}.
 2. Chaque condition de succès est mesurée par un test ou une commande qui peut échouer.
 3. Aucun test existant n'a été modifié pour passer ; aucune tolérance n'a été élargie.
-4. Le code suit `AGENTS.md` : le monde raisonne en monde, pas de nombre magique, déterminisme tenu.
+4. Le code suit `AGENTS.md` : un modificateur a sa source, sa cible et sa grandeur, ses chiffres sont dans `jeu/data/`, il change un taux et ne crée aucun kilo ni aucune pièce ; pas de nombre magique ; déterminisme tenu.
 5. Ce que le lot prétend est vrai : lis le code, pas seulement le compte rendu.
 6. Lot « pc » : tu n'as pas Unity ; le compte rendu du PC dit si Unity compile la révision. S'il dit que non, c'est CORRIGER. Il joint le plan fixe et la photo propre au lot : regarde celle-ci, elle doit montrer ce que le lot prétend.
 7. La section « Le joueur » du brief est vraie une fois le lot fait : ce qu'elle promet au joueur, le diff le donne ; un lot de fond prépare bien le geste qu'elle nomme.

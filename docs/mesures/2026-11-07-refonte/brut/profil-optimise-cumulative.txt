@@ -1,0 +1,33 @@
+         28991413 function calls (28988881 primitive calls) in 7.999 seconds
+
+   Ordered by: cumulative time
+   List reduced from 329 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       30    0.064    0.002    4.256    0.142 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1876(tick)
+       30    0.000    0.000    3.750    0.125 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ia.py:202(jouer_ia)
+       30    0.005    0.000    3.742    0.125 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ia.py:169(decider_intentions)
+     1050    0.002    0.000    3.460    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\programme_ia.py:79(proposer_route_vers_le_champ)
+       24    0.006    0.000    3.362    0.140 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\programme_ia.py:59(_premier_trace)
+       60    0.004    0.000    3.348    0.056 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\intentions.py:349(verifier_base)
+       60    0.000    0.000    3.186    0.053 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:473(base_de_cellule)
+       60    0.000    0.000    3.150    0.053 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:430(base_d_une_population)
+       60    0.015    0.000    3.149    0.052 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:414(_base_des_groupes)
+       60    0.063    0.001    3.134    0.052 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:354(_assembler)
+      120    0.126    0.001    2.839    0.024 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:333(_poser)
+   114702    0.108    0.000    1.641    0.000 {built-in method builtins.any}
+   482419    0.092    0.000    1.446    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:347(<genexpr>)
+   415745    0.232    0.000    1.356    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:157(_recouvrent)
+    17880    0.020    0.000    0.933    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:562(_apply_production)
+    17880    0.196    0.000    0.863    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1344(_apply_consumption)
+   672419    0.347    0.000    0.836    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:143(_profondeur)
+   390/30    0.048    0.000    0.800    0.027 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1037(_apply_commerce)
+    17880    0.022    0.000    0.724    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:519(_verser_recolte)
+    17880    0.068    0.000    0.466    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:435(_calculer_parts)
+    15839    0.214    0.000    0.445    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\lieux.py:78(partager)
+  1344838    0.392    0.000    0.392    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:130(_projection)
+    66962    0.195    0.000    0.389    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:67(proches)
+    66902    0.115    0.000    0.375    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:287(_emprise_maison)
+   100911    0.094    0.000    0.368    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:23(__init__)
+
+

@@ -1,0 +1,31 @@
+{
+ "egalite": {
+  "ticks": 120,
+  "empreinte_depot": "b5b324afd81285ae431a085748b07a68dd5587feed1420fb05d831589b637068",
+  "empreinte_optimise": "b5b324afd81285ae431a085748b07a68dd5587feed1420fb05d831589b637068",
+  "monde_egal": true,
+  "gestes_egaux": true,
+  "gestes": 74
+ },
+ "avec_ia_optimise": {
+  "ticks_mesures": [
+   30,
+   89
+  ],
+  "jouer_ia": {
+   "mediane_ms": 23.87,
+   "min_ms": 8.86,
+   "max_ms": 191.02
+  },
+  "tick": {
+   "mediane_ms": 42.9,
+   "min_ms": 39.68,
+   "max_ms": 83.32
+  },
+  "total": {
+   "mediane_ms": 67.38,
+   "min_ms": 49.99,
+   "max_ms": 234.65
+  }
+ }
+}

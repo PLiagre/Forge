@@ -1,0 +1,38 @@
+         21917541 function calls (21916699 primitive calls) in 10.325 seconds
+
+   Ordered by: internal time
+   List reduced from 421 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   503903    3.325    0.000    3.325    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:95(_dans_anneau)
+      180    0.836    0.005    0.836    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py:351(raw_decode)
+  3334268    0.360    0.000    0.360    0.000 {method 'get' of 'dict' objects}
+     1116    0.248    0.000    0.254    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\intentions.py:55(_lieux_de_la_maison)
+    15158    0.209    0.000    0.433    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\lieux.py:78(partager)
+    17880    0.194    0.000    0.850    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1344(_apply_consumption)
+       30    0.184    0.006    0.284    0.009 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\departs.py:27(appliquer_departs)
+  1829162    0.176    0.000    0.195    0.000 {built-in method builtins.max}
+       30    0.168    0.006    0.252    0.008 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\prelevement.py:48(prelever)
+   134711    0.157    0.000    0.220    0.000 {built-in method builtins.sorted}
+   454523    0.153    0.000    3.480    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:109(point_dans_geometrie)
+      900    0.143    0.000    2.946    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:75(cellule_de_capitale)
+   881796    0.140    0.000    0.235    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\model.py:36(lire_stock_marchandise)
+282518/282422    0.133    0.000    0.320    0.000 {built-in method builtins.sum}
+   341574    0.101    0.000    0.101    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:130(_projection)
+    11850    0.094    0.000    0.237    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:981(_sortir_par_bourg)
+   170787    0.090    0.000    0.217    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:143(_profondeur)
+   199722    0.087    0.000    0.252    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:400(_paysans_restes_au_lieu)
+    17944    0.084    0.000    0.512    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:435(_calculer_parts)
+    14894    0.084    0.000    0.178    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:541(_produire_sur_les_lieux)
+   923962    0.080    0.000    0.083    0.000 {built-in method builtins.min}
+    70652    0.075    0.000    0.536    0.000 {built-in method builtins.any}
+   829478    0.073    0.000    0.073    0.000 {method 'append' of 'list' objects}
+   905170    0.070    0.000    0.070    0.000 {built-in method builtins.isinstance}
+    17880    0.070    0.000    0.183    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1610(_apply_natalite)
+       30    0.069    0.002    4.285    0.143 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1876(tick)
+   850913    0.063    0.000    0.063    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\model.py:53(ecrire_stock_marchandise)
+   206830    0.063    0.000    0.063    0.000 {built-in method builtins.round}
+    42557    0.062    0.000    0.116    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\model.py:63(contenus_des_paniers)
+    35824    0.059    0.000    0.097    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:116(_facteur_eau_pour_cellule)
+
+

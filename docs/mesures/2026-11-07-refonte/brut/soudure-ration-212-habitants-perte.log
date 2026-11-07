@@ -1,0 +1,3 @@
+ration-212-habitants-perte t=90 europe=1.018 Paris=0.96 Milan=1.02 Florence=1.02 Gand=0.95 Bruges=0.95 Le Caire=1.02 Constantinople=1.02 Londres=1.02 echecs=0 faim>50%=0 pire=Gand:0.03 (35.0 s)
+ration-212-habitants-perte t=180 europe=1.036 Paris=0.83 Milan=1.03 Florence=1.04 Gand=0.85 Bruges=0.85 Le Caire=1.04 Constantinople=1.03 Londres=1.04 echecs=0 faim>50%=0 pire=désert occidental égyptien/désert occidental:0.11 (69.6 s)
+ration-212-habitants-perte t=365 europe=1.058 Paris=0.19 Milan=0.19 Florence=1.08 Gand=0.03 Bruges=0.03 Le Caire=0.55 Constantinople=1.05 Londres=1.06 echecs=2 faim>50%=3 pire=Italie du Nord/Milan:0.74 (142.7 s)

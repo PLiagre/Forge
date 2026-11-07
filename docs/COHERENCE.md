@@ -94,9 +94,9 @@ source : Philosophie
 
 | ID | Promesse | État | Code / recherche | Preuve | Limite |
 |---|---|---|---|---|---|
-| PH-01 | Raisonner en termes de monde, pas de gameplay | partiel | Mortalité liée à `food_deficit_kg`, pas à un score « criminalité +20 % » | `sim/MODELE.md` + `sim/engine.py` | Pas d’audit exhaustif de toutes les constantes |
-| PH-02 | Règles générales, comportements émergents | partiel | Commerce par arêtes, migration famine | `sim/tests/test_commerce.py`, `test_survie.py` (via suite SC2) | Nombreuses constantes de calibration niveau 2 |
-| PH-03 | Test « émergent vs codé en dur » | absent | Aucun outil produit ne formalise ce test | — | Discipline de brief, pas de métrique inventaire |
+| PH-01 | Des modificateurs partout, sur un monde physique (VISION, principe 2 et décision 34, depuis le 6 novembre 2026 ; remplace « raisonner en termes de monde, pas de gameplay ») : un modificateur a un nom, une source, une cible, une grandeur du moteur, une valeur et une durée, il change un taux et ne crée aucun kilo | absent | Pas encore de registre des modificateurs dans `sim/` (refonte du 7 novembre 2026, `docs/mesures/2026-11-07-refonte/`) ; la mortalité reste liée à `food_deficit_kg` | — | À mesurer quand le registre existe : un modificateur sans source refusé, un +10 % de récolte qui donne exactement 10 % de kilos en plus |
+| PH-02 | Règles générales, comportements émergents sous les modificateurs | partiel | Commerce par arêtes, migration famine | `sim/tests/test_commerce.py`, `test_survie.py` (via suite SC2) | Nombreuses constantes de calibration niveau 2 |
+| PH-03 | Test « quelle source, quelle cible, quelle grandeur, et où va le kilo ? » | absent | Aucun outil produit ne formalise ce test | — | Discipline de brief ; le registre des modificateurs le portera |
 
 ---
 

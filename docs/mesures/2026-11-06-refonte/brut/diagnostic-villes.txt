@@ -1,0 +1,17 @@
+ville           cell   pop0   soutenable  manque_t/j  stock0_t  voisins
+Constantinople  10374  147167     168020         0.0    1471.7  3
+Florence        10260  101000      77602        46.8    2413.9  4
+Gand            10391  181000      70656       220.7    8430.6  5
+Le Caire         8992  360000     219163       281.7   12050.2  2
+Londres         10237   63826      76448         0.0     638.3  5
+Milan           10466  177000      85899       182.2    7236.1  5
+Paris           10322  275000      66225       417.5   15276.5  7
+
+apports nets du commerce (t/jour, moyenne par fenêtre de 30 jours) et population en fin de fenêtre
+Constantinople    -46.2 t (148112) |   -24.9 t (141428) |   -22.0 t (137940) |   -46.0 t (138852)
+Florence          -17.2 t ( 95654) |     6.1 t ( 25874) |     0.3 t ( 10001) |     0.9 t (  8779)
+Gand              -49.1 t (171663) |    17.9 t ( 29723) |    12.0 t ( 16595) |     8.7 t ( 14423)
+Le Caire          -73.2 t (363328) |    22.0 t (105007) |    -0.9 t ( 20136) |    13.4 t ( 15947)
+Londres           -22.1 t ( 65254) |    -5.8 t ( 61692) |   -18.4 t ( 61622) |   -20.3 t ( 62079)
+Milan              -1.5 t (180065) |    21.9 t ( 36573) |    -1.0 t (  1697) |     0.0 t (    72)
+Paris               0.0 t (276652) |    41.2 t ( 56853) |     2.1 t (  2763) |     0.0 t (   110)

@@ -1,0 +1,1448 @@
+{
+ "seed": 0,
+ "ia": true,
+ "jalons": [
+  {
+   "tick": 90,
+   "date": {
+    "annee": 1400,
+    "jour_de_l_annee": 91
+   },
+   "secondes_ecoulees": 33.7,
+   "europe": 33788347,
+   "europe_depart": 34957409,
+   "part_europe": 0.9666,
+   "villes": {
+    "Bruges": {
+     "cell_id": 10391,
+     "cellule": 16771,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0927,
+     "bourg": 16278,
+     "bourg_depart": 25930,
+     "part_bourg": 0.6278,
+     "morts_de_faim": 154463
+    },
+    "Constantinople": {
+     "cell_id": 10374,
+     "cellule": 137044,
+     "cellule_depart": 147167,
+     "part_cellule": 0.9312,
+     "bourg": 8844,
+     "bourg_depart": 8197,
+     "part_bourg": 1.0789,
+     "morts_de_faim": 3266
+    },
+    "Florence": {
+     "cell_id": 10260,
+     "cellule": 10001,
+     "cellule_depart": 101000,
+     "part_cellule": 0.099,
+     "bourg": 9322,
+     "bourg_depart": 10168,
+     "part_bourg": 0.9168,
+     "morts_de_faim": 84328
+    },
+    "Gand": {
+     "cell_id": 10391,
+     "cellule": 16771,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0927,
+     "bourg": 16278,
+     "bourg_depart": 25930,
+     "part_bourg": 0.6278,
+     "morts_de_faim": 154463
+    },
+    "Le Caire": {
+     "cell_id": 8992,
+     "cellule": 20137,
+     "cellule_depart": 360000,
+     "part_cellule": 0.0559,
+     "bourg": 16230,
+     "bourg_depart": 15219,
+     "part_bourg": 1.0664,
+     "morts_de_faim": 337159
+    },
+    "Londres": {
+     "cell_id": 10237,
+     "cellule": 62325,
+     "cellule_depart": 63826,
+     "part_cellule": 0.9765,
+     "bourg": 10396,
+     "bourg_depart": 8019,
+     "part_bourg": 1.2964,
+     "morts_de_faim": 1471
+    },
+    "Milan": {
+     "cell_id": 10466,
+     "cellule": 1943,
+     "cellule_depart": 177000,
+     "part_cellule": 0.011,
+     "bourg": 466,
+     "bourg_depart": 18072,
+     "part_bourg": 0.0258,
+     "morts_de_faim": 173962
+    },
+    "Paris": {
+     "cell_id": 10322,
+     "cellule": 2932,
+     "cellule_depart": 275000,
+     "part_cellule": 0.0107,
+     "bourg": 2036,
+     "bourg_depart": 39330,
+     "part_bourg": 0.0518,
+     "morts_de_faim": 245104
+    }
+   },
+   "jalon2": {
+    "mediane": "médiane = 6.33 hab./km²",
+    "regions": {
+     "Flandre": {
+      "bloc": "regions_denses",
+      "densite": 5.555,
+      "cellules": [
+       10317,
+       10323,
+       10391
+      ]
+     },
+     "Île-de-France": {
+      "bloc": "regions_denses",
+      "densite": 5.225,
+      "cellules": [
+       10314,
+       10316,
+       10322
+      ]
+     },
+     "Italie du Nord": {
+      "bloc": "regions_denses",
+      "densite": 4.184,
+      "cellules": [
+       10263,
+       10267,
+       10446,
+       10456,
+       10466
+      ]
+     },
+     "delta du Nil": {
+      "bloc": "regions_denses",
+      "densite": 0.827,
+      "cellules": [
+       8992
+      ]
+     },
+     "désert occidental égyptien": {
+      "bloc": "regions_vides",
+      "densite": 1.319,
+      "cellules": [
+       10167,
+       10168
+      ]
+     }
+    },
+    "echecs": [
+     "Flandre : densité 5.55, médiane 6.33",
+     "Île-de-France : densité 5.23, médiane 6.33",
+     "Italie du Nord : densité 4.18, médiane 6.33",
+     "delta du Nil : densité 0.83, médiane 6.33"
+    ]
+   },
+   "faim_table": {
+    "cellules": 61,
+    "plus_de_moitie_morte_de_faim": [
+     {
+      "cell_id": 8992,
+      "noms": [
+       "Le Caire",
+       "Rosette",
+       "delta du Nil/Damiette",
+       "delta du Nil/Rosette",
+       "delta du Nil/Mansourah",
+       "delta du Nil/Tanta",
+       "delta du Nil/Zagazig",
+       "delta du Nil/Damanhour"
+      ],
+      "depart": 360000,
+      "maintenant": 20137,
+      "morts_de_faim": 337159,
+      "part_morte_de_faim": 0.9366
+     },
+     {
+      "cell_id": 10260,
+      "noms": [
+       "Pise"
+      ],
+      "depart": 101000,
+      "maintenant": 10001,
+      "morts_de_faim": 84328,
+      "part_morte_de_faim": 0.8349
+     },
+     {
+      "cell_id": 10322,
+      "noms": [
+       "Paris",
+       "Île-de-France/Paris",
+       "Île-de-France/Saint-Denis",
+       "Île-de-France/Meaux"
+      ],
+      "depart": 275000,
+      "maintenant": 2932,
+      "morts_de_faim": 245104,
+      "part_morte_de_faim": 0.8913
+     },
+     {
+      "cell_id": 10391,
+      "noms": [
+       "Gand",
+       "Flandre/Gand",
+       "Flandre/Bruges",
+       "Flandre/Courtrai"
+      ],
+      "depart": 181000,
+      "maintenant": 16771,
+      "morts_de_faim": 154463,
+      "part_morte_de_faim": 0.8534
+     },
+     {
+      "cell_id": 10466,
+      "noms": [
+       "Italie du Nord/Milan",
+       "Italie du Nord/Crémone",
+       "Italie du Nord/Brescia",
+       "Italie du Nord/Plaisance"
+      ],
+      "depart": 177000,
+      "maintenant": 1943,
+      "morts_de_faim": 173962,
+      "part_morte_de_faim": 0.9828
+     }
+    ],
+    "pire": {
+     "cell_id": 10466,
+     "noms": [
+      "Italie du Nord/Milan",
+      "Italie du Nord/Crémone",
+      "Italie du Nord/Brescia",
+      "Italie du Nord/Plaisance"
+     ],
+     "depart": 177000,
+     "maintenant": 1943,
+     "morts_de_faim": 173962,
+     "part_morte_de_faim": 0.9828
+    }
+   },
+   "ia": {
+    "gestes_acceptes_par_type": {
+     "tracer_route": 8,
+     "fixer_part": 45,
+     "ouvrir_grenier": 17
+    },
+    "refus": 0,
+    "maisons_actives_30j": 12,
+    "maisons_avec_un_geste_sur_365j": 35
+   },
+   "empreinte": "b61c8fb5227191a7c21b3ecdba6839edc7060fa90218133239355a9e434b360a"
+  },
+  {
+   "tick": 365,
+   "date": {
+    "annee": 1401,
+    "jour_de_l_annee": 1
+   },
+   "secondes_ecoulees": 137.0,
+   "europe": 35583102,
+   "europe_depart": 34957409,
+   "part_europe": 1.0179,
+   "villes": {
+    "Bruges": {
+     "cell_id": 10391,
+     "cellule": 7321,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0404,
+     "bourg": 7321,
+     "bourg_depart": 25930,
+     "part_bourg": 0.2823,
+     "morts_de_faim": 159220
+    },
+    "Constantinople": {
+     "cell_id": 10374,
+     "cellule": 143645,
+     "cellule_depart": 147167,
+     "part_cellule": 0.9761,
+     "bourg": 9433,
+     "bourg_depart": 8197,
+     "part_bourg": 1.1508,
+     "morts_de_faim": 3466
+    },
+    "Florence": {
+     "cell_id": 10260,
+     "cellule": 5032,
+     "cellule_depart": 101000,
+     "part_cellule": 0.0498,
+     "bourg": 5032,
+     "bourg_depart": 10168,
+     "part_bourg": 0.4949,
+     "morts_de_faim": 86935
+    },
+    "Gand": {
+     "cell_id": 10391,
+     "cellule": 7321,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0404,
+     "bourg": 7321,
+     "bourg_depart": 25930,
+     "part_bourg": 0.2823,
+     "morts_de_faim": 159220
+    },
+    "Le Caire": {
+     "cell_id": 8992,
+     "cellule": 12054,
+     "cellule_depart": 360000,
+     "part_cellule": 0.0335,
+     "bourg": 12054,
+     "bourg_depart": 15219,
+     "part_bourg": 0.792,
+     "morts_de_faim": 345242
+    },
+    "Londres": {
+     "cell_id": 10237,
+     "cellule": 65988,
+     "cellule_depart": 63826,
+     "part_cellule": 1.0339,
+     "bourg": 8136,
+     "bourg_depart": 8019,
+     "part_bourg": 1.0146,
+     "morts_de_faim": 1471
+    },
+    "Milan": {
+     "cell_id": 10466,
+     "cellule": 0,
+     "cellule_depart": 177000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 18072,
+     "part_bourg": 0.0,
+     "morts_de_faim": 175905
+    },
+    "Paris": {
+     "cell_id": 10322,
+     "cellule": 0,
+     "cellule_depart": 275000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 39330,
+     "part_bourg": 0.0,
+     "morts_de_faim": 247975
+    }
+   },
+   "jalon2": {
+    "mediane": "médiane = 6.62 hab./km²",
+    "regions": {
+     "Flandre": {
+      "bloc": "regions_denses",
+      "densite": 5.418,
+      "cellules": [
+       10317,
+       10323,
+       10391
+      ]
+     },
+     "Île-de-France": {
+      "bloc": "regions_denses",
+      "densite": 5.385,
+      "cellules": [
+       10314,
+       10316,
+       10322
+      ]
+     },
+     "Italie du Nord": {
+      "bloc": "regions_denses",
+      "densite": 4.403,
+      "cellules": [
+       10263,
+       10267,
+       10446,
+       10456,
+       10466
+      ]
+     },
+     "delta du Nil": {
+      "bloc": "regions_denses",
+      "densite": 0.495,
+      "cellules": [
+       8992
+      ]
+     },
+     "désert occidental égyptien": {
+      "bloc": "regions_vides",
+      "densite": 1.018,
+      "cellules": [
+       10167,
+       10168
+      ]
+     }
+    },
+    "echecs": [
+     "Flandre : densité 5.42, médiane 6.62",
+     "Île-de-France : densité 5.38, médiane 6.62",
+     "Italie du Nord : densité 4.40, médiane 6.62",
+     "delta du Nil : densité 0.50, médiane 6.62"
+    ]
+   },
+   "faim_table": {
+    "cellules": 61,
+    "plus_de_moitie_morte_de_faim": [
+     {
+      "cell_id": 8992,
+      "noms": [
+       "Le Caire",
+       "Rosette",
+       "delta du Nil/Damiette",
+       "delta du Nil/Rosette",
+       "delta du Nil/Mansourah",
+       "delta du Nil/Tanta",
+       "delta du Nil/Zagazig",
+       "delta du Nil/Damanhour"
+      ],
+      "depart": 360000,
+      "maintenant": 12054,
+      "morts_de_faim": 345242,
+      "part_morte_de_faim": 0.959
+     },
+     {
+      "cell_id": 10168,
+      "noms": [
+       "désert occidental égyptien/désert occidental",
+       "désert occidental égyptien/El Alamein",
+       "désert occidental égyptien/Marsa Matrouh"
+      ],
+      "depart": 35000,
+      "maintenant": 13013,
+      "morts_de_faim": 20575,
+      "part_morte_de_faim": 0.5879
+     },
+     {
+      "cell_id": 10260,
+      "noms": [
+       "Pise"
+      ],
+      "depart": 101000,
+      "maintenant": 5032,
+      "morts_de_faim": 86935,
+      "part_morte_de_faim": 0.8607
+     },
+     {
+      "cell_id": 10322,
+      "noms": [
+       "Paris",
+       "Île-de-France/Paris",
+       "Île-de-France/Saint-Denis",
+       "Île-de-France/Meaux"
+      ],
+      "depart": 275000,
+      "maintenant": 0,
+      "morts_de_faim": 247975,
+      "part_morte_de_faim": 0.9017
+     },
+     {
+      "cell_id": 10391,
+      "noms": [
+       "Gand",
+       "Flandre/Gand",
+       "Flandre/Bruges",
+       "Flandre/Courtrai"
+      ],
+      "depart": 181000,
+      "maintenant": 7321,
+      "morts_de_faim": 159220,
+      "part_morte_de_faim": 0.8797
+     },
+     {
+      "cell_id": 10466,
+      "noms": [
+       "Italie du Nord/Milan",
+       "Italie du Nord/Crémone",
+       "Italie du Nord/Brescia",
+       "Italie du Nord/Plaisance"
+      ],
+      "depart": 177000,
+      "maintenant": 0,
+      "morts_de_faim": 175905,
+      "part_morte_de_faim": 0.9938
+     }
+    ],
+    "pire": {
+     "cell_id": 10466,
+     "noms": [
+      "Italie du Nord/Milan",
+      "Italie du Nord/Crémone",
+      "Italie du Nord/Brescia",
+      "Italie du Nord/Plaisance"
+     ],
+     "depart": 177000,
+     "maintenant": 0,
+     "morts_de_faim": 175905,
+     "part_morte_de_faim": 0.9938
+    }
+   },
+   "ia": {
+    "gestes_acceptes_par_type": {
+     "tracer_route": 9,
+     "fixer_part": 70,
+     "ouvrir_grenier": 17
+    },
+    "refus": 0,
+    "maisons_actives_30j": 1,
+    "maisons_avec_un_geste_sur_365j": 35
+   },
+   "empreinte": "d2dbffad08e1d511474bd0dfdbf742de71d7bccf7fe4d7828d71d0dc2830dc58"
+  },
+  {
+   "tick": 1825,
+   "date": {
+    "annee": 1405,
+    "jour_de_l_annee": 1
+   },
+   "secondes_ecoulees": 535.6,
+   "europe": 35740334,
+   "europe_depart": 34957409,
+   "part_europe": 1.0224,
+   "villes": {
+    "Bruges": {
+     "cell_id": 10391,
+     "cellule": 0,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 25930,
+     "part_bourg": 0.0,
+     "morts_de_faim": 165016
+    },
+    "Constantinople": {
+     "cell_id": 10374,
+     "cellule": 138590,
+     "cellule_depart": 147167,
+     "part_cellule": 0.9417,
+     "bourg": 16584,
+     "bourg_depart": 8197,
+     "part_bourg": 2.0232,
+     "morts_de_faim": 18546
+    },
+    "Florence": {
+     "cell_id": 10260,
+     "cellule": 0,
+     "cellule_depart": 101000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 10168,
+     "part_bourg": 0.0,
+     "morts_de_faim": 90989
+    },
+    "Gand": {
+     "cell_id": 10391,
+     "cellule": 0,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 25930,
+     "part_bourg": 0.0,
+     "morts_de_faim": 165016
+    },
+    "Le Caire": {
+     "cell_id": 8992,
+     "cellule": 0,
+     "cellule_depart": 360000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 15219,
+     "part_bourg": 0.0,
+     "morts_de_faim": 357276
+    },
+    "Londres": {
+     "cell_id": 10237,
+     "cellule": 65649,
+     "cellule_depart": 63826,
+     "part_cellule": 1.0286,
+     "bourg": 12329,
+     "bourg_depart": 8019,
+     "part_bourg": 1.5375,
+     "morts_de_faim": 16125
+    },
+    "Milan": {
+     "cell_id": 10466,
+     "cellule": 0,
+     "cellule_depart": 177000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 18072,
+     "part_bourg": 0.0,
+     "morts_de_faim": 175905
+    },
+    "Paris": {
+     "cell_id": 10322,
+     "cellule": 0,
+     "cellule_depart": 275000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 39330,
+     "part_bourg": 0.0,
+     "morts_de_faim": 247975
+    }
+   },
+   "jalon2": {
+    "mediane": "médiane = 6.89 hab./km²",
+    "regions": {
+     "Flandre": {
+      "bloc": "regions_denses",
+      "densite": 4.8,
+      "cellules": [
+       10317,
+       10323,
+       10391
+      ]
+     },
+     "Île-de-France": {
+      "bloc": "regions_denses",
+      "densite": 5.166,
+      "cellules": [
+       10314,
+       10316,
+       10322
+      ]
+     },
+     "Italie du Nord": {
+      "bloc": "regions_denses",
+      "densite": 4.262,
+      "cellules": [
+       10263,
+       10267,
+       10446,
+       10456,
+       10466
+      ]
+     },
+     "delta du Nil": {
+      "bloc": "regions_denses",
+      "densite": 0.0,
+      "cellules": [
+       8992
+      ]
+     },
+     "désert occidental égyptien": {
+      "bloc": "regions_vides",
+      "densite": 1.034,
+      "cellules": [
+       10167,
+       10168
+      ]
+     }
+    },
+    "echecs": [
+     "Flandre : densité 4.80, médiane 6.89",
+     "Île-de-France : densité 5.17, médiane 6.89",
+     "Italie du Nord : densité 4.26, médiane 6.89",
+     "delta du Nil : densité 0.00, médiane 6.89"
+    ]
+   },
+   "faim_table": {
+    "cellules": 61,
+    "plus_de_moitie_morte_de_faim": [
+     {
+      "cell_id": 8992,
+      "noms": [
+       "Le Caire",
+       "Rosette",
+       "delta du Nil/Damiette",
+       "delta du Nil/Rosette",
+       "delta du Nil/Mansourah",
+       "delta du Nil/Tanta",
+       "delta du Nil/Zagazig",
+       "delta du Nil/Damanhour"
+      ],
+      "depart": 360000,
+      "maintenant": 0,
+      "morts_de_faim": 357276,
+      "part_morte_de_faim": 0.9924
+     },
+     {
+      "cell_id": 10168,
+      "noms": [
+       "désert occidental égyptien/désert occidental",
+       "désert occidental égyptien/El Alamein",
+       "désert occidental égyptien/Marsa Matrouh"
+      ],
+      "depart": 35000,
+      "maintenant": 1495,
+      "morts_de_faim": 31999,
+      "part_morte_de_faim": 0.9143
+     },
+     {
+      "cell_id": 10260,
+      "noms": [
+       "Pise"
+      ],
+      "depart": 101000,
+      "maintenant": 0,
+      "morts_de_faim": 90989,
+      "part_morte_de_faim": 0.9009
+     },
+     {
+      "cell_id": 10322,
+      "noms": [
+       "Paris",
+       "Île-de-France/Paris",
+       "Île-de-France/Saint-Denis",
+       "Île-de-France/Meaux"
+      ],
+      "depart": 275000,
+      "maintenant": 0,
+      "morts_de_faim": 247975,
+      "part_morte_de_faim": 0.9017
+     },
+     {
+      "cell_id": 10352,
+      "noms": [
+       "Craiova"
+      ],
+      "depart": 134994,
+      "maintenant": 138180,
+      "morts_de_faim": 103382,
+      "part_morte_de_faim": 0.7658
+     },
+     {
+      "cell_id": 10371,
+      "noms": [
+       "Iași"
+      ],
+      "depart": 164011,
+      "maintenant": 158315,
+      "morts_de_faim": 104889,
+      "part_morte_de_faim": 0.6395
+     },
+     {
+      "cell_id": 10391,
+      "noms": [
+       "Gand",
+       "Flandre/Gand",
+       "Flandre/Bruges",
+       "Flandre/Courtrai"
+      ],
+      "depart": 181000,
+      "maintenant": 0,
+      "morts_de_faim": 165016,
+      "part_morte_de_faim": 0.9117
+     },
+     {
+      "cell_id": 10407,
+      "noms": [
+       "Ladoga"
+      ],
+      "depart": 157134,
+      "maintenant": 118607,
+      "morts_de_faim": 85717,
+      "part_morte_de_faim": 0.5455
+     },
+     {
+      "cell_id": 10456,
+      "noms": [
+       "Pavie",
+       "Italie du Nord/Pavie"
+      ],
+      "depart": 100000,
+      "maintenant": 74235,
+      "morts_de_faim": 53980,
+      "part_morte_de_faim": 0.5398
+     },
+     {
+      "cell_id": 10457,
+      "noms": [
+       "Zurich"
+      ],
+      "depart": 38393,
+      "maintenant": 31991,
+      "morts_de_faim": 22783,
+      "part_morte_de_faim": 0.5934
+     },
+     {
+      "cell_id": 10466,
+      "noms": [
+       "Italie du Nord/Milan",
+       "Italie du Nord/Crémone",
+       "Italie du Nord/Brescia",
+       "Italie du Nord/Plaisance"
+      ],
+      "depart": 177000,
+      "maintenant": 0,
+      "morts_de_faim": 175905,
+      "part_morte_de_faim": 0.9938
+     }
+    ],
+    "pire": {
+     "cell_id": 10466,
+     "noms": [
+      "Italie du Nord/Milan",
+      "Italie du Nord/Crémone",
+      "Italie du Nord/Brescia",
+      "Italie du Nord/Plaisance"
+     ],
+     "depart": 177000,
+     "maintenant": 0,
+     "morts_de_faim": 175905,
+     "part_morte_de_faim": 0.9938
+    }
+   },
+   "ia": {
+    "gestes_acceptes_par_type": {
+     "tracer_route": 74,
+     "fixer_part": 97,
+     "ouvrir_grenier": 34
+    },
+    "refus": 0,
+    "maisons_actives_30j": 2,
+    "maisons_avec_un_geste_sur_365j": 25
+   },
+   "empreinte": "7a4941b025615f9a234c06747a75a711680120d50a6b53c42e6d20747815c163"
+  },
+  {
+   "tick": 3650,
+   "date": {
+    "annee": 1410,
+    "jour_de_l_annee": 1
+   },
+   "secondes_ecoulees": 950.8,
+   "europe": 35599274,
+   "europe_depart": 34957409,
+   "part_europe": 1.0184,
+   "villes": {
+    "Bruges": {
+     "cell_id": 10391,
+     "cellule": 0,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 25930,
+     "part_bourg": 0.0,
+     "morts_de_faim": 165016
+    },
+    "Constantinople": {
+     "cell_id": 10374,
+     "cellule": 141128,
+     "cellule_depart": 147167,
+     "part_cellule": 0.959,
+     "bourg": 19276,
+     "bourg_depart": 8197,
+     "part_bourg": 2.3516,
+     "morts_de_faim": 51548
+    },
+    "Florence": {
+     "cell_id": 10260,
+     "cellule": 0,
+     "cellule_depart": 101000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 10168,
+     "part_bourg": 0.0,
+     "morts_de_faim": 90989
+    },
+    "Gand": {
+     "cell_id": 10391,
+     "cellule": 0,
+     "cellule_depart": 181000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 25930,
+     "part_bourg": 0.0,
+     "morts_de_faim": 165016
+    },
+    "Le Caire": {
+     "cell_id": 8992,
+     "cellule": 0,
+     "cellule_depart": 360000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 15219,
+     "part_bourg": 0.0,
+     "morts_de_faim": 357276
+    },
+    "Londres": {
+     "cell_id": 10237,
+     "cellule": 55171,
+     "cellule_depart": 63826,
+     "part_cellule": 0.8644,
+     "bourg": 8738,
+     "bourg_depart": 8019,
+     "part_bourg": 1.0897,
+     "morts_de_faim": 39874
+    },
+    "Milan": {
+     "cell_id": 10466,
+     "cellule": 0,
+     "cellule_depart": 177000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 18072,
+     "part_bourg": 0.0,
+     "morts_de_faim": 175905
+    },
+    "Paris": {
+     "cell_id": 10322,
+     "cellule": 0,
+     "cellule_depart": 275000,
+     "part_cellule": 0.0,
+     "bourg": 0,
+     "bourg_depart": 39330,
+     "part_bourg": 0.0,
+     "morts_de_faim": 247975
+    }
+   },
+   "jalon2": {
+    "mediane": "médiane = 6.94 hab./km²",
+    "regions": {
+     "Flandre": {
+      "bloc": "regions_denses",
+      "densite": 4.848,
+      "cellules": [
+       10317,
+       10323,
+       10391
+      ]
+     },
+     "Île-de-France": {
+      "bloc": "regions_denses",
+      "densite": 5.872,
+      "cellules": [
+       10314,
+       10316,
+       10322
+      ]
+     },
+     "Italie du Nord": {
+      "bloc": "regions_denses",
+      "densite": 4.36,
+      "cellules": [
+       10263,
+       10267,
+       10446,
+       10456,
+       10466
+      ]
+     },
+     "delta du Nil": {
+      "bloc": "regions_denses",
+      "densite": 0.0,
+      "cellules": [
+       8992
+      ]
+     },
+     "désert occidental égyptien": {
+      "bloc": "regions_vides",
+      "densite": 0.261,
+      "cellules": [
+       10167,
+       10168
+      ]
+     }
+    },
+    "echecs": [
+     "Flandre : densité 4.85, médiane 6.94",
+     "Île-de-France : densité 5.87, médiane 6.94",
+     "Italie du Nord : densité 4.36, médiane 6.94",
+     "delta du Nil : densité 0.00, médiane 6.94"
+    ]
+   },
+   "faim_table": {
+    "cellules": 61,
+    "plus_de_moitie_morte_de_faim": [
+     {
+      "cell_id": 8992,
+      "noms": [
+       "Le Caire",
+       "Rosette",
+       "delta du Nil/Damiette",
+       "delta du Nil/Rosette",
+       "delta du Nil/Mansourah",
+       "delta du Nil/Tanta",
+       "delta du Nil/Zagazig",
+       "delta du Nil/Damanhour"
+      ],
+      "depart": 360000,
+      "maintenant": 0,
+      "morts_de_faim": 357276,
+      "part_morte_de_faim": 0.9924
+     },
+     {
+      "cell_id": 9788,
+      "noms": [
+       "Oran"
+      ],
+      "depart": 84165,
+      "maintenant": 72127,
+      "morts_de_faim": 56926,
+      "part_morte_de_faim": 0.6764
+     },
+     {
+      "cell_id": 9831,
+      "noms": [
+       "Ceuta"
+      ],
+      "depart": 148356,
+      "maintenant": 156733,
+      "morts_de_faim": 85196,
+      "part_morte_de_faim": 0.5743
+     },
+     {
+      "cell_id": 9836,
+      "noms": [
+       "Rabat"
+      ],
+      "depart": 117788,
+      "maintenant": 131956,
+      "morts_de_faim": 65079,
+      "part_morte_de_faim": 0.5525
+     },
+     {
+      "cell_id": 9878,
+      "noms": [
+       "Oslo"
+      ],
+      "depart": 57663,
+      "maintenant": 46135,
+      "morts_de_faim": 39961,
+      "part_morte_de_faim": 0.693
+     },
+     {
+      "cell_id": 9921,
+      "noms": [
+       "Messine"
+      ],
+      "depart": 59940,
+      "maintenant": 73584,
+      "morts_de_faim": 43428,
+      "part_morte_de_faim": 0.7245
+     },
+     {
+      "cell_id": 10167,
+      "noms": [
+       "désert occidental égyptien/Sollum"
+      ],
+      "depart": 33797,
+      "maintenant": 11163,
+      "morts_de_faim": 40307,
+      "part_morte_de_faim": 1.1926
+     },
+     {
+      "cell_id": 10168,
+      "noms": [
+       "désert occidental égyptien/désert occidental",
+       "désert occidental égyptien/El Alamein",
+       "désert occidental égyptien/Marsa Matrouh"
+      ],
+      "depart": 35000,
+      "maintenant": 1461,
+      "morts_de_faim": 32033,
+      "part_morte_de_faim": 0.9152
+     },
+     {
+      "cell_id": 10184,
+      "noms": [
+       "York"
+      ],
+      "depart": 58606,
+      "maintenant": 55977,
+      "morts_de_faim": 35400,
+      "part_morte_de_faim": 0.604
+     },
+     {
+      "cell_id": 10198,
+      "noms": [
+       "Bristol"
+      ],
+      "depart": 71670,
+      "maintenant": 73115,
+      "morts_de_faim": 38462,
+      "part_morte_de_faim": 0.5367
+     },
+     {
+      "cell_id": 10202,
+      "noms": [
+       "Aberdeen"
+      ],
+      "depart": 50969,
+      "maintenant": 54501,
+      "morts_de_faim": 34449,
+      "part_morte_de_faim": 0.6759
+     },
+     {
+      "cell_id": 10207,
+      "noms": [
+       "Glasgow"
+      ],
+      "depart": 44993,
+      "maintenant": 64549,
+      "morts_de_faim": 34266,
+      "part_morte_de_faim": 0.7616
+     },
+     {
+      "cell_id": 10210,
+      "noms": [
+       "Burgos"
+      ],
+      "depart": 71678,
+      "maintenant": 77351,
+      "morts_de_faim": 41450,
+      "part_morte_de_faim": 0.5783
+     },
+     {
+      "cell_id": 10216,
+      "noms": [
+       "Cordoue"
+      ],
+      "depart": 84187,
+      "maintenant": 105963,
+      "morts_de_faim": 80322,
+      "part_morte_de_faim": 0.9541
+     },
+     {
+      "cell_id": 10217,
+      "noms": [
+       "Valladolid"
+      ],
+      "depart": 98374,
+      "maintenant": 90685,
+      "morts_de_faim": 135368,
+      "part_morte_de_faim": 1.3761
+     },
+     {
+      "cell_id": 10225,
+      "noms": [
+       "Porto"
+      ],
+      "depart": 123232,
+      "maintenant": 139538,
+      "morts_de_faim": 93956,
+      "part_morte_de_faim": 0.7624
+     },
+     {
+      "cell_id": 10237,
+      "noms": [
+       "Londres"
+      ],
+      "depart": 63826,
+      "maintenant": 55171,
+      "morts_de_faim": 39874,
+      "part_morte_de_faim": 0.6247
+     },
+     {
+      "cell_id": 10260,
+      "noms": [
+       "Pise"
+      ],
+      "depart": 101000,
+      "maintenant": 0,
+      "morts_de_faim": 90989,
+      "part_morte_de_faim": 0.9009
+     },
+     {
+      "cell_id": 10261,
+      "noms": [
+       "Nuremberg"
+      ],
+      "depart": 96325,
+      "maintenant": 108926,
+      "morts_de_faim": 56912,
+      "part_morte_de_faim": 0.5908
+     },
+     {
+      "cell_id": 10268,
+      "noms": [
+       "Pérouse"
+      ],
+      "depart": 60042,
+      "maintenant": 67297,
+      "morts_de_faim": 55365,
+      "part_morte_de_faim": 0.9221
+     },
+     {
+      "cell_id": 10293,
+      "noms": [
+       "Wrocław"
+      ],
+      "depart": 130927,
+      "maintenant": 158597,
+      "morts_de_faim": 75013,
+      "part_morte_de_faim": 0.5729
+     },
+     {
+      "cell_id": 10294,
+      "noms": [
+       "Brno"
+      ],
+      "depart": 127643,
+      "maintenant": 107288,
+      "morts_de_faim": 118822,
+      "part_morte_de_faim": 0.9309
+     },
+     {
+      "cell_id": 10300,
+      "noms": [
+       "Jajce"
+      ],
+      "depart": 65324,
+      "maintenant": 87286,
+      "morts_de_faim": 41189,
+      "part_morte_de_faim": 0.6305
+     },
+     {
+      "cell_id": 10301,
+      "noms": [
+       "Pozsony"
+      ],
+      "depart": 175811,
+      "maintenant": 178336,
+      "morts_de_faim": 94304,
+      "part_morte_de_faim": 0.5364
+     },
+     {
+      "cell_id": 10304,
+      "noms": [
+       "Poznań"
+      ],
+      "depart": 195234,
+      "maintenant": 281269,
+      "morts_de_faim": 145900,
+      "part_morte_de_faim": 0.7473
+     },
+     {
+      "cell_id": 10314,
+      "noms": [
+       "Île-de-France/Senlis",
+       "Île-de-France/Pontoise"
+      ],
+      "depart": 47084,
+      "maintenant": 62963,
+      "morts_de_faim": 44856,
+      "part_morte_de_faim": 0.9527
+     },
+     {
+      "cell_id": 10316,
+      "noms": [
+       "Orléans",
+       "Île-de-France/Étampes"
+      ],
+      "depart": 50370,
+      "maintenant": 61361,
+      "morts_de_faim": 32417,
+      "part_morte_de_faim": 0.6436
+     },
+     {
+      "cell_id": 10322,
+      "noms": [
+       "Paris",
+       "Île-de-France/Paris",
+       "Île-de-France/Saint-Denis",
+       "Île-de-France/Meaux"
+      ],
+      "depart": 275000,
+      "maintenant": 0,
+      "morts_de_faim": 247975,
+      "part_morte_de_faim": 0.9017
+     },
+     {
+      "cell_id": 10323,
+      "noms": [
+       "Flandre/Lille"
+      ],
+      "depart": 46574,
+      "maintenant": 46059,
+      "morts_de_faim": 30691,
+      "part_morte_de_faim": 0.659
+     },
+     {
+      "cell_id": 10334,
+      "noms": [
+       "Skopje",
+       "Novo Brdo"
+      ],
+      "depart": 67697,
+      "maintenant": 69085,
+      "morts_de_faim": 46269,
+      "part_morte_de_faim": 0.6835
+     },
+     {
+      "cell_id": 10352,
+      "noms": [
+       "Craiova"
+      ],
+      "depart": 134994,
+      "maintenant": 201291,
+      "morts_de_faim": 168699,
+      "part_morte_de_faim": 1.2497
+     },
+     {
+      "cell_id": 10355,
+      "noms": [
+       "Tirnovo"
+      ],
+      "depart": 144372,
+      "maintenant": 118000,
+      "morts_de_faim": 117549,
+      "part_morte_de_faim": 0.8142
+     },
+     {
+      "cell_id": 10371,
+      "noms": [
+       "Iași"
+      ],
+      "depart": 164011,
+      "maintenant": 260251,
+      "morts_de_faim": 208512,
+      "part_morte_de_faim": 1.2713
+     },
+     {
+      "cell_id": 10391,
+      "noms": [
+       "Gand",
+       "Flandre/Gand",
+       "Flandre/Bruges",
+       "Flandre/Courtrai"
+      ],
+      "depart": 181000,
+      "maintenant": 0,
+      "morts_de_faim": 165016,
+      "part_morte_de_faim": 0.9117
+     },
+     {
+      "cell_id": 10407,
+      "noms": [
+       "Ladoga"
+      ],
+      "depart": 157134,
+      "maintenant": 126293,
+      "morts_de_faim": 118739,
+      "part_morte_de_faim": 0.7557
+     },
+     {
+      "cell_id": 10418,
+      "noms": [
+       "Reims"
+      ],
+      "depart": 46000,
+      "maintenant": 34278,
+      "morts_de_faim": 50569,
+      "part_morte_de_faim": 1.0993
+     },
+     {
+      "cell_id": 10424,
+      "noms": [
+       "Lyon"
+      ],
+      "depart": 43758,
+      "maintenant": 50948,
+      "morts_de_faim": 29029,
+      "part_morte_de_faim": 0.6634
+     },
+     {
+      "cell_id": 10440,
+      "noms": [
+       "Cologne"
+      ],
+      "depart": 69320,
+      "maintenant": 71169,
+      "morts_de_faim": 63119,
+      "part_morte_de_faim": 0.9105
+     },
+     {
+      "cell_id": 10446,
+      "noms": [
+       "Turin",
+       "Italie du Nord/Turin"
+      ],
+      "depart": 10944,
+      "maintenant": 13658,
+      "morts_de_faim": 8621,
+      "part_morte_de_faim": 0.7877
+     },
+     {
+      "cell_id": 10456,
+      "noms": [
+       "Pavie",
+       "Italie du Nord/Pavie"
+      ],
+      "depart": 100000,
+      "maintenant": 79896,
+      "morts_de_faim": 68596,
+      "part_morte_de_faim": 0.686
+     },
+     {
+      "cell_id": 10457,
+      "noms": [
+       "Zurich"
+      ],
+      "depart": 38393,
+      "maintenant": 47503,
+      "morts_de_faim": 37183,
+      "part_morte_de_faim": 0.9685
+     },
+     {
+      "cell_id": 10460,
+      "noms": [
+       "Francfort"
+      ],
+      "depart": 77251,
+      "maintenant": 77360,
+      "morts_de_faim": 54180,
+      "part_morte_de_faim": 0.7014
+     },
+     {
+      "cell_id": 10464,
+      "noms": [
+       "Lübeck"
+      ],
+      "depart": 102385,
+      "maintenant": 89566,
+      "morts_de_faim": 59475,
+      "part_morte_de_faim": 0.5809
+     },
+     {
+      "cell_id": 10466,
+      "noms": [
+       "Italie du Nord/Milan",
+       "Italie du Nord/Crémone",
+       "Italie du Nord/Brescia",
+       "Italie du Nord/Plaisance"
+      ],
+      "depart": 177000,
+      "maintenant": 0,
+      "morts_de_faim": 175905,
+      "part_morte_de_faim": 0.9938
+     }
+    ],
+    "pire": {
+     "cell_id": 10217,
+     "noms": [
+      "Valladolid"
+     ],
+     "depart": 98374,
+     "maintenant": 90685,
+     "morts_de_faim": 135368,
+     "part_morte_de_faim": 1.3761
+    }
+   },
+   "ia": {
+    "gestes_acceptes_par_type": {
+     "tracer_route": 189,
+     "fixer_part": 117,
+     "ouvrir_grenier": 66
+    },
+    "refus": 0,
+    "maisons_actives_30j": 1,
+    "maisons_avec_un_geste_sur_365j": 25
+   },
+   "empreinte": "948c1166b51616a64b80edea50b5fe1935c2ffa089e3c8fd4dc2ca3bde1d8d78"
+  }
+ ],
+ "commande": "../docs/mesures/2026-11-06-refonte/scripts/mesure_monde.py --ticks 3650 --jalons 90,365,1825,3650 --sortie ../docs/mesures/2026-11-06-refonte/brut/monde-ia.json"
+}

@@ -1,0 +1,38 @@
+         12197586 function calls (12197016 primitive calls) in 6.188 seconds
+
+   Ordered by: cumulative time
+   List reduced from 417 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       20    0.000    0.000    3.349    0.167 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ia.py:245(jouer_ia)
+       20    0.005    0.000    3.339    0.167 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ia.py:196(decider_intentions)
+       20    0.026    0.001    3.117    0.156 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:93(maisons_de_l_ia)
+       20    0.045    0.002    2.862    0.143 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1875(tick)
+   304784    0.099    0.000    2.301    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:109(point_dans_geometrie)
+   337704    2.199    0.000    2.199    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:95(_dans_anneau)
+      620    0.001    0.000    1.960    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:108(<genexpr>)
+      600    0.095    0.000    1.954    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:75(cellule_de_capitale)
+    11920    0.014    0.000    0.643    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:562(_apply_production)
+       20    0.005    0.000    0.605    0.030 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\aggregation.py:108(charger_positions)
+    11920    0.129    0.000    0.566    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1343(_apply_consumption)
+      120    0.000    0.000    0.561    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\__init__.py:304(loads)
+      120    0.000    0.000    0.561    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py:340(decode)
+      120    0.560    0.005    0.560    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py:351(raw_decode)
+    11920    0.025    0.000    0.498    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:519(_verser_recolte)
+   260/20    0.024    0.000    0.473    0.024 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1037(_apply_commerce)
+      140    0.000    0.000    0.441    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:112(<genexpr>)
+      120    0.013    0.000    0.440    0.004 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\seigneuries.py:121(cellule_du_siege)
+    11952    0.054    0.000    0.331    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:435(_calculer_parts)
+    10156    0.140    0.000    0.288    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\lieux.py:78(partager)
+  1987288    0.215    0.000    0.215    0.000 {method 'get' of 'dict' objects}
+190948/190900    0.088    0.000    0.212    0.000 {built-in method builtins.sum}
+       20    0.116    0.006    0.181    0.009 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\departs.py:27(appliquer_departs)
+       20    0.012    0.001    0.177    0.009 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:928(_appliquer_flux_maritimes)
+   132860    0.058    0.000    0.167    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:400(_paysans_restes_au_lieu)
+       20    0.109    0.005    0.163    0.008 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\prelevement.py:48(prelever)
+      700    0.006    0.000    0.159    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ia.py:118(_proposition_de_secours)
+      725    0.155    0.000    0.159    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\intentions.py:55(_lieux_de_la_maison)
+     7873    0.063    0.000    0.157    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:981(_sortir_par_bourg)
+   588919    0.092    0.000    0.155    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\model.py:36(lire_stock_marchandise)
+
+
