@@ -677,9 +677,16 @@ def test_commerce_par_voisine_monde_reel(monde, monkeypatch):
     assert relevé == pytest.approx(sum(t for t, _ in vus[1:]), rel=1e-9)
 
     def bruit(m, transferts):
-        for _, receveur, _, _ in transferts:
-            ecrire_stock_marchandise(m.cells[receveur], MARCHANDISE_NOURRITURE,
-                                     lire_stock_marchandise(m.cells[receveur], MARCHANDISE_NOURRITURE) + 1e-9)
+        # La plus petite quantité que la photographie porte (10^-6 kg), écrite au
+        # bourg de la cellule qui envoie et à sa cellule. Avec la soudure, les
+        # stocks font des millions de kilos et le premier mois ne voit presque plus
+        # de commerce : le seul receveur est affamé, il mange tout ce qu'il reçoit,
+        # et 1e-9 kg écrit chez lui se perdait dans sa dette arrondie.
+        for source, _, _, _ in transferts:
+            for porteur in (m.cells[source], m.cells[source].lieux[0]):
+                ecrire_stock_marchandise(porteur, MARCHANDISE_NOURRITURE,
+                                         lire_stock_marchandise(porteur, MARCHANDISE_NOURRITURE)
+                                         + 10.0 ** -c.SNAPSHOT_FLOAT_DECIMALS)
     faux = copy.deepcopy(monde)
     with monkeypatch.context() as ctx:
         ctx.setattr(flux, 'noter_commerce', bruit)

@@ -22,6 +22,7 @@ from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
+from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
@@ -215,6 +216,9 @@ class ServeurMonde(ThreadingHTTPServer):
         self.ia = ia
         self.epreuve = epreuve
         self.releve = []
+        # (monde, liste) : la liste des maisons de l'IA, calculée une fois par
+        # monde servi ; refaite si le monde servi change d'objet.
+        self._maisons_ia = None
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
         self.verrou_base = threading.Lock()
@@ -429,6 +433,12 @@ class ServeurMonde(ThreadingHTTPServer):
             }) if self.ia else None,
         )
 
+    def maisons_de_l_ia(self):
+        """La liste des maisons de l'IA du monde servi, calculée une fois."""
+        if self._maisons_ia is None or self._maisons_ia[0] is not self.world:
+            self._maisons_ia = (self.world, toutes_les_maisons_de_l_ia(self.world))
+        return self._maisons_ia[1]
+
     def jouer_un_tick(
         self,
         generation_attendue: int | None = None,
@@ -448,7 +458,7 @@ class ServeurMonde(ThreadingHTTPServer):
                     longueur_file = len(self.world.intentions_en_attente)
                     longueur_releve = len(self.releve)
                     try:
-                        jouer_ia(self.world, self.releve)
+                        jouer_ia(self.world, self.releve, self.maisons_de_l_ia())
                     except Exception as exc:
                         del self.world.intentions_en_attente[longueur_file:]
                         del self.releve[longueur_releve:]

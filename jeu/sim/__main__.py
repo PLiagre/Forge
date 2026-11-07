@@ -22,6 +22,7 @@ from pathlib import Path
 from sim.constants import DEFAULT_CLI_SEED, DEFAULT_CLI_TICKS, MARCHANDISE_NOURRITURE
 from sim.engine import tick
 from sim.ia import jouer_ia, maisons_actives_30j
+from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.snapshot_export import SnapshotExportError, export_snapshot
 from sim.model import lire_stock_marchandise
@@ -66,6 +67,8 @@ def _simulate(ticks: int, seed: int, gestes=None, ia=False) -> tuple[dict, World
     kg_transportes = 0.0
     rang = 0
     releve = []
+    # La liste des maisons de l'IA ne change pas d'un tick à l'autre : une fois.
+    maisons_ia = toutes_les_maisons_de_l_ia(world) if ia else None
     for _ in range(ticks):
         while rang < len(gestes) and gestes[rang]["tick"] == world.ticks_ecoules:
             try:
@@ -74,7 +77,7 @@ def _simulate(ticks: int, seed: int, gestes=None, ia=False) -> tuple[dict, World
                 raise IntentionRefusee(f"entrée {rang + 1} : {exc}") from exc
             rang += 1
         if ia:
-            jouer_ia(world, releve)
+            jouer_ia(world, releve, maisons_ia)
         kg_transportes += tick(world, rng, world.ticks_ecoules)
     population_arrivee = sum(cell.population for cell in world.cells.values())
     stock_arrivee = sum(

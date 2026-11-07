@@ -564,6 +564,10 @@ def test_tick_repartit_sur_une_annee_et_suit_les_ecritures(monkeypatch):
 def test_cellule_depend_du_contenu_des_lieux(monkeypatch):
     import random
     from sim.engine import tick
+    # La contre-épreuve demande des lieux qui manquent dans le premier mois :
+    # le décor d'avant la soudure (sim/tests/amorcage_d_avant.py).
+    from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
+    amorcer_comme_avant_la_soudure(monkeypatch)
 
     monkeypatch.setattr(_constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", float("inf"))
     from sim import engine

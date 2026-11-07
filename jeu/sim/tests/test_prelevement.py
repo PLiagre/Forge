@@ -14,6 +14,7 @@ from sim.model import Cell, EtatDeLieu
 from sim.world import World
 from sim.tests.test_convois import _importe_convois, _section_prelevement
 from sim.tests.test_maisons import _tick_sans_lecture_registre
+from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
 
 SIM = Path(__file__).resolve().parents[1]
 BAR = 'seigneurie-1'
@@ -293,7 +294,13 @@ def _habitants_apres_un_an(part):
 def _habitants_apres_un_an_calibres(part, bras):
     """Une année par part et calibrage, sans mélanger les deux références."""
     assert bras == c.BRAS_AUX_CHAMPS_PAR_KM2
-    monde, rng = World.charger(0), random.Random(0)
+    # Le calibrage documenté dans MODELE.md s'est fait sur l'amorçage d'avant la
+    # soudure (cinq jours de ration) : il s'y rejoue au chiffre près
+    # (sim/tests/amorcage_d_avant.py). Le refaire sur la soudure est une
+    # décision du monde, pas de ce test.
+    with pytest.MonkeyPatch.context() as ctx:
+        amorcer_comme_avant_la_soudure(ctx)
+        monde, rng = World.charger(0), random.Random(0)
     monde.parts = dict.fromkeys(monde.parts, part)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
         engine.tick(monde, rng, numero)
@@ -646,7 +653,11 @@ def _course_departs(part, etape=_DEPARTS_REELS, toutes=False):
 
 @cache
 def _reference_departs():
-    return World.charger(0)
+    # Le calibrage des départs actifs (MODELE.md) s'est fait sur l'amorçage
+    # d'avant la soudure : il s'y rejoue au chiffre près.
+    with pytest.MonkeyPatch.context() as ctx:
+        amorcer_comme_avant_la_soudure(ctx)
+        return World.charger(0)
 
 
 @cache
