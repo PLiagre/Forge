@@ -54,15 +54,18 @@ EFFORTS = {
 # Le nom lisible de chaque harnais, pour la table des rôles.
 HARNAIS = {"claude": "Claude Code"}
 
-# Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents]. Le
-# renfort fait le dernier passage du codeur d'un lot du VPS avant blocage
-# (lots.passage_de_renfort) ; sa marque reste celle du codeur.
+# Les rôles de la chaîne. Chacun doit avoir sa ligne dans [agents].
 # Le dépanneur regarde un lot bloqué avant le propriétaire (pilote._depanner).
-ROLES = ("chef", "codeur", "codeur_3d", "renfort", "relecteur", "mecanicien", "depanneur", "chroniqueur",
+# Le renfort (un autre modèle pour le dernier passage avant blocage) est retiré
+# le 7 novembre 2026 : avec un seul abonnement, c'était le codeur encore une fois.
+ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "depanneur", "chroniqueur",
          "boussole")
+# Les rôles qu'un dépôt peut nommer, ou non. Le relecteur du moteur relit les
+# lots qui touchent [projet].chemins_du_moteur ; sans lui, le relecteur relit tout.
+ROLES_FACULTATIFS = ("relecteur_moteur",)
 
 # Les rôles qui n'écrivent rien : leur outil est appelé en lecture seule.
-ROLES_LECTURE_SEULE = ("relecteur", "depanneur", "chroniqueur", "boussole")
+ROLES_LECTURE_SEULE = ("relecteur", "relecteur_moteur", "depanneur", "chroniqueur", "boussole")
 
 # Les machines d'un lot : le VPS (Python) et le PC (Unity, Blender).
 MACHINES = ("vps", "pc")
@@ -128,6 +131,7 @@ class Projet:
     dossier_briefs: str
     prefixe_branche: str
     postes: dict[str, Poste] = field(default_factory=dict)
+    chemins_du_moteur: tuple[str, ...] = ()
     delais: dict[str, int] = field(default_factory=dict)
     machines: dict[str, int] = field(default_factory=lambda: {m: 1 for m in MACHINES})
     plafonds: dict[str, int] = field(default_factory=dict)
@@ -147,6 +151,14 @@ class Projet:
 
     def delai(self, role: str) -> int:
         return self.delais.get(role, 1800)
+
+    def relecteur_pour(self, fichiers) -> str:
+        """Le rôle qui relit un lot : le relecteur du moteur s'il touche un de
+        ses chemins et que le dépôt le nomme, sinon le relecteur."""
+        if "relecteur_moteur" in self.postes and any(
+                f.replace("\\", "/").startswith(chemin) for f in fichiers for chemin in self.chemins_du_moteur):
+            return "relecteur_moteur"
+        return "relecteur"
 
     def interdit(self, chemin: str) -> bool:
         """Un lot ne touche jamais ce chemin : seul le mode direct y écrit."""
@@ -207,7 +219,10 @@ def charger(racine: Path | str) -> Projet:
     manquants = [role for role in ROLES if role not in agents]
     if manquants:
         raise ProjetIncomplet(f"[agents] ne nomme pas : {', '.join(manquants)}")
-    postes = {role: lire_poste(role, agents[role]) for role in ROLES}
+    postes = {role: lire_poste(role, agents[role]) for role in (*ROLES, *ROLES_FACULTATIFS) if role in agents}
+    inconnus = sorted(set(agents) - set(ROLES) - set(ROLES_FACULTATIFS))
+    if inconnus:
+        raise ProjetIncomplet(f"[agents] nomme des rôles inconnus : {', '.join(inconnus)}")
     delais = {cle: int(valeur) for cle, valeur in (doc.get("delais") or {}).items()}
     machines = {m: 1 for m in MACHINES} | _entiers_positifs("machines", doc.get("machines") or {}, MACHINES)
     plafonds = _entiers_positifs("outils", doc.get("outils") or {}, tuple(OUTILS))
@@ -224,6 +239,7 @@ def charger(racine: Path | str) -> Projet:
         dossier_briefs=str(bloc["dossier_briefs"]).rstrip("/"),
         prefixe_branche=str(bloc["prefixe_branche"]),
         postes=postes,
+        chemins_du_moteur=tuple(str(x) for x in bloc.get("chemins_du_moteur", ())),
         delais=delais,
         machines=machines,
         plafonds=plafonds,
@@ -249,7 +265,7 @@ def table_des_roles(projet: Projet) -> str:
     agent dans l'ordre des essais, avec son harnais, son modèle et son effort ;
     puis le parallélisme."""
     lignes = [f"{'rôle':28} {'rang':8} {'harnais':22} {'modèle':22} effort"]
-    for role in ROLES:
+    for role in (*ROLES, *(r for r in ROLES_FACULTATIFS if r in projet.postes)):
         poste = projet.postes[role]
         nom = role + (" (lecture seule)" if poste.lecture_seule else "")
         for i, agent in enumerate(poste.agents):

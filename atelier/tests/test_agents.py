@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 
 from atelier import agents as A
-from atelier.projet import OUTILS, Agent, ProjetIncomplet, charger, lire_agent, lire_poste, table_des_roles
+from atelier.projet import OUTILS, ROLES, Agent, ProjetIncomplet, charger, lire_agent, lire_poste, table_des_roles
 
 from conftest import RACINE, Agents
 
@@ -16,8 +16,10 @@ def test_le_branchement_du_depot_nomme_chaque_role():
     assert projet.depot == "PLiagre/Forge"
     assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
     assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
-    assert [str(a) for a in projet.poste("relecteur").agents] == ["claude/claude-opus-5-5@high"]
+    assert [str(a) for a in projet.poste("relecteur_moteur").agents] == ["claude/claude-opus-5-5@high"]
+    assert [str(a) for a in projet.poste("relecteur").agents] == ["claude/claude-sonnet-5-5@high"]
     assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
+    assert "relecteur_moteur" in table_des_roles(projet)
     assert "codeur" in table_des_roles(projet)
 
 
@@ -182,15 +184,42 @@ def test_seul_opus_ecrit_les_briefs():
     assert [str(a) for a in chef.agents] == ["claude/claude-opus-5-5@high"]
 
 
-def test_les_roles_qui_lisent_ont_un_secours_d_un_autre_modele():
-    # Un quota d'Opus arrêtait net la boussole. Le secours du dépanneur lit le
-    # lot quand Opus n'a rien décidé, en écartant sa famille
-    # (pilote._depanner) : il doit être d'un autre modèle.
+def test_opus_est_reserve_au_brief_et_au_moteur():
+    # Refonte du 7 novembre 2026 : une seule réserve de quota pour tous les
+    # rôles. Opus écrit les briefs et relit les lots qui touchent le moteur ;
+    # Sonnet code tous les lots, PC compris, et fait tout le reste, journal du
+    # matin compris, en effort moyen.
     projet = charger(RACINE)
-    for role in ("boussole", "depanneur", "chroniqueur"):
-        poste = projet.poste(role)
-        assert str(poste.principal).startswith("claude/claude-opus-5-5@"), role
-        assert any(a.famille != poste.principal.famille for a in poste.secours), role
+    opus = {role for role, poste in projet.postes.items() if any(a.famille == "opus" for a in poste.agents)}
+    assert opus == {"chef", "relecteur_moteur"}
+    for role in ("codeur", "codeur_3d", "relecteur", "mecanicien", "depanneur", "chroniqueur", "boussole"):
+        assert {a.famille for a in projet.poste(role).agents} == {"sonnet"}, role
+    assert str(projet.poste("chroniqueur").principal) == "claude/claude-sonnet-5-5@medium"
+    assert projet.poste("relecteur_moteur").lecture_seule and projet.poste("relecteur").lecture_seule
+
+
+def test_le_relecteur_du_moteur_relit_ce_qui_touche_jeu_sim(projet, tmp_path):
+    reel = charger(RACINE)
+    assert reel.chemins_du_moteur == ("jeu/sim/",)
+    assert reel.relecteur_pour(["docs/briefs/1.md", "jeu/sim/engine.py"]) == "relecteur_moteur"
+    assert reel.relecteur_pour(["jeu/sim\\tests\\test_x.py"]) == "relecteur_moteur"
+    for fichiers in ([], ["jeu/vues/tableau/x.py"], ["3d/unity/Assets/X.cs", "jeu/data/batiments.toml"],
+                     ["jeu/simulateur/x.py"]):
+        assert reel.relecteur_pour(fichiers) == "relecteur", fichiers
+    # Un dépôt qui ne nomme pas de relecteur du moteur : le relecteur relit tout.
+    assert projet.relecteur_pour(["jeu/sim/engine.py"]) == "relecteur"
+    texte = (projet.racine / "atelier.toml").read_text(encoding="utf-8")
+    (tmp_path / "atelier.toml").write_text(texte.replace('[agents]\n', '[agents]\nrenfort = "claude/sonnet"\n'),
+                                           encoding="utf-8")
+    with pytest.raises(ProjetIncomplet, match="rôles inconnus : renfort"):
+        charger(tmp_path)
+
+
+def test_un_lot_a_la_taille_d_une_ligne_du_cap():
+    # Un gain que le joueur voit et sa preuve dans la même PR : 1 500 lignes
+    # environ (refonte du 7 novembre 2026 ; à 300, une ligne du CAP devenait
+    # 3,9 issues et un lot sur trois n'était qu'une preuve).
+    assert charger(RACINE).lignes_max == 1500
 
 
 def test_plus_rien_que_claude():
@@ -237,23 +266,14 @@ def test_un_effort_que_le_harnais_ne_recoit_pas_se_refuse(texte, motif):
         lire_agent(texte)
 
 
-def test_opus_ne_code_que_les_lots_du_pc():
-    # Choix du propriétaire (5 novembre 2026) : Opus code les lots du PC
-    # (Unity, la 3D), et seulement eux ; Sonnet code tout le reste, sans
-    # secours d'Opus.
+def test_sonnet_code_tous_les_lots_et_aucun_renfort():
+    # Le renfort donnait le dernier passage à un autre modèle ; avec un seul
+    # abonnement, c'était Sonnet encore une fois (retiré le 7 novembre 2026).
     projet = charger(RACINE)
-    assert [str(a) for a in projet.poste("codeur_3d").agents] == ["claude/claude-opus-5-5@high"]
-    for role in ("codeur", "renfort", "mecanicien"):
+    for role in ("codeur", "codeur_3d", "mecanicien"):
         assert {a.famille for a in projet.poste(role).agents} == {"sonnet"}, role
-    renfort = projet.poste("renfort")
-    assert str(renfort.principal) == "claude/claude-sonnet-5-5@high" and not renfort.lecture_seule
-
-
-def test_opus_relit_tout_et_sonnet_ne_relit_jamais():
-    # Choix du propriétaire (5 novembre 2026) : Sonnet ne relit pas Opus,
-    # Opus relit Opus. Pas de secours Sonnet, même sur un quota d'Opus.
-    projet = charger(RACINE)
-    assert [str(a) for a in projet.poste("relecteur").agents] == ["claude/claude-opus-5-5@high"]
+        assert not projet.poste(role).lecture_seule
+    assert "renfort" not in projet.postes and "renfort" not in ROLES
 
 
 def test_chaque_lot_du_vps_peut_coder_avec_sonnet():

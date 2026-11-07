@@ -17,12 +17,18 @@ tests = "python3 -m pytest jeu -q"
 # Ce qu'un lot ne touche jamais. Un changement d'un lot sur ces chemins est
 # retiré avant l'enregistrement, et le commentaire de la PR le dit.
 interdits = ["atelier/", ".github/", "atelier.toml", "AGENTS.md", "CLAUDE.md", "CAP.md"]
-# Un brief prévoit moins que ce nombre de lignes de diff ; sinon le chef
-# découpe le lot.
-lignes_max = 300
+# Un lot a la taille d'une ligne du CAP : un gain que le joueur voit, et sa
+# preuve dans la même PR. Le brief prévoit moins que ce nombre de lignes de
+# diff, preuve comprise ; au-delà, le chef découpe, jamais en un lot qui code
+# et un lot qui prouve. À 300 lignes, une ligne du CAP du jalon 4 devenait
+# 3,9 issues, et un lot sur trois n'était qu'une preuve, un juge ou un montage
+# (refonte du 7 novembre 2026, docs/mesures/2026-11-07-refonte).
+lignes_max = 1500
+# Les chemins du moteur : un lot qui en touche un est relu par le relecteur
+# du moteur (Opus) ; les autres par le relecteur (Sonnet).
+chemins_du_moteur = ["jeu/sim/"]
 # Passages du codeur après le premier (CI rouge ou relecture « CORRIGER »)
-# avant que le lot soit « bloque », avec sa raison. Sur le VPS, le dernier se
-# fait par le renfort ([agents]).
+# avant que le lot soit « bloque », avec sa raison.
 corrections_max = 2
 # Combien de fois le dépanneur ([agents]) relance un même lot bloqué, avec
 # sa consigne, avant de le laisser au propriétaire. Il pose toujours une
@@ -40,9 +46,13 @@ prefixe_branche = "lot/"
 # 2026, Cursor (grok, composer) le 5 novembre ; le chargement refuse tout
 # autre modèle (choix du propriétaire).
 #
-# Qui fait quoi (choix du propriétaire, 5 novembre 2026) : Opus écrit les
-# briefs, ne code que les lots du PC (Unity, la 3D) et relit tous les lots,
-# même ceux qu'il a codés ; Sonnet code le reste et ne relit jamais.
+# Qui fait quoi (refonte du 7 novembre 2026, une seule réserve de quota pour
+# tous les rôles) : Opus est réservé au brief et à la relecture des lots qui
+# touchent le moteur (`jeu/sim/`) ; Sonnet code tous les lots, PC compris, et
+# fait le reste : relire les autres lots, dépanner, réparer master, écrire le
+# journal et la boussole. Il n'y a plus de relecture « par une autre famille
+# de modèle » : la relecture est une autre session, en lecture seule, qui n'a
+# pas écrit le code.
 #
 # Un secours ne sert que si le précédent a épuisé son quota, perdu sa
 # session, ne démarre pas, refuse l'appel ou a déjà tous ses agents en
@@ -53,22 +63,19 @@ prefixe_branche = "lot/"
 # secours (choix du propriétaire, 30 octobre 2026). Opus à court de quota,
 # le lot attend qu'il revienne : aucun autre modèle n'écrit un brief.
 chef        = "claude/claude-opus-5-5@high"
-# Sonnet code les lots du VPS, sans secours : Opus ne code que les lots du
-# PC. Sonnet à court de quota, le lot attend.
+# Sonnet code les lots du VPS, sans secours. Sonnet à court de quota, le lot
+# attend.
 codeur      = "claude/claude-sonnet-5-5@high"
-# Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Claude Opus
-# (choix du propriétaire, 29 septembre 2026 : le temps du PC est rare, un
-# passage raté y coûte cher), sans secours : Sonnet ne code pas la 3D.
-# `gh workflow run sonde-pc.yml` prouve que chaque agent du PC écrit vraiment.
-codeur_3d   = "claude/claude-opus-5-5@high"
-# Le dernier passage du codeur d'un lot du VPS avant blocage (la
-# 2e correction). Sa marque compte comme un passage du codeur. Sonnet, comme
-# le codeur : Opus ne code que les lots du PC, qui n'ont pas de renfort.
-renfort     = "claude/claude-sonnet-5-5@high"
-# Opus relit chaque lot, même un lot du PC qu'il a codé : c'est une autre
-# session, en lecture seule, qui n'a pas écrit le code. Sonnet ne relit
-# jamais, pas même en secours. Opus à court de quota, la relecture attend.
-relecteur   = "claude/claude-opus-5-5@high"
+# Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Sonnet aussi
+# (Opus est réservé au brief et au moteur). `gh workflow run sonde-pc.yml`
+# prouve que chaque agent du PC écrit vraiment.
+codeur_3d   = "claude/claude-sonnet-5-5@high"
+# Un lot qui touche `jeu/sim/` ([projet].chemins_du_moteur) est relu par Opus,
+# en lecture seule ; Opus à court de quota, la relecture attend.
+relecteur_moteur = "claude/claude-opus-5-5@high"
+# Les autres lots (vues, Unity, données, outils) : Sonnet, dans une autre
+# session que celle qui a codé, en lecture seule.
+relecteur   = "claude/claude-sonnet-5-5@high"
 # CI rouge sur master, conflits d'une branche de lot, dépendances : Sonnet
 # en effort moyen, travail mécanique ; Opus relit ses réparations de master.
 mecanicien  = "claude/claude-sonnet-5-5@medium"
@@ -78,15 +85,16 @@ mecanicien  = "claude/claude-sonnet-5-5@medium"
 # codeur qui tourne en rond, relecteur qui exige l'impossible), pose la
 # question au propriétaire (le brief contredit un test existant ou la règle
 # du monde), ou dit que la chaîne est en cause (mode direct). Diagnostiquer
-# demande du jugement : Claude Opus en tête, Sonnet en secours.
-depanneur   = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high"
+# demande du jugement : Sonnet en effort haut ; Opus est gardé au brief et au
+# moteur. Sonnet à court de quota, le lot attend le propriétaire.
+depanneur   = "claude/claude-sonnet-5-5@high"
 # Journal du matin, en lecture seule : un appel par jour, qui ne doit rien
-# inventer. Opus en tête, Sonnet en secours ; sans eux, le pilote l'écrit à
-# partir des faits.
-chroniqueur = "claude/claude-opus-5-5@high | claude/claude-sonnet-5-5@high"
+# inventer. Sonnet en effort moyen, le moins cher ; sans lui, le pilote
+# l'écrit seul à partir des faits, dans le même gabarit.
+chroniqueur = "claude/claude-sonnet-5-5@medium"
 # Comparaison hebdomadaire avec CAP.md, en lecture seule : un appel par
-# semaine, à fort enjeu.
-boussole    = "claude/claude-opus-5-5@xhigh | claude/claude-sonnet-5-5@high"
+# semaine.
+boussole    = "claude/claude-sonnet-5-5@high"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
 # plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
@@ -112,8 +120,8 @@ claude = 4
 chef = 1800
 codeur = 3600
 codeur_3d = 3600
-renfort = 3600
 relecteur = 1800
+relecteur_moteur = 1800
 mecanicien = 3600
 # Le dépanneur lit, et rejoue parfois un test rouge : à 1800 s, il a dépassé
 # son délai sans rien décider sur #343 et #391 (7 octobre 2026).

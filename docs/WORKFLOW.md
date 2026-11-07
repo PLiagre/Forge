@@ -7,39 +7,47 @@
 ## En une phrase
 
 Une issue devient une branche et une PR ; le chef l'explique, le codeur la
-code, la CI la teste, Claude Opus la relit dans sa propre session, et `ACCEPTE`
-la fusionne toute seule.
+code avec sa preuve, la CI la teste, un relecteur la relit dans sa propre
+session — Opus si elle touche le moteur, Sonnet sinon —, et `ACCEPTE` la
+fusionne toute seule.
 
 ## Le schéma
 
 ```
  issue « lot »  ──►  CHEF (Claude Code, opus, high, seul : sans Opus, le lot attend) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
- (jalon courant, ou le    │ trop gros : découpe en sous-lots · hors de son jalon : bloque
+ (jalon courant, ou le    │ plus de 1 500 lignes : découpe, chaque morceau avec sa preuve · hors de son jalon : bloque
   suivant en avance)      │
                           ▼
-                    CODEUR (Claude Code, sonnet, high, seul)   — lot « pc » : Claude Code, opus, high sur le PC, seul
+                    CODEUR (Claude Code, sonnet, high, seul ; lot « pc » : le même, sur le PC) — le code et sa preuve
                           │ le pilote commit, pousse, capture
                           ▼
-                    CI : tests + gitleaks ── rouge (dès le premier travail rouge) ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT)
+                    CI : tests + gitleaks ── rouge (dès le premier travail rouge) ──► CODEUR corrige (2 fois au plus)
                           │ vert
                           ▼
-                    RELECTEUR (Claude Code, opus, high, seul : il relit aussi le code d'Opus ; Sonnet ne relit jamais)
+                    RELECTEUR — touche jeu/sim/ : Claude Code, opus, high ; sinon : Claude Code, sonnet, high (lecture seule)
                      ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
-                     └─ CORRIGER ──► CODEUR corrige (2 fois au plus ; la 2e : RENFORT) ──► puis « bloque »
+                     └─ CORRIGER ──► CODEUR corrige (2 fois au plus) ──► puis « bloque »
                                                                                      │
-                    DÉPANNEUR (Claude Code, opus, high ; secours Claude Code, sonnet, high) ◄────────────┘
+                    DÉPANNEUR (Claude Code, sonnet, high, en lecture seule) ◄────────┘
                      ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
                      ├─ QUESTION    ──► question au propriétaire
                      ├─ DECOUPE     ──► sous-lots ouverts ; le lot et sa PR se ferment
                      └─ MODE-DIRECT ──► reste « bloque » : la chaîne est à corriger
 ```
 
-Le **renfort** (Claude Code, sonnet, high) fait
-le dernier passage du codeur d'un lot du VPS avant blocage : la 2e correction,
-avec `corrections_max = 2`. Deux passages n'ont pas suffi : il reprend avec
-la revue ou l'erreur de CI sous les yeux. Sa
-marque reste celle du codeur : le passage compte. Le renfort est Sonnet,
-comme le codeur : Opus ne code que les lots du PC, qui n'ont pas de renfort.
+**Un lot a la taille d'une ligne du CAP** (refonte du 7 novembre 2026) : un
+gain que le joueur voit, et sa preuve dans la même PR — conditions de succès,
+contre-épreuve, photo d'un lot `pc` —, jusqu'à `lignes_max` = 1 500 lignes
+environ. Le chef ne découpe qu'au-delà, en morceaux qui gardent chacun leur
+phrase du joueur et leur preuve ; jamais en un lot qui code et un autre qui
+prouve, juge, monte ou réécrit ses tests. À 300 lignes, une ligne du CAP du
+jalon 4 devenait 3,9 issues, et depuis le 28 octobre un lot livré sur trois
+n'était qu'une preuve, un juge, un montage ou un test réécrit
+([mesure](mesures/2026-11-07-refonte/RAPPORT.md), section 3).
+
+Le **renfort**, qui faisait le dernier passage avant blocage par un autre
+modèle que le codeur, est retiré le 7 novembre 2026 : avec un seul abonnement,
+c'était Sonnet encore une fois. Les trois passages sont ceux du codeur.
 
 Un rouge du seul travail `chronometre` (les tests qui chronomètrent le moteur,
 au bord de leur budget sur les runners partagés) ne part pas d'abord au codeur,
@@ -50,9 +58,9 @@ codeur ne corrige que s'il rougit encore.
 
 Le **mécanicien** (Claude Code, sonnet, medium) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Claude Code,
-opus, high ; secours sonnet, high ; en lecture seule) écrit le journal chaque
-matin ; la **boussole** (Claude Code, opus, xhigh ; secours sonnet, high)
-compare chaque lundi les lots livrés à CAP.md.
+sonnet, medium, en lecture seule : le journal le moins cher, et le pilote
+l'écrit seul s'il se tait) écrit le journal chaque matin ; la **boussole**
+(Claude Code, sonnet, high) compare chaque lundi les lots livrés à CAP.md.
 
 **Chaque agent dit son harnais, son modèle et son effort** :
 `harnais/modèle@effort` dans [`atelier.toml`](../atelier.toml), et
@@ -69,23 +77,22 @@ L'atelier ne sait plus appeler que Claude Code, et le chargement de
 `atelier.toml` refuse tout modèle qui n'est pas de Claude (choix du
 propriétaire).
 
-**Qui code, qui relit** (choix du propriétaire, 5 novembre 2026). Sonnet
-code les lots du VPS (choix du propriétaire, 28 octobre 2026) et fait le
-travail du mécanicien et du renfort. **Opus ne code que les lots du PC**
-(Unity, la 3D), peu nombreux et chers quand ils ratent (29 septembre 2026).
-**Opus relit tous les lots**, même ceux qu'il a codés : le relecteur est une
-autre session, en lecture seule, qui n'a pas écrit le code. **Sonnet ne relit
-jamais**, pas même en secours : Opus à court de quota, la relecture attend.
-Aucun codeur n'a de secours : Sonnet ne code pas la 3D, Opus ne code pas les
-lots du VPS.
+**Qui code, qui relit** (refonte du 7 novembre 2026). Il n'y a plus qu'un
+abonnement, et une seule réserve de quota pour tous les rôles : **Opus est
+réservé au brief et à la relecture des lots qui touchent le moteur**
+(`[projet].chemins_du_moteur` = `jeu/sim/`, rôle `relecteur_moteur`), où un
+défaut coûte le plus cher. **Sonnet code tous les lots**, ceux du PC compris,
+et fait tout le reste : il relit les autres lots (vues, Unity, données,
+outils), dépanne, répare master, écrit le journal et la boussole. Un
+relecteur est toujours une autre session, en lecture seule, qui n'a pas écrit
+le code : la relecture « par une autre famille de modèle » n'existe plus.
+Aucun rôle n'a de secours d'un autre modèle : un quota épuisé ou une session
+Claude perdue fait **attendre** le lot, sans brûler d'essai ; le journal du
+matin dit le geste qui la rouvre. Claude tient quatre agents à la fois.
 
 **Un brief ne s'écrit qu'avec Claude Opus 5.5** : le chef n'a pas de secours,
 et un lot dont Opus est à court de quota attend (choix du propriétaire,
-30 octobre 2026). Sonnet fait le secours des rôles qui ne font que lire et
-conseiller : le dépanneur, le chroniqueur et la boussole ; Claude tient
-quatre agents à la fois. Sans autre harnais, un quota épuisé ou une session
-Claude perdue fait **attendre** le lot, sans brûler d'essai ; le journal du
-matin dit le geste qui la rouvre.
+30 octobre 2026).
 
 ## Qui fait quoi
 

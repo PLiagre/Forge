@@ -752,15 +752,6 @@ def decisions_du_lot(commentaires: list[dict]) -> list[str]:
     return decisions
 
 
-def passage_de_renfort(essai: int, corrections_max: int) -> bool:
-    """Le passage du codeur numéro `essai` (0 : le premier) est-il le dernier
-    avant blocage ? Avec deux corrections, c'est la deuxième : le renfort la
-    fait, un modèle plus fort que le codeur, qui a sous les yeux ce que les
-    passages d'avant n'ont pas réussi. Sans correction permise, pas de
-    renfort : le premier passage reste au codeur."""
-    return corrections_max >= 1 and essai >= corrections_max
-
-
 # La photo d'un lot Unity (`pc.regarder_avec_unity`) : « propre » quand un
 # scénario de capture du lot a rendu une image différente du plan fixe. Du 30
 # septembre au 3 octobre 2026, treize captures de lots Unity étaient le même
