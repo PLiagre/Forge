@@ -1950,9 +1950,12 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     _appliquer_pertes_greniers(world)
     _avancer_chantiers(world)
     _affecter_artisans(world)
-    world.facteurs_du_tick = _modificateurs.facteurs_du_monde(world)
-    mortalite = world.facteurs_du_tick.get("mortalite")
-    natalite = world.facteurs_du_tick.get("natalite")
+    facteurs_du_tick = _modificateurs.facteurs_du_monde(world)
+    # Un monde d'épreuve sans registre ne reçoit pas d'attribut qu'il n'a pas.
+    if facteurs_du_tick or getattr(world, "facteurs_du_tick", None):
+        world.facteurs_du_tick = facteurs_du_tick
+    mortalite = facteurs_du_tick.get("mortalite")
+    natalite = facteurs_du_tick.get("natalite")
     for cell in world.cells.values():
         _lieux.repartir_sur_les_lieux(cell)
     total_transported = [0.0]

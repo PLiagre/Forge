@@ -148,10 +148,10 @@ def charger_donnees(chemin=None) -> Donnees:
 
 
 def cible_en_document(cible: tuple) -> dict:
-    sorte = cible[0]
+    sorte, *cle = cible
     if sorte == "lieu":
-        return {"lieu": [cible[1], cible[2]]}
-    return {sorte: cible[1]}
+        return {"lieu": list(cle)}
+    return {sorte: cle[0]}
 
 
 def lire_cible(monde, brute) -> tuple:
@@ -217,7 +217,7 @@ def retirer(monde, source) -> int:
 
 def expirer(monde) -> list:
     """Au début du tick : retire les poses dont la fin est atteinte, et les rend."""
-    if not monde.modificateurs:
+    if not getattr(monde, "modificateurs", None):
         return []
     t = monde.ticks_ecoules
     parties = [p for p in monde.modificateurs if p.fin is not None and p.fin <= t]
@@ -233,9 +233,9 @@ def _ordre(pose):
 
 
 def _lieux_touches(monde, cible, tenus=None):
-    sorte = cible[0]
+    sorte, *cle = cible
     if sorte == "lieu":
-        return [(cible[1], cible[2])]
+        return [tuple(cle)]
     if sorte == "cellule":
         return [(cible[1], lieu.rang) for lieu in monde.cells[cible[1]].lieux]
     return list((tenus or {}).get(cible[1], ()))
