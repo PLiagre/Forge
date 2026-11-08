@@ -100,8 +100,8 @@ les gestes jouent sur des métriques paramétrables :
   fichier, sa preuve dans la même PR (« La règle d'un lot ») ; Opus est
   réservé au brief et à la relecture du moteur, Sonnet fait le reste (#1024) ;
 - **la base du jeu est posée en mode direct** : le registre des modificateurs
-  (#1025), le pays d'un seul tenant et ses quatre jauges, les bâtiments de
-  province (jalon 6, « Déjà livré »).
+  (#1025), le pays d'un seul tenant et ses quatre jauges (#1039), les
+  bâtiments de province (#1040) (jalon 6, « Déjà livré »).
 
 Le jalon 4 se clôt (décision 40). Les jalons gardent leurs numéros ; le
 jalon 5 finit le monde vivant, le jalon 6 fait le pays et ses jauges avant la
@@ -713,10 +713,10 @@ maisons de l'IA ont leurs personnes, sous les mêmes règles.
 
 **Déjà livré** (mode direct, refonte du 7 novembre 2026) : le registre des
 modificateurs (#1025) ; le pays d'un seul tenant (`sim/pays.py`, `/pays`) et
-ses quatre jauges (`sim/jauges.py`, `data/jauges.toml`) : leurs points nés des
-compétences des chefs de 1400 (niveau 2), leurs causes, leurs gestes
+ses quatre jauges (`sim/jauges.py`, `data/jauges.toml`, #1039) : leurs points
+nés des compétences des chefs de 1400 (niveau 2), leurs causes, leurs gestes
 (`depenser_jauge`) et leurs modificateurs, l'IA par le même chemin ; les
-bâtiments de province (`sim/batiments.py`, `data/batiments.toml`) : le moulin,
+bâtiments de province (`sim/batiments.py`, `data/batiments.toml`, #1040) : le moulin,
 payé en journées, en bras et en grain, posé par `batir_dans_une_province`, du
 joueur ou de l'IA, et son +10 % en vrais kilos. La parcelle que le plan
 trouverait au bâtiment dans le bourg reste à l'horizon de la 3D.
