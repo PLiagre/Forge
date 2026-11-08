@@ -23,6 +23,7 @@ from sim.constants import DEFAULT_CLI_SEED, DEFAULT_CLI_TICKS, MARCHANDISE_NOURR
 from sim.engine import tick
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.capitales import toutes_les_maisons_de_l_ia
+from sim.jauges import avant_le_tick
 from sim.intentions import IntentionRefusee, recevoir_intention
 from sim.snapshot_export import SnapshotExportError, export_snapshot
 from sim.model import lire_stock_marchandise
@@ -76,6 +77,8 @@ def _simulate(ticks: int, seed: int, gestes=None, ia=False) -> tuple[dict, World
             except IntentionRefusee as exc:
                 raise IntentionRefusee(f"entrée {rang + 1} : {exc}") from exc
             rang += 1
+        # Le mois des jauges, avant l'IA, IA ou non (rejeu des gestes compris).
+        avant_le_tick(world)
         if ia:
             jouer_ia(world, releve, maisons_ia)
         kg_transportes += tick(world, rng, world.ticks_ecoules)

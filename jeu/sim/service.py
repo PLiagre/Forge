@@ -24,7 +24,7 @@ from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.modificateurs import document_des_modificateurs
 from sim.pays import PaysInconnu, pays
-from sim.jauges import document_des_jauges
+from sim.jauges import avant_le_tick, document_des_jauges
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
@@ -474,6 +474,11 @@ class ServeurMonde(ThreadingHTTPServer):
                 self._tick_en_cours = True
             debut = time.perf_counter()
             try:
+                # Le mois des jauges, avant l'IA, IA ou non (sim.jauges.avant_le_tick) ;
+                # défait avec les intentions si l'IA échoue, pour ne pas compter le mois deux fois.
+                jauges_avant = dict(getattr(self.world, "jauges", {}))
+                modificateurs_avant = list(getattr(self.world, "modificateurs", []))
+                avant_le_tick(self.world)
                 if self.ia:
                     longueur_file = len(self.world.intentions_en_attente)
                     longueur_releve = len(self.releve)
@@ -482,6 +487,9 @@ class ServeurMonde(ThreadingHTTPServer):
                     except Exception as exc:
                         del self.world.intentions_en_attente[longueur_file:]
                         del self.releve[longueur_releve:]
+                        if hasattr(self.world, "jauges"):
+                            self.world.jauges = jauges_avant
+                            self.world.modificateurs = modificateurs_avant
                         raise ErreurIA(f"ia : {exc}") from exc
                 tick(self.world, self.rng, self.world.ticks_ecoules)
                 duree_ms = (

@@ -31,7 +31,6 @@ from collections import defaultdict
 from sim import constants as _constantes
 from sim import flux as _flux
 from sim import modificateurs as _modificateurs
-from sim import jauges as _jauges
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
@@ -1947,8 +1946,6 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     """
     _valider_numero_tick(world, numero_tick)
     _modificateurs.expirer(world)
-    if _jauges.mois_ecoule(world):
-        _jauges.mettre_a_jour(world)
     _appliquer_intentions(world)
     _appliquer_pertes_greniers(world)
     _avancer_chantiers(world)

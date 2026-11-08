@@ -66,8 +66,9 @@ def lire_regles(document, modificateurs=None) -> Regles:
         raise JaugeInvalide("competences : minimum < maximum attendu")
     jauges = {}
     for nom, brute in sorted((document.get("jauges") or {}).items()):
-        bornes = [_nombre(brute.get(k), f"jauges.{nom}.{k}") for k in ("minimum", "maximum", "depart", "neutre")]
-        if not bornes[0] <= bornes[2] <= bornes[1] or not bornes[0] <= bornes[3] <= bornes[1]:
+        minimum, maximum, depart, neutre = (_nombre(brute.get(k), f"jauges.{nom}.{k}")
+                                            for k in ("minimum", "maximum", "depart", "neutre"))
+        if not minimum <= depart <= maximum or not minimum <= neutre <= maximum:
             raise JaugeInvalide(f"jauges.{nom} : départ et neutre entre minimum et maximum attendus")
         for grandeur, par_point in sorted((brute.get("modificateurs") or {}).items()):
             _nombre(par_point, f"jauges.{nom}.modificateurs.{grandeur}")
@@ -157,14 +158,26 @@ def _ouvrages_acheves(monde, bourgs):
 
 
 def mois_ecoule(monde) -> bool:
-    """Vrai au premier tick de chaque mois de jeu, le premier jour excepté.
+    """Vrai avant le premier tick de chaque mois de jeu, le tout premier excepté.
 
-    Un monde d'épreuve sans registre de maisons ni état des jauges n'a pas de mois.
+    Ne lit que le compteur : un monde d'épreuve sans état des jauges n'a pas de mois.
     """
-    if not getattr(monde, "maisons", None) or not hasattr(monde, "jauges"):
+    if not hasattr(monde, "jauges"):
         return False
     t = monde.ticks_ecoules
     return t > 0 and t % _constantes.FENETRE_FLUX_TICKS == 0
+
+
+def avant_le_tick(monde, regles=None):
+    """Ce que la boucle de jeu joue avant chaque tick, comme l'IA : le mois écoulé des jauges.
+
+    Hors du tick : la mise à jour lit le registre des maisons, leurs chefs et les
+    maîtres des lieux, que le tick ne lit jamais (MODELE.md, « Les maisons du
+    monde », « Les personnes »). Les trois boucles — le service, `python -m sim`
+    et `python -m forge` — l'appellent avant `jouer_ia`, IA ou non, rejeu compris.
+    """
+    if mois_ecoule(monde):
+        mettre_a_jour(monde, regles)
 
 
 def mettre_a_jour(monde, regles=None, raisons=None):
@@ -227,9 +240,12 @@ def poser_les_modificateurs(monde, regles):
         monde.modificateurs = sorted(autres + neuves, key=_modificateurs._ordre)
 
 
-def verifier_geste(monde, maison_id, geste, regles, engages=None):
-    """La raison du refus d'un geste, ou None : maison connue, points suffisants, jauge pas à sa borne."""
-    if not isinstance(maison_id, str) or not any(m.id == maison_id for m in monde.maisons):
+def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True):
+    """La raison du refus d'un geste, ou None : maison connue, points suffisants, jauge pas à sa borne.
+
+    `registre=False` : la maison a été vérifiée au dépôt ; au tick, le registre ne se lit pas.
+    """
+    if not isinstance(maison_id, str) or (registre and not any(m.id == maison_id for m in monde.maisons)):
         return f"maison inconnue ou mal formée : {maison_id!r}"
     if geste not in regles.gestes:
         return f"geste inconnu : {geste!r} ({', '.join(sorted(regles.gestes))})"
@@ -252,7 +268,7 @@ def verifier_geste(monde, maison_id, geste, regles, engages=None):
 def appliquer_geste(monde, maison_id, geste, regles=None):
     """Dépense les points du geste et déplace sa jauge ; ses modificateurs suivent au même tick."""
     regles = charger_regles() if regles is None else regles
-    raison = verifier_geste(monde, maison_id, geste, regles)
+    raison = verifier_geste(monde, maison_id, geste, regles, registre=False)
     if raison is not None:
         raise JaugeInvalide(raison)
     valeurs = etat(monde, maison_id, regles)

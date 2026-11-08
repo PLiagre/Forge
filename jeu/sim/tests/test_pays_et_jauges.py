@@ -9,6 +9,8 @@
   pays, dans le registre des modificateurs ; un geste dépense ses points et se
   refuse avec sa raison ; l'IA le dépose par le même chemin que le joueur, et
   les deux donnent le même monde.
+- Le mois des jauges se joue hors du tick, avant lui, comme l'IA : les trois
+  boucles (service, `python -m sim`, `python -m forge`) l'appellent.
 """
 import copy
 import json
@@ -34,6 +36,12 @@ def regles():
 
 def _tenus(monde):
     return sorted((cid, lieu.rang) for cid, cell in monde.cells.items() for lieu in cell.lieux if lieu.maitre is not None)
+
+
+def _jouer(monde, rng, numero):
+    """Un tour de boucle de jeu, sans l'IA : le mois des jauges, puis le tick."""
+    J.avant_le_tick(monde)
+    engine.tick(monde, rng, numero)
 
 
 def _lieux_du_pays(document):
@@ -130,18 +138,25 @@ def test_le_premier_mois_ne_change_rien_avant_son_terme(depart):
         ctx.setattr(J, "mettre_a_jour", lambda *a, **k: pytest.fail("jauges avant le mois"))
         rng = random.Random(0)
         for numero in range(c.FENETRE_FLUX_TICKS):
-            engine.tick(temoin, rng, numero)
+            _jouer(temoin, rng, numero)
     rng = random.Random(0)
     for numero in range(c.FENETRE_FLUX_TICKS):
         engine.tick(monde, rng, numero)
     assert monde.jauges == {} and monde.to_dict() == temoin.to_dict()
+    # Le mois venu, la boucle le joue ; le tick nu, jamais.
+    assert J.mois_ecoule(temoin)
+    nu = copy.deepcopy(temoin)
+    engine.tick(nu, random.Random(0), nu.ticks_ecoules)
+    assert nu.jauges == {}
+    _jouer(temoin, random.Random(0), temoin.ticks_ecoules)
+    assert temoin.jauges
 
 
 def test_les_points_naissent_chaque_mois_des_competences(depart, regles):
     monde = copy.deepcopy(depart)
     rng = random.Random(0)
     for numero in range(2 * c.FENETRE_FLUX_TICKS + 1):
-        engine.tick(monde, rng, numero)
+        _jouer(monde, rng, numero)
     for maison in ("grande-3", "grande-1", "seigneurie-1"):
         comp = J.competences(monde, maison, regles)
         valeurs = J.etat(monde, maison, regles)
@@ -202,9 +217,9 @@ def test_un_geste_depense_ses_points_ou_se_refuse(depart, regles):
     recevoir_intention(riche, {"type": "depenser_jauge", "maison": bar, "geste": "affermir_la_concorde"})
     with pytest.raises(IntentionRefusee, match="pas assez de points de Plume"):
         recevoir_intention(riche, {"type": "depenser_jauge", "maison": bar, "geste": "affermir_la_concorde"})
-    assert J.mois_ecoule(riche)  # ce tick ouvre aussi le mois : la Plume reçoit son mois
+    assert J.mois_ecoule(riche)  # ce tour ouvre aussi le mois : la Plume reçoit son mois avant le tick
     mois = J.competences(riche, bar, regles)["gestion"] * regles.points["plume"]["par_point_de_competence_par_mois"]
-    engine.tick(riche, rng, riche.ticks_ecoules)
+    _jouer(riche, rng, riche.ticks_ecoules)
     valeurs = J.etat(riche, bar, regles)
     assert valeurs["concorde"] == 0 and valeurs["plume"] == pytest.approx(120.0 + mois - 2 * 50)
     assert not [p for p in riche.modificateurs if p.source == f"jauge:concorde:{bar}"]
@@ -222,7 +237,8 @@ def test_l_ia_depense_ses_jauges_par_le_meme_chemin(depart, regles):
     jour = next(t for t in range(monde.ticks_ecoules, monde.ticks_ecoules + c.FENETRE_FLUX_TICKS)
                 if ia._jour_de_la_part(cle, t))
     while monde.ticks_ecoules < jour:
-        engine.tick(monde, rng, monde.ticks_ecoules)
+        _jouer(monde, rng, monde.ticks_ecoules)
+    J.avant_le_tick(monde)
     joueur = copy.deepcopy(monde)
     releve = []
     ia.jouer_ia(monde, releve, maisons)
@@ -252,3 +268,24 @@ def test_le_service_sert_le_pays_et_ses_jauges(depart):
         assert set(document["jauges"]["points"]) == {"plume", "sceau", "epee"}
         with pytest.raises(P.PaysInconnu):
             serveur.octets_du_pays("maison-inventee")
+
+
+def test_les_trois_boucles_jouent_le_mois(monkeypatch, tmp_path):
+    """Le service, `python -m sim` (rejeu compris) et `python -m forge` comptent le mois avant le tick."""
+    from forge.__main__ import _simuler
+    from sim.__main__ import _simulate
+    from sim.service import ServeurMonde
+    vus = []
+    vrai = J.mettre_a_jour
+    monkeypatch.setattr(J, "mettre_a_jour", lambda monde, *a, **k: (vus.append(monde.ticks_ecoules), vrai(monde, *a, **k)))
+    ticks = c.FENETRE_FLUX_TICKS + 1
+    _, monde = _simulate(ticks, 0)
+    assert vus == [c.FENETRE_FLUX_TICKS] and monde.jauges
+    vus.clear()
+    with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        for _ in range(ticks):
+            serveur.jouer_un_tick()
+        assert vus == [c.FENETRE_FLUX_TICKS] and serveur.world.jauges == monde.jauges
+    vus.clear()
+    _simuler(ticks, 0, tmp_path / "monde.json")
+    assert vus == [c.FENETRE_FLUX_TICKS]

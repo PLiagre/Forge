@@ -3216,9 +3216,13 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   (niveau 2, décision 39 ; #434 la remplacera par l'hérédité, l'âge,
   l'éducation, et par une valeur sourcée quand on la sait). Une maison dont le
   chef n'est pas connu n'a pas de compétence, et le dit (`absents`).
-- **Le mois.** Au premier tick de chaque mois (`ticks_ecoules` multiple de
-  `FENETRE_FLUX_TICKS`, le tout premier excepté), avant les intentions,
-  `mettre_a_jour` : chaque réserve reçoit la compétence de son domaine fois
+- **Le mois.** Avant le premier tick de chaque mois (`ticks_ecoules` multiple
+  de `FENETRE_FLUX_TICKS`, le tout premier excepté), la boucle de jeu joue
+  `avant_le_tick`, hors du tick, comme l'IA : le service, `python -m sim`
+  (rejeu des gestes compris) et `python -m forge`, IA ou non. Le mois lit le
+  registre des maisons, leurs chefs et les maîtres des lieux, que le tick ne
+  lit jamais (« Les maisons du monde », « Les personnes ») ; si l'IA échoue
+  après lui, le service le défait avec les intentions. `mettre_a_jour` : chaque réserve reçoit la compétence de son domaine fois
   son taux (0,5 point par point de compétence), jusqu'à son plafond ; un pays
   dont plus de 10 % des lieux ont eu faim dans le mois perd un point de
   Concorde ; chaque ouvrage achevé dans ses bourgs pendant le mois ajoute un
@@ -3235,7 +3239,8 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   Plume, +1 Concorde), « Asseoir le droit » (30 de Sceau, +10 Droit). Le dépôt
   refuse, avec sa raison, une maison inconnue, un geste inconnu, des points
   insuffisants (en comptant les gestes déjà déposés pour le tick) ou une jauge
-  déjà à sa borne. Le geste s'applique à l'étape des intentions et repose les
+  déjà à sa borne. Le geste s'applique à l'étape des intentions — la maison,
+  vérifiée au dépôt, n'y est pas relue dans le registre — et repose les
   modificateurs du pays au même tick.
 - **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont la
   Concorde est sous son neutre et dont la Plume paie le geste dépose
