@@ -1,38 +1,38 @@
-         16869902 function calls (16868118 primitive calls) in 4.624 seconds
+         16869875 function calls (16868091 primitive calls) in 4.650 seconds
 
    Ordered by: internal time
    List reduced from 346 to 30 due to restriction <30>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-  2848325    0.294    0.000    0.294    0.000 {method 'get' of 'dict' objects}
-       30    0.231    0.008    0.350    0.012 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\departs.py:27(appliquer_departs)
+  2848325    0.293    0.000    0.293    0.000 {method 'get' of 'dict' objects}
+       30    0.232    0.008    0.352    0.012 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\departs.py:27(appliquer_departs)
      1092    0.230    0.000    0.236    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\intentions.py:60(_lieux_de_la_maison)
-    14398    0.195    0.000    0.407    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\lieux.py:78(partager)
-       30    0.162    0.005    0.249    0.008 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\prelevement.py:48(prelever)
-    17880    0.158    0.000    0.748    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1383(_apply_consumption)
-   138774    0.144    0.000    0.205    0.000 {built-in method builtins.sorted}
-   867668    0.135    0.000    0.223    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:36(lire_stock_marchandise)
-  1282502    0.123    0.000    0.139    0.000 {built-in method builtins.max}
-   264442    0.119    0.000    0.282    0.000 {built-in method builtins.sum}
-    11381    0.091    0.000    0.229    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1020(_sortir_par_bourg)
-    17880    0.084    0.000    0.491    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:437(_calculer_parts)
-       30    0.084    0.003    0.116    0.004 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\modificateurs.py:244(_tenus)
-   198570    0.084    0.000    0.248    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:402(_paysans_restes_au_lieu)
-    64904    0.079    0.000    0.191    0.000 {built-in method builtins.any}
-    17880    0.077    0.000    0.723    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:543(_verser_recolte)
+    14398    0.196    0.000    0.411    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\lieux.py:78(partager)
+       30    0.160    0.005    0.246    0.008 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\prelevement.py:48(prelever)
+    17880    0.160    0.000    0.753    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1383(_apply_consumption)
+   138774    0.146    0.000    0.208    0.000 {built-in method builtins.sorted}
+   867668    0.134    0.000    0.223    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:36(lire_stock_marchandise)
+  1282502    0.126    0.000    0.143    0.000 {built-in method builtins.max}
+   264442    0.120    0.000    0.282    0.000 {built-in method builtins.sum}
+    11381    0.093    0.000    0.232    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1020(_sortir_par_bourg)
+   198570    0.085    0.000    0.251    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:402(_paysans_restes_au_lieu)
+    17880    0.084    0.000    0.496    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:437(_calculer_parts)
+       30    0.084    0.003    0.117    0.004 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\modificateurs.py:244(_tenus)
+    64904    0.080    0.000    0.191    0.000 {built-in method builtins.any}
+    17880    0.078    0.000    0.732    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:543(_verser_recolte)
+       30    0.069    0.002    4.243    0.141 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1917(tick)
     17880    0.068    0.000    0.181    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1650(_apply_natalite)
-       30    0.068    0.002    4.215    0.140 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1917(tick)
-   835397    0.064    0.000    0.064    0.000 {built-in method builtins.isinstance}
-   851697    0.061    0.000    0.061    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:53(ecrire_stock_marchandise)
-    41774    0.059    0.000    0.107    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:63(contenus_des_paniers)
-    35760    0.059    0.000    0.097    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:118(_facteur_eau_pour_cellule)
+   835397    0.065    0.000    0.065    0.000 {built-in method builtins.isinstance}
+   851697    0.062    0.000    0.062    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:53(ecrire_stock_marchandise)
+    35760    0.061    0.000    0.099    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:118(_facteur_eau_pour_cellule)
+    41774    0.060    0.000    0.106    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:63(contenus_des_paniers)
    397525    0.053    0.000    0.079    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:157(lire_ouvriers_du_jour)
-    13828    0.049    0.000    0.155    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1154(_surplus)
-    10206    0.044    0.000    0.090    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:571(_produire_sur_les_lieux)
-   582051    0.042    0.000    0.042    0.000 {built-in method builtins.getattr}
-   514275    0.042    0.000    0.042    0.000 {method 'append' of 'list' objects}
-   213721    0.041    0.000    0.041    0.000 {method 'as_integer_ratio' of 'float' objects}
+    13828    0.047    0.000    0.152    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1154(_surplus)
+    10206    0.045    0.000    0.092    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:571(_produire_sur_les_lieux)
+   582051    0.043    0.000    0.043    0.000 {built-in method builtins.getattr}
+   514275    0.043    0.000    0.043    0.000 {method 'append' of 'list' objects}
+   213721    0.040    0.000    0.040    0.000 {method 'as_integer_ratio' of 'float' objects}
+    17880    0.040    0.000    0.097    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:504(_facteurs_de_recolte)
    204810    0.040    0.000    0.054    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:73(<genexpr>)
-    17880    0.039    0.000    0.095    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:504(_facteurs_de_recolte)
 
 

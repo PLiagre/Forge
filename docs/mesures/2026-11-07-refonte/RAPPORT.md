@@ -454,14 +454,15 @@ soudure seule).
 Gestes acceptés de l'IA en dix ans, par type : batir_dans_une_province 35, depenser_jauge 186, fixer_part 112, ouvrir_grenier 94, tracer_route 173.
 
 Ce qui a changé depuis la section 6 vient des gestes du pays, joués par
-l'IA par le même chemin que le joueur : 35 moulins (28 dès le 90e jour,
-chacun +10 % de grain récolté sur sa cellule), 186 gestes de jauge (la
-Concorde affermie après une famine). L'Europe perd 6 % en dix ans au lieu de
-12 % ; Londres, Constantinople et Le Caire tiennent ; à cinq ans, 18 maisons
-de l'IA agissent encore au lieu de 11. **Les villes qui vivent du commerce
-retombent toujours** (Paris 26 %, Milan 5 %, Florence et la Flandre vides) :
-c'est le lot #1026, premier du jalon 5.
+l'IA par le même chemin que le joueur : 35 moulins (chacun +10 % de grain
+récolté sur sa cellule), 186 gestes de jauge (la Concorde affermie après une
+famine). L'Europe perd 6 % en dix ans au lieu de 12 % ; Londres,
+Constantinople et Le Caire tiennent ; à cinq ans, 18 maisons de l'IA agissent
+encore au lieu de 11. **Les villes qui vivent du commerce retombent toujours**
+(Paris 26 %, Milan 5 %, Florence et la Flandre vides) : c'est le lot #1026,
+premier du jalon 5. La règle « un chantier à la fois » de l'IA (#1040) ne
+change pas ce monde : mesuré avant et après, il est le même.
 
-**Le tick**, ticks 30 à 89, médiane (max) : sans IA 38,7 ms
-(50,1 ms) ; avec IA, mois des jauges compris, **50,8 ms**
-(66,2 ms), pour 213 ms au début de la refonte et 67 ms après la PR 2.
+**Le tick**, ticks 30 à 89, médiane (max) : sans IA 39,5 ms
+(51,4 ms) ; avec IA, mois des jauges compris, **51,8 ms**
+(65,3 ms), pour 213 ms au début de la refonte et 67 ms après la PR 2.

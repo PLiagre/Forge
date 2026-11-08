@@ -8,17 +8,17 @@
   "jouer_ia": {
    "mediane_ms": 0.0,
    "min_ms": 0.0,
-   "max_ms": 11.94
+   "max_ms": 11.96
   },
   "tick": {
-   "mediane_ms": 38.63,
-   "min_ms": 37.2,
-   "max_ms": 49.9
+   "mediane_ms": 39.44,
+   "min_ms": 37.64,
+   "max_ms": 49.35
   },
   "total": {
-   "mediane_ms": 38.74,
-   "min_ms": 37.2,
-   "max_ms": 50.07
+   "mediane_ms": 39.49,
+   "min_ms": 37.65,
+   "max_ms": 51.37
   }
  },
  "avec_ia": {
@@ -27,19 +27,19 @@
    89
   ],
   "jouer_ia": {
-   "mediane_ms": 10.22,
-   "min_ms": 7.81,
-   "max_ms": 26.91
+   "mediane_ms": 10.38,
+   "min_ms": 7.85,
+   "max_ms": 23.11
   },
   "tick": {
-   "mediane_ms": 41.01,
-   "min_ms": 38.12,
-   "max_ms": 52.79
+   "mediane_ms": 41.04,
+   "min_ms": 38.17,
+   "max_ms": 54.07
   },
   "total": {
-   "mediane_ms": 50.78,
-   "min_ms": 46.59,
-   "max_ms": 66.21
+   "mediane_ms": 51.76,
+   "min_ms": 46.46,
+   "max_ms": 65.34
   }
  },
  "profil_ticks": [

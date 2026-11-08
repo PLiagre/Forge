@@ -95,7 +95,12 @@
   fois avec `--force-with-lease`. Depuis, les branches réécrites sont
   poussées sous un nouveau nom (`direct/pays-et-ses-jauges`,
   `direct/batiments-des-provinces`), jamais de force.
-- PR 4 : #1039, en fusion automatique. PR 5 : #1040 (fusion automatique après #1039). PR 7 (ce CAP) : la PR de ce journal.
+- PR 4 : #1039, fusionnée. PR 5 : #1040 ; la suite Linux y trouvait l'IA qui
+  proposait un moulin deux fois, ou le jour d'une route : un chantier à la
+  fois, et `test_ia_raisons_egalent_le_monde` contrôle les raisons du moulin
+  et du geste de jauge. #1039 fusionnée en un commit, #1040 en conflit :
+  master fusionné dans la branche (`-s ours`, l'arbre de master étant celui
+  de la pointe de #1039, contenue), sans force. PR 7 (ce CAP) : la PR de ce journal.
 - Lots déplacés (`gh issue edit --milestone`, chacun avec sa ligne en
   commentaire, aucun fermé) : #849, #850 → J6 ; #860 → J5 ; #851, #419, #508,
   #962, #960, #953, #954, #955, #956 → Réserve ; #434 commenté (compétences
@@ -103,7 +108,7 @@
   (il prend le plus petit numéro prêt) : #427 attend #1027, #324 attend #1026
   à #1030. Milestone J4 fermé.
 - Mesures de fin, graine 0, IA, sous Windows au calme (scripts de
-  `scripts/`) : tick avec IA 50,8 ms de médiane (66 au plus ; 213 ms au début de la refonte) ; Paris à un an 52,6 % (0 % au début, 50,6 % avec la soudure seule) ; Europe à un an
+  `scripts/`) : tick avec IA 51,8 ms de médiane (65 au plus ; 213 ms au début de la refonte) ; Paris à un an 52,6 % (0 % au début, 50,6 % avec la soudure seule) ; Europe à un an
   107,2 % (93,8 % à dix ans, 88,3 % avec la soudure seule).
 - Chaîne : réarmée à la fusion de cette PR, `gh variable delete PC_ACTIF -R PLiagre/Forge` puis `ssh hermes-boost 'cd ~/Forge && atelier/crons/atelier-boucle jour'` ; le pilote prendra #1026 et #1027 au VPS, #1031 au PC (simulé avec `atelier/lots.py`).
 

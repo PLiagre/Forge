@@ -8,7 +8,7 @@
     "annee": 1400,
     "jour_de_l_annee": 91
    },
-   "secondes_ecoulees": 7.4,
+   "secondes_ecoulees": 7.3,
    "europe": 35584694,
    "europe_depart": 34957409,
    "part_europe": 1.0179,
@@ -178,7 +178,7 @@
     "annee": 1401,
     "jour_de_l_annee": 1
    },
-   "secondes_ecoulees": 23.1,
+   "secondes_ecoulees": 23.0,
    "europe": 37477816,
    "europe_depart": 34957409,
    "part_europe": 1.0721,
@@ -348,7 +348,7 @@
     "annee": 1405,
     "jour_de_l_annee": 1
    },
-   "secondes_ecoulees": 126.6,
+   "secondes_ecoulees": 125.6,
    "europe": 38076220,
    "europe_depart": 34957409,
    "part_europe": 1.0892,
@@ -720,7 +720,7 @@
     "annee": 1410,
     "jour_de_l_annee": 1
    },
-   "secondes_ecoulees": 350.1,
+   "secondes_ecoulees": 344.9,
    "europe": 32786313,
    "europe_depart": 34957409,
    "part_europe": 0.9379,
