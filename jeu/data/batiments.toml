@@ -8,7 +8,7 @@
 # grain au grenier de la maison (SALAIRE_JOURNEE_KG la journée, coût du
 # chantier modifié compris), et le temps qu'elles prennent. Achevé, il pose ses
 # modificateurs (data/modificateurs.toml) sur sa cellule, sous la source
-# « batiment:<identifiant> ».
+# « batiment:<nature>-<identifiant> ».
 #
 # Ce fichier se modifie sans toucher au code (`jeu/sim/batiments.py`, MODELE.md
 # « Les bâtiments de province »). Valeurs de niveau 2.
