@@ -3200,7 +3200,11 @@ tient elle-même), grain récolté sur ses lieux pendant la fenêtre des flux
 de ses bourgs — ; son suzerain. Un lieu n'appartient qu'au pays de son maître
 et à ceux de ses suzerains : les pays sans suzerain se partagent tous les lieux
 tenus du monde, chacun une fois. `GET /pays?maison=<id>` le sert, avec ses
-jauges, lu sous le verrou du tick et gardé jusqu'au tick suivant.
+jauges, lu sous le verrou du tick et gardé jusqu'au tick suivant. Ce document
+sert aussi les mots que les données ont déjà : le `dit` de chaque jauge et de
+chaque réserve (`data/jauges.toml`), et, sous `grandeurs`, le `nom` de chaque
+grandeur sur laquelle une jauge pose (`data/modificateurs.toml` : « Départs »,
+« Commerce », « Prélèvement »), toujours présent, même sans pose active.
 
 **Les jauges** (`sim/jauges.py`, `data/jauges.toml`, VISION.md, décisions 36,
 38 et 39). Trois jauges — la **Concorde** (de −3 à +3, la stabilité), le

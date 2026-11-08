@@ -12,6 +12,8 @@ namespace Forge.Interface
         public Lecture<MaisonLue> Maison { get; private set; }
         // Lot #1001 : les comptes de la maison du joueur, lus au même passage que le monde ; leur tick dit s'ils sont du même jour.
         public Lecture<ComptesDeMaison> Comptes { get; private set; }
+        // Lot #1032 : le pays de la maison du joueur (ses jauges et ses points), lu au même passage ; son tick dit s'il est du même jour que le monde.
+        public Lecture<PaysLu> Pays { get; private set; }
         public Lecture<DepartsLus> Departs { get; private set; }
         public RecuIntention Recu { get; private set; }
         public bool Occupee { get; private set; }
@@ -20,13 +22,15 @@ namespace Forge.Interface
         readonly Func<Lecture<DepartsLus>> lireDeparts;
         readonly Func<long, RecuIntention> choisir;
         readonly Func<string, Lecture<ComptesDeMaison>> lireComptes;
+        readonly Func<string, Lecture<PaysLu>> lirePays;
         public bool PeutChoisir => !Occupee && Monde != null && Monde.Presente
             && Monde.Donnees.MaisonDuJoueur == null && Departs != null && Departs.Presente && Recu?.Acceptee != true;
 
         public LecturePartie(Func<Lecture<MondeAvecMaisonLu>> monde, Func<string, Lecture<MaisonLue>> maison,
-            Func<Lecture<DepartsLus>> departs, Func<long, RecuIntention> choisir, Func<string, Lecture<ComptesDeMaison>> comptes = null)
+            Func<Lecture<DepartsLus>> departs, Func<long, RecuIntention> choisir, Func<string, Lecture<ComptesDeMaison>> comptes = null,
+            Func<string, Lecture<PaysLu>> pays = null)
         {
-            lireMonde = monde; lireMaison = maison; lireDeparts = departs; this.choisir = choisir; lireComptes = comptes;
+            lireMonde = monde; lireMaison = maison; lireDeparts = departs; this.choisir = choisir; lireComptes = comptes; lirePays = pays;
         }
 
         public static LecturePartie Locale(int port) => new LecturePartie(
@@ -37,7 +41,8 @@ namespace Forge.Interface
                 using var c = new ClientIntention(port, TimeSpan.FromSeconds(10));
                 return c.Deposer("{\"type\":\"choisir_depart\",\"seigneurie\":" + id.ToString(CultureInfo.InvariantCulture) + "}");
             },
-            id => { using var c = new ClientMaison(port, TimeSpan.FromSeconds(10)); return c.LireComptes(id); });
+            id => { using var c = new ClientMaison(port, TimeSpan.FromSeconds(10)); return c.LireComptes(id); },
+            id => { using var c = new ClientPays(port, TimeSpan.FromSeconds(10)); return c.Lire(id); });
 
         public async Task Actualiser()
         {
@@ -49,15 +54,15 @@ namespace Forge.Interface
                     var monde = lireMonde();
                     var id = monde.Presente ? monde.Donnees.MaisonDuJoueur : null;
                     var maison = id != null ? lireMaison(id) : null;
-                    return (monde, maison, comptes: id != null && lireComptes != null ? lireComptes(id) : null,
+                    return (monde, maison, comptes: id != null && lireComptes != null ? lireComptes(id) : null, pays: id != null && lirePays != null ? lirePays(id) : null,
                         departs: monde.Presente && id == null ? lireDeparts() : null);
                 });
-                Monde = lu.monde; Maison = lu.maison; Comptes = lu.comptes; Departs = lu.departs;
+                Monde = lu.monde; Maison = lu.maison; Comptes = lu.comptes; Pays = lu.pays; Departs = lu.departs;
             }
             catch (Exception e)
             {
                 Monde = Lecture<MondeAvecMaisonLu>.Absent("Lecture impossible : " + e.GetBaseException().Message);
-                Maison = null; Comptes = null; Departs = null;
+                Maison = null; Comptes = null; Pays = null; Departs = null;
             }
             finally { Occupee = false; }
         }

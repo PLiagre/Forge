@@ -281,16 +281,18 @@ def appliquer_geste(monde, maison_id, geste, regles=None):
 
 
 def document_des_jauges(monde, maison_id, regles=None) -> dict:
-    """Pour le service et le panneau du pays : les valeurs, leurs bornes, les compétences, les poses."""
+    """Pour le service et le panneau du pays : les valeurs, leurs bornes, les compétences, les poses, et les mots des données."""
     regles = charger_regles() if regles is None else regles
     valeurs = etat(monde, maison_id, regles)
     comp = competences(monde, maison_id, regles)
+    noms = _modificateurs.charger_donnees().grandeurs
     return {
-        "jauges": {nom: {"nom": j["nom"], "valeur": valeurs[nom], "minimum": j["minimum"],
+        "jauges": {nom: {"nom": j["nom"], "dit": j["dit"], "valeur": valeurs[nom], "minimum": j["minimum"],
                          "maximum": j["maximum"], "neutre": j["neutre"]} for nom, j in sorted(regles.jauges.items())},
-        "points": {nom: {"nom": p["nom"], "valeur": valeurs[nom], "plafond": p["plafond"], "domaine": p["domaine"],
+        "points": {nom: {"nom": p["nom"], "dit": p["dit"], "valeur": valeurs[nom], "plafond": p["plafond"], "domaine": p["domaine"],
                          "par_mois": None if comp is None else comp[p["domaine"]] * p["par_point_de_competence_par_mois"]}
                    for nom, p in sorted(regles.points.items())},
+        "grandeurs": {g: noms[g].nom for g in sorted({g for j in regles.jauges.values() for g in (j.get("modificateurs") or {})})},
         "competences": comp,
         "absents": {} if comp is not None else {"competences": f"chef de la maison {maison_id} non connu : aucun point"},
         "gestes": {nom: {"nom": g["nom"], "cout": g["cout"], "effet": g["effet"],

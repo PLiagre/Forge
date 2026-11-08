@@ -94,5 +94,19 @@ namespace Forge.Pont.Tests {
             Assert.Throws<ArgumentException>(() => TexteDuMonde.Absence(" "));
             Assert.Throws<ArgumentException>(() => TexteDuMonde.Absence(""));
         }
+
+        // Lot #1032 : les points des jauges et des réserves s'écrivent avec leur unité, au dixième.
+        [Test] public void Points_s_ecrivent_avec_leur_unite() {
+            foreach (var (valeur, attendu) in new[] { (0d, "0 point"), (1d, "1 point"), (1.5, "1,5 point"), (2d, "2 points"), (31.5, "31,5 points"), (-1d, "-1 point"), (-3d, "-3 points"), (999d, "999 points"),
+                    (12.34, "12,3 points"), (0.05, "0,1 point"), (-0.04, "0 point"), (1.96, "2 points") }) {
+                string ecrit = TexteDuMonde.Points(valeur);
+                Juge(attendu, ecrit, valeur.ToString(CultureInfo.InvariantCulture));
+                Assert.IsNull(TexteDuMonde.Interdit(ecrit, "maison_bar"), ecrit); Assert.IsNull(TexteDuMonde.SansUnite(ecrit), ecrit);
+            }
+            Assert.Throws<ArgumentException>(() => TexteDuMonde.Points(double.NaN));
+            Assert.Throws<ArgumentException>(() => TexteDuMonde.Points(double.PositiveInfinity));
+            Assert.IsNull(TexteDuMonde.Interdit("+4,5 points/mois", "maison_bar")); Assert.IsNull(TexteDuMonde.SansUnite("+4,5 points/mois"));
+            Juge("50", TexteDuMonde.SansUnite("Droit 50"), "Droit 50"); Juge("5", TexteDuMonde.SansUnite("5 pointsx"), "5 pointsx");
+        }
     }
 }

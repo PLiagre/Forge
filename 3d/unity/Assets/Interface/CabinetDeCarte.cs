@@ -24,6 +24,7 @@ namespace Forge.Interface
         FicheDeCellule fiche;
         GameObject toile;
         Text date, barre, maison, territoire, apercu, etat;
+        BarreDuPays jauges;
         Transform choix;
         Button confirmer;
         Button[] temps;
@@ -72,7 +73,7 @@ namespace Forge.Interface
             fond.anchorMin = new Vector2(.67f, 0); fond.anchorMax = Vector2.one;
             fond.offsetMin = fond.offsetMax = Vector2.zero;
             MatieresCabinet.Habiller(fond.GetComponent<Image>(), true);
-            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 100, true);
+            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // lot #1032 : 124, le haut de chaque panneau posé dessous
             // Lot #1002 : les icônes des dossiers, entre la date et les commandes du temps ; le bandeau garde ses trois boutons enfants directs.
             var dossiers = new GameObject(DOSSIERS, typeof(RectTransform)).GetComponent<RectTransform>(); dossiers.SetParent(bandeau, false);
             dossiers.anchorMin = dossiers.anchorMax = dossiers.pivot = new Vector2(0, 1);
@@ -81,6 +82,7 @@ namespace Forge.Interface
             date.color = SocleInterface.Couleur("papier");
             barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // lot #1001 : sous le filet, dans les 100 px du bandeau
             barre.color = SocleInterface.Couleur("papier"); barre.rectTransform.sizeDelta = new Vector2(1872, 26);
+            jauges = new BarreDuPays(bandeau); // lot #1032 : sous la barre des comptes, les trois jauges et les trois réserves de points
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer, "Passe le temps du monde à la vitesse supérieure.") };
@@ -182,6 +184,7 @@ namespace Forge.Interface
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
             barre.text = Barre(Partie.Monde, Partie.Comptes);
+            jauges.Afficher(Partie.Monde, Partie.Pays);
             etat.gameObject.SetActive(carte.CellulesServies < 0);
             if (carte.CellulesServies < 0) etat.text = carte.TexteAffiche ?? "La carte se prépare…";
             if (retenue != null)

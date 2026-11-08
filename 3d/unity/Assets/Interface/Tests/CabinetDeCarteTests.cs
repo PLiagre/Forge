@@ -537,5 +537,115 @@ namespace Forge.Interface.Tests
             Poser(dessinee, "CellulesServies", 12); cabinet.Afficher(); Assert.That(etat.gameObject.activeSelf, Is.False, "carte servie : l'état reste affiché");
             Poser(dessinee, "CellulesServies", -1); cabinet.Afficher(); Assert.That(etat.gameObject.activeSelf, Is.True, "remise à −1 : l'état ne revient pas");
         }
+        // Lot #1032 : la barre des jauges, sous la barre des comptes, lit le pays servi au tick du monde lu.
+        const string EN_ATTENTE = "Jauges en attente du monde";
+        static readonly string[] NOMS_JAUGES = { "Concorde", "Renom", "Droit", "Plume", "Sceau", "Épée" };
+        static Lecture<PaysLu> PaysTemoin(string id, long tick, double concorde = 0, double renom = 12.34, double droit = 50, double plume = 5, double sceau = 0, double epee = 3.5, bool chef = true, long diplomatie = 0, params PoseLue[] poses)
+        {
+            var comp = chef ? new Dictionary<string, long> { ["gestion"] = 10, ["diplomatie"] = diplomatie, ["guerre"] = 7 } : null;
+            JaugeLue J(string nom, string dit, double v, double min, double max, double neutre) => new JaugeLue(nom, dit, v, min, max, neutre);
+            PointsLus P(string nom, string dit, double v, string domaine) => new PointsLus(nom, dit, v, 999, domaine, comp == null ? (double?)null : comp[domaine] * 0.5);
+            return Lecture<PaysLu>.De(new PaysLu(id, "Maison témoin", tick, new DateDuMonde(1400, tick + 1),
+                new Dictionary<string, JaugeLue> { ["concorde"] = J("Concorde", "si le pays tient ensemble : la stabilité", concorde, -3, 3, 0), ["renom"] = J("Renom", "ce qu'on dit du pays et de sa dynastie : le prestige", renom, 0, 100, 0),
+                    ["droit"] = J("Droit", "ce qui fonde le souverain : la légitimité", droit, 0, 100, 50) },
+                new Dictionary<string, PointsLus> { ["plume"] = P("Plume", "administrer", plume, "gestion"), ["sceau"] = P("Sceau", "traiter", sceau, "diplomatie"), ["epee"] = P("Épée", "combattre", epee, "guerre") },
+                comp, chef ? null : "chef de la maison non connu : aucun point", poses));
+        }
+        static PoseLue Pose(string jauge, string grandeur, string nom, double valeur) => new PoseLue(grandeur, nom, valeur, jauge);
+        Transform Jauges => racine.transform.Find("Cabinet/FORGE · Le cabinet/" + BarreDuPays.NOM);
+        Text Cellule(string nom) => Jauges.Find(nom).GetComponent<Text>();
+        string Phrase(string nom) => Cellule(nom).GetComponent<Infobulle>().Phrase;
+        string[] Cellules() => NOMS_JAUGES.Select(n => Cellule(n).text).ToArray();
+        string EtatDesJauges() => Jauges.GetComponentsInChildren<Text>(true).Single(t => !NOMS_JAUGES.Contains(t.name)).text;
+        void LesJauges(Lecture<PaysLu> pays, long tick = 1)
+        {
+            Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(tick, new DateDuMonde(1400, tick + 1), 0, new CelluleDuMonde[0]), JOUEUR)));
+            Poser(partie, "Pays", pays); cabinet.Afficher();
+        }
+        void SansCellule() => Assert.That(Jauges.GetComponentsInChildren<Text>().Any(t => NOMS_JAUGES.Contains(t.name)), Is.False, "une cellule reste active");
+        void AucunSens() => Assert.That(Cellules().Any(t => t.Contains("en baisse") || t.Contains("en hausse")), Is.False);
+
+        [Test] public void Les_jauges_de_la_barre_egalent_le_pays_servi_au_meme_tick()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0)); LesJauges(PaysTemoin(JOUEUR, 1));
+            Assert.That(Cellules(), Is.EqualTo(new[] { "Concorde 0 point", "Renom 12,3 points", "Droit 50 points", "Plume 5 points, +5 points/mois", "Sceau 0 point, +0 point/mois", "Épée 3,5 points, +3,5 points/mois" }));
+            Assert.That(NOMS_JAUGES.All(n => Cellule(n).isActiveAndEnabled), Is.True); Assert.That(Jauges.GetComponentsInChildren<Text>().Count(t => !NOMS_JAUGES.Contains(t.name)), Is.Zero, "l'état reste actif");
+            foreach (var (pays, tick, etape) in new[] { (PaysTemoin(JOUEUR, 0), 1L, "tick 0"), (PaysTemoin(JOUEUR, 2), 1L, "tick 2"), (PaysTemoin(B, 1), 1L, "autre maison"), ((Lecture<PaysLu>)null, 1L, "sans pays") })
+            {
+                LesJauges(pays, tick); Assert.That(EtatDesJauges(), Is.EqualTo(EN_ATTENTE), etape); SansCellule();
+                Assert.That(racine.transform.Find("Cabinet/FORGE · Le cabinet").GetComponentsInChildren<Text>(true).Any(t => t.text.Contains("12,3")), Is.False, etape);
+            }
+            LesJauges(PaysTemoin(JOUEUR, 1)); Assert.That(Cellule("Renom").text, Is.EqualTo("Renom 12,3 points"), "remis au tick du monde");
+            LesJauges(Lecture<PaysLu>.Absent("refus témoin")); Assert.That(EtatDesJauges(), Is.EqualTo("Jauges indisponibles : refus témoin")); SansCellule();
+            Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.Absent("service coupé")); cabinet.Afficher(); Assert.That(EtatDesJauges(), Is.EqualTo("Pays indisponible : service coupé"));
+            Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(EtatDesJauges(), Is.EqualTo("Lecture du pays…"));
+            Proposer(); Assert.That(Jauges.GetComponentsInChildren<Text>().Any(t => t.gameObject.activeInHierarchy), Is.False);
+            Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet"), Is.EqualTo(3), "la barre n'est pas une commande");
+        }
+        [Test] public void Une_jauge_que_le_service_ne_sert_pas_est_nommee()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0)); var p = PaysTemoin(JOUEUR, 1).Donnees; var sans = p.Jauges.Where(e => e.Key != "droit").ToDictionary(e => e.Key, e => e.Value);
+            LesJauges(Lecture<PaysLu>.De(new PaysLu(p.MaisonId, p.Nom, p.Tick, p.Date, sans, p.Points.ToDictionary(e => e.Key, e => e.Value), p.Competences.ToDictionary(e => e.Key, e => e.Value), null, p.Poses)));
+            Assert.That(EtatDesJauges(), Is.EqualTo("Jauges indisponibles : Droit non servie par le monde")); Assert.That(Jauges.GetComponentsInChildren<Text>().Any(t => t.gameObject.activeInHierarchy && NOMS_JAUGES.Contains(t.name)), Is.False);
+        }
+        [Test] public void Sans_chef_connu_la_barre_dit_l_absence()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0)); LesJauges(PaysTemoin(JOUEUR, 1, chef: false));
+            Assert.That(Cellules().Skip(3), Is.EqualTo(new[] { "Plume 5 points, chef non connu", "Sceau 0 point, chef non connu", "Épée 3,5 points, chef non connu" }));
+            foreach (var n in NOMS_JAUGES.Skip(3)) { Assert.That(Cellule(n).text, Does.Not.Contain("+0").And.Not.Contain("/mois"), n); Assert.That(Phrase(n), Does.Contain("absent, pas nul"), n); Assert.That(TexteDuMonde.Interdit(Phrase(n), JOUEUR, B) ?? TexteDuMonde.SansUnite(Phrase(n)), Is.Null, Phrase(n)); }
+            string sans = Cellule("Sceau").text;
+            var zero = PaysTemoin(JOUEUR, 1, sceau: 0).Donnees; // les compétences et les gains à 0 : un vrai zéro, mesuré
+            LesJauges(Lecture<PaysLu>.De(new PaysLu(JOUEUR, zero.Nom, zero.Tick, zero.Date, zero.Jauges.ToDictionary(e => e.Key, e => e.Value),
+                zero.Points.ToDictionary(e => e.Key, e => new PointsLus(e.Value.Nom, e.Value.Dit, 0, e.Value.Plafond, e.Value.Domaine, 0d)), new Dictionary<string, long> { ["gestion"] = 0, ["diplomatie"] = 0, ["guerre"] = 0 }, null, zero.Poses)));
+            Assert.That(Cellule("Plume").text, Is.EqualTo("Plume 0 point, +0 point/mois")); Assert.That(Cellule("Sceau").text, Is.Not.EqualTo(sans));
+            Assert.That(Phrase("Plume"), Does.Contain("Gagne 0 point par mois : la gestion du chef, 0 point.").And.Not.Contain("absent, pas nul"));
+        }
+        [Test] public void Une_jauge_qui_baisse_se_voit()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0)); var departs = Pose("concorde", "departs", "Départs", 0.05); var droit = Pose("droit", "prelevement", "Prélèvement", 0.02);
+            LesJauges(PaysTemoin(JOUEUR, 1, 0, 12.34, 50, 5, 31.5, 3.5), 1); AucunSens();
+            LesJauges(PaysTemoin(JOUEUR, 2, -1, 12.34, 60, 5, 1.5, 3.5, true, 9, departs, droit), 2);
+            Assert.That(Cellules(), Is.EqualTo(new[] { "Concorde -1 point, en baisse", "Renom 12,3 points", "Droit 60 points, en hausse", "Plume 5 points, +5 points/mois", "Sceau 1,5 point, +4,5 points/mois, en baisse", "Épée 3,5 points, +3,5 points/mois" }));
+            Assert.That(Phrase("Concorde"), Does.Contain("En baisse depuis le jour 3 de 1400 : de 0 point à -1 point.").And.Contain("Pose au pays : Départs +5 %."));
+            Assert.That(Phrase("Droit"), Does.Contain("En hausse depuis le jour 3 de 1400 : de 50 points à 60 points.").And.Contain("Pose au pays : Prélèvement +2 %.").And.EndWith("Relevé au jour 3 de 1400."));
+            foreach (var n in NOMS_JAUGES) Assert.That(TexteDuMonde.Interdit(Phrase(n), JOUEUR, B) ?? TexteDuMonde.SansUnite(Phrase(n)), Is.Null, Phrase(n));
+            LesJauges(PaysTemoin(JOUEUR, 3, -1, 12.34, 60, 5, 1.5, 3.5, true, 9, departs, droit), 3);
+            Assert.That(Cellule("Concorde").text, Is.EqualTo("Concorde -1 point, en baisse")); Assert.That(Cellule("Droit").text, Is.EqualTo("Droit 60 points, en hausse")); Assert.That(Phrase("Concorde"), Does.Contain("depuis le jour 3 de 1400").And.EndWith("Relevé au jour 4 de 1400."));
+            LesJauges(PaysTemoin(B, 3), 3); LesJauges(PaysTemoin(JOUEUR, 3, -1, 12.34, 60, 5, 1.5, 3.5, true, 9, departs, droit), 3); AucunSens();
+            LesJauges(PaysTemoin(JOUEUR, 1, 0), 1); AucunSens();
+        }
+        [Test] public void Un_tick_plus_petit_efface_le_sens()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0)); LesJauges(PaysTemoin(JOUEUR, 1, 0), 1); LesJauges(PaysTemoin(JOUEUR, 2, -1), 2); Assert.That(Cellule("Concorde").text, Does.EndWith(", en baisse"));
+            LesJauges(PaysTemoin(JOUEUR, 3, 0), 3); Assert.That(Cellule("Concorde").text, Is.EqualTo("Concorde 0 point, en hausse")); LesJauges(PaysTemoin(JOUEUR, 1, 0), 1); AucunSens();
+        }
+        [Test] public void Chaque_jauge_dit_d_ou_vient_sa_valeur()
+        {
+            Publier(JOUEUR, new LieuTenu(10, 0)); LesJauges(PaysTemoin(JOUEUR, 1));
+            string[] dits = { "si le pays tient ensemble : la stabilité", "ce qu'on dit du pays et de sa dynastie : le prestige", "ce qui fonde le souverain : la légitimité", "administrer", "traiter", "combattre" };
+            for (int i = 0; i < 6; i++)
+            {
+                string n = NOMS_JAUGES[i], phrase = Phrase(n); Assert.That(Cellule(n).GetComponent<Infobulle>(), Is.Not.Null, n);
+                Assert.That(phrase, Does.StartWith(n + " : " + dits[i] + ".").And.EndWith("Relevé au jour 2 de 1400."), n);
+                Assert.That(TexteDuMonde.Interdit(phrase, JOUEUR, B) ?? TexteDuMonde.SansUnite(phrase), Is.Null, phrase);
+            }
+            Assert.That(Phrase("Plume"), Does.Contain("la gestion du chef, 10 points")); Assert.That(Phrase("Concorde"), Does.Contain("À son neutre, elle ne pose rien."));
+            Assert.That(Phrase("Droit"), Does.Contain("50 points, de 0 point à 100 points, neutre à 50 points.")); Assert.That(Phrase("Sceau"), Does.Contain("Gagne 0 point par mois : la diplomatie du chef, 0 point."));
+            Assert.That(Phrase("Épée"), Does.Contain("3,5 points, au plus 999 points.").And.Contain("Gagne 3,5 points par mois : la guerre du chef, 7 points."));
+        }
+        [Test] public void Les_jauges_tiennent_dans_le_bandeau()
+        {
+            var bandeau = (RectTransform)racine.transform.Find("Cabinet/FORGE · Le cabinet"); var conteneur = (RectTransform)bandeau.Find(BarreDuPays.NOM);
+            Assert.That(bandeau.sizeDelta, Is.EqualTo(new Vector2(1920, 124))); Assert.That(conteneur.parent, Is.SameAs(bandeau)); Assert.That(conteneur.anchoredPosition, Is.EqualTo(new Vector2(24, -98))); Assert.That(conteneur.sizeDelta, Is.EqualTo(new Vector2(1872, 26)));
+            var cadres = NOMS_JAUGES.Select(n => (RectTransform)conteneur.Find(n)).ToArray(); Assert.That(cadres.Select(c => c.anchoredPosition.x), Is.EqualTo(new[] { 0f, 240, 480, 720, 1104, 1488 }));
+            for (int i = 0; i < 6; i++)
+            {
+                Rect r = new Rect(cadres[i].anchoredPosition.x, -cadres[i].anchoredPosition.y, cadres[i].sizeDelta.x, cadres[i].sizeDelta.y);
+                Assert.That(r.xMin >= 0 && r.xMax <= 1872 && r.yMax <= 26, Is.True, NOMS_JAUGES[i]); Assert.That(98 + r.yMax, Is.LessThanOrEqualTo(124f), NOMS_JAUGES[i]);
+                for (int j = i + 1; j < 6; j++) Assert.That(r.Overlaps(new Rect(cadres[j].anchoredPosition.x, -cadres[j].anchoredPosition.y, cadres[j].sizeDelta.x, cadres[j].sizeDelta.y)), Is.False, NOMS_JAUGES[i] + " / " + NOMS_JAUGES[j]);
+            }
+            string[] longs = { "Concorde -3 points, en baisse", "Renom 100 points, en baisse", "Droit 100 points, en hausse", "Plume 999 points, +5 points/mois, en baisse", "Sceau 999 points, +5 points/mois, en hausse", "Épée 999 points, +5 points/mois, en baisse" };
+            for (int i = 0; i < 6; i++) { var t = Cellule(NOMS_JAUGES[i]); t.text = longs[i]; Assert.That(t.preferredWidth, Is.LessThanOrEqualTo(cadres[i].sizeDelta.x), longs[i]); Assert.That(t.preferredHeight, Is.LessThanOrEqualTo(26f), longs[i]); }
+        }
     }
 }
