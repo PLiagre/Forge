@@ -4269,11 +4269,13 @@ def test_ia_option_explicitement(tmp_path, monkeypatch):
     from sim import __main__ as cli
     from sim.engine import tick
     import random
+    from sim.jauges import avant_le_tick
     resume, monde = cli._simulate(31, 0)
     temoin = World.charger(0)
     rng = random.Random(0)
-    for _ in range(31): tick(temoin, rng, temoin.ticks_ecoules)
-    assert monde.to_dict() == temoin.to_dict() and 'ia' not in resume
+    # Le témoin est la boucle sans IA : le mois des jauges, puis le tick (sim/jauges.py, avant_le_tick).
+    for _ in range(31): avant_le_tick(temoin); tick(temoin, rng, temoin.ticks_ecoules)
+    assert monde.to_dict() == temoin.to_dict() and 'ia' not in resume and temoin.jauges
     def interdit(*args): raise AssertionError('IA appelée sans option')
     monkeypatch.setattr(cli, 'jouer_ia', interdit)
     assert cli._simulate(31, 0)[0] == resume
