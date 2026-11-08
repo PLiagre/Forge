@@ -81,34 +81,46 @@
   `test_modificateurs.py` (21 cas, verts sous Windows). Sans pose : monde et
   photographie à 365 jours identiques à la PR 2 (`96f0ad5d…`, `b2befd1b…`).
 
-## Reste, dans l'ordre (arrêt sur quota, 7/11 au soir)
+- 08/11 : PR 3 fusionnée (#1025). PR 4, le pays et ses jauges : la suite
+  Linux trouvait le tick qui lisait le registre, les chefs et les maîtres
+  (`test_registre_tick`, `test_maitre_tick`) par la mise à jour mensuelle des
+  jauges ; elle sort du tick (`jauges.avant_le_tick`, jouée par les trois
+  boucles avant l'IA, défaite avec les intentions si l'IA échoue) ; les deux
+  épreuves de master qu'on avait neutralisées (`test_modificateurs.py`,
+  `test_prelevement.py`) redeviennent celles de master. PR 5, les bâtiments
+  de province : le chantier ne relit plus le maître du bourg au tick (vérifié
+  au dépôt), avec son épreuve sous la garde de `test_maitre_tick`.
+- **Un écart à la consigne, à dire au propriétaire** : le 7/11 au soir, la
+  branche de sauvegarde `direct/modificateurs` (sans PR) a été poussée une
+  fois avec `--force-with-lease`. Depuis, les branches réécrites sont
+  poussées sous un nouveau nom (`direct/pays-et-ses-jauges`,
+  `direct/batiments-des-provinces`), jamais de force.
+- PR 4 : #1039, en fusion automatique. PR 5 : #1040 (fusion automatique après #1039). PR 7 (ce CAP) : la PR de ce journal.
+- Lots déplacés (`gh issue edit --milestone`, chacun avec sa ligne en
+  commentaire, aucun fermé) : #849, #850 → J6 ; #860 → J5 ; #851, #419, #508,
+  #962, #960, #953, #954, #955, #956 → Réserve ; #434 commenté (compétences
+  déjà là) ; « Dépend de » ajoutés pour que le pilote suive l'ordre du CAP
+  (il prend le plus petit numéro prêt) : #427 attend #1027, #324 attend #1026
+  à #1030. Milestone J4 fermé.
+- Mesures de fin, graine 0, IA, sous Windows au calme (scripts de
+  `scripts/`) : tick avec IA 50,8 ms de médiane (66 au plus ; 213 ms au début de la refonte) ; Paris à un an 52,6 % (0 % au début, 50,6 % avec la soudure seule) ; Europe à un an
+  107,2 % (93,8 % à dix ans, 88,3 % avec la soudure seule).
+- Chaîne : réarmée à la fusion de cette PR, `gh variable delete PC_ACTIF -R PLiagre/Forge` puis `ssh hermes-boost 'cd ~/Forge && atelier/crons/atelier-boucle jour'` ; le pilote prendra #1026 et #1027 au VPS, #1031 au PC (simulé avec `atelier/lots.py`).
 
-État : PR 1 fusionnée (#1022) ; PR 2 (#1023) et PR 6 (#1024, la chaîne pour
-Claude seul) en fusion automatique. Branches de travail poussées sans PR :
+## Reste
 
-1. **PR 3** `direct/modificateurs` (worktree `.atelier/direct/refonte-modificateurs`) :
-   après la fusion de #1023, `git rebase --onto origin/master be630e69
-   direct/modificateurs`, suite entière (Windows puis WSL : `bash
-   /mnt/d/Forge/.atelier/wsl_autres.sh`), PR. 24 épreuves vertes ; sans pose,
-   monde et photographie à 365 jours = PR 2 (`96f0ad5d…`, `b2befd1b…`).
-2. **PR 4** `direct/pays-et-jauges` (`refonte-pays`), partie de `7c412e00` :
-   `git rebase --onto direct/modificateurs 7c412e00 direct/pays-et-jauges` ;
-   puis neutraliser les jauges (`sim.jauges.mettre_a_jour` → rien) dans
-   l'épreuve d'identité de `test_modificateurs.py` et dans les calibrages de
-   `test_prelevement.py` (`_habitants_apres_un_an_calibres`, `_course_departs`) ;
-   16 épreuves de `test_pays_et_jauges.py` vertes ; MODELE « Le pays et ses jauges » écrit.
-3. **PR 5** `direct/batiments-de-province` (`refonte-batiments`) : `data/batiments.toml`
-   et `sim/batiments.py` écrits ; le branchement (`scratchpad/brancher_batiments.py`)
-   n'est passé que pour `world.py` : le refaire après le rebase sur la PR 4
-   (tick après `_affecter_artisans`, intention `batir_dans_une_province`, IA, `/pays`),
-   puis les épreuves (refus avec raison, +10 % en vrais kilos, même graine même monde, IA).
-4. **PR 7** : CAP.md réécrit (J4 clos, décision 40 ; #849 #850 → J6 ; #860 → J5 ;
-   #851 #419 #508 #962 #960 → Réserve avec leur ligne ; lots de la refonte et
-   leurs issues « Demander un lot »), #434 récrit (compétences déjà là).
-5. **Réarmer la chaîne** seulement après la PR 7 : `gh variable delete PC_ACTIF
-   -R PLiagre/Forge`, puis `ssh hermes-boost 'cd ~/Forge && atelier/crons/atelier-boucle jour'`.
-6. Question du monde laissée au propriétaire : recalibrer la part coutumière
-   (3 %) sur un monde qui a sa soudure.
+1. Question du monde laissée au propriétaire : recalibrer la part coutumière
+   (3 %) sur un monde qui a sa soudure (RAPPORT.md, section 6).
+2. Les villes tombent après la première année (Paris 26 % à dix ans) : le
+   commerce ne les nourrit pas — le lot #1026 (J5) le prend.
+3. L'IA se tait à moitié après la première année (18 maisons sur 36 jouent
+   encore à cinq ans, 17 à dix) : le lot #1027 (J5).
+4. #860 (le jeu s'ouvre en pause) attend la réponse du propriétaire à la
+   question du chef du 6/11 (la surbrillance des terres de départ, ou les
+   gestes d'aujourd'hui) ; #1030, l'observateur, l'attend.
+5. Les branches `direct/pays-et-jauges` et `direct/batiments-de-province`
+   restent sur GitHub, sauvegardes d'avant les rebases, sans PR : à supprimer
+   quand le propriétaire le dit.
 
 ## Décisions techniques prises seul (et pourquoi)
 
