@@ -1,38 +1,38 @@
-         16869902 function calls (16868118 primitive calls) in 4.624 seconds
+         21917541 function calls (21916699 primitive calls) in 10.325 seconds
 
    Ordered by: cumulative time
-   List reduced from 346 to 30 due to restriction <30>
+   List reduced from 421 to 30 due to restriction <30>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-       30    0.068    0.002    4.215    0.140 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1917(tick)
-    17880    0.027    0.000    1.035    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:592(_apply_production)
-    17880    0.158    0.000    0.748    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1383(_apply_consumption)
-    17880    0.077    0.000    0.723    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:543(_verser_recolte)
-   390/30    0.030    0.000    0.676    0.023 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1076(_apply_commerce)
-    17880    0.084    0.000    0.491    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:437(_calculer_parts)
-    14398    0.195    0.000    0.407    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\lieux.py:78(partager)
-       30    0.000    0.000    0.396    0.013 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\ia.py:275(jouer_ia)
-       30    0.005    0.000    0.392    0.013 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\ia.py:222(decider_intentions)
-       30    0.231    0.008    0.350    0.012 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\departs.py:27(appliquer_departs)
-  2848325    0.294    0.000    0.294    0.000 {method 'get' of 'dict' objects}
-   264442    0.119    0.000    0.282    0.000 {built-in method builtins.sum}
-       30    0.019    0.001    0.267    0.009 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:967(_appliquer_flux_maritimes)
-       30    0.162    0.005    0.249    0.008 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\prelevement.py:48(prelever)
-   198570    0.084    0.000    0.248    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:402(_paysans_restes_au_lieu)
-     1050    0.009    0.000    0.236    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\ia.py:103(_proposition_de_secours)
-     1092    0.230    0.000    0.236    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\intentions.py:60(_lieux_de_la_maison)
-    11381    0.091    0.000    0.229    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1020(_sortir_par_bourg)
-   867668    0.135    0.000    0.223    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:36(lire_stock_marchandise)
-    17880    0.010    0.000    0.212    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\lieux.py:148(repartir_sur_les_lieux)
-   138774    0.144    0.000    0.205    0.000 {built-in method builtins.sorted}
-    64904    0.079    0.000    0.191    0.000 {built-in method builtins.any}
-    17880    0.068    0.000    0.181    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1650(_apply_natalite)
-    12060    0.014    0.000    0.171    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\model.py:68(lieux_deja_accordes)
-    13828    0.049    0.000    0.155    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:1154(_surplus)
-    28082    0.012    0.000    0.148    0.000 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\lieux.py:128(partager_si_necessaire)
-  1282502    0.123    0.000    0.139    0.000 {built-in method builtins.max}
-       30    0.006    0.000    0.129    0.004 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\modificateurs.py:254(facteurs_du_monde)
-       30    0.001    0.000    0.120    0.004 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\engine.py:744(_initialiser_capacite_aretes)
-       30    0.084    0.003    0.116    0.004 D:\Forge\.atelier\direct\refonte-batiments\jeu\sim\modificateurs.py:244(_tenus)
+       30    0.000    0.000    6.061    0.202 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ia.py:202(jouer_ia)
+       30    0.008    0.000    6.024    0.201 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ia.py:169(decider_intentions)
+       30    0.038    0.001    4.698    0.157 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:93(maisons_de_l_ia)
+       30    0.069    0.002    4.285    0.143 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1876(tick)
+   454523    0.153    0.000    3.480    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:109(point_dans_geometrie)
+   503903    3.325    0.000    3.325    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\villes.py:95(_dans_anneau)
+      930    0.002    0.000    2.955    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:108(<genexpr>)
+      900    0.143    0.000    2.946    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:75(cellule_de_capitale)
+     1050    0.002    0.000    1.049    0.001 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\programme_ia.py:79(proposer_route_vers_le_champ)
+    17880    0.022    0.000    0.984    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:562(_apply_production)
+       92    0.001    0.000    0.956    0.010 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\intentions.py:349(verifier_base)
+       31    0.002    0.000    0.929    0.030 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\programme_ia.py:59(_premier_trace)
+       92    0.000    0.000    0.906    0.010 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:473(base_de_cellule)
+       30    0.008    0.000    0.903    0.030 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\aggregation.py:108(charger_positions)
+       92    0.000    0.000    0.856    0.009 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:430(base_d_une_population)
+       92    0.004    0.000    0.854    0.009 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:414(_base_des_groupes)
+    17880    0.194    0.000    0.850    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1344(_apply_consumption)
+       92    0.007    0.000    0.849    0.009 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:354(_assembler)
+      180    0.000    0.000    0.837    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\__init__.py:304(loads)
+      180    0.001    0.000    0.837    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py:340(decode)
+      180    0.836    0.005    0.836    0.005 C:\Users\liagr\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py:351(raw_decode)
+      184    0.035    0.000    0.780    0.004 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:333(_poser)
+    17880    0.043    0.000    0.761    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:519(_verser_recolte)
+   390/30    0.036    0.000    0.710    0.024 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:1037(_apply_commerce)
+      210    0.001    0.000    0.672    0.003 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\capitales.py:112(<genexpr>)
+      180    0.021    0.000    0.670    0.004 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\seigneuries.py:121(cellule_du_siege)
+    70652    0.075    0.000    0.536    0.000 {built-in method builtins.any}
+    17944    0.084    0.000    0.512    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\engine.py:435(_calculer_parts)
+    15158    0.209    0.000    0.433    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\lieux.py:78(partager)
+   119230    0.023    0.000    0.365    0.000 D:\Forge\.atelier\direct\refonte-mesures\jeu\sim\ville1400.py:347(<genexpr>)
 
 
