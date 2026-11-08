@@ -3114,6 +3114,81 @@ L'ordre des chantiers, pour ce prorata comme pour `/plan`, est rue/parcelle/bât
 
 ---
 
+## Les modificateurs
+
+Le registre des modificateurs (VISION.md, décisions 34, 35, 37 et 38) :
+`sim/modificateurs.py` et `data/modificateurs.toml`. Un modificateur change un
+**taux** que le moteur lit déjà ; il ne crée jamais un kilo ni une pièce.
+
+**Les données.** `data/modificateurs.toml` déclare les sources admises
+(`batiment`, `loi`, `idee`, `conseiller`, `evenement`, `jauge`), les grandeurs
+du moteur (chacune avec son nom et ce qu'elle dit, `lue = false` et sa raison
+pour celle que le moteur ne lit pas encore) et les définitions : nom,
+grandeur, valeur (une fraction : 0,10 vaut +10 %), portée (`pays`, `cellule`
+— la province, à l'échelle d'EU4 — ou `lieu`) et durée en jours (0 : tant que
+sa source tient). `lire_donnees` refuse une grandeur inconnue (« le moteur ne
+lit que des taux »), tout autre champ (« jamais des kilos ou des pièces »),
+une valeur non finie ou à −100 % et moins, une portée ou une durée hors de leur
+ensemble. Le fichier se modifie sans toucher au code ; il se relit à chaque
+`charger_donnees`.
+
+**Poser, retirer, expirer.** `poser(monde, identifiant, source, cible)` refuse
+une source absente ou hors des sources admises (« sorte:identifiant »), une
+grandeur que le moteur ne lit pas (la levée, jusqu'au jalon 7), une cible
+inconnue ou d'une autre portée que la définition. La cible garde la seule clé
+spatiale : `("pays", identifiant de maison)`, `("cellule", cell_id)` ou
+`("lieu", cell_id, rang)`. La pose recopie la définition (nom, grandeur,
+valeur), sa source, sa cible, son tick de début et sa fin (début + durée, ou
+aucune) ; `World.modificateurs` les garde triées, et `to_dict()` ne porte la
+clé `modificateurs` que s'il en reste une. `retirer(monde, source)` ôte les
+poses d'une source ; `expirer(monde)`, premier maillon du tick après la
+validation, ôte celles dont la fin est atteinte.
+
+**Additionner.** Un lieu est touché par les poses de son pays (la maison qui
+le tient, lue sur le lieu), de sa cellule et de lui-même. Pour une grandeur,
+son facteur vaut `1 + fsum(valeurs)`, dans l'ordre fixé grandeur, portée
+(pays, cellule, lieu), cible, source, identifiant, début. Après les chantiers
+et avant la production, le tick calcule une fois `World.facteurs_du_tick`
+(grandeur → (cell_id, rang) → facteur), hors de `to_dict()` ; sans pose, ce
+dictionnaire est vide, aucun maillon ne lit de facteur, et le monde calcule
+exactement comme avant : la photographie de la graine 0 au 365e jour garde ses
+octets (`sim/tests/test_modificateurs.py`). Hors du tick (l'IA, une
+intention), `facteur(monde, grandeur, cell_id, rang)` lit les poses
+directement.
+
+**Ce que chaque grandeur multiplie.**
+
+| grandeur | où le moteur la lit | ce qui change |
+|---|---|---|
+| `recolte` | `engine._apply_production`, `_verser_recolte` | la part de récolte de chaque lieu ; le grain en plus entre aux paniers, se prélève, voyage et se mange ; la récolte perdue aux chantiers se mesure au même facteur |
+| `prelevement` | `prelevement.prelever` | la part du maître sur la récolte du lieu, jamais plus que la récolte |
+| `natalite` | `engine._apply_natalite` | le taux de naissances d'un lieu nourri |
+| `mortalite` | `engine._apply_mortality` | le taux de morts de faim d'un lieu endetté, sous `MAX_DEATH_RATE_PER_TICK` |
+| `departs` | `departs.appliquer_departs` | la part des foyers qui partent, jamais plus que tous |
+| `cout_chantier` | `chantiers.salaire_journee_kg`, lu au bourg | le grain d'une journée, pris au grenier du maître et versé au bourg ; l'IA le lit pour sa réserve et le coût de sa route |
+| `duree_chantier` | `modificateurs.ajuster_journees`, lu au bourg quand l'intention s'applique | les journées requises, arrondies au-dessus, au moins une ; l'IA le lit pour sa route |
+| `commerce` | `engine._capacite_transport_arete_kg`, `_capacites_aretes`, lu au bourg de chaque côté | la capacité d'une frontière terrestre, multipliée par le facteur de chaque cellule |
+| `levee` | pas encore lue | refusée à la pose, jusqu'à la guerre (jalon 7) |
+
+**L'économie reste physique.** Aucune grandeur n'est un stock : un
+modificateur ne peut qu'accélérer ou ralentir un flux que le moteur calcule
+déjà. Mesuré au premier tick, graine 0 : un moulin (+10 % de récolte) posé sur
+la cellule de Paris y verse exactement 10 % de grain en plus, et la nourriture
+du monde (paniers, greniers, convois, mer, pertes) grandit de ces kilos-là, et
+d'eux seuls ; dix pour cent ajoutés au panier sans passer par la récolte font
+échouer ce bilan.
+
+**Le détail.** `detail(monde, cell_id, rang)` rend, par grandeur, les lignes
+de chaque pose qui touche le lieu, dans l'ordre fixé, avec leur total et le
+facteur : l'infobulle d'EU4. `document_des_modificateurs(monde)` rend les
+poses et le détail de chaque lieu touché ; le service le sert à
+`GET /modificateurs` (au tick publié, avec sa date), et la photographie le
+porte sous `modificateurs` dès qu'une pose existe.
+
+**Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
+à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
+(les bâtiments, les jauges et les événements le feront par leurs lots).
+
 ## Le moteur sans état caché
 
 Les parts vivent dans `World.parts` : défaut relu par le module des constantes au chargement, plafond relu au dépôt ; l'application n'écrit que la part validée.

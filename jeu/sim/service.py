@@ -22,6 +22,7 @@ from sim.engine import tick
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
+from sim.modificateurs import document_des_modificateurs
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
@@ -191,6 +192,7 @@ class EtatPublie:
     ia: bytes | None
     maisons: MatiereMaisons
     octets_maisons: dict[str | None, bytes]
+    modificateurs: bytes = b""
 
 
 class ErreurIA(RuntimeError):
@@ -431,6 +433,7 @@ class ServeurMonde(ThreadingHTTPServer):
                 "tick": numero_tick, "date": date, "releve": self.releve,
                 "maisons_actives_30j": maisons_actives_30j(numero_tick, self.releve),
             }) if self.ia else None,
+            modificateurs=_serialiser(document_des_modificateurs(self.world) | {"date": date}),
         )
 
     def maisons_de_l_ia(self):
@@ -595,6 +598,10 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
                 return
             self._repondre_octets(HTTPStatus.OK, corps)
+            return
+        if cible.path == "/modificateurs":
+            # L'infobulle : chaque pose, et le détail de chaque lieu touché, au tick publié.
+            self._repondre_octets(HTTPStatus.OK, etat.modificateurs)
             return
         if cible.path == "/ia":
             if etat.ia is None:

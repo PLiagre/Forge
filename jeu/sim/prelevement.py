@@ -113,6 +113,9 @@ def prelever(monde, recoltes) -> None:
                     jour.recu[i] += entree
                 panier[nourriture] = panier.get(nourriture, 0.0) + entree
     taux = [monde.parts[nom] for nom in routes.noms]
+    # Le prélèvement de chaque lieu (registre des modificateurs) : la part de son
+    # maître multipliée par son facteur, jamais plus que sa récolte.
+    modifies = (getattr(monde, 'facteurs_du_tick', None) or {}).get('prelevement')
     groupes = [None] * (routes.jours_max + 1)
     charges = [None] * len(groupes)
     facteurs = [1.0] * len(groupes)
@@ -128,6 +131,8 @@ def prelever(monde, recoltes) -> None:
             if indice < 0:
                 continue
             kg = taux[indice] * recolte[rang]
+            if modifies:
+                kg = min(recolte[rang], kg * modifies.get((cid, rang), 1.0))
             if not kg:
                 continue
             lieu = lieux[rang]
