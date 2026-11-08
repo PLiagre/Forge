@@ -149,6 +149,27 @@ def test_le_chantier_prend_des_bras_et_paie_en_grain(depart):
     assert _octets(monde) == avant
 
 
+def test_le_chantier_ne_lit_ni_les_maitres_ni_le_registre(depart, monkeypatch):
+    """Un tick avec un bâtiment en chantier, sous la garde des invariants du tick (test_maitre_tick)."""
+    from sim import maitres
+    from sim.model import EtatDeLieu
+    from sim.tests.test_maisons import _tick_sans_lecture_registre
+    monde = copy.deepcopy(depart)
+    cid, maison = _paris(monde)
+    monde.greniers[maison][NOURRITURE] = 5000.0
+    recevoir_intention(monde, _moulin(cid, maison))
+    engine.tick(monde, random.Random(0), 0)
+    fourni = monde.batiments_de_province[0].travail_fourni
+
+    def lire(self):
+        raise RuntimeError("maître lu au tick")
+
+    monkeypatch.setattr(EtatDeLieu, "maitre", property(lire))
+    monkeypatch.setattr(maitres, "attribuer_maitres", lambda *a: pytest.fail("attribution au tick"))
+    _tick_sans_lecture_registre(monkeypatch, monde, engine.tick, monde.ticks_ecoules)
+    assert monde.batiments_de_province[0].travail_fourni > fourni
+
+
 def test_le_moulin_acheve_recolte_dix_pour_cent_de_vrais_kilos_en_plus(depart, monkeypatch):
     monde = copy.deepcopy(depart)
     cid, maison = _paris(monde)

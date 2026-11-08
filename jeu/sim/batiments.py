@@ -182,8 +182,10 @@ def avancer(monde, types=None):
         bourg = next((l for l in cellule.lieux if l.rang == 0), None)
         metiers = lire_habitants_par_metier(cellule)
         panier = monde.greniers.get(batiment.maison)
-        if bourg is None or bourg.maitre != batiment.maison or metiers == -1 or panier is None:
-            continue  # la terre a changé de main, ou rien n'est mesuré : le chantier attend
+        # La maison a été vérifiée maîtresse du bourg au dépôt ; le tick ne relit
+        # jamais les maîtres (MODELE.md, « Les personnes »).
+        if bourg is None or metiers == -1 or panier is None:
+            continue  # rien n'est mesuré, ou plus de grenier : le chantier attend
         salaire = salaire_journee_kg(monde, batiment.cell_id)
         payables = math.floor(panier.get(nourriture, 0.0) / salaire)
         restant = batiment.travail_requis - batiment.travail_fourni

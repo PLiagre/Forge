@@ -3286,8 +3286,10 @@ journée et comptent au bourg (`ouvriers_du_jour`), où ils manquent aux champs 
 leur salaire (`salaire_journee_kg`) quitte le grenier de la maison et entre au
 panier du bourg et de la cellule, où ils le mangent. Le lendemain, les
 chantiers du plan les rendent aux champs, comme leurs propres ouvriers. Sans
-grain pour payer, sans paysans, ou si le bourg a changé de main, le chantier
-attend. Achevé, le bâtiment pose ses modificateurs sur sa cellule, sous la
+grain pour payer ou sans paysans, le chantier attend. La maison est vérifiée
+maîtresse du bourg au dépôt seulement : le tick ne relit jamais les maîtres ;
+un bourg qui changera de main (la conquête, plus tard) dira ce que devient
+son chantier. Achevé, le bâtiment pose ses modificateurs sur sa cellule, sous la
 source `batiment:<nature>-<identifiant>` : le moulin y récolte exactement 10 %
 de grain en plus (mesuré au tick qui suit l'achèvement, contre le même monde
 sans sa pose). La récolte perdue par ses ouvriers n'est pas encore comptée
