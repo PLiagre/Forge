@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 import pytest
-from sim import constants as c, engine, jauges, prelevement
+from sim import constants as c, engine, prelevement
 from sim.model import Cell, EtatDeLieu
 from sim.world import World
 from sim.tests.test_convois import _importe_convois, _section_prelevement
@@ -298,15 +298,12 @@ def _habitants_apres_un_an_calibres(part, bras):
     # soudure (cinq jours de ration) : il s'y rejoue au chiffre près
     # (sim/tests/amorcage_d_avant.py). Le refaire sur la soudure est une
     # décision du monde, pas de ce test.
-    # Il mesure la part seule : sans les jauges du pays, qui posent leurs
-    # départs quand la Concorde baisse (sim/jauges.py), comme sans les départs.
     with pytest.MonkeyPatch.context() as ctx:
         amorcer_comme_avant_la_soudure(ctx)
-        ctx.setattr(jauges, "mois_ecoule", lambda monde: False)
         monde, rng = World.charger(0), random.Random(0)
-        monde.parts = dict.fromkeys(monde.parts, part)
-        for numero in range(c.CALENDAR_DAYS_PER_YEAR):
-            engine.tick(monde, rng, numero)
+    monde.parts = dict.fromkeys(monde.parts, part)
+    for numero in range(c.CALENDAR_DAYS_PER_YEAR):
+        engine.tick(monde, rng, numero)
     habitants = sum(cell.population for cell in monde.cells.values())
     print(f'bras={bras}, part={part:.2f}, habitants après un an={habitants}', flush=True)
     return habitants
@@ -642,9 +639,6 @@ def _course_departs(part, etape=_DEPARTS_REELS, toutes=False):
         return total
     with pytest.MonkeyPatch.context() as ctx:
         ctx.setattr(departs, 'appliquer_departs', observer)
-        # Le calibrage des départs se mesure sans les jauges du pays, dont la
-        # Concorde pose ses propres départs (sim/jauges.py).
-        ctx.setattr(jauges, 'mois_ecoule', lambda monde: False)
         rng = random.Random(0)
         for numero in range(365):
             engine.tick(monde, rng, numero)
