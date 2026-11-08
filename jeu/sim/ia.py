@@ -6,7 +6,7 @@ import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
-    ChoixDepart, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
+    BatirDansUneProvince, ChoixDepart, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
     TYPE_OUVRIR_GRENIER,
     _lieux_de_la_maison, recevoir_intention,
 )
@@ -199,12 +199,18 @@ def _proposition_de_jauge(monde, maison, cle, regles):
 
 
 def _proposition_de_batiment(monde, maison, cle, types):
-    """Un moulin dans la cellule de sa capitale, quand le grenier le paie au-delà de sa réserve."""
+    """Un moulin dans la cellule de sa capitale, quand le grenier le paie au-delà de sa réserve.
+
+    Les bâtiments déjà déposés par la maison comptent, comme au dépôt : jamais
+    un second moulin en attente, ni un grenier payé deux fois.
+    """
     from sim import batiments
     nature = 'moulin'
     if nature not in types or maison.cell_id is None:
         return None
-    if batiments.verifier(monde, cle, maison.cell_id, nature, types) is not None:
+    engages = [(i.cell_id, i.nature) for i in monde.intentions_en_attente
+               if isinstance(i, BatirDansUneProvince) and i.maison == cle]
+    if batiments.verifier(monde, cle, maison.cell_id, nature, types, engages) is not None:
         return None
     grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
     reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
@@ -266,7 +272,10 @@ def decider_intentions(monde, releve, maisons=None):
             if types is None:
                 from sim import batiments
                 types = batiments.charger_types()
-            batiment = _proposition_de_batiment(monde, maison, cle, types)
+            # Un chantier à la fois : pas de moulin le jour où la maison trace une
+            # route ou ouvre son grenier (le grenier ne paie pas deux projets).
+            batiment = None if route is not None or secours is not None else _proposition_de_batiment(
+                monde, maison, cle, types)
             if batiment is not None:
                 propositions.append(batiment)
     return propositions

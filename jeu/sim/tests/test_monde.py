@@ -3781,9 +3781,50 @@ def _reserve_lue(monde, cle):
             if ouvrage.en_chantier:
                 journees += ouvrage.travail_requis - ouvrage.travail_fourni
     nourriture = k.MARCHANDISE_NOURRITURE
+    salaires = journees * k.SALAIRE_JOURNEE_KG
+    # Les bâtiments de province que la maison paie encore (data/batiments.toml), cellule par cellule.
+    restantes = {}
+    for batiment in getattr(monde, 'batiments_de_province', ()) if bourgs else ():
+        if batiment.en_chantier and batiment.maison == cle:
+            restantes[batiment.cell_id] = restantes.get(batiment.cell_id, 0) + batiment.travail_requis - batiment.travail_fourni
+    if restantes:
+        salaires += sum(j * k.SALAIRE_JOURNEE_KG for j in restantes.values())
     return (k.consommation_kg_par_habitant_par_tick(nourriture)
             * (k.RESERVE_VOULUE_JOURS / k.TICK_DURATION_DAYS)
-            * habitants * k.RESERVE_VOULUE_PART_DES_HABITANTS) + journees * k.SALAIRE_JOURNEE_KG
+            * habitants * k.RESERVE_VOULUE_PART_DES_HABITANTS) + salaires
+
+
+def _lire_moulin(monde, cle, intention):
+    """Raison du moulin, lue sur le monde au tick, sans sim/ia.py."""
+    from sim import batiments, constants as k
+    types = batiments.charger_types()
+    return {'regle': 'moulin_quand_le_grenier_le_permet',
+            'grenier_nourriture_kg': monde.greniers[cle].get(k.MARCHANDISE_NOURRITURE, 0),
+            'reserve_voulue_kg': _reserve_lue(monde, cle),
+            'cout_kg': batiments.cout_kg(monde, types[intention['nature']], intention['cell'])}
+
+
+def _lire_jauge(monde, cle, intention):
+    """Raison du geste de jauge, lue sur le monde au tick, sans sim/ia.py."""
+    from sim import jauges
+    regles = jauges.charger_regles()
+    valeurs = jauges.etat(monde, cle, regles)
+    return {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'],
+            'neutre': regles.jauges['concorde']['neutre'], 'plume': valeurs['plume'],
+            'cout': dict(regles.gestes[intention['geste']]['cout'])}
+
+
+def _controler_raisons_du_pays(releve, lectures):
+    """Chaque moulin et chaque geste de jauge de l'IA porte la raison que le monde donne à son tick, et la tient."""
+    for entree in releve:
+        if entree['intention']['type'] not in ('batir_dans_une_province', 'depenser_jauge'):
+            continue
+        assert 'refus' not in entree and entree['raison'] == lectures[(entree['tick'], entree['intention']['maison'])]
+        raison = entree['raison']
+        if raison['regle'] == 'moulin_quand_le_grenier_le_permet':
+            assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
+        else:
+            assert raison['concorde'] < raison['neutre'] and raison['plume'] >= raison['cout']['plume']
 
 
 def _lire_route_vers_le_champ(monde, maison, intention):
@@ -3896,7 +3937,7 @@ def _verifier_raisons(ticks):
     from sim import __main__ as cli
     from sim.capitales import maisons_de_l_ia
     from sim.tests.test_intentions import _lecture_secours
-    lectures_secours, lectures_champ, maisons = {}, {}, None
+    lectures_secours, lectures_champ, lectures_pays, maisons = {}, {}, {}, None
     reel, reel_ia = cli.tick, cli.jouer_ia
 
     def maisons_de(monde):
@@ -3911,6 +3952,11 @@ def _verifier_raisons(ticks):
         deja = len(releve)
         reel_ia(monde, releve, maisons)
         for entree in releve[deja:]:
+            # Le dépôt ne touche ni au grenier ni aux jauges : le monde est celui que l'IA a lu.
+            lire = {'batir_dans_une_province': _lire_moulin, 'depenser_jauge': _lire_jauge}.get(entree['intention']['type'])
+            if lire is not None:
+                lectures_pays[(entree['tick'], entree['intention']['maison'])] = lire(
+                    monde, entree['intention']['maison'], entree['intention'])
             if entree['intention']['type'] == 'tracer_route' and entree['raison']['regle'] == 'route_vers_le_champ':
                 couple = (entree['maison']['sorte'], entree['maison']['id'])
                 maison = next(m for m in maisons_de(monde) if (m.sorte, m.id) == couple)
@@ -3934,10 +3980,13 @@ def _verifier_raisons(ticks):
         cli.tick, cli.jouer_ia = reel, reel_ia
     releve = resume['ia']['releve']
     assert releve and all(
-        entree['intention']['type'] in ('tracer_route', 'fixer_part', 'ouvrir_grenier') for entree in releve)
+        entree['intention']['type'] in ('tracer_route', 'fixer_part', 'ouvrir_grenier',
+                                        'batir_dans_une_province', 'depenser_jauge') for entree in releve)
     _controler_raisons(releve, lectures_champ)
+    _controler_raisons_du_pays(releve, lectures_pays)
     _verifier_raisons.secours = lectures_secours
     _verifier_raisons.champ = lectures_champ
+    _verifier_raisons.pays = lectures_pays
     return releve
 
 
@@ -4043,6 +4092,13 @@ def test_ia_raisons_egalent_le_monde(monkeypatch, bras, regle):
     monkeypatch.setattr("sim.constants.BRAS_AUX_CHAMPS_PAR_KM2", bras)
     amorcer_comme_avant_la_soudure(monkeypatch)
     releve = _verifier_raisons(_JOURS_DU_PROGRAMME)
+    # Les moulins de l'IA : leur raison est celle du monde, et une raison faussée d'un kilo se voit.
+    moulins = [entree for entree in releve if entree['intention']['type'] == 'batir_dans_une_province']
+    assert moulins, "aucun moulin de l'IA : échantillon vide"
+    faux = copy.deepcopy(moulins[0])
+    faux['raison']['cout_kg'] += 1
+    with pytest.raises(AssertionError):
+        _controler_raisons_du_pays([faux], _verifier_raisons.pays)
     routes = [entree for entree in releve if entree['intention']['type'] == 'tracer_route']
     dates = [entree['tick'] for entree in routes]
     print(f'bras={bras}, règle={regle}, dates des routes={dates}', flush=True)
