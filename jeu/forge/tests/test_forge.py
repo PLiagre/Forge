@@ -240,9 +240,11 @@ def test_forge_ia_boucle(tmp_path, monkeypatch):
         assert all(x[1] is e[0][1] and x[2] is e[0][2] for x in e)
     ordre(evenements)
     with pytest.raises(AssertionError): ordre(evenements[::-1])
+    from sim.jauges import avant_le_tick
     temoin, releve, rng = World.charger(0), [], random.Random(0)
-    for _ in range(31): jouer(temoin, releve); tick(temoin, rng)
-    assert releve and evenements[0][2] == releve and sorties[-1] == temoin.to_dict()
+    # Le témoin est la boucle du jeu : le mois des jauges, l'IA, puis le tick (sim/jauges.py, avant_le_tick).
+    for _ in range(31): avant_le_tick(temoin); jouer(temoin, releve); tick(temoin, rng)
+    assert releve and evenements[0][2] == releve and sorties[-1] == temoin.to_dict() and temoin.jauges
     monkeypatch.setattr(ia, 'jouer_ia', lambda *a: None)
     _simuler(31, 0, tmp_path / 'muet.json', ia=True)
     with pytest.raises(AssertionError): assert sorties[-1] == temoin.to_dict()
