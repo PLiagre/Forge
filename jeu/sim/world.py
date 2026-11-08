@@ -163,6 +163,9 @@ class World:
                      vide au chargement ; dans to_dict seulement s'il en reste.
         facteurs_du_tick : grandeur → {(cell_id, rang) → facteur}, recalculé au début
                      de chaque tick depuis les poses ; hors de to_dict, {} sans pose.
+        jauges     : identifiant de maison → état de ses jauges et de ses points
+                     (`sim.jauges`), seulement s'il diffère du départ ; dans to_dict
+                     sous `jauges` s'il en reste un.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -198,6 +201,7 @@ class World:
         self.flux = Flux()
         self.modificateurs = []
         self.facteurs_du_tick = {}
+        self.jauges = {}
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -405,4 +409,7 @@ class World:
             )
         if self.modificateurs:
             document["modificateurs"] = [pose.en_document() for pose in self.modificateurs]
+        if self.jauges:
+            document["jauges"] = {maison: dict(sorted(valeurs.items()))
+                                  for maison, valeurs in sorted(self.jauges.items())}
         return document

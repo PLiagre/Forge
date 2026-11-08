@@ -42,6 +42,7 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None, ia=False) -
     from sim.snapshot_export import export_snapshot
     from sim.ia import jouer_ia
     from sim.capitales import toutes_les_maisons_de_l_ia
+    from sim.jauges import avant_le_tick
     from sim.world import World
 
     if departs and ticks == 0:
@@ -61,6 +62,8 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None, ia=False) -
     # La liste des maisons de l'IA ne change pas d'un tick à l'autre : une fois.
     maisons_ia = toutes_les_maisons_de_l_ia(monde) if ia else None
     for _ in range(ticks):
+        # Le mois des jauges, avant l'IA, IA ou non.
+        avant_le_tick(monde)
         if ia:
             jouer_ia(monde, releve, maisons_ia)
         jouer_un_tick(monde, rng)
