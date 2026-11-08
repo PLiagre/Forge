@@ -198,31 +198,71 @@ def _proposition_de_jauge(monde, maison, cle, regles):
     }
 
 
-def _proposition_de_batiment(monde, maison, cle, types):
-    """Un moulin dans la cellule de sa capitale, quand le grenier le paie au-delà de sa réserve.
+def _partis_et_arrives_30j(monde, cell_id):
+    """Les foyers partis et arrivés sur la fenêtre, sommés sur tous les lieux de la cellule."""
+    from sim import flux
+    partis = arrives = 0
+    for lieu in sorted(monde.cells[cell_id].lieux, key=lambda lieu: lieu.rang):
+        mesure = flux.flux_de_lieu(monde, cell_id, lieu.rang)
+        partis += mesure['partis']
+        arrives += mesure['arrives']
+    return partis, arrives
 
-    Les bâtiments déjà déposés par la maison comptent, comme au dépôt : jamais
-    un second moulin en attente, ni un grenier payé deux fois.
+
+def _commerce_30j_kg(monde, cell_id):
+    """Les kilos envoyés et reçus par les frontières terrestres de la cellule, sur la fenêtre."""
+    from sim import flux
+    return sum(voisine['envoye_kg'] + voisine['recu_kg']
+               for voisine in flux.commerce_par_voisine(monde, cell_id).values())
+
+
+def _proposition_de_batiment(monde, maison, cle, types):
+    """Un bâtiment dans la cellule de sa capitale : le moulin, puis la grange, puis le marché.
+
+    Un chantier à la fois : rien tant que la maison en a un en cours ou déposé.
+    Un bâtiment qui n'est ni bâti ni déposé, que le grenier paie au-delà de la
+    réserve voulue, se propose pour sa raison, la première qui tient, dans cet
+    ordre (le grain nourrit tout le reste). Un bâtiment déjà déposé en
+    attente arrête la maison : jamais un grenier payé deux fois.
     """
     from sim import batiments
-    nature = 'moulin'
-    if nature not in types or maison.cell_id is None:
+    if maison.cell_id is None:
         return None
-    engages = [(i.cell_id, i.nature) for i in monde.intentions_en_attente
-               if isinstance(i, BatirDansUneProvince) and i.maison == cle]
-    if batiments.verifier(monde, cle, maison.cell_id, nature, types, engages) is not None:
+    if any(b.en_chantier and b.maison == cle for b in getattr(monde, 'batiments_de_province', ())):
+        return None
+    if any(isinstance(i, BatirDansUneProvince) and i.maison == cle for i in monde.intentions_en_attente):
         return None
     grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
-    reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
-    cout = batiments.cout_kg(monde, types[nature], maison.cell_id)
-    if not grenier > reserve + cout:
-        return None
-    return {
-        'maison': {'sorte': maison.sorte, 'id': maison.id},
-        'intention': {'type': TYPE_BATIR_DANS_UNE_PROVINCE, 'maison': cle, 'cell': maison.cell_id, 'nature': nature},
-        'raison': {'regle': 'moulin_quand_le_grenier_le_permet', 'grenier_nourriture_kg': grenier,
-                   'reserve_voulue_kg': reserve, 'cout_kg': cout},
-    }
+    reserve = None
+    for nature, regle in (('moulin', 'moulin_quand_le_grenier_le_permet'),
+                          ('grange', 'grange_quand_les_gens_partent'),
+                          ('marche', 'marche_quand_la_province_commerce')):
+        if nature not in types or batiments.verifier(monde, cle, maison.cell_id, nature, types) is not None:
+            continue
+        if reserve is None:
+            reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
+        cout = batiments.cout_kg(monde, types[nature], maison.cell_id)
+        if not grenier > reserve + cout:
+            continue
+        raison = {'regle': regle}
+        if nature == 'grange':
+            partis, arrives = _partis_et_arrives_30j(monde, maison.cell_id)
+            if not partis > arrives:
+                continue
+            raison |= {'partis_30j': partis, 'arrives_30j': arrives}
+        elif nature == 'marche':
+            commerce = _commerce_30j_kg(monde, maison.cell_id)
+            if not commerce > 0:
+                continue
+            raison |= {'commerce_30j_kg': commerce}
+        raison |= {'grenier_nourriture_kg': grenier, 'reserve_voulue_kg': reserve, 'cout_kg': cout}
+        return {
+            'maison': {'sorte': maison.sorte, 'id': maison.id},
+            'intention': {'type': TYPE_BATIR_DANS_UNE_PROVINCE, 'maison': cle, 'cell': maison.cell_id,
+                          'nature': nature},
+            'raison': raison,
+        }
+    return None
 
 
 def decider_intentions(monde, releve, maisons=None):
@@ -272,7 +312,7 @@ def decider_intentions(monde, releve, maisons=None):
             if types is None:
                 from sim import batiments
                 types = batiments.charger_types()
-            # Un chantier à la fois : pas de moulin le jour où la maison trace une
+            # Un chantier à la fois : pas de bâtiment le jour où la maison trace une
             # route ou ouvre son grenier (le grenier ne paie pas deux projets).
             batiment = None if route is not None or secours is not None else _proposition_de_batiment(
                 monde, maison, cle, types)

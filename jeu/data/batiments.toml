@@ -10,6 +10,9 @@
 # modificateurs (data/modificateurs.toml) sur sa cellule, sous la source
 # « batiment:<nature>-<identifiant> ».
 #
+# `genre` (« m » par défaut, ou « f ») accorde le refus du doublon : « un seul
+# moulin par province », « une seule grange par province ».
+#
 # Ce fichier se modifie sans toucher au code (`jeu/sim/batiments.py`, MODELE.md
 # « Les bâtiments de province »). Valeurs de niveau 2.
 
@@ -23,4 +26,23 @@ bras_par_jour = 20
 # Les pièces arrivent avec l'argent (jalon 8) : un coût en pièces se refuse d'ici là.
 pieces = 0
 modificateurs = ["moulin"]
+un_par_cellule = true
+
+[batiments.marche]
+nom = "Marché"
+dit = "ouvre la province au commerce : ses frontières terrestres portent un cinquième de grain en plus"
+journees = 900
+bras_par_jour = 30
+pieces = 0
+modificateurs = ["marche"]
+un_par_cellule = true
+
+[batiments.grange]
+nom = "Grange"
+dit = "garde les gens au pays : un quart de foyers en moins qui partent de ses lieux"
+genre = "f"
+journees = 400
+bras_par_jour = 20
+pieces = 0
+modificateurs = ["grange"]
 un_par_cellule = true

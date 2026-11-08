@@ -26,7 +26,7 @@ from sim.model import (contenus_des_paniers, ecrire_habitants_par_metier, ecrire
                        ecrire_stock_marchandise, lire_habitants_par_metier, lire_ouvriers_du_jour)
 
 _CHEMIN = Path(__file__).parents[1] / "data" / "batiments.toml"
-_CHAMPS = {"nom", "dit", "journees", "bras_par_jour", "pieces", "modificateurs", "un_par_cellule"}
+_CHAMPS = {"nom", "dit", "journees", "bras_par_jour", "pieces", "modificateurs", "un_par_cellule", "genre"}
 SOURCE = "batiment"
 
 
@@ -44,6 +44,7 @@ class TypeDeBatiment:
     pieces: int
     modificateurs: tuple
     un_par_cellule: bool
+    genre: str = "m"
 
 
 @dataclass(frozen=True)
@@ -100,11 +101,14 @@ def lire_types(document, modificateurs=None) -> dict:
         un_par_cellule = brute.get("un_par_cellule", False)
         if not isinstance(un_par_cellule, bool):
             raise BatimentInvalide(f"batiments.{identifiant}.un_par_cellule : vrai ou faux attendu")
+        genre = brute.get("genre", "m")
+        if genre not in ("m", "f"):
+            raise BatimentInvalide(f"batiments.{identifiant}.genre : « m » ou « f » attendu")
         types[identifiant] = TypeDeBatiment(
             identifiant, nom, str(brute.get("dit", "")),
             _entier(brute.get("journees"), f"batiments.{identifiant}.journees", 1),
             _entier(brute.get("bras_par_jour"), f"batiments.{identifiant}.bras_par_jour", 1),
-            pieces, tuple(noms), un_par_cellule)
+            pieces, tuple(noms), un_par_cellule, genre)
     return types
 
 
@@ -143,7 +147,8 @@ def verifier(monde, maison, cell_id, nature, types, engages=()) -> str | None:
     if type_.un_par_cellule and (
             any(b.cell_id == cell_id and b.nature == nature for b in getattr(monde, "batiments_de_province", ()))
             or (cell_id, nature) in engages):
-        return f"un seul {type_.nom.lower()} par province : la cellule {cell_id} en a déjà un"
+        seul, un = ("une seule", "une") if type_.genre == "f" else ("un seul", "un")
+        return f"{seul} {type_.nom.lower()} par province : la cellule {cell_id} en a déjà {un}"
     cout = cout_kg(monde, type_, cell_id)
     deja = sum(cout_kg(monde, types[n], c) for c, n in engages if n in types)
     disponible = _grenier(monde, maison) - deja

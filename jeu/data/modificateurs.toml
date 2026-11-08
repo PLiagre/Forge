@@ -71,3 +71,20 @@ grandeur = "recolte"
 valeur = 0.10
 portee = "cellule"
 duree_jours = 0
+
+# Le marché : ce que les frontières terrestres de sa cellule portent, en plus
+# (le grain qui passe existait déjà : le marché ne crée aucun kilo).
+[modificateurs.marche]
+nom = "Marché"
+grandeur = "commerce"
+valeur = 0.20
+portee = "cellule"
+duree_jours = 0
+
+# La grange : moins de foyers qui partent des lieux de sa cellule.
+[modificateurs.grange]
+nom = "Grange"
+grandeur = "departs"
+valeur = -0.25
+portee = "cellule"
+duree_jours = 0

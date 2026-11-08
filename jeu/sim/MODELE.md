@@ -3263,19 +3263,36 @@ plan reste un lot du jalon 6).
 
 **Les données.** Chaque bâtiment dit ses journées de travail (une personne,
 un jour), ses bras par jour au plus, son coût en pièces, ses modificateurs et
-s'il est seul de sa sorte dans une province. `lire_types` refuse un champ
-inconnu, un modificateur absent de `data/modificateurs.toml` ou qui ne se pose
-pas sur une cellule, et tout coût en pièces : le moteur n'en porte pas encore
-(jalon 8). Le moulin : 600 journées, 20 bras par jour, +10 % de récolte sur
-sa cellule (niveau 2).
+s'il est seul de sa sorte dans une province. Un champ optionnel `genre`
+(« m » par défaut, ou « f ») accorde le refus du doublon (« un seul moulin »,
+« une seule grange »). `lire_types` refuse un champ inconnu, un `genre` qui
+n'est ni « m » ni « f », un modificateur absent de `data/modificateurs.toml`
+ou qui ne se pose pas sur une cellule, et tout coût en pièces : le moteur n'en
+porte pas encore (jalon 8). Trois bâtiments, un seul grenier pour les payer
+(niveau 2, plausibles, non sourcés) :
+
+| bâtiment | journées | bras par jour | coût au salaire de base | modificateur |
+|---|---|---|---|---|
+| le moulin | 600 | 20 | 1 800 kg | `moulin` : récolte +0,10 |
+| le marché | 900 | 30 | 2 700 kg | `marche` : commerce +0,20 |
+| la grange | 400 | 20 | 1 200 kg | `grange` : départs −0,25 |
+
+Le marché ne crée aucun kilo : il multiplie par 1,20 la capacité de chaque
+arête terrestre qui touche sa cellule (`_capacite_modifiee`, lue au bourg) ;
+ce qui passe en plus est du grain qui existait déjà. La grange multiplie par
+0,75 la part des foyers qui partent de chacun des lieux de sa cellule
+(`departs.appliquer_departs`) ; les partants restent des foyers entiers. Aucun
+code du moteur ne change : les deux grandeurs étaient déjà lues. 3 000 kg au
+grenier paient le moulin et la grange, pas le marché en plus : le refus dit
+ses chiffres.
 
 **Le geste.** `batir_dans_une_province` (`maison`, `cell`, `nature`), du joueur
 ou de l'IA, se refuse avec sa raison : bâtiment ou maison inconnus, cellule
 inconnue, bourg tenu par une autre maison (« pas sur vos terres »), un second
-moulin dans la province (déposé ou bâti), un grenier qui ne paie pas toutes
+bâtiment de la même sorte dans la province (déposé ou bâti), un grenier qui ne paie pas toutes
 ses journées au salaire du bourg (coût et durée modifiés compris, en comptant
 les bâtiments déjà déposés pour le tick), ou moins de paysans dans la cellule
-que ses bras d'un jour. À l'étape des intentions, `poser` ouvre le chantier
+que ses bras d'un jour (« pas assez de bras »). À l'étape des intentions, `poser` ouvre le chantier
 dans `World.batiments_de_province`, ses journées comptées par
 `ajuster_journees`.
 
@@ -3295,12 +3312,30 @@ de grain en plus (mesuré au tick qui suit l'achèvement, contre le même monde
 sans sa pose). La récolte perdue par ses ouvriers n'est pas encore comptée
 dans `recolte_perdue_par_chantier` (niveau 3).
 
-**L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont le
-grenier dépasse sa réserve voulue plus le coût d'un moulin dépose un moulin
-dans la cellule de sa capitale, par `recevoir_intention`, avec sa raison
-(`moulin_quand_le_grenier_le_permet`). Sa réserve voulue compte les salaires
-qui restent à payer à ses bâtiments de province. Le joueur qui dépose la même
-intention obtient le même monde.
+**L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA pèse les
+trois bâtiments pour la cellule de sa capitale, en cinq règles :
+
+1. elle n'a aucun bâtiment de province en chantier (ni déposé en attente) :
+   un chantier à la fois ;
+2. elle ne trace pas de route et n'ouvre pas son grenier ce jour-là ;
+3. le bâtiment n'est pas encore bâti ni déposé, et son grenier dépasse sa
+   réserve voulue plus le coût de ce bâtiment ;
+4. elle prend le premier dont la raison tient, dans cet ordre : le **moulin**
+   (`moulin_quand_le_grenier_le_permet`, le grain nourrit tout le reste) ; la
+   **grange**, si la province perd des gens
+   (`grange_quand_les_gens_partent` : sur les trente derniers jours, la somme
+   des `partis` des lieux de la cellule dépasse celle de leurs `arrives`,
+   `flux.flux_de_lieu`) ; le **marché**, si la province commerce par ses
+   frontières (`marche_quand_la_province_commerce` : la somme des `envoye_kg`
+   et `recu_kg` de `flux.commerce_par_voisine` sur la cellule est positive) ;
+5. elle dépose par `recevoir_intention`, avec sa raison (`partis_30j`,
+   `arrives_30j` ou `commerce_30j_kg`, `grenier_nourriture_kg`,
+   `reserve_voulue_kg`, `cout_kg`).
+
+Sa réserve voulue compte les salaires qui restent à payer à ses bâtiments de
+province. Le joueur qui dépose la même intention obtient le même monde. L'ordre
+est fixé : l'IA ne compare pas des kilos à des foyers, chaque raison se lit sur
+le monde.
 
 `GET /pays` sert les bâtiments et chantiers des cellules du pays ; `to_dict()`
 les porte sous `batiments_de_province` dès qu'il y en a un.
