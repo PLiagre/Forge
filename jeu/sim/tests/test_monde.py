@@ -3804,6 +3804,39 @@ def _lire_moulin(monde, cle, intention):
             'cout_kg': batiments.cout_kg(monde, types[intention['nature']], intention['cell'])}
 
 
+def _lire_grange(monde, cle, intention):
+    """Raison de la grange, lue sur le monde au tick, sans sim/ia.py."""
+    from sim import batiments, constants as k, flux
+    types = batiments.charger_types()
+    cell = intention['cell']
+    mesures = [flux.flux_de_lieu(monde, cell, lieu.rang) for lieu in sorted(monde.cells[cell].lieux, key=lambda l: l.rang)]
+    return {'regle': 'grange_quand_les_gens_partent',
+            'partis_30j': sum(m['partis'] for m in mesures),
+            'arrives_30j': sum(m['arrives'] for m in mesures),
+            'grenier_nourriture_kg': monde.greniers[cle].get(k.MARCHANDISE_NOURRITURE, 0),
+            'reserve_voulue_kg': _reserve_lue(monde, cle),
+            'cout_kg': batiments.cout_kg(monde, types[intention['nature']], cell)}
+
+
+def _lire_marche(monde, cle, intention):
+    """Raison du marché, lue sur le monde au tick, sans sim/ia.py."""
+    from sim import batiments, constants as k, flux
+    types = batiments.charger_types()
+    cell = intention['cell']
+    voisines = flux.commerce_par_voisine(monde, cell)
+    return {'regle': 'marche_quand_la_province_commerce',
+            'commerce_30j_kg': sum(v['envoye_kg'] + v['recu_kg'] for v in voisines.values()),
+            'grenier_nourriture_kg': monde.greniers[cle].get(k.MARCHANDISE_NOURRITURE, 0),
+            'reserve_voulue_kg': _reserve_lue(monde, cle),
+            'cout_kg': batiments.cout_kg(monde, types[intention['nature']], cell)}
+
+
+def _lire_batiment(monde, cle, intention):
+    """La règle de la raison se choisit selon la nature du bâtiment déposé."""
+    lire = {'moulin': _lire_moulin, 'grange': _lire_grange, 'marche': _lire_marche}[intention['nature']]
+    return lire(monde, cle, intention)
+
+
 def _lire_jauge(monde, cle, intention):
     """Raison du geste de jauge, lue sur le monde au tick, sans sim/ia.py."""
     from sim import jauges
@@ -3815,13 +3848,19 @@ def _lire_jauge(monde, cle, intention):
 
 
 def _controler_raisons_du_pays(releve, lectures):
-    """Chaque moulin et chaque geste de jauge de l'IA porte la raison que le monde donne à son tick, et la tient."""
+    """Chaque bâtiment de province et chaque geste de jauge de l'IA porte la raison que le monde donne à son tick, et la tient."""
     for entree in releve:
         if entree['intention']['type'] not in ('batir_dans_une_province', 'depenser_jauge'):
             continue
         assert 'refus' not in entree and entree['raison'] == lectures[(entree['tick'], entree['intention']['maison'])]
         raison = entree['raison']
         if raison['regle'] == 'moulin_quand_le_grenier_le_permet':
+            assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
+        elif raison['regle'] == 'grange_quand_les_gens_partent':
+            assert raison['partis_30j'] > raison['arrives_30j']
+            assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
+        elif raison['regle'] == 'marche_quand_la_province_commerce':
+            assert raison['commerce_30j_kg'] > 0
             assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
         else:
             assert raison['concorde'] < raison['neutre'] and raison['plume'] >= raison['cout']['plume']
@@ -3953,7 +3992,7 @@ def _verifier_raisons(ticks):
         reel_ia(monde, releve, maisons)
         for entree in releve[deja:]:
             # Le dépôt ne touche ni au grenier ni aux jauges : le monde est celui que l'IA a lu.
-            lire = {'batir_dans_une_province': _lire_moulin, 'depenser_jauge': _lire_jauge}.get(entree['intention']['type'])
+            lire = {'batir_dans_une_province': _lire_batiment, 'depenser_jauge': _lire_jauge}.get(entree['intention']['type'])
             if lire is not None:
                 lectures_pays[(entree['tick'], entree['intention']['maison'])] = lire(
                     monde, entree['intention']['maison'], entree['intention'])
