@@ -3185,6 +3185,17 @@ poses et le détail de chaque lieu touché ; le service le sert à
 `GET /modificateurs` (au tick publié, avec sa date), et la photographie le
 porte sous `modificateurs` dès qu'une pose existe.
 
+Le document ajoute à ce détail **des mots et un reste**, jamais une règle
+(`detail()` et `Pose.en_document()` ne changent pas : `/pays` sert ce dernier) :
+pour chaque grandeur d'un lieu, son `nom` (celui de `[grandeurs.<id>]`,
+« Récolte ») ; pour chaque ligne, `source_dite`, le mot de la sorte de sa source
+(« bâtiment », « jauge du pays »), lu dans la table `[mots_des_sources]` de
+`data/modificateurs.toml` ; et `reste_jours`, `(fin − tick publié) × TICK_DURATION_DAYS`,
+ou `null` sans fin. Chaque source admise a son mot ; une source sans mot, ou un
+mot pour une source inconnue, est refusé par `ModificateurInvalide`
+(`lire_mots_des_sources`, lu à part : `Donnees` ne le porte pas). L'infobulle de la
+carte lit ces lignes telles quelles : elle n'additionne rien. Niveau 2 pour les mots.
+
 **Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
 à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
 (les bâtiments, les jauges et les événements le feront par leurs lots).

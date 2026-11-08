@@ -35,6 +35,14 @@ namespace Forge.Pont
 
         public static string Jours(long n) => n < 0 ? throw new ArgumentOutOfRangeException(nameof(n), "durée négative : " + n) : Nombre(n) + (n > 1 ? " jours" : " jour");
 
+        // Lot #1031 : une fraction en pourcentage, au centième au plus : 0,1 → « +10 % », -0,02 → « -2 % », 0,0196 → « +1,96 % ». Zéro n'a pas de signe.
+        public static string Pourcentage(double fraction)
+        {
+            if (double.IsNaN(fraction) || double.IsInfinity(fraction)) throw new ArgumentException("fraction non finie : " + fraction, nameof(fraction));
+            double p = Math.Round(fraction * 100, 2, MidpointRounding.AwayFromZero);
+            return p == 0 ? "0 %" : (p > 0 ? "+" : "-") + Math.Abs(p).ToString("0.##", Fr) + " %";
+        }
+
         // Sous 1 000 kg (au centième), les kilos ; au-delà, des tonnes à trois chiffres utiles comptés après arrondi.
         public static string Masse(double kg)
         {
