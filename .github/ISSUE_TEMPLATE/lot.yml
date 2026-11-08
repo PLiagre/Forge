@@ -12,9 +12,11 @@ body:
         son brief dans la branche du lot, le codeur code, le relecteur rend
         son verdict, et ACCEPTE fusionne tout seul.
 
-        **Un lot = un changement**, sous 300 lignes. Si deux parties pourraient
-        être livrées et jugées séparément, ce sont deux demandes (le chef
-        découpe de toute façon ce qui est trop gros).
+        **Un lot = une ligne du CAP** : un gain que le joueur voit, et sa
+        preuve dans la même PR, jusqu'à 1 500 lignes environ. Jamais un lot
+        qui code et un autre qui prouve ; si deux gains pourraient être livrés
+        et joués séparément, ce sont deux demandes (le chef découpe de toute
+        façon ce qui est trop gros).
 
         Étiquettes : `idee` (recensé) → `pret` (à prendre en premier) →
         `en-cours` → `livre`. `bloque` dit qu'une décision vous attend ; la

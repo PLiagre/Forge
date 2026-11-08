@@ -421,3 +421,48 @@ vides.
 
 Le tick, ticks 30 à 89 avec IA, sur le PC : **67 ms** de médiane (section 2),
 pour 213 ms avant.
+
+## 7. À la fin de la refonte (PR 3 à 5)
+
+```bash
+cd jeu
+py ../docs/mesures/2026-11-07-refonte/scripts/mesure_tick.py \
+   --sortie ../docs/mesures/2026-11-07-refonte/brut/tick-fin.json
+py ../docs/mesures/2026-11-07-refonte/scripts/mesure_monde.py --ticks 3650 \
+   --jalons 90,365,1825,3650 --sortie ../docs/mesures/2026-11-07-refonte/brut/monde-fin.json
+```
+
+Sur la branche des bâtiments de province (#1040, qui porte #1039 et #1025),
+au calme, sur le PC. Les deux scripts jouent désormais le mois des jauges
+avant l'IA, comme les boucles du jeu. Entre parenthèses, la section 6 (la
+soudure seule).
+
+| | 90e jour | 365e jour | 1 825e jour | 3 650e jour |
+|---|---|---|---|---|
+| Europe | 101,8 % (101,8 %) | 107,2 % (106,8 %) | 108,9 % (106,5 %) | 93,8 % (88,3 %) |
+| Paris | 96,8 % (96,8 %) | 52,6 % (50,6 %) | 25,6 % (22,6 %) | 25,9 % (22,8 %) |
+| Milan | 101,7 % (101,7 %) | 105,0 % (105,0 %) | 4,7 % (4,1 %) | 5,0 % (4,2 %) |
+| Florence | 101,8 % (101,8 %) | 107,6 % (107,6 %) | 0,7 % (0,8 %) | 0,1 % (0,1 %) |
+| Gand et Bruges | 95,6 % (95,8 %) | 12,7 % (12,8 %) | 0,3 % (0,3 %) | 0,0 % (0,0 %) |
+| Le Caire | 101,8 % (101,8 %) | 108,2 % (70,2 %) | 53,7 % (54,3 %) | 60,4 % (53,1 %) |
+| Constantinople | 101,8 % (101,8 %) | 106,2 % (105,8 %) | 130,7 % (86,9 %) | 106,7 % (83,4 %) |
+| Londres | 101,8 % (101,8 %) | 107,6 % (106,2 %) | 103,0 % (92,9 %) | 91,3 % (60,5 %) |
+| échecs à la table du jalon 2 | 0 (0) | 0 (0) | 2 (2) | 2 (2) |
+| cellules de la table mortes de faim à plus de moitié (sur 61) | 0 (0) | 0 (0) | 18 (17) | 46 (49) |
+| maisons de l'IA qui ont déposé un geste dans l'année (sur 36) | 35 (33) | 35 (34) | 18 (11) | 17 (16) |
+
+Gestes acceptés de l'IA en dix ans, par type : batir_dans_une_province 35, depenser_jauge 186, fixer_part 112, ouvrir_grenier 94, tracer_route 173.
+
+Ce qui a changé depuis la section 6 vient des gestes du pays, joués par
+l'IA par le même chemin que le joueur : 35 moulins (chacun +10 % de grain
+récolté sur sa cellule), 186 gestes de jauge (la Concorde affermie après une
+famine). L'Europe perd 6 % en dix ans au lieu de 12 % ; Londres,
+Constantinople et Le Caire tiennent ; à cinq ans, 18 maisons de l'IA agissent
+encore au lieu de 11. **Les villes qui vivent du commerce retombent toujours**
+(Paris 26 %, Milan 5 %, Florence et la Flandre vides) : c'est le lot #1026,
+premier du jalon 5. La règle « un chantier à la fois » de l'IA (#1040) ne
+change pas ce monde : mesuré avant et après, il est le même.
+
+**Le tick**, ticks 30 à 89, médiane (max) : sans IA 39,5 ms
+(51,4 ms) ; avec IA, mois des jauges compris, **51,8 ms**
+(65,3 ms), pour 213 ms au début de la refonte et 67 ms après la PR 2.
