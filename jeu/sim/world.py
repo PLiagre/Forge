@@ -166,6 +166,9 @@ class World:
         jauges     : identifiant de maison → état de ses jauges et de ses points
                      (`sim.jauges`), seulement s'il diffère du départ ; dans to_dict
                      sous `jauges` s'il en reste un.
+        batiments_de_province : chantiers et bâtiments de province
+                     (`sim.batiments.BatimentDeProvince`), par identifiant ; dans
+                     to_dict s'il y en a un.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -202,6 +205,7 @@ class World:
         self.modificateurs = []
         self.facteurs_du_tick = {}
         self.jauges = {}
+        self.batiments_de_province = []
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -412,4 +416,6 @@ class World:
         if self.jauges:
             document["jauges"] = {maison: dict(sorted(valeurs.items()))
                                   for maison, valeurs in sorted(self.jauges.items())}
+        if self.batiments_de_province:
+            document["batiments_de_province"] = [b.en_document() for b in self.batiments_de_province]
         return document

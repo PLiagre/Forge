@@ -3253,6 +3253,58 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
 points viendront aussi de ses conseillers), les causes du Renom par la guerre
 et du Droit par la succession.
 
+## Les bâtiments de province
+
+`sim/batiments.py` et `data/batiments.toml` (VISION.md, « Les gestes d'un
+pays » ; décisions 34, 35, 37 et 38). Un bâtiment de province se pose dans une
+cellule — la province, à l'échelle d'EU4 — depuis la carte, sans descendre en
+3D : il ne prend pas de parcelle du plan du bourg (la parcelle trouvée par le
+plan reste un lot du jalon 6).
+
+**Les données.** Chaque bâtiment dit ses journées de travail (une personne,
+un jour), ses bras par jour au plus, son coût en pièces, ses modificateurs et
+s'il est seul de sa sorte dans une province. `lire_types` refuse un champ
+inconnu, un modificateur absent de `data/modificateurs.toml` ou qui ne se pose
+pas sur une cellule, et tout coût en pièces : le moteur n'en porte pas encore
+(jalon 8). Le moulin : 600 journées, 20 bras par jour, +10 % de récolte sur
+sa cellule (niveau 2).
+
+**Le geste.** `batir_dans_une_province` (`maison`, `cell`, `nature`), du joueur
+ou de l'IA, se refuse avec sa raison : bâtiment ou maison inconnus, cellule
+inconnue, bourg tenu par une autre maison (« pas sur vos terres »), un second
+moulin dans la province (déposé ou bâti), un grenier qui ne paie pas toutes
+ses journées au salaire du bourg (coût et durée modifiés compris, en comptant
+les bâtiments déjà déposés pour le tick), ou moins de paysans dans la cellule
+que ses bras d'un jour. À l'étape des intentions, `poser` ouvre le chantier
+dans `World.batiments_de_province`, ses journées comptées par
+`ajuster_journees`.
+
+**Le chantier.** Chaque jour, après les chantiers du plan et avant la
+production, `avancer` prend pour chaque bâtiment en chantier au plus ses bras
+d'un jour parmi les paysans de la cellule : ils deviennent ouvriers pour la
+journée et comptent au bourg (`ouvriers_du_jour`), où ils manquent aux champs ;
+leur salaire (`salaire_journee_kg`) quitte le grenier de la maison et entre au
+panier du bourg et de la cellule, où ils le mangent. Le lendemain, les
+chantiers du plan les rendent aux champs, comme leurs propres ouvriers. Sans
+grain pour payer ou sans paysans, le chantier attend. La maison est vérifiée
+maîtresse du bourg au dépôt seulement : le tick ne relit jamais les maîtres ;
+un bourg qui changera de main (la conquête, plus tard) dira ce que devient
+son chantier. Achevé, le bâtiment pose ses modificateurs sur sa cellule, sous la
+source `batiment:<nature>-<identifiant>` : le moulin y récolte exactement 10 %
+de grain en plus (mesuré au tick qui suit l'achèvement, contre le même monde
+sans sa pose). La récolte perdue par ses ouvriers n'est pas encore comptée
+dans `recolte_perdue_par_chantier` (niveau 3).
+
+**L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont le
+grenier dépasse sa réserve voulue plus le coût d'un moulin dépose un moulin
+dans la cellule de sa capitale, par `recevoir_intention`, avec sa raison
+(`moulin_quand_le_grenier_le_permet`). Sa réserve voulue compte les salaires
+qui restent à payer à ses bâtiments de province. Le joueur qui dépose la même
+intention obtient le même monde.
+
+`GET /pays` sert les bâtiments et chantiers des cellules du pays ; `to_dict()`
+les porte sous `batiments_de_province` dès qu'il y en a un.
+
 ## Le moteur sans état caché
 
 Les parts vivent dans `World.parts` : défaut relu par le module des constantes au chargement, plafond relu au dépôt ; l'application n'écrit que la part validée.

@@ -1,0 +1,26 @@
+# Les bâtiments de province (docs/VISION.md, « Les gestes d'un pays » ;
+# décisions 34, 35 et 37).
+#
+# Un bâtiment se pose dans une cellule — la province, à l'échelle d'EU4 — dont
+# la maison tient le bourg, par l'intention « batir_dans_une_province », du
+# joueur depuis la carte ou de l'IA, par le même chemin. Il coûte ce que le
+# monde porte : des journées de bras pris aux paysans de la cellule, payées en
+# grain au grenier de la maison (SALAIRE_JOURNEE_KG la journée, coût du
+# chantier modifié compris), et le temps qu'elles prennent. Achevé, il pose ses
+# modificateurs (data/modificateurs.toml) sur sa cellule, sous la source
+# « batiment:<nature>-<identifiant> ».
+#
+# Ce fichier se modifie sans toucher au code (`jeu/sim/batiments.py`, MODELE.md
+# « Les bâtiments de province »). Valeurs de niveau 2.
+
+[batiments.moulin]
+nom = "Moulin"
+dit = "moud le grain de la province : plus de grain récolté sur chacun de ses lieux"
+# Journées de travail (une personne, un jour), durée du chantier modifiée comprise.
+journees = 600
+# Au plus tant de bras par jour, pris aux paysans de la cellule.
+bras_par_jour = 20
+# Les pièces arrivent avec l'argent (jalon 8) : un coût en pièces se refuse d'ici là.
+pieces = 0
+modificateurs = ["moulin"]
+un_par_cellule = true

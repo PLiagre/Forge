@@ -6,7 +6,8 @@ import sim.constants as _constantes
 from sim.capitales import maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
-    ChoixDepart, IntentionRefusee, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER,
+    BatirDansUneProvince, ChoixDepart, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
+    TYPE_OUVRIR_GRENIER,
     _lieux_de_la_maison, recevoir_intention,
 )
 from sim.seigneuries import identifiant_de_seigneurie
@@ -56,6 +57,12 @@ def _reserve_voulue(monde, lieux):
         salaires = sum(journees * salaire_journee_kg(monde, cid) for cid, journees in par_bourg.items())
     else:
         salaires = sum(par_bourg.values()) * _constantes.SALAIRE_JOURNEE_KG
+    # Les bâtiments de province encore à payer par le maître de ces bourgs.
+    if getattr(monde, 'batiments_de_province', None) and bourgs:
+        from sim import batiments
+        maitre = monde.cells[bourgs[0]].lieux[0].maitre
+        salaires += sum(journees * salaire_journee_kg(monde, cid)
+                        for cid, journees in batiments.journees_restantes(monde, maitre).items())
     nourriture = _constantes.MARCHANDISE_NOURRITURE
     reserve_gens = (
         _constantes.consommation_kg_par_habitant_par_tick(nourriture)
@@ -191,6 +198,33 @@ def _proposition_de_jauge(monde, maison, cle, regles):
     }
 
 
+def _proposition_de_batiment(monde, maison, cle, types):
+    """Un moulin dans la cellule de sa capitale, quand le grenier le paie au-delà de sa réserve.
+
+    Les bâtiments déjà déposés par la maison comptent, comme au dépôt : jamais
+    un second moulin en attente, ni un grenier payé deux fois.
+    """
+    from sim import batiments
+    nature = 'moulin'
+    if nature not in types or maison.cell_id is None:
+        return None
+    engages = [(i.cell_id, i.nature) for i in monde.intentions_en_attente
+               if isinstance(i, BatirDansUneProvince) and i.maison == cle]
+    if batiments.verifier(monde, cle, maison.cell_id, nature, types, engages) is not None:
+        return None
+    grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
+    reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
+    cout = batiments.cout_kg(monde, types[nature], maison.cell_id)
+    if not grenier > reserve + cout:
+        return None
+    return {
+        'maison': {'sorte': maison.sorte, 'id': maison.id},
+        'intention': {'type': TYPE_BATIR_DANS_UNE_PROVINCE, 'maison': cle, 'cell': maison.cell_id, 'nature': nature},
+        'raison': {'regle': 'moulin_quand_le_grenier_le_permet', 'grenier_nourriture_kg': grenier,
+                   'reserve_voulue_kg': reserve, 'cout_kg': cout},
+    }
+
+
 def decider_intentions(monde, releve, maisons=None):
     """Propose dans l'ordre des maisons, sans écrire ni tirer d'aléa.
 
@@ -205,7 +239,7 @@ def decider_intentions(monde, releve, maisons=None):
     pleine = _fenetre_pleine(monde)
     t = monde.ticks_ecoules
     propositions = []
-    regles = None
+    regles = types = None
     for maison in (maisons_de_l_ia(monde) if maisons is None else maisons):
         if maison.hors_carte is not None or (maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix):
             continue
@@ -234,6 +268,16 @@ def decider_intentions(monde, releve, maisons=None):
             jauge = _proposition_de_jauge(monde, maison, cle, regles)
             if jauge is not None:
                 propositions.append(jauge)
+            # Bâtir dans sa province, par le même chemin que le joueur (décision 38).
+            if types is None:
+                from sim import batiments
+                types = batiments.charger_types()
+            # Un chantier à la fois : pas de moulin le jour où la maison trace une
+            # route ou ouvre son grenier (le grenier ne paie pas deux projets).
+            batiment = None if route is not None or secours is not None else _proposition_de_batiment(
+                monde, maison, cle, types)
+            if batiment is not None:
+                propositions.append(batiment)
     return propositions
 
 

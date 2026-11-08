@@ -31,6 +31,7 @@ from collections import defaultdict
 from sim import constants as _constantes
 from sim import flux as _flux
 from sim import modificateurs as _modificateurs
+from sim import batiments as _batiments
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
@@ -1950,6 +1951,9 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     _appliquer_pertes_greniers(world)
     _avancer_chantiers(world)
     _affecter_artisans(world)
+    # Les bâtiments de province, après les chantiers du plan : un bâtiment achevé
+    # pose ses modificateurs avant la production du jour.
+    _batiments.avancer(world)
     facteurs_du_tick = _modificateurs.facteurs_du_monde(world)
     # Un monde d'épreuve sans registre ne reçoit pas d'attribut qu'il n'a pas.
     if facteurs_du_tick or getattr(world, "facteurs_du_tick", None):

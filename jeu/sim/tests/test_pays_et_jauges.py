@@ -263,7 +263,8 @@ def test_le_service_sert_le_pays_et_ses_jauges(depart):
     with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
         document = json.loads(serveur.octets_du_pays("grande-3"))
         attendu = P.pays(serveur.world, "grande-3")
-        assert {k: v for k, v in document.items() if k not in ("jauges", "date")} == json.loads(json.dumps(attendu))
+        # Les jauges, la date et les bâtiments s'ajoutent au pays ; les bâtiments ont leurs épreuves (test_batiments.py).
+        assert {k: v for k, v in document.items() if k not in ("jauges", "date", "batiments")} == json.loads(json.dumps(attendu))
         assert set(document["jauges"]["jauges"]) == {"concorde", "renom", "droit"}
         assert set(document["jauges"]["points"]) == {"plume", "sceau", "epee"}
         with pytest.raises(P.PaysInconnu):
