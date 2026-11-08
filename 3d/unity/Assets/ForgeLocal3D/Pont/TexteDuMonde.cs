@@ -19,7 +19,7 @@ namespace Forge.Pont
         private static readonly Regex IdentifiantDeLieu = new Regex(@"(?<![\p{L}\p{Nd}])[0-9]+-[0-9]+(?![\p{L}\p{Nd}])");
         // Un nombre : ses groupes de trois chiffres d'abord, pour qu'un « 5 631 » ne se coupe jamais en « 5 ».
         private static readonly Regex NombreEcrit = new Regex(@"(?<![\p{L}\p{Nd}])(?:[0-9]{1,3}(?:[   ][0-9]{3})+(?![0-9])|[0-9]+)(?:,[0-9]+)?");
-        private static readonly Regex Unite = new Regex(@"\G[  ]?(?:kg|t|%|jours?|ans?|habitants?|foyers?|personnes?|bras|lieux?|maisons?|chantiers?|km|m)(?!\p{L})",
+        private static readonly Regex Unite = new Regex(@"\G[  ]?(?:kg|t|%|jours?|ans?|habitants?|foyers?|personnes?|bras|lieux?|maisons?|chantiers?|km|m|points?)(?!\p{L})",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         private static readonly Regex DateEcrite = new Regex(@"(?<![\p{L}\p{Nd}])jour[  ]([0-9]+)[  ]de[  ]([0-9]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -46,6 +46,15 @@ namespace Forge.Pont
             else if (Math.Round(t, 1, MidpointRounding.AwayFromZero) < 100) ecrit = Math.Round(t, 1, MidpointRounding.AwayFromZero).ToString("0.0", Fr) + " t";
             else ecrit = Math.Round(t, 0, MidpointRounding.AwayFromZero).ToString("#,0", Fr) + " t";
             return kg < 0 && ecrit != "0 kg" ? "-" + ecrit : ecrit; // un reste négatif arrondi à zéro ne s'écrit pas « -0 kg »
+        }
+
+        // Les points des jauges et des réserves (`data/jauges.toml`) : au dixième, « 1,5 point », « 31,5 points ». Un point sous deux, des points au-delà.
+        public static string Points(double v)
+        {
+            if (double.IsNaN(v) || double.IsInfinity(v)) throw new ArgumentException("points non finis : " + v, nameof(v));
+            double arrondi = Math.Round(v, 1, MidpointRounding.AwayFromZero);
+            if (arrondi == 0) arrondi = 0; // un reste négatif arrondi à zéro ne s'écrit pas « -0 point »
+            return arrondi.ToString("0.#", Fr) + (Math.Abs(arrondi) < 2 ? " point" : " points");
         }
 
         // Le premier mot interdit, au plus petit indice, tel qu'écrit ; `null` si le texte est propre.

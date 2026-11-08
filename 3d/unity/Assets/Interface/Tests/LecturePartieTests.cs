@@ -93,5 +93,25 @@ namespace Forge.Interface.Tests
             await sansLecteur.Actualiser();
             Assert.That(sansLecteur.Maison.Donnees.Id, Is.EqualTo(retenue)); Assert.That(sansLecteur.Comptes, Is.Null);
         }
+
+        // Lot #1032 : le pays de la maison du joueur se lit au même passage que les comptes, jamais sans maison.
+        static Lecture<PaysLu> Pays(string id) => Lecture<PaysLu>.De(new PaysLu(id, "Nom reçu", 3, new DateDuMonde(1400, 4), new Dictionary<string, JaugeLue>(), new Dictionary<string, PointsLus>(), null, "chef non connu", new PoseLue[0]));
+        [Test] public async Task Le_pays_se_lit_avec_la_maison()
+        {
+            int appels = 0; string recu = null, retenue = null;
+            var lecture = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null, id => { appels++; recu = id; return Pays(id); });
+            await lecture.Actualiser();
+            Assert.That(lecture.Pays, Is.Null); Assert.That(appels, Is.Zero, "aucun pays lu sans maison");
+            retenue = "identifiant-servi";
+            await lecture.Actualiser();
+            Assert.That(appels, Is.EqualTo(1)); Assert.That(recu, Is.EqualTo(retenue)); Assert.That(lecture.Pays.Donnees.MaisonId, Is.EqualTo(retenue)); Assert.That(lecture.Comptes, Is.Null);
+            var sansLecteur = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"));
+            await sansLecteur.Actualiser();
+            Assert.That(sansLecteur.Maison.Donnees.Id, Is.EqualTo(retenue)); Assert.That(sansLecteur.Pays, Is.Null);
+            bool coupe = false;
+            var coupee = new LecturePartie(() => coupe ? throw new Exception("service coupé") : Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null, Pays);
+            await coupee.Actualiser(); Assert.That(coupee.Pays, Is.Not.Null);
+            coupe = true; await coupee.Actualiser(); Assert.That(coupee.Pays, Is.Null); Assert.That(coupee.Monde.Presente, Is.False);
+        }
     }
 }

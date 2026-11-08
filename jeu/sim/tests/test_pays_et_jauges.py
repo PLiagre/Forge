@@ -271,6 +271,27 @@ def test_le_service_sert_le_pays_et_ses_jauges(depart):
             serveur.octets_du_pays("maison-inventee")
 
 
+def test_le_service_dit_les_jauges_et_ce_qu_elles_posent(depart, regles):
+    from sim.service import ServeurMonde
+    with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        document = json.loads(serveur.octets_du_pays("seigneurie-1"))["jauges"]
+    # Les mots des données : le `dit` de chaque jauge et de chaque réserve.
+    assert {n: j["dit"] for n, j in document["jauges"].items()} == {n: j["dit"] for n, j in regles.jauges.items()}
+    assert {n: p["dit"] for n, p in document["points"].items()} == {n: p["dit"] for n, p in regles.points.items()}
+    assert all(j["dit"] for j in (*document["jauges"].values(), *document["points"].values()))
+    # Le nom de chaque grandeur sur laquelle une jauge pose, relu dans les données des modificateurs.
+    grandeurs = M.charger_donnees().grandeurs
+    assert document["grandeurs"] == {"commerce": "Commerce", "departs": "Départs", "prelevement": "Prélèvement"}
+    assert all(document["grandeurs"][g] == grandeurs[g].nom for g in document["grandeurs"])
+    # Après un geste, chaque grandeur posée a son nom.
+    monde = copy.deepcopy(depart)
+    monde.jauges["seigneurie-1"] = J.etat(monde, "seigneurie-1", regles) | {"sceau": 31.5}
+    J.appliquer_geste(monde, "seigneurie-1", "asseoir_le_droit", regles)
+    servi = J.document_des_jauges(monde, "seigneurie-1", regles)
+    assert servi["modificateurs"] and all(m["grandeur"] in servi["grandeurs"] for m in servi["modificateurs"])
+    assert {m["grandeur"] for m in servi["modificateurs"]} == {"prelevement"}
+
+
 def test_les_trois_boucles_jouent_le_mois(monkeypatch, tmp_path):
     """Le service, `python -m sim` (rejeu compris) et `python -m forge` comptent le mois avant le tick."""
     from forge.__main__ import _simuler
