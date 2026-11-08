@@ -610,27 +610,32 @@ octobre 2026, #425). À partir d'ici, chaque jalon qui ajoute un geste le donne
 aussi à l'IA.
 
 **Déjà livré** : les maisons de l'IA et leurs capitales, leur dépôt par le
-chemin du joueur, l'IA dans la forge et dans le service (#319, #320, #321,
-#323) ; ses raisons, sa part, son secours et ses routes vers le champ (#423,
-#424, #425, #426 et ses découpes) ; **la soudure de 1400** et le tick avec IA
-sous 100 ms (#1023, mode direct, 7 novembre 2026) : la première année tient.
+chemin du joueur, l'IA dans la forge et dans le service, la carte des
+capitales voisines (#319, #320, #321, #322, #323) ; ses raisons, sa part,
+son secours et ses routes vers le champ (#423, #424, #425, #426 et ses
+découpes) ; **la soudure de 1400** et le tick avec IA sous 100 ms (#1023, mode
+direct, 7 novembre 2026) : la première année tient.
 
 **Les lots**, dans l'ordre où ils partent :
 
 1. #1026 Les villes de 1400 tirent leur grain de leur arrière-pays
 2. #1027 L'IA garde des raisons d'agir quand ses greniers sont vides
 3. #1029 Une famine pose ses modificateurs au lieu qui a faim
-4. #428 Le service et la photographie montrent les voisins et leurs raisons
-5. #1028 Le monde dit ce qui arrive : le fil des nouvelles
-6. #427 Les petits seigneurs jouent aussi, chacun à son tour
+4. #427 Les petits seigneurs jouent aussi, chacun à son tour (après #1027)
+5. #428 Le service et la photographie montrent les voisins et leurs raisons
+6. #1028 Le monde dit ce qui arrive : le fil des nouvelles
 7. #860 Le jeu s'ouvre en pause et dit quoi faire · pc
 8. #1030 Le jeu se lance en observateur, avec la pause et cinq vitesses · pc
 9. #429 La carte de Unity montre les voisins et ce qu'ils font · pc
-10. #322 La carte montre les capitales voisines et ce que l'IA a fait
-11. #324 La preuve du jalon 5
+10. #324 La preuve du jalon 5
 
-La preuve #324 (PR #511, ouverte depuis le 7 octobre) mesure « le monde tient
-seul » à un an et à dix ans : son issue attend #1026, #1027 et #1028. L'épreuve
+Le pilote prend le plus petit numéro prêt dont les dépendances sont fermées :
+leurs « Dépend de » tiennent cet ordre. Les petits seigneurs attendent que
+l'IA garde ses raisons (#1027) : sans elles, trente maisons de plus se
+tairaient avec les autres. #860 attend la réponse du propriétaire (la
+surbrillance des terres de départ, ou les gestes d'aujourd'hui). La preuve
+#324 (PR #511, ouverte depuis le 7 octobre) mesure « le monde tient seul » à
+un an et à dix ans : son issue attend tous les lots de cette liste. L'épreuve
 des dix ans n'est plus un lot à part : elle est la preuve de #1026. Le siècle
 sans joueur mesuré chaque semaine au journal touche `atelier/` : il se fait en
 mode direct.

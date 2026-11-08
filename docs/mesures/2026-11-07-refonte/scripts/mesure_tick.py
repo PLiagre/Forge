@@ -33,6 +33,11 @@ try:  # la liste des maisons de l'IA, calculée une fois par la boucle (après l
     from sim.capitales import toutes_les_maisons_de_l_ia  # noqa: E402
 except ImportError:  # le dépôt d'avant : jouer_ia refait la liste à chaque tick
     toutes_les_maisons_de_l_ia = None
+try:  # le mois des jauges, joué par la boucle avant l'IA (après la refonte, le pays et ses jauges)
+    from sim.jauges import avant_le_tick  # noqa: E402
+except ImportError:  # le dépôt d'avant : pas de jauges
+    def avant_le_tick(monde):
+        return None
 
 
 def _liste(monde):
@@ -49,12 +54,14 @@ def serie(ia: bool, chauffe: int, n: int, seed: int):
     rng = random.Random(seed)
     gestes: list = []
     for _ in range(chauffe):
+        avant_le_tick(monde)
         if ia:
             jouer_ia(monde, gestes, *_liste(monde))
         engine.tick(monde, rng, monde.ticks_ecoules)
     t_ia, t_tick, t_total = [], [], []
     for _ in range(n):
         a = time.perf_counter()
+        avant_le_tick(monde)  # compté avec la décision de l'IA : hors du tick
         if ia:
             jouer_ia(monde, gestes, *_liste(monde))
         b = time.perf_counter()
@@ -88,6 +95,7 @@ def main(argv=None) -> int:
     profil = cProfile.Profile()
     profil.enable()
     for _ in range(a.n_profil):
+        avant_le_tick(monde)
         jouer_ia(monde, gestes, *_liste(monde))
         engine.tick(monde, rng, monde.ticks_ecoules)
     profil.disable()

@@ -34,6 +34,11 @@ try:  # la liste des maisons de l'IA, calculée une fois par la boucle (après l
     from sim.capitales import toutes_les_maisons_de_l_ia  # noqa: E402
 except ImportError:  # le dépôt d'avant : jouer_ia refait la liste à chaque tick
     toutes_les_maisons_de_l_ia = None
+try:  # le mois des jauges, joué par la boucle avant l'IA (après la refonte, le pays et ses jauges)
+    from sim.jauges import avant_le_tick  # noqa: E402
+except ImportError:  # le dépôt d'avant : pas de jauges
+    def avant_le_tick(monde):
+        return None
 from sim.tests.test_epreuve_jalon2 import (  # noqa: E402
     densite_region, epreuve, lire_reference, placer,
 )
@@ -178,6 +183,7 @@ def main(argv=None) -> int:
     resultat = {"seed": a.seed, "ia": not a.sans_ia, "jalons": [],
                 "commande": " ".join(sys.argv)}
     for _ in range(a.ticks):
+        avant_le_tick(monde)
         if not a.sans_ia:
             jouer_ia(monde, gestes, *_liste(monde))
         engine.tick(monde, rng, monde.ticks_ecoules)
