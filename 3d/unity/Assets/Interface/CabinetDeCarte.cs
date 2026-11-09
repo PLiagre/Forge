@@ -15,6 +15,7 @@ namespace Forge.Interface
         public const float SEUIL_CLIC_PX = 6f;
         public const string DOSSIERS = "Dossiers de la barre";
         public const string AIDE ="Clic : choisir une terre · Glisser : déplacer · Molette : zoomer · Échap : fermer";
+        public const string PAYS = "Pays de la barre";
         public const string ETAT = "État de la carte";
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
@@ -78,6 +79,10 @@ namespace Forge.Interface
             var dossiers = new GameObject(DOSSIERS, typeof(RectTransform)).GetComponent<RectTransform>(); dossiers.SetParent(bandeau, false);
             dossiers.anchorMin = dossiers.anchorMax = dossiers.pivot = new Vector2(0, 1);
             dossiers.anchoredPosition = new Vector2(1112, -20); dossiers.sizeDelta = new Vector2(136, 44);
+            // Lot #1045 : l'icône du pays, hors des dossiers, entre le titre du bandeau et la date posée en x 480.
+            var pays = new GameObject(PAYS, typeof(RectTransform)).GetComponent<RectTransform>(); pays.SetParent(bandeau, false);
+            pays.anchorMin = pays.anchorMax = pays.pivot = new Vector2(0, 1);
+            pays.anchoredPosition = new Vector2(408, -20); pays.sizeDelta = new Vector2(56, 44);
             date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 600);
             date.color = SocleInterface.Couleur("papier");
             barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // lot #1001 : sous le filet, dans les 100 px du bandeau
@@ -111,11 +116,14 @@ namespace Forge.Interface
             gameObject.AddComponent<CalquesCarte>().Initialiser(carte, toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
             var menu = gameObject.AddComponent<MenuCabinet>(); menu.Initialiser(toile.transform); menu.AvantDOuvrir = Relacher;
+            // Lot #1045 : le Menu cède la colonne de l'icône du pays (x 408) : il passe de 330 à 280, entre les glyphes du titre et l'icône, sans la recouvrir.
+            ((RectTransform)toile.transform.Find("Menu")).anchoredPosition = new Vector2(280, -20);
             var bulle = toile.transform.Find("Menu").GetComponent<Infobulle>(); bulle.phrase = bulle.Phrase + "\n" + AIDE; // les gestes de la carte, au survol du Menu
             gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, dossiers, carte.port);
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port, dossiers);
+            gameObject.AddComponent<DossierPays>().Initialiser(toile.transform, pays, () => Partie.Monde, () => Partie.Terres, LectureDossier.Locale(carte.port), NomsDesTerres.Local(carte.port));
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux); GetComponent<CalquesCarte>().Brancher(lieux, fleches);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee);
