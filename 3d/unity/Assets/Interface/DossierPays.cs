@@ -22,6 +22,7 @@ namespace Forge.Interface
         DocumentDuMonde registreCalcule;
         Lecture<IReadOnlyDictionary<string, string>> registreLu;
         public string TexteAffiche { get; private set; }
+        public RectTransform Cadre => feuillet.Cadre;
 
         public void Initialiser(Transform toile, Transform barre, Func<Lecture<MondeAvecMaisonLu>> monde, Func<Lecture<TerresDuPays>> terres, LectureDossier registre, NomsDesTerres noms)
         {
