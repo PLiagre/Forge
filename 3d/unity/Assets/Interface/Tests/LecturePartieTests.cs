@@ -113,5 +113,28 @@ namespace Forge.Interface.Tests
             await coupee.Actualiser(); Assert.That(coupee.Pays, Is.Not.Null);
             coupe = true; await coupee.Actualiser(); Assert.That(coupee.Pays, Is.Null); Assert.That(coupee.Monde.Presente, Is.False);
         }
+
+        // Lot #1045 : les terres du pays se lisent au même passage que le pays, juste après lui, jamais sans maison.
+        static Lecture<TerresDuPays> Terres(string id) => Lecture<TerresDuPays>.De(new TerresDuPays(id, 3, new DateDuMonde(1400, 4), null, new string[0], new string[0],
+            new[] { new LieuDuPays(7, 0) }, new LieuDuPays[0], 1, 12, 12, 0, 0, 0, null, "grenier absent pour la maison " + id, new BatimentDuPays[0]));
+        [Test] public async Task Les_terres_se_lisent_avec_le_pays()
+        {
+            var appels = new List<string>(); string retenue = null;
+            var lecture = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null,
+                id => { appels.Add("pays " + id); return Pays(id); }, id => { appels.Add("terres " + id); return Terres(id); });
+            await lecture.Actualiser();
+            Assert.That(lecture.Terres, Is.Null); Assert.That(appels, Is.Empty, "ni pays ni terres lus sans maison");
+            retenue = "identifiant-servi";
+            await lecture.Actualiser();
+            Assert.That(appels, Is.EqualTo(new[] { "pays identifiant-servi", "terres identifiant-servi" }), "un appel avec cet identifiant, après celui du pays");
+            Assert.That(lecture.Terres.Donnees.MaisonId, Is.EqualTo(retenue)); Assert.That(lecture.Pays.Donnees.MaisonId, Is.EqualTo(retenue));
+            var sixParametres = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null, Pays);
+            await sixParametres.Actualiser();
+            Assert.That(sixParametres.Pays, Is.Not.Null); Assert.That(sixParametres.Terres, Is.Null);
+            bool coupe = false;
+            var coupee = new LecturePartie(() => coupe ? throw new Exception("service coupé") : Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null, Pays, Terres);
+            await coupee.Actualiser(); Assert.That(coupee.Terres, Is.Not.Null);
+            coupe = true; await coupee.Actualiser(); Assert.That(coupee.Terres, Is.Null);
+        }
     }
 }

@@ -647,5 +647,37 @@ namespace Forge.Interface.Tests
             string[] longs = { "Concorde -3 points, en baisse", "Renom 100 points, en baisse", "Droit 100 points, en hausse", "Plume 999 points, +5 points/mois, en baisse", "Sceau 999 points, +5 points/mois, en hausse", "Épée 999 points, +5 points/mois, en baisse" };
             for (int i = 0; i < 6; i++) { var t = Cellule(NOMS_JAUGES[i]); t.text = longs[i]; Assert.That(t.preferredWidth, Is.LessThanOrEqualTo(cadres[i].sizeDelta.x), longs[i]); Assert.That(t.preferredHeight, Is.LessThanOrEqualTo(26f), longs[i]); }
         }
+
+        // Lot #1045 : le feuillet « Le pays » lit la partie du cabinet, et son icône est dans le bandeau, hors des dossiers de la barre.
+        [Test] public void Le_feuillet_du_cabinet_lit_la_partie()
+        {
+            Proposer(); Transform toile = racine.transform.Find("Cabinet");
+            toile.GetComponentsInChildren<Button>(true).Single(b => b.name == DossierPays.ICONE).onClick.Invoke();
+            var dossier = racine.GetComponent<DossierPays>(); Assert.That(dossier, Is.Not.Null); dossier.Pas(0);
+            Assert.That(dossier.TexteAffiche, Is.EqualTo("Choisissez une maison pour lire son pays."));
+        }
+        [Test] public void L_icone_du_pays_ouvre_son_feuillet_hors_des_dossiers()
+        {
+            Proposer(); Transform toile = racine.transform.Find("Cabinet"); var bandeau = (RectTransform)toile.Find("FORGE · Le cabinet");
+            var conteneur = (RectTransform)bandeau.Find(CabinetDeCarte.PAYS); Assert.That(conteneur, Is.Not.Null, "conteneur du pays introuvable dans le bandeau");
+            Assert.That(CabinetDeCarte.PAYS, Is.Not.EqualTo(CabinetDeCarte.DOSSIERS)); Assert.That(conteneur.parent, Is.SameAs(bandeau));
+            Assert.That(conteneur.anchoredPosition, Is.EqualTo(new Vector2(408, -20))); Assert.That(conteneur.sizeDelta, Is.EqualTo(new Vector2(56, 44)));
+            Button[] boutons = conteneur.GetComponentsInChildren<Button>(true); Assert.That(boutons.Select(b => b.name), Is.EqualTo(new[] { "Le pays" }));
+            Button icone = boutons[0]; string phrase = icone.GetComponent<Infobulle>()?.Phrase;
+            Assert.That(((RectTransform)icone.transform).sizeDelta, Is.EqualTo(new Vector2(56, 44)));
+            Assert.That(icone.GetComponentsInChildren<Text>().Select(t => t.text), Is.Empty, "l'icône écrit encore son nom");
+            Assert.That(icone.transform.Find("Repère couronne") != null && icone.transform.Find("Repère livre") == null, Is.True, "motif absent, ou livre du Menu");
+            Assert.That(!string.IsNullOrWhiteSpace(phrase) && phrase != icone.name && phrase.StartsWith("Le pays : ", StringComparison.Ordinal), Is.True, "« " + phrase + " »");
+            Assert.That(toile.GetComponentsInChildren<Button>(true).Count(b => b.name == "Le pays"), Is.EqualTo(1), "un seul bouton « Le pays » dans la toile");
+            var feuillet = toile.Cast<Transform>().Single(t => t.name == DossierPays.TITRE && t.GetComponentInChildren<ScrollRect>(true) != null).gameObject;
+            Assert.That(feuillet.activeSelf, Is.False, "ouvert d'avance"); icone.onClick.Invoke(); Assert.That(feuillet.activeSelf, Is.True, "fermé au clic");
+            Canvas.ForceUpdateCanvases(); Rect cadre = Monde(conteneur), barre = Monde(bandeau), reduite = Rect.MinMaxRect(barre.xMin + .5f, barre.yMin + .5f, barre.xMax - .5f, barre.yMax - .5f);
+            Assert.That(Monde((RectTransform)feuillet.transform).Overlaps(reduite), Is.False, "le feuillet ouvert recouvre la barre");
+            icone.onClick.Invoke(); Assert.That(feuillet.activeSelf, Is.False, "ouvert au second clic");
+            Text titre = bandeau.Find("FORGE · Le cabinet").GetComponent<Text>(); Assert.That(24 + titre.preferredWidth, Is.LessThan(408f), "les glyphes du titre arrivent sous l'icône");
+            var menu = (RectTransform)toile.Find("Menu"); Assert.That(menu.anchoredPosition.x + menu.sizeDelta.x, Is.LessThanOrEqualTo(408f), "le Menu recouvre l'icône du pays"); Assert.That(menu.anchoredPosition.x, Is.GreaterThan(24 + titre.preferredWidth), "le Menu recouvre les glyphes du titre");
+            foreach (var voisin in new[] { Nomme("Lecture de la date…").rectTransform, Nomme(BARRE).rectTransform, (RectTransform)bandeau.Find(BarreDuPays.NOM), menu })
+                Assert.That(cadre.Overlaps(Monde(voisin)), Is.False, "l'icône " + cadre + " recouvre « " + voisin.name + " » " + Monde(voisin));
+        }
     }
 }

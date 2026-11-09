@@ -23,6 +23,15 @@ namespace Forge.Pont.Tests
         const string Temoin = "{\"maison\":{\"id\":\"seigneurie-1\",\"nom\":\"Bar\",\"sorte\":\"seigneurie\"},\"tick\":31,\"date\":{\"annee\":1400,\"jour_de_l_annee\":32},"
             + "\"jauges\":{\"absents\":{},\"competences\":{\"diplomatie\":9,\"gestion\":10,\"guerre\":7},\"grandeurs\":{\"commerce\":\"Commerce\",\"departs\":\"Départs\",\"prelevement\":\"Prélèvement\"},"
             + "\"jauges\":{" + Concorde + "," + Droit + "," + Renom + "},\"modificateurs\":[" + Pose + "],\"points\":{" + Epee + "," + Plume + "," + Sceau + "}}}";
+        // Lot #1045 : le pays de grande-3 au tick 31, tel que `/pays` le sert hors des jauges : deux vassaux directs, un arrière-vassal, sept lieux, deux bâtiments.
+        const string TemoinTerres = "{\"maison\":{\"id\":\"grande-3\",\"nom\":\"Valois\",\"sorte\":\"grande\"},\"tick\":31,\"date\":{\"annee\":1400,\"jour_de_l_annee\":32},\"suzerain\":null,"
+            + "\"vassaux\":[\"seigneurie-1\",\"plausible-7-0\"],\"vassaux_tous\":[\"seigneurie-1\",\"plausible-7-0\",\"plausible-8-1\"],"
+            + "\"lieux\":[{\"cell_id\":10,\"rang\":0},{\"cell_id\":10,\"rang\":1},{\"cell_id\":10,\"rang\":2},{\"cell_id\":11,\"rang\":1}],"
+            + "\"lieux_des_vassaux\":[{\"cell_id\":12,\"rang\":0},{\"cell_id\":13,\"rang\":0},{\"cell_id\":13,\"rang\":3}],"
+            + "\"totaux\":{\"lieux\":7,\"habitants\":2450344,\"habitants_propres\":271528,\"recolte_30j_kg\":141439858.6,\"grenier_nourriture_kg\":754362.1,\"greniers_des_vassaux_kg\":6862501.4,\"chantiers\":2},"
+            + "\"absents\":{},"
+            + "\"batiments\":[{\"identifiant\":1,\"nature\":\"moulin\",\"nom\":\"Moulin\",\"cell_id\":10,\"maison\":\"grande-3\",\"travail_requis\":600,\"travail_fourni\":600,\"en_chantier\":false,\"debut\":5,\"fin\":605},"
+            + "{\"identifiant\":2,\"nature\":\"moulin\",\"nom\":\"Moulin\",\"cell_id\":12,\"maison\":\"seigneurie-1\",\"travail_requis\":600,\"travail_fourni\":20,\"en_chantier\":true,\"debut\":30,\"fin\":null}]}";
         int port; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
         [SetUp] public void PortLibre() { var s = new TcpListener(IPAddress.Loopback, 0); s.Start(); port = ((IPEndPoint)s.LocalEndpoint).Port; s.Stop(); lock (recues) recues.Clear(); }
         [TearDown] public void Fermer() { ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil) = (null, null); }
@@ -117,6 +126,95 @@ namespace Forge.Pont.Tests
             }
             string valeur = Recues().Single().Substring("GET /pays?maison=".Length);
             Assert.AreEqual(bizarre, Uri.UnescapeDataString(valeur), valeur); Assert.IsTrue(valeur.IndexOfAny(new[] { ' ', '/', '?', '&', '=', '+', '#', 'é' }) < 0, valeur);
+        }
+
+        // Lot #1045 : les terres du pays (lieux, vassaux, totaux, bâtiments) se lisent en entier ou pas du tout.
+        static string Terres(string ancien, string nouveau)
+        {
+            int i = TemoinTerres.IndexOf(ancien, StringComparison.Ordinal);
+            Assert.IsTrue(i >= 0 && TemoinTerres.LastIndexOf(ancien, StringComparison.Ordinal) == i, "motif absent ou répété : " + ancien);
+            return TemoinTerres.Substring(0, i) + nouveau + TemoinTerres.Substring(i + ancien.Length);
+        }
+        static string PremierTerres(string ancien, string nouveau) { int i = TemoinTerres.IndexOf(ancien, StringComparison.Ordinal); Assert.IsTrue(i >= 0, "motif absent : " + ancien); return TemoinTerres.Substring(0, i) + nouveau + TemoinTerres.Substring(i + ancien.Length); }
+
+        [Test] public void Les_terres_du_pays_se_lisent_avec_leurs_vassaux_et_leurs_batiments()
+        {
+            Servir(TemoinTerres);
+            using (var c = new ClientPays(port, TimeSpan.FromSeconds(5)))
+            {
+                var l = c.LireTerres("grande-3"); Assert.IsTrue(l.Presente && l.Absence == null, l.Absence); var t = l.Donnees;
+                Assert.IsTrue(t.MaisonId == "grande-3" && t.Tick == 31 && t.Date.Annee == 1400 && t.Date.JourDeLAnnee == 32 && t.Suzerain == null);
+                CollectionAssert.AreEqual(new[] { "seigneurie-1", "plausible-7-0" }, t.Vassaux);
+                CollectionAssert.AreEqual(new[] { "seigneurie-1", "plausible-7-0", "plausible-8-1" }, t.VassauxTous);
+                CollectionAssert.AreEqual(new[] { (10L, 0L), (10L, 1L), (10L, 2L), (11L, 1L) }, t.Lieux.Select(x => (x.CellId, x.Rang)).ToArray());
+                CollectionAssert.AreEqual(new[] { (12L, 0L), (13L, 0L), (13L, 3L) }, t.LieuxDesVassaux.Select(x => (x.CellId, x.Rang)).ToArray());
+                Assert.IsTrue(t.NombreDeLieux == 7 && t.Habitants == 2450344 && t.HabitantsPropres == 271528 && t.Chantiers == 2);
+                Assert.IsTrue(t.Recolte30jKg == 141439858.6 && t.GreniersDesVassauxKg == 6862501.4 && t.GrenierKg == 754362.1 && t.AbsenceDuGrenier == null);
+                Assert.AreEqual(2, t.Batiments.Count);
+                var a = t.Batiments[0]; Assert.IsTrue(a.Identifiant == 1 && a.Nature == "moulin" && a.Nom == "Moulin" && a.CellId == 10 && a.Maison == "grande-3" && a.TravailRequis == 600 && a.TravailFourni == 600 && !a.EnChantier);
+                var b = t.Batiments[1]; Assert.IsTrue(b.Identifiant == 2 && b.CellId == 12 && b.Maison == "seigneurie-1" && b.TravailRequis == 600 && b.TravailFourni == 20 && b.EnChantier);
+                Assert.Throws<NotSupportedException>(() => ((IList<LieuDuPays>)t.Lieux).Add(null));
+            }
+            CollectionAssert.AreEqual(new[] { "GET /pays?maison=grande-3" }, Recues());
+        }
+
+        [Test] public void Un_grenier_absent_se_dit_absent()
+        {
+            const string raison = "grenier absent pour la maison grande-3";
+            Servir(Terres("\"grenier_nourriture_kg\":754362.1", "\"grenier_nourriture_kg\":null").Replace("\"absents\":{}", "\"absents\":{\"grenier\":\"" + raison + "\"}"));
+            using (var c = new ClientPays(port, TimeSpan.FromSeconds(5)))
+            {
+                var l = c.LireTerres("grande-3"); Assert.IsTrue(l.Presente, l.Absence);
+                Assert.IsNull(l.Donnees.GrenierKg); Assert.AreEqual(raison, l.Donnees.AbsenceDuGrenier);
+            }
+        }
+
+        [Test] public void Des_terres_mal_servies_sont_refusees()
+        {
+            const string Directs = "\"vassaux\":[\"seigneurie-1\",\"plausible-7-0\"]", Tous = "\"vassaux_tous\":[\"seigneurie-1\",\"plausible-7-0\",\"plausible-8-1\"]";
+            var fautes = new List<(string corps, string cle)>
+            {
+                (Terres("\"maison\":{\"id\":\"grande-3\"", "\"maison\":{\"id\":\"grande-9\""), "maison.id"),
+                (Terres("\"tick\":31,", ""), "tick"), (Terres("\"tick\":31", "\"tick\":-1"), "tick"), (Terres("\"tick\":31", "\"tick\":31.5"), "tick"),
+                (Terres("\"jour_de_l_annee\":32", "\"jour_de_l_annee\":0"), "date.jour_de_l_annee"), (Terres("\"annee\":1400", "\"annee\":\"1400\""), "date.annee"),
+                (Terres("\"suzerain\":null", "\"suzerain\":\"\""), "suzerain"), (Terres("\"suzerain\":null", "\"suzerain\":7"), "suzerain"), (Terres("\"suzerain\":null", "\"suzerain\":\"grande-3\""), "suzerain"),
+                (Terres(Directs, "\"vassaux\":[7,\"plausible-7-0\"]"), "vassaux[0]"), (Terres(Directs, "\"vassaux\":[\"\",\"plausible-7-0\"]"), "vassaux[0]"),
+                (Terres(Directs, "\"vassaux\":[\"seigneurie-1\",\"seigneurie-1\"]"), "vassaux[1]"), (Terres(Directs, "\"vassaux\":[\"grande-3\",\"plausible-7-0\"]"), "vassaux[0]"),
+                (Terres(Tous, "\"vassaux_tous\":[\"seigneurie-1\",\"plausible-8-1\"]"), "vassaux"),
+                (Terres(Tous, "\"vassaux_tous\":[\"seigneurie-1\",7,\"plausible-8-1\"]"), "vassaux_tous[1]"), (Terres(Tous, "\"vassaux_tous\":[\"seigneurie-1\",\"plausible-7-0\",\"plausible-7-0\"]"), "vassaux_tous[2]"),
+                (Terres(Tous, "\"vassaux_tous\":[\"seigneurie-1\",\"plausible-7-0\",\"grande-3\"]"), "vassaux_tous[2]"),
+                (Terres("{\"cell_id\":13,\"rang\":3}", "{\"cell_id\":-1,\"rang\":3}"), "lieux_des_vassaux[2].cell_id"), (Terres("{\"cell_id\":13,\"rang\":0}", "{\"cell_id\":13,\"rang\":-1}"), "lieux_des_vassaux[1].rang"),
+                (Terres("{\"cell_id\":10,\"rang\":2}", "{\"cell_id\":10,\"rang\":2.5}"), "lieux[2].rang"), (Terres("{\"cell_id\":10,\"rang\":0}", "{\"cell_id\":\"10\",\"rang\":0}"), "lieux[0].cell_id"),
+                (Terres("{\"cell_id\":10,\"rang\":1}", "{\"cell_id\":10,\"rang\":0}"), "lieux[1]"), (Terres("{\"cell_id\":12,\"rang\":0}", "{\"cell_id\":10,\"rang\":0}"), "lieux_des_vassaux[0]"),
+                (Terres("{\"cell_id\":11,\"rang\":1}", "{\"cell_id\":12,\"rang\":0}"), "lieux_des_vassaux[0]"), // (12, 0) servi dans les deux listes
+                (Terres("\"lieux\":7", "\"lieux\":8"), "totaux.lieux"), (Terres("\"habitants_propres\":271528", "\"habitants_propres\":3000000"), "totaux.habitants_propres"),
+                (Terres("\"recolte_30j_kg\":141439858.6", "\"recolte_30j_kg\":-1"), "totaux.recolte_30j_kg"), (Terres("\"recolte_30j_kg\":141439858.6", "\"recolte_30j_kg\":\"beaucoup\""), "totaux.recolte_30j_kg"),
+                (Terres("\"greniers_des_vassaux_kg\":6862501.4", "\"greniers_des_vassaux_kg\":-5"), "totaux.greniers_des_vassaux_kg"), (Terres("\"grenier_nourriture_kg\":754362.1", "\"grenier_nourriture_kg\":-2"), "totaux.grenier_nourriture_kg"),
+                (Terres("\"chantiers\":2", "\"chantiers\":-1"), "totaux.chantiers"), (Terres("\"chantiers\":2", "\"chantiers\":1.5"), "totaux.chantiers"),
+                (Terres("\"grenier_nourriture_kg\":754362.1", "\"grenier_nourriture_kg\":null"), "absents.grenier"),
+                (Terres("\"absents\":{}", "\"absents\":{\"grenier\":\"grenier absent pour la maison grande-3\"}"), "absents.grenier"),
+                (Terres("\"identifiant\":1,", "\"identifiant\":\"un\","), "batiments[0].identifiant"), (PremierTerres("\"nature\":\"moulin\",", ""), "batiments[0].nature"), (Terres("\"cell_id\":10,\"maison\"", "\"cell_id\":99,\"maison\""), "batiments[0].cell_id"),
+                (Terres("\"travail_fourni\":20", "\"travail_fourni\":700"), "batiments[1].travail_fourni"), (Terres("\"en_chantier\":false", "\"en_chantier\":0"), "batiments[0].en_chantier"),
+                (PremierTerres("\"nom\":\"Moulin\"", "\"nom\":\"\""), "batiments[0].nom"), (Terres("\"maison\":\"seigneurie-1\"", "\"maison\":\"\""), "batiments[1].maison"),
+            };
+            Servir(fautes.Select(f => f.corps).ToArray());
+            using (var c = new ClientPays(port, TimeSpan.FromSeconds(5)))
+                foreach (var (corps, cle) in fautes)
+                {
+                    var l = c.LireTerres("grande-3");
+                    Assert.IsTrue(!l.Presente && l.Donnees == null && !string.IsNullOrEmpty(l.Absence), cle + " : lue malgré la faute");
+                    StringAssert.StartsWith("pays : ", l.Absence); StringAssert.Contains(cle, l.Absence);
+                }
+        }
+
+        [Test] public void Le_document_des_jauges_n_a_pas_de_terres()
+        {
+            Servir(Temoin);
+            using (var c = new ClientPays(port, TimeSpan.FromSeconds(5)))
+            {
+                var terres = c.LireTerres(Id); Assert.IsFalse(terres.Presente); StringAssert.Contains("lieux", terres.Absence);
+                Assert.IsTrue(c.Lire(Id).Presente, "les jauges du même document restent lues");
+            }
         }
     }
 }

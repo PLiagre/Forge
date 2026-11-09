@@ -10,7 +10,7 @@ namespace Forge.Interface
         string motif;
         static string Motif(string nom) => nom == "Terres et comptes" ? "coffre" : nom == "Autres maisons" ? "maisons" : nom == "Menu" ? "livre"
             : nom == "Plan du bourg" ? "bourg" : nom == "Puissances" ? "banniere"
-            : nom == "Habitants" ? "foule" : nom == "Flux" ? "fleche" : null;
+            : nom == "Habitants" ? "foule" : nom == "Flux" ? "fleche" : nom == "Le pays" ? "couronne" : null;
         public static void Poser(Button bouton, string nom)
         {
             string motif = Motif(nom);
@@ -74,6 +74,12 @@ namespace Forge.Interface
             {
                 Trait(dessin, -8, -1, 11, 2); Trait(dessin, 3, -5, 2, 10);
                 Trait(dessin, 5, -3, 2, 6); Trait(dessin, 7, -1, 2, 2);
+            }
+            else if (motif == "couronne") // un bandeau, trois fleurons au-dessus (au milieu et aux deux bords) et une pierre au centre
+            {
+                Trait(dessin, -7, -4, 14, 3);
+                Trait(dessin, -7, -1, 2, 5); Trait(dessin, -1, -1, 2, 5); Trait(dessin, 5, -1, 2, 5);
+                Trait(dessin, -1, -3, 2, 2);
             }
         }
         void Trait(VertexHelper dessin, float x, float y, float largeur, float hauteur)
