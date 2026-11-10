@@ -28,7 +28,11 @@ jobs:
           GITLEAKS_VERSION: "8.30.1"
         run: |
           set -euo pipefail
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          # Des reprises : les 8 et 9 novembre 2026, un seul 504 sur ce
+          # téléchargement a rougi deux PR de lot et bloqué leurs lots.
+          # `--retry-all-errors` : sans lui, curl ne reprend pas un 504 reçu
+          # avec `-f`.
+          curl -sSfL --retry 5 --retry-delay 5 --retry-all-errors --retry-max-time 120 "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks version
       - name: Scan the working tree for secrets
