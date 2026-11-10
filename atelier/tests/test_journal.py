@@ -679,3 +679,26 @@ def test_un_lot_dont_la_photo_est_sans_objet_est_de_fond(projet, gh):
     gh.prs_[49]["comments"] = []
     corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")), photographe=lambda *a: [])
     assert "- [#9 Le contrat](https://x/pull/49) : Une commande prouve le rejeu." in corps.split("**En coulisses**")[1]
+
+
+def test_le_journal_rappelle_sept_jours_ce_que_la_direction_a_tranche(tmp_path):
+    """Ce que la direction décide à la place du propriétaire lui est rappelé
+    chaque matin, avec le geste pour y revenir : sans ce rappel, la délégation
+    serait un pouvoir que personne ne relit."""
+    local = tmp_path / "journal.jsonl"
+    entrees = [
+        {"quand": "2026-09-20T08:00:00+00:00", "lot": 7, "action": "décision de la direction", "detail": "A — trop vieux"},
+        {"quand": "2026-09-27T08:00:00+00:00", "lot": 10, "action": "décision de la direction", "detail": "B — Que faire des villes ?"},
+        {"quand": "2026-09-27T09:00:00+00:00", "lot": 11, "action": "décision technique", "detail": "A — un format"},
+        {"quand": "2026-09-28T06:00:00+00:00", "lot": 12, "action": "décision de la direction", "detail": "A — Quel seuil ?"},
+    ]
+    local.write_text("\n".join(json.dumps(e, ensure_ascii=False) for e in entrees) + "\npas du json\n", encoding="utf-8")
+    depuis = MAINTENANT - journal.timedelta(days=journal.JOURS_DE_RAPPEL)
+    lignes = journal._decisions_de_la_direction(local, depuis)
+    assert lignes == ["- #12, le 28/09 : A — Quel seuil ?", "- #10, le 27/09 : B — Que faire des villes ?"]
+    assert journal._decisions_de_la_direction(tmp_path / "absent.jsonl", depuis) == []
+    annexe = journal._annexe(journal.Releve("", decisions_de_la_direction=lignes))
+    assert "### Décidé sans toi" in annexe and "- #12, le 28/09 : A — Quel seuil ?" in annexe
+    assert "bloque le lot, écris ta réponse sur son issue, puis remets « pret »" in annexe
+    assert "Décidé sans toi" not in journal._annexe(journal.Releve("")), "rien à rappeler, rien d'écrit"
+

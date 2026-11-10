@@ -9,7 +9,7 @@ import pytest
 
 from atelier import lots, prompts
 from atelier.depot import DepotErreur
-from atelier.lots import Lot, marque, marques
+from atelier.lots import (Lot, marque, marques, decisions_du_lot, decisions_seules, decisions_de_la_direction, question_pour_la_direction)
 from atelier.pilote import Pilote
 from atelier.projet import charger
 from atelier.verrous import Verrous
@@ -138,6 +138,115 @@ def test_le_chef_pose_sa_question_et_le_lot_l_attend(projet, gh, depot, tmp_path
     assert m["options"][1] == ["B", "plafonner les villes", "Paris démarre plus petit"]
     assert m["recommandation"] == ["A", "garde l'histoire et la physique"]
     assert not _gestes(gh, "creer_pr")
+
+
+def _avec_direction(projet):
+    """Le même projet, qui nomme une direction (Fable, en lecture seule)."""
+    chemin = projet.racine / "atelier.toml"
+    texte = chemin.read_text(encoding="utf-8")
+    chemin.write_text(texte.replace('boussole    =', 'direction   = "claude/fable"\nboussole    ='), encoding="utf-8")
+    return charger(projet.racine)
+
+
+def test_la_direction_tranche_une_question_et_le_lot_repart_avec_sa_decision(projet, gh, depot, tmp_path):
+    """Du 27 septembre au 10 novembre 2026, 47 questions ont attendu le
+    propriétaire, 19 h de médiane chacune ; le 10 novembre, sept lots
+    attendaient ainsi et la chaîne ne faisait plus rien."""
+    projet = _avec_direction(projet)
+    gh.ajouter_issue(10, "Les grandes villes")
+    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
+    assert "bloque" in _etiquettes(gh, 10)
+    direction = Agents((0, "La décision 26 de VISION.md le dit déjà.\n"
+                           "DECISION: TRANCHE :: b :: les villes de 1400 sont une donnée réglable\n"
+                           "FONDEMENT :: jeu/data/villes-1400.json, le plafond se change d'une ligne"))
+    lignes = _pilote(projet, gh, depot, direction, tmp_path).tour()
+    assert direction.outils() == ["fable"] and "Tu es la direction technique" in _prompt(direction.appels[0])
+    assert "--disallowedTools" in direction.appels[0] and "acceptEdits" not in direction.appels[0], "lecture seule"
+    assert "- B :: plafonner les villes :: Paris démarre plus petit" in _prompt(direction.appels[0])
+    assert "pret" in _etiquettes(gh, 10) and "bloque" not in _etiquettes(gh, 10)
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert "tranchée sans t'attendre" in corps and "Décision : **B** — plafonner les villes" in corps
+    assert "jeu/data/villes-1400.json" in corps and "remets « pret »" in corps
+    m = marques([{"body": corps}])[-1]
+    assert (m["etat"], m["par"], m["recommandation"][0]) == ("decision", "direction", "B")
+    assert any("décision de la direction" in l and "B — Que faire des villes" in l for l in lignes)
+    # Elle suit le lot comme une réponse du propriétaire, et ne compte pas
+    # parmi les décisions techniques du pilote.
+    commentaires = gh.issues_[10]["comments"]
+    assert any("Décision : B — plafonner les villes (prise par la direction" in d for d in decisions_du_lot(commentaires))
+    assert decisions_seules(commentaires) == 0 and decisions_de_la_direction(commentaires) == 1
+    chef = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-les-grandes-villes.md": BRIEF_BON}))
+    _pilote(projet, gh, depot, chef, tmp_path).tour()
+    assert "la décision de la direction, qui vaut celle du propriétaire" in _prompt(chef.appels[0])
+
+
+def test_la_direction_laisse_au_proprietaire_ce_qui_est_a_lui_et_ne_relit_pas(projet, gh, depot, tmp_path):
+    projet = _avec_direction(projet)
+    gh.ajouter_issue(10, "Les grandes villes")
+    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
+    direction = Agents((0, "B rendrait la preuve du jalon 2 moins exigeante.\n"
+                           "DECISION: PROPRIETAIRE :: la preuve du jalon écrite au CAP en dépend\n"
+                           "AVIS :: A :: elle garde l'histoire"))
+    _pilote(projet, gh, depot, direction, tmp_path).tour()
+    assert "bloque" in _etiquettes(gh, 10)
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert "cette question est pour toi — la preuve du jalon écrite au CAP en dépend" in corps
+    assert "Son avis : A :: elle garde l'histoire" in corps
+    assert marques([{"body": corps}])[-1] == {"role": "direction", "etat": "avis", "agent": "claude/fable"}
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [], "ni la direction ni le dépanneur ne la relisent"
+    # La réponse du propriétaire lève toujours le blocage.
+    gh.issues_[10]["comments"].append({"body": "A", "author": {"login": "PLiagre"}})
+    _pilote(projet, gh, depot, Agents((0, "DECISION: BRIEF", {"docs/briefs/10-les-grandes-villes.md": BRIEF_BON})),
+            tmp_path).tour()
+    assert any("réponse reçue" in c["body"] for c in gh.issues_[10]["comments"])
+
+
+@pytest.mark.parametrize("reponse, pourquoi", [
+    ((0, "DECISION: TRANCHE :: Z :: une lettre inventée\nFONDEMENT :: rien"), "lettre « Z » que la question ne propose pas"),
+    ((0, "DECISION: TRANCHE :: A :: sans dire ce qui la fonde"), "décision sans fondement"),
+    ((0, "Je ne sais pas."), "décision illisible"),
+    ((1, "erreur interne"), "code 1"),
+])
+def test_une_direction_sans_decision_valable_laisse_la_question_au_proprietaire(projet, gh, depot, tmp_path,
+                                                                             reponse, pourquoi):
+    """Contre-épreuve : la direction évite une attente, elle ne retire rien.
+    Une lettre hors des réponses proposées, une décision sans fondement, un
+    texte illisible ou un échec laissent le lot bloqué, et elle ne le relit pas."""
+    projet = _avec_direction(projet)
+    gh.ajouter_issue(10, "Les grandes villes")
+    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
+    _pilote(projet, gh, depot, Agents(reponse), tmp_path).tour()
+    assert "bloque" in _etiquettes(gh, 10) and "pret" not in _etiquettes(gh, 10)
+    corps = gh.issues_[10]["comments"][-1]["body"]
+    assert f"pas de décision ({pourquoi})" in corps and "la question t'attend" in corps
+    assert decisions_de_la_direction(gh.issues_[10]["comments"]) == 0
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == []
+
+
+def test_sans_direction_dans_atelier_toml_la_question_attend_le_proprietaire(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Les grandes villes")
+    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
+    rien = Agents()
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and "bloque" in _etiquettes(gh, 10)
+
+
+def test_la_direction_ne_tranche_pas_plus_de_deux_fois_sur_un_lot():
+    question = {"question": "Que faire ?", "options": [["A", "ceci", ""], ["B", "cela", ""]],
+                "recommandation": ["A", "plus simple"], "nature": "jeu"}
+    bloque = {"body": marque(role="pilote", etat="bloque", raison="question", **question)}
+    tranche = {"body": marque(role="pilote", etat="decision", par="direction", consigne="A", **question)}
+    assert question_pour_la_direction([bloque]).texte == "Que faire ?"
+    assert question_pour_la_direction([bloque, tranche, bloque]) is not None
+    assert question_pour_la_direction([bloque, tranche, bloque, tranche, bloque]) is None, "la troisième est à lui"
+    assert question_pour_la_direction([bloque, {"body": "B", "author": {"login": "PLiagre"}}]) is None
+    assert question_pour_la_direction([{"body": marque(role="pilote", etat="bloque", raison="CI rouge")}]) is None
+    sans_reponses = dict(question, options=[])
+    assert question_pour_la_direction([{"body": marque(role="pilote", etat="bloque", **sans_reponses)}]) is None
 
 
 def test_une_reponse_du_proprietaire_remet_le_lot_en_route(projet, gh, depot, tmp_path):

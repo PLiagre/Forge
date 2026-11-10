@@ -718,7 +718,48 @@ def question_du_chef(texte: str, question: str) -> Question:
 
 def decisions_seules(commentaires: list[dict]) -> int:
     """Les questions techniques que le pilote a déjà tranchées seul sur ce lot."""
-    return sum(1 for m in marques(commentaires) if m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION)
+    return sum(1 for m in marques(commentaires) if m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION
+               and m.get("par") != PAR_DIRECTION)
+
+
+# La direction (`pilote._diriger`) lit une question posée au propriétaire avant
+# lui. Du 27 septembre au 10 novembre 2026, 47 questions lui ont été posées :
+# 19 h de médiane avant sa réponse, et il répondait presque toujours la
+# recommandation ; le 10 novembre, sept lots attendaient ainsi depuis deux à
+# neuf jours et la chaîne ne faisait plus rien. Elle tranche ce que
+# docs/VISION.md, CAP.md ou une décision déjà écrite tranchent, et ce qui est
+# réversible ; elle laisse au propriétaire la vision, l'irréversible et toute
+# preuve rendue moins exigeante (AGENTS.md, « L'échelle de décision »). Sa
+# décision s'écrit comme celle du pilote (marque « decision », `par`
+# « direction ») : le chef, le codeur et le relecteur la lisent de même.
+PAR_DIRECTION = "direction"
+ETAT_AVIS = "avis"
+DECISIONS_DIRECTION_MAX = 2
+ACTION_DIRECTION = "décision de la direction"
+
+
+def decisions_de_la_direction(commentaires: list[dict]) -> int:
+    """Les questions que la direction a déjà tranchées sur ce lot."""
+    return sum(1 for m in marques(commentaires) if m.get("etat") == ETAT_DECISION and m.get("par") == PAR_DIRECTION)
+
+
+def question_pour_la_direction(commentaires: list[dict],
+                               decisions_max: int = DECISIONS_DIRECTION_MAX) -> "Question | None":
+    """La question que la direction doit lire, ou None : le dernier blocage du
+    lot est une question, la direction n'a rien dit depuis, personne n'y a
+    répondu, et elle n'a pas déjà tranché `decisions_max` fois sur ce lot."""
+    liste = marques(commentaires)
+    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
+    if dernier is None:
+        return None
+    question = Question.de_marque(liste[dernier])
+    if question is None or not question.options:
+        return None
+    if any(m.get("role") == PAR_DIRECTION for m in liste[dernier + 1:]):
+        return None
+    if reponse_apres_blocage(commentaires) or decisions_de_la_direction(commentaires) >= decisions_max:
+        return None
+    return question
 
 
 def reponse_apres_blocage(commentaires: list[dict]) -> bool:
@@ -802,6 +843,10 @@ def decisions_du_lot(commentaires: list[dict]) -> list[str]:
             elif m.get("etat") == ETAT_DECISION and (q := Question.de_marque(m)) and q.recommandation:
                 lettre = q.recommandation[0]
                 reponse = q.reponse_recommandee()
+                if m.get("par") == PAR_DIRECTION:
+                    decisions.append(f"Question : {q.texte} Décision : {lettre}" + (f" — {reponse}" if reponse else "")
+                                     + " (prise par la direction, à la place du propriétaire).")
+                    continue
                 decisions.append(f"Question technique : {q.texte} Décision : {lettre}"
                                  + (f" — {reponse}" if reponse else "")
                                  + " (prise par le pilote, selon la recommandation).")

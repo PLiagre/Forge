@@ -51,6 +51,12 @@ _VERDICT = re.compile(r"^\s*\**VERDICT:\s*(ACCEPTE|CORRIGER)(?:\**[ \t]*$|\**(?=
 _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
 _MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
+# Ce que rend la direction (`prompts.direction`) : sa décision, puis ce qui la
+# fonde ou, quand elle laisse la question au propriétaire, son avis.
+_DECISION_DIRECTION = re.compile(r"^[ \t>*_`]*DECISION\s*:[ \t*_`]*(TRANCHE|PROPRIETAIRE)\b[ \t*_`]*"
+                                 r"(?:::[ \t]*(.*))?$", re.M)
+_FONDEMENT = re.compile(r"^[ \t>*_`]*FONDEMENT[ \t*_`]*::[ \t]*(.+)$", re.M)
+_AVIS = re.compile(r"^[ \t>*_`]*AVIS[ \t*_`]*::[ \t]*(.+)$", re.M)
 _RUN = re.compile(r"/actions/runs/(\d+)/")
 _TRAVAIL = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 SECTIONS_BRIEF = ("## But", "## Le joueur", "## Règle du monde", "## Périmètre", "## Conditions de succès",
@@ -100,6 +106,9 @@ def _commentaires_pour_le_chef(commentaires: list[dict]) -> str:
             lus.append(f"{(c.get('author') or {}).get('login', '?')} : {corps}")
         elif any(m.get("etat") == "bloque" and m.get("question") for m in faites):
             lus.append("ta question au propriétaire : " + lots._MARQUE.sub("", corps).strip())
+        elif any(m.get("etat") == lots.ETAT_DECISION and m.get("par") == lots.PAR_DIRECTION for m in faites):
+            lus.append("ta question, et la décision de la direction, qui vaut celle du propriétaire : "
+                       + lots._MARQUE.sub("", corps).strip())
         elif any(m.get("etat") == lots.ETAT_DECISION for m in faites):
             lus.append("ta question technique, et la décision du pilote : " + lots._MARQUE.sub("", corps).strip())
         elif any(m.get("role") == "depanneur" for m in faites):
@@ -203,6 +212,8 @@ class Pilote:
                 agent_parti = self.invoques > avant
         if not agent_parti:
             agent_parti = self._a_fait_partir(lambda: self._depanner_un_lot(vue))
+        if not agent_parti:
+            agent_parti = self._a_fait_partir(lambda: self._diriger_un_lot(vue))
         if not agent_parti and vue.courant is not None:
             self._prendre_le_suivant(vue)
         with self.verrous.tenir("decider"):
@@ -1162,6 +1173,101 @@ class Pilote:
                                                 f"<details><summary>Ce qu'il a écrit</summary>\n\n{diagnostic}\n\n"
                                                 "</details>\n\n" + marque(role="depanneur", etat="echec", raison=pourquoi))
             self.noter(lot.numero, "dépanneur en échec", pourquoi, str(res.agent or ""))
+        return True
+
+    # ---------------------------------------------------------- direction
+    def _diriger_un_lot(self, vue: "_Vue") -> bool:
+        """Un lot bloqué sur une question au propriétaire, lu par la direction
+        avant lui : un seul par tour, comme tout agent. Un dépôt qui ne nomme
+        pas de direction garde toutes ses questions pour le propriétaire."""
+        if lots.PAR_DIRECTION not in self.projet.postes:
+            return False
+        for lot in sorted(vue.ouvertes, key=lambda l: l.numero):
+            if lot.etat != "bloque" or "lot" not in lot.etiquettes:
+                continue
+            if not self.verrous.prendre(_verrou_du_lot(lot.numero)):
+                continue
+            try:
+                issue = self.gh.issue(lot.numero)
+                lot = Lot.de(issue)
+                commentaires = issue.get("comments") or []
+                question = lots.question_pour_la_direction(commentaires) if lot.etat == "bloque" else None
+                if question is None:
+                    continue
+                return self._diriger(lot, commentaires, question)
+            except (GitHubErreur, DepotErreur) as e:
+                self.noter(lot.numero, "erreur", str(e))
+            finally:
+                self._lacher_lot(lot.numero)
+        return False
+
+    def _diriger(self, lot: Lot, commentaires: list[dict], question: lots.Question) -> bool:
+        """La direction lit la question et décide : la trancher (le lot
+        repart, sa décision le suit comme celle du propriétaire), ou la lui
+        laisser, avec son avis. Sans décision lisible, ou avec une lettre que
+        la question ne propose pas, la question attend le propriétaire, comme
+        avant : la direction ne retire jamais rien, elle évite une attente."""
+        liste = lots.marques(commentaires)
+        blocage = next(m for m in reversed(liste) if m.get("etat") == "bloque")
+        qui = "le dépanneur" if blocage.get("par") == lots.PAR_DEPANNEUR else "le chef"
+        chemin = self.depot.preparer(lot.numero, lot.branche(self.projet.prefixe_branche))
+        dit_issue = "\n\n".join(f"{(c.get('author') or {}).get('login', '?')} : "
+                                 f"{_extrait(lots._MARQUE.sub('', c.get('body') or ''), 25)}"
+                                 for c in commentaires[-8:])
+        options = "\n".join(f"- {l} :: {r}" + (f" :: {c}" if c else "") for l, r, c in question.options)
+        reco = ""
+        if question.recommandation:
+            reco = f"RECOMMANDATION de {qui} :: {question.recommandation[0]} :: {question.recommandation[1]}"
+        prompt = prompts.direction(self.projet, numero=lot.numero, titre=lot.titre, corps=lot.corps,
+                                   question=question.texte, options=options, recommandation=reco, qui=qui,
+                                   issue=dit_issue, decisions=tuple(lots.decisions_du_lot(commentaires)))
+        res = self._invoquer(lots.PAR_DIRECTION, prompt, chemin, lot=lot.numero)
+        if res.attente:
+            self.noter(lot.numero, "attente", "direction : " + " · ".join(res.essais))
+            return True
+        trouvees = list(_DECISION_DIRECTION.finditer(res.texte)) if res.reussi else []
+        decision, suite = (trouvees[-1].group(1), (trouvees[-1].group(2) or "").strip()) if trouvees else ("", "")
+        raisonnement = _extrait(res.texte[:trouvees[-1].start()], 40) if trouvees else _extrait(res.texte, 40)
+        replie = f"\n\n<details><summary>Ce qu'elle a vérifié</summary>\n\n{raisonnement}\n\n</details>"
+        lettres = {l for l, _, _ in question.options}
+        lettre, _, pourquoi = (m.strip().strip("*_` ") for m in suite.partition("::"))
+        lettre = lettre.upper() if lettre.upper() in lettres else lettre
+        fondement = _FONDEMENT.findall(res.texte)
+        if decision == "TRANCHE" and lettre in lettres and fondement:
+            tranchee = lots.Question(texte=question.texte, options=question.options,
+                                     recommandation=(lettre, pourquoi), nature=question.nature)
+            reponse = tranchee.reponse_recommandee()
+            # La consigne vit dans la marque : « --> » la fermerait.
+            consigne = (f"Question : {question.texte} Décision de la direction : {lettre}"
+                        + (f" — {reponse}" if reponse else "")).replace("-->", "→")
+            texte = (f"🤖 **direction** ({res.agent}) : question de {qui}, tranchée sans t'attendre.\n\n"
+                     f"**{question.texte}**\n\nDécision : **{lettre}**" + (f" — {reponse}" if reponse else "")
+                     + (f"\n\nPourquoi : {pourquoi}" if pourquoi else "")
+                     + f"\n\nCe qui la fonde : {fondement[-1].strip()}\n\n"
+                     "Le lot continue, et le journal du matin te la rappelle. Tu gardes la main : pour une autre "
+                     "décision, bloque le lot, écris ta réponse ici, puis remets « pret »." + replie)
+            self.gh.commenter_issue(lot.numero, f"{texte}\n\n" + marque(
+                role="pilote", etat=lots.ETAT_DECISION, par=lots.PAR_DIRECTION, consigne=consigne,
+                agent=str(res.agent), **tranchee.marque()))
+            self.gh.etiqueter(lot.numero, ["pret"], ["en-cours", "idee", "bloque"])
+            self.noter(lot.numero, lots.ACTION_DIRECTION, f"{lettre} — {question.texte}", str(res.agent))
+            return True
+        if decision == "PROPRIETAIRE":
+            avis = _AVIS.findall(res.texte)
+            texte = (f"🤖 **direction** ({res.agent}) : cette question est pour toi"
+                     + (f" — {suite}" if suite else "") + "."
+                     + (f"\n\nSon avis : {avis[-1].strip()}" if avis else "") + replie)
+            self.gh.commenter_issue(lot.numero, f"{texte}\n\n" + marque(
+                role=lots.PAR_DIRECTION, etat=lots.ETAT_AVIS, agent=str(res.agent)))
+            self.noter(lot.numero, "question laissée au propriétaire", suite[:200], str(res.agent))
+            return True
+        pourquoi = (f"code {res.code}" if not res.reussi else
+                    f"lettre « {lettre} » que la question ne propose pas" if decision == "TRANCHE" and lettre not in lettres
+                    else "décision sans fondement" if decision == "TRANCHE" else "décision illisible")
+        self.gh.commenter_issue(lot.numero, f"🤖 **direction** ({res.agent or '—'}) : pas de décision ({pourquoi}) ; "
+                                            "la question t'attend, comme avant." + replie + "\n\n"
+                                + marque(role=lots.PAR_DIRECTION, etat="echec", raison=pourquoi))
+        self.noter(lot.numero, "direction en échec", pourquoi, str(res.agent or ""))
         return True
 
     # ------------------------------------------------------------ conflit

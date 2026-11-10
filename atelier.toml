@@ -88,6 +88,16 @@ mecanicien  = "claude/claude-sonnet-5-5@medium"
 # demande du jugement : Sonnet en effort haut ; Opus est gardé au brief et au
 # moteur. Sonnet à court de quota, le lot attend le propriétaire.
 depanneur   = "claude/claude-sonnet-5-5@high"
+# Une question posée au propriétaire (par le chef ou le dépanneur) est d'abord
+# lue par la direction, en lecture seule. Elle la tranche quand docs/VISION.md,
+# CAP.md ou une décision déjà écrite la tranchent, ou quand le choix est
+# réversible (un seuil, une durée, une donnée) ; sinon elle la laisse au
+# propriétaire, avec son avis. Deux décisions au plus par lot ; chacune paraît
+# au journal du matin et se reprend d'un commentaire. Fable : c'est le rôle où
+# le jugement compte le plus, quelques appels par semaine, sur sa propre
+# limite hebdomadaire (échelle de décision, AGENTS.md, 10 novembre 2026).
+# Fable à court de quota, la question attend le propriétaire comme avant.
+direction   = "claude/claude-fable-5-2@high"
 # Journal du matin, en lecture seule : un appel par jour, qui ne doit rien
 # inventer. Sonnet en effort moyen, le moins cher ; sans lui, le pilote
 # l'écrit seul à partir des faits, dans le même gabarit.
@@ -127,4 +137,5 @@ mecanicien = 3600
 # son délai sans rien décider sur #343 et #391 (7 octobre 2026).
 depanneur = 3600
 chroniqueur = 600
+direction = 1200
 boussole = 1200

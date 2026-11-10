@@ -240,6 +240,40 @@ posé. Sans décision lisible, il le dit, et le lot attend le propriétaire. Le
 un quota, une relecture vide ou une image que le relecteur ne pouvait pas
 ouvrir.
 
+### La direction, avant le propriétaire
+
+Une question posée au propriétaire — par le chef ou par le dépanneur — est
+d'abord lue par la **direction** (Claude Code, fable, high, en lecture seule),
+au tour suivant. C'est le niveau N2 de l'échelle de décision
+([AGENTS.md](../AGENTS.md)). Elle vérifie dans le code et les tests ce que la
+question affirme, puis rend :
+
+- `DECISION: TRANCHE :: <lettre> :: <pourquoi>`, suivie de
+  `FONDEMENT :: <ce qui la fonde>` : `docs/VISION.md`, `CAP.md` ou une
+  décision déjà écrite donnent la réponse, ou le choix est réversible (un
+  seuil, une durée, une donnée de `jeu/data/`, une définition de preuve au
+  moins aussi exigeante). Le pilote écrit la décision sur l'issue et remet le
+  lot `pret` : elle suit le lot comme une réponse du propriétaire, le chef, le
+  codeur et le relecteur la lisent ;
+- `DECISION: PROPRIETAIRE :: <pourquoi>`, suivie de `AVIS :: <lettre> ::
+  <pourquoi>` : la question touche la vision, une règle que le joueur ressent
+  et que la vision ne tranche pas, une preuve de jalon ou un test rendu moins
+  exigeant, ou l'irréversible. Le lot reste bloqué, avec son avis.
+
+Elle ne choisit qu'une des lettres proposées, et dit toujours ce qui fonde sa
+décision : une lettre inventée, une décision sans fondement, un texte
+illisible ou un échec laissent la question au propriétaire, comme avant. Elle
+ne tranche pas plus de deux fois sur un même lot, et ne relit pas une question
+qu'elle a déjà lue. Sans ligne `direction` dans `atelier.toml`, toute question
+de jeu va au propriétaire.
+
+Le journal du matin rappelle pendant sept jours ce qu'elle a tranché, sous
+« Décidé sans toi ». Pour revenir sur une décision : bloquer le lot, écrire sa
+réponse sur l'issue, puis remettre `pret`. Du 27 septembre au 10 novembre
+2026, 47 questions ont attendu le propriétaire, 19 h de médiane chacune, et il
+répondait presque toujours la recommandation ; le 10 novembre, sept lots
+attendaient ainsi et la chaîne ne faisait plus rien.
+
 ### Reprendre un lot bloqué
 
 Corriger la cause s'il le faut (en mode direct si elle est dans la chaîne),

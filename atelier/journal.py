@@ -114,6 +114,7 @@ class Releve:
     a_faire: list[str] = field(default_factory=list)
     jalon: str = ""
     avancement: list[str] = field(default_factory=list)
+    decisions_de_la_direction: list[str] = field(default_factory=list)
     etat_du_jeu: list[str] = field(default_factory=list)
     plan_fixe: str | None = None
 
@@ -414,6 +415,31 @@ def _vecu(chemin: Path, depuis: datetime) -> tuple[list[str], list[str]]:
     return lignes or ["- rien dans le journal du pilote"], _encore_vraies(raisons, reponses)
 
 
+# Combien de jours une décision de la direction reste rappelée au journal.
+JOURS_DE_RAPPEL = 7
+
+
+def _decisions_de_la_direction(chemin: Path, depuis: datetime) -> list[str]:
+    """Ce que la direction a tranché à la place du propriétaire depuis
+    `depuis`, d'après le journal du pilote : une ligne par décision, la plus
+    récente d'abord. Un journal illisible ne rappelle rien : « Ce que la
+    chaîne a vécu » le dit déjà (`_vecu`)."""
+    try:
+        texte = chemin.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    vues = []
+    for ligne in texte.splitlines():
+        try:
+            e = json.loads(ligne)
+            quand = datetime.fromisoformat(e["quand"])
+        except (ValueError, KeyError, TypeError):
+            continue
+        if e.get("action") == lots.ACTION_DIRECTION and quand >= depuis:
+            vues.append((quand, f"- #{e.get('lot')}, le {quand:%d/%m} : {e.get('detail') or ''}"))
+    return [ligne for _, ligne in sorted(vues, reverse=True)]
+
+
 def _etat_en_cours(commentaires: list[dict]) -> tuple[str, str | None]:
     """La dernière chose que la chaîne a écrite sur une PR en cours, en une
     ligne, et sa date (marque `quand`) quand elle en a une."""
@@ -607,6 +633,8 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
                         for l, ouvert in du_jalon if l.jalon == courant.numero and "lot" in l.etiquettes]
         lignes.append("AVANCEMENT DU JALON (le pilote l'ajoute lui-même sous le journal) :")
         lignes += r.avancement
+    r.decisions_de_la_direction = _decisions_de_la_direction(
+        journal_local or JOURNAL_LOCAL, maintenant - timedelta(days=JOURS_DE_RAPPEL))
     lignes.append("\nÀ FAIRE PAR LE PROPRIÉTAIRE :")
     r.a_faire = _a_faire(raisons_vps, _encore_vraies(raisons_pc, reponses_pc), veille or VEILLE, bloques, questions,
                          pc_en_pause=not gh.pc_actif())
@@ -752,6 +780,11 @@ def _annexe(r: Releve) -> str:
     """Ce que le pilote ajoute sous tout journal : l'avancement du jalon, lot
     par lot, et les détails de la chaîne, repliés."""
     lignes = []
+    if r.decisions_de_la_direction:
+        lignes += ["### Décidé sans toi", "",
+                   f"La direction a tranché ces questions ces {JOURS_DE_RAPPEL} derniers jours. Pour revenir sur "
+                   "l'une d'elles : bloque le lot, écris ta réponse sur son issue, puis remets « pret ».", "",
+                   *r.decisions_de_la_direction, ""]
     if r.jalon and r.avancement:
         faits = sum(l.startswith("- [x]") for l in r.avancement)
         bloques = sum("**bloqué**" in l for l in r.avancement)
