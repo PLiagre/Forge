@@ -136,5 +136,28 @@ namespace Forge.Interface.Tests
             await coupee.Actualiser(); Assert.That(coupee.Terres, Is.Not.Null);
             coupe = true; await coupee.Actualiser(); Assert.That(coupee.Terres, Is.Null);
         }
+
+        // Lot #1046 : les gestes du pays se lisent au même passage que les terres, juste après elles, jamais sans maison.
+        static Lecture<GestesDuPays> Gestes(string id) => Lecture<GestesDuPays>.De(new GestesDuPays(Pays(id).Donnees,
+            new[] { new GesteLu("asseoir_le_droit", "Asseoir le droit", new Dictionary<string, double> { { "sceau", 30 } }, new Dictionary<string, double> { { "droit", 10 } }, null) }));
+        [Test] public async Task Les_gestes_se_lisent_avec_les_terres()
+        {
+            var appels = new List<string>(); string retenue = null;
+            var lecture = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null,
+                id => { appels.Add("pays " + id); return Pays(id); }, id => { appels.Add("terres " + id); return Terres(id); }, id => { appels.Add("gestes " + id); return Gestes(id); });
+            await lecture.Actualiser();
+            Assert.That(lecture.Gestes, Is.Null); Assert.That(appels, Is.Empty, "aucun appel au lecteur sans maison");
+            retenue = "identifiant-servi";
+            await lecture.Actualiser();
+            Assert.That(appels, Is.EqualTo(new[] { "pays identifiant-servi", "terres identifiant-servi", "gestes identifiant-servi" }), "un appel avec cet identifiant, après celui des terres");
+            Assert.That(lecture.Gestes.Donnees.MaisonId, Is.EqualTo(retenue)); Assert.That(lecture.Gestes.Donnees.Gestes.Count, Is.EqualTo(1));
+            var septParametres = new LecturePartie(() => Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null, Pays, Terres);
+            await septParametres.Actualiser();
+            Assert.That(septParametres.Terres, Is.Not.Null); Assert.That(septParametres.Gestes, Is.Null);
+            bool coupe = false;
+            var coupee = new LecturePartie(() => coupe ? throw new Exception("service coupé") : Monde(retenue), Maison, Departs, _ => RecuIntention.Absente("aucun envoi"), null, Pays, Terres, Gestes);
+            await coupee.Actualiser(); Assert.That(coupee.Gestes, Is.Not.Null);
+            coupe = true; await coupee.Actualiser(); Assert.That(coupee.Gestes, Is.Null);
+        }
     }
 }

@@ -20,6 +20,7 @@ que les bâtiments (`sim.modificateurs`), sous la source « jauge:<nom>:<maison>
 la valeur, par point d'écart à son neutre ; à son neutre, elle ne pose rien.
 """
 from dataclasses import dataclass
+from decimal import Decimal, ROUND_HALF_UP
 import math
 from pathlib import Path
 import tomllib
@@ -31,6 +32,7 @@ from sim.flux import _jours_de_fenetre
 
 _CHEMIN = Path(__file__).parents[1] / "data" / "jauges.toml"
 SOURCE = "jauge"
+PLURIEL_A_PARTIR_DE = 2  # un point, 1,5 point, puis 2 points : le pluriel commence à deux, comme `TexteDuMonde.Points`
 
 
 class JaugeInvalide(ValueError):
@@ -240,6 +242,23 @@ def poser_les_modificateurs(monde, regles):
         monde.modificateurs = sorted(autres + neuves, key=_modificateurs._ordre)
 
 
+def _arrondi(valeur) -> Decimal:
+    """La valeur au dixième, la moitié loin de zéro, jamais -0 (comme `TexteDuMonde.Points`)."""
+    arrondi = Decimal(repr(float(valeur))).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    return Decimal("0.0") if arrondi == 0 else arrondi
+
+
+def _accord(valeur, mot) -> str:
+    """`mot` au singulier sous 2 points en valeur absolue (une fois arrondie), au pluriel au-delà."""
+    return mot if abs(_arrondi(valeur)) < PLURIEL_A_PARTIR_DE else mot + "s"
+
+
+def _points(valeur) -> str:
+    """Des points comme le panneau du pays les écrit : « 35 points », « 1,5 point », « 0 point »."""
+    texte = format(_arrondi(valeur), "f").removesuffix(".0").replace(".", ",")
+    return f"{texte} {_accord(valeur, 'point')}"
+
+
 def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True):
     """La raison du refus d'un geste, ou None : maison connue, points suffisants, jauge pas à sa borne.
 
@@ -257,11 +276,12 @@ def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True)
             valeurs[nom] = _borner(regles, nom, valeurs[nom] + ecart)
     for nom, cout in regles.gestes[geste]["cout"].items():
         if valeurs[nom] < cout:
-            return (f"pas assez de points de {regles.points[nom]['nom']} : {cout} demandés, "
-                    f"{valeurs[nom]:g} disponibles")
+            return (f"pas assez de points de {regles.points[nom]['nom']} : "
+                    f"{_points(cout)} {_accord(cout, 'demandé')}, "
+                    f"{_points(valeurs[nom])} {_accord(valeurs[nom], 'disponible')}")
     for nom, ecart in regles.gestes[geste]["effet"].items():
         if _borner(regles, nom, valeurs[nom] + ecart) == valeurs[nom]:
-            return f"{regles.jauges[nom]['nom']} déjà à sa borne : {valeurs[nom]:g}"
+            return f"{regles.jauges[nom]['nom']} déjà à sa borne : {_points(valeurs[nom])}"
     return None
 
 

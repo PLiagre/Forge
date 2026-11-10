@@ -3245,7 +3245,13 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   insuffisants (en comptant les gestes déjà déposés pour le tick) ou une jauge
   déjà à sa borne. Le geste s'applique à l'étape des intentions — la maison,
   vérifiée au dépôt, n'y est pas relue dans le registre — et repose les
-  modificateurs du pays au même tick.
+  modificateurs du pays au même tick. Les deux raisons de points disent leurs
+  nombres en points, au dixième, avec une virgule, et accordent le participe
+  (`point` et `demandé`, `disponible` sous 2, `points`, `demandés`,
+  `disponibles` au-delà) : « pas assez de points de Plume : 50 points demandés,
+  1,5 point disponible » ; « Concorde déjà à sa borne : 3 points ». Le panneau
+  du pays (« Gestes des jauges ») dépose ce même geste par `POST /intention`, et
+  `/pays` sert `refus` dans ces mêmes mots.
 - **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont la
   Concorde est sous son neutre et dont la Plume paie le geste dépose
   « Affermir la concorde », par `recevoir_intention`, avec sa raison

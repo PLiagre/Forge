@@ -81,8 +81,30 @@ namespace Forge.Pont
             Batiments = new ReadOnlyCollection<BatimentDuPays>(new List<BatimentDuPays>(batiments ?? throw new ArgumentNullException(nameof(batiments))));
         }
     }
+    // Lot #1046 : un geste du pays tel que `/pays` le sert : son prix par réserve (points), son effet par jauge (écart) et la raison de son refus (nulle si payable).
+    public sealed class GesteLu
+    {
+        public string Id { get; } public string Nom { get; } public IReadOnlyDictionary<string, double> Cout { get; } public IReadOnlyDictionary<string, double> Effet { get; } public string Refus { get; }
+        public GesteLu(string id, string nom, IDictionary<string, double> cout, IDictionary<string, double> effet, string refus)
+        {
+            Id = id; Nom = nom; Refus = refus;
+            Cout = new ReadOnlyDictionary<string, double>(new Dictionary<string, double>(cout ?? throw new ArgumentNullException(nameof(cout))));
+            Effet = new ReadOnlyDictionary<string, double>(new Dictionary<string, double>(effet ?? throw new ArgumentNullException(nameof(effet))));
+        }
+    }
+    // Les gestes du pays, dans l'ordre servi, avec le pays lu au même document : leur maison et leur tick sont ceux du pays.
+    public sealed class GestesDuPays
+    {
+        public PaysLu Pays { get; } public IReadOnlyList<GesteLu> Gestes { get; }
+        public string MaisonId => Pays.MaisonId; public long Tick => Pays.Tick;
+        public GestesDuPays(PaysLu pays, IEnumerable<GesteLu> gestes)
+        {
+            Pays = pays ?? throw new ArgumentNullException(nameof(pays));
+            Gestes = new ReadOnlyCollection<GesteLu>(new List<GesteLu>(gestes ?? throw new ArgumentNullException(nameof(gestes))));
+        }
+    }
     // GET /pays?maison= sur 127.0.0.1. Une faute refuse toute la réponse et nomme la clé. `Lire` lit les jauges, les points et les poses ; `LireTerres` lit le reste
-    // (les vassaux, les lieux, les totaux et les bâtiments). Les gestes ne sont pas lus.
+    // (les vassaux, les lieux, les totaux et les bâtiments) ; `LireGestes` lit le pays comme `Lire`, puis les gestes.
     public sealed class ClientPays : IDisposable
     {
         readonly ServiceLocal service;
@@ -98,6 +120,49 @@ namespace Forge.Pont
         {
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("un identifiant de maison non vide attendu", nameof(id));
             return service.Demander(HttpMethod.Get, "/pays?maison=" + Uri.EscapeDataString(id), racine => Terres(racine, id));
+        }
+        // Lot #1046 : le pays comme `Lire`, puis `jauges.gestes`, en entier ou pas du tout.
+        public Lecture<GestesDuPays> LireGestes(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("un identifiant de maison non vide attendu", nameof(id));
+            return service.Demander(HttpMethod.Get, "/pays?maison=" + Uri.EscapeDataString(id), racine =>
+            {
+                PaysLu pays = Pays(racine, id);
+                return new GestesDuPays(pays, Gestes(Objet(racine, "jauges"), pays));
+            });
+        }
+        static List<GesteLu> Gestes(Dictionary<string, object> jauges, PaysLu pays)
+        {
+            var brutes = Objet(jauges, "jauges.gestes");
+            if (brutes.Count == 0) throw new ServiceLocal.Refusee("clé jauges.gestes : au moins un geste attendu, reçu un objet vide");
+            var gestes = new List<GesteLu>(brutes.Count);
+            foreach (var e in brutes)
+            {
+                string chemin = "jauges.gestes." + e.Key; var g = e.Value as Dictionary<string, object> ?? throw ServiceLocal.Refus(chemin, "un objet", e.Value);
+                string nom = Texte(g, chemin + ".nom");
+                var cout = Grandeurs(g, chemin + ".cout", pays.Points.Keys, "une réserve de jauges.points", true);
+                var effet = Grandeurs(g, chemin + ".effet", pays.Jauges.Keys, "une jauge de jauges.jauges", false);
+                object refus = ServiceLocal.Valeur(g, chemin + ".refus");
+                if (refus != null && !(refus is string texte && !string.IsNullOrWhiteSpace(texte))) throw ServiceLocal.Refus(chemin + ".refus", "un texte non vide ou null", refus);
+                gestes.Add(new GesteLu(e.Key, nom, cout, effet, (string)refus));
+            }
+            return gestes;
+        }
+        // Un coût ou un effet : non vide, chaque clé est servie, chaque valeur est finie (et > 0 pour un coût, non nulle pour un effet).
+        static Dictionary<string, double> Grandeurs(Dictionary<string, object> geste, string chemin, IEnumerable<string> servies, string cle, bool positif)
+        {
+            var brutes = Objet(geste, chemin);
+            if (brutes.Count == 0) throw new ServiceLocal.Refusee("clé " + chemin + " : au moins une entrée attendue, reçu un objet vide");
+            var valeurs = new Dictionary<string, double>(brutes.Count);
+            foreach (var e in brutes)
+            {
+                string c = chemin + "." + e.Key;
+                if (!servies.Contains(e.Key)) throw new ServiceLocal.Refusee("clé " + c + " : \"" + e.Key + "\" n'est pas " + cle);
+                double v = ServiceLocal.Nombre(e.Value, c);
+                if (positif ? v <= 0 : v == 0) throw ServiceLocal.Refus(c, positif ? "un nombre fini > 0" : "un nombre fini non nul", v);
+                valeurs.Add(e.Key, v);
+            }
+            return valeurs;
         }
         static TerresDuPays Terres(Dictionary<string, object> racine, string demande)
         {
