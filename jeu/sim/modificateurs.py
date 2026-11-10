@@ -138,13 +138,37 @@ def lire_donnees(document: dict) -> Donnees:
             raise ModificateurInvalide(f"modificateur {identifiant}, duree_jours : entier positif ou nul attendu")
         definitions[identifiant] = Definition(identifiant, _texte(brute.get("nom"), f"modificateur {identifiant}, nom"),
                                               grandeur, valeur, portee, duree)
+    lire_mots_des_sources(document)
     return Donnees(sources, grandeurs, definitions)
+
+
+def lire_mots_des_sources(document: dict) -> dict:
+    """sorte de source → son mot (« bâtiment ») ; chaque source admise en a un, et seulement elles."""
+    sources = document.get("sources") if isinstance(document, dict) else None
+    mots = document.get("mots_des_sources") if isinstance(document, dict) else None
+    if not isinstance(sources, list) or not isinstance(mots, dict):
+        raise ModificateurInvalide("mots_des_sources : table attendue, avec un mot par source admise")
+    for sorte in sources:
+        if sorte not in mots:
+            raise ModificateurInvalide(f"mots_des_sources : pas de mot pour la source {sorte!r}")
+    for sorte in sorted(set(mots) - set(sources)):
+        raise ModificateurInvalide(f"mots_des_sources : un mot pour la source {sorte!r}, qui n'est pas admise")
+    return {sorte: _texte(mot, f"mots_des_sources, {sorte}") for sorte, mot in mots.items()}
+
+
+def _lire_fichier(chemin=None) -> dict:
+    with open(chemin if chemin is not None else _CHEMIN, "rb") as fichier:
+        return tomllib.load(fichier)
 
 
 def charger_donnees(chemin=None) -> Donnees:
     """Lit `data/modificateurs.toml` (ou le fichier donné), à chaque appel."""
-    with open(chemin if chemin is not None else _CHEMIN, "rb") as fichier:
-        return lire_donnees(tomllib.load(fichier))
+    return lire_donnees(_lire_fichier(chemin))
+
+
+def charger_mots_des_sources(chemin=None) -> dict:
+    """Les mots des sources de `data/modificateurs.toml`, lus à part des données."""
+    return lire_mots_des_sources(_lire_fichier(chemin))
 
 
 def cible_en_document(cible: tuple) -> dict:
@@ -301,8 +325,20 @@ def document_des_modificateurs(monde) -> dict:
     """Pour le service et la photographie : les poses, et le détail de chaque lieu touché."""
     poses = sorted(getattr(monde, "modificateurs", ()), key=_ordre)
     touches = sorted({cle for grandeur in facteurs_du_monde(monde).values() for cle in grandeur})
+    lieux = [{"cell_id": cid, "rang": rang, "grandeurs": detail(monde, cid, rang)} for cid, rang in touches]
+    if lieux:
+        fichier = _lire_fichier()
+        noms = {identifiant: g.nom for identifiant, g in lire_donnees(fichier).grandeurs.items()}
+        mots = lire_mots_des_sources(fichier)
+        for lieu in lieux:
+            for identifiant, grandeur in lieu["grandeurs"].items():
+                grandeur["nom"] = noms[identifiant]
+                for ligne in grandeur["lignes"]:
+                    ligne["source_dite"] = mots[ligne["source"].partition(":")[0]]
+                    ligne["reste_jours"] = (None if ligne["fin"] is None
+                                            else (ligne["fin"] - monde.ticks_ecoules) * _constantes.TICK_DURATION_DAYS)
     return {
         "tick": monde.ticks_ecoules,
         "poses": [p.en_document() for p in poses],
-        "lieux": [{"cell_id": cid, "rang": rang, "grandeurs": detail(monde, cid, rang)} for cid, rang in touches],
+        "lieux": lieux,
     }

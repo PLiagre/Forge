@@ -209,6 +209,13 @@ class GitHub:
         """Rejoue les travaux en échec d'un run fini, et ceux qui les attendent."""
         self.gh("run", "rerun", str(run), "-R", self.depot, "--failed")
 
+    def etapes_du_travail(self, travail: int) -> list[dict]:
+        """Les étapes d'un travail de CI, dans l'ordre, chacune avec son nom
+        et sa conclusion : c'est là qu'on lit si un travail rouge est tombé en
+        se préparant (`lots.panne_d_infrastructure`)."""
+        return self.json("api", f"repos/{self.depot}/actions/jobs/{travail}", "--jq",
+                         "[.steps[] | {name, conclusion}]") or []
+
     def base_de_fusion(self, base: str, tete: str) -> str:
         """Le commit de `base` d'où part la révision `tete`."""
         return self.gh("api", f"repos/{self.depot}/compare/{base}...{tete}", "--jq",
@@ -267,6 +274,12 @@ def _controles(pr: dict) -> dict[str, dict[str, str]]:
             vus[nom] = {"etat": etat, "date": date, "workflow": c.get("workflowName") or "",
                         "adresse": c.get("detailsUrl") or ""}
     return vus
+
+
+def controles_de_la_pr(pr: dict) -> dict[str, dict[str, str]]:
+    """Tous les contrôles de la révision courante de la PR, quel que soit leur
+    workflow, comme `_controles` les décrit."""
+    return _controles(pr)
 
 
 def travaux(pr: dict, workflow: str) -> dict[str, dict[str, str]]:

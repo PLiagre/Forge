@@ -375,6 +375,60 @@ namespace Forge.Interface.Tests
             bulle.Pas(O, terre, 1); Assert.That(bulle.TexteAffiche, Does.StartWith("Bourg témoin · ")); bulle.Pas(O, null, 1);
             Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False); Assert.That(racine.GetComponentsInChildren<Canvas>().Length, Is.EqualTo(1));
         }
+        // Lot #1031 : l'infobulle d'une terre ajoute, au même tick, les lignes de `/modificateurs` pour son bourg ; elle les lit, elle ne les calcule pas.
+        const string POSE_MOULIN = "{\"nom\":\"Moulin\",\"source\":\"batiment:moulin-paris\",\"valeur\":0.1,\"source_dite\":\"bâtiment\",\"reste_jours\":null}";
+        const string POSE_IDEE = "{\"nom\":\"Assolement triennal\",\"source\":\"idee:assolement\",\"valeur\":0.0196,\"source_dite\":\"idée\",\"reste_jours\":null}";
+        const string POSE_EPREUVE = "{\"nom\":\"Épreuve de l'infobulle\",\"source\":\"evenement:epreuve-de-l-infobulle\",\"valeur\":-0.05,\"source_dite\":\"événement\",\"reste_jours\":90}";
+        static string Lieu(long cell, int rang, string grandeurs) => "{\"cell_id\":" + cell + ",\"rang\":" + rang + ",\"grandeurs\":{" + grandeurs + "}}";
+        static string Grandeur(string id, string nom, double total, params string[] poses) => "\"" + id + "\":{\"nom\":\"" + nom + "\",\"total\":" + total.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\"facteur\":1,\"lignes\":[" + string.Join(",", poses) + "]}";
+        static DocumentDuMonde DocModificateurs(int tick, params string[] lieux) => new DocumentDuMonde("{\"tick\":" + tick + ",\"date\":{\"annee\":1400,\"jour_de_l_annee\":9},\"poses\":[],\"lieux\":[" + string.Join(",", lieux) + "]}");
+        // Trois poses sur deux grandeurs au bourg de 20 ; un champ (rang 1) de 20 et le bourg de 30 portent aussi des poses, qui ne doivent pas se lire.
+        static DocumentDuMonde TroisPoses(int tick = 8) => DocModificateurs(tick,
+            Lieu(30, 0, Grandeur("departs", "Départs", 0.1, POSE_MOULIN)), Lieu(20, 1, Grandeur("commerce", "Commerce", 0.1, POSE_MOULIN)),
+            Lieu(20, 0, Grandeur("natalite", "Natalité", -0.05, POSE_EPREUVE) + "," + Grandeur("recolte", "Récolte", 0.1196, POSE_MOULIN, POSE_IDEE)));
+        static readonly string[] LIGNES_ATTENDUES = { "Natalité : -5 % Épreuve de l'infobulle · événement · encore 90 jours", "Natalité, total : -5 %",
+            "Récolte : +10 % Moulin · bâtiment · tant que sa source tient", "Récolte : +1,96 % Assolement triennal · idée · tant que sa source tient", "Récolte, total : +11,96 %" };
+        async System.Threading.Tasks.Task<(InfobulleDeTerre bulle, CelluleDeCarte terre, List<string> lieux, List<string> registres)> MontrerAvecRegistre(DocumentDuMonde registre, bool refuse = false)
+        {
+            var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; var terre = Terre(20, "Bourg témoin"); var lieux = new List<string>(); var registres = new List<string>();
+            bulle.Lecture = new LectureDossier(c => { lieux.Add(c); return System.Threading.Tasks.Task.FromResult(DocTerre(20, "Bourg témoin")); });
+            bulle.LectureModificateurs = new LectureDossier(c => { registres.Add(c); return refuse ? System.Threading.Tasks.Task.FromException<DocumentDuMonde>(new ArgumentException("refus témoin")) : System.Threading.Tasks.Task.FromResult(registre); });
+            bulle.Pas(O, terre, 0); await Fin(bulle.Lecture); await Fin(bulle.LectureModificateurs); bulle.Pas(O, terre, 0.5); return (bulle, terre, lieux, registres);
+        }
+        [Test] public async System.Threading.Tasks.Task LInfobulleDUneTerreSansPoseResteCelleDAvant()
+        {
+            string avant = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), 20);
+            var (bulle, _, _, registres) = await MontrerAvecRegistre(DocModificateurs(8, Lieu(30, 0, Grandeur("departs", "Départs", 0.1, POSE_MOULIN)), Lieu(20, 1, Grandeur("commerce", "Commerce", 0.1, POSE_MOULIN))));
+            Assert.That(registres, Is.Not.Empty); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant)); Assert.That(bulle.TexteAffiche.Split('\n'), Has.Length.EqualTo(InfobulleDeTerre.LIGNES));
+            (bulle, _, _, _) = await MontrerAvecRegistre(DocModificateurs(8)); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
+        }
+        [Test] public async System.Threading.Tasks.Task LInfobulleDUneTerreDitLesPosesDeSonBourgPuisLeTotalDeChaqueGrandeur()
+        {
+            var (bulle, terre, lieux, registres) = await MontrerAvecRegistre(TroisPoses());
+            string trois = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), 20);
+            Assert.That(bulle.TexteAffiche, Is.EqualTo(trois + "\n" + string.Join("\n", LIGNES_ATTENDUES)));
+            Assert.That(InfobulleDeTerre.DecrireModificateurs(TroisPoses(), 20), Is.EqualTo(LIGNES_ATTENDUES)); Assert.That(InfobulleDeTerre.DecrireModificateurs(TroisPoses(), 7), Is.Empty);
+            Assert.That(lieux, Is.EqualTo(new[] { "/lieu?cell=20" })); Assert.That(registres, Is.EqualTo(new[] { "/modificateurs" }));
+            Assert.That(TexteDuMonde.Interdit(bulle.TexteAffiche, "batiment:moulin-paris", "idee:assolement", "evenement:epreuve-de-l-infobulle", "m-1", "grande-3"), Is.Null, bulle.TexteAffiche);
+            Canvas.ForceUpdateCanvases(); var feuillet = racine.transform.Find("Cabinet").GetComponentsInChildren<RectTransform>().Single(r => r.name == "Infobulle"); Assert.That(feuillet.GetComponentInChildren<Text>().text, Is.EqualTo(bulle.TexteAffiche));
+            // Les relectures n'allongent que le même chemin, à la même période que /lieu.
+            bulle.Pas(O, terre, 1); Assert.That(registres, Has.Count.EqualTo(1)); bulle.Pas(O, terre, 2.5); Assert.That(registres, Is.EqualTo(new[] { "/modificateurs", "/modificateurs" })); Assert.That(lieux, Is.EqualTo(new[] { "/lieu?cell=20", "/lieu?cell=20" }));
+        }
+        [Test] public async System.Threading.Tasks.Task LInfobulleNeMontreRienDePlusSiLesModificateursSontAUnAutreTickOuEnEchec()
+        {
+            string avant = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), 20);
+            var (bulle, _, _, _) = await MontrerAvecRegistre(TroisPoses(9)); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
+            (bulle, _, _, _) = await MontrerAvecRegistre(TroisPoses(7)); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
+            var refusee = await MontrerAvecRegistre(null, true); bulle = refusee.bulle; Assert.That(refusee.registres, Is.Not.Empty); Assert.That(bulle.LectureModificateurs.Erreur, Is.EqualTo("refus témoin")); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
+            // Contre-épreuve : au même tick, les lignes viennent.
+            (bulle, _, _, _) = await MontrerAvecRegistre(TroisPoses(8)); Assert.That(bulle.TexteAffiche, Is.Not.EqualTo(avant).And.StartWith(avant));
+        }
+        [Test] public void UneDureeEnJoursSAccordeEtLaFinAbsenteDitLaSource()
+        {
+            string un = POSE_EPREUVE.Replace("90", "1"); var lignes = InfobulleDeTerre.DecrireModificateurs(DocModificateurs(8, Lieu(20, 0, Grandeur("natalite", "Natalité", -0.05, un, POSE_MOULIN))), 20);
+            Assert.That(lignes[0], Does.EndWith(" · encore 1 jour")); Assert.That(lignes[1], Does.EndWith(" · tant que sa source tient"));
+            Assert.Throws<ArgumentException>(() => InfobulleDeTerre.DecrireModificateurs(DocModificateurs(8, Lieu(20, 0, Grandeur("natalite", "Natalité", -0.05, POSE_EPREUVE.Replace(",\"source_dite\":\"événement\"", ""))) ), 20));
+        }
         [Test] public void LaVieilleBoiteDeSurvolSEteintSousLeCabinet()
         {
             var camera = new GameObject("caméra neuve").AddComponent<Camera>();

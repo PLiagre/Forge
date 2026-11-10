@@ -21,11 +21,14 @@ namespace ForgeLocal3D
     // La photo d'un lot, prise par la chaîne en batch sur le PC :
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
     //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L] [-forgeServiceEpreuve] [-forgeServiceIa]
-    //         [-forgeServiceProgramme] [-forgeTravailEnceinte J]
+    //         [-forgeServiceProgramme] [-forgeServiceModificateurs] [-forgeTravailEnceinte J]
     // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N ; `--epreuve` avec
     // -forgeServiceEpreuve, suivi de `--travail-enceinte J` avec -forgeTravailEnceinte, un nombre fini > 0
     // qui exige -forgeServiceEpreuve ; `--ia` avec -forgeServiceIa ; avec -forgeServiceProgramme, le service
     // part amorcé comme `_AMORCAGE_PROGRAMME` de `test_monde.py`, la route de l'IA venant du programme ;
+    // avec -forgeServiceModificateurs (lot 1031), il part amorcé par `_amorcer_paris_cinq_poses` de
+    // `test_modificateurs.py` : Paris porte cinq poses, pour l'infobulle ; refusé (code 2) avec
+    // -forgeServiceProgramme ou -forgeServiceEpreuve, deux amorçages qui ne se superposent pas ;
     // sinon rien ne change) : le panneau du lieu
     // montre alors les vrais chiffres. La scène du désert se construit à l'exécution (terrain, ville) :
     // on entre en Play, on laisse passer quelques images, on attend que le panneau ait lu le service,
@@ -62,7 +65,9 @@ namespace ForgeLocal3D
         public const string SERVICE_EPREUVE = "-forgeServiceEpreuve";
         public const string SERVICE_IA = "-forgeServiceIa";
         public const string SERVICE_PROGRAMME = "-forgeServiceProgramme";
+        public const string SERVICE_MODIFICATEURS = "-forgeServiceModificateurs";
         const string AMORCAGE_PROGRAMME = "-c \"import pytest, sim.tests.test_monde as t; t._brancher_programme(pytest.MonkeyPatch()); import runpy; runpy.run_module('sim.service', run_name='__main__')\"";
+        const string AMORCAGE_MODIFICATEURS = "-c \"import pytest, sim.tests.test_modificateurs as t; t._amorcer_paris_cinq_poses(pytest.MonkeyPatch()); import runpy; runpy.run_module('sim.service', run_name='__main__')\"";
         public const string TRAVAIL_ENCEINTE = "-forgeTravailEnceinte";
         // Le dossier de -forgeCaptures, où un scénario écrit aussi son rapport.
         public static string DossierDesCaptures => SessionState.GetString(Dossier, ".");
@@ -129,6 +134,9 @@ namespace ForgeLocal3D
                     refus = "CAPTURE : " + TRAVAIL_ENCEINTE + " « " + v + " » demande " + SERVICE_EPREUVE + " : seul le service d'épreuve règle le travail de l'enceinte";
                 else travail = j.ToString("R", CultureInfo.InvariantCulture);
             }
+            if (refus == null && Environment.GetCommandLineArgs().Contains(SERVICE_MODIFICATEURS)
+                && (Environment.GetCommandLineArgs().Contains(SERVICE_PROGRAMME) || Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE)))
+                refus = "CAPTURE : " + SERVICE_MODIFICATEURS + " ne se joint ni à " + SERVICE_PROGRAMME + " ni à " + SERVICE_EPREUVE + " : chacun amorce le service à sa façon";
             if (refus != null) { Debug.LogError(refus); Sortir(CODE_REFUS); return; }
             if (PortRepond())
             {
@@ -196,8 +204,8 @@ namespace ForgeLocal3D
                 string epreuve = Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE) ? " --epreuve" : "";
                 if (travail != null) epreuve += " --travail-enceinte " + travail;
                 if (Environment.GetCommandLineArgs().Contains(SERVICE_IA)) epreuve += " --ia";
-                bool programme = Environment.GetCommandLineArgs().Contains(SERVICE_PROGRAMME);
-                var info = new ProcessStartInfo(python, (programme ? AMORCAGE_PROGRAMME : "-m sim.service") + " --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0" + epreuve)
+                bool programme = Environment.GetCommandLineArgs().Contains(SERVICE_PROGRAMME), modificateurs = Environment.GetCommandLineArgs().Contains(SERVICE_MODIFICATEURS);
+                var info = new ProcessStartInfo(python, (programme ? AMORCAGE_PROGRAMME : modificateurs ? AMORCAGE_MODIFICATEURS : "-m sim.service") + " --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0" + epreuve)
                 {
                     WorkingDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "jeu")),
                     UseShellExecute = false, CreateNoWindow = true,
@@ -231,7 +239,7 @@ namespace ForgeLocal3D
                 }
                 if (ticks >= 1)
                     PousserLesTicks(ticks);
-                Debug.Log("CAPTURE_SERVICE graine " + graine + " tick " + ticks + " pid " + service.Id + epreuve + (programme ? " programme" : ""));
+                Debug.Log("CAPTURE_SERVICE graine " + graine + " tick " + ticks + " pid " + service.Id + epreuve + (programme ? " programme" : "") + (modificateurs ? " modificateurs" : ""));
             }
             catch (Exception e)
             {

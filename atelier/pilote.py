@@ -31,7 +31,8 @@ from typing import Callable
 from . import agents as agents_mod
 from . import captures, lfs, lots, prompts, traces
 from .depot import Depot, DepotErreur
-from .github import AGREGATS, VARIABLE_PC, GitHub, GitHubErreur, etat_des_controles, travaux as travaux_du_workflow
+from .github import (AGREGATS, VARIABLE_PC, GitHub, GitHubErreur, controles_de_la_pr, etat_des_controles,
+                     travaux as travaux_du_workflow)
 from .lots import Lot, marque
 from .projet import MACHINES, Projet
 from .verrous import AucunVerrou
@@ -51,6 +52,7 @@ _SOUS_LOT = re.compile(r"^\s*-\s*(.+?)\s*::\s*(.+?)\s*$", re.M)
 _TAILLE = re.compile(r"Taille prévue\s*:\s*~?\s*(\d+)", re.I)
 _MACHINE_PC = re.compile(r"Machine\s*:\s*pc\b", re.I)
 _RUN = re.compile(r"/actions/runs/(\d+)/")
+_TRAVAIL = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 SECTIONS_BRIEF = ("## But", "## Le joueur", "## Règle du monde", "## Périmètre", "## Conditions de succès",
                   "## Hors périmètre")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code))"
@@ -549,6 +551,7 @@ class Pilote:
                              if m.get("role") == role and m.get("etat") == "envoye"), None)
             action = lots.Action(derniere or "coder", action.raison, action.essai)
         if action.nom == "corriger_ci" and (self._attendre_la_base(lot, pr, branche, liste)
+                                            or self._rejouer_une_panne(lot, pr, liste, role)
                                             or self._rejouer_le_chronometre(lot, pr, branche, liste, role)):
             return False
         if action.nom in ("coder", "corriger_ci", "corriger_relecture"):
@@ -612,6 +615,69 @@ class Pilote:
                                         f"partait cette PR, et `{base}` l'a réparé depuis : la branche le reçoit, "
                                         "la CI repart, sans compter d'essai.")
         self.noter(lot.numero, "base fusionnée", f"PR #{numero_pr} — {noms} réparé sur `{base}`")
+        return True
+
+    def _rejouer_une_panne(self, lot: Lot, pr: dict, liste: list[dict], role: str) -> bool:
+        """Une CI rouge dont tous les travaux rouges sont tombés en se
+        préparant (`lots.panne_d_infrastructure`) : le codeur n'y peut rien.
+        Le pilote les rejoue, sans compter d'essai, `lots.PANNES_MAX` fois au
+        plus depuis le dernier passage du codeur ; au-delà il bloque le lot en
+        nommant l'étape. Vrai quand le codeur n'a pas à passer."""
+        numero_pr, tete = pr["number"], pr.get("headRefOid") or ""
+        tous = controles_de_la_pr(pr)
+        rouges = {n: t for n, t in tous.items() if t["etat"] == "rouge" and n not in AGREGATS}
+        if not rouges:
+            return False
+        workflows = {t["workflow"] for t in rouges.values()}
+        en_cours = any(t["etat"] == "attente" and t["workflow"] in workflows for t in tous.values())
+        rejeux = lots.rejeux_de_panne(liste, role_codeur=role)
+        en_vol = lots.rejeu_de_panne_en_vol(
+            [t["date"] for t in rouges.values()], en_cours, rejeux,
+            heures_depuis_rejeu=self._heures_depuis(liste, "pilote", lots.ETAT_REJEU_PANNE))
+        if en_vol == "attendre":
+            self.noter(lot.numero, "attendre_ci", f"PR #{numero_pr} — panne de la CI rejouée : "
+                                                  "le pilote attend ce qu'elle rend, sans appeler le codeur")
+            return True
+        if en_vol == "abandonner":
+            return False
+        # Chaque travail rouge doit être une panne : un seul contrôle qui a
+        # vraiment échoué, et c'est au codeur.
+        pannes: dict[str, str] = {}
+        runs: list[int] = []
+        for nom, t in rouges.items():
+            trouve = _TRAVAIL.search(t["adresse"])
+            if trouve is None:
+                return False
+            try:
+                etape = lots.panne_d_infrastructure(self.gh.etapes_du_travail(int(trouve.group(2))))
+            except GitHubErreur as e:
+                # Des étapes illisibles ne prouvent pas une panne : le codeur corrige, comme avant.
+                self.noter(lot.numero, "étapes illisibles", str(e))
+                return False
+            if not etape:
+                return False
+            pannes[nom] = etape
+            if int(trouve.group(1)) not in runs:
+                runs.append(int(trouve.group(1)))
+        dites = ", ".join(f"`{n}` (étape « {e} »)" for n, e in sorted(pannes.items()))
+        if en_cours:
+            self.noter(lot.numero, "attendre_ci", f"PR #{numero_pr} — panne de la CI sur {dites} : "
+                                                  "rejouée quand son run sera fini, sans appeler le codeur")
+            return True
+        if len(rejeux) >= lots.PANNES_MAX:
+            self._bloquer(lot.numero, f"panne de la CI, rejouée {lots.PANNES_MAX} fois sans succès : {dites} tombe "
+                                      "avant d'avoir rien contrôlé ; le lot n'a rien à corriger, c'est le workflow "
+                                      "ou le service qu'il appelle", numero_pr)
+            return True
+        for run in runs:
+            self.gh.rejouer_les_echecs(run)
+        quand = self.maintenant().isoformat(timespec="seconds")
+        fois = f"{len(rejeux) + 1} sur {lots.PANNES_MAX}"
+        self.gh.commenter_pr(numero_pr, f"🤖 **pilote** : la CI est rouge sur {dites}, tombé avant d'avoir rien "
+                                        f"contrôlé : le lot n'y est pour rien. Le travail est rejoué ({fois}), sans "
+                                        "compter d'essai ni appeler le codeur.\n\n"
+                                        f"{marque(role='pilote', etat=lots.ETAT_REJEU_PANNE, sha=tete, quand=quand)}")
+        self.noter(lot.numero, "panne rejouée", f"PR #{numero_pr} — {dites}, {fois}")
         return True
 
     def _rejouer_le_chronometre(self, lot: Lot, pr: dict, branche: str, liste: list[dict], role: str) -> bool:

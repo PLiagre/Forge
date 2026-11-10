@@ -56,6 +56,17 @@ pilote attend la fin du run, puis le rejoue une fois, sans compter d'essai :
 la branche reçoit master s'il a bougé, sinon le travail rouge se rejoue (`gh run rerun --failed`). Le
 codeur ne corrige que s'il rougit encore.
 
+Un travail de CI **tombé avant d'avoir rien contrôlé** (le checkout, une
+installation, un téléchargement : `lots.panne_d_infrastructure` le lit au nom
+de l'étape en échec) ne part pas non plus au codeur. Quand tous les travaux
+rouges d'une PR sont de telles pannes, le pilote les rejoue lui-même
+(`gh run rerun --failed`), sans compter d'essai, trois fois au plus depuis le
+dernier passage du codeur ; ensuite il bloque le lot en nommant l'étape, sans
+rappeler le codeur. Un contrôle qui a vraiment échoué, même à côté d'une
+panne, revient au codeur. Les 8 et 9 novembre 2026, #1031 et #1046 se sont
+bloqués sur un 504 reçu en téléchargeant gitleaks, et la chaîne est restée
+deux jours sans rien faire.
+
 Le **mécanicien** (Claude Code, sonnet, medium) répare master quand sa CI est rouge
 et résout les conflits d'une branche de lot. Le **chroniqueur** (Claude Code,
 sonnet, medium, en lecture seule : le journal le moins cher, et le pilote
