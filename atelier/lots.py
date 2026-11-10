@@ -555,6 +555,67 @@ def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str,
     return "rejouer"
 
 
+# Un travail de CI tombé avant d'avoir rien contrôlé (un téléchargement, une
+# installation, le checkout) n'a rien dit du lot. Les 8 et 9 novembre 2026,
+# #1031 et #1046 ont usé leurs deux corrections sur un 504 reçu en
+# téléchargeant gitleaks, puis se sont bloqués : le codeur n'avait rien à
+# corriger, le dépanneur a écrit le remède sans pouvoir le poser, et la chaîne
+# est restée deux jours sans rien faire. Le pilote rejoue ces travaux lui-même,
+# sans compter d'essai (marque « rejeu_panne » sur la PR), `PANNES_MAX` fois
+# au plus depuis le dernier passage du codeur ; au-delà, le lot se bloque en
+# nommant l'étape, sans rappeler le codeur.
+ETAT_REJEU_PANNE = "rejeu_panne"
+PANNES_MAX = 3
+# Le nom que GitHub donne aux étapes qui préparent un travail : celles d'une
+# action (`uses:`, « Run actions/… »), les siennes (« Set up job »…), et nos
+# étapes d'installation (« Install … », « Run python -m pip install … »).
+_ETAPE_D_INFRASTRUCTURE = re.compile(
+    r"^(Set up job|Complete job|Post |Run actions/|Install |Run (python3?|py) -m pip install)", re.IGNORECASE)
+
+
+def panne_d_infrastructure(etapes: list[dict]) -> str:
+    """Le nom de l'étape en panne quand un travail rouge est tombé en se
+    préparant, « » quand c'est un contrôle qui a échoué ou qu'on ne sait pas.
+
+    `etapes` : celles du travail, dans l'ordre (`github.etapes_du_travail`).
+    Seule la première étape en échec compte : les suivantes sont sautées."""
+    rouge = next((e for e in etapes if e.get("conclusion") == "failure"), None)
+    nom = (rouge or {}).get("name") or ""
+    return nom if _ETAPE_D_INFRASTRUCTURE.match(nom) else ""
+
+
+def rejeux_de_panne(liste: list[dict], *, role_codeur: str = "codeur") -> list[dict]:
+    """Les marques « rejeu_panne » du pilote depuis le dernier passage du
+    codeur (et la dernière reprise) : ce sont elles que `PANNES_MAX` borne."""
+    passages = [i for i, m in enumerate(liste) if m.get("role") == role_codeur
+                and m.get("etat") in ("fait", "echec", "reponse")]
+    depuis = depuis_reprise(liste[passages[-1] + 1:] if passages else liste)
+    return [m for m in depuis if m.get("role") == "pilote" and m.get("etat") == ETAT_REJEU_PANNE]
+
+
+def rejeu_de_panne_en_vol(dates_des_rouges: Iterable[str], en_cours: bool, rejeux: list[dict],
+                          heures_depuis_rejeu: float | None = None) -> str:
+    """Ce que le pilote fait d'une CI rouge après avoir rejoué une panne.
+
+    « attendre » : le rejeu tourne, ou n'est pas encore parti (un rouge
+    d'avant lui est périmé). « abandonner » : il n'a rien rendu en
+    `HEURES_REJEU` heures, le lot reprend son chemin ordinaire. « » : pas de
+    rejeu en vol ; les rouges sont ceux d'aujourd'hui, à regarder."""
+    if not rejeux:
+        return ""
+    quand = _instant(rejeux[-1].get("quand") or "")
+
+    def perime(date: str) -> bool:
+        parti = _instant(date)
+        return quand is not None and (parti is None or parti < quand)
+
+    if not (en_cours or any(perime(d) for d in dates_des_rouges)):
+        return ""
+    if heures_depuis_rejeu is not None and heures_depuis_rejeu > HEURES_REJEU:
+        return "abandonner"
+    return "attendre"
+
+
 # Un rouge que la base de la PR portait déjà n'est pas au lot. Le 22 octobre
 # 2026, #785 (du Blender seul) a usé ses deux corrections sur le rouge
 # `chronometre` de master, rouge depuis #772 : deux réponses sans changement,

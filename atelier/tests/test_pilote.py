@@ -1280,6 +1280,93 @@ def test_un_rouge_du_seul_chronometre_se_rejoue_une_fois_sans_compter_d_essai(pr
     assert marques(gh.prs_[50]["comments"])[-1]["essai"] == 2, "le rejeu n'a pas compté d'essai"
 
 
+GITLEAKS = "https://github.com/moi/essai/actions/runs/88/job/8"
+PANNE = [{"name": "Set up job", "conclusion": "success"},
+         {"name": "Run actions/checkout@11bd719", "conclusion": "success"},
+         {"name": "Install gitleaks", "conclusion": "failure"},
+         {"name": "Scan the working tree for secrets", "conclusion": "skipped"}]
+FUITE = [{"name": "Install gitleaks", "conclusion": "success"},
+         {"name": "Scan the working tree for secrets", "conclusion": "failure"}]
+
+
+def _gitleaks(conclusion, heure):
+    return {"__typename": "CheckRun", "name": "gitleaks", "workflowName": "security",
+            "status": "COMPLETED" if conclusion else "IN_PROGRESS", "conclusion": conclusion or "",
+            "startedAt": f"2026-09-28T{heure}:00Z", "detailsUrl": GITLEAKS}
+
+
+def _ci_gitleaks(gh, *passages):
+    gh.prs_[50]["statusCheckRollup"] = [_travail(*t) for t in (*VERTS, ("tests", "SUCCESS", "07:30"))] + [
+        _gitleaks(*p) for p in passages]
+
+
+def test_une_panne_de_la_ci_se_rejoue_sans_codeur_puis_bloque_en_nommant_l_etape(projet, gh, depot, tmp_path):
+    """Les 8 et 9 novembre 2026, #1031 et #1046 ont usé leurs deux corrections
+    sur un 504 reçu en téléchargeant gitleaks, puis se sont bloqués : la
+    chaîne est restée deux jours sans rien faire."""
+    _en_cours(gh, commentaires=[FAIT_CODEUR])
+    gh.etapes_[8] = PANNE
+    rien = Agents()
+    _ci_gitleaks(gh, ("FAILURE", "07:00"))
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 88)]
+    derniere = marques(gh.prs_[50]["comments"])[-1]
+    assert (derniere["role"], derniere["etat"], derniere["sha"]) == ("pilote", "rejeu_panne", "a" * 40)
+    assert "Install gitleaks" in gh.prs_[50]["comments"][-1]["body"]
+    # Tant que le rejeu n'est pas parti, le rouge d'avant lui est périmé.
+    lignes = _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert len(_gestes(gh, "rejouer_les_echecs")) == 1 and any("panne de la CI rejouée" in l for l in lignes)
+    # La panne dure : deux rejeux de plus, puis le lot se bloque, sans codeur.
+    for n in (2, 3):
+        gh.prs_[50]["statusCheckRollup"].append(_gitleaks("FAILURE", "23:5%d" % n))
+        _pilote(projet, gh, depot, rien, tmp_path).tour()
+        assert len(_gestes(gh, "rejouer_les_echecs")) == n
+    gh.prs_[50]["statusCheckRollup"].append(_gitleaks("FAILURE", "23:59"))
+    _pilote(projet, gh, depot, rien, tmp_path).tour()
+    assert rien.appels == [] and len(_gestes(gh, "rejouer_les_echecs")) == 3
+    assert "bloque" in _etiquettes(gh, 10)
+    raison = gh.issues_[10]["comments"][-1]["body"]
+    assert "panne de la CI" in raison and "Install gitleaks" in raison
+
+
+def test_un_controle_qui_a_vraiment_echoue_n_est_pas_une_panne(projet, gh, depot, tmp_path):
+    """Contre-épreuve : gitleaks qui trouve un secret (l'étape du contrôle est
+    rouge), ou un travail dont on ne lit pas les étapes, revient au codeur."""
+    for etapes in (FUITE, []):
+        _en_cours(gh, commentaires=[FAIT_CODEUR])
+        gh.etapes_[8] = etapes
+        _ci_gitleaks(gh, ("FAILURE", "07:00"))
+        codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+        _pilote(projet, gh, depot, codeur, tmp_path).tour()
+        assert codeur.outils() == ["sonnet"] and not _gestes(gh, "rejouer_les_echecs")
+
+
+def test_une_panne_a_cote_d_un_vrai_rouge_revient_au_codeur(projet, gh, depot, tmp_path):
+    _en_cours(gh, commentaires=[FAIT_CODEUR])
+    gh.etapes_[8] = PANNE
+    gh.prs_[50]["statusCheckRollup"] = [_travail(*t) for t in (*VERTS, ("sim (3)", "FAILURE", "07:00"),
+                                                                ("tests", "FAILURE", "07:30"))] + [
+        _gitleaks("FAILURE", "07:00")]
+    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
+    _pilote(projet, gh, depot, codeur, tmp_path).tour()
+    assert codeur.outils() == ["sonnet"] and not _gestes(gh, "rejouer_les_echecs")
+
+
+def test_panne_d_infrastructure_ne_reconnait_que_les_etapes_qui_preparent():
+    from atelier.lots import panne_d_infrastructure, rejeu_de_panne_en_vol
+    assert panne_d_infrastructure(PANNE) == "Install gitleaks"
+    assert panne_d_infrastructure([{"name": "Run python -m pip install --upgrade pip pytest", "conclusion": "failure"}])
+    assert panne_d_infrastructure([{"name": "Run actions/setup-python@0b93645", "conclusion": "failure"}])
+    assert panne_d_infrastructure(FUITE) == ""
+    assert panne_d_infrastructure([{"name": "Les tests du moteur, tranche 1 sur 3", "conclusion": "failure"}]) == ""
+    assert panne_d_infrastructure([]) == "", "un échantillon vide ne prouve pas une panne"
+    rejeu = [{"role": "pilote", "etat": "rejeu_panne", "quand": "2026-09-28T08:00:00+00:00"}]
+    assert rejeu_de_panne_en_vol(["2026-09-28T07:00:00Z"], False, rejeu, 0.1) == "attendre"
+    assert rejeu_de_panne_en_vol(["2026-09-28T07:00:00Z"], False, rejeu, 2.5) == "abandonner"
+    assert rejeu_de_panne_en_vol(["2026-09-28T08:05:00Z"], False, rejeu, 0.2) == ""
+    assert rejeu_de_panne_en_vol(["2026-09-28T07:00:00Z"], False, []) == ""
+
+
 def test_un_rouge_du_chronometre_remet_la_branche_sur_une_base_qui_a_bouge(projet, gh, depot, tmp_path):
     _en_cours(gh, commentaires=[FAIT_CODEUR])
     _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
