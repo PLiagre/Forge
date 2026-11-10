@@ -8,6 +8,7 @@ namespace Forge.Interface
         RectTransform cadre;
         Text contenu;
         public bool Ouvert => cadre != null && cadre.gameObject.activeSelf;
+        public RectTransform Cadre => cadre;
         public void Initialiser(Transform parent, string titre)
         {
             if (cadre != null) return;

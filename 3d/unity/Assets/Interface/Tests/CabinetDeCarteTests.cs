@@ -679,5 +679,39 @@ namespace Forge.Interface.Tests
             foreach (var voisin in new[] { Nomme("Lecture de la date…").rectTransform, Nomme(BARRE).rectTransform, (RectTransform)bandeau.Find(BarreDuPays.NOM), menu })
                 Assert.That(cadre.Overlaps(Monde(voisin)), Is.False, "l'icône " + cadre + " recouvre « " + voisin.name + " » " + Monde(voisin));
         }
+
+        // Lot #1046 : le panneau des gestes est un enfant du cadre du feuillet « Le pays » ; il s'ouvre et se ferme avec lui, à sa droite, sans toucher un autre panneau.
+        static Rect Locale(RectTransform t) // dans son parent, origine en haut à gauche (toutes les ancres sont en haut à gauche)
+        {
+            Assert.That(t.anchorMin, Is.EqualTo(new Vector2(0, 1)), t.name); Assert.That(t.anchorMax, Is.EqualTo(new Vector2(0, 1)), t.name); Assert.That(t.pivot, Is.EqualTo(new Vector2(0, 1)), t.name);
+            return new Rect(t.anchoredPosition.x, -t.anchoredPosition.y, t.sizeDelta.x, t.sizeDelta.y);
+        }
+        [Test] public void Les_gestes_des_jauges_s_ouvrent_avec_le_feuillet_du_pays()
+        {
+            Proposer(); Transform toile = racine.transform.Find("Cabinet");
+            var gestes = racine.GetComponent<GestesDesJauges>(); Assert.That(gestes, Is.Not.Null, "le cabinet ne porte pas de GestesDesJauges");
+            var feuillet = (RectTransform)toile.Cast<Transform>().Single(t => t.name == DossierPays.TITRE && t.GetComponentInChildren<ScrollRect>(true) != null);
+            Assert.That(gestes.Panneau.parent, Is.SameAs(feuillet), "le panneau n'est pas dans le cadre du feuillet"); Assert.That(gestes.Panneau.name, Is.EqualTo(GestesDesJauges.TITRE));
+            Button icone = toile.GetComponentsInChildren<Button>(true).Single(b => b.name == DossierPays.ICONE);
+            Assert.That(gestes.Panneau.gameObject.activeInHierarchy, Is.False, "ouvert d'avance");
+            icone.onClick.Invoke(); Canvas.ForceUpdateCanvases(); Assert.That(gestes.Panneau.gameObject.activeInHierarchy, Is.True, "fermé au premier clic");
+            icone.onClick.Invoke(); Assert.That(gestes.Panneau.gameObject.activeInHierarchy, Is.False, "ouvert au second clic");
+            icone.onClick.Invoke(); Canvas.ForceUpdateCanvases();
+            // Rapporté à la toile de 1920 × 1080 : le feuillet est posé en (24, 124), le panneau à 764 de lui.
+            Rect page = Locale(gestes.Panneau); page.x += Locale(feuillet).x; page.y += Locale(feuillet).y;
+            Assert.That(page.xMin >= 788 && page.xMax <= 1288 && page.yMin >= 124 && page.yMax <= 764, Is.True, "le panneau " + page + " sort de x 788-1288, y 124-764");
+            foreach (string nom in new[] { "Votre maison", "Territoire conservé", "FORGE · Le cabinet" })
+                Assert.That(page.Overlaps(Locale((RectTransform)toile.Find(nom))), Is.False, "le panneau recouvre « " + nom + " »");
+            var lecture = feuillet.Find("Lecture défilante"); Assert.That(page.Overlaps(new Rect(Locale(feuillet).x + Locale((RectTransform)lecture).x, Locale(feuillet).y + Locale((RectTransform)lecture).y, 692, 620)), Is.False, "le panneau recouvre la lecture du feuillet");
+            var contenus = gestes.Panneau.Cast<Transform>().Where(t => (t.GetComponent<Text>() != null || t.GetComponent<Button>() != null) && t.name != "Filet" && t.name != GestesDesJauges.TITRE).Cast<RectTransform>().ToArray();
+            Assert.That(contenus.Length, Is.GreaterThanOrEqualTo(8), "état, deux textes, deux gestes, message, retour et confirmer");
+            for (int i = 0; i < contenus.Length; i++)
+            {
+                Rect a = Locale(contenus[i]); Assert.That(a.xMin >= 0 && a.xMax <= 500 && a.yMax <= 640, Is.True, contenus[i].name + " sort du panneau : " + a);
+                for (int j = i + 1; j < contenus.Length; j++) Assert.That(a.Overlaps(Locale(contenus[j])), Is.False, contenus[i].name + " recouvre " + contenus[j].name);
+            }
+            gestes.Pas(); Assert.That(gestes.EtatAffiche, Is.EqualTo("Choisissez une maison pour dépenser ses points."));
+            Assert.That(gestes.Panneau.GetComponentsInChildren<Button>(true).Where(b => b.interactable).Select(b => b.name), Is.Empty, "un bouton actif sans maison");
+        }
     }
 }
