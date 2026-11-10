@@ -14,6 +14,16 @@
 # refusée : un modificateur qui ne dit pas d'où il vient n'existe pas.
 sources = ["batiment", "loi", "idee", "conseiller", "evenement", "jauge"]
 
+# Le mot de chaque sorte de source, que l'infobulle dit au joueur (« Moulin ·
+# bâtiment · … ») : chaque source admise en a un, et seulement elles. Niveau 2.
+[mots_des_sources]
+batiment = "bâtiment"
+loi = "loi"
+idee = "idée"
+conseiller = "conseiller"
+evenement = "événement"
+jauge = "jauge du pays"
+
 # Les grandeurs du moteur. `lue = false` : le moteur ne la lit pas encore, un
 # modificateur posé dessus est refusé avec sa raison.
 [grandeurs.recolte]
