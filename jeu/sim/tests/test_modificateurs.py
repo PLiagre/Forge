@@ -393,3 +393,130 @@ def test_le_service_et_la_photographie_servent_le_detail(depart, donnees):
         M.poser(serveur.world, "moulin", "batiment:moulin-de-paris", {"cellule": paris}, donnees)
         servi = json.loads(serveur._construire_etat(0, -1).modificateurs)
         assert servi["poses"] == photo["poses"] and servi["lieux"] == photo["lieux"]
+
+
+# --- Les mots et le reste de l'infobulle (#1031) ------------------------------------
+
+def test_le_document_dit_le_nom_de_la_grandeur_le_mot_de_la_source_et_le_reste(depart, donnees):
+    from sim.service import ServeurMonde
+    with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        paris = _paris(serveur.world)
+        M.poser(serveur.world, "moulin", "batiment:moulin-de-paris", {"cellule": paris}, donnees)
+        servi = json.loads(serveur._construire_etat(0, -1).modificateurs)
+    bourg = next(l for l in servi["lieux"] if (l["cell_id"], l["rang"]) == (paris, 0))
+    recolte = bourg["grandeurs"]["recolte"]
+    assert recolte["nom"] == "Récolte" == donnees.grandeurs["recolte"].nom
+    assert [(l["source_dite"], l["reste_jours"]) for l in recolte["lignes"]] == [("bâtiment", None)]
+    # Le détail du registre reste tel quel : les trois champs ne sont que dans le document servi.
+    brut = M.detail(serveur.world, paris, 0)["recolte"]
+    assert set(brut) == {"lignes", "total", "facteur"} and "source_dite" not in brut["lignes"][0]
+    assert "source_dite" not in serveur.world.modificateurs[0].en_document()
+
+
+def test_le_reste_d_une_pose_datee_se_compte_depuis_le_tick_publie(depart, donnees):
+    monde = copy.deepcopy(depart)
+    paris = _paris(monde)
+    famine = _avec(donnees, grandeur="natalite", valeur=-0.5, duree_jours=90)
+    M.poser(monde, "epreuve", "evenement:famine", {"cellule": paris}, famine)
+
+    def reste():
+        ligne = M.document_des_modificateurs(monde)["lieux"][0]["grandeurs"]["natalite"]["lignes"][0]
+        return ligne["reste_jours"]
+
+    pose = monde.modificateurs[0]
+    assert reste() == 90
+    engine.tick(monde, random.Random(0), 0)
+    assert monde.ticks_ecoules == 1 and reste() == 89
+    # Contre-épreuve : un reste compté depuis `debut` donne 90 au second tick, et le cas échoue.
+    depuis_le_debut = (pose.fin - pose.debut) * c.TICK_DURATION_DAYS
+    with pytest.raises(AssertionError):
+        assert depuis_le_debut == reste()
+
+
+def test_un_mot_de_source_manquant_ou_en_trop_est_refuse():
+    with open(M._CHEMIN, "rb") as fichier:
+        document = __import__("tomllib").load(fichier)
+    assert set(M.lire_mots_des_sources(document)) == set(document["sources"])
+    assert M.charger_mots_des_sources()["jauge"] == "jauge du pays"
+    sans = {**document, "mots_des_sources": {k: v for k, v in document["mots_des_sources"].items() if k != "jauge"}}
+    avec = {**document, "mots_des_sources": {**document["mots_des_sources"], "decret": "décret"}}
+    vide = {**document, "mots_des_sources": {**document["mots_des_sources"], "loi": " "}}
+    for lecture in (M.lire_mots_des_sources, M.lire_donnees):
+        with pytest.raises(M.ModificateurInvalide, match="jauge"):
+            lecture(sans)
+        with pytest.raises(M.ModificateurInvalide, match="decret"):
+            lecture(avec)
+        with pytest.raises(M.ModificateurInvalide, match="loi"):
+            lecture(vide)
+    # Contre-épreuve : le document du dépôt passe.
+    assert M.lire_donnees(document).definitions["moulin"]
+
+
+# --- L'amorçage de la photo de #1031 --------------------------------------------------
+
+def _amorcer_paris_cinq_poses(monkeypatch):
+    """`World.charger` rend Paris avec cinq poses : un moulin, trois jauges de sa maison, une épreuve datée.
+
+    Un banc d'essai de l'infobulle, pas le monde : la capture du lot #1031 lance le service ainsi.
+    """
+    from sim import jauges
+    original = World.charger
+
+    def charger(cls, rng_seed=0, carte_doc=None):
+        monde = original(rng_seed, carte_doc)
+        paris = _paris(monde)
+        maison = next(l for l in monde.cells[paris].lieux if l.rang == 0).maitre
+        donnees = M.charger_donnees()
+        M.poser(monde, "moulin", "batiment:moulin-paris", {"cellule": paris}, donnees)
+        regles = jauges.charger_regles()
+        monde.jauges[maison] = {**jauges.etat_initial(regles), "concorde": -2, "droit": 40, "renom": 20}
+        jauges.poser_les_modificateurs(monde, regles)
+        epreuve = M.Definition("epreuve-de-l-infobulle", "Épreuve de l'infobulle", "natalite", -0.05, "lieu", 90)
+        M.poser(monde, "epreuve-de-l-infobulle", "evenement:epreuve-de-l-infobulle", {"lieu": [paris, 0]},
+                M.Donnees(donnees.sources, donnees.grandeurs, {**donnees.definitions, epreuve.identifiant: epreuve}))
+        return monde
+
+    monkeypatch.setattr(World, "charger", classmethod(charger))
+
+
+def _servir_trente_ticks():
+    """Le service à l'arrêt, poussé de 30 ticks : (monde servi, document de /modificateurs)."""
+    import threading
+    from urllib.request import Request, urlopen
+    from sim.service import ServeurMonde
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever)
+    fil.start()
+    try:
+        def requete(chemin, methode="GET"):
+            with urlopen(Request(f"http://127.0.0.1:{serveur.server_port}{chemin}", method=methode)) as reponse:
+                return json.loads(reponse.read())
+        requete("/tick?n=30", "POST")
+        return serveur.world, requete("/modificateurs")
+    finally:
+        serveur.shutdown()
+        fil.join()
+        serveur.server_close()
+
+
+def test_l_amorcage_sert_paris_et_ses_cinq_poses(monkeypatch):
+    with monkeypatch.context() as amorce:
+        _amorcer_paris_cinq_poses(amorce)
+        monde, servi = _servir_trente_ticks()
+        paris = _paris(monde)
+    assert servi["tick"] == 30
+    bourg = next(l for l in servi["lieux"] if (l["cell_id"], l["rang"]) == (paris, 0))
+    lignes = [(grandeur, ligne["nom"], ligne["valeur"], ligne["source_dite"], ligne["reste_jours"])
+              for grandeur, detail in bourg["grandeurs"].items() for ligne in detail["lignes"]]
+    assert lignes == [
+        ("commerce", "Renom (+20)", pytest.approx(0.02), "jauge du pays", None),
+        ("departs", "Concorde (-2)", pytest.approx(0.10), "jauge du pays", None),
+        ("natalite", "Épreuve de l'infobulle", -0.05, "événement", 60),
+        ("prelevement", "Droit (+40)", pytest.approx(-0.02), "jauge du pays", None),
+        ("recolte", "Moulin", 0.10, "bâtiment", None),
+    ]
+    assert bourg["grandeurs"]["natalite"]["nom"] == "Natalité"
+    # Contre-épreuve : sans amorçage, le service ne porte pas Paris au tick 30.
+    monde, servi = _servir_trente_ticks()
+    assert servi["tick"] == 30
+    assert (_paris(monde), 0) not in {(l["cell_id"], l["rang"]) for l in servi["lieux"]}

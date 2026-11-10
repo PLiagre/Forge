@@ -32,6 +32,12 @@ namespace Forge.Pont.Tests
             + "\"absents\":{},"
             + "\"batiments\":[{\"identifiant\":1,\"nature\":\"moulin\",\"nom\":\"Moulin\",\"cell_id\":10,\"maison\":\"grande-3\",\"travail_requis\":600,\"travail_fourni\":600,\"en_chantier\":false,\"debut\":5,\"fin\":605},"
             + "{\"identifiant\":2,\"nature\":\"moulin\",\"nom\":\"Moulin\",\"cell_id\":12,\"maison\":\"seigneurie-1\",\"travail_requis\":600,\"travail_fourni\":20,\"en_chantier\":true,\"debut\":30,\"fin\":null}]}";
+        // Lot #1046 : le même pays, avec ses deux gestes (« jauges.gestes ») servis juste après `absents`. `Temoin` ne change pas.
+        const string Geste1 = "\"affermir_la_concorde\":{\"cout\":{\"plume\":50},\"effet\":{\"concorde\":1},\"nom\":\"Affermir la concorde\",\"refus\":\"pas assez de points de Plume : 50 points demandés, 10 points disponibles\"}";
+        const string Geste2 = "\"asseoir_le_droit\":{\"cout\":{\"sceau\":30},\"effet\":{\"droit\":10},\"nom\":\"Asseoir le droit\",\"refus\":null}";
+        const string TemoinGestes = "{\"maison\":{\"id\":\"seigneurie-1\",\"nom\":\"Bar\",\"sorte\":\"seigneurie\"},\"tick\":31,\"date\":{\"annee\":1400,\"jour_de_l_annee\":32},"
+            + "\"jauges\":{\"absents\":{},\"gestes\":{" + Geste1 + "," + Geste2 + "},\"competences\":{\"diplomatie\":9,\"gestion\":10,\"guerre\":7},\"grandeurs\":{\"commerce\":\"Commerce\",\"departs\":\"Départs\",\"prelevement\":\"Prélèvement\"},"
+            + "\"jauges\":{" + Concorde + "," + Droit + "," + Renom + "},\"modificateurs\":[" + Pose + "],\"points\":{" + Epee + "," + Plume + "," + Sceau + "}}}";
         int port; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
         [SetUp] public void PortLibre() { var s = new TcpListener(IPAddress.Loopback, 0); s.Start(); port = ((IPEndPoint)s.LocalEndpoint).Port; s.Stop(); lock (recues) recues.Clear(); }
         [TearDown] public void Fermer() { ecoute?.Close(); fil?.Join(TimeSpan.FromSeconds(5)); (ecoute, fil) = (null, null); }
@@ -214,6 +220,76 @@ namespace Forge.Pont.Tests
             {
                 var terres = c.LireTerres(Id); Assert.IsFalse(terres.Presente); StringAssert.Contains("lieux", terres.Absence);
                 Assert.IsTrue(c.Lire(Id).Presente, "les jauges du même document restent lues");
+            }
+        }
+
+        // Lot #1046 : les gestes se lisent avec leur prix, leur effet et leur refus ; le pays est celui que `Lire` rend sur le même document.
+        [Test] public void Les_gestes_se_lisent_avec_leur_prix_leur_effet_et_leur_refus()
+        {
+            Servir(TemoinGestes, TemoinGestes);
+            using (var c = new ClientPays(port, TimeSpan.FromSeconds(5)))
+            {
+                var l = c.LireGestes(Id); Assert.IsTrue(l.Presente && l.Absence == null, l.Absence); var g = l.Donnees;
+                Assert.IsTrue(g.MaisonId == Id && g.Tick == 31);
+                Assert.AreEqual(new[] { "affermir_la_concorde", "asseoir_le_droit" }, g.Gestes.Select(x => x.Id).ToArray(), "l'ordre servi");
+                var a = g.Gestes[0]; Assert.IsTrue(a.Nom == "Affermir la concorde" && a.Cout.Count == 1 && a.Cout["plume"] == 50 && a.Effet.Count == 1 && a.Effet["concorde"] == 1);
+                Assert.AreEqual("pas assez de points de Plume : 50 points demandés, 10 points disponibles", a.Refus);
+                var b = g.Gestes[1]; Assert.IsTrue(b.Nom == "Asseoir le droit" && b.Cout.Count == 1 && b.Cout["sceau"] == 30 && b.Effet.Count == 1 && b.Effet["droit"] == 10);
+                Assert.IsNull(b.Refus);
+                Assert.Throws<NotSupportedException>(() => ((IDictionary<string, double>)b.Cout).Add("x", 1));
+                Assert.Throws<NotSupportedException>(() => ((IList<GesteLu>)g.Gestes).Add(null));
+                var pays = c.Lire(Id); Assert.IsTrue(pays.Presente, pays.Absence); var p = pays.Donnees; var q = g.Pays;
+                Assert.IsTrue(q.MaisonId == p.MaisonId && q.Nom == p.Nom && q.Tick == p.Tick && q.Date.Annee == p.Date.Annee && q.Date.JourDeLAnnee == p.Date.JourDeLAnnee && q.SansChef == p.SansChef);
+                Assert.AreEqual(p.Jauges.Select(x => (x.Key, x.Value.Valeur)).ToArray(), q.Jauges.Select(x => (x.Key, x.Value.Valeur)).ToArray());
+                Assert.AreEqual(p.Points.Select(x => (x.Key, x.Value.Valeur, x.Value.ParMois)).ToArray(), q.Points.Select(x => (x.Key, x.Value.Valeur, x.Value.ParMois)).ToArray());
+                Assert.AreEqual(p.Poses.Count, q.Poses.Count);
+            }
+            CollectionAssert.AreEqual(new[] { "GET /pays?maison=seigneurie-1", "GET /pays?maison=seigneurie-1" }, Recues());
+        }
+
+        static string Geste(string ancien, string nouveau)
+        {
+            int i = TemoinGestes.IndexOf(ancien, StringComparison.Ordinal);
+            Assert.IsTrue(i >= 0 && TemoinGestes.LastIndexOf(ancien, StringComparison.Ordinal) == i, "motif absent ou répété : " + ancien);
+            return TemoinGestes.Substring(0, i) + nouveau + TemoinGestes.Substring(i + ancien.Length);
+        }
+
+        // Chaque faute de la section « Périmètre » est essayée seule : toute la réponse est refusée, et l'absence nomme la clé fautive.
+        [Test] public void Des_gestes_mal_servis_sont_refuses()
+        {
+            const string Tous = "\"gestes\":{" + Geste1 + "," + Geste2 + "}", D = "jauges.gestes.asseoir_le_droit";
+            var fautes = new List<(string corps, string cle)>
+            {
+                (Geste(Tous, "\"gestes\":null"), "jauges.gestes"), (Geste(Tous, "\"gestes\":[]"), "jauges.gestes"), (Geste(Tous, "\"gestes\":\"aucun\""), "jauges.gestes"), (Geste(Tous, "\"gestes\":{}"), "jauges.gestes"),
+                (Geste(Geste2, "\"asseoir_le_droit\":7"), D), (Geste(Geste2, "\"asseoir_le_droit\":null"), D),
+                (Geste("\"nom\":\"Asseoir le droit\",", ""), D + ".nom"), (Geste("\"nom\":\"Asseoir le droit\"", "\"nom\":\"\""), D + ".nom"), (Geste("\"nom\":\"Asseoir le droit\"", "\"nom\":7"), D + ".nom"),
+                (Geste("\"cout\":{\"sceau\":30},", ""), D + ".cout"), (Geste("\"cout\":{\"sceau\":30}", "\"cout\":{}"), D + ".cout"), (Geste("\"cout\":{\"sceau\":30}", "\"cout\":[30]"), D + ".cout"),
+                (Geste("\"cout\":{\"sceau\":30}", "\"cout\":{\"encre\":30}"), D + ".cout.encre"), (Geste("\"cout\":{\"sceau\":30}", "\"cout\":{\"droit\":30}"), D + ".cout.droit"),
+                (Geste("\"cout\":{\"sceau\":30}", "\"cout\":{\"sceau\":0}"), D + ".cout.sceau"), (Geste("\"cout\":{\"sceau\":30}", "\"cout\":{\"sceau\":-5}"), D + ".cout.sceau"),
+                (Geste("\"cout\":{\"sceau\":30}", "\"cout\":{\"sceau\":\"30\"}"), D + ".cout.sceau"),
+                (Geste("\"effet\":{\"droit\":10},", ""), D + ".effet"), (Geste("\"effet\":{\"droit\":10}", "\"effet\":{}"), D + ".effet"),
+                (Geste("\"effet\":{\"droit\":10}", "\"effet\":{\"prestige\":10}"), D + ".effet.prestige"), (Geste("\"effet\":{\"droit\":10}", "\"effet\":{\"sceau\":10}"), D + ".effet.sceau"),
+                (Geste("\"effet\":{\"droit\":10}", "\"effet\":{\"droit\":0}"), D + ".effet.droit"), (Geste("\"effet\":{\"droit\":10}", "\"effet\":{\"droit\":\"10\"}"), D + ".effet.droit"),
+                (Geste(",\"refus\":null}", "}"), D + ".refus"), (Geste("\"refus\":null", "\"refus\":\"\""), D + ".refus"), (Geste("\"refus\":null", "\"refus\":7"), D + ".refus"),
+                (Geste("\"refus\":null", "\"refus\":false"), D + ".refus"),
+            };
+            Servir(fautes.Select(f => f.corps).ToArray());
+            using (var c = new ClientPays(port, TimeSpan.FromSeconds(5)))
+                foreach (var (corps, cle) in fautes)
+                {
+                    var l = c.LireGestes(Id);
+                    Assert.IsTrue(!l.Presente && l.Donnees == null && !string.IsNullOrEmpty(l.Absence), cle + " : lue malgré la faute");
+                    StringAssert.StartsWith("pays : ", l.Absence); StringAssert.Contains(cle, l.Absence);
+                }
+        }
+
+        [Test] public void Le_pays_sans_gestes_se_lit_toujours()
+        {
+            Servir(Temoin);
+            using (var c = new ClientPays(port, TimeSpan.FromSeconds(5)))
+            {
+                var gestes = c.LireGestes(Id); Assert.IsFalse(gestes.Presente); StringAssert.Contains("jauges.gestes", gestes.Absence);
+                Assert.IsTrue(c.Lire(Id).Presente, "le pays du même document reste lu");
             }
         }
     }

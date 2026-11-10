@@ -3185,6 +3185,17 @@ poses et le détail de chaque lieu touché ; le service le sert à
 `GET /modificateurs` (au tick publié, avec sa date), et la photographie le
 porte sous `modificateurs` dès qu'une pose existe.
 
+Le document ajoute à ce détail **des mots et un reste**, jamais une règle
+(`detail()` et `Pose.en_document()` ne changent pas : `/pays` sert ce dernier) :
+pour chaque grandeur d'un lieu, son `nom` (celui de `[grandeurs.<id>]`,
+« Récolte ») ; pour chaque ligne, `source_dite`, le mot de la sorte de sa source
+(« bâtiment », « jauge du pays »), lu dans la table `[mots_des_sources]` de
+`data/modificateurs.toml` ; et `reste_jours`, `(fin − tick publié) × TICK_DURATION_DAYS`,
+ou `null` sans fin. Chaque source admise a son mot ; une source sans mot, ou un
+mot pour une source inconnue, est refusé par `ModificateurInvalide`
+(`lire_mots_des_sources`, lu à part : `Donnees` ne le porte pas). L'infobulle de la
+carte lit ces lignes telles quelles : elle n'additionne rien. Niveau 2 pour les mots.
+
 **Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
 à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
 (les bâtiments, les jauges et les événements le feront par leurs lots).
@@ -3245,7 +3256,13 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   insuffisants (en comptant les gestes déjà déposés pour le tick) ou une jauge
   déjà à sa borne. Le geste s'applique à l'étape des intentions — la maison,
   vérifiée au dépôt, n'y est pas relue dans le registre — et repose les
-  modificateurs du pays au même tick.
+  modificateurs du pays au même tick. Les deux raisons de points disent leurs
+  nombres en points, au dixième, avec une virgule, et accordent le participe
+  (`point` et `demandé`, `disponible` sous 2, `points`, `demandés`,
+  `disponibles` au-delà) : « pas assez de points de Plume : 50 points demandés,
+  1,5 point disponible » ; « Concorde déjà à sa borne : 3 points ». Le panneau
+  du pays (« Gestes des jauges ») dépose ce même geste par `POST /intention`, et
+  `/pays` sert `refus` dans ces mêmes mots.
 - **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont la
   Concorde est sous son neutre et dont la Plume paie le geste dépose
   « Affermir la concorde », par `recevoir_intention`, avec sa raison

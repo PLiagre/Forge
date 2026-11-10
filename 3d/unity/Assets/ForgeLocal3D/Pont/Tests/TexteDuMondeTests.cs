@@ -52,6 +52,14 @@ namespace Forge.Pont.Tests {
             Assert.Throws<ArgumentException>(() => TexteDuMonde.Masse(double.PositiveInfinity));
         }
 
+        // Lot #1031 : une fraction du monde s'écrit en pourcentage signé, au centième au plus.
+        [Test] public void UneFractionSEcritEnPourcentage() {
+            foreach (var (fraction, texte) in new[] { (0.1, "+10 %"), (-0.02, "-2 %"), (0.0196, "+1,96 %"), (0.0, "0 %"), (-0.0, "0 %"), (0.00001, "0 %"), (-0.0525, "-5,25 %"), (1.5, "+150 %") })
+                Assert.AreEqual(texte, TexteDuMonde.Pourcentage(fraction), fraction.ToString("R", CultureInfo.InvariantCulture));
+            Assert.Throws<ArgumentException>(() => TexteDuMonde.Pourcentage(double.NaN));
+            Assert.Throws<ArgumentException>(() => TexteDuMonde.Pourcentage(double.PositiveInfinity));
+        }
+
         [Test] public void InterditTrouveLePremierIdentifiant() {
             foreach (string texte in new[] { "orange", "arrangé", "ticket", "jour 8 de 1400", "1,23 t", "Maison en attente" }) Juge(null, TexteDuMonde.Interdit(texte), texte);
             Juge(null, TexteDuMonde.Interdit("103405", "10340"), "103405");

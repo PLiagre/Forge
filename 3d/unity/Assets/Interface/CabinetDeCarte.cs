@@ -123,10 +123,13 @@ namespace Forge.Interface
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port, dossiers);
-            gameObject.AddComponent<DossierPays>().Initialiser(toile.transform, pays, () => Partie.Monde, () => Partie.Terres, LectureDossier.Locale(carte.port), NomsDesTerres.Local(carte.port));
+            var dossierPays = gameObject.AddComponent<DossierPays>();
+            dossierPays.Initialiser(toile.transform, pays, () => Partie.Monde, () => Partie.Terres, LectureDossier.Locale(carte.port), NomsDesTerres.Local(carte.port));
+            // Lot #1046 : à droite du feuillet du pays, ses gestes ; le panneau s'ouvre et se ferme avec lui.
+            gameObject.AddComponent<GestesDesJauges>().Initialiser(dossierPays.Cadre, () => Partie.Monde, () => Partie.Gestes, OrdreConfirme.Local(carte.port));
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux); GetComponent<CalquesCarte>().Brancher(lieux, fleches);
-            gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee);
+            gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // lot #1031 : la seconde lecture, sur /modificateurs
             Afficher();
         }
 

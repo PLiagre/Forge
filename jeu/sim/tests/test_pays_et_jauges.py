@@ -311,3 +311,77 @@ def test_les_trois_boucles_jouent_le_mois(monkeypatch, tmp_path):
     vus.clear()
     _simuler(ticks, 0, tmp_path / "monde.json")
     assert vus == [c.FENETRE_FLUX_TICKS]
+
+
+def test_les_raisons_d_un_geste_s_ecrivent_en_points(depart, regles):
+    """Les deux raisons d'un geste disent leurs nombres en points, au dixième, avec leur accord (le panneau du pays les lit telles quelles)."""
+    import re
+    bar = "seigneurie-1"
+    concorde, droit = "affermir_la_concorde", "asseoir_le_droit"
+    plume = "pas assez de points de Plume : 50 points demandés, "
+    cas = [
+        ({"concorde": -2, "plume": 10.0}, concorde, [], plume + "10 points disponibles"),
+        ({"concorde": -2, "plume": 1.5}, concorde, [], plume + "1,5 point disponible"),
+        ({"concorde": -2, "plume": 0.0}, concorde, [], plume + "0 point disponible"),
+        ({"concorde": -2, "plume": 35.04}, concorde, [], plume + "35 points disponibles"),
+        ({"sceau": 31.5}, droit, [droit], "pas assez de points de Sceau : 30 points demandés, 1,5 point disponible"),
+        ({"concorde": 3, "plume": 500.0}, concorde, [], "Concorde déjà à sa borne : 3 points"),
+    ]
+    for valeurs, geste, engages, attendu in cas:
+        monde, _ = _monde_au_mois(depart, regles, bar, **valeurs)
+        texte = J.verifier_geste(monde, bar, geste, regles, engages)
+        assert texte == attendu
+        if not engages:  # `/pays` ne compte pas les gestes déjà déposés
+            assert J.document_des_jauges(monde, bar, regles)["gestes"][geste]["refus"] == attendu
+        nombres = list(re.finditer(r"(?<![\d,])\d+(?:,\d+)?(?![\d,])", texte))
+        assert nombres
+        assert all(texte[n.end():].startswith((" point", " points")) for n in nombres), texte
+    assert J._points(-3) == "-3 points"
+    assert J._points(0.05) == "0,1 point"
+    assert J._points(-0.04) == "0 point"
+    assert J._accord(1.5, "demandé") == "demandé" and J._accord(2, "demandé") == "demandés"
+
+
+def test_un_geste_du_panneau_donne_le_meme_monde_qu_a_la_main(regles):
+    """Le panneau du pays dépose `depenser_jauge` par `POST /intention` : mêmes octets, ou écrits à la main, même monde."""
+    import threading
+    from sim.service import ServeurMonde
+    from sim.tests.test_monde import requete_service
+    bar = "seigneurie-1"
+    panneau = b'{"type":"depenser_jauge","maison":"seigneurie-1","geste":"asseoir_le_droit"}'
+    main = json.dumps({"geste": "asseoir_le_droit", "maison": bar, "type": "depenser_jauge"}, indent=1).encode()
+    serveurs, fils = [], []
+    try:
+        for _ in range(2):
+            serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+            serveurs.append(serveur)
+            fil = threading.Thread(target=serveur.serve_forever)
+            fil.start()
+            fils.append(fil)
+            with serveur.verrou_tick:
+                serveur.world.jauges[bar] = J.etat(serveur.world, bar, regles) | {"sceau": 31.5}
+                J.poser_les_modificateurs(serveur.world, regles)
+        (a, b) = serveurs
+        recu = {"acceptee": True, "appliquee_au_tick": 0}
+        assert requete_service(a.server_port, "/intention", "POST", panneau)[:2] == (200, recu)
+        assert requete_service(b.server_port, "/intention", "POST", main)[:2] == (200, recu)
+        avant = json.dumps(a.world.to_dict(), sort_keys=True)
+        attente = list(a.world.intentions_en_attente)
+        statut, refus, _ = requete_service(a.server_port, "/intention", "POST", panneau)
+        assert statut == 400 and refus == {
+            "acceptee": False, "erreur": "pas assez de points de Sceau : 30 points demandés, 1,5 point disponible"}
+        assert json.dumps(a.world.to_dict(), sort_keys=True) == avant and a.world.intentions_en_attente == attente
+        for serveur in serveurs:
+            assert requete_service(serveur.server_port, "/tick?n=1", "POST")[0] == 200
+        assert json.dumps(a.world.to_dict(), sort_keys=True) == json.dumps(b.world.to_dict(), sort_keys=True)
+        assert requete_service(a.server_port, f"/pays?maison={bar}")[2] == requete_service(b.server_port, f"/pays?maison={bar}")[2]
+        valeurs = J.etat(a.world, bar, regles)
+        assert valeurs["sceau"] == pytest.approx(1.5) and valeurs["droit"] == 60
+        assert avant != json.dumps(a.world.to_dict(), sort_keys=True)
+    finally:
+        for serveur in serveurs:
+            serveur.shutdown()
+        for fil in fils:
+            fil.join()
+        for serveur in serveurs:
+            serveur.server_close()

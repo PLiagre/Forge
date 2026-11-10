@@ -16,6 +16,8 @@ namespace Forge.Interface
         public Lecture<PaysLu> Pays { get; private set; }
         // Lot #1045 : le reste de `/pays` (lieux, vassaux, totaux, bâtiments), lu juste après le pays ; son tick dit s'il est du même jour que le monde.
         public Lecture<TerresDuPays> Terres { get; private set; }
+        // Lot #1046 : les gestes du pays de la maison du joueur (prix, effet, refus), lus juste après les terres ; leur tick dit s'ils sont du même jour que le monde.
+        public Lecture<GestesDuPays> Gestes { get; private set; }
         public Lecture<DepartsLus> Departs { get; private set; }
         public RecuIntention Recu { get; private set; }
         public bool Occupee { get; private set; }
@@ -26,14 +28,15 @@ namespace Forge.Interface
         readonly Func<string, Lecture<ComptesDeMaison>> lireComptes;
         readonly Func<string, Lecture<PaysLu>> lirePays;
         readonly Func<string, Lecture<TerresDuPays>> lireTerres;
+        readonly Func<string, Lecture<GestesDuPays>> lireGestes;
         public bool PeutChoisir => !Occupee && Monde != null && Monde.Presente
             && Monde.Donnees.MaisonDuJoueur == null && Departs != null && Departs.Presente && Recu?.Acceptee != true;
 
         public LecturePartie(Func<Lecture<MondeAvecMaisonLu>> monde, Func<string, Lecture<MaisonLue>> maison,
             Func<Lecture<DepartsLus>> departs, Func<long, RecuIntention> choisir, Func<string, Lecture<ComptesDeMaison>> comptes = null,
-            Func<string, Lecture<PaysLu>> pays = null, Func<string, Lecture<TerresDuPays>> terres = null)
+            Func<string, Lecture<PaysLu>> pays = null, Func<string, Lecture<TerresDuPays>> terres = null, Func<string, Lecture<GestesDuPays>> gestes = null)
         {
-            lireMonde = monde; lireMaison = maison; lireDeparts = departs; this.choisir = choisir; lireComptes = comptes; lirePays = pays; lireTerres = terres;
+            lireMonde = monde; lireMaison = maison; lireDeparts = departs; this.choisir = choisir; lireComptes = comptes; lirePays = pays; lireTerres = terres; lireGestes = gestes;
         }
 
         public static LecturePartie Locale(int port) => new LecturePartie(
@@ -46,7 +49,8 @@ namespace Forge.Interface
             },
             id => { using var c = new ClientMaison(port, TimeSpan.FromSeconds(10)); return c.LireComptes(id); },
             id => { using var c = new ClientPays(port, TimeSpan.FromSeconds(10)); return c.Lire(id); },
-            id => { using var c = new ClientPays(port, TimeSpan.FromSeconds(10)); return c.LireTerres(id); });
+            id => { using var c = new ClientPays(port, TimeSpan.FromSeconds(10)); return c.LireTerres(id); },
+            id => { using var c = new ClientPays(port, TimeSpan.FromSeconds(10)); return c.LireGestes(id); });
 
         public async Task Actualiser()
         {
@@ -60,15 +64,16 @@ namespace Forge.Interface
                     var maison = id != null ? lireMaison(id) : null;
                     var comptes = id != null && lireComptes != null ? lireComptes(id) : null;
                     var pays = id != null && lirePays != null ? lirePays(id) : null;
-                    return (monde, maison, comptes, pays, terres: id != null && lireTerres != null ? lireTerres(id) : null,
+                    var terres = id != null && lireTerres != null ? lireTerres(id) : null;
+                    return (monde, maison, comptes, pays, terres, gestes: id != null && lireGestes != null ? lireGestes(id) : null,
                         departs: monde.Presente && id == null ? lireDeparts() : null);
                 });
-                Monde = lu.monde; Maison = lu.maison; Comptes = lu.comptes; Pays = lu.pays; Terres = lu.terres; Departs = lu.departs;
+                Monde = lu.monde; Maison = lu.maison; Comptes = lu.comptes; Pays = lu.pays; Terres = lu.terres; Gestes = lu.gestes; Departs = lu.departs;
             }
             catch (Exception e)
             {
                 Monde = Lecture<MondeAvecMaisonLu>.Absent("Lecture impossible : " + e.GetBaseException().Message);
-                Maison = null; Comptes = null; Pays = null; Terres = null; Departs = null;
+                Maison = null; Comptes = null; Pays = null; Terres = null; Gestes = null; Departs = null;
             }
             finally { Occupee = false; }
         }
