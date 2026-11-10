@@ -389,6 +389,20 @@ une marque invisible que le pilote écrit et relit :
 Un tour interrompu ne perd rien : le suivant relit GitHub. Le journal local
 (`~/.atelier/journal.jsonl`) ne sert qu'à dire pourquoi la chaîne a attendu.
 
+## Ce que coûte un appel
+
+Chaque agent est appelé avec `--output-format json` : Claude Code rend, avec
+le texte de l'agent, ce que l'appel a coûté (`agents.lire_sortie` : dollars au
+prix de l'API, tours, durée, jetons). Le pilote l'écrit dans son journal
+(`~/.atelier/journal.jsonl`, action « appel », avec le rôle et le lot), et le
+journal du matin en fait le total de la veille, rôle par rôle, dans les
+détails de la chaîne. Sous un abonnement ces dollars sont notionnels : ils ne
+sont pas une facture, ils disent où part le quota. Une sortie qui n'est pas ce
+JSON (un appel coupé par son délai, une version ancienne) est lue telle
+quelle, sans mesure : on ne devine pas un coût. Jusqu'au 10 novembre 2026, la
+sortie était en texte : 1 071 appels en cinq semaines, et personne ne savait
+ce que coûtait un lot.
+
 ## Quotas et sessions
 
 Un agent qui répond « quota épuisé » ou « session expirée », dont l'outil

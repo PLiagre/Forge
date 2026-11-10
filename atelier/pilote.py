@@ -143,9 +143,12 @@ class Pilote:
         self.attentes = 0  # ceux de ces appels où personne n'a pu répondre
 
     # ----------------------------------------------------------- journal
-    def noter(self, lot: int | str, action: str, detail: str = "", agent: str | None = None) -> None:
+    def noter(self, lot: int | str, action: str, detail: str = "", agent: str | None = None, *,
+              mesure: dict | None = None) -> None:
         quand = self.maintenant().isoformat(timespec="seconds")
         entree = {"quand": quand, "lot": lot, "action": action, "detail": detail, "agent": agent}
+        if mesure:
+            entree["mesure"] = mesure
         try:
             self.journal.parent.mkdir(parents=True, exist_ok=True)
             with self.journal.open("a", encoding="utf-8") as f:
@@ -163,6 +166,14 @@ class Pilote:
                                                                          self.projet.plafond(outil)))
         if res.attente:
             self.attentes += 1
+        if res.mesure:
+            # Ce que l'appel a coûté, rôle par rôle : c'est de là que se
+            # mesure le coût d'un lot (`journal._couts`).
+            m = res.mesure
+            dit = ", ".join(x for x in (f"{m['cout']:.2f} $" if isinstance(m.get("cout"), (int, float)) else "",
+                                        f"{m['tours']} tours" if m.get("tours") else "",
+                                        f"{m['duree']} s" if m.get("duree") else "") if x)
+            self.noter(lot, lots.ACTION_APPEL, f"{role} : {dit}", str(res.agent), mesure={"role": role, **m})
         # Un secours a répondu : pourquoi les précédents ne l'ont pas fait
         # entre au journal, sinon un quota ou une session perdue ne se voit
         # nulle part (le chef de #184, le 28 septembre 2026).

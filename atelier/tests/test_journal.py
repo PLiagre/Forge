@@ -702,3 +702,23 @@ def test_le_journal_rappelle_sept_jours_ce_que_la_direction_a_tranche(tmp_path):
     assert "bloque le lot, écris ta réponse sur son issue, puis remets « pret »" in annexe
     assert "Décidé sans toi" not in journal._annexe(journal.Releve("")), "rien à rappeler, rien d'écrit"
 
+
+def test_le_journal_dit_ce_que_les_agents_ont_coute_role_par_role(tmp_path):
+    local = tmp_path / "journal.jsonl"
+    def appel(quand, lot, role, cout):
+        return {"quand": quand, "lot": lot, "action": "appel", "detail": "", "agent": "claude/x",
+                "mesure": {"role": role, "cout": cout}}
+    entrees = [appel("2026-09-26T08:00:00+00:00", 9, "chef", 99.0),   # avant la fenêtre
+               appel("2026-09-27T08:00:00+00:00", 10, "chef", 2.0),
+               appel("2026-09-27T09:00:00+00:00", 10, "codeur", 1.5),
+               appel("2026-09-27T10:00:00+00:00", 11, "codeur", 0.5),
+               {"quand": "2026-09-27T11:00:00+00:00", "lot": 11, "action": "appel", "detail": "sans mesure"},
+               {"quand": "2026-09-27T12:00:00+00:00", "lot": 11, "action": "brief écrit", "mesure": {"cout": 7}}]
+    local.write_text("\n".join(json.dumps(e, ensure_ascii=False) for e in entrees), encoding="utf-8")
+    lignes = journal._couts(local, MAINTENANT - journal.timedelta(hours=24))
+    assert lignes[0].startswith("- 3 appels mesurés sur 2 lots : 4.00 $ au prix de l'API")
+    assert lignes[1:] == ["- chef : 1 appels, 2.00 $", "- codeur : 2 appels, 2.00 $"]
+    assert journal._couts(tmp_path / "absent.jsonl", MAINTENANT) == []
+    assert "Ce que les agents ont coûté" in journal._annexe(journal.Releve("", couts=lignes))
+    assert "Ce que les agents ont coûté" not in journal._annexe(journal.Releve(""))
+

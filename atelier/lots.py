@@ -736,6 +736,8 @@ PAR_DIRECTION = "direction"
 ETAT_AVIS = "avis"
 DECISIONS_DIRECTION_MAX = 2
 ACTION_DIRECTION = "décision de la direction"
+# Un appel d'agent qui a dit ce qu'il a coûté (`agents.lire_sortie`), au journal du pilote.
+ACTION_APPEL = "appel"
 
 
 def decisions_de_la_direction(commentaires: list[dict]) -> int:

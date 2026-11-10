@@ -249,6 +249,25 @@ def test_la_direction_ne_tranche_pas_plus_de_deux_fois_sur_un_lot():
     assert question_pour_la_direction([{"body": marque(role="pilote", etat="bloque", **sans_reponses)}]) is None
 
 
+def test_un_appel_qui_dit_son_cout_entre_au_journal_du_pilote(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Les grandes villes")
+    sortie = json.dumps({"type": "result", "is_error": False, "num_turns": 9, "duration_ms": 61000,
+                         "total_cost_usd": 1.25, "usage": {"input_tokens": 10, "output_tokens": 20},
+                         "result": QUESTION_DU_CHEF})
+    pilote = _pilote(projet, gh, depot, Agents((0, sortie)), tmp_path)
+    lignes = pilote.tour()
+    assert "bloque" in _etiquettes(gh, 10), "le texte de l'agent est lu comme avant"
+    assert any(l.startswith("#10 appel [claude/opus] — chef : 1.25 $, 9 tours, 61 s") for l in lignes)
+    notees = [json.loads(l) for l in pilote.journal.read_text(encoding="utf-8").splitlines()]
+    appel = next(e for e in notees if e["action"] == "appel")
+    assert appel["mesure"] == {"role": "chef", "cout": 1.25, "tours": 9, "duree": 61, "entree": 10, "sortie": 20,
+                               "erreur": False}
+    # Un agent qui ne dit pas son coût n'écrit rien : on ne devine pas.
+    gh.ajouter_issue(11, "Un autre lot")
+    muet = _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path)
+    assert not any(" appel " in l for l in muet.tour())
+
+
 def test_une_reponse_du_proprietaire_remet_le_lot_en_route(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "Les grandes villes")
     _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()

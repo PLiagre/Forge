@@ -115,6 +115,7 @@ class Releve:
     jalon: str = ""
     avancement: list[str] = field(default_factory=list)
     decisions_de_la_direction: list[str] = field(default_factory=list)
+    couts: list[str] = field(default_factory=list)
     etat_du_jeu: list[str] = field(default_factory=list)
     plan_fixe: str | None = None
 
@@ -415,6 +416,39 @@ def _vecu(chemin: Path, depuis: datetime) -> tuple[list[str], list[str]]:
     return lignes or ["- rien dans le journal du pilote"], _encore_vraies(raisons, reponses)
 
 
+def _couts(chemin: Path, depuis: datetime) -> list[str]:
+    """Ce que les appels d'agents ont coûté depuis `depuis`, d'après le
+    journal du pilote : le total, puis rôle par rôle, le plus cher d'abord.
+    Des dollars au prix de l'API, notionnels sous un abonnement : ils disent
+    où part le quota, pas une facture. Sans appel mesuré, rien."""
+    try:
+        texte = chemin.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    par_role: dict[str, list[float]] = {}
+    lots_vus: set = set()
+    for ligne in texte.splitlines():
+        try:
+            e = json.loads(ligne)
+            quand = datetime.fromisoformat(e["quand"])
+            mesure = e["mesure"]
+            cout = float(mesure["cout"])
+        except (ValueError, KeyError, TypeError):
+            continue
+        if e.get("action") == lots.ACTION_APPEL and quand >= depuis:
+            par_role.setdefault(str(mesure.get("role") or "?"), []).append(cout)
+            lots_vus.add(e.get("lot"))
+    if not par_role:
+        return []
+    appels = sum(len(c) for c in par_role.values())
+    total = sum(sum(c) for c in par_role.values())
+    lignes = [f"- {appels} appels mesurés sur {len(lots_vus)} lots : {total:.2f} $ au prix de l'API "
+              "(notionnel : l'abonnement ne facture pas ainsi, mais c'est là que part le quota)"]
+    lignes += [f"- {role} : {len(c)} appels, {sum(c):.2f} $"
+               for role, c in sorted(par_role.items(), key=lambda x: -sum(x[1]))]
+    return lignes
+
+
 # Combien de jours une décision de la direction reste rappelée au journal.
 JOURS_DE_RAPPEL = 7
 
@@ -633,6 +667,7 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
                         for l, ouvert in du_jalon if l.jalon == courant.numero and "lot" in l.etiquettes]
         lignes.append("AVANCEMENT DU JALON (le pilote l'ajoute lui-même sous le journal) :")
         lignes += r.avancement
+    r.couts = _couts(journal_local or JOURNAL_LOCAL, depuis)
     r.decisions_de_la_direction = _decisions_de_la_direction(
         journal_local or JOURNAL_LOCAL, maintenant - timedelta(days=JOURS_DE_RAPPEL))
     lignes.append("\nÀ FAIRE PAR LE PROPRIÉTAIRE :")
@@ -797,6 +832,8 @@ def _annexe(r: Releve) -> str:
                    *[f"- PR #{p['number']} {p['title']}" for p in r.machine], ""]
     if r.en_cours:
         lignes += ["**En cours**", "", *r.en_cours, ""]
+    if r.couts:
+        lignes += ["**Ce que les agents ont coûté**", "", *r.couts, ""]
     lignes.append("</details>")
     return "\n".join(lignes)
 

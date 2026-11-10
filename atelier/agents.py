@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
+import json
 import os
 from pathlib import Path
 import re
@@ -169,8 +170,11 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
     """L'argv exact. Construit ici, exécuté par `invoquer`, jamais recomposé."""
     windows = sys.platform.startswith("win") if windows is None else windows
     if agent.outil == "claude":
+        # En JSON : Claude Code rend, avec le texte de l'agent, ce que l'appel
+        # a coûté (`lire_sortie`). Jusqu'au 10 novembre 2026, la sortie était
+        # en texte et personne ne savait ce que coûtait un lot.
         commande = [agent.binaire, "-p", prompt, "--model", agent.modele,
-                    "--output-format", "text"]
+                    "--output-format", "json"]
         if agent.effort:
             commande += ["--effort", agent.effort]
         if lecture_seule:
@@ -195,6 +199,36 @@ def argv(agent: Agent, prompt: str, *, lecture_seule: bool,
     raise ValueError(f"outil inconnu : {agent.outil}")
 
 
+def lire_sortie(sortie: str) -> tuple[str, dict]:
+    """Le texte de l'agent et la mesure de l'appel, lus dans la sortie JSON de
+    Claude Code : une ligne `{"type": "result", "result": …}`, la dernière.
+
+    La mesure : `cout` (dollars au prix de l'API, notionnels sous un
+    abonnement), `tours`, `duree` (secondes), `entree` et `sortie` (jetons),
+    `erreur` (l'appel s'est fini en erreur). Une sortie qui n'est pas ce JSON
+    (un autre harnais, un appel coupé par son délai, une version ancienne) est
+    rendue telle quelle, sans mesure : on ne devine pas un coût."""
+    for ligne in reversed(sortie.strip().splitlines()):
+        ligne = ligne.strip()
+        if not ligne.startswith("{"):
+            continue
+        try:
+            lu = json.loads(ligne)
+        except ValueError:
+            continue
+        if not isinstance(lu, dict) or lu.get("type") != "result":
+            continue
+        usage = lu.get("usage") if isinstance(lu.get("usage"), dict) else {}
+        entree = sum(v for k, v in usage.items() if k.endswith("input_tokens") and isinstance(v, int))
+        mesure = {"cout": lu.get("total_cost_usd"), "tours": lu.get("num_turns"),
+                  "duree": round(lu["duration_ms"] / 1000) if isinstance(lu.get("duration_ms"), (int, float)) else None,
+                  "entree": entree or None, "sortie": usage.get("output_tokens"),
+                  "erreur": bool(lu.get("is_error"))}
+        texte = lu.get("result") if isinstance(lu.get("result"), str) else ""
+        return texte, {k: v for k, v in mesure.items() if v is not None}
+    return sortie, {}
+
+
 @dataclass
 class Resultat:
     """Ce qu'un appel a rendu. `attente` : personne n'a pu répondre (quota,
@@ -209,6 +243,8 @@ class Resultat:
     # Aucun agent du poste n'avait le droit de répondre (tous écartés) :
     # ce n'est pas une attente, c'est une décision à prendre.
     personne: bool = False
+    # Ce que l'appel a coûté (`lire_sortie`) ; vide quand le harnais ne l'a pas dit.
+    mesure: dict = field(default_factory=dict)
 
     @property
     def reussi(self) -> bool:
@@ -267,14 +303,23 @@ def invoquer(poste: Poste, prompt: str, cwd: Path, delai: int, *,
                 continue
             code, out, err = executeur(argv(agent, prompt, lecture_seule=poste.lecture_seule),
                                        Path(cwd), environnement(agent.outil), delai)
+        brut = out
+        out, mesure = lire_sortie(out)
+        if mesure.get("erreur") and code == 0:
+            # Une erreur que le harnais a dite dans son JSON sans la rendre par son code.
+            code = 1
         cause = cause_de_refus(code, f"{out}\n{err}")
+        if cause is None and mesure.get("erreur"):
+            # Le refus (quota, session) peut être dit ailleurs que dans le
+            # texte de l'agent : on le cherche dans tout ce que le harnais a rendu.
+            cause = cause_de_refus(code, f"{brut}\n{err}")
         if cause:
             pourquoi = derniere_ligne(f"{out}\n{err}")
             essais.append(f"{agent} : {LIBELLES[cause]}" + (f" (« {pourquoi} »)" if pourquoi else ""))
             continue
         essais.append(f"{agent} : code {code}")
         return Resultat(agent=agent, code=code, texte=out if code == 0 else f"{out}\n{err}".strip(),
-                        essais=essais)
+                        essais=essais, mesure=mesure)
     tous_ecartes = ecartes == len(essais)
     return Resultat(agent=None, code=-1, texte="", attente=not tous_ecartes,
                     personne=tous_ecartes, essais=essais)
