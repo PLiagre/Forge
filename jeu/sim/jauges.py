@@ -13,11 +13,15 @@ du tick, par :
   chaque ouvrage achevé dans ses bourgs ajoute du Renom, qui s'efface peu à
   peu ;
 - les **gestes** qui les dépensent (`depenser_jauge`), du joueur ou de l'IA,
-  par le même chemin.
+  par le même chemin ;
+- l'**amélioration d'une province** (`ameliorer_une_province`) : de la Plume
+  contre un niveau de plus à la cellule, à un coût qui monte à chaque niveau.
 
 Chaque jauge pose ensuite ses modificateurs au pays, dans le même registre
 que les bâtiments (`sim.modificateurs`), sous la source « jauge:<nom>:<maison> » :
 la valeur, par point d'écart à son neutre ; à son neutre, elle ne pose rien.
+Les poses des provinces (« jauge:province:<cell_id>-<niveau> ») ne sont pas
+celles d'une jauge : le mois et les gestes ne les effacent pas.
 """
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
@@ -32,6 +36,7 @@ from sim.flux import _jours_de_fenetre
 
 _CHEMIN = Path(__file__).parents[1] / "data" / "jauges.toml"
 SOURCE = "jauge"
+PROVINCE = "province"  # « jauge:province:<cell_id>-<niveau> » : la source d'un niveau de province, jamais le nom d'une jauge
 PLURIEL_A_PARTIR_DE = 2  # un point, 1,5 point, puis 2 points : le pluriel commence à deux, comme `TexteDuMonde.Points`
 
 
@@ -48,6 +53,7 @@ class Regles:
     points: dict
     causes: dict
     gestes: dict
+    amelioration: dict
 
 
 def _nombre(valeur, ou):
@@ -58,7 +64,8 @@ def _nombre(valeur, ou):
 
 def lire_regles(document, modificateurs=None) -> Regles:
     """Valide un document déjà lu ; chaque modificateur d'une jauge vise une grandeur lue du moteur."""
-    grandeurs = (modificateurs or _modificateurs.charger_donnees()).grandeurs
+    donnees = modificateurs or _modificateurs.charger_donnees()
+    grandeurs = donnees.grandeurs
     competences = document.get("competences") or {}
     domaines = tuple(competences.get("domaines") or ())
     if not domaines or not all(isinstance(d, str) and d for d in domaines):
@@ -68,6 +75,8 @@ def lire_regles(document, modificateurs=None) -> Regles:
         raise JaugeInvalide("competences : minimum < maximum attendu")
     jauges = {}
     for nom, brute in sorted((document.get("jauges") or {}).items()):
+        if nom == PROVINCE:
+            raise JaugeInvalide(f"jauges.{nom} : nom réservé, les poses « {SOURCE}:{PROVINCE}: » sont celles des provinces")
         minimum, maximum, depart, neutre = (_nombre(brute.get(k), f"jauges.{nom}.{k}")
                                             for k in ("minimum", "maximum", "depart", "neutre"))
         if not minimum <= depart <= maximum or not minimum <= neutre <= maximum:
@@ -101,7 +110,34 @@ def lire_regles(document, modificateurs=None) -> Regles:
         if not effet or any(k not in jauges or _nombre(v, f"gestes.{nom}.effet.{k}") == 0 for k, v in effet.items()):
             raise JaugeInvalide(f"gestes.{nom}.effet : une jauge et un écart non nul attendus")
         gestes[nom] = {"nom": brute.get("nom", nom), "cout": dict(cout), "effet": dict(effet)}
-    return Regles(domaines, cmin, cmax, jauges, points, causes, gestes)
+    return Regles(domaines, cmin, cmax, jauges, points, causes, gestes,
+                  _lire_amelioration(document.get("amelioration_de_province"), points, donnees))
+
+
+def _lire_amelioration(brute, points, donnees) -> dict:
+    """La table `amelioration_de_province` : une réserve, un coût qui monte, un modificateur de cellule que le moteur lit."""
+    ou = "amelioration_de_province"
+    if not isinstance(brute, dict):
+        raise JaugeInvalide(f"{ou} : table attendue")
+    for k in ("nom", "dit"):
+        if not isinstance(brute.get(k), str) or not brute[k].strip():
+            raise JaugeInvalide(f"{ou}.{k} : texte non vide attendu")
+    reserve = brute.get("reserve")
+    if reserve not in points:
+        raise JaugeInvalide(f"{ou}.reserve : une réserve de points attendue ({', '.join(sorted(points))})")
+    if _nombre(brute.get("cout_premier_niveau"), f"{ou}.cout_premier_niveau") <= 0:
+        raise JaugeInvalide(f"{ou}.cout_premier_niveau : strictement positif attendu")
+    if _nombre(brute.get("facteur_par_niveau"), f"{ou}.facteur_par_niveau") <= 1:
+        raise JaugeInvalide(f"{ou}.facteur_par_niveau : coût croissant attendu (au-dessus de 1)")
+    identifiant = brute.get("modificateur")
+    definition = donnees.definitions.get(identifiant)
+    if definition is None:
+        raise JaugeInvalide(f"{ou}.modificateur : {identifiant!r} absent des données des modificateurs")
+    if definition.portee != "cellule":
+        raise JaugeInvalide(f"{ou}.modificateur : {identifiant} se pose sur un {definition.portee}, une cellule attendue")
+    if not donnees.grandeurs[definition.grandeur].lue:
+        raise JaugeInvalide(f"{ou}.modificateur : grandeur {definition.grandeur!r} que le moteur ne lit pas")
+    return dict(brute)
 
 
 def charger_regles(chemin=None) -> Regles:
@@ -234,8 +270,13 @@ def modificateurs_de(maison_id, valeurs, regles, tick) -> list:
 
 
 def poser_les_modificateurs(monde, regles):
-    """Remplace en une fois toutes les poses des jauges par celles de l'état courant."""
-    autres = [p for p in monde.modificateurs if not p.source.startswith(f"{SOURCE}:")]
+    """Remplace en une fois toutes les poses des jauges par celles de l'état courant.
+
+    Ne retire que les sources « jauge:<nom>: » des jauges des règles : les niveaux
+    de province (« jauge:province:… ») restent posés.
+    """
+    prefixes = tuple(f"{SOURCE}:{nom}:" for nom in regles.jauges)
+    autres = [p for p in monde.modificateurs if not p.source.startswith(prefixes)]
     neuves = [pose for maison_id in sorted(monde.jauges)
               for pose in modificateurs_de(maison_id, monde.jauges[maison_id], regles, monde.ticks_ecoules)]
     if neuves or len(autres) != len(monde.modificateurs):
@@ -259,10 +300,12 @@ def _points(valeur) -> str:
     return f"{texte} {_accord(valeur, 'point')}"
 
 
-def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True):
+def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True, ameliorations=()):
     """La raison du refus d'un geste, ou None : maison connue, points suffisants, jauge pas à sa borne.
 
     `registre=False` : la maison a été vérifiée au dépôt ; au tick, le registre ne se lit pas.
+    `ameliorations` : les cellules que la maison a déjà déposées à améliorer pour le tick ;
+    leur Plume est engagée comme celle des `engages`.
     """
     if not isinstance(maison_id, str) or (registre and not any(m.id == maison_id for m in monde.maisons)):
         return f"maison inconnue ou mal formée : {maison_id!r}"
@@ -274,6 +317,7 @@ def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True)
             valeurs[nom] -= cout
         for nom, ecart in regles.gestes[precedent]["effet"].items():
             valeurs[nom] = _borner(regles, nom, valeurs[nom] + ecart)
+    valeurs[regles.amelioration["reserve"]] -= _cout_des_ameliorations(monde, regles, ameliorations)
     for nom, cout in regles.gestes[geste]["cout"].items():
         if valeurs[nom] < cout:
             return (f"pas assez de points de {regles.points[nom]['nom']} : "
@@ -300,12 +344,97 @@ def appliquer_geste(monde, maison_id, geste, regles=None):
     poser_les_modificateurs(monde, regles)
 
 
+def niveau_de_province(monde, cell_id) -> int:
+    """Le niveau d'une cellule : 0 si elle n'a jamais été améliorée."""
+    return getattr(monde, "niveaux_de_province", {}).get(cell_id, 0)
+
+
+def cout_du_niveau_suivant(monde, cell_id, regles, deja_deposees=0):
+    """Les points du niveau d'après : `cout_premier_niveau × facteur_par_niveau ** niveau`, sans arrondi.
+
+    `deja_deposees` : les améliorations de cette cellule déposées pour le tick, pas encore appliquées.
+    """
+    table = regles.amelioration
+    return table["cout_premier_niveau"] * table["facteur_par_niveau"] ** (niveau_de_province(monde, cell_id) + deja_deposees)
+
+
+def _cout_des_ameliorations(monde, regles, cellules) -> float:
+    """La Plume que coûtent des améliorations déposées dans l'ordre : chaque cellule redéposée paie le niveau d'après."""
+    vues, total = {}, 0.0
+    for cell_id in cellules:
+        total += cout_du_niveau_suivant(monde, cell_id, regles, vues.get(cell_id, 0))
+        vues[cell_id] = vues.get(cell_id, 0) + 1
+    return total
+
+
+def verifier_amelioration(monde, maison_id, cell_id, regles, gestes=(), cellules=(), registre=True):
+    """La raison du refus d'une amélioration de province, ou None : maison, cellule, terres, Plume.
+
+    `gestes` et `cellules` : ce que la maison a déjà déposé pour le tick (ses `depenser_jauge`, ses
+    améliorations) ; leur Plume est engagée, et une cellule redéposée coûte le niveau d'après.
+    `registre=False` : la maison et ses terres ont été vérifiées au dépôt ; au tick, on ne les relit pas.
+    """
+    if not isinstance(maison_id, str) or (registre and not any(m.id == maison_id for m in monde.maisons)):
+        return f"maison inconnue ou mal formée : {maison_id!r}"
+    if isinstance(cell_id, bool) or not isinstance(cell_id, int):
+        return f"cell invalide : entier attendu, reçu {cell_id!r}"
+    cellule = monde.cells.get(cell_id)
+    if cellule is None:
+        return f"cellule inconnue : {cell_id!r}"
+    if registre:
+        bourg = next((lieu for lieu in cellule.lieux if lieu.rang == 0), None)
+        if bourg is None or bourg.maitre != maison_id:
+            return f"pas sur vos terres : le bourg de la cellule {cell_id} est à {getattr(bourg, 'maitre', None)!r}"
+    reserve = regles.amelioration["reserve"]
+    disponible = (etat(monde, maison_id, regles)[reserve]
+                  - sum(regles.gestes[g]["cout"].get(reserve, 0) for g in gestes)
+                  - _cout_des_ameliorations(monde, regles, cellules))
+    cout = cout_du_niveau_suivant(monde, cell_id, regles, list(cellules).count(cell_id))
+    if disponible < cout:
+        return (f"pas assez de points de {regles.points[reserve]['nom']} : "
+                f"{_points(cout)} {_accord(cout, 'demandé')}, "
+                f"{_points(disponible)} {_accord(disponible, 'disponible')}")
+    return None
+
+
+def appliquer_amelioration(monde, maison_id, cell_id, regles=None):
+    """Dépense la Plume, monte le niveau de la cellule et pose son modificateur sous sa propre source."""
+    regles = charger_regles() if regles is None else regles
+    raison = verifier_amelioration(monde, maison_id, cell_id, regles, registre=False)
+    if raison is not None:
+        raise JaugeInvalide(raison)
+    table = regles.amelioration
+    valeurs = etat(monde, maison_id, regles)
+    valeurs[table["reserve"]] -= cout_du_niveau_suivant(monde, cell_id, regles)
+    _ecrire(monde, maison_id, valeurs, regles)
+    niveau = niveau_de_province(monde, cell_id) + 1
+    monde.niveaux_de_province[cell_id] = niveau
+    _modificateurs.poser(monde, table["modificateur"], f"{SOURCE}:{PROVINCE}:{cell_id}-{niveau}", {"cellule": cell_id})
+
+
+def _document_de_l_amelioration(monde, maison_id, regles, donnees) -> dict:
+    table = regles.amelioration
+    definition = donnees.definitions[table["modificateur"]]
+    provinces = []
+    for cell_id in sorted(monde.cells):
+        bourg = next((lieu for lieu in monde.cells[cell_id].lieux if lieu.rang == 0), None)
+        if bourg is not None and bourg.maitre == maison_id:
+            provinces.append({"cell_id": cell_id, "niveau": niveau_de_province(monde, cell_id),
+                              "cout": cout_du_niveau_suivant(monde, cell_id, regles),
+                              "refus": verifier_amelioration(monde, maison_id, cell_id, regles)})
+    return {"nom": table["nom"], "dit": table["dit"], "reserve": table["reserve"],
+            "modificateur": {"nom": definition.nom, "grandeur": definition.grandeur,
+                             "grandeur_nom": donnees.grandeurs[definition.grandeur].nom, "valeur": definition.valeur},
+            "provinces": provinces}
+
+
 def document_des_jauges(monde, maison_id, regles=None) -> dict:
     """Pour le service et le panneau du pays : les valeurs, leurs bornes, les compétences, les poses, et les mots des données."""
     regles = charger_regles() if regles is None else regles
     valeurs = etat(monde, maison_id, regles)
     comp = competences(monde, maison_id, regles)
-    noms = _modificateurs.charger_donnees().grandeurs
+    donnees = _modificateurs.charger_donnees()
+    noms = donnees.grandeurs
     return {
         "jauges": {nom: {"nom": j["nom"], "dit": j["dit"], "valeur": valeurs[nom], "minimum": j["minimum"],
                          "maximum": j["maximum"], "neutre": j["neutre"]} for nom, j in sorted(regles.jauges.items())},
@@ -318,4 +447,5 @@ def document_des_jauges(monde, maison_id, regles=None) -> dict:
         "gestes": {nom: {"nom": g["nom"], "cout": g["cout"], "effet": g["effet"],
                          "refus": verifier_geste(monde, maison_id, nom, regles)} for nom, g in sorted(regles.gestes.items())},
         "modificateurs": [p.en_document() for p in modificateurs_de(maison_id, valeurs, regles, monde.ticks_ecoules)],
+        "amelioration": _document_de_l_amelioration(monde, maison_id, regles, donnees),
     }
