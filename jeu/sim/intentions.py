@@ -22,6 +22,7 @@ TYPE_POSER_BATIMENT = "poser_batiment"
 TYPE_TRACER_ENCEINTE = "tracer_enceinte"
 TYPE_DEPENSER_JAUGE = "depenser_jauge"
 TYPE_BATIR_DANS_UNE_PROVINCE = "batir_dans_une_province"
+TYPE_AMELIORER_UNE_PROVINCE = "ameliorer_une_province"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
@@ -33,6 +34,7 @@ CHAMPS_OBLIGATOIRES = {
     TYPE_TRACER_ENCEINTE: ("type", "cell", "points", "maison"),
     TYPE_DEPENSER_JAUGE: ("type", "maison", "geste"),
     TYPE_BATIR_DANS_UNE_PROVINCE: ("type", "maison", "cell", "nature"),
+    TYPE_AMELIORER_UNE_PROVINCE: ("type", "maison", "cell"),
 }
 
 
@@ -135,12 +137,41 @@ def _depenser_jauge(monde, intention):
     maison, geste = intention["maison"], intention["geste"]
     engages = [i.geste for i in monde.intentions_en_attente
                if isinstance(i, DepenserJauge) and i.maison == maison]
-    raison = jauges.verifier_geste(monde, maison, geste, jauges.charger_regles(), engages)
+    ameliorations = [i.cell_id for i in monde.intentions_en_attente
+                     if isinstance(i, AmeliorerUneProvince) and i.maison == maison]
+    raison = jauges.verifier_geste(monde, maison, geste, jauges.charger_regles(), engages, ameliorations=ameliorations)
     if raison is not None:
         raise IntentionRefusee(raison)
     depense = DepenserJauge(maison, geste)
     monde.intentions_en_attente.append(depense)
     return depense
+
+
+@dataclass(frozen=True)
+class AmeliorerUneProvince:
+    maison: str
+    cell_id: int
+
+    def appliquer(self, monde):
+        """Dépense la Plume, monte le niveau de la cellule et pose son modificateur (sim.jauges), au tick suivant le dépôt."""
+        from sim import jauges
+        jauges.appliquer_amelioration(monde, self.maison, self.cell_id)
+
+
+def _ameliorer_une_province(monde, intention):
+    """Une province de plus au niveau suivant, refusée avec sa raison si elle n'est pas à la maison ou pas payable."""
+    from sim import jauges
+    maison, cell_id = intention["maison"], intention["cell"]
+    engages = [i.geste for i in monde.intentions_en_attente
+               if isinstance(i, DepenserJauge) and i.maison == maison]
+    cellules = [i.cell_id for i in monde.intentions_en_attente
+                if isinstance(i, AmeliorerUneProvince) and i.maison == maison]
+    raison = jauges.verifier_amelioration(monde, maison, cell_id, jauges.charger_regles(), engages, cellules)
+    if raison is not None:
+        raise IntentionRefusee(raison)
+    amelioration = AmeliorerUneProvince(maison, cell_id)
+    monde.intentions_en_attente.append(amelioration)
+    return amelioration
 
 
 @dataclass(frozen=True)
@@ -452,6 +483,8 @@ def recevoir_intention(monde, intention):
         return _depenser_jauge(monde, intention)
     if type_intention == TYPE_BATIR_DANS_UNE_PROVINCE:
         return _batir_dans_une_province(monde, intention)
+    if type_intention == TYPE_AMELIORER_UNE_PROVINCE:
+        return _ameliorer_une_province(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
         contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)

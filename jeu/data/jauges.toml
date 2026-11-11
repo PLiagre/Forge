@@ -91,3 +91,16 @@ effet = { concorde = 1 }
 nom = "Asseoir le droit"
 cout = { sceau = 30 }
 effet = { droit = 10 }
+
+# Le geste qui ne s'épuise jamais : dépenser de la Plume pour améliorer une
+# province. Chaque niveau coûte `facteur_par_niveau` fois le précédent
+# (cout_premier_niveau × facteur_par_niveau ** niveau déjà acquis) et pose
+# `modificateur` (`data/modificateurs.toml`) sur la cellule, sous la source
+# « jauge:province:<cell_id>-<niveau> ». Niveau 2 : plausible, jamais sourcé.
+[amelioration_de_province]
+nom = "Améliorer une province"
+dit = "faire récolter plus à la province, à un prix qui monte à chaque niveau"
+reserve = "plume"
+cout_premier_niveau = 6
+facteur_par_niveau = 1.5
+modificateur = "amelioration_de_province"
