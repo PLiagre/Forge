@@ -29,7 +29,7 @@ import re
 from typing import Callable
 
 from . import agents as agents_mod
-from . import captures, lfs, lots, prompts, traces
+from . import captures, garde, lfs, lots, prompts, traces
 from .depot import Depot, DepotErreur
 from .github import (AGREGATS, VARIABLE_PC, GitHub, GitHubErreur, controles_de_la_pr, etat_des_controles,
                      travaux as travaux_du_workflow)
@@ -212,7 +212,7 @@ class Pilote:
         if not agent_parti:
             avant = self.invoques
             try:
-                agent_parti = self._master_rouge()
+                agent_parti = self._master_rouge(vue)
             except (GitHubErreur, DepotErreur) as e:
                 # Une réparation en panne se dit et n'arrête que ce tour-ci si
                 # son mécanicien a déjà travaillé ; sinon les lots continuent,
@@ -882,8 +882,13 @@ class Pilote:
     # ------------------------------------------------------------- coder
     def _coder(self, lot: Lot, pr: dict, branche: str, action: lots.Action, liste: list[dict], *,
                role: str, chantier: str | int, poste: str | None = None, prompt: str | None = None,
-               photographe: Photographe | None = None, marquer_attente: bool = False) -> bool:
+               photographe: Photographe | None = None, marquer_attente: bool = False,
+               hors_portee: Callable[[Path, str], bool] | None = None) -> bool:
         """Un passage du codeur (ou du mécanicien) sur la branche d'une PR.
+
+        `hors_portee` dit quels changements le pilote retire : les chemins
+        interdits à un lot par défaut ; pour une réparation de la chaîne, ce
+        qui sort de sa garde (`_hors_reparation`).
 
         `role` est le nom écrit dans la marque ; `poste` celui de la ligne de
         `[agents]` qui répond (le même, sauf pour le mécanicien de master).
@@ -894,6 +899,7 @@ class Pilote:
         numero_pr = pr["number"]
         chemin = self.depot.preparer(chantier, branche)
         self._mettre_a_jour(chemin, branche, lot.numero)
+        refuse = hors_portee or (lambda _chemin, f: self.projet.interdit(f))
         if prompt is None:
             correction = ""
             if action.nom == "corriger_ci":
@@ -916,7 +922,7 @@ class Pilote:
         # et le passage suivant reprend la branche (#398, coupé trois fois le
         # 12 octobre 2026 avec un code vert). Le travail part, marqué inachevé.
         inacheve = (not res.reussi and res.code == 124
-                    and any(not self.projet.interdit(f) for f in self.depot.changements(chemin)))
+                    and any(not refuse(chemin, f) for f in self.depot.changements(chemin)))
         if not res.reussi and not inacheve:
             self.gh.commenter_pr(numero_pr, f"🤖 **{role}** ({res.agent}) a échoué (code {res.code}).\n\n"
                                             f"Essais : {essais}\n\n"
@@ -924,7 +930,7 @@ class Pilote:
                                             f"{marque(role=role, etat='echec', essai=passage, agent=str(res.agent))}")
             self.noter(lot.numero, f"{role} en échec", f"code {res.code} — {essais}", str(res.agent))
             return True
-        interdits = [f for f in self.depot.changements(chemin) if self.projet.interdit(f)]
+        interdits = [f for f in self.depot.changements(chemin) if refuse(chemin, f)]
         if interdits:
             self.depot.annuler(chemin, interdits)
         if not self.depot.changements(chemin) and action.nom == "corriger_relecture":
@@ -1009,9 +1015,12 @@ class Pilote:
 
     # ------------------------------------------------------------- relire
     def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict], *,
-                chantier: str | int | None = None, master_rouge: str | None = None) -> bool:
+                chantier: str | int | None = None, master_rouge: str | None = None,
+                chaine: bool = False) -> bool:
         """`master_rouge` : ce que dit la PR du mécanicien de master, qui n'a
-        ni issue ni brief ; le relecteur juge alors contre la CI rouge."""
+        ni issue ni brief ; le relecteur juge alors contre la CI rouge.
+        `chaine` : c'est une réparation de la chaîne ; son relecteur est celui
+        de la chaîne (`_relecteur_de_la_chaine`), et il juge contre sa garde."""
         numero_pr, tete = pr["number"], pr["headRefOid"]
         echecs = [m for m in lots.depuis_reprise(liste)
                   if m.get("role") == "relecteur" and m.get("etat") == "echec" and m.get("sha") == tete]
@@ -1047,12 +1056,14 @@ class Pilote:
                                    chemin_brief=lot.brief(self.projet.dossier_briefs),
                                    url=pr.get("url", ""), sha=tete, rapports=rapports,
                                    lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles),
-                                   consigne=consigne, decisions=decisions, master_rouge=master_rouge)
+                                   consigne=consigne, decisions=decisions, master_rouge=master_rouge,
+                                   chaine=chaine)
         # Opus relit les lots qui touchent le moteur, Sonnet les autres, chacun
         # dans sa propre session en lecture seule (refonte du 7 novembre 2026).
         # La marque reste celle du relecteur : le verdict compte pareil.
-        res = self._invoquer(self.projet.relecteur_pour(self.depot.fichiers_du_lot(chemin)),
-                             prompt, chemin, lot=lot.numero)
+        relecteur = (self._relecteur_de_la_chaine() if chaine
+                     else self.projet.relecteur_pour(self.depot.fichiers_du_lot(chemin)))
+        res = self._invoquer(relecteur, prompt, chemin, lot=lot.numero)
         if res.attente:
             self.noter(lot.numero, "attente", "relecteur : " + " · ".join(res.essais))
             return True
@@ -1432,14 +1443,128 @@ class Pilote:
                 self.noter(f"J{jalon.numero}", "jalon atteint", jalon.titre)
 
     # ----------------------------------------------------- master rouge
-    def _master_rouge(self) -> bool:
-        """Master rouge : un mécanicien à la fois, quel que soit le tour."""
+    def _master_rouge(self, vue: "_Vue | None" = None) -> bool:
+        """Master rouge, ou la chaîne en cause : un mécanicien à la fois, quel
+        que soit le tour. Master passe d'abord."""
         if not self.verrous.prendre("meca"):
             return False
         try:
-            return self._reparer_master()
+            return self._reparer_master() or (vue is not None and self._reparer_la_chaine(vue))
         finally:
             self.verrous.lacher("meca")
+
+    # ------------------------------------------------- la chaîne se répare
+    def _hors_reparation(self, chemin: Path, fichier: str) -> bool:
+        """Ce changement sort-il de ce qu'une réparation de la chaîne a le
+        droit de toucher (`garde.hors_reparation`) ? Le pilote le retire alors."""
+        lignes = self.depot.lignes_changees(chemin, fichier) if fichier.startswith(garde.WORKFLOWS) else []
+        return bool(garde.hors_reparation(fichier, lignes, self.projet.reparables, self.projet.sensibles))
+
+    def _relecteur_de_la_chaine(self) -> str:
+        """Qui relit une réparation de la chaîne : le rôle au meilleur jugement que le dépôt nomme."""
+        return next(r for r in (lots.PAR_DIRECTION, "relecteur_moteur", "relecteur") if r in self.projet.postes)
+
+    def _reparer_la_chaine(self, vue: "_Vue") -> bool:
+        """Un lot que le dépanneur a bloqué parce que la chaîne est en cause :
+        le mécanicien la répare dans une PR `meca/chaine-…`, relue avant
+        d'entrer ; fusionnée, le lot repart ; abandonnée, il attend le mode
+        direct, comme avant. Un dépôt sans `reparables` ne se répare pas seul."""
+        if not self.projet.reparables:
+            return False
+        for lot in sorted(vue.ouvertes, key=lambda l: l.numero):
+            if lot.etat != "bloque" or "lot" not in lot.etiquettes:
+                continue
+            if not self.verrous.prendre(_verrou_du_lot(lot.numero)):
+                continue
+            try:
+                issue = self.gh.issue(lot.numero)
+                lot = Lot.de(issue)
+                commentaires = issue.get("comments") or []
+                cause = lots.chaine_en_cause(commentaires) if lot.etat == "bloque" else None
+                if cause is None:
+                    continue
+                raison, reparation = cause
+                if reparation is None:
+                    if any(p["headRefName"].startswith("meca/") for p in self.gh.prs_ouvertes()):
+                        return False  # un mécanicien à la fois
+                    return self._ouvrir_la_reparation(lot, raison, commentaires)
+                if reparation.get("pr") and not reparation.get("fin"):
+                    self._suivre_la_reparation(lot, int(reparation["pr"]))
+            except (GitHubErreur, DepotErreur) as e:
+                self.noter(lot.numero, "erreur", str(e))
+            finally:
+                self._lacher_lot(lot.numero)
+        return False
+
+    def _sans_reparation(self, lot: Lot, pourquoi: str, agent) -> bool:
+        self.gh.commenter_issue(lot.numero, f"🤖 **mécanicien** ({agent or '—'}) : pas de réparation de la chaîne "
+                                            f"({pourquoi}) ; le lot attend le mode direct, comme avant.\n\n"
+                                + marque(role="pilote", etat=lots.ETAT_REPARATION, fin="echec", raison=pourquoi))
+        self.noter(lot.numero, "chaîne sans réparation", pourquoi, str(agent or ""))
+        return True
+
+    def _ouvrir_la_reparation(self, lot: Lot, raison: str, commentaires: list[dict]) -> bool:
+        blocage = next(c for c in reversed(commentaires)
+                       if any(m.get("etat") == "bloque" for m in lots.marques([c])))
+        branche = f"{lots.PREFIXE_REPARATION}{lot.numero}-{self.maintenant():%Y%m%d-%H%M}"
+        chemin = self.depot.preparer("meca", branche)
+        prompt = prompts.mecanicien_chaine(self.projet, numero=lot.numero, cause=raison,
+                                           diagnostic=lots._MARQUE.sub("", blocage.get("body") or ""))
+        res = self._invoquer("mecanicien", prompt, chemin, lot=lot.numero)
+        if res.attente:
+            self.noter(lot.numero, "attente", "mécanicien : " + " · ".join(res.essais))
+            return True
+        decisions = _DECISION.findall(res.texte)
+        retires = [f for f in self.depot.changements(chemin) if self._hors_reparation(chemin, f)]
+        if retires:
+            self.depot.annuler(chemin, retires)
+        if decisions and decisions[-1][0] == "MODE-DIRECT":
+            restes = self.depot.changements(chemin)
+            if restes:
+                self.depot.annuler(chemin, restes)
+            return self._sans_reparation(lot, f"il demande le mode direct : {decisions[-1][1]}", res.agent)
+        if not res.reussi or not self.depot.changements(chemin):
+            restes = self.depot.changements(chemin)
+            if restes:
+                self.depot.annuler(chemin, restes)
+            pourquoi = (f"code {res.code}" if not res.reussi else
+                        "tout ce qu'il a changé était hors de portée : " + ", ".join(retires) if retires
+                        else "il n'a rien changé")
+            return self._sans_reparation(lot, pourquoi, res.agent)
+        sha = self.depot.enregistrer(chemin, f"Mécanicien : la chaîne est en cause (lot #{lot.numero})\n\n"
+                                             f"Écrit par {res.agent}.")
+        self.depot.pousser(chemin, branche)
+        note = ("\n\n⚠️ Changements retirés, hors de portée d'une réparation : "
+                + ", ".join(f"`{f}`" for f in retires)) if retires else ""
+        numero_pr = self.gh.creer_pr(branche, self.projet.branche_base,
+                                     f"Mécanicien : la chaîne est en cause (lot #{lot.numero})",
+                                     f"Le lot #{lot.numero} est bloqué, et le dépanneur dit que {raison}.\n\n"
+                                     f"{_extrait(res.texte, 40)}{note}" + SIGNATURE, brouillon=False)
+        self.gh.commenter_pr(numero_pr, f"🤖 **mécanicien** ({res.agent}) : réparation de la chaîne proposée.{note}\n\n"
+                                        f"{marque(role='mecanicien_master', etat='fait', essai=1, agent=str(res.agent), sha=sha)}")
+        self.gh.commenter_issue(lot.numero, f"🤖 **pilote** : la chaîne se répare — PR #{numero_pr}, écrite par le "
+                                            f"mécanicien ({res.agent}), relue par {self._relecteur_de_la_chaine()} "
+                                            "avant d'entrer. Le lot repartira quand elle sera fusionnée ; si elle "
+                                            "est abandonnée, il attendra le mode direct.\n\n"
+                                + marque(role="pilote", etat=lots.ETAT_REPARATION, pr=numero_pr))
+        self.noter(lot.numero, "réparation de la chaîne proposée", f"PR #{numero_pr}", str(res.agent))
+        return True
+
+    def _suivre_la_reparation(self, lot: Lot, numero_pr: int) -> None:
+        """La réparation est fusionnée : le lot repart. Fermée sans fusion :
+        il attend le mode direct. Ouverte : rien, le mécanicien avance."""
+        etat = (self.gh.pr(numero_pr).get("state") or "").upper()
+        if etat == "MERGED":
+            self.gh.commenter_issue(lot.numero, f"🤖 **pilote** : la chaîne est réparée (PR #{numero_pr}, fusionnée) : "
+                                                "le lot repart, ses essais remis à zéro.\n\n"
+                                    + marque(role="pilote", etat=lots.ETAT_REPARATION, pr=numero_pr, fin="fusionnee"))
+            self.gh.etiqueter(lot.numero, ["pret"], ["bloque"])
+            self.noter(lot.numero, "chaîne réparée", f"PR #{numero_pr} — remis pret")
+        elif etat == "CLOSED":
+            self.gh.commenter_issue(lot.numero, f"🤖 **pilote** : la réparation de la chaîne (PR #{numero_pr}) a été "
+                                                "abandonnée ; le lot attend le mode direct, comme avant.\n\n"
+                                    + marque(role="pilote", etat=lots.ETAT_REPARATION, pr=numero_pr, fin="abandonnee"))
+            self.noter(lot.numero, "réparation de la chaîne abandonnée", f"PR #{numero_pr}")
 
     def _reparer_master(self) -> bool:
         ouvertes = [p for p in self.gh.prs_ouvertes() if p["headRefName"].startswith("meca/")]
@@ -1488,9 +1613,12 @@ class Pilote:
                                       role_codeur="mecanicien_master")
         faux = Lot(numero=pr["number"], titre=pr.get("title", "master rouge"), corps="", etiquettes=(),
                    jalon=None, jalon_titre=None)
+        # Une réparation de la chaîne (`_reparer_la_chaine`) : son prompt, sa
+        # garde et son relecteur ne sont pas ceux de master.
+        chaine = pr["headRefName"].startswith(lots.PREFIXE_REPARATION)
+        dit = (pr.get("body") or "").replace(SIGNATURE, "")
         if action.nom == "relire":
-            return self._relire(faux, pr, pr["headRefName"], liste, chantier="meca",
-                                master_rouge=(pr.get("body") or "").replace(SIGNATURE, ""))
+            return self._relire(faux, pr, pr["headRefName"], liste, chantier="meca", master_rouge=dit, chaine=chaine)
         if action.nom == "fusionner":
             self.gh.fusion_auto(pr["number"], pr.get("headRefOid"))
             self.noter("master", "fusion automatique demandée", f"PR #{pr['number']}")
@@ -1498,6 +1626,13 @@ class Pilote:
         if action.nom in ("corriger_ci", "corriger_relecture"):
             erreur = (self._erreur_ci(pr["number"]) if action.nom == "corriger_ci"
                       else prompts.correction_relecture(self._derniere_revue(pr)))
+            if chaine:
+                correction = prompts.correction_ci(erreur) if action.nom == "corriger_ci" else erreur
+                prompt = prompts.mecanicien_chaine(self.projet, numero=f"de la PR #{pr['number']}", cause=dit,
+                                                   correction=correction)
+                return self._coder(faux, pr, pr["headRefName"], action, liste, role="mecanicien_master",
+                                   poste="mecanicien", chantier="meca", prompt=prompt,
+                                   hors_portee=self._hors_reparation)
             prompt = prompts.mecanicien_master(self.projet, url=pr.get("url", ""), erreur=erreur)
             return self._coder(faux, pr, pr["headRefName"], action, liste, role="mecanicien_master",
                                poste="mecanicien", chantier="meca", prompt=prompt)

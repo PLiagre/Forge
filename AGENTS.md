@@ -22,7 +22,13 @@ l'agent modifie **directement**, sans issue, sans brief, sans relecture :
    **prévient seulement** si l'un touche les mêmes fichiers.
 
 Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
-`CLAUDE.md` et `CAP.md`.
+`CLAUDE.md` et `CAP.md`. Une exception, gardée : quand le dépanneur dit que la
+chaîne est en cause, le mécanicien la répare dans une PR `meca/chaine-…`, que
+la direction relit avant qu'elle entre. Cette réparation ne touche que
+`[projet].reparables` (`atelier/`, deux workflows, `docs/WORKFLOW.md`), jamais
+`sensibles` (la garde `atelier/garde.py` et ses tests, le cron), ni les
+droits, les secrets, la machine ou les déclencheurs d'un workflow ; le reste
+de cette liste reste au mode direct.
 
 ## 2. La chaîne — le propriétaire n'est pas là
 

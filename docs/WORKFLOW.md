@@ -32,7 +32,7 @@ fusionne toute seule.
                      ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
                      ├─ QUESTION    ──► question au propriétaire
                      ├─ DECOUPE     ──► sous-lots ouverts ; le lot et sa PR se ferment
-                     └─ MODE-DIRECT ──► reste « bloque » : la chaîne est à corriger
+                     └─ MODE-DIRECT ──► MÉCANICIEN répare la chaîne, sous garde, relu par la DIRECTION ; sinon reste « bloque »
 ```
 
 **Un lot a la taille d'une ligne du CAP** (refonte du 7 novembre 2026) : un
@@ -273,6 +273,42 @@ réponse sur l'issue, puis remettre `pret`. Du 27 septembre au 10 novembre
 2026, 47 questions ont attendu le propriétaire, 19 h de médiane chacune, et il
 répondait presque toujours la recommandation ; le 10 novembre, sept lots
 attendaient ainsi et la chaîne ne faisait plus rien.
+
+### La chaîne se répare, sous garde
+
+Quand le dépanneur rend `DECISION: MODE-DIRECT`, le lot est bloqué avec sa
+raison, comme avant ; au tour suivant, le **mécanicien** ouvre une réparation
+de la chaîne (`pilote._reparer_la_chaine`), une à la fois :
+
+1. il travaille sur une branche `meca/chaine-<lot>-<date>`, avec la cause et
+   le diagnostic du dépanneur, et doit ajouter le test qui aurait rougi ;
+2. **la garde** ([`atelier/garde.py`](../atelier/garde.py)) retire, avant tout
+   enregistrement, ce qui sort de `[projet].reparables` (`atelier/`,
+   `tests.yml`, `security.yml`, ce fichier), ce qui est dans `sensibles` (la
+   garde et ses tests, `atelier/crons/`), et tout workflow dont une ligne
+   ajoutée ou retirée touche aux droits (`permissions`), aux secrets, à la
+   machine (`runs-on`), aux déclencheurs ou aux actions appelées (`uses`).
+   `atelier.toml`, `AGENTS.md`, `CAP.md` et les workflows du PC restent au
+   mode direct. La PR dit ce qui a été retiré ;
+3. la CI joue, puis la **direction** relit (à défaut le relecteur du moteur,
+   puis le relecteur) : la réparation corrige la cause dite et rien d'autre,
+   n'affaiblit aucune garde ni aucun test de la chaîne, et la suite de
+   l'atelier passe. `ACCEPTE` la fusionne ; `CORRIGER` renvoie le mécanicien,
+   deux fois au plus, par la même garde ;
+4. fusionnée, le pilote remet le lot `pret` : il reprend, essais remis à zéro.
+
+Si le mécanicien ne change rien, ne change que ce qui est gardé, demande
+lui-même le mode direct (une installation sur une machine, un secret, un
+réglage de GitHub), ou si sa PR est abandonnée, le lot attend le mode direct,
+comme avant, et la réparation ne se retente pas. Un commentaire du
+propriétaire sur l'issue lui rend la main. Sans `reparables` dans
+`atelier.toml`, la chaîne ne se répare pas seule.
+
+La garde n'est pas un bac à sable — les agents tournent déjà sur le VPS et
+sur le PC — : elle empêche une réparation de sortir de la chaîne ou de toucher
+à ce qui la garde. Jusqu'au 10 novembre 2026, 21 lots ont attendu le
+propriétaire pour une réparation de la chaîne, dont deux jours pour un
+`--retry` que le dépanneur avait écrit sans pouvoir le poser.
 
 ### Reprendre un lot bloqué
 
