@@ -1262,7 +1262,8 @@ class Pilote:
             # La consigne vit dans la marque : « --> » la fermerait.
             consigne = (f"Question : {question.texte} Décision de la direction : {lettre}"
                         + (f" — {reponse}" if reponse else "")).replace("-->", "→")
-            texte = (f"🤖 **direction** ({res.agent}) : question de {qui}, tranchée sans t'attendre.\n\n"
+            de_qui = "du dépanneur" if blocage.get("par") == lots.PAR_DEPANNEUR else "du chef"
+            texte = (f"🤖 **direction** ({res.agent}) : question {de_qui}, tranchée sans t'attendre.\n\n"
                      f"**{question.texte}**\n\nDécision : **{lettre}**" + (f" — {reponse}" if reponse else "")
                      + (f"\n\nPourquoi : {pourquoi}" if pourquoi else "")
                      + f"\n\nCe qui la fonde : {fondement[-1].strip()}\n\n"
