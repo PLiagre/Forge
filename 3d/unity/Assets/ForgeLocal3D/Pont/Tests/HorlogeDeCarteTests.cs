@@ -103,6 +103,25 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual("Pause", Array.Find(objet.GetComponentsInChildren<Text>(true), x => x.name == "Libellé" && (x.text == "Pause" || x.text == "Reprendre"))?.text);
         }
 
+        // Lot #860 : le monde s'ouvre en pause ; la première reprise prend la vitesse de la carte, et un monde vu en marche garde la sienne.
+        [Test] public void La_reprise_d_une_pause_d_ouverture_prend_la_vitesse_de_la_carte() {
+            double v = ReglagesDesVues.Charger().VitesseCarte; Assert.AreNotEqual(1, v, "la vitesse de la carte ne distingue pas l'ancienne reprise");
+            string texte = v.ToString("R", CultureInfo.InvariantCulture);
+            lock (recues) vitesse = 0; Servir(); Poser(); double t = 1; Pas(ref t);
+            Assert.AreEqual(0, horloge.Lue.JoursParSeconde, "le service témoin s'ouvre en pause");
+            horloge.Basculer(); Pas(ref t); Assert.AreEqual(v, horloge.Lue.JoursParSeconde, "la première reprise n'est pas à la vitesse de la carte");
+            horloge.Basculer(); Pas(ref t); Assert.AreEqual(0, horloge.Lue.JoursParSeconde);
+            horloge.Basculer(); Pas(ref t); Assert.AreEqual(v, horloge.Lue.JoursParSeconde);
+            CollectionAssert.AreEqual(new[] { "POST /vitesse?jours_par_seconde=" + texte, "POST /vitesse?jours_par_seconde=0", "POST /vitesse?jours_par_seconde=" + texte },
+                Array.FindAll(Recues(), r => r.StartsWith("POST", StringComparison.Ordinal)));
+            // Un monde vu en marche à 2,5 puis mis en pause reprend à 2,5, pas à la vitesse de la carte.
+            horloge.Arreter(); UnityEngine.Object.DestroyImmediate(objet); UnityEngine.Object.DestroyImmediate(cam.gameObject);
+            lock (recues) { recues.Clear(); vitesse = 2.5; } Poser(); Pas(ref t);
+            Assert.AreEqual(2.5, horloge.Lue.JoursParSeconde); lock (recues) vitesse = 0; Pas(ref t); Assert.AreEqual(0, horloge.Lue.JoursParSeconde);
+            horloge.Basculer(); Pas(ref t); Assert.AreEqual(2.5, horloge.Lue.JoursParSeconde, "la reprise d'un monde vu en marche n'est pas à sa vitesse");
+            CollectionAssert.AreEqual(new[] { "POST /vitesse?jours_par_seconde=2.5" }, Array.FindAll(Recues(), r => r.StartsWith("POST", StringComparison.Ordinal)));
+        }
+
         [Test] public void Sans_service_le_panneau_le_dit_et_ne_regle_rien() {
             Poser(); double t = 1; Pas(ref t);
             Assert.IsNull(horloge.Lue); StringAssert.StartsWith(CarteDessinee.MESSAGE_ABSENCE + "\n", horloge.TexteAffiche);

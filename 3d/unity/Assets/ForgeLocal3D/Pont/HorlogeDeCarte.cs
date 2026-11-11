@@ -12,11 +12,12 @@ namespace Forge.Pont {
     // `CommandesDuTemps`) ; la vitesse part au service (`POST /vitesse`), et le panneau affiche celle qu'il rend. Une
     // requête à la fois, hors du fil principal ; une vitesse demandée pendant une lecture part juste après. Sans service,
     // le panneau le dit, et aucune vitesse ne part : on ne règle pas un temps qu'on ne connaît pas.
+    // Lot #860 : le jeu s'ouvre en pause. À l'ouverture, en pause, Espace et « Reprendre » lancent le temps à la vitesse de la
+    // carte (`ReglagesDesVues`) ; une fois le monde vu en marche, la reprise est celle qu'il avait.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     public sealed class HorlogeDeCarte : MonoBehaviour {
         public const float PERIODE_LECTURE_S = 0.25f;
         public static readonly double[] PALIERS = { 0.5, 1, 2, 5, 10, 20 }; // jours par seconde
-        public const double VITESSE_DE_REPRISE = 1; // si le monde était déjà en pause quand la carte s'est ouverte
         private static readonly TimeSpan DELAI = TimeSpan.FromSeconds(2);
         private static readonly Vector2 RESOLUTION_REFERENCE = new Vector2(1600, 900);
         private static readonly Color FOND = new Color(0.05f, 0.05f, 0.07f, 0.78f), BOUTON = new Color(0.22f, 0.24f, 0.3f, 1f);
@@ -27,7 +28,7 @@ namespace Forge.Pont {
 
         private ClientHorloge client; private Text texte, libellePause;
         private Task<Lecture<HorlogeLue>> enCours; private double? vitesseDemandee;
-        private double prochaineLecture, vitesseDeReprise = VITESSE_DE_REPRISE;
+        private double prochaineLecture; private double? vitesseDeReprise; // nulle tant qu'aucun monde qui avance n'a été lu
         private GameObject toile;
 
         public HorlogeLue Lue { get; private set; } // la dernière horloge servie ; null tant qu'aucune ne l'est
@@ -60,11 +61,11 @@ namespace Forge.Pont {
             enCours = Task.Run(() => c.Lire());
         }
 
-        // Pause si le monde avance ; sinon, il repart à la vitesse qu'il avait.
+        // Pause si le monde avance ; sinon, il repart à la vitesse qu'il avait, ou à celle de la carte s'il s'est ouvert en pause.
         public void Basculer() {
             if (Lue == null) return;
             if (Lue.JoursParSeconde > 0) { vitesseDeReprise = Lue.JoursParSeconde; Demander(0); }
-            else Demander(vitesseDeReprise);
+            else Demander(vitesseDeReprise ?? ReglagesDesVues.Charger().VitesseCarte);
         }
         public void Accelerer() { if (Lue != null) Demander(Suivante(Lue.JoursParSeconde, +1)); }
         public void Ralentir() { if (Lue != null) Demander(Suivante(Lue.JoursParSeconde, -1)); }
