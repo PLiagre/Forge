@@ -21,6 +21,7 @@ Le chargement (`valider_catalogue`, `jeu/sim/personnages.py:28-72`) ne change pa
 jeu/data/personnages-1400.json
 jeu/sim/tests/test_maisons.py
 jeu/sim/tests/test_pays_et_jauges.py
+jeu/sim/tests/test_modificateurs.py — seulement l'empreinte du monde au 365e jour (`EMPREINTES_365`, première valeur de chaque système) : le lot ajoute deux personnes au registre, que cette empreinte contient. Elle est recapturée, le test reste aussi strict ; seules les parties `personnages` et `chefs` du monde diffèrent, et l'empreinte de la photographie ne change pas (ajouté en mode direct le 11 novembre 2026, à la demande du propriétaire).
 
 ## Conditions de succès
 - **SC1. Les deux fiches sont remplies.** Dans `personnages-1400.json`, les entrées `chefs` de `grande-24` et de `seigneurie-6` ont un `nom`, une source `identite` `{url, fait}` dont le `fait` n'est pas vide, et une `lacunes.identite` à `null`. Dans `test_maisons.py`, `_personnages_attestes` les sort de la liste des chefs sans nom (ligne 1475, où `grande-21` reste) et les fait entrer dans des assertions de chefs nommés : `nom` non nul, nom de la page dans `url`, `fait` non vide. La ligne 1477 garde `seigneurie-6` tant que sa naissance reste `null`. `test_personnages_attestes` ajoute une altération qui remet `nom` à `None` sur chacune des deux fiches, et l'assertion doit alors tomber.
