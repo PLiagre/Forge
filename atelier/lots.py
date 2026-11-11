@@ -860,16 +860,26 @@ def decisions_du_lot(commentaires: list[dict]) -> list[str]:
     le pilote a tranchée seul. Rien ne les efface, ni un blocage ni une
     reprise : le 3 octobre 2026, #235 avait l'accord du propriétaire pour
     toucher la chronique, mais le codeur ne lisait que le brief, qui
-    l'excluait, et le lot s'est bloqué trois fois sur la même CI rouge."""
+    l'excluait, et le lot s'est bloqué trois fois sur la même CI rouge.
+
+    Ce que le propriétaire écrit après un blocage qui n'était pas une
+    question est sa consigne, et suit le lot de même : jusqu'au 11 novembre
+    2026, ce commentaire levait le blocage sans jamais arriver au codeur ni au
+    relecteur (ou leur arrivait sous une vieille question du lot)."""
     decisions: list[str] = []
     question: Question | None = None
+    blocage: str | None = None  # la raison du dernier blocage sans question, tant qu'il attend sa réponse
     for c in commentaires or []:
         faites = marques([c])
         for m in faites:
             if m.get("role") != "pilote":
                 continue
             if m.get("etat") == "bloque" and m.get("question"):
-                question = Question.de_marque(m)
+                question, blocage = Question.de_marque(m), None
+            elif m.get("etat") == "bloque":
+                question, blocage = None, (m.get("raison") or "lot bloqué")
+            elif m.get("etat") == "reponse":
+                blocage = None  # le pilote a pris la réponse : la suite n'en est plus une
             elif m.get("etat") == ETAT_DECISION and (q := Question.de_marque(m)) and q.recommandation:
                 lettre = q.recommandation[0]
                 reponse = q.reponse_recommandee()
@@ -880,9 +890,13 @@ def decisions_du_lot(commentaires: list[dict]) -> list[str]:
                 decisions.append(f"Question technique : {q.texte} Décision : {lettre}"
                                  + (f" — {reponse}" if reponse else "")
                                  + " (prise par le pilote, selon la recommandation).")
-        if faites or question is None or not _ecrit_par_un_humain(c):
+        if faites or not _ecrit_par_un_humain(c):
             continue
         texte = (c.get("body") or "").strip()
+        if question is None:
+            if blocage is not None:
+                decisions.append(f"Blocage : {blocage}. Consigne du propriétaire : {texte[:2000]}")
+            continue
         choisie = next((f"{l} — {r}" for l, r, _ in question.options if texte.rstrip(" .").upper() == l), None)
         decisions.append(f"Question : {question.texte} Réponse du propriétaire : {choisie or texte}")
     return decisions
