@@ -17,6 +17,14 @@ namespace Forge.Interface
         public const string AIDE ="Clic : choisir une terre · Glisser : déplacer · Molette : zoomer · Échap : fermer";
         public const string PAYS = "Pays de la barre";
         public const string ETAT = "État de la carte";
+        // Lot #860 : la ligne du prochain geste (à droite de la barre) et la surbrillance des terres de départ.
+        public const string GUIDE = "Prochain geste";
+        public const string TERRES = "Terres conseillées";
+        public const string CHOISIR = "Choisissez votre maison : cliquez une terre en surbrillance";
+        public const string CHOIX_RECU = "Espace : lancer le temps ; le monde applique votre choix au jour suivant";
+        public const string LANCER = "Espace : lancer le temps";
+        public const string ENTRER = " · double-clic sur votre siège : entrer dans votre ville";
+        public const float HAUTEUR_TERRE = 0.65f; // au-dessus des cellules (0) et de leurs contours (0,5), sous les disques des lieux (0,8) et les noms (1)
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;
@@ -24,8 +32,13 @@ namespace Forge.Interface
         HorlogeDeCarte horloge;
         FicheDeCellule fiche;
         GameObject toile;
-        Text date, barre, maison, territoire, apercu, etat;
+        Text date, barre, guide, maison, territoire, apercu, etat;
         BarreDuPays jauges;
+        Transform terres;
+        readonly Dictionary<long, GameObject> terresEclairees = new Dictionary<long, GameObject>();
+        readonly List<Material> teintesDeTerre = new List<Material>();
+        string ensembleDesTerres;
+        MonoBehaviour passage; System.Reflection.PropertyInfo siegeLu;
         Transform choix;
         Button confirmer;
         Button[] temps;
@@ -87,6 +100,9 @@ namespace Forge.Interface
             date.color = SocleInterface.Couleur("papier");
             barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // lot #1001 : sous le filet, dans les 100 px du bandeau
             barre.color = SocleInterface.Couleur("papier"); barre.rectTransform.sizeDelta = new Vector2(1872, 26);
+            // Lot #860 : à droite des comptes, au-dessus des jauges, sous les commandes du temps : x 1104 à 1896, y 72 à 98.
+            guide = SocleInterface.Texte(bandeau, "", 1104, 72, 792); guide.name = GUIDE;
+            guide.rectTransform.sizeDelta = new Vector2(792, 26); guide.alignment = TextAnchor.MiddleRight; guide.color = SocleInterface.Couleur("papier"); guide.raycastTarget = false;
             jauges = new BarreDuPays(bandeau); // lot #1032 : sous la barre des comptes, les trois jauges et les trois réserves de points
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
@@ -130,8 +146,11 @@ namespace Forge.Interface
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux); GetComponent<CalquesCarte>().Brancher(lieux, fleches);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // lot #1031 : la seconde lecture, sur /modificateurs
+            terres = new GameObject(TERRES).transform; terres.SetParent(transform, false); // enfant direct de la carte, jamais sous « Cellules de la carte »
             Afficher();
         }
+
+        void OnDestroy() => ViderTerres();
 
         static Button Bouton(Transform parent, string nom, float x, float y, float largeur, UnityEngine.Events.UnityAction action, string phrase)
         {
@@ -181,10 +200,89 @@ namespace Forge.Interface
             retenue = cellule;
             if (territoireTeinte != null) territoireTeinte.SetPropertyBlock(null);
             territoireTeinte = GetComponentsInChildren<MeshRenderer>().FirstOrDefault(r => r.name == "Cellule " + cellule.CellId);
-            if (territoireTeinte == null) return;
-            var teinte = new MaterialPropertyBlock();
-            teinte.SetColor("_BaseColor", SocleInterface.Couleur("alerte"));
-            territoireTeinte.SetPropertyBlock(teinte);
+            if (territoireTeinte != null)
+            {
+                var teinte = new MaterialPropertyBlock();
+                teinte.SetColor("_BaseColor", SocleInterface.Couleur("alerte"));
+                territoireTeinte.SetPropertyBlock(teinte);
+            }
+            // Lot #860 : sans maison, la terre d'une fiche servie est proposée ; seul « Choisir cette maison » envoie le choix.
+            var propose = FichesProposees()?.FirstOrDefault(f => f.CellId == cellule.CellId);
+            if (propose != null) candidate = propose;
+        }
+
+        // Les fiches de départ servies, tant que le monde est présent et sans maison du joueur ; sinon null.
+        IReadOnlyList<FicheDeDepart> FichesProposees()
+        {
+            var monde = Partie?.Monde; var departs = Partie?.Departs;
+            return monde != null && monde.Presente && monde.Donnees.MaisonDuJoueur == null && departs != null && departs.Presente ? departs.Donnees.Fiches : null;
+        }
+
+        // Lot #860 : la phrase du prochain geste, ou null quand la ligne se tait. Le monde s'ouvre en pause : choisir, puis lancer le temps.
+        public static string Guide(Lecture<MondeAvecMaisonLu> monde, Lecture<DepartsLus> departs, RecuIntention recu, HorlogeLue horloge, bool siegeAvecVille)
+        {
+            if (monde == null || !monde.Presente) return null;
+            bool enPause = horloge != null && horloge.JoursParSeconde == 0;
+            if (monde.Donnees.MaisonDuJoueur == null)
+            {
+                if (recu?.Acceptee == true) return enPause ? CHOIX_RECU : null;
+                return departs != null && departs.Presente ? CHOISIR : null;
+            }
+            if (!enPause) return null;
+            return siegeAvecVille ? LANCER + ENTRER : LANCER;
+        }
+
+        // Le siège que le passage à la capitale (lot #729) a lu, rendu par son seul accès `SiegeLu`, relu à chaque image : seul le Zab sert une ville.
+        // Le composant n'est pas nommé ici : LesAidesDisentLesNouveauxGestes interdit ce nom dans ce fichier.
+        bool SiegeAvecVille()
+        {
+            if (passage == null) foreach (var m in GetComponents<MonoBehaviour>()) { var p = m == null ? null : m.GetType().GetProperty("SiegeLu"); if (p != null) { passage = m; siegeLu = p; break; } }
+            return passage != null && siegeLu.GetValue(passage) != null;
+        }
+
+        static void Detruire(Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
+
+        void ViderTerres()
+        {
+            foreach (var objet in terresEclairees.Values) if (objet != null) Detruire(objet);
+            terresEclairees.Clear();
+            foreach (var teinte in teintesDeTerre) if (teinte != null) Detruire(teinte);
+            teintesDeTerre.Clear();
+            ensembleDesTerres = null;
+        }
+
+        // Une surbrillance par terre de départ servie ; recréées seulement si l'ensemble servi (ou la carte posée) change.
+        void AfficherTerres()
+        {
+            var fiches = FichesProposees();
+            string cle = fiches == null ? null : string.Join(",", fiches.Select(f => f.CellId).OrderBy(c => c)) + "|" + carte.CellulesServies;
+            if (cle != ensembleDesTerres)
+            {
+                ViderTerres(); ensembleDesTerres = cle;
+                if (fiches != null) PoserTerres(fiches);
+            }
+            foreach (var terre in terresEclairees) terre.Value.SetActive(retenue == null || retenue.CellId != terre.Key);
+        }
+
+        void PoserTerres(IReadOnlyList<FicheDeDepart> fiches)
+        {
+            var voulues = new HashSet<string>(fiches.Select(f => "Cellule " + f.CellId));
+            var rendus = GetComponentsInChildren<MeshRenderer>().Where(r => voulues.Contains(r.name)).GroupBy(r => r.name).ToDictionary(g => g.Key, g => g.First());
+            foreach (var fiche in fiches)
+            {
+                if (terresEclairees.ContainsKey(fiche.CellId) || !rendus.TryGetValue("Cellule " + fiche.CellId, out var rendu)) continue;
+                if (!rendu.TryGetComponent<MeshFilter>(out var filtre) || filtre.sharedMesh == null || rendu.sharedMaterial == null) continue;
+                var maillage = filtre.sharedMesh;
+                var objet = new GameObject("Terre conseillée " + fiche.CellId, typeof(MeshFilter), typeof(MeshRenderer));
+                objet.transform.SetParent(terres, false);
+                objet.transform.SetPositionAndRotation(rendu.transform.position + transform.up * HAUTEUR_TERRE, rendu.transform.rotation);
+                objet.transform.localScale = rendu.transform.localScale;
+                objet.GetComponent<MeshFilter>().sharedMesh = maillage;
+                var teinte = new Material(rendu.sharedMaterial) { name = "Terre conseillée", color = SocleInterface.Couleur("or") };
+                teintesDeTerre.Add(teinte);
+                objet.GetComponent<MeshRenderer>().sharedMaterial = teinte;
+                terresEclairees.Add(fiche.CellId, objet);
+            }
         }
 
         public void Afficher()
@@ -205,6 +303,10 @@ namespace Forge.Interface
                     ? Lecture<MondeLu>.De(monde.Donnees.Monde) : Lecture<MondeLu>.Absent(monde.Absence));
             }
             else territoire.text = INVITATION;
+            string geste = Guide(Partie.Monde, Partie.Departs, Partie.Recu, horloge.Lue, SiegeAvecVille());
+            guide.gameObject.SetActive(geste != null);
+            if (geste != null) guide.text = geste;
+            AfficherTerres();
             AfficherMaison();
         }
 
