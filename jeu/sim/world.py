@@ -166,6 +166,9 @@ class World:
         jauges     : identifiant de maison → état de ses jauges et de ses points
                      (`sim.jauges`), seulement s'il diffère du départ ; dans to_dict
                      sous `jauges` s'il en reste un.
+        niveaux_de_province : cell_id → niveau de la province améliorée (entier ≥ 1,
+                     `sim.jauges`) ; ne garde que les cellules améliorées, appartient à
+                     la cellule et non à sa maison ; dans to_dict s'il n'est pas vide.
         batiments_de_province : chantiers et bâtiments de province
                      (`sim.batiments.BatimentDeProvince`), par identifiant ; dans
                      to_dict s'il y en a un.
@@ -205,6 +208,7 @@ class World:
         self.modificateurs = []
         self.facteurs_du_tick = {}
         self.jauges = {}
+        self.niveaux_de_province = {}
         self.batiments_de_province = []
 
     @property
@@ -416,6 +420,8 @@ class World:
         if self.jauges:
             document["jauges"] = {maison: dict(sorted(valeurs.items()))
                                   for maison, valeurs in sorted(self.jauges.items())}
+        if self.niveaux_de_province:
+            document["niveaux_de_province"] = dict(sorted(self.niveaux_de_province.items()))
         if self.batiments_de_province:
             document["batiments_de_province"] = [b.en_document() for b in self.batiments_de_province]
         return document

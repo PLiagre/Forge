@@ -112,3 +112,12 @@ grandeur = "natalite"
 valeur = -0.5
 portee = "lieu"
 duree_jours = 365
+
+# La province améliorée (geste « Améliorer une province », data/jauges.toml) :
+# plus de grain récolté sur tous les lieux de la cellule, un niveau après l'autre.
+[modificateurs.amelioration_de_province]
+nom = "Province améliorée"
+grandeur = "recolte"
+valeur = 0.02
+portee = "cellule"
+duree_jours = 0

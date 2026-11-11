@@ -3303,6 +3303,44 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   1,5 point disponible » ; « Concorde déjà à sa borne : 3 points ». Le panneau
   du pays (« Gestes des jauges ») dépose ce même geste par `POST /intention`, et
   `/pays` sert `refus` dans ces mêmes mots.
+- **Améliorer une province.** `ameliorer_une_province` (`maison`, `cell`), du
+  joueur (`POST /intention`) ou de l'IA (`jouer_ia`), par `recevoir_intention` :
+  le geste qui ne s'épuise jamais. Pour une cellule au niveau `k` (0 si elle n'a
+  jamais été améliorée), le niveau suivant coûte `cout_premier_niveau ×
+  facteur_par_niveau ** k` points de Plume (`[amelioration_de_province]` des
+  données) : 6, 9, 13,5, 20,25… sans arrondi ; les raisons l'écrivent au dixième.
+  Un chef de gestion 1 gagne 0,5 point par mois : le premier niveau est payable
+  en douze mois. Le niveau est `World.niveaux_de_province` (cell_id → entier ≥ 1,
+  seules les cellules améliorées, dans `to_dict()` sous `niveaux_de_province`
+  seulement s'il n'est pas vide) : il appartient à la cellule, pas à la maison,
+  et reste à la cellule si son maître change. Le dépôt refuse, avec sa raison et
+  sans rien écrire : une maison inconnue ou mal formée, un `cell` qui n'est pas
+  un entier, une cellule inconnue, une cellule dont le bourg est à un autre
+  maître (« pas sur vos terres : le bourg de la cellule N est à 'x' », comme les
+  bâtiments), une Plume insuffisante. **La Plume engagée est commune** : la
+  Plume disponible au dépôt est l'état de la maison moins le coût de tous ses
+  gestes déjà déposés pour le tick, `depenser_jauge` et `ameliorer_une_province`
+  ensemble (une cellule redéposée coûte le niveau d'après) ; `verifier_geste`
+  compte aussi les améliorations déposées, pour que le tick ne lève jamais
+  `JaugeInvalide`. À l'étape des intentions, la Plume est revérifiée sans relire
+  le registre ni les maîtres, puis : la Plume baisse du coût, le niveau monte de
+  1, `amelioration_de_province` (« Province améliorée », récolte +2 %, portée
+  cellule) se pose sur la cellule sous la source `jauge:province:<cell_id>-<niveau>`.
+  Chaque niveau a sa pose : au niveau 2, le facteur de récolte vaut 1,04. Comme
+  les intentions précèdent le calcul des facteurs du tick, la pose agit dès le
+  tick où le geste s'applique. Les retraits de `poser_les_modificateurs` se
+  limitent aux sources `jauge:<nom>:` des jauges des règles : les poses de
+  province survivent au mois et aux gestes, et `lire_regles` refuse une jauge
+  nommée `province`. L'économie reste physique (décision 35) : le geste ne
+  coûte et ne crée aucun kilo ; son modificateur multiplie une récolte que le
+  moteur lisait déjà. `/pays` sert, sous `jauges.amelioration`, le `nom`, le
+  `dit`, la `reserve`, le `modificateur` (nom, grandeur, nom de la grandeur,
+  valeur par niveau) et les `provinces` dont la maison tient elle-même le bourg,
+  triées par cell_id : `cell_id`, `niveau`, `cout` du suivant et `refus` (la
+  raison du dépôt, ou `null`, sans compter les gestes déjà déposés).
+  `jauges.gestes` (deux gestes, ceux du panneau), `grandeurs` et `modificateurs`
+  ne changent pas. L'IA n'a pas encore de règle pour l'améliorer (#1027) :
+  une maison qui dépose l'intention obtient le monde qu'obtient le joueur.
 - **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont la
   Concorde est sous son neutre et dont la Plume paie le geste dépose
   « Affermir la concorde », par `recevoir_intention`, avec sa raison
@@ -3310,7 +3348,8 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   le même monde (décision 38).
 
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
-`data/jauges.toml`. **Niveau 3**, pas simulé : le conseil du souverain (ses
+`data/jauges.toml`, dont les trois de l'amélioration d'une province (6 points
+pour le premier niveau, ×1,5 par niveau, +2 % de récolte par niveau). **Niveau 3**, pas simulé : le conseil du souverain (ses
 points viendront aussi de ses conseillers), les causes du Renom par la guerre
 et du Droit par la succession.
 
