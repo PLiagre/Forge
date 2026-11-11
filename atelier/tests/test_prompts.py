@@ -46,3 +46,20 @@ def test_le_brief_d_un_lot_unity_dit_ce_que_sa_photo_montre(projet):
                             machine=machine, chemin_brief="b.md")
     assert "## Photo" in brief("pc") and "sans objet : <raison>" in brief("pc")
     assert "## Photo" not in brief("vps")
+
+
+def test_une_empreinte_epinglee_se_recapture_dans_le_lot_avec_sa_mesure(projet):
+    """Le 11 novembre 2026, #1052 est resté rouge une matinée : son brief
+    n'avait pas le test épinglé au Périmètre, et personne n'avait le droit de
+    recapturer une empreinte que le lot changeait à dessein."""
+    chef = prompts.chef(projet, numero=10, titre="t", corps="c", commentaires="", jalon=5, jalon_titre="J5",
+                        machine="vps", chemin_brief="docs/briefs/10-t.md")
+    codeur = prompts.codeur(projet, numero=10, titre="t", chemin_brief="docs/briefs/10-t.md")
+    relecteur = prompts.relecteur(projet, numero=10, titre="t", chemin_brief="docs/briefs/10-t.md", url="u", sha="a" * 40)
+    assert "inscris le fichier de test de chacune au Périmètre" in chef and "pas une question au propriétaire" in chef
+    assert "Tu la recaptures, même si son fichier n'est pas au Périmètre" in codeur
+    assert "quelles parties du monde diffèrent" in codeur and "ne la recapture pas" in codeur
+    assert "n'est pas un assouplissement quand le compte rendu dit" in relecteur and "Sans cette mesure, c'est CORRIGER" in relecteur
+    # La règle d'avant tient toujours, partout.
+    assert "n'assouplit jamais un test existant" in chef and "Ne modifie aucun test existant" in codeur
+    assert "Aucun test existant n'a été modifié pour passer" in relecteur
