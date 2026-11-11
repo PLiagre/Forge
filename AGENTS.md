@@ -150,7 +150,10 @@ Leur raison est dans [docs/VISION.md](docs/VISION.md), dans le même ordre.
    défaut. Niveau 3 : pas simulé. Tout brief qui touche le monde dit son niveau.
 8. **Une capacité n'existe que si sa preuve peut échouer.** Prouver le rouge
    d'abord ; un échantillon vide échoue ; **un test existant ne s'assouplit
-   jamais** pour passer — un lot ajoute ses cas.
+   jamais** pour passer — un lot ajoute ses cas. Une empreinte épinglée (un
+   hachage du monde figé dans un test) se recapture dans le lot qui change ce
+   qu'elle mesure, avec la mesure avant et après : la référence suit les
+   données, le test reste aussi strict.
 
 `cell_id` est la seule clé spatiale ; ce qui s'en dérive (province, bourg,
 lieu) ne se stocke pas comme une seconde clé ([jeu/sim/MODELE.md](jeu/sim/MODELE.md)).

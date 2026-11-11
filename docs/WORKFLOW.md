@@ -310,11 +310,29 @@ sur le PC — : elle empêche une réparation de sortir de la chaîne ou de touc
 propriétaire pour une réparation de la chaîne, dont deux jours pour un
 `--retry` que le dépanneur avait écrit sans pouvoir le poser.
 
+### Une empreinte épinglée qui change
+
+Plusieurs tests figent un hachage du monde ou de la photographie
+(`EMPREINTES_365` dans `jeu/sim/tests/test_modificateurs.py`). Un lot qui
+change les données du monde ou une règle change ce hachage : ce n'est pas un
+défaut, et le recapturer n'assouplit rien. Le **chef** inscrit le fichier du
+test au Périmètre, « seulement son empreinte », et dit quelles parties du
+monde doivent différer ; le **codeur** recapture, en donnant dans son compte
+rendu la mesure avant et après (les parties qui diffèrent, et elles seules),
+même quand le brief l'a oublié ; il ne change que la valeur du système où il
+mesure, et retire celle qu'il ne peut pas mesurer ; le **relecteur** vérifie
+cette mesure, et rend `CORRIGER` sans elle. Une empreinte qui change sans
+qu'on sache dire pourquoi reste un défaut. Le 11 novembre 2026, #1052 (deux
+chefs de plus au registre) est resté rouge une matinée : son brief n'avait pas
+le test au Périmètre, et personne n'avait le droit de recapturer.
+
 ### Reprendre un lot bloqué
 
 Corriger la cause s'il le faut (en mode direct si elle est dans la chaîne),
 puis **écrire un commentaire sur l'issue** : ce qui a été fait, ou la
-décision. Tout commentaire d'un humain écrit après le dernier blocage vaut
+décision. Ce commentaire suit ensuite le lot : le codeur et le relecteur le
+reçoivent comme une consigne du propriétaire, que le blocage ait été une
+question ou non. Tout commentaire d'un humain écrit après le dernier blocage vaut
 réponse ; ceux du pilote (marqués) et des robots ne comptent pas, et un lot
 bloqué à la main, sans marque du pilote, ne se lève pas tout seul. Au tour
 suivant, le pilote écrit « réponse reçue » et remet le lot `pret` ; retirer

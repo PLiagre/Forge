@@ -44,6 +44,37 @@ _PHOTO_DU_CODEUR = (
 
 # La nature d'une question : le propriétaire ne tranche que ce qui oriente le
 # jeu ; le reste suit la recommandation sans l'attendre (lots._NATURE).
+# Une empreinte épinglée : un hachage du monde ou de la photographie figé dans
+# un test (`EMPREINTES_365` de `jeu/sim/tests/test_modificateurs.py`). Elle
+# change dès qu'un lot change ce qu'elle mesure. Le 11 novembre 2026, #1052
+# (deux chefs de plus au registre) est resté rouge toute une matinée : son
+# brief n'avait pas le fichier du test au Périmètre, le codeur a diagnostiqué
+# juste deux fois sans avoir le droit de recapturer, et le dépanneur avait usé
+# ses relances. La recapturer avec sa mesure n'assouplit rien : le test reste
+# aussi strict, sa référence suit les données.
+_EMPREINTE_DU_CHEF = (
+    "Une empreinte épinglée (un hachage du monde ou de la photographie figé dans un test, comme `EMPREINTES_365`) "
+    "change dès que le lot change les données du monde ou une règle : cherche celles que ce lot fera changer "
+    "(`grep -rnE 'sha256|EMPREINTE' jeu/`), inscris le fichier de test de chacune au Périmètre, « seulement son "
+    "empreinte », et dis dans une condition de succès quelles parties du monde doivent différer. La recapturer "
+    "n'assouplit rien, et ce n'est pas une question au propriétaire."
+)
+_EMPREINTE_DU_CODEUR = (
+    "Une exception, étroite : une empreinte épinglée (un hachage du monde ou de la photographie figé dans un test) "
+    "que ton lot fait changer parce qu'il change les données ou la règle que le brief demande de changer. Tu la "
+    "recaptures, même si son fichier n'est pas au Périmètre, à trois conditions. Tu as mesuré avant et après, et "
+    "ton compte rendu dit quelles parties du monde diffèrent : ce sont celles que le lot devait changer, et elles "
+    "seules. Tu ne touches rien d'autre dans ce fichier. Tu ne changes que la valeur du système où tu mesures ; "
+    "si la table en porte une par système, tu retires celle que tu ne peux pas mesurer (le test dira « non "
+    "mesurée » au lieu de comparer à une valeur périmée), et tu le dis. Une empreinte qui change sans que tu saches "
+    "dire pourquoi est un défaut : cherche-le, ne la recapture pas."
+)
+_EMPREINTE_DU_RELECTEUR = (
+    "Une empreinte épinglée recapturée n'est pas un assouplissement quand le compte rendu dit quelles parties du "
+    "monde diffèrent, que ce sont celles que le lot devait changer, et que rien d'autre ne change dans le fichier "
+    "du test : vérifie-le dans le diff et contre les données du lot. Sans cette mesure, c'est CORRIGER."
+)
+
 _NATURE_DE_LA_QUESTION = (
     "Après la recommandation, une ligne « NATURE :: jeu » ou « NATURE :: technique ». "
     "« jeu » : une réponse change ce que le joueur voit, choisit ou vit, ce que le monde fait ou comment il "
@@ -117,6 +148,7 @@ Règles :
 - Dans une découpe, les sous-lots qui ne s'attendent pas avancent en même temps, chacun dans son chantier. Finis une ligne par « :: après 1, 3 » (les rangs, dans ta liste, des sous-lots dont il a vraiment besoin, tous plus haut que lui) ou par « :: après rien » (il part tout de suite) ; sans « après », il part tout de suite aussi. Une file n'avance qu'un lot à la fois : un sous-lot n'en attend un autre que s'il a besoin de ce que celui-là crée (une fonction, une donnée, un fichier), et ta ligne le dit. Deux sous-lots qui modifient les mêmes fichiers s'attendent : sinon ils se marchent dessus.
 - Jamais dans le périmètre : {_interdits(projet)}. Seul le propriétaire y écrit.
 - Un lot n'assouplit jamais un test existant : il ajoute ses cas au fichier qui porte l'invariant.
+- {_EMPREINTE_DU_CHEF}
 - Si le lot demande une décision que seul le propriétaire peut prendre (changer un test existant ou une règle du monde, trancher entre deux lectures de `CAP.md` ou de `docs/VISION.md`), n'écris rien et pose-lui la question : termine par la ligne « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». {_NATURE_DE_LA_QUESTION} Il te lit sur son téléphone : des phrases courtes, sans jargon de code. Si les commentaires contiennent déjà sa réponse à ta question, ou la décision que le pilote a prise seul, suis-la : ne la repose pas.
 - Une seule question par lot, qui porte TOUTES ses décisions. Avant de la poser, recense tout ce que le lot fera changer : chaque test existant qui rougira (cherche dans les tests ce qui compte, borne ou fige ce que le lot touche), chaque règle du monde. Si le lot en demande plusieurs, ta question les nomme toutes, et chaque réponse dit ce qu'elle décide pour chacune (« A :: oui aux deux… »). Le 30 septembre 2026, #207 a posé deux questions à quatre minutes d'écart : le propriétaire a cru avoir répondu, et le lot a attendu une nuit.
 - Machine « pc » : le lot demande Unity ou Blender sur le PC Windows ; « vps » : Python seul.
@@ -152,6 +184,7 @@ def codeur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
 Le brief `{chemin_brief}` est ta source d'instruction, avec les décisions du propriétaire s'il y en a plus bas : lis-le en entier, puis `AGENTS.md`.
 - N'écris que dans les fichiers que sa section « Périmètre » autorise, ou qu'une décision du propriétaire autorise. Jamais dans : {_interdits(projet)}.
 - Ne modifie aucun test existant pour le faire passer ; ajoute tes cas.
+- {_EMPREINTE_DU_CODEUR}
 - Lance les tests qui couvrent ce que tu touches : les tests que tu ajoutes ou changes (filtre `-k`, par exemple `{_lanceur(projet)} -m pytest jeu/sim/tests/test_lieux.py -k ouverture -q`), `jeu/sim/tests/test_no_hardcoded.py`, `jeu/sim/tests/test_write_coverage.py` et les commandes des conditions de succès, sauf celle de la suite entière : ils sont verts avant que tu rendes la main. Jamais un fichier de test existant en entier, ni la suite entière : certains prennent 15 à 45 minutes et dépassent ton délai ; la CI les joue après la poussée, et une CI rouge te revient.
 - {_FRONTIERE}
 - Écris en français : commentaires, messages, compte rendu.
@@ -224,7 +257,7 @@ Relis le lot #{numero} « {titre} » : la PR {url}, révision {sha[:7]}. Ce doss
 Vérifie, du plus grave au plus léger :
 1. Le diff reste dans le Périmètre du brief, élargi par les décisions du propriétaire s'il y en a plus bas, et rien ne touche {_interdits(projet)}.
 2. Chaque condition de succès est mesurée par un test ou une commande qui peut échouer.
-3. Aucun test existant n'a été modifié pour passer ; aucune tolérance n'a été élargie.
+3. Aucun test existant n'a été modifié pour passer ; aucune tolérance n'a été élargie. {_EMPREINTE_DU_RELECTEUR}
 4. Le code suit `AGENTS.md` : un modificateur a sa source, sa cible et sa grandeur, ses chiffres sont dans `jeu/data/`, il change un taux et ne crée aucun kilo ni aucune pièce ; pas de nombre magique ; déterminisme tenu.
 5. Ce que le lot prétend est vrai : lis le code, pas seulement le compte rendu.
 6. Lot « pc » : tu n'as pas Unity ; le compte rendu du PC dit si Unity compile la révision. S'il dit que non, c'est CORRIGER. Il joint le plan fixe et la photo propre au lot : regarde celle-ci, elle doit montrer ce que le lot prétend.
