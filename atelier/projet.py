@@ -62,10 +62,13 @@ ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "depanneur", 
          "boussole")
 # Les rôles qu'un dépôt peut nommer, ou non. Le relecteur du moteur relit les
 # lots qui touchent [projet].chemins_du_moteur ; sans lui, le relecteur relit tout.
-ROLES_FACULTATIFS = ("relecteur_moteur",)
+# La direction regarde une question posée au propriétaire avant lui
+# (pilote._diriger) ; sans elle, toute question de jeu lui va, comme avant le
+# 10 novembre 2026.
+ROLES_FACULTATIFS = ("relecteur_moteur", "direction")
 
 # Les rôles qui n'écrivent rien : leur outil est appelé en lecture seule.
-ROLES_LECTURE_SEULE = ("relecteur", "relecteur_moteur", "depanneur", "chroniqueur", "boussole")
+ROLES_LECTURE_SEULE = ("relecteur", "relecteur_moteur", "depanneur", "chroniqueur", "boussole", "direction")
 
 # Les machines d'un lot : le VPS (Python) et le PC (Unity, Blender).
 MACHINES = ("vps", "pc")

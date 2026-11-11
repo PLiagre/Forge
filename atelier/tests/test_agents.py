@@ -3,6 +3,8 @@ les clés retirées, le secours sur quota, qui code et qui relit."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from atelier import agents as A
@@ -45,7 +47,7 @@ def test_les_chemins_interdits_a_un_lot(projet):
 
 def test_argv_de_claude_en_ecriture_et_en_lecture():
     claude = A.argv(Agent("claude", "claude-opus-5-5"), "fais", lecture_seule=False, windows=False)
-    assert claude[:6] == ["claude", "-p", "fais", "--model", "claude-opus-5-5", "--output-format"]
+    assert claude[:7] == ["claude", "-p", "fais", "--model", "claude-opus-5-5", "--output-format", "json"]
     assert "acceptEdits" in claude and "Bash(git push:*)" in claude[claude.index("--disallowedTools") + 1]
     relit = A.argv(Agent("claude", "claude-opus-5-5"), "relis", lecture_seule=True, windows=False)
     assert "Edit" in relit[relit.index("--disallowedTools") + 1]
@@ -413,3 +415,48 @@ def test_un_test_rouge_de_l_agent_n_est_pas_un_appel_refuse():
     # « unrecognized arguments » ; c'est l'échec de l'agent, pas du harnais.
     sortie = "E   SystemExit: 2\nusage: forge [-h]\nforge: error: unrecognized arguments: --vite\n1 failed"
     assert A.cause_de_refus(1, sortie) is None
+
+
+# Ce que Claude Code 2.1.312 rend avec `--output-format json` (relevé le 10 novembre 2026, abrégé).
+def _json_de_claude(texte, *, erreur=False, cout=0.42, extra=""):
+    return ('{"type":"result","subtype":"' + ("error_during_execution" if erreur else "success") + '","is_error":'
+            + ("true" if erreur else "false") + ',"num_turns":7,"duration_ms":93400,"total_cost_usd":' + str(cout)
+            + ',"usage":{"input_tokens":12,"cache_creation_input_tokens":8000,"cache_read_input_tokens":30000,'
+            '"output_tokens":900},"result":' + json.dumps(texte) + extra + "}")
+
+
+def test_la_sortie_json_rend_le_texte_de_l_agent_et_ce_que_l_appel_a_coute(projet, tmp_path):
+    """Jusqu'au 10 novembre 2026, la sortie était en texte : 1 071 appels en
+    cinq semaines, et personne ne savait ce que coûtait un lot."""
+    texte, mesure = A.lire_sortie("un avertissement du harnais\n" + _json_de_claude("Fait.\nVERDICT: ACCEPTE") + "\n")
+    assert texte == "Fait.\nVERDICT: ACCEPTE"
+    assert mesure == {"cout": 0.42, "tours": 7, "duree": 93, "entree": 38012, "sortie": 900, "erreur": False}
+    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10,
+                     executeur=Agents((0, _json_de_claude("Fait."))))
+    assert res.reussi and res.texte == "Fait." and res.mesure["cout"] == 0.42
+
+
+@pytest.mark.parametrize("sortie", ["Fait.\nVERDICT: ACCEPTE", "", '{"pas": "un résultat"}', "{json cassé",
+                                    '["type", "result"]'])
+def test_une_sortie_qui_n_est_pas_ce_json_reste_telle_quelle_sans_mesure(sortie):
+    """Contre-épreuve : on ne devine pas un coût. Un appel coupé par son
+    délai, un autre harnais ou une version ancienne rendent leur texte."""
+    assert A.lire_sortie(sortie) == (sortie, {})
+
+
+def test_un_quota_dit_en_json_fait_toujours_attendre_sans_bruler_d_essai(projet, tmp_path):
+    """Le refus se lit dans le texte de l'agent, ou ailleurs dans ce que le
+    harnais a rendu ; et une erreur dite sans code d'erreur reste une erreur."""
+    for refus in (_json_de_claude("You've hit your usage limit", erreur=True),
+                  _json_de_claude("", erreur=True, extra=',"api_error_status":429')):
+        agents = Agents((1, refus), (0, _json_de_claude("fait")))
+        res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
+        assert res.reussi and str(res.agent) == "claude/haiku" and "quota" in res.essais[0]
+    sans_code = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
+                           executeur=Agents((0, _json_de_claude("l'outil a planté", erreur=True))))
+    assert not sans_code.reussi and sans_code.code == 1 and not sans_code.attente
+    # Un agent qui parle de quota dans un travail réussi n'est pas un refus.
+    bavard = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10,
+                        executeur=Agents((0, _json_de_claude("Le quota de grain est codé."))))
+    assert bavard.reussi and str(bavard.agent) == "claude/sonnet"
+
