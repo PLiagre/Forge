@@ -59,6 +59,13 @@ CHAMPS_MOBILES: tuple[str, ...] = (
     "stocks",
 )
 
+# Le détail des modificateurs (`sim/modificateurs.py`) est une clé de la
+# photographie qui n'existe qu'avec une pose, et qui change avec elle : une
+# famine (#1029) la fait apparaître au milieu d'un déroulé. Elle n'appartient
+# donc pas au décor, qui est écrit une fois à t0 : elle voyage dans l'image,
+# présente seulement quand le monde porte une pose.
+CLE_MODIFICATEURS = "modificateurs"
+
 # Version du format de chronique. Elle suit le schéma de la photographie
 # dont elle est la découpe : une chronique ne peut pas être plus récente
 # que ce qu'elle découpe.
@@ -78,7 +85,9 @@ def decouper(photographie: dict) -> tuple[dict, dict]:
     """
     cellules = photographie["cells"]
     decor: dict[str, Any] = {
-        cle: valeur for cle, valeur in photographie.items() if cle != "cells"
+        cle: valeur
+        for cle, valeur in photographie.items()
+        if cle not in ("cells", CLE_MODIFICATEURS)
     }
     decor["format"] = FORMAT_CHRONIQUE
     decor["cellules"] = [
@@ -94,6 +103,8 @@ def decouper(photographie: dict) -> tuple[dict, dict]:
             for champ in CHAMPS_MOBILES
         },
     }
+    if CLE_MODIFICATEURS in photographie:
+        image[CLE_MODIFICATEURS] = photographie[CLE_MODIFICATEURS]
     return decor, image
 
 
@@ -127,6 +138,8 @@ def recomposer(decor: dict, image: dict) -> dict:
     photographie["tick"] = image["tick"]
     if image.get("jour") is not None:
         photographie["jour_de_tick"] = image["jour"]
+    if CLE_MODIFICATEURS in image:
+        photographie[CLE_MODIFICATEURS] = image[CLE_MODIFICATEURS]
     return photographie
 
 
@@ -153,6 +166,7 @@ def _image_du_monde(world: World, numero_tick: int, places: dict | None = None, 
     """
     from sim.aggregation import bourg_depuis_monde, repartition_bourg_de_cellule_consultation
     from sim.model import cellule_vers_dict
+    from sim.modificateurs import document_des_modificateurs
 
     repartitions = bourg_depuis_monde(world)
     places = places_du_monde(world) if places is None else places
@@ -188,6 +202,8 @@ def _image_du_monde(world: World, numero_tick: int, places: dict | None = None, 
     image = {"tick": numero_tick, "jour": None, "colonnes": colonnes}
     if hasattr(_constantes, "jour_de_tick"):
         image["jour"] = _constantes.jour_de_tick(numero_tick)
+    if world.modificateurs:
+        image[CLE_MODIFICATEURS] = document_des_modificateurs(world)
     return image
 
 
