@@ -27,6 +27,17 @@ lignes_max = 1500
 # Les chemins du moteur : un lot qui en touche un est relu par le relecteur
 # du moteur (Opus) ; les autres par le relecteur (Sonnet).
 chemins_du_moteur = ["jeu/sim/"]
+# Quand le dépanneur dit que la chaîne elle-même est en cause, le mécanicien
+# la répare dans une PR `meca/chaine-…`, que la direction relit avant qu'elle
+# entre ; le lot repart quand elle est fusionnée. `reparables` : ce qu'une
+# telle réparation peut toucher. `sensibles` : ce qu'elle ne touche jamais,
+# même là-dedans : la garde et ses tests, et les scripts du cron. Dans un
+# workflow, elle ne change ni droits, ni secrets, ni machine, ni
+# déclencheurs (`atelier/garde.py`). Tout le reste (ce fichier, AGENTS.md,
+# CAP.md, les workflows du PC) reste au mode direct. Jusqu'au 10 novembre
+# 2026, 21 lots ont attendu le propriétaire pour une réparation de la chaîne.
+reparables = ["atelier/", ".github/workflows/tests.yml", ".github/workflows/security.yml", "docs/WORKFLOW.md"]
+sensibles = ["atelier/garde.py", "atelier/tests/test_garde.py", "atelier/crons/"]
 # Passages du codeur après le premier (CI rouge ou relecture « CORRIGER »)
 # avant que le lot soit « bloque », avec sa raison.
 corrections_max = 2

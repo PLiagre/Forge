@@ -114,6 +114,19 @@ class Depot:
             fichiers.append(nom)
         return fichiers
 
+    def lignes_changees(self, chemin: Path, fichier: str) -> list[str]:
+        """Les lignes qu'un changement non enregistré ajoute ou retire dans ce
+        fichier ; toutes ses lignes s'il est neuf. C'est ce que lit la garde
+        d'une réparation de la chaîne (`garde.lignes_sensibles`)."""
+        _, diff, _ = self.git_code("diff", "HEAD", "--", fichier, cwd=chemin)
+        if diff.strip():
+            return [l[1:] for l in diff.splitlines()
+                    if l[:1] in "+-" and not l.startswith(("+++", "---"))]
+        try:
+            return (Path(chemin) / fichier).read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
+
     def annuler(self, chemin: Path, fichiers: list[str]) -> None:
         """Remet ces fichiers comme la tête les porte ; efface les nouveaux."""
         suivis = set(self.git("ls-files", "-z", cwd=chemin).split("\0"))

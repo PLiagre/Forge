@@ -179,12 +179,24 @@ def correction_relecture(revue: str) -> str:
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
               url: str, sha: str, rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
               lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = (),
-              master_rouge: str | None = None) -> str:
+              master_rouge: str | None = None, chaine: bool = False) -> str:
     """`master_rouge` : la réparation de master par le mécanicien, sans issue
     ni brief ; c'est ce que dit sa PR. Jusqu'au 15 octobre 2026, le relecteur
     recevait un brief `docs/briefs/<n° de la PR>-….md` qui n'existe pas."""
     if master_rouge is None:
         reference = f"Le brief `{chemin_brief}` est la référence."
+    elif chaine:
+        reference = ("Ce n'est pas un lot : c'est une réparation de la chaîne elle-même par le mécanicien, sans brief, "
+                     "parce qu'un lot était bloqué par elle. Sa PR dit :\n"
+                     f"-----\n{master_rouge.strip()[:4000] or '(rien)'}\n-----\n"
+                     f"Elle a le droit de toucher : {_liste(projet.reparables)} ; jamais : {_liste(projet.sensibles)}, "
+                     "ni rien d'autre. Là où la liste ci-dessous parle du brief ou des chemins interdits, lis : le diff "
+                     "ne touche que ce que demande cette cause, dans ces chemins. Vérifie en plus, et c'est le plus "
+                     "grave : elle corrige la cause dite et rien d'autre ; elle ne retire ni n'affaiblit aucune garde "
+                     "de la chaîne (chemins interdits, plafonds d'essais, verrous, relecture, fusion) ni aucun test de "
+                     "`atelier/tests/` ; elle ne change ni les droits, ni les secrets, ni la machine, ni les "
+                     f"déclencheurs d'un workflow ; `{_lanceur(projet)} -m pytest atelier/tests -q` passe : rejoue-le. "
+                     "Une réparation qui entre fait tourner la chaîne de tous les lots : dans le doute, CORRIGER.")
     else:
         base = projet.branche_base
         reference = (f"Ce n'est pas un lot : c'est la réparation de `{base}` par le mécanicien, sans issue ni brief. "
@@ -246,6 +258,30 @@ Répare la cause. Ne modifie pas un test pour le faire passer. Lance `{_tests(pr
 Jamais dans : {_interdits(projet)}. Si la réparation l'exige, n'écris rien et termine par la ligne « DECISION: MODE-DIRECT :: <raison> ».
 {_FRONTIERE}
 Termine par un compte rendu court."""
+
+
+def _liste(chemins: tuple[str, ...]) -> str:
+    return ", ".join(f"`{c}`" for c in chemins) or "rien"
+
+
+def mecanicien_chaine(projet: Projet, *, numero: int | str, cause: str, diagnostic: str = "", correction: str = "") -> str:
+    """Le mécanicien, devant un lot que la chaîne elle-même bloque."""
+    dit = f"\nCe qu'a écrit le dépanneur :\n-----\n{diagnostic.strip()[:6000]}\n-----\n" if diagnostic.strip() else ""
+    suite = f"\n\n{correction}" if correction else ""
+    return f"""Tu es le mécanicien de Forge. Le lot #{numero} est bloqué, et ce n'est pas lui qui est en cause : c'est la chaîne elle-même. Ce dossier est une copie de `{projet.branche_base}`.
+
+La cause, d'après le dépanneur :
+-----
+{cause.strip()[:4000]}
+-----
+{dit}
+Répare cette cause, et elle seule, par le plus petit changement qui la corrige. Lis d'abord `AGENTS.md` et `docs/WORKFLOW.md`. Ajoute à `atelier/tests/` le test qui aurait rougi : prouve le rouge d'abord. Lance `{_lanceur(projet)} -m pytest atelier/tests -q` : la suite est courte, elle est verte avant que tu rendes la main.
+
+Tu peux écrire dans : {_liste(projet.reparables)}. Jamais dans : {_liste(projet.sensibles)}, ni ailleurs : le pilote retire ces changements. Dans un workflow, tu ne touches ni aux droits (`permissions`), ni aux secrets, ni à la machine (`runs-on`), ni aux déclencheurs (`on:`), ni aux actions appelées (`uses`). Tu ne retires ni n'affaiblis aucune garde de la chaîne (chemins interdits, plafonds d'essais, verrous, relecture) ni aucun test existant.
+
+Si la réparation demande autre chose (une installation sur une machine, un secret, un réglage de GitHub, un chemin hors de ta portée), n'écris rien et termine par la ligne « DECISION: MODE-DIRECT :: <raison> ».
+{_FRONTIERE}
+Termine par un compte rendu court : la cause, ce que tu as changé, les tests joués.""" + suite
 
 
 def depanneur(projet: Projet, *, numero: int, titre: str, corps: str, raison: str, chemin_brief: str,

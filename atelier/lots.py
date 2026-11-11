@@ -807,6 +807,34 @@ def depannage_a_faire(commentaires: list[dict], depannages_max: int) -> bool:
     return relances < depannages_max
 
 
+# La chaîne se répare (`pilote._reparer_la_chaine`) : un lot que le dépanneur
+# a bloqué en disant que la chaîne est en cause reçoit une réparation du
+# mécanicien, dans une PR `meca/chaine-<lot>-…`. La marque « reparation » sur
+# l'issue dit où elle en est : `pr` (ouverte), puis `fin` (« fusionnee », le
+# lot repart ; « abandonnee » ou « echec », il attend le mode direct).
+ETAT_REPARATION = "reparation"
+RAISON_CHAINE = "la chaîne est en cause"
+PREFIXE_REPARATION = "meca/chaine-"
+
+
+def chaine_en_cause(commentaires: list[dict]) -> "tuple[str, dict | None] | None":
+    """La raison du dépanneur et la dernière marque de réparation posée
+    depuis, quand le dernier blocage du lot dit que la chaîne est en cause ;
+    None sinon, ou si un humain a répondu depuis (c'est lui qui a la main)."""
+    liste = marques(commentaires)
+    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
+    if dernier is None:
+        return None
+    blocage = liste[dernier]
+    raison = blocage.get("raison") or ""
+    if blocage.get("par") != PAR_DEPANNEUR or not raison.startswith(RAISON_CHAINE):
+        return None
+    if reponse_apres_blocage(commentaires):
+        return None
+    reparations = [m for m in liste[dernier + 1:] if m.get("etat") == ETAT_REPARATION]
+    return raison, (reparations[-1] if reparations else None)
+
+
 def consigne_du_depanneur(commentaires: list[dict]) -> str:
     """La consigne du dépanneur qui vaut encore : celle de sa dernière
     relance, tant que le lot n'a pas été rebloqué depuis."""
