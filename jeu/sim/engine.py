@@ -31,6 +31,7 @@ from collections import defaultdict
 from sim import constants as _constantes
 from sim import flux as _flux
 from sim import modificateurs as _modificateurs
+from sim import evenements as _evenements
 from sim import batiments as _batiments
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
@@ -1935,6 +1936,7 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         11. Faim        (_update_hunger)      — pour chaque cellule
         12. Mortalité   (_apply_mortality)    — pour chaque cellule
         13. Natalité   (_apply_natalite)     — pour chaque cellule
+            Famine      (evenements.poser_les_famines) — pose ou prolonge, sur les lieux qui ont faim
         14. Migration  (_apply_migration)    — sur le monde entier (snapshot)
         15. Départs    (departs.appliquer_departs) — mieux-vivre sur une nouvelle photo
         16. Compteur   (_avancer_compteur_ticks) — après tous les maillons
@@ -2034,6 +2036,8 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
                 _apply_natalite(cell, penurie_kg)
             recueillir_affames(cell, penurie_kg)
 
+    # La famine se pose après la faim du tick, avant que le flux la note.
+    _evenements.poser_les_famines(world, affames)
     _flux.noter_affames(world, affames)
     _apply_migration(world, penuries)
 

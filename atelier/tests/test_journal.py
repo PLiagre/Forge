@@ -679,3 +679,46 @@ def test_un_lot_dont_la_photo_est_sans_objet_est_de_fond(projet, gh):
     gh.prs_[49]["comments"] = []
     corps = journal.ecrire(gh, projet, maintenant=MAINTENANT, executeur=Agents((1, "429")), photographe=lambda *a: [])
     assert "- [#9 Le contrat](https://x/pull/49) : Une commande prouve le rejeu." in corps.split("**En coulisses**")[1]
+
+
+def test_le_journal_rappelle_sept_jours_ce_que_la_direction_a_tranche(tmp_path):
+    """Ce que la direction décide à la place du propriétaire lui est rappelé
+    chaque matin, avec le geste pour y revenir : sans ce rappel, la délégation
+    serait un pouvoir que personne ne relit."""
+    local = tmp_path / "journal.jsonl"
+    entrees = [
+        {"quand": "2026-09-20T08:00:00+00:00", "lot": 7, "action": "décision de la direction", "detail": "A — trop vieux"},
+        {"quand": "2026-09-27T08:00:00+00:00", "lot": 10, "action": "décision de la direction", "detail": "B — Que faire des villes ?"},
+        {"quand": "2026-09-27T09:00:00+00:00", "lot": 11, "action": "décision technique", "detail": "A — un format"},
+        {"quand": "2026-09-28T06:00:00+00:00", "lot": 12, "action": "décision de la direction", "detail": "A — Quel seuil ?"},
+    ]
+    local.write_text("\n".join(json.dumps(e, ensure_ascii=False) for e in entrees) + "\npas du json\n", encoding="utf-8")
+    depuis = MAINTENANT - journal.timedelta(days=journal.JOURS_DE_RAPPEL)
+    lignes = journal._decisions_de_la_direction(local, depuis)
+    assert lignes == ["- #12, le 28/09 : A — Quel seuil ?", "- #10, le 27/09 : B — Que faire des villes ?"]
+    assert journal._decisions_de_la_direction(tmp_path / "absent.jsonl", depuis) == []
+    annexe = journal._annexe(journal.Releve("", decisions_de_la_direction=lignes))
+    assert "### Décidé sans toi" in annexe and "- #12, le 28/09 : A — Quel seuil ?" in annexe
+    assert "bloque le lot, écris ta réponse sur son issue, puis remets « pret »" in annexe
+    assert "Décidé sans toi" not in journal._annexe(journal.Releve("")), "rien à rappeler, rien d'écrit"
+
+
+def test_le_journal_dit_ce_que_les_agents_ont_coute_role_par_role(tmp_path):
+    local = tmp_path / "journal.jsonl"
+    def appel(quand, lot, role, cout):
+        return {"quand": quand, "lot": lot, "action": "appel", "detail": "", "agent": "claude/x",
+                "mesure": {"role": role, "cout": cout}}
+    entrees = [appel("2026-09-26T08:00:00+00:00", 9, "chef", 99.0),   # avant la fenêtre
+               appel("2026-09-27T08:00:00+00:00", 10, "chef", 2.0),
+               appel("2026-09-27T09:00:00+00:00", 10, "codeur", 1.5),
+               appel("2026-09-27T10:00:00+00:00", 11, "codeur", 0.5),
+               {"quand": "2026-09-27T11:00:00+00:00", "lot": 11, "action": "appel", "detail": "sans mesure"},
+               {"quand": "2026-09-27T12:00:00+00:00", "lot": 11, "action": "brief écrit", "mesure": {"cout": 7}}]
+    local.write_text("\n".join(json.dumps(e, ensure_ascii=False) for e in entrees), encoding="utf-8")
+    lignes = journal._couts(local, MAINTENANT - journal.timedelta(hours=24))
+    assert lignes[0].startswith("- 3 appels mesurés sur 2 lots : 4.00 $ au prix de l'API")
+    assert lignes[1:] == ["- chef : 1 appels, 2.00 $", "- codeur : 2 appels, 2.00 $"]
+    assert journal._couts(tmp_path / "absent.jsonl", MAINTENANT) == []
+    assert "Ce que les agents ont coûté" in journal._annexe(journal.Releve("", couts=lignes))
+    assert "Ce que les agents ont coûté" not in journal._annexe(journal.Releve(""))
+

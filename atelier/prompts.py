@@ -179,12 +179,24 @@ def correction_relecture(revue: str) -> str:
 def relecteur(projet: Projet, *, numero: int, titre: str, chemin_brief: str,
               url: str, sha: str, rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
               lfs_illisibles: tuple[str, ...] = (), consigne: str = "", decisions: tuple[str, ...] = (),
-              master_rouge: str | None = None) -> str:
+              master_rouge: str | None = None, chaine: bool = False) -> str:
     """`master_rouge` : la réparation de master par le mécanicien, sans issue
     ni brief ; c'est ce que dit sa PR. Jusqu'au 15 octobre 2026, le relecteur
     recevait un brief `docs/briefs/<n° de la PR>-….md` qui n'existe pas."""
     if master_rouge is None:
         reference = f"Le brief `{chemin_brief}` est la référence."
+    elif chaine:
+        reference = ("Ce n'est pas un lot : c'est une réparation de la chaîne elle-même par le mécanicien, sans brief, "
+                     "parce qu'un lot était bloqué par elle. Sa PR dit :\n"
+                     f"-----\n{master_rouge.strip()[:4000] or '(rien)'}\n-----\n"
+                     f"Elle a le droit de toucher : {_liste(projet.reparables)} ; jamais : {_liste(projet.sensibles)}, "
+                     "ni rien d'autre. Là où la liste ci-dessous parle du brief ou des chemins interdits, lis : le diff "
+                     "ne touche que ce que demande cette cause, dans ces chemins. Vérifie en plus, et c'est le plus "
+                     "grave : elle corrige la cause dite et rien d'autre ; elle ne retire ni n'affaiblit aucune garde "
+                     "de la chaîne (chemins interdits, plafonds d'essais, verrous, relecture, fusion) ni aucun test de "
+                     "`atelier/tests/` ; elle ne change ni les droits, ni les secrets, ni la machine, ni les "
+                     f"déclencheurs d'un workflow ; `{_lanceur(projet)} -m pytest atelier/tests -q` passe : rejoue-le. "
+                     "Une réparation qui entre fait tourner la chaîne de tous les lots : dans le doute, CORRIGER.")
     else:
         base = projet.branche_base
         reference = (f"Ce n'est pas un lot : c'est la réparation de `{base}` par le mécanicien, sans issue ni brief. "
@@ -248,6 +260,30 @@ Jamais dans : {_interdits(projet)}. Si la réparation l'exige, n'écris rien et 
 Termine par un compte rendu court."""
 
 
+def _liste(chemins: tuple[str, ...]) -> str:
+    return ", ".join(f"`{c}`" for c in chemins) or "rien"
+
+
+def mecanicien_chaine(projet: Projet, *, numero: int | str, cause: str, diagnostic: str = "", correction: str = "") -> str:
+    """Le mécanicien, devant un lot que la chaîne elle-même bloque."""
+    dit = f"\nCe qu'a écrit le dépanneur :\n-----\n{diagnostic.strip()[:6000]}\n-----\n" if diagnostic.strip() else ""
+    suite = f"\n\n{correction}" if correction else ""
+    return f"""Tu es le mécanicien de Forge. Le lot #{numero} est bloqué, et ce n'est pas lui qui est en cause : c'est la chaîne elle-même. Ce dossier est une copie de `{projet.branche_base}`.
+
+La cause, d'après le dépanneur :
+-----
+{cause.strip()[:4000]}
+-----
+{dit}
+Répare cette cause, et elle seule, par le plus petit changement qui la corrige. Lis d'abord `AGENTS.md` et `docs/WORKFLOW.md`. Ajoute à `atelier/tests/` le test qui aurait rougi : prouve le rouge d'abord. Lance `{_lanceur(projet)} -m pytest atelier/tests -q` : la suite est courte, elle est verte avant que tu rendes la main.
+
+Tu peux écrire dans : {_liste(projet.reparables)}. Jamais dans : {_liste(projet.sensibles)}, ni ailleurs : le pilote retire ces changements. Dans un workflow, tu ne touches ni aux droits (`permissions`), ni aux secrets, ni à la machine (`runs-on`), ni aux déclencheurs (`on:`), ni aux actions appelées (`uses`). Tu ne retires ni n'affaiblis aucune garde de la chaîne (chemins interdits, plafonds d'essais, verrous, relecture) ni aucun test existant.
+
+Si la réparation demande autre chose (une installation sur une machine, un secret, un réglage de GitHub, un chemin hors de ta portée), n'écris rien et termine par la ligne « DECISION: MODE-DIRECT :: <raison> ».
+{_FRONTIERE}
+Termine par un compte rendu court : la cause, ce que tu as changé, les tests joués.""" + suite
+
+
 def depanneur(projet: Projet, *, numero: int, titre: str, corps: str, raison: str, chemin_brief: str,
               issue: str, pr: str, erreur_ci: str = "", relances: int = 0) -> str:
     """Le dépanneur, devant un lot que le pilote vient de bloquer."""
@@ -288,6 +324,49 @@ Jamais de consigne qui assouplit un test existant, sort du Périmètre du brief 
 - « DECISION: QUESTION :: <la question, en une phrase> », suivie de deux à quatre lignes « - A :: <une réponse possible> :: <ce qu'elle coûte> » (B, C… pour les suivantes), puis d'une ligne « RECOMMANDATION :: <lettre> :: <pourquoi> ». {_NATURE_DE_LA_QUESTION} Le propriétaire te lit sur son téléphone : des phrases courtes, sans jargon de code. Une seule question, qui porte toutes les décisions que le lot demande encore : recense chaque test existant qui rougira et chaque règle du monde touchée avant de l'écrire.
 - « DECISION: DECOUPE », suivie d'une ligne par sous-lot, en texte brut : « - <titre> :: <ce qu'il fait, et ce que le joueur y gagne> », finie par « :: après 1 » s'il attend le sous-lot de ce rang (sans « après », il part tout de suite), et par « :: pc » ou « :: vps » s'il change de machine. Chaque sous-lot reste vert seul et garde toutes les exigences du brief. Le pilote ouvre les sous-lots, que le chef prend comme d'autres lots, puis ferme la PR du lot et le lot.
 - « DECISION: MODE-DIRECT :: <ce qu'il faut corriger dans la chaîne, et où> »
+{_FRONTIERE}"""
+
+
+def direction(projet: Projet, *, numero: int, titre: str, corps: str, question: str, options: str,
+              recommandation: str, qui: str, issue: str, decisions: tuple[str, ...] = ()) -> str:
+    """La direction, devant une question que le chef ou le dépanneur pose au
+    propriétaire : elle la tranche si elle en a le droit, sinon elle la lui
+    laisse, avec son avis."""
+    deja = ("\nCe qui a déjà été décidé sur ce lot :\n" + "".join(f"- {d}\n" for d in decisions)) if decisions else ""
+    return f"""Tu es la direction technique de Forge. {qui.capitalize()} du lot #{numero} « {titre} » pose une question au propriétaire. Avant qu'elle ne l'attende, tu la lis : le propriétaire ne tranche que la vision du jeu et l'irréversible, et chaque question qui l'attend arrête un lot pendant un jour. Tu ne modifies aucun fichier.
+
+Lis d'abord `AGENTS.md` (« L'échelle de décision » et les principes du jeu), `docs/VISION.md` (les décisions numérotées, en fin de fichier, font foi), `CAP.md` (le jalon du lot : ce que le joueur fait, sa preuve), et `jeu/sim/MODELE.md` si la question touche le monde. Vérifie dans le code et les tests ce que la question affirme : ne la crois pas sur parole.
+
+La demande (issue #{numero}) :
+-----
+{corps.strip()[:4000] or "(vide)"}
+-----
+La question :
+-----
+{question.strip()}
+{options.strip()}
+{recommandation.strip()}
+-----
+Ce qui s'est dit sur l'issue :
+-----
+{issue.strip()[-6000:] or "(rien)"}
+-----
+{deja}
+Tu TRANCHES quand l'une de ces deux choses est vraie, et tu dis laquelle :
+- `docs/VISION.md`, `CAP.md` ou une décision déjà écrite sur ce lot donnent la réponse : cite la décision ou la phrase ;
+- le choix est réversible sans rien casser : un seuil, une durée ou une constante qui vit dans `jeu/data/`, une formulation, un ordre, un découpage, une définition de preuve AU MOINS aussi exigeante que celle qu'elle remplace. Nomme la donnée ou le fichier où l'on reviendra dessus.
+
+Tu LAISSES au propriétaire, sans exception :
+- ce qui change la vision, un principe d'`AGENTS.md`, ou une décision numérotée de `docs/VISION.md` ;
+- une règle que le joueur ressent et que `docs/VISION.md` ne tranche pas, quand on ne peut pas y revenir en changeant une donnée ;
+- une réponse qui rend moins exigeants la preuve d'un jalon écrite dans `CAP.md` ou un test existant ;
+- ce qui est irréversible, coûte de l'argent, ou touche {_interdits(projet)} ;
+- le cas où deux réponses se valent vraiment et où rien d'écrit ne les départage.
+Dans le doute, tu laisses. Tu ne choisis qu'une des lettres proposées : si aucune ne convient, tu laisses, et tu le dis.
+
+Écris d'abord ton raisonnement en français, court : ce que tu as vérifié, et où. Puis termine par UNE de ces deux fins, en texte brut, sans gras :
+- « DECISION: TRANCHE :: <lettre> :: <pourquoi, en une ou deux phrases que le propriétaire lira sur son téléphone> », puis une ligne « FONDEMENT :: <la décision de VISION.md ou la phrase de CAP.md qui tranche, ou la donnée qui rend le choix réversible> »
+- « DECISION: PROPRIETAIRE :: <pourquoi cette question est la sienne, en une phrase> », puis une ligne « AVIS :: <lettre> :: <ce que tu choisirais, et pourquoi> »
 {_FRONTIERE}"""
 
 

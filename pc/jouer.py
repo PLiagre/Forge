@@ -7,8 +7,10 @@ ouvre sa capitale ou la carte, ou dit l'absence (lot #688).
 Avec `--carte`, le jeu s'ouvre sur la carte
 de 1400 (`-forgeCarte`, lot #524) au lieu de la ville. Le service s'arrête
 quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
-La vitesse d'ouverture vient du fichier de réglages partagé avec Unity : celle
-de la carte, ou celle de la ville si `--cellule` est donné sans `--carte`.
+Le monde s'ouvre en pause (lot #860) : le service démarre à 0 jour par seconde,
+et le jeu lance le temps quand le joueur le décide. La vitesse lue dans le
+fichier de réglages partagé avec Unity est celle que la vue prend à la reprise :
+celle de la carte, ou celle de la ville si `--cellule` est donné sans `--carte`.
 """
 from __future__ import annotations
 
@@ -40,6 +42,8 @@ from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
 REGLE = JEU_PY / "ville" / "cellule_du_desert.py"
 AUCUNE_CELLULE = "aucune cellule imposée : le jeu lit la maison du joueur"
 ARGUMENT_CARTE = "-forgeCarte"  # celui d'OuvertureDeLaCarte.cs
+PAUSE = 0  # jours par seconde à l'ouverture : seul le lanceur arrive avant le premier tick
+OUVERTURE = "le monde s'ouvre en pause : Espace lance le temps"
 DELAI_SERVICE_PRET_S = 60
 DELAI_ARRET_S = 5
 DELAI_CONNEXION_S = 1
@@ -194,12 +198,13 @@ def main(argv: list[str]) -> int:
         print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
         return 1
     print(f"vitesse de la {vue} : {vitesse} jours par seconde", flush=True)
+    print(OUVERTURE, flush=True)
 
     attendue = f"service prêt sur {SERVICE_HOST}:{args.port}"
     stderr: collections.deque = collections.deque(maxlen=LIGNES_STDERR_GARDEES)
     service = subprocess.Popen(
         [sys.executable, "-m", "sim.service", "--port", str(args.port),
-         "--jours-par-seconde", repr(vitesse)],
+         "--jours-par-seconde", repr(PAUSE)],
         cwd=JEU_PY,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

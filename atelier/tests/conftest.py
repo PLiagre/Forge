@@ -251,6 +251,10 @@ class FauxDepot(Depot):
         base = Path(chemin)
         return sorted(str(p.relative_to(base)).replace("\\", "/") for p in base.rglob("*") if p.is_file())
 
+    def lignes_changees(self, chemin, fichier):
+        """Dans le faux dépôt, tout fichier présent est neuf : toutes ses lignes changent."""
+        return (Path(chemin) / fichier).read_text(encoding="utf-8").splitlines()
+
     def annuler(self, chemin, fichiers):
         for f in fichiers:
             (Path(chemin) / f).unlink()

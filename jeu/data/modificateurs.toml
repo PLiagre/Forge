@@ -98,3 +98,26 @@ grandeur = "departs"
 valeur = -0.25
 portee = "cellule"
 duree_jours = 0
+
+# La famine, premier événement du monde (`sim/evenements.py`, MODELE.md « La
+# famine, premier événement du monde »). Posée au lieu dont la faim dépasse
+# FAIM_AVANT_SECOURS_JOURS (`sim/constants.py`), prolongée chaque jour de faim :
+# la durée se compte donc depuis le DERNIER jour de faim, pas depuis le premier.
+# Elle ne pèse que sur la natalité d'un lieu qui mange de nouveau (pendant la
+# faim ou la dette, il n'y a déjà aucune naissance) ; la faim ne pose rien
+# d'autre, et elle tue toujours par la dette. Niveau 2.
+[modificateurs.famine]
+nom = "Famine"
+grandeur = "natalite"
+valeur = -0.5
+portee = "lieu"
+duree_jours = 365
+
+# La province améliorée (geste « Améliorer une province », data/jauges.toml) :
+# plus de grain récolté sur tous les lieux de la cellule, un niveau après l'autre.
+[modificateurs.amelioration_de_province]
+nom = "Province améliorée"
+grandeur = "recolte"
+valeur = 0.02
+portee = "cellule"
+duree_jours = 0

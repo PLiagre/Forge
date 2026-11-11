@@ -22,7 +22,13 @@ l'agent modifie **directement**, sans issue, sans brief, sans relecture :
    **prévient seulement** si l'un touche les mêmes fichiers.
 
 Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
-`CLAUDE.md` et `CAP.md`.
+`CLAUDE.md` et `CAP.md`. Une exception, gardée : quand le dépanneur dit que la
+chaîne est en cause, le mécanicien la répare dans une PR `meca/chaine-…`, que
+la direction relit avant qu'elle entre. Cette réparation ne touche que
+`[projet].reparables` (`atelier/`, deux workflows, `docs/WORKFLOW.md`), jamais
+`sensibles` (la garde `atelier/garde.py` et ses tests, le cron), ni les
+droits, les secrets, la machine ou les déclencheurs d'un workflow ; le reste
+de cette liste reste au mode direct.
 
 ## 2. La chaîne — le propriétaire n'est pas là
 
@@ -53,10 +59,22 @@ Seul le mode direct touche `atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
   propriétaire (un test ou une règle du monde à changer) est bloqué avec la
   question, deux à quatre réponses possibles et la recommandation du chef ;
   le journal du matin la pose telle quelle.
-- **Le propriétaire ne tranche que le jeu.** Une question du chef ou du
-  dépanneur se dit `jeu` ou `technique` ; une question technique (un test
-  réécrit, un format) suit seule la recommandation, écrite sur l'issue, deux
-  fois au plus par lot ; elle ne rend jamais un test moins exigeant.
+- **L'échelle de décision** : chacun décide à son niveau, et ne monte au
+  suivant qu'avec un diagnostic, ce qu'il a essayé, des réponses possibles et
+  une recommandation.
+
+  | niveau | qui | quoi |
+  |---|---|---|
+  | N0 | l'agent | ce qui tient dans son brief et son Périmètre ; le pilote rejoue seul une panne de la CI |
+  | N1 | le pilote | une question `technique` (un test réécrit aussi strict, un format) : il suit la recommandation, deux fois au plus par lot |
+  | N2 | la **direction** (Fable, lecture seule) | une question posée au propriétaire, quand `docs/VISION.md`, `CAP.md` ou une décision déjà écrite la tranchent, ou que le choix est réversible (un seuil, une durée, une donnée de `jeu/data/`) ; deux fois au plus par lot |
+  | N3 | le propriétaire | la vision et ses principes ; une règle que le joueur ressent et que la vision ne tranche pas ; une preuve de jalon ou un test rendu moins exigeant ; l'irréversible ; l'argent |
+
+  Une décision de la direction s'écrit sur l'issue avec ce qui la fonde, suit
+  le lot comme une réponse du propriétaire, et le journal du matin la rappelle
+  sept jours (« Décidé sans toi »). Le propriétaire garde la main : bloquer
+  le lot, écrire sa réponse, remettre `pret`. Dans le doute, la direction lui
+  laisse la question, avec son avis.
 - **Un lot `pc` n'avance que quand le PC est allumé** : un PC en veille garde
   le travail en file ; ses agents qui ne peuvent pas répondre le disent sur la
   PR (attente, renvoyée dans l'heure, sans compter d'essai). Le propriétaire

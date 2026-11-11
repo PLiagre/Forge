@@ -51,9 +51,9 @@ def _jouer_sans_joueur(monkeypatch, ticks):
     morts = dict.fromkeys(table, 0)
     mortalite = engine._apply_mortality
 
-    def compter(cellule):
+    def compter(cellule, *facteurs):
         avant = cellule.population
-        mortalite(cellule)
+        mortalite(cellule, *facteurs)
         if cellule.cell_id in morts:
             morts[cellule.cell_id] += avant - cellule.population
 

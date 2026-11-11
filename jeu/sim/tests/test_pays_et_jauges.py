@@ -417,3 +417,465 @@ def test_un_geste_du_panneau_donne_le_meme_monde_qu_a_la_main(regles):
             fil.join()
         for serveur in serveurs:
             serveur.server_close()
+
+
+# --- Améliorer une province (lot #1053) -----------------------------------------
+#
+# Le geste qui ne s'épuise jamais : de la Plume contre un niveau de plus à une
+# cellule de la maison, de plus en plus cher, et de vrais kilos de plus à sa récolte.
+
+NOURRITURE = c.MARCHANDISE_NOURRITURE
+AMELIORER = {"type": "ameliorer_une_province"}
+CONCORDE = {"type": "depenser_jauge", "geste": "affermir_la_concorde"}
+
+
+def _octets(monde):
+    return json.dumps(monde.to_dict(), sort_keys=True, ensure_ascii=False)
+
+
+def _bourgs_tenus(monde, maison):
+    return sorted(cid for cid, cell in monde.cells.items() if any(l.rang == 0 and l.maitre == maison for l in cell.lieux))
+
+
+def _avec_plume(depart, maison, plume):
+    monde = copy.deepcopy(depart)
+    monde.jauges[maison] = J.etat(monde, maison, J.charger_regles()) | {"plume": plume}
+    return monde
+
+
+def _ameliorer(maison, cell):
+    return {**AMELIORER, "maison": maison, "cell": cell}
+
+
+def _concorde(maison):
+    return {**CONCORDE, "maison": maison}
+
+
+def _couts_croissants(regles, niveaux=20):
+    """Les niveaux 1 à `niveaux` de `regles` : le premier coûte le prix des données, chacun plus que le précédent."""
+    import types
+    vide = types.SimpleNamespace(niveaux_de_province={})
+    couts = [J.cout_du_niveau_suivant(vide, 0, regles, deja_deposees=k) for k in range(niveaux)]
+    assert couts[0] == regles.amelioration["cout_premier_niveau"] == 6
+    for k in range(niveaux - 1):
+        assert couts[k + 1] > couts[k], f"le niveau {k + 2} ne coûte pas plus que le niveau {k + 1}"
+    return couts
+
+
+def _maison_de_gestion_un(monde, regles):
+    """Une maison dont le chef a une gestion de 1 et qui tient le bourg d'une cellule, dérivée des données."""
+    echantillon = [(m.id, _bourgs_tenus(monde, m.id)) for m in monde.maisons
+                   if (J.competences(monde, m.id, regles) or {}).get("gestion") == 1]
+    echantillon = [(maison, cells[0]) for maison, cells in echantillon if cells]
+    assert echantillon, "aucune maison de gestion 1 qui tienne un bourg : l'échantillon est vide"
+    return echantillon[0]
+
+
+def _autre_maitre(monde, maison):
+    """Une cellule dont le bourg est tenu par une autre maison, et cette maison."""
+    cid = next(cid for cid in sorted(monde.cells) if monde.cells[cid].lieux[0].maitre != maison)
+    return cid, monde.cells[cid].lieux[0].maitre
+
+
+def _paris(monde):
+    cid = monde.attribution_villes.placees["Paris"]
+    return cid, monde.cells[cid].lieux[0].maitre
+
+
+def _recoltes_versees(monde, alea, monkeypatch):
+    """Joue un tick ; rend la récolte versée à chaque cellule (la mesure de `_verser_recolte` du moulin)."""
+    verse = {}
+    original = engine._verser_recolte
+
+    def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None):
+        avant = cell.stocks.get(NOURRITURE, 0.0)
+        original(cell, recolte, carte, saison, recoltes, facteurs)
+        verse[cell.cell_id] = cell.stocks.get(NOURRITURE, 0.0) - avant
+
+    with monkeypatch.context() as ctx:
+        ctx.setattr(engine, "_verser_recolte", mesurer)
+        engine.tick(monde, alea, monde.ticks_ecoules)
+    return verse
+
+
+def _nouvelles_poses(apres, avant):
+    return [p for p in apres.modificateurs if p not in avant.modificateurs]
+
+
+# SC1 — Les données
+
+def test_amelioration_donnees_les_regles_viennent_des_donnees(regles):
+    table = regles.amelioration
+    assert (table["reserve"], table["cout_premier_niveau"], table["facteur_par_niveau"], table["modificateur"]) == (
+        "plume", 6, 1.5, "amelioration_de_province")
+    assert table["nom"] == "Améliorer une province" and table["dit"]
+    definition = M.charger_donnees().definitions["amelioration_de_province"]
+    assert (definition.grandeur, definition.valeur, definition.portee, definition.duree_jours) == ("recolte", 0.02, "cellule", 0)
+    assert definition.nom == "Province améliorée"
+    # Le panneau du pays (#1046) ne la voit pas parmi ses gestes.
+    assert set(regles.gestes) == {"affermir_la_concorde", "asseoir_le_droit"}
+
+
+def _cas_de_donnees():
+    def table(**champs):
+        return lambda document, donnees: document["amelioration_de_province"].update(champs)
+
+    def modificateur(**champs):
+        def change(document, donnees):
+            definition = M.Definition(**{"identifiant": "jauge-epreuve", "nom": "Épreuve", "grandeur": "recolte",
+                                         "valeur": 0.02, "portee": "cellule", "duree_jours": 0, **champs})
+            document["amelioration_de_province"]["modificateur"] = "jauge-epreuve"
+            return M.Donnees(donnees.sources, donnees.grandeurs, {**donnees.definitions, "jauge-epreuve": definition})
+        return change
+
+    def une_jauge_province(document, donnees):
+        document["jauges"]["province"] = dict(document["jauges"]["concorde"])
+
+    return [
+        (table(facteur_par_niveau=1), "coût croissant"),
+        (table(facteur_par_niveau=0.5), "coût croissant"),
+        (table(cout_premier_niveau=0), "cout_premier_niveau"),
+        (table(cout_premier_niveau=-6), "cout_premier_niveau"),
+        (table(reserve="grain"), "réserve"),
+        (table(modificateur="province-inventee"), "absent des données"),
+        (modificateur(portee="pays"), "se pose sur un pays"),
+        (modificateur(grandeur="levee"), "que le moteur ne lit pas"),
+        (une_jauge_province, "nom réservé"),
+    ]
+
+
+@pytest.mark.parametrize("change, motif", _cas_de_donnees())
+def test_amelioration_donnees_une_regle_qui_ne_tient_pas_est_refusee(change, motif):
+    import tomllib
+    with open(J._CHEMIN, "rb") as fichier:
+        document = tomllib.load(fichier)
+    donnees = M.charger_donnees()
+    donnees = change(document, donnees) or donnees
+    with pytest.raises(J.JaugeInvalide, match=motif):
+        J.lire_regles(document, donnees)
+    # Contre-épreuve : le document du dépôt passe.
+    assert J.charger_regles().amelioration["cout_premier_niveau"] == 6
+
+
+# SC2 — De plus en plus cher, et le premier niveau payable en un an
+
+def test_amelioration_cher_chaque_niveau_coute_plus_que_le_precedent(regles):
+    assert _couts_croissants(regles)[:4] == [6, 9, 13.5, 20.25]
+    import dataclasses
+    plat = dataclasses.replace(regles, amelioration={**regles.amelioration, "facteur_par_niveau": 1.0})
+    with pytest.raises(AssertionError):
+        _couts_croissants(plat)
+
+
+def test_amelioration_cher_le_premier_niveau_est_payable_en_un_an(depart, regles):
+    maison, cid = _maison_de_gestion_un(depart, regles)
+    monde = copy.deepcopy(depart)
+    for _ in range(365 // c.FENETRE_FLUX_TICKS - 1):
+        J.mettre_a_jour(monde, regles)
+    assert J.etat(monde, maison, regles)["plume"] == 5.5
+    avant = _octets(monde)
+    with pytest.raises(IntentionRefusee) as refus:
+        recevoir_intention(monde, _ameliorer(maison, cid))
+    assert str(refus.value) == "pas assez de points de Plume : 6 points demandés, 5,5 points disponibles"
+    assert _octets(monde) == avant and monde.intentions_en_attente == []
+    J.mettre_a_jour(monde, regles)
+    assert J.etat(monde, maison, regles)["plume"] == 6.0
+    recevoir_intention(monde, _ameliorer(maison, cid))
+    assert len(monde.intentions_en_attente) == 1
+
+
+# SC3 — Les refus, avec leur raison, sans toucher au monde
+
+def test_amelioration_refus_chaque_raison_mot_pour_mot(depart):
+    bar = "seigneurie-1"
+    (cid,) = _bourgs_tenus(depart, bar)
+    monde = _avec_plume(depart, bar, 5.0)
+    autre, maitre = _autre_maitre(monde, bar)
+    cas = [
+        (_ameliorer("x", cid), "maison inconnue ou mal formée : 'x'"),
+        (_ameliorer(7, cid), "maison inconnue ou mal formée : 7"),
+        (_ameliorer(bar, True), "cell invalide : entier attendu, reçu True"),
+        (_ameliorer(bar, "10"), "cell invalide : entier attendu, reçu '10'"),
+        (_ameliorer(bar, -1), "cellule inconnue : -1"),
+        (_ameliorer(bar, autre), f"pas sur vos terres : le bourg de la cellule {autre} est à {maitre!r}"),
+        (_ameliorer(bar, cid), "pas assez de points de Plume : 6 points demandés, 5 points disponibles"),
+    ]
+    avant = _octets(monde)
+    for intention, attendu in cas:
+        with pytest.raises(IntentionRefusee) as refus:
+            recevoir_intention(monde, intention)
+        assert str(refus.value) == attendu
+        assert _octets(monde) == avant and monde.intentions_en_attente == []
+    with pytest.raises(IntentionRefusee, match="champ manquant : cell"):
+        recevoir_intention(monde, {**AMELIORER, "maison": bar})
+    # Contre-épreuve : avec 6 points, le même premier dépôt passe : c'est bien la Plume qui refuse.
+    riche = _avec_plume(depart, bar, 6.0)
+    recevoir_intention(riche, _ameliorer(bar, cid))
+    assert len(riche.intentions_en_attente) == 1
+
+
+def test_amelioration_refus_la_plume_engagee_compte_les_deux_gestes(depart):
+    bar = "seigneurie-1"
+    (cid,) = _bourgs_tenus(depart, bar)
+    # Une amélioration d'abord : « Affermir la concorde » ne trouve plus que 49 points.
+    monde = _avec_plume(depart, bar, 55.0)
+    recevoir_intention(monde, _ameliorer(bar, cid))
+    with pytest.raises(IntentionRefusee) as refus:
+        recevoir_intention(monde, _concorde(bar))
+    assert str(refus.value) == "pas assez de points de Plume : 50 points demandés, 49 points disponibles"
+    assert len(monde.intentions_en_attente) == 1
+    # Dans l'autre ordre, sur une copie : la concorde passe, l'amélioration ne trouve plus que 5 points.
+    autre = _avec_plume(depart, bar, 55.0)
+    recevoir_intention(autre, _concorde(bar))
+    with pytest.raises(IntentionRefusee) as refus:
+        recevoir_intention(autre, _ameliorer(bar, cid))
+    assert str(refus.value) == "pas assez de points de Plume : 6 points demandés, 5 points disponibles"
+    assert len(autre.intentions_en_attente) == 1
+    # Deux améliorations de la même cellule : 6 puis 9 ; la troisième (13,5) ne trouve plus rien.
+    deux = _avec_plume(depart, bar, 15.0)
+    recevoir_intention(deux, _ameliorer(bar, cid))
+    recevoir_intention(deux, _ameliorer(bar, cid))
+    avant = _octets(deux)
+    with pytest.raises(IntentionRefusee) as refus:
+        recevoir_intention(deux, _ameliorer(bar, cid))
+    assert str(refus.value) == "pas assez de points de Plume : 13,5 points demandés, 0 point disponible"
+    assert _octets(deux) == avant and len(deux.intentions_en_attente) == 2
+    # Contre-épreuve : avec 21 points de plus de Plume, la troisième passe.
+    trois = _avec_plume(depart, bar, 28.5)
+    for _ in range(3):
+        recevoir_intention(trois, _ameliorer(bar, cid))
+    assert len(trois.intentions_en_attente) == 3
+
+
+def test_amelioration_refus_le_tick_ne_leve_pas_jauge_invalide(depart):
+    """Les deux gestes déposés dans les limites de la Plume s'appliquent tous deux, sans `JaugeInvalide`."""
+    bar = "seigneurie-1"
+    (cid,) = _bourgs_tenus(depart, bar)
+    monde = _avec_plume(depart, bar, 56.0)
+    recevoir_intention(monde, _ameliorer(bar, cid))
+    recevoir_intention(monde, _concorde(bar))
+    engine.tick(monde, random.Random(0), 0)
+    valeurs = J.etat(monde, bar, J.charger_regles())
+    assert valeurs["plume"] == 0.0 and monde.niveaux_de_province == {cid: 1}
+
+
+# SC4 — Le niveau, la pose, et la récolte de la cellule en vrais kilos
+
+def test_amelioration_kilos_le_niveau_la_pose_et_la_recolte_de_la_cellule(depart, regles, monkeypatch):
+    cid, maison = _paris(depart)
+    monde = _avec_plume(depart, maison, 20.0)
+    temoin = copy.deepcopy(monde)
+    recevoir_intention(monde, _ameliorer(maison, cid))
+    alea = random.Random(0)
+    avant = copy.deepcopy(monde)
+    engine.tick(monde, alea, 0)
+    engine.tick(temoin, random.Random(0), 0)
+    assert monde.niveaux_de_province == {cid: 1}
+    assert J.etat(monde, maison, regles)["plume"] == 14.0
+    poses = _nouvelles_poses(monde, avant)
+    assert [(p.identifiant, p.grandeur, p.valeur, p.cible, p.source) for p in poses] == [
+        ("amelioration_de_province", "recolte", 0.02, ("cellule", cid), f"jauge:province:{cid}-1")]
+    assert "niveaux_de_province" in monde.to_dict() and "niveaux_de_province" not in temoin.to_dict()
+    # Le geste ne crée ni ne coûte un kilo : le grenier ne diffère du même tick sans geste que par la
+    # récolte en plus de la pose, qui agit dès le tick où le geste s'applique ; posée à la main, la même
+    # pose donne le même grenier.
+    a_la_main = copy.deepcopy(avant)
+    a_la_main.intentions_en_attente.clear()
+    a_la_main.jauges = copy.deepcopy(temoin.jauges)
+    M.poser(a_la_main, "amelioration_de_province", f"jauge:province:{cid}-1", {"cellule": cid})
+    engine.tick(a_la_main, random.Random(0), 0)
+    assert monde.greniers[maison] == a_la_main.greniers[maison]
+    # Au tick suivant : la cellule reçoit exactement 1,02 fois ce que reçoit le même monde sans la pose.
+    sans = copy.deepcopy(monde)
+    assert M.retirer(sans, f"jauge:province:{cid}-1") == 1
+    verse = _recoltes_versees(monde, copy.deepcopy(alea), monkeypatch)
+    verse_sans = _recoltes_versees(sans, copy.deepcopy(alea), monkeypatch)
+    assert verse[cid] > 0 and verse[cid] == pytest.approx(verse_sans[cid] * 1.02, rel=1e-12)
+    assert all(verse[x] == verse_sans[x] for x in verse_sans if x != cid)
+    # Contre-épreuve : contre un monde qui garde la pose, la récolte est la même.
+    garde = copy.deepcopy(monde)
+    verse_garde = _recoltes_versees(garde, copy.deepcopy(alea), monkeypatch)
+    with pytest.raises(AssertionError):
+        assert verse[cid] == pytest.approx(verse_garde[cid] * 1.02, rel=1e-12)
+
+
+def test_amelioration_kilos_un_second_niveau_coute_plus_et_recolte_plus(depart, regles, monkeypatch):
+    cid, maison = _paris(depart)
+    monde = _avec_plume(depart, maison, 20.0)
+    rng = random.Random(0)
+    recevoir_intention(monde, _ameliorer(maison, cid))
+    engine.tick(monde, rng, 0)
+    premier = J.etat(monde, maison, regles)["plume"]
+    assert premier == 14.0
+    recevoir_intention(monde, _ameliorer(maison, cid))
+    engine.tick(monde, rng, 1)
+    assert premier - J.etat(monde, maison, regles)["plume"] == 9.0 > 20.0 - premier
+    assert monde.niveaux_de_province == {cid: 2}
+    assert sorted(p.source for p in monde.modificateurs) == [f"jauge:province:{cid}-1", f"jauge:province:{cid}-2"]
+    sans = copy.deepcopy(monde)
+    assert M.retirer(sans, f"jauge:province:{cid}-1") + M.retirer(sans, f"jauge:province:{cid}-2") == 2
+    verse = _recoltes_versees(monde, copy.deepcopy(rng), monkeypatch)
+    verse_sans = _recoltes_versees(sans, copy.deepcopy(rng), monkeypatch)
+    assert M.facteurs_du_monde(copy.deepcopy(monde))["recolte"][(cid, 0)] == pytest.approx(1.04)
+    assert verse[cid] == pytest.approx(verse_sans[cid] * 1.04, rel=1e-12)
+    assert all(verse[x] == verse_sans[x] for x in verse_sans if x != cid)
+
+
+def test_amelioration_kilos_la_pose_survit_au_mois_et_aux_gestes(depart, regles, monkeypatch):
+    cid, maison = _paris(depart)
+    monde = _avec_plume(depart, maison, 70.0)
+    recevoir_intention(monde, _ameliorer(maison, cid))
+    engine.tick(monde, random.Random(0), 0)
+    source = f"jauge:province:{cid}-1"
+    vivante = lambda m: [p for p in m.modificateurs if p.source == source]
+    assert len(vivante(monde)) == 1
+    J.mettre_a_jour(monde, regles)
+    assert len(vivante(monde)) == 1
+    recevoir_intention(monde, _concorde(maison))
+    engine.tick(monde, random.Random(0), 1)
+    assert len(vivante(monde)) == 1
+    assert J.etat(monde, maison, regles)["concorde"] == 1
+    # Contre-épreuve : l'ancien retrait (toute source « jauge: ») fait disparaître la pose après le mois.
+    def ancien_retrait(monde, regles):
+        autres = [p for p in monde.modificateurs if not p.source.startswith(f"{J.SOURCE}:")]
+        neuves = [pose for m in sorted(monde.jauges)
+                  for pose in J.modificateurs_de(m, monde.jauges[m], regles, monde.ticks_ecoules)]
+        monde.modificateurs = sorted(autres + neuves, key=M._ordre)
+
+    monkeypatch.setattr(J, "poser_les_modificateurs", ancien_retrait)
+    J.mettre_a_jour(monde, regles)
+    with pytest.raises(AssertionError):
+        assert len(vivante(monde)) == 1
+
+
+# SC5 — Le joueur et l'IA, même monde, octet pour octet
+
+def _maison_de_l_ia_a_sa_capitale(monde):
+    from sim import ia
+    from sim.capitales import toutes_les_maisons_de_l_ia
+    maisons = toutes_les_maisons_de_l_ia(monde)
+    for maison in maisons:
+        cle = ia._cle_du_grenier(maison)
+        if cle and maison.cell_id is not None and monde.cells[maison.cell_id].lieux[0].maitre == cle:
+            return maisons, maison, cle
+    pytest.fail("aucune maison de l'IA ne tient le bourg de sa capitale : l'échantillon est vide")
+
+
+def test_amelioration_meme_monde_l_ia_et_le_joueur(depart, regles, monkeypatch):
+    from sim import ia
+    maisons, maison, cle = _maison_de_l_ia_a_sa_capitale(depart)
+    cid = maison.cell_id
+    base = _avec_plume(depart, cle, 20.0)
+    intention = _ameliorer(cle, cid)
+    # Côté IA : la seule proposition de la maison, déposée par `jouer_ia`.
+    chez_l_ia = copy.deepcopy(base)
+    monkeypatch.setattr(ia, "decider_intentions", lambda monde, releve, maisons=None: [
+        {"maison": {"sorte": maison.sorte, "id": maison.id}, "intention": intention,
+         "raison": {"regle": "epreuve"}}])
+    releve = []
+    ia.jouer_ia(chez_l_ia, releve, maisons)
+    assert len(releve) == 1 and "refus" not in releve[0] and releve[0]["intention"] == intention
+    monkeypatch.undo()
+    # Côté joueur : la même intention par la porte de `POST /intention`.
+    chez_le_joueur = copy.deepcopy(base)
+    recevoir_intention(chez_le_joueur, intention)
+    alea = random.Random(0)
+    engine.tick(chez_l_ia, copy.deepcopy(alea), 0)
+    engine.tick(chez_le_joueur, copy.deepcopy(alea), 0)
+    assert _octets(chez_l_ia) == _octets(chez_le_joueur)
+    assert chez_l_ia.to_dict()["niveaux_de_province"] == {cid: 1}
+    # Même graine et mêmes gestes, sur 35 ticks : même monde.
+    mondes = []
+    for _ in range(2):
+        monde = copy.deepcopy(base)
+        recevoir_intention(monde, intention)
+        rng = random.Random(0)
+        for numero in range(35):
+            J.avant_le_tick(monde)
+            engine.tick(monde, rng, numero)
+        mondes.append(_octets(monde))
+    assert mondes[0] == mondes[1]
+    # Contre-épreuve : améliorer une autre cellule de la même maison donne d'autres octets.
+    autre = next(x for x in sorted(depart.cells) if x != cid)
+    deux = copy.deepcopy(base)
+    deux.cells[autre].lieux[0].maitre = cle
+    ailleurs = copy.deepcopy(deux)
+    recevoir_intention(deux, intention)
+    recevoir_intention(ailleurs, _ameliorer(cle, autre))
+    engine.tick(deux, copy.deepcopy(alea), 0)
+    engine.tick(ailleurs, copy.deepcopy(alea), 0)
+    assert _octets(deux) != _octets(ailleurs)
+
+
+# SC6 — Servi dans /pays, sous jauges, sans changer les gestes du panneau
+
+def test_amelioration_service_pays_et_intention(regles):
+    import threading
+    from sim.service import ServeurMonde
+    from sim.tests.test_monde import requete_service
+    bar = "seigneurie-1"
+    with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        fil = threading.Thread(target=serveur.serve_forever)
+        fil.start()
+        try:
+            port = serveur.server_port
+            (cid,) = _bourgs_tenus(serveur.world, bar)
+            autre, maitre = _autre_maitre(serveur.world, bar)
+            with serveur.verrou_tick:
+                serveur.world.jauges[bar] = J.etat(serveur.world, bar, regles) | {"plume": 5.0}
+
+            def jauges():
+                return json.loads(serveur.octets_du_pays(bar))["jauges"]
+
+            avant = jauges()
+            amelioration = avant["amelioration"]
+            table, definition = regles.amelioration, M.charger_donnees().definitions["amelioration_de_province"]
+            assert (amelioration["nom"], amelioration["dit"], amelioration["reserve"]) == (
+                table["nom"], table["dit"], "plume")
+            assert amelioration["modificateur"] == {"nom": "Province améliorée", "grandeur": "recolte",
+                                                    "grandeur_nom": "Récolte", "valeur": definition.valeur}
+            tenues = _bourgs_tenus(serveur.world, bar)
+            assert [p["cell_id"] for p in amelioration["provinces"]] == tenues == [cid]
+            trop_chere = {"cell_id": cid, "niveau": 0, "cout": 6,
+                          "refus": "pas assez de points de Plume : 6 points demandés, 5 points disponibles"}
+            assert amelioration["provinces"] == [trop_chere]
+            assert set(avant["gestes"]) == {"affermir_la_concorde", "asseoir_le_droit"}
+            # Refusée : `POST /intention` redit, mot pour mot, le refus que `/pays` servait.
+            corps = json.dumps(_ameliorer(bar, cid)).encode()
+            statut, refus, _ = requete_service(port, "/intention", "POST", corps)
+            assert statut == 400 and refus == {"acceptee": False, "erreur": trop_chere["refus"]}
+            # La province d'un autre maître n'est pas servie, et son dépôt est refusé.
+            assert autre not in [p["cell_id"] for p in amelioration["provinces"]]
+            statut, refus, _ = requete_service(port, "/intention", "POST", json.dumps(_ameliorer(bar, autre)).encode())
+            assert statut == 400 and refus["erreur"] == f"pas sur vos terres : le bourg de la cellule {autre} est à {maitre!r}"
+            # Payable : acceptée, puis un tick plus tard `/pays` sert le niveau 1 et le coût de 9.
+            with serveur.verrou_tick:
+                serveur.world.jauges[bar] = J.etat(serveur.world, bar, regles) | {"plume": 6.0}
+            statut, reponse, _ = requete_service(port, "/intention", "POST", corps)
+            assert statut == 200 and reponse == {"acceptee": True, "appliquee_au_tick": 0}
+            assert requete_service(port, "/tick?n=1", "POST")[0] == 200
+            apres = jauges()
+            assert apres["amelioration"]["provinces"] == [
+                {"cell_id": cid, "niveau": 1, "cout": 9,
+                 "refus": "pas assez de points de Plume : 9 points demandés, 0 point disponible"}]
+            assert apres["gestes"].keys() == avant["gestes"].keys()
+            assert apres["grandeurs"] == avant["grandeurs"] and apres["modificateurs"] == avant["modificateurs"]
+        finally:
+            serveur.shutdown()
+            fil.join()
+
+
+def test_amelioration_service_les_provinces_relues_sur_le_monde(depart, regles):
+    """Un monde où la maison tient deux bourgs sert les deux, triés, chacune avec son niveau et son coût."""
+    bar = "seigneurie-1"
+    monde = _avec_plume(depart, bar, 8.0)
+    (cid,) = _bourgs_tenus(monde, bar)
+    deuxieme = next(x for x in sorted(monde.cells) if x > cid)
+    monde.cells[deuxieme].lieux[0].maitre = bar
+    monde.niveaux_de_province[deuxieme] = 2
+    provinces = J.document_des_jauges(monde, bar, regles)["amelioration"]["provinces"]
+    assert [p["cell_id"] for p in provinces] == _bourgs_tenus(monde, bar) == sorted([cid, deuxieme])
+    par_cell = {p["cell_id"]: p for p in provinces}
+    assert (par_cell[cid]["niveau"], par_cell[cid]["cout"], par_cell[cid]["refus"]) == (0, 6, None)
+    assert (par_cell[deuxieme]["niveau"], par_cell[deuxieme]["cout"]) == (2, 13.5)
+    assert par_cell[deuxieme]["refus"] == "pas assez de points de Plume : 13,5 points demandés, 8 points disponibles"

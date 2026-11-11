@@ -62,8 +62,9 @@ def port_refuse(port):
 FAUX_JEU = inspect.getsource(port_refuse) + '''
 import json, sys, time, urllib.error, urllib.request
 
-_, sortie, code, port, *_ = sys.argv
+_, sortie, code, port, *reste = sys.argv
 code, port = int(code), int(port)
+reprise = float(reste[0]) if reste and not reste[0].startswith("-") else None
 cellule = sys.argv[sys.argv.index("-forgeCell") + 1] if "-forgeCell" in sys.argv else None
 base = f"http://127.0.0.1:{port}"
 lu = "/lieu" if cellule is not None else "/monde"
@@ -78,12 +79,23 @@ for attente in (0, ECART):
     time.sleep(attente)
     with urllib.request.urlopen(f"{base}/horloge") as r:
         ticks.append((horloge := json.loads(r.read()))["tick"])
+resultat = {"forgeCell": cellule, "statut": statut, "cell_id": lieu.get("cell_id"),
+            "lu": lu, "maison_du_joueur": lieu.get("maison_du_joueur"),
+            "ticks": ticks, "refuse_pendant": port_refuse(port),
+            "jours_par_seconde": horloge["jours_par_seconde"],
+            "forgeCarte": "-forgeCarte" in sys.argv}
+if reprise is not None:
+    # Comme Unity à la reprise : la vitesse de la vue part au service, puis l'horloge se relit.
+    requete = urllib.request.Request(f"{base}/vitesse?jours_par_seconde={reprise}", method="POST")
+    with urllib.request.urlopen(requete):
+        pass
+    time.sleep(ECART)
+    with urllib.request.urlopen(f"{base}/horloge") as r:
+        horloge = json.loads(r.read())
+    ticks.append(horloge["tick"])
+    resultat["jours_par_seconde_repris"] = horloge["jours_par_seconde"]
 with open(sortie, "w", encoding="utf-8") as f:
-    json.dump({"forgeCell": cellule, "statut": statut, "cell_id": lieu.get("cell_id"),
-               "lu": lu, "maison_du_joueur": lieu.get("maison_du_joueur"),
-               "ticks": ticks, "refuse_pendant": port_refuse(port),
-               "jours_par_seconde": horloge["jours_par_seconde"],
-               "forgeCarte": "-forgeCarte" in sys.argv}, f)
+    json.dump(resultat, f)
 sys.exit(code)
 '''.replace("ECART", repr(ECART_ENTRE_HORLOGES_S))
 
@@ -120,31 +132,35 @@ def _jouer(port, commande, *options):
     return lanceur.returncode, sortie
 
 
-def _commande_du_faux_jeu(faux_jeu, sortie, code, port):
-    return [sys.executable, str(faux_jeu), str(sortie), str(code), str(port)]
+def _commande_du_faux_jeu(faux_jeu, sortie, code, port, reprise=None):
+    commande = [sys.executable, str(faux_jeu), str(sortie), str(code), str(port)]
+    return commande if reprise is None else [*commande, str(reprise)]
 
 
 @pytest.mark.parametrize("carte, ville", [(False, False), (True, False), (False, True), (True, True)])
-def test_vitesse_de_la_vue_d_ouverture(faux_jeu, tmp_path, carte, ville):
+def test_pause_a_l_ouverture_vitesse_de_la_vue_a_la_reprise(faux_jeu, tmp_path, carte, ville):
     jouer = _charger("jouer", LANCEUR)
     reglages = json.loads(jouer.REGLAGES.read_text(encoding="utf-8"))
     vue = "ville" if ville and not carte else "carte"
     vitesse = reglages[f"VITESSE_{vue.upper()}"]
     options = (["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []) + (["--carte"] if carte else [])
     port, sortie = _port_libre(), tmp_path / "recu.json"
-    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port), *options)
+    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port, vitesse), *options)
     assert port_refuse(port)
     assert code == 0, texte
     recu = json.loads(sortie.read_text(encoding="utf-8"))
-    assert recu["jours_par_seconde"] == vitesse
-    assert f"vitesse de la {vue} : {float(vitesse)} jours par seconde" in texte
+    assert recu["jours_par_seconde"] == 0
+    assert recu["ticks"][0] == recu["ticks"][1], f"le monde avance à l'ouverture : {recu['ticks']}"
+    assert recu["jours_par_seconde_repris"] == vitesse
     if vue == "carte":
-        assert recu["ticks"][1] > recu["ticks"][0]
+        assert recu["ticks"][2] > recu["ticks"][1]
         assert 50 < 365 / vitesse < 70
+    assert f"vitesse de la {vue} : {float(vitesse)} jours par seconde" in texte
+    assert jouer.OUVERTURE in texte
 
 
 @pytest.mark.parametrize("ville", [False, True])
-def test_vitesse_lue_dans_le_fichier_remplace(faux_jeu, tmp_path, monkeypatch, ville):
+def test_vitesse_lue_dans_le_fichier_remplace(faux_jeu, tmp_path, monkeypatch, capsys, ville):
     jouer = _charger("jouer", LANCEUR)
     reglages = tmp_path / "reglages.json"
     valeurs = {"VITESSE_VILLE": 0.25, "VITESSE_CARTE": 4}
@@ -157,7 +173,9 @@ def test_vitesse_lue_dans_le_fichier_remplace(faux_jeu, tmp_path, monkeypatch, v
     assert port_refuse(port)
     assert code == 0
     recu = json.loads(sortie.read_text(encoding="utf-8"))
-    assert recu["jours_par_seconde"] == valeurs["VITESSE_VILLE" if ville else "VITESSE_CARTE"]
+    assert recu["jours_par_seconde"] == 0
+    vue, v = ("ville", valeurs["VITESSE_VILLE"]) if ville else ("carte", valeurs["VITESSE_CARTE"])
+    assert f"vitesse de la {vue} : {float(v)} jours par seconde" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("contenu, ville", [
@@ -190,7 +208,9 @@ def test_vitesse_invalide_ne_lance_rien(faux_jeu, tmp_path, monkeypatch, capsys,
 
 def test_chemin_nominal(faux_jeu, tmp_path):
     port, sortie = _port_libre(), tmp_path / "recu.json"
-    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port))
+    reglages = _charger("jouer", LANCEUR).REGLAGES
+    reprise = json.loads(reglages.read_text(encoding="utf-8"))["VITESSE_CARTE"]
+    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port, reprise))
     assert code == 0, texte
     assert port_refuse(port), f"le service répond encore sur {port} après la sortie du lanceur"
     recu = json.loads(sortie.read_text(encoding="utf-8"))
@@ -198,8 +218,9 @@ def test_chemin_nominal(faux_jeu, tmp_path):
     assert recu["lu"] == "/monde"
     assert recu["statut"] == HTTPStatus.OK
     assert recu["maison_du_joueur"] is None
-    premier, second = recu["ticks"]
-    assert second > premier, f"l'horloge ne tourne pas : {recu['ticks']}"
+    premier, second, troisieme = recu["ticks"]
+    assert premier == second, f"le monde tourne avant la reprise : {recu['ticks']}"
+    assert troisieme > second, f"l'horloge ne tourne pas après la reprise : {recu['ticks']}"
     # Contre-épreuve : le même contrôle, appliqué pendant le jeu, dit « répond ».
     assert recu["refuse_pendant"] is False
     jouer = _charger("jouer", LANCEUR)

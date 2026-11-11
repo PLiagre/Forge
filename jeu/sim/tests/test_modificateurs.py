@@ -25,6 +25,7 @@ import pytest
 import sim.constants as c
 from sim import chantiers, engine, modificateurs as M
 from sim.snapshot_export import build_snapshot_document, serialize_snapshot
+from sim.tests.amorcage_d_avant import couper_la_famine
 from sim.world import World
 
 NOURRITURE = c.MARCHANDISE_NOURRITURE
@@ -204,7 +205,10 @@ def test_une_pose_datee_expire_et_une_source_se_retire(depart, donnees):
 
 # --- La preuve : sans pose, rien ne change ; avec, de vrais kilos ---------------
 
-def test_sans_modificateur_la_photographie_a_365_jours_est_celle_d_avant():
+def test_sans_modificateur_la_photographie_a_365_jours_est_celle_d_avant(monkeypatch):
+    # Réponse A du propriétaire, 10 novembre 2026 (lot #1029) : la famine pose
+    # désormais un modificateur au lieu affamé ; ce test éprouve le monde d'avant.
+    couper_la_famine(monkeypatch)
     monde, rng = World.charger(0), random.Random(0)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
         engine.tick(monde, rng, numero)

@@ -377,14 +377,14 @@ def _annee(n_ticks):
     def photo(cell):
         return cell.population, lire_habitants_par_metier(cell)
 
-    def voir_mortalite(cell):
+    def voir_mortalite(cell, *facteurs):
         avant = photo(cell)
-        mortalite(cell)
+        mortalite(cell, *facteurs)
         mouvements.append(("mort", cell.cell_id, avant, photo(cell)))
 
-    def voir_natalite(cell, penurie_kg):
+    def voir_natalite(cell, penurie_kg, *facteurs):
         avant = photo(cell)
-        natalite(cell, penurie_kg)
+        natalite(cell, penurie_kg, *facteurs)
         mouvements.append(("naissance", cell.cell_id, avant, photo(cell)))
 
     def voir_migration(world, penuries):

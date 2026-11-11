@@ -62,10 +62,13 @@ ROLES = ("chef", "codeur", "codeur_3d", "relecteur", "mecanicien", "depanneur", 
          "boussole")
 # Les rôles qu'un dépôt peut nommer, ou non. Le relecteur du moteur relit les
 # lots qui touchent [projet].chemins_du_moteur ; sans lui, le relecteur relit tout.
-ROLES_FACULTATIFS = ("relecteur_moteur",)
+# La direction regarde une question posée au propriétaire avant lui
+# (pilote._diriger) ; sans elle, toute question de jeu lui va, comme avant le
+# 10 novembre 2026.
+ROLES_FACULTATIFS = ("relecteur_moteur", "direction")
 
 # Les rôles qui n'écrivent rien : leur outil est appelé en lecture seule.
-ROLES_LECTURE_SEULE = ("relecteur", "relecteur_moteur", "depanneur", "chroniqueur", "boussole")
+ROLES_LECTURE_SEULE = ("relecteur", "relecteur_moteur", "depanneur", "chroniqueur", "boussole", "direction")
 
 # Les machines d'un lot : le VPS (Python) et le PC (Unity, Blender).
 MACHINES = ("vps", "pc")
@@ -132,6 +135,11 @@ class Projet:
     prefixe_branche: str
     postes: dict[str, Poste] = field(default_factory=dict)
     chemins_du_moteur: tuple[str, ...] = ()
+    # Ce qu'une réparation de la chaîne peut toucher, et ce qu'elle ne touche
+    # jamais même là-dedans (`garde.reparable`). Sans `reparables`, la chaîne
+    # ne se répare pas seule : un lot qu'elle bloque attend le mode direct.
+    reparables: tuple[str, ...] = ()
+    sensibles: tuple[str, ...] = ()
     delais: dict[str, int] = field(default_factory=dict)
     machines: dict[str, int] = field(default_factory=lambda: {m: 1 for m in MACHINES})
     plafonds: dict[str, int] = field(default_factory=dict)
@@ -240,6 +248,8 @@ def charger(racine: Path | str) -> Projet:
         prefixe_branche=str(bloc["prefixe_branche"]),
         postes=postes,
         chemins_du_moteur=tuple(str(x) for x in bloc.get("chemins_du_moteur", ())),
+        reparables=tuple(str(x) for x in bloc.get("reparables", ())),
+        sensibles=tuple(str(x) for x in bloc.get("sensibles", ())),
         delais=delais,
         machines=machines,
         plafonds=plafonds,
