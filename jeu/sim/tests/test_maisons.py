@@ -1595,7 +1595,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS)): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS)): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1906,7 +1906,7 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 21 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20')}
+    assert len(liens) == 23 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '23', '25')}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
@@ -1914,8 +1914,9 @@ def _familles_historiques(familles, liens):
     _constantinople(fiches)
     _ottomans(fiches)
     _balkans(fiches)
+    _maghreb(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -2045,10 +2046,11 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 21 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20')}
+    assert len(etats) == 23 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '23', '25')}
     assert {f'grande-{n}' for n in range(11, 21)} <= {e['maison'] for e in etats}
     for e in etats:
         if e['maison'] in BALKANS_MAISONS: _balkans(etat=e); continue
+        if e['maison'] in MAGHREB_MAISONS: _maghreb(etat=e); continue
         if e['maison'] == 'grande-16':
             _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
@@ -3067,3 +3069,140 @@ def test_familles_historiques_balkans():
             assert _controler_famille(resolus(c))
             with pytest.raises(AssertionError): _balkans({f['id']: f for f in c['familles'] + c['liens']})
             refuse(c)
+
+
+# Notices examinées le 11 novembre 2026 ; attentes indépendantes du catalogue. Tlemcen n'a ni fiche, ni lien, ni état.
+M_FARIS, M_AHMAD, M_MUNTASIR, M_UTHMAN_H, M_UTHMAN, M_ABDALHAQQ = (WP + p for p in (
+    'Abu_Faris_Abd_al-Aziz_II', 'Abu_al-Abbas_Ahmad_II', 'Abu_Abd-Allah_Muhammad_al-Muntasir', 'Abu_%27Amr_%27Uthman', 'Abu_Said_Uthman_III', 'Abd_al-Haqq_II'))
+MAGHREB_MAISONS, TLEMCEN = ('grande-23', 'grande-25'), 'grande-24'
+CHAMPS_FAMILIAUX = {'pere', 'mere', 'conjoints', 'presence', 'etat_familial'}
+# chef : (conjoints, sources {champ : (page, fait)}, repères des lacunes)
+LIENS_M = {
+    'grande-23': ((), {'presence': (M_FARIS, 'Abu Faris Abd al-Aziz II, souverain hafside de juin 1394 à juillet 1434 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.')},
+                  {'pere': ('Abu Faris Abd al-Aziz II', M_AHMAD, 'Abu al-Abbas Ahmad II', '3 juin 1394', 'successeur', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+                   'mere': ('Abu Faris Abd al-Aziz II', 'mère', *HORS),
+                   'conjoints': ('Abu Faris Abd al-Aziz II', M_FARIS, 'aucune épouse', 'ni célibat ni veuvage')}),
+    'grande-25': ((), {'presence': (M_UTHMAN, 'Abu Said Uthman III, sultan mérinide du 19 mars 1398 au 21 octobre 1420 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée. La notice le dit monté sur le trône « à seize ans » (Ibn Khaldūn), alors que la naissance de 1383 lui donne quinze ans en mars 1398 ; divergence conservée.')},
+                  {'pere': ('Abu Said Uthman III', 'ibn Abi l-Abbas', 'infobox', 'Abu Amir Abdallah', 'Gibraltar en 1410', 'hors périmètre', 'aucune absence attestée'),
+                   'mere': ('Abu Said Uthman III', 'mère', *HORS),
+                   'conjoints': ('Abu Said Uthman III', M_UTHMAN, 'infobox', 'ni célibat ni veuvage')}),
+}
+# maison : (conjoints, enfants, sources, repères des lacunes, exclusions {nom : ((page, fait), …)}) ; le motif réunit les faits
+ETATS_M = {
+    'grande-23': ('lacune', 'lacune', {}, {
+        'conjoints': ('Abu Faris Abd al-Aziz II', M_FARIS, 'aucune épouse', 'ni célibat ni veuvage'),
+        'enfants': ('Abu Faris Abd al-Aziz II', M_MUNTASIR, 'Abu Abdallah Muhammad al-Mansur', 'mort en 1430', 'un autre de ses fils', 'al-Mu’tamid', 'sans dates ni filiation écrite', 'aucune absence attestée')}, {
+        'Abu Abdallah Muhammad al-Mansur': ((M_MUNTASIR, 'Abu Abdallah Muhammad al-Mansur : fils et héritier d’Abu Faris Abd al-Aziz II, mort en 1430 avant son père ; naissance inconnue.'),
+                                            (M_UTHMAN_H, 'Abu Abdallah Muhammad al-Mansur : héritier initial d’Abu Faris, mort en 1430 ; la notice ne donne pas sa naissance, présence indéterminée au 1er janvier 1400.'))}),
+    'grande-25': ('lacune', 'lacune', {}, {
+        'conjoints': ('Abu Said Uthman III', M_UTHMAN, 'infobox', 'ni célibat ni veuvage'),
+        'enfants': ('Abu Said Uthman III', M_UTHMAN, 'Abd al-Haqq II', '1419', 'qu’un enfant d’un an', 'ne prouve rien pour 1400', 'aucune absence attestée')}, {
+        'Abd al-Haqq II': ((M_ABDALHAQQ, 'Abd al-Haqq II : fils d’Abu Said Uthman III, né en 1419, futur, exclu du départ ; aucun événement programmé.'),
+                           (M_UTHMAN, 'Abd al-Haqq II : fils et héritier d’Abu Said Uthman III, enfant d’un an à la mort du sultan en 1420 ; né après le départ.'))}),
+}
+MAGHREB_DIVERGENCES = ('3 juin 1394', 'à seize ans', '1419', 'un autre de ses fils', 'al-Mu’tamid', 'ni célibat ni veuvage', 'aucune absence attestée')
+CHEF_EXCLUSION_M = {n: m for m, (*_, x) in ETATS_M.items() for n in x}
+REPERES_M = {**{'personne-' + m: v[2] for m, v in LIENS_M.items()}, **{m: v[3] for m, v in ETATS_M.items()}}
+
+
+def _maghreb(fiches=None, etat=None):
+    try: _maghreb_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche maghrébine malformée : {erreur!r}') from erreur
+
+
+def _maghreb_controle(fiches, etat):
+    if fiches is not None:
+        chefs = {'personne-' + m for m in MAGHREB_MAISONS}
+        assert chefs <= set(fiches)
+        tlemcen = 'personne-' + TLEMCEN
+        assert not any(f.get('maison') == TLEMCEN or f['id'] == tlemcen or tlemcen in (f.get('pere'), f.get('mere')) or tlemcen in f.get('conjoints', ()) for f in fiches.values())
+        for chef in chefs:
+            assert not any(chef in (f['pere'], f['mere']) or chef in f['conjoints'] for f in fiches.values())
+        for m, (conjoints, sources, reperes) in LIENS_M.items():
+            c = fiches['personne-' + m]
+            assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+            champs = ('pere', 'mere', 'conjoints', 'presence')
+            _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETATS_M[etat['maison']]
+        assert (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _preuve_monde_maghreb(personnes):
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
+                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+    _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
+    assert not any(f['maison'] == TLEMCEN and CHAMPS_FAMILIAUX & f.keys() for f in personnes)
+
+
+def test_familles_historiques_maghreb(tmp_path):
+    from sim import personnages as p
+    d, monde = _personnages(), World.charger(0)
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False):
+        if controle: assert _controler_famille(resolus(c))
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    _maghreb({f['id']: f for f in d['familles'] + d['liens']})
+    assert len(d['familles']) == 77 and len(d['liens']) == len(d['etats']) == 23
+    assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
+    chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
+    assert chef['nom'] is None and 'https://en.wikipedia.org/wiki/Zayyanid_dynasty' in chef['lacunes']['identite']
+    _preuve_monde_maghreb(list(monde.personnages))
+    assert not any(f['maison'] == TLEMCEN for f in monde.personnages)
+    ids = {'personne-' + m for m in MAGHREB_MAISONS} | set(MAGHREB_MAISONS)
+    for t in ('liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', f.get('maison')) not in ids: continue
+            altere((t,), d[t][:j] + d[t][j+1:]); altere((t,), d[t] + [copy.deepcopy(f)])
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                altere((t, j, *chemin), ['personne-grande-9'] if valeur == [] else 'Altéré')
+                if isinstance(valeur, str):
+                    for repere in MAGHREB_DIVERGENCES:
+                        if repere in valeur: altere((t, j, *chemin), valeur.replace(repere, 'inconnu'))
+            for nom in f.get('exclusions', {}): altere((t, j, 'exclusions', nom), 'SUPPRIMER')
+            if t == 'etats':
+                for champ in ('conjoints', 'enfants'):
+                    for etat in ('absence_attestee', 'union', 'veuvage'): altere((t, j, champ), etat)
+            for champ, liste in REPERES_M[f.get('id', f.get('maison'))].items():
+                for repere in liste: altere((t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu'))
+    modele = next(f for f in d['familles'] if f['id'] == 'personne-marie-bourgogne')
+    for nom, maison in CHEF_EXCLUSION_M.items():
+        for role in ('pere', 'conjoints'):
+            c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, maison=maison, presence='vivante', pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+            if role == 'pere': ajout['pere'] = 'personne-' + maison
+            else: ajout['conjoints'] = ['personne-' + maison]; next(x for x in c['liens'] if x['id'] == 'personne-' + maison)['conjoints'].append(ajout['id'])
+            assert _controler_famille(resolus(c))
+            with pytest.raises(AssertionError): _maghreb({f['id']: f for f in c['familles'] + c['liens']})
+            refuse(c)
+    # Tlemcen : ni fiche, ni complément, ni état.
+    lien, etat = (next(x for x in d[t] if x.get('id', x.get('maison')) in ('personne-grande-25', 'grande-25')) for t in ('liens', 'etats'))
+    c = copy.deepcopy(d); c['familles'].append(dict(copy.deepcopy(modele), id='personne-intruse', maison=TLEMCEN))
+    with pytest.raises(AssertionError): _maghreb({f['id']: f for f in c['familles'] + c['liens']})
+    refuse(c)
+    c = copy.deepcopy(d); c['liens'].append(dict(copy.deepcopy(lien), id='personne-' + TLEMCEN))
+    with pytest.raises(AssertionError): _maghreb({f['id']: f for f in c['familles'] + c['liens']})
+    refuse(c)
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison=TLEMCEN))
+    with pytest.raises(AssertionError): _maghreb(etat=c['etats'][-1])
+    refuse(c)
+    chemin = tmp_path / 'tlemcen.json'
+    chemin.write_text(json.dumps(c), encoding='utf-8')
+    with pytest.raises(ValueError): p.charger_catalogue(monde.maisons, chemin)
+    # Dans le monde construit, une personne de Tlemcen ne porte aucun champ familial.
+    base = next(f for f in monde.personnages if f['id'] == 'personne-grande-25')
+    for identifiant in ('personne-' + TLEMCEN, 'personne-intruse'):
+        for champ in ('presence', 'etat_familial'):
+            clone = {k: copy.deepcopy(v) for k, v in base.items() if k not in CHAMPS_FAMILIAUX - {champ}}
+            clone.update(id=identifiant, maison=TLEMCEN)
+            with pytest.raises(AssertionError): _preuve_monde_maghreb(list(monde.personnages) + [clone])
