@@ -1,0 +1,15 @@
+# Les réglages du commerce entre cellules (`jeu/sim/engine.py`, MODELE.md
+# « Le commerce entre cellules → Besoin, surplus et allocation »).
+#
+# Ce fichier se modifie sans toucher au code. Toutes les valeurs sont de
+# niveau 2 : plausibles, jamais sourcées (décision 37).
+
+# Jours de ration qu'une cellule affamée garde dans son grenier avant
+# d'exporter le reste. Une cellule est affamée quand ses champs, au rendement
+# et à la saison moyens, nourrissent moins d'habitants qu'elle n'en compte.
+# Niveau 2 : l'idée est médiévale (une ville que son contado ne nourrit pas
+# interdit la sortie de son grain), la durée n'est pas sourcée. Trente jours :
+# un mois de tampon, décidé par la direction le 11 novembre 2026 (lot #1057,
+# réponse B). Un entier de 1 au moins ; 1 redonne le commerce d'avant, où la
+# garde n'est que la ration du tick.
+reserve_ville_affamee_jours = 30
