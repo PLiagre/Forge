@@ -1031,7 +1031,7 @@ avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
 fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
 - part 0,1 : 0 foyers internes, 74 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 253 foyers hors domaine.
+- part 0,6 : 0 foyers internes, 255 foyers hors domaine.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -1964,9 +1964,9 @@ Tout changement de production, de faim ou de départs exige de remesurer.
 
 **Calibration de la part coutumière à 6,2, sans départs.** Le même protocole
 (graine 0, 365 ticks numérotés, `random.Random(0)`, `TAUX_DE_DEPART = 0`)
-garde les bras du lot #720 à 6,2. À part nulle, il reste 35898495 habitants ;
-la part 0,03 en laisse 35546850 (perte 0,98 %), la part 0,04 en laisse
-35404646 (perte 1,38 %). La borne de 1 % reste tenue pour 0,03 et
+garde les bras du lot #720 à 6,2. À part nulle, il reste 35897120 habitants ;
+la part 0,03 en laisse 35546671 (perte 0,98 %), la part 0,04 en laisse
+35403048 (perte 1,38 %). La borne de 1 % reste tenue pour 0,03 et
 dépassée pour 0,04. Ces mesures sont de niveau 2, plausibles, jamais sourcées.
 
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
@@ -1976,11 +1976,11 @@ et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
-- part 0,00 : 35905313 habitants ; perte 0,000000 % ; 154259 foyers déplacés.
-- part 0,03 : 35554619 habitants ; perte 0,976719 % ; 132541 foyers déplacés.
-- part 0,04 : 35416781 habitants ; perte 1,360612 % ; 126269 foyers déplacés.
-- part 0,10 : 33692103 habitants ; perte 6,164018 % ; 78191 foyers déplacés.
-Calibration tenue : perte(0,03) = 0,976719 % ≤ 1 % < perte(0,04) = 1,360612 %.
+- part 0,00 : 35904045 habitants ; perte 0,000000 % ; 154200 foyers déplacés.
+- part 0,03 : 35554504 habitants ; perte 0,973542 % ; 132518 foyers déplacés.
+- part 0,04 : 35414313 habitants ; perte 1,364002 % ; 126262 foyers déplacés.
+- part 0,10 : 33690495 habitants ; perte 6,165183 % ; 78185 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,973542 % ≤ 1 % < perte(0,04) = 1,364002 %.
 Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
@@ -3191,10 +3191,50 @@ pour chaque grandeur d'un lieu, son `nom` (celui de `[grandeurs.<id>]`,
 « Récolte ») ; pour chaque ligne, `source_dite`, le mot de la sorte de sa source
 (« bâtiment », « jauge du pays »), lu dans la table `[mots_des_sources]` de
 `data/modificateurs.toml` ; et `reste_jours`, `(fin − tick publié) × TICK_DURATION_DAYS`,
-ou `null` sans fin. Chaque source admise a son mot ; une source sans mot, ou un
+ou `null` sans fin ; et `fin_date`, la date de la fin (`date_de_tick(fin)`, `{annee, jour_de_l_annee}`), ou `null` sans fin. Chaque source admise a son mot ; une source sans mot, ou un
 mot pour une source inconnue, est refusé par `ModificateurInvalide`
 (`lire_mots_des_sources`, lu à part : `Donnees` ne le porte pas). L'infobulle de la
 carte lit ces lignes telles quelles : elle n'additionne rien. Niveau 2 pour les mots.
+
+### La famine, premier événement du monde
+
+`sim/evenements.py`, `poser_les_famines(monde, affames, donnees=None)` : le
+premier événement du monde qui pose dans le registre (décision 34). Lot #1029,
+réponse A du propriétaire du 10 novembre 2026.
+
+- **Quand.** `engine.tick` l'appelle au tick `t`, après la boucle des cellules
+  (consommation, faim, mortalité, natalité) et avant `_flux.noter_affames`, avec
+  l'ensemble `(cell_id, rang)` des lieux qui ont faim ce tick (population et
+  pénurie positives, `duree_faim_ticks > 0`). Un tick sans faim ne lit aucun
+  fichier et ne coûte rien.
+- **Poser.** Un lieu qui n'a pas la famine la reçoit quand sa faim dépasse
+  `FAIM_AVANT_SECOURS_JOURS` (le 8e jour de faim, au plus tôt, le même seuil que
+  le secours de l'IA) : `modificateurs.poser("famine", "evenement:famine",
+  lieu)`, de `t` à `t + 365 jours`. Un lieu qui a faim depuis ce seuil ou moins
+  n'a rien.
+- **Prolonger.** Chaque jour de faim d'un lieu qui la porte repousse sa fin à
+  `t + 365 jours` ; son `debut` reste celui du premier jour, et un lieu ne porte
+  jamais deux poses `famine`. La durée se compte donc depuis le **dernier** jour
+  de faim.
+- **Effacer.** Rien de neuf : `expirer`, premier maillon du tick, ôte la pose au
+  début du tick `L + 365`, où `L` est le dernier tick de faim. Le facteur de
+  natalité 0,5 touche le lieu aux ticks `L + 1` à `L + 364`.
+- **Ce que la famine pèse.** Un lieu qui a faim ou qui rembourse sa dette n'a
+  déjà aucune naissance (`_apply_natalite` ne fait naître que dans un lieu
+  nourri, sans dette) : la famine n'agit qu'**après**, sur un lieu qui mange de
+  nouveau, dont elle divise les naissances par deux pendant un an. Elle ne
+  touche ni la mortalité (la faim tue par la dette, comme avant), ni un kilo, ni
+  un stock (décision 35). La Concorde du pays baisse déjà avec la faim
+  (`sim/jauges.py`) : la famine n'y pose rien.
+- **Les données.** `[modificateurs.famine]` dans `data/modificateurs.toml` :
+  natalité, −0,5, portée lieu, 365 jours. Niveau 2 : plausible, jamais sourcé.
+  La durée vit dans les données ; le seuil est celui du secours, sans constante neuve.
+- **L'infobulle.** La ligne servie dit « Natalité : −50 % Famine · événement ·
+  encore N jours » ; le document `/modificateurs` porte aussi sa `fin_date`.
+- **Le monde d'avant.** `sim/tests/amorcage_d_avant.py` coupe la famine
+  (`couper_la_famine`) ; la photographie de la graine 0 au 365e jour et les
+  épreuves du décor d'avant la soudure gardent ainsi leurs octets. Sans coupure,
+  la graine 0 pose sa première famine au tick 25 (un lieu de la cellule 10391).
 
 **Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
 à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même

@@ -190,7 +190,7 @@ def test_tick_depart_avant_recolte_et_retour(monkeypatch):
 
 def test_recolte_diminue_avec_les_bras_envoyes(monkeypatch):
     # Isoler le coût des bras : une naissance changerait les effectifs au jour 16.
-    monkeypatch.setattr(engine, "_apply_natalite", lambda cell, penurie_kg: None)
+    monkeypatch.setattr(engine, "_apply_natalite", lambda cell, penurie_kg, *facteurs: None)
     production = engine._apply_production
     initial = World.charger(0)
     geste = _route_reference(initial, cell=1175)

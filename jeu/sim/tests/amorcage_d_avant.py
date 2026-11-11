@@ -16,10 +16,13 @@ Certaines épreuves en gardent le décor, et seulement celles-ci :
   faim du bourg, la distribution intérieure qui coûte, le secours) : elles
   éprouvent la réaction à la faim, pas la date où elle vient.
 
-Chaque usage le dit dans son test. Le monde du jeu, lui, n'a plus que la
-soudure : cette aide ne vit que sous `sim/tests/`.
+Le décor d'avant la soudure est aussi celui d'avant la famine (lot #1029,
+réponse A du 10 novembre 2026) : elle ne pose rien, et ces épreuves gardent
+leurs octets. Chaque usage le dit dans son test. Le monde du jeu, lui, n'a
+plus que la soudure : cette aide ne vit que sous `sim/tests/`.
 """
 import sim.constants as _constantes
+import sim.evenements as _evenements
 import sim.world as _monde
 from sim.model import ecrire_stock_marchandise
 
@@ -53,8 +56,18 @@ def _enveloppe(amorcer_lieux):
     return amorcer
 
 
+def _ne_pose_aucune_famine(monde, affames, donnees=None):
+    return []
+
+
+def couper_la_famine(monkeypatch):
+    """Pour la durée d'un test : un lieu affamé ne reçoit plus la famine (le monde d'avant le lot #1029)."""
+    monkeypatch.setattr(_evenements, "poser_les_famines", _ne_pose_aucune_famine)
+
+
 def amorcer_comme_avant_la_soudure(monkeypatch):
-    """Pour la durée d'un test (ou d'un `MonkeyPatch.context()`) : le monde chargé l'est comme avant."""
+    """Pour la durée d'un test (ou d'un `MonkeyPatch.context()`) : le monde chargé l'est comme avant, sans famine."""
+    couper_la_famine(monkeypatch)
     monkeypatch.setattr(_monde, "amorcer_lieux", _enveloppe(_monde.amorcer_lieux))
     monkeypatch.setattr(_monde, "_porter_la_soudure_dans_chaque_lieu", lambda cellule: None)
 
@@ -63,6 +76,7 @@ def poser():
     """Dans un processus lancé par une épreuve (`python -c`), pour toute sa durée."""
     _monde.amorcer_lieux = _enveloppe(_monde.amorcer_lieux)
     _monde._porter_la_soudure_dans_chaque_lieu = lambda cellule: None
+    _evenements.poser_les_famines = _ne_pose_aucune_famine
 
 
 # Le préambule d'un `python -c` d'épreuve qui joue le monde d'avant la soudure.

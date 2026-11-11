@@ -337,6 +337,8 @@ def document_des_modificateurs(monde) -> dict:
                     ligne["source_dite"] = mots[ligne["source"].partition(":")[0]]
                     ligne["reste_jours"] = (None if ligne["fin"] is None
                                             else (ligne["fin"] - monde.ticks_ecoules) * _constantes.TICK_DURATION_DAYS)
+                    ligne["fin_date"] = (None if ligne["fin"] is None
+                                         else _constantes.date_de_tick(ligne["fin"]))
     return {
         "tick": monde.ticks_ecoules,
         "poses": [p.en_document() for p in poses],

@@ -616,8 +616,8 @@ def test_cellule_depend_du_contenu_des_lieux(monkeypatch):
     # changerait la cellule même avec une consommation gratuite. On les fige
     # dans les deux courses pour que seul le contenu des lieux, par la
     # consommation, puisse faire l'écart.
-    monkeypatch.setattr(engine, "_apply_mortality", lambda cellule: None)
-    monkeypatch.setattr(engine, "_apply_natalite", lambda cellule, penurie_kg: None)
+    monkeypatch.setattr(engine, "_apply_mortality", lambda cellule, *facteurs: None)
+    monkeypatch.setattr(engine, "_apply_natalite", lambda cellule, penurie_kg, *facteurs: None)
     def verifier_ecart():
         source = World.charger(0)
         modifié = copy.deepcopy(source)
@@ -1217,12 +1217,12 @@ def test_demographie_locale_mortalite(monkeypatch):
     verifier()
     original = engine._apply_mortality
     with monkeypatch.context() as garde:
-        garde.setattr(engine, "_apply_mortality", lambda cellule: None)
+        garde.setattr(engine, "_apply_mortality", lambda cellule, *facteurs: None)
         with pytest.raises(AssertionError): verifier()
-    def dettes_inversees(cellule):
+    def dettes_inversees(cellule, *facteurs):
         cellule.lieux[0].dette_alimentaire_kg, cellule.lieux[1].dette_alimentaire_kg = (
             cellule.lieux[1].dette_alimentaire_kg, cellule.lieux[0].dette_alimentaire_kg)
-        original(cellule)
+        original(cellule, *facteurs)
     monkeypatch.setattr(engine, "_apply_mortality", dettes_inversees)
     with pytest.raises(AssertionError): verifier()
 
