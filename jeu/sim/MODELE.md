@@ -3191,10 +3191,50 @@ pour chaque grandeur d'un lieu, son `nom` (celui de `[grandeurs.<id>]`,
 « Récolte ») ; pour chaque ligne, `source_dite`, le mot de la sorte de sa source
 (« bâtiment », « jauge du pays »), lu dans la table `[mots_des_sources]` de
 `data/modificateurs.toml` ; et `reste_jours`, `(fin − tick publié) × TICK_DURATION_DAYS`,
-ou `null` sans fin. Chaque source admise a son mot ; une source sans mot, ou un
+ou `null` sans fin ; et `fin_date`, la date de la fin (`date_de_tick(fin)`, `{annee, jour_de_l_annee}`), ou `null` sans fin. Chaque source admise a son mot ; une source sans mot, ou un
 mot pour une source inconnue, est refusé par `ModificateurInvalide`
 (`lire_mots_des_sources`, lu à part : `Donnees` ne le porte pas). L'infobulle de la
 carte lit ces lignes telles quelles : elle n'additionne rien. Niveau 2 pour les mots.
+
+### La famine, premier événement du monde
+
+`sim/evenements.py`, `poser_les_famines(monde, affames, donnees=None)` : le
+premier événement du monde qui pose dans le registre (décision 34). Lot #1029,
+réponse A du propriétaire du 10 novembre 2026.
+
+- **Quand.** `engine.tick` l'appelle au tick `t`, après la boucle des cellules
+  (consommation, faim, mortalité, natalité) et avant `_flux.noter_affames`, avec
+  l'ensemble `(cell_id, rang)` des lieux qui ont faim ce tick (population et
+  pénurie positives, `duree_faim_ticks > 0`). Un tick sans faim ne lit aucun
+  fichier et ne coûte rien.
+- **Poser.** Un lieu qui n'a pas la famine la reçoit quand sa faim dépasse
+  `FAIM_AVANT_SECOURS_JOURS` (le 8e jour de faim, au plus tôt, le même seuil que
+  le secours de l'IA) : `modificateurs.poser("famine", "evenement:famine",
+  lieu)`, de `t` à `t + 365 jours`. Un lieu qui a faim depuis ce seuil ou moins
+  n'a rien.
+- **Prolonger.** Chaque jour de faim d'un lieu qui la porte repousse sa fin à
+  `t + 365 jours` ; son `debut` reste celui du premier jour, et un lieu ne porte
+  jamais deux poses `famine`. La durée se compte donc depuis le **dernier** jour
+  de faim.
+- **Effacer.** Rien de neuf : `expirer`, premier maillon du tick, ôte la pose au
+  début du tick `L + 365`, où `L` est le dernier tick de faim. Le facteur de
+  natalité 0,5 touche le lieu aux ticks `L + 1` à `L + 364`.
+- **Ce que la famine pèse.** Un lieu qui a faim ou qui rembourse sa dette n'a
+  déjà aucune naissance (`_apply_natalite` ne fait naître que dans un lieu
+  nourri, sans dette) : la famine n'agit qu'**après**, sur un lieu qui mange de
+  nouveau, dont elle divise les naissances par deux pendant un an. Elle ne
+  touche ni la mortalité (la faim tue par la dette, comme avant), ni un kilo, ni
+  un stock (décision 35). La Concorde du pays baisse déjà avec la faim
+  (`sim/jauges.py`) : la famine n'y pose rien.
+- **Les données.** `[modificateurs.famine]` dans `data/modificateurs.toml` :
+  natalité, −0,5, portée lieu, 365 jours. Niveau 2 : plausible, jamais sourcé.
+  La durée vit dans les données ; le seuil est celui du secours, sans constante neuve.
+- **L'infobulle.** La ligne servie dit « Natalité : −50 % Famine · événement ·
+  encore N jours » ; le document `/modificateurs` porte aussi sa `fin_date`.
+- **Le monde d'avant.** `sim/tests/amorcage_d_avant.py` coupe la famine
+  (`couper_la_famine`) ; la photographie de la graine 0 au 365e jour et les
+  épreuves du décor d'avant la soudure gardent ainsi leurs octets. Sans coupure,
+  la graine 0 pose sa première famine au tick 25 (un lieu de la cellule 10391).
 
 **Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
 à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
