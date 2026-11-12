@@ -2851,6 +2851,13 @@ ce jour-là est route, secours, part, geste de points, bâtiment ; le geste de
 points ne dépense pas de grain et n'empêche pas le bâtiment. Le moteur, les
 jauges et les données sont intacts. Niveau 2, plausible, jamais sourcé.
 
+Une exception de jour, pour que chaque geste se rejoue : au tick où le mois des
+jauges tombe (un multiple de 30), le joueur et le rejeu `--gestes` déposent
+avant ce mois, l'IA après ; un geste payé des points du mois neuf serait refusé
+au rejeu. Une maison dont le jour de part est ce premier jour du mois (trois sur
+36) dépose donc son geste de points le deuxième jour (`_jour_des_points`) ; sa
+part, sa route et son bâtiment gardent leur jour.
+
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
 manuel ou cadencé ; les intentions du joueur déjà reçues précèdent les dépôts IA.

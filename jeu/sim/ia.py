@@ -38,6 +38,19 @@ def _jour_de_la_part(cle, t):
     return t % fenetre == zlib.crc32(cle.encode('utf-8')) % fenetre
 
 
+def _jour_des_points(cle, t):
+    """Le jour du geste de points : celui de la part, sauf le premier du mois, qui passe au lendemain.
+
+    Au tick où le mois des jauges tombe, le joueur et le rejeu (`--gestes`) déposent
+    avant lui, l'IA après : son geste, payé des points du mois neuf, serait refusé
+    au rejeu. La maison dont le jour de part est ce premier jour dépose donc le sien
+    le deuxième.
+    """
+    fenetre = _constantes.FENETRE_FLUX_TICKS
+    jour = zlib.crc32(cle.encode('utf-8')) % fenetre
+    return t % fenetre == (jour or 1)
+
+
 def _reserve_voulue(monde, lieux):
     """Habitants, salaires dus et réserve, sans la fenêtre des flux."""
     habitants = 0
@@ -253,6 +266,7 @@ def _proposition_de_points(monde, maison, cle, regles):
 
     Le premier de la liste qui est voulu et payable ; un geste voulu mais pas
     encore payable laisse passer le suivant.
+
     """
     from sim import jauges
     valeurs = jauges.etat(monde, cle, regles)
@@ -362,27 +376,31 @@ def decider_intentions(monde, releve, maisons=None):
         secours = _proposition_de_secours(monde, maison, cle)
         if secours is not None:
             propositions.append(secours)
-        if pleine and isinstance(cle, str) and _jour_de_la_part(cle, t):
-            proposition = _proposition_de_part(monde, maison, cle)
-            if proposition is not None:
-                propositions.append(proposition)
+        if pleine and isinstance(cle, str):
+            jour_de_part = _jour_de_la_part(cle, t)
+            if jour_de_part:
+                proposition = _proposition_de_part(monde, maison, cle)
+                if proposition is not None:
+                    propositions.append(proposition)
             # Un geste de points au plus, le même jour du mois, par le même chemin que le joueur (décision 38).
-            if regles is None:
-                from sim import jauges
-                regles = jauges.charger_regles()
-            points = _proposition_de_points(monde, maison, cle, regles)
-            if points is not None:
-                propositions.append(points)
-            # Bâtir dans sa province, par le même chemin que le joueur (décision 38).
-            if types is None:
-                from sim import batiments
-                types = batiments.charger_types()
-            # Un chantier à la fois : pas de bâtiment le jour où la maison trace une
-            # route ou ouvre son grenier (le grenier ne paie pas deux projets).
-            batiment = None if route is not None or secours is not None else _proposition_de_batiment(
-                monde, maison, cle, types)
-            if batiment is not None:
-                propositions.append(batiment)
+            if _jour_des_points(cle, t):
+                if regles is None:
+                    from sim import jauges
+                    regles = jauges.charger_regles()
+                points = _proposition_de_points(monde, maison, cle, regles)
+                if points is not None:
+                    propositions.append(points)
+            if jour_de_part:
+                # Bâtir dans sa province, par le même chemin que le joueur (décision 38).
+                if types is None:
+                    from sim import batiments
+                    types = batiments.charger_types()
+                # Un chantier à la fois : pas de bâtiment le jour où la maison trace une
+                # route ou ouvre son grenier (le grenier ne paie pas deux projets).
+                batiment = None if route is not None or secours is not None else _proposition_de_batiment(
+                    monde, maison, cle, types)
+                if batiment is not None:
+                    propositions.append(batiment)
     return propositions
 
 
