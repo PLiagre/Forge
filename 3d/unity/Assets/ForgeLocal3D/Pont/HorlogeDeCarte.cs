@@ -18,8 +18,10 @@ namespace Forge.Pont {
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     public sealed class HorlogeDeCarte : MonoBehaviour {
         public const float PERIODE_LECTURE_S = 0.25f;
-        // Jours par seconde. Le dernier vaut 1000 / BUDGET_TICK_MS du service (100 ms) : un jour toutes les 100 ms, que le tick avec IA,
-        // mesuré à 67 ms le 7 novembre 2026, tient. Un palier plus rapide ferait prendre du retard au service, et la vitesse affichée mentirait.
+        // Jours par seconde. Le dernier vaut 1000 / BUDGET_TICK_MS du service (100 ms) : un jour toutes les 100 ms. Le calcul du tick avec IA,
+        // mesuré à 67 ms le 7 novembre 2026, tient ce budget ; le tick publié en entier, mesuré à environ 200 ms le 12 novembre 2026 (publication
+        // de l'état comprise), ne le tient pas encore sur le PC : tant que la publication n'est pas plus rapide, le service prend du retard à
+        // ce palier et la vitesse servie reste en dessous. Un palier plus rapide aggraverait le retard.
         public static readonly double[] PALIERS = { 0.5, 1, 2, 5, 10 };
         private static readonly TimeSpan DELAI = TimeSpan.FromSeconds(2);
         private static readonly Vector2 RESOLUTION_REFERENCE = new Vector2(1600, 900);
