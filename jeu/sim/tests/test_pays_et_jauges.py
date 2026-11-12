@@ -290,6 +290,209 @@ def test_l_ia_depense_ses_jauges_par_le_meme_chemin(depart, regles):
     assert J.etat(monde, cle, regles)["concorde"] == 0
 
 
+# --- Le geste de points du mois de l'IA : au plus un, dans l'ordre -----------------
+
+_GESTES_DE_POINTS = ("depenser_jauge", "ameliorer_une_province")
+_SEIGNEURIE = "seigneurie-1"
+
+
+@pytest.fixture(scope="module")
+def au_jour_de_part(depart, regles):
+    """`seigneurie-1` à son jour de part du premier mois, le mois des jauges joué, et les maisons de l'IA."""
+    from sim import ia
+    from sim.capitales import toutes_les_maisons_de_l_ia
+    monde, rng = _monde_au_mois(depart, regles, _SEIGNEURIE)
+    maisons = toutes_les_maisons_de_l_ia(monde)
+    jour = next(t for t in range(monde.ticks_ecoules, monde.ticks_ecoules + c.FENETRE_FLUX_TICKS)
+                if ia._jour_de_la_part(_SEIGNEURIE, t))
+    while monde.ticks_ecoules < jour:
+        _jouer(monde, rng, monde.ticks_ecoules)
+    J.avant_le_tick(monde)
+    return monde, rng, maisons
+
+
+def _gestes_de_points(propositions):
+    return [p for p in propositions
+            if p["intention"]["maison"] == _SEIGNEURIE and p["intention"]["type"] in _GESTES_DE_POINTS]
+
+
+def _points_au_jour(au_jour_de_part, regles, monde=None, **valeurs):
+    """Une copie du monde du jour, ses jauges posées, et les gestes de points que l'IA propose à `seigneurie-1`."""
+    from sim import ia
+    depart_du_jour, _, maisons = au_jour_de_part
+    copie = copy.deepcopy(depart_du_jour if monde is None else monde)
+    copie.jauges[_SEIGNEURIE] = J.etat(copie, _SEIGNEURIE, regles) | valeurs
+    J.poser_les_modificateurs(copie, regles)
+    return copie, _gestes_de_points(ia.decider_intentions(copie, [], maisons))
+
+
+def _bourgs_de(monde):
+    return sorted(cid for cid, cell in monde.cells.items()
+                  for lieu in cell.lieux if lieu.rang == 0 and lieu.maitre == _SEIGNEURIE)
+
+
+def _moins_chere(monde, regles):
+    """La province dont le niveau suivant coûte le moins, relue sur le monde (la plus petite cell_id à égalité)."""
+    table = regles.amelioration
+    return min(_bourgs_de(monde), key=lambda cid: (
+        table["cout_premier_niveau"] * table["facteur_par_niveau"] ** monde.niveaux_de_province.get(cid, 0), cid))
+
+
+def _monde_a_trois_provinces(au_jour_de_part):
+    """Deux bourgs d'autres maisons passés à `seigneurie-1` à la main : l'amorçage n'en donne qu'un à chacune."""
+    monde = copy.deepcopy(au_jour_de_part[0])
+    for cid in [cid for cid in sorted(monde.cells) if cid not in _bourgs_de(monde)][:2]:
+        next(lieu for lieu in monde.cells[cid].lieux if lieu.rang == 0).maitre = _SEIGNEURIE
+    assert len(_bourgs_de(monde)) == 3
+    return monde
+
+
+def _controler_concorde(au_jour_de_part, regles):
+    _, propositions = _points_au_jour(au_jour_de_part, regles, concorde=-1, plume=60.0, sceau=40.0, droit=50)
+    assert len(propositions) == 1
+    assert propositions[0]["intention"] == {"type": "depenser_jauge", "maison": _SEIGNEURIE, "geste": "affermir_la_concorde"}
+    assert propositions[0]["raison"]["regle"] == "concorde_sous_son_neutre"
+
+
+def _controler_droit(au_jour_de_part, regles):
+    _, propositions = _points_au_jour(au_jour_de_part, regles, concorde=0, plume=60.0, sceau=40.0, droit=50)
+    assert len(propositions) == 1
+    intention, raison = propositions[0]["intention"], propositions[0]["raison"]
+    assert intention == {"type": "depenser_jauge", "maison": _SEIGNEURIE, "geste": "asseoir_le_droit"}
+    assert raison["regle"] == "droit_sous_son_maximum"
+    assert (raison["droit"], raison["maximum"], raison["sceau"]) == (50, 100, 40.0)
+    assert raison["cout"] == regles.gestes["asseoir_le_droit"]["cout"]
+    assert (raison["concorde"], raison["plume"]) == (0, 60.0)
+
+
+def _controler_province(au_jour_de_part, regles):
+    riche = _monde_a_trois_provinces(au_jour_de_part)
+    cellules = _bourgs_de(riche)
+    choisies = []
+    for niveaux in ({}, {min(cellules): 1}):
+        riche.niveaux_de_province = dict(niveaux)
+        attendue = _moins_chere(riche, regles)
+        _, propositions = _points_au_jour(au_jour_de_part, regles, riche, concorde=0, droit=100, plume=20.0, sceau=7.0)
+        assert len(propositions) == 1
+        intention, raison = propositions[0]["intention"], propositions[0]["raison"]
+        assert intention == {"type": "ameliorer_une_province", "maison": _SEIGNEURIE, "cell": attendue}
+        niveau = niveaux.get(attendue, 0)
+        assert raison == {"regle": "province_la_moins_chere", "cell_id": attendue, "niveau": niveau,
+                          "cout": regles.amelioration["cout_premier_niveau"] * regles.amelioration["facteur_par_niveau"] ** niveau,
+                          "plume": 20.0, "concorde": 0, "droit": 100, "sceau": 7.0}
+        choisies.append(attendue)
+    # Un niveau posé sur la première renvoie le choix à la suivante la moins chère.
+    assert choisies[0] == min(cellules) and choisies[1] == sorted(cellules)[1]
+
+
+def _controler_plume_gardee(au_jour_de_part, regles):
+    _, aucun = _points_au_jour(au_jour_de_part, regles, concorde=-1, plume=20.0, sceau=0.0, droit=50)
+    assert aucun == []
+    _, droit = _points_au_jour(au_jour_de_part, regles, concorde=-1, plume=20.0, sceau=40.0, droit=50)
+    assert [p["raison"]["regle"] for p in droit] == ["droit_sous_son_maximum"]
+
+
+def _controler_au_plus_un(au_jour_de_part, regles):
+    # Le Droit et la province sont payables ensemble : un seul geste.
+    _, propositions = _points_au_jour(au_jour_de_part, regles, concorde=0, plume=60.0, sceau=40.0, droit=50)
+    assert len(propositions) == 1
+
+
+def test_l_ia_points_un_seul_geste_dans_l_ordre(au_jour_de_part, regles):
+    _controler_concorde(au_jour_de_part, regles)
+    _controler_droit(au_jour_de_part, regles)
+    _controler_province(au_jour_de_part, regles)
+    _controler_plume_gardee(au_jour_de_part, regles)
+    _controler_au_plus_un(au_jour_de_part, regles)
+
+
+def test_l_ia_points_aucun_geste_un_autre_jour(au_jour_de_part, regles):
+    from sim import ia
+    monde, rng, maisons = au_jour_de_part
+    suivant = copy.deepcopy(monde)
+    engine.tick(suivant, copy.deepcopy(rng), suivant.ticks_ecoules)
+    assert not ia._jour_de_la_part(_SEIGNEURIE, suivant.ticks_ecoules)
+    suivant.jauges[_SEIGNEURIE] = J.etat(suivant, _SEIGNEURIE, regles) | {"concorde": -1, "plume": 60.0, "sceau": 40.0}
+    assert _gestes_de_points(ia.decider_intentions(suivant, [], maisons)) == []
+
+
+def test_l_ia_points_contre_epreuves(au_jour_de_part, regles, monkeypatch):
+    from sim import ia
+    originale, originale_decider, originale_province = ia._proposition_de_points, ia.decider_intentions, ia._proposition_de_province
+    # L'ancienne règle, la concorde seule : les cas du Droit et de la province échouent.
+    monkeypatch.setattr(ia, "_proposition_de_points", lambda monde, maison, cle, regles_: ia._proposition_de_concorde(
+        monde, maison, cle, regles_, J.etat(monde, cle, regles_)))
+    _controler_concorde(au_jour_de_part, regles)
+    with pytest.raises(AssertionError):
+        _controler_droit(au_jour_de_part, regles)
+    with pytest.raises(AssertionError):
+        _controler_province(au_jour_de_part, regles)
+    monkeypatch.setattr(ia, "_proposition_de_points", originale)
+
+    # Une version qui rend tous les gestes payables : « au plus un » échoue.
+    def tous(monde, releve, maisons=None):
+        propositions = originale_decider(monde, releve, maisons)
+        maison = next(m for m in maisons if ia._cle_du_grenier(m) == _SEIGNEURIE)
+        valeurs = J.etat(monde, _SEIGNEURIE, regles)
+        for proposer in (ia._proposition_de_droit, ia._proposition_de_province):
+            proposition = proposer(monde, maison, _SEIGNEURIE, regles, valeurs)
+            if proposition is not None:
+                propositions.append(proposition)
+        return propositions
+
+    monkeypatch.setattr(ia, "decider_intentions", tous)
+    with pytest.raises(AssertionError):
+        _controler_au_plus_un(au_jour_de_part, regles)
+    monkeypatch.setattr(ia, "decider_intentions", originale_decider)
+
+    # Une version sans la Plume gardée : la province passe avec la Concorde basse.
+    def sans_plume_gardee(monde, maison, cle, regles_, valeurs):
+        neutre = regles_.jauges["concorde"]["neutre"]
+        return originale_province(monde, maison, cle, regles_, valeurs | {"concorde": max(valeurs["concorde"], neutre)})
+
+    monkeypatch.setattr(ia, "_proposition_de_province", sans_plume_gardee)
+    with pytest.raises(AssertionError):
+        _controler_plume_gardee(au_jour_de_part, regles)
+
+
+def _riche_au_jour(au_jour_de_part, regles):
+    riche = _monde_a_trois_provinces(au_jour_de_part)
+    riche.jauges[_SEIGNEURIE] = J.etat(riche, _SEIGNEURIE, regles) | {"concorde": 0, "droit": 100, "plume": 20.0}
+    J.poser_les_modificateurs(riche, regles)
+    return riche
+
+
+def test_l_ia_points_meme_chemin_meme_monde(au_jour_de_part, regles):
+    from sim import ia
+    from sim.tests.test_intentions import _controle_chemin_unique
+    _, rng, maisons = au_jour_de_part
+    riche = _riche_au_jour(au_jour_de_part, regles)
+    _controle_chemin_unique(riche, lambda m, releve: ia.jouer_ia(m, releve, maisons), "ameliorer_une_province")
+    joueur = copy.deepcopy(riche)
+    releve = []
+    ia.jouer_ia(riche, releve, maisons)
+    acceptees = [e["intention"] for e in releve if "refus" not in e]
+    choisie = next(i["cell"] for i in acceptees if i["type"] == "ameliorer_une_province" and i["maison"] == _SEIGNEURIE)
+    for intention in acceptees:
+        recevoir_intention(joueur, intention)
+    rng_joueur = copy.deepcopy(rng)
+    engine.tick(riche, rng, riche.ticks_ecoules)
+    engine.tick(joueur, rng_joueur, joueur.ticks_ecoules)
+    assert json.dumps(riche.to_dict(), sort_keys=True) == json.dumps(joueur.to_dict(), sort_keys=True)
+    assert riche.niveaux_de_province[choisie] == 1 and joueur.niveaux_de_province[choisie] == 1
+
+    # Contre-épreuve : une IA qui améliore dans le monde au lieu de déposer l'intention échoue.
+    def tricher(m, releve_):
+        for proposition in ia.decider_intentions(m, releve_, maisons):
+            intention = proposition["intention"]
+            if intention["type"] == "ameliorer_une_province":
+                J.appliquer_amelioration(m, intention["maison"], intention["cell"])
+            releve_.append({"tick": m.ticks_ecoules, **proposition})
+
+    with pytest.raises(AssertionError):
+        _controle_chemin_unique(_riche_au_jour(au_jour_de_part, regles), tricher, "ameliorer_une_province")
+
+
 def test_le_service_sert_le_pays_et_ses_jauges(depart):
     from sim.service import ServeurMonde
     with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:

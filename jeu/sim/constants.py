@@ -693,6 +693,8 @@ IA_DUREE_MESURE_JOURS = 30
 IA_PAS_ECART_ROUTE_DEGRES = 5
 # Niveau 2 : pas dont une maison de l'IA rapproche ou éloigne sa part, une fois par mois.
 IA_PAS_DE_PART = 0.05
+# Niveau 2 : un grenier au-dessus de ce multiple de la réserve voulue déborde, et la part baisse.
+IA_GRENIER_PLEIN_FOIS_LA_RESERVE = 2
 # Niveau 2 : jours de nourriture visés au grenier, pour une part des habitants.
 RESERVE_VOULUE_JOURS = 30
 # Niveau 2 : part des habitants que cette réserve est censée couvrir.

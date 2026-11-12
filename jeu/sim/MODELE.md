@@ -2794,8 +2794,12 @@ arrivées), ou un lieu affamé, baisse la part de `IA_PAS_DE_PART`. Sinon, si
 le grenier est sous la réserve — `RESERVE_VOULUE_JOURS` et
 `RESERVE_VOULUE_PART_DES_HABITANTS` pour une part des habitants, plus les
 salaires encore dus sur les chantiers des bourgs qu'elle tient — elle la
-monte d'autant, sans dépasser `PART_MAXIMALE`. La raison se nomme
-`part_sur_projets_et_gens`. Le geste est `fixer_part`, déposé par
+monte d'autant, sans dépasser `PART_MAXIMALE`. Sinon, si le grenier dépasse
+strictement `IA_GRENIER_PLEIN_FOIS_LA_RESERVE` (2) fois cette réserve, il
+déborde : la part baisse de `IA_PAS_DE_PART`, sans descendre sous 0. À
+exactement deux fois la réserve, ou à part déjà nulle, elle se tait. La raison
+se nomme `part_sur_projets_et_gens`, sans champ nouveau : le seuil se relit
+dans la constante. Le geste est `fixer_part`, déposé par
 `recevoir_intention`, comme une route. Le budget des routes ne compte que
 les `tracer_route` : une part déposée dans le mois ne bloque pas le tracé.
 Mesure du prototype, graine 0 : environ 2 ms par maison qui décide.
@@ -2818,6 +2822,34 @@ mensuelle. À sept jours juste, à dette nulle, au plancher exact, sans lieu,
 hors carte ou pour la maison du joueur, elle se tait. Aucun budget annuel ou
 mensuel ne l'empêche de rouvrir le lendemain. Niveau 2, plausible, jamais
 sourcé. Le réglage de la part, lui, reste mensuel.
+
+**Le geste de points du mois.** Le jour de sa part, avec la fenêtre des flux
+pleine, une maison de la carte dépose **au plus un geste de points** par mois
+(`_proposition_de_points`), le premier de cette liste qui est voulu et payable,
+par `recevoir_intention` comme le joueur (décision 38) :
+
+1. **Affermir la concorde** : la Concorde est strictement sous son `neutre` et
+   `jauges.verifier_geste` ne refuse pas le geste. Raison
+   `concorde_sous_son_neutre` : `concorde`, `neutre`, `plume`, `cout`.
+2. **Asseoir le droit** : le Droit est strictement sous son `maximum` et le
+   geste est payable (le Sceau). Raison `droit_sous_son_maximum` : `droit`,
+   `maximum`, `sceau`, `cout`, `concorde`, `plume`.
+3. **Améliorer sa province la moins chère** : parmi les cellules dont elle tient
+   elle-même le bourg (rang 0, `maitre` égal à sa clé), celle dont
+   `jauges.cout_du_niveau_suivant` est le plus bas (la plus petite `cell_id` à
+   égalité), si `jauges.verifier_amelioration` ne refuse pas **et que la
+   Concorde n'est pas sous son neutre** : une maison dont la Concorde est basse
+   garde sa Plume pour l'affermir. Le Droit, payé en Sceau, n'attend pas la
+   Concorde. Intention `ameliorer_une_province` (`maison`, `cell`) ; raison
+   `province_la_moins_chere` : `cell_id`, `niveau` (avant le geste), `cout`,
+   `plume`, `concorde`, `droit`, `sceau`.
+
+Le premier point de la liste ne retient pas les suivants : une concorde sous son
+neutre mais pas encore payable laisse passer le Droit, et la maison dépose le
+geste le premier mois où il est payable. L'ordre des propositions d'une maison
+ce jour-là est route, secours, part, geste de points, bâtiment ; le geste de
+points ne dépense pas de grain et n'empêche pas le bâtiment. Le moteur, les
+jauges et les données sont intacts. Niveau 2, plausible, jamais sourcé.
 
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
@@ -3393,13 +3425,15 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   triées par cell_id : `cell_id`, `niveau`, `cout` du suivant et `refus` (la
   raison du dépôt, ou `null`, sans compter les gestes déjà déposés).
   `jauges.gestes` (deux gestes, ceux du panneau), `grandeurs` et `modificateurs`
-  ne changent pas. L'IA n'a pas encore de règle pour l'améliorer (#1027) :
-  une maison qui dépose l'intention obtient le monde qu'obtient le joueur.
-- **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont la
-  Concorde est sous son neutre et dont la Plume paie le geste dépose
-  « Affermir la concorde », par `recevoir_intention`, avec sa raison
-  (`concorde_sous_son_neutre`). Le joueur qui dépose la même intention obtient
-  le même monde (décision 38).
+  ne changent pas. L'IA l'améliore par la règle « Le geste de points du mois »
+  (« Les décisions et les gestes de l'IA ») : une maison qui dépose l'intention
+  obtient le monde qu'obtient le joueur.
+- **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dépose au
+  plus un geste de points — concorde, Droit, puis province la moins chère —,
+  par `recevoir_intention`, avec sa raison (`concorde_sous_son_neutre`,
+  `droit_sous_son_maximum`, `province_la_moins_chere`) : voir « Le geste de
+  points du mois » dans « Les décisions et les gestes de l'IA ». Le joueur qui
+  dépose la même intention obtient le même monde (décision 38).
 
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
 `data/jauges.toml`, dont les trois de l'amélioration d'une province (6 points

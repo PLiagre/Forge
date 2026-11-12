@@ -1505,6 +1505,10 @@ def _lire_raison_part(monde, cle):
         for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
             if ouvrage.en_chantier:
                 journees += ouvrage.travail_requis - ouvrage.travail_fourni
+    # Les bâtiments de province que la maison paie encore (data/batiments.toml), comme _reserve_lue de test_monde.py.
+    for batiment in getattr(monde, 'batiments_de_province', ()) if vus else ():
+        if batiment.en_chantier and batiment.maison == cle:
+            journees += batiment.travail_requis - batiment.travail_fourni
     salaires = journees * k.SALAIRE_JOURNEE_KG
     reserve_gens = (k.consommation_kg_par_habitant_par_tick(nourriture)
                     * (k.RESERVE_VOULUE_JOURS / k.TICK_DURATION_DAYS)
@@ -1525,6 +1529,8 @@ def _nouvelle_part(raison):
         return max(0, round(part - k.IA_PAS_DE_PART, k.DECIMALES_PART))
     if raison['grenier_nourriture_kg'] < raison['reserve_voulue_kg']:
         return min(k.PART_MAXIMALE, round(part + k.IA_PAS_DE_PART, k.DECIMALES_PART))
+    if raison['grenier_nourriture_kg'] > k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * raison['reserve_voulue_kg']:
+        return max(0, round(part - k.IA_PAS_DE_PART, k.DECIMALES_PART))
     return part
 
 
@@ -1533,7 +1539,7 @@ def _controler_parts(releve, lectures, captures, monde):
     entrees = [e for e in releve if e['intention']['type'] == 'fixer_part']
     assert entrees and all('refus' not in e for e in releve)
     assert [c for c in captures if c['type'] == 'fixer_part'] == [e['intention'] for e in entrees]
-    baisse_nette = hausse = False
+    baisse_nette = hausse = baisse_pleine = False
     vues = {}
     for entree in entrees:
         cle = entree['intention']['maison']
@@ -1544,18 +1550,20 @@ def _controler_parts(releve, lectures, captures, monde):
         assert 0 <= nouvelle <= k.PART_MAXIMALE
         perte = raison['partis'] - raison['arrives'] >= k.TAILLE_FOYER
         faim = raison['lieux_affames'] > 0
+        plein = raison['grenier_nourriture_kg'] > k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * raison['reserve_voulue_kg']
         if nouvelle < raison['part']:
-            assert perte or faim
+            assert perte or faim or plein
         else:
             assert not perte and not faim and raison['grenier_nourriture_kg'] < raison['reserve_voulue_kg']
         baisse_nette = baisse_nette or (nouvelle < raison['part'] and perte and not faim)
+        baisse_pleine = baisse_pleine or (nouvelle < raison['part'] and plein and not perte and not faim)
         hausse = hausse or nouvelle > raison['part']
         vues[(entree['tick'], cle)] = entree
     for tick, raisons in lectures.items():
         for cle, raison in raisons.items():
             if (tick, cle) not in vues:
                 assert _nouvelle_part(raison) == raison['part']
-    assert baisse_nette and hausse
+    assert baisse_nette and hausse and baisse_pleine
     attendu = {m.id: k.PART_COUTUMIERE for m in monde.maisons}
     for entree in entrees:
         attendu[entree['intention']['maison']] = entree['intention']['part']
@@ -2122,6 +2130,82 @@ def test_ia_part_sur_un_an(annee_ia):
         _controler_parts([], lectures, captures, monde)
 
 
+def _baisse_grenier_plein(releve):
+    from sim import constants as k
+    return next(e for e in releve if e['intention']['type'] == 'fixer_part'
+                and e['intention']['part'] < e['raison']['part']
+                and e['raison']['partis'] - e['raison']['arrives'] < k.TAILLE_FOYER
+                and e['raison']['lieux_affames'] == 0
+                and e['raison']['grenier_nourriture_kg'] > k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * e['raison']['reserve_voulue_kg'])
+
+
+def test_ia_part_baisse_grenier_plein_sur_un_an(annee_ia, monkeypatch):
+    """Une baisse « grenier plein » ne passe plus si son grenier est ramené à 1,5 fois la réserve, ni sans la troisième branche."""
+    monde, releve, captures, lectures = annee_ia
+    plein = _baisse_grenier_plein(releve)
+    faux, fausses_lectures = deepcopy(releve), deepcopy(lectures)
+    cible = next(e for e in faux if e['tick'] == plein['tick'] and e['intention']['type'] == 'fixer_part'
+                 and e['intention']['maison'] == plein['intention']['maison'])
+    cle = cible['intention']['maison']
+    cible['raison']['grenier_nourriture_kg'] = 1.5 * cible['raison']['reserve_voulue_kg']
+    fausses_lectures[plein['tick']][cle] = deepcopy(cible['raison'])
+    with pytest.raises(AssertionError):
+        _controler_parts(faux, fausses_lectures, captures, monde)
+
+    def deux_branches(raison):
+        from sim import constants as k
+        part = raison['part']
+        if raison['partis'] - raison['arrives'] >= k.TAILLE_FOYER or raison['lieux_affames'] > 0:
+            return max(0, round(part - k.IA_PAS_DE_PART, k.DECIMALES_PART))
+        if raison['grenier_nourriture_kg'] < raison['reserve_voulue_kg']:
+            return min(k.PART_MAXIMALE, round(part + k.IA_PAS_DE_PART, k.DECIMALES_PART))
+        return part
+
+    monkeypatch.setitem(globals(), '_nouvelle_part', deux_branches)
+    with pytest.raises(AssertionError):
+        _controler_parts(releve, lectures, captures, monde)
+
+
+def test_ia_part_baisse_quand_le_grenier_deborde(monkeypatch):
+    from sim import ia, constants as k
+    from sim.__main__ import _simulate
+    cle = 'seigneurie-6'
+    _, monde = _simulate(46, 0)
+    base = _lire_raison_part(monde, cle)
+    assert base and base['partis'] - base['arrives'] < k.TAILLE_FOYER and base['lieux_affames'] == 0
+    reserve = base['reserve_voulue_kg']
+    assert reserve > 0
+
+    def part_de(m):
+        return [p for p in ia.decider_intentions(m, []) if p['intention']['type'] == 'fixer_part'
+                and p['intention']['maison'] == cle]
+
+    def avec(grenier, part=None):
+        copie = deepcopy(monde)
+        copie.greniers[cle][k.MARCHANDISE_NOURRITURE] = grenier
+        if part is not None:
+            copie.parts[cle] = part
+        return copie
+
+    plein = avec(k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * reserve + 1, part=k.PART_MAXIMALE)
+    propositions = part_de(plein)
+    assert len(propositions) == 1
+    attendue = round(k.PART_MAXIMALE - k.IA_PAS_DE_PART, k.DECIMALES_PART)
+    assert propositions[0]['intention']['part'] == attendue < k.PART_MAXIMALE
+    assert propositions[0]['raison'] == _lire_raison_part(plein, cle)
+    # Sous un pas de la borne, la baisse s'arrête à 0.
+    petite = avec(k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * reserve + 1, part=k.IA_PAS_DE_PART / 2)
+    assert part_de(petite)[0]['intention']['part'] == 0
+    # À exactement deux fois la réserve : rien.
+    assert part_de(avec(k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * reserve)) == []
+    # Une part déjà à 0 se tait.
+    assert part_de(avec(k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * reserve + 1, part=0)) == []
+    # Contre-épreuve : la constante à 1 fait proposer le grenier à exactement deux fois la réserve.
+    monkeypatch.setattr(k, 'IA_GRENIER_PLEIN_FOIS_LA_RESERVE', 1)
+    with pytest.raises(AssertionError):
+        assert part_de(avec(2 * reserve, part=k.PART_MAXIMALE)) == []
+
+
 def _controle_chemin_unique(monde, jouer, type_present='fixer_part'):
     from sim import ia
     copie = deepcopy(monde)
@@ -2175,6 +2259,22 @@ def test_ia_part_documentation():
         for mot in ('part_sur_projets_et_gens', 'RESERVE_VOULUE_JOURS',
                     'RESERVE_VOULUE_PART_DES_HABITANTS', 'IA_PAS_DE_PART', 'TAILLE_FOYER',
                     'affames', 'crc32', 'niveau 2', 'ms'):
+            assert mot in section
+
+    controler(texte)
+    avant, apres = texte.split(titre)
+    prive = avant + '\n## ' + apres.split('\n## ', 1)[1]
+    with pytest.raises((AssertionError, IndexError)):
+        controler(prive)
+
+
+def test_ia_part_documentation_des_points():
+    texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
+    titre = "## Les décisions et les gestes de l'IA"
+
+    def controler(document):
+        section = document.split(titre)[1].split('\n## ')[0]
+        for mot in ('IA_GRENIER_PLEIN_FOIS_LA_RESERVE', 'droit_sous_son_maximum', 'province_la_moins_chere'):
             assert mot in section
 
     controler(texte)

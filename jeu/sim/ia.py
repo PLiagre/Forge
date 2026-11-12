@@ -7,7 +7,7 @@ from sim.capitales import maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
     BatirDansUneProvince, ChoixDepart, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
-    TYPE_OUVRIR_GRENIER,
+    TYPE_AMELIORER_UNE_PROVINCE, TYPE_OUVRIR_GRENIER,
     _lieux_de_la_maison, recevoir_intention,
 )
 from sim.seigneuries import identifiant_de_seigneurie
@@ -153,7 +153,7 @@ def _proposition_de_secours(monde, maison, cle):
 
 
 def _proposition_de_part(monde, maison, cle):
-    """Monte ou baisse la part, ou se tait si la borne est déjà atteinte."""
+    """Baisse la part (perte, faim, grenier plein) ou la monte (grenier bas), ou se tait si la borne est atteinte."""
     noms = getattr(getattr(monde, 'routes_des_lieux', None), 'noms', ())
     if cle not in noms:
         return None
@@ -167,6 +167,9 @@ def _proposition_de_part(monde, maison, cle):
         nouvelle = max(0, round(part - _constantes.IA_PAS_DE_PART, _constantes.DECIMALES_PART))
     elif lecture['grenier_nourriture_kg'] < lecture['reserve_voulue_kg']:
         nouvelle = min(_constantes.PART_MAXIMALE, round(part + _constantes.IA_PAS_DE_PART, _constantes.DECIMALES_PART))
+    elif lecture['grenier_nourriture_kg'] > _constantes.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * lecture['reserve_voulue_kg']:
+        # Un grenier qui déborde est du grain qu'on prélève trop : la part redescend.
+        nouvelle = max(0, round(part - _constantes.IA_PAS_DE_PART, _constantes.DECIMALES_PART))
     else:
         return None
     if nouvelle == part:
@@ -178,13 +181,12 @@ def _proposition_de_part(monde, maison, cle):
     }
 
 
-def _proposition_de_jauge(monde, maison, cle, regles):
+def _proposition_de_concorde(monde, maison, cle, regles, valeurs):
     """Affermit la concorde quand elle est sous son neutre et que la Plume la paie (sim.jauges)."""
     from sim import jauges
     geste = 'affermir_la_concorde'
     if geste not in regles.gestes or 'concorde' not in regles.jauges:
         return None
-    valeurs = jauges.etat(monde, cle, regles)
     neutre = regles.jauges['concorde']['neutre']
     if not valeurs['concorde'] < neutre:
         return None
@@ -196,6 +198,69 @@ def _proposition_de_jauge(monde, maison, cle, regles):
         'raison': {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'], 'neutre': neutre,
                    'plume': valeurs['plume'], 'cout': dict(regles.gestes[geste]['cout'])},
     }
+
+
+def _proposition_de_droit(monde, maison, cle, regles, valeurs):
+    """Assoit le droit quand il est sous son maximum et que le Sceau le paie (sim.jauges)."""
+    from sim import jauges
+    geste = 'asseoir_le_droit'
+    if geste not in regles.gestes or 'droit' not in regles.jauges:
+        return None
+    maximum = regles.jauges['droit']['maximum']
+    if not valeurs['droit'] < maximum:
+        return None
+    if jauges.verifier_geste(monde, cle, geste, regles) is not None:
+        return None
+    return {
+        'maison': {'sorte': maison.sorte, 'id': maison.id},
+        'intention': {'type': TYPE_DEPENSER_JAUGE, 'maison': cle, 'geste': geste},
+        'raison': {'regle': 'droit_sous_son_maximum', 'droit': valeurs['droit'], 'maximum': maximum,
+                   'sceau': valeurs['sceau'], 'cout': dict(regles.gestes[geste]['cout']),
+                   'concorde': valeurs['concorde'], 'plume': valeurs['plume']},
+    }
+
+
+def _proposition_de_province(monde, maison, cle, regles, valeurs):
+    """Améliore la province la moins chère, si la Concorde est au moins à son neutre (la Plume lui est gardée)."""
+    from sim import jauges
+    if 'concorde' not in regles.jauges or not valeurs['concorde'] >= regles.jauges['concorde']['neutre']:
+        return None
+    choix = None
+    for cell_id in sorted(monde.cells):
+        bourg = next((lieu for lieu in monde.cells[cell_id].lieux if lieu.rang == 0), None)
+        if bourg is None or bourg.maitre != cle:
+            continue
+        cout = jauges.cout_du_niveau_suivant(monde, cell_id, regles)
+        if choix is None or cout < choix[0]:
+            choix = (cout, cell_id)
+    if choix is None:
+        return None
+    cout, cell_id = choix
+    if jauges.verifier_amelioration(monde, cle, cell_id, regles) is not None:
+        return None
+    return {
+        'maison': {'sorte': maison.sorte, 'id': maison.id},
+        'intention': {'type': TYPE_AMELIORER_UNE_PROVINCE, 'maison': cle, 'cell': cell_id},
+        'raison': {'regle': 'province_la_moins_chere', 'cell_id': cell_id,
+                   'niveau': jauges.niveau_de_province(monde, cell_id), 'cout': cout,
+                   'plume': valeurs['plume'], 'concorde': valeurs['concorde'],
+                   'droit': valeurs['droit'], 'sceau': valeurs['sceau']},
+    }
+
+
+def _proposition_de_points(monde, maison, cle, regles):
+    """Au plus un geste de points par mois : la concorde, puis le droit, puis la province la moins chère.
+
+    Le premier de la liste qui est voulu et payable ; un geste voulu mais pas
+    encore payable laisse passer le suivant.
+    """
+    from sim import jauges
+    valeurs = jauges.etat(monde, cle, regles)
+    for proposer in (_proposition_de_concorde, _proposition_de_droit, _proposition_de_province):
+        proposition = proposer(monde, maison, cle, regles, valeurs)
+        if proposition is not None:
+            return proposition
+    return None
 
 
 def _partis_et_arrives_30j(monde, cell_id):
@@ -301,13 +366,13 @@ def decider_intentions(monde, releve, maisons=None):
             proposition = _proposition_de_part(monde, maison, cle)
             if proposition is not None:
                 propositions.append(proposition)
-            # Les jauges, le même jour du mois, par le même chemin que le joueur (décision 38).
+            # Un geste de points au plus, le même jour du mois, par le même chemin que le joueur (décision 38).
             if regles is None:
                 from sim import jauges
                 regles = jauges.charger_regles()
-            jauge = _proposition_de_jauge(monde, maison, cle, regles)
-            if jauge is not None:
-                propositions.append(jauge)
+            points = _proposition_de_points(monde, maison, cle, regles)
+            if points is not None:
+                propositions.append(points)
             # Bâtir dans sa province, par le même chemin que le joueur (décision 38).
             if types is None:
                 from sim import batiments

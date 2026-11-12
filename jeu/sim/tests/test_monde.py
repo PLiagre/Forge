@@ -15,8 +15,10 @@ from __future__ import annotations
 from sim.snapshot_export import SnapshotExportError, export_snapshot
 from sim.model import Cell
 
+import functools
 import json
 import pathlib
+import re
 import pytest
 from sim.world import World
 from sim.seigneuries import identifiant_de_seigneurie
@@ -3838,21 +3840,60 @@ def _lire_batiment(monde, cle, intention):
 
 
 def _lire_jauge(monde, cle, intention):
-    """Raison du geste de jauge, lue sur le monde au tick, sans sim/ia.py."""
+    """Raison du geste de jauge selon le geste déposé, lue sur le monde au tick, sans sim/ia.py."""
     from sim import jauges
     regles = jauges.charger_regles()
     valeurs = jauges.etat(monde, cle, regles)
-    return {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'],
-            'neutre': regles.jauges['concorde']['neutre'], 'plume': valeurs['plume'],
-            'cout': dict(regles.gestes[intention['geste']]['cout'])}
+    geste = intention['geste']
+    if geste == 'affermir_la_concorde':
+        return {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'],
+                'neutre': regles.jauges['concorde']['neutre'], 'plume': valeurs['plume'],
+                'cout': dict(regles.gestes[geste]['cout'])}
+    if geste == 'asseoir_le_droit':
+        return {'regle': 'droit_sous_son_maximum', 'droit': valeurs['droit'],
+                'maximum': regles.jauges['droit']['maximum'], 'sceau': valeurs['sceau'],
+                'cout': dict(regles.gestes[geste]['cout']), 'concorde': valeurs['concorde'], 'plume': valeurs['plume']}
+    raise AssertionError(f'geste de jauge sans lecteur : {geste!r}')
+
+
+def _lire_amelioration(monde, cle, intention):
+    """Raison de la province la moins chère, relue sur le monde au tick, sans sim/ia.py."""
+    from sim import jauges
+    regles = jauges.charger_regles()
+    valeurs = jauges.etat(monde, cle, regles)
+    table = regles.amelioration
+    couts = {}
+    for cid in sorted(monde.cells):
+        bourg = next((lieu for lieu in monde.cells[cid].lieux if lieu.rang == 0), None)
+        if bourg is not None and bourg.maitre == cle:
+            niveau = monde.niveaux_de_province.get(cid, 0)
+            couts[cid] = (table['cout_premier_niveau'] * table['facteur_par_niveau'] ** niveau, cid, niveau)
+    assert couts, f'{cle} ne tient aucun bourg'
+    cout, cid, niveau = min(couts.values())
+    return {'regle': 'province_la_moins_chere', 'cell_id': cid, 'niveau': niveau, 'cout': cout,
+            'plume': valeurs['plume'], 'concorde': valeurs['concorde'], 'droit': valeurs['droit'], 'sceau': valeurs['sceau']}
+
+
+_TYPES_DU_PAYS = ('batir_dans_une_province', 'depenser_jauge', 'ameliorer_une_province')
 
 
 def _controler_raisons_du_pays(releve, lectures):
-    """Chaque bâtiment de province et chaque geste de jauge de l'IA porte la raison que le monde donne à son tick, et la tient."""
+    """Chaque bâtiment de province, geste de jauge et amélioration de l'IA porte la raison que le monde donne à son tick, et la tient."""
+    from sim import jauges
+    regles = jauges.charger_regles()
+    neutre = regles.jauges['concorde']['neutre']
+    maximum = regles.jauges['droit']['maximum']
+    plume_de_la_concorde = regles.gestes['affermir_la_concorde']['cout']['plume']
+    sceau_du_droit = regles.gestes['asseoir_le_droit']['cout']['sceau']
     for entree in releve:
-        if entree['intention']['type'] not in ('batir_dans_une_province', 'depenser_jauge'):
+        if entree['intention']['type'] not in _TYPES_DU_PAYS:
             continue
-        assert 'refus' not in entree and entree['raison'] == lectures[(entree['tick'], entree['intention']['maison'])]
+        assert 'refus' not in entree
+        # Une maison peut bâtir et déposer un geste de points le même jour : la lecture se range aussi par type.
+        cles = [(entree['tick'], entree['intention']['maison'], entree['intention']['type']),
+                (entree['tick'], entree['intention']['maison'])]
+        lecture = next((lectures[cle] for cle in cles if cle in lectures), None)
+        assert lecture is not None and entree['raison'] == lecture
         raison = entree['raison']
         if raison['regle'] == 'moulin_quand_le_grenier_le_permet':
             assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
@@ -3862,8 +3903,22 @@ def _controler_raisons_du_pays(releve, lectures):
         elif raison['regle'] == 'marche_quand_la_province_commerce':
             assert raison['commerce_30j_kg'] > 0
             assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
-        else:
+        elif raison['regle'] == 'concorde_sous_son_neutre':
+            assert entree['intention']['geste'] == 'affermir_la_concorde'
             assert raison['concorde'] < raison['neutre'] and raison['plume'] >= raison['cout']['plume']
+        elif raison['regle'] == 'droit_sous_son_maximum':
+            assert entree['intention']['geste'] == 'asseoir_le_droit'
+            assert raison['droit'] < raison['maximum'] == maximum and raison['sceau'] >= raison['cout']['sceau']
+            # Le geste de la concorde n'était ni voulu ni payable : il aurait passé avant.
+            assert not (raison['concorde'] < neutre and raison['plume'] >= plume_de_la_concorde)
+        elif raison['regle'] == 'province_la_moins_chere':
+            assert entree['intention']['cell'] == raison['cell_id']
+            assert raison['concorde'] >= neutre and raison['plume'] >= raison['cout']
+            assert not (raison['droit'] < maximum and raison['sceau'] >= sceau_du_droit)
+            table = regles.amelioration
+            assert raison['cout'] == table['cout_premier_niveau'] * table['facteur_par_niveau'] ** raison['niveau']
+        else:
+            raise AssertionError(f"règle sans contrôle : {raison['regle']!r}")
 
 
 def _lire_route_vers_le_champ(monde, maison, intention):
@@ -3971,12 +4026,16 @@ _JOURS_DU_PROGRAMME = 100  # la première route du programme tombe vers le jour 
 from sim.tests.amorcage_d_avant import PREAMBULE as _AMORCAGE_DU_PROGRAMME, amorcer_comme_avant_la_soudure
 
 
-def _verifier_raisons(ticks):
-    """Joue la graine 0 et exige que chaque raison égale le monde à son tick, selon sa règle."""
+def _verifier_raisons(ticks, routes_exigees=True):
+    """Joue la graine 0 et exige que chaque raison égale le monde à son tick, selon sa règle.
+
+    `routes_exigees=False` : un monde sans soudure amorcée peut n'avoir tracé aucune route ; les routes
+    qui existent sont contrôlées quand même (les preuves de l'année, SC5 et SC6 du lot #1054).
+    """
     from sim import __main__ as cli
     from sim.capitales import maisons_de_l_ia
-    from sim.tests.test_intentions import _lecture_secours
-    lectures_secours, lectures_champ, lectures_pays, maisons = {}, {}, {}, None
+    from sim.tests.test_intentions import _lecture_secours, _lire_raison_part
+    lectures_secours, lectures_champ, lectures_pays, lectures_parts, maisons = {}, {}, {}, {}, None
     reel, reel_ia = cli.tick, cli.jouer_ia
 
     def maisons_de(monde):
@@ -3992,10 +4051,15 @@ def _verifier_raisons(ticks):
         reel_ia(monde, releve, maisons)
         for entree in releve[deja:]:
             # Le dépôt ne touche ni au grenier ni aux jauges : le monde est celui que l'IA a lu.
-            lire = {'batir_dans_une_province': _lire_batiment, 'depenser_jauge': _lire_jauge}.get(entree['intention']['type'])
+            type_ = entree['intention']['type']
+            lire = {'batir_dans_une_province': _lire_batiment, 'depenser_jauge': _lire_jauge,
+                    'ameliorer_une_province': _lire_amelioration}.get(type_)
             if lire is not None:
-                lectures_pays[(entree['tick'], entree['intention']['maison'])] = lire(
+                lectures_pays[(entree['tick'], entree['intention']['maison'], type_)] = lire(
                     monde, entree['intention']['maison'], entree['intention'])
+            if type_ == 'fixer_part':
+                lectures_parts[(entree['tick'], entree['intention']['maison'])] = _lire_raison_part(
+                    monde, entree['intention']['maison'])
             if entree['intention']['type'] == 'tracer_route' and entree['raison']['regle'] == 'route_vers_le_champ':
                 couple = (entree['maison']['sorte'], entree['maison']['id'])
                 maison = next(m for m in maisons_de(monde) if (m.sorte, m.id) == couple)
@@ -4020,13 +4084,203 @@ def _verifier_raisons(ticks):
     releve = resume['ia']['releve']
     assert releve and all(
         entree['intention']['type'] in ('tracer_route', 'fixer_part', 'ouvrir_grenier',
-                                        'batir_dans_une_province', 'depenser_jauge') for entree in releve)
-    _controler_raisons(releve, lectures_champ)
+                                        'batir_dans_une_province', 'depenser_jauge', 'ameliorer_une_province')
+        for entree in releve)
+    if routes_exigees or any(e['intention']['type'] == 'tracer_route' for e in releve):
+        _controler_raisons(releve, lectures_champ)
     _controler_raisons_du_pays(releve, lectures_pays)
     _verifier_raisons.secours = lectures_secours
     _verifier_raisons.champ = lectures_champ
     _verifier_raisons.pays = lectures_pays
+    _verifier_raisons.parts = lectures_parts
     return releve
+
+
+@functools.lru_cache(maxsize=None)
+def _maisons_du_registre():
+    """Les maisons de l'IA du registre : celles de la carte, puis celles qui n'y ont pas de polygone."""
+    from sim.capitales import maisons_de_l_ia
+    registre = maisons_de_l_ia(World.charger(0))
+    carte = tuple(m for m in registre if m.hors_carte is None and m.cell_id is not None)
+    return carte, tuple(m for m in registre if m.hors_carte is not None)
+
+
+def _couple_de_maison(maison):
+    return (maison.sorte, maison.id)
+
+
+def _juger_dix_ans(releve, lectures, maisons, hors_carte, annees=range(1, 11)):
+    """Chaque maison de la carte agit au moins une fois par année, et chaque raison égale le monde à son tick.
+
+    `lectures` : les relectures de `_verifier_raisons` (champ, secours, pays, parts). Les gestes de points et la
+    baisse « grenier plein » se cherchent sur les dix ans pleins, pas sur une année seule.
+    """
+    from sim import constants as k
+    from sim.tests.test_intentions import _nouvelle_part
+    carte, absentes = _maisons_du_registre()
+    note = '; '.join(f'{m.nom} ({_cle_de_maison(m)}) hors carte : {m.hors_carte}' for m in hors_carte)
+    assert maisons and releve, f'échantillon vide ({note})'
+    assert len(maisons) == len(carte) and {_couple_de_maison(m) for m in maisons} == {_couple_de_maison(m) for m in carte}, (
+        f'{len(maisons)} maisons au lieu des {len(carte)} du registre qui sont sur la carte')
+    assert hors_carte and {_couple_de_maison(m) for m in hors_carte} == {_couple_de_maison(m) for m in absentes}, note
+    assert not [e for e in releve if (e['maison']['sorte'], e['maison']['id']) in {_couple_de_maison(m) for m in absentes}], note
+    acceptees = [e for e in releve if 'refus' not in e]
+    jour = k.TICK_DURATION_DAYS
+    par_an = round(365 / jour)
+    stats = {}
+    for annee in annees:
+        gestes = [e for e in acceptees if e['tick'] // par_an + 1 == annee]
+        actives = {(e['maison']['sorte'], e['maison']['id']) for e in gestes}
+        manquantes = [f'{m.nom} ({_cle_de_maison(m)})' for m in maisons if _couple_de_maison(m) not in actives]
+        compte = {}
+        for e in gestes:
+            nom = e['intention']['type']
+            nom += ':' + e['intention'].get('geste', e['intention'].get('nature', '')) if nom in ('depenser_jauge', 'batir_dans_une_province') else ''
+            compte[nom] = compte.get(nom, 0) + 1
+        stats[annee] = (len(actives), compte)
+        print(f'année {annee} : {len(actives)} maisons actives sur {len(maisons)} ; {dict(sorted(compte.items()))}', flush=True)
+        assert not manquantes, f'année {annee} : {len(manquantes)} maisons sans geste : {", ".join(manquantes)} ({note})'
+    retenues = [e for e in acceptees if e['tick'] // par_an + 1 in annees]
+    lecteurs = ('tracer_route', 'ouvrir_grenier', 'fixer_part', *_TYPES_DU_PAYS)
+    inconnues = sorted({e['intention']['type'] for e in retenues} - set(lecteurs))
+    assert not inconnues, f'types sans lecteur : {inconnues}'
+    routes = [e for e in retenues if e['intention']['type'] == 'tracer_route']
+    if routes:
+        _controler_raisons(routes, lectures['champ'])
+    ouvertures = [e for e in retenues if e['intention']['type'] == 'ouvrir_grenier']
+    if ouvertures:
+        _controler_secours(ouvertures, lectures['secours'])
+    parts = [e for e in retenues if e['intention']['type'] == 'fixer_part']
+    for entree in parts:
+        raison = entree['raison']
+        assert raison == lectures['parts'][(entree['tick'], entree['intention']['maison'])]
+        assert entree['intention']['part'] == _nouvelle_part(raison) != raison['part']
+    _controler_raisons_du_pays([e for e in retenues if e['intention']['type'] in _TYPES_DU_PAYS], lectures['pays'])
+    if tuple(annees) == tuple(range(1, 11)):
+        def geste(type_, nom=None):
+            return [e for e in retenues if e['intention']['type'] == type_ and (nom is None or e['intention'].get('geste') == nom)]
+        for type_, nom in (('depenser_jauge', 'affermir_la_concorde'), ('depenser_jauge', 'asseoir_le_droit'),
+                           ('ameliorer_une_province', None)):
+            assert geste(type_, nom), f'aucun geste {nom or type_} en dix ans'
+        pleines = [e for e in parts if e['intention']['part'] < e['raison']['part']
+                   and e['raison']['partis'] - e['raison']['arrives'] < k.TAILLE_FOYER and e['raison']['lieux_affames'] == 0
+                   and e['raison']['grenier_nourriture_kg'] > k.IA_GRENIER_PLEIN_FOIS_LA_RESERVE * e['raison']['reserve_voulue_kg']]
+        assert pleines, 'aucune baisse de part « grenier plein » en dix ans'
+    return stats
+
+
+def _lectures_du_juge():
+    return {'champ': _verifier_raisons.champ, 'secours': _verifier_raisons.secours,
+            'pays': _verifier_raisons.pays, 'parts': _verifier_raisons.parts}
+
+
+def test_ia_garde_des_raisons_d_agir_dix_ans():
+    """Dix ans, graine 0, sans joueur : chaque maison de la carte agit chaque année, et chaque raison égale le monde."""
+    import time
+    debut = time.perf_counter()
+    releve = _verifier_raisons(3650, routes_exigees=False)
+    duree = time.perf_counter() - debut
+    carte, absentes = _maisons_du_registre()
+    maisons, hors_carte, lectures = list(carte), list(absentes), _lectures_du_juge()
+    print(f'{len(maisons)} maisons sur la carte, {len(releve)} gestes en {duree / 60:.1f} min', flush=True)
+    stats = _juger_dix_ans(releve, lectures, maisons, hors_carte)
+    # La cinquième année, seule, passe aussi : c'est la restriction que l'IA d'avant le lot ne tient pas (SC6).
+    _juger_dix_ans(releve, lectures, maisons, hors_carte, annees=(5,))
+    assert all(actives > 0 for actives, _ in stats.values())
+
+    _contre_epreuves_du_juge(releve, lectures, maisons, hors_carte, annee=5, annees=range(1, 11))
+
+
+def _contre_epreuves_du_juge(releve, lectures, maisons, hors_carte, annee, annees):
+    """Le juge échoue sur un échantillon vide, une maison muette une année, un type sans lecteur, une raison fausse."""
+    with pytest.raises(AssertionError):
+        _juger_dix_ans(releve, lectures, [], hors_carte, annees)
+    with pytest.raises(AssertionError):
+        _juger_dix_ans([], lectures, maisons, hors_carte, annees)
+    with pytest.raises(AssertionError):
+        _juger_dix_ans(releve, lectures, maisons[:-1], hors_carte, annees)
+    # Le relevé privé de tous les gestes d'une maison pour une année échoue, et nomme cette maison.
+    maison = maisons[0]
+    prive = [e for e in releve if not ((e['maison']['sorte'], e['maison']['id']) == _couple_de_maison(maison)
+                                       and e['tick'] // 365 + 1 == annee)]
+    assert len(prive) < len(releve)
+    with pytest.raises(AssertionError, match=f'année {annee} ') as erreur:
+        _juger_dix_ans(prive, lectures, maisons, hors_carte, annees)
+    assert maison.nom in str(erreur.value)
+    # Un type sans lecteur échoue.
+    inconnu = releve + [dict(copy.deepcopy(releve[-1]), intention={'type': 'conquerir', 'maison': 'seigneurie-1'})]
+    with pytest.raises(AssertionError, match='types sans lecteur'):
+        _juger_dix_ans(inconnu, lectures, maisons, hors_carte, annees)
+    # Une raison de province faussée d'un point : le contrôleur du pays la voit.
+    provinces = [e for e in releve if e['intention']['type'] == 'ameliorer_une_province']
+    assert provinces
+    faux = copy.deepcopy(provinces[0])
+    faux['raison']['cout'] += 1
+    with pytest.raises(AssertionError):
+        _controler_raisons_du_pays([faux], lectures['pays'])
+    # Une raison de part faussée d'un grenier : le juge la voit.
+    part = next(e for e in releve if e['intention']['type'] == 'fixer_part')
+    fausse = copy.deepcopy(releve)
+    next(e for e in fausse if e['tick'] == part['tick'] and e['intention']['type'] == 'fixer_part'
+         and e['intention']['maison'] == part['intention']['maison'])['raison']['grenier_nourriture_kg'] += 1
+    with pytest.raises(AssertionError):
+        _juger_dix_ans(fausse, lectures, maisons, hors_carte, annees)
+
+
+def test_ia_d_avant_s_endort_la_cinquieme_annee(monkeypatch):
+    """La règle d'avant le lot (la concorde seule, la part à deux branches) laisse des maisons muettes la cinquième année."""
+    from sim import __main__ as cli, constants as k, ia, jauges
+    from sim.intentions import TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART
+
+    def concorde_seule(monde, maison, cle, regles):
+        geste = 'affermir_la_concorde'
+        if geste not in regles.gestes or 'concorde' not in regles.jauges:
+            return None
+        valeurs = jauges.etat(monde, cle, regles)
+        neutre = regles.jauges['concorde']['neutre']
+        if not valeurs['concorde'] < neutre or jauges.verifier_geste(monde, cle, geste, regles) is not None:
+            return None
+        return {
+            'maison': {'sorte': maison.sorte, 'id': maison.id},
+            'intention': {'type': TYPE_DEPENSER_JAUGE, 'maison': cle, 'geste': geste},
+            'raison': {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'], 'neutre': neutre,
+                       'plume': valeurs['plume'], 'cout': dict(regles.gestes[geste]['cout'])},
+        }
+
+    def part_a_deux_branches(monde, maison, cle):
+        noms = getattr(getattr(monde, 'routes_des_lieux', None), 'noms', ())
+        if cle not in noms:
+            return None
+        lieux = ia._lieux_de_la_maison(monde, cle)
+        if not lieux:
+            return None
+        lecture = ia._lire_part(monde, cle, lieux)
+        part = monde.parts[cle]
+        if lecture['partis'] - lecture['arrives'] >= k.TAILLE_FOYER or lecture['lieux_affames'] > 0:
+            nouvelle = max(0, round(part - k.IA_PAS_DE_PART, k.DECIMALES_PART))
+        elif lecture['grenier_nourriture_kg'] < lecture['reserve_voulue_kg']:
+            nouvelle = min(k.PART_MAXIMALE, round(part + k.IA_PAS_DE_PART, k.DECIMALES_PART))
+        else:
+            return None
+        if nouvelle == part:
+            return None
+        return {
+            'maison': {'sorte': maison.sorte, 'id': maison.id},
+            'intention': {'type': TYPE_FIXER_PART, 'maison': cle, 'part': nouvelle},
+            'raison': {'regle': 'part_sur_projets_et_gens', 'part': part, **lecture},
+        }
+
+    monkeypatch.setattr(ia, '_proposition_de_points', concorde_seule)
+    monkeypatch.setattr(ia, '_proposition_de_part', part_a_deux_branches)
+    releve = _verifier_raisons(1825, routes_exigees=False)
+    carte, absentes = _maisons_du_registre()
+    maisons, hors_carte, lectures = list(carte), list(absentes), _lectures_du_juge()
+    actives = {(e['maison']['sorte'], e['maison']['id']) for e in releve
+               if 'refus' not in e and e['tick'] // 365 + 1 == 5}
+    print(f'cinquième année, règle d\'avant : {len(actives)} maisons actives sur {len(maisons)}', flush=True)
+    with pytest.raises(AssertionError, match='année 5'):
+        _juger_dix_ans(releve, lectures, maisons, hors_carte, annees=(5,))
+    assert len(actives) < len(maisons)
 
 
 def _ia_cli(tmp_path, ticks=30, options=(), amorcage=""):
@@ -4921,13 +5175,30 @@ def test_service_ia_raison():
         assert requete_service(port, '/tick?n=31', 'POST')[1]['tick'] == 31
         lu = requete_service(port, '/ia')[1]
 
-        regle_du_geste = {'tracer_route': 'route_vers_le_champ', 'fixer_part': 'part_sur_projets_et_gens',
-                          'ouvrir_grenier': 'secours_apres_faim'}
+        # La règle attendue se lit par le geste déposé : le type, puis le geste (`depenser_jauge`) ou la nature (`batir_dans_une_province`).
+        regle_du_geste = {
+            'tracer_route': 'route_vers_le_champ', 'fixer_part': 'part_sur_projets_et_gens',
+            'ouvrir_grenier': 'secours_apres_faim', 'ameliorer_une_province': 'province_la_moins_chere',
+            'depenser_jauge': {'affermir_la_concorde': 'concorde_sous_son_neutre',
+                               'asseoir_le_droit': 'droit_sous_son_maximum'},
+            'batir_dans_une_province': {'moulin': 'moulin_quand_le_grenier_le_permet',
+                                        'grange': 'grange_quand_les_gens_partent',
+                                        'marche': 'marche_quand_la_province_commerce'},
+        }
+
+        def regle_attendue(intention):
+            assert intention['type'] in regle_du_geste, f"type sans règle attendue : {intention['type']!r}"
+            regle = regle_du_geste[intention['type']]
+            if isinstance(regle, dict):
+                champ = 'geste' if intention['type'] == 'depenser_jauge' else 'nature'
+                assert intention.get(champ) in regle, f"{intention['type']} sans règle pour {intention.get(champ)!r}"
+                regle = regle[intention[champ]]
+            return regle
 
         def verifier(document):
             assert document['releve'] and all('raison' in entree for entree in document['releve'])
             for entree in document['releve']:
-                assert entree['raison']['regle'] == regle_du_geste[entree['intention']['type']]
+                assert entree['raison']['regle'] == regle_attendue(entree['intention'])
 
         verifier(lu)
         faux = copy.deepcopy(lu)
@@ -4946,6 +5217,26 @@ def test_service_ia_raison():
         verifier(route_avec('route_vers_le_champ'))
         with pytest.raises(AssertionError):
             verifier(route_avec('part_sur_projets_et_gens'))
+
+        def geste_avec(intention, regle):
+            copie = copy.deepcopy(lu)
+            entree = copy.deepcopy(copie['releve'][0])
+            entree['intention'] = intention
+            entree['raison'] = {'regle': regle}
+            copie['releve'].append(entree)
+            return copie
+
+        province = {'type': 'ameliorer_une_province', 'maison': 'seigneurie-1', 'cell': 10430}
+        droit = {'type': 'depenser_jauge', 'maison': 'seigneurie-1', 'geste': 'asseoir_le_droit'}
+        verifier(geste_avec(province, 'province_la_moins_chere'))
+        verifier(geste_avec(droit, 'droit_sous_son_maximum'))
+        with pytest.raises(AssertionError):
+            verifier(geste_avec(province, 'concorde_sous_son_neutre'))
+        with pytest.raises(AssertionError):
+            verifier(geste_avec(droit, 'concorde_sous_son_neutre'))
+        # Un type absent de la table échoue par AssertionError, pas par KeyError.
+        with pytest.raises(AssertionError, match='type sans règle attendue'):
+            verifier(geste_avec({'type': 'conquerir', 'maison': 'seigneurie-1'}, 'route_vers_le_champ'))
 
 
 @pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
