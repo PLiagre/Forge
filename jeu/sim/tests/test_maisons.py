@@ -3165,9 +3165,11 @@ def test_familles_historiques_maghreb(tmp_path):
     assert len(d['familles']) == 77 and len(d['liens']) == len(d['etats']) == 23
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
-    assert chef['nom'] is None and 'https://en.wikipedia.org/wiki/Zayyanid_dynasty' in chef['lacunes']['identite']
+    # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
+    assert chef['nom'] == 'Abu Muhammad I' and chef['lacunes']['identite'] is None and chef['sources']['identite']['url'] == 'https://en.wikipedia.org/wiki/Zayyanid_dynasty' and chef['sources']['identite']['fait'].strip()
     _preuve_monde_maghreb(list(monde.personnages))
-    assert not any(f['maison'] == TLEMCEN for f in monde.personnages)
+    # Tlemcen n'a dans le monde que son chef (#1052), sans aucun champ familial.
+    assert [f['id'] for f in monde.personnages if f['maison'] == TLEMCEN] == ['personne-' + TLEMCEN]
     ids = {'personne-' + m for m in MAGHREB_MAISONS} | set(MAGHREB_MAISONS)
     for t in ('liens', 'etats'):
         for j, f in enumerate(d[t]):
@@ -3206,7 +3208,9 @@ def test_familles_historiques_maghreb(tmp_path):
     c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison=TLEMCEN))
     with pytest.raises(AssertionError): _maghreb(etat=c['etats'][-1])
     refuse(c)
-    chemin = tmp_path / 'tlemcen.json'
+    # Tlemcen a un chef depuis #1052 : le chargeur ne refuse plus son état, mais celui d'une maison restée sans chef (`grande-21`).
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison='grande-21'))
+    chemin = tmp_path / 'sans-chef.json'
     chemin.write_text(json.dumps(c), encoding='utf-8')
     with pytest.raises(ValueError): p.charger_catalogue(monde.maisons, chemin)
     # Dans le monde construit, une personne de Tlemcen ne porte aucun champ familial.
