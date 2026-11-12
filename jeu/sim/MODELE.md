@@ -430,7 +430,9 @@ population = max(population_rurale, somme_des_villes_contenues)
 
 où `variation = rng.uniform(SEED_POPULATION_VARIATION_LOW, SEED_POPULATION_VARIATION_HIGH)`.
 `population_soutenable_de` se dérive de l'unique formule de production, au
-rendement et à la saison moyens.
+rendement et à la saison moyens. Le monde en relève la valeur une fois, à
+l'amorçage (`World.populations_soutenables`) : le commerce la lit pour
+reconnaître une cellule affamée (« Besoin, surplus et allocation »).
 
 ### Paramètres
 
@@ -1176,9 +1178,58 @@ Le commerce précède la consommation. Le « besoin » d'une cellule n'est donc 
 sa dette cumulée, mais le **manque prévisible du tick courant** :
 
 ```
-besoin(c)  = max(0, population_c × consommation_unitaire(marchandise) − stock_c)
-surplus(c) = max(0, stock_c − population_c × consommation_unitaire(marchandise))
+ration(c)  = population_c × consommation_unitaire(marchandise)
+garde(c)   = ration(c)                                              si c n'est pas affamée
+           = max(ration(c), N × ration(c) / TICK_DURATION_DAYS)     si c est affamée
+besoin(c)  = max(0, ration(c) − stock_c)
+surplus(c) = max(0, stock_c − garde(c))
 ```
+
+**La réserve d'une ville affamée** (lot #1057, niveau 2 : plausible, jamais
+sourcé). Une cellule est *affamée* quand sa population du snapshot dépasse ce
+que ses champs nourrissent au rendement et à la saison moyens
+(`World.populations_soutenables[c]`, le `soutenable` de l'amorçage ; une
+cellule absente du relevé lève une erreur qui nomme son `cell_id`). L'idée est
+médiévale : une ville que son contado ne nourrit pas interdit la sortie de son
+grain. Elle garde `N = reserve_ville_affamee_jours` jours de sa ration et
+n'exporte, par terre comme par la mer, que ce qui dépasse. `N` vaut **21**,
+déclaré dans `jeu/data/commerce.toml` (décision 37) ; la durée n'est pas
+sourcée. Réponse B de la direction, le 11 novembre 2026, à la place du
+propriétaire : 365 jours auraient interdit toute sortie, un tampon de quelques
+semaines laisse sortir le reste. La direction donnait 30 jours en exemple ; le
+codeur a choisi 21 le 12 novembre 2026, parce que la preuve de la première
+année (`test_soudure.py`) rougit à 30 : Le Caire tient alors sa réserve dès le
+330e jour et cesse de nourrir Alexandrie, qui perd 50,4 % de ses habitants par
+la faim (seuil 50 %) ; à 25 jours, 56,6 % ; à 21 jours, 32,7 %. Une ville
+affamée qui garde son grain n'en donne pas à sa voisine affamée : la réserve a
+un prix, et la durée la borne. Le besoin ne change pas : une ville affamée qui
+manque reçoit toujours de ses voisines et du bassin. Aucun kilo n'est créé ni
+détruit. L'état « affamée » se relit à chaque commerce, sur la population du
+snapshot : une ville que la famine a fait passer sous ce que ses champs
+nourrissent (Gand, vers le 358e jour) n'a plus que sa ration pour garde.
+
+- Avec `N = 1`, ou sans relevé des champs (un monde construit à la main :
+  `populations_soutenables` vaut `None`), la garde est la ration du tick : le
+  commerce d'avant, au bit près. C'est la contre-épreuve du lot.
+- Avec la soudure (212 jours de ration au 1er janvier), aucune ville affamée
+  n'est sous 21 jours en janvier : les deux règles y envoient les mêmes kilos.
+  La réserve ne mord que lorsqu'une ville a mangé son grenier jusqu'à elle.
+  Mesuré le 12 novembre 2026 (graine 0, IA active, 365 jours,
+  `test_premier_mois_ville_affamee_janvier_inchange_puis_exportent_moins`) :
+  Alexandrie exporte moins à partir du 123e jour, Le Caire du 130e, Gand du
+  307e.
+
+| ville affamée | sortie, règle d'avant | sortie, réserve de 21 jours | stock au 365e jour, avant → réserve |
+|---|---|---|---|
+| Le Caire | 28 054 t | 26 192 t | 1 217 t → 3 125 t |
+| Alexandrie | 7 749 t | 7 060 t | 0 t → 0 t |
+| Gand et Bruges | 16 749 t | 15 903 t | 0 t → 0 t |
+| Paris | 0 t | 0 t | 956 t → 956 t |
+
+Paris est affamé, mais sans port il n'exporte rien sous les deux règles :
+il ne compte pas comme preuve. L'effet de 21 jours est donc réel et modeste ;
+une réserve plus longue ne change qu'une ligne de `commerce.toml`, mais la
+preuve de la première année en fixe le plafond (25 jours la fait échouer).
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même

@@ -25,7 +25,7 @@ import pytest
 import sim.constants as c
 from sim import chantiers, engine, modificateurs as M
 from sim.snapshot_export import build_snapshot_document, serialize_snapshot
-from sim.tests.amorcage_d_avant import couper_la_famine
+from sim.tests.amorcage_d_avant import couper_la_famine, garder_le_commerce_d_avant
 from sim.world import World
 
 NOURRITURE = c.MARCHANDISE_NOURRITURE
@@ -207,6 +207,9 @@ def test_sans_modificateur_la_photographie_a_365_jours_est_celle_d_avant(monkeyp
     # Réponse A du propriétaire, 10 novembre 2026 (lot #1029) : la famine pose
     # désormais un modificateur au lieu affamé ; ce test éprouve le monde d'avant.
     couper_la_famine(monkeypatch)
+    # Lot #1057 : une ville affamée garde désormais sa réserve ; ce test éprouve
+    # « sans modificateur, le monde d'avant », donc le commerce d'avant aussi.
+    garder_le_commerce_d_avant(monkeypatch)
     monde, rng = World.charger(0), random.Random(0)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
         engine.tick(monde, rng, numero)
