@@ -456,7 +456,26 @@ def test_les_decisions_du_lot_survivent_aux_blocages():
     ]
     assert lots.decisions_du_lot(commentaires) == [
         "Question : Le lot peut-il toucher la chronique ? Réponse du propriétaire : A — oui, capture.py transporte les lieux",
-        "Question : Le lot peut-il toucher la chronique ? Réponse du propriétaire : Plutôt sans arrondir les stocks.",
+        "Blocage : CI rouge après 2 correction(s). Consigne du propriétaire : Plutôt sans arrondir les stocks.",
     ]
     # Sans question posée, un commentaire n'est pas une décision.
     assert lots.decisions_du_lot([{"body": "Bravo", "author": {"login": "PLiagre"}}]) == []
+
+
+def test_la_consigne_du_proprietaire_apres_un_blocage_suit_le_lot():
+    """Le 11 novembre 2026, #1052 était bloqué sur une CI rouge, sans question :
+    un commentaire du propriétaire aurait levé le blocage sans jamais arriver
+    au codeur ni au relecteur."""
+    bloque = {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="CI rouge après 2 correction(s)")}
+    consigne = {"body": "Recapture l'empreinte, c'est autorisé.", "author": {"login": "PLiagre"}}
+    repris = {"body": "repris\n\n" + marque(role="pilote", etat="reponse")}
+    attendu = ["Blocage : CI rouge après 2 correction(s). Consigne du propriétaire : Recapture l'empreinte, c'est autorisé."]
+    assert lots.decisions_du_lot([bloque, consigne]) == attendu
+    assert lots.decisions_du_lot([bloque, consigne, repris]) == attendu, "elle suit le lot après la reprise"
+    # Contre-épreuves : ni un robot, ni un agent, ni un commentaire d'après la reprise, ni un commentaire sans blocage.
+    assert lots.decisions_du_lot([bloque, {"body": "Une faille.", "author": {"login": "dependabot[bot]"}}]) == []
+    assert lots.decisions_du_lot([bloque, {"body": "noté\n\n" + marque(role="depanneur", etat="depanne", consigne="x")}]) == []
+    assert lots.decisions_du_lot([bloque, consigne, repris, {"body": "Bravo", "author": {"login": "PLiagre"}}]) == attendu
+    assert lots.decisions_du_lot([consigne]) == []
+    long = {"body": "x" * 5000, "author": {"login": "PLiagre"}}
+    assert len(lots.decisions_du_lot([bloque, long])[0]) < 2100

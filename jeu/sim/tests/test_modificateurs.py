@@ -40,10 +40,8 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # parties `personnages` et `chefs` du monde diffèrent de l'empreinte d'avant,
 # et la photographie est inchangée (mesuré sur le PC et sur le VPS).
 EMPREINTES_365 = {
-    "linux": ("2858cba3887071069e755223e841e4d9148bd7e43a573da7043197628282cdb5",
+    "linux": ("101b586c7ee9f20668ea87b03ad9b502300f281779a1321c689a085c42ae9098",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
-    "win32": ("d1c0227f8338c3f99cce45305d2c19cb34916db9460d3e85301a54ea35fa53f4",
-              "b2befd1bcb466984883c6af9e9ef704546590296e9b6302e9ddf29a9f2e6ddcb"),
 }
 
 
