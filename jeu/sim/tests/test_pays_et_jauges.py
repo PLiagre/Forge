@@ -165,6 +165,38 @@ def test_les_points_naissent_chaque_mois_des_competences(depart, regles):
     assert all(v["plume"] >= 0 for v in monde.jauges.values())
 
 
+def test_les_chefs_du_maghreb_gagnent_leurs_points(depart, regles, tmp_path):
+    """Tlemcen et le Zab ont un chef (#1052) ; `grande-21`, sans chef, garde « aucun point »."""
+    from sim import personnages as perso
+    monde = copy.deepcopy(depart)
+    rng = random.Random(0)
+    for numero in range(2 * c.FENETRE_FLUX_TICKS + 1):
+        _jouer(monde, rng, numero)
+    for maison in ("grande-24", "seigneurie-6"):
+        comp = J.competences(monde, maison, regles)
+        assert comp is not None
+        valeurs = J.etat(monde, maison, regles)
+        for nom, reserve in regles.points.items():
+            assert valeurs[nom] == pytest.approx(2 * comp[reserve["domaine"]] * reserve["par_point_de_competence_par_mois"])
+        assert J.document_des_jauges(monde, maison, regles)["absents"] == {}
+        assert sum(valeurs[nom] for nom in regles.points) > 0
+    # Contre-épreuve : une maison sans chef n'a ni compétence ni point, et le dit.
+    assert J.competences(monde, "grande-21", regles) is None
+    assert all(J.etat(monde, "grande-21", regles)[nom] == 0 for nom in regles.points)
+    assert J.document_des_jauges(monde, "grande-21", regles)["absents"]["competences"]
+    # Contre-épreuve du chargement : un chef nommé sans source est refusé.
+    catalogue = json.loads(perso.CHEMIN.read_text(encoding="utf-8"))
+    for maison in ("seigneurie-6", "grande-24"):
+        copie = copy.deepcopy(catalogue)
+        fiche = next(f for f in copie["chefs"] if f["maison"] == maison)
+        assert fiche["nom"]
+        fiche["sources"]["identite"] = None
+        chemin = tmp_path / f"{maison}.json"
+        chemin.write_text(json.dumps(copie), encoding="utf-8")
+        with pytest.raises(ValueError):
+            perso.charger_catalogue(depart.maisons, chemin)
+
+
 def test_un_mois_de_famine_ote_de_la_concorde_et_pose_ses_departs(depart, regles):
     monde = copy.deepcopy(depart)
     rng = random.Random(0)

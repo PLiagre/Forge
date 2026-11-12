@@ -1472,8 +1472,15 @@ def _personnages_attestes(document):
         assert fiches[identifiant]['naissance'] == {'valeur': valeur, 'precision': precision}
         assert page in fiches[identifiant]['sources']['naissance']['url']
         assert fiches[identifiant]['sources']['naissance']['fait'].strip()
-    for identifiant in ('grande-21', 'grande-24', 'institution-12', 'institution-15', 'institution-31', 'institution-32', 'seigneurie-6'):
+    for identifiant in ('grande-21', 'institution-12', 'institution-15', 'institution-31', 'institution-32'):
         assert fiches[identifiant]['nom'] is None and fiches[identifiant]['lacunes']['identite'].strip()
+    # Les chefs du Maghreb (#1052) : Tlemcen réel, le Zab plausible et déclaré tel.
+    for identifiant, (nom, page, fait) in {'grande-24': ('Abu Muhammad I', 'Zayyanid_dynasty', '1397'),
+                                           'seigneurie-6': ('Abd al-Rahman ibn Mozni', 'Zab_Emirate', 'plausible et déclaré')}.items():
+        fiche = fiches[identifiant]
+        assert fiche['nom'] == nom and fiche['lacunes']['identite'] is None
+        assert page in fiche['sources']['identite']['url'] and fait in fiche['sources']['identite']['fait']
+        assert fiche['sources']['identite']['fait'].strip()
     for identifiant in ('grande-18', 'grande-20', 'institution-16', 'seigneurie-5', 'seigneurie-6'):
         assert fiches[identifiant]['naissance'] is None and fiches[identifiant]['lacunes']['naissance'].strip()
 
@@ -1494,7 +1501,10 @@ def test_personnages_attestes():
         for fiche in copie['chefs']:
             fiche[champ] = None
         alterations.append(copie)
-    alterations.append(_alterer_personnages(document, ('chefs', indices['seigneurie-6'], 'lacunes', 'identite'), ''))
+    alterations.append(_alterer_personnages(document, ('chefs', indices['grande-21'], 'lacunes', 'identite'), ''))
+    for identifiant in ('grande-24', 'seigneurie-6'):
+        alterations.append(_alterer_personnages(document, ('chefs', indices[identifiant], 'nom'), None))
+        alterations.append(_alterer_personnages(document, ('chefs', indices[identifiant], 'lacunes', 'identite'), 'Lacune inventée'))
     for copie in alterations:
         with pytest.raises(AssertionError):
             _personnages_attestes(copie)
@@ -1556,7 +1566,7 @@ def test_personnes_chefs():
     for chemin, valeur in ((('personnages',), monde.personnages[1:]), (('personnages', 0, 'id'), 'invalide'),
                            (('personnages', 0, 'maison'), 'inconnue'), (('personnages', 0, 'nom'), 'Altéré'),
                            (('personnages', 0, 'naissance'), {'valeur': '1367', 'precision': 'annee'}),
-                           (('chefs', 'seigneurie-6', 'lacune'), ''),
+                           (('chefs', 'grande-21', 'lacune'), ''),
                            *[(('chefs', c['maison'], 'personnage'), monde.personnages[0]['id']) for c in historiques.values() if c['maison'] != monde.personnages[0]['maison']],
                            (('chefs', 'institution-12'), 'SUPPRIMER'), (('personnages',), monde.personnages * 2)):
         copie = _alterer_personnages({'personnages': list(monde.personnages), 'chefs': monde.chefs}, chemin, valeur)
@@ -1603,7 +1613,7 @@ def test_personnes_serialisation(monkeypatch, graine):
     for chemin, valeur in (*[(('personnages', boheme, *k), 'Altéré') for k in chemins], (('personnages', famille, 'mere'), 'autre'), (('personnages', famille, 'conjoints'), []),
                            (('personnages', famille, 'sources', 'presence', 'fait'), 'Altéré'), (('personnages',), []), (('chefs',), {}), (('personnages', 0, 'nom'), 'Altéré'),
                            (('personnages', 0, 'naissance', 'valeur'), 'inconnue'),
-                           (('personnages', 0, 'sources', 'identite', 'fait'), 'Altéré'), (('chefs', 'seigneurie-6', 'lacune'), 'Altérée')):
+                           (('personnages', 0, 'sources', 'identite', 'fait'), 'Altéré'), (('chefs', 'grande-21', 'lacune'), 'Altérée')):
         copie = copy.copy(monde)
         altere = _alterer_personnages(document, chemin, valeur)
         copie.personnages, copie.chefs = tuple(altere['personnages']), altere['chefs']
@@ -1617,7 +1627,7 @@ def test_personnes_serialisation(monkeypatch, graine):
     document['personnages'][famille]['conjoints'].append('autre')
     document['personnages'][famille]['sources']['presence']['fait'] = 'Altéré'
     document['personnages'][0]['sources']['identite']['fait'] = 'Altéré'
-    document['chefs']['seigneurie-6']['lacune'] = 'Altérée'
+    document['chefs']['grande-21']['lacune'] = 'Altérée'
     assert _octets_registre(monde.to_dict()) == original
 
 
@@ -2108,7 +2118,7 @@ def test_familles_etats(tmp_path, monkeypatch):
     assert lire(d) == d
     mutations = [(('etats',), []), (('etats',), d['etats'] * 2)]
     mutations += [(('etats', r['grande-28'], k), 'SUPPRIMER') for k in d['etats'][r['grande-28']]] + [(('etats', r['grande-28'], 'inconnu'), True)]
-    mutations += [(('etats', r['grande-28'], k), v) for k, v in [('maison', 'inconnue'), ('maison', 'seigneurie-6'), ('conjoints', 'celibat'), ('enfants', 'inconnus'), ('enfants', 'documentes'), ('conjoints', 'veuvage')]]
+    mutations += [(('etats', r['grande-28'], k), v) for k, v in [('maison', 'inconnue'), ('maison', 'grande-21'), ('conjoints', 'celibat'), ('enfants', 'inconnus'), ('enfants', 'documentes'), ('conjoints', 'veuvage')]]
     mutations += [(('etats', r['grande-28'], 'sources', k), v) for k in ('conjoints', 'enfants') for v in (None, {}, {'url': 'ftp://exemple.org', 'fait': 'fait'})]
     mutations += [(('etats', r['grande-9'], 'exclusions', 'Jeanne de Bavière', k), v) for k, v in [('motif', ''), ('sources', []), ('sources', [{}])]]
     mutations += [(('familles', r['personne-charles'], 'presence'), 'absente'), (('liens', r['personne-grande-28'], 'presence'), 'indeterminee'), (('familles', r['personne-jeanne'], 'presence'), 'decedee'), (('familles', r['personne-charles'], 'naissance'), None)]
@@ -3155,9 +3165,11 @@ def test_familles_historiques_maghreb(tmp_path):
     assert len(d['familles']) == 77 and len(d['liens']) == len(d['etats']) == 23
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
-    assert chef['nom'] is None and 'https://en.wikipedia.org/wiki/Zayyanid_dynasty' in chef['lacunes']['identite']
+    # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
+    assert chef['nom'] == 'Abu Muhammad I' and chef['lacunes']['identite'] is None and chef['sources']['identite']['url'] == 'https://en.wikipedia.org/wiki/Zayyanid_dynasty' and chef['sources']['identite']['fait'].strip()
     _preuve_monde_maghreb(list(monde.personnages))
-    assert not any(f['maison'] == TLEMCEN for f in monde.personnages)
+    # Tlemcen n'a dans le monde que son chef (#1052), sans aucun champ familial.
+    assert [f['id'] for f in monde.personnages if f['maison'] == TLEMCEN] == ['personne-' + TLEMCEN]
     ids = {'personne-' + m for m in MAGHREB_MAISONS} | set(MAGHREB_MAISONS)
     for t in ('liens', 'etats'):
         for j, f in enumerate(d[t]):
@@ -3196,7 +3208,9 @@ def test_familles_historiques_maghreb(tmp_path):
     c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison=TLEMCEN))
     with pytest.raises(AssertionError): _maghreb(etat=c['etats'][-1])
     refuse(c)
-    chemin = tmp_path / 'tlemcen.json'
+    # Tlemcen a un chef depuis #1052 : le chargeur ne refuse plus son état, mais celui d'une maison restée sans chef (`grande-21`).
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison='grande-21'))
+    chemin = tmp_path / 'sans-chef.json'
     chemin.write_text(json.dumps(c), encoding='utf-8')
     with pytest.raises(ValueError): p.charger_catalogue(monde.maisons, chemin)
     # Dans le monde construit, une personne de Tlemcen ne porte aucun champ familial.
