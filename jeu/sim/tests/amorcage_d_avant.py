@@ -17,8 +17,11 @@ Certaines épreuves en gardent le décor, et seulement celles-ci :
   éprouvent la réaction à la faim, pas la date où elle vient.
 
 Le décor d'avant la soudure est aussi celui d'avant la famine (lot #1029,
-réponse A du 10 novembre 2026) : elle ne pose rien, et ces épreuves gardent
-leurs octets. Chaque usage le dit dans son test. Le monde du jeu, lui, n'a
+réponse A du 10 novembre 2026) et d'avant la réserve des villes affamées (lot
+#1057) : la famine ne pose rien, une ville affamée n'a que sa ration du tick
+pour garde, et ces épreuves gardent leurs octets. Avec cinq jours de stock,
+toute ville affamée de ce décor serait sous sa réserve et cesserait d'exporter.
+Chaque usage le dit dans son test. Le monde du jeu, lui, n'a
 plus que la soudure : cette aide ne vit que sous `sim/tests/`.
 """
 import sim.constants as _constantes
@@ -65,9 +68,38 @@ def couper_la_famine(monkeypatch):
     monkeypatch.setattr(_evenements, "poser_les_famines", _ne_pose_aucune_famine)
 
 
+def _reserve_d_avant(chemin=None):
+    return 1
+
+
+def _charger_sans_releve_des_champs(charger):
+    """`World.charger` d'avant : le monde rendu n'a pas de relevé des champs, donc pas de ville affamée."""
+    def charger_d_avant(cls, *args, **kwargs):
+        monde = charger.__func__(cls, *args, **kwargs)
+        monde.populations_soutenables = None
+        return monde
+
+    return classmethod(charger_d_avant)
+
+
+def garder_le_commerce_d_avant(monkeypatch):
+    """Pour la durée d'un test : une ville affamée garde sa ration du tick, comme avant le lot #1057.
+
+    Deux gestes, parce que les épreuves chargent le monde sous ce décor mais le
+    jouent après l'avoir quitté (un `MonkeyPatch.context()` qui ne couvre que le
+    chargement) : le lecteur rend 1, et le monde chargé ne porte pas
+    `populations_soutenables` (l'absence déclarée, la règle d'avant), si bien
+    que la règle suit le monde et non la durée du patch.
+    """
+    monkeypatch.setattr(_constantes, "reserve_ville_affamee_jours", _reserve_d_avant)
+    monkeypatch.setattr(_monde.World, "charger",
+                        _charger_sans_releve_des_champs(_monde.World.__dict__["charger"]))
+
+
 def amorcer_comme_avant_la_soudure(monkeypatch):
-    """Pour la durée d'un test (ou d'un `MonkeyPatch.context()`) : le monde chargé l'est comme avant, sans famine."""
+    """Pour la durée d'un test (ou d'un `MonkeyPatch.context()`) : le monde chargé l'est comme avant, sans famine ni réserve."""
     couper_la_famine(monkeypatch)
+    garder_le_commerce_d_avant(monkeypatch)
     monkeypatch.setattr(_monde, "amorcer_lieux", _enveloppe(_monde.amorcer_lieux))
     monkeypatch.setattr(_monde, "_porter_la_soudure_dans_chaque_lieu", lambda cellule: None)
 
@@ -77,6 +109,8 @@ def poser():
     _monde.amorcer_lieux = _enveloppe(_monde.amorcer_lieux)
     _monde._porter_la_soudure_dans_chaque_lieu = lambda cellule: None
     _evenements.poser_les_famines = _ne_pose_aucune_famine
+    _constantes.reserve_ville_affamee_jours = _reserve_d_avant
+    _monde.World.charger = _charger_sans_releve_des_champs(_monde.World.__dict__["charger"])
 
 
 # Le préambule d'un `python -c` d'épreuve qui joue le monde d'avant la soudure.

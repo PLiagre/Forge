@@ -266,8 +266,8 @@ def population_soutenable_de(cell: Cell, carte: dict) -> float:
     tout seul le jour où le relief, l'eau, la saison ou la part minière
     changeront.
 
-    Lue à l'amorçage (`sim.world`) et par personne d'autre : le tick ne la
-    consulte jamais. Une cellule qui ne produit rien nourrit zéro habitant —
+    Lue à l'amorçage (`sim.world`) ; le commerce lit la valeur relevée alors
+    (`World.populations_soutenables`), jamais cette formule au tick. Une cellule qui ne produit rien nourrit zéro habitant —
     et c'est un zéro mesuré, pas une sentinelle.
     """
     rendement_moyen = _constantes.rendement_moyen_courant()
@@ -1098,8 +1098,13 @@ def _apply_commerce(
     Définition du besoin et du surplus (détaillée dans sim/MODELE.md) :
     - besoin d'une cellule = max(0, consommation_tick - stock_snapshot)
       (manque prévisible du tick courant)
-    - surplus d'une cellule = max(0, stock_snapshot - consommation_tick)
-      (excédent disponible après sa propre alimentation du tick)
+    - surplus d'une cellule = max(0, stock_snapshot - garde)
+      (excédent disponible après sa propre alimentation du tick) ; la garde
+      est la consommation du tick, sauf pour une cellule affamée (population
+      du snapshot au-dessus de `World.populations_soutenables`) qui garde
+      `reserve_ville_affamee_jours` jours de ration (lot #1057, niveau 2,
+      `jeu/data/commerce.toml`). Avec 1 jour, ou sans relevé des champs, la
+      garde est la consommation du tick : le commerce d'avant, au bit près.
 
     Allocation déterministe (plusieurs demandeurs sur la même source) :
     - Les demandes sont triées par cell_id croissant (ordre stable).
@@ -1150,11 +1155,32 @@ def _apply_commerce(
     def _tick_consumption(cid: int) -> float:
         return snapshot_pop[cid] * consommation_unitaire
 
+    # Lot #1057 : une cellule affamée garde `reserve_ville_affamee_jours` jours
+    # de ration. Sans relevé des champs (monde construit à la main), la garde
+    # reste la ration du tick : c'est une absence déclarée, pas une devinette.
+    soutenables = getattr(world, "populations_soutenables", None)
+    reserve_jours = (_constantes.reserve_ville_affamee_jours()
+                     if soutenables is not None else None)
+
+    def _garde(cid: int) -> float:
+        ration = _tick_consumption(cid)
+        if soutenables is None:
+            return ration
+        if cid not in soutenables:
+            raise ValueError(
+                f"cellule {cid} : population soutenable absente de "
+                "World.populations_soutenables, la réserve d'une ville affamée "
+                "ne se devine pas"
+            )
+        if snapshot_pop[cid] <= soutenables[cid]:
+            return ration
+        return max(ration, _constantes.ticks_de_reserve_ville_affamee(reserve_jours) * ration)
+
     offres = {}
 
     def _surplus(cid: int) -> float:
         if cid not in offres:
-            surplus = max(0.0, snapshot_stock[cid] - _tick_consumption(cid))
+            surplus = max(0.0, snapshot_stock[cid] - _garde(cid))
             cell = world.cells[cid]
             if surplus > 0 and cell.lieux:
                 lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)

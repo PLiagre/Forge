@@ -139,6 +139,12 @@ class World:
                      l'amorçage, par cellule. Hors de to_dict, jamais lue par
                      le tick. None si le monde n'a pas été amorcé : la ville
                      de 1400 se déclare alors absente, elle ne se devine pas.
+        populations_soutenables : cell_id → habitants que les champs de la cellule
+                     nourrissent au rendement et à la saison moyens (`soutenable`
+                     de l'amorçage). Hors de to_dict, de la photographie et de
+                     l'empreinte ; lue par le commerce pour reconnaître une
+                     cellule affamée. None si le monde est construit à la main :
+                     la garde d'avant s'applique alors (absence déclarée).
         ancres_des_bourgs : cell_id → (siège du maître du bourg ou None,
                      ville placée ou None). Posé au chargement, hors de
                      to_dict. None si le monde est construit à la main :
@@ -188,6 +194,7 @@ class World:
         self.stocks_mer: dict[str, float] = {}
         self.attribution_villes = attribution_villes
         self.populations_bourg_amorcage = None
+        self.populations_soutenables = None
         self.ancres_des_bourgs = None
         self.ticks_ecoules = 0
         self.intentions_en_attente = []
@@ -293,6 +300,7 @@ class World:
 
         cells: dict = {}
         populations_bourg_amorcage = {}
+        populations_soutenables = {}
         for raw in raw_cells:
             cid = raw["cell_id"]
             area = raw["area_km2"]
@@ -303,6 +311,7 @@ class World:
                 migration_remainder=0.0,
             )
             soutenable = population_soutenable_de(cellule_vide, carte)
+            populations_soutenables[cid] = soutenable
             pop_rurale = _seed_population(soutenable, rng)
             pop = max(pop_rurale, populations_villes.get(cid, 0))
             metiers = foyers.metiers_d_amorcage(pop, raw.get("gisements") or [])
@@ -337,6 +346,7 @@ class World:
                    carte=carte, carte_meta=carte_meta,
                    attribution_villes=attribution)
         monde.populations_bourg_amorcage = populations_bourg_amorcage
+        monde.populations_soutenables = populations_soutenables
         monde.maisons = charger_registre_maisons(monde.carte)
         from sim.maitres import attribuer_maitres
 

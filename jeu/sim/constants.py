@@ -10,6 +10,8 @@ durées dérivent de TICK_DURATION_DAYS : jamais un second littéral de temps.
 """
 
 import math
+import tomllib
+from pathlib import Path
 
 # Surface indicative d'un lieu autour de son bourg ; règle de découpage de niveau 2.
 # Elle ne décrit ni les frontières ni la position réelle de ces lieux.
@@ -446,6 +448,41 @@ DEBIT_KG_PAR_KM_DE_COTE_PAR_TICK = 2000.0 * TICK_DURATION_DAYS
 def debit_maritime_kg_par_km() -> float:
     """Relit DEBIT_KG_PAR_KM_DE_COTE_PAR_TICK à chaque appel."""
     return DEBIT_KG_PAR_KM_DE_COTE_PAR_TICK
+
+# Les réglages du commerce vivent dans `jeu/data/commerce.toml` (niveau 2).
+_CHEMIN_COMMERCE = Path(__file__).parents[1] / "data" / "commerce.toml"
+_CLE_RESERVE_VILLE_AFFAMEE = "reserve_ville_affamee_jours"
+
+
+def reserve_ville_affamee_jours(chemin=None) -> int:
+    """
+    Jours de ration qu'une cellule affamée garde avant d'exporter le reste.
+
+    Relit `jeu/data/commerce.toml` à chaque appel, comme les autres lecteurs
+    de `jeu/data/`. Refuse, en nommant la clé et le fichier, un fichier ou une
+    clé absents, un booléen, un nombre non entier ou une valeur sous 1.
+    """
+    chemin = Path(chemin) if chemin is not None else _CHEMIN_COMMERCE
+    ou = f"{_CLE_RESERVE_VILLE_AFFAMEE} ({chemin.name})"
+    try:
+        with open(chemin, "rb") as fichier:
+            donnees = tomllib.load(fichier)
+    except FileNotFoundError as erreur:
+        raise ValueError(f"{ou} : fichier {chemin} absent") from erreur
+    if _CLE_RESERVE_VILLE_AFFAMEE not in donnees:
+        raise ValueError(f"{ou} : clé absente de {chemin}")
+    valeur = donnees[_CLE_RESERVE_VILLE_AFFAMEE]
+    if isinstance(valeur, bool) or not isinstance(valeur, int):
+        raise ValueError(f"{ou} : un nombre entier attendu, pas {valeur!r}")
+    if valeur < 1:
+        raise ValueError(f"{ou} : au moins 1 jour attendu, pas {valeur}")
+    return valeur
+
+
+def ticks_de_reserve_ville_affamee(jours: int) -> float:
+    """Une réserve de `jours` jours, en ticks de ration ; relit TICK_DURATION_DAYS à chaque appel."""
+    return jours / TICK_DURATION_DAYS
+
 
 # --- Mortalité par famine ---
 
