@@ -1605,7 +1605,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS)): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS)): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1907,8 +1907,8 @@ def _etats_iberie(e):
 
 def _familles_historiques(familles, liens):
     famille = FAMILLE_1400 + [('sophie-baviere', 'Sophie de Bavière', '1376', 'annee')]
-    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) == 77
-    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS}
+    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) + len(FICHES_MCA) == 80
+    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS} | {'personne-' + i for i in FICHES_MCA}
     fiches = {f['id']: f for f in familles + liens}
     couples = {'personne-isabeau': 'personne-grande-3', 'personne-jeanne': 'personne-grande-28', 'personne-sophie-baviere': 'personne-grande-9'}
     couples.update({v: k for k, v in list(couples.items())})
@@ -1916,7 +1916,7 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 23 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '23', '25')}
+    assert len(liens) == 26 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '30')}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
@@ -1925,8 +1925,9 @@ def _familles_historiques(familles, liens):
     _ottomans(fiches)
     _balkans(fiches)
     _maghreb(fiches)
+    _mca(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -1999,10 +2000,12 @@ def test_familles_integration(tmp_path, monkeypatch):
     verifies |= {('anteriorite', ('personne-grande-15', 'personne-jean-viii'))}
     parents += [('grande-16', m, i) for i, _, _, _, m, epoux, *_ in OTTOMANS if not epoux]
     parents += [('grande-19', mere and mere[len('personne-'):], i) for i, (_, _, _, pere, mere, *_) in BALKANS.items() if pere]
+    parents += [('grande-30', 'jeanne-sophie-baviere', i) for i in ENFANTS_MCA]
+    verifies |= {('anteriorite', ('personne-grande-30', 'personne-' + i)) for i in ENFANTS_MCA}
     paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]]
-    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]]
-    assert len(paternels) == 13 and len(maternites) == 6
-    assert len(bilan['verifies']) == 36 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 111
+    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]] + list(ENFANTS_MCA)
+    assert len(paternels) == 13 and len(maternites) == 8
+    assert len(bilan['verifies']) == 38 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 115
     controles = {('anteriorite', ('personne-' + p, 'personne-' + e)) for p, m, e in parents} | {(k, ('personne-' + m, 'personne-' + e)) for p, m, e in parents if m for k in ('anteriorite', 'age_maternel')}
     assert {(c['contrainte'], c['personnes']) for c in bilan['verifies']} == verifies
     assert {(c['contrainte'], c['personnes']) for c in bilan['indetermines']} == controles - verifies
@@ -2018,6 +2021,8 @@ def test_familles_integration(tmp_path, monkeypatch):
                  (('familles', enfant, 'naissance'), _naissance_famille('1368-12-02'))]
     jean = next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-jean-viii')
     mutations += [(('familles', jean, 'naissance'), _naissance_famille(v)) for v in ('1350-06-27', '1350-06-26')]
+    marguerite = next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-marguerite-autriche')
+    mutations += [(('familles', marguerite, 'naissance'), _naissance_famille('1377-09-19'))]
     copies = [_alterer_personnages(document, k, v) for k, v in mutations]
     cycle = copy.deepcopy(document)
     cycle['familles'][mere]['pere'] = 'personne-charles'
@@ -2056,11 +2061,12 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 23 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '23', '25')}
+    assert len(etats) == 26 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '30')}
     assert {f'grande-{n}' for n in range(11, 21)} <= {e['maison'] for e in etats}
     for e in etats:
         if e['maison'] in BALKANS_MAISONS: _balkans(etat=e); continue
         if e['maison'] in MAGHREB_MAISONS: _maghreb(etat=e); continue
+        if e['maison'] in MCA_MAISONS: _mca(etat=e); continue
         if e['maison'] == 'grande-16':
             _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
@@ -3162,7 +3168,7 @@ def test_familles_historiques_maghreb(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _maghreb({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 77 and len(d['liens']) == len(d['etats']) == 23
+    assert len(d['familles']) == 80 and len(d['liens']) == len(d['etats']) == 26
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
     # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
@@ -3220,3 +3226,197 @@ def test_familles_historiques_maghreb(tmp_path):
             clone = {k: copy.deepcopy(v) for k, v in base.items() if k not in CHAMPS_FAMILIAUX - {champ}}
             clone.update(id=identifiant, maison=TLEMCEN)
             with pytest.raises(AssertionError): _preuve_monde_maghreb(list(monde.personnages) + [clone])
+
+
+# Notices examinées le 12 novembre 2026 ; attentes indépendantes du catalogue. La Horde d'Or n'a ni fiche, ni complément, ni état.
+MCA_FARAJ, MCA_JANUS, MCA_ANGLESIA, MCA_ALBERT, MCA_JOANNA, MCA_ALBERTV, MCA_SHADI = (WP + p for p in (
+    'An-Nasir_Faraj', 'Janus,_King_of_Cyprus', 'Anglesia_Visconti', 'Albert_IV_of_Austria', 'Joanna_Sophie_of_Bavaria', 'Albert_II_of_Germany', 'Shadi_Beg'))
+MCA_MAISONS, HORDE = ('grande-22', 'grande-26', 'grande-30'), 'grande-21'
+HORDE_LACUNE = 'https://en.wikipedia.org/wiki/Shadi_Beg : la section Reign place la succession de Timur Qutluq par Shadi Beg fin 1399 ou début 1400 ; titulaire au 1er janvier non départagé, malgré l’infobox 1399–1407.'
+ALBERT_ID, JEANNE_SOPHIE_ID = 'personne-grande-30', 'personne-jeanne-sophie-baviere'
+ENFANTS_MCA = ('marguerite-autriche', 'albert-v')
+# id : (nom, maison, naissance, père, mère, conjoints, sources {champ : (page, fait)}, repères des lacunes {champ : repères})
+FICHES_MCA = {
+    'jeanne-sophie-baviere': ('Jeanne-Sophie de Bavière', 'grande-30', {'valeur': 'vers 1373', 'precision': 'vers'}, None, None, (ALBERT_ID,), {
+        'identite': (MCA_JOANNA, 'Jeanne-Sophie de Bavière, fille d’Albert Ier de Bavière et de Marguerite de Brieg, épouse d’Albert IV d’Autriche.'),
+        'naissance': (MCA_JOANNA, 'Jeanne-Sophie de Bavière : naissance vers 1373.'),
+        'presence': (MCA_JOANNA, 'Jeanne-Sophie de Bavière, vers 1373 – 15 novembre 1410 ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'conjoints': (MCA_ALBERT, 'Jeanne-Sophie de Bavière et Albert IV d’Autriche sont mariés : le 24 avril 1390 selon ' + MCA_ALBERT + ', le 13 juin 1395 selon ' + MCA_JOANNA + ' ; avant le départ dans les deux cas, divergence conservée.')},
+        {'pere': ('Jeanne-Sophie de Bavière', 'Albert Ier de Bavière', *HORS), 'mere': ('Jeanne-Sophie de Bavière', 'Marguerite de Brieg', *HORS)}),
+    'marguerite-autriche': ("Marguerite d'Autriche", 'grande-30', {'valeur': '1395-06-26', 'precision': 'jour'}, ALBERT_ID, JEANNE_SOPHIE_ID, (), {
+        'identite': (MCA_ALBERT, 'Marguerite d’Autriche, fille d’Albert IV d’Autriche et de Jeanne-Sophie de Bavière.'),
+        'naissance': (MCA_ALBERT, 'Marguerite d’Autriche : née à Vienne le 26 juin 1395, date que donne aussi ' + MCA_JOANNA + '.'),
+        'presence': (MCA_ALBERT, 'Marguerite d’Autriche, morte le 24 décembre 1447 ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'pere': (MCA_ALBERT, 'Marguerite d’Autriche est fille d’Albert IV d’Autriche et de Jeanne-Sophie de Bavière.'),
+        'mere': (MCA_ALBERT, 'Marguerite d’Autriche est fille d’Albert IV d’Autriche et de Jeanne-Sophie de Bavière.')},
+        {'conjoints': ('Marguerite d’Autriche', 'mariage futur', 'Henri XVI de Bavière', '25 novembre 1412', 'aucune absence attestée')}),
+    'albert-v': ("Albert V d'Autriche", 'grande-30', {'valeur': '1397-08', 'precision': 'mois'}, ALBERT_ID, JEANNE_SOPHIE_ID, (), {
+        'identite': (MCA_ALBERT, 'Albert V d’Autriche, fils d’Albert IV d’Autriche et de Jeanne-Sophie de Bavière, héritier du duché.'),
+        'naissance': (MCA_ALBERT, 'Albert V d’Autriche : né en août 1397, le 16 août selon ' + MCA_ALBERT + ' et ' + MCA_JOANNA + ', le 10 août selon ' + MCA_ALBERTV + ' ; aucun jour n’est choisi, divergence conservée.'),
+        'presence': (MCA_ALBERT, 'Albert V d’Autriche, mort le 27 octobre 1439 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'pere': (MCA_ALBERT, 'Albert V d’Autriche est fils d’Albert IV d’Autriche et de Jeanne-Sophie de Bavière.'),
+        'mere': (MCA_ALBERT, 'Albert V d’Autriche est fils d’Albert IV d’Autriche et de Jeanne-Sophie de Bavière.')},
+        {'conjoints': ('Albert V d’Autriche', 'mariage futur', 'Élisabeth de Luxembourg', '1422', 'aucune absence attestée')}),
+}
+# chef : (conjoints, sources {champ : (page, fait)}, repères des lacunes)
+LIENS_MCA = {
+    'grande-22': ((), {'presence': (MCA_FARAJ, 'Faraj, sultan mamelouk depuis juin 1399, premier règne jusqu’au 20 septembre 1405, tué le 23 mai 1412 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.')},
+                  {'pere': ('An-Nasir Faraj', MCA_FARAJ, 'Barquq', 'mort subitement en juin 1399', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+                   'mere': ('An-Nasir Faraj', MCA_FARAJ, 'Khawand Shirin', *HORS),
+                   'conjoints': ('An-Nasir Faraj', MCA_FARAJ, 'Khawand Fatima', 'Ibn Taghribirdi', 'sans date d’union', 'ni célibat ni veuvage')}),
+    'grande-26': ((), {'presence': (MCA_JANUS, 'Janus, couronné le 11 novembre 1398, roi de Chypre jusqu’en 1432 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.')},
+                  {'pere': ('Janus de Lusignan', MCA_JANUS, 'Jacques Ier de Chypre', 'mort le 9 septembre 1398', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+                   'mere': ('Janus de Lusignan', MCA_JANUS, 'Helvis de Brunswick-Grubenhagen', *HORS),
+                   'conjoints': ('Janus de Lusignan', MCA_JANUS, MCA_ANGLESIA, 'Anglesia Visconti', 'après janvier 1400', '1401 à 1407', 'aucun conjoint actif', 'ni célibat ni veuvage')}),
+    'grande-30': ((JEANNE_SOPHIE_ID,), {
+        'conjoints': (MCA_ALBERT, 'Albert IV d’Autriche est marié à Jeanne-Sophie de Bavière : le 24 avril 1390 selon ' + MCA_ALBERT + ', le 13 juin 1395 selon ' + MCA_JOANNA + ' ; avant le départ dans les deux cas, divergence conservée.'),
+        'presence': (MCA_ALBERT, 'Albert IV, duc d’Autriche de 1395 à sa mort, le 14 septembre 1404 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.')},
+        {'pere': ('Albert IV d’Autriche', MCA_ALBERT, 'Albert III', 'son prédécesseur', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+         'mere': ('Albert IV d’Autriche', MCA_ALBERT, 'Beatrix de Nuremberg', *HORS)}),
+}
+# maison : (conjoints, enfants, sources, repères des lacunes, exclusions {nom : ((page, fait), …)}) ; le motif réunit les faits
+ETATS_MCA = {
+    'grande-22': ('lacune', 'lacune', {}, {
+        'conjoints': ('An-Nasir Faraj', MCA_FARAJ, 'Khawand Fatima', 'sans date d’union', 'ni célibat ni veuvage'),
+        'enfants': ('An-Nasir Faraj', MCA_FARAJ, 'Ghars ad-Din Khalil', 'Khawand Asiya', 'Khawand Satita', '1416', 'Khawand Shakra', '1482', 'sans aucune naissance', 'treize ans', 'aucune absence attestée')}, {
+        'Khawand Fatima': ((MCA_FARAJ, 'Khawand Fatima : épouse de Faraj, sœur d’Ibn Taghribirdi, union non datée, remariée à Inal Nauruzi après 1412 ; épouse active au départ indéterminée, exclue.'),),
+        'Lâ Aflaha man Zalama': ((MCA_FARAJ, 'Lâ Aflaha man Zalama : concubine de Faraj, mère de Ghars ad-Din Khalil, union non datée ; le schéma n’a pas de concubinage, elle n’est ni conjointe ni mère référencée.'),),
+        'Thuraiya': ((MCA_FARAJ, 'Thuraiya : concubine de Faraj, mère de Khawand Asiya, union non datée ; le schéma n’a pas de concubinage, elle n’est ni conjointe ni mère référencée.'),),
+        'Ghars ad-Din Khalil': ((MCA_FARAJ, 'Ghars ad-Din Khalil : fils de Faraj, sans naissance connue ; présence indéterminée au 1er janvier 1400.'),),
+        'Khawand Asiya': ((MCA_FARAJ, 'Khawand Asiya : fille de Faraj, sans naissance connue ; présence indéterminée au 1er janvier 1400.'),),
+        'Khawand Satita': ((MCA_FARAJ, 'Khawand Satita : fille de Faraj, morte en 1416, sans naissance connue ; présence indéterminée au 1er janvier 1400.'),),
+        'Khawand Shakra': ((MCA_FARAJ, 'Khawand Shakra : fille de Faraj, morte en 1482, sans naissance connue ; présence indéterminée au 1er janvier 1400.'),)}),
+    'grande-26': ('lacune', 'lacune', {}, {
+        'conjoints': ('Janus de Lusignan', MCA_JANUS, MCA_ANGLESIA, 'Anglesia Visconti', 'après janvier 1400', 'aucun conjoint actif', 'ni célibat ni veuvage'),
+        'enfants': ('Janus de Lusignan', MCA_JANUS, 'neuf enfants', 'Charlotte de Bourbon', '1411', 'Aloysius', '1408', 'Guy', '1410', 'sans nom ni naissance', '1427', 'aucune absence attestée')}, {
+        'Anglesia Visconti': ((MCA_JANUS, 'Anglesia Visconti : épouse future de Janus, mariée après janvier 1400, exclue du départ ; aucun événement programmé.'),
+                              (MCA_ANGLESIA, 'Anglesia Visconti : union avec Janus annulée entre 1407 et 1409, sans enfant ; mariée après janvier 1400.')),
+        'Charlotte de Bourbon': ((MCA_JANUS, 'Charlotte de Bourbon : épouse future de Janus, mariée en 1411, exclue du départ ; aucun événement programmé.'),),
+        'Jean II': ((MCA_JANUS, 'Jean II : fils de Janus et de Charlotte de Bourbon, né en 1414, futur et héritier, exclu du départ ; aucun événement programmé.'),),
+        'Aloysius': ((MCA_JANUS, 'Aloysius : fils de Janus hors mariage, né en 1408, futur, exclu du départ ; aucun événement programmé.'),),
+        'Guy': ((MCA_JANUS, 'Guy : fils de Janus hors mariage, né en 1410, futur, exclu du départ ; aucun événement programmé.'),)}),
+    'grande-30': ('union', 'documentes', {
+        'conjoints': (MCA_ALBERT, 'Albert IV d’Autriche et Jeanne-Sophie de Bavière sont mariés ; état union : le 24 avril 1390 selon ' + MCA_ALBERT + ', le 13 juin 1395 selon ' + MCA_JOANNA + ', avant le départ dans les deux cas.'),
+        'enfants': (MCA_ALBERT + '#Family_and_children', 'Albert IV d’Autriche a deux enfants documentés, Marguerite (1395) et Albert V (1397), nés de Jeanne-Sophie de Bavière ; aucun autre n’est inventé.')}, {}, {}),
+}
+MCA_DIVERGENCES = ('juin 1399', 'Khawand Shirin', '9 septembre 1398', 'après janvier 1400', 'neuf enfants', '24 avril 1390', '13 juin 1395', '16 août', '10 août', 'treize ans', 'ni célibat ni veuvage', 'aucune absence attestée')
+CHEF_EXCLUSION_MCA = {n: m for m, (*_, x) in ETATS_MCA.items() for n in x}
+REPERES_MCA = {**{'personne-' + i: v[7] for i, v in FICHES_MCA.items()}, **{'personne-' + m: v[2] for m, v in LIENS_MCA.items()}, **{m: v[3] for m, v in ETATS_MCA.items()}}
+
+
+def _mca(fiches=None, etat=None):
+    try: _mca_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche mamelouke, chypriote ou autrichienne malformée : {erreur!r}') from erreur
+
+
+def _mca_controle(fiches, etat):
+    if fiches is not None:
+        chefs = {'personne-' + m for m in MCA_MAISONS}
+        assert chefs | {'personne-' + i for i in FICHES_MCA} <= set(fiches)
+        assert {i for i, f in fiches.items() if f.get('maison') in MCA_MAISONS and i not in chefs} == {'personne-' + i for i in FICHES_MCA}
+        for i, (nom, maison, naissance, pere, mere, conjoints, sources, reperes) in FICHES_MCA.items():
+            f = fiches['personne-' + i]
+            assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (nom, maison, naissance, pere, mere, conjoints, 'vivante')
+            _lacunes_b(f['sources'], f['lacunes'], sources, reperes)
+        for m, (conjoints, sources, reperes) in LIENS_MCA.items():
+            c = fiches['personne-' + m]
+            assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+            champs = ('pere', 'mere', 'conjoints', 'presence')
+            _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+        assert {i for i, f in fiches.items() if ALBERT_ID in (f['pere'], f['mere']) or ALBERT_ID in f['conjoints']} == {'personne-' + i for i in ENFANTS_MCA} | {JEANNE_SOPHIE_ID}
+        assert {i for i, f in fiches.items() if JEANNE_SOPHIE_ID in (f['pere'], f['mere']) or JEANNE_SOPHIE_ID in f['conjoints']} == {'personne-' + i for i in ENFANTS_MCA} | {ALBERT_ID}
+        assert not any(f['pere'] == c or f['mere'] == c or c in f['conjoints'] for c in ('personne-grande-22', 'personne-grande-26') for f in fiches.values())
+        # La Horde d'Or n'a ni fiche, ni complément : son chef est inconnu, aucune famille n'est inventée.
+        horde = 'personne-' + HORDE
+        assert not any(f.get('maison') == HORDE or f['id'] == horde or horde in (f['pere'], f['mere']) or horde in f['conjoints'] for f in fiches.values())
+        assert not any('Jeanne-Sophie' in (f.get('nom') or '') for f in fiches.values() if f['id'] != JEANNE_SOPHIE_ID)
+        assert not any(f.get('nom') in ('Sophie de Bavière', 'Jeanne de Bavière') for f in fiches.values() if f.get('maison') == 'grande-30')
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETATS_MCA[etat['maison']]
+        assert (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _preuve_monde_mca(personnes):
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
+                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+    _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
+    assert not any(f['maison'] == HORDE and CHAMPS_FAMILIAUX & f.keys() for f in personnes)
+
+
+def test_familles_historiques_mamelouks_chypre_autriche(tmp_path):
+    from sim import personnages as p
+    d, monde = _personnages(), World.charger(0)
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False):
+        if controle: assert _controler_famille(resolus(c))
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    _mca({f['id']: f for f in d['familles'] + d['liens']})
+    assert len(d['familles']) == 80 and len(d['liens']) == len(d['etats']) == 26 and len(CHEF_EXCLUSION_MCA) == 12
+    _preuve_monde_mca(list(monde.personnages))
+    # La Horde : ni fiche, ni complément, ni état ; la lacune d'identité de son chef reste mot pour mot.
+    chef = next(c for c in d['chefs'] if c['maison'] == HORDE)
+    assert chef['nom'] is None and chef['lacunes']['identite'] == HORDE_LACUNE and monde.chefs[HORDE] == {'personnage': None, 'lacune': HORDE_LACUNE}
+    assert not any(f['maison'] == HORDE for f in monde.personnages)
+    assert not any(f['maison'] == HORDE for f in d['familles']) and not any(l['id'] == 'personne-' + HORDE for l in d['liens']) and not any(e['maison'] == HORDE for e in d['etats'])
+    ids = {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | set(MCA_MAISONS)
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', f.get('maison')) not in ids: continue
+            altere((t,), d[t][:j] + d[t][j+1:]); altere((t,), d[t] + [copy.deepcopy(f)])
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                altere((t, j, *chemin), ['personne-grande-9'] if valeur == [] else 'Altéré')
+                if isinstance(valeur, str):
+                    for repere in MCA_DIVERGENCES:
+                        if repere in valeur: altere((t, j, *chemin), valeur.replace(repere, 'inconnu'))
+            for nom in f.get('exclusions', {}): altere((t, j, 'exclusions', nom), 'SUPPRIMER')
+            if t == 'etats':
+                for champ in (k for k in ('conjoints', 'enfants') if f[k] == 'lacune'):
+                    for etat in ('absence_attestee', 'union', 'veuvage'): altere((t, j, champ), etat)
+                if f['maison'] == 'grande-30': altere((t, j, 'conjoints'), 'lacune'); altere((t, j, 'enfants'), 'lacune')
+            for champ, liste in REPERES_MCA[f.get('id', f.get('maison'))].items():
+                for repere in liste: altere((t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu'))
+    k = next(i for i, f in enumerate(d['familles']) if f['id'] == 'personne-albert-v')
+    altere(('familles', k, 'naissance'), _naissance_famille('1397-08-16'))
+    j = next(i for i, f in enumerate(d['familles']) if f['id'] == JEANNE_SOPHIE_ID)
+    for nom in ('Sophie de Bavière', 'Jeanne de Bavière'): altere(('familles', j, 'nom'), nom)
+    modele = next(f for f in d['familles'] if f['id'] == 'personne-marie-bourgogne')
+    for nom, maison in CHEF_EXCLUSION_MCA.items():
+        for role in ('pere', 'conjoints'):
+            c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, maison=maison, presence='vivante', pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+            if role == 'pere': ajout['pere'] = 'personne-' + maison
+            else: ajout['conjoints'] = ['personne-' + maison]; next(x for x in c['liens'] if x['id'] == 'personne-' + maison)['conjoints'].append(ajout['id'])
+            assert _controler_famille(resolus(c))
+            with pytest.raises(AssertionError): _mca({f['id']: f for f in c['familles'] + c['liens']})
+            refuse(c)
+    # Horde : une fiche, un complément ou un état de `grande-21` est refusé.
+    lien, etat = (next(x for x in d[t] if x.get('id', x.get('maison')) in ('personne-grande-26', 'grande-26')) for t in ('liens', 'etats'))
+    c = copy.deepcopy(d); c['familles'].append(dict(copy.deepcopy(modele), id='personne-intruse', maison=HORDE))
+    with pytest.raises(AssertionError): _mca({f['id']: f for f in c['familles'] + c['liens']})
+    refuse(c)
+    c = copy.deepcopy(d); c['liens'].append(dict(copy.deepcopy(lien), id='personne-' + HORDE))
+    with pytest.raises(AssertionError): _mca({f['id']: f for f in c['familles'] + c['liens']})
+    refuse(c)
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison=HORDE))
+    with pytest.raises(AssertionError): _mca(etat=c['etats'][-1])
+    refuse(c)
+    chemin = tmp_path / 'sans-chef.json'
+    chemin.write_text(json.dumps(c), encoding='utf-8')
+    with pytest.raises(ValueError): p.charger_catalogue(monde.maisons, chemin)
+    # Dans le monde construit, une personne de la Horde ne porte ni présence ni état familial.
+    base = next(f for f in monde.personnages if f['id'] == ALBERT_ID)
+    for identifiant in ('personne-' + HORDE, 'personne-intruse'):
+        for champ in ('presence', 'etat_familial'):
+            clone = {k: copy.deepcopy(v) for k, v in base.items() if k not in CHAMPS_FAMILIAUX - {champ}}
+            clone.update(id=identifiant, maison=HORDE)
+            with pytest.raises(AssertionError): _preuve_monde_mca(list(monde.personnages) + [clone])
