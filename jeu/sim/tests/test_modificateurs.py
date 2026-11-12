@@ -39,8 +39,12 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # reçu leur chef, le registre passe de 2 361 à 2 363 personnes. Seules les
 # parties `personnages` et `chefs` du monde diffèrent de l'empreinte d'avant,
 # et la photographie est inchangée (mesuré sur le PC et sur le VPS).
+# Le monde est recapturé le 12 novembre 2026 (lot #978) : trois fiches familiales
+# autrichiennes entrent dans le registre (de 2 363 à 2 366 personnes) et trois
+# chefs reçoivent leurs liens. Mesuré sur la base et sur le lot, sous Linux : seule la clé
+# `personnages` de `World.to_dict()` diffère, et la photographie est identique.
 EMPREINTES_365 = {
-    "linux": ("101b586c7ee9f20668ea87b03ad9b502300f281779a1321c689a085c42ae9098",
+    "linux": ("fada2dee12407f0fabfad5b31763688cd85342ab4a67b465bdff6aae91da5767",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
 }
 
