@@ -35,8 +35,12 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # soudure de 1400 comprise), mesurées le 8 novembre 2026. Les flottants de la
 # trigonométrie (la durée du jour) diffèrent au dernier bit d'un système à
 # l'autre : chaque système a la sienne, et la CI juge sous Linux.
+# Le monde est recapturé le 11 novembre 2026 (lot #1052) : Tlemcen et le Zab ont
+# reçu leur chef, le registre passe de 2 361 à 2 363 personnes. Seules les
+# parties `personnages` et `chefs` du monde diffèrent de l'empreinte d'avant,
+# et la photographie est inchangée (mesuré sur le PC et sur le VPS).
 EMPREINTES_365 = {
-    "linux": ("6171af4fc6820bb59ef598503119a33ae65f06a096f16d2048b281609839d4c5",
+    "linux": ("101b586c7ee9f20668ea87b03ad9b502300f281779a1321c689a085c42ae9098",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
 }
 
