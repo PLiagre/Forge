@@ -23,6 +23,10 @@ namespace Forge.Interface
         public const string CHOISIR = "Choisissez votre maison : cliquez une terre en surbrillance";
         public const string CHOIX_RECU = "Espace : lancer le temps ; le monde applique votre choix au jour suivant";
         public const string LANCER = "Espace : lancer le temps";
+        // Lot #1030 : cinq marques dans le bandeau, une par palier atteint de l'horloge, et la phrase de « Votre maison » sans maison.
+        public const string VITESSES = "Vitesses";
+        public const string MARQUE = "Vitesse ";
+        public const string OBSERVER = "Vous observez le monde, sans maison.\nPrenez-en une quand vous voulez.";
         public const string ENTRER = " · double-clic sur votre siège : entrer dans votre ville";
         public const float HAUTEUR_TERRE = 0.65f; // au-dessus des cellules (0) et de leurs contours (0,5), sous les disques des lieux (0,8) et les noms (1)
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
@@ -42,6 +46,7 @@ namespace Forge.Interface
         Transform choix;
         Button confirmer;
         Button[] temps;
+        RectTransform vitesses; Image[] marques;
         CelluleDeCarte retenue;
         MeshRenderer territoireTeinte;
         FicheDeDepart candidate;
@@ -98,6 +103,19 @@ namespace Forge.Interface
             pays.anchoredPosition = new Vector2(408, -20); pays.sizeDelta = new Vector2(56, 44);
             date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 600);
             date.color = SocleInterface.Couleur("papier");
+            // Lot #1030 : cinq marques de 8 à 40 px, posées sur le bas d'un conteneur de 112 × 40 (x 968 à 1080, y 24 à 64), avant les dossiers (x 1112) ; sans bouton : le bandeau garde ses trois boutons du temps.
+            vitesses = new GameObject(VITESSES, typeof(RectTransform)).GetComponent<RectTransform>(); vitesses.SetParent(bandeau, false);
+            vitesses.anchorMin = vitesses.anchorMax = vitesses.pivot = new Vector2(0, 1);
+            vitesses.anchoredPosition = new Vector2(968, -24); vitesses.sizeDelta = new Vector2(112, 40);
+            marques = new Image[HorlogeDeCarte.PALIERS.Length];
+            for (int i = 0; i < marques.Length; i++)
+            {
+                marques[i] = new GameObject(MARQUE + (i + 1), typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+                var cadre = marques[i].rectTransform; cadre.SetParent(vitesses, false);
+                cadre.anchorMin = cadre.anchorMax = cadre.pivot = Vector2.zero;
+                cadre.anchoredPosition = new Vector2(24 * i, 0); cadre.sizeDelta = new Vector2(16, 8 * (i + 1));
+                marques[i].raycastTarget = false;
+            }
             barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // lot #1001 : sous le filet, dans les 100 px du bandeau
             barre.color = SocleInterface.Couleur("papier"); barre.rectTransform.sizeDelta = new Vector2(1872, 26);
             // Lot #860 : à droite des comptes, au-dessus des jauges, sous les commandes du temps : x 1104 à 1896, y 72 à 98.
@@ -291,6 +309,12 @@ namespace Forge.Interface
             date.text = horloge.Absence != null ? "Date indisponible : le monde ne répond pas"
                 : horloge.Lue != null ? HorlogeDeCarte.Decrire(horloge.Lue) : "Date en attente du monde";
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;
+            vitesses.gameObject.SetActive(horloge.Lue != null && horloge.Absence == null);
+            if (vitesses.gameObject.activeSelf)
+            {
+                int rang = HorlogeDeCarte.Rang(horloge.Lue.JoursParSeconde);
+                for (int i = 0; i < marques.Length; i++) marques[i].color = SocleInterface.Couleur(i + 1 <= rang ? "or" : "secondaire");
+            }
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
             barre.text = Barre(Partie.Monde, Partie.Comptes);
             jauges.Afficher(Partie.Monde, Partie.Pays);
@@ -346,7 +370,7 @@ namespace Forge.Interface
                 maison.color = SocleInterface.Couleur("encre");
                 return;
             }
-            maison.text = "Choisissez votre maison.\nLe choix sera appliqué par le monde.";
+            maison.text = OBSERVER;
             var departs = Partie.Departs;
             if (departs == null || !departs.Presente) { EtatsLecture.Afficher(maison, EtatLecture.Absence, departs?.Absence ?? "Départs en attente"); return; }
             string cle = string.Join("\n", departs.Donnees.Fiches.Select(f => f.Id + " " + f.Maison));

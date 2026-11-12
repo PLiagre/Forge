@@ -635,6 +635,51 @@ namespace Forge.Interface.Tests
             Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(600f));
             foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(600f), texte); }
         }
+        // Lot #1030 : cinq marques dans le bandeau, une par palier atteint ; « Votre maison » dit l'observateur.
+        Image[] Marques() => racine.GetComponentsInChildren<Image>(true).Where(i => i.transform.parent.name == CabinetDeCarte.VITESSES).ToArray();
+        Transform Vitesses() => racine.transform.Find("Cabinet/FORGE · Le cabinet/" + CabinetDeCarte.VITESSES);
+        [Test] public void Les_cinq_marques_suivent_la_vitesse_servie()
+        {
+            var h = racine.GetComponent<HorlogeDeCarte>(); Color or = SocleInterface.Couleur("or"), eteinte = SocleInterface.Couleur("secondaire");
+            Assert.That(Vitesses(), Is.Not.Null, "le conteneur « " + CabinetDeCarte.VITESSES + " » est absent du bandeau"); cabinet.Afficher(); Assert.That(Vitesses().gameObject.activeSelf, Is.False, "sans horloge lue");
+            foreach (var (v, allumees) in new[] { (0d, 0), (0.5, 1), (2.5, 3), (6d, 4), (10d, 5) })
+            {
+                Poser(h, "Lue", new HorlogeLue(7, new DateDuMonde(1400, 8), v)); cabinet.Afficher();
+                Assert.That(Vitesses().gameObject.activeSelf, Is.True, "à " + v + " jour(s) par seconde"); Image[] marques = Marques();
+                Assert.That(marques.Select(m => m.name), Is.EqualTo(Enumerable.Range(1, 5).Select(i => CabinetDeCarte.MARQUE + i)), "à " + v);
+                Assert.That(HorlogeDeCarte.Rang(v), Is.EqualTo(allumees));
+                for (int i = 0; i < 5; i++) Assert.That(marques[i].color, Is.EqualTo(i < allumees ? or : eteinte), "à " + v + " jour(s) par seconde, la marque " + (i + 1));
+            }
+            Poser(h, "Absence", "service coupé"); cabinet.Afficher(); Assert.That(Vitesses().gameObject.activeSelf, Is.False, "avec une absence");
+            Poser(h, "Absence", null); Poser(h, "Lue", null); cabinet.Afficher(); Assert.That(Vitesses().gameObject.activeSelf, Is.False, "sans horloge lue");
+        }
+        [Test] public void Les_marques_tiennent_dans_le_bandeau_sans_rien_recouvrir()
+        {
+            Transform toile = racine.transform.Find("Cabinet"); var bandeau = (RectTransform)toile.Find("FORGE · Le cabinet"); var vitesses = (RectTransform)Vitesses(); Assert.That(vitesses, Is.Not.Null);
+            Poser(racine.GetComponent<HorlogeDeCarte>(), "Lue", new HorlogeLue(7, new DateDuMonde(1400, 8), 10)); cabinet.Afficher(); Canvas.ForceUpdateCanvases();
+            Assert.That(toile.GetComponentsInChildren<Button>(true).Count(b => b.transform.IsChildOf(vitesses)), Is.Zero, "les marques ne sont pas des boutons");
+            Assert.That(Marques().Any(m => m.raycastTarget), Is.False);
+            Rect marques = Monde(vitesses), barre = Monde(bandeau); var c = new Vector3[4]; vitesses.GetWorldCorners(c); var cadre = (RectTransform)toile;
+            float bas = c.Max(v => cadre.rect.yMax - cadre.InverseTransformPoint(v).y);
+            Assert.That(barre.Contains(marques.min) && barre.Contains(marques.max) && bas <= 70, Is.True, "les marques " + marques + " (bas " + bas + ") sortent du bandeau " + barre + " ou passent sous le filet");
+            Button Commande(string nom) => toile.GetComponentsInChildren<Button>(true).Single(b => b.name == nom);
+            var voisins = new[] { (RectTransform)bandeau.Find(CabinetDeCarte.DOSSIERS), (RectTransform)bandeau.Find(CabinetDeCarte.PAYS), Nomme(BARRE).rectTransform }
+                .Concat(new[] { "Ralentir", "Pause / Reprendre", "Accélérer", "Menu" }.Select(n => (RectTransform)Commande(n).transform));
+            foreach (var voisin in voisins) Assert.That(marques.Overlaps(Monde(voisin)), Is.False, "les marques " + marques + " recouvrent « " + voisin.name + " » " + Monde(voisin));
+            Text date = Nomme("Lecture de la date…");
+            foreach (double v in new[] { 0d, 0.5, 1, 10 })
+            {
+                date.text = HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), v));
+                Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(488f), "la date à " + v + " jour(s) par seconde finit avant les marques : « " + date.text.Replace("\n", " | ") + " »");
+            }
+        }
+        [Test] public void Sans_maison_le_dossier_dit_l_observateur()
+        {
+            Proposer(); Text dossier = Nomme("Lecture de la partie…"); Canvas.ForceUpdateCanvases();
+            Assert.That(dossier.text, Is.EqualTo(CabinetDeCarte.OBSERVER)); Assert.That(CabinetDeCarte.OBSERVER, Is.EqualTo("Vous observez le monde, sans maison.\nPrenez-en une quand vous voulez."));
+            Assert.That(TexteDuMonde.Interdit(dossier.text, "10340", "42"), Is.Null, dossier.text); Assert.That(dossier.preferredWidth, Is.LessThanOrEqualTo(536f), dossier.text);
+            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(Propre("Lecture de la partie…"), Is.EqualTo("Maison\nSiège : Siège\n1 lieu tenu · relevé au jour 1 de 1400"));
+        }
         // Lot #1003 : le panneau « Parcourir le monde » quitte le bas de la carte ; ses commandes restent à leur place, son aide passe au Menu, l'état de la carte au centre de sa vue.
         [Test] public void Aucun_panneau_Parcourir_le_monde_ne_reste()
         {

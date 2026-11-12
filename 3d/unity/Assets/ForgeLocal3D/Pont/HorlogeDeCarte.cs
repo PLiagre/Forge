@@ -14,10 +14,13 @@ namespace Forge.Pont {
     // le panneau le dit, et aucune vitesse ne part : on ne règle pas un temps qu'on ne connaît pas.
     // Lot #860 : le jeu s'ouvre en pause. À l'ouverture, en pause, Espace et « Reprendre » lancent le temps à la vitesse de la
     // carte (`ReglagesDesVues`) ; une fois le monde vu en marche, la reprise est celle qu'il avait.
+    // Lot #1030 : cinq paliers, le plus rapide borné par le budget du tick.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     public sealed class HorlogeDeCarte : MonoBehaviour {
         public const float PERIODE_LECTURE_S = 0.25f;
-        public static readonly double[] PALIERS = { 0.5, 1, 2, 5, 10, 20 }; // jours par seconde
+        // Jours par seconde. Le dernier vaut 1000 / BUDGET_TICK_MS du service (100 ms) : un jour toutes les 100 ms, que le tick avec IA,
+        // mesuré à 67 ms le 7 novembre 2026, tient. Un palier plus rapide ferait prendre du retard au service, et la vitesse affichée mentirait.
+        public static readonly double[] PALIERS = { 0.5, 1, 2, 5, 10 };
         private static readonly TimeSpan DELAI = TimeSpan.FromSeconds(2);
         private static readonly Vector2 RESOLUTION_REFERENCE = new Vector2(1600, 900);
         private static readonly Color FOND = new Color(0.05f, 0.05f, 0.07f, 0.78f), BOUTON = new Color(0.22f, 0.24f, 0.3f, 1f);
@@ -75,6 +78,12 @@ namespace Forge.Pont {
             if (sens > 0) { foreach (double p in PALIERS) if (p > actuelle) return p; return PALIERS[PALIERS.Length - 1]; }
             for (int i = PALIERS.Length - 1; i >= 0; i--) if (PALIERS[i] < actuelle) return PALIERS[i];
             return PALIERS[0];
+        }
+
+        // Le nombre de paliers inférieurs ou égaux à la vitesse (à 1e-9 près) : 0 en pause, 5 à la plus rapide et au-delà.
+        public static int Rang(double joursParSeconde) {
+            int rang = 0; foreach (double p in PALIERS) if (p <= joursParSeconde + 1e-9) rang++;
+            return rang;
         }
 
         public static string Decrire(HorlogeLue h) =>

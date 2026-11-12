@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
 using UnityEngine;
@@ -73,6 +75,23 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual(p[p.Length - 1], HorlogeDeCarte.Suivante(p[p.Length - 1], +1), "au-dessus du dernier palier");
             Assert.AreEqual(p[0], HorlogeDeCarte.Suivante(p[0], -1), "au-dessous du premier palier");
             Assert.AreEqual(5, HorlogeDeCarte.Suivante(2.5, +1)); Assert.AreEqual(2, HorlogeDeCarte.Suivante(2.5, -1));
+        }
+
+        // Lot #1030 : cinq paliers, le plus rapide à la borne du budget du tick du service (le répertoire courant des tests est 3d/unity).
+        [Test] public void Cinq_paliers_et_le_plus_rapide_tient_dans_le_budget_du_tick() {
+            double[] p = HorlogeDeCarte.PALIERS;
+            Assert.AreEqual(5, p.Length, "les paliers : " + string.Join(", ", p)); Assert.Greater(p[0], 0);
+            for (int i = 0; i + 1 < p.Length; i++) Assert.Less(p[i], p[i + 1], "les paliers ne croissent pas strictement");
+            Match m = Regex.Match(File.ReadAllText("../../jeu/sim/service.py", Encoding.UTF8), @"^BUDGET_TICK_MS = (\d+)$", RegexOptions.Multiline);
+            Assert.IsTrue(m.Success, "BUDGET_TICK_MS absent de jeu/sim/service.py"); double budget = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+            Assert.GreaterOrEqual(1000 / p[4], budget, "le palier le plus rapide demande un jour toutes les " + 1000 / p[4] + " ms, sous le budget du tick (" + budget + " ms)");
+            Assert.AreEqual(1000.0 / budget, p[4], 1e-9, "le palier le plus rapide n'est pas à la borne du budget du tick");
+        }
+
+        [Test] public void Le_rang_compte_les_paliers_atteints() {
+            Assert.AreEqual(0, HorlogeDeCarte.Rang(0)); Assert.AreEqual(1, HorlogeDeCarte.Rang(0.5)); Assert.AreEqual(2, HorlogeDeCarte.Rang(1));
+            Assert.AreEqual(3, HorlogeDeCarte.Rang(2.5)); Assert.AreEqual(4, HorlogeDeCarte.Rang(ReglagesDesVues.Charger().VitesseCarte), "la vitesse de la carte");
+            Assert.AreEqual(5, HorlogeDeCarte.Rang(10)); Assert.AreEqual(5, HorlogeDeCarte.Rang(20));
         }
 
         [Test] public void Le_panneau_dit_l_horloge_servie_et_rien_d_autre() {
