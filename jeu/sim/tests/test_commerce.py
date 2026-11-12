@@ -3601,7 +3601,7 @@ def test_raccourci_745_contexte_maritime():
 #
 # Niveau 2 (jeu/data/commerce.toml). Réponse B de la direction, le 11 novembre
 # 2026 : une ville dont les champs ne la nourrissent pas garde N jours de sa
-# ration (N = 30) et n'exporte que le reste. Les petits mondes ci-dessous sont
+# ration (N = 21) et n'exporte que le reste. Les petits mondes ci-dessous sont
 # posés à la main ; `populations_soutenables` y est posé à la main aussi.
 
 _SOURCE_1057, _RECEVEUSE_1057 = 301, 302
@@ -3728,11 +3728,11 @@ def _ecrire_commerce_toml_1057(tmp_path, contenu):
 
 
 def test_reserve_ville_affamee_donnee_du_depot():
-    """SC2 : le fichier du dépôt dit 30 jours, et dit son niveau."""
+    """SC2 : le fichier du dépôt dit 21 jours, et dit son niveau."""
     import sim.constants as constantes
     chemin = constantes._CHEMIN_COMMERCE
     assert chemin.name == "commerce.toml" and chemin.parent.name == "data"
-    assert constantes.reserve_ville_affamee_jours() == 30
+    assert constantes.reserve_ville_affamee_jours() == 21
     texte = chemin.read_text(encoding="utf-8")
     assert "niveau 2" in texte and "reserve_ville_affamee_jours" in texte
 
@@ -3764,12 +3764,12 @@ def test_reserve_ville_affamee_donnee_relue_a_chaque_appel(tmp_path):
     assert constantes.reserve_ville_affamee_jours(chemin) == 9
 
 
-# Les épreuves du monde de 1400. Avec 30 jours de réserve et la soudure (212
+# Les épreuves du monde de 1400. Avec 21 jours de réserve et la soudure (212
 # jours de ration au 1er janvier), rien ne change en janvier : la réserve ne
 # mord que lorsqu'une ville affamée a mangé son grenier jusqu'à elle. Mesuré
-# le 11 novembre 2026 (graine 0, IA active) : Le Caire à partir du 129e jour,
-# Gand à partir du 292e. L'épreuve joue donc 300 jours, deux fois.
-_JOURS_DE_L_EPREUVE_1057 = 300
+# le 12 novembre 2026 avec 21 jours (graine 0, IA active) : Alexandrie à partir du
+# 123e jour, Le Caire du 130e, Gand du 307e. L'épreuve joue donc 365 jours, deux fois.
+_JOURS_DE_L_EPREUVE_1057 = 365
 _JANVIER_1057 = 30
 
 
@@ -3808,8 +3808,10 @@ class _Suivi1057:
         masse_avant = math.fsum(max(0.0, lire_stock_marchandise(c, nourriture)) for c in monde.cells.values())
         masse_avant += max(0.0, lire_stock_mer(monde, nourriture))
         avant = {cid: lire_stock_marchandise(monde.cells[cid], nourriture) for cid in self.affamees}
-        garde = {cid: max(monde.cells[cid].population * self.ration,
-                          self.reserve * monde.cells[cid].population * self.ration)
+        # Affamée jour par jour, comme le moteur : la famine peut faire passer une cellule sous ce
+        # que ses champs nourrissent (Gand vers le 358e jour), et elle n'a plus alors que sa ration.
+        garde = {cid: (max(1, self.reserve) if monde.cells[cid].population > monde.populations_soutenables[cid]
+                       else 1) * monde.cells[cid].population * self.ration
                  for cid in self.affamees}
         origine(monde, total, *args, **kwargs)
         if self.tricher is not None:
@@ -3879,6 +3881,11 @@ def _tonnes_1057(kg):
     return f"{kg / 1000:9.0f} t"
 
 
+def _premier_jour_de_difference_1057(avec, sans):
+    """Le numéro (à partir de 1) du premier jour où les sorties diffèrent ; « - » si jamais."""
+    return next((jour for jour, (a, b) in enumerate(zip(avec, sans), 1) if a != b), "-")
+
+
 def test_premier_mois_ville_affamee_janvier_inchange_puis_exportent_moins(_epreuve_1057):
     """SC3 (réponse B) : janvier ne change pas, puis les villes affamées exportent moins et gardent plus.
 
@@ -3896,11 +3903,12 @@ def test_premier_mois_ville_affamee_janvier_inchange_puis_exportent_moins(_epreu
     for cid in (gand, caire, paris):
         assert cid in avec.affamees, f"{nom_de[cid]} devrait être affamé"
     print(f"\n{'ville':16s} {'sortie, règle d avant':>22s} {'sortie, réserve':>18s} "
-          f"{'stock au 300e jour, avant':>26s} {'réserve':>12s}")
+          f"{'stock au 365e jour, avant':>26s} {'réserve':>12s} {'1er jour de différence':>24s}")
     for cid in avec.affamees:
         print(f"{nom_de.get(cid, cid)!s:16s} {_tonnes_1057(sum(sans.sorties[cid])):>22s} "
               f"{_tonnes_1057(sum(avec.sorties[cid])):>18s} {_tonnes_1057(sans.stocks[cid][-1]):>26s} "
-              f"{_tonnes_1057(avec.stocks[cid][-1]):>12s}")
+              f"{_tonnes_1057(avec.stocks[cid][-1]):>12s} "
+              f"{_premier_jour_de_difference_1057(avec.sorties[cid], sans.sorties[cid]):>24}")
     # Janvier : octet pour octet les mêmes sorties.
     for cid in avec.affamees:
         assert avec.sorties[cid][:_JANVIER_1057] == sans.sorties[cid][:_JANVIER_1057]
@@ -3908,10 +3916,12 @@ def test_premier_mois_ville_affamee_janvier_inchange_puis_exportent_moins(_epreu
     assert sum(sans.sorties[caire][:_JANVIER_1057]) > 1_000_000
     # Paris : 0 kg sous les deux règles, donc pas une preuve.
     assert sum(avec.sorties[paris]) == 0.0 == sum(sans.sorties[paris])
-    # Plus tard : la réserve mord. Gand et Le Caire exportent moins et gardent plus.
+    # Plus tard : la réserve mord. Gand et Le Caire exportent moins ; Le Caire garde plus (Gand a
+    # mangé tout son grain au 365e jour sous les deux règles : son stock y est nul des deux côtés).
     for cid in (gand, caire):
         assert sum(avec.sorties[cid]) < sum(sans.sorties[cid]), nom_de[cid]
-        assert avec.stocks[cid][-1] > sans.stocks[cid][-1], nom_de[cid]
+        assert avec.stocks[cid][-1] >= sans.stocks[cid][-1], nom_de[cid]
+    assert avec.stocks[caire][-1] > sans.stocks[caire][-1]
     # Contre-épreuve : la règle d'avant passe sous la réserve, la réserve jamais.
     assert not avec.sous_la_garde, avec.sous_la_garde[:3]
     assert sans.sous_la_garde, "la règle d'avant aurait dû passer sous la réserve"

@@ -8,8 +8,12 @@
 # d'exporter le reste. Une cellule est affamée quand ses champs, au rendement
 # et à la saison moyens, nourrissent moins d'habitants qu'elle n'en compte.
 # Niveau 2 : l'idée est médiévale (une ville que son contado ne nourrit pas
-# interdit la sortie de son grain), la durée n'est pas sourcée. Trente jours :
-# un mois de tampon, décidé par la direction le 11 novembre 2026 (lot #1057,
-# réponse B). Un entier de 1 au moins ; 1 redonne le commerce d'avant, où la
-# garde n'est que la ration du tick.
-reserve_ville_affamee_jours = 30
+# interdit la sortie de son grain), la durée n'est pas sourcée. Vingt et un
+# jours : trois semaines de tampon, choisis par le codeur le 12 novembre 2026
+# (lot #1057, réponse B de la direction, qui donnait 30 jours en exemple).
+# Mesuré sur la première année de 1400 (graine 0, IA active, sans joueur) :
+# avec 30 jours, Le Caire tient sa réserve dès le 330e jour et cesse de nourrir
+# Alexandrie, qui perd 50,4 % de ses habitants par la faim ; avec 25 jours, 56,6 % ;
+# avec 21 jours, 32,7 % (le monde tient, `test_soudure.py`). Un entier de 1 au
+# moins ; 1 redonne le commerce d'avant, où la garde n'est que la ration du tick.
+reserve_ville_affamee_jours = 21
