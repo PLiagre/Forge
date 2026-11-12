@@ -19,8 +19,9 @@ namespace Forge.Pont {
     public sealed class HorlogeDeCarte : MonoBehaviour {
         public const float PERIODE_LECTURE_S = 0.25f;
         // Jours par seconde. Le dernier vaut 1000 / BUDGET_TICK_MS du service (100 ms) : un jour toutes les 100 ms, et le test le fige.
-        // Le budget est tenu par le jeu de l'IA et le tick du monde (67 ms de médiane le 7 novembre 2026, docs/mesures/2026-11-07-refonte) ;
-        // cette durée ne compte pas la publication de l'état (`duree_dernier_tick_ms` est prise avant), que le brief du lot #1030 n'a pas mesurée.
+        // Le calcul du tick avec IA vaut 67 ms de médiane (7 novembre 2026, docs/mesures/2026-11-07-refonte), mais `duree_dernier_tick_ms` est prise
+        // avant la publication de l'état : mesuré sur le PC, le tick publié dure environ 211 ms, et le monde n'avance que de 1 à 3 jours par seconde
+        // à ce palier. Le palier est à la borne que le service déclare ; il ne la tient qu'une fois la publication ramenée sous 100 ms (lot de `jeu/sim/`).
         public static readonly double[] PALIERS = { 0.5, 1, 2, 5, 10 };
         private static readonly TimeSpan DELAI = TimeSpan.FromSeconds(2);
         private static readonly Vector2 RESOLUTION_REFERENCE = new Vector2(1600, 900);
