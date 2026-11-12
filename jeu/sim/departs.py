@@ -42,9 +42,12 @@ def appliquer_departs(world) -> int:
             population = lieu.population
             if population <= 0:
                 continue
-            stock = max(0, lire_stock_marchandise(lieu, nourriture))
+            stock = lire_stock_marchandise(lieu, nourriture)
+            if stock < 0:
+                stock = 0
             reserve = (stock - lieu.dette_alimentaire_kg) / (population * ration)
-            cle = (cid, lieu.rang)
+            rang = lieu.rang
+            cle = (cid, rang)
             photo[cle] = (lieu, population, reserve)
             cles.append(cle)
             if reserve_minimale is None or reserve < reserve_minimale:
@@ -56,7 +59,7 @@ def appliquer_departs(world) -> int:
             elif (second is None or reserve > reserve_second
                     or (reserve == reserve_second and cle < second)):
                 second, reserve_second = cle, reserve
-            if lieu.rang == 0:
+            if rang == 0:
                 bourgs[cid] = cle
         if cles:
             lieux_par_cellule[cid] = cles
