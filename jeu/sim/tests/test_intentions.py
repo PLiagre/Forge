@@ -2830,7 +2830,7 @@ def test_tout_pays_ia(monkeypatch):
     monde.intentions_en_attente = [ChoixDeMaison("grande-3")]
     verifier(monde)
     assert ia.decider_intentions(monde, []) == autres(libre)
-    assert valois[1] not in {m.id for m in maisons_de_l_ia(monde) if m.sorte == valois[0]}
+    assert valois[1] in {m.id for m in maisons_de_l_ia(monde) if m.sorte == valois[0]}  # Le dépôt attend le tick.
     monde.intentions_en_attente, monde.maison_du_joueur = [], "grande-3"
     verifier(monde)
     assert ia.decider_intentions(monde, []) == autres(libre)
@@ -2860,6 +2860,5 @@ def test_tout_pays_ia(monkeypatch):
     # Contre-épreuve : sans la lecture du choix, la route des Valois revient.
     monde.intentions_en_attente = [ChoixDeMaison("grande-3")]
     monkeypatch.setattr(ia, "maison_choisie", lambda monde: None)
-    monkeypatch.setattr("sim.intentions.maison_choisie", lambda monde: None)  # lue par `maisons_de_l_ia`
     with pytest.raises(AssertionError):
         verifier(monde)

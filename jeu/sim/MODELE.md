@@ -1784,7 +1784,9 @@ tuple gelé : d'abord les grandes maisons triées par id, puis toutes les
 seigneuries de départ triées par id. Elle ne dépend que des tables de 1400 et
 de la carte, jamais du tick ni du joueur. `maisons_de_l_ia(monde, …)` en écarte
 la maison dont `cle_du_registre` (`grande-<id>` ou `seigneurie-<n>`) vaut
-`intentions.maison_choisie(monde)` — seigneurie ou grande maison. Les ids des lignes restent entiers. Chaque ligne porte
+`monde.maison_du_joueur` — seigneurie ou grande maison — une fois le choix
+appliqué au tick ; le dépôt en attente n'y change rien (`ia.decider_intentions`
+écarte déjà, elle, la maison du choix en attente). Les ids des lignes restent entiers. Chaque ligne porte
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.

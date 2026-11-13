@@ -102,9 +102,12 @@ def cle_du_registre(maison):
 def maisons_de_l_ia(
     monde, capitales=None, maisons=None, seigneuries=None, positions=None,
 ) -> tuple[MaisonDeLIA, ...]:
-    """Recalcule les grandes maisons, puis les départs, sans la maison choisie par le joueur."""
-    from sim.intentions import maison_choisie
-    choix = maison_choisie(monde)
+    """Recalcule les grandes maisons, puis les départs, sans la maison du joueur.
+
+    Seul le choix appliqué écarte une maison : le dépôt attend le tick ici
+    (`ia.decider_intentions` écarte déjà celle du choix en attente).
+    """
+    choix = monde.maison_du_joueur
     return tuple(m for m in toutes_les_maisons_de_l_ia(monde, capitales, maisons, seigneuries, positions)
                  if choix is None or cle_du_registre(m) != choix)
 
