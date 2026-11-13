@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -16,8 +18,11 @@ namespace Forge.Interface
         {
             { "fond", "#211E1A" }, { "papier", "#E8DDC9" }, { "encre", "#302820" },
             { "secondaire", "#625548" }, { "accent", "#345261" }, { "alerte", "#8B342E" },
-            { "or", "#B49A61" }, { "accord", "#405444" }, { "mer", "#384A4D" }
+            { "or", "#B49A61" }, { "accord", "#405444" }, { "mer", "#384A4D" },
+            { "pierre", "#1C1B19" }, { "bois-brule", "#2B211B" }, { "metal", "#3E3B33" }, { "sang", "#7A1E19" },
+            { "cuivre", "#A8683C" }, { "or-vieilli", "#B49A61" }, { "vert-de-gris", "#5E8C7A" }
         };
+        public static IReadOnlyList<string> Jetons { get; } = new List<string>(Palette.Keys);
 
         public static Color Couleur(string nom)
         {
@@ -34,10 +39,115 @@ namespace Forge.Interface
                 Couleur("papier"), .16f);
         }
 
+        // Lot #849 : le contraste WCAG 2.1 des jetons, jugé contre la matière que chaque texte ou trait borde.
+        public static Color Attenue => Color.Lerp(Couleur("papier"), Couleur("metal"), .30f); // le texte de l'état inactif : une teinte dérivée, pas un jeton
+        public enum Usage { Texte, Trait }
+        static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
+        public static readonly IReadOnlyList<(string devant, string derriere, Usage usage)> Paires = new (string, string, Usage)[]
+        {
+            ("papier", "pierre", Usage.Texte), ("papier", "bois-brule", Usage.Texte), ("papier", "metal", Usage.Texte), ("papier", "sang", Usage.Texte),
+            ("sang", "papier", Usage.Texte), ("encre", "papier", Usage.Texte), ("secondaire", "papier", Usage.Texte),
+            ("or-vieilli", "pierre", Usage.Texte), ("vert-de-gris", "pierre", Usage.Texte), ("attenue", "metal", Usage.Texte),
+            ("cuivre", "bois-brule", Usage.Trait), ("cuivre", "papier", Usage.Trait), ("or-vieilli", "bois-brule", Usage.Trait),
+            ("papier", "bois-brule", Usage.Trait), ("vert-de-gris", "pierre", Usage.Trait), ("sang", "papier", Usage.Trait)
+        };
+
+        internal static Color Teinte(string nom) => nom == "attenue" ? Attenue : Couleur(nom);
+        static double Luminance(Color c)
+        {
+            double Lin(float v) => v <= .03928f ? v / 12.92 : Math.Pow((v + .055) / 1.055, 2.4);
+            return .2126 * Lin(c.r) + .7152 * Lin(c.g) + .0722 * Lin(c.b);
+        }
+        public static double Contraste(Color devant, Color derriere)
+        {
+            double a = Luminance(devant), b = Luminance(derriere);
+            return (Math.Max(a, b) + .05) / (Math.Min(a, b) + .05);
+        }
+        static string Rapport(double v) => v.ToString("0.0", Fr) + ":1";
+
+        // null si chaque paire tient son seuil (4,5 en texte, 3 en trait), sinon la première fautive.
+        public static string Refuse(IEnumerable<(string, string, Usage)> paires)
+        {
+            foreach (var (devant, derriere, usage) in paires)
+            {
+                double seuil = usage == Usage.Texte ? 4.5 : 3, mesure = Contraste(Teinte(devant), Teinte(derriere));
+                if (mesure < seuil) return devant + " sur " + derriere + " : " + Rapport(mesure) + " < " + Rapport(seuil) + " (" + (usage == Usage.Texte ? "texte" : "trait") + ")";
+            }
+            return null;
+        }
+
+        static void Exiger(string contenu, string nom)
+        {
+            if (string.IsNullOrWhiteSpace(contenu)) throw new ArgumentException("information absente : " + nom, nom);
+        }
+        internal static Image Aplat(RectTransform cadre, Color couleur)
+        {
+            var image = cadre.gameObject.AddComponent<Image>(); image.color = couleur; image.raycastTarget = false;
+            return image;
+        }
+
+        // Un texte à la hauteur de ses lignes, avec de la marge : la toile le recompose à son échelle (1280 × 720 : 2/3), et un cadre calé à l'échelle 1 couperait la dernière ligne.
+        internal static void Ajuster(Text texte) => texte.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Ceil(texte.preferredHeight * 1.1f) + 2);
+
+        // Le registre : chaque garde passe avant la première création, pour ne laisser aucun enfant à un refus.
+        public static Text Rubrique(Transform parent, string titre, float x, float y, float largeur, bool sombre = false)
+        {
+            Exiger(titre, nameof(titre));
+            var texte = Texte(parent, string.Join(" ", titre.ToUpper(Fr).Select(c => c.ToString())), x, y, largeur, Titre);
+            texte.name = "Rubrique"; texte.color = Couleur(sombre ? "papier" : "sang");
+            Ajuster(texte); float bas = y + texte.rectTransform.rect.height + 6;
+            for (int i = 0; i < 2; i++) Aplat(Cadre(parent, "Filet", x, bas + 4 * i, largeur, 1), Couleur("metal"));
+            return texte;
+        }
+
+        public static RectTransform LigneDeCompte(Transform parent, string libelle, decimal? valeur, string unite, float x, float y, float largeur)
+        {
+            Exiger(libelle, nameof(libelle)); Exiger(unite, nameof(unite));
+            var ligne = Cadre(parent, "Ligne " + libelle, x, y, largeur, Corps);
+            var gauche = Texte(ligne, libelle, 0, 0, largeur * .4f); gauche.name = "Libellé";
+            var droite = Texte(ligne, "", largeur * .4f, 0, largeur * .6f); droite.name = "Valeur"; droite.alignment = TextAnchor.UpperRight;
+            EtatsLecture.Mesure(droite, valeur, unite);
+            Ajuster(gauche); Ajuster(droite);
+            ligne.sizeDelta = new Vector2(largeur, Mathf.Max(gauche.rectTransform.rect.height, droite.rectTransform.rect.height));
+            return ligne;
+        }
+
+        public static Text PiedDeFeuillet(Transform parent, string date, float x, float y, float largeur)
+        {
+            Exiger(date, nameof(date));
+            var pied = Texte(parent, date, x, y, largeur, 16); pied.name = "Pied de feuillet"; pied.color = Couleur("secondaire");
+            return pied;
+        }
+
+        public static Text NoteEnMarge(Transform parent, string texte, float x, float y, float largeur)
+        {
+            Exiger(texte, nameof(texte));
+            if (texte.Any(char.IsDigit)) throw new ArgumentException("une note en marge ne porte aucun nombre : « " + texte + " »", nameof(texte));
+            var note = Texte(parent, texte, x, y, largeur, 16); note.name = "Note en marge"; note.color = Couleur("secondaire");
+            return note;
+        }
+
+        public static RectTransform Separateur(Transform parent, float x, float y, float largeur)
+        {
+            var separateur = Cadre(parent, "Séparateur", x, y, largeur, 9);
+            Aplat(Cadre(separateur, "Filet", 0, 4, largeur, 1), Couleur("metal"));
+            var losange = Cadre(separateur, "Losange", 0, 0, 8, 8);
+            losange.pivot = new Vector2(.5f, .5f); losange.anchoredPosition = new Vector2(largeur / 2, -4.5f); losange.localRotation = Quaternion.Euler(0, 0, 45);
+            Aplat(losange, Couleur("metal"));
+            return separateur;
+        }
+
+        public static Image Sceau(Transform parent, float x, float y)
+        {
+            var sceau = Cadre(parent, "Sceau", x, y, 28, 28).gameObject.AddComponent<Image>();
+            sceau.sprite = MatieresCabinet.SceauDeCire; sceau.raycastTarget = false;
+            return sceau;
+        }
+
         public static Font Police(bool titre) =>
             Resources.Load<Font>(titre ? "Forge/Polices/NotoSerif-Regular" : "Forge/Polices/NotoSans-Regular");
 
-        static RectTransform Cadre(Transform parent, string nom, float x, float y, float largeur, float hauteur)
+        internal static RectTransform Cadre(Transform parent, string nom, float x, float y, float largeur, float hauteur)
         {
             var rect = new GameObject(nom, typeof(RectTransform)).GetComponent<RectTransform>();
             rect.SetParent(parent, false);

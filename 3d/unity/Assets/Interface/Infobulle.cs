@@ -43,7 +43,7 @@ namespace Forge.Interface
                 feuillet.SetParent(toile.transform, false);
                 feuillet.anchorMin = feuillet.anchorMax = feuillet.pivot = Vector2.zero;
                 var papier = feuillet.gameObject.AddComponent<Image>();
-                MatieresCabinet.Habiller(papier); papier.raycastTarget = false; // sinon le feuillet volerait le survol, et HorsCarte le prendrait pour un panneau
+                MatieresCabinet.Habiller(papier, infobulle: true); papier.raycastTarget = false; // sinon le feuillet volerait le survol, et HorsCarte le prendrait pour un panneau
                 SocleInterface.Texte(feuillet, "", MARGE, MARGE, LARGEUR_MAX - 2 * MARGE).name = "Phrase";
             }
             var ecrit = feuillet.GetComponentInChildren<Text>(true);
