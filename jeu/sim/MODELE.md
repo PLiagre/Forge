@@ -1183,7 +1183,9 @@ le charroi qui montent vers une grande ville, pas une route de plus. Un
 entier de 1 au moins ; avec `R = 1`, la capacité est celle d'avant, au bit
 près. Sans relevé des champs (`populations_soutenables` vaut `None`), aucune
 cellule n'est affamée et rien ne change. La population lue est celle du début
-du maillon, et seules les arêtes des cellules affamées sont parcourues.
+du maillon, et seules les arêtes des cellules affamées sont parcourues, par un
+index des arêtes par cellule (`_aretes_par_cellule`), bâti une fois par liste
+d'adjacence et gardé sur le monde, hors sauvegarde.
 
 ### Besoin, surplus et allocation
 
@@ -1294,8 +1296,13 @@ les quatre réglages) :
 
 Les deux réglages sont nécessaires. Le rayon seul (`P = 0`, `R = 6`) ne nourrit
 personne : Paris finit comme avant (153 052 habitants, 956 t), car son grenier ne
-descend jamais sous un jour de ration et il n'appelle donc rien. L'appel seul
-(`P = 1`, `R = 1`) nourrit moins : Paris finit à 188 377 habitants.
+descend jamais sous un jour de ration et il n'appelle donc rien ; Gand, Alexandrie
+et Le Caire bougent à peine (Gand 33 674, Alexandrie 22 454, Le Caire 389 779
+habitants et 3 116 t). L'appel seul (`P = 1`, `R = 1`) nourrit moins : Paris finit
+à 188 377 habitants et 5 199 t, Milan à 191 211 et 37 745 t, Gand à 97 249 et
+3 355 t, Alexandrie à 41 976 et 1 252 t, Le Caire à 388 336 habitants et 23 186 t.
+Mesuré le 13 novembre 2026 par le script de mesure, qui rejoue les quatre
+réglages (`docs/mesures/2026-11-12-grain-vers-les-villes/RAPPORT.md`).
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même

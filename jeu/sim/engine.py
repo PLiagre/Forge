@@ -1074,6 +1074,29 @@ def _remplir_chemins_interieurs(world, chemins, facteurs) -> None:
         chemins[cid] = _capacites_interieures(capacite, [lieu.rang for lieu in lieux[1:]], table)
 
 
+def _aretes_par_cellule(world) -> dict[int, list[tuple[int, int]]]:
+    """
+    Index des arêtes d'adjacence par cellule, pour le rayon des villes affamées.
+
+    Bâti une fois par liste d'adjacence (la carte ne change pas entre deux
+    ticks) et gardé sur le monde, hors sauvegarde ; une autre liste, ou une
+    liste d'une autre longueur, le rebâtit. Les clés sont celles de la capacité
+    du tick (`_cle_arête`).
+    """
+    adjacence = world.adjacency
+    garde = getattr(world, "_index_aretes_par_cellule", None)
+    if garde is not None and garde["adjacence"] is adjacence and garde["longueur"] == len(adjacence):
+        return garde["index"]
+    index: dict[int, list[tuple[int, int]]] = defaultdict(list)
+    for edge in adjacence:
+        cle = _cle_arête(edge["a"], edge["b"])
+        index[edge["a"]].append(cle)
+        index[edge["b"]].append(cle)
+    index = dict(index)
+    world._index_aretes_par_cellule = {"adjacence": adjacence, "longueur": len(adjacence), "index": index}
+    return index
+
+
 def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
     """
     Lot #1071 : le charroi et la batellerie d'un rayon de R jours (niveau 2).
@@ -1083,12 +1106,13 @@ def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
     par `rayon_ville_affamee_jours`. Sans relevé des champs, rien ne change.
     La formule de la capacité d'une arête n'est pas touchée : seule la capacité
     du tick l'est. Une cellule absente d'un relevé qui existe lève l'erreur qui
-    nomme son `cell_id`.
+    nomme son `cell_id`. Seules les arêtes des cellules affamées sont
+    parcourues, par `_aretes_par_cellule`, non toute l'adjacence.
     """
     soutenables = getattr(world, "populations_soutenables", None)
     if soutenables is None:
         return
-    affamees = set()
+    affamees = []
     for cid, cell in world.cells.items():
         if cid not in soutenables:
             raise ValueError(
@@ -1097,15 +1121,15 @@ def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
                 "ne se devine pas"
             )
         if cell.population > soutenables[cid]:
-            affamees.add(cid)
+            affamees.append(cid)
     rayon = _constantes.rayon_ville_affamee_jours()
     if not affamees or rayon == 1:
         return
+    index = _aretes_par_cellule(world)
     elargies = set()
-    for edge in world.adjacency:
-        if edge["a"] in affamees or edge["b"] in affamees:
-            cle = _cle_arête(edge["a"], edge["b"])
-            if cle in capacite_restante and cle not in elargies:  # une arête double ne compte qu'une fois
+    for cid in affamees:
+        for cle in index.get(cid, ()):
+            if cle in capacite_restante and cle not in elargies:  # une arête touchée des deux bouts ne compte qu'une fois
                 capacite_restante[cle] = capacite_restante[cle] * rayon
                 elargies.add(cle)
 
