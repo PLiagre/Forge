@@ -27,6 +27,7 @@ from sim.pays import PaysInconnu, pays
 from sim.jauges import avant_le_tick, document_des_jauges
 from sim.batiments import document_des_batiments
 from sim.capitales import toutes_les_maisons_de_l_ia
+from sim.jouables import maisons_jouables
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
@@ -296,6 +297,15 @@ class ServeurMonde(ThreadingHTTPServer):
                 "departs": [_round_tree(_fiche_document(fiche_de_seigneurie(
                     s.id, self.world, seigneuries, table, maisons, vue=vue,
                 ))) for s in sorted(seigneuries, key=lambda s: s.id)],
+            }
+
+    def document_jouables(self):
+        """Les pays que le joueur peut prendre, au tick courant et sous le verrou du tick."""
+        with self.verrou_tick:
+            return {
+                "tick": self.world.ticks_ecoules,
+                "date": self.world.date_simulation,
+                "jouables": maisons_jouables(self.world),
             }
 
     def octets_de_maison(self, etat, identifiant=None):
@@ -626,6 +636,9 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
                 return
             self._repondre_octets(HTTPStatus.OK, corps)
+            return
+        if cible.path == "/jouables":
+            self._repondre_octets(HTTPStatus.OK, _serialiser(self.server.document_jouables()))
             return
         if cible.path == "/pays":
             # Le pays d'un seul tenant et ses jauges, lus sur le monde sous le verrou du
