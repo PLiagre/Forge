@@ -3399,15 +3399,30 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   `jauges.gestes` (deux gestes, ceux du panneau), `grandeurs` et `modificateurs`
   ne changent pas. L'IA n'a pas encore de règle pour l'améliorer (#1027) :
   une maison qui dépose l'intention obtient le monde qu'obtient le joueur.
-- **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dont la
-  Concorde est sous son neutre et dont la Plume paie le geste dépose
-  « Affermir la concorde », par `recevoir_intention`, avec sa raison
-  (`concorde_sous_son_neutre`). Le joueur qui dépose la même intention obtient
-  le même monde (décision 38).
+- **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dépose
+  **au plus un** geste de jauge, le premier qui tient, par `recevoir_intention`
+  et avec sa raison : (1) « Affermir la concorde » si sa Concorde est sous son
+  neutre et que sa Plume paie le geste (raison `concorde_sous_son_neutre` :
+  `concorde`, `neutre`, `plume`, `cout`) ; (2) sinon « Asseoir le droit » si son
+  Droit est strictement sous le seuil des données (`[ia] droit_bas`, 70) et que
+  son Sceau paie le geste (raison `droit_sous_son_seuil` : `droit` et `sceau`
+  lus sur le monde à la décision, `seuil` lu dans les données, `cout` copié du
+  geste). La Concorde passe d'abord : un pays qui se défait se recoud avant
+  d'asseoir son souverain. Un seul geste par maison et par mois : Unity refuse
+  deux ordres de même type, même maison, même jour. Le joueur qui dépose la
+  même intention obtient le même monde (décision 38) : mêmes coûts (30 de Sceau
+  pour +10 de Droit), mêmes refus. Rien d'autre ne change : le Droit ne baisse
+  d'aucune cause du monde (la succession contestée viendra avec #435 et #436),
+  donc à 70 l'IA s'arrête ; aucun geste ne dépense l'Épée ; `/pays` ne sert pas
+  le seuil de l'IA. `lire_regles` lit la table `[ia]` dans `Regles.ia` et refuse
+  (`JaugeInvalide`, motif `ia.droit_bas`) une table absente, un `droit_bas` qui
+  n'est pas un nombre fini (un booléen compris) ou hors de
+  `minimum < droit_bas ≤ maximum` de la jauge `droit`.
 
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
 `data/jauges.toml`, dont les trois de l'amélioration d'une province (6 points
-pour le premier niveau, ×1,5 par niveau, +2 % de récolte par niveau). **Niveau 3**, pas simulé : le conseil du souverain (ses
+pour le premier niveau, ×1,5 par niveau, +2 % de récolte par niveau) et le seuil
+de Droit de l'IA (70, voulu par le propriétaire, réglable). **Niveau 3**, pas simulé : le conseil du souverain (ses
 points viendront aussi de ses conseillers), les causes du Renom par la guerre
 et du Droit par la succession.
 

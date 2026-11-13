@@ -178,24 +178,42 @@ def _proposition_de_part(monde, maison, cle):
     }
 
 
-def _proposition_de_jauge(monde, maison, cle, regles):
-    """Affermit la concorde quand elle est sous son neutre et que la Plume la paie (sim.jauges)."""
+def _payable(monde, cle, geste, regles):
+    """Vrai si les points de la maison paient le geste et que sa jauge n'est pas à sa borne (le dépôt vérifie à son tour)."""
     from sim import jauges
-    geste = 'affermir_la_concorde'
-    if geste not in regles.gestes or 'concorde' not in regles.jauges:
-        return None
+    return jauges.verifier_geste(monde, cle, geste, regles) is None
+
+
+def _proposition_de_jauge(monde, maison, cle, regles):
+    """Au plus un geste de jauge par mois : la concorde d'abord, puis le droit (sim.jauges).
+
+    « Affermir la concorde » quand elle est sous son neutre et que la Plume la paie ;
+    sinon « Asseoir le droit » quand le droit est sous le seuil des données
+    (`regles.ia['droit_bas']`) et que le Sceau le paie.
+    """
+    from sim import jauges
     valeurs = jauges.etat(monde, cle, regles)
-    neutre = regles.jauges['concorde']['neutre']
-    if not valeurs['concorde'] < neutre:
-        return None
-    if jauges.verifier_geste(monde, cle, geste, regles) is not None:
-        return None
-    return {
-        'maison': {'sorte': maison.sorte, 'id': maison.id},
-        'intention': {'type': TYPE_DEPENSER_JAUGE, 'maison': cle, 'geste': geste},
-        'raison': {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'], 'neutre': neutre,
-                   'plume': valeurs['plume'], 'cout': dict(regles.gestes[geste]['cout'])},
-    }
+    geste = 'affermir_la_concorde'
+    if geste in regles.gestes and 'concorde' in regles.jauges:
+        neutre = regles.jauges['concorde']['neutre']
+        if valeurs['concorde'] < neutre and _payable(monde, cle, geste, regles):
+            return {
+                'maison': {'sorte': maison.sorte, 'id': maison.id},
+                'intention': {'type': TYPE_DEPENSER_JAUGE, 'maison': cle, 'geste': geste},
+                'raison': {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'], 'neutre': neutre,
+                           'plume': valeurs['plume'], 'cout': dict(regles.gestes[geste]['cout'])},
+            }
+    geste = 'asseoir_le_droit'
+    if geste in regles.gestes and 'droit' in regles.jauges:
+        seuil = regles.ia['droit_bas']
+        if valeurs['droit'] < seuil and _payable(monde, cle, geste, regles):
+            return {
+                'maison': {'sorte': maison.sorte, 'id': maison.id},
+                'intention': {'type': TYPE_DEPENSER_JAUGE, 'maison': cle, 'geste': geste},
+                'raison': {'regle': 'droit_sous_son_seuil', 'droit': valeurs['droit'], 'seuil': seuil,
+                           'sceau': valeurs['sceau'], 'cout': dict(regles.gestes[geste]['cout'])},
+            }
+    return None
 
 
 def _partis_et_arrives_30j(monde, cell_id):
