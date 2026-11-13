@@ -8,7 +8,7 @@ namespace ForgeLocal3D.Captures
     // `-forge849OrSurPapier` ajoute aux paires de contraste l'or vieilli sur papier ; `-forge849Teinte` rend reçu identique à repos sauf par ses jetons : le scénario échoue.
     static class Lot849
     {
-        const string OR_SUR_PAPIER = "-forge849OrSurPapier", TEINTE = "-forge849Teinte", COIN = "Coin de l'écran";
+        const string DRAPEAU_OR = "-forge849OrSurPapier", DRAPEAU_TEINTE = "-forge849Teinte", COIN = "Coin de l'écran";
         const int IMAGES_DE_POSE = 10;
         [Serializable] sealed class PaireDite { public string devant, derriere, usage; public double contraste; }
         [Serializable] sealed class EtatDit { public string nom, matiere, texte, trait, forme, signe, mot; public int epaisseur; }
@@ -92,10 +92,10 @@ namespace ForgeLocal3D.Captures
             Tendre(camera, 1920, 1080); yield return null; Canvas.ForceUpdateCanvases(); ExigerLaDefinition(camera, 1920, 1080, "étape 1");
 
             paires = SocleInterface.Paires.Select(p => (p.devant, p.derriere, p.usage)).ToList();
-            if (Drapeau(OR_SUR_PAPIER)) paires.Add(("or-vieilli", "papier", SocleInterface.Usage.Texte));
+            if (Drapeau(DRAPEAU_OR)) paires.Add(("or-vieilli", "papier", SocleInterface.Usage.Texte));
             string refus = SocleInterface.Refuse(paires); if (refus != null) throw Echec("étape 2 : " + refus);
             table = EtatsDuCabinet.Table.ToList(); var repos = EtatsDuCabinet.De(EtatDuCabinet.Repos);
-            if (Drapeau(TEINTE)) table = table.Select(d => d.Nom == "reçu" ? new Declaration(d.Nom, d.Matiere, d.Texte, d.Trait, repos.Forme, repos.Epaisseur, repos.Signe, repos.Mot) : d).ToList();
+            if (Drapeau(DRAPEAU_TEINTE)) table = table.Select(d => d.Nom == "reçu" ? new Declaration(d.Nom, d.Matiere, d.Texte, d.Trait, repos.Forme, repos.Epaisseur, repos.Signe, repos.Mot) : d).ToList();
             string confondus = EtatsDuCabinet.Confondus(table); if (confondus != null) throw Echec("étape 3 : " + confondus);
 
             LesTextes(camera, "étape 4"); Survol(camera, "étape 5", true);
