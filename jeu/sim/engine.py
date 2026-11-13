@@ -1074,6 +1074,42 @@ def _remplir_chemins_interieurs(world, chemins, facteurs) -> None:
         chemins[cid] = _capacites_interieures(capacite, [lieu.rang for lieu in lieux[1:]], table)
 
 
+def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
+    """
+    Lot #1071 : le charroi et la batellerie d'un rayon de R jours (niveau 2).
+
+    La capacité du tick de toute arête dont un bout est une cellule affamée
+    (population au-dessus de `World.populations_soutenables`) est multipliée
+    par `rayon_ville_affamee_jours`. Sans relevé des champs, rien ne change.
+    La formule de la capacité d'une arête n'est pas touchée : seule la capacité
+    du tick l'est. Une cellule absente d'un relevé qui existe lève l'erreur qui
+    nomme son `cell_id`.
+    """
+    soutenables = getattr(world, "populations_soutenables", None)
+    if soutenables is None:
+        return
+    affamees = set()
+    for cid, cell in world.cells.items():
+        if cid not in soutenables:
+            raise ValueError(
+                f"cellule {cid} : population soutenable absente de "
+                "World.populations_soutenables, la réserve d'une ville affamée "
+                "ne se devine pas"
+            )
+        if cell.population > soutenables[cid]:
+            affamees.add(cid)
+    rayon = _constantes.rayon_ville_affamee_jours()
+    if not affamees or rayon == 1:
+        return
+    elargies = set()
+    for edge in world.adjacency:
+        if edge["a"] in affamees or edge["b"] in affamees:
+            cle = _cle_arête(edge["a"], edge["b"])
+            if cle in capacite_restante and cle not in elargies:  # une arête double ne compte qu'une fois
+                capacite_restante[cle] = capacite_restante[cle] * rayon
+                elargies.add(cle)
+
+
 def _apply_commerce(
     world,
     total_transported: list,
@@ -1105,6 +1141,19 @@ def _apply_commerce(
       `reserve_ville_affamee_jours` jours de ration (lot #1057, niveau 2,
       `jeu/data/commerce.toml`). Avec 1 jour, ou sans relevé des champs, la
       garde est la consommation du tick : le commerce d'avant, au bit près.
+    - lot #1071 (niveau 2, `jeu/data/commerce.toml`) : une cellule affamée
+      appelle chaque jour ce que ses champs ne nourrissent pas :
+          ration(c) = population_c × consommation_unitaire
+          appel(c)  = P × (population_c − soutenable_c) × consommation_unitaire
+                      si c est affamée, 0 sinon
+          besoin(c) = max(0, ration(c) − stock_c, appel(c))
+      avec P = `appel_ville_affamee_part` ([0, 1], 1,0 dans le dépôt). Et la
+      capacité du tick de toute arête qui touche une cellule affamée est
+      multipliée par R = `rayon_ville_affamee_jours` (entier ≥ 1, 6 dans le
+      dépôt), à l'appel extérieur seulement : le charroi et la batellerie
+      d'un rayon de R jours. P = 0 et R = 1 redonnent le commerce d'avant, au
+      bit près ; sans relevé des champs, aucune cellule n'est affamée. Le
+      surplus, la garde, l'écrêtage, les quais et les chemins ne bougent pas.
 
     Allocation déterministe (plusieurs demandeurs sur la même source) :
     - Les demandes sont triées par cell_id croissant (ordre stable).
@@ -1121,6 +1170,7 @@ def _apply_commerce(
     if marchandise is None:
         if capacite_restante is None:
             capacite_restante = _initialiser_capacite_aretes(world)
+            _elargir_aretes_des_villes_affamees(world, capacite_restante)
         ctx = None
         if getattr(world, "stocks_mer", None) is not None:
             aretes = _aretes_maritimes_du_monde(world)
@@ -1161,18 +1211,25 @@ def _apply_commerce(
     soutenables = getattr(world, "populations_soutenables", None)
     reserve_jours = (_constantes.reserve_ville_affamee_jours()
                      if soutenables is not None else None)
+    # Lot #1071 : la part qu'une ville affamée appelle de son manque.
+    part_appelee = (_constantes.appel_ville_affamee_part()
+                    if soutenables is not None else None)
 
-    def _garde(cid: int) -> float:
-        ration = _tick_consumption(cid)
-        if soutenables is None:
-            return ration
+    def _manque_des_champs(cid: int) -> float:
+        """Habitants que les champs de la cellule ne nourrissent pas (0 si elle se nourrit)."""
         if cid not in soutenables:
             raise ValueError(
                 f"cellule {cid} : population soutenable absente de "
                 "World.populations_soutenables, la réserve d'une ville affamée "
                 "ne se devine pas"
             )
-        if snapshot_pop[cid] <= soutenables[cid]:
+        return max(0.0, snapshot_pop[cid] - soutenables[cid])
+
+    def _garde(cid: int) -> float:
+        ration = _tick_consumption(cid)
+        if soutenables is None:
+            return ration
+        if _manque_des_champs(cid) <= 0.0:
             return ration
         return max(ration, _constantes.ticks_de_reserve_ville_affamee(reserve_jours) * ration)
 
@@ -1204,7 +1261,11 @@ def _apply_commerce(
         return offres[cid]
 
     def _need(cid: int) -> float:
-        return max(0.0, _tick_consumption(cid) - snapshot_stock[cid])
+        manque = max(0.0, _tick_consumption(cid) - snapshot_stock[cid])
+        if soutenables is None:
+            return manque
+        # Lot #1071 : une ville affamée appelle ce que ses champs ne lui donnent pas.
+        return max(manque, part_appelee * _manque_des_champs(cid) * consommation_unitaire)
 
     snapshot_needs = {cid: _need(cid) for cid in world.cells}
 
