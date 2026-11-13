@@ -3,23 +3,18 @@ from copy import deepcopy
 import zlib
 
 import sim.constants as _constantes
-from sim.capitales import maisons_de_l_ia
+from sim.capitales import cle_du_registre, maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
-    BatirDansUneProvince, ChoixDepart, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
+    BatirDansUneProvince, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
     TYPE_OUVRIR_GRENIER,
-    _lieux_de_la_maison, recevoir_intention,
+    _lieux_de_la_maison, maison_choisie, recevoir_intention,
 )
-from sim.seigneuries import identifiant_de_seigneurie
 
 
 def _cle_du_grenier(maison):
     """Identifiant du registre : grande-<id>, ou celui d'une seigneurie."""
-    if maison.sorte == 'grande maison':
-        return f'grande-{maison.id}'
-    if maison.sorte == 'seigneurie':
-        return identifiant_de_seigneurie(maison.id)
-    return None
+    return cle_du_registre(maison)
 
 
 def _fenetre_pleine(monde):
@@ -288,18 +283,16 @@ def decider_intentions(monde, releve, maisons=None):
 
     `maisons` : la liste que la boucle de jeu a calculée une fois
     (`capitales.toutes_les_maisons_de_l_ia`) ; sans elle, la vue est refaite.
-    La maison du joueur, ou celle qu'il vient de choisir, est écartée ici.
+    La maison du joueur, ou celle qu'il vient de choisir, est écartée ici : seigneurie ou grande maison.
     """
     from sim import programme_ia
-    choix = monde.maison_du_joueur
-    if choix is None:
-        choix = next((identifiant_de_seigneurie(i.identifiant) for i in monde.intentions_en_attente if isinstance(i, ChoixDepart)), None)
+    choix = maison_choisie(monde)
     pleine = _fenetre_pleine(monde)
     t = monde.ticks_ecoules
     propositions = []
     regles = types = None
     for maison in (maisons_de_l_ia(monde) if maisons is None else maisons):
-        if maison.hors_carte is not None or (maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix):
+        if maison.hors_carte is not None or (choix is not None and _cle_du_grenier(maison) == choix):
             continue
         cellule, plan = monde.cells.get(maison.cell_id), monde.plans.get(maison.cell_id)
         bourg = next((l for l in cellule.lieux if l.rang == 0), None) if cellule is not None else None
