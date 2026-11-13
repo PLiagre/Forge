@@ -92,6 +92,12 @@ nom = "Asseoir le droit"
 cout = { sceau = 30 }
 effet = { droit = 10 }
 
+# Ce que l'IA juge, comme le ferait le joueur (décision 38) : sous cette valeur,
+# une maison de l'IA juge son Droit bas et dépense son Sceau pour l'asseoir.
+# Voulu par le propriétaire, réglable sans toucher au code. Niveau 2 : jamais sourcé.
+[ia]
+droit_bas = 70
+
 # Le geste qui ne s'épuise jamais : dépenser de la Plume pour améliorer une
 # province. Chaque niveau coûte `facteur_par_niveau` fois le précédent
 # (cout_premier_niveau × facteur_par_niveau ** niveau déjà acquis) et pose

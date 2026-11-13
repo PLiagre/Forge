@@ -13,6 +13,7 @@
   boucles (service, `python -m sim`, `python -m forge`) l'appellent.
 """
 import copy
+import dataclasses
 import json
 import random
 
@@ -288,6 +289,191 @@ def test_l_ia_depense_ses_jauges_par_le_meme_chemin(depart, regles):
     engine.tick(joueur, rng_joueur, joueur.ticks_ecoules)
     assert json.dumps(monde.to_dict(), sort_keys=True) == json.dumps(joueur.to_dict(), sort_keys=True)
     assert J.etat(monde, cle, regles)["concorde"] == 0
+
+
+# --- L'IA joue son Droit : le seuil des données, la règle, la preuve sur deux ans ---
+
+def test_seuil_du_droit_de_l_ia_vient_des_donnees(regles):
+    import tomllib
+    assert regles.ia == {"droit_bas": 70}
+
+    def lire(**ia):
+        with open(J._CHEMIN, "rb") as fichier:
+            document = tomllib.load(fichier)
+        if ia == {"sans": True}:
+            del document["ia"]
+        else:
+            document["ia"] = ia
+        return J.lire_regles(document)
+
+    for faux in ({"sans": True}, {"droit_bas": True}, {"droit_bas": "70"}, {"droit_bas": float("nan")},
+                 {"droit_bas": float("inf")}, {"droit_bas": 0}, {"droit_bas": 101}, {}):
+        with pytest.raises(J.JaugeInvalide, match="ia.droit_bas"):
+            lire(**faux)
+    assert lire(droit_bas=60).ia == {"droit_bas": 60}
+    assert lire(droit_bas=100).ia == {"droit_bas": 100}
+
+
+def _monde_a_son_jour(depart, regles, cle):
+    """Le monde au jour de la part de la maison, le mois des jauges joué, avant `jouer_ia`."""
+    from sim import ia
+    monde, rng = _monde_au_mois(depart, regles, cle)
+    jour = next(t for t in range(monde.ticks_ecoules, monde.ticks_ecoules + c.FENETRE_FLUX_TICKS)
+                if ia._jour_de_la_part(cle, t))
+    while monde.ticks_ecoules < jour:
+        _jouer(monde, rng, monde.ticks_ecoules)
+    J.avant_le_tick(monde)
+    return monde, rng
+
+
+def _forcer(base, regles, cle, **valeurs):
+    monde = copy.deepcopy(base)
+    monde.jauges[cle] = J.etat(monde, cle, regles) | valeurs
+    J.poser_les_modificateurs(monde, regles)
+    return monde
+
+
+def _gestes_de(monde, cle, maisons):
+    from sim import ia
+    releve = []
+    ia.jouer_ia(monde, releve, maisons)
+    return releve, [e for e in releve if e["intention"]["type"] == "depenser_jauge" and e["intention"]["maison"] == cle]
+
+
+def test_l_ia_asseoit_son_droit_par_le_meme_chemin(depart, regles, monkeypatch):
+    from sim.capitales import toutes_les_maisons_de_l_ia
+    from sim.tests.test_monde import _lire_jauge
+    cle = "seigneurie-1"
+    base, rng = _monde_a_son_jour(depart, regles, cle)
+    maisons = toutes_les_maisons_de_l_ia(base)
+    monde = _forcer(base, regles, cle, droit=50, sceau=31.5, concorde=0, plume=0.0)
+    joueur = copy.deepcopy(monde)
+    releve, gestes = _gestes_de(monde, cle, maisons)
+    assert [g["intention"] for g in gestes] == [{"type": "depenser_jauge", "maison": cle, "geste": "asseoir_le_droit"}]
+    assert "refus" not in gestes[0]
+    attendue = {"regle": "droit_sous_son_seuil", "droit": 50, "seuil": 70, "sceau": 31.5, "cout": {"sceau": 30}}
+    assert gestes[0]["raison"] == attendue == _lire_jauge(monde, cle, gestes[0]["intention"])
+    # Le joueur qui dépose les mêmes intentions obtient le même monde, avec un Droit de 60.
+    sans_depot = copy.deepcopy(joueur)
+    for entree in releve:
+        if "refus" not in entree:
+            recevoir_intention(joueur, entree["intention"])
+    rng_ia, rng_joueur, rng_sans = copy.deepcopy(rng), copy.deepcopy(rng), copy.deepcopy(rng)
+    engine.tick(monde, rng_ia, monde.ticks_ecoules)
+    engine.tick(joueur, rng_joueur, joueur.ticks_ecoules)
+    engine.tick(sans_depot, rng_sans, sans_depot.ticks_ecoules)
+    octets = json.dumps(monde.to_dict(), sort_keys=True)
+    assert octets == json.dumps(joueur.to_dict(), sort_keys=True)
+    assert J.etat(monde, cle, regles)["droit"] == 60 and J.etat(monde, cle, regles)["sceau"] == 1.5
+    # Contre-épreuve : sans le dépôt, le monde est autre.
+    assert json.dumps(sans_depot.to_dict(), sort_keys=True) != octets
+    # Elle se tait : Droit à son seuil, ou Sceau qui ne paie pas.
+    for valeurs in ({"droit": 70, "sceau": 500.0}, {"droit": 60, "sceau": 29.9}):
+        _, gestes = _gestes_de(_forcer(base, regles, cle, concorde=0, plume=0.0, **valeurs), cle, maisons)
+        assert not [g for g in gestes if g["intention"]["geste"] == "asseoir_le_droit"], valeurs
+    # La concorde passe d'abord : un seul geste, celui de la Plume.
+    _, gestes = _gestes_de(_forcer(base, regles, cle, concorde=-1, plume=60.0, droit=50, sceau=31.5), cle, maisons)
+    assert [g["intention"]["geste"] for g in gestes] == ["affermir_la_concorde"]
+    # Concorde basse que la Plume ne paie pas : le Droit, qui le peut, est assis.
+    _, gestes = _gestes_de(_forcer(base, regles, cle, concorde=-1, plume=10.0, droit=50, sceau=31.5), cle, maisons)
+    assert [g["intention"]["geste"] for g in gestes] == ["asseoir_le_droit"]
+    # Le seuil se lit dans les données : une règle qui écrirait 70 dans le code échoue ici.
+    for seuil, valeurs, attendu in ((60, {"droit": 60}, []), (80, {"droit": 70}, ["asseoir_le_droit"])):
+        monkeypatch.setattr(J, "charger_regles", lambda chemin=None, seuil=seuil: dataclasses.replace(regles, ia={"droit_bas": seuil}))
+        _, gestes = _gestes_de(_forcer(base, regles, cle, concorde=0, plume=0.0, sceau=31.5, **valeurs), cle, maisons)
+        assert [g["intention"]["geste"] for g in gestes] == attendu
+        assert all(g["raison"]["seuil"] == seuil for g in gestes)
+        monkeypatch.undo()
+
+
+def test_une_ia_qui_depense_sans_points_ou_dont_la_raison_ne_se_relit_pas_echoue(depart, regles, monkeypatch):
+    from sim import ia
+    from sim.capitales import toutes_les_maisons_de_l_ia
+    from sim.tests.test_monde import _controler_raisons_du_pays, _lire_jauge
+    cle = "seigneurie-1"
+    base, _ = _monde_a_son_jour(depart, regles, cle)
+    maisons = toutes_les_maisons_de_l_ia(base)
+    # Une IA qui dépense sans points : sa vérification accepte tout, le dépôt garde la sienne.
+    monkeypatch.setattr(ia, "_payable", lambda *args: True)
+    monde = _forcer(base, regles, cle, droit=50, sceau=10.0, concorde=0, plume=0.0)
+    releve, gestes = _gestes_de(monde, cle, maisons)
+    assert len(gestes) == 1 and "pas assez de points de Sceau" in gestes[0]["refus"]
+    assert J.etat(monde, cle, regles)["sceau"] == 10.0
+    with pytest.raises(AssertionError):
+        _controler_raisons_du_pays(gestes, {})
+    monkeypatch.undo()
+    # Une raison qui ne se relit pas sur le monde.
+    monde = _forcer(base, regles, cle, droit=50, sceau=31.5, concorde=0, plume=0.0)
+    _, gestes = _gestes_de(monde, cle, maisons)
+    entree = gestes[0]
+    lecture = {(entree["tick"], cle): _lire_jauge(monde, cle, entree["intention"])}
+    _controler_raisons_du_pays(gestes, lecture)
+    for champ, valeur in (("droit", 60), ("seuil", 71), ("sceau", 30.5), ("regle", "droit_haut")):
+        faux = copy.deepcopy(entree)
+        faux["raison"][champ] = valeur
+        with pytest.raises(AssertionError):
+            _controler_raisons_du_pays([faux], lecture)
+    # Une raison relue à l'identique mais qui ne tient pas : droit au seuil, Sceau trop court, règle inconnue.
+    for champ, valeur in (("droit", 70), ("sceau", 29.0), ("regle", "droit_haut")):
+        faux = copy.deepcopy(entree)
+        faux["raison"][champ] = valeur
+        with pytest.raises(AssertionError):
+            _controler_raisons_du_pays([faux], {(entree["tick"], cle): faux["raison"]})
+
+
+def _controler_les_comptes(releve):
+    """Aucun refus, au plus un geste par maison et par mois, deux maisons au moins à la Plume et au Sceau."""
+    import collections
+    gestes = [e for e in releve if e["intention"]["type"] == "depenser_jauge"]
+    assert gestes and not [e for e in gestes if "refus" in e]
+    par_maison = collections.Counter((e["tick"], e["intention"]["maison"]) for e in gestes)
+    assert max(par_maison.values()) == 1
+    plume = {e["intention"]["maison"] for e in gestes if e["intention"]["geste"] == "affermir_la_concorde"}
+    sceau = {e["intention"]["maison"] for e in gestes if e["intention"]["geste"] == "asseoir_le_droit"}
+    assert len(plume) >= 2 and len(sceau) >= 2
+    return plume, sceau, gestes
+
+
+def test_jauges_sur_deux_ans_l_ia_et_le_joueur_jouent_le_meme_monde(monkeypatch):
+    from sim import __main__ as cli
+    from sim.tests.test_monde import _controler_raisons_du_pays, _lire_jauge
+    lectures, reel = {}, cli.jouer_ia
+
+    def enveloppe(monde, releve, maisons=None):
+        deja = len(releve)
+        reel(monde, releve, maisons)
+        for entree in releve[deja:]:
+            if entree["intention"]["type"] == "depenser_jauge":
+                lectures[(entree["tick"], entree["intention"]["maison"])] = _lire_jauge(
+                    monde, entree["intention"]["maison"], entree["intention"])
+
+    monkeypatch.setattr(cli, "jouer_ia", enveloppe)
+    resume, monde_ia = cli._simulate(730, 0, ia=True)
+    monkeypatch.setattr(cli, "jouer_ia", reel)
+    releve = resume["ia"]["releve"]
+    plume, sceau, gestes = _controler_les_comptes(releve)
+    _controler_raisons_du_pays(gestes, lectures)
+    droits = [monde_ia.jauges.get(m.id, {}).get("droit", 50) for m in monde_ia.maisons]
+    print(f"\nPlume : {len(plume)} maisons, {sum(g['intention']['geste'] == 'affermir_la_concorde' for g in gestes)} gestes ; "
+          f"Sceau : {len(sceau)} maisons, {sum(g['intention']['geste'] == 'asseoir_le_droit' for g in gestes)} gestes, "
+          f"premier au tick {min(g['tick'] for g in gestes if g['intention']['geste'] == 'asseoir_le_droit')} ; "
+          f"Droit au 730e jour : {droits.count(70)} à 70, {droits.count(60)} à 60, {droits.count(50)} à 50")
+    # Contre-épreuve, sans rejouer : une IA qui ne joue que la Plume ne passe pas le contrôle des comptes.
+    with pytest.raises(AssertionError):
+        _controler_les_comptes([e for e in releve if e["intention"].get("geste") != "asseoir_le_droit"])
+    # Le joueur au même geste : il dépose, au moment de l'IA, chaque intention non refusée du relevé.
+    par_tick = {}
+    for entree in releve:
+        if "refus" not in entree:
+            par_tick.setdefault(entree["tick"], []).append(entree["intention"])
+
+    def joueur(monde, releve_vide, maisons=None):
+        for intention in par_tick.get(monde.ticks_ecoules, ()):
+            recevoir_intention(monde, copy.deepcopy(intention))
+
+    monkeypatch.setattr(cli, "jouer_ia", joueur)
+    _, monde_joueur = cli._simulate(730, 0, ia=True)
+    assert json.dumps(monde_joueur.to_dict(), sort_keys=True) == json.dumps(monde_ia.to_dict(), sort_keys=True)
 
 
 def test_le_service_sert_le_pays_et_ses_jauges(depart):
