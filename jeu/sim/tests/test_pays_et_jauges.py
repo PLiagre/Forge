@@ -22,6 +22,7 @@ import pytest
 import sim.constants as c
 from sim import engine, jauges as J, modificateurs as M, pays as P
 from sim.intentions import IntentionRefusee, recevoir_intention
+from sim.tests.amorcage_d_avant import couper_l_appel_des_villes
 from sim.world import World
 
 
@@ -435,6 +436,10 @@ def _controler_les_comptes(releve):
 
 
 def test_jauges_sur_deux_ans_l_ia_et_le_joueur_jouent_le_meme_monde(monkeypatch):
+    # Lot #1071 : sous l'appel des villes affamées, moins de lieux ont faim, la Concorde baisse moins et une
+    # seule maison joue la Plume en deux ans (grande-22, contre grande-22 et grande-8 avant) ; l'épreuve
+    # des comptes se joue sous le commerce d'avant (décision A de la direction, 13 novembre 2026).
+    couper_l_appel_des_villes(monkeypatch)
     from sim import __main__ as cli
     from sim.tests.test_monde import _controler_raisons_du_pays, _lire_jauge
     lectures, reel = {}, cli.jouer_ia
