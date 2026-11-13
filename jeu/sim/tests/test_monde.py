@@ -3842,9 +3842,12 @@ def _lire_jauge(monde, cle, intention):
     from sim import jauges
     regles = jauges.charger_regles()
     valeurs = jauges.etat(monde, cle, regles)
+    cout = dict(regles.gestes[intention['geste']]['cout'])
+    if intention['geste'] == 'asseoir_le_droit':
+        return {'regle': 'droit_sous_son_seuil', 'droit': valeurs['droit'],
+                'seuil': regles.ia['droit_bas'], 'sceau': valeurs['sceau'], 'cout': cout}
     return {'regle': 'concorde_sous_son_neutre', 'concorde': valeurs['concorde'],
-            'neutre': regles.jauges['concorde']['neutre'], 'plume': valeurs['plume'],
-            'cout': dict(regles.gestes[intention['geste']]['cout'])}
+            'neutre': regles.jauges['concorde']['neutre'], 'plume': valeurs['plume'], 'cout': cout}
 
 
 def _controler_raisons_du_pays(releve, lectures):
@@ -3862,8 +3865,12 @@ def _controler_raisons_du_pays(releve, lectures):
         elif raison['regle'] == 'marche_quand_la_province_commerce':
             assert raison['commerce_30j_kg'] > 0
             assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
-        else:
+        elif raison['regle'] == 'droit_sous_son_seuil':
+            assert raison['droit'] < raison['seuil'] and raison['sceau'] >= raison['cout']['sceau']
+        elif raison['regle'] == 'concorde_sous_son_neutre':
             assert raison['concorde'] < raison['neutre'] and raison['plume'] >= raison['cout']['plume']
+        else:
+            raise AssertionError(f"règle inconnue : {raison['regle']!r}")
 
 
 def _lire_route_vers_le_champ(monde, maison, intention):
