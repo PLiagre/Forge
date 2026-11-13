@@ -38,6 +38,7 @@ from vues.chronique.capture import (
 )
 from sim.engine import tick
 from sim.snapshot_export import build_snapshot_document
+from sim.tests.amorcage_d_avant import couper_l_appel_des_villes
 from sim.world import World
 
 # Assez de ticks pour que production, commerce, consommation, faim et
@@ -84,14 +85,19 @@ def test_la_decoupe_rend_la_photographie_au_bit_pres():
     assert obtenu == attendu
 
 
-def test_les_champs_mobiles_sont_mesures_et_pas_declares():
+def test_les_champs_mobiles_sont_mesures_et_pas_declares(monkeypatch):
     """La liste des champs mobiles derive du moteur, jamais d'une intention.
 
     On joue des ticks et on regarde quels champs de la photographie ont
     bouge. Le jour ou le moteur fera bouger un champ de plus — ou cessera
     d'en faire bouger un — ce test rougit, et personne ne peut le calmer
     sans regarder le moteur (regle 7 : la presence n'est pas la fonction).
+
+    Lot #1071 : sous l'appel des villes affamees, la faim ne mord plus en
+    30 ticks et ces champs ne bougent plus ; la sonde se joue sous le commerce
+    d'avant (decision A de la direction, 13 novembre 2026).
     """
+    couper_l_appel_des_villes(monkeypatch)
     monde = World.charger(rng_seed=0)
     avant = build_snapshot_document(monde, 0, 0)
     rng = random.Random(0)

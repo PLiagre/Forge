@@ -41,6 +41,7 @@ from sim.engine import (
     tick,
 )
 from sim.model import Cell
+from sim.tests.amorcage_d_avant import couper_l_appel_des_villes
 from sim.world import World
 
 POPULATION_SCENARIO = 50
@@ -793,6 +794,10 @@ def test_la_survie_repond_a_la_mortalite(monkeypatch):
     Rouge prouvé : avec un `_apply_mortality` qui ignore HUNGER_DEATH_SCALE,
     les trois régimes rendent la même fraction (0.883422) et le test échoue.
     """
+    # Lot #1071 : sous l'appel des villes affamées, la faim ne tue presque plus en 200 ticks (écart de
+    # 4e-6) : la garde de cette constante se joue sous le commerce d'avant (décision A de la direction,
+    # 13 novembre 2026). Les assertions et le seuil ne changent pas.
+    couper_l_appel_des_villes(monkeypatch)
     nominal = constantes.HUNGER_DEATH_SCALE
 
     def _regime(facteur: float) -> float:

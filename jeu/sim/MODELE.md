@@ -1172,6 +1172,21 @@ achevée avec porte peut y ajouter son débit. Les données invalides restent re
 qu'une arête a laissé passer en blé n'est plus disponible pour le fer. Il n'y a
 qu'un seul convoi.
 
+**Le rayon d'une ville affamée** (lot #1071, niveau 2 : plausible, jamais
+sourcé). La formule ci-dessus ne change pas. Ce qui change, c'est la capacité
+du tick que `_apply_commerce` pose à l'appel extérieur : toute arête dont un
+bout est une cellule affamée (voir « Besoin, surplus et allocation ») voit sa
+capacité du tick multipliée par `R = rayon_ville_affamee_jours`, déclaré dans
+`jeu/data/commerce.toml` (décision 37). `R` vaut **6** : le charroi d'un rayon
+de six jours se rassemble sur la frontière de la ville. C'est la batellerie et
+le charroi qui montent vers une grande ville, pas une route de plus. Un
+entier de 1 au moins ; avec `R = 1`, la capacité est celle d'avant, au bit
+près. Sans relevé des champs (`populations_soutenables` vaut `None`), aucune
+cellule n'est affamée et rien ne change. La population lue est celle du début
+du maillon, et seules les arêtes des cellules affamées sont parcourues, par un
+index des arêtes par cellule (`_aretes_par_cellule`), bâti une fois par liste
+d'adjacence et gardé sur le monde, hors sauvegarde.
+
 ### Besoin, surplus et allocation
 
 Le commerce précède la consommation. Le « besoin » d'une cellule n'est donc pas
@@ -1181,7 +1196,9 @@ sa dette cumulée, mais le **manque prévisible du tick courant** :
 ration(c)  = population_c × consommation_unitaire(marchandise)
 garde(c)   = ration(c)                                              si c n'est pas affamée
            = max(ration(c), N × ration(c) / TICK_DURATION_DAYS)     si c est affamée
-besoin(c)  = max(0, ration(c) − stock_c)
+appel(c)   = P × (population_c − soutenable_c) × consommation_unitaire   si c est affamée
+           = 0                                                      sinon
+besoin(c)  = max(0, ration(c) − stock_c, appel(c))
 surplus(c) = max(0, stock_c − garde(c))
 ```
 
@@ -1202,8 +1219,8 @@ année (`test_soudure.py`) rougit à 30 : Le Caire tient alors sa réserve dès 
 330e jour et cesse de nourrir Alexandrie, qui perd 50,4 % de ses habitants par
 la faim (seuil 50 %) ; à 25 jours, 56,6 % ; à 21 jours, 32,7 %. Une ville
 affamée qui garde son grain n'en donne pas à sa voisine affamée : la réserve a
-un prix, et la durée la borne. Le besoin ne change pas : une ville affamée qui
-manque reçoit toujours de ses voisines et du bassin. Aucun kilo n'est créé ni
+un prix, et la durée la borne. Le besoin ne change pas (avant #1071) : une ville
+affamée qui manque reçoit toujours de ses voisines et du bassin. Aucun kilo n'est créé ni
 détruit. L'état « affamée » se relit à chaque commerce, sur la population du
 snapshot : une ville que la famine a fait passer sous ce que ses champs
 nourrissent (Gand, vers le 358e jour) n'a plus que sa ration pour garde.
@@ -1230,6 +1247,62 @@ Paris est affamé, mais sans port il n'exporte rien sous les deux règles :
 il ne compte pas comme preuve. L'effet de 21 jours est donc réel et modeste ;
 une réserve plus longue ne change qu'une ligne de `commerce.toml`, mais la
 preuve de la première année en fixe le plafond (25 jours la fait échouer).
+
+Ces chiffres (Alexandrie à 32,7 %, la table des sorties ci-dessus) ont été
+mesurés **sans l'appel** de #1071 : l'épreuve du lot les rejoue sous
+`couper_l_appel_des_villes`. Avec l'appel et le rayon du dépôt, la pire
+cellule de `test_soudure.py` est Gand (cellule 10391) : 35,3 % de ses
+habitants morts de faim au 365e jour (63 926 sur 181 000 ; seuil 50 %),
+mesuré le 13 novembre 2026 ; sans l'appel elle est à 40,5 %, et Alexandrie à
+32,7 %.
+
+**L'appel d'une ville affamée** (lot #1071, niveau 2 : plausible, jamais
+sourcé). L'idée est médiévale : une grande ville draine le grain de son contado
+et de ses fleuves, bien au-delà d'une journée de route. Une cellule affamée ne
+demande plus seulement le manque de son tick : elle appelle chaque jour ce que
+ses champs ne lui donnent pas, avant d'avoir faim. `P = appel_ville_affamee_part`
+est déclaré dans `jeu/data/commerce.toml` (décision 37) et vaut **1,0**,
+décision B de la direction le 13 novembre 2026, à la place du propriétaire :
+elle appelle tout le manque. Ni cette part ni le rayon `R = rayon_ville_affamee_jours`
+(voir « La capacité d'une arête ») ne sont sourcés. Seul le besoin change : la
+garde, le surplus, l'allocation, l'écrêtage côté receveur, les quais, le passage
+par le bourg et les chemins intérieurs restent ceux d'avant. L'appel nourrit les
+deux passes qui lisent le besoin du snapshot : les voisines par terre l'envoient
+sur l'arête, le bassin le débarque au quai d'une ville qui a un port, dans la
+limite du quai. Une ville affamée dont le stock dépasse sa réserve peut le même
+jour recevoir par une arête et donner par une autre ou par la mer ; les deux se
+lisent sur le snapshot, et aucun kilo reçu n'est revendu dans le même tick.
+
+- Avec `P = 0` et `R = 1`, ou sans relevé des champs, le commerce est celui
+  d'avant, au bit près : `P = 0` rend `max(0, ration − stock)`, `R = 1` laisse la
+  capacité des arêtes. Le décor d'avant (`sim/tests/amorcage_d_avant.py`,
+  `couper_l_appel_des_villes`) rend 0 et 1.
+- Aucun kilo n'est créé ni détruit, et `food_deficit_kg` n'est pas touché.
+- Le Caire ne peut pas gagner d'habitants par ce lot : aucun mort de faim, aucune
+  perte nette au pas des départs, sous les deux règles. Il est jugé sur son grain.
+
+Mesuré le 13 novembre 2026 (graine 0, IA active, 365 jours,
+`test_grain_monte_vers_les_villes_un_an` ; le script
+`docs/mesures/2026-11-12-grain-vers-les-villes/scripts/mesure_un_an.py` rejoue
+les quatre réglages) :
+
+| ville | habitants, avant → ce lot | grain au 365e jour, avant → ce lot |
+|---|---|---|
+| Paris | 153 052 → 284 985 | 956 t → 8 081 t |
+| Milan | 185 767 → 196 333 | 4 557 t → 50 292 t |
+| Gand | 33 669 → 89 260 | 0 t → 1 665 t |
+| Alexandrie | 22 305 → 42 231 | 0 t → 1 252 t |
+| Le Caire (grain seul) | 389 614 → 388 042 | 3 125 t → 23 196 t |
+
+Les deux réglages sont nécessaires. Le rayon seul (`P = 0`, `R = 6`) ne nourrit
+personne : Paris finit comme avant (153 052 habitants, 956 t), car son grenier ne
+descend jamais sous un jour de ration et il n'appelle donc rien ; Gand, Alexandrie
+et Le Caire bougent à peine (Gand 33 674, Alexandrie 22 454, Le Caire 389 779
+habitants et 3 116 t). L'appel seul (`P = 1`, `R = 1`) nourrit moins : Paris finit
+à 188 377 habitants et 5 199 t, Milan à 191 211 et 37 745 t, Gand à 97 249 et
+3 355 t, Alexandrie à 41 976 et 1 252 t, Le Caire à 388 336 habitants et 23 186 t.
+Mesuré le 13 novembre 2026 par le script de mesure, qui rejoue les quatre
+réglages (`docs/mesures/2026-11-12-grain-vers-les-villes/RAPPORT.md`).
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même

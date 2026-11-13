@@ -1003,13 +1003,15 @@ def test_noms_purete_et_tick(monkeypatch):
 # Empreintes capturées avant #395 : document complet et état physique sans arrondi.
 # Recapturées le 7 novembre 2026 : la soudure de 1400 change l'amorçage (le stock de
 # départ porte la ration jusqu'à la moisson) ; le code qui les mesure n'a pas bougé.
+# Recapturées le 13 novembre 2026, lot #1071, appel des villes affamées : les points 1 et 3
+# changent (les villes affamées appellent leur manque dès le premier jour), le point 0 non.
 _PART_BASE = {
     (0, 0): ("6b532d262ed6c185053aad5208e6d1d7b30425a98e18b845e2dc88a90966aeb7", "b22cbd184eca5811e7eca5045c970afb7c389ddc2cf29bb688394b7fb9d410fb"),
-    (0, 1): ("7022f1dc26f0d847f4d22ac79cecd5a6d9333bbfd6c4cee6fee5c25f6603a315", "99bd92c7587d61c25f40d8b93a31a7781799dd73a82bd5dc1cdad8c9bd40a825"),
-    (0, 3): ("ed8459b99806f5dbdb55e6d01ae494809eafc91b2a5fadd84da02fd1bcd52289", "b0b5806dfa40df208d636682f7dbaf9ac98d5cf8c0a642d5b31f7cb3e62aa994"),
+    (0, 1): ("5a810e03b490ef216c80cc5e004880566aa6a40c10e00da7b89cf29a192f7492", "ce5129e718e7a4fd2870b126f3182fcf94109301f0c8eae9d86e3497bc99b575"),
+    (0, 3): ("3a1423f7a186c78b6d4348720ed483733ee5ec6c04b92f8a592f402aaf376b76", "0bbc3357905de74c1186d1592eafe6a9d12b9b72ac998eddb8332d5000993f97"),
     (42, 0): ("441fc7e4e163a88eef386effb5fc13908bf394f154c56478686b50dfce1a4f3b", "59d9c9a5eb132acb0f927aa37c5b7a326becd99b2b151632951082c786c0e2b8"),
-    (42, 1): ("1dc32fbef02c14b816eeebaaa74d948a412e1d06e876bb02dac6403d4065c7f0", "c28d7383eb3c2376e9dabd4e7ec0fb7ab65f79c42ed21918cb59d3b0badf9d11"),
-    (42, 3): ("9c8ba28eb82294241789ff8c61a869d9a58b617971744b54c0bd18b81d83b57e", "45bff369ec52de25ead5187fa710b6339351d78ec7b6268deee4bb773acde349"),
+    (42, 1): ("0aed901ca5b6483926be6b2da7a332c84aebf7b1aa9c8262f15f64c567cc9077", "ce9e73d9b5eb31823157d22680d18aa8ea8dc0f45c05370f0474273f7b74a936"),
+    (42, 3): ("99fc975859e57d07247529289cfeae0df8f54cb14e662bc465ce6f93dd3a4c5a", "e07f434246d620d8142d49a355ae118f56b118af59d07c8a4913e1354c1c2762"),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1038,13 +1040,14 @@ def test_part_bit_pres(monkeypatch):
 
 # Monde avec prélèvement : JSON public et état physique sans aucun arrondi.
 # Recapturées le 7 novembre 2026 avec la soudure de 1400, même code de mesure.
+# Recapturées le 13 novembre 2026, lot #1071, appel des villes affamées : tous les points.
 _PRELEVEMENT_BASE = {
-    (0, 1): ("a8049eaa62b39e7f22a454c02fc315aa970402b4cc772d34822c162cc45cedbb", "466100eb96670f5d6be9342ae86e444bfcaa0a89f3ba57003c49f4da93ecb7c4"),
-    (0, 3): ("266f7a627f754e3cd84130aefa0f728fbd163bf3bc08a5b32ea6ac402bd48ac9", "ebcf0efc43d65a7b83ec6ff7a43c4bc291d4e84a247392d1266c9350286fa6f6"),
-    (0, 20): ("51deb755c3e6fa45fe1c73ca5ad24be58856885972d3a8ba00e8c9fe49fe2727", "1b02a171b42261e29ac021791251f0c52503196e0d58da9c2bca271a49181216"),
-    (42, 1): ("d96e98327758e0321a57210d7eb5ad8b6d4df9849dd4d01f522312bbfd22a6d5", "db8bbf7c09f88978c0003ef6705185a81723962dec15642f5e2315612ef93a10"),
-    (42, 3): ("b042d83b20050400d1314dd90491aa79d08e1eed5bd0a5e94d9ba825eb96a5e6", "f0b6445e4e6f1e530f64042ec58e731ebb4e2a3b6de993c2bb1f3eb67d423178"),
-    (42, 20): ("8d2bf2779839e3ebad8689ac09b7daf13363bd44530c2f90a3df13251a47c367", "2caf27f0c446c66d2e7d2e04f54f14a7f3bb4bf1c1be2c1f8f060bee6e0c3021"),
+    (0, 1): ("35ea12e585f2cf3a381bd7790fdd3042697a22b63885fb1f50b78a009a94bb81", "2101ed74baf9d02aed103162071a472e51a0cdc6897bd93fe37a99a51dc432b8"),
+    (0, 3): ("2a2c7b18e8e0dd8ba2b530dd9b4a619e672ad1c2253cd1560c492152f1129936", "83387bd1b99cfae908fc2741e14e34c4c8eb346f77d6d6c24984a9454bff3cac"),
+    (0, 20): ("f204c478551586c90e2e819044542f19c5d538300a18937cf46759af5649e6b8", "6f65b107fd264a59c7c21cec33c0bf9d1fcb0ae7f5a042efd7f99376d9fa2ed2"),
+    (42, 1): ("64a70caa87d1d985d109c5c12fd7a5c7b68464c35616a81045c5b2213d80b4d4", "2b2e0a370a57b19585f1b7127affe2bb101079d05bd4865bdd66ef1583be9c50"),
+    (42, 3): ("ad1f2f89a9b616a1509c0d5d4e8c705995cde63919f6cebff7b78f1243067eb0", "cf2248f5f787f1f7e423ca5567e5e0b53cfcb015c07155dce0285b87aaf08cd9"),
+    (42, 20): ("e48d0f3957cba728de44e86c64533aefff2be9c44be9a84c52deda70d6802274", "a498bc13ee1aaa5f32fc2fe804d3c9b8b0eb66eeabecfec1d1348bf9408bc93b"),
 }
 
 
@@ -1103,11 +1106,12 @@ def test_prelevement_bit_pres(monkeypatch):
 
 # Monde avec dû : capturé une fois, JSON public et état physique sans arrondi.
 # Recapturé le 7 novembre 2026 avec la soudure de 1400, même code de mesure.
+# Recapturé le 13 novembre 2026, lot #1071, appel des villes affamées.
 _DU_BASE = {
-    (0, 3): ('c08f33644a2d3eb7a1027336c4ac2e2873406f8a3600d8e0d5f72144db542866', '6138c6e13c11dc3e0a0fd2a814ce67f4b52a20eb965baad2e139b09e03cfceec'),
-    (0, 20): ('940f48dfcab8aacab697911371446d4fe17c4c1f83d2452e1921639b0d81c7fd', '76ba47ec4c9603c73773b51bb065c5070f06b25cf2e6feebfd95203a90b72c64'),
-    (42, 3): ('39d434d83b1dccb5f512c712bf931b056054532d60c2fd1d07e1311575dd4daa', '25179a87e184aece6a865d3bfaf450b43facb1ce76f5e41e5bee4ba4f5d4fd18'),
-    (42, 20): ('869909c79d39b1e45e7f4abfc741c09a432d1986c8edffa3b4950bd84f4ef9c8', '07b0ae50cd406e81d7ba3d6a05343fc61439c991fc3b11d8677d030481c0dcdf'),
+    (0, 3): ('ed1504163933cfb8b2d8d77698baa17b282a73bb8f4fdd17032ae1f12ac62cce', 'b56c5aa58cdaf34308e586375f4f15053c599087c0734bcc03bba6698317f93f'),
+    (0, 20): ('3c9e5ebb4e12fa7d5652e44c3b059919875d13b85487e0a86e6d3d51ef6eac27', 'a995e40a6dd2eccc2013e7536ba4db19f7fb123294b2f8490f9b21b947290c9f'),
+    (42, 3): ('81aaec4db39a13a4a6cb0b85ddb3f130dfbf6ba5dbede17f5f5d0623538eed28', 'e7d32dc3687acfd74f4f42e641c77278026c4201a754eda604bf4e699919188e'),
+    (42, 20): ('3a1687ee4880a1f72286e86eab88589e1b0e83319cda566e9d686bddf882c891', 'd339f56de1918ec860af4a61528a1875edc7236b2999bca12fc62ddbb873dfd7'),
 }
 
 

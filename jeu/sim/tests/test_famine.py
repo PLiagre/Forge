@@ -15,7 +15,7 @@ import pytest
 import sim.constants as c
 import sim.evenements as evenements
 from sim import engine, modificateurs as M
-from sim.tests.amorcage_d_avant import couper_la_famine
+from sim.tests.amorcage_d_avant import couper_la_famine, couper_l_appel_des_villes
 from sim.tests.test_modificateurs import _masse
 from sim.world import World
 
@@ -67,8 +67,12 @@ def _verifier_au_jour_dit(monde, atteint):
 
 @pytest.fixture(scope="module")
 def monde_de_soixante_ticks():
-    monde = World.charger(rng_seed=0)
-    return monde, _jouer_en_relevant(monde)
+    # Lot #1071 : sous l'appel des villes affamées, le monde de 1400 n'a plus faim en 60 ticks ; cette
+    # épreuve de la famine se joue sous le commerce d'avant (décision A de la direction, 13 novembre 2026).
+    with pytest.MonkeyPatch.context() as m:
+        couper_l_appel_des_villes(m)
+        monde = World.charger(rng_seed=0)
+        return monde, _jouer_en_relevant(monde)
 
 
 def test_la_famine_est_posee_au_jour_dit_et_seulement_avec_la_faim(monde_de_soixante_ticks, monkeypatch):
@@ -85,6 +89,7 @@ def test_la_famine_est_posee_au_jour_dit_et_seulement_avec_la_faim(monde_de_soix
                 M.poser(monde, "famine", "evenement:famine", {"lieu": [cid, lieu.rang]}, donnees)
         return []
 
+    couper_l_appel_des_villes(monkeypatch)  # lot #1071 : la contre-épreuve se joue sous le même commerce
     monkeypatch.setattr(evenements, "poser_les_famines", sans_regarder_la_faim)
     faux = World.charger(rng_seed=0)
     with pytest.raises(AssertionError):
@@ -315,7 +320,8 @@ def test_la_famine_coupee_est_ce_qui_garde_les_octets_d_avant(monde_de_soixante_
     # Sans coupure, 60 ticks de la graine 0 laissent au moins une pose.
     monde, _ = monde_de_soixante_ticks
     assert _famines(monde)
-    # Avec `couper_la_famine`, le même monde n'en porte aucune.
+    # Avec `couper_la_famine`, le même monde n'en porte aucune (sous le commerce d'avant, lot #1071, comme le monde ci-dessus).
+    couper_l_appel_des_villes(monkeypatch)
     couper_la_famine(monkeypatch)
     coupe = World.charger(rng_seed=0)
     _jouer_en_relevant(coupe)
