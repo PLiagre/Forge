@@ -43,8 +43,13 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # autrichiennes entrent dans le registre (de 2 363 à 2 366 personnes) et trois
 # chefs reçoivent leurs liens. Mesuré sur la base et sur le lot, sous Linux : seule la clé
 # `personnages` de `World.to_dict()` diffère, et la photographie est identique.
+# Le monde est recapturé le 13 novembre 2026 (lot #979) : six fiches de la maison de
+# Bourgogne entrent dans le registre (de 2 366 à 2 372 personnes), Philippe le Hardi
+# reçoit son complément et son état, Marie de Bourgogne ses deux parents. Mesuré sur
+# la base et sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()`
+# diffère (six fiches nouvelles, deux changées), et la photographie est identique.
 EMPREINTES_365 = {
-    "linux": ("fada2dee12407f0fabfad5b31763688cd85342ab4a67b465bdff6aae91da5767",
+    "linux": ("be5a22cb9a470c6c723ecbe1b58fc7cc3e44f3147211d69fd532ca4d7d486b88",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
 }
 
