@@ -11,7 +11,8 @@ from sim.chantiers import travail_requis_de_batiment, travail_requis_de_enceinte
 from sim.plan import Batiment, Enceinte, Parcelle, Plan, PlanInvalide, Rue, _points
 from sim.puissances import PuissanceInvalide
 from sim.lieux import partager
-from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie
+from sim.jouables import raison_de_refus
+from sim.seigneuries import cellule_du_siege, charger_seigneuries, identifiant_de_seigneurie, numero_de_seigneurie
 
 TYPE_CHOISIR_DEPART = "choisir_depart"
 TYPE_FIXER_PART = "fixer_part"
@@ -48,6 +49,15 @@ class ChoixDepart:
 
     def appliquer(self, monde):
         monde.maison_du_joueur = identifiant_de_seigneurie(self.identifiant)
+
+
+@dataclass(frozen=True)
+class ChoixDeMaison:
+    """Le choix d'une maison jouable autre qu'une seigneurie de départ."""
+    maison: str
+
+    def appliquer(self, monde):
+        monde.maison_du_joueur = self.maison
 
 
 @dataclass(frozen=True)
@@ -520,8 +530,40 @@ def recevoir_intention(monde, intention):
     return route
 
 
-def deposer_intention(monde, intention, seigneuries=None) -> ChoixDepart:
+def maison_choisie(monde):
+    """Clé du registre du choix appliqué, sinon de celui en attente, sinon None."""
+    if monde.maison_du_joueur is not None:
+        return monde.maison_du_joueur
+    for choix in monde.intentions_en_attente:
+        if isinstance(choix, ChoixDepart):
+            return identifiant_de_seigneurie(choix.identifiant)
+        if isinstance(choix, ChoixDeMaison):
+            return choix.maison
+    return None
+
+
+def _choisir_une_maison(monde, maison, seigneuries):
+    """Le choix par la clé du registre : une seigneurie suit l'ancien chemin."""
+    raison = raison_de_refus(monde, maison)
+    if raison is not None:
+        raise IntentionRefusee(raison)
+    if any(m.id == maison and m.sorte == "seigneurie" for m in monde.maisons):
+        return deposer_intention(
+            monde, {"type": TYPE_CHOISIR_DEPART, "seigneurie": numero_de_seigneurie(maison)}, seigneuries)
+    retenu = maison_choisie(monde)
+    if retenu is not None:
+        raise IntentionRefusee(f"départ déjà choisi : {retenu}")
+    choix = ChoixDeMaison(maison)
+    monde.intentions_en_attente.append(choix)
+    return choix
+
+
+def deposer_intention(monde, intention, seigneuries=None) -> ChoixDepart | ChoixDeMaison:
     """Valide la terre et l'unicité du choix sans modifier le monde visible."""
+    if "maison" in intention:
+        if "seigneurie" in intention:
+            raise IntentionRefusee("choisir_depart : seigneurie ou maison, pas les deux")
+        return _choisir_une_maison(monde, intention["maison"], seigneuries)
     identifiant = intention.get("seigneurie")
     if isinstance(identifiant, bool) or not isinstance(identifiant, int):
         raise IntentionRefusee(f"seigneurie inconnue : {identifiant!r}")
@@ -537,10 +579,7 @@ def deposer_intention(monde, intention, seigneuries=None) -> ChoixDepart:
     if not any(m.id == identifiant_de_seigneurie(identifiant) and m.sorte == "seigneurie"
                for m in monde.maisons):
         raise IntentionRefusee(f"seigneurie inconnue : {identifiant!r}")
-    retenu = monde.maison_du_joueur
-    if retenu is None:
-        retenu = next((identifiant_de_seigneurie(choix.identifiant) for choix in monde.intentions_en_attente
-                       if isinstance(choix, ChoixDepart)), None)
+    retenu = maison_choisie(monde)
     if retenu is not None:
         raise IntentionRefusee(f"départ déjà choisi : {retenu}")
     choix = ChoixDepart(identifiant)

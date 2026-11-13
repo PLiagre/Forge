@@ -37,6 +37,7 @@ from sim.flux import flux_des_lieux
 from sim.lieux import surfaces_des_lieux
 from sim.places import places_du_monde
 from sim.ia import maisons_de_l_ia, maisons_actives_30j
+from sim.jouables import raison_de_refus
 from sim.maisons import charger_maisons, maisons_depuis_monde
 from sim.maisons_servies import MaisonInconnue, document_de_maison, matiere_des_maisons
 from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
@@ -242,6 +243,26 @@ def _photographie_ia(world: World, releve) -> dict:
     return {'maisons': maisons, 'maisons_actives_30j': maisons_actives_30j(world.ticks_ecoules, releve)}
 
 
+def _terre_choisie(world, table, maisons):
+    """La fiche de terre d'une seigneurie de départ ; `None` pour tout autre pays jouable.
+
+    Un identifiant du registre que le joueur ne peut pas prendre (institution, maison sans
+    lieu) est refusé avec sa raison ; tout autre identifiant suit l'ancien chemin."""
+    choix = world.maison_du_joueur
+    if choix is None:
+        return None
+    try:
+        numero = numero_de_seigneurie(choix)
+    except SeigneurieInconnue:
+        if not isinstance(choix, str) or not any(m.id == choix for m in world.maisons):
+            raise
+        raison = raison_de_refus(world, choix)
+        if raison is not None:
+            raise ValueError(raison)
+        return None
+    return _fiche_document(fiche_de_seigneurie(numero, world, table=table, maisons=maisons))
+
+
 def _maisons_du_joueur(world, noms, places):
     """Reprend les fiches exactes du joueur et de son suzerain, après son choix."""
     if world.maison_du_joueur is None:
@@ -335,9 +356,7 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
             cid = attribution.placees.get(ville.nom)
             if cid is not None:
                 villes_par_cellule[cid].append({"nom": ville.nom, "population": ville.population})
-        terre_choisie = None if world.maison_du_joueur is None else _fiche_document(
-            fiche_de_seigneurie(numero_de_seigneurie(world.maison_du_joueur), world, table=table, maisons=maisons)
-        )
+        terre_choisie = _terre_choisie(world, table, maisons)
     except (PuissanceInvalide, SeigneurieInconnue, ValueError) as exc:
         raise SnapshotExportError(str(exc)) from exc
 

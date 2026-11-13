@@ -3356,6 +3356,63 @@ def test_photographie_1400_registre():
     for valeur in (terres[0].id, *IDENTIFIANTS_SEIGNEURIE_MAL_FORMES):
         if valeur is None:
             continue  # None déclare l'absence de choix, pas un identifiant.
+        if valeur == "grande-3":
+            continue  # Décision A (lot #1037) : les Valois sont un pays jouable, voir test_photographie_1400_tout_pays.
+        monde.maison_du_joueur = valeur
+        avant = copy.deepcopy(monde.to_dict())
+        with pytest.raises(SnapshotExportError, match="seigneurie inconnue"):
+            _photographie_1400(monde)
+        assert monde.to_dict() == avant
+    # Les Valois : plus de fiche de terre, mais leur fiche de maison (décision A).
+    monde.maison_du_joueur = "grande-3"
+    avant = copy.deepcopy(monde.to_dict())
+    document = _photographie_1400(monde)[1]
+    assert document["terre_choisie"] is None
+    assert document["maisons_du_joueur"]["maison"]["id"] == "grande-3"
+    assert monde.to_dict() == avant
+
+
+def test_photographie_1400_tout_pays():
+    """Décision A (lot #1037) : la photographie accepte tout pays jouable, refuse le reste."""
+    from sim.jouables import maisons_jouables
+    from sim.tests.test_maisons import IDENTIFIANTS_SEIGNEURIE_MAL_FORMES
+    monde = World.charger(0)
+    petit = next(m for m in maisons_jouables(monde) if m["sorte"] == "plausible")["id"]
+
+    def verifier(identifiant, document, suzerain):
+        maison = document["maisons_du_joueur"]
+        assert document["terre_choisie"] is None
+        assert maison["maison"]["id"] == identifiant
+        assert (maison["suzerain"] or {}).get("id") == suzerain  # une racine a `suzerain: null`
+
+    for identifiant in ("grande-3", petit):
+        monde.maison_du_joueur = identifiant
+        avant = copy.deepcopy(monde.to_dict())
+        fiche = next(m for m in monde.maisons if m.id == identifiant)
+        document = _photographie_1400(monde)[1]
+        verifier(identifiant, document, fiche.suzerain)
+        assert monde.to_dict() == avant
+    assert document["maisons_du_joueur"]["suzerain"] is not None, "le petit seigneur a un suzerain"
+    # Contre-épreuve : la fiche d'une autre maison à la place de celle des Valois fait échouer la vérification.
+    monde.maison_du_joueur = "grande-1"
+    autre = _photographie_1400(monde)[1]
+    with pytest.raises(AssertionError):
+        verifier("grande-3", autre, None)
+    # Les institutions et les maisons sans lieu se refusent avec leur raison.
+    for identifiant, raison in (
+            ("institution-17", "maison non jouable : institution-17 (Papauté), l'Église élit ses prélats"),
+            ("institution-22", "maison non jouable : institution-22 (Ordre teutonique), un ordre élit son maître"),
+            ("institution-15", "maison non jouable : institution-15 (Florence), une république élit ses magistrats"),
+            ("grande-21", "maison sans lieu : grande-21")):
+        monde.maison_du_joueur = identifiant
+        avant = copy.deepcopy(monde.to_dict())
+        with pytest.raises(SnapshotExportError) as erreur:
+            _photographie_1400(monde)
+        assert str(erreur.value) == raison
+        assert monde.to_dict() == avant
+    # Tout autre identifiant mal formé suit l'ancien chemin.
+    for valeur in (3, "grande-999", *(v for v in IDENTIFIANTS_SEIGNEURIE_MAL_FORMES
+                                     if v not in (None, "grande-3"))):
         monde.maison_du_joueur = valeur
         avant = copy.deepcopy(monde.to_dict())
         with pytest.raises(SnapshotExportError, match="seigneurie inconnue"):
@@ -6202,3 +6259,48 @@ def test_service_vider_bourg_tick():
             assert next(l for l in lieux if l.rang == 0).population == 0
             with pytest.raises(AssertionError): assert sum(l.population + 1 for l in lieux) == serveur.world.cells[cid].population
     assert octets[0] == octets[1]
+
+
+def test_service_jouables():
+    """Lot #1037 : le service propose les six en tête, et prend un royaume."""
+    def poster(port, intention):
+        return requete_service(port, "/intention", "POST", json.dumps(intention).encode())
+
+    def verifier_ordre(jouables, six):
+        assert [m["id"] for m in jouables[:6]] == six
+
+    six = [identifiant_de_seigneurie(s.id) for s in charger_seigneuries()]
+    assert len(six) == 6, "les six terres de départ"
+    with lancer_service(0) as port:
+        statut, document, _ = requete_service(port, "/jouables")
+        assert statut == HTTPStatus.OK
+        assert set(document) == {"tick", "date", "jouables"} and document["tick"] == 0
+        jouables = document["jouables"]
+        verifier_ordre(jouables, six)
+        identifiants = [m["id"] for m in jouables]
+        assert "grande-3" in identifiants
+        assert any(i.startswith("plausible-") for i in identifiants)
+        assert "grande-21" not in identifiants and not [i for i in identifiants if i.startswith("institution-")]
+        assert all(set(m) == {"id", "nom", "sorte", "lieux"} and m["lieux"] > 0 for m in jouables)
+        # Contre-épreuve : une grande maison avant les six fait échouer l'assertion d'ordre.
+        faux = [next(m for m in jouables if m["id"] == "grande-3")] + [m for m in jouables if m["id"] != "grande-3"]
+        with pytest.raises(AssertionError):
+            verifier_ordre(faux, six)
+        avant = requete_service(port, "/monde")[2]
+        statut, erreur, _ = poster(port, {"type": "choisir_depart", "maison": "institution-15"})
+        assert statut == HTTPStatus.BAD_REQUEST
+        assert erreur["erreur"] == "maison non jouable : institution-15 (Florence), une république élit ses magistrats"
+        statut, erreur, _ = poster(port, {"type": "choisir_depart", "maison": "grande-21"})
+        assert statut == HTTPStatus.BAD_REQUEST and erreur["erreur"] == "maison sans lieu : grande-21"
+        assert requete_service(port, "/monde")[2] == avant
+        statut, reponse, _ = poster(port, {"type": "choisir_depart", "maison": "grande-3"})
+        assert statut == HTTPStatus.OK and reponse == {"acceptee": True, "appliquee_au_tick": 0}
+        statut, erreur, _ = poster(port, {"type": "choisir_depart", "maison": "grande-1"})
+        assert statut == HTTPStatus.CONFLICT and erreur["erreur"] == "départ déjà choisi : grande-3"
+        assert requete_service(port, "/tick?n=1", "POST")[1]["tick"] == 1
+        assert requete_service(port, "/monde")[1]["maison_du_joueur"] == "grande-3"
+        statut, reponse, _ = poster(port, {"type": "fixer_part", "maison": "grande-3", "part": 0.1})
+        assert statut == HTTPStatus.OK and reponse["acceptee"] is True
+        statut, pays, _ = requete_service(port, "/pays?maison=grande-3")
+        assert statut == HTTPStatus.OK and pays["jauges"], "ses jauges"
+        assert requete_service(port, "/jouables")[1]["tick"] == 1
