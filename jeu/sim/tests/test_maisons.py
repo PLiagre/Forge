@@ -3508,6 +3508,8 @@ ETAT_BOURGOGNE = ('union', 'documentes', {
     'Isabelle de Coucy': ((PHILIPPE_N, 'Isabelle de Coucy : première épouse future de Philippe de Bourgogne, comte de Nevers, mariée le 9 avril 1409, exclue du départ ; aucun événement programmé.'),),
     'Bonne d’Artois': ((PHILIPPE_N, 'Bonne d’Artois : seconde épouse future de Philippe de Bourgogne, comte de Nevers, mariée le 20 juin 1413, exclue du départ ; aucun événement programmé.'),)})
 BOURGOGNE_EXCLUSIONS = ETAT_BOURGOGNE[4]
+# Fiche de chef de Philippe II le Hardi (`chefs`) : nom, maison, naissance au mois (le jour diverge, 17 ou 15, et reste indéterminé), sources d'identité et de naissance.
+CHEF_FICHE_BG = ('Philippe II le Hardi', BOURGOGNE, {'valeur': '1342-01', 'precision': 'mois'}, WP + 'Philip_the_Bold', ('janvier 1342', '17', '15'))
 BOURGOGNE_DIVERGENCES = ('19 juin 1369', '27 avril 1404', 'Bonne de Luxembourg', 'Bonne de Bohême', '1355', '1361', 'fils aîné', '12 avril 1385', 'Marguerite de Bavière', 'Guillaume de Bavière',
                          '16 août 1401', '15 août 1393', 'Léopold IV', '24 janvier', '26 janvier', '21 février 1402', '9 avril 1409', 'septembre 1380', 'neuf enfants', 'ni célibat ni veuvage', 'aucune absence attestée')
 REPERES_BG = {**{'personne-' + i: v[7] for i, v in FICHES_BOURGOGNE.items()}, CHEF_BG: LIEN_BOURGOGNE[2], BOURGOGNE: {}}
@@ -3560,7 +3562,18 @@ def _bourgogne_controle(fiches, etat):
             assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
 
 
+def _chef_bourgogne(chef):
+    try:
+        nom, maison, naissance, page, reperes = CHEF_FICHE_BG
+        assert (chef['nom'], chef['maison'], chef['naissance']) == (nom, maison, naissance)
+        assert chef['sources']['identite']['url'] == chef['sources']['naissance']['url'] == page
+        assert chef['lacunes']['identite'] is None and chef['lacunes']['naissance'] is None
+        assert 'Philippe II le Hardi' in chef['sources']['identite']['fait'] and all(r in chef['sources']['naissance']['fait'] for r in reperes)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de chef bourguignonne malformée : {erreur!r}') from erreur
+
+
 def _preuve_monde_bourgogne(personnes):
+    _chef_bourgogne(next(f for f in personnes if f['id'] == CHEF_BG))
     _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
                           [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
     _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
@@ -3578,6 +3591,7 @@ def test_familles_historiques_bourgogne():
     def altere(chemin, valeur):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    _chef_bourgogne(next(c for c in d['chefs'] if c['maison'] == BOURGOGNE))
     _bourgogne({f['id']: f for f in d['familles'] + d['liens']}); _bourgogne(etat=next(e for e in d['etats'] if e['maison'] == BOURGOGNE))
     assert len(d['familles']) == 86 and len(d['liens']) == len(d['etats']) == 27 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
     _preuve_monde_bourgogne(list(monde.personnages))
@@ -3601,6 +3615,18 @@ def test_familles_historiques_bourgogne():
             for champ, liste in REPERES_BG.get(f.get('id', f.get('maison')), {}).items():
                 for repere in liste: altere((t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu'))
                 if f.get('maison') == BOURGOGNE and champ == 'conjoints': altere((t, j, 'lacunes', champ), f['nom'] + ' : absence attestée de tout conjoint.')
+    # La fiche du chef : nom, naissance (jour choisi dans la divergence 17/15, précision), repères et sources.
+    j = next(k for k, c in enumerate(d['chefs']) if c['maison'] == BOURGOGNE)
+    chef = d['chefs'][j]
+    for chemin, valeur in ((('nom',), 'Philippe III le Bon'), (('maison',), 'grande-12'), (('naissance',), _naissance_famille('1342-01-17')), (('naissance',), _naissance_famille('1342-01-15')),
+                           (('naissance',), _naissance_famille('1342', 'annee')), (('naissance', 'valeur'), '1342-02'),
+                           (('sources', 'identite', 'url'), WP + 'John_the_Fearless'), (('sources', 'naissance', 'url'), WP + 'Margaret_III_of_Flanders'), (('lacunes', 'naissance'), 'Naissance inconnue.')):
+        with pytest.raises(AssertionError): _chef_bourgogne(_alterer_personnages(chef, chemin, valeur))
+    for repere in CHEF_FICHE_BG[4]:
+        with pytest.raises(AssertionError): _chef_bourgogne(_alterer_personnages(chef, ('sources', 'naissance', 'fait'), chef['sources']['naissance']['fait'].replace(repere, 'inconnu')))
+    # Dans le monde, la même fiche altérée est refusée.
+    for chemin, valeur in ((('nom',), 'Philippe III le Bon'), (('naissance',), _naissance_famille('1342-01-17'))):
+        with pytest.raises(AssertionError): _chef_bourgogne(_alterer_personnages(next(f for f in monde.personnages if f['id'] == CHEF_BG), chemin, valeur))
     modele = next(f for f in d['familles'] if f['id'] == MARIE_BG)
     # Marie : ses anciens liens vides, avec leurs anciennes lacunes, sont refusés.
     for champ in ('pere', 'mere'):
