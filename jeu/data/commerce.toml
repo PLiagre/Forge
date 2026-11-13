@@ -17,3 +17,19 @@
 # avec 21 jours, 32,7 % (le monde tient, `test_soudure.py`). Un entier de 1 au
 # moins ; 1 redonne le commerce d'avant, où la garde n'est que la ration du tick.
 reserve_ville_affamee_jours = 21
+
+# Part de ce que ses champs ne nourrissent pas qu'une ville affamée appelle
+# chaque jour (lot #1071, décision B de la direction, le 13 novembre 2026).
+# Niveau 2 : l'idée est médiévale (une grande ville draine le grain de son
+# contado et de ses fleuves, bien au-delà d'une journée de route), la part n'est
+# pas sourcée. 1,0 : elle appelle tout le manque, chaque jour, par terre et par
+# la mer. Un nombre de 0 à 1 ; 0 redonne le commerce d'avant, où elle n'appelle
+# que sa ration du tick.
+appel_ville_affamee_part = 1.0
+
+# Jours de charroi et de batellerie que portent les arêtes d'une ville affamée
+# (lot #1071). Niveau 2, jamais sourcé : la capacité du tick de chaque arête qui
+# touche une ville affamée est multipliée par ce rayon. Six jours : le charroi
+# d'un rayon de six jours se rassemble sur la frontière de la ville. Un entier
+# de 1 au moins ; 1 redonne la capacité d'avant.
+rayon_ville_affamee_jours = 6

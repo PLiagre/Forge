@@ -3860,14 +3860,18 @@ def _epreuve_1057():
     """Deux copies du monde de 1400 : la réserve du dépôt, puis le commerce d'avant (N = 1)."""
     import copy
     import sim.constants as constantes
-    from sim.tests.amorcage_d_avant import garder_le_commerce_d_avant
+    from sim.tests.amorcage_d_avant import couper_l_appel_des_villes, garder_le_commerce_d_avant
     depart = World.charger(0)
     assert depart.populations_soutenables, "échantillon vide : le monde ne relève aucune population soutenable"
     jours_de_reserve = constantes.reserve_ville_affamee_jours()
     villes = depart.attribution_villes.placees
     monkeypatch = pytest.MonkeyPatch()
     try:
-        avec = _jouer_1057(copy.deepcopy(depart), _JOURS_DE_L_EPREUVE_1057, jours_de_reserve, monkeypatch)
+        with monkeypatch.context() as sans_appel:
+            # Lot #1071 : cette épreuve éprouve la réserve seule, contre N = 1. L'appel des villes
+            # affamées change janvier ; il a ses propres épreuves (`test_grain_monte_vers_les_villes_un_an`).
+            couper_l_appel_des_villes(sans_appel)
+            avec = _jouer_1057(copy.deepcopy(depart), _JOURS_DE_L_EPREUVE_1057, jours_de_reserve, monkeypatch)
         with monkeypatch.context() as ancien:
             garder_le_commerce_d_avant(ancien)
             assert constantes.reserve_ville_affamee_jours() == 1
@@ -3951,3 +3955,519 @@ def test_conservation_ville_affamee_contre_epreuve_un_kilo_ajoute_est_vu(monkeyp
 
     with pytest.raises(AssertionError, match="masse non conservée"):
         _jouer_1057(monde, 1, constantes.reserve_ville_affamee_jours(), monkeypatch, tricher)
+
+
+# --- Lot #1071 : le grain monte vers les grandes villes -----------------------
+#
+# Niveau 2 (jeu/data/commerce.toml). Décision B de la direction, le 13 novembre
+# 2026 : une ville affamée appelle chaque jour ce que ses champs ne lui donnent
+# pas (P = `appel_ville_affamee_part`) et les arêtes qui la touchent portent le
+# charroi d'un rayon de R jours (`rayon_ville_affamee_jours`). Les petits mondes
+# ci-dessous sont posés à la main, `populations_soutenables` aussi, et les deux
+# lecteurs sont remplacés par `monkeypatch`.
+
+_SOURCE_1071, _RECEVEUSE_1071, _SECONDE_1071 = 401, 402, 403
+_RAYON_DU_DEPOT_1071 = 6  # la valeur du dépôt ; la changer, c'est la mesurer d'abord (RAPPORT.md)
+_JOURS_RECEVEUSE_1071 = 30  # de ration en stock : elle ne manque de rien le jour même
+
+
+_RESERVE_1071 = 21  # jours de réserve posés par les petits mondes (la valeur du dépôt, lot #1057)
+
+
+def _poser_appel_1071(monkeypatch, part, rayon, reserve=_RESERVE_1071):
+    import sim.constants as constantes
+    monkeypatch.setattr(constantes, "appel_ville_affamee_part", lambda chemin=None: part)
+    monkeypatch.setattr(constantes, "rayon_ville_affamee_jours", lambda chemin=None: rayon)
+    _poser_reserve_1057(monkeypatch, reserve)
+
+
+def _cellule_1071(cid, population, jours_de_ration):
+    from sim.model import ecrire_stock_marchandise
+    cellule = Cell(cell_id=cid, area_km2=0.0, population=population, stocks={},
+                   hunger_ticks=0, food_deficit_kg=0.0)
+    ecrire_stock_marchandise(cellule, MARCHANDISE_NOURRITURE,
+                             population * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK * jours_de_ration)
+    return cellule
+
+
+def _monde_1071(soutenable=40.0, longueur_m=5000.0, sources=((_SOURCE_1071, 1000.0),),
+                receveuse=100, releve=True):
+    """Une receveuse de 100 habitants (`soutenable` : ce que ses champs nourrissent), voisine par terre de sources qui se nourrissent.
+
+    Chaque source est `(cell_id, jours de ration en stock)` ; elle compte 100 habitants que ses champs nourrissent.
+    """
+    cellules = {_RECEVEUSE_1071: _cellule_1071(_RECEVEUSE_1071, receveuse, _JOURS_RECEVEUSE_1071)}
+    for cid, jours in sources:
+        cellules[cid] = _cellule_1071(cid, 100, jours)
+    monde = World(cells=cellules,
+                  adjacency=[{"a": cid, "b": _RECEVEUSE_1071, "kind": "land", "shared_length_m": longueur_m}
+                             for cid, _ in sources])
+    if releve:
+        monde.populations_soutenables = {cid: 100.0 for cid, _ in sources}
+        monde.populations_soutenables[_RECEVEUSE_1071] = soutenable
+    return monde
+
+
+def _monde_cotier_1071(soutenable=40.0, longueur_m=1000.0, bassin=1_000_000.0, releve=True):
+    """Une receveuse sur la côte : aucune voisine par terre, un bassin et un quai.
+
+    Son stock est exactement sa réserve (`_RESERVE_1071` jours) : elle n'a aucun surplus à expédier
+    à la mer, et ce qu'elle gagne est ce que le quai débarque.
+    """
+    monde = World(cells={_RECEVEUSE_1071: _cellule_1071(_RECEVEUSE_1071, 100, _RESERVE_1071)},
+                  adjacency=[{"a": _RECEVEUSE_1071, "b": -1, "kind": "mer", "shared_length_m": longueur_m}])
+    monde.stocks_mer = {MARCHANDISE_NOURRITURE: bassin}
+    if releve:
+        monde.populations_soutenables = {_RECEVEUSE_1071: soutenable}
+    return monde
+
+
+def _stocks_1071(monde):
+    from sim.model import lire_stock_marchandise
+    return {cid: lire_stock_marchandise(cellule, MARCHANDISE_NOURRITURE) for cid, cellule in monde.cells.items()}
+
+
+def _jouer_une_fois_1071(monde):
+    """Un commerce ; rend ce que chaque cellule a gagné (positif) ou perdu (négatif), au kilo près."""
+    avant = _stocks_1071(monde)
+    total = [0.0]
+    _apply_commerce(monde, total)
+    apres = _stocks_1071(monde)
+    return {cid: apres[cid] - avant[cid] for cid in avant}, total[0]
+
+
+def _appel_1071(monde, part=1.0):
+    """L'appel de la receveuse, dérivé du petit monde (60 habitants sans champs × 2 kg)."""
+    manque = monde.cells[_RECEVEUSE_1071].population - monde.populations_soutenables[_RECEVEUSE_1071]
+    return part * manque * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+
+
+def test_appel_ville_affamee_la_receveuse_recoit_son_manque_des_champs(monkeypatch):
+    """SC1 (a) : 100 habitants, 40 nourris par les champs, 30 jours de ration en stock : avec P = 1 elle reçoit 60 rations."""
+    _poser_appel_1071(monkeypatch, 1, 1)
+    monde = _monde_1071()
+    assert monde.cells[_RECEVEUSE_1071].population > monde.populations_soutenables[_RECEVEUSE_1071]
+    gain, _ = _jouer_une_fois_1071(monde)
+    assert gain[_RECEVEUSE_1071] == 60 * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK > 0.0
+    assert gain[_SOURCE_1071] == -gain[_RECEVEUSE_1071]
+    # P = 0 : la receveuse a trente jours de ration, elle n'appelle rien.
+    _poser_appel_1071(monkeypatch, 0, 1)
+    gain, total = _jouer_une_fois_1071(_monde_1071())
+    assert gain[_RECEVEUSE_1071] == 0.0 and gain[_SOURCE_1071] == 0.0 and total == 0.0
+
+
+@pytest.mark.parametrize("capacite_kg", [15.0, 60.0])
+def test_appel_ville_affamee_le_rayon_porte_l_appel_sur_une_arete_etroite(capacite_kg, monkeypatch):
+    """SC1 (b) : l'arête porte moins que l'appel ; avec R = 1 la receveuse reçoit la capacité, avec R = 6 `min(appel, 6 × capacité)`."""
+    from sim import engine
+    _poser_appel_1071(monkeypatch, 1, 1)
+    longueur = capacite_kg / engine._capacite_transport_arete_kg(_monde_1071(longueur_m=1000.0), _SOURCE_1071,
+                                                                  _RECEVEUSE_1071) * 1000.0
+    monde = _monde_1071(longueur_m=longueur)
+    capacite = engine._capacite_transport_arete_kg(monde, _SOURCE_1071, _RECEVEUSE_1071)
+    assert capacite == capacite_kg
+    appel = _appel_1071(monde)
+    assert capacite < appel
+    gain, _ = _jouer_une_fois_1071(monde)
+    assert gain[_RECEVEUSE_1071] == capacite
+    _poser_appel_1071(monkeypatch, 1, 6)
+    gain, _ = _jouer_une_fois_1071(_monde_1071(longueur_m=longueur))
+    assert gain[_RECEVEUSE_1071] == min(appel, 6 * capacite)
+    assert gain[_RECEVEUSE_1071] > capacite
+
+
+def test_appel_ville_affamee_une_receveuse_qui_se_nourrit_ne_change_rien(monkeypatch):
+    """SC1 (c) : soutenable 100 ≥ population 100 : P = 1 et R = 6 donnent, au bit près, P = 0 et R = 1, pour elle et sa source."""
+    resultats = []
+    for part, rayon in ((1, 6), (0, 1)):
+        _poser_appel_1071(monkeypatch, part, rayon)
+        monde = _monde_1071(soutenable=100.0)
+        monde.cells[_RECEVEUSE_1071].stocks[MARCHANDISE_NOURRITURE] = 0.0  # elle manque de sa ration : la règle d'avant joue
+        gain, total = _jouer_une_fois_1071(monde)
+        resultats.append((_stocks_1071(monde), total))
+        assert gain[_RECEVEUSE_1071] > 0.0, "échantillon vide : la receveuse devait être nourrie par la source"
+    assert resultats[0] == resultats[1]
+
+
+def test_appel_ville_affamee_deux_sources_ecretees_au_besoin(monkeypatch):
+    """SC1 (d) : deux sources dont les surplus dépassent l'appel : la receveuse reçoit l'appel et pas plus, les sources gardent le reste."""
+    _poser_appel_1071(monkeypatch, 1, 1)
+    ration = FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    monde = _monde_1071(sources=((_SOURCE_1071, 1.5), (_SECONDE_1071, 1.5)))
+    surplus = {cid: monde.cells[cid].population * ration * 0.5 for cid in (_SOURCE_1071, _SECONDE_1071)}
+    appel = _appel_1071(monde)
+    assert sum(surplus.values()) > appel
+    assert all(offre < appel for offre in surplus.values())  # une seule source ne suffirait pas
+    gain, _ = _jouer_une_fois_1071(monde)
+    assert gain[_RECEVEUSE_1071] == pytest.approx(appel, rel=1e-12)
+    for cid in (_SOURCE_1071, _SECONDE_1071):
+        assert -gain[cid] == pytest.approx(appel / 2, rel=1e-12)
+        assert -gain[cid] < surplus[cid]  # elle garde le reste de son surplus
+
+
+@pytest.mark.parametrize("longueur_m,quai_etroit", [(1000.0, False), (20.0, True)])
+def test_appel_ville_affamee_le_bassin_debarque_l_appel_dans_la_limite_du_quai(longueur_m, quai_etroit, monkeypatch):
+    """SC1 (e) : une receveuse affamée sur la côte reçoit de la mer l'appel, dans la limite de son quai."""
+    from sim import engine
+    from sim.world import lire_stock_mer
+    _poser_appel_1071(monkeypatch, 1, 1)
+    monde = _monde_cotier_1071(longueur_m=longueur_m)
+    quai = engine._initialiser_contexte_maritime(monde)["capacite_quai_restante"][_RECEVEUSE_1071]
+    appel = _appel_1071(monde)
+    assert (quai < appel) == quai_etroit
+    bassin = lire_stock_mer(monde, MARCHANDISE_NOURRITURE)
+    gain, total = _jouer_une_fois_1071(monde)
+    assert gain[_RECEVEUSE_1071] == min(appel, quai) > 0.0
+    assert lire_stock_mer(monde, MARCHANDISE_NOURRITURE) == bassin - gain[_RECEVEUSE_1071]
+    assert total == gain[_RECEVEUSE_1071]
+    _poser_appel_1071(monkeypatch, 0, 1)  # contre-épreuve : sans appel, rien ne débarque
+    gain, total = _jouer_une_fois_1071(_monde_cotier_1071(longueur_m=longueur_m))
+    assert gain[_RECEVEUSE_1071] == 0.0 and total == 0.0
+
+
+def _scenes_1071():
+    """Chaque scène de SC1, construite avec ou sans relevé des champs."""
+    return {
+        "a": lambda releve: _monde_1071(releve=releve),
+        "b": lambda releve: _monde_1071(longueur_m=100.0, releve=releve),
+        "c": lambda releve: _monde_1071(soutenable=100.0, releve=releve),
+        "d": lambda releve: _monde_1071(sources=((_SOURCE_1071, 1.5), (_SECONDE_1071, 1.5)), releve=releve),
+        "e": lambda releve: _monde_cotier_1071(releve=releve),
+    }
+
+
+def test_appel_ville_affamee_contre_epreuve_valeurs_neutres_et_sans_releve(monkeypatch):
+    """SC1, contre-épreuves : P = 0 et R = 1 donnent, au bit près, le monde sans relevé des champs, et le monde sans relevé ignore P et R.
+
+    La réserve est à 1 jour partout : elle est la règle de #1057, et seule la règle de #1071 se compare ici.
+    """
+    for nom, scene in _scenes_1071().items():
+        _poser_appel_1071(monkeypatch, 1, 6, reserve=1)
+        avec_appel = scene(True)
+        _jouer_une_fois_1071(avec_appel)
+        _poser_appel_1071(monkeypatch, 0, 1, reserve=1)
+        neutre = scene(True)
+        sans_releve = scene(False)
+        assert sans_releve.populations_soutenables is None
+        _jouer_une_fois_1071(neutre)
+        _jouer_une_fois_1071(sans_releve)
+        assert _stocks_1071(neutre) == _stocks_1071(sans_releve), nom
+        assert getattr(neutre, "stocks_mer", None) == getattr(sans_releve, "stocks_mer", None), nom
+        # Sans relevé, P = 1 et R = 6 ne changent rien non plus.
+        _poser_appel_1071(monkeypatch, 1, 6, reserve=1)
+        sans_releve_appelant = scene(False)
+        _jouer_une_fois_1071(sans_releve_appelant)
+        assert _stocks_1071(sans_releve_appelant) == _stocks_1071(sans_releve), nom
+        # La contre-épreuve peut échouer : hors la scène c (une receveuse qui se nourrit), l'appel change le monde.
+        assert (_stocks_1071(avec_appel) != _stocks_1071(neutre)) == (nom != "c"), nom
+
+
+def test_appel_ville_affamee_un_releve_sans_la_receveuse_nomme_son_cell_id(monkeypatch):
+    """SC1, contre-épreuve : le relevé qui ne porte pas la receveuse lève une erreur qui nomme son cell_id."""
+    _poser_appel_1071(monkeypatch, 1, 6)
+    monde = _monde_1071()
+    del monde.populations_soutenables[_RECEVEUSE_1071]
+    with pytest.raises(ValueError, match=str(_RECEVEUSE_1071)):
+        _apply_commerce(monde, [0.0])
+
+
+def test_appel_ville_affamee_le_decor_d_avant_coupe_les_deux_lecteurs(monkeypatch):
+    """SC1, contre-épreuve : sous `garder_le_commerce_d_avant`, les lecteurs rendent 0 et 1, et rien n'est appelé."""
+    import sim.constants as constantes
+    from sim.tests.amorcage_d_avant import garder_le_commerce_d_avant
+    assert constantes.appel_ville_affamee_part() > 0 and constantes.rayon_ville_affamee_jours() > 1
+    garder_le_commerce_d_avant(monkeypatch)
+    assert constantes.appel_ville_affamee_part() == 0
+    assert constantes.rayon_ville_affamee_jours() == 1
+    gain, _ = _jouer_une_fois_1071(_monde_1071())  # le relevé est là, le décor ne le voit pas
+    assert gain[_RECEVEUSE_1071] == 0.0
+
+
+# SC2 : les données
+
+def _ecrire_toml_1071(tmp_path, contenu):
+    chemin = tmp_path / "commerce.toml"
+    chemin.write_text(contenu, encoding="utf-8")
+    return chemin
+
+
+def _commentaire_de_la_cle_1071(texte, cle):
+    """Le bloc de commentaires qui précède la clé dans `commerce.toml`."""
+    lignes = texte.splitlines()
+    fin = next(i for i, ligne in enumerate(lignes) if ligne.startswith(cle + " ="))
+    debut = fin
+    while debut > 0 and lignes[debut - 1].startswith("#"):
+        debut -= 1
+    assert debut < fin, f"{cle} : aucun commentaire"
+    return "\n".join(lignes[debut:fin])
+
+
+def test_appel_ville_affamee_donnee_du_depot():
+    """SC2 : le fichier du dépôt dit 1,0 et le niveau 2, et la valeur réécrite est relue au prochain appel."""
+    import sim.constants as constantes
+    texte = constantes._CHEMIN_COMMERCE.read_text(encoding="utf-8")
+    assert constantes.appel_ville_affamee_part() == 1.0
+    assert "niveau 2" in _commentaire_de_la_cle_1071(texte, "appel_ville_affamee_part").lower()
+
+
+@pytest.mark.parametrize("ligne", ["appel_ville_affamee_part = -0.1", "appel_ville_affamee_part = 1.5",
+                                   'appel_ville_affamee_part = "1"', "appel_ville_affamee_part = true",
+                                   "autre_cle = 1", ""])
+def test_appel_ville_affamee_donnee_refuse_une_valeur_invalide(tmp_path, ligne):
+    import sim.constants as constantes
+    chemin = _ecrire_toml_1071(tmp_path, ligne + "\n")
+    with pytest.raises(ValueError, match="appel_ville_affamee_part"):
+        constantes.appel_ville_affamee_part(chemin)
+    # Contre-épreuve : les valeurs valides du même fichier passent, un entier 0 ou 1 compris.
+    for valide, attendu in (("0", 0), ("1", 1), ("0.25", 0.25)):
+        chemin = _ecrire_toml_1071(tmp_path, f"appel_ville_affamee_part = {valide}\n")
+        assert constantes.appel_ville_affamee_part(chemin) == attendu
+
+
+def test_appel_ville_affamee_donnee_refuse_un_fichier_absent_et_relit(tmp_path):
+    import sim.constants as constantes
+    with pytest.raises(ValueError, match="appel_ville_affamee_part"):
+        constantes.appel_ville_affamee_part(tmp_path / "absent.toml")
+    chemin = _ecrire_toml_1071(tmp_path, "appel_ville_affamee_part = 0.5\n")
+    assert constantes.appel_ville_affamee_part(chemin) == 0.5
+    chemin.write_text("appel_ville_affamee_part = 0.75\n", encoding="utf-8")
+    assert constantes.appel_ville_affamee_part(chemin) == 0.75
+
+
+def test_rayon_ville_affamee_donnee_du_depot():
+    """SC2 : le fichier du dépôt dit le rayon retenu et le niveau 2."""
+    import sim.constants as constantes
+    texte = constantes._CHEMIN_COMMERCE.read_text(encoding="utf-8")
+    assert constantes.rayon_ville_affamee_jours() == _RAYON_DU_DEPOT_1071
+    assert "niveau 2" in _commentaire_de_la_cle_1071(texte, "rayon_ville_affamee_jours").lower()
+
+
+@pytest.mark.parametrize("ligne", ["rayon_ville_affamee_jours = 0", "rayon_ville_affamee_jours = -3",
+                                   "rayon_ville_affamee_jours = 2.5", 'rayon_ville_affamee_jours = "6"',
+                                   "rayon_ville_affamee_jours = true", "autre_cle = 6", ""])
+def test_rayon_ville_affamee_donnee_refuse_une_valeur_invalide(tmp_path, ligne):
+    import sim.constants as constantes
+    chemin = _ecrire_toml_1071(tmp_path, ligne + "\n")
+    with pytest.raises(ValueError, match="rayon_ville_affamee_jours"):
+        constantes.rayon_ville_affamee_jours(chemin)
+    chemin = _ecrire_toml_1071(tmp_path, "rayon_ville_affamee_jours = 4\n")
+    assert constantes.rayon_ville_affamee_jours(chemin) == 4
+
+
+def test_rayon_ville_affamee_donnee_refuse_un_fichier_absent_et_relit(tmp_path):
+    import sim.constants as constantes
+    with pytest.raises(ValueError, match="rayon_ville_affamee_jours"):
+        constantes.rayon_ville_affamee_jours(tmp_path / "absent.toml")
+    chemin = _ecrire_toml_1071(tmp_path, "rayon_ville_affamee_jours = 2\n")
+    assert constantes.rayon_ville_affamee_jours(chemin) == 2
+    chemin.write_text("rayon_ville_affamee_jours = 3\n", encoding="utf-8")
+    assert constantes.rayon_ville_affamee_jours(chemin) == 3
+
+
+# Les épreuves du monde de 1400 (SC3, SC4). Chacune charge son propre monde.
+
+_VILLES_1071 = ("Paris", "Milan", "Gand", "Alexandrie", "Le Caire")
+_VILLES_JUGEES_AUX_HABITANTS_1071 = ("Paris", "Milan", "Gand", "Alexandrie")
+_CAIRE_1071 = "Le Caire"
+
+
+class _Suivi1071:
+    """Jour par jour, ce que l'appel extérieur de `_apply_commerce` fait aux villes suivies et au monde.
+
+    Avec `verifier`, chaque commerce du tick contrôle la conservation de la masse (cellules plus
+    bassin), les paniers des lieux des cellules affamées et leur garde (lot #1057, relue avec l'appel).
+    """
+
+    def __init__(self, monde, noms=_VILLES_1071, verifier=False, tricher=None):
+        import sim.constants as constantes
+        self.monde = monde
+        self.verifier = verifier
+        self.tricher = tricher
+        self.ration = constantes.consommation_kg_par_habitant_par_tick(MARCHANDISE_NOURRITURE)
+        self.reserve = constantes.reserve_ville_affamee_jours()
+        self.cid = {nom: monde.attribution_villes.placees[nom] for nom in noms}
+        self.morts = dict.fromkeys(self.cid.values(), 0)
+        self.pertes = dict.fromkeys(self.cid.values(), 0)
+        self.recu = dict.fromkeys(self.cid.values(), 0.0)  # les hausses de stock pendant le commerce
+        self.sous_la_garde = []
+        self.appels = 0
+        self.profondeur = 0
+
+    def enveloppe_commerce(self, origine):
+        def commerce(monde, total, *args, **kwargs):
+            if self.profondeur:  # le maillon se rappelle par marchandise : seul l'appel du tick compte
+                return origine(monde, total, *args, **kwargs)
+            self.profondeur += 1
+            try:
+                self._mesurer(monde, origine, total, args, kwargs)
+            finally:
+                self.profondeur -= 1
+        return commerce
+
+    def enveloppe_mortalite(self, origine):
+        def mortalite(cellule, *facteurs):
+            avant = cellule.population
+            origine(cellule, *facteurs)
+            if cellule.cell_id in self.morts:
+                self.morts[cellule.cell_id] += avant - cellule.population
+        return mortalite
+
+    def enveloppe_departs(self, origine):
+        def departs(monde):
+            avant = {cid: monde.cells[cid].population for cid in self.pertes}
+            retour = origine(monde)
+            for cid, population in avant.items():
+                self.pertes[cid] += max(0, population - monde.cells[cid].population)
+            return retour
+        return departs
+
+    def _mesurer(self, monde, origine, total, args, kwargs):
+        import math
+        from sim.model import contenus_des_paniers, lire_stock_marchandise
+        from sim.world import lire_stock_mer
+        nourriture = MARCHANDISE_NOURRITURE
+        stocks = {cid: lire_stock_marchandise(cellule, nourriture) for cid, cellule in monde.cells.items()}
+        if self.verifier:
+            masse_avant = math.fsum(max(0.0, stock) for stock in stocks.values())
+            masse_avant += max(0.0, lire_stock_mer(monde, nourriture))
+            garde = {cid: (max(1, self.reserve) if cellule.population > monde.populations_soutenables[cid] else 1)
+                     * cellule.population * self.ration
+                     for cid, cellule in monde.cells.items()}
+        origine(monde, total, *args, **kwargs)
+        if self.tricher is not None:
+            self.tricher(monde)
+        for cid in self.recu:
+            self.recu[cid] += max(0.0, lire_stock_marchandise(monde.cells[cid], nourriture) - stocks[cid])
+        if self.verifier:
+            masse_apres = math.fsum(max(0.0, lire_stock_marchandise(c, nourriture)) for c in monde.cells.values())
+            masse_apres += max(0.0, lire_stock_mer(monde, nourriture))
+            assert abs(masse_apres - masse_avant) <= 1e-9 * masse_avant, (
+                f"masse non conservée au commerce n° {self.appels} : {masse_avant} → {masse_apres}")
+            for cid, cellule in monde.cells.items():
+                if cellule.population <= monde.populations_soutenables[cid]:
+                    continue
+                apres = lire_stock_marchandise(cellule, nourriture)
+                if apres < min(stocks[cid], garde[cid]) - 1e-9 * garde[cid]:
+                    self.sous_la_garde.append((cid, self.appels, stocks[cid], apres, garde[cid]))
+                if cellule.lieux:
+                    assert math.fsum(contenus_des_paniers(cellule.lieux, nourriture)) == pytest.approx(
+                        apres, rel=1e-9), f"cellule {cid} : les paniers de ses lieux ≠ son stock"
+        self.appels += 1
+
+
+def _jouer_1071(monde, jours, monkeypatch, noms=_VILLES_1071, verifier=False, tricher=None, avant_l_appel=False):
+    """Graine 0, l'IA active, aucun geste du joueur (comme l'épreuve de la soudure) ; rend le suivi.
+
+    `avant_l_appel` : tout le jeu se joue sous le décor d'avant le lot (P = 0, R = 1), et pas seulement
+    son chargement ; la réserve des villes affamées reste celle du dépôt.
+    """
+    from sim import departs, engine
+    from sim.capitales import toutes_les_maisons_de_l_ia
+    from sim.ia import jouer_ia
+    from sim.tests.amorcage_d_avant import couper_l_appel_des_villes
+    suivi = _Suivi1071(monde, noms, verifier, tricher)
+    with monkeypatch.context() as m:
+        if avant_l_appel:
+            couper_l_appel_des_villes(m)
+        m.setattr(engine, "_apply_commerce", suivi.enveloppe_commerce(engine._apply_commerce))
+        m.setattr(engine, "_apply_mortality", suivi.enveloppe_mortalite(engine._apply_mortality))
+        m.setattr(departs, "appliquer_departs", suivi.enveloppe_departs(departs.appliquer_departs))
+        rng, releve = random.Random(0), []
+        maisons = toutes_les_maisons_de_l_ia(monde)
+        for _ in range(jours):
+            jouer_ia(monde, releve, maisons)
+            engine.tick(monde, rng, monde.ticks_ecoules)
+    return suivi
+
+
+def _etat_1071(suivi):
+    """Par ville : habitants et grain au dernier jour, morts de faim, pertes nettes au pas des départs."""
+    from sim.model import lire_stock_marchandise
+    etat = {}
+    for nom, cid in suivi.cid.items():
+        cellule = suivi.monde.cells[cid]
+        etat[nom] = {"habitants": cellule.population,
+                     "stock": lire_stock_marchandise(cellule, MARCHANDISE_NOURRITURE),
+                     "morts": suivi.morts[cid], "pertes": suivi.pertes[cid], "recu": suivi.recu[cid]}
+    return etat
+
+
+def _villes_moins_nourries(candidat, reference):
+    """La liste des fautes : une ville jugée qui n'a pas strictement plus d'habitants ou de grain que dans la référence.
+
+    Paris, Milan, Gand et Alexandrie se jugent à leurs habitants et à leur grain ; Le Caire à son grain
+    seul (il ne peut pas gagner d'habitants : voir le test).
+    """
+    fautes = []
+    for nom in _VILLES_1071:
+        if nom in _VILLES_JUGEES_AUX_HABITANTS_1071 and not candidat[nom]["habitants"] > reference[nom]["habitants"]:
+            fautes.append(f"{nom} : {candidat[nom]['habitants']} habitants, pas plus que {reference[nom]['habitants']}")
+        if not candidat[nom]["stock"] > reference[nom]["stock"]:
+            fautes.append(f"{nom} : {candidat[nom]['stock']:.0f} kg, pas plus que {reference[nom]['stock']:.0f}")
+    return fautes
+
+
+def _imprimer_la_table_1071(ce_lot, avant):
+    print(f"\n{'ville':12s} {'règle':8s} {'habitants':>10s} {'stock au 365e jour':>20s} {'morts':>9s} {'pertes au départ':>17s}")
+    for nom in _VILLES_1071:
+        for regle, etat in (("avant", avant), ("ce lot", ce_lot)):
+            ville = etat[nom]
+            print(f"{nom:12s} {regle:8s} {ville['habitants']:10d} {ville['stock'] / 1000:17.0f} t "
+                  f"{ville['morts']:9d} {ville['pertes']:17d}")
+
+
+def test_grain_monte_vers_les_villes_un_an(monkeypatch):
+    """SC3 : après un an, Paris, Milan, Gand et Alexandrie ont plus d'habitants et de grain qu'avec le commerce d'avant ; Le Caire plus de grain.
+
+    Pourquoi Le Caire n'est pas jugé sur ses habitants : le test le dérive. Sous les deux règles, Le Caire
+    n'a aucun mort de `_apply_mortality` et aucune perte nette au pas des départs. Ses habitants ne bougent
+    donc que par les naissances et par les réfugiés de ses voisines : les juger mesurerait la faim d'Alexandrie,
+    pas la sienne. Si l'un de ces zéros tombe, le lot s'arrête : la décision B reposait sur ce fait.
+    """
+    import copy
+    import sim.constants as constantes
+    depart = World.charger(0)
+    assert constantes.appel_ville_affamee_part() > 0 and constantes.rayon_ville_affamee_jours() > 1, (
+        "les données du dépôt sont neutres : la preuve n'est pas posée")
+    for nom in _VILLES_1071:  # les villes affamées se dérivent du relevé des champs, jamais d'une liste
+        cid = depart.attribution_villes.placees[nom]
+        assert depart.cells[cid].population > depart.populations_soutenables[cid], f"{nom} devrait être affamée"
+    ce_lot = _etat_1071(_jouer_1071(copy.deepcopy(depart), 365, monkeypatch))
+    avant = _etat_1071(_jouer_1071(copy.deepcopy(depart), 365, monkeypatch, avant_l_appel=True))
+    _imprimer_la_table_1071(ce_lot, avant)
+    assert _villes_moins_nourries(ce_lot, avant) == []
+    # Le Caire : aucun mort, aucune perte nette, sous les deux règles.
+    for regle in (ce_lot, avant):
+        assert regle[_CAIRE_1071]["morts"] == 0 and regle[_CAIRE_1071]["pertes"] == 0
+    # Contre-épreuve 1 : le commerce d'avant ne nourrit pas mieux que lui-même, et ne nourrit pas Paris.
+    fautes = _villes_moins_nourries(avant, avant)
+    for nom in _VILLES_1071:
+        assert any(faute.startswith(nom) for faute in fautes), f"{nom} devrait être nommée : {fautes}"
+    assert avant["Paris"]["recu"] == 0.0, "Paris reçoit du grain sous le commerce d'avant"
+    assert ce_lot["Paris"]["recu"] > 0.0, "échantillon vide : l'appel n'a rien porté à Paris"
+
+
+def test_conservation_appel_ville_affamee_masse_paniers_et_garde(monkeypatch):
+    """SC4 : 30 jours sous les données du dépôt, à chaque commerce du tick : masse conservée, paniers = stock, garde tenue."""
+    import sim.constants as constantes
+    from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+    assert constantes.appel_ville_affamee_part() > 0 and constantes.rayon_ville_affamee_jours() > 1
+    monde = World.charger(0)
+    suivi = _jouer_1071(monde, 30, monkeypatch, noms=("Paris",), verifier=True)
+    assert suivi.appels == 30
+    assert not suivi.sous_la_garde, suivi.sous_la_garde[:3]
+    # Contre l'échantillon vide : l'appel porte du grain à Paris pendant ces 30 jours.
+    assert suivi.recu[suivi.cid["Paris"]] > 0.0
+
+    # Contre-épreuve 2 : une ville qui reçoit du grain sans qu'une cellule en perde fait échouer la conservation.
+    monde = World.charger(0)
+    paris = monde.attribution_villes.placees["Paris"]
+
+    def tricher(m):
+        cellule = m.cells[paris]
+        bourg = next(lieu for lieu in cellule.lieux if lieu.rang == 0)
+        ecrire_stock_marchandise(bourg, MARCHANDISE_NOURRITURE, lire_stock_marchandise(bourg, MARCHANDISE_NOURRITURE) + 1000.0)
+        ecrire_stock_marchandise(cellule, MARCHANDISE_NOURRITURE, lire_stock_marchandise(cellule, MARCHANDISE_NOURRITURE) + 1000.0)
+
+    with pytest.raises(AssertionError, match="masse non conservée"):
+        _jouer_1071(monde, 1, monkeypatch, noms=("Paris",), verifier=True, tricher=tricher)
