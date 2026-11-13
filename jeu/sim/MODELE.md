@@ -1783,8 +1783,8 @@ par `positions_du_monde` et refuse une position absente en nommant la cellule.
 tuple gelé : d'abord les grandes maisons triées par id, puis toutes les
 seigneuries de départ triées par id. Elle ne dépend que des tables de 1400 et
 de la carte, jamais du tick ni du joueur. `maisons_de_l_ia(monde, …)` en écarte
-la seigneurie dont `identifiant_de_seigneurie(s.id)` vaut
-`monde.maison_du_joueur`. Les ids des lignes restent entiers. Chaque ligne porte
+la maison dont `cle_du_registre` (`grande-<id>` ou `seigneurie-<n>`) vaut
+`intentions.maison_choisie(monde)` — seigneurie ou grande maison. Les ids des lignes restent entiers. Chaque ligne porte
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
@@ -2198,7 +2198,8 @@ La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
-`POST /intention`. `python3 -m forge --depart ID` continue d'appeler
+`POST /intention`, ou `{"type": "choisir_depart", "maison": <id du registre>}`
+pour tout pays jouable (voir plus bas). `python3 -m forge --depart ID` continue d'appeler
 directement `deposer_intention`, toujours avec le numéro entier de la terre.
 La table se lit par `charger_seigneuries()` ; `cellule_du_siege` vérifie
 que le siège est dans la carte. Le dépôt vérifie aussi que `identifiant_de_seigneurie(n)`
@@ -2211,7 +2212,32 @@ Le dépôt refuse avant toute mise en attente, par `IntentionRefusee` :
   « seigneurie inconnue : <valeur reçue> » ; un siège hors carte est aussi refusé ;
 - un choix déjà retenu ou en attente : « départ déjà choisi : seigneurie-<n> ».
 
-Le choix accepté est un `ChoixDepart(identifiant)` gelé, placé dans
+**Tout pays jouable** (`sim/jouables.py`, pur, sans écriture ni aléa). Une maison
+de `World.maisons` est jouable si elle n'est pas une institution et si au moins
+un lieu du monde l'a pour maître actuel (`lieu.maitre`, relu sur les cellules).
+Les institutions sont les puissances de nature `république`, `Église` ou `ordre`
+(les ordres militaires sont refusés comme l'Église) ; leur nature se relit dans
+la table des puissances. `raison_de_refus(monde, identifiant)` rend `None` ou la
+raison, dans cet ordre : « maison inconnue ou mal formée : <repr> » (pas une
+chaîne, ou pas une fiche du registre) ; « maison non jouable : <id> (<nom>), une
+république élit ses magistrats » / « …, l'Église élit ses prélats » / « …, un
+ordre élit son maître » (Venise, sans lieu, est refusée comme république) ;
+« maison sans lieu : <id> ». `maisons_jouables(monde)` rend les jouables, chacun
+avec `id`, `nom`, `sorte` et `lieux` (nombre de lieux tenus en propre) : les six
+seigneuries de départ d'abord, par numéro, puis les grandes maisons, puis les
+petits seigneurs (`plausible`), chacun par identifiant.
+
+Avec le champ `maison`, `choisir_depart` refuse d'abord par cette raison, puis par
+« départ déjà choisi : <id> » (409 dans le service) ; les deux champs `seigneurie`
+et `maison` à la fois sont refusés : « choisir_depart : seigneurie ou maison, pas les
+deux ». Une maison `seigneurie-<n>` passe par l'ancien chemin et dépose le même
+`ChoixDepart(n)`. Toute autre maison jouable dépose un `ChoixDeMaison(maison)`
+gelé, dont `appliquer` pose `maison_du_joueur = maison` au tick suivant, sans relire
+le registre. `maison_choisie(monde)` rend la clé du registre du choix appliqué,
+sinon de celui en attente, quel que soit son chemin. La liste fermée des
+intentions ne change pas : aucun type neuf.
+
+Le choix accepté par l'ancien chemin est un `ChoixDepart(identifiant)` gelé, placé dans
 `World.intentions_en_attente` ; il garde le numéro entier. Il reste invisible dans `to_dict()` et les
 vues. Au tick suivant, `_appliquer_intentions` vient après la validation du
 numéro et avant la fabrication : elle appelle chaque intention par
@@ -2223,7 +2249,8 @@ Cette étape ignore les mondes sans attente et ne tire aucun aléa.
 Le choix de départ ne lit ni n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
 
 `maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
-et `/monde` portent cette clé et l'identifiant du registre `seigneurie-<n>` ; sans choix, la clé est absente
+et `/monde` portent cette clé et l'identifiant du registre (`seigneurie-<n>`, `grande-<id>` ou
+`plausible-…`) ; sans choix, la clé est absente
 et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
@@ -2376,11 +2403,14 @@ porte les noms et populations de `charger_villes`, placés par
 `attribuer_villes` et triés par nom ; sans ville documentée, la liste est vide.
 
 À la racine, `villes_hors_carte` déclare les noms triés des villes non placées.
-`terre_choisie` vaut `null` sans choix, sinon porte la fiche actuelle de
+`terre_choisie` vaut `null` sans choix, ou pour un pays jouable qui n'est pas une
+seigneurie de départ (la fiche de terre ne décrit que les six) ; sinon elle porte la fiche actuelle de
 `fiche_de_seigneurie(numero_de_seigneurie(world.maison_du_joueur), …)`, dont l'id
 reste entier, avec siège, source, cellule, habitants, production,
 suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
-dans l'ordre de la fiche. Un identifiant mal formé lève `SnapshotExportError`
+dans l'ordre de la fiche. Une institution ou une maison sans lieu posée à la main
+lève `SnapshotExportError` avec la raison de `raison_de_refus` ; tout autre
+identifiant (mal formé, entier, booléen, hors registre) lève `SnapshotExportError`
 « seigneurie inconnue », sans modifier le monde. **Le tick ne la lit pas.**
 
 Après `terre_choisie`, `maisons_du_joueur` porte `maison` et `suzerain` :
@@ -2446,6 +2476,10 @@ approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
 frontières réelles, comme dans la photographie.
 
 ## Les maisons servies, vue dérivée
+
+`GET /jouables` donne `{"tick", "date", "jouables": maisons_jouables(monde)}` sous
+`verrou_tick` : les six seigneuries de départ en tête, par numéro, puis les grandes
+maisons et les petits seigneurs ; ni institution, ni maison sans lieu.
 
 `GET /maisons` donne le registre complet trié par identifiant : nom, sorte,
 suzerain, siège (`cell_id`, `rang`, ou `null` hors carte) et nombre de lieux
@@ -2845,7 +2879,10 @@ polygone coûtait 170 ms des 218 de `jouer_ia` par tick (PC, 7 novembre 2026,
 `toutes_les_maisons_de_l_ia` une fois et la passent à `jouer_ia(monde, releve,
 maisons)` ; le service la refait seulement si le monde servi change d'objet.
 `decider_intentions` écarte à chaque tick la maison du joueur, ou celle qu'il
-vient de choisir. Sans liste, `jouer_ia` refait la vue, comme avant. Rien ne
+vient de choisir (`maison_choisie`), seigneurie ou grande maison : au tick du
+choix, l'IA ne propose déjà plus rien pour elle (route, secours, part, jauge,
+bâtiment, amélioration), et ne dépense plus ses jauges ni ses points. Les petits
+seigneurs (`plausible`) ne sont pas joués par l'IA avant #427. Sans liste, `jouer_ia` refait la vue, comme avant. Rien ne
 se garde dans le monde ni dans un module. Même graine, mêmes gestes, même
 monde octet pour octet (le test de la liste calculée une fois). Sur le
 PC, ticks 30 à 89 avec IA : 213 ms → 67 ms de médiane (`jouer_ia` 169 → 24 ms,
@@ -3301,6 +3338,12 @@ réponse A du propriétaire du 10 novembre 2026.
 (les bâtiments, les jauges et les événements le feront par leurs lots).
 
 ## Le pays et ses jauges
+
+Les jauges et les points sont tenus par maison du registre pour toutes les maisons
+(`World.jauges`). Depuis que le joueur peut prendre tout pays jouable, l'IA ne
+dépense plus ceux de la maison choisie, seigneurie ou grande maison (voir « Les
+décisions et les gestes de l'IA ») ; le joueur les dépense par `depenser_jauge` avec sa maison.
+Aucune règle des jauges ne change.
 
 **Le pays d'un seul tenant** (`sim/pays.py`, CAP.md, jalon 6). Une vue
 dérivée, rien de stocké : `pays(monde, maison)` lit les lieux de la maison

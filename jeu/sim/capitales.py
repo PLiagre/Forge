@@ -90,13 +90,23 @@ def cellule_de_capitale(capitale, carte) -> int | None:
     return None
 
 
+def cle_du_registre(maison):
+    """Identifiant du registre : grande-<id>, ou celui d'une seigneurie."""
+    if maison.sorte == "grande maison":
+        return f"grande-{maison.id}"
+    if maison.sorte == "seigneurie":
+        return identifiant_de_seigneurie(maison.id)
+    return None
+
+
 def maisons_de_l_ia(
     monde, capitales=None, maisons=None, seigneuries=None, positions=None,
 ) -> tuple[MaisonDeLIA, ...]:
-    """Recalcule les grandes maisons, puis les départs que le joueur n'a pas pris."""
+    """Recalcule les grandes maisons, puis les départs, sans la maison choisie par le joueur."""
+    from sim.intentions import maison_choisie
+    choix = maison_choisie(monde)
     return tuple(m for m in toutes_les_maisons_de_l_ia(monde, capitales, maisons, seigneuries, positions)
-                 if not (m.sorte == "seigneurie"
-                         and identifiant_de_seigneurie(m.id) == monde.maison_du_joueur))
+                 if choix is None or cle_du_registre(m) != choix)
 
 
 def toutes_les_maisons_de_l_ia(
