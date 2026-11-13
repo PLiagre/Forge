@@ -1605,7 +1605,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS)): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS, BOURGOGNE, PALATINAT)): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1907,8 +1907,8 @@ def _etats_iberie(e):
 
 def _familles_historiques(familles, liens):
     famille = FAMILLE_1400 + [('sophie-baviere', 'Sophie de Bavière', '1376', 'annee')]
-    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) + len(FICHES_MCA) == 80
-    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS} | {'personne-' + i for i in FICHES_MCA}
+    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) + len(FICHES_MCA) + len(FICHES_BOURGOGNE) + len(FICHES_PALATINAT) == 95
+    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT}
     fiches = {f['id']: f for f in familles + liens}
     couples = {'personne-isabeau': 'personne-grande-3', 'personne-jeanne': 'personne-grande-28', 'personne-sophie-baviere': 'personne-grande-9'}
     couples.update({v: k for k, v in list(couples.items())})
@@ -1916,7 +1916,7 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 26 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '30')}
+    assert len(liens) == 28 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
@@ -1926,8 +1926,10 @@ def _familles_historiques(familles, liens):
     _balkans(fiches)
     _maghreb(fiches)
     _mca(fiches)
+    _bourgogne(fiches)
+    _palatinat(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -2002,10 +2004,14 @@ def test_familles_integration(tmp_path, monkeypatch):
     parents += [('grande-19', mere and mere[len('personne-'):], i) for i, (_, _, _, pere, mere, *_) in BALKANS.items() if pere]
     parents += [('grande-30', 'jeanne-sophie-baviere', i) for i in ENFANTS_MCA]
     verifies |= {('anteriorite', ('personne-grande-30', 'personne-' + i)) for i in ENFANTS_MCA}
-    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]]
-    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]] + list(ENFANTS_MCA)
-    assert len(paternels) == 13 and len(maternites) == 8
-    assert len(bilan['verifies']) == 38 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 115
+    parents += [('grande-27', 'marguerite-flandre', i) for i in ENFANTS_BOURGOGNE]
+    verifies |= {(k, (p, 'personne-' + i)) for i in ENFANTS_BOURGOGNE for p, ks in (('personne-grande-27', ('anteriorite',)), ('personne-marguerite-flandre', ('anteriorite', 'age_maternel'))) for k in ks}
+    parents += [('grande-29', 'elisabeth-nuremberg', i) for i in ENFANTS_PALATINAT]
+    verifies |= {(k, (p, 'personne-' + i)) for i in ENFANTS_PALATINAT if i != 'frederic-palatinat' for p, ks in ((CHEF_PAL, ('anteriorite',)), (EPOUSE_PAL, ('anteriorite', 'age_maternel'))) for k in ks}
+    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]] + ['frederic-palatinat']
+    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]] + list(ENFANTS_MCA) + ['frederic-palatinat']
+    assert len(paternels) == 14 and len(maternites) == 9
+    assert len(bilan['verifies']) == 77 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 118
     controles = {('anteriorite', ('personne-' + p, 'personne-' + e)) for p, m, e in parents} | {(k, ('personne-' + m, 'personne-' + e)) for p, m, e in parents if m for k in ('anteriorite', 'age_maternel')}
     assert {(c['contrainte'], c['personnes']) for c in bilan['verifies']} == verifies
     assert {(c['contrainte'], c['personnes']) for c in bilan['indetermines']} == controles - verifies
@@ -2023,6 +2029,10 @@ def test_familles_integration(tmp_path, monkeypatch):
     mutations += [(('familles', jean, 'naissance'), _naissance_famille(v)) for v in ('1350-06-27', '1350-06-26')]
     marguerite = next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-marguerite-autriche')
     mutations += [(('familles', marguerite, 'naissance'), _naissance_famille('1377-09-19'))]
+    flandre = next(i for i, f in enumerate(document['familles']) if f['id'] == 'personne-marguerite-flandre')
+    mutations += [(('familles', flandre, 'naissance'), _naissance_famille(v)) for v in ('1371-05-28', '1340-01-01')]
+    nuremberg = next(i for i, f in enumerate(document['familles']) if f['id'] == EPOUSE_PAL)
+    mutations += [(('familles', nuremberg, 'naissance'), _naissance_famille(v)) for v in ('1378-01-23', '1340-01-01')]
     copies = [_alterer_personnages(document, k, v) for k, v in mutations]
     cycle = copy.deepcopy(document)
     cycle['familles'][mere]['pere'] = 'personne-charles'
@@ -2061,12 +2071,14 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 26 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '30')}
+    assert len(etats) == 28 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')}
     assert {f'grande-{n}' for n in range(11, 21)} <= {e['maison'] for e in etats}
     for e in etats:
         if e['maison'] in BALKANS_MAISONS: _balkans(etat=e); continue
         if e['maison'] in MAGHREB_MAISONS: _maghreb(etat=e); continue
         if e['maison'] in MCA_MAISONS: _mca(etat=e); continue
+        if e['maison'] == BOURGOGNE: _bourgogne(etat=e); continue
+        if e['maison'] == PALATINAT: _palatinat(etat=e); continue
         if e['maison'] == 'grande-16':
             _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
@@ -2492,12 +2504,14 @@ def _voisins_historiques(fiches):
         f = fiches['personne-' + i]
         if i == 'marie-bourgogne':
             assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-12', _naissance_famille('1386', 'annee'))
-        assert (f['pere'], f['mere'], f['conjoints'], f['presence']) == (None, None, ['personne-' + epouse] if epouse else [], 'vivante')
+        assert (f['pere'], f['mere'], f['conjoints'], f['presence']) == (*((CHEF_BG, EPOUSE_BG) if i == 'marie-bourgogne' else (None, None)), ['personne-' + epouse] if epouse else [], 'vivante')
         champs = {'pere', 'mere', 'conjoints', 'presence'} | ({'identite', 'naissance'} if i == 'marie-bourgogne' else set())
         assert set(f['sources']) == set(f['lacunes']) == champs | ({'identite', 'naissance'} if 'nom' in f else set())
         for k in champs:
             source, lacune = f['sources'][k], f['lacunes'][k]
-            if k in ('identite', 'naissance', 'presence') or (k == 'conjoints' and epouse):
+            if i == 'marie-bourgogne' and k in ('pere', 'mere'):
+                assert source and lacune is None  # contenu exact : _bourgogne
+            elif k in ('identite', 'naissance', 'presence') or (k == 'conjoints' and epouse):
                 assert source and source['url'] == page and lacune is None
                 _reperes_voisins(source['fait'], (nom,))
                 if k == 'naissance': _reperes_voisins(source['fait'], ('1386', 'septembre', 'probable'))
@@ -3168,7 +3182,7 @@ def test_familles_historiques_maghreb(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _maghreb({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 80 and len(d['liens']) == len(d['etats']) == 26
+    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
     # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
@@ -3360,7 +3374,7 @@ def test_familles_historiques_mamelouks_chypre_autriche(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _mca({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 80 and len(d['liens']) == len(d['etats']) == 26 and len(CHEF_EXCLUSION_MCA) == 12
+    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28 and len(CHEF_EXCLUSION_MCA) == 12
     _preuve_monde_mca(list(monde.personnages))
     # La Horde : ni fiche, ni complément, ni état ; la lacune d'identité de son chef reste mot pour mot.
     chef = next(c for c in d['chefs'] if c['maison'] == HORDE)
@@ -3420,3 +3434,491 @@ def test_familles_historiques_mamelouks_chypre_autriche(tmp_path):
             clone = {k: copy.deepcopy(v) for k, v in base.items() if k not in CHAMPS_FAMILIAUX - {champ}}
             clone.update(id=identifiant, maison=HORDE)
             with pytest.raises(AssertionError): _preuve_monde_mca(list(monde.personnages) + [clone])
+
+
+# Notices examinées le 12 novembre 2026 ; attentes indépendantes du catalogue.
+PHILIPPE, MARGUERITE, JEAN, MARGUERITE_BAV, MARGUERITE_B, CATHERINE, LEOPOLD, ANTOINE, PHILIPPE_N = (WP + p for p in (
+    'Philip_the_Bold#Marriage_and_issue', 'Margaret_III_of_Flanders', 'John_the_Fearless', 'Margaret_of_Bavaria', 'Margaret_of_Burgundy,_Duchess_of_Bavaria',
+    'Catherine_of_Burgundy', 'Leopold_IV,_Duke_of_Austria', 'Anthony_of_Brabant', 'Philip_II_of_Nevers'))
+BOURGOGNE = 'grande-27'
+CHEF_BG, EPOUSE_BG, MARIE_BG, AMEDEE_BG, ALBERT_BG = 'personne-grande-27', 'personne-marguerite-flandre', 'personne-marie-bourgogne', 'personne-grande-12', 'personne-grande-30'
+ENFANTS_BOURGOGNE = ('jean-sans-peur', 'marguerite-bourgogne', 'catherine-bourgogne', 'antoine-bourgogne', 'marie-bourgogne', 'philippe-nevers')
+PARENTS_BG = 'de Philippe II le Hardi et de Marguerite III de Flandre'
+
+
+def _filiation_bg(nom, qualite):
+    return (PHILIPPE, f'{nom} est {qualite} {PARENTS_BG}.')
+
+
+def _enfant_bg(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url=None, conjoints=()):
+    page = url or PHILIPPE
+    return (nom, BOURGOGNE, naissance, CHEF_BG, EPOUSE_BG, conjoints, {
+        'identite': (page, identite), 'naissance': (page, fait_naissance), 'presence': (page, fait_presence),
+        'pere': _filiation_bg(nom, qualite), 'mere': _filiation_bg(nom, qualite)}, {'conjoints': reperes})
+
+
+# id : (nom, maison, naissance, père, mère, conjoints, sources {champ : (page, fait)}, repères des lacunes {champ : repères})
+FICHES_BOURGOGNE = {
+    'marguerite-flandre': ('Marguerite III de Flandre', BOURGOGNE, {'valeur': '1350-04-13', 'precision': 'jour'}, None, None, (CHEF_BG,), {
+        'identite': (MARGUERITE, 'Marguerite III de Flandre, comtesse de Flandre, épouse de Philippe II le Hardi, duc de Bourgogne.'),
+        'naissance': (MARGUERITE, 'Marguerite III de Flandre : née le 13 avril 1350.'),
+        'presence': (MARGUERITE, 'Marguerite III de Flandre, morte le 16 mars 1405 ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'conjoints': (MARGUERITE, 'Marguerite III de Flandre et Philippe II le Hardi sont mariés depuis le 19 juin 1369 (' + PHILIPPE + ' ; ' + MARGUERITE + ') ; elle était veuve de Philippe de Rouvres (mariage en 1355, mort en 1361, sans enfant) : cette union passée ne crée aucune fiche.')},
+        {'pere': ('Marguerite III de Flandre', 'Louis II de Flandre', MARGUERITE, *HORS), 'mere': ('Marguerite III de Flandre', 'Marguerite de Brabant', MARGUERITE, *HORS)}),
+    'jean-sans-peur': _enfant_bg('Jean sans Peur', {'valeur': '1371-05-28', 'precision': 'jour'}, 'fils aîné',
+        'Jean sans Peur, fils aîné ' + PARENTS_BG + ', héritier du duché.', 'Jean sans Peur : né le 28 mai 1371.',
+        'Jean sans Peur, mort le 10 septembre 1419 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Jean sans Peur', 'Marguerite de Bavière', '1363', '12 avril 1385', 'Cambrai', JEAN, MARGUERITE_BAV, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'), JEAN),
+    'marguerite-bourgogne': _enfant_bg('Marguerite de Bourgogne', {'valeur': '1374-10', 'precision': 'mois'}, 'fille',
+        'Marguerite de Bourgogne, fille ' + PARENTS_BG + ', duchesse de Bavière.',
+        'Marguerite de Bourgogne : née en octobre 1374, mois que donnent ' + MARGUERITE_B + ' et ' + PHILIPPE + '.',
+        'Marguerite de Bourgogne, morte le 8 mars 1441 ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Marguerite de Bourgogne', 'Guillaume de Bavière', '12 avril 1385', MARGUERITE_B, '16 août 1401', 'après le départ', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'), MARGUERITE_B),
+    'catherine-bourgogne': _enfant_bg('Catherine de Bourgogne', {'valeur': '1378-04', 'precision': 'mois'}, 'fille',
+        'Catherine de Bourgogne, fille ' + PARENTS_BG + ', duchesse d’Autriche.',
+        'Catherine de Bourgogne : née en avril 1378 selon ' + PHILIPPE + ' et ' + MARGUERITE + ' ; ' + CATHERINE + ' ne donne que l’année 1378 ; aucun jour n’est choisi.',
+        'Catherine de Bourgogne, morte le 24 janvier 1425 à Gray selon ' + PHILIPPE + ' et ' + MARGUERITE + ', le 26 janvier 1425 à Dijon selon ' + CATHERINE + ' ; vivante au 1er janvier 1400, divergence conservée.',
+        ('Catherine de Bourgogne', 'Léopold IV', '15 août 1393', CATHERINE, LEOPOLD, 'sans enfant', 'personne-grande-30', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée')),
+    'antoine-bourgogne': _enfant_bg('Antoine de Bourgogne', {'valeur': '1384-08', 'precision': 'mois'}, 'fils',
+        'Antoine de Bourgogne, fils ' + PARENTS_BG + ', futur duc de Brabant.',
+        'Antoine de Bourgogne : né en août 1384, mois que donnent ' + ANTOINE + ' et ' + PHILIPPE + '.',
+        'Antoine de Bourgogne, mort le 25 octobre 1415 à Azincourt ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Antoine de Bourgogne', 'aucun conjoint au départ', 'Jeanne de Saint-Pol', '21 février 1402', 'Élisabeth de Görlitz', '16 juillet 1409', ANTOINE, 'ni célibat ni veuvage', 'aucune absence attestée'), ANTOINE),
+    'philippe-nevers': _enfant_bg('Philippe de Bourgogne', {'valeur': '1389-10', 'precision': 'mois'}, 'fils',
+        'Philippe de Bourgogne, comte de Nevers, fils ' + PARENTS_BG + '.',
+        'Philippe de Bourgogne : né en octobre 1389.',
+        'Philippe de Bourgogne, mort le 25 octobre 1415 à Azincourt ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Philippe de Bourgogne', 'aucun conjoint au départ', 'Isabelle de Coucy', '9 avril 1409', 'Bonne d’Artois', '20 juin 1413', PHILIPPE_N, 'ni célibat ni veuvage', 'aucune absence attestée'), PHILIPPE_N),
+}
+# Marie de Bourgogne (grande-12) : seuls ses deux liens changent ; le reste est gardé par `_voisins_historiques`.
+MARIE_BG_LIENS = {
+    'pere': (PHILIPPE, 'Marie de Bourgogne, née en septembre 1386 à Dijon, est fille ' + PARENTS_BG + ', mariée à Amédée VIII.'),
+    'mere': (MARGUERITE, 'Marie de Bourgogne est fille de Marguerite III de Flandre et de Philippe II le Hardi ; la page de Marguerite III la dit née en septembre 1380 ; la fiche garde 1386, sans choisir de mois, divergence conservée.')}
+# conjoints, sources {champ : (page, fait)}, repères des lacunes
+LIEN_BOURGOGNE = ((EPOUSE_BG,), {
+    'presence': (PHILIPPE, 'Philippe II le Hardi, duc de Bourgogne jusqu’à sa mort, le 27 avril 1404 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.'),
+    'conjoints': (PHILIPPE, 'Philippe II le Hardi et Marguerite III de Flandre sont mariés depuis le 19 juin 1369 ; union active au départ.')},
+    {'pere': ('Philippe II le Hardi', 'Jean II de France', PHILIPPE, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+     'mere': ('Philippe II le Hardi', 'Bonne de Luxembourg', 'Bonne de Bohême', PHILIPPE, 'hors périmètre', 'aucune absence attestée')})
+ETAT_BOURGOGNE = ('union', 'documentes', {
+    'conjoints': (PHILIPPE, 'Philippe II le Hardi et Marguerite III de Flandre sont mariés depuis le 19 juin 1369 ; état union, avant le départ.'),
+    'enfants': (PHILIPPE, 'Philippe II le Hardi et Marguerite III de Flandre ont neuf enfants, dont six vivants au 1er janvier 1400 : Jean, Marguerite, Catherine, Antoine, Marie et Philippe ; ' + MARGUERITE_B + ' dit aussi « neuf enfants » ; les trois autres sont morts avant 1400 et exclus.')}, {}, {
+    'Charles de Bourgogne': ((PHILIPPE, 'Charles de Bourgogne : fils ' + PARENTS_BG + ', né en 1372, mort en 1373, avant le départ ; exclu, aucun événement programmé.'),
+                             (MARGUERITE, 'Charles de Bourgogne : enfant de Marguerite III de Flandre, mort en 1373 ; mort avant 1400, il n’a ni fiche ni résurrection.')),
+    'Louis de Bourgogne': ((PHILIPPE, 'Louis de Bourgogne : fils ' + PARENTS_BG + ', né en 1377, mort en 1378, avant le départ ; exclu, aucun événement programmé.'),
+                           (MARGUERITE, 'Louis de Bourgogne : enfant de Marguerite III de Flandre, mort en 1378 ; mort avant 1400, il n’a ni fiche ni résurrection.')),
+    'Bonne de Bourgogne': ((PHILIPPE, 'Bonne de Bourgogne : fille ' + PARENTS_BG + ', née en 1379, fiancée à Jean de Bourbon, morte à Arras en 1399, avant le départ ; exclue, aucun événement programmé.'),
+                           (MARGUERITE, 'Bonne de Bourgogne : enfant de Marguerite III de Flandre, morte en 1399 ; morte avant 1400, elle n’a ni fiche ni résurrection.')),
+    'Jeanne de Saint-Pol': ((ANTOINE, 'Jeanne de Saint-Pol : première épouse future d’Antoine de Bourgogne, mariée le 21 février 1402, exclue du départ ; aucun événement programmé.'),),
+    'Élisabeth de Görlitz': ((ANTOINE, 'Élisabeth de Görlitz : seconde épouse future d’Antoine de Bourgogne, mariée le 16 juillet 1409, exclue du départ ; aucun événement programmé.'),),
+    'Isabelle de Coucy': ((PHILIPPE_N, 'Isabelle de Coucy : première épouse future de Philippe de Bourgogne, comte de Nevers, mariée le 9 avril 1409, exclue du départ ; aucun événement programmé.'),),
+    'Bonne d’Artois': ((PHILIPPE_N, 'Bonne d’Artois : seconde épouse future de Philippe de Bourgogne, comte de Nevers, mariée le 20 juin 1413, exclue du départ ; aucun événement programmé.'),)})
+BOURGOGNE_EXCLUSIONS = ETAT_BOURGOGNE[4]
+# Fiche de chef de Philippe II le Hardi (`chefs`) : nom, maison, naissance au mois (le jour diverge, 17 ou 15, et reste indéterminé), sources d'identité et de naissance.
+CHEF_FICHE_BG = ('Philippe II le Hardi', BOURGOGNE, {'valeur': '1342-01', 'precision': 'mois'}, WP + 'Philip_the_Bold', ('janvier 1342', '17', '15'))
+BOURGOGNE_DIVERGENCES = ('19 juin 1369', '27 avril 1404', 'Bonne de Luxembourg', 'Bonne de Bohême', '1355', '1361', 'fils aîné', '12 avril 1385', 'Marguerite de Bavière', 'Guillaume de Bavière',
+                         '16 août 1401', '15 août 1393', 'Léopold IV', '24 janvier', '26 janvier', '21 février 1402', '9 avril 1409', 'septembre 1380', 'neuf enfants', 'ni célibat ni veuvage', 'aucune absence attestée')
+REPERES_BG = {**{'personne-' + i: v[7] for i, v in FICHES_BOURGOGNE.items()}, CHEF_BG: LIEN_BOURGOGNE[2], BOURGOGNE: {}}
+
+
+def _bourgogne(fiches=None, etat=None):
+    try: _bourgogne_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche bourguignonne malformée : {erreur!r}') from erreur
+
+
+def _bourgogne_controle(fiches, etat):
+    if fiches is not None:
+        enfants = {'personne-' + i for i in ENFANTS_BOURGOGNE}
+        assert {CHEF_BG, EPOUSE_BG, MARIE_BG} | {'personne-' + i for i in FICHES_BOURGOGNE} <= set(fiches)
+        assert {i for i, f in fiches.items() if f.get('maison') == BOURGOGNE and i != CHEF_BG} == {'personne-' + i for i in FICHES_BOURGOGNE}
+        for i, (nom, maison, naissance, pere, mere, conjoints, sources, reperes) in FICHES_BOURGOGNE.items():
+            f = fiches['personne-' + i]
+            assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (nom, maison, naissance, pere, mere, conjoints, 'vivante')
+            _lacunes_b(f['sources'], f['lacunes'], sources, reperes)
+        conjoints, sources, reperes = LIEN_BOURGOGNE
+        c = fiches[CHEF_BG]
+        assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+        champs = ('pere', 'mere', 'conjoints', 'presence')
+        _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+        # Marie : la même fiche de `grande-12`, avec ses deux parents sourcés ; ses autres sources restent celles de la Savoie.
+        marie = fiches[MARIE_BG]
+        assert (marie['nom'], marie['maison'], marie['naissance'], marie['pere'], marie['mere'], tuple(marie['conjoints']), marie['presence']) == (
+            'Marie de Bourgogne', 'grande-12', {'valeur': '1386', 'precision': 'annee'}, CHEF_BG, EPOUSE_BG, (AMEDEE_BG,), 'vivante')
+        assert set(marie['sources']) == set(marie['lacunes']) == {'identite', 'naissance', 'pere', 'mere', 'conjoints', 'presence'}
+        assert all(marie['sources'][k]['url'] == MARIE_SAVOIE for k in ('identite', 'naissance', 'conjoints', 'presence'))
+        _lacunes_b({k: marie['sources'][k] for k in MARIE_BG_LIENS}, {k: marie['lacunes'][k] for k in MARIE_BG_LIENS}, MARIE_BG_LIENS, {})
+        assert [i for i, f in fiches.items() if f.get('nom') == 'Marie de Bourgogne'] == [MARIE_BG]
+        # Seuls les six enfants ont Philippe pour père et Marguerite pour mère ; une seule union, jamais d’union future ni d’enfant inventé.
+        assert {i for i, f in fiches.items() if f['pere'] == CHEF_BG} == {i for i, f in fiches.items() if f['mere'] == EPOUSE_BG} == enfants
+        assert {i for i, f in fiches.items() if CHEF_BG in f['conjoints']} == {EPOUSE_BG} and {i for i, f in fiches.items() if EPOUSE_BG in f['conjoints']} == {CHEF_BG}
+        # Aucun lien vers une autre maison, sauf Marie et Amédée VIII (Albert IV n’est pas Léopold IV).
+        famille = enfants | {CHEF_BG, EPOUSE_BG}
+        for i, f in fiches.items():
+            liens = {f['pere'], f['mere'], *f['conjoints']} - {None}
+            if i in famille: assert liens <= famille | ({AMEDEE_BG} if i == MARIE_BG else set())
+            else: assert not liens & famille or (i == AMEDEE_BG and liens & famille == {MARIE_BG})
+        assert not any(ALBERT_BG in (f['pere'], f['mere']) or ALBERT_BG in f['conjoints'] for i, f in fiches.items() if i in famille)
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETAT_BOURGOGNE
+        assert etat['maison'] == BOURGOGNE and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _chef_bourgogne(chef):
+    try:
+        nom, maison, naissance, page, reperes = CHEF_FICHE_BG
+        assert (chef['nom'], chef['maison'], chef['naissance']) == (nom, maison, naissance)
+        assert chef['sources']['identite']['url'] == chef['sources']['naissance']['url'] == page
+        assert chef['lacunes']['identite'] is None and chef['lacunes']['naissance'] is None
+        assert 'Philippe II le Hardi' in chef['sources']['identite']['fait'] and all(r in chef['sources']['naissance']['fait'] for r in reperes)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de chef bourguignonne malformée : {erreur!r}') from erreur
+
+
+def _preuve_monde_bourgogne(personnes):
+    _chef_bourgogne(next(f for f in personnes if f['id'] == CHEF_BG))
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
+                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+    _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
+
+
+def test_familles_historiques_bourgogne():
+    d, monde = _personnages(), World.charger(0)
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False, bourgogne=False):
+        if controle: assert _controler_famille(resolus(c))
+        if bourgogne:
+            with pytest.raises(AssertionError): _bourgogne({f['id']: f for f in resolus(c)})
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    _chef_bourgogne(next(c for c in d['chefs'] if c['maison'] == BOURGOGNE))
+    _bourgogne({f['id']: f for f in d['familles'] + d['liens']}); _bourgogne(etat=next(e for e in d['etats'] if e['maison'] == BOURGOGNE))
+    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
+    _preuve_monde_bourgogne(list(monde.personnages))
+    assert [f['id'] for f in monde.personnages if f['maison'] == 'grande-12'] == [AMEDEE_BG, MARIE_BG]
+    ids = {'personne-' + i for i in FICHES_BOURGOGNE} | {CHEF_BG, MARIE_BG, BOURGOGNE}
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', f.get('maison')) not in ids: continue
+            altere((t,), d[t][:j] + d[t][j+1:]); altere((t,), d[t] + [copy.deepcopy(f)])
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                altere((t, j, *chemin), ['personne-grande-9'] if valeur == [] else 'Altéré')
+                if isinstance(valeur, str):
+                    for repere in BOURGOGNE_DIVERGENCES:
+                        if repere in valeur: altere((t, j, *chemin), valeur.replace(repere, 'inconnu'))
+            for nom in f.get('exclusions', {}): altere((t, j, 'exclusions', nom), 'SUPPRIMER')
+            if t == 'etats':
+                for champ, etats in (('conjoints', ('lacune', 'veuvage')), ('enfants', ('lacune', 'absence_attestee'))):
+                    for etat in etats: altere((t, j, champ), etat)
+            for champ, liste in REPERES_BG.get(f.get('id', f.get('maison')), {}).items():
+                for repere in liste: altere((t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu'))
+                if f.get('maison') == BOURGOGNE and champ == 'conjoints': altere((t, j, 'lacunes', champ), f['nom'] + ' : absence attestée de tout conjoint.')
+    # La fiche du chef : nom, naissance (jour choisi dans la divergence 17/15, précision), repères et sources.
+    j = next(k for k, c in enumerate(d['chefs']) if c['maison'] == BOURGOGNE)
+    chef = d['chefs'][j]
+    for chemin, valeur in ((('nom',), 'Philippe III le Bon'), (('maison',), 'grande-12'), (('naissance',), _naissance_famille('1342-01-17')), (('naissance',), _naissance_famille('1342-01-15')),
+                           (('naissance',), _naissance_famille('1342', 'annee')), (('naissance', 'valeur'), '1342-02'),
+                           (('sources', 'identite', 'url'), WP + 'John_the_Fearless'), (('sources', 'naissance', 'url'), WP + 'Margaret_III_of_Flanders'), (('lacunes', 'naissance'), 'Naissance inconnue.')):
+        with pytest.raises(AssertionError): _chef_bourgogne(_alterer_personnages(chef, chemin, valeur))
+    for repere in CHEF_FICHE_BG[4]:
+        with pytest.raises(AssertionError): _chef_bourgogne(_alterer_personnages(chef, ('sources', 'naissance', 'fait'), chef['sources']['naissance']['fait'].replace(repere, 'inconnu')))
+    # Dans le monde, la même fiche altérée est refusée.
+    for chemin, valeur in ((('nom',), 'Philippe III le Bon'), (('naissance',), _naissance_famille('1342-01-17'))):
+        with pytest.raises(AssertionError): _chef_bourgogne(_alterer_personnages(next(f for f in monde.personnages if f['id'] == CHEF_BG), chemin, valeur))
+    modele = next(f for f in d['familles'] if f['id'] == MARIE_BG)
+    # Marie : ses anciens liens vides, avec leurs anciennes lacunes, sont refusés.
+    for champ in ('pere', 'mere'):
+        c = copy.deepcopy(d); marie = next(f for f in c['familles'] if f['id'] == MARIE_BG)
+        marie[champ], marie['sources'][champ], marie['lacunes'][champ] = None, None, f'Marie de Bourgogne : {"père" if champ == "pere" else "mère"} hors périmètre familial, aucune absence attestée.'
+        refuse(c, controle=True, bourgogne=True)
+    # Une seconde « Marie de Bourgogne », de `grande-27`, enfant de Philippe et de Marguerite.
+    c = copy.deepcopy(d); c['familles'].append(dict(copy.deepcopy(modele), id='personne-marie-intruse', maison=BOURGOGNE, pere=CHEF_BG, mere=EPOUSE_BG, conjoints=[]))
+    refuse(c, controle=True, bourgogne=True)
+    # Les naissances que le lot refuse de redevenir imprécises ou fausses.
+    for i, naissance in (('catherine-bourgogne', _naissance_famille('1378-04-01')), ('marie-bourgogne', _naissance_famille('1380', 'annee'))):
+        k = next(k for k, f in enumerate(d['familles']) if f['id'] == 'personne-' + i)
+        altere(('familles', k, 'naissance'), naissance)
+    # Catherine, conjointe réciproque d’Albert IV (`grande-30`) : Léopold IV n’est pas Albert IV.
+    c = copy.deepcopy(d); catherine = next(f for f in c['familles'] if f['id'] == 'personne-catherine-bourgogne')
+    catherine['conjoints'] = [ALBERT_BG]; next(x for x in c['liens'] if x['id'] == ALBERT_BG)['conjoints'].append(catherine['id'])
+    refuse(c, controle=True, bourgogne=True)
+    # Des copies de Marie, enfants de Philippe : morts avant 1400, épouses futures, héritier inventé.
+    base = next(f for f in monde.personnages if f['id'] == MARIE_BG)
+    intrus = [(nom, 'decedee', ('enfant',)) for nom in ('Charles de Bourgogne', 'Louis de Bourgogne', 'Bonne de Bourgogne')]
+    intrus += [(nom, 'vivante', ('enfant', 'conjoint')) for nom in ('Jeanne de Saint-Pol', 'Élisabeth de Görlitz', 'Isabelle de Coucy', 'Bonne d’Artois', 'Héritier inventé')]
+    for nom, presence, roles in intrus:
+        for role in roles:
+            c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, maison=BOURGOGNE, presence=presence, pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+            if role == 'enfant': ajout['pere'], ajout['mere'] = CHEF_BG, EPOUSE_BG
+            else: ajout['conjoints'] = [CHEF_BG]; next(x for x in c['liens'] if x['id'] == CHEF_BG)['conjoints'].append(ajout['id'])
+            refuse(c, controle=True, bourgogne=True)
+            clone = {k: copy.deepcopy(v) for k, v in base.items()}
+            clone.update(id='personne-intruse', nom=nom, maison=BOURGOGNE, presence=presence, pere=None, mere=None, conjoints=[])
+            personnes = [copy.deepcopy(f) for f in monde.personnages]
+            chef = next(f for f in personnes if f['id'] == CHEF_BG)
+            if role == 'enfant': clone.update(pere=CHEF_BG, mere=EPOUSE_BG)
+            else: clone['conjoints'] = [CHEF_BG]; chef['conjoints'].append(clone['id'])
+            with pytest.raises(AssertionError): _bourgogne({f['id']: f for f in personnes + [clone]})
+            with pytest.raises(AssertionError): _preuve_monde_bourgogne(personnes + [clone])
+
+
+# Notices examinées le 13 novembre 2026 ; attentes indépendantes du catalogue.
+(ROBERT, ELISABETH_N, MARGUERITE_P, CHARLES_L, LOUIS_P, ADOLPHE_C, JEAN_N, CATHERINE_P, ETIENNE_S, ANNA_V, OTTON_M, FREDERIC_A, MATHILDE_S) = (WP + p for p in (
+    'Rupert,_King_of_the_Romans#Family_and_children', 'Elisabeth_of_Nuremberg', 'Margaret_of_the_Palatinate', 'Charles_II_of_Lorraine', 'Louis_III,_Elector_Palatine',
+    'Adolph_I,_Duke_of_Cleves', 'John,_Count_Palatine_of_Neumarkt', 'Catherine_of_Pomerania,_Countess_Palatine_of_Neumarkt', 'Stephen,_Count_Palatine_of_Simmern-Zweibrücken',
+    'Anna_of_Veldenz,_Countess_Palatine_of_Simmern-Zweibrücken', 'Otto_I,_Count_Palatine_of_Mosbach', 'Frederick_IV_of_Austria', 'Matilda_of_Savoy'))
+PALATINAT = 'grande-29'
+CHEF_PAL, EPOUSE_PAL, BLANCHE_PAL, LOUIS_PAL, AUTRICHE_PAL = 'personne-grande-29', 'personne-elisabeth-nuremberg', 'personne-blanche-angleterre', 'personne-louis-palatinat', 'personne-grande-30'
+ENFANTS_PALATINAT = ('marguerite-palatinat', 'frederic-palatinat', 'louis-palatinat', 'agnes-palatinat', 'elisabeth-palatinat', 'jean-neumarkt', 'etienne-simmern', 'otton-mosbach')
+PARENTS_PAL = 'de Robert III et d’Élisabeth de Nuremberg'
+MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'}
+
+
+def _enfant_pal(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url_naissance=ROBERT, url_presence=ROBERT):
+    filiation = (ROBERT, f'{nom} est {qualite} {PARENTS_PAL} ; ' + ELISABETH_N + ' donne la même liste d’enfants.')
+    return (nom, PALATINAT, naissance, CHEF_PAL, EPOUSE_PAL, (), {
+        'identite': (ROBERT, identite), 'naissance': (url_naissance, fait_naissance), 'presence': (url_presence, fait_presence),
+        'pere': filiation, 'mere': filiation}, {'conjoints': reperes})
+
+
+# id : (nom, maison, naissance, père, mère, conjoints, sources {champ : (page, fait)}, repères des lacunes {champ : repères})
+FICHES_PALATINAT = {
+    'elisabeth-nuremberg': ('Élisabeth de Nuremberg', PALATINAT, {'valeur': '1358-12-13', 'precision': 'jour'}, None, None, (CHEF_PAL,), {
+        'identite': (ELISABETH_N, 'Élisabeth de Nuremberg, de la maison de Hohenzollern, épouse de Robert III, électeur palatin.'),
+        'naissance': (ELISABETH_N, 'Élisabeth de Nuremberg : née le 13 décembre 1358 ; l’infobox de la même page ne donne que 1358, divergence conservée.'),
+        'presence': (ELISABETH_N, 'Élisabeth de Nuremberg, morte le 26 juillet 1411 ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'conjoints': (ELISABETH_N, 'Élisabeth de Nuremberg et Robert III sont mariés à Amberg le 27 juin 1374 (' + ROBERT + ' ; ' + ELISABETH_N + ') ; union active au départ.')},
+        {'pere': ('Élisabeth de Nuremberg', 'Frédéric V de Nuremberg', ELISABETH_N, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+         'mere': ('Élisabeth de Nuremberg', 'Élisabeth de Misnie', ELISABETH_N, 'hors périmètre', 'aucune absence attestée')}),
+    'marguerite-palatinat': _enfant_pal('Marguerite du Palatinat', {'valeur': '1376', 'precision': 'annee'}, 'fille',
+        'Marguerite du Palatinat, fille ' + PARENTS_PAL + ', duchesse de Lorraine.',
+        'Marguerite du Palatinat : née en 1376, année que donnent ' + ROBERT + ' et ' + MARGUERITE_P + '.',
+        'Marguerite du Palatinat, morte le 27 août 1434 à Nancy selon ' + ROBERT + ' et ' + ELISABETH_N + ', le 26 août 1434 à Einville-au-Jard selon ' + MARGUERITE_P + ' ; vivante au 1er janvier 1400, divergence conservée.',
+        ('Marguerite du Palatinat', 'Charles II de Lorraine', '6 février 1393', ROBERT, MARGUERITE_P, CHARLES_L, 'dit 1393', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'), url_presence=MARGUERITE_P),
+    'frederic-palatinat': _enfant_pal('Frédéric du Palatinat', {'valeur': 'vers 1377', 'precision': 'vers'}, 'fils',
+        'Frédéric du Palatinat, fils aîné vivant ' + PARENTS_PAL + ' au départ ; aucun héritier n’est désigné.',
+        'Frédéric du Palatinat : né vers 1377 (« c. 1377 »), à Amberg ; aucune borne n’est inventée.',
+        'Frédéric du Palatinat, mort le 7 mars 1401 à Amberg, après le départ ; vivant au 1er janvier 1400, aucune mort programmée.',
+        ('Frédéric du Palatinat', 'aucune épouse nommée', ROBERT, ELISABETH_N, 'ni célibat ni veuvage', 'aucune absence attestée')),
+    'louis-palatinat': _enfant_pal('Louis III du Palatinat', {'valeur': '1378-01-23', 'precision': 'jour'}, 'fils',
+        'Louis III du Palatinat, fils ' + PARENTS_PAL + ' ; ' + LOUIS_P + ' le dit « troisième fils ».',
+        'Louis III du Palatinat : né le 23 janvier 1378 (' + ROBERT + ' ; ' + LOUIS_P + ').',
+        'Louis III du Palatinat, mort le 30 décembre 1436 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Louis III du Palatinat', 'aucun conjoint au départ', 'Blanche d’Angleterre', '6 juillet 1402', 'Mathilde de Savoie', '30 novembre 1417', LOUIS_P, 'ni célibat ni veuvage', 'aucune absence attestée'), url_presence=LOUIS_P),
+    'agnes-palatinat': _enfant_pal('Agnès du Palatinat', {'valeur': '1379', 'precision': 'annee'}, 'fille',
+        'Agnès du Palatinat, fille ' + PARENTS_PAL + '.',
+        'Agnès du Palatinat : née en 1379.',
+        'Agnès du Palatinat, morte en 1401 à Heidelberg, sans enfant (' + ADOLPHE_C + ') ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Agnès du Palatinat', 'Adolphe Ier de Clèves', 'Heidelberg', 'peu avant mars 1400', 'peu avant l’année 1400', ROBERT, ELISABETH_N, ADOLPHE_C,
+         'ni fiche, ni exclusion', 'pas si l’union est active au 1er janvier 1400', 'hors périmètre', 'aucune absence attestée'), url_presence=ADOLPHE_C),
+    'elisabeth-palatinat': _enfant_pal('Élisabeth du Palatinat', {'valeur': '1381-10-27', 'precision': 'jour'}, 'fille',
+        'Élisabeth du Palatinat, fille ' + PARENTS_PAL + '.',
+        'Élisabeth du Palatinat : née le 27 octobre 1381.',
+        'Élisabeth du Palatinat, morte le 31 décembre 1408 à Innsbruck selon ' + ROBERT + ', le 27 décembre 1408, peu après la naissance de sa fille, selon ' + FREDERIC_A + ' ; vivante au 1er janvier 1400, divergence conservée.',
+        ('Élisabeth du Palatinat', 'aucun conjoint au départ', 'Frédéric IV d’Autriche', '24 décembre 1407', 'Innsbruck', ROBERT, FREDERIC_A, 'n’est pas Albert IV', 'personne-grande-30', 'ni célibat ni veuvage', 'aucune absence attestée')),
+    'jean-neumarkt': _enfant_pal('Jean de Neumarkt', {'valeur': '1383', 'precision': 'annee'}, 'fils',
+        'Jean de Neumarkt, fils ' + PARENTS_PAL + '.',
+        'Jean de Neumarkt : né en 1383 à Neunburg vorm Wald, année que donnent ' + ROBERT + ' et ' + JEAN_N + '.',
+        'Jean de Neumarkt, mort les 13–14 mars 1443 selon ' + ROBERT + ', le 14 mars 1443 selon ' + JEAN_N + ' ; vivant au 1er janvier 1400, divergence conservée.',
+        ('Jean de Neumarkt', 'aucun conjoint au départ', 'Catherine de Poméranie', '1407', '15 août 1407', 'Ribe', JEAN_N, CATHERINE_P, 'ni célibat ni veuvage', 'aucune absence attestée')),
+    'etienne-simmern': _enfant_pal('Étienne de Simmern-Deux-Ponts', {'valeur': '1385-06-23', 'precision': 'jour'}, 'fils',
+        'Étienne de Simmern-Deux-Ponts, fils ' + PARENTS_PAL + '.',
+        'Étienne de Simmern-Deux-Ponts : né le 23 juin 1385 (' + ROBERT + ' ; ' + ETIENNE_S + ').',
+        'Étienne de Simmern-Deux-Ponts, mort le 14 février 1459 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Étienne de Simmern-Deux-Ponts', 'aucun conjoint au départ', 'Anna de Veldenz', 'juin 1410', ETIENNE_S, '1409', ANNA_V, 'ni célibat ni veuvage', 'aucune absence attestée'), url_presence=ETIENNE_S),
+    'otton-mosbach': _enfant_pal('Otton de Mosbach', {'valeur': '1390-08-24', 'precision': 'jour'}, 'fils',
+        'Otton de Mosbach, fils cadet ' + PARENTS_PAL + ' (' + OTTON_M + ').',
+        'Otton de Mosbach : né le 24 août 1390 (' + ROBERT + ' ; ' + OTTON_M + ').',
+        'Otton de Mosbach, mort le 5 juillet 1461 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        ('Otton de Mosbach', 'aucun conjoint au départ', 'Jeanne de Bavière-Landshut', 'janvier 1430', OTTON_M, 'ni célibat ni veuvage', 'aucune absence attestée'), url_presence=OTTON_M),
+}
+# conjoints, sources {champ : (page, fait)}, repères des lacunes
+LIEN_PALATINAT = ((EPOUSE_PAL,), {
+    'presence': (ROBERT, 'Robert III, électeur palatin jusqu’à sa mort, le 18 mai 1410 au château de Landskron, à Oppenheim ; élu roi des Romains le 21 août 1400, après le départ ; en fonction et vivant au 1er janvier 1400, aucune mort ni élection programmée.'),
+    'conjoints': (ROBERT, 'Robert III et Élisabeth de Nuremberg sont mariés à Amberg depuis le 27 juin 1374 ; union active au départ.')},
+    {'pere': ('Robert III', 'Robert II', ROBERT, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+     'mere': ('Robert III', 'Béatrice de Sicile', 'Beatrice of Aragon', ROBERT, 'hors périmètre', 'aucune absence attestée')})
+ETAT_PALATINAT = ('union', 'documentes', {
+    'conjoints': (ROBERT, 'Robert III et Élisabeth de Nuremberg sont mariés à Amberg depuis le 27 juin 1374 ; état union, avant le départ.'),
+    'enfants': (ROBERT, 'Robert III et Élisabeth de Nuremberg ont neuf enfants, dont huit vivants au 1er janvier 1400 : Marguerite, Frédéric, Louis, Agnès, Élisabeth, Jean, Étienne et Otton ; ' + ELISABETH_N + ' donne la même liste ; Robert Pipan, mort avant 1400, est exclu.')}, {}, {
+    'Robert Pipan': ((ROBERT, 'Robert Pipan : fils aîné ' + PARENTS_PAL + ', né le 20 février 1375, mort le 25 janvier 1397 à Amberg, avant le départ ; exclu, aucun événement programmé.'),
+                     (ELISABETH_N, 'Robert Pipan : enfant d’Élisabeth de Nuremberg, mort en 1397 ; mort avant 1400, il n’a ni fiche ni résurrection.')),
+    'Blanche d’Angleterre': ((LOUIS_P, 'Blanche d’Angleterre : épouse future de Louis III du Palatinat, mariée le 6 juillet 1402 ; elle garde sa seule fiche anglaise et ses parents, sans conjoint actif au départ ; aucun événement programmé.'),),
+    'Mathilde de Savoie': ((LOUIS_P, 'Mathilde de Savoie : seconde épouse future de Louis III du Palatinat, mariée le 30 novembre 1417, exclue du départ ; aucun événement programmé.'),
+                           (MATHILDE_S, 'Mathilde de Savoie : épouse de Louis III du Palatinat après le départ ; exclue, aucun événement programmé.')),
+    'Frédéric IV d’Autriche': ((ROBERT, 'Frédéric IV d’Autriche : époux futur d’Élisabeth du Palatinat, marié le 24 décembre 1407 à Innsbruck, exclu du départ ; aucun événement programmé.'),
+                               (FREDERIC_A, 'Frédéric IV d’Autriche : époux futur d’Élisabeth du Palatinat ; il n’est pas Albert IV d’Autriche, aucun lien vers personne-grande-30.')),
+    'Catherine de Poméranie': ((CATHERINE_P, 'Catherine de Poméranie : épouse future de Jean de Neumarkt, mariée le 15 août 1407 à Ribe, exclue du départ ; aucun événement programmé.'),
+                               (JEAN_N, 'Catherine de Poméranie : épouse future de Jean de Neumarkt, en 1407 ; exclue, aucun événement programmé.')),
+    'Anna de Veldenz': ((ETIENNE_S, 'Anna de Veldenz : épouse future d’Étienne de Simmern-Deux-Ponts, en juin 1410, exclue du départ ; aucun événement programmé.'),
+                        (ANNA_V, 'Anna de Veldenz : épouse future d’Étienne de Simmern-Deux-Ponts, en 1409 ; divergence conservée, exclue, aucun événement programmé.')),
+    'Jeanne de Bavière-Landshut': ((OTTON_M, 'Jeanne de Bavière-Landshut : née en 1413, épouse future d’Otton de Mosbach en janvier 1430, exclue du départ ; aucun événement programmé.'),)})
+PALATINAT_EXCLUSIONS = ETAT_PALATINAT[4]
+# Fiche de chef de Robert III (`chefs`) : nom, maison, naissance au jour, page d'identité et de naissance, repères de la naissance.
+CHEF_FICHE_PAL = ('Robert III de Wittelsbach', PALATINAT, {'valeur': '1352-05-05', 'precision': 'jour'}, WP + 'Rupert_of_Germany', ('1352-05-05',))
+PALATINAT_DIVERGENCES = ('27 juin 1374', 'Amberg', '18 mai 1410', '21 août 1400', 'Robert II', 'Béatrice de Sicile', 'Beatrice of Aragon', '13 décembre 1358', '26 juillet 1411', '6 février 1393',
+                         'Charles II de Lorraine', '27 août 1434', '26 août 1434', 'vers 1377', '7 mars 1401', 'fils aîné vivant', 'troisième fils', '6 juillet 1402', '30 novembre 1417',
+                         'peu avant mars 1400', 'peu avant l’année 1400', '24 décembre 1407', '15 août 1407', '13–14 mars 1443', 'juin 1410', '1409', 'janvier 1430', '1413', 'neuf enfants',
+                         '25 janvier 1397', 'ni célibat ni veuvage', 'aucune absence attestée')
+REPERES_PAL = {**{'personne-' + i: v[7] for i, v in FICHES_PALATINAT.items()}, CHEF_PAL: LIEN_PALATINAT[2], PALATINAT: {}}
+
+
+def _palatinat(fiches=None, etat=None):
+    try: _palatinat_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche palatine malformée : {erreur!r}') from erreur
+
+
+def _palatinat_controle(fiches, etat):
+    if fiches is not None:
+        enfants = {'personne-' + i for i in ENFANTS_PALATINAT}
+        assert {CHEF_PAL, BLANCHE_PAL} | {'personne-' + i for i in FICHES_PALATINAT} <= set(fiches)
+        assert {i for i, f in fiches.items() if f.get('maison') == PALATINAT and i != CHEF_PAL} == {'personne-' + i for i in FICHES_PALATINAT}
+        for i, (nom, maison, naissance, pere, mere, conjoints, sources, reperes) in FICHES_PALATINAT.items():
+            f = fiches['personne-' + i]
+            assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (nom, maison, naissance, pere, mere, conjoints, 'vivante')
+            _lacunes_b(f['sources'], f['lacunes'], sources, reperes)
+        conjoints, sources, reperes = LIEN_PALATINAT
+        c = fiches[CHEF_PAL]
+        assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+        champs = ('pere', 'mere', 'conjoints', 'presence')
+        _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+        # Blanche d’Angleterre : la seule de son nom, anglaise, sans conjoint, sa lacune inchangée.
+        assert [i for i, f in fiches.items() if f.get('nom') == 'Blanche d’Angleterre'] == [BLANCHE_PAL]
+        blanche = fiches[BLANCHE_PAL]
+        assert blanche['maison'] == 'grande-1' and blanche['conjoints'] == [] and blanche['sources']['conjoints'] is None
+        assert blanche['lacunes']['conjoints'] == 'Relation non intégrée dans ce lot ; aucune absence attestée.'
+        # Seuls les huit enfants ont Robert pour père et Élisabeth pour mère ; une seule union, jamais d’union future ni d’enfant inventé.
+        assert {i for i, f in fiches.items() if f.get('pere') == CHEF_PAL} == {i for i, f in fiches.items() if f.get('mere') == EPOUSE_PAL} == enfants
+        assert {i for i, f in fiches.items() if CHEF_PAL in f.get('conjoints', [])} == {EPOUSE_PAL} and {i for i, f in fiches.items() if EPOUSE_PAL in f.get('conjoints', [])} == {CHEF_PAL}
+        # Aucun lien vers une autre maison : ni Blanche, ni Albert IV, ni Frédéric IV.
+        famille = enfants | {CHEF_PAL, EPOUSE_PAL}
+        for i, f in fiches.items():
+            liens = {f.get('pere'), f.get('mere'), *f.get('conjoints', [])} - {None}
+            if i in famille: assert liens <= famille
+            else: assert not liens & famille
+        assert not any({BLANCHE_PAL, AUTRICHE_PAL} & ({f.get('pere'), f.get('mere')} | set(f.get('conjoints', []))) for i, f in fiches.items() if i in famille)
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETAT_PALATINAT
+        assert etat['maison'] == PALATINAT and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _chef_palatinat(chef):
+    try:
+        nom, maison, naissance, page, reperes = CHEF_FICHE_PAL
+        assert (chef['nom'], chef['maison'], chef['naissance']) == (nom, maison, naissance)
+        assert chef['sources']['identite']['url'] == chef['sources']['naissance']['url'] == page
+        assert chef['lacunes']['identite'] is None and chef['lacunes']['naissance'] is None
+        assert 'Robert III' in chef['sources']['identite']['fait'] and all(r in chef['sources']['naissance']['fait'] for r in reperes)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de chef palatine malformée : {erreur!r}') from erreur
+
+
+def _preuve_monde_palatinat(personnes):
+    _chef_palatinat(next(f for f in personnes if f['id'] == CHEF_PAL))
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
+                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+    _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
+
+
+def test_familles_historiques_palatinat():
+    d, monde = _personnages(), World.charger(0)
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False, palatinat=False):
+        if controle: assert _controler_famille(resolus(c))
+        if palatinat:
+            with pytest.raises(AssertionError): _palatinat({f['id']: f for f in resolus(c)})
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    _chef_palatinat(next(c for c in d['chefs'] if c['maison'] == PALATINAT))
+    _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
+    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
+    assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
+    assert len(monde.personnages) == 2381
+    _preuve_monde_palatinat(list(monde.personnages))
+    # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
+    feuilles = []
+    for t in ('familles', 'liens', 'etats'):
+        for f in d[t]:
+            if f.get('id', f.get('maison')) not in {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL, PALATINAT}: continue
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                if isinstance(valeur, str): feuilles.append(valeur)
+    assert all(any(r in v for v in feuilles) for r in PALATINAT_DIVERGENCES)
+    ids = {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL, PALATINAT}
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', f.get('maison')) not in ids: continue
+            altere((t,), d[t][:j] + d[t][j+1:]); altere((t,), d[t] + [copy.deepcopy(f)])
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                altere((t, j, *chemin), ['personne-grande-9'] if valeur == [] else 'Altéré')
+                if isinstance(valeur, str):
+                    for repere in PALATINAT_DIVERGENCES:
+                        if repere in valeur: altere((t, j, *chemin), valeur.replace(repere, 'inconnu'))
+            for nom in f.get('exclusions', {}): altere((t, j, 'exclusions', nom), 'SUPPRIMER')
+            if t == 'etats':
+                for champ, etats in (('conjoints', ('lacune', 'veuvage')), ('enfants', ('lacune', 'absence_attestee'))):
+                    for etat in etats: altere((t, j, champ), etat)
+            for champ, liste in REPERES_PAL.get(f.get('id', f.get('maison')), {}).items():
+                for repere in liste: altere((t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu'))
+                if f.get('maison') == PALATINAT and champ == 'conjoints': altere((t, j, 'lacunes', champ), f['nom'] + ' : absence attestée de tout conjoint.')
+    # La fiche du chef : nom, naissance (jour, précision), sources ; dans le monde aussi.
+    j = next(k for k, c in enumerate(d['chefs']) if c['maison'] == PALATINAT)
+    chef = d['chefs'][j]
+    for chemin, valeur in ((('nom',), 'Robert II du Palatinat'), (('maison',), 'grande-30'), (('naissance',), _naissance_famille('1352-05-06')), (('naissance',), _naissance_famille('1352', 'annee')),
+                           (('sources', 'identite', 'url'), ROBERT), (('sources', 'naissance', 'url'), ELISABETH_N), (('lacunes', 'naissance'), 'Naissance inconnue.')):
+        with pytest.raises(AssertionError): _chef_palatinat(_alterer_personnages(chef, chemin, valeur))
+    with pytest.raises(AssertionError): _chef_palatinat(_alterer_personnages(next(f for f in monde.personnages if f['id'] == CHEF_PAL), ('nom',), 'Robert II du Palatinat'))
+    modele = next(f for f in d['familles'] if f['id'] == LOUIS_PAL)
+    def relie(c, i, j):
+        a, b = (next(f for f in c['familles'] + c['liens'] if f['id'] == k) for k in (i, j))
+        a['conjoints'].append(j); b['conjoints'].append(i)
+    # Blanche d’Angleterre et Louis, conjoints réciproques ; Élisabeth et Frédéric IV (`grande-30` : Albert IV) ; Agnès et un conjoint actif.
+    c = copy.deepcopy(d); relie(c, BLANCHE_PAL, LOUIS_PAL); refuse(c, controle=True, palatinat=True)
+    c = copy.deepcopy(d); relie(c, 'personne-elisabeth-palatinat', AUTRICHE_PAL); refuse(c, controle=True, palatinat=True)
+    c = copy.deepcopy(d); c['familles'].append(dict(copy.deepcopy(modele), id='personne-adolphe-cleves', nom='Adolphe Ier de Clèves', conjoints=[], pere=None, mere=None))
+    relie(c, 'personne-agnes-palatinat', 'personne-adolphe-cleves'); refuse(c, controle=True, palatinat=True)
+    # Une seconde « Blanche d’Angleterre », de `grande-29`, conjointe réciproque de Louis.
+    c = copy.deepcopy(d); c['familles'].append(dict(copy.deepcopy(modele), id='personne-blanche-intruse', nom='Blanche d’Angleterre', pere=None, mere=None, conjoints=[]))
+    relie(c, 'personne-blanche-intruse', LOUIS_PAL); refuse(c, controle=True, palatinat=True)
+    # Les naissances que le lot refuse de redevenir imprécises, et un état de la Horde.
+    for i, naissance in (('frederic-palatinat', _naissance_famille('1377', 'annee')), ('elisabeth-nuremberg', _naissance_famille('1358', 'annee'))):
+        k = next(k for k, f in enumerate(d['familles']) if f['id'] == 'personne-' + i)
+        altere(('familles', k, 'naissance'), naissance)
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(next(e for e in d['etats'] if e['maison'] == PALATINAT)), maison='grande-21')); refuse(c)
+    c = copy.deepcopy(d); c['etats'] = [e for e in c['etats'] if e['maison'] != PALATINAT]; refuse(c)
+    # Des copies de Louis, enfants de Robert et d’Élisabeth : mort avant 1400, conjoints futurs, héritier inventé.
+    base = next(f for f in monde.personnages if f['id'] == LOUIS_PAL)
+    intrus = [('Robert Pipan', 'decedee', ('enfant',))]
+    intrus += [(nom, 'vivante', ('enfant', 'conjoint')) for nom in ('Blanche d’Angleterre', 'Mathilde de Savoie', 'Frédéric IV d’Autriche', 'Catherine de Poméranie', 'Anna de Veldenz', 'Jeanne de Bavière-Landshut', 'Héritier inventé')]
+    for nom, presence, roles in intrus:
+        for role in roles:
+            c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, presence=presence, pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+            if role == 'enfant': ajout['pere'], ajout['mere'] = CHEF_PAL, EPOUSE_PAL
+            else: ajout['conjoints'] = [CHEF_PAL]; next(x for x in c['liens'] if x['id'] == CHEF_PAL)['conjoints'].append(ajout['id'])
+            refuse(c, controle=True, palatinat=True)
+            clone = {k: copy.deepcopy(v) for k, v in base.items()}
+            clone.update(id='personne-intruse', nom=nom, presence=presence, pere=None, mere=None, conjoints=[])
+            personnes = [copy.deepcopy(f) for f in monde.personnages]
+            chef = next(f for f in personnes if f['id'] == CHEF_PAL)
+            if role == 'enfant': clone.update(pere=CHEF_PAL, mere=EPOUSE_PAL)
+            else: clone['conjoints'] = [CHEF_PAL]; chef['conjoints'].append(clone['id'])
+            with pytest.raises(AssertionError): _palatinat({f['id']: f for f in personnes + [clone]})
+            with pytest.raises(AssertionError): _preuve_monde_palatinat(personnes + [clone])

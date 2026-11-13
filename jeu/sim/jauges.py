@@ -54,6 +54,7 @@ class Regles:
     causes: dict
     gestes: dict
     amelioration: dict
+    ia: dict
 
 
 def _nombre(valeur, ou):
@@ -111,7 +112,20 @@ def lire_regles(document, modificateurs=None) -> Regles:
             raise JaugeInvalide(f"gestes.{nom}.effet : une jauge et un écart non nul attendus")
         gestes[nom] = {"nom": brute.get("nom", nom), "cout": dict(cout), "effet": dict(effet)}
     return Regles(domaines, cmin, cmax, jauges, points, causes, gestes,
-                  _lire_amelioration(document.get("amelioration_de_province"), points, donnees))
+                  _lire_amelioration(document.get("amelioration_de_province"), points, donnees),
+                  _lire_ia(document.get("ia"), jauges))
+
+
+def _lire_ia(brute, jauges) -> dict:
+    """La table `ia` : le seuil sous lequel une maison de l'IA juge son Droit bas, dans les bornes de la jauge."""
+    if not isinstance(brute, dict):
+        raise JaugeInvalide("ia.droit_bas : table [ia] attendue")
+    seuil = _nombre(brute.get("droit_bas"), "ia.droit_bas")
+    if "droit" not in jauges:
+        raise JaugeInvalide("jauges.droit : jauge que le seuil de l'IA juge, absente")
+    if not jauges["droit"]["minimum"] < seuil <= jauges["droit"]["maximum"]:
+        raise JaugeInvalide("ia.droit_bas : strictement au-dessus du minimum du Droit et au plus à son maximum attendu")
+    return {"droit_bas": seuil}
 
 
 def _lire_amelioration(brute, points, donnees) -> dict:
