@@ -1605,7 +1605,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS, BOURGOGNE, PALATINAT, BAR, WURTEMBERG, MOREE)): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS, BOURGOGNE, PALATINAT, BAR, WURTEMBERG, MOREE, BRANKOVIC, EVRENOS, ZAB)): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1916,7 +1916,7 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 30 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {CHEF_BAR, CHEF_WURTEMBERG} and 'personne-seigneurie-3' not in {f['id'] for f in liens}
+    assert len(liens) == 32 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {CHEF_BAR, CHEF_WURTEMBERG, CHEF_BRANKOVIC, CHEF_EVRENOS} and not {'personne-seigneurie-3', CHEF_ZAB} & {f['id'] for f in liens}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
@@ -1931,8 +1931,11 @@ def _familles_historiques(familles, liens):
     _bar(fiches)
     _wurtemberg(fiches)
     _moree(fiches)
+    _brankovic(fiches)
+    _evrenos(fiches)
+    _zab(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL} | {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR} | {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL} | {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR} | {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG} | {CHEF_BRANKOVIC, CHEF_EVRENOS}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -2083,7 +2086,7 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 31 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {BAR, WURTEMBERG, MOREE}
+    assert len(etats) == 34 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {BAR, WURTEMBERG, MOREE, BRANKOVIC, EVRENOS, ZAB}
     assert {f'grande-{n}' for n in range(11, 21)} <= {e['maison'] for e in etats}
     for e in etats:
         if e['maison'] in BALKANS_MAISONS: _balkans(etat=e); continue
@@ -2094,6 +2097,9 @@ def _etats_historiques(etats):
         if e['maison'] == BAR: _bar(etat=e); continue
         if e['maison'] == WURTEMBERG: _wurtemberg(etat=e); continue
         if e['maison'] == MOREE: _moree(etat=e); continue
+        if e['maison'] == BRANKOVIC: _brankovic(etat=e); continue
+        if e['maison'] == EVRENOS: _evrenos(etat=e); continue
+        if e['maison'] == ZAB: _zab(etat=e); continue
         if e['maison'] == 'grande-16':
             _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
@@ -3126,10 +3132,10 @@ CLES_CHEF_SANS_COMPLEMENT = {'id', 'maison', 'nom', 'naissance', 'sources', 'lac
 
 
 def _complements_du_monde(personnes):
-    """Les chefs qui portent un complément. Un état sans complément n'est permis qu'au chef de la Morée, avec les seules clés d'un chef."""
+    """Les chefs qui portent un complément. Un état sans complément n'est permis qu'aux chefs de la Morée et du Zab, avec les seules clés d'un chef."""
     chefs = [f for f in personnes if f['id'] == 'personne-' + f['maison']]
     seuls = [f for f in chefs if 'etat_familial' in f and not COMPLEMENT_MONDE & f.keys()]
-    assert {f['id'] for f in seuls} == {'personne-seigneurie-3'}
+    assert {f['id'] for f in seuls} == {'personne-seigneurie-3', 'personne-seigneurie-6'}
     assert all(set(f) == CLES_CHEF_SANS_COMPLEMENT and set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance'} for f in seuls)
     return [f for f in chefs if COMPLEMENT_MONDE & f.keys()]
 # chef : (conjoints, sources {champ : (page, fait)}, repères des lacunes)
@@ -3208,7 +3214,7 @@ def test_familles_historiques_maghreb(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _maghreb({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
     # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
@@ -3400,7 +3406,7 @@ def test_familles_historiques_mamelouks_chypre_autriche(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _mca({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(CHEF_EXCLUSION_MCA) == 12
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(CHEF_EXCLUSION_MCA) == 12
     _preuve_monde_mca(list(monde.personnages))
     # La Horde : ni fiche, ni complément, ni état ; la lacune d'identité de son chef reste mot pour mot.
     chef = next(c for c in d['chefs'] if c['maison'] == HORDE)
@@ -3625,7 +3631,7 @@ def test_familles_historiques_bourgogne():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_bourgogne(next(c for c in d['chefs'] if c['maison'] == BOURGOGNE))
     _bourgogne({f['id']: f for f in d['familles'] + d['liens']}); _bourgogne(etat=next(e for e in d['etats'] if e['maison'] == BOURGOGNE))
-    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
     _preuve_monde_bourgogne(list(monde.personnages))
     assert [f['id'] for f in monde.personnages if f['maison'] == 'grande-12'] == [AMEDEE_BG, MARIE_BG]
     ids = {'personne-' + i for i in FICHES_BOURGOGNE} | {CHEF_BG, MARIE_BG, BOURGOGNE}
@@ -3705,7 +3711,7 @@ PALATINAT = 'grande-29'
 CHEF_PAL, EPOUSE_PAL, BLANCHE_PAL, LOUIS_PAL, AUTRICHE_PAL = 'personne-grande-29', 'personne-elisabeth-nuremberg', 'personne-blanche-angleterre', 'personne-louis-palatinat', 'personne-grande-30'
 ENFANTS_PALATINAT = ('marguerite-palatinat', 'frederic-palatinat', 'louis-palatinat', 'agnes-palatinat', 'elisabeth-palatinat', 'jean-neumarkt', 'etienne-simmern', 'otton-mosbach')
 PARENTS_PAL = 'de Robert III et d’Élisabeth de Nuremberg'
-MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {'seigneurie-1', 'seigneurie-2', 'seigneurie-3'}
+MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {f'seigneurie-{n}' for n in range(1, 7)}
 
 
 def _enfant_pal(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url_naissance=ROBERT, url_presence=ROBERT):
@@ -3872,7 +3878,7 @@ def test_familles_historiques_palatinat():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_palatinat(next(c for c in d['chefs'] if c['maison'] == PALATINAT))
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
-    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
     assert len(monde.personnages) == 2390
     _preuve_monde_palatinat(list(monde.personnages))
@@ -4100,9 +4106,9 @@ def _bar_controle(fiches, etat):
             if i in famille: assert liens <= famille
             else: assert not liens & famille
         assert not any({'personne-grande-6', THEODORE_II_ID, 'personne-grande-27', MARIE_FRANCE_ID} & ({f.get('pere'), f.get('mere')} | set(f.get('conjoints', []))) for i, f in fiches.items() if i in famille)
-        # Seule Wurtemberg a, avec Bar, un complément et des fiches ; les quatre autres seigneuries n'en ont pas.
-        assert {i for i in fiches if i.startswith('personne-seigneurie-')} == {CHEF_BAR, 'personne-seigneurie-2'}
-        assert {f['maison'] for f in fiches.values() if f.get('maison', '').startswith('seigneurie-')} == {BAR, 'seigneurie-2'}
+        # Seuls Wurtemberg, Branković et Evrenos ont, avec Bar, un complément ; Wurtemberg est la seule autre seigneurie qui ait des fiches de famille.
+        assert {i for i in fiches if i.startswith('personne-seigneurie-')} == {CHEF_BAR, 'personne-seigneurie-2', 'personne-seigneurie-4', 'personne-seigneurie-5'}
+        assert {f['maison'] for i, f in fiches.items() if f.get('maison', '').startswith('seigneurie-') and not i.startswith('personne-seigneurie-')} == {BAR, 'seigneurie-2'}
     if etat is not None:
         conjoints, enfants, sources, reperes, exclusions = ETAT_BAR
         assert etat['maison'] == BAR and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
@@ -4144,9 +4150,9 @@ def test_familles_historiques_bar():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_bar(next(c for c in d['chefs'] if c['maison'] == BAR))
     _bar({f['id']: f for f in d['familles'] + d['liens']}); _bar(etat=next(e for e in d['etats'] if e['maison'] == BAR))
-    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3'}
+    assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3', 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'}
     assert len(monde.personnages) == 2390
     _preuve_monde_bar(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
@@ -4206,7 +4212,7 @@ def test_familles_historiques_bar():
     for i, naissance in (('yolande-bar', _naissance_famille('1365', 'annee')), ('louis-bar', _naissance_famille('1370', 'annee')), ('edouard-bar', _naissance_famille('1377', 'annee'))):
         k = next(k for k, f in enumerate(d['familles']) if f['id'] == 'personne-' + i)
         altere(('familles', k, 'naissance'), naissance)
-    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(next(e for e in d['etats'] if e['maison'] == BAR)), maison='seigneurie-4')); refuse(c)
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(next(e for e in d['etats'] if e['maison'] == BAR)), maison='grande-24')); refuse(c)
     c = copy.deepcopy(d); c['etats'] = [e for e in c['etats'] if e['maison'] != BAR]; refuse(c)
     # Des copies d'Édouard : enfants morts avant 1400 ou de présence indéterminée, époux futur, héritier inventé.
     base = next(f for f in monde.personnages if f['id'] == 'personne-edouard-bar')
@@ -4464,7 +4470,7 @@ def test_familles_historiques_wurtemberg():
     chef = next(c for c in d['chefs'] if c['maison'] == WURTEMBERG)
     _chef_wurtemberg_moree(chef); _chef_wurtemberg_moree(next(c for c in d['chefs'] if c['maison'] == MOREE))
     _wurtemberg({f['id']: f for f in d['familles'] + d['liens']}); _wurtemberg(etat=next(e for e in d['etats'] if e['maison'] == WURTEMBERG))
-    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
     assert len(monde.personnages) == 2390
     _preuve_monde_wurtemberg(list(monde.personnages))
     ids = {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG, WURTEMBERG}
@@ -4531,7 +4537,7 @@ def test_familles_historiques_moree(tmp_path):
     chef = next(c for c in d['chefs'] if c['maison'] == MOREE)
     _chef_wurtemberg_moree(chef)
     _moree({f['id']: f for f in d['familles'] + d['liens']}); _moree(etat=next(e for e in d['etats'] if e['maison'] == MOREE))
-    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(MOREE_EXCLUSIONS) == 1
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(MOREE_EXCLUSIONS) == 1
     assert not any(l['id'] == CHEF_MOREE for l in d['liens']) and not any(f['maison'] == MOREE for f in d['familles'])
     _preuve_monde_moree(list(monde.personnages))
     ids = {MOREE}
@@ -4576,9 +4582,384 @@ def test_familles_historiques_moree(tmp_path):
         modif({f['id']: f for f in personnes})
         return personnes
     modifs = [lambda m: m[CHEF_MOREE].update(conjoints=[]), lambda m: m[CHEF_MOREE].update(presence='vivante'), lambda m: m[CHEF_MOREE].pop('etat_familial'),
-              lambda m: m['personne-seigneurie-4'].update(etat_familial=copy.deepcopy(m[CHEF_MOREE]['etat_familial'])),
-              lambda m: m['personne-seigneurie-4'].update(conjoints=[]), lambda m: m[CHEF_MOREE].update(intrus=True), lambda m: m[CHEF_MOREE]['sources'].update(presence=None)]
+              lambda m: m['personne-grande-24'].update(etat_familial=copy.deepcopy(m[CHEF_MOREE]['etat_familial'])),
+              lambda m: m['personne-grande-24'].update(conjoints=[]), lambda m: m[CHEF_MOREE].update(intrus=True), lambda m: m[CHEF_MOREE]['sources'].update(presence=None)]
     for preuve in preuves:
         preuve(list(monde.personnages))
         for modif in modifs:
             with pytest.raises(AssertionError): preuve(copie(modif))
+
+
+# Notices examinées le 14 novembre 2026 ; attentes indépendantes du catalogue. Branković et Evrenos ont un complément et un état, le Zab un état seul ; aucune fiche nouvelle.
+DJURADJ, VUK, IRENE, EVRENOS_EN, ZAB_EN = (WP + p for p in ('%C4%90ura%C4%91_Brankovi%C4%87', 'Vuk_Brankovi%C4%87', 'Irene_Kantakouzene', 'Evrenos', 'Zab_Emirate'))
+EVRENOS_TDV = 'https://islamansiklopedisi.org.tr/evrenosogullari'
+BRANKOVIC, EVRENOS, ZAB = 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'
+CHEF_BRANKOVIC, CHEF_EVRENOS, CHEF_ZAB = 'personne-seigneurie-4', 'personne-seigneurie-5', 'personne-seigneurie-6'
+# Fiches de chef (`chefs`), inchangées : nom, naissance, source de l'identité (page, fait), source de la naissance (nulle si None), lacune de la naissance.
+CHEFS_TROIS = {
+    BRANKOVIC: ('Đurađ Vuković Branković', {'valeur': '1377-02-22', 'precision': 'jour'}, (DJURADJ, 'Đurađ Branković, seigneur du domaine Branković de 1396 à 1412 ; despote de Serbie seulement en 1427.'),
+                (DJURADJ, 'La notice donne la naissance : 1377-02-22.'), None),
+    EVRENOS: ('Gazi Evrenos Bey', None, (EVRENOS_TDV, 'Gazi Evrenos Bey, chef de marche au service de Bayezid Ier puis de ses fils, établi à Yenice-i Vardar, mort en novembre 1417.'), None,
+              'https://en.wikipedia.org/wiki/Evrenos déclare la naissance inconnue ; l’âge supérieur à cent ans évoqué par la TDV ne sert pas à calculer une naissance.'),
+    ZAB: ('Abd al-Rahman ibn Mozni', None, (ZAB_EN, 'La page atteste les Banou Mozni émirs du Zab à Biskra du milieu du XIVe siècle à 1402 sans nommer le titulaire ; ce nom est plausible et déclaré (principe 7), aucun fait ne le confirme.'),
+            None, 'Identité individuelle non établie au départ ; aucune naissance attribuable.')}
+NOMS_BRANKOVIC = ('Mara Lazarević', 'Vuk Branković', 'Irène Cantacuzène', 'Eleni de Trébizonde', 'Todor Branković', 'Grgur Branković', 'Stefan Branković', 'Katarina Branković', 'Mara Branković', 'Lazar Branković')
+NOMS_EVRENOS = ('Ali Bey', 'İsa Bey', 'Hızırşah Bey', 'Yakub Bey', 'Beğce Bey', 'Süleyman Bey', 'Barak Bey', 'Fille d’Evrenos')
+# conjoints, sources {champ : (page, fait)}, repères des lacunes
+LIEN_BRANKOVIC = ((), {
+    'presence': (DJURADJ, 'Đurađ Branković, despote de Serbie de 1427 à 1456, mort le 24 décembre 1456 (' + DJURADJ + ') ; en fonction et vivant au 1er janvier 1400, vingt-deux ans, aucune mort programmée.')}, {
+    'pere': ('Đurađ Branković', 'Vuk Branković', '6 octobre 1397', '1398 deaths', VUK, DJURADJ, 'divergence conservée', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+    'mere': ('Đurađ Branković', 'Mara Lazarević', 'prince Lazar', '1371', '12 avril 1426', VUK, DJURADJ, 'vit au départ', 'Stefan Lazarević', 'personne-grande-17', 'Olivera Despina', 'personne-olivera-despina', 'aucun lien de fratrie', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+    'conjoints': ('Đurađ Branković', 'aucune épouse connue', 'Irène Cantacuzène', '26 décembre 1414', IRENE, 'According to some historians', 'Eleni of Trebizond (1395–1410)', 'disputed', DJURADJ, 'ni célibat ni veuvage', 'aucune absence attestée')})
+LIEN_EVRENOS = ((), {
+    'presence': (EVRENOS_EN, 'Gazi Evrenos Bey, chef de marche ottoman, mort en 1417 (« died 1417 ») à Yenice-i Vardar : il sert Bayezid Ier, puis Süleyman Çelebi et Mehmed Ier (' + EVRENOS_EN + ') ; mort en novembre 1417 pour ' + EVRENOS_TDV
+                 + ' ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.')}, {
+    'pere': ('Gazi Evrenos Bey', 'Îsâ « Prangi » Bey', 'Prangı lakabı ile anılan Îsâ Bey', 'According to some sources', 'Bozoklu Han', 'Prangi', EVRENOS_EN, EVRENOS_TDV, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+    'mere': ('Gazi Evrenos Bey', EVRENOS_EN, EVRENOS_TDV, 'aucune mère inventée', 'aucune absence attestée'),
+    'conjoints': ('Gazi Evrenos Bey', 'aucune épouse nommée', EVRENOS_EN, EVRENOS_TDV, 'ni célibat ni veuvage', 'aucune absence attestée')})
+# maison : (conjoints, enfants, sources, repères des lacunes, exclusions {nom : ((page, fait), …)}) ; le motif réunit les faits
+ETAT_BRANKOVIC = ('lacune', 'lacune', {}, {
+    'conjoints': ('Đurađ Branković', 'aucune épouse connue', 'Irène Cantacuzène', '26 décembre 1414', IRENE, 'According to some historians', 'Eleni of Trebizond (1395–1410)', 'disputed', DJURADJ, 'ni célibat ni veuvage', 'aucune absence attestée'),
+    'enfants': ('Đurađ Branković', DJURADJ, IRENE, 'at least six children', 'five children', 'conflicts with information on the Eirene Kantakouzene page', 'Todor', 'd. before 1429', 'probably died early', 'aucune absence attestée')}, {
+    'Eleni de Trébizonde': ((DJURADJ, 'Eleni de Trébizonde : épouse « disputed » de Đurađ Branković dans l’infobox de ' + DJURADJ + ' ; « According to some historians », sa première épouse aurait été la princesse « Eleni of Trebizond (1395–1410) », fille d’Alexis IV de Trébizonde, '
+                             'affirmation marquée « cn » ; née en 1395, union non datée, aucune union active au départ ; ni fiche ni lien, aucun événement programmé.'),),
+    'Irène Cantacuzène': ((IRENE, 'Irène Cantacuzène : née « c. 1400 » à Constantinople, elle épouse Đurađ Branković le 26 décembre 1414 (« 1414 » dans l’infobox de ' + IRENE + ') ; union future, exclue du départ, ni fiche ni lien ; aucun événement programmé.'),),
+    'Todor Branković': ((DJURADJ, 'Todor Branković : fils de Đurađ Branković, « d. before 1429 », « probably died early », sans naissance connue (' + DJURADJ + ') ; présence indéterminée au 1er janvier 1400, ni vivant ni décédé par déduction ; aucune absence attestée, ni fiche ni lien.'),
+                        (IRENE, 'Todor Branković : marqué « (?) » dans l’infobox de ' + IRENE + ', qui parle de « five children » ; naissance inconnue, présence indéterminée ; ni fiche ni lien.')),
+    'Grgur Branković': ((DJURADJ, 'Grgur Branković : fils de Đurađ Branković, né « c. 1415 » (mort en 1459), cité en premier dans le manuscrit Masarelli ; enfant futur, exclu du départ, ni fiche ni lien ; il n’est pas Grgur Vuković, frère de Đurađ ; aucun événement programmé.'),),
+    'Stefan Branković': ((DJURADJ, 'Stefan Branković : fils de Đurađ Branković, né « c. 1417 » (mort en 1476), aveuglé en 1441 ; enfant futur, exclu du départ, ni fiche ni lien ; il reste distinct de Stefan Lazarević (personne-grande-17), dont la fiche ne change pas ; aucun événement programmé.'),),
+    'Katarina Branković': ((DJURADJ, 'Katarina Branković : fille de Đurađ Branković, née « c. 1418 » (morte en 1490), épouse d’Ulrich II de Celje ; enfant future, exclue du départ, ni fiche ni lien ; aucun événement programmé.'),),
+    'Mara Branković': ((DJURADJ, 'Mara Branković : fille de Đurađ Branković, née « c. 1420 » (morte en 1487), épouse du sultan Murad II ; enfant future, exclue du départ, ni fiche ni lien ; elle reste distincte de Mara Lazarević, mère de Đurađ ; aucun événement programmé.'),),
+    'Lazar Branković': ((DJURADJ, 'Lazar Branković : fils de Đurađ Branković, né « c. 1421 » (mort en 1458), cité en dernier dans le manuscrit Masarelli ; enfant futur, exclu du départ, ni fiche ni lien ; il reste distinct du prince Lazar, père de Mara Lazarević ; aucun événement programmé.'),)})
+ETAT_EVRENOS = ('lacune', 'lacune', {}, {
+    'conjoints': ('Gazi Evrenos Bey', 'aucune épouse nommée', EVRENOS_EN, EVRENOS_TDV, 'ni célibat ni veuvage', 'aucune absence attestée'),
+    'enfants': ('Gazi Evrenos Bey', EVRENOS_EN, 'seven sons', 'several daughters', EVRENOS_TDV, 'babalarından sonra', 'aucune absence attestée')}, {
+    'Ali Bey': ((EVRENOS_EN, 'Ali Bey : fils de Gazi Evrenos Bey, nommé dans l’infobox de ' + EVRENOS_EN + ', sans naissance connue ; présence indéterminée au 1er janvier 1400, aucune absence attestée, ni fiche ni lien.'),
+                (EVRENOS_TDV, 'Ali Bey : Bayezid Ier lui donne le sancak d’Ergiri, sans date, et Ali et Îsâ servent « babalarından sonra » (' + EVRENOS_TDV + ') ; le monde ne déduit ni sa naissance ni sa présence.')),
+    'İsa Bey': ((EVRENOS_EN, 'İsa Bey : fils de Gazi Evrenos Bey, nommé dans l’infobox de ' + EVRENOS_EN + ', sans naissance connue ; présence indéterminée au 1er janvier 1400, aucune absence attestée, ni fiche ni lien.'),
+                (EVRENOS_TDV, 'İsa Bey : Ali et Îsâ servent « babalarından sonra » (' + EVRENOS_TDV + '), sans date ; le monde ne déduit ni sa naissance ni sa présence.')),
+    'Hızırşah Bey': ((EVRENOS_EN, 'Hızırşah Bey (« Khidr-shah » dans le texte de ' + EVRENOS_EN + ') : fils de Gazi Evrenos Bey, sans naissance connue ; présence indéterminée au 1er janvier 1400, aucune absence attestée, ni fiche ni lien.'),),
+    'Yakub Bey': ((EVRENOS_EN, 'Yakub Bey : fils de Gazi Evrenos Bey, nommé dans l’infobox de ' + EVRENOS_EN + ', sans naissance connue ; présence indéterminée au 1er janvier 1400, aucune absence attestée, ni fiche ni lien.'),
+                  (EVRENOS_TDV, 'Yakub Bey reste distinct de Yâkub Paşa, que nomme aussi ' + EVRENOS_TDV + ' ; ni fiche ni lien.')),
+    'Beğce Bey': ((EVRENOS_EN, 'Beğce Bey (« Begdje » dans le texte de ' + EVRENOS_EN + ') : fils de Gazi Evrenos Bey, sans naissance connue ; présence indéterminée au 1er janvier 1400, aucune absence attestée, ni fiche ni lien.'),),
+    'Süleyman Bey': ((EVRENOS_EN, 'Süleyman Bey : fils de Gazi Evrenos Bey, nommé dans l’infobox de ' + EVRENOS_EN + ', sans naissance connue ; présence indéterminée au 1er janvier 1400, aucune absence attestée, ni fiche ni lien ; il reste distinct de Süleyman Çelebi (personne-suleyman-celebi), dont la fiche ne change pas.'),),
+    'Barak Bey': ((EVRENOS_EN, 'Barak Bey : fils de Gazi Evrenos Bey, nommé dans l’infobox de ' + EVRENOS_EN + ', sans naissance connue ; présence indéterminée au 1er janvier 1400, aucune absence attestée, ni fiche ni lien.'),),
+    'Filles de Gazi Evrenos': ((EVRENOS_EN, 'Filles de Gazi Evrenos Bey : « several daughters », sans nom ni naissance, présence indéterminée au 1er janvier 1400 ; l’une épouse le grand vizir Çandarlı Halil Pasha le Jeune et est la mère de Çandarlı İbrahim Pasha, union non datée ; aucune fiche, aucun lien.'),)})
+ETAT_ZAB = ('lacune', 'lacune', {}, {
+    'conjoints': ('Abd al-Rahman ibn Mozni', 'plausible et déclaré', ZAB_EN, 'Banu Muzni', 'from mid 14th century to 1402', 'Biskra', 'aucune épouse', 'ni célibat ni veuvage', 'aucune absence attestée'),
+    'enfants': ('Abd al-Rahman ibn Mozni', 'plausible et déclaré', ZAB_EN, 'Banu Muzni', 'from mid 14th century to 1402', 'Biskra', 'aucun enfant', 'aucune absence attestée')}, {})
+BRANKOVIC_EXCLUSIONS, EVRENOS_EXCLUSIONS = ETAT_BRANKOVIC[4], ETAT_EVRENOS[4]
+BRANKOVIC_DIVERGENCES = ('24 décembre 1456', '1427', 'Vuk Branković', '6 octobre 1397', '1398 deaths', 'Mara Lazarević', 'prince Lazar', '1371', '12 avril 1426', 'Irène Cantacuzène', '26 décembre 1414', 'According to some historians',
+                         'Eleni of Trebizond (1395–1410)', 'disputed', 'at least six children', 'five children', 'conflicts with information on the Eirene Kantakouzene page', 'd. before 1429', 'probably died early', 'c. 1400', 'c. 1415', 'c. 1417',
+                         'c. 1418', 'c. 1420', 'c. 1421', 'ni célibat ni veuvage', 'aucune absence attestée')
+EVRENOS_DIVERGENCES = ('died 1417', 'Yenice-i Vardar', 'Süleyman Çelebi', 'Mehmed Ier', 'Îsâ « Prangi » Bey', 'Prangı lakabı ile anılan Îsâ Bey', 'According to some sources', 'Bozoklu Han', 'Prangi', 'seven sons', 'several daughters', 'babalarından sonra',
+                       'Khidr-shah', 'Begdje', 'Ergiri', 'Yâkub Paşa', 'Çandarlı Halil Pasha', 'Çandarlı İbrahim Pasha', 'présence indéterminée', 'ni célibat ni veuvage', 'aucune absence attestée')
+ZAB_DIVERGENCES = ('Abd al-Rahman ibn Mozni', 'plausible et déclaré', 'Banu Muzni', 'from mid 14th century to 1402', 'Biskra', 'ni célibat ni veuvage', 'aucune absence attestée')
+REPERES_BRANKOVIC = {CHEF_BRANKOVIC: LIEN_BRANKOVIC[2], BRANKOVIC: ETAT_BRANKOVIC[3]}
+REPERES_EVRENOS = {CHEF_EVRENOS: LIEN_EVRENOS[2], EVRENOS: ETAT_EVRENOS[3]}
+REPERES_ZAB = {ZAB: ETAT_ZAB[3]}
+
+
+def _controle_lien(fiches, chef, constante):
+    conjoints, sources, reperes = constante
+    c = fiches[chef]
+    assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+    champs = ('pere', 'mere', 'conjoints', 'presence')
+    _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+
+
+def _controle_etat(etat, maison, constante):
+    conjoints, enfants, sources, reperes, exclusions = constante
+    assert etat['maison'] == maison and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+    _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+    assert set(etat['exclusions']) == set(exclusions)
+    for nom, faits in exclusions.items():
+        x = etat['exclusions'][nom]
+        assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _sans_famille(fiches, maison, chef, noms):
+    """Aucune fiche de la maison, aucun parent ni conjoint du chef, aucun des noms exclus."""
+    assert not any(f.get('maison') == maison and i != chef for i, f in fiches.items())
+    assert not any(chef in (f.get('pere'), f.get('mere')) or chef in (f.get('conjoints') or []) for f in fiches.values())
+    assert not any(f.get('nom') in noms for f in fiches.values())
+
+
+def _en_assertion(controle, message, fiches, etat):
+    try: controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'{message} malformé : {erreur!r}') from erreur
+
+
+def _brankovic(fiches=None, etat=None):
+    _en_assertion(_brankovic_controle, 'complément ou état de Branković', fiches, etat)
+
+
+def _brankovic_controle(fiches, etat):
+    if fiches is not None:
+        assert {CHEF_BRANKOVIC, 'personne-grande-17', 'personne-olivera-despina'} <= set(fiches)
+        _controle_lien(fiches, CHEF_BRANKOVIC, LIEN_BRANKOVIC)
+        _sans_famille(fiches, BRANKOVIC, CHEF_BRANKOVIC, NOMS_BRANKOVIC)
+        # Mara Lazarević n'a pas de fiche : le complément n'a aucun lien vers ses enfants Stefan Lazarević et Olivera Despina, ni de fratrie.
+        c = fiches[CHEF_BRANKOVIC]
+        assert not {'personne-grande-17', 'personne-olivera-despina'} & ({c['pere'], c['mere']} | set(c['conjoints']))
+        assert not any(CHEF_BRANKOVIC in f.get('conjoints', []) for f in fiches.values() if f['id'] in ('personne-grande-17', 'personne-olivera-despina'))
+    if etat is not None:
+        _controle_etat(etat, BRANKOVIC, ETAT_BRANKOVIC)
+
+
+def _evrenos(fiches=None, etat=None):
+    _en_assertion(_evrenos_controle, 'complément ou état d’Evrenos', fiches, etat)
+
+
+def _evrenos_controle(fiches, etat):
+    if fiches is not None:
+        assert {CHEF_EVRENOS, SULEYMAN_ID} <= set(fiches)
+        _controle_lien(fiches, CHEF_EVRENOS, LIEN_EVRENOS)
+        _sans_famille(fiches, EVRENOS, CHEF_EVRENOS, NOMS_EVRENOS)
+        # Süleyman Bey n'est pas Süleyman Çelebi : sa fiche (`grande-16`) reste égale à sa constante.
+        assert {k: v for k, v in fiches[SULEYMAN_ID].items() if k != 'origine'} == FICHE_SULEYMAN
+    if etat is not None:
+        _controle_etat(etat, EVRENOS, ETAT_EVRENOS)
+
+
+def _zab(fiches=None, etat=None):
+    _en_assertion(_zab_controle, 'état du Zab', fiches, etat)
+
+
+def _zab_controle(fiches, etat):
+    if fiches is not None:
+        # Aucun complément ni aucune fiche : le chef n'a que son état, et personne n'a de lien vers lui.
+        assert CHEF_ZAB not in fiches
+        _sans_famille(fiches, ZAB, CHEF_ZAB, ())
+    if etat is not None:
+        _controle_etat(etat, ZAB, ETAT_ZAB)
+        assert etat['exclusions'] == {}
+
+
+def _chef_trois(chef):
+    try:
+        nom, naissance, identite, source_naissance, lacune = CHEFS_TROIS[chef['maison']]
+        assert (chef['nom'], chef['naissance']) == (nom, naissance)
+        assert chef['sources']['identite'] == dict(zip(('url', 'fait'), identite))
+        assert chef['sources']['naissance'] == (None if source_naissance is None else dict(zip(('url', 'fait'), source_naissance)))
+        assert (chef['lacunes']['identite'], chef['lacunes']['naissance']) == (None, lacune)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de chef malformée : {erreur!r}') from erreur
+
+
+def _preuve_monde_trois(personnes):
+    for maison in CHEFS_TROIS: _chef_trois(next(f for f in personnes if f['id'] == 'personne-' + maison))
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']], _complements_du_monde(personnes))
+    chef = next(f for f in personnes if f['id'] == CHEF_ZAB)
+    assert set(chef) == CLES_CHEF_SANS_COMPLEMENT and set(chef['sources']) == set(chef['lacunes']) == {'identite', 'naissance'}
+    etats = [f['etat_familial'] for f in personnes if 'etat_familial' in f]
+    _etats_historiques(etats)
+
+
+def _preuve_monde_brankovic(personnes):
+    _preuve_monde_trois(personnes)
+    _brankovic({f['id']: f for f in personnes})
+
+
+def _preuve_monde_evrenos(personnes):
+    _preuve_monde_trois(personnes)
+    _evrenos({f['id']: f for f in personnes})
+
+
+def _preuve_monde_zab(personnes):
+    _preuve_monde_trois(personnes)
+    _zab({f['id']: f for f in personnes if f['id'] != CHEF_ZAB})
+
+
+def _refus_trois(d):
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False, fonction=None):
+        if controle: assert _controler_famille(resolus(c))
+        if fonction:
+            with pytest.raises(AssertionError): fonction({f['id']: f for f in resolus(c)})
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    return resolus, refuse
+
+
+def _neutre(d, chef):
+    """Un complément neutre : ni parent, ni conjoint, vivant ; le lecteur l'accepte."""
+    neutre = copy.deepcopy(next(l for l in d['liens'] if l['id'] == CHEF_BAR))
+    neutre.update(id=chef, conjoints=[], pere=None, mere=None, presence='vivante')
+    neutre['sources'] = {**neutre['sources'], 'conjoints': None}
+    neutre['lacunes'] = {**neutre['lacunes'], 'conjoints': 'Aucun conjoint ; aucune absence attestée.'}
+    return neutre
+
+
+def _epreuves_intrus(d, monde, refuse, fonction, preuve, chef, intrus):
+    """Chaque intrus, construit comme fiche de la maison du chef, enfant ou conjoint réciproque : le catalogue et le monde le refusent."""
+    maison = chef[len('personne-'):]
+    modele, base = next(f for f in d['familles'] if f['id'] == EBERHARD_IV_ID), next(f for f in monde.personnages if f['id'] == EBERHARD_IV_ID)
+    for nom, presence, role in intrus:
+        c = copy.deepcopy(d)
+        if chef == CHEF_ZAB: c['liens'].append(_neutre(d, chef))
+        ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, maison=maison, presence=presence, pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+        clone = {k: copy.deepcopy(v) for k, v in base.items()}
+        clone.update(id='personne-intruse', nom=nom, maison=maison, presence=presence, pere=None, mere=None, conjoints=[])
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        for cible, tous in ((ajout, c['familles'] + c['liens']), (clone, personnes)):
+            parent = next(x for x in tous if x['id'] == chef)
+            if role == 'enfant': cible['pere'] = chef
+            else: cible['conjoints'] = [chef]; parent['conjoints'] = [*parent.get('conjoints', []), 'personne-intruse']
+        refuse(c, controle=True, fonction=fonction)
+        with pytest.raises(AssertionError): fonction({f['id']: f for f in personnes + [clone] if f['id'] != (chef if chef == CHEF_ZAB else None)})
+        with pytest.raises(AssertionError): preuve(personnes + [clone])
+
+
+def _reperes_lisibles(d, ids, divergences):
+    """Chaque repère se lit quelque part dans les feuilles : un repère introuvable ne prouverait rien."""
+    feuilles = _feuilles_des(d, ids)
+    assert feuilles and all(any(r in v for v in feuilles) for r in divergences)
+
+
+def _refus_chef(chef, chemins):
+    for chemin, valeur in chemins:
+        with pytest.raises(AssertionError): _chef_trois(_alterer_personnages(chef, chemin, valeur))
+
+
+def test_familles_historiques_brankovic():
+    d, monde = _personnages(), World.charger(0)
+    resolus, refuse = _refus_trois(d)
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    chef = next(c for c in d['chefs'] if c['maison'] == BRANKOVIC)
+    for c in d['chefs']:
+        if c['maison'] in CHEFS_TROIS: _chef_trois(c)
+    _brankovic({f['id']: f for f in d['familles'] + d['liens']}); _brankovic(etat=next(e for e in d['etats'] if e['maison'] == BRANKOVIC))
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BRANKOVIC_EXCLUSIONS) == 8
+    assert len(monde.personnages) == 2390
+    _preuve_monde_brankovic(list(monde.personnages))
+    ids = {CHEF_BRANKOVIC, BRANKOVIC}
+    _reperes_lisibles(d, ids, BRANKOVIC_DIVERGENCES)
+    # Retirer, dédoubler, altérer chaque feuille et chaque repère ; passer les états à un autre état.
+    _alterer_famille(d, ids, BRANKOVIC_DIVERGENCES, REPERES_BRANKOVIC, refuse, (('conjoints', ('union', 'veuvage')), ('enfants', ('documentes', 'absence_attestee'))))
+    # Une lacune du complément ne devient pas une absence attestée.
+    j = next(k for k, l in enumerate(d['liens']) if l['id'] == CHEF_BRANKOVIC)
+    for champ in ('pere', 'mere', 'conjoints'): altere(('liens', j, 'lacunes', champ), f'Đurađ Branković : absence attestée de {champ}.')
+    # La fiche du chef reste égale à sa constante, dans le catalogue comme dans le monde.
+    _refus_chef(chef, ((('nom',), 'Đurađ Branković'), (('naissance',), _naissance_famille('1377-02-23')), (('naissance',), _naissance_famille('1377', 'annee')), (('sources', 'identite', 'url'), VUK),
+                       (('sources', 'naissance', 'url'), IRENE), (('lacunes', 'naissance'), 'Naissance inconnue.')))
+    with pytest.raises(AssertionError): _preuve_monde_brankovic([dict(f, nom='Đurađ Branković') if f['id'] == CHEF_BRANKOVIC else f for f in monde.personnages])
+    # Mara Lazarević reste sans fiche : la mère du chef n'est ni Olivera Despina ni Stefan Lazarević, le père non plus ; aucun conjoint réciproque (liens résolus).
+    for champ, cible in (('mere', 'personne-olivera-despina'), ('mere', 'personne-grande-17'), ('pere', 'personne-grande-17')):
+        refuse(_alterer_personnages(d, ('liens', j, champ), cible), controle=True, fonction=_brankovic)
+    c = copy.deepcopy(d)
+    next(l for l in c['liens'] if l['id'] == CHEF_BRANKOVIC)['conjoints'] = ['personne-olivera-despina']; next(f for f in c['familles'] if f['id'] == 'personne-olivera-despina')['conjoints'].append(CHEF_BRANKOVIC)
+    refuse(c, controle=True, fonction=_brankovic)
+    # Irène, puis Eleni, conjointes réciproques ; Todor vivant puis décédé, Grgur vivant, enfants de Đurađ.
+    intrus = [('Irène Cantacuzène', 'vivante', 'conjoint'), ('Eleni de Trébizonde', 'vivante', 'conjoint')] + [('Todor Branković', presence, 'enfant') for presence in ('vivante', 'decedee')] + [('Grgur Branković', 'vivante', 'enfant')]
+    _epreuves_intrus(d, monde, refuse, _brankovic, _preuve_monde_brankovic, CHEF_BRANKOVIC, intrus)
+
+
+def test_familles_historiques_evrenos():
+    d, monde = _personnages(), World.charger(0)
+    resolus, refuse = _refus_trois(d)
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    chef = next(c for c in d['chefs'] if c['maison'] == EVRENOS)
+    _evrenos({f['id']: f for f in d['familles'] + d['liens']}); _evrenos(etat=next(e for e in d['etats'] if e['maison'] == EVRENOS))
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(EVRENOS_EXCLUSIONS) == 8
+    _preuve_monde_evrenos(list(monde.personnages))
+    ids = {CHEF_EVRENOS, EVRENOS}
+    _reperes_lisibles(d, ids, EVRENOS_DIVERGENCES)
+    _alterer_famille(d, ids, EVRENOS_DIVERGENCES, REPERES_EVRENOS, refuse, (('conjoints', ('union', 'veuvage')), ('enfants', ('documentes', 'absence_attestee'))))
+    j = next(k for k, l in enumerate(d['liens']) if l['id'] == CHEF_EVRENOS)
+    for champ in ('pere', 'mere', 'conjoints'): altere(('liens', j, 'lacunes', champ), f'Gazi Evrenos Bey : absence attestée de {champ}.')
+    # La fiche du chef garde sa lacune de naissance : aucune naissance n'est déduite de l'âge de la TDV.
+    _refus_chef(chef, ((('naissance',), _naissance_famille('1300', 'annee')), (('nom',), 'Evrenos'), (('sources', 'identite', 'url'), EVRENOS_EN), (('lacunes', 'naissance'), 'Naissance inconnue.'),
+                       (('sources', 'naissance'), {'url': EVRENOS_EN, 'fait': 'Né en 1300.'})))
+    with pytest.raises(AssertionError): _preuve_monde_evrenos([dict(f, naissance=_naissance_famille('1300', 'annee')) if f['id'] == CHEF_EVRENOS else f for f in monde.personnages])
+    # La fiche de Süleyman Çelebi ne change pas : Süleyman Bey n'est pas lui.
+    k = next(k for k, f in enumerate(d['familles']) if f['id'] == SULEYMAN_ID)
+    refuse(_alterer_personnages(d, ('familles', k, 'nom'), 'Süleyman Bey'), controle=True, fonction=_evrenos)
+    refuse(_alterer_personnages(d, ('familles', k, 'presence'), 'decedee'), controle=True, fonction=_evrenos)
+    # Ali Bey vivant puis décédé, enfant d'Evrenos ; une fille d'Evrenos, vivante.
+    intrus = [('Ali Bey', presence, 'enfant') for presence in ('vivante', 'decedee')] + [('Fille d’Evrenos', 'vivante', 'enfant'), ('Épouse d’Evrenos', 'vivante', 'conjoint')]
+    _epreuves_intrus(d, monde, refuse, _evrenos, _preuve_monde_evrenos, CHEF_EVRENOS, intrus)
+
+
+def test_familles_historiques_zab(tmp_path):
+    from sim import personnages as p
+    d, monde = _personnages(), World.charger(0)
+    resolus, refuse = _refus_trois(d)
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    _zab({f['id']: f for f in d['familles'] + d['liens']}); _zab(etat=next(e for e in d['etats'] if e['maison'] == ZAB))
+    assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34
+    assert not any(l['id'] == CHEF_ZAB for l in d['liens']) and not any(f['maison'] == ZAB for f in d['familles'])
+    _preuve_monde_zab(list(monde.personnages))
+    _reperes_lisibles(d, {ZAB}, ZAB_DIVERGENCES)
+    _alterer_famille(d, {ZAB}, ZAB_DIVERGENCES, REPERES_ZAB, refuse, (('conjoints', ('union', 'veuvage')), ('enfants', ('documentes', 'absence_attestee'))))
+    j = next(k for k, e in enumerate(d['etats']) if e['maison'] == ZAB)
+    altere(('etats', j, 'exclusions'), {'Épouse inventée': {'motif': 'Inventée.', 'sources': [{'url': ZAB_EN, 'fait': 'Inventée.'}]}})
+    chef = next(c for c in d['chefs'] if c['maison'] == ZAB)
+    _refus_chef(chef, ((('nom',), 'Abd al-Rahman'), (('sources', 'identite', 'url'), WP + 'Zayyanid_dynasty'), (('lacunes', 'naissance'), 'Naissance inconnue.'), (('naissance',), _naissance_famille('1350', 'annee'))))
+    # Un complément neutre : le lecteur l'accepte et les liens se résolvent, mais ni le catalogue ni le monde n'en veulent.
+    c = copy.deepcopy(d); c['liens'].append(_neutre(d, CHEF_ZAB))
+    chemin = tmp_path / 'neutre.json'
+    chemin.write_text(json.dumps(c), encoding='utf-8')
+    assert p.charger_catalogue(monde.maisons, chemin)
+    refuse(c, controle=True, fonction=_zab)
+    # Une épouse inventée, conjointe réciproque du chef, et un héritier inventé, son enfant vivant.
+    _epreuves_intrus(d, monde, refuse, _zab, _preuve_monde_zab, CHEF_ZAB, [('Épouse inventée', 'vivante', 'conjoint'), ('Héritier inventé', 'vivante', 'enfant')])
+    # Les dix preuves du monde repèrent le complément par `_complements_du_monde` : un chef qui perd son état, ou qui reçoit un champ isolé, échoue toujours.
+    preuves = (_preuve_monde_maghreb, _preuve_monde_mca, _preuve_monde_bourgogne, _preuve_monde_palatinat, _preuve_monde_bar, _preuve_monde_wurtemberg, _preuve_monde_moree, _preuve_monde_brankovic, _preuve_monde_evrenos, _preuve_monde_zab)
+    def copie(modif):
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        modif({f['id']: f for f in personnes})
+        return personnes
+    modifs = [lambda m: m[CHEF_ZAB].update(conjoints=[]), lambda m: m[CHEF_ZAB].update(presence='vivante'), lambda m: m[CHEF_ZAB].pop('etat_familial')]
+    for preuve in preuves:
+        preuve(list(monde.personnages))
+        for modif in modifs:
+            with pytest.raises(AssertionError): preuve(copie(modif))
+
+
+def _achevement(etats, chefs, maisons):
+    voulues = {c['maison'] for c in chefs if not c['maison'].startswith('institution-')} - {HORDE, TLEMCEN}
+    assert len(etats) == len({e['maison'] for e in etats}) == len(voulues) == 34
+    assert {e['maison'] for e in etats} == voulues == {m.id for m in maisons if m.sorte in ('grande maison', 'seigneurie')} - {HORDE, TLEMCEN} == MAISONS_AVEC_ETAT
+
+
+def _achevement_monde(personnes):
+    avec = [f for f in personnes if 'etat_familial' in f]
+    assert len(avec) == 34 and {f['id'] for f in avec} == {'personne-' + m for m in MAISONS_AVEC_ETAT}
+    assert all(f['id'] == 'personne-' + f['maison'] and f['etat_familial']['maison'] == f['maison'] and f['origine'] == 'historique' for f in avec)
+
+
+def test_familles_historiques_achevement(tmp_path):
+    from sim import personnages as p
+    d, monde = _personnages(), World.charger(0)
+    _achevement(d['etats'], d['chefs'], monde.maisons); _achevement_monde(monde.personnages)
+    assert {'grande-3', BRANKOVIC, EVRENOS, ZAB} <= MAISONS_AVEC_ETAT and not {HORDE, TLEMCEN, 'institution-13'} & MAISONS_AVEC_ETAT
+    modele = next(e for e in d['etats'] if e['maison'] == 'grande-25')
+    # Retirer l'état de Branković, d'Evrenos, du Zab ou d'une maison plus ancienne ; ajouter celui de Tlemcen, de Venise ou de la Horde.
+    for maison in (BRANKOVIC, EVRENOS, ZAB, 'grande-3'):
+        with pytest.raises(AssertionError): _achevement([e for e in d['etats'] if e['maison'] != maison], d['chefs'], monde.maisons)
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        next(f for f in personnes if f['id'] == 'personne-' + maison).pop('etat_familial')
+        with pytest.raises(AssertionError): _achevement_monde(personnes)
+    for maison in (TLEMCEN, 'institution-13'):
+        copie = _alterer_personnages(d, ('etats',), d['etats'] + [dict(copy.deepcopy(modele), maison=maison)])
+        chemin = tmp_path / f'{maison}.json'
+        chemin.write_text(json.dumps(copie), encoding='utf-8')
+        assert p.charger_catalogue(monde.maisons, chemin)
+        with pytest.raises(AssertionError): _achevement(copie['etats'], d['chefs'], monde.maisons)
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        next(f for f in personnes if f['id'] == 'personne-' + maison)['etat_familial'] = dict(copy.deepcopy(modele), maison=maison)
+        with pytest.raises(AssertionError): _achevement_monde(personnes)
+    personnes = [copy.deepcopy(f) for f in monde.personnages]
+    next(f for f in personnes if f['id'] == 'personne-charles')['etat_familial'] = copy.deepcopy(modele)
+    with pytest.raises(AssertionError): _achevement_monde(personnes)
+    copie = _alterer_personnages(d, ('etats',), d['etats'] + [dict(copy.deepcopy(modele), maison=HORDE)])
+    chemin = tmp_path / 'horde.json'
+    chemin.write_text(json.dumps(copie), encoding='utf-8')
+    with pytest.raises(ValueError): p.charger_catalogue(monde.maisons, chemin)
+    with pytest.raises(AssertionError): _achevement(copie['etats'], d['chefs'], monde.maisons)
