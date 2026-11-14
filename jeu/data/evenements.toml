@@ -1,0 +1,37 @@
+# Les événements à choix du monde (docs/VISION.md, décision 41 ; sim/evenements.py,
+# MODELE.md « Les événements à choix »).
+#
+# Une cause du monde ouvre pour une maison un événement à choix ; chaque choix
+# pose des modificateurs, dépense une jauge ou verse une part du grenier aux
+# lieux de la maison. Un choix ne peut ni écrire un stock, ni tuer, ni finir
+# une famine : c'est le monde qui la fait durer ou cesser. Les valeurs sont de
+# niveau 2 : plausibles, jamais sourcées.
+
+# La famine qui dure : un lieu du pays porte la pose « famine » (lot #1029) et
+# son dernier jour de faim tombe dans le mois écoulé.
+[evenements.famine]
+nom = "La famine dure"
+dit = "des lieux du pays ont faim depuis plus d'une semaine"
+cause = "famine"          # la seule cause que le code sait lire aujourd'hui
+delai_jours = 30          # sans réponse au bout de ce délai : le choix par défaut
+par_defaut = "laisser_faire"
+
+[[evenements.famine.choix]]
+id = "ouvrir_les_greniers"
+nom = "Ouvrir les greniers du pays"
+dit = "le quart du grenier part vers les lieux affamés ; le pays tient bon"
+grenier = 0.25            # la part du grenier versée aux lieux du pays
+jauges = { concorde = 1 }
+
+[[evenements.famine.choix]]
+id = "lever_une_taxe_de_disette"
+nom = "Lever une taxe de disette"
+dit = "le maître prend plus sur la récolte pendant trois mois ; le pays gronde"
+modificateurs = ["taxe_de_disette"]
+jauges = { concorde = -1 }
+
+[[evenements.famine.choix]]
+id = "laisser_faire"
+nom = "Laisser faire"
+dit = "rien n'est tenté ; le maître perd de sa légitimité"
+jauges = { droit = -5 }

@@ -6,10 +6,15 @@ import sim.constants as _constantes
 from sim.capitales import cle_du_registre, maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
-    BatirDansUneProvince, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
-    TYPE_OUVRIR_GRENIER,
+    BatirDansUneProvince, IntentionRefusee, RepondreEvenement, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE,
+    TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT,
     _lieux_de_la_maison, maison_choisie, recevoir_intention,
 )
+
+# Les trois réponses que l'IA sait lire, par leur identifiant dans `data/evenements.toml`.
+CHOIX_OUVRIR_LES_GRENIERS = 'ouvrir_les_greniers'
+CHOIX_LEVER_UNE_TAXE = 'lever_une_taxe_de_disette'
+CHOIX_LAISSER_FAIRE = 'laisser_faire'
 
 
 def _cle_du_grenier(maison):
@@ -211,6 +216,47 @@ def _proposition_de_jauge(monde, maison, cle, regles):
     return None
 
 
+def _proposition_de_reponse(monde, maison, cle, regles):
+    """Répond à l'événement à choix de la maison : le premier choix qui tient, avec sa raison.
+
+    1. ouvrir les greniers si le grenier, une fois la part versée, couvre encore la réserve voulue ;
+    2. sinon lever une taxe de disette si le grenier est sous la réserve et la Concorde au-dessus de son minimum ;
+    3. sinon laisser faire.
+    Se tait sans événement, ou si la réponse est déjà déposée. Le dépôt vérifie à son tour.
+    """
+    from sim import evenements, jauges
+    attente = getattr(monde, 'evenements', {}).get(cle)
+    noms = getattr(getattr(monde, 'routes_des_lieux', None), 'noms', ())
+    deja = any(isinstance(i, RepondreEvenement) and i.maison == cle for i in monde.intentions_en_attente)
+    if attente is None or cle not in noms or deja:
+        return None
+    definition = evenements.charger_evenements()[attente['identifiant']]
+    ouvrir = definition.choix_de(CHOIX_OUVRIR_LES_GRENIERS)
+    grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
+    reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
+    concorde = regles.jauges['concorde']
+    valeur = jauges.etat(monde, cle, regles)['concorde']
+    raison = {'evenement': attente['identifiant'], 'ouvert': attente['ouvert'],
+              'grenier_nourriture_kg': grenier, 'reserve_voulue_kg': reserve,
+              'part_du_grenier': None if ouvrir is None else ouvrir.grenier}
+    if ouvrir is not None and ouvrir.grenier is not None and grenier > 0 and grenier * (1 - ouvrir.grenier) >= reserve:
+        choix, raison = CHOIX_OUVRIR_LES_GRENIERS, {'regle': 'grenier_au_dessus_de_sa_reserve', **raison}
+    elif (definition.choix_de(CHOIX_LEVER_UNE_TAXE) is not None and grenier < reserve
+          and valeur > concorde['minimum']):
+        choix = CHOIX_LEVER_UNE_TAXE
+        raison = {'regle': 'grenier_sous_sa_reserve', **raison, 'concorde': valeur, 'minimum': concorde['minimum']}
+    elif definition.choix_de(CHOIX_LAISSER_FAIRE) is not None:
+        choix = CHOIX_LAISSER_FAIRE
+        raison = {'regle': 'ni_grain_ni_concorde', **raison, 'concorde': valeur, 'minimum': concorde['minimum']}
+    else:
+        return None
+    return {
+        'maison': {'sorte': maison.sorte, 'id': maison.id},
+        'intention': {'type': TYPE_REPONDRE_EVENEMENT, 'maison': cle, 'choix': choix},
+        'raison': raison,
+    }
+
+
 def _partis_et_arrives_30j(monde, cell_id):
     """Les foyers partis et arrivés sur la fenêtre, sommés sur tous les lieux de la cellule."""
     from sim import flux
@@ -319,6 +365,10 @@ def decider_intentions(monde, releve, maisons=None):
             jauge = _proposition_de_jauge(monde, maison, cle, regles)
             if jauge is not None:
                 propositions.append(jauge)
+            # La réponse à son événement à choix, après le geste de jauge du jour (décision 41).
+            reponse = _proposition_de_reponse(monde, maison, cle, regles)
+            if reponse is not None:
+                propositions.append(reponse)
             # Bâtir dans sa province, par le même chemin que le joueur (décision 38).
             if types is None:
                 from sim import batiments
