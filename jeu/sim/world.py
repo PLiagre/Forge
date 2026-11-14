@@ -178,6 +178,10 @@ class World:
         batiments_de_province : chantiers et bâtiments de province
                      (`sim.batiments.BatimentDeProvince`), par identifiant ; dans
                      to_dict s'il y en a un.
+        evenements : identifiant de maison → l'événement à choix qui l'attend
+                     (`sim.evenements`) : {"identifiant", "ouvert", "lieux"}. Au plus
+                     un par maison ; les entrées se remplacent, jamais ne se mutent.
+                     Dans to_dict sous `evenements`, triés par maison, s'il en reste un.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -217,6 +221,7 @@ class World:
         self.jauges = {}
         self.niveaux_de_province = {}
         self.batiments_de_province = []
+        self.evenements = {}
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -434,4 +439,7 @@ class World:
             document["niveaux_de_province"] = dict(sorted(self.niveaux_de_province.items()))
         if self.batiments_de_province:
             document["batiments_de_province"] = [b.en_document() for b in self.batiments_de_province]
+        if self.evenements:
+            document["evenements"] = {maison: copy.deepcopy(evenement)
+                                      for maison, evenement in sorted(self.evenements.items())}
         return document
