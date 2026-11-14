@@ -215,7 +215,10 @@ def test_sans_modificateur_la_photographie_a_365_jours_est_celle_d_avant(monkeyp
         engine.tick(monde, rng, numero)
         assert monde.facteurs_du_tick == {}
     assert monde.modificateurs == []
-    assert sys.platform in EMPREINTES_365, f"empreintes non mesurées pour {sys.platform}"
+    if sys.platform not in EMPREINTES_365:
+        # Les flottants de la trigonométrie diffèrent d'un système à l'autre, et seule la CI (Linux) tient
+        # la référence à jour : ailleurs, le monde a tourné sans modificateur, mais rien ne le compare.
+        pytest.skip(f"empreintes mesurées pour {', '.join(sorted(EMPREINTES_365))} seulement : la CI les juge")
     assert _empreintes(monde, c.CALENDAR_DAYS_PER_YEAR) == EMPREINTES_365[sys.platform]
 
 

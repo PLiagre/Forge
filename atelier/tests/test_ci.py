@@ -12,6 +12,11 @@ import re
 from conftest import RACINE
 
 WORKFLOW = RACINE / ".github" / "workflows" / "tests.yml"
+NUIT = RACINE / ".github" / "workflows" / "nuit.yml"
+# Ce que la suite exigée pour fusionner peut coûter, en minutes, travail le plus lent compris.
+BUDGET_DE_LA_SUITE_RAPIDE_MIN = 5
+# Les cœurs d'un runner de GitHub pour un dépôt public.
+COEURS_D_UN_RUNNER = 4
 
 
 def _etapes() -> tuple[list[str], list[str]]:
@@ -44,7 +49,7 @@ def _tranches():
     """Le module qui partage les tests du moteur, et les tranches que la CI lui demande."""
     import importlib.util
 
-    chemin = RACINE / "jeu" / "sim" / "tests" / "tranches.py"
+    chemin = RACINE / "jeu" / "tranches.py"
     spec = importlib.util.spec_from_file_location("tranches_du_moteur", chemin)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -110,8 +115,8 @@ def test_une_tranche_mal_ecrite_est_refusee():
             module.lire_tranche(faute)
 
 
-def _collecter(*options: str, tranche: str | None = None) -> set[str]:
-    """Les identifiants que pytest collecterait dans jeu/sim/tests avec ces options."""
+def _collecter(*options: str, tranche: str | None = None, dossier: str = "sim/tests") -> set[str]:
+    """Les identifiants que pytest collecterait dans ce dossier du jeu avec ces options."""
     import os
     import subprocess
     import sys
@@ -121,7 +126,7 @@ def _collecter(*options: str, tranche: str | None = None) -> set[str]:
     if tranche:
         env["FORGE_TRANCHE"] = tranche
     sortie = subprocess.run(
-        [sys.executable, "-m", "pytest", "sim/tests", "--collect-only", "-q", "-p", "no:cacheprovider", *options],
+        [sys.executable, "-m", "pytest", dossier, "--collect-only", "-q", "-p", "no:cacheprovider", *options],
         cwd=RACINE / "jeu", env=env, capture_output=True, text=True, check=True,
     ).stdout
     return {ligne for ligne in sortie.splitlines() if "::" in ligne}
@@ -148,8 +153,61 @@ def test_les_tests_chronometres_ont_leur_travail_et_tests_les_attend_tous():
     noms = re.findall(r"^  (\w+):$", jobs, re.M)
     bloc = lambda nom: re.search(rf"^  {nom}:\n(.*?)(?=^  \w+:$|\Z)", jobs, re.M | re.S).group(1)
     assert "chronometre" in noms and "sim" in noms
-    assert '-n auto' in bloc("sim") and '-m "not chronometre"' in bloc("sim")
+    assert '-n auto' in bloc("sim") and '-m "$CHOIX"' in bloc("sim")
     commandes = " ".join(re.findall(r"^\s+run: (.+)$", bloc("chronometre"), re.M))
     assert "-m chronometre" in commandes and "-n " not in commandes and "FORGE_TRANCHE" not in bloc("chronometre")
     attendus = re.search(r"needs: \[([^\]]+)\]", bloc("tests")).group(1).replace(" ", "").split(",")
     assert sorted(attendus) == sorted(n for n in noms if n != "tests"), "`tests` doit attendre chaque travail"
+
+
+def _choix() -> tuple[str, str]:
+    """Ce que les travaux du jeu jouent avec `tout`, et sans."""
+    texte = WORKFLOW.read_text(encoding="utf-8")
+    choix = re.search(r"^  CHOIX: \$\{\{ inputs\.tout && '([^']+)' \|\| '([^']+)' \}\}$", texte, re.M)
+    assert choix, "tests.yml ne choisit plus entre la suite rapide et tout"
+    return choix.group(1), choix.group(2)
+
+
+def test_chaque_travail_du_jeu_suit_le_choix_et_la_nuit_joue_tout():
+    tout, rapide = _choix()
+    assert (tout, rapide) == ("not chronometre", "not chronometre and not longue")
+    texte = WORKFLOW.read_text(encoding="utf-8").replace("\\\n", " ")
+    commandes = [c for c in re.findall(r"python -m pytest [^\n|]+", texte) if "atelier/" not in c and "-m chronometre" not in c]
+    assert commandes and all('-m "$CHOIX"' in c for c in commandes), commandes
+    nuit = NUIT.read_text(encoding="utf-8")
+    assert re.search(r"uses: \./\.github/workflows/tests\.yml\n    with:\n      tout: true", nuit)
+    assert "schedule:" in nuit and "pull_request" not in nuit, "la nuit ne retient aucune fusion"
+
+
+def test_la_suite_rapide_et_les_preuves_longues_jouent_chaque_test_une_fois():
+    tout, rapide = _choix()
+    for dossier in ("sim/tests", "forge/tests"):
+        tous, rapides = _collecter("-m", tout, dossier=dossier), _collecter("-m", rapide, dossier=dossier)
+        longues = _collecter("-m", f"({tout}) and longue", dossier=dossier)
+        assert rapides and longues, f"{dossier} : la suite rapide ou la nuit n'aurait rien à jouer"
+        assert not rapides & longues and rapides | longues == tous
+
+
+def test_la_suite_rapide_tient_son_budget_sur_les_durees_mesurees():
+    """Les coûts de `durees.json` sont ceux d'un test joué seul : leur somme majore ce qu'un travail attend."""
+    module, tranches, n = _tranches()
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("conftest_du_jeu_pour_son_seuil", RACINE / "jeu" / "conftest.py")
+    seuil = float(re.search(r"^SEUIL_LONGUE_S = ([\d.]+)$", spec.loader.get_data(spec.origin).decode("utf-8"), re.M).group(1))
+    durees = module.lire_durees()
+    rapides = {nom: s for nom, s in durees.items() if s < seuil}
+    assert len(rapides) < len(durees), "aucune preuve longue : le contrôle ne contrôlerait rien"
+    budget = BUDGET_DE_LA_SUITE_RAPIDE_MIN * 60
+
+    def somme(*prefixes: str) -> float:
+        return sum(s for nom, s in rapides.items() if nom.startswith(prefixes))
+
+    # Le moteur : ses tranches, chacune sur les cœurs de son runner.
+    moteur = [nom for nom in rapides if nom.startswith("sim/")]
+    assert max(module.charges(moteur, rapides, n)) / COEURS_D_UN_RUNNER <= budget
+    # Les vues et la commande : un travail chacune, un test après l'autre.
+    assert somme("vues/") <= budget
+    assert somme("forge/", "ville/") <= budget
+    # Contre-épreuve : avec les preuves longues, le moteur ne tient pas le budget.
+    assert max(module.charges([nom for nom in durees if nom.startswith("sim/")], durees, n)) / COEURS_D_UN_RUNNER > budget

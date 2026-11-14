@@ -465,6 +465,23 @@ def test_master_rouge_ouvre_un_lot_de_reparation_pris_avant_tout_autre(projet, g
     assert len([g for g in gh.gestes if g[0] == "creer_issue"]) == 1, "une seule réparation par run rouge"
 
 
+def test_une_nuit_rouge_se_repare_comme_un_master_rouge(projet, gh, depot, tmp_path, monkeypatch):
+    from atelier import traces
+    monkeypatch.setattr(traces, "lire_run", lambda depot, run, lignes=80: "FAILED test_monde.py::test_dix_ans")
+    gh.run_nuit = {"status": "completed", "conclusion": "failure", "databaseId": 88, "url": "https://x/run/88"}
+    fiche = {"sortie": {"titre": "Le monde tient dix ans", "piste": "monde", "machine": "vps", "meneur": "chef",
+                        "joueur": "Le monde s'effondre la neuvième année.", "samedi": "master est vert",
+                        "regle": "faim.py ligne 12", "preuves": ["pytest test_monde.py -k dix_ans"]}}
+    agents = Agents(fiche)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    assert "https://x/run/88" in agents.appels[0]["consigne"] and "urgent" in gh.etiquettes(101)
+    # La réparation livrée, la même nuit rouge n'en ouvre pas une seconde.
+    gh.fermer_issue(101)
+    pilote.tour()
+    assert len([g for g in gh.gestes if g[0] == "creer_issue"]) == 1
+
+
 def test_un_lot_pc_part_sur_le_pc_et_y_reste(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "La caserne", ("lot", "pret", "ville", "pc"), corps=FICHE)
     agents = Agents()
