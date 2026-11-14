@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace Forge.Pont.Tests {
-    // Lot #525 — la date et l'horloge sur la carte. Un faux service tient un tick, une date et une vitesse : `/horloge` les
+    // La date et l'horloge sur la carte. Un faux service tient un tick, une date et une vitesse : `/horloge` les
     // rend, `/vitesse` change la vitesse et rend l'horloge. Le panneau affiche ce qui est servi, et rien d'autre ; il envoie
     // la pause, la reprise et les paliers ; sans service, il le dit et n'envoie rien.
     public sealed class HorlogeDeCarteTests {
@@ -103,7 +103,7 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual("Pause", Array.Find(objet.GetComponentsInChildren<Text>(true), x => x.name == "Libellé" && (x.text == "Pause" || x.text == "Reprendre"))?.text);
         }
 
-        // Lot #860 : le monde s'ouvre en pause ; la première reprise prend la vitesse de la carte, et un monde vu en marche garde la sienne.
+        // Le monde s'ouvre en pause ; la première reprise prend la vitesse de la carte, et un monde vu en marche garde la sienne.
         [Test] public void La_reprise_d_une_pause_d_ouverture_prend_la_vitesse_de_la_carte() {
             double v = ReglagesDesVues.Charger().VitesseCarte; Assert.AreNotEqual(1, v, "la vitesse de la carte ne distingue pas l'ancienne reprise");
             string texte = v.ToString("R", CultureInfo.InvariantCulture);
@@ -137,7 +137,7 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual(5L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
         }
 
-        // Lot #883 : la date est celle servie, jamais tirée du tick, et le tick ne s'écrit pas.
+        // La date est celle servie, jamais tirée du tick, et le tick ne s'écrit pas.
         [Test] public void La_date_ne_dit_jamais_le_tick() {
             string a = HorlogeDeCarte.Decrire(new HorlogeLue(5, new DateDuMonde(1400, 6), 2.5));
             string b = HorlogeDeCarte.Decrire(new HorlogeLue(9999, new DateDuMonde(1400, 6), 2.5));

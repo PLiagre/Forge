@@ -97,7 +97,7 @@ depuis leur propre relief (faces d'avalanche plus sombres, rides éoliennes).
 py 3d/local3d/atelier_desert.py kit      # Unity fermé
 ```
 
-Ajoute les seuls modules de `kit.NOUVEAUX` (lot 266 : `scierie`, `four_pain_pise`)
+Ajoute les seuls modules de `kit.NOUVEAUX` (`scierie`, `four_pain_pise`)
 sans reconstruire le kit : Blender les fabrique par le même chemin que la
 bibliothèque (`fabriquer.py kit`), refuse un module au-dessus de son plafond ou
 portant un matériau hors catalogue, puis réécrit `catalogue.json` en reprenant les
@@ -112,7 +112,7 @@ les nouveaux modules : `inspecter_kit.py` tourne tel quel dans un banc d'essai
 (`sorties/cache/planche/`) dont la bibliothèque est `sorties/cache/kit_nouveaux.blend`,
 tant qu'une reconstruction complète ne les a pas fait entrer dans `Kit_Desert.blend`.
 
-Le lot 269 y ajoute les **étapes de chantier** de `maison_pise_0`, de la scierie
+Il ajoute aussi les **étapes de chantier** de `maison_pise_0`, de la scierie
 et du four (`kit.CHANTIERS`) : `chantier_<fini>_piquets` (piquets et cordeau) puis
 `chantier_<fini>_murs` (murs à mi-hauteur, perches, planches sur boulins, échelle).
 Leur emprise se tire des sommets du bâtiment fini (`assets.emprise`), jamais d'un
@@ -123,14 +123,14 @@ fini (le prefab de `maison_pise_0`, déjà là, est seulement chargé : `referen
 de `selection.json`) ; `kit.juger` vérifie l'emprise, les hauteurs et la suite. La
 planche `sorties/diagnostic/kit_chantiers.png` montre les six étapes.
 
-Le lot 905 y ajoute les étapes de l'enceinte (`kit.ENCEINTE` : `rempart_pise_10m`,
+Il ajoute les étapes de l'enceinte (`kit.ENCEINTE` : `rempart_pise_10m`,
 `tour_ksar_0`, `porte_ksar`), mesurées sur leur prefab existant comme références.
-Les piquets sont ceux du lot 269 ; la levée, `assets.chantier_massif`, monte un
+Les piquets sont ceux des étapes des bâtiments ; la levée, `assets.chantier_massif`, monte un
 ouvrage plein : assise de grès, massif de pisé à mi-hauteur sous sa banche, une
 perche à chaque coin, une échelle contre la face +Y. Pour la porte, deux massifs
 laissent libre le passage de `assets.PORTE_PASSAGE` m, celui que lit `gate()`.
 
-Le lot 270 fait voir ce qu'Unity affichera : `sorties/diagnostic/kit_chantiers_unity.png`,
+Il fait voir ce qu'Unity affichera : `sorties/diagnostic/kit_chantiers_unity.png`,
 une rangée par bâtiment de `kit.CHANTIERS` (maison, scierie, four), trois colonnes
 (piquets, murs, fini), rendue avec les prefabs et les matériaux d'Unity. Python
 écrit les rangées dans `selection.json` (`planche`, d'après `kit.suite`) ;
@@ -279,7 +279,7 @@ et les terrasses de l'ancien bourg, sans ksar dessus ; des pointillés d'ombre
 sur les crêtes lointaines (cascades d'ombre, étape rendu) ; le reg qui se lit
 comme une tache à mi-distance.
 
-## La ville du désert — étape 2 : les routes du joueur (lot 263)
+## La ville du désert — étape 2 : les routes du joueur
 
 Dans la scène `Forge_Desert_Ville_<implantation>`, en Play : **clic gauche** pose
 un point sur le terrain, **Entrée** trace la route, **Échap** annule, **T** passe
@@ -346,4 +346,4 @@ sommet relevé hors de l'emprise, pente maximale portée à 40 %, couches
 Sur les dix anciennes rues du plan, quatre passent. Les six autres sont
 refusées à juste titre : 13 à 28 % de pente, alors que le plan les avait
 dessinées pour la marche. Les retracer demandera des lacets ou des escaliers ;
-ce lot ne le fait pas.
+la ville ne le fait pas.

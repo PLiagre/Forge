@@ -1,10 +1,10 @@
-"""Juge et lanceur de l'épreuve des passants (#898). Les quatre rapports versés sont relus tels quels, mutés en mémoire seulement ; la référence vient d'un vrai service d'épreuve, graine 0."""
+"""Juge et lanceur de l'épreuve des passants. Les quatre rapports versés sont relus tels quels, mutés en mémoire seulement ; la référence vient d'un vrai service d'épreuve, graine 0."""
 import copy, importlib.util, json
 from pathlib import Path
 import pytest
 RACINE = Path(__file__).resolve().parents[3]
-M898 = RACINE / "docs/mesures/898-epreuve-passants"
-lu = lambda nom: json.loads((M898 / f"rapport-{nom}.json").read_text(encoding="utf-8-sig"))  # noqa: E731
+DONNEES = RACINE / "jeu/ville/tests/donnees/epreuve-passants"
+lu = lambda nom: json.loads((DONNEES / f"rapport-{nom}.json").read_text(encoding="utf-8-sig"))  # noqa: E731
 @pytest.fixture(scope="module")
 def epreuve():
     assert (chemin := RACINE / "pc/epreuve_passants.py").is_file(), f"fichier introuvable : {chemin}"; module = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_location("epreuve_passants", chemin)); spec.loader.exec_module(module); return module

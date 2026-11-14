@@ -1,7 +1,7 @@
 using System;using System.Collections.Generic;using System.Linq;using Forge.Pont;using UnityEditor;using UnityEngine;using UnityEngine.Rendering;
 namespace ForgeLocal3D
 {
-    // Lot 738 : les rubans de la base suivent le sol sans toucher au terrain (SC1), et se redessinent quand le sol change (SC2).
+    // Les rubans de la base suivent le sol sans toucher au terrain, et se redessinent quand le sol change.
     public static class DesertRues1400Preuve
     {
         static int echecs;
@@ -26,7 +26,7 @@ namespace ForgeLocal3D
             Cas(rel.All(r=>Enumerable.Range(0,r.s.Length).All(k=>Vector2.Distance(r.uv[k],new Vector2(r.s[k].x/4f,r.s[k].z/4f))<1e-4f)),"UV du monde sur tileSize");
             Cas(dessin.Racine.GetComponentsInChildren<Collider>().Length==0&&dessin.Racine.GetComponentsInChildren<MeshRenderer>().All(m=>m.shadowCastingMode==ShadowCastingMode.Off&&m.sharedMaterial.mainTexture==couche.diffuseTexture),"sans ombre ni collider, texture de la couche");
             dessin.Dessiner(pleine);Cas(dessin.Empreinte==une&&dessin.Racine.childCount==3&&Dans(Ecart(Releve(dessin.Racine),terrain))&&DesertRoads.Empreintes(td).Tout==avant,"second dessin identique, sans doublon, terrain intact");
-            // SC2 : une bosse de 0,5 m sous le milieu de la principale (monde 45, 5).
+            // Une bosse de 0,5 m sous le milieu de la principale (monde 45, 5).
             var b=td.GetHeights(553,513,9,9);for(int z=0;z<9;z++)for(int x=0;x<9;x++)b[z,x]+=.005f*Mathf.Max(0,1-Mathf.Max(Mathf.Abs(x-4),Mathf.Abs(z-4))/4f);td.SetHeights(553,513,b);
             var vieux=Ecart(rel,terrain);dessin.Dessiner(pleine);var neuf=Ecart(Releve(dessin.Racine),terrain);Cas(Sorti(vieux)&&vieux.min<-.3f&&Dans(neuf)&&dessin.Racine.childCount==3,"bosse : anciens sommets "+vieux+", redessinés "+neuf);
             void Apres(BaseDuPlan bp,string quoi,Func<string,bool> ok,Action entre=null){dessin.Dessiner(pleine);bool plein=dessin.Racine.childCount==3;entre?.Invoke();string l=dessin.Dessiner(bp);

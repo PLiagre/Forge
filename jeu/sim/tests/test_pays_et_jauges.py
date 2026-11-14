@@ -1,4 +1,4 @@
-"""Le pays d'un seul tenant et ses quatre jauges (CAP.md, jalon 6 ; VISION.md, décisions 36, 38 et 39).
+"""Le pays d'un seul tenant et ses quatre jauges.
 
 - Le pays : les pays sans suzerain se partagent tous les lieux tenus du monde,
   chacun une fois ; un vassal compté deux fois se voit ; les totaux d'un pays
@@ -168,7 +168,7 @@ def test_les_points_naissent_chaque_mois_des_competences(depart, regles):
 
 
 def test_les_chefs_du_maghreb_gagnent_leurs_points(depart, regles, tmp_path):
-    """Tlemcen et le Zab ont un chef (#1052) ; `grande-21`, sans chef, garde « aucun point »."""
+    """Tlemcen et le Zab ont un chef ; `grande-21`, sans chef, garde « aucun point »."""
     from sim import personnages as perso
     monde = copy.deepcopy(depart)
     rng = random.Random(0)
@@ -436,9 +436,8 @@ def _controler_les_comptes(releve):
 
 
 def test_jauges_sur_deux_ans_l_ia_et_le_joueur_jouent_le_meme_monde(monkeypatch):
-    # Lot #1071 : sous l'appel des villes affamées, moins de lieux ont faim, la Concorde baisse moins et une
-    # seule maison joue la Plume en deux ans (grande-22, contre grande-22 et grande-8 avant) ; l'épreuve
-    # des comptes se joue sous le commerce d'avant (décision A de la direction, 13 novembre 2026).
+    # Sous l'appel des villes affamées, moins de lieux ont faim, la Concorde baisse moins et moins de
+    # maisons jouent la Plume en deux ans ; l'épreuve des comptes se joue sous le commerce d'avant.
     couper_l_appel_des_villes(monkeypatch)
     from sim import __main__ as cli
     from sim.tests.test_monde import _controler_raisons_du_pays, _lire_jauge
@@ -610,7 +609,7 @@ def test_un_geste_du_panneau_donne_le_meme_monde_qu_a_la_main(regles):
             serveur.server_close()
 
 
-# --- Améliorer une province (lot #1053) -----------------------------------------
+# --- Améliorer une province -----------------------------------------
 #
 # Le geste qui ne s'épuise jamais : de la Plume contre un niveau de plus à une
 # cellule de la maison, de plus en plus cher, et de vrais kilos de plus à sa récolte.
@@ -693,7 +692,7 @@ def _nouvelles_poses(apres, avant):
     return [p for p in apres.modificateurs if p not in avant.modificateurs]
 
 
-# SC1 — Les données
+# Les données
 
 def test_amelioration_donnees_les_regles_viennent_des_donnees(regles):
     table = regles.amelioration
@@ -703,7 +702,7 @@ def test_amelioration_donnees_les_regles_viennent_des_donnees(regles):
     definition = M.charger_donnees().definitions["amelioration_de_province"]
     assert (definition.grandeur, definition.valeur, definition.portee, definition.duree_jours) == ("recolte", 0.02, "cellule", 0)
     assert definition.nom == "Province améliorée"
-    # Le panneau du pays (#1046) ne la voit pas parmi ses gestes.
+    # Le panneau du pays ne la voit pas parmi ses gestes.
     assert set(regles.gestes) == {"affermir_la_concorde", "asseoir_le_droit"}
 
 
@@ -748,7 +747,7 @@ def test_amelioration_donnees_une_regle_qui_ne_tient_pas_est_refusee(change, mot
     assert J.charger_regles().amelioration["cout_premier_niveau"] == 6
 
 
-# SC2 — De plus en plus cher, et le premier niveau payable en un an
+# De plus en plus cher, et le premier niveau payable en un an
 
 def test_amelioration_cher_chaque_niveau_coute_plus_que_le_precedent(regles):
     assert _couts_croissants(regles)[:4] == [6, 9, 13.5, 20.25]
@@ -775,7 +774,7 @@ def test_amelioration_cher_le_premier_niveau_est_payable_en_un_an(depart, regles
     assert len(monde.intentions_en_attente) == 1
 
 
-# SC3 — Les refus, avec leur raison, sans toucher au monde
+# Les refus, avec leur raison, sans toucher au monde
 
 def test_amelioration_refus_chaque_raison_mot_pour_mot(depart):
     bar = "seigneurie-1"
@@ -850,7 +849,7 @@ def test_amelioration_refus_le_tick_ne_leve_pas_jauge_invalide(depart):
     assert valeurs["plume"] == 0.0 and monde.niveaux_de_province == {cid: 1}
 
 
-# SC4 — Le niveau, la pose, et la récolte de la cellule en vrais kilos
+# Le niveau, la pose, et la récolte de la cellule en vrais kilos
 
 def test_amelioration_kilos_le_niveau_la_pose_et_la_recolte_de_la_cellule(depart, regles, monkeypatch):
     cid, maison = _paris(depart)
@@ -939,7 +938,7 @@ def test_amelioration_kilos_la_pose_survit_au_mois_et_aux_gestes(depart, regles,
         assert len(vivante(monde)) == 1
 
 
-# SC5 — Le joueur et l'IA, même monde, octet pour octet
+# Le joueur et l'IA, même monde, octet pour octet
 
 def _maison_de_l_ia_a_sa_capitale(monde):
     from sim import ia
@@ -998,7 +997,7 @@ def test_amelioration_meme_monde_l_ia_et_le_joueur(depart, regles, monkeypatch):
     assert _octets(deux) != _octets(ailleurs)
 
 
-# SC6 — Servi dans /pays, sous jauges, sans changer les gestes du panneau
+# Servi dans /pays, sous jauges, sans changer les gestes du panneau
 
 def test_amelioration_service_pays_et_intention(regles):
     import threading

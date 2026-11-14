@@ -24,7 +24,7 @@ namespace Forge.Pont
             new PieceDuKit(false, null, cause ?? throw new ArgumentNullException(nameof(cause)));
     }
 
-    // Lot #368 — pour chaque nature de bâtiment, la pièce du kit du désert qui en montre chaque étape.
+    // Pour chaque nature de bâtiment, la pièce du kit du désert qui en montre chaque étape.
     // L'asset vit sous `Desert/Resources/` pour être chargé hors de l'éditeur (`Resources.Load`), sans
     // passer par `AssetDatabase`. Le kit ne choisit jamais une autre pièce : une nature ou une étape
     // qu'il n'a pas est déclarée absente.
@@ -40,7 +40,7 @@ namespace Forge.Pont
         public const string Ressource = "KitDesBatiments";
 
         public PiecesDUneNature[] natures = new PiecesDUneNature[0];
-        // Lot 737 : maison_pise_0 … maison_pise_5, dans cet ordre. Un trou n'est jamais comblé par une autre.
+        // Maison_pise_0 … maison_pise_5, dans cet ordre. Un trou n'est jamais comblé par une autre.
         public GameObject[] maisonsPise = new GameObject[0];
 
         // Nul si l'asset manque.

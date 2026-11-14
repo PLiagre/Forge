@@ -1,4 +1,4 @@
-# viewer/
+# vues/tableau/
 
 Regard mince sur une photographie `sim/`. Aucune logique métier : le
 paquet lit un snapshot et montre les cellules déjà photographiées. Ce n'est
@@ -13,20 +13,20 @@ champ manquant s'affiche *absent* ; il n'est pas inventé.
 
 ```
 py -m sim --ticks 0 --seed 0 --snapshot-json /tmp/world.json
-py -m viewer --snapshot /tmp/world.json --proof-svg /tmp/carte.svg
+py -m vues.tableau --snapshot /tmp/world.json --proof-svg /tmp/carte.svg
 ```
 
 Comparaison de deux photographies :
 
 ```
-py -m viewer --snapshot /tmp/a.json --compare /tmp/b.json --proof-svg /tmp/diff.svg
+py -m vues.tableau --snapshot /tmp/a.json --compare /tmp/b.json --proof-svg /tmp/diff.svg
 ```
 
 ## Tableau de bord local (stdlib uniquement)
 
 ```
 py -m sim --ticks 0 --seed 0 --snapshot-json /tmp/monde.json
-py -m viewer --snapshot /tmp/monde.json
+py -m vues.tableau --snapshot /tmp/monde.json
 ```
 
 Hôte par défaut `127.0.0.1`, port `8765`. Si le port est pris, la commande
@@ -37,10 +37,10 @@ snapshot chargé, il ne resimule pas) :
 
 ```
 py -m sim --ticks 20 --seed 0 --snapshot-json /tmp/monde-t20.json
-py -m viewer --snapshot /tmp/monde-t20.json --port 8766
+py -m vues.tableau --snapshot /tmp/monde-t20.json --port 8766
 ```
 
-Le viewer ne recalcule rien, ne lit que le snapshot, et ne charge
+La vue ne recalcule rien, ne lit que le snapshot, et ne charge
 aucune ressource réseau.
 
 ## La cellule découpée en lieux

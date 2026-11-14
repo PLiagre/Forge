@@ -77,7 +77,7 @@ namespace Forge.Interface.Tests
             Assert.That(appels, Is.EqualTo(1));
         }
 
-        // Lot #1001 : les comptes de la maison du joueur se lisent au même passage que le monde, jamais sans maison.
+        // Les comptes de la maison du joueur se lisent au même passage que le monde, jamais sans maison.
         [Test] public async Task Les_comptes_se_lisent_avec_la_maison()
         {
             int appels = 0; string recu = null, retenue = null;
@@ -94,7 +94,7 @@ namespace Forge.Interface.Tests
             Assert.That(sansLecteur.Maison.Donnees.Id, Is.EqualTo(retenue)); Assert.That(sansLecteur.Comptes, Is.Null);
         }
 
-        // Lot #1032 : le pays de la maison du joueur se lit au même passage que les comptes, jamais sans maison.
+        // Le pays de la maison du joueur se lit au même passage que les comptes, jamais sans maison.
         static Lecture<PaysLu> Pays(string id) => Lecture<PaysLu>.De(new PaysLu(id, "Nom reçu", 3, new DateDuMonde(1400, 4), new Dictionary<string, JaugeLue>(), new Dictionary<string, PointsLus>(), null, "chef non connu", new PoseLue[0]));
         [Test] public async Task Le_pays_se_lit_avec_la_maison()
         {
@@ -114,7 +114,7 @@ namespace Forge.Interface.Tests
             coupe = true; await coupee.Actualiser(); Assert.That(coupee.Pays, Is.Null); Assert.That(coupee.Monde.Presente, Is.False);
         }
 
-        // Lot #1045 : les terres du pays se lisent au même passage que le pays, juste après lui, jamais sans maison.
+        // Les terres du pays se lisent au même passage que le pays, juste après lui, jamais sans maison.
         static Lecture<TerresDuPays> Terres(string id) => Lecture<TerresDuPays>.De(new TerresDuPays(id, 3, new DateDuMonde(1400, 4), null, new string[0], new string[0],
             new[] { new LieuDuPays(7, 0) }, new LieuDuPays[0], 1, 12, 12, 0, 0, 0, null, "grenier absent pour la maison " + id, new BatimentDuPays[0]));
         [Test] public async Task Les_terres_se_lisent_avec_le_pays()
@@ -137,7 +137,7 @@ namespace Forge.Interface.Tests
             coupe = true; await coupee.Actualiser(); Assert.That(coupee.Terres, Is.Null);
         }
 
-        // Lot #1046 : les gestes du pays se lisent au même passage que les terres, juste après elles, jamais sans maison.
+        // Les gestes du pays se lisent au même passage que les terres, juste après elles, jamais sans maison.
         static Lecture<GestesDuPays> Gestes(string id) => Lecture<GestesDuPays>.De(new GestesDuPays(Pays(id).Donnees,
             new[] { new GesteLu("asseoir_le_droit", "Asseoir le droit", new Dictionary<string, double> { { "sceau", 30 } }, new Dictionary<string, double> { { "droit", 10 } }, null) }));
         [Test] public async Task Les_gestes_se_lisent_avec_les_terres()

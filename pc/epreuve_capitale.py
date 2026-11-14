@@ -1,8 +1,8 @@
-"""L'épreuve de la capitale (lot #703, épreuve #684).
+"""L'épreuve de la capitale.
 
     py pc\\epreuve_capitale.py --sortie D [--seed S] [--unity CHEMIN]
 
-Deux services neufs (graine S, en pause). Le Zab puis Bar se trouvent par leur nom. Unity joue la session #702, qui pousse seule le tick. Le siège attendu est celui de `/maison`. 0 égalité, 1 écart, 2 impossible.
+Deux services neufs (graine S, en pause). Le Zab puis Bar se trouvent par leur nom. Unity joue sa session, qui pousse seule le tick. Le siège attendu est celui de `/maison`. 0 égalité, 1 écart, 2 impossible.
 """
 from __future__ import annotations
 

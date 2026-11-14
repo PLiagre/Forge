@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
-    // Lot #849 : la seconde galerie du socle. Les seize jetons, les trois matières, un feuillet de registre et les neuf états : la langue du 28 octobre, sans aucune partie chargée.
+    // La seconde galerie du socle. Les seize jetons, les trois matières, un feuillet de registre et les neuf états : la langue du cabinet, sans aucune partie chargée.
     public sealed class GalerieDuRegistre : MonoBehaviour
     {
         void Start() => Creer().transform.SetParent(transform, false);

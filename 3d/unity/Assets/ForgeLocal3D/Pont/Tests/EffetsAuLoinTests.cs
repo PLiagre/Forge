@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;using NUnit.Framework;using UnityEngine;using Object = UnityEngine.Object;
 namespace Forge.Pont.Tests
 {
-    // Lot #961 — les lampes allumées (les plus proches, sous un plafond), les fumées en pause (strictement au-delà d'une distance),
+    // Les lampes allumées (les plus proches, sous un plafond), les fumées en pause (strictement au-delà d'une distance),
     // et un composant qui ne touche qu'aux effets qu'on lui donne.
     public sealed class EffetsAuLoinTests
     {

@@ -13,7 +13,7 @@ using NUnit.Framework;
 using UnityEngine;
 
 namespace Forge.Pont.Tests {
-    // Lot #625 — un repère par terre de départ servie, sur le siège que `/maison` donne. Le faux service sert la carte et les départs de
+    // Un repère par terre de départ servie, sur le siège que `/maison` donne. Le faux service sert la carte et les départs de
     // la graine 0, et pour chaque maison une fiche écrite ici d'après les sièges mesurés (graine 0, tick 3), remplaçable ; il note chaque requête.
     public sealed class ReperesDeDepartTests {
         private const int ATTENTE_MS = 30000, DELAI_MAX_PAS_MS = 100, LENTEUR_MS = 2000; private const string MOREE = "Despotat de Morée", RACINE = "Repères des terres de départ";
@@ -23,7 +23,7 @@ namespace Forge.Pont.Tests {
             (5, "Evrenosoğulları", 10337, "Giannitsa", 5367717.15, 2051967.94), (6, "Banou Mozni", 10103, "Biskra", 3926430.32, 1322273.47) };
         private int port; private volatile int statutDeparts, lenteurDeparts; private HttpListener ecoute; private Thread fil; private readonly List<string> recues = new List<string>();
         private readonly ConcurrentDictionary<string, (int statut, string corps)> maisons = new ConcurrentDictionary<string, (int, string)>();
-        private volatile int lenteurIntention; private readonly List<string> deposes = new List<string>(); // lot #613 : chaque corps de `POST /intention`
+        private volatile int lenteurIntention; private readonly List<string> deposes = new List<string>(); // chaque corps de `POST /intention`
         private readonly ConcurrentQueue<(int statut, string corps)> reponses = new ConcurrentQueue<(int, string)>(); // rendues dans l'ordre, 404 une fois vide
         private GameObject objet; private CarteDessinee carte; private ReperesDeDepart reperes;
         private static byte[] Fixture(string nom) => File.ReadAllBytes(Application.dataPath + "/ForgeLocal3D/Pont/Tests/" + nom);
@@ -118,7 +118,7 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(carte.CellulesServies > 0 && Recues("/departs") == 0, carte.TexteAffiche);
             var montre = Stopwatch.StartNew(); reperes.Pas(1); montre.Stop(); Assert.Less(montre.ElapsedMilliseconds, DELAI_MAX_PAS_MS, "le pas a attendu le service"); Assert.IsTrue(reperes.LectureEnVol);
         }
-        // Lot #624 — la fiche d'une terre au survol de son repère, telle que le faux service la sert.
+        // La fiche d'une terre au survol de son repère, telle que le faux service la sert.
         private const string FICHE_MOREE = "Despotat de Morée\nMaison : Paléologue\nSiège : Mistra, cellule 10340\nHabitants de la cellule : 80919 au tick 3\nSuzerain : Byzance\nVoisins :\n"
             + "  cellule 10335, Byzance, 77525 habitants\n  cellule 10347, Byzance, 55393 habitants\nLieux tenus : 4";
         private Transform Repere(FicheDeDepart f) => objet.transform.Find(RACINE + "/Repère " + f.Nom);
@@ -164,7 +164,7 @@ namespace Forge.Pont.Tests {
                 Assert.IsTrue(cibles.Count == 2 && cibles.All(v => (bool)v == false), cibles.Count + " graphiques, raycastTarget " + string.Join(", ", cibles));
             } finally { cellule.Arreter(); }
         }
-        // Lot #613 — un clic sur un repère dépose le choix de sa terre ; l'écran dit le reçu du faux service tel quel.
+        // Un clic sur un repère dépose le choix de sa terre ; l'écran dit le reçu du faux service tel quel.
         private const string ZAB = "Émirat du Zab", CHOIX_MOREE = "{\"type\":\"choisir_depart\",\"seigneurie\":3}", CHOIX_ZAB = "{\"type\":\"choisir_depart\",\"seigneurie\":6}";
         private string[] Deposes() { lock (recues) return deposes.ToArray(); }
         private Vector2 Ecran(string nom) => carte.camera.WorldToScreenPoint(objet.transform.Find(RACINE + "/Repère " + nom).position);
@@ -218,7 +218,7 @@ namespace Forge.Pont.Tests {
             Assert.IsFalse(G(0, true, false) || G(100, false, false) || G(0, false, true), "un détour de 100 px revenu au départ choisit encore");
             Assert.IsTrue(G(0, true, true) && !G(0, true, false) && !G(7, false, true), "un clic au même point doit choisir, un relâché à 7 px non");
         }
-        // Lot #614 — la maison publiée descend au siège et pose un disque par lieu tenu. Le faux service inchangé sert aussi `/monde` et `/lieu`.
+        // La maison publiée descend au siège et pose un disque par lieu tenu. Le faux service inchangé sert aussi `/monde` et `/lieu`.
         private const long CELLULE_MOREE = 10340; private const string MAISON_MOREE = "seigneurie-3", DEMANDE_MOREE = "/maison?id=seigneurie-3";
         private FicheDeCellule fiche;
         private void Publier(string maison) => maisons["/monde"] = (200, "{\"tick\":4,\"date\":{\"annee\":1400,\"jour_de_l_annee\":4},\"cell_count\":1,\"cells\":[{\"cell_id\":10340,\"population\":1,\"hunger_ticks\":0,\"food_deficit_kg\":0}]" + (maison == null ? "}" : ",\"maison_du_joueur\":\"" + maison + "\"}"));
@@ -301,12 +301,12 @@ namespace Forge.Pont.Tests {
             for (int i = 1; i <= 4; i++) { double t = 2 + i * ReperesDeDepart.PERIODE_RELECTURE_S; carte.Pas(t); fiche.Pas(t); reperes.Pas(t); Thread.Sleep(50); reperes.Pas(t); } int n = Recues("/intention"); reperes.Survoler(Ecran(MOREE)); reperes.Choisir(Ecran(MOREE));
             Assert.IsTrue(Recues("/departs") == 1 && Recues("/maison?id=seigneurie-1") == 1 && !reperes.LectureEnVol && reperes.ReperesPoses == 5 && DepartsActifs() == 0 && DisquesActifs() == 4 && reperes.Survolee == null && n == Recues("/intention") && carte.Vue.Centre == centre && carte.Vue.Echelle < 1f && reperes.TexteAffiche == texte, Recues("/departs") + " /departs, " + reperes.ReperesPoses + " repères ; « " + reperes.TexteAffiche + " »");
         }
-        // Lot #729 — le prototype arrêté comme le fait le cabinet, la maison publiée nomme quand même son siège sur la carte, du nom
+        // Le prototype arrêté comme le fait le cabinet, la maison publiée nomme quand même son siège sur la carte, du nom
         // que `/maison` sert, juste au nord de son disque, d'une seule lecture ; rien avant, et le choix direct reste arrêté.
         [TestCase("Mistra")] [TestCase("Mistra servie au test")]
         public void Le_prototype_arrete_la_maison_publiee_nomme_son_siege(string servi) {
             var s = SIEGES[2]; maisons[DEMANDE_MOREE] = (200, maisons[DEMANDE_MOREE].corps.Replace("\"nom\":\"Mistra\"", "\"nom\":\"" + servi + "\"")); Publier(null); Monter();
-            reperes.enabled = false; reperes.Arreter(); var nommeur = objet.AddComponent<ReperesDeDepart.NomDuSiege>(); // CabinetDeCarte.Construire, puis #690
+            reperes.enabled = false; reperes.Arreter(); var nommeur = objet.AddComponent<ReperesDeDepart.NomDuSiege>(); // CabinetDeCarte.Construire, puis le passage
             Jusqua(1, () => { nommeur.Pas(1); return fiche.MondeLu != null && carte.CellulesServies >= 0; }); Assert.IsTrue(nommeur.Nom == null && Recues(DEMANDE_MOREE) == 0, "un siège nommé avant la maison publiée");
             Publier(MAISON_MOREE); Jusqua(2, () => { nommeur.Pas(2); return nommeur.Nom != null; }); for (int t = 3; t < 7; t++) { fiche.Pas(t); nommeur.Pas(t); Thread.Sleep(50); } reperes.Choisir(Vector2.zero);
             TextMesh nom = objet.transform.Find(ReperesDeDepart.NOM_DU_SIEGE)?.GetComponent<TextMesh>(); Vector3 vue = nom != null ? carte.camera.WorldToViewportPoint(nom.transform.position) : Vector3.zero;

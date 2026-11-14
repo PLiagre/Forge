@@ -1,4 +1,4 @@
-"""La place de chaque lieu dans sa cellule, vue dérivée et pure (lot #393).
+"""La place de chaque lieu dans sa cellule, vue dérivée et pure.
 
 On ne dessine ni un lieu, ni un flux vers un siège, sans savoir où il est. Chaque lieu
 reçoit un point du polygone de sa cellule, en mètres EPSG:3035 et en degrés :

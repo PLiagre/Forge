@@ -8,7 +8,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #291 — un faux service local rend un statut et des octets fixés et retient la dernière requête.
+    // Un faux service local rend un statut et des octets fixés et retient la dernière requête.
     public sealed class ClientIntentionTests
     {
         private const string Intention = "{\"type\":\"tracer_route\",\"cell\":9922,\"points\":[[0,0],[40,0],[40,25]],\"largeur_m\":4}";

@@ -2,8 +2,7 @@
 
 `capitales.maisons_de_l_ia` refaisait à chaque tick, par point dans polygone
 et en relisant les tables de 1400, une liste qui ne dépend que des tables et
-de la carte : 170 ms sur les 218 de `jouer_ia` (docs/mesures/2026-11-07-refonte,
-section 2). Les boucles (`python -m sim --ia`, la forge, le service) la
+de la carte : 170 ms sur les 218 de `jouer_ia`. Les boucles (`python -m sim --ia`, la forge, le service) la
 calculent une fois avec `toutes_les_maisons_de_l_ia` et la donnent à
 `jouer_ia`, qui écarte la maison du joueur à chaque tick. La preuve : même
 graine, mêmes gestes, même monde, octet pour octet ; et la liste donnée est

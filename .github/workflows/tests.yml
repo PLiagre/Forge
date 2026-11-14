@@ -18,18 +18,17 @@ permissions:
 # GitHub pose `CI=true`. pytest y répond en comparant deux structures
 # inégales en entier (pformat puis difflib.ndiff, quadratique), même dans un
 # `pytest.raises(AssertionError)` où personne ne lit le diff : le moteur en a
-# plus de 200, ses contre-épreuves. Le 11 octobre 2026,
-# test_maitre_permutations prenait 6 s sur le PC et 63 min ici, et un vrai
-# rouge sur un monde entier pouvait tourner des heures (#573). Vide, la
-# variable laisse pytest faire comme sur le PC (atelier/tests/test_ci.py).
+# plus de 200, ses contre-épreuves. test_maitre_permutations prend 6 s sur
+# le PC et prenait 63 min ici, et un vrai rouge sur un monde entier pouvait
+# tourner des heures. Vide, la variable
+# laisse pytest faire comme sur le PC (atelier/tests/test_ci.py).
 env:
   CI: ""
 
 # Une révision remplacée ne garde pas ses runners : quand une PR reçoit un
-# nouveau commit, le passage de l'ancien s'arrête. Le 11 octobre 2026, une
-# tranche de #573 a tourné 6 h sur une révision que le mécanicien avait déjà
-# remplacée. Master et les lancements à la main ont chacun leur groupe : ils
-# ne s'annulent jamais.
+# nouveau commit, le passage de l'ancien s'arrête : sans cela, une tranche
+# pourrait tourner des heures sur une révision déjà remplacée. Master et les
+# lancements à la main ont chacun leur groupe : ils ne s'annulent jamais.
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('tests-pr-{0}', github.event.pull_request.number) || format('tests-{0}', github.run_id) }}
   cancel-in-progress: true
@@ -39,9 +38,8 @@ jobs:
     # Le moteur. Bibliothèque standard seule : s'il lui fallait une roue,
     # ce ne serait plus un moteur qui tourne sur une machine nue (pytest et
     # pytest-xdist ne servent qu'à le tester).
-    # Le 9 octobre 2026, ses 987 tests prenaient 3 h 20 sur un seul cœur, et
-    # chaque PR attendait ce temps : ils se jouent en tranches, partagées
-    # d'après les durées mesurées (jeu/sim/tests/tranches.py), chacune sur
+    # Sur un seul cœur, ses tests prennent des heures : ils se jouent en
+    # tranches, partagées d'après les durées mesurées (jeu/sim/tests/tranches.py), chacune sur
     # les cœurs de son runner. Toutes les tranches vertes, et `tests` peut
     # l'être. Chaque tranche garde ses durées en artefact, pour remettre
     # `durees.json` à jour.
@@ -49,8 +47,8 @@ jobs:
     # ils ont leur travail, plus bas, car quatre processus sur quatre cœurs
     # leur font dépasser le budget d'un tick.
     # Une tranche qui ne finit pas (un test qui boucle) s'arrête au bout de
-    # 3 h, pas des 6 h de GitHub : la plus lente de master en prend 1 h 40
-    # (11 octobre 2026). Arrêtée, elle compte rouge pour `tests`.
+    # 3 h, pas des 6 h de GitHub : la plus lente de master en prend 1 h 40.
+    # Arrêtée, elle compte rouge pour `tests`.
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -80,7 +78,7 @@ jobs:
   chronometre:
     # Les tests du moteur qui comparent un temps réel à un budget (jeu/sim/tests,
     # marque `chronometre`) : seuls sur leur runner, un à un, sans -n et sans
-    # tranche, comme avant que les tranches existent. Les options passent avant
+    # tranche, comme si les tranches n'existaient pas. Les options passent avant
     # le dossier : cette ligne n'est pas une étape « dossier de tests » pour
     # atelier/tests/test_ci.py, la tranche de `sim` l'est déjà.
     runs-on: ubuntu-latest
@@ -118,7 +116,7 @@ jobs:
         working-directory: jeu
 
   forge:
-    # La porte de la V1, jouée pour de vrai : une commande simule,
+    # La porte de bout en bout, jouée pour de vrai : une commande simule,
     # photographie et rend les trois vues. Elle ne vérifie pas des unités —
     # elle vérifie que le tout marche ensemble, ce qu'aucun test unitaire ne
     # peut dire. Les artefacts sont conservés : une carte qu'on ne peut pas
@@ -134,7 +132,7 @@ jobs:
         run: python -m pytest forge/tests/ -q
         working-directory: jeu
       - name: Les autres tests du jeu
-        # Le contrat ville (jeu/ville/tests, lot #118), et tout dossier de
+        # Le contrat ville (jeu/ville/tests), et tout dossier de
         # tests qu'un lot ajoute ailleurs que dans ceux joués plus haut : un
         # lot ne touche pas .github/, et un test que la CI ne joue pas ne
         # protège rien (atelier/tests/test_ci.py le vérifie). Les --ignore

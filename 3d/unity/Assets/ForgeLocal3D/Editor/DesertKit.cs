@@ -11,11 +11,11 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Lot 266, en mode batch : ajoute au kit du désert les seuls modules choisis par Python
+    // En mode batch : ajoute au kit du désert les seuls modules choisis par Python
     // (sorties/kit/selection.json, écrit d'après kit.NOUVEAUX), puis mesure leurs prefabs. Aucune
-    // scène ouverte, aucun autre prefab refait, aucun matériau recréé. Lot 269 : les
+    // scène ouverte, aucun autre prefab refait, aucun matériau recréé. Les
     // références de la sélection (bâtiments finis des chantiers) sont mesurées sur leur prefab
-    // existant, en lecture seule. Lot 270 : après les mesures, il photographie les étapes de chantier
+    // existant, en lecture seule. Après les mesures, il photographie les étapes de chantier
     // (rangées `planche` de la sélection) dans une scène neuve jamais enregistrée. Il ne juge rien :
     // local3d/desert/kit.py lit unity-kit.json et la planche, et décide.
     public static class DesertKit
@@ -49,13 +49,13 @@ namespace ForgeLocal3D
             public string id="";public int niveaux=-1;public int[] triangles=new int[0];
             // Point le plus bas des maillages du LOD0, prefab posé à l'origine ; -1 : non mesuré.
             public double y_min=-1;public string[] materiaux=new string[0];
-            // Lot 269 : l'enveloppe des maillages du LOD0 dans le repère d'Unity ; -1 : non mesuré.
+            // L'enveloppe des maillages du LOD0 dans le repère d'Unity ; -1 : non mesuré.
             public double x_min=-1,x_max=-1,z_min=-1,z_max=-1,y_max=-1;
         }
         [Serializable] public class Rapport
         {
             public string status="mesure",unity="";public Module[] modules=new Module[0];
-            // Lot 269 : les bâtiments finis des chantiers, mesurés sur leur prefab existant.
+            // Les bâtiments finis des chantiers, mesurés sur leur prefab existant.
             public Module[] references=new Module[0];
             public string[] materiaux_manquants=new string[0],erreurs=new string[0];
             public PlancheRapport planche=new PlancheRapport();
@@ -105,7 +105,7 @@ namespace ForgeLocal3D
             Debug.Log("FORGE_DESERT_KIT modules="+modules.Count+" references="+references.Count+" erreurs="+erreurs.Count+" materiaux_manquants="+manquants.Count+" cases="+planche.cases.Length);
         }
 
-        // Lot 270 : une case par prefab de chaque rangée (étapes puis bâtiment fini), rendue seule,
+        // Une case par prefab de chaque rangée (étapes puis bâtiment fini), rendue seule,
         // LOD0 forcé, dans une scène neuve jamais enregistrée : une lumière, une caméra au fond uni,
         // pas de sol. Le cadrage d'une rangée est calé sur l'enveloppe du bâtiment fini, pour que ses
         // étapes se comparent à la même échelle. Les cases s'assemblent en une image : une rangée par

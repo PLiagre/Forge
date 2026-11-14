@@ -11,7 +11,7 @@ using UnityEditor;
 using UnityEngine;
 namespace Forge.Pont.Tests
 {
-    // Lot #679 — le pont lit /monde puis, pour une terre qui a un kit, /maison?id= : il dit où mener le joueur, ou pourquoi il ne le sait pas.
+    // Le pont lit /monde puis, pour une terre qui a un kit, /maison?id= : il dit où mener le joueur, ou pourquoi il ne le sait pas.
     public sealed class CapitaleDuJoueurTests
     {
         const string SceneDuKsar = "Forge_Desert_Ville_ksar_des_sept_puits";
@@ -91,7 +91,7 @@ namespace Forge.Pont.Tests
                 Assert.Throws<ArgumentOutOfRangeException>(() => AiguillageDeCapitale.Lire(port, d));
             Assert.AreEqual(0, Recues().Length);
         }
-        // Lot #687 — la ville sait sur quelle cellule s'ouvrir : -forgeCarte, puis -forgeCell, puis l'éditeur, enfin l'aiguillage.
+        // La ville sait sur quelle cellule s'ouvrir : -forgeCarte, puis -forgeCell, puis l'éditeur, enfin l'aiguillage.
         int appels;
         Func<Lecture<CapitaleAOuvrir>> Compteur() { appels = 0; return () => { appels++; return AiguillageDeCapitale.Lire(port, TimeSpan.FromSeconds(5)); }; }
         // Le service sert le Zab : une décision prise sur les arguments ou l'éditeur ne doit rien lui demander.
@@ -172,7 +172,7 @@ namespace Forge.Pont.Tests
             Assert.AreEqual(1, vus); SansOuverture(d, "cause témoin 687", "cause témoin 687"); Assert.AreEqual("cause témoin 687", d.Absence);
             Assert.Throws<InvalidOperationException>(() => Batie(() => null));
         }
-        // Lot #701 — la cellule remise par le passage de la carte passe avant -forgeCarte, -forgeCell et l'éditeur, sans requête.
+        // La cellule remise par le passage de la carte passe avant -forgeCarte, -forgeCell et l'éditeur, sans requête.
         Lecture<OuvertureDecidee> RemiseSansRequete(string ligne, bool editeur, long? remise)
         {
             PassageALaCapitale.PrendreCelluleRemise(string.Empty);

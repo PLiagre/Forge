@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Forge.Pont {
-    // Lot #730 : depuis la ville, C revient à la carte et Espace suspend ou reprend le temps.
+    // Depuis la ville, C revient à la carte et Espace suspend ou reprend le temps.
     // La reprise prend la vitesse de ville lue dans la ressource. Le service tient seul les ticks : les requêtes partent
     // hors du fil principal. Une lecture en vol est annulée ; un POST parti n'expire jamais, le retour attend sa réponse.
     public sealed class CommandesDeVille {

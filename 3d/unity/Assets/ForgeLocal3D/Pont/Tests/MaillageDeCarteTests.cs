@@ -10,7 +10,7 @@ using NUnit.Framework;
 using UnityEngine;
 
 namespace Forge.Pont.Tests {
-    // Lot #542 — la carte servie devient des maillages, trous vides, une couleur stable par puissance.
+    // La carte servie devient des maillages, trous vides, une couleur stable par puissance.
     public sealed class MaillageDeCarteTests {
         private const string Empreinte = "9b729f9ada67a1e514a8029893a8cb4d04d2dbb91cd33c5ef5fa83d63a024981";
         private static byte[] _octets; private static CarteLue _carte; private static CarteMaillee _maillee; private static string _chemin, _requete;
@@ -36,7 +36,7 @@ namespace Forge.Pont.Tests {
             } finally { ecoute.Close(); fil.Join(TimeSpan.FromSeconds(5)); }
             _maillee = MaillageDeCarte.Mailler(_carte);
         }
-        // Produit de #541. L'arête n'est gardée que si elle descend, ou si elle file vers l'ouest. Rayon pair-impair sur les mètres servis.
+        // L'arête n'est gardée que si elle descend, ou si elle file vers l'ouest. Rayon pair-impair sur les mètres servis.
         private static double S(Vector3 p, Vector3 q, double x, double z) => ((double)q.z - p.z) * (x - p.x) - ((double)q.x - p.x) * (z - p.z);
         private static bool Bord(double s, Vector3 p, Vector3 q) => s > 0 || (s == 0 && (q.z < p.z || (q.z == p.z && q.x < p.x)));
         private static int Couverture(IReadOnlyList<Vector3> s, double x, double z) {

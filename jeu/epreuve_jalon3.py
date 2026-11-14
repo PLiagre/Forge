@@ -1,4 +1,4 @@
-"""Réunit les contrôles du jalon 3 et une capture neuve, hors du dépôt."""
+"""Réunit les contrôles de la preuve et une capture neuve, hors du dépôt."""
 import argparse
 import importlib.util
 import os

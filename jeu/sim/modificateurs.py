@@ -1,6 +1,6 @@
 """Le registre des modificateurs : définir, poser, faire expirer, additionner, détailler.
 
-Un modificateur (VISION.md, décisions 34, 35 et 37) a un nom, une source, une
+Un modificateur a un nom, une source, une
 cible, une grandeur du moteur, une valeur et une durée. Ses définitions vivent
 dans `data/modificateurs.toml` ; une pose vit dans `World.modificateurs`, et
 rien d'autre ne se garde : la cible est un pays (identifiant de maison), une
@@ -12,7 +12,7 @@ les poses qui le touchent : celles de son pays (la maison qui le tient), de sa
 cellule et du lieu lui-même, additionnées dans un ordre fixé. Le moteur
 multiplie son taux par ce facteur ; sans pose sur une grandeur, il ne lit rien
 et calcule exactement comme avant. Un modificateur change un taux, jamais un
-stock : il n'existe pas de grandeur « kilos » (décision 35).
+stock : il n'existe pas de grandeur « kilos ».
 """
 from dataclasses import dataclass
 import math

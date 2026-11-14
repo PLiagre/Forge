@@ -104,7 +104,7 @@ namespace Forge.Interface.Tests
             DeuxDossiersRestentVisiblesEtLaGalerieEstDeclaree();
         }
 
-        // Lot #878 : l'infobulle du socle, entière dans l'écran et jamais sur le point survolé.
+        // L'infobulle du socle, entière dans l'écran et jamais sur le point survolé.
         static readonly (string nom, string phrase)[] Phrases = { ("Consulter le dossier", "Ouvre le dossier sans rien envoyer au monde."),
             ("En attente du monde", "Indisponible : aucune partie chargée."), ("Parcourir au clavier", "Passe d'une commande à l'autre avec les flèches ; Entrée agit.") };
         const float ARRONDI = 1e-3f; // l'arrondi flottant, en pixels
@@ -172,7 +172,7 @@ namespace Forge.Interface.Tests
             Assert.That(toile.transform.Find("Infobulle").GetComponentsInChildren<Graphic>(true).Where(g => g.raycastTarget), Is.Empty);
         }
 
-        // Lot #849 : la langue du cabinet — seize jetons, matières sans aléa, registre, neuf états, galerie du registre.
+        // La langue du cabinet — seize jetons, matières sans aléa, registre, neuf états, galerie du registre.
         static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
         static readonly string[] Matieres = { "pierre", "bois-brule", "metal" };
         static string DA() => File.ReadAllText(Path.GetFullPath(Path.Combine(Application.dataPath, "../../../docs/interface/DA.md")));

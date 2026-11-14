@@ -73,8 +73,8 @@ def touche_ce_qu_on_voit(fichiers: list[str]) -> bool:
 
 
 # La terre de départ que la capture choisit : la carte porte alors sa fiche
-# (siège, suzerain, voisins), ce que la preuve du jalon 2 montre au journal
-# (#214, le 3 octobre 2026). 1 : le duché de Bar.
+# (siège, suzerain, voisins), ce que la preuve montre au journal.
+# 1 : le duché de Bar.
 TERRE_DE_DEPART = 1
 
 

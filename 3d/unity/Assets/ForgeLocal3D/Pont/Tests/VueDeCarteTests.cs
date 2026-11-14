@@ -2,7 +2,7 @@ using NUnit.Framework;
 using UnityEngine;
 
 namespace Forge.Pont.Tests {
-    // Lot #524 — le joueur parcourt sa carte sans en sortir : le zoom va de toute la carte à `DEMI_MIN_KM`, le glissé et
+    // Le joueur parcourt sa carte sans en sortir : le zoom va de toute la carte à `DEMI_MIN_KM`, le glissé et
     // le zoom s'arrêtent aux bords de la carte servie. La boîte est celle d'une carte de 4 000 × 3 000 km décentrée.
     public sealed class VueDeCarteTests {
         private const float TOLERANCE = 1e-3f, LOIN = 1e7f;

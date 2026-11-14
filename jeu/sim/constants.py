@@ -22,7 +22,7 @@ LIEUX_DE_LA_SEIGNEURIE = 4
 # Niveau 2 : les autres lieux se regroupent sous des seigneurs plausibles.
 LIEUX_PAR_SEIGNEUR_PLAUSIBLE = 3
 
-# Niveau 2 (#393) : deux lieux d'une cellule restent écartés d'au moins cette
+# Niveau 2 : deux lieux d'une cellule restent écartés d'au moins cette
 # fraction de la racine carrée de la surface d'un lieu (0,5 × √1000 km² ≈ 16 km).
 ECART_MIN_ENTRE_LIEUX = 0.5
 # Tirages au plus pour placer un lieu dans sa cellule ; au-delà, la cellule est
@@ -84,7 +84,7 @@ FENETRE_FLUX_TICKS = 30
 FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = 18.0 * TICK_DURATION_DAYS
 
 # Bras par km² cultivé, niveau 2 : calibrés sur le lieu médian au pic annuel
-# de sa saison agricole (voir MODELE.md, lot #720).
+# de sa saison agricole (voir MODELE.md).
 BRAS_AUX_CHAMPS_PAR_KM2 = 6.2
 
 
@@ -497,7 +497,7 @@ def _lire_cle_commerce(cle, chemin):
 
 def appel_ville_affamee_part(chemin=None):
     """
-    Part de ce que ses champs ne nourrissent pas qu'une ville affamée appelle chaque jour (lot #1071).
+    Part de ce que ses champs ne nourrissent pas qu'une ville affamée appelle chaque jour.
 
     Relit `jeu/data/commerce.toml` à chaque appel. Refuse, en nommant la clé et
     le fichier, un fichier ou une clé absents, un booléen, une chaîne et un
@@ -513,7 +513,7 @@ def appel_ville_affamee_part(chemin=None):
 
 def rayon_ville_affamee_jours(chemin=None) -> int:
     """
-    Jours de charroi et de batellerie que portent les arêtes d'une ville affamée (lot #1071).
+    Jours de charroi et de batellerie que portent les arêtes d'une ville affamée.
 
     Relit `jeu/data/commerce.toml` à chaque appel. Refuse, en nommant la clé et
     le fichier, un fichier ou une clé absents, un booléen, un nombre non entier
@@ -592,9 +592,8 @@ SEED_POPULATION_VARIATION_HIGH = 1.1
 # Au 1er janvier, les greniers des foyers portent de quoi manger jusque-là :
 # 212 jours de ration, 58 % de ce que l'Europe mange en un an, soit l'ordre de
 # grandeur (niveau 1) des sept douzièmes d'une récolte rentrée en août.
-# Ce que cette valeur a remplacé (lot de la soudure, 7 novembre 2026) : une
-# réserve de cinq ticks, plus un mois du manque des villes, qui tombait en
-# février ; Paris était vide avant avril 1400 (docs/mesures/2026-11-07-refonte).
+# Une réserve de cinq ticks, plus un mois du manque des villes, tombait en
+# février : Paris était vide avant avril 1400.
 JOUR_DE_LA_MOISSON = 212
 
 
@@ -800,12 +799,11 @@ MAISONS_PAR_ILOT_MAX = 20
 # Façade limitée pour tenir entre deux ruelles sans allongement infini, niveau 2.
 MAISONS_EN_FACADE_ILOT = 5
 
-# Bourg de la ville d'épreuve, niveau 2 : épreuve de mesure de #422, réponse B du
-# propriétaire ; jamais lue par le monde.
+# Bourg de la ville d'épreuve, niveau 2 : épreuve de mesure ; jamais lue par le monde.
 HABITANTS_BOURG_VILLE_DENSE = 800
 
-# Maisons d'un foyer de la ville d'épreuve, niveau 2 : épreuve de mesure de #422,
-# réponse B du propriétaire ; jamais lue par le monde.
+# Maisons d'un foyer de la ville d'épreuve, niveau 2 : épreuve de mesure ;
+# jamais lue par le monde.
 MAISONS_VILLE_DENSE = 600
 
 # Retrait du mur par rapport au bord de la chaussée, niveau 2.

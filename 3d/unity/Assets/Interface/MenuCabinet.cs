@@ -68,7 +68,7 @@ namespace Forge.Interface
             EventSystem.current.SetSelectedGameObject(choix[suivant].gameObject);
         }
         void Basculer() { if (Ouvert) Fermer(); else Ouvrir(); }
-        // Lot #855 : Échap ferme d'abord ce que `AvantDOuvrir` referme (le dossier de la terre gardée), puis ouvre ou ferme le menu.
+        // Échap ferme d'abord ce que `AvantDOuvrir` referme (le dossier de la terre gardée), puis ouvre ou ferme le menu.
         public Func<bool> AvantDOuvrir;
         public void Echap() { if (Ouvert) Fermer(); else if (AvantDOuvrir?.Invoke() != true) Ouvrir(); }
         public void Ouvrir()

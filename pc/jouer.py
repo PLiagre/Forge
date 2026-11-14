@@ -3,11 +3,11 @@
     py pc\\jouer.py [--port P] [--cellule C] [--carte] -- <commande du jeu…>
 
 Sans `--cellule`, aucune cellule n'est imposée : le jeu lit la maison du joueur,
-ouvre sa capitale ou la carte, ou dit l'absence (lot #688).
+ouvre sa capitale ou la carte, ou dit l'absence.
 Avec `--carte`, le jeu s'ouvre sur la carte
-de 1400 (`-forgeCarte`, lot #524) au lieu de la ville. Le service s'arrête
+de 1400 (`-forgeCarte`) au lieu de la ville. Le service s'arrête
 quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
-Le monde s'ouvre en pause (lot #860) : le service démarre à 0 jour par seconde,
+Le monde s'ouvre en pause : le service démarre à 0 jour par seconde,
 et le jeu lance le temps quand le joueur le décide. La vitesse lue dans le
 fichier de réglages partagé avec Unity est celle que la vue prend à la reprise :
 celle de la carte, ou celle de la ville si `--cellule` est donné sans `--carte`.

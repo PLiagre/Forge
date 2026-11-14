@@ -1,16 +1,16 @@
-"""Juge et lanceur de l'épreuve de la transition (#733). Rapports #732 relus ou copiés en mémoire : ce ne sont pas des mesures PC."""
+"""Juge et lanceur de l'épreuve de la transition. Rapports relus ou copiés en mémoire : ce ne sont pas des mesures PC."""
 import copy, importlib.util, io, json, os, time, urllib.error, urllib.request
 from pathlib import Path
 
 import pytest
 
 RACINE = Path(__file__).resolve().parents[3]
-M732, RELEVES = RACINE / "docs/mesures/732-session-transition", ("carte_avant", "ville_apres", "ville_avant", "carte_apres")
+DONNEES, RELEVES = RACINE / "jeu/ville/tests/donnees/session-transition", ("carte_avant", "ville_apres", "ville_avant", "carte_apres")
 REGLAGES = json.loads((RACINE / "3d/unity/Assets/ForgeLocal3D/Pont/Resources/ReglagesDesVues.json").read_text(encoding="utf-8"))
 DEPARTS = json.loads((RACINE / "3d/unity/Assets/ForgeLocal3D/Pont/Tests/departs-graine0-tick3.json").read_text(encoding="utf-8"))
 SIEGE = next(f["cell_id"] for f in DEPARTS["departs"] if f["nom"] == "Émirat du Zab")
 VILLE, SUPPR = ["ville_apres vitesse", "ville_avant vitesse", "carte_apres vitesse"], object()
-lu = lambda nom: json.loads((M732 / f"rapport-{nom}.json").read_text(encoding="utf-8"))  # noqa: E731
+lu = lambda nom: json.loads((DONNEES / f"rapport-{nom}.json").read_text(encoding="utf-8"))  # noqa: E731
 exemple = lambda: lu("marche") | {"carte_avant": {"tick": 35, "jours_par_seconde": 1, "scene": "Forge_Carte"}}  # noqa: E731  # construit, seule la vitesse initiale change
 @pytest.fixture(scope="module")
 def epreuve():

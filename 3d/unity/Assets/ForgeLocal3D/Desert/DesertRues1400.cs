@@ -1,7 +1,7 @@
 using System;using System.Collections.Generic;using System.Globalization;using System.Linq;using System.Security.Cryptography;using System.Text;using Forge.Pont;using UnityEngine;using UnityEngine.Rendering;using Object=UnityEngine.Object;
 namespace ForgeLocal3D
 {
-    // Lot 738 : chaque rue de la base devient un ruban de terre battue sous « Rues de 1400 », sœur de « Maisons de 1400 ».
+    // Chaque rue de la base devient un ruban de terre battue sous « Rues de 1400 », sœur de « Maisons de 1400 ».
     // Le sable n'est ni creusé ni peint : la session vierge de DesertCityRelance exige après l'ouverture les hauteurs, les
     // couches et les touffes d'une copie vierge, et une chaussée écrite dans le terrain la ferait échouer. Le ruban est posé
     // à 0,06 m au-dessus du sol lu sous chaque sommet ; redessiné après le tick, il suit le sol que le tick a changé.

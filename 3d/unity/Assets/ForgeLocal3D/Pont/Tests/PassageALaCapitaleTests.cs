@@ -15,7 +15,7 @@ using UnityEngine.TestTools;
 using UnityEngine.UI;
 namespace Forge.Pont.Tests
 {
-    // Lot #689 — la carte mène le joueur à sa capitale quand il confirme une terre qui a un kit, ou lui dit qu'elle n'en a
+    // La carte mène le joueur à sa capitale quand il confirme une terre qui a un kit, ou lui dit qu'elle n'en a
     // pas encore. Le faux service sert /monde avec la maison du moment, et la fiche figée sur /maison?id=.
     public sealed class PassageALaCapitaleTests
     {
@@ -186,7 +186,7 @@ namespace Forge.Pont.Tests
             Thread.Sleep(100);
             CollectionAssert.IsEmpty(Recues()); CollectionAssert.IsEmpty(chargees); Assert.IsFalse(passage.PanneauVisible);
         }
-        // Lot #701 — la remise : le siège lu dans /maison, retenu pour la scène demandée, pris une seule fois.
+        // La remise : le siège lu dans /maison, retenu pour la scène demandée, pris une seule fois.
         static long SiegeDuZab => (long)(double)((Dictionary<string, object>)LecteurJson.LireObjet(Fige("zab"))["siege"])["cell_id"];
         [Test] public void LeZabConfirmeRemetSonSiegeUneSeuleFois()
         {
@@ -214,7 +214,7 @@ namespace Forge.Pont.Tests
             else { Poser(); Pas(ref t, 3); }
             CollectionAssert.IsEmpty(chargees, cas); Assert.IsNull(PassageALaCapitale.PrendreCelluleRemise(TerresAvecKit.Scenes[Zab]), cas);
         }
-        // Lot #690 — le rappel de chargement, sur des scènes temporaires jamais enregistrées. CreateScene n'existe qu'en jeu.
+        // Le rappel de chargement, sur des scènes temporaires jamais enregistrées. CreateScene n'existe qu'en jeu.
         [UnityTest] public IEnumerator LeChargementPoseLePassageSurLaSeuleCarte()
         {
             UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene);
@@ -271,7 +271,7 @@ namespace Forge.Pont.Tests
             SceneManager.MoveGameObjectToScene(objet, scene); if (avecCarte) objet.AddComponent<CarteDessinee>(); SceneManager.SetActiveScene(scene);
             return (scene, objet);
         }
-        // Lot #729 — un double-clic sur le siège lu descend comme la confirmation, une seule fois ; rien d'autre ne descend.
+        // Un double-clic sur le siège lu descend comme la confirmation, une seule fois ; rien d'autre ne descend.
         static long SiegeDe(string terre) => (long)(double)((Dictionary<string, object>)LecteurJson.LireObjet(Fige(terre))["siege"])["cell_id"];
         [Test] public void UnDoubleClicSurLeSiegeDescendUneSeuleFois()
         {

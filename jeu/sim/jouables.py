@@ -1,7 +1,7 @@
 """Les pays que le joueur peut prendre : une vue pure du registre et des maîtres de lieux.
 
 Une maison est jouable si elle n'est pas une institution (république, Église,
-ordre : elles élisent leur chef, #441) et si au moins un lieu du monde l'a pour
+ordre : elles élisent leur chef) et si au moins un lieu du monde l'a pour
 maître actuel. Rien ne s'écrit ici, rien ne se tire au hasard.
 """
 import re

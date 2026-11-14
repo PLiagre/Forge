@@ -14,7 +14,7 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Contrôle du lot 370, en Play : les bâtiments de la capitale vivent dans le monde, pas dans Unity.
+    // Contrôle en Play : les bâtiments de la capitale vivent dans le monde, pas dans Unity.
     // Trois sessions, chacune un lancement d'Unity sur la première implantation de la sélection, sur la
     // mécanique de DesertCityRelance (recopiée, clés de session à elle) : `Poser` (service neuf) pose une
     // maison, une scierie et un four et relève la ville rouverte à chacun des trois ticks qui suivent ;
@@ -74,7 +74,7 @@ namespace ForgeLocal3D
                     throw new InvalidOperationException("scène active "+SceneManager.GetActiveScene().name+" au lieu de Forge_Desert_Ville_"+id);
                 Run(report,faults);
             }
-            // Une exception (une aide de Lot362, par exemple) est un défaut : le rapport est écrit quand même.
+            // Une exception (une aide de GestesDeCapture, par exemple) est un défaut : le rapport est écrit quand même.
             catch(Exception e){Debug.LogException(e);faults.Add("exception : "+e.GetBaseException().Message);}
             report.defauts=faults.ToArray();
             try
@@ -94,7 +94,7 @@ namespace ForgeLocal3D
             return string.Concat(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(texte)).Select(b=>b.ToString("x2")));
         }
         static EtapeDuBatiment Etape(string etat)=>etat=="piquets"?EtapeDuBatiment.Piquets:etat=="murs"?EtapeDuBatiment.Murs:EtapeDuBatiment.Fini;
-        // Les maillages d'une pièce, dans l'ordre de sa hiérarchie, tous LOD compris (comme Lot369.Maillages).
+        // Les maillages d'une pièce, dans l'ordre de sa hiérarchie, tous LOD compris.
         static Mesh[] Maillages(GameObject go)=>go.GetComponentsInChildren<MeshFilter>(true).Select(f=>f.sharedMesh).Where(m=>m!=null).ToArray();
 
         static void Run(Rapport report,List<string> faults)
@@ -120,7 +120,7 @@ namespace ForgeLocal3D
         // La ville telle que l'outil vient de la dessiner, bâtiment du plan par bâtiment du plan.
         static Releve Relever(DesertRoadTool tool,KitDesBatiments kit,long dessine,List<string> faults)
         {
-            var plan=Lot362.Lire(tool.Port,tool.Cellule);var racine=tool.RacineBatiments;
+            var plan=GestesDeCapture.Lire(tool.Port,tool.Cellule);var racine=tool.RacineBatiments;
             if(plan.Tick!=dessine)faults.Add("relevé : le plan relu est au tick "+N(plan.Tick)+", l'outil a dessiné celui du tick "+N(dessine));
             var r=new Releve{tick=plan.Tick,pieces=racine?racine.childCount:-1,empreinte=tool.EmpreinteBatiments};
             r.batiments=plan.Batiments.Select(b=>
@@ -143,25 +143,25 @@ namespace ForgeLocal3D
             int port=tool.Port;long cell=tool.Cellule;
             var g=DesertRoads.Lire(report.implantation).routes.FirstOrDefault(x=>x.famille=="plaine");
             if(g==null){faults.Add("jeu de gestes sans route plaine");return false;}
-            Lot362.Deposer(port,tool.Intention(g));Lot362.Tick(port);
-            var plan=Lot362.Lire(port,cell);long rue=Lot362.Identifiant(plan,g);int n0=plan.Parcelles.Count;
+            GestesDeCapture.Deposer(port,tool.Intention(g));GestesDeCapture.Tick(port);
+            var plan=GestesDeCapture.Lire(port,cell);long rue=GestesDeCapture.Identifiant(plan,g);int n0=plan.Parcelles.Count;
             string decoupe="{\"type\":\"decouper_parcelle\",\"cell\":"+N(cell)+",\"rue\":"+N(rue)+",\"segment\":";
             const string MESURES=",\"debut_m\":0,\"facade_m\":10,\"profondeur_m\":15,\"cote\":\"gauche\",\"foyers\":100}";
-            Lot362.Deposer(port,SEGMENTS.Select(s=>decoupe+N(s)+MESURES).ToArray());
-            Lot362.Tick(port);Lot362.Tick(port);
-            plan=Lot362.Lire(port,cell);var parcelles=plan.Parcelles.Skip(n0).Take(SEGMENTS.Length).ToArray();
+            GestesDeCapture.Deposer(port,SEGMENTS.Select(s=>decoupe+N(s)+MESURES).ToArray());
+            GestesDeCapture.Tick(port);GestesDeCapture.Tick(port);
+            plan=GestesDeCapture.Lire(port,cell);var parcelles=plan.Parcelles.Skip(n0).Take(SEGMENTS.Length).ToArray();
             if(parcelles.Length!=SEGMENTS.Length||parcelles.Any(p=>p.EnChantier))
             {
                 faults.Add("les trois parcelles découpées ne sont pas achevées au plan du tick "+N(plan.Tick)+" : ["
                     +string.Join(", ",parcelles.Select(p=>N(p.Identifiant)+" "+N(p.TravailFourni)+"/"+N(p.TravailRequis)))+"]");
                 return false;
             }
-            Lot362.Deposer(port,Enumerable.Range(0,POSES.Length).Select(i=>"{\"type\":\"poser_batiment\",\"cell\":"+N(cell)+",\"parcelle\":"+N(parcelles[i].Identifiant)
+            GestesDeCapture.Deposer(port,Enumerable.Range(0,POSES.Length).Select(i=>"{\"type\":\"poser_batiment\",\"cell\":"+N(cell)+",\"parcelle\":"+N(parcelles[i].Identifiant)
                 +",\"nature\":\""+POSES[i].nature+"\",\"foyers\":"+N(POSES[i].foyers)+"}").ToArray());
             var ticks=new List<Releve>();
             for(int k=0;k<3;k++)
             {
-                Lot362.Tick(port);
+                GestesDeCapture.Tick(port);
                 if(!tool.Ouvrir())faults.Add("après le tick "+(k+1)+" des poses, l'outil n'a pas rouvert la ville : "+tool.Message);
                 ticks.Add(Relever(tool,kit,tool.TickOuverture,faults));
             }

@@ -14,10 +14,10 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Contrôle du lot 386, en Play : Unity joue les gestes de la preuve et redessine la même ville. Trois
+    // Contrôle en Play : Unity joue les gestes de la preuve et redessine la même ville. Trois
     // sessions, chacune un lancement d'Unity sur la première implantation de la sélection, sur la mécanique de
     // DesertCityBatiments (recopiée, clés de session à elle) : `Jouer` (service neuf) trace la route de plaine
-    // (ou celle de la consigne, lot 583),
+    // (ou celle de la consigne),
     // découpe une parcelle et y pose une scierie, chaque geste par ce que `Update` appelle pour sa touche, puis
     // fait passer sept ticks et relève la ville ; `Relancer` (même service) rouvre la ville et doit retrouver ce
     // relevé ; `Vierge` (service neuf) ne doit rien dessiner. Tout dépôt est celui de l'outil. Les étapes des
@@ -32,7 +32,7 @@ namespace ForgeLocal3D
         static readonly string[] TYPES={"tracer_route","decouper_parcelle","poser_batiment"};
 
         [Serializable] class Selection{public string[] implantations;}
-        // Lot 583 : une route facultative, que la session jouer clique au lieu de la route plaine. JsonUtility
+        // Une route facultative, que la session jouer clique au lieu de la route plaine. JsonUtility
         // crée la route même absente du fichier : elle ne compte qu'avec deux points au moins.
         [Serializable] class RouteDeConsigne{public double[] x=new double[0],y=new double[0];public double largeur;}
         [Serializable] class Consigne{public bool ville_locale;public RouteDeConsigne route;}
@@ -150,7 +150,7 @@ namespace ForgeLocal3D
             }
         }
 
-        // Les gestes de la session jouer, rejoués tels quels par la capture du lot 388 sur la ville ouverte : la route,
+        // Les gestes de la session jouer, rejoués tels quels sur la ville ouverte : la route,
         // la parcelle et la scierie par l'outil, puis sept ticks, et le relevé de la ville. Le rapport porte ses défauts :
         // la capture refuse d'en photographier un qui en a.
         internal static Rapport JouerLesGestes(DesertRoadTool tool)
@@ -171,7 +171,7 @@ namespace ForgeLocal3D
         // La ville telle que l'outil l'a dessinée en dernier, et le plan relu maintenant.
         static Releve Relever(DesertRoadTool tool,long[] posees)
         {
-            var plan=Lot362.Lire(tool.Port,tool.Cellule);
+            var plan=GestesDeCapture.Lire(tool.Port,tool.Cellule);
             var natures=plan.Batiments.ToDictionary(b=>b.Identifiant,b=>b.Nature);
             var r=new Releve{tick=plan.Tick,rues=plan.Rues.Select(u=>u.Identifiant).ToArray(),rues_posees=posees,
                 parcelles=tool.Parcelles.Select(p=>new Trace{identifiant=p.identifiant,etat=p.etat}).ToArray(),
@@ -207,7 +207,7 @@ namespace ForgeLocal3D
             int port=tool.Port;long cell=tool.Cellule;var terrain=tool.roads.terrain;var camera=tool.view;
             var ville=camera?camera.GetComponent<DesertCityCamera>():null;
             var e=new Etapes(faults,report.ouverture.tick);var faits=new List<Geste>();long tickAtelier=-1;
-            PlanLu Plan(){var p=Lot362.Lire(port,cell);e.tick=p.Tick;return p;}
+            PlanLu Plan(){var p=GestesDeCapture.Lire(port,cell);e.tick=p.Tick;return p;}
             string Recu(string quoi)=>tool.Recu==null?quoi+" sans reçu du monde : "+tool.Message:!tool.Recu.Acceptee?quoi+" refusé(e) par le monde : "+tool.Message:null;
             RueDuPlan rue=null;ParcelleDuPlan parcelle=null;
 
@@ -217,14 +217,14 @@ namespace ForgeLocal3D
                 var g=consigne??gestes.routes.FirstOrDefault(x=>x.famille=="plaine");
                 if(g==null)return "jeu de gestes sans route plaine";
                 var avant=Plan().Rues.Select(u=>u.Identifiant).ToArray();
-                // Les clics à l'écran, vus de haut, sur une image de la taille de la photo (comme Lot293.Depot).
+                // Les clics à l'écran, vus de haut, sur une image de la taille de la photo.
                 int q=g.x.Length/2;var rt=new RenderTexture(1600,900,24);camera.targetTexture=rt;
                 bool clique=true;DesertRoads.Resultat essai=null;
                 try
                 {
-                    ville.Poser(Lot362.Monde(terrain,g.x[q],g.y[q]),ville.Cap,85f,160f);
+                    ville.Poser(GestesDeCapture.Monde(terrain,g.x[q],g.y[q]),ville.Cap,85f,160f);
                     tool.largeur=g.largeur;tool.Annuler();
-                    for(int i=0;i<g.x.Length;i++)clique&=tool.Clic(camera.WorldToScreenPoint(Lot362.Monde(terrain,g.x[i],g.y[i])));
+                    for(int i=0;i<g.x.Length;i++)clique&=tool.Clic(camera.WorldToScreenPoint(GestesDeCapture.Monde(terrain,g.x[i],g.y[i])));
                     if(clique)essai=tool.Valider();
                 }
                 finally{camera.targetTexture=null;rt.Release();Object.DestroyImmediate(rt);}
@@ -232,7 +232,7 @@ namespace ForgeLocal3D
                 if(essai==null||!essai.acceptee)return "la route "+g.id+" refusée à l'essai du relief : "+tool.Message;
                 var manque=Recu("la route "+g.id);if(manque!=null)return manque;
                 var geste=new Geste{type=TYPES[0],apres_le_tick=tool.Recu.AppliqueeAuTick.Value};faits.Add(geste);
-                Lot362.Tick(port);
+                GestesDeCapture.Tick(port);
                 if(!tool.Attendre())return "après le tick, l'outil n'a pas relu de plan plus récent que son dépôt";
                 var plan=Plan();var neuves=plan.Rues.Where(u=>!avant.Contains(u.Identifiant)).ToArray();
                 if(neuves.Length!=1)return "le plan compte "+neuves.Length+" rue(s) de plus "+Liste(plan.Rues.Select(u=>u.Identifiant))+", il en faut une";
@@ -247,14 +247,14 @@ namespace ForgeLocal3D
                 if(rue.Points.Count<7)return "la rue "+N(rue.Identifiant)+" n'a que "+rue.Points.Count+" point(s), il faut un segment 5";
                 var avant=Plan().Parcelles.Select(p=>p.Identifiant).ToArray();
                 // 0,5 m après le début du segment 5 (10 m), 9 m de façade, 15 m de profondeur : la scierie aux piquets
-                // (8,52 m de large) déborde d'une façade de 8 m (contre-épreuve du lot 369), pas de celle-ci.
+                // (8,52 m de large) déborde d'une façade de 8 m, pas de celle-ci.
                 tool.EntrerParcelle();
-                Lot375.Cliquer(camera,ville,tool,Lot375.Milieu(terrain,rue,5),Lot375.Point(rue,5,.5,3),Lot375.Point(rue,5,9.5,17));
+                GestesDeCapture.Cliquer(camera,ville,tool,GestesDeCapture.Milieu(terrain,rue,5),GestesDeCapture.Point(rue,5,.5,3),GestesDeCapture.Point(rue,5,9.5,17));
                 var tracee=tool.ValiderParcelle();
                 if(tracee==null||tool.Tracee==null||!tool.Tracee.Presente)return "l'outil n'a pas tracé la parcelle : "+tool.Message;
                 var manque=Recu("la parcelle");if(manque!=null)return manque;
                 var geste=new Geste{type=TYPES[1],apres_le_tick=tool.Recu.AppliqueeAuTick.Value};faits.Add(geste);
-                Lot362.Tick(port);
+                GestesDeCapture.Tick(port);
                 if(!tool.Attendre())return "après le tick, l'outil n'a pas relu de plan plus récent que son dépôt";
                 var plan=Plan();var neuves=plan.Parcelles.Where(p=>!avant.Contains(p.Identifiant)).ToArray();
                 if(neuves.Length!=1)return "le plan compte "+neuves.Length+" parcelle(s) de plus, il en faut une";
@@ -271,12 +271,12 @@ namespace ForgeLocal3D
                 var avant=Plan().Batiments.Select(b=>b.Identifiant).ToArray();
                 var c=(x:parcelle.Contour.Average(k=>k.X),y:parcelle.Contour.Average(k=>k.Y));
                 tool.EntrerBatiment(PoseDeBatiment.Natures[1]);
-                Lot375.Cliquer(camera,ville,tool,Lot375.Milieu(terrain,rue,5),c);
+                GestesDeCapture.Cliquer(camera,ville,tool,GestesDeCapture.Milieu(terrain,rue,5),c);
                 if(tool.Pose==null||!tool.Pose.Presente||tool.Pose.Nature!="scierie"||tool.Pose.Parcelle!=parcelle.Identifiant)
                     return "le clic au centre de la parcelle "+N(parcelle.Identifiant)+" ne forme pas une scierie sur elle : "+tool.Message;
                 var manque=Recu("la scierie");if(manque!=null)return manque;
                 var geste=new Geste{type=TYPES[2],apres_le_tick=tool.Recu.AppliqueeAuTick.Value};faits.Add(geste);
-                Lot362.Tick(port);
+                GestesDeCapture.Tick(port);
                 if(!tool.Attendre())return "après le tick, l'outil n'a pas relu de plan plus récent que son dépôt";
                 var plan=Plan();var neufs=plan.Batiments.Where(b=>!avant.Contains(b.Identifiant)).ToArray();
                 if(neufs.Length!=1)return "le plan compte "+neufs.Length+" bâtiment(s) de plus, il en faut un";
@@ -292,7 +292,7 @@ namespace ForgeLocal3D
 
             ok=ok&&e.Jouer("le temps",()=>
             {
-                for(int k=0;k<TICKS_APRES;k++)Lot362.Tick(port);
+                for(int k=0;k<TICKS_APRES;k++)GestesDeCapture.Tick(port);
                 e.tick=tickAtelier+TICKS_APRES;
                 return tool.Rafraichir()?null:"l'outil n'a pas redessiné la ville d'après le plan : "+tool.Message;
             });

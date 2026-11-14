@@ -1,4 +1,4 @@
-"""Preuve du jalon 2, indépendante des données que lit le moteur."""
+"""Preuve indépendante des données que lit le moteur."""
 
 import copy
 import json

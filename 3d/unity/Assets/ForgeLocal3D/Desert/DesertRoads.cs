@@ -9,7 +9,7 @@ using UnityEngine.Splines;
 
 namespace ForgeLocal3D
 {
-    // Routes du joueur (lot 263). Un geste — des points, une largeur, un revêtement — devient une
+    // Routes du joueur. Un geste — des points, une largeur, un revêtement — devient une
     // spline échantillonnée au pas du terrain. Le profil en long est la moyenne glissante du
     // terrain sous l'axe ; au-delà de la pente maximale, ou si le talus 1:2 ne rejoint pas le
     // terrain à la distance fixée, la route est refusée et rien ne change. Sinon le terrain
@@ -240,7 +240,7 @@ namespace ForgeLocal3D
 
         // Pose une route, ou la refuse sans rien changer. `decalage` relève le profil (contre-épreuve) ;
         // `penteMax` remplace la pente maximale des paramètres (contre-épreuve). `essai` passe tous
-        // les refus puis s'arrête juste avant la première écriture : le terrain ne bouge pas (lot 293).
+        // les refus puis s'arrête juste avant la première écriture : le terrain ne bouge pas.
         public Resultat Poser(Geste g,double decalage=0,double penteMax=double.NaN,bool essai=false)
         {
             Assure();var P=Actuels;var r=new Resultat();

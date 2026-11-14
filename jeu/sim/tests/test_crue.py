@@ -69,7 +69,7 @@ def _carte_sans_crue() -> dict:
 
 
 def test_carte_lue_porte_la_crue_du_fleuve():
-    """SC1 : toute cellule, et elle seule, reçoit la crue dérivée du Nil."""
+    """Toute cellule, et elle seule, reçoit la crue dérivée du Nil."""
     carte = World.lire_carte()
     traversees = {
         cellule.cell_id
@@ -100,7 +100,7 @@ def test_carte_lue_porte_la_crue_du_fleuve():
 
 
 def test_carte_lue_preserve_la_pluie_et_le_fichier_disque():
-    """SC1 : la crue est une eau distincte et seulement ajoutée en mémoire."""
+    """La crue est une eau distincte et seulement ajoutée en mémoire."""
     carte = World.lire_carte()
     pluies = pluie_depuis_monde(World.charger(0))
     pluies_conformes = sum(
@@ -120,7 +120,7 @@ def test_carte_lue_preserve_la_pluie_et_le_fichier_disque():
 
 
 def test_carte_relit_la_constante_de_crue(monkeypatch):
-    """SC1 : un remplacement en mémoire atteint chaque nouvelle lecture."""
+    """Un remplacement en mémoire atteint chaque nouvelle lecture."""
     monkeypatch.setattr(_constantes, "CRUE_EQUIVALENT_PLUIE_MM", 0.0)
     carte = World.lire_carte()
     non_nulles = sum(raw["crue_mm_par_an"] != 0.0 for raw in carte["cellules"])
@@ -132,7 +132,7 @@ def test_carte_relit_la_constante_de_crue(monkeypatch):
 
 
 def test_refus_des_crues_invalides():
-    """SC2 : toute crue absente ou inexploitable est refusée en la nommant."""
+    """Toute crue absente ou inexploitable est refusée en la nommant."""
     carte = World.lire_carte()
     delta, _, _ = _cellules_de_reference()
     index_delta = next(
@@ -159,7 +159,7 @@ def test_refus_des_crues_invalides():
 
 
 def test_refus_accepte_crue_zero_sans_changer_la_pluie():
-    """SC2 : zéro est accepté et la pluie lue reste exactement la même."""
+    """Zéro est accepté et la pluie lue reste exactement la même."""
     carte = World.lire_carte()
     delta, _, _ = _cellules_de_reference()
     pluie_attendue = next(
@@ -180,8 +180,8 @@ def test_refus_accepte_crue_zero_sans_changer_la_pluie():
 
 
 def test_densite_du_delta_depasse_la_mediane_grace_a_la_crue(monkeypatch):
-    """SC3 : la crue augmente la densité rurale du delta, pas du désert ni de Suez."""
-    # Décision du propriétaire sur #224 : mesurer hors populations urbaines.
+    """La crue augmente la densité rurale du delta, pas du désert ni de Suez."""
+    # On mesure hors populations urbaines.
     monkeypatch.setattr("sim.world.charger_villes", lambda: ())
     delta, desert, suez = _cellules_de_reference()
     monde = World.charger(0)
@@ -204,7 +204,7 @@ def test_densite_du_delta_depasse_la_mediane_grace_a_la_crue(monkeypatch):
 
 
 def test_formule_inclut_la_crue_dans_l_argument_du_facteur_eau():
-    """SC4 : le gain du delta est exactement le rapport des facteurs d'eau."""
+    """Le gain du delta est exactement le rapport des facteurs d'eau."""
     delta, desert, suez = _cellules_de_reference()
     monde = World.charger(0)
     monde_sec = World.charger(0, carte_doc=_carte_sans_crue())
@@ -232,7 +232,7 @@ def test_formule_inclut_la_crue_dans_l_argument_du_facteur_eau():
 
 
 def test_plafond_et_production_partagent_la_meme_formule():
-    """SC4 : chaque plafond se déduit de la production moyenne du moteur."""
+    """Chaque plafond se déduit de la production moyenne du moteur."""
     monde = World.charger(0)
     rendement = _constantes.rendement_moyen_courant()
     conformes = 0
@@ -254,7 +254,7 @@ def test_plafond_et_production_partagent_la_meme_formule():
 
 
 def test_vue_du_fleuve_n_a_que_world_parmi_ses_lecteurs():
-    """SC5 : seul le chargement de carte importe la vue dérivée du Nil."""
+    """Seul le chargement de carte importe la vue dérivée du Nil."""
     def importe_fleuve(source: str) -> bool:
         arbre = ast.parse(source)
         for noeud in ast.walk(arbre):

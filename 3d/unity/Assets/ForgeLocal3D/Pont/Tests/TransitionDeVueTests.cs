@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace Forge.Pont.Tests {
-    // Lot #728 — le fondu au noir entre deux vues, et la vitesse de la vue d'arrivée. Le faux service tient une vitesse :
+    // Le fondu au noir entre deux vues, et la vitesse de la vue d'arrivée. Le faux service tient une vitesse :
     // `/horloge` la rend, `/vitesse` la change. La vitesse ne part qu'après le chargement, et jamais vers un monde en pause.
     public sealed class TransitionDeVueTests {
         private const int ATTENTE_MS = 10000; private const double PAS_S = 0.1;
@@ -31,7 +31,7 @@ namespace Forge.Pont.Tests {
                 }
                 if (delai > 0) Thread.Sleep(delai); porte.Wait(ATTENTE_MS);
                 try { ctx.Response.StatusCode = enPanne ? 500 : 200; ctx.Response.Close(Encoding.UTF8.GetBytes(enPanne ? "{\"erreur\":\"panne\"}" : corps), true); } catch (Exception) { } }
-            // Lot #730 — `tardifMs` : le prochain POST n'est noté et appliqué qu'après ce délai, pendant que le service répond aux autres.
+            // `tardifMs` : le prochain POST n'est noté et appliqué qu'après ce délai, pendant que le service répond aux autres.
             (fil = new Thread(() => { try { while (true) { HttpListenerContext ctx = auditeur.GetContext(); int tardif; lock (recues) { tardif = ctx.Request.HttpMethod == "POST" ? tardifMs : 0; if (tardif > 0) tardifMs = 0; }
                 if (tardif > 0) new Thread(() => { try { Thread.Sleep(tardif); Traiter(ctx); } catch (Exception) { } }) { IsBackground = true }.Start(); else Traiter(ctx);
             } } catch (Exception) { } }) { IsBackground = true }).Start();
@@ -96,7 +96,7 @@ namespace Forge.Pont.Tests {
         [Test] public void Lancer_cree_l_objet_et_refuse_une_seconde_transition() {
             var lancee = TransitionDeVue.Lancer("Desert_City", VueDuJeu.Carte, port); objet = lancee.gameObject; Assert.AreEqual("Transition de vue", objet.name); Assert.IsTrue(lancee.EnCours); Assert.IsNull(lancee.SceneChargee);
             Assert.IsNull(TransitionDeVue.Lancer("Desert_City", VueDuJeu.Ville, port), "une seconde transition a été lancée"); lancee.Arreter(); Assert.IsFalse(lancee.EnCours); }
-        // Lot #730 — C revient à la carte, Espace suspend ou reprend. Les vitesses attendues viennent de la ressource.
+        // C revient à la carte, Espace suspend ou reprend. Les vitesses attendues viennent de la ressource.
         static string Poste(double v) => "POST /vitesse?jours_par_seconde=" + v.ToString("R", CultureInfo.InvariantCulture);
         void Attendre(CommandesDeVille c) { var m = Stopwatch.StartNew(); while (c.RequeteEnVol && m.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5); Assert.IsFalse(c.RequeteEnVol, "requête encore en vol"); }
         void Brancher(TransitionDeVue lancee) { objet = lancee.gameObject; transition = lancee; lancee.ChargerScene = nom => { chargees.Add(nom); recuesAuChargement = Recues().Length; }; }

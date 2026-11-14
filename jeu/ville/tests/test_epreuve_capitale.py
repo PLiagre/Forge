@@ -1,4 +1,4 @@
-"""pc/epreuve_capitale.py juge la session #702 contre le siège servi (lot #703).
+"""pc/epreuve_capitale.py juge la session d'Unity contre le siège servi.
 
 `/departs` du pont est ramené au tick 0. Les maisons du pont, copiées au tick 1, ne sont pas un relevé PC. `avant` est au tick 0 sans joueur, `apres` au tick 1 avec la maison de l'essai.
 """
@@ -17,7 +17,7 @@ JEU = Path(__file__).resolve().parents[2]
 RACINE = JEU.parent
 EPREUVE = RACINE / "pc" / "epreuve_capitale.py"
 PONT = RACINE / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
-RAPPORTS = RACINE / "docs" / "mesures" / "702-session-capitale"
+DONNEES = RACINE / "jeu/ville/tests/donnees" / "session-capitale"
 AVANT = {"tick": 0}
 if str(JEU) not in sys.path:
     sys.path.insert(0, str(JEU))
@@ -48,8 +48,8 @@ def base():
         return lu
 
     return {"departs": departs,
-            "zab": json.loads((RAPPORTS / "rapport-zab.json").read_text(encoding="utf-8")),
-            "bar": json.loads((RAPPORTS / "rapport-bar.json").read_text(encoding="utf-8")),
+            "zab": json.loads((DONNEES / "rapport-zab.json").read_text(encoding="utf-8")),
+            "bar": json.loads((DONNEES / "rapport-bar.json").read_text(encoding="utf-8")),
             "maison_zab": maison("maison-zab-graine0-tick0.json"), "maison_bar": maison("maison-bar-graine0-tick0.json")}
 
 
@@ -85,7 +85,7 @@ def test_un_zab_ailleurs_ou_incomplet_est_un_ecart(epreuve, base, champ, prefixe
 
 
 def test_contre_epreuve_ville_ailleurs(epreuve, base):
-    """Copie en mémoire du rapport Zab #702 : cellule et panneau à 1175. Pas une mesure PC."""
+    """Copie en mémoire du rapport Zab : cellule et panneau à 1175. Pas une mesure PC."""
     rapport = copy.deepcopy(base["zab"]) | {"cellule": 1175, "panneau_lieu": "Cellule 1175 · tick 1"}
     code, lignes = _juge(epreuve, rapport, base, True)
     print("transformation : rapport-zab.json copié en mémoire, cellule = 1175, panneau = « Cellule 1175 · tick 1 »")
@@ -176,7 +176,7 @@ def test_le_script_ne_prend_pas_la_cellule_ni_le_tick_pour_reference():
 def _harnais(monkeypatch, epreuve, tmp_path, base, plan):
     zab = next(f["id"] for f in base["departs"]["departs"] if f["nom"] == epreuve.ZAB)
     bar = next(f["id"] for f in base["departs"]["departs"] if f["nom"] == epreuve.BAR)
-    brut = {cle: (RAPPORTS / f"rapport-{cle}.json").read_text(encoding="utf-8") for cle in ("zab", "bar")}
+    brut = {cle: (DONNEES / f"rapport-{cle}.json").read_text(encoding="utf-8") for cle in ("zab", "bar")}
     etat = {"services": [], "arrets": [], "unity": [], "http": [], "seeds": [], "zab": zab, "bar": bar}
 
     def lancer(seed):

@@ -10,30 +10,30 @@ using UnityEngine.SceneManagement;
 
 namespace ForgeLocal3D
 {
-    // Le geste du joueur (lot 263) : clic gauche pose un point sur le terrain, Entrée trace la
+    // Le geste du joueur : clic gauche pose un point sur le terrain, Entrée trace la
     // route, Échap annule. Le clic ne fait que convertir un point d'écran en point du terrain.
-    // Lot 293 : la route n'est plus posée par l'outil. Il l'essaie sur le relief (DesertRoads.Poser
+    // L'outil ne pose pas la route : il l'essaie sur le relief (DesertRoads.Poser
     // en essai, qui refuse la route trop raide), la dépose au monde comme intention `tracer_route`,
     // puis dessine au tick suivant les rues neuves que `/plan` publie. Toute route en chantier est
     // en terre battue. Le panneau est un texte posé devant la caméra : il apparaît aussi dans les
     // captures.
-    // Lot 361 : au lancement, l'outil lit le plan de sa cellule et pose toutes ses rues, dans l'ordre
+    // Au lancement, l'outil lit le plan de sa cellule et pose toutes ses rues, dans l'ordre
     // du plan, sur une copie vierge du terrain. Une rue que le relief refuse reste au plan : le panneau
     // la déclare par son identifiant. Unity ne garde aucun plan à lui : relancé, il redessine la même ville.
-    // Lot 362 : après les rues, l'outil trace au sol chaque parcelle du plan (DesertParcelles) : cordeau
+    // Après les rues, l'outil trace au sol chaque parcelle du plan (DesertParcelles) : cordeau
     // en chantier, bornes achevée. Il les redessine toutes à l'ouverture, après une route et par Rafraichir.
-    // Lot 369 : après les parcelles, la pièce du kit à l'étape de chaque bâtiment du plan (DesertBatiments).
-    // Lot 375 : P passe en mode parcelle. Deux coins posés le long d'une rue, Entrée calcule la parcelle
+    // Après les parcelles, la pièce du kit à l'étape de chaque bâtiment du plan (DesertBatiments).
+    // P passe en mode parcelle. Deux coins posés le long d'une rue, Entrée calcule la parcelle
     // (TraceDeParcelle) et dépose `decouper_parcelle` au monde ; Attendre la dessine au tick suivant. Un refus
     // de l'outil n'atteint jamais le monde ; celui du monde s'affiche avec sa raison. Échap ramène aux routes.
-    // Lot 377 : 1, 2, 3 passent en mode bâtiment (maison, scierie, four). Un clic sur une parcelle forme la pose
+    // 1, 2, 3 passent en mode bâtiment (maison, scierie, four). Un clic sur une parcelle forme la pose
     // (PoseDeBatiment) et dépose `poser_batiment` au monde ; Attendre dessine la pièce au tick suivant.
-    // Lot 584 : Ouvrir(cellule) ouvre la ville d'une autre cellule, celle des lectures et des dépôts suivants, sur le
+    // Ouvrir(cellule) ouvre la ville d'une autre cellule, celle des lectures et des dépôts suivants, sur le
     // même service local ; rien de l'ancienne cellule (points, mode, reçu, dépôt en attente, relevés de pose) ne la suit.
-    // Lot 688 : au lancement, Lancer applique la décision de #687 : la cellule du siège du joueur, la carte de 1400, ou l'absence.
-    // Lot 730 : C revient à la carte, Espace suspend ou reprend. Le clavier reste ici ; le pont n'en a pas.
-    // Lot 907 : après les maisons, l'enceinte du plan (DesertEnceinte), tours, pans et porte à l'étape du chantier.
-    // Lot 908 : E passe en mode enceinte. Chaque clic pose un coin, un trait rouge fermé suit le tracé ; Entrée dépose
+    // Au lancement, Lancer applique la décision : la cellule du siège du joueur, la carte de 1400, ou l'absence.
+    // C revient à la carte, Espace suspend ou reprend. Le clavier reste ici ; le pont n'en a pas.
+    // Après les maisons, l'enceinte du plan (DesertEnceinte), tours, pans et porte à l'étape du chantier.
+    // E passe en mode enceinte. Chaque clic pose un coin, un trait rouge fermé suit le tracé ; Entrée dépose
     // `tracer_enceinte` au monde, seul juge, et Attendre dessine le mur au tick suivant. L'outil ne refuse que moins de trois coins.
     public sealed class DesertRoadTool : MonoBehaviour
     {
@@ -41,7 +41,7 @@ namespace ForgeLocal3D
         public const string Revetement="terre";public double largeur=4;
         // Piloté par le contrôle : ni souris ni clavier, et Attendre appelé par lui.
         public bool automatique;
-        public Mesh maillageCivil;public Material materiauCivil;PassantsDeLaVille passants; // VAT de #786, les deux scènes de ville.
+        public Mesh maillageCivil;public Material materiauCivil;PassantsDeLaVille passants; // VAT, les deux scènes de ville.
         readonly List<(double x,double y)> points=new();
         public (double x,double y)[] Derniers{get;private set;}=new (double,double)[0];
         public string Message{get;private set;}="";
@@ -51,26 +51,26 @@ namespace ForgeLocal3D
         public RecuIntention Recu{get;private set;}
         // Les rues neuves du plan dessinées par Attendre : identifiant et résultat de la pose.
         public readonly List<(long identifiant,DesertRoads.Resultat resultat)> Posees=new();
-        // Lot 361 : chaque rue essayée à l'ouverture, dans l'ordre du plan, acceptée ou refusée ;
+        // Chaque rue essayée à l'ouverture, dans l'ordre du plan, acceptée ou refusée ;
         // le tick du plan lu à l'ouverture, -1 tant qu'aucun ne l'a été.
         public readonly List<(long identifiant,DesertRoads.Resultat resultat)> Ouverture=new();
         public long TickOuverture{get;private set;}=-1;
-        // Lot 362 : le dernier dessin des parcelles, dans l'ordre du plan (cordeau, bornes ou refusee).
+        // Le dernier dessin des parcelles, dans l'ordre du plan (cordeau, bornes ou refusee).
         public readonly List<(long identifiant,string etat,string message)> Parcelles=new();
         public Transform RacineParcelles=>parcelles?.Racine;
         public string EmpreinteParcelles=>parcelles?.Empreinte??"";
         DesertParcelles parcelles;string erreurParcelles;
-        // Lot 369 : le dernier dessin des bâtiments, dans l'ordre du plan (piquets, murs, fini ou refusee).
+        // Le dernier dessin des bâtiments, dans l'ordre du plan (piquets, murs, fini ou refusee).
         public readonly List<(long identifiant,string etat,string message)> Batiments=new();
         public Transform RacineBatiments=>batiments?.Racine;
         public string EmpreinteBatiments=>batiments?.Empreinte??"";
         DesertBatiments batiments;string erreurBatiments;
         DesertEnceinte enceinte;string erreurEnceinte;
         public DesertEnceinte Enceinte=>enceinte;
-        // Lot 737 : les maisons de la base, jamais mêlées aux bâtiments de geste.
+        // Les maisons de la base, jamais mêlées aux bâtiments de geste.
         DesertMaisons1400 maisons;
         public DesertMaisons1400 Maisons=>maisons;
-        // Lot 738 : les rues de la base en rubans posés sur le sable, redessinés avec les maisons, juste avant elles.
+        // Les rues de la base en rubans posés sur le sable, redessinés avec les maisons, juste avant elles.
         DesertRues1400 rues1400;public DesertRues1400 Rues1400=>rues1400;
         public int PiecesAvantMaisons{get;private set;}=-1;
         public string EmpreinteAvantMaisons{get;private set;}="";
@@ -80,14 +80,14 @@ namespace ForgeLocal3D
         readonly HashSet<long> essayees=new();
         RecuIntention enAttente;double prochaineLecture;
         TextMesh panneau,halo;
-        // Lot 375 : le mode parcelle, et le dernier calcul de l'outil (null tant qu'aucun n'a été fait).
+        // Le mode parcelle, et le dernier calcul de l'outil (null tant qu'aucun n'a été fait).
         public bool ModeParcelle{get;private set;}
         public ParcelleTracee Tracee{get;private set;}
-        // Lot 377 : la nature choisie (null hors du mode bâtiment), et le dernier calcul de pose (null tant qu'aucun n'a été fait).
+        // La nature choisie (null hors du mode bâtiment), et le dernier calcul de pose (null tant qu'aucun n'a été fait).
         public string NatureBatiment{get;private set;}
         public bool ModeBatiment=>NatureBatiment!=null;
         public BatimentPose Pose{get;private set;}
-        // Lot 908 : le mode enceinte, et le tracé en cours (null sans matériau par défaut du pipeline).
+        // Le mode enceinte, et le tracé en cours (null sans matériau par défaut du pipeline).
         public bool ModeEnceinte{get;private set;}public LineRenderer TraceEnceinte{get;private set;}
         CommandesDeVille commandes;
         const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment · E : enceinte";
@@ -98,7 +98,7 @@ namespace ForgeLocal3D
         const string Gestes="C : carte · Espace : pause / reprendre";
         const double PeriodeLecture=.25;
         static readonly TimeSpan Delai=TimeSpan.FromSeconds(1);
-        // Lot 688 : l'aiguillage du lancement lit /monde puis /maison ; les gestes gardent leur délai.
+        // L'aiguillage du lancement lit /monde puis /maison ; les gestes gardent leur délai.
         static readonly TimeSpan DelaiAiguillage=TimeSpan.FromSeconds(5);
         const string CarteOuverte="La carte de 1400 s'ouvre : aucune capitale à ouvrir ici.";
 
@@ -118,7 +118,7 @@ namespace ForgeLocal3D
             if(defaut){var go=new GameObject("Tracé de l'enceinte");go.transform.SetParent(transform,false);TraceEnceinte=go.AddComponent<LineRenderer>();TraceEnceinte.loop=true;
                 TraceEnceinte.widthMultiplier=1.5f;TraceEnceinte.material=new Material(defaut){name="Tracé de l'enceinte",color=new Color(.6f,.05f,.05f)};TraceEnceinte.positionCount=0;TraceEnceinte.enabled=false;}
             Port=PanneauLieu.DEFAULT_SERVICE_PORT;commandes=new CommandesDeVille(Port);
-            // Lot 701 : une ville ouverte depuis la carte prend la cellule que le passage a remise à sa scène.
+            // Une ville ouverte depuis la carte prend la cellule que le passage a remise à sa scène.
             Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>(),PassageALaCapitale.PrendreCelluleRemise(gameObject.scene.name));
             // Sans matériau, aucune parcelle n'est jamais dessinée : le panneau le dit.
             try{parcelles=new DesertParcelles(transform,roads.terrain);}
@@ -134,7 +134,7 @@ namespace ForgeLocal3D
         }
         void Start()=>Ouvrir();
 
-        // Lot 688 : applique la décision du lancement (OuvertureDeLaCapitale, #687), puis la rend. En ville, la cellule est
+        // Applique la décision du lancement (OuvertureDeLaCapitale), puis la rend. En ville, la cellule est
         // celle des lectures et des dépôts, et le panneau du lieu la suit ; aucun plan n'est lu ici, Ouvrir() le dessine.
         // Sinon, aucune cellule : l'absence garde sa cause mot pour mot, et le panneau du lieu s'éteint sans rien lire.
         // Le panneau peut manquer (la scène de l'oued n'en a pas).
@@ -160,13 +160,13 @@ namespace ForgeLocal3D
         void Afficher(string texte)
         {
             Message=texte;
-            // Lot 375 : en mode parcelle, l'aide du mode suit toujours l'état, sous le message s'il y en a un.
+            // En mode parcelle, l'aide du mode suit toujours l'état, sous le message s'il y en a un.
             if(ModeParcelle)
                 panneau.text=(texte==AideParcelle?"":texte+"\n")+"Parcelle le long d'une rue · "+points.Count+"/2 coin(s)\n"+AideParcelle;
-            // Lot 377 : de même en mode bâtiment.
+            // De même en mode bâtiment.
             else if(ModeBatiment)
                 panneau.text=(texte==AideBatiment?"":texte+"\n")+"Bâtiment : "+NatureBatiment+" · un clic sur une parcelle\n"+AideBatiment;
-            // Lot 908 : de même en mode enceinte.
+            // De même en mode enceinte.
             else if(ModeEnceinte)
                 panneau.text=(texte==AideEnceinte?"":texte+"\n")+"Enceinte · "+points.Count+" coin(s)\n"+AideEnceinte+(TraceEnceinte?"":"\n"+SansTrace);
             else
@@ -179,7 +179,7 @@ namespace ForgeLocal3D
             halo.text=panneau.text;
             Placer();Tracer();
         }
-        // Lot 908 : le contour des coins, fermeture comprise, un sommet tous les 2 m à 1 m au-dessus du sol (repère (-x, sol, -y)).
+        // Le contour des coins, fermeture comprise, un sommet tous les 2 m à 1 m au-dessus du sol (repère (-x, sol, -y)).
         void Tracer()
         {
             if(!TraceEnceinte)return;
@@ -226,23 +226,23 @@ namespace ForgeLocal3D
         {
             var ray=view.ScreenPointToRay(ecran);
             if(!roads.terrain.GetComponent<TerrainCollider>().Raycast(ray,out var hit,10000)){Afficher("Ce point n'est pas sur le terrain.");return false;}
-            // Lot 377 : en mode bâtiment, le point désigne la parcelle ; il ne s'ajoute pas aux points.
+            // En mode bâtiment, le point désigne la parcelle ; il ne s'ajoute pas aux points.
             if(ModeBatiment){var (x,y)=roads.PointExact(hit.point);PoserBatiment(x,y);return true;}
             if(ModeParcelle&&points.Count>=2){Afficher("Deux coins suffisent : Entrée pour déposer, Échap pour annuler.");return false;}
             points.Add(roads.PointExact(hit.point));Afficher(ModeParcelle?AideParcelle:ModeEnceinte?AideEnceinte:Aide);return true;
         }
         public void Annuler(){ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;points.Clear();Recu=null;Afficher(Aide);}
 
-        // Lot 375 : le mode parcelle, coins effacés. Échap (Annuler) ramène au mode route.
+        // Le mode parcelle, coins effacés. Échap (Annuler) ramène au mode route.
         public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;ModeEnceinte=false;Afficher(AideParcelle);}
 
-        // Lot 377 : le mode bâtiment, pour la nature choisie. Elle n'est pas jugée ici : Calculer le fait au clic.
+        // Le mode bâtiment, pour la nature choisie. Elle n'est pas jugée ici : Calculer le fait au clic.
         public void EntrerBatiment(string nature){points.Clear();Recu=null;Pose=null;ModeParcelle=false;ModeEnceinte=false;NatureBatiment=nature;Afficher(AideBatiment);}
 
-        // Lot 908 : le mode enceinte, coins effacés. Échap (Annuler) ramène au mode route.
+        // Le mode enceinte, coins effacés. Échap (Annuler) ramène au mode route.
         public void EntrerEnceinte(){points.Clear();Recu=null;ModeParcelle=false;NatureBatiment=null;ModeEnceinte=true;Afficher(AideEnceinte);}
 
-        // Lot 908 : dépose le contour au monde, seul juge (croisement, place, terres). Rien n'est dessiné ici : Attendre
+        // Dépose le contour au monde, seul juge (croisement, place, terres). Rien n'est dessiné ici : Attendre
         // dessine l'enceinte au tick suivant. Rend le reçu, null hors du mode enceinte, faute de coins ou de cellule.
         public RecuIntention ValiderEnceinte()
         {
@@ -255,11 +255,11 @@ namespace ForgeLocal3D
             else Afficher(Recu.Presente?"Le monde refuse l'enceinte : "+Recu.Erreur:"Pas de reçu : "+Recu.Absence);
             return Recu;
         }
-        // Lot 908 : sans `maison` (le service met celle du joueur) ni `foyers` (1 par défaut).
+        // Sans `maison` (le service met celle du joueur) ni `foyers` (1 par défaut).
         public string IntentionEnceinte(IReadOnlyList<(double x,double y)> coins)=>"{\"type\":\"tracer_enceinte\",\"cell\":"+Cellule.ToString(CultureInfo.InvariantCulture)
             +",\"points\":["+string.Join(",",coins.Select(c=>"["+c.x.ToString("R",CultureInfo.InvariantCulture)+","+c.y.ToString("R",CultureInfo.InvariantCulture)+"]"))+"]}";
 
-        // Lot 375 : calcule la parcelle des deux coins, puis la dépose au monde, qui reste le seul juge.
+        // Calcule la parcelle des deux coins, puis la dépose au monde, qui reste le seul juge.
         // Le terrain ne bouge pas ici : la parcelle se dessine dans Attendre, d'après le plan du tick suivant.
         // Rend le calcul de l'outil, null hors du mode parcelle ou faute de coins, de cellule ou de plan.
         public ParcelleTracee ValiderParcelle()
@@ -284,7 +284,7 @@ namespace ForgeLocal3D
             return Tracee;
         }
 
-        // Lot 377 : forme la pose sur la parcelle sous le point, puis la dépose au monde, qui reste le seul juge
+        // Forme la pose sur la parcelle sous le point, puis la dépose au monde, qui reste le seul juge
         // (« parcelle déjà bâtie » est son refus, pas celui de l'outil). La pièce se dessine dans Attendre, au
         // tick suivant. L'outil reste en mode bâtiment, avec la même nature.
         void PoserBatiment(double x,double y)
@@ -331,7 +331,7 @@ namespace ForgeLocal3D
         }
 
         // Formée à la main : les nombres en culture invariante, au format "R" (aller-retour exact).
-        // Publique (lot 361) : le contrôle du relancement et la capture forment leurs dépôts avec elle.
+        // Publique : le contrôle du relancement et la capture forment leurs dépôts avec elle.
         public string Intention(DesertRoads.Geste g)
         {
             string N(double v)=>v.ToString("R",CultureInfo.InvariantCulture);
@@ -355,7 +355,7 @@ namespace ForgeLocal3D
             return true;
         }
 
-        // Lot 361 : la ville d'après le plan, sur une copie vierge du terrain. Appelée au lancement ;
+        // La ville d'après le plan, sur une copie vierge du terrain. Appelée au lancement ;
         // un dépôt en attente n'est pas touché. Faux, terrain inchangé, si la cellule, le plan ou les
         // paramètres des routes manquent : l'absence est affichée, jamais devinée.
         public bool Ouvrir()
@@ -365,7 +365,7 @@ namespace ForgeLocal3D
             return true;
         }
 
-        // Lot 584 : la ville d'une autre cellule, sur une copie vierge du terrain, par le dessin d'Ouvrir(). Le port reste
+        // La ville d'une autre cellule, sur une copie vierge du terrain, par le dessin d'Ouvrir(). Le port reste
         // celui du service local. Faux, sans rien changer ni dessiner, si la cellule est invalide, son plan absent ou les
         // paramètres des routes manquants : l'absence est affichée, jamais remplacée par un plan de secours.
         public bool Ouvrir(long cellule)
@@ -412,7 +412,7 @@ namespace ForgeLocal3D
                 +"\n"+DessinerParcelles(lu)+"\n"+DessinerBatiments(lu));
         }
 
-        // Lot 362 : relit le plan et redessine ses parcelles, sans toucher aux rues. Faux, parcelles
+        // Relit le plan et redessine ses parcelles, sans toucher aux rues. Faux, parcelles
         // inchangées, si la cellule est en erreur ou le plan absent. Jamais appelée périodiquement.
         public bool Rafraichir()
         {
@@ -432,7 +432,7 @@ namespace ForgeLocal3D
                 .Concat(Parcelles.Where(p=>p.etat=="refusee").Select(p=>p.message)));
         }
 
-        // Lot 369 : remplace Batiments par le dessin du plan, après les parcelles (sur le sol où les rues sont
+        // Remplace Batiments par le dessin du plan, après les parcelles (sur le sol où les rues sont
         // posées). Rend la ligne du panneau, puis une ligne par bâtiment refusé.
         string DessinerBatiments(PlanLu lu)
         {

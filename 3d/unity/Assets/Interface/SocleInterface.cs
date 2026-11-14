@@ -39,7 +39,7 @@ namespace Forge.Interface
                 Couleur("papier"), .16f);
         }
 
-        // Lot #849 : le contraste WCAG 2.1 des jetons, jugé contre la matière que chaque texte ou trait borde.
+        // Le contraste WCAG 2.1 des jetons, jugé contre la matière que chaque texte ou trait borde.
         public static Color Attenue => Color.Lerp(Couleur("papier"), Couleur("metal"), .30f); // le texte de l'état inactif : une teinte dérivée, pas un jeton
         public enum Usage { Texte, Trait }
         static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
@@ -215,7 +215,7 @@ namespace Forge.Interface
             texte.alignment = TextAnchor.MiddleCenter;
             texte.color = Couleur("papier");
             EmblemeCommande.Poser(bouton, nom);
-            if (phrase != null) cadre.gameObject.AddComponent<Infobulle>().phrase = phrase; // lot #878 : la commande dit ce qu'elle fait au survol
+            if (phrase != null) cadre.gameObject.AddComponent<Infobulle>().phrase = phrase; // la commande dit ce qu'elle fait au survol
             return bouton;
         }
 

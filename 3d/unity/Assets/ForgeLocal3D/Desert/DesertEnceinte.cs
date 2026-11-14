@@ -10,7 +10,7 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Lot 907 : tours, pans et porte de l'enceinte servie, à l'étape du chantier. Une pièce absente ou hors du terrain se déclare.
+    // Tours, pans et porte de l'enceinte servie, à l'étape du chantier. Une pièce absente ou hors du terrain se déclare.
     public sealed class DesertEnceinte
     {
         public Transform Racine{get;}

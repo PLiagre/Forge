@@ -39,7 +39,7 @@ namespace Forge.Interface
 
     public sealed class CalquesCarte : MonoBehaviour
     {
-        // Lot #963 : la bande des modes en bas à droite de la vue de la carte, sa légende juste au-dessus (unités de la toile, 1920 × 1080).
+        // La bande des modes en bas à droite de la vue de la carte, sa légende juste au-dessus (unités de la toile, 1920 × 1080).
         public const string BANDE = "Modes de la carte", LEGENDE = "Légende du mode", COUPEE = "Calque indisponible : détail dans l'infobulle.";
         public const string PUISSANCES = "Puissances de la carte · Rouge : territoire conservé", FLUX = "Orange : prélevé de chaque lieu vers votre siège · Violet : dû de votre siège à son suzerain · Sur trente jours · Rouge : territoire conservé";
         public const int LIGNES_MAX = 3; const float X = 776, LARGEUR = 486, BAS = 1004, MARGE = 4;
@@ -89,7 +89,7 @@ namespace Forge.Interface
             : "Chaque terre porte, en pigment d'atlas, la couleur de la maison qui la tient : deux terres de même teinte ont le même maître.") + " Le rouge marque la terre que vous gardez ouverte.";
         public static string LegendeDuMode(ModeDeCarte mode, RepartitionHabitants repartition, bool lieuxPeints) =>
             mode == ModeDeCarte.Puissances && lieuxPeints ? PUISSANCES + "\n" + LieuxDeCarte.ENTETE : LegendeDuMode(mode, repartition);
-        // Lot #964 : les lieux parlent dans la légende des Puissances, les flèches dans celle du Flux ; l'infobulle ne reprend que les relevés des lieux, leur en-tête est déjà dans la légende.
+        // Les lieux parlent dans la légende des Puissances, les flèches dans celle du Flux ; l'infobulle ne reprend que les relevés des lieux, leur en-tête est déjà dans la légende.
         public static string DetailDuMode(ModeDeCarte mode, LieuxDeCarte lieux, FlechesDeCarte fleches) =>
             mode == ModeDeCarte.Puissances && lieux != null && lieux.Peint ? DetailDuMode(mode) + " Relief non transmis." + lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length)
             : mode == ModeDeCarte.Flux && fleches != null ? DetailDuMode(mode) + "\n" + fleches.TexteLegende : DetailDuMode(mode);
@@ -115,7 +115,7 @@ namespace Forge.Interface
             if (legende == null || carte.CellulesPosees == 0) return;
             EspacerLesNoms();
             var lu = monde(); long? retenu = selection()?.CellId;
-            // Lot #964 : les lieux et les flèches se lisent à leur rythme ; leur texte se récrit sans recolorer une terre. Après une faute, rien ne se récrit tant que rien ne bouge.
+            // Les lieux et les flèches se lisent à leur rythme ; leur texte se récrit sans recolorer une terre. Après une faute, rien ne se récrit tant que rien ne bouge.
             if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent) { if (ecrite != null) try { Recrire(repartie); } catch (ArgumentException) { changement = true; } return; }
             changement = false; precedent = lu; territoirePrecedent = retenu; ecrite = null;
             try
@@ -164,7 +164,7 @@ namespace Forge.Interface
         void Recrire(RepartitionHabitants repartition) { string texte = LegendeDuMode(Mode, repartition, lieux != null && lieux.Peint), detail = DetailDuMode(Mode, lieux, fleches); if (texte != ecrite || detail != detaillee || Mathf.Abs(legende.preferredHeight - legende.rectTransform.sizeDelta.y) > 1f /* la toile peut changer d'échelle */) { Legender(texte, detail); ecrite = texte; detaillee = detail; } }
         void OnDestroy() { foreach (var t in teintes.Values) if (Application.isPlaying) Destroy(t.copie); else DestroyImmediate(t.copie); teintes.Clear(); }
 
-        // Lot #943 : sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater
+        // Sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater
         // dirait qu'elles sont celles du jour servi. La légende des habitants garde sa date, celle du monde lu.
         public static string LegendeDuCalque(RepartitionHabitants repartition) =>
             (repartition == null ? "Puissances de la carte · Relief non transmis" : repartition.Legende) + " · Rouge : territoire conservé";

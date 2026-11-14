@@ -10,7 +10,7 @@ namespace Forge.Interface
     public enum EtatDuCabinet { Repos, Survol, Focus, Selection, Inactif, Attente, Recu, Refus, Alerte }
     public enum FormeDuTrait { Aucun, Plein, Double, Pointille }
 
-    // Lot #849 : ce qu'un état déclare, une seule fois pour tous les écrans. `Trait` vaut null quand la forme est `Aucun`.
+    // Ce qu'un état déclare, une seule fois pour tous les écrans. `Trait` vaut null quand la forme est `Aucun`.
     public readonly struct Declaration
     {
         public readonly string Nom, Matiere, Texte, Trait, Signe, Mot;

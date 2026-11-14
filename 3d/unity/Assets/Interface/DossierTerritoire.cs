@@ -51,7 +51,7 @@ namespace Forge.Interface
             texte.text = Texte(lecture.Erreur, lecture.Document, choisie.CellId);
             texte.rectTransform.sizeDelta = new Vector2(0, Mathf.Max(defilement.viewport.rect.height, texte.preferredHeight + 16));
         }
-        // Lot #873 : les trois états du dossier ; une raison qui montre la cellule ou un nombre nu se tait devant le joueur.
+        // Les trois états du dossier ; une raison qui montre la cellule ou un nombre nu se tait devant le joueur.
         public const string ATTENTE = "Lecture de la terre, de ses lieux et de ses réserves…";
         public static string Texte(string erreur, DocumentDuMonde document, long cellule)
         {

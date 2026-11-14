@@ -17,7 +17,7 @@ namespace Forge.Interface
         public const string AIDE ="Clic : choisir une terre · Glisser : déplacer · Molette : zoomer · Échap : fermer";
         public const string PAYS = "Pays de la barre";
         public const string ETAT = "État de la carte";
-        // Lot #860 : la ligne du prochain geste (à droite de la barre) et la surbrillance des terres de départ.
+        // La ligne du prochain geste (à droite de la barre) et la surbrillance des terres de départ.
         public const string GUIDE = "Prochain geste";
         public const string TERRES = "Terres conseillées";
         public const string CHOISIR = "Choisissez votre maison : cliquez une terre en surbrillance";
@@ -87,23 +87,23 @@ namespace Forge.Interface
             fond.anchorMin = new Vector2(.67f, 0); fond.anchorMax = Vector2.one;
             fond.offsetMin = fond.offsetMax = Vector2.zero;
             MatieresCabinet.Habiller(fond.GetComponent<Image>(), true);
-            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // lot #1032 : 124, le haut de chaque panneau posé dessous
-            // Lot #1002 : les icônes des dossiers, entre la date et les commandes du temps ; le bandeau garde ses trois boutons enfants directs.
+            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // 124, le haut de chaque panneau posé dessous
+            // Les icônes des dossiers, entre la date et les commandes du temps ; le bandeau garde ses trois boutons enfants directs.
             var dossiers = new GameObject(DOSSIERS, typeof(RectTransform)).GetComponent<RectTransform>(); dossiers.SetParent(bandeau, false);
             dossiers.anchorMin = dossiers.anchorMax = dossiers.pivot = new Vector2(0, 1);
             dossiers.anchoredPosition = new Vector2(1112, -20); dossiers.sizeDelta = new Vector2(136, 44);
-            // Lot #1045 : l'icône du pays, hors des dossiers, entre le titre du bandeau et la date posée en x 480.
+            // L'icône du pays, hors des dossiers, entre le titre du bandeau et la date posée en x 480.
             var pays = new GameObject(PAYS, typeof(RectTransform)).GetComponent<RectTransform>(); pays.SetParent(bandeau, false);
             pays.anchorMin = pays.anchorMax = pays.pivot = new Vector2(0, 1);
             pays.anchoredPosition = new Vector2(408, -20); pays.sizeDelta = new Vector2(56, 44);
             date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 600);
             date.color = SocleInterface.Couleur("papier");
-            barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // lot #1001 : sous le filet, dans les 100 px du bandeau
+            barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // sous le filet, dans les 100 px du bandeau
             barre.color = SocleInterface.Couleur("papier"); barre.rectTransform.sizeDelta = new Vector2(1872, 26);
-            // Lot #860 : à droite des comptes, au-dessus des jauges, sous les commandes du temps : x 1104 à 1896, y 72 à 98.
+            // À droite des comptes, au-dessus des jauges, sous les commandes du temps : x 1104 à 1896, y 72 à 98.
             guide = SocleInterface.Texte(bandeau, "", 1104, 72, 792); guide.name = GUIDE;
             guide.rectTransform.sizeDelta = new Vector2(792, 26); guide.alignment = TextAnchor.MiddleRight; guide.color = SocleInterface.Couleur("papier"); guide.raycastTarget = false;
-            jauges = new BarreDuPays(bandeau); // lot #1032 : sous la barre des comptes, les trois jauges et les trois réserves de points
+            jauges = new BarreDuPays(bandeau); // sous la barre des comptes, les trois jauges et les trois réserves de points
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer, "Passe le temps du monde à la vitesse supérieure.") };
@@ -126,13 +126,13 @@ namespace Forge.Interface
             territoire.rectTransform.sizeDelta = new Vector2(536, 260);
             gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
             gameObject.AddComponent<DossierBourg>().Initialiser(toile.transform, lieu, carte.port, () => retenue);
-            // Lot #1003 : plus de panneau en bas de la carte ; l'état de la carte s'écrit au centre de sa vue (0,67 × 1920 / 2, 540).
+            // Plus de panneau en bas de la carte ; l'état de la carte s'écrit au centre de sa vue (0,67 × 1920 / 2, 540).
             etat = SocleInterface.Texte(toile.transform, "La carte se prépare…", 343, 492, 600); etat.name = ETAT;
             etat.rectTransform.sizeDelta = new Vector2(600, 96); etat.alignment = TextAnchor.MiddleCenter; etat.color = SocleInterface.Couleur("papier"); etat.raycastTarget = false;
             gameObject.AddComponent<CalquesCarte>().Initialiser(carte, toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
             var menu = gameObject.AddComponent<MenuCabinet>(); menu.Initialiser(toile.transform); menu.AvantDOuvrir = Relacher;
-            // Lot #1045 : le Menu cède la colonne de l'icône du pays (x 408) : il passe de 330 à 280, entre les glyphes du titre et l'icône, sans la recouvrir.
+            // Le Menu cède la colonne de l'icône du pays (x 408) : il passe de 330 à 280, entre les glyphes du titre et l'icône, sans la recouvrir.
             ((RectTransform)toile.transform.Find("Menu")).anchoredPosition = new Vector2(280, -20);
             var bulle = toile.transform.Find("Menu").GetComponent<Infobulle>(); bulle.phrase = bulle.Phrase + "\n" + AIDE; // les gestes de la carte, au survol du Menu
             gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, dossiers, carte.port);
@@ -141,11 +141,11 @@ namespace Forge.Interface
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port, dossiers);
             var dossierPays = gameObject.AddComponent<DossierPays>();
             dossierPays.Initialiser(toile.transform, pays, () => Partie.Monde, () => Partie.Terres, LectureDossier.Locale(carte.port), NomsDesTerres.Local(carte.port));
-            // Lot #1046 : à droite du feuillet du pays, ses gestes ; le panneau s'ouvre et se ferme avec lui.
+            // À droite du feuillet du pays, ses gestes ; le panneau s'ouvre et se ferme avec lui.
             gameObject.AddComponent<GestesDesJauges>().Initialiser(dossierPays.Cadre, () => Partie.Monde, () => Partie.Gestes, OrdreConfirme.Local(carte.port));
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux); GetComponent<CalquesCarte>().Brancher(lieux, fleches);
-            gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // lot #1031 : la seconde lecture, sur /modificateurs
+            gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // la seconde lecture, sur /modificateurs
             terres = new GameObject(TERRES).transform; terres.SetParent(transform, false); // enfant direct de la carte, jamais sous « Cellules de la carte »
             Afficher();
         }
@@ -161,7 +161,7 @@ namespace Forge.Interface
             return bouton;
         }
 
-        // Lot #879 : les commandes de la toile, cachées comprises, qui ne disent pas ce qu'elles font ; une phrase qui répète le nom ne dit rien.
+        // Les commandes de la toile, cachées comprises, qui ne disent pas ce qu'elles font ; une phrase qui répète le nom ne dit rien.
         public static string[] CommandesSansPhrase(Transform toile)
         {
             var boutons = toile.GetComponentsInChildren<Button>(true);
@@ -170,7 +170,7 @@ namespace Forge.Interface
                 .Select(b => b.name).ToArray();
         }
 
-        // Lot #855 : un clic gauche court garde la terre ; s'écarter de plus de SEUIL_CLIC_PX (celui du survol, pour que ce clic compte aussi au double-clic) en fait un glisser.
+        // Un clic gauche court garde la terre ; s'écarter de plus de SEUIL_CLIC_PX (celui du survol, pour que ce clic compte aussi au double-clic) en fait un glisser.
         public bool Noter(Vector2 ici, bool appui, bool relache, bool horsCarte, CelluleDeCarte sous)
         {
             if (appui) { depart = horsCarte ? (Vector2?)null : ici; eloigne = false; }
@@ -206,7 +206,7 @@ namespace Forge.Interface
                 teinte.SetColor("_BaseColor", SocleInterface.Couleur("alerte"));
                 territoireTeinte.SetPropertyBlock(teinte);
             }
-            // Lot #860 : sans maison, la terre d'une fiche servie est proposée ; seul « Choisir cette maison » envoie le choix.
+            // Sans maison, la terre d'une fiche servie est proposée ; seul « Choisir cette maison » envoie le choix.
             var propose = FichesProposees()?.FirstOrDefault(f => f.CellId == cellule.CellId);
             if (propose != null) candidate = propose;
         }
@@ -218,7 +218,7 @@ namespace Forge.Interface
             return monde != null && monde.Presente && monde.Donnees.MaisonDuJoueur == null && departs != null && departs.Presente ? departs.Donnees.Fiches : null;
         }
 
-        // Lot #860 : la phrase du prochain geste, ou null quand la ligne se tait. Le monde s'ouvre en pause : choisir, puis lancer le temps.
+        // La phrase du prochain geste, ou null quand la ligne se tait. Le monde s'ouvre en pause : choisir, puis lancer le temps.
         public static string Guide(Lecture<MondeAvecMaisonLu> monde, Lecture<DepartsLus> departs, RecuIntention recu, HorlogeLue horloge, bool siegeAvecVille)
         {
             if (monde == null || !monde.Presente) return null;
@@ -232,7 +232,7 @@ namespace Forge.Interface
             return siegeAvecVille ? LANCER + ENTRER : LANCER;
         }
 
-        // Le siège que le passage à la capitale (lot #729) a lu, rendu par son seul accès `SiegeLu`, relu à chaque image : seul le Zab sert une ville.
+        // Le siège que le passage à la capitale a lu, rendu par son seul accès `SiegeLu`, relu à chaque image : seul le Zab sert une ville.
         // Le composant n'est pas nommé ici : LesAidesDisentLesNouveauxGestes interdit ce nom dans ce fichier.
         bool SiegeAvecVille()
         {
@@ -310,7 +310,7 @@ namespace Forge.Interface
             AfficherMaison();
         }
 
-        // Lot #1001 : la barre ne montre que des comptes de la maison du joueur servis au tick du monde lu ; sinon elle attend, sans un nombre.
+        // La barre ne montre que des comptes de la maison du joueur servis au tick du monde lu ; sinon elle attend, sans un nombre.
         public static string Barre(Lecture<MondeAvecMaisonLu> monde, Lecture<ComptesDeMaison> comptes)
         {
             if (monde == null) return "Lecture de la maison…";
@@ -366,7 +366,7 @@ namespace Forge.Interface
                 + "\n" + TexteDuMonde.Nombre(candidate.Habitants) + " habitants autour de " + candidate.Siege.Nom
                 + "\nSuzerain : " + (candidate.Suzerain?.Nom ?? "aucun");
             var recu = Partie.Recu;
-            if (recu == null) return; // lot #873 : le reçu n'est daté que si l'horloge lue est à son tick ; le tick ne va qu'au journal, une fois par reçu
+            if (recu == null) return; // le reçu n'est daté que si l'horloge lue est à son tick ; le tick ne va qu'au journal, une fois par reçu
             if (recu.Acceptee && recu != recuJournalise) { recuJournalise = recu; Debug.Log("CabinetDeCarte : choix reçu au tick " + recu.AppliqueeAuTick); }
             apercu.text = !recu.Acceptee ? (recu.Presente ? "Demande refusée : " + TexteDuMonde.Absence(recu.Erreur) : "Envoi non confirmé : " + TexteDuMonde.Absence(recu.Absence))
                 : horloge.Lue?.Tick == recu.AppliqueeAuTick ? "Choix reçu le " + TexteDuMonde.Date(horloge.Lue.Date) + ".\nReprenez le temps : le monde l'appliquera au jour suivant."

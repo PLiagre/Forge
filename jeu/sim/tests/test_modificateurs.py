@@ -1,4 +1,4 @@
-"""Le registre des modificateurs (VISION.md, décisions 34, 35, 37 et 38 ; MODELE.md « Les modificateurs »).
+"""Le registre des modificateurs (MODELE.md « Les modificateurs »).
 
 Ce que ces épreuves prouvent, et ce qui les fait échouer :
 
@@ -31,44 +31,11 @@ from sim.world import World
 NOURRITURE = c.MARCHANDISE_NOURRITURE
 
 # Empreintes du monde (to_dict canonique) et de la photographie au 365e tick,
-# graine 0, sans IA : celles de master juste avant le registre (0930678a, la
-# soudure de 1400 comprise), mesurées le 8 novembre 2026. Les flottants de la
+# graine 0, sans IA, registre des personnages compris. Les flottants de la
 # trigonométrie (la durée du jour) diffèrent au dernier bit d'un système à
 # l'autre : chaque système a la sienne, et la CI juge sous Linux.
-# Le monde est recapturé le 11 novembre 2026 (lot #1052) : Tlemcen et le Zab ont
-# reçu leur chef, le registre passe de 2 361 à 2 363 personnes. Seules les
-# parties `personnages` et `chefs` du monde diffèrent de l'empreinte d'avant,
-# et la photographie est inchangée (mesuré sur le PC et sur le VPS).
-# Le monde est recapturé le 12 novembre 2026 (lot #978) : trois fiches familiales
-# autrichiennes entrent dans le registre (de 2 363 à 2 366 personnes) et trois
-# chefs reçoivent leurs liens. Mesuré sur la base et sur le lot, sous Linux : seule la clé
-# `personnages` de `World.to_dict()` diffère, et la photographie est identique.
-# Le monde est recapturé le 13 novembre 2026 (lot #979) : six fiches de la maison de
-# Bourgogne entrent dans le registre (de 2 366 à 2 372 personnes), Philippe le Hardi
-# reçoit son complément et son état, Marie de Bourgogne ses deux parents. Mesuré sur
-# la base et sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()`
-# diffère (six fiches nouvelles, deux changées), et la photographie est identique.
-# Le monde est recapturé le 13 novembre 2026 (lot #980) : neuf fiches de la maison
-# palatine entrent dans le registre (de 2 372 à 2 381 personnes), Robert III reçoit
-# son complément et son état. Mesuré sur la base et sur le lot, sous Linux : seule la
-# clé `personnages` de `World.to_dict()` diffère (neuf fiches nouvelles, une changée :
-# `personne-grande-29`), et la photographie est identique.
-# Le monde est recapturé le 14 novembre 2026 (lot #1083) : sept fiches de la maison de
-# Bar entrent dans le registre (de 2 381 à 2 388 personnes), Robert Ier reçoit son
-# complément et son état. Mesuré sur la base et sur le lot, sous Linux : seule la clé
-# `personnages` de `World.to_dict()` diffère (sept fiches nouvelles, une changée :
-# `personne-seigneurie-1`), et la photographie est identique.
-# Le monde est recapturé le 14 novembre 2026 (lot #1084) : deux fiches de la maison de
-# Wurtemberg entrent dans le registre (de 2 388 à 2 390 personnes), Eberhard III reçoit
-# son complément et son état, Théodore Ier de Morée un état seul. Mesuré sur la base et
-# sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()` diffère (deux
-# fiches nouvelles, deux changées : `personne-seigneurie-2` et `personne-seigneurie-3`),
-# et la photographie est identique.
-# Le monde est recapturé le 14 novembre 2026 (lot #1085) : deux compléments et trois états
-# entrent dans le registre, qui reste à 2 390 personnes (aucune fiche nouvelle). Mesuré sur
-# la base et sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()` diffère
-# (trois personnes changées : `personne-seigneurie-4` et `personne-seigneurie-5`, complément
-# et état, `personne-seigneurie-6`, état seul), et la photographie est identique.
+# Quand le registre des personnages change, seule la clé `personnages` de
+# `World.to_dict()` diffère de l'empreinte d'avant, et la photographie est identique.
 EMPREINTES_365 = {
     "linux": ("33ceef901d49da195f36f52d230bcf8eed834cf379d9fc6982ee00ff71405fd8",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
@@ -238,11 +205,10 @@ def test_une_pose_datee_expire_et_une_source_se_retire(depart, donnees):
 # --- La preuve : sans pose, rien ne change ; avec, de vrais kilos ---------------
 
 def test_sans_modificateur_la_photographie_a_365_jours_est_celle_d_avant(monkeypatch):
-    # Réponse A du propriétaire, 10 novembre 2026 (lot #1029) : la famine pose
-    # désormais un modificateur au lieu affamé ; ce test éprouve le monde d'avant.
+    # La famine pose un modificateur au lieu affamé ; ce test éprouve le monde d'avant.
     couper_la_famine(monkeypatch)
-    # Lot #1057 : une ville affamée garde désormais sa réserve ; ce test éprouve
-    # « sans modificateur, le monde d'avant », donc le commerce d'avant aussi.
+    # Une ville affamée garde sa réserve ; ce test éprouve « sans modificateur, le monde d'avant »,
+    # donc le commerce d'avant aussi.
     garder_le_commerce_d_avant(monkeypatch)
     monde, rng = World.charger(0), random.Random(0)
     for numero in range(c.CALENDAR_DAYS_PER_YEAR):
@@ -389,7 +355,7 @@ def test_cout_et_duree_d_un_chantier_et_l_ia_les_lit(donnees):
     M.poser(monde, "lent", "evenement:pluies", {"lieu": [cid, 0]}, duree)
     assert chantiers.salaire_journee_kg(monde, cid) == c.SALAIRE_JOURNEE_KG * 2
     assert M.ajuster_journees(monde, cid, base_journees) == math.ceil(base_journees * 1.5)
-    # L'IA lit les mêmes : sa route coûte et dure ce que le joueur paierait (décision 38).
+    # L'IA lit les mêmes : sa route coûte et dure ce que le joueur paierait.
     modifiee = next(p for p in (programme_ia.proposer_route_vers_le_champ(monde, m, []) for m in maisons)
                     if p and p["intention"]["cell"] == cid)
     assert modifiee["raison"]["journees"] == math.ceil(base_journees * 1.5)
@@ -434,7 +400,7 @@ def test_le_service_et_la_photographie_servent_le_detail(depart, donnees):
         assert servi["poses"] == photo["poses"] and servi["lieux"] == photo["lieux"]
 
 
-# --- Les mots et le reste de l'infobulle (#1031) ------------------------------------
+# --- Les mots et le reste de l'infobulle ------------------------------------
 
 def test_le_document_dit_le_nom_de_la_grandeur_le_mot_de_la_source_et_le_reste(depart, donnees):
     from sim.service import ServeurMonde
@@ -491,12 +457,12 @@ def test_un_mot_de_source_manquant_ou_en_trop_est_refuse():
     assert M.lire_donnees(document).definitions["moulin"]
 
 
-# --- L'amorçage de la photo de #1031 --------------------------------------------------
+# --- L'amorçage de la photo --------------------------------------------------
 
 def _amorcer_paris_cinq_poses(monkeypatch):
     """`World.charger` rend Paris avec cinq poses : un moulin, trois jauges de sa maison, une épreuve datée.
 
-    Un banc d'essai de l'infobulle, pas le monde : la capture du lot #1031 lance le service ainsi.
+    Un banc d'essai de l'infobulle, pas le monde : la capture lance le service ainsi.
     """
     from sim import jauges
     original = World.charger
@@ -562,7 +528,7 @@ def test_l_amorcage_sert_paris_et_ses_cinq_poses(monkeypatch):
 
 
 def _document_d_avant(monde):
-    """Le document rebâti lieu par lieu, chaque `detail` relisant les maîtres : la façon d'avant le lot #1075."""
+    """Le document rebâti lieu par lieu, chaque `detail` relisant les maîtres : la façon d'avant."""
     poses = sorted(monde.modificateurs, key=M._ordre)
     touches = sorted({cle for grandeur in M.facteurs_du_monde(monde).values() for cle in grandeur})
     lieux = [{"cell_id": cid, "rang": rang, "grandeurs": M.detail(monde, cid, rang)} for cid, rang in touches]

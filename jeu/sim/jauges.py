@@ -1,6 +1,6 @@
 """Les quatre jauges du pays : la Concorde, le Renom, le Droit, et la Plume, le Sceau, l'Épée.
 
-VISION.md, décisions 36, 38 et 39 ; les règles et les chiffres vivent dans
+Les règles et les chiffres vivent dans
 `data/jauges.toml`. L'état de chaque maison vit dans `World.jauges` (sa
 valeur de départ n'y est pas écrite) ; il change une fois par mois, au début
 du tick, par :
@@ -160,11 +160,10 @@ def charger_regles(chemin=None) -> Regles:
 
 
 def competences(monde, maison_id, regles) -> dict | None:
-    """Les compétences du chef de la maison (niveau 2, décision 39), ou None s'il n'est pas connu.
+    """Les compétences du chef de la maison (niveau 2), ou None s'il n'est pas connu.
 
     Dérivées de l'identifiant de la personne, sans aléa du monde : stables d'une
-    partie à l'autre, rien de stocké. #434 les remplacera par l'hérédité,
-    l'âge et l'éducation, et par une valeur sourcée quand on la sait.
+    partie à l'autre, rien de stocké.
     """
     lien = (getattr(monde, "chefs", None) or {}).get(maison_id)
     personne = lien.get("personnage") if isinstance(lien, dict) else None

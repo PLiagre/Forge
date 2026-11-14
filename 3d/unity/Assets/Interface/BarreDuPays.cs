@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
-    // Lot #1032 : sous la barre des comptes, la ligne des trois jauges et des trois réserves de points du pays, lues sur `/pays` au tick du monde lu.
+    // Sous la barre des comptes, la ligne des trois jauges et des trois réserves de points du pays, lues sur `/pays` au tick du monde lu.
     // Une classe simple : le cabinet l'appelle à chaque image. Chaque cellule dit sa valeur, ce que gagne une réserve par mois, le sens de la dernière
     // variation vue (en mots, sans la couleur), et porte une infobulle qui dit d'où vient la valeur. La barre ne compare que deux valeurs servies.
     public sealed class BarreDuPays

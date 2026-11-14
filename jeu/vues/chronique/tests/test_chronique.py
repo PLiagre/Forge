@@ -93,9 +93,8 @@ def test_les_champs_mobiles_sont_mesures_et_pas_declares(monkeypatch):
     d'en faire bouger un — ce test rougit, et personne ne peut le calmer
     sans regarder le moteur (regle 7 : la presence n'est pas la fonction).
 
-    Lot #1071 : sous l'appel des villes affamees, la faim ne mord plus en
-    30 ticks et ces champs ne bougent plus ; la sonde se joue sous le commerce
-    d'avant (decision A de la direction, 13 novembre 2026).
+    Sous l'appel des villes affamees, la faim ne mord plus en 30 ticks et ces
+    champs ne bougent plus ; la sonde se joue donc sans cet appel.
     """
     couper_l_appel_des_villes(monkeypatch)
     monde = World.charger(rng_seed=0)

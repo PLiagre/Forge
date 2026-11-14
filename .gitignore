@@ -26,8 +26,7 @@ venv/
 
 # Packs de l'Asset Store : leur licence interdit de les republier, et ce dépôt
 # est public. Chaque pack importé se range sous Assets/Vendor/, dans n'importe
-# quel projet. La règle ne nomme aucun chemin de projet : le rangement du
-# 27 septembre 2026 l'a appris, une règle attachée à un chemin cesse de
+# quel projet. La règle ne nomme aucun chemin de projet : une règle attachée à un chemin cesse de
 # protéger le jour où le dossier bouge.
 **/Assets/Vendor/
 **/Assets/Vendor.meta

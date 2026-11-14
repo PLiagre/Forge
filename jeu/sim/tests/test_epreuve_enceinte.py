@@ -1,4 +1,4 @@
-"""Preuve de bout en bout de l'enceinte du jalon 4 : gestes, salaires, achèvement, portes, même monde.
+"""Preuve de bout en bout de l'enceinte : gestes, salaires, achèvement, portes, même monde.
 
 Biskra (cellule 10103, maître seigneurie-6), graine 0, six ticks. Le monde se calcule une fois par
 fixture de module : une simulation de six ticks coûte de 15 à 35 s.

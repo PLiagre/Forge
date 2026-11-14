@@ -1,6 +1,6 @@
 """Le pays d'un seul tenant : une maison, ses lieux, ses vassaux, son suzerain et ses totaux.
 
-Une vue dérivée (CAP.md, jalon 6, « Le pays se lit d'un seul tenant ») : rien
+Une vue dérivée (« Le pays se lit d'un seul tenant ») : rien
 ne se stocke. Les lieux viennent de leur maître (porté par chaque lieu), les
 vassaux du registre des maisons (`suzerain`), les récoltes de la fenêtre des
 flux, les greniers de `World.greniers`, les chantiers des plans des bourgs.

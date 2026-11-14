@@ -1,4 +1,4 @@
-"""pc/epreuve_carte.py accepte la carte qui dit le monde servi et refuse celle qui s'en écarte (lot #527).
+"""pc/epreuve_carte.py accepte la carte qui dit le monde servi et refuse celle qui s'en écarte.
 
 La carte servie est la fixture de la graine 0 (celle que lisent les tests du pont) ; le monde
 servi se construit ici pour une cellule témoin. Le texte de la fiche se construit au format de
@@ -230,7 +230,7 @@ def test_un_unity_introuvable_sort_a_2_en_le_nommant(epreuve, tmp_path, capsys):
     assert str(absent) in capsys.readouterr().err
 
 
-# Lot #911 — le juge écrit comme le clerc : les tables sont celles de TexteDuMondeTests.cs, à l'octet.
+# Le juge écrit comme le clerc : les tables sont celles de TexteDuMondeTests.cs, à l'octet.
 NBSP = " "
 TEXTE_CS = PONT / "Tests" / "TexteDuMondeTests.cs"
 LIEU = PONT / "Tests" / "lieu-graine0-tick3.json"

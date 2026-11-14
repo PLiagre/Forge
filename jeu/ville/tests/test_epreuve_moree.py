@@ -1,7 +1,7 @@
-"""pc/epreuve_moree.py accepte la session qui fait retenir la Morée au monde et refuse celle qui s'en écarte (lot #652).
+"""pc/epreuve_moree.py accepte la session qui fait retenir la Morée au monde et refuse celle qui s'en écarte.
 
 `/departs` est la fixture servie de la graine 0 (celle que lisent les tests du pont), ramenée au tick 0 ; `/monde`
-avant et après le tick se construit ici. Les rapports sont ceux que la session de #651 a versés, ou construits au
+avant et après le tick se construit ici. Les rapports sont ceux que la session d'Unity a versés, ou construits au
 format d'`EpreuveChoix.Rapport` avec les textes de `ReperesDeDepart.DireLeChoix`.
 """
 
@@ -22,7 +22,7 @@ REPERES_CS = UNITY / "Pont" / "ReperesDeDepart.cs"
 EPREUVE_CS = UNITY / "Editor" / "EpreuveChoix.cs"
 INTENTIONS = JEU / "sim" / "intentions.py"
 DEPARTS = UNITY / "Pont" / "Tests" / "departs-graine0-tick3.json"
-RAPPORTS = RACINE / "docs" / "mesures" / "651-session-choix-moree"
+DONNEES = RACINE / "jeu/ville/tests/donnees" / "session-choix-moree"
 BAR, MOREE, ZAB = 1, 3, 6
 
 if str(JEU) not in sys.path:
@@ -59,7 +59,7 @@ AVANT = _monde(0)
 
 
 def _verse(nom):
-    return json.loads((RAPPORTS / nom).read_text(encoding="utf-8"))
+    return json.loads((DONNEES / nom).read_text(encoding="utf-8"))
 
 
 def _nom(departs, ident):

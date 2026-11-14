@@ -1,10 +1,10 @@
 # Citadelle alpine — direction gothique enneigée
 
-Une scène 3D inspirée de la référence fournie le 14 septembre 2026 : citadelle sur un éperon, cathédrale gothique, maisons à colombages, pont de pierre, sapins enneigés, teintes froides et feux chauds.
+Une scène 3D inspirée de la référence fournie : citadelle sur un éperon, cathédrale gothique, maisons à colombages, pont de pierre, sapins enneigés, teintes froides et feux chauds.
 
 La scène est une interprétation stylisée de la référence. Ses formes et ses textures restent plus simples que l'illustration. Le contexte est imaginaire, de fidélité 2 : montagne enneigée, bourg fortifié, culture gothique alpine, année 1400. Ce travail artistique ne modifie ni le monde simulé ni la carte figée.
 
-La passe du 15 septembre développe les modules existants : pierre chanfreinée,
+Les modules existants sont développés : pierre chanfreinée,
 ornements gothiques, menuiseries, lucarnes, neige continue, sapins à branches
 irrégulières, relief raviné et matériaux avec rugosité. Le [diagnostic](DIAGNOSTIC.md)
 explique les écarts observés et les corrections. La galerie compare les mêmes

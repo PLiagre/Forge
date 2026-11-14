@@ -13,7 +13,7 @@ namespace Forge.Interface.Tests
         const string Debut = "{\"tick\":8,\"cell_id\":7," + Date + "\"population\":17,\"lieux\":[";
         const string Premier = "{\"rang\":0,\"nom\":\"Bourg témoin\",\"population\":7,\"surface_km2\":12,\"maitre\":null,\"stocks\":{\"nourriture\":0},\"flux_30j\":null}";
         const string Second = "{\"rang\":2,\"nom\":\"Hameau témoin\",\"population\":10,\"surface_km2\":15,\"maitre\":null,\"stocks\":{\"nourriture\":9},\"flux_30j\":null}";
-        // Lot #873 : le dossier parle en noms, en dates et en unités ; ni cellule, ni rang, ni tick.
+        // Le dossier parle en noms, en dates et en unités ; ni cellule, ni rang, ni tick.
         [Test] public void Le_dossier_dit_le_bourg_son_maitre_la_date_et_chaque_lieu_par_son_nom()
         {
             string temoin = "{\"tick\":8,\"cell_id\":10340," + Date + "\"population\":12345,\"noms\":{\"maisons\":{\"m-1\":{\"nom\":\"Maison témoin\"}}},\"lieux\":["

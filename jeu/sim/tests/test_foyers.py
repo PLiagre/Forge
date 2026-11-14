@@ -245,7 +245,7 @@ def test_gardes_et_documentation(monkeypatch):
 
 
 def _reference_prorata(n, metiers):
-    """Règle du lot, écrite ici : le test n'appelle pas sim.foyers pour se juger."""
+    """La règle, écrite ici : le test n'appelle pas sim.foyers pour se juger."""
     if n == 0:
         return {}
     somme = sum(metiers.values())
@@ -1197,7 +1197,7 @@ def test_ancien_partage_identique(monkeypatch, jour, avec_releve):
           f"{len(retenus)} cellules, {plusieurs} à plusieurs lieux", flush=True)
     partager = engine._produire_sur_les_lieux
 
-    # Corps historiques de c126e40^, sans le facteur de bras alors égal à 1.
+    # Corps de l'ancienne production, sans le facteur de bras (alors égal à 1).
     def ancienne_production(cell, rng, carte=None, jour=None, recoltes=None):
         yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
         if carte:

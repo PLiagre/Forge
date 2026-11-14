@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace ForgeLocal3D
 {
-    // Lot #525 : les touches de l'horloge de la carte. Espace met en pause ou relance, + accélère, − ralentit ; les boutons
+    // Les touches de l'horloge de la carte. Espace met en pause ou relance, + accélère, − ralentit ; les boutons
     // du panneau font la même chose. Avec `automatique`, rien n'est lu.
     [RequireComponent(typeof(HorlogeDeCarte))]
     public sealed class CommandesDuTemps : MonoBehaviour

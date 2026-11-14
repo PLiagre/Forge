@@ -525,7 +525,7 @@ def test_modele_du_au_suzerain_et_tick_sans_registre():
     print(f'part due documentée={valeur}')
 
 
-# Lot 592 : les relevés restent dans les tests, jamais dans le monde.
+# Les relevés restent dans les tests, jamais dans le monde.
 import inspect
 from collections import Counter, defaultdict
 from sim import departs
@@ -968,7 +968,7 @@ def test_ouverture_suit_le_lieu_et_octets(monde, monkeypatch):
         with pytest.raises(AssertionError): verifier()
 
 
-# Lot 406 : mesurer les représentations stockées et chaque destination annuelle.
+# Mesurer les représentations stockées et chaque destination annuelle.
 def _jalon3_reference(m):
     from sim.lieux import lieux_depuis_monde
     from sim.maitres import attribuer_maitres, valider_attribution

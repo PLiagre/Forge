@@ -1,7 +1,7 @@
 """Les tests du moteur se jouent en tranches sur la CI.
 
-Le 9 octobre 2026, `sim/tests` jouait 987 tests en 3 h 20 sur un seul cœur : chaque PR, de la
-chaîne comme du mode direct, attendait ce temps avant de fusionner. La CI les répartit donc sur
+Sur un seul cœur, `sim/tests` prend des heures : chaque PR attendrait ce temps avant de fusionner.
+La CI les répartit donc sur
 plusieurs travaux (`FORGE_TRANCHE=k/n`, k de 1 à n), chacun sur les cœurs de son runner
 (pytest-xdist). Le partage suit les durées mesurées (`tranches.py`) : chaque test est d'une
 tranche et d'une seule, un test neuf compris. Sans la variable, tout se joue, comme sur le PC.

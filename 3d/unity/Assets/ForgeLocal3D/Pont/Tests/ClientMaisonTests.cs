@@ -9,7 +9,7 @@ using System.Threading;
 using NUnit.Framework;
 namespace Forge.Pont.Tests
 {
-    // Lot #610 — un faux service rend /maison?id= ; le client relit la fiche, ou nomme la faute.
+    // Un faux service rend /maison?id= ; le client relit la fiche, ou nomme la faute.
     public sealed class ClientMaisonTests
     {
         const string Id = "seigneurie-temoin";
@@ -297,7 +297,7 @@ namespace Forge.Pont.Tests
                 foreach (string id in new string[] { null, "", " ", "\t" }) Assert.AreEqual(typeof(ArgumentException), Assert.Throws<ArgumentException>(() => c.LireComptes(id)).GetType());
             Assert.AreEqual(0, Recues().Length);
         }
-        // Lot #1001 : le tick servi avec les comptes est gardé ; absent, il reste nul ; mal formé, il refuse toute la réponse.
+        // Le tick servi avec les comptes est gardé ; absent, il reste nul ; mal formé, il refuse toute la réponse.
         [Test] public void Le_tick_servi_est_garde_avec_les_comptes()
         {
             string avecTick = Complet.Insert(Complet.Length - 1, ",\"tick\":31");

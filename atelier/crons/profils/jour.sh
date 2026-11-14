@@ -7,8 +7,7 @@
 # Le pilote passe toutes les deux minutes, jour et nuit : un tour n'invoque
 # qu'un agent, et un tour qui tourne encore fait passer le suivant (verrou).
 # Un tour sans agent ne coûte que quelques lectures de GitHub ; à dix
-# minutes, chaque étape d'un lot en attendait cinq en moyenne (#120, le
-# 29 septembre 2026 : brief à 09:53, envoi au PC à 10:02).
+# minutes, chaque étape d'un lot en attendait cinq en moyenne.
 # Le journal s'écrit à 07:15 ; la démo se fige le vendredi à 18:15 ; la veille
 # regarde les outils à 06:45, avant tout le monde. Ces minutes sont impaires :
 # elles ne tombent jamais sur un tour du pilote.

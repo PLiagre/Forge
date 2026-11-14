@@ -310,7 +310,7 @@ def wall():
     return m
 
 
-# Lot 905 : la largeur du passage de la porte, que sa levée de chantier laisse libre.
+# La largeur du passage de la porte, que sa levée de chantier laisse libre.
 PORTE_PASSAGE = 4.4
 
 
@@ -987,7 +987,7 @@ def velum():
     return m
 
 
-# ---------------------------------------------------------------- ateliers (lot 266)
+# ---------------------------------------------------------------- ateliers
 
 def slab(m, top, thickness, name):
     """Dalle sous quatre coins donnés à l'endroit (sens trigonométrique vu du dessus)."""
@@ -1119,7 +1119,7 @@ def bread_oven():
     return m
 
 
-# ---------------------------------------------------------------- étapes de chantier (lot 269)
+# ---------------------------------------------------------------- étapes de chantier
 
 def emprise(builder):
     """L'emprise d'un bâtiment fini, tirée de ses sommets (tous LOD) : x0, x1, y0, y1, hauteur."""
@@ -1228,7 +1228,7 @@ def chantier_murs(emprise, cotes):
 
 
 def chantier_trace(emprise):
-    """Lot 905 : l'implantation d'un ouvrage de l'enceinte. Les piquets et le cordeau du lot 269,
+    """L'implantation d'un ouvrage de l'enceinte. Les piquets et le cordeau des étapes de chantier,
     sur l'aire décapée et dressée dans le cordeau, avant la première levée : sans elle, des
     piquets d'un mètre se perdent à l'échelle d'une tour de 16 m."""
     x0, x1, y0, y1, _ = emprise; m = chantier_piquets(emprise); m.detail = 2
@@ -1237,7 +1237,7 @@ def chantier_trace(emprise):
 
 
 def chantier_massif(emprise, passage=0.0):
-    """Lot 905 : la levée de pisé d'un ouvrage plein (rempart, tour, porte). Une assise de grès,
+    """La levée de pisé d'un ouvrage plein (rempart, tour, porte). Une assise de grès,
     un massif monté à mi-hauteur du fini avec un léger fruit, juste en dedans des perches, et
     une banche en tête : des planches sur les faces ±Y tenues par des montants. Une perche à
     chaque coin, liée aux autres en tête, et une échelle contre la face +Y. Avec `passage`, deux
@@ -1303,14 +1303,14 @@ def jobs(tex):
     result += [(f'chameau_{i}', lambda j=i: camel(j), 'accessoire') for i in range(3)]
     result += [(f'souk_{k}', lambda j=k: stall(j), 'module') for k in ('epices', 'tissus', 'poteries', 'dattes')]
     result += [('souk_tapis', rug_rack, 'module'), ('souk_jarres', jars, 'module'), ('souk_velum', velum, 'module')]
-    # Lot 266 : toujours à la fin, pour qu'une reconstruction complète garde l'ordre du catalogue.
+    # Toujours à la fin, pour qu'une reconstruction complète garde l'ordre du catalogue.
     result += [('scierie', sawmill, 'batiment'), ('four_pain_pise', bread_oven, 'batiment')]
-    # Lot 269 : les étapes de chantier, posées sur l'emprise du bâtiment fini, après lui.
+    # Les étapes de chantier, posées sur l'emprise du bâtiment fini, après lui.
     tous = ('-Y', '+X', '+Y', '-X')
     for fini, builder, cotes in (('maison_pise_0', lambda: house(0), tous), ('scierie', sawmill, ('+Y', '-X')), ('four_pain_pise', bread_oven, tous)):
         result += [(f'chantier_{fini}_piquets', lambda b=builder: chantier_piquets(emprise(b)), 'batiment'),
                    (f'chantier_{fini}_murs', lambda b=builder, c=cotes: chantier_murs(emprise(b), c), 'batiment')]
-    # Lot 905 : les étapes de l'enceinte, après celles du lot 269. La porte garde son passage libre.
+    # Les étapes de l'enceinte, après celles des bâtiments. La porte garde son passage libre.
     for fini, builder, passage in (('rempart_pise_10m', wall, 0.0), ('tour_ksar_0', lambda: tower(0), 0.0), ('porte_ksar', gate, PORTE_PASSAGE)):
         result += [(f'chantier_{fini}_piquets', lambda b=builder: chantier_trace(emprise(b)), 'batiment'),
                    (f'chantier_{fini}_murs', lambda b=builder, p=passage: chantier_massif(emprise(b), p), 'batiment')]

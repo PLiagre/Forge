@@ -11,11 +11,11 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #521 — un faux service local rend le monde et l'horloge ; les clients les relisent tels quels,
+    // Un faux service local rend le monde et l'horloge ; les clients les relisent tels quels,
     // transmettent une vitesse sans avancer le temps, ou rendent une absence qui nomme sa cause.
     public sealed class ClientMondeHorlogeTests
     {
-        // Les témoins du brief : 10417 est inhabitée (0 est une mesure), sa faim et sa dette ne sont pas calculées (-1).
+        // Les témoins : 10417 est inhabitée (0 est une mesure), sa faim et sa dette ne sont pas calculées (-1).
         private const string CELLULE_A = "{\"cell_id\":9922,\"population\":123,\"hunger_ticks\":3,\"food_deficit_kg\":12.5}";
         private const string CELLULE_B = "{\"cell_id\":10417,\"population\":0,\"hunger_ticks\":-1,\"food_deficit_kg\":-1}";
         private const string CELLULES = "\"cell_count\":2,\"cells\":[" + CELLULE_A + "," + CELLULE_B + "]";
@@ -258,7 +258,7 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentNullException>(() => Lecture<HorlogeLue>.De(null));
         }
 
-        // Lot #611 — la maison du joueur, sur le même GET /monde.
+        // La maison du joueur, sur le même GET /monde.
         private static string AvecMaison(string valeur) => MONDE.Substring(0, MONDE.Length - 1) + ",\"maison_du_joueur\":" + valeur + "}";
         private static void MondeComplet(Lecture<MondeAvecMaisonLu> lecture)
         {

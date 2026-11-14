@@ -1,5 +1,4 @@
-# Les bâtiments de province (docs/VISION.md, « Les gestes d'un pays » ;
-# décisions 34, 35 et 37).
+# Les bâtiments de province (docs/VISION.md, « Les gestes d'un pays »).
 #
 # Un bâtiment se pose dans une cellule — la province, à l'échelle d'EU4 — dont
 # la maison tient le bourg, par l'intention « batir_dans_une_province », du
@@ -23,7 +22,7 @@ dit = "moud le grain de la province : plus de grain récolté sur chacun de ses 
 journees = 600
 # Au plus tant de bras par jour, pris aux paysans de la cellule.
 bras_par_jour = 20
-# Les pièces arrivent avec l'argent (jalon 8) : un coût en pièces se refuse d'ici là.
+# Les pièces arrivent avec l'argent : un coût en pièces se refuse d'ici là.
 pieces = 0
 modificateurs = ["moulin"]
 un_par_cellule = true

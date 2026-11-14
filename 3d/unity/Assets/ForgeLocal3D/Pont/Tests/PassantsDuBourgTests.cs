@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #784 — un passant pour dix habitants du bourg (rang 0, jamais la première entrée ni la
+    // Un passant pour dix habitants du bourg (rang 0, jamais la première entrée ni la
     // cellule), réparti par métier au plus grand reste. Les foyers valent personnes / 3 + 1 :
     // ni le cinquième des personnes, ni une source acceptable du compte.
     public sealed class PassantsDuBourgTests

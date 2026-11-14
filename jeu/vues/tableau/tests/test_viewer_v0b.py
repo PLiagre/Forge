@@ -1058,7 +1058,7 @@ def test_bourg_une_seule_voie_lecture_tableau():
         _controle_tableau_pas_seconde_formule_bourg(eprouvee)
 
 
-# Lot 238 : les lieux sont lus dans la photographie, sans seconde formule.
+# Les lieux sont lus dans la photographie, sans seconde formule.
 @pytest.fixture(scope="module")
 def photographie_lieux():
     from sim.snapshot_export import serialize_snapshot

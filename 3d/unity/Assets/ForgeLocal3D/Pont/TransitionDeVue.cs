@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace Forge.Pont {
     public enum VueDuJeu { Ville, Carte }
 
-    // Lot #728 : la vitesse du monde par vue, en jours par seconde, lue dans `Resources/ReglagesDesVues.json` comme le lanceur Python.
+    // La vitesse du monde par vue, en jours par seconde, lue dans `Resources/ReglagesDesVues.json` comme le lanceur Python.
     // Sans repli : un réglage absent, faux ou nul lève en nommant sa clé ; hors du double (1e309), la dernière clé lue avant l'erreur.
     public sealed class ReglagesDesVues {
         public const string RESSOURCE = "ReglagesDesVues";
@@ -27,7 +27,7 @@ namespace Forge.Pont {
             throw new FormatException("réglage " + cle + " : un nombre fini > 0 attendu, reçu " + (brute is string s ? "le texte \"" + s + "\"" : Convert.ToString(brute, CultureInfo.InvariantCulture))); }
     }
 
-    // Lot #728 : le passage d'une vue à l'autre. Le noir monte en `DUREE_FONDU_S`, la scène se charge une fois, le noir redescend
+    // Le passage d'une vue à l'autre. Le noir monte en `DUREE_FONDU_S`, la scène se charge une fois, le noir redescend
     // sans attendre le service. Après le chargement seulement, une requête hors du fil principal lit `/horloge` et, si le monde
     // avance, lui donne la vitesse de la vue d'arrivée. Un monde en pause y reste ; le service tient seul le temps.
     public sealed class TransitionDeVue : MonoBehaviour {

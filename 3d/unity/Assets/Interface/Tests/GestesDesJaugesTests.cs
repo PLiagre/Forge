@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 namespace Forge.Interface.Tests
 {
-    // Lot #1046 : le panneau « Gestes des jauges » dit prix, effet et refus de chaque geste du pays, puis dépose `depenser_jauge` ou montre le refus du service.
+    // Le panneau « Gestes des jauges » dit prix, effet et refus de chaque geste du pays, puis dépose `depenser_jauge` ou montre le refus du service.
     public sealed class GestesDesJaugesTests
     {
         const string Bar = "seigneurie-1", ASSEOIR = "asseoir_le_droit", AFFERMIR = "affermir_la_concorde";

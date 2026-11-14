@@ -1,14 +1,14 @@
 using UnityEngine;
 
 namespace Forge.Pont {
-    // Lot #524 : ce que montre la caméra de la carte, vue de dessus, nord en haut, et ses bornes. Le joueur glisse et zoome ;
+    // Ce que montre la caméra de la carte, vue de dessus, nord en haut, et ses bornes. Le joueur glisse et zoome ;
     // la vue ne sort jamais de la carte servie : sur un axe où elle est plus large que la carte, elle se centre sur elle ;
-    // sur l'autre, elle reste dedans. Le zoom va de toute la carte (`Echelle` 1, le cadre de #548) à `DEMI_MIN_KM` de
+    // sur l'autre, elle reste dedans. Le zoom va de toute la carte (`Echelle` 1, le cadre de toute la carte) à `DEMI_MIN_KM` de
     // demi-hauteur. Il est relatif à toute la carte : quand la fenêtre change de forme, toute la carte reste toute la carte.
     // Coordonnées locales de la carte, en km : x vers l'est, z vers le nord ; `Centre` porte (x, z).
     public sealed class VueDeCarte {
         public const float DEMI_MIN_KM = 50f; // une centaine de km de haut : une cellule et ses voisines
-        public const float MARGE = 1.03f; // celle du cadre de toute la carte (#548)
+        public const float MARGE = 1.03f; // celle du cadre de toute la carte
         public const float PAS_DE_ZOOM = 0.85f; // par cran de molette, comme la caméra de la ville
         private readonly Bounds boite;
 

@@ -1,10 +1,10 @@
 using System;using System.Collections;using System.Collections.Generic;using System.Globalization;using System.IO;using System.Linq;using System.Net.Http;using System.Text;using System.Threading.Tasks;using Forge.Pont;using UnityEditor;using UnityEngine;using Object=UnityEngine.Object;
 namespace ForgeLocal3D
 {
-    // Lot 781 : la session commune aux deux scénarios de `Captures/Lot781.cs`, sur le service d'épreuve (#777) que la capture lance avec
+    // La session commune aux deux scénarios de `Captures/ScenarioVieDuBourg.cs`, sur le service d'épreuve que la capture lance avec
     // -forgeServiceEpreuve, graine 0, tick 0, horloge arrêtée. Biskra s'ouvre par son unique départ ; plan, bourg et occupation sont lus
-    // au service, hors du fil d'Unity, jamais fabriqués. Les maisons de base dessinées reçoivent fumée et lampe (EffetsDeMaison, #779) ;
-    // un comptoir temporaire, sur la place, reçoit les denrées (EtalDuBourg, #780), référence : la nourriture initiale lue.
+    // au service, hors du fil d'Unity, jamais fabriqués. Les maisons de base dessinées reçoivent fumée et lampe (EffetsDeMaison) ;
+    // un comptoir temporaire, sur la place, reçoit les denrées (EtalDuBourg), référence : la nourriture initiale lue.
     // 01 relève la place nourrie à 19,6 h ; 02 vide le panier une seule fois (POST /epreuve/vider-panier), relit les trois routes et
     // réapplique aux mêmes objets. -forgeGarderEtalPlein saute la seule seconde application de l'étal : l'anomalie est relevée, pas cachée.
     // Rapport : `vie-bourg.json` du dossier des captures, réécrit à chaque étape ; son défaut reste nommé jusqu'à la trace CAPTURE_SCENARIO_OK de 02.
@@ -56,7 +56,7 @@ namespace ForgeLocal3D
             var (statut,corps)=post.Result;if(statut!=200)throw Faux("POST /epreuve/vider-panier?cell="+L(c)+" a rendu "+statut+" : "+corps);
             var r=LecteurJson.LireObjet(corps);long Cle(string k)=>r.TryGetValue(k,out var v)&&v is double d?(long)d:throw Faux("POST : clé "+k+" absente ou non entière : "+corps);
             if(Cle("cell_id")!=c)throw Faux("POST : cellule "+L(Cle("cell_id"))+" rendue pour "+L(c));
-            // #777 republie sans avancer le tick : les trois routes sont relues même au même numéro.
+            // Le service d'épreuve republie sans avancer le tick : les trois routes sont relues même au même numéro.
             Etape("seconde lecture");var t=Lire(port);while(!t.IsCompleted)yield return null;var l=Verifier(t.Result,false,Cle("tick"));
             var env=Object.FindFirstObjectByType<DesertEnvironment>()??throw Faux("pas de DesertEnvironment");env.hour=(float)Heure;env.Apply();
             panneau.Ouvrir(cellule);Appliquer(l,!Contre);Cadrer(camera);for(int i=0;i<ImagesMax&&(i<Images||!AfficheLeRetrait());i++)yield return null;if(!AfficheLeRetrait())throw Faux("panneau encore nourri : "+panneau.TexteAffiche);
@@ -64,7 +64,7 @@ namespace ForgeLocal3D
             foreach(var e in ids.Keys)if(e.Fumee.isEmitting||e.Fumee.particleCount>0||!e.Lampe.isActiveAndEnabled||e.Lampe.intensity!=soir[e])throw Faux(e.name+" : "+e.Fumee.particleCount+" particule(s), lampe "+e.Lampe.intensity+" au lieu de "+soir[e]);
             if(Matrice(camera)!=cadrage)throw Faux("cadrage changé depuis la place nourrie");
             Champ(camera,Contre);Relever("affamee",l.b.Donnees,camera);
-            if(Contre)Debug.Log("CAPTURE_781 contre-épreuve "+GarderEtalPlein+" : "+Visibles(camera)+" garniture(s) alimentaire(s) visible(s) au panier vide");
+            if(Contre)Debug.Log("CAPTURE_VIE_DU_BOURG contre-épreuve "+GarderEtalPlein+" : "+Visibles(camera)+" garniture(s) alimentaire(s) visible(s) au panier vide");
             Etape("photo de la place affamée");Application.logMessageReceived+=Photo;
         }
         static bool AfficheLeRetrait(){var t=panneau!=null?panneau.TexteAffiche:null;return t!=null&&t.Contains("\nNourriture : 0 kg\n")&&t.Contains("\nFaim : ")&&!t.Contains("\nFaim : 0 ticks");}
@@ -125,7 +125,7 @@ namespace ForgeLocal3D
             Vector2 devant=(cam-ici).normalized;if(devant.sqrMagnitude<1e-4f)devant=n;var droite=new Vector2(devant.y,-devant.x);
             for(int s=0;s<4;s++)if(!Dedans(place,ici+devant*((s&1)==0?-.8f:.8f)+droite*((s&2)==0?-1.5f:1.5f)))throw Faux("comptoir hors de l'emprise de la place");
             var regard=(vu-cam).normalized;visePose=new Vector3(vu.x,0,vu.y);capPose=Mathf.Atan2(regard.x,regard.y)*Mathf.Rad2Deg;distPose=Vector2.Distance(cam,vu)/Mathf.Cos(incPose*Mathf.Deg2Rad);
-            racine=new GameObject("Lot 781 : comptoir du bourg").transform;var et=new GameObject("Étal nourriture").transform;et.SetParent(racine);
+            racine=new GameObject("Comptoir du bourg").transform;var et=new GameObject("Étal nourriture").transform;et.SetParent(racine);
             var pos=new Vector3(ici.x,0,ici.y);pos.y=terrain.SampleHeight(pos)+terrain.transform.position.y;et.SetPositionAndRotation(pos,Quaternion.LookRotation(new Vector3(devant.x,0,devant.y)));
             comptoir=Bloc(PrimitiveType.Cube,et,"comptoir",new Vector3(0,.45f,0),new Vector3(2.6f,.9f,1.2f),"bois_sombre");
             // L'auvent haut, au fond, et ses deux poteaux : il n'ombre que l'arrière et ne cache pas les denrées.
@@ -161,7 +161,7 @@ namespace ForgeLocal3D
                 var gb=etal.Garniture.GetComponentsInChildren<Renderer>().Select(r=>r.bounds).Aggregate((a,x)=>{a.Encapsulate(x);return a;});var haut=new Vector3(gb.center.x,gb.max.y-.02f,gb.center.z);
                 if(Visibles(camera)==0||!Dans(gb.min)||!Dans(gb.max)||!Physics.Raycast(o,haut-o,out var h,500f)||!h.transform.IsChildOf(etal.Garniture))throw Faux("denrées cachées ou hors du champ, "+bilan);
             }
-            Debug.Log("CAPTURE_781 "+bilan);
+            Debug.Log("CAPTURE_VIE_DU_BOURG "+bilan);
         }
 
         // Les mesures se prennent sur les objets de la session, jamais sur ce qu'on attend : -1 non calculé, 0 est une mesure. Montré : actif, haut, dans le champ, et touché le premier par un rayon de la caméra (auvent, poteaux, maisons ont leurs colliders).

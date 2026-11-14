@@ -16,7 +16,7 @@ using UnityEngine.UI;
 
 namespace ForgeLocal3D
 {
-    // Lot 659 : la session Unity de l'épreuve de la part, moitié Unity du geste déjà visible dans #656.
+    // La session Unity de l'épreuve de la part.
     //   Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuvePart.Jouer
     //         -forgeEpreuve <rapport.json> -forgeTerre N [-forgePart P] [-forgePartSansConfirmation]
     // Le service tourne déjà, en pause. La session ne le lance ni ne l'arrête, ne touche pas /vitesse, et ne juge rien :
@@ -110,29 +110,29 @@ namespace ForgeLocal3D
             CarteDessinee[] cartes = UnityEngine.Object.FindObjectsByType<CarteDessinee>(FindObjectsSortMode.None);
             if (cartes.Length != 1) throw new InvalidOperationException("CarteDessinee : attendu 1, observé " + cartes.Length);
             CarteDessinee carte = cartes[0]; int port = carte.port; Transform toile = null, racine = null;
-            for (var e = Lot690.Jusqua(() => { toile = carte.transform.Find("Cabinet"); racine = toile != null ? toile.Find("Votre maison/Commandes de maison") : null; return carte.GetComponents<PassageALaCapitale>().Length == 1 && carte.GetComponent<CabinetDeCarte>() != null && carte.GetComponent<CommandesMaison>() != null && racine != null; },
+            for (var e = AttentesDeCapture.Jusqua(() => { toile = carte.transform.Find("Cabinet"); racine = toile != null ? toile.Find("Votre maison/Commandes de maison") : null; return carte.GetComponents<PassageALaCapitale>().Length == 1 && carte.GetComponent<CabinetDeCarte>() != null && carte.GetComponent<CommandesMaison>() != null && racine != null; },
                 () => "carte incomplète, scène " + SceneManager.GetActiveScene().name); e.MoveNext();) yield return null;
             // Cette session seule reste sur la carte, même au Zab. Le passage livré au joueur n'est pas modifié.
             carte.GetComponent<PassageALaCapitale>().enabled = false;
             CabinetDeCarte cabinet = carte.GetComponent<CabinetDeCarte>(); CommandesMaison commandes = carte.GetComponent<CommandesMaison>();
-            for (var e = Lot690.Jusqua(() => Lot690.LecturePrete(cabinet.Partie), () => "cabinet : " + Lot690.Dire(cabinet.Partie)); e.MoveNext();) yield return null;
+            for (var e = AttentesDeCapture.Jusqua(() => AttentesDeCapture.LecturePrete(cabinet.Partie), () => "cabinet : " + AttentesDeCapture.Dire(cabinet.Partie)); e.MoveNext();) yield return null;
             LecturePartie partie = cabinet.Partie; r.tick_avant = partie.Monde.Donnees.Monde.Tick;
             FicheDeDepart fiche = partie.Departs.Donnees.Fiches.FirstOrDefault(f => f.Id == r.terre) ?? throw new InvalidOperationException("terre " + N(r.terre) + " absente des fiches servies");
-            for (var e = Lot690.Jusqua(() => Actif(toile, fiche.Maison), () => "bouton « " + fiche.Maison + " » inactif"); e.MoveNext();) yield return null;
+            for (var e = AttentesDeCapture.Jusqua(() => Actif(toile, fiche.Maison), () => "bouton « " + fiche.Maison + " » inactif"); e.MoveNext();) yield return null;
             Bouton(toile, fiche.Maison).onClick.Invoke(); yield return null;
             Button choisir = Bouton(toile, "Choisir cette maison");
             if (!choisir.interactable) throw new InvalidOperationException("« Choisir cette maison » inactif pour " + fiche.Nom);
             choisir.onClick.Invoke();
-            for (var e = Lot690.Jusqua(() => partie.Recu != null, () => "reçu du choix absent"); e.MoveNext();) yield return null;
+            for (var e = AttentesDeCapture.Jusqua(() => partie.Recu != null, () => "reçu du choix absent"); e.MoveNext();) yield return null;
             r.choix = EpreuveChoix.Relever(partie.Recu);
             if (!partie.Recu.Acceptee) throw new InvalidOperationException("choix de " + fiche.Nom + " refusé : " + r.choix.raison);
-            Task<(int statut, string corps)> un = Lot690.PousserTick(port);
-            for (var e = Lot690.Attendre(un, "POST /tick?n=1"); e.MoveNext();) yield return null;
+            Task<(int statut, string corps)> un = AttentesDeCapture.PousserTick(port);
+            for (var e = AttentesDeCapture.Attendre(un, "POST /tick?n=1"); e.MoveNext();) yield return null;
             if (un.Result.statut != 200) throw new InvalidOperationException("POST /tick?n=1 a rendu " + un.Result.statut + " : " + un.Result.corps);
-            for (var e = Lot690.Jusqua(() => Publiee(partie) && Actif(racine, "Prélèvement") && SceneManager.GetActiveScene().name == OuvertureDeLaCarte.SCENE,
+            for (var e = AttentesDeCapture.Jusqua(() => Publiee(partie) && Actif(racine, "Prélèvement") && SceneManager.GetActiveScene().name == OuvertureDeLaCarte.SCENE,
                 () => "maison ou commandes indisponibles, scène " + SceneManager.GetActiveScene().name + " : " + (partie.Maison == null ? "maison non lue" : partie.Maison.Absence ?? partie.Monde?.Donnees.MaisonDuJoueur ?? "absente")); e.MoveNext();) yield return null;
-            Task<Lecture<MondeAvecMaisonLu>> apresChoix = Lot690.LireMonde(port);
-            for (var e = Lot690.Attendre(apresChoix, "lecture /monde après le choix"); e.MoveNext();) yield return null;
+            Task<Lecture<MondeAvecMaisonLu>> apresChoix = AttentesDeCapture.LireMonde(port);
+            for (var e = AttentesDeCapture.Attendre(apresChoix, "lecture /monde après le choix"); e.MoveNext();) yield return null;
             if (apresChoix.Result == null || !apresChoix.Result.Presente || string.IsNullOrEmpty(apresChoix.Result.Donnees.MaisonDuJoueur))
                 throw new InvalidOperationException("maison non publiée : " + (apresChoix.Result == null ? "aucune lecture" : apresChoix.Result.Absence));
             r.tick_apres_choix = apresChoix.Result.Donnees.Monde.Tick; r.maison = apresChoix.Result.Donnees.MaisonDuJoueur;
@@ -146,7 +146,7 @@ namespace ForgeLocal3D
             if (!Environment.GetCommandLineArgs().Contains(SANS))
             {
                 Bouton(racine, CONFIRMER).onClick.Invoke();
-                for (var e = Lot690.Jusqua(() => commandes.Ordre.Recu != null && !commandes.Ordre.EnCours, () => "reçu de part absent : « " + commandes.MessageAffiche + " »"); e.MoveNext();) yield return null;
+                for (var e = AttentesDeCapture.Jusqua(() => commandes.Ordre.Recu != null && !commandes.Ordre.EnCours, () => "reçu de part absent : « " + commandes.MessageAffiche + " »"); e.MoveNext();) yield return null;
                 yield return null;
             }
             r.ordre = EpreuveChoix.Relever(commandes.Ordre.Recu); r.message_ordre = commandes.MessageAffiche ?? "";
@@ -160,15 +160,15 @@ namespace ForgeLocal3D
             if (boucle.IsFaulted) throw new InvalidOperationException("trente ticks : " + (boucle.Exception == null ? boucle.Status.ToString() : boucle.Exception.GetBaseException().Message));
             r.ticks_part = boucle.Result.faits;
             if (boucle.Result.echec != null) throw new InvalidOperationException(boucle.Result.echec);
-            Task<Lecture<MondeAvecMaisonLu>> fini = Lot690.LireMonde(port);
-            for (var e = Lot690.Attendre(fini, "lecture /monde après la part"); e.MoveNext();) yield return null;
+            Task<Lecture<MondeAvecMaisonLu>> fini = AttentesDeCapture.LireMonde(port);
+            for (var e = AttentesDeCapture.Attendre(fini, "lecture /monde après la part"); e.MoveNext();) yield return null;
             if (fini.Result == null || !fini.Result.Presente) throw new InvalidOperationException("/monde après la part : " + (fini.Result == null ? "aucune lecture" : fini.Result.Absence));
             r.tick_apres = fini.Result.Donnees.Monde.Tick; string marque = "relevé au " + TexteDuMonde.Date(fini.Result.Donnees.Monde.Date) + "\n"; Text releve = null;
             for (double fin = Time.realtimeSinceStartupAsDouble + 2 * PERIODE_COMPTES_S; Time.realtimeSinceStartupAsDouble < fin;)
             { releve = Releve(racine); if (releve != null && releve.text != null && releve.text.Contains(marque)) break; yield return null; }
             r.panneau = releve != null && releve.text != null ? releve.text : "";
             Task<(int statut, string corps, string panne)> lu = Task.Run(() => CorpsMaison(port, r.maison));
-            for (var e = Lot690.Jusqua(() => lu.IsCompleted, () => "GET /maison?id=" + r.maison); e.MoveNext();) yield return null;
+            for (var e = AttentesDeCapture.Jusqua(() => lu.IsCompleted, () => "GET /maison?id=" + r.maison); e.MoveNext();) yield return null;
             if (lu.Result.panne != null) { r.defaut = lu.Result.panne; yield break; }
             r.maison_statut = lu.Result.statut; r.maison_json = lu.Result.corps ?? "";
         }
@@ -196,7 +196,7 @@ namespace ForgeLocal3D
                 if (stop.IsCancellationRequested) return (faits, "envois arrêtés après " + faits + " ticks confirmés");
                 try
                 {
-                    var rep = Lot690.PousserTick(port).GetAwaiter().GetResult();
+                    var rep = AttentesDeCapture.PousserTick(port).GetAwaiter().GetResult();
                     if (rep.statut != 200 || rep.corps.IndexOf("\"tick\":", StringComparison.Ordinal) < 0)
                         return (faits, "POST /tick?n=1 a rendu " + rep.statut + " : " + rep.corps);
                 }

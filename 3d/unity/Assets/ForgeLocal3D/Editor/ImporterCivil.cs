@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace ForgeLocal3D
 {
-    // Lot 786 : VAT1 de #785 → maillage, texture RGBAHalf linéaire, matériau Forge/CivilVAT. Lire refuse toute valeur non finie.
+    // VAT1 → maillage, texture RGBAHalf linéaire, matériau Forge/CivilVAT. Lire refuse toute valeur non finie.
     [ScriptedImporter(1, "vat")]
     public sealed class ImporterCivil : ScriptedImporter
     {
@@ -66,12 +66,12 @@ namespace ForgeLocal3D
             try
             {
                 var octets = File.ReadAllBytes(copie);
-                if (Array.IndexOf(Environment.GetCommandLineArgs(), "-forge786TronquerVat") >= 0)
+                if (Array.IndexOf(Environment.GetCommandLineArgs(), "-forgeTronquerVat") >= 0)
                 {
                     var coupe = new byte[Math.Max(0, octets.Length - 7)]; Buffer.BlockCopy(octets, 0, coupe, 0, coupe.Length); string message;
                     try { Lire(coupe); message = "longueur tronquée acceptée"; } catch (InvalidDataException e) { message = "longueur invalide : " + e.Message; } Sortir(1, message); return;
                 }
-                if (!Empreinte(copie).Equals(Empreinte(source), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("VAT divergent de la source #785");
+                if (!Empreinte(copie).Equals(Empreinte(source), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("VAT divergent de la source");
                 AssetDatabase.ImportAsset(ShaderChemin, ImportAssetOptions.ForceUpdate); AssetDatabase.ImportAsset("Assets/" + Relatif, ImportAssetOptions.ForceUpdate);
                 var vat = Lire(octets); Mesh mesh = null; Texture2D tex = null; Material mat = null;
                 foreach (var o in AssetDatabase.LoadAllAssetsAtPath("Assets/" + Relatif)) if (o is Mesh m) mesh = m; else if (o is Texture2D t) tex = t; else if (o is Material a) mat = a;

@@ -184,7 +184,7 @@ def test_une_panne_unity_ecrit_le_verdict_et_nettoie(tmp_path, monkeypatch, pann
     if panne == "exception": assert "invariant violé" not in texte and "violé —" not in texte
     assert ferme == ([] if panne == "indisponible" else [True]); port_libre()
 
-# Lot #583 : la preuve Unity bâtit à Biskra, après le choix du Zab, hors des maisons de 1400.
+# La preuve Unity bâtit à Biskra, après le choix du Zab, hors des maisons de 1400.
 def test_la_chronologie_est_exacte(preuve):
     mondes, journal = copy.deepcopy(preuve)
     with pytest.raises(ValueError, match="journal : ticks invalides"): epreuve.juger(*mondes, journal, 10, chronologie=(0, 1, 2, 3))
@@ -283,7 +283,7 @@ def test_un_defaut_de_session_se_nomme_dans_le_verdict(tmp_path):
         assert epreuve.juger_essai(args, tmp_path, statuts, "k", rapports, un, un, b"j", b"j") == 1
         assert statuts["relancement"][0] == "violé" and ("maison de 1400" in statuts["relancement"][1]) is nomme
 
-# Lot #696 : le kit relève le terrain autour de l'eau, avant de chercher la route.
+# Le kit relève le terrain autour de l'eau, avant de chercher la route.
 def test_relever_conserve_le_pivot_et_fond_au_bord():
     import numpy as np
     routes = epreuve.module_routes(); n = routes.terrain.RESOLUTION

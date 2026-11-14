@@ -10,12 +10,12 @@ using UnityEngine.Rendering;
 
 namespace ForgeLocal3D
 {
-    // Lot 549 : la scène de la carte du joueur, `Forge_Carte`, qui porte `CarteDessinee` sans caméra donnée (le composant crée
+    // La scène de la carte du joueur, `Forge_Carte`, qui porte `CarteDessinee` sans caméra donnée (le composant crée
     // la sienne et cadre toute la carte), et une lumière tombant à la verticale : la couleur d'une puissance ne dépend pas de
     // l'heure. Elle va en dernier dans la liste du build : la capture et le jeu ouvrent la première, la ville du désert
-    // (`-forgeCarte` y fait passer le jeu, #524). Le joueur la parcourt à la souris (`ParcoursDeCarte`, #524), y lit la date
-    // et règle l'horloge (`HorlogeDeCarte` et `CommandesDuTemps`, #525), survole une cellule pour lire sa fiche
-    // (`FicheDeCellule` et `SurvolDeCarte`, #526), et y voit les six terres de départ (`ReperesDeDepart`, #626) ;
+    // (`-forgeCarte` y fait passer le jeu). Le joueur la parcourt à la souris (`ParcoursDeCarte`), y lit la date
+    // et règle l'horloge (`HorlogeDeCarte` et `CommandesDuTemps`), survole une cellule pour lire sa fiche
+    // (`FicheDeCellule` et `SurvolDeCarte`), et y voit les six terres de départ (`ReperesDeDepart`) ;
     // un EventSystem fait cliquer ses boutons.
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.CarteBuilder.Construire
     public static class CarteBuilder

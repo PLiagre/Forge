@@ -7,12 +7,12 @@ using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace Forge.Pont {
-    // Lot #625 : un repère sur le siège de chaque terre de départ servie (`/departs`), à la place que `/maison` donne au
+    // Un repère sur le siège de chaque terre de départ servie (`/departs`), à la place que `/maison` donne au
     // siège (`siege.point`, EPSG:3035) et que la carte convertit comme ses contours. Rien n'est deviné : une fiche absente
     // ou un siège hors carte se dit en haut à gauche, sans repère, et la lecture repart pour ce qui manque.
-    // Lot #624 : la souris sur un repère ouvre en bas à droite la fiche de sa terre, telle que `/departs` et `/maison` l'ont
+    // La souris sur un repère ouvre en bas à droite la fiche de sa terre, telle que `/departs` et `/maison` l'ont
     // servie à la pose ; rien n'est relu ni calculé. Hors de tout repère, la fiche se cache.
-    // Lot #613 : un clic sur un repère dépose au service le choix de sa terre (`choisir_depart`), hors du fil principal ; le
+    // Un clic sur un repère dépose au service le choix de sa terre (`choisir_depart`), hors du fil principal ; le
     // panneau en haut au centre dit le reçu tel que le service le rend : son tick, ou sa raison de refus. Unity ne juge rien.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     [RequireComponent(typeof(CarteDessinee))]
@@ -179,8 +179,8 @@ namespace Forge.Pont {
             var lieu = new GameObject(NomDuLieu(t.CellId, t.Rang)).transform; lieu.SetParent(lieuxRacine, false); lieu.localPosition = carte.PositionSurLaCarte(point, HAUTEUR_LIEU).Value;
             Disque(lieu, "Bord", matBord, DIAMETRE_BORD_KM, SOUS_LE_DISQUE); Disque(lieu, "Disque", matJoueur, DIAMETRE_LIEU_KM, 0f);
         }
-        // Lot #729 : le nom du siège du joueur tel que `/maison` le sert, centré juste au nord de son disque, à la hauteur des noms
-        // de ville. Le cabinet arrête ce prototype, pas ce composant, que #690 pose sur la carte avec le passage. Une fiche servie suffit.
+        // Le nom du siège du joueur tel que `/maison` le sert, centré juste au nord de son disque, à la hauteur des noms
+        // de ville. Le cabinet arrête ce prototype, pas ce composant, que le passage pose sur la carte. Une fiche servie suffit.
         public sealed class NomDuSiege : MonoBehaviour {
             public const float PERIODE_S = 1f;
             private Task<Lecture<MaisonLue>> enCours; private double prochaine; private bool servie;

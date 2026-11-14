@@ -1,6 +1,6 @@
 """L'amorçage d'avant la soudure, pour les épreuves dont il est le décor.
 
-Jusqu'au 7 novembre 2026, une cellule partait avec cinq ticks de ration, plus
+Avant la soudure, une cellule partait avec cinq ticks de ration, plus
 trente ticks du manque d'une ville, partagés entre ses lieux par surface ;
 Paris était vide avant avril 1400. La soudure (`sim.world._seed_food_stock`,
 `JOUR_DE_LA_MOISSON`) a remplacé cet amorçage dans le monde.
@@ -16,9 +16,8 @@ Certaines épreuves en gardent le décor, et seulement celles-ci :
   faim du bourg, la distribution intérieure qui coûte, le secours) : elles
   éprouvent la réaction à la faim, pas la date où elle vient.
 
-Le décor d'avant la soudure est aussi celui d'avant la famine (lot #1029,
-réponse A du 10 novembre 2026) et d'avant la réserve des villes affamées (lot
-#1057) et d'avant l'appel des villes affamées (lot #1071) : la famine ne pose
+Le décor d'avant la soudure est aussi celui d'avant la famine, d'avant la
+réserve des villes affamées et d'avant l'appel des villes affamées : la famine ne pose
 rien, une ville affamée n'a que sa ration du tick pour garde, n'appelle que ce
 besoin et ses arêtes portent la capacité d'avant, et ces épreuves gardent leurs
 octets. Avec cinq jours de stock,
@@ -31,7 +30,7 @@ import sim.evenements as _evenements
 import sim.world as _monde
 from sim.model import ecrire_stock_marchandise
 
-# Les deux constantes retirées du moteur le 7 novembre 2026, gardées ici seules.
+# Les deux constantes retirées du moteur, gardées ici seules.
 RESERVE_D_AVANT_TICKS = 5
 RESERVE_DES_VILLES_D_AVANT_TICKS = 30
 
@@ -66,7 +65,7 @@ def _ne_pose_aucune_famine(monde, affames, donnees=None):
 
 
 def couper_la_famine(monkeypatch):
-    """Pour la durée d'un test : un lieu affamé ne reçoit plus la famine (le monde d'avant le lot #1029)."""
+    """Pour la durée d'un test : un lieu affamé ne reçoit plus la famine."""
     monkeypatch.setattr(_evenements, "poser_les_famines", _ne_pose_aucune_famine)
 
 
@@ -83,7 +82,7 @@ def _rayon_d_avant(chemin=None):
 
 
 def couper_l_appel_des_villes(monkeypatch):
-    """Pour la durée d'un test : une ville affamée n'appelle rien (P = 0) et ses arêtes gardent leur capacité (R = 1), comme avant le lot #1071."""
+    """Pour la durée d'un test : une ville affamée n'appelle rien (P = 0) et ses arêtes gardent leur capacité (R = 1), comme avant l'appel des villes affamées."""
     monkeypatch.setattr(_constantes, "appel_ville_affamee_part", _appel_d_avant)
     monkeypatch.setattr(_constantes, "rayon_ville_affamee_jours", _rayon_d_avant)
 
@@ -99,7 +98,7 @@ def _charger_sans_releve_des_champs(charger):
 
 
 def garder_le_commerce_d_avant(monkeypatch):
-    """Pour la durée d'un test : une ville affamée garde sa ration du tick, comme avant le lot #1057, et n'appelle rien (lot #1071).
+    """Pour la durée d'un test : une ville affamée garde sa ration du tick, comme avant la réserve des villes affamées, et n'appelle rien.
 
     Deux gestes, parce que les épreuves chargent le monde sous ce décor mais le
     jouent après l'avoir quitté (un `MonkeyPatch.context()` qui ne couvre que le

@@ -21,7 +21,7 @@ namespace Forge.Interface.Tests
                 Assert.That(valeur, Is.InRange(.5f, .7f));
             }
         }
-        // DA du 28 octobre : le thème garde la teinte servie ; un pigment repeint d'un jeton échoue.
+        // Le thème garde la teinte servie ; un pigment repeint d'un jeton échoue.
         [Test] public void LePigmentGardeLaTeinteServieDeChaqueMaison()
         {
             for (int i = 0; i < 24; i++)
@@ -64,7 +64,7 @@ namespace Forge.Interface.Tests
             Assert.AreEqual("Calque indisponible : déclaré absent par le monde. Couleurs des puissances conservées.", CalquesCarte.Indisponible("Population absente du territoire 30"));
             Assert.AreEqual("Calque indisponible : Population des territoires incomplète. Couleurs des puissances conservées.", CalquesCarte.Indisponible("Population des territoires incomplète"));
         }
-        // Lot #943 : sous ses deux formes, la légende passe les juges du clerc ; l'ancienne, datée de 1400, en rougit.
+        // Sous ses deux formes, la légende passe les juges du clerc ; l'ancienne, datée de 1400, en rougit.
         [Test] public void La_legende_des_deux_calques_passe_les_juges_du_clerc()
         {
             var repartition = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 5631, -1, -1)));
@@ -77,7 +77,7 @@ namespace Forge.Interface.Tests
             Assert.AreEqual("Habitants : 1 habitant (clair) → 5 631 habitants (foncé) · échelle logarithmique · jour 9 de 1400 · Rouge : territoire conservé", CalquesCarte.LegendeDuCalque(repartition));
             Assert.AreEqual("1400", TexteDuMonde.SansUnite("Puissances de la carte de 1400 · Relief non transmis · Rouge : territoire conservé"));
         }
-        // Lot #963 : chaque mode a sa couleur, sa légende de trois lignes au plus et son détail ; la terre gardée reste rouge.
+        // Chaque mode a sa couleur, sa légende de trois lignes au plus et son détail ; la terre gardée reste rouge.
         [Test] public void Chaque_mode_a_sa_couleur_et_sa_legende()
         {
             var modes = new[] { ModeDeCarte.Puissances, ModeDeCarte.Habitants, ModeDeCarte.Flux }; Color maison = new Color(.2f, .4f, .8f);

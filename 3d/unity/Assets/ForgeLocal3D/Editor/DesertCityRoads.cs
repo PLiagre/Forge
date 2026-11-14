@@ -14,7 +14,7 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Contrôle du lot 263, en Play : pose le jeu de gestes écrit par local3d/desert/routes.py sur
+    // Contrôle en Play : pose le jeu de gestes écrit par local3d/desert/routes.py sur
     // une copie du terrain, mesure, exporte, fait marcher le personnage, capture. Il ne juge
     // pas : routes.juger rejoue chaque route depuis hauteurs.f32 et décide. Ce qui s'écrit ici
     // est une mesure, ou la trace d'une contre-épreuve que le jugement doit voir rougir.
@@ -44,7 +44,7 @@ namespace ForgeLocal3D
             public string empreinte_clic="",empreinte_gestes="";public bool acceptee;
         }
         [Serializable] public class Capture{public string nom;public double ecart=-1;}
-        // Lot 251 : la caméra du joueur (DesertCityCamera) et son marcheur.
+        // La caméra du joueur (DesertCityCamera) et son marcheur.
         [Serializable] public class Balayage{public int prevues=-1,mesurees=-1,sous_terrain=-1;public double marge_min=-1;}
         [Serializable] public class Zoom{public double distance_min=-1,distance_max=-1,hauteur_rue=-1;}
         [Serializable] public class Joueur
@@ -52,7 +52,7 @@ namespace ForgeLocal3D
             public bool branchee;public Balayage balayage=new Balayage(),releve=new Balayage(),sans_garde=new Balayage();public Zoom zoom=new Zoom();
             public double oeil=-1,retour=-1;public Marche marche=new Marche();public Route mur=new Route();
         }
-        // Lot 293 : les deux clics passent par le service du monde, dont le contrôle fait passer les ticks.
+        // Les deux clics passent par le service du monde, dont le contrôle fait passer les ticks.
         [Serializable] public class Raide{public bool clique,depose;public int rues_avant=-1,rues_apres=-1;}
         [Serializable] public class Plaine
         {
@@ -212,7 +212,7 @@ namespace ForgeLocal3D
             foreach(var p in pixels)dev+=Mathf.Abs(p.r+p.g+p.b-mean);return dev/pixels.Length;
         }
 
-        // ---------- Lot 293 : le service du monde ----------
+        // ---------- le service du monde ----------
 
         // L'horloge passée à la main (le service tourne à vitesse 0) : un tick, et le tick rendu ; -1 et un défaut sinon.
         static long Tick(int port,List<string> faults)
@@ -235,7 +235,7 @@ namespace ForgeLocal3D
             faults.Add("service : "+lu.Absence);return -1;
         }
 
-        // ---------- Lot 251 : la caméra du joueur ----------
+        // ---------- la caméra du joueur ----------
 
         static Vector3[] Grid(Vector3 centre,float half,int n)
         {
@@ -250,7 +250,7 @@ namespace ForgeLocal3D
             float top=t.transform.position.y+t.terrainData.size.y+50;
             return t.GetComponent<TerrainCollider>().Raycast(new Ray(new Vector3(at.x,top,at.z),Vector3.down),out var hit,t.terrainData.size.y+200)?at.y-hit.point.y:double.NaN;
         }
-        // SC1 : chaque pose passe par DesertCityCamera.Poser, la méthode du joueur. Cap tous les 30°,
+        // Chaque pose passe par DesertCityCamera.Poser, la méthode du joueur. Cap tous les 30°,
         // inclinaison au minimum, au milieu et au maximum, distance du maximum au minimum par pas de 0,75.
         static Balayage Sweep(DesertCityCamera cam,Terrain t,Vector3[] aims)
         {
@@ -279,10 +279,10 @@ namespace ForgeLocal3D
             var side=Vector3.Cross(Vector3.up,along);
             float Heading(Vector3 d)=>Mathf.Atan2(d.x,d.z)*Mathf.Rad2Deg;
 
-            // SC1 — le terrain entier, moins 60 m de marge.
+            // Le terrain entier, moins 60 m de marge.
             j.balayage=Sweep(cam,terrain,Grid(new Vector3(o.x+size.x/2,0,o.z+size.z/2),size.x/2-60,9));
 
-            // SC2 — le zoom, au milieu de la route de plaine ; la caméra se tient du côté du centre.
+            // Le zoom, au milieu de la route de plaine ; la caméra se tient du côté du centre.
             var outward=mid-(o+size/2);outward.y=0;double near=double.MaxValue,far=0;
             foreach(var d in Enumerable.Range(0,60).Select(k=>100000*Mathf.Pow(.75f,k)).Append(0f))
             {
@@ -291,14 +291,14 @@ namespace ForgeLocal3D
             }
             j.zoom=new Zoom{distance_min=near,distance_max=far,hauteur_rue=Above(terrain,view.transform.position)};
 
-            // SC4 — ce que voit le joueur.
+            // Ce que voit le joueur.
             string folder=Output+id+"/camera/";Directory.CreateDirectory(folder);
             foreach(var old in Directory.GetFiles(folder,"*.png"))File.Delete(old);
             var shots=new List<Capture>();
             cam.VueEnsemble();shots.Add(new Capture{nom="ensemble",ecart=Photo(view,tool,folder+"ensemble.png")});
             cam.Poser(mid+side*(float)(plain.largeur/2),Heading(along),20,0);shots.Add(new Capture{nom="rue",ecart=Photo(view,tool,folder+"rue.png")});
 
-            // SC3 — le marcheur du joueur : descendre au départ de la route, remonter, marcher, buter sur le mur.
+            // Le marcheur du joueur : descendre au départ de la route, remonter, marcher, buter sur le mur.
             var first=World(terrain,plain.ax[Math.Min(4,end)],plain.ay[Math.Min(4,end)])-start;first.y=0;
             cam.Poser(start,Heading(first),30,25);
             var fromPos=view.transform.position;var fromAim=fromPos+view.transform.forward*cam.Distance;
@@ -340,13 +340,13 @@ namespace ForgeLocal3D
             var sv=report.service;sv.cell=tool.Cellule;sv.port=tool.Port;
             using var plan=new ClientPlan(tool.Port,TimeSpan.FromSeconds(1));
             tool.automatique=true;var terrain=roads.terrain;var camera=tool.view;var env=Object.FindFirstObjectByType<DesertEnvironment>();
-            // Lot 251 : la caméra du joueur s'est branchée seule au chargement ; le contrôle la pilote.
+            // La caméra du joueur s'est branchée seule au chargement ; le contrôle la pilote.
             var player=camera.GetComponent<DesertCityCamera>();report.camera.branchee=player;
             if(player){player.automatique=true;player.Poser(player.Vise,player.Cap,player.Inclinaison,player.Distance);}
             if(player&&player.Marcheur)player.Marcheur.automatic=true;
             else{faults.Add("caméra de la ville non branchée : DesertCityCamera absente ou sans marcheur");player=null;}
             var data=DesertCityTerrain.Load(id);
-            roads.Restaurer(); // Lot 361 : l'outil a ouvert la ville d'après le plan ; le contrôle part de l'asset
+            roads.Restaurer(); // l'outil a ouvert la ville d'après le plan ; le contrôle part de l'asset
             report.asset_avant=DesertRoads.Empreintes(terrain.terrainData).Tout;
 
             // A — le jeu de gestes, dans l'ordre, sur une copie fraîche.
@@ -483,12 +483,12 @@ namespace ForgeLocal3D
                 }
                 else faults.Add("service : "+lu.Absence);
                 c.acceptee=res!=null&&res.acceptee;c.empreinte_clic=roads.Empreintes().Tout;
-                // La référence (décision du propriétaire, issue #293) : la même route posée en terre battue.
+                // La référence (la même route, ici en terre battue) : la même route posée en terre battue.
                 var terre=new DesertRoads.Geste{id=plainGeste.id,famille=plainGeste.famille,revetement="terre",largeur=plainGeste.largeur,x=plainGeste.x,y=plainGeste.y};
                 roads.Preparer(P,gestes.graine);roads.Poser(terre);c.empreinte_gestes=roads.Empreintes().Tout;
             }
 
-            // Lot 251 — la caméra du joueur, sur la ville aux routes posées.
+            // La caméra du joueur, sur la ville aux routes posées.
             if(player)
             {
                 roads.Preparer(P,gestes.graine);foreach(var g in gestes.routes)roads.Poser(g);

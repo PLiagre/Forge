@@ -1,4 +1,4 @@
-"""L'épreuve de la carte dans Unity (lot #527) : la carte du joueur dit-elle le monde servi ?
+"""L'épreuve de la carte dans Unity : la carte du joueur dit-elle le monde servi ?
 
     py pc\\epreuve_carte.py --sortie D [--seed S] [--ticks N] [--cellule C] [--decalage K]
                             [--retirer-une-cellule] [--sans-service] [--unity CHEMIN]
@@ -42,7 +42,7 @@ def _charger(nom: str, chemin: Path):
     return module
 
 
-# pc/jouer.py met jeu/ sur le chemin d'import ; l'épreuve du jalon 1 sait trouver Unity et couper un service resté ouvert.
+# pc/jouer.py met jeu/ sur le chemin d'import ; epreuve_jalon1.py sait trouver Unity et couper un service resté ouvert.
 JOUER = _charger("jouer", RACINE / "pc" / "jouer.py")
 JALON1 = _charger("epreuve_jalon1", RACINE / "pc" / "epreuve_jalon1.py")
 from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
@@ -93,7 +93,7 @@ def lire_fiche(texte: str) -> dict:
     return lu
 
 
-# Les mots du monde, recopiés de `TexteDuMonde.cs` (lot #870) : le juge écrit à l'octet comme le Pont. Les milliers se
+# Les mots du monde, recopiés de `TexteDuMonde.cs` : le juge écrit à l'octet comme le Pont. Les milliers se
 # séparent par U+00A0 posé à la main, jamais par la culture du système.
 NBSP = "\u00a0"
 # Les arrondis se font sur la valeur exacte du flottant (`Decimal(x)`), moitié vers le haut : jamais `round()`, qui va au pair.

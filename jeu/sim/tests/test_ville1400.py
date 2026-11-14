@@ -295,7 +295,7 @@ def campagne():
     )
 
 
-def test_sc1_meme_ville_apres_un_an(campagne):
+def test_meme_ville_apres_un_an(campagne):
     monde = campagne.monde
     comparees = 0
     for cell_id in monde.cells:
@@ -324,7 +324,7 @@ def test_sc1_meme_ville_apres_un_an(campagne):
     assert changements > 0
 
 
-def test_sc2_une_maison_par_foyer(campagne):
+def test_une_maison_par_foyer(campagne):
     vide = base_d_une_population(0, ((None, 0.0),))
     assert vide["maisons"] == [] and vide["place"] and vide["rues"]
     total, ecart_max = _controler_foyers(list(campagne.bases.values()), campagne.populations)
@@ -338,7 +338,7 @@ def test_sc2_une_maison_par_foyer(campagne):
         _controler_foyers([alt], {_PARIS: campagne.populations[_PARIS]})
 
 
-def test_sc3_rien_ne_se_chevauche(campagne):
+def test_rien_ne_se_chevauche(campagne):
     paires = _controler_chevauchements(list(campagne.bases.values()))
     print(f"paires_eprouvees={paires}")
     assert paires > 0
@@ -384,7 +384,7 @@ def test_sc3_rien_ne_se_chevauche(campagne):
         _controler_chevauchements([])
 
 
-def test_sc4_le_rayon_suit_les_foyers(campagne):
+def test_le_rayon_suit_les_foyers(campagne):
     une = []
     sept = []
     for foyers in (10, 100, 1000):
@@ -403,7 +403,7 @@ def test_sc4_le_rayon_suit_les_foyers(campagne):
     assert rayon_paris > rayon_isolee
 
 
-def test_sc5_les_rues_suivent_les_voisines(campagne):
+def test_les_rues_suivent_les_voisines(campagne):
     monde = campagne.monde
     sans = []
     for cell_id, base in campagne.bases.items():
@@ -432,7 +432,7 @@ def test_sc5_les_rues_suivent_les_voisines(campagne):
         arete["kind"] = origine
 
 
-def test_sc6_absence_declaree(campagne):
+def test_absence_declaree(campagne):
     manuel = World({0: Cell(cell_id=0, area_km2=1.0, population=1)}, [])
     assert manuel.populations_bourg_amorcage is None
     with pytest.raises(BaseAbsente, match="0"):
@@ -444,7 +444,7 @@ def test_sc6_absence_declaree(campagne):
     assert base_de_cellule(campagne.monde, presente)["cell_id"] == presente
 
 
-def test_sc7_rien_n_entre_dans_le_monde(campagne):
+def test_rien_n_entre_dans_le_monde(campagne):
     assert campagne.plans_vides
     assert "populations_bourg_amorcage" not in campagne.monde.to_dict()
     assert "populations_bourg_amorcage" not in campagne.empreinte
@@ -460,7 +460,7 @@ def test_sc7_rien_n_entre_dans_le_monde(campagne):
     assert importeurs_sonde == ["sonde.py"]
 
 
-def test_sc8_constantes_relues(monkeypatch):
+def test_constantes_relues(monkeypatch):
     population = 20 * _constantes.TAILLE_FOYER
     directions = ((1, 0.0),)
     avant = base_d_une_population(population, directions)
@@ -485,7 +485,7 @@ def test_sc8_constantes_relues(monkeypatch):
     assert json.dumps(base_d_une_population(population, directions), sort_keys=True) == octets
 
 
-def test_sc9_empreinte_hors_to_dict(campagne):
+def test_empreinte_hors_to_dict(campagne):
     _modules, lecteurs, _ecrivains, _importeurs = _parcourir([
         ("ajout.py", "def lire(monde):\n    return monde.populations_bourg_amorcage\n"),
     ])
@@ -500,7 +500,7 @@ def test_sc9_empreinte_hors_to_dict(campagne):
     assert seul != avec
 
 
-def test_sc10_le_modele_le_dit():
+def test_le_modele_le_dit():
     section = _sous_partie((_SIM / "MODELE.md").read_text(encoding="utf-8"), "### Le plan de base")
     for attendu in (
         "populations_bourg_amorcage",
@@ -525,7 +525,7 @@ def _objet_de_foyers(foyers):
     return {"foyers": foyers, "emprise": [[0, 0], [facade, 0], [facade, profondeur], [0, profondeur]]}
 
 
-def test_ilots_sc1_compte_et_contre_epreuves(campagne):
+def test_ilots_compte_et_contre_epreuves(campagne):
     grandes = [base for cid, base in campagne.bases.items()
                if ranger_en_foyers(campagne.populations[cid]).nombre > _constantes.FOYERS_SANS_ILOTS]
     print(f"cellules_avec_ilots={len(grandes)}")
@@ -569,7 +569,7 @@ def test_ilots_sc1_compte_et_contre_epreuves(campagne):
 
 
 @pytest.mark.parametrize("directions", [1, 7])
-def test_ilots_sc2_seuil_et_constantes(directions, monkeypatch):
+def test_ilots_seuil_et_constantes(directions, monkeypatch):
     seuil = _constantes.FOYERS_SANS_ILOTS
     maximum = _constantes.MAISONS_PAR_ILOT_MAX
     population = (seuil + 1) * _constantes.TAILLE_FOYER
@@ -594,7 +594,7 @@ def test_ilots_sc2_seuil_et_constantes(directions, monkeypatch):
     assert json.dumps(base_d_une_population(population, dirs), sort_keys=True) == json.dumps(grande, sort_keys=True)
 
 
-def test_ilots_sc2_facade_relue(campagne, monkeypatch):
+def test_ilots_facade_relue(campagne, monkeypatch):
     avant = campagne.bases[_PARIS]
     with monkeypatch.context() as patch:
         patch.setattr(_constantes, "MAISONS_EN_FACADE_ILOT", 7)
@@ -604,7 +604,7 @@ def test_ilots_sc2_facade_relue(campagne, monkeypatch):
     assert json.dumps(base_de_cellule(campagne.monde, _PARIS), sort_keys=True) == campagne.octets[_PARIS]
 
 
-def test_ilots_sc3_petites_bases_identiques(campagne, monkeypatch):
+def test_ilots_petites_bases_identiques(campagne, monkeypatch):
     cellules = sorted(cid for cid, population in campagne.populations.items()
                       if ranger_en_foyers(population).nombre <= _constantes.FOYERS_SANS_ILOTS)
     print(f"petites_cellules_comparees={len(cellules)}")
@@ -620,7 +620,7 @@ def test_ilots_sc3_petites_bases_identiques(campagne, monkeypatch):
     assert empreinte() != avant
 
 
-def test_ilots_sc4_chevauchement_detecte(campagne):
+def test_ilots_chevauchement_detecte(campagne):
     alt = copy.deepcopy(campagne.bases[_PARIS])
     pleins = [objet for objet in alt["maisons"] if objet["foyers"] == _constantes.MAISONS_PAR_ILOT_MAX]
     assert len(pleins) > 1
@@ -632,7 +632,7 @@ def test_ilots_sc4_chevauchement_detecte(campagne):
         _controler_chevauchements([alt])
 
 
-def test_ilots_sc5_grande_ville_une_direction(campagne):
+def test_ilots_grande_ville_une_direction(campagne):
     foyers = ranger_en_foyers(campagne.populations[_PARIS]).nombre
     base = base_d_une_population(foyers * _constantes.TAILLE_FOYER, _directions(1))
     print(f"grande_ville_foyers={foyers} objets={len(base['maisons'])}")
@@ -642,7 +642,7 @@ def test_ilots_sc5_grande_ville_une_direction(campagne):
     _controler_chevauchements([base])
 
 
-def test_ilots_sc6_modele_et_notice():
+def test_ilots_modele_et_notice():
     section = _sous_partie((_SIM / "MODELE.md").read_text(encoding="utf-8"), "### Le plan de base")
     for nom in ("FOYERS_SANS_ILOTS", "MAISONS_PAR_ILOT_MAX", "MAISONS_EN_FACADE_ILOT", "îlot"):
         assert nom in section

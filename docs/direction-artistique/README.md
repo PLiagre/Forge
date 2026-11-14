@@ -42,24 +42,21 @@ et illustrer le projet. Elles ne sont pas des captures du jeu, des modèles 3D,
 des textures raccordables ou des preuves de fonctionnalités déjà présentes.
 Elles n’ajoutent aucune donnée au moteur et ne fixent pas les pouvoirs de 1400.
 
-## Fabrication
+## Contenu
 
-Génération avec l’outil intégré `image_gen`, une consigne par image.
-Les originaux PNG sont conservés dans les douze répertoires de catégories.
-Les blasons et drapeaux demandent un fond transparent pour faciliter leur
-réemploi. Les consignes et les propriétés réelles des fichiers sont dans
-`catalogue.json`. Le contrôle technique est dans `controle.json`.
+108 PNG distincts, neuf par catégorie, dans les douze répertoires de
+catégories, environ 320 Mo ; définition habituelle 1536 × 1024 ou 1024 × 1536
+pixels. Les consignes de génération et les propriétés réelles des fichiers sont
+dans `catalogue.json`, le contrôle technique dans `controle.json`. Les
+scènes retouchées portent le suffixe `_v2` ; leurs consignes de retouche sont
+dans le champ `retouches` du catalogue.
 
-Livraison : 108 PNG distincts, neuf par catégorie, environ 320 Mo.
-Définition habituelle : 1536 × 1024 ou 1024 × 1536 pixels.
-Les 18 blasons et drapeaux possèdent un canal alpha de 0 à 254 : leur fond
-est transparent, mais les motifs restent très légèrement translucides.
-Le contrôle strict exigeant aussi des pixels à 255 reste donc en échec sur
-ces 18 fichiers ; cette réserve est conservée, sans assouplir le contrôle.
-Prévoir une finition du détourage avant une utilisation définitive en interface.
-Les autres contrôles (présence, intégrité, définition et unicité) passent.
-Quatre scènes ont reçu une retouche ciblée ; leurs consignes sont conservées
-dans le champ `retouches` du catalogue, et leur fichier porte le suffixe `_v2`.
+Les blasons et drapeaux ont un fond transparent pour faciliter leur réemploi.
+Leur canal alpha va de 0 à 254 : les motifs restent très légèrement
+translucides, et le contrôle strict exigeant des pixels à 255 échoue sur ces 18
+fichiers. Prévoir une finition du détourage avant une utilisation définitive
+en interface. Les autres contrôles (présence, intégrité, définition, unicité)
+passent.
 
 Les couples blason–drapeau reprennent neuf identités : Val-de-Rive,
 Roche-Haute, Bois-Clair, Trois-Épis, Port-d’Ambre, Col-des-Vents,

@@ -10,7 +10,7 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Lot 369 : sur chaque parcelle bâtie du plan, la pièce du kit du désert qui montre l'étape du bâtiment
+    // Sur chaque parcelle bâtie du plan, la pièce du kit du désert qui montre l'étape du bâtiment
     // (piquets, murs ou fini). La pièce est posée au sol, au centre de l'emprise, façade tournée vers la rue,
     // sans mise à l'échelle ni inclinaison. Rien n'est décidé ici : l'étape et la pose se lisent au pont
     // (LectureDuBatiment). Une pièce absente ou qui déborde de son emprise n'est pas posée : elle se déclare.
@@ -56,7 +56,7 @@ namespace ForgeLocal3D
                     if(!p.Presente)cause=p.Absence;
                     else
                     {
-                        // Repère du lot 293 : (x, y) du plan devient (-x, sol, -y).
+                        // Repère : (x, y) du plan devient (-x, sol, -y).
                         var centre=new Vector3((float)-pose.CentreX,0,(float)-pose.CentreY);centre.y=Sol(centre);
                         var go=Object.Instantiate(p.Prefab,Racine);go.name="Bâtiment "+id;
                         go.transform.SetPositionAndRotation(centre,Quaternion.Euler(0,(float)pose.LacetDegres,0));

@@ -1,4 +1,4 @@
-# Un civil de Biskra vers 1400, fabriqué dans Blender et cuit en VAT1 (lot #785).
+# Un civil de Biskra vers 1400, fabriqué dans Blender et cuit en VAT1.
 #   blender -b --python-exit-code 1 --python 3d/local3d/civils/fabriquer.py -- --sortie DOSSIER [--apercu PNG]
 # Technique reprise, sans l'importer, des soldats archivés (citadelle-guerre/fabrique/soldats.py) : maillage
 # simple sur un squelette, posé image par image, cuit par coin de triangle. Contrat et contrôle : verifier.py.

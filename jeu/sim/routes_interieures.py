@@ -1,4 +1,4 @@
-"""Route achevée du bourg vers un lieu de sa cellule (lot #418).
+"""Route achevée du bourg vers un lieu de sa cellule.
 
 Une rue achevée sans porte vise au plus un lieu, dans un cône. Le lieu
 atteint envoie quatre fois plus de grain au bourg. Une route vers le voisin

@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Forge.Pont {
-    // Lot #524 : `-forgeCarte` ouvre le jeu sur la carte (`pc\Jouer.cmd --carte`). La première scène du build reste la ville
+    // `-forgeCarte` ouvre le jeu sur la carte (`pc\Jouer.cmd --carte`). La première scène du build reste la ville
     // du désert ; au lancement, le jeu passe à la scène de la carte, la dernière du build.
     public static class OuvertureDeLaCarte {
         public const string ARGUMENT = "-forgeCarte";

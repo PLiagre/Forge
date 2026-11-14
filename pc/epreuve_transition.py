@@ -1,5 +1,5 @@
-"""L'épreuve de la transition (lot #733) : 0 égalité, 1 écart, 2 impossible.   py pc\\epreuve_transition.py --sortie D [--seed S] [--unity CHEMIN]
-Service neuf à 1 j/s, Zab choisi par son nom et appliqué au jour naturel suivant, session #732 sans attendu ; `juger` confronte ses relevés aux réglages et au siège servi."""
+"""L'épreuve de la transition : 0 égalité, 1 écart, 2 impossible.   py pc\\epreuve_transition.py --sortie D [--seed S] [--unity CHEMIN]
+Service neuf à 1 j/s, Zab choisi par son nom et appliqué au jour naturel suivant, session d'Unity sans attendu ; `juger` confronte ses relevés aux réglages et au siège servi."""
 import argparse, collections, http.client, importlib.util, json, math, os, subprocess, sys, threading, time, urllib.error, urllib.request
 from pathlib import Path
 
@@ -21,7 +21,7 @@ def _reglages(reglages):
             raise ValueError(f"réglage {c} absent ou invalide : {v!r}, attendu un nombre fini > 0")
 
 def _valider(rapport, reglages, siege):
-    """Références puis rapport #732, types stricts : un champ absent n'est jamais zéro ; −1 ou un défaut rendent l'épreuve impossible."""
+    """Références puis rapport d'Unity, types stricts : un champ absent n'est jamais zéro ; −1 ou un défaut rendent l'épreuve impossible."""
     _reglages(reglages)
     if type(siege) is not int or siege < 0: raise ValueError(f"siège de référence absent ou invalide : {siege!r}")
     if not _objet(rapport) or not rapport: raise ValueError("rapport absent ou vide")

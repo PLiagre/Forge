@@ -675,7 +675,7 @@ def _gisements_complets(raw: dict) -> list:
 
 def test_bourg_vue_pure_sans_mutation_monde():
     """
-    SC1 — Deux appels successifs rendent un résultat égal, et le monde en
+    Deux appels successifs rendent un résultat égal, et le monde en
     sort inchangé.
     """
     monde = World.charger(rng_seed=RNG_SEED)
@@ -706,7 +706,7 @@ def test_bourg_vue_pure_sans_mutation_monde():
 
 def test_bourg_aucune_seconde_cle_spatiale():
     """
-    SC2 — Aucune entité ne déclare de champ bourg / ville / city ; le
+    Aucune entité ne déclare de champ bourg / ville / city ; le
     contrôle rougit sur une sonde délibérée.
     """
     modules = _modules_sim_hors_tests()
@@ -740,7 +740,7 @@ def test_bourg_aucune_seconde_cle_spatiale():
 
 def test_bourg_tick_ne_consulte_pas_la_vue():
     """
-    SC3 — Le moteur n'importe pas sim.aggregation et ne référence pas la vue.
+    Le moteur n'importe pas sim.aggregation et ne référence pas la vue.
     """
     modules = _modules_sim_hors_tests()
     modules_parcourus = len(modules)
@@ -774,7 +774,7 @@ def test_bourg_tick_ne_consulte_pas_la_vue():
 
 def test_bourg_echantillon_non_vide():
     """
-    SC4 — Sur le monde réel, au moins une cellule compte un bourg non nul.
+    Sur le monde réel, au moins une cellule compte un bourg non nul.
     Rapporte aussi les cellules porteuses de gisement sur la carte.
     """
     monde = World.charger(rng_seed=RNG_SEED)
@@ -791,13 +791,13 @@ def test_bourg_echantillon_non_vide():
     )
 
     assert cellules_avec_bourg > 0, (
-        "échantillon vide : aucune part non agricole — le lot 044 n'est pas fusionné"
+        "échantillon vide : aucune part non agricole"
     )
 
 
 def test_bourg_richesse_ordonne_habitants():
     """
-    SC5 (ordre) — À population égale, le bourg suit l'ordre des richesses
+    À population égale, le bourg suit l'ordre des richesses
     dérivé de la carte : majeure > notable > mineure.
     """
     from sim import constants as _k
@@ -832,7 +832,7 @@ def test_bourg_richesse_ordonne_habitants():
 
 def test_bourg_une_seule_definition_part_non_agricole():
     """
-    SC5 (unicité) — La part non agricole n'est calculée qu'une fois ; aucun
+    La part non agricole n'est calculée qu'une fois ; aucun
     second jeu de facteurs de richesse n'apparaît dans sim/aggregation.py.
     """
     from sim import constants as _k
@@ -915,7 +915,7 @@ def test_bourg_une_seule_definition_part_non_agricole():
 
 def test_bourg_somme_exacte_par_cellule():
     """
-    SC6 — Pour toute cellule : habitants_du_bourg + habitants_des_champs
+    Pour toute cellule : habitants_du_bourg + habitants_des_champs
     == population, sans tolérance.
     """
     monde = World.charger(rng_seed=RNG_SEED)

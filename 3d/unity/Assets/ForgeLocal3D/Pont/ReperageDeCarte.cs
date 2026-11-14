@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace Forge.Pont {
-    // Lot #526 : quelle cellule est sous un point de la carte. Les anneaux servis sont convertis une fois en km locaux, par la
-    // conversion des contours (#548) ; un point est dans une cellule s'il croise un nombre impair de ses anneaux, extérieurs
+    // Quelle cellule est sous un point de la carte. Les anneaux servis sont convertis une fois en km locaux, par la
+    // conversion des contours ; un point est dans une cellule s'il croise un nombre impair de ses anneaux, extérieurs
     // et trous confondus (règle pair-impair) : un point d'une enclave n'est pas à la cellule qui l'entoure. Une boîte par
     // cellule écarte vite les autres. Hors de toute cellule, la mer : null. Rien n'est deviné : une cellule sans anneau
     // n'est sous aucun point.

@@ -1,18 +1,17 @@
-# Les quatre jauges du pays (docs/VISION.md, décisions 36, 38 et 39).
+# Les quatre jauges du pays.
 #
 # L'équivalent de la stabilité, du prestige, de la légitimité et des points de
 # monarque d'EU4, à nos noms et à notre façon : les points naissent des
 # compétences du souverain (le conseil viendra avec les conseillers), les
 # jauges bougent par des causes du monde et par les gestes qui les dépensent,
 # et chacune pose ses modificateurs au pays (`data/modificateurs.toml`, même
-# registre). L'IA a les mêmes, sans bonus (décision 38).
+# registre). L'IA a les mêmes, sans bonus.
 #
 # Ce fichier se modifie sans toucher au code (`jeu/sim/jauges.py`, MODELE.md
 # « Les jauges du pays »). Toutes les valeurs sont de niveau 2.
 
-# Les compétences d'une personne, de 0 à 10. En attendant #434 (traits,
-# hérédité, éducation), celles des chefs de 1400 se dérivent de leur
-# identifiant (décision 39) : plausibles, stables, jamais sourcées.
+# Les compétences d'une personne, de 0 à 10. Celles des chefs de 1400 se
+# dérivent de leur identifiant : plausibles, stables, jamais sourcées.
 [competences]
 domaines = ["gestion", "diplomatie", "guerre"]
 minimum = 0
@@ -92,9 +91,9 @@ nom = "Asseoir le droit"
 cout = { sceau = 30 }
 effet = { droit = 10 }
 
-# Ce que l'IA juge, comme le ferait le joueur (décision 38) : sous cette valeur,
+# Ce que l'IA juge, comme le ferait le joueur : sous cette valeur,
 # une maison de l'IA juge son Droit bas et dépense son Sceau pour l'asseoir.
-# Voulu par le propriétaire, réglable sans toucher au code. Niveau 2 : jamais sourcé.
+# Réglable sans toucher au code. Niveau 2 : jamais sourcé.
 [ia]
 droit_bas = 70
 

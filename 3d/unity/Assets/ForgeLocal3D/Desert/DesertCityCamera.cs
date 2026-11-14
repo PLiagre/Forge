@@ -4,7 +4,7 @@ using UnityEngine.SceneManagement;
 
 namespace ForgeLocal3D
 {
-    // Caméra de la capitale (lot 251) : un point visé au sol, un cap, une inclinaison, une distance.
+    // Caméra de la capitale : un point visé au sol, un cap, une inclinaison, une distance.
     // Poser est la seule entrée : le joueur, la touche F et le contrôle passent tous par elle. Elle
     // borne les quatre valeurs, garde la caméra au-dessus de l'emprise du terrain, puis applique la
     // garde : la caméra et les coins de son plan proche restent à Marge au moins au-dessus du

@@ -110,7 +110,7 @@ namespace Forge.Interface.Tests
             Vector2 centre = carte.Vue.Centre; float echelle = carte.Vue.Echelle; Vector3 pos = camera.transform.position; Color teinte = cellule.color; int nombre = Disques(); Servir(cell => Complet(cell, 9)); Servir(cell => Complet(cell, 10)); Servir(cell => Complet(cell, 11));
             Assert.That(Disques() == nombre && carte.Vue.Centre == centre && carte.Vue.Echelle == echelle && camera.transform.position == pos && celluleRendu.sharedMaterial == cellule && cellule.color == teinte, Is.True); Assert.That(racine.transform.Find(LieuxDeCarte.RACINE).GetComponentsInChildren<Collider>(true), Is.Empty);
         }
-        // Lot #658 : flèches du prélèvement et du dû.
+        // Flèches du prélèvement et du dû.
         FlechesDeCarte fleches; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
         [Test] public void LeCabinetConstruitUneSeuleVueDesFleches() { Assert.That(racine.GetComponents<FlechesDeCarte>(), Has.Length.EqualTo(1)); cabinet.Construire(); Assert.That(racine.GetComponents<FlechesDeCarte>(), Has.Length.EqualTo(1)); }
         [TestCase(0d, 0f)] [TestCase(50000d, 1f)] [TestCase(218086d, 4.36172f)] [TestCase(400000d, 8f)] [TestCase(10000000d, 8f)] public void LEpaisseurEstAbsolueEtPlafonnee(double kg, float km) => Assert.That(FlechesDeCarte.Epaisseur(kg), Is.EqualTo(km).Within(1e-4f));
@@ -141,7 +141,7 @@ namespace Forge.Interface.Tests
             Publier(C, new LieuTenu(10, 0)); fleches.Pas(horloge); porte.SetResult(Comptes(JOUEUR, siege, B)); var fin = DateTime.UtcNow.AddSeconds(5); while (fleches.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); fleches.Pas(horloge);
             Assert.That(Fleches(), Is.Empty); Assert.That(fleches.TexteLegende, Does.Not.Contain("de dû"));
         }
-        // Lot #875 : les deux légendes nomment chaque terre par son bourg, chaque lieu par son nom servi, et pèsent en tonnes.
+        // Les deux légendes nomment chaque terre par son bourg, chaque lieu par son nom servi, et pèsent en tonnes.
         const string ABSENT = "TexteDuMonde : absence déclarée par le monde : ";
         [Test] public void La_legende_des_lieux_nomme_date_et_declare_l_absent()
         {
@@ -165,7 +165,7 @@ namespace Forge.Interface.Tests
             LogAssert.Expect(LogType.Log, ABSENT + "maison grande-15 : délai dépassé");
             Du(id => id == JOUEUR ? Comptes(JOUEUR, new PointCarte(1, 2), HAUT) : Lecture<ComptesDeMaison>.Absent("maison grande-15 : délai dépassé")); Assert.That(fleches.TexteLegende, Does.Contain("\nDû au suzerain : suzerain non lu : déclaré absent par le monde")); Propre("suzerain");
         }
-        // Lot #964 : plus de légende flottante ; les lieux parlent dans la légende des Puissances, les flèches dans celle du Flux, leurs relevés dans l'infobulle.
+        // Plus de légende flottante ; les lieux parlent dans la légende des Puissances, les flèches dans celle du Flux, leurs relevés dans l'infobulle.
         static readonly string[] FLOTTANTES = { "Légende des lieux", "Fond de la légende", "Légende des flèches", "Fond des flèches" };
         string Flottante() => racine.transform.Find("Cabinet").GetComponentsInChildren<Transform>(true).Select(t => t.name).FirstOrDefault(FLOTTANTES.Contains);
         string Legende(CalquesCarte calques, string texte, string detail) { Assert.DoesNotThrow(() => calques.Legender(texte, detail)); foreach (float echelle in new[] { 1f, 2f / 3f }) Assert.That(CalquesCarte.Lignes(calques.Legende, texte, echelle), Is.InRange(1, CalquesCarte.LIGNES_MAX), "échelle " + echelle);
@@ -211,7 +211,7 @@ namespace Forge.Interface.Tests
         static string NomDe(long cell, long rang) => (cell, rang) switch { (10, 0) => "Alba", (10, 1) => "Brivas", (10, 2) => "Cerda", (20, 0) => "Dara", (20, 1) => "Elne", _ => throw new ArgumentOutOfRangeException(nameof(rang), "aucun nom pour " + cell + "-" + rang) };
         MeshRenderer Rendu(long cell, long rang) { var t = racine.transform.Find(LieuxDeCarte.RACINE + "/" + ReperesDeDepart.NomDuLieu(cell, rang) + "/Disque"); return t != null && t.gameObject.activeInHierarchy ? t.GetComponent<MeshRenderer>() : null; }
         int Disques() { var r = racine.transform.Find(LieuxDeCarte.RACINE); if (r == null) return 0; int n = 0; foreach (Transform e in r) { var d = e.Find("Disque"); if (d != null && d.gameObject.activeInHierarchy) n++; } return n; }
-        // Lot #855 : un clic gauche court garde la terre, un glisser ne choisit rien, Échap ferme le dossier avant d'ouvrir le menu.
+        // Un clic gauche court garde la terre, un glisser ne choisit rien, Échap ferme le dossier avant d'ouvrir le menu.
         static readonly Vector2 O = new Vector2(400, 300);
         static CelluleDeCarte Terre(long id, string ville) => new CelluleDeCarte(id, new PolygoneDeCarte[0], new IdentiteDeCarte(1, "Puissance test"), null, new[] { new VilleDeCarte(ville, 12, new PointCarte(0, 0)) });
         MeshRenderer Teinte(long id) { var r = new GameObject("Cellule " + id).AddComponent<MeshRenderer>(); r.transform.SetParent(racine.transform, false); return r; }
@@ -265,7 +265,7 @@ namespace Forge.Interface.Tests
             var survol = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("ForgeLocal3D.SurvolDeCarte")).First(t => t != null);
             Assert.That(CabinetDeCarte.SEUIL_CLIC_PX, Is.EqualTo((float)survol.GetField("SEUIL_CLIC_PX").GetValue(null)));
         }
-        // Lot #873 : « Votre maison » parle en noms et en dates ; le tick ne va qu'au journal.
+        // « Votre maison » parle en noms et en dates ; le tick ne va qu'au journal.
         const string APERCU = "Consultez une maison avant de vous engager."; Text Nomme(string nom) => racine.GetComponentsInChildren<Text>(true).Single(t => t.name == nom);
         string Propre(string nom) { string t = Nomme(nom).text; Assert.That(TexteDuMonde.Interdit(t, "10340") ?? TexteDuMonde.SansUnite(t), Is.Null, t); return t; }
         [Test] public void LaMaisonDuJoueurDitSonNomSonSiegeSesLieuxEtLaDate()
@@ -293,7 +293,7 @@ namespace Forge.Interface.Tests
             Poser(partie, "Recu", RecuIntention.Refusee(409, "maison 10340 déjà prise")); Assert.That(Lu(null), Is.EqualTo("Demande refusée : déclaré absent par le monde"));
             Poser(partie, "Recu", RecuIntention.Absente("service coupé")); Assert.That(Lu(null), Is.EqualTo("Envoi non confirmé : service coupé"));
         }
-        // Lot #860 : la ligne du prochain geste, et la surbrillance des terres de départ.
+        // La ligne du prochain geste, et la surbrillance des terres de départ.
         static Lecture<MondeAvecMaisonLu> MondeDe(string maison) => Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), maison));
         static Lecture<DepartsLus> DepartsDe(params FicheDeDepart[] fiches) => Lecture<DepartsLus>.De(new DepartsLus(1, new DateDuMonde(1400, 1), fiches));
         static FicheDeDepart Fiche(long id, long cell) => new FicheDeDepart(id, "Despotat témoin", "Maison témoin", new SiegeDeDepart("Mistra", 0, 0), cell, 12345, null, new VoisinDeDepart[0]);
@@ -365,7 +365,7 @@ namespace Forge.Interface.Tests
             finally { foreach (var maillage in maillages.Values) Object.DestroyImmediate(maillage); Object.DestroyImmediate(materiau); }
         }
 
-        // Lot #879 : chaque commande du cabinet déclare sa phrase, et le cabinet la montre au survol.
+        // Chaque commande du cabinet déclare sa phrase, et le cabinet la montre au survol.
         [Test] public void ChaqueCommandeDuCabinetDitCeQuElleFait()
         {
             Proposer(); Transform toile = racine.transform.Find("Cabinet"); Button[] boutons = toile.GetComponentsInChildren<Button>(true);
@@ -406,7 +406,7 @@ namespace Forge.Interface.Tests
             Button muet = actifs.Single(b => b.name == "Menu"); Object.DestroyImmediate(muet.GetComponent<Infobulle>());
             Survoler(muet, Centre(muet)); Assert.That(Feuillets(), Is.Empty, "un bouton sans Infobulle montre un feuillet");
         }
-        // Lot #880 : l'infobulle d'une terre dit les trois premières lignes de sa fiche, et n'efface pas la phrase d'un bouton.
+        // L'infobulle d'une terre dit les trois premières lignes de sa fiche, et n'efface pas la phrase d'un bouton.
         static DocumentDuMonde DocTerre(long cell, string nom, int tick = 8, int jour = 9) => new DocumentDuMonde("{\"tick\":" + tick + ",\"cell_id\":" + cell + ",\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + jour + "},\"population\":12345,\"noms\":{\"maisons\":{\"m-1\":{\"nom\":\"Maison témoin\"}}},\"lieux\":[{\"rang\":0,\"nom\":\"" + nom + "\",\"population\":12000,\"surface_km2\":12,\"maitre\":\"m-1\",\"stocks\":{\"nourriture\":1234.5},\"flux_30j\":null}]}");
         static async System.Threading.Tasks.Task Fin(LectureDossier lecture) { for (int i = 0; i < 40 && lecture.EnCours; i++) await System.Threading.Tasks.Task.Yield(); Assert.That(lecture.EnCours, Is.False, lecture.Cle); }
         async System.Threading.Tasks.Task<(InfobulleDeTerre bulle, CelluleDeCarte terre)> Montrer20()
@@ -447,7 +447,7 @@ namespace Forge.Interface.Tests
             bulle.Pas(O, terre, 1); Assert.That(bulle.TexteAffiche, Does.StartWith("Bourg témoin · ")); bulle.Pas(O, null, 1);
             Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False); Assert.That(racine.GetComponentsInChildren<Canvas>().Length, Is.EqualTo(1));
         }
-        // Lot #1031 : l'infobulle d'une terre ajoute, au même tick, les lignes de `/modificateurs` pour son bourg ; elle les lit, elle ne les calcule pas.
+        // L'infobulle d'une terre ajoute, au même tick, les lignes de `/modificateurs` pour son bourg ; elle les lit, elle ne les calcule pas.
         const string POSE_MOULIN = "{\"nom\":\"Moulin\",\"source\":\"batiment:moulin-paris\",\"valeur\":0.1,\"source_dite\":\"bâtiment\",\"reste_jours\":null}";
         const string POSE_IDEE = "{\"nom\":\"Assolement triennal\",\"source\":\"idee:assolement\",\"valeur\":0.0196,\"source_dite\":\"idée\",\"reste_jours\":null}";
         const string POSE_EPREUVE = "{\"nom\":\"Épreuve de l'infobulle\",\"source\":\"evenement:epreuve-de-l-infobulle\",\"valeur\":-0.05,\"source_dite\":\"événement\",\"reste_jours\":90}";
@@ -513,7 +513,7 @@ namespace Forge.Interface.Tests
             }
             finally { Object.DestroyImmediate(camera.gameObject); }
         }
-        // Lot #963 : la bande des modes et sa légende, en bas à droite de la vue de la carte, ne passent sous aucun panneau.
+        // La bande des modes et sa légende, en bas à droite de la vue de la carte, ne passent sous aucun panneau.
         static Rect Zone(RectTransform t, float k) // en unités d'écran, origine en haut à gauche, pour une toile de 1920 × k de large
         {
             Assert.That(t.anchorMin, Is.EqualTo(t.anchorMax), t.name + " : ancres étirées"); float x = t.anchorMin.x * 1920 + t.anchoredPosition.x - t.pivot.x * t.sizeDelta.x;
@@ -562,15 +562,15 @@ namespace Forge.Interface.Tests
             Assert.That(appels == 0 && !partie.Occupee && ReferenceEquals(partie.Monde, monde) && !horlogeDeCarte.RequeteEnVol && ReferenceEquals(horlogeDeCarte.Lue, lue), Is.True, appels + " lecture(s), occupée " + partie.Occupee);
             _ = partie.Actualiser(); Assert.That(partie.Occupee, Is.True, "contre-épreuve : une lecture lancée occupe la partie");
         }
-        // Lot #1001 : la barre du haut dit la maison, sa part et son grenier, lus aux comptes servis au tick du monde lu.
-        const string BARRE = "Lecture de la maison…", ATTENTE = "Comptes en attente du monde", SC1 = "Maison témoin · Prélèvement : 25 % · Grenier : bois : 0 kg · nourriture : 1,23 t";
+        // La barre du haut dit la maison, sa part et son grenier, lus aux comptes servis au tick du monde lu.
+        const string BARRE = "Lecture de la maison…", ATTENTE = "Comptes en attente du monde", LIGNE_DE_LA_BARRE = "Maison témoin · Prélèvement : 25 % · Grenier : bois : 0 kg · nourriture : 1,23 t";
         static Lecture<ComptesDeMaison> ComptesBarre(string id, long? tick, double? part = 0.25, Dictionary<string, double> grenier = null) => Lecture<ComptesDeMaison>.De(new ComptesDeMaison(
             new MaisonLue(id, "Maison témoin", new SiegeDeMaison(10, 0, "Siège", new PointCarte(1, 2)), new[] { new LieuTenu(10, 0) }, new Dictionary<string, string>()),
             null, part, grenier ?? new Dictionary<string, double> { ["nourriture"] = 1234.5, ["bois"] = 0 }, new FluxDeMaison(0, 0, 0, 0, 0, 0, 0, null), tick));
         string LaBarre(Lecture<ComptesDeMaison> comptes) { Poser(partie, "Comptes", comptes); cabinet.Afficher(); string t = Propre(BARRE); Assert.That(TexteDuMonde.Interdit(t, JOUEUR, B), Is.Null, t); return t; }
         [Test] public void La_barre_egale_les_comptes_servis_au_meme_tick()
         {
-            Publier(JOUEUR, new LieuTenu(10, 0)); Assert.That(LaBarre(ComptesBarre(JOUEUR, 1)), Is.EqualTo(SC1));
+            Publier(JOUEUR, new LieuTenu(10, 0)); Assert.That(LaBarre(ComptesBarre(JOUEUR, 1)), Is.EqualTo(LIGNE_DE_LA_BARRE));
             Text barre = Nomme(BARRE); RectTransform cadre = barre.rectTransform; Assert.That(barre.transform.parent.name, Is.EqualTo("FORGE · Le cabinet"));
             Assert.That(barre.preferredWidth, Is.LessThanOrEqualTo(1872f)); Assert.That(barre.preferredHeight, Is.LessThanOrEqualTo(26f)); Assert.That(cadre.sizeDelta, Is.EqualTo(new Vector2(1872, 26)));
             float bas = -cadre.anchoredPosition.y + cadre.sizeDelta.y; Assert.That(bas, Is.EqualTo(98f)); Assert.That(bas, Is.LessThanOrEqualTo(((RectTransform)barre.transform.parent).sizeDelta.y));
@@ -581,7 +581,7 @@ namespace Forge.Interface.Tests
             Publier(JOUEUR, new LieuTenu(10, 0));
             foreach (var (comptes, etape) in new[] { (ComptesBarre(JOUEUR, 0), "tick 0"), (ComptesBarre(JOUEUR, null), "tick non servi"), (ComptesBarre(B, 1), "autre maison"), ((Lecture<ComptesDeMaison>)null, "sans comptes") })
             { string t = LaBarre(comptes); Assert.That(t, Is.EqualTo(ATTENTE), etape); Assert.That(t, Does.Not.Contain("25 %").And.Not.Contain("1,23 t"), etape); }
-            Assert.That(LaBarre(ComptesBarre(JOUEUR, 1)), Is.EqualTo(SC1), "remis au tick du monde");
+            Assert.That(LaBarre(ComptesBarre(JOUEUR, 1)), Is.EqualTo(LIGNE_DE_LA_BARRE), "remis au tick du monde");
             Assert.That(LaBarre(Lecture<ComptesDeMaison>.Absent("refus témoin")), Is.EqualTo("Comptes indisponibles : refus témoin"));
         }
         [Test] public void Sans_maison_la_barre_le_dit()
@@ -592,7 +592,7 @@ namespace Forge.Interface.Tests
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo(BARRE));
             Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet"), Is.EqualTo(3), "la barre n'est pas une commande");
         }
-        // Lot #1002 : « Terres et comptes » et « Autres maisons » sont deux icônes de la barre du haut, chacune avec son motif et sa phrase ; leurs feuillets ne recouvrent jamais la barre.
+        // « Terres et comptes » et « Autres maisons » sont deux icônes de la barre du haut, chacune avec son motif et sa phrase ; leurs feuillets ne recouvrent jamais la barre.
         static Rect Monde(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c.Min(v => v.x), c.Min(v => v.y), c.Max(v => v.x), c.Max(v => v.y)); }
         [Test] public void Chaque_icone_de_la_barre_a_sa_phrase_et_son_motif()
         {
@@ -635,7 +635,7 @@ namespace Forge.Interface.Tests
             Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(600f));
             foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(600f), texte); }
         }
-        // Lot #1003 : le panneau « Parcourir le monde » quitte le bas de la carte ; ses commandes restent à leur place, son aide passe au Menu, l'état de la carte au centre de sa vue.
+        // Le panneau « Parcourir le monde » quitte le bas de la carte ; ses commandes restent à leur place, son aide passe au Menu, l'état de la carte au centre de sa vue.
         [Test] public void Aucun_panneau_Parcourir_le_monde_ne_reste()
         {
             const string NOM = "Parcourir le monde"; Transform toile = racine.transform.Find("Cabinet");
@@ -663,7 +663,7 @@ namespace Forge.Interface.Tests
             Poser(dessinee, "CellulesServies", 12); cabinet.Afficher(); Assert.That(etat.gameObject.activeSelf, Is.False, "carte servie : l'état reste affiché");
             Poser(dessinee, "CellulesServies", -1); cabinet.Afficher(); Assert.That(etat.gameObject.activeSelf, Is.True, "remise à −1 : l'état ne revient pas");
         }
-        // Lot #1032 : la barre des jauges, sous la barre des comptes, lit le pays servi au tick du monde lu.
+        // La barre des jauges, sous la barre des comptes, lit le pays servi au tick du monde lu.
         const string EN_ATTENTE = "Jauges en attente du monde";
         static readonly string[] NOMS_JAUGES = { "Concorde", "Renom", "Droit", "Plume", "Sceau", "Épée" };
         static Lecture<PaysLu> PaysTemoin(string id, long tick, double concorde = 0, double renom = 12.34, double droit = 50, double plume = 5, double sceau = 0, double epee = 3.5, bool chef = true, long diplomatie = 0, params PoseLue[] poses)
@@ -774,7 +774,7 @@ namespace Forge.Interface.Tests
             for (int i = 0; i < 6; i++) { var t = Cellule(NOMS_JAUGES[i]); t.text = longs[i]; Assert.That(t.preferredWidth, Is.LessThanOrEqualTo(cadres[i].sizeDelta.x), longs[i]); Assert.That(t.preferredHeight, Is.LessThanOrEqualTo(26f), longs[i]); }
         }
 
-        // Lot #1045 : le feuillet « Le pays » lit la partie du cabinet, et son icône est dans le bandeau, hors des dossiers de la barre.
+        // Le feuillet « Le pays » lit la partie du cabinet, et son icône est dans le bandeau, hors des dossiers de la barre.
         [Test] public void Le_feuillet_du_cabinet_lit_la_partie()
         {
             Proposer(); Transform toile = racine.transform.Find("Cabinet");
@@ -806,7 +806,7 @@ namespace Forge.Interface.Tests
                 Assert.That(cadre.Overlaps(Monde(voisin)), Is.False, "l'icône " + cadre + " recouvre « " + voisin.name + " » " + Monde(voisin));
         }
 
-        // Lot #1046 : le panneau des gestes est un enfant du cadre du feuillet « Le pays » ; il s'ouvre et se ferme avec lui, à sa droite, sans toucher un autre panneau.
+        // Le panneau des gestes est un enfant du cadre du feuillet « Le pays » ; il s'ouvre et se ferme avec lui, à sa droite, sans toucher un autre panneau.
         static Rect Locale(RectTransform t) // dans son parent, origine en haut à gauche (toutes les ancres sont en haut à gauche)
         {
             Assert.That(t.anchorMin, Is.EqualTo(new Vector2(0, 1)), t.name); Assert.That(t.anchorMax, Is.EqualTo(new Vector2(0, 1)), t.name); Assert.That(t.pivot, Is.EqualTo(new Vector2(0, 1)), t.name);

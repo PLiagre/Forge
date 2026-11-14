@@ -1,9 +1,8 @@
 """Les fichiers LFS d'un lot, lisibles par ses agents.
 
 Le VPS n'a pas git-lfs : dans un chantier, une image du lot n'est que son
-pointeur (trois lignes de texte). Le 1er octobre 2026, le relecteur de #270
-devait juger une planche Unity qu'il ne pouvait pas ouvrir ; il a demandé au
-codeur de la décrire, et le lot s'est bloqué après deux corrections.
+pointeur (trois lignes de texte). Le relecteur ne pourrait pas juger
+une planche Unity qu'il ne peut pas ouvrir.
 
 Installer git-lfs avec son filtre ne conviendrait pas : chaque `git add` du
 pilote rangerait ses images en LFS sans jamais les envoyer. On télécharge

@@ -1,4 +1,4 @@
-# Citadelle alpine — diagnostic et évolution du 15 septembre 2026
+# Citadelle alpine — diagnostic et évolution
 
 ## Lecture de l'existant
 
@@ -52,7 +52,7 @@ maçonnerie des pierres de moulure.
 L'objectif AAA reste une direction artistique exigeante. La conformité technique
 du workflow ne vaut pas, à elle seule, validation d'un niveau de production AAA.
 
-## Reprise du 16 septembre : relief et accès
+## Reprise : relief et accès
 
 Le retour sur les images a confirmé des montagnes encore lissées, un socle en
 colonnes trop verticales et un chemin qui quittait le pont sans desservir les

@@ -1,4 +1,4 @@
-"""Le contrat ville parle en `cell_id` (lot #118).
+"""Le contrat ville parle en `cell_id`.
 
 Chaque message est jugé d'après le schéma lu, jamais d'après une liste de clés
 recopiée ici. Bibliothèque standard seulement : ni la CI ni `sim/`
@@ -17,7 +17,7 @@ SCHEMA = VILLE / "Schemas" / "forgehistory-city-mode-v1.schema.json"
 EXEMPLES = VILLE / "Schemas" / "forgehistory-city-mode-v1.examples.json"
 MONDE = VILLE.parent / "data" / "world-1400.json"
 
-# Les deux anciennes clés, assemblées en morceaux : la recherche du lot (SC2)
+# Les deux anciennes clés, assemblées en morceaux : la recherche du lot
 # ne doit plus trouver leur nom écrit en toutes lettres dans jeu/ville.
 CLE_VILLE = "city" + "Id"
 CLE_CARTE = "map" + "CellId"
@@ -183,7 +183,7 @@ def test_contre_epreuve_le_refus_vient_du_schema(schema, exemples):
     assert not juger(message, schema["$defs"]["CityLaunchContext"])
 
 
-# --- Lot #237 : le contrat dit que /lieu porte les lieux de la cellule ---
+# --- Le contrat dit que /lieu porte les lieux de la cellule ---
 SECTION_ATTENTES = "## Ce que ce contrat attend encore\n"
 
 

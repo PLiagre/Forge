@@ -5,9 +5,9 @@ using UnityEngine.InputSystem;
 
 namespace ForgeLocal3D
 {
-    // Lot #526 : la souris survole la carte, et la fiche de la cellule dessous s'ouvre. Sur un panneau (l'horloge), ou hors
+    // La souris survole la carte, et la fiche de la cellule dessous s'ouvre. Sur un panneau (l'horloge), ou hors
     // de la fenêtre, la fiche se cache. Avec `automatique`, rien n'est lu : une épreuve ou une capture survole elle-même.
-    // Lot #613 : un clic choisit la terre sous la souris. Si le pointeur dépasse SEUIL_CLIC_PX pendant le geste, même
+    // Un clic choisit la terre sous la souris. Si le pointeur dépasse SEUIL_CLIC_PX pendant le geste, même
     // en revenant au point d'appui, ce n'est pas un clic : ParcoursDeCarte garde le glissé.
     [RequireComponent(typeof(FicheDeCellule))]
     public sealed class SurvolDeCarte : MonoBehaviour
@@ -15,7 +15,7 @@ namespace ForgeLocal3D
         public const float SEUIL_CLIC_PX = 6f;
         public bool automatique;
         FicheDeCellule fiche;
-        ReperesDeDepart reperes; // lot #624 : le même survol ouvre la fiche de la terre sous la souris
+        ReperesDeDepart reperes; // le même survol ouvre la fiche de la terre sous la souris
         readonly GesteDeClic geste = new GesteDeClic();
 
         void Awake() { fiche = GetComponent<FicheDeCellule>(); reperes = GetComponent<ReperesDeDepart>(); }
@@ -35,7 +35,7 @@ namespace ForgeLocal3D
             else { fiche.Quitter(); if (reperes != null) reperes.Quitter(); }
         }
 
-        // Lot #729 : le clic passe aussi, avec la cellule dessous, au passage à la capitale posé après l'Awake (#690) : un double-clic sur le siège descend.
+        // Le clic passe aussi, avec la cellule dessous, au passage à la capitale posé après l'Awake : un double-clic sur le siège descend.
         public void Cliquer(Vector2 position) {
             if (!Libre(position)) return;
             if (reperes != null) reperes.Choisir(position);

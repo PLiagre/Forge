@@ -181,7 +181,7 @@ def densite_de_cellule(cell) -> float:
 
 
 def lieux_en_photographie(cid, cell, places=None, noms=None, flux=None) -> list[dict]:
-    """Lit les lieux, leurs surfaces et leurs places (#393), sans arrondir leur contenu.
+    """Lit les lieux, leurs surfaces et leurs places, sans arrondir leur contenu.
 
     `places` vient de `places_du_monde` ; sans elles (un monde construit à la main, sans
     carte), chaque lieu déclare `point: None`, jamais un point deviné.

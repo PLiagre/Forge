@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Forge.Pont
 {
-    // Lot #870 — les mots du monde : la date servie, les jours, les masses et les grands nombres s'écrivent partout pareil,
+    // Les mots du monde : la date servie, les jours, les masses et les grands nombres s'écrivent partout pareil,
     // comme un clerc tient son registre. Les deux juges refusent un texte qui montre un identifiant ou un nombre sans unité.
     public static class TexteDuMonde
     {
@@ -35,7 +35,7 @@ namespace Forge.Pont
 
         public static string Jours(long n) => n < 0 ? throw new ArgumentOutOfRangeException(nameof(n), "durée négative : " + n) : Nombre(n) + (n > 1 ? " jours" : " jour");
 
-        // Lot #1031 : une fraction en pourcentage, au centième au plus : 0,1 → « +10 % », -0,02 → « -2 % », 0,0196 → « +1,96 % ». Zéro n'a pas de signe.
+        // Une fraction en pourcentage, au centième au plus : 0,1 → « +10 % », -0,02 → « -2 % », 0,0196 → « +1,96 % ». Zéro n'a pas de signe.
         public static string Pourcentage(double fraction)
         {
             if (double.IsNaN(fraction) || double.IsInfinity(fraction)) throw new ArgumentException("fraction non finie : " + fraction, nameof(fraction));

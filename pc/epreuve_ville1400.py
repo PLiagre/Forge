@@ -1,5 +1,5 @@
-"""L'épreuve de la ville de 1400 (lot #740) : 0 égalité, 1 écart, 2 impossible.   py pc\\epreuve_ville1400.py --sortie D [--seed S] [--unity CHEMIN] [--sauter | --ajouter]
-Deux services neufs de même graine, en pause ; sur chacun, Unity joue la session #739 (Jouer, puis Relancer) et Python lit les quatre `/plan`.
+"""L'épreuve de la ville de 1400 : 0 égalité, 1 écart, 2 impossible.   py pc\\epreuve_ville1400.py --sortie D [--seed S] [--unity CHEMIN] [--sauter | --ajouter]
+Deux services neufs de même graine, en pause ; sur chacun, Unity joue sa session (Jouer, puis Relancer) et Python lit les quatre `/plan`.
 `juger` attend un couple (rang, indice) par foyer de `plan.base.maisons`, jamais des rapports ni du drapeau."""
 import argparse, collections, hashlib, http.client, importlib.util, json, math, os, re, subprocess, sys, threading, time
 from pathlib import Path
@@ -7,7 +7,7 @@ _spec = importlib.util.spec_from_file_location("epreuve_transition", Path(__file
 TRANSITION = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(TRANSITION)
 CAPITALE, JALON1, JOUER, HOTE, PORT = TRANSITION.CAPITALE, TRANSITION.JALON1, TRANSITION.JOUER, TRANSITION.HOTE, TRANSITION.PORT
 _http, _ecrire, _arreter = TRANSITION._http, CAPITALE._ecrire, CAPITALE._arreter; EGALITE, ECART, IMPOSSIBLE = CAPITALE.EGALITE, CAPITALE.ECART, CAPITALE.IMPOSSIBLE
-CELLULES, BISKRA, SESSIONS, TOL = (10103, 1175, 1232, 10337), 10103, ("jouer", "relance"), 0.05  # le contrat #739 : l'échantillon, jamais les attendus
+CELLULES, BISKRA, SESSIONS, TOL = (10103, 1175, 1232, 10337), 10103, ("jouer", "relance"), 0.05  # le contrat : l'échantillon, jamais les attendus
 METHODES = {"jouer": "ForgeLocal3D.EpreuveVille1400.Jouer", "relance": "ForgeLocal3D.EpreuveVille1400.Relancer"}
 CHAMPS = (*((c, "texte") for c in ("session", "contre_epreuve", "absence", "empreinte", "empreinte_rues", "defaut")), *((c, "entier") for c in ("cellule", "tick", "foyers", "posees", "rues_dessinees", "images")), ("duree_dessin_ms", "nombre"), ("image_ms", "nombre"), ("refus", "textes"), ("maisons", "textes"))
 COMPARES = ("tick", "foyers", "posees", "refus", "maisons", "empreinte", "rues_dessinees", "empreinte_rues")

@@ -1,9 +1,9 @@
-"""L'épreuve du choix de la terre (lot #652, épreuve #615) : la terre cliquée dans Unity est-elle celle que le monde retient ?
+"""L'épreuve du choix de la terre : la terre cliquée dans Unity est-elle celle que le monde retient ?
 
     py pc\\epreuve_moree.py --sortie D [--terre N] [--seed S] [--unity CHEMIN]
 
 Le script lance le service de sim/ (graine S, en pause) et lit `/departs` : c'est la référence. La Morée s'y trouve par
-son nom ; Unity clique la terre N (la Morée par défaut), puis aussitôt une seconde terre, par la session de #651
+son nom ; Unity clique la terre N (la Morée par défaut), puis aussitôt une seconde terre, par sa session
 (`ForgeLocal3D.EpreuveChoix.Jouer`). Le script lit ensuite `/monde`, pousse un tick et relit `/monde`. Le verdict juge
 contre le monde, jamais contre la terre demandée : le premier choix est accepté et attend le tick suivant, la maison
 retenue après le tick est la seigneurie de la Morée, le second choix est refusé pour la raison affichée, mot pour mot.
@@ -29,8 +29,8 @@ def _charger(nom: str, chemin: Path):
     return module
 
 
-# L'épreuve de la carte (#527) sait lancer et arrêter le service, l'interroger et dire l'impossible ; elle charge
-# pc/jouer.py (qui met jeu/ sur le chemin d'import) et l'épreuve du jalon 1 (qui sait trouver et lancer Unity).
+# L'épreuve de la carte sait lancer et arrêter le service, l'interroger et dire l'impossible ; elle charge
+# pc/jouer.py (qui met jeu/ sur le chemin d'import) et epreuve_jalon1.py (qui sait trouver et lancer Unity).
 CARTE = _charger("epreuve_carte", RACINE / "pc" / "epreuve_carte.py")
 JOUER, JALON1 = CARTE.JOUER, CARTE.JALON1
 _lancer_service, _arreter, _requete, _impossible = CARTE._lancer_service, CARTE._arreter, CARTE._requete, CARTE._impossible

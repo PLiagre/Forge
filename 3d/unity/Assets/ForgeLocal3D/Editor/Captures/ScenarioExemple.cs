@@ -3,10 +3,10 @@ using UnityEngine;
 
 namespace ForgeLocal3D.Captures
 {
-    // L'exemple que suit un lot Unity pour sa photo (lot 0 : il ne joue qu'avec `-forgeLot 0`).
-    // Un lot écrit son scénario dans ce dossier, `Lot<numéro>.cs`, avec son numéro : il y pose ce qu'il
-    // ajoute (un bâtiment du kit, une route, un habitant) ou joue son geste, et place la caméra pour que
-    // la photo montre ce qu'il a changé. La chaîne refuse une photo identique au plan fixe.
+    // L'exemple d'un scénario de capture (groupe « exemple » : il ne joue qu'avec `-forgeScenario exemple`).
+    // Un scénario s'écrit dans ce dossier, dans un fichier nommé d'après ce qu'il montre : il y pose ce
+    // qu'on veut voir (un bâtiment du kit, une route, un habitant) ou joue un geste, et place la caméra
+    // pour que la photo le montre. Une photo identique au plan fixe ne prouve rien.
     static class ScenarioExemple
     {
         const float DISTANCE_M = 60f;
@@ -16,7 +16,7 @@ namespace ForgeLocal3D.Captures
         // La caméra descend vers ce qu'elle vise. Elle passe par `DesertCityCamera.Poser`, la seule entrée de
         // la caméra de la capitale : déplacer `camera.transform` à la main, elle le reprendrait à l'image
         // suivante, et la photo serait le plan fixe.
-        [ScenarioDeCapture(0, "descente")]
+        [ScenarioDeCapture("exemple", "descente")]
         static IEnumerator Descente(Camera camera)
         {
             var ville = Object.FindFirstObjectByType<DesertCityCamera>();

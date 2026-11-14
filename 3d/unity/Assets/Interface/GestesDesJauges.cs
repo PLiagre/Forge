@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
-    // Lot #1046 : à droite du feuillet « Le pays », le panneau « Gestes des jauges ». Chaque geste du pays dit son prix en points, son effet et la raison de son
+    // À droite du feuillet « Le pays », le panneau « Gestes des jauges ». Chaque geste du pays dit son prix en points, son effet et la raison de son
     // refus, servie par `/pays` au tick du monde lu. Le geste confirmé dépose `depenser_jauge` par `POST /intention`, le chemin de l'IA et de la main ;
     // un refus du service s'affiche, avec sa raison, dans l'état « × Demande refusée » du socle. Le panneau est un enfant du feuillet : il s'ouvre et se ferme avec lui.
     public sealed class GestesDesJauges : MonoBehaviour
@@ -124,7 +124,7 @@ namespace Forge.Interface
             retour.gameObject.SetActive(brouillon || recu);
             retour.interactable = (brouillon || recu) && !Ordre.EnCours;
             Message();
-            message.rectTransform.sizeDelta = new Vector2(LARGEUR, 96); // `EtatsLecture` le règle sur le texte : la boîte reste celle du brief
+            message.rectTransform.sizeDelta = new Vector2(LARGEUR, 96); // `EtatsLecture` le règle sur le texte : la boîte reste de cette taille
         }
 
         void Message()

@@ -17,7 +17,7 @@ def _commande(tmp_path, monkeypatch, **options):
 
 
 def test_la_capture_choisit_une_terre_de_depart_pour_montrer_sa_fiche(tmp_path, monkeypatch):
-    # #214 : la preuve du jalon 2 montre la fiche de la terre choisie au journal.
+    # La preuve montre la fiche de la terre choisie au journal.
     argv = _commande(tmp_path, monkeypatch)
     assert argv[argv.index("--depart") + 1] == "1"
 

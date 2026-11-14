@@ -2,8 +2,8 @@ using System; using System.Collections.Generic; using System.Linq; using Forge.P
 
 namespace Forge.Interface
 {
-    // Lot #880 : près du curseur, les trois premières lignes du dossier de la terre survolée. LateUpdate suit SurvolDeCarte.
-    // Lot #1031 : puis, du registre `/modificateurs` lu au même tick, une ligne par modificateur du bourg et le total de chaque grandeur, tels que le monde les sert.
+    // Près du curseur, les trois premières lignes du dossier de la terre survolée. LateUpdate suit SurvolDeCarte.
+    // Puis, du registre `/modificateurs` lu au même tick, une ligne par modificateur du bourg et le total de chaque grandeur, tels que le monde les sert.
     public sealed class InfobulleDeTerre : MonoBehaviour
     {
         public const int LIGNES = 3; public const double PERIODE_S = 2; public const string CHEMIN_MODIFICATEURS = "/modificateurs"; public const string SANS_FIN = "tant que sa source tient";
@@ -33,7 +33,7 @@ namespace Forge.Interface
             return dites.ToArray();
         }
 
-        // Le texte montré : les lignes du dossier, et celles des modificateurs seulement s'ils sont lus, sans faute, au tick de ce dossier ; sinon le texte d'avant le lot, au caractère près.
+        // Le texte montré : les lignes du dossier, et celles des modificateurs seulement s'ils sont lus, sans faute, au tick de ce dossier ; sinon le texte du dossier seul, au caractère près.
         static string Montrer(string erreur, DocumentDuMonde dossier, DocumentDuMonde registre, string erreurRegistre, long cellule)
         {
             string base3 = Decrire(erreur, dossier, cellule);

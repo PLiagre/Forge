@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #185 — la réponse `/lieu` figée (SC1 la garde identique à celle du
+    // La réponse `/lieu` figée (un test du service la garde identique à celle du
     // service) est relue en entier ; un texte cassé est refusé en nommant la position.
     public sealed class LecteurJsonTests
     {
@@ -57,7 +57,7 @@ namespace Forge.Pont.Tests
             Assert.IsTrue((double)stocks["nourriture"] == 1092551.560271);
             Assert.IsTrue((double)stocks["objet"] == 19.415619);
 
-            // Lot #300 — les foyers par métier, lus dans la même photographie.
+            // Les foyers par métier, lus dans la même photographie.
             var foyers = (Dictionary<string, object>)lieu["foyers"];
             CollectionAssert.AreEqual(new[] { "mineurs", "paysans" }, foyers.Keys.ToArray());
             var mineurs = (Dictionary<string, object>)foyers["mineurs"];
@@ -72,7 +72,7 @@ namespace Forge.Pont.Tests
                 (double)mineurs["personnes"] + (double)paysans["personnes"] == (double)lieu["population"],
                 "les personnes des métiers font la population");
 
-            // Lot #237 — les lieux de la cellule, par rang, lus dans la même photographie.
+            // Les lieux de la cellule, par rang, lus dans la même photographie.
             Assert.IsInstanceOf<List<object>>(lieu["lieux"]);
             var lieux = (List<object>)lieu["lieux"];
             Assert.AreEqual(15, lieux.Count);
@@ -90,7 +90,7 @@ namespace Forge.Pont.Tests
                     new[] { "flux_30j", "maitre", "nom", "point", "population", "rang", "stocks", "surface_km2" },
                     unLieu.Keys.ToArray());
                 Assert.IsTrue((double)unLieu["rang"] == rang, "le rang du lieu vaut son indice");
-                // Lot #393 — la place du lieu dans sa cellule : mètres de la carte et degrés.
+                // La place du lieu dans sa cellule : mètres de la carte et degrés.
                 var point = (Dictionary<string, object>)unLieu["point"];
                 CollectionAssert.AreEqual(new[] { "latitude", "longitude", "x_m", "y_m" }, point.Keys.ToArray());
                 Assert.IsInstanceOf<double>(point["x_m"]);

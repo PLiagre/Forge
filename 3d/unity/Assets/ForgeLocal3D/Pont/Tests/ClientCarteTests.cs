@@ -9,11 +9,11 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #520 — un faux service local rend la carte de 1400 ; le client en relit les cellules
+    // Un faux service local rend la carte de 1400 ; le client en relit les cellules
     // telles quelles, ou rend une absence qui nomme sa cause et le chemin de la clé fautive.
     public sealed class ClientCarteTests
     {
-        // Trois vraies cellules de `/carte` (seed 0), clés dans l'ordre du service, `cell_count` ramené à 3, recopiées du brief.
+        // Trois vraies cellules de `/carte` (seed 0), clés dans l'ordre du service, `cell_count` ramené à 3.
         // 10134 n'a ni puissance, ni maison, ni ville ; 10196 a un îlot puis un polygone percé d'un trou ;
         // 10417 a deux villes, et sa maison (27) diffère de sa puissance (3).
         private const string CARTE_TROIS = "{\"cell_count\":3,\"cells\":[{\"cell_id\":10134,\"contour\":{\"coordinates\":[[[[4276473,1135517],[4314106,1026553],[4157452,1024145],[4166760,1118721],[4276473,1135517]]]],\"type\":\"MultiPolygon\"},\"maison\":null,\"puissance\":null,\"relief\":\"plaine\",\"villes\":[]},{\"cell_id\":10196,\"contour\":{\"coordinates\":[[[[3255813,2017207],[3258432,2014942],[3252950,2017349],[3255813,2017207]]],[[[3260904,2014373],[3258233,2018288],[3248052,2019499],[3178677,2049953],[3214016,2181858],[3242818,2196329],[3344599,2164419],[3381106,2073504],[3289024,2001514],[3260904,2014373]],[[3256797,2044933],[3258232,2047203],[3254327,2044953],[3245580,2036516],[3242003,2025951],[3242985,2024693],[3248295,2030701],[3247211,2035050],[3251211,2041050],[3256797,2044933]]]],\"type\":\"MultiPolygon\"},\"maison\":{\"id\":6,\"nom\":\"Barcelone\"},\"puissance\":{\"id\":6,\"nom\":\"Aragon\"},\"relief\":\"montagne\",\"villes\":[]},{\"cell_id\":10417,\"contour\":{\"coordinates\":[[[[3921201,3092821],[3947718,3062031],[3938366,3011532],[3893790,2985836],[3858975,3008678],[3849915,3077567],[3921201,3092821]]]],\"type\":\"MultiPolygon\"},\"maison\":{\"id\":27,\"nom\":\"Valois-Bourgogne\"},\"puissance\":{\"id\":3,\"nom\":\"France\"},\"relief\":\"plaine\",\"villes\":[{\"nom\":\"Tournai\",\"population\":40000,\"x_m\":3853625.55,\"y_m\":3075988.58},{\"nom\":\"Valenciennes\",\"population\":23000,\"x_m\":3860893.43,\"y_m\":3047780.78}]}],\"crs\":\"EPSG:3035\",\"tolerance_m\":1000,\"version\":\"world-1400-v1\",\"villes_hors_carte\":[\"Venise\"]}";
@@ -203,7 +203,7 @@ namespace Forge.Pont.Tests
         [TestCase("\"villes\":[]},{\"cell_id\":10417", "\"villes\":null},{\"cell_id\":10417", "cells[1].villes", "un tableau attendu")]
         [TestCase("\"population\":23000,", "\"population\":23000.5,", "cells[2].villes[1].population", "un entier")]
         [TestCase("\"x_m\":3860893.43,", "", "cells[2].villes[1].x_m", "clé absente")]
-        // Lot #695 — un relief présent doit être un texte non vide ; le chemin porte l'indice de la cellule fautive.
+        // Un relief présent doit être un texte non vide ; le chemin porte l'indice de la cellule fautive.
         [TestCase("\"relief\":\"montagne\"", "\"relief\":3", "cells[1].relief", "un texte non vide attendu, reçu Double")]
         [TestCase("\"relief\":\"montagne\"", "\"relief\":null", "cells[1].relief", "reçu null")]
         [TestCase("\"relief\":\"montagne\"", "\"relief\":\"\"", "cells[1].relief", "un texte non vide")]
@@ -232,7 +232,7 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentException>(() => LectureCarte.Absent(""));
         }
 
-        // Lot #695 — le relief de chaque cellule, relu tel que servi.
+        // Le relief de chaque cellule, relu tel que servi.
         [Test]
         public void LeReliefDeChaqueCelluleEstRelu()
         {

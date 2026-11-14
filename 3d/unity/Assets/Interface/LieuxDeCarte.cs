@@ -9,16 +9,16 @@ using UnityEngine.Rendering;
 using UnityEngine.UI;
 namespace Forge.Interface
 {
-    // Lot #657 : lieux des cellules tenues, couleur du maître, rouge si les départs dépassent les arrivées. Lecture seule.
+    // Lieux des cellules tenues, couleur du maître, rouge si les départs dépassent les arrivées. Lecture seule.
     public sealed class LieuxDeCarte : MonoBehaviour
     {
         public const string RACINE = "Lieux de la carte", ENTETE = "Blanc : vos lieux. Couleurs : autres maîtres. Rouge : départs supérieurs aux arrivées sur trente jours.";
         public const float PERIODE_S = 2f, EPAISSEUR_KM = 0.05f; public static readonly Color ROUGE = new Color(0.86f, 0.05f, 0.04f); // « alerte » (#8B342E) rend un rose terne sur la carte éclairée
         const float TEINTE_MIN = 0.18f, ETENDUE_TEINTE = 0.5f, SATURATION = 0.7f, VALEUR = 0.75f; const uint PAS_DE_TEINTE = 500; // du jaune au bleu : ni blanc ni rouge
         public Func<long, LectureLieu> Lecteur;
-        public string TexteLegende { get; private set; } public bool Peint => peinte != null; // lot #964 : lus par la légende du mode Puissances et son infobulle ; peint, une maison du joueur est lue et ses lieux se peignent
+        public string TexteLegende { get; private set; } public bool Peint => peinte != null; // lus par la légende du mode Puissances et son infobulle ; peint, une maison du joueur est lue et ses lieux se peignent
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
-        public event Action<string, IReadOnlyList<(long cell, LectureLieu lieu)>> Applique; // #658 : la maison et la réponse appliquée ; maison nulle quand l'ancien domaine est vidé
+        public event Action<string, IReadOnlyList<(long cell, LectureLieu lieu)>> Applique; // la maison et la réponse appliquée ; maison nulle quand l'ancien domaine est vidé
         CarteDessinee carte; CabinetDeCarte cabinet; Transform racine; Material bord;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
         readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
@@ -27,7 +27,7 @@ namespace Forge.Interface
         public void Installer() { carte = GetComponent<CarteDessinee>(); cabinet = GetComponent<CabinetDeCarte>(); TexteLegende = ENTETE; }
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void OnDestroy() { foreach (var o in crees) Detruire(o); crees.Clear(); }
-        // Lot #875 : une terre se nomme par son bourg (le rang 0 servi), un lieu par son nom servi ; l'absence se dit, jamais un numéro.
+        // Une terre se nomme par son bourg (le rang 0 servi), un lieu par son nom servi ; l'absence se dit, jamais un numéro.
         public static string Bourg(Lieu lieu) { var b = lieu.Bourg; return b?.Nom ?? "Bourg sans nom (" + TexteDuMonde.Absence(b == null ? "bourg non servi" : b.AbsenceDuNom, Cle(lieu)) + ")"; }
         public static string Tenue(Lieu lieu, LieuPlace place) => place.Rang == 0 ? Bourg(lieu) : Bourg(lieu) + " · " + (place.Nom ?? "lieu sans nom (" + TexteDuMonde.Absence(place.AbsenceDuNom, Cle(lieu)) + ")");
         static string Cle(Lieu lieu) => lieu.CellId.ToString(CultureInfo.InvariantCulture);

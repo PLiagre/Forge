@@ -11,7 +11,7 @@ using UnityEngine.UI;
 
 namespace Forge.Interface.Tests
 {
-    // Lot #1045 — le feuillet « Le pays » écrit ce que `/pays` sert au tick du monde lu, en noms, ou attend sans rien inventer.
+    // Le feuillet « Le pays » écrit ce que `/pays` sert au tick du monde lu, en noms, ou attend sans rien inventer.
     public sealed class DossierPaysTests
     {
         const string GRANDE = "grande-3", BAR = "seigneurie-1", MAULEON = "plausible-7-0", SANS_NOM = "plausible-8-1";

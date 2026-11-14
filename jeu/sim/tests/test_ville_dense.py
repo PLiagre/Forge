@@ -1,4 +1,4 @@
-"""La ville dense de la mesure (#957) : le bourg à 800 habitants, 600 maisons sans îlots."""
+"""La ville dense de la mesure : le bourg à 800 habitants, 600 maisons sans îlots."""
 
 import copy
 import dataclasses
@@ -96,7 +96,7 @@ def _controler_dense(base, n_maisons):
     return paires, rayon
 
 
-def test_sc1_fonction_pure(monde, monkeypatch):
+def test_fonction_pure(monde, monkeypatch):
     dirs = _directions_terre(monde, _BISKRA)
     n = _constantes.MAISONS_VILLE_DENSE
     base = base_sans_ilots(n, dirs)
@@ -127,7 +127,7 @@ def test_sc1_fonction_pure(monde, monkeypatch):
         _controler_rayon(decalee, _BORNE_RAYON_M)
 
 
-def test_sc1_cellule_dense_nomme_l_absence(monde, monkeypatch):
+def test_cellule_dense_nomme_l_absence(monde, monkeypatch):
     base = base_dense_de_cellule(monde, _BISKRA, 5)
     assert base["cell_id"] == _BISKRA and len(base["maisons"]) == 5
     with monkeypatch.context() as patch:
@@ -154,7 +154,7 @@ def _meme_monde(serveur, reference):
     assert pickle.dumps(serveur.world) == pickle.dumps(reference)
 
 
-def test_sc2_le_bourg_passe_a_800(monkeypatch):
+def test_le_bourg_passe_a_800(monkeypatch):
     haut = _constantes.HABITANTS_BOURG_VILLE_DENSE
     with _service_epreuve(epreuve=True) as (serveur, port):
         cell_id = _biskra(port)
@@ -200,7 +200,7 @@ def _verifier_servi(port, cell_id, tick):
     return plan, occupation
 
 
-def test_sc3_plan_et_occupation_servent_la_ville_dense(monkeypatch):
+def test_plan_et_occupation_servent_la_ville_dense(monkeypatch):
     n = _constantes.MAISONS_VILLE_DENSE
     with _service_epreuve(epreuve=True) as (serveur, port):
         cell_id = _biskra(port)
@@ -267,7 +267,7 @@ def _refus(serveur, port, chemin, statut, *morceaux):
     return document["erreur"]
 
 
-def test_sc4_chaque_refus_est_nomme_et_n_ecrit_rien(monkeypatch):
+def test_chaque_refus_est_nomme_et_n_ecrit_rien(monkeypatch):
     haut = _constantes.HABITANTS_BOURG_VILLE_DENSE
     with _service_epreuve() as (serveur, port):
         assert _post(port, f"/epreuve/ville-dense?cell={_BISKRA}")[0] == 404
@@ -323,7 +323,7 @@ def test_sc4_chaque_refus_est_nomme_et_n_ecrit_rien(monkeypatch):
                 == _constantes.MAISONS_VILLE_DENSE
 
 
-def test_sc5_hors_epreuve_rien_ne_change(monde, monkeypatch):
+def test_hors_epreuve_rien_ne_change(monde, monkeypatch):
     with _service_epreuve() as (serveur, port):
         cell_id = _biskra(port)
         attendue = json.loads(json.dumps(base_de_cellule(serveur.world, cell_id)))
@@ -342,7 +342,7 @@ def test_sc5_hors_epreuve_rien_ne_change(monde, monkeypatch):
         base["cell_id"] = cid
         assert _empreinte(base) == attendu
     # Contre-épreuve : sans seuil, l'empreinte de Biskra (sous le seuil) change. Paris, déjà
-    # au-dessus du seuil avec ses îlots, ne change pas : le brief la citait par erreur.
+    # au-dessus du seuil avec ses îlots, ne change pas.
     foyers_paris = ranger_en_foyers(monde.populations_bourg_amorcage[_PARIS]).nombre
     print(f"foyers Paris={foyers_paris} seuil={_constantes.FOYERS_SANS_ILOTS}")
     assert foyers_paris > _constantes.FOYERS_SANS_ILOTS
@@ -354,7 +354,7 @@ def test_sc5_hors_epreuve_rien_ne_change(monde, monkeypatch):
         assert _empreinte(base) != _EMPREINTES_BASE[_BISKRA]
 
 
-def test_sc6_le_modele_le_dit():
+def test_le_modele_le_dit():
     section = _sous_partie(_MODELE.read_text(encoding="utf-8"), "### Le plan de base")
     for morceau in ("/epreuve/ville-dense", "HABITANTS_BOURG_VILLE_DENSE",
                     "MAISONS_VILLE_DENSE", "sans îlots"):

@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Forge.Pont
 {
-    // Lot #368 — l'étape qu'un bâtiment du plan montre, et la façon de le poser sur sa parcelle.
+    // L'étape qu'un bâtiment du plan montre, et la façon de le poser sur sa parcelle.
     // C'est une convention de la vue (l'orientation est au niveau 3 du modèle) : rien ne retourne au monde.
     public enum EtapeDuBatiment { Piquets, Murs, Fini }
 
@@ -20,7 +20,7 @@ namespace Forge.Pont
         public double FacadeX { get; }
         public double FacadeY { get; }
         // θ dans [0 ; 360) : `Quaternion.Euler(0, θ, 0)` tourne la façade +Z du prefab vers (-FacadeX, 0, -FacadeY),
-        // dans le repère du lot #293 où (x, y) du plan devient (-x, sol, -y).
+        // dans le repère où (x, y) du plan devient (-x, sol, -y).
         public double LacetDegres { get; }
 
         private PoseDuBatiment(bool presente, string absence, double cx, double cy, double fx, double fy, double lacet)

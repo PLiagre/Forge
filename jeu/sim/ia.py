@@ -53,7 +53,7 @@ def _reserve_voulue(monde, lieux):
             if ouvrage.en_chantier:
                 par_bourg[cid] = par_bourg.get(cid, 0) + ouvrage.travail_requis - ouvrage.travail_fourni
     if getattr(monde, 'modificateurs', None):
-        # Le coût modifié du chantier, comme le paiera chaque bourg (décision 38).
+        # Le coût modifié du chantier, comme le paiera chaque bourg.
         salaires = sum(journees * salaire_journee_kg(monde, cid) for cid, journees in par_bourg.items())
     else:
         salaires = sum(par_bourg.values()) * _constantes.SALAIRE_JOURNEE_KG
@@ -358,18 +358,18 @@ def decider_intentions(monde, releve, maisons=None):
             proposition = _proposition_de_part(monde, maison, cle)
             if proposition is not None:
                 propositions.append(proposition)
-            # Les jauges, le même jour du mois, par le même chemin que le joueur (décision 38).
+            # Les jauges, le même jour du mois, par le même chemin que le joueur.
             if regles is None:
                 from sim import jauges
                 regles = jauges.charger_regles()
             jauge = _proposition_de_jauge(monde, maison, cle, regles)
             if jauge is not None:
                 propositions.append(jauge)
-            # La réponse à son événement à choix, après le geste de jauge du jour (décision 41).
+            # La réponse à son événement à choix, après le geste de jauge du jour.
             reponse = _proposition_de_reponse(monde, maison, cle, regles)
             if reponse is not None:
                 propositions.append(reponse)
-            # Bâtir dans sa province, par le même chemin que le joueur (décision 38).
+            # Bâtir dans sa province, par le même chemin que le joueur.
             if types is None:
                 from sim import batiments
                 types = batiments.charger_types()

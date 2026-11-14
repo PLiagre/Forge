@@ -1,7 +1,7 @@
 using System;using System.Collections.Generic;using System.Globalization;using Forge.Pont;using UnityEngine;using Object=UnityEngine.Object;
 namespace ForgeLocal3D
 {
-    // Lot 737 : une maison de terre par case de la base, sous « Maisons de 1400 », hors des bâtiments de geste.
+    // Une maison de terre par case de la base, sous « Maisons de 1400 », hors des bâtiments de geste.
     public sealed class DesertMaisons1400
     {
         const float Tol=.05f;

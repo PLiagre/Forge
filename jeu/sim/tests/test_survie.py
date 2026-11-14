@@ -125,7 +125,7 @@ FACTEUR_REGIME_HAUT = 2.0
 
 
 # --- test_causal_chain.py ---
-def test_sc7a_stock_decreases_when_production_lt_consumption():
+def test_stock_decreases_when_production_lt_consumption():
     """
     Une cellule avec production insuffisante voit son stock baisser
     après production+consommation.
@@ -586,7 +586,7 @@ def test_le_monde_nourrit_ceux_qu_il_amorce():
 
     Ce que sa rougeur signifierait : le monde amorce une population
     condamnée. Ce n'est pas une famine émergente — aucun événement du jeu ne
-    l'a causée — c'est un amorçage qui ment. Mesuré avant le lot 055 :
+    l'a causée — c'est un amorçage qui ment. Un amorçage fautif donnait :
     plafond 0,691, soit 1,45 bouche amorcée par bouche nourrie, et 86 % des
     habitants morts la première année simulée.
 
@@ -653,7 +653,7 @@ def _controle_stock_amorce(monde):
 
 def test_grenier_formule_et_contre_epreuves(monkeypatch):
     """
-    La soudure (lot de la soudure, 7 novembre 2026) : chaque cellule, ville
+    La soudure : chaque cellule, ville
     comprise, part avec la ration de ses habitants jusqu'à la moisson.
 
     Remplace les cas de l'ancienne formule (cinq ticks, plus un mois du manque
@@ -794,9 +794,8 @@ def test_la_survie_repond_a_la_mortalite(monkeypatch):
     Rouge prouvé : avec un `_apply_mortality` qui ignore HUNGER_DEATH_SCALE,
     les trois régimes rendent la même fraction (0.883422) et le test échoue.
     """
-    # Lot #1071 : sous l'appel des villes affamées, la faim ne tue presque plus en 200 ticks (écart de
-    # 4e-6) : la garde de cette constante se joue sous le commerce d'avant (décision A de la direction,
-    # 13 novembre 2026). Les assertions et le seuil ne changent pas.
+    # Sous l'appel des villes affamées, la faim ne tue presque plus en 200 ticks (écart de 4e-6) :
+    # la garde de cette constante se joue sous le commerce d'avant.
     couper_l_appel_des_villes(monkeypatch)
     nominal = constantes.HUNGER_DEATH_SCALE
 
@@ -1146,7 +1145,7 @@ def _stabilite_greniers(monde, vide, zero, autre, marchandise, poids):
 
 
 def test_grenier_pertes(monkeypatch):
-    """SC2 — 1 000 t sur un an, au kilogramme près, et les paniers stables."""
+    """1 000 t sur un an, au kilogramme près, et les paniers stables."""
     import sim.engine as engine
 
     source = World.charger(0)
@@ -1223,7 +1222,7 @@ def _controler_conservation_grenier(eprouves, lignes):
 
 
 def test_grenier_conservation():
-    """SC3 — le grain retiré est exactement le cumul, sans remise à zéro."""
+    """Le grain retiré est exactement le cumul, sans remise à zéro."""
     source = World.charger(0)
     choisis = list(source.maisons)[:3]
     assert len(choisis) >= 2

@@ -60,7 +60,7 @@ def _densites(monde):
 
 
 def test_courbe_du_facteur_eau(monkeypatch):
-    """SC1 — la courbe est bornée, monotone et relit ses constantes."""
+    """La courbe est bornée, monotone et relit ses constantes."""
     bas = _constantes.PLUIE_SANS_CULTURE_MM
     haut = _constantes.PLUIE_PLEINE_CULTURE_MM
     milieu = (bas + haut) / _constantes.FACTEUR_DEUX
@@ -86,7 +86,7 @@ def test_courbe_du_facteur_eau(monkeypatch):
 
 
 def test_carte_lue_porte_la_pluie_de_la_vue():
-    """SC2 — l'enrichissement mémoire recopie exactement la vue dérivée."""
+    """L'enrichissement mémoire recopie exactement la vue dérivée."""
     carte_doc = World.lire_carte()
     monde = World.charger(0)
     pluies = pluie_depuis_monde(monde)
@@ -130,7 +130,7 @@ def test_carte_lue_porte_la_pluie_de_la_vue():
 
 @pytest.mark.parametrize("valeur", [pytest.param(None, id="absente"), True, "sec", math.nan, -1.0])
 def test_refus_des_pluies_invalides(valeur):
-    """SC3 — toute pluie absente ou inexploitable est refusée en la nommant."""
+    """Toute pluie absente ou inexploitable est refusée en la nommant."""
     carte_doc = World.lire_carte()
     cell_id = carte_doc["cellules"][0]["cell_id"]
     alteree = copy.deepcopy(carte_doc)
@@ -148,7 +148,7 @@ def test_refus_des_pluies_invalides(valeur):
 
 
 def test_refus_de_la_pluie_non_numerique_et_zero_accepte():
-    """SC3 — l'enregistrement absent est refusé, mais zéro reste une mesure."""
+    """L'enregistrement absent est refusé, mais zéro reste une mesure."""
     carte_doc = World.lire_carte()
     cell_id = carte_doc["cellules"][0]["cell_id"]
     with pytest.raises(PluieInvalideError) as capture:
@@ -177,7 +177,7 @@ def test_refus_de_la_pluie_non_numerique_et_zero_accepte():
 
 
 def test_desert_se_vide_et_terre_mouillee_ne_bouge(monkeypatch):
-    """SC4 — l'aridité inverse le faux peuplement du désert occidental."""
+    """L'aridité inverse le faux peuplement du désert occidental."""
     desert_id, flandre_id = _cellules_repères()
     monde = World.charger(0)
     densites = _densites(monde)
@@ -201,7 +201,7 @@ def test_desert_se_vide_et_terre_mouillee_ne_bouge(monkeypatch):
 
 
 def test_une_seule_formule_de_production(monkeypatch):
-    """SC5 — plafond, amorçage et tick partagent le même facteur d'eau."""
+    """Plafond, amorçage et tick partagent le même facteur d'eau."""
     desert_id, flandre_id = _cellules_repères()
     monde = World.charger(0)
     soutenables = {
@@ -244,7 +244,7 @@ def test_une_seule_formule_de_production(monkeypatch):
 
 
 def test_sonde_voit_la_couche_pluie(monkeypatch):
-    """SC6 — le snapshot mesure la consommation de la pluie par le moteur."""
+    """Le snapshot mesure la consommation de la pluie par le moteur."""
     document = build_snapshot_document(World.charger(0), 0, 0)
     pluie = document["couches"]["pluie"]
 
