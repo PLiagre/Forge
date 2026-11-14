@@ -5,9 +5,7 @@
 > et c'est pourquoi une affirmation fausse ici se propage à tous les lots
 > suivants.
 >
-> Il est rangé par **mécanisme**, jamais par numéro de lot. Les numéros qui
-> apparaissent encore ci-dessous datent une règle, ils ne la nomment pas ;
-> les lots eux-mêmes vivent dans l'historique git.
+> Il est rangé par **mécanisme**, jamais par numéro de lot.
 >
 > **Une formule morte décrite au présent piège le lot suivant.** Quand un
 > mécanisme change, ce document change dans le même mouvement — sinon la
@@ -158,13 +156,12 @@ endroit du monde ne peut être nourri par ce qu'on lui apporte, la couche 2
 n'est pas atteignable et un lot qui définirait un bourg porterait sur un
 phénomène que le moteur ne peut pas produire.
 
-**Ce mur a été baissé par le lot 043, il n'est pas levé.** Avant lui, la
-capacité d'une arête valait un convoi de mulets par jour, quelle que soit
-l'arête, contre une cellule médiane de plusieurs milliers de kilomètres carrés
-— trois ordres de grandeur d'écart. Depuis, la capacité dérive de la longueur
-de frontière partagée, et l'écart se compte en unités, plus en milliers.
+**Ce mur est baissé, il n'est pas levé.** La capacité d'une arête dérive de la
+longueur de frontière partagée, et l'écart avec la consommation d'une cellule
+médiane de plusieurs milliers de kilomètres carrés se compte en unités, plus
+en milliers.
 
-Mesuré le **2026-08-30** sur `master`, et à rejouer plutôt qu'à croire :
+À rejouer plutôt qu'à croire :
 **aucune cellule du monde ne peut couvrir sa consommation par ce que ses arêtes
 laissent entrer**, et la mieux dotée n'en couvrirait qu'environ la moitié —
 en supposant, ce qui est faux, que toutes ses voisines aient ce surplus à
@@ -229,7 +226,7 @@ champ `kind` :
   autres, la longueur de frontière partagée `shared_length_m`, c'est-à-dire la
   longueur de façade maritime de la cellule.
 
-Trois faits, mesurés le 2026-08-30 et à rejouer plutôt qu'à croire :
+Trois faits, à rejouer plutôt qu'à croire :
 
 - la carte compte **plus de kilomètres de côte que de frontières terrestres** ;
 - **trois cellules sur quatre** touchent la mer ;
@@ -287,7 +284,7 @@ qu'une province.
 Deux lectures étaient possibles, et le dépôt n'en avait retenu aucune :
 
 - **A — la ville est une cellule qui importe sa nourriture.** C'est le cadrage
-  du lot 043. Il a l'avantage d'être physique : une ville est un endroit qui ne
+  de la couche de commerce. Il a l'avantage d'être physique : une ville est un endroit qui ne
   produit pas ce qu'il mange.
 - **B — la ville est une concentration *dans* la cellule.** La campagne de la
   même cellule nourrit son bourg.
@@ -323,8 +320,8 @@ et aux paysans le reste ; seuls les comptes strictement positifs sont rendus.
 
 À l'amorçage, la vue et le moteur comptent les mêmes personnes. Ensuite, les
 naissances, morts et migrations se répartissent au prorata des métiers,
-tandis que le moteur relit la part minière : un **écart** apparaît. Mesuré le
-03/10/2026 sur la graine 0, il touche 10 des 25 cellules minières après un tick
+tandis que le moteur relit la part minière : un **écart** apparaît. Mesuré
+sur la graine 0, il touche 10 des 25 cellules minières après un tick
 (une personne au plus), puis les 25 après 30 ticks (15 personnes au plus).
 Aucune cellule sans part minière ne s'écarte. La distribution intérieure lit
 désormais les habitants persistés au rang 0, sans relire les métiers.
@@ -513,7 +510,7 @@ Sans lieux, besoin saisonnier et paysans se calculent sur la cellule. Sous le se
 de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
 Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
 La règle est de **niveau 2**, plausible, jamais sourcée.
-`BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` est relue à chaque appel, relevée de 0,1 à 6,2 par le lot #720.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` est relue à chaque appel.
 Calibrage reproductible sur `World.charger(0)` : pour chaque lieu aux métiers calculés,
 on divise ses paysans par ses km² cultivés multipliés par le maximum annuel du facteur
 de saison de sa cellule (jours 0 à 364). Les km² suivent l'ordre surface du lieu × relief × eau × part agricole.
@@ -603,7 +600,7 @@ production de sa cellule. Chaque lieu garde le grain de ses foyers :
 habitants, et à la cellule leur somme exacte. Partagée par surface, comme les
 autres paniers, la soudure donnait au bourg dense quelques semaines de vivres
 et à ses champs plus d'un an : ses foyers partaient vers le mieux-vivre dès le
-premier mois (mesuré le 7 novembre 2026 ; le total au bout d'un an ne change
+premier mois (le total au bout d'un an ne change
 pas au point près, le chemin si). C'est un stock réel : il se mange, s'échange et se
 transporte comme tout grain ; il n'est pas un plancher de survie, et rien ne
 le renouvelle. La perte du grenier des foyers n'est pas simulée (niveau 3) :
@@ -624,13 +621,13 @@ Après ce premier tick, aucune absence de famine n'est garantie.
 
 **Ce que la soudure tient, et ce qu'elle ne tient pas** (graine 0, sans
 joueur, IA active, `sim/tests/test_soudure.py`) : au 365e jour, aucune
-cellule de la table de référence du jalon 2 n'a perdu plus de la moitié de ses
+cellule de la table de référence n'a perdu plus de la moitié de ses
 habitants par la faim (la pire, Gand et Bruges, 47 % ; Paris garde 51 % de ses
 habitants). La réserve de cinq jours d'avant faisait mourir de faim 89 % de
 Paris avant le 90e jour, et la contre-épreuve la rejoue. La soudure finie, les
 villes de 1400 retombent dans un manque que le commerce ne comble pas (Paris
 reçoit au plus 41 t par jour pour 417 t de manque) : la tenue sur dix ans est
-un autre lot du jalon 5. Mesures : `docs/mesures/2026-11-07-refonte/`.
+n'est pas garantie.
 
 C'est la **seule** marchandise présente au panier d'une cellule à l'amorçage.
 Toutes les autres y entrent par l'extraction.
@@ -640,7 +637,7 @@ Toutes les autres y entrent par l'extraction.
 | Constante | Valeur | Unité | Justification |
 |---|---|---|---|
 | `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK` | 2.0 × TICK_DURATION_DAYS | kg/personne/tick | Ration journalière médiévale approx. 2 kg (céréales + substituts) × 1 jour/tick |
-| `JOUR_DE_LA_MOISSON` | 212 | rang du jour dans l'année | Le 1er août : la moisson du blé rentrée en Europe du Nord et du Centre ; niveau 2. A remplacé, le 7 novembre 2026, `INITIAL_FOOD_RESERVE_TICKS = 5` et `RESERVE_VILLES_TICKS = 30` (cinq jours de ration, plus un mois du manque des villes) |
+| `JOUR_DE_LA_MOISSON` | 212 | rang du jour dans l'année | Le 1er août : la moisson du blé rentrée en Europe du Nord et du Centre ; niveau 2. Remplace une réserve de cinq jours de ration plus un mois du manque des villes |
 
 ---
 
@@ -833,9 +830,8 @@ gisements de fer alimentent la même entrée du panier.
 ### La limite d'aujourd'hui
 
 L'extraction est calculée sur la **population entière** : personne n'est
-affecté à la mine, elle tourne en plus des champs. C'est exactement ce que le
-lot 044 doit défaire, et c'est pourquoi il est le premier lot de la division du
-travail. Et ce que la mine sort ne va nulle part : voir la fin de « Le commerce
+affecté à la mine, elle tourne en plus des champs. C'est exactement ce que la
+division du travail doit défaire. Et ce que la mine sort ne va nulle part : voir la fin de « Le commerce
 entre cellules ».
 
 ---
@@ -1084,7 +1080,7 @@ manque, trois tolérances dérivées, horizon de 1 000 ticks. Il occupait 262 de
 
 Sa dérivation suppose **une** capacité de charge globale, `cap = F × ȳ / C`.
 Cette grandeur cesse d'exister dès que la production varie d'une cellule à
-l'autre — c'est-à-dire dès le lot du relief, désormais fusionné. Mesuré, en
+l'autre — c'est-à-dire dès que le relief joue. Mesuré, en
 faisant jouer le relief : la survie tombe à **0,447** contre une prédiction de
 **0,797 ± 0,101** — 3,5 fois la tolérance. Le test devient rouge sans qu'aucun
 défaut n'existe, et la seule issue commode est d'élargir la tolérance après
@@ -1173,12 +1169,12 @@ achevée avec porte peut y ajouter son débit. Les données invalides restent re
 qu'une arête a laissé passer en blé n'est plus disponible pour le fer. Il n'y a
 qu'un seul convoi.
 
-**Le rayon d'une ville affamée** (lot #1071, niveau 2 : plausible, jamais
+**Le rayon d'une ville affamée** (niveau 2 : plausible, jamais
 sourcé). La formule ci-dessus ne change pas. Ce qui change, c'est la capacité
 du tick que `_apply_commerce` pose à l'appel extérieur : toute arête dont un
 bout est une cellule affamée (voir « Besoin, surplus et allocation ») voit sa
 capacité du tick multipliée par `R = rayon_ville_affamee_jours`, déclaré dans
-`jeu/data/commerce.toml` (décision 37). `R` vaut **6** : le charroi d'un rayon
+`jeu/data/commerce.toml`. `R` vaut **6** : le charroi d'un rayon
 de six jours se rassemble sur la frontière de la ville. C'est la batellerie et
 le charroi qui montent vers une grande ville, pas une route de plus. Un
 entier de 1 au moins ; avec `R = 1`, la capacité est celle d'avant, au bit
@@ -1203,7 +1199,7 @@ besoin(c)  = max(0, ration(c) − stock_c, appel(c))
 surplus(c) = max(0, stock_c − garde(c))
 ```
 
-**La réserve d'une ville affamée** (lot #1057, niveau 2 : plausible, jamais
+**La réserve d'une ville affamée** (niveau 2 : plausible, jamais
 sourcé). Une cellule est *affamée* quand sa population du snapshot dépasse ce
 que ses champs nourrissent au rendement et à la saison moyens
 (`World.populations_soutenables[c]`, le `soutenable` de l'amorçage ; une
@@ -1211,16 +1207,14 @@ cellule absente du relevé lève une erreur qui nomme son `cell_id`). L'idée es
 médiévale : une ville que son contado ne nourrit pas interdit la sortie de son
 grain. Elle garde `N = reserve_ville_affamee_jours` jours de sa ration et
 n'exporte, par terre comme par la mer, que ce qui dépasse. `N` vaut **21**,
-déclaré dans `jeu/data/commerce.toml` (décision 37) ; la durée n'est pas
-sourcée. Réponse B de la direction, le 11 novembre 2026, à la place du
-propriétaire : 365 jours auraient interdit toute sortie, un tampon de quelques
-semaines laisse sortir le reste. La direction donnait 30 jours en exemple ; le
-codeur a choisi 21 le 12 novembre 2026, parce que la preuve de la première
+déclaré dans `jeu/data/commerce.toml` ; la durée n'est pas
+sourcée. 365 jours auraient interdit toute sortie, un tampon de quelques
+semaines laisse sortir le reste. 21 jours, parce que la preuve de la première
 année (`test_soudure.py`) rougit à 30 : Le Caire tient alors sa réserve dès le
 330e jour et cesse de nourrir Alexandrie, qui perd 50,4 % de ses habitants par
 la faim (seuil 50 %) ; à 25 jours, 56,6 % ; à 21 jours, 32,7 %. Une ville
 affamée qui garde son grain n'en donne pas à sa voisine affamée : la réserve a
-un prix, et la durée la borne. Le besoin ne change pas (avant #1071) : une ville
+un prix, et la durée la borne. Le besoin ne change pas : une ville
 affamée qui manque reçoit toujours de ses voisines et du bassin. Aucun kilo n'est créé ni
 détruit. L'état « affamée » se relit à chaque commerce, sur la population du
 snapshot : une ville que la famine a fait passer sous ce que ses champs
@@ -1228,11 +1222,11 @@ nourrissent (Gand, vers le 358e jour) n'a plus que sa ration pour garde.
 
 - Avec `N = 1`, ou sans relevé des champs (un monde construit à la main :
   `populations_soutenables` vaut `None`), la garde est la ration du tick : le
-  commerce d'avant, au bit près. C'est la contre-épreuve du lot.
+  commerce d'avant, au bit près. C'est la contre-épreuve.
 - Avec la soudure (212 jours de ration au 1er janvier), aucune ville affamée
   n'est sous 21 jours en janvier : les deux règles y envoient les mêmes kilos.
   La réserve ne mord que lorsqu'une ville a mangé son grenier jusqu'à elle.
-  Mesuré le 12 novembre 2026 (graine 0, IA active, 365 jours,
+  Mesuré (graine 0, IA active, 365 jours,
   `test_premier_mois_ville_affamee_janvier_inchange_puis_exportent_moins`) :
   Alexandrie exporte moins à partir du 123e jour, Le Caire du 130e, Gand du
   307e.
@@ -1250,20 +1244,18 @@ une réserve plus longue ne change qu'une ligne de `commerce.toml`, mais la
 preuve de la première année en fixe le plafond (25 jours la fait échouer).
 
 Ces chiffres (Alexandrie à 32,7 %, la table des sorties ci-dessus) ont été
-mesurés **sans l'appel** de #1071 : l'épreuve du lot les rejoue sous
+mesurés **sans l'appel** des villes affamées : l'épreuve les rejoue sous
 `couper_l_appel_des_villes`. Avec l'appel et le rayon du dépôt, la pire
 cellule de `test_soudure.py` est Gand (cellule 10391) : 35,3 % de ses
-habitants morts de faim au 365e jour (63 926 sur 181 000 ; seuil 50 %),
-mesuré le 13 novembre 2026 ; sans l'appel elle est à 40,5 %, et Alexandrie à
+habitants morts de faim au 365e jour (63 926 sur 181 000 ; seuil 50 %) ; sans l'appel elle est à 40,5 %, et Alexandrie à
 32,7 %.
 
-**L'appel d'une ville affamée** (lot #1071, niveau 2 : plausible, jamais
+**L'appel d'une ville affamée** (niveau 2 : plausible, jamais
 sourcé). L'idée est médiévale : une grande ville draine le grain de son contado
 et de ses fleuves, bien au-delà d'une journée de route. Une cellule affamée ne
 demande plus seulement le manque de son tick : elle appelle chaque jour ce que
 ses champs ne lui donnent pas, avant d'avoir faim. `P = appel_ville_affamee_part`
-est déclaré dans `jeu/data/commerce.toml` (décision 37) et vaut **1,0**,
-décision B de la direction le 13 novembre 2026, à la place du propriétaire :
+est déclaré dans `jeu/data/commerce.toml` et vaut **1,0** :
 elle appelle tout le manque. Ni cette part ni le rayon `R = rayon_ville_affamee_jours`
 (voir « La capacité d'une arête ») ne sont sourcés. Seul le besoin change : la
 garde, le surplus, l'allocation, l'écrêtage côté receveur, les quais, le passage
@@ -1279,15 +1271,13 @@ lisent sur le snapshot, et aucun kilo reçu n'est revendu dans le même tick.
   capacité des arêtes. Le décor d'avant (`sim/tests/amorcage_d_avant.py`,
   `couper_l_appel_des_villes`) rend 0 et 1.
 - Aucun kilo n'est créé ni détruit, et `food_deficit_kg` n'est pas touché.
-- Le Caire ne peut pas gagner d'habitants par ce lot : aucun mort de faim, aucune
+- Le Caire ne peut pas gagner d'habitants par l'appel : aucun mort de faim, aucune
   perte nette au pas des départs, sous les deux règles. Il est jugé sur son grain.
 
-Mesuré le 13 novembre 2026 (graine 0, IA active, 365 jours,
-`test_grain_monte_vers_les_villes_un_an` ; le script
-`docs/mesures/2026-11-12-grain-vers-les-villes/scripts/mesure_un_an.py` rejoue
-les quatre réglages) :
+Mesuré (graine 0, IA active, 365 jours,
+`test_grain_monte_vers_les_villes_un_an`, qui rejoue les quatre réglages) :
 
-| ville | habitants, avant → ce lot | grain au 365e jour, avant → ce lot |
+| ville | habitants, avant → avec l'appel | grain au 365e jour, avant → avec l'appel |
 |---|---|---|
 | Paris | 153 052 → 284 985 | 956 t → 8 081 t |
 | Milan | 185 767 → 196 333 | 4 557 t → 50 292 t |
@@ -1302,8 +1292,6 @@ et Le Caire bougent à peine (Gand 33 674, Alexandrie 22 454, Le Caire 389 779
 habitants et 3 116 t). L'appel seul (`P = 1`, `R = 1`) nourrit moins : Paris finit
 à 188 377 habitants et 5 199 t, Milan à 191 211 et 37 745 t, Gand à 97 249 et
 3 355 t, Alexandrie à 41 976 et 1 252 t, Le Caire à 388 336 habitants et 23 186 t.
-Mesuré le 13 novembre 2026 par le script de mesure, qui rejoue les quatre
-réglages (`docs/mesures/2026-11-12-grain-vers-les-villes/RAPPORT.md`).
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même
@@ -1346,8 +1334,7 @@ nourriture, et **zéro pour tout le reste**.
 
 Conséquence : une marchandise que personne ne mange n'a **jamais de besoin**,
 donc jamais de demandeur, donc elle ne traverse aucune arête. Le fer extrait
-s'accumule dans la cellule qui l'a sorti. Le commerce sait le porter — c'est ce
-que le lot 039 a acheté — mais rien ne le réclame.
+s'accumule dans la cellule qui l'a sorti. Le commerce sait le porter, mais rien ne le réclame.
 
 Ce n'est pas un défaut, c'est une absence déclarée : la fabrication transforme
 la matière **sur place** et ne crée donc aucune demande entre cellules ; la
@@ -1817,7 +1804,7 @@ réduite à la cellule entière de son siège, habitants amorcés et production
 de cette cellule, étendue du suzerain suivant ses ancres. Les habitants de
 la fiche mesurent la cellule actuelle, pas la ville historique. Les anomalies
 de cette réduction ne sont pas des défauts. **Niveau 3**, pas simulé :
-prélèvement et hommage (jalon 3), personnes, autres seigneuries.
+prélèvement et hommage, personnes, autres seigneuries.
 
 La fiche est une **vue pure**, recalculée, hors de `sim.model` : elle ne pose
 rien sur `Cell` et ne stocke aucune seconde clé spatiale. La table des
@@ -1973,7 +1960,7 @@ Bosnie (`grande-18`) : Étienne Ostoja et Kujava Radinović (`personne-kujava-ra
 Valachie (`grande-19`) : Mircea l'Ancien et Maria Tolmay (`personne-maria-tolmay`, naissance inconnue, morte en 1420 ou 1427 ; le prénom Mara n'est qu'une reconstitution) sont conjoints réciproques, sans date d'union inventée. Mihail Ier, seul fils légitime, a pour parents Mircea et Maria ; Vlad II Dracul (vers 1395, « avant 1395 » dans le texte) et Alexandru Ier Aldea (1397) sont fils illégitimes de Mircea, mères inconnues motivées. État `union`, enfants `documentes` ; Doamna Anca, Radu II Praznaglava, Ana et Arina sont exclus (présences indéterminées).
 Moldavie (`grande-20`) : Iuga n'a ni conjoint ni enfant dans sa notice, qui hésite sur son père (Roman Ier ou Georges Koriatovitch) : `conjoints=lacune`, `enfants=lacune`, ni célibat ni absence d'enfant, aucune exclusion. Ces cinq fiches, quatre compléments et quatre états achèvent la couverture de `grande-11` à `grande-20`.
 Hafsides (`grande-23`) : Abu Faris Abd al-Aziz II garde `personne-grande-23` (né en 1361), vivant et en fonction depuis juin 1394. Son père Abu al-Abbas Ahmad II, mort le 3 juin 1394, n'a pas de fiche (lacune de périmètre) ; aucune épouse n'est nommée : `conjoints=lacune`, ni célibat ni veuvage. Al-Mansur, fils et héritier mort en 1430 sans naissance connue, est exclu (présence indéterminée) ; « un autre de ses fils » et des oncles dont al-Mu’tamid, sans dates ni filiation, ne sont pas inventés : `enfants=lacune`, aucune absence attestée.
-Tlemcen (`grande-24`) : le chef est nommé depuis #1052 (Abu Muhammad Ier, sultan de 1397 à 1400 ; la succession par Abu Abdallah Ier n'est pas datée), mais la maison reste sans famille. Elle n'a ni fiche familiale, ni complément, ni état : un état appartient à un chef résolu, et aucune personne de la maison ne porte `pere`, `mere`, `conjoints`, `presence` ni `etat_familial`.
+Tlemcen (`grande-24`) : le chef est nommé (Abu Muhammad Ier, sultan de 1397 à 1400 ; la succession par Abu Abdallah Ier n'est pas datée), mais la maison reste sans famille. Elle n'a ni fiche familiale, ni complément, ni état : un état appartient à un chef résolu, et aucune personne de la maison ne porte `pere`, `mere`, `conjoints`, `presence` ni `etat_familial`.
 Mérinides (`grande-25`) : Abu Said Uthman III garde `personne-grande-25` (né en 1383), sultan depuis le 19 mars 1398, vivant ; la notice le dit monté sur le trône « à seize ans », divergence conservée avec sa naissance. Parents, fratrie et épouse sont des lacunes (ni célibat ni veuvage). Abd al-Haqq II, né en 1419, est exclu comme futur ; `enfants=lacune`, car le fils d'un an de 1420 ne prouve rien pour 1400. Ces deux compléments et deux états n'ajoutent aucune fiche ni aucune filiation.
 Mamelouks (`grande-22`) : Faraj garde `personne-grande-22` (né vers 1386), sultan depuis juin 1399, vivant ; il a treize ans environ. Son père Barquq (mort en juin 1399), sa mère Khawand Shirin et ses épouses sont des lacunes sans fiche : Khawand Fatima est « l'une de ses épouses », sans date d'union, ni célibat ni veuvage. Ses quatre enfants nommés (Ghars ad-Din Khalil, Khawand Asiya, Khawand Satita, Khawand Shakra) n'ont aucune naissance : `enfants=lacune`, aucune absence attestée. Sept exclusions : Khawand Fatima, deux concubines (le schéma n'a pas de concubinage) et les quatre enfants. Le frère est hors périmètre.
 Chypre (`grande-26`) : Janus garde `personne-grande-26` (né en 1375), couronné le 11 novembre 1398, vivant ; son père Jacques Ier (mort le 9 septembre 1398) et sa mère Helvis sont des lacunes sans fiche. Il n'a ni épouse ni enfant au 1er janvier 1400 : le mariage avec Anglesia Visconti a lieu après janvier 1400, une alliance reste possible, `conjoints=lacune` et `enfants=lacune` (neuf enfants dans la notice, tous futurs, une fille hors mariage sans nom ni naissance). Cinq exclusions : Anglesia, Charlotte de Bourbon (1411), Jean II (1414), Aloysius (1408) et Guy (1410).
@@ -1985,7 +1972,7 @@ Wurtemberg (`seigneurie-2`) : Eberhard III (né « nach 1362 », intervalle, fic
 Morée (`seigneurie-3`) : un état sans complément. Théodore Ier (né vers 1355, fiche de chef inchangée) ne reçoit aucun complément, aucune fiche ni aucun lien : sa personne garde ses seules clés de chef, plus `etat_familial`. `conjoints=veuvage` (Bartolomea Acciaioli, épousée en 1385, morte vers 1396, sans fiche : aucune union active) ; `enfants=lacune` (aucun enfant connu, mais une fille illégitime : ce n'est pas une absence attestée) ; une exclusion, Théodora, fille illégitime qui épousera Süleyman Çelebi en 1404, sans fiche ni lien vers lui ni vers son père. La Morée est la première maison qui a un état sans complément : un état appartient toujours à un chef résolu, et les preuves du monde repèrent le complément par ses champs familiaux, jamais par l'état seul. Théodore II lui succède en 1407, sans programmation ni lien. Avec Branković, Evrenos et le Zab ci-dessous, trente-quatre états pour trente-deux compléments : toutes les grandes maisons et toutes les seigneuries ont leur état familial, sauf la Horde d'Or et Tlemcen ; les dix institutions et les maisons plausibles n'ont pas de dynastie, donc pas d'état.
 Branković (`seigneurie-4`) : Đurađ (né le 22 février 1377, fiche de chef inchangée) garde `personne-seigneurie-4`, vivant au départ à vingt-deux ans (despote de Serbie de 1427 à sa mort, le 24 décembre 1456) ; il tient les terres de son père Vuk, mort le 6 octobre 1397 (la page de Vuk le classe aussi dans « 1398 deaths » : divergence conservée), sans fiche. Sa mère, Mara Lazarević, fille du prince Lazar, mariée à Vuk en 1371 et morte le 12 avril 1426, vit au départ mais n'a pas de fiche ; elle est la sœur de Stefan Lazarević et d'Olivera Despina, sans aucun lien de fratrie dans le monde. Đurađ n'a aucune épouse connue au départ : Irène Cantacuzène l'épousera le 26 décembre 1414 (née vers 1400) et « according to some historians » sa première épouse aurait été Eleni de Trébizonde (1395–1410, « disputed », union non datée) ; ni célibat ni veuvage, aucune absence attestée. État `conjoints=lacune` et `enfants=lacune` (« at least six children » pour sa page, « five children » pour celle d'Irène, qui marque Todor d'un « (?) » : les deux listes divergent) ; huit exclusions sourcées : Eleni de Trébizonde, Irène Cantacuzène, Todor (« d. before 1429 », sans naissance : présence indéterminée) et cinq enfants futurs, Grgur (vers 1415), Stefan (vers 1417), Katarina (vers 1418), Mara (vers 1420) et Lazar (vers 1421), qui restent distincts de Stefan Lazarević, de Mara Lazarević et du prince Lazar. Le mariage de 1414 n'est pas programmé ; aucun héritier n'est désigné.
 Evrenos (`seigneurie-5`) : Gazi Evrenos Bey (naissance inconnue, fiche de chef inchangée : l'âge de plus de cent ans évoqué par la TDV ne sert pas à calculer une naissance) garde `personne-seigneurie-5`, vivant au départ ; il meurt en 1417 (en novembre pour la TDV) à Yenice-i Vardar, après avoir servi Bayezid Ier, Süleyman Çelebi et Mehmed Ier. Son père Îsâ « Prangi » Bey, que « certaines sources » disent fils de Bozoklu Han, est une lacune de périmètre sans fiche ; sa mère et son épouse ne sont nommées par aucune page : aucune n'est inventée. État `conjoints=lacune` et `enfants=lacune` ; huit exclusions sourcées : sept fils (Ali, İsa, Hızırşah, Yakub, Beğce, Süleyman, Barak), sans naissance, de présence indéterminée au départ, et les filles, sans nom, dont l'une épouse Çandarlı Halil Pasha le Jeune ; Süleyman Bey reste distinct de Süleyman Çelebi, dont la fiche ne change pas. Sa mort de 1417 n'est pas programmée.
-Zab (`seigneurie-6`) : un second état sans complément. « Abd al-Rahman ibn Mozni », nom plausible et déclaré (#1052), est un chef résolu : son état est permis, sa personne garde ses seules clés de chef, plus `etat_familial`, comme Théodore Ier. `conjoints=lacune` et `enfants=lacune` : la page ne nomme ni le titulaire, ni son épouse, ni ses enfants (les Banu Muzni à Biskra « from mid 14th century to 1402 ») ; ni célibat ni veuvage, aucune absence attestée, aucune exclusion, aucune fiche inventée. La conquête hafside de 1402 n'est pas programmée.
+Zab (`seigneurie-6`) : un second état sans complément. « Abd al-Rahman ibn Mozni », nom plausible et déclaré, est un chef résolu : son état est permis, sa personne garde ses seules clés de chef, plus `etat_familial`, comme Théodore Ier. `conjoints=lacune` et `enfants=lacune` : la page ne nomme ni le titulaire, ni son épouse, ni ses enfants (les Banu Muzni à Biskra « from mid 14th century to 1402 ») ; ni célibat ni veuvage, aucune absence attestée, aucune exclusion, aucune fiche inventée. La conquête hafside de 1402 n'est pas programmée.
 Horde d'Or (`grande-21`) : rien n'est ajouté. Le khan du 1er janvier 1400 n'est pas établi (Shadi Beg ou son prédécesseur) : ni fiche, ni complément, ni état, ni famille inventée ; la lacune d'identité est inchangée.
 Les présences explicites sont `vivante`, `decedee` ou `indeterminee` ; seules les personnes vivantes ont des conjoints actifs. Une naissance familiale inconnue reste nulle, avec source nulle et lacune motivée.
 Les états distinguent `union`, `veuvage`, `lacune`, et, pour les enfants, `documentes`, `absence_attestee`, `lacune`. France : enfants documentés ; Bretagne et Bohême : absence sourcée au départ. Jeanne de Bavière, morte le 31 décembre 1386, est explicitement exclue du mariage actif. Une table vide ne prouve rien ; une présence indéterminée précise les pages examinées et leur limite. Chaque état est copié en profondeur dans `etat_familial` du chef.
@@ -2106,14 +2093,14 @@ Tout changement de production, de faim ou de départs exige de remesurer.
 
 **Calibration de la part coutumière à 6,2, sans départs.** Le même protocole
 (graine 0, 365 ticks numérotés, `random.Random(0)`, `TAUX_DE_DEPART = 0`)
-garde les bras du lot #720 à 6,2. À part nulle, il reste 35897120 habitants ;
+garde les bras à 6,2. À part nulle, il reste 35897120 habitants ;
 la part 0,03 en laisse 35546671 (perte 0,98 %), la part 0,04 en laisse
 35403048 (perte 1,38 %). La borne de 1 % reste tenue pour 0,03 et
 dépassée pour 0,04. Ces mesures sont de niveau 2, plausibles, jamais sourcées.
 
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
 numérotés de 0 à 364 et `random.Random(0)`, garde le mieux-vivre actif,
-avec `TAUX_DE_DEPART = 0.002`, les bras calibrés à 6,2 (lot #720)
+avec `TAUX_DE_DEPART = 0.002`, les bras calibrés à 6,2
 et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
@@ -2225,13 +2212,13 @@ Les fonctions d'accès au stock sont gardées en variables locales. Les
 références des récoltes et des parts restent celles lues par le prélèvement.
 
 Médianes sur srv1914711, graine 0, cinq ticks de chauffe puis ticks 5 à 24,
-le 14/10/2026, monde réel chargé puis copié :
+monde réel chargé puis copié :
 
 | Comparaison | Tick | Prélèvement |
 |---|---:|---:|
-| Avant le lot, première comparaison en mémoire | 107,68 ms | 7,04 ms |
+| Avant le registre, première comparaison en mémoire | 107,68 ms | 7,04 ms |
 | Registre initial, même comparaison | 119,96 ms | 10,13 ms |
-| Avant le lot (`5d984aa`), nouvelle comparaison en processus séparés | 110,21 ms | 7,42 ms |
+| Avant le registre, nouvelle comparaison en processus séparés | 110,21 ms | 7,42 ms |
 | Registre avec variables locales et sans garde par lieu, même séance | 114,35 ms | 9,51 ms |
 
 Chaque processus de la seconde comparaison importe ses propres fichiers,
@@ -2606,8 +2593,8 @@ des maisons plausibles viennent du bloc de noms de leur cellule (**niveau 2**,
 plausibles, jamais sourcés).
 
 Mesures sur srv1914711 au tick 35, graine 0, premier départ, part 0,25,
-médianes de neuf appels en pause : avant le lot, matière non construite
-(aucun coût), `_construire_etat` **103,22 ms** ; après le lot,
+médianes de neuf appels en pause : matière non construite
+(aucun coût), `_construire_etat` **103,22 ms** ; avec la matière,
 `matiere_des_maisons` **33,31 ms**, `_construire_etat` **135,85 ms**.
 `test_mesure_matiere_et_publication` (marque `chronometre`) reproduit ces mesures.
 
@@ -2869,8 +2856,7 @@ est alors « ancres des bourgs absentes », sans effet. Le tick appelle
 lit ni le maître, ni le registre, ni `attribution_villes`. Un changement de
 maître reste de niveau 3.
 
-Niveau 2 : plausible, jamais sourcé. Mesure, graine 0, 30 ticks, VPS,
-11/10/2026 : la première cellule où le bourg a faim pendant qu'un champ
+Niveau 2 : plausible, jamais sourcé. Mesure, graine 0, 30 ticks, VPS : la première cellule où le bourg a faim pendant qu'un champ
 garde du grain est la 1241, champ de rang 1 à −124°. Sans route, 5 ticks de
 faim du bourg et 14 375,3 kg de pénurie ; avec la route vers ce champ, 0 et
 0. Sur cette machine (Linux 6.8.0-137-generic, x86_64, AMD EPYC 9354P), un
@@ -2960,12 +2946,11 @@ Un refus de dépôt (`IntentionRefusee`) n'arrête plus le tick : il est noté a
 `GET /ia` publie avec le monde `{tick, date, releve, maisons_actives_30j}`,
 sans arrondi ; la mesure vient de `maisons_actives_30j` (trente derniers jours), −1 avant trente jours.
 Sans option, cette route rend 404 et demande `--ia` ; les autres routes gardent leur forme.
-La durée du tick inclut l'IA. Mesure sur la base, VPS, 06/10/2026, graine 0,
+La durée du tick inclut l'IA. Mesure sur la base, VPS, graine 0,
 30 ticks : médianes IA ≈ 275 ms, tick ≈ 91 ms, soit environ 2,7 jours/s au plus.
 
 **La liste des maisons de l'IA, une fois.** Le placement des capitales par
-polygone coûtait 170 ms des 218 de `jouer_ia` par tick (PC, 7 novembre 2026,
-`docs/mesures/2026-11-07-refonte`, section 2). Les trois boucles — le service,
+polygone coûtait 170 ms des 218 de `jouer_ia` par tick (PC). Les trois boucles — le service,
 `python3 -m sim --ia` et `python3 -m forge --ia` — calculent donc
 `toutes_les_maisons_de_l_ia` une fois et la passent à `jouer_ia(monde, releve,
 maisons)` ; le service la refait seulement si le monde servi change d'objet.
@@ -2973,7 +2958,7 @@ maisons)` ; le service la refait seulement si le monde servi change d'objet.
 vient de choisir (`maison_choisie`), seigneurie ou grande maison : au tick du
 choix, l'IA ne propose déjà plus rien pour elle (route, secours, part, jauge,
 bâtiment, amélioration), et ne dépense plus ses jauges ni ses points. Les petits
-seigneurs (`plausible`) ne sont pas joués par l'IA avant #427. Sans liste, `jouer_ia` refait la vue, comme avant. Rien ne
+seigneurs (`plausible`) ne sont pas joués par l'IA. Sans liste, `jouer_ia` refait la vue, comme avant. Rien ne
 se garde dans le monde ni dans un module. Même graine, mêmes gestes, même
 monde octet pour octet (le test de la liste calculée une fois). Sur le
 PC, ticks 30 à 89 avec IA : 213 ms → 67 ms de médiane (`jouer_ia` 169 → 24 ms,
@@ -3131,7 +3116,7 @@ monde ni tirer d'aléa. Le dépôt ne garde aucun cache dans le monde.
 Le service calcule et sérialise la base une fois par cellule à sa première
 lecture, sous un verrou distinct du tick, puis assemble ses octets figés
 avec ceux des gestes. Le tick ne calcule ni ne sérialise de maison de base.
-Le même cache prépare `occupation.base` : `{rang, foyers}` dans l'ordre de `base.maisons`. Toutes les places initiales sont habitées (réponse A de #411), dernier foyer incomplet compris, sans réaffectation selon la population courante ni changement du logement ou des sans-logis.
+Le même cache prépare `occupation.base` : `{rang, foyers}` dans l'ordre de `base.maisons`. Toutes les places initiales sont habitées dernier foyer incomplet compris, sans réaffectation selon la population courante ni changement du logement ou des sans-logis.
 `/occupation` refuse un `cell` absent, vide, répété ou non entier (400), inconnu (404), et une base absente par `BaseAbsente`, avec cellule et cause (500). Une cellule valide sans habitants peut publier des listes vides et des zéros mesurés.
 Restent de niveau 3 : découper le long d'une rue de base, démolir ou déplacer
 une maison de 1400, y loger quelqu'un, croiser une rue de base.
@@ -3192,17 +3177,17 @@ qui varie, rues courbes, maisons des hameaux (rangs > 0), rues vides qu'on
 rognerait ; la forme intérieure d'un îlot (cour, maisons mitoyennes,
 passages) et des îlots dans une ville de 500 foyers ou moins.
 
-Mesures avant et après le lot #565, sur la même machine, graine 0 : les
+Mesures avant et après, sur la même machine, graine 0 : les
 596 bases passent de 85,198 s à 7,462 s ; Paris (10322), de 0,820 s à
 0,051 s. Aucun seuil de temps ne conditionne les tests.
 
-Mesures #566, même machine, graine 0, avant → après (secondes, CPU partagé avec les tests ciblés) :
+Mesures, même machine, graine 0, avant → après (secondes, CPU partagé avec les tests ciblés) :
 `jouer_ia`, moyenne sur 365 ticks : 0,278226 → 0,450941 ; tick du service : 0,171034 → 0,175798 (+2,8 %).
 Démarrage jusqu'au premier `/monde` : 3,251089 → 4,205791 ; Paris, première lecture de `/plan` : 0,001157 → 0,057330 ; seconde : 0,001443 → 0,009289.
 Dépôt de la route repliée de la preuve de récolte : 0,000093 → 0,003941. La première lecture paie le calcul et la sérialisation de la base ; le dépôt paie son contrôle ; aucun seuil dans les tests.
 L'année donne 7 → 7 dépôts acceptés. Ces mesures ponctuelles ne séparent pas la charge des autres tests du coût de l'IA ; le tick ralentit de moins de 10 %.
 
-**Ville d'épreuve (#957, outil de mesure de #422, réponse B du propriétaire).** Aucune règle du monde ne change. `base_sans_ilots(n_maisons, directions)` pose `n_maisons` maisons d'un foyer par la règle des maisons sous le seuil (même forme, même recul, même tri, même grille, même allongement), sans îlots quel que soit `FOYERS_SANS_ILOTS` ; `base_dense_de_cellule(monde, cell_id, n_maisons)` lit les directions comme `base_de_cellule` (`BaseAbsente` si un centroïde manque) sans lire `populations_bourg_amorcage`. Avec `--epreuve` et l'horloge à l'arrêt, `POST /epreuve/ville-dense?cell=C` porte le bourg à `HABITANTS_BOURG_VILLE_DENSE` (800) habitants pris aux autres lieux (`partager` selon leur population, ni migration ni flux), puis sert au même tick, dans `/plan` et `/occupation` de C, une base de `MAISONS_VILLE_DENSE` (600) maisons d'un foyer sans îlots. Il refuse, sans rien écrire : horloge en marche (409), `cell` invalide (400) ou inconnue (404), montage incohérent, cellule de moins de 800 habitants, cellule à un seul lieu, bourg déjà au-dessus de 800 (l'épreuve agrandit un bourg, jamais ne le vide), centroïde absent (500). Un second appel ne change rien. Les dépôts et l'IA éprouvent toujours la base de 1400 : la ville d'épreuve sert la mesure seule, aucun geste n'y est joué, et ni `World`, ni `to_dict`, ni l'empreinte ne la portent. Hors épreuve, rien ne change.
+**Ville d'épreuve (outil de mesure).** Aucune règle du monde ne change. `base_sans_ilots(n_maisons, directions)` pose `n_maisons` maisons d'un foyer par la règle des maisons sous le seuil (même forme, même recul, même tri, même grille, même allongement), sans îlots quel que soit `FOYERS_SANS_ILOTS` ; `base_dense_de_cellule(monde, cell_id, n_maisons)` lit les directions comme `base_de_cellule` (`BaseAbsente` si un centroïde manque) sans lire `populations_bourg_amorcage`. Avec `--epreuve` et l'horloge à l'arrêt, `POST /epreuve/ville-dense?cell=C` porte le bourg à `HABITANTS_BOURG_VILLE_DENSE` (800) habitants pris aux autres lieux (`partager` selon leur population, ni migration ni flux), puis sert au même tick, dans `/plan` et `/occupation` de C, une base de `MAISONS_VILLE_DENSE` (600) maisons d'un foyer sans îlots. Il refuse, sans rien écrire : horloge en marche (409), `cell` invalide (400) ou inconnue (404), montage incohérent, cellule de moins de 800 habitants, cellule à un seul lieu, bourg déjà au-dessus de 800 (l'épreuve agrandit un bourg, jamais ne le vide), centroïde absent (500). Un second appel ne change rien. Les dépôts et l'IA éprouvent toujours la base de 1400 : la ville d'épreuve sert la mesure seule, aucun geste n'y est joué, et ni `World`, ni `to_dict`, ni l'empreinte ne la portent. Hors épreuve, rien ne change.
 
 ## Le chantier et ses bras
 
@@ -3272,7 +3257,7 @@ Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock 
 Sans lieux, bourg, maître ou grenier déclaré, aucun salaire ; une nourriture absente vaut zéro. Les cellules se partagent la réserve courante dans leur ordre. Les journées réellement fournies débitent exactement leur salaire et le versent au seul panier du bourg et au total cellulaire, deux représentations du même stock ; la reprise intérieure conserve cette destination.
 Les métiers restent ceux de la cellule ; rattacher collectivement ces ouvriers au bourg est une convention de niveau 2, sans déplacement individuel. Pertes du grenier avant paiement, récolte et consommation après ; le prélèvement arrivé ensuite finance les jours suivants. Aucun convoi ni perte de salaire ici ; matériaux et argent restent hors simulation.
 
-Mesure #641 : `python3 pc/epreuve_jalon4.py --sortie /tmp/forge-641-j4-{avant,apres}` (deux appels), graine 0, dix ticks, Zab à 0 puis gestes à 2, 3, 5 ; maison et cellule dérivées de `depart_biskra`.
+Mesure : `python3 pc/epreuve_jalon4.py --sortie /tmp/forge-j4-{avant,apres}` (deux appels), graine 0, dix ticks, Zab à 0 puis gestes à 2, 3, 5 ; maison et cellule dérivées de `depart_biskra`.
 
 | mesure | avant | après |
 |---|---|---|
@@ -3304,7 +3289,7 @@ L'ordre des chantiers, pour ce prorata comme pour `/plan`, est rue/parcelle/bât
 
 ## Les modificateurs
 
-Le registre des modificateurs (VISION.md, décisions 34, 35, 37 et 38) :
+Le registre des modificateurs :
 `sim/modificateurs.py` et `data/modificateurs.toml`. Un modificateur change un
 **taux** que le moteur lit déjà ; il ne crée jamais un kilo ni une pièce.
 
@@ -3322,7 +3307,7 @@ ensemble. Le fichier se modifie sans toucher au code ; il se relit à chaque
 
 **Poser, retirer, expirer.** `poser(monde, identifiant, source, cible)` refuse
 une source absente ou hors des sources admises (« sorte:identifiant »), une
-grandeur que le moteur ne lit pas (la levée, jusqu'au jalon 7), une cible
+grandeur que le moteur ne lit pas (la levée), une cible
 inconnue ou d'une autre portée que la définition. La cible garde la seule clé
 spatiale : `("pays", identifiant de maison)`, `("cellule", cell_id)` ou
 `("lieu", cell_id, rang)`. La pose recopie la définition (nom, grandeur,
@@ -3356,7 +3341,7 @@ directement.
 | `cout_chantier` | `chantiers.salaire_journee_kg`, lu au bourg | le grain d'une journée, pris au grenier du maître et versé au bourg ; l'IA le lit pour sa réserve et le coût de sa route |
 | `duree_chantier` | `modificateurs.ajuster_journees`, lu au bourg quand l'intention s'applique | les journées requises, arrondies au-dessus, au moins une ; l'IA le lit pour sa route |
 | `commerce` | `engine._capacite_transport_arete_kg`, `_capacites_aretes`, lu au bourg de chaque côté | la capacité d'une frontière terrestre, multipliée par le facteur de chaque cellule |
-| `levee` | pas encore lue | refusée à la pose, jusqu'à la guerre (jalon 7) |
+| `levee` | pas encore lue | refusée à la pose, jusqu'à la guerre |
 
 **L'économie reste physique.** Aucune grandeur n'est un stock : un
 modificateur ne peut qu'accélérer ou ralentir un flux que le moteur calcule
@@ -3387,8 +3372,7 @@ carte lit ces lignes telles quelles : elle n'additionne rien. Niveau 2 pour les 
 ### La famine, premier événement du monde
 
 `sim/evenements.py`, `poser_les_famines(monde, affames, donnees=None)` : le
-premier événement du monde qui pose dans le registre (décision 34). Lot #1029,
-réponse A du propriétaire du 10 novembre 2026.
+premier événement du monde qui pose dans le registre.
 
 - **Quand.** `engine.tick` l'appelle au tick `t`, après la boucle des cellules
   (consommation, faim, mortalité, natalité) et avant `_flux.noter_affames`, avec
@@ -3412,7 +3396,7 @@ réponse A du propriétaire du 10 novembre 2026.
   nourri, sans dette) : la famine n'agit qu'**après**, sur un lieu qui mange de
   nouveau, dont elle divise les naissances par deux pendant un an. Elle ne
   touche ni la mortalité (la faim tue par la dette, comme avant), ni un kilo, ni
-  un stock (décision 35). La Concorde du pays baisse déjà avec la faim
+  un stock. La Concorde du pays baisse déjà avec la faim
   (`sim/jauges.py`) : la famine n'y pose rien.
 - **Les données.** `[modificateurs.famine]` dans `data/modificateurs.toml` :
   natalité, −0,5, portée lieu, 365 jours. Niveau 2 : plausible, jamais sourcé.
@@ -3426,8 +3410,7 @@ réponse A du propriétaire du 10 novembre 2026.
 
 ### Les événements à choix
 
-`sim/evenements.py`, `data/evenements.toml` (lot #1038 ; décision 41, « une
-famine qui dure propose un choix » ; VISION.md, « Les gestes d'un pays » :
+`sim/evenements.py`, `data/evenements.toml` (VISION.md, « Les gestes d'un pays » :
 « répondre à un événement à choix »). Une cause du monde ouvre pour une maison un
 événement à choix ; la maison répond par une intention, l'IA par le même chemin ;
 chaque choix a son prix et ses effets, qui passent par des modificateurs, une
@@ -3435,8 +3418,8 @@ jauge ou le grain du grenier. Aucune réponse ne met fin à la famine : c'est le
 monde qui la fait durer ou cesser.
 
 - **Les données.** `[evenements.famine]` : `nom`, `dit`, `cause = "famine"` (la
-  seule que le code sait lire ; la révolte et la succession contestée,
-  #435 et #436, la lui apprendront), `delai_jours = 30`, `par_defaut =
+  seule que le code sait lire ; la révolte et la succession contestée ne sont
+  pas simulées), `delai_jours = 30`, `par_defaut =
   "laisser_faire"`, et trois `[[choix]]` dans l'ordre : `ouvrir_les_greniers`
   (`grenier = 0.25`, Concorde +1), `lever_une_taxe_de_disette` (le modificateur
   `taxe_de_disette`, Concorde −1), `laisser_faire` (Droit −5). `lire_evenements`
@@ -3455,7 +3438,7 @@ monde qui la fait durer ou cesser.
   juste après `mettre_a_jour`, donc aux bornes de mois seulement : les trois
   boucles (le service, `python -m sim`, `python -m forge`) la jouent sans changer,
   IA ou non, rejeu compris. Une maison a la cause « famine » au tick `t` si l'un
-  des lieux dont elle est le maître porte la pose `famine` (lot #1029) et si son
+  des lieux dont elle est le maître porte la pose `famine` et si son
   dernier jour de faim tombe dans le mois écoulé : `fin − 365 jours ≥ t − 30`. On
   lit le registre des modificateurs, jamais la faim brute : un lieu affamé depuis
   sept jours ou moins n'a pas de pose et ne fait pas la cause. Le monde d'avant la
@@ -3474,8 +3457,8 @@ monde qui la fait durer ou cesser.
   si la maison n'a pas de lieu à secourir : le défaut n'est jamais refusé) ; puis
   **ouvrir** pour une maison sans événement en attente qui a la cause. Un
   événement fermé peut donc être remplacé le même jour si la cause tient encore.
-  Sur la graine 0 sans IA, sous l'appel des villes coupé (le décor des épreuves,
-  lot #1071), le premier s'ouvre au tick 30, pour `plausible-10391-0` : sa famine
+  Sur la graine 0 sans IA, sous l'appel des villes coupé (le décor des épreuves),
+  le premier s'ouvre au tick 30, pour `plausible-10391-0` : sa famine
   est posée au tick 25. Avec l'IA, les premiers événements d'une maison de l'IA
   s'ouvrent au tick 390 (`grande-22` et `grande-3`).
 - **La réponse.** L'intention `repondre_evenement` (`maison`, `choix`) passe par
@@ -3516,7 +3499,7 @@ monde qui la fait durer ou cesser.
   prélèvement en plus pendant 90 jours, la Concorde perd un point. *Laisser faire* :
   le Droit perd 5 points (puis −0,01 de prélèvement, la jauge posant son
   modificateur). Le choix est entre le grain, la tenue du pays et la légitimité.
-  L'économie reste physique (décision 35) : la taxe multiplie un prélèvement que le
+  L'économie reste physique : la taxe multiplie un prélèvement que le
   moteur calculait déjà, jamais au-delà de la récolte ; l'ouverture déplace de vrais
   kilos ; aucun choix ne crée de kilo.
 - **L'IA.** `_proposition_de_reponse` : le jour du mois où elle règle sa part
@@ -3530,7 +3513,7 @@ monde qui la fait durer ou cesser.
   `ni_grain_ni_concorde` (plus `concorde` et `minimum`). La raison porte toujours
   `evenement`, `ouvert`, `grenier_nourriture_kg` (lu au moment de la décision),
   `reserve_voulue_kg` (`_reserve_voulue`) et `part_du_grenier`. Le joueur qui
-  dépose la même intention obtient le même monde (décision 38) : mêmes refus,
+  dépose la même intention obtient le même monde : mêmes refus,
   mêmes kilos, mêmes poses. Une maison que personne ne joue laisse faire au bout
   du délai, comme le joueur qui ne répond pas. Les réponses de l'IA arrivent dans
   `/ia` avec leur raison.
@@ -3550,8 +3533,7 @@ monde qui la fait durer ou cesser.
   du tick : un événement ouvert au tick 30 est servi avec le tick publié 31. Si
   l'IA échoue, `jouer_un_tick` défait aussi `World.evenements`, en plus des jauges
   et des modificateurs.
-- **Ce que ce lot ne fait pas.** La fenêtre de l'événement dans Unity (un lot
-  `pc`), les autres causes de la décision 41, le fil des nouvelles (#1028), et le
+- **Ce que l'événement ne fait pas.** La fenêtre de l'événement dans Unity, les autres causes, le fil des nouvelles, et le
   rejeu `--gestes`, qui dépose avant le mois : une réponse du jour d'ouverture y
   serait refusée (aucun événement en attente). La photographie ne porte pas
   `evenements` : seuls le service et `to_dict()` les servent.
@@ -3559,8 +3541,7 @@ monde qui la fait durer ou cesser.
 **Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
 à +10 %, et pour les événements : le délai de 30 jours, le quart du grenier, ±1
 point de Concorde, −5 points de Droit, et la taxe de disette à +25 % pendant 90
-jours). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
-(les bâtiments, les jauges et les événements le feront par leurs lots).
+jours). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même.
 
 ## Le pays et ses jauges
 
@@ -3570,7 +3551,7 @@ dépense plus ceux de la maison choisie, seigneurie ou grande maison (voir « Le
 décisions et les gestes de l'IA ») ; le joueur les dépense par `depenser_jauge` avec sa maison.
 Aucune règle des jauges ne change.
 
-**Le pays d'un seul tenant** (`sim/pays.py`, CAP.md, jalon 6). Une vue
+**Le pays d'un seul tenant** (`sim/pays.py`). Une vue
 dérivée, rien de stocké : `pays(monde, maison)` lit les lieux de la maison
 sur leur maître, ses vassaux à tous les degrés sur le registre (`suzerain`),
 puis les lieux de ces vassaux ; ses totaux — lieux, habitants (et ceux qu'elle
@@ -3585,8 +3566,7 @@ chaque réserve (`data/jauges.toml`), et, sous `grandeurs`, le `nom` de chaque
 grandeur sur laquelle une jauge pose (`data/modificateurs.toml` : « Départs »,
 « Commerce », « Prélèvement »), toujours présent, même sans pose active.
 
-**Les jauges** (`sim/jauges.py`, `data/jauges.toml`, VISION.md, décisions 36,
-38 et 39). Trois jauges — la **Concorde** (de −3 à +3, la stabilité), le
+**Les jauges** (`sim/jauges.py`, `data/jauges.toml`). Trois jauges — la **Concorde** (de −3 à +3, la stabilité), le
 **Renom** (de 0 à 100, le prestige), le **Droit** (de 0 à 100, la légitimité) —
 et trois réserves de points — la **Plume** (administrer), le **Sceau**
 (traiter), l'**Épée** (combattre). `World.jauges` garde l'état de chaque
@@ -3596,8 +3576,7 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
 - **Les compétences.** Le chef de la maison (`World.chefs`) a une compétence
   de gestion, de diplomatie et de guerre, de 0 à 10, dérivée de l'identifiant
   de la personne (`zlib.crc32`), sans aléa du monde : stable, rien de stocké
-  (niveau 2, décision 39 ; #434 la remplacera par l'hérédité, l'âge,
-  l'éducation, et par une valeur sourcée quand on la sait). Une maison dont le
+  (niveau 2). Une maison dont le
   chef n'est pas connu n'a pas de compétence, et le dit (`absents`).
 - **Le mois.** Avant le premier tick de chaque mois (`ticks_ecoules` multiple
   de `FENETRE_FLUX_TICKS`, le tout premier excepté), la boucle de jeu joue
@@ -3610,7 +3589,7 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   dont plus de 10 % des lieux ont eu faim dans le mois perd un point de
   Concorde ; chaque ouvrage achevé dans ses bourgs pendant le mois ajoute un
   point de Renom, qui s'efface de 2 % par mois ; le Droit ne bouge pas encore
-  de lui-même (la succession contestée viendra avec #435 et #436).
+  de lui-même (la succession contestée n'est pas simulée).
 - **Les modificateurs.** Chaque jauge pose au pays, dans le registre des
   modificateurs, sous la source `jauge:<jauge>:<maison>`, une valeur par point
   d'écart à son neutre : Concorde → départs (−5 % par point : à −3, +15 % de
@@ -3659,7 +3638,7 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   tick où le geste s'applique. Les retraits de `poser_les_modificateurs` se
   limitent aux sources `jauge:<nom>:` des jauges des règles : les poses de
   province survivent au mois et aux gestes, et `lire_regles` refuse une jauge
-  nommée `province`. L'économie reste physique (décision 35) : le geste ne
+  nommée `province`. L'économie reste physique : le geste ne
   coûte et ne crée aucun kilo ; son modificateur multiplie une récolte que le
   moteur lisait déjà. `/pays` sert, sous `jauges.amelioration`, le `nom`, le
   `dit`, la `reserve`, le `modificateur` (nom, grandeur, nom de la grandeur,
@@ -3667,7 +3646,7 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   triées par cell_id : `cell_id`, `niveau`, `cout` du suivant et `refus` (la
   raison du dépôt, ou `null`, sans compter les gestes déjà déposés).
   `jauges.gestes` (deux gestes, ceux du panneau), `grandeurs` et `modificateurs`
-  ne changent pas. L'IA n'a pas encore de règle pour l'améliorer (#1027) :
+  ne changent pas. L'IA n'a pas encore de règle pour l'améliorer :
   une maison qui dépose l'intention obtient le monde qu'obtient le joueur.
 - **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dépose
   **au plus un** geste de jauge, le premier qui tient, par `recevoir_intention`
@@ -3680,9 +3659,9 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   geste). La Concorde passe d'abord : un pays qui se défait se recoud avant
   d'asseoir son souverain. Un seul geste par maison et par mois : Unity refuse
   deux ordres de même type, même maison, même jour. Le joueur qui dépose la
-  même intention obtient le même monde (décision 38) : mêmes coûts (30 de Sceau
+  même intention obtient le même monde : mêmes coûts (30 de Sceau
   pour +10 de Droit), mêmes refus. Rien d'autre ne change : le Droit ne baisse
-  d'aucune cause du monde (la succession contestée viendra avec #435 et #436),
+  d'aucune cause du monde (la succession contestée n'est pas simulée),
   donc à 70 l'IA s'arrête ; aucun geste ne dépense l'Épée ; `/pays` ne sert pas
   le seuil de l'IA. `lire_regles` lit la table `[ia]` dans `Regles.ia` et refuse
   (`JaugeInvalide`, motif `ia.droit_bas`) une table absente, un `droit_bas` qui
@@ -3696,17 +3675,17 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
 `data/jauges.toml`, dont les trois de l'amélioration d'une province (6 points
 pour le premier niveau, ×1,5 par niveau, +2 % de récolte par niveau) et le seuil
-de Droit de l'IA (70, voulu par le propriétaire, réglable). **Niveau 3**, pas simulé : le conseil du souverain (ses
+de Droit de l'IA (70, réglable). **Niveau 3**, pas simulé : le conseil du souverain (ses
 points viendront aussi de ses conseillers), les causes du Renom par la guerre
 et du Droit par la succession.
 
 ## Les bâtiments de province
 
 `sim/batiments.py` et `data/batiments.toml` (VISION.md, « Les gestes d'un
-pays » ; décisions 34, 35, 37 et 38). Un bâtiment de province se pose dans une
+pays »). Un bâtiment de province se pose dans une
 cellule — la province, à l'échelle d'EU4 — depuis la carte, sans descendre en
 3D : il ne prend pas de parcelle du plan du bourg (la parcelle trouvée par le
-plan reste un lot du jalon 6).
+plan n'est pas faite).
 
 **Les données.** Chaque bâtiment dit ses journées de travail (une personne,
 un jour), ses bras par jour au plus, son coût en pièces, ses modificateurs et
@@ -3715,7 +3694,7 @@ s'il est seul de sa sorte dans une province. Un champ optionnel `genre`
 « une seule grange »). `lire_types` refuse un champ inconnu, un `genre` qui
 n'est ni « m » ni « f », un modificateur absent de `data/modificateurs.toml`
 ou qui ne se pose pas sur une cellule, et tout coût en pièces : le moteur n'en
-porte pas encore (jalon 8). Trois bâtiments, un seul grenier pour les payer
+porte pas encore. Trois bâtiments, un seul grenier pour les payer
 (niveau 2, plausibles, non sourcés) :
 
 | bâtiment | journées | bras par jour | coût au salaire de base | modificateur |
@@ -3841,22 +3820,20 @@ constante par une **fonction** de `sim/constants.py`, comme les tables de
 facteurs ci-dessus. Elle sort alors du dénominateur du premier contrôle, reste
 dans celui du second, et le moteur la relit toujours à chaque appel.
 
-**Le cas payé, et la seule réparation qui était licite.** Le lot 043 a fait lire
-`DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK` **par son nom** dans `sim/engine.py`,
-alors que le monde d'épreuve n'avait pas de `shared_length_m` sur ses arêtes :
-la constante y était inerte, et le contrôle est resté **rouge sur `master`**
-pendant quatre jours — le brief 043 l'avait prévu et le lot a fusionné ainsi.
+**Le cas payé, et la seule réparation licite.** Lue **par son nom** dans
+`sim/engine.py`, alors que le monde d'épreuve n'avait pas de `shared_length_m`
+sur ses arêtes, `DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK` y était inerte, et le
+contrôle restait **rouge**.
 
-Le micro-lot 043-bis l'a réparé le 2026-08-30, et **la façon dont il l'a fait
-est la leçon** : il n'a ni relâché l'assertion, ni retiré la constante du
-dénominateur. Il a donné au monde d'épreuve de quoi **exercer les deux
+La réparation n'a ni relâché l'assertion, ni retiré la constante du
+dénominateur : elle donne au monde d'épreuve de quoi **exercer les deux
 chemins** — une longueur de frontière sur une arête, pour le débit au
 kilomètre ; aucune longueur sur l'autre, plus un vrai besoin de commerce au
 bout, pour le repli plat. Une première tentative n'ajoutant que la longueur
 avait laissé le contrôle rouge, cette fois sur le repli devenu inerte : la
 preuve que le chemin doit être *emprunté*, pas seulement *présent* (règle 7).
 
-Ce que cela dicte à tout lot suivant : une constante qui gouverne une donnée de
+Ce que cela dicte : une constante qui gouverne une donnée de
 carte **absente** du monde d'épreuve ne se lit jamais par son nom dans
 `sim/engine.py`. Elle se lit par une fonction de `sim/constants.py`. Élargir le
 monde d'épreuve n'est licite que si la donnée y a un sens et si les deux

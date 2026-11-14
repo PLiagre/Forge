@@ -6,10 +6,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace Forge.Pont {
-    // Lot #526 : le joueur survole une cellule et lit sa fiche. Puissance, maison et villes viennent de la carte servie
+    // Le joueur survole une cellule et lit sa fiche. Puissance, maison et villes viennent de la carte servie
     // (`/carte`, déjà lue par CarteDessinee) ; habitants, faim et dette viennent de `/monde`, relu toutes les
     // `PERIODE_LECTURE_S` hors du fil principal, avec la maison du joueur, nulle tant qu'elle n'est pas servie.
-    // Lot #929 : la fiche écrit le nom servi du bourg (`NomsDesTerres`, rang 0 de `/lieu`) et la date du monde, plus le tick ni l'identifiant ;
+    // La fiche écrit le nom servi du bourg (`NomsDesTerres`, rang 0 de `/lieu`) et la date du monde, plus le tick ni l'identifiant ;
     // le nom arrive après le survol, « Bourg en lecture » d'abord, et `Pas` réécrit la fiche quand il change.
     // Rien n'est calculé ici : une puissance ou une maison que le monde ne nomme pas se déclare, une faim non calculée (-1) aussi, un monde absent aussi.
     // Le survol vient de `SurvolDeCarte` (la souris) ou d'une épreuve ; hors de toute cellule, la fiche se cache.
@@ -85,7 +85,7 @@ namespace Forge.Pont {
             return s.ToString();
         }
 
-        // Lot #910 — la même terre écrite en noms : le bourg déjà lu (`NomsDesTerres`, rang 0), la date servie, des jours et des masses.
+        // La même terre écrite en noms : le bourg déjà lu (`NomsDesTerres`, rang 0), la date servie, des jours et des masses.
         // Ni identifiant ni tick, même dans une absence ; une faim ou une dette à -1 reste « non calculée », 0 est une mesure. Rien n'est lu ici.
         public static string Decrire(CelluleDeCarte c, Lecture<MondeLu> monde, string nomDuBourg) {
             string id = Entier(c.CellId);

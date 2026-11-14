@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace Forge.Pont.Tests {
-    // Lot #547 — la carte servie se pose cellule par cellule, à la couleur de sa puissance ; sans carte, le
+    // La carte servie se pose cellule par cellule, à la couleur de sa puissance ; sans carte, le
     // message et rien d'autre. L'attendu vient de la fixture, lue par ClientCarte puis Mailler.
     public sealed class CarteDessineeTests {
         private const int DELAI_MAX_PAS_MS = 100, ATTENTE_LECTURE_MS = 20000, LENTEUR_MS = 2000;
@@ -121,7 +121,7 @@ namespace Forge.Pont.Tests {
             Assert.Less(montre.ElapsedMilliseconds, DELAI_MAX_PAS_MS, "le pas a attendu le service");
             Assert.IsTrue(carte.LectureEnVol);
         }
-        // Lot #548 — contours, noms et caméra, avec ou sans caméra donnée. L'attendu : la carte lue par ClientCarte, l'origine de Mailler, et la conversion écrite ici.
+        // Contours, noms et caméra, avec ou sans caméra donnée. L'attendu : la carte lue par ClientCarte, l'origine de Mailler, et la conversion écrite ici.
         private CarteLue Lue(out PointCarte origine) {
             LectureCarte lecture; using (var client = new ClientCarte(port, ClientCarte.DelaiMinimal)) lecture = client.Lire();
             Assert.IsTrue(lecture.Presente, lecture.Absence); Interlocked.Exchange(ref requetes, 0); origine = MaillageDeCarte.Mailler(lecture.Carte).Origine; return lecture.Carte;
@@ -163,7 +163,7 @@ namespace Forge.Pont.Tests {
         [Test] public void Chaque_ville_servie_a_son_nom() { Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Lire(1); Noms(lue, o);
             Assert.IsNull(objet.GetComponentInChildren<Text>(), "un Text d'UI actif sous la carte");
         }
-        // Lot #625 — la conversion exposée est celle des noms : rien avant la pose, la place de chaque nom posé ensuite.
+        // La conversion exposée est celle des noms : rien avant la pose, la place de chaque nom posé ensuite.
         [Test] public void La_position_sur_la_carte_est_celle_des_noms() {
             Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Assert.IsNull(carte.PositionSurLaCarte(o, CarteDessinee.HAUTEUR_NOM), "une position avant la pose");
             Lire(1); Transform noms = objet.transform.Find("Villes de la carte"); int i = 0;
@@ -207,7 +207,7 @@ namespace Forge.Pont.Tests {
                 Contours(lue, o); Noms(lue, o); // avec une caméra donnée aussi, la carte trace ses bords et nomme ses villes
             } finally { UnityEngine.Object.DestroyImmediate(donnee.gameObject); }
         }
-        // Lot #524 — la caméra créée montre la vue que le joueur glisse et zoome, sans sortir de la carte servie.
+        // La caméra créée montre la vue que le joueur glisse et zoome, sans sortir de la carte servie.
         [Test] public void La_camera_de_la_carte_suit_la_vue_sans_sortir_de_la_carte() {
             Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
             Camera cam = carte.camera; cam.aspect = 16f / 9f; carte.Pas(2);

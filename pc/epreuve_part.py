@@ -1,4 +1,4 @@
-"""Juge pur des deux essais de part #659 et son lanceur PC (#764) : 0 égalité, 1 écart, 2 impossible.
+"""Juge pur des deux essais de part et son lanceur PC : 0 égalité, 1 écart, 2 impossible.
 
     py pc\\epreuve_part.py --sortie D [--part-forte P] [--part-faible P] [--unity CHEMIN]
 """
@@ -113,7 +113,7 @@ def juger(forte, faible, departs, relu_forte, relu_faible, part_forte, part_faib
     return (EGALITE if all(egaux) else ECART), lignes
 
 
-# Le lanceur (#764) : un service neuf en pause par essai, forte puis faible ; Unity joue le curseur, la confirmation et
+# Le lanceur : un service neuf en pause par essai, forte puis faible ; Unity joue le curseur, la confirmation et
 # le temps, Python ne fait que lire. Les aides de lancement, d'arrêt et de verdict sont celles de l'épreuve de la capitale.
 CARTE, JALON1, JOUER = CAPITALE.CARTE, CAPITALE.JALON1, CAPITALE.JOUER
 _lancer_service, _arreter = CAPITALE._lancer_service, CAPITALE._arreter

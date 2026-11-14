@@ -5,7 +5,7 @@ déjà calculé (ici, la faim d'un lieu) et pose, dans le registre des
 modificateurs (`sim/modificateurs.py`), une pose datée que `expirer` ôtera
 seule. La faim, elle, tue toujours par la dette (`engine._apply_mortality`).
 
-Un événement à choix (`data/evenements.toml`, décision 41) naît d'une cause du
+Un événement à choix (`data/evenements.toml`) naît d'une cause du
 monde, lue au mois sur le registre des modificateurs, et attend la réponse de sa
 maison : une intention, du joueur ou de l'IA, par le même chemin
 (`intentions.RepondreEvenement`). Sans réponse au bout de son délai, le choix

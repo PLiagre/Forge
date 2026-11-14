@@ -11,11 +11,11 @@ using Object = UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Lot 527 : l'épreuve de la carte, côté Unity. `pc/epreuve_carte.py` a lancé le service et lu `/carte` et `/monde` ;
+    // L'épreuve de la carte, côté Unity. `pc/epreuve_carte.py` a lancé le service et lu `/carte` et `/monde` ;
     //   Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveCarte.Jouer -forgeEpreuve <rapport.json>
     //         [-forgeCell C] [-forgeEpreuveRetirer]
     // ouvre la scène de la carte en Play, attend qu'elle soit posée, survole la cellule C (le milieu du plus grand triangle
-    // de son dessin), attend que la fiche ait lu le monde, puis le nom servi de son bourg (#929 : au plus ATTENTE_MONDE_S ;
+    // de son dessin), attend que la fiche ait lu le monde, puis le nom servi de son bourg (au plus ATTENTE_MONDE_S ;
     // un nom qui n'arrive pas laisse partir le rapport tel quel, le juge le refuse), puis écrit un rapport : les cellules posées et servies, la
     // cellule survolée, le texte de la fiche et le tick du monde lu. Il ne juge rien : le verdict est celui du script, qui
     // compare au service. Une carte qui ne se pose pas (le monde ne répond pas) se rapporte telle quelle, avec son message.

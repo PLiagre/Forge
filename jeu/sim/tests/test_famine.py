@@ -1,8 +1,8 @@
-"""Lot #1029 : la famine, premier événement du monde, pose ses modificateurs au lieu qui a faim.
+"""La famine, premier événement du monde, pose ses modificateurs au lieu qui a faim.
 
 Un lieu dont la faim dépasse `FAIM_AVANT_SECOURS_JOURS` reçoit la pose « Famine »
 (−50 % de natalité, source `evenement:famine`), prolongée chaque jour de faim et
-effacée 365 jours après le dernier. Réponse A du propriétaire, 10 novembre 2026.
+effacée 365 jours après le dernier.
 Chaque preuve a sa contre-épreuve : une fausse règle fait échouer la vérification.
 """
 import copy
@@ -67,8 +67,8 @@ def _verifier_au_jour_dit(monde, atteint):
 
 @pytest.fixture(scope="module")
 def monde_de_soixante_ticks():
-    # Lot #1071 : sous l'appel des villes affamées, le monde de 1400 n'a plus faim en 60 ticks ; cette
-    # épreuve de la famine se joue sous le commerce d'avant (décision A de la direction, 13 novembre 2026).
+    # Sous l'appel des villes affamées, le monde de 1400 n'a plus faim en 60 ticks ; cette
+    # épreuve de la famine se joue sous le commerce d'avant.
     with pytest.MonkeyPatch.context() as m:
         couper_l_appel_des_villes(m)
         monde = World.charger(rng_seed=0)
@@ -89,7 +89,7 @@ def test_la_famine_est_posee_au_jour_dit_et_seulement_avec_la_faim(monde_de_soix
                 M.poser(monde, "famine", "evenement:famine", {"lieu": [cid, lieu.rang]}, donnees)
         return []
 
-    couper_l_appel_des_villes(monkeypatch)  # lot #1071 : la contre-épreuve se joue sous le même commerce
+    couper_l_appel_des_villes(monkeypatch)  # la contre-épreuve se joue sous le même commerce
     monkeypatch.setattr(evenements, "poser_les_famines", sans_regarder_la_faim)
     faux = World.charger(rng_seed=0)
     with pytest.raises(AssertionError):
@@ -320,7 +320,7 @@ def test_la_famine_coupee_est_ce_qui_garde_les_octets_d_avant(monde_de_soixante_
     # Sans coupure, 60 ticks de la graine 0 laissent au moins une pose.
     monde, _ = monde_de_soixante_ticks
     assert _famines(monde)
-    # Avec `couper_la_famine`, le même monde n'en porte aucune (sous le commerce d'avant, lot #1071, comme le monde ci-dessus).
+    # Avec `couper_la_famine`, le même monde n'en porte aucune (sous le commerce d'avant, comme le monde ci-dessus).
     couper_l_appel_des_villes(monkeypatch)
     couper_la_famine(monkeypatch)
     coupe = World.charger(rng_seed=0)

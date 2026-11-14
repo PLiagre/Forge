@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Forge.Pont
 {
-    // Lot #961 — le niveau de détail des effets de la capitale dense : une vue, jamais une règle du monde ; n'agit que si `OptimisationsDeLaVille.Actives`.
+    // Le niveau de détail des effets de la capitale dense : une vue, jamais une règle du monde ; n'agit que si `OptimisationsDeLaVille.Actives`.
     // `EffetsDeMaison` décide si une maison fume et s'éclaire ; ce composant décide seulement si on le montre : il coupe une lampe voulue
     // (intensité > 0) sans toucher à son intensité, et met en pause une fumée sans l'arrêter. Il rend tout ce qu'il a pris en se désactivant.
     public sealed class EffetsAuLoin : MonoBehaviour

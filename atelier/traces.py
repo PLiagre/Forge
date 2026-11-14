@@ -3,10 +3,9 @@
 Le relecteur doit nommer l'erreur d'un contrôle rouge : son prompt le lui
 demande (`backends.prompt_du_role`). Il ne pouvait pas la lire. `gh api`
 lui reste refusé, parce que la même commande sait aussi écrire. Et
-`gh run view --log` rend zéro ligne avec le code 0 sur le gh 2.45 du VPS,
-mesuré le 16 septembre 2026 sur le run 35060735773 : un outil qui se tait
-ressemble à un journal vide. Le relecteur de la PR 15 a donc demandé la
-trace au propriétaire, et la carte est tombée sans cause lisible.
+`gh run view --log` rend zéro ligne avec le code 0 sur le gh 2.45 du VPS :
+un outil qui se tait
+ressemble à un journal vide, et la carte tomberait sans cause lisible.
 
 Ce module fait une seule lecture : le journal d'un travail, à une adresse
 qu'il construit lui-même depuis la table de `gh pr checks`. L'agent donne

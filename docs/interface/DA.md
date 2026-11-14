@@ -1,12 +1,12 @@
-# Direction artistique de l’interface — validée le 14 octobre 2026
+# Direction artistique de l’interface
 
-Révisée le 28 octobre 2026 : le cadre passe à la pierre, au bois brûlé et au métal patiné ; voir « [Révision du 28 octobre 2026](#révision-du-28-octobre-2026--pierre-bois-brûlé-registre) ». Ce qui n’y est pas changé reste valide.
+Le cadre est de pierre, de bois brûlé et de métal patiné ; voir « [Pierre, bois brûlé, registre](#pierre-bois-brûlé-registre) ». Ce qui n’y est pas changé reste valide.
 
-Lecture du 14 octobre 2026 : les 108 PNG de `docs/direction-artistique/`, examinés dans les douze planches réduites ci-dessous. Dossier confirmé par le propriétaire. Concepts de niveau 2, sans valeur de source historique ni de capture du jeu ; les scènes après 1500 nourrissent les matières, pas le périmètre du premier siècle.
+Les 108 PNG de `docs/direction-artistique/` sont examinés dans les douze planches réduites ci-dessous. Concepts de niveau 2, sans valeur de source historique ni de capture du jeu ; les scènes après 1500 nourrissent les matières, pas le périmètre du premier siècle.
 
 ## Cinq principes
 
-1. **Le territoire reste le sujet.** Une carte plein cadre et plusieurs dossiers visibles simultanément, selon le choix du propriétaire ; profondeur et chemins de `01_scenes/seigneurie_1400.png`. Les documents se rangent sur les côtés sans effacer leurs voisins.
+1. **Le territoire reste le sujet.** Une carte plein cadre et plusieurs dossiers visibles simultanément, profondeur et chemins de `01_scenes/seigneurie_1400.png`. Les documents se rangent sur les côtés sans effacer leurs voisins.
 2. **Le pouvoir a un visage et une matière.** Portrait proche, laine, bois, encre ; `03_personnages/seigneuresse_1400.png` et `08_institutions/conseil_1500.png`. Or discret, aucune armure décorative autour de chaque bouton.
 3. **Une quantité renvoie à quelque chose de physique.** Sacs, charrettes, destinations ; `07_transports/grenier_1500.png` et `charrette_1400.png`. Montrer stock, trajet et destinataire plutôt qu’un bonus abstrait.
 4. **La lumière guide le regard.** Surfaces mates, accents rares ; `06_production/forge_1450.png`. La cire marque une décision importante ; elle ne clignote pas.
@@ -26,15 +26,15 @@ Lecture du 14 octobre 2026 : les 108 PNG de `docs/direction-artistique/`, examin
 | accord | `#405444` | Confirmation accompagnée de son libellé |
 
 Titres : serif humaniste, candidate Noto Serif ; corps et chiffres : sans serif, candidate Noto Sans, chiffres tabulaires si disponibles. Ce sont des choix proposés, pas des fontes présentes : vérifier licence, accents et rendu Unity avant intégration. Aucun gothique pour lire une décision. À 1080p : corps 18 px, titres 28 px, commandes 44 px de haut ; grille d’espacement 4/8/16/24/32 px, texte agrandissable à 150 %. Ces mesures règlent la présentation, jamais le monde.
-Carte visible sur au moins deux tiers de la largeur au repos. Bande haute : maison, date reçue, pause et vitesse ; accès aux dossiers sur le bord ; lieux et décisions peuvent rester ouverts côte à côte. Chaque dossier conserve sa sélection ; ouvrir l’un ne ferme pas l’autre. À petite définition, réduire les dossiers en onglets explicites plutôt que les superposer sans contrôle. Papier clair sur cadre sombre et ornements discrets validés par le propriétaire.
+Carte visible sur au moins deux tiers de la largeur au repos. Bande haute : maison, date reçue, pause et vitesse ; accès aux dossiers sur le bord ; lieux et décisions peuvent rester ouverts côte à côte. Chaque dossier conserve sa sélection ; ouvrir l’un ne ferme pas l’autre. À petite définition, réduire les dossiers en onglets explicites plutôt que les superposer sans contrôle. Papier clair sur cadre sombre et ornements discrets validés.
 Les panneaux évoquent des feuillets posés : papier peu grainé, filet fin, ombre courte, onglet de tissu ; sceau réservé aux engagements. En bataille, commandes basses et terrain dégagé. Les portraits portent les différences culturelles ; les cadres restent lisibles et sobres.
 Icônes : silhouettes simples de sac, route, maison, arbre familial, bannière et livre, toujours nommées. Les blasons du corpus enseignent le contraste et la silhouette ; ils ne sont ni une police d’icônes ni les armoiries historiques du jeu. Alpha des originaux héraldiques à reprendre avant réemploi (réserve du catalogue).
 Transitions : glissement court et fondu de 160 ms proposés, désactivables ; ouverture sans animation en mouvement réduit. Sons suggérés : froissement sec, bois posé, cire pressée ; volume séparé et aucune information donnée seulement par le son. Textes : « Ouvrir le grenier », « Ordre reçu », « Le monde ne répond pas » ; cause concrète, unités, aucune fausse certitude.
 Interdits : tableur permanent, fenêtres génériques empilées, néon, dorure omniprésente, texture sous petit texte, couleur seule pour distinguer un état, portrait fictif présenté comme historique, nombre remplacé par zéro quand la donnée manque.
 
-## Révision du 28 octobre 2026 — pierre, bois brûlé, registre
+## Pierre, bois brûlé, registre
 
-Demandée par le propriétaire : une interface **sombre, gothique et médiévale**, dans l’atmosphère d’un monde de fer et de pierre à la manière de Warhammer Fantasy. Cette référence donne une ambiance, rien d’autre : aucun de ses logos, de ses signes reconnaissables, de ses lettrages ni de ses assets n’entre dans Forge. Les lots qui la portent sont écrits dans [CAP.md](../../CAP.md), « La langue visuelle ».
+Une interface **sombre, gothique et médiévale**, dans l’atmosphère d’un monde de fer et de pierre à la manière de Warhammer Fantasy. Cette référence donne une ambiance, rien d’autre : aucun de ses logos, de ses signes reconnaissables, de ses lettrages ni de ses assets n’entre dans Forge.
 
 **Ce qui reste.** Les cinq principes ci-dessus ; la carte plein cadre et les dossiers simultanés ; la lecture sur papier clair (`papier` reste `#E8DDC9`, et Noto Serif / Noto Sans restent les polices : les tests du socle les vérifient) ; corps 18 px, titres 28 px, commandes 44 px ; aucune lettre brisée pour lire une décision, un nom de lieu ou un nombre ; jamais la couleur seule pour dire un état.
 
@@ -42,7 +42,7 @@ Demandée par le propriétaire : une interface **sombre, gothique et médiévale
 
 ### Jetons ajoutés
 
-Les huit jetons du 14 octobre sont gardés tels quels. Le socle en ajoute sept ; un écran n’en invente aucun.
+Les huit jetons de la palette ci-dessus sont gardés tels quels. Le socle en ajoute sept ; un écran n’en invente aucun.
 
 | Jeton | Hex | Rôle | Contraste mesuré |
 |---|---|---|---|
@@ -56,12 +56,12 @@ Les huit jetons du 14 octobre sont gardés tels quels. Le socle en ajoute sept ;
 
 Seuils, vérifiés par le contrôle du socle : **4,5:1** pour tout texte, **3:1** pour un trait ou un signe qui porte un état. Les couleurs des maisons et des calques sont des données servies : le thème garde leur teinte et ne les remplace jamais par un jeton ; il les présente en pigment mat (ci-dessous) et les encadre.
 
-**Le pigment d’atlas** (décidé le 28 octobre par le propriétaire, sur la passe du 21 octobre, [ATLAS.md](ATLAS.md)) : sur la carte, la couleur servie d’une maison garde sa teinte à moins de 15° près ; sa saturation passe à 38 %, sa valeur entre 0,53 et 0,61, puis 16 % de `papier` la patine. Une seule fonction le fait, `SocleInterface.Pigment`, et son test échoue si un pigment change de teinte. La mer est le jeton du socle `mer` (`#384A4D`), hors des sept ajoutés plus haut : c’est le fond de la carte, pas un état.
+**Le pigment d’atlas** ([ATLAS.md](ATLAS.md)) : sur la carte, la couleur servie d’une maison garde sa teinte à moins de 15° près ; sa saturation passe à 38 %, sa valeur entre 0,53 et 0,61, puis 16 % de `papier` la patine. Une seule fonction le fait, `SocleInterface.Pigment`, et son test échoue si un pigment change de teinte. La mer est le jeton du socle `mer` (`#384A4D`), hors des sept ajoutés plus haut : c’est le fond de la carte, pas un état.
 
 ### La hiérarchie d’un registre
 
 - **La rubrique** : le titre d’un dossier, Noto Serif en capitales espacées, en `sang` sur papier ou en `papier` sur pierre ; un filet double de `metal` dessous.
-- **La ligne de compte** : le libellé à gauche, le nombre servi à droite en chiffres alignés, son unité, et la date du tick reçu en pied de feuillet. Absence, attente et lecture périmée gardent leurs états d’UI-02.
+- **La ligne de compte** : le libellé à gauche, le nombre servi à droite en chiffres alignés, son unité, et la date du tick reçu en pied de feuillet. Absence, attente et lecture périmée gardent leurs états propres.
 - **La note en marge** : la cause, la raison d’une maison, la source ; `secondaire`, plus petite, jamais seule porteuse d’un nombre.
 - **Le sceau** : la cire `sang` marque un engagement (part, grenier, mariage, guerre, emprunt) et lui seul ; il ne décore pas.
 - **Les séparateurs** : un filet de métal, un losange au centre au plus ; pas de rinceaux, pas de chaînes, pas de pointes autour des boutons.
@@ -77,7 +77,7 @@ Seuils, vérifiés par le contrôle du socle : **4,5:1** pour tout texte, **3:1*
 | inactif | `metal`, texte atténué gardant 4,5:1 | la raison de l’inactivité, au survol |
 | attente | filet pointillé | « En attente du monde » |
 | reçu / appliqué | `vert-de-gris` sur pierre | « Ordre reçu », puis l’effet publié |
-| refus / panne | `sang` | mot, signe et cause d’UI-02 |
+| refus / panne | `sang` | mot, signe et cause |
 | alerte | bandeau `sang` sur pierre | mot et signe ; elle ne clignote pas |
 
 **L’infobulle** est un petit feuillet de papier au filet de cuivre : le nom de ce qu’on survole, ses valeurs servies avec leur unité et leur tick. Elle ne cache jamais l’objet qu’elle décrit, reste entière dans l’écran à 1280 × 720, et n’apporte aucun nombre qu’un dossier ne puisse montrer.
@@ -86,7 +86,7 @@ Seuils, vérifiés par le contrôle du socle : **4,5:1** pour tout texte, **3:1*
 
 ### Interdits ajoutés
 
-Crânes, aigles bicéphales, comètes, marteaux ou épées en emblème, lettrages qui imitent le logo d’une licence ; pointes, chaînes et rivets autour de chaque commande ; parchemin brûlé ou taché sous le texte ; noir pur ; rouge à tout faire ; sang, flammes ou fumées animées dans l’interface ; tout fichier, police ou motif d’une licence tierce. Les matières se génèrent dans le dépôt, sans l’aléa du monde, comme celles du 18 octobre ([MATIERES.md](MATIERES.md)).
+Crânes, aigles bicéphales, comètes, marteaux ou épées en emblème, lettrages qui imitent le logo d’une licence ; pointes, chaînes et rivets autour de chaque commande ; parchemin brûlé ou taché sous le texte ; noir pur ; rouge à tout faire ; sang, flammes ou fumées animées dans l’interface ; tout fichier, police ou motif d’une licence tierce. Les matières se génèrent dans le dépôt, sans l’aléa du monde, comme les autres ([MATIERES.md](MATIERES.md)).
 
 ### Références du corpus
 

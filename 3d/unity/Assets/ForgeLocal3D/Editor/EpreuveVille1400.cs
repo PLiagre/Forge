@@ -10,7 +10,7 @@ using static System.FormattableString;
 
 namespace ForgeLocal3D
 {
-    // Lot 739 : la session Unity de l'épreuve de la ville de 1400, moitié Unity du verdict `pc/epreuve_ville1400.py` (#412).
+    // La session Unity de l'épreuve de la ville de 1400, moitié Unity du verdict `pc/epreuve_ville1400.py`.
     // `Jouer` et `Relancer` (sur un service neuf) ouvrent quatre villes en Play et relèvent ce qui est posé sous la racine
     // des maisons, sans rien comparer. `-forgeSauter` / `-forgeAjouter` faussent le relevé. Codes : 0, 1 un défaut, 2 arguments.
     [InitializeOnLoad]
@@ -116,7 +116,7 @@ namespace ForgeLocal3D
                     r.empreinte = string.Concat(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Concat(lignes.Select(l => l + "\n")))).Select(o => o.ToString("x2")));
                 r.tick = outil.TickOuverture; r.foyers = outil.Maisons.Foyers; r.posees = outil.Maisons.Posees; r.absence = outil.Maisons.Absence ?? "";
                 r.refus = outil.Maisons.Refus.ToArray(); r.rues_dessinees = outil.Rues1400.Dessinees; r.empreinte_rues = outil.Rues1400.Empreinte;
-                // Une mesure de la session, pas la preuve des 60 images par seconde (#422).
+                // Une mesure de la session, pas la preuve des 60 images par seconde.
                 ville.Poser(Vector3.zero, 40f, 68f, Mathf.Max(60f, 2f * loin)); outil.Placer();
                 double somme = 0; for (int i = 0; i < AVANT; i++) yield return null;
                 for (int i = 0; i < IMAGES; i++) { yield return null; somme += Time.unscaledDeltaTime; }

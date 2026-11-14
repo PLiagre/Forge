@@ -1,4 +1,4 @@
-"""L'épreuve du jalon 1 : le panneau d'Unity égale la photographie de sim/ (lot #121).
+"""L'épreuve du panneau de lieu : le panneau d'Unity égale la photographie de sim/.
 
     py pc\\epreuve_jalon1.py --sortie D [--seed S] [--ticks N] [--cellule C] [--decalage K] [--unity CHEMIN]
 

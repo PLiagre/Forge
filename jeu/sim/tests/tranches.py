@@ -1,11 +1,10 @@
 """Le partage des tests du moteur entre les tranches de la CI, d'après leurs durées.
 
-Jusqu'au 11 octobre 2026, les tests se distribuaient à tour de rôle dans l'ordre de collecte :
-la tranche 3 finissait en 14 min, les deux autres en 1 h 20, et chaque PR attendait la plus
-lente. Le partage suit maintenant les durées que la CI a mesurées (`durees.json`) : le test le
-plus long d'abord, dans la tranche la moins chargée, et ainsi de suite.
+Un partage à tour de rôle dans l'ordre de collecte laisse une tranche finir bien avant les
+autres, et chaque PR attend la plus lente. Le partage suit donc les durées que la CI a mesurées
+(`durees.json`) : le test le plus long d'abord, dans la tranche la moins chargée, et ainsi de suite.
 
-Un test absent de `durees.json` (un lot l'a ajouté depuis la mesure) compte pour la durée
+Un test absent de `durees.json` (ajouté depuis la mesure) compte pour la durée
 médiane des tests mesurés : il trouve sa place comme les autres, et aucun ne se perd.
 
 Chaque tranche refait le même calcul sur la même collecte et le même fichier : elles tombent

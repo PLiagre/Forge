@@ -2,13 +2,12 @@
 
 Au 1er janvier 1400, les greniers des foyers portent ce qui reste de la
 récolte de 1399, de quoi manger jusqu'à la moisson (`JOUR_DE_LA_MOISSON`,
-`jours_de_soudure`, `sim.world._seed_food_stock`). La preuve du lot (CAP.md,
-jalon 5) : graine 0, sans joueur, l'IA active, au 365e jour, aucune cellule
-de la table de référence du jalon 2 ne perd plus de la moitié de ses habitants
+`jours_de_soudure`, `sim.world._seed_food_stock`). La preuve : graine 0,
+sans joueur, l'IA active, au 365e jour, aucune cellule de la table de
+référence ne perd plus de la moitié de ses habitants
 par la faim. Contre-épreuve : la réserve de cinq jours d'avant la fait échouer.
 
-Mesuré le 7 novembre 2026 (docs/mesures/2026-11-07-refonte, section 1) : la
-pire cellule de la table, Gand et Bruges, perd 47 % de ses habitants par la
+La pire cellule de la table, Gand et Bruges, perd 47 % de ses habitants par la
 faim au 365e jour ; avec cinq jours, Paris en perd 89 % dès le 90e.
 """
 import random
@@ -26,7 +25,7 @@ PART_MORTE_DE_FAIM_MAXIMALE = 0.5
 
 
 def _cellules_de_la_table(monde):
-    """Chaque cellule que place la table du jalon 2 (points, régions), avec ses noms."""
+    """Chaque cellule que place la table de référence (points, régions), avec ses noms."""
     reference = lire_reference()
     noms = {}
     for bloc in ("points_connus", "points", "declares"):
@@ -68,7 +67,7 @@ def _jouer_sans_joueur(monkeypatch, ticks):
 
 def _mortes_de_faim(table, depart, morts):
     """Les cellules de la table qui ont perdu plus de la moitié de leurs habitants par la faim."""
-    assert table, "échantillon vide : la table du jalon 2 ne place aucune cellule"
+    assert table, "échantillon vide : la table de référence ne place aucune cellule"
     assert all(depart[cid] > 0 for cid in table), "une cellule de la table part sans habitant"
     return sorted((round(morts[cid] / depart[cid], 4), cid, table[cid][0]) for cid in table
                   if morts[cid] / depart[cid] > PART_MORTE_DE_FAIM_MAXIMALE)

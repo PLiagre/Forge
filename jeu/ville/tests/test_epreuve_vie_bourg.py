@@ -1,10 +1,10 @@
-"""Juge et lanceur de l'épreuve de la vie du bourg (#782). Les deux rapports versés sont relus tels quels, mutés en mémoire seulement ; la référence vient d'un vrai service d'épreuve, graine 0."""
+"""Juge et lanceur de l'épreuve de la vie du bourg. Les deux rapports versés sont relus tels quels, mutés en mémoire seulement ; la référence vient d'un vrai service d'épreuve, graine 0."""
 import copy, importlib.util, json, re
 from pathlib import Path
 import pytest
 RACINE = Path(__file__).resolve().parents[3]
-M782 = RACINE / "docs/mesures/782-epreuve-vie-bourg"
-lu = lambda nom: json.loads((M782 / f"rapport-{nom}.json").read_text(encoding="utf-8-sig"))  # noqa: E731
+DONNEES = RACINE / "jeu/ville/tests/donnees/epreuve-vie-bourg"
+lu = lambda nom: json.loads((DONNEES / f"rapport-{nom}.json").read_text(encoding="utf-8-sig"))  # noqa: E731
 @pytest.fixture(scope="module")
 def epreuve():
     assert (chemin := RACINE / "pc/epreuve_vie_bourg.py").is_file(), f"fichier introuvable : {chemin}"

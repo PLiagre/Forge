@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #376 — un point posé au sol et une nature donnent la parcelle sous le point et l'intention
+    // Un point posé au sol et une nature donnent la parcelle sous le point et l'intention
     // `poser_batiment`, ou une absence déclarée. P0, P1 et P2 sont les trois contours d'exemple de MODELE.
     public sealed class PoseDeBatimentTests
     {

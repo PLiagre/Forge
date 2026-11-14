@@ -37,7 +37,7 @@ namespace Forge.Interface.Tests
             }
             finally { UnityEngine.Object.DestroyImmediate(parent); }
         }
-        // Lot 655 : la part, le grenier et les absences déclarées, puis la relecture au tick publié.
+        // La part, le grenier et les absences déclarées, puis la relecture au tick publié.
         static readonly string Complet = Document.Replace("\"suzerain\":null,", "\"suzerain\":null,\"part\":0.25,\"grenier\":{\"nourriture\":1234.5,\"bois\":0},");
         static string D(string json) => DossierMaison.Decrire(new DocumentDuMonde(json), null, Temoin);
         static string Absent(string champ, string valeur) => Complet.Replace(valeur, "\"" + champ + "\":null,")
@@ -100,7 +100,7 @@ namespace Forge.Interface.Tests
             }
             finally { UnityEngine.Object.DestroyImmediate(parent); }
         }
-        // Lot 889 : les terres par leur nom, la date servie, les masses en kg ou en t ; une absence qui montre un identifiant se tait.
+        // Les terres par leur nom, la date servie, les masses en kg ou en t ; une absence qui montre un identifiant se tait.
         static string R(string texte, string avant, string apres) { string change = texte.Replace(avant, apres); Assert.AreNotEqual(texte, change, avant); return change; }
         const string Masque = "TexteDuMonde : absence déclarée par le monde : ", Tu = "déclaré absent par le monde";
         [Test] public void Les_comptes_disent_les_terres_par_leur_nom_la_date_et_les_tonnes()

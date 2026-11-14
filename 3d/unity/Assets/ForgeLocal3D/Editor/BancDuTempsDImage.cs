@@ -10,12 +10,12 @@ using UnityEngine.Rendering.Universal;
 
 namespace ForgeLocal3D
 {
-    // Lot #958 — le banc du temps d'image : combien de millisecondes coûte une image vue d'une caméra posée,
+    // Le banc du temps d'image : combien de millisecondes coûte une image vue d'une caméra posée,
     // rendue en 1920 × 1080 sans synchronisation ni plafond, résumée en médiane, 95e centile et maximum.
     // Usage, depuis un scénario de capture (un `yield return` d'un autre IEnumerator ne l'exécuterait pas) :
     //     var m = BancDuTempsDImage.Mesurer(camera, 60, 300, r => releve = r); while (m.MoveNext()) yield return null;
     // Le banc rend lui-même la caméra à chaque image et attend la fin du rendu : en batch, l'éditeur ne rend pas
-    // la vue du jeu, et #739 mesurait ainsi 0,226 ms par image (le vide). Il ne touche ni `camera.targetTexture`
+    // la vue du jeu, et une mesure sans ce rendu ne compterait que le vide. Il ne touche ni `camera.targetTexture`
     // ni la pose de la caméra.
     [Serializable]
     public sealed class ReleveDuBanc
@@ -31,9 +31,9 @@ namespace ForgeLocal3D
     public static class BancDuTempsDImage
     {
         const int LARGEUR = 1920, HAUTEUR = 1080, CHAUFFE = 60, IMAGES = 300, IMAGES_DE_POSE = 10;
-        const string RAPPORT = "lot958-banc.json";
+        const string RAPPORT = "banc-du-temps-d-image.json";
         // Le témoin de la contre-épreuve : la même boucle, sans rendu ; l'image doit alors ne presque rien coûter.
-        public const string SANS_RENDU = "-forge958SansRendu";
+        public const string SANS_RENDU = "-forgeBancSansRendu";
 
         [Serializable]
         sealed class SuiteDuRapport { public string camera, contre_epreuve, defaut; public bool optimisations; }
@@ -111,9 +111,9 @@ namespace ForgeLocal3D
             return "";
         }
 
-        // Mesure la caméra de la scène, sans la déplacer, puis écrit `lot958-banc.json`. La photo qui suit doit être
+        // Mesure la caméra de la scène, sans la déplacer, puis écrit `banc-du-temps-d-image.json`. La photo qui suit doit être
         // le plan fixe : rien ne change à l'écran.
-        [ScenarioDeCapture(958, "banc")]
+        [ScenarioDeCapture("banc-du-temps-d-image", "banc")]
         static IEnumerator Banc(Camera camera)
         {
             string chemin = Path.Combine(Capture.DossierDesCaptures, RAPPORT);
@@ -127,7 +127,7 @@ namespace ForgeLocal3D
                 contre_epreuve = sansRendu ? SANS_RENDU.Substring(1) : "", defaut = Defaut(releve) };
             string rapport = JsonUtility.ToJson(releve).TrimEnd('}') + "," + JsonUtility.ToJson(suite).Substring(1);
             File.WriteAllText(chemin, rapport, new UTF8Encoding(false));
-            Debug.Log("CAPTURE_958 " + rapport);
+            Debug.Log("CAPTURE_BANC " + rapport);
             if (suite.defaut != "") throw new InvalidOperationException(suite.defaut);
             for (int i = 0; i < IMAGES_DE_POSE; i++)
                 yield return null;

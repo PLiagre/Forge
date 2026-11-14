@@ -1,4 +1,4 @@
-"""La cellule par défaut du lanceur se dérive de la carte (lot #120, SC1).
+"""La cellule par défaut du lanceur se dérive de la carte.
 
 Le numéro attendu n'est écrit nulle part : ce test le recalcule lui-même,
 indépendamment de `cellule_du_desert.choisir`.

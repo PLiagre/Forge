@@ -9,7 +9,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #292 — un faux service local rend le plan d'une cellule ; le client en relit
+    // Un faux service local rend le plan d'une cellule ; le client en relit
     // le tick et les rues telles quelles, ou rend une absence qui nomme sa cause.
     public sealed class ClientPlanTests
     {
@@ -24,7 +24,7 @@ namespace Forge.Pont.Tests
             + "{\"identifiant\":3,\"points\":[[-12.5,7.25],[0,0]],\"largeur_m\":2.5,\"en_chantier\":false}],"
             + "\"parcelles\":[],\"batiments\":[]}";
 
-        // Lot #360 — `PLAN_DEUX_RUES` avec deux parcelles et deux bâtiments, valide pour `sim/plan.py`,
+        // `PLAN_DEUX_RUES` avec deux parcelles et deux bâtiments, valide pour `sim/plan.py`,
         // aux travaux requis que `sim/chantiers.py` calcule pour ces surfaces. Le bâtiment 2 est sur la
         // parcelle 1 : un client qui lirait l'identifiant à la place de la parcelle rougit.
         private const string PLAN_BOURG =
@@ -310,7 +310,7 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentException>(() => LecturePlan.Absent(""));
         }
 
-        // Lot #360 — les parcelles et les bâtiments du plan.
+        // Les parcelles et les bâtiments du plan.
 
         // `ancien` paraît exactement une fois dans `source` : la faute porte sur l'élément voulu, et sur lui seul.
         private static string RemplacerUneFois(string source, string ancien, string nouveau)
@@ -518,7 +518,7 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentNullException>(() => new PlanLu(1, 0, rues, parcelles, null));
         }
 
-        // Lot #735 — la ville de 1400 servie sous `base`, en tête et dans l'ordre de clés du service.
+        // La ville de 1400 servie sous `base`, en tête et dans l'ordre de clés du service.
         private static readonly string PLAN_BASE = "{\"base\":{\"cell_id\":9922,\"maisons\":[{\"emprise\":[[10,10],[15,10],[15,18],[10,18]],\"foyers\":1},{\"emprise\":[[-30,5],[-20,5],[-20,25],[-30,25]],\"foyers\":12}],\"place\":[[-5,-5],[5,-5],[5,5],[-5,5]],\"rues\":[{\"largeur_m\":6,\"points\":[[5,0.5],[60,2.25]],\"sorte\":\"principale\",\"vers_cell_id\":9923},{\"largeur_m\":3.5,\"points\":[[0,5],[-2.5,40]],\"sorte\":\"ruelle\"}]}," + PLAN_DEUX_RUES.Substring(1);
 
         [Test]
@@ -564,7 +564,7 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(b.Maisons.Max(m => m.Emprise.Max(q => Math.Max(Math.Abs(q.X), Math.Abs(q.Y)))) == 69.186409, "plus grande coordonnée");
         }
 
-        // Lot #736 — les 33 maisons de Biskra regardent l'arête de façade mesurée sur le générateur.
+        // Les 33 maisons de Biskra regardent l'arête de façade mesurée sur le générateur.
         [Test]
         public void LaBaseDeBiskraSePoseFaceASesRues()
         {
@@ -641,7 +641,7 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentNullException>(() => new BaseDuPlan(points, new RueDeBase[0], null));
         }
 
-        // Lot #783 — PLAN_BOURG sous la base de PLAN_BASE : base.rues[0] suit les points de rues[1] mais vise 9923, rues[1] porte
+        // PLAN_BOURG sous la base de PLAN_BASE : base.rues[0] suit les points de rues[1] mais vise 9923, rues[1] porte
         // vers 10104. Le relevé donne l'identifiant 0 à une rue qui travaille, une parcelle achevée ce jour et un bâtiment arrêté.
         private static readonly string[][] PARCELLE_DU_JOUR = { new[] { "nature", "\"parcelle\"" }, new[] { "identifiant", "0" }, new[] { "bras", "1" }, new[] { "grain_paye_kg", "0.5" }, new[] { "motif_arret", "null" } };
         private static string Entree(string cle, string valeur) => "{" + string.Join(",", PARCELLE_DU_JOUR.Where(p => p[0] != cle || valeur != null).Select(p => "\"" + p[0] + "\":" + (p[0] == cle ? valeur : p[1]))) + "}";
@@ -755,7 +755,7 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(ancien.ChantiersDuJour == null && ancien.AbsenceDesChantiersDuJour != null && new RueDuPlan(0, points, 1, false).PorteCellId == null && new RueDeBase(points, 1, "ruelle").VersCellId == null);
         }
 
-        // Lot #904 — la Biskra murée en chantier que le service rend au tick 3 (`test_epreuve_enceinte.py`).
+        // La Biskra murée en chantier que le service rend au tick 3 (`test_epreuve_enceinte.py`).
         private static string Fixture(string nom) => System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/ForgeLocal3D/Pont/Tests/" + nom);
         private const string MUREE = "plan-biskra-enceinte-graine0-tick3.json", PORTE = "\"identifiant\":0,\"largeur_m\":4,\"point\":[-80.0,2.2],\"rue\":\"plan\"";
 
@@ -781,7 +781,7 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(c[0].Bras == 5 && c[0].GrainPayeKg == 15 && c[1].Bras == 1 && c[1].GrainPayeKg == 3);
         }
 
-        [Test] // Lot #925 — le contour servi devient 4 tours et 64 pans, aux piquets tant que la moitié du travail manque.
+        [Test] // le contour servi devient 4 tours et 64 pans, aux piquets tant que la moitié du travail manque.
         public void LaBiskraMureeSeDecoupe()
         {
             LecturePlan lecture = LireBiskra(Fixture(MUREE)); Assert.IsTrue(lecture.Presente, lecture.Absence);
@@ -790,7 +790,7 @@ namespace Forge.Pont.Tests
             Assert.AreEqual(EtapeDuBatiment.Piquets, PansDeLEnceinte.Etape(e));
         }
 
-        [Test] // Lot #926 — la rue du joueur passe le mur ouest : le pan 7 du côté 3 s'ouvre sur une porte tournée dehors.
+        [Test] // la rue du joueur passe le mur ouest : le pan 7 du côté 3 s'ouvre sur une porte tournée dehors.
         public void LaBiskraMureeOuvreSaPorte()
         {
             LecturePlan lecture = LireBiskra(Fixture(MUREE)); Assert.IsTrue(lecture.Presente, lecture.Absence); PlanLu p = lecture.Plan;

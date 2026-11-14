@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #374 — deux points posés au sol donnent la parcelle tracée le long d'une rue et son intention
+    // Deux points posés au sol donnent la parcelle tracée le long d'une rue et son intention
     // `decouper_parcelle`, ou une absence déclarée. La rue R0 est celle des exemples de MODELE.
     public sealed class TraceDeParcelleTests
     {

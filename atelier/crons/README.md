@@ -23,7 +23,7 @@ atelier/crons/atelier-boucle etat           # regarder
 ```
 
 L'installateur écrit `~/.atelier/config` (le dépôt, et l'identité git des
-commits de la chaîne, reprise de l'ancienne config), et remplace toute ligne de
+commits de la chaîne, reprise de la config existante), et remplace toute ligne de
 crontab qui appelait un ancien répartiteur.
 
 ## Les jetons

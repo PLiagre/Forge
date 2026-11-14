@@ -1,10 +1,10 @@
-"""Juge et lanceur de l'épreuve de la ville de 1400 (#740). Les huit rapports #739 sont relus tels quels, mutés en mémoire seulement : ce ne sont pas des mesures PC."""
+"""Juge et lanceur de l'épreuve de la ville de 1400. Les huit rapports sont relus tels quels, mutés en mémoire seulement : ce ne sont pas des mesures PC."""
 import copy, hashlib, importlib.util, io, json, math, os, re, time, urllib.request
 from pathlib import Path
 import pytest
 RACINE = Path(__file__).resolve().parents[3]
-M739, CELLULES, SUPPR = RACINE / "docs/mesures/739-session-ville1400", (10103, 1175, 1232, 10337), object()
-lu = lambda s: {c: json.loads((M739 / f"{s}-{c}.json").read_text(encoding="utf-8")) for c in CELLULES}  # noqa: E731
+DONNEES, CELLULES, SUPPR = RACINE / "jeu/ville/tests/donnees/session-ville1400", (10103, 1175, 1232, 10337), object()
+lu = lambda s: {c: json.loads((DONNEES / f"{s}-{c}.json").read_text(encoding="utf-8")) for c in CELLULES}  # noqa: E731
 @pytest.fixture(scope="module")
 def epreuve():
     assert (chemin := RACINE / "pc/epreuve_ville1400.py").is_file(), f"fichier introuvable : {chemin}"

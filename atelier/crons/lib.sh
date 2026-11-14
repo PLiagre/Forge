@@ -24,8 +24,7 @@ atelier_defauts() {
   : "${ATELIER_VERROUS:="$HOME/.atelier/verrous"}"
   : "${ATELIER_LOGS:="$HOME/.atelier/logs"}"
   export ATELIER_PROJET ATELIER_ETAT ATELIER_VERROUS ATELIER_LOGS
-  # Le PATH de cron vaut /usr/bin:/bin : aucun agent n'y vit (mesuré le
-  # 15 septembre 2026, un tour a rendu 127 sur un lot sain).
+  # Le PATH de cron vaut /usr/bin:/bin : aucun agent n'y vit.
   case ":$PATH:" in
     *":$HOME/.local/bin:"*) : ;;
     *) PATH="$HOME/.local/bin:$PATH" ;;

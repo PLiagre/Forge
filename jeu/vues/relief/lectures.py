@@ -188,7 +188,7 @@ def _bourg(cellule: dict) -> Optional[float]:
     """
     Part des habitants qui vit du bourg plutôt que des champs.
 
-    Le snapshot ne la porte pas encore : c'est le lot 051. La lecture est
+    Le snapshot ne la porte pas encore. La lecture est
     déclarée quand même — elle deviendra verte le jour où le champ arrivera,
     sans que ce fichier change. En attendant elle refuse, et son refus est
     l'inventaire honnête de ce qui manque.

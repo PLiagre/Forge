@@ -316,7 +316,7 @@ def test_bassin_maritime_deterministe_a_graine_fixe():
 
 
 def test_date_determinisme_meme_course_meme_temps():
-    """SC6 — deux courses identiques : compteur, date, empreinte et bassin égaux."""
+    """Deux courses identiques : compteur, date, empreinte et bassin égaux."""
     from sim import constants as _k
 
     def course():
@@ -344,7 +344,7 @@ def test_date_determinisme_meme_course_meme_temps():
 
 
 def test_date_empreinte_distincte_si_compteur_differe():
-    """SC6 — seul le compteur change : cellules identiques, empreinte différente."""
+    """Seul le compteur change : cellules identiques, empreinte différente."""
     from sim import constants as _k
 
     monde = World.charger(0)
@@ -404,7 +404,7 @@ TICKS_DISTINCTS_MINIMUM = 3
 
 @pytest.mark.chronometre
 def test_horloge_publie_des_etats_coherents_et_deterministes():
-    """SC2 — chaque photographie concurrente égale le même tick rejoué."""
+    """Chaque photographie concurrente égale le même tick rejoué."""
     from sim.tests.test_monde import lancer_service, requete_service
 
     observes: dict[int, tuple[bytes, bytes]] = {}
@@ -585,7 +585,7 @@ def test_gestes_routes_deterministes_seule_la_cellule_du_chantier(monkeypatch):
     print(f"mondes_comparés={len(mondes)}, cellules_vues={len(copie['cells'])}, ticks_joués=10, contre_épreuves_rouges=2")
 
 
-# Copies intégrales de 1924f24 : la référence joue réellement les anciens chemins.
+# Copies intégrales des anciens chemins : la référence les joue réellement.
 _REFERENCE_TICK_331 = {
     "engine": '''
 def _matieres_premieres_du_panier(cell: Cell) -> list[str]:
@@ -908,7 +908,7 @@ def _garder_siege(plein, vide, maison):
 
 @pytest.mark.parametrize("graine_monde,graine_tick", ((0, 0), (42, 42)))
 def test_grenier_bit_pres(monkeypatch, graine_monde, graine_tick):
-    """SC5 — greniers vides invisibles ; un grenier plein ne nourrit pas le siège."""
+    """Greniers vides invisibles ; un grenier plein ne nourrit pas le siège."""
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     import math
     import sim.constants as constantes
@@ -1000,11 +1000,9 @@ def test_noms_purete_et_tick(monkeypatch):
     with pytest.raises(AssertionError): assert faux == attendu
 
 
-# Empreintes capturées avant #395 : document complet et état physique sans arrondi.
-# Recapturées le 7 novembre 2026 : la soudure de 1400 change l'amorçage (le stock de
-# départ porte la ration jusqu'à la moisson) ; le code qui les mesure n'a pas bougé.
-# Recapturées le 13 novembre 2026, lot #1071, appel des villes affamées : les points 1 et 3
-# changent (les villes affamées appellent leur manque dès le premier jour), le point 0 non.
+# Empreintes du document complet et de l'état physique, sans arrondi. La soudure de 1400
+# fixe l'amorçage (le stock de départ porte la ration jusqu'à la moisson) ; l'appel des villes
+# affamées change les points 1 et 3 (elles appellent leur manque dès le premier jour), pas le point 0.
 _PART_BASE = {
     (0, 0): ("6b532d262ed6c185053aad5208e6d1d7b30425a98e18b845e2dc88a90966aeb7", "b22cbd184eca5811e7eca5045c970afb7c389ddc2cf29bb688394b7fb9d410fb"),
     (0, 1): ("5a810e03b490ef216c80cc5e004880566aa6a40c10e00da7b89cf29a192f7492", "ce5129e718e7a4fd2870b126f3182fcf94109301f0c8eae9d86e3497bc99b575"),
@@ -1039,8 +1037,7 @@ def test_part_bit_pres(monkeypatch):
 
 
 # Monde avec prélèvement : JSON public et état physique sans aucun arrondi.
-# Recapturées le 7 novembre 2026 avec la soudure de 1400, même code de mesure.
-# Recapturées le 13 novembre 2026, lot #1071, appel des villes affamées : tous les points.
+# Avec la soudure de 1400 et l'appel des villes affamées : tous les points.
 _PRELEVEMENT_BASE = {
     (0, 1): ("35ea12e585f2cf3a381bd7790fdd3042697a22b63885fb1f50b78a009a94bb81", "2101ed74baf9d02aed103162071a472e51a0cdc6897bd93fe37a99a51dc432b8"),
     (0, 3): ("2a2c7b18e8e0dd8ba2b530dd9b4a619e672ad1c2253cd1560c492152f1129936", "83387bd1b99cfae908fc2741e14e34c4c8eb346f77d6d6c24984a9454bff3cac"),
@@ -1105,8 +1102,7 @@ def test_prelevement_bit_pres(monkeypatch):
 
 
 # Monde avec dû : capturé une fois, JSON public et état physique sans arrondi.
-# Recapturé le 7 novembre 2026 avec la soudure de 1400, même code de mesure.
-# Recapturé le 13 novembre 2026, lot #1071, appel des villes affamées.
+# Avec la soudure de 1400 et l'appel des villes affamées.
 _DU_BASE = {
     (0, 3): ('ed1504163933cfb8b2d8d77698baa17b282a73bb8f4fdd17032ae1f12ac62cce', 'b56c5aa58cdaf34308e586375f4f15053c599087c0734bcc03bba6698317f93f'),
     (0, 20): ('3c9e5ebb4e12fa7d5652e44c3b059919875d13b85487e0a86e6d3d51ef6eac27', 'a995e40a6dd2eccc2013e7536ba4db19f7fb123294b2f8490f9b21b947290c9f'),

@@ -22,7 +22,7 @@ namespace Forge.Interface
             var signe = objet.GetComponent<EmblemeCommande>();
             signe.motif = motif; signe.color = SocleInterface.Couleur("papier"); signe.raycastTarget = false;
         }
-        // Lot #1002 : une commande de la barre du haut réduite à son motif ; son nom ne s'écrit plus, sa phrase le dit au survol.
+        // Une commande de la barre du haut réduite à son motif ; son nom ne s'écrit plus, sa phrase le dit au survol.
         public static Button Icone(Transform barre, string nom, float x, System.Action action, string phrase)
         {
             string motif = Motif(nom) ?? throw new System.ArgumentException("icône sans motif : " + nom);

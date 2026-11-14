@@ -18,22 +18,22 @@ using Debug = UnityEngine.Debug;
 
 namespace ForgeLocal3D
 {
-    // La photo d'un lot, prise par la chaîne en batch sur le PC :
+    // La photo d'une scène, prise sans écran sur le PC :
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
-    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeLot L] [-forgeServiceEpreuve] [-forgeServiceIa]
+    //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeScenario G] [-forgeServiceEpreuve] [-forgeServiceIa]
     //         [-forgeServiceProgramme] [-forgeServiceModificateurs] [-forgeTravailEnceinte J]
     // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N ; `--epreuve` avec
     // -forgeServiceEpreuve, suivi de `--travail-enceinte J` avec -forgeTravailEnceinte, un nombre fini > 0
     // qui exige -forgeServiceEpreuve ; `--ia` avec -forgeServiceIa ; avec -forgeServiceProgramme, le service
     // part amorcé comme `_AMORCAGE_PROGRAMME` de `test_monde.py`, la route de l'IA venant du programme ;
-    // avec -forgeServiceModificateurs (lot 1031), il part amorcé par `_amorcer_paris_cinq_poses` de
+    // avec -forgeServiceModificateurs, il part amorcé par `_amorcer_paris_cinq_poses` de
     // `test_modificateurs.py` : Paris porte cinq poses, pour l'infobulle ; refusé (code 2) avec
     // -forgeServiceProgramme ou -forgeServiceEpreuve, deux amorçages qui ne se superposent pas ;
     // sinon rien ne change) : le panneau du lieu
     // montre alors les vrais chiffres. La scène du désert se construit à l'exécution (terrain, ville) :
     // on entre en Play, on laisse passer quelques images, on attend que le panneau ait lu le service,
     // on photographie la caméra de la scène (le plan fixe), on écrit le texte du panneau, puis on
-    // joue les scénarios du lot L (`ScenarioDeCaptureAttribute`), une photo chacun, et on rend la main.
+    // joue les scénarios du groupe G (`ScenarioDeCaptureAttribute`), une photo chacun, et on rend la main.
     [InitializeOnLoad]
     public static class Capture
     {
@@ -41,7 +41,7 @@ namespace ForgeLocal3D
         const string Dossier = "Forge.Capture.Dossier";
         const string Scene = "Forge.Capture.Scene";
         const string Pid = "Forge.Capture.ServicePid";
-        const string Lot = "Forge.Capture.Lot";
+        const string Groupe = "Forge.Capture.Scenario";
         const int Attente = 90;
         const int DELAI_SCENARIO_S = 60;
 
@@ -75,7 +75,7 @@ namespace ForgeLocal3D
         static int images, derniere = -1;
         static double debutPanneau = -1;
 
-        // Les scénarios du lot, joués après le plan fixe : un à la fois, une image par pas.
+        // Les scénarios du groupe, joués après le plan fixe : un à la fois, une image par pas.
         static MethodInfo[] scenarios;
         static int scenario = -1;
         static IEnumerator enCours;
@@ -118,10 +118,10 @@ namespace ForgeLocal3D
             string dossier = Argument("-forgeCaptures") ?? Path.GetFullPath(Path.Combine(Application.dataPath, "../../../captures"));
             int graine = Entier("-forgeSeed", GRAINE_PAR_DEFAUT, out string erreurGraine);
             int ticks = Entier("-forgeTicks", TICKS_PAR_DEFAUT, out string erreurTicks);
-            int lot = Entier("-forgeLot", -1, out string erreurLot);
-            if (erreurGraine != null || erreurTicks != null || erreurLot != null)
+            string groupe = Argument("-forgeScenario") ?? "";
+            if (erreurGraine != null || erreurTicks != null)
             {
-                Debug.LogError(erreurGraine ?? erreurTicks ?? erreurLot);
+                Debug.LogError(erreurGraine ?? erreurTicks);
                 Sortir(CODE_REFUS);
                 return;
             }
@@ -155,7 +155,7 @@ namespace ForgeLocal3D
             Directory.CreateDirectory(dossier);
             SessionState.SetString(Dossier, dossier);
             SessionState.SetString(Scene, scene);
-            SessionState.SetInt(Lot, lot);
+            SessionState.SetString(Groupe, groupe);
             LancerService(graine, ticks, dossier, travail);
             SessionState.SetBool(Flag, true);
             images = 0;
@@ -301,13 +301,13 @@ namespace ForgeLocal3D
             return panneau != null ? panneau.GetComponentInChildren<UnityEngine.UI.Text>() : null;
         }
 
-        // Les scénarios du lot, triés par nom ; une méthode mal formée est une erreur du lot, pas un oubli.
-        static MethodInfo[] ScenariosDuLot(int lot)
+        // Les scénarios du groupe, triés par nom ; une méthode mal formée est une erreur, pas un oubli.
+        static MethodInfo[] ScenariosDuGroupe(string groupe)
         {
-            if (lot < 0) return new MethodInfo[0];
+            if (string.IsNullOrEmpty(groupe)) return new MethodInfo[0];
             var trouves = TypeCache.GetMethodsWithAttribute<ScenarioDeCaptureAttribute>()
                 .Select(m => (m, a: m.GetCustomAttribute<ScenarioDeCaptureAttribute>()))
-                .Where(x => x.a.Lot == lot).OrderBy(x => x.a.Nom, StringComparer.Ordinal).ToArray();
+                .Where(x => x.a.Groupe == groupe).OrderBy(x => x.a.Nom, StringComparer.Ordinal).ToArray();
             foreach (var (m, a) in trouves)
             {
                 string defaut = a.Defaut();
@@ -318,7 +318,7 @@ namespace ForgeLocal3D
                     throw new InvalidOperationException("scénario " + m.DeclaringType + "." + m.Name + " : " + defaut);
             }
             if (trouves.Select(x => x.a.Nom).Distinct().Count() != trouves.Length)
-                throw new InvalidOperationException("deux scénarios du lot " + lot + " portent le même nom");
+                throw new InvalidOperationException("deux scénarios du groupe " + groupe + " portent le même nom");
             return trouves.Select(x => x.m).ToArray();
         }
 
@@ -419,21 +419,21 @@ namespace ForgeLocal3D
                 }
                 else if (GameObject.Find("/" + PANNEAU) != null)
                     Debug.LogError("CAPTURE : le panneau du lieu n'a pas de texte");
-                int lot = SessionState.GetInt(Lot, -1);
-                var duLot = ScenariosDuLot(lot);
-                if (duLot.Length == 0)
+                string groupe = SessionState.GetString(Groupe, "");
+                var duGroupe = ScenariosDuGroupe(groupe);
+                if (duGroupe.Length == 0)
                 {
-                    if (lot >= 0) Debug.Log("CAPTURE_SANS_SCENARIO lot " + lot);
+                    if (groupe != "") Debug.Log("CAPTURE_SANS_SCENARIO " + groupe);
                     Terminer(0);
                     return;
                 }
-                Debug.Log("CAPTURE_SCENARIOS lot " + lot + " : " + duLot.Length);
+                Debug.Log("CAPTURE_SCENARIOS " + groupe + " : " + duGroupe.Length);
                 cameraScene = camera;
                 dossierScenarios = dossier;
                 nomScene = nom;
                 enCours = null;
                 scenario = 0;
-                scenarios = duLot;
+                scenarios = duGroupe;
             }
             catch (Exception e)
             {

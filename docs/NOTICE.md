@@ -1,7 +1,8 @@
 # Notice d'utilisation
 
-> Tout ce qu'on peut lancer, dans l'ordre où on en a besoin. Chaque commande a
-> été jouée sur ce dépôt ; les sorties citées sont réelles.
+> Tout ce qu'on peut lancer, dans l'ordre où on en a besoin. Les sorties citées
+> sont des exemples. La chaîne d'agents (pilote, rôles, lots) est décrite dans
+> [WORKFLOW.md](WORKFLOW.md) et [CLAUDE.md](../CLAUDE.md).
 
 ---
 
@@ -61,7 +62,7 @@ Deux nombres à lire en premier :
 
 - **`plafond_de_survie_a_l_amorcage`** doit être **≥ 1**. En dessous, le monde
   amorce plus de bouches que sa terre n'en nourrit, et ce qu'on affiche est un
-  effondrement, pas une partie. Avant la fusion il valait 0,691.
+  effondrement, pas une partie.
 - **`part_survivante`** dit ce que l'année a fait de la population. Au-dessus
   de 1, le monde croît.
 
@@ -126,11 +127,10 @@ Six lectures :
 | `nourriture` | stock de nourriture, en kg | par rang |
 | `faim` | ticks de faim consécutifs | linéaire |
 | `dette` | dette alimentaire par habitant | logarithme |
-| `bourg` | part des habitants du bourg | linéaire — **refuse** aujourd'hui |
+| `bourg` | part des habitants du bourg | linéaire — **refuse** sans le champ `bourg` |
 
-`bourg` refuse parce que le snapshot ne porte pas encore la donnée (lot 051).
-Elle est déclarée quand même : c'est l'inventaire honnête de ce qui manque, et
-elle deviendra verte toute seule le jour où le champ arrivera.
+`bourg` refuse sur un snapshot qui ne porte pas la donnée : la lecture est
+déclarée, et son refus est l'inventaire honnête de ce qui manque.
 
 **Pourquoi l'échelle « par rang ».** Les populations vont de 5 à 269 000
 habitants et se serrent près du haut. En linéaire, presque tout le continent
@@ -197,9 +197,9 @@ C'est voulu : la CI ne prétend pas rendre ce qu'elle ne peut pas rendre.
 > **Une limite, nommée plutôt que contournée.** Dans la carte de statistique en
 > 3D, c'est **la grandeur qui devient le terrain** — la population s'élève, les
 > montagnes disparaissent. Colorier la vraie géographie par une grandeur
-> indépendante demanderait un second canal de valeurs que `forge3d` 1.36
-> n'expose pas : `OverlayLayer` ne se construit que depuis un dégradé appliqué
-> au champ élevé. C'est le lot 104.
+> indépendante demanderait un second canal de valeurs que `forge3d` n'expose
+> pas : `OverlayLayer` ne se construit que depuis un dégradé appliqué au champ
+> élevé.
 
 ---
 
@@ -215,7 +215,7 @@ python3 -m pytest vues/relief/tests/ -q  # la carte de statistique
 python3 -m pytest forge/tests/ -q        # la commande de bout en bout
 ```
 
-Les tests du moteur sont longs (près de mille, plus de 3 h sur un seul cœur) :
+Les tests du moteur sont longs sur un seul cœur :
 `-n auto` les joue sur tous les cœurs (`pip install pytest-xdist`). La CI les
 répartit en trois tranches, test par test, chacune sur les cœurs de son
 runner ; une tranche se rejoue telle quelle en local :
@@ -242,39 +242,7 @@ Il rougit si le monde recommence à amorcer plus de bouches qu'il n'en nourrit.
 
 ---
 
-## 5. Les lots
-
-Un lot est une **issue** GitHub : un jalon (milestone `J1`…`J9`, tirés des
-sections de [CAP.md](../CAP.md), ou `Réserve` pour un lot qui n'en sert aucun),
-un état (`idee`, `pret`, `en-cours`, `bloque`, `livre`), l'étiquette `pc` s'il
-demande Unity ou Blender. Le formulaire « Demander un lot » les pose ;
-l'étiquette `reserve` range un lot dans la Réserve. Il n'y a plus de
-registre dans un fichier : `ROADMAP.md` a été migré en issues le 27 septembre
-2026 (correspondance dans [registre-migre.md](registre-migre.md)).
-
-```bash
-gh issue list --label pret                 # ce que la chaîne prendra d'abord
-gh issue list --label bloque               # ce qui attend une décision
-gh issue list --milestone "J1 — Le pont"   # le jalon courant
-```
-
----
-
-## 6. La chaîne, jouée à la main
-
-```bash
-python3 -m atelier agents          # la table des rôles : outil/modèle et secours
-python3 -m atelier veille          # binaires, jetons, accès GitHub
-python3 -m atelier sonde           # chaque agent répond-il, avec son modèle, en non interactif ?
-python3 -m atelier tour --a-sec    # ce que le pilote ferait maintenant, sans rien faire
-python3 -m atelier tour            # un vrai tour
-python3 -m atelier journal --sans-publier
-python3 -m atelier traces --pr 12  # ce qui fait rougir les contrôles d'une PR
-```
-
----
-
-## 7. La ville, sous Unity
+## 5. La ville, sous Unity
 
 Unity n'est pas sur une VM Linux. Tout ce qui touche au jeu en 3D passe par le
 PC Windows (runner `pc-forge`).
@@ -293,38 +261,12 @@ Les packs de l'Asset Store que le désert utilise vivent dans
 
 ---
 
-## 8. La fabrique d'assets (archivée)
-
-La fabrique de VictoriaCityLab dort dans `3d/archives/fabrique/` : ses chemins
-sont ceux de l'ancien dépôt. Les kits vivants se préparent avec
-`py 3d/local3d/atelier_desert.py` (voir `3d/local3d/desert/README.md`).
-
----
-
-## 9. La chaîne qui tourne toute seule
-
-Sur le VPS, une ligne de crontab appelle `atelier/crons/repartiteur.sh`
-chaque minute ; le profil actif (`~/.atelier/etat/profil`) dit qui se réveille.
-
-```bash
-atelier/crons/installer.sh         # installer ou réinstaller, sans sudo
-atelier/crons/atelier-boucle jour  # armer
-atelier/crons/atelier-boucle arret # arrêter
-atelier/crons/atelier-boucle etat  # regarder
-```
-
-Le détail — cadence, rôles, états, pannes — est dans
-[WORKFLOW.md](WORKFLOW.md) et [atelier/crons/README.md](../atelier/crons/README.md).
-
----
-
-## 10. Les pièges qu'on rencontre vraiment
+## 6. Les pièges qu'on rencontre vraiment
 
 | symptôme | cause | remède |
 |---|---|---|
 | `vues.relief` sort en code 2 | pas de GPU, ou `forge3d` absent | c'est un refus propre, pas un bug |
-| la lecture `bourg` refuse | le snapshot lu est antérieur au lot 051 | rephotographier le monde : `jeu/sim/snapshot_export.py` porte le champ depuis |
+| la lecture `bourg` refuse | le snapshot lu ne porte pas le champ `bourg` | rephotographier le monde : `jeu/sim/snapshot_export.py` écrit le champ |
 | la carte est d'une seule couleur | échelle mal choisie pour la distribution | `quantile` pour les grandeurs étalées |
 | `--bobine` échoue | Chromium ou ffmpeg manquant | `--chrome` et `--ffmpeg` pointent un binaire |
 | `--ticks` négatif | refusé | code 2, volontairement |
-| une PR de lot verte n'entre pas | pas de verdict `ACCEPTE` sur sa révision courante | le relecteur relit au tour suivant ; `gh pr view <n> --comments` montre les marques du pilote |

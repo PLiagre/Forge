@@ -8,7 +8,7 @@ using System.Threading;
 using NUnit.Framework;
 namespace Forge.Pont.Tests
 {
-    // Lot #1032 — un faux service rend /pays?maison= ; le client relit les jauges, les points et les poses, ou nomme la faute.
+    // Un faux service rend /pays?maison= ; le client relit les jauges, les points et les poses, ou nomme la faute.
     public sealed class ClientPaysTests
     {
         const string Id = "seigneurie-1";
@@ -23,7 +23,7 @@ namespace Forge.Pont.Tests
         const string Temoin = "{\"maison\":{\"id\":\"seigneurie-1\",\"nom\":\"Bar\",\"sorte\":\"seigneurie\"},\"tick\":31,\"date\":{\"annee\":1400,\"jour_de_l_annee\":32},"
             + "\"jauges\":{\"absents\":{},\"competences\":{\"diplomatie\":9,\"gestion\":10,\"guerre\":7},\"grandeurs\":{\"commerce\":\"Commerce\",\"departs\":\"Départs\",\"prelevement\":\"Prélèvement\"},"
             + "\"jauges\":{" + Concorde + "," + Droit + "," + Renom + "},\"modificateurs\":[" + Pose + "],\"points\":{" + Epee + "," + Plume + "," + Sceau + "}}}";
-        // Lot #1045 : le pays de grande-3 au tick 31, tel que `/pays` le sert hors des jauges : deux vassaux directs, un arrière-vassal, sept lieux, deux bâtiments.
+        // Le pays de grande-3 au tick 31, tel que `/pays` le sert hors des jauges : deux vassaux directs, un arrière-vassal, sept lieux, deux bâtiments.
         const string TemoinTerres = "{\"maison\":{\"id\":\"grande-3\",\"nom\":\"Valois\",\"sorte\":\"grande\"},\"tick\":31,\"date\":{\"annee\":1400,\"jour_de_l_annee\":32},\"suzerain\":null,"
             + "\"vassaux\":[\"seigneurie-1\",\"plausible-7-0\"],\"vassaux_tous\":[\"seigneurie-1\",\"plausible-7-0\",\"plausible-8-1\"],"
             + "\"lieux\":[{\"cell_id\":10,\"rang\":0},{\"cell_id\":10,\"rang\":1},{\"cell_id\":10,\"rang\":2},{\"cell_id\":11,\"rang\":1}],"
@@ -32,7 +32,7 @@ namespace Forge.Pont.Tests
             + "\"absents\":{},"
             + "\"batiments\":[{\"identifiant\":1,\"nature\":\"moulin\",\"nom\":\"Moulin\",\"cell_id\":10,\"maison\":\"grande-3\",\"travail_requis\":600,\"travail_fourni\":600,\"en_chantier\":false,\"debut\":5,\"fin\":605},"
             + "{\"identifiant\":2,\"nature\":\"moulin\",\"nom\":\"Moulin\",\"cell_id\":12,\"maison\":\"seigneurie-1\",\"travail_requis\":600,\"travail_fourni\":20,\"en_chantier\":true,\"debut\":30,\"fin\":null}]}";
-        // Lot #1046 : le même pays, avec ses deux gestes (« jauges.gestes ») servis juste après `absents`. `Temoin` ne change pas.
+        // Le même pays, avec ses deux gestes (« jauges.gestes ») servis juste après `absents`. `Temoin` ne change pas.
         const string Geste1 = "\"affermir_la_concorde\":{\"cout\":{\"plume\":50},\"effet\":{\"concorde\":1},\"nom\":\"Affermir la concorde\",\"refus\":\"pas assez de points de Plume : 50 points demandés, 10 points disponibles\"}";
         const string Geste2 = "\"asseoir_le_droit\":{\"cout\":{\"sceau\":30},\"effet\":{\"droit\":10},\"nom\":\"Asseoir le droit\",\"refus\":null}";
         const string TemoinGestes = "{\"maison\":{\"id\":\"seigneurie-1\",\"nom\":\"Bar\",\"sorte\":\"seigneurie\"},\"tick\":31,\"date\":{\"annee\":1400,\"jour_de_l_annee\":32},"
@@ -134,7 +134,7 @@ namespace Forge.Pont.Tests
             Assert.AreEqual(bizarre, Uri.UnescapeDataString(valeur), valeur); Assert.IsTrue(valeur.IndexOfAny(new[] { ' ', '/', '?', '&', '=', '+', '#', 'é' }) < 0, valeur);
         }
 
-        // Lot #1045 : les terres du pays (lieux, vassaux, totaux, bâtiments) se lisent en entier ou pas du tout.
+        // Les terres du pays (lieux, vassaux, totaux, bâtiments) se lisent en entier ou pas du tout.
         static string Terres(string ancien, string nouveau)
         {
             int i = TemoinTerres.IndexOf(ancien, StringComparison.Ordinal);
@@ -223,7 +223,7 @@ namespace Forge.Pont.Tests
             }
         }
 
-        // Lot #1046 : les gestes se lisent avec leur prix, leur effet et leur refus ; le pays est celui que `Lire` rend sur le même document.
+        // Les gestes se lisent avec leur prix, leur effet et leur refus ; le pays est celui que `Lire` rend sur le même document.
         [Test] public void Les_gestes_se_lisent_avec_leur_prix_leur_effet_et_leur_refus()
         {
             Servir(TemoinGestes, TemoinGestes);

@@ -5,10 +5,10 @@ using UnityEngine.InputSystem;
 
 namespace ForgeLocal3D
 {
-    // Lot #524 : le joueur parcourt sa carte. Il glisse, bouton gauche ou du milieu enfoncé, pour se déplacer ; la molette
+    // Le joueur parcourt sa carte. Il glisse, bouton gauche ou du milieu enfoncé, pour se déplacer ; la molette
     // le rapproche ou l'éloigne du point sous la souris. La vue (`VueDeCarte`) ne sort jamais de la carte servie. Avant la
     // carte : la vue s'y applique dans la même image. Avec `automatique`, rien n'est lu : une épreuve ou une capture appelle
-    // la vue elle-même, comme ce composant le ferait. Un geste commencé sur un bouton (l'horloge, #525) ne bouge pas la carte.
+    // la vue elle-même, comme ce composant le ferait. Un geste commencé sur un bouton (l'horloge) ne bouge pas la carte.
     [DefaultExecutionOrder(-10)]
     [RequireComponent(typeof(CarteDessinee))]
     public sealed class ParcoursDeCarte : MonoBehaviour

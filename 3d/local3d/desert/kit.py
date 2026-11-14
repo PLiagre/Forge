@@ -10,8 +10,8 @@ attendue.
 """
 import copy
 
-# Lot 269 : les bâtiments finis qui ont leurs étapes de chantier, dans l'ordre du catalogue.
-# Lot 905 : puis les trois pièces de l'enceinte, dont le prefab existe déjà.
+# Les bâtiments finis qui ont leurs étapes de chantier, dans l'ordre du catalogue.
+# Puis les trois pièces de l'enceinte, dont le prefab existe déjà.
 ENCEINTE = ['rempart_pise_10m', 'tour_ksar_0', 'porte_ksar']
 CHANTIERS = ['maison_pise_0', 'scierie', 'four_pain_pise'] + ENCEINTE
 ETAPES = ('piquets', 'murs')
@@ -29,7 +29,7 @@ REFERENCES = [fini for fini in CHANTIERS if fini not in NOUVEAUX]
 # Plafonds de triangles par LOD (0, 1, 2).
 PLAFONDS = {'scierie': (2400, 1200, 400), 'four_pain_pise': (1600, 800, 300)}
 for _fini in CHANTIERS:
-    # Lot 905 : l'enceinte, plus longue et plus haute, a plus de piquets et une plus longue échelle.
+    # L'enceinte, plus longue et plus haute, a plus de piquets et une plus longue échelle.
     _grand = _fini in ENCEINTE
     PLAFONDS['chantier_{}_piquets'.format(_fini)] = (600, 400, 120) if _grand else (400, 200, 80)
     PLAFONDS['chantier_{}_murs'.format(_fini)] = (1600, 800, 320) if _grand else (1200, 600, 240)
@@ -41,7 +41,7 @@ BORDS = ('x_min', 'x_max', 'z_min', 'z_max')
 NIVEAUX = 3
 ETIQUETTES = ('budget', 'origine', 'lod', 'materiau', 'echantillon', 'catalogue', 'empreinte',
               'emprise', 'hauteur', 'suite', 'planche')
-# Lot 270 : la planche qu'Unity rend des étapes de chantier, chemin relatif au dossier du désert.
+# La planche qu'Unity rend des étapes de chantier, chemin relatif au dossier du désert.
 PLANCHE_UNITY = 'sorties/diagnostic/kit_chantiers_unity.png'
 SCENE_NON_RELEVEE = '-1'       # `scene_chemin` du rapport quand Unity n'a pas rendu la planche
 
@@ -94,13 +94,13 @@ def mesuree(m):
 
 
 def juger_chantiers(entrees):
-    """Lot 269 : emprise, hauteurs et suite des étapes de chantier."""
+    """Emprise, hauteurs et suite des étapes de chantier."""
     u = entrees['unity'] or {}; apres = entrees['catalogue_apres']
     fautes = []
     modules = {m.get('id'): m for m in u.get('modules') or []}
     references = {m.get('id'): m for m in u.get('references') or []}
 
-    # SC7 : exactement les bâtiments de référence, au moins un.
+    # Exactement les bâtiments de référence, au moins un.
     mesures = [m.get('id') for m in u.get('references') or []]
     if not REFERENCES or mesures != REFERENCES:
         fautes.append(defaut('echantillon', 'Unity a mesuré les références {} ; attendu {}'.format(mesures, REFERENCES)))
@@ -109,7 +109,7 @@ def juger_chantiers(entrees):
         f = modules.get(fini) or references.get(fini)
         piquets, murs = suite(fini)[:2]
         etapes = [(e, modules.get(e)) for e in (piquets, murs)]
-        # SC2 : chaque étape posée sur l'emprise du bâtiment fini, mesurée par Unity des deux côtés.
+        # Chaque étape posée sur l'emprise du bâtiment fini, mesurée par Unity des deux côtés.
         if not f or not mesuree(f):
             fautes.append(defaut('emprise', fini + ' : bâtiment fini non mesuré par Unity'))
         for e, m in etapes:
@@ -120,7 +120,7 @@ def juger_chantiers(entrees):
                     if abs(m[bord] - f[bord]) > TOLERANCE_EMPRISE:
                         fautes.append(defaut('emprise', '{} : {} à {:.3f} m, {} à {:.3f} m (tolérance {} m)'.format(
                             e, bord, m[bord], fini, f[bord], TOLERANCE_EMPRISE)))
-        # SC3 : les hauteurs montent avec le chantier.
+        # Les hauteurs montent avec le chantier.
         hp = modules[piquets]['y_max'] if piquets in modules and mesuree(modules[piquets]) else None
         hm = modules[murs]['y_max'] if murs in modules and mesuree(modules[murs]) else None
         hf = f['y_max'] if f and mesuree(f) else None
@@ -135,7 +135,7 @@ def juger_chantiers(entrees):
             fautes.append(defaut('hauteur', '{} : {:.3f} m, soit {:.2f} fois {} ({:.3f} m) ; attendu entre {} et {}'.format(
                 murs, hm, hm / hf if hf else -1, fini, hf, *RAPPORT_MURS)))
 
-    # SC4 : la suite est déclarée, et complète.
+    # La suite est déclarée, et complète.
     if 'chantiers' not in apres:
         fautes.append(defaut('suite', 'le catalogue après n\'a pas de clé chantiers'))
     else:
@@ -185,7 +185,7 @@ def ecarts_cases(entrees):
 
 
 def juger_planche(entrees):
-    """Lot 270 : la planche qu'Unity a rendue des étapes de chantier. La mesure est rejouée sur
+    """La planche qu'Unity a rendue des étapes de chantier. La mesure est rejouée sur
     les pixels (`entrees['planche']`, hauteur × largeur × 3, ou None si l'image manque)."""
     import numpy as np
     u = entrees['unity'] or {}; minimal = entrees['ecart_minimal']
@@ -193,7 +193,7 @@ def juger_planche(entrees):
         return [defaut('planche', 'le rapport d\'Unity n\'a pas de planche')]
     p = u['planche'] or {}
     fautes = []
-    # SC4 : la scène du rendu n'a jamais été enregistrée. Seule une chaîne vide le prouve ; une
+    # La scène du rendu n'a jamais été enregistrée. Seule une chaîne vide le prouve ; une
     # valeur absente, nulle ou non relevée ne prouve rien.
     scene = p.get('scene_chemin')
     if not isinstance(scene, str) or scene == SCENE_NON_RELEVEE:
@@ -203,7 +203,7 @@ def juger_planche(entrees):
     if p.get('chemin') != PLANCHE_UNITY:
         fautes.append(defaut('planche', 'Unity a écrit la planche dans {} ; attendu {}'.format(p.get('chemin'), PLANCHE_UNITY)))
 
-    # SC1 : l'image existe, aux dimensions du rapport, et n'est pas uniforme.
+    # L'image existe, aux dimensions du rapport, et n'est pas uniforme.
     pixels = entrees.get('planche')
     pixels = None if pixels is None else np.asarray(pixels)
     if pixels is None:
@@ -218,7 +218,7 @@ def juger_planche(entrees):
         if not ecart >= minimal:
             fautes.append(defaut('planche', 'planche Unity uniforme (écart-type {:.1f}, {} au moins)'.format(ecart, minimal)))
 
-    # SC2 : exactement les cases des chantiers, à leur place, un renderer au moins, sans chevauchement.
+    # Exactement les cases des chantiers, à leur place, un renderer au moins, sans chevauchement.
     cases = p.get('cases') or []
     attendues = cases_attendues()
     obtenues = [(c.get('rangee'), c.get('colonne'), c.get('id')) for c in cases]
@@ -256,7 +256,7 @@ def juger_planche(entrees):
                 fautes.append(defaut('planche', '{} (rangée {}, colonne {}) et {} (rangée {}, colonne {}) : rectangles {} et {} hors de leur place'.format(
                     nom, ra, co, autre, rb, cb, [x, y, l, h], [x2, y2, l2, h2])))
 
-    # SC3 : aucune case n'a que son fond.
+    # Aucune case n'a que son fond.
     if pixels is not None:
         for c in ecarts_cases(entrees):
             if c['ecart'] != -1 and not c['ecart'] >= minimal:
@@ -279,7 +279,7 @@ def juger(entrees):
     avant = entrees['catalogue_avant']; apres = entrees['catalogue_apres']
     fautes = []
 
-    # SC4 : un échantillon vide échoue.
+    # Un échantillon vide échoue.
     modules = u.get('modules') or []
     mesures = [m.get('id') for m in modules]
     if not NOUVEAUX or mesures != NOUVEAUX:
@@ -292,7 +292,7 @@ def juger(entrees):
     for e in u.get('erreurs') or []:
         fautes.append(defaut('echantillon', 'Unity : ' + e))
 
-    # SC6 : les anciens enregistrements, à l'identique et dans le même ordre.
+    # Les anciens enregistrements, à l'identique et dans le même ordre.
     anciens_avant = [a for a in avant['assets'] if a['id'] not in NOUVEAUX]
     anciens_apres = [a for a in apres['assets'] if a['id'] not in NOUVEAUX]
     if anciens_avant != anciens_apres:
@@ -301,7 +301,7 @@ def juger(entrees):
             len(anciens_avant), len(anciens_apres), change or 'ordre ou nombre')))
     if [a['id'] for a in apres['assets']] != [a['id'] for a in anciens_apres] + nouveaux_apres:
         fautes.append(defaut('catalogue', 'les nouveaux modules ne sont pas à la fin du catalogue'))
-    # Lot 269 : toute fiche d'avant, nouveaux modules compris, se retrouve à l'identique ; hors
+    # Toute fiche d'avant, nouveaux modules compris, se retrouve à l'identique ; hors
     # `chantiers`, aucune clé du catalogue n'apparaît, ne disparaît ni ne change.
     fiches_apres = {a['id']: a for a in apres['assets']}
     changees = [a['id'] for a in avant['assets'] if fiches_apres.get(a['id']) != a]
@@ -312,29 +312,29 @@ def juger(entrees):
         if avant.get(cle, -1) != apres.get(cle, -1):
             fautes.append(defaut('catalogue', 'la clé {} du catalogue a changé'.format(cle)))
 
-    # SC5 : seulement les matériaux du catalogue.
+    # Seulement les matériaux du catalogue.
     connus = [m['name'] for m in avant['materials']]
     if [m for m in apres['materials']] != [m for m in avant['materials']]:
         fautes.append(defaut('materiau', 'la liste des matériaux du catalogue a changé'))
     for m in u.get('materiaux_manquants') or []:
         fautes.append(defaut('materiau', 'Unity ne trouve pas le matériau ' + m))
 
-    # SC7 : rien d'autre ne bouge.
+    # Rien d'autre ne bouge.
     ea = entrees['empreintes_avant']; ep = entrees['empreintes_apres']
     for chemin in sorted(set(ea) | set(ep)):
         if ea.get(chemin) != ep.get(chemin):
             fautes.append(defaut('empreinte', 'fichier ' + ('apparu' if chemin not in ea else 'disparu' if chemin not in ep else 'modifié') + ' : ' + chemin))
 
-    # SC8 : les planches existent et ne sont pas uniformes.
+    # Les planches existent et ne sont pas uniformes.
     for cle, planche in (('ecart_image', 'ateliers'), ('ecart_chantiers', 'chantiers')):
         ecart = entrees.get(cle, -1.0)
         if not ecart >= entrees['ecart_minimal']:
             fautes.append(defaut('echantillon', 'planche des {} absente ou uniforme (écart-type {:.1f}, {} au moins)'.format(
                 planche, ecart, entrees['ecart_minimal'])))
 
-    # SC9 : le vérificateur existant reste vert, sur chaque disposition. Il n'a pas d'étiquette
+    # Le vérificateur existant reste vert, sur chaque disposition. Il n'a pas d'étiquette
     # à lui : aucune disposition vérifiée est un échantillon vide ; un vérificateur rouge dit
-    # que les scènes du ksar, que gardent aussi les empreintes (SC7), ne sont plus intactes.
+    # que les scènes du ksar, que gardent aussi les empreintes, ne sont plus intactes.
     v = entrees.get('verification') or {}
     rapports = v.get('dispositions') or {}
     if not rapports:
@@ -346,7 +346,7 @@ def juger(entrees):
     catalogue = {a['id']: a for a in apres['assets']}
     for m in modules:
         nom = m.get('id', '?'); tri = m.get('triangles') or []
-        # SC3 : trois LOD, égaux au catalogue, strictement décroissants.
+        # Trois LOD, égaux au catalogue, strictement décroissants.
         if m.get('niveaux') != NIVEAUX or len(tri) != NIVEAUX:
             fautes.append(defaut('lod', '{} : {} niveaux dans le LODGroup, {} mesures de triangles'.format(nom, m.get('niveaux'), len(tri))))
             continue
@@ -354,15 +354,15 @@ def juger(entrees):
             fautes.append(defaut('lod', '{} : Unity mesure {}, le catalogue dit {}'.format(nom, tri, catalogue[nom]['triangles'])))
         if not tri[0] > tri[1] > tri[2] > 0:
             fautes.append(defaut('lod', '{} : triangles non strictement décroissants {}'.format(nom, tri)))
-        # SC1 : sous le plafond.
+        # Sous le plafond.
         for i, (n, p) in enumerate(zip(tri, plafonds.get(nom, (-1,) * NIVEAUX))):
             if not 0 <= n <= p:
                 fautes.append(defaut('budget', '{} : LOD{} mesuré à {} triangles pour un plafond de {}'.format(nom, i, n, p)))
-        # SC2 : l'origine au sol.
+        # L'origine au sol.
         y = m.get('y_min')
         if y is None or abs(y) > TOLERANCE_ORIGINE:
             fautes.append(defaut('origine', '{} : le LOD0 descend à y = {} (tolérance {} m)'.format(nom, y, TOLERANCE_ORIGINE)))
-        # SC5 : chaque matériau mesuré est au catalogue.
+        # Chaque matériau mesuré est au catalogue.
         for mat in sorted(set(m.get('materiaux') or []) - set(connus)):
             fautes.append(defaut('materiau', '{} : matériau hors catalogue : {}'.format(nom, mat)))
         if not m.get('materiaux'):
@@ -421,7 +421,6 @@ def contre_epreuves(entrees):
     e['verification'] = dict(e.get('verification') or {}, status='echec', message='contre-épreuve')
     ce['verification_rouge'] = ('empreinte', e)
 
-    # Lot 269.
     e = copy.deepcopy(entrees)
     for m in (e['unity'] or {}).get('modules') or []:
         if m.get('id') == 'chantier_scierie_piquets':
@@ -446,7 +445,7 @@ def contre_epreuves(entrees):
     e = copy.deepcopy(entrees); e['ecart_chantiers'] = ecart_pixels([[[255, 0, 0]] * 16] * 9)
     ce['planche_chantiers_uniforme'] = ('echantillon', e)
 
-    # Lot 270 : la planche Unity. Les pixels déréglés sont ceux d'une copie de l'image.
+    # La planche Unity. Les pixels déréglés sont ceux d'une copie de l'image.
     import numpy as np
     p = (entrees['unity'] or {}).get('planche') or {}
     fond = p.get('fond') if isinstance(p.get('fond'), list) and len(p['fond']) == 3 else [0, 0, 0]
@@ -494,7 +493,7 @@ def contre_epreuves(entrees):
     e = copy.deepcopy(entrees); e['empreintes_apres']['3d/unity/Assets/Planche.unity'] = 'apparue'
     ce['scene_apparue'] = ('empreinte', e)
 
-    # Lot 905 : les étapes de l'enceinte.
+    # Les étapes de l'enceinte.
     e = copy.deepcopy(entrees); e['unity'] = dict(e['unity'] or {})
     e['unity']['references'] = [m for m in e['unity'].get('references') or [] if m.get('id') != 'tour_ksar_0']
     ce['tour_hors_references'] = ('echantillon', e)

@@ -11,7 +11,7 @@ namespace Forge.Pont
     // Le panneau du lieu : il montre ce que le service local de `sim/` dit d'une
     // cellule, et ne calcule aucun nombre. La lecture part hors du fil principal ;
     // son résultat s'applique dans Update. Une absence remplace les nombres.
-    // Lot 686 : Ouvrir(cellule) choisit la cellule lue, avant le démarrage ou en cours de jeu.
+    // Ouvrir(cellule) choisit la cellule lue, avant le démarrage ou en cours de jeu.
     public sealed class PanneauLieu : MonoBehaviour
     {
         public const float PERIODE_LECTURE_S = 0.25f;

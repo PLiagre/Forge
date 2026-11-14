@@ -1,11 +1,10 @@
-"""Lot #393 — chaque lieu a sa place dans sa cellule.
+"""Chaque lieu a sa place dans sa cellule.
 
 La preuve : chaque point est dans le polygone de sa cellule ; le bourg de chaque seigneurie
 de départ est à moins d'un kilomètre de son siège ; deux lieux d'une cellule respectent la
 distance minimale ; mêmes carte et cellule, mêmes points. Contre-épreuve : une géométrie
 absente est refusée en nommant la cellule, jamais remplacée par un centroïde. Le centroïde
-d'une cellule en croissant tombe dehors : le bourg prend alors un point intérieur (décision
-A du propriétaire, le 9 octobre 2026).
+d'une cellule en croissant tombe dehors : le bourg prend alors un point intérieur.
 """
 
 import itertools

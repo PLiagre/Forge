@@ -49,7 +49,7 @@ def _ecrire_document(tmp_path, document, nom):
 
 
 def test_table_se_lit_et_refuse_les_donnees_invalides(tmp_path):
-    """SC1 : source, déclaration, unité et nombres sont tous explicites."""
+    """Source, déclaration, unité et nombres sont tous explicites."""
     document = json.loads(_CHEMIN_RELEVES.read_text(encoding="utf-8"))
     releves = charger_releves()
     releves_lus = len(releves)
@@ -116,7 +116,7 @@ def test_table_se_lit_et_refuse_les_donnees_invalides(tmp_path):
 
 
 def test_couverture_de_toutes_les_cellules_et_utilite_des_releves():
-    """SC2 : toute cellule reçoit une pluie et tout relevé sert."""
+    """Toute cellule reçoit une pluie et tout relevé sert."""
     monde = World.charger(0)
     positions = charger_positions()
     releves = charger_releves()
@@ -163,7 +163,7 @@ def test_couverture_de_toutes_les_cellules_et_utilite_des_releves():
 
 
 def test_egalite_departagee_par_le_plus_petit_identifiant():
-    """SC3 : une égalité exacte ne dépend pas de l'ordre des relevés."""
+    """Une égalité exacte ne dépend pas de l'ordre des relevés."""
     latitude_moyenne = charger_latitude_moyenne_pluie()
     facteur = facteur_de_projection(latitude_moyenne)
     positions = {1: (0.0, 0.0)}
@@ -206,7 +206,7 @@ def _contraste_geographique(pluies, cellules_seches, cellules_mouillees):
 
 
 def test_geographie_du_desert_sec_et_de_atlantique_mouille():
-    """SC4 : quatre points indépendants prouvent le contraste attendu."""
+    """Quatre points indépendants prouvent le contraste attendu."""
     positions = charger_positions()
     releves = charger_releves()
     latitude_moyenne = charger_latitude_moyenne_pluie()
@@ -261,7 +261,7 @@ def _usages_interdits(source):
 
 
 def test_pure_et_non_lue_par_le_tick():
-    """SC5 : la consultation est stable, pure et isolée du moteur."""
+    """La consultation est stable, pure et isolée du moteur."""
     monde = World.charger(0)
     avant = json.dumps(monde.to_dict(), sort_keys=True)
     premiere = pluie_depuis_monde(monde)

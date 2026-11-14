@@ -3,14 +3,14 @@
 Un bâtiment de province (`data/batiments.toml`) se pose dans une cellule — la
 province — dont la maison tient le bourg, par l'intention
 `batir_dans_une_province`, du joueur depuis la carte ou de l'IA, par le même
-chemin (décision 38). `World.batiments_de_province` garde ses chantiers et ses
+chemin. `World.batiments_de_province` garde ses chantiers et ses
 bâtiments ; la cible reste `cell_id`, la seule clé spatiale.
 
 Chaque jour, après les chantiers du plan, un bâtiment en chantier prend au
 plus `bras_par_jour` paysans de sa cellule, qui deviennent ouvriers pour la
 journée (ils manquent aux champs du bourg), et paie leur journée au grenier de
 la maison : le grain quitte le grenier et entre au panier du bourg, où ces
-gens le mangent (économie physique, décision 35). Sans grain pour payer ni
+gens le mangent (économie physique). Sans grain pour payer ni
 bras, le chantier attend. Achevé, il pose ses modificateurs sur sa cellule :
 le moulin récolte vraiment 10 % de grain en plus.
 """
@@ -89,7 +89,7 @@ def lire_types(document, modificateurs=None) -> dict:
         pieces = _entier(brute.get("pieces"), f"batiments.{identifiant}.pieces", 0)
         if pieces:
             raise BatimentInvalide(f"batiments.{identifiant}.pieces : le moteur ne porte pas encore de pièces "
-                                   "(jalon 8) ; un coût en pièces ne se paierait nulle part")
+                                   "; un coût en pièces ne se paierait nulle part")
         noms = brute.get("modificateurs") or []
         for nom_mod in noms:
             definition = donnees.definitions.get(nom_mod)

@@ -91,7 +91,7 @@ les tests du jeu et vérifie les lanceurs.
 | cellules | 596, 11 186 km² en moyenne ; 1 364 arêtes ; 50 provinces |
 | relief | 322 plaines · 162 collines · 77 montagnes · 20 marais · 15 hautes montagnes |
 | gisements | 27 |
-| un tick du monde entier | 42 ms (PC, 27 septembre 2026) ; une année en 15 s |
+| un tick du monde entier | 42 ms (sur le PC) ; une année en 15 s |
 
 La carte est **figée** : un seul fichier, jamais régénéré. Fidélité déclarée :
 niveau 1 (juste dans les grandes lignes) pour la côte, le relief et les

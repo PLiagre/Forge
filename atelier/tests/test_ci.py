@@ -1,6 +1,6 @@
 """La CI joue chaque test du jeu : un test qu'elle ne joue pas ne protège rien.
 
-Le lot #118 a ajouté `jeu/ville/tests`, que `tests.yml` ne jouait pas ; un
+Un dossier de tests que `tests.yml` ne jouerait pas ne protégerait rien ; un
 lot ne touche pas `.github/`. D'où une étape qui joue tout ce que les
 autres étapes ne jouent pas, et ce test qui en garde la forme.
 """
@@ -68,7 +68,7 @@ def test_les_tranches_du_moteur_jouent_chaque_test_une_fois():
 
 
 def test_les_tranches_du_moteur_s_equilibrent_sur_les_durees_mesurees():
-    """Le 11 octobre 2026, le tour de rôle laissait une tranche à 14 min et deux à 1 h 20."""
+    """Un tour de rôle laisserait une tranche à 14 min et deux à 1 h 20."""
     module, _, n = _tranches()
     durees = module.lire_durees()
     noms = sorted(durees)
@@ -91,7 +91,7 @@ def _ci_videe(texte: str) -> bool:
 def test_pytest_ne_se_croit_pas_sur_une_ci():
     """Avec `CI` non vide, pytest compare en entier deux structures inégales,
     même dans un `pytest.raises(AssertionError)` : 6 s sur le PC, 63 min sur la
-    CI pour test_maitre_permutations (11 octobre 2026)."""
+    CI pour test_maitre_permutations."""
     texte = WORKFLOW.read_text(encoding="utf-8")
     assert _ci_videe(texte), "tests.yml doit vider CI pour tous ses travaux"
     # Contre-épreuve : sans la ligne, ou avec CI posée, le contrôle échoue.

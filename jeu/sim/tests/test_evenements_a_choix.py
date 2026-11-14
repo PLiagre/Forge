@@ -1,4 +1,4 @@
-"""Les événements à choix nés d'une cause du monde (lot #1038 ; MODELE.md, « Les événements à choix »).
+"""Les événements à choix nés d'une cause du monde (MODELE.md, « Les événements à choix »).
 
 - Les données : `data/evenements.toml` décrit la famine qui dure et ses trois choix ; un choix
   ne peut imposer aucune issue (ni stock, ni mort, ni fin de famine).
@@ -9,7 +9,7 @@
 - L'IA répond par le même chemin que le joueur, et le joueur au même choix obtient le même monde.
 - Le service : `GET /evenement` sert l'événement et ses choix, `POST /intention` reçoit la réponse.
 
-Le décor est celui des épreuves d'après le lot #1071 : une ville affamée n'appelle rien
+Le décor est celui des épreuves de la famine : une ville affamée n'appelle rien
 (`couper_l_appel_des_villes`), comme dans les épreuves qui mesurent les premières famines.
 """
 import copy

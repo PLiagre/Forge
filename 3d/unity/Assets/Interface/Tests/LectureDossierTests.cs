@@ -53,7 +53,7 @@ namespace Forge.Interface.Tests
             Assert.AreEqual(9, lecture.Document.Tick);
             StringAssert.Contains("ancien", lecture.Erreur);
         }
-        // Lot #871 — la date que le monde a servie, lue telle quelle ; absente, elle reste nulle.
+        // La date que le monde a servie, lue telle quelle ; absente, elle reste nulle.
         [Test] public void La_date_servie_est_lue_et_son_absence_reste_nulle()
         {
             var doc = new DocumentDuMonde("{\"tick\":7,\"date\":{\"annee\":1400,\"jour_de_l_annee\":8}}");

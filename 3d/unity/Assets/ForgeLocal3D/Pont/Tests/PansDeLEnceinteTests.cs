@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #925 — le contour bouclé de l'enceinte se découpe en une tour par sommet et des pans de 10 m au plus.
+    // Le contour bouclé de l'enceinte se découpe en une tour par sommet et des pans de 10 m au plus.
     public sealed class PansDeLEnceinteTests
     {
         private static EnceinteDuPlan Enceinte(params double[] xy) =>
@@ -64,7 +64,7 @@ namespace Forge.Pont.Tests
             Assert.AreEqual(attendue, LectureDuBatiment.Etape(new BatimentDuPlan(0, 0, "mur", contour, enChantier, requis, fourni)));
         }
 
-        // Lot #926 — chaque porte servie se pose sur le mur, retire le pan qu'elle couvre et regarde dehors.
+        // Chaque porte servie se pose sur le mur, retire le pan qu'elle couvre et regarde dehors.
         private static readonly double[] C160 = { -80, -80, 80, -80, 80, 80, -80, 80 }, C160h = { -80, 80, 80, 80, 80, -80, -80, -80 }, C6 = { -3, -3, 3, -3, 3, 3, -3, 3 };
         private static PorteDuPlan[] Portes(params double[] xy) => Enumerable.Range(0, xy.Length / 2).Select(i => new PorteDuPlan(new PointLocal(xy[2 * i], xy[2 * i + 1]), "plan", 0, 4)).ToArray();
         private static DecoupeDeLEnceinte Ouvrir(double[] contour, params double[] portes)

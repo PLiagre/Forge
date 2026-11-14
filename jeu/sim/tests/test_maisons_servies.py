@@ -581,7 +581,7 @@ def test_maison_salaires(monkeypatch):
 
 
 def test_fiches_figees_du_pont():
-    """Lot #679 SC1 — les fiches figées que relit l'aiguillage du pont sont celles du service, graine 0, tick 0."""
+    """Les fiches figées que relit l'aiguillage du pont sont celles du service, graine 0, tick 0."""
     dossier = Path(__file__).resolve().parents[3] / '3d/unity/Assets/ForgeLocal3D/Pont/Tests'
     ids = {s.nom: f'seigneurie-{s.id}' for s in charger_seigneuries()}
     figees = {ids[nom]: ((dossier / f'maison-{court}-graine0-tick0.json').read_bytes(), siege)

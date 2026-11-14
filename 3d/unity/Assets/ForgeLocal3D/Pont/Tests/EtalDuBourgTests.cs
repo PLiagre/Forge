@@ -5,7 +5,7 @@ using Object = UnityEngine.Object;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #780 — un étal montre le stock d'une marchandise du bourg : la hauteur de sa garniture, jamais le comptoir.
+    // Un étal montre le stock d'une marchandise du bourg : la hauteur de sa garniture, jamais le comptoir.
     // Cellule 5, tick 3, référence 100 kg. `cas` décale une seule lecture.
     public sealed class EtalDuBourgTests
     {
@@ -37,7 +37,7 @@ namespace Forge.Pont.Tests
         }
 
         [TestCase(1f, 1f, 1f)] [TestCase(1.5f, .8f, .6f)]
-        public void LeStockAtteintLaGeometrie780(float x, float y, float z)
+        public void LeStockAtteintLaGeometrie(float x, float y, float z)
         {
             var plein = new Vector3(x, y, z); var e = Etal("nourriture", plein, out var g, out var c); Voir(g, c, plein, 0); Assert.That(e.Rapport, Is.EqualTo(-1));
             foreach (var (kg, rapport) in new (double, double)[] { (100, 1), (50, .5), (12.5, .125), (0, 0), (200, 1) })
@@ -47,7 +47,7 @@ namespace Forge.Pont.Tests
 
         // Nourriture et bois au même bourg ; à stock égal, faim nulle ou positive donnent la même garniture.
         [Test]
-        public void ChaqueMarchandiseGardeSonSens780([Values(0, 6)] long faim)
+        public void ChaqueMarchandiseGardeSonSens([Values(0, 6)] long faim)
         {
             var n = Etal("nourriture", Vector3.one, out var gn, out var cn); var b = Etal("bois", Vector3.one, out var gb, out var cb); var d = Etal("dattes", Vector3.one, out var gd, out var cd);
             foreach (var (kg, rapport) in new (double?, double)[] { (0, 0), (null, 0), (40, .4), (0, 0) })
@@ -65,7 +65,7 @@ namespace Forge.Pont.Tests
         [TestCase("rang", "rang 0")] [TestCase("tick plan", "tick")] [TestCase("tick local", "tick")] [TestCase("clé vide", "marchandise vide")] [TestCase("référence nulle", "référence")]
         [TestCase("référence négative", "référence")] [TestCase("référence NaN", "référence")] [TestCase("référence infinie", "référence")] [TestCase("garniture dehors", "hors de l'étal")]
         [TestCase("étal entier", "hors de l'étal")] [TestCase("sans géométrie", "géométrie")]
-        public void UneLectureDouteuseNeConserveRien780(string cas, string cause)
+        public void UneLectureDouteuseNeConserveRien(string cas, string cause)
         {
             var plein = new Vector3(1.2f, .7f, .9f); var e = Etal("nourriture", plein, out var g, out var c); Assert.That(Lire(e, 100), Is.True, e.Cause); Voir(g, c, plein, 1);
             var filtre = g.GetComponentInChildren<MeshFilter>(); var maillage = filtre.sharedMesh; double reference = cas == "référence nulle" ? 0 : cas == "référence négative" ? -5 : cas == "référence NaN" ? double.NaN : cas == "référence infinie" ? double.PositiveInfinity : 100;
@@ -76,7 +76,7 @@ namespace Forge.Pont.Tests
         }
 
         [Test]
-        public void LesEtalsRestentLocauxEtStables780()
+        public void LesEtalsRestentLocauxEtStables()
         {
             var plein = new Vector3(1.5f, .8f, .6f); var e = Etal("nourriture", plein, out var g, out var c); var t = Etal("bois", Vector3.one, out var tg, out var tc);
             Assert.That(t.Appliquer(Bourg(Stocks(80)), Plan()), Is.True); var matiere = c.sharedMaterial; int objets = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Length, enfants = e.transform.childCount;
@@ -92,7 +92,7 @@ namespace Forge.Pont.Tests
 
         // Deux étals visibles : configurer le premier avec la garniture du second est refusé sans la masquer, la réduire ni la rétablir.
         [Test]
-        public void UneGarnitureEtrangereResteIntacte780()
+        public void UneGarnitureEtrangereResteIntacte()
         {
             var e = Etal("nourriture", Vector3.one, out var g, out var c); var t = Etal("bois", Vector3.one, out var tg, out var tc);
             Assert.That(Lire(e, 50), Is.True, e.Cause); Assert.That(t.Appliquer(Bourg(Stocks(80)), Plan()), Is.True); Voir(tg, tc, Vector3.one, .3);

@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace Forge.Pont.Tests {
-    // Lot #870 — les mots du monde : la date servie, les jours, les masses et les grands nombres s'écrivent partout pareil,
+    // Les mots du monde : la date servie, les jours, les masses et les grands nombres s'écrivent partout pareil,
     // et deux juges refusent un texte qui montre un identifiant ou un nombre sans unité.
     public sealed class TexteDuMondeTests {
         private const string NBSP = " ";
@@ -52,7 +52,7 @@ namespace Forge.Pont.Tests {
             Assert.Throws<ArgumentException>(() => TexteDuMonde.Masse(double.PositiveInfinity));
         }
 
-        // Lot #1031 : une fraction du monde s'écrit en pourcentage signé, au centième au plus.
+        // Une fraction du monde s'écrit en pourcentage signé, au centième au plus.
         [Test] public void UneFractionSEcritEnPourcentage() {
             foreach (var (fraction, texte) in new[] { (0.1, "+10 %"), (-0.02, "-2 %"), (0.0196, "+1,96 %"), (0.0, "0 %"), (-0.0, "0 %"), (0.00001, "0 %"), (-0.0525, "-5,25 %"), (1.5, "+150 %") })
                 Assert.AreEqual(texte, TexteDuMonde.Pourcentage(fraction), fraction.ToString("R", CultureInfo.InvariantCulture));
@@ -103,7 +103,7 @@ namespace Forge.Pont.Tests {
             Assert.Throws<ArgumentException>(() => TexteDuMonde.Absence(""));
         }
 
-        // Lot #1032 : les points des jauges et des réserves s'écrivent avec leur unité, au dixième.
+        // Les points des jauges et des réserves s'écrivent avec leur unité, au dixième.
         [Test] public void Points_s_ecrivent_avec_leur_unite() {
             foreach (var (valeur, attendu) in new[] { (0d, "0 point"), (1d, "1 point"), (1.5, "1,5 point"), (2d, "2 points"), (31.5, "31,5 points"), (-1d, "-1 point"), (-3d, "-3 points"), (999d, "999 points"),
                     (12.34, "12,3 points"), (0.05, "0,1 point"), (-0.04, "0 point"), (1.96, "2 points") }) {

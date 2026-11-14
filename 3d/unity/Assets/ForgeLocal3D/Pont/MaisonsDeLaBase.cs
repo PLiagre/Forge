@@ -5,7 +5,7 @@ using System.Globalization;
 
 namespace Forge.Pont
 {
-    // Lot #736 — la case `Indice` du logis `Maison`, en mètres locaux, lacet de `LectureDuBatiment`.
+    // La case `Indice` du logis `Maison`, en mètres locaux, lacet de `LectureDuBatiment`.
     public sealed class CaseDeMaison
     {
         public int Maison { get; }

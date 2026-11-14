@@ -372,7 +372,7 @@ class ServeurMonde(ThreadingHTTPServer):
             return etat.octets_maisons[identifiant]
 
     def _places_des_lieux(self) -> dict:
-        """Les places des lieux (#393), recalculées seulement quand le maître d'un bourg change : c'est
+        """Les places des lieux, recalculées seulement quand le maître d'un bourg change : c'est
         la seule chose du monde qui les déplace. Une vue, pas un état : la clé dit d'où elles viennent."""
         cle = bourgs_et_maitres(self.world)
         if self._places is None or self._places[0] != cle:
@@ -783,7 +783,7 @@ class RequetesMonde(BaseHTTPRequestHandler):
         self._refuser(HTTPStatus.NOT_FOUND, f"chemin inconnu : reçu {cible.path!r}")
 
     def _monter_ville_dense(self, cible) -> None:
-        """Porte le bourg à HABITANTS_BOURG_VILLE_DENSE et sert une base sans îlots (épreuve de #422)."""
+        """Porte le bourg à HABITANTS_BOURG_VILLE_DENSE et sert une base sans îlots (épreuve de mesure)."""
         serveur = self.server
         with serveur.verrou_tick, serveur.condition_vitesse:
             etat = serveur.etat_publie

@@ -1,4 +1,4 @@
-"""Rapports bâtis en mémoire au format #659 ; ce ne sont pas des mesures PC."""
+"""Rapports bâtis en mémoire au format du juge ; ce ne sont pas des mesures PC."""
 import copy
 import functools
 import importlib.util
@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 RACINE = Path(__file__).resolve().parents[3]
-MESURES = RACINE / "docs/mesures/763-juge-part"
+DONNEES = RACINE / "jeu/ville/tests/donnees/juge-part"
 
 
 @functools.cache
@@ -31,7 +31,7 @@ def _rapport(p, corps):
 def base():
     d = json.loads((RACINE / "3d/unity/Assets/ForgeLocal3D/Pont/Tests/departs-graine0-tick3.json").read_text())
     d["tick"] = 0
-    a, b = [(MESURES / f"maison-moree-{p}.json").read_text() for p in (50, 10)]
+    a, b = [(DONNEES / f"maison-moree-{p}.json").read_text() for p in (50, 10)]
     return [_rapport(50, a), _rapport(10, b), d, a, b, 50, 10]
 
 
@@ -146,7 +146,7 @@ def test_impossible_champs(epreuve, base, cle, valeur):
 
 
 def _harnais(monkeypatch, epreuve, tmp_path, base, plan, ident=913):
-    """Services, HTTP et Unity en mémoire (#764) : le câblage de `main`, pas une exécution PC. La Morée y prend l'id `ident`."""
+    """Services, HTTP et Unity en mémoire : le câblage de `main`, pas une exécution PC. La Morée y prend l'id `ident`."""
     corps, e, sortie = {p: json.dumps(json.loads(c) | {"id": f"seigneurie-{ident}"}) for p, c in ((50, base[3]), (10, base[4]))}, {"log": [], "graines": [], "vivant": None}, tmp_path / "sortie"
     def lancer(graine): assert e["vivant"] is None, "deux services à la fois"; e["graines"].append(graine); e.update(vivant=len(e["graines"]) - 1); e["log"].append(("service", e["vivant"])); return e["vivant"]
     def arreter(s):

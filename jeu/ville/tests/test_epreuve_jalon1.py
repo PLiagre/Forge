@@ -1,4 +1,4 @@
-"""pc/epreuve_jalon1.py accepte le panneau égal et refuse le panneau décalé (lot #121, SC1).
+"""pc/epreuve_jalon1.py accepte le panneau égal et refuse le panneau décalé.
 
 Les photographies viennent de la vraie commande `sim` ; le texte du panneau se
 construit ici au format de `PanneauLieu.Decrire`, à partir de leurs valeurs.
@@ -23,7 +23,7 @@ EPREUVE = RACINE / "pc" / "epreuve_jalon1.py"
 PANNEAU_CS = RACINE / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "PanneauLieu.cs"
 CAPTURE_CS = RACINE / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Editor" / "ForgeCapture.cs"
 GRAINE = 0
-# Les naissances se comptent lieu par lieu (#343) : entre les ticks 3 et 4,
+# Les naissances se comptent lieu par lieu : entre les ticks 3 et 4,
 # la cellule du désert ne bouge plus ; entre 4 et 5, la faim arrive et des
 # habitants meurent. La garde « la preuve serait aveugle » reste.
 TICK_AVANT = 4
@@ -67,7 +67,7 @@ def cellule():
 def photos(tmp_path_factory):
     dossier = tmp_path_factory.mktemp("photos")
     lues = {}
-    # Ces photographies prouvent le monde d'avant le prélèvement (lot #573).
+    # Ces photographies prouvent le monde d'avant le prélèvement.
     code = ('import sim.constants as c; c.PART_COUTUMIERE = 0; '
             'import runpy; runpy.run_module("sim", run_name="__main__", alter_sys=True)')
     for tick in (TICK_AVANT, TICK_APRES):

@@ -3,7 +3,7 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
-# Les assets Unity, quand ils arriveront (lot 101).
+# Les assets Unity.
 *.fbx filter=lfs diff=lfs merge=lfs -text
 *.png filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text

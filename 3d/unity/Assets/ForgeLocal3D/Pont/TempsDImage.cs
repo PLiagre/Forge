@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace Forge.Pont
 {
-    // Lot #958 — le résumé d'une série de temps d'image (en millisecondes) : médiane, 95e centile et maximum.
+    // Le résumé d'une série de temps d'image (en millisecondes) : médiane, 95e centile et maximum.
     // Le 95e centile se prend au rang le plus proche, k = ⌈95·n/100⌉ : c'est une image vraiment mesurée,
     // jamais une valeur interpolée entre deux images. Le rang se calcule en entiers : `0.95 * n` en double
     // donne 95,00000000000001 pour certains n, et son plafond tomberait un rang trop haut.

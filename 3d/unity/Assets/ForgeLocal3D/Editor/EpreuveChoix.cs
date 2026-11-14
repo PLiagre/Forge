@@ -12,13 +12,13 @@ using Object = UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Lot 651 : la session Unity du choix de la Morée, moitié Unity de l'épreuve #615.
+    // La session Unity du choix de la Morée, moitié Unity de l'épreuve de choix.
     //   Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveChoix.Jouer
     //         -forgeEpreuve <rapport.json> -forgeTerre N -forgeSecondeTerre M [-logFile <journal>]
     // ouvre la scène de la carte en Play, attend les six repères des terres de départ, clique comme le joueur (par
     // `SurvolDeCarte`) sur le repère de la terre N, attend son reçu, puis aussitôt sur celui de M, sans jamais toucher
     // `/tick` ni `/vitesse`. Le rapport dit les deux reçus servis et les deux textes du panneau du choix, tels quels : la
-    // session ne juge rien, le verdict est celui du script de #615. Le geste est celui de la capture `Lot613`.
+    // session ne juge rien, le verdict est celui du script. Le geste est celui du clic du joueur sur un repère.
     // Codes : 0 les deux reçus relevés, quels qu'ils soient ; 1 session impossible (`defaut` le dit) ; 2 arguments fautifs.
     [InitializeOnLoad]
     public static class EpreuveChoix
@@ -169,7 +169,7 @@ namespace ForgeLocal3D
         sealed class Lu { public Lecture<DepartsLus> Lecture; public string Panne; }
         sealed class Clic { public string Defaut; }
 
-        // `/departs` lu hors du fil principal, comme `Lot613` ; une lecture qui lève ou ne finit pas se dit dans `Panne`.
+        // `/departs` lu hors du fil principal, comme le clic du joueur ; une lecture qui lève ou ne finit pas se dit dans `Panne`.
         static IEnumerator LireDeparts(int port, Lu lu)
         {
             var lecture = Task.Run(() => { using (var d = new ClientDeparts(port, ClientDeparts.DelaiMinimal)) return d.Lire(); });

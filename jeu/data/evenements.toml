@@ -1,4 +1,4 @@
-# Les événements à choix du monde (docs/VISION.md, décision 41 ; sim/evenements.py,
+# Les événements à choix du monde (sim/evenements.py,
 # MODELE.md « Les événements à choix »).
 #
 # Une cause du monde ouvre pour une maison un événement à choix ; chaque choix
@@ -7,7 +7,7 @@
 # une famine : c'est le monde qui la fait durer ou cesser. Les valeurs sont de
 # niveau 2 : plausibles, jamais sourcées.
 
-# La famine qui dure : un lieu du pays porte la pose « famine » (lot #1029) et
+# La famine qui dure : un lieu du pays porte la pose « famine » et
 # son dernier jour de faim tombe dans le mois écoulé.
 [evenements.famine]
 nom = "La famine dure"

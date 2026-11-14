@@ -86,8 +86,8 @@ def test_le_compte_rendu_porte_le_plafond_de_survie(tmp_path):
 
 def test_le_monde_ne_s_effondre_pas_sur_l_horizon_de_la_commande(tmp_path):
     """
-    Garde grossière contre le défaut qui a motivé la V1 : avant le lot 055,
-    le monde perdait 86 % de ses habitants la première année. Sur trois
+    Garde grossière contre un monde qui s'effondre : il perdait jadis 86 %
+    de ses habitants la première année. Sur trois
     ticks, une chute de plus d'un pour cent est déjà anormale.
     """
     _code, sortie = _jouer(tmp_path)
@@ -296,14 +296,14 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: pytest.fail('IA sans option'))
     ancienne = {0: '04f0bf9db96fa8ec893a4404bc9cbb82af96624fbb930d10a2bdc4b0409af1e9', 30: '4775cd7c576c32b4b647b8bd9f82061ac1216b5c658969afd254fdcf081cf694'}[ticks]
     if ticks == 30:
-        # Réponse A (#705) : toutes les empreintes historiques sur le même témoin.
+        # Toutes les empreintes se prennent sur le même témoin.
         with monkeypatch.context() as ctx:
             ctx.setattr('sim.foyers.facteur_bras', lambda *a: 1.0)
             chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     else:
         chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
-    # Lot #393 : chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
+    # Chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
     assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '10c8ddc27e5d95d54ab40f3abaef247cea004896d2f015c9a5c543d377b26bf3', 30: 'b2d3dc6df84e60c512bb12346e5d0ea96e43fb3dd14e54ea797129f28cf6435b'}[ticks]
     photo_noms = json.loads(chemin.read_bytes())
     faux_flux = json.loads(chemin.read_bytes()); faux_flux['cells'][0]['lieux'][0]['flux_30j']['preleve_kg'] += 1

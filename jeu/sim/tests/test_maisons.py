@@ -1474,7 +1474,7 @@ def _personnages_attestes(document):
         assert fiches[identifiant]['sources']['naissance']['fait'].strip()
     for identifiant in ('grande-21', 'institution-12', 'institution-15', 'institution-31', 'institution-32'):
         assert fiches[identifiant]['nom'] is None and fiches[identifiant]['lacunes']['identite'].strip()
-    # Les chefs du Maghreb (#1052) : Tlemcen réel, le Zab plausible et déclaré tel.
+    # Les chefs du Maghreb : Tlemcen réel, le Zab plausible et déclaré tel.
     for identifiant, (nom, page, fait) in {'grande-24': ('Abu Muhammad I', 'Zayyanid_dynasty', '1397'),
                                            'seigneurie-6': ('Abd al-Rahman ibn Mozni', 'Zab_Emirate', 'plausible et déclaré')}.items():
         fiche = fiches[identifiant]
@@ -1519,7 +1519,7 @@ def test_personnes_catalogue(registre, tmp_path, monkeypatch):
         chemin.write_text(json.dumps(copie), encoding='utf-8')
         return p.charger_catalogue(vue, chemin)
     assert lire(document) == document
-    # Rejouer toutes les mutations de sources de #771 contre le lecteur réel.
+    # Rejouer toutes les mutations de sources contre le lecteur réel.
     monkeypatch.setattr(sys.modules[__name__], '_personnages_sources', lire)
     test_personnages_sources()
     for maison in vue:
@@ -1778,7 +1778,7 @@ FAMILLE_1400 = [('isabeau', 'Isabeau de Bavière', '1370', 'vers'),
                 ('jean', 'Jean de France', '1398-08-31', 'jour')]
 
 
-# Notices individuelles et tableaux des parents consultés le 22 octobre 2026.
+# Notices individuelles et tableaux des parents.
 ILES_1400 = [('marie-bohun', 'Marie de Bohun', 'vers 1369/1370', 'vers', 'Mary_de_Bohun', '1394-06-04'),
              ('henri-monmouth', 'Henri de Monmouth', '1386 ou 1387', 'intervalle', 'Henry_V_of_England#Birth_and_family', '1422'),
              ('thomas-lancastre', 'Thomas de Lancastre', 'automne 1387', 'intervalle', 'Thomas_of_Lancaster,_Duke_of_Clarence', '1421'),
@@ -1827,7 +1827,7 @@ def _iles_historiques(fiches):
         else: assert f['sources']['conjoints'] and 'Annabella Drummond' in f['sources']['conjoints']['fait'] and f['lacunes']['conjoints'] is None
 
 
-# Notices individuelles et tableaux ibériques consultés le 22 octobre 2026.
+# Notices individuelles et tableaux ibériques.
 IBERIE_1400 = [('philippa-lancastre', 'Philippa de Lancastre', '1360-03-31', 'jour', 'Philippa_of_Lancaster', '1415', '4', None),
                ('afonso-portugal', 'Afonso de Portugal', '1390-07-30', 'jour', 'John_I_of_Portugal#Marriage_and_descendants', '1400-12-22', '4', 'philippa-lancastre'),
                ('edouard-portugal', 'Édouard de Portugal', '1391-10-31', 'jour', 'Edward,_King_of_Portugal', '1438', '4', 'philippa-lancastre'),
@@ -2478,7 +2478,7 @@ def test_familles_historiques_fin():
                     with pytest.raises(AssertionError): _etats_historiques(_alterer_personnages(d, ('etats', j, *chemin), valeur)['etats'])
 
 
-# Notices examinées le 22 octobre 2026 ; attentes indépendantes du catalogue.
+# Attentes indépendantes du catalogue.
 NAPLES = 'https://en.wikipedia.org/wiki/Ladislaus_of_Naples#Marriages_and_issue'
 TRECCANI = "https://www.treccani.it/enciclopedia/ladislao-d-angio-durazzo-re-di-sicilia_(Dizionario-Biografico)/"
 MARIE_SAVOIE = 'https://en.wikipedia.org/wiki/Mary_of_Burgundy,_Duchess_of_Savoy'
@@ -2615,7 +2615,7 @@ def test_familles_historiques_voisins():
     with pytest.raises(AssertionError): preuve(c)
 
 
-# Notices examinées le 28 octobre 2026 ; attentes indépendantes du catalogue.
+# Attentes indépendantes du catalogue.
 MANUEL, HELENE, JEAN, THEODORE, ANDRONIC, CONSTANTIN_XI, DEMETRIOS, THOMAS, CELIK, GANCHOU = (
     'https://en.wikipedia.org/wiki/Manuel_II_Palaiologos#Family', 'https://en.wikipedia.org/wiki/Helena_Draga%C5%A1#Marriage_and_issue',
     'https://en.wikipedia.org/wiki/John_VIII_Palaiologos', 'https://en.wikipedia.org/wiki/Theodore_II_Palaiologos',
@@ -2766,7 +2766,7 @@ def test_familles_historiques_constantinople():
     lier(c, id='personne-seigneurie-3', pere='personne-jean-v')
 
 
-# Notices examinées le 28 octobre 2026 ; attentes indépendantes du catalogue.
+# Attentes indépendantes du catalogue.
 # id, nom, naissance, précision, mère, épouse, page d’identité, repères, pages (naissance, présence, père, mère, conjoints ; - : aucune), identité, présence, conjoint
 BAYEZID, MEHMED_P, FETRET = 'https://islamansiklopedisi.org.tr/bayezid-i', 'https://islamansiklopedisi.org.tr/mehmed-i', 'https://islamansiklopedisi.org.tr/fetret-devri'
 TTK, UZUNCARSILI = 'https://ttk.gov.tr/osmanli-padisahlari/', 'https://dergipark.org.tr/tr/download/article-file/3043592'
@@ -2945,7 +2945,7 @@ def test_familles_historiques_ottomans():
         exc[nom] = exc.pop('Fille non nommée proposée à Ladislas'); refuse(c)
 
 
-# Notices examinées le 1er novembre 2026 ; attentes indépendantes du catalogue.
+# Attentes indépendantes du catalogue.
 WP = 'https://en.wikipedia.org/wiki/'
 B_STEFAN, B_OSTOJA, B_KUJAVA, B_VITACA, B_OSTOJIC, B_RADIVOJ, B_THOMAS, B_MIRCEA, B_TOLMAY, B_MIHAIL, B_VLAD, B_ALDEA, B_RADU, B_IUGA = (WP + p for p in (
     'Stefan_Lazarevi%C4%87', 'Ostoja_of_Bosnia', 'Kujava_Radinovi%C4%87', 'Vita%C4%8Da', 'Stephen_Ostoji%C4%87_of_Bosnia', 'Radivoj_of_Bosnia', 'Thomas_of_Bosnia',
@@ -3122,7 +3122,7 @@ def test_familles_historiques_balkans():
             refuse(c)
 
 
-# Notices examinées le 11 novembre 2026 ; attentes indépendantes du catalogue. Tlemcen n'a ni fiche, ni lien, ni état.
+# Attentes indépendantes du catalogue. Tlemcen n'a ni fiche, ni lien, ni état.
 M_FARIS, M_AHMAD, M_MUNTASIR, M_UTHMAN_H, M_UTHMAN, M_ABDALHAQQ = (WP + p for p in (
     'Abu_Faris_Abd_al-Aziz_II', 'Abu_al-Abbas_Ahmad_II', 'Abu_Abd-Allah_Muhammad_al-Muntasir', 'Abu_%27Amr_%27Uthman', 'Abu_Said_Uthman_III', 'Abd_al-Haqq_II'))
 MAGHREB_MAISONS, TLEMCEN = ('grande-23', 'grande-25'), 'grande-24'
@@ -3217,10 +3217,10 @@ def test_familles_historiques_maghreb(tmp_path):
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
-    # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
+    # Le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
     assert chef['nom'] == 'Abu Muhammad I' and chef['lacunes']['identite'] is None and chef['sources']['identite']['url'] == 'https://en.wikipedia.org/wiki/Zayyanid_dynasty' and chef['sources']['identite']['fait'].strip()
     _preuve_monde_maghreb(list(monde.personnages))
-    # Tlemcen n'a dans le monde que son chef (#1052), sans aucun champ familial.
+    # Tlemcen n'a dans le monde que son chef, sans aucun champ familial.
     assert [f['id'] for f in monde.personnages if f['maison'] == TLEMCEN] == ['personne-' + TLEMCEN]
     ids = {'personne-' + m for m in MAGHREB_MAISONS} | set(MAGHREB_MAISONS)
     for t in ('liens', 'etats'):
@@ -3260,7 +3260,7 @@ def test_familles_historiques_maghreb(tmp_path):
     c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison=TLEMCEN))
     with pytest.raises(AssertionError): _maghreb(etat=c['etats'][-1])
     refuse(c)
-    # Tlemcen a un chef depuis #1052 : le chargeur ne refuse plus son état, mais celui d'une maison restée sans chef (`grande-21`).
+    # Tlemcen a un chef : le chargeur ne refuse plus son état, mais celui d'une maison restée sans chef (`grande-21`).
     c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(etat), maison='grande-21'))
     chemin = tmp_path / 'sans-chef.json'
     chemin.write_text(json.dumps(c), encoding='utf-8')
@@ -3274,7 +3274,7 @@ def test_familles_historiques_maghreb(tmp_path):
             with pytest.raises(AssertionError): _preuve_monde_maghreb(list(monde.personnages) + [clone])
 
 
-# Notices examinées le 12 novembre 2026 ; attentes indépendantes du catalogue. La Horde d'Or n'a ni fiche, ni complément, ni état.
+# Attentes indépendantes du catalogue. La Horde d'Or n'a ni fiche, ni complément, ni état.
 MCA_FARAJ, MCA_JANUS, MCA_ANGLESIA, MCA_ALBERT, MCA_JOANNA, MCA_ALBERTV, MCA_SHADI = (WP + p for p in (
     'An-Nasir_Faraj', 'Janus,_King_of_Cyprus', 'Anglesia_Visconti', 'Albert_IV_of_Austria', 'Joanna_Sophie_of_Bavaria', 'Albert_II_of_Germany', 'Shadi_Beg'))
 MCA_MAISONS, HORDE = ('grande-22', 'grande-26', 'grande-30'), 'grande-21'
@@ -3468,7 +3468,7 @@ def test_familles_historiques_mamelouks_chypre_autriche(tmp_path):
             with pytest.raises(AssertionError): _preuve_monde_mca(list(monde.personnages) + [clone])
 
 
-# Notices examinées le 12 novembre 2026 ; attentes indépendantes du catalogue.
+# Attentes indépendantes du catalogue.
 PHILIPPE, MARGUERITE, JEAN, MARGUERITE_BAV, MARGUERITE_B, CATHERINE, LEOPOLD, ANTOINE, PHILIPPE_N = (WP + p for p in (
     'Philip_the_Bold#Marriage_and_issue', 'Margaret_III_of_Flanders', 'John_the_Fearless', 'Margaret_of_Bavaria', 'Margaret_of_Burgundy,_Duchess_of_Bavaria',
     'Catherine_of_Burgundy', 'Leopold_IV,_Duke_of_Austria', 'Anthony_of_Brabant', 'Philip_II_of_Nevers'))
@@ -3702,7 +3702,7 @@ def test_familles_historiques_bourgogne():
             with pytest.raises(AssertionError): _preuve_monde_bourgogne(personnes + [clone])
 
 
-# Notices examinées le 13 novembre 2026 ; attentes indépendantes du catalogue.
+# Attentes indépendantes du catalogue.
 (ROBERT, ELISABETH_N, MARGUERITE_P, CHARLES_L, LOUIS_P, ADOLPHE_C, JEAN_N, CATHERINE_P, ETIENNE_S, ANNA_V, OTTON_M, FREDERIC_A, MATHILDE_S) = (WP + p for p in (
     'Rupert,_King_of_the_Romans#Family_and_children', 'Elisabeth_of_Nuremberg', 'Margaret_of_the_Palatinate', 'Charles_II_of_Lorraine', 'Louis_III,_Elector_Palatine',
     'Adolph_I,_Duke_of_Cleves', 'John,_Count_Palatine_of_Neumarkt', 'Catherine_of_Pomerania,_Countess_Palatine_of_Neumarkt', 'Stephen,_Count_Palatine_of_Simmern-Zweibrücken',
@@ -3956,7 +3956,7 @@ def test_familles_historiques_palatinat():
             with pytest.raises(AssertionError): _preuve_monde_palatinat(personnes + [clone])
 
 
-# Notices examinées le 14 novembre 2026 ; attentes indépendantes du catalogue.
+# Attentes indépendantes du catalogue.
 FWP = 'https://fr.wikipedia.org/wiki/'
 ROBERT_FR, GUILLAUME_FR, WALERAN_FR, MARIE_FR = (FWP + p for p in ('Robert_Ier_de_Bar#Mariage_et_enfants', 'Guillaume_II_de_Namur', 'Waléran_III_de_Luxembourg-Ligny', 'Marie_de_France_(1344-1404)'))
 (ROBERT_EN, MARIE_EN, VIOLANT, JEAN_A, HENRI_B, LOUIS_B, EDOUARD_B, JEAN_BAR, GUILLAUME_EN, WALERAN_EN, THEODORE_M, ADOLPHE_J) = (WP + p for p in (
@@ -4233,7 +4233,7 @@ def test_familles_historiques_bar():
         with pytest.raises(AssertionError): _preuve_monde_bar(personnes + [clone])
 
 
-# Notices examinées le 14 novembre 2026 ; attentes indépendantes du catalogue. Théodore Ier de Morée n'a aucun complément ni aucune fiche.
+# Attentes indépendantes du catalogue. Théodore Ier de Morée n'a aucun complément ni aucune fiche.
 (EBERHARD_III_EN, EBERHARD_IV_EN, ANTONIA_EN, THEODORE_I, BARTOLOMEA, SULEYMAN) = (WP + p for p in (
     'Eberhard_III_of_W%C3%BCrttemberg#Marriages_and_children', 'Eberhard_IV_of_W%C3%BCrttemberg', 'Antonia_Visconti', 'Theodore_I_Palaiologos#Personal_life', 'Bartolomea_Acciaioli', 'S%C3%BCleyman_%C3%87elebi'))
 EBERHARD_III_DE, ANTONIA_DE, EBERHARD_IV_DE = ('https://de.wikipedia.org/wiki/' + p for p in ('Eberhard_III._(W%C3%BCrttemberg,_Graf)', 'Antonia_Visconti', 'Eberhard_IV._(W%C3%BCrttemberg)'))
@@ -4590,7 +4590,7 @@ def test_familles_historiques_moree(tmp_path):
             with pytest.raises(AssertionError): preuve(copie(modif))
 
 
-# Notices examinées le 14 novembre 2026 ; attentes indépendantes du catalogue. Branković et Evrenos ont un complément et un état, le Zab un état seul ; aucune fiche nouvelle.
+# Attentes indépendantes du catalogue. Branković et Evrenos ont un complément et un état, le Zab un état seul ; aucune fiche nouvelle.
 DJURADJ, VUK, IRENE, EVRENOS_EN, ZAB_EN = (WP + p for p in ('%C4%90ura%C4%91_Brankovi%C4%87', 'Vuk_Brankovi%C4%87', 'Irene_Kantakouzene', 'Evrenos', 'Zab_Emirate'))
 EVRENOS_TDV = 'https://islamansiklopedisi.org.tr/evrenosogullari'
 BRANKOVIC, EVRENOS, ZAB = 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'

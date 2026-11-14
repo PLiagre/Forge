@@ -43,7 +43,7 @@ namespace Forge.Pont
             Poses = new ReadOnlyCollection<PoseLue>(new List<PoseLue>(poses ?? throw new ArgumentNullException(nameof(poses))));
         }
     }
-    // Lot #1045 : un lieu du pays, sa terre et son rang dans la terre (0 est le bourg).
+    // Un lieu du pays, sa terre et son rang dans la terre (0 est le bourg).
     public sealed class LieuDuPays
     {
         public long CellId { get; } public long Rang { get; }
@@ -81,7 +81,7 @@ namespace Forge.Pont
             Batiments = new ReadOnlyCollection<BatimentDuPays>(new List<BatimentDuPays>(batiments ?? throw new ArgumentNullException(nameof(batiments))));
         }
     }
-    // Lot #1046 : un geste du pays tel que `/pays` le sert : son prix par réserve (points), son effet par jauge (écart) et la raison de son refus (nulle si payable).
+    // Un geste du pays tel que `/pays` le sert : son prix par réserve (points), son effet par jauge (écart) et la raison de son refus (nulle si payable).
     public sealed class GesteLu
     {
         public string Id { get; } public string Nom { get; } public IReadOnlyDictionary<string, double> Cout { get; } public IReadOnlyDictionary<string, double> Effet { get; } public string Refus { get; }
@@ -115,13 +115,13 @@ namespace Forge.Pont
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("un identifiant de maison non vide attendu", nameof(id));
             return service.Demander(HttpMethod.Get, "/pays?maison=" + Uri.EscapeDataString(id), racine => Pays(racine, id));
         }
-        // Lot #1045 : le même document, lu pour ses terres. Il ne lit ni `jauges` ni `maison.nom`.
+        // Le même document, lu pour ses terres. Il ne lit ni `jauges` ni `maison.nom`.
         public Lecture<TerresDuPays> LireTerres(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("un identifiant de maison non vide attendu", nameof(id));
             return service.Demander(HttpMethod.Get, "/pays?maison=" + Uri.EscapeDataString(id), racine => Terres(racine, id));
         }
-        // Lot #1046 : le pays comme `Lire`, puis `jauges.gestes`, en entier ou pas du tout.
+        // Le pays comme `Lire`, puis `jauges.gestes`, en entier ou pas du tout.
         public Lecture<GestesDuPays> LireGestes(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("un identifiant de maison non vide attendu", nameof(id));

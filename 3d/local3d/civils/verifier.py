@@ -1,4 +1,4 @@
-# Contrôle de civil.vat (lot #785), bibliothèque standard seule : py verifier.py CHEMIN [--contre-epreuves]
+# Contrôle de civil.vat, bibliothèque standard seule : py verifier.py CHEMIN [--contre-epreuves]
 # Tout se dérive des octets livrés : en-tête, clips, longueur, valeurs, taille et marche. Non nul au refus.
 import math, pathlib, struct, sys
 

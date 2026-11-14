@@ -5,12 +5,12 @@ using System.Globalization;
 
 namespace Forge.Pont
 {
-    // Lot #925 — où poser chaque pièce du mur le long du contour servi, et quelle étape montrer.
+    // Où poser chaque pièce du mur le long du contour servi, et quelle étape montrer.
     // Convention de la vue : rien ne retourne au monde. Longueurs du kit (`rempart_pise_10m`, `tour_ksar_0`).
     public enum NatureDePiece { Tour, Pan, Porte }
     // `Cote` : le sommet i d'une tour, le côté `c[i] → c[(i+1) % n]` d'un pan. `Indice` (rang depuis `c[i]`) et
     // `AbscisseM` (du centre à `c[i]`) valent 0 pour une tour. Le lacet est celui de `LectureDuBatiment`, façade dehors.
-    // Lot #926 — une porte : son côté, son rang parmi les portes servies, son point projeté, la largeur servie, le lacet des pans.
+    // Une porte : son côté, son rang parmi les portes servies, son point projeté, la largeur servie, le lacet des pans.
     public sealed class PieceDeLEnceinte
     {
         public NatureDePiece Nature { get; } public int Cote { get; } public int Indice { get; }
@@ -61,7 +61,7 @@ namespace Forge.Pont
                 if (Math.Sqrt(bx * bx + by * by) < 1e-9) return DecoupeDeLEnceinte.Absente("sommet " + Nom(i) + " : demi-tour");
                 tours[i] = Lacet(bx, by);
             }
-            // Lot #926 — chaque porte va au premier côté le plus proche, s'y projette et retire le pan qu'elle couvre.
+            // Chaque porte va au premier côté le plus proche, s'y projette et retire le pan qu'elle couvre.
             var couverts = new HashSet<(int, int)>(); var ouvertes = new List<PieceDeLEnceinte>();
             for (int p = 0; p < portes.Count; p++)
             {

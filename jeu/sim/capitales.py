@@ -121,7 +121,7 @@ def toutes_les_maisons_de_l_ia(
     Ne dépend que des tables de 1400 et de la carte, jamais du tick ni du
     joueur : une boucle de jeu la calcule une fois et la donne à `jouer_ia`,
     qui écarte la maison du joueur à chaque tick. La recalculer à chaque tick
-    coûtait 170 ms sur 218 (docs/mesures/2026-11-07-refonte, section 2).
+    coûtait 170 ms sur 218.
     """
     if positions is None:
         positions = charger_positions()

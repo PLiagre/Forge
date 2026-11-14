@@ -1,7 +1,7 @@
 using System;
 namespace Forge.Pont
 {
-    // Lot #687 : sur quoi le jeu s'ouvre au lancement. LaisseeALaCarte : -forgeCarte, déjà traité par OuvertureDeLaCarte.
+    // Sur quoi le jeu s'ouvre au lancement. LaisseeALaCarte : -forgeCarte, déjà traité par OuvertureDeLaCarte.
     public enum ModeDOuverture { Ville, Carte, LaisseeALaCarte }
     // Cellule renseignée seulement pour Ville ; Scene égale à OuvertureDeLaCarte.SCENE seulement pour Carte.
     public sealed class OuvertureDecidee
@@ -12,13 +12,13 @@ namespace Forge.Pont
         internal static OuvertureDecidee ALaCarte() => new OuvertureDecidee(ModeDOuverture.Carte, null, OuvertureDeLaCarte.SCENE);
         internal static OuvertureDecidee LaisseeALaCarte() => new OuvertureDecidee(ModeDOuverture.LaisseeALaCarte, null, null);
     }
-    // Décision pure : tout vient des paramètres. Dans l'ordre : la remise (#701), -forgeCarte, -forgeCell, l'éditeur (le ksar de 1175),
-    // enfin l'aiguillage de #679, consulté une seule fois. Une absence garde sa cause : jamais une cellule de remplacement.
+    // Décision pure : tout vient des paramètres. Dans l'ordre : la remise, -forgeCarte, -forgeCell, l'éditeur (le ksar de 1175),
+    // enfin l'aiguillage, consulté une seule fois. Une absence garde sa cause : jamais une cellule de remplacement.
     public static class OuvertureDeLaCapitale
     {
         public static Lecture<OuvertureDecidee> Decider(string[] arguments, bool editeur, Func<Lecture<CapitaleAOuvrir>> aiguillage)
             => Decider(arguments, editeur, null, aiguillage);
-        // Lot #701 : la cellule remise par le passage de la carte (PassageALaCapitale) passe avant tout, sans lire l'aiguillage.
+        // La cellule remise par le passage de la carte (PassageALaCapitale) passe avant tout, sans lire l'aiguillage.
         public static Lecture<OuvertureDecidee> Decider(string[] arguments, bool editeur, long? remise, Func<Lecture<CapitaleAOuvrir>> aiguillage)
         {
             if (arguments == null) throw new ArgumentNullException(nameof(arguments));

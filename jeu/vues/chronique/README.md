@@ -1,21 +1,21 @@
-# chronique/
+# vues/chronique/
 
-Le monde qui avance, **regardé**. `viewer/` montre un instant ; la
+Le monde qui avance, **regardé**. `vues/tableau/` montre un instant ; la
 chronique montre la suite des instants, et c'est la seule différence.
 
 ```bash
 # dérouler 180 ticks, une image tous les 4, et dessiner la planche
-python3 -m chronique --ticks 180 --pas 4 --html /tmp/chronique.html
+python3 -m vues.chronique --ticks 180 --pas 4 --html /tmp/chronique.html
 
 # garder la chronique pour la redessiner sans resimuler
-python3 -m chronique --ticks 180 --pas 4 --json /tmp/chronique.json
-python3 -m chronique --chronique /tmp/chronique.json --html /tmp/planche.html
+python3 -m vues.chronique --ticks 180 --pas 4 --json /tmp/chronique.json
+python3 -m vues.chronique --chronique /tmp/chronique.json --html /tmp/planche.html
 
 # une page qui n'appelle personne (fontes du système)
-python3 -m chronique --chronique /tmp/chronique.json --html /tmp/p.html --sans-reseau
+python3 -m vues.chronique --chronique /tmp/chronique.json --html /tmp/p.html --sans-reseau
 
 # en faire une vidéo (demande un Chromium et un ffmpeg)
-python3 -m chronique --chronique /tmp/chronique.json --html /tmp/p.html \
+python3 -m vues.chronique --chronique /tmp/chronique.json --html /tmp/p.html \
         --bobine /tmp/monde.webm --bobine-lecture disette
 ```
 
@@ -86,4 +86,4 @@ artistique se fait dans un fichier, pas dans deux moteurs de rendu.
 ## Hors périmètre
 
 Pas de fenêtre interactive. Pas de relief en
-trois dimensions — ça, c'est `visualisateur/`, et ça demande forge3d.
+trois dimensions — ça, c'est `vues/relief/`, et ça demande forge3d.

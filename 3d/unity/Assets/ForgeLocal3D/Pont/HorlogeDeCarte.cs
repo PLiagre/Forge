@@ -5,14 +5,14 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace Forge.Pont {
-    // Lot #525 : la date du monde sur la carte, et l'horloge que le joueur règle. Le panneau relit `/horloge` toutes les
+    // La date du monde sur la carte, et l'horloge que le joueur règle. Le panneau relit `/horloge` toutes les
     // `PERIODE_LECTURE_S` : la date, le tick et la vitesse sont ceux que le service rend, jamais avancés ni calculés ici.
-    // Lot #883 : le tick est lu (`Lue.Tick`, pour ceux qui datent un reçu) mais jamais affiché ; le panneau dit la date et la vitesse.
+    // Le tick est lu (`Lue.Tick`, pour ceux qui datent un reçu) mais jamais affiché ; le panneau dit la date et la vitesse.
     // Le joueur met en pause, relance, accélère ou ralentit (les boutons du panneau, ou Espace, + et − par
     // `CommandesDuTemps`) ; la vitesse part au service (`POST /vitesse`), et le panneau affiche celle qu'il rend. Une
     // requête à la fois, hors du fil principal ; une vitesse demandée pendant une lecture part juste après. Sans service,
     // le panneau le dit, et aucune vitesse ne part : on ne règle pas un temps qu'on ne connaît pas.
-    // Lot #860 : le jeu s'ouvre en pause. À l'ouverture, en pause, Espace et « Reprendre » lancent le temps à la vitesse de la
+    // Le jeu s'ouvre en pause. À l'ouverture, en pause, Espace et « Reprendre » lancent le temps à la vitesse de la
     // carte (`ReglagesDesVues`) ; une fois le monde vu en marche, la reprise est celle qu'il avait.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     public sealed class HorlogeDeCarte : MonoBehaviour {

@@ -1,8 +1,7 @@
 """GitHub, par `gh` : lire l'état d'un lot, faire les gestes du pilote.
 
 C'est le seul module qui parle à GitHub. Il lit toujours en JSON (le `gh`
-2.45 du VPS échoue sans `--json` sur plusieurs commandes, mesuré le
-20 septembre 2026) et il reçoit son exécuteur : les tests lui donnent un
+2.45 du VPS échoue sans `--json` sur plusieurs commandes) et il reçoit son exécuteur : les tests lui donnent un
 faux GitHub, le pilote le vrai.
 """
 
@@ -18,9 +17,7 @@ CONTROLES_EXIGES = ("tests", "gitleaks")
 # Le contrôle exigé qui agrège un workflow, et ce workflow : `tests` ne naît
 # qu'une fois tous les travaux de `tests.yml` finis, et il est rouge dès que
 # l'un l'est. Un travail de ce workflow déjà rouge le rend donc rouge
-# d'avance. Le 11 octobre 2026, #573 a attendu 6 h une tranche bloquée
-# alors que trois travaux étaient rouges depuis le matin : le codeur ne
-# l'a pas su.
+# d'avance : le meneur du lot doit le savoir sans attendre la fin du workflow.
 AGREGATS = {"tests": "tests"}
 
 # La variable d'Actions du dépôt qui met le PC en pause pour la chaîne : « non »
@@ -104,7 +101,7 @@ class GitHub:
 
     def sortir_du_jalon(self, numero: int) -> None:
         # Par l'API : `gh issue edit --remove-milestone` n'existe pas dans le
-        # gh 2.45 du VPS (le 4 octobre 2026, chaque tour du pilote s'arrêtait là).
+        # gh 2.45 du VPS (chaque tour du pilote s'arrêtait là).
         self.gh("api", "-X", "PATCH", f"repos/{self.depot}/issues/{numero}", "--input", "-",
                 entree=json.dumps({"milestone": None}))
 
@@ -165,8 +162,8 @@ class GitHub:
         """Fusion (squash) dès que les contrôles exigés sont verts, de la
         révision `tete` seulement : celle que le relecteur a jugée.
 
-        Une PR déjà fusionnable refuse l'auto-fusion (« clean status », mesuré
-        le 28 septembre 2026 sur la PR #174 : le pilote échouait à chaque tour).
+        Une PR déjà fusionnable refuse l'auto-fusion (« clean status » : le
+        pilote échouait à chaque tour).
         On la fusionne alors tout de suite : c'est ce que l'auto-fusion aurait
         fait, et la protection de master s'applique pareil."""
         garde = ["--match-head-commit", tete] if tete else []

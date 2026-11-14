@@ -10,13 +10,13 @@ namespace Forge.Interface
     {
         public Lecture<MondeAvecMaisonLu> Monde { get; private set; }
         public Lecture<MaisonLue> Maison { get; private set; }
-        // Lot #1001 : les comptes de la maison du joueur, lus au même passage que le monde ; leur tick dit s'ils sont du même jour.
+        // Les comptes de la maison du joueur, lus au même passage que le monde ; leur tick dit s'ils sont du même jour.
         public Lecture<ComptesDeMaison> Comptes { get; private set; }
-        // Lot #1032 : le pays de la maison du joueur (ses jauges et ses points), lu au même passage ; son tick dit s'il est du même jour que le monde.
+        // Le pays de la maison du joueur (ses jauges et ses points), lu au même passage ; son tick dit s'il est du même jour que le monde.
         public Lecture<PaysLu> Pays { get; private set; }
-        // Lot #1045 : le reste de `/pays` (lieux, vassaux, totaux, bâtiments), lu juste après le pays ; son tick dit s'il est du même jour que le monde.
+        // Le reste de `/pays` (lieux, vassaux, totaux, bâtiments), lu juste après le pays ; son tick dit s'il est du même jour que le monde.
         public Lecture<TerresDuPays> Terres { get; private set; }
-        // Lot #1046 : les gestes du pays de la maison du joueur (prix, effet, refus), lus juste après les terres ; leur tick dit s'ils sont du même jour que le monde.
+        // Les gestes du pays de la maison du joueur (prix, effet, refus), lus juste après les terres ; leur tick dit s'ils sont du même jour que le monde.
         public Lecture<GestesDuPays> Gestes { get; private set; }
         public Lecture<DepartsLus> Departs { get; private set; }
         public RecuIntention Recu { get; private set; }

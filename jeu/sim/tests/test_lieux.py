@@ -138,7 +138,7 @@ def test_vue_pure_que_le_tick_ne_lit_pas():
     assert attributs_avant == attributs_apres
 
 
-# Lot 235 : habitants et panier persistés, sans calcul économique par lieu.
+# Habitants et panier persistés, sans calcul économique par lieu.
 def _controle_conservation(monde):
     contrôlées = 0
     for cid, cellule in monde.cells.items():
@@ -226,7 +226,7 @@ def _controle_bourg(monde):
             assert cellule.lieux[0].population >= autres, f"cell_id={cid} : bourg"
         for marchandise, total in cellule.stocks.items():
             if marchandise == _constantes.MARCHANDISE_NOURRITURE:
-                # La soudure (7 novembre 2026) : chaque lieu porte la ration de ses
+                # La soudure : chaque lieu porte la ration de ses
                 # habitants jusqu'à la moisson, pas une part de surface.
                 jours = _constantes.jours_de_soudure(0)
                 ration = _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK / _constantes.TICK_DURATION_DAYS
@@ -1546,7 +1546,7 @@ def test_photographie_lit_les_surfaces_sans_recreer_les_lieux(monkeypatch):
     assert [l['surface_km2'] for l in lieux_en_photographie(1, cellule)] == [surface]
 
 
-def test_raccourci_745_reprise(monkeypatch):
+def test_raccourci_reprise(monkeypatch):
     import random
     from sim import engine, lieux
     from sim.model import ecrire_stock_marchandise, copier_panier
@@ -1569,7 +1569,7 @@ def test_raccourci_745_reprise(monkeypatch):
         cellule.population += 1
         controler(cellule)
     cellule = next(c for c in monde.cells.values() if len(c.lieux) > 1)
-    ecrire_stock_marchandise(cellule.lieux[0], 'preuve_745', 0.0)
+    ecrire_stock_marchandise(cellule.lieux[0], 'preuve_du_raccourci', 0.0)
     attendu = controler(cellule)
     # Une somme alignée ne suffit pas : l'ancienne reprise enlève cette clé.
     monkeypatch.setattr(lieux, 'lieux_deja_accordes', lambda *a: True)
@@ -1581,7 +1581,7 @@ def test_raccourci_745_reprise(monkeypatch):
     print(f'cellules comparées={len(monde.cells)}, reprises={2 * len(monde.cells) + 1}, clé parasite détectée')
 
 
-def test_raccourci_745_partager():
+def test_raccourci_partager():
     import random
     from sim import engine, lieux
     from sim.model import contenus_des_paniers
@@ -1607,7 +1607,7 @@ def test_raccourci_745_partager():
     print(f'partages exacts comparés={cas}, regroupement arrondi détecté')
 
 
-def test_raccourci_745_lecture_stock():
+def test_raccourci_lecture_stock():
     import random
     from sim import engine, model
     monde, rng = World.charger(0), random.Random(0)
@@ -1616,12 +1616,12 @@ def test_raccourci_745_lecture_stock():
     cas = 0
     for cellule in monde.cells.values():
         for entite in (cellule, *cellule.lieux):
-            for nom in (*model.copier_panier(entite), '_absente_745'):
+            for nom in (*model.copier_panier(entite), '_absente'):
                 ancien = model._lire_stock_par_presence(entite, nom)
                 rapide = model.lire_stock_marchandise(entite, nom)
                 assert rapide == ancien and type(rapide) is type(ancien)
                 cas += 1
     with pytest.raises(AssertionError):
-        assert model.lire_stock_marchandise(cellule, '_absente_745') == 0.0
+        assert model.lire_stock_marchandise(cellule, '_absente') == 0.0
     assert cas > 0
     print(f'lectures comparées={cas}, absence confondue avec zéro détectée')

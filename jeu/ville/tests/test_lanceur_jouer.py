@@ -1,4 +1,4 @@
-"""pc/jouer.py démarre le service, lance le jeu, puis arrête le service (lot #120, SC2).
+"""pc/jouer.py démarre le service, lance le jeu, puis arrête le service.
 
 Le jeu est un faux jeu écrit ici : il lit `-forgeCell` s'il est reçu, interroge le service,
 écrit ce qu'il a reçu dans un fichier, et sort avec le code demandé.
@@ -230,7 +230,7 @@ def test_chemin_nominal(faux_jeu, tmp_path):
 
 
 def test_carte_ouvre_le_jeu_sur_la_carte(faux_jeu, tmp_path):
-    """Lot #524 : `--carte` passe `-forgeCarte` au jeu, qui s'ouvre sur la carte ; sans lui, le jeu ne le reçoit pas."""
+    """`--carte` passe `-forgeCarte` au jeu, qui s'ouvre sur la carte ; sans lui, le jeu ne le reçoit pas."""
     for options, attendu in (((), False), (("--carte",), True)):
         port, sortie = _port_libre(), tmp_path / f"recu-{attendu}.json"
         code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port), *options)

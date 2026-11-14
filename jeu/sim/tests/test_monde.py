@@ -201,7 +201,7 @@ def test_la_consommation_des_couches_est_mesuree_pas_declaree():
     engine.production_kg = production_qui_lit_le_climat
     try:
         # Sans lecture réelle de la couche, rien ne doit bouger.
-        # Le climat est désormais consommé ; la sonde pointe
+        # Le climat est consommé ; la sonde pointe
         # vers les gisements, encore inertes.
         assert _couche_consommee("couche_inexistante") is False, (
             "La sonde rend True alors que le moteur ne lit pas la couche : "
@@ -1133,7 +1133,7 @@ def _carte_sans_gisements(carte: dict) -> dict:
 
 def test_cellule_a_gisement_cultive_moins():
     """
-    SC1 — À surface, relief, date et rendement identiques, une porteuse
+    À surface, relief, date et rendement identiques, une porteuse
     produit strictement moins qu'une non-porteuse de même classe de relief.
     """
     from sim import constants as _k
@@ -1170,7 +1170,7 @@ def test_cellule_a_gisement_cultive_moins():
 
 def test_baisse_ne_touche_que_les_porteuses():
     """
-    SC2 — Au premier tick, le stock de nourriture ne diffère que sur les
+    Au premier tick, le stock de nourriture ne diffère que sur les
     cellules que la carte déclare porteuses. L'autre monde a les gisements
     vidés, rien d'autre.
     """
@@ -1209,7 +1209,7 @@ def test_baisse_ne_touche_que_les_porteuses():
 
 def test_richesse_ordonne_la_part_miniere():
     """
-    SC3 — À un gisement unique, la part minière suit l'ordre des richesses
+    À un gisement unique, la part minière suit l'ordre des richesses
     dérivé de la carte : majeure > notable > mineure.
     """
     from sim import constants as _k
@@ -1241,7 +1241,7 @@ def test_richesse_ordonne_la_part_miniere():
 
 def test_plafond_part_miniere():
     """
-    SC4 — Assez de gisements majeurs pour dépasser le plafond : la part
+    Assez de gisements majeurs pour dépasser le plafond : la part
     vaut exactement le plafond, et la cellule continue de produire.
     """
     from sim import constants as _k
@@ -1341,12 +1341,11 @@ def _texte_master(relatif: str, ref: str | None = None) -> str:
     Source d'un fichier sur master, rejouée, jamais recopiée.
 
     `relatif` part du paquet (« sim/engine.py »). L'endroit où master range
-    ce paquet se lit dans son arbre — « sim/ », puis « jeu/sim/ » depuis le
-    rangement du 27 septembre 2026 — et n'est jamais écrit en dur.
+    ce paquet se lit dans son arbre — « sim/ » ou « jeu/sim/ » — et n'est jamais écrit en dur.
 
     Un module absent de master (le premier module neuf d'un lot) rend une
     source vide : il n'y porte aucun jeu de facteurs, et c'est une mesure
-    juste (lot 248, demande #49). Toute autre erreur reste une erreur.
+    juste. Toute autre erreur reste une erreur.
     """
     ref = ref or _ref_master()
     arbre = _arbre_master(ref)
@@ -1378,7 +1377,7 @@ def _texte_master(relatif: str, ref: str | None = None) -> str:
 
 def test_texte_master_rend_vide_un_module_absent_de_master():
     """
-    Lot 248 (demande #49) — un module absent de master, comme le premier
+    Un module absent de master, comme le premier
     module neuf d'un lot, compte pour une source sans aucun jeu de facteurs :
     c'est une mesure juste, pas un défaut. Le nom absent se dérive de
     l'arbre de master (un module qui y est, suffixé jusqu'à ne plus y être),
@@ -1399,7 +1398,7 @@ def test_texte_master_rend_vide_un_module_absent_de_master():
 
 def test_texte_master_echoue_sur_une_reference_illisible():
     """
-    Lot 248 (demande #49) — sans ce cas, le précédent ne prouve rien : une
+    Sans ce cas, le précédent ne prouve rien : une
     référence que git ne sait pas lire échoue toujours, elle ne rend jamais
     une source vide. La référence illisible se dérive de celle de master,
     suffixée jusqu'à ce que `git rev-parse` ne la connaisse plus.
@@ -1465,7 +1464,7 @@ def _constantes_relief_table() -> set[str]:
 
 def test_une_seule_definition_part_miniere():
     """
-    SC5 — Deux références dérivées : la part minière se calcule autant de
+    Deux références dérivées : la part minière se calcule autant de
     fois que le motif relief ; les jeux de richesse restent ceux de master.
 
     Le nombre de formules de production est encore compté et affiché, mais
@@ -1534,7 +1533,7 @@ def test_une_seule_definition_part_miniere():
 
 def test_formule_agricole_suit_le_motif_relief():
     """
-    SC5 — La formule agricole de base n'existe qu'à un seul endroit :
+    La formule agricole de base n'existe qu'à un seul endroit :
     autant de lectrices de la constante de rendement au km² que de
     lectrices de la table de relief, même parcours, même arbre.
     """
@@ -1575,7 +1574,7 @@ def test_formule_agricole_suit_le_motif_relief():
 
 def test_moteur_consulte_part_miniere_par_fonction():
     """
-    SC9 — Dénominateur dérivé des constantes lues par nom dans engine.py.
+    Dénominateur dérivé des constantes lues par nom dans engine.py.
     PART_MINIERE_* n'y figurent pas ; part_miniere_de est parmi les appels.
     """
     import sim.constants as _k
@@ -1622,7 +1621,7 @@ def test_moteur_consulte_part_miniere_par_fonction():
 
 def test_extraction_suit_les_mineurs():
     """
-    SC6 — À population égale, l'extraction est proportionnelle à la part
+    À population égale, l'extraction est proportionnelle à la part
     minière. Une part nulle mesure 0.0, pas la sentinelle -1.
     """
     from sim import constants as _k
@@ -1680,7 +1679,7 @@ def test_extraction_suit_les_mineurs():
 
 def test_cellules_minieres_produisent_moins_et_portent_moins_de_monde():
     """
-    SC7 — Sur le monde réel, une cellule qui extrait produit strictement moins
+    Sur le monde réel, une cellule qui extrait produit strictement moins
     de nourriture, et porte donc strictement moins d'habitants, que la même
     cellule dont le gisement a été vidé.
 
@@ -1807,7 +1806,7 @@ def _cellule_epreuve_fabrication() -> Cell:
 
 
 def test_fabrication_transforme_dans_les_proportions_declarees():
-    """SC1 — _apply_fabrication consomme et produit selon les constantes nommées."""
+    """_apply_fabrication consomme et produit selon les constantes nommées."""
     from sim import constants as _k
     from sim.engine import _apply_fabrication
     from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
@@ -1842,7 +1841,7 @@ def test_fabrication_transforme_dans_les_proportions_declarees():
 
 
 def test_fabrication_rendement_strictement_inferieur_a_un():
-    """SC2 — La transformation perd de la masse : produit < consommé."""
+    """La transformation perd de la masse : produit < consommé."""
     from sim import constants as _k
     from sim.engine import _apply_fabrication
     from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
@@ -1859,7 +1858,7 @@ def test_fabrication_rendement_strictement_inferieur_a_un():
 
 
 def test_fabrication_deux_matieres_premieres_meme_objet():
-    """SC3 — Deux ressources distinctes alimentent le même stock d'objet."""
+    """Deux ressources distinctes alimentent le même stock d'objet."""
     from sim import constants as _k
     from sim.engine import _apply_fabrication
     from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
@@ -1888,7 +1887,7 @@ def test_fabrication_deux_matieres_premieres_meme_objet():
 
 
 def test_fabrication_premier_tick_ne_faconne_pas():
-    """SC4 — Au tick 0, aucune cellule ne porte encore d'objet façonné ce jour."""
+    """Au tick 0, aucune cellule ne porte encore d'objet façonné ce jour."""
     import random
 
     from sim import constants as _k
@@ -1912,7 +1911,7 @@ def test_fabrication_premier_tick_ne_faconne_pas():
 
 
 def test_fabrication_deuxieme_tick_faconne_extrait():
-    """SC5 — Au second tick, l'objet apparaît sur une cellule minière."""
+    """Au second tick, l'objet apparaît sur une cellule minière."""
     import random
 
     from sim import constants as _k
@@ -1938,14 +1937,14 @@ def test_fabrication_deuxieme_tick_faconne_extrait():
 
 
 def test_fabrication_objet_ne_circule_pas():
-    """SC6 — L'objet n'a pas de consommation par habitant."""
+    """L'objet n'a pas de consommation par habitant."""
     from sim import constants as _k
 
     assert _k.consommation_kg_par_habitant_par_tick(_k.MARCHANDISE_OBJET) == 0.0
 
 
 def test_fabrication_constantes_lues_par_fonction_seulement():
-    """SC7 — engine.py ne nomme pas les constantes de façonnage directement."""
+    """Engine.py ne nomme pas les constantes de façonnage directement."""
     import ast
 
     engine_path = pathlib.Path(__file__).resolve().parents[1] / "engine.py"
@@ -1982,7 +1981,7 @@ def test_fabrication_constantes_lues_par_fonction_seulement():
 
 
 def test_fabrication_determinisme_meme_graine():
-    """SC9 — Même graine et mêmes ticks : to_dict et stocks_mer identiques."""
+    """Même graine et mêmes ticks : to_dict et stocks_mer identiques."""
     import random
 
     from sim import constants as _k
@@ -2013,7 +2012,7 @@ def test_fabrication_determinisme_meme_graine():
 
 
 def test_fabrication_ordre_insertion_panier_invariant():
-    """SC9 — L'ordre d'insertion des matières premières ne change pas l'objet."""
+    """L'ordre d'insertion des matières premières ne change pas l'objet."""
     from sim import constants as _k
     from sim.engine import _apply_fabrication
     from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
@@ -2149,7 +2148,7 @@ def _controle_snapshot_export_pas_seconde_formule_bourg(source: str) -> None:
 
 
 def test_snapshot_bourg_recalcule_pas_stocke():
-    """SC1 — cell['bourg'] du snapshot égale bourg_depuis_monde, jamais Cell."""
+    """Cell['bourg'] du snapshot égale bourg_depuis_monde, jamais Cell."""
     monde = World.charger(0)
     doc = build_snapshot_document(monde, 0, 0)
     repartitions = bourg_depuis_monde(monde)
@@ -2177,7 +2176,7 @@ def test_snapshot_bourg_recalcule_pas_stocke():
 
 
 def test_snapshot_bourg_somme_exacte_par_cellule():
-    """SC3 — habitants_du_bourg + habitants_des_champs == population."""
+    """Habitants_du_bourg + habitants_des_champs == population."""
     monde = World.charger(0)
     doc = build_snapshot_document(monde, 0, 0)
     ecarts = 0
@@ -2191,7 +2190,7 @@ def test_snapshot_bourg_somme_exacte_par_cellule():
 
 
 def test_snapshot_bourg_echantillon_non_vide():
-    """SC4 — cellules avec bourg > 0 alignées sur repartitions_avec_bourg."""
+    """Cellules avec bourg > 0 alignées sur repartitions_avec_bourg."""
     monde = World.charger(0)
     doc = build_snapshot_document(monde, 0, 0)
     repartitions = bourg_depuis_monde(monde)
@@ -2207,7 +2206,7 @@ def test_snapshot_bourg_echantillon_non_vide():
 
 
 def test_snapshot_bourg_une_seule_voie_lecture():
-    """SC5 — snapshot_export n'implémente pas une seconde part non agricole."""
+    """Snapshot_export n'implémente pas une seconde part non agricole."""
     chemin = pathlib.Path(__file__).resolve().parents[1] / "snapshot_export.py"
     source = chemin.read_text(encoding="utf-8")
     _controle_snapshot_export_pas_seconde_formule_bourg(source)
@@ -2270,11 +2269,11 @@ def test_snapshot_schema_version_a_change():
     assert "bourg" not in epreuve_cles
 
 
-# --- lot 053 : temps du monde ---
+# --- Temps du monde ---
 
 
 def test_date_initiale_monde_neuf_porte_debut_annee():
-    """SC1 — compteur nul, date dérivée, pas de date stockée sur le monde ni les cellules."""
+    """Compteur nul, date dérivée, pas de date stockée sur le monde ni les cellules."""
     import sim.constants as _k
 
     monde = World.charger(0)
@@ -2296,7 +2295,7 @@ def test_date_initiale_monde_neuf_porte_debut_annee():
 
 
 def test_date_ticks_compteur_trois_regimes():
-    """SC2 — le compteur suit les ticks réussis dans chaque régime saisonnier."""
+    """Le compteur suit les ticks réussis dans chaque régime saisonnier."""
     import random
 
     from sim import constants as _constants
@@ -2349,7 +2348,7 @@ def test_date_ticks_compteur_trois_regimes():
 
 
 def test_date_calendrier_derive_limites_et_consultation():
-    """SC3 — date_de_tick aux limites d'année et constantes substituées."""
+    """Date_de_tick aux limites d'année et constantes substituées."""
     import sim.constants as _k
 
     annee = _k.CALENDAR_DAYS_PER_YEAR
@@ -2394,7 +2393,7 @@ def _monde_avec_gisement():
 
 
 def test_date_refus_numero_incoherent_avant_effets():
-    """SC4 — ValueError, état inchangé, rng inchangé."""
+    """ValueError, état inchangé, rng inchangé."""
     import random
 
     from sim import constants as _k
@@ -2429,7 +2428,7 @@ def test_date_refus_numero_incoherent_avant_effets():
 
 
 def test_date_refus_sensibilite_garde_avant_extraction():
-    """SC4 — une garde après l'extraction laisserait des traces sur un monde à gisements."""
+    """Une garde après l'extraction laisserait des traces sur un monde à gisements."""
     import random
 
     from sim.engine import _apply_extraction, _valider_numero_tick, tick
@@ -2457,7 +2456,7 @@ def test_date_refus_sensibilite_garde_avant_extraction():
 
 
 def test_date_refus_exception_maillon_ne_progresse_pas(monkeypatch):
-    """SC4 — exception dans un maillon : le compteur ne progresse pas."""
+    """Exception dans un maillon : le compteur ne progresse pas."""
     import random
 
     from sim.engine import tick
@@ -2474,7 +2473,7 @@ def test_date_refus_exception_maillon_ne_progresse_pas(monkeypatch):
 
 
 def test_date_cli_resume_json_et_texte():
-    """SC5 — résumé JSON et texte portent la date du monde joué."""
+    """Résumé JSON et texte portent la date du monde joué."""
     import sim.constants as _k
     from sim.__main__ import _simulate
 
@@ -2513,7 +2512,7 @@ def test_date_cli_refus_ticks_negatifs_inchange():
     assert "refus" in proc.stderr.lower()
 
 
-# --- lot 115 : ordre documenté du tick ---
+# --- Ordre documenté du tick ---
 
 
 def _etapes_tick_dans_code(source: str) -> list[str]:
@@ -2878,7 +2877,7 @@ def test_horloge_controle_cadence_contre_epreuves(ticks: int, accepte: bool):
 
 @pytest.mark.chronometre
 def test_horloge_pause_vitesse_et_budget():
-    """SC1 — pause exacte, cadence choisie, puis nouvelle pause exacte."""
+    """Pause exacte, cadence choisie, puis nouvelle pause exacte."""
     with lancer_service(0) as port:
         initiale = requete_service(port, "/horloge")[1]
         assert initiale["tick"] == 0
@@ -2943,7 +2942,7 @@ def test_horloge_controle_lecture_non_bloquante(
 
 @pytest.mark.chronometre
 def test_horloge_lectures_ne_bloquent_pas_sur_un_lot_de_ticks():
-    """SC3 — monde et lieu restent lisibles avant la fin d'un POST long."""
+    """Monde et lieu restent lisibles avant la fin d'un POST long."""
     with lancer_service(0) as port:
         cell_id = min(c["cell_id"] for c in requete_service(port, "/monde")[1]["cells"])
         resultat_post: dict = {}
@@ -2992,7 +2991,7 @@ def test_horloge_lectures_ne_bloquent_pas_sur_un_lot_de_ticks():
 
 @pytest.mark.parametrize("valeur", [None, "abc", "-1", "nan", "inf"])
 def test_horloge_refuse_vitesse_invalide_sans_muter(valeur: str | None):
-    """SC4 — une vitesse invalide nomme le champ et sa valeur sans effet."""
+    """Une vitesse invalide nomme le champ et sa valeur sans effet."""
     with lancer_service(0) as port:
         suffixe = "" if valeur is None else f"?jours_par_seconde={valeur}"
         statut, document, _ = requete_service(port, f"/vitesse{suffixe}", "POST")
@@ -3005,7 +3004,7 @@ def test_horloge_refuse_vitesse_invalide_sans_muter(valeur: str | None):
 
 
 def test_horloge_cli_refuse_vitesse_negative_et_accepte_decimale():
-    """SC4 — la CLI refuse avant disponibilité ; l'API accepte un fini positif."""
+    """La CLI refuse avant disponibilité ; l'API accepte un fini positif."""
     processus = subprocess.run(
         [
             sys.executable,
@@ -3033,7 +3032,7 @@ def test_horloge_cli_refuse_vitesse_negative_et_accepte_decimale():
 
 
 def test_service_reponse_figee_du_pont_est_celle_du_service(monkeypatch):
-    """Lot #185 SC1 — le fichier figé que relit Unity est la réponse `/lieu` du service."""
+    """Le fichier figé que relit Unity est la réponse `/lieu` du service."""
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     fige = (
         _REPO.parent
@@ -3061,7 +3060,7 @@ def test_service_reponse_figee_du_pont_est_celle_du_service(monkeypatch):
 
 
 def test_service_reponse_figee_du_pont_tick4_est_celle_du_service(monkeypatch):
-    """Lot #186 SC1 — le fichier figé du tick 4 est la réponse `/lieu` du service, décalée d'un tick."""
+    """Le fichier figé du tick 4 est la réponse `/lieu` du service, décalée d'un tick."""
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     dossier = _REPO.parent / "3d" / "unity" / "Assets" / "ForgeLocal3D" / "Pont" / "Tests"
     fige3 = (dossier / "lieu-graine0-tick3.json").read_bytes()
@@ -3225,7 +3224,7 @@ def test_plan_service_publie_enceinte_si_presente():
         serveur.server_close()
 
 
-# --- Lot 212 : la photographie porte les vues de 1400 ---
+# --- La photographie porte les vues de 1400 ---
 from sim.maisons import charger_maisons, maisons_depuis_monde
 from sim.puissances import charger_table, puissances_depuis_monde, PuissanceInvalide
 from sim.seigneuries import charger_seigneuries, fiche_de_seigneurie, SeigneurieInconnue
@@ -3357,13 +3356,13 @@ def test_photographie_1400_registre():
         if valeur is None:
             continue  # None déclare l'absence de choix, pas un identifiant.
         if valeur == "grande-3":
-            continue  # Décision A (lot #1037) : les Valois sont un pays jouable, voir test_photographie_1400_tout_pays.
+            continue  # Les Valois sont un pays jouable, voir test_photographie_1400_tout_pays.
         monde.maison_du_joueur = valeur
         avant = copy.deepcopy(monde.to_dict())
         with pytest.raises(SnapshotExportError, match="seigneurie inconnue"):
             _photographie_1400(monde)
         assert monde.to_dict() == avant
-    # Les Valois : plus de fiche de terre, mais leur fiche de maison (décision A).
+    # Les Valois : plus de fiche de terre, mais leur fiche de maison.
     monde.maison_du_joueur = "grande-3"
     avant = copy.deepcopy(monde.to_dict())
     document = _photographie_1400(monde)[1]
@@ -3373,7 +3372,7 @@ def test_photographie_1400_registre():
 
 
 def test_photographie_1400_tout_pays():
-    """Décision A (lot #1037) : la photographie accepte tout pays jouable, refuse le reste."""
+    """La photographie accepte tout pays jouable, refuse le reste."""
     from sim.jouables import maisons_jouables
     from sim.tests.test_maisons import IDENTIFIANTS_SEIGNEURIE_MAL_FORMES
     monde = World.charger(0)
@@ -3520,7 +3519,7 @@ def test_photographie_1400_refus(monkeypatch, fonction, erreur):
     print(f"vue={fonction}, cellules={len(monde.cells)}")
 
 
-# --- Lot 300 : /lieu sert les foyers par métier ---
+# --- /lieu sert les foyers par métier ---
 def _foyers_attendus(cellule) -> dict:
     from sim.foyers import ranger_en_foyers
 
@@ -3609,8 +3608,8 @@ def test_service_lieu_documente_dans_le_modele():
         _controler_lieu_documente(avant + "## Les foyers par métier\n" + privee + "\n## " + apres)
 
 
-# --- Lot 237 : /lieu sert les lieux de la cellule ---
-_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2", "nom", "flux_30j"}  # le point : lot #393
+# --- /lieu sert les lieux de la cellule ---
+_CLES_D_UN_LIEU = {"maitre", "point", "population", "rang", "stocks", "surface_km2", "nom", "flux_30j"}
 
 
 def _verifier_lieux_contre_photo(lieu: dict, cellule: dict, nombre_attendu: int) -> None:
@@ -4249,7 +4248,7 @@ def test_ia_mesure_reelle(tmp_path, regle):
         assert all(len(jours) == 1 for jours in jours_du_mois.values())
     verifier(releve)
     def ancienne(ticks_ecoules, entrees):
-        """Copie de la mesure d'avant le lot : les trente premiers jours."""
+        """Copie de la mesure d'avant : les trente premiers jours."""
         if ticks_ecoules * k.TICK_DURATION_DAYS < k.IA_DUREE_MESURE_JOURS:
             return -1
         return len({(e['maison']['sorte'], e['maison']['id']) for e in entrees
@@ -4397,7 +4396,7 @@ def test_ia_route_vers_le_champ_relue(monkeypatch):
         lectures.update(lire(monde, proposition))
     print(f'{len(maisons)} maisons montées, {len(propositions)} propositions comparées au juge', flush=True)
 
-    # SC1 : le juge égale le programme ; l'échantillon vide et la raison absente échouent.
+    # Le juge égale le programme ; l'échantillon vide et la raison absente échouent.
     _controler_routes_vers_le_champ(lectures, [p for _, p in propositions])
     with pytest.raises(AssertionError):
         _controler_routes_vers_le_champ(lectures, [])
@@ -4405,7 +4404,7 @@ def test_ia_route_vers_le_champ_relue(monkeypatch):
     with pytest.raises(AssertionError):
         _controler_routes_vers_le_champ(lectures, [sans_raison])
 
-    # SC2 : une raison faussée un champ à la fois échoue.
+    # Une raison faussée un champ à la fois échoue.
     raison = reference['raison']
     autres_rangs = [lieu.rang for lieu in monde.cells[M.cell_id].lieux if lieu.rang != raison['champ_vise']]
     assert autres_rangs
@@ -4433,7 +4432,7 @@ def test_ia_route_vers_le_champ_relue(monkeypatch):
         with pytest.raises(AssertionError):
             _controler_routes_vers_le_champ(lectures, [fausse])
 
-    # SC3 : le juge suit le monde, pas un montage figé.
+    # Le juge suit le monde, pas un montage figé.
     def egaler(copie):
         proposition = proposer(copie, M)
         assert proposition is not None
@@ -4490,7 +4489,7 @@ def test_ia_route_vers_le_champ_relue(monkeypatch):
     with pytest.raises(AssertionError):
         _controler_routes_vers_le_champ({(M.sorte, M.id): garde}, [proposition])
 
-    # SC4 : sans sim/ia.py ni le programme.
+    # Sans sim/ia.py ni le programme.
     juge = (_lire_route_vers_le_champ, _reserve_lue)
     for fonction in juge:
         _noms_sans_ia(fonction)
@@ -5017,7 +5016,7 @@ def test_service_ia_sans(monkeypatch):
         0: [anterieures[0][0], 'bf688be8de2768c94087ffb718510cec297fb7619ef3e8bd8610fe1e942d18f6', '82d96e630f2f88d0efcbbeb821614c15345684fa1e4127f73adbd261f8f96271'],
         4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'],
     }
-    # Lot #393 : chaque lieu porte son point ; sans lui, on retrouve les réponses `avec_maitres`.
+    # Chaque lieu porte son point ; sans lui, on retrouve les réponses `avec_maitres`.
     empreintes = {
         0: [anterieures[0][0], '1d293e8904ca32aa6b72e29762b42c1c9862459dce1691599f57ce6468df97db', '05d131f47e10eb27753d019491ec5f3649d79c7a9195a9f80dff5293545af30d'],
         4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
@@ -5033,7 +5032,7 @@ def test_service_ia_sans(monkeypatch):
                 if chemin != '/monde':
                     assert _sha(octets) == completes[t][0 if '1175' in chemin else 1]
                     for lieu in reponse['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
-                    for lieu in reponse['lieux']: lieu.pop('point')  # le point vient du lot #393
+                    for lieu in reponse['lieux']: lieu.pop('point')  # les réponses d'avant n'ont pas de point
                 assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c16d0b6f5d5699793286ab480344207940c01dc55f4630fcffb84e09fac66e18', 'd8cabad69d78b46f227e1db6d5b7e1238767de836b14c2f5998bc9d59ab87f92'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '32c0fa20e892cc305f9eac5a41dedc4f9b35c834925160a8e8319cc19f66a7bf', 'ea965093c5d6ad8b169b8558dc7a57d7e826e46247d0fe02e3e2dafdabc28ecd']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
                 if chemin != '/monde':
                     document = json.loads(octets); assert document.pop('noms')
@@ -5112,7 +5111,7 @@ def test_service_ia_raison():
 
 @pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
 def test_service_reponse_figee_places_et_anciens_champs(tick, avant, monkeypatch):
-    """Lot #393 — chaque lieu du fichier figé porte son point, dans sa cellule ; sans les points, c'est la réponse d'avant."""
+    """Chaque lieu du fichier figé porte son point, dans sa cellule ; sans les points, c'est la réponse d'avant."""
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.service import _serialiser
     from sim.villes import point_dans_geometrie
@@ -5141,7 +5140,7 @@ def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne, monkeyp
     assert document["lieux"] and all(isinstance(l["maitre"], str) and l["maitre"] for l in document["lieux"])
     prive = copy.deepcopy(document); assert prive.pop("noms")
     for lieu in prive["lieux"]: lieu.pop("nom"); lieu.pop("flux_30j")
-    for lieu in prive["lieux"]: lieu.pop("point")  # le point vient du lot #393
+    for lieu in prive["lieux"]: lieu.pop("point")  # les réponses d'avant n'ont pas de point
     assert _sha(_serialiser(prive)) == {3: 'bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e', 4: '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'}[tick]
     for lieu in prive["lieux"]: lieu.pop("maitre")
     assert _sha(_serialiser(prive)) == ancienne
@@ -5998,7 +5997,7 @@ def _service_avec(monkeypatch, *arguments):
 
 
 def _carre_de_biskra(port, ticks=5):
-    """Joue le carré de ±80 m de #908 et rend /plan et /lieu octets après chaque tick de 3 à `ticks`."""
+    """Joue le carré de ±80 m autour de Biskra et rend /plan et /lieu octets après chaque tick de 3 à `ticks`."""
     biskra = next(d for d in requete_service(port, '/departs')[1]['departs'] if d['siege']['nom'] == 'Biskra')
     cid = biskra['cell_id']
 
@@ -6360,7 +6359,7 @@ def test_service_vider_bourg_tick():
 
 
 def test_service_jouables():
-    """Lot #1037 : le service propose les six en tête, et prend un royaume."""
+    """Le service propose les six en tête, et prend un royaume."""
     def poster(port, intention):
         return requete_service(port, "/intention", "POST", json.dumps(intention).encode())
 

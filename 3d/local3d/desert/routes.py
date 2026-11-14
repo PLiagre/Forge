@@ -1,4 +1,4 @@
-"""Routes du joueur (lot 263) : jeu de gestes, référence et jugement du contrôle Unity.
+"""Routes du joueur : jeu de gestes, référence et jugement du contrôle Unity.
 
 Unity pose les routes ; il ne se juge pas. Ce module :
 
@@ -43,8 +43,8 @@ PARAMETRES = {
     'relief_nul': 500.0,       # m : au-delà, terrain d'origine et raccord à l'horizon intacts
 }
 # Boîte du kit : −11 à 42 m ; graine 1433 : −4,11 à 30 m. Plafond ×1,39 autour
-# de l'eau ; ×1,3 donne un maximum relevé de 39,19 m (mesuré par le lot #683).
-TOLERANCE_PROFIL = 0.03        # m : écart toléré entre le terrain sous l'axe et le profil (brief, SC2)
+# de l'eau ; ×1,3 donne un maximum relevé de 39,19 m (mesuré).
+TOLERANCE_PROFIL = 0.03        # m : écart toléré entre le terrain sous l'axe et le profil
 ECART_POINTS = 0.02           # m : l'axe passe par les points du joueur (corde de 0,5 m sur une courbe douce : quelques mm)
 ECART_CAPTURE = 6              # écart moyen des pixels sous lequel une capture est uniforme (comme la V0)
 FAMILLES = ['ancienne', 'plaine', 'flanc', 'raide_long', 'raide_travers']
@@ -52,7 +52,7 @@ ATTENDU = {'plaine': 'acceptee', 'flanc': 'acceptee', 'raide_long': 'pente', 'ra
 COUCHES_ROUTES = ['Ville_sable', 'Ville_reg', 'Ville_gres', 'Ville_terre', 'Ville_terre_battue', 'Ville_paves']
 REVETEMENTS = {'terre': 4, 'paves': 5}
 LARGEUR_NEUVE = 4.0
-# La caméra du joueur (lot 251).
+# La caméra du joueur.
 MARGE_CAMERA = 1.0             # m : la caméra reste au moins à 1 m au-dessus du terrain
 ZOOM_LOIN = 400.0              # m : distance maximale obtenue, au moins (vue d'ensemble)
 ZOOM_PRES = 8.0                # m : distance minimale obtenue, au plus (la rue)
@@ -404,7 +404,7 @@ def plus_raide(h, axe, longueur):
 
 def raide_long(h, seed, P):
     """Une montée droite : plus de 30 % sur 10 m. Refusée pour la pente, acceptée si la pente
-    maximale passait à 40 % (c'est la contre-épreuve de SC4)."""
+    maximale passait à 40 %."""
     for x, y in candidats(seed, 30, 420, 265):
         gx, gy = gradient(h, x, y)
         if not .32 <= math.hypot(gx, gy) <= .45:
@@ -535,7 +535,7 @@ def cellule(n, x, y, pas, decalage=0.0):
 
 
 def juger_axe(r, prevu, dernier, k, u, P):
-    """SC2 : le terrain sous l'axe (rendu et collision) suit le profil de référence ; pente ≤ 12 %."""
+    """Le terrain sous l'axe (rendu et collision) suit le profil de référence ; pente ≤ 12 %."""
     fautes = []
     rendu = np.asarray(r['rendu'], dtype=float); coll = np.asarray(r['collision'], dtype=float)
     axe = axe_de(r); p = prevu['profil']; s = prevu['s']
@@ -565,7 +565,7 @@ def juger_axe(r, prevu, dernier, k, u, P):
 
 
 def juger_grille(gr, h_ref, dernier, gestes, u, P):
-    """SC3 : talus ≤ 1:2 sur des coupes en travers ; hors de l'emprise, rien n'a bougé ; la
+    """Talus ≤ 1:2 sur des coupes en travers ; hors de l'emprise, rien n'a bougé ; la
     grille d'Unity vaut la référence rejouée sur toute l'emprise."""
     fautes = []; n = u['resolution']; pas = terrain.pas()
     emprise = np.zeros((n, n), bool)
@@ -606,7 +606,7 @@ def juger_grille(gr, h_ref, dernier, gestes, u, P):
 
 
 def juger_sol(gr, gestes, u, P):
-    """SC5 : sous l'axe, la couche du revêtement domine ; hors de l'emprise peinte, les poids
+    """Sous l'axe, la couche du revêtement domine ; hors de l'emprise peinte, les poids
     sont ceux d'origine ; aucune touffe sur l'emprise peinte ; les couches gardent leur ordre."""
     fautes = []; m = u['couches_resolution']; dn = u['details_resolution']
     if u['couches'] != COUCHES_ROUTES:
@@ -666,7 +666,7 @@ def juger_marche(r, nom):
 
 
 def arret_au_mur(r):
-    """Contre-épreuve du mur (lot 251) : le marcheur a été lancé, ses mesures sont valides, et
+    """Contre-épreuve du mur : le marcheur a été lancé, ses mesures sont valides, et
     c'est le mur qui l'arrête avant le bout — pas une absence de marche ni un pas trop long."""
     m = (r or {}).get('marche') or {}
     if not m.get('faite'):
@@ -678,7 +678,7 @@ def arret_au_mur(r):
 
 
 def juger_refus(gestes, u):
-    """SC4 : les deux familles trop raides sont refusées pour leur motif, sans rien changer."""
+    """Les deux familles trop raides sont refusées pour leur motif, sans rien changer."""
     fautes = []
     for g, r in zip(gestes, u['routes']):
         if g['famille'] not in ('raide_long', 'raide_travers'):
@@ -696,7 +696,7 @@ def juger_refus(gestes, u):
 
 
 def juger_balayage(b, nom):
-    """SC1 (lot 251) : toutes les poses prévues sont mesurées, aucune sous le terrain, marge d'1 m au moins."""
+    """Toutes les poses prévues sont mesurées, aucune sous le terrain, marge d'1 m au moins."""
     b = b or {}; fautes = []
     prevues = b.get('prevues', -1); mesurees = b.get('mesurees', -1)
     if prevues <= 0 or mesurees != prevues:
@@ -710,7 +710,7 @@ def juger_balayage(b, nom):
 
 
 def juger_zoom(z):
-    """SC2 (lot 251) : le zoom va de la vue d'ensemble à la rue."""
+    """Le zoom va de la vue d'ensemble à la rue."""
     z = z or {}; fautes = []
     loin = z.get('distance_max', -1); pres = z.get('distance_min', -1); haut = z.get('hauteur_rue', -1)
     if not loin >= ZOOM_LOIN:
@@ -723,7 +723,7 @@ def juger_zoom(z):
 
 
 def juger_captures_camera(caps):
-    """SC4 (lot 251) : les trois vues de la caméra du joueur, aucune uniforme."""
+    """Les trois vues de la caméra du joueur, aucune uniforme."""
     fautes = []
     if not caps:
         return ['aucune capture de la caméra du joueur']
@@ -738,7 +738,7 @@ def juger_captures_camera(caps):
 
 
 def juger_camera(u):
-    """Lot 251 : la caméra du joueur ne passe jamais sous le terrain, même relevé ; elle zoome de
+    """La caméra du joueur ne passe jamais sous le terrain, même relevé ; elle zoome de
     l'ensemble à la rue ; son marcheur descend à hauteur d'homme, remonte à la vue quittée et va
     au bout de la route de plaine."""
     c = u.get('camera') or {}; fautes = []
@@ -771,7 +771,7 @@ FAUTE_SOURD = "service : la route acceptée n'a pas paru au plan"
 
 
 def juger_service(s, c, largeur):
-    """Lot 293 : la route raide n'atteint jamais le monde ; celle de plaine est déposée, le terrain
+    """La route raide n'atteint jamais le monde ; celle de plaine est déposée, le terrain
     ne bouge pas au dépôt, et elle ne se dessine qu'après le tick, d'après la rue relue au plan.
 
     `s` : le bloc `service` du rapport Unity ; `c` : son bloc `clic` ; `largeur` : celle du geste de plaine.
@@ -863,7 +863,7 @@ def juger(ident):
     f, rapport['grille'] = juger_grille(gr, h_ref, dernier, gestes, u, P); fautes += f
     f, rapport['sol'] = juger_sol(gr, gestes, u, P); fautes += f
 
-    # SC7 : déterminisme et asset intact.
+    # Déterminisme et asset intact.
     e = u['empreintes']
     if not e['a']['hauteurs'] or e['a'] != e['b']:
         fautes.append('mêmes gestes, même graine : empreintes différentes')
@@ -872,7 +872,7 @@ def juger(ident):
     if not u['asset_avant'] or u['asset_avant'] != u['asset_apres']:
         fautes.append('l’asset du terrain a changé')
 
-    # SC8 : le clic passe par la même entrée.
+    # Le clic passe par la même entrée.
     c = u['clic']
     if not c['voulus_x'] or len(c['voulus_x']) != len(c['obtenus_x']):
         fautes.append('clic : points manquants')
@@ -884,13 +884,13 @@ def juger(ident):
     if not c['empreinte_clic'] or c['empreinte_clic'] != c['empreinte_gestes']:
         fautes.append('clic : le terrain diffère de la même route posée par le jeu de gestes')
 
-    # Lot 293 : les clics passent par le service du monde.
+    # Les clics passent par le service du monde.
     plaine_g = next((g for g in gestes if g['famille'] == 'plaine'), None)
     largeur_plaine = plaine_g['largeur'] if plaine_g else -1
     service = u.get('service')
     fautes += juger_service(service, c, largeur_plaine)
 
-    # SC9 : captures non uniformes, quatre au plus.
+    # Captures non uniformes, quatre au plus.
     caps = u.get('captures', [])
     if not caps or len(caps) > 4:
         fautes.append('{} captures (une à quatre attendues)'.format(len(caps)))
@@ -898,7 +898,7 @@ def juger(ident):
         if cap['ecart'] < ECART_CAPTURE:
             fautes.append('capture uniforme : ' + cap['nom'])
 
-    # Lot 251 : la caméra du joueur et son marcheur.
+    # La caméra du joueur et son marcheur.
     fautes += juger_camera(u)
     cam = u.get('camera') or {}
 
@@ -959,7 +959,7 @@ def fin(ident, rapport, fautes):
     return rapport
 
 
-# ---------- Le service sourd (lot 293, contre-épreuve SC5) ----------
+# ---------- Le service sourd (contre-épreuve ---------
 
 def service_sourd(argv):
     """Le vrai service du monde, dont le monde ignore chaque intention reçue : le reçu reste

@@ -5,7 +5,7 @@ monde : `jeu/sim/` le fait, et la 3D le montre (voir [CAP.md](../CAP.md)).
 
 | dossier | quoi | machine |
 |---|---|---|
-| `unity/` | **le** projet Unity du jeu (6000.0.43f1, URP 17.0.4). Le kit retenu pour le jalon 1 est le désert : `Assets/ForgeLocal3D/Desert/`. Les paquets `com.victoria.citymode.contracts` (le contrat ville) et `.presentation` restent ; le labo `LocalCitySimulation` est archivé. | PC |
+| `unity/` | **le** projet Unity du jeu (6000.0.43f1, URP 17.0.4). Le kit retenu est le désert : `Assets/ForgeLocal3D/Desert/`. Les paquets `com.victoria.citymode.contracts` (le contrat ville) et `.presentation` restent ; le labo `LocalCitySimulation` est archivé. | PC |
 | `local3d/` | le paquet Python qui pilote Blender 5.2 et prépare les kits. Il reste entier : le kit du désert importe le code des autres familles (alpin, citadelle, atelier_v2). | PC |
 | `archives/` | les prototypes qui ne portent pas le jalon courant, intacts. Voir [archives/README.md](archives/README.md). | — |
 

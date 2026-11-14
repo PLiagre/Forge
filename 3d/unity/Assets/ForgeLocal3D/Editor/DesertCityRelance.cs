@@ -14,12 +14,12 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Contrôle du lot 361, en Play : Unity relancé redessine la même ville, à l'octet, d'après le seul
+    // Contrôle en Play : Unity relancé redessine la même ville, à l'octet, d'après le seul
     // plan du monde. Trois sessions, chacune un lancement d'Unity sur la première implantation de la
     // sélection : `Tracer` (service neuf) trace deux routes par l'outil et en dépose une trop raide au
     // monde ; `Relancer` (même service) rouvre la ville et doit retrouver l'empreinte de `Tracer` ;
     // `Vierge` (service neuf) doit retrouver le sable vierge. Rien n'est capturé.
-    // Lot 362 : les sessions portent aussi les parcelles du plan. `Tracer` en découpe deux sur la rue de
+    // Les sessions portent aussi les parcelles du plan. `Tracer` en découpe deux sur la rue de
     // plaine (l'une s'achève, l'autre reste en chantier) ; `Relancer` doit les redessiner à la même
     // empreinte ; `Vierge` n'en dessine aucune.
     [InitializeOnLoad] public static class DesertCityRelance
@@ -85,7 +85,7 @@ namespace ForgeLocal3D
             =>new Essai{identifiant=e.identifiant,acceptee=e.resultat.acceptee,motif=e.resultat.motif??"",message=e.resultat.message??""};
         static string Liste(IEnumerable<long> ids)=>"["+string.Join(", ",ids)+"]";
 
-        // Un vrai tick, hors du fil de l'éditeur (comme Lot293.AuTick) : le service tourne à vitesse 0.
+        // Un vrai tick, hors du fil de l'éditeur (comme le contrôle des routes) : le service tourne à vitesse 0.
         static void Tick(int port,List<string> faults)
         {
             string url="http://127.0.0.1:"+port+"/tick?n=1";
@@ -168,7 +168,7 @@ namespace ForgeLocal3D
                 traces.AddRange(tool.Posees.Select(Copie));
             }
             report.traces=traces.ToArray();
-            // Lot 362 : deux parcelles sur la rue de plaine, segments 3 et 4, à gauche ; la première, à 100 foyers,
+            // Deux parcelles sur la rue de plaine, segments 3 et 4, à gauche ; la première, à 100 foyers,
             // s'achève avant la seconde. Hors du fil de l'éditeur, comme le dépôt de la route raide.
             if(report.traces.Length==0)faults.Add("pas de rue de plaine tracée : aucune parcelle découpée");
             else
@@ -191,7 +191,7 @@ namespace ForgeLocal3D
             if(!tool.Rafraichir()||!tool.Rafraichir())faults.Add("l'outil n'a pas redessiné les parcelles du plan : "+tool.Message);
         }
 
-        // Lot 362 : une liste de parcelles « id état », et l'égalité de deux listes (identifiants, états, ordre).
+        // Une liste de parcelles « id état », et l'égalité de deux listes (identifiants, états, ordre).
         static string Etats(IEnumerable<Trace> t)=>"["+string.Join(", ",t.Select(x=>x.identifiant+" "+x.etat))+"]";
         static bool Memes(Trace[] a,Trace[] b)=>a.Select(x=>(x.identifiant,x.etat)).SequenceEqual(b.Select(x=>(x.identifiant,x.etat)));
 

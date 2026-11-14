@@ -1,5 +1,5 @@
-"""L'épreuve de la vie du bourg (lot #782) : 0 égalité, 1 écart, 2 impossible.   py pc\\epreuve_vie_bourg.py --sortie D [--seed S] [--unity CHEMIN] [--garder-etal-plein]
-Unity joue la session #781 sur son service d'épreuve ; un service d'épreuve neuf de même graine (#777, déterministe) sert ensuite la référence. `juger` confronte les deux états relevés au bourg et à l'occupation servis ; le drapeau `contre_epreuve` du rapport n'est qu'affiché."""
+"""L'épreuve de la vie du bourg : 0 égalité, 1 écart, 2 impossible.   py pc\\epreuve_vie_bourg.py --sortie D [--seed S] [--unity CHEMIN] [--garder-etal-plein]
+Unity joue sa session sur son service d'épreuve ; un service d'épreuve neuf de même graine (déterministe) sert ensuite la référence. `juger` confronte les deux états relevés au bourg et à l'occupation servis ; le drapeau `contre_epreuve` du rapport n'est qu'affiché."""
 import argparse, collections, http.client, importlib.util, json, math, os, subprocess, sys, threading, time, urllib.error, urllib.request
 from pathlib import Path
 _spec = importlib.util.spec_from_file_location("epreuve_transition", Path(__file__).with_name("epreuve_transition.py"))
@@ -21,7 +21,7 @@ def _valider(objet, schema, nom):
         if type(v) in (int, float) and v == -1: raise ValueError(f"{nom} : {cle} non mesuré (−1)")
 
 def _rapport(r):
-    """Le rapport #781, types stricts : un défaut, un −1 ou un échantillon vide rendent l'épreuve impossible."""
+    """Le rapport d'Unity, types stricts : un défaut, un −1 ou un échantillon vide rendent l'épreuve impossible."""
     _valider(r, HAUT, "rapport")
     if r["defaut"] is not None: raise ValueError(f"défaut de session : {r['defaut']}")
     for e in r["etats"]: _valider(e, ETAT, f"état {e.get('nom') if _objet(e) else e!r}")
@@ -106,7 +106,7 @@ def main(argv: list[str]) -> int:
         if not (unity := args.unity or JALON1._unity_par_defaut()).is_file(): raise RuntimeError(f"Unity absent : {unity}")
         if JOUER._repond(PORT): raise RuntimeError(f"le port {HOTE}:{PORT} répond déjà")
         debut = time.time()
-        code = JALON1._unity([str(unity), "-batchmode", "-projectPath", str(CAPITALE.PROJET), "-executeMethod", "ForgeLocal3D.Capture.Photographier", "-forgeLot", "781", "-forgeSeed", str(args.seed), "-forgeTicks", "0",
+        code = JALON1._unity([str(unity), "-batchmode", "-projectPath", str(CAPITALE.PROJET), "-executeMethod", "ForgeLocal3D.Capture.Photographier", "-forgeScenario", "vie-du-bourg", "-forgeSeed", str(args.seed), "-forgeTicks", "0",
                               "-forgeServiceEpreuve", "-forgeCaptures", str(sortie), "-logFile", str(journal), *([GARDER] if args.garder_etal_plein else [])])
         if (pid := JALON1._couper_service_residuel(sortie)) is not None: entete.append(f"service de la session resté ouvert, coupé (pid {pid})")
         if code != 0: raise RuntimeError(f"Unity a rendu {code} ; fin du journal :\n" + "\n".join((journal.read_text(encoding="utf-8", errors="replace").splitlines() if journal.is_file() else [])[-JALON1.LIGNES_JOURNAL_CITEES:]))

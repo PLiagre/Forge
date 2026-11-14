@@ -20,7 +20,7 @@ namespace Forge.Interface
         public string TexteAffiche { get; private set; }
         public void Initialiser(Transform toile, Func<string> maison, int port, Transform barre = null) => Initialiser(toile, maison,
             LectureDossier.Locale(port), LectureDossier.Locale(port), () => GetComponent<HorlogeDeCarte>()?.Lue?.Tick, NomsDesTerres.Local(port), barre);
-        // Lot #1002 : avec une barre, le bouton devient une icône de la barre du haut ; sans elle, il reste sur la toile reçue.
+        // Avec une barre, le bouton devient une icône de la barre du haut ; sans elle, il reste sur la toile reçue.
         public void Initialiser(Transform toile, Func<string> maison, LectureDossier lecture, LectureDossier suzerain, Func<long?> tick, NomsDesTerres noms, Transform barre = null)
         {
             this.maison = maison; this.lecture = lecture; this.suzerain = suzerain; this.tick = tick; this.noms = noms;
@@ -109,7 +109,7 @@ namespace Forge.Interface
                 texte.AppendLine(a.Key + " : " + TexteDuMonde.Absence(a.Value as string ?? throw new ArgumentException("Raison non textuelle : " + a.Key), cellules.ToArray()));
             return texte.ToString();
         }
-        // Lot #1001 : les deux lignes que le feuillet et la barre du cabinet écrivent de la même façon.
+        // Les deux lignes que le feuillet et la barre du cabinet écrivent de la même façon.
         public static string Prelevement(double? part) => part == null ? "Prélèvement : absent"
             : "Prélèvement : " + (Borne(part.Value, 1, "part") * 100).ToString("0.##", CultureInfo.GetCultureInfo("fr-FR")) + " %";
         public static string Grenier(IEnumerable<KeyValuePair<string, double>> panier)

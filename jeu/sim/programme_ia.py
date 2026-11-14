@@ -116,7 +116,7 @@ def proposer_route_vers_le_champ(monde, maison, releve):
         return None
     points, ecart = trace
     largeur = _constantes.IA_LARGEUR_ROUTE_M
-    # Les mêmes modificateurs que le joueur : durée et coût du chantier (décision 38).
+    # Les mêmes modificateurs que le joueur : durée et coût du chantier.
     journees = _modificateurs.ajuster_journees(monde, cell_id, travail_requis_de_route(points, largeur))
     cout = journees * salaire_journee_kg(monde, cell_id)
     if not grenier > reserve + cout:

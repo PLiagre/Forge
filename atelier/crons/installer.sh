@@ -7,7 +7,7 @@
 # 2. vérifie l'outillage : python3 ≥ 3.11, git, flock, timeout, gh ;
 # 3. écrit ~/.atelier/config (dépôt, identité git : garde celle qui existe) ;
 # 4. pose LA ligne de crontab qui appelle le répartiteur, et retire les
-#    anciennes (un répartiteur d'avant la refonte) ;
+#    anciennes (celles d'un autre répartiteur) ;
 # 5. pose le profil (arret par défaut ; --demarrer jour pour armer) ;
 # 6. joue la veille.
 set -euo pipefail

@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #736 — chaque logis regarde sa rue ; un îlot de k foyers se coupe en k cases depuis cette rue.
+    // Chaque logis regarde sa rue ; un îlot de k foyers se coupe en k cases depuis cette rue.
     public sealed class MaisonsDeLaBaseTests
     {
         private const double Tol = 1e-9;

@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Forge.Pont
 {
-    // Lot #780 — la garniture d'un étal montre le stock d'une seule marchandise du bourg, d'après les lectures #778 : une vue, jamais
+    // La garniture d'un étal montre le stock d'une seule marchandise du bourg, d'après les lectures servies : une vue, jamais
     // une règle du monde. La garniture, enfant de l'étal pivoté à sa base, a la forme du plein ; seule sa hauteur suit
     // `min(1, stock_kg / reference_kg)`. La référence est un réglage de représentation, ni capacité ni besoin. Zéro : garniture masquée,
     // le comptoir reste. La faim n'est pas lue : elle ne remplit ni ne vide l'étal. Un refus masque la garniture et nomme sa cause.

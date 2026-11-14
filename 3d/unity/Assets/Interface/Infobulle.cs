@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
-    // Lot #878 : la phrase d'une commande, sur un feuillet de papier près du curseur. Le feuillet vit sous la toile racine.
+    // La phrase d'une commande, sur un feuillet de papier près du curseur. Le feuillet vit sous la toile racine.
     public sealed class Infobulle : MonoBehaviour, IPointerEnterHandler, IPointerMoveHandler, IPointerExitHandler
     {
         public const float ECART_PX = 24f, LARGEUR_MAX = 420f, MARGE = 12f;

@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #787 — chaque métier va vers ses destinations déclarées, sur une seule rue servie, sans raccourci ni sortie devinée.
+    // Chaque métier va vers ses destinations déclarées, sur une seule rue servie, sans raccourci ni sortie devinée.
     public sealed class TrajetsDesMetiersTests
     {
         private static List<PointLocal> L(params double[] xy) => Enumerable.Range(0, xy.Length / 2).Select(i => new PointLocal(xy[2 * i], xy[2 * i + 1])).ToList();

@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Forge.Interface
 {
-    // Lot #1045 : le feuillet « Le pays ». Il écrit ce que `GET /pays` sert au tick du monde lu : les lieux du joueur, son suzerain et ses vassaux, ses gens,
+    // Le feuillet « Le pays ». Il écrit ce que `GET /pays` sert au tick du monde lu : les lieux du joueur, son suzerain et ses vassaux, ses gens,
     // sa récolte, ses greniers, ses chantiers et ses bâtiments. Les noms viennent de `/maisons` et de `NomsDesTerres`, jamais de `/pays`.
     public sealed class DossierPays : MonoBehaviour
     {

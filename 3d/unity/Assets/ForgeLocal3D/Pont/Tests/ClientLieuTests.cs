@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #186 — un faux service local rend un statut et des octets fixés ;
+    // Un faux service local rend un statut et des octets fixés ;
     // le client en relit les vrais chiffres, ou rend une absence qui nomme sa cause.
     public sealed class ClientLieuTests
     {
@@ -306,7 +306,7 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => new ClientLieu(65536, Delai));
         }
 
-        // Lot #263 — foyers et logement, relus tels quels. 9, 1 et 3 sont incohérents : un recalcul échoue.
+        // Foyers et logement, relus tels quels. 9, 1 et 3 sont incohérents : un recalcul échoue.
         private const string FoyersTick3 = "\"foyers\":{\"mineurs\":{\"foyers\":2195,\"personnes\":10974},\"paysans\":{\"foyers\":19754,\"personnes\":98767}}";
         private static string Remplacer(string texte, string avant, string apres)
         { string altere = texte.Replace(avant, apres); Assert.AreNotEqual(texte, altere, avant); return altere; }
@@ -365,7 +365,7 @@ namespace Forge.Pont.Tests
             StringAssert.Contains(chemin, Absence(CellFigee).Absence);
         }
 
-        // Lot #611 — rang, position et maître de chaque lieu, relus sans seconde clé.
+        // Rang, position et maître de chaque lieu, relus sans seconde clé.
         [Test] public void ChaqueLieuEstReluDansLOrdre()
         {
             string texte = TexteFige("lieu-graine0-tick3.json");
@@ -487,7 +487,7 @@ namespace Forge.Pont.Tests
             Assert.AreEqual(attendu, droite[cle]);
         }
 
-        // Lot #654 — témoin : le fichier tick3 dont chaque lieu reçoit un triplet distinct ; "" retire le bloc du second.
+        // Témoin : le fichier tick3 dont chaque lieu reçoit un triplet distinct ; "" retire le bloc du second.
         private static (double Kg, long Partis, long Arrives) Triplet(int i) => i == 0 ? (1234.56789, 7L, 2L) : i == 1 ? (0.0, 0L, 11L) : (i + 0.5, i, 20L + i);
 
         private static string Bloc((double Kg, long Partis, long Arrives) t, string cle = null, string valeur = null)
@@ -625,7 +625,7 @@ namespace Forge.Pont.Tests
                 Assert.IsTrue(lu.Lieux[0].Flux.PreleveKg == 1234.56789 && lu.Lieux[0].Flux.PartisPersonnes == 7 && lu.Lieux[0].Flux.ArrivesPersonnes == 2, "le premier lieu ne change pas");
         }
 
-        // Lot #783 — témoin : le fichier tick3 dont `lieux` est remplacé ; `population` null retire la clé.
+        // Témoin : le fichier tick3 dont `lieux` est remplacé ; `population` null retire la clé.
         private static string AvecLieux(params string[] places)
         { string texte = TexteFige("lieu-graine0-tick3.json"); int crochet = texte.IndexOf("\"lieux\":[", StringComparison.Ordinal) + 8; return texte.Substring(0, crochet) + "[" + string.Join(",", places) + "]" + texte.Substring(FinDelimitee(texte, crochet)); }
 
@@ -662,7 +662,7 @@ namespace Forge.Pont.Tests
             StringAssert.Contains("clé lieux[1].population :", Absence(CellFigee).Absence);
         }
 
-        // Lot #778 — un faux service qui note chaque demande et répond selon elle ; null ne répond jamais.
+        // Un faux service qui note chaque demande et répond selon elle ; null ne répond jamais.
         private readonly List<string> demandes = new List<string>();
         private void Repondre(Func<string, (int Statut, string Corps)?> reponse)
         {
@@ -790,7 +790,7 @@ namespace Forge.Pont.Tests
             Absente(Vie(c => c.LireBourg(CellFigee)), "service absent"); Absente(Vie(c => c.LireOccupation(CellFigee)), "service absent");
         }
 
-        // Lot #871 — le nom servi de chaque lieu ; la mutation vise l'entrée lieux[1], jamais le bloc `noms` qui la répète.
+        // Le nom servi de chaque lieu ; la mutation vise l'entrée lieux[1], jamais le bloc `noms` qui la répète.
         private const string NomDuSecond = "\"plausible-9922-0\",\"nom\":\"Övre dal\"";
         private static Dictionary<string, object> Second(string corps) => (Dictionary<string, object>)((List<object>)LecteurJson.LireObjet(corps)["lieux"])[1];
         private static Lieu Terre(long cell, string nom, string absence = null) =>

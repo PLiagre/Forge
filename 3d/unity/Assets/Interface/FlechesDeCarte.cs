@@ -9,7 +9,7 @@ using UnityEngine.Rendering;
 using UnityEngine.UI;
 namespace Forge.Interface
 {
-    // Lot #658 : ce que chaque lieu tenu a envoyé à son siège, et le dû du siège au suzerain, sur trente jours. Lecture seule : aucun kilo calculé.
+    // Ce que chaque lieu tenu a envoyé à son siège, et le dû du siège au suzerain, sur trente jours. Lecture seule : aucun kilo calculé.
     public sealed class FlechesDeCarte : MonoBehaviour
     {
         public const string RACINE = "Flèches de la carte", DU = "Flèche du dû", ENTETE = "Orange : du lieu vers votre siège, ce qui en a été prélevé. Violet : de votre siège vers celui du suzerain, le dû envoyé. Sur trente jours ; 1 km de large pour 50 000 kg, plafond 8 km.";
@@ -18,7 +18,7 @@ namespace Forge.Interface
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static float Epaisseur(double kg) => (float)Math.Min(EPAISSEUR_MAX_KM, kg / KG_PAR_KM);
         public Func<string, Lecture<ComptesDeMaison>> Lecteur;
-        public string TexteLegende => ENTETE + lignesLieux + ligneDu; // lot #964 : lu par l'infobulle de la légende du mode Flux, plus écrit sur la toile
+        public string TexteLegende => ENTETE + lignesLieux + ligneDu; // lu par l'infobulle de la légende du mode Flux, plus écrit sur la toile
         public bool Visibles => calques != null && calques.Mode == ModeDeCarte.Flux; // calculées dans tous les modes, montrées en Flux seulement
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
         CarteDessinee carte; CabinetDeCarte cabinet; LieuxDeCarte lieux; CalquesCarte calques; Transform racine; string lignesLieux = "", ligneDu = "", duDe;

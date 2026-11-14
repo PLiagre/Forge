@@ -92,7 +92,7 @@ def library():
 
 
 def kit_nouveaux():
-    """Lot 266 : ajoute au kit les seuls modules de kit.NOUVEAUX, par le même chemin que library().
+    """Ajoute au kit les seuls modules de kit.NOUVEAUX, par le même chemin que library().
 
     Kit_Desert.blend, les FBX des anciens modules et les scènes ne sont pas touchés. Les
     enregistrements anciens du catalogue sont repris tels quels ; la commande se rejoue.
@@ -112,7 +112,7 @@ def kit_nouveaux():
         records.append(record);built.append((name,lods))
     for name,lods in built:export_fbx(LIB/(name+'.fbx'),lods)
     anciens=[a for a in catalogue['assets'] if a['id'] not in kit.NOUVEAUX]
-    # Lot 269 : la suite des étapes de chaque chantier, dans une clé à part, après les matériaux.
+    # La suite des étapes de chaque chantier, dans une clé à part, après les matériaux.
     write(LIB/'catalogue.json',{'schema':catalogue['schema'],'assets':anciens+records,'materials':catalogue['materials'],
                                 'chantiers':{f:kit.suite(f) for f in kit.CHANTIERS}})
     (OUT/'cache').mkdir(parents=True,exist_ok=True)

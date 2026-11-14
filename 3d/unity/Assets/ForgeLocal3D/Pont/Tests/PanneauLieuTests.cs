@@ -13,7 +13,7 @@ using UnityEngine.UI;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #184 — le panneau lit un faux service local : ce qu'il montre est relu
+    // Le panneau lit un faux service local : ce qu'il montre est relu
     // nombre par nombre ; sans service, il le dit, sans zéro et sans bloquer.
     public sealed class PanneauLieuTests
     {
@@ -321,7 +321,7 @@ namespace Forge.Pont.Tests
             Assert.AreEqual("/lieu?cell=42", derniereRequete);
         }
 
-        // Lot #263 — le second texte s'ajoute après l'accolade de Document, qui ne change pas.
+        // Le second texte s'ajoute après l'accolade de Document, qui ne change pas.
         private const string FoyersMesures = "{\"artisans\":{\"foyers\":7,\"personnes\":20},\"ouvriers\":{\"foyers\":15,\"personnes\":71},\"paysans\":{\"foyers\":48,\"personnes\":238}}";
         private const string LogementMesure = "{\"capacite\":9,\"loges\":1,\"sans_logis\":3}";
         private const string BlocMesure = "Foyers par métier :\nartisans : 7 foyers, 20 personnes\nouvriers : 15 foyers, 71 personnes\npaysans : 48 foyers, 238 personnes\nAu chantier : 71 bras pris aux champs\n";
@@ -389,7 +389,7 @@ namespace Forge.Pont.Tests
             StringAssert.StartsWith("lieu illisible : ", panneau.TexteAffiche);
         }
 
-        // Lot #686 — Ouvrir choisit la cellule lue : avant le démarrage, ou en cours de jeu
+        // Ouvrir choisit la cellule lue : avant le démarrage, ou en cours de jeu
         // sans jamais laisser un chiffre de l'ancienne.
         private const long AUTRE = 42;
         private const int LENTEUR_OUVERTURE_MS = 500;

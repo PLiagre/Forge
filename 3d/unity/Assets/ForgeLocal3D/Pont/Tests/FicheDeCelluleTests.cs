@@ -11,7 +11,7 @@ using NUnit.Framework;
 using UnityEngine;
 
 namespace Forge.Pont.Tests {
-    // Lot #526 — le survol d'une cellule ouvre sa fiche. Un faux service sert la carte de la graine 0 (`/carte`) et un monde
+    // Le survol d'une cellule ouvre sa fiche. Un faux service sert la carte de la graine 0 (`/carte`) et un monde
     // de deux cellules (`/monde`) : Metz (10437) et une cellule à la faim non calculée ; les autres en sont absentes.
     // Le repérage trouve la cellule sous chaque triangle de la carte, trous compris ; la fiche recopie ce qui est servi.
     public sealed class FicheDeCelluleTests {
@@ -19,7 +19,7 @@ namespace Forge.Pont.Tests {
         private int port; private HttpListener ecoute; private Thread fil; private volatile string monde; private volatile int statutMonde;
         private GameObject objet; private CarteDessinee carte; private FicheDeCellule fiche;
         private static byte[] Fixture => File.ReadAllBytes(Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json");
-        // Lot #929 : `/lieu` sert le lieu de la graine 0, son `cell_id` remplacé par la terre demandée : le bourg est « Övre vik » partout.
+        // `/lieu` sert le lieu de la graine 0, son `cell_id` remplacé par la terre demandée : le bourg est « Övre vik » partout.
         private const string BOURG = "Övre vik";
         private static string LieuServi => File.ReadAllText(Application.dataPath + "/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json");
 
@@ -69,7 +69,7 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(lus(), "la carte ou le monde n'a pas été lu : " + carte.TexteAffiche);
         }
 
-        // Lot #929 — le survol, puis des pas jusqu'à ce que le nom du bourg soit arrivé et écrit.
+        // Le survol, puis des pas jusqu'à ce que le nom du bourg soit arrivé et écrit.
         private void Nommee(Vector3 point) {
             fiche.SurvolerPoint(point);
             var montre = Stopwatch.StartNew(); double t = 1;
@@ -90,7 +90,7 @@ namespace Forge.Pont.Tests {
 
         private Vector3 DansLaCellule(CarteMaillee maillee, long cellId) => objet.transform.TransformPoint(Milieu(maillee.Cellules.First(x => x.CellId == cellId)));
 
-        // Un anneau servi, en km locaux, converti comme les contours (#548) : ((x - origine) / 1000), x vers l'est, z vers le nord.
+        // Un anneau servi, en km locaux, converti comme les contours : ((x - origine) / 1000), x vers l'est, z vers le nord.
         private static Vector2[] Local(IReadOnlyList<PointCarte> anneau, PointCarte origine) =>
             anneau.Select(p => new Vector2((float)((p.X - origine.X) / 1000.0), (float)((p.Y - origine.Y) / 1000.0))).ToArray();
 
@@ -171,7 +171,7 @@ namespace Forge.Pont.Tests {
             StringAssert.DoesNotContain("500", fiche.TexteAffiche); StringAssert.DoesNotContain("10437", fiche.TexteAffiche);
         }
 
-        // Lot #929 — un seul survol : « Bourg en lecture » d'abord, puis la fiche se réécrit seule quand le nom arrive.
+        // Un seul survol : « Bourg en lecture » d'abord, puis la fiche se réécrit seule quand le nom arrive.
         [Test] public void Le_nom_arrive_apres_le_survol_et_la_fiche_se_recrit() {
             Servir(); Poser();
             // Le temps ne passe plus : la lecture du monde en vol se termine, aucune autre ne part, et rien d'autre que le nom
@@ -191,7 +191,7 @@ namespace Forge.Pont.Tests {
             Assert.IsNull(TexteDuMonde.Interdit(texte, "10437"), texte); Assert.IsNull(TexteDuMonde.SansUnite(texte), texte);
         }
 
-        // Lot #910 — la terre écrite en noms, sans service ni écran : une cellule fabriquée (puissance « Lorraine », maison nulle)
+        // La terre écrite en noms, sans service ni écran : une cellule fabriquée (puissance « Lorraine », maison nulle)
         // et le monde de la fixture, construit ici aux mêmes valeurs. VIDE a faim et dette non calculées, MESUREE les a à zéro.
         private const long VIDE = 1, MESUREE = 2;
 

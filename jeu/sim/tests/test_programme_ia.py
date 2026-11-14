@@ -1,4 +1,4 @@
-"""Lot #971 : la route vers le champ, calcul pur, sur le vrai monde de la graine 0."""
+"""La route vers le champ, calcul pur, sur le vrai monde de la graine 0."""
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -180,7 +180,7 @@ def _controler(monde, releve, proposition, depot=None, verifier=verifier_base):
         recevoir_intention(depot, intention)
 
 
-def test_sc1_route_vers_le_champ_le_plus_plein(montage):
+def test_route_vers_le_champ_le_plus_plein(montage):
     monde = montage['monde']
     propositions = montage['propositions']
     print(f'{len(propositions)} propositions sur {len(montage["maisons"])} maisons')
@@ -192,7 +192,7 @@ def test_sc1_route_vers_le_champ_le_plus_plein(montage):
     assert len(depot.intentions_en_attente) == len(propositions)
 
 
-def test_sc1_contre_epreuves(montage, reference):
+def test_contre_epreuves(montage, reference):
     monde = montage['monde']
     _controler(monde, [], reference)
 
@@ -246,7 +246,7 @@ def _ia_pure(decider, monde, releve):
     return propositions
 
 
-def test_sc2_pure_et_deterministe(montage, monde, M):
+def test_pure_et_deterministe(montage, monde, M):
     muette = montage['sans'][0] if montage['sans'] else None
     assert muette is not None, 'aucune maison ne se tait : la pureté du silence n\'est pas éprouvée'
     for maison in (M, muette):
@@ -265,7 +265,7 @@ def test_sc2_pure_et_deterministe(montage, monde, M):
     assert attendu == relu
 
 
-def test_sc3_grenier_vide_ne_batit_rien(monde, M, reference):
+def test_grenier_vide_ne_batit_rien(monde, M, reference):
     cle = ia._cle_du_grenier(M)
     reserve, cout = reference['raison']['reserve_voulue_kg'], reference['raison']['cout_kg']
     assert cout > 0 and reserve >= 0
@@ -315,7 +315,7 @@ def _affamer(monde, cell_id, jours, rang=0):
         monde.flux.jours.setdefault(tick, JourDeFlux(tick)).affames.add((cell_id, rang))
 
 
-def test_sc4_le_bourg_a_eu_faim_ses_champs_gardaient_des_vivres(monde, M, reference):
+def test_le_bourg_a_eu_faim_ses_champs_gardaient_des_vivres(monde, M, reference):
     t = monde.ticks_ecoules
     cell_id = M.cell_id
     debut = t - k.FENETRE_FLUX_TICKS
@@ -389,7 +389,7 @@ def _geste(tick, auteur, type_intention, **reste):
             'intention': {'type': type_intention, **reste}}
 
 
-def test_sc5_une_fois_par_mois_et_pour_son_bourg(monde, M, montage):
+def test_une_fois_par_mois_et_pour_son_bourg(monde, M, montage):
     t = monde.ticks_ecoules
     fenetre = k.FENETRE_FLUX_TICKS
     cle = ia._cle_du_grenier(M)
@@ -415,7 +415,7 @@ def test_sc5_une_fois_par_mois_et_pour_son_bourg(monde, M, montage):
         _proposer(monde, M)
 
 
-def test_sc6_ni_maison_de_1400_touchee_ni_route_hors_des_30_degres(montage, M, monkeypatch):
+def test_ni_maison_de_1400_touchee_ni_route_hors_des_30_degres(montage, M, monkeypatch):
     monde = montage['monde']
     assert monde.populations_bourg_amorcage is not None
     ordre = _ordre_des_ecarts()
@@ -500,7 +500,7 @@ def _raison_attendue(monde, proposition):
     }
 
 
-def test_sc7_la_raison_dit_ce_qui_a_decide(montage, reference):
+def test_la_raison_dit_ce_qui_a_decide(montage, reference):
     monde = montage['monde']
     attendue = _raison_attendue(monde, reference)
     assert reference['raison'] == attendue

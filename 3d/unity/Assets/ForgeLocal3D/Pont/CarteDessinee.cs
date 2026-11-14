@@ -8,8 +8,8 @@ namespace Forge.Pont {
     // La carte de 1400 servie par `sim/` : une cellule par objet, à la couleur de sa puissance, sans aucun
     // nombre calculé ici. Lecture et maillage partent hors du fil principal ; la pose se fait dans Update, une
     // seule fois. Sans carte, le texte dit pourquoi et rien n'est posé ; la lecture repart plus tard.
-    // Lot #548 : le bord de chaque anneau, le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
-    // Lot #524 : cette caméra montre la `Vue`, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
+    // Le bord de chaque anneau, le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
+    // Cette caméra montre la `Vue`, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
@@ -31,8 +31,8 @@ namespace Forge.Pont {
         public int CellulesPosees => racine != null ? racine.childCount : 0;
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
         public VueDeCarte Vue { get; private set; } // ce que la caméra créée montre ; null sans carte posée ou avec une caméra donnée
-        private ReperageDeCarte reperage; // lot #526 : la cellule sous un point
-        private PointCarte? origine; // lot #625 : l'origine de Mailler, gardée à la pose
+        private ReperageDeCarte reperage; // la cellule sous un point
+        private PointCarte? origine; // l'origine de Mailler, gardée à la pose
         // Un point servi (EPSG:3035, en m), en local dans la carte, comme ses contours et ses noms ; null tant que la carte n'est pas posée.
         public Vector3? PositionSurLaCarte(PointCarte point, float hauteur) => origine.HasValue ?Place(point, origine.Value, hauteur) : (Vector3?)null;
         // La cellule servie sous un point du monde (projeté sur le plan de la carte) ; null dans la mer ou sans carte posée.

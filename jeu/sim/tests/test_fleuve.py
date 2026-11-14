@@ -47,7 +47,7 @@ def _cellule_la_plus_proche(point, positions, latitude_moyenne):
 
 
 def test_table_se_lit_et_refuse_les_donnees_invalides(tmp_path):
-    """SC1 : chaque ligne est exploitable, sourcée et explicitement limitée."""
+    """Chaque ligne est exploitable, sourcée et explicitement limitée."""
     document = json.loads(_CHEMIN_COURS.read_text(encoding="utf-8"))
     points = charger_points()
     assert points
@@ -99,7 +99,7 @@ def test_table_se_lit_et_refuse_les_donnees_invalides(tmp_path):
 
 
 def test_geographie_du_delta_sans_desert_ni_suez():
-    """SC2 : le cours touche le delta, mais ni le désert ni l'isthme."""
+    """Le cours touche le delta, mais ni le désert ni l'isthme."""
     monde = World.charger(0)
     positions = charger_positions()
     latitude_moyenne = charger_latitude_moyenne_fleuve()
@@ -128,7 +128,7 @@ def test_geographie_du_delta_sans_desert_ni_suez():
 
 
 def test_couverture_de_tous_les_points_et_vallee_hors_carte():
-    """SC3 : chaque point sert et le point exclu expliquerait un faux Suez."""
+    """Chaque point sert et le point exclu expliquerait un faux Suez."""
     monde = World.charger(0)
     positions = charger_positions()
     points = charger_points()
@@ -158,7 +158,7 @@ def test_couverture_de_tous_les_points_et_vallee_hors_carte():
 
 
 def test_egalite_departagee_par_le_plus_petit_cell_id():
-    """SC4 : l'égalité exacte est indépendante de l'ordre des positions."""
+    """L'égalité exacte est indépendante de l'ordre des positions."""
     point = PointDuCours(1, "Milieu", 0.0, 0.0, "point synthétique")
     latitude_moyenne = charger_latitude_moyenne_fleuve()
     positions = {3: (0.0, -1.0), 7: (0.0, 1.0)}
@@ -181,7 +181,7 @@ def test_egalite_departagee_par_le_plus_petit_cell_id():
 
 
 def test_vue_pure_refuse_les_entrees_absentes():
-    """SC5 : la vue ne modifie rien et refuse toute position manquante."""
+    """La vue ne modifie rien et refuse toute position manquante."""
     monde = World.charger(0)
     avant = json.dumps(monde.to_dict(), sort_keys=True)
     premiere = cours_depuis_monde(monde)

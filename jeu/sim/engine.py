@@ -1099,7 +1099,7 @@ def _aretes_par_cellule(world) -> dict[int, list[tuple[int, int]]]:
 
 def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
     """
-    Lot #1071 : le charroi et la batellerie d'un rayon de R jours (niveau 2).
+    Le charroi et la batellerie d'un rayon de R jours (niveau 2).
 
     La capacité du tick de toute arête dont un bout est une cellule affamée
     (population au-dessus de `World.populations_soutenables`) est multipliée
@@ -1162,10 +1162,10 @@ def _apply_commerce(
       (excédent disponible après sa propre alimentation du tick) ; la garde
       est la consommation du tick, sauf pour une cellule affamée (population
       du snapshot au-dessus de `World.populations_soutenables`) qui garde
-      `reserve_ville_affamee_jours` jours de ration (lot #1057, niveau 2,
+      `reserve_ville_affamee_jours` jours de ration (niveau 2,
       `jeu/data/commerce.toml`). Avec 1 jour, ou sans relevé des champs, la
       garde est la consommation du tick : le commerce d'avant, au bit près.
-    - lot #1071 (niveau 2, `jeu/data/commerce.toml`) : une cellule affamée
+    - appel des villes affamées (niveau 2, `jeu/data/commerce.toml`) : une cellule affamée
       appelle chaque jour ce que ses champs ne nourrissent pas :
           ration(c) = population_c × consommation_unitaire
           appel(c)  = P × (population_c − soutenable_c) × consommation_unitaire
@@ -1229,13 +1229,13 @@ def _apply_commerce(
     def _tick_consumption(cid: int) -> float:
         return snapshot_pop[cid] * consommation_unitaire
 
-    # Lot #1057 : une cellule affamée garde `reserve_ville_affamee_jours` jours
+    # Une cellule affamée garde `reserve_ville_affamee_jours` jours
     # de ration. Sans relevé des champs (monde construit à la main), la garde
     # reste la ration du tick : c'est une absence déclarée, pas une devinette.
     soutenables = getattr(world, "populations_soutenables", None)
     reserve_jours = (_constantes.reserve_ville_affamee_jours()
                      if soutenables is not None else None)
-    # Lot #1071 : la part qu'une ville affamée appelle de son manque.
+    # La part qu'une ville affamée appelle de son manque.
     part_appelee = (_constantes.appel_ville_affamee_part()
                     if soutenables is not None else None)
 
@@ -1288,7 +1288,7 @@ def _apply_commerce(
         manque = max(0.0, _tick_consumption(cid) - snapshot_stock[cid])
         if soutenables is None:
             return manque
-        # Lot #1071 : une ville affamée appelle ce que ses champs ne lui donnent pas.
+        # Une ville affamée appelle ce que ses champs ne lui donnent pas.
         return max(manque, part_appelee * _manque_des_champs(cid) * consommation_unitaire)
 
     snapshot_needs = {cid: _need(cid) for cid in world.cells}

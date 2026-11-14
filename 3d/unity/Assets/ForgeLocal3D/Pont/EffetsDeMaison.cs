@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Forge.Pont
 {
-    // Lot #779 — la fumée et la lampe d'une maison de la capitale, d'après les lectures #778 : une vue, jamais une règle du monde.
+    // La fumée et la lampe d'une maison de la capitale, d'après les lectures servies : une vue, jamais une règle du monde.
     // Habitée : toute case de la base de 1400, une maison bâtie si `Loges > 0` (−1 : inconnue, refusée). La fumée veut en plus la
     // nourriture du bourg présente et > 0 ; la lampe suit le soir de `DesertEnvironment`. Un refus éteint les deux et nomme sa cause.
     [ExecuteAlways]

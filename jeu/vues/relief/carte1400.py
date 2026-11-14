@@ -44,14 +44,14 @@ def _verifier(document):
     for cle in ("terre_choisie", "villes_hors_carte"):
         if cle not in document:
             raise Carte1400Erreur(
-                f"{cle} absent : photographie antérieure au lot #212 : rephotographier"
+                f"{cle} absent : photographie trop ancienne : rephotographier"
             )
     for cellule in document.get("cells", []):
         for cle in ("puissance", "villes"):
             if cle not in cellule:
                 raise Carte1400Erreur(
                     f"{cle} absent pour cell_id={cellule.get('cell_id')} : "
-                    "photographie antérieure au lot #212 : rephotographier"
+                    "photographie trop ancienne : rephotographier"
                 )
     choix = document["terre_choisie"]
     if choix is not None and not any(c["cell_id"] == choix["cell_id"] for c in document.get("cells", [])):

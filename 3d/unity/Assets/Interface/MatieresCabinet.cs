@@ -37,7 +37,7 @@ namespace Forge.Interface
             return Sprite.Create(texture, new Rect(0, 0, taille, taille), new Vector2(.5f, .5f), 100, 0,
                 SpriteMeshType.FullRect, new Vector4(12, 12, 12, 12));
         }
-        // Lot #849 : le papier de chiffon bordé d'un filet de cuivre, épais comme le trait du survol.
+        // Le papier de chiffon bordé d'un filet de cuivre, épais comme le trait du survol.
         public static Sprite FeuilletDInfobulle => feuillet != null ? feuillet : feuillet = Fabriquer(false, false, EtatsDuCabinet.De(EtatDuCabinet.Survol).Epaisseur);
         public static Sprite Pierre => Matiere("pierre");
         public static Sprite BoisBrule => Matiere("bois-brule");

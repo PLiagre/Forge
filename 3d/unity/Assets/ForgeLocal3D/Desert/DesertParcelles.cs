@@ -11,7 +11,7 @@ using Object=UnityEngine.Object;
 
 namespace ForgeLocal3D
 {
-    // Lot 362 : les parcelles du plan tracées au sol, sur le terrain du moment (la copie où les rues sont
+    // Les parcelles du plan tracées au sol, sur le terrain du moment (la copie où les rues sont
     // posées). Un ruban suit le contour tel que le plan le donne, sans le corriger. En chantier, un cordeau
     // tendu sur un piquet à chaque coin ; achevée, une borne à chaque coin. Rien n'est décidé ici : l'état
     // se lit dans `EnChantier`. Le terrain n'est jamais touché. Pas un composant : la scène ne change pas.
@@ -39,7 +39,7 @@ namespace ForgeLocal3D
         }
 
         float Sol(Vector3 p)=>terrain.SampleHeight(p)+terrain.transform.position.y;
-        // Repère du lot 293 : (x, y) du plan devient (-x, sol, -y).
+        // Repère : (x, y) du plan devient (-x, sol, -y).
         Vector3 Monde(PointLocal p){var v=new Vector3((float)-p.X,0,(float)-p.Y);v.y=Sol(v);return v;}
 
         public List<(long identifiant,string etat,string message)> Dessiner(IReadOnlyList<ParcelleDuPlan> parcelles)

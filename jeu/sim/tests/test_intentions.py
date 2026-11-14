@@ -1201,7 +1201,7 @@ def test_ia_refus_compte_pour_l_annee(monkeypatch, regle):
     assert monde.__dict__ == avant_an
 
     def ancienne(ticks_ecoules, entrees):
-        """Copie de la mesure d'avant le lot : les trente premiers jours."""
+        """Copie de l'ancienne mesure : les trente premiers jours."""
         if ticks_ecoules * k.TICK_DURATION_DAYS < k.IA_DUREE_MESURE_JOURS:
             return -1
         return len({(e['maison']['sorte'], e['maison']['id']) for e in entrees
@@ -2707,7 +2707,7 @@ def test_enceinte_documentation(monkeypatch):
     with pytest.raises(AssertionError): assert all(terme in texte for texte in textes() for terme in termes)
 
 
-# --- Lot #1037 : le joueur prend la tête de n'importe quel pays de 1400 ---
+# --- Le joueur prend la tête de n'importe quel pays de 1400 ---
 
 def _refus_du_choix(monde, intention):
     """Le message du refus ; une intention acceptée lève AssertionError (pour les contre-épreuves)."""

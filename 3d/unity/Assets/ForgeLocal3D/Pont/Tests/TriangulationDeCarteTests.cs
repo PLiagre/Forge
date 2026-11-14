@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Forge.Pont.Tests
 {
-    // Lot #541 — un polygone de la carte, trous compris, devient des triangles posés à plat, en km autour
+    // Un polygone de la carte, trous compris, devient des triangles posés à plat, en km autour
     // d'une origine. Les polygones sont des littéraux en mètres : 10196 de `/carte` seed 0, et deux formes
     // synthétiques (un nœud qui se croise, un trou qui touche l'extérieur par un sommet).
     public sealed class TriangulationDeCarteTests
@@ -71,7 +71,7 @@ namespace Forge.Pont.Tests
                 S(s[3 * k], s[3 * k + 1], x, z) > 0 && S(s[3 * k + 1], s[3 * k + 2], x, z) > 0 && S(s[3 * k + 2], s[3 * k], x, z) > 0);
         }
 
-        // ---- SC2 à SC4 : les aires (10196 à 1e-4 près en relatif, les formes synthétiques à 1e-6 km²) --
+        // ---- les aires (10196 à 1e-4 près en relatif, les formes synthétiques à 1e-6 km²) --
 
         [TestCase("ilot 10196", 3.0563985, 1e-4 * 3.0563985, TestName = "Aire01_IlotDe10196")]
         [TestCase("troue 10196", 25868.261169, 1e-4 * 25868.261169, TestName = "Aire02_PolygoneTroueDe10196")]
@@ -85,8 +85,8 @@ namespace Forge.Pont.Tests
             Assert.That(Aire(maillage), Is.EqualTo(attendue).Within(tolerance));
         }
 
-        // Les points sont en mètres ; pour les formes synthétiques, ceux du brief (en km autour de
-        // l'origine) sont convertis : origine + 1000 × km.
+        // Les points sont en mètres ; pour les formes synthétiques, les km autour de
+        // l'origine sont convertis : origine + 1000 × km.
         [TestCase("ilot 10196", 3255732, 2016499, 1, TestName = "Couverture01_IlotCouvertUneFois")]
         [TestCase("ilot 10196", 3300000, 2100000, 0, TestName = "Couverture02_HorsDeLIlot")]
         [TestCase("troue 10196", 3244636, 2029118, 0, TestName = "Couverture03_LeTrouResteVide")]
@@ -112,7 +112,7 @@ namespace Forge.Pont.Tests
         }
 
         // La rangée j = 9 tombe sur z = 0, la coupe du croisement : l'inclusion stricte y est
-        // impossible. On la place à z = 0,01, hors des coupes et des arêtes (brief, SC3).
+        // impossible. On la place à z = 0,01, hors des coupes et des arêtes.
         [Test]
         public void LaGrilleDuNoeudEstCouverteUneFoisDansSesLobesEtJamaisAilleurs()
         {
@@ -135,7 +135,7 @@ namespace Forge.Pont.Tests
             Assert.That(ecarts, Is.Empty, ecarts.Count + " points sur " + verifies + " en écart : " + string.Join(", ", ecarts.Take(10)));
         }
 
-        // ---- SC5 : les entrées refusées, le polygone plat, le calcul reproductible -----------------
+        // ---- les entrées refusées, le polygone plat, le calcul reproductible -----------------
 
         [Test]
         public void UnPolygoneNulEstRefuse() =>

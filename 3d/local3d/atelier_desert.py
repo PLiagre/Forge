@@ -133,7 +133,7 @@ PORT_SERVICE=8000
 
 
 def lancer_service(sourd=False):
-    """Lot 293 : le service du monde sur 127.0.0.1:8000, à vitesse 0 (le contrôle fait passer les ticks).
+    """Le service du monde sur 127.0.0.1:8000, à vitesse 0 (le contrôle fait passer les ticks).
     Sourd, le monde ignore toute intention (local3d/desert/routes.py). Rend le processus, prêt."""
     import socket
     import threading
@@ -168,8 +168,8 @@ def arreter_service(p):
 
 
 def routes(ds,sourd=False):
-    """Lot 263 : Python écrit les gestes, Unity les pose et mesure, Python rejoue et juge.
-    Lot 293 : les clics d'Unity passent par un vrai service du monde, lancé et arrêté ici."""
+    """Python écrit les gestes, Unity les pose et mesure, Python rejoue et juge.
+    Les clics d'Unity passent par un vrai service du monde, lancé et arrêté ici."""
     from local3d.desert import routes as r, terrain as t
     for d in ds:
         donnees=r.ecrire_gestes(d['id'],d['seed'])
@@ -211,7 +211,7 @@ RELANCE=(('tracer','ForgeLocal3D.DesertCityRelance.Tracer'),('relance','ForgeLoc
 
 
 def relance(ds,service_neuf=True):
-    """Lot 361 : Unity relancé redessine la même ville, d'après le seul plan du monde. Sur un service
+    """Unity relancé redessine la même ville, d'après le seul plan du monde. Sur un service
     neuf, `tracer` trace deux routes et en dépose une trop raide ; `relance`, sur le même service, doit
     retrouver la même ville ; `vierge`, sur un service neuf, le sable vierge. Unity contrôle et juge.
     Sans service neuf (contre-épreuve), `vierge` joue sur le premier service et doit rougir."""
@@ -255,7 +255,7 @@ BATIMENTS=(('poser','ForgeLocal3D.DesertCityBatiments.Poser'),('relance','ForgeL
 
 
 def batiments(ds,service_neuf=True):
-    """Lot 370 : les bâtiments de la capitale vivent dans le monde, pas dans Unity. Sur un service neuf,
+    """Les bâtiments de la capitale vivent dans le monde, pas dans Unity. Sur un service neuf,
     `poser` pose une maison, une scierie et un four et relève la ville rouverte à trois ticks ; `relance`,
     sur le même service, doit reposer les mêmes pièces aux mêmes places ; `vierge`, sur un service neuf,
     n'en poser aucune. Unity contrôle et juge. Sans service neuf (contre-épreuve), `vierge` joue sur le
@@ -304,7 +304,7 @@ PREUVE=(('jouer','ForgeLocal3D.DesertCityPreuve.Jouer'),('relance','ForgeLocal3D
 
 
 def preuve(ds,service_neuf=True,ville_locale=False,sourd=False):
-    """Lot 386 : Unity joue les gestes de la preuve et redessine la même ville. Sur un service neuf,
+    """Unity joue les gestes de la preuve et redessine la même ville. Sur un service neuf,
     `jouer` trace une route, découpe une parcelle et y pose une scierie par l'outil du joueur, fait passer
     sept ticks et relève la ville ; `relance`, sur le même service, doit retrouver ce relevé ; `vierge`, sur
     un service neuf, ne rien dessiner. Unity contrôle et juge. Contre-épreuves : `ville_locale` fait dessiner
@@ -359,7 +359,7 @@ def proteges():
     """Ce que la commande `kit` ne doit pas toucher, relevé sur le disque par glob."""
     from local3d.desert import kit
     nouveaux=set(kit.NOUVEAUX)
-    # Lot 270 : toute scène du projet, en plus de celles du ksar ; une scène apparue est un défaut.
+    # Toute scène du projet, en plus de celles du ksar ; une scène apparue est un défaut.
     chemins=sorted(set((UNITY_ROOT/'Scenes').glob('*.unity'))|set((ROOT/'unity/Assets').glob('**/*.unity')))
     for dossier,motif in (('Prefabs','*.prefab'),('Models','*.fbx'),('Materials','*.mat')):
         chemins+=[p for p in sorted((UNITY_ROOT/dossier).glob(motif)) if p.stem not in nouveaux]
@@ -399,7 +399,7 @@ runpy.run_path(str(Path(__file__).with_name('inspecter_kit.py')),run_name='__mai
 
 
 def planche(noms):
-    """SC8 : les planches des nouveaux modules, par `inspecter_kit.py` tel qu'il est.
+    """Les planches des nouveaux modules, par `inspecter_kit.py` tel qu'il est.
 
     Il lit sa bibliothèque à côté de lui (`sorties/bibliotheque/Kit_Desert.blend`), où les
     nouveaux modules n'entrent qu'à la prochaine reconstruction complète, et ce fichier-là
@@ -432,7 +432,7 @@ def ecart_image(path):
 
 
 def pixels_image(path):
-    """Lot 270 : les pixels RGB d'une image (hauteur × largeur × 3) ; None si elle manque."""
+    """Les pixels RGB d'une image (hauteur × largeur × 3) ; None si elle manque."""
     if not path.exists():return None
     import numpy as np
     from PIL import Image
@@ -440,7 +440,7 @@ def pixels_image(path):
 
 
 def verification_scenes(ds):
-    """SC9 : rejoue `verifier` sur chaque disposition et rend son résultat, sans lever.
+    """Rejoue `verifier` sur chaque disposition et rend son résultat, sans lever.
 
     Le vérificateur réécrit ses rapports (sorties/villages/*/verification.json, fins de ligne
     du système comprises, et verification-serie.json). Ils sont lus, puis chaque fichier
@@ -465,8 +465,8 @@ def verification_scenes(ds):
 
 
 def kit_ateliers():
-    """Lots 266 et 269 : ajoute les modules de kit.NOUVEAUX au kit, jusqu'aux prefabs d'Unity,
-    fait mesurer par Unity les bâtiments finis de kit.REFERENCES, puis juge. Lot 270 : Unity
+    """Ajoute les modules de kit.NOUVEAUX au kit, jusqu'aux prefabs d'Unity,
+    fait mesurer par Unity les bâtiments finis de kit.REFERENCES, puis juge. Unity
     photographie aussi les étapes de chantier (kit.rangees_planche), et Python juge la planche."""
     from local3d.desert import kit
     from local3d.desert.routes import ECART_CAPTURE
@@ -486,7 +486,7 @@ def kit_ateliers():
     for nom in kit.NOUVEAUX:shutil.copy2(OUT/'bibliotheque'/(nom+'.fbx'),UNITY_ROOT/'Models'/(nom+'.fbx'))
     shutil.copy2(OUT/'bibliotheque/catalogue.json',UNITY_ROOT/'Data/catalogue.json')
     # Les références : bâtiments finis des chantiers, mesurés par Unity sans être refaits.
-    # Lot 270 : la planche, une rangée par chantier, qu'Unity photographie.
+    # La planche, une rangée par chantier, qu'Unity photographie.
     (dossier/'selection.json').write_text(json.dumps({'modules':kit.NOUVEAUX,'references':kit.REFERENCES,'planche':kit.rangees_planche()},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     (dossier/'unity-kit.json').unlink(missing_ok=True)
     # Une ancienne planche Unity ne compte jamais : seule celle de ce passage est relue.
@@ -550,8 +550,8 @@ def verify(ds):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit','relance','batiments','preuve']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--service-sourd',action='store_true',help='routes et preuve : le monde ignore les intentions (contre-épreuves des lots 293 et 386)');p.add_argument('--sans-service-neuf',action='store_true',help='relance, batiments et preuve : la session vierge joue sur le premier service (contre-épreuves des lots 361, 370 et 386)')
-    p.add_argument('--ville-locale',action='store_true',help='preuve : la session jouer dessine une rue que seul Unity connaît (contre-épreuve du lot 386)');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['fabriquer','unity','verifier','visite','parcours','edition','terrain','routes','kit','relance','batiments','preuve']);p.add_argument('--disposition');p.add_argument('--force',action='store_true');p.add_argument('--unity',action='store_true');p.add_argument('--asset');p.add_argument('--sans-rendus',action='store_true');p.add_argument('--service-sourd',action='store_true',help='routes et preuve : le monde ignore les intentions');p.add_argument('--sans-service-neuf',action='store_true',help='relance, batiments et preuve : la session vierge joue sur le premier service')
+    p.add_argument('--ville-locale',action='store_true',help='preuve : la session jouer dessine une rue que seul Unity connaît');a=p.parse_args()
     ds=[d for d in RECIPE['dispositions'] if not a.disposition or d['id']==a.disposition]
     if not ds:p.error('Disposition inconnue')
     if a.action=='fabriquer':build(ds,a.force,a.sans_rendus);verify(ds)

@@ -1,4 +1,4 @@
-# Les modificateurs du monde (docs/VISION.md, décisions 34, 35, 37 et 38).
+# Les modificateurs du monde.
 #
 # Un modificateur change un TAUX que le moteur lit déjà ; il ne crée jamais
 # un kilo ni une pièce. Posé sur une cible (un pays, une cellule ou un lieu),

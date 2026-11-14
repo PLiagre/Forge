@@ -61,7 +61,7 @@ CHAMPS_MOBILES: tuple[str, ...] = (
 
 # Le détail des modificateurs (`sim/modificateurs.py`) est une clé de la
 # photographie qui n'existe qu'avec une pose, et qui change avec elle : une
-# famine (#1029) la fait apparaître au milieu d'un déroulé. Elle n'appartient
+# famine la fait apparaître au milieu d'un déroulé. Elle n'appartient
 # donc pas au décor, qui est écrit une fois à t0 : elle voyage dans l'image,
 # présente seulement quand le monde porte une pose.
 CLE_MODIFICATEURS = "modificateurs"
@@ -162,7 +162,7 @@ def _image_du_monde(world: World, numero_tick: int, places: dict | None = None, 
     `build_snapshot_document` les écrit — l'ordre du `cell_id` croissant.
     C'est la seule chose que ce module sait de la photographie, et le
     test de recomposition est ce qui l'empêche de dériver. Les places des
-    lieux (#393) viennent de `places_du_monde`, comme dans la photographie.
+    lieux viennent de `places_du_monde`, comme dans la photographie.
     """
     from sim.aggregation import bourg_depuis_monde, repartition_bourg_de_cellule_consultation
     from sim.model import cellule_vers_dict

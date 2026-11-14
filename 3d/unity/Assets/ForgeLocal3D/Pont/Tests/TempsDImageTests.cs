@@ -3,7 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 namespace Forge.Pont.Tests
 {
-    // Lot #958 — le résumé des temps d'image (médiane, 95e centile au rang le plus proche, maximum) et l'interrupteur des optimisations.
+    // Le résumé des temps d'image (médiane, 95e centile au rang le plus proche, maximum) et l'interrupteur des optimisations.
     public sealed class TempsDImageTests
     {
         static double[] Suite(int n) => Enumerable.Range(1, n).Select(i => (double)i).ToArray();

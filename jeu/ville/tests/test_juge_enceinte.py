@@ -1,7 +1,7 @@
-"""Juge et lanceur de l'épreuve de l'enceinte (#938). Les deux rapports versés sont relus tels quels, mutés en mémoire seulement ; les références viennent de vrais services d'épreuve, graine 0, J = 0,01, l'un ignorant tracer_enceinte."""
+"""Juge et lanceur de l'épreuve de l'enceinte. Les deux rapports versés sont relus tels quels, mutés en mémoire seulement ; les références viennent de vrais services d'épreuve, graine 0, J = 0,01, l'un ignorant tracer_enceinte."""
 import copy, importlib.util, json, pytest; from pathlib import Path
-M938, LANCEUR = (RACINE := Path(__file__).resolve().parents[3]) / "docs/mesures/938-epreuve-enceinte", RACINE / "pc/epreuve_enceinte.py"
-lu = lambda nom: json.loads((M938 / f"rapport-{nom}.json").read_text(encoding="utf-8-sig"))  # noqa: E731
+DONNEES, LANCEUR = (RACINE := Path(__file__).resolve().parents[3]) / "jeu/ville/tests/donnees/epreuve-enceinte", RACINE / "pc/epreuve_enceinte.py"
+lu = lambda nom: json.loads((DONNEES / f"rapport-{nom}.json").read_text(encoding="utf-8-sig"))  # noqa: E731
 @pytest.fixture(scope="module")
 def epreuve():
     assert LANCEUR.is_file(), f"fichier introuvable : {LANCEUR}"; module = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_location("epreuve_enceinte", LANCEUR)); spec.loader.exec_module(module); return module
@@ -30,7 +30,7 @@ def test_normal_egal(epreuve, refs):
     assert [l for l in lignes if l.startswith("tick ")] == [f"tick {t} · fourni/requis vu {f}/7, servi {f}/7 · étape {e} · portes dessinées/servies 1/1" for t, f, e in ((3, 1, "piquets"), (4, 3, "piquets"), (5, 7, "fini"))]
 def test_reference_ignorante(epreuve, refs):
     code, lignes, ecarts = juge(epreuve, refs, ref="ignore"); assert code == 1 and {"3 contour", "3 travail requis (servi)", "3 portes servies", "achevée"} <= set(ecarts), lignes
-@pytest.mark.parametrize("contre", ["forge937SansPorte", ""])
+@pytest.mark.parametrize("contre", ["forgeEnceinteSansPorte", ""])
 def test_sans_porte(epreuve, refs, contre):
     code, lignes, ecarts = juge(epreuve, refs, "sans-porte", lambda r, f: r.update(contre_epreuve=contre)); assert (code, ecarts) == (1, ["3 portes dessinées", "4 portes dessinées", "5 portes dessinées"]) and lu("sans-porte")["contre_epreuve"], lignes
 def _porte(r, i=0): return r["releves"][i]["portes_dessinees"]
@@ -51,7 +51,7 @@ def test_commande_reference(epreuve):
     normal, ignore = " ".join(epreuve.commande_reference(0, False)), epreuve.commande_reference(0, True); options = "--epreuve --travail-enceinte 0.01 --seed 0 --jours-par-seconde 0"
     assert "-m sim.service" in normal and normal.endswith(options) and "-c" in ignore and str(LANCEUR) in ignore and " ".join(ignore).endswith(options) and "-m" not in ignore
 def test_main_sans_unity(epreuve, tmp_path, monkeypatch):
-    for nom in ("lot937-enceinte.json", "verdict.txt", "S--1-enceinte-en-chantier.png", "S--2-enceinte-finie.png"): (tmp_path / nom).write_text("ancien", encoding="utf-8")
+    for nom in ("enceinte.json", "verdict.txt", "S--1-enceinte-en-chantier.png", "S--2-enceinte-finie.png"): (tmp_path / nom).write_text("ancien", encoding="utf-8")
     for cible, nom in ((epreuve.subprocess, "Popen"), (epreuve.JALON1, "_unity"), (epreuve.JOUER, "_repond")): monkeypatch.setattr(cible, nom, lambda *a, **k: pytest.fail(f"{nom} appelé"))
     assert epreuve.main(["--sortie", str(tmp_path), "--unity", str(tmp_path / "absent" / "Unity.exe")]) == 2 and sorted(p.name for p in tmp_path.iterdir()) == ["verdict.txt"]
 @pytest.mark.parametrize("contre", [[], ["--contre", "ignore"], ["--contre", "sans-porte"]])
@@ -60,4 +60,4 @@ def test_main_commande_unity(epreuve, tmp_path, monkeypatch, contre):
     for cible in {id(m): m for m in (epreuve.JOUER, epreuve.JALON1.JOUER)}.values(): monkeypatch.setattr(cible, "_repond", lambda *a: False)
     monkeypatch.setattr(epreuve.JALON1, "_unity", lambda commande: notes.append(commande) or 1); monkeypatch.setattr(epreuve.subprocess, "Popen", lambda *a, **k: pytest.fail("référence lancée"))
     assert epreuve.main(["--sortie", str(tmp_path / "sortie"), "--unity", str(unity), *contre]) == 2 and len(notes) == 1; vus = " ".join(notes[0])
-    assert all(o in vus for o in ("-forgeLot 937", "-forgeServiceEpreuve", "-forgeTravailEnceinte 0.01")) and ("-forge937SansPorte" in vus) == (contre[-1:] == ["sans-porte"])
+    assert all(o in vus for o in ("-forgeScenario enceinte", "-forgeServiceEpreuve", "-forgeTravailEnceinte 0.01")) and ("-forgeEnceinteSansPorte" in vus) == (contre[-1:] == ["sans-porte"])
