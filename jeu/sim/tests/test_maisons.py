@@ -1605,7 +1605,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS, BOURGOGNE, PALATINAT, BAR)): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS, BOURGOGNE, PALATINAT, BAR, WURTEMBERG, MOREE)): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1907,8 +1907,8 @@ def _etats_iberie(e):
 
 def _familles_historiques(familles, liens):
     famille = FAMILLE_1400 + [('sophie-baviere', 'Sophie de Bavière', '1376', 'annee')]
-    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) + len(FICHES_MCA) + len(FICHES_BOURGOGNE) + len(FICHES_PALATINAT) + len(FICHES_BAR) == 102
-    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {'personne-' + i for i in FICHES_BAR}
+    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) + len(FICHES_MCA) + len(FICHES_BOURGOGNE) + len(FICHES_PALATINAT) + len(FICHES_BAR) + len(FICHES_WURTEMBERG) == 104
+    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {'personne-' + i for i in FICHES_BAR} | {'personne-' + i for i in FICHES_WURTEMBERG}
     fiches = {f['id']: f for f in familles + liens}
     couples = {'personne-isabeau': 'personne-grande-3', 'personne-jeanne': 'personne-grande-28', 'personne-sophie-baviere': 'personne-grande-9'}
     couples.update({v: k for k, v in list(couples.items())})
@@ -1916,7 +1916,7 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 29 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {CHEF_BAR}
+    assert len(liens) == 30 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {CHEF_BAR, CHEF_WURTEMBERG} and 'personne-seigneurie-3' not in {f['id'] for f in liens}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
@@ -1929,8 +1929,10 @@ def _familles_historiques(familles, liens):
     _bourgogne(fiches)
     _palatinat(fiches)
     _bar(fiches)
+    _wurtemberg(fiches)
+    _moree(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL} | {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL} | {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR} | {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -1959,7 +1961,7 @@ def test_familles_historiques():
     r = {f.get('id', f.get('maison')): i for t in ('familles', 'liens', 'etats') for i, f in enumerate(document[t])}
     _familles_historiques(document.get('familles', []), document.get('liens', []))
     _familles_historiques([f for f in monde.personnages if f['id'] != 'personne-' + f['maison']],
-                         [f for f in monde.personnages if f['id'] == 'personne-' + f['maison'] and {'pere', 'mere', 'conjoints', 'presence', 'etat_familial'} & f.keys()])
+                         _complements_du_monde(monde.personnages))
     mutations = [(('familles',), []), (('familles', r['personne-charles'], 'naissance', 'valeur'), '1392-02-07'),
                  (('familles', r['personne-charles'], 'mere'), 'personne-jeanne'), (('familles', r['personne-charles'], 'sources', 'mere'), None),
                  (('familles', r['personne-charles'], 'sources', 'presence'), None)]
@@ -2010,11 +2012,12 @@ def test_familles_integration(tmp_path, monkeypatch):
     parents += [('grande-29', 'elisabeth-nuremberg', i) for i in ENFANTS_PALATINAT]
     verifies |= {(k, (p, 'personne-' + i)) for i in ENFANTS_PALATINAT if i != 'frederic-palatinat' for p, ks in ((CHEF_PAL, ('anteriorite',)), (EPOUSE_PAL, ('anteriorite', 'age_maternel'))) for k in ks}
     parents += [(BAR, 'marie-valois', i) for i in ENFANTS_BAR]
+    parents += [(WURTEMBERG, 'antonia-visconti', 'eberhard-iv-wurtemberg')]
     verifies |= {(k, (p, 'personne-' + i)) for i in ('edouard-bar', 'jean-bar') for p, ks in ((CHEF_BAR, ('anteriorite',)), (EPOUSE_BAR, ('anteriorite', 'age_maternel'))) for k in ks}
-    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]] + ['frederic-palatinat'] + list(SANS_BORNES_BAR)
-    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]] + list(ENFANTS_MCA) + ['frederic-palatinat'] + list(SANS_BORNES_BAR)
-    assert len(paternels) == 18 and len(maternites) == 13
-    assert len(bilan['verifies']) == 83 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 130
+    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]] + ['frederic-palatinat'] + list(SANS_BORNES_BAR) + ['eberhard-iv-wurtemberg']
+    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]] + list(ENFANTS_MCA) + ['frederic-palatinat'] + list(SANS_BORNES_BAR) + ['eberhard-iv-wurtemberg']
+    assert len(paternels) == 19 and len(maternites) == 14
+    assert len(bilan['verifies']) == 83 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 133
     controles = {('anteriorite', ('personne-' + p, 'personne-' + e)) for p, m, e in parents} | {(k, ('personne-' + m, 'personne-' + e)) for p, m, e in parents if m for k in ('anteriorite', 'age_maternel')}
     assert {(c['contrainte'], c['personnes']) for c in bilan['verifies']} == verifies
     assert {(c['contrainte'], c['personnes']) for c in bilan['indetermines']} == controles - verifies
@@ -2040,6 +2043,9 @@ def test_familles_integration(tmp_path, monkeypatch):
     # Marie de Valois placée après la naissance d'Édouard (juin 1377), puis assez tôt pour avoir 46 ans à la naissance de Jean (1380).
     mutations += [(('familles', valois, 'naissance'), _naissance_famille(v)) for v in ('1377-07-01', '1334-01-01')]
     copies = [_alterer_personnages(document, k, v) for k, v in mutations]
+    # Wurtemberg : Eberhard IV né le 23 août 1388 (jour), Antonia le 1er janvier 1389 ; la filiation entre dans les contrôles dès que les bornes existent.
+    iv, antonia = (next(i for i, f in enumerate(document['familles']) if f['id'] == k) for k in (EBERHARD_IV_ID, ANTONIA_ID))
+    copies.append(_alterer_personnages(_alterer_personnages(document, ('familles', iv, 'naissance'), _naissance_famille('1388-08-23')), ('familles', antonia, 'naissance'), _naissance_famille('1389-01-01')))
     cycle = copy.deepcopy(document)
     cycle['familles'][mere]['pere'] = 'personne-charles'
     cycle['familles'][mere]['sources']['pere'], cycle['familles'][mere]['lacunes']['pere'] = document['familles'][enfant]['sources']['pere'], None
@@ -2077,7 +2083,7 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 29 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {BAR}
+    assert len(etats) == 31 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {BAR, WURTEMBERG, MOREE}
     assert {f'grande-{n}' for n in range(11, 21)} <= {e['maison'] for e in etats}
     for e in etats:
         if e['maison'] in BALKANS_MAISONS: _balkans(etat=e); continue
@@ -2086,6 +2092,8 @@ def _etats_historiques(etats):
         if e['maison'] == BOURGOGNE: _bourgogne(etat=e); continue
         if e['maison'] == PALATINAT: _palatinat(etat=e); continue
         if e['maison'] == BAR: _bar(etat=e); continue
+        if e['maison'] == WURTEMBERG: _wurtemberg(etat=e); continue
+        if e['maison'] == MOREE: _moree(etat=e); continue
         if e['maison'] == 'grande-16':
             _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
@@ -3113,6 +3121,17 @@ M_FARIS, M_AHMAD, M_MUNTASIR, M_UTHMAN_H, M_UTHMAN, M_ABDALHAQQ = (WP + p for p 
     'Abu_Faris_Abd_al-Aziz_II', 'Abu_al-Abbas_Ahmad_II', 'Abu_Abd-Allah_Muhammad_al-Muntasir', 'Abu_%27Amr_%27Uthman', 'Abu_Said_Uthman_III', 'Abd_al-Haqq_II'))
 MAGHREB_MAISONS, TLEMCEN = ('grande-23', 'grande-25'), 'grande-24'
 CHAMPS_FAMILIAUX = {'pere', 'mere', 'conjoints', 'presence', 'etat_familial'}
+COMPLEMENT_MONDE = {'pere', 'mere', 'conjoints', 'presence'}
+CLES_CHEF_SANS_COMPLEMENT = {'id', 'maison', 'nom', 'naissance', 'sources', 'lacunes', 'origine', 'etat_familial'}
+
+
+def _complements_du_monde(personnes):
+    """Les chefs qui portent un complément. Un état sans complément n'est permis qu'au chef de la Morée, avec les seules clés d'un chef."""
+    chefs = [f for f in personnes if f['id'] == 'personne-' + f['maison']]
+    seuls = [f for f in chefs if 'etat_familial' in f and not COMPLEMENT_MONDE & f.keys()]
+    assert {f['id'] for f in seuls} == {'personne-seigneurie-3'}
+    assert all(set(f) == CLES_CHEF_SANS_COMPLEMENT and set(f['sources']) == set(f['lacunes']) == {'identite', 'naissance'} for f in seuls)
+    return [f for f in chefs if COMPLEMENT_MONDE & f.keys()]
 # chef : (conjoints, sources {champ : (page, fait)}, repères des lacunes)
 LIENS_M = {
     'grande-23': ((), {'presence': (M_FARIS, 'Abu Faris Abd al-Aziz II, souverain hafside de juin 1394 à juillet 1434 ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.')},
@@ -3172,7 +3191,7 @@ def _maghreb_controle(fiches, etat):
 
 def _preuve_monde_maghreb(personnes):
     _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
-                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+                          _complements_du_monde(personnes))
     _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
     assert not any(f['maison'] == TLEMCEN and CHAMPS_FAMILIAUX & f.keys() for f in personnes)
 
@@ -3189,7 +3208,7 @@ def test_familles_historiques_maghreb(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _maghreb({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29
+    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
     # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
@@ -3364,7 +3383,7 @@ def _mca_controle(fiches, etat):
 
 def _preuve_monde_mca(personnes):
     _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
-                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+                          _complements_du_monde(personnes))
     _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
     assert not any(f['maison'] == HORDE and CHAMPS_FAMILIAUX & f.keys() for f in personnes)
 
@@ -3381,7 +3400,7 @@ def test_familles_historiques_mamelouks_chypre_autriche(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _mca({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(CHEF_EXCLUSION_MCA) == 12
+    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(CHEF_EXCLUSION_MCA) == 12
     _preuve_monde_mca(list(monde.personnages))
     # La Horde : ni fiche, ni complément, ni état ; la lacune d'identité de son chef reste mot pour mot.
     chef = next(c for c in d['chefs'] if c['maison'] == HORDE)
@@ -3588,7 +3607,7 @@ def _chef_bourgogne(chef):
 def _preuve_monde_bourgogne(personnes):
     _chef_bourgogne(next(f for f in personnes if f['id'] == CHEF_BG))
     _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
-                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+                          _complements_du_monde(personnes))
     _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
 
 
@@ -3606,7 +3625,7 @@ def test_familles_historiques_bourgogne():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_bourgogne(next(c for c in d['chefs'] if c['maison'] == BOURGOGNE))
     _bourgogne({f['id']: f for f in d['familles'] + d['liens']}); _bourgogne(etat=next(e for e in d['etats'] if e['maison'] == BOURGOGNE))
-    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
+    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
     _preuve_monde_bourgogne(list(monde.personnages))
     assert [f['id'] for f in monde.personnages if f['maison'] == 'grande-12'] == [AMEDEE_BG, MARIE_BG]
     ids = {'personne-' + i for i in FICHES_BOURGOGNE} | {CHEF_BG, MARIE_BG, BOURGOGNE}
@@ -3686,7 +3705,7 @@ PALATINAT = 'grande-29'
 CHEF_PAL, EPOUSE_PAL, BLANCHE_PAL, LOUIS_PAL, AUTRICHE_PAL = 'personne-grande-29', 'personne-elisabeth-nuremberg', 'personne-blanche-angleterre', 'personne-louis-palatinat', 'personne-grande-30'
 ENFANTS_PALATINAT = ('marguerite-palatinat', 'frederic-palatinat', 'louis-palatinat', 'agnes-palatinat', 'elisabeth-palatinat', 'jean-neumarkt', 'etienne-simmern', 'otton-mosbach')
 PARENTS_PAL = 'de Robert III et d’Élisabeth de Nuremberg'
-MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {'seigneurie-1'}
+MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {'seigneurie-1', 'seigneurie-2', 'seigneurie-3'}
 
 
 def _enfant_pal(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url_naissance=ROBERT, url_presence=ROBERT):
@@ -3835,7 +3854,7 @@ def _chef_palatinat(chef):
 def _preuve_monde_palatinat(personnes):
     _chef_palatinat(next(f for f in personnes if f['id'] == CHEF_PAL))
     _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
-                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+                          _complements_du_monde(personnes))
     _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
 
 
@@ -3853,9 +3872,9 @@ def test_familles_historiques_palatinat():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_palatinat(next(c for c in d['chefs'] if c['maison'] == PALATINAT))
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
-    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
+    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert len(monde.personnages) == 2388
+    assert len(monde.personnages) == 2390
     _preuve_monde_palatinat(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     feuilles = []
@@ -4081,9 +4100,9 @@ def _bar_controle(fiches, etat):
             if i in famille: assert liens <= famille
             else: assert not liens & famille
         assert not any({'personne-grande-6', THEODORE_II_ID, 'personne-grande-27', MARIE_FRANCE_ID} & ({f.get('pere'), f.get('mere')} | set(f.get('conjoints', []))) for i, f in fiches.items() if i in famille)
-        # Les cinq autres seigneuries restent sans complément ni fiche.
-        assert {i for i in fiches if i.startswith('personne-seigneurie-')} == {CHEF_BAR}
-        assert {f['maison'] for f in fiches.values() if f.get('maison', '').startswith('seigneurie-')} == {BAR}
+        # Seule Wurtemberg a, avec Bar, un complément et des fiches ; les quatre autres seigneuries n'en ont pas.
+        assert {i for i in fiches if i.startswith('personne-seigneurie-')} == {CHEF_BAR, 'personne-seigneurie-2'}
+        assert {f['maison'] for f in fiches.values() if f.get('maison', '').startswith('seigneurie-')} == {BAR, 'seigneurie-2'}
     if etat is not None:
         conjoints, enfants, sources, reperes, exclusions = ETAT_BAR
         assert etat['maison'] == BAR and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
@@ -4107,7 +4126,7 @@ def _chef_bar(chef):
 def _preuve_monde_bar(personnes):
     _chef_bar(next(f for f in personnes if f['id'] == CHEF_BAR))
     _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
-                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+                          _complements_du_monde(personnes))
     _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
 
 
@@ -4125,10 +4144,10 @@ def test_familles_historiques_bar():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_bar(next(c for c in d['chefs'] if c['maison'] == BAR))
     _bar({f['id']: f for f in d['familles'] + d['liens']}); _bar(etat=next(e for e in d['etats'] if e['maison'] == BAR))
-    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
+    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert not any(e['maison'].startswith('seigneurie-') and e['maison'] != BAR for e in d['etats'] + [f['etat_familial'] for f in monde.personnages if 'etat_familial' in f])
-    assert len(monde.personnages) == 2388
+    assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3'}
+    assert len(monde.personnages) == 2390
     _preuve_monde_bar(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     ids = {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR, BAR}
@@ -4187,7 +4206,7 @@ def test_familles_historiques_bar():
     for i, naissance in (('yolande-bar', _naissance_famille('1365', 'annee')), ('louis-bar', _naissance_famille('1370', 'annee')), ('edouard-bar', _naissance_famille('1377', 'annee'))):
         k = next(k for k, f in enumerate(d['familles']) if f['id'] == 'personne-' + i)
         altere(('familles', k, 'naissance'), naissance)
-    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(next(e for e in d['etats'] if e['maison'] == BAR)), maison='seigneurie-2')); refuse(c)
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(next(e for e in d['etats'] if e['maison'] == BAR)), maison='seigneurie-4')); refuse(c)
     c = copy.deepcopy(d); c['etats'] = [e for e in c['etats'] if e['maison'] != BAR]; refuse(c)
     # Des copies d'Édouard : enfants morts avant 1400 ou de présence indéterminée, époux futur, héritier inventé.
     base = next(f for f in monde.personnages if f['id'] == 'personne-edouard-bar')
@@ -4206,3 +4225,360 @@ def test_familles_historiques_bar():
         else: clone['conjoints'] = [YOLANDE_JEUNE_BAR]; next(f for f in personnes if f['id'] == YOLANDE_JEUNE_BAR)['conjoints'].append(clone['id'])
         with pytest.raises(AssertionError): _bar({f['id']: f for f in personnes + [clone]})
         with pytest.raises(AssertionError): _preuve_monde_bar(personnes + [clone])
+
+
+# Notices examinées le 14 novembre 2026 ; attentes indépendantes du catalogue. Théodore Ier de Morée n'a aucun complément ni aucune fiche.
+(EBERHARD_III_EN, EBERHARD_IV_EN, ANTONIA_EN, THEODORE_I, BARTOLOMEA, SULEYMAN) = (WP + p for p in (
+    'Eberhard_III_of_W%C3%BCrttemberg#Marriages_and_children', 'Eberhard_IV_of_W%C3%BCrttemberg', 'Antonia_Visconti', 'Theodore_I_Palaiologos#Personal_life', 'Bartolomea_Acciaioli', 'S%C3%BCleyman_%C3%87elebi'))
+EBERHARD_III_DE, ANTONIA_DE, EBERHARD_IV_DE = ('https://de.wikipedia.org/wiki/' + p for p in ('Eberhard_III._(W%C3%BCrttemberg,_Graf)', 'Antonia_Visconti', 'Eberhard_IV._(W%C3%BCrttemberg)'))
+_LEO = 'https://www.leo-bw.de/'
+EBERHARD_III_LEO = _LEO + 'detail/-/Detail/details/PERSON/ubt_hauswuerttemberg/132122669/W%C3%BCrttemberg+Eberhard+III+Graf'
+ANTONIA_LEO = _LEO + 'en/detail/-/Detail/details/PERSON/ubt_hauswuerttemberg/131370790/W%C3%BCrttemberg+Antonia+Gr%C3%A4fin'
+EBERHARD_IV_LEO = _LEO + 'detail/-/Detail/details/PERSON/ubt_hauswuerttemberg/134143868/W%C3%BCrttemberg+Eberhard+IV+Graf'
+NDB = 'https://www.deutsche-biographie.de/sfz35480.html'
+WURTEMBERG, MOREE = 'seigneurie-2', 'seigneurie-3'
+CHEF_WURTEMBERG, ANTONIA_ID, EBERHARD_IV_ID, ELISABETH_NUREMBERG_ID, CHEF_MOREE = 'personne-seigneurie-2', 'personne-antonia-visconti', 'personne-eberhard-iv-wurtemberg', 'personne-elisabeth-nuremberg', 'personne-seigneurie-3'
+SULEYMAN_ID = 'personne-suleyman-celebi'
+# La fiche de Süleyman Çelebi (`grande-16`) : elle ne change pas, mot pour mot.
+FICHE_SULEYMAN = {
+    'id': SULEYMAN_ID, 'maison': 'grande-16', 'nom': 'Süleyman Çelebi', 'naissance': None, 'pere': 'personne-grande-16', 'mere': None, 'conjoints': [], 'presence': 'vivante', 'sources': {
+        'identite': {'url': 'https://islamansiklopedisi.org.tr/bayezid-i', 'fait': 'Süleyman Çelebi, fils de Bayezid Ier, parmi les six fils survivants.'}, 'naissance': None,
+        'presence': {'url': 'https://islamansiklopedisi.org.tr/fetret-devri', 'fait': 'Süleyman Çelebi, fils de Bayezid Ier, vivant après le départ.'},
+        'pere': {'url': 'https://islamansiklopedisi.org.tr/bayezid-i', 'fait': 'Süleyman Çelebi est fils de Bayezid Ier.'}, 'mere': None, 'conjoints': None},
+    'lacunes': {'identite': None, 'naissance': 'Süleyman Çelebi : naissance inconnue ; les pages examinées n’établissent pas de date.', 'presence': None, 'pere': None,
+                'mere': 'Les pages examinées n’établissent pas la mère de Süleyman Çelebi ; aucune mère inventée, aucune absence attestée.',
+                'conjoints': 'Conjoints et descendants de Süleyman Çelebi hors périmètre ; aucune absence attestée.'}}
+# Les fiches de chef de Wurtemberg et de Morée (`chefs`) : nom, maison, naissance, page d'identité, page de naissance.
+CHEFS_WURTEMBERG_MOREE = {
+    WURTEMBERG: ('Eberhard III de Wurtemberg', {'valeur': 'nach 1362', 'precision': 'intervalle'}, NDB, NDB),
+    MOREE: ('Théodore Ier Paléologue', {'valeur': 'c. 1355', 'precision': 'vers'}, 'https://www.worldhistory.org/Despotate_of_the_Morea/', WP + 'Theodore_I_Palaiologos')}
+_ENFANTS_III = 'd’Eberhard III et d’Antonia Visconti'
+# id : (nom, maison, naissance, père, mère, conjoints, sources {champ : (page, fait)}, repères des lacunes {champ : repères})
+FICHES_WURTEMBERG = {
+    'antonia-visconti': ('Antonia Visconti', WURTEMBERG, {'valeur': 'vers 1360', 'precision': 'vers'}, None, None, (CHEF_WURTEMBERG,), {
+        'identite': (ANTONIA_EN, 'Antonia Visconti, comtesse de Wurtemberg, fille de Bernabò Visconti et de Beatrice Regina della Scala, épouse d’Eberhard III de Wurtemberg ; le monde la distingue de sa sœur Caterina Visconti '
+                     '(personne-caterina-visconti), épouse de Jean Galéas Visconti.'),
+        'naissance': (ANTONIA_EN, 'Antonia Visconti : née vers 1360 (« born after 1350, probably about 1360 », ' + ANTONIA_EN + ') ; ' + ANTONIA_DE + ' et ' + ANTONIA_LEO + ' écrivent « nach 1350 » ; divergence conservée, aucune borne n’est inventée.'),
+        'presence': (ANTONIA_EN, 'Antonia Visconti, morte à Stuttgart en mars 1405 : le 26 mars 1405 pour ' + ANTONIA_DE + ', ' + ANTONIA_LEO + ', ' + EBERHARD_III_DE + ' et le corps de ' + ANTONIA_EN
+                     + ', le 16 mars 1405 pour l’infobox et l’introduction de ' + ANTONIA_EN + ' ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'conjoints': (ANTONIA_LEO, 'Antonia Visconti et Eberhard III de Wurtemberg sont mariés le 27 octobre 1380 à Urach (« 27.10.(?)1380 » dans ' + ANTONIA_LEO + ', date marquée « (?) » ; la note de ' + ANTONIA_DE
+                      + ' dit qu’elle n’est pas assurée) ; union active au départ.')},
+        {'pere': ('Antonia Visconti', 'Bernabò Visconti', ANTONIA_EN, ANTONIA_LEO, 'Caterina Visconti', 'Isabeau de Bavière', 'aucun lien de fratrie', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+         'mere': ('Antonia Visconti', 'Beatrice Regina della Scala', 'Beatrice della Scala', ANTONIA_EN, ANTONIA_LEO, ANTONIA_DE, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée')}),
+    'eberhard-iv-wurtemberg': ('Eberhard IV de Wurtemberg', WURTEMBERG, {'valeur': 'vers 1388', 'precision': 'vers'}, CHEF_WURTEMBERG, ANTONIA_ID, (), {
+        'identite': (EBERHARD_IV_LEO, 'Eberhard IV de Wurtemberg, dit le Jeune (« der Jüngere »), fils ' + _ENFANTS_III + ', comte de Wurtemberg de 1417 à 1419 (' + EBERHARD_IV_LEO + ' ; ' + EBERHARD_IV_EN + ').'),
+        'naissance': (EBERHARD_IV_LEO, 'Eberhard IV de Wurtemberg : né « um 1388 » (' + EBERHARD_IV_LEO + ') ou « c. 1388 » (' + EBERHARD_IV_EN + ') ; ' + EBERHARD_IV_DE + ' et ' + ANTONIA_EN + ' donnent le 23 août 1388, ' + NDB
+                      + ' « 1388 » ; le monde suit les deux notices qui hésitent et garde le jour en divergence : le 23 août 1388 est aussi le jour de la mort de son grand-père à Döffingen (' + EBERHARD_III_LEO + ').'),
+        'presence': (EBERHARD_IV_EN, 'Eberhard IV de Wurtemberg, mort le 2 juillet 1419 à Waiblingen (' + EBERHARD_IV_EN + ' ; ' + EBERHARD_IV_DE + ' ; ' + EBERHARD_IV_LEO + '), comte de Wurtemberg de 1417 à 1419 ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'pere': (EBERHARD_IV_LEO, 'Eberhard IV de Wurtemberg est fils ' + _ENFANTS_III + ' (' + EBERHARD_IV_LEO + ') ; ' + EBERHARD_IV_EN + ' : « the only surviving child ».'),
+        'mere': (EBERHARD_IV_LEO, 'Eberhard IV de Wurtemberg est fils ' + _ENFANTS_III + ' (' + EBERHARD_IV_LEO + ') ; ' + EBERHARD_IV_EN + ' : « the only surviving child ».')},
+        {'conjoints': ('Eberhard IV de Wurtemberg', 'Henriette de Montbéliard', '13 novembre 1397', EBERHARD_IV_DE, EBERHARD_IV_LEO, EBERHARD_III_EN, 'in 1407 at the latest', 'spätestens 1407', 'aucune union active',
+                       'ni célibat ni veuvage', 'aucune absence attestée', 'hors périmètre')}),
+}
+# conjoints, sources {champ : (page, fait)}, repères des lacunes
+LIEN_WURTEMBERG = ((ANTONIA_ID,), {
+    'presence': (EBERHARD_III_EN, 'Eberhard III, comte de Wurtemberg jusqu’à sa mort, le 16 mai 1417 à Göppingen (' + EBERHARD_III_EN + ' ; ' + EBERHARD_III_LEO + ') ; en fonction et vivant au 1er janvier 1400, aucune mort programmée.'),
+    'conjoints': (EBERHARD_III_LEO, 'Eberhard III et Antonia Visconti sont mariés le 27 octobre 1380 (« 27.10.(?)1380 » pour ' + EBERHARD_III_LEO + ') ; « In 1380 » à Urach pour ' + EBERHARD_III_EN
+                  + ', dot convenue à Milan le 1er juillet 1380, soixante-dix mille florins ; union active au départ.')},
+    {'pere': ('Eberhard III', 'Ulrich de Wurtemberg', 'Döffingen', '23 août 1388', EBERHARD_III_LEO, EBERHARD_III_EN, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+     'mere': ('Eberhard III', 'Élisabeth de Bavière', 'Louis IV', EBERHARD_III_LEO, EBERHARD_III_DE, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée')})
+ETAT_WURTEMBERG = ('union', 'documentes', {
+    'conjoints': (EBERHARD_III_LEO, 'Eberhard III et Antonia Visconti sont mariés le 27 octobre 1380 (« 27.10.(?)1380 » pour ' + EBERHARD_III_LEO + ') ; état union, avant le départ.'),
+    'enfants': (EBERHARD_III_LEO, 'Eberhard III et Antonia Visconti : « Kinder: 4 » (Ulrich, Ludwig, Eberhard IV et Elisabeth) pour ' + EBERHARD_III_LEO + ', « issue = 4, including Eberhard IV » dans l’infobox de ' + EBERHARD_III_EN
+                + ' ; un seul enfant vivant au 1er janvier 1400, Eberhard IV ; Ulrich et Louis, morts en bas âge, sont exclus, ainsi qu’Élisabeth, née en 1412 de la seconde union.')}, {}, {
+    'Ulrich, fils d’Eberhard III': ((EBERHARD_III_LEO, 'Ulrich, fils d’Eberhard III de Wurtemberg et d’Antonia Visconti : mort « in früher Kindheit », sans date ; son nom est « urkundlich nicht überliefert », tiré de chroniques plus tardives ; '
+                                    'exclu des vivants, sans date de mort déduite ; il n’est ni Ulrich, père d’Eberhard III, ni Ulrich V, né en 1412 ; ni fiche ni résurrection.'),
+                                   (ANTONIA_LEO, 'Ulrich, fils d’Eberhard III : mort « in früher Kindheit » selon ' + ANTONIA_LEO + ' ; ' + ANTONIA_EN + ' écrit « died young » : seul Eberhard IV atteint l’âge adulte ; aucun événement programmé.')),
+    'Louis, fils d’Eberhard III': ((EBERHARD_III_LEO, 'Louis (Ludwig), fils d’Eberhard III de Wurtemberg et d’Antonia Visconti : mort « in früher Kindheit », sans date ; son nom est « urkundlich nicht überliefert », tiré de chroniques plus tardives ; '
+                                   'exclu des vivants, sans date de mort déduite ; il n’est ni Louis Ier, né en 1413 ; ni fiche ni résurrection.'),
+                                  (ANTONIA_LEO, 'Louis, fils d’Eberhard III : mort « in früher Kindheit » selon ' + ANTONIA_LEO + ' ; ' + ANTONIA_EN + ' écrit « died young » : seul Eberhard IV atteint l’âge adulte ; aucun événement programmé.')),
+    'Henriette de Montbéliard': ((EBERHARD_IV_DE, 'Henriette de Montbéliard : fiancée d’Eberhard IV le 13 novembre 1397 (' + EBERHARD_IV_DE + ' ; ' + EBERHARD_IV_LEO + ' ; ' + EBERHARD_III_EN
+                                  + ') ; l’union n’est pas établie au départ : ni fiche ni conjoint actif, aucun événement programmé.'),
+                                 (EBERHARD_IV_EN, 'Henriette de Montbéliard : le mariage est célébré « in 1407 at the latest » (' + EBERHARD_IV_EN + '), « spätestens 1407 » (' + EBERHARD_IV_DE + ' ; ' + EBERHARD_IV_LEO + '), sans date ; elle est hors périmètre.')),
+    'Élisabeth de Nuremberg, fille de Jean III': ((EBERHARD_III_LEO, 'Élisabeth de Nuremberg, fille de Jean III, burgrave de Nuremberg : seconde épouse future d’Eberhard III ; contrat de mariage le 27 mars 1406 (' + EBERHARD_III_LEO + ' ; ' + EBERHARD_III_DE
+                                                  + ' ; le 27 mars dans l’infobox de ' + EBERHARD_III_EN + ', le 29 mars dans son texte), « Beilager » en 1412 (' + EBERHARD_III_DE + ' ; « 1406/12 » pour ' + NDB
+                                                  + ') ; l’union n’est pas établie au départ : ni fiche ni conjoint actif, aucun événement programmé.'),
+                                                 (ANTONIA_DE, 'Élisabeth de Nuremberg, fille de Jean III : née en 1391 ou 1392 (' + ANTONIA_DE + ' ; ' + NDB + ') ; elle n’est pas Élisabeth de Nuremberg, fille de Frédéric V, née en 1358, épouse de Robert III '
+                                                  '(personne-elisabeth-nuremberg, personne-grande-29) ; aucun lien vers personne-grande-29.')),
+    'Élisabeth de Wurtemberg': ((EBERHARD_III_EN, 'Élisabeth de Wurtemberg : fille d’Eberhard III, née en 1412 de la seconde union (' + EBERHARD_III_EN + ') ; née après le départ, exclue ; aucun événement programmé.'),
+                                (EBERHARD_III_LEO, 'Élisabeth de Wurtemberg : morte après le 26 avril 1460 (' + EBERHARD_III_LEO + ') ; ni fiche ni lien.'))})
+WURTEMBERG_EXCLUSIONS = ETAT_WURTEMBERG[4]
+WURTEMBERG_DIVERGENCES = ('16 mai 1417', 'Göppingen', 'Ulrich de Wurtemberg', '23 août 1388', 'Döffingen', 'Élisabeth de Bavière', 'Louis IV', '27 octobre 1380', '27.10.(?)1380', 'In 1380', 'Urach', '1er juillet 1380',
+                          'soixante-dix mille', 'born after 1350, probably about 1360', 'nach 1350', '26 mars 1405', '16 mars 1405', 'Stuttgart', 'Bernabò Visconti', 'Beatrice Regina della Scala', 'Beatrice della Scala',
+                          'der Jüngere', 'the only surviving child', 'um 1388', 'c. 1388', '2 juillet 1419', 'Waiblingen', '13 novembre 1397', 'Henriette de Montbéliard', 'in 1407 at the latest', 'spätestens 1407',
+                          'Kinder: 4', '4, including Eberhard IV', 'in früher Kindheit', 'died young', 'urkundlich nicht überliefert', 'fils d’Eberhard III', '27 mars 1406', '29 mars', '1406/12', 'Jean III', 'Frédéric V',
+                          '1391 ou 1392', '1412', '26 avril 1460', 'ni célibat ni veuvage', 'aucune absence attestée')
+REPERES_WURTEMBERG = {**{'personne-' + i: v[7] for i, v in FICHES_WURTEMBERG.items()}, CHEF_WURTEMBERG: LIEN_WURTEMBERG[2], WURTEMBERG: {}}
+# Théodore Ier : un état sans complément. conjoints, enfants, sources {champ : (page, fait)}, repères des lacunes, exclusions {nom : ((page, fait), …)}
+ETAT_MOREE = ('veuvage', 'lacune', {
+    'conjoints': (BARTOLOMEA, 'Théodore Ier Paléologue a épousé en 1385 Bartolomea Acciaioli, fille aînée de Nerio Ier Acciaioli ; elle meurt vers 1396 (« c. 1396 »), et « Her husband outlived her » (' + BARTOLOMEA + ') ; ' + THEODORE_I
+                  + ' nomme le même mariage ; état veuvage : aucune union n’est active au départ, et le chef n’a aucun conjoint.')},
+    {'enfants': ('Théodore Ier Paléologue', THEODORE_I, BARTOLOMEA, 'is not known to have children', 'without known heirs', 'produced no children', 'died childless', 'illégitime', 'aucune absence attestée')}, {
+    'Théodora': ((THEODORE_I, 'Théodora : fille illégitime de Théodore Ier Paléologue ; sa mère est « unknown » et sa naissance n’est pas connue ; elle épouse Süleyman Çelebi en 1404, mariage futur ; '
+                  'exclue, ni fiche ni lien vers Théodore Ier, aucun événement programmé.'),
+                 (SULEYMAN, 'Théodora : fille de Théodore Ier et de « his unnamed mistress », elle épouse Süleyman Çelebi en 1404 ; ni fiche ni lien vers personne-suleyman-celebi, dont la fiche ne change pas ; aucun événement programmé.'))})
+MOREE_EXCLUSIONS = ETAT_MOREE[4]
+MOREE_DIVERGENCES = ('1385', 'c. 1396', 'Nerio Ier Acciaioli', 'Her husband outlived her', 'is not known to have children', 'without known heirs', 'produced no children', 'died childless', 'illégitime', 'unknown',
+                     'his unnamed mistress', 'Süleyman Çelebi', '1404', 'aucune absence attestée')
+REPERES_MOREE = {MOREE: ETAT_MOREE[3]}
+
+
+def _wurtemberg(fiches=None, etat=None):
+    try: _wurtemberg_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de Wurtemberg malformée : {erreur!r}') from erreur
+
+
+def _wurtemberg_controle(fiches, etat):
+    if fiches is not None:
+        assert {CHEF_WURTEMBERG, ELISABETH_NUREMBERG_ID, 'personne-caterina-visconti', 'personne-isabeau', 'personne-grande-10', 'personne-grande-3'} | {'personne-' + i for i in FICHES_WURTEMBERG} <= set(fiches)
+        assert {i for i, f in fiches.items() if f.get('maison') == WURTEMBERG and i != CHEF_WURTEMBERG} == {'personne-' + i for i in FICHES_WURTEMBERG}
+        for i, (nom, maison, naissance, pere, mere, conjoints, sources, reperes) in FICHES_WURTEMBERG.items():
+            f = fiches['personne-' + i]
+            assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (nom, maison, naissance, pere, mere, conjoints, 'vivante')
+            _lacunes_b(f['sources'], f['lacunes'], sources, reperes)
+        conjoints, sources, reperes = LIEN_WURTEMBERG
+        c = fiches[CHEF_WURTEMBERG]
+        assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+        champs = ('pere', 'mere', 'conjoints', 'presence')
+        _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+        # Seul Eberhard IV a Eberhard III pour père et Antonia pour mère ; ils sont les seuls conjoints l'un de l'autre.
+        assert {i for i, f in fiches.items() if f.get('pere') == CHEF_WURTEMBERG} == {i for i, f in fiches.items() if f.get('mere') == ANTONIA_ID} == {EBERHARD_IV_ID}
+        assert {i for i, f in fiches.items() if CHEF_WURTEMBERG in f.get('conjoints', [])} == {ANTONIA_ID} and {i for i, f in fiches.items() if ANTONIA_ID in f.get('conjoints', [])} == {CHEF_WURTEMBERG}
+        # Aucun lien vers une autre maison : ni Milan, ni la France, ni le Palatinat.
+        famille = {CHEF_WURTEMBERG, ANTONIA_ID, EBERHARD_IV_ID}
+        for i, f in fiches.items():
+            liens = {f.get('pere'), f.get('mere'), *f.get('conjoints', [])} - {None}
+            if i in famille: assert liens <= famille
+            else: assert not liens & famille
+        # Élisabeth de Nuremberg, épouse de Robert III, reste la seule de son nom, de `grande-29`.
+        assert [i for i, f in fiches.items() if f.get('nom') == 'Élisabeth de Nuremberg'] == [ELISABETH_NUREMBERG_ID]
+        nuremberg = fiches[ELISABETH_NUREMBERG_ID]
+        assert (nuremberg['maison'], nuremberg['naissance'], nuremberg['conjoints']) == ('grande-29', {'valeur': '1358-12-13', 'precision': 'jour'}, ['personne-grande-29'])
+        # Ni Henriette de Montbéliard, ni la seconde Élisabeth, ni Ulrich et Louis n'ont de fiche : seules Antonia et Eberhard IV portent ces noms.
+        assert sorted(i for i, f in fiches.items() if f.get('nom') in ('Antonia Visconti', 'Eberhard IV de Wurtemberg', 'Henriette de Montbéliard', 'Élisabeth de Wurtemberg')) == [ANTONIA_ID, EBERHARD_IV_ID]
+        assert all(f.get('maison') != WURTEMBERG or i in famille for i, f in fiches.items())
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETAT_WURTEMBERG
+        assert etat['maison'] == WURTEMBERG and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _moree(fiches=None, etat=None):
+    try: _moree_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'état de la Morée malformé : {erreur!r}') from erreur
+
+
+def _moree_controle(fiches, etat):
+    if fiches is not None:
+        # Aucun complément, aucune fiche, aucun lien : Théodora et Bartolomea n'existent pas, Süleyman garde sa fiche mot pour mot.
+        assert CHEF_MOREE not in fiches and not any(f.get('maison') == MOREE for f in fiches.values())
+        assert not any(CHEF_MOREE in (f.get('pere'), f.get('mere')) or CHEF_MOREE in (f.get('conjoints') or []) for f in fiches.values())
+        assert not any(f.get('nom') in ('Théodora', 'Bartolomea Acciaioli') for f in fiches.values())
+        suleyman = fiches[SULEYMAN_ID]
+        assert suleyman['conjoints'] == [] and isinstance(suleyman['lacunes']['conjoints'], str) and {k: v for k, v in suleyman.items() if k != 'origine'} == FICHE_SULEYMAN
+        assert not any(SULEYMAN_ID in f.get('conjoints', []) for f in fiches.values())
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETAT_MOREE
+        assert etat['maison'] == MOREE and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _chef_wurtemberg_moree(chef):
+    try:
+        nom, naissance, page_identite, page_naissance = CHEFS_WURTEMBERG_MOREE[chef['maison']]
+        assert (chef['nom'], chef['naissance']) == (nom, naissance)
+        assert chef['sources']['identite']['url'] == page_identite and chef['sources']['naissance']['url'] == page_naissance
+        assert chef['lacunes']['identite'] is None and chef['lacunes']['naissance'] is None
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de chef malformée : {erreur!r}') from erreur
+
+
+def _preuve_monde_wurtemberg(personnes):
+    _chef_wurtemberg_moree({k: v for k, v in next(f for f in personnes if f['id'] == CHEF_WURTEMBERG).items() if k in ('maison', 'nom', 'naissance', 'sources', 'lacunes')})
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']], _complements_du_monde(personnes))
+    _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
+
+
+def _preuve_monde_moree(personnes):
+    chef = next(f for f in personnes if f['id'] == CHEF_MOREE)
+    _chef_wurtemberg_moree(chef)
+    assert set(chef) == CLES_CHEF_SANS_COMPLEMENT and set(chef['sources']) == set(chef['lacunes']) == {'identite', 'naissance'}
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']], _complements_du_monde(personnes))
+    _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
+    _moree({f['id']: f for f in personnes if f['id'] != CHEF_MOREE}, chef['etat_familial'])
+
+
+def _feuilles_des(d, ids):
+    feuilles = []
+    for t in ('familles', 'liens', 'etats'):
+        for f in d[t]:
+            if f.get('id', f.get('maison')) not in ids: continue
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                if isinstance(valeur, str): feuilles.append(valeur)
+    return feuilles
+
+
+def _alterer_famille(d, ids, divergences, reperes, refuse, etats_alteres):
+    """Retire, double, altère chaque feuille et chaque repère des feuilles de ids ; chacune doit échouer."""
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            cle = f.get('id', f.get('maison'))
+            if cle not in ids: continue
+            refuse(_alterer_personnages(d, (t,), d[t][:j] + d[t][j+1:])); refuse(_alterer_personnages(d, (t,), d[t] + [copy.deepcopy(f)]))
+            for chemin in _feuilles(f):
+                valeur = f
+                for k in chemin: valeur = valeur[k]
+                refuse(_alterer_personnages(d, (t, j, *chemin), ['personne-grande-9'] if valeur == [] else 'Altéré'))
+                if isinstance(valeur, str):
+                    for repere in divergences:
+                        if repere in valeur: refuse(_alterer_personnages(d, (t, j, *chemin), valeur.replace(repere, 'inconnu')))
+            for nom in f.get('exclusions', {}): refuse(_alterer_personnages(d, (t, j, 'exclusions', nom), 'SUPPRIMER'))
+            if t == 'etats':
+                for champ, etats in etats_alteres:
+                    for etat in etats: refuse(_alterer_personnages(d, (t, j, champ), etat))
+            for champ, liste in reperes.get(cle, {}).items():
+                for repere in liste: refuse(_alterer_personnages(d, (t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu')))
+
+
+def test_familles_historiques_wurtemberg():
+    d, monde = _personnages(), World.charger(0)
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False, wur=False):
+        if controle: assert _controler_famille(resolus(c))
+        if wur:
+            with pytest.raises(AssertionError): _wurtemberg({f['id']: f for f in resolus(c)})
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    chef = next(c for c in d['chefs'] if c['maison'] == WURTEMBERG)
+    _chef_wurtemberg_moree(chef); _chef_wurtemberg_moree(next(c for c in d['chefs'] if c['maison'] == MOREE))
+    _wurtemberg({f['id']: f for f in d['familles'] + d['liens']}); _wurtemberg(etat=next(e for e in d['etats'] if e['maison'] == WURTEMBERG))
+    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
+    assert len(monde.personnages) == 2390
+    _preuve_monde_wurtemberg(list(monde.personnages))
+    ids = {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG, WURTEMBERG}
+    # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
+    feuilles = _feuilles_des(d, ids)
+    assert all(any(r in v for v in feuilles) for r in WURTEMBERG_DIVERGENCES)
+    # Retirer, dédoubler, altérer chaque feuille et chaque repère ; passer les états à un autre état ; une lacune de conjoint à une absence attestée.
+    _alterer_famille(d, ids, WURTEMBERG_DIVERGENCES, REPERES_WURTEMBERG, refuse, (('conjoints', ('lacune', 'veuvage')), ('enfants', ('lacune', 'absence_attestee'))))
+    k = next(k for k, f in enumerate(d['familles']) if f['id'] == EBERHARD_IV_ID)
+    altere(('familles', k, 'lacunes', 'conjoints'), 'Eberhard IV de Wurtemberg : absence attestée de tout conjoint.')
+    # Les naissances que le lot refuse de redevenir précises ou imprécises.
+    for i, naissance in ((EBERHARD_IV_ID, _naissance_famille('1388-08-23')), (EBERHARD_IV_ID, _naissance_famille('1388', 'annee')), (ANTONIA_ID, _naissance_famille('1360', 'annee'))):
+        k = next(k for k, f in enumerate(d['familles']) if f['id'] == i)
+        altere(('familles', k, 'naissance'), naissance)
+    # La fiche du chef : nom, naissance, sources ; dans le monde aussi.
+    j = next(k for k, c in enumerate(d['chefs']) if c['maison'] == WURTEMBERG)
+    for chemin, valeur in ((('nom',), 'Eberhard IV de Wurtemberg'), (('naissance',), _naissance_famille('1364', 'annee')), (('naissance',), _naissance_famille('nach 1363', 'intervalle')),
+                           (('sources', 'identite', 'url'), EBERHARD_III_EN), (('sources', 'naissance', 'url'), EBERHARD_III_LEO), (('lacunes', 'naissance'), 'Naissance inconnue.')):
+        with pytest.raises(AssertionError): _chef_wurtemberg_moree(_alterer_personnages(chef, chemin, valeur))
+    with pytest.raises(AssertionError): _preuve_monde_wurtemberg([dict(f, nom='Eberhard IV de Wurtemberg') if f['id'] == CHEF_WURTEMBERG else f for f in monde.personnages])
+    modele = next(f for f in d['familles'] if f['id'] == EBERHARD_IV_ID)
+    def relie(c, i, j):
+        a, b = (next(f for f in c['familles'] + c['liens'] if f['id'] == k) for k in (i, j))
+        a['conjoints'].append(j); b['conjoints'].append(i)
+    # Antonia rebaptisée Caterina Visconti ; Eberhard III conjoint réciproque de l'autre Élisabeth de Nuremberg ; Antonia conjointe réciproque du chef de Milan.
+    k = next(k for k, f in enumerate(d['familles']) if f['id'] == ANTONIA_ID)
+    altere(('familles', k, 'nom'), 'Caterina Visconti')
+    c = copy.deepcopy(d); relie(c, CHEF_WURTEMBERG, ELISABETH_NUREMBERG_ID); refuse(c, controle=True, wur=True)
+    c = copy.deepcopy(d); relie(c, ANTONIA_ID, 'personne-grande-10'); refuse(c, controle=True, wur=True)
+    # Des copies d'Eberhard IV : enfants morts en bas âge, fille de la seconde union, fiancée, seconde épouse, héritier inventé.
+    base = next(f for f in monde.personnages if f['id'] == EBERHARD_IV_ID)
+    intrus = [('Ulrich, fils d’Eberhard III', presence, 'enfant') for presence in ('vivante', 'decedee')] + [('Louis, fils d’Eberhard III', presence, 'enfant') for presence in ('vivante', 'decedee')]
+    intrus += [('Élisabeth de Wurtemberg', 'vivante', 'fille'), ('Henriette de Montbéliard', 'vivante', 'conjoint-iv'),
+               ('Élisabeth de Nuremberg, fille de Jean III', 'vivante', 'conjoint-iii'), ('Héritier inventé', 'vivante', 'enfant')]
+    for nom, presence, role in intrus:
+        c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, presence=presence, pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+        clone = {k: copy.deepcopy(v) for k, v in base.items()}
+        clone.update(id='personne-intruse', nom=nom, presence=presence, pere=None, mere=None, conjoints=[])
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        for cible, tous in ((ajout, c['familles'] + c['liens']), (clone, personnes)):
+            if role == 'enfant': cible.update(pere=CHEF_WURTEMBERG, mere=ANTONIA_ID)
+            elif role == 'fille': cible.update(pere=CHEF_WURTEMBERG)
+            else:
+                parent = EBERHARD_IV_ID if role == 'conjoint-iv' else CHEF_WURTEMBERG
+                cible['conjoints'] = [parent]; next(x for x in tous if x['id'] == parent)['conjoints'].append('personne-intruse')
+        refuse(c, controle=True, wur=True)
+        with pytest.raises(AssertionError): _wurtemberg({f['id']: f for f in personnes + [clone]})
+        with pytest.raises(AssertionError): _preuve_monde_wurtemberg(personnes + [clone])
+
+
+def test_familles_historiques_moree(tmp_path):
+    from sim import personnages as p
+    d, monde = _personnages(), World.charger(0)
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False, moree=False):
+        if controle: assert _controler_famille(resolus(c))
+        if moree:
+            with pytest.raises(AssertionError): _moree({f['id']: f for f in resolus(c)})
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    chef = next(c for c in d['chefs'] if c['maison'] == MOREE)
+    _chef_wurtemberg_moree(chef)
+    _moree({f['id']: f for f in d['familles'] + d['liens']}); _moree(etat=next(e for e in d['etats'] if e['maison'] == MOREE))
+    assert len(d['familles']) == 104 and len(d['liens']) == 30 and len(d['etats']) == 31 and len(MOREE_EXCLUSIONS) == 1
+    assert not any(l['id'] == CHEF_MOREE for l in d['liens']) and not any(f['maison'] == MOREE for f in d['familles'])
+    _preuve_monde_moree(list(monde.personnages))
+    ids = {MOREE}
+    feuilles = _feuilles_des(d, ids)
+    assert all(any(r in v for v in feuilles) for r in MOREE_DIVERGENCES)
+    _alterer_famille(d, ids, MOREE_DIVERGENCES, REPERES_MOREE, refuse, (('conjoints', ('union', 'lacune')), ('enfants', ('absence_attestee', 'documentes'))))
+    # La fiche du chef reste égale à sa constante, dans le catalogue comme dans le monde.
+    for chemin, valeur in ((('nom',), 'Manuel II Paléologue'), (('naissance',), _naissance_famille('1355', 'annee')), (('sources', 'identite', 'url'), WP + 'Theodore_I_Palaiologos'), (('lacunes', 'naissance'), 'Naissance inconnue.')):
+        with pytest.raises(AssertionError): _chef_wurtemberg_moree(_alterer_personnages(chef, chemin, valeur))
+    # Un complément neutre : le lecteur l'accepte et les liens se résolvent, mais le monde n'en veut pas.
+    neutre = copy.deepcopy(next(l for l in d['liens'] if l['id'] == CHEF_BAR))
+    neutre.update(id=CHEF_MOREE, conjoints=[], pere=None, mere=None, presence='vivante')
+    neutre['sources'] = {**neutre['sources'], 'conjoints': None}
+    neutre['lacunes'] = {**neutre['lacunes'], 'conjoints': 'Théodore Ier : aucun conjoint ; aucune absence attestée.'}
+    c = copy.deepcopy(d); c['liens'].append(neutre)
+    chemin = tmp_path / 'neutre.json'
+    chemin.write_text(json.dumps(c), encoding='utf-8')
+    assert p.charger_catalogue(monde.maisons, chemin)
+    refuse(c, controle=True, moree=True)
+    # Une fille de Théodore Ier, vivante puis décédée ; une Théodora conjointe réciproque de Süleyman ; dans le catalogue et dans le monde.
+    modele = next(f for f in d['familles'] if f['id'] == EBERHARD_IV_ID)
+    base = next(f for f in monde.personnages if f['id'] == EBERHARD_IV_ID)
+    def relie(c, i, j):
+        a, b = (next(f for f in c['familles'] + c['liens'] if f['id'] == k) for k in (i, j))
+        a['conjoints'].append(j); b['conjoints'].append(i)
+    for maison, presence, role in ((MOREE, 'vivante', 'fille'), (MOREE, 'decedee', 'fille'), ('grande-16', 'vivante', 'conjointe')):
+        c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom='Théodora', maison=maison, presence=presence, pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+        clone = {k: copy.deepcopy(v) for k, v in base.items()}
+        clone.update(id='personne-intruse', nom='Théodora', maison=maison, presence=presence, pere=None, mere=None, conjoints=[])
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        if role == 'fille': clone['pere'] = CHEF_MOREE
+        else:
+            relie(c, 'personne-intruse', SULEYMAN_ID)
+            clone['conjoints'] = [SULEYMAN_ID]; next(f for f in personnes if f['id'] == SULEYMAN_ID)['conjoints'].append('personne-intruse')
+        refuse(c, controle=(role == 'conjointe'), moree=True)
+        with pytest.raises(AssertionError): _moree({f['id']: f for f in personnes + [clone]})
+        with pytest.raises(AssertionError): _preuve_monde_moree(personnes + [clone])
+    # Les six preuves du monde repèrent le complément par `_complements_du_monde` : un chef qui porte un état seul, ou un champ isolé, échoue toujours.
+    preuves = (_preuve_monde_maghreb, _preuve_monde_mca, _preuve_monde_bourgogne, _preuve_monde_palatinat, _preuve_monde_bar, _preuve_monde_wurtemberg, _preuve_monde_moree)
+    def copie(modif):
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        modif({f['id']: f for f in personnes})
+        return personnes
+    modifs = [lambda m: m[CHEF_MOREE].update(conjoints=[]), lambda m: m[CHEF_MOREE].update(presence='vivante'), lambda m: m[CHEF_MOREE].pop('etat_familial'),
+              lambda m: m['personne-seigneurie-4'].update(etat_familial=copy.deepcopy(m[CHEF_MOREE]['etat_familial'])),
+              lambda m: m['personne-seigneurie-4'].update(conjoints=[]), lambda m: m[CHEF_MOREE].update(intrus=True), lambda m: m[CHEF_MOREE]['sources'].update(presence=None)]
+    for preuve in preuves:
+        preuve(list(monde.personnages))
+        for modif in modifs:
+            with pytest.raises(AssertionError): preuve(copie(modif))
