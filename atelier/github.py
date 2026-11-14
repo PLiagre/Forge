@@ -81,7 +81,8 @@ class GitHub:
         self.gh("issue", "comment", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
 
     def corps_de(self, numero: int, texte: str) -> None:
-        self.gh("issue", "edit", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
+        self.gh("api", "-X", "PATCH", f"repos/{self.depot}/issues/{numero}", "--input", "-",
+                entree=json.dumps({"body": texte}))
 
     def epingler(self, numero: int) -> None:
         self.gh("issue", "pin", str(numero), "-R", self.depot)
@@ -153,7 +154,10 @@ class GitHub:
         return int(url.rstrip("/").rsplit("/", 1)[-1])
 
     def corps_de_pr(self, numero: int, texte: str) -> None:
-        self.gh("pr", "edit", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
+        # Par l'API : `gh pr edit` lit les « Projects (classic) », que GitHub
+        # refuse désormais ; le gh 2.45 du VPS y échoue.
+        self.gh("api", "-X", "PATCH", f"repos/{self.depot}/pulls/{numero}", "--input", "-",
+                entree=json.dumps({"body": texte}))
 
     def pr_prete(self, numero: int) -> None:
         self.gh("pr", "ready", str(numero), "-R", self.depot)
