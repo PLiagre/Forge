@@ -156,7 +156,9 @@ class Pilote:
         if res.attente:
             self.attentes += 1
         if res.mesure:
-            self.noter(lot, "appel", f"{role} : {_dit(res.mesure)}", str(res.agent or self.projet.agent(role)),
+            # Une session reprise rend son coût depuis son premier appel (`journal.couts_par_appel`).
+            cumul = " (coût : depuis le début de la session)" if appel.reprendre and not res.neuve else ""
+            self.noter(lot, "appel", f"{role} : {_dit(res.mesure)}{cumul}", str(res.agent or self.projet.agent(role)),
                        mesure={"role": role, **res.mesure})
         return res
 

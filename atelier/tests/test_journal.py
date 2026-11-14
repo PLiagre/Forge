@@ -395,3 +395,20 @@ def test_les_couts_du_palier_comptent_ses_lots_ouverts_et_fermes(projet, gh):
     assert table[-2:] == ["| #10 Lever une armée | 1 | 1 min | 1.50 $ | — |", "| #11 Les frontières | 1 | 1 min | 3.00 $ | — |"]
     gh.jalons_[1]["state"] = "closed"
     assert journal.couts_du_palier(gh, projet) == "Aucun appel mesuré.", "sans palier ouvert, rien n'est compté"
+
+
+def test_le_cout_d_une_session_reprise_n_est_pas_compte_deux_fois(projet, gh):
+    """Claude rend le cumul de la session : quatre appels à 1, 2, 3 puis 3,5 $ ont coûté 3,5 $, pas 9,5."""
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    for minute, cumul in enumerate((1.0, 2.0, 3.0, 3.5)):
+        gh.commenter_issue(10, lots.marque(role="chef", session="s-10", mesure={"cout": cumul, "duree": 60}))
+        gh.issues_[10]["comments"][-1]["createdAt"] = f"2026-11-16T10:0{minute}:00Z"
+    # Le relecteur n'a pas de session reprise : son coût est le sien.
+    gh.commenter_issue(10, lots.marque(role="relecteur", mesure={"cout": 0.5, "duree": 60}))
+    mesures = journal.mesures_des_lots(gh, projet, [10])
+    assert [round(m.cout, 2) for m in mesures] == [1.0, 1.0, 1.0, 0.5, 0.5]
+    assert round(sum(m.cout for m in mesures), 2) == 4.0
+    # Une session rouverte à neuf repart de zéro : son cumul est son coût.
+    gh.commenter_issue(10, lots.marque(role="chef", session="s-10", mesure={"cout": 0.25, "duree": 60}))
+    gh.issues_[10]["comments"][-1]["createdAt"] = "2026-11-16T10:09:00Z"
+    assert round(journal.mesures_des_lots(gh, projet, [10])[-1].cout, 2) == 0.25

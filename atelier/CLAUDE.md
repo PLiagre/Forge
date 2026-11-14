@@ -19,7 +19,9 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
 - **Chaque appel laisse son coût et sa trace**, même coupé par son délai :
   la sortie de l'agent s'écrit dans un fichier au fil de l'eau
   (`~/.atelier/appels/`), et sa mesure entre dans la marque du commentaire
-  que le pilote pose : le coût d'un lot se relève sur GitHub.
+  que le pilote pose : le coût d'un lot se relève sur GitHub. Une session
+  reprise rend son coût depuis son premier appel : `journal.couts_par_appel`
+  en tire celui de chaque appel.
 - **Chaque rôle rend un objet dont le harnais vérifie la forme**
   (`consignes.SCHEMA_*`) : rien ne se lit par expression régulière dans un
   texte libre.
