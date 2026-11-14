@@ -1,4 +1,4 @@
-"""Le partage des tests du moteur entre les tranches de la CI, d'après leurs durées.
+"""Les durées mesurées des tests du jeu, et le partage des tests du moteur entre les tranches de la CI.
 
 Un partage à tour de rôle dans l'ordre de collecte laisse une tranche finir bien avant les
 autres, et chaque PR attend la plus lente. Le partage suit donc les durées que la CI a mesurées
@@ -8,11 +8,14 @@ Un test absent de `durees.json` (ajouté depuis la mesure) compte pour la durée
 médiane des tests mesurés : il trouve sa place comme les autres, et aucun ne se perd.
 
 Chaque tranche refait le même calcul sur la même collecte et le même fichier : elles tombent
-d'accord sans se parler. Chacune écrit aussi ce qu'elle a mesuré quand `FORGE_DUREES` nomme un
-fichier ; la CI le garde en artefact. Remettre `durees.json` à jour, depuis `jeu/` :
+d'accord sans se parler. Chaque travail de la CI écrit aussi ce qu'il a mesuré quand `FORGE_DUREES`
+nomme un fichier ; la CI le garde en artefact. `durees.json` dit aussi quels tests sont des preuves
+longues (`conftest.py`). Le remettre à jour d'après une nuit (`nuit.yml` joue tout), depuis `jeu/` :
 
-    gh run download <run de master> -R PLiagre/Forge -p "durees-*" -D /tmp/durees
-    python3 -m sim.tests.tranches /tmp/durees
+    gh run download <run de nuit> -R PLiagre/Forge -p "durees-*" -D /tmp/durees
+    python3 tranches.py /tmp/durees
+
+Une mesure neuve remplace l'ancienne ; un test que le run n'a pas joué garde la sienne.
 
 Bibliothèque standard seule : ce module se charge aussi hors de pytest (atelier/tests/test_ci.py).
 """
@@ -94,15 +97,16 @@ def ecrire(durees: dict[str, float], chemin: Path = DUREES) -> None:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 1 or not Path(argv[0]).is_dir():
-        print("usage : python3 -m sim.tests.tranches <dossier des artefacts durees-*>", file=sys.stderr)
+        print("usage : python3 tranches.py <dossier des artefacts durees-*>", file=sys.stderr)
         return 2
     fichiers = sorted(Path(argv[0]).rglob("*.json"))
-    durees = fusionner(fichiers)
-    if not durees:
+    mesures = fusionner(fichiers)
+    if not mesures:
         print(f"aucune durée dans {argv[0]}", file=sys.stderr)
         return 1
+    durees = {**(lire_durees() if DUREES.is_file() else {}), **mesures}
     ecrire(durees)
-    print(f"{len(durees)} tests mesurés, lus dans {len(fichiers)} fichier(s), écrits dans {DUREES}")
+    print(f"{len(mesures)} tests mesurés, lus dans {len(fichiers)} fichier(s) ; {len(durees)} dans {DUREES}")
     return 0
 
 

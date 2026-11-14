@@ -86,6 +86,7 @@ class FauxGitHub(GitHub):
     etapes_: dict[int, list[dict]] = field(default_factory=dict)
     run_master: dict = field(default_factory=lambda: {"status": "completed", "conclusion": "success",
                                                       "databaseId": 1, "url": "https://x/run/1"})
+    run_nuit: dict | None = None
     table_ci: str = ""
     suivant: int = 100
 
@@ -230,7 +231,7 @@ class FauxGitHub(GitHub):
         return self.etapes_.get(travail, [])
 
     def dernier_run(self, workflow, branche):
-        return self.run_master
+        return self.run_nuit if workflow == "nuit.yml" else self.run_master
 
     def base_de_fusion(self, base, tete):
         return "c" * 40

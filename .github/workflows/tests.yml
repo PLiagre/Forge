@@ -4,6 +4,11 @@ name: tests
 # avancer (l'atelier). Cette CI ne juge pas un lot et ne fusionne rien : elle
 # dit si les contrôles passent. La protection de master n'exige que deux
 # noms : `tests` (le travail qui agrège tous ceux d'ici) et `gitleaks`.
+#
+# Sur une PR et sur master, c'est la suite rapide : les preuves longues (une
+# année du monde, dix ans) n'y sont pas, elles ne retiennent pas une fusion.
+# `nuit.yml` appelle ce même fichier avec `tout`, chaque nuit, et les joue.
+# Ce qui fait une preuve longue : jeu/conftest.py.
 
 on:
   push:
@@ -11,6 +16,16 @@ on:
   pull_request:
   # Pour rejouer à la main, ou depuis le pilote.
   workflow_dispatch:
+    inputs:
+      tout:
+        description: "Jouer aussi les preuves longues"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      tout:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,6 +39,9 @@ permissions:
 # laisse pytest faire comme sur le PC (atelier/tests/test_ci.py).
 env:
   CI: ""
+  # Ce que les travaux du jeu jouent : tout, ou tout sauf les preuves longues.
+  # Les tests qui chronomètrent ont leur travail dans les deux cas.
+  CHOIX: ${{ inputs.tout && 'not chronometre' || 'not chronometre and not longue' }}
 
 # Une révision remplacée ne garde pas ses runners : quand une PR reçoit un
 # nouveau commit, le passage de l'ancien s'arrête : sans cela, une tranche
@@ -39,16 +57,15 @@ jobs:
     # ce ne serait plus un moteur qui tourne sur une machine nue (pytest et
     # pytest-xdist ne servent qu'à le tester).
     # Sur un seul cœur, ses tests prennent des heures : ils se jouent en
-    # tranches, partagées d'après les durées mesurées (jeu/sim/tests/tranches.py), chacune sur
-    # les cœurs de son runner. Toutes les tranches vertes, et `tests` peut
-    # l'être. Chaque tranche garde ses durées en artefact, pour remettre
-    # `durees.json` à jour.
+    # tranches, partagées d'après les durées mesurées (jeu/tranches.py),
+    # chacune sur les cœurs de son runner. Toutes les tranches vertes, et
+    # `tests` peut l'être. Chaque travail du jeu garde ses durées en
+    # artefact, pour remettre `jeu/durees.json` à jour.
     # Les tests qui comptent des millisecondes (`chronometre`) n'y sont pas :
     # ils ont leur travail, plus bas, car quatre processus sur quatre cœurs
     # leur font dépasser le budget d'un tick.
     # Une tranche qui ne finit pas (un test qui boucle) s'arrête au bout de
-    # 3 h, pas des 6 h de GitHub : la plus lente de master en prend 1 h 40.
-    # Arrêtée, elle compte rouge pour `tests`.
+    # 3 h, pas des 6 h de GitHub. Arrêtée, elle compte rouge pour `tests`.
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -64,15 +81,16 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install --upgrade pip pytest pytest-xdist
       - name: Les tests du moteur, tranche ${{ matrix.tranche }} sur 3
-        run: python -m pytest sim/tests/ -q -n auto --dist worksteal -m "not chronometre"
+        run: python -m pytest sim/tests/ -q -n auto --dist worksteal -m "$CHOIX"
         working-directory: jeu
         env:
           FORGE_TRANCHE: ${{ matrix.tranche }}/3
-          FORGE_DUREES: durees-${{ matrix.tranche }}.json
+          FORGE_DUREES: durees-sim-${{ matrix.tranche }}.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
         with:
-          name: durees-${{ matrix.tranche }}
-          path: jeu/durees-${{ matrix.tranche }}.json
+          name: durees-sim-${{ matrix.tranche }}
+          path: jeu/durees-sim-${{ matrix.tranche }}.json
           retention-days: 30
 
   chronometre:
@@ -99,6 +117,8 @@ jobs:
     # installé ici : un contrôle qui exigerait une carte graphique ne
     # tournerait pas, et un contrôle qui ne tourne pas ne protège rien.
     runs-on: ubuntu-latest
+    env:
+      FORGE_DUREES: durees-vues.json
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
@@ -106,14 +126,20 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install --upgrade pip pytest numpy pillow
       - name: Le tableau de bord
-        run: python -m pytest vues/tableau/tests/ -q
+        run: python -m pytest vues/tableau/tests/ -q -m "$CHOIX"
         working-directory: jeu
       - name: La chronique
-        run: python -m pytest vues/chronique/tests/ -q
+        run: python -m pytest vues/chronique/tests/ -q -m "$CHOIX"
         working-directory: jeu
       - name: La carte de statistique
-        run: python -m pytest vues/relief/tests/ -q
+        run: python -m pytest vues/relief/tests/ -q -m "$CHOIX"
         working-directory: jeu
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: durees-vues
+          path: jeu/durees-vues.json
+          retention-days: 30
 
   forge:
     # La porte de bout en bout, jouée pour de vrai : une commande simule,
@@ -122,6 +148,8 @@ jobs:
     # peut dire. Les artefacts sont conservés : une carte qu'on ne peut pas
     # regarder ne prouve pas grand-chose.
     runs-on: ubuntu-latest
+    env:
+      FORGE_DUREES: durees-forge.json
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
@@ -129,7 +157,7 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install --upgrade pip pytest numpy pillow
       - name: Les contrôles de la commande
-        run: python -m pytest forge/tests/ -q
+        run: python -m pytest forge/tests/ -q -m "$CHOIX"
         working-directory: jeu
       - name: Les autres tests du jeu
         # Le contrat ville (jeu/ville/tests), et tout dossier de
@@ -142,7 +170,7 @@ jobs:
         run: |
           code=0
           python -m pytest . -q --ignore=sim/tests --ignore=vues/tableau/tests --ignore=vues/chronique/tests \
-            --ignore=vues/relief/tests --ignore=forge/tests || code=$?
+            --ignore=vues/relief/tests --ignore=forge/tests -m "$CHOIX" || code=$?
           if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then exit "$code"; fi
       - name: Lancer une simulation et l'afficher
         run: python -m forge --ticks 60 --seed 0 --pas 20 --sortie sortie
@@ -152,6 +180,12 @@ jobs:
           name: v1-sortie
           path: jeu/sortie/
           retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: durees-forge
+          path: jeu/durees-forge.json
+          retention-days: 30
 
   atelier:
     # La chaîne : son Python (atelier/) sur un GitHub en mémoire et des agents

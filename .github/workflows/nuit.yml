@@ -1,0 +1,21 @@
+name: nuit
+
+# Toute la suite du jeu, preuves longues comprises (une année du monde, dix
+# ans), chaque nuit sur master. Elle ne retient aucune fusion : la protection
+# de master n'exige que `tests` et `gitleaks`, joués sur chaque PR. Une nuit
+# rouge se répare comme un master rouge : le pilote la voit à son tour suivant.
+# Ses artefacts `durees-*` servent à remettre `jeu/durees.json` à jour.
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tout:
+    uses: ./.github/workflows/tests.yml
+    with:
+      tout: true
