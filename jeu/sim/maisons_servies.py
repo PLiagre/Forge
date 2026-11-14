@@ -1,6 +1,9 @@
 """Maisons servies : matière du tick et documents dérivés, sans écriture du monde."""
 
 from dataclasses import dataclass
+from functools import reduce
+from itertools import zip_longest
+from operator import add
 
 from sim.flux import _jours_de_fenetre
 
@@ -43,20 +46,24 @@ def matiere_des_maisons(monde, noms, places) -> MatiereMaisons:
                 maitres[cle] = lieu.maitre
     routes = getattr(monde, 'routes_des_lieux', None)
     noms_routes = getattr(routes, 'noms', ())
-    sommes = [[0] * len(noms_routes) for _ in _CHAMPS_FLUX]
     personnes = {m.id: [0, 0] for m in registre}
     salaires = {}
-    for jour in _jours_de_fenetre(monde):
+    jours = list(_jours_de_fenetre(monde))
+    for jour in jours:
         for identifiant, kilos in jour.salaires.items():
             salaires[identifiant] = salaires.get(identifiant, 0) + kilos
-        for total, champ in zip(sommes, _VECTEURS_FLUX):
-            for indice, kilos in enumerate(getattr(jour, champ)):
-                total[indice] += kilos
         for mouvements, colonne in ((jour.partis, 0), (jour.arrives, 1)):
             for cle, nombre in mouvements.items():
                 maitre = maitres.get(cle)
                 if maitre is not None:
                     personnes[maitre][colonne] += nombre
+    # Chaque vecteur se somme par colonne, dans l'ordre des jours et depuis le même 0 entier : ni `sum`
+    # ni `fsum` (ils compensent leurs arrondis et ne rendent plus les mêmes octets).
+    sommes = [
+        [reduce(add, colonne, 0) for colonne in zip_longest(*(getattr(jour, champ) for jour in jours), fillvalue=0)]
+        for champ in _VECTEURS_FLUX
+    ]
+    sommes = [colonnes + [0] * (len(noms_routes) - len(colonnes)) for colonnes in sommes]
     flux = dict.fromkeys(tenus, tuple(0 for _ in _CHAMPS_FLUX))
     flux.update(zip(noms_routes, zip(*sommes)))
     return MatiereMaisons(

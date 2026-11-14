@@ -559,3 +559,52 @@ def test_l_amorcage_sert_paris_et_ses_cinq_poses(monkeypatch):
     monde, servi = _servir_trente_ticks()
     assert servi["tick"] == 30
     assert (_paris(monde), 0) not in {(l["cell_id"], l["rang"]) for l in servi["lieux"]}
+
+
+def _document_d_avant(monde):
+    """Le document rebâti lieu par lieu, chaque `detail` relisant les maîtres : la façon d'avant le lot #1075."""
+    poses = sorted(monde.modificateurs, key=M._ordre)
+    touches = sorted({cle for grandeur in M.facteurs_du_monde(monde).values() for cle in grandeur})
+    lieux = [{"cell_id": cid, "rang": rang, "grandeurs": M.detail(monde, cid, rang)} for cid, rang in touches]
+    fichier = M._lire_fichier()
+    noms = {identifiant: g.nom for identifiant, g in M.lire_donnees(fichier).grandeurs.items()}
+    mots = M.lire_mots_des_sources(fichier)
+    for lieu in lieux:
+        for identifiant, grandeur in lieu["grandeurs"].items():
+            grandeur["nom"] = noms[identifiant]
+            for ligne in grandeur["lignes"]:
+                ligne["source_dite"] = mots[ligne["source"].partition(":")[0]]
+                ligne["reste_jours"] = (None if ligne["fin"] is None
+                                        else (ligne["fin"] - monde.ticks_ecoules) * c.TICK_DURATION_DAYS)
+                ligne["fin_date"] = None if ligne["fin"] is None else c.date_de_tick(ligne["fin"])
+    return {"tick": monde.ticks_ecoules, "poses": [p.en_document() for p in poses], "lieux": lieux}
+
+
+def test_le_document_lit_les_maitres_une_fois(depart, donnees, monkeypatch):
+    monde = copy.deepcopy(depart)
+    maitre = monde.cells[_paris(monde)].lieux[0].maitre
+    M.poser(monde, "epreuve", "loi:dime", {"pays": maitre},
+            _avec(donnees, grandeur="prelevement", valeur=0.5, portee="pays"))
+    M.poser(monde, "epreuve", "evenement:famine", {"cellule": _paris(monde)},
+            _avec(donnees, grandeur="natalite", valeur=-0.5, duree_jours=90))
+    appels = []
+    lire = M._tenus
+
+    def compte(m):
+        appels.append(1)
+        return lire(m)
+
+    monkeypatch.setattr(M, "_tenus", compte)
+    document = M.document_des_modificateurs(monde)
+    # Un échantillon vide ne prouve rien : le pays tient plusieurs lieux, la cellule en a au moins un.
+    assert len(document["lieux"]) > 2 and len(appels) <= 1
+    # Les octets sont ceux d'avant : mêmes noms, mêmes mots, même ordre.
+    appels.clear()
+    assert document == _document_d_avant(monde)
+    assert len(appels) > 1
+    # Contre-épreuve : un document qui appelle `detail` sans tenus pour chaque lieu lit les maîtres bien plus d'une fois.
+    appels.clear()
+    for cid, rang in [(l["cell_id"], l["rang"]) for l in document["lieux"]]:
+        M.detail(monde, cid, rang)
+    with pytest.raises(AssertionError):
+        assert len(appels) <= 1
