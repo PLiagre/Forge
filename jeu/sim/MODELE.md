@@ -3409,8 +3409,142 @@ réponse A du propriétaire du 10 novembre 2026.
   épreuves du décor d'avant la soudure gardent ainsi leurs octets. Sans coupure,
   la graine 0 pose sa première famine au tick 25 (un lieu de la cellule 10391).
 
+### Les événements à choix
+
+`sim/evenements.py`, `data/evenements.toml` (lot #1038 ; décision 41, « une
+famine qui dure propose un choix » ; VISION.md, « Les gestes d'un pays » :
+« répondre à un événement à choix »). Une cause du monde ouvre pour une maison un
+événement à choix ; la maison répond par une intention, l'IA par le même chemin ;
+chaque choix a son prix et ses effets, qui passent par des modificateurs, une
+jauge ou le grain du grenier. Aucune réponse ne met fin à la famine : c'est le
+monde qui la fait durer ou cesser.
+
+- **Les données.** `[evenements.famine]` : `nom`, `dit`, `cause = "famine"` (la
+  seule que le code sait lire ; la révolte et la succession contestée,
+  #435 et #436, la lui apprendront), `delai_jours = 30`, `par_defaut =
+  "laisser_faire"`, et trois `[[choix]]` dans l'ordre : `ouvrir_les_greniers`
+  (`grenier = 0.25`, Concorde +1), `lever_une_taxe_de_disette` (le modificateur
+  `taxe_de_disette`, Concorde −1), `laisser_faire` (Droit −5). `lire_evenements`
+  lève `EvenementInvalide`, avec un motif qui nomme le champ, pour : une cause
+  inconnue (ou déjà celle d'un autre événement) ; moins de deux ou plus de trois
+  choix ; deux choix de même `id` ; un `par_defaut` qui n'est pas l'un des choix ;
+  un `delai_jours` qui n'est pas un entier ≥ 1 ; un choix qui ne pose ni
+  modificateur ni jauge ; un modificateur absent de `modificateurs.toml`, d'une
+  grandeur que le moteur ne lit pas, ou qui ne se pose pas sur un pays ; une jauge
+  absente de `jauges.toml`, un écart nul ou non fini ; une part du grenier hors de
+  ]0, 1] ; tout autre champ dans un choix. Un choix ne peut donc ni écrire un
+  stock, ni tuer, ni finir une famine : aucun n'impose une issue (principe 5).
+  `modificateurs.toml` reçoit la taxe : `taxe_de_disette`, prélèvement, +0,25,
+  portée pays, 90 jours.
+- **La cause.** `au_mois(monde, regles)` est appelée par `jauges.avant_le_tick`
+  juste après `mettre_a_jour`, donc aux bornes de mois seulement : les trois
+  boucles (le service, `python -m sim`, `python -m forge`) la jouent sans changer,
+  IA ou non, rejeu compris. Une maison a la cause « famine » au tick `t` si l'un
+  des lieux dont elle est le maître porte la pose `famine` (lot #1029) et si son
+  dernier jour de faim tombe dans le mois écoulé : `fin − 365 jours ≥ t − 30`. On
+  lit le registre des modificateurs, jamais la faim brute : un lieu affamé depuis
+  sept jours ou moins n'a pas de pose et ne fait pas la cause. Le monde d'avant la
+  famine (`couper_la_famine`, `amorcer_comme_avant_la_soudure`) n'a donc aucun
+  événement, et un monde sans événement ni famine ne lit aucun fichier.
+- **L'événement.** `World.evenements` : identifiant de maison → `{"identifiant":
+  "famine", "ouvert": t, "lieux": [[cell_id, rang], …]}`, `lieux` triés. Une
+  maison a au plus un événement en attente. `to_dict()` ne porte la clé
+  `evenements` que si la table n'est pas vide, triée par maison. Chaque mois,
+  `au_mois` fait deux choses, dans cet ordre, maison par maison triée, pour
+  **toutes** les maisons du registre (celles de l'IA, celle du joueur, celles que
+  personne ne joue) : **fermer** un événement ouvert depuis au moins
+  `delai_jours` et dont aucune réponse n'attend dans `intentions_en_attente`, par
+  son choix `par_defaut` (la même fonction que la réponse déposée,
+  `appliquer_choix`, avec les kilos de l'ouverture comptés à ce moment, ou zéro
+  si la maison n'a pas de lieu à secourir : le défaut n'est jamais refusé) ; puis
+  **ouvrir** pour une maison sans événement en attente qui a la cause. Un
+  événement fermé peut donc être remplacé le même jour si la cause tient encore.
+  Sur la graine 0 sans IA, sous l'appel des villes coupé (le décor des épreuves,
+  lot #1071), le premier s'ouvre au tick 30, pour `plausible-10391-0` : sa famine
+  est posée au tick 25. Avec l'IA, les premiers événements d'une maison de l'IA
+  s'ouvrent au tick 390 (`grande-22` et `grande-3`).
+- **La réponse.** L'intention `repondre_evenement` (`maison`, `choix`) passe par
+  `recevoir_intention`. Le dépôt n'écrit rien dans le monde ; il refuse, avec sa
+  raison : `maison inconnue ou mal formée : …` ; `aucun événement en attente :
+  <maison>` ; `choix inconnu : … (ids triés)` ; `réponse déjà déposée :
+  <maison>` ; pour l'ouverture, `grenier vide : rien à ouvrir pour <maison>`
+  (aussi quand la part est nulle une fois retirés les `ouvrir_grenier` et la
+  réponse déjà déposées de la maison), `maison sans lieu`, `lieux sans dette ni
+  habitants` (les refus de `ouvrir_grenier`) ; pour un choix qui fait baisser
+  une jauge déjà à son minimum, le texte de `verifier_geste` (« Concorde déjà à
+  sa borne : -3 points »). Le choix `par_defaut` n'est jamais refusé pour sa
+  jauge : il est borné ; une hausse au-delà du maximum est bornée aussi.
+  L'intention retenue, `RepondreEvenement(maison, choix, kg)`, garde les kilos de
+  l'ouverture comptés au dépôt : `kg = part × (grain du grenier − grain déjà
+  engagé)`. Le grain engagé compte les `OuvrirGrenier` et les
+  `RepondreEvenement` en attente de la maison : le grenier ne paie jamais deux
+  fois, dans les deux sens. `jauges.verifier_geste` reçoit un paramètre `effets`,
+  les écarts de jauge des réponses en attente avec leur rang parmi les gestes
+  déposés, joués dans l'ordre du dépôt : `_depenser_jauge` les lui passe, pour que
+  l'étape des intentions ne lève jamais `JaugeInvalide` (avec une Concorde à 2,
+  « ouvrir » déposé, « affermir la concorde » est refusé au dépôt : la Concorde
+  est déjà à sa borne).
+- **L'effet, au tick près.** À l'étape des intentions du tick où la réponse
+  s'applique (celui du dépôt : les intentions précèdent le tick), `appliquer_choix`
+  fait dans cet ordre : (1) elle ôte l'événement de `World.evenements` ; (2) elle
+  déplace chaque jauge de son écart, borné, et repose les modificateurs des
+  jauges ; (3) pour chaque modificateur du choix, elle retire la source
+  `evenement:<modificateur>:<maison>` puis la repose sur `{"pays": maison}` : une
+  seconde taxe renouvelle la première au lieu de s'y ajouter ; (4) si `kg > 0`,
+  elle joue `OuvrirGrenier(maison, kg)` : le grain quitte le grenier et arrive aux
+  lieux par le secours, partagé selon leur dette, ou selon leurs habitants si
+  aucun n'a de dette. Comme les intentions précèdent le calcul des facteurs du
+  tick, la taxe compte dès le tick `t` où la réponse s'applique jusqu'à `t + 89` ;
+  `expirer` l'ôte au début du tick `t + 90`.
+- **Les trois choix.** *Ouvrir les greniers* : le quart du grenier part vers les
+  lieux affamés, la Concorde gagne un point. *Lever une taxe de disette* : 25 % de
+  prélèvement en plus pendant 90 jours, la Concorde perd un point. *Laisser faire* :
+  le Droit perd 5 points (puis −0,01 de prélèvement, la jauge posant son
+  modificateur). Le choix est entre le grain, la tenue du pays et la légitimité.
+  L'économie reste physique (décision 35) : la taxe multiplie un prélèvement que le
+  moteur calculait déjà, jamais au-delà de la récolte ; l'ouverture déplace de vrais
+  kilos ; aucun choix ne crée de kilo.
+- **L'IA.** `_proposition_de_reponse` : le jour du mois où elle règle sa part
+  (après son geste de jauge du jour, sans empêcher un autre geste), une maison de
+  l'IA qui a un événement en attente dépose une réponse, le premier choix qui
+  tient : (1) `ouvrir_les_greniers` si `grenier × (1 − part) ≥ réserve voulue`
+  (et un grenier non vide), raison `grenier_au_dessus_de_sa_reserve` ; (2) sinon
+  `lever_une_taxe_de_disette` si `grenier < réserve voulue` et que sa Concorde est
+  au-dessus du minimum de la jauge, raison `grenier_sous_sa_reserve` (plus
+  `concorde` et `minimum`) ; (3) sinon `laisser_faire`, raison
+  `ni_grain_ni_concorde` (plus `concorde` et `minimum`). La raison porte toujours
+  `evenement`, `ouvert`, `grenier_nourriture_kg` (lu au moment de la décision),
+  `reserve_voulue_kg` (`_reserve_voulue`) et `part_du_grenier`. Le joueur qui
+  dépose la même intention obtient le même monde (décision 38) : mêmes refus,
+  mêmes kilos, mêmes poses. Une maison que personne ne joue laisse faire au bout
+  du délai, comme le joueur qui ne répond pas. Les réponses de l'IA arrivent dans
+  `/ia` avec leur raison.
+- **Le service.** `GET /evenement?maison=<id>`, lu sous le verrou du tick, au tick
+  publié : `{"maison", "tick", "date", "evenement"}`, `evenement` valant `null`
+  sans événement en attente. Sinon : `identifiant`, `nom`, `dit`, `ouvert`,
+  `ouvert_date`, `ferme_au_tick` (le premier mois qui suit le délai), `par_defaut`,
+  `lieux`, et `choix` dans l'ordre des données : `id`, `nom`, `dit`, son prix
+  (`grenier_kg`, les kilos que le dépôt prendrait à ce tick, ou `null`), ses
+  `jauges` (les écarts), ses `modificateurs` (`nom`, `grandeur`, `grandeur_nom`,
+  `valeur`, `portee`, `duree_jours`) et son `refus` (la raison du dépôt, ou
+  `null`). Un paramètre invalide reçoit 400, une maison inconnue 404.
+  `POST /intention` avec `repondre_evenement` est réservé à la maison du joueur,
+  comme `ouvrir_grenier` : « départ non appliqué : choisir une terre avant de
+  répondre à un événement » sans joueur, « maison interdite : seule la maison du
+  joueur répond à ses événements » pour une autre maison. Le mois se joue au début
+  du tick : un événement ouvert au tick 30 est servi avec le tick publié 31. Si
+  l'IA échoue, `jouer_un_tick` défait aussi `World.evenements`, en plus des jauges
+  et des modificateurs.
+- **Ce que ce lot ne fait pas.** La fenêtre de l'événement dans Unity (un lot
+  `pc`), les autres causes de la décision 41, le fil des nouvelles (#1028), et le
+  rejeu `--gestes`, qui dépose avant le mois : une réponse du jour d'ouverture y
+  serait refusée (aucun événement en attente). La photographie ne porte pas
+  `evenements` : seuls le service et `to_dict()` les servent.
+
 **Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
-à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
+à +10 %, et pour les événements : le délai de 30 jours, le quart du grenier, ±1
+point de Concorde, −5 points de Droit, et la taxe de disette à +25 % pendant 90
+jours). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
 (les bâtiments, les jauges et les événements le feront par leurs lots).
 
 ## Le pays et ses jauges
@@ -3539,6 +3673,10 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   (`JaugeInvalide`, motif `ia.droit_bas`) une table absente, un `droit_bas` qui
   n'est pas un nombre fini (un booléen compris) ou hors de
   `minimum < droit_bas ≤ maximum` de la jauge `droit`.
+  Elle répond aussi à l'événement à choix de sa maison, le même jour du mois, après
+  son geste de jauge : une raison par règle, `grenier_au_dessus_de_sa_reserve`,
+  `grenier_sous_sa_reserve` ou `ni_grain_ni_concorde` (voir « Les événements à
+  choix », dans « Les modificateurs »).
 
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
 `data/jauges.toml`, dont les trois de l'amélioration d'une province (6 points
