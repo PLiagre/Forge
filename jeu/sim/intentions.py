@@ -7,6 +7,7 @@ import sim.constants as _constantes
 from sim import flux as _flux
 import sim.ville1400 as _ville1400
 from sim import modificateurs as _modificateurs
+from sim import evenements as _evenements
 from sim.chantiers import travail_requis_de_batiment, travail_requis_de_enceinte, travail_requis_de_parcelle, travail_requis_de_route
 from sim.plan import Batiment, Enceinte, Parcelle, Plan, PlanInvalide, Rue, _points
 from sim.puissances import PuissanceInvalide
@@ -24,6 +25,7 @@ TYPE_TRACER_ENCEINTE = "tracer_enceinte"
 TYPE_DEPENSER_JAUGE = "depenser_jauge"
 TYPE_BATIR_DANS_UNE_PROVINCE = "batir_dans_une_province"
 TYPE_AMELIORER_UNE_PROVINCE = "ameliorer_une_province"
+TYPE_REPONDRE_EVENEMENT = "repondre_evenement"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
@@ -36,6 +38,7 @@ CHAMPS_OBLIGATOIRES = {
     TYPE_DEPENSER_JAUGE: ("type", "maison", "geste"),
     TYPE_BATIR_DANS_UNE_PROVINCE: ("type", "maison", "cell", "nature"),
     TYPE_AMELIORER_UNE_PROVINCE: ("type", "maison", "cell"),
+    TYPE_REPONDRE_EVENEMENT: ("type", "maison", "choix"),
 }
 
 
@@ -108,6 +111,27 @@ class OuvrirGrenier:
                 charges[cle] = charges.get(cle, 0.0) + part
 
 
+def grain_libre(monde, maison):
+    """Le grain du grenier de la maison, moins celui que ses ouvertures déjà déposées pour le tick ont engagé.
+
+    Les `OuvrirGrenier` et les `RepondreEvenement` en attente comptent : le grenier ne paie jamais deux fois.
+    """
+    reste = monde.greniers[maison].get(_constantes.MARCHANDISE_NOURRITURE, 0.0)
+    for precedent in monde.intentions_en_attente:
+        if isinstance(precedent, (OuvrirGrenier, RepondreEvenement)) and precedent.maison == maison:
+            reste -= precedent.kg
+    return reste
+
+
+def kilos_du_grenier(monde, maison, part):
+    """Les kilos que verserait une ouverture de `part` du grain libre ; refuse une maison que le secours ne sert pas."""
+    if maison not in getattr(monde.routes_des_lieux, "noms", ()):
+        raise IntentionRefusee(f"maison sans lieu : {maison}")
+    if not any(_poids_des_lieux(monde, _lieux_de_la_maison(monde, maison))):
+        raise IntentionRefusee(f"lieux sans dette ni habitants : {maison}")
+    return part * grain_libre(monde, maison)
+
+
 def _ouvrir_grenier(monde, intention):
     maison, kg = intention["maison"], intention["kg"]
     if not isinstance(maison, str) or not any(m.id == maison for m in monde.maisons):
@@ -117,10 +141,7 @@ def _ouvrir_grenier(monde, intention):
     if (isinstance(kg, bool) or not isinstance(kg, (int, float))
             or (isinstance(kg, float) and not math.isfinite(kg)) or kg <= 0):
         raise IntentionRefusee(f"kg invalide : {kg!r}")
-    reste = monde.greniers[maison].get(_constantes.MARCHANDISE_NOURRITURE, 0.0)
-    for precedent in monde.intentions_en_attente:
-        if isinstance(precedent, OuvrirGrenier) and precedent.maison == maison:
-            reste -= precedent.kg
+    reste = grain_libre(monde, maison)
     if kg > reste:
         raise IntentionRefusee(f"grenier insuffisant : {kg} kg demandés, {reste} kg disponibles")
     if not any(_poids_des_lieux(monde, _lieux_de_la_maison(monde, maison))):
@@ -145,16 +166,81 @@ def _depenser_jauge(monde, intention):
     """Le geste qui dépense une jauge, refusé avec sa raison s'il n'est pas payable au dépôt."""
     from sim import jauges
     maison, geste = intention["maison"], intention["geste"]
-    engages = [i.geste for i in monde.intentions_en_attente
-               if isinstance(i, DepenserJauge) and i.maison == maison]
+    engages, effets = [], []
+    for i in monde.intentions_en_attente:
+        if isinstance(i, DepenserJauge) and i.maison == maison:
+            engages.append(i.geste)
+        elif isinstance(i, RepondreEvenement) and i.maison == maison:
+            # La réponse déposée a déjà son effet sur les jauges, à son rang dans l'ordre du dépôt.
+            effets.append((len(engages), dict(_evenements.choix_attendu(monde, maison, i.choix).jauges)))
     ameliorations = [i.cell_id for i in monde.intentions_en_attente
                      if isinstance(i, AmeliorerUneProvince) and i.maison == maison]
-    raison = jauges.verifier_geste(monde, maison, geste, jauges.charger_regles(), engages, ameliorations=ameliorations)
+    raison = jauges.verifier_geste(monde, maison, geste, jauges.charger_regles(), engages,
+                                   ameliorations=ameliorations, effets=effets)
     if raison is not None:
         raise IntentionRefusee(raison)
     depense = DepenserJauge(maison, geste)
     monde.intentions_en_attente.append(depense)
     return depense
+
+
+@dataclass(frozen=True)
+class RepondreEvenement:
+    maison: str
+    choix: str
+    kg: int | float  # les kilos de l'ouverture, comptés au dépôt ; 0 pour un choix sans part du grenier
+
+    def appliquer(self, monde):
+        """Joue le choix (sim.evenements.appliquer_choix), à l'étape des intentions du tick suivant le dépôt."""
+        _evenements.appliquer_choix(monde, self.maison, self.choix, self.kg)
+
+
+def verifier_reponse(monde, maison, choix):
+    """`(refus, kg)` : la raison du dépôt d'une réponse à l'événement de la maison, ou None, et ses kilos.
+
+    Ne lit et n'écrit rien d'autre : le dépôt, `GET /evenement` et l'IA le jouent à l'identique.
+    Le choix par défaut n'est jamais refusé pour sa jauge, il est borné ; une hausse au-delà
+    du maximum l'est aussi.
+    """
+    from sim import jauges
+    if not isinstance(maison, str) or not any(m.id == maison for m in monde.maisons):
+        return f"maison inconnue ou mal formée : {maison!r}", 0
+    attente = monde.evenements.get(maison)
+    if attente is None:
+        return f"aucun événement en attente : {maison}", 0
+    definition = _evenements.charger_evenements()[attente["identifiant"]]
+    retenu = definition.choix_de(choix) if isinstance(choix, str) else None
+    if retenu is None:
+        ids = ", ".join(sorted(c.identifiant for c in definition.choix))
+        return f"choix inconnu : {choix!r} ({ids})", 0
+    if any(isinstance(i, RepondreEvenement) and i.maison == maison for i in monde.intentions_en_attente):
+        return f"réponse déjà déposée : {maison}", 0
+    kg = 0
+    if retenu.grenier is not None:
+        try:
+            kg = kilos_du_grenier(monde, maison, retenu.grenier)
+        except IntentionRefusee as refus:
+            return str(refus), 0
+        if kg <= 0:
+            return f"grenier vide : rien à ouvrir pour {maison}", kg
+    if retenu.jauges and retenu.identifiant != definition.par_defaut:
+        engages = [i.geste for i in monde.intentions_en_attente
+                   if isinstance(i, DepenserJauge) and i.maison == maison]
+        refus = jauges.verifier_baisses(monde, maison, retenu.jauges, jauges.charger_regles(), engages)
+        if refus is not None:
+            return refus, kg
+    return None, kg
+
+
+def _repondre_evenement(monde, intention):
+    """La réponse à un événement à choix : refusée avec sa raison, sans rien écrire, ou mise en attente."""
+    maison, choix = intention["maison"], intention["choix"]
+    refus, kg = verifier_reponse(monde, maison, choix)
+    if refus is not None:
+        raise IntentionRefusee(refus)
+    reponse = RepondreEvenement(maison, choix, kg)
+    monde.intentions_en_attente.append(reponse)
+    return reponse
 
 
 @dataclass(frozen=True)
@@ -491,6 +577,8 @@ def recevoir_intention(monde, intention):
         return _ouvrir_grenier(monde, intention)
     if type_intention == TYPE_DEPENSER_JAUGE:
         return _depenser_jauge(monde, intention)
+    if type_intention == TYPE_REPONDRE_EVENEMENT:
+        return _repondre_evenement(monde, intention)
     if type_intention == TYPE_BATIR_DANS_UNE_PROVINCE:
         return _batir_dans_une_province(monde, intention)
     if type_intention == TYPE_AMELIORER_UNE_PROVINCE:

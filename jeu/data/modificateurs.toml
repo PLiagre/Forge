@@ -121,3 +121,14 @@ grandeur = "recolte"
 valeur = 0.02
 portee = "cellule"
 duree_jours = 0
+
+# La taxe de disette (événement à choix de la famine, data/evenements.toml) :
+# le maître prend 25 % de plus sur la récolte de ses lieux pendant 90 jours.
+# Elle multiplie un prélèvement que le moteur calculait déjà, jamais au-delà de
+# la récolte : aucun kilo n'est créé. Niveau 2.
+[modificateurs.taxe_de_disette]
+nom = "Taxe de disette"
+grandeur = "prelevement"
+valeur = 0.25
+portee = "pays"
+duree_jours = 90

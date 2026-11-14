@@ -25,10 +25,11 @@ from sim.ia import jouer_ia, maisons_actives_30j
 from sim.modificateurs import document_des_modificateurs
 from sim.pays import PaysInconnu, pays
 from sim.jauges import avant_le_tick, document_des_jauges
+from sim.evenements import document_de_l_evenement
 from sim.batiments import document_des_batiments
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.jouables import maisons_jouables
-from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, recevoir_intention
+from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
@@ -466,6 +467,13 @@ class ServeurMonde(ThreadingHTTPServer):
                 garde[maison_id] = _serialiser(document)
             return garde[maison_id]
 
+    def octets_de_l_evenement(self, maison_id):
+        """`/evenement` : l'événement en attente de la maison, lu sous le verrou du tick, au tick publié."""
+        with self.verrou_tick:
+            if not any(m.id == maison_id for m in self.world.maisons):
+                raise MaisonInconnue(maison_id)
+            return _serialiser(document_de_l_evenement(self.world, maison_id))
+
     def maisons_de_l_ia(self):
         """La liste des maisons de l'IA du monde servi, calculée une fois."""
         if self._maisons_ia is None or self._maisons_ia[0] is not self.world:
@@ -491,6 +499,7 @@ class ServeurMonde(ThreadingHTTPServer):
                 # défait avec les intentions si l'IA échoue, pour ne pas compter le mois deux fois.
                 jauges_avant = dict(getattr(self.world, "jauges", {}))
                 modificateurs_avant = list(getattr(self.world, "modificateurs", []))
+                evenements_avant = dict(getattr(self.world, "evenements", {}))
                 avant_le_tick(self.world)
                 if self.ia:
                     longueur_file = len(self.world.intentions_en_attente)
@@ -503,6 +512,7 @@ class ServeurMonde(ThreadingHTTPServer):
                         if hasattr(self.world, "jauges"):
                             self.world.jauges = jauges_avant
                             self.world.modificateurs = modificateurs_avant
+                            self.world.evenements = evenements_avant
                         raise ErreurIA(f"ia : {exc}") from exc
                 tick(self.world, self.rng, self.world.ticks_ecoules)
                 duree_ms = (
@@ -652,6 +662,21 @@ class RequetesMonde(BaseHTTPRequestHandler):
             try:
                 corps = self.server.octets_du_pays(recue)
             except PaysInconnu:
+                self._refuser(HTTPStatus.NOT_FOUND, f"maison inconnue : reçu {recue!r}")
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
+            return
+        if cible.path == "/evenement":
+            # L'événement à choix de la maison, ses prix et ses refus, au tick publié.
+            valeurs = parse_qs(cible.query, keep_blank_values=True).get("maison")
+            recue = None if valeurs is None else valeurs if len(valeurs) != 1 else valeurs[0]
+            if not isinstance(recue, str) or not recue:
+                self._refuser(HTTPStatus.BAD_REQUEST,
+                              f"paramètre maison invalide : reçu {recue!r}, attendu un identifiant de maison")
+                return
+            try:
+                corps = self.server.octets_de_l_evenement(recue)
+            except MaisonInconnue:
                 self._refuser(HTTPStatus.NOT_FOUND, f"maison inconnue : reçu {recue!r}")
                 return
             self._repondre_octets(HTTPStatus.OK, corps)
@@ -867,6 +892,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
                             raise IntentionRefusee("départ non appliqué : choisir une terre avant d'ouvrir le grenier")
                         if intention.get("maison") != joueur:
                             raise IntentionRefusee("maison interdite : seule la maison du joueur peut ouvrir son grenier")
+                    if intention.get("type") == TYPE_REPONDRE_EVENEMENT:
+                        joueur = self.server.world.maison_du_joueur
+                        if joueur is None:
+                            raise IntentionRefusee("départ non appliqué : choisir une terre avant de répondre à un événement")
+                        if intention.get("maison") != joueur:
+                            raise IntentionRefusee("maison interdite : seule la maison du joueur répond à ses événements")
                     if intention.get("type") == TYPE_FIXER_PART:
                         joueur = self.server.world.maison_du_joueur
                         if joueur is None:
