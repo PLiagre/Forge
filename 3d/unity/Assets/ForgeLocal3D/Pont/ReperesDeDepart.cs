@@ -174,7 +174,7 @@ namespace Forge.Pont {
             foreach (var c in cellules) if (c.cell == t.CellId) foreach (LieuPlace p in c.lieu.Lieu.Lieux) if (p.Rang == t.Rang) return p; return null;
         }
         private void PoserLieu(LieuTenu t, PointCarte point) {
-            if (matJoueur == null) { Material d = GraphicsSettings.currentRenderPipeline.defaultMaterial; matJoueur = new Material(d) { name = "Lieu du joueur", color = COULEUR_JOUEUR }; matBord = new Material(d) { name = "Bord du lieu", color = BORD_JOUEUR }; crees.Add(matJoueur); crees.Add(matBord); }
+            if (matJoueur == null) { Material d = MateriauDeBase.Prendre(); matJoueur = new Material(d) { name = "Lieu du joueur", color = COULEUR_JOUEUR }; matBord = new Material(d) { name = "Bord du lieu", color = BORD_JOUEUR }; crees.Add(matJoueur); crees.Add(matBord); }
             if (lieuxRacine == null) { lieuxRacine = new GameObject(RACINE_LIEUX).transform; lieuxRacine.SetParent(transform, false); crees.Add(lieuxRacine.gameObject); }
             var lieu = new GameObject(NomDuLieu(t.CellId, t.Rang)).transform; lieu.SetParent(lieuxRacine, false); lieu.localPosition = carte.PositionSurLaCarte(point, HAUTEUR_LIEU).Value;
             Disque(lieu, "Bord", matBord, DIAMETRE_BORD_KM, SOUS_LE_DISQUE); Disque(lieu, "Disque", matJoueur, DIAMETRE_LIEU_KM, 0f);
@@ -205,7 +205,7 @@ namespace Forge.Pont {
         }
         // Un disque plat sur le siège, le nom de la terre un peu au nord, lisible d'en haut comme les villes.
         private void Poser(FicheDeDepart fiche, MaisonLue maison, long tick, PointCarte siege) {
-            if (materiau == null) { materiau = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { name = "Repère", color = COULEUR_REPERE }; crees.Add(materiau); } // la carte n'est posée qu'avec ce matériau
+            if (materiau == null) { materiau = new Material(MateriauDeBase.Prendre()) { name = "Repère", color = COULEUR_REPERE }; crees.Add(materiau); } // la carte n'est posée qu'avec ce matériau
             if (racine == null) { racine = new GameObject("Repères des terres de départ").transform; racine.SetParent(transform, false); crees.Add(racine.gameObject); }
             var repere = new GameObject("Repère " + fiche.Nom).transform; repere.SetParent(racine, false); repere.localPosition = carte.PositionSurLaCarte(siege, HAUTEUR_REPERE).Value;
             GameObject disque = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disque.name = "Disque"; Detruire(disque.GetComponent<Collider>()); disque.GetComponent<MeshRenderer>().sharedMaterial = materiau;

@@ -87,12 +87,12 @@ namespace ForgeLocal3D
         public string NatureBatiment{get;private set;}
         public bool ModeBatiment=>NatureBatiment!=null;
         public BatimentPose Pose{get;private set;}
-        // Le mode enceinte, et le tracé en cours (null sans matériau par défaut du pipeline).
+        // Le mode enceinte, et le tracé en cours (null sans matériau de base).
         public bool ModeEnceinte{get;private set;}public LineRenderer TraceEnceinte{get;private set;}
         CommandesDeVille commandes;
         const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment · E : enceinte";
         const string AideEnceinte="Clic : poser un coin du mur · Entrée : déposer l'enceinte · Échap : annuler";
-        const string SansTrace="Pas de matériau par défaut du pipeline : le tracé de l'enceinte ne se voit pas.";
+        const string SansTrace="Pas de matériau de base : le tracé de l'enceinte ne se voit pas.";
         const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
         const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · Échap : annuler";
         const string Gestes="C : carte · Espace : pause / reprendre";
@@ -114,7 +114,7 @@ namespace ForgeLocal3D
             panneau=Texte("Panneau des routes",view.transform,new Color(.12f,.06f,.03f));
             // Un halo clair derrière le texte : il reste lisible sur le sable comme dans l'ombre.
             halo=Texte("Halo",panneau.transform,new Color(1f,.95f,.84f,.9f));
-            var pipeline=UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;var defaut=pipeline?pipeline.defaultMaterial:null;
+            var defaut=Forge.Pont.MateriauDeBase.Prendre();
             if(defaut){var go=new GameObject("Tracé de l'enceinte");go.transform.SetParent(transform,false);TraceEnceinte=go.AddComponent<LineRenderer>();TraceEnceinte.loop=true;
                 TraceEnceinte.widthMultiplier=1.5f;TraceEnceinte.material=new Material(defaut){name="Tracé de l'enceinte",color=new Color(.6f,.05f,.05f)};TraceEnceinte.positionCount=0;TraceEnceinte.enabled=false;}
             Port=PanneauLieu.DEFAULT_SERVICE_PORT;commandes=new CommandesDeVille(Port);

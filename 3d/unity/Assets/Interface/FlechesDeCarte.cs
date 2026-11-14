@@ -74,7 +74,7 @@ namespace Forge.Interface
         string Maison() { var p = cabinet != null ? cabinet.Partie : null; var m = p != null ? p.Monde : null; var h = p != null ? p.Maison : null; return m == null || !m.Presente || string.IsNullOrEmpty(m.Donnees.MaisonDuJoueur) || h == null || !h.Presente || h.Donnees.Id != m.Donnees.MaisonDuJoueur ? null : h.Donnees.Id; }
         Lecture<ComptesDeMaison> Lire(string id) { using (var c = new ClientMaison(carte.port, ClientDeparts.DelaiMinimal)) return c.LireComptes(id); }
         static Lecture<ComptesDeMaison> SansFaute(Func<string, Lecture<ComptesDeMaison>> lire, string id) { try { return lire(id) ?? Lecture<ComptesDeMaison>.Absent("maison " + id + " : aucune réponse"); } catch (Exception e) { return Lecture<ComptesDeMaison>.Absent("maison " + id + " : " + e.GetBaseException().Message); } }
-        Material Mat(Color couleur) { if (!mats.TryGetValue(couleur, out var mat)) { mat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { color = couleur }; mats.Add(couleur, mat); } return mat; }
+        Material Mat(Color couleur) { if (!mats.TryGetValue(couleur, out var mat)) { mat = new Material(MateriauDeBase.Prendre()) { color = couleur }; mats.Add(couleur, mat); } return mat; }
         static void Detruire(UnityEngine.Object o) { if (o == null) return; if (Application.isPlaying) UnityEngine.Object.Destroy(o); else DestroyImmediate(o); }
     }
 }

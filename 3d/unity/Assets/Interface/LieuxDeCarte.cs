@@ -72,8 +72,8 @@ namespace Forge.Interface
             parent.localPosition = local; parent.Find("Disque").GetComponent<MeshRenderer>().sharedMaterial = Mat(couleur);
         }
         void Disque(Transform parent, string nom, Material mat, float diametre, float haut) { var o = GameObject.CreatePrimitive(PrimitiveType.Cylinder); o.name = nom; Detruire(o.GetComponent<Collider>()); o.GetComponent<MeshRenderer>().sharedMaterial = mat; o.transform.SetParent(parent, false); o.transform.localPosition = new Vector3(0f, haut, 0f); o.transform.localScale = new Vector3(diametre, EPAISSEUR_KM, diametre); }
-        Material Mat(Color couleur) { if (!mats.TryGetValue(couleur, out var mat)) { mat = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { color = couleur }; mats.Add(couleur, mat); crees.Add(mat); } return mat; }
-        Material Bord() { if (bord == null) { bord = new Material(GraphicsSettings.currentRenderPipeline.defaultMaterial) { color = ReperesDeDepart.BORD_JOUEUR }; crees.Add(bord); } return bord; }
+        Material Mat(Color couleur) { if (!mats.TryGetValue(couleur, out var mat)) { mat = new Material(MateriauDeBase.Prendre()) { color = couleur }; mats.Add(couleur, mat); crees.Add(mat); } return mat; }
+        Material Bord() { if (bord == null) { bord = new Material(MateriauDeBase.Prendre()) { color = ReperesDeDepart.BORD_JOUEUR }; crees.Add(bord); } return bord; }
         void Vider() { if (racine == null) return; for (int i = racine.childCount - 1; i >= 0; i--) Detruire(racine.GetChild(i).gameObject); }
         static void Detruire(UnityEngine.Object o) { if (o == null) return; if (Application.isPlaying) UnityEngine.Object.Destroy(o); else DestroyImmediate(o); }
     }

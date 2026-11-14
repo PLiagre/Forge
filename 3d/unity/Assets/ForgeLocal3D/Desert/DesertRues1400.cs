@@ -17,7 +17,7 @@ namespace ForgeLocal3D
         public DesertRues1400(Transform parent,Terrain terrain,TerrainLayer couche)
         {
             this.terrain=terrain;this.couche=couche;var go=new GameObject("Rues de 1400");go.transform.SetParent(parent,false);Racine=go.transform;
-            var defaut=GraphicsSettings.currentRenderPipeline?GraphicsSettings.currentRenderPipeline.defaultMaterial:null;
+            var defaut=Forge.Pont.MateriauDeBase.Prendre();
             if(defaut)materiau=new Material(defaut){name="Chaussée de 1400"};
         }
         // Vide cette seule racine, maillages compris. Base nulle, pipeline, couche ou texture absents : l'absence, jamais « 0 dessinée ».
@@ -25,7 +25,7 @@ namespace ForgeLocal3D
         {
             for(int i=Racine.childCount-1;i>=0;i--){var e=Racine.GetChild(i).gameObject;var f=e.GetComponent<MeshFilter>();if(f&&f.sharedMesh)Object.DestroyImmediate(f.sharedMesh);Object.DestroyImmediate(e);}
             Refus.Clear();Servies=-1;Coupees=HorsDuTerrain=0;Empreinte=Hacher("");
-            Absence=@base==null?"base non servie":!materiau?"pas de matériau par défaut du pipeline":!couche?"pas de couche de terre battue":!couche.diffuseTexture?"couche « "+couche.name+" » sans texture"
+            Absence=@base==null?"base non servie":!materiau?"pas de matériau de base":!couche?"pas de couche de terre battue":!couche.diffuseTexture?"couche « "+couche.name+" » sans texture"
                 :!(couche.tileSize.x>0&&couche.tileSize.y>0)?"couche « "+couche.name+" » sans taille de tuile":null;
             if(Absence!=null)return Ligne();
             var c=couche.diffuseRemapMax;materiau.mainTexture=couche.diffuseTexture;materiau.color=new Color(c.x,c.y,c.z);materiau.SetFloat("_Smoothness",couche.smoothness);
